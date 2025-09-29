@@ -123,7 +123,7 @@ export function MultisigDetailPage() {
             {/* Quick Info Bar */}
             <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap pt-4 border-t">
               <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                {multisig.threshold}/{multisig.totalMembers} threshold
+                {multisig.threshold} threshold • {multisig.totalMembers} members
               </span>
               <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
                 {multisig.isVerified ? 'Verified' : 'Pending'}

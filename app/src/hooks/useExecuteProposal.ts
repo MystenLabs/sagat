@@ -27,8 +27,12 @@ export function useExecuteProposal() {
       }
 
       try {
+        // Order the members.
+        const multisigMembers = multisigDetails.members.sort(
+          (a, b) => a.order - b.order,
+        );
         // Step 1: Reconstruct the MultiSigPublicKey
-        const publicKeys = multisigDetails.members.map((member) => ({
+        const publicKeys = multisigMembers.map((member) => ({
           publicKey: extractPublicKeyFromBase64(member.publicKey),
           weight: member.weight,
         }));
@@ -41,7 +45,7 @@ export function useExecuteProposal() {
         // Step 2: Map signatures to the correct order based on the multisig public key order
         // The signatures need to be in the same order as the public keys in the multisig
         const orderedSignatures: string[] = [];
-        for (const member of multisigDetails.members) {
+        for (const member of multisigMembers) {
           const signature = proposal.signatures.find(
             (sig) => sig.publicKey === member.publicKey,
           );
@@ -78,12 +82,7 @@ export function useExecuteProposal() {
     },
     onSuccess: (data) => {
       // Invalidate all proposal-related queries
-      queryClient.invalidateQueries({
-        predicate: (query) => {
-          const queryKey = query.queryKey as string[];
-          return queryKey[0] === QueryKeys.Proposals;
-        },
-      });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.Proposals] });
       toast.success(
         `Transaction executed successfully! Digest: ${data.executionResult.digest}`,
       );
