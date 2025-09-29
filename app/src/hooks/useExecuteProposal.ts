@@ -57,6 +57,9 @@ export function useExecuteProposal() {
           },
         });
 
+        // Sleep for 2.5s to give enough time to index.
+        await new Promise(resolve => setTimeout(resolve, 2500));
+
         // Step 4: Call the verify endpoint to update proposal status in the backend
         const verifyResponse = await apiClient.verifyProposal(proposal.id);
 
