@@ -1,4 +1,4 @@
-import { PublicKey } from "@mysten/sui/cryptography";
+import { PublicKey, SIGNATURE_SCHEME_TO_FLAG } from "@mysten/sui/cryptography";
 import { Ed25519PublicKey } from "@mysten/sui/keypairs/ed25519";
 import { Secp256k1PublicKey } from "@mysten/sui/keypairs/secp256k1";
 import { Secp256r1PublicKey } from "@mysten/sui/keypairs/secp256r1";
@@ -32,31 +32,28 @@ export function extractPublicKey(
   publicKey: Uint8Array,
   expectedAddress: string,
 ): PublicKey {
-  try {
-    const ed25519PubKey = new Ed25519PublicKey(
-      new Uint8Array(publicKey).slice(1),
-    );
-    if (ed25519PubKey.toSuiAddress() !== expectedAddress) {
-      throw new Error("Invalid public key");
-    }
-    return ed25519PubKey;
-  } catch (error) {}
+  const address = new Uint8Array(publicKey);
+  const flag = address[0];
+  const data = address.slice(1);
 
-  try {
-    const secp256k1PubKey = new Secp256k1PublicKey(new Uint8Array(publicKey));
-    if (secp256k1PubKey.toSuiAddress() !== expectedAddress) {
-      throw new Error("Invalid public key");
-    }
-    return secp256k1PubKey;
-  } catch (error) {}
+  let pubKey: PublicKey;
 
-  try {
-    const secp256r1PubKey = new Secp256r1PublicKey(new Uint8Array(publicKey));
-    if (secp256r1PubKey.toSuiAddress() !== expectedAddress) {
-      throw new Error("Invalid public key");
-    }
-    return secp256r1PubKey;
-  } catch (error) {}
+  switch (flag) {
+    case SIGNATURE_SCHEME_TO_FLAG.ED25519:
+      pubKey = new Ed25519PublicKey(data);
+      break;
+    case SIGNATURE_SCHEME_TO_FLAG.Secp256k1:
+      pubKey = new Secp256k1PublicKey(data);
+      break;
+    case SIGNATURE_SCHEME_TO_FLAG.Secp256r1:
+      pubKey = new Secp256r1PublicKey(data);
+      break;
+    default:
+      throw new Error("Invalid public key type");
+  }
 
-  throw new Error("Public key type is not supported.");
+  if (pubKey.toSuiAddress() !== expectedAddress)
+    throw new Error("Invalid public key");
+
+  return pubKey;
 }
