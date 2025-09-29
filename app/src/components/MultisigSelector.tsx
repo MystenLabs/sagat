@@ -83,7 +83,7 @@ export function MultisigSelector({
               ) : null}
             </div>
             <p className="text-xs text-gray-500">
-              {currentMultisig?.threshold}/{currentMultisig?.totalMembers} threshold • {formatAddress(currentMultisig?.address || '')}
+              {currentMultisig?.threshold} threshold • {currentMultisig?.totalMembers} members • {formatAddress(currentMultisig?.address || '')}
             </p>
           </div>
         </div>

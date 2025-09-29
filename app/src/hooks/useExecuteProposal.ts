@@ -1,12 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSuiClient } from '@mysten/dapp-kit';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { apiClient } from '../lib/api';
-import { toast } from 'sonner';
-import { QueryKeys } from '../lib/queryKeys';
-import { ProposalWithSignatures } from '../lib/types';
-import { MultisigDetails } from '../types/multisig';
-import { extractPublicKeyFromBase64 } from '@/lib/wallet';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSuiClient } from "@mysten/dapp-kit";
+import { MultiSigPublicKey } from "@mysten/sui/multisig";
+import { apiClient } from "../lib/api";
+import { toast } from "sonner";
+import { QueryKeys } from "../lib/queryKeys";
+import { ProposalWithSignatures } from "../lib/types";
+import { MultisigDetails } from "../types/multisig";
+import { extractPublicKeyFromBase64 } from "@/lib/wallet";
 
 interface ExecuteProposalParams {
   proposal: ProposalWithSignatures;
@@ -18,34 +18,40 @@ export function useExecuteProposal() {
   const suiClient = useSuiClient();
 
   return useMutation({
-    mutationFn: async ({ proposal, multisigDetails }: ExecuteProposalParams) => {
+    mutationFn: async ({
+      proposal,
+      multisigDetails,
+    }: ExecuteProposalParams) => {
       if (!multisigDetails) {
-        throw new Error('Multisig details not provided');
+        throw new Error("Multisig details not provided");
       }
 
       try {
         // Step 1: Reconstruct the MultiSigPublicKey
-        const publicKeys = multisigDetails.members.map(member => ({
+        const publicKeys = multisigDetails.members.map((member) => ({
           publicKey: extractPublicKeyFromBase64(member.publicKey),
-          weight: member.weight
+          weight: member.weight,
         }));
 
         const multiSigPublicKey = MultiSigPublicKey.fromPublicKeys({
           threshold: multisigDetails.threshold,
-          publicKeys
+          publicKeys,
         });
 
         // Step 2: Map signatures to the correct order based on the multisig public key order
         // The signatures need to be in the same order as the public keys in the multisig
         const orderedSignatures: string[] = [];
         for (const member of multisigDetails.members) {
-          const signature = proposal.signatures.find(sig => sig.publicKey === member.publicKey);
+          const signature = proposal.signatures.find(
+            (sig) => sig.publicKey === member.publicKey,
+          );
           if (signature) {
             orderedSignatures.push(signature.signature);
           }
         }
 
-        const combinedSignature = multiSigPublicKey.combinePartialSignatures(orderedSignatures);
+        const combinedSignature =
+          multiSigPublicKey.combinePartialSignatures(orderedSignatures);
 
         // Step 3: Execute the transaction with the combined signature
         const result = await suiClient.executeTransactionBlock({
@@ -57,8 +63,10 @@ export function useExecuteProposal() {
           },
         });
 
-        // Sleep for 2.5s to give enough time to index.
-        await new Promise(resolve => setTimeout(resolve, 2500));
+        await suiClient.waitForTransaction({ digest: result.digest });
+
+        // Sleep for 500ms to give a bit more time to index.
+        await new Promise((resolve) => setTimeout(resolve, 500));
 
         // Step 4: Call the verify endpoint to update proposal status in the backend
         const verifyResponse = await apiClient.verifyProposal(proposal.id);
@@ -74,9 +82,11 @@ export function useExecuteProposal() {
         predicate: (query) => {
           const queryKey = query.queryKey as string[];
           return queryKey[0] === QueryKeys.Proposals;
-        }
+        },
       });
-      toast.success(`Transaction executed successfully! Digest: ${data.executionResult.digest}`);
+      toast.success(
+        `Transaction executed successfully! Digest: ${data.executionResult.digest}`,
+      );
     },
     onError: (error: Error) => {
       toast.error(`Failed to execute proposal: ${error.message}`);
