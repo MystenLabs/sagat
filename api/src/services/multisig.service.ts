@@ -28,12 +28,12 @@ export const getMultisig = async (address: string) => {
 
   const multisig = result[0].multisigs;
   const members = result
-    .filter((row) => row.multisig_members !== null)
-    .map((row) => row.multisig_members);
+    .map((row) => row.multisig_members)
+    .filter((row) => !!row);
 
   return {
     ...multisig,
-    members,
+    members: members.sort((a, b) => a.order - b.order),
   };
 };
 

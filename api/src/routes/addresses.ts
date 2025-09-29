@@ -114,6 +114,9 @@ addressesRouter.get(
       {} as Record<string, any[]>,
     );
 
+    // Make sure we order the keys.
+    for (const publicKey of Object.keys(grouped)) grouped[publicKey] =grouped[publicKey].sort((a, b) => a.order - b.order);
+
     return c.json(grouped);
   },
 );
