@@ -36,6 +36,12 @@ export function extractPublicKey(
   const flag = address[0];
   const data = address.slice(1);
 
+  if (!address || !data || address.length === 0) {
+    throw new Error(
+      "The only supported public keys are Ed25519, Secp256k1, and Secp256r1. ZkLogin is not supported.",
+    );
+  }
+
   let pubKey: PublicKey;
 
   switch (flag) {
@@ -48,12 +54,16 @@ export function extractPublicKey(
     case SIGNATURE_SCHEME_TO_FLAG.Secp256r1:
       pubKey = new Secp256r1PublicKey(data);
       break;
+    case SIGNATURE_SCHEME_TO_FLAG.ZkLogin:
+      throw new Error("ZkLogin public keys are not supported");
     default:
-      throw new Error("Invalid public key type");
+      throw new Error("Not supported public key type");
   }
 
   if (pubKey.toSuiAddress() !== expectedAddress)
-    throw new Error("Invalid public key");
+    throw new Error(
+      "There was an unknown missmatch between the public key and the expected address. Please disconnect and try again.",
+    );
 
   return pubKey;
 }
