@@ -1,35 +1,16 @@
-import { useCurrentAccount } from '@mysten/dapp-kit';
-import { useApiAuth } from '../contexts/ApiAuthContext';
-import { Button } from './ui/button';
-import { CopyButton } from './ui/CopyButton';
-import { Shield, ArrowRight } from 'lucide-react';
-import { extractPublicKey } from '../lib/wallet';
-import { formatAddress } from '../lib/formatters';
-import { useMemo } from 'react';
+import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useApiAuth } from "../contexts/ApiAuthContext";
+import { Button } from "./ui/button";
+import { CopyButton } from "./ui/CopyButton";
+import { Shield, ArrowRight } from "lucide-react";
+import { formatAddress } from "../lib/formatters";
+import { useValidatedPublicKey } from "@/hooks/useValidatedPublicKey";
 
 export function AuthPrompt() {
   const currentAccount = useCurrentAccount();
   const { signAndConnect, isConnecting } = useApiAuth();
 
-  const { publicKeyBase64, error: publicKeyError } = useMemo(() => {
-    if (!currentAccount) {
-      return { publicKeyBase64: '', error: null };
-    }
-
-    try {
-      const pubKey = extractPublicKey(
-        new Uint8Array(currentAccount.publicKey),
-        currentAccount.address
-      );
-      return { publicKeyBase64: pubKey.toBase64(), error: null };
-    } catch (error) {
-      console.error('Failed to extract public key:', error);
-      return {
-        publicKeyBase64: '',
-        error: error instanceof Error ? error.message : 'Failed to extract public key'
-      };
-    }
-  }, [currentAccount]);
+  const { publicKey, publicKeyError } = useValidatedPublicKey(currentAccount);
 
   return (
     <div className="mx-auto mt-20 p-8">
@@ -38,9 +19,7 @@ export function AuthPrompt() {
           <Shield className="w-10 h-10 text-blue-600" />
         </div>
 
-        <h1 className="text-3xl font-bold mb-3">
-          Authenticate Your Wallet
-        </h1>
+        <h1 className="text-3xl font-bold mb-3">Authenticate Your Wallet</h1>
 
         <p className="text-gray-600 mb-8">
           Sign a message to securely connect your wallet to Sagat
@@ -51,7 +30,7 @@ export function AuthPrompt() {
             <p className="text-xs text-gray-500 mb-1">Address</p>
             <div className="flex items-center justify-center gap-1">
               <p className="font-mono text-sm font-medium">
-                {currentAccount ? formatAddress(currentAccount.address) : ''}
+                {currentAccount ? formatAddress(currentAccount.address) : ""}
               </p>
               {currentAccount && (
                 <CopyButton value={currentAccount.address} size="xs" />
@@ -59,23 +38,21 @@ export function AuthPrompt() {
             </div>
           </div>
 
-          {publicKeyBase64 && (
+          {publicKey && (
             <div>
               <p className="text-xs text-gray-500 mb-1">Public Key</p>
               <div className="flex items-center justify-center gap-1">
                 <p className="font-mono text-sm font-medium break-all max-w-md">
-                  {publicKeyBase64}
+                  {publicKey.toBase64()}
                 </p>
-                <CopyButton value={publicKeyBase64} size="xs" />
+                <CopyButton value={publicKey.toBase64()} size="xs" />
               </div>
             </div>
           )}
 
           {publicKeyError && (
             <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-sm text-red-600">
-                {publicKeyError}
-              </p>
+              <p className="text-sm text-red-600">{publicKeyError}</p>
             </div>
           )}
         </div>
@@ -100,8 +77,8 @@ export function AuthPrompt() {
         </Button>
 
         <p className="text-xs text-gray-500 mt-4">
-          This creates a secure session between your wallet and our service.
-          No transactions will be sent.
+          This creates a secure session between your wallet and our service. No
+          transactions will be sent.
         </p>
       </div>
     </div>

@@ -1,12 +1,29 @@
 import { useState, useEffect, useRef } from "react";
-import { useCurrentAccount, useConnectWallet, useDisconnectWallet, useWallets, useSwitchAccount, useAccounts } from "@mysten/dapp-kit";
+import {
+  useCurrentAccount,
+  useConnectWallet,
+  useDisconnectWallet,
+  useWallets,
+  useSwitchAccount,
+  useAccounts,
+} from "@mysten/dapp-kit";
 import { useApiAuth } from "../contexts/ApiAuthContext";
 import { useNetwork } from "../contexts/NetworkContext";
 import { Button } from "./ui/button";
 import { Switch } from "./ui/switch";
-import { Wallet, ChevronDown, LogOut, Copy, Check, Shield, ArrowRight, Globe } from "lucide-react";
+import {
+  Wallet,
+  ChevronDown,
+  LogOut,
+  Copy,
+  Check,
+  Shield,
+  ArrowRight,
+  Globe,
+} from "lucide-react";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { formatAddress } from "../lib/formatters";
+import { useValidatedPublicKey } from "@/hooks/useValidatedPublicKey";
 
 type WalletVariant = "header" | "sidebar";
 
@@ -33,10 +50,14 @@ function AccountItem({
   onSwitchAccount,
   onSignAndConnect,
   isConnecting,
-  formatAddress
+  formatAddress,
 }: AccountItemProps) {
   const isCurrent = account.address === currentAccount.address;
-  const isAccountAuthenticated = authenticatedAddresses.includes(account.address);
+  const isAccountAuthenticated = authenticatedAddresses.includes(
+    account.address,
+  );
+
+  const { publicKeyError } = useValidatedPublicKey(account);
 
   const handleSignClick = () => {
     // If not current account, switch to it first
@@ -53,9 +74,11 @@ function AccountItem({
   };
 
   return (
-    <div className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 w-full ${
-      isCurrent ? 'bg-blue-50 text-blue-700' : ''
-    }`}>
+    <div
+      className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 w-full ${
+        isCurrent ? "bg-blue-50 text-blue-700" : ""
+      }`}
+    >
       <button
         onClick={() => onSwitchAccount(account)}
         className="flex-1 text-left min-w-0"
@@ -73,15 +96,13 @@ function AccountItem({
       </button>
 
       <div className="flex items-center ml-2 space-x-1">
-        {isCurrent && (
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-        )}
+        {isCurrent && <div className="w-2 h-2 bg-blue-500 rounded-full"></div>}
         {!isAccountAuthenticated && (
           <Button
             size="sm"
             variant="outline"
             onClick={handleSignClick}
-            disabled={isConnecting}
+            disabled={isConnecting || !!publicKeyError}
             className="text-xs px-1.5 py-1 h-6 flex items-center gap-1"
           >
             <Shield className="w-2.5 h-2.5" />
@@ -93,14 +114,23 @@ function AccountItem({
   );
 }
 
-export function CustomWalletButton({ variant = "header", disableAccountSwitching = false }: CustomWalletButtonProps) {
+export function CustomWalletButton({
+  variant = "header",
+  disableAccountSwitching = false,
+}: CustomWalletButtonProps) {
   const currentAccount = useCurrentAccount();
   const accounts = useAccounts();
   const { mutate: connect } = useConnectWallet();
   const { mutate: disconnect } = useDisconnectWallet();
   const { mutate: switchAccount } = useSwitchAccount();
   const wallets = useWallets();
-  const { isCurrentAddressAuthenticated, signAndConnect, isConnecting, disconnect: apiDisconnect, authenticatedAddresses } = useApiAuth();
+  const {
+    isCurrentAddressAuthenticated,
+    signAndConnect,
+    isConnecting,
+    disconnect: apiDisconnect,
+    authenticatedAddresses,
+  } = useApiAuth();
   const { network, setNetwork, isTestMode } = useNetwork();
   const [showWallets, setShowWallets] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -109,7 +139,10 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setShowWallets(false);
       }
     }
@@ -139,7 +172,7 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
       {
         onSuccess: () => setShowWallets(false),
         onError: (error) => console.error("Connection failed:", error),
-      }
+      },
     );
   };
 
@@ -155,9 +188,12 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
     }
   };
 
-
   // Helper component for account switching section
-  const AccountSwitchingSection = ({ showTitle = true }: { showTitle?: boolean }) => (
+  const AccountSwitchingSection = ({
+    showTitle = true,
+  }: {
+    showTitle?: boolean;
+  }) => (
     <>
       {showTitle && (
         <div className="px-3 py-2 border-b">
@@ -272,7 +308,9 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
         <div className="mt-8 p-4 bg-white rounded-lg border border-slate-200">
           <div className="text-center">
             <Shield className="w-6 h-6 text-blue-600 mx-auto mb-3" />
-            <h3 className="font-medium text-slate-900 mb-2">Authenticate Wallet</h3>
+            <h3 className="font-medium text-slate-900 mb-2">
+              Authenticate Wallet
+            </h3>
             <p className="text-sm text-slate-600 mb-3">
               {formatAddress(currentAccount.address)}
             </p>
@@ -299,19 +337,26 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
               <div className="mb-3">
                 <p className="text-xs text-slate-500 mb-2">Switch Account</p>
                 <div className="max-h-24 overflow-y-auto space-y-1">
-                  {accounts.filter(acc => acc.address !== currentAccount.address).map((account) => (
-                    <div key={account.address} className="text-xs bg-slate-50 hover:bg-slate-100 rounded border">
-                      <AccountItem
-                        account={account}
-                        currentAccount={currentAccount}
-                        authenticatedAddresses={authenticatedAddresses || []}
-                        onSwitchAccount={(acc) => switchAccount({ account: acc })}
-                        onSignAndConnect={signAndConnect}
-                        isConnecting={isConnecting}
-                        formatAddress={formatAddress}
-                      />
-                    </div>
-                  ))}
+                  {accounts
+                    .filter((acc) => acc.address !== currentAccount.address)
+                    .map((account) => (
+                      <div
+                        key={account.address}
+                        className="text-xs bg-slate-50 hover:bg-slate-100 rounded border"
+                      >
+                        <AccountItem
+                          account={account}
+                          currentAccount={currentAccount}
+                          authenticatedAddresses={authenticatedAddresses || []}
+                          onSwitchAccount={(acc) =>
+                            switchAccount({ account: acc })
+                          }
+                          onSignAndConnect={signAndConnect}
+                          isConnecting={isConnecting}
+                          formatAddress={formatAddress}
+                        />
+                      </div>
+                    ))}
                 </div>
               </div>
             )}
@@ -341,11 +386,13 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
         >
           <Shield className="w-3 h-3 text-blue-600" />
           <span>{formatAddress(currentAccount.address)}</span>
-          <span className={`text-xs px-1.5 py-0.5 rounded ${
-            isTestMode
-              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-              : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-          }`}>
+          <span
+            className={`text-xs px-1.5 py-0.5 rounded ${
+              isTestMode
+                ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+            }`}
+          >
             {network}
           </span>
           <ChevronDown className="w-3 h-3" />
@@ -354,12 +401,12 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
         {showWallets && (
           <div className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg py-2 min-w-64 z-50">
             <div className="px-3 py-2 border-b text-center">
-              <p className="text-sm font-medium text-blue-700">Authentication Required</p>
+              <p className="text-sm font-medium text-blue-700">
+                Authentication Required
+              </p>
             </div>
 
-            {accounts.length > 1 && (
-              <AccountSwitchingSection />
-            )}
+            {accounts.length > 1 && <AccountSwitchingSection />}
 
             <div className="px-3 py-2">
               <Button
@@ -410,19 +457,26 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
             <div className="mb-3">
               <p className="text-xs text-slate-500 mb-2">Switch Account</p>
               <div className="max-h-24 overflow-y-auto space-y-1">
-                {accounts.filter(acc => acc.address !== currentAccount.address).map((account) => (
-                  <div key={account.address} className="text-xs bg-slate-50 hover:bg-slate-100 rounded border">
-                    <AccountItem
-                      account={account}
-                      currentAccount={currentAccount}
-                      authenticatedAddresses={authenticatedAddresses || []}
-                      onSwitchAccount={(acc) => switchAccount({ account: acc })}
-                      onSignAndConnect={signAndConnect}
-                      isConnecting={isConnecting}
-                      formatAddress={formatAddress}
-                    />
-                  </div>
-                ))}
+                {accounts
+                  .filter((acc) => acc.address !== currentAccount.address)
+                  .map((account) => (
+                    <div
+                      key={account.address}
+                      className="text-xs bg-slate-50 hover:bg-slate-100 rounded border"
+                    >
+                      <AccountItem
+                        account={account}
+                        currentAccount={currentAccount}
+                        authenticatedAddresses={authenticatedAddresses || []}
+                        onSwitchAccount={(acc) =>
+                          switchAccount({ account: acc })
+                        }
+                        onSignAndConnect={signAndConnect}
+                        isConnecting={isConnecting}
+                        formatAddress={formatAddress}
+                      />
+                    </div>
+                  ))}
               </div>
             </div>
           )}
@@ -433,7 +487,11 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
               size="sm"
               className="flex-1 text-xs"
             >
-              {copied ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
+              {copied ? (
+                <Check className="w-3 h-3 mr-1" />
+              ) : (
+                <Copy className="w-3 h-3 mr-1" />
+              )}
               {copied ? "Copied!" : "Copy"}
             </Button>
             <Button
@@ -462,11 +520,13 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
       >
         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
         <span>{formatAddress(currentAccount.address)}</span>
-        <span className={`text-xs px-1.5 py-0.5 rounded ${
-          isTestMode
-            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
-            : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-        }`}>
+        <span
+          className={`text-xs px-1.5 py-0.5 rounded ${
+            isTestMode
+              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+              : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+          }`}
+        >
           {network}
         </span>
         <ChevronDown className="w-3 h-3" />
@@ -474,15 +534,17 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
 
       {showWallets && (
         <div className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg py-2 min-w-64 z-50">
-          {accounts.length > 1 && (
-            <AccountSwitchingSection />
-          )}
+          {accounts.length > 1 && <AccountSwitchingSection />}
 
           <button
             onClick={handleCopyAddress}
             className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
           >
-            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copied ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
             {copied ? "Copied!" : "Copy Address"}
           </button>
           <div className="border-t my-1"></div>
@@ -493,7 +555,9 @@ export function CustomWalletButton({ variant = "header", disableAccountSwitching
             </div>
             <Switch
               checked={isTestMode}
-              onCheckedChange={(checked) => setNetwork(checked ? "testnet" : "mainnet")}
+              onCheckedChange={(checked) =>
+                setNetwork(checked ? "testnet" : "mainnet")
+              }
               className="scale-75"
             />
           </div>
