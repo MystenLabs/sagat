@@ -1,0 +1,1 @@
+ALTER TABLE "multisig_members" ADD COLUMN "is_rejected" boolean DEFAULT false NOT NULL;

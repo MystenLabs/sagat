@@ -60,9 +60,12 @@ addressesRouter.get(
         SchemaMultisigMembers.publicKey,
         publicKeys.map((pubKey) => pubKey.toBase64()),
       ),
+      // skip rejected invitations by default. We need an explitit API that we won't work on yet.
+      eq(SchemaMultisigMembers.isRejected, false),
     ];
 
     // Show only accepted by default, show ALL (both accepted and pending) when showPending=true
+    // TODO: This should be an explicit `/invitations` API. KEeping it like this for simplicity now.
     if (showPending !== 'true')
       whereConditions.push(eq(SchemaMultisigMembers.isAccepted, true));
 
@@ -75,6 +78,7 @@ addressesRouter.get(
         weight: SchemaMultisigMembers.weight,
         isAccepted: SchemaMultisigMembers.isAccepted,
         order: SchemaMultisigMembers.order,
+        isRejected: SchemaMultisigMembers.isRejected,
         // Multisig fields
         name: SchemaMultisigs.name,
         threshold: SchemaMultisigs.threshold,
@@ -121,6 +125,7 @@ addressesRouter.get(
         weight: member.weight,
         isAccepted: member.isAccepted,
         order: member.order,
+        isRejected: member.isRejected,
       });
     }
 

@@ -217,31 +217,30 @@ multisigRouter.post('/:address/reject', async (c) => {
   if (multisig.isVerified)
     throw new ValidationError('Multisig is already verified');
 
-  const isMember = multisig.members.find((x) => x?.publicKey == publicKey);
-  if (!isMember)
+  const member = multisig.members.find((x) => x?.publicKey == publicKey);
+  if (!member)
     throw new ValidationError('You are not a member of this multisig');
 
-  if (isMember.isAccepted)
+  if (member.isAccepted)
     throw new ValidationError('Cannot reject after accepting');
 
-  const result = await db.transaction(async (tx) => {
-    // Delete the entire multisig and all its members
-    // Since a rejected multisig can never work, we remove it completely
-    await tx
-      .delete(SchemaMultisigMembers)
-      .where(eq(SchemaMultisigMembers.multisigAddress, address));
+  if (member.isRejected)
+    throw new ValidationError('This invitation has already been rejected');
 
-    await tx
-      .delete(SchemaMultisigs)
-      .where(eq(SchemaMultisigs.address, address));
+  await db
+    .update(SchemaMultisigMembers)
+    .set({ isRejected: true })
+    .where(
+      and(
+        eq(SchemaMultisigMembers.multisigAddress, address),
+        eq(SchemaMultisigMembers.publicKey, publicKey),
+      ),
+    );
 
-    return {
-      message: 'Multisig invitation rejected and removed',
-      address,
-    };
+  return c.json({
+    message: 'Multisig invitation rejected and removed',
+    address,
   });
-
-  return c.json(result);
 });
 
 export default multisigRouter;

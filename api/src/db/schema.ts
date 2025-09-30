@@ -63,8 +63,10 @@ const multisigMembers = pgTable(
       .references(() => addresses.publicKey),
     // The weight of the member
     weight: integer('weight').default(1).notNull(),
-    // Whether the member has accepted the invitations
+    // Whether the member has accepted the invitation
     isAccepted: boolean('is_accepted').default(false).notNull(),
+    // Whether the member has rejected the invitation
+    isRejected: boolean('is_rejected').default(false).notNull(),
     // order of the m
     order: integer('order').notNull(),
   },
