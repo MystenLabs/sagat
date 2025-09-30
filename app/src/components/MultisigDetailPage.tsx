@@ -24,12 +24,13 @@ export function MultisigDetailPage() {
 
   const { data: multisigs, isLoading } = useUserMultisigs(true);
 
+  // Find the multisig details from the selected accts
   const multisigDetails = useMemo(
     () => multisigs?.find((m) => m.address === address && m.isAccepted),
     [multisigs, address],
   );
 
-  // Filter for verified multisigs only
+  // Verified are the multisigs that we've accepted participation
   const verifiedMultisigs = useMemo(
     () => multisigs?.filter((m) => m.isAccepted) ?? [],
     [multisigs],
@@ -135,11 +136,6 @@ export function MultisigDetailPage() {
               <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
                 {multisig.isVerified ? "Verified" : "Pending"}
               </span>
-              {multisig.pendingMembers > 0 && (
-                <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full">
-                  {multisig.pendingMembers} pending members
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -164,11 +160,11 @@ export function MultisigDetailPage() {
                 >
                   <Icon className="w-4 h-4" />
                   {tabItem.label}
-                  {tabItem.count && (
+                  {(tabItem.count && tabItem.count > 0) && (
                     <span className="ml-1 px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full">
-                      {tabItem.count}
+                      {tabItem.count} pending
                     </span>
-                  )}
+                  ) || null}
                 </NavLink>
               );
             })}

@@ -137,7 +137,7 @@ export function MultisigSelector({
                           {multisig.name || 'Unnamed Multisig'}
                         </div>
                         <p className="text-xs text-gray-500">
-                          {formatAddress(multisig.address)} • {multisig.threshold}/{multisig.totalMembers} threshold
+                          {formatAddress(multisig.address)} • {multisig.threshold} out of {multisig.totalWeight} weight threshold
                         </p>
                       </div>
                     </div>
