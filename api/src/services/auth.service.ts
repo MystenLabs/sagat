@@ -118,16 +118,10 @@ export const connectToPublicKey = async (c: Context) => {
     });
 
     // Automatically register all addresses for the connected public keys
-    try {
-      await registerPublicKeys(pubKeys);
-    } catch (error) {
-      console.error('Failed to register addresses:', error);
-      // Don't fail the connection if address registration fails
-    }
+    await registerPublicKeys(pubKeys);
 
     return c.json({ success: true });
   } catch (error) {
-    console.error('Auth error:', error);
     return c.json({ error: 'Authentication failed' }, 500);
   }
 };
