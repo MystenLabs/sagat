@@ -7,6 +7,7 @@ import { Copy, Check } from 'lucide-react';
 
 import { ObjectLink } from '../ObjectLink';
 import { onChainAmountToFloat } from '../utils';
+import { useNetwork } from '@/contexts/NetworkContext';
 
 const calculateGas = (gas: GasCostSummary): string => {
 	return (
@@ -22,8 +23,7 @@ const calculateGas = (gas: GasCostSummary): string => {
 };
 
 export function Overview({ output }: { output: DryRunTransactionBlockResponse }) {
-	// TODO(fix): Get network from app config/context
-	const network = 'testnet';
+	const { network } = useNetwork();
 	const [copied, setCopied] = useState(false);
 
 	const copyToClipboard = (text: string) => {

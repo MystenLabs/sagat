@@ -3,6 +3,7 @@ import { useCurrentAccount, useSignPersonalMessage } from "@mysten/dapp-kit";
 import { apiClient } from "../lib/api";
 import { extractPublicKey } from "../lib/wallet";
 import { toast } from "sonner";
+import { QueryKeys } from "@/lib/queryKeys";
 
 export function useRejectInvitation() {
   const currentAccount = useCurrentAccount();
@@ -37,8 +38,7 @@ export function useRejectInvitation() {
     onSuccess: () => {
       toast.success("Invitation rejected");
       // Invalidate the multisig queries to refresh the list
-      queryClient.invalidateQueries({ queryKey: ["multisigs"] });
-      queryClient.invalidateQueries({ queryKey: ["userMultisigs"] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.Multisigs] });
     },
     onError: (error: Error) => {
       console.error("Failed to reject invitation:", error);
