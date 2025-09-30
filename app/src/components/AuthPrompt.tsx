@@ -5,23 +5,31 @@ import { CopyButton } from './ui/CopyButton';
 import { Shield, ArrowRight } from 'lucide-react';
 import { extractPublicKey } from '../lib/wallet';
 import { formatAddress } from '../lib/formatters';
+import { useMemo } from 'react';
 
 export function AuthPrompt() {
   const currentAccount = useCurrentAccount();
   const { signAndConnect, isConnecting } = useApiAuth();
 
-  let publicKeyBase64 = '';
-  if (currentAccount) {
+  const { publicKeyBase64, error: publicKeyError } = useMemo(() => {
+    if (!currentAccount) {
+      return { publicKeyBase64: '', error: null };
+    }
+
     try {
       const pubKey = extractPublicKey(
         new Uint8Array(currentAccount.publicKey),
         currentAccount.address
       );
-      publicKeyBase64 = pubKey.toBase64();
+      return { publicKeyBase64: pubKey.toBase64(), error: null };
     } catch (error) {
       console.error('Failed to extract public key:', error);
+      return {
+        publicKeyBase64: '',
+        error: error instanceof Error ? error.message : 'Failed to extract public key'
+      };
     }
-  }
+  }, [currentAccount]);
 
   return (
     <div className="mx-auto mt-20 p-8">
@@ -62,11 +70,19 @@ export function AuthPrompt() {
               </div>
             </div>
           )}
+
+          {publicKeyError && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <p className="text-sm text-red-600">
+                {publicKeyError}
+              </p>
+            </div>
+          )}
         </div>
 
         <Button
           onClick={signAndConnect}
-          disabled={isConnecting}
+          disabled={isConnecting || !!publicKeyError}
           size="lg"
           className="w-full"
         >
