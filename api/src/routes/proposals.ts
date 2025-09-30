@@ -44,13 +44,6 @@ proposalsRouter.post('/', async (c) => {
   if (!(await isMultisigMember(multisigAddress, publicKey)))
     throw new ValidationError('Proposer is not a member of the multisig');
 
-  const multisig = await getMultisig(multisigAddress);
-
-  if (!multisig.isVerified)
-    throw new ValidationError(
-      'Multisig is not verified. You need to first get acceptance from all members.',
-    );
-
   const proposedTransaction = Transaction.from(transactionBytes);
 
   // Validate the proposed transaction for:

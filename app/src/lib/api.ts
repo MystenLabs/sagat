@@ -11,8 +11,8 @@ import {
   VoteProposalRequest,
   CancelProposalRequest,
   ProposalStatus,
+  MultisigWithMembers,
 } from './types';
-import { MultisigDetails } from '../types/multisig';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -90,8 +90,8 @@ class ApiClient {
     });
   }
 
-  async getMultisig(address: string): Promise<MultisigDetails> {
-    return this.request<MultisigDetails>(`/multisig/${address}`);
+  async getMultisig(address: string): Promise<MultisigWithMembers> {
+    return this.request<MultisigWithMembers>(`/multisig/${address}`);
   }
 
 
@@ -180,9 +180,9 @@ class ApiClient {
     return this.registerAddresses([publicKey]);
   }
 
-  async getMultisigConnections(showPending = false): Promise<Record<string, any[]>> {
+  async getMultisigConnections(showPending = false): Promise<Record<string, MultisigWithMembers[]>> {
     const params = showPending ? '?showPending=true' : '';
-    return this.request<Record<string, any[]>>(`/addresses/connections${params}`);
+    return this.request<Record<string, MultisigWithMembers[]>>(`/addresses/connections${params}`);
   }
 
   async getAddressInfo(address: string): Promise<{ publicKey: string; address: string }> {

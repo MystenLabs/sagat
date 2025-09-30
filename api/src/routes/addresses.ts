@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import {
+  MultisigWithMembers,
   SchemaAddresses,
   SchemaMultisigMembers,
   SchemaMultisigs,
@@ -62,11 +63,10 @@ addressesRouter.get(
     ];
 
     // Show only accepted by default, show ALL (both accepted and pending) when showPending=true
-    if (showPending !== 'true') {
+    if (showPending !== 'true')
       whereConditions.push(eq(SchemaMultisigMembers.isAccepted, true));
-    }
 
-    // Get members with their multisig details via JOIN
+    // Get members with their multisig details
     const membersWithMultisig = await db
       .select({
         // Member fields
@@ -81,41 +81,67 @@ addressesRouter.get(
         isVerified: SchemaMultisigs.isVerified,
       })
       .from(SchemaMultisigMembers)
-      .leftJoin(
+      .innerJoin(
         SchemaMultisigs,
         eq(SchemaMultisigMembers.multisigAddress, SchemaMultisigs.address),
       )
       .where(and(...whereConditions));
 
-    // Get member counts for each unique multisig
-    const uniqueAddresses = Array.from(
-      new Set(membersWithMultisig.map((m) => m.multisigAddress)),
-    );
-    const memberCounts: Record<string, number> = {};
+    const multisigsWithMembers: MultisigWithMembers[] = [];
 
-    for (const address of uniqueAddresses) {
-      const count = await db
-        .select()
-        .from(SchemaMultisigMembers)
-        .where(eq(SchemaMultisigMembers.multisigAddress, address));
-      memberCounts[address] = count.length;
+    // Group the distinct multiisgs.
+    for (const member of membersWithMultisig) {
+      if (
+        !multisigsWithMembers.some((m) => m.address === member.multisigAddress)
+      ) {
+        multisigsWithMembers.push({
+          members: [],
+          // Gather initial
+          address: member.multisigAddress,
+          isVerified: member.isVerified,
+          threshold: member.threshold,
+          name: member.name,
+          totalMembers: 0,
+          totalWeight: 0,
+        });
+      }
+
+      // Safe, we just added it.
+      const msig = multisigsWithMembers.find(
+        (m) => m.address === member.multisigAddress,
+      )!;
+
+      // avoid duplicates.
+      if (msig.members.some((m) => m.publicKey === member.publicKey)) continue;
+
+      // Add to members.
+      msig.members.push({
+        multisigAddress: member.multisigAddress,
+        publicKey: member.publicKey,
+        weight: member.weight,
+        isAccepted: member.isAccepted,
+        order: member.order,
+      });
     }
 
-    // Group per public key from the active JWT
-    const grouped = membersWithMultisig.reduce(
-      (acc, member) => {
-        acc[member.publicKey] = acc[member.publicKey] || [];
-        acc[member.publicKey].push({
-          ...member,
-          totalMembers: memberCounts[member.multisigAddress] || 0,
-        });
-        return acc;
-      },
-      {} as Record<string, any[]>,
-    );
+    // Keep the members ordered by order to keep compositions composable.
+    for (const msig of multisigsWithMembers) {
+      msig.members = msig.members.sort((a, b) => a.order - b.order);
+      msig.totalMembers = msig.members.length;
+      msig.totalWeight = msig.members.reduce((acc, m) => acc + m.weight, 0);
+    }
 
-    // Make sure we order the keys.
-    for (const publicKey of Object.keys(grouped)) grouped[publicKey] =grouped[publicKey].sort((a, b) => a.order - b.order);
+    const grouped: Record<string, MultisigWithMembers[]> = {};
+
+    for (const pubkey of publicKeys) {
+      const pubKeyBase64 = pubkey.toBase64();
+      // shouldnt really happen
+      if (grouped[pubKeyBase64]) continue;
+
+      grouped[pubKeyBase64] = multisigsWithMembers.filter((m) =>
+        m.members.some((m) => m.publicKey === pubKeyBase64),
+      );
+    }
 
     return c.json(grouped);
   },

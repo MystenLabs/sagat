@@ -2,11 +2,11 @@ import { useOutletContext } from 'react-router-dom';
 import { Coins, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { SimplifiedMultisig } from '../../types/multisig';
+import { MultisigWithMembersForPublicKey } from '@/lib/types';
 import { CONFIG } from '../../lib/constants';
 
 interface AssetsTabContext {
-  multisig: SimplifiedMultisig;
+  multisig: MultisigWithMembersForPublicKey;
   openProposalSheet: () => void;
 }
 

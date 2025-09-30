@@ -1,4 +1,4 @@
-import { MultisigMember } from "../../types/multisig";
+import { MultisigMember } from "../../lib/types";
 import { validatePublicKey } from "../../lib/sui-utils";
 import { CopyButton } from "../ui/CopyButton";
 import { formatAddress } from "../../lib/formatters";

@@ -4,19 +4,7 @@ import { useCurrentAccount } from '@mysten/dapp-kit';
 import { apiClient } from '../lib/api';
 import { extractPublicKey } from '../lib/wallet';
 import { QueryKeys } from '../lib/queryKeys';
-
-interface EnrichedMember {
-  multisigAddress: string;
-  publicKey: string;
-  weight: number;
-  isAccepted: boolean;
-  order: number;
-  // From JOIN with multisigs table
-  name?: string;
-  threshold: number;
-  isVerified: boolean;
-  totalMembers: number;
-}
+import { MultisigWithMembersForPublicKey } from '@/lib/types';
 
 // Hook to fetch user's multisigs from the /addresses/connections endpoint
 export function useUserMultisigs(showPending = false) {
@@ -25,7 +13,7 @@ export function useUserMultisigs(showPending = false) {
 
   return useQuery({
     queryKey: [QueryKeys.Multisigs, QueryKeys.User, currentAddress, showPending],
-    queryFn: async () => {
+    queryFn: async (): Promise<MultisigWithMembersForPublicKey[]> => {
       if (!currentAccount) {
         throw new Error('No wallet connected');
       }
@@ -40,19 +28,11 @@ export function useUserMultisigs(showPending = false) {
       // Get multisig connections grouped by public key
       const connections = await apiClient.getMultisigConnections(showPending);
 
-      // Get multisigs for the current connected public key
-      const userMultisigs: EnrichedMember[] = connections[pubKeyBase64] || [];
-
-      // Transform to the expected format for the Dashboard
-      return userMultisigs.map(m => ({
-        address: m.multisigAddress,
-        name: m.name || null,
-        threshold: m.threshold || 0,
-        totalMembers: m.totalMembers || 0,
-        isAccepted: m.isAccepted,
-        isVerified: m.isVerified,
-        pendingProposals: 0, // This would need to be fetched separately if needed
-      }));
+      return (connections[pubKeyBase64] || []).map((m) => ({
+        ...m,
+        isAccepted: m.members.find((m) => m.publicKey === pubKeyBase64)!.isAccepted,
+        pendingMembers: m.members.filter(m => !m.isAccepted).length,
+      }))
     },
     enabled: isCurrentAddressAuthenticated,
     staleTime: 1000 * 30, // 30 seconds

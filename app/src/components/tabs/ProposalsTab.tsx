@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { FileText, Plus } from "lucide-react";
 import { Button } from "../ui/button";
-import { SimplifiedMultisig } from "../../types/multisig";
+import { MultisigWithMembersForPublicKey } from "@/lib/types";
 import { useNetwork } from "../../contexts/NetworkContext";
 import { ProposalCard } from "../proposals/ProposalCard";
 import { useProposalsQueries } from "../../hooks/useProposalsQueries";
 
 interface ProposalsTabContext {
-  multisig: SimplifiedMultisig;
+  multisig: MultisigWithMembersForPublicKey;
   openProposalSheet: () => void;
 }
 

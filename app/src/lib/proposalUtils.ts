@@ -1,10 +1,10 @@
 import { ProposalWithSignatures } from './types';
-import { MultisigDetails } from '../types/multisig';
+import { MultisigWithMembers } from './types';
 
 // Helper to calculate current weight of a proposal based on signatures
 export const calculateCurrentWeight = (
   proposal: ProposalWithSignatures,
-  multisigDetails: MultisigDetails | undefined
+  multisigDetails: MultisigWithMembers | undefined
 ) => {
   if (!multisigDetails?.members) return 0;
 
@@ -19,6 +19,6 @@ export const calculateCurrentWeight = (
 };
 
 // Helper to get total weight (threshold) for the multisig
-export const getTotalWeight = (multisigDetails: MultisigDetails | undefined) => {
+export const getTotalWeight = (multisigDetails: MultisigWithMembers | undefined) => {
   return multisigDetails?.threshold || 0;
 };

@@ -14,7 +14,6 @@ export function useValidatedPublicKey(currentAccount: WalletAccount | null) {
 
       return { publicKey: pubKey, error: null };
     } catch (error) {
-      console.error("Failed to extract public key:", error);
       return {
         publicKey: null,
         error:

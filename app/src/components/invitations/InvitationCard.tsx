@@ -4,51 +4,35 @@ import { Button } from "../ui/button";
 import { CopyButton } from "../ui/CopyButton";
 import { useAcceptInvitation } from "../../hooks/useAcceptInvitation";
 import { useRejectInvitation } from "../../hooks/useRejectInvitation";
-import { apiClient } from "../../lib/api";
 import { InvitationDetails } from "./InvitationDetails";
-import { SimplifiedMultisig } from "../../types/multisig";
 import { formatAddress } from "../../lib/formatters";
+import { MultisigWithMembersForPublicKey } from "@/lib/types";
 
 interface InvitationCardProps {
-  multisig: SimplifiedMultisig;
+  multisig: MultisigWithMembersForPublicKey;
 }
 
 export function InvitationCard({ multisig }: InvitationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [multisigDetails, setMultisigDetails] = useState<any>(null);
   const [processingInvite, setProcessingInvite] = useState(false);
   const acceptInvitation = useAcceptInvitation();
   const rejectInvitation = useRejectInvitation();
 
   const toggleExpanded = async () => {
-    if (isExpanded) {
-      setIsExpanded(false);
-    } else {
-      setIsExpanded(true);
-
-      // Fetch multisig details if we don't have them yet
-      if (!multisigDetails) {
-        try {
-          const details = await apiClient.getMultisig(multisig.address);
-          setMultisigDetails(details);
-        } catch (error) {
-          console.warn(`Failed to fetch details for ${multisig.address}:`, error);
-        }
-      }
-    }
+    setIsExpanded(!isExpanded);
   };
 
   const handleAccept = () => {
     setProcessingInvite(true);
     acceptInvitation.mutate(multisig.address, {
-      onSettled: () => setProcessingInvite(false)
+      onSettled: () => setProcessingInvite(false),
     });
   };
 
   const handleReject = () => {
     setProcessingInvite(true);
     rejectInvitation.mutate(multisig.address, {
-      onSettled: () => setProcessingInvite(false)
+      onSettled: () => setProcessingInvite(false),
     });
   };
 
@@ -63,7 +47,7 @@ export function InvitationCard({ multisig }: InvitationCardProps) {
           </div>
           <div className="flex-1">
             <h3 className="font-medium text-gray-900">
-              {multisig.name || 'Unnamed Multisig'}
+              {multisig.name || "Unnamed Multisig"}
             </h3>
             <div className="flex items-center gap-1">
               <p className="text-sm text-gray-500">
@@ -72,10 +56,7 @@ export function InvitationCard({ multisig }: InvitationCardProps) {
               <CopyButton value={multisig.address} size="xs" />
             </div>
             <p className="text-xs text-gray-400">
-              {multisigDetails ?
-                `${multisigDetails.members.filter((m: any) => m.isAccepted).length} out of ${multisigDetails.members.length} members accepted` :
-                `${multisig.totalMembers} members total`
-              }
+              {`${multisig.totalMembers - multisig.pendingMembers} out of ${multisig.totalMembers} members accepted`}
             </p>
           </div>
         </div>
@@ -107,7 +88,6 @@ export function InvitationCard({ multisig }: InvitationCardProps) {
       {isExpanded && (
         <InvitationDetails
           multisig={multisig}
-          details={multisigDetails}
           onAccept={handleAccept}
           onReject={handleReject}
           isProcessing={processingInvite}

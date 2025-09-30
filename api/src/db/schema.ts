@@ -149,3 +149,9 @@ export type ProposalSignature = typeof proposalSignatures.$inferSelect;
 export type ProposalWithSignatures = Proposal & {
   signatures: ProposalSignature[];
 };
+
+export type MultisigWithMembers = Multisig & {
+  members: MultisigMember[];
+  totalMembers: number;
+  totalWeight: number;
+};

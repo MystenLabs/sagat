@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Users, ChevronDown, Search } from 'lucide-react';
+import { Users, ChevronDown, Search, AlertTriangle } from 'lucide-react';
 import { formatAddress } from '../lib/formatters';
-import { SimplifiedMultisig } from '../types/multisig';
+import { MultisigWithMembersForPublicKey } from '@/lib/types';
 
 interface MultisigSelectorProps {
-  multisigs: SimplifiedMultisig[];
+  multisigs: MultisigWithMembersForPublicKey[];
   selectedMultisig: string;
   onSelectMultisig: (address: string) => void;
 }
@@ -76,9 +76,9 @@ export function MultisigSelector({
           <div>
             <div className="font-medium">
               {currentMultisig?.name || 'Select Multisig'}
-              {currentMultisig?.pendingProposals ? (
+              {currentMultisig?.pendingMembers ? (
                 <span className="ml-2 px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">
-                  {currentMultisig.pendingProposals} pending
+                  {currentMultisig.pendingMembers} pending member{currentMultisig.pendingMembers > 1 ? 's' : ''}
                 </span>
               ) : null}
             </div>
@@ -141,9 +141,9 @@ export function MultisigSelector({
                         </p>
                       </div>
                     </div>
-                    {multisig.pendingProposals > 0 && (
+                    {multisig.pendingMembers > 0 && (
                       <span className="px-2 py-1 text-xs bg-orange-100 text-orange-700 rounded-full">
-                        {multisig.pendingProposals}
+                        <AlertTriangle className="w-4 h-4 text-orange-700" />
                       </span>
                     )}
                   </div>

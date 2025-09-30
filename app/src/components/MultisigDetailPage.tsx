@@ -1,4 +1,10 @@
-import { useParams, useNavigate, NavLink, Outlet, Navigate } from "react-router-dom";
+import {
+  useParams,
+  useNavigate,
+  NavLink,
+  Outlet,
+  Navigate,
+} from "react-router-dom";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useUserMultisigs } from "../hooks/useUserMultisigs";
 import { Loading } from "./ui/loading";
@@ -8,9 +14,6 @@ import { useState, useMemo, useEffect } from "react";
 import { ProposalSheet } from "./ProposalSheet";
 import { MultisigSelector } from "./MultisigSelector";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
-import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "../lib/api";
-import { QueryKeys } from "../lib/queryKeys";
 
 export function MultisigDetailPage() {
   const { address, tab } = useParams<{ address: string; tab?: string }>();
@@ -21,46 +24,42 @@ export function MultisigDetailPage() {
 
   const { data: multisigs, isLoading } = useUserMultisigs(true);
 
-  // Query specific multisig details to check verification status
-  const { data: multisigDetails, isLoading: isLoadingDetails } = useQuery({
-    queryKey: [QueryKeys.Multisig, address],
-    queryFn: () => apiClient.getMultisig(address!),
-    enabled: !!address,
-    retry: false, // Don't retry if multisig doesn't exist
-  });
+  const multisigDetails = useMemo(
+    () => multisigs?.find((m) => m.address === address && m.isAccepted),
+    [multisigs, address],
+  );
 
   // Filter for verified multisigs only
   const verifiedMultisigs = useMemo(
-    () => multisigs?.filter(m => m.isVerified && m.isAccepted) ?? [],
-    [multisigs]
+    () => multisigs?.filter((m) => m.isAccepted) ?? [],
+    [multisigs],
   );
 
   // Handle multisig selection change
   const handleMultisigChange = (newAddress: string) => {
-    navigate(`/multisig/${newAddress}/${tab || 'proposals'}`);
+    navigate(`/multisig/${newAddress}/${tab || "proposals"}`);
   };
-
 
   // Store the current multisig address in localStorage per wallet address
   useEffect(() => {
-    const multisig = verifiedMultisigs.find(m => m.address === address);
-    if (address && multisig?.isVerified && multisig?.isAccepted && currentAccount?.address) {
+    const multisig = verifiedMultisigs.find((m) => m.address === address);
+    if (address && multisig?.isAccepted && currentAccount?.address) {
       const lastViewedKey = `lastViewedMultisig_${currentAccount.address}`;
       localStorage.setItem(lastViewedKey, address);
     }
   }, [address, verifiedMultisigs, currentAccount?.address]);
 
-  if (isLoading || isLoadingDetails) {
+  if (isLoading || isLoading) {
     return <Loading message="Loading multisig details..." />;
   }
 
   // If we're trying to access a specific multisig but it's not verified, redirect to dashboard
-  if (address && multisigDetails && !multisigDetails.isVerified) {
+  if (address && multisigDetails && !multisigDetails.isAccepted) {
     return <Navigate to="/" replace />;
   }
 
   // If we're trying to access a multisig that doesn't exist, redirect to dashboard
-  if (address && !isLoadingDetails && !multisigDetails) {
+  if (address && !isLoading && !multisigDetails) {
     return <Navigate to="/" replace />;
   }
 
@@ -68,7 +67,7 @@ export function MultisigDetailPage() {
     return <Navigate to="/" replace />;
   }
 
-  const multisig = verifiedMultisigs.find(m => m.address === address);
+  const multisig = verifiedMultisigs.find((m) => m.address === address);
 
   if (!multisig) {
     // Multisig not found for current wallet - redirect to dashboard which will handle smart routing
@@ -77,13 +76,17 @@ export function MultisigDetailPage() {
 
   const tabs = [
     {
-      id: 'proposals',
-      label: 'Proposals',
+      id: "proposals",
+      label: "Proposals",
       icon: FileText,
-      count: multisig.pendingProposals > 0 ? multisig.pendingProposals : undefined
     },
-    { id: 'overview', label: 'Overview', icon: Info },
-    { id: 'assets', label: 'Assets', icon: Coins },
+    {
+      id: "overview",
+      label: "Overview",
+      icon: Info,
+      count: multisig.pendingMembers,
+    },
+    { id: "assets", label: "Assets", icon: Coins },
   ];
 
   // Remove this line since we'll use NavLink's built-in active state
@@ -111,7 +114,11 @@ export function MultisigDetailPage() {
                   className="whitespace-nowrap"
                   title="Copy multisig address"
                 >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
                 </Button>
                 <Button onClick={() => setShowProposalSheet(true)}>
                   <Plus className="w-4 h-4 mr-2" />
@@ -126,11 +133,11 @@ export function MultisigDetailPage() {
                 {multisig.threshold} threshold • {multisig.totalMembers} members
               </span>
               <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                {multisig.isVerified ? 'Verified' : 'Pending'}
+                {multisig.isVerified ? "Verified" : "Pending"}
               </span>
-              {multisig.pendingProposals > 0 && (
+              {multisig.pendingMembers > 0 && (
                 <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full">
-                  {multisig.pendingProposals} pending proposals
+                  {multisig.pendingMembers} pending members
                 </span>
               )}
             </div>
@@ -150,8 +157,8 @@ export function MultisigDetailPage() {
                   className={({ isActive }) =>
                     `px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${
                       isActive
-                        ? 'text-blue-600 border-b-2 border-blue-600'
-                        : 'text-gray-600 hover:text-gray-900'
+                        ? "text-blue-600 border-b-2 border-blue-600"
+                        : "text-gray-600 hover:text-gray-900"
                     }`
                   }
                 >
@@ -171,7 +178,12 @@ export function MultisigDetailPage() {
 
       {/* Tab Content */}
       <div>
-        <Outlet context={{ multisig, openProposalSheet: () => setShowProposalSheet(true) }} />
+        <Outlet
+          context={{
+            multisig,
+            openProposalSheet: () => setShowProposalSheet(true),
+          }}
+        />
       </div>
 
       {/* Proposal Creation Sheet */}

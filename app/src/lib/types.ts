@@ -81,6 +81,17 @@ export interface ProposalSignature {
   signature: string;
 }
 
+export interface MultisigWithMembers extends Multisig {
+  members: MultisigMember[];
+  totalMembers: number;
+  totalWeight: number;
+}
+
+// this is the multisig view, for a given public key.
+export interface MultisigWithMembersForPublicKey extends MultisigWithMembers {
+  pendingMembers: number;
+  isAccepted: boolean;
+}
 export interface ProposalWithSignatures extends Proposal {
   signatures: ProposalSignature[];
 }

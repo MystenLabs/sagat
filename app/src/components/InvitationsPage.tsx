@@ -9,17 +9,15 @@ import { InvitationCard } from "./invitations/InvitationCard";
 export function InvitationsPage() {
   const { data: multisigs, isLoading } = useUserMultisigs(true);
 
-  if (isLoading) {
-    return <Loading message="Loading invitations..." />;
-  }
+  if (isLoading) return <Loading message="Loading invitations..." />;
 
-  const pendingInvites = multisigs?.filter(m => !m.isAccepted) ?? [];
+  const pendingInvites = multisigs?.filter((m) => !m.isAccepted) ?? [];
 
   return (
     <div className="max-w-4xl mx-auto mt-8 px-4">
       <PageHeader
         title="Pending Invitations"
-        description={`You have ${pendingInvites.length} pending invitation${pendingInvites.length !== 1 ? 's' : ''} to join multisig wallets`}
+        description={`You have ${pendingInvites.length} pending invitation${pendingInvites.length !== 1 ? "s" : ""} to join multisig wallets`}
         backLink="/"
         backLabel="Back to Dashboard"
       />

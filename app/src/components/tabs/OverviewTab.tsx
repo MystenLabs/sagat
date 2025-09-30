@@ -6,12 +6,12 @@ import { apiClient } from "../../lib/api";
 import { MembersList } from "../invitations/MembersList";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { useNetwork } from "../../contexts/NetworkContext";
-import { SimplifiedMultisig } from "../../types/multisig";
+import { MultisigWithMembersForPublicKey } from "@/lib/types";
 import { CONFIG } from "../../lib/constants";
 import { QueryKeys } from "../../lib/queryKeys";
 
 interface OverviewTabContext {
-  multisig: SimplifiedMultisig;
+  multisig: MultisigWithMembersForPublicKey;
   openProposalSheet: () => void;
 }
 

@@ -4,13 +4,12 @@ import { MultiSigPublicKey } from "@mysten/sui/multisig";
 import { apiClient } from "../lib/api";
 import { toast } from "sonner";
 import { QueryKeys } from "../lib/queryKeys";
-import { ProposalWithSignatures } from "../lib/types";
-import { MultisigDetails } from "../types/multisig";
+import { MultisigWithMembers, ProposalWithSignatures } from "../lib/types";
 import { extractPublicKeyFromBase64 } from "@/lib/wallet";
 
 interface ExecuteProposalParams {
   proposal: ProposalWithSignatures;
-  multisigDetails: MultisigDetails;
+  multisigDetails: MultisigWithMembers;
 }
 
 export function useExecuteProposal() {

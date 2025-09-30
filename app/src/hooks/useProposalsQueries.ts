@@ -2,13 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { apiClient } from '../lib/api';
 import { ProposalStatus, ProposalWithSignatures } from '../lib/types';
-import { SimplifiedMultisig } from '../types/multisig';
+import { MultisigWithMembersForPublicKey } from '@/lib/types';
 import { extractPublicKey } from '../lib/wallet';
 import { calculateCurrentWeight, getTotalWeight } from '../lib/proposalUtils';
 import { QueryKeys } from '../lib/queryKeys';
 
 interface UseProposalsQueriesParams {
-  multisig: SimplifiedMultisig;
+  multisig: MultisigWithMembersForPublicKey;
   network: string;
   activeFilter: 'all' | 'pending' | 'waiting' | 'ready' | 'executed' | 'cancelled';
 }
