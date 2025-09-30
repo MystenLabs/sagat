@@ -133,9 +133,12 @@ export const authMiddleware = async (c: Context, next: () => Promise<void>) => {
   try {
     // If `Authorization` header is set, we are authenticating using this instead of the cookie.
     if (authHeader) {
+      const parts = authHeader.split(' ');
+      if (parts.length !== 2) return c.text('Unauthorized', 401);
+      if (parts[0] !== 'Bearer') return c.text('Unauthorized', 401);
       // `Authorization: Bearer <jwt>`
       const keys = await getPublicKeysFromJwt(
-        authHeader.split(' ')[1],
+        parts[1],
         'script',
       );
       if (!keys) return c.text('Unauthorized', 401);
