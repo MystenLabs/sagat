@@ -120,7 +120,7 @@ export const connectToPublicKey = async (c: Context) => {
 
     // Set the cookie for the connected wallet address with the right expiration.
     setCookie(c, JWT_COOKIE_NAME, await issueJwt(pubKeys), {
-      sameSite: 'None', // Required for cross-origin cookies
+      sameSite: 'Lax',
       secure: true,
       httpOnly: true,
       path: '/',
@@ -181,7 +181,7 @@ export const disconnect = async (c: Context) => {
     path: '/',
     secure: true,
     httpOnly: true,
-    sameSite: 'None', // Match the cookie setting
+    sameSite: 'Lax', // Match the cookie setting
   });
   return c.json({ success: true });
 };
