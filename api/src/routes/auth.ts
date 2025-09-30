@@ -5,10 +5,12 @@ import {
   disconnect,
   authMiddleware,
   AuthEnv,
+  connectForScript,
 } from '../services/auth.service';
 
 const authRouter = new Hono();
 
+authRouter.post('/script-connect', connectForScript);
 authRouter.post('/connect', connectToPublicKey);
 authRouter.post('/disconnect', disconnect);
 

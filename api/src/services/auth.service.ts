@@ -1,35 +1,33 @@
 import { Context } from 'hono';
 
-import {
-  deleteCookie,
-  getCookie,
-  getSignedCookie,
-  setCookie,
-} from 'hono/cookie';
+import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { JWT_SECRET } from '../db/env';
 import { validatePersonalMessage } from './addresses.service';
 import { PublicKey } from '@mysten/sui/cryptography';
 import { parsePublicKey } from '../utils/pubKey';
-import { SignJWT, jwtVerify, JWTPayload } from 'jose';
+import { SignJWT, jwtVerify } from 'jose';
 import { registerPublicKeys } from './addresses.service';
 import { ValidationError } from '../errors';
 
 const JWT_COOKIE_NAME = 'connected-wallet';
+const MAX_EXPIRY = 60 * 60 * 1000; // 1 hour
 
-const getJwtSecret = () => {
-  return new TextEncoder().encode(JWT_SECRET);
-};
+const getJwtSecret = () => new TextEncoder().encode(JWT_SECRET);
 
 // Issue a JWT for the user.
-const issueJwt = async (publicKeys: PublicKey[]) => {
+const issueJwt = async (
+  publicKeys: PublicKey[],
+  subject: 'cookie' | 'script',
+) => {
   return (
     new SignJWT({
       publicKeys: publicKeys.map((pubKey) => pubKey.toBase64()),
     })
+      .setSubject(subject)
       .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
       // It's super long. The data is not extremely confidential so it's fairly safe to prioritize UX.
       // We can always revisit our JWT approach the more we productionize (E.g. introduce a layer of "account" that owns multiple keys)
-      .setExpirationTime('365d')
+      .setExpirationTime(subject === 'cookie' ? '365d' : '1h')
       .sign(getJwtSecret())
   );
 };
@@ -38,6 +36,24 @@ export type AuthEnv = {
   Variables: {
     publicKeys: PublicKey[];
   };
+};
+
+// Connect to the system for a script, this only grants access to a single
+// public key data.
+// Script tokens are short-lived (1hr), matching the maximum duration of a signature.
+export const connectForScript = async (c: Context) => {
+  const { publicKey, signature, expiry } = await c.req.json();
+  validateExpiry(expiry);
+
+  const pubKey = await validatePersonalMessage(
+    publicKey,
+    signature,
+    `Verifying address ownership until: ${expiry}`,
+  );
+
+  const jwt = await issueJwt([pubKey], 'script');
+
+  return c.json({ token: jwt });
 };
 
 // We connect to the system incrementally with each public key we verify.
@@ -53,13 +69,8 @@ export const connectToPublicKey = async (c: Context) => {
     // Otherwise, we just generate a JWT with the new public key.
     if (cookie) {
       try {
-        const { payload } = await jwtVerify(cookie, getJwtSecret());
-
-        const payloadPublicKeys = payload.publicKeys as string[];
-
-        for (const pubKey of payloadPublicKeys) {
-          pubKeys.push(parsePublicKey(pubKey));
-        }
+        const publicKeys = await getPublicKeysFromJwt(cookie, 'cookie');
+        pubKeys.push(...(publicKeys || []));
       } catch (err) {
         // JWT is invalid or expired, start fresh
       }
@@ -80,28 +91,7 @@ export const connectToPublicKey = async (c: Context) => {
       return c.json({ error: 'Missing required fields' }, 400);
     }
 
-    // Validate expiry timestamp
-    const expiryDate = new Date(expiry);
-    const now = Date.now();
-
-    // Check if expiry is a valid date
-    if (isNaN(expiryDate.getTime())) {
-      return c.json({ error: 'Invalid expiry date format' }, 400);
-    }
-
-    // Check if signature has expired
-    if (expiryDate.getTime() < now) {
-      return c.json({ error: 'Signature has expired' }, 400);
-    }
-
-    // Check if expiry is too far in the future (max 1 hour)
-    const maxExpiry = now + 60 * 60 * 1000; // 1 hour
-    if (expiryDate.getTime() > maxExpiry) {
-      return c.json(
-        { error: 'Signature expiry too far in the future (max 1 hour)' },
-        400,
-      );
-    }
+    validateExpiry(expiry);
 
     const pubKey = await validatePersonalMessage(
       publicKey,
@@ -119,7 +109,7 @@ export const connectToPublicKey = async (c: Context) => {
     }
 
     // Set the cookie for the connected wallet address with the right expiration.
-    setCookie(c, JWT_COOKIE_NAME, await issueJwt(pubKeys), {
+    setCookie(c, JWT_COOKIE_NAME, await issueJwt(pubKeys, 'cookie'), {
       sameSite: 'Lax',
       secure: true,
       httpOnly: true,
@@ -144,36 +134,67 @@ export const connectToPublicKey = async (c: Context) => {
 
 // Middleware to authenticate requests using JWT cookies
 export const authMiddleware = async (c: Context, next: () => Promise<void>) => {
+  // Check for authorization header.
+  const authHeader = c.req.header('Authorization');
   try {
+    // If `Authorization` header is set, we are authenticating using this instead of the cookie.
+    if (authHeader) {
+      // `Authorization: Bearer <jwt>`
+      const keys = await getPublicKeysFromJwt(
+        authHeader.split(' ')[1],
+        'script',
+      );
+      if (!keys) return c.text('Unauthorized', 401);
+      // We only accept single-key jwt from Authorization.
+      if (keys.length !== 1) return c.text('Unauthorized', 401);
+      c.set('publicKeys', keys);
+      return await next();
+    }
+
     // Read cookie from client
     const cookie = getCookie(c, JWT_COOKIE_NAME);
 
     // If we have no cookie, we're unauthorized.
     if (!cookie) return c.text('Unauthorized', 401);
 
-    // Now verify the JWT.
-    const { payload } = await jwtVerify(cookie, getJwtSecret());
+    const keys = await getPublicKeysFromJwt(cookie, 'cookie');
+    if (!keys) return c.text('Unauthorized', 401);
 
-    // If we have no payload, we're unauthorized.
-    if (!payload) return c.text('Unauthorized', 401);
-
-    // Extract the public keys.
-    const payloadPublicKeys = payload.publicKeys as string[];
-
-    // Convert the public keys to Sui public keys.
-    const availablePublicKeys = [];
-
-    for (const pubKey of payloadPublicKeys) {
-      availablePublicKeys.push(parsePublicKey(pubKey));
-    }
-
-    // Set the public keys in the context.
-    c.set('publicKeys', availablePublicKeys);
-
-    await next();
+    c.set('publicKeys', keys);
+    return await next();
   } catch (err) {
     return c.text('Unauthorized', 401);
   }
+};
+
+const getPublicKeysFromJwt = async (
+  jwt: string,
+  subject: 'cookie' | 'script',
+) => {
+  const { payload } = await jwtVerify(jwt, getJwtSecret(), {
+    subject,
+  });
+
+  if (!payload) return null;
+  const payloadPublicKeys = payload.publicKeys as string[];
+  return payloadPublicKeys.map((pubKey) => parsePublicKey(pubKey));
+};
+
+// Validate the expiry time of the signature.
+const validateExpiry = (expiry: string) => {
+  const expiryDate = new Date(expiry);
+  const now = Date.now();
+
+  if (isNaN(expiryDate.getTime()))
+    throw new ValidationError('Invalid expiry date format');
+
+  if (expiryDate.getTime() < now)
+    throw new ValidationError('Signature has expired');
+
+  if (expiryDate.getTime() > now + MAX_EXPIRY)
+    throw new ValidationError(
+      'Signature expiry too far in the future (max 1 hour)',
+    );
 };
 
 export const disconnect = async (c: Context) => {
