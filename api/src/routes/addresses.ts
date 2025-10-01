@@ -95,7 +95,6 @@ addressesRouter.get(
 );
 
 // Get invitations for a specific public key
-// Note: This route MUST come before /:address to avoid being caught by the catch-all
 addressesRouter.get(
   '/invitations/:publicKey',
   authMiddleware,
