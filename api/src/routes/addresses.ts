@@ -156,8 +156,6 @@ addressesRouter.get(
       );
     }
 
-    console.log('grouped', grouped);
-
     return c.json(grouped);
   },
 );
