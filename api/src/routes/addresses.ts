@@ -60,26 +60,29 @@ addressesRouter.get(
         SchemaMultisigMembers.publicKey,
         publicKeys.map((pubKey) => pubKey.toBase64()),
       ),
-      // skip rejected invitations by default. We need an explitit API that we won't work on yet.
       eq(SchemaMultisigMembers.isRejected, false),
+      showPending !== 'true'
+        ? eq(SchemaMultisigMembers.isAccepted, true)
+        : undefined,
     ];
 
-    // Show only accepted by default, show ALL (both accepted and pending) when showPending=true
-    // TODO: This should be an explicit `/invitations` API. KEeping it like this for simplicity now.
-    if (showPending !== 'true')
-      whereConditions.push(eq(SchemaMultisigMembers.isAccepted, true));
+    // Step 1: Find multisig addresses that the given publicKeys belong to
+    const multisigAddresses = await db
+      .selectDistinct({
+        address: SchemaMultisigMembers.multisigAddress,
+      })
+      .from(SchemaMultisigMembers)
+      .where(and(...whereConditions.filter((x) => !!x)));
 
-    // Get members with their multisig details
+    // Step 2: Fetch ALL members belonging to those multisigs
     const membersWithMultisig = await db
       .select({
-        // Member fields
         multisigAddress: SchemaMultisigMembers.multisigAddress,
         publicKey: SchemaMultisigMembers.publicKey,
         weight: SchemaMultisigMembers.weight,
         isAccepted: SchemaMultisigMembers.isAccepted,
         order: SchemaMultisigMembers.order,
         isRejected: SchemaMultisigMembers.isRejected,
-        // Multisig fields
         name: SchemaMultisigs.name,
         threshold: SchemaMultisigs.threshold,
         isVerified: SchemaMultisigs.isVerified,
@@ -89,7 +92,12 @@ addressesRouter.get(
         SchemaMultisigs,
         eq(SchemaMultisigMembers.multisigAddress, SchemaMultisigs.address),
       )
-      .where(and(...whereConditions));
+      .where(
+        inArray(
+          SchemaMultisigMembers.multisigAddress,
+          multisigAddresses.map((m) => m.address),
+        ),
+      );
 
     const multisigsWithMembers: MultisigWithMembers[] = [];
 
@@ -99,7 +107,6 @@ addressesRouter.get(
         !multisigsWithMembers.some((m) => m.address === member.multisigAddress)
       ) {
         multisigsWithMembers.push({
-          members: [],
           // Gather initial
           address: member.multisigAddress,
           isVerified: member.isVerified,
@@ -107,6 +114,7 @@ addressesRouter.get(
           name: member.name,
           totalMembers: 0,
           totalWeight: 0,
+          members: [],
         });
       }
 
@@ -147,6 +155,8 @@ addressesRouter.get(
         m.members.some((m) => m.publicKey === pubKeyBase64),
       );
     }
+
+    console.log('grouped', grouped);
 
     return c.json(grouped);
   },
