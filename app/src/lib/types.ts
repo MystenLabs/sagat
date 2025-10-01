@@ -93,6 +93,7 @@ export interface MultisigWithMembersForPublicKey extends MultisigWithMembers {
   rejectedMembers: number;
   pendingMembers: number;
   isAccepted: boolean;
+  isRejected: boolean;
 }
 export interface ProposalWithSignatures extends Proposal {
   signatures: ProposalSignature[];

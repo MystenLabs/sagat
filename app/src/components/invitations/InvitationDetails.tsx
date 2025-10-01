@@ -35,16 +35,18 @@ export function InvitationDetails({
 
         {/* Actions inside expanded section */}
         <div className="flex items-center justify-end space-x-2 mt-4 pt-4 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onReject}
-            disabled={isProcessing}
-            className="text-red-600 hover:text-red-700 hover:border-red-200"
-          >
-            <X className="w-4 h-4 mr-1" />
-            Reject Invitation
-          </Button>
+          {!multisig.isRejected && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onReject}
+              disabled={isProcessing}
+              className="text-red-600 hover:text-red-700 hover:border-red-200"
+            >
+              <X className="w-4 h-4 mr-1" />
+              Reject Invitation
+            </Button>
+          )}
           <Button size="sm" onClick={onAccept} disabled={isProcessing}>
             {isProcessing ? (
               <>

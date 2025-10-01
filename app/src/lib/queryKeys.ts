@@ -7,4 +7,5 @@ export const QueryKeys = {
   Pending: 'pending',
   All: 'all',
   Executed: 'executed',
+  Invitations: 'invitations',
 } as const;

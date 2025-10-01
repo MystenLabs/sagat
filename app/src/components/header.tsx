@@ -5,7 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Plus, Mail, Menu } from "lucide-react";
 import { Button } from "./ui/button";
 import { useApiAuth } from "../contexts/ApiAuthContext";
-import { useUserMultisigs } from "../hooks/useUserMultisigs";
+import { useInvitations } from "../hooks/useInvitations";
 import { Logo } from "./Logo";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 
@@ -13,11 +13,11 @@ export function Header() {
   const location = useLocation();
   const currentAccount = useCurrentAccount();
   const { isCurrentAddressAuthenticated } = useApiAuth();
-  const { data: multisigs } = useUserMultisigs(true); // Include pending
+  const { data: invitations } = useInvitations();
   const [sheetOpen, setSheetOpen] = useState(false);
 
   // Count pending invitations
-  const pendingCount = multisigs?.filter(m => !m.isAccepted).length ?? 0;
+  const pendingCount = invitations?.length ?? 0;
 
   const NavigationLinks = ({ mobile = false, onNavigate = () => {} }) => (
     <>

@@ -180,9 +180,13 @@ class ApiClient {
     return this.registerAddresses([publicKey]);
   }
 
-  async getMultisigConnections(showPending = false): Promise<Record<string, MultisigWithMembers[]>> {
-    const params = showPending ? '?showPending=true' : '';
-    return this.request<Record<string, MultisigWithMembers[]>>(`/addresses/connections${params}`);
+  async getMultisigConnections(): Promise<Record<string, MultisigWithMembers[]>> {
+    return this.request<Record<string, MultisigWithMembers[]>>(`/addresses/connections`);
+  }
+
+  async getInvitations(publicKey: string, showRejected = false): Promise<MultisigWithMembers[]> {
+    const params = showRejected ? '?showRejected=true' : '';
+    return this.request<MultisigWithMembers[]>(`/addresses/invitations/${encodeURIComponent(publicKey)}${params}`);
   }
 
   async getAddressInfo(address: string): Promise<{ publicKey: string; address: string }> {

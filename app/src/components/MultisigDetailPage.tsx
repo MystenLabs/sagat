@@ -22,7 +22,7 @@ export function MultisigDetailPage() {
   const [showProposalSheet, setShowProposalSheet] = useState(false);
   const { copied, copy } = useCopyToClipboard();
 
-  const { data: multisigs, isLoading } = useUserMultisigs(true);
+  const { data: multisigs, isLoading } = useUserMultisigs();
 
   // Find the multisig details from the selected accts
   const multisigDetails = useMemo(

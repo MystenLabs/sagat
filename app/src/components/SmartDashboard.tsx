@@ -1,40 +1,45 @@
 import { Link, Navigate } from "react-router-dom";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useUserMultisigs } from "../hooks/useUserMultisigs";
+import { useInvitations } from "../hooks/useInvitations";
 import { Plus, Mail } from "lucide-react";
 import { Button } from "./ui/button";
 import { Loading } from "./ui/loading";
-import { PendingMultisigCard } from "./PendingMultisigCard";
 
 export function SmartDashboard() {
-  const { data: multisigs, isLoading } = useUserMultisigs(true); // Include pending
+  const { data: multisigs, isLoading } = useUserMultisigs(); // Only accepted multisigs
+  const { data: pendingInvites } = useInvitations(); // Pending invitations
   const currentAccount = useCurrentAccount();
 
-  if (isLoading) {
-    return <Loading message="Loading your multisigs..." />;
-  }
-
-  const activeMultisigs = multisigs?.filter((m) => m.isAccepted && m.isVerified) ?? [];
-  const pendingInvites = multisigs?.filter((m) => !m.isAccepted) ?? [];
-  const pendingMultisigs = multisigs?.filter((m) => m.isAccepted && !m.isVerified) ?? [];
+  if (isLoading) return <Loading message="Loading your multisigs..." />;
 
   // Case 1: User has active multisigs - smart redirect
-  if (activeMultisigs.length > 0) {
+  if (multisigs?.length && multisigs.length > 0) {
     // Check if there's a last viewed multisig for this wallet address
     const walletAddress = currentAccount?.address;
-    const lastViewedKey = walletAddress ? `lastViewedMultisig_${walletAddress}` : null;
-    const lastViewedMultisig = lastViewedKey ? localStorage.getItem(lastViewedKey) : null;
+    const lastViewedKey = walletAddress
+      ? `lastViewedMultisig_${walletAddress}`
+      : null;
+    const lastViewedMultisig = lastViewedKey
+      ? localStorage.getItem(lastViewedKey)
+      : null;
 
     if (lastViewedMultisig) {
       // Check if this multisig still belongs to the current address
-      const isValidMultisig = activeMultisigs.some(m => m.address === lastViewedMultisig);
+      const isValidMultisig = multisigs?.some(
+        (m) => m.address === lastViewedMultisig,
+      );
       if (isValidMultisig) {
-        return <Navigate to={`/multisig/${lastViewedMultisig}/proposals`} replace />;
+        return (
+          <Navigate to={`/multisig/${lastViewedMultisig}/proposals`} replace />
+        );
       }
     }
 
     // Default: redirect to first available multisig
-    return <Navigate to={`/multisig/${activeMultisigs[0].address}/proposals`} replace />;
+    return (
+      <Navigate to={`/multisig/${multisigs?.[0].address}/proposals`} replace />
+    );
   }
 
   // Case 2: User has no active multisigs - show welcome screen
@@ -58,38 +63,19 @@ export function SmartDashboard() {
         <div className="mt-4">
           <Link to="/invitations">
             <Button
-              variant={pendingInvites.length > 0 ? "outline" : "ghost"}
-              className={pendingInvites.length > 0 ? "border-orange-300" : ""}
+              variant={(pendingInvites?.length ?? 0) > 0 ? "outline" : "ghost"}
+              className={
+                (pendingInvites?.length ?? 0) > 0 ? "border-orange-300" : ""
+              }
             >
               <Mail className="mr-2 h-4 w-4" />
-              {pendingInvites.length > 0
-                ? `View Invitations (${pendingInvites.length})`
+              {(pendingInvites?.length ?? 0) > 0
+                ? `View Invitations (${pendingInvites?.length ?? 0})`
                 : "Check Invitations"}
             </Button>
           </Link>
         </div>
       </div>
-
-      {/* Show pending multisigs if any */}
-      {pendingMultisigs.length > 0 && (
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-2xl font-semibold mb-4 text-center">Pending Multisigs</h2>
-          <p className="text-gray-600 mb-6 text-center">
-            These multisigs are being created on-chain. They'll be available once the creation transaction is confirmed.
-          </p>
-          <div className="space-y-3">
-            {pendingMultisigs.map((multisig) => (
-              <PendingMultisigCard
-                key={multisig.address}
-                address={multisig.address}
-                name={multisig.name}
-                threshold={multisig.threshold}
-                totalMembers={multisig.totalMembers}
-              />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

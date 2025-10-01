@@ -175,7 +175,7 @@ multisigRouter.post('/:address/accept', async (c) => {
 
     await tx
       .update(SchemaMultisigMembers)
-      .set({ isAccepted: true })
+      .set({ isAccepted: true, isRejected: false })
       .where(
         and(
           eq(SchemaMultisigMembers.multisigAddress, address),

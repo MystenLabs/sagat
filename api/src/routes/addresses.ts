@@ -3,7 +3,6 @@ import {
   MultisigWithMembers,
   SchemaAddresses,
   SchemaMultisigMembers,
-  SchemaMultisigs,
 } from '../db/schema';
 import { db } from '../db';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -11,7 +10,10 @@ import { authMiddleware, AuthEnv } from '../services/auth.service';
 import { Context } from 'hono';
 import { ValidationError } from '../errors';
 import { parsePublicKey } from '../utils/pubKey';
-import { registerPublicKeys } from '../services/addresses.service';
+import {
+  registerPublicKeys,
+  expandMultisigsWithMembers,
+} from '../services/addresses.service';
 
 const addressesRouter = new Hono();
 
@@ -46,13 +48,11 @@ addressesRouter.post('/', authMiddleware, async (c: Context<AuthEnv>) => {
   return c.json({ success: true });
 });
 
-// Return a list of all multisigs that the JWT has active.
-// Add a `?showPending=true` query to get invitations too.
+// Return a list of all accepted multisigs that the JWT has active.
 addressesRouter.get(
   '/connections',
   authMiddleware,
   async (c: Context<AuthEnv>) => {
-    const { showPending } = c.req.query();
     const publicKeys = c.get('publicKeys');
 
     const whereConditions = [
@@ -60,10 +60,8 @@ addressesRouter.get(
         SchemaMultisigMembers.publicKey,
         publicKeys.map((pubKey) => pubKey.toBase64()),
       ),
+      eq(SchemaMultisigMembers.isAccepted, true),
       eq(SchemaMultisigMembers.isRejected, false),
-      showPending !== 'true'
-        ? eq(SchemaMultisigMembers.isAccepted, true)
-        : undefined,
     ];
 
     // Step 1: Find multisig addresses that the given publicKeys belong to
@@ -74,75 +72,10 @@ addressesRouter.get(
       .from(SchemaMultisigMembers)
       .where(and(...whereConditions.filter((x) => !!x)));
 
-    // Step 2: Fetch ALL members belonging to those multisigs
-    const membersWithMultisig = await db
-      .select({
-        multisigAddress: SchemaMultisigMembers.multisigAddress,
-        publicKey: SchemaMultisigMembers.publicKey,
-        weight: SchemaMultisigMembers.weight,
-        isAccepted: SchemaMultisigMembers.isAccepted,
-        order: SchemaMultisigMembers.order,
-        isRejected: SchemaMultisigMembers.isRejected,
-        name: SchemaMultisigs.name,
-        threshold: SchemaMultisigs.threshold,
-        isVerified: SchemaMultisigs.isVerified,
-      })
-      .from(SchemaMultisigMembers)
-      .innerJoin(
-        SchemaMultisigs,
-        eq(SchemaMultisigMembers.multisigAddress, SchemaMultisigs.address),
-      )
-      .where(
-        inArray(
-          SchemaMultisigMembers.multisigAddress,
-          multisigAddresses.map((m) => m.address),
-        ),
-      );
-
-    const multisigsWithMembers: MultisigWithMembers[] = [];
-
-    // Group the distinct multiisgs.
-    for (const member of membersWithMultisig) {
-      if (
-        !multisigsWithMembers.some((m) => m.address === member.multisigAddress)
-      ) {
-        multisigsWithMembers.push({
-          // Gather initial
-          address: member.multisigAddress,
-          isVerified: member.isVerified,
-          threshold: member.threshold,
-          name: member.name,
-          totalMembers: 0,
-          totalWeight: 0,
-          members: [],
-        });
-      }
-
-      // Safe, we just added it.
-      const msig = multisigsWithMembers.find(
-        (m) => m.address === member.multisigAddress,
-      )!;
-
-      // avoid duplicates.
-      if (msig.members.some((m) => m.publicKey === member.publicKey)) continue;
-
-      // Add to members.
-      msig.members.push({
-        multisigAddress: member.multisigAddress,
-        publicKey: member.publicKey,
-        weight: member.weight,
-        isAccepted: member.isAccepted,
-        order: member.order,
-        isRejected: member.isRejected,
-      });
-    }
-
-    // Keep the members ordered by order to keep compositions composable.
-    for (const msig of multisigsWithMembers) {
-      msig.members = msig.members.sort((a, b) => a.order - b.order);
-      msig.totalMembers = msig.members.length;
-      msig.totalWeight = msig.members.reduce((acc, m) => acc + m.weight, 0);
-    }
+    // Step 2: Expand multisigs to full objects with all members
+    const multisigsWithMembers = await expandMultisigsWithMembers(
+      multisigAddresses.map((m) => m.address),
+    );
 
     const grouped: Record<string, MultisigWithMembers[]> = {};
 
@@ -151,8 +84,9 @@ addressesRouter.get(
       // shouldnt really happen
       if (grouped[pubKeyBase64]) continue;
 
+      // Only include accepted multisigs for individual public keys.
       grouped[pubKeyBase64] = multisigsWithMembers.filter((m) =>
-        m.members.some((m) => m.publicKey === pubKeyBase64),
+        m.members.some((m) => m.publicKey === pubKeyBase64 && m.isAccepted),
       );
     }
 
@@ -160,7 +94,48 @@ addressesRouter.get(
   },
 );
 
+// Get invitations for a specific public key
+// Note: This route MUST come before /:address to avoid being caught by the catch-all
+addressesRouter.get(
+  '/invitations/:publicKey',
+  authMiddleware,
+  async (c: Context<AuthEnv>) => {
+    const publicKeys = c.get('publicKeys');
+    const { showRejected } = c.req.query();
+    const { publicKey } = c.req.param();
+
+    if (!publicKeys.some((pubKey) => pubKey.toBase64() === publicKey))
+      throw new ValidationError('You are not authorized.');
+
+    const whereConditions = [
+      eq(SchemaMultisigMembers.publicKey, publicKey),
+      showRejected === 'true'
+        ? eq(SchemaMultisigMembers.isRejected, true)
+        : and(
+            eq(SchemaMultisigMembers.isAccepted, false),
+            eq(SchemaMultisigMembers.isRejected, false),
+          ),
+    ];
+
+    // Step 1: Find multisig addresses for this public key's invitations
+    const multisigAddresses = await db
+      .selectDistinct({
+        address: SchemaMultisigMembers.multisigAddress,
+      })
+      .from(SchemaMultisigMembers)
+      .where(and(...whereConditions.filter((x) => !!x)));
+
+    // Step 2: Expand multisigs to full objects with all members
+    const multisigsWithMembers = await expandMultisigsWithMembers(
+      multisigAddresses.map((m) => m.address),
+    );
+
+    return c.json(multisigsWithMembers);
+  },
+);
+
 // Get the public key for an address registered in the system.
+// IMPORTANT: Keep this route last as it's a catch-all for any /:address pattern
 addressesRouter.get('/:address', async (c) => {
   const { address } = c.req.param();
 

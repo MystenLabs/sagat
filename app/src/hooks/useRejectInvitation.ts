@@ -39,6 +39,7 @@ export function useRejectInvitation() {
       toast.success("Invitation rejected");
       // Invalidate the multisig queries to refresh the list
       queryClient.invalidateQueries({ queryKey: [QueryKeys.Multisigs] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.Invitations] });
     },
     onError: (error: Error) => {
       console.error("Failed to reject invitation:", error);

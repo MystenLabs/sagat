@@ -56,7 +56,7 @@ export function InvitationCard({ multisig }: InvitationCardProps) {
               <CopyButton value={multisig.address} size="xs" />
             </div>
             <p className="text-xs text-gray-400">
-              {`${multisig.totalMembers - multisig.pendingMembers} out of ${multisig.totalMembers} members accepted`}
+              {`${multisig.totalMembers - multisig.pendingMembers - multisig.rejectedMembers} out of ${multisig.totalMembers} members accepted`}
             </p>
           </div>
         </div>

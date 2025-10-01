@@ -37,6 +37,7 @@ export function useAcceptInvitation() {
     onSuccess: () => {
       // Invalidate queries to refresh multisig data
       queryClient.invalidateQueries({ queryKey: [QueryKeys.Multisigs] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.Invitations] });
       toast.success('Invitation accepted successfully!');
     },
     onError: (error: Error) => {
