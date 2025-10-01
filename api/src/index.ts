@@ -4,9 +4,14 @@ import multisigRouter from './routes/multisig';
 import { ValidationError } from './errors';
 import proposalsRouter from './routes/proposals';
 import authRouter from './routes/auth';
-import { SUI_RPC_URL, SUPPORTED_NETWORKS, CORS_ALLOWED_ORIGINS } from './db/env';
+import {
+  SUI_RPC_URL,
+  SUPPORTED_NETWORKS,
+  CORS_ALLOWED_ORIGINS,
+} from './db/env';
 import { cors } from 'hono/cors';
 import { SuiHTTPTransportError } from '@mysten/sui/client';
+import { DrizzleQueryError } from 'drizzle-orm';
 
 const app = new Hono();
 
@@ -21,7 +26,9 @@ app.use(
       // Allow localhost for development
       if (origin.startsWith('http://localhost:')) return origin;
       // Check against allowed origins from environment
-      return CORS_ALLOWED_ORIGINS.includes(origin) ? origin : CORS_ALLOWED_ORIGINS[0];
+      return CORS_ALLOWED_ORIGINS.includes(origin)
+        ? origin
+        : CORS_ALLOWED_ORIGINS[0];
     },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
@@ -35,7 +42,7 @@ app.get('/health', (c) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     networks: SUPPORTED_NETWORKS,
-    version: '1.0.0'
+    version: '1.0.0',
   });
 });
 
@@ -59,6 +66,13 @@ app.onError((err, c) => {
 
   if (err instanceof SuiHTTPTransportError) {
     return c.json({ error: err.message }, 400);
+  }
+
+  if (err instanceof DrizzleQueryError) {
+    const msg = err.cause?.message;
+    if (msg?.includes('violates unique constraint')) {
+      return c.json({ error: 'Data already exists in the database.' }, 400);
+    }
   }
 
   console.error('Unhandled error:', err);

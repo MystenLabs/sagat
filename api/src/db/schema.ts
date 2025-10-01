@@ -14,7 +14,6 @@ import {
 import { ValidationError } from '../errors';
 import { sql } from 'drizzle-orm';
 
-
 export enum ProposalStatus {
   PENDING = 0,
   CANCELLED = 1,
@@ -111,10 +110,15 @@ const proposals = pgTable(
     // the network of the proposal
     network: text('network').notNull(),
     // The creation time of the proposal.
-    createdAt: timestamp('created_at').notNull().default(sql`NOW()`),
+    createdAt: timestamp('created_at')
+      .notNull()
+      .default(sql`NOW()`),
   },
   (table) => [
-    index('proposals_addr_network_idx').on(table.multisigAddress, table.network),
+    index('proposals_addr_network_idx').on(
+      table.multisigAddress,
+      table.network,
+    ),
     index('proposals_multisig_address_idx').on(table.multisigAddress),
   ],
 );

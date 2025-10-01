@@ -1,7 +1,12 @@
 import { ValidationError } from '../errors';
 import { parsePublicKey } from '../utils/pubKey';
 import { db } from '../db';
-import { SchemaAddresses, SchemaMultisigMembers, SchemaMultisigs, MultisigWithMembers } from '../db/schema';
+import {
+  SchemaAddresses,
+  SchemaMultisigMembers,
+  SchemaMultisigs,
+  MultisigWithMembers,
+} from '../db/schema';
 import type { PublicKey } from '@mysten/sui/cryptography';
 import { eq, inArray } from 'drizzle-orm';
 

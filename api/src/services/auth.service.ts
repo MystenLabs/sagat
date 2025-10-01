@@ -137,10 +137,7 @@ export const authMiddleware = async (c: Context, next: () => Promise<void>) => {
       if (parts.length !== 2) return c.text('Unauthorized', 401);
       if (parts[0] !== 'Bearer') return c.text('Unauthorized', 401);
       // `Authorization: Bearer <jwt>`
-      const keys = await getPublicKeysFromJwt(
-        parts[1],
-        'script',
-      );
+      const keys = await getPublicKeysFromJwt(parts[1], 'script');
       if (!keys) return c.text('Unauthorized', 401);
       // We only accept single-key jwt from Authorization.
       if (keys.length !== 1) return c.text('Unauthorized', 401);
