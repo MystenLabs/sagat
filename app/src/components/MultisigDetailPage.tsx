@@ -133,8 +133,14 @@ export function MultisigDetailPage() {
               <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
                 {multisig.threshold} threshold • {multisig.totalMembers} members
               </span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full">
-                {multisig.isVerified ? "Verified" : "Pending"}
+              <span
+                className={`px-2 py-1 ${multisig.isVerified ? "bg-green-100 text-green-700" : multisig.rejectedMembers > 0 ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"} rounded-full`}
+              >
+                {multisig.isVerified
+                  ? "Verified"
+                  : multisig.rejectedMembers > 0
+                    ? "Rejected"
+                    : "Pending"}
               </span>
             </div>
           </div>
@@ -160,11 +166,12 @@ export function MultisigDetailPage() {
                 >
                   <Icon className="w-4 h-4" />
                   {tabItem.label}
-                  {(tabItem.count && tabItem.count > 0) && (
+                  {(tabItem.count && tabItem.count > 0 && (
                     <span className="ml-1 px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full">
                       {tabItem.count} pending
                     </span>
-                  ) || null}
+                  )) ||
+                    null}
                 </NavLink>
               );
             })}

@@ -31,7 +31,8 @@ export function useUserMultisigs(showPending = false) {
       return (connections[pubKeyBase64] || []).map((m) => ({
         ...m,
         isAccepted: m.members.find((m) => m.publicKey === pubKeyBase64)!.isAccepted,
-        pendingMembers: m.members.filter(m => !m.isAccepted).length,
+        pendingMembers: m.members.filter(m => !m.isAccepted && !m.isRejected).length,
+        rejectedMembers: m.members.filter(m => m.isRejected).length,
       }))
     },
     enabled: isCurrentAddressAuthenticated,

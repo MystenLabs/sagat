@@ -41,6 +41,7 @@ export interface MultisigMember {
   publicKey: string;
   weight: number;
   isAccepted: boolean;
+  isRejected: boolean;
   order: number;
 }
 
@@ -89,6 +90,7 @@ export interface MultisigWithMembers extends Multisig {
 
 // this is the multisig view, for a given public key.
 export interface MultisigWithMembersForPublicKey extends MultisigWithMembers {
+  rejectedMembers: number;
   pendingMembers: number;
   isAccepted: boolean;
 }
