@@ -33,32 +33,36 @@ export function extractPublicKey(
   expectedAddress: string,
 ): PublicKey {
   const address = new Uint8Array(publicKey);
+
   const flag = address[0];
   const data = address.slice(1);
 
-  if (!address || !data || address.length === 0) {
+  const hasFlag =
+    flag === SIGNATURE_SCHEME_TO_FLAG.ED25519 ||
+    flag === SIGNATURE_SCHEME_TO_FLAG.Secp256k1 ||
+    flag === SIGNATURE_SCHEME_TO_FLAG.Secp256r1 ||
+    flag === SIGNATURE_SCHEME_TO_FLAG.ZkLogin ||
+    flag === SIGNATURE_SCHEME_TO_FLAG.Passkey ||
+    flag === SIGNATURE_SCHEME_TO_FLAG.MultiSig;
+
+  const isSupportedFlag =
+    !hasFlag ||
+    (hasFlag &&
+      (flag === SIGNATURE_SCHEME_TO_FLAG.ED25519 ||
+        flag === SIGNATURE_SCHEME_TO_FLAG.Secp256k1 ||
+        flag === SIGNATURE_SCHEME_TO_FLAG.Secp256r1));
+
+  if (!publicKey || !isSupportedFlag || address.length === 0) {
     throw new Error(
       "The only supported public keys are Ed25519, Secp256k1, and Secp256r1. ZkLogin is not supported.",
     );
   }
 
-  let pubKey: PublicKey;
+  let pubKey: PublicKey = hasFlag
+    ? getPublicKeyWithFlag(data, flag)
+    : tryGetPublicKeyWithoutFlag(publicKey);
 
-  switch (flag) {
-    case SIGNATURE_SCHEME_TO_FLAG.ED25519:
-      pubKey = new Ed25519PublicKey(data);
-      break;
-    case SIGNATURE_SCHEME_TO_FLAG.Secp256k1:
-      pubKey = new Secp256k1PublicKey(data);
-      break;
-    case SIGNATURE_SCHEME_TO_FLAG.Secp256r1:
-      pubKey = new Secp256r1PublicKey(data);
-      break;
-    case SIGNATURE_SCHEME_TO_FLAG.ZkLogin:
-      throw new Error("ZkLogin public keys are not supported");
-    default:
-      throw new Error("Not supported public key type");
-  }
+  if (!pubKey) throw new Error("Invalid public key");
 
   if (pubKey.toSuiAddress() !== expectedAddress)
     throw new Error(
@@ -67,3 +71,37 @@ export function extractPublicKey(
 
   return pubKey;
 }
+
+const getPublicKeyWithFlag = (publicKey: Uint8Array, flag: number) => {
+  switch (flag) {
+    case SIGNATURE_SCHEME_TO_FLAG.ED25519:
+      return new Ed25519PublicKey(publicKey);
+      break;
+    case SIGNATURE_SCHEME_TO_FLAG.Secp256k1:
+      return new Secp256k1PublicKey(publicKey);
+      break;
+    case SIGNATURE_SCHEME_TO_FLAG.Secp256r1:
+      return new Secp256r1PublicKey(publicKey);
+      break;
+    case SIGNATURE_SCHEME_TO_FLAG.ZkLogin:
+      throw new Error("ZkLogin public keys are not supported");
+    default:
+      throw new Error("Not supported public key type");
+  }
+};
+
+const tryGetPublicKeyWithoutFlag = (publicKey: Uint8Array) => {
+  try {
+    return new Ed25519PublicKey(publicKey);
+  } catch (err) {}
+
+  try {
+    return new Secp256k1PublicKey(publicKey);
+  } catch (err) {}
+
+  try {
+    return new Secp256r1PublicKey(publicKey);
+  } catch (err) {}
+
+  throw new Error("Invalid public key");
+};
