@@ -4,8 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '../ui/button';
 import { ProposalWithSignatures, ProposalStatus } from '../../lib/types';
 import { useNetwork } from '../../contexts/NetworkContext';
-import { useCurrentAccount } from '@mysten/dapp-kit';
-import { extractPublicKey } from '@/lib/wallet';
 import { ProposalPreview } from './ProposalPreview';
 import { apiClient } from '../../lib/api';
 import { calculateCurrentWeight, getTotalWeight } from '../../lib/proposalUtils';
@@ -15,6 +13,7 @@ import { useVerifyProposal } from '../../hooks/useVerifyProposal';
 import { useCancelProposal } from '../../hooks/useCancelProposal';
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 interface ProposalCardProps {
   proposal: ProposalWithSignatures;
@@ -22,7 +21,6 @@ interface ProposalCardProps {
 
 export function ProposalCard({ proposal }: ProposalCardProps) {
   const { network } = useNetwork();
-  const currentAccount = useCurrentAccount();
   const [isExpanded, setIsExpanded] = useState(false);
   const [copiedDigest, setCopiedDigest] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
@@ -83,15 +81,12 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
     });
   };
 
+  const { currentAddress } = useApiAuth();
+
 
   const userHasSigned = () => {
-    if (!currentAccount?.publicKey) return false;
-    const userPublicKey = extractPublicKey(
-      new Uint8Array(currentAccount.publicKey),
-      currentAccount.address
-    ).toBase64();
-
-    return proposal.signatures.some(sig => sig.publicKey === userPublicKey);
+    if (!currentAddress) return false;
+    return proposal.signatures.some(sig => sig.publicKey === currentAddress.publicKey);
   };
 
   const getProposalTitle = () => {

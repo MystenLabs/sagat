@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { formatAddress } from "../lib/formatters";
-import { useValidatedPublicKey } from "@/hooks/useValidatedPublicKey";
 
 type WalletVariant = "header" | "sidebar";
 
@@ -56,8 +55,6 @@ function AccountItem({
   const isAccountAuthenticated = authenticatedAddresses.includes(
     account.address,
   );
-
-  const { publicKeyError } = useValidatedPublicKey(account);
 
   const handleSignClick = () => {
     // If not current account, switch to it first
@@ -102,7 +99,7 @@ function AccountItem({
             size="sm"
             variant="outline"
             onClick={handleSignClick}
-            disabled={isConnecting || !!publicKeyError}
+            disabled={isConnecting}
             className="text-xs px-1.5 py-1 h-6 flex items-center gap-1"
           >
             <Shield className="w-2.5 h-2.5" />

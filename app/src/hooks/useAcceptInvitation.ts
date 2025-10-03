@@ -1,26 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSignPersonalMessage, useCurrentAccount } from '@mysten/dapp-kit';
+import { useSignPersonalMessage } from '@mysten/dapp-kit';
 import { apiClient } from '../lib/api';
 import { toast } from 'sonner';
-import { extractPublicKey } from '../lib/wallet';
 import { QueryKeys } from '../lib/queryKeys';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 export function useAcceptInvitation() {
   const queryClient = useQueryClient();
-  const currentAccount = useCurrentAccount();
   const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
+  const { currentAddress } = useApiAuth();
 
   return useMutation({
     mutationFn: async (multisigAddress: string) => {
-      if (!currentAccount) {
-        throw new Error('No wallet connected');
-      }
-
-      // Get current account's public key
-      const publicKey = extractPublicKey(
-        new Uint8Array(currentAccount.publicKey),
-        currentAccount.address
-      );
+      if (!currentAddress) throw new Error('No wallet connected');
 
       // Create and sign the message
       const message = `Participating in multisig ${multisigAddress}`;
@@ -30,7 +22,7 @@ export function useAcceptInvitation() {
 
       // Call API to accept the invitation
       return apiClient.acceptMultisigInvite(multisigAddress, {
-        publicKey: publicKey.toBase64(),
+        publicKey: currentAddress.publicKey,
         signature: result.signature,
       });
     },

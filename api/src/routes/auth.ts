@@ -7,6 +7,7 @@ import {
   AuthEnv,
   connectForScript,
 } from '../services/auth.service';
+import { SIGNATURE_FLAG_TO_SCHEME } from '@mysten/sui/cryptography';
 
 const authRouter = new Hono();
 
@@ -18,13 +19,16 @@ authRouter.post('/disconnect', disconnect);
 authRouter.get('/check', authMiddleware, async (c: Context<AuthEnv>) => {
   const publicKeys = c.get('publicKeys');
 
-  // Convert public keys to addresses
-  const addresses = publicKeys.map((pk) => pk.toSuiAddress());
-  const publicKeyStrings = publicKeys.map((pk) => pk.toBase64());
+  const addresses = publicKeys.map((pk) => {
+    return {
+      address: pk.toSuiAddress(),
+      schema: SIGNATURE_FLAG_TO_SCHEME[pk.flag() as keyof typeof SIGNATURE_FLAG_TO_SCHEME],
+      publicKey: pk.toBase64(),
+    };
+  });
 
   return c.json({
     authenticated: true,
-    publicKeys: publicKeyStrings,
     addresses,
   });
 });

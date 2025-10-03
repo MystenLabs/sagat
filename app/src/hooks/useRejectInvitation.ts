@@ -1,26 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentAccount, useSignPersonalMessage } from "@mysten/dapp-kit";
 import { apiClient } from "../lib/api";
-import { extractPublicKey } from "../lib/wallet";
 import { toast } from "sonner";
 import { QueryKeys } from "@/lib/queryKeys";
+import { useApiAuth } from "@/contexts/ApiAuthContext";
 
 export function useRejectInvitation() {
   const currentAccount = useCurrentAccount();
   const queryClient = useQueryClient();
+  const { currentAddress } = useApiAuth();
   const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
 
   return useMutation({
     mutationFn: async (multisigAddress: string) => {
-      if (!currentAccount) {
+      if (!currentAccount || !currentAddress) {
         throw new Error("No wallet connected");
       }
-
-      // Extract public key
-      const publicKey = extractPublicKey(
-        new Uint8Array(currentAccount.publicKey),
-        currentAccount.address
-      );
 
       // Sign rejection message
       const message = `Rejecting multisig invitation ${multisigAddress}`;
@@ -31,18 +26,17 @@ export function useRejectInvitation() {
 
       // Send to API
       return apiClient.rejectMultisigInvite(multisigAddress, {
-        publicKey: publicKey.toBase64(),
+        publicKey: currentAddress.publicKey,
         signature: result.signature,
       });
     },
     onSuccess: () => {
-      toast.success("Invitation rejected");
+      toast.success("Invitation rejected successfully!");
       // Invalidate the multisig queries to refresh the list
       queryClient.invalidateQueries({ queryKey: [QueryKeys.Multisigs] });
       queryClient.invalidateQueries({ queryKey: [QueryKeys.Invitations] });
     },
     onError: (error: Error) => {
-      console.error("Failed to reject invitation:", error);
       toast.error(`Failed to reject invitation: ${error.message}`);
     },
   });

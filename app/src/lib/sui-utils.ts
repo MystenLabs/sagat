@@ -1,8 +1,21 @@
-import { PublicKey } from '@mysten/sui/cryptography';
-import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
-import { Secp256k1PublicKey } from '@mysten/sui/keypairs/secp256k1';
-import { Secp256r1PublicKey } from '@mysten/sui/keypairs/secp256r1';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { PublicKey } from "@mysten/sui/cryptography";
+import { Ed25519PublicKey } from "@mysten/sui/keypairs/ed25519";
+import { Secp256k1PublicKey } from "@mysten/sui/keypairs/secp256k1";
+import { Secp256r1PublicKey } from "@mysten/sui/keypairs/secp256r1";
+import { MultiSigPublicKey } from "@mysten/sui/multisig";
+
+const publicKeyFromBase64String = (publicKeyString: string): PublicKey => {
+  try {
+    return new Ed25519PublicKey(publicKeyString);
+  } catch (e) {}
+  try {
+    return new Secp256k1PublicKey(publicKeyString);
+  } catch (e) {}
+  try {
+    return new Secp256r1PublicKey(publicKeyString);
+  } catch (e) {}
+  throw new Error("Invalid public key");
+};
 
 /**
  * Validates and parses a public key string
@@ -13,44 +26,15 @@ export function validatePublicKey(publicKeyString: string): {
   error?: string;
 } {
   try {
-    // Try to parse as different key types
-    let pubKey: PublicKey | null = null;
-
-    // Try Ed25519 (most common)
-    try {
-      pubKey = new Ed25519PublicKey(publicKeyString);
-    } catch {
-      // Try Secp256k1
-      try {
-        pubKey = new Secp256k1PublicKey(publicKeyString);
-      } catch {
-        // Try Secp256r1
-        try {
-          pubKey = new Secp256r1PublicKey(publicKeyString);
-        } catch {
-          return {
-            isValid: false,
-            error: 'Invalid public key format'
-          };
-        }
-      }
-    }
-
-    if (pubKey) {
-      return {
-        isValid: true,
-        address: pubKey.toSuiAddress()
-      };
-    }
-
+    const pubKey = publicKeyFromBase64String(publicKeyString);
     return {
-      isValid: false,
-      error: 'Failed to parse public key'
+      isValid: true,
+      address: pubKey.toSuiAddress(),
     };
-  } catch (error) {
+  } catch (e) {
     return {
       isValid: false,
-      error: 'Invalid public key'
+      error: "Invalid public key",
     };
   }
 }
@@ -61,38 +45,27 @@ export function validatePublicKey(publicKeyString: string): {
 export function computeMultisigAddress(
   publicKeys: string[],
   weights: number[],
-  threshold: number
+  threshold: number,
 ): { address: string | null; error: string | null } {
   try {
     if (publicKeys.length === 0) {
-      return { address: null, error: 'No public keys provided' };
+      return { address: null, error: "No public keys provided" };
     }
 
     // Filter out empty public keys
     const validKeys = publicKeys.filter(Boolean);
+
     if (validKeys.length !== publicKeys.length) {
-      return { address: null, error: 'Some public keys are empty' };
+      return { address: null, error: "Cannot compute multisig address. Some public keys are empty" };
     }
 
     // Convert public key strings to PublicKey objects
-    const pubKeys = validKeys.map(keyStr => {
+    const pubKeys = validKeys.map((keyStr) => {
       const validation = validatePublicKey(keyStr);
-      if (!validation.isValid) {
-        throw new Error(`Invalid public key: ${validation.error}`);
-      }
+      if (!validation.isValid)
+        throw new Error(`Failed to compute multisig address. Invalid public key: ${validation.error}`);
 
-      // Re-parse to get the actual PublicKey object
-      let pubKey: PublicKey;
-      try {
-        pubKey = new Ed25519PublicKey(keyStr);
-      } catch {
-        try {
-          pubKey = new Secp256k1PublicKey(keyStr);
-        } catch {
-          pubKey = new Secp256r1PublicKey(keyStr);
-        }
-      }
-      return pubKey;
+      return publicKeyFromBase64String(keyStr);
     });
 
     // Create multisig public key
@@ -106,10 +79,14 @@ export function computeMultisigAddress(
 
     return { address: multisig.toSuiAddress(), error: null };
   } catch (error) {
-    console.error('Error computing multisig address:', error);
+    if (error instanceof Error) {
+      if (error.message === 'Unreachable threshold') {
+        return { address: null, error: "The threshold is unreachable for the provided weights. Please adjust the threshold or add more members." };
+      }
+    }
     return {
       address: null,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : "Unknown error",
     };
   }
 }

@@ -7,7 +7,7 @@ import {
   SchemaMultisigs,
   MultisigWithMembers,
 } from '../db/schema';
-import type { PublicKey } from '@mysten/sui/cryptography';
+import { SIGNATURE_FLAG_TO_SCHEME, type PublicKey } from '@mysten/sui/cryptography';
 import { eq, inArray } from 'drizzle-orm';
 
 // Takes a pub key, a signature, and a message, and validates it.
@@ -39,6 +39,7 @@ export async function registerPublicKey(publicKey: PublicKey): Promise<void> {
     .values({
       publicKey: publicKey.toBase64(),
       address: publicKey.toSuiAddress(),
+      schema: SIGNATURE_FLAG_TO_SCHEME[publicKey.flag() as keyof typeof SIGNATURE_FLAG_TO_SCHEME],
     })
     .onConflictDoNothing();
 }
@@ -54,6 +55,7 @@ export async function registerPublicKeys(
   const addressData = publicKeys.map((pubKey) => ({
     publicKey: pubKey.toBase64(),
     address: pubKey.toSuiAddress(),
+    schema: SIGNATURE_FLAG_TO_SCHEME[pubKey.flag() as keyof typeof SIGNATURE_FLAG_TO_SCHEME],
   }));
 
   await db.insert(SchemaAddresses).values(addressData).onConflictDoNothing();

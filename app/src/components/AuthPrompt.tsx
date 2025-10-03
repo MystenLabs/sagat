@@ -4,13 +4,10 @@ import { Button } from "./ui/button";
 import { CopyButton } from "./ui/CopyButton";
 import { Shield, ArrowRight } from "lucide-react";
 import { formatAddress } from "../lib/formatters";
-import { useValidatedPublicKey } from "@/hooks/useValidatedPublicKey";
 
 export function AuthPrompt() {
   const currentAccount = useCurrentAccount();
   const { signAndConnect, isConnecting } = useApiAuth();
-
-  const { publicKey, publicKeyError } = useValidatedPublicKey(currentAccount);
 
   return (
     <div className="mx-auto mt-20 p-8">
@@ -37,29 +34,11 @@ export function AuthPrompt() {
               )}
             </div>
           </div>
-
-          {publicKey && (
-            <div>
-              <p className="text-xs text-gray-500 mb-1">Public Key</p>
-              <div className="flex items-center justify-center gap-1">
-                <p className="font-mono text-sm font-medium break-all max-w-md">
-                  {publicKey.toBase64()}
-                </p>
-                <CopyButton value={publicKey.toBase64()} size="xs" />
-              </div>
-            </div>
-          )}
-
-          {publicKeyError && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
-              <p className="text-sm text-red-600">{publicKeyError}</p>
-            </div>
-          )}
         </div>
 
         <Button
           onClick={signAndConnect}
-          disabled={isConnecting || !!publicKeyError}
+          disabled={isConnecting}
           size="lg"
           className="w-full"
         >

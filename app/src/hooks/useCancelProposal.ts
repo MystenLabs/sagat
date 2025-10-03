@@ -3,16 +3,17 @@ import { useSignPersonalMessage, useCurrentAccount } from '@mysten/dapp-kit';
 import { apiClient } from '../lib/api';
 import { toast } from 'sonner';
 import { QueryKeys } from '../lib/queryKeys';
-import { extractPublicKey } from '../lib/wallet';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 export function useCancelProposal() {
   const queryClient = useQueryClient();
   const currentAccount = useCurrentAccount();
   const { mutateAsync: signPersonalMessage } = useSignPersonalMessage();
+  const { currentAddress } = useApiAuth();
 
   return useMutation({
     mutationFn: async (proposalId: number) => {
-      if (!currentAccount) throw new Error('No wallet connected');
+      if (!currentAccount || !currentAddress) throw new Error('No wallet connected');
       
 
       // Create a message to sign for cancellation
@@ -24,14 +25,9 @@ export function useCancelProposal() {
         account: currentAccount,
       });
 
-      const publicKey = extractPublicKey(
-        new Uint8Array(currentAccount.publicKey),
-        currentAccount.address
-      );
-
       // Call API to cancel the proposal
       return apiClient.cancelProposal(proposalId, {
-        publicKey: publicKey.toBase64(),
+        publicKey: currentAddress.publicKey,
         signature: signResult.signature,
       });
     },

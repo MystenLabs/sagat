@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { useCurrentAccount } from '@mysten/dapp-kit';
 import { apiClient } from '../lib/api';
 import { ProposalStatus, ProposalWithSignatures } from '../lib/types';
 import { MultisigWithMembersForPublicKey } from '@/lib/types';
-import { extractPublicKey } from '../lib/wallet';
 import { calculateCurrentWeight, getTotalWeight } from '../lib/proposalUtils';
 import { QueryKeys } from '../lib/queryKeys';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 interface UseProposalsQueriesParams {
   multisig: MultisigWithMembersForPublicKey;
@@ -18,7 +17,7 @@ export function useProposalsQueries({
   network,
   activeFilter
 }: UseProposalsQueriesParams) {
-  const currentAccount = useCurrentAccount();
+  const { currentAddress } = useApiAuth();
 
   // Query to get full multisig details (including members with weights)
   const multisigDetailsQuery = useQuery({
@@ -91,14 +90,10 @@ export function useProposalsQueries({
 
   // Helper to check if current user has signed a proposal
   const userHasSignedProposal = (proposal: ProposalWithSignatures) => {
-    if (!currentAccount?.publicKey) return false;
+    if (!currentAddress) return false;
     try {
-      const userPublicKey = extractPublicKey(
-        new Uint8Array(currentAccount.publicKey),
-        currentAccount.address,
-      ).toBase64();
 
-      return proposal.signatures.some((sig) => sig.publicKey === userPublicKey);
+      return proposal.signatures.some((sig) => sig.publicKey === currentAddress.publicKey);
     } catch (error) {
       console.error('Error checking user signature:', error);
       return false;

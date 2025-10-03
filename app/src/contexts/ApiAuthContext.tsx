@@ -2,14 +2,14 @@ import React, { createContext, useContext, useEffect } from "react";
 import { useCurrentAccount, useSignPersonalMessage } from "@mysten/dapp-kit";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../lib/api";
-import { AuthCheckResponse } from "../lib/types";
-import {
-  getExpiryTime,
-  createAuthMessage,
-  extractPublicKey,
-} from "../lib/wallet";
+import { Address, AuthCheckResponse } from "../lib/types";
+import { getExpiryTime, createAuthMessage } from "../lib/wallet";
 import { toast } from "sonner";
 import { QueryKeys } from "../lib/queryKeys";
+import { parseSerializedSignature, PublicKey } from "@mysten/sui/cryptography";
+import { Ed25519PublicKey } from "@mysten/sui/keypairs/ed25519";
+import { Secp256k1PublicKey } from "@mysten/sui/keypairs/secp256k1";
+import { Secp256r1PublicKey } from "@mysten/sui/keypairs/secp256r1";
 
 interface ApiAuthContextType {
   // Auth state from API
@@ -18,7 +18,7 @@ interface ApiAuthContextType {
   isCheckingAuth: boolean;
 
   // Current wallet account state
-  currentAddress: string | null;
+  currentAddress: Address | null;
   isCurrentAddressAuthenticated: boolean;
 
   // Actions
@@ -74,10 +74,23 @@ export function ApiAuthProvider({ children }: { children: React.ReactNode }) {
         account: currentAccount,
       });
 
-      const pubKey = extractPublicKey(
-        new Uint8Array(currentAccount.publicKey),
-        currentAccount.address,
+      const analyzeSignature = await parseSerializedSignature(
+        signResult.signature,
       );
+
+      let pubKey: PublicKey;
+
+      if (analyzeSignature.signatureScheme === "ED25519") {
+        pubKey = new Ed25519PublicKey(analyzeSignature.publicKey);
+      } else if (analyzeSignature.signatureScheme === "Secp256k1") {
+        pubKey = new Secp256k1PublicKey(analyzeSignature.publicKey);
+      } else if (analyzeSignature.signatureScheme === "Secp256r1") {
+        pubKey = new Secp256r1PublicKey(analyzeSignature.publicKey);
+      } else {
+        throw new Error(
+          "Unsupported signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported.",
+        );
+      }
 
       // Send to API
       return apiClient.connect({
@@ -110,15 +123,19 @@ export function ApiAuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  const currentAddress = currentAccount?.address || null;
+  const currentAddress =
+    authData?.addresses?.find((x) => x.address === currentAccount?.address) ||
+    null;
+
   const isCurrentAddressAuthenticated =
     !!currentAddress &&
-    (authData?.addresses?.includes(currentAddress) ?? false);
+    (authData?.addresses?.some((x) => x.address === currentAddress.address) ??
+      false);
 
   const value: ApiAuthContextType = {
     // Auth state
     isAuthenticated: authData?.authenticated ?? false,
-    authenticatedAddresses: authData?.addresses ?? [],
+    authenticatedAddresses: authData?.addresses?.map((x) => x.address) ?? [],
     isCheckingAuth,
 
     // Current wallet

@@ -3,9 +3,9 @@ import { useSignTransaction, useCurrentAccount } from '@mysten/dapp-kit';
 import { apiClient } from '../lib/api';
 import { toast } from 'sonner';
 import { Transaction } from '@mysten/sui/transactions';
-import { extractPublicKey } from '@/lib/wallet';
 import { useNetwork } from '../contexts/NetworkContext';
 import { QueryKeys } from '../lib/queryKeys';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 interface CreateProposalParams {
   multisigAddress: string;
@@ -18,10 +18,11 @@ export function useCreateProposal() {
   const currentAccount = useCurrentAccount();
   const queryClient = useQueryClient();
   const { mutateAsync: signTransaction } = useSignTransaction();
+  const { currentAddress } = useApiAuth();
 
   return useMutation({
     mutationFn: async ({ multisigAddress, transactionData, description }: CreateProposalParams) => {
-      if (!currentAccount?.publicKey) {
+      if (!currentAddress || !currentAccount) {
         throw new Error("No connected account");
       }
 
@@ -38,10 +39,7 @@ export function useCreateProposal() {
       return apiClient.createProposal({
         multisigAddress,
         transactionBytes: transactionData,
-        publicKey: extractPublicKey(
-          new Uint8Array(currentAccount.publicKey),
-          currentAccount.address,
-        ).toBase64(),
+        publicKey: currentAddress.publicKey,
         signature: signatureResult.signature as string,
         description,
         network,

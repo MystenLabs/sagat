@@ -1,10 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSignTransaction, useCurrentAccount } from '@mysten/dapp-kit';
-import { apiClient } from '../lib/api';
-import { toast } from 'sonner';
-import { extractPublicKey } from '../lib/wallet';
-import { Transaction } from '@mysten/sui/transactions';
-import { QueryKeys } from '../lib/queryKeys';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSignTransaction, useCurrentAccount } from "@mysten/dapp-kit";
+import { apiClient } from "../lib/api";
+import { toast } from "sonner";
+import { Transaction } from "@mysten/sui/transactions";
+import { QueryKeys } from "../lib/queryKeys";
+import { useApiAuth } from "@/contexts/ApiAuthContext";
 
 interface SignProposalParams {
   proposalId: number;
@@ -12,21 +12,19 @@ interface SignProposalParams {
 }
 
 export function useSignProposal() {
-  const queryClient = useQueryClient();
   const currentAccount = useCurrentAccount();
+  const queryClient = useQueryClient();
+  const { currentAddress } = useApiAuth();
   const { mutateAsync: signTransaction } = useSignTransaction();
 
   return useMutation({
-    mutationFn: async ({ proposalId, builtTransactionBytes }: SignProposalParams) => {
-      if (!currentAccount?.publicKey) {
+    mutationFn: async ({
+      proposalId,
+      builtTransactionBytes,
+    }: SignProposalParams) => {
+      if (!currentAddress || !currentAccount) {
         throw new Error("No connected account");
       }
-
-      // Get current account's public key
-      const publicKey = extractPublicKey(
-        new Uint8Array(currentAccount.publicKey),
-        currentAccount.address
-      );
 
       // Create transaction from built bytes for signing
       const transaction = Transaction.from(builtTransactionBytes);
@@ -39,7 +37,7 @@ export function useSignProposal() {
 
       // Call API to vote on the proposal
       return apiClient.voteOnProposal(proposalId, {
-        publicKey: publicKey.toBase64(),
+        publicKey: currentAddress.publicKey,
         signature: result.signature as string,
       });
     },

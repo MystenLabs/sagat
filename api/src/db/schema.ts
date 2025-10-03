@@ -81,10 +81,16 @@ const multisigMembers = pgTable(
 );
 
 // Save a table of `pubKey -> address` to make lookups easier.
-const addresses = pgTable('addresses', {
-  publicKey: text('public_key').notNull().primaryKey(),
-  address: text('address').notNull().unique(),
-});
+const addresses = pgTable(
+  'addresses',
+  {
+    publicKey: text('public_key').notNull().primaryKey(),
+    address: text('address').notNull().unique(),
+    // the schema of the public key.
+    schema: text('schema').notNull().default('ED25519'),
+  },
+  (table) => [uniqueIndex('addresses_address_idx').on(table.address)],
+);
 
 const proposals = pgTable(
   'proposals',
