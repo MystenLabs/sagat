@@ -20,7 +20,9 @@ if (!corsAllowedOrigins)
     'CORS_ALLOWED_ORIGINS is not set. Please set it to a comma-separated list of allowed origins.',
   );
 
-export const JWT_SECRET = jwtSecret;
+// We append `forced_v{x}` when we wanna log everyone off for a good reason.
+// V1: We logged people off to make sure we migrate pubkeys to always be with flags.
+export const JWT_SECRET = 'forced_v1_' + jwtSecret;
 export const CORS_ALLOWED_ORIGINS = corsAllowedOrigins;
 export const SUPPORTED_NETWORKS = supportedNetworks.map((network) => {
   if (!['mainnet', 'testnet', 'devnet', 'localnet'].includes(network))
