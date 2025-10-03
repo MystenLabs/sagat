@@ -16,7 +16,6 @@ export interface AuthCheckResponse {
 
 export interface Address {
   address: string;
-  schema: number;
   publicKey: string;
 }
 

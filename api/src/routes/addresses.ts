@@ -58,7 +58,7 @@ addressesRouter.get(
     const whereConditions = [
       inArray(
         SchemaMultisigMembers.publicKey,
-        publicKeys.map((pubKey) => pubKey.toBase64()),
+        publicKeys.map((pubKey) => pubKey.toSuiPublicKey()),
       ),
       eq(SchemaMultisigMembers.isAccepted, true),
       eq(SchemaMultisigMembers.isRejected, false),
@@ -80,7 +80,7 @@ addressesRouter.get(
     const grouped: Record<string, MultisigWithMembers[]> = {};
 
     for (const pubkey of publicKeys) {
-      const pubKeyBase64 = pubkey.toBase64();
+      const pubKeyBase64 = pubkey.toSuiPublicKey();
       // shouldnt really happen
       if (grouped[pubKeyBase64]) continue;
 
@@ -103,7 +103,7 @@ addressesRouter.get(
     const { showRejected } = c.req.query();
     const { publicKey } = c.req.param();
 
-    if (!publicKeys.some((pubKey) => pubKey.toBase64() === publicKey))
+    if (!publicKeys.some((pubKey) => pubKey.toSuiPublicKey() === publicKey))
       throw new ValidationError('You are not authorized.');
 
     const whereConditions = [

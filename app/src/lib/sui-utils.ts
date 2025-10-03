@@ -18,7 +18,7 @@ export function validatePublicKey(publicKeyString: string): {
   } catch (e) {
     return {
       isValid: false,
-      error: "Invalid public key",
+      error: e instanceof Error ? e.message : "Invalid public key",
     };
   }
 }

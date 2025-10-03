@@ -21,7 +21,7 @@ const issueJwt = async (
 ) => {
   return (
     new SignJWT({
-      publicKeys: publicKeys.map((pubKey) => pubKey.toBase64()),
+      publicKeys: publicKeys.map((pubKey) => pubKey.toSuiPublicKey()),
     })
       .setSubject(subject)
       .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
@@ -45,8 +45,9 @@ export const connectForScript = async (c: Context) => {
   const { publicKey, signature, expiry } = await c.req.json();
   validateExpiry(expiry);
 
-  const pubKey = await validatePersonalMessage(
-    publicKey,
+  const pubKey = parsePublicKey(publicKey);
+  await validatePersonalMessage(
+    pubKey,
     signature,
     `Verifying address ownership until: ${expiry}`,
   );
@@ -93,8 +94,9 @@ export const connectToPublicKey = async (c: Context) => {
 
     validateExpiry(expiry);
 
-    const pubKey = await validatePersonalMessage(
-      publicKey,
+    const pubKey = parsePublicKey(publicKey);
+    await validatePersonalMessage(
+      pubKey,
       signature,
       `Verifying address ownership until: ${expiry}`,
     );
@@ -102,7 +104,8 @@ export const connectToPublicKey = async (c: Context) => {
     // If the public key is not already in the list, we add it.
     if (
       !pubKeys.some(
-        (existingKey) => existingKey.toBase64() === pubKey.toBase64(),
+        (existingKey) =>
+          existingKey.toSuiPublicKey() === pubKey.toSuiPublicKey(),
       )
     ) {
       pubKeys.push(pubKey);

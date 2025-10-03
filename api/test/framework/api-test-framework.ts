@@ -33,7 +33,7 @@ export class TestSession {
     const keypair = new Ed25519Keypair();
     const user = {
       keypair,
-      publicKey: keypair.getPublicKey().toBase64(),
+      publicKey: keypair.getPublicKey().toSuiPublicKey(),
       address: keypair.toSuiAddress(),
     };
     this.users.push(user);

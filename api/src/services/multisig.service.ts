@@ -93,12 +93,12 @@ export const isMultisigFinalized = async (address: string, tx?: any) => {
 // Returns true if the public key is a member of the multisig and has accepted the invitation.
 export const isMultisigMember = async (
   msigAddress: string,
-  publicKey: string,
+  publicKey: PublicKey,
   checkAcceptance: boolean = true,
 ) => {
   const whereConditions = [
     eq(SchemaMultisigMembers.multisigAddress, msigAddress),
-    eq(SchemaMultisigMembers.publicKey, publicKey),
+    eq(SchemaMultisigMembers.publicKey, publicKey.toSuiPublicKey()),
   ];
 
   if (checkAcceptance) {
@@ -122,7 +122,7 @@ export const jwtHasMultisigMemberAccess = async (
     eq(SchemaMultisigMembers.multisigAddress, msigAddress),
     inArray(
       SchemaMultisigMembers.publicKey,
-      publicKeys.map((key) => key.toBase64()),
+      publicKeys.map((key) => key.toSuiPublicKey()),
     ),
   ];
 

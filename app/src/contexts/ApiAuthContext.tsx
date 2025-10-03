@@ -94,7 +94,7 @@ export function ApiAuthProvider({ children }: { children: React.ReactNode }) {
 
       // Send to API
       return apiClient.connect({
-        publicKey: pubKey.toBase64(),
+        publicKey: pubKey.toSuiPublicKey(),
         signature: signResult.signature,
         expiry,
       });

@@ -117,7 +117,7 @@ multisigRouter.post('/', async (c) => {
       .values(
         parsedPubKeys.map((key, index) => ({
           multisigAddress: msig.address,
-          publicKey: key.toBase64(),
+          publicKey: key.toSuiPublicKey(),
           weight:
             weights[addresses.findIndex((addr) => addr === key.toSuiAddress())],
           isAccepted: key.toSuiAddress() === creatorPubKey.toSuiAddress(),
@@ -140,22 +140,20 @@ multisigRouter.post('/:address/accept', async (c) => {
   const { publicKey, signature } = await c.req.json();
   const { address } = c.req.param();
 
-  const pubKey = await parsePublicKey(publicKey);
+  const pubKey = parsePublicKey(publicKey);
 
-  const senderAddress = await validatePersonalMessage(
-    publicKey,
+  if (!(await isMultisigMember(address, pubKey, false)))
+    throw new ValidationError('You are not a member of this multisig');
+
+  await validatePersonalMessage(
+    parsePublicKey(publicKey),
     signature,
     `Participating in multisig ${address}`,
   );
 
-  if (!senderAddress) throw new ValidationError('Invalid signature');
-
-  if (!(await isMultisigMember(address, pubKey.toBase64(), false)))
-    throw new ValidationError('You are not a member of this multisig');
-
   const existingConnections = await db.query.SchemaMultisigMembers.findMany({
     where: and(
-      eq(SchemaMultisigMembers.publicKey, pubKey.toBase64()),
+      eq(SchemaMultisigMembers.publicKey, pubKey.toSuiPublicKey()),
       eq(SchemaMultisigMembers.isAccepted, true),
     ),
   });
@@ -179,7 +177,7 @@ multisigRouter.post('/:address/accept', async (c) => {
       .where(
         and(
           eq(SchemaMultisigMembers.multisigAddress, address),
-          eq(SchemaMultisigMembers.publicKey, pubKey.toBase64()),
+          eq(SchemaMultisigMembers.publicKey, pubKey.toSuiPublicKey()),
         ),
       );
 
@@ -204,13 +202,11 @@ multisigRouter.post('/:address/reject', async (c) => {
   const { address } = c.req.param();
 
   // Validate signature with rejection-specific message
-  const senderAddress = await validatePersonalMessage(
-    publicKey,
+  await validatePersonalMessage(
+    parsePublicKey(publicKey),
     signature,
     `Rejecting multisig invitation ${address}`,
   );
-
-  if (!senderAddress) throw new ValidationError('Invalid signature');
 
   const multisig = await getMultisig(address);
 

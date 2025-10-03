@@ -7,18 +7,17 @@ import {
   SchemaMultisigs,
   MultisigWithMembers,
 } from '../db/schema';
-import { SIGNATURE_FLAG_TO_SCHEME, type PublicKey } from '@mysten/sui/cryptography';
+import { type PublicKey } from '@mysten/sui/cryptography';
 import { eq, inArray } from 'drizzle-orm';
 
 // Takes a pub key, a signature, and a message, and validates it.
 // Returns the Sui address if valid, or null if not.
 export const validatePersonalMessage = async (
-  publicKey: string,
+  publicKey: PublicKey,
   signature: string,
   message: string,
 ) => {
-  const pubKey = parsePublicKey(publicKey);
-  const isValid = await pubKey.verifyPersonalMessage(
+  const isValid = await publicKey.verifyPersonalMessage(
     new TextEncoder().encode(message),
     signature,
   );
@@ -26,8 +25,6 @@ export const validatePersonalMessage = async (
   if (!isValid) {
     throw new ValidationError('Invalid signature for message');
   }
-
-  return pubKey;
 };
 
 /**
@@ -37,9 +34,8 @@ export async function registerPublicKey(publicKey: PublicKey): Promise<void> {
   await db
     .insert(SchemaAddresses)
     .values({
-      publicKey: publicKey.toBase64(),
+      publicKey: publicKey.toSuiPublicKey(),
       address: publicKey.toSuiAddress(),
-      schema: SIGNATURE_FLAG_TO_SCHEME[publicKey.flag() as keyof typeof SIGNATURE_FLAG_TO_SCHEME],
     })
     .onConflictDoNothing();
 }
@@ -53,9 +49,8 @@ export async function registerPublicKeys(
   if (publicKeys.length === 0) return;
 
   const addressData = publicKeys.map((pubKey) => ({
-    publicKey: pubKey.toBase64(),
+    publicKey: pubKey.toSuiPublicKey(),
     address: pubKey.toSuiAddress(),
-    schema: SIGNATURE_FLAG_TO_SCHEME[pubKey.flag() as keyof typeof SIGNATURE_FLAG_TO_SCHEME],
   }));
 
   await db.insert(SchemaAddresses).values(addressData).onConflictDoNothing();

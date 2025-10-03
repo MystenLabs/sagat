@@ -20,11 +20,11 @@ import {
   getProposalById,
   getProposalsByMultisigAddress,
 } from '../services/proposals.service';
-import { validatePersonalMessage } from '../services/addresses.service';
 import { eq } from 'drizzle-orm';
 import { AuthEnv, authMiddleware } from '../services/auth.service';
 import { getSuiClient, SuiNetwork } from '../utils/client';
 import { validateNetwork } from '../db/env';
+import { validatePersonalMessage } from '../services/addresses.service';
 
 const proposalsRouter = new Hono();
 
@@ -41,7 +41,9 @@ proposalsRouter.post('/', async (c) => {
 
   validateNetwork(network);
 
-  if (!(await isMultisigMember(multisigAddress, publicKey)))
+  const pubKey = parsePublicKey(publicKey);
+
+  if (!(await isMultisigMember(multisigAddress, pubKey)))
     throw new ValidationError('Proposer is not a member of the multisig');
 
   const proposedTransaction = Transaction.from(transactionBytes);
@@ -62,7 +64,7 @@ proposalsRouter.post('/', async (c) => {
   });
 
   // Verify the supplied user signature.
-  const pubKey = await parsePublicKey(publicKey);
+
   const isValidSuiSignature = await pubKey.verifyTransaction(built, signature);
 
   if (!isValidSuiSignature)
@@ -103,7 +105,9 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 
   const proposal = await getProposalById(parseInt(proposalId));
 
-  if (!(await isMultisigMember(proposal.multisigAddress, publicKey)))
+  const pubKey = parsePublicKey(publicKey);
+
+  if (!(await isMultisigMember(proposal.multisigAddress, pubKey)))
     throw new ValidationError('Voter is not a member of the multisig');
 
   if (proposal.status !== ProposalStatus.PENDING)
@@ -111,8 +115,6 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 
   if (proposal.signatures.some((sig) => sig?.publicKey === publicKey))
     throw new ValidationError('Voter has already voted for this proposal');
-
-  const pubKey = await parsePublicKey(publicKey);
 
   const isValidSuiSignature = await pubKey.verifyTransaction(
     fromBase64(proposal.builtTransactionBytes),
@@ -157,13 +159,15 @@ proposalsRouter.post('/:proposalId/cancel', async (c) => {
   if (proposal.status !== ProposalStatus.PENDING)
     throw new ValidationError('Proposal is not pending');
 
-  if (!(await isMultisigMember(proposal.multisigAddress, publicKey)))
+  const pubKey = parsePublicKey(publicKey);
+
+  if (!(await isMultisigMember(proposal.multisigAddress, pubKey)))
     throw new ValidationError('Not a member of the multisig');
 
   await validatePersonalMessage(
-    publicKey,
-    signature,
+    pubKey,
     `Cancel proposal ${proposalId}`,
+    signature,
   );
 
   await db

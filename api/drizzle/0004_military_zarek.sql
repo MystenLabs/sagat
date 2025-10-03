@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "addresses_address_idx" ON "addresses" USING btree ("address");
