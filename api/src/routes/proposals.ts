@@ -166,8 +166,8 @@ proposalsRouter.post('/:proposalId/cancel', async (c) => {
 
   await validatePersonalMessage(
     pubKey,
-    `Cancel proposal ${proposalId}`,
     signature,
+    `Cancel proposal ${proposalId}`,
   );
 
   await db

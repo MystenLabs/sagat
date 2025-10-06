@@ -60,7 +60,7 @@ export function MultisigSelector({
           </div>
           <div>
             <h2 className="font-semibold">
-              {currentMultisig?.name || "Unnamed Multisig"}
+              {currentMultisig?.name || formatAddress(currentMultisig?.address)}
             </h2>
             <p className="text-sm text-gray-500">
               {currentMultisig?.threshold}/{currentMultisig?.totalMembers}{" "}
@@ -85,7 +85,7 @@ export function MultisigSelector({
           </div>
           <div>
             <div className="font-medium">
-              {currentMultisig?.name || "Select Multisig"}
+              {currentMultisig?.name || formatAddress(currentMultisig.address)}
               {currentMultisig.pendingMembers ? (
                 <span className="ml-2 px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">
                   {currentMultisig.pendingMembers} pending member
@@ -157,7 +157,7 @@ export function MultisigSelector({
                       </div>
                       <div>
                         <div className="font-medium">
-                          {multisig.name || "Unnamed Multisig"}
+                          {multisig.name || formatAddress(multisig.address)}
                         </div>
                         <p className="text-xs text-gray-500">
                           {formatAddress(multisig.address)} •{" "}

@@ -47,7 +47,7 @@ export function InvitationCard({ multisig }: InvitationCardProps) {
           </div>
           <div className="flex-1">
             <h3 className="font-medium text-gray-900">
-              {multisig.name || "Unnamed Multisig"}
+              {multisig.name || formatAddress(multisig?.address)}
             </h3>
             <div className="flex items-center gap-1">
               <p className="text-sm text-gray-500">
