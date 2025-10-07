@@ -2,17 +2,21 @@ class ConnectedWalletCookieJar {
   private cookies = new Map<string, string>();
   storeFromResponse(res: Response) {
     const cookieHeader =
-      res.headers.get('set-cookie')?.match(/connected-wallet=([^;]+)/)?.[0] ||
-      '';
+      res.headers.get('set-cookie')?.match(/connected-wallet=([^;]+)/)?.[0];
 
-    this.cookies.set('connected-wallet', cookieHeader);
+    // Only update the cookie if we found one in the response
+    if (cookieHeader) {
+      this.cookies.set('connected-wallet', cookieHeader);
+    }
   }
   getConnectedWalletCookie(): string {
     return this.cookies.get('connected-wallet') || '';
   }
 }
 
-export function createCookieFetch(baseFetch = fetch) {
+export type FetchLike = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
+
+export function createCookieFetch(baseFetch: FetchLike = fetch) {
   const jar = new ConnectedWalletCookieJar();
 
   return {

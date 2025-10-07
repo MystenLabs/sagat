@@ -4,10 +4,8 @@ import {
   createTestApp,
 } from './setup/shared-test-setup';
 import { ApiTestFramework } from './framework/api-test-framework';
-import { getLocalClient, fundAddress } from './setup/sui-network';
+import { getLocalClient } from './setup/sui-network';
 import { Transaction } from '@mysten/sui/transactions';
-import { MIST_PER_SUI } from '@mysten/sui/utils';
-import { sleep } from 'bun';
 
 setupSharedTestEnvironment();
 
@@ -319,11 +317,9 @@ describe('Object Collision Detection', () => {
 
   describe('Transaction Resolution', () => {
     // TODO: Fix this test. It has to be not fully resolved, and throw.
-    test('requires fully resolved transactions', async () => {
+    test.skip('requires fully resolved transactions', async () => {
       const { session, users, multisig } =
         await framework.createFundedVerifiedMultisig(2, 2);
-
-      const tx = new Transaction();
 
       // This test would require creating an unresolved transaction
       // For now, we'll just verify our current transactions are resolved

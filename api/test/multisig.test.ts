@@ -77,7 +77,7 @@ describe('Multisig API', () => {
     });
 
     test('multisig becomes verified when all members accept', async () => {
-      const { session, users, multisig } =
+      const { multisig } =
         await framework.createVerifiedMultisig(2, 2);
 
       // If createVerifiedMultisig succeeded, the multisig should be verified

@@ -23,7 +23,7 @@ describe('Proposal Business Logic', () => {
 
   describe('Transaction Validation', () => {
     test('validates transaction signature before creating proposal', async () => {
-      const { session, users, multisig } =
+      const { session, multisig } =
         await framework.createFundedVerifiedMultisig(2, 2);
 
       // Try to create proposal with invalid signature (using wrong keypair)

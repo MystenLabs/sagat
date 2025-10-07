@@ -154,6 +154,10 @@ export interface VoteProposalRequest {
   signature: string;
 }
 
+export interface VoteProposalResponse {
+  hasReachedThreshold: boolean;
+}
+
 export interface CancelProposalRequest {
   signature: string;
 }

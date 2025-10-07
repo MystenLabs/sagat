@@ -1,11 +1,13 @@
 import {
   ProposalStatus,
+  VoteProposalResponse,
   type Address,
   type AuthCheckResponse,
   type AuthResponse,
   type CreateMultisigRequest,
   type CreateProposalRequest,
   type Multisig,
+  type MultisigMember,
   type MultisigWithMembers,
   type PaginatedResponse,
   type Proposal,
@@ -56,11 +58,23 @@ export class SagatClient {
     return this.#request<AuthCheckResponse>('/auth/check');
   }
 
-  async createMultisig(data: CreateMultisigRequest): Promise<Multisig> {
-    return this.#request<Multisig>('/multisig', {
+  async createMultisig(data: CreateMultisigRequest): Promise<MultisigWithMembers> {
+    const response = await this.#request<{
+      multisig: Multisig;
+      members: MultisigMember[];
+    }>('/multisig', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+
+    // Flatten the response to match MultisigWithMembers interface
+    return {
+      ...response.multisig,
+      members: response.members,
+      totalMembers: response.members.length,
+      totalWeight: response.members.reduce((sum, m) => sum + m.weight, 0),
+      proposers: [], // New multisigs have no proposers yet
+    };
   }
 
   async getMultisig(address: string): Promise<MultisigWithMembers> {
@@ -132,8 +146,8 @@ export class SagatClient {
   async voteForProposal(
     proposalId: number,
     data: VoteProposalRequest,
-  ): Promise<{ success: boolean }> {
-    return this.#request<{ success: boolean }>(
+  ): Promise<VoteProposalResponse> {
+    return this.#request<VoteProposalResponse>(
       `/proposals/${proposalId}/vote`,
       {
         method: 'POST',
@@ -223,6 +237,60 @@ export class SagatClient {
     return this.#request<Address>(`/addresses/${address}`);
   }
 
+  /**
+   * Register all public keys that have connected via `connect()` to the system.
+   * This is required before creating or accepting multisigs.
+   */
+  async registerAddresses(): Promise<{ success: boolean }> {
+    return this.#request<{ success: boolean }>('/addresses', {
+      method: 'POST',
+    });
+  }
+
+  /**
+   * Add a proposer to a multisig.
+   * @param address The multisig address
+   * @param proposer The proposer address to add
+   * @param signature Signed `PersonalMessages.addMultisigProposer()` message
+   * @param expiry The expiry timestamp used in the message
+   */
+  async addMultisigProposer(
+    address: string,
+    proposer: string,
+    signature: string,
+    expiry: string,
+  ): Promise<{ success: boolean }> {
+    return this.#request<{ success: boolean }>(
+      `/multisig/${address}/add-proposer`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ proposer, signature, expiry }),
+      },
+    );
+  }
+
+  /**
+   * Remove a proposer from a multisig.
+   * @param address The multisig address
+   * @param proposer The proposer address to remove
+   * @param signature Signed `PersonalMessages.removeMultisigProposer()` message
+   * @param expiry The expiry timestamp used in the message
+   */
+  async removeMultisigProposer(
+    address: string,
+    proposer: string,
+    signature: string,
+    expiry: string,
+  ): Promise<{ success: boolean }> {
+    return this.#request<{ success: boolean }>(
+      `/multisig/${address}/remove-proposer`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ proposer, signature, expiry }),
+      },
+    );
+  }
+
   async #request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const response = await this.#fetchOverride(`${this.#apiUrl}${endpoint}`, {
       ...options,
@@ -240,8 +308,12 @@ export class SagatClient {
       let errorMessage = `Request failed with status ${response.status}`;
       try {
         const errorData = await response.json();
-        throw new Error(errorData.error);
-      } catch {}
+        if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch {
+        // If parsing fails, use the default message
+      }
       throw new Error(errorMessage);
     }
 

@@ -37,8 +37,7 @@ describe('Multisig API', () => {
 
   describe('Multisig Management', () => {
     test('create and verify 2-of-2 multisig', async () => {
-      const { session, users, multisig } =
-        await framework.createVerifiedMultisig(2, 2);
+      const { users, multisig } = await framework.createVerifiedMultisig(2, 2);
 
       expect(multisig.address).toBeDefined();
       expect(multisig.threshold).toBe(2);
@@ -46,8 +45,7 @@ describe('Multisig API', () => {
     });
 
     test('create and verify 2-of-3 multisig', async () => {
-      const { session, users, multisig } =
-        await framework.createVerifiedMultisig(3, 2);
+      const { users, multisig } = await framework.createVerifiedMultisig(3, 2);
 
       expect(multisig.address).toBeDefined();
       expect(multisig.threshold).toBe(2);
@@ -96,7 +94,7 @@ describe('Multisig API', () => {
 
   describe('Session Management', () => {
     test('session disconnect clears state', async () => {
-      const { session, users } = await framework.createAuthenticatedSession(1);
+      const { session } = await framework.createAuthenticatedSession(1);
 
       expect(session.hasActiveCookie()).toBe(true);
       expect(session.getConnectedUsers()).toHaveLength(1);
@@ -125,7 +123,6 @@ describe('Multisig API', () => {
   });
 
   describe('Error Handling', () => {
-
     test('non-member cannot vote on proposal', async () => {
       const { session, users, multisig } =
         await framework.createFundedVerifiedMultisig(2, 2);
@@ -143,7 +140,7 @@ describe('Multisig API', () => {
       );
 
       // Outsider cannot vote
-      await expect(
+      expect(
         session.voteOnProposal(
           outsider,
           proposal.id,

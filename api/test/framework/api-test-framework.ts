@@ -3,22 +3,24 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
 import { getLocalClient, fundAddress } from '../setup/sui-network';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
-import { ProposalWithSignatures } from '../../src/db/schema';
-import { createCookieFetch } from './cookie-fetch';
-import { SagatClient, PersonalMessages, defaultExpiry, type PaginatedResponse } from '@mysten/sagat';
+import { createCookieFetch, FetchLike } from './cookie-fetch';
+import {
+  SagatClient,
+  PersonalMessages,
+  defaultExpiry,
+  type MultisigWithMembers,
+  type PaginatedResponse,
+  type Proposal,
+  type ProposalWithSignatures,
+} from '@mysten/sagat';
 
 const client = getLocalClient();
+const TEST_PLACEHOLDER_URL = 'http://test-placeholder-url';
 
 export interface TestUser {
   keypair: Ed25519Keypair;
   publicKey: string;
   address: string;
-}
-
-export interface TestMultisig {
-  address: string;
-  threshold: number;
-  name?: string;
 }
 
 export interface TestProposal {
@@ -38,14 +40,17 @@ export const newUser = (): TestUser => {
 export class TestSession {
   private cookie: string = '';
   private users: TestUser[] = [];
-  private cookieFetch = createCookieFetch();
-  private client = new SagatClient(
-    'http://localhost:3000',
-    'cookie',
-    this.cookieFetch.fetch,
-  );
+  private cookieFetch: ReturnType<typeof createCookieFetch>;
+  private client: SagatClient;
 
-  constructor(private app: Hono) {}
+  constructor(private app: Hono) {
+    this.cookieFetch = createCookieFetch(this.#createFreshAppFetch());
+    this.client = new SagatClient(
+      TEST_PLACEHOLDER_URL,
+      'cookie',
+      this.cookieFetch.fetch,
+    );
+  }
 
   createUser(): TestUser {
     const user = newUser();
@@ -90,17 +95,7 @@ export class TestSession {
       throw new Error('No users connected - call connectUsers first');
     }
 
-    const response = await this.app.request('/addresses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: this.cookie,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Address registration failed: ${response.status}`);
-    }
+    await this.client.registerAddresses();
   }
 
   async createMultisig(
@@ -108,7 +103,7 @@ export class TestSession {
     threshold: number,
     name?: string,
     fund: boolean = false,
-  ): Promise<TestMultisig> {
+  ): Promise<MultisigWithMembers> {
     return this.createCustomMultisig(
       members,
       members.map(() => 1),
@@ -124,26 +119,13 @@ export class TestSession {
     threshold: number,
     name?: string,
     fund: boolean = false,
-  ): Promise<TestMultisig> {
-    const response = await this.app.request('/multisig', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Cookie: this.cookie },
-      body: JSON.stringify({
-        publicKeys: members.map((m) => m.publicKey),
-        weights,
-        threshold,
-        name,
-      }),
+  ): Promise<MultisigWithMembers> {
+    const multisig = await this.client.createMultisig({
+      publicKeys: members.map((m) => m.publicKey),
+      weights,
+      threshold,
+      name,
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(
-        `Multisig creation failed: ${response.status} - ${error}`,
-      );
-    }
-
-    const { multisig } = await response.json();
 
     // Only fund if explicitly requested
     if (fund) await fundAddress(multisig.address);
@@ -188,23 +170,7 @@ export class TestSession {
     const message = PersonalMessages.acceptMultisigInvitation(multisigAddress);
     const signature = await this.signMessage(member.keypair, message);
 
-    const response = await this.app.request(
-      `/multisig/${multisigAddress}/accept`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          signature: signature,
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(
-        `Multisig acceptance failed: ${response.status} - ${error}`,
-      );
-    }
+    await this.client.acceptMultisigInvite(multisigAddress, { signature });
   }
 
   // Expose app for direct API calls when needed
@@ -218,30 +184,18 @@ export class TestSession {
     network: string,
     transactionBytes: string,
     description?: string,
-  ): Promise<ProposalWithSignatures> {
+  ): Promise<Proposal> {
     const txBytes = Transaction.from(transactionBytes);
     const builtTx = await txBytes.build({ client });
     const signature = await proposer.keypair.signTransaction(builtTx);
 
-    const response = await this.app.request('/proposals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        multisigAddress,
-        network,
-        transactionBytes,
-        signature: signature.signature,
-        description,
-      }),
+    return this.client.createProposal({
+      multisigAddress,
+      network,
+      transactionBytes,
+      signature: signature.signature,
+      description,
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(
-        `Proposal creation failed: ${response.status} - ${error}`,
-      );
-    }
-    return response.json();
   }
 
   async getProposals({
@@ -255,32 +209,18 @@ export class TestSession {
     status?: string;
     cursor?: { nextCursor?: number; perPage?: number };
   }): Promise<PaginatedResponse<ProposalWithSignatures>> {
-    const queryParams = new URLSearchParams();
-    queryParams.append('multisigAddress', multisigAddress);
-    queryParams.append('network', network);
-    if (status) queryParams.append('status', status);
-    if (cursor) {
-      if (cursor.nextCursor)
-        queryParams.append('nextCursor', cursor.nextCursor.toString());
-      if (cursor.perPage)
-        queryParams.append('perPage', cursor.perPage.toString());
+    // Convert status string to ProposalStatus enum if provided
+    let statusEnum: any = undefined;
+    if (status) {
+      const { ProposalStatus } = await import('@mysten/sagat');
+      statusEnum = ProposalStatus[status as keyof typeof ProposalStatus];
     }
 
-    const response = await this.app.request(
-      `/proposals?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json', Cookie: this.cookie },
-      },
-    );
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(
-        `Proposal retrieval failed: ${response.status} - ${error}`,
-      );
-    }
-    return response.json();
+    return this.client.getProposals(multisigAddress, network, {
+      status: statusEnum,
+      nextCursor: cursor?.nextCursor,
+      perPage: cursor?.perPage,
+    });
   }
 
   // Simple helper for repetitive test transfers - builds transaction inline for clarity
@@ -299,26 +239,13 @@ export class TestSession {
     const txBytes = await tx.build({ client });
     const signature = await proposer.keypair.signTransaction(txBytes);
 
-    const response = await this.app.request('/proposals', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        multisigAddress,
-        network: 'localnet',
-        transactionBytes: txBytes.toBase64(),
-        signature: signature.signature,
-        description,
-      }),
+    const proposal = await this.client.createProposal({
+      multisigAddress,
+      network: 'localnet',
+      transactionBytes: txBytes.toBase64(),
+      signature: signature.signature,
+      description,
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(
-        `Proposal creation failed: ${response.status} - ${error}`,
-      );
-    }
-
-    const proposal = await response.json();
 
     return proposal;
   }
@@ -332,34 +259,15 @@ export class TestSession {
     const builtTx = await txBytes.build({ client });
     const signature = await voter.keypair.signTransaction(builtTx);
 
-    const response = await this.app.request(`/proposals/${proposalId}/vote`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        signature: signature.signature,
-      }),
+    return this.client.voteForProposal(proposalId, {
+      signature: signature.signature,
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      let message = `Voting failed: ${response.status}`;
-      try {
-        const parsed = JSON.parse(error);
-        message = parsed.error || message;
-      } catch {
-        message += ` - ${error}`;
-      }
-      throw new Error(message);
-    }
-
-    return response.json();
   }
 
   async disconnect(): Promise<void> {
     await this.client.disconnect();
     this.cookie = '';
-    // create a frsh cookie jar.
-    this.cookieFetch = createCookieFetch();
+    this.cookieFetch = createCookieFetch(this.#createFreshAppFetch());
     // Reset client!
     this.client = new SagatClient(
       'http://localhost:3000',
@@ -400,6 +308,20 @@ export class TestSession {
       this.getConnectedUsers().length > 0
     );
   }
+
+  #createFreshAppFetch(): FetchLike {
+    return async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+
+      const path = url.replace(TEST_PLACEHOLDER_URL, '');
+      return this.app.request(path, init);
+    };
+  }
 }
 
 export class ApiTestFramework {
@@ -435,7 +357,7 @@ export class ApiTestFramework {
   ): Promise<{
     session: TestSession;
     users: TestUser[];
-    multisig: TestMultisig;
+    multisig: MultisigWithMembers;
   }> {
     const { session, users } = await this.createAuthenticatedSession(userCount);
     const actualThreshold = threshold || userCount;
@@ -462,7 +384,7 @@ export class ApiTestFramework {
   ): Promise<{
     session: TestSession;
     users: TestUser[];
-    multisig: TestMultisig;
+    multisig: MultisigWithMembers;
   }> {
     return this.createVerifiedMultisig(userCount, threshold, name, true);
   }
@@ -474,29 +396,20 @@ export class ApiTestFramework {
     customExpiry?: string,
   ): Promise<void> {
     const expiry = customExpiry || defaultExpiry();
-    const message = PersonalMessages.addMultisigProposer(proposer, multisigAddress, expiry);
+    const message = PersonalMessages.addMultisigProposer(
+      proposer,
+      multisigAddress,
+      expiry,
+    );
     const bytes = new TextEncoder().encode(message);
     const signature = await member.keypair.signPersonalMessage(bytes);
 
-    const response = await this.app.request(
-      `/multisig/${multisigAddress}/add-proposer`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          proposer,
-          signature: signature.signature,
-          expiry,
-        }),
-      },
+    await this.statelessClient().addMultisigProposer(
+      multisigAddress,
+      proposer,
+      signature.signature,
+      expiry,
     );
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(
-        `Multisig proposer addition failed: ${response.status} - ${error}`,
-      );
-    }
   }
 
   // Remove proposer for a multisig.
@@ -506,28 +419,45 @@ export class ApiTestFramework {
     multisigAddress: string,
   ): Promise<void> {
     const expiry = defaultExpiry();
-    const message = PersonalMessages.removeMultisigProposer(proposer, multisigAddress, expiry);
+    const message = PersonalMessages.removeMultisigProposer(
+      proposer,
+      multisigAddress,
+      expiry,
+    );
     const bytes = new TextEncoder().encode(message);
     const signature = await member.keypair.signPersonalMessage(bytes);
 
-    const response = await this.app.request(
-      `/multisig/${multisigAddress}/remove-proposer`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          proposer,
-          signature: signature.signature,
-          expiry,
-        }),
-      },
+    await this.statelessClient().removeMultisigProposer(
+      multisigAddress,
+      proposer,
+      signature.signature,
+      expiry,
     );
+  }
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(
-        `Multisig proposer removal failed: ${response.status} - ${error}`,
-      );
-    }
+  statelessClient(): SagatClient {
+    return new SagatClient(
+      TEST_PLACEHOLDER_URL,
+      'cookie',
+      this.#createFreshAppFetch(),
+    );
+  }
+
+  // Create a fresh fetch function that uses the app directly, instead of
+  // going through the actual API call.
+  // Practically, what this does is call `app.request('/route')` internally,
+  // instead of calling `http://localhost:3000/route`.
+  #createFreshAppFetch(): FetchLike {
+    return async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+
+      const path = url.replace(TEST_PLACEHOLDER_URL, '');
+      return this.app.request(path, init);
+    };
   }
 }

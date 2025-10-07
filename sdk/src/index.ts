@@ -23,4 +23,5 @@ export type {
   ProposalWithSignatures,
   SignedMessageRequest,
   VoteProposalRequest,
+  VoteProposalResponse,
 } from './types.js';
