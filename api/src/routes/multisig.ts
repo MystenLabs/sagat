@@ -13,6 +13,7 @@ import {
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { PersonalMessages } from '@mysten/sagat';
 import {
   getMultisig,
   isMultisigFinalized,
@@ -156,7 +157,7 @@ multisigRouter.post('/:address/accept', async (c) => {
   await validatePersonalMessage(
     pubKey,
     signature,
-    `Participating in multisig ${address}`,
+    PersonalMessages.acceptMultisigInvitation(address),
   );
 
   const existingConnections = await db.query.SchemaMultisigMembers.findMany({
@@ -271,7 +272,7 @@ multisigRouter.post('/:address/add-proposer', async (c) => {
   await validatePersonalMessage(
     publicKey,
     signature,
-    `Adding proposer ${proposer} to multisig ${address}. Valid until: ${expiry}`,
+    PersonalMessages.addMultisigProposer(proposer, address, expiry),
   );
 
   // Add the proposer to the multisig.
@@ -321,7 +322,7 @@ multisigRouter.post('/:address/remove-proposer', async (c) => {
   await validatePersonalMessage(
     publicKey,
     signature,
-    `Removing proposer ${proposer} from multisig ${address}. Valid until: ${expiry}`,
+    PersonalMessages.removeMultisigProposer(proposer, address, expiry),
   );
 
   // Remove the proposer from the multisig, removing all pending transactions from the proposer.

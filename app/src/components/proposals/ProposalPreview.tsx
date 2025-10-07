@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { CheckCircle, X } from 'lucide-react';
 import { Button } from '../ui/button';
-import { ProposalWithSignatures } from '../../lib/types';
+import type { ProposalWithSignatures } from '@mysten/sagat';
 import { useDryRun } from '../../hooks/useDryRun';
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { EffectsPreview } from '../preview-effects/EffectsPreview';

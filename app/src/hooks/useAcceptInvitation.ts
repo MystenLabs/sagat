@@ -4,6 +4,7 @@ import { apiClient } from '../lib/api';
 import { toast } from 'sonner';
 import { QueryKeys } from '../lib/queryKeys';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { PersonalMessages } from '@mysten/sagat';
 
 export function useAcceptInvitation() {
   const queryClient = useQueryClient();
@@ -14,15 +15,15 @@ export function useAcceptInvitation() {
     mutationFn: async (multisigAddress: string) => {
       if (!currentAddress) throw new Error('No wallet connected');
 
+      const message = PersonalMessages.acceptMultisigInvitation(multisigAddress);
+
       // Create and sign the message
-      const message = `Participating in multisig ${multisigAddress}`;
       const result = await signPersonalMessage({
         message: new TextEncoder().encode(message),
       });
 
       // Call API to accept the invitation
       return apiClient.acceptMultisigInvite(multisigAddress, {
-        publicKey: currentAddress.publicKey,
         signature: result.signature,
       });
     },

@@ -4,6 +4,7 @@ import { apiClient } from '../lib/api';
 import { toast } from 'sonner';
 import { QueryKeys } from '../lib/queryKeys';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { PersonalMessages } from '@mysten/sagat';
 
 export function useCancelProposal() {
   const queryClient = useQueryClient();
@@ -14,10 +15,10 @@ export function useCancelProposal() {
   return useMutation({
     mutationFn: async (proposalId: number) => {
       if (!currentAccount || !currentAddress) throw new Error('No wallet connected');
-      
+
 
       // Create a message to sign for cancellation
-      const message = `Cancel proposal ${proposalId}`;
+      const message = PersonalMessages.cancelProposal(proposalId);
 
       // Sign the message
       const signResult = await signPersonalMessage({
@@ -27,7 +28,6 @@ export function useCancelProposal() {
 
       // Call API to cancel the proposal
       return apiClient.cancelProposal(proposalId, {
-        publicKey: currentAddress.publicKey,
         signature: signResult.signature,
       });
     },

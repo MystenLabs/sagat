@@ -4,7 +4,7 @@ import { MultiSigPublicKey } from "@mysten/sui/multisig";
 import { apiClient } from "../lib/api";
 import { toast } from "sonner";
 import { QueryKeys } from "../lib/queryKeys";
-import { MultisigWithMembers, ProposalWithSignatures } from "../lib/types";
+import type { MultisigWithMembers, ProposalWithSignatures } from "@mysten/sagat";
 import { extractPublicKeyFromBase64 } from "@/lib/wallet";
 
 interface ExecuteProposalParams {

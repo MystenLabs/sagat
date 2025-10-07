@@ -36,8 +36,7 @@ export function useSignProposal() {
       });
 
       // Call API to vote on the proposal
-      return apiClient.voteOnProposal(proposalId, {
-        publicKey: currentAddress.publicKey,
+      return apiClient.voteForProposal(proposalId, {
         signature: result.signature as string,
       });
     },

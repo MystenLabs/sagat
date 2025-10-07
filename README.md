@@ -36,11 +36,13 @@ docker-compose down
 ```
 
 **Access points:**
+
 - Frontend (Vite dev server): http://localhost:5173
 - API (with hot reload): http://localhost:3000
 - PostgreSQL: localhost:5432
 
 The setup includes:
+
 - Hot reloading for both API and frontend
 - File watching for automatic rebuilds
 - PostgreSQL database with persistent data

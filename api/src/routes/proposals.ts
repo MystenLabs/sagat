@@ -6,7 +6,7 @@ import {
   jwtHasMultisigMemberAccess,
   validateProposedTransaction,
 } from '../services/multisig.service';
-import { ApiAuthError, CommonError, ValidationError } from '../errors';
+import { ApiAuthError, ValidationError } from '../errors';
 import {
   ProposalStatus,
   proposalStatusFromString,
@@ -14,10 +14,8 @@ import {
   SchemaProposalSignatures,
 } from '../db/schema';
 import { db } from '../db';
-import {
-  getPublicKeyFromSerializedSignature,
-  parsePublicKey,
-} from '../utils/pubKey';
+import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
+import { PersonalMessages } from '@mysten/sagat';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
   getProposalById,
@@ -180,7 +178,7 @@ proposalsRouter.post('/:proposalId/cancel', async (c) => {
   await validatePersonalMessage(
     pubKey,
     signature,
-    `Cancel proposal ${proposalId}`,
+    PersonalMessages.cancelProposal(parseInt(proposalId)),
   );
 
   await db
@@ -233,7 +231,8 @@ proposalsRouter.post(
 
 proposalsRouter.get('/', authMiddleware, async (c: Context<AuthEnv>) => {
   const publicKeys = c.get('publicKeys');
-  const { multisigAddress, status, network, nextCursor, perPage } = c.req.query();
+  const { multisigAddress, status, network, nextCursor, perPage } =
+    c.req.query();
   validateNetwork(network);
 
   if (!(await jwtHasMultisigMemberAccess(multisigAddress, publicKeys)))

@@ -4,7 +4,8 @@ import { Transaction } from '@mysten/sui/transactions';
 import { getLocalClient, fundAddress } from '../setup/sui-network';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { ProposalWithSignatures } from '../../src/db/schema';
-import { PaginatedResponse } from '../../src/utils/pagination';
+import { createCookieFetch } from './cookie-fetch';
+import { SagatClient, PersonalMessages, defaultExpiry, type PaginatedResponse } from '@mysten/sagat';
 
 const client = getLocalClient();
 
@@ -34,15 +35,15 @@ export const newUser = (): TestUser => {
   };
 };
 
-const createExpirationDateForMessage = (): string => {
-  const expiry = new Date();
-  expiry.setMinutes(expiry.getMinutes() + 30);
-  return expiry.toISOString();
-};
-
 export class TestSession {
   private cookie: string = '';
   private users: TestUser[] = [];
+  private cookieFetch = createCookieFetch();
+  private client = new SagatClient(
+    'http://localhost:3000',
+    'cookie',
+    this.cookieFetch.fetch,
+  );
 
   constructor(private app: Hono) {}
 
@@ -62,32 +63,21 @@ export class TestSession {
   }
 
   async connectUser(user: TestUser): Promise<void> {
-    const expiry = createExpirationDateForMessage();
-    const message = `Verifying address ownership until: ${expiry}`;
+    const expiry = defaultExpiry();
+    const message = PersonalMessages.connect(expiry);
     const signature = await this.signMessage(user.keypair, message);
 
-    const headers: any = { 'Content-Type': 'application/json' };
-    if (this.cookie) headers.Cookie = this.cookie;
+    try {
+      const response = await this.client.connect(signature, expiry);
 
-    const response = await this.app.request('/auth/connect', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        signature: signature,
-        expiry,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(
-        `Auth failed for user ${user.address}: ${response.status}`,
-      );
+      if (!response.success) {
+        throw new Error(`Auth failed for user ${user.address}`);
+      }
+    } catch (error) {
+      throw new Error(`Auth failed for user ${user.address}: ${error}`);
     }
 
-    this.cookie =
-      response.headers
-        .get('set-cookie')
-        ?.match(/connected-wallet=([^;]+)/)?.[0] || '';
+    this.cookie = this.cookieFetch.jar.getConnectedWalletCookie();
 
     // Track connected user if not already tracked
     if (!this.users.find((u) => u.address === user.address)) {
@@ -195,7 +185,7 @@ export class TestSession {
     member: TestUser,
     multisigAddress: string,
   ): Promise<void> {
-    const message = `Participating in multisig ${multisigAddress}`;
+    const message = PersonalMessages.acceptMultisigInvitation(multisigAddress);
     const signature = await this.signMessage(member.keypair, message);
 
     const response = await this.app.request(
@@ -206,7 +196,7 @@ export class TestSession {
         body: JSON.stringify({
           signature: signature,
         }),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -348,8 +338,7 @@ export class TestSession {
       body: JSON.stringify({
         signature: signature.signature,
       }),
-    }
-  );
+    });
 
     if (!response.ok) {
       const error = await response.text();
@@ -367,20 +356,26 @@ export class TestSession {
   }
 
   async disconnect(): Promise<void> {
-    await this.app.request('/auth/disconnect', { method: 'POST' });
+    await this.client.disconnect();
     this.cookie = '';
+    // create a frsh cookie jar.
+    this.cookieFetch = createCookieFetch();
+    // Reset client!
+    this.client = new SagatClient(
+      'http://localhost:3000',
+      'cookie',
+      this.cookieFetch.fetch,
+    );
     this.users = [];
   }
 
   getConnectedUsers(): TestUser[] {
-    if (!this.cookie) return [];
+    if (!this.cookieFetch.jar.getConnectedWalletCookie()) return [];
 
     try {
       // Extract JWT from cookie
-      const jwtMatch = this.cookie.match(/connected-wallet=([^;]+)/);
-      if (!jwtMatch) return [];
-
-      const jwt = jwtMatch[1];
+      const jwt = this.cookieFetch.jar.getConnectedWalletCookie();
+      if (!jwt) return [];
 
       // Decode JWT payload (it's base64 encoded)
       const parts = jwt.split('.');
@@ -400,11 +395,10 @@ export class TestSession {
   }
 
   hasActiveCookie(): boolean {
-    return !!this.cookie && this.getConnectedUsers().length > 0;
-  }
-
-  getCookie(): string {
-    return this.cookie;
+    return (
+      !!this.cookieFetch.jar.getConnectedWalletCookie() &&
+      this.getConnectedUsers().length > 0
+    );
   }
 }
 
@@ -479,8 +473,8 @@ export class ApiTestFramework {
     multisigAddress: string,
     customExpiry?: string,
   ): Promise<void> {
-    const expiry = customExpiry || createExpirationDateForMessage();
-    const message = `Adding proposer ${proposer} to multisig ${multisigAddress}. Valid until: ${expiry}`;
+    const expiry = customExpiry || defaultExpiry();
+    const message = PersonalMessages.addMultisigProposer(proposer, multisigAddress, expiry);
     const bytes = new TextEncoder().encode(message);
     const signature = await member.keypair.signPersonalMessage(bytes);
 
@@ -511,8 +505,8 @@ export class ApiTestFramework {
     proposer: string,
     multisigAddress: string,
   ): Promise<void> {
-    const expiry = createExpirationDateForMessage();
-    const message = `Removing proposer ${proposer} from multisig ${multisigAddress}. Valid until: ${expiry}`;
+    const expiry = defaultExpiry();
+    const message = PersonalMessages.removeMultisigProposer(proposer, multisigAddress, expiry);
     const bytes = new TextEncoder().encode(message);
     const signature = await member.keypair.signPersonalMessage(bytes);
 

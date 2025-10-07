@@ -1,4 +1,4 @@
-import { MultisigMember } from "../../lib/types";
+import type { MultisigMember } from "@mysten/sagat";
 import { validatePublicKey } from "../../lib/sui-utils";
 import { CopyButton } from "../ui/CopyButton";
 import { formatAddress } from "../../lib/formatters";

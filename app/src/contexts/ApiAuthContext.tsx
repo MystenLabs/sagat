@@ -2,14 +2,9 @@ import React, { createContext, useContext, useEffect } from "react";
 import { useCurrentAccount, useSignPersonalMessage } from "@mysten/dapp-kit";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../lib/api";
-import { Address, AuthCheckResponse } from "../lib/types";
-import { getExpiryTime, createAuthMessage } from "../lib/wallet";
 import { toast } from "sonner";
 import { QueryKeys } from "../lib/queryKeys";
-import { parseSerializedSignature, PublicKey } from "@mysten/sui/cryptography";
-import { Ed25519PublicKey } from "@mysten/sui/keypairs/ed25519";
-import { Secp256k1PublicKey } from "@mysten/sui/keypairs/secp256k1";
-import { Secp256r1PublicKey } from "@mysten/sui/keypairs/secp256r1";
+import { defaultExpiry, PersonalMessages, type Address, type AuthCheckResponse } from "@mysten/sagat";
 
 interface ApiAuthContextType {
   // Auth state from API
@@ -61,43 +56,17 @@ export function ApiAuthProvider({ children }: { children: React.ReactNode }) {
   // Connect mutation - signs message and sends to API
   const connectMutation = useMutation({
     mutationFn: async () => {
-      if (!currentAccount) {
-        throw new Error("No wallet connected");
-      }
-
-      const expiry = getExpiryTime();
-      const message = createAuthMessage(expiry);
+      if (!currentAccount) throw new Error("No wallet connected");
+      const expiry = defaultExpiry();
 
       // Sign with current account
       const signResult = await signPersonalMessage({
-        message: new TextEncoder().encode(message),
+        message: new TextEncoder().encode(PersonalMessages.connect(expiry)),
         account: currentAccount,
       });
 
-      const analyzeSignature = await parseSerializedSignature(
-        signResult.signature,
-      );
-
-      let pubKey: PublicKey;
-
-      if (analyzeSignature.signatureScheme === "ED25519") {
-        pubKey = new Ed25519PublicKey(analyzeSignature.publicKey);
-      } else if (analyzeSignature.signatureScheme === "Secp256k1") {
-        pubKey = new Secp256k1PublicKey(analyzeSignature.publicKey);
-      } else if (analyzeSignature.signatureScheme === "Secp256r1") {
-        pubKey = new Secp256r1PublicKey(analyzeSignature.publicKey);
-      } else {
-        throw new Error(
-          "Unsupported signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported.",
-        );
-      }
-
       // Send to API
-      return apiClient.connect({
-        publicKey: pubKey.toSuiPublicKey(),
-        signature: signResult.signature,
-        expiry,
-      });
+      return apiClient.connect(signResult.signature, expiry);
     },
     onSuccess: async () => {
       await refetchAuth();

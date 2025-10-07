@@ -1,5 +1,4 @@
-import { ProposalWithSignatures } from './types';
-import { MultisigWithMembers } from './types';
+import type { ProposalWithSignatures, MultisigWithMembers } from '@mysten/sagat';
 
 // Helper to calculate current weight of a proposal based on signatures
 export const calculateCurrentWeight = (

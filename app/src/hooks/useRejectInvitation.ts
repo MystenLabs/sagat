@@ -4,6 +4,7 @@ import { apiClient } from "../lib/api";
 import { toast } from "sonner";
 import { QueryKeys } from "@/lib/queryKeys";
 import { useApiAuth } from "@/contexts/ApiAuthContext";
+import { PersonalMessages } from "@mysten/sagat";
 
 export function useRejectInvitation() {
   const currentAccount = useCurrentAccount();
@@ -18,7 +19,7 @@ export function useRejectInvitation() {
       }
 
       // Sign rejection message
-      const message = `Rejecting multisig invitation ${multisigAddress}`;
+      const message = PersonalMessages.rejectMultisigInvitation(multisigAddress);
       const result = await signPersonalMessage({
         message: new TextEncoder().encode(message),
         account: currentAccount,
@@ -26,7 +27,6 @@ export function useRejectInvitation() {
 
       // Send to API
       return apiClient.rejectMultisigInvite(multisigAddress, {
-        publicKey: currentAddress.publicKey,
         signature: result.signature,
       });
     },

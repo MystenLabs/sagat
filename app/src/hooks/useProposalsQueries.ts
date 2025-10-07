@@ -1,21 +1,27 @@
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../lib/api';
-import { ProposalStatus, ProposalWithSignatures } from '../lib/types';
-import { MultisigWithMembersForPublicKey } from '@/lib/types';
-import { calculateCurrentWeight, getTotalWeight } from '../lib/proposalUtils';
-import { QueryKeys } from '../lib/queryKeys';
-import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "../lib/api";
+import { ProposalStatus, type ProposalWithSignatures } from "@mysten/sagat";
+import { MultisigWithMembersForPublicKey } from "@/lib/types";
+import { calculateCurrentWeight, getTotalWeight } from "../lib/proposalUtils";
+import { QueryKeys } from "../lib/queryKeys";
+import { useApiAuth } from "@/contexts/ApiAuthContext";
 
 interface UseProposalsQueriesParams {
   multisig: MultisigWithMembersForPublicKey;
   network: string;
-  activeFilter: 'all' | 'pending' | 'waiting' | 'ready' | 'executed' | 'cancelled';
+  activeFilter:
+    | "all"
+    | "pending"
+    | "waiting"
+    | "ready"
+    | "executed"
+    | "cancelled";
 }
 
 export function useProposalsQueries({
   multisig,
   network,
-  activeFilter
+  activeFilter,
 }: UseProposalsQueriesParams) {
   const { currentAddress } = useApiAuth();
 
@@ -31,44 +37,42 @@ export function useProposalsQueries({
   // Get API query type based on active tab
   const getApiQueryType = () => {
     switch (activeFilter) {
-      case 'executed':
-        return 'executed';
-      case 'cancelled':
-        return 'cancelled';
-      case 'pending':
-      case 'waiting':
-      case 'ready':
-        return 'pending';
+      case "executed":
+        return "executed";
+      case "cancelled":
+        return "cancelled";
+      case "pending":
+      case "waiting":
+      case "ready":
+        return "pending";
       default:
-        return 'all';
+        return "all";
     }
   };
 
   const apiQueryType = getApiQueryType();
 
   // Get API filter params based on query type
-  const getQueryParams = () => {
-    const baseParams = {
-      multisigAddress: multisig.address,
-      network: network,
-    };
-
+  const getStatusFilter = () => {
     switch (apiQueryType) {
-      case 'executed':
-        return { ...baseParams, status: ProposalStatus.SUCCESS };
-      case 'cancelled':
-        return { ...baseParams, status: ProposalStatus.CANCELLED };
-      case 'pending':
-        return { ...baseParams, status: ProposalStatus.PENDING };
+      case "executed":
+        return ProposalStatus.SUCCESS;
+      case "cancelled":
+        return ProposalStatus.CANCELLED;
+      case "pending":
+        return ProposalStatus.PENDING;
       default:
-        return baseParams; // All proposals
+        return undefined; // All proposals
     }
   };
 
   // Main proposals query
   const proposalsQuery = useQuery({
     queryKey: [QueryKeys.Proposals, apiQueryType, multisig.address, network],
-    queryFn: () => apiClient.getProposals(getQueryParams()),
+    queryFn: () =>
+      apiClient.getProposals(multisig.address, network, {
+        status: getStatusFilter(),
+      }),
     // TODO: Enable pagination on FE... for now assume single page.
     select: (data) => data.data,
     enabled: !!multisig.address && !!network,
@@ -78,11 +82,14 @@ export function useProposalsQueries({
 
   // Always fetch pending proposals for counts
   const pendingProposalsQuery = useQuery({
-    queryKey: [QueryKeys.Proposals, QueryKeys.Pending, multisig.address, network],
+    queryKey: [
+      QueryKeys.Proposals,
+      QueryKeys.Pending,
+      multisig.address,
+      network,
+    ],
     queryFn: () =>
-      apiClient.getProposals({
-        multisigAddress: multisig.address,
-        network: network,
+      apiClient.getProposals(multisig.address, network, {
         status: ProposalStatus.PENDING,
       }),
     select: (data) => data.data,
@@ -95,10 +102,11 @@ export function useProposalsQueries({
   const userHasSignedProposal = (proposal: ProposalWithSignatures) => {
     if (!currentAddress) return false;
     try {
-
-      return proposal.signatures.some((sig) => sig.publicKey === currentAddress.publicKey);
+      return proposal.signatures.some(
+        (sig) => sig.publicKey === currentAddress.publicKey,
+      );
     } catch (error) {
-      console.error('Error checking user signature:', error);
+      console.error("Error checking user signature:", error);
       return false;
     }
   };
@@ -108,7 +116,7 @@ export function useProposalsQueries({
     const multisigDetails = multisigDetailsQuery.data;
 
     switch (activeFilter) {
-      case 'pending':
+      case "pending":
         return proposals.filter((p) => {
           if (p.status !== ProposalStatus.PENDING) return false;
           const hasUserSigned = userHasSignedProposal(p);
@@ -118,7 +126,7 @@ export function useProposalsQueries({
           return !hasUserSigned && needsMoreSigs;
         });
 
-      case 'waiting':
+      case "waiting":
         return proposals.filter((p) => {
           if (p.status !== ProposalStatus.PENDING) return false;
           const hasUserSigned = userHasSignedProposal(p);
@@ -128,17 +136,19 @@ export function useProposalsQueries({
           return hasUserSigned && needsMoreSigs;
         });
 
-      case 'ready':
+      case "ready":
         return proposals.filter((p) => {
           const currentWeight = calculateCurrentWeight(p, multisigDetails);
           const totalWeight = getTotalWeight(multisigDetails);
-          return p.status === ProposalStatus.PENDING && currentWeight >= totalWeight;
+          return (
+            p.status === ProposalStatus.PENDING && currentWeight >= totalWeight
+          );
         });
 
-      case 'executed':
+      case "executed":
         return proposals;
 
-      case 'cancelled':
+      case "cancelled":
         return proposals;
 
       default:
@@ -176,7 +186,9 @@ export function useProposalsQueries({
     const readyCount = pendingProposals.filter((p) => {
       const currentWeight = calculateCurrentWeight(p, multisigDetails);
       const totalWeight = getTotalWeight(multisigDetails);
-      return p.status === ProposalStatus.PENDING && currentWeight >= totalWeight;
+      return (
+        p.status === ProposalStatus.PENDING && currentWeight >= totalWeight
+      );
     }).length;
 
     return { pending: pendingCount, waiting: waitingCount, ready: readyCount };

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, Eye, ExternalLink, CheckCircle, Clock, Rocket, Copy, Check } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '../ui/button';
-import { ProposalWithSignatures, ProposalStatus } from '../../lib/types';
+import { ProposalStatus, type ProposalWithSignatures } from '@mysten/sagat';
 import { useNetwork } from '../../contexts/NetworkContext';
 import { ProposalPreview } from './ProposalPreview';
 import { apiClient } from '../../lib/api';

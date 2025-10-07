@@ -39,7 +39,6 @@ export function useCreateProposal() {
       return apiClient.createProposal({
         multisigAddress,
         transactionBytes: transactionData,
-        publicKey: currentAddress.publicKey,
         signature: signatureResult.signature as string,
         description,
         network,

@@ -9,6 +9,7 @@ import { SignJWT, jwtVerify } from 'jose';
 import { registerPublicKeys } from './addresses.service';
 import { ValidationError } from '../errors';
 import { LIMITS } from '../constants/limits';
+import { PersonalMessages } from '@mysten/sagat';
 
 const JWT_COOKIE_NAME = 'connected-wallet';
 
@@ -50,7 +51,7 @@ export const connectForScript = async (c: Context) => {
   await validatePersonalMessage(
     pubKey,
     signature,
-    `Verifying address ownership until: ${expiry}`,
+    PersonalMessages.connect(expiry),
   );
 
   const jwt = await issueJwt([pubKey], 'script');
@@ -99,7 +100,7 @@ export const connectToPublicKey = async (c: Context) => {
     await validatePersonalMessage(
       pubKey,
       signature,
-      `Verifying address ownership until: ${expiry}`,
+      PersonalMessages.connect(expiry),
     );
 
     // If the public key is not already in the list, we add it.
