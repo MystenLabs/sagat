@@ -85,10 +85,18 @@ export interface ProposalSignature {
   signature: string;
 }
 
+export interface MultisigProposer {
+  multisigAddress: string;
+  address: string;
+  addedBy: string;
+  addedAt: string;
+}
+
 export interface MultisigWithMembers extends Multisig {
   members: MultisigMember[];
   totalMembers: number;
   totalWeight: number;
+  proposers: Omit<MultisigProposer, "multisigAddress">[];
 }
 
 // this is the multisig view, for a given public key.
@@ -102,6 +110,11 @@ export interface ProposalWithSignatures extends Proposal {
   signatures: ProposalSignature[];
 }
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  hasNextPage: boolean;
+  nextCursor: string;
+}
 export interface VoteProposalRequest {
   publicKey: string;
   signature: string;

@@ -12,6 +12,7 @@ import {
   CancelProposalRequest,
   ProposalStatus,
   MultisigWithMembers,
+  PaginatedResponse,
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
@@ -127,7 +128,7 @@ class ApiClient {
     multisigAddress?: string;
     status?: ProposalStatus;
     network: string;
-  }): Promise<ProposalWithSignatures[]> {
+  }): Promise<PaginatedResponse<ProposalWithSignatures>> {
     const searchParams = new URLSearchParams();
     if (params.multisigAddress) {
       searchParams.append('multisigAddress', params.multisigAddress);
@@ -139,7 +140,7 @@ class ApiClient {
     searchParams.append('network', params.network);
 
     const query = searchParams.toString();
-    return this.request<ProposalWithSignatures[]>(`/proposals${query ? `?${query}` : ''}`);
+    return this.request<PaginatedResponse<ProposalWithSignatures>>(`/proposals${query ? `?${query}` : ''}`);
   }
 
   async voteOnProposal(

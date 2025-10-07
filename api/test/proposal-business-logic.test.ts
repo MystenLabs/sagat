@@ -345,12 +345,12 @@ describe('Proposal Business Logic', () => {
 
       expect(proposal.id).toBeDefined();
 
-      const listOfProposals = await session.getProposals(
-        multisig.address,
-        'localnet',
-      );
+      const listOfProposals = await session.getProposals({
+        multisigAddress: multisig.address,
+        network: 'localnet',
+      });
 
-      expect(listOfProposals.length).toBe(1);
+      expect(listOfProposals.data.length).toBe(1);
 
       await framework.removeProposer(
         users[0],
@@ -358,14 +358,14 @@ describe('Proposal Business Logic', () => {
         multisig.address,
       );
 
-      const shouldBeCancelled = await session.getProposals(
-        multisig.address,
-        'localnet',
-      );
+      const shouldBeCancelled = await session.getProposals({
+        multisigAddress: multisig.address,
+        network: 'localnet',
+      });
 
-      expect(shouldBeCancelled.length).toBe(1);
-      expect(shouldBeCancelled.length).toBe(1);
-      expect(shouldBeCancelled[0].status).toBe(ProposalStatus.CANCELLED);
+      expect(shouldBeCancelled.data.length).toBe(1);
+      expect(shouldBeCancelled.data.length).toBe(1);
+      expect(shouldBeCancelled.data[0].status).toBe(ProposalStatus.CANCELLED);
 
       await expect(
         session.createSimpleTransferProposal(
@@ -416,6 +416,76 @@ describe('Proposal Business Logic', () => {
         proposal.transactionBytes,
       );
       expect(voteResult.hasReachedThreshold).toBe(true);
+    });
+  });
+
+  describe('Test proposals pagination', () => {
+    test('Get paginated proposals', async () => {
+      // Create 10 proposals.
+      const { session, users, multisig } =
+        await framework.createFundedVerifiedMultisig(2, 2);
+
+      const { keypair } = users[0];
+      await session.multiCoinsToAddress(keypair, multisig.address, 10);
+
+      // Get available coins
+      const coins = await client.getCoins({
+        owner: multisig.address,
+        limit: 20,
+      });
+
+      // Create 10 proposals using different gas coins
+      for (let i = 0; i < 10; i++) {
+        const tx = new Transaction();
+        tx.setSender(multisig.address);
+        tx.setGasPayment([
+          {
+            objectId: coins.data[i].coinObjectId,
+            version: coins.data[i].version,
+            digest: coins.data[i].digest,
+          },
+        ]);
+        const [coin] = tx.splitCoins(tx.gas, [100000]);
+        tx.transferObjects([coin], '0x666');
+
+        const txBytes = (await tx.build({ client })).toBase64();
+
+        const response = await session.createProposal(
+          users[0],
+          multisig.address,
+          'localnet',
+          txBytes,
+          `Proposal ${i + 1}`,
+        );
+        expect(response.id).toBeDefined();
+      }
+
+      let hasNextPage = true;
+      let cursor = undefined;
+      const perPage = 1;
+      const results = [];
+
+      while (hasNextPage) {
+        const proposals = await session.getProposals({
+          multisigAddress: multisig.address,
+          network: 'localnet',
+          cursor: { nextCursor: cursor, perPage },
+          status: undefined,
+        });
+        expect(proposals.data.length).toBe(1);
+
+        const hasDuplicate = results.some((r) => r.id === proposals.data[0].id);
+        expect(hasDuplicate).toBe(false);
+
+        results.push(proposals.data[0]);
+
+        hasNextPage = proposals.hasNextPage;
+        cursor = proposals.nextCursor
+          ? Number(proposals.nextCursor)
+          : undefined;
+      }
+
+      expect(results.length).toBe(10);
     });
   });
 });
