@@ -73,7 +73,6 @@ export class TestSession {
       method: 'POST',
       headers,
       body: JSON.stringify({
-        publicKey: user.publicKey,
         signature: signature,
         expiry,
       }),
@@ -205,10 +204,9 @@ export class TestSession {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          publicKey: member.publicKey,
           signature: signature,
         }),
-      },
+      }
     );
 
     if (!response.ok) {
@@ -348,10 +346,10 @@ export class TestSession {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        publicKey: voter.publicKey,
         signature: signature.signature,
       }),
-    });
+    }
+  );
 
     if (!response.ok) {
       const error = await response.text();
