@@ -3,9 +3,11 @@ import {
   setupSharedTestEnvironment,
   createTestApp,
 } from './setup/shared-test-setup';
-import { ApiTestFramework } from './framework/api-test-framework';
+import { ApiTestFramework, newUser } from './framework/api-test-framework';
 import { Transaction } from '@mysten/sui/transactions';
 import { getLocalClient } from './setup/sui-network';
+import { ProposalStatus } from '../src/db/schema';
+import { AuthErrors } from '../src/errors';
 
 const client = getLocalClient();
 
@@ -45,7 +47,6 @@ describe('Proposal Business Logic', () => {
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes.toBase64(),
-          publicKey: wrongUser.publicKey,
           signature: signature.signature,
           description: 'Test proposal',
         }),
@@ -80,7 +81,6 @@ describe('Proposal Business Logic', () => {
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes1.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature1.signature,
           description: 'First proposal',
         }),
@@ -104,7 +104,6 @@ describe('Proposal Business Logic', () => {
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes2.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature2.signature,
           description: 'Duplicate proposal',
         }),
@@ -122,7 +121,6 @@ describe('Proposal Business Logic', () => {
 
       // Create 3-member multisig with different weights: [1, 2, 1], threshold 3
       const multisig = await session.createCustomMultisig(
-        users[0],
         users,
         [1, 2, 1],
         3,
@@ -153,7 +151,6 @@ describe('Proposal Business Logic', () => {
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature.signature,
           description: 'Test proposal',
         }),
@@ -177,7 +174,6 @@ describe('Proposal Business Logic', () => {
 
       // Create multisig with weights [1, 1, 1], threshold 3
       const multisig = await session.createCustomMultisig(
-        users[0],
         users,
         [1, 1, 1],
         3,
@@ -208,7 +204,6 @@ describe('Proposal Business Logic', () => {
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature.signature,
         }),
       });
@@ -251,7 +246,6 @@ describe('Proposal Business Logic', () => {
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature.signature,
         }),
       });
@@ -269,25 +263,24 @@ describe('Proposal Business Logic', () => {
   describe('Member Access Control', () => {
     test('only verified multisig members can create proposals', async () => {
       const { session, users } = await framework.createAuthenticatedSession(2);
+      const alice = newUser();
 
       // Create multisig but don't have all members accept
       const multisig = await session.createMultisig(
-        users[0],
-        users,
+        [users[0], alice],
         2,
         undefined,
         true,
       );
-      // Only creator accepted, Bob hasn't accepted yet
 
       await expect(
         session.createSimpleTransferProposal(
-          users[0],
+          alice,
           multisig.address,
           '0x7777777777777777777777777777777777777777777777777777777777777777',
           500000,
         ),
-      ).rejects.toThrow('not verified');
+      ).rejects.toThrow(AuthErrors.NotAMultisigMember);
     });
 
     test('only multisig members can vote on proposals', async () => {
@@ -310,7 +303,121 @@ describe('Proposal Business Logic', () => {
           proposal.id,
           proposal.transactionBytes,
         ),
-      ).rejects.toThrow('not a member');
+      ).rejects.toThrow(AuthErrors.NotAMultisigMember);
+    });
+  });
+
+  describe('Proposer Access Control', () => {
+    test('non-multisig/non-proposer members cannot create proposals', async () => {
+      const { session, multisig } =
+        await framework.createFundedVerifiedMultisig(2, 2);
+
+      const outsider = newUser();
+
+      await expect(
+        session.createSimpleTransferProposal(
+          outsider,
+          multisig.address,
+          '0x7777777777777777777777777777777777777777777777777777777777777777',
+          500000,
+        ),
+      ).rejects.toThrow(AuthErrors.NotAMultisigMember);
+    });
+
+    test('Proposers can create proposals', async () => {
+      const { session, users, multisig } =
+        await framework.createFundedVerifiedMultisig(2, 2);
+
+      const proposer = session.createUser();
+
+      await framework.addProposer(users[0], proposer.address, multisig.address);
+
+      const proposal = await session.createSimpleTransferProposal(
+        proposer,
+        multisig.address,
+        '0x9999999999999999999999999999999999999999999999999999999999999999',
+        1000000,
+        'Proposal from proposer',
+      );
+
+      expect(proposal.id).toBeDefined();
+      expect(proposal.transactionBytes).toBeDefined();
+    });
+
+    test('Only members can add proposers', async () => {
+      const { session, multisig } =
+        await framework.createFundedVerifiedMultisig(2, 2);
+
+      const outsider = session.createUser();
+
+      await expect(
+        framework.addProposer(outsider, outsider.address, multisig.address),
+      ).rejects.toThrow(AuthErrors.NotAMultisigMember);
+    });
+
+    test('Try to add proposer with expired signature', async () => {
+      const { session, users, multisig } =
+        await framework.createFundedVerifiedMultisig(2, 2);
+
+      const proposer = session.createUser();
+
+      await expect(
+        framework.addProposer(
+          users[0],
+          proposer.address,
+          multisig.address,
+          '2021-01-01',
+        ),
+      ).rejects.toThrow('Signature has expired');
+    });
+
+    test('Add proposer, propose, remove proposer, try to propose and fail', async () => {
+      const { session, users, multisig } =
+        await framework.createFundedVerifiedMultisig(2, 2);
+
+      const proposer = session.createUser();
+
+      await framework.addProposer(users[0], proposer.address, multisig.address);
+
+      const proposal = await session.createSimpleTransferProposal(
+        proposer,
+        multisig.address,
+        '0x9999999999999999999999999999999999999999999999999999999999999999',
+        1000000,
+      );
+
+      expect(proposal.id).toBeDefined();
+
+      const listOfProposals = await session.getProposals(
+        multisig.address,
+        'localnet',
+      );
+
+      expect(listOfProposals.length).toBe(1);
+
+      await framework.removeProposer(
+        users[0],
+        proposer.address,
+        multisig.address,
+      );
+
+      const shouldBeCancelled = await session.getProposals(
+        multisig.address,
+        'localnet',
+      );
+
+      expect(shouldBeCancelled.length).toBe(1);
+      expect(shouldBeCancelled.length).toBe(1);
+      expect(shouldBeCancelled[0].status).toBe(ProposalStatus.CANCELLED);
+
+      await expect(
+        session.createSimpleTransferProposal(
+          proposer,
+          multisig.address,
+          '0x9999999999999999999999999999999999999999999999999999999999999999',
+          1000000,
+        ),
+      ).rejects.toThrow(AuthErrors.NotAMultisigMember);
     });
   });
 

@@ -8,7 +8,7 @@ import { useApiAuth } from "@/contexts/ApiAuthContext";
 
 interface SignProposalParams {
   proposalId: number;
-  builtTransactionBytes: string;
+  transactionBytes: string;
 }
 
 export function useSignProposal() {
@@ -20,14 +20,14 @@ export function useSignProposal() {
   return useMutation({
     mutationFn: async ({
       proposalId,
-      builtTransactionBytes,
+      transactionBytes,
     }: SignProposalParams) => {
       if (!currentAddress || !currentAccount) {
         throw new Error("No connected account");
       }
 
       // Create transaction from built bytes for signing
-      const transaction = Transaction.from(builtTransactionBytes);
+      const transaction = Transaction.from(transactionBytes);
 
       // Sign the transaction
       const result = await signTransaction({

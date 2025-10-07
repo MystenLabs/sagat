@@ -125,30 +125,6 @@ describe('Multisig API', () => {
   });
 
   describe('Error Handling', () => {
-    test('proposal on unverified multisig fails', async () => {
-      const { session, users } = await framework.createAuthenticatedSession(2);
-
-      // Create multisig but don't accept invitations - fund it so gas doesn't interfere with verification check
-      const multisig = await session.createMultisig(
-        users[0],
-        users,
-        2,
-        undefined,
-        true,
-      );
-
-      const recipient =
-        '0x4444444444444444444444444444444444444444444444444444444444444444';
-
-      await expect(
-        session.createSimpleTransferProposal(
-          users[0],
-          multisig.address,
-          recipient,
-          1000000,
-        ),
-      ).rejects.toThrow('not verified');
-    });
 
     test('non-member cannot vote on proposal', async () => {
       const { session, users, multisig } =

@@ -55,26 +55,5 @@ export const createTestApp = async (): Promise<Hono> => {
   mock.module('../../src/db', () => ({ db }));
   mock.module('../../src/db/env', () => env);
 
-  // Create fresh router instances
-  const authRouter = (await import('../../src/routes/auth')).default;
-  const addressesRouter = (await import('../../src/routes/addresses')).default;
-  const multisigRouter = (await import('../../src/routes/multisig')).default;
-  const proposalsRouter = (await import('../../src/routes/proposals')).default;
-  const { ValidationError } = await import('../../src/errors');
-
-  const app = new Hono()
-    .route('/auth', authRouter)
-    .route('/addresses', addressesRouter)
-    .route('/multisig', multisigRouter)
-    .route('/proposals', proposalsRouter);
-
-  app.onError((err, c) => {
-    if (err instanceof ValidationError) {
-      return c.json({ error: err.message }, 400);
-    }
-    console.error('Unhandled error:', err);
-    return c.json({ error: 'Internal Server Error' }, 500);
-  });
-
-  return app;
+  return (await import('../../src/index')).default;
 };

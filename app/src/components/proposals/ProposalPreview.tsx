@@ -27,7 +27,7 @@ export function ProposalPreview({ proposal, userHasSigned, onCancel, isCancellin
   const handleSignProposal = () => {
     signProposalMutation.mutate({
       proposalId: proposal.id,
-      builtTransactionBytes: proposal.builtTransactionBytes
+      transactionBytes: proposal.transactionBytes
     });
   };
 

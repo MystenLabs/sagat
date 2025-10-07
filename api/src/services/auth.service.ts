@@ -4,13 +4,13 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { JWT_SECRET } from '../db/env';
 import { validatePersonalMessage } from './addresses.service';
 import { PublicKey } from '@mysten/sui/cryptography';
-import { parsePublicKey } from '../utils/pubKey';
+import { getPublicKeyFromSerializedSignature, parsePublicKey } from '../utils/pubKey';
 import { SignJWT, jwtVerify } from 'jose';
 import { registerPublicKeys } from './addresses.service';
 import { ValidationError } from '../errors';
+import { LIMITS } from '../constants/limits';
 
 const JWT_COOKIE_NAME = 'connected-wallet';
-const MAX_EXPIRY = 60 * 60 * 1000; // 1 hour
 
 const getJwtSecret = () => new TextEncoder().encode(JWT_SECRET);
 
@@ -42,10 +42,11 @@ export type AuthEnv = {
 // public key data.
 // Script tokens are short-lived (1hr), matching the maximum duration of a signature.
 export const connectForScript = async (c: Context) => {
-  const { publicKey, signature, expiry } = await c.req.json();
+  const { signature, expiry } = await c.req.json();
   validateExpiry(expiry);
 
-  const pubKey = parsePublicKey(publicKey);
+  const pubKey = getPublicKeyFromSerializedSignature(signature);
+
   await validatePersonalMessage(
     pubKey,
     signature,
@@ -85,16 +86,16 @@ export const connectToPublicKey = async (c: Context) => {
     }
 
     // Get the public key, signature, and expiry from the request body.
-    const { publicKey, signature, expiry } = await c.req.json();
+    const { signature, expiry } = await c.req.json();
 
     // Validate required fields
-    if (!publicKey || !signature || !expiry) {
+    if (!signature || !expiry) {
       return c.json({ error: 'Missing required fields' }, 400);
     }
 
     validateExpiry(expiry);
 
-    const pubKey = parsePublicKey(publicKey);
+    const pubKey = getPublicKeyFromSerializedSignature(signature);
     await validatePersonalMessage(
       pubKey,
       signature,
@@ -178,7 +179,7 @@ const getPublicKeysFromJwt = async (
 };
 
 // Validate the expiry time of the signature.
-const validateExpiry = (expiry: string) => {
+export const validateExpiry = (expiry: string) => {
   const expiryDate = new Date(expiry);
   const now = Date.now();
 
@@ -188,7 +189,7 @@ const validateExpiry = (expiry: string) => {
   if (expiryDate.getTime() < now)
     throw new ValidationError('Signature has expired');
 
-  if (expiryDate.getTime() > now + MAX_EXPIRY)
+  if (expiryDate.getTime() > now + LIMITS.maxSignatureExpiry)
     throw new ValidationError(
       'Signature expiry too far in the future (max 1 hour)',
     );

@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import {
   ProposalStatus,
   SchemaMultisigMembers,
+  SchemaMultisigProposers,
   SchemaMultisigs,
   SchemaProposals,
 } from '../db/schema';
@@ -13,14 +14,19 @@ import { PublicKey } from '@mysten/sui/cryptography';
 
 // Returns the multisig with its members.
 export const getMultisig = async (address: string) => {
-  const result = await db
-    .select()
-    .from(SchemaMultisigs)
-    .leftJoin(
-      SchemaMultisigMembers,
-      eq(SchemaMultisigs.address, SchemaMultisigMembers.multisigAddress),
-    )
-    .where(eq(SchemaMultisigs.address, address));
+  const [result, proposers] = await Promise.all([
+    db
+      .select()
+      .from(SchemaMultisigs)
+      .leftJoin(
+        SchemaMultisigMembers,
+        eq(SchemaMultisigs.address, SchemaMultisigMembers.multisigAddress),
+      )
+      .where(eq(SchemaMultisigs.address, address)),
+    db.query.SchemaMultisigProposers.findMany({
+      where: eq(SchemaMultisigProposers.multisigAddress, address),
+    }),
+  ]);
 
   if (!result || result.length === 0) {
     throw new ValidationError('Multisig not found');
@@ -34,6 +40,7 @@ export const getMultisig = async (address: string) => {
   return {
     ...multisig,
     members: members.sort((a, b) => a.order - b.order),
+    proposers,
   };
 };
 
@@ -206,16 +213,19 @@ export const validateProposedTransaction = async (
     const tx = Transaction.from(proposal.transactionBytes);
     ownedOrReceivingObjects.push(...extractOwnedObjects(tx));
   }
+
   //   Query all the owned objects.
   const allOwnedObjects = await queryAllOwnedObjects(
     ownedOrReceivingObjects,
     network,
   );
 
+  // Get all the owned or receiving objects from the proposed transaction.
+  const existingProposalObjects = extractOwnedObjects(proposedTransaction);
   const allUsedOwnedObjects = [];
 
   for (const obj of allOwnedObjects) {
-    if (ownedOrReceivingObjects.includes(obj.objectId)) {
+    if (existingProposalObjects.includes(obj.objectId)) {
       allUsedOwnedObjects.push(obj);
     }
   }

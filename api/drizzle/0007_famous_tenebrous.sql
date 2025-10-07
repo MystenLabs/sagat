@@ -1,0 +1,1 @@
+ALTER TABLE "proposals" DROP COLUMN "built_transaction_bytes";

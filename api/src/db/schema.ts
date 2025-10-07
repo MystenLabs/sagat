@@ -59,9 +59,7 @@ const multisigMembers = pgTable(
     // The public key of the member. This is always a `sui` public key (includes flag!)
     publicKey: text('public_key')
       .notNull()
-      .references(() => addresses.publicKey, {
-        onUpdate: 'cascade'
-      }),
+      .references(() => addresses.publicKey),
     // The weight of the member
     weight: integer('weight').default(1).notNull(),
     // Whether the member has accepted the invitation
@@ -108,8 +106,6 @@ const proposals = pgTable(
     status: smallint('status').notNull().default(ProposalStatus.PENDING),
     // The tx bytes of the proposed transaction.
     transactionBytes: text('transaction_bytes').notNull(),
-    // The "built" tx bytes (after calling tx.build() with a client)
-    builtTransactionBytes: text('built_transaction_bytes').notNull(),
     // The address of the proposer.
     proposerAddress: text('proposer_address').notNull(),
     // A description for the proposal.
@@ -139,12 +135,27 @@ const proposalSignatures = pgTable(
       .references(() => proposals.id),
     publicKey: text('public_key')
       .notNull()
-      .references(() => addresses.publicKey, {
-        onUpdate: 'cascade',
-      }),
+      .references(() => addresses.publicKey),
     signature: text('signature').notNull(),
   },
   (table) => [primaryKey({ columns: [table.proposalId, table.publicKey] })],
+);
+
+// Store extra proposers for a given multisig.
+// Proposers can propose transactions in a multi-sig.
+const multisigProposers = pgTable(
+  'multisig_proposers',
+  {
+    multisigAddress: text('multisig_address')
+      .notNull()
+      .references(() => multisigs.address),
+    address: text('address').notNull(),
+    addedBy: text('added_by').notNull(),
+    addedAt: timestamp('added_at')
+      .notNull()
+      .default(sql`NOW()`),
+  },
+  (table) => [primaryKey({ columns: [table.multisigAddress, table.address] })],
 );
 
 // Export re-usable types.
@@ -154,12 +165,14 @@ export const SchemaMultisigs = multisigs;
 export const SchemaMultisigMembers = multisigMembers;
 export const SchemaProposals = proposals;
 export const SchemaProposalSignatures = proposalSignatures;
+export const SchemaMultisigProposers = multisigProposers;
 
 export type Proposal = typeof proposals.$inferSelect;
 export type Multisig = typeof multisigs.$inferSelect;
 export type MultisigMember = typeof multisigMembers.$inferSelect;
 export type Address = typeof addresses.$inferSelect;
 export type ProposalSignature = typeof proposalSignatures.$inferSelect;
+export type MultisigProposer = typeof multisigProposers.$inferSelect;
 
 export type ProposalWithSignatures = Proposal & {
   signatures: ProposalSignature[];
@@ -169,4 +182,5 @@ export type MultisigWithMembers = Multisig & {
   members: MultisigMember[];
   totalMembers: number;
   totalWeight: number;
+  proposers: Omit<MultisigProposer, 'multisigAddress'>[];
 };

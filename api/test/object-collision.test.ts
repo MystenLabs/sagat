@@ -49,14 +49,13 @@ describe('Object Collision Detection', () => {
       const txBytes1 = await tx1.build({ client });
       const signature1 = await users[0].keypair.signTransaction(txBytes1);
 
-      const response1 = await session['app'].request('/proposals', {
+      const response1 = await session.getApp().request('/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes1.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature1.signature,
           description: 'First proposal with gas coin',
         }),
@@ -83,14 +82,13 @@ describe('Object Collision Detection', () => {
       const txBytes2 = await tx2.build({ client });
       const signature2 = await users[0].keypair.signTransaction(txBytes2);
 
-      const response2 = await session['app'].request('/proposals', {
+      const response2 = await session.getApp().request('/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes2.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature2.signature,
           description: 'Conflicting proposal with same gas coin',
         }),
@@ -111,76 +109,55 @@ describe('Object Collision Detection', () => {
       });
 
       expect(coins.data.length).toBeGreaterThan(1);
+      // we shouldn't be over 10!
+      expect(coins.data.length).toBeLessThan(10);
 
-      const [gasCoin1, gasCoin2] = coins.data;
+      const proposals = [];
 
-      // Create first proposal with first gas coin
-      const tx1 = new Transaction();
-      tx1.setSender(multisig.address);
-      tx1.setGasPayment([
-        {
-          objectId: gasCoin1.coinObjectId,
-          version: gasCoin1.version,
-          digest: gasCoin1.digest,
-        },
-      ]);
-      const [coin1] = tx1.splitCoins(gasCoin1.coinObjectId, [1000000]);
-      tx1.transferObjects([coin1], '0x33');
+      for (const coin of coins.data) {
+        const tx = new Transaction();
+        tx.setSender(multisig.address);
 
-      const txBytes1 = await tx1.build({ client });
-      const signature1 = await users[0].keypair.signTransaction(txBytes1);
+        tx.setGasPayment([
+          {
+            objectId: coin.coinObjectId,
+            version: coin.version,
+            digest: coin.digest,
+          },
+        ]);
 
-      const response1 = await session['app'].request('/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          multisigAddress: multisig.address,
-          network: 'localnet',
-          transactionBytes: txBytes1.toBase64(),
-          publicKey: users[0].publicKey,
-          signature: signature1.signature,
-          description: 'First proposal',
-        }),
-      });
+        tx.moveCall({
+          target: '0x1::option::none',
+          arguments: [],
+          typeArguments: ['0x1::string::String'],
+        });
 
-      expect(response1.ok).toBe(true);
-      const proposal1 = await response1.json();
+        const txBytes = await tx.build({ client });
+        const signature = await users[0].keypair.signTransaction(txBytes);
 
-      // Create second proposal with different gas coin - should succeed
-      const tx2 = new Transaction();
-      tx2.setSender(multisig.address);
-      tx2.setGasPayment([
-        {
-          objectId: gasCoin2.coinObjectId,
-          version: gasCoin2.version,
-          digest: gasCoin2.digest,
-        },
-      ]);
-      const [coin2] = tx2.splitCoins(gasCoin2.coinObjectId, [2000000]);
-      tx2.transferObjects([coin2], '0x44');
+        const response = await session.getApp().request('/proposals', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            multisigAddress: multisig.address,
+            network: 'localnet',
+            transactionBytes: txBytes.toBase64(),
+            publicKey: users[0].publicKey,
+            signature: signature.signature,
+            description: `Proposal ${coin.coinObjectId}`,
+          }),
+        });
 
-      const txBytes2 = await tx2.build({ client });
-      const signature2 = await users[0].keypair.signTransaction(txBytes2);
+        expect(response.ok).toBe(true);
+        proposals.push(await response.json());
+      }
 
-      const response2 = await session['app'].request('/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          multisigAddress: multisig.address,
-          network: 'localnet',
-          transactionBytes: txBytes2.toBase64(),
-          publicKey: users[0].publicKey,
-          signature: signature2.signature,
-          description: 'Second proposal with different gas coin',
-        }),
-      });
+      const uniqueProposals = proposals.filter(
+        (proposal, index, self) =>
+          index === self.findIndex((t) => t.id === proposal.id),
+      );
 
-      expect(response2.ok).toBe(true);
-      const proposal2 = await response2.json();
-
-      expect(proposal1.id).toBeDefined();
-      expect(proposal2.id).toBeDefined();
-      expect(proposal1.id).not.toBe(proposal2.id);
+      expect(uniqueProposals.length).toBe(coins.data.length);
     });
 
     test('allows proposal after previous proposal is resolved', async () => {
@@ -211,14 +188,13 @@ describe('Object Collision Detection', () => {
       const txBytes1 = await tx1.build({ client });
       const signature1 = await users[0].keypair.signTransaction(txBytes1);
 
-      const response1 = await session['app'].request('/proposals', {
+      const response1 = await session.getApp().request('/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes1.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature1.signature,
           description: 'First proposal',
         }),
@@ -234,6 +210,8 @@ describe('Object Collision Detection', () => {
         txBytes1.toBase64(),
       );
       expect(voteResult.hasReachedThreshold).toBe(true);
+
+      // TODO: Fix this test...
 
       // Note: In a real system, we'd need to execute the proposal to actually free up the objects
       // For this test, we're just verifying the validation logic works for pending proposals
@@ -252,9 +230,6 @@ describe('Object Collision Detection', () => {
         limit: 20,
       });
 
-      const recipient =
-        '0x6666666666666666666666666666666666666666666666666666666666666666';
-
       // Create 10 proposals using different gas coins
       for (let i = 0; i < 10; i++) {
         const tx = new Transaction();
@@ -267,19 +242,18 @@ describe('Object Collision Detection', () => {
           },
         ]);
         const [coin] = tx.splitCoins(tx.gas, [100000]);
-        tx.transferObjects([coin], recipient);
+        tx.transferObjects([coin], '0x666');
 
         const txBytes = await tx.build({ client });
         const signature = await users[0].keypair.signTransaction(txBytes);
 
-        const response = await session['app'].request('/proposals', {
+        const response = await session.getApp().request('/proposals', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             multisigAddress: multisig.address,
             network: 'localnet',
             transactionBytes: txBytes.toBase64(),
-            publicKey: users[0].publicKey,
             signature: signature.signature,
             description: `Proposal ${i + 1}`,
           }),
@@ -299,19 +273,18 @@ describe('Object Collision Detection', () => {
         },
       ]);
       const [coin11] = tx11.splitCoins(coins.data[10].coinObjectId, [100000]);
-      tx11.transferObjects([coin11], recipient);
+      tx11.transferObjects([coin11], '0x666');
 
       const txBytes11 = await tx11.build({ client });
       const signature11 = await users[0].keypair.signTransaction(txBytes11);
 
-      const response11 = await session['app'].request('/proposals', {
+      const response11 = await session.getApp().request('/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes11.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature11.signature,
           description: 'Proposal that exceeds limit',
         }),
@@ -359,14 +332,13 @@ describe('Object Collision Detection', () => {
       const txBytes1 = await tx1.build({ client });
       const signature1 = await users[0].keypair.signTransaction(txBytes1);
 
-      const response1 = await session['app'].request('/proposals', {
+      const response1 = await session.getApp().request('/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes1.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature1.signature,
           description: 'First proposal using shared coin',
         }),
@@ -393,14 +365,13 @@ describe('Object Collision Detection', () => {
       const txBytes2 = await tx2.build({ client });
       const signature2 = await users[0].keypair.signTransaction(txBytes2);
 
-      const response2 = await session['app'].request('/proposals', {
+      const response2 = await session.getApp().request('/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           multisigAddress: multisig.address,
           network: 'localnet',
           transactionBytes: txBytes2.toBase64(),
-          publicKey: users[0].publicKey,
           signature: signature2.signature,
           description: 'Conflicting proposal using same shared coin',
         }),

@@ -58,7 +58,7 @@ export function useExecuteProposal() {
 
         // Step 3: Execute the transaction with the combined signature
         const result = await suiClient.executeTransactionBlock({
-          transactionBlock: proposal.builtTransactionBytes,
+          transactionBlock: proposal.transactionBytes,
           signature: combinedSignature,
           options: {
             showEffects: true,

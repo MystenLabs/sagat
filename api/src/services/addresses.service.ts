@@ -6,6 +6,7 @@ import {
   SchemaMultisigMembers,
   SchemaMultisigs,
   MultisigWithMembers,
+  SchemaMultisigProposers,
 } from '../db/schema';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { eq, inArray } from 'drizzle-orm';
@@ -78,24 +79,33 @@ export async function expandMultisigsWithMembers(
   if (multisigAddresses.length === 0) return [];
 
   // Fetch ALL members belonging to those multisigs with multisig data
-  const membersWithMultisig = await db
-    .select({
-      multisigAddress: SchemaMultisigMembers.multisigAddress,
-      publicKey: SchemaMultisigMembers.publicKey,
-      weight: SchemaMultisigMembers.weight,
-      isAccepted: SchemaMultisigMembers.isAccepted,
-      order: SchemaMultisigMembers.order,
-      isRejected: SchemaMultisigMembers.isRejected,
-      name: SchemaMultisigs.name,
-      threshold: SchemaMultisigs.threshold,
-      isVerified: SchemaMultisigs.isVerified,
-    })
-    .from(SchemaMultisigMembers)
-    .innerJoin(
-      SchemaMultisigs,
-      eq(SchemaMultisigMembers.multisigAddress, SchemaMultisigs.address),
-    )
-    .where(inArray(SchemaMultisigMembers.multisigAddress, multisigAddresses));
+  const [membersWithMultisig, proposers] = await Promise.all([
+    db
+      .select({
+        multisigAddress: SchemaMultisigMembers.multisigAddress,
+        publicKey: SchemaMultisigMembers.publicKey,
+        weight: SchemaMultisigMembers.weight,
+        isAccepted: SchemaMultisigMembers.isAccepted,
+        order: SchemaMultisigMembers.order,
+        isRejected: SchemaMultisigMembers.isRejected,
+        name: SchemaMultisigs.name,
+        threshold: SchemaMultisigs.threshold,
+        isVerified: SchemaMultisigs.isVerified,
+      })
+      .from(SchemaMultisigMembers)
+      .innerJoin(
+        SchemaMultisigs,
+        eq(SchemaMultisigMembers.multisigAddress, SchemaMultisigs.address),
+      )
+      .where(inArray(SchemaMultisigMembers.multisigAddress, multisigAddresses)),
+    // Get all the external proposers for these multisigs.
+    db
+      .select()
+      .from(SchemaMultisigProposers)
+      .where(
+        inArray(SchemaMultisigProposers.multisigAddress, multisigAddresses),
+      ),
+  ]);
 
   const multisigsWithMembers: MultisigWithMembers[] = [];
 
@@ -112,6 +122,13 @@ export async function expandMultisigsWithMembers(
         totalMembers: 0,
         totalWeight: 0,
         members: [],
+        proposers: proposers
+          .filter((p) => p.multisigAddress === member.multisigAddress)
+          .map((p) => ({
+            address: p.address,
+            addedBy: p.addedBy,
+            addedAt: p.addedAt,
+          })),
       });
     }
 

@@ -72,7 +72,6 @@ export interface Proposal {
   digest: string;
   status: ProposalStatus;
   transactionBytes: string;
-  builtTransactionBytes: string;
   proposerAddress: string;
   description: string | null;
   totalWeight: number;

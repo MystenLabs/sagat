@@ -34,6 +34,7 @@ export async function teardownTestDatabase(dbName: string, pool: Pool) {
 }
 
 export async function clearTestData(db: any) {
+  await db.delete(schema.SchemaMultisigProposers);
   await db.delete(schema.SchemaProposalSignatures);
   await db.delete(schema.SchemaProposals);
   await db.delete(schema.SchemaMultisigMembers);

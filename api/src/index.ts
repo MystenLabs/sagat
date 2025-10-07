@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import addressesRouter from './routes/addresses';
 import multisigRouter from './routes/multisig';
-import { ValidationError } from './errors';
+import { appErrorHandler } from './errors';
 import proposalsRouter from './routes/proposals';
 import authRouter from './routes/auth';
 import {
@@ -10,8 +10,6 @@ import {
   CORS_ALLOWED_ORIGINS,
 } from './db/env';
 import { cors } from 'hono/cors';
-import { SuiHTTPTransportError } from '@mysten/sui/client';
-import { DrizzleQueryError } from 'drizzle-orm';
 
 const app = new Hono();
 
@@ -59,24 +57,6 @@ app.route('/multisig', multisigRouter);
 app.route('/proposals', proposalsRouter);
 
 // Map known errors
-app.onError((err, c) => {
-  if (err instanceof ValidationError) {
-    return c.json({ error: err.message }, 400);
-  }
-
-  if (err instanceof SuiHTTPTransportError) {
-    return c.json({ error: err.message }, 400);
-  }
-
-  if (err instanceof DrizzleQueryError) {
-    const msg = err.cause?.message;
-    if (msg?.includes('violates unique constraint')) {
-      return c.json({ error: 'Data already exists in the database.' }, 400);
-    }
-  }
-
-  console.error('Unhandled error:', err);
-  return c.json({ error: 'Internal Server Error' }, 500);
-});
+app.onError(appErrorHandler);
 
 export default app;

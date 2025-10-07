@@ -20,7 +20,7 @@ describe('Multisig API', () => {
     test('creates 2-of-2 multisig', async () => {
       const { session, users } = await framework.createAuthenticatedSession(2);
 
-      const multisig = await session.createMultisig(users[0], users, 2);
+      const multisig = await session.createMultisig(users, 2);
 
       expect(multisig.address).toBeDefined();
       expect(multisig.threshold).toBe(2);
@@ -30,7 +30,7 @@ describe('Multisig API', () => {
     test('creates 2-of-3 multisig', async () => {
       const { session, users } = await framework.createAuthenticatedSession(3);
 
-      const multisig = await session.createMultisig(users[0], users, 2);
+      const multisig = await session.createMultisig(users, 2);
 
       expect(multisig.address).toBeDefined();
       expect(multisig.threshold).toBe(2);
@@ -40,7 +40,6 @@ describe('Multisig API', () => {
       const { session, users } = await framework.createAuthenticatedSession(2);
 
       const multisig = await session.createMultisig(
-        users[0],
         users,
         2,
         'My Test Multisig',
@@ -53,12 +52,12 @@ describe('Multisig API', () => {
       const { session, users } = await framework.createAuthenticatedSession(2);
 
       // Threshold too high
-      await expect(session.createMultisig(users[0], users, 3)).rejects.toThrow(
+      await expect(session.createMultisig(users, 3)).rejects.toThrow(
         'Threshold must be less than',
       );
 
       // Threshold too low
-      await expect(session.createMultisig(users[0], users, 0)).rejects.toThrow(
+      await expect(session.createMultisig(users, 0)).rejects.toThrow(
         'Threshold must be greater or equal to 1',
       );
     });
@@ -68,7 +67,7 @@ describe('Multisig API', () => {
     test('member can accept multisig invitation', async () => {
       const { session, users } = await framework.createAuthenticatedSession(2);
 
-      const multisig = await session.createMultisig(users[0], users, 2);
+      const multisig = await session.createMultisig(users, 2);
 
       // Second user accepts
       await session.acceptMultisig(users[1], multisig.address);
@@ -90,7 +89,7 @@ describe('Multisig API', () => {
       const { session, users } = await framework.createAuthenticatedSession(2);
       const outsider = session.createUser();
 
-      const multisig = await session.createMultisig(users[0], users, 2);
+      const multisig = await session.createMultisig(users, 2);
 
       await expect(
         session.acceptMultisig(outsider, multisig.address),
@@ -99,15 +98,6 @@ describe('Multisig API', () => {
   });
 
   describe('Multisig Validation', () => {
-    test('creator must be in member list', async () => {
-      const { session, users } = await framework.createAuthenticatedSession(2);
-      const outsider = session.createUser();
-
-      await expect(session.createMultisig(outsider, users, 2)).rejects.toThrow(
-        'Creator address is not in the list',
-      );
-    });
-
     test('public keys are auto-registered during multisig creation', async () => {
       const session = framework.createSession();
       const alice = session.createUser();
@@ -117,7 +107,7 @@ describe('Multisig API', () => {
       await session.connectUser(alice);
 
       // This should now succeed because the API auto-registers public keys
-      const multisig = await session.createMultisig(alice, [alice, bob], 2);
+      const multisig = await session.createMultisig([alice, bob], 2);
 
       expect(multisig.address).toBeDefined();
       expect(multisig.threshold).toBe(2);

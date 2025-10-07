@@ -3,6 +3,7 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
 import { getLocalClient, fundAddress } from '../setup/sui-network';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
+import { ProposalWithSignatures } from '../../src/db/schema';
 
 const client = getLocalClient();
 
@@ -23,6 +24,21 @@ export interface TestProposal {
   transactionBytes: string;
 }
 
+export const newUser = (): TestUser => {
+  const keypair = new Ed25519Keypair();
+  return {
+    keypair,
+    publicKey: keypair.getPublicKey().toSuiPublicKey(),
+    address: keypair.toSuiAddress(),
+  };
+};
+
+const createExpirationDateForMessage = (): string => {
+  const expiry = new Date();
+  expiry.setMinutes(expiry.getMinutes() + 30);
+  return expiry.toISOString();
+};
+
 export class TestSession {
   private cookie: string = '';
   private users: TestUser[] = [];
@@ -30,12 +46,7 @@ export class TestSession {
   constructor(private app: Hono) {}
 
   createUser(): TestUser {
-    const keypair = new Ed25519Keypair();
-    const user = {
-      keypair,
-      publicKey: keypair.getPublicKey().toSuiPublicKey(),
-      address: keypair.toSuiAddress(),
-    };
+    const user = newUser();
     this.users.push(user);
     return user;
   }
@@ -50,7 +61,7 @@ export class TestSession {
   }
 
   async connectUser(user: TestUser): Promise<void> {
-    const expiry = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const expiry = createExpirationDateForMessage();
     const message = `Verifying address ownership until: ${expiry}`;
     const signature = await this.signMessage(user.keypair, message);
 
@@ -103,14 +114,12 @@ export class TestSession {
   }
 
   async createMultisig(
-    creator: TestUser,
     members: TestUser[],
     threshold: number,
     name?: string,
     fund: boolean = false,
   ): Promise<TestMultisig> {
     return this.createCustomMultisig(
-      creator,
       members,
       members.map(() => 1),
       threshold,
@@ -120,7 +129,6 @@ export class TestSession {
   }
 
   async createCustomMultisig(
-    creator: TestUser,
     members: TestUser[],
     weights: number[],
     threshold: number,
@@ -129,9 +137,8 @@ export class TestSession {
   ): Promise<TestMultisig> {
     const response = await this.app.request('/multisig', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Cookie: this.cookie },
       body: JSON.stringify({
-        publicKey: creator.publicKey,
         publicKeys: members.map((m) => m.publicKey),
         weights,
         threshold,
@@ -216,6 +223,33 @@ export class TestSession {
     return this.app;
   }
 
+  async getProposals(
+    multisigAddress: string,
+    network: string,
+    status?: string,
+  ): Promise<ProposalWithSignatures[]> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('multisigAddress', multisigAddress);
+    queryParams.append('network', network);
+    if (status) queryParams.append('status', status);
+
+    const response = await this.app.request(
+      `/proposals?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', Cookie: this.cookie },
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(
+        `Proposal retrieval failed: ${response.status} - ${error}`,
+      );
+    }
+    return response.json();
+  }
+
   // Simple helper for repetitive test transfers - builds transaction inline for clarity
   async createSimpleTransferProposal(
     proposer: TestUser,
@@ -239,7 +273,6 @@ export class TestSession {
         multisigAddress,
         network: 'localnet',
         transactionBytes: txBytes.toBase64(),
-        publicKey: proposer.publicKey,
         signature: signature.signature,
         description,
       }),
@@ -253,10 +286,8 @@ export class TestSession {
     }
 
     const proposal = await response.json();
-    return {
-      id: proposal.id,
-      transactionBytes: txBytes.toBase64(),
-    };
+
+    return proposal;
   }
 
   async voteOnProposal(
@@ -328,6 +359,10 @@ export class TestSession {
   hasActiveCookie(): boolean {
     return !!this.cookie && this.getConnectedUsers().length > 0;
   }
+
+  getCookie(): string {
+    return this.cookie;
+  }
 }
 
 export class ApiTestFramework {
@@ -369,7 +404,6 @@ export class ApiTestFramework {
     const actualThreshold = threshold || userCount;
 
     const multisig = await session.createMultisig(
-      users[0],
       users,
       actualThreshold,
       name,
@@ -394,5 +428,65 @@ export class ApiTestFramework {
     multisig: TestMultisig;
   }> {
     return this.createVerifiedMultisig(userCount, threshold, name, true);
+  }
+
+  async addProposer(
+    member: TestUser,
+    proposer: string,
+    multisigAddress: string,
+    customExpiry?: string,
+  ): Promise<void> {
+    const expiry = customExpiry || createExpirationDateForMessage();
+    const message = `Adding proposer ${proposer} to multisig ${multisigAddress}. Valid until: ${expiry}`;
+    const bytes = new TextEncoder().encode(message);
+    const signature = await member.keypair.signPersonalMessage(bytes);
+
+    const response = await this.app.request(
+      `/multisig/${multisigAddress}/add-proposer`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proposer,
+          signature: signature.signature,
+          expiry,
+        }),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(
+        `Multisig proposer addition failed: ${response.status} - ${error}`,
+      );
+    }
+  }
+
+  // Remove proposer for a multisig.
+  async removeProposer(
+    member: TestUser,
+    proposer: string,
+    multisigAddress: string,
+  ): Promise<void> {
+    const expiry = createExpirationDateForMessage();
+    const message = `Removing proposer ${proposer} from multisig ${multisigAddress}. Valid until: ${expiry}`;
+    const bytes = new TextEncoder().encode(message);
+    const signature = await member.keypair.signPersonalMessage(bytes);
+
+    const response = await this.app.request(
+      `/multisig/${multisigAddress}/remove-proposer`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposer, signature: signature.signature, expiry }),
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(
+        `Multisig proposer removal failed: ${response.status} - ${error}`,
+      );
+    }
   }
 }

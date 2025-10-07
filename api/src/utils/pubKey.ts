@@ -1,4 +1,5 @@
 import {
+  parseSerializedSignature,
   PublicKey,
   SIGNATURE_FLAG_TO_SCHEME,
   SIGNATURE_SCHEME_TO_FLAG,
@@ -39,5 +40,21 @@ export const parsePublicKey = (publicKey: string): PublicKey => {
 
   throw new ValidationError(
     'Only ED25519, Secp256k1, and Secp256r1 are supported. Also, public keys must have a sui flag. You can export them using `toSuiPublicKey()` instead of `toBase64()`.',
+  );
+};
+
+// Gets a public key from a serialized signature.
+export const getPublicKeyFromSerializedSignature = (signature: string): PublicKey => {
+  const signatureData = parseSerializedSignature(signature);
+
+  if (signatureData.signatureScheme === 'ED25519')
+    return new Ed25519PublicKey(signatureData.publicKey);
+  if (signatureData.signatureScheme === 'Secp256k1')
+    return new Secp256k1PublicKey(signatureData.publicKey);
+  if (signatureData.signatureScheme === 'Secp256r1')
+    return new Secp256r1PublicKey(signatureData.publicKey);
+
+  throw new ValidationError(
+    'Invalid signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported.',
   );
 };

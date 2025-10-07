@@ -1,6 +1,15 @@
 import { Hono } from 'hono';
-import { SchemaMultisigMembers, SchemaMultisigs } from '../db/schema';
-import { parsePublicKey } from '../utils/pubKey';
+import {
+  ProposalStatus,
+  SchemaMultisigMembers,
+  SchemaMultisigProposers,
+  SchemaMultisigs,
+  SchemaProposals,
+} from '../db/schema';
+import {
+  getPublicKeyFromSerializedSignature,
+  parsePublicKey,
+} from '../utils/pubKey';
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
@@ -16,11 +25,15 @@ import {
   registerPublicKeyStrings,
 } from '../services/addresses.service';
 import { PublicKey } from '@mysten/sui/cryptography';
-import { ValidationError } from '../errors';
-import { authMiddleware, AuthEnv } from '../services/auth.service';
+import { ApiAuthError, CommonError, ValidationError } from '../errors';
+import {
+  authMiddleware,
+  AuthEnv,
+  validateExpiry,
+} from '../services/auth.service';
 import { Context } from 'hono';
-
-const MAX_MULTISIGS_PER_PUBLIC_KEY = 50;
+import { isValidSuiAddress } from '@mysten/sui/utils';
+import { LIMITS } from '../constants/limits';
 
 const multisigRouter = new Hono();
 
@@ -47,22 +60,21 @@ multisigRouter.get('/:address', authMiddleware, async (c: Context<AuthEnv>) => {
   return c.json(multisig);
 });
 
-multisigRouter.post('/', async (c) => {
+multisigRouter.post('/', authMiddleware, async (c: Context<AuthEnv>) => {
   const {
-    publicKey,
     publicKeys,
     weights,
     threshold,
     name,
   }: {
-    publicKey: string;
     publicKeys: string[];
     weights: number[];
     threshold: number;
     name?: string;
   } = await c.req.json();
 
-  const creatorPubKey = parsePublicKey(publicKey);
+  // Get a list of the public keys that are authorized.
+  const authorizedPubKeys = c.get('publicKeys');
 
   // Register all public keys first
   await registerPublicKeyStrings(publicKeys);
@@ -81,13 +93,6 @@ multisigRouter.post('/', async (c) => {
 
   // Validate the quorum with computed addresses
   await validateQuorum(addresses, weights, threshold);
-
-  if (!addresses.some((address) => address === creatorPubKey.toSuiAddress())) {
-    return c.json(
-      { error: 'Creator address is not in the list of public keys' },
-      400,
-    );
-  }
 
   const multisig = MultiSigPublicKey.fromPublicKeys({
     threshold,
@@ -120,7 +125,10 @@ multisigRouter.post('/', async (c) => {
           publicKey: key.toSuiPublicKey(),
           weight:
             weights[addresses.findIndex((addr) => addr === key.toSuiAddress())],
-          isAccepted: key.toSuiAddress() === creatorPubKey.toSuiAddress(),
+          // If authorization includes the user, we can accept immediately.
+          isAccepted: authorizedPubKeys.some(
+            (k) => k.toSuiAddress() === key.toSuiAddress(),
+          ),
           order: index,
         })),
       )
@@ -137,16 +145,16 @@ multisigRouter.post('/', async (c) => {
 
 // Accept participation in a multisig scheme as a public key holder.
 multisigRouter.post('/:address/accept', async (c) => {
-  const { publicKey, signature } = await c.req.json();
+  const { signature } = await c.req.json();
   const { address } = c.req.param();
 
-  const pubKey = parsePublicKey(publicKey);
+  const pubKey = getPublicKeyFromSerializedSignature(signature);
 
   if (!(await isMultisigMember(address, pubKey, false)))
     throw new ValidationError('You are not a member of this multisig');
 
   await validatePersonalMessage(
-    parsePublicKey(publicKey),
+    pubKey,
     signature,
     `Participating in multisig ${address}`,
   );
@@ -159,7 +167,7 @@ multisigRouter.post('/:address/accept', async (c) => {
   });
 
   // Maximum connections per public key.
-  if (existingConnections.length > MAX_MULTISIGS_PER_PUBLIC_KEY)
+  if (existingConnections.length > LIMITS.maxMultisigsPerPublicKey)
     throw new ValidationError(
       'You have reached the maximum number of multisigs for this public key',
     );
@@ -198,12 +206,14 @@ multisigRouter.post('/:address/accept', async (c) => {
 
 // Reject participation in a multisig scheme
 multisigRouter.post('/:address/reject', async (c) => {
-  const { publicKey, signature } = await c.req.json();
+  const { signature } = await c.req.json();
   const { address } = c.req.param();
+
+  const pubKey = getPublicKeyFromSerializedSignature(signature);
 
   // Validate signature with rejection-specific message
   await validatePersonalMessage(
-    parsePublicKey(publicKey),
+    pubKey,
     signature,
     `Rejecting multisig invitation ${address}`,
   );
@@ -213,7 +223,9 @@ multisigRouter.post('/:address/reject', async (c) => {
   if (multisig.isVerified)
     throw new ValidationError('Multisig is already verified');
 
-  const member = multisig.members.find((x) => x?.publicKey == publicKey);
+  const member = multisig.members.find(
+    (x) => x?.publicKey == pubKey.toSuiPublicKey(),
+  );
   if (!member)
     throw new ValidationError('You are not a member of this multisig');
 
@@ -229,7 +241,7 @@ multisigRouter.post('/:address/reject', async (c) => {
     .where(
       and(
         eq(SchemaMultisigMembers.multisigAddress, address),
-        eq(SchemaMultisigMembers.publicKey, publicKey),
+        eq(SchemaMultisigMembers.publicKey, pubKey.toSuiPublicKey()),
       ),
     );
 
@@ -237,6 +249,106 @@ multisigRouter.post('/:address/reject', async (c) => {
     message: 'Multisig invitation rejected and removed',
     address,
   });
+});
+
+// Add an external proposer for a multisig address
+multisigRouter.post('/:address/add-proposer', async (c) => {
+  const { signature, proposer, expiry } = await c.req.json();
+  const { address } = c.req.param();
+
+  // Validate the expiry time of the signature.
+  validateExpiry(expiry);
+
+  if (!isValidSuiAddress(proposer)) throw new CommonError('InvalidAddress');
+
+  // Gets the sender's public key based on the signature.
+  const publicKey = getPublicKeyFromSerializedSignature(signature);
+
+  if (!(await isMultisigMember(address, publicKey)))
+    throw new ApiAuthError('NotAMultisigMember');
+
+  // Validate the signature.
+  await validatePersonalMessage(
+    publicKey,
+    signature,
+    `Adding proposer ${proposer} to multisig ${address}. Valid until: ${expiry}`,
+  );
+
+  // Add the proposer to the multisig.
+  await db.transaction(
+    async (tx) => {
+      const existingProposers = await tx.query.SchemaMultisigProposers.findMany(
+        {
+          columns: { address: true },
+          where: and(eq(SchemaMultisigProposers.multisigAddress, address)),
+        },
+      );
+
+      if (existingProposers.length >= LIMITS.maxProposersPerMultisig)
+        throw new ValidationError(
+          'You have reached the maximum number of proposers for this multisig',
+        );
+
+      if (existingProposers.some((p) => p.address === proposer))
+        throw new ValidationError(
+          `${proposer} is already a proposer for this multisig`,
+        );
+
+      await tx.insert(SchemaMultisigProposers).values({
+        multisigAddress: address,
+        address: proposer,
+        addedBy: publicKey.toSuiAddress(),
+      });
+    },
+    { isolationLevel: 'repeatable read' },
+  );
+
+  return c.json({ success: true });
+});
+
+multisigRouter.post('/:address/remove-proposer', async (c) => {
+  const { signature, proposer, expiry } = await c.req.json();
+  const { address } = c.req.param();
+
+  // Validate the expiry time of the signature.
+  validateExpiry(expiry);
+
+  const publicKey = getPublicKeyFromSerializedSignature(signature);
+
+  if (!(await isMultisigMember(address, publicKey)))
+    throw new ApiAuthError('NotAMultisigMember');
+
+  await validatePersonalMessage(
+    publicKey,
+    signature,
+    `Removing proposer ${proposer} from multisig ${address}. Valid until: ${expiry}`,
+  );
+
+  // Remove the proposer from the multisig, removing all pending transactions from the proposer.
+  await db.transaction(async (tx) => {
+    // Cancel all pending transactions from the proposer.
+    await tx
+      .update(SchemaProposals)
+      .set({ status: ProposalStatus.CANCELLED })
+      .where(
+        and(
+          eq(SchemaProposals.multisigAddress, address),
+          eq(SchemaProposals.proposerAddress, proposer),
+          eq(SchemaProposals.status, ProposalStatus.PENDING),
+        ),
+      );
+
+    await tx
+      .delete(SchemaMultisigProposers)
+      .where(
+        and(
+          eq(SchemaMultisigProposers.multisigAddress, address),
+          eq(SchemaMultisigProposers.address, proposer),
+        ),
+      );
+  });
+
+  return c.json({ success: true });
 });
 
 export default multisigRouter;
