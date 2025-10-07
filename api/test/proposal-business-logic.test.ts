@@ -37,24 +37,16 @@ describe('Proposal Business Logic', () => {
       const [coin] = tx.splitCoins(tx.gas, [1000000]);
       tx.transferObjects([coin], recipient);
 
-      const txBytes = await tx.build({ client });
-      const signature = await wrongUser.keypair.signTransaction(txBytes);
-
-      const response = await session.getApp().request('/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          multisigAddress: multisig.address,
-          network: 'localnet',
-          transactionBytes: txBytes.toBase64(),
-          signature: signature.signature,
-          description: 'Test proposal',
-        }),
-      });
-
-      expect(response.ok).toBe(false);
-      const error = await response.text();
-      expect(error).toContain('not a member');
+      const txBytes = (await tx.build({ client })).toBase64();
+      expect(
+        session.createProposal(
+          wrongUser,
+          multisig.address,
+          'localnet',
+          txBytes,
+          'Test proposal',
+        ),
+      ).rejects.toThrow(/not a member/);
     });
 
     test('prevents duplicate proposals with same transaction digest', async () => {
@@ -70,22 +62,17 @@ describe('Proposal Business Logic', () => {
       const [coin1] = tx1.splitCoins(tx1.gas, [1000000]);
       tx1.transferObjects([coin1], recipient);
 
-      const txBytes1 = await tx1.build({ client });
-      const signature1 = await users[0].keypair.signTransaction(txBytes1);
+      const txBytes1 = (await tx1.build({ client })).toBase64();
 
       // Create first proposal
-      const response1 = await session.getApp().request('/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          multisigAddress: multisig.address,
-          network: 'localnet',
-          transactionBytes: txBytes1.toBase64(),
-          signature: signature1.signature,
-          description: 'First proposal',
-        }),
-      });
-      expect(response1.ok).toBe(true);
+      const response1 = await session.createProposal(
+        users[0],
+        multisig.address,
+        'localnet',
+        txBytes1,
+        'First proposal',
+      );
+      expect(response1.id).toBeDefined();
 
       // Build identical transaction
       const tx2 = new Transaction();
@@ -93,25 +80,16 @@ describe('Proposal Business Logic', () => {
       const [coin2] = tx2.splitCoins(tx2.gas, [1000000]);
       tx2.transferObjects([coin2], recipient);
 
-      const txBytes2 = await tx2.build({ client });
-      const signature2 = await users[0].keypair.signTransaction(txBytes2);
-
-      // Try to create identical proposal - should fail
-      const response2 = await session.getApp().request('/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          multisigAddress: multisig.address,
-          network: 'localnet',
-          transactionBytes: txBytes2.toBase64(),
-          signature: signature2.signature,
-          description: 'Duplicate proposal',
-        }),
-      });
-
-      expect(response2.ok).toBe(false);
-      const error = await response2.text();
-      expect(error).toContain('same digest');
+      const txBytes2 = (await tx2.build({ client })).toBase64();
+      expect(
+        session.createProposal(
+          users[0],
+          multisig.address,
+          'localnet',
+          txBytes2,
+          'Duplicate proposal',
+        ),
+      ).rejects.toThrow(/same digest/);
     });
   });
 
@@ -141,23 +119,16 @@ describe('Proposal Business Logic', () => {
       const [coin] = tx.splitCoins(tx.gas, [500000]);
       tx.transferObjects([coin], recipient);
 
-      const txBytes = await tx.build({ client });
-      const signature = await users[0].keypair.signTransaction(txBytes);
+      const txBytes = (await tx.build({ client })).toBase64();
 
-      const response = await session.getApp().request('/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          multisigAddress: multisig.address,
-          network: 'localnet',
-          transactionBytes: txBytes.toBase64(),
-          signature: signature.signature,
-          description: 'Test proposal',
-        }),
-      });
-
-      expect(response.ok).toBe(true);
-      const proposal = await response.json();
+      const proposal = await session.createProposal(
+        users[0],
+        multisig.address,
+        'localnet',
+        txBytes,
+        'Test proposal',
+      );
+      expect(proposal.id).toBeDefined();
 
       // Alice voted (weight 1), now Bob votes (weight 2) = total 3, should reach threshold
       const voteResult = await session.voteOnProposal(
@@ -194,28 +165,21 @@ describe('Proposal Business Logic', () => {
         '0x4444444444444444444444444444444444444444444444444444444444444444',
       );
 
-      const txBytes = await tx.build({ client });
-      const signature = await users[0].keypair.signTransaction(txBytes);
-
-      const response = await session.getApp().request('/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          multisigAddress: multisig.address,
-          network: 'localnet',
-          transactionBytes: txBytes.toBase64(),
-          signature: signature.signature,
-        }),
-      });
-
-      expect(response.ok).toBe(true);
-      const proposal = await response.json();
+      const txBytes = (await tx.build({ client })).toBase64();
+      const proposal = await session.createProposal(
+        users[0],
+        multisig.address,
+        'localnet',
+        txBytes,
+        'Test proposal',
+      );
+      expect(proposal.id).toBeDefined();
 
       // Only Alice (1) + Bob (1) = 2 votes, need 3 for threshold
       const voteResult = await session.voteOnProposal(
         users[1],
         proposal.id,
-        txBytes.toBase64(),
+        txBytes,
       );
 
       expect(voteResult.hasReachedThreshold).toBe(false);
@@ -236,26 +200,19 @@ describe('Proposal Business Logic', () => {
         '0x5555555555555555555555555555555555555555555555555555555555555555',
       );
 
-      const txBytes = await tx.build({ client });
-      const signature = await users[0].keypair.signTransaction(txBytes);
-
-      const response = await session.getApp().request('/proposals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          multisigAddress: multisig.address,
-          network: 'localnet',
-          transactionBytes: txBytes.toBase64(),
-          signature: signature.signature,
-        }),
-      });
-
-      expect(response.ok).toBe(true);
-      const proposal = await response.json();
+      const txBytes = (await tx.build({ client })).toBase64();
+      const proposal = await session.createProposal(
+        users[0],
+        multisig.address,
+        'localnet',
+        txBytes,
+        'Test proposal',
+      );
+      expect(proposal.id).toBeDefined();
 
       // Try to vote again with the proposer (who already voted during creation)
       await expect(
-        session.voteOnProposal(users[0], proposal.id, txBytes.toBase64()),
+        session.voteOnProposal(users[0], proposal.id, txBytes),
       ).rejects.toThrow('already voted');
     });
   });

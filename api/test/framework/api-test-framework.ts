@@ -223,6 +223,38 @@ export class TestSession {
     return this.app;
   }
 
+  async createProposal(
+    proposer: TestUser,
+    multisigAddress: string,
+    network: string,
+    transactionBytes: string,
+    description?: string,
+  ): Promise<ProposalWithSignatures> {
+    const txBytes = Transaction.from(transactionBytes);
+    const builtTx = await txBytes.build({ client });
+    const signature = await proposer.keypair.signTransaction(builtTx);
+
+    const response = await this.app.request('/proposals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        multisigAddress,
+        network,
+        transactionBytes,
+        signature: signature.signature,
+        description,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(
+        `Proposal creation failed: ${response.status} - ${error}`,
+      );
+    }
+    return response.json();
+  }
+
   async getProposals(
     multisigAddress: string,
     network: string,
@@ -478,7 +510,11 @@ export class ApiTestFramework {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ proposer, signature: signature.signature, expiry }),
+        body: JSON.stringify({
+          proposer,
+          signature: signature.signature,
+          expiry,
+        }),
       },
     );
 
