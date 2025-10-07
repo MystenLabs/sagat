@@ -69,6 +69,8 @@ export function useProposalsQueries({
   const proposalsQuery = useQuery({
     queryKey: [QueryKeys.Proposals, apiQueryType, multisig.address, network],
     queryFn: () => apiClient.getProposals(getQueryParams()),
+    // TODO: Enable pagination on FE... for now assume single page.
+    select: (data) => data.data,
     enabled: !!multisig.address && !!network,
     refetchInterval: 30000,
     staleTime: 0, // Consider data stale immediately to ensure fresh data
@@ -83,6 +85,7 @@ export function useProposalsQueries({
         network: network,
         status: ProposalStatus.PENDING,
       }),
+    select: (data) => data.data,
     enabled: !!multisig.address && !!network,
     refetchInterval: 30000,
     staleTime: 0, // Consider data stale immediately to ensure fresh data

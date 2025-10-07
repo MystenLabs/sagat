@@ -6,6 +6,7 @@ import {
   SchemaMultisigMembers,
   SchemaProposals,
   SchemaMultisigProposers,
+  SchemaProposalSignatures,
 } from './schema';
 
 // Create a connection pool with configuration
@@ -30,6 +31,7 @@ export const db = drizzle(pool, {
     SchemaMultisigs,
     SchemaMultisigMembers,
     SchemaProposals,
-    SchemaMultisigProposers
+    SchemaMultisigProposers,
+    SchemaProposalSignatures,
   },
 });

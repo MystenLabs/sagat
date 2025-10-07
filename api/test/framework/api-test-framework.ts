@@ -4,6 +4,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { getLocalClient, fundAddress } from '../setup/sui-network';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { ProposalWithSignatures } from '../../src/db/schema';
+import { PaginatedResponse } from '../../src/utils/pagination';
 
 const client = getLocalClient();
 
@@ -255,15 +256,27 @@ export class TestSession {
     return response.json();
   }
 
-  async getProposals(
-    multisigAddress: string,
-    network: string,
-    status?: string,
-  ): Promise<ProposalWithSignatures[]> {
+  async getProposals({
+    multisigAddress,
+    network,
+    status,
+    cursor,
+  }: {
+    multisigAddress: string;
+    network: string;
+    status?: string;
+    cursor?: { nextCursor?: number; perPage?: number };
+  }): Promise<PaginatedResponse<ProposalWithSignatures>> {
     const queryParams = new URLSearchParams();
     queryParams.append('multisigAddress', multisigAddress);
     queryParams.append('network', network);
     if (status) queryParams.append('status', status);
+    if (cursor) {
+      if (cursor.nextCursor)
+        queryParams.append('nextCursor', cursor.nextCursor.toString());
+      if (cursor.perPage)
+        queryParams.append('perPage', cursor.perPage.toString());
+    }
 
     const response = await this.app.request(
       `/proposals?${queryParams.toString()}`,

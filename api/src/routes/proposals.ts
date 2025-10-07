@@ -28,6 +28,7 @@ import { AuthEnv, authMiddleware } from '../services/auth.service';
 import { getSuiClient, SuiNetwork } from '../utils/client';
 import { validateNetwork } from '../db/env';
 import { validatePersonalMessage } from '../services/addresses.service';
+import { newCursor } from '../utils/pagination';
 
 const proposalsRouter = new Hono();
 
@@ -232,7 +233,7 @@ proposalsRouter.post(
 
 proposalsRouter.get('/', authMiddleware, async (c: Context<AuthEnv>) => {
   const publicKeys = c.get('publicKeys');
-  const { multisigAddress, status, network } = c.req.query();
+  const { multisigAddress, status, network, nextCursor, perPage } = c.req.query();
   validateNetwork(network);
 
   if (!(await jwtHasMultisigMemberAccess(multisigAddress, publicKeys)))
@@ -241,6 +242,7 @@ proposalsRouter.get('/', authMiddleware, async (c: Context<AuthEnv>) => {
   const proposals = await getProposalsByMultisigAddress(
     multisigAddress,
     network,
+    newCursor({ nextCursor, perPage }),
     status ? proposalStatusFromString(status) : undefined,
   );
 
