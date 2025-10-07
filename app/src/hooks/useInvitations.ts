@@ -16,7 +16,9 @@ export function useInvitations(showRejected = false, enabled = true) {
       }
 
       // Get invitations for this public key
-      const invitations = await apiClient.getInvitations(currentAddress.publicKey, showRejected);
+      const invitations = await apiClient.getInvitations(currentAddress.publicKey, {
+        showRejected,
+      });
 
       // Transform to add the fields expected by components
       return invitations.map((m) => {
