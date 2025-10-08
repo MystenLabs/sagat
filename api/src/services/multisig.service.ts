@@ -22,13 +22,6 @@ export const getMultisig = async (address: string) => {
 	return multisig;
 };
 
-export const getMultisigMembers = async (
-	address: string,
-) => {
-	const multisig = await getMultisig(address);
-	return multisig.members;
-};
-
 export const validateQuorum = async (
 	addresses: string[],
 	weights: number[],
