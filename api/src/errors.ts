@@ -29,6 +29,7 @@ export const AuthErrors = {
 export const CommonErrors = {
 	InvalidAddress:
 		'Invalid address. Must be a valid Sui address.',
+	NotFound: 'The request resource was not found.',
 };
 
 // The error handler for the app.
