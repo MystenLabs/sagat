@@ -1,15 +1,12 @@
 import { type PublicKey } from '@mysten/sui/cryptography';
-import { eq, inArray } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
 	MultisigWithMembers,
 	SchemaAddresses,
-	SchemaMultisigMembers,
-	SchemaMultisigProposers,
-	SchemaMultisigs,
 } from '../db/schema';
-import { ValidationError } from '../errors';
+import { CommonError } from '../errors';
+import { MultisigDataLoader } from '../loaders/multisig.loader';
 import { parsePublicKey } from '../utils/pubKey';
 
 // Takes a pub key, a signature, and a message, and validates it.
@@ -24,11 +21,7 @@ export const validatePersonalMessage = async (
 		signature,
 	);
 
-	if (!isValid) {
-		throw new ValidationError(
-			'Invalid signature for message',
-		);
-	}
+	if (!isValid) throw new CommonError('InvalidSignature');
 };
 
 /**
@@ -88,111 +81,9 @@ export async function expandMultisigsWithMembers(
 ): Promise<MultisigWithMembers[]> {
 	if (multisigAddresses.length === 0) return [];
 
-	// Fetch ALL members belonging to those multisigs with multisig data
-	const [membersWithMultisig, proposers] =
-		await Promise.all([
-			db
-				.select({
-					multisigAddress:
-						SchemaMultisigMembers.multisigAddress,
-					publicKey: SchemaMultisigMembers.publicKey,
-					weight: SchemaMultisigMembers.weight,
-					isAccepted: SchemaMultisigMembers.isAccepted,
-					order: SchemaMultisigMembers.order,
-					isRejected: SchemaMultisigMembers.isRejected,
-					name: SchemaMultisigs.name,
-					threshold: SchemaMultisigs.threshold,
-					isVerified: SchemaMultisigs.isVerified,
-				})
-				.from(SchemaMultisigMembers)
-				.innerJoin(
-					SchemaMultisigs,
-					eq(
-						SchemaMultisigMembers.multisigAddress,
-						SchemaMultisigs.address,
-					),
-				)
-				.where(
-					inArray(
-						SchemaMultisigMembers.multisigAddress,
-						multisigAddresses,
-					),
-				),
-			// Get all the external proposers for these multisigs.
-			db
-				.select()
-				.from(SchemaMultisigProposers)
-				.where(
-					inArray(
-						SchemaMultisigProposers.multisigAddress,
-						multisigAddresses,
-					),
-				),
-		]);
+	const multisigs = await MultisigDataLoader.loadMany(
+		multisigAddresses,
+	);
 
-	const multisigsWithMembers: MultisigWithMembers[] = [];
-
-	// Group the distinct multisigs
-	for (const member of membersWithMultisig) {
-		if (
-			!multisigsWithMembers.some(
-				(m) => m.address === member.multisigAddress,
-			)
-		) {
-			multisigsWithMembers.push({
-				address: member.multisigAddress,
-				isVerified: member.isVerified,
-				threshold: member.threshold,
-				name: member.name,
-				totalMembers: 0,
-				totalWeight: 0,
-				members: [],
-				proposers: proposers
-					.filter(
-						(p) =>
-							p.multisigAddress === member.multisigAddress,
-					)
-					.map((p) => ({
-						address: p.address,
-						addedBy: p.addedBy,
-						addedAt: p.addedAt,
-					})),
-			});
-		}
-
-		const msig = multisigsWithMembers.find(
-			(m) => m.address === member.multisigAddress,
-		)!;
-
-		// avoid duplicates
-		if (
-			msig.members.some(
-				(m) => m.publicKey === member.publicKey,
-			)
-		)
-			continue;
-
-		msig.members.push({
-			multisigAddress: member.multisigAddress,
-			publicKey: member.publicKey,
-			weight: member.weight,
-			isAccepted: member.isAccepted,
-			order: member.order,
-			isRejected: member.isRejected,
-		});
-	}
-
-	// Keep members ordered and calculate totals
-	for (const msig of multisigsWithMembers) {
-		msig.members = msig.members.sort(
-			(a, b) => a.order - b.order,
-		);
-		msig.totalMembers = msig.members.length;
-		msig.totalWeight = msig.members.reduce(
-			(acc, m) => acc + m.weight,
-			0,
-		);
-	}
-
-	return multisigsWithMembers;
+	return multisigs.filter(Boolean) as MultisigWithMembers[];
 }

@@ -12,7 +12,7 @@
 		"dev:sdk": "cd sdk && bun run dev",
 		"dev:api": "cd api && bun run dev",
 		"dev:app": "cd app && bun run dev",
-		"dev": "concurrently -n sdk,api,app -c cyan,green,yellow \"bun run dev:sdk\" \"bun run dev:api\" \"bun run dev:app\"",
+		"dev": "bun build:sdk && concurrently -n sdk,api,app -c cyan,green,yellow \"bun run dev:sdk\" \"bun run dev:api\" \"bun run dev:app\"",
 		"build:sdk": "cd sdk && bun run build",
 		"build:api": "cd api && bun run build",
 		"build:app": "cd app && bun run build",

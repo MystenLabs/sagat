@@ -30,6 +30,7 @@ export const CommonErrors = {
 	InvalidAddress:
 		'Invalid address. Must be a valid Sui address.',
 	NotFound: 'The request resource was not found.',
+	InvalidSignature: 'Invalid signature for message.',
 };
 
 // The error handler for the app.
