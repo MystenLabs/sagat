@@ -1,8 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ObjectOwner } from '@mysten/sui/client';
-import { ReactNode } from 'react';
+import { type ObjectOwner } from '@mysten/sui/client';
+import { type ReactNode } from 'react';
 
 import { ObjectLink } from './ObjectLink';
 
@@ -24,22 +24,31 @@ type FooterProps = {
 
 function Root({ children, className }: RootProps) {
 	return (
-		<div className={`border flex flex-col  rounded-lg shadow overflow-hidden ${className}`}>
+		<div
+			className={`border flex flex-col  rounded-lg shadow overflow-hidden ${className}`}
+		>
 			{children}
 		</div>
 	);
 }
 
 function Body({ children }: BodyProps) {
-	return <div className="p-3 overflow-x-auto">{children}</div>;
+	return (
+		<div className="p-3 overflow-x-auto">{children}</div>
+	);
 }
 
 function Header({ children }: HeaderProps) {
 	return (
-		<div className="bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">{children}</div>
+		<div className="bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">
+			{children}
+		</div>
 	);
 }
-function Footer({ children, owner }: FooterProps & { owner?: ObjectOwner }) {
+function Footer({
+	children,
+	owner,
+}: FooterProps & { owner?: ObjectOwner }) {
 	return (
 		<div className="mt-auto bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">
 			{children}

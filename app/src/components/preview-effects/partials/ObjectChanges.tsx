@@ -1,12 +1,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiObjectChange } from '@mysten/sui/client';
+import { type SuiObjectChange } from '@mysten/sui/client';
 
 import { ObjectLink } from '../ObjectLink';
 import { PreviewCard } from '../PreviewCard';
 
-const objectTypes: Record<string, Record<string, string>> = {
+const objectTypes: Record<
+	string,
+	Record<string, string>
+> = {
 	published: {
 		title: 'Published',
 		classes: 'text-green-800 bg-green-200',
@@ -31,7 +34,11 @@ const objectTypes: Record<string, Record<string, string>> = {
 };
 
 // SPDX-License-Identifier: Apache-2.0
-export function ObjectChanges({ objects }: { objects: SuiObjectChange[] }) {
+export function ObjectChanges({
+	objects,
+}: {
+	objects: SuiObjectChange[];
+}) {
 	return (
 		<div className="grid grid-cols-1 gap-5">
 			{objects.map((object, index) => (
@@ -41,18 +48,30 @@ export function ObjectChanges({ objects }: { objects: SuiObjectChange[] }) {
 	);
 }
 
-function ChangedObject({ object }: { object: SuiObjectChange }) {
+function ChangedObject({
+	object,
+}: {
+	object: SuiObjectChange;
+}) {
 	const objectType = objectTypes[object.type];
 
 	return (
 		<PreviewCard.Root>
 			<PreviewCard.Body>
 				<>
-					<span className={`${objectType?.classes} px-2 py-0.5 rounded`}>{objectType?.title}</span>
+					<span
+						className={`${objectType?.classes} px-2 py-0.5 rounded`}
+					>
+						{objectType?.title}
+					</span>
 					<div className="flex gap-3 items-center break-words my-2">
 						Type:{' '}
 						<ObjectLink
-							type={'objectType' in object ? object.objectType : ''}
+							type={
+								'objectType' in object
+									? object.objectType
+									: ''
+							}
 							className="break-words"
 						/>
 					</div>
@@ -63,7 +82,9 @@ function ChangedObject({ object }: { object: SuiObjectChange }) {
 				</>
 			</PreviewCard.Body>
 
-			<PreviewCard.Footer owner={'owner' in object ? object.owner : undefined} />
+			<PreviewCard.Footer
+				owner={'owner' in object ? object.owner : undefined}
+			/>
 		</PreviewCard.Root>
 	);
 }

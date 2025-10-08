@@ -1,13 +1,17 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { DryRunTransactionBlockResponse, GasCostSummary } from '@mysten/sui/client';
-import { ReactNode, useState } from 'react';
-import { Copy, Check } from 'lucide-react';
+import {
+	type DryRunTransactionBlockResponse,
+	type GasCostSummary,
+} from '@mysten/sui/client';
+import { Check, Copy } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+
+import { useNetwork } from '@/contexts/NetworkContext';
 
 import { ObjectLink } from '../ObjectLink';
 import { onChainAmountToFloat } from '../utils';
-import { useNetwork } from '@/contexts/NetworkContext';
 
 const calculateGas = (gas: GasCostSummary): string => {
 	return (
@@ -22,7 +26,11 @@ const calculateGas = (gas: GasCostSummary): string => {
 	);
 };
 
-export function Overview({ output }: { output: DryRunTransactionBlockResponse }) {
+export function Overview({
+	output,
+}: {
+	output: DryRunTransactionBlockResponse;
+}) {
 	const { network } = useNetwork();
 	const [copied, setCopied] = useState(false);
 
@@ -35,12 +43,22 @@ export function Overview({ output }: { output: DryRunTransactionBlockResponse })
 	const metadata: Record<string, ReactNode> = {
 		digest: (
 			<div className="flex items-center gap-2">
-				<span className="font-mono text-sm break-all">{output.effects.transactionDigest}</span>
+				<span className="font-mono text-sm break-all">
+					{output.effects.transactionDigest}
+				</span>
 				<button
-					onClick={() => copyToClipboard(output.effects.transactionDigest)}
+					onClick={() =>
+						copyToClipboard(
+							output.effects.transactionDigest,
+						)
+					}
 					className="p-1 hover:bg-gray-100 rounded"
 				>
-					{copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600" />}
+					{copied ? (
+						<Check className="w-4 h-4 text-green-600" />
+					) : (
+						<Copy className="w-4 h-4 text-gray-600" />
+					)}
 				</button>
 			</div>
 		),

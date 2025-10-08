@@ -30,10 +30,8 @@ Each test gets its own:
 ### Session-Based Testing
 
 ```typescript
-const { session, users, multisig } = await framework.createVerifiedMultisig(
-  2,
-  2,
-);
+const { session, users, multisig } =
+	await framework.createVerifiedMultisig(2, 2);
 ```
 
 ### High-Level Helpers
@@ -48,8 +46,8 @@ const { session, users, multisig } = await framework.createVerifiedMultisig(
 
 ```typescript
 beforeEach(async () => {
-  const app = await createTestApp(); // Fresh app with clean state
-  framework = new ApiTestFramework(app);
+	const app = await createTestApp(); // Fresh app with clean state
+	framework = new ApiTestFramework(app);
 });
 ```
 
@@ -76,13 +74,14 @@ Comprehensive integration tests covering:
 
 ```typescript
 test('single user auth and address registration', async () => {
-  const { session, users } = await framework.createAuthenticatedSession(1);
+	const { session, users } =
+		await framework.createAuthenticatedSession(1);
 
-  expect(users).toHaveLength(1);
-  expect(session.hasActiveCookie()).toBe(true);
+	expect(users).toHaveLength(1);
+	expect(session.hasActiveCookie()).toBe(true);
 
-  await session.disconnect();
-  expect(session.hasActiveCookie()).toBe(false);
+	await session.disconnect();
+	expect(session.hasActiveCookie()).toBe(false);
 });
 ```
 
@@ -90,25 +89,23 @@ test('single user auth and address registration', async () => {
 
 ```typescript
 test('create proposal and collect sufficient votes', async () => {
-  const { session, users, multisig } = await framework.createVerifiedMultisig(
-    2,
-    2,
-  );
+	const { session, users, multisig } =
+		await framework.createVerifiedMultisig(2, 2);
 
-  const proposal = await session.createProposal(
-    users[0],
-    multisig.address,
-    recipient,
-    1000000,
-    'Send 1 MIST',
-  );
+	const proposal = await session.createProposal(
+		users[0],
+		multisig.address,
+		recipient,
+		1000000,
+		'Send 1 MIST',
+	);
 
-  const voteResult = await session.voteOnProposal(
-    users[1],
-    proposal.id,
-    proposal.transactionBytes,
-  );
-  expect(voteResult.hasReachedThreshold).toBe(true);
+	const voteResult = await session.voteOnProposal(
+		users[1],
+		proposal.id,
+		proposal.transactionBytes,
+	);
+	expect(voteResult.hasReachedThreshold).toBe(true);
 });
 ```
 
@@ -139,10 +136,14 @@ test('create proposal and collect sufficient votes', async () => {
 
 ```typescript
 // Fast - no funding needed for multisig validation tests
-const { multisig } = await framework.createVerifiedMultisig(2, 2);
+const { multisig } = await framework.createVerifiedMultisig(
+	2,
+	2,
+);
 
 // Slow but necessary - funding required for proposals
-const { multisig } = await framework.createFundedVerifiedMultisig(2, 2);
+const { multisig } =
+	await framework.createFundedVerifiedMultisig(2, 2);
 ```
 
 ## Running Tests
