@@ -1,10 +1,8 @@
 export { SagatClient } from './client.js';
 
-export {
-  ProposalStatus,
-  PersonalMessages,
-  defaultExpiry,
-} from './types.js';
+export { ProposalStatus } from './types.js';
+
+export { PersonalMessages, defaultExpiry } from './constants.js';
 
 export type {
   Address,

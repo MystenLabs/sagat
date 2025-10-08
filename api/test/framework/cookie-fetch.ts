@@ -16,7 +16,7 @@ class ConnectedWalletCookieJar {
 
 export type FetchLike = (input: RequestInfo, init?: RequestInit) => Promise<Response>;
 
-export function createCookieFetch(baseFetch: FetchLike = fetch) {
+export function createCookieFetch(baseFetch: FetchLike = (input, init) => fetch(input, init)) {
   const jar = new ConnectedWalletCookieJar();
 
   return {

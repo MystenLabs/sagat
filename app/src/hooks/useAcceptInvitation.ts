@@ -1,10 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSignPersonalMessage } from '@mysten/dapp-kit';
-import { apiClient } from '../lib/api';
-import { toast } from 'sonner';
-import { QueryKeys } from '../lib/queryKeys';
-import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { PersonalMessages } from '@mysten/sagat';
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSignPersonalMessage } from "@mysten/dapp-kit";
+import { apiClient } from "../lib/api";
+import { toast } from "sonner";
+import { QueryKeys } from "../lib/queryKeys";
+import { useApiAuth } from "@/contexts/ApiAuthContext";
+import { PersonalMessages } from "@mysten/sagat";
 
 export function useAcceptInvitation() {
   const queryClient = useQueryClient();
@@ -13,13 +13,13 @@ export function useAcceptInvitation() {
 
   return useMutation({
     mutationFn: async (multisigAddress: string) => {
-      if (!currentAddress) throw new Error('No wallet connected');
-
-      const message = PersonalMessages.acceptMultisigInvitation(multisigAddress);
+      if (!currentAddress) throw new Error("No wallet connected");
 
       // Create and sign the message
       const result = await signPersonalMessage({
-        message: new TextEncoder().encode(message),
+        message: new TextEncoder().encode(
+          PersonalMessages.acceptMultisigInvitation(multisigAddress),
+        ),
       });
 
       // Call API to accept the invitation
@@ -31,7 +31,7 @@ export function useAcceptInvitation() {
       // Invalidate queries to refresh multisig data
       queryClient.invalidateQueries({ queryKey: [QueryKeys.Multisigs] });
       queryClient.invalidateQueries({ queryKey: [QueryKeys.Invitations] });
-      toast.success('Invitation accepted successfully!');
+      toast.success("Invitation accepted successfully!");
     },
     onError: (error: Error) => {
       toast.error(`Failed to accept invitation: ${error.message}`);
