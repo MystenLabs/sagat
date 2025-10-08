@@ -29,6 +29,7 @@ import {
 	getTotalWeight,
 } from '../../lib/proposalUtils';
 import { QueryKeys } from '../../lib/queryKeys';
+import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button } from '../ui/button';
 import { ProposalPreview } from './ProposalPreview';
@@ -179,6 +180,29 @@ export function ProposalCard({
 			: `https://suiscan.xyz/mainnet/tx/${digest}`;
 	};
 
+	const isExternalProposer = () => {
+		if (!multisigDetails) return false;
+
+		// Check if proposer address is NOT a member by comparing addresses
+		// Members are stored as public keys, need to derive addresses
+		const memberAddresses = multisigDetails.members
+			.map((member) => {
+				try {
+					// Derive address from public key
+					const { address } = validatePublicKey(
+						member.publicKey,
+					);
+					return address;
+				} catch {
+					return null;
+				}
+			})
+			.filter(Boolean);
+
+		// Proposer is external if their address is NOT in member addresses
+		return !memberAddresses.includes(proposal.proposerAddress);
+	};
+
 	const getSignatureStatus = () => {
 		if (proposal.status !== ProposalStatus.PENDING)
 			return null;
@@ -211,9 +235,14 @@ export function ProposalCard({
 						</h4>
 						{getStatusBadge()}
 						{getSignatureStatus()}
+						{isExternalProposer() && (
+							<span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
+								External Proposer
+							</span>
+						)}
 					</div>
 
-					<div className="flex items-center gap-4 text-xs text-gray-500">
+					<div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
 						<span>ID: {proposal.id}</span>
 						<span>
 							Signatures:{' '}
@@ -223,6 +252,13 @@ export function ProposalCard({
 							)}
 							/{getTotalWeight(multisigDetails)}
 						</span>
+						<div className="flex items-center gap-1">
+							<span>
+								Proposer:{' '}
+								{proposal.proposerAddress.slice(0, 6)}...
+								{proposal.proposerAddress.slice(-4)}
+							</span>
+						</div>
 						<div className="flex items-center gap-1">
 							<span>
 								Digest: {proposal.digest.slice(0, 8)}...

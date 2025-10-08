@@ -15,6 +15,7 @@ import { apiClient } from '../../lib/api';
 import { CONFIG } from '../../lib/constants';
 import { QueryKeys } from '../../lib/queryKeys';
 import { MembersList } from '../invitations/MembersList';
+import { ProposersSection } from '../proposers/ProposersSection';
 import { Button } from '../ui/button';
 
 interface OverviewTabContext {
@@ -141,6 +142,16 @@ export function OverviewTab() {
 					<MembersList members={multisigDetails.members} />
 				) : null}
 			</div>
+
+			{/* Proposers Section */}
+			{multisigDetails ? (
+				<ProposersSection
+					proposers={multisigDetails.proposers}
+					multisigAddress={multisig.address}
+					isLoading={isLoading}
+					error={error}
+				/>
+			) : null}
 		</div>
 	);
 }
