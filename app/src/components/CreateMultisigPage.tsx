@@ -75,42 +75,11 @@ export function CreateMultisigPage() {
 
 	const members = watch('members');
 	const threshold = watch('threshold');
+
 	const totalWeight = members.reduce(
 		(sum, m) => sum + m.weight,
 		0,
 	);
-
-	// Set creator's public key when current account is available
-	useEffect(() => {
-		if (
-			currentAccount &&
-			members[0]?.isCreator &&
-			!members[0]?.publicKey &&
-			currentAddress
-		) {
-			handleMemberChange('creator', {
-				publicKey: currentAddress.publicKey,
-			});
-		}
-	}, [currentAccount, members]);
-
-	// Check if all members have valid public keys and we have at least 2 members
-	const allMembersValid = members.every(
-		(m) => m.publicKey && !m.error,
-	);
-	const hasMinimumMembers = members.length >= 2;
-
-	// Compute multisig address preview
-	const multisigPreview = computeMultisigAddress(
-		members.map((m) => m.publicKey),
-		members.map((m) => m.weight),
-		threshold,
-	);
-
-	const canSubmit =
-		allMembersValid &&
-		hasMinimumMembers &&
-		!multisigPreview.error;
 
 	const handleMemberChange = (
 		id: string,
@@ -141,6 +110,39 @@ export function CreateMultisigPage() {
 			]);
 		}
 	};
+
+	// Set creator's public key when current account is available
+	useEffect(() => {
+		if (
+			currentAccount &&
+			members[0]?.isCreator &&
+			!members[0]?.publicKey &&
+			currentAddress
+		) {
+			handleMemberChange('creator', {
+				publicKey: currentAddress.publicKey,
+			});
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentAccount, members, currentAddress]);
+
+	// Check if all members have valid public keys and we have at least 2 members
+	const allMembersValid = members.every(
+		(m) => m.publicKey && !m.error,
+	);
+	const hasMinimumMembers = members.length >= 2;
+
+	// Compute multisig address preview
+	const multisigPreview = computeMultisigAddress(
+		members.map((m) => m.publicKey),
+		members.map((m) => m.weight),
+		threshold,
+	);
+
+	const canSubmit =
+		allMembersValid &&
+		hasMinimumMembers &&
+		!multisigPreview.error;
 
 	const handleDragEnd = (event: DragEndEvent) => {
 		const { active, over } = event;

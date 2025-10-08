@@ -32,7 +32,7 @@ export function ProposalPreview({
 		) {
 			dryRunMutation.mutate(proposal.transactionBytes);
 		}
-	}, [proposal.transactionBytes]);
+	}, [proposal.transactionBytes, dryRunMutation]);
 
 	const handleSignProposal = () => {
 		signProposalMutation.mutate({

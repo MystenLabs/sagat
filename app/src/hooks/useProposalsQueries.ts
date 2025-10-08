@@ -89,7 +89,7 @@ export function useProposalsQueries({
 		// TODO: Enable pagination on FE... for now assume single page.
 		select: (data) => data.data,
 		enabled: !!multisig.address && !!network,
-		refetchInterval: 30000,
+		refetchInterval: 30000, // 30 seconds refetching interval.
 		staleTime: 0, // Consider data stale immediately to ensure fresh data
 	});
 
@@ -107,7 +107,7 @@ export function useProposalsQueries({
 			}),
 		select: (data) => data.data,
 		enabled: !!multisig.address && !!network,
-		refetchInterval: 30000,
+		refetchInterval: 30000, // 30 seconds refetching interval.
 		staleTime: 0, // Consider data stale immediately to ensure fresh data
 	});
 
@@ -116,17 +116,9 @@ export function useProposalsQueries({
 		proposal: ProposalWithSignatures,
 	) => {
 		if (!currentAddress) return false;
-		try {
-			return proposal.signatures.some(
-				(sig) => sig.publicKey === currentAddress.publicKey,
-			);
-		} catch (error) {
-			console.error(
-				'Error checking user signature:',
-				error,
-			);
-			return false;
-		}
+		return proposal.signatures.some(
+			(sig) => sig.publicKey === currentAddress.publicKey,
+		);
 	};
 
 	// Filter proposals based on current tab

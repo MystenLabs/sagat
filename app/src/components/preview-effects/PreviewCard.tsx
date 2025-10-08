@@ -22,6 +22,7 @@ type FooterProps = {
 	children?: ReactNode;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 function Root({ children, className }: RootProps) {
 	return (
 		<div
@@ -32,12 +33,14 @@ function Root({ children, className }: RootProps) {
 	);
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 function Body({ children }: BodyProps) {
 	return (
 		<div className="p-3 overflow-x-auto">{children}</div>
 	);
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 function Header({ children }: HeaderProps) {
 	return (
 		<div className="bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">
@@ -45,6 +48,7 @@ function Header({ children }: HeaderProps) {
 		</div>
 	);
 }
+// eslint-disable-next-line react-refresh/only-export-components
 function Footer({
 	children,
 	owner,

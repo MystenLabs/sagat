@@ -31,6 +31,7 @@ export function MultisigSelector({
 	const dropdownRef = useRef<HTMLDivElement>(null);
 
 	// Filter multisigs based on search query
+	// eslint-disable-next-line react-hooks/preserve-manual-memoization
 	const filteredMultisigs = useMemo(
 		() =>
 			multisigs.filter(
@@ -49,21 +50,18 @@ export function MultisigSelector({
 		(m) => m.address === selectedMultisig,
 	);
 
-	if (!currentMultisig) {
-		return null;
+	function handleClickOutside(event: MouseEvent) {
+		if (
+			dropdownRef.current &&
+			!dropdownRef.current.contains(event.target as Node)
+		) {
+			setShowDropdown(false);
+			setSearchQuery(''); // Clear search when closing dropdown
+		}
 	}
 
 	// Close dropdown when clicking outside
 	useEffect(() => {
-		function handleClickOutside(event: MouseEvent) {
-			if (
-				dropdownRef.current &&
-				!dropdownRef.current.contains(event.target as Node)
-			) {
-				setShowDropdown(false);
-				setSearchQuery(''); // Clear search when closing dropdown
-			}
-		}
 		document.addEventListener(
 			'mousedown',
 			handleClickOutside,
@@ -74,6 +72,8 @@ export function MultisigSelector({
 				handleClickOutside,
 			);
 	}, []);
+
+	if (!currentMultisig) return null;
 
 	if (multisigs.length === 1) {
 		// Single multisig - no dropdown needed

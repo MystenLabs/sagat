@@ -21,6 +21,7 @@ const buildSimpleTx = async () => {
 
 	const built = await tx.build({ client });
 
+	// eslint-disable-next-line no-console
 	console.log(toBase64(built));
 };
 

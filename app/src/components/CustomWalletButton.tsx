@@ -6,6 +6,7 @@ import {
 	useSwitchAccount,
 	useWallets,
 } from '@mysten/dapp-kit';
+import { type WalletAccount } from '@wallet-standard/base';
 import {
 	ArrowRight,
 	Check,
@@ -17,6 +18,7 @@ import {
 	Wallet,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -34,13 +36,12 @@ interface CustomWalletButtonProps {
 
 // Helper component for account list items
 interface AccountItemProps {
-	account: any;
-	currentAccount: any;
+	account: WalletAccount;
+	currentAccount: WalletAccount | null;
 	authenticatedAddresses: string[];
-	onSwitchAccount: (account: any) => void;
+	onSwitchAccount: (account: WalletAccount) => void;
 	onSignAndConnect: () => void;
 	isConnecting: boolean;
-	formatAddress: (address: string) => string;
 }
 
 function AccountItem({
@@ -50,10 +51,9 @@ function AccountItem({
 	onSwitchAccount,
 	onSignAndConnect,
 	isConnecting,
-	formatAddress,
 }: AccountItemProps) {
 	const isCurrent =
-		account.address === currentAccount.address;
+		account.address === currentAccount?.address;
 	const isAccountAuthenticated =
 		authenticatedAddresses.includes(account.address);
 
@@ -168,7 +168,7 @@ export function CustomWalletButton({
 		}
 	};
 
-	const handleSwitchAccount = (account: any) => {
+	const handleSwitchAccount = (account: WalletAccount) => {
 		if (account.address !== currentAccount?.address) {
 			switchAccount({ account });
 		}
@@ -182,8 +182,7 @@ export function CustomWalletButton({
 			},
 			{
 				onSuccess: () => setShowWallets(false),
-				onError: (error) =>
-					console.error('Connection failed:', error),
+				onError: (error) => toast.error(error.message),
 			},
 		);
 	};
@@ -193,135 +192,22 @@ export function CustomWalletButton({
 			await apiDisconnect();
 			disconnect();
 			setShowWallets(false);
-		} catch (error) {
-			console.error('Full disconnect failed:', error);
+		} catch {
 			disconnect();
 			setShowWallets(false);
 		}
 	};
 
-	// Helper component for account switching section
-	const AccountSwitchingSection = ({
-		showTitle = true,
-	}: {
-		showTitle?: boolean;
-	}) => (
-		<>
-			{showTitle && (
-				<div className="px-3 py-2 border-b">
-					<p className="text-sm font-medium">
-						Switch Account
-					</p>
-				</div>
-			)}
-			{accounts.map((account) => (
-				<AccountItem
-					key={account.address}
-					account={account}
-					currentAccount={currentAccount}
-					authenticatedAddresses={
-						authenticatedAddresses || []
-					}
-					onSwitchAccount={handleSwitchAccount}
-					onSignAndConnect={signAndConnect}
-					isConnecting={isConnecting}
-					formatAddress={formatAddress}
-				/>
-			))}
-			{showTitle && <div className="border-t my-1"></div>}
-		</>
-	);
-
 	// No wallet connected
 	if (!currentAccount) {
-		if (variant === 'sidebar') {
-			return (
-				<div className="mt-8 p-4 bg-white rounded-lg border border-slate-200">
-					<div className="text-center">
-						<Wallet className="w-6 h-6 text-slate-600 mx-auto mb-3" />
-						<h3 className="font-medium text-slate-900 mb-2">
-							Connect Wallet
-						</h3>
-						<p className="text-sm text-slate-600 mb-4">
-							Connect your wallet to create a multisig
-						</p>
-
-						<div className="relative">
-							<Button
-								onClick={() => setShowWallets(!showWallets)}
-								size="sm"
-								className="w-full"
-							>
-								<Wallet className="w-4 h-4 mr-2" />
-								Choose Wallet
-							</Button>
-
-							{showWallets && (
-								<div className="absolute top-full mt-2 left-0 right-0 bg-white border rounded-lg shadow-lg py-2 z-50">
-									{wallets.map((wallet) => (
-										<button
-											key={wallet.name}
-											onClick={() =>
-												handleWalletConnect(wallet.name)
-											}
-											className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-										>
-											<img
-												src={wallet.icon}
-												alt={wallet.name}
-												className="w-5 h-5 rounded"
-											/>
-											{wallet.name}
-										</button>
-									))}
-								</div>
-							)}
-						</div>
-					</div>
-				</div>
-			);
-		}
-
-		// Header variant
 		return (
-			<div className="relative" ref={dropdownRef}>
-				<Button
-					variant="default"
-					size="sm"
-					onClick={() => setShowWallets(!showWallets)}
-					className="flex items-center gap-2"
-				>
-					<Wallet className="w-4 h-4" />
-					Connect Wallet
-					<ChevronDown className="w-3 h-3" />
-				</Button>
-
-				{showWallets && (
-					<div className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg py-2 min-w-48 z-50">
-						<div className="px-3 py-2 border-b">
-							<p className="text-sm font-medium">
-								Choose Wallet
-							</p>
-						</div>
-						{wallets.map((wallet) => (
-							<button
-								key={wallet.name}
-								onClick={() =>
-									handleWalletConnect(wallet.name)
-								}
-								className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
-							>
-								<img
-									src={wallet.icon}
-									alt={wallet.name}
-									className="w-5 h-5 rounded"
-								/>
-								{wallet.name}
-							</button>
-						))}
-					</div>
-				)}
-			</div>
+			<NotConnectedWalletVariant
+				variant={variant}
+				showWallets={showWallets}
+				setShowWallets={setShowWallets}
+				handleWalletConnect={handleWalletConnect}
+				dropdownRef={dropdownRef}
+			/>
 		);
 	}
 
@@ -379,7 +265,7 @@ export function CustomWalletButton({
 														account={account}
 														currentAccount={currentAccount}
 														authenticatedAddresses={
-															authenticatedAddresses || []
+															authenticatedAddresses
 														}
 														onSwitchAccount={(acc) =>
 															switchAccount({
@@ -390,7 +276,6 @@ export function CustomWalletButton({
 															signAndConnect
 														}
 														isConnecting={isConnecting}
-														formatAddress={formatAddress}
 													/>
 												</div>
 											))}
@@ -446,7 +331,11 @@ export function CustomWalletButton({
 						</div>
 
 						{accounts.length > 1 && (
-							<AccountSwitchingSection />
+							<AccountSwitchingSection
+								handleSwitchAccount={handleSwitchAccount}
+								handleSignAndConnect={signAndConnect}
+								isConnecting={isConnecting}
+							/>
 						)}
 
 						<div className="px-3 py-2">
@@ -496,42 +385,6 @@ export function CustomWalletButton({
 					<p className="text-sm text-slate-600 mb-3">
 						{formatAddress(currentAccount.address)}
 					</p>
-					{!disableAccountSwitching &&
-						accounts.length > 1 && (
-							<div className="mb-3">
-								<p className="text-xs text-slate-500 mb-2">
-									Switch Account
-								</p>
-								<div className="max-h-24 overflow-y-auto space-y-1">
-									{accounts
-										.filter(
-											(acc) =>
-												acc.address !==
-												currentAccount.address,
-										)
-										.map((account) => (
-											<div
-												key={account.address}
-												className="text-xs bg-slate-50 hover:bg-slate-100 rounded border"
-											>
-												<AccountItem
-													account={account}
-													currentAccount={currentAccount}
-													authenticatedAddresses={
-														authenticatedAddresses || []
-													}
-													onSwitchAccount={(acc) =>
-														switchAccount({ account: acc })
-													}
-													onSignAndConnect={signAndConnect}
-													isConnecting={isConnecting}
-													formatAddress={formatAddress}
-												/>
-											</div>
-										))}
-								</div>
-							</div>
-						)}
 					<div className="flex gap-2">
 						<Button
 							onClick={handleCopyAddress}
@@ -587,7 +440,11 @@ export function CustomWalletButton({
 			{showWallets && (
 				<div className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg py-2 min-w-64 z-50">
 					{accounts.length > 1 && (
-						<AccountSwitchingSection />
+						<AccountSwitchingSection
+							handleSwitchAccount={handleSwitchAccount}
+							handleSignAndConnect={signAndConnect}
+							isConnecting={isConnecting}
+						/>
 					)}
 
 					<button
@@ -628,3 +485,151 @@ export function CustomWalletButton({
 		</div>
 	);
 }
+
+const NotConnectedWalletVariant = ({
+	variant,
+	showWallets,
+	setShowWallets,
+	handleWalletConnect,
+	dropdownRef,
+}: {
+	variant: WalletVariant;
+	showWallets: boolean;
+	setShowWallets: (show: boolean) => void;
+	handleWalletConnect: (walletName: string) => void;
+	dropdownRef: React.RefObject<HTMLDivElement>;
+}) => {
+	const wallets = useWallets();
+
+	if (variant === 'sidebar') {
+		return (
+			<div className="mt-8 p-4 bg-white rounded-lg border border-slate-200">
+				<div className="text-center">
+					<Wallet className="w-6 h-6 text-slate-600 mx-auto mb-3" />
+					<h3 className="font-medium text-slate-900 mb-2">
+						Connect Wallet
+					</h3>
+					<p className="text-sm text-slate-600 mb-4">
+						Connect your wallet to create a multisig
+					</p>
+
+					<div className="relative">
+						<Button
+							onClick={() => setShowWallets(!showWallets)}
+							size="sm"
+							className="w-full"
+						>
+							<Wallet className="w-4 h-4 mr-2" />
+							Choose Wallet
+						</Button>
+
+						{showWallets && (
+							<div className="absolute top-full mt-2 left-0 right-0 bg-white border rounded-lg shadow-lg py-2 z-50">
+								{wallets.map((wallet) => (
+									<button
+										key={wallet.name}
+										onClick={() =>
+											handleWalletConnect(wallet.name)
+										}
+										className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+									>
+										<img
+											src={wallet.icon}
+											alt={wallet.name}
+											className="w-5 h-5 rounded"
+										/>
+										{wallet.name}
+									</button>
+								))}
+							</div>
+						)}
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	// Header variant
+	return (
+		<div className="relative" ref={dropdownRef}>
+			<Button
+				variant="default"
+				size="sm"
+				onClick={() => setShowWallets(!showWallets)}
+				className="flex items-center gap-2"
+			>
+				<Wallet className="w-4 h-4" />
+				Connect Wallet
+				<ChevronDown className="w-3 h-3" />
+			</Button>
+
+			{showWallets && (
+				<div className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg py-2 min-w-48 z-50">
+					<div className="px-3 py-2 border-b">
+						<p className="text-sm font-medium">
+							Choose Wallet
+						</p>
+					</div>
+					{wallets.map((wallet) => (
+						<button
+							key={wallet.name}
+							onClick={() =>
+								handleWalletConnect(wallet.name)
+							}
+							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+						>
+							<img
+								src={wallet.icon}
+								alt={wallet.name}
+								className="w-5 h-5 rounded"
+							/>
+							{wallet.name}
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	);
+};
+
+// Helper component for account switching section
+const AccountSwitchingSection = ({
+	showTitle = true,
+	handleSwitchAccount,
+	handleSignAndConnect,
+	isConnecting,
+}: {
+	showTitle?: boolean;
+	handleSwitchAccount: (account: WalletAccount) => void;
+	handleSignAndConnect: () => void;
+	isConnecting: boolean;
+}) => {
+	const accounts = useAccounts();
+	const currentAccount = useCurrentAccount();
+
+	const { authenticatedAddresses } = useApiAuth();
+
+	return (
+		<>
+			{showTitle && (
+				<div className="px-3 py-2 border-b">
+					<p className="text-sm font-medium">
+						Switch Account
+					</p>
+				</div>
+			)}
+			{accounts.map((account) => (
+				<AccountItem
+					key={account.address}
+					account={account}
+					currentAccount={currentAccount}
+					authenticatedAddresses={authenticatedAddresses}
+					onSwitchAccount={handleSwitchAccount}
+					onSignAndConnect={handleSignAndConnect}
+					isConnecting={isConnecting}
+				/>
+			))}
+			{showTitle && <div className="border-t my-1"></div>}
+		</>
+	);
+};

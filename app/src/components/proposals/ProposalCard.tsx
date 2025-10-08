@@ -179,30 +179,6 @@ export function ProposalCard({
 			: `https://suiscan.xyz/mainnet/tx/${digest}`;
 	};
 
-	const getToggleButtonText = () => {
-		if (proposal.status === ProposalStatus.SUCCESS) {
-			return isExpanded
-				? 'Hide Transaction'
-				: 'View Transaction';
-		}
-		if (proposal.status === ProposalStatus.PENDING) {
-			return isExpanded
-				? 'Hide Preview'
-				: 'Preview Effects';
-		}
-		return isExpanded ? 'Hide Details' : 'View Details';
-	};
-
-	const getToggleIcon = () => {
-		if (proposal.status === ProposalStatus.SUCCESS) {
-			return ExternalLink;
-		}
-		if (proposal.status === ProposalStatus.PENDING) {
-			return Eye;
-		}
-		return isExpanded ? ChevronDown : ChevronRight;
-	};
-
 	const getSignatureStatus = () => {
 		if (proposal.status !== ProposalStatus.PENDING)
 			return null;
@@ -223,8 +199,6 @@ export function ProposalCard({
 			</div>
 		);
 	};
-
-	const Icon = getToggleIcon();
 
 	return (
 		<div className="bg-white border rounded-lg hover:shadow-sm transition-shadow">
@@ -315,8 +289,11 @@ export function ProposalCard({
 							variant="outline"
 							onClick={() => setIsExpanded(!isExpanded)}
 						>
-							<Icon className="w-4 h-4 mr-1" />
-							{getToggleButtonText()}
+							<ToggleIcon
+								proposal={proposal}
+								isExpanded={isExpanded}
+								className="w-4 h-4 mr-1"
+							/>
 						</Button>
 					)}
 				</div>
@@ -430,3 +407,44 @@ export function ProposalCard({
 		</div>
 	);
 }
+
+function ToggleIcon({
+	proposal,
+	isExpanded,
+	className,
+}: {
+	proposal: ProposalWithSignatures;
+	isExpanded: boolean;
+	className: string;
+}) {
+	const text = getToggleButtonText(proposal, isExpanded);
+	const Icon =
+		proposal.status === ProposalStatus.SUCCESS
+			? ExternalLink
+			: proposal.status === ProposalStatus.PENDING
+				? Eye
+				: isExpanded
+					? ChevronDown
+					: ChevronRight;
+	return (
+		<>
+			<Icon className={className} />
+			{text}
+		</>
+	);
+}
+
+const getToggleButtonText = (
+	proposal: ProposalWithSignatures,
+	isExpanded: boolean,
+) => {
+	if (proposal.status === ProposalStatus.SUCCESS) {
+		return isExpanded
+			? 'Hide Transaction'
+			: 'View Transaction';
+	}
+	if (proposal.status === ProposalStatus.PENDING) {
+		return isExpanded ? 'Hide Preview' : 'Preview Effects';
+	}
+	return isExpanded ? 'Hide Details' : 'View Details';
+};

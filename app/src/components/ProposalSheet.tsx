@@ -82,6 +82,7 @@ export function ProposalSheet({
 			handleCreateSuccess();
 			createProposalMutation.reset(); // Reset the mutation state
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [createProposalMutation.isSuccess]);
 
 	// Check if dry run was successful
