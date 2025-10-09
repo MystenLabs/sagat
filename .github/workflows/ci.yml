@@ -118,7 +118,7 @@ jobs:
       - name: Install Sui binaries
         run: |
           export PATH="$HOME/.sui/bin:$PATH"
-          suiup install sui@mainnet
+          suiup install sui@mainnet -y
           sui --version
 
       - name: Start Sui local network
