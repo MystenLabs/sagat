@@ -26,15 +26,6 @@ export function ProposalDetailPage() {
 		if (!proposalQuery.data) return null;
 		return {
 			...proposalQuery.data,
-			multisig: {
-				...proposalQuery.data?.multisig,
-				members: proposalQuery.data?.multisig?.members.map(
-					(member) => ({
-						...member,
-						publicKey: member.publicKey,
-					}),
-				),
-			},
 			isPublic: true,
 			proposers: [],
 		};
