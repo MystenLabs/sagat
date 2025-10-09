@@ -135,13 +135,6 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}'
 
-      - name: Run database migrations
-        run: bun run db:migrate
-        working-directory: api
-        env:
-          TEST_DATABASE_URL: postgresql://sagat:sagat@localhost:5432
-          DATABASE_URL: postgresql://sagat:sagat@localhost:5432
-
       - name: Run API E2E tests
         run: bun test:e2e
         working-directory: api
