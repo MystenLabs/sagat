@@ -1,49 +1,62 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSignTransaction, useCurrentAccount } from "@mysten/dapp-kit";
-import { apiClient } from "../lib/api";
-import { toast } from "sonner";
-import { Transaction } from "@mysten/sui/transactions";
-import { QueryKeys } from "../lib/queryKeys";
-import { useApiAuth } from "@/contexts/ApiAuthContext";
+import {
+	useCurrentAccount,
+	useSignTransaction,
+} from '@mysten/dapp-kit';
+import { Transaction } from '@mysten/sui/transactions';
+import {
+	useMutation,
+	useQueryClient,
+} from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+import { useApiAuth } from '@/contexts/ApiAuthContext';
+
+import { apiClient } from '../lib/api';
+import { QueryKeys } from '../lib/queryKeys';
 
 interface SignProposalParams {
-  proposalId: number;
-  transactionBytes: string;
+	proposalId: number;
+	transactionBytes: string;
 }
 
 export function useSignProposal() {
-  const currentAccount = useCurrentAccount();
-  const queryClient = useQueryClient();
-  const { currentAddress } = useApiAuth();
-  const { mutateAsync: signTransaction } = useSignTransaction();
+	const currentAccount = useCurrentAccount();
+	const queryClient = useQueryClient();
+	const { currentAddress } = useApiAuth();
+	const { mutateAsync: signTransaction } =
+		useSignTransaction();
 
-  return useMutation({
-    mutationFn: async ({
-      proposalId,
-      transactionBytes,
-    }: SignProposalParams) => {
-      if (!currentAddress || !currentAccount) {
-        throw new Error("No connected account");
-      }
+	return useMutation({
+		mutationFn: async ({
+			proposalId,
+			transactionBytes,
+		}: SignProposalParams) => {
+			if (!currentAddress || !currentAccount) {
+				throw new Error('No connected account');
+			}
 
-      // Create transaction from built bytes for signing
-      const transaction = Transaction.from(transactionBytes);
+			// Create transaction from built bytes for signing
+			const transaction = Transaction.from(
+				transactionBytes,
+			);
 
-      // Sign the transaction
-      const result = await signTransaction({
-        transaction,
-        account: currentAccount,
-      });
+			// Sign the transaction
+			const result = await signTransaction({
+				transaction,
+				account: currentAccount,
+			});
 
-      // Call API to vote on the proposal
-      return apiClient.voteForProposal(proposalId, {
-        signature: result.signature as string,
-      });
-    },
-    onSuccess: () => {
-      // Invalidate all proposal-related queries
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.Proposals] });
-      toast.success("Proposal signed successfully!");
-    },
-  });
+			// Call API to vote on the proposal
+			return apiClient.voteForProposal(proposalId, {
+				signature: result.signature as string,
+			});
+		},
+		onSuccess: () => {
+			// Invalidate all proposal-related queries
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposals],
+			});
+			toast.success('Proposal signed successfully!');
+		},
+	});
 }

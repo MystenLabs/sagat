@@ -1,14 +1,18 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useSuiClient } from '@mysten/dapp-kit';
 import { type BalanceChange } from '@mysten/sui/client';
 import { useQuery } from '@tanstack/react-query';
-import { useSuiClient } from '@mysten/dapp-kit';
 
 import { PreviewCard } from '../PreviewCard';
 import { onChainAmountToFloat } from '../utils';
 
-export function BalanceChanges({ changes }: { changes: BalanceChange[] }) {
+export function BalanceChanges({
+	changes,
+}: {
+	changes: BalanceChange[];
+}) {
 	return (
 		<div className="grid grid-cols-2 gap-4">
 			{changes.map((change, index) => (
@@ -18,7 +22,11 @@ export function BalanceChanges({ changes }: { changes: BalanceChange[] }) {
 	);
 }
 
-function ChangedBalance({ change }: { change: BalanceChange }) {
+function ChangedBalance({
+	change,
+}: {
+	change: BalanceChange;
+}) {
 	const client = useSuiClient();
 
 	const { data: coinMetadata } = useQuery({
@@ -33,7 +41,10 @@ function ChangedBalance({ change }: { change: BalanceChange }) {
 
 	const amount = () => {
 		if (!coinMetadata) return '-';
-		const amt = onChainAmountToFloat(change.amount, coinMetadata.decimals);
+		const amt = onChainAmountToFloat(
+			change.amount,
+			coinMetadata.decimals,
+		);
 
 		return `${amt && amt > 0.0 ? '+' : ''}${amt}`;
 	};
@@ -52,11 +63,15 @@ function ChangedBalance({ change }: { change: BalanceChange }) {
 						/>
 					)}
 					<p>
-						<span className={`${Number(amount()) > 0.0 ? 'text-green-700' : 'text-red-700'}`}>
+						<span
+							className={`${Number(amount()) > 0.0 ? 'text-green-700' : 'text-red-700'}`}
+						>
 							{amount()}{' '}
 						</span>{' '}
 						{coinMetadata.symbol}
-						<span className="block text-sm text-gray-600">{change.coinType}</span>
+						<span className="block text-sm text-gray-600">
+							{change.coinType}
+						</span>
 					</p>
 				</>
 			</PreviewCard.Body>

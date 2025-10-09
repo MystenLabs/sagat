@@ -1,20 +1,30 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 import { useSuiClientContext } from '@mysten/dapp-kit';
-import { ObjectOwner, SuiObjectChange } from '@mysten/sui/client';
+import {
+	type ObjectOwner,
+	type SuiObjectChange,
+} from '@mysten/sui/client';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { formatAddress } from './utils';
 
-type OwnerDisplay = string | { address: string } | { object: string };
+type OwnerDisplay =
+	| string
+	| { address: string }
+	| { object: string };
 
-const getOwnerDisplay = (owner: ObjectOwner): OwnerDisplay => {
+const getOwnerDisplay = (
+	owner: ObjectOwner,
+): OwnerDisplay => {
 	if (owner === 'Immutable') return 'Immutable';
 	if ('Shared' in owner) return 'Shared';
-	if ('AddressOwner' in owner) return { address: owner.AddressOwner };
-	if ('ObjectOwner' in owner) return { object: owner.ObjectOwner };
+	if ('AddressOwner' in owner)
+		return { address: owner.AddressOwner };
+	if ('ObjectOwner' in owner)
+		return { object: owner.ObjectOwner };
 	return { object: owner.ConsensusAddressOwner.owner };
 };
 
@@ -38,11 +48,16 @@ export function ObjectLink({
 	let objectId: string | undefined;
 	let display: string | undefined;
 
-	const ownerDisplay = owner ? getOwnerDisplay(owner) : undefined;
+	const ownerDisplay = owner
+		? getOwnerDisplay(owner)
+		: undefined;
 
 	if (ownerDisplay) {
 		if (typeof ownerDisplay !== 'string') {
-			objectId = 'address' in ownerDisplay ? ownerDisplay.address : ownerDisplay.object;
+			objectId =
+				'address' in ownerDisplay
+					? ownerDisplay.address
+					: ownerDisplay.object;
 			display = formatAddress(objectId);
 		} else {
 			display = ownerDisplay;
@@ -79,7 +94,9 @@ export function ObjectLink({
 	const copy = () => {
 		if (!objectId && !display) return;
 
-		navigator.clipboard.writeText(objectId || display || '');
+		navigator.clipboard.writeText(
+			objectId || display || '',
+		);
 		setCopied(true);
 		toast.success('Copied to clipboard!');
 
@@ -93,7 +110,12 @@ export function ObjectLink({
 			{copied ? (
 				<CheckIcon width={10} height={10} className="" />
 			) : display ? (
-				<CopyIcon width={10} height={10} className="cursor-pointer" onClick={copy} />
+				<CopyIcon
+					width={10}
+					height={10}
+					className="cursor-pointer"
+					onClick={copy}
+				/>
 			) : null}
 
 			{link ? (

@@ -1,25 +1,44 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiArgument, SuiCallArg, SuiTransaction, TransactionBlockData } from '@mysten/sui/client';
-import { ReactNode } from 'react';
+import {
+	type SuiArgument,
+	type SuiCallArg,
+	type SuiTransaction,
+	type TransactionBlockData,
+} from '@mysten/sui/client';
+import { type ReactNode } from 'react';
 
 import { ObjectLink } from '../ObjectLink';
 import { PreviewCard } from '../PreviewCard';
 
-export function Transactions({ inputs }: { inputs: TransactionBlockData }) {
-	if (inputs.transaction.kind !== 'ProgrammableTransaction') return null;
+export function Transactions({
+	inputs,
+}: {
+	inputs: TransactionBlockData;
+}) {
+	if (inputs.transaction.kind !== 'ProgrammableTransaction')
+		return null;
 
 	return (
 		<div className="">
-			{inputs.transaction.transactions.map((transaction, index) => (
-				<Transaction key={index} transaction={transaction} inputs={inputs} index={index} />
-			))}
+			{inputs.transaction.transactions.map(
+				(transaction, index) => (
+					<Transaction
+						key={index}
+						transaction={transaction}
+						inputs={inputs}
+						index={index}
+					/>
+				),
+			)}
 		</div>
 	);
 }
 
-const getCallArgDisplay = (argument: SuiCallArg | undefined) => {
+const getCallArgDisplay = (
+	argument: SuiCallArg | undefined,
+) => {
 	if (!argument) return null;
 	if (typeof argument === 'string') return argument;
 
@@ -29,8 +48,13 @@ const getCallArgDisplay = (argument: SuiCallArg | undefined) => {
 				{Object.entries(argument)
 					.filter(([, value]) => value !== null)
 					.map(([argKey, value]) => (
-						<div key={argKey} className="flex items-center flex-shrink-0 gap-3 mb-3 justify-stretch ">
-							<p className="capitalize min-w-[100px] flex-shrink-0">{argKey}: </p>
+						<div
+							key={argKey}
+							className="flex items-center flex-shrink-0 gap-3 mb-3 justify-stretch "
+						>
+							<p className="capitalize min-w-[100px] flex-shrink-0">
+								{argKey}:{' '}
+							</p>
 							{argKey === 'objectId' ? (
 								<ObjectLink inputObject={value as string} />
 							) : typeof value === 'object' ? (
@@ -45,7 +69,10 @@ const getCallArgDisplay = (argument: SuiCallArg | undefined) => {
 	);
 };
 
-const getSuiArgumentDisplay = (argument: SuiArgument, inputs: SuiCallArg[]) => {
+const getSuiArgumentDisplay = (
+	argument: SuiArgument,
+	inputs: SuiCallArg[],
+) => {
 	if (typeof argument === 'string') return argument;
 
 	if ('Input' in argument) {
@@ -54,12 +81,17 @@ const getSuiArgumentDisplay = (argument: SuiArgument, inputs: SuiCallArg[]) => {
 
 	return (
 		<PreviewCard.Root>
-			<PreviewCard.Body>{JSON.stringify(argument)}</PreviewCard.Body>
+			<PreviewCard.Body>
+				{JSON.stringify(argument)}
+			</PreviewCard.Body>
 		</PreviewCard.Root>
 	);
 };
 
-const renderArguments = (callArgs: SuiArgument[], inputs: SuiCallArg[]) => {
+const renderArguments = (
+	callArgs: SuiArgument[],
+	inputs: SuiCallArg[],
+) => {
 	return (
 		<div className="flex overflow-x-auto gap-3 my-3">
 			{callArgs.map((arg, index) => (
@@ -82,13 +114,18 @@ const renderFooter = (type: string, index: number) => {
 };
 
 const FOOTERS: Record<string, string> = {
-	MoveCall: "MoveCall (Direct Call to a Smart Contract's function)",
-	TransferObjects: 'TransferObjects (transfers the list of objects to the specified address)',
-	SplitCoins: 'SplitCoins (splits the coin into multiple coins)',
-	MergeCoins: 'MergeCoins (merges the coins into a single coin)',
+	MoveCall:
+		"MoveCall (Direct Call to a Smart Contract's function)",
+	TransferObjects:
+		'TransferObjects (transfers the list of objects to the specified address)',
+	SplitCoins:
+		'SplitCoins (splits the coin into multiple coins)',
+	MergeCoins:
+		'MergeCoins (merges the coins into a single coin)',
 	Publish: 'Publish (publishes a new package)',
 	Upgrade: 'Upgrade (upgrades a package)',
-	MakeMoveVec: 'MakeMoveVec (creates a vector of Move objects)',
+	MakeMoveVec:
+		'MakeMoveVec (creates a vector of Move objects)',
 };
 
 function Transaction({
@@ -101,7 +138,9 @@ function Transaction({
 	index: number;
 }) {
 	const inputList = () => {
-		if (inputs.transaction.kind === 'ProgrammableTransaction') {
+		if (
+			inputs.transaction.kind === 'ProgrammableTransaction'
+		) {
 			return inputs.transaction.inputs;
 		}
 		return [];
@@ -109,7 +148,10 @@ function Transaction({
 
 	return (
 		<PreviewCard.Root className="mb-6">
-			{renderFooter(FOOTERS[Object.keys(transaction)[0]], index)}
+			{renderFooter(
+				FOOTERS[Object.keys(transaction)[0]],
+				index,
+			)}
 			<PreviewCard.Body>
 				<>
 					{'MoveCall' in transaction && (
@@ -119,19 +161,28 @@ function Transaction({
 								{`${transaction.MoveCall.package}::${transaction.MoveCall.module}::${transaction.MoveCall.function}`}
 							</div>
 							{transaction.MoveCall.type_arguments &&
-								transaction.MoveCall.type_arguments.length > 0 && (
+								transaction.MoveCall.type_arguments.length >
+									0 && (
 									<div className="mb-3">
-										<label>Type Arguments: </label>[{transaction.MoveCall.type_arguments.join(', ')}
+										<label>Type Arguments: </label>[
+										{transaction.MoveCall.type_arguments.join(
+											', ',
+										)}
 										]
 									</div>
 								)}
 
-							{transaction.MoveCall.arguments && transaction.MoveCall.arguments.length > 0 && (
-								<div>
-									<label>Inputs: </label>
-									{renderArguments(transaction.MoveCall.arguments, inputList())}
-								</div>
-							)}
+							{transaction.MoveCall.arguments &&
+								transaction.MoveCall.arguments.length >
+									0 && (
+									<div>
+										<label>Inputs: </label>
+										{renderArguments(
+											transaction.MoveCall.arguments,
+											inputList(),
+										)}
+									</div>
+								)}
 						</>
 					)}
 
@@ -139,10 +190,16 @@ function Transaction({
 						<>
 							<div>
 								<label>Objects: </label>
-								{renderArguments(transaction.TransferObjects[0], inputList())}
+								{renderArguments(
+									transaction.TransferObjects[0],
+									inputList(),
+								)}
 
 								<label>Transfer to:</label>
-								{renderArguments([transaction.TransferObjects[1]], inputList())}
+								{renderArguments(
+									[transaction.TransferObjects[1]],
+									inputList(),
+								)}
 							</div>
 						</>
 					)}
@@ -151,11 +208,17 @@ function Transaction({
 						<>
 							<div>
 								<label>From Coin: </label>
-								{renderArguments([transaction.SplitCoins[0]], inputList())}
+								{renderArguments(
+									[transaction.SplitCoins[0]],
+									inputList(),
+								)}
 							</div>
 							<div>
 								<label>Splits into: </label>
-								{renderArguments(transaction.SplitCoins[1], inputList())}
+								{renderArguments(
+									transaction.SplitCoins[1],
+									inputList(),
+								)}
 							</div>
 						</>
 					)}
@@ -164,16 +227,23 @@ function Transaction({
 						<>
 							<div>
 								<label>To Coin: </label>
-								{renderArguments([transaction.MergeCoins[0]], inputList())}
+								{renderArguments(
+									[transaction.MergeCoins[0]],
+									inputList(),
+								)}
 							</div>
 							<div>
 								<label>From coins: </label>
-								{renderArguments(transaction.MergeCoins[1], inputList())}
+								{renderArguments(
+									transaction.MergeCoins[1],
+									inputList(),
+								)}
 							</div>
 						</>
 					)}
 
-					{('Publish' in transaction || 'Upgrade' in transaction) && (
+					{('Publish' in transaction ||
+						'Upgrade' in transaction) && (
 						<>{JSON.stringify(transaction)}</>
 					)}
 

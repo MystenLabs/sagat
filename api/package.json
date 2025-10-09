@@ -1,27 +1,27 @@
 {
-  "name": "sagat-api",
-  "scripts": {
-    "dev": "bun run --hot src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun",
-    "test:e2e": "bun test --timeout 30000",
-    "test:watch": "bun test --watch",
-    "db:generate": "bun drizzle-kit generate",
-    "db:migrate": "bun drizzle-kit migrate",
-    "fmt": "prettier --write ."
-  },
-  "dependencies": {
-    "@mysten/sagat": "workspace:*",
-    "@mysten/sui": "^1.38.0",
-    "dataloader": "^2.2.3",
-    "drizzle-orm": "^0.44.5",
-    "hono": "^4.9.8",
-    "jose": "^6.1.0",
-    "pg": "^8.11.0"
-  },
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/pg": "^8.11.0",
-    "drizzle-kit": "^0.31.4",
-    "prettier": "^3.6.2"
-  }
+	"name": "sagat-api",
+	"scripts": {
+		"dev": "bun run --hot src/index.ts",
+		"build": "bun build src/index.ts --outdir dist --target bun",
+		"test:e2e": "bun test --timeout 30000",
+		"test:watch": "bun test --watch",
+		"db:generate": "bun drizzle-kit generate",
+		"db:migrate": "bun drizzle-kit migrate",
+		"fmt": "prettier --write ."
+	},
+	"dependencies": {
+		"@mysten/sagat": "workspace:*",
+		"@mysten/sui": "^1.38.0",
+		"dataloader": "^2.2.3",
+		"drizzle-orm": "^0.44.5",
+		"hono": "^4.9.8",
+		"jose": "^6.1.0",
+		"pg": "^8.11.0"
+	},
+	"devDependencies": {
+		"@types/bun": "latest",
+		"@types/pg": "^8.11.0",
+		"drizzle-kit": "^0.31.4",
+		"prettier": "^3.6.2"
+	}
 }

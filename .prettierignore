@@ -1,0 +1,25 @@
+node_modules
+dist
+build
+coverage
+.next
+.nuxt
+.output
+.vite
+.turbo
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+bun.lockb
+
+# Build output
+*.tsbuildinfo
+
+# Drizzle generated files
+**/drizzle/meta/*.json
+
+# Environment files
+.env
+.env.*
