@@ -66,9 +66,7 @@ export function ApiAuthProvider({
 	} = useQuery<AuthCheckResponse>({
 		queryKey: [...AUTH_QUERY_KEY, currentAccount?.address],
 		queryFn: () => apiClient.checkAuth(),
-		retry: (failureCount, _) => {
-			return failureCount < 3;
-		},
+		retry: false,
 		// Always check when account changes
 		enabled: true,
 		// refetch on windows focus to make sure we sync across tabs.
