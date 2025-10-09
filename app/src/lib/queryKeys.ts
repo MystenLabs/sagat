@@ -3,6 +3,7 @@ export const QueryKeys = {
 	Multisig: 'multisig',
 	Multisigs: 'multisigs',
 	User: 'user',
+	Proposal: 'proposal-single',
 	Proposals: 'proposals',
 	Pending: 'pending',
 	All: 'all',

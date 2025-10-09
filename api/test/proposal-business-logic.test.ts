@@ -1,3 +1,4 @@
+import { Proposal, ProposalStatus } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	beforeEach,
@@ -6,11 +7,11 @@ import {
 	test,
 } from 'bun:test';
 
-import { ProposalStatus } from '../src/db/schema';
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
 	newUser,
+	TestSession,
 } from './framework/api-test-framework';
 import {
 	createTestApp,
@@ -293,11 +294,10 @@ describe('Proposal Business Logic', () => {
 				);
 
 			// Create outsider who is not a multisig member
-			const outsider = session.createUser();
 
-			await expect(
+			expect(
 				session.voteOnProposal(
-					outsider,
+					session.createUser(),
 					proposal.id,
 					proposal.transactionBytes,
 				),
@@ -449,11 +449,17 @@ describe('Proposal Business Logic', () => {
 					'Test proposal',
 				);
 
-			expect(proposal.id).toBeDefined();
-			expect(proposal.transactionBytes).toBeDefined();
+			const proposalWithSigs = await session
+				.getStatefulClient()
+				.getProposalByDigest(proposal.digest);
 
-			// Proposal should be created with proposer's signature already included
-			// (This is business logic - proposer auto-votes when creating)
+			expect(proposalWithSigs.signatures.length).toBe(1);
+			expect(proposalWithSigs.signatures[0].publicKey).toBe(
+				users[0].keypair.getPublicKey().toSuiPublicKey(),
+			);
+			expect(
+				proposalWithSigs.signatures[0].signature,
+			).toBeDefined();
 		});
 
 		test('tracks signatures and calculates threshold correctly', async () => {
@@ -553,6 +559,54 @@ describe('Proposal Business Logic', () => {
 			}
 
 			expect(results.length).toBe(10);
+		});
+	});
+
+	describe('Test proposal by digest', () => {
+		let testProposal: Proposal;
+		let testSession: TestSession;
+
+		beforeEach(async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+
+			const newProposal =
+				await session.createSimpleTransferProposal(
+					users[0],
+					multisig.address,
+					'0x9999999999999999999999999999999999999999999999999999999999999999',
+					1000000,
+					'Test proposal',
+				);
+			testProposal = newProposal;
+			testSession = session;
+		});
+
+		test('Get proposal by digest', async () => {
+			const queried = await testSession
+				.getStatefulClient()
+				.getProposalByDigest(testProposal.digest);
+
+			expect(queried).toBeDefined();
+			expect(queried).toMatchObject(testProposal);
+		});
+
+		test('Try get proposal unauthenticated', async () => {
+			expect(
+				framework
+					.statelessClient()
+					.getProposalByDigest(testProposal.digest),
+			).rejects.toThrowError('Unauthorized');
+		});
+
+		test('Try get propoosal without being multisig member', async () => {
+			const { session } =
+				await framework.createAuthenticatedSession(1);
+			expect(
+				session
+					.getStatefulClient()
+					.getProposalByDigest(testProposal.digest),
+			).rejects.toThrowError(AuthErrors.NotAMultisigMember);
 		});
 	});
 });

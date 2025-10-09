@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 
 interface ModalProps {
 	open: boolean;
@@ -15,13 +15,30 @@ const sizeClasses = {
 
 export function Modal({
 	open,
+	onClose,
 	children,
 	size = 'md',
 }: ModalProps) {
+	useEffect(() => {
+		if (!open) return;
+
+		const handleEscape = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				onClose();
+			}
+		};
+
+		document.addEventListener('keydown', handleEscape);
+		return () => document.removeEventListener('keydown', handleEscape);
+	}, [open, onClose]);
+
 	if (!open) return null;
 
 	return (
-		<div className="fixed inset-1 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+		<div
+			className="fixed inset-1 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
+			onClick={onClose}
+		>
 			<div
 				className={`bg-white rounded-lg p-6 w-full mx-4 ${sizeClasses[size]}`}
 				onClick={(e) => e.stopPropagation()}

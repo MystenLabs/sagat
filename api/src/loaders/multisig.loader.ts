@@ -85,7 +85,7 @@ async function batchLoadMultisigs(
 
 		resolved.push({
 			...setup,
-			members: memberList,
+			members: memberList.sort((a, b) => a.order - b.order),
 			proposers: proposerList,
 			totalMembers: memberList.length,
 			totalWeight: memberList.reduce(

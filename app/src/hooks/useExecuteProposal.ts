@@ -106,6 +106,10 @@ export function useExecuteProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
+			// Remove standalone proposal too
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposal],
+			});
 			toast.success(
 				`Transaction executed successfully! Digest: ${data.executionResult.digest}`,
 			);

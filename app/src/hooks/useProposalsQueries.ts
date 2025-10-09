@@ -13,6 +13,7 @@ import {
 	getTotalWeight,
 } from '../lib/proposalUtils';
 import { QueryKeys } from '../lib/queryKeys';
+import { useGetMultisig } from './useGetMultisig';
 
 interface UseProposalsQueriesParams {
 	multisig: MultisigWithMembersForPublicKey;
@@ -33,14 +34,9 @@ export function useProposalsQueries({
 }: UseProposalsQueriesParams) {
 	const { currentAddress } = useApiAuth();
 
-	// Query to get full multisig details (including members with weights)
-	const multisigDetailsQuery = useQuery({
-		queryKey: [QueryKeys.Multisig, multisig.address],
-		queryFn: () => apiClient.getMultisig(multisig.address),
-		enabled: !!multisig.address,
-		staleTime: Infinity, // Cache forever since multisig details are immutable
-		gcTime: Infinity,
-	});
+	const multisigDetailsQuery = useGetMultisig(
+		multisig.address,
+	);
 
 	// Get API query type based on active tab
 	const getApiQueryType = () => {

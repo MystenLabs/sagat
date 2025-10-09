@@ -1,6 +1,9 @@
 import { PersonalMessages } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
-import { fromBase64 } from '@mysten/sui/utils';
+import {
+	fromBase64,
+	isValidTransactionDigest,
+} from '@mysten/sui/utils';
 import { eq } from 'drizzle-orm';
 import { Context, Hono } from 'hono';
 
@@ -12,7 +15,13 @@ import {
 	SchemaProposals,
 	SchemaProposalSignatures,
 } from '../db/schema';
-import { ApiAuthError, ValidationError } from '../errors';
+import {
+	ApiAuthError,
+	CommonError,
+	NotFoundError,
+	ValidationError,
+} from '../errors';
+import { ProposalByDigestLoader } from '../loaders/proposals.loader';
 import { validatePersonalMessage } from '../services/addresses.service';
 import {
 	AuthEnv,
@@ -314,6 +323,34 @@ proposalsRouter.get(
 		);
 
 		return c.json(proposals);
+	},
+);
+
+proposalsRouter.get(
+	'/digest/:digest',
+	authMiddleware,
+	async (c: Context<AuthEnv>) => {
+		const publicKeys = c.get('publicKeys');
+		const { digest } = c.req.param();
+
+		if (!isValidTransactionDigest(digest))
+			throw new CommonError('InvalidDigest');
+
+		const proposal =
+			await ProposalByDigestLoader.load(digest);
+
+		if (!proposal) throw new NotFoundError();
+
+		if (
+			!(await jwtHasMultisigMemberAccess(
+				proposal.multisigAddress,
+				publicKeys,
+				false,
+			))
+		)
+			throw new ApiAuthError('NotAMultisigMember');
+
+		return c.json(proposal);
 	},
 );
 
