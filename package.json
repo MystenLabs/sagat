@@ -8,7 +8,10 @@
 	],
 	"scripts": {
 		"fmt": "prettier --write .",
+		"fmt:check": "prettier --check .",
 		"lint": "cd app && bun run lint",
+		"typecheck": "cd sdk && bun run typecheck",
+		"test": "cd api && bun test:e2e",
 		"dev:sdk": "cd sdk && bun run dev",
 		"dev:api": "cd api && bun run dev",
 		"dev:api:delayed": "sleep 2 && cd api && bun run dev",
