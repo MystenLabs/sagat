@@ -25,6 +25,7 @@ import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { Button } from './ui/button';
+import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 
 type WalletVariant = 'header' | 'sidebar';
@@ -310,15 +311,12 @@ export function CustomWalletButton({
 					<span>
 						{formatAddress(currentAccount.address)}
 					</span>
-					<span
-						className={`text-xs px-1.5 py-0.5 rounded ${
-							isTestMode
-								? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
-								: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-						}`}
+					<Label
+						variant={isTestMode ? 'warning' : 'info'}
+						size="sm"
 					>
 						{network}
-					</span>
+					</Label>
 					<ChevronDown className="w-3 h-3" />
 				</Button>
 
@@ -425,15 +423,12 @@ export function CustomWalletButton({
 			>
 				<div className="w-2 h-2 bg-green-500 rounded-full"></div>
 				<span>{formatAddress(currentAccount.address)}</span>
-				<span
-					className={`text-xs px-1.5 py-0.5 rounded ${
-						isTestMode
-							? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
-							: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-					}`}
+				<Label
+					variant={isTestMode ? 'warning' : 'info'}
+					size="sm"
 				>
 					{network}
-				</span>
+				</Label>
 				<ChevronDown className="w-3 h-3" />
 			</Button>
 

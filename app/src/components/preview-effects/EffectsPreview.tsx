@@ -1,6 +1,8 @@
 import { type DryRunTransactionBlockResponse } from '@mysten/sui/client';
 import { useState } from 'react';
 
+import { Label } from '@/components/ui/label';
+
 import { cn } from '../../lib/utils';
 import { Textarea } from '../ui/textarea';
 import { BalanceChanges } from './partials/BalanceChanges';
@@ -86,7 +88,7 @@ export function EffectsPreview({
 							type="button"
 							onClick={() => setActiveTab(tab.id)}
 							className={cn(
-								'px-4 py-2 text-sm font-medium transition-colors relative',
+								'px-4 text-sm font-medium transition-colors relative shrink-0 py-3 cursor-pointer',
 								activeTab === tab.id
 									? 'text-blue-600 border-b-2 border-blue-600'
 									: 'text-gray-600 hover:text-gray-900',
@@ -94,9 +96,13 @@ export function EffectsPreview({
 						>
 							{tab.title}
 							{tab.count !== undefined && tab.count > 0 && (
-								<span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600">
+								<Label
+									variant="neutral"
+									size="sm"
+									className="ml-2"
+								>
 									{tab.count}
-								</span>
+								</Label>
 							)}
 						</button>
 					))}

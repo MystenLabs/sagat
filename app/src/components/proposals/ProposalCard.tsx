@@ -29,6 +29,7 @@ import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button } from '../ui/button';
 import { CopyButton } from '../ui/copy-button';
+import { Label } from '../ui/label';
 import { ProposalPreview } from './ProposalPreview';
 
 interface ProposalCardProps {
@@ -105,39 +106,19 @@ export function ProposalCard({
 
 	const getStatusBadge = () => {
 		if (proposal.status === ProposalStatus.SUCCESS) {
-			return (
-				<span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
-					Executed
-				</span>
-			);
+			return <Label variant="success">Executed</Label>;
 		}
 		if (proposal.status === ProposalStatus.CANCELLED) {
-			return (
-				<span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
-					Cancelled
-				</span>
-			);
+			return <Label variant="neutral">Cancelled</Label>;
 		}
 		if (proposal.status === ProposalStatus.FAILURE) {
-			return (
-				<span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
-					Failed
-				</span>
-			);
+			return <Label variant="error">Failed</Label>;
 		}
 
 		if (proposal.currentWeight >= proposal.totalWeight) {
-			return (
-				<span className="px-2 py-1 text-xs rounded-full shrink-0 bg-blue-100 text-blue-800">
-					Ready to Execute
-				</span>
-			);
+			return <Label variant="info">Ready to Execute</Label>;
 		}
-		return (
-			<span className="px-2 py-1 text-xs rounded-full shrink-0 bg-orange-100 text-orange-800">
-				Pending
-			</span>
-		);
+		return <Label variant="warning">Pending</Label>;
 	};
 
 	const getExplorerUrl = (digest: string) => {
@@ -178,10 +159,10 @@ export function ProposalCard({
 		if (!userHasSigned()) return null;
 
 		return (
-			<div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">
+			<Label variant="success">
 				<CheckCircle className="w-3 h-3" />
 				Already Signed
-			</div>
+			</Label>
 		);
 	};
 
@@ -197,9 +178,9 @@ export function ProposalCard({
 						{getStatusBadge()}
 						{getSignatureStatus()}
 						{isExternalProposer() && (
-							<span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 shrink-0">
+							<Label variant="purple">
 								External Proposer
-							</span>
+							</Label>
 						)}
 					</div>
 

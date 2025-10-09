@@ -1,6 +1,8 @@
 import type { MultisigMember } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
+import { Label } from '@/components/ui/label';
+
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CopyButton } from '../ui/CopyButton';
 
@@ -23,9 +25,9 @@ export function MembersList({ members }: MembersListProps) {
 					>
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center space-x-2">
-								<span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded font-mono">
+								<Label variant="info" className="font-mono">
 									#{index + 1}
-								</span>
+								</Label>
 								<div className="flex flex-col min-w-0">
 									{address && (
 										<div className="flex items-center gap-1">

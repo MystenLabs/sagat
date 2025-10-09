@@ -21,6 +21,7 @@ import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { MultisigSelector } from './MultisigSelector';
 import { ProposalSheet } from './ProposalSheet';
 import { Button } from './ui/button';
+import { Label } from './ui/label';
 import { Loading } from './ui/loading';
 
 export function MultisigDetailPage() {
@@ -163,19 +164,25 @@ export function MultisigDetailPage() {
 
 						{/* Quick Info Bar */}
 						<div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap pt-4 border-t">
-							<span className="px-2 py-1 bg-green-100 text-green-700 rounded-full">
+							<Label variant="success">
 								{multisig.threshold} threshold •{' '}
 								{multisig.totalMembers} members
-							</span>
-							<span
-								className={`px-2 py-1 ${multisig.isVerified ? 'bg-green-100 text-green-700' : multisig.rejectedMembers > 0 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'} rounded-full`}
+							</Label>
+							<Label
+								variant={
+									multisig.isVerified
+										? 'success'
+										: multisig.rejectedMembers > 0
+											? 'error'
+											: 'info'
+								}
 							>
 								{multisig.isVerified
 									? 'Verified'
 									: multisig.rejectedMembers > 0
 										? 'Rejected'
 										: 'Pending'}
-							</span>
+							</Label>
 						</div>
 					</div>
 				</div>
@@ -201,9 +208,13 @@ export function MultisigDetailPage() {
 									<Icon className="w-4 h-4" />
 									{tabItem.label}
 									{(tabItem.count && tabItem.count > 0 && (
-										<span className="ml-1 px-2 py-0.5 text-xs bg-orange-100 text-orange-600 rounded-full">
+										<Label
+											variant="warning"
+											size="sm"
+											className="ml-1"
+										>
 											{tabItem.count} pending
-										</span>
+										</Label>
 									)) ||
 										null}
 								</NavLink>

@@ -13,6 +13,7 @@ import { useNetwork } from '../../contexts/NetworkContext';
 import { useProposalsQueries } from '../../hooks/useProposalsQueries';
 import { ProposalCard } from '../proposals/ProposalCard';
 import { Button } from '../ui/button';
+import { Label } from '../ui/label';
 
 interface ProposalsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
@@ -139,15 +140,15 @@ export function ProposalsTab() {
 								{/* Only show count for pending state tabs */}
 								{filter.count !== undefined &&
 									filter.count > 0 && (
-										<span
-											className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-												isActive
-													? 'bg-blue-200 text-blue-800'
-													: 'bg-gray-200 text-gray-700'
-											}`}
+										<Label
+											variant={
+												isActive ? 'info' : 'neutral'
+											}
+											size="sm"
+											className="ml-2"
 										>
 											{filter.count}
-										</span>
+										</Label>
 									)}
 							</button>
 						);

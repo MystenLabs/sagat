@@ -13,6 +13,7 @@ import { useCreateProposal } from '../hooks/useCreateProposal';
 import { useDryRun } from '../hooks/useDryRun';
 import { EffectsPreview } from './preview-effects/EffectsPreview';
 import { Button } from './ui/button';
+import { Label } from './ui/label';
 import {
 	Sheet,
 	SheetContent,
@@ -146,15 +147,13 @@ export function ProposalSheet({
 								vote on.
 							</SheetDescription>
 						</div>
-						<span
-							className={`text-xs px-2 py-1 rounded ${
-								network === 'testnet'
-									? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
-									: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-							}`}
+						<Label
+							variant={
+								network === 'testnet' ? 'warning' : 'info'
+							}
 						>
 							{network}
-						</span>
+						</Label>
 					</div>
 				</SheetHeader>
 

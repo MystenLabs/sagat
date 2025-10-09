@@ -12,6 +12,7 @@ import {
 	useState,
 } from 'react';
 
+import { Label } from '@/components/ui/label';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 interface MultisigSelectorProps {
@@ -116,22 +117,30 @@ export function MultisigSelector({
 							{currentMultisig?.name ||
 								formatAddress(currentMultisig.address)}
 							{currentMultisig.pendingMembers ? (
-								<span className="ml-2 px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">
+								<Label
+									variant="warning"
+									size="sm"
+									className="ml-2"
+								>
 									{currentMultisig.pendingMembers} pending
 									member
 									{currentMultisig.pendingMembers > 1
 										? 's'
 										: ''}
-								</span>
+								</Label>
 							) : null}
 							{currentMultisig.rejectedMembers > 0 ? (
-								<span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">
+								<Label
+									variant="error"
+									size="sm"
+									className="ml-2"
+								>
 									{currentMultisig.rejectedMembers} rejected
 									member
 									{currentMultisig.rejectedMembers > 1
 										? 's'
 										: ''}
-								</span>
+								</Label>
 							) : null}
 						</div>
 						<p className="text-xs text-gray-500">
@@ -210,14 +219,14 @@ export function MultisigSelector({
 											</div>
 										</div>
 										{multisig.pendingMembers > 0 && (
-											<span className="px-2 py-1 text-xs bg-orange-100 text-orange-700 rounded-full">
-												<AlertTriangle className="w-4 h-4 text-orange-700" />
-											</span>
+											<Label variant="warning">
+												<AlertTriangle className="w-4 h-4" />
+											</Label>
 										)}
 										{multisig.rejectedMembers > 0 && (
-											<span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">
-												<AlertTriangle className="w-4 h-4 text-red-700" />
-											</span>
+											<Label variant="error">
+												<AlertTriangle className="w-4 h-4" />
+											</Label>
 										)}
 									</div>
 								</button>

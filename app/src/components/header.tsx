@@ -8,6 +8,7 @@ import { useInvitations } from '../hooks/useInvitations';
 import { CustomWalletButton } from './CustomWalletButton';
 import { Logo } from './Logo';
 import { Button } from './ui/button';
+import { Label } from './ui/label';
 import {
 	Sheet,
 	SheetContent,
@@ -47,11 +48,13 @@ const NavigationLinks = ({
 							<Mail className="w-4 h-4 mr-2" />
 							Invitations
 							{pendingCount > 0 && (
-								<span
-									className={`absolute ${mobile ? 'top-2 right-2' : '-top-1 -right-1'} bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center`}
+								<Label
+									variant="warning"
+									size="sm"
+									className={`absolute ${mobile ? 'top-2 right-2' : '-top-1 -right-1'} bg-orange-500 text-white h-5 w-5 p-0 justify-center`}
 								>
 									{pendingCount}
-								</span>
+								</Label>
 							)}
 						</Button>
 					</Link>
@@ -123,9 +126,13 @@ export function Header() {
 									>
 										<Menu className="w-4 h-4" />
 										{pendingCount > 0 && (
-											<span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
+											<Label
+												variant="warning"
+												size="sm"
+												className="absolute -top-1 -right-1 bg-orange-500 text-white h-4 w-4 p-0 justify-center"
+											>
 												{pendingCount}
-											</span>
+											</Label>
 										)}
 									</Button>
 								</SheetTrigger>

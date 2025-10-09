@@ -3,34 +3,48 @@
 
 import { type SuiObjectChange } from '@mysten/sui/client';
 
+import { Label } from '@/components/ui/label';
+
 import { ObjectLink } from '../ObjectLink';
 import { PreviewCard } from '../PreviewCard';
 
 const objectTypes: Record<
 	string,
-	Record<string, string>
+	{
+		title: string;
+		variant?:
+			| 'success'
+			| 'warning'
+			| 'error'
+			| 'info'
+			| 'neutral'
+			| 'purple';
+	}
 > = {
 	published: {
 		title: 'Published',
-		classes: 'text-green-800 bg-green-200',
+		variant: 'success',
 	},
 	created: {
 		title: 'Created',
-		classes: 'text-green-800 bg-green-200',
+		variant: 'success',
 	},
 	wrapped: {
 		title: 'Wrapped',
-		classes: 'text-gray-900 bg-gray-100',
+		variant: 'neutral',
 	},
 	mutated: {
 		title: 'Mutated',
-		classes: 'text-yellow-800 bg-yellow-50',
+		variant: 'warning',
 	},
 	deleted: {
 		title: 'Deleted',
-		classes: 'text-red-800 bg-red-50',
+		variant: 'error',
 	},
-	transferred: {},
+	transferred: {
+		title: 'Transferred',
+		variant: 'info',
+	},
 };
 
 // SPDX-License-Identifier: Apache-2.0
@@ -59,11 +73,13 @@ function ChangedObject({
 		<PreviewCard.Root>
 			<PreviewCard.Body>
 				<>
-					<span
-						className={`${objectType?.classes} px-2 py-0.5 rounded`}
+					<Label
+						variant={objectType?.variant}
+						size="sm"
+						className="rounded"
 					>
 						{objectType?.title}
-					</span>
+					</Label>
 					<div className="flex gap-3 items-center break-words my-2">
 						Type:{' '}
 						<ObjectLink
