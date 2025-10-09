@@ -33,9 +33,8 @@ export const setupSharedTestEnvironment = () => {
 		({ dbName: testDbName, pool: testDbPool } =
 			await setupTestDatabase());
 
-		console.log('Test database pool initialized');
-		console.log('Test database name:', testDbName);
-		console.log('Test database pool:', testDbPool);
+		console.log('[debug] Test database pool initialized');
+		console.log('[debug] Test database name:', testDbName);
 	});
 
 	afterAll(async () => {
