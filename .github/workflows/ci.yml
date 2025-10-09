@@ -109,7 +109,10 @@ jobs:
 
       - name: Install Sui with suiup
         run: |
-          curl https://raw.githubusercontent.com/MystenLabs/sui/main/scripts/suiup.sh | bash
+          curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh
+
+      - name: Add Sui to PATH
+        run: |
           echo "$HOME/.sui/bin" >> $GITHUB_PATH
 
       - name: Install Sui binaries
