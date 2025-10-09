@@ -107,7 +107,7 @@ jobs:
         run: bun run build
         working-directory: sdk
 
-      - name: Install Sui with suiup
+      - name: Install suiup
         run: |
           curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh
 
@@ -124,7 +124,7 @@ jobs:
       - name: Start Sui local network
         run: |
           export PATH="$HOME/.sui/bin:$PATH"
-          RUST_LOG="off,sui_node=info" sui start --force-regenesis --with-faucet > /tmp/sui.log 2>&1 &
+          RUST_LOG="off,sui_node=info" sui start --force-regenesis --with-faucet &
           # Wait for network to be ready
           echo "Waiting for Sui network to start..."
           timeout 90 bash -c 'until curl -f http://127.0.0.1:9000 2>/dev/null; do echo "Waiting..."; sleep 2; done'
