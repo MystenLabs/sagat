@@ -1,3 +1,4 @@
+import { formatAddress } from '@mysten/sui/utils';
 import {
 	ChevronDown,
 	ChevronRight,
@@ -9,7 +10,6 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useAcceptInvitation } from '../../hooks/useAcceptInvitation';
 import { useRejectInvitation } from '../../hooks/useRejectInvitation';
-import { formatAddress } from '../../lib/formatters';
 import { Button } from '../ui/button';
 import { CopyButton } from '../ui/CopyButton';
 import { InvitationDetails } from './InvitationDetails';

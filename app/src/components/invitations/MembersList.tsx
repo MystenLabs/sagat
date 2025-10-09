@@ -1,6 +1,6 @@
 import type { MultisigMember } from '@mysten/sagat';
+import { formatAddress } from '@mysten/sui/utils';
 
-import { formatAddress } from '../../lib/formatters';
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CopyButton } from '../ui/CopyButton';
 

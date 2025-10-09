@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { formatAddress } from '@mysten/sui/utils';
 import {
 	GripVertical,
 	Key,
@@ -8,7 +9,6 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
-import { formatAddress } from '../../lib/formatters';
 import { validatePublicKey } from '../../lib/sui-utils';
 import type { Member } from '../../lib/validations/multisig';
 import { AddressLookupModal } from '../modals/AddressLookupModal';

@@ -574,7 +574,7 @@ describe('Proposal Business Logic', () => {
 				await session.createSimpleTransferProposal(
 					users[0],
 					multisig.address,
-					'0x9999999999999999999999999999999999999999999999999999999999999999',
+					'0x1',
 					1000000,
 					'Test proposal',
 				);

@@ -1,8 +1,8 @@
 import { useCurrentAccount } from '@mysten/dapp-kit';
+import { formatAddress } from '@mysten/sui/utils';
 import { ArrowRight, Shield } from 'lucide-react';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
-import { formatAddress } from '../lib/formatters';
 import { Button } from './ui/button';
 import { CopyButton } from './ui/CopyButton';
 

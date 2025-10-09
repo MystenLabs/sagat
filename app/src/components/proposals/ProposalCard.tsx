@@ -3,12 +3,14 @@ import {
 	type ProposalWithSignatures,
 } from '@mysten/sagat';
 import {
-	Check,
+	formatAddress,
+	formatDigest,
+} from '@mysten/sui/utils';
+import {
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
 	Clock,
-	Copy,
 	ExternalLink,
 	Eye,
 	Rocket,
@@ -30,6 +32,7 @@ import {
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button } from '../ui/button';
+import { CopyButton } from '../ui/copy-button';
 import { ProposalPreview } from './ProposalPreview';
 
 interface ProposalCardProps {
@@ -45,8 +48,6 @@ export function ProposalCard({
 	const isNetworkMismatch = proposal.network !== network;
 	const [isExpanded, setIsExpanded] =
 		useState(defaultExpanded);
-	const [copiedDigest, setCopiedDigest] = useState(false);
-	const [copiedLink, setCopiedLink] = useState(false);
 	const [showCancelModal, setShowCancelModal] =
 		useState(false);
 	const executeProposalMutation = useExecuteProposal();
@@ -90,23 +91,6 @@ export function ProposalCard({
 		);
 	};
 
-	const handleCopyDigest = async () => {
-		await navigator.clipboard.writeText(proposal.digest);
-		setCopiedDigest(true);
-		setTimeout(() => setCopiedDigest(false), 2000);
-	};
-
-	const handleCopyLink = async () => {
-		const url = `${window.location.origin}/proposals?digest=${proposal.digest}`;
-		await navigator.clipboard.writeText(url);
-		setCopiedLink(true);
-		setTimeout(() => setCopiedLink(false), 2000);
-	};
-
-	const handleCancelProposal = () => {
-		setShowCancelModal(true);
-	};
-
 	const handleConfirmCancel = () => {
 		cancelProposalMutation.mutate(proposal.id, {
 			onSuccess: () => {
@@ -127,9 +111,10 @@ export function ProposalCard({
 	const getProposalTitle = () => {
 		// Use description if available, otherwise use a truncated digest
 		if (proposal.description?.trim()) {
-			return proposal.description.trim();
+			const length = proposal.description.trim().length;
+			return `${proposal.description.trim().slice(0, 50)}${length > 50 ? '...' : ''}`;
 		}
-		return `Transaction ${proposal.digest.slice(0, 8)}...${proposal.digest.slice(-4)}`;
+		return `Transaction ${formatDigest(proposal.digest)}`;
 	};
 
 	const getStatusBadge = () => {
@@ -163,13 +148,13 @@ export function ProposalCard({
 		const totalWeight = getTotalWeight(multisigDetails);
 		if (currentWeight >= totalWeight) {
 			return (
-				<span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+				<span className="px-2 py-1 text-xs rounded-full shrink-0 bg-blue-100 text-blue-800">
 					Ready to Execute
 				</span>
 			);
 		}
 		return (
-			<span className="px-2 py-1 text-xs rounded-full bg-orange-100 text-orange-800">
+			<span className="px-2 py-1 text-xs rounded-full shrink-0 bg-orange-100 text-orange-800">
 				Pending
 			</span>
 		);
@@ -212,7 +197,7 @@ export function ProposalCard({
 
 		if (userHasSigned()) {
 			return (
-				<div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">
+				<div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">
 					<CheckCircle className="w-3 h-3" />
 					Already Signed
 				</div>
@@ -220,7 +205,7 @@ export function ProposalCard({
 		}
 
 		return (
-			<div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full">
+			<div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full shrink-0">
 				<Clock className="w-3 h-3" />
 				Pending Signature
 			</div>
@@ -232,7 +217,7 @@ export function ProposalCard({
 			{/* Main proposal row */}
 			<div className="flex items-start justify-between p-4 max-md:flex-col max-md:gap-3">
 				<div className="flex-1">
-					<div className="flex items-center gap-3 mb-2">
+					<div className="flex max-md:flex-wrap items-center gap-2 mb-2">
 						<h4 className="font-medium text-gray-900 line-clamp-1">
 							{getProposalTitle()}
 						</h4>
@@ -246,52 +231,43 @@ export function ProposalCard({
 					</div>
 
 					<div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
-						<span>ID: {proposal.id}</span>
 						<span>
-							Signatures:{' '}
+							Signature Weight:{' '}
 							{calculateCurrentWeight(
 								proposal,
 								multisigDetails,
 							)}
 							/{getTotalWeight(multisigDetails)}
 						</span>
+						<span className="flex items-center gap-1">
+							Address:{' '}
+							{formatAddress(proposal.multisigAddress)}
+							<CopyButton
+								value={proposal.multisigAddress}
+								size="sm"
+								successMessage="Copied multisig address to clipboard"
+							/>
+						</span>
 						<div className="flex items-center gap-1">
 							<span>
 								Proposer:{' '}
-								{proposal.proposerAddress.slice(0, 6)}...
-								{proposal.proposerAddress.slice(-4)}
+								{formatAddress(proposal.proposerAddress)}
 							</span>
+							<CopyButton
+								value={proposal.proposerAddress}
+								size="sm"
+								successMessage="Copied proposer address to clipboard"
+							/>
 						</div>
 						<div className="flex items-center gap-1">
 							<span>
-								Digest: {proposal.digest.slice(0, 8)}...
-								{proposal.digest.slice(-8)}
+								Digest: {formatDigest(proposal.digest)}
 							</span>
-							<button
-								onClick={handleCopyDigest}
-								className="p-0.5 hover:bg-gray-100 rounded transition-colors"
-								title="Copy full digest"
-							>
-								{copiedDigest ? (
-									<Check className="w-3 h-3 text-green-600" />
-								) : (
-									<Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" />
-								)}
-							</button>
-							{proposal.status ===
-								ProposalStatus.PENDING && (
-								<button
-									onClick={handleCopyLink}
-									className="p-0.5 hover:bg-gray-100 rounded transition-colors"
-									title="Copy proposal link"
-								>
-									{copiedLink ? (
-										<Check className="w-3 h-3 text-green-600" />
-									) : (
-										<ExternalLink className="w-3 h-3 text-gray-400 hover:text-gray-600" />
-									)}
-								</button>
-							)}
+							<CopyButton
+								value={proposal.digest}
+								size="sm"
+								successMessage="Copied digest to clipboard"
+							/>
 						</div>
 					</div>
 				</div>
@@ -302,7 +278,7 @@ export function ProposalCard({
 							size="sm"
 							onClick={handleExecuteProposal}
 							disabled={executeProposalMutation.isPending}
-							className="bg-blue-600 hover:bg-blue-700"
+							variant="default"
 						>
 							<Rocket className="w-4 h-4 mr-1" />
 							{executeProposalMutation.isPending
@@ -314,10 +290,9 @@ export function ProposalCard({
 						userHasSigned() && (
 							<Button
 								size="sm"
-								variant="outline"
-								onClick={handleCancelProposal}
+								variant="outlineDestructive"
+								onClick={() => setShowCancelModal(true)}
 								disabled={cancelProposalMutation.isPending}
-								className="text-red-600 border-red-200 hover:bg-red-50"
 							>
 								{cancelProposalMutation.isPending
 									? 'Cancelling...'
@@ -346,6 +321,15 @@ export function ProposalCard({
 								proposal={proposal}
 								isExpanded={isExpanded}
 								className="w-4 h-4 mr-1"
+							/>
+						</Button>
+					)}
+					{proposal.status === ProposalStatus.PENDING && (
+						<Button size="sm" variant="ghost" asChild>
+							<CopyButton
+								size="md"
+								value={`${window.location.origin}/proposals?digest=${proposal.digest}`}
+								successMessage="Copied proposal link to clipboard"
 							/>
 						</Button>
 					)}
@@ -435,7 +419,7 @@ export function ProposalCard({
 							<ProposalPreview
 								proposal={proposal}
 								userHasSigned={userHasSigned()}
-								onCancel={handleCancelProposal}
+								onCancel={() => setShowCancelModal(true)}
 								isCancelling={
 									cancelProposalMutation.isPending
 								}

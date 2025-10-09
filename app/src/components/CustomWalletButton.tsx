@@ -6,6 +6,7 @@ import {
 	useSwitchAccount,
 	useWallets,
 } from '@mysten/dapp-kit';
+import { formatAddress } from '@mysten/sui/utils';
 import { type WalletAccount } from '@wallet-standard/base';
 import {
 	ArrowRight,
@@ -23,7 +24,6 @@ import { toast } from 'sonner';
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
-import { formatAddress } from '../lib/formatters';
 import { Button } from './ui/button';
 import { Switch } from './ui/switch';
 

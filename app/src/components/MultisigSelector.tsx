@@ -1,3 +1,4 @@
+import { formatAddress } from '@mysten/sui/utils';
 import {
 	AlertTriangle,
 	ChevronDown,
@@ -12,8 +13,6 @@ import {
 } from 'react';
 
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-
-import { formatAddress } from '../lib/formatters';
 
 interface MultisigSelectorProps {
 	multisigs: MultisigWithMembersForPublicKey[];

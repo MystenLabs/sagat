@@ -77,10 +77,9 @@ export function ProposalPreview({
 					{onCancel && !userHasSigned && (
 						<Button
 							size="sm"
-							variant="outline"
+							variant="outlineDestructive"
 							onClick={onCancel}
 							disabled={isCancelling}
-							className="text-red-600 border-red-200 hover:bg-red-50"
 						>
 							<X className="w-4 h-4 mr-1" />
 							{isCancelling ? 'Cancelling...' : 'Cancel'}
@@ -125,6 +124,15 @@ export function ProposalPreview({
 					</h6>
 					<p className="text-sm text-red-600">
 						{signProposalMutation.error.message}
+					</p>
+				</div>
+			)}
+
+			{/* Proposal description */}
+			{proposal.description && (
+				<div className="border border-gray-200 bg-white rounded-lg p-3">
+					<p className="text-sm text-gray-600">
+						{proposal.description}
 					</p>
 				</div>
 			)}

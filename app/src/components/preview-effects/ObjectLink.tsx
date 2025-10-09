@@ -5,11 +5,10 @@ import {
 	type ObjectOwner,
 	type SuiObjectChange,
 } from '@mysten/sui/client';
+import { formatAddress } from '@mysten/sui/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-
-import { formatAddress } from './utils';
 
 type OwnerDisplay =
 	| string
