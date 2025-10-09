@@ -1,8 +1,13 @@
+import { type ProposalWithSignatures } from '@mysten/sagat';
 import { FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { calculateCurrentWeight } from '@/lib/proposalUtils';
+import {
+	type MultisigWithMembersForPublicKey,
+	type ProposalCardInput,
+} from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useProposalsQueries } from '../../hooks/useProposalsQueries';
@@ -85,6 +90,31 @@ export function ProposalsTab() {
 		);
 	}
 
+	const formatProposal = (
+		proposal: ProposalWithSignatures,
+	): ProposalCardInput => {
+		return {
+			...proposal,
+			isPublic: false,
+			totalWeight: multisig.threshold,
+			currentWeight: calculateCurrentWeight(
+				proposal,
+				multisig,
+			),
+			proposers: multisig.proposers.map(
+				(proposer) => proposer.address,
+			),
+			multisig: {
+				address: multisig.address,
+				threshold: multisig.threshold,
+				members: multisig.members.map((member) => ({
+					...member,
+					publicKey: member.publicKey,
+				})),
+			},
+		};
+	};
+
 	return (
 		<div className="h-full flex flex-col px-3">
 			<div>
@@ -149,7 +179,7 @@ export function ProposalsTab() {
 						{filteredProposals.map((proposal) => (
 							<ProposalCard
 								key={proposal.id}
-								proposal={proposal}
+								proposal={formatProposal(proposal)}
 							/>
 						))}
 					</div>

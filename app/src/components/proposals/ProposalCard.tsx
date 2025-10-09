@@ -2,7 +2,6 @@ import { useCurrentAccount } from '@mysten/dapp-kit';
 import {
 	ProposalStatus,
 	type ProposalWithSignatures,
-	type PublicProposal,
 } from '@mysten/sagat';
 import {
 	formatAddress,
@@ -19,8 +18,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { useGetMultisig } from '@/hooks/useGetMultisig';
+import { type ProposalCardInput } from '@/lib/types';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { useNetwork } from '../../contexts/NetworkContext';
@@ -28,10 +26,6 @@ import { useCancelProposal } from '../../hooks/useCancelProposal';
 import { useExecuteProposal } from '../../hooks/useExecuteProposal';
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { useVerifyProposal } from '../../hooks/useVerifyProposal';
-import {
-	calculateCurrentWeight,
-	getTotalWeight,
-} from '../../lib/proposalUtils';
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button } from '../ui/button';
@@ -39,7 +33,7 @@ import { CopyButton } from '../ui/copy-button';
 import { ProposalPreview } from './ProposalPreview';
 
 interface ProposalCardProps {
-	proposal: ProposalWithSignatures | PublicProposal;
+	proposal: ProposalCardInput;
 	defaultExpanded?: boolean;
 }
 
@@ -49,8 +43,6 @@ export function ProposalCard({
 }: ProposalCardProps) {
 	const { network } = useNetwork();
 	const isNetworkMismatch = proposal.network !== network;
-	const isPublicProposal =
-		'kind' in proposal && proposal.kind === 'public';
 
 	const [isExpanded, setIsExpanded] =
 		useState(defaultExpanded);
@@ -61,40 +53,35 @@ export function ProposalCard({
 	const cancelProposalMutation = useCancelProposal();
 	const signProposalMutation = useSignProposal();
 
-	const { data: multisigDetails } = useGetMultisig(
-		proposal.multisigAddress,
-	);
-
 	// Check if current user has already signed this proposal
 	// Check if the proposal is ready to execute
 	const isReadyToExecute = () => {
-		if (isPublicProposal)
-			return proposal.currentWeight >= proposal.totalWeight;
-
-		if (
-			!multisigDetails ||
-			proposal.status !== ProposalStatus.PENDING
-		)
+		if (proposal.status !== ProposalStatus.PENDING)
 			return false;
-		const currentWeight = calculateCurrentWeight(
-			proposal,
-			multisigDetails,
-		);
-		const threshold = getTotalWeight(multisigDetails);
-		return currentWeight >= threshold;
+		return proposal.currentWeight >= proposal.totalWeight;
+
+		// if (
+		// 	!multisigDetails ||
+		// 	proposal.status !== ProposalStatus.PENDING
+		// )
+		// 	return false;
+		// const currentWeight = calculateCurrentWeight(
+		// 	proposal,
+		// 	multisigDetails,
+		// );
+		// const threshold = getTotalWeight(multisigDetails);
+		// return currentWeight >= threshold;
 	};
 
 	const handleExecuteProposal = () => {
-		if (!multisigDetails) return;
 		executeProposalMutation.mutate(
 			{
 				proposal,
-				multisigDetails,
 			},
 			{
 				onError: () => {
 					// If execution fails, try to verify (it might have been executed by someone else)
-					verifyProposalMutation.mutate(proposal.id);
+					verifyProposalMutation.mutate(proposal.digest);
 				},
 			},
 		);
@@ -108,24 +95,15 @@ export function ProposalCard({
 		});
 	};
 
-	const { currentAddress } = useApiAuth();
-
 	const currentWallet = useCurrentAccount();
 
 	const userHasSigned = () => {
 		if (!currentWallet) return false;
-		if (isPublicProposal) {
-			return proposal.signatures.some(
-				(sig) =>
-					extractPublicKeyFromBase64(
-						sig.publicKey,
-					).toSuiAddress() === currentWallet?.address,
-			);
-		}
-		if (!currentAddress) return false;
-
 		return proposal.signatures.some(
-			(sig) => sig.publicKey === currentAddress.publicKey,
+			(sig) =>
+				extractPublicKeyFromBase64(
+					sig.publicKey,
+				).toSuiAddress() === currentWallet?.address,
 		);
 	};
 
@@ -139,28 +117,11 @@ export function ProposalCard({
 	};
 
 	const currentThresholds = useMemo(() => {
-		if (isPublicProposal)
-			return {
-				currentWeight: proposal.currentWeight,
-				totalWeight: proposal.totalWeight,
-			};
-
-		if (!multisigDetails)
-			return {
-				currentWeight: 0,
-				totalWeight: 0,
-			};
-
 		return {
 			currentWeight: proposal.currentWeight,
-			totalWeight: getTotalWeight(multisigDetails),
+			totalWeight: proposal.totalWeight,
 		};
-	}, [
-		isPublicProposal,
-		proposal.currentWeight,
-		proposal.totalWeight,
-		multisigDetails,
-	]);
+	}, [proposal]);
 
 	const getStatusBadge = () => {
 		if (proposal.status === ProposalStatus.SUCCESS) {
@@ -210,11 +171,11 @@ export function ProposalCard({
 	};
 
 	const isExternalProposer = () => {
-		if (!multisigDetails) return false;
+		if (!proposal.multisig) return false;
 
 		// Check if proposer address is NOT a member by comparing addresses
 		// Members are stored as public keys, need to derive addresses
-		const memberAddresses = multisigDetails.members
+		const memberAddresses = proposal.multisig.members
 			.map((member) => {
 				try {
 					// Derive address from public key
@@ -328,7 +289,7 @@ export function ProposalCard({
 						</Button>
 					)}
 					{proposal.status === ProposalStatus.PENDING &&
-						!isPublicProposal && (
+						!proposal.isPublic && (
 							<Button
 								size="sm"
 								variant="outlineDestructive"

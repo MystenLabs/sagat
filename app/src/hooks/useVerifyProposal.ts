@@ -11,13 +11,16 @@ export function useVerifyProposal() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: async (proposalId: number) => {
-			return apiClient.verifyProposal(proposalId);
+		mutationFn: async (digest: string) => {
+			return apiClient.verifyProposal(digest);
 		},
 		onSuccess: () => {
 			// Invalidate all proposal-related queries
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
+			});
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposal],
 			});
 			toast.success('Proposal verified successfully!');
 		},

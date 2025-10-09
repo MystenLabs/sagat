@@ -1,9 +1,7 @@
-import type {
-	ProposalWithSignatures,
-	PublicProposal,
-} from '@mysten/sagat';
 import { CheckCircle, X } from 'lucide-react';
 import { useEffect } from 'react';
+
+import { type ProposalCardInput } from '@/lib/types';
 
 import { useDryRun } from '../../hooks/useDryRun';
 import { useSignProposal } from '../../hooks/useSignProposal';
@@ -11,7 +9,7 @@ import { EffectsPreview } from '../preview-effects/EffectsPreview';
 import { Button } from '../ui/button';
 
 interface ProposalPreviewProps {
-	proposal: ProposalWithSignatures | PublicProposal;
+	proposal: ProposalCardInput;
 	userHasSigned: boolean;
 	onCancel?: () => void;
 	isCancelling?: boolean;
@@ -23,8 +21,6 @@ export function ProposalPreview({
 	onCancel,
 	isCancelling,
 }: ProposalPreviewProps) {
-	const isPublicProposal =
-		'kind' in proposal && proposal.kind === 'public';
 	const dryRunMutation = useDryRun();
 	const signProposalMutation = useSignProposal();
 
@@ -81,7 +77,7 @@ export function ProposalPreview({
 					)}
 					{onCancel &&
 						!userHasSigned &&
-						!isPublicProposal && (
+						!proposal.isPublic && (
 							<Button
 								size="sm"
 								variant="outlineDestructive"

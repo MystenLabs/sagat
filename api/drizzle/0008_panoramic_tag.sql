@@ -1,0 +1,1 @@
+CREATE INDEX "proposals_digest_idx" ON "proposals" USING btree ("digest");

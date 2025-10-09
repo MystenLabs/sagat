@@ -90,7 +90,6 @@ export interface ProposalWithSignatures extends Proposal {
  * but without the confidential information.
  */
 export interface PublicProposal extends Proposal {
-	kind: 'public';
 	signatures: ProposalSignature[];
 	multisig: {
 		address: string;

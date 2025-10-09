@@ -252,9 +252,9 @@ export class SagatClient {
 	 * or failed in the system.
 	 * That unblocks the pending queue.
 	 */
-	async verifyProposal(proposalId: number) {
+	async verifyProposal(digest: string) {
 		return this.#request<{ success: boolean }>(
-			`/proposals/${proposalId}/verify`,
+			`/proposals/${digest}/verify`,
 			{
 				method: 'POST',
 			},

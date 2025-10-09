@@ -1,7 +1,7 @@
 import { useSuiClient } from '@mysten/dapp-kit';
-import type {
-	MultisigWithMembers,
-	ProposalWithSignatures,
+import {
+	ProposalStatus,
+	type PublicProposal,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
@@ -16,8 +16,7 @@ import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 interface ExecuteProposalParams {
-	proposal: ProposalWithSignatures;
-	multisigDetails: MultisigWithMembers;
+	proposal: PublicProposal;
 }
 
 export function useExecuteProposal() {
@@ -27,16 +26,14 @@ export function useExecuteProposal() {
 	return useMutation({
 		mutationFn: async ({
 			proposal,
-			multisigDetails,
 		}: ExecuteProposalParams) => {
-			if (!multisigDetails) {
-				throw new Error('Multisig details not provided');
-			}
+			if (proposal.status !== ProposalStatus.PENDING)
+				throw new Error('Proposal is not pending');
 
 			try {
 				// Order the members.
 				const multisigMembers =
-					multisigDetails.members.sort(
+					proposal.multisig.members.sort(
 						(a, b) => a.order - b.order,
 					);
 				// Step 1: Reconstruct the MultiSigPublicKey
@@ -51,14 +48,14 @@ export function useExecuteProposal() {
 
 				const multiSigPublicKey =
 					MultiSigPublicKey.fromPublicKeys({
-						threshold: multisigDetails.threshold,
+						threshold: proposal.multisig.threshold,
 						publicKeys,
 					});
 
 				// Step 2: Map signatures to the correct order based on the multisig public key order
 				// The signatures need to be in the same order as the public keys in the multisig
 				const orderedSignatures: string[] = [];
-				for (const member of multisigMembers) {
+				for (const member of proposal.multisig.members) {
 					const signature = proposal.signatures.find(
 						(sig) => sig.publicKey === member.publicKey,
 					);
@@ -94,7 +91,7 @@ export function useExecuteProposal() {
 
 				// Step 4: Call the verify endpoint to update proposal status in the backend
 				const verifyResponse =
-					await apiClient.verifyProposal(proposal.id);
+					await apiClient.verifyProposal(proposal.digest);
 
 				return { executionResult: result, verifyResponse };
 			} catch (error) {

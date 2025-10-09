@@ -1,4 +1,7 @@
-import type { MultisigWithMembers } from '@mysten/sagat';
+import type {
+	MultisigWithMembers,
+	PublicProposal,
+} from '@mysten/sagat';
 
 // Extended type that adds frontend-specific fields for displaying multisig state
 // for a specific public key
@@ -8,4 +11,9 @@ export interface MultisigWithMembersForPublicKey
 	pendingMembers: number;
 	isAccepted: boolean;
 	isRejected: boolean;
+}
+
+export interface ProposalCardInput extends PublicProposal {
+	isPublic: boolean;
+	proposers: string[];
 }

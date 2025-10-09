@@ -249,53 +249,58 @@ proposalsRouter.post('/:proposalId/cancel', async (c) => {
 });
 
 // Verify the execution of a proposal.
-proposalsRouter.post(
-	'/:proposalId/verify',
-	authMiddleware,
-	async (c: Context<AuthEnv>) => {
-		const publicKeys = c.get('publicKeys');
-		const { proposalId } = c.req.param();
-		const proposal = await getProposalById(
-			parseInt(proposalId),
+proposalsRouter.post('/:digest/verify', async (c) => {
+	const { digest } = c.req.param();
+
+	const proposal =
+		await ProposalByDigestLoader.load(digest);
+
+	if (!proposal) throw new NotFoundError();
+
+	if (proposal.status !== ProposalStatus.PENDING)
+		return c.json({ verified: true });
+
+	const multisig = await getMultisig(
+		proposal.multisigAddress,
+	);
+
+	const currentWeight = proposal.signatures.reduce(
+		(acc, sig) =>
+			acc +
+			(multisig.members.find(
+				(member) => member.publicKey === sig.publicKey,
+			)?.weight ?? 0),
+		0,
+	);
+
+	if (multisig.threshold > currentWeight)
+		throw new ValidationError(
+			'Proposal is not ready to execute',
 		);
 
-		if (
-			!(await jwtHasMultisigMemberAccess(
-				proposal.multisigAddress,
-				publicKeys,
-				false,
-			))
-		)
-			throw new ApiAuthError('NotAMultisigMember');
+	const tx = await getSuiClient(
+		proposal.network as SuiNetwork,
+	).getTransactionBlock({
+		digest: proposal.digest,
+		options: { showEffects: true },
+	});
 
-		if (proposal.status !== ProposalStatus.PENDING)
-			return c.json({ verified: true });
+	if (!tx.checkpoint || !tx.effects)
+		throw new ValidationError('Transaction not found');
 
-		const tx = await getSuiClient(
-			proposal.network as SuiNetwork,
-		).getTransactionBlock({
-			digest: proposal.digest,
-			options: { showEffects: true },
-		});
+	const isSuccess = tx.effects.status.status === 'success';
 
-		if (!tx.checkpoint || !tx.effects)
-			throw new ValidationError('Transaction not found');
+	await db
+		.update(SchemaProposals)
+		.set({
+			status: isSuccess
+				? ProposalStatus.SUCCESS
+				: ProposalStatus.FAILURE,
+		})
+		.where(eq(SchemaProposals.id, proposal.id));
 
-		const isSuccess =
-			tx.effects.status.status === 'success';
-
-		await db
-			.update(SchemaProposals)
-			.set({
-				status: isSuccess
-					? ProposalStatus.SUCCESS
-					: ProposalStatus.FAILURE,
-			})
-			.where(eq(SchemaProposals.id, proposal.id));
-
-		return c.json({ verified: true });
-	},
-);
+	return c.json({ verified: true });
+});
 
 proposalsRouter.get(
 	'/',
@@ -359,7 +364,6 @@ proposalsRouter.get('/digest/:digest', async (c) => {
 	// The multisig composition is public, so that is fine.
 	const proposalWithMultisig: PublicProposal = {
 		...proposal,
-		kind: 'public',
 		currentWeight,
 		totalWeight: multisig.threshold,
 		multisig: {

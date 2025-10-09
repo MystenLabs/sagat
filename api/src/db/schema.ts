@@ -144,6 +144,7 @@ const proposals = pgTable(
 		index('proposals_multisig_address_idx').on(
 			table.multisigAddress,
 		),
+		index('proposals_digest_idx').on(table.digest),
 	],
 );
 

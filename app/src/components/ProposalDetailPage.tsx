@@ -1,4 +1,5 @@
 import { AlertCircle, AlertTriangle } from 'lucide-react';
+import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -20,6 +21,24 @@ export function ProposalDetailPage() {
 
 	// Fetch proposal by digest
 	const proposalQuery = useGetProposal(digest);
+
+	const formattedProposal = useMemo(() => {
+		if (!proposalQuery.data) return null;
+		return {
+			...proposalQuery.data,
+			multisig: {
+				...proposalQuery.data?.multisig,
+				members: proposalQuery.data?.multisig?.members.map(
+					(member) => ({
+						...member,
+						publicKey: member.publicKey,
+					}),
+				),
+			},
+			isPublic: true,
+			proposers: [],
+		};
+	}, [proposalQuery.data]);
 
 	// No digest in URL
 	if (!digest) {
@@ -95,10 +114,12 @@ export function ProposalDetailPage() {
 				/>
 			)}
 			<div className="mt-8">
-				<ProposalCard
-					proposal={proposal!}
-					defaultExpanded={true}
-				/>
+				{formattedProposal && (
+					<ProposalCard
+						proposal={formattedProposal}
+						defaultExpanded={true}
+					/>
+				)}
 			</div>
 		</div>
 	);
