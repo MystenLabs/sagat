@@ -18,9 +18,14 @@ export async function setupTestDatabase() {
 	await adminPool.query(`CREATE DATABASE ${dbName}`);
 	await adminPool.end();
 
+	// Get the connection string without the DB (from env)
+	const connectionWithoutDb = CONNECTION_STRING.split('/')
+		.slice(0, -1)
+		.join('/');
+
 	// Connect and migrate
 	const pool = new Pool({
-		connectionString: `${CONNECTION_STRING}/${dbName}`,
+		connectionString: `${connectionWithoutDb}/${dbName}`,
 	});
 	const db = drizzle(pool, { schema });
 	await migrate(db, { migrationsFolder: './drizzle' });
