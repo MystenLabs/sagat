@@ -9,7 +9,6 @@ Sagat is a full-stack application for managing Sui blockchain multisig wallets, 
 - **Database**: PostgreSQL with Drizzle ORM migrations
 - **Blockchain**: Sui Network integration via @mysten/sui
 
-
 ## Starting to work locally
 
 You can run, from the root of the repository:
@@ -18,6 +17,6 @@ You can run, from the root of the repository:
 bun run dev
 ```
 
-This will build the SDK and spin up the frontend and the API. 
+This will build the SDK and spin up the frontend and the API.
 They are all in "watch" mode, so all changes would reflect as you are
 developing.

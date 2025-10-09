@@ -1,10 +1,10 @@
+import type { MultisigProposer } from '@mysten/sagat';
 import { Plus, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
-import type { MultisigProposer } from '@mysten/sagat';
 
 import { Button } from '../ui/button';
-import { ProposersList } from './ProposersList';
 import { AddProposerDialog } from './AddProposerDialog';
+import { ProposersList } from './ProposersList';
 import { RemoveProposerDialog } from './RemoveProposerDialog';
 
 interface ProposersSectionProps {
@@ -29,7 +29,8 @@ function Container({
 	onAddProposer,
 	children,
 }: ContainerProps) {
-	const showCount = !isLoading && !error && count !== undefined;
+	const showCount =
+		!isLoading && !error && count !== undefined;
 	const showActions = !isLoading && !error;
 
 	return (
@@ -54,8 +55,8 @@ function Container({
 			{showActions && (
 				<p className="text-sm text-gray-600 mb-4">
 					External proposers can create proposals for this
-					multisig without being signers. They cannot approve
-					or execute transactions.
+					multisig without being signers. They cannot
+					approve or execute transactions.
 				</p>
 			)}
 
@@ -70,7 +71,8 @@ export function ProposersSection({
 	isLoading = false,
 	error = null,
 }: ProposersSectionProps) {
-	const [showAddProposer, setShowAddProposer] = useState(false);
+	const [showAddProposer, setShowAddProposer] =
+		useState(false);
 	const [showRemoveProposer, setShowRemoveProposer] =
 		useState(false);
 	const [selectedProposer, setSelectedProposer] = useState<
@@ -99,8 +101,8 @@ export function ProposersSection({
 					<div className="text-sm text-gray-500 text-center py-8">
 						<p>
 							No external proposers added yet. Members can
-							add proposers who can create proposals
-							without being signers.
+							add proposers who can create proposals without
+							being signers.
 						</p>
 					</div>
 				) : (

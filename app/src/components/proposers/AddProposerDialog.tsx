@@ -1,7 +1,8 @@
+import { isValidSuiAddress } from '@mysten/sui/utils';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { isValidSuiAddress } from '@mysten/sui/utils';
 
+import { useAddProposer } from '../../hooks/useAddProposer';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -10,7 +11,6 @@ import {
 	ModalContent,
 	ModalHeader,
 } from '../ui/modal';
-import { useAddProposer } from '../../hooks/useAddProposer';
 
 interface AddProposerDialogProps {
 	open: boolean;
@@ -23,7 +23,8 @@ export function AddProposerDialog({
 	onOpenChange,
 	multisigAddress,
 }: AddProposerDialogProps) {
-	const [proposerAddress, setProposerAddress] = useState('');
+	const [proposerAddress, setProposerAddress] =
+		useState('');
 	const [validationError, setValidationError] = useState<
 		string | null
 	>(null);
@@ -46,7 +47,9 @@ export function AddProposerDialog({
 		}
 
 		if (!isValidSuiAddress(proposerAddress)) {
-			setValidationError('Please enter a valid Sui address');
+			setValidationError(
+				'Please enter a valid Sui address',
+			);
 			return;
 		}
 

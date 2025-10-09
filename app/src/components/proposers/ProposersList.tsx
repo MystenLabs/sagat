@@ -1,7 +1,7 @@
 import type { MultisigProposer } from '@mysten/sagat';
 
-import { CopyButton } from '../ui/CopyButton';
 import { Button } from '../ui/button';
+import { CopyButton } from '../ui/CopyButton';
 
 interface ProposersListProps {
 	proposers: Omit<MultisigProposer, 'multisigAddress'>[];

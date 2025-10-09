@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 
+import { useRemoveProposer } from '../../hooks/useRemoveProposer';
 import { Button } from '../ui/button';
 import {
 	Modal,
@@ -8,7 +9,6 @@ import {
 	ModalHeader,
 	ModalWarning,
 } from '../ui/modal';
-import { useRemoveProposer } from '../../hooks/useRemoveProposer';
 
 interface RemoveProposerDialogProps {
 	open: boolean;
@@ -23,11 +23,14 @@ export function RemoveProposerDialog({
 	multisigAddress,
 	proposerAddress,
 }: RemoveProposerDialogProps) {
-	const removeProposer = useRemoveProposer(multisigAddress, {
-		onSuccess: () => {
-			onOpenChange(false);
+	const removeProposer = useRemoveProposer(
+		multisigAddress,
+		{
+			onSuccess: () => {
+				onOpenChange(false);
+			},
 		},
-	});
+	);
 
 	const handleRemove = () => {
 		if (!proposerAddress) return;

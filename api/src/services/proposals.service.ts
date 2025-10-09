@@ -1,10 +1,4 @@
-import {
-	and,
-	desc,
-	eq,
-	inArray,
-	lt,
-} from 'drizzle-orm';
+import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
 import { db } from '../db';
 import {

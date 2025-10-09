@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 interface ModalProps {
 	open: boolean;
@@ -29,7 +29,8 @@ export function Modal({
 		};
 
 		document.addEventListener('keydown', handleEscape);
-		return () => document.removeEventListener('keydown', handleEscape);
+		return () =>
+			document.removeEventListener('keydown', handleEscape);
 	}, [open, onClose]);
 
 	if (!open) return null;

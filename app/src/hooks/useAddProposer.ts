@@ -1,6 +1,15 @@
-import { defaultExpiry, PersonalMessages } from '@mysten/sagat';
-import { useCurrentAccount, useSignPersonalMessage } from '@mysten/dapp-kit';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+	useCurrentAccount,
+	useSignPersonalMessage,
+} from '@mysten/dapp-kit';
+import {
+	defaultExpiry,
+	PersonalMessages,
+} from '@mysten/sagat';
+import {
+	useMutation,
+	useQueryClient,
+} from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { apiClient } from '../lib/api';
@@ -13,7 +22,8 @@ export function useAddProposer(
 	},
 ) {
 	const queryClient = useQueryClient();
-	const { mutateAsync: signMessage } = useSignPersonalMessage();
+	const { mutateAsync: signMessage } =
+		useSignPersonalMessage();
 	const currentAccount = useCurrentAccount();
 
 	return useMutation({
