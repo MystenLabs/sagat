@@ -5,6 +5,7 @@ import {
 	useNetwork,
 	type SuiNetwork,
 } from '@/contexts/NetworkContext';
+import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 
 import { useGetProposal } from '../hooks/useGetProposal';
 import { ProposalCard } from './proposals/ProposalCard';
@@ -17,6 +18,14 @@ export function ProposalDetailPage() {
 	const [searchParams] = useSearchParams();
 	const digest = searchParams.get('digest');
 	const { network, setNetwork } = useNetwork();
+	const { data: userMultisigs } = useUserMultisigs();
+
+	const isActiveAddressMember = () => {
+		return userMultisigs?.some(
+			(m) =>
+				m.address === proposalQuery.data?.multisigAddress,
+		);
+	};
 
 	// Fetch proposal by digest
 	const proposalQuery = useGetProposal(digest);
@@ -43,7 +52,7 @@ export function ProposalDetailPage() {
 	}
 
 	// Error state
-	if (proposalQuery.error) {
+	if (proposalQuery.error || !isActiveAddressMember()) {
 		return (
 			<div className="max-w-4xl mx-auto mt-8 px-4">
 				<PageHeader
