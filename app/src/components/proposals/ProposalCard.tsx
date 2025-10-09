@@ -16,7 +16,7 @@ import {
 	Eye,
 	Rocket,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { type ProposalCardInput } from '@/lib/types';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
@@ -104,13 +104,6 @@ export function ProposalCard({
 		return `Transaction ${formatDigest(proposal.digest)}`;
 	};
 
-	const currentThresholds = useMemo(() => {
-		return {
-			currentWeight: proposal.currentWeight,
-			totalWeight: proposal.totalWeight,
-		};
-	}, [proposal]);
-
 	const getStatusBadge = () => {
 		if (proposal.status === ProposalStatus.SUCCESS) {
 			return (
@@ -134,11 +127,7 @@ export function ProposalCard({
 			);
 		}
 
-		const { currentWeight, totalWeight } =
-			currentThresholds;
-		// Pending - check if ready to execute using the proper helpers
-
-		if (currentWeight >= totalWeight) {
+		if (proposal.currentWeight >= proposal.totalWeight) {
 			return (
 				<span className="px-2 py-1 text-xs rounded-full shrink-0 bg-blue-100 text-blue-800">
 					Ready to Execute
@@ -224,9 +213,8 @@ export function ProposalCard({
 
 					<div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
 						<span>
-							Signature Weight:{' '}
-							{currentThresholds.currentWeight}/
-							{currentThresholds.totalWeight}
+							Signature Weight: {proposal.currentWeight}/
+							{proposal.totalWeight}
 						</span>
 
 						<span className="flex items-center gap-1">
