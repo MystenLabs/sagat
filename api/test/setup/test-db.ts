@@ -4,20 +4,23 @@ import { Pool } from 'pg';
 
 import * as schema from '../../src/db/schema';
 
+const CONNECTION_STRING =
+	process.env.TEST_DATABASE_URL ||
+	'postgresql://localhost:5432/postgres';
+
 export async function setupTestDatabase() {
 	const dbName = `test_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
 	// Create test database
 	const adminPool = new Pool({
-		connectionString:
-			'postgresql://localhost:5432/postgres',
+		connectionString: CONNECTION_STRING,
 	});
 	await adminPool.query(`CREATE DATABASE ${dbName}`);
 	await adminPool.end();
 
 	// Connect and migrate
 	const pool = new Pool({
-		connectionString: `postgresql://localhost:5432/${dbName}`,
+		connectionString: `${CONNECTION_STRING}/${dbName}`,
 	});
 	const db = drizzle(pool, { schema });
 	await migrate(db, { migrationsFolder: './drizzle' });
@@ -32,8 +35,7 @@ export async function teardownTestDatabase(
 	await pool.end();
 
 	const adminPool = new Pool({
-		connectionString:
-			'postgresql://localhost:5432/postgres',
+		connectionString: CONNECTION_STRING,
 	});
 	await adminPool.query(
 		`DROP DATABASE IF EXISTS ${dbName}`,

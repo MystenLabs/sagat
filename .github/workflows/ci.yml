@@ -139,13 +139,13 @@ jobs:
         run: bun run db:migrate
         working-directory: api
         env:
-          DATABASE_URL: postgresql://sagat:sagat@localhost:5432/sagat_test
+          TEST_DATABASE_URL: postgresql://sagat:sagat@localhost:5432/sagat_test
 
       - name: Run API E2E tests
         run: bun test:e2e
         working-directory: api
         env:
-          DATABASE_URL: postgresql://sagat:sagat@localhost:5432/sagat_test
+          TEST_DATABASE_URL: postgresql://sagat:sagat@localhost:5432/sagat_test
           JWT_SECRET: a-super-long-jwt-secret-to-use-in-the-service
           SUPPORTED_NETWORKS: localnet
           CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
