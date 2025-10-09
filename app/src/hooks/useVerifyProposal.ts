@@ -12,7 +12,7 @@ export function useVerifyProposal() {
 
 	return useMutation({
 		mutationFn: async (digest: string) => {
-			return apiClient.verifyProposal(digest);
+			return apiClient.verifyProposalByDigest(digest);
 		},
 		onSuccess: () => {
 			// Invalidate all proposal-related queries

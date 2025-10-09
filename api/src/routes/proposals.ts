@@ -39,8 +39,9 @@ import {
 import {
 	getProposalById,
 	getProposalsByMultisigAddress,
+	lookupAndVerifyProposal,
 } from '../services/proposals.service';
-import { getSuiClient, SuiNetwork } from '../utils/client';
+import { getSuiClient } from '../utils/client';
 import { newCursor } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 
@@ -249,58 +250,46 @@ proposalsRouter.post('/:proposalId/cancel', async (c) => {
 });
 
 // Verify the execution of a proposal.
-proposalsRouter.post('/:digest/verify', async (c) => {
-	const { digest } = c.req.param();
-
-	const proposal =
-		await ProposalByDigestLoader.load(digest);
-
-	if (!proposal) throw new NotFoundError();
-
-	if (proposal.status !== ProposalStatus.PENDING)
-		return c.json({ verified: true });
-
-	const multisig = await getMultisig(
-		proposal.multisigAddress,
-	);
-
-	const currentWeight = proposal.signatures.reduce(
-		(acc, sig) =>
-			acc +
-			(multisig.members.find(
-				(member) => member.publicKey === sig.publicKey,
-			)?.weight ?? 0),
-		0,
-	);
-
-	if (multisig.threshold > currentWeight)
-		throw new ValidationError(
-			'Proposal is not ready to execute',
+proposalsRouter.post(
+	'/:proposalId/verify',
+	authMiddleware,
+	async (c: Context<AuthEnv>) => {
+		const publicKeys = c.get('publicKeys');
+		const { proposalId } = c.req.param();
+		const proposal = await getProposalById(
+			parseInt(proposalId),
 		);
 
-	const tx = await getSuiClient(
-		proposal.network as SuiNetwork,
-	).getTransactionBlock({
-		digest: proposal.digest,
-		options: { showEffects: true },
-	});
+		if (
+			!(await jwtHasMultisigMemberAccess(
+				proposal.multisigAddress,
+				publicKeys,
+			))
+		)
+			throw new ApiAuthError('NotAMultisigMember');
 
-	if (!tx.checkpoint || !tx.effects)
-		throw new ValidationError('Transaction not found');
+		const result = await lookupAndVerifyProposal(proposal);
 
-	const isSuccess = tx.effects.status.status === 'success';
+		return c.json(result);
+	},
+);
 
-	await db
-		.update(SchemaProposals)
-		.set({
-			status: isSuccess
-				? ProposalStatus.SUCCESS
-				: ProposalStatus.FAILURE,
-		})
-		.where(eq(SchemaProposals.id, proposal.id));
+// Verify the execution of a proposal.
+proposalsRouter.post(
+	'/:digest/verify-by-digest',
+	async (c) => {
+		const { digest } = c.req.param();
 
-	return c.json({ verified: true });
-});
+		const proposal =
+			await ProposalByDigestLoader.load(digest);
+
+		if (!proposal) throw new NotFoundError();
+
+		const result = await lookupAndVerifyProposal(proposal);
+
+		return c.json(result);
+	},
+);
 
 proposalsRouter.get(
 	'/',

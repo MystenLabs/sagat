@@ -8,15 +8,17 @@ import {
 	SchemaProposalSignatures,
 } from '../db/schema';
 import { ValidationError } from '../errors';
+import { getSuiClient, SuiNetwork } from '../utils/client';
 import {
 	paginateResponse,
 	PaginationCursor,
 } from '../utils/pagination';
+import { getMultisig } from './multisig.service';
 
 // Get a proposal by id, and its signatures.
 export const getProposalById = async (
 	proposalId: number,
-) => {
+): Promise<ProposalWithSignatures> => {
 	const result = await db
 		.select()
 		.from(SchemaProposals)
@@ -35,11 +37,16 @@ export const getProposalById = async (
 	const proposal = result[0].proposals;
 	const signatures = result
 		.filter((row) => row.proposal_signatures !== null)
-		.map((row) => row.proposal_signatures);
+		.map((row) => row.proposal_signatures)
+		.filter((x) => !!x);
 
 	return {
 		...proposal,
-		signatures,
+		signatures: signatures.map((s) => ({
+			publicKey: s.publicKey,
+			signature: s.signature,
+			proposalId: s.proposalId,
+		})),
 	};
 };
 
@@ -112,4 +119,52 @@ export const getProposalsByMultisigAddress = async (
 		hasNextPage,
 		nextPageCursor?.toString(),
 	);
+};
+
+export const lookupAndVerifyProposal = async (
+	proposal: ProposalWithSignatures,
+) => {
+	if (proposal.status !== ProposalStatus.PENDING)
+		return { verified: true };
+
+	const multisig = await getMultisig(
+		proposal.multisigAddress,
+	);
+
+	const currentWeight = proposal.signatures.reduce(
+		(acc, sig) =>
+			acc +
+			(multisig.members.find(
+				(member) => member.publicKey === sig.publicKey,
+			)?.weight ?? 0),
+		0,
+	);
+
+	if (multisig.threshold > currentWeight)
+		throw new ValidationError(
+			'Proposal is not ready to execute',
+		);
+
+	const tx = await getSuiClient(
+		proposal.network as SuiNetwork,
+	).getTransactionBlock({
+		digest: proposal.digest,
+		options: { showEffects: true },
+	});
+
+	if (!tx.checkpoint || !tx.effects)
+		throw new ValidationError('Transaction not found');
+
+	const isSuccess = tx.effects.status.status === 'success';
+
+	await db
+		.update(SchemaProposals)
+		.set({
+			status: isSuccess
+				? ProposalStatus.SUCCESS
+				: ProposalStatus.FAILURE,
+		})
+		.where(eq(SchemaProposals.id, proposal.id));
+
+	return { verified: true };
 };

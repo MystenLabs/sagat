@@ -91,7 +91,9 @@ export function useExecuteProposal() {
 
 				// Step 4: Call the verify endpoint to update proposal status in the backend
 				const verifyResponse =
-					await apiClient.verifyProposal(proposal.digest);
+					await apiClient.verifyProposalByDigest(
+						proposal.digest,
+					);
 
 				return { executionResult: result, verifyResponse };
 			} catch (error) {
