@@ -263,7 +263,7 @@ export class SagatClient {
 
 	async verifyProposalByDigest(digest: string) {
 		return this.#request<{ success: boolean }>(
-			`/proposals/${digest}/verify-by-digest`,
+			`/proposals/${encodeURIComponent(digest)}/verify-by-digest`,
 			{
 				method: 'POST',
 			},
