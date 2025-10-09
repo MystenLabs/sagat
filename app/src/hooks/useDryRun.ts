@@ -25,5 +25,7 @@ export function useDryRun() {
 
 			return result;
 		},
+		retry: 2, // Retry up to 2 times (3 total attempts)
+		retryDelay: 1000, // Wait 1 second between retries
 	});
 }
