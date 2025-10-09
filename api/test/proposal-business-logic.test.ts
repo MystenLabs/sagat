@@ -590,23 +590,5 @@ describe('Proposal Business Logic', () => {
 			expect(queried).toBeDefined();
 			expect(queried).toMatchObject(testProposal);
 		});
-
-		test('Try get proposal unauthenticated', async () => {
-			expect(
-				framework
-					.statelessClient()
-					.getProposalByDigest(testProposal.digest),
-			).rejects.toThrowError('Unauthorized');
-		});
-
-		test('Try get propoosal without being multisig member', async () => {
-			const { session } =
-				await framework.createAuthenticatedSession(1);
-			expect(
-				session
-					.getStatefulClient()
-					.getProposalByDigest(testProposal.digest),
-			).rejects.toThrowError(AuthErrors.NotAMultisigMember);
-		});
 	});
 });

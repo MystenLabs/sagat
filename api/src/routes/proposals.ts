@@ -1,4 +1,7 @@
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	PersonalMessages,
+	PublicProposal,
+} from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
@@ -260,6 +263,7 @@ proposalsRouter.post(
 			!(await jwtHasMultisigMemberAccess(
 				proposal.multisigAddress,
 				publicKeys,
+				false,
 			))
 		)
 			throw new ApiAuthError('NotAMultisigMember');
@@ -326,32 +330,50 @@ proposalsRouter.get(
 	},
 );
 
-proposalsRouter.get(
-	'/digest/:digest',
-	authMiddleware,
-	async (c: Context<AuthEnv>) => {
-		const publicKeys = c.get('publicKeys');
-		const { digest } = c.req.param();
+proposalsRouter.get('/digest/:digest', async (c) => {
+	const { digest } = c.req.param();
 
-		if (!isValidTransactionDigest(digest))
-			throw new CommonError('InvalidDigest');
+	if (!isValidTransactionDigest(digest))
+		throw new CommonError('InvalidDigest');
 
-		const proposal =
-			await ProposalByDigestLoader.load(digest);
+	const proposal =
+		await ProposalByDigestLoader.load(digest);
 
-		if (!proposal) throw new NotFoundError();
+	if (!proposal) throw new NotFoundError();
 
-		if (
-			!(await jwtHasMultisigMemberAccess(
-				proposal.multisigAddress,
-				publicKeys,
-				false,
-			))
-		)
-			throw new ApiAuthError('NotAMultisigMember');
+	const multisig = await getMultisig(
+		proposal.multisigAddress,
+	);
 
-		return c.json(proposal);
-	},
-);
+	const currentWeight = proposal.signatures.reduce(
+		(acc, sig) =>
+			acc +
+			(multisig.members.find(
+				(member) => member.publicKey === sig.publicKey,
+			)?.weight ?? 0),
+		0,
+	);
+
+	// We are hiding the proposers on purpose, as this is not
+	// public information worth sharing.
+	// The multisig composition is public, so that is fine.
+	const proposalWithMultisig: PublicProposal = {
+		...proposal,
+		kind: 'public',
+		currentWeight,
+		totalWeight: multisig.threshold,
+		multisig: {
+			address: multisig.address,
+			threshold: multisig.threshold,
+			members: multisig.members.map((member) => ({
+				publicKey: member.publicKey,
+				weight: member.weight,
+				order: member.order,
+			})),
+		},
+	};
+
+	return c.json(proposalWithMultisig);
+});
 
 export default proposalsRouter;

@@ -85,6 +85,23 @@ export interface ProposalWithSignatures extends Proposal {
 	signatures: ProposalSignature[];
 }
 
+/**
+ * A proposal with its signatures and multisig composition,
+ * but without the confidential information.
+ */
+export interface PublicProposal extends Proposal {
+	kind: 'public';
+	signatures: ProposalSignature[];
+	multisig: {
+		address: string;
+		threshold: number;
+		members: {
+			publicKey: string;
+			weight: number;
+			order: number;
+		}[];
+	};
+}
 /** A signature for a given proposal  */
 export interface ProposalSignature {
 	proposalId: number;

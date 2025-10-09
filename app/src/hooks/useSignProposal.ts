@@ -9,8 +9,6 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { useApiAuth } from '@/contexts/ApiAuthContext';
-
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
@@ -22,7 +20,6 @@ interface SignProposalParams {
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
 	const queryClient = useQueryClient();
-	const { currentAddress } = useApiAuth();
 	const { mutateAsync: signTransaction } =
 		useSignTransaction();
 
@@ -31,9 +28,8 @@ export function useSignProposal() {
 			proposalId,
 			transactionBytes,
 		}: SignProposalParams) => {
-			if (!currentAddress || !currentAccount) {
+			if (!currentAccount)
 				throw new Error('No connected account');
-			}
 
 			// Create transaction from built bytes for signing
 			const transaction = Transaction.from(

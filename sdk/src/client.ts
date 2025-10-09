@@ -1,5 +1,6 @@
 import {
 	ProposalStatus,
+	PublicProposal,
 	VoteProposalResponse,
 	type Address,
 	type AuthCheckResponse,
@@ -50,7 +51,7 @@ export class SagatClient {
 		return response;
 	}
 
-	async disconnect(): Promise<AuthResponse> {
+	async disconnect() {
 		return this.#request<AuthResponse>('/auth/disconnect', {
 			method: 'POST',
 		});
@@ -61,7 +62,7 @@ export class SagatClient {
 	 * and get a list of the connected multisig addresses.
 	 * @returns
 	 */
-	async checkAuth(): Promise<AuthCheckResponse> {
+	async checkAuth() {
 		return this.#request<AuthCheckResponse>('/auth/check');
 	}
 
@@ -89,9 +90,7 @@ export class SagatClient {
 		};
 	}
 
-	async getMultisig(
-		address: string,
-	): Promise<MultisigWithMembers> {
+	async getMultisig(address: string) {
 		return this.#request<MultisigWithMembers>(
 			`/multisig/${address}`,
 		);
@@ -100,7 +99,7 @@ export class SagatClient {
 	async acceptMultisigInvite(
 		address: string,
 		data: SignedMessageRequest,
-	): Promise<{ success: boolean }> {
+	) {
 		return this.#request<{ success: boolean }>(
 			`/multisig/${address}/accept`,
 			{
@@ -113,7 +112,7 @@ export class SagatClient {
 	async rejectMultisigInvite(
 		address: string,
 		data: SignedMessageRequest,
-	): Promise<{ message: string; address: string }> {
+	) {
 		return this.#request<{
 			message: string;
 			address: string;
@@ -124,9 +123,7 @@ export class SagatClient {
 	}
 
 	// Proposal endpoints
-	async createProposal(
-		data: CreateProposalRequest,
-	): Promise<Proposal> {
+	async createProposal(data: CreateProposalRequest) {
 		return this.#request<Proposal>('/proposals', {
 			method: 'POST',
 			body: JSON.stringify(data),
@@ -141,7 +138,7 @@ export class SagatClient {
 			nextCursor?: number;
 			perPage?: number;
 		},
-	): Promise<PaginatedResponse<ProposalWithSignatures>> {
+	) {
 		const searchParams = new URLSearchParams();
 		searchParams.append('multisigAddress', multisigAddress);
 		searchParams.append('network', network);
@@ -170,10 +167,8 @@ export class SagatClient {
 		>(`/proposals${query ? `?${query}` : ''}`);
 	}
 
-	async getProposalByDigest(
-		digest: string,
-	): Promise<ProposalWithSignatures> {
-		return this.#request<ProposalWithSignatures>(
+	async getProposalByDigest(digest: string) {
+		return this.#request<PublicProposal>(
 			`/proposals/digest/${encodeURIComponent(digest)}`,
 		);
 	}
@@ -181,7 +176,7 @@ export class SagatClient {
 	async voteForProposal(
 		proposalId: number,
 		data: VoteProposalRequest,
-	): Promise<VoteProposalResponse> {
+	) {
 		return this.#request<VoteProposalResponse>(
 			`/proposals/${proposalId}/vote`,
 			{
@@ -199,7 +194,7 @@ export class SagatClient {
 	async cancelProposal(
 		proposalId: number,
 		data: SignedMessageRequest,
-	): Promise<{ success: boolean }> {
+	) {
 		return this.#request<{ success: boolean }>(
 			`/proposals/${proposalId}/cancel`,
 			{
@@ -213,9 +208,7 @@ export class SagatClient {
 	 * Call this to register extra public keys to the system.
 	 * Only sui public keys are supported (use `PublicKey.toSuiPublicKey(), not `toBase64()`)
 	 */
-	async registerPublicKeys(
-		extraPublicKeys: string[] = [],
-	): Promise<{ success: boolean }> {
+	async registerPublicKeys(extraPublicKeys: string[] = []) {
 		return this.#request<{ success: boolean }>(
 			'/addresses',
 			{
@@ -225,15 +218,11 @@ export class SagatClient {
 		);
 	}
 
-	async registerPublicKey(
-		publicKey: string,
-	): Promise<{ success: boolean }> {
+	async registerPublicKey(publicKey: string) {
 		return this.registerPublicKeys([publicKey]);
 	}
 
-	async getMultisigConnections(): Promise<
-		Record<string, MultisigWithMembers[]>
-	> {
+	async getMultisigConnections() {
 		return this.#request<
 			Record<string, MultisigWithMembers[]>
 		>(`/addresses/connections`);
@@ -244,7 +233,7 @@ export class SagatClient {
 		params?: {
 			showRejected?: boolean;
 		},
-	): Promise<MultisigWithMembers[]> {
+	) {
 		const queryParams = new URLSearchParams();
 		if (params?.showRejected) {
 			queryParams.append('showRejected', 'true');
@@ -263,9 +252,7 @@ export class SagatClient {
 	 * or failed in the system.
 	 * That unblocks the pending queue.
 	 */
-	async verifyProposal(
-		proposalId: number,
-	): Promise<{ success: boolean }> {
+	async verifyProposal(proposalId: number) {
 		return this.#request<{ success: boolean }>(
 			`/proposals/${proposalId}/verify`,
 			{
@@ -277,7 +264,7 @@ export class SagatClient {
 	/**
 	 * Call this to get the public key for an address registered in the system.
 	 */
-	async getAddressInfo(address: string): Promise<Address> {
+	async getAddressInfo(address: string) {
 		return this.#request<Address>(`/addresses/${address}`);
 	}
 
@@ -285,7 +272,7 @@ export class SagatClient {
 	 * Register all public keys that have connected via `connect()` to the system.
 	 * This is required before creating or accepting multisigs.
 	 */
-	async registerAddresses(): Promise<{ success: boolean }> {
+	async registerAddresses() {
 		return this.#request<{ success: boolean }>(
 			'/addresses',
 			{
@@ -306,7 +293,7 @@ export class SagatClient {
 		proposer: string,
 		signature: string,
 		expiry: string,
-	): Promise<{ success: boolean }> {
+	) {
 		return this.#request<{ success: boolean }>(
 			`/multisig/${address}/add-proposer`,
 			{
@@ -332,7 +319,7 @@ export class SagatClient {
 		proposer: string,
 		signature: string,
 		expiry: string,
-	): Promise<{ success: boolean }> {
+	) {
 		return this.#request<{ success: boolean }>(
 			`/multisig/${address}/remove-proposer`,
 			{

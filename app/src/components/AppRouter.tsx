@@ -1,5 +1,12 @@
 import { useCurrentAccount } from '@mysten/dapp-kit';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { useMemo, type ReactElement } from 'react';
+import {
+	matchPath,
+	Navigate,
+	Route,
+	Routes,
+	useLocation,
+} from 'react-router-dom';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { AuthPrompt } from './AuthPrompt';
@@ -14,15 +21,142 @@ import { OverviewTab } from './tabs/OverviewTab';
 import { ProposalsTab } from './tabs/ProposalsTab';
 import { Loading } from './ui/loading';
 
-export function AppRouter() {
-	// Wallet state from dApp Kit
-	const currentAccount = useCurrentAccount();
+type AuthLevel = 'public' | 'wallet' | 'full';
 
-	// API auth state
+interface RouteConfig {
+	path: string;
+	element: ReactElement;
+	authLevel: AuthLevel;
+	children?: RouteConfig[];
+}
+
+const routes: RouteConfig[] = [
+	{
+		path: '/proposals',
+		element: <ProposalDetailPage />,
+		authLevel: 'wallet',
+	},
+	{
+		path: '/',
+		element: <SmartDashboard />,
+		authLevel: 'full',
+	},
+	{
+		path: '/create',
+		element: <CreateMultisigPage />,
+		authLevel: 'full',
+	},
+	{
+		path: '/invitations',
+		element: <InvitationsPage />,
+		authLevel: 'full',
+	},
+	{
+		path: '/multisig/:address',
+		element: <MultisigDetailPage />,
+		authLevel: 'full',
+		children: [
+			{
+				path: '',
+				element: <Navigate to="proposals" replace />,
+				authLevel: 'full',
+			},
+			{
+				path: 'proposals',
+				element: <ProposalsTab />,
+				authLevel: 'full',
+			},
+			{
+				path: 'overview',
+				element: <OverviewTab />,
+				authLevel: 'full',
+			},
+			{
+				path: 'assets',
+				element: <AssetsTab />,
+				authLevel: 'full',
+			},
+		],
+	},
+];
+
+function getAuthLevel(pathname: string): AuthLevel {
+	for (const route of routes) {
+		if (matchPath(route.path, pathname)) {
+			return route.authLevel;
+		}
+	}
+	// Default to full auth for unknown routes
+	return 'full';
+}
+
+export function AppRouter() {
+	const currentAccount = useCurrentAccount();
 	const { isCheckingAuth, isCurrentAddressAuthenticated } =
 		useApiAuth();
+	const location = useLocation();
 
-	// State 1: No wallet connected
+	const authLevel = useMemo(
+		() => getAuthLevel(location.pathname),
+		[location.pathname],
+	);
+
+	const renderRoutes = useMemo(() => {
+		const renderRoute = (
+			route: RouteConfig,
+			index: number,
+		) => {
+			if (route.children) {
+				return (
+					<Route
+						key={index}
+						path={route.path}
+						element={route.element}
+					>
+						{route.children.map((child, childIndex) =>
+							child.path === '' ? (
+								<Route
+									key={childIndex}
+									index
+									element={child.element}
+								/>
+							) : (
+								<Route
+									key={childIndex}
+									path={child.path}
+									element={child.element}
+								/>
+							),
+						)}
+					</Route>
+				);
+			}
+			return (
+				<Route
+					key={index}
+					path={route.path}
+					element={route.element}
+				/>
+			);
+		};
+
+		return (
+			<Routes>
+				{routes.map(renderRoute)}
+				<Route
+					path="*"
+					element={<Navigate to="/" replace />}
+				/>
+			</Routes>
+		);
+	}, []);
+
+	// Public routes - no auth required
+	if (authLevel === 'public') {
+		return renderRoutes;
+	}
+
+	// Full auth routes - require wallet + API auth
 	if (!currentAccount) {
 		return (
 			<div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -37,54 +171,16 @@ export function AppRouter() {
 		);
 	}
 
-	// State 2: Wallet connected, checking auth
+	// Wallet-only routes - require wallet but not API auth
+	if (authLevel === 'wallet') return renderRoutes;
+
 	if (isCheckingAuth) {
 		return <Loading message="Checking authentication..." />;
 	}
 
-	// State 3: Wallet connected but not authenticated with API
 	if (!isCurrentAddressAuthenticated) {
 		return <AuthPrompt />;
 	}
 
-	// State 4: Authenticated - show routes
-	return (
-		<Routes>
-			<Route path="/" element={<SmartDashboard />} />
-			<Route
-				path="/create"
-				element={<CreateMultisigPage />}
-			/>
-			<Route
-				path="/invitations"
-				element={<InvitationsPage />}
-			/>
-			<Route
-				path="/proposals"
-				element={<ProposalDetailPage />}
-			/>
-
-			{/* Multisig Detail Routes */}
-			<Route
-				path="/multisig/:address"
-				element={<MultisigDetailPage />}
-			>
-				<Route
-					index
-					element={<Navigate to="proposals" replace />}
-				/>
-				<Route
-					path="proposals"
-					element={<ProposalsTab />}
-				/>
-				<Route path="overview" element={<OverviewTab />} />
-				<Route path="assets" element={<AssetsTab />} />
-			</Route>
-
-			<Route
-				path="*"
-				element={<Navigate to="/" replace />}
-			/>
-		</Routes>
-	);
+	return renderRoutes;
 }

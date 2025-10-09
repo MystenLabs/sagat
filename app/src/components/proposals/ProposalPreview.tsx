@@ -1,4 +1,7 @@
-import type { ProposalWithSignatures } from '@mysten/sagat';
+import type {
+	ProposalWithSignatures,
+	PublicProposal,
+} from '@mysten/sagat';
 import { CheckCircle, X } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -8,7 +11,7 @@ import { EffectsPreview } from '../preview-effects/EffectsPreview';
 import { Button } from '../ui/button';
 
 interface ProposalPreviewProps {
-	proposal: ProposalWithSignatures;
+	proposal: ProposalWithSignatures | PublicProposal;
 	userHasSigned: boolean;
 	onCancel?: () => void;
 	isCancelling?: boolean;
@@ -20,6 +23,8 @@ export function ProposalPreview({
 	onCancel,
 	isCancelling,
 }: ProposalPreviewProps) {
+	const isPublicProposal =
+		'kind' in proposal && proposal.kind === 'public';
 	const dryRunMutation = useDryRun();
 	const signProposalMutation = useSignProposal();
 
@@ -74,17 +79,19 @@ export function ProposalPreview({
 							)}
 						</>
 					)}
-					{onCancel && !userHasSigned && (
-						<Button
-							size="sm"
-							variant="outlineDestructive"
-							onClick={onCancel}
-							disabled={isCancelling}
-						>
-							<X className="w-4 h-4 mr-1" />
-							{isCancelling ? 'Cancelling...' : 'Cancel'}
-						</Button>
-					)}
+					{onCancel &&
+						!userHasSigned &&
+						!isPublicProposal && (
+							<Button
+								size="sm"
+								variant="outlineDestructive"
+								onClick={onCancel}
+								disabled={isCancelling}
+							>
+								<X className="w-4 h-4 mr-1" />
+								{isCancelling ? 'Cancelling...' : 'Cancel'}
+							</Button>
+						)}
 				</div>
 			</div>
 

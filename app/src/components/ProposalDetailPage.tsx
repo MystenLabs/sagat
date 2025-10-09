@@ -5,7 +5,6 @@ import {
 	useNetwork,
 	type SuiNetwork,
 } from '@/contexts/NetworkContext';
-import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 
 import { useGetProposal } from '../hooks/useGetProposal';
 import { ProposalCard } from './proposals/ProposalCard';
@@ -18,14 +17,6 @@ export function ProposalDetailPage() {
 	const [searchParams] = useSearchParams();
 	const digest = searchParams.get('digest');
 	const { network, setNetwork } = useNetwork();
-	const { data: userMultisigs } = useUserMultisigs();
-
-	const isActiveAddressMember = () => {
-		return userMultisigs?.some(
-			(m) =>
-				m.address === proposalQuery.data?.multisigAddress,
-		);
-	};
 
 	// Fetch proposal by digest
 	const proposalQuery = useGetProposal(digest);
@@ -52,7 +43,7 @@ export function ProposalDetailPage() {
 	}
 
 	// Error state
-	if (proposalQuery.error || !isActiveAddressMember()) {
+	if (proposalQuery.error) {
 		return (
 			<div className="max-w-4xl mx-auto mt-8 px-4">
 				<PageHeader
@@ -69,8 +60,7 @@ export function ProposalDetailPage() {
 									: 'Failed to load proposal'}
 							</h3>
 							<p className="text-sm text-red-700">
-								Please check that you have access to this
-								proposal and that the digest is correct.
+								Please check that the digest is correct.
 							</p>
 						</div>
 					</div>

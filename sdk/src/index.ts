@@ -22,6 +22,7 @@ export type {
 	Proposal,
 	ProposalSignature,
 	ProposalWithSignatures,
+	PublicProposal,
 	SignedMessageRequest,
 	VoteProposalRequest,
 	VoteProposalResponse,
