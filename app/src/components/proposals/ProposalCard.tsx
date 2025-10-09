@@ -11,7 +11,6 @@ import {
 	CheckCircle,
 	ChevronDown,
 	ChevronRight,
-	Clock,
 	ExternalLink,
 	Eye,
 	Rocket,
@@ -176,19 +175,12 @@ export function ProposalCard({
 		if (proposal.status !== ProposalStatus.PENDING)
 			return null;
 
-		if (userHasSigned()) {
-			return (
-				<div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">
-					<CheckCircle className="w-3 h-3" />
-					Already Signed
-				</div>
-			);
-		}
+		if (!userHasSigned()) return null;
 
 		return (
-			<div className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full shrink-0">
-				<Clock className="w-3 h-3" />
-				Pending Signature
+			<div className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full shrink-0">
+				<CheckCircle className="w-3 h-3" />
+				Already Signed
 			</div>
 		);
 	};
@@ -205,7 +197,7 @@ export function ProposalCard({
 						{getStatusBadge()}
 						{getSignatureStatus()}
 						{isExternalProposer() && (
-							<span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">
+							<span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 shrink-0">
 								External Proposer
 							</span>
 						)}
