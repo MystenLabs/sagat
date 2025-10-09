@@ -6,11 +6,10 @@ import { db } from '../db';
 import {
 	ProposalStatus,
 	SchemaMultisigMembers,
-	SchemaMultisigProposers,
-	SchemaMultisigs,
 	SchemaProposals,
 } from '../db/schema';
-import { ValidationError } from '../errors';
+import { CommonError, ValidationError } from '../errors';
+import { MultisigDataLoader } from '../loaders/multisig.loader';
 import {
 	queryAllOwnedObjects,
 	SuiNetwork,
@@ -18,40 +17,9 @@ import {
 
 // Returns the multisig with its members.
 export const getMultisig = async (address: string) => {
-	const [result, proposers] = await Promise.all([
-		db
-			.select()
-			.from(SchemaMultisigs)
-			.leftJoin(
-				SchemaMultisigMembers,
-				eq(
-					SchemaMultisigs.address,
-					SchemaMultisigMembers.multisigAddress,
-				),
-			)
-			.where(eq(SchemaMultisigs.address, address)),
-		db.query.SchemaMultisigProposers.findMany({
-			where: eq(
-				SchemaMultisigProposers.multisigAddress,
-				address,
-			),
-		}),
-	]);
-
-	if (!result || result.length === 0) {
-		throw new ValidationError('Multisig not found');
-	}
-
-	const multisig = result[0].multisigs;
-	const members = result
-		.map((row) => row.multisig_members)
-		.filter((row) => !!row);
-
-	return {
-		...multisig,
-		members: members.sort((a, b) => a.order - b.order),
-		proposers,
-	};
+	const multisig = await MultisigDataLoader.load(address);
+	if (!multisig) throw new CommonError('NotFound');
+	return multisig;
 };
 
 export const validateQuorum = async (

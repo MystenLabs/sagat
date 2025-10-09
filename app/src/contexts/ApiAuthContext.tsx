@@ -75,7 +75,7 @@ export function ApiAuthProvider({
 	// Re-check auth when wallet account changes
 	useEffect(() => {
 		refetchAuth();
-	}, [currentAccount?.address, refetchAuth]);
+	}, [currentAccount?.address]);
 
 	// Connect mutation - signs message and sends to API
 	const connectMutation = useMutation({
