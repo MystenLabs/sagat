@@ -59,18 +59,6 @@ export function ProposalCard({
 		if (proposal.status !== ProposalStatus.PENDING)
 			return false;
 		return proposal.currentWeight >= proposal.totalWeight;
-
-		// if (
-		// 	!multisigDetails ||
-		// 	proposal.status !== ProposalStatus.PENDING
-		// )
-		// 	return false;
-		// const currentWeight = calculateCurrentWeight(
-		// 	proposal,
-		// 	multisigDetails,
-		// );
-		// const threshold = getTotalWeight(multisigDetails);
-		// return currentWeight >= threshold;
 	};
 
 	const handleExecuteProposal = () => {
