@@ -122,9 +122,11 @@ jobs:
           sui --version
 
       - name: Start Sui local network
+        env:
+          RUST_LOG: off
         run: |
           export PATH="$HOME/.sui/bin:$PATH"
-          RUST_LOG="off" sui start --force-regenesis --with-faucet &
+          sui start --force-regenesis --with-faucet &
           # Wait for network to be ready
           echo "Waiting for Sui network to start..."
           timeout 90 bash -c 'until curl -sf -X POST http://127.0.0.1:9000 -H "Content-Type: application/json" -d '\''{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}'\'' 2>/dev/null | grep -q result; do echo "Waiting..."; sleep 2; done'
@@ -146,3 +148,4 @@ jobs:
           DATABASE_URL: postgresql://sagat:sagat@localhost:5432/sagat_test
           JWT_SECRET: a-super-long-jwt-secret-to-use-in-the-service
           SUPPORTED_NETWORKS: localnet
+          CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
