@@ -124,12 +124,14 @@ jobs:
       - name: Start Sui local network
         run: |
           export PATH="$HOME/.sui/bin:$PATH"
-          RUST_LOG="off,sui_node=info" sui start --force-regenesis --with-faucet &
+          RUST_LOG="off" sui start --force-regenesis --with-faucet &
           # Wait for network to be ready
           echo "Waiting for Sui network to start..."
-          timeout 90 bash -c 'until curl -f http://127.0.0.1:9000 2>/dev/null; do echo "Waiting..."; sleep 2; done'
+          timeout 90 bash -c 'until curl -sf -X POST http://127.0.0.1:9000 -H "Content-Type: application/json" -d '\''{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}'\'' 2>/dev/null | grep -q result; do echo "Waiting..."; sleep 2; done'
           echo "Sui network is ready!"
-          curl http://127.0.0.1:9000
+          curl -X POST http://127.0.0.1:9000 \
+            -H "Content-Type: application/json" \
+            -d '{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}'
 
       - name: Run database migrations
         run: bun run db:migrate
