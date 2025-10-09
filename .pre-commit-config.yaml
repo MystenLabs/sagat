@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: bun-fmt
+        name: Format with Bun
+        entry: npx bun fmt
+        language: system
+        files: \.(js|jsx|ts|tsx|json|md|yaml|yml)$
+        pass_filenames: false
+        always_run: false
