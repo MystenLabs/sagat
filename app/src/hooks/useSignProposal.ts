@@ -54,6 +54,9 @@ export function useSignProposal() {
 		onSuccess: () => {
 			// Invalidate all proposal-related queries
 			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposal],
+			});
+			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
 			toast.success('Proposal signed successfully!');

@@ -32,6 +32,7 @@ export function ProposalPreview({
 		) {
 			dryRunMutation.mutate(proposal.transactionBytes);
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [proposal.transactionBytes]);
 
 	const handleSignProposal = () => {

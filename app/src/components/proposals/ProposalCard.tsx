@@ -2,7 +2,6 @@ import {
 	ProposalStatus,
 	type ProposalWithSignatures,
 } from '@mysten/sagat';
-import { useQuery } from '@tanstack/react-query';
 import {
 	Check,
 	CheckCircle,
@@ -17,18 +16,17 @@ import {
 import { useState } from 'react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { useGetMultisig } from '@/hooks/useGetMultisig';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useCancelProposal } from '../../hooks/useCancelProposal';
 import { useExecuteProposal } from '../../hooks/useExecuteProposal';
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { useVerifyProposal } from '../../hooks/useVerifyProposal';
-import { apiClient } from '../../lib/api';
 import {
 	calculateCurrentWeight,
 	getTotalWeight,
 } from '../../lib/proposalUtils';
-import { QueryKeys } from '../../lib/queryKeys';
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button } from '../ui/button';
@@ -36,14 +34,19 @@ import { ProposalPreview } from './ProposalPreview';
 
 interface ProposalCardProps {
 	proposal: ProposalWithSignatures;
+	defaultExpanded?: boolean;
 }
 
 export function ProposalCard({
 	proposal,
+	defaultExpanded = false,
 }: ProposalCardProps) {
 	const { network } = useNetwork();
-	const [isExpanded, setIsExpanded] = useState(false);
+	const isNetworkMismatch = proposal.network !== network;
+	const [isExpanded, setIsExpanded] =
+		useState(defaultExpanded);
 	const [copiedDigest, setCopiedDigest] = useState(false);
+	const [copiedLink, setCopiedLink] = useState(false);
 	const [showCancelModal, setShowCancelModal] =
 		useState(false);
 	const executeProposalMutation = useExecuteProposal();
@@ -51,18 +54,9 @@ export function ProposalCard({
 	const cancelProposalMutation = useCancelProposal();
 	const signProposalMutation = useSignProposal();
 
-	// Query to get full multisig details (including members with weights)
-	const { data: multisigDetails } = useQuery({
-		queryKey: [
-			QueryKeys.Multisig,
-			proposal.multisigAddress,
-		],
-		queryFn: () =>
-			apiClient.getMultisig(proposal.multisigAddress),
-		enabled: !!proposal.multisigAddress,
-		staleTime: Infinity, // Cache forever since multisig details are immutable
-		gcTime: Infinity, // Keep in cache forever
-	});
+	const { data: multisigDetails } = useGetMultisig(
+		proposal.multisigAddress,
+	);
 
 	// Check if current user has already signed this proposal
 	// Check if the proposal is ready to execute
@@ -100,6 +94,13 @@ export function ProposalCard({
 		await navigator.clipboard.writeText(proposal.digest);
 		setCopiedDigest(true);
 		setTimeout(() => setCopiedDigest(false), 2000);
+	};
+
+	const handleCopyLink = async () => {
+		const url = `${window.location.origin}/proposals?digest=${proposal.digest}`;
+		await navigator.clipboard.writeText(url);
+		setCopiedLink(true);
+		setTimeout(() => setCopiedLink(false), 2000);
 	};
 
 	const handleCancelProposal = () => {
@@ -200,7 +201,9 @@ export function ProposalCard({
 			.filter(Boolean);
 
 		// Proposer is external if their address is NOT in member addresses
-		return !memberAddresses.includes(proposal.proposerAddress);
+		return !memberAddresses.includes(
+			proposal.proposerAddress,
+		);
 	};
 
 	const getSignatureStatus = () => {
@@ -275,6 +278,20 @@ export function ProposalCard({
 									<Copy className="w-3 h-3 text-gray-400 hover:text-gray-600" />
 								)}
 							</button>
+							{proposal.status ===
+								ProposalStatus.PENDING && (
+								<button
+									onClick={handleCopyLink}
+									className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+									title="Copy proposal link"
+								>
+									{copiedLink ? (
+										<Check className="w-3 h-3 text-green-600" />
+									) : (
+										<ExternalLink className="w-3 h-3 text-gray-400 hover:text-gray-600" />
+									)}
+								</button>
+							)}
 						</div>
 					</div>
 				</div>
@@ -402,16 +419,28 @@ export function ProposalCard({
 						</div>
 					)}
 
-					{proposal.status === ProposalStatus.PENDING && (
-						<ProposalPreview
-							proposal={proposal}
-							userHasSigned={userHasSigned()}
-							onCancel={handleCancelProposal}
-							isCancelling={
-								cancelProposalMutation.isPending
-							}
-						/>
-					)}
+					{proposal.status === ProposalStatus.PENDING &&
+						(isNetworkMismatch ? (
+							<div className="space-y-3">
+								<h5 className="font-medium text-gray-900">
+									Network Mismatch
+								</h5>
+								<p className="text-sm text-gray-600">
+									Switch to{' '}
+									<strong>{proposal.network}</strong> to
+									view and interact with this proposal.
+								</p>
+							</div>
+						) : (
+							<ProposalPreview
+								proposal={proposal}
+								userHasSigned={userHasSigned()}
+								onCancel={handleCancelProposal}
+								isCancelling={
+									cancelProposalMutation.isPending
+								}
+							/>
+						))}
 
 					{(proposal.status === ProposalStatus.FAILURE ||
 						proposal.status ===

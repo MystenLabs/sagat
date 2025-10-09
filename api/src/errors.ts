@@ -2,6 +2,8 @@ import { SuiHTTPTransportError } from '@mysten/sui/client';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { Context } from 'hono';
 
+export class NotFoundError extends Error {}
+
 export class CommonError extends Error {
 	constructor(message: keyof typeof CommonErrors) {
 		super();
@@ -29,8 +31,9 @@ export const AuthErrors = {
 export const CommonErrors = {
 	InvalidAddress:
 		'Invalid address. Must be a valid Sui address.',
-	NotFound: 'The request resource was not found.',
 	InvalidSignature: 'Invalid signature for message.',
+	InvalidDigest:
+		'The transaction digest provided is invalid.',
 };
 
 // The error handler for the app.
@@ -56,6 +59,12 @@ export const appErrorHandler = (err: Error, c: Context) => {
 			);
 		}
 	}
+
+	if (err instanceof NotFoundError)
+		return c.json(
+			{ error: 'The requested resource was not found.' },
+			404,
+		);
 
 	console.error('Unhandled error:', err);
 	return c.json({ error: 'Internal Server Error' }, 500);

@@ -1,11 +1,9 @@
 import {
 	defaultExpiry,
 	PersonalMessages,
+	ProposalStatus,
 	SagatClient,
 	type MultisigWithMembers,
-	type PaginatedResponse,
-	type Proposal,
-	type ProposalWithSignatures,
 } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
@@ -28,11 +26,6 @@ export interface TestUser {
 	keypair: Ed25519Keypair;
 	publicKey: string;
 	address: string;
-}
-
-export interface TestProposal {
-	id: number;
-	transactionBytes: string;
 }
 
 export const newUser = (): TestUser => {
@@ -61,7 +54,7 @@ export class TestSession {
 		);
 	}
 
-	createUser(): TestUser {
+	createUser() {
 		const user = newUser();
 		this.users.push(user);
 		return user;
@@ -70,14 +63,14 @@ export class TestSession {
 	private async signMessage(
 		keypair: Ed25519Keypair,
 		message: string,
-	): Promise<string> {
+	) {
 		const bytes = new TextEncoder().encode(message);
 		const { signature } =
 			await keypair.signPersonalMessage(bytes);
 		return signature;
 	}
 
-	async connectUser(user: TestUser): Promise<void> {
+	async connectUser(user: TestUser) {
 		const expiry = defaultExpiry();
 		const message = PersonalMessages.connect(expiry);
 		const signature = await this.signMessage(
@@ -113,7 +106,7 @@ export class TestSession {
 		}
 	}
 
-	async registerAddresses(): Promise<void> {
+	async registerAddresses() {
 		if (!this.cookie) {
 			throw new Error(
 				'No users connected - call connectUsers first',
@@ -128,7 +121,7 @@ export class TestSession {
 		threshold: number,
 		name?: string,
 		fund: boolean = false,
-	): Promise<MultisigWithMembers> {
+	) {
 		return this.createCustomMultisig(
 			members,
 			members.map(() => 1),
@@ -144,7 +137,7 @@ export class TestSession {
 		threshold: number,
 		name?: string,
 		fund: boolean = false,
-	): Promise<MultisigWithMembers> {
+	) {
 		const multisig = await this.client.createMultisig({
 			publicKeys: members.map((m) => m.publicKey),
 			weights,
@@ -163,7 +156,7 @@ export class TestSession {
 		recipient: string,
 		count: number,
 		totalPerCoin: number = 0.1 * Number(MIST_PER_SUI),
-	): Promise<void> {
+	) {
 		await fundAddress(keypair.toSuiAddress());
 
 		const tx = new Transaction();
@@ -193,7 +186,7 @@ export class TestSession {
 	async acceptMultisig(
 		member: TestUser,
 		multisigAddress: string,
-	): Promise<void> {
+	) {
 		const message =
 			PersonalMessages.acceptMultisigInvitation(
 				multisigAddress,
@@ -220,7 +213,7 @@ export class TestSession {
 		network: string,
 		transactionBytes: string,
 		description?: string,
-	): Promise<Proposal> {
+	) {
 		const txBytes = Transaction.from(transactionBytes);
 		const builtTx = await txBytes.build({ client });
 		const signature =
@@ -245,13 +238,10 @@ export class TestSession {
 		network: string;
 		status?: string;
 		cursor?: { nextCursor?: number; perPage?: number };
-	}): Promise<PaginatedResponse<ProposalWithSignatures>> {
+	}) {
 		// Convert status string to ProposalStatus enum if provided
 		let statusEnum: any = undefined;
 		if (status) {
-			const { ProposalStatus } = await import(
-				'@mysten/sagat'
-			);
 			statusEnum =
 				ProposalStatus[
 					status as keyof typeof ProposalStatus
@@ -276,7 +266,7 @@ export class TestSession {
 		recipient: string,
 		amount: number,
 		description?: string,
-	): Promise<{ id: number; transactionBytes: string }> {
+	) {
 		const tx = new Transaction();
 		tx.setSender(multisigAddress);
 		const [coin] = tx.splitCoins(tx.gas, [amount]);
@@ -301,7 +291,7 @@ export class TestSession {
 		voter: TestUser,
 		proposalId: number,
 		transactionBytes: string,
-	): Promise<{ hasReachedThreshold: boolean }> {
+	) {
 		const txBytes = Transaction.from(transactionBytes);
 		const builtTx = await txBytes.build({ client });
 		const signature =
@@ -312,7 +302,7 @@ export class TestSession {
 		});
 	}
 
-	async disconnect(): Promise<void> {
+	async disconnect() {
 		await this.client.disconnect();
 		this.cookie = '';
 		this.cookieFetch = createCookieFetch(
@@ -327,7 +317,7 @@ export class TestSession {
 		this.users = [];
 	}
 
-	getConnectedUsers(): TestUser[] {
+	getConnectedUsers() {
 		if (!this.cookieFetch.jar.getConnectedWalletCookie())
 			return [];
 
@@ -359,6 +349,10 @@ export class TestSession {
 			!!this.cookieFetch.jar.getConnectedWalletCookie() &&
 			this.getConnectedUsers().length > 0
 		);
+	}
+
+	getStatefulClient(): SagatClient {
+		return this.client;
 	}
 
 	#createFreshAppFetch(): FetchLike {

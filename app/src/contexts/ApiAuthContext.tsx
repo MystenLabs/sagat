@@ -75,6 +75,7 @@ export function ApiAuthProvider({
 	// Re-check auth when wallet account changes
 	useEffect(() => {
 		refetchAuth();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentAccount?.address]);
 
 	// Connect mutation - signs message and sends to API
@@ -169,6 +170,7 @@ export function ApiAuthProvider({
 	);
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useApiAuth() {
 	const context = useContext(ApiAuthContext);
 	if (!context) {

@@ -8,7 +8,7 @@ import {
 	SchemaMultisigMembers,
 	SchemaProposals,
 } from '../db/schema';
-import { CommonError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError } from '../errors';
 import { MultisigDataLoader } from '../loaders/multisig.loader';
 import {
 	queryAllOwnedObjects,
@@ -18,7 +18,7 @@ import {
 // Returns the multisig with its members.
 export const getMultisig = async (address: string) => {
 	const multisig = await MultisigDataLoader.load(address);
-	if (!multisig) throw new CommonError('NotFound');
+	if (!multisig) throw new NotFoundError();
 	return multisig;
 };
 

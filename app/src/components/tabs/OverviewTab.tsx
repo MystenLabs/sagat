@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
 import {
 	Check,
 	Copy,
@@ -7,13 +6,12 @@ import {
 } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
+import { useGetMultisig } from '@/hooks/useGetMultisig';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
-import { apiClient } from '../../lib/api';
 import { CONFIG } from '../../lib/constants';
-import { QueryKeys } from '../../lib/queryKeys';
 import { MembersList } from '../invitations/MembersList';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Button } from '../ui/button';
@@ -34,18 +32,12 @@ export function OverviewTab() {
 		return `${baseUrl}/account/${address}`;
 	};
 
-	// Fetch multisig details using React Query
 	const {
 		data: multisigDetails,
 		isLoading,
 		error,
 		refetch,
-	} = useQuery({
-		queryKey: [QueryKeys.Multisig, multisig.address],
-		queryFn: () => apiClient.getMultisig(multisig.address),
-		staleTime: Infinity, // Cache forever since multisig details are immutable
-		gcTime: Infinity, // Keep in cache forever
-	});
+	} = useGetMultisig(multisig.address);
 
 	return (
 		<div className="space-y-6">

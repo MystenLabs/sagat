@@ -7,6 +7,7 @@ import { CreateMultisigPage } from './CreateMultisigPage';
 import { CustomWalletButton } from './CustomWalletButton';
 import { InvitationsPage } from './InvitationsPage';
 import { MultisigDetailPage } from './MultisigDetailPage';
+import { ProposalDetailPage } from './ProposalDetailPage';
 import { SmartDashboard } from './SmartDashboard';
 import { AssetsTab } from './tabs/AssetsTab';
 import { OverviewTab } from './tabs/OverviewTab';
@@ -57,6 +58,10 @@ export function AppRouter() {
 			<Route
 				path="/invitations"
 				element={<InvitationsPage />}
+			/>
+			<Route
+				path="/proposals"
+				element={<ProposalDetailPage />}
 			/>
 
 			{/* Multisig Detail Routes */}

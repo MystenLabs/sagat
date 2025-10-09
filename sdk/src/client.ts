@@ -170,6 +170,14 @@ export class SagatClient {
 		>(`/proposals${query ? `?${query}` : ''}`);
 	}
 
+	async getProposalByDigest(
+		digest: string,
+	): Promise<ProposalWithSignatures> {
+		return this.#request<ProposalWithSignatures>(
+			`/proposals/digest/${encodeURIComponent(digest)}`,
+		);
+	}
+
 	async voteForProposal(
 		proposalId: number,
 		data: VoteProposalRequest,
@@ -361,12 +369,15 @@ export class SagatClient {
 		if (!response.ok) {
 			let errorMessage = `Request failed with status ${response.status}`;
 			try {
-				const errorData = await response.json();
+				const errorData = await response.clone().json();
 				if (errorData.error) {
 					errorMessage = errorData.error;
 				}
 			} catch {
-				// If parsing fails, use the default message
+				try {
+					const errorData = await response.text();
+					if (errorData) errorMessage = errorData;
+				} catch {}
 			}
 			throw new Error(errorMessage);
 		}
