@@ -2,18 +2,16 @@ import {
 	ProposalStatus,
 	type ProposalWithSignatures,
 } from '@mysten/sagat';
-import { useQuery } from '@tanstack/react-query';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
-import { apiClient } from '../lib/api';
 import {
 	calculateCurrentWeight,
 	getTotalWeight,
 } from '../lib/proposalUtils';
-import { QueryKeys } from '../lib/queryKeys';
 import { useGetMultisig } from './useGetMultisig';
+import { usePaginatedProposals } from './usePaginatedProposals';
 
 interface UseProposalsQueriesParams {
 	multisig: MultisigWithMembersForPublicKey;
@@ -70,41 +68,22 @@ export function useProposalsQueries({
 		}
 	};
 
-	// Main proposals query
-	const proposalsQuery = useQuery({
-		queryKey: [
-			QueryKeys.Proposals,
-			apiQueryType,
-			multisig.address,
-			network,
-		],
-		queryFn: () =>
-			apiClient.getProposals(multisig.address, network, {
-				status: getStatusFilter(),
-			}),
-		// TODO: Enable pagination on FE... for now assume single page.
-		select: (data) => data.data,
+	// Use infinite query for all tabs (pending will just have 1 page)
+	const proposalsQuery = usePaginatedProposals({
+		multisigAddress: multisig.address,
+		network,
+		status: getStatusFilter(),
+		perPage: 10,
 		enabled: !!multisig.address && !!network,
-		refetchInterval: 30000, // 30 seconds refetching interval.
-		staleTime: 0, // Consider data stale immediately to ensure fresh data
 	});
 
 	// Always fetch pending proposals for counts
-	const pendingProposalsQuery = useQuery({
-		queryKey: [
-			QueryKeys.Proposals,
-			QueryKeys.Pending,
-			multisig.address,
-			network,
-		],
-		queryFn: () =>
-			apiClient.getProposals(multisig.address, network, {
-				status: ProposalStatus.PENDING,
-			}),
-		select: (data) => data.data,
+	const pendingProposalsQuery = usePaginatedProposals({
+		multisigAddress: multisig.address,
+		network,
+		status: ProposalStatus.PENDING,
+		perPage: 10,
 		enabled: !!multisig.address && !!network,
-		refetchInterval: 30000, // 30 seconds refetching interval.
-		staleTime: 0, // Consider data stale immediately to ensure fresh data
 	});
 
 	// Helper to check if current user has signed a proposal
@@ -183,7 +162,9 @@ export function useProposalsQueries({
 	const getPendingTabCounts = () => {
 		const multisigDetails = multisigDetailsQuery.data;
 		const pendingProposals =
-			pendingProposalsQuery.data || [];
+			pendingProposalsQuery.data?.pages.flatMap(
+				(page) => page.data,
+			) ?? [];
 
 		if (
 			!multisigDetails?.members ||
@@ -235,10 +216,16 @@ export function useProposalsQueries({
 		};
 	};
 
+	// Flatten all loaded pages into a single array
+	const currentProposals: ProposalWithSignatures[] =
+		proposalsQuery.data?.pages.flatMap(
+			(page) => page.data,
+		) ?? [];
+
 	return {
 		// Queries
 		multisigDetails: multisigDetailsQuery.data,
-		proposals: proposalsQuery.data || [],
+		proposals: currentProposals,
 		isLoading:
 			proposalsQuery.isLoading ||
 			multisigDetailsQuery.isLoading,
@@ -247,9 +234,22 @@ export function useProposalsQueries({
 
 		// Filtered data
 		filteredProposals: getFilteredProposals(
-			proposalsQuery.data || [],
+			currentProposals,
 		),
 		pendingTabCounts: getPendingTabCounts(),
+
+		// Pagination (always return, LoadMoreButton checks hasNextPage)
+		pagination: {
+			hasNextPage: proposalsQuery.hasNextPage,
+			fetchNextPage: proposalsQuery.fetchNextPage,
+			isFetchingNextPage: proposalsQuery.isFetchingNextPage,
+			refetch: proposalsQuery.refetch,
+			isRefetching: proposalsQuery.isRefetching,
+		},
+
+		// Refresh (always available)
+		refetch: proposalsQuery.refetch,
+		isRefetching: proposalsQuery.isRefetching,
 
 		// Helpers
 		userHasSignedProposal,

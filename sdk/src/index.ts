@@ -1,4 +1,4 @@
-export { SagatClient } from './client.js';
+export { SagatClient, type Fetch } from './client.js';
 
 export { ProposalStatus } from './types.js';
 

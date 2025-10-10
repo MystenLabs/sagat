@@ -1,5 +1,5 @@
 import { type ProposalWithSignatures } from '@mysten/sagat';
-import { FileText, Plus } from 'lucide-react';
+import { FileText, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
@@ -14,83 +14,141 @@ import { useProposalsQueries } from '../../hooks/useProposalsQueries';
 import { ProposalCard } from '../proposals/ProposalCard';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
+import { SkeletonList } from '../ui/skeleton';
 
 interface ProposalsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
 	openProposalSheet: () => void;
 }
 
-export function ProposalsTab() {
-	const { multisig, openProposalSheet } =
-		useOutletContext<ProposalsTabContext>();
-	const { network } = useNetwork();
-	const [activeFilter, setActiveFilter] = useState<
-		| 'all'
-		| 'pending'
-		| 'waiting'
-		| 'ready'
-		| 'executed'
-		| 'cancelled'
-	>('all');
+type FilterType =
+	| 'all'
+	| 'pending'
+	| 'waiting'
+	| 'ready'
+	| 'executed'
+	| 'cancelled';
 
-	// Use the new hook to manage all queries and filtering
-	const {
-		filteredProposals,
-		pendingTabCounts,
-		isLoading,
-		error,
-	} = useProposalsQueries({
-		multisig,
-		network,
-		activeFilter,
-	});
+// Error State Component
+function ErrorState({ error }: { error: Error }) {
+	return (
+		<div className="text-center py-12">
+			<FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+			<h3 className="text-lg font-medium mb-2">
+				Failed to load proposals
+			</h3>
+			<p className="text-gray-600 mb-4">{error.message}</p>
+		</div>
+	);
+}
 
-	const filters = [
-		{ id: 'all', label: 'All' },
-		{
-			id: 'pending',
-			label: 'Pending Signature',
-			count: pendingTabCounts.pending,
-		},
-		{
-			id: 'waiting',
-			label: 'Waiting for Others',
-			count: pendingTabCounts.waiting,
-		},
-		{
-			id: 'ready',
-			label: 'Ready to Execute',
-			count: pendingTabCounts.ready,
-		},
-		{ id: 'executed', label: 'Executed' },
-		{ id: 'cancelled', label: 'Cancelled' },
-	];
-
-	if (isLoading) {
-		return (
-			<div className="text-center">
-				<div className="animate-pulse space-y-4">
-					<div className="h-8 bg-gray-200 rounded w-1/4 mx-auto"></div>
-					<div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
-				</div>
+// Filter Tabs Component
+function FilterTabs({
+	filters,
+	activeFilter,
+	onFilterChange,
+	onRefresh,
+	isRefreshCooldown,
+	isRefetching,
+}: {
+	filters: Array<{
+		id: string;
+		label: string;
+		count?: number;
+	}>;
+	activeFilter: FilterType;
+	onFilterChange: (filter: FilterType) => void;
+	onRefresh: () => void;
+	isRefreshCooldown: boolean;
+	isRefetching: boolean;
+}) {
+	return (
+		<div className="flex items-center justify-between gap-2 py-3">
+			<div className="flex gap-2 overflow-x-auto">
+				{filters.map((filter) => {
+					const isActive = activeFilter === filter.id;
+					return (
+						<button
+							key={filter.id}
+							onClick={() =>
+								onFilterChange(filter.id as FilterType)
+							}
+							className={`
+								px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0
+								${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}
+							`}
+						>
+							{filter.label}
+							{filter.count !== undefined &&
+								filter.count > 0 && (
+									<Label
+										variant={isActive ? 'info' : 'neutral'}
+										size="sm"
+										className="ml-2"
+									>
+										{filter.count}
+									</Label>
+								)}
+						</button>
+					);
+				})}
 			</div>
-		);
-	}
+			{/* Refresh button for all tabs */}
+			<Button
+				variant="ghost"
+				size="sm"
+				onClick={onRefresh}
+				disabled={isRefreshCooldown || isRefetching}
+				className="shrink-0"
+				title="Refresh proposals (5s cooldown)"
+			>
+				<RefreshCw
+					className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`}
+				/>
+			</Button>
+		</div>
+	);
+}
 
-	if (error) {
-		return (
-			<div className="text-center">
-				<FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-				<h3 className="text-lg font-medium mb-2">
-					Failed to load proposals
-				</h3>
-				<p className="text-gray-600 mb-4">
-					{(error as Error).message}
-				</p>
-			</div>
-		);
-	}
+// Empty State Component
+function EmptyState({
+	activeFilter,
+	filterLabel,
+	onCreateProposal,
+}: {
+	activeFilter: FilterType;
+	filterLabel?: string;
+	onCreateProposal: () => void;
+}) {
+	return (
+		<div className="text-center py-12">
+			<FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+			<h3 className="text-lg font-medium mb-2">
+				No proposals found
+			</h3>
+			<p className="text-gray-600 mb-4">
+				{activeFilter === 'all'
+					? 'Create your first proposal to get started'
+					: `No proposals in "${filterLabel}" state`}
+			</p>
+			{activeFilter === 'all' && (
+				<Button onClick={onCreateProposal} size="sm">
+					<Plus className="w-4 h-4 mr-1" />
+					Create Proposal
+				</Button>
+			)}
+		</div>
+	);
+}
 
+// Proposals List Component
+function ProposalsList({
+	proposals,
+	multisig,
+}: {
+	proposals: ProposalWithSignatures[];
+	multisig: MultisigWithMembersForPublicKey;
+}) {
 	const formatProposal = (
 		proposal: ProposalWithSignatures,
 	): ProposalCardInput => {
@@ -117,75 +175,161 @@ export function ProposalsTab() {
 	};
 
 	return (
+		<div className="space-y-4">
+			{proposals.map((proposal) => (
+				<ProposalCard
+					key={proposal.id}
+					proposal={formatProposal(proposal)}
+				/>
+			))}
+		</div>
+	);
+}
+
+// Load More Button Component
+function LoadMoreButton({
+	pagination,
+}: {
+	pagination?: {
+		hasNextPage: boolean;
+		fetchNextPage: () => void;
+		isFetchingNextPage: boolean;
+	};
+}) {
+	if (!pagination || !pagination.hasNextPage) {
+		return null;
+	}
+
+	return (
+		<div className="flex items-center justify-center py-4 border-t">
+			<Button
+				variant="outline"
+				size="sm"
+				onClick={() => pagination.fetchNextPage()}
+				disabled={pagination.isFetchingNextPage}
+			>
+				{pagination.isFetchingNextPage
+					? 'Loading...'
+					: 'Load More'}
+			</Button>
+		</div>
+	);
+}
+
+// Main Component
+export function ProposalsTab() {
+	const { multisig, openProposalSheet } =
+		useOutletContext<ProposalsTabContext>();
+	const { network } = useNetwork();
+	const [activeFilter, setActiveFilter] =
+		useState<FilterType>('all');
+	const [isRefreshCooldown, setIsRefreshCooldown] =
+		useState(false);
+
+	// Use the new hook to manage all queries and filtering
+	const {
+		filteredProposals,
+		pendingTabCounts,
+		isLoading,
+		error,
+		pagination,
+		refetch,
+		isRefetching,
+	} = useProposalsQueries({
+		multisig,
+		network,
+		activeFilter,
+	});
+
+	// Handle refresh with cooldown (5 seconds)
+	const handleRefresh = () => {
+		const currentlyRefetching =
+			pagination?.isRefetching || isRefetching;
+		if (isRefreshCooldown || currentlyRefetching) {
+			return;
+		}
+
+		setIsRefreshCooldown(true);
+
+		// Call appropriate refetch based on tab type
+		if (pagination) {
+			pagination.refetch();
+		} else if (refetch) {
+			refetch();
+		}
+
+		// Reset cooldown after 5 seconds
+		setTimeout(() => {
+			setIsRefreshCooldown(false);
+		}, 5000);
+	};
+
+	const filters = [
+		{ id: 'all', label: 'All' },
+		{
+			id: 'pending',
+			label: 'Pending Signature',
+			count: pendingTabCounts.pending,
+		},
+		{
+			id: 'waiting',
+			label: 'Waiting for Others',
+			count: pendingTabCounts.waiting,
+		},
+		{
+			id: 'ready',
+			label: 'Ready to Execute',
+			count: pendingTabCounts.ready,
+		},
+		{ id: 'executed', label: 'Executed' },
+		{ id: 'cancelled', label: 'Cancelled' },
+	];
+
+	return (
 		<div className="h-full flex flex-col px-3">
 			<div>
-				{/* Filter tabs */}
-				<div className="flex gap-2 overflow-x-auto py-3">
-					{filters.map((filter) => {
-						const isActive = activeFilter === filter.id;
-						return (
-							<button
-								key={filter.id}
-								onClick={() =>
-									setActiveFilter(
-										filter.id as typeof activeFilter,
-									)
-								}
-								className={`
-                  px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0
-                  ${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}
-                `}
-							>
-								{filter.label}
-								{/* Only show count for pending state tabs */}
-								{filter.count !== undefined &&
-									filter.count > 0 && (
-										<Label
-											variant={
-												isActive ? 'info' : 'neutral'
-											}
-											size="sm"
-											className="ml-2"
-										>
-											{filter.count}
-										</Label>
-									)}
-							</button>
-						);
-					})}
-				</div>
+				<FilterTabs
+					filters={filters}
+					activeFilter={activeFilter}
+					onFilterChange={setActiveFilter}
+					onRefresh={handleRefresh}
+					isRefreshCooldown={isRefreshCooldown}
+					isRefetching={
+						pagination?.isRefetching || isRefetching
+					}
+				/>
 			</div>
 
 			<div className="flex-1 overflow-y-auto mt-6">
-				{filteredProposals.length === 0 ? (
-					<div className="text-center py-12">
-						<FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-						<h3 className="text-lg font-medium mb-2">
-							No proposals found
-						</h3>
-						<p className="text-gray-600 mb-4">
-							{activeFilter === 'all'
-								? 'Create your first proposal to get started'
-								: `No proposals in "${filters.find((f) => f.id === activeFilter)?.label}" state`}
-						</p>
-						{activeFilter === 'all' && (
-							<Button onClick={openProposalSheet} size="sm">
-								<Plus className="w-4 h-4 mr-1" />
-								Create Proposal
-							</Button>
-						)}
-					</div>
+				{isLoading ||
+				pagination?.isRefetching ||
+				isRefetching ? (
+					<SkeletonList />
+				) : error ? (
+					<ErrorState error={error as Error} />
+				) : filteredProposals.length === 0 ? (
+					<EmptyState
+						activeFilter={activeFilter}
+						filterLabel={
+							filters.find((f) => f.id === activeFilter)
+								?.label
+						}
+						onCreateProposal={openProposalSheet}
+					/>
 				) : (
-					<div className="space-y-4">
-						{filteredProposals.map((proposal) => (
-							<ProposalCard
-								key={proposal.id}
-								proposal={formatProposal(proposal)}
-							/>
-						))}
-					</div>
+					<ProposalsList
+						proposals={filteredProposals}
+						multisig={multisig}
+					/>
 				)}
 			</div>
+
+			{!isLoading &&
+				!pagination?.isRefetching &&
+				!isRefetching &&
+				filteredProposals.length > 0 && (
+					<LoadMoreButton pagination={pagination} />
+				)}
 		</div>
 	);
 }
