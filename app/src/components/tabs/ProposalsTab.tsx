@@ -250,13 +250,7 @@ export function ProposalsTab() {
 		}
 
 		setIsRefreshCooldown(true);
-
-		// Call appropriate refetch based on tab type
-		if (pagination) {
-			pagination.refetch();
-		} else if (refetch) {
-			refetch();
-		}
+		pagination.refetch();
 
 		// Reset cooldown after 5 seconds
 		setTimeout(() => {
