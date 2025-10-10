@@ -244,13 +244,8 @@ export function useProposalsQueries({
 			fetchNextPage: proposalsQuery.fetchNextPage,
 			isFetchingNextPage: proposalsQuery.isFetchingNextPage,
 			refetch: proposalsQuery.refetch,
-			isRefetching: proposalsQuery.isRefetching,
 		},
-
-		// Refresh (always available)
-		refetch: proposalsQuery.refetch,
 		isRefetching: proposalsQuery.isRefetching,
-
 		// Helpers
 		userHasSignedProposal,
 	};

@@ -233,7 +233,6 @@ export function ProposalsTab() {
 		isLoading,
 		error,
 		pagination,
-		refetch,
 		isRefetching,
 	} = useProposalsQueries({
 		multisig,
@@ -243,9 +242,7 @@ export function ProposalsTab() {
 
 	// Handle refresh with cooldown (5 seconds)
 	const handleRefresh = () => {
-		const currentlyRefetching =
-			pagination?.isRefetching || isRefetching;
-		if (isRefreshCooldown || currentlyRefetching) {
+		if (isRefreshCooldown || isRefetching) {
 			return;
 		}
 
@@ -288,16 +285,12 @@ export function ProposalsTab() {
 					onFilterChange={setActiveFilter}
 					onRefresh={handleRefresh}
 					isRefreshCooldown={isRefreshCooldown}
-					isRefetching={
-						pagination?.isRefetching || isRefetching
-					}
+					isRefetching={isRefetching}
 				/>
 			</div>
 
 			<div className="flex-1 overflow-y-auto mt-6">
-				{isLoading ||
-				pagination?.isRefetching ||
-				isRefetching ? (
+				{isLoading || isRefetching ? (
 					<SkeletonList />
 				) : error ? (
 					<ErrorState error={error as Error} />
@@ -319,7 +312,6 @@ export function ProposalsTab() {
 			</div>
 
 			{!isLoading &&
-				!pagination?.isRefetching &&
 				!isRefetching &&
 				filteredProposals.length > 0 && (
 					<LoadMoreButton pagination={pagination} />
