@@ -1,9 +1,13 @@
 import { type DryRunTransactionBlockResponse } from '@mysten/sui/client';
-import { useState } from 'react';
+import { messageWithIntent } from '@mysten/sui/cryptography';
+import { fromBase64, toHex } from '@mysten/sui/utils';
+import { blake2b } from '@noble/hashes/blake2.js';
+import { useMemo, useState } from 'react';
 
 import { Label } from '@/components/ui/label';
 
 import { cn } from '../../lib/utils';
+import { Alert } from '../ui/Alert';
 import { Textarea } from '../ui/textarea';
 import { BalanceChanges } from './partials/BalanceChanges';
 import { Events } from './partials/Events';
@@ -13,14 +17,34 @@ import { Transactions } from './partials/Transactions';
 
 export function EffectsPreview({
 	output,
+	bytes,
 }: {
 	output: DryRunTransactionBlockResponse;
+	bytes?: string;
 }) {
 	const [activeTab, setActiveTab] = useState(
 		'balance-changes',
 	);
 
 	const { objectChanges, balanceChanges } = output;
+
+	// Compute the blake2b hash (ledger transaction hash)
+	const ledgerTransactionHash = useMemo(() => {
+		if (!bytes) return null;
+		// Decode the base64-encoded transaction bytes
+		const decodedBytes = fromBase64(bytes);
+		const intentMessage = messageWithIntent(
+			'TransactionData',
+			decodedBytes,
+		);
+		const intentMessageDigest = blake2b(intentMessage, {
+			dkLen: 32,
+		});
+		const intentMessageDigestHex = toHex(
+			intentMessageDigest,
+		);
+		return `0x${intentMessageDigestHex}`;
+	}, [bytes]);
 
 	const tabs = [
 		{
@@ -78,6 +102,28 @@ export function EffectsPreview({
 	return (
 		<div className="space-y-4">
 			<Overview output={output} />
+
+			{/* Ledger Hash */}
+			{ledgerTransactionHash && (
+				<div className="border rounded p-3 bg-gray-50">
+					<div className="flex items-center justify-between gap-2">
+						<span className="text-sm font-medium text-gray-700">
+							Ledger Hash:
+						</span>
+						<span className="font-mono text-xs break-all">
+							{ledgerTransactionHash}
+						</span>
+					</div>
+				</div>
+			)}
+
+			{/* Warning Alert */}
+			<Alert variant="warning">
+				<strong>Important:</strong> You should always
+				validate the transaction details in your wallet
+				before signing. Your wallet is the ultimate source
+				of truth for what you're approving.
+			</Alert>
 
 			{/* Tab Navigation */}
 			<div className="w-full">

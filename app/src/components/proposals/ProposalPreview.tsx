@@ -126,7 +126,10 @@ export function ProposalPreview({
 							: 'border-red-200 bg-white'
 					}`}
 				>
-					<EffectsPreview output={dryRunMutation.data} />
+					<EffectsPreview
+						output={dryRunMutation.data}
+						bytes={proposal.transactionBytes}
+					/>
 				</div>
 			)}
 

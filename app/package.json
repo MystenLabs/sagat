@@ -18,6 +18,7 @@
 		"@mysten/dapp-kit": "0.19.5",
 		"@mysten/sagat": "workspace:*",
 		"@mysten/sui": "^1.43.0",
+		"@noble/hashes": "^2.0.1",
 		"@radix-ui/react-accordion": "^1.2.12",
 		"@radix-ui/react-dialog": "^1.1.15",
 		"@radix-ui/react-slot": "^1.2.3",

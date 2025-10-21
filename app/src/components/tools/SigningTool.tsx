@@ -58,11 +58,13 @@ function PreviewResult({
 	data,
 	error,
 	isLoading,
+	bytes,
 }: {
 	isSuccess: boolean;
 	data: DryRunTransactionBlockResponse | undefined;
 	error: Error | null;
 	isLoading: boolean;
+	bytes?: string;
 }) {
 	if (isLoading) {
 		return (
@@ -103,7 +105,7 @@ function PreviewResult({
 				)}
 			</div>
 			{isSuccess && data ? (
-				<EffectsPreview output={data} />
+				<EffectsPreview output={data} bytes={bytes} />
 			) : (
 				<div className="space-y-3">
 					<p className="text-sm text-red-600 whitespace-pre-wrap">
@@ -295,6 +297,7 @@ export default function SigningTool() {
 							data={dryRunMutation.data}
 							error={dryRunMutation.error}
 							isLoading={dryRunMutation.isPending}
+							bytes={transactionData}
 						/>
 					)}
 

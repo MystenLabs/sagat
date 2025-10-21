@@ -237,6 +237,7 @@ export function ProposalSheet({
 							{isDryRunSuccessful ? (
 								<EffectsPreview
 									output={dryRunMutation.data}
+									bytes={transactionData}
 								/>
 							) : (
 								<p className="text-sm text-red-600">
