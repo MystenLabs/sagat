@@ -31,7 +31,6 @@ export function MultisigSelector({
 	const dropdownRef = useRef<HTMLDivElement>(null);
 
 	// Filter multisigs based on search query
-	// eslint-disable-next-line react-hooks/preserve-manual-memoization
 	const filteredMultisigs = useMemo(
 		() =>
 			multisigs.filter(
