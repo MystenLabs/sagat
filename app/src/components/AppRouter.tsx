@@ -16,6 +16,7 @@ import { InvitationsPage } from './InvitationsPage';
 import { MultisigDetailPage } from './MultisigDetailPage';
 import { ProposalDetailPage } from './ProposalDetailPage';
 import { SmartDashboard } from './SmartDashboard';
+import { ToolsPage } from './ToolsPage';
 import { AssetsTab } from './tabs/AssetsTab';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ProposalsTab } from './tabs/ProposalsTab';
@@ -31,6 +32,16 @@ interface RouteConfig {
 }
 
 const routes: RouteConfig[] = [
+	{
+		path: '/tools',
+		element: <ToolsPage />,
+		authLevel: 'public',
+	},
+	{
+		path: '/tools/signature-analyzer',
+		element: <ToolsPage />,
+		authLevel: 'public',
+	},
 	{
 		path: '/proposals',
 		element: <ProposalDetailPage />,
