@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSignTransaction } from '@mysten/dapp-kit';
+import {
+	useCurrentAccount,
+	useSignTransaction,
+} from '@mysten/dapp-kit';
 import { type DryRunTransactionBlockResponse } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import { AlertCircle, CheckCircle } from 'lucide-react';
@@ -161,17 +164,29 @@ function SignButton({
 	onSign: () => void;
 	isSigning: boolean;
 }) {
+	const currentAccount = useCurrentAccount();
 	return (
-		<div className="flex justify-end pt-4 border-t">
-			<Button
-				type="button"
-				onClick={onSign}
-				disabled={isSigning}
-				className="bg-blue-600 hover:bg-blue-700"
-			>
-				{isSigning ? 'Signing...' : 'Sign with Wallet'}
-			</Button>
-		</div>
+		<>
+			<div className="flex justify-end pt-4 border-t">
+				<Button
+					type="button"
+					onClick={onSign}
+					disabled={isSigning || !currentAccount}
+					className="bg-blue-600 hover:bg-blue-700"
+				>
+					{isSigning ? 'Signing...' : 'Sign with Wallet'}
+				</Button>
+			</div>
+
+			{!currentAccount && (
+				<Alert>
+					<span>
+						No wallet connected. Connect a wallet to sign
+						this transaction.
+					</span>
+				</Alert>
+			)}
+		</>
 	);
 }
 
