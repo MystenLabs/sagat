@@ -8,8 +8,6 @@ import {
 import { Check, Copy } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
-import { useNetwork } from '@/contexts/NetworkContext';
-
 import { ObjectLink } from '../ObjectLink';
 import { onChainAmountToFloat } from '../utils';
 
@@ -31,7 +29,6 @@ export function Overview({
 }: {
 	output: DryRunTransactionBlockResponse;
 }) {
-	const { network } = useNetwork();
 	const [copied, setCopied] = useState(false);
 
 	const copyToClipboard = (text: string) => {
@@ -62,7 +59,6 @@ export function Overview({
 				</button>
 			</div>
 		),
-		network,
 		status:
 			output.effects.status?.status === 'success'
 				? '✅ Transaction dry run executed succesfully!'

@@ -15,7 +15,7 @@ import { publicKeyFromRawBytes } from '@mysten/sui/verify';
 import { AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { CopyButton } from '@/components/ui/CopyButton';
+import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Textarea } from '@/components/ui/textarea';
 
 interface SignaturePubkeyPair {
@@ -53,37 +53,6 @@ function getKeyTypeFromFlag(flag: number): string {
 		default:
 			return `Unknown (${flag})`;
 	}
-}
-
-// Reusable field display component
-function FieldDisplay({
-	label,
-	value,
-	copyable = true,
-	copyMessage,
-}: {
-	label: string;
-	value: string | number;
-	copyable?: boolean;
-	copyMessage?: string;
-}) {
-	return (
-		<div className="space-y-1">
-			<div className="text-sm font-medium text-gray-700">
-				{label}
-			</div>
-			<div className="bg-gray-50 rounded-md text-sm font-mono p-3 break-all border flex items-center justify-between">
-				<span>{value}</span>
-				{copyable && typeof value === 'string' && (
-					<CopyButton
-						value={value}
-						successMessage={copyMessage}
-						size="sm"
-					/>
-				)}
-			</div>
-		</div>
-	);
 }
 /*
 MultiSig (v2)

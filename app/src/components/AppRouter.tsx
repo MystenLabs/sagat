@@ -8,6 +8,7 @@ import {
 	useLocation,
 } from 'react-router-dom';
 
+import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { AuthPrompt } from './AuthPrompt';
 import { CreateMultisigPage } from './CreateMultisigPage';
@@ -37,11 +38,12 @@ const routes: RouteConfig[] = [
 		element: <ToolsPage />,
 		authLevel: 'public',
 	},
-	{
-		path: '/tools/signature-analyzer',
+	// Dynamically generate routes for all tools
+	...TOOLS.map((tool) => ({
+		path: tool.path,
 		element: <ToolsPage />,
-		authLevel: 'public',
-	},
+		authLevel: 'public' as AuthLevel,
+	})),
 	{
 		path: '/proposals',
 		element: <ProposalDetailPage />,

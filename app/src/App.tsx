@@ -13,12 +13,15 @@ function AppContent() {
 	const { isTestMode } = useNetwork();
 	const hideHeaderOnPaths = ['/create'];
 	const hideBannerOnPaths = ['/create'];
+
+	// Hide banner on tools pages (public/offline pages)
 	const shouldHideHeader = hideHeaderOnPaths.includes(
 		location.pathname,
 	);
-	const shouldHideBanner = hideBannerOnPaths.includes(
-		location.pathname,
-	);
+	const shouldHideBanner =
+		hideBannerOnPaths.includes(location.pathname) ||
+		location.pathname.startsWith('/tools');
+
 	const showBanner = isTestMode && !shouldHideBanner;
 
 	return (
