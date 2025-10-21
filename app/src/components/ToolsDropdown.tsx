@@ -1,4 +1,8 @@
-import { ChevronDown, Wrench, FileText } from 'lucide-react';
+import {
+	ChevronDown,
+	FileText,
+	Wrench,
+} from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -18,15 +22,23 @@ interface ToolsDropdownProps {
 	onNavigate?: () => void;
 }
 
-export function ToolsDropdown({ mobile = false, onNavigate }: ToolsDropdownProps) {
+export function ToolsDropdown({
+	mobile = false,
+	onNavigate,
+}: ToolsDropdownProps) {
 	const location = useLocation();
-	const isToolsActive = location.pathname.startsWith('/tools');
+	const isToolsActive =
+		location.pathname.startsWith('/tools');
 
 	if (mobile) {
 		return (
 			<>
 				{tools.map((tool) => (
-					<Link key={tool.id} to={tool.path} onClick={onNavigate}>
+					<Link
+						key={tool.id}
+						to={tool.path}
+						onClick={onNavigate}
+					>
 						<Button
 							variant={
 								location.pathname === tool.path
@@ -56,7 +68,7 @@ export function ToolsDropdown({ mobile = false, onNavigate }: ToolsDropdownProps
 				Tools
 				<ChevronDown className="w-4 h-4" />
 			</Button>
-			
+
 			{/* Dropdown menu */}
 			<div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
 				<div className="p-2">

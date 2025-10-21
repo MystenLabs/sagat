@@ -1,8 +1,10 @@
+import { FileText } from 'lucide-react';
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+
 import { Tabs, type Tab } from '@/components/ui/tabs';
+
 import SignatureAnalyzer from './tools/SignatureAnalyzer';
-import { FileText } from 'lucide-react';
 
 type Tool = {
 	id: string;
@@ -17,7 +19,8 @@ const tools: Tool[] = [
 	{
 		id: 'signature-analyzer',
 		name: 'Signature Analyzer',
-		description: 'Analyze and decode Sui signatures, both for multisig and single signature schemes.',
+		description:
+			'Analyze and decode Sui signatures, both for multisig and single signature schemes.',
 		icon: <FileText className="w-3.5 h-3.5" />,
 		component: SignatureAnalyzer,
 		path: '/tools/signature-analyzer',
@@ -35,8 +38,12 @@ function ToolDetail({ tool }: { tool: Tool }) {
 					{tool.icon}
 				</div>
 				<div>
-					<h2 className="text-2xl font-bold">{tool.name}</h2>
-					<p className="text-gray-600 text-sm">{tool.description}</p>
+					<h2 className="text-2xl font-bold">
+						{tool.name}
+					</h2>
+					<p className="text-gray-600 text-sm">
+						{tool.description}
+					</p>
 				</div>
 			</div>
 
@@ -47,11 +54,17 @@ function ToolDetail({ tool }: { tool: Tool }) {
 	);
 }
 
-function ToolsNavigation({ currentPath, onNavigate }: { currentPath: string; onNavigate: (path: string) => void }) {
-	const tabs: Tab[] = tools.map(tool => ({
+function ToolsNavigation({
+	currentPath,
+	onNavigate,
+}: {
+	currentPath: string;
+	onNavigate: (path: string) => void;
+}) {
+	const tabs: Tab[] = tools.map((tool) => ({
 		id: tool.path,
 		label: tool.name,
-		icon: tool.icon
+		icon: tool.icon,
 	}));
 
 	return (
@@ -71,11 +84,16 @@ export function ToolsPage() {
 
 	// Detect active tool from URL path
 	const currentPath = location.pathname;
-	const selectedTool = tools.find(tool => tool.path === currentPath);
+	const selectedTool = tools.find(
+		(tool) => tool.path === currentPath,
+	);
 
 	// Redirect to first tool if on /tools or invalid path
 	useEffect(() => {
-		if (currentPath === '/tools' || (currentPath.startsWith('/tools') && !selectedTool)) {
+		if (
+			currentPath === '/tools' ||
+			(currentPath.startsWith('/tools') && !selectedTool)
+		) {
 			if (tools.length > 0) {
 				navigate(tools[0].path, { replace: true });
 			}
@@ -84,7 +102,6 @@ export function ToolsPage() {
 
 	// Don't render until we have a valid tool selected
 	if (!selectedTool) return null;
-	
 
 	return (
 		<div className="container mx-auto px-4 py-8">

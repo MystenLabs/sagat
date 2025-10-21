@@ -34,7 +34,10 @@ const NavigationLinks = ({
 	return (
 		<>
 			{/* Tools dropdown - always visible (public) */}
-			<ToolsDropdown mobile={mobile} onNavigate={onNavigate} />
+			<ToolsDropdown
+				mobile={mobile}
+				onNavigate={onNavigate}
+			/>
 
 			{currentAccount && isCurrentAddressAuthenticated && (
 				<>
