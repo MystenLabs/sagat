@@ -33,12 +33,12 @@ const NavigationLinks = ({
 
 	return (
 		<>
-			{/* Tools dropdown - always visible (public) */}
-			<ToolsDropdown
-				mobile={mobile}
-				onNavigate={onNavigate}
-			/>
-
+			{!mobile && (
+				<ToolsDropdown
+					mobile={false}
+					onNavigate={onNavigate}
+				/>
+			)}
 			{currentAccount && isCurrentAddressAuthenticated && (
 				<>
 					{/* Invitations button */}
@@ -83,6 +83,17 @@ const NavigationLinks = ({
 							Create Multisig
 						</Button>
 					</Link>
+				</>
+			)}
+			{mobile && (
+				<>
+					<p className="text-sm text-gray-500 font-medium px-2">
+						Tools
+					</p>
+					<ToolsDropdown
+						mobile={true}
+						onNavigate={onNavigate}
+					/>
 				</>
 			)}
 		</>
