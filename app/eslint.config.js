@@ -81,12 +81,13 @@ export default [
 				{ number: true, string: true, boolean: false },
 			],
 			'header/header': [
-				'error',
+				2,
 				'line',
 				[
 					' Copyright (c) Mysten Labs, Inc.',
 					' SPDX-License-Identifier: Apache-2.0',
 				],
+				2,
 			],
 		},
 	},
