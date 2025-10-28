@@ -1,9 +1,12 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { PersonalMessages } from '@mysten/sagat';
-import { PublicKey } from '@mysten/sui/cryptography';
+import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { isValidSuiAddress } from '@mysten/sui/utils';
 import { and, eq } from 'drizzle-orm';
-import { Context, Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -24,9 +27,9 @@ import {
 	validatePersonalMessage,
 } from '../services/addresses.service';
 import {
-	AuthEnv,
 	authMiddleware,
 	validateExpiry,
+	type AuthEnv,
 } from '../services/auth.service';
 import {
 	getMultisig,

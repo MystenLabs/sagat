@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { ProposalStatus } from '@mysten/sagat';
 import { useInfiniteQuery } from '@tanstack/react-query';
 

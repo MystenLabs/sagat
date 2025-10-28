@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 export const LIMITS = {
 	/** how many multisigs a public key can be part of. */
 	maxMultisigsPerPublicKey: 50,

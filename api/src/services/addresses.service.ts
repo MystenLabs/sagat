@@ -1,9 +1,12 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { type PublicKey } from '@mysten/sui/cryptography';
 
 import { db } from '../db';
 import {
-	MultisigWithMembers,
 	SchemaAddresses,
+	type MultisigWithMembers,
 } from '../db/schema';
 import { CommonError } from '../errors';
 import { MultisigDataLoader } from '../loaders/multisig.loader';

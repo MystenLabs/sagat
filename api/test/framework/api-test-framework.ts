@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import {
 	defaultExpiry,
 	PersonalMessages,
@@ -8,7 +11,7 @@ import {
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
-import { Hono } from 'hono';
+import { type Hono } from 'hono';
 
 import {
 	fundAddress,
@@ -16,7 +19,7 @@ import {
 } from '../setup/sui-network';
 import {
 	createCookieFetch,
-	FetchLike,
+	type FetchLike,
 } from './cookie-fetch';
 
 const client = getLocalClient();
@@ -240,7 +243,7 @@ export class TestSession {
 		cursor?: { nextCursor?: number; perPage?: number };
 	}) {
 		// Convert status string to ProposalStatus enum if provided
-		let statusEnum: any = undefined;
+		let statusEnum: ProposalStatus | undefined;
 		if (status) {
 			statusEnum =
 				ProposalStatus[
@@ -338,8 +341,7 @@ export class TestSession {
 			return this.users.filter((user) =>
 				publicKeysFromJWT.includes(user.publicKey),
 			);
-		} catch (error) {
-			console.warn('Failed to decode JWT:', error);
+		} catch {
 			return [];
 		}
 	}

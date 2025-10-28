@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
@@ -19,6 +22,7 @@ const app = new Hono();
 // Apply metrics middleware to all routes
 app.use('*', metricsMiddleware);
 
+// eslint-disable-next-line no-console
 console.log(
 	`Using RPC URLs: ${SUPPORTED_NETWORKS.map((n) => SUI_RPC_URL[n]).join(', ')}`,
 );

@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { LIMITS } from '../constants/limits';
 
 export type PaginationCursor = {
@@ -29,7 +32,9 @@ export const newCursor = ({
 	nextCursor,
 	perPage,
 }: {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	nextCursor?: any;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	perPage?: any;
 }): PaginationCursor => {
 	return {

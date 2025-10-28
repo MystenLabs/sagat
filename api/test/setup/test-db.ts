@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
@@ -48,6 +51,7 @@ export async function teardownTestDatabase(
 	await adminPool.end();
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function clearTestData(db: any) {
 	await db.delete(schema.SchemaMultisigProposers);
 	await db.delete(schema.SchemaProposalSignatures);

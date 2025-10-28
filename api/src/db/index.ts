@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 
@@ -48,6 +51,7 @@ updatePoolMetrics();
 
 // Handle pool errors
 pool.on('error', (err) => {
+	// eslint-disable-next-line no-console
 	console.error('Unexpected error on idle client', err);
 	dbQueryErrors.inc({
 		operation: 'pool',

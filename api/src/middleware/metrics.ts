@@ -1,4 +1,7 @@
-import { Context, Next } from 'hono';
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { type Context, type Next } from 'hono';
 import { routePath } from 'hono/route';
 
 import {

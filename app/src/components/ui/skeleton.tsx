@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { cn } from '@/lib/utils';
 
 type SkeletonProps = React.HTMLAttributes<HTMLDivElement>;

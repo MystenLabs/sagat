@@ -1,11 +1,14 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { and, eq, inArray } from 'drizzle-orm';
-import { Context, Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 
 import { db } from '../db';
 import {
-	MultisigWithMembers,
 	SchemaAddresses,
 	SchemaMultisigMembers,
+	type MultisigWithMembers,
 } from '../db/schema';
 import { ValidationError } from '../errors';
 import {
@@ -13,8 +16,8 @@ import {
 	registerPublicKeys,
 } from '../services/addresses.service';
 import {
-	AuthEnv,
 	authMiddleware,
+	type AuthEnv,
 } from '../services/auth.service';
 import { parsePublicKey } from '../utils/pubKey';
 
@@ -39,6 +42,7 @@ addressesRouter.post(
 				try {
 					return parsePublicKey(keyStr);
 				} catch (error) {
+					// eslint-disable-next-line no-console
 					console.warn(
 						'Failed to parse public key:',
 						keyStr,

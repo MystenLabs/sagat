@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useSignPersonalMessage } from '@mysten/dapp-kit';
 import { PersonalMessages } from '@mysten/sagat';
 import {

@@ -1,18 +1,15 @@
-/**
- * Data loader should be used whenever we query for a multisig data.
- * It returns a `MultisigWithMember` for each result requested.
- *
- * It is batching requests 100 at a time, or 100ms (whichever is faster!).
- */
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import DataLoader from 'dataloader';
 import { asc, inArray } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
-	MultisigWithMembers,
 	SchemaMultisigMembers,
 	SchemaMultisigProposers,
 	SchemaMultisigs,
+	type MultisigWithMembers,
 } from '../db/schema';
 
 const SCHEDULER_INTERVAL = 100; // 100ms query intervals. We group groups by either 100ms or 100

@@ -1,7 +1,10 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { getFullnodeUrl } from '@mysten/sui/client';
 
 import { ValidationError } from '../errors';
-import { SuiNetwork } from '../utils/client';
+import { type SuiNetwork } from '../utils/client';
 
 const jwtSecret = process.env.JWT_SECRET;
 const supportedNetworks =

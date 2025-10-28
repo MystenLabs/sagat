@@ -1,21 +1,27 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
 	ProposalStatus,
-	ProposalWithSignatures,
 	SchemaProposals,
 	SchemaProposalSignatures,
+	type ProposalWithSignatures,
 } from '../db/schema';
 import { ValidationError } from '../errors';
 import {
 	MultisigEventType,
 	multisigProposalEvents,
 } from '../metrics';
-import { getSuiClient, SuiNetwork } from '../utils/client';
+import {
+	getSuiClient,
+	type SuiNetwork,
+} from '../utils/client';
 import {
 	paginateResponse,
-	PaginationCursor,
+	type PaginationCursor,
 } from '../utils/pagination';
 import { getMultisig } from './multisig.service';
 

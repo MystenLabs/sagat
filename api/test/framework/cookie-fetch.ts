@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 class ConnectedWalletCookieJar {
 	private cookies = new Map<string, string>();
 	storeFromResponse(res: Response) {

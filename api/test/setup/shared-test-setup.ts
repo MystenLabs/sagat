@@ -1,5 +1,9 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+/* eslint-disable no-console */
 import { afterAll, beforeAll, mock } from 'bun:test';
-import { Hono } from 'hono';
+import { type Hono } from 'hono';
 import type { Pool } from 'pg';
 
 import * as env from '../../src/db/env';

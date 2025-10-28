@@ -1,11 +1,14 @@
-import { Context, Hono } from 'hono';
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { Hono, type Context } from 'hono';
 
 import {
-	AuthEnv,
 	authMiddleware,
 	connectForScript,
 	connectToPublicKey,
 	disconnect,
+	type AuthEnv,
 } from '../services/auth.service';
 
 const authRouter = new Hono();

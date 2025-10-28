@@ -1,4 +1,7 @@
-import { PublicKey } from '@mysten/sui/cryptography';
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
 import { and, eq, inArray } from 'drizzle-orm';
 
@@ -12,7 +15,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { MultisigDataLoader } from '../loaders/multisig.loader';
 import {
 	queryAllOwnedObjects,
-	SuiNetwork,
+	type SuiNetwork,
 } from '../utils/client';
 
 // Returns the multisig with its members.
@@ -78,6 +81,7 @@ export const validateQuorum = async (
 // Returns true if the multisig is finalized (all members have accepted the invitation).
 export const isMultisigFinalized = async (
 	address: string,
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	tx?: any,
 ) => {
 	const query = tx ? tx.query : db.query;

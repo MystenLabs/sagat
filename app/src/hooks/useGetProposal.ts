@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { isValidTransactionDigest } from '@mysten/sui/utils';
 import { useQuery } from '@tanstack/react-query';
 

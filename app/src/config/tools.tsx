@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { FileText, PenLine } from 'lucide-react';
 
 import SignatureAnalyzer from '@/components/tools/SignatureAnalyzer';

@@ -1,6 +1,9 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { PersonalMessages } from '@mysten/sagat';
-import { PublicKey } from '@mysten/sui/cryptography';
-import { Context } from 'hono';
+import { type PublicKey } from '@mysten/sui/cryptography';
+import { type Context } from 'hono';
 import {
 	deleteCookie,
 	getCookie,
@@ -103,7 +106,7 @@ export const connectToPublicKey = async (c: Context) => {
 					'cookie',
 				);
 				pubKeys.push(...(publicKeys || []));
-			} catch (err) {
+			} catch {
 				// JWT is invalid or expired, start fresh
 				isNewToken = true;
 			}
@@ -176,7 +179,7 @@ export const connectToPublicKey = async (c: Context) => {
 		}
 
 		return c.json({ success: true });
-	} catch (error) {
+	} catch {
 		authAttempts.inc({ status: 'failed' });
 		return c.json({ error: 'Authentication failed' }, 500);
 	}
@@ -224,7 +227,7 @@ export const authMiddleware = async (
 
 		c.set('publicKeys', keys);
 		return await next();
-	} catch (err) {
+	} catch {
 		return c.text('Unauthorized', 401);
 	}
 };

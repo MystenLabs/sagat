@@ -1,6 +1,9 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { SuiHTTPTransportError } from '@mysten/sui/client';
 import { DrizzleQueryError } from 'drizzle-orm';
-import { Context } from 'hono';
+import { type Context } from 'hono';
 
 export class NotFoundError extends Error {}
 
@@ -66,6 +69,7 @@ export const appErrorHandler = (err: Error, c: Context) => {
 			404,
 		);
 
+	// eslint-disable-next-line no-console
 	console.error('Unhandled error:', err);
 	return c.json({ error: 'Internal Server Error' }, 500);
 };

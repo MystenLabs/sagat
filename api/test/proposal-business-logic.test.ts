@@ -1,4 +1,10 @@
-import { Proposal, ProposalStatus } from '@mysten/sagat';
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import {
+	ProposalStatus,
+	type Proposal,
+} from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	beforeEach,
@@ -11,7 +17,7 @@ import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
 	newUser,
-	TestSession,
+	type TestSession,
 } from './framework/api-test-framework';
 import {
 	createTestApp,

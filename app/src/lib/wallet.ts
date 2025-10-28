@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import {
 	SIGNATURE_SCHEME_TO_FLAG,
 	SIGNATURE_SCHEME_TO_SIZE,

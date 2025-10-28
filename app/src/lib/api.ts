@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { SagatClient } from '@mysten/sagat';
 
 const API_BASE_URL =

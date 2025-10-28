@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import {
 	CheckCircle,
 	Lock,
@@ -101,7 +104,7 @@ export function OnboardingView() {
 				</h2>
 				<div className="space-y-4">
 					<div className="flex items-start">
-						<div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
 							1
 						</div>
 						<div className="ml-4">
@@ -116,7 +119,7 @@ export function OnboardingView() {
 					</div>
 
 					<div className="flex items-start">
-						<div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
 							2
 						</div>
 						<div className="ml-4">
@@ -131,7 +134,7 @@ export function OnboardingView() {
 					</div>
 
 					<div className="flex items-start">
-						<div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
 							3
 						</div>
 						<div className="ml-4">
@@ -145,7 +148,7 @@ export function OnboardingView() {
 					</div>
 
 					<div className="flex items-start">
-						<div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
 							4
 						</div>
 						<div className="ml-4">

@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { useCurrentAccount } from '@mysten/dapp-kit';
 import { Mail, Menu, Plus } from 'lucide-react';
 import { useState } from 'react';

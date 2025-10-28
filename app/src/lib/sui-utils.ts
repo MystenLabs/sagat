@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 
 import { extractPublicKeyFromBase64 } from './wallet';

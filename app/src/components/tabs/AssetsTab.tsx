@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { Coins, ExternalLink } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 

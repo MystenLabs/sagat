@@ -1,15 +1,24 @@
 {
 	"name": "sagat-monorepo",
+	"type": "module",
+	"devDependencies": {
+		"@eslint/compat": "^1.4.0",
+		"@ianvs/prettier-plugin-sort-imports": "^4.7.0",
+		"@tony.ganchev/eslint-plugin-header": "^3.1.8",
+		"@typescript-eslint/eslint-plugin": "^8.46.2",
+		"@typescript-eslint/parser": "^8.46.2",
+		"concurrently": "^9.2.1",
+		"eslint": "^9.38.0",
+		"eslint-plugin-header": "^3.1.1",
+		"globals": "^16.4.0",
+		"prettier": "^3.6.2"
+	},
 	"private": true,
-	"workspaces": [
-		"app",
-		"api",
-		"sdk"
-	],
 	"scripts": {
 		"fmt": "prettier --write .",
 		"fmt:check": "prettier --check .",
-		"lint": "cd app && bun run lint",
+		"lint": "eslint . --ext ts,tsx --max-warnings 0 && cd app && eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+		"lint:fix": "eslint . --ext ts,tsx --fix --max-warnings 0 && cd app && eslint . --ext ts,tsx --fix --report-unused-disable-directives --max-warnings 0",
 		"typecheck": "cd sdk && bun run typecheck",
 		"test": "cd api && bun test:e2e",
 		"dev:sdk": "cd sdk && bun run dev",
@@ -22,9 +31,9 @@
 		"build:app": "cd app && bun run build",
 		"build": "bun run build:sdk && concurrently \"bun run build:api\" \"bun run build:app\""
 	},
-	"devDependencies": {
-		"@ianvs/prettier-plugin-sort-imports": "^4.7.0",
-		"concurrently": "^9.2.1",
-		"prettier": "^3.6.2"
-	}
+	"workspaces": [
+		"app",
+		"api",
+		"sdk"
+	]
 }

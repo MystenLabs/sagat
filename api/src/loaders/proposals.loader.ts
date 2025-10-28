@@ -1,11 +1,14 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import DataLoader from 'dataloader';
 import { inArray } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
-	ProposalWithSignatures,
 	SchemaProposals,
 	SchemaProposalSignatures,
+	type ProposalWithSignatures,
 } from '../db/schema';
 
 const Settings = {

@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import { Check, Copy } from 'lucide-react';
 
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';

@@ -1,6 +1,9 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import {
 	SuiClient,
-	SuiObjectData,
+	type SuiObjectData,
 } from '@mysten/sui/client';
 
 import { SUI_RPC_URL } from '../db/env';

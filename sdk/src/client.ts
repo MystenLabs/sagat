@@ -1,7 +1,8 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import {
 	ProposalStatus,
-	PublicProposal,
-	VoteProposalResponse,
 	type Address,
 	type AuthCheckResponse,
 	type AuthResponse,
@@ -13,8 +14,10 @@ import {
 	type PaginatedResponse,
 	type Proposal,
 	type ProposalWithSignatures,
+	type PublicProposal,
 	type SignedMessageRequest,
 	type VoteProposalRequest,
+	type VoteProposalResponse,
 } from './types.js';
 
 export type Fetch = (

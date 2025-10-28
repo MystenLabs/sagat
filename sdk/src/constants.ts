@@ -1,4 +1,6 @@
-// A list of personal messages being singed to authorize different actions in the system.
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 export const PersonalMessages = {
 	connect: (expiry: string) =>
 		`Verifying address ownership until: ${expiry}`,
