@@ -19,6 +19,31 @@ import {
 	type IotaNetwork,
 } from '../utils/client';
 
+// TODO: replace with method from the SDK once available (https://github.com/MystenLabs/ts-sdks/blob/d8689071f88e27eada3ef88224fff39a85cd5a07/packages/typescript/src/transactions/Transaction.ts#L715)
+// Utility function to check if a transaction is fully resolved
+const isFullyResolved = (tx: Transaction) => {
+	const data = tx.getData();
+
+	// The transaction sender has been set
+	if (!data.sender) {
+		return false;
+	}
+
+	// The gas payment, budget, and price have been set
+	if (!data.gasData || !data.gasData.budget || !data.gasData.price || !data.gasData.payment) {
+		return false;
+	}
+
+	// For other checks (objects resolved, pure inputs serialized, async thunks resolved, transaction intents resolved),
+	// we use build() as a proxy since it will fail if not resolved
+	try {
+		tx.build();
+		return true;
+	} catch {
+		return false;
+	}
+};
+
 // Returns the multisig with its members.
 export const getMultisig = async (address: string) => {
 	const multisig = await MultisigDataLoader.load(address);
@@ -209,7 +234,7 @@ export const validateProposedTransaction = async (
 	}
 
 	// Make sure the transaction is fully resolved. We do not currently allow unresolved txs.
-	if (!proposedTransaction.isFullyResolved()) {
+	if (!isFullyResolved(proposedTransaction)) {
 		throw new ValidationError(
 			'The transaction is not fully resolved.',
 		);

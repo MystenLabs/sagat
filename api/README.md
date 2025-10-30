@@ -13,6 +13,7 @@ bun run dev
 To test:
 
 ```sh
+cp .env.test .env
 bun test:e2e
 ```
 

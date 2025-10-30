@@ -24,9 +24,10 @@ const getOwnerDisplay = (
 	if ('Shared' in owner) return 'Shared';
 	if ('AddressOwner' in owner)
 		return { address: owner.AddressOwner };
-	if ('ObjectOwner' in owner)
+	// if ('ObjectOwner' in owner)
 		return { object: owner.ObjectOwner };
-	return { object: owner.ConsensusAddressOwner.owner };
+	// TODO: ConsensusAddressOwner doesn't exist yet in the SDK
+	// return { object: owner.ConsensusAddressOwner.owner };
 };
 
 export function ObjectLink({

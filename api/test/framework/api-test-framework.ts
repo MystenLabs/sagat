@@ -177,9 +177,9 @@ export class TestSession {
 			});
 		}
 		// use the first user's gas to send a few iota to the multisig.
-		const result = await keypair.signAndExecuteTransaction({
+		const result = await client.signAndExecuteTransaction({
 			transaction: tx,
-			client,
+			signer: keypair,
 		});
 
 		await client.waitForTransaction({
