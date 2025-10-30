@@ -32,7 +32,7 @@ export const getDefaultSagatApiUrl = (
 	mode: 'live' | 'local',
 ) => {
 	return mode === 'live'
-		? 'https://api.sagat.mystenlabs.com'
+		? 'https://sagat.iota.org'
 		: 'http://localhost:3000';
 };
 
