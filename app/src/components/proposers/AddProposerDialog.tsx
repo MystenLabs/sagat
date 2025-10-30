@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { isValidSuiAddress } from '@iota/iota-sdk/utils';
+import { isValidIotaAddress } from '@iota/iota-sdk/utils';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
@@ -50,9 +50,9 @@ export function AddProposerDialog({
 			return;
 		}
 
-		if (!isValidSuiAddress(proposerAddress)) {
+		if (!isValidIotaAddress(proposerAddress)) {
 			setValidationError(
-				'Please enter a valid Sui address',
+				'Please enter a valid IOTA address',
 			);
 			return;
 		}

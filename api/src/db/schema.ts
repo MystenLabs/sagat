@@ -67,7 +67,7 @@ const multisigMembers = pgTable(
 		multisigAddress: text('multisig_address')
 			.notNull()
 			.references(() => multisigs.address),
-		// The public key of the member. This is always a `sui` public key (includes flag!)
+		// The public key of the member. This is always a `iota` public key (includes flag!)
 		publicKey: text('public_key')
 			.notNull()
 			.references(() => addresses.publicKey),
@@ -103,7 +103,7 @@ const multisigMembers = pgTable(
 const addresses = pgTable(
 	'addresses',
 	{
-		// The public key of the address. This is always a `sui` public key (includes flag!)
+		// The public key of the address. This is always a `iota` public key (includes flag!)
 		publicKey: text('public_key').notNull().primaryKey(),
 		address: text('address').notNull().unique(),
 	},

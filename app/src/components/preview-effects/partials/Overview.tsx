@@ -76,7 +76,7 @@ export function Overview({
 			</span>
 		),
 		epoch: output.effects.executedEpoch,
-		gas: calculateGas(output.effects.gasUsed) + ' SUI',
+		gas: calculateGas(output.effects.gasUsed) + ' IOTA',
 	};
 
 	return (

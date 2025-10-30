@@ -2,18 +2,18 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClientContext } from '@iota/dapp-kit';
+import { useIotaClientContext } from '@iota/dapp-kit';
 
-export type SuiNetwork = 'testnet' | 'mainnet';
+export type IotaNetwork = 'testnet' | 'mainnet';
 
 export function useNetwork() {
-	const clientCtx = useSuiClientContext();
+	const clientCtx = useIotaClientContext();
 
 	return {
-		network: clientCtx.network as SuiNetwork,
-		setNetwork: (network: SuiNetwork) => {
+		network: clientCtx.network as IotaNetwork,
+		setNetwork: (network: IotaNetwork) => {
 			clientCtx.selectNetwork(network);
-			localStorage.setItem('suiNetwork', network);
+			localStorage.setItem('iotaNetwork', network);
 		},
 		isTestMode: clientCtx.network === 'testnet',
 	};

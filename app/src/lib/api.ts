@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { SagatClient } from '@mysten/sagat';
+import { SagatClient } from '@iotaledger/sagat';
 
 const API_BASE_URL =
 	import.meta.env.VITE_API_URL || 'http://localhost:3000';

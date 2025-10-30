@@ -6,7 +6,7 @@ import { Transaction } from '@iota/iota-sdk/transactions';
 import {
 	ProposalStatus,
 	type Proposal,
-} from '@mysten/sagat';
+} from '@iotaledger/sagat';
 import {
 	beforeEach,
 	describe,
@@ -24,7 +24,7 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { getLocalClient } from './setup/sui-network';
+import { getLocalClient } from './setup/iota-network';
 
 const client = getLocalClient();
 
@@ -462,7 +462,7 @@ describe('Proposal Business Logic', () => {
 
 			expect(proposalWithSigs.signatures.length).toBe(1);
 			expect(proposalWithSigs.signatures[0].publicKey).toBe(
-				users[0].keypair.getPublicKey().toSuiPublicKey(),
+				users[0].keypair.getPublicKey().toIotaPublicKey(),
 			);
 			expect(
 				proposalWithSigs.signatures[0].signature,

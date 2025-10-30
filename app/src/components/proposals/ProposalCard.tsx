@@ -10,7 +10,7 @@ import {
 import {
 	ProposalStatus,
 	type ProposalWithSignatures,
-} from '@mysten/sagat';
+} from '@iotaledger/sagat';
 import {
 	CheckCircle,
 	ChevronDown,
@@ -29,7 +29,7 @@ import { useCancelProposal } from '../../hooks/useCancelProposal';
 import { useExecuteProposal } from '../../hooks/useExecuteProposal';
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { useVerifyProposal } from '../../hooks/useVerifyProposal';
-import { validatePublicKey } from '../../lib/sui-utils';
+import { validatePublicKey } from '../../lib/iota-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button } from '../ui/button';
 import { CopyButton } from '../ui/copy-button';
@@ -95,7 +95,7 @@ export function ProposalCard({
 			(sig) =>
 				extractPublicKeyFromBase64(
 					sig.publicKey,
-				).toSuiAddress() === currentWallet?.address,
+				).toIotaAddress() === currentWallet?.address,
 		);
 	};
 
@@ -127,8 +127,8 @@ export function ProposalCard({
 
 	const getExplorerUrl = (digest: string) => {
 		return network === 'testnet'
-			? `https://suiscan.xyz/testnet/tx/${digest}`
-			: `https://suiscan.xyz/mainnet/tx/${digest}`;
+			? `https://iotascan.xyz/testnet/tx/${digest}`
+			: `https://iotascan.xyz/mainnet/tx/${digest}`;
 	};
 
 	const isExternalProposer = () => {

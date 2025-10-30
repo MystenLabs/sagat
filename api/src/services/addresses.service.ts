@@ -14,7 +14,7 @@ import { MultisigDataLoader } from '../loaders/multisig.loader';
 import { parsePublicKey } from '../utils/pubKey';
 
 // Takes a pub key, a signature, and a message, and validates it.
-// Returns the Sui address if valid, or null if not.
+// Returns the IOTA address if valid, or null if not.
 export const validatePersonalMessage = async (
 	publicKey: PublicKey,
 	signature: string,
@@ -37,8 +37,8 @@ export async function registerPublicKey(
 	await db
 		.insert(SchemaAddresses)
 		.values({
-			publicKey: publicKey.toSuiPublicKey(),
-			address: publicKey.toSuiAddress(),
+			publicKey: publicKey.toIotaPublicKey(),
+			address: publicKey.toIotaAddress(),
 		})
 		.onConflictDoNothing();
 }
@@ -52,8 +52,8 @@ export async function registerPublicKeys(
 	if (publicKeys.length === 0) return;
 
 	const addressData = publicKeys.map((pubKey) => ({
-		publicKey: pubKey.toSuiPublicKey(),
-		address: pubKey.toSuiAddress(),
+		publicKey: pubKey.toIotaPublicKey(),
+		address: pubKey.toIotaAddress(),
 	}));
 
 	await db

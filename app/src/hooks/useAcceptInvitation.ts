@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useSignPersonalMessage } from '@iota/dapp-kit';
-import { PersonalMessages } from '@mysten/sagat';
+import { PersonalMessages } from '@iotaledger/sagat';
 import {
 	useMutation,
 	useQueryClient,

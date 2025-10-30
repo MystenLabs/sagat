@@ -2,12 +2,12 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClient } from '@iota/dapp-kit';
+import { useIotaClient } from '@iota/dapp-kit';
 import { Transaction } from '@iota/iota-sdk/transactions';
 import { useMutation } from '@tanstack/react-query';
 
 export function useDryRun() {
-	const client = useSuiClient();
+	const client = useIotaClient();
 
 	return useMutation({
 		mutationFn: async (transactionData: string) => {

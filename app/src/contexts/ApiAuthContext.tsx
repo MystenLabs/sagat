@@ -11,7 +11,7 @@ import {
 	PersonalMessages,
 	type Address,
 	type AuthCheckResponse,
-} from '@mysten/sagat';
+} from '@iotaledger/sagat';
 import {
 	useMutation,
 	useQuery,

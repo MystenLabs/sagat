@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
-import { validatePublicKey } from '../../lib/sui-utils';
+import { validatePublicKey } from '../../lib/iota-utils';
 import type { Member } from '../../lib/validations/multisig';
 import { AddressLookupModal } from '../modals/AddressLookupModal';
 import { Button } from '../ui/button';

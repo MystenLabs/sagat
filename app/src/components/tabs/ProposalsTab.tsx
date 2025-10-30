@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ProposalWithSignatures } from '@mysten/sagat';
+import { type ProposalWithSignatures } from '@iotaledger/sagat';
 import { FileText, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';

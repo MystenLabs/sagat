@@ -22,8 +22,8 @@ export const TOOLS: Tool[] = [
 		id: 'signature-analyzer',
 		name: 'Signature Analyzer',
 		description:
-			'Analyze and decode Sui signatures, both for multisig and single signature schemes.',
-		headerDescription: 'Analyze and decode Sui signatures',
+			'Analyze and decode IOTA signatures, both for multisig and single signature schemes.',
+		headerDescription: 'Analyze and decode IOTA signatures',
 		icon: <FileText className="w-3.5 h-3.5" />,
 		component: SignatureAnalyzer,
 		path: '/tools/signature-analyzer',
@@ -32,7 +32,7 @@ export const TOOLS: Tool[] = [
 		id: 'sign',
 		name: 'Transaction Signer',
 		description:
-			'Preview and sign Sui transactions with your connected wallet.',
+			'Preview and sign IOTA transactions with your connected wallet.',
 		headerDescription: 'Preview and sign',
 		icon: <PenLine className="w-3.5 h-3.5" />,
 		component: SigningTool,

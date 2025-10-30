@@ -104,7 +104,7 @@ export function OverviewTab() {
 						className="w-full sm:w-auto"
 					>
 						<ExternalLink className="w-4 h-4 mr-2" />
-						View on Sui Explorer
+						View on IOTA Explorer
 					</Button>
 				</div>
 			</div>

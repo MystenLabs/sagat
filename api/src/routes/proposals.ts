@@ -10,7 +10,7 @@ import {
 import {
 	PersonalMessages,
 	type PublicProposal,
-} from '@mysten/sagat';
+} from '@iotaledger/sagat';
 import { eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 
@@ -49,7 +49,7 @@ import {
 	getProposalsByMultisigAddress,
 	lookupAndVerifyProposal,
 } from '../services/proposals.service';
-import { getSuiClient } from '../utils/client';
+import { getIotaClient } from '../utils/client';
 import { newCursor } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 
@@ -67,19 +67,19 @@ proposalsRouter.post('/', async (c) => {
 
 	validateNetwork(network);
 
-	// Get the public key out of the sui signature.
+	// Get the public key out of the iota signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
 	const multisig = await getMultisig(multisigAddress);
 
 	const isMember = multisig.members.some(
 		(member) =>
-			member.publicKey === pubKey.toSuiPublicKey() &&
+			member.publicKey === pubKey.toIotaPublicKey() &&
 			member.isAccepted,
 	);
 	const isProposer = multisig.proposers.some(
 		(proposer) =>
-			proposer.address === pubKey.toSuiAddress(),
+			proposer.address === pubKey.toIotaAddress(),
 	);
 
 	if (!isMember && !isProposer)
@@ -101,16 +101,16 @@ proposalsRouter.post('/', async (c) => {
 
 	// Build the transaction to verify the supplied user signature
 	const built = await proposedTransaction.build({
-		client: getSuiClient(network),
+		client: getIotaClient(network),
 	});
 
 	// Verify the supplied user signature.
-	const isValidSuiSignature =
+	const isValidIotaSignature =
 		await pubKey.verifyTransaction(built, signature);
 
-	if (!isValidSuiSignature)
+	if (!isValidIotaSignature)
 		throw new ValidationError(
-			'Invalid Sui signature for the proposed transaction.',
+			'Invalid IOTA signature for the proposed transaction.',
 		);
 
 	// Insert the proposal and the first sig!
@@ -121,7 +121,7 @@ proposalsRouter.post('/', async (c) => {
 				multisigAddress,
 				digest: await proposedTransaction.getDigest(),
 				transactionBytes: built.toBase64(),
-				proposerAddress: pubKey.toSuiAddress(),
+				proposerAddress: pubKey.toIotaAddress(),
 				description,
 				network,
 			})
@@ -131,7 +131,7 @@ proposalsRouter.post('/', async (c) => {
 		if (isMember) {
 			await tx.insert(SchemaProposalSignatures).values({
 				proposalId: proposal[0].id,
-				publicKey: pubKey.toSuiPublicKey(),
+				publicKey: pubKey.toIotaPublicKey(),
 				signature,
 			});
 			multisigProposalEvents.inc({
@@ -177,27 +177,27 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 
 	if (
 		proposal.signatures.some(
-			(sig) => sig?.publicKey === pubKey.toSuiPublicKey(),
+			(sig) => sig?.publicKey === pubKey.toIotaPublicKey(),
 		)
 	)
 		throw new ValidationError(
 			'Voter has already voted for this proposal',
 		);
 
-	const isValidSuiSignature =
+	const isValidIotaSignature =
 		await pubKey.verifyTransaction(
 			fromBase64(proposal.transactionBytes),
 			signature,
 		);
 
-	if (!isValidSuiSignature)
+	if (!isValidIotaSignature)
 		throw new ValidationError(
-			'Invalid Sui signature for the proposed transaction.',
+			'Invalid IOTA signature for the proposed transaction.',
 		);
 
 	const signatureObject = {
 		proposalId: proposal.id,
-		publicKey: pubKey.toSuiPublicKey(),
+		publicKey: pubKey.toIotaPublicKey(),
 		signature,
 	};
 

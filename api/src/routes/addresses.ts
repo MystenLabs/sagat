@@ -77,7 +77,7 @@ addressesRouter.get(
 		const whereConditions = [
 			inArray(
 				SchemaMultisigMembers.publicKey,
-				publicKeys.map((pubKey) => pubKey.toSuiPublicKey()),
+				publicKeys.map((pubKey) => pubKey.toIotaPublicKey()),
 			),
 			eq(SchemaMultisigMembers.isAccepted, true),
 			eq(SchemaMultisigMembers.isRejected, false),
@@ -101,7 +101,7 @@ addressesRouter.get(
 			{};
 
 		for (const pubkey of publicKeys) {
-			const pubKeyBase64 = pubkey.toSuiPublicKey();
+			const pubKeyBase64 = pubkey.toIotaPublicKey();
 			// shouldnt really happen
 			if (grouped[pubKeyBase64]) continue;
 
@@ -130,7 +130,7 @@ addressesRouter.get(
 
 		if (
 			!publicKeys.some(
-				(pubKey) => pubKey.toSuiPublicKey() === publicKey,
+				(pubKey) => pubKey.toIotaPublicKey() === publicKey,
 			)
 		)
 			throw new ValidationError('You are not authorized.');

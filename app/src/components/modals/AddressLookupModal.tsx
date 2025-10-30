@@ -39,7 +39,7 @@ export function AddressLookupModal({
 			address.length !== 66
 		) {
 			setError(
-				'Please enter a valid Sui address (should start with 0x and be 66 characters long)',
+				'Please enter a valid IOTA address (should start with 0x and be 66 characters long)',
 			);
 			return;
 		}
@@ -99,7 +99,7 @@ export function AddressLookupModal({
 				<div className="space-y-4">
 					<div>
 						<label className="block text-sm font-medium mb-2">
-							Sui Address
+							IOTA Address
 						</label>
 						<div className="flex gap-2">
 							<Input

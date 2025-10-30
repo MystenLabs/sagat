@@ -3,9 +3,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	type SuiArgument,
-	type SuiCallArg,
-	type SuiTransaction,
+	type IotaArgument,
+	type IotaCallArg,
+	type IotaTransaction,
 	type TransactionBlockData,
 } from '@iota/iota-sdk/client';
 import { type ReactNode } from 'react';
@@ -38,7 +38,7 @@ export function Transactions({
 }
 
 const getCallArgDisplay = (
-	argument: SuiCallArg | undefined,
+	argument: IotaCallArg | undefined,
 ) => {
 	if (!argument) return null;
 	if (typeof argument === 'string') return argument;
@@ -70,9 +70,9 @@ const getCallArgDisplay = (
 	);
 };
 
-const getSuiArgumentDisplay = (
-	argument: SuiArgument,
-	inputs: SuiCallArg[],
+const getIotaArgumentDisplay = (
+	argument: IotaArgument,
+	inputs: IotaCallArg[],
 ) => {
 	if (typeof argument === 'string') return argument;
 
@@ -90,14 +90,14 @@ const getSuiArgumentDisplay = (
 };
 
 const renderArguments = (
-	callArgs: SuiArgument[],
-	inputs: SuiCallArg[],
+	callArgs: IotaArgument[],
+	inputs: IotaCallArg[],
 ) => {
 	return (
 		<div className="flex overflow-x-auto gap-3 my-3">
 			{callArgs.map((arg, index) => (
 				<div key={index} className="flex-shrink-0">
-					{getSuiArgumentDisplay(arg, inputs)}
+					{getIotaArgumentDisplay(arg, inputs)}
 				</div>
 			))}
 		</div>
@@ -134,7 +134,7 @@ function Transaction({
 	inputs,
 	index,
 }: {
-	transaction: SuiTransaction;
+	transaction: IotaTransaction;
 	inputs: TransactionBlockData;
 	index: number;
 }) {

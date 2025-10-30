@@ -9,7 +9,7 @@ import {
 import {
 	defaultExpiry,
 	PersonalMessages,
-} from '@mysten/sagat';
+} from '@iotaledger/sagat';
 import {
 	useMutation,
 	useQueryClient,

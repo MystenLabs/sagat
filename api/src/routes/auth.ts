@@ -27,8 +27,8 @@ authRouter.get(
 
 		const addresses = publicKeys.map((pk) => {
 			return {
-				address: pk.toSuiAddress(),
-				publicKey: pk.toSuiPublicKey(),
+				address: pk.toIotaAddress(),
+				publicKey: pk.toIotaPublicKey(),
 			};
 		});
 

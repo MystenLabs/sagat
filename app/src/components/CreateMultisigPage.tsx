@@ -27,7 +27,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 import { useCreateMultisig } from '../hooks/useCreateMultisig';
-import { computeMultisigAddress } from '../lib/sui-utils';
+import { computeMultisigAddress } from '../lib/iota-utils';
 import {
 	createMultisigSchema,
 	type CreateMultisigForm,

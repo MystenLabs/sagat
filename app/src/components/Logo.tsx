@@ -61,7 +61,7 @@ export function Logo({
 					<span
 						className={`${classes.subtitle} text-gray-400 -mt-0.5`}
 					>
-						Sui Multisig Manager
+						IOTA Multisig Manager
 					</span>
 				)}
 			</div>

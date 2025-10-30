@@ -38,7 +38,7 @@ export function AssetsTab() {
 				</h2>
 				<p className="text-gray-600 mb-6">
 					Assets management is not supported. You can view
-					this multisig's assets directly on the Sui
+					this multisig's assets directly on the Iota
 					explorer.
 				</p>
 

@@ -8,7 +8,7 @@ import { type Hono } from 'hono';
 import type { Pool } from 'pg';
 
 import * as env from '../../src/db/env';
-import { isNetworkRunning } from './sui-network';
+import { isNetworkRunning } from './iota-network';
 import {
 	clearTestData,
 	setupTestDatabase,
@@ -21,13 +21,13 @@ let networkChecked = false;
 
 export const setupSharedTestEnvironment = () => {
 	beforeAll(async () => {
-		// Check Sui network only once
+		// Check IOTA network only once
 		if (!networkChecked) {
 			const running = await isNetworkRunning();
 			if (!running) {
-				console.error('❌ Local Sui network not running!');
+				console.error('❌ Local IOTA network not running!');
 				console.error(
-					'Start with: sui start --force-regenesis --with-faucet',
+					'Start with: iota start --force-regenesis --with-faucet',
 				);
 				process.exit(1);
 			}

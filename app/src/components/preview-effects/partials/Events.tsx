@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { type SuiEvent } from '@iota/iota-sdk/client';
+import { type IotaEvent } from '@iota/iota-sdk/client';
 import { type ReactNode } from 'react';
 
 import { Textarea } from '@/components/ui/textarea';
@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ObjectLink } from '../ObjectLink';
 import { PreviewCard } from '../PreviewCard';
 
-export function Events({ events }: { events: SuiEvent[] }) {
+export function Events({ events }: { events: IotaEvent[] }) {
 	if (events.length === 0) {
 		return <div>No events were emitted.</div>;
 	}
@@ -24,7 +24,7 @@ export function Events({ events }: { events: SuiEvent[] }) {
 	);
 }
 
-export function Event({ event }: { event: SuiEvent }) {
+export function Event({ event }: { event: IotaEvent }) {
 	const fields: Record<string, ReactNode> = {
 		'Package ID': (
 			<ObjectLink inputObject={event.packageId} />

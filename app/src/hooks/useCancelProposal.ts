@@ -6,7 +6,7 @@ import {
 	useCurrentAccount,
 	useSignPersonalMessage,
 } from '@iota/dapp-kit';
-import { PersonalMessages } from '@mysten/sagat';
+import { PersonalMessages } from '@iotaledger/sagat';
 import {
 	useMutation,
 	useQueryClient,

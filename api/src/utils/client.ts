@@ -3,17 +3,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	SuiClient,
-	type SuiObjectData,
+	IotaClient,
+	type IotaObjectData,
 } from '@iota/iota-sdk/client';
 
-import { SUI_RPC_URL } from '../db/env';
+import { IOTA_RPC_URL } from '../db/env';
 import {
 	rpcRequestDuration,
 	rpcRequestErrors,
 } from '../metrics';
 
-export type SuiNetwork =
+export type IotaNetwork =
 	| 'mainnet'
 	| 'testnet'
 	| 'devnet'
@@ -21,8 +21,8 @@ export type SuiNetwork =
 
 // Create a wrapper that instruments RPC calls with metrics
 const createInstrumentedClient = (
-	network: SuiNetwork,
-	client: SuiClient,
+	network: IotaNetwork,
+	client: IotaClient,
 ) => {
 	const originalMultiGetObjects =
 		client.multiGetObjects.bind(client);
@@ -90,9 +90,9 @@ const createInstrumentedClient = (
 	return client;
 };
 
-export const getSuiClient = (network: SuiNetwork) => {
-	const client = new SuiClient({
-		url: SUI_RPC_URL[network],
+export const getIotaClient = (network: IotaNetwork) => {
+	const client = new IotaClient({
+		url: IOTA_RPC_URL[network],
 	});
 	return createInstrumentedClient(network, client);
 };
@@ -101,7 +101,7 @@ export const getSuiClient = (network: SuiNetwork) => {
 // TODO: use a data loader to share queries across requests.
 export const queryAllOwnedObjects = async (
 	objectIds: string[],
-	network: SuiNetwork,
+	network: IotaNetwork,
 ) => {
 	const uniqueObjectIds = Array.from(new Set(objectIds));
 
@@ -111,12 +111,12 @@ export const queryAllOwnedObjects = async (
 
 	const batches = batchObjectRequests(uniqueObjectIds, 100);
 
-	const allOwnedObjects: SuiObjectData[] = [];
+	const allOwnedObjects: IotaObjectData[] = [];
 
 	// Go through the batches & query the objects, pick out the `AddressOwner` ones.
 	await Promise.all(
 		batches.map(async (batch) => {
-			const objects = await getSuiClient(
+			const objects = await getIotaClient(
 				network,
 			).multiGetObjects({
 				ids: batch,

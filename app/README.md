@@ -1,4 +1,4 @@
-# Sui dApp Starter Template
+# IOTA dApp Starter Template
 
 This dApp was created using `@mysten/create-dapp` that sets up a basic React
 Client dApp using the following tools:

@@ -17,8 +17,8 @@ import {
 	multisigProposalEvents,
 } from '../metrics';
 import {
-	getSuiClient,
-	type SuiNetwork,
+	getIotaClient,
+	type IotaNetwork,
 } from '../utils/client';
 import {
 	paginateResponse,
@@ -156,8 +156,8 @@ export const lookupAndVerifyProposal = async (
 			'Proposal is not ready to execute',
 		);
 
-	const tx = await getSuiClient(
-		proposal.network as SuiNetwork,
+	const tx = await getIotaClient(
+		proposal.network as IotaNetwork,
 	).getTransactionBlock({
 		digest: proposal.digest,
 		options: { showEffects: true },

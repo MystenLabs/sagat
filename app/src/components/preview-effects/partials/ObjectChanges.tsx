@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { type SuiObjectChange } from '@iota/iota-sdk/client';
+import { type IotaObjectChange } from '@iota/iota-sdk/client';
 
 import { Label } from '@/components/ui/label';
 
@@ -52,7 +52,7 @@ const objectTypes: Record<
 export function ObjectChanges({
 	objects,
 }: {
-	objects: SuiObjectChange[];
+	objects: IotaObjectChange[];
 }) {
 	return (
 		<div className="grid grid-cols-1 gap-5">
@@ -66,7 +66,7 @@ export function ObjectChanges({
 function ChangedObject({
 	object,
 }: {
-	object: SuiObjectChange;
+	object: IotaObjectChange;
 }) {
 	const objectType = objectTypes[object.type];
 

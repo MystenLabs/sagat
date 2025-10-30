@@ -4,20 +4,20 @@
 
 import { Ed25519Keypair } from '@iota/iota-sdk/keypairs/ed25519';
 import { Transaction } from '@iota/iota-sdk/transactions';
-import { MIST_PER_SUI } from '@iota/iota-sdk/utils';
+import { NANOS_PER_IOTA } from '@iota/iota-sdk/utils';
 import {
 	defaultExpiry,
 	PersonalMessages,
 	ProposalStatus,
 	SagatClient,
 	type MultisigWithMembers,
-} from '@mysten/sagat';
+} from '@iotaledger/sagat';
 import { type Hono } from 'hono';
 
 import {
 	fundAddress,
 	getLocalClient,
-} from '../setup/sui-network';
+} from '../setup/iota-network';
 import {
 	createCookieFetch,
 	type FetchLike,
@@ -36,8 +36,8 @@ export const newUser = (): TestUser => {
 	const keypair = new Ed25519Keypair();
 	return {
 		keypair,
-		publicKey: keypair.getPublicKey().toSuiPublicKey(),
-		address: keypair.toSuiAddress(),
+		publicKey: keypair.getPublicKey().toIotaPublicKey(),
+		address: keypair.toIotaAddress(),
 	};
 };
 
@@ -159,12 +159,12 @@ export class TestSession {
 		keypair: Ed25519Keypair,
 		recipient: string,
 		count: number,
-		totalPerCoin: number = 0.1 * Number(MIST_PER_SUI),
+		totalPerCoin: number = 0.1 * Number(NANOS_PER_IOTA),
 	) {
-		await fundAddress(keypair.toSuiAddress());
+		await fundAddress(keypair.toIotaAddress());
 
 		const tx = new Transaction();
-		tx.setSender(keypair.toSuiAddress());
+		tx.setSender(keypair.toIotaAddress());
 		for (let i = 0; i < count; i++) {
 			tx.moveCall({
 				target: '0x2::pay::split_and_transfer',
@@ -173,10 +173,10 @@ export class TestSession {
 					tx.pure.u64(totalPerCoin),
 					tx.pure.address(recipient),
 				],
-				typeArguments: ['0x2::sui::SUI'],
+				typeArguments: ['0x2::iota::IOTA'],
 			});
 		}
-		// use the first user's gas to send a few sui to the multisig.
+		// use the first user's gas to send a few iota to the multisig.
 		const result = await keypair.signAndExecuteTransaction({
 			transaction: tx,
 			client,

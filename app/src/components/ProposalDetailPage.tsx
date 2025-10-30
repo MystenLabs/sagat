@@ -8,7 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import {
 	useNetwork,
-	type SuiNetwork,
+	type IotaNetwork,
 } from '@/contexts/NetworkContext';
 
 import { useGetProposal } from '../hooks/useGetProposal';
@@ -103,7 +103,7 @@ export function ProposalDetailPage() {
 
 			{showNetworkMissmatch && (
 				<NetworkMismatchBanner
-					requestedNetwork={proposal?.network as SuiNetwork}
+					requestedNetwork={proposal?.network as IotaNetwork}
 					currentNetwork={network}
 					onSwitch={handleSwitchNetwork}
 				/>
@@ -125,8 +125,8 @@ function NetworkMismatchBanner({
 	currentNetwork,
 	onSwitch,
 }: {
-	requestedNetwork: SuiNetwork;
-	currentNetwork: SuiNetwork;
+	requestedNetwork: IotaNetwork;
+	currentNetwork: IotaNetwork;
 	onSwitch: () => void;
 }) {
 	return (

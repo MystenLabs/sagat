@@ -30,7 +30,7 @@ export const parsePublicKey = (
 
 		if (flag !== SIGNATURE_SCHEME_TO_FLAG.ED25519)
 			throw new ValidationError(
-				'Public keys must have a sui flag. You can export them using `toSuiPublicKey()` instead of `toBase64()`.',
+				'Public keys must have a iota flag. You can export them using `toIotaPublicKey()` instead of `toBase64()`.',
 			);
 
 		return new Ed25519PublicKey(data);
@@ -51,7 +51,7 @@ export const parsePublicKey = (
 	}
 
 	throw new ValidationError(
-		'Only ED25519, Secp256k1, and Secp256r1 are supported. Also, public keys must have a sui flag. You can export them using `toSuiPublicKey()` instead of `toBase64()`.',
+		'Only ED25519, Secp256k1, and Secp256r1 are supported. Also, public keys must have a iota flag. You can export them using `toIotaPublicKey()` instead of `toBase64()`.',
 	);
 };
 

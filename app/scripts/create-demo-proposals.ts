@@ -4,12 +4,12 @@
 
 import {
 	getFullnodeUrl,
-	SuiClient,
+	IotaClient,
 } from '@iota/iota-sdk/client';
 import { Transaction } from '@iota/iota-sdk/transactions';
 import { toBase64 } from '@iota/iota-sdk/utils';
 
-const client = new SuiClient({
+const client = new IotaClient({
 	url: getFullnodeUrl('testnet'),
 });
 const MULTISIG_ADDRESS =

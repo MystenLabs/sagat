@@ -7,19 +7,19 @@
 
 import {
 	getFullnodeUrl,
-	SuiClient,
+	IotaClient,
 } from '@iota/iota-sdk/client';
 import {
 	getFaucetHost,
-	requestSuiFromFaucetV2,
+	requestIotaFromFaucetV1,
 } from '@iota/iota-sdk/faucet';
-import { normalizeSuiAddress } from '@iota/iota-sdk/utils';
+import { normalizeIotaAddress } from '@iota/iota-sdk/utils';
 
 /**
- * Get a Sui client for localnet
+ * Get a IOTA client for localnet
  */
-export function getLocalClient(): SuiClient {
-	return new SuiClient({ url: getFullnodeUrl('localnet') });
+export function getLocalClient(): IotaClient {
+	return new IotaClient({ url: getFullnodeUrl('localnet') });
 }
 
 /**
@@ -45,9 +45,9 @@ export async function fundAddress(
 	try {
 		const faucetHost = getFaucetHost('localnet');
 
-		await requestSuiFromFaucetV2({
+		await requestIotaFromFaucetV1({
 			host: faucetHost,
-			recipient: normalizeSuiAddress(address),
+			recipient: normalizeIotaAddress(address),
 		});
 
 		return true;

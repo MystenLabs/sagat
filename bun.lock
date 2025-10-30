@@ -20,7 +20,7 @@
       "name": "sagat-api",
       "dependencies": {
         "@iota/iota-sdk": "^1.6.1",
-        "@mysten/sagat": "workspace:*",
+        "@iotaledger/sagat": "workspace:*",
         "dataloader": "^2.2.3",
         "drizzle-orm": "^0.44.5",
         "hono": "^4.9.8",
@@ -45,7 +45,7 @@
         "@hookform/resolvers": "^5.2.2",
         "@iota/dapp-kit": "^0.5.3",
         "@iota/iota-sdk": "^1.6.1",
-        "@mysten/sagat": "workspace:*",
+        "@iotaledger/sagat": "workspace:*",
         "@noble/hashes": "^2.0.1",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-dialog": "^1.1.15",
@@ -85,7 +85,7 @@
       },
     },
     "sdk": {
-      "name": "@mysten/sagat",
+      "name": "@iotaledger/sagat",
       "version": "0.0.1",
       "devDependencies": {
         "@types/bun": "latest",
@@ -269,7 +269,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@mysten/sagat": ["@mysten/sagat@workspace:sdk"],
+    "@iotaledger/sagat": ["@iotaledger/sagat@workspace:sdk"],
 
     "@noble/curves": ["@noble/curves@1.9.4", "", { "dependencies": { "@noble/hashes": "1.8.0" } }, "sha512-2bKONnuM53lINoDrSmK8qP8W271ms7pygDhZt4SiLOoLwBtoHqeCFi6RG42V8zd3mLHuJFhU/Bmaqo4nX0/kBw=="],
 

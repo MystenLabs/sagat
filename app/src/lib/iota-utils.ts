@@ -21,7 +21,7 @@ export function validatePublicKey(
 			extractPublicKeyFromBase64(publicKeyString);
 		return {
 			isValid: true,
-			address: pubKey.toSuiAddress(),
+			address: pubKey.toIotaAddress(),
 		};
 	} catch (e) {
 		return {
@@ -82,7 +82,7 @@ export function computeMultisigAddress(
 		});
 
 		return {
-			address: multisig.toSuiAddress(),
+			address: multisig.toIotaAddress(),
 			error: null,
 		};
 	} catch (error) {

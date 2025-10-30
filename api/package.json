@@ -11,7 +11,7 @@
 	},
 	"dependencies": {
 		"@iota/iota-sdk": "^1.6.1",
-		"@mysten/sagat": "workspace:*",
+		"@iotaledger/sagat": "workspace:*",
 		"dataloader": "^2.2.3",
 		"drizzle-orm": "^0.44.5",
 		"hono": "^4.9.8",

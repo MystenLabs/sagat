@@ -16,7 +16,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { MultisigDataLoader } from '../loaders/multisig.loader';
 import {
 	queryAllOwnedObjects,
-	type SuiNetwork,
+	type IotaNetwork,
 } from '../utils/client';
 
 // Returns the multisig with its members.
@@ -107,7 +107,7 @@ export const isMultisigMember = async (
 		eq(SchemaMultisigMembers.multisigAddress, msigAddress),
 		eq(
 			SchemaMultisigMembers.publicKey,
-			publicKey.toSuiPublicKey(),
+			publicKey.toIotaPublicKey(),
 		),
 	];
 
@@ -135,7 +135,7 @@ export const jwtHasMultisigMemberAccess = async (
 		eq(SchemaMultisigMembers.multisigAddress, msigAddress),
 		inArray(
 			SchemaMultisigMembers.publicKey,
-			publicKeys.map((key) => key.toSuiPublicKey()),
+			publicKeys.map((key) => key.toIotaPublicKey()),
 		),
 	];
 
@@ -194,7 +194,7 @@ export const extractOwnedObjects = (tx: Transaction) => {
 export const validateProposedTransaction = async (
 	proposedTransaction: Transaction,
 	multisigAddress: string,
-	network: SuiNetwork,
+	network: IotaNetwork,
 ) => {
 	// Get the list of pending proposals.
 	const pendingProposals = await getPendingProposals(

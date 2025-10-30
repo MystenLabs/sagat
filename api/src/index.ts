@@ -7,7 +7,7 @@ import { cors } from 'hono/cors';
 
 import {
 	CORS_ALLOWED_ORIGINS,
-	SUI_RPC_URL,
+	IOTA_RPC_URL,
 	SUPPORTED_NETWORKS,
 } from './db/env';
 import { appErrorHandler } from './errors';
@@ -25,7 +25,7 @@ app.use('*', metricsMiddleware);
 
 // eslint-disable-next-line no-console
 console.log(
-	`Using RPC URLs: ${SUPPORTED_NETWORKS.map((n) => SUI_RPC_URL[n]).join(', ')}`,
+	`Using RPC URLs: ${SUPPORTED_NETWORKS.map((n) => IOTA_RPC_URL[n]).join(', ')}`,
 );
 
 app.use(

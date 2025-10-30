@@ -9,7 +9,7 @@ import '@iota/dapp-kit/dist/index.css';
 import './index.css';
 
 import {
-	SuiClientProvider,
+	IotaClientProvider,
 	WalletProvider,
 } from '@iota/dapp-kit';
 import {
@@ -27,7 +27,7 @@ const queryClient = new QueryClient();
 
 // Get stored network or default to configured default
 const storedNetwork =
-	(localStorage.getItem('suiNetwork') as
+	(localStorage.getItem('iotaNetwork') as
 		| 'testnet'
 		| 'mainnet') || CONFIG.DEFAULT_NETWORK;
 
@@ -36,7 +36,7 @@ ReactDOM.createRoot(
 ).render(
 	<React.StrictMode>
 		<QueryClientProvider client={queryClient}>
-			<SuiClientProvider
+			<IotaClientProvider
 				networks={networkConfig}
 				defaultNetwork={storedNetwork}
 			>
@@ -45,7 +45,7 @@ ReactDOM.createRoot(
 						<App />
 					</ApiAuthProvider>
 				</WalletProvider>
-			</SuiClientProvider>
+			</IotaClientProvider>
 		</QueryClientProvider>
 
 		<Toaster />

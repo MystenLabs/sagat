@@ -26,8 +26,8 @@ export const CONFIG = {
 
 	// Explorer URLs
 	EXPLORER_URLS: {
-		testnet: 'https://suiscan.xyz/testnet',
-		mainnet: 'https://suiscan.xyz/mainnet',
+		testnet: 'https://iotascan.xyz/testnet',
+		mainnet: 'https://iotascan.xyz/mainnet',
 		localnet: 'http://localhost:9001', // For local development
 	},
 } as const;
@@ -37,7 +37,7 @@ export type Network = keyof typeof CONFIG.EXPLORER_URLS;
 // Validation constants
 export const VALIDATION = {
 	// Address validation
-	SUI_ADDRESS_LENGTH: 66, // Including 0x prefix
+	IOTA_ADDRESS_LENGTH: 66, // Including 0x prefix
 
 	// Form validation
 	MAX_MULTISIG_NAME_LENGTH: 50,
@@ -51,7 +51,7 @@ export const VALIDATION = {
 export const ERROR_MESSAGES = {
 	NETWORK_ERROR:
 		'Network connection failed. Please check your internet connection.',
-	INVALID_ADDRESS: 'Please enter a valid Sui address.',
+	INVALID_ADDRESS: 'Please enter a valid IOTA address.',
 	INSUFFICIENT_SIGNATURES:
 		'Not enough signatures to execute this proposal.',
 	TRANSACTION_FAILED:

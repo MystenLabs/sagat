@@ -36,7 +36,7 @@ export function ProposalPreview({
 		(member) =>
 			extractPublicKeyFromBase64(
 				member.publicKey,
-			).toSuiAddress() === currentWallet?.address,
+			).toIotaAddress() === currentWallet?.address,
 	);
 
 	// Automatically run dry run when component mounts

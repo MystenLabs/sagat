@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { formatAddress } from '@iota/iota-sdk/utils';
-import type { MultisigMember } from '@mysten/sagat';
+import type { MultisigMember } from '@iotaledger/sagat';
 
 import { Label } from '@/components/ui/label';
 
-import { validatePublicKey } from '../../lib/sui-utils';
+import { validatePublicKey } from '../../lib/iota-utils';
 import { CopyButton } from '../ui/CopyButton';
 
 interface MembersListProps {

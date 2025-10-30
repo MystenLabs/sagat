@@ -210,7 +210,7 @@ export class SagatClient {
 
 	/**
 	 * Call this to register extra public keys to the system.
-	 * Only sui public keys are supported (use `PublicKey.toSuiPublicKey(), not `toBase64()`)
+	 * Only iota public keys are supported (use `PublicKey.toIotaPublicKey(), not `toBase64()`)
 	 */
 	async registerPublicKeys(extraPublicKeys: string[] = []) {
 		return this.#request<{ success: boolean }>(

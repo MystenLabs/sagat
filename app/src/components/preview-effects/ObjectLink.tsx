@@ -2,10 +2,10 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClientContext } from '@iota/dapp-kit';
+import { useIotaClientContext } from '@iota/dapp-kit';
 import {
 	type ObjectOwner,
-	type SuiObjectChange,
+	type IotaObjectChange,
 } from '@iota/iota-sdk/client';
 import { formatAddress } from '@iota/iota-sdk/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
@@ -39,12 +39,12 @@ export function ObjectLink({
 	inputObject?: string;
 	type?: string;
 	owner?: ObjectOwner;
-	object?: SuiObjectChange;
+	object?: IotaObjectChange;
 } & React.HTMLAttributes<HTMLAnchorElement> &
 	React.ComponentPropsWithoutRef<'a'>) {
 	const [copied, setCopied] = useState(false);
 
-	const { network } = useSuiClientContext();
+	const { network } = useIotaClientContext();
 
 	let objectId: string | undefined;
 	let display: string | undefined;
@@ -87,7 +87,7 @@ export function ObjectLink({
 	}
 
 	const link = objectId
-		? `https://suiexplorer.com/${ownerDisplay ? 'address' : 'object'}/${objectId}?network=${
+		? `https://iotaexplorer.com/${ownerDisplay ? 'address' : 'object'}/${objectId}?network=${
 				network.split(':')[1]
 			}`
 		: undefined;

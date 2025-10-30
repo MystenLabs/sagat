@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # PostgreSQL Database
@@ -10,12 +10,11 @@ services:
       POSTGRES_PASSWORD: sagat_dev_password
       POSTGRES_DB: multisig_db
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        ['CMD-SHELL', 'pg_isready -U sagat -d multisig_db']
+      test: ["CMD-SHELL", "pg_isready -U sagat -d multisig_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -36,13 +35,9 @@ services:
       CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:3001
       NODE_ENV: production
     ports:
-      - '3000:3000'
+      - "3000:3000"
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'curl -f http://localhost:3000/health || exit 1',
-        ]
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -56,19 +51,19 @@ services:
       target: production
       args:
         VITE_API_URL: http://localhost:3000
-        VITE_SUI_NETWORKS: testnet,mainnet
+        VITE_IOTA_NETWORKS: testnet,mainnet
         VITE_DEFAULT_NETWORK: testnet
     container_name: sagat-app
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - '3001:80'
+      - "3001:80"
     healthcheck:
       test:
         [
-          'CMD-SHELL',
-          'wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1',
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1",
         ]
       interval: 30s
       timeout: 10s

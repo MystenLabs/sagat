@@ -5,7 +5,7 @@
 import { getFullnodeUrl } from '@iota/iota-sdk/client';
 
 import { ValidationError } from '../errors';
-import { type SuiNetwork } from '../utils/client';
+import { type IotaNetwork } from '../utils/client';
 
 const jwtSecret = process.env.JWT_SECRET;
 const supportedNetworks =
@@ -42,34 +42,34 @@ export const SUPPORTED_NETWORKS = supportedNetworks.map(
 			].includes(network)
 		)
 			throw new Error(`Unsupported network: ${network}`);
-		return network as SuiNetwork;
+		return network as IotaNetwork;
 	},
 );
 
-export const SUI_RPC_URL_testnet =
-	process.env.SUI_RPC_URL_testnet ||
+export const IOTA_RPC_URL_testnet =
+	process.env.IOTA_RPC_URL_testnet ||
 	getFullnodeUrl('testnet');
-export const SUI_RPC_URL_mainnet =
-	process.env.SUI_RPC_URL_mainnet ||
+export const IOTA_RPC_URL_mainnet =
+	process.env.IOTA_RPC_URL_mainnet ||
 	getFullnodeUrl('mainnet');
-export const SUI_RPC_URL_devnet =
-	process.env.SUI_RPC_URL_devnet ||
+export const IOTA_RPC_URL_devnet =
+	process.env.IOTA_RPC_URL_devnet ||
 	getFullnodeUrl('devnet');
-export const SUI_RPC_URL_localnet =
-	process.env.SUI_RPC_URL_localnet ||
+export const IOTA_RPC_URL_localnet =
+	process.env.IOTA_RPC_URL_localnet ||
 	getFullnodeUrl('localnet');
 
-export const SUI_RPC_URL = {
-	mainnet: SUI_RPC_URL_mainnet,
-	testnet: SUI_RPC_URL_testnet,
-	devnet: SUI_RPC_URL_devnet,
-	localnet: SUI_RPC_URL_localnet,
+export const IOTA_RPC_URL = {
+	mainnet: IOTA_RPC_URL_mainnet,
+	testnet: IOTA_RPC_URL_testnet,
+	devnet: IOTA_RPC_URL_devnet,
+	localnet: IOTA_RPC_URL_localnet,
 };
 
 export const validateNetwork = (network: string) => {
-	if (!SUPPORTED_NETWORKS.includes(network as SuiNetwork))
+	if (!SUPPORTED_NETWORKS.includes(network as IotaNetwork))
 		throw new ValidationError(
 			`Unsupported network: ${network}. Only ${SUPPORTED_NETWORKS.join(', ')} are supported.`,
 		);
-	return network as SuiNetwork;
+	return network as IotaNetwork;
 };

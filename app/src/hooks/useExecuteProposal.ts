@@ -2,12 +2,12 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClient } from '@iota/dapp-kit';
+import { useIotaClient } from '@iota/dapp-kit';
 import { MultiSigPublicKey } from '@iota/iota-sdk/multisig';
 import {
 	ProposalStatus,
 	type PublicProposal,
-} from '@mysten/sagat';
+} from '@iotaledger/sagat';
 import {
 	useMutation,
 	useQueryClient,
@@ -25,7 +25,7 @@ interface ExecuteProposalParams {
 
 export function useExecuteProposal() {
 	const queryClient = useQueryClient();
-	const suiClient = useSuiClient();
+	const iotaClient = useIotaClient();
 
 	return useMutation({
 		mutationFn: async ({
@@ -75,7 +75,7 @@ export function useExecuteProposal() {
 
 				// Step 3: Execute the transaction with the combined signature
 				const result =
-					await suiClient.executeTransactionBlock({
+					await iotaClient.executeTransactionBlock({
 						transactionBlock: proposal.transactionBytes,
 						signature: combinedSignature,
 						options: {
@@ -84,7 +84,7 @@ export function useExecuteProposal() {
 						},
 					});
 
-				await suiClient.waitForTransaction({
+				await iotaClient.waitForTransaction({
 					digest: result.digest,
 				});
 

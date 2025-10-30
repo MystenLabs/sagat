@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type PublicKey } from '@iota/iota-sdk/cryptography';
-import { PersonalMessages } from '@mysten/sagat';
+import { PersonalMessages } from '@iotaledger/sagat';
 import { type Context } from 'hono';
 import {
 	deleteCookie,
@@ -38,7 +38,7 @@ const issueJwt = async (
 	return (
 		new SignJWT({
 			publicKeys: publicKeys.map((pubKey) =>
-				pubKey.toSuiPublicKey(),
+				pubKey.toIotaPublicKey(),
 			),
 		})
 			.setSubject(subject)
@@ -148,8 +148,8 @@ export const connectToPublicKey = async (c: Context) => {
 		if (
 			!pubKeys.some(
 				(existingKey) =>
-					existingKey.toSuiPublicKey() ===
-					pubKey.toSuiPublicKey(),
+					existingKey.toIotaPublicKey() ===
+					pubKey.toIotaPublicKey(),
 			)
 		) {
 			pubKeys.push(pubKey);

@@ -4,8 +4,8 @@
 
 import { type PublicKey } from '@iota/iota-sdk/cryptography';
 import { MultiSigPublicKey } from '@iota/iota-sdk/multisig';
-import { isValidSuiAddress } from '@iota/iota-sdk/utils';
-import { PersonalMessages } from '@mysten/sagat';
+import { isValidIotaAddress } from '@iota/iota-sdk/utils';
+import { PersonalMessages } from '@iotaledger/sagat';
 import { and, eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 
@@ -104,7 +104,7 @@ multisigRouter.post(
 
 		for (const pubKeyStr of publicKeys) {
 			const parsedKey = parsePublicKey(pubKeyStr);
-			const address = parsedKey.toSuiAddress();
+			const address = parsedKey.toIotaAddress();
 
 			parsedPubKeys.push(parsedKey);
 			addresses.push(address);
@@ -127,7 +127,7 @@ multisigRouter.post(
 				await tx
 					.insert(SchemaMultisigs)
 					.values({
-						address: multisig.toSuiAddress(),
+						address: multisig.toIotaAddress(),
 						isVerified: false,
 						threshold,
 						name,
@@ -141,17 +141,17 @@ multisigRouter.post(
 				.values(
 					parsedPubKeys.map((key, index) => ({
 						multisigAddress: msig.address,
-						publicKey: key.toSuiPublicKey(),
+						publicKey: key.toIotaPublicKey(),
 						weight:
 							weights[
 								addresses.findIndex(
-									(addr) => addr === key.toSuiAddress(),
+									(addr) => addr === key.toIotaAddress(),
 								)
 							],
 						// If authorization includes the user, we can accept immediately.
 						isAccepted: authorizedPubKeys.some(
 							(k) =>
-								k.toSuiAddress() === key.toSuiAddress(),
+								k.toIotaAddress() === key.toIotaAddress(),
 						),
 						order: index,
 					})),
@@ -192,7 +192,7 @@ multisigRouter.post('/:address/accept', async (c) => {
 			where: and(
 				eq(
 					SchemaMultisigMembers.publicKey,
-					pubKey.toSuiPublicKey(),
+					pubKey.toIotaPublicKey(),
 				),
 				eq(SchemaMultisigMembers.isAccepted, true),
 			),
@@ -226,7 +226,7 @@ multisigRouter.post('/:address/accept', async (c) => {
 					),
 					eq(
 						SchemaMultisigMembers.publicKey,
-						pubKey.toSuiPublicKey(),
+						pubKey.toIotaPublicKey(),
 					),
 				),
 			);
@@ -272,7 +272,7 @@ multisigRouter.post('/:address/reject', async (c) => {
 		);
 
 	const member = multisig.members.find(
-		(x) => x?.publicKey == pubKey.toSuiPublicKey(),
+		(x) => x?.publicKey == pubKey.toIotaPublicKey(),
 	);
 	if (!member)
 		throw new ValidationError(
@@ -297,7 +297,7 @@ multisigRouter.post('/:address/reject', async (c) => {
 				eq(SchemaMultisigMembers.multisigAddress, address),
 				eq(
 					SchemaMultisigMembers.publicKey,
-					pubKey.toSuiPublicKey(),
+					pubKey.toIotaPublicKey(),
 				),
 			),
 		);
@@ -317,7 +317,7 @@ multisigRouter.post('/:address/add-proposer', async (c) => {
 	// Validate the expiry time of the signature.
 	validateExpiry(expiry);
 
-	if (!isValidSuiAddress(proposer))
+	if (!isValidIotaAddress(proposer))
 		throw new CommonError('InvalidAddress');
 
 	// Gets the sender's public key based on the signature.
@@ -372,7 +372,7 @@ multisigRouter.post('/:address/add-proposer', async (c) => {
 			await tx.insert(SchemaMultisigProposers).values({
 				multisigAddress: address,
 				address: proposer,
-				addedBy: publicKey.toSuiAddress(),
+				addedBy: publicKey.toIotaAddress(),
 			});
 		},
 		{ isolationLevel: 'repeatable read' },

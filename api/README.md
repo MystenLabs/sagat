@@ -20,11 +20,11 @@ open http://localhost:3000
 
 ## Testing proposals (requires localnet network running)
 
-To run localnet test with sui, it's required that Sui runs in the background (localnet).
+To run localnet test with iota, it's required that IOTA runs in the background (localnet).
 
 To accomplish that, you can run:
 
 ```
-sui client switch --env localnet
-sui start --force-regenesis --with-faucet
+iota client switch --env localnet
+iota start --force-regenesis --with-faucet
 ```

@@ -111,33 +111,29 @@ jobs:
         run: bun run build
         working-directory: sdk
 
-      - name: Install suiup
+      - name: Install Homebrew
         run: |
-          curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
 
-      - name: Add Sui to PATH
+      - name: Install IOTA using Homebrew
         run: |
-          echo "$HOME/.sui/bin" >> $GITHUB_PATH
+          brew install iotaledger/tap/iota
+          iota --version
 
-      - name: Install Sui binaries
-        run: |
-          export PATH="$HOME/.sui/bin:$PATH"
-          suiup install sui@mainnet -y
-          sui --version
-
-      - name: Start Sui local network
+      - name: Start IOTA local network
         env:
           RUST_LOG: off
         run: |
-          export PATH="$HOME/.sui/bin:$PATH"
-          sui start --force-regenesis --with-faucet &
+          export PATH="$HOME/.iota/bin:$PATH"
+          iota start --force-regenesis --with-faucet &
           # Wait for network to be ready
-          echo "Waiting for Sui network to start..."
-          timeout 90 bash -c 'until curl -sf -X POST http://127.0.0.1:9000 -H "Content-Type: application/json" -d '\''{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}'\'' 2>/dev/null | grep -q result; do echo "Waiting..."; sleep 2; done'
-          echo "Sui network is ready!"
+          echo "Waiting for IOTA network to start..."
+          timeout 90 bash -c 'until curl -sf -X POST http://127.0.0.1:9000 -H "Content-Type: application/json" -d '\''{"jsonrpc":"2.0","id":1,"method":"iota_getChainIdentifier","params":[]}'\'' 2>/dev/null | grep -q result; do echo "Waiting..."; sleep 2; done'
+          echo "IOTA network is ready!"
           curl -X POST http://127.0.0.1:9000 \
             -H "Content-Type: application/json" \
-            -d '{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}'
+            -d '{"jsonrpc":"2.0","id":1,"method":"iota_getChainIdentifier","params":[]}'
 
       - name: Run API E2E tests
         run: bun test:e2e

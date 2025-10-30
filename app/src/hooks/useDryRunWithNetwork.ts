@@ -4,7 +4,7 @@
 
 import {
 	getFullnodeUrl,
-	SuiClient,
+	IotaClient,
 } from '@iota/iota-sdk/client';
 import { Transaction } from '@iota/iota-sdk/transactions';
 import { useMutation } from '@tanstack/react-query';
@@ -17,7 +17,7 @@ export function useDryRunWithNetwork(
 	return useMutation({
 		mutationFn: async (transactionData: string) => {
 			// Create a client for the specified network
-			const client = new SuiClient({
+			const client = new IotaClient({
 				url: getFullnodeUrl(network),
 			});
 

@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
+import { ProposalStatus } from '@iotaledger/sagat';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api';

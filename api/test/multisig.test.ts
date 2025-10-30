@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { isValidSuiAddress } from '@iota/iota-sdk/utils';
+import { isValidIotaAddress } from '@iota/iota-sdk/utils';
 import {
 	beforeEach,
 	describe,
@@ -38,7 +38,7 @@ describe('Multisig API', () => {
 
 			expect(multisig.address).toBeDefined();
 			expect(multisig.threshold).toBe(2);
-			expect(isValidSuiAddress(multisig.address)).toBe(
+			expect(isValidIotaAddress(multisig.address)).toBe(
 				true,
 			);
 		});

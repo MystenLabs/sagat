@@ -53,7 +53,7 @@ beforeEach(async () => {
 
 ## Test Structure
 
-### Main Test Suite (`multisig-api.test.ts`)
+### Main Test suite (`multisig-api.test.ts`)
 
 Comprehensive integration tests covering:
 
@@ -63,10 +63,10 @@ Comprehensive integration tests covering:
 - **Session Management**: Session state and isolation
 - **Error Handling**: Invalid operations and edge cases
 
-### Test Suites
+### Test suites
 
 - **`multisig-api.test.ts`**: Comprehensive integration tests for the entire API
-- **`sui-network.test.ts`**: Network utilities and connection tests
+- **`iota-network.test.ts`**: Network utilities and connection tests
 
 ## Usage Examples
 
@@ -129,7 +129,7 @@ test('create proposal and collect sufficient votes', async () => {
 
 ### 🐌 Blockchain Tests (With Funding)
 
-- **Proposals**: ~400ms-2s each (real Sui network operations)
+- **Proposals**: ~400ms-2s each (real IOTA network operations)
 - **When to use**: Testing actual transaction creation, voting, execution
 
 ### 🎯 Speed Strategy
@@ -156,11 +156,11 @@ bun test
 bun test test/multisig-api.test.ts
 
 # Run with network check
-bun test test/sui-network.test.ts
+bun test test/iota-network.test.ts
 ```
 
 ## Requirements
 
-- Local Sui network running (`sui start --force-regenesis --with-faucet`)
+- Local IOTA network running (`iota start --force-regenesis --with-faucet`)
 - PostgreSQL test database
 - All dependencies installed (`bun install`)

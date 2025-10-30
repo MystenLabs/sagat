@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiHTTPTransportError } from '@iota/iota-sdk/client';
+import { IotaHTTPTransportError } from '@iota/iota-sdk/client';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { type Context } from 'hono';
 
@@ -34,7 +34,7 @@ export const AuthErrors = {
 
 export const CommonErrors = {
 	InvalidAddress:
-		'Invalid address. Must be a valid Sui address.',
+		'Invalid address. Must be a valid IOTA address.',
 	InvalidSignature: 'Invalid signature for message.',
 	InvalidDigest:
 		'The transaction digest provided is invalid.',
@@ -51,7 +51,7 @@ export const appErrorHandler = (err: Error, c: Context) => {
 	if (err instanceof CommonError)
 		return c.json({ error: err.message }, 400);
 
-	if (err instanceof SuiHTTPTransportError)
+	if (err instanceof IotaHTTPTransportError)
 		return c.json({ error: err.message }, 400);
 
 	if (err instanceof DrizzleQueryError) {

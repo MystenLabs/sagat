@@ -5,7 +5,7 @@
 import type {
 	MultisigWithMembers,
 	ProposalWithSignatures,
-} from '@mysten/sagat';
+} from '@iotaledger/sagat';
 
 // Helper to calculate current weight of a proposal based on signatures
 export const calculateCurrentWeight = (

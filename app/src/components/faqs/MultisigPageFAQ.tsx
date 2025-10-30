@@ -24,7 +24,7 @@ const faqData: FAQItem[] = [
 		icon: Users,
 		question: 'What is a multisig wallet?',
 		answer:
-			'Sui has native multisig support, and Sagat enables you to create multisigs, create/aggregate signatures for proposals and be part of multiple schemes.',
+			'IOTA has native multisig support, and Sagat enables you to create multisigs, create/aggregate signatures for proposals and be part of multiple schemes.',
 	},
 	{
 		id: 'how-threshold-works',
@@ -53,7 +53,7 @@ const faqData: FAQItem[] = [
 						system
 					</li>
 					<li>
-						The multisig is created on the Sui blockchain
+						The multisig is created on the IOTA blockchain
 					</li>
 					<li>Members receive invitations to join</li>
 					<li>Each member must accept their invitation</li>

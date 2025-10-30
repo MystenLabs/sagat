@@ -33,7 +33,7 @@ interface MultiSigInfo {
 	participants: {
 		publicKey: PublicKey;
 		weight: number;
-		suiAddress: string;
+		iotaAddress: string;
 		keyType: string;
 	}[];
 }
@@ -72,7 +72,7 @@ function Signature({
 	signature: SignaturePubkeyPair;
 	index: number;
 }) {
-	const suiAddress = signature.publicKey.toSuiAddress();
+	const iotaAddress = signature.publicKey.toIotaAddress();
 	const scheme = signature.signatureScheme.toString();
 
 	return (
@@ -86,12 +86,12 @@ function Signature({
 			<div className="p-4">
 				<div className="space-y-3">
 					<FieldDisplay
-						label="Sui Address"
-						value={suiAddress}
+						label="IOTA Address"
+						value={iotaAddress}
 					/>
 					<FieldDisplay
-						label="Sui Format Public Key ( flag | pk )"
-						value={signature.publicKey.toSuiPublicKey()}
+						label="IOTA Format Public Key ( flag | pk )"
+						value={signature.publicKey.toIotaPublicKey()}
 					/>
 					<FieldDisplay
 						label="Serialized Signature"
@@ -126,12 +126,12 @@ function MultiSigDetails({
 				<div className="space-y-4">
 					<FieldDisplay
 						label="MultiSig Address"
-						value={multisigInfo.publicKey.toSuiAddress()}
+						value={multisigInfo.publicKey.toIotaAddress()}
 						copyMessage="Copied multisig address to clipboard"
 					/>
 					<FieldDisplay
 						label="MultiSig Public Key"
-						value={multisigInfo.publicKey.toSuiPublicKey()}
+						value={multisigInfo.publicKey.toIotaPublicKey()}
 						copyMessage="Copied multisig public key to clipboard"
 					/>
 					<FieldDisplay
@@ -172,7 +172,7 @@ function MultiSigDetails({
 														Address:
 													</span>{' '}
 													<span className="font-mono">
-														{participant.suiAddress}
+														{participant.iotaAddress}
 													</span>
 												</div>
 											</div>
@@ -235,7 +235,7 @@ export default function SignatureAnalyzer() {
 						.map(({ publicKey, weight }) => ({
 							publicKey,
 							weight,
-							suiAddress: publicKey.toSuiAddress(),
+							iotaAddress: publicKey.toIotaAddress(),
 							keyType:
 								(publicKey as { keyType?: string })
 									.keyType ||

@@ -44,7 +44,7 @@ export function OnboardingView() {
 				</h1>
 				<p className="text-xl text-gray-600 mb-8">
 					Secure your assets with multi-signature protection
-					on Sui
+					on Iota
 				</p>
 				<Button
 					size="lg"

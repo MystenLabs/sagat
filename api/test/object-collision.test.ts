@@ -15,7 +15,7 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { getLocalClient } from './setup/sui-network';
+import { getLocalClient } from './setup/iota-network';
 
 setupSharedTestEnvironment();
 
