@@ -32,7 +32,7 @@ export const getDefaultSagatApiUrl = (
 	mode: 'live' | 'local',
 ) => {
 	return mode === 'live'
-		? 'https://sagat.iota.org'
+		? 'https://api.sagat.iota.org'
 		: 'http://localhost:3000';
 };
 
