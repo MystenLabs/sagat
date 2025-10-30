@@ -127,8 +127,8 @@ export function ProposalCard({
 
 	const getExplorerUrl = (digest: string) => {
 		return network === 'testnet'
-			? `https://iotascan.xyz/testnet/tx/${digest}`
-			: `https://iotascan.xyz/mainnet/tx/${digest}`;
+			? `https://iotascan.com/testnet/tx/${digest}`
+			: `https://iotascan.com/mainnet/tx/${digest}`;
 	};
 
 	const isExternalProposer = () => {

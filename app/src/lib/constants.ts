@@ -26,8 +26,8 @@ export const CONFIG = {
 
 	// Explorer URLs
 	EXPLORER_URLS: {
-		testnet: 'https://iotascan.xyz/testnet',
-		mainnet: 'https://iotascan.xyz/mainnet',
+		testnet: 'https://iotascan.com/testnet',
+		mainnet: 'https://iotascan.com/mainnet',
 		localnet: 'http://localhost:9001', // For local development
 	},
 } as const;
