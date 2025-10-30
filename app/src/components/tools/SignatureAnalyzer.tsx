@@ -7,12 +7,12 @@ import {
 	toSerializedSignature,
 	type PublicKey,
 	type SignatureScheme,
-} from '@mysten/sui/cryptography';
+} from '@iota/iota-sdk/cryptography';
 import {
 	MultiSigPublicKey,
 	parsePartialSignatures,
-} from '@mysten/sui/multisig';
-import { publicKeyFromRawBytes } from '@mysten/sui/verify';
+} from '@iota/iota-sdk/multisig';
+import { publicKeyFromRawBytes } from '@iota/iota-sdk/verify';
 import { AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 

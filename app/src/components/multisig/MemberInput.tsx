@@ -4,7 +4,7 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { formatAddress } from '@mysten/sui/utils';
+import { formatAddress } from '@iota/iota-sdk/utils';
 import {
 	GripVertical,
 	Key,

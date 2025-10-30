@@ -2,8 +2,8 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { type PublicKey } from '@mysten/sui/cryptography';
-import { Transaction } from '@mysten/sui/transactions';
+import { type PublicKey } from '@iota/iota-sdk/cryptography';
+import { Transaction } from '@iota/iota-sdk/transactions';
 import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '../db';

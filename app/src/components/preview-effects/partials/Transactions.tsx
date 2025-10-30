@@ -7,7 +7,7 @@ import {
 	type SuiCallArg,
 	type SuiTransaction,
 	type TransactionBlockData,
-} from '@mysten/sui/client';
+} from '@iota/iota-sdk/client';
 import { type ReactNode } from 'react';
 
 import { ObjectLink } from '../ObjectLink';

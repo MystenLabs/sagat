@@ -5,9 +5,9 @@
 import {
 	getFullnodeUrl,
 	SuiClient,
-} from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
-import { toBase64 } from '@mysten/sui/utils';
+} from '@iota/iota-sdk/client';
+import { Transaction } from '@iota/iota-sdk/transactions';
+import { toBase64 } from '@iota/iota-sdk/utils';
 
 const client = new SuiClient({
 	url: getFullnodeUrl('testnet'),

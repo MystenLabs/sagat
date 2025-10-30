@@ -2,12 +2,12 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClientContext } from '@mysten/dapp-kit';
+import { useSuiClientContext } from '@iota/dapp-kit';
 import {
 	type ObjectOwner,
 	type SuiObjectChange,
-} from '@mysten/sui/client';
-import { formatAddress } from '@mysten/sui/utils';
+} from '@iota/iota-sdk/client';
+import { formatAddress } from '@iota/iota-sdk/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';

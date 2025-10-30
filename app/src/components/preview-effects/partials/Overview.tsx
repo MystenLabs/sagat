@@ -5,7 +5,7 @@
 import {
 	type DryRunTransactionBlockResponse,
 	type GasCostSummary,
-} from '@mysten/sui/client';
+} from '@iota/iota-sdk/client';
 import { Check, Copy } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 

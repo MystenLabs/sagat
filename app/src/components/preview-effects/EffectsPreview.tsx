@@ -2,9 +2,9 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { type DryRunTransactionBlockResponse } from '@mysten/sui/client';
-import { messageWithIntent } from '@mysten/sui/cryptography';
-import { fromBase64, toHex } from '@mysten/sui/utils';
+import { type DryRunTransactionBlockResponse } from '@iota/iota-sdk/client';
+import { messageWithIntent } from '@iota/iota-sdk/cryptography';
+import { fromBase64, toHex } from '@iota/iota-sdk/utils';
 import { blake2b } from '@noble/hashes/blake2.js';
 import { useMemo, useState } from 'react';
 

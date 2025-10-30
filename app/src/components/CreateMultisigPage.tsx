@@ -18,7 +18,7 @@ import {
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@iota/dapp-kit';
 import { ArrowLeft, Plus } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';

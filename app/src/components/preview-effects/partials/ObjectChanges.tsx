@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { type SuiObjectChange } from '@mysten/sui/client';
+import { type SuiObjectChange } from '@iota/iota-sdk/client';
 
 import { Label } from '@/components/ui/label';
 

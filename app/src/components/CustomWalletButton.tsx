@@ -9,8 +9,8 @@ import {
 	useDisconnectWallet,
 	useSwitchAccount,
 	useWallets,
-} from '@mysten/dapp-kit';
-import { formatAddress } from '@mysten/sui/utils';
+} from '@iota/dapp-kit';
+import { formatAddress } from '@iota/iota-sdk/utils';
 import { type WalletAccount } from '@wallet-standard/base';
 import {
 	AlertTriangle,

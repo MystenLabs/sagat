@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { type SuiEvent } from '@mysten/sui/client';
+import { type SuiEvent } from '@iota/iota-sdk/client';
 import { type ReactNode } from 'react';
 
 import { Textarea } from '@/components/ui/textarea';

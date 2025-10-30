@@ -2,12 +2,12 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClient } from '@mysten/dapp-kit';
+import { useSuiClient } from '@iota/dapp-kit';
+import { MultiSigPublicKey } from '@iota/iota-sdk/multisig';
 import {
 	ProposalStatus,
 	type PublicProposal,
 } from '@mysten/sagat';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
 	useMutation,
 	useQueryClient,

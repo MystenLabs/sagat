@@ -2,8 +2,8 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCurrentAccount } from '@mysten/dapp-kit';
-import { formatAddress } from '@mysten/sui/utils';
+import { useCurrentAccount } from '@iota/dapp-kit';
+import { formatAddress } from '@iota/iota-sdk/utils';
 import { ArrowRight, Shield } from 'lucide-react';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';

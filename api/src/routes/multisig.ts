@@ -2,10 +2,10 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+import { type PublicKey } from '@iota/iota-sdk/cryptography';
+import { MultiSigPublicKey } from '@iota/iota-sdk/multisig';
+import { isValidSuiAddress } from '@iota/iota-sdk/utils';
 import { PersonalMessages } from '@mysten/sagat';
-import { type PublicKey } from '@mysten/sui/cryptography';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { isValidSuiAddress } from '@mysten/sui/utils';
 import { and, eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 

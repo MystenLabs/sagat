@@ -5,7 +5,7 @@
 import {
 	SuiClient,
 	type SuiObjectData,
-} from '@mysten/sui/client';
+} from '@iota/iota-sdk/client';
 
 import { SUI_RPC_URL } from '../db/env';
 import {

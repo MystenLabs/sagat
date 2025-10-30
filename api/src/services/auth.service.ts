@@ -2,8 +2,8 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+import { type PublicKey } from '@iota/iota-sdk/cryptography';
 import { PersonalMessages } from '@mysten/sagat';
-import { type PublicKey } from '@mysten/sui/cryptography';
 import { type Context } from 'hono';
 import {
 	deleteCookie,

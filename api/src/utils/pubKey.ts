@@ -7,11 +7,11 @@ import {
 	SIGNATURE_SCHEME_TO_FLAG,
 	SIGNATURE_SCHEME_TO_SIZE,
 	type PublicKey,
-} from '@mysten/sui/cryptography';
-import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
-import { Secp256k1PublicKey } from '@mysten/sui/keypairs/secp256k1';
-import { Secp256r1PublicKey } from '@mysten/sui/keypairs/secp256r1';
-import { fromBase64 } from '@mysten/sui/utils';
+} from '@iota/iota-sdk/cryptography';
+import { Ed25519PublicKey } from '@iota/iota-sdk/keypairs/ed25519';
+import { Secp256k1PublicKey } from '@iota/iota-sdk/keypairs/secp256k1';
+import { Secp256r1PublicKey } from '@iota/iota-sdk/keypairs/secp256r1';
+import { fromBase64 } from '@iota/iota-sdk/utils';
 
 import { ValidationError } from '../errors';
 

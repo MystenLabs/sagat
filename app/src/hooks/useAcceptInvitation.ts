@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSignPersonalMessage } from '@mysten/dapp-kit';
+import { useSignPersonalMessage } from '@iota/dapp-kit';
 import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,

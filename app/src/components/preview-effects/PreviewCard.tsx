@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ObjectOwner } from '@mysten/sui/client';
+import { type ObjectOwner } from '@iota/iota-sdk/client';
 import { type ReactNode } from 'react';
 
 import { ObjectLink } from './ObjectLink';

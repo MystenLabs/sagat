@@ -2,6 +2,9 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+import { Ed25519Keypair } from '@iota/iota-sdk/keypairs/ed25519';
+import { Transaction } from '@iota/iota-sdk/transactions';
+import { MIST_PER_SUI } from '@iota/iota-sdk/utils';
 import {
 	defaultExpiry,
 	PersonalMessages,
@@ -9,9 +12,6 @@ import {
 	SagatClient,
 	type MultisigWithMembers,
 } from '@mysten/sagat';
-import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { Transaction } from '@mysten/sui/transactions';
-import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { type Hono } from 'hono';
 
 import {

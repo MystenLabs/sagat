@@ -5,13 +5,13 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-import '@mysten/dapp-kit/dist/index.css';
+import '@iota/dapp-kit/dist/index.css';
 import './index.css';
 
 import {
 	SuiClientProvider,
 	WalletProvider,
-} from '@mysten/dapp-kit';
+} from '@iota/dapp-kit';
 import {
 	QueryClient,
 	QueryClientProvider,

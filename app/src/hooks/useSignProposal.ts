@@ -5,8 +5,8 @@
 import {
 	useCurrentAccount,
 	useSignTransaction,
-} from '@mysten/dapp-kit';
-import { Transaction } from '@mysten/sui/transactions';
+} from '@iota/dapp-kit';
+import { Transaction } from '@iota/iota-sdk/transactions';
 import {
 	useMutation,
 	useQueryClient,

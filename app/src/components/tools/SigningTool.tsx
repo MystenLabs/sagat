@@ -5,9 +5,9 @@
 import {
 	useCurrentAccount,
 	useSignTransaction,
-} from '@mysten/dapp-kit';
-import { type DryRunTransactionBlockResponse } from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
+} from '@iota/dapp-kit';
+import { type DryRunTransactionBlockResponse } from '@iota/iota-sdk/client';
+import { Transaction } from '@iota/iota-sdk/transactions';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 

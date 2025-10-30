@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { isValidTransactionDigest } from '@mysten/sui/utils';
+import { isValidTransactionDigest } from '@iota/iota-sdk/utils';
 import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api';

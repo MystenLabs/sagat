@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { MultiSigPublicKey } from '@iota/iota-sdk/multisig';
 
 import { extractPublicKeyFromBase64 } from './wallet';
 

@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { isValidSuiAddress } from '@mysten/sui/utils';
+import { isValidSuiAddress } from '@iota/iota-sdk/utils';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 

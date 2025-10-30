@@ -2,15 +2,15 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+import { Transaction } from '@iota/iota-sdk/transactions';
+import {
+	fromBase64,
+	isValidTransactionDigest,
+} from '@iota/iota-sdk/utils';
 import {
 	PersonalMessages,
 	type PublicProposal,
 } from '@mysten/sagat';
-import { Transaction } from '@mysten/sui/transactions';
-import {
-	fromBase64,
-	isValidTransactionDigest,
-} from '@mysten/sui/utils';
 import { eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 

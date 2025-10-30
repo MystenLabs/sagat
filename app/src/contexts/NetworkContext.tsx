@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClientContext } from '@mysten/dapp-kit';
+import { useSuiClientContext } from '@iota/dapp-kit';
 
 export type SuiNetwork = 'testnet' | 'mainnet';
 

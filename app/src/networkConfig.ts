@@ -2,8 +2,8 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { createNetworkConfig } from '@mysten/dapp-kit';
-import { getFullnodeUrl } from '@mysten/sui/client';
+import { createNetworkConfig } from '@iota/dapp-kit';
+import { getFullnodeUrl } from '@iota/iota-sdk/client';
 
 const {
 	networkConfig,

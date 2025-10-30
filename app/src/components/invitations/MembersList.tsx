@@ -2,8 +2,8 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatAddress } from '@iota/iota-sdk/utils';
 import type { MultisigMember } from '@mysten/sagat';
-import { formatAddress } from '@mysten/sui/utils';
 
 import { Label } from '@/components/ui/label';
 

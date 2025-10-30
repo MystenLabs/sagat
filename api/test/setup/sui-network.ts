@@ -8,12 +8,12 @@
 import {
 	getFullnodeUrl,
 	SuiClient,
-} from '@mysten/sui/client';
+} from '@iota/iota-sdk/client';
 import {
 	getFaucetHost,
 	requestSuiFromFaucetV2,
-} from '@mysten/sui/faucet';
-import { normalizeSuiAddress } from '@mysten/sui/utils';
+} from '@iota/iota-sdk/faucet';
+import { normalizeSuiAddress } from '@iota/iota-sdk/utils';
 
 /**
  * Get a Sui client for localnet

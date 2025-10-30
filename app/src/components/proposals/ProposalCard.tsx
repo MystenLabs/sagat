@@ -2,15 +2,15 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@iota/dapp-kit';
+import {
+	formatAddress,
+	formatDigest,
+} from '@iota/iota-sdk/utils';
 import {
 	ProposalStatus,
 	type ProposalWithSignatures,
 } from '@mysten/sagat';
-import {
-	formatAddress,
-	formatDigest,
-} from '@mysten/sui/utils';
 import {
 	CheckCircle,
 	ChevronDown,

@@ -5,8 +5,8 @@
 import {
 	getFullnodeUrl,
 	SuiClient,
-} from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
+} from '@iota/iota-sdk/client';
+import { Transaction } from '@iota/iota-sdk/transactions';
 import { useMutation } from '@tanstack/react-query';
 
 import { type LocalNetwork } from '@/components/LocalNetworkSelector';

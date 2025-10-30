@@ -2,8 +2,8 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClient } from '@mysten/dapp-kit';
-import { type BalanceChange } from '@mysten/sui/client';
+import { useSuiClient } from '@iota/dapp-kit';
+import { type BalanceChange } from '@iota/iota-sdk/client';
 import { useQuery } from '@tanstack/react-query';
 
 import { PreviewCard } from '../PreviewCard';

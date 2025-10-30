@@ -7,7 +7,7 @@ Client dApp using the following tools:
 - [TypeScript](https://www.typescriptlang.org/) for type checking
 - [Vite](https://vitejs.dev/) for build tooling
 - [ESLint](https://eslint.org/)
-- [`@mysten/dapp-kit`](https://sdk.mystenlabs.com/dapp-kit) for connecting to
+- [`@iota/dapp-kit`](https://docs.iota.org/developer/ts-sdk/dapp-kit/) for connecting to
   wallets and loading data
 - [pnpm](https://pnpm.io/) for package management
 

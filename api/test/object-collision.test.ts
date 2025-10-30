@@ -2,7 +2,7 @@
 // Modifications Copyright (c) 2025 IOTA Stiftung
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from '@mysten/sui/transactions';
+import { Transaction } from '@iota/iota-sdk/transactions';
 import {
 	beforeEach,
 	describe,

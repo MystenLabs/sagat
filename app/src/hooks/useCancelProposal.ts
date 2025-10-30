@@ -5,7 +5,7 @@
 import {
 	useCurrentAccount,
 	useSignPersonalMessage,
-} from '@mysten/dapp-kit';
+} from '@iota/dapp-kit';
 import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,
