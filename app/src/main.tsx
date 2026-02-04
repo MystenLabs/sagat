@@ -12,6 +12,11 @@ import {
 	WalletProvider,
 } from '@mysten/dapp-kit';
 import {
+	getFullnodeUrl,
+	SuiClient,
+} from '@mysten/sui/client';
+import { registerWalletConnectWallet } from '@mysten/walletconnect-wallet';
+import {
 	QueryClient,
 	QueryClientProvider,
 } from '@tanstack/react-query';
@@ -21,6 +26,17 @@ import App from './App.tsx';
 import { ApiAuthProvider } from './contexts/ApiAuthContext.tsx';
 import { CONFIG } from './lib/constants';
 import { networkConfig } from './networkConfig.ts';
+
+const walletConnectProjectId = import.meta.env
+	.VITE_WALLETCONNECT_PROJECT_ID as string | undefined;
+
+if (walletConnectProjectId) {
+	registerWalletConnectWallet({
+		projectId: walletConnectProjectId,
+		getClient: (network) =>
+			new SuiClient({ url: getFullnodeUrl(network) }),
+	});
+}
 
 const queryClient = new QueryClient();
 
