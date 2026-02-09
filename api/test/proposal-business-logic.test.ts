@@ -504,7 +504,7 @@ describe('Proposal Business Logic', () => {
 			);
 
 			// Get available coins
-			const coins = await client.getCoins({
+			const coins = await client.listCoins({
 				owner: multisig.address,
 				limit: 20,
 			});
@@ -515,9 +515,9 @@ describe('Proposal Business Logic', () => {
 				tx.setSender(multisig.address);
 				tx.setGasPayment([
 					{
-						objectId: coins.data[i].coinObjectId,
-						version: coins.data[i].version,
-						digest: coins.data[i].digest,
+						objectId: coins.objects[i].objectId,
+						version: coins.objects[i].version,
+						digest: coins.objects[i].digest,
 					},
 				]);
 				const [coin] = tx.splitCoins(tx.gas, [100000]);

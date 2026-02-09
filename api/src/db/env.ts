@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { getFullnodeUrl } from '@mysten/sui/client';
+import { getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
 
 import { ValidationError } from '../errors';
 import { type SuiNetwork } from '../utils/client';
@@ -47,16 +47,16 @@ export const SUPPORTED_NETWORKS = supportedNetworks.map(
 
 export const SUI_RPC_URL_testnet =
 	process.env.SUI_RPC_URL_testnet ||
-	getFullnodeUrl('testnet');
+	getJsonRpcFullnodeUrl('testnet');
 export const SUI_RPC_URL_mainnet =
 	process.env.SUI_RPC_URL_mainnet ||
-	getFullnodeUrl('mainnet');
+	getJsonRpcFullnodeUrl('mainnet');
 export const SUI_RPC_URL_devnet =
 	process.env.SUI_RPC_URL_devnet ||
-	getFullnodeUrl('devnet');
+	getJsonRpcFullnodeUrl('devnet');
 export const SUI_RPC_URL_localnet =
 	process.env.SUI_RPC_URL_localnet ||
-	getFullnodeUrl('localnet');
+	getJsonRpcFullnodeUrl('localnet');
 
 export const SUI_RPC_URL = {
 	mainnet: SUI_RPC_URL_mainnet,

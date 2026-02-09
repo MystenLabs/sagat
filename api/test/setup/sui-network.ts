@@ -5,20 +5,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import {
-	getFullnodeUrl,
-	SuiClient,
-} from '@mysten/sui/client';
-import {
 	getFaucetHost,
 	requestSuiFromFaucetV2,
 } from '@mysten/sui/faucet';
+import { SuiGrpcClient } from '@mysten/sui/grpc';
+import { getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 
 /**
  * Get a Sui client for localnet
  */
-export function getLocalClient(): SuiClient {
-	return new SuiClient({ url: getFullnodeUrl('localnet') });
+export function getLocalClient(): SuiGrpcClient {
+	return new SuiGrpcClient({
+		network: 'localnet',
+		baseUrl: getJsonRpcFullnodeUrl('localnet'),
+	});
 }
 
 /**
@@ -27,7 +28,7 @@ export function getLocalClient(): SuiClient {
 export async function isNetworkRunning(): Promise<boolean> {
 	try {
 		const client = getLocalClient();
-		await client.getLatestCheckpointSequenceNumber();
+		await client.getReferenceGasPrice();
 		return true;
 	} catch {
 		return false;

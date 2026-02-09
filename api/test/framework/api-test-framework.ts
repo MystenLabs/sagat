@@ -181,8 +181,11 @@ export class TestSession {
 			client,
 		});
 
+		if (result.$kind !== 'Transaction')
+			throw new Error('Transaction failed to execute.');
+
 		await client.waitForTransaction({
-			digest: result.digest,
+			digest: result.Transaction.digest,
 		});
 	}
 
