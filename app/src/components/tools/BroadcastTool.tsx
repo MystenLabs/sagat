@@ -1,3 +1,6 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
 import {
 	getFullnodeUrl,
 	SuiClient,
@@ -141,17 +144,19 @@ function BroadcastError({
 export default function BroadcastTool() {
 	const [localNetwork, setLocalNetwork] =
 		useState<LocalNetwork>('mainnet');
-	const [transactionBytes, setTransactionBytes] = useState('');
+	const [transactionBytes, setTransactionBytes] =
+		useState('');
 	const [signature, setSignature] = useState('');
 	const [broadcasting, setBroadcasting] = useState(false);
-	const [result, setResult] = useState<BroadcastResult | null>(
-		null,
-	);
+	const [result, setResult] =
+		useState<BroadcastResult | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	const handleBroadcast = async () => {
 		if (!transactionBytes || !signature) {
-			setError('Both transaction bytes and signature are required');
+			setError(
+				'Both transaction bytes and signature are required',
+			);
 			return;
 		}
 
@@ -174,6 +179,16 @@ export default function BroadcastTool() {
 					},
 				});
 
+			if (
+				executionResult.effects!.status.status === 'failure'
+			) {
+				setError(
+					executionResult.effects!.status.error ||
+						'Failed to broadcast transaction',
+				);
+				return;
+			}
+
 			await client.waitForTransaction({
 				digest: executionResult.digest,
 			});
@@ -195,19 +210,20 @@ export default function BroadcastTool() {
 	const handleReset = () => {
 		setResult(null);
 		setError(null);
-		setTransactionBytes('');
-		setSignature('');
 	};
 
 	const canBroadcast =
-		transactionBytes.trim() && signature.trim() && !broadcasting;
+		transactionBytes.trim() &&
+		signature.trim() &&
+		!broadcasting;
 
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-between gap-4">
 				<div>
 					<p className="text-sm text-gray-600">
-						Broadcast a signed transaction to the Sui network.
+						Broadcast a signed transaction to the Sui
+						network.
 					</p>
 					<p className="text-xs text-gray-500 mt-1">
 						Network selection is local to this tool
@@ -254,7 +270,10 @@ export default function BroadcastTool() {
 				)}
 
 				{error && (
-					<BroadcastError error={error} onReset={handleReset} />
+					<BroadcastError
+						error={error}
+						onReset={handleReset}
+					/>
 				)}
 			</div>
 		</div>
