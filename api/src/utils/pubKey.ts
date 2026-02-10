@@ -68,6 +68,6 @@ export const getPublicKeyFromSerializedSignature = (
 		return new Secp256r1PublicKey(signatureData.publicKey);
 
 	throw new ValidationError(
-		'Invalid signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported.',
+		'Invalid signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported. zkLogin wallets are not supported.',
 	);
 };
