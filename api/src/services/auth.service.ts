@@ -181,7 +181,15 @@ export const connectToPublicKey = async (c: Context) => {
 		return c.json({ success: true });
 	} catch (error) {
 		authAttempts.inc({ status: 'failed' });
-		return c.json({ error: error instanceof ValidationError ? error.message : 'Authentication failed' }, 500);
+		return c.json(
+			{
+				error:
+					error instanceof ValidationError
+						? error.message
+						: 'Authentication failed',
+			},
+			500,
+		);
 	}
 };
 
