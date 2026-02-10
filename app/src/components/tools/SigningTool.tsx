@@ -3,11 +3,17 @@
 
 import {
 	useCurrentAccount,
+	useSignAndExecuteTransaction,
 	useSignTransaction,
+	useSuiClientContext,
 } from '@mysten/dapp-kit';
 import { type DryRunTransactionBlockResponse } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import {
+	AlertCircle,
+	CheckCircle,
+	ExternalLink,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import {
@@ -20,8 +26,10 @@ import { Button } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Textarea } from '@/components/ui/textarea';
 import { useDryRunWithNetwork } from '@/hooks/useDryRunWithNetwork';
+import { getExplorerUrl } from '@/lib/utils';
 
 interface SignedResult {
+	digest?: string;
 	signature: string;
 	bytes: string;
 }
@@ -127,9 +135,11 @@ function PreviewResult({
 function SignedResultDisplay({
 	result,
 	onStartOver,
+	network,
 }: {
 	result: SignedResult;
 	onStartOver: () => void;
+	network: string;
 }) {
 	return (
 		<div className="border border-gray-200 bg-white rounded-lg p-4">
@@ -137,7 +147,11 @@ function SignedResultDisplay({
 				<div className="flex items-center gap-2">
 					<CheckCircle className="w-5 h-5 text-green-600" />
 					<h3 className="font-medium text-gray-900">
-						Transaction Signed Successfully
+						Transaction{' '}
+						{result.digest
+							? 'Signed and Executed'
+							: 'Signed'}{' '}
+						Successfully
 					</h3>
 				</div>
 				<Button
@@ -151,9 +165,26 @@ function SignedResultDisplay({
 			</div>
 			<div className="space-y-3">
 				<FieldDisplay
-					label="Signature"
-					value={result.signature}
+					label={
+						result.digest
+							? 'Transaction Digest'
+							: 'Signature'
+					}
+					value={result.digest || result.signature}
 				/>
+				{result.digest && (
+					<Button size="sm" variant="outline" asChild>
+						<a
+							href={getExplorerUrl(result.digest, network)}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="flex items-center gap-1"
+						>
+							<ExternalLink className="w-4 h-4" />
+							View Transaction
+						</a>
+					</Button>
+				)}
 			</div>
 		</div>
 	);
@@ -162,21 +193,27 @@ function SignedResultDisplay({
 function SignButton({
 	onSign,
 	isSigning,
+	shouldExecute,
 }: {
-	onSign: () => void;
+	onSign: (shouldExecute: boolean) => void;
 	isSigning: boolean;
+	shouldExecute: boolean;
 }) {
 	const currentAccount = useCurrentAccount();
 	return (
 		<>
-			<div className="flex justify-end pt-4 border-t">
+			<div className="flex justify-end pt-4">
 				<Button
 					type="button"
-					onClick={onSign}
+					onClick={() => onSign(shouldExecute)}
 					disabled={isSigning || !currentAccount}
-					className="bg-blue-600 hover:bg-blue-700"
+					className={`${shouldExecute ? 'bg-primary hover:bg-primary/90' : 'bg-blue-600 hover:bg-blue-700'}`}
 				>
-					{isSigning ? 'Signing...' : 'Sign with Wallet'}
+					{isSigning
+						? 'Signing...'
+						: shouldExecute
+							? 'Sign and Execute with Wallet'
+							: 'Sign with Wallet'}
 				</Button>
 			</div>
 
@@ -193,18 +230,25 @@ function SignButton({
 }
 
 export default function SigningTool() {
-	const [localNetwork, setLocalNetwork] =
-		useState<LocalNetwork>('mainnet');
 	const [signedResult, setSignedResult] =
 		useState<SignedResult | null>(null);
 	const [transactionData, setTransactionData] =
 		useState('');
+	const ctx = useSuiClientContext();
+
+	const [localNetwork, setLocalNetwork] =
+		useState<LocalNetwork>(ctx.network as LocalNetwork);
 
 	const dryRunMutation = useDryRunWithNetwork(localNetwork);
 	const {
 		mutateAsync: signTransaction,
 		isPending: isSigning,
 	} = useSignTransaction();
+
+	const {
+		mutateAsync: signAndExecuteTransaction,
+		isPending: isSigningAndExecuting,
+	} = useSignAndExecuteTransaction();
 
 	const isDryRunSuccessful =
 		dryRunMutation.isSuccess &&
@@ -239,19 +283,35 @@ export default function SigningTool() {
 		}
 	};
 
-	const handleSign = async () => {
+	const handleSign = async (shouldExecute: boolean) => {
 		if (!transactionData) return;
 
 		try {
 			const tx = Transaction.from(transactionData);
-			const result = await signTransaction({
-				transaction: tx,
-			});
-			setSignedResult({
-				signature: result.signature,
-				bytes: result.bytes,
-			});
-		} catch {
+
+			if (shouldExecute) {
+				const result = await signAndExecuteTransaction({
+					transaction: tx,
+				});
+
+				setSignedResult({
+					digest: result.digest,
+					signature: result.signature,
+					bytes: result.bytes,
+				});
+			} else {
+				const result = await signTransaction({
+					transaction: tx,
+				});
+
+				setSignedResult({
+					digest: undefined,
+					signature: result.signature,
+					bytes: result.bytes,
+				});
+			}
+		} catch (error) {
+			console.error(error);
 			// Error handled by mutation
 		}
 	};
@@ -260,6 +320,11 @@ export default function SigningTool() {
 		setSignedResult(null);
 		setTransactionData('');
 		dryRunMutation.reset();
+	};
+
+	const updateNetwork = (network: LocalNetwork) => {
+		setLocalNetwork(network);
+		ctx.selectNetwork(network);
 	};
 
 	return (
@@ -276,7 +341,7 @@ export default function SigningTool() {
 				</div>
 				<LocalNetworkSelector
 					network={localNetwork}
-					onNetworkChange={setLocalNetwork}
+					onNetworkChange={updateNetwork}
 				/>
 			</div>
 
@@ -305,14 +370,23 @@ export default function SigningTool() {
 					<SignedResultDisplay
 						result={signedResult}
 						onStartOver={handleStartOver}
+						network={localNetwork}
 					/>
 				)}
 
 				{isDryRunSuccessful && !signedResult && (
-					<SignButton
-						onSign={handleSign}
-						isSigning={isSigning}
-					/>
+					<div className="flex gap-2 justify-end">
+						<SignButton
+							onSign={handleSign}
+							shouldExecute={true}
+							isSigning={isSigningAndExecuting}
+						/>
+						<SignButton
+							onSign={handleSign}
+							shouldExecute={false}
+							isSigning={isSigning}
+						/>
+					</div>
 				)}
 			</div>
 		</div>
