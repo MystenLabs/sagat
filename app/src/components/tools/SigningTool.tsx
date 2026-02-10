@@ -310,8 +310,7 @@ export default function SigningTool() {
 					bytes: result.bytes,
 				});
 			}
-		} catch (error) {
-			console.error(error);
+		} catch {
 			// Error handled by mutation
 		}
 	};
