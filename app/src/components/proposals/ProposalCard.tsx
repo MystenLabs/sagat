@@ -21,6 +21,7 @@ import {
 import { useState } from 'react';
 
 import { type ProposalCardInput } from '@/lib/types';
+import { getExplorerUrl } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { useNetwork } from '../../contexts/NetworkContext';
@@ -122,12 +123,6 @@ export function ProposalCard({
 			return <Label variant="info">Ready to Execute</Label>;
 		}
 		return <Label variant="warning">Pending</Label>;
-	};
-
-	const getExplorerUrl = (digest: string) => {
-		return network === 'testnet'
-			? `https://suiscan.xyz/testnet/tx/${digest}`
-			: `https://suiscan.xyz/mainnet/tx/${digest}`;
 	};
 
 	const isExternalProposer = () => {
@@ -256,7 +251,10 @@ export function ProposalCard({
 					{proposal.status === ProposalStatus.SUCCESS ? (
 						<Button size="sm" variant="outline" asChild>
 							<a
-								href={getExplorerUrl(proposal.digest)}
+								href={getExplorerUrl(
+									proposal.digest,
+									network,
+								)}
 								target="_blank"
 								rel="noopener noreferrer"
 								className="flex items-center gap-1"
@@ -341,7 +339,10 @@ export function ProposalCard({
 							<div className="flex items-center gap-2">
 								<Button size="sm" variant="outline" asChild>
 									<a
-										href={getExplorerUrl(proposal.digest)}
+										href={getExplorerUrl(
+											proposal.digest,
+											network,
+										)}
 										target="_blank"
 										rel="noopener noreferrer"
 										className="flex items-center gap-1"

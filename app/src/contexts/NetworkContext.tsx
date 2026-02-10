@@ -14,6 +14,8 @@ export function useNetwork() {
 			clientCtx.selectNetwork(network);
 			localStorage.setItem('suiNetwork', network);
 		},
-		isTestMode: clientCtx.network === 'testnet',
+		isTestMode:
+			clientCtx.network === 'testnet' ||
+			clientCtx.network === 'devnet',
 	};
 }

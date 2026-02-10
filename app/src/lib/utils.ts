@@ -7,3 +7,10 @@ import { twMerge } from 'tailwind-merge';
 export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
+
+export const getExplorerUrl = (
+	digest: string,
+	network: string,
+) => {
+	return `https://suiexplorer.com/txblock/${digest}?network=${network}`;
+};

@@ -15,6 +15,9 @@ const {
 	mainnet: {
 		url: getFullnodeUrl('mainnet'),
 	},
+	devnet: {
+		url: getFullnodeUrl('devnet'),
+	},
 });
 
 export {
