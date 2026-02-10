@@ -334,9 +334,6 @@ export default function SigningTool() {
 						Preview and sign transactions with your
 						connected wallet.
 					</p>
-					<p className="text-xs text-gray-500 mt-1">
-						Network selection is local to this tool
-					</p>
 				</div>
 				<LocalNetworkSelector
 					network={localNetwork}
