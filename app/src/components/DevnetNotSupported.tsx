@@ -29,18 +29,14 @@ export function DevnetNotSupported() {
 				<div className="flex gap-3 justify-center">
 					<Button
 						size="lg"
-						onClick={() =>
-							ctx.selectNetwork('mainnet')
-						}
+						onClick={() => ctx.selectNetwork('mainnet')}
 					>
 						Switch to Mainnet
 					</Button>
 					<Button
 						size="lg"
 						variant="outline"
-						onClick={() =>
-							ctx.selectNetwork('testnet')
-						}
+						onClick={() => ctx.selectNetwork('testnet')}
 					>
 						Switch to Testnet
 					</Button>

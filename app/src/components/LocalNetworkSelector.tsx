@@ -9,12 +9,11 @@ import { Button } from '@/components/ui/button';
 
 export type LocalNetwork = 'mainnet' | 'testnet' | 'devnet';
 
-const networks: { value: LocalNetwork; label: string }[] =
-	[
-		{ value: 'mainnet', label: 'Mainnet' },
-		{ value: 'testnet', label: 'Testnet' },
-		{ value: 'devnet', label: 'Devnet' },
-	];
+const networks: { value: LocalNetwork; label: string }[] = [
+	{ value: 'mainnet', label: 'Mainnet' },
+	{ value: 'testnet', label: 'Testnet' },
+	{ value: 'devnet', label: 'Devnet' },
+];
 
 export function NetworkSelector() {
 	const ctx = useSuiClientContext();
