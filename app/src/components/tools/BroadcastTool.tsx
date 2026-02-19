@@ -1,17 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	getFullnodeUrl,
-	SuiClient,
-} from '@mysten/sui/client';
+import { useSuiClient } from '@mysten/dapp-kit';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
 
-import {
-	LocalNetworkSelector,
-	type LocalNetwork,
-} from '@/components/LocalNetworkSelector';
+import { NetworkSelector } from '@/components/LocalNetworkSelector';
 import { Button } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Textarea } from '@/components/ui/textarea';
@@ -142,8 +136,7 @@ function BroadcastError({
 }
 
 export default function BroadcastTool() {
-	const [localNetwork, setLocalNetwork] =
-		useState<LocalNetwork>('mainnet');
+	const client = useSuiClient();
 	const [transactionBytes, setTransactionBytes] =
 		useState('');
 	const [signature, setSignature] = useState('');
@@ -165,10 +158,6 @@ export default function BroadcastTool() {
 		setResult(null);
 
 		try {
-			const client = new SuiClient({
-				url: getFullnodeUrl(localNetwork),
-			});
-
 			const executionResult =
 				await client.executeTransactionBlock({
 					transactionBlock: transactionBytes,
@@ -225,14 +214,8 @@ export default function BroadcastTool() {
 						Broadcast a signed transaction to the Sui
 						network.
 					</p>
-					<p className="text-xs text-gray-500 mt-1">
-						Network selection is local to this tool
-					</p>
 				</div>
-				<LocalNetworkSelector
-					network={localNetwork}
-					onNetworkChange={setLocalNetwork}
-				/>
+				<NetworkSelector />
 			</div>
 
 			<div className="space-y-6">
