@@ -1,8 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { FileText, PenLine } from 'lucide-react';
+import { FileText, PenLine, Radio } from 'lucide-react';
 
+import BroadcastTool from '@/components/tools/BroadcastTool';
 import SignatureAnalyzer from '@/components/tools/SignatureAnalyzer';
 import SigningTool from '@/components/tools/SigningTool';
 
@@ -36,5 +37,15 @@ export const TOOLS: Tool[] = [
 		icon: <PenLine className="w-3.5 h-3.5" />,
 		component: SigningTool,
 		path: '/tools/sign',
+	},
+	{
+		id: 'broadcast',
+		name: 'Broadcast Transaction',
+		description:
+			'Execute a signed transaction on the Sui network.',
+		headerDescription: 'Execute a signed transaction',
+		icon: <Radio className="w-3.5 h-3.5" />,
+		component: BroadcastTool,
+		path: '/tools/broadcast',
 	},
 ];

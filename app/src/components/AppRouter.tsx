@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import {
+	useCurrentAccount,
+	useSuiClientContext,
+} from '@mysten/dapp-kit';
 import { useMemo, type ReactElement } from 'react';
 import {
 	matchPath,
@@ -16,6 +19,7 @@ import { useApiAuth } from '../contexts/ApiAuthContext';
 import { AuthPrompt } from './AuthPrompt';
 import { CreateMultisigPage } from './CreateMultisigPage';
 import { CustomWalletButton } from './CustomWalletButton';
+import { DevnetNotSupported } from './DevnetNotSupported';
 import { InvitationsPage } from './InvitationsPage';
 import { MultisigDetailPage } from './MultisigDetailPage';
 import { ProposalDetailPage } from './ProposalDetailPage';
@@ -111,6 +115,7 @@ export function AppRouter() {
 	const { isCheckingAuth, isCurrentAddressAuthenticated } =
 		useApiAuth();
 	const location = useLocation();
+	const ctx = useSuiClientContext();
 
 	const authLevel = useMemo(
 		() => getAuthLevel(location.pathname),
@@ -170,6 +175,10 @@ export function AppRouter() {
 	// Public routes - no auth required
 	if (authLevel === 'public') {
 		return renderRoutes;
+	}
+
+	if (ctx.network === 'devnet') {
+		return <DevnetNotSupported />;
 	}
 
 	// Full auth routes - require wallet + API auth

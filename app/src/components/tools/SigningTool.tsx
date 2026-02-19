@@ -16,16 +16,13 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import {
-	LocalNetworkSelector,
-	type LocalNetwork,
-} from '@/components/LocalNetworkSelector';
+import { NetworkSelector } from '@/components/LocalNetworkSelector';
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Textarea } from '@/components/ui/textarea';
-import { useDryRunWithNetwork } from '@/hooks/useDryRunWithNetwork';
+import { useDryRun } from '@/hooks/useDryRun';
 import { getExplorerUrl } from '@/lib/utils';
 
 interface SignedResult {
@@ -235,11 +232,9 @@ export default function SigningTool() {
 	const [transactionData, setTransactionData] =
 		useState('');
 	const ctx = useSuiClientContext();
+	const network = ctx.network;
 
-	const [localNetwork, setLocalNetwork] =
-		useState<LocalNetwork>(ctx.network as LocalNetwork);
-
-	const dryRunMutation = useDryRunWithNetwork(localNetwork);
+	const dryRunMutation = useDryRun();
 	const {
 		mutateAsync: signTransaction,
 		isPending: isSigning,
@@ -255,13 +250,11 @@ export default function SigningTool() {
 		dryRunMutation.data?.effects?.status?.status ===
 			'success';
 
-	// Clear preview when network changes
 	useEffect(() => {
 		dryRunMutation.reset();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [localNetwork]);
+	}, [network]);
 
-	// Auto-preview with debounce
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			if (transactionData.trim()) {
@@ -271,7 +264,7 @@ export default function SigningTool() {
 
 		return () => clearTimeout(timer);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [transactionData, localNetwork]);
+	}, [transactionData, network]);
 
 	const handleTransactionDataChange = (value: string) => {
 		setTransactionData(value);
@@ -321,11 +314,6 @@ export default function SigningTool() {
 		dryRunMutation.reset();
 	};
 
-	const updateNetwork = (network: LocalNetwork) => {
-		setLocalNetwork(network);
-		ctx.selectNetwork(network);
-	};
-
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-between gap-4">
@@ -335,10 +323,7 @@ export default function SigningTool() {
 						connected wallet.
 					</p>
 				</div>
-				<LocalNetworkSelector
-					network={localNetwork}
-					onNetworkChange={updateNetwork}
-				/>
+				<NetworkSelector />
 			</div>
 
 			<div className="space-y-6">
@@ -366,7 +351,7 @@ export default function SigningTool() {
 					<SignedResultDisplay
 						result={signedResult}
 						onStartOver={handleStartOver}
-						network={localNetwork}
+						network={network}
 					/>
 				)}
 

@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useSuiClientContext } from '@mysten/dapp-kit';
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -8,24 +9,18 @@ import { Button } from '@/components/ui/button';
 
 export type LocalNetwork = 'mainnet' | 'testnet' | 'devnet';
 
-interface LocalNetworkSelectorProps {
-	network: LocalNetwork;
-	onNetworkChange: (network: LocalNetwork) => void;
-}
+const networks: { value: LocalNetwork; label: string }[] = [
+	{ value: 'mainnet', label: 'Mainnet' },
+	{ value: 'testnet', label: 'Testnet' },
+	{ value: 'devnet', label: 'Devnet' },
+];
 
-export function LocalNetworkSelector({
-	network,
-	onNetworkChange,
-}: LocalNetworkSelectorProps) {
+export function NetworkSelector() {
+	const ctx = useSuiClientContext();
+	const network = ctx.network as LocalNetwork;
+
 	const [isOpen, setIsOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
-
-	const networks: { value: LocalNetwork; label: string }[] =
-		[
-			{ value: 'mainnet', label: 'Mainnet' },
-			{ value: 'testnet', label: 'Testnet' },
-			{ value: 'devnet', label: 'Devnet' },
-		];
 
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
@@ -55,7 +50,7 @@ export function LocalNetworkSelector({
 	const handleNetworkChange = (
 		newNetwork: LocalNetwork,
 	) => {
-		onNetworkChange(newNetwork);
+		ctx.selectNetwork(newNetwork);
 		setIsOpen(false);
 	};
 
