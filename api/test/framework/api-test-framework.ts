@@ -356,6 +356,38 @@ export class TestSession {
 		);
 	}
 
+	async cancelProposal(
+		member: TestUser,
+		proposalId: number,
+	) {
+		const message =
+			PersonalMessages.cancelProposal(proposalId);
+		const signature = await this.signMessage(
+			member.keypair,
+			message,
+		);
+
+		return this.client.cancelProposal(proposalId, {
+			signature,
+		});
+	}
+
+	async rejectMultisig(
+		member: TestUser,
+		multisigAddress: string,
+	) {
+		const message = `Rejecting multisig invitation ${multisigAddress}`;
+		const signature = await this.signMessage(
+			member.keypair,
+			message,
+		);
+
+		return this.client.rejectMultisigInvite(
+			multisigAddress,
+			{ signature },
+		);
+	}
+
 	getStatefulClient(): SagatClient {
 		return this.client;
 	}

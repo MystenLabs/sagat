@@ -74,7 +74,7 @@ describe('Object Collision Detection', () => {
 			const [coin2] = tx2.splitCoins(tx2.gas, [2000000]);
 			tx2.transferObjects([coin2], '0x22');
 
-			expect(
+			await expect(
 				session.createProposal(
 					users[0],
 					multisig.address,
@@ -260,7 +260,7 @@ describe('Object Collision Detection', () => {
 				await tx11.build({ client })
 			).toBase64();
 
-			expect(
+			await expect(
 				session.createProposal(
 					users[0],
 					multisig.address,
@@ -355,27 +355,32 @@ describe('Object Collision Detection', () => {
 	});
 
 	describe('Transaction Resolution', () => {
-		// TODO: Fix this test. It has to be not fully resolved, and throw.
-		test.skip('requires fully resolved transactions', async () => {
+		test('rejects unresolved transactions', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
 
-			// This test would require creating an unresolved transaction
-			// For now, we'll just verify our current transactions are resolved
-			const recipient =
-				'0x9999999999999999999999999999999999999999999999999999999999999999';
+			const tx = new Transaction();
+			const [coin] = tx.splitCoins(tx.gas, [500000]);
+			tx.transferObjects(
+				[coin],
+				'0x9999999999999999999999999999999999999999999999999999999999999999',
+			);
+			// Serialize without building — no sender, no gas resolution
+			const unresolvedBytes = await tx.toJSON();
 
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					recipient,
-					1000000,
-					'Resolved transaction test',
+			const signature =
+				await users[0].keypair.signPersonalMessage(
+					new TextEncoder().encode(unresolvedBytes),
 				);
 
-			expect(proposal.id).toBeDefined();
-			expect(proposal.transactionBytes).toBeDefined();
+			await expect(
+				session.getStatefulClient().createProposal({
+					multisigAddress: multisig.address,
+					network: 'localnet',
+					transactionBytes: unresolvedBytes,
+					signature: signature.signature,
+				}),
+			).rejects.toThrow('not fully resolved');
 		});
 	});
 });
