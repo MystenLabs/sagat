@@ -346,9 +346,7 @@ describe('Proposal Business Logic', () => {
 			);
 			const wrongBuilt = await wrongTx.build({ client });
 			const wrongSig =
-				await users[1].keypair.signTransaction(
-					wrongBuilt,
-				);
+				await users[1].keypair.signTransaction(wrongBuilt);
 
 			// Submit the wrong signature against the real proposal
 			await expect(

@@ -215,10 +215,7 @@ describe('Multisig API', () => {
 			await session.connectUser(creator);
 			await session.registerAddresses();
 
-			await session.createMultisig(
-				[creator, invitee],
-				2,
-			);
+			await session.createMultisig([creator, invitee], 2);
 
 			// Connect invitee so the session is authorized for the query
 			await session.connectUser(invitee);
@@ -229,9 +226,7 @@ describe('Multisig API', () => {
 				.getInvitations(invitee.publicKey);
 
 			expect(invitations).toBeDefined();
-			expect(invitations.length).toBeGreaterThanOrEqual(
-				1,
-			);
+			expect(invitations.length).toBeGreaterThanOrEqual(1);
 		});
 
 		test('rejected invitations are hidden by default', async () => {
@@ -292,9 +287,7 @@ describe('Multisig API', () => {
 					showRejected: true,
 				});
 
-			expect(invitations.length).toBeGreaterThanOrEqual(
-				1,
-			);
+			expect(invitations.length).toBeGreaterThanOrEqual(1);
 		});
 	});
 

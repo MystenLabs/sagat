@@ -112,7 +112,9 @@ describe('Addresses API', () => {
 			const session = framework.createSession();
 
 			// Try to register without connecting/authenticating first
-			await expect(session.registerAddresses()).rejects.toThrow();
+			await expect(
+				session.registerAddresses(),
+			).rejects.toThrow();
 		});
 	});
 });
