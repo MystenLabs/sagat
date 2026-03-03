@@ -33,24 +33,22 @@ describe('Object Collision Detection', () => {
 				await framework.createFundedVerifiedMultisig(2, 2);
 
 			// Get gas coins from the multisig address
-			const coins = await client.getCoins({
+			const coins = await client.listCoins({
 				owner: multisig.address,
 			});
-			const gasCoin = coins.data[0];
+			const gasCoin = coins.objects[0];
 
 			// Create first proposal using specific gas coin
 			const tx1 = new Transaction();
 			tx1.setSender(multisig.address);
 			tx1.setGasPayment([
 				{
-					objectId: gasCoin.coinObjectId,
+					objectId: gasCoin.objectId,
 					version: gasCoin.version,
 					digest: gasCoin.digest,
 				},
 			]);
-			const [coin1] = tx1.splitCoins(gasCoin.coinObjectId, [
-				1000000,
-			]);
+			const [coin1] = tx1.splitCoins(tx1.gas, [1000000]);
 			tx1.transferObjects([coin1], '0x1');
 
 			const proposal = await session.createProposal(
@@ -68,17 +66,15 @@ describe('Object Collision Detection', () => {
 			tx2.setSender(multisig.address);
 			tx2.setGasPayment([
 				{
-					objectId: gasCoin.coinObjectId,
+					objectId: gasCoin.objectId,
 					version: gasCoin.version,
 					digest: gasCoin.digest,
 				},
 			]);
-			const [coin2] = tx2.splitCoins(gasCoin.coinObjectId, [
-				2000000,
-			]);
+			const [coin2] = tx2.splitCoins(tx2.gas, [2000000]);
 			tx2.transferObjects([coin2], '0x22');
 
-			expect(
+			await expect(
 				session.createProposal(
 					users[0],
 					multisig.address,
@@ -94,23 +90,23 @@ describe('Object Collision Detection', () => {
 				await framework.createFundedVerifiedMultisig(2, 2);
 
 			// Get multiple gas coins
-			const coins = await client.getCoins({
+			const coins = await client.listCoins({
 				owner: multisig.address,
 			});
 
-			expect(coins.data.length).toBeGreaterThan(1);
+			expect(coins.objects.length).toBeGreaterThan(1);
 			// we shouldn't be over 10!
-			expect(coins.data.length).toBeLessThan(10);
+			expect(coins.objects.length).toBeLessThan(10);
 
 			const proposals = [];
 
-			for (const coin of coins.data) {
+			for (const coin of coins.objects) {
 				const tx = new Transaction();
 				tx.setSender(multisig.address);
 
 				tx.setGasPayment([
 					{
-						objectId: coin.coinObjectId,
+						objectId: coin.objectId,
 						version: coin.version,
 						digest: coin.digest,
 					},
@@ -131,7 +127,7 @@ describe('Object Collision Detection', () => {
 					multisig.address,
 					'localnet',
 					txBytes,
-					`Proposal ${coin.coinObjectId}`,
+					`Proposal ${coin.objectId}`,
 				);
 
 				expect(response.id).toBeDefined();
@@ -145,7 +141,7 @@ describe('Object Collision Detection', () => {
 			);
 
 			expect(uniqueProposals.length).toBe(
-				coins.data.length,
+				coins.objects.length,
 			);
 		});
 
@@ -153,11 +149,11 @@ describe('Object Collision Detection', () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
 
-			const coins = await client.getCoins({
+			const coins = await client.listCoins({
 				owner: multisig.address,
 			});
 
-			const gasCoin = coins.data[0];
+			const gasCoin = coins.objects[0];
 			const recipient =
 				'0x5555555555555555555555555555555555555555555555555555555555555555';
 
@@ -166,14 +162,12 @@ describe('Object Collision Detection', () => {
 			tx1.setSender(multisig.address);
 			tx1.setGasPayment([
 				{
-					objectId: gasCoin.coinObjectId,
+					objectId: gasCoin.objectId,
 					version: gasCoin.version,
 					digest: gasCoin.digest,
 				},
 			]);
-			const [coin1] = tx1.splitCoins(gasCoin.coinObjectId, [
-				1000000,
-			]);
+			const [coin1] = tx1.splitCoins(tx1.gas, [1000000]);
 			tx1.transferObjects([coin1], recipient);
 
 			const txBytes1 = (
@@ -215,7 +209,7 @@ describe('Object Collision Detection', () => {
 			);
 
 			// Get available coins
-			const coins = await client.getCoins({
+			const coins = await client.listCoins({
 				owner: multisig.address,
 				limit: 20,
 			});
@@ -226,11 +220,12 @@ describe('Object Collision Detection', () => {
 				tx.setSender(multisig.address);
 				tx.setGasPayment([
 					{
-						objectId: coins.data[i].coinObjectId,
-						version: coins.data[i].version,
-						digest: coins.data[i].digest,
+						objectId: coins.objects[i].objectId,
+						version: coins.objects[i].version,
+						digest: coins.objects[i].digest,
 					},
 				]);
+
 				const [coin] = tx.splitCoins(tx.gas, [100000]);
 				tx.transferObjects([coin], '0x666');
 
@@ -253,22 +248,19 @@ describe('Object Collision Detection', () => {
 			tx11.setSender(multisig.address);
 			tx11.setGasPayment([
 				{
-					objectId: coins.data[10].coinObjectId,
-					version: coins.data[10].version,
-					digest: coins.data[10].digest,
+					objectId: coins.objects[10].objectId,
+					version: coins.objects[10].version,
+					digest: coins.objects[10].digest,
 				},
 			]);
-			const [coin11] = tx11.splitCoins(
-				coins.data[10].coinObjectId,
-				[100000],
-			);
+			const [coin11] = tx11.splitCoins(tx11.gas, [100000]);
 			tx11.transferObjects([coin11], '0x666');
 
 			const txBytes11 = (
 				await tx11.build({ client })
 			).toBase64();
 
-			expect(
+			await expect(
 				session.createProposal(
 					users[0],
 					multisig.address,
@@ -286,13 +278,13 @@ describe('Object Collision Detection', () => {
 				await framework.createFundedVerifiedMultisig(2, 2);
 
 			// Get some coins to use as custom objects
-			const coins = await client.getCoins({
+			const coins = await client.listCoins({
 				owner: multisig.address,
 			});
 
-			const sharedCoin = coins.data[0];
-			const gasCoin1 = coins.data[1];
-			const gasCoin2 = coins.data[2];
+			const sharedCoin = coins.objects[0];
+			const gasCoin1 = coins.objects[1];
+			const gasCoin2 = coins.objects[2];
 
 			const recipient1 =
 				'0x7777777777777777777777777777777777777777777777777777777777777777';
@@ -304,14 +296,14 @@ describe('Object Collision Detection', () => {
 			tx1.setSender(multisig.address);
 			tx1.setGasPayment([
 				{
-					objectId: gasCoin1.coinObjectId,
+					objectId: gasCoin1.objectId,
 					version: gasCoin1.version,
 					digest: gasCoin1.digest,
 				},
 			]);
 			// Use sharedCoin as input to split it
 			const [splitCoin1] = tx1.splitCoins(
-				sharedCoin.coinObjectId,
+				sharedCoin.objectId,
 				[500000],
 			);
 			tx1.transferObjects([splitCoin1], recipient1);
@@ -334,14 +326,14 @@ describe('Object Collision Detection', () => {
 			tx2.setSender(multisig.address);
 			tx2.setGasPayment([
 				{
-					objectId: gasCoin2.coinObjectId,
+					objectId: gasCoin2.objectId,
 					version: gasCoin2.version,
 					digest: gasCoin2.digest,
 				},
 			]);
 			// Try to use the same sharedCoin - should conflict
 			const [splitCoin2] = tx2.splitCoins(
-				sharedCoin.coinObjectId,
+				sharedCoin.objectId,
 				[300000],
 			);
 			tx2.transferObjects([splitCoin2], recipient2);
@@ -363,27 +355,32 @@ describe('Object Collision Detection', () => {
 	});
 
 	describe('Transaction Resolution', () => {
-		// TODO: Fix this test. It has to be not fully resolved, and throw.
-		test.skip('requires fully resolved transactions', async () => {
+		test('rejects unresolved transactions', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
 
-			// This test would require creating an unresolved transaction
-			// For now, we'll just verify our current transactions are resolved
-			const recipient =
-				'0x9999999999999999999999999999999999999999999999999999999999999999';
+			const tx = new Transaction();
+			const [coin] = tx.splitCoins(tx.gas, [500000]);
+			tx.transferObjects(
+				[coin],
+				'0x9999999999999999999999999999999999999999999999999999999999999999',
+			);
+			// Serialize without building — no sender, no gas resolution
+			const unresolvedBytes = await tx.toJSON();
 
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					recipient,
-					1000000,
-					'Resolved transaction test',
+			const signature =
+				await users[0].keypair.signPersonalMessage(
+					new TextEncoder().encode(unresolvedBytes),
 				);
 
-			expect(proposal.id).toBeDefined();
-			expect(proposal.transactionBytes).toBeDefined();
+			await expect(
+				session.getStatefulClient().createProposal({
+					multisigAddress: multisig.address,
+					network: 'localnet',
+					transactionBytes: unresolvedBytes,
+					signature: signature.signature,
+				}),
+			).rejects.toThrow('not fully resolved');
 		});
 	});
 });

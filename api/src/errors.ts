@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiHTTPTransportError } from '@mysten/sui/client';
+import { SuiHTTPTransportError } from '@mysten/sui/jsonRpc';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { type Context } from 'hono';
 

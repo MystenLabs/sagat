@@ -157,15 +157,14 @@ export const lookupAndVerifyProposal = async (
 
 	const tx = await getSuiClient(
 		proposal.network as SuiNetwork,
-	).getTransactionBlock({
+	).getTransaction({
 		digest: proposal.digest,
-		options: { showEffects: true },
+		include: {
+			effects: true,
+		},
 	});
 
-	if (!tx.checkpoint || !tx.effects)
-		throw new ValidationError('Transaction not found');
-
-	const isSuccess = tx.effects.status.status === 'success';
+	const isSuccess = tx.$kind !== 'FailedTransaction';
 
 	await db
 		.update(SchemaProposals)

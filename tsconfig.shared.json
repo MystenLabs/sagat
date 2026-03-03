@@ -2,7 +2,8 @@
 	// see https://www.typescriptlang.org/tsconfig to better understand tsconfigs
 	"compilerOptions": {
 		"target": "ES2020",
-		"module": "esnext",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
 		"lib": ["dom", "esnext"],
 		// output .d.ts declaration files for consumers
 		"declaration": true,
@@ -17,8 +18,6 @@
 		// noUnused* overlap with @typescript-eslint/no-unused-vars, can disable if duplicative
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
-		// use Node's module resolution algorithm, instead of the legacy TS one
-		"moduleResolution": "node",
 		// transpile JSX to React.createElement
 		"jsx": "react",
 		// interop between ESM and CJS modules. Recommended by TS

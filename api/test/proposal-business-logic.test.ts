@@ -56,7 +56,7 @@ describe('Proposal Business Logic', () => {
 			const txBytes = (
 				await tx.build({ client })
 			).toBase64();
-			expect(
+			await expect(
 				session.createProposal(
 					wrongUser,
 					multisig.address,
@@ -65,6 +65,43 @@ describe('Proposal Business Logic', () => {
 					'Test proposal',
 				),
 			).rejects.toThrow(/not a member/);
+		});
+
+		test('rejects proposal when signature is for a different transaction', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+
+			// Build tx A — the one we'll sign
+			const txA = new Transaction();
+			txA.setSender(multisig.address);
+			const [coinA] = txA.splitCoins(txA.gas, [500000]);
+			txA.transferObjects(
+				[coinA],
+				'0x1111111111111111111111111111111111111111111111111111111111111111',
+			);
+			const builtA = await txA.build({ client });
+			const sigA =
+				await users[0].keypair.signTransaction(builtA);
+
+			// Build tx B — the one we'll actually submit
+			const txB = new Transaction();
+			txB.setSender(multisig.address);
+			const [coinB] = txB.splitCoins(txB.gas, [999999]);
+			txB.transferObjects(
+				[coinB],
+				'0x2222222222222222222222222222222222222222222222222222222222222222',
+			);
+			const builtB = await txB.build({ client });
+
+			// Submit tx B's bytes with tx A's signature
+			await expect(
+				session.getStatefulClient().createProposal({
+					multisigAddress: multisig.address,
+					network: 'localnet',
+					transactionBytes: builtB.toBase64(),
+					signature: sigA.signature,
+				}),
+			).rejects.toThrow(/Invalid Sui signature/);
 		});
 
 		test('prevents duplicate proposals with same transaction digest', async () => {
@@ -103,7 +140,7 @@ describe('Proposal Business Logic', () => {
 			const txBytes2 = (
 				await tx2.build({ client })
 			).toBase64();
-			expect(
+			await expect(
 				session.createProposal(
 					users[0],
 					multisig.address,
@@ -261,6 +298,65 @@ describe('Proposal Business Logic', () => {
 				),
 			).rejects.toThrow('already voted');
 		});
+
+		test('cannot vote on a cancelled proposal', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(3, 2);
+
+			const proposal =
+				await session.createSimpleTransferProposal(
+					users[0],
+					multisig.address,
+					'0x6666666666666666666666666666666666666666666666666666666666666666',
+					500000,
+				);
+
+			await session.cancelProposal(users[0], proposal.id);
+
+			await expect(
+				session.voteOnProposal(
+					users[1],
+					proposal.id,
+					proposal.transactionBytes,
+				),
+			).rejects.toThrow('not pending');
+		});
+
+		test('rejects vote when signature is for a different transaction', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(3, 2);
+
+			const proposal =
+				await session.createSimpleTransferProposal(
+					users[0],
+					multisig.address,
+					'0x7777777777777777777777777777777777777777777777777777777777777777',
+					500000,
+				);
+
+			// Build a completely different transaction and sign it
+			const wrongTx = new Transaction();
+			wrongTx.setSender(multisig.address);
+			const [coin] = wrongTx.splitCoins(wrongTx.gas, [
+				999999,
+			]);
+			wrongTx.transferObjects(
+				[coin],
+				'0x8888888888888888888888888888888888888888888888888888888888888888',
+			);
+			const wrongBuilt = await wrongTx.build({ client });
+			const wrongSig =
+				await users[1].keypair.signTransaction(wrongBuilt);
+
+			// Submit the wrong signature against the real proposal
+			await expect(
+				session
+					.getStatefulClient()
+					.voteForProposal(proposal.id, {
+						signature: wrongSig.signature,
+					}),
+			).rejects.toThrow(/Invalid Sui signature/);
+		});
 	});
 
 	describe('Member Access Control', () => {
@@ -301,7 +397,7 @@ describe('Proposal Business Logic', () => {
 
 			// Create outsider who is not a multisig member
 
-			expect(
+			await expect(
 				session.voteOnProposal(
 					session.createUser(),
 					proposal.id,
@@ -504,7 +600,7 @@ describe('Proposal Business Logic', () => {
 			);
 
 			// Get available coins
-			const coins = await client.getCoins({
+			const coins = await client.listCoins({
 				owner: multisig.address,
 				limit: 20,
 			});
@@ -515,9 +611,9 @@ describe('Proposal Business Logic', () => {
 				tx.setSender(multisig.address);
 				tx.setGasPayment([
 					{
-						objectId: coins.data[i].coinObjectId,
-						version: coins.data[i].version,
-						digest: coins.data[i].digest,
+						objectId: coins.objects[i].objectId,
+						version: coins.objects[i].version,
+						digest: coins.objects[i].digest,
 					},
 				]);
 				const [coin] = tx.splitCoins(tx.gas, [100000]);
@@ -565,6 +661,73 @@ describe('Proposal Business Logic', () => {
 			}
 
 			expect(results.length).toBe(10);
+		});
+	});
+
+	describe('Proposal Cancellation', () => {
+		test('proposer can cancel their own pending proposal', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+
+			const proposal =
+				await session.createSimpleTransferProposal(
+					users[0],
+					multisig.address,
+					'0x7777777777777777777777777777777777777777777777777777777777777777',
+					500000,
+				);
+
+			const result = await session.cancelProposal(
+				users[0],
+				proposal.id,
+			);
+			expect(result).toBeDefined();
+
+			// Verify it's cancelled by trying to vote — should fail
+			await expect(
+				session.voteOnProposal(
+					users[1],
+					proposal.id,
+					proposal.transactionBytes,
+				),
+			).rejects.toThrow('not pending');
+		});
+
+		test('non-member cannot cancel a proposal', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+
+			const proposal =
+				await session.createSimpleTransferProposal(
+					users[0],
+					multisig.address,
+					'0x8888888888888888888888888888888888888888888888888888888888888888',
+					500000,
+				);
+
+			const outsider = session.createUser();
+			await expect(
+				session.cancelProposal(outsider, proposal.id),
+			).rejects.toThrow();
+		});
+
+		test('cannot cancel an already cancelled proposal', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+
+			const proposal =
+				await session.createSimpleTransferProposal(
+					users[0],
+					multisig.address,
+					'0x9999999999999999999999999999999999999999999999999999999999999999',
+					500000,
+				);
+
+			await session.cancelProposal(users[0], proposal.id);
+
+			await expect(
+				session.cancelProposal(users[0], proposal.id),
+			).rejects.toThrow();
 		});
 	});
 

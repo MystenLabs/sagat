@@ -78,19 +78,32 @@ describe('Addresses API', () => {
 	});
 
 	describe('Address Lookup', () => {
-		test('can look up registered address', async () => {
+		test('can look up registered address via API', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(1);
 			const user = users[0];
 
-			// Verify the session knows about this address
-			const connectedUsers = session.getConnectedUsers();
-			const foundUser = connectedUsers.find(
-				(u) => u.address === user.address,
-			);
-			expect(foundUser).toBeDefined();
-			expect(foundUser?.publicKey).toBe(user.publicKey);
+			const info = await session
+				.getStatefulClient()
+				.getAddressInfo(user.address);
+
+			expect(info).toBeDefined();
+			expect(info.publicKey).toBe(user.publicKey);
 			expect(isValidSuiAddress(user.address)).toBe(true);
+		});
+
+		test('returns error for unregistered address', async () => {
+			const { session } =
+				await framework.createAuthenticatedSession(1);
+
+			const fakeAddress =
+				'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+			await expect(
+				session
+					.getStatefulClient()
+					.getAddressInfo(fakeAddress),
+			).rejects.toThrow();
 		});
 	});
 
@@ -99,7 +112,9 @@ describe('Addresses API', () => {
 			const session = framework.createSession();
 
 			// Try to register without connecting/authenticating first
-			expect(session.registerAddresses()).rejects.toThrow();
+			await expect(
+				session.registerAddresses(),
+			).rejects.toThrow();
 		});
 	});
 });

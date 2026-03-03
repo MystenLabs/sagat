@@ -181,8 +181,11 @@ export class TestSession {
 			client,
 		});
 
+		if (result.$kind !== 'Transaction')
+			throw new Error('Transaction failed to execute.');
+
 		await client.waitForTransaction({
-			digest: result.digest,
+			digest: result.Transaction.digest,
 		});
 	}
 
@@ -350,6 +353,38 @@ export class TestSession {
 		return (
 			!!this.cookieFetch.jar.getConnectedWalletCookie() &&
 			this.getConnectedUsers().length > 0
+		);
+	}
+
+	async cancelProposal(
+		member: TestUser,
+		proposalId: number,
+	) {
+		const message =
+			PersonalMessages.cancelProposal(proposalId);
+		const signature = await this.signMessage(
+			member.keypair,
+			message,
+		);
+
+		return this.client.cancelProposal(proposalId, {
+			signature,
+		});
+	}
+
+	async rejectMultisig(
+		member: TestUser,
+		multisigAddress: string,
+	) {
+		const message = `Rejecting multisig invitation ${multisigAddress}`;
+		const signature = await this.signMessage(
+			member.keypair,
+			message,
+		);
+
+		return this.client.rejectMultisigInvite(
+			multisigAddress,
+			{ signature },
 		);
 	}
 

@@ -1,10 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	SuiClient,
-	type SuiObjectData,
-} from '@mysten/sui/client';
+import type { SuiClientTypes } from '@mysten/sui/client';
+import { SuiGrpcClient } from '@mysten/sui/grpc';
 
 import { SUI_RPC_URL } from '../db/env';
 import {
@@ -21,34 +19,35 @@ export type SuiNetwork =
 // Create a wrapper that instruments RPC calls with metrics
 const createInstrumentedClient = (
 	network: SuiNetwork,
-	client: SuiClient,
+	client: SuiGrpcClient,
 ) => {
-	const originalMultiGetObjects =
-		client.multiGetObjects.bind(client);
-	const originalGetTransactionBlock =
-		client.getTransactionBlock.bind(client);
+	const originalGetObjects = client.getObjects.bind(client);
+	const originalGetTransaction =
+		client.getTransaction.bind(client);
 
-	client.multiGetObjects = async (
-		...args: Parameters<typeof originalMultiGetObjects>
+	client.getObjects = async <
+		Include extends SuiClientTypes.ObjectInclude,
+	>(
+		input: SuiClientTypes.GetObjectsOptions<Include>,
 	) => {
 		const start = Date.now();
 		try {
-			const result = await originalMultiGetObjects(...args);
+			const result = await originalGetObjects(input);
 			const duration = (Date.now() - start) / 1000;
 			rpcRequestDuration.observe(
-				{ network, method: 'multiGetObjects' },
+				{ network, method: 'getObjects' },
 				duration,
 			);
 			return result;
 		} catch (error) {
 			const duration = (Date.now() - start) / 1000;
 			rpcRequestDuration.observe(
-				{ network, method: 'multiGetObjects' },
+				{ network, method: 'getObjects' },
 				duration,
 			);
 			rpcRequestErrors.inc({
 				network,
-				method: 'multiGetObjects',
+				method: 'getObjects',
 				error_type:
 					error instanceof Error ? error.name : 'unknown',
 			});
@@ -56,29 +55,29 @@ const createInstrumentedClient = (
 		}
 	};
 
-	client.getTransactionBlock = async (
-		...args: Parameters<typeof originalGetTransactionBlock>
-	) => {
+	client.getTransaction = async <
+		Include extends SuiClientTypes.TransactionInclude,
+	>(
+		input: SuiClientTypes.GetTransactionOptions<Include>,
+	): Promise<SuiClientTypes.TransactionResult<Include>> => {
 		const start = Date.now();
 		try {
-			const result = await originalGetTransactionBlock(
-				...args,
-			);
+			const result = await originalGetTransaction(input);
 			const duration = (Date.now() - start) / 1000;
 			rpcRequestDuration.observe(
-				{ network, method: 'getTransactionBlock' },
+				{ network, method: 'getTransaction' },
 				duration,
 			);
 			return result;
 		} catch (error) {
 			const duration = (Date.now() - start) / 1000;
 			rpcRequestDuration.observe(
-				{ network, method: 'getTransactionBlock' },
+				{ network, method: 'getTransaction' },
 				duration,
 			);
 			rpcRequestErrors.inc({
 				network,
-				method: 'getTransactionBlock',
+				method: 'getTransaction',
 				error_type:
 					error instanceof Error ? error.name : 'unknown',
 			});
@@ -90,9 +89,11 @@ const createInstrumentedClient = (
 };
 
 export const getSuiClient = (network: SuiNetwork) => {
-	const client = new SuiClient({
-		url: SUI_RPC_URL[network],
+	const client = new SuiGrpcClient({
+		network,
+		baseUrl: SUI_RPC_URL[network],
 	});
+
 	return createInstrumentedClient(network, client);
 };
 
@@ -110,25 +111,28 @@ export const queryAllOwnedObjects = async (
 
 	const batches = batchObjectRequests(uniqueObjectIds, 100);
 
-	const allOwnedObjects: SuiObjectData[] = [];
+	const allOwnedObjects: SuiClientTypes.Object[] = [];
 
 	// Go through the batches & query the objects, pick out the `AddressOwner` ones.
 	await Promise.all(
 		batches.map(async (batch) => {
 			const objects = await getSuiClient(
 				network,
-			).multiGetObjects({
-				ids: batch,
-				options: { showOwner: true },
+			).getObjects({
+				objectIds: batch,
 			});
 
-			for (const object of objects) {
+			for (const object of objects.objects) {
+				if (object instanceof Error) {
+					throw new Error(
+						`Failed to get object: ${object.message}`,
+					);
+				}
 				if (
-					object.data?.owner &&
-					typeof object.data.owner === 'object' &&
-					'AddressOwner' in object.data.owner
+					object.owner &&
+					object.owner.$kind === 'AddressOwner'
 				) {
-					allOwnedObjects.push(object.data);
+					allOwnedObjects.push(object);
 				}
 			}
 		}),

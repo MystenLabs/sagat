@@ -7,6 +7,7 @@ import { type Hono } from 'hono';
 import type { Pool } from 'pg';
 
 import * as env from '../../src/db/env';
+import app from '../../src/index.js';
 import { isNetworkRunning } from './sui-network';
 import {
 	clearTestData,
@@ -57,7 +58,7 @@ export const createTestApp = async (): Promise<Hono> => {
 	const { drizzle } = await import(
 		'drizzle-orm/node-postgres'
 	);
-	const schema = await import('../../src/db/schema');
+	const schema = await import('../../src/db/schema.js');
 
 	const db = drizzle(testDbPool, { schema });
 
@@ -68,5 +69,5 @@ export const createTestApp = async (): Promise<Hono> => {
 	mock.module('../../src/db', () => ({ db }));
 	mock.module('../../src/db/env', () => env);
 
-	return (await import('../../src/index')).default;
+	return app;
 };

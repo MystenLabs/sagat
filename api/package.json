@@ -11,7 +11,7 @@
 	},
 	"dependencies": {
 		"@mysten/sagat": "workspace:*",
-		"@mysten/sui": "^1.38.0",
+		"@mysten/sui": "^2.4.0",
 		"dataloader": "^2.2.3",
 		"drizzle-orm": "^0.44.5",
 		"hono": "^4.9.8",

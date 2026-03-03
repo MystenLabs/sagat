@@ -159,7 +159,7 @@ describe('Multisig API', () => {
 				);
 
 			// Outsider cannot vote
-			expect(
+			await expect(
 				session.voteOnProposal(
 					outsider,
 					proposal.id,
