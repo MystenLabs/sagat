@@ -1,7 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type SuiEvent } from '@mysten/sui/client';
+import type { SuiClientTypes } from '@mysten/sui/client';
+import { toBase64 } from '@mysten/sui/utils';
 import { type ReactNode } from 'react';
 
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { ObjectLink } from '../ObjectLink';
 import { PreviewCard } from '../PreviewCard';
 
-export function Events({ events }: { events: SuiEvent[] }) {
+export function Events({
+	events,
+}: {
+	events: SuiClientTypes.Event[];
+}) {
 	if (events.length === 0) {
 		return <div>No events were emitted.</div>;
 	}
@@ -23,19 +28,33 @@ export function Events({ events }: { events: SuiEvent[] }) {
 	);
 }
 
-export function Event({ event }: { event: SuiEvent }) {
+export function Event({
+	event,
+}: {
+	event: SuiClientTypes.Event;
+}) {
 	const fields: Record<string, ReactNode> = {
 		'Package ID': (
 			<ObjectLink inputObject={event.packageId} />
 		),
+		Module: <span>{event.module}</span>,
 		Sender: (
-			<ObjectLink owner={{ AddressOwner: event.sender }} />
+			<ObjectLink
+				owner={{
+					$kind: 'AddressOwner',
+					AddressOwner: event.sender,
+				}}
+			/>
 		),
-		Data: event.parsedJson ? (
+		// TODO: SuiClientTypes.Event only exposes `bcs`, but the gRPC proto has a `json` field (field 6)
+		// that the server populates. The SDK mapping layer (grpc/core.ts) drops it.
+		// Once the SDK adds `json` to SuiClientTypes.Event, switch back to showing parsed JSON.
+		Data: event.bcs ? (
 			<Textarea
-				value={JSON.stringify(event.parsedJson, null, 2)}
-				rows={6}
+				value={toBase64(event.bcs)}
+				rows={4}
 				readOnly
+				className="font-mono text-xs"
 			/>
 		) : (
 			'-'
@@ -46,7 +65,8 @@ export function Event({ event }: { event: SuiEvent }) {
 		<PreviewCard.Root>
 			<PreviewCard.Header>
 				<p>
-					Event Type: <strong>{event.type}</strong>
+					Event Type:{' '}
+					<strong>{event.eventType}</strong>
 				</p>
 			</PreviewCard.Header>
 			<PreviewCard.Body>

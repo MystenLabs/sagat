@@ -3,8 +3,8 @@
 
 import {
 	useCurrentAccount,
-	useSignTransaction,
-} from '@mysten/dapp-kit';
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	useMutation,
@@ -23,8 +23,7 @@ interface SignProposalParams {
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
 	const queryClient = useQueryClient();
-	const { mutateAsync: signTransaction } =
-		useSignTransaction();
+	const dappKit = useDAppKit();
 
 	return useMutation({
 		mutationFn: async ({
@@ -40,9 +39,8 @@ export function useSignProposal() {
 			);
 
 			// Sign the transaction
-			const result = await signTransaction({
+			const result = await dappKit.signTransaction({
 				transaction,
-				account: currentAccount,
 			});
 
 			// Call API to vote on the proposal

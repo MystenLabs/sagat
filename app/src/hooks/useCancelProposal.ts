@@ -3,8 +3,8 @@
 
 import {
 	useCurrentAccount,
-	useSignPersonalMessage,
-} from '@mysten/dapp-kit';
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,
@@ -20,8 +20,7 @@ import { QueryKeys } from '../lib/queryKeys';
 export function useCancelProposal() {
 	const queryClient = useQueryClient();
 	const currentAccount = useCurrentAccount();
-	const { mutateAsync: signPersonalMessage } =
-		useSignPersonalMessage();
+	const dappKit = useDAppKit();
 	const { currentAddress } = useApiAuth();
 
 	return useMutation({
@@ -34,9 +33,8 @@ export function useCancelProposal() {
 				PersonalMessages.cancelProposal(proposalId);
 
 			// Sign the message
-			const signResult = await signPersonalMessage({
+			const signResult = await dappKit.signPersonalMessage({
 				message: new TextEncoder().encode(message),
-				account: currentAccount,
 			});
 
 			// Call API to cancel the proposal

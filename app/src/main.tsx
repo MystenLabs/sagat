@@ -5,17 +5,14 @@ import { registerWalletConnectWallet } from '@mysten/walletconnect-wallet';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 
-import '@mysten/dapp-kit/dist/index.css';
 import './index.css';
 
 import {
-	SuiClientProvider,
-	WalletProvider,
-} from '@mysten/dapp-kit';
-import {
-	getFullnodeUrl,
-	SuiClient,
-} from '@mysten/sui/client';
+	createDAppKit,
+	DAppKitProvider,
+} from '@mysten/dapp-kit-react';
+import { SuiGrpcClient } from '@mysten/sui/grpc';
+import { getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
 import {
 	QueryClient,
 	QueryClientProvider,
@@ -24,24 +21,35 @@ import { Toaster } from 'sonner';
 
 import App from './App.tsx';
 import { ApiAuthProvider } from './contexts/ApiAuthContext.tsx';
-import { CONFIG } from './lib/constants';
-import { networkConfig } from './networkConfig.ts';
+
+export const dAppKit = createDAppKit({
+	networks: ['testnet', 'mainnet', 'devnet', 'localnet'],
+	createClient: (network) => newClient(network),
+});
+
+// Register types for hook type inference
+declare module '@mysten/dapp-kit-react' {
+	interface Register {
+		dAppKit: typeof dAppKit;
+	}
+}
 
 const queryClient = new QueryClient();
 
 // Get stored network or default to configured default
-const storedNetwork =
-	(localStorage.getItem('suiNetwork') as
-		| 'testnet'
-		| 'mainnet') || CONFIG.DEFAULT_NETWORK;
+const newClient = (
+	network: 'testnet' | 'mainnet' | 'devnet' | 'localnet',
+) => {
+	return new SuiGrpcClient({
+		network,
+		baseUrl: getJsonRpcFullnodeUrl(network),
+	});
+};
 
 registerWalletConnectWallet({
 	projectId: '26cfd1ea871281c3665d0dad8b8cebd7',
 	getClient: (chain) => {
-		return new SuiClient({
-			network: chain,
-			url: getFullnodeUrl(chain),
-		});
+		return newClient(chain);
 	},
 	metadata: {
 		walletName: 'Wallet Connect',
@@ -56,16 +64,11 @@ ReactDOM.createRoot(
 ).render(
 	<React.StrictMode>
 		<QueryClientProvider client={queryClient}>
-			<SuiClientProvider
-				networks={networkConfig}
-				defaultNetwork={storedNetwork}
-			>
-				<WalletProvider autoConnect>
-					<ApiAuthProvider>
-						<App />
-					</ApiAuthProvider>
-				</WalletProvider>
-			</SuiClientProvider>
+			<DAppKitProvider dAppKit={dAppKit}>
+				<ApiAuthProvider>
+					<App />
+				</ApiAuthProvider>
+			</DAppKitProvider>
 		</QueryClientProvider>
 
 		<Toaster />

@@ -2,15 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	useAccounts,
-	useConnectWallet,
 	useCurrentAccount,
-	useDisconnectWallet,
-	useSwitchAccount,
+	useCurrentWallet,
+	useDAppKit,
 	useWallets,
-} from '@mysten/dapp-kit';
+	type UiWalletAccount,
+} from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
-import { type WalletAccount } from '@wallet-standard/base';
 import {
 	AlertTriangle,
 	ArrowRight,
@@ -41,10 +39,10 @@ interface CustomWalletButtonProps {
 
 // Helper component for account list items
 interface AccountItemProps {
-	account: WalletAccount;
-	currentAccount: WalletAccount | null;
+	account: UiWalletAccount;
+	currentAccount: UiWalletAccount | null;
 	authenticatedAddresses: string[];
-	onSwitchAccount: (account: WalletAccount) => void;
+	onSwitchAccount: (account: UiWalletAccount) => void;
 	onSignAndConnect: () => void;
 	isConnecting: boolean;
 }
@@ -53,10 +51,11 @@ export function CustomWalletButton({
 	variant = 'header',
 }: CustomWalletButtonProps) {
 	const currentAccount = useCurrentAccount();
-	const accounts = useAccounts();
-	const { mutate: connect } = useConnectWallet();
-	const { mutate: disconnect } = useDisconnectWallet();
-	const { mutate: switchAccount } = useSwitchAccount();
+	const dappKit = useDAppKit();
+
+	const currentWallet = useCurrentWallet();
+	const accounts = currentWallet?.accounts ?? [];
+
 	const wallets = useWallets();
 	const {
 		isCurrentAddressAuthenticated,
@@ -93,32 +92,35 @@ export function CustomWalletButton({
 		};
 	}, []);
 
-	const handleSwitchAccount = (account: WalletAccount) => {
+	const handleSwitchAccount = async (
+		account: UiWalletAccount,
+	) => {
 		if (account.address !== currentAccount?.address) {
-			switchAccount({ account });
+			await dappKit.switchAccount({ account });
 		}
 		setShowWallets(false);
 	};
 
-	const handleWalletConnect = (walletName: string) => {
-		connect(
-			{
+	const handleWalletConnect = async (
+		walletName: string,
+	) => {
+		try {
+			await dappKit.connectWallet({
 				wallet: wallets.find((w) => w.name === walletName)!,
-			},
-			{
-				onSuccess: () => setShowWallets(false),
-				onError: (error) => toast.error(error.message),
-			},
-		);
+			});
+			setShowWallets(false);
+		} catch (error) {
+			toast.error((error as Error).message);
+		}
 	};
 
 	const handleFullDisconnect = async () => {
 		try {
 			await apiDisconnect();
-			disconnect();
+			await dappKit.disconnectWallet();
 			setShowWallets(false);
 		} catch {
-			disconnect();
+			await dappKit.disconnectWallet();
 			setShowWallets(false);
 		}
 	};
@@ -401,16 +403,16 @@ const DisconnectButton = ({
 }: {
 	setShowWallets: (show: boolean) => void;
 }) => {
-	const { mutate: disconnect } = useDisconnectWallet();
+	const dappKit = useDAppKit();
 	const { disconnect: apiDisconnect } = useApiAuth();
 
 	const handleFullDisconnect = async () => {
 		try {
 			await apiDisconnect();
-			disconnect();
+			await dappKit.disconnectWallet();
 			setShowWallets(false);
 		} catch {
-			disconnect();
+			await dappKit.disconnectWallet();
 			setShowWallets(false);
 		}
 	};
@@ -524,11 +526,14 @@ const AccountSwitchingSection = ({
 	isConnecting,
 }: {
 	showTitle?: boolean;
-	handleSwitchAccount: (account: WalletAccount) => void;
+	handleSwitchAccount: (
+		account: UiWalletAccount,
+	) => Promise<void>;
 	handleSignAndConnect: () => void;
 	isConnecting: boolean;
 }) => {
-	const accounts = useAccounts();
+	const currentWallet = useCurrentWallet();
+	const accounts = currentWallet?.accounts ?? [];
 	const currentAccount = useCurrentAccount();
 
 	const { authenticatedAddresses } = useApiAuth();

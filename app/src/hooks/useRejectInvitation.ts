@@ -3,8 +3,8 @@
 
 import {
 	useCurrentAccount,
-	useSignPersonalMessage,
-} from '@mysten/dapp-kit';
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,
@@ -21,8 +21,7 @@ export function useRejectInvitation() {
 	const currentAccount = useCurrentAccount();
 	const queryClient = useQueryClient();
 	const { currentAddress } = useApiAuth();
-	const { mutateAsync: signPersonalMessage } =
-		useSignPersonalMessage();
+	const dappKit = useDAppKit();
 
 	return useMutation({
 		mutationFn: async (multisigAddress: string) => {
@@ -35,9 +34,8 @@ export function useRejectInvitation() {
 				PersonalMessages.rejectMultisigInvitation(
 					multisigAddress,
 				);
-			const result = await signPersonalMessage({
+			const result = await dappKit.signPersonalMessage({
 				message: new TextEncoder().encode(message),
-				account: currentAccount,
 			});
 
 			// Send to API

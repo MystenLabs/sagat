@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSignPersonalMessage } from '@mysten/dapp-kit';
+import { useDAppKit } from '@mysten/dapp-kit-react';
 import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,
@@ -16,8 +16,7 @@ import { QueryKeys } from '../lib/queryKeys';
 
 export function useAcceptInvitation() {
 	const queryClient = useQueryClient();
-	const { mutateAsync: signPersonalMessage } =
-		useSignPersonalMessage();
+	const dappKit = useDAppKit();
 	const { currentAddress } = useApiAuth();
 
 	return useMutation({
@@ -26,7 +25,7 @@ export function useAcceptInvitation() {
 				throw new Error('No wallet connected');
 
 			// Create and sign the message
-			const result = await signPersonalMessage({
+			const result = await dappKit.signPersonalMessage({
 				message: new TextEncoder().encode(
 					PersonalMessages.acceptMultisigInvitation(
 						multisigAddress,

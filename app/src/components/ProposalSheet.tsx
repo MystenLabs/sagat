@@ -92,8 +92,7 @@ export function ProposalSheet({
 	// Check if dry run was successful
 	const isDryRunSuccessful =
 		dryRunMutation.isSuccess &&
-		dryRunMutation.data?.effects?.status?.status ===
-			'success';
+		dryRunMutation.data?.Transaction?.effects.status.success;
 
 	const onSubmit = (data: ProposalFormData) => {
 		if (!isDryRunSuccessful) {
@@ -140,7 +139,7 @@ export function ProposalSheet({
 
 	return (
 		<Sheet open={open} onOpenChange={handleClose}>
-			<SheetContent className="!w-full sm:!w-[70vw] !max-w-none px-4 sm:px-8 overflow-y-auto">
+			<SheetContent className="w-full! sm:w-[70vw]! max-w-none! px-4 sm:px-8 overflow-y-auto">
 				<SheetHeader>
 					<div className="flex items-center justify-between">
 						<div>

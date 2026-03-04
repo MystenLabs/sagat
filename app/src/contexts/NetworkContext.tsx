@@ -1,21 +1,25 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClientContext } from '@mysten/dapp-kit';
+import {
+	useCurrentNetwork,
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 
-export type SuiNetwork = 'testnet' | 'mainnet';
+export type SuiNetwork = 'testnet' | 'mainnet' | 'devnet';
 
 export function useNetwork() {
-	const clientCtx = useSuiClientContext();
+	const dappKit = useDAppKit();
+	const network = useCurrentNetwork();
 
 	return {
-		network: clientCtx.network as SuiNetwork,
+		network: network as SuiNetwork,
 		setNetwork: (network: SuiNetwork) => {
-			clientCtx.selectNetwork(network);
+			dappKit.switchNetwork(network);
 			localStorage.setItem('suiNetwork', network);
 		},
 		isTestMode:
-			clientCtx.network === 'testnet' ||
-			clientCtx.network === 'devnet',
+			network === 'testnet' ||
+			network === 'devnet',
 	};
 }

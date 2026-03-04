@@ -1,11 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClientContext } from '@mysten/dapp-kit';
-import {
-	type ObjectOwner,
-	type SuiObjectChange,
-} from '@mysten/sui/client';
+import { useCurrentNetwork } from '@mysten/dapp-kit-react';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { formatAddress } from '@mysten/sui/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -17,15 +14,24 @@ type OwnerDisplay =
 	| { object: string };
 
 const getOwnerDisplay = (
-	owner: ObjectOwner,
+	owner: SuiClientTypes.ObjectOwner,
 ): OwnerDisplay => {
-	if (owner === 'Immutable') return 'Immutable';
-	if ('Shared' in owner) return 'Shared';
-	if ('AddressOwner' in owner)
-		return { address: owner.AddressOwner };
-	if ('ObjectOwner' in owner)
-		return { object: owner.ObjectOwner };
-	return { object: owner.ConsensusAddressOwner.owner };
+	switch (owner.$kind) {
+		case 'Immutable':
+			return 'Immutable';
+		case 'Shared':
+			return 'Shared';
+		case 'AddressOwner':
+			return { address: owner.AddressOwner };
+		case 'ObjectOwner':
+			return { object: owner.ObjectOwner };
+		case 'ConsensusAddressOwner':
+			return { object: owner.ConsensusAddressOwner?.owner };
+		case 'Unknown':
+			return 'Unknown Owner';
+		default:
+			return 'Failed to find or parse owner.';
+	}
 };
 
 export function ObjectLink({
@@ -37,13 +43,13 @@ export function ObjectLink({
 }: {
 	inputObject?: string;
 	type?: string;
-	owner?: ObjectOwner;
-	object?: SuiObjectChange;
+	owner?: SuiClientTypes.ObjectOwner;
+	object?: SuiClientTypes.ChangedObject;
 } & React.HTMLAttributes<HTMLAnchorElement> &
 	React.ComponentPropsWithoutRef<'a'>) {
 	const [copied, setCopied] = useState(false);
 
-	const { network } = useSuiClientContext();
+	const network = useCurrentNetwork();
 
 	let objectId: string | undefined;
 	let display: string | undefined;
@@ -74,15 +80,9 @@ export function ObjectLink({
 	}
 
 	if (object) {
-		if ('objectId' in object) {
-			objectId = object.objectId;
-			display = formatAddress(objectId);
-		}
 
-		if ('packageId' in object) {
-			objectId = object.packageId;
-			display = formatAddress(objectId);
-		}
+		objectId = object.objectId;
+		display = formatAddress(objectId);
 	}
 
 	const link = objectId
@@ -123,7 +123,7 @@ export function ObjectLink({
 					<a
 						href={link}
 						target="_blank"
-						className="underline break-words pl-2"
+						className="underline wrap-break-word pl-2"
 						{...tags}
 						rel="noreferrer"
 					>

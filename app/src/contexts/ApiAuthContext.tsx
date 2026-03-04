@@ -3,8 +3,8 @@
 
 import {
 	useCurrentAccount,
-	useSignPersonalMessage,
-} from '@mysten/dapp-kit';
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import {
 	defaultExpiry,
 	PersonalMessages,
@@ -57,9 +57,9 @@ export function ApiAuthProvider({
 	const queryClient = useQueryClient();
 
 	// Get current account from dApp Kit
+	const dappKit = useDAppKit();
+
 	const currentAccount = useCurrentAccount();
-	const { mutateAsync: signPersonalMessage } =
-		useSignPersonalMessage();
 
 	// Check auth status with API whenever wallet changes
 	const {
@@ -90,11 +90,10 @@ export function ApiAuthProvider({
 			const expiry = defaultExpiry();
 
 			// Sign with current account
-			const signResult = await signPersonalMessage({
+			const signResult = await dappKit.signPersonalMessage({
 				message: new TextEncoder().encode(
 					PersonalMessages.connect(expiry),
 				),
-				account: currentAccount,
 			});
 
 			// Send to API
