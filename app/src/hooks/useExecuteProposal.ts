@@ -85,7 +85,10 @@ export function useExecuteProposal() {
 				});
 
 				await suiClient.waitForTransaction({
-					digest: result.Transaction?.digest || result.FailedTransaction?.digest || '',
+					digest:
+						result.Transaction?.digest ||
+						result.FailedTransaction?.digest ||
+						'',
 				});
 
 				// Sleep for 500ms to give a bit more time to index.
@@ -100,7 +103,8 @@ export function useExecuteProposal() {
 					);
 
 				return {
-					executionResult: result.Transaction || result.FailedTransaction,
+					executionResult:
+						result.Transaction || result.FailedTransaction,
 					verifyResponse,
 				};
 			} catch (error) {

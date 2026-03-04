@@ -65,8 +65,7 @@ export function Event({
 		<PreviewCard.Root>
 			<PreviewCard.Header>
 				<p>
-					Event Type:{' '}
-					<strong>{event.eventType}</strong>
+					Event Type: <strong>{event.eventType}</strong>
 				</p>
 			</PreviewCard.Header>
 			<PreviewCard.Body>

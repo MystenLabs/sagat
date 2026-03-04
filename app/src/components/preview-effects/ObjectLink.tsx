@@ -80,7 +80,6 @@ export function ObjectLink({
 	}
 
 	if (object) {
-
 		objectId = object.objectId;
 		display = formatAddress(objectId);
 	}

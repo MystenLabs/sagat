@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { useQuery } from '@tanstack/react-query';
 
 import { PreviewCard } from '../PreviewCard';
-import { onChainAmountToFloat, prettifyType } from '../utils';
-import type { SuiClientTypes } from '@mysten/sui/client';
+import {
+	onChainAmountToFloat,
+	prettifyType,
+} from '../utils';
 
 export function BalanceChanges({
 	changes,
@@ -28,7 +31,7 @@ function ChangedBalance({
 	change: SuiClientTypes.BalanceChange;
 }) {
 	// TODO: This should use the "active" client of the selection, NOT
-	// the dappKit client! 
+	// the dappKit client!
 	// Otehrwise, this does a query to the wrong network.
 	const client = useDAppKit().getClient();
 
@@ -74,7 +77,9 @@ function ChangedBalance({
 						</span>{' '}
 						{coinMetadata.symbol}
 						<span className="block text-sm text-gray-600">
-							{change.coinType ? prettifyType(change.coinType) : null}
+							{change.coinType
+								? prettifyType(change.coinType)
+								: null}
 						</span>
 					</p>
 				</>

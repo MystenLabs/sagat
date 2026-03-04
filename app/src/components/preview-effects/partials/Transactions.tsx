@@ -40,8 +40,16 @@ export function Transactions({
 // maps `input.pure` (raw BCS bytes). Once the SDK exposes `literal`, use it here instead of
 // showing raw bytes.
 function renderObjectInput(input: AnyInput) {
-	const obj = input.ImmOrOwnedObject ?? input.SharedObject ?? input.Receiving;
-	if (!obj) return <span className="font-mono text-xs">{JSON.stringify(input)}</span>;
+	const obj =
+		input.ImmOrOwnedObject ??
+		input.SharedObject ??
+		input.Receiving;
+	if (!obj)
+		return (
+			<span className="font-mono text-xs">
+				{JSON.stringify(input)}
+			</span>
+		);
 	return <ObjectLink inputObject={obj.objectId} />;
 }
 
@@ -94,9 +102,7 @@ const getCallArgDisplay = (
 								{argKey}:{' '}
 							</p>
 							{argKey === 'objectId' ? (
-								<ObjectLink
-									inputObject={value as string}
-								/>
+								<ObjectLink inputObject={value as string} />
 							) : typeof value === 'object' ? (
 								JSON.stringify(value)
 							) : (
@@ -219,8 +225,7 @@ function Transaction({
 								</div>
 							)}
 
-							{command.MoveCall.arguments?.length >
-								0 && (
+							{command.MoveCall.arguments?.length > 0 && (
 								<div>
 									<label>Inputs: </label>
 									{renderArguments(
@@ -297,9 +302,7 @@ function Transaction({
 							{/* TODO: Create a sample tx with MakeMoveVec to render this better. */}
 							<div>
 								<label>Objects: </label>
-								{JSON.stringify(
-									command.MakeMoveVec,
-								)}
+								{JSON.stringify(command.MakeMoveVec)}
 							</div>
 						</>
 					)}

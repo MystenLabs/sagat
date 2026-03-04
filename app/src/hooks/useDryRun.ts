@@ -27,7 +27,8 @@ export function useDryRun() {
 
 			if (result.FailedTransaction) {
 				throw new Error(
-					result.FailedTransaction.effects.status.error?.message,
+					result.FailedTransaction.effects.status.error
+						?.message,
 				);
 			}
 

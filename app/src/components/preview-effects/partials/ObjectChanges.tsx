@@ -4,7 +4,10 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { useMemo, useState } from 'react';
 
-import { Label, type LabelProps } from '@/components/ui/label';
+import {
+	Label,
+	type LabelProps,
+} from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 import { ObjectLink } from '../ObjectLink';
@@ -19,9 +22,18 @@ type ChangeKind = {
 function deriveChangeKind(
 	object: SuiClientTypes.ChangedObject,
 ): ChangeKind {
-	const { inputState, outputState, idOperation, inputOwner, outputOwner } = object;
+	const {
+		inputState,
+		outputState,
+		idOperation,
+		inputOwner,
+		outputOwner,
+	} = object;
 
-	if (idOperation === 'Created' && outputState === 'PackageWrite') {
+	if (
+		idOperation === 'Created' &&
+		outputState === 'PackageWrite'
+	) {
 		return { title: 'Published', variant: 'success' };
 	}
 	if (idOperation === 'Created') {
@@ -30,14 +42,19 @@ function deriveChangeKind(
 	if (idOperation === 'Deleted') {
 		return { title: 'Deleted', variant: 'error' };
 	}
-	if (inputState === 'Exists' && outputState === 'DoesNotExist') {
+	if (
+		inputState === 'Exists' &&
+		outputState === 'DoesNotExist'
+	) {
 		return { title: 'Wrapped', variant: 'neutral' };
 	}
 	if (
 		inputState === 'Exists' &&
 		outputState === 'ObjectWrite' &&
-		inputOwner && outputOwner &&
-		JSON.stringify(inputOwner) !== JSON.stringify(outputOwner)
+		inputOwner &&
+		outputOwner &&
+		JSON.stringify(inputOwner) !==
+			JSON.stringify(outputOwner)
 	) {
 		return { title: 'Transferred', variant: 'info' };
 	}
@@ -68,7 +85,11 @@ function FilterPill({
 	onClick: () => void;
 }) {
 	return (
-		<button type="button" onClick={onClick} className="cursor-pointer">
+		<button
+			type="button"
+			onClick={onClick}
+			className="cursor-pointer"
+		>
 			<Label
 				variant={variant}
 				size="sm"
@@ -102,7 +123,10 @@ export function ObjectChanges({
 			if (existing) {
 				existing.count++;
 			} else {
-				groups.set(kind.title, { variant: kind.variant, count: 1 });
+				groups.set(kind.title, {
+					variant: kind.variant,
+					count: 1,
+				});
 			}
 		}
 
@@ -114,7 +138,9 @@ export function ObjectChanges({
 	const filtered =
 		activeFilter === 'All'
 			? annotated
-			: annotated.filter((a) => a.kind.title === activeFilter);
+			: annotated.filter(
+					(a) => a.kind.title === activeFilter,
+				);
 
 	return (
 		<div className="space-y-4">
@@ -164,7 +190,11 @@ function ChangedObject({
 	return (
 		<PreviewCard.Root>
 			<PreviewCard.Body>
-				<Label variant={kind.variant} size="sm" className="rounded">
+				<Label
+					variant={kind.variant}
+					size="sm"
+					className="rounded"
+				>
 					{kind.title}
 				</Label>
 
@@ -183,7 +213,9 @@ function ChangedObject({
 				</label>
 			</PreviewCard.Body>
 
-			<PreviewCard.Footer owner={object.outputOwner ?? undefined} />
+			<PreviewCard.Footer
+				owner={object.outputOwner ?? undefined}
+			/>
 		</PreviewCard.Root>
 	);
 }

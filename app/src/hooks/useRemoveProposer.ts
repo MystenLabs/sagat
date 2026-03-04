@@ -42,9 +42,10 @@ export function useRemoveProposer(
 					expiry,
 				);
 
-			const { signature } = await dappKit.signPersonalMessage({
-				message: new TextEncoder().encode(message),
-			});
+			const { signature } =
+				await dappKit.signPersonalMessage({
+					message: new TextEncoder().encode(message),
+				});
 
 			return apiClient.removeMultisigProposer(
 				multisigAddress,

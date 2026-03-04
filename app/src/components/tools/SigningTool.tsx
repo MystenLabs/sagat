@@ -24,13 +24,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { useDryRun } from '@/hooks/useDryRun';
 import { getExplorerUrl } from '@/lib/utils';
 
-type SimulateResult = SuiClientTypes.SimulateTransactionResult<{
-	effects: true;
-	balanceChanges: true;
-	events: true;
-	transaction: true;
-	objectTypes: true;
-}>;
+type SimulateResult =
+	SuiClientTypes.SimulateTransactionResult<{
+		effects: true;
+		balanceChanges: true;
+		events: true;
+		transaction: true;
+		objectTypes: true;
+	}>;
 
 interface SignedResult {
 	digest?: string;
@@ -249,7 +250,8 @@ export default function SigningTool() {
 
 	const isDryRunSuccessful =
 		dryRunMutation.isSuccess &&
-		dryRunMutation.data?.Transaction?.effects.status.success;
+		dryRunMutation.data?.Transaction?.effects.status
+			.success;
 
 	useEffect(() => {
 		dryRunMutation.reset();

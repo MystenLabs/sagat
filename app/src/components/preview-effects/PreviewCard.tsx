@@ -52,7 +52,9 @@ function Header({ children }: HeaderProps) {
 function Footer({
 	children,
 	owner,
-}: FooterProps & { owner?: SuiClientTypes.ObjectOwner | string }) {
+}: FooterProps & {
+	owner?: SuiClientTypes.ObjectOwner | string;
+}) {
 	return (
 		<div className="mt-auto bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">
 			{children}

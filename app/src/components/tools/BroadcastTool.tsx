@@ -170,8 +170,7 @@ export default function BroadcastTool() {
 			if (result.FailedTransaction) {
 				setError(
 					result.FailedTransaction.effects.status.error
-						?.message ||
-						'Failed to broadcast transaction',
+						?.message || 'Failed to broadcast transaction',
 				);
 				return;
 			}

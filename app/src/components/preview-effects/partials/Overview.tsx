@@ -1,12 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { Check, Copy } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
 import { ObjectLink } from '../ObjectLink';
 import { onChainAmountToFloat } from '../utils';
-import type { SuiClientTypes } from '@mysten/sui/client';
 
 const calculateGas = (
 	gas: SuiClientTypes.GasCostSummary,
@@ -26,7 +26,10 @@ const calculateGas = (
 export function Overview({
 	output,
 }: {
-	output: SuiClientTypes.SimulateTransactionResult<{ effects: true, transaction: true }>;
+	output: SuiClientTypes.SimulateTransactionResult<{
+		effects: true;
+		transaction: true;
+	}>;
 }) {
 	const [copied, setCopied] = useState(false);
 
@@ -44,9 +47,7 @@ export function Overview({
 				</span>
 				<button
 					onClick={() =>
-						copyToClipboard(
-							output.Transaction!.digest,
-						)
+						copyToClipboard(output.Transaction!.digest)
 					}
 					className="p-1 hover:bg-gray-100 rounded"
 				>
@@ -75,7 +76,9 @@ export function Overview({
 			</span>
 		),
 		epoch: output.Transaction!.epoch,
-		gas: calculateGas(output.Transaction!.effects.gasUsed) + ' SUI',
+		gas:
+			calculateGas(output.Transaction!.effects.gasUsed) +
+			' SUI',
 	};
 
 	return (

@@ -92,7 +92,8 @@ export function ProposalSheet({
 	// Check if dry run was successful
 	const isDryRunSuccessful =
 		dryRunMutation.isSuccess &&
-		dryRunMutation.data?.Transaction?.effects.status.success;
+		dryRunMutation.data?.Transaction?.effects.status
+			.success;
 
 	const onSubmit = (data: ProposalFormData) => {
 		if (!isDryRunSuccessful) {

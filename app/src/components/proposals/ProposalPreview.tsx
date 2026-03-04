@@ -58,7 +58,8 @@ export function ProposalPreview({
 	};
 
 	const isDryRunSuccessful =
-		dryRunMutation.data?.Transaction?.effects.status.success;
+		dryRunMutation.data?.Transaction?.effects.status
+			.success;
 
 	return (
 		<div className="space-y-3">

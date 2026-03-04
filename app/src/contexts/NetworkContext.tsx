@@ -19,7 +19,6 @@ export function useNetwork() {
 			localStorage.setItem('suiNetwork', network);
 		},
 		isTestMode:
-			network === 'testnet' ||
-			network === 'devnet',
+			network === 'testnet' || network === 'devnet',
 	};
 }

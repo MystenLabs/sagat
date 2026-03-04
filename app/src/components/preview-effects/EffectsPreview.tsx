@@ -22,14 +22,21 @@ export function EffectsPreview({
 	output,
 	bytes,
 }: {
-	output: SuiClientTypes.SimulateTransactionResult<{ effects: true, balanceChanges: true, events: true, transaction: true, objectTypes: true }>;
+	output: SuiClientTypes.SimulateTransactionResult<{
+		effects: true;
+		balanceChanges: true;
+		events: true;
+		transaction: true;
+		objectTypes: true;
+	}>;
 	bytes?: string;
 }) {
 	const [activeTab, setActiveTab] = useState(
 		'balance-changes',
 	);
 
-	const objectChanges = output.Transaction!.effects.changedObjects;
+	const objectChanges =
+		output.Transaction!.effects.changedObjects;
 	const balanceChanges = output.Transaction!.balanceChanges;
 	const objectTypes = output.Transaction!.objectTypes;
 
@@ -75,15 +82,20 @@ export function EffectsPreview({
 			id: 'events',
 			title: 'Events',
 			count: output.Transaction!.events.length,
-			component: () => <Events events={output.Transaction!.events} />,
+			component: () => (
+				<Events events={output.Transaction!.events} />
+			),
 		},
 		{
 			id: 'transactions',
 			title: 'Transactions',
 			count:
-				output.Transaction?.transaction.commands.length || 0,
+				output.Transaction?.transaction.commands.length ||
+				0,
 			component: () => (
-				<Transactions inputs={output.Transaction!.transaction!} />
+				<Transactions
+					inputs={output.Transaction!.transaction!}
+				/>
 			),
 		},
 		{
