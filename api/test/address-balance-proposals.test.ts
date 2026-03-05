@@ -8,7 +8,10 @@ import {
 	coinWithBalance,
 	Transaction,
 } from '@mysten/sui/transactions';
-import { fromBase64, MIST_PER_SUI } from '@mysten/sui/utils';
+import {
+	fromBase64,
+	MIST_PER_SUI,
+} from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -59,11 +62,10 @@ describe('Address Balance Proposals', () => {
 			typeArguments: ['0x2::sui::SUI'],
 		});
 
-		const result =
-			await funder.signAndExecuteTransaction({
-				transaction: tx,
-				client,
-			});
+		const result = await funder.signAndExecuteTransaction({
+			transaction: tx,
+			client,
+		});
 
 		if (result.$kind !== 'Transaction')
 			throw new Error(
@@ -114,8 +116,7 @@ describe('Address Balance Proposals', () => {
 
 	function assertAddressBalanceGas(built: Uint8Array) {
 		const parsed = Transaction.from(built);
-		const payment =
-			parsed.getData().gasData?.payment || [];
+		const payment = parsed.getData().gasData?.payment || [];
 		expect(payment.length).toBe(0);
 		expect(parsed.getData().expiration).not.toBeNull();
 	}
@@ -138,9 +139,7 @@ describe('Address Balance Proposals', () => {
 			const alreadySigned = proposal.signatures.some(
 				(sig) =>
 					sig.publicKey ===
-					voter.keypair
-						.getPublicKey()
-						.toSuiPublicKey(),
+					voter.keypair.getPublicKey().toSuiPublicKey(),
 			);
 			if (alreadySigned) continue;
 
@@ -163,9 +162,7 @@ describe('Address Balance Proposals', () => {
 			combineMultisigSignatures(signed);
 
 		const result = await client.executeTransaction({
-			transaction: fromBase64(
-				signed.transactionBytes,
-			),
+			transaction: fromBase64(signed.transactionBytes),
 			signatures: [combinedSignature],
 			include: { effects: true },
 		});
@@ -193,14 +190,15 @@ describe('Address Balance Proposals', () => {
 			(a, b) => a.order - b.order,
 		);
 
-		const multisigPubKey =
-			MultiSigPublicKey.fromPublicKeys({
+		const multisigPubKey = MultiSigPublicKey.fromPublicKeys(
+			{
 				threshold: proposal.multisig.threshold,
 				publicKeys: members.map((m) => ({
 					publicKey: parsePublicKey(m.publicKey),
 					weight: m.weight,
 				})),
-			});
+			},
+		);
 
 		const orderedSignatures = members
 			.map((member) =>
@@ -219,10 +217,7 @@ describe('Address Balance Proposals', () => {
 	describe('Basic Address Balance Proposals', () => {
 		test('creates, votes, and executes a proposal using address balance gas', async () => {
 			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(
-					2,
-					2,
-				);
+				await framework.createFundedVerifiedMultisig(2, 2);
 
 			await depositToAddressBalance(
 				users[0].keypair,
@@ -261,10 +256,7 @@ describe('Address Balance Proposals', () => {
 	describe('Parallel Address Balance Proposals', () => {
 		test('creates, votes, and executes multiple proposals in parallel using coinWithBalance', async () => {
 			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(
-					2,
-					2,
-				);
+				await framework.createFundedVerifiedMultisig(2, 2);
 
 			await depositToAddressBalance(
 				users[0].keypair,
@@ -297,9 +289,9 @@ describe('Address Balance Proposals', () => {
 				),
 			);
 
-			expect(
-				new Set(proposals.map((p) => p.id)).size,
-			).toBe(count);
+			expect(new Set(proposals.map((p) => p.id)).size).toBe(
+				count,
+			);
 
 			for (const proposal of proposals) {
 				const tx = await voteAndExecute(
@@ -315,10 +307,7 @@ describe('Address Balance Proposals', () => {
 	describe('Mixed Gas Payment Proposals', () => {
 		test('executes both coin-based and address balance proposals without collision', async () => {
 			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(
-					2,
-					2,
-				);
+				await framework.createFundedVerifiedMultisig(2, 2);
 
 			await depositToAddressBalance(
 				users[0].keypair,
@@ -340,9 +329,10 @@ describe('Address Balance Proposals', () => {
 					digest: gasCoin.digest,
 				},
 			]);
-			const [coin1] = coinTx.splitCoins(coinTx.gas, [
-				500_000,
-			]);
+			const [coin1] = coinTx.splitCoins(
+				coinTx.gas,
+				[500_000],
+			);
 			coinTx.transferObjects(
 				[coin1],
 				'0x2222222222222222222222222222222222222222222222222222222222222222',
@@ -402,10 +392,7 @@ describe('Address Balance Proposals', () => {
 	describe('Object Collision With Address Balance Gas', () => {
 		test('still detects non-gas owned object collisions', async () => {
 			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(
-					2,
-					2,
-				);
+				await framework.createFundedVerifiedMultisig(2, 2);
 
 			await depositToAddressBalance(
 				users[0].keypair,
