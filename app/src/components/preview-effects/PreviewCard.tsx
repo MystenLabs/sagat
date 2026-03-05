@@ -43,7 +43,7 @@ function Body({ children }: BodyProps) {
 // eslint-disable-next-line react-refresh/only-export-components
 function Header({ children }: HeaderProps) {
 	return (
-		<div className="bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">
+		<div className="bg-gray-100 py-3 px-2 text-sm overflow-x-auto wrap-break-word">
 			{children}
 		</div>
 	);
@@ -56,7 +56,7 @@ function Footer({
 	owner?: SuiClientTypes.ObjectOwner | string;
 }) {
 	return (
-		<div className="mt-auto bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">
+		<div className="mt-auto bg-gray-100 py-3 px-2 text-sm overflow-x-auto wrap-break-word">
 			{children}
 			{owner && (
 				<div className="flex items-center ">

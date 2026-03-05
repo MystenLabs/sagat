@@ -11,7 +11,8 @@
 		"eslint": "^9.38.0",
 		"eslint-plugin-header": "^3.1.1",
 		"globals": "^16.4.0",
-		"prettier": "^3.6.2"
+		"prettier": "^3.6.2",
+		"vitest": "^4.0.18"
 	},
 	"private": true,
 	"scripts": {
