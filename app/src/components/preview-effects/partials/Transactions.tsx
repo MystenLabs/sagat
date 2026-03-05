@@ -51,6 +51,13 @@ function MonoLabel({ children }: { children: ReactNode }) {
 	);
 }
 
+function objectKindLabel(input: AnyInput): string | null {
+	if (input.SharedObject) return 'Shared';
+	if (input.Receiving) return 'Receiving';
+	if (input.ImmOrOwnedObject) return 'Owned';
+	return null;
+}
+
 function ObjectInput({ input }: { input: AnyInput }) {
 	const obj =
 		input.ImmOrOwnedObject ??
@@ -64,7 +71,18 @@ function ObjectInput({ input }: { input: AnyInput }) {
 			</span>
 		);
 
-	return <ObjectLink inputObject={obj.objectId} />;
+	const kind = objectKindLabel(input);
+
+	return (
+		<>
+			{kind && (
+				<span className="text-xs text-muted-foreground">
+					{kind}
+				</span>
+			)}
+			<ObjectLink inputObject={obj.objectId} />
+		</>
+	);
 }
 
 // --- Argument resolution --------------------------------------------------
