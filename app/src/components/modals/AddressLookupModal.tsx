@@ -194,13 +194,13 @@ export function AddressLookupModal({
 
 					<div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
 						<p className="text-sm text-blue-700">
-							<strong>Tip:</strong> An address is found in our
-							system if it has previously signed in. We also
-							check on-chain transactions across mainnet,
-							testnet, and devnet — if the address has sent a
-							transaction still within the RPC&apos;s
-							retention window, we can recover the public key
-							from its signature.
+							<strong>Tip:</strong> An address is found in
+							our system if it has previously signed in. We
+							also check on-chain transactions across
+							mainnet, testnet, and devnet — if the address
+							has sent a transaction still within the
+							RPC&apos;s retention window, we can recover
+							the public key from its signature.
 						</p>
 					</div>
 				</div>
