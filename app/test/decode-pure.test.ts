@@ -6,8 +6,8 @@ import { toBase64 } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
 import {
-	type DecodedPure,
 	tryDecodePure,
+	type DecodedPure,
 } from '../src/components/preview-effects/utils';
 
 function serialize(
@@ -32,8 +32,12 @@ describe('tryDecodePure', () => {
 	});
 
 	test('decodes u16', () => {
-		const results = tryDecodePure(serialize(bcs.u16(), 256));
-		expect(results).toEqual([{ label: 'u16', value: '256' }]);
+		const results = tryDecodePure(
+			serialize(bcs.u16(), 256),
+		);
+		expect(results).toEqual([
+			{ label: 'u16', value: '256' },
+		]);
 	});
 
 	test('decodes u32', () => {
@@ -129,8 +133,8 @@ describe('tryDecodePure', () => {
 
 	test('decodes vector<u8> (non-colliding length)', () => {
 		const items = [
-			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
-			15, 16, 17,
+			1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+			17,
 		];
 		const results = tryDecodePure(
 			serialize(bcs.vector(bcs.u8()), items),
@@ -138,7 +142,8 @@ describe('tryDecodePure', () => {
 		expect(results).toEqual([
 			{
 				label: 'vector<u8>',
-				value: '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]',
+				value:
+					'[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]',
 			},
 		]);
 	});

@@ -139,17 +139,11 @@ export function tryDecodePure(
 
 				if (remaining === count) {
 					try {
-						const payload =
-							bytes.slice(offset);
-						const decoded = new TextDecoder(
-							'utf-8',
-							{ fatal: true },
-						).decode(payload);
-						if (
-							/^[\x20-\x7e\t\n\r]+$/.test(
-								decoded,
-							)
-						) {
+						const payload = bytes.slice(offset);
+						const decoded = new TextDecoder('utf-8', {
+							fatal: true,
+						}).decode(payload);
+						if (/^[\x20-\x7e\t\n\r]+$/.test(decoded)) {
 							candidates.push({
 								label: 'string',
 								value: decoded,
@@ -170,10 +164,7 @@ export function tryDecodePure(
 					for (let i = 0; i < count; i++) {
 						items.push(
 							String(
-								view.getBigUint64(
-									offset + i * 8,
-									true,
-								),
+								view.getBigUint64(offset + i * 8, true),
 							),
 						);
 					}

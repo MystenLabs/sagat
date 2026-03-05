@@ -110,10 +110,7 @@ function CallArgDisplay({
 					<div className="mt-1 text-xs text-muted-foreground">
 						or{' '}
 						{rest
-							.map(
-								(c) =>
-									`${c.label}: ${c.value}`,
-							)
+							.map((c) => `${c.label}: ${c.value}`)
 							.join(', ')}
 					</div>
 				)}
@@ -147,9 +144,7 @@ function CallArgDisplay({
 							{argKey}:{' '}
 						</p>
 						{argKey === 'objectId' ? (
-							<ObjectLink
-								inputObject={value as string}
-							/>
+							<ObjectLink inputObject={value as string} />
 						) : typeof value === 'object' ? (
 							JSON.stringify(value)
 						) : (
@@ -209,9 +204,7 @@ function ArgumentDisplay({
 	}
 
 	return (
-		<ArgumentCard>
-			{JSON.stringify(argument)}
-		</ArgumentCard>
+		<ArgumentCard>{JSON.stringify(argument)}</ArgumentCard>
 	);
 }
 
@@ -226,10 +219,7 @@ function ArgumentList({
 		<div className="flex overflow-x-auto items-stretch gap-3 my-3">
 			{args.map((arg, i) => (
 				<div key={i} className="shrink-0 flex">
-					<ArgumentDisplay
-						argument={arg}
-						inputs={inputs}
-					/>
+					<ArgumentDisplay argument={arg} inputs={inputs} />
 				</div>
 			))}
 		</div>
@@ -282,15 +272,9 @@ function TransferObjectsBody({
 	return (
 		<div>
 			<label>Objects: </label>
-			<ArgumentList
-				args={cmd.objects}
-				inputs={inputs}
-			/>
+			<ArgumentList args={cmd.objects} inputs={inputs} />
 			<label>Transfer to:</label>
-			<ArgumentList
-				args={[cmd.address]}
-				inputs={inputs}
-			/>
+			<ArgumentList args={[cmd.address]} inputs={inputs} />
 		</div>
 	);
 }
@@ -306,17 +290,11 @@ function SplitCoinsBody({
 		<>
 			<div>
 				<label>From Coin: </label>
-				<ArgumentList
-					args={[cmd.coin]}
-					inputs={inputs}
-				/>
+				<ArgumentList args={[cmd.coin]} inputs={inputs} />
 			</div>
 			<div>
 				<label>Splits into: </label>
-				<ArgumentList
-					args={cmd.amounts}
-					inputs={inputs}
-				/>
+				<ArgumentList args={cmd.amounts} inputs={inputs} />
 			</div>
 		</>
 	);
@@ -340,10 +318,7 @@ function MergeCoinsBody({
 			</div>
 			<div>
 				<label>From coins: </label>
-				<ArgumentList
-					args={cmd.sources}
-					inputs={inputs}
-				/>
+				<ArgumentList args={cmd.sources} inputs={inputs} />
 			</div>
 		</>
 	);
@@ -420,16 +395,11 @@ function Transaction({
 			<PreviewCard.Header>
 				<p>
 					{index}. Type:{' '}
-					<strong>
-						{COMMAND_LABELS[kind] || kind}
-					</strong>
+					<strong>{COMMAND_LABELS[kind] || kind}</strong>
 				</p>
 			</PreviewCard.Header>
 			<PreviewCard.Body>
-				<CommandBody
-					command={command}
-					inputs={inputs}
-				/>
+				<CommandBody command={command} inputs={inputs} />
 			</PreviewCard.Body>
 		</PreviewCard.Root>
 	);
