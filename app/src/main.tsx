@@ -21,10 +21,20 @@ import { Toaster } from 'sonner';
 
 import App from './App.tsx';
 import { ApiAuthProvider } from './contexts/ApiAuthContext.tsx';
+import { CONFIG } from './lib/constants.ts';
+import { LocalStorageKeys } from './lib/localStorageKeys.ts';
+
+const storedNetwork =
+	(localStorage.getItem(LocalStorageKeys.SuiNetwork) as
+		| 'testnet'
+		| 'mainnet'
+		| 'devnet'
+		| 'localnet') || CONFIG.DEFAULT_NETWORK;
 
 export const dAppKit = createDAppKit({
 	networks: ['testnet', 'mainnet', 'devnet', 'localnet'],
 	createClient: (network) => newClient(network),
+	defaultNetwork: storedNetwork,
 });
 
 // Register types for hook type inference

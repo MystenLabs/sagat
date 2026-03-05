@@ -6,6 +6,8 @@ import {
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
 
+import { LocalStorageKeys } from '@/lib/localStorageKeys';
+
 export type SuiNetwork = 'testnet' | 'mainnet' | 'devnet';
 
 export function useNetwork() {
@@ -16,7 +18,10 @@ export function useNetwork() {
 		network: network as SuiNetwork,
 		setNetwork: (network: SuiNetwork) => {
 			dappKit.switchNetwork(network);
-			localStorage.setItem('suiNetwork', network);
+			localStorage.setItem(
+				LocalStorageKeys.SuiNetwork,
+				network,
+			);
 		},
 		isTestMode:
 			network === 'testnet' || network === 'devnet',

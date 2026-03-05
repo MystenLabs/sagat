@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { BookOpen, Github, Mail, Menu, Plus } from 'lucide-react';
+import {
+	BookOpen,
+	Github,
+	Mail,
+	Menu,
+	Plus,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -44,22 +50,28 @@ function ResourceLinks() {
 	return (
 		<TooltipProvider delayDuration={150}>
 			<div className="flex items-center gap-1 ml-1 border-l pl-3">
-				{RESOURCE_LINKS.map(({ href, label, icon: Icon }) => (
-					<Tooltip key={href}>
-						<TooltipTrigger asChild>
-							<a
-								href={href}
-								target="_blank"
-								rel="noreferrer"
-							>
-								<Button variant="ghost" size="sm" className="px-2 text-muted-foreground">
-									<Icon className="w-4 h-4" />
-								</Button>
-							</a>
-						</TooltipTrigger>
-						<TooltipContent>{label}</TooltipContent>
-					</Tooltip>
-				))}
+				{RESOURCE_LINKS.map(
+					({ href, label, icon: Icon }) => (
+						<Tooltip key={href}>
+							<TooltipTrigger asChild>
+								<a
+									href={href}
+									target="_blank"
+									rel="noreferrer"
+								>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="px-2 text-muted-foreground"
+									>
+										<Icon className="w-4 h-4" />
+									</Button>
+								</a>
+							</TooltipTrigger>
+							<TooltipContent>{label}</TooltipContent>
+						</Tooltip>
+					),
+				)}
 			</div>
 		</TooltipProvider>
 	);
@@ -145,22 +157,24 @@ const NavigationLinks = ({
 					<p className="text-sm text-gray-500 font-medium px-2 mt-4">
 						Resources
 					</p>
-					{RESOURCE_LINKS.map(({ href, label, icon: Icon }) => (
-						<a
-							key={href}
-							href={href}
-							target="_blank"
-							rel="noreferrer"
-						>
-							<Button
-								variant="outline"
-								className="w-full justify-start"
+					{RESOURCE_LINKS.map(
+						({ href, label, icon: Icon }) => (
+							<a
+								key={href}
+								href={href}
+								target="_blank"
+								rel="noreferrer"
 							>
-								<Icon className="w-4 h-4 mr-2" />
-								{label}
-							</Button>
-						</a>
-					))}
+								<Button
+									variant="outline"
+									className="w-full justify-start"
+								>
+									<Icon className="w-4 h-4 mr-2" />
+									{label}
+								</Button>
+							</a>
+						),
+					)}
 				</>
 			)}
 		</>
