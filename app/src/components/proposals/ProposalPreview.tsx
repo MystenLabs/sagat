@@ -139,7 +139,10 @@ export function ProposalPreview({
 			{dryRunMutation.error && (
 				<div className="border border-red-200 bg-white rounded-lg p-3">
 					<p className="text-sm text-red-600">
-						{decodeURIComponent(dryRunMutation.error.message || 'Transaction would fail on-chain')}
+						{decodeURIComponent(
+							dryRunMutation.error.message ||
+								'Transaction would fail on-chain',
+						)}
 					</p>
 				</div>
 			)}

@@ -244,7 +244,10 @@ export function ProposalSheet({
 								/>
 							) : (
 								<p className="text-sm text-red-600">
-									{decodeURIComponent(dryRunMutation.error?.message || 'Transaction would fail on-chain')}
+									{decodeURIComponent(
+										dryRunMutation.error?.message ||
+											'Transaction would fail on-chain',
+									)}
 								</p>
 							)}
 						</div>

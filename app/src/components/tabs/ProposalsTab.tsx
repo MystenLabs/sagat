@@ -314,10 +314,9 @@ export function ProposalsTab() {
 				)}
 			</div>
 
-			{!isLoading &&
-				filteredProposals.length > 0 && (
-					<LoadMoreButton pagination={pagination} />
-				)}
+			{!isLoading && filteredProposals.length > 0 && (
+				<LoadMoreButton pagination={pagination} />
+			)}
 		</div>
 	);
 }
