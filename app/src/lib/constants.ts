@@ -27,6 +27,7 @@ export const CONFIG = {
 	EXPLORER_URLS: {
 		testnet: 'https://suiscan.xyz/testnet',
 		mainnet: 'https://suiscan.xyz/mainnet',
+		devnet: 'https://suiscan.xyz/devnet',
 		localnet: 'http://localhost:9001', // For local development
 	},
 } as const;
