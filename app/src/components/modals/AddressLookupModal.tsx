@@ -1,11 +1,16 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Copy, Search, X } from 'lucide-react';
+import { Copy, Globe, Search, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
 import { apiClient } from '../../lib/api';
+import {
+	findPublicKeyOnChain,
+	MultisigAddressError,
+	type OnChainPublicKeyResult,
+} from '../../lib/onChainLookup';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 
@@ -24,6 +29,8 @@ export function AddressLookupModal({
 	const [publicKey, setPublicKey] = useState<string | null>(
 		null,
 	);
+	const [onChainResult, setOnChainResult] =
+		useState<OnChainPublicKeyResult | null>(null);
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -32,7 +39,6 @@ export function AddressLookupModal({
 	const lookupPublicKey = async () => {
 		if (!address) return;
 
-		// Basic address validation
 		if (
 			!address.startsWith('0x') ||
 			address.length !== 66
@@ -46,20 +52,36 @@ export function AddressLookupModal({
 		setIsLoading(true);
 		setError(null);
 		setPublicKey(null);
+		setOnChainResult(null);
 
-		try {
-			const result =
-				await apiClient.getAddressInfo(address);
-			setPublicKey(result.publicKey);
-		} catch (err) {
+		const [systemResult, chainResult] =
+			await Promise.allSettled([
+				apiClient.getAddressInfo(address),
+				findPublicKeyOnChain(address),
+			]);
+
+		if (
+			chainResult.status === 'rejected' &&
+			chainResult.reason instanceof MultisigAddressError
+		) {
+			setError(chainResult.reason.message);
+		} else if (
+			systemResult.status === 'fulfilled' &&
+			systemResult.value?.publicKey
+		) {
+			setPublicKey(systemResult.value.publicKey);
+		} else if (
+			chainResult.status === 'fulfilled' &&
+			chainResult.value
+		) {
+			setOnChainResult(chainResult.value);
+		} else {
 			setError(
-				err instanceof Error
-					? err.message
-					: 'Address not found in our system',
+				'Public key not found. The address has no transactions on any network and is not registered in our system.',
 			);
-		} finally {
-			setIsLoading(false);
 		}
+
+		setIsLoading(false);
 	};
 
 	const handleSelectKey = (key: string) => {
@@ -71,6 +93,7 @@ export function AddressLookupModal({
 		onClose();
 		setAddress('');
 		setPublicKey(null);
+		setOnChainResult(null);
 		setError(null);
 	};
 
@@ -78,6 +101,8 @@ export function AddressLookupModal({
 		navigator.clipboard.writeText(text);
 		toast.success('Copied to clipboard');
 	};
+
+	const foundKey = publicKey ?? onChainResult?.publicKey;
 
 	return (
 		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -134,39 +159,48 @@ export function AddressLookupModal({
 						</div>
 					)}
 
-					{publicKey && (
+					{foundKey && (
 						<div className="space-y-2">
 							<label className="block text-sm font-medium">
 								Found Public Key:
 							</label>
 							<div className="flex items-center gap-2 p-3 border rounded-lg bg-green-50">
 								<span className="text-xs font-mono flex-1 break-all">
-									{publicKey}
+									{foundKey}
 								</span>
 								<Button
 									size="icon"
 									variant="ghost"
-									onClick={() => copyToClipboard(publicKey)}
+									onClick={() => copyToClipboard(foundKey)}
 								>
 									<Copy className="w-3 h-3" />
 								</Button>
 								<Button
 									size="sm"
-									onClick={() => handleSelectKey(publicKey)}
+									onClick={() => handleSelectKey(foundKey)}
 								>
 									Select
 								</Button>
 							</div>
+							{onChainResult && (
+								<p className="text-xs text-green-700 flex items-center gap-1">
+									<Globe className="w-3 h-3" />
+									Recovered from on-chain transaction on{' '}
+									<strong>{onChainResult.network}</strong>
+								</p>
+							)}
 						</div>
 					)}
 
 					<div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
 						<p className="text-sm text-blue-700">
-							<strong>Tip:</strong> This will only find
-							addresses that have been previously registered
-							in our system. If the address is not found,
-							ask the member to provide their public key
-							directly.
+							<strong>Tip:</strong> An address is found in
+							our system if it has previously signed in. We
+							also check on-chain transactions across
+							mainnet, testnet, and devnet — if the address
+							has sent a transaction still within the
+							RPC&apos;s retention window, we can recover
+							the public key from its signature.
 						</p>
 					</div>
 				</div>
