@@ -55,9 +55,8 @@ export const createTestApp = async (): Promise<Hono> => {
 		);
 	}
 
-	const { drizzle } = await import(
-		'drizzle-orm/node-postgres'
-	);
+	const { drizzle } =
+		await import('drizzle-orm/node-postgres');
 	const schema = await import('../../src/db/schema.js');
 
 	const db = drizzle(testDbPool, { schema });

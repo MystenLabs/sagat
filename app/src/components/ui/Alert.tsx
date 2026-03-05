@@ -64,8 +64,9 @@ const variantIcons = {
 	success: CheckCircle,
 };
 
-interface AlertProps
-	extends VariantProps<typeof alertVariants> {
+interface AlertProps extends VariantProps<
+	typeof alertVariants
+> {
 	children: ReactNode;
 	showIcon?: boolean;
 	className?: string;

@@ -1,17 +1,20 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClient } from '@mysten/dapp-kit';
-import { type BalanceChange } from '@mysten/sui/client';
+import { useDAppKit } from '@mysten/dapp-kit-react';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { useQuery } from '@tanstack/react-query';
 
 import { PreviewCard } from '../PreviewCard';
-import { onChainAmountToFloat } from '../utils';
+import {
+	onChainAmountToFloat,
+	prettifyType,
+} from '../utils';
 
 export function BalanceChanges({
 	changes,
 }: {
-	changes: BalanceChange[];
+	changes: SuiClientTypes.BalanceChange[];
 }) {
 	return (
 		<div className="grid grid-cols-2 gap-4">
@@ -25,24 +28,28 @@ export function BalanceChanges({
 function ChangedBalance({
 	change,
 }: {
-	change: BalanceChange;
+	change: SuiClientTypes.BalanceChange;
 }) {
-	const client = useSuiClient();
+	// TODO: This should use the "active" client of the selection, NOT
+	// the dappKit client!
+	// Otehrwise, this does a query to the wrong network.
+	const client = useDAppKit().getClient();
 
 	const { data: coinMetadata } = useQuery({
 		queryKey: ['getCoinMetadata', change.coinType],
 		queryFn: async () => {
 			return await client.getCoinMetadata({
-				coinType: change.coinType,
+				coinType: change.coinType!,
 			});
 		},
+		select: (data) => data.coinMetadata,
 		enabled: !!change.coinType,
 	});
 
 	const amount = () => {
 		if (!coinMetadata) return '-';
 		const amt = onChainAmountToFloat(
-			change.amount,
+			change.amount!,
 			coinMetadata.decimals,
 		);
 
@@ -70,12 +77,14 @@ function ChangedBalance({
 						</span>{' '}
 						{coinMetadata.symbol}
 						<span className="block text-sm text-gray-600">
-							{change.coinType}
+							{change.coinType
+								? prettifyType(change.coinType)
+								: null}
 						</span>
 					</p>
 				</>
 			</PreviewCard.Body>
-			<PreviewCard.Footer owner={change.owner} />
+			<PreviewCard.Footer owner={change.address} />
 		</PreviewCard.Root>
 	);
 }

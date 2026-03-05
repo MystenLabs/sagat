@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCurrentAccount } from '@mysten/dapp-kit';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import {
 	Check,
 	Coins,
@@ -143,7 +143,7 @@ export function MultisigDetailPage() {
 									onSelectMultisig={handleMultisigChange}
 								/>
 							</div>
-							<div className="flex items-center space-x-3 flex-shrink-0">
+							<div className="flex items-center space-x-3 shrink-0">
 								<Button
 									variant="outline"
 									onClick={() => copy(address!)}

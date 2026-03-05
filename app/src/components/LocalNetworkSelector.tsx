@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClientContext } from '@mysten/dapp-kit';
+import {
+	useCurrentNetwork,
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import { ChevronDown } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -16,8 +19,8 @@ const networks: { value: LocalNetwork; label: string }[] = [
 ];
 
 export function NetworkSelector() {
-	const ctx = useSuiClientContext();
-	const network = ctx.network as LocalNetwork;
+	const dappKit = useDAppKit();
+	const network = useCurrentNetwork() as LocalNetwork;
 
 	const [isOpen, setIsOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
@@ -50,7 +53,7 @@ export function NetworkSelector() {
 	const handleNetworkChange = (
 		newNetwork: LocalNetwork,
 	) => {
-		ctx.selectNetwork(newNetwork);
+		dappKit.switchNetwork(newNetwork);
 		setIsOpen(false);
 	};
 

@@ -8,8 +8,7 @@ import type {
 
 // Extended type that adds frontend-specific fields for displaying multisig state
 // for a specific public key
-export interface MultisigWithMembersForPublicKey
-	extends MultisigWithMembers {
+export interface MultisigWithMembersForPublicKey extends MultisigWithMembers {
 	rejectedMembers: number;
 	pendingMembers: number;
 	isAccepted: boolean;

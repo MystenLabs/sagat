@@ -3,11 +3,10 @@
 
 import {
 	useCurrentAccount,
-	useSignAndExecuteTransaction,
-	useSignTransaction,
-	useSuiClientContext,
-} from '@mysten/dapp-kit';
-import { type DryRunTransactionBlockResponse } from '@mysten/sui/client';
+	useCurrentNetwork,
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	AlertCircle,
@@ -24,6 +23,15 @@ import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Textarea } from '@/components/ui/textarea';
 import { useDryRun } from '@/hooks/useDryRun';
 import { getExplorerUrl } from '@/lib/utils';
+
+type SimulateResult =
+	SuiClientTypes.SimulateTransactionResult<{
+		effects: true;
+		balanceChanges: true;
+		events: true;
+		transaction: true;
+		objectTypes: true;
+	}>;
 
 interface SignedResult {
 	digest?: string;
@@ -66,7 +74,7 @@ function PreviewResult({
 	bytes,
 }: {
 	isSuccess: boolean;
-	data: DryRunTransactionBlockResponse | undefined;
+	data: SimulateResult | undefined;
 	error: Error | null;
 	isLoading: boolean;
 	bytes?: string;
@@ -114,8 +122,10 @@ function PreviewResult({
 			) : (
 				<div className="space-y-3">
 					<p className="text-sm text-red-600 whitespace-pre-wrap">
-						{error?.message ||
-							'Transaction would fail on-chain'}
+						{decodeURIComponent(
+							error?.message ||
+								'Transaction would fail on-chain',
+						)}
 					</p>
 					<Alert variant="warning">
 						<span className="">
@@ -231,24 +241,19 @@ export default function SigningTool() {
 		useState<SignedResult | null>(null);
 	const [transactionData, setTransactionData] =
 		useState('');
-	const ctx = useSuiClientContext();
-	const network = ctx.network;
+	const [isSigning, setIsSigning] = useState(false);
+	const [isSigningAndExecuting, setIsSigningAndExecuting] =
+		useState(false);
+
+	const network = useCurrentNetwork();
+	const dappKit = useDAppKit();
 
 	const dryRunMutation = useDryRun();
-	const {
-		mutateAsync: signTransaction,
-		isPending: isSigning,
-	} = useSignTransaction();
-
-	const {
-		mutateAsync: signAndExecuteTransaction,
-		isPending: isSigningAndExecuting,
-	} = useSignAndExecuteTransaction();
 
 	const isDryRunSuccessful =
 		dryRunMutation.isSuccess &&
-		dryRunMutation.data?.effects?.status?.status ===
-			'success';
+		dryRunMutation.data?.Transaction?.effects.status
+			.success;
 
 	useEffect(() => {
 		dryRunMutation.reset();
@@ -283,17 +288,23 @@ export default function SigningTool() {
 			const tx = Transaction.from(transactionData);
 
 			if (shouldExecute) {
-				const result = await signAndExecuteTransaction({
-					transaction: tx,
-				});
+				setIsSigningAndExecuting(true);
+				const result =
+					await dappKit.signAndExecuteTransaction({
+						transaction: tx,
+					});
+
+				const txResult =
+					result.Transaction ?? result.FailedTransaction;
 
 				setSignedResult({
-					digest: result.digest,
-					signature: result.signature,
-					bytes: result.bytes,
+					digest: txResult?.digest,
+					signature: txResult?.signatures[0] ?? '',
+					bytes: transactionData,
 				});
 			} else {
-				const result = await signTransaction({
+				setIsSigning(true);
+				const result = await dappKit.signTransaction({
 					transaction: tx,
 				});
 
@@ -305,6 +316,9 @@ export default function SigningTool() {
 			}
 		} catch {
 			// Error handled by mutation
+		} finally {
+			setIsSigning(false);
+			setIsSigningAndExecuting(false);
 		}
 	};
 

@@ -3,8 +3,8 @@
 
 import {
 	useCurrentAccount,
-	useSignTransaction,
-} from '@mysten/dapp-kit';
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	useMutation,
@@ -28,8 +28,7 @@ export function useCreateProposal() {
 	const { network } = useNetwork();
 	const currentAccount = useCurrentAccount();
 	const queryClient = useQueryClient();
-	const { mutateAsync: signTransaction } =
-		useSignTransaction();
+	const dappKit = useDAppKit();
 	const { currentAddress } = useApiAuth();
 
 	return useMutation({
@@ -46,10 +45,11 @@ export function useCreateProposal() {
 			const transaction = Transaction.from(transactionData);
 
 			// Sign the transaction (it will build and sign automatically)
-			const signatureResult = await signTransaction({
-				transaction,
-				account: currentAccount,
-			});
+			const signatureResult = await dappKit.signTransaction(
+				{
+					transaction,
+				},
+			);
 
 			// Create proposal via API
 			return apiClient.createProposal({

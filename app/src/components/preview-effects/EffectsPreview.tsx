@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type DryRunTransactionBlockResponse } from '@mysten/sui/client';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { messageWithIntent } from '@mysten/sui/cryptography';
 import { fromBase64, toHex } from '@mysten/sui/utils';
 import { blake2b } from '@noble/hashes/blake2.js';
@@ -22,14 +22,23 @@ export function EffectsPreview({
 	output,
 	bytes,
 }: {
-	output: DryRunTransactionBlockResponse;
+	output: SuiClientTypes.SimulateTransactionResult<{
+		effects: true;
+		balanceChanges: true;
+		events: true;
+		transaction: true;
+		objectTypes: true;
+	}>;
 	bytes?: string;
 }) {
 	const [activeTab, setActiveTab] = useState(
 		'balance-changes',
 	);
 
-	const { objectChanges, balanceChanges } = output;
+	const objectChanges =
+		output.Transaction!.effects.changedObjects;
+	const balanceChanges = output.Transaction!.balanceChanges;
+	const objectTypes = output.Transaction!.objectTypes;
 
 	// Compute the blake2b hash (ledger transaction hash)
 	const ledgerTransactionHash = useMemo(() => {
@@ -63,25 +72,30 @@ export function EffectsPreview({
 			title: 'Object Changes',
 			count: objectChanges?.length,
 			component: () => (
-				<ObjectChanges objects={objectChanges} />
+				<ObjectChanges
+					objects={objectChanges}
+					objectTypes={objectTypes}
+				/>
 			),
 		},
 		{
 			id: 'events',
 			title: 'Events',
-			count: output.events.length,
-			component: () => <Events events={output.events} />,
+			count: output.Transaction!.events.length,
+			component: () => (
+				<Events events={output.Transaction!.events} />
+			),
 		},
 		{
 			id: 'transactions',
 			title: 'Transactions',
 			count:
-				output.input.transaction.kind ===
-				'ProgrammableTransaction'
-					? output.input.transaction.transactions.length
-					: 0,
+				output.Transaction?.transaction.commands.length ||
+				0,
 			component: () => (
-				<Transactions inputs={output.input} />
+				<Transactions
+					inputs={output.Transaction!.transaction!}
+				/>
 			),
 		},
 		{

@@ -337,9 +337,10 @@ describe('Proposal Business Logic', () => {
 			// Build a completely different transaction and sign it
 			const wrongTx = new Transaction();
 			wrongTx.setSender(multisig.address);
-			const [coin] = wrongTx.splitCoins(wrongTx.gas, [
-				999999,
-			]);
+			const [coin] = wrongTx.splitCoins(
+				wrongTx.gas,
+				[999999],
+			);
 			wrongTx.transferObjects(
 				[coin],
 				'0x8888888888888888888888888888888888888888888888888888888888888888',

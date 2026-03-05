@@ -1,13 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClientContext } from '@mysten/dapp-kit';
+import { useDAppKit } from '@mysten/dapp-kit-react';
 import { AlertTriangle } from 'lucide-react';
 
 import { Button } from './ui/button';
 
 export function DevnetNotSupported() {
-	const ctx = useSuiClientContext();
+	const dappKit = useDAppKit();
 
 	return (
 		<div className="mx-auto mt-20 p-8">
@@ -29,14 +29,14 @@ export function DevnetNotSupported() {
 				<div className="flex gap-3 justify-center">
 					<Button
 						size="lg"
-						onClick={() => ctx.selectNetwork('mainnet')}
+						onClick={() => dappKit.switchNetwork('mainnet')}
 					>
 						Switch to Mainnet
 					</Button>
 					<Button
 						size="lg"
 						variant="outline"
-						onClick={() => ctx.selectNetwork('testnet')}
+						onClick={() => dappKit.switchNetwork('testnet')}
 					>
 						Switch to Testnet
 					</Button>

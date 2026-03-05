@@ -3,8 +3,8 @@
 
 import {
 	useCurrentAccount,
-	useSignPersonalMessage,
-} from '@mysten/dapp-kit';
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import {
 	defaultExpiry,
 	PersonalMessages,
@@ -25,8 +25,7 @@ export function useRemoveProposer(
 	},
 ) {
 	const queryClient = useQueryClient();
-	const { mutateAsync: signMessage } =
-		useSignPersonalMessage();
+	const dappKit = useDAppKit();
 	const currentAccount = useCurrentAccount();
 
 	return useMutation({
@@ -43,9 +42,10 @@ export function useRemoveProposer(
 					expiry,
 				);
 
-			const { signature } = await signMessage({
-				message: new TextEncoder().encode(message),
-			});
+			const { signature } =
+				await dappKit.signPersonalMessage({
+					message: new TextEncoder().encode(message),
+				});
 
 			return apiClient.removeMultisigProposer(
 				multisigAddress,

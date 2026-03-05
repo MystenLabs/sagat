@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ObjectOwner } from '@mysten/sui/client';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { type ReactNode } from 'react';
 
 import { ObjectLink } from './ObjectLink';
@@ -43,7 +43,7 @@ function Body({ children }: BodyProps) {
 // eslint-disable-next-line react-refresh/only-export-components
 function Header({ children }: HeaderProps) {
 	return (
-		<div className="bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">
+		<div className="bg-gray-100 py-3 px-2 text-sm overflow-x-auto wrap-break-word">
 			{children}
 		</div>
 	);
@@ -52,15 +52,26 @@ function Header({ children }: HeaderProps) {
 function Footer({
 	children,
 	owner,
-}: FooterProps & { owner?: ObjectOwner }) {
+}: FooterProps & {
+	owner?: SuiClientTypes.ObjectOwner | string;
+}) {
 	return (
-		<div className="mt-auto bg-gray-100 py-3 px-2 text-sm overflow-x-auto break-words">
+		<div className="mt-auto bg-gray-100 py-3 px-2 text-sm overflow-x-auto wrap-break-word">
 			{children}
 			{owner && (
 				<div className="flex items-center ">
 					<div>Owner</div>
 					<div className="col-span-3 text-right flex items-center gap-1 ml-auto">
-						<ObjectLink owner={owner} />
+						{typeof owner === 'string' ? (
+							<ObjectLink
+								owner={{
+									$kind: 'AddressOwner',
+									AddressOwner: owner,
+								}}
+							/>
+						) : (
+							<ObjectLink owner={owner} />
+						)}
 					</div>
 				</div>
 			)}

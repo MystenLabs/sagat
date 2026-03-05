@@ -1,8 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCurrentAccount } from '@mysten/dapp-kit';
-import { Mail, Menu, Plus } from 'lucide-react';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
+import {
+	BookOpen,
+	Github,
+	Mail,
+	Menu,
+	Plus,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -20,6 +26,56 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from './ui/sheet';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from './ui/tooltip';
+
+const RESOURCE_LINKS = [
+	{
+		href: 'https://docs.sui.io/standards/sagat',
+		label: 'Documentation',
+		icon: BookOpen,
+	},
+	{
+		href: 'https://github.com/mystenlabs/sagat',
+		label: 'GitHub',
+		icon: Github,
+	},
+] as const;
+
+function ResourceLinks() {
+	return (
+		<TooltipProvider delayDuration={150}>
+			<div className="flex items-center gap-1 ml-1 border-l pl-3">
+				{RESOURCE_LINKS.map(
+					({ href, label, icon: Icon }) => (
+						<Tooltip key={href}>
+							<TooltipTrigger asChild>
+								<a
+									href={href}
+									target="_blank"
+									rel="noreferrer"
+								>
+									<Button
+										variant="ghost"
+										size="sm"
+										className="px-2 text-muted-foreground"
+									>
+										<Icon className="w-4 h-4" />
+									</Button>
+								</a>
+							</TooltipTrigger>
+							<TooltipContent>{label}</TooltipContent>
+						</Tooltip>
+					),
+				)}
+			</div>
+		</TooltipProvider>
+	);
+}
 
 const NavigationLinks = ({
 	mobile = false,
@@ -97,6 +153,28 @@ const NavigationLinks = ({
 						mobile={true}
 						onNavigate={onNavigate}
 					/>
+
+					<p className="text-sm text-gray-500 font-medium px-2 mt-4">
+						Resources
+					</p>
+					{RESOURCE_LINKS.map(
+						({ href, label, icon: Icon }) => (
+							<a
+								key={href}
+								href={href}
+								target="_blank"
+								rel="noreferrer"
+							>
+								<Button
+									variant="outline"
+									className="w-full justify-start"
+								>
+									<Icon className="w-4 h-4 mr-2" />
+									{label}
+								</Button>
+							</a>
+						),
+					)}
 				</>
 			)}
 		</>
@@ -114,21 +192,22 @@ export function Header() {
 		<div className="border-b">
 			<div className="p-4 max-w-[1600px] mx-auto flex justify-between items-center">
 				{/* Logo - hide subtitle on mobile */}
-				<div className="block md:hidden">
+				<div className="block lg:hidden">
 					<Logo showSubtitle={false} size="sm" />
 				</div>
-				<div className="hidden md:block">
+				<div className="hidden lg:block">
 					<Logo />
 				</div>
 
 				{/* Desktop Navigation */}
-				<div className="hidden md:flex items-center gap-4">
+				<div className="hidden lg:flex items-center gap-4">
 					<NavigationLinks />
 					<CustomWalletButton />
+					<ResourceLinks />
 				</div>
 
 				{/* Mobile Navigation */}
-				<div className="flex md:hidden items-center gap-2">
+				<div className="flex lg:hidden items-center gap-2">
 					<CustomWalletButton variant="header" />
 
 					<Sheet

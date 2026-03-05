@@ -293,7 +293,7 @@ export function ProposalsTab() {
 			</div>
 
 			<div className="flex-1 overflow-y-auto mt-6">
-				{isLoading || isRefetching ? (
+				{isLoading ? (
 					<SkeletonList />
 				) : error ? (
 					<ErrorState error={error as Error} />
@@ -314,11 +314,9 @@ export function ProposalsTab() {
 				)}
 			</div>
 
-			{!isLoading &&
-				!isRefetching &&
-				filteredProposals.length > 0 && (
-					<LoadMoreButton pagination={pagination} />
-				)}
+			{!isLoading && filteredProposals.length > 0 && (
+				<LoadMoreButton pagination={pagination} />
+			)}
 		</div>
 	);
 }

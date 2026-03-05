@@ -1,12 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClient } from '@mysten/dapp-kit';
+import { useDAppKit } from '@mysten/dapp-kit-react';
 import {
 	ProposalStatus,
 	type PublicProposal,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { fromBase64 } from '@mysten/sui/utils';
 import {
 	useMutation,
 	useQueryClient,
@@ -24,7 +25,7 @@ interface ExecuteProposalParams {
 
 export function useExecuteProposal() {
 	const queryClient = useQueryClient();
-	const suiClient = useSuiClient();
+	const suiClient = useDAppKit().getClient();
 
 	return useMutation({
 		mutationFn: async ({
@@ -73,18 +74,21 @@ export function useExecuteProposal() {
 					);
 
 				// Step 3: Execute the transaction with the combined signature
-				const result =
-					await suiClient.executeTransactionBlock({
-						transactionBlock: proposal.transactionBytes,
-						signature: combinedSignature,
-						options: {
-							showEffects: true,
-							showObjectChanges: true,
-						},
-					});
+				const result = await suiClient.executeTransaction({
+					transaction: fromBase64(
+						proposal.transactionBytes,
+					),
+					signatures: [combinedSignature],
+					include: {
+						effects: true,
+					},
+				});
 
 				await suiClient.waitForTransaction({
-					digest: result.digest,
+					digest:
+						result.Transaction?.digest ||
+						result.FailedTransaction?.digest ||
+						'',
 				});
 
 				// Sleep for 500ms to give a bit more time to index.
@@ -98,7 +102,11 @@ export function useExecuteProposal() {
 						proposal.digest,
 					);
 
-				return { executionResult: result, verifyResponse };
+				return {
+					executionResult:
+						result.Transaction || result.FailedTransaction,
+					verifyResponse,
+				};
 			} catch (error) {
 				throw error;
 			}

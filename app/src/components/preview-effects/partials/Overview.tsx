@@ -1,17 +1,16 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	type DryRunTransactionBlockResponse,
-	type GasCostSummary,
-} from '@mysten/sui/client';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { Check, Copy } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
 import { ObjectLink } from '../ObjectLink';
 import { onChainAmountToFloat } from '../utils';
 
-const calculateGas = (gas: GasCostSummary): string => {
+const calculateGas = (
+	gas: SuiClientTypes.GasCostSummary,
+): string => {
 	return (
 		onChainAmountToFloat(
 			(
@@ -27,7 +26,10 @@ const calculateGas = (gas: GasCostSummary): string => {
 export function Overview({
 	output,
 }: {
-	output: DryRunTransactionBlockResponse;
+	output: SuiClientTypes.SimulateTransactionResult<{
+		effects: true;
+		transaction: true;
+	}>;
 }) {
 	const [copied, setCopied] = useState(false);
 
@@ -41,13 +43,11 @@ export function Overview({
 		digest: (
 			<div className="flex items-center gap-2">
 				<span className="font-mono text-sm break-all">
-					{output.effects.transactionDigest}
+					{output.Transaction!.digest}
 				</span>
 				<button
 					onClick={() =>
-						copyToClipboard(
-							output.effects.transactionDigest,
-						)
+						copyToClipboard(output.Transaction!.digest)
 					}
 					className="p-1 hover:bg-gray-100 rounded"
 				>
@@ -59,23 +59,26 @@ export function Overview({
 				</button>
 			</div>
 		),
-		status:
-			output.effects.status?.status === 'success'
-				? '✅ Transaction dry run executed succesfully!'
-				: output.effects.status?.status === 'failure'
-					? '❌ Transaction failed to execute!'
-					: null,
+		status: output.Transaction!.effects.status.success
+			? '✅ Transaction dry run executed succesfully!'
+			: output.Transaction!.effects.status.error
+				? '❌ Transaction failed to execute!'
+				: null,
 		sender: (
 			<span className="flex gap-2 items-center">
 				<ObjectLink
 					owner={{
-						AddressOwner: output.input.sender,
+						$kind: 'AddressOwner',
+						AddressOwner:
+							output.Transaction!.transaction.sender!,
 					}}
 				/>
 			</span>
 		),
-		epoch: output.effects.executedEpoch,
-		gas: calculateGas(output.effects.gasUsed) + ' SUI',
+		epoch: output.Transaction!.epoch,
+		gas:
+			calculateGas(output.Transaction!.effects.gasUsed) +
+			' SUI',
 	};
 
 	return (

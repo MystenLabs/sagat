@@ -1,29 +1,33 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClient } from '@mysten/dapp-kit';
+import { useDAppKit } from '@mysten/dapp-kit-react';
 import { Transaction } from '@mysten/sui/transactions';
 import { useMutation } from '@tanstack/react-query';
 
 export function useDryRun() {
-	const client = useSuiClient();
+	const client = useDAppKit().getClient();
 
 	return useMutation({
 		mutationFn: async (transactionData: string) => {
-			// Parse and create transaction from JSON
 			const tx = Transaction.from(transactionData);
 
-			// Execute dry run
-			const result = await client.dryRunTransactionBlock({
-				transactionBlock: await tx.build({ client }),
+			const result = await client.simulateTransaction({
+				transaction: await tx.build({ client }),
+				include: {
+					effects: true,
+					balanceChanges: true,
+					events: true,
+					transaction: true,
+					objectTypes: true,
+				},
 			});
 
-			// Check for errors in the result
-			if (result.effects.status.status === 'failure') {
-				const errorMsg =
-					result.effects.status.error ||
-					'Transaction would fail';
-				throw new Error(errorMsg);
+			if (result.FailedTransaction) {
+				throw new Error(
+					result.FailedTransaction.effects.status.error
+						?.message,
+				);
 			}
 
 			return result;

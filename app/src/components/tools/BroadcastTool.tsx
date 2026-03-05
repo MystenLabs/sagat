@@ -1,7 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useSuiClient } from '@mysten/dapp-kit';
+import { useDAppKit } from '@mysten/dapp-kit-react';
+import { fromBase64 } from '@mysten/sui/utils';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
 
@@ -136,7 +137,7 @@ function BroadcastError({
 }
 
 export default function BroadcastTool() {
-	const client = useSuiClient();
+	const client = useDAppKit().getClient();
 	const [transactionBytes, setTransactionBytes] =
 		useState('');
 	const [signature, setSignature] = useState('');
@@ -158,32 +159,28 @@ export default function BroadcastTool() {
 		setResult(null);
 
 		try {
-			const executionResult =
-				await client.executeTransactionBlock({
-					transactionBlock: transactionBytes,
-					signature,
-					options: {
-						showEffects: true,
-						showObjectChanges: true,
-					},
-				});
+			const result = await client.executeTransaction({
+				transaction: fromBase64(transactionBytes),
+				signatures: [signature],
+				include: {
+					effects: true,
+				},
+			});
 
-			if (
-				executionResult.effects!.status.status === 'failure'
-			) {
+			if (result.FailedTransaction) {
 				setError(
-					executionResult.effects!.status.error ||
-						'Failed to broadcast transaction',
+					result.FailedTransaction.effects.status.error
+						?.message || 'Failed to broadcast transaction',
 				);
 				return;
 			}
 
 			await client.waitForTransaction({
-				digest: executionResult.digest,
+				digest: result.Transaction!.digest,
 			});
 
 			setResult({
-				digest: executionResult.digest,
+				digest: result.Transaction!.digest,
 			});
 		} catch (err) {
 			setError(

@@ -3,8 +3,8 @@
 
 import {
 	useCurrentAccount,
-	useSuiClientContext,
-} from '@mysten/dapp-kit';
+	useCurrentNetwork,
+} from '@mysten/dapp-kit-react';
 import { useMemo, type ReactElement } from 'react';
 import {
 	matchPath,
@@ -115,7 +115,7 @@ export function AppRouter() {
 	const { isCheckingAuth, isCurrentAddressAuthenticated } =
 		useApiAuth();
 	const location = useLocation();
-	const ctx = useSuiClientContext();
+	const network = useCurrentNetwork();
 
 	const authLevel = useMemo(
 		() => getAuthLevel(location.pathname),
@@ -177,7 +177,7 @@ export function AppRouter() {
 		return renderRoutes;
 	}
 
-	if (ctx.network === 'devnet') {
+	if (network === 'devnet') {
 		return <DevnetNotSupported />;
 	}
 
