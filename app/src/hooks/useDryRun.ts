@@ -10,10 +10,8 @@ export function useDryRun() {
 
 	return useMutation({
 		mutationFn: async (transactionData: string) => {
-			// Parse and create transaction from JSON
 			const tx = Transaction.from(transactionData);
 
-			// Execute dry run
 			const result = await client.simulateTransaction({
 				transaction: await tx.build({ client }),
 				include: {

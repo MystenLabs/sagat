@@ -122,8 +122,7 @@ function PreviewResult({
 			) : (
 				<div className="space-y-3">
 					<p className="text-sm text-red-600 whitespace-pre-wrap">
-						{error?.message ||
-							'Transaction would fail on-chain'}
+						{decodeURIComponent(error?.message || 'Transaction would fail on-chain')}
 					</p>
 					<Alert variant="warning">
 						<span className="">

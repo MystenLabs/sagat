@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { SuiClientTypes } from '@mysten/sui/client';
-import { toBase64 } from '@mysten/sui/utils';
 import { type ReactNode } from 'react';
 
 import { Textarea } from '@/components/ui/textarea';
@@ -46,13 +45,10 @@ export function Event({
 				}}
 			/>
 		),
-		// TODO: SuiClientTypes.Event only exposes `bcs`, but the gRPC proto has a `json` field (field 6)
-		// that the server populates. The SDK mapping layer (grpc/core.ts) drops it.
-		// Once the SDK adds `json` to SuiClientTypes.Event, switch back to showing parsed JSON.
-		Data: event.bcs ? (
+		Data: event.json ? (
 			<Textarea
-				value={toBase64(event.bcs)}
-				rows={4}
+				value={JSON.stringify(event.json, null, 2)}
+				rows={6}
 				readOnly
 				className="font-mono text-xs"
 			/>
