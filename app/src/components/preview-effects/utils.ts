@@ -65,10 +65,6 @@ export type DecodedPure = { label: string; value: string };
  * Returns all plausible interpretations (most likely first) so the UI can
  * show alternatives when the encoding is ambiguous.
  *
- * TODO: The gRPC proto `Input` has a `literal` field (google.protobuf.Value, field 1000)
- * that the server populates with the decoded JSON value (same as JSON-RPC's `SuiCallArg.value`).
- * The SDK's `grpcInputToCallArg` in transaction-resolver.ts ignores `input.literal` and only
- * maps `input.pure` (raw BCS bytes). Once the SDK exposes `literal`, use it here instead.
  */
 export function tryDecodePure(
 	base64Bytes: string,
