@@ -51,11 +51,11 @@ export function OverviewTab() {
 				</h2>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div>
+					<div className="flex flex-col">
 						<label className="block text-sm font-medium text-muted-foreground mb-2">
 							Address
 						</label>
-						<div className="flex items-center gap-2 p-3 bg-surface rounded-lg">
+						<div className="flex items-center gap-2 p-3 bg-surface rounded-lg flex-1">
 							<code className="text-sm font-mono text-foreground flex-1 break-all">
 								{multisig.address}
 							</code>
@@ -74,11 +74,11 @@ export function OverviewTab() {
 						</div>
 					</div>
 
-					<div>
+					<div className="flex flex-col">
 						<label className="block text-sm font-medium text-muted-foreground mb-2">
 							Signature Threshold
 						</label>
-						<div className="p-3 bg-surface rounded-lg">
+						<div className="flex items-center p-3 bg-surface rounded-lg flex-1">
 							<span className="text-sm text-foreground">
 								{multisig.threshold} of{' '}
 								{multisigDetails?.members

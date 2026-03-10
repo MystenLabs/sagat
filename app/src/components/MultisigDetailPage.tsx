@@ -128,7 +128,7 @@ export function MultisigDetailPage() {
 	// Remove this line since we'll use NavLink's built-in active state
 
 	return (
-		<div className="container mx-auto mt-8 px-4">
+		<div className="container mx-auto mt-8 px-4 pb-12">
 			{/* Header */}
 			<div className="mb-6">
 				{/* Multisig Selector & Info */}
@@ -163,29 +163,6 @@ export function MultisigDetailPage() {
 									New Proposal
 								</Button>
 							</div>
-						</div>
-
-						{/* Quick Info Bar */}
-						<div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap pt-4 border-t">
-							<Label variant="success">
-								{multisig.threshold} threshold •{' '}
-								{multisig.totalMembers} members
-							</Label>
-							<Label
-								variant={
-									multisig.isVerified
-										? 'success'
-										: multisig.rejectedMembers > 0
-											? 'error'
-											: 'info'
-								}
-							>
-								{multisig.isVerified
-									? 'Verified'
-									: multisig.rejectedMembers > 0
-										? 'Rejected'
-										: 'Pending'}
-							</Label>
 						</div>
 					</div>
 				</div>

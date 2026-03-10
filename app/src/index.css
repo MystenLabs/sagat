@@ -177,7 +177,7 @@
 	--error-foreground: oklch(0.72 0.17 25);
 	--error-border: oklch(0.45 0.12 25);
 
-	--surface: oklch(0.21 0 0);
+	--surface: oklch(0.16 0 0);
 }
 
 @layer base {
