@@ -164,7 +164,9 @@ export const lookupAndVerifyProposal = async (
 		},
 	});
 
-	const isSuccess = tx.$kind !== 'FailedTransaction';
+	const isSuccess =
+		tx.$kind !== 'FailedTransaction' &&
+		!!tx.Transaction.effects.status.success;
 
 	await db
 		.update(SchemaProposals)
