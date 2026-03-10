@@ -123,11 +123,7 @@ export function ProposalPreview({
 
 			{dryRunMutation.data && (
 				<div
-					className={`border rounded-lg p-3 ${
-						isDryRunSuccessful
-							? 'border-success-border bg-card'
-							: 'border-error-border bg-card'
-					}`}
+				className="py-2"
 				>
 					<EffectsPreview
 						output={dryRunMutation.data}

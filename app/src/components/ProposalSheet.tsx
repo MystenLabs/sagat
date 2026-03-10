@@ -214,11 +214,7 @@ export function ProposalSheet({
 					{(dryRunMutation.data ||
 						dryRunMutation.error) && (
 						<div
-							className={`border rounded-lg p-4 ${
-								isDryRunSuccessful
-									? 'border-success-border bg-card'
-									: 'border-error-border bg-card'
-							}`}
+						className="py-2"
 						>
 							<div className="flex items-center gap-2 mb-3">
 								{isDryRunSuccessful ? (
