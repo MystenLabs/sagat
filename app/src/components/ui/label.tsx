@@ -19,7 +19,7 @@ const labelVariants = cva(
 				error: 'bg-error text-error-foreground',
 				info: 'bg-info text-info-foreground',
 				neutral: 'bg-muted text-muted-foreground',
-				purple: 'bg-info-soft text-info-foreground',
+				purple: 'bg-purple text-purple-foreground',
 			},
 			size: {
 				sm: 'text-xs px-1.5 py-0.5',
