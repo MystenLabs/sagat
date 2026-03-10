@@ -214,7 +214,7 @@ function SignButton({
 					type="button"
 					onClick={() => onSign(shouldExecute)}
 					disabled={isSigning || !currentAccount}
-					className={`${shouldExecute ? 'bg-primary hover:bg-primary/90' : 'bg-blue-600 hover:bg-blue-700'}`}
+					variant={shouldExecute ? 'default' : 'outline'}
 				>
 					{isSigning
 						? 'Signing...'
