@@ -22,7 +22,9 @@ export function OnboardingView() {
 				<h2 className="text-2xl font-bold mb-4">
 					Create Multisig
 				</h2>
-				<p className="text-gray-600">Form coming soon...</p>
+				<p className="text-muted-foreground">
+					Form coming soon...
+				</p>
 				<Button
 					onClick={() => setShowCreateForm(false)}
 					variant="outline"
@@ -41,7 +43,7 @@ export function OnboardingView() {
 				<h1 className="text-4xl font-bold mb-4">
 					Create Your First Multisig
 				</h1>
-				<p className="text-xl text-gray-600 mb-8">
+				<p className="text-xl text-muted-foreground mb-8">
 					Secure your assets with multi-signature protection
 					on Sui
 				</p>
@@ -58,39 +60,39 @@ export function OnboardingView() {
 			{/* Features */}
 			<div className="grid md:grid-cols-3 gap-6 mt-16">
 				<div className="text-center p-6">
-					<div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-						<Users className="w-8 h-8 text-blue-600" />
+					<div className="inline-flex items-center justify-center w-16 h-16 bg-info-soft rounded-full mb-4">
+						<Users className="w-8 h-8 text-info-foreground" />
 					</div>
 					<h3 className="font-semibold text-lg mb-2">
 						Shared Control
 					</h3>
-					<p className="text-gray-600 text-sm">
+					<p className="text-muted-foreground text-sm">
 						Require multiple approvals for transactions,
 						perfect for teams and DAOs
 					</p>
 				</div>
 
 				<div className="text-center p-6">
-					<div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-						<Lock className="w-8 h-8 text-green-600" />
+					<div className="inline-flex items-center justify-center w-16 h-16 bg-success-soft rounded-full mb-4">
+						<Lock className="w-8 h-8 text-success-foreground" />
 					</div>
 					<h3 className="font-semibold text-lg mb-2">
 						Enhanced Security
 					</h3>
-					<p className="text-gray-600 text-sm">
+					<p className="text-muted-foreground text-sm">
 						Protect against single points of failure and
 						unauthorized access
 					</p>
 				</div>
 
 				<div className="text-center p-6">
-					<div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
-						<CheckCircle className="w-8 h-8 text-purple-600" />
+					<div className="inline-flex items-center justify-center w-16 h-16 bg-info-soft rounded-full mb-4">
+						<CheckCircle className="w-8 h-8 text-info-foreground" />
 					</div>
 					<h3 className="font-semibold text-lg mb-2">
 						Transparent Governance
 					</h3>
-					<p className="text-gray-600 text-sm">
+					<p className="text-muted-foreground text-sm">
 						All members can view and approve transactions
 						before execution
 					</p>
@@ -98,20 +100,20 @@ export function OnboardingView() {
 			</div>
 
 			{/* How it works */}
-			<div className="mt-16 bg-gray-50 rounded-lg p-8">
+			<div className="mt-16 bg-surface rounded-lg p-8">
 				<h2 className="text-2xl font-semibold mb-6">
 					How It Works
 				</h2>
 				<div className="space-y-4">
 					<div className="flex items-start">
-						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
 							1
 						</div>
 						<div className="ml-4">
 							<h4 className="font-medium mb-1">
 								Set up your multisig
 							</h4>
-							<p className="text-gray-600 text-sm">
+							<p className="text-muted-foreground text-sm">
 								Choose members and set the approval
 								threshold
 							</p>
@@ -119,14 +121,14 @@ export function OnboardingView() {
 					</div>
 
 					<div className="flex items-start">
-						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
 							2
 						</div>
 						<div className="ml-4">
 							<h4 className="font-medium mb-1">
 								Propose transactions
 							</h4>
-							<p className="text-gray-600 text-sm">
+							<p className="text-muted-foreground text-sm">
 								Any member can propose a transaction for
 								approval
 							</p>
@@ -134,26 +136,26 @@ export function OnboardingView() {
 					</div>
 
 					<div className="flex items-start">
-						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
 							3
 						</div>
 						<div className="ml-4">
 							<h4 className="font-medium mb-1">
 								Collect approvals
 							</h4>
-							<p className="text-gray-600 text-sm">
+							<p className="text-muted-foreground text-sm">
 								Members review and sign the transaction
 							</p>
 						</div>
 					</div>
 
 					<div className="flex items-start">
-						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
 							4
 						</div>
 						<div className="ml-4">
 							<h4 className="font-medium mb-1">Execute</h4>
-							<p className="text-gray-600 text-sm">
+							<p className="text-muted-foreground text-sm">
 								Once threshold is met, execute the
 								transaction on-chain
 							</p>

@@ -106,7 +106,7 @@ export function AddressLookupModal({
 
 	return (
 		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-			<div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+			<div className="bg-card rounded-lg p-6 w-full max-w-md mx-4">
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-lg font-semibold">
 						Look up Public Key
@@ -152,8 +152,8 @@ export function AddressLookupModal({
 					</div>
 
 					{error && (
-						<div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-							<p className="text-sm text-red-700">
+						<div className="p-3 bg-error border border-error-border rounded-lg">
+							<p className="text-sm text-error-foreground">
 								{error}
 							</p>
 						</div>
@@ -164,7 +164,7 @@ export function AddressLookupModal({
 							<label className="block text-sm font-medium">
 								Found Public Key:
 							</label>
-							<div className="flex items-center gap-2 p-3 border rounded-lg bg-green-50">
+							<div className="flex items-center gap-2 p-3 border rounded-lg bg-success">
 								<span className="text-xs font-mono flex-1 break-all">
 									{foundKey}
 								</span>
@@ -183,7 +183,7 @@ export function AddressLookupModal({
 								</Button>
 							</div>
 							{onChainResult && (
-								<p className="text-xs text-green-700 flex items-center gap-1">
+								<p className="text-xs text-success-foreground flex items-center gap-1">
 									<Globe className="w-3 h-3" />
 									Recovered from on-chain transaction on{' '}
 									<strong>{onChainResult.network}</strong>
@@ -192,8 +192,8 @@ export function AddressLookupModal({
 						</div>
 					)}
 
-					<div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-						<p className="text-sm text-blue-700">
+					<div className="p-3 bg-info border border-info-border rounded-lg">
+						<p className="text-sm text-info-foreground">
 							<strong>Tip:</strong> An address is found in
 							our system if it has previously signed in. We
 							also check on-chain transactions across

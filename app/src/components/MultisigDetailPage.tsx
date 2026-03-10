@@ -125,14 +125,12 @@ export function MultisigDetailPage() {
 		{ id: 'assets', label: 'Assets', icon: Coins },
 	];
 
-	// Remove this line since we'll use NavLink's built-in active state
-
 	return (
-		<div className="container mx-auto mt-8 px-4">
+		<div className="container mx-auto mt-8 px-4 pb-12">
 			{/* Header */}
 			<div className="mb-6">
 				{/* Multisig Selector & Info */}
-				<div className="bg-white border rounded-lg p-6 mb-6">
+				<div className="bg-card border rounded-lg p-6 mb-6">
 					<div className="flex flex-col gap-6">
 						{/* Multisig Selector */}
 						<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -164,29 +162,6 @@ export function MultisigDetailPage() {
 								</Button>
 							</div>
 						</div>
-
-						{/* Quick Info Bar */}
-						<div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap pt-4 border-t">
-							<Label variant="success">
-								{multisig.threshold} threshold •{' '}
-								{multisig.totalMembers} members
-							</Label>
-							<Label
-								variant={
-									multisig.isVerified
-										? 'success'
-										: multisig.rejectedMembers > 0
-											? 'error'
-											: 'info'
-								}
-							>
-								{multisig.isVerified
-									? 'Verified'
-									: multisig.rejectedMembers > 0
-										? 'Rejected'
-										: 'Pending'}
-							</Label>
-						</div>
 					</div>
 				</div>
 
@@ -203,8 +178,8 @@ export function MultisigDetailPage() {
 									className={({ isActive }) =>
 										`px-4 py-2 text-sm shrink-0 font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${
 											isActive
-												? 'text-blue-600 border-b-2 border-blue-600'
-												: 'text-gray-600 hover:text-gray-900'
+												? 'text-info-foreground border-b-2 border-info-border'
+												: 'text-muted-foreground hover:text-foreground'
 										}`
 									}
 								>

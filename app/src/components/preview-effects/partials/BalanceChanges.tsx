@@ -32,7 +32,7 @@ function ChangedBalance({
 }) {
 	// TODO: This should use the "active" client of the selection, NOT
 	// the dappKit client!
-	// Otehrwise, this does a query to the wrong network.
+	// Otherwise, this does a query to the wrong network.
 	const client = useDAppKit().getClient();
 
 	const { data: coinMetadata } = useQuery({
@@ -71,12 +71,12 @@ function ChangedBalance({
 					)}
 					<p>
 						<span
-							className={`${Number(amount()) > 0.0 ? 'text-green-700' : 'text-red-700'}`}
+							className={`${Number(amount()) > 0.0 ? 'text-success-foreground' : 'text-error-foreground'}`}
 						>
 							{amount()}{' '}
 						</span>{' '}
 						{coinMetadata.symbol}
-						<span className="block text-sm text-gray-600">
+						<span className="block text-sm text-muted-foreground">
 							{change.coinType
 								? prettifyType(change.coinType)
 								: null}

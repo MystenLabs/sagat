@@ -4,12 +4,17 @@
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import {
 	BookOpen,
+	ChevronDown,
 	Github,
 	Mail,
 	Menu,
+	Monitor,
+	Moon,
 	Plus,
+	Sun,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useTheme } from 'next-themes';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
@@ -77,6 +82,106 @@ function ResourceLinks() {
 	);
 }
 
+const THEME_OPTIONS = [
+	{ value: 'light', icon: Sun, label: 'Light' },
+	{ value: 'dark', icon: Moon, label: 'Dark' },
+	{ value: 'system', icon: Monitor, label: 'System' },
+] as const;
+
+function ThemeToggle({
+	mobile = false,
+}: {
+	mobile?: boolean;
+}) {
+	const { theme, setTheme } = useTheme();
+	const [open, setOpen] = useState(false);
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		const handleClick = (e: MouseEvent) => {
+			if (
+				ref.current &&
+				!ref.current.contains(e.target as Node)
+			) {
+				setOpen(false);
+			}
+		};
+		document.addEventListener('mousedown', handleClick);
+		return () =>
+			document.removeEventListener(
+				'mousedown',
+				handleClick,
+			);
+	}, []);
+
+	const active =
+		THEME_OPTIONS.find((o) => o.value === theme) ??
+		THEME_OPTIONS[2];
+	const ActiveIcon = active.icon;
+
+	if (mobile) {
+		return (
+			<div className="flex flex-col gap-2">
+				{THEME_OPTIONS.map(
+					({ value, icon: Icon, label }) => (
+						<Button
+							key={value}
+							variant={
+								theme === value ? 'default' : 'outline'
+							}
+							className="w-full justify-start"
+							onClick={() => setTheme(value)}
+						>
+							<Icon className="w-4 h-4 mr-2" />
+							{label}
+						</Button>
+					),
+				)}
+			</div>
+		);
+	}
+
+	return (
+		<div className="relative border-l pl-3 ml-1" ref={ref}>
+			<Button
+				variant="ghost"
+				size="sm"
+				className="px-2 text-muted-foreground gap-1"
+				onClick={() => setOpen((v) => !v)}
+			>
+				<ActiveIcon className="w-4 h-4" />
+				<ChevronDown
+					className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`}
+				/>
+			</Button>
+
+			{open && (
+				<div className="absolute right-0 mt-1 bg-popover border rounded-lg shadow-lg py-1 z-50 min-w-32">
+					{THEME_OPTIONS.map(
+						({ value, icon: Icon, label }) => (
+							<button
+								key={value}
+								onClick={() => {
+									setTheme(value);
+									setOpen(false);
+								}}
+								className={`flex items-center gap-2 w-full px-3 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors ${
+									theme === value
+										? 'text-foreground font-medium'
+										: 'text-muted-foreground'
+								}`}
+							>
+								<Icon className="w-4 h-4" />
+								{label}
+							</button>
+						),
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
 const NavigationLinks = ({
 	mobile = false,
 	onNavigate = () => {},
@@ -106,7 +211,9 @@ const NavigationLinks = ({
 							variant={
 								location.pathname === '/invitations'
 									? 'default'
-									: 'outline'
+									: mobile
+										? 'outline'
+										: 'ghost'
 							}
 							size={mobile ? 'default' : 'sm'}
 							className={`relative ${mobile ? 'w-full justify-start' : ''}`}
@@ -131,7 +238,9 @@ const NavigationLinks = ({
 							variant={
 								location.pathname === '/create'
 									? 'default'
-									: 'outline'
+									: mobile
+										? 'outline'
+										: 'ghost'
 							}
 							size={mobile ? 'default' : 'sm'}
 							className={
@@ -146,7 +255,7 @@ const NavigationLinks = ({
 			)}
 			{mobile && (
 				<>
-					<p className="text-sm text-gray-500 font-medium px-2">
+					<p className="text-sm text-muted-foreground font-medium px-2">
 						Tools
 					</p>
 					<ToolsDropdown
@@ -154,7 +263,7 @@ const NavigationLinks = ({
 						onNavigate={onNavigate}
 					/>
 
-					<p className="text-sm text-gray-500 font-medium px-2 mt-4">
+					<p className="text-sm text-muted-foreground font-medium px-2 mt-4">
 						Resources
 					</p>
 					{RESOURCE_LINKS.map(
@@ -175,6 +284,11 @@ const NavigationLinks = ({
 							</a>
 						),
 					)}
+
+					<p className="text-sm text-muted-foreground font-medium px-2 mt-4">
+						Theme
+					</p>
+					<ThemeToggle mobile />
 				</>
 			)}
 		</>
@@ -204,6 +318,7 @@ export function Header() {
 					<NavigationLinks />
 					<CustomWalletButton />
 					<ResourceLinks />
+					<ThemeToggle />
 				</div>
 
 				{/* Mobile Navigation */}

@@ -54,7 +54,10 @@ export function CopyButton({
 		>
 			{copied ? (
 				<Check
-					className={cn(iconSizes[size], 'text-green-600')}
+					className={cn(
+						iconSizes[size],
+						'text-success-foreground',
+					)}
 				/>
 			) : (
 				<Copy className={iconSizes[size]} />

@@ -50,7 +50,7 @@ function TransactionInput({
 		<div className="space-y-2">
 			<label
 				htmlFor="transaction-data"
-				className="text-sm font-medium text-gray-700"
+				className="text-sm font-medium text-muted-foreground"
 			>
 				Transaction Data (JSON or base64)
 			</label>
@@ -81,10 +81,10 @@ function PreviewResult({
 }) {
 	if (isLoading) {
 		return (
-			<div className="border border-gray-200 bg-white rounded-lg p-4">
+			<div className="border border-border bg-card rounded-lg p-4">
 				<div className="flex items-center gap-2">
-					<div className="w-5 h-5 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
-					<h3 className="font-medium text-gray-900">
+					<div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
+					<h3 className="font-medium text-foreground">
 						Previewing transaction...
 					</h3>
 				</div>
@@ -93,25 +93,19 @@ function PreviewResult({
 	}
 
 	return (
-		<div
-			className={`border rounded-lg p-4 ${
-				isSuccess
-					? 'border-green-200 bg-white'
-					: 'border-red-200 bg-white'
-			}`}
-		>
+		<div className="py-2">
 			<div className="flex items-center gap-2 mb-3">
 				{isSuccess ? (
 					<>
-						<CheckCircle className="w-5 h-5 text-green-600" />
-						<h3 className="font-medium text-gray-900">
+						<CheckCircle className="w-5 h-5 text-success-foreground" />
+						<h3 className="font-medium text-foreground">
 							Transaction Preview - Success
 						</h3>
 					</>
 				) : (
 					<>
-						<AlertCircle className="w-5 h-5 text-red-600" />
-						<h3 className="font-medium text-gray-900">
+						<AlertCircle className="w-5 h-5 text-error-foreground" />
+						<h3 className="font-medium text-foreground">
 							Transaction Preview - Failed
 						</h3>
 					</>
@@ -121,7 +115,7 @@ function PreviewResult({
 				<EffectsPreview output={data} bytes={bytes} />
 			) : (
 				<div className="space-y-3">
-					<p className="text-sm text-red-600 whitespace-pre-wrap">
+					<p className="text-sm text-error-foreground whitespace-pre-wrap">
 						{decodeURIComponent(
 							error?.message ||
 								'Transaction would fail on-chain',
@@ -149,11 +143,11 @@ function SignedResultDisplay({
 	network: string;
 }) {
 	return (
-		<div className="border border-gray-200 bg-white rounded-lg p-4">
+		<div className="border border-border bg-card rounded-lg p-4">
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
-					<CheckCircle className="w-5 h-5 text-green-600" />
-					<h3 className="font-medium text-gray-900">
+					<CheckCircle className="w-5 h-5 text-success-foreground" />
+					<h3 className="font-medium text-foreground">
 						Transaction{' '}
 						{result.digest
 							? 'Signed and Executed'
@@ -214,7 +208,7 @@ function SignButton({
 					type="button"
 					onClick={() => onSign(shouldExecute)}
 					disabled={isSigning || !currentAccount}
-					className={`${shouldExecute ? 'bg-primary hover:bg-primary/90' : 'bg-blue-600 hover:bg-blue-700'}`}
+					variant={shouldExecute ? 'default' : 'outline'}
 				>
 					{isSigning
 						? 'Signing...'
@@ -332,7 +326,7 @@ export default function SigningTool() {
 		<div className="space-y-6">
 			<div className="flex items-center justify-between gap-4">
 				<div>
-					<p className="text-sm text-gray-600">
+					<p className="text-sm text-muted-foreground">
 						Preview and sign transactions with your
 						connected wallet.
 					</p>

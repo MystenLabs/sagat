@@ -75,12 +75,14 @@ function Signature({
 	const scheme = signature.signatureScheme.toString();
 
 	return (
-		<div className="bg-white border rounded-lg">
+		<div className="bg-card border rounded-lg">
 			<div className="p-4 border-b">
 				<h3 className="text-lg font-semibold">
 					Signature #{index}
 				</h3>
-				<p className="text-sm text-gray-600">{scheme}</p>
+				<p className="text-sm text-muted-foreground">
+					{scheme}
+				</p>
 			</div>
 			<div className="p-4">
 				<div className="space-y-3">
@@ -112,12 +114,12 @@ function MultiSigDetails({
 	multisigInfo: MultiSigInfo;
 }) {
 	return (
-		<div className="bg-white border border-blue-200 rounded-lg">
-			<div className="p-4 border-b border-blue-200">
+		<div className="bg-card border border-info-border rounded-lg">
+			<div className="p-4 border-b border-info-border">
 				<h3 className="text-lg font-semibold">
 					MultiSig Configuration
 				</h3>
-				<p className="text-sm text-gray-600">
+				<p className="text-sm text-muted-foreground">
 					Combined MultiSig Public Key Information
 				</p>
 			</div>
@@ -140,7 +142,7 @@ function MultiSigDetails({
 					/>
 
 					<div className="space-y-1">
-						<div className="text-sm font-medium text-gray-700">
+						<div className="text-sm font-medium text-muted-foreground">
 							Participants (
 							{multisigInfo.participants.length})
 						</div>
@@ -149,17 +151,17 @@ function MultiSigDetails({
 								(participant, index) => (
 									<div
 										key={index}
-										className="bg-gray-50 rounded-md p-3 border"
+										className="bg-surface rounded-md p-3 border"
 									>
 										<div className="flex justify-between items-start mb-2">
-											<span className="font-medium text-gray-900">
+											<span className="font-medium text-foreground">
 												Participant #{index + 1}
 											</span>
 											<div className="flex gap-2">
-												<span className="bg-gray-200 text-gray-800 px-2 py-1 rounded text-xs font-medium">
+												<span className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs font-medium">
 													{participant.keyType}
 												</span>
-												<span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+												<span className="bg-info-soft text-info-foreground px-2 py-1 rounded text-xs font-medium">
 													Weight: {participant.weight}
 												</span>
 											</div>
@@ -167,7 +169,7 @@ function MultiSigDetails({
 										<div className="space-y-2 text-sm">
 											<div className="flex items-center justify-between">
 												<div className="flex-1 min-w-0">
-													<span className="text-gray-600">
+													<span className="text-muted-foreground">
 														Address:
 													</span>{' '}
 													<span className="font-mono">
@@ -177,7 +179,7 @@ function MultiSigDetails({
 											</div>
 											<div className="flex items-center justify-between">
 												<div className="flex-1 min-w-0">
-													<span className="text-gray-600">
+													<span className="text-muted-foreground">
 														Public Key:
 													</span>{' '}
 													<span className="font-mono break-all">
@@ -313,7 +315,7 @@ export default function SignatureAnalyzer() {
 	return (
 		<div className="flex flex-col gap-4">
 			<div className="grid w-full gap-1.5">
-				<label className="text-sm font-medium text-gray-700">
+				<label className="text-sm font-medium text-muted-foreground">
 					Signature Bytes (base64 encoded)
 				</label>
 				<Textarea
@@ -325,14 +327,14 @@ export default function SignatureAnalyzer() {
 			</div>
 
 			{error && (
-				<div className="border border-red-200 bg-red-50 rounded-lg p-4">
+				<div className="border border-error-border bg-error rounded-lg p-4">
 					<div className="flex items-center gap-2 mb-2">
-						<AlertCircle className="w-5 h-5 text-red-600" />
-						<h3 className="font-medium text-red-900">
+						<AlertCircle className="w-5 h-5 text-error-foreground" />
+						<h3 className="font-medium text-error-foreground">
 							Error
 						</h3>
 					</div>
-					<p className="text-sm text-red-700">
+					<p className="text-sm text-error-foreground">
 						{error.message}
 					</p>
 				</div>

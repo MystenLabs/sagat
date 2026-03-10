@@ -109,15 +109,15 @@ export function MultisigPageFAQ() {
 					<AccordionItem
 						key={faq.id}
 						value={faq.id}
-						className="bg-white rounded-lg border px-4"
+						className="bg-card rounded-lg border px-4"
 					>
 						<AccordionTrigger className="text-left">
 							<div className="flex items-center gap-2">
-								<IconComponent className="w-4 h-4 text-slate-600" />
+								<IconComponent className="w-4 h-4 text-muted-foreground" />
 								{faq.question}
 							</div>
 						</AccordionTrigger>
-						<AccordionContent className="text-slate-600">
+						<AccordionContent className="text-muted-foreground">
 							{faq.answer}
 						</AccordionContent>
 					</AccordionItem>

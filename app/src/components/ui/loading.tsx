@@ -30,12 +30,14 @@ export function Loading({
 		<div className={cn(containerClasses, className)}>
 			<div
 				className={cn(
-					'animate-spin rounded-full border-blue-600',
+					'animate-spin rounded-full border-info-border',
 					sizeClasses[size],
 				)}
 			/>
 			{message && (
-				<p className="mt-4 text-gray-600">{message}</p>
+				<p className="mt-4 text-muted-foreground">
+					{message}
+				</p>
 			)}
 		</div>
 	);
@@ -49,7 +51,7 @@ export function InlineLoading({
 }) {
 	return (
 		<span className="inline-flex items-center gap-2">
-			<span className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent" />
+			<span className="animate-spin rounded-full h-4 w-4 border-2 border-muted-foreground border-t-transparent" />
 			{message && (
 				<span className="text-sm">{message}</span>
 			)}

@@ -18,10 +18,10 @@ import { cn } from '@/lib/utils';
 const alertVariants = cva('p-3 rounded border-l-4', {
 	variants: {
 		variant: {
-			info: 'bg-blue-50 border-blue-500',
-			warning: 'bg-yellow-100 border-yellow-500',
-			error: 'bg-red-50 border-red-500',
-			success: 'bg-green-50 border-green-500',
+			info: 'bg-info border-info-border',
+			warning: 'bg-warning border-warning-border',
+			error: 'bg-error border-error-border',
+			success: 'bg-success border-success-border',
 		},
 	},
 	defaultVariants: {
@@ -32,10 +32,10 @@ const alertVariants = cva('p-3 rounded border-l-4', {
 const alertTextVariants = cva('text-sm', {
 	variants: {
 		variant: {
-			info: 'text-blue-800',
-			warning: 'text-yellow-800',
-			error: 'text-red-800',
-			success: 'text-green-800',
+			info: 'text-info-foreground',
+			warning: 'text-warning-foreground',
+			error: 'text-error-foreground',
+			success: 'text-success-foreground',
 		},
 	},
 	defaultVariants: {
@@ -43,13 +43,13 @@ const alertTextVariants = cva('text-sm', {
 	},
 });
 
-const alertIconVariants = cva('w-5 h-5 flex-shrink-0', {
+const alertIconVariants = cva('w-5 h-5 shrink-0', {
 	variants: {
 		variant: {
-			info: 'text-blue-600',
-			warning: 'text-yellow-700',
-			error: 'text-red-600',
-			success: 'text-green-600',
+			info: 'text-info-foreground',
+			warning: 'text-warning-foreground',
+			error: 'text-error-foreground',
+			success: 'text-success-foreground',
 		},
 	},
 	defaultVariants: {

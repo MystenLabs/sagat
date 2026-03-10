@@ -16,10 +16,10 @@ export function FieldDisplay({
 }) {
 	return (
 		<div className="space-y-1">
-			<div className="text-sm font-medium text-gray-700">
+			<div className="text-sm font-medium text-muted-foreground">
 				{label}
 			</div>
-			<div className="bg-gray-50 rounded-md text-sm font-mono p-3 break-all border flex items-center justify-between">
+			<div className="bg-surface rounded-md text-sm font-mono p-3 break-all border border-border flex items-center justify-between">
 				<span>{value}</span>
 				{copyable && typeof value === 'string' && (
 					<CopyButton

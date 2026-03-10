@@ -27,15 +27,15 @@ export function AssetsTab() {
 	return (
 		<div className="space-y-6">
 			{/* Coming Soon Card */}
-			<div className="bg-white border rounded-lg p-8 text-center">
-				<div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-					<Coins className="w-8 h-8 text-blue-600" />
+			<div className="bg-card border rounded-lg p-8 text-center">
+				<div className="w-16 h-16 bg-info-soft rounded-full flex items-center justify-center mx-auto mb-4">
+					<Coins className="w-8 h-8 text-info-foreground" />
 				</div>
 
 				<h2 className="text-xl font-semibold mb-2">
 					Asset Management
 				</h2>
-				<p className="text-gray-600 mb-6">
+				<p className="text-muted-foreground mb-6">
 					Assets management is not supported. You can view
 					this multisig's assets directly on the Sui
 					explorer.

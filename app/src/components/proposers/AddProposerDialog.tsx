@@ -68,13 +68,15 @@ export function AddProposerDialog({
 	return (
 		<Modal open={open} onClose={handleClose} size="lg">
 			<ModalHeader
-				icon={<Plus className="w-6 h-6 text-blue-500" />}
+				icon={
+					<Plus className="w-6 h-6 text-info-foreground" />
+				}
 				title="Add Proposer"
 			/>
 
 			<form onSubmit={handleSubmit}>
 				<ModalContent>
-					<p className="text-sm text-gray-600 mb-4">
+					<p className="text-sm text-muted-foreground mb-4">
 						Add an external address that can create
 						proposals for this multisig without being a
 						signer.
@@ -97,7 +99,7 @@ export function AddProposerDialog({
 							disabled={addProposer.isPending}
 						/>
 						{validationError && (
-							<p className="text-sm text-red-500">
+							<p className="text-sm text-error-foreground">
 								{validationError}
 							</p>
 						)}

@@ -188,7 +188,7 @@ export function AppRouter() {
 				<h1 className="text-3xl font-bold mb-4">
 					Welcome to Sagat
 				</h1>
-				<p className="text-gray-600 mb-8">
+				<p className="text-muted-foreground mb-8">
 					Connect your wallet to manage multisig accounts
 				</p>
 				<CustomWalletButton variant="sidebar" />

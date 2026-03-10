@@ -82,15 +82,15 @@ export function MultisigSelector({
 		return (
 			<div className="flex items-center space-x-4">
 				<div className="flex items-center">
-					<div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-						<Users className="w-5 h-5 text-blue-600" />
+					<div className="w-10 h-10 bg-info-soft rounded-full flex items-center justify-center mr-3">
+						<Users className="w-5 h-5 text-info-foreground" />
 					</div>
 					<div>
 						<h2 className="font-semibold">
 							{currentMultisig?.name ||
 								formatAddress(currentMultisig?.address)}
 						</h2>
-						<p className="text-sm text-gray-500">
+						<p className="text-sm text-muted-foreground">
 							{currentMultisig?.threshold}/
 							{currentMultisig?.totalMembers} threshold •{' '}
 							{formatAddress(
@@ -108,11 +108,11 @@ export function MultisigSelector({
 		<div className="relative flex-1" ref={dropdownRef}>
 			<button
 				onClick={() => setShowDropdown(!showDropdown)}
-				className="flex items-center cursor-pointer justify-between w-full max-w-lg px-4 py-2 text-left bg-gray-50 border rounded-lg hover:bg-gray-100 transition-colors"
+				className="flex items-center cursor-pointer justify-between w-full max-w-lg px-4 py-2 text-left bg-surface border rounded-lg hover:bg-accent transition-colors"
 			>
 				<div className="flex items-center">
-					<div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-						<Users className="w-4 h-4 text-blue-600" />
+					<div className="w-8 h-8 bg-info-soft rounded-full flex items-center justify-center mr-3">
+						<Users className="w-4 h-4 text-info-foreground" />
 					</div>
 					<div>
 						<div className="font-medium">
@@ -145,7 +145,7 @@ export function MultisigSelector({
 								</Label>
 							) : null}
 						</div>
-						<p className="text-xs text-gray-500">
+						<p className="text-xs text-muted-foreground">
 							{currentMultisig?.threshold} threshold •{' '}
 							{currentMultisig?.totalMembers} members •{' '}
 							{formatAddress(
@@ -155,17 +155,17 @@ export function MultisigSelector({
 					</div>
 				</div>
 				<ChevronDown
-					className={`w-4 h-4 text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
+					className={`w-4 h-4 text-muted-foreground transition-transform ${showDropdown ? 'rotate-180' : ''}`}
 				/>
 			</button>
 
 			{/* Dropdown Menu */}
 			{showDropdown && (
-				<div className="absolute top-full mt-2 w-full max-w-lg bg-white border rounded-lg shadow-lg z-10">
+				<div className="absolute top-full mt-2 w-full max-w-lg bg-popover border rounded-lg shadow-lg z-10">
 					<div className="p-2">
 						{/* Search Input */}
 						<div className="relative mb-2">
-							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+							<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 							<input
 								type="text"
 								placeholder="Search by name or address..."
@@ -173,18 +173,18 @@ export function MultisigSelector({
 								onChange={(e) =>
 									setSearchQuery(e.target.value)
 								}
-								className="w-full pl-9 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+								className="w-full pl-9 pr-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
 							/>
 						</div>
 
-						<p className="px-3 py-2 text-xs font-medium text-gray-500 uppercase">
+						<p className="px-3 py-2 text-xs font-medium text-muted-foreground uppercase">
 							{filteredMultisigs.length === multisigs.length
 								? 'Select Multisig'
 								: `${filteredMultisigs.length} of ${multisigs.length} multisigs`}
 						</p>
 
 						{filteredMultisigs.length === 0 ? (
-							<div className="px-3 py-4 text-center text-sm text-gray-500">
+							<div className="px-3 py-4 text-center text-sm text-muted-foreground">
 								No multisigs found matching "{searchQuery}"
 							</div>
 						) : (
@@ -196,23 +196,23 @@ export function MultisigSelector({
 										setShowDropdown(false);
 										setSearchQuery(''); // Clear search when selecting
 									}}
-									className={`w-full px-3 cursor-pointer py-2 text-left rounded-md hover:bg-gray-50 transition-colors ${
+									className={`w-full px-3 cursor-pointer py-2 text-left rounded-md hover:bg-accent transition-colors ${
 										multisig.address === selectedMultisig
-											? 'bg-blue-50'
+											? 'bg-info-soft'
 											: ''
 									}`}
 								>
 									<div className="flex items-center justify-between">
 										<div className="flex items-center">
-											<div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-												<Users className="w-4 h-4 text-blue-600" />
+											<div className="w-8 h-8 bg-info-soft rounded-full flex items-center justify-center mr-3">
+												<Users className="w-4 h-4 text-info-foreground" />
 											</div>
 											<div>
 												<div className="font-medium">
 													{multisig.name ||
 														formatAddress(multisig.address)}
 												</div>
-												<p className="text-xs text-gray-500">
+												<p className="text-xs text-muted-foreground">
 													{formatAddress(multisig.address)}{' '}
 													• {multisig.threshold} out of{' '}
 													{multisig.totalWeight} weight

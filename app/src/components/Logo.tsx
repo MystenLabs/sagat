@@ -41,24 +41,24 @@ export function Logo({
 	const logoContent = (
 		<div className="flex items-center gap-2">
 			<div className="relative">
-				<div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg opacity-90 group-hover:opacity-100 transition-opacity"></div>
+				<div className="absolute inset-0 bg-linear-to-br from-blue-600 to-purple-600 dark:from-white dark:to-white rounded-lg opacity-90 group-hover:opacity-100 transition-opacity"></div>
 				<div
-					className={`relative bg-gradient-to-br from-blue-500 to-purple-500 ${classes.iconPadding} rounded-lg shadow-sm`}
+					className={`relative bg-linear-to-br from-blue-500 to-purple-500 dark:from-white dark:to-white ${classes.iconPadding} rounded-lg shadow-sm`}
 				>
 					<LucideLock
-						className={`${classes.icon} text-white`}
+						className={`${classes.icon} text-white dark:text-black`}
 					/>
 				</div>
 			</div>
 			<div className="flex flex-col">
 				<span
-					className={`${classes.text} font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent`}
+					className={`${classes.text} font-bold bg-linear-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent dark:text-white`}
 				>
 					SAGAT
 				</span>
 				{showSubtitle && (
 					<span
-						className={`${classes.subtitle} text-gray-400 -mt-0.5`}
+						className={`${classes.subtitle} text-muted-foreground -mt-0.5`}
 					>
 						Sui Multisig Manager
 					</span>

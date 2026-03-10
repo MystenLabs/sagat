@@ -29,7 +29,7 @@ export function PageHeader({
 			{backLink && (
 				<Link
 					to={backLink}
-					className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-6"
+					className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6"
 				>
 					<ArrowLeft className="w-4 h-4 mr-1" />
 					{backLabel}
@@ -39,7 +39,7 @@ export function PageHeader({
 				<div>
 					<h1 className="text-3xl font-bold">{title}</h1>
 					{description && (
-						<p className="text-gray-600 mt-1">
+						<p className="text-muted-foreground mt-1">
 							{description}
 						</p>
 					)}

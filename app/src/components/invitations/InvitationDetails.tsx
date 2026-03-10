@@ -22,14 +22,14 @@ export function InvitationDetails({
 	isProcessing,
 }: InvitationDetailsProps) {
 	return (
-		<div className="border-t bg-gray-50 p-4">
+		<div className="border-t bg-surface p-4">
 			<div className="flex items-center justify-between mb-3">
-				<h4 className="font-medium text-gray-900 flex items-center">
+				<h4 className="font-medium text-foreground flex items-center">
 					<Users className="w-4 h-4 mr-2" />
 					Members ({multisig.totalMembers})
 				</h4>
 
-				<p className="text-sm text-gray-600">
+				<p className="text-sm text-muted-foreground">
 					{
 						multisig.members.filter((m) => m.isAccepted)
 							.length
@@ -49,7 +49,7 @@ export function InvitationDetails({
 							size="sm"
 							onClick={onReject}
 							disabled={isProcessing}
-							className="text-red-600 hover:text-red-700 hover:border-red-200"
+							className="text-error-foreground hover:text-error-foreground hover:border-error-border"
 						>
 							<X className="w-4 h-4 mr-1" />
 							Reject Invitation

@@ -70,15 +70,15 @@ export function NetworkSelector() {
 			</Button>
 
 			{isOpen && (
-				<div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+				<div className="absolute right-0 mt-2 w-40 bg-popover border border-border rounded-lg shadow-lg z-50">
 					{networks.map((net) => (
 						<button
 							key={net.value}
 							onClick={() => handleNetworkChange(net.value)}
-							className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg ${
+							className={`w-full text-left px-4 py-2 text-sm hover:bg-accent first:rounded-t-lg last:rounded-b-lg cursor-pointer ${
 								network === net.value
-									? 'bg-blue-50 text-blue-600 font-medium'
-									: 'text-gray-700'
+									? 'bg-info-soft text-info-foreground font-medium'
+									: 'text-muted-foreground'
 							}`}
 						>
 							{net.label}

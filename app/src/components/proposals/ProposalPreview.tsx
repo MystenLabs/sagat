@@ -64,14 +64,14 @@ export function ProposalPreview({
 	return (
 		<div className="space-y-3">
 			<div className="flex items-center justify-between">
-				<h5 className="font-medium text-gray-900">
+				<h5 className="font-medium text-foreground">
 					Transaction Preview
 				</h5>
 				<div className="flex items-center gap-2">
 					{isDryRunSuccessful && (
 						<>
 							{userHasSigned ? (
-								<div className="flex items-center gap-1 text-sm text-green-600">
+								<div className="flex items-center gap-1 text-sm text-success-foreground">
 									<CheckCircle className="w-4 h-4" />
 									Already Signed
 								</div>
@@ -80,14 +80,14 @@ export function ProposalPreview({
 									size="sm"
 									onClick={handleSignProposal}
 									disabled={signProposalMutation.isPending}
-									className="bg-green-600 hover:bg-green-700"
+									variant="default"
 								>
 									{signProposalMutation.isPending
 										? 'Signing...'
 										: 'Sign Proposal'}
 								</Button>
 							) : (
-								<div className="flex items-center gap-1 text-sm text-gray-600">
+								<div className="flex items-center gap-1 text-sm text-muted-foreground">
 									<Clock className="w-4 h-4" />
 									Cannot sign:{' '}
 									{formatAddress(
@@ -115,20 +115,14 @@ export function ProposalPreview({
 			</div>
 
 			{dryRunMutation.isPending && (
-				<div className="flex items-center gap-2 text-sm text-gray-500">
-					<div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+				<div className="flex items-center gap-2 text-sm text-muted-foreground">
+					<div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
 					Loading preview...
 				</div>
 			)}
 
 			{dryRunMutation.data && (
-				<div
-					className={`border rounded-lg p-3 ${
-						isDryRunSuccessful
-							? 'border-green-200 bg-white'
-							: 'border-red-200 bg-white'
-					}`}
-				>
+				<div className="py-2">
 					<EffectsPreview
 						output={dryRunMutation.data}
 						bytes={proposal.transactionBytes}
@@ -137,8 +131,8 @@ export function ProposalPreview({
 			)}
 
 			{dryRunMutation.error && (
-				<div className="border border-red-200 bg-white rounded-lg p-3">
-					<p className="text-sm text-red-600">
+				<div className="border border-error-border bg-card rounded-lg p-3">
+					<p className="text-sm text-error-foreground">
 						{decodeURIComponent(
 							dryRunMutation.error.message ||
 								'Transaction would fail on-chain',
@@ -149,11 +143,11 @@ export function ProposalPreview({
 
 			{/* Sign Proposal Error */}
 			{signProposalMutation.error && (
-				<div className="border border-red-200 bg-red-50 rounded-lg p-3">
-					<h6 className="font-medium text-red-800 mb-1">
+				<div className="border border-error-border bg-error rounded-lg p-3">
+					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Sign Proposal
 					</h6>
-					<p className="text-sm text-red-600">
+					<p className="text-sm text-error-foreground">
 						{signProposalMutation.error.message}
 					</p>
 				</div>
@@ -161,8 +155,8 @@ export function ProposalPreview({
 
 			{/* Proposal description */}
 			{proposal.description && (
-				<div className="border border-gray-200 bg-white rounded-lg p-3">
-					<p className="text-sm text-gray-600">
+				<div className="border border-border bg-card rounded-lg p-3">
+					<p className="text-sm text-muted-foreground">
 						{proposal.description}
 					</p>
 				</div>

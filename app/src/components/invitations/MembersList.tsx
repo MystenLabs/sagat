@@ -24,7 +24,7 @@ export function MembersList({ members }: MembersListProps) {
 				return (
 					<div
 						key={member.publicKey}
-						className="flex items-center justify-between p-3 bg-white rounded border"
+						className="flex items-center justify-between p-3 bg-card rounded border"
 					>
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center space-x-2">
@@ -34,7 +34,7 @@ export function MembersList({ members }: MembersListProps) {
 								<div className="flex flex-col min-w-0">
 									{address && (
 										<div className="flex items-center gap-1">
-											<span className="text-xs font-mono text-gray-900">
+											<span className="text-xs font-mono text-foreground">
 												{formatAddress(address)}
 											</span>
 											<CopyButton
@@ -43,12 +43,12 @@ export function MembersList({ members }: MembersListProps) {
 											/>
 										</div>
 									)}
-									<span className="text-xs font-mono text-gray-500 break-all">
+									<span className="text-xs font-mono text-muted-foreground break-all">
 										{member.publicKey}
 									</span>
 								</div>
 							</div>
-							<div className="text-xs text-gray-500 mt-1">
+							<div className="text-xs text-muted-foreground mt-1">
 								Weight: {member.weight} •{' '}
 								{member.isAccepted ? 'Accepted' : 'Pending'}
 							</div>
@@ -56,7 +56,7 @@ export function MembersList({ members }: MembersListProps) {
 						<div className="flex items-center">
 							{member.isAccepted ? (
 								<div
-									className="bg-green-100 text-green-700 p-1.5 rounded-full"
+									className="bg-success text-success-foreground p-1.5 rounded-full"
 									title="Member has accepted"
 								>
 									<svg
@@ -75,7 +75,7 @@ export function MembersList({ members }: MembersListProps) {
 								</div>
 							) : member.isRejected ? (
 								<div
-									className="bg-red-100 text-red-700 p-1.5 rounded-full"
+									className="bg-error text-error-foreground p-1.5 rounded-full"
 									title="Member has rejected"
 								>
 									<svg
@@ -94,7 +94,7 @@ export function MembersList({ members }: MembersListProps) {
 								</div>
 							) : (
 								<div
-									className="bg-orange-100 text-orange-600 p-1.5 rounded-full"
+									className="bg-warning text-warning-foreground p-1.5 rounded-full"
 									title="Pending acceptance"
 								>
 									<svg
