@@ -144,7 +144,7 @@ function NetworkMismatchBanner({
 				<Button
 					size="sm"
 					onClick={onSwitch}
-					className="bg-yellow-600 hover:bg-yellow-700"
+					className="bg-warning-foreground hover:bg-warning-foreground/90 text-white"
 				>
 					Switch to {requestedNetwork}
 				</Button>

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCreateProposal } from '../hooks/useCreateProposal';
@@ -311,7 +311,7 @@ export function ProposalSheet({
 							<Button
 								type="submit"
 								disabled={createProposalMutation.isPending}
-								className="bg-green-600 hover:bg-green-700"
+								className="bg-success-foreground hover:bg-success-foreground/90 text-white"
 							>
 								{createProposalMutation.isPending
 									? 'Creating...'

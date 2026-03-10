@@ -32,7 +32,7 @@ function ChangedBalance({
 }) {
 	// TODO: This should use the "active" client of the selection, NOT
 	// the dappKit client!
-	// Otehrwise, this does a query to the wrong network.
+	// Otherwise, this does a query to the wrong network.
 	const client = useDAppKit().getClient();
 
 	const { data: coinMetadata } = useQuery({

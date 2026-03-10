@@ -125,8 +125,6 @@ export function MultisigDetailPage() {
 		{ id: 'assets', label: 'Assets', icon: Coins },
 	];
 
-	// Remove this line since we'll use NavLink's built-in active state
-
 	return (
 		<div className="container mx-auto mt-8 px-4 pb-12">
 			{/* Header */}

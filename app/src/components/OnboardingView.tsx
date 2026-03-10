@@ -86,8 +86,8 @@ export function OnboardingView() {
 				</div>
 
 				<div className="text-center p-6">
-					<div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full mb-4">
-						<CheckCircle className="w-8 h-8 text-purple-600 dark:text-purple-200" />
+<div className="inline-flex items-center justify-center w-16 h-16 bg-info-soft rounded-full mb-4">
+					<CheckCircle className="w-8 h-8 text-info-foreground" />
 					</div>
 					<h3 className="font-semibold text-lg mb-2">
 						Transparent Governance
@@ -106,7 +106,7 @@ export function OnboardingView() {
 				</h2>
 				<div className="space-y-4">
 					<div className="flex items-start">
-						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
 							1
 						</div>
 						<div className="ml-4">
@@ -121,7 +121,7 @@ export function OnboardingView() {
 					</div>
 
 					<div className="flex items-start">
-						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
 							2
 						</div>
 						<div className="ml-4">
@@ -136,7 +136,7 @@ export function OnboardingView() {
 					</div>
 
 					<div className="flex items-start">
-						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
 							3
 						</div>
 						<div className="ml-4">
@@ -150,7 +150,7 @@ export function OnboardingView() {
 					</div>
 
 					<div className="flex items-start">
-						<div className="shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+						<div className="shrink-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center font-semibold">
 							4
 						</div>
 						<div className="ml-4">

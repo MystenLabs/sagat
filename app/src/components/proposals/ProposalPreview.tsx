@@ -80,7 +80,7 @@ export function ProposalPreview({
 									size="sm"
 									onClick={handleSignProposal}
 									disabled={signProposalMutation.isPending}
-									className="bg-green-600 hover:bg-green-700"
+									className="bg-success-foreground hover:bg-success-foreground/90 text-white"
 								>
 									{signProposalMutation.isPending
 										? 'Signing...'
@@ -116,7 +116,7 @@ export function ProposalPreview({
 
 			{dryRunMutation.isPending && (
 				<div className="flex items-center gap-2 text-sm text-muted-foreground">
-					<div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+					<div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
 					Loading preview...
 				</div>
 			)}

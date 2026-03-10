@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 // Validation schemas for multisig creation
 export const memberSchema = z.object({

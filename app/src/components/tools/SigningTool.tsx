@@ -83,7 +83,7 @@ function PreviewResult({
 		return (
 			<div className="border border-border bg-card rounded-lg p-4">
 				<div className="flex items-center gap-2">
-					<div className="w-5 h-5 border-2 border-border border-t-blue-600 rounded-full animate-spin" />
+					<div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
 					<h3 className="font-medium text-foreground">
 						Previewing transaction...
 					</h3>

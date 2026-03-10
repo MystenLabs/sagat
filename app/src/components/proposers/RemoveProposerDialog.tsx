@@ -81,7 +81,7 @@ export function RemoveProposerDialog({
 					type="button"
 					onClick={handleRemove}
 					disabled={removeProposer.isPending}
-					className="bg-red-600 hover:bg-red-700"
+					variant="destructive"
 				>
 					{removeProposer.isPending
 						? 'Removing...'

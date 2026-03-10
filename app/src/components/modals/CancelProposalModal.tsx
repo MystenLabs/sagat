@@ -62,7 +62,7 @@ export function CancelProposalModal({
 				<Button
 					onClick={onConfirm}
 					disabled={isLoading}
-					className="bg-red-600 hover:bg-red-700"
+					variant="destructive"
 				>
 					{isLoading ? 'Cancelling...' : 'Cancel Proposal'}
 				</Button>

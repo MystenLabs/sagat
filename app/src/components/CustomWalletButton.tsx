@@ -219,7 +219,7 @@ export function CustomWalletButton({
 			<div className="mt-8 p-4 bg-card rounded-lg border border-border">
 				<div className="text-center">
 					<div className="w-6 h-6 bg-success-soft rounded-full mx-auto mb-3 flex items-center justify-center">
-						<div className="w-2 h-2 bg-green-500 rounded-full"></div>
+						<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
 					</div>
 					<h3 className="font-medium text-foreground mb-2">
 						Wallet Connected
@@ -268,7 +268,7 @@ export function CustomWalletButton({
 				onClick={() => setShowWallets(!showWallets)}
 				className="flex items-center gap-2"
 			>
-				<div className="w-2 h-2 bg-green-500 rounded-full"></div>
+				<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
 				<span>{formatAddress(currentAccount.address)}</span>
 				<Label
 					variant={isTestMode ? 'warning' : 'info'}
@@ -377,7 +377,7 @@ const AccountItem = ({
 
 			<div className="flex items-center ml-2 space-x-1">
 				{isCurrent && (
-					<div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+					<div className="w-2 h-2 bg-info-foreground rounded-full"></div>
 				)}
 				{!isAccountAuthenticated && (
 					<Button

@@ -205,48 +205,52 @@ const NavigationLinks = ({
 			)}
 			{currentAccount && isCurrentAddressAuthenticated && (
 				<>
-					{/* Invitations button */}
-					<Link to="/invitations" onClick={onNavigate}>
-						<Button
-							variant={
-								location.pathname === '/invitations'
-									? 'default'
-									: 'outline'
-							}
-							size={mobile ? 'default' : 'sm'}
-							className={`relative ${mobile ? 'w-full justify-start' : ''}`}
-						>
-							<Mail className="w-4 h-4 mr-2" />
-							Invitations
-							{pendingCount > 0 && (
-								<Label
-									variant="warning"
-									size="sm"
-									className={`absolute ${mobile ? 'top-2 right-2' : '-top-1 -right-1'} bg-orange-500 text-white h-5 w-5 p-0 justify-center`}
-								>
-									{pendingCount}
-								</Label>
-							)}
-						</Button>
-					</Link>
+				{/* Invitations button */}
+				<Link to="/invitations" onClick={onNavigate}>
+					<Button
+						variant={
+							location.pathname === '/invitations'
+								? 'default'
+								: mobile
+									? 'outline'
+									: 'ghost'
+						}
+						size={mobile ? 'default' : 'sm'}
+						className={`relative ${mobile ? 'w-full justify-start' : ''}`}
+					>
+						<Mail className="w-4 h-4 mr-2" />
+						Invitations
+						{pendingCount > 0 && (
+							<Label
+								variant="warning"
+								size="sm"
+								className={`absolute ${mobile ? 'top-2 right-2' : '-top-1 -right-1'} bg-orange-500 text-white h-5 w-5 p-0 justify-center`}
+							>
+								{pendingCount}
+							</Label>
+						)}
+					</Button>
+				</Link>
 
-					{/* Create multisig button */}
-					<Link to="/create" onClick={onNavigate}>
-						<Button
-							variant={
-								location.pathname === '/create'
-									? 'default'
-									: 'outline'
-							}
-							size={mobile ? 'default' : 'sm'}
-							className={
-								mobile ? 'w-full justify-start' : ''
-							}
-						>
-							<Plus className="w-4 h-4 mr-2" />
-							Create Multisig
-						</Button>
-					</Link>
+				{/* Create multisig button */}
+				<Link to="/create" onClick={onNavigate}>
+					<Button
+						variant={
+							location.pathname === '/create'
+								? 'default'
+								: mobile
+									? 'outline'
+									: 'ghost'
+						}
+						size={mobile ? 'default' : 'sm'}
+						className={
+							mobile ? 'w-full justify-start' : ''
+						}
+					>
+						<Plus className="w-4 h-4 mr-2" />
+						Create Multisig
+					</Button>
+				</Link>
 				</>
 			)}
 			{mobile && (
