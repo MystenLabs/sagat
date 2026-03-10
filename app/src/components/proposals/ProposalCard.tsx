@@ -165,12 +165,12 @@ export function ProposalCard({
 	};
 
 	return (
-		<div className="bg-white border rounded-lg hover:shadow-sm transition-shadow">
+		<div className="bg-card border rounded-lg hover:shadow-sm transition-shadow">
 			{/* Main proposal row */}
 			<div className="flex items-start justify-between p-4 max-md:flex-col max-md:gap-3">
 				<div className="flex-1">
 					<div className="flex max-md:flex-wrap items-center gap-2 mb-2">
-						<h4 className="font-medium text-gray-900 line-clamp-1">
+						<h4 className="font-medium text-foreground line-clamp-1">
 							{getProposalTitle()}
 						</h4>
 						{getStatusBadge()}
@@ -182,7 +182,7 @@ export function ProposalCard({
 						)}
 					</div>
 
-					<div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+					<div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
 						<span>
 							Signature Weight: {proposal.currentWeight}/
 							{proposal.totalWeight}
@@ -290,11 +290,11 @@ export function ProposalCard({
 
 			{/* Execute Error */}
 			{executeProposalMutation.error && (
-				<div className="mx-4 mb-4 border border-red-200 bg-red-50 rounded-lg p-3">
-					<h6 className="font-medium text-red-800 mb-1">
+				<div className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3">
+					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Execute Transaction
 					</h6>
-					<p className="text-sm text-red-600">
+					<p className="text-sm text-error-foreground">
 						{executeProposalMutation.error.message}
 					</p>
 				</div>
@@ -302,11 +302,11 @@ export function ProposalCard({
 
 			{/* Sign Error */}
 			{signProposalMutation.error && (
-				<div className="mx-4 mb-4 border border-red-200 bg-red-50 rounded-lg p-3">
-					<h6 className="font-medium text-red-800 mb-1">
+				<div className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3">
+					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Sign Proposal
 					</h6>
-					<p className="text-sm text-red-600">
+					<p className="text-sm text-error-foreground">
 						{signProposalMutation.error.message}
 					</p>
 				</div>
@@ -314,11 +314,11 @@ export function ProposalCard({
 
 			{/* Cancel Error */}
 			{cancelProposalMutation.error && (
-				<div className="mx-4 mb-4 border border-red-200 bg-red-50 rounded-lg p-3">
-					<h6 className="font-medium text-red-800 mb-1">
+				<div className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3">
+					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Cancel Proposal
 					</h6>
-					<p className="text-sm text-red-600">
+					<p className="text-sm text-error-foreground">
 						{cancelProposalMutation.error.message}
 					</p>
 				</div>
@@ -329,10 +329,10 @@ export function ProposalCard({
 				<div className="border-t px-4 py-4">
 					{proposal.status === ProposalStatus.SUCCESS && (
 						<div className="space-y-3">
-							<h5 className="font-medium text-gray-900">
+							<h5 className="font-medium text-foreground">
 								Transaction Executed
 							</h5>
-							<p className="text-sm text-gray-600">
+							<p className="text-sm text-muted-foreground">
 								This proposal has been successfully executed
 								on-chain.
 							</p>
@@ -351,7 +351,7 @@ export function ProposalCard({
 										View on Explorer
 									</a>
 								</Button>
-								<span className="text-xs text-gray-500">
+								<span className="text-xs text-muted-foreground">
 									Digest: {proposal.digest}
 								</span>
 							</div>
@@ -361,10 +361,10 @@ export function ProposalCard({
 					{proposal.status === ProposalStatus.PENDING &&
 						(isNetworkMismatch ? (
 							<div className="space-y-3">
-								<h5 className="font-medium text-gray-900">
+								<h5 className="font-medium text-foreground">
 									Network Mismatch
 								</h5>
-								<p className="text-sm text-gray-600">
+								<p className="text-sm text-muted-foreground">
 									Switch to{' '}
 									<strong>{proposal.network}</strong> to
 									view and interact with this proposal.
@@ -385,12 +385,12 @@ export function ProposalCard({
 						proposal.status ===
 							ProposalStatus.CANCELLED) && (
 						<div className="space-y-3">
-							<h5 className="font-medium text-gray-900">
+							<h5 className="font-medium text-foreground">
 								{proposal.status === ProposalStatus.FAILURE
 									? 'Transaction Failed'
 									: 'Proposal Cancelled'}
 							</h5>
-							<p className="text-sm text-gray-600">
+							<p className="text-sm text-muted-foreground">
 								{proposal.status === ProposalStatus.FAILURE
 									? 'This proposal failed during execution.'
 									: 'This proposal was cancelled and will not be executed.'}

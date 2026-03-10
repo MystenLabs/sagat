@@ -12,15 +12,15 @@ export function DevnetNotSupported() {
 	return (
 		<div className="mx-auto mt-20 p-8">
 			<div className="text-center">
-				<div className="inline-flex items-center justify-center w-20 h-20 bg-amber-100 rounded-full mb-6">
-					<AlertTriangle className="w-10 h-10 text-amber-600" />
+				<div className="inline-flex items-center justify-center w-20 h-20 bg-warning-soft rounded-full mb-6">
+					<AlertTriangle className="w-10 h-10 text-warning-foreground" />
 				</div>
 
 				<h1 className="text-3xl font-bold mb-3">
 					Devnet Not Supported
 				</h1>
 
-				<p className="text-gray-600 mb-8">
+				<p className="text-muted-foreground mb-8">
 					The main Sagat app does not support devnet.
 					<br />
 					Switch to a supported network to continue.

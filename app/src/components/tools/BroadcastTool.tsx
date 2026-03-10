@@ -26,7 +26,7 @@ function TransactionBytesInput({
 		<div className="space-y-2">
 			<label
 				htmlFor="transaction-bytes"
-				className="text-sm font-medium text-gray-700"
+				className="text-sm font-medium text-muted-foreground"
 			>
 				Transaction Bytes (base64)
 			</label>
@@ -53,7 +53,7 @@ function SignatureInput({
 		<div className="space-y-2">
 			<label
 				htmlFor="signature"
-				className="text-sm font-medium text-gray-700"
+				className="text-sm font-medium text-muted-foreground"
 			>
 				Combined Signature (base64)
 			</label>
@@ -77,11 +77,11 @@ function BroadcastResultDisplay({
 	onReset: () => void;
 }) {
 	return (
-		<div className="border border-green-200 bg-white rounded-lg p-4">
+		<div className="border border-success-border bg-card rounded-lg p-4">
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
-					<CheckCircle className="w-5 h-5 text-green-600" />
-					<h3 className="font-medium text-gray-900">
+					<CheckCircle className="w-5 h-5 text-success-foreground" />
+					<h3 className="font-medium text-foreground">
 						Transaction Broadcast Successfully
 					</h3>
 				</div>
@@ -112,11 +112,11 @@ function BroadcastError({
 	onReset: () => void;
 }) {
 	return (
-		<div className="border border-red-200 bg-white rounded-lg p-4">
+		<div className="border border-error-border bg-card rounded-lg p-4">
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
-					<AlertCircle className="w-5 h-5 text-red-600" />
-					<h3 className="font-medium text-gray-900">
+					<AlertCircle className="w-5 h-5 text-error-foreground" />
+					<h3 className="font-medium text-foreground">
 						Broadcast Failed
 					</h3>
 				</div>
@@ -129,7 +129,7 @@ function BroadcastError({
 					Try Again
 				</Button>
 			</div>
-			<p className="text-sm text-red-600 whitespace-pre-wrap">
+			<p className="text-sm text-error-foreground whitespace-pre-wrap">
 				{error}
 			</p>
 		</div>
@@ -207,7 +207,7 @@ export default function BroadcastTool() {
 		<div className="space-y-6">
 			<div className="flex items-center justify-between gap-4">
 				<div>
-					<p className="text-sm text-gray-600">
+					<p className="text-sm text-muted-foreground">
 						Broadcast a signed transaction to the Sui
 						network.
 					</p>

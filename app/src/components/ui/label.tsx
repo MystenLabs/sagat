@@ -14,12 +14,13 @@ const labelVariants = cva(
 	{
 		variants: {
 			variant: {
-				success: 'bg-green-100 text-green-800',
-				warning: 'bg-orange-100 text-orange-800',
-				error: 'bg-red-100 text-red-800',
-				info: 'bg-blue-100 text-blue-800',
-				neutral: 'bg-gray-100 text-gray-800',
-				purple: 'bg-purple-100 text-purple-800',
+				success: 'bg-success text-success-foreground',
+				warning: 'bg-warning text-warning-foreground',
+				error: 'bg-error text-error-foreground',
+				info: 'bg-info text-info-foreground',
+				neutral: 'bg-muted text-muted-foreground',
+				purple:
+					'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200',
 			},
 			size: {
 				sm: 'text-xs px-1.5 py-0.5',

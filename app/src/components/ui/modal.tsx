@@ -44,7 +44,7 @@ export function Modal({
 			onClick={onClose}
 		>
 			<div
-				className={`bg-white rounded-lg p-6 w-full mx-4 ${sizeClasses[size]}`}
+				className={`bg-card rounded-lg p-6 w-full mx-4 ${sizeClasses[size]}`}
 				onClick={(e) => e.stopPropagation()}
 			>
 				{children}
@@ -94,8 +94,10 @@ export function ModalWarning({
 	children: ReactNode;
 }) {
 	return (
-		<div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-			<p className="text-sm text-amber-800">{children}</p>
+		<div className="bg-warning border border-warning-border rounded-lg p-3">
+			<p className="text-sm text-warning-foreground">
+				{children}
+			</p>
 		</div>
 	);
 }

@@ -45,18 +45,18 @@ export function OverviewTab() {
 	return (
 		<div className="space-y-6">
 			{/* Multisig Info Card */}
-			<div className="bg-white border rounded-lg p-6">
+			<div className="bg-card border rounded-lg p-6">
 				<h2 className="text-lg font-semibold mb-4">
 					Multisig Information
 				</h2>
 
 				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-2">
+						<label className="block text-sm font-medium text-muted-foreground mb-2">
 							Address
 						</label>
-						<div className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
-							<code className="text-sm font-mono text-gray-900 flex-1 break-all">
+						<div className="flex items-center gap-2 p-3 bg-surface rounded-lg">
+							<code className="text-sm font-mono text-foreground flex-1 break-all">
 								{multisig.address}
 							</code>
 							<Button
@@ -75,11 +75,11 @@ export function OverviewTab() {
 					</div>
 
 					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-2">
+						<label className="block text-sm font-medium text-muted-foreground mb-2">
 							Signature Threshold
 						</label>
-						<div className="p-3 bg-gray-50 rounded-lg">
-							<span className="text-sm text-gray-900">
+						<div className="p-3 bg-surface rounded-lg">
+							<span className="text-sm text-foreground">
 								{multisig.threshold} of{' '}
 								{multisigDetails?.members
 									.map((m) => m.weight)
@@ -109,7 +109,7 @@ export function OverviewTab() {
 			</div>
 
 			{/* Members Section */}
-			<div className="bg-white border rounded-lg p-6">
+			<div className="bg-card border rounded-lg p-6">
 				<h2 className="text-lg font-semibold mb-4 flex items-center">
 					<Users className="w-5 h-5 mr-2" />
 					Members ({multisig.totalMembers})
@@ -117,12 +117,12 @@ export function OverviewTab() {
 
 				{isLoading ? (
 					<div className="flex items-center justify-center py-8">
-						<div className="text-sm text-gray-500">
+						<div className="text-sm text-muted-foreground">
 							Loading member details...
 						</div>
 					</div>
 				) : error ? (
-					<div className="text-sm text-gray-500 text-center py-8">
+					<div className="text-sm text-muted-foreground text-center py-8">
 						<p className="mb-4">
 							Failed to load member details
 						</p>

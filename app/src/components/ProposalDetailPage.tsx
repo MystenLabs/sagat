@@ -64,15 +64,15 @@ export function ProposalDetailPage() {
 					description="Failed to load proposal details"
 				/>
 				<div className="mt-8">
-					<div className="border border-red-200 bg-red-50 rounded-lg p-6 flex items-start gap-3">
-						<AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+					<div className="border border-error-border bg-error rounded-lg p-6 flex items-start gap-3">
+						<AlertCircle className="w-5 h-5 text-error-foreground mt-0.5" />
 						<div>
-							<h3 className="font-medium text-red-900 mb-1">
+							<h3 className="font-medium text-error-foreground mb-1">
 								{proposalQuery.error instanceof Error
 									? proposalQuery.error.message
 									: 'Failed to load proposal'}
 							</h3>
-							<p className="text-sm text-red-700">
+							<p className="text-sm text-error-foreground">
 								Please check that the digest is correct.
 							</p>
 						</div>
@@ -129,13 +129,13 @@ function NetworkMismatchBanner({
 	onSwitch: () => void;
 }) {
 	return (
-		<div className="mt-4 border border-yellow-200 bg-yellow-50 rounded-lg p-4 flex items-start gap-3">
-			<AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+		<div className="mt-4 border border-warning-border bg-warning rounded-lg p-4 flex items-start gap-3">
+			<AlertTriangle className="w-5 h-5 text-warning-foreground mt-0.5 flex-shrink-0" />
 			<div className="flex-1">
-				<h3 className="font-medium text-yellow-900 mb-1">
+				<h3 className="font-medium text-warning-foreground mb-1">
 					Network Mismatch
 				</h3>
-				<p className="text-sm text-yellow-700 mb-3">
+				<p className="text-sm text-warning-foreground mb-3">
 					This proposal is for{' '}
 					<strong>{requestedNetwork}</strong>, but you're
 					currently on <strong>{currentNetwork}</strong>.

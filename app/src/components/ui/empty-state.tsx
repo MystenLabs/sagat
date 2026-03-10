@@ -23,16 +23,18 @@ export function EmptyState({
 	return (
 		<div
 			className={cn(
-				'text-center py-12 bg-gray-50 rounded-lg',
+				'text-center py-12 bg-surface rounded-lg',
 				className,
 			)}
 		>
 			{icon && <div className="mx-auto mb-4">{icon}</div>}
-			<h3 className="text-lg font-medium text-gray-900 mb-2">
+			<h3 className="text-lg font-medium text-foreground mb-2">
 				{title}
 			</h3>
 			{description && (
-				<p className="text-gray-500 mb-4">{description}</p>
+				<p className="text-muted-foreground mb-4">
+					{description}
+				</p>
 			)}
 			{action && <div className="mt-4">{action}</div>}
 		</div>

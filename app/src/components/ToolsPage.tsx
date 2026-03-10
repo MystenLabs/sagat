@@ -13,14 +13,14 @@ function ToolDetail({ tool }: { tool: Tool }) {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center gap-3">
-				<div className="p-2 bg-blue-100 rounded-lg">
+				<div className="p-2 bg-info-soft rounded-lg">
 					{tool.icon}
 				</div>
 				<div>
 					<h2 className="text-2xl font-bold">
 						{tool.name}
 					</h2>
-					<p className="text-gray-600 text-sm">
+					<p className="text-muted-foreground text-sm">
 						{tool.description}
 					</p>
 				</div>

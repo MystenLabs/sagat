@@ -31,13 +31,13 @@ export function CancelProposalModal({
 		<Modal open={open} onClose={onClose}>
 			<ModalHeader
 				icon={
-					<AlertTriangle className="w-6 h-6 text-amber-500" />
+					<AlertTriangle className="w-6 h-6 text-warning-foreground" />
 				}
 				title="Cancel Proposal"
 			/>
 
 			<ModalContent>
-				<p className="text-gray-700">
+				<p className="text-muted-foreground">
 					Are you sure you want to cancel proposal #
 					{proposalId}?
 				</p>

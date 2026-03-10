@@ -49,21 +49,21 @@ export function InvitationCard({
 	};
 
 	return (
-		<div className="bg-white border rounded-lg hover:shadow-sm transition-shadow">
+		<div className="bg-card border rounded-lg hover:shadow-sm transition-shadow">
 			{/* Main invitation row */}
 			<div className="flex items-center justify-between p-4">
 				{/* Left side - Multisig info */}
 				<div className="flex items-center space-x-4 flex-1">
-					<div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-						<Users className="w-5 h-5 text-blue-600" />
+					<div className="w-10 h-10 bg-info-soft rounded-full flex items-center justify-center">
+						<Users className="w-5 h-5 text-info-foreground" />
 					</div>
 					<div className="flex-1">
-						<h3 className="font-medium text-gray-900">
+						<h3 className="font-medium text-foreground">
 							{multisig.name ||
 								formatAddress(multisig?.address)}
 						</h3>
 						<div className="flex items-center gap-1">
-							<p className="text-sm text-gray-500">
+							<p className="text-sm text-muted-foreground">
 								{formatAddress(multisig.address)}
 							</p>
 							<CopyButton
@@ -71,7 +71,7 @@ export function InvitationCard({
 								size="xs"
 							/>
 						</div>
-						<p className="text-xs text-gray-400">
+						<p className="text-xs text-muted-foreground">
 							{`${multisig.totalMembers - multisig.pendingMembers - multisig.rejectedMembers} out of ${multisig.totalMembers} members accepted`}
 						</p>
 					</div>
@@ -83,7 +83,7 @@ export function InvitationCard({
 						variant="outline"
 						size="sm"
 						onClick={toggleExpanded}
-						className="text-blue-600 hover:text-blue-700 hover:border-blue-200"
+						className="text-info-foreground hover:border-info-border"
 					>
 						{isExpanded ? (
 							<>

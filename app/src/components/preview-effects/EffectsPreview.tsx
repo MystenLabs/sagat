@@ -122,9 +122,9 @@ export function EffectsPreview({
 
 			{/* Ledger Hash */}
 			{ledgerTransactionHash && (
-				<div className="border rounded p-3 bg-gray-50">
+				<div className="border rounded p-3 bg-surface">
 					<div className="flex items-center justify-between gap-2">
-						<span className="text-sm font-medium text-gray-700">
+						<span className="text-sm font-medium text-muted-foreground">
 							Ledger Hash:
 						</span>
 						<span className="font-mono text-xs break-all">
@@ -153,8 +153,8 @@ export function EffectsPreview({
 							className={cn(
 								'px-4 text-sm font-medium transition-colors relative shrink-0 py-3 cursor-pointer',
 								activeTab === tab.id
-									? 'text-blue-600 border-b-2 border-blue-600'
-									: 'text-gray-600 hover:text-gray-900',
+									? 'text-info-foreground border-b-2 border-info-border'
+									: 'text-muted-foreground hover:text-foreground',
 							)}
 						>
 							{tab.title}

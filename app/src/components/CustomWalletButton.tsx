@@ -148,7 +148,7 @@ export function CustomWalletButton({
 					onClick={() => setShowWallets(!showWallets)}
 					className="flex items-center gap-2"
 				>
-					<Shield className="w-3 h-3 text-blue-600" />
+					<Shield className="w-3 h-3 text-info-foreground" />
 					<span>
 						{formatAddress(currentAccount.address)}
 					</span>
@@ -162,9 +162,9 @@ export function CustomWalletButton({
 				</Button>
 
 				{showWallets && (
-					<div className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg py-2 min-w-64 z-50">
+					<div className="absolute top-full mt-1 right-0 bg-popover border rounded-lg shadow-lg py-2 min-w-64 z-50">
 						<div className="px-3 pb-2 border-b text-center">
-							<p className="text-sm font-medium text-blue-700">
+							<p className="text-sm font-medium text-info-foreground">
 								Authentication Required
 							</p>
 						</div>
@@ -216,15 +216,15 @@ export function CustomWalletButton({
 	// Wallet connected and authenticated
 	if (variant === 'sidebar') {
 		return (
-			<div className="mt-8 p-4 bg-white rounded-lg border border-slate-200">
+			<div className="mt-8 p-4 bg-card rounded-lg border border-border">
 				<div className="text-center">
-					<div className="w-6 h-6 bg-green-100 rounded-full mx-auto mb-3 flex items-center justify-center">
+					<div className="w-6 h-6 bg-success-soft rounded-full mx-auto mb-3 flex items-center justify-center">
 						<div className="w-2 h-2 bg-green-500 rounded-full"></div>
 					</div>
-					<h3 className="font-medium text-slate-900 mb-2">
+					<h3 className="font-medium text-foreground mb-2">
 						Wallet Connected
 					</h3>
-					<p className="text-sm text-slate-600 mb-3">
+					<p className="text-sm text-muted-foreground mb-3">
 						{formatAddress(currentAccount.address)}
 					</p>
 					<div className="flex gap-2">
@@ -248,7 +248,7 @@ export function CustomWalletButton({
 							onClick={handleFullDisconnect}
 							variant="outline"
 							size="sm"
-							className="flex-1 text-xs hover:text-red-600 hover:border-red-200"
+							className="flex-1 text-xs hover:text-error-foreground hover:border-error-border"
 						>
 							<LogOut className="w-3 h-3 mr-1" />
 							Disconnect
@@ -280,7 +280,7 @@ export function CustomWalletButton({
 			</Button>
 
 			{showWallets && (
-				<div className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg py-2 min-w-64 z-50">
+				<div className="absolute top-full mt-1 right-0 bg-popover border rounded-lg shadow-lg py-2 min-w-64 z-50">
 					{accounts.length > 1 && (
 						<AccountSwitchingSection
 							handleSwitchAccount={handleSwitchAccount}
@@ -355,8 +355,8 @@ const AccountItem = ({
 
 	return (
 		<div
-			className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-gray-50 w-full ${
-				isCurrent ? 'bg-blue-50 text-blue-700' : ''
+			className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-accent w-full ${
+				isCurrent ? 'bg-info-soft text-info-foreground' : ''
 			}`}
 		>
 			<button
@@ -368,7 +368,7 @@ const AccountItem = ({
 						{formatAddress(account.address)}
 					</p>
 					{account.label && (
-						<p className="text-xs text-gray-500 mt-1 truncate">
+						<p className="text-xs text-muted-foreground mt-1 truncate">
 							{account.label}
 						</p>
 					)}
@@ -421,7 +421,7 @@ const DisconnectButton = ({
 			onClick={handleFullDisconnect}
 			variant="ghost"
 			size="sm"
-			className="w-full justify-start text-red-600 hover:text-red-500 rounded-none"
+			className="w-full justify-start text-error-foreground rounded-none"
 		>
 			<LogOut className="w-4 h-4" />
 			Disconnect
@@ -480,7 +480,7 @@ const NotConnectedWalletVariant = ({
 			</Button>
 
 			{showWallets && (
-				<div className="absolute top-full mt-1 right-0 bg-white border rounded-lg shadow-lg py-2 min-w-48 z-50">
+				<div className="absolute top-full mt-1 right-0 bg-popover border rounded-lg shadow-lg py-2 min-w-48 z-50">
 					<div className="px-3 pb-2 border-b">
 						<p className="text-sm font-medium">
 							Choose Wallet
@@ -492,7 +492,7 @@ const NotConnectedWalletVariant = ({
 							onClick={() =>
 								handleWalletConnect(wallet.name)
 							}
-							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 w-full text-left"
+							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent w-full text-left"
 						>
 							<img
 								src={wallet.icon}

@@ -49,12 +49,12 @@ export function Overview({
 					onClick={() =>
 						copyToClipboard(output.Transaction!.digest)
 					}
-					className="p-1 hover:bg-gray-100 rounded"
+					className="p-1 hover:bg-accent rounded"
 				>
 					{copied ? (
-						<Check className="w-4 h-4 text-green-600" />
+						<Check className="w-4 h-4 text-success-foreground" />
 					) : (
-						<Copy className="w-4 h-4 text-gray-600" />
+						<Copy className="w-4 h-4 text-muted-foreground" />
 					)}
 				</button>
 			</div>

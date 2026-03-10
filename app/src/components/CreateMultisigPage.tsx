@@ -172,24 +172,24 @@ export function CreateMultisigPage() {
 	};
 
 	return (
-		<div className="min-h-screen bg-white">
+		<div className="min-h-screen bg-background">
 			{/* Main Grid Layout */}
 			<div className="grid grid-cols-1 lg:grid-cols-12 min-h-screen">
 				{/* Left Side - FAQ Section */}
-				<div className="bg-slate-50 p-6 lg:p-8 lg:col-span-4 overflow-y-auto">
+				<div className="bg-surface p-6 lg:p-8 lg:col-span-4 overflow-y-auto">
 					<div className="max-w-md mx-auto lg:max-w-none">
 						<Link
 							to="/"
-							className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6"
+							className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6"
 						>
 							<ArrowLeft className="w-4 h-4 mr-1" />
 							Back to Dashboard
 						</Link>
 						<div className="mb-6 mt-6">
-							<h1 className="text-3xl font-bold text-slate-900 mb-4">
+							<h1 className="text-3xl font-bold text-foreground mb-4">
 								Create New Multisig
 							</h1>
-							<p className="text-slate-600 mt-12">
+							<p className="text-muted-foreground mt-12">
 								Learn about multisig wallets and how to set
 								them up securely.
 							</p>
@@ -222,7 +222,7 @@ export function CreateMultisigPage() {
 									maxLength={255}
 								/>
 								{errors.name && (
-									<p className="text-sm text-red-500 mt-1">
+									<p className="text-sm text-error-foreground mt-1">
 										{errors.name.message}
 									</p>
 								)}
@@ -270,7 +270,7 @@ export function CreateMultisigPage() {
 									</SortableContext>
 								</DndContext>
 								{errors.members && (
-									<p className="text-sm text-red-500 mt-2">
+									<p className="text-sm text-error-foreground mt-2">
 										{errors.members.message}
 									</p>
 								)}
@@ -291,16 +291,16 @@ export function CreateMultisigPage() {
 										min={1}
 										max={totalWeight}
 									/>
-									<span className="text-sm text-gray-600">
+									<span className="text-sm text-muted-foreground">
 										out of {totalWeight} total weight
 									</span>
 								</div>
 								{errors.threshold && (
-									<p className="text-sm text-red-500 mt-1">
+									<p className="text-sm text-error-foreground mt-1">
 										{errors.threshold.message}
 									</p>
 								)}
-								<p className="text-sm text-gray-500 mt-2">
+								<p className="text-sm text-muted-foreground mt-2">
 									Number of weighted votes required to
 									execute transactions
 								</p>
@@ -311,24 +311,24 @@ export function CreateMultisigPage() {
 								<label className="block text-sm font-medium mb-2">
 									Multisig Address Preview
 								</label>
-								<div className="p-3 bg-gray-50 rounded-lg">
+								<div className="p-3 bg-surface rounded-lg">
 									{multisigPreview.address ? (
 										<div>
-											<p className="text-sm font-mono text-gray-800 break-all">
+											<p className="text-sm font-mono text-foreground break-all">
 												{multisigPreview.address}
 											</p>
-											<p className="text-xs text-gray-600 mt-1">
+											<p className="text-xs text-muted-foreground mt-1">
 												✓ Live preview based on current
 												configuration
 											</p>
 										</div>
 									) : (
-										<p className="text-sm text-gray-500">
+										<p className="text-sm text-muted-foreground">
 											Cannot compute multisig address
 										</p>
 									)}
 								</div>
-								<p className="text-sm text-gray-500 mt-2">
+								<p className="text-sm text-muted-foreground mt-2">
 									This address will be used to receive funds
 									and execute transactions
 								</p>
@@ -358,12 +358,12 @@ export function CreateMultisigPage() {
 								</Button>
 							</div>
 							{multisigPreview.error && (
-								<div className="text-sm text-red-500 mt-2">
+								<div className="text-sm text-error-foreground mt-2">
 									{multisigPreview.error}
 								</div>
 							)}
 							{!canSubmit && (
-								<div className="text-sm text-amber-600 mt-2">
+								<div className="text-sm text-warning-foreground mt-2">
 									{!hasMinimumMembers && (
 										<p>
 											A multisig requires at least 2

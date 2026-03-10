@@ -11,7 +11,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { cn } from '@/lib/utils';
 
 const copyButtonVariants = cva(
-	'inline-flex items-center justify-center rounded transition-colors hover:bg-gray-100',
+	'inline-flex items-center justify-center rounded transition-colors hover:bg-accent',
 	{
 		variants: {
 			size: {
@@ -50,9 +50,9 @@ export function CopyButton({
 			title="Copy full digest"
 		>
 			{copied ? (
-				<Check className="text-green-600" />
+				<Check className="text-success-foreground" />
 			) : (
-				<Copy className="text-gray-400 hover:text-gray-600" />
+				<Copy className="text-muted-foreground hover:text-foreground" />
 			)}
 		</button>
 	);

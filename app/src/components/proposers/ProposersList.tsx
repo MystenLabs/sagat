@@ -20,11 +20,11 @@ export function ProposersList({
 			{proposers.map((proposer) => (
 				<div
 					key={proposer.address}
-					className="flex items-center justify-between p-3 bg-white rounded border"
+					className="flex items-center justify-between p-3 bg-card rounded border"
 				>
 					<div className="flex-1 min-w-0">
 						<div className="flex items-center gap-2 mb-1">
-							<code className="text-sm font-mono text-gray-900 truncate">
+							<code className="text-sm font-mono text-foreground truncate">
 								{proposer.address.slice(0, 8)}...
 								{proposer.address.slice(-6)}
 							</code>
@@ -33,7 +33,7 @@ export function ProposersList({
 								size="xs"
 							/>
 						</div>
-						<div className="text-xs text-gray-500">
+						<div className="text-xs text-muted-foreground">
 							Added by {proposer.addedBy.slice(0, 8)}...
 							{proposer.addedBy.slice(-6)} on{' '}
 							{new Date(

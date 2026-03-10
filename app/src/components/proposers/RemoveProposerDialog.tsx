@@ -44,19 +44,19 @@ export function RemoveProposerDialog({
 		<Modal open={open} onClose={() => onOpenChange(false)}>
 			<ModalHeader
 				icon={
-					<AlertTriangle className="w-6 h-6 text-amber-500" />
+					<AlertTriangle className="w-6 h-6 text-warning-foreground" />
 				}
 				title="Remove Proposer"
 			/>
 
 			<ModalContent>
-				<p className="text-gray-700">
+				<p className="text-muted-foreground">
 					Are you sure you want to remove this proposer?
 				</p>
 
 				{proposerAddress && (
-					<div className="p-3 bg-gray-50 rounded-lg border">
-						<code className="text-sm font-mono text-gray-900 break-all">
+					<div className="p-3 bg-surface rounded-lg border">
+						<code className="text-sm font-mono text-foreground break-all">
 							{proposerAddress}
 						</code>
 					</div>

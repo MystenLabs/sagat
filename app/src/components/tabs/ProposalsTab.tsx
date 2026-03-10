@@ -36,11 +36,13 @@ type FilterType =
 function ErrorState({ error }: { error: Error }) {
 	return (
 		<div className="text-center py-12">
-			<FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+			<FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
 			<h3 className="text-lg font-medium mb-2">
 				Failed to load proposals
 			</h3>
-			<p className="text-gray-600 mb-4">{error.message}</p>
+			<p className="text-muted-foreground mb-4">
+				{error.message}
+			</p>
 		</div>
 	);
 }
@@ -78,7 +80,7 @@ function FilterTabs({
 							}
 							className={`
 								px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0
-								${isActive ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'}
+								${isActive ? 'bg-info-soft text-info-foreground' : 'text-muted-foreground hover:bg-accent'}
 							`}
 						>
 							{filter.label}
@@ -125,11 +127,11 @@ function EmptyState({
 }) {
 	return (
 		<div className="text-center py-12">
-			<FileText className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+			<FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
 			<h3 className="text-lg font-medium mb-2">
 				No proposals found
 			</h3>
-			<p className="text-gray-600 mb-4">
+			<p className="text-muted-foreground mb-4">
 				{activeFilter === 'all'
 					? 'Create your first proposal to get started'
 					: `No proposals in "${filterLabel}" state`}

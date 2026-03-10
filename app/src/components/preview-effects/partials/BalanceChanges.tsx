@@ -71,12 +71,12 @@ function ChangedBalance({
 					)}
 					<p>
 						<span
-							className={`${Number(amount()) > 0.0 ? 'text-green-700' : 'text-red-700'}`}
+							className={`${Number(amount()) > 0.0 ? 'text-success-foreground' : 'text-error-foreground'}`}
 						>
 							{amount()}{' '}
 						</span>{' '}
 						{coinMetadata.symbol}
-						<span className="block text-sm text-gray-600">
+						<span className="block text-sm text-muted-foreground">
 							{change.coinType
 								? prettifyType(change.coinType)
 								: null}

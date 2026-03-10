@@ -86,20 +86,20 @@ export function MemberInput({
 			<div
 				{...attributes}
 				{...listeners}
-				className="flex items-center justify-center w-6 h-6 cursor-grab active:cursor-grabbing shrink-0 mt-1 hover:bg-gray-100 rounded"
+				className="flex items-center justify-center w-6 h-6 cursor-grab active:cursor-grabbing shrink-0 mt-1 hover:bg-accent rounded"
 			>
-				<GripVertical className="w-4 h-4 text-gray-400" />
+				<GripVertical className="w-4 h-4 text-muted-foreground" />
 			</div>
 
 			{/* Member indicator */}
-			<div className="flex items-center justify-center w-8 h-8 rounded-full shrink-0 mt-1 bg-blue-100">
-				<Key className="w-4 h-4 text-blue-600" />
+			<div className="flex items-center justify-center w-8 h-8 rounded-full shrink-0 mt-1 bg-info-soft">
+				<Key className="w-4 h-4 text-info-foreground" />
 			</div>
 
 			<div className="flex-1 space-y-2">
 				{/* Public Key Input */}
 				<div>
-					<label className="text-sm text-gray-600">
+					<label className="text-sm text-muted-foreground">
 						Member {index + 1} {member.isCreator && '(You)'}
 					</label>
 					<div className="flex gap-2">
@@ -125,16 +125,16 @@ export function MemberInput({
 						)}
 					</div>
 					{member.error && (
-						<p className="text-sm text-red-500 mt-1">
+						<p className="text-sm text-error-foreground mt-1">
 							{member.error}
 						</p>
 					)}
 					{!member.error &&
 						member.publicKey &&
 						correspondingAddress && (
-							<div className="text-xs text-gray-500 mt-1">
+							<div className="text-xs text-muted-foreground mt-1">
 								<p>✓ Valid public key</p>
-								<p className="text-gray-400 font-mono">
+								<p className="text-muted-foreground font-mono">
 									Address:{' '}
 									{formatAddress(correspondingAddress)}
 								</p>
@@ -144,7 +144,7 @@ export function MemberInput({
 
 				{/* Weight Input */}
 				<div className="flex gap-2 items-center">
-					<label className="text-sm text-gray-600">
+					<label className="text-sm text-muted-foreground">
 						Weight:
 					</label>
 					<Input

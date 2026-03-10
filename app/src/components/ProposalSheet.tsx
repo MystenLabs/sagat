@@ -169,7 +169,7 @@ export function ProposalSheet({
 						<div className="flex items-center justify-between">
 							<label
 								htmlFor="transaction-data"
-								className="text-sm font-medium text-gray-700"
+								className="text-sm font-medium text-muted-foreground"
 							>
 								Transaction Data (JSON or base64)
 							</label>
@@ -198,10 +198,10 @@ export function ProposalSheet({
 								onChange: handleTransactionDataChange,
 							})}
 							rows={dryRunMutation.data ? 6 : 12}
-							className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none font-mono text-sm"
+							className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none font-mono text-sm"
 						/>
 						{form.formState.errors.transactionData && (
-							<p className="text-sm text-red-600">
+							<p className="text-sm text-error-foreground">
 								{
 									form.formState.errors.transactionData
 										.message
@@ -216,22 +216,22 @@ export function ProposalSheet({
 						<div
 							className={`border rounded-lg p-4 ${
 								isDryRunSuccessful
-									? 'border-green-200 bg-white'
-									: 'border-red-200 bg-white'
+									? 'border-success-border bg-card'
+									: 'border-error-border bg-card'
 							}`}
 						>
 							<div className="flex items-center gap-2 mb-3">
 								{isDryRunSuccessful ? (
 									<>
-										<CheckCircle className="w-5 h-5 text-green-600" />
-										<h3 className="font-medium text-gray-900">
+										<CheckCircle className="w-5 h-5 text-success-foreground" />
+										<h3 className="font-medium text-foreground">
 											Transaction Preview - Success
 										</h3>
 									</>
 								) : (
 									<>
-										<AlertCircle className="w-5 h-5 text-red-600" />
-										<h3 className="font-medium text-gray-900">
+										<AlertCircle className="w-5 h-5 text-error-foreground" />
+										<h3 className="font-medium text-foreground">
 											Transaction Preview - Failed
 										</h3>
 									</>
@@ -243,7 +243,7 @@ export function ProposalSheet({
 									bytes={transactionData}
 								/>
 							) : (
-								<p className="text-sm text-red-600">
+								<p className="text-sm text-error-foreground">
 									{decodeURIComponent(
 										dryRunMutation.error?.message ||
 											'Transaction would fail on-chain',
@@ -255,14 +255,14 @@ export function ProposalSheet({
 
 					{/* Proposal Creation Error */}
 					{createProposalMutation.error && (
-						<div className="border border-red-200 bg-white rounded-lg p-4">
+						<div className="border border-error-border bg-card rounded-lg p-4">
 							<div className="flex items-center gap-2 mb-3">
-								<AlertCircle className="w-5 h-5 text-red-600" />
-								<h3 className="font-medium text-gray-900">
+								<AlertCircle className="w-5 h-5 text-error-foreground" />
+								<h3 className="font-medium text-foreground">
 									Failed to Create Proposal
 								</h3>
 							</div>
-							<p className="text-sm text-red-600">
+							<p className="text-sm text-error-foreground">
 								{createProposalMutation.error.message}
 							</p>
 						</div>
@@ -272,7 +272,7 @@ export function ProposalSheet({
 					<div className="space-y-2">
 						<label
 							htmlFor="description"
-							className="text-sm text-gray-600"
+							className="text-sm text-muted-foreground"
 						>
 							Description (optional)
 						</label>
@@ -281,10 +281,10 @@ export function ProposalSheet({
 							placeholder="Optional description for this proposal..."
 							{...form.register('description')}
 							rows={2}
-							className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+							className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
 						/>
 						{form.formState.errors.description && (
-							<p className="text-sm text-red-600">
+							<p className="text-sm text-error-foreground">
 								{form.formState.errors.description.message}
 							</p>
 						)}

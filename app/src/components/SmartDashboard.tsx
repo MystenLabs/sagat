@@ -60,7 +60,7 @@ export function SmartDashboard() {
 				<h1 className="text-4xl font-bold mb-4">
 					Welcome to Sagat
 				</h1>
-				<p className="text-xl text-gray-600 mb-8">
+				<p className="text-xl text-muted-foreground mb-8">
 					Get started by creating your first multisig
 				</p>
 
@@ -83,7 +83,7 @@ export function SmartDashboard() {
 							}
 							className={
 								(pendingInvites?.length ?? 0) > 0
-									? 'border-orange-300'
+									? 'border-warning-border'
 									: ''
 							}
 						>
