@@ -86,8 +86,8 @@ export function OnboardingView() {
 				</div>
 
 				<div className="text-center p-6">
-<div className="inline-flex items-center justify-center w-16 h-16 bg-info-soft rounded-full mb-4">
-					<CheckCircle className="w-8 h-8 text-info-foreground" />
+					<div className="inline-flex items-center justify-center w-16 h-16 bg-info-soft rounded-full mb-4">
+						<CheckCircle className="w-8 h-8 text-info-foreground" />
 					</div>
 					<h3 className="font-semibold text-lg mb-2">
 						Transparent Governance

@@ -213,9 +213,7 @@ export function ProposalSheet({
 					{/* Preview Results */}
 					{(dryRunMutation.data ||
 						dryRunMutation.error) && (
-						<div
-						className="py-2"
-						>
+						<div className="py-2">
 							<div className="flex items-center gap-2 mb-3">
 								{isDryRunSuccessful ? (
 									<>
@@ -307,7 +305,7 @@ export function ProposalSheet({
 							<Button
 								type="submit"
 								disabled={createProposalMutation.isPending}
-								className="bg-success-foreground hover:bg-success-foreground/90 text-white"
+								variant="default"
 							>
 								{createProposalMutation.isPending
 									? 'Creating...'

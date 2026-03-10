@@ -93,9 +93,7 @@ function PreviewResult({
 	}
 
 	return (
-		<div
-		className="py-2"
-		>
+		<div className="py-2">
 			<div className="flex items-center gap-2 mb-3">
 				{isSuccess ? (
 					<>

@@ -80,7 +80,7 @@ export function ProposalPreview({
 									size="sm"
 									onClick={handleSignProposal}
 									disabled={signProposalMutation.isPending}
-									className="bg-success-foreground hover:bg-success-foreground/90 text-white"
+									variant="default"
 								>
 									{signProposalMutation.isPending
 										? 'Signing...'
@@ -122,9 +122,7 @@ export function ProposalPreview({
 			)}
 
 			{dryRunMutation.data && (
-				<div
-				className="py-2"
-				>
+				<div className="py-2">
 					<EffectsPreview
 						output={dryRunMutation.data}
 						bytes={proposal.transactionBytes}

@@ -75,9 +75,7 @@ export function ToolsDropdown({
 									: 'text-popover-foreground hover:bg-accent'
 							}`}
 						>
-							<div className="font-medium">
-								{tool.name}
-							</div>
+							<div className="font-medium">{tool.name}</div>
 							<div className="text-xs text-muted-foreground mt-0.5">
 								{tool.headerDescription}
 							</div>
