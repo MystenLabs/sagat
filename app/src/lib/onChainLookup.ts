@@ -72,21 +72,31 @@ async function lookupOnNetwork(
 			variables: { address },
 		});
 
-	const sig =
-		data?.transactions?.nodes?.[0]?.signatures?.[0]
-			?.signatureBytes;
-	if (!sig) return null;
+	const signatures =
+		data?.transactions?.nodes?.[0]?.signatures?.map(
+			(x) => x.signatureBytes,
+		);
+	if (!signatures || signatures.length === 0) return null;
 
-	const parsed = parseSerializedSignature(sig);
-	if (parsed.signatureScheme === 'MultiSig')
-		throw new MultisigAddressError(network);
+	for (const signature of signatures) {
+		if (!signature) continue;
+		const parsed = parseSerializedSignature(signature);
+		if (parsed.signatureScheme === 'MultiSig')
+			throw new MultisigAddressError(network);
 
-	const pubKey = publicKeyFromRawBytes(
-		parsed.signatureScheme,
-		parsed.publicKey,
-	);
+		const pubKey = publicKeyFromRawBytes(
+			parsed.signatureScheme,
+			parsed.publicKey,
+		);
 
-	return { publicKey: pubKey.toSuiPublicKey(), network };
+		if (pubKey.toSuiAddress() === address)
+			return {
+				publicKey: pubKey.toSuiPublicKey(),
+				network,
+			};
+	}
+
+	return null;
 }
 
 /**
