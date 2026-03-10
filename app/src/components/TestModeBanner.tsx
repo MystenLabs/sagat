@@ -36,13 +36,13 @@ export function TestModeBanner() {
 				<div className="flex items-center gap-2">
 					<button
 						onClick={() => setNetwork('mainnet')}
-						className="text-xs bg-black hover:bg-gray-800 text-white px-3 py-1.5 rounded transition-colors"
+						className="text-xs bg-black hover:bg-gray-800 text-white px-3 py-1.5 rounded transition-colors cursor-pointer"
 					>
 						Switch to Mainnet
 					</button>
 					<button
 						onClick={handleDismiss}
-						className="p-1 hover:bg-warning rounded transition-colors"
+						className="p-1 hover:bg-warning rounded transition-colors cursor-pointer"
 						title="Dismiss"
 					>
 						<X className="w-4 h-4 text-warning-foreground" />

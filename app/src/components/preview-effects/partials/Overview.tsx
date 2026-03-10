@@ -49,7 +49,7 @@ export function Overview({
 					onClick={() =>
 						copyToClipboard(output.Transaction!.digest)
 					}
-					className="p-1 hover:bg-accent rounded"
+					className="p-1 hover:bg-accent rounded cursor-pointer"
 				>
 					{copied ? (
 						<Check className="w-4 h-4 text-success-foreground" />

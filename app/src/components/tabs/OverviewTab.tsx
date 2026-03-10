@@ -63,7 +63,7 @@ export function OverviewTab() {
 								variant="ghost"
 								size="sm"
 								onClick={() => copy(multisig.address)}
-								className="h-8 px-2 flex-shrink-0"
+								className="h-8 px-2 shrink-0"
 							>
 								{copied ? (
 									<Check className="w-4 h-4" />

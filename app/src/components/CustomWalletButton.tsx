@@ -361,7 +361,7 @@ const AccountItem = ({
 		>
 			<button
 				onClick={() => onSwitchAccount(account)}
-				className="flex-1 text-left min-w-0"
+				className="flex-1 text-left min-w-0 cursor-pointer"
 			>
 				<div className="flex-1 min-w-0">
 					<p className="font-mono text-xs truncate">
@@ -492,7 +492,7 @@ const NotConnectedWalletVariant = ({
 							onClick={() =>
 								handleWalletConnect(wallet.name)
 							}
-							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent w-full text-left"
+							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent w-full text-left cursor-pointer"
 						>
 							<img
 								src={wallet.icon}

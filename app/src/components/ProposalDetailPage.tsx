@@ -130,7 +130,7 @@ function NetworkMismatchBanner({
 }) {
 	return (
 		<div className="mt-4 border border-warning-border bg-warning rounded-lg p-4 flex items-start gap-3">
-			<AlertTriangle className="w-5 h-5 text-warning-foreground mt-0.5 flex-shrink-0" />
+			<AlertTriangle className="w-5 h-5 text-warning-foreground mt-0.5 shrink-0" />
 			<div className="flex-1">
 				<h3 className="font-medium text-warning-foreground mb-1">
 					Network Mismatch

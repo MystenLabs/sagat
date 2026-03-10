@@ -11,7 +11,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { cn } from '@/lib/utils';
 
 const copyButtonVariants = cva(
-	'inline-flex items-center justify-center rounded transition-colors hover:bg-accent',
+	'inline-flex items-center justify-center rounded transition-colors hover:bg-accent cursor-pointer',
 	{
 		variants: {
 			size: {

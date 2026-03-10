@@ -43,7 +43,7 @@ const alertTextVariants = cva('text-sm', {
 	},
 });
 
-const alertIconVariants = cva('w-5 h-5 flex-shrink-0', {
+const alertIconVariants = cva('w-5 h-5 shrink-0', {
 	variants: {
 		variant: {
 			info: 'text-info-foreground',
