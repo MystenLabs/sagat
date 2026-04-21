@@ -12,7 +12,7 @@ import {
 	useMemo,
 	useRef,
 } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod/v3';
 
 import { type CoinMetadata } from '../../hooks/useCoinMetadata';
@@ -154,8 +154,9 @@ export function TransferForm({
 			amount: '',
 		},
 	});
+	const { handleSubmit, control } = form;
 
-	const coinType = form.watch('coinType');
+	const coinType = useWatch({ control, name: 'coinType' });
 
 	// Apply prop-driven coin selection updates without making the
 	// component own that state outside RHF.
@@ -250,10 +251,15 @@ export function TransferForm({
 
 	// Nested <form>s are not valid HTML — `ProposalSheet` already renders
 	// a parent <form>, so we expose the submit handler imperatively from
-	// a button click instead.
-	const handleSubmit = form.handleSubmit((values) => {
-		buildMutation.mutate(values);
-	});
+	// a button click instead. Wrap in an event handler so RHF's
+	// ref-touching `handleSubmit(...)` only runs at click time, not on
+	// every render.
+	const submitTransfer = (
+		event: React.MouseEvent<HTMLButtonElement>,
+	) =>
+		handleSubmit((values) => {
+			buildMutation.mutate(values);
+		})(event);
 
 	const errors = form.formState.errors;
 	const buildError = buildMutation.error;
@@ -380,7 +386,7 @@ export function TransferForm({
 					variant="outline"
 					size="sm"
 					disabled={isBusy}
-					onClick={handleSubmit}
+					onClick={submitTransfer}
 				>
 					<Eye className="w-4 h-4 mr-1" />
 					{buildMutation.isPending

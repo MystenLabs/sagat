@@ -11,14 +11,8 @@ import {
 	Eye,
 	Send,
 } from 'lucide-react';
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from 'react';
-import { useForm } from 'react-hook-form';
+import { useCallback, useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod/v3';
 
 import { useNetwork } from '../contexts/NetworkContext';
@@ -46,20 +40,6 @@ export type ProposalIntent =
 	| { kind: 'custom' }
 	| { kind: 'transfer'; coinType?: string | null };
 
-/**
- * Cheap, structure-aware key for `ProposalIntent` so the apply-once
- * `useEffect` can dedupe without `JSON.stringify` (which throws on
- * accidental DOM/React Fiber inputs and would crash the whole sheet).
- */
-function intentFingerprint(
-	intent: ProposalIntent | null | undefined,
-): string {
-	if (!intent) return 'none';
-	if (intent.kind === 'transfer')
-		return `transfer:${intent.coinType ?? ''}`;
-	return intent.kind;
-}
-
 interface ProposalSheetProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -72,6 +52,9 @@ interface ProposalSheetProps {
 	 * - `{ kind: 'transfer', coinType? }`: structured transfer form,
 	 *   optionally pre-selecting an asset (when launched from a
 	 *   specific row's "Send" button).
+	 *
+	 * Read once at mount; the parent should null this on close so that
+	 * the next open starts from a fresh, intent-driven default.
 	 */
 	intent?: ProposalIntent | null;
 }
@@ -100,54 +83,64 @@ const proposalSchema = z.object({
 
 type ProposalFormData = z.infer<typeof proposalSchema>;
 
+/**
+ * Outer wrapper: owns only the sheet shell and lifetime of the body.
+ *
+ * Mounting `ProposalSheetBody` only while `open === true` means every
+ * open() starts with a fresh form, fresh mutations, and fresh
+ * `intent`-derived defaults — no apply-once effects or refs needed.
+ */
 export function ProposalSheet({
 	open,
 	onOpenChange,
 	multisigAddress,
 	intent,
 }: ProposalSheetProps) {
+	return (
+		<Sheet open={open} onOpenChange={onOpenChange}>
+			<SheetContent className="w-full! sm:w-[70vw]! max-w-none! px-4 sm:px-8 pt-6 overflow-y-auto">
+				{open && (
+					<ProposalSheetBody
+						multisigAddress={multisigAddress}
+						intent={intent}
+						onClose={() => onOpenChange(false)}
+					/>
+				)}
+			</SheetContent>
+		</Sheet>
+	);
+}
+
+interface ProposalSheetBodyProps {
+	multisigAddress: string;
+	intent: ProposalIntent | null | undefined;
+	onClose: () => void;
+}
+
+function ProposalSheetBody({
+	multisigAddress,
+	intent,
+	onClose,
+}: ProposalSheetBodyProps) {
 	const { network } = useNetwork();
 
 	const form = useForm<ProposalFormData>({
 		resolver: zodResolver(proposalSchema),
 		defaultValues: { description: '', transactionData: '' },
 	});
+	const { handleSubmit, control } = form;
 
 	const dryRunMutation = useDryRun();
 	const createProposalMutation = useCreateProposal();
 
-	const [mode, setMode] = useState<Mode>('custom');
+	// Mode is seeded from the launching `intent` once, at mount. The
+	// parent re-mounts us on every open(), so we never need an effect
+	// to react to `intent` changing while open.
+	const [mode, setMode] = useState<Mode>(() =>
+		intent?.kind === 'transfer' ? 'transfer' : 'custom',
+	);
 	const [showRawTransaction, setShowRawTransaction] =
 		useState(false);
-	const lastAppliedIntentRef = useRef<string | null>(null);
-
-	// Single source of truth for "wipe local sheet state". Used by
-	// every flow that needs to reset (close, post-success, intent
-	// change, tab switch) so they can't drift apart.
-	const resetSheet = useCallback(
-		(nextMode: Mode = 'custom') => {
-			setMode(nextMode);
-			setShowRawTransaction(false);
-			form.reset({ description: '', transactionData: '' });
-			dryRunMutation.reset();
-			createProposalMutation.reset();
-		},
-		[createProposalMutation, dryRunMutation, form],
-	);
-
-	// Apply the launching `intent` exactly once per open(). The parent
-	// can stop passing `intent` after this effect runs without flipping
-	// us back to the default mode.
-	useEffect(() => {
-		if (!open) return;
-		const fingerprint = intentFingerprint(intent);
-		if (lastAppliedIntentRef.current === fingerprint)
-			return;
-		lastAppliedIntentRef.current = fingerprint;
-		resetSheet(
-			intent?.kind === 'transfer' ? 'transfer' : 'custom',
-		);
-	}, [open, intent, resetSheet]);
 
 	// Balances + metadata for the transfer-mode asset picker. Keyed by
 	// network/address inside the hooks, and cached aggressively, so
@@ -167,31 +160,18 @@ export function ProposalSheet({
 		dryRunMutation.data?.result?.Transaction?.effects.status
 			.success;
 
-	const onSubmit = (data: ProposalFormData) => {
-		if (!isDryRunSuccessful) return;
-		createProposalMutation.mutate(
-			{
-				multisigAddress,
-				transactionData: data.transactionData,
-				description: data.description,
-			},
-			{
-				onSuccess: () => {
-					onOpenChange(false);
-					resetSheet();
-					lastAppliedIntentRef.current = null;
+	const onFormSubmit = (event: React.FormEvent) =>
+		handleSubmit((data) => {
+			if (!isDryRunSuccessful) return;
+			createProposalMutation.mutate(
+				{
+					multisigAddress,
+					transactionData: data.transactionData,
+					description: data.description,
 				},
-			},
-		);
-	};
-
-	const handleClose = (nextOpen: boolean) => {
-		onOpenChange(nextOpen);
-		if (!nextOpen) {
-			resetSheet();
-			lastAppliedIntentRef.current = null;
-		}
-	};
+				{ onSuccess: onClose },
+			);
+		})(event);
 
 	const handleCustomPreview = () => {
 		const transactionData = form.getValues(
@@ -230,279 +210,285 @@ export function ProposalSheet({
 		createProposalMutation.reset();
 	}, [createProposalMutation, dryRunMutation, form]);
 
-	const transactionData = form.watch('transactionData');
+	const transactionData = useWatch({
+		control,
+		name: 'transactionData',
+	});
 
 	const initialTransferCoinType =
 		intent?.kind === 'transfer' ? intent.coinType : null;
 
 	return (
-		<Sheet open={open} onOpenChange={handleClose}>
-			<SheetContent className="w-full! sm:w-[70vw]! max-w-none! px-4 sm:px-8 pt-6 overflow-y-auto">
-				<SheetHeader className="p-0 pr-12">
-					<div className="flex items-center justify-between gap-4">
-						<div className="min-w-0">
-							<SheetTitle>Create New Proposal</SheetTitle>
-							<SheetDescription>
-								Choose how you want to build this proposal.
-								The multisig signers can review and vote on
-								it once submitted.
-							</SheetDescription>
-						</div>
-						<Label
-							variant={
-								network === 'testnet' ? 'warning' : 'info'
-							}
-						>
-							{network}
-						</Label>
+		<>
+			<SheetHeader className="p-0 pr-12">
+				<div className="flex items-center justify-between gap-4">
+					<div className="min-w-0">
+						<SheetTitle>Create New Proposal</SheetTitle>
+						<SheetDescription>
+							Choose how you want to build this proposal.
+							The multisig signers can review and vote on it
+							once submitted.
+						</SheetDescription>
 					</div>
-				</SheetHeader>
-
-				<div className="mt-6">
-					<Tabs
-						tabs={[
-							{
-								id: 'transfer',
-								label: 'Transfer',
-								icon: <Send className="w-4 h-4" />,
-							},
-							{
-								id: 'custom',
-								label: 'Custom transaction',
-								icon: <Code2 className="w-4 h-4" />,
-							},
-						]}
-						activeTab={mode}
-						onTabChange={(next) => {
-							const nextMode = next as Mode;
-							if (nextMode === mode) return;
-							resetSheet(nextMode);
-						}}
-					/>
+					<Label
+						variant={
+							network === 'testnet' ? 'warning' : 'info'
+						}
+					>
+						{network}
+					</Label>
 				</div>
+			</SheetHeader>
 
-				<form
-					onSubmit={form.handleSubmit(onSubmit)}
-					className="space-y-8 mt-6 pb-8"
-				>
-					{mode === 'transfer' ? (
-						<>
-							<TransferForm
-								multisigAddress={multisigAddress}
-								balances={balancesQuery.balances}
-								metadataMap={metadataMap}
-								isLoadingBalances={balancesQuery.isLoading}
-								initialCoinType={initialTransferCoinType}
-								isPreviewing={dryRunMutation.isPending}
-								onPrepare={handleTransferPrepared}
-								onReset={handleTransferReset}
-							/>
+			<div className="mt-6">
+				<Tabs
+					tabs={[
+						{
+							id: 'transfer',
+							label: 'Transfer',
+							icon: <Send className="w-4 h-4" />,
+						},
+						{
+							id: 'custom',
+							label: 'Custom transaction',
+							icon: <Code2 className="w-4 h-4" />,
+						},
+					]}
+					activeTab={mode}
+					onTabChange={(next) => {
+						const nextMode = next as Mode;
+						if (nextMode === mode) return;
+						setMode(nextMode);
+						setShowRawTransaction(false);
+						form.reset({
+							description: '',
+							transactionData: '',
+						});
+						dryRunMutation.reset();
+						createProposalMutation.reset();
+					}}
+				/>
+			</div>
 
-							{transactionData && (
-								<div className="space-y-2">
-									<button
-										type="button"
-										onClick={() =>
-											setShowRawTransaction((v) => !v)
-										}
-										className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-									>
-										{showRawTransaction ? (
-											<ChevronDown className="w-3.5 h-3.5" />
-										) : (
-											<ChevronRight className="w-3.5 h-3.5" />
-										)}
-										{showRawTransaction
-											? 'Hide raw transaction'
-											: 'View raw transaction'}
-									</button>
-									{showRawTransaction && (
-										<textarea
-											readOnly
-											value={transactionData}
-											rows={8}
-											className="w-full px-3 py-2 border border-border rounded-md bg-muted resize-none font-mono text-xs text-muted-foreground"
-										/>
-									)}
-								</div>
-							)}
-						</>
-					) : (
-						<div className="space-y-2">
-							<div className="flex items-center justify-between">
-								<label
-									htmlFor="transaction-data"
-									className="text-sm font-medium text-muted-foreground"
+			<form
+				onSubmit={onFormSubmit}
+				className="space-y-8 mt-6 pb-8"
+			>
+				{mode === 'transfer' ? (
+					<>
+						<TransferForm
+							multisigAddress={multisigAddress}
+							balances={balancesQuery.balances}
+							metadataMap={metadataMap}
+							isLoadingBalances={balancesQuery.isLoading}
+							initialCoinType={initialTransferCoinType}
+							isPreviewing={dryRunMutation.isPending}
+							onPrepare={handleTransferPrepared}
+							onReset={handleTransferReset}
+						/>
+
+						{transactionData && (
+							<div className="space-y-2">
+								<button
+									type="button"
+									onClick={() =>
+										setShowRawTransaction((v) => !v)
+									}
+									className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
 								>
-									Transaction Data (JSON or base64)
-								</label>
-								{transactionData && (
-									<Button
-										type="button"
-										variant="outline"
-										size="sm"
-										onClick={handleCustomPreview}
-										disabled={
-											dryRunMutation.isPending ||
-											!transactionData
-										}
-									>
-										<Eye className="w-4 h-4 mr-1" />
-										{dryRunMutation.isPending
-											? 'Previewing...'
-											: 'Preview Effects'}
-									</Button>
+									{showRawTransaction ? (
+										<ChevronDown className="w-3.5 h-3.5" />
+									) : (
+										<ChevronRight className="w-3.5 h-3.5" />
+									)}
+									{showRawTransaction
+										? 'Hide raw transaction'
+										: 'View raw transaction'}
+								</button>
+								{showRawTransaction && (
+									<textarea
+										readOnly
+										value={transactionData}
+										rows={8}
+										className="w-full px-3 py-2 border border-border rounded-md bg-muted resize-none font-mono text-xs text-muted-foreground"
+									/>
 								)}
 							</div>
-							<textarea
-								id="transaction-data"
-								placeholder="Enter transaction data in JSON format or base64..."
-								{...form.register('transactionData', {
-									onChange:
-										handleCustomTransactionDataChange,
-								})}
-								rows={dryRunMutation.data ? 6 : 12}
-								className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none font-mono text-sm"
-							/>
-							{form.formState.errors.transactionData && (
-								<p className="text-sm text-error-foreground">
-									{
-										form.formState.errors.transactionData
-											.message
+						)}
+					</>
+				) : (
+					<div className="space-y-2">
+						<div className="flex items-center justify-between">
+							<label
+								htmlFor="transaction-data"
+								className="text-sm font-medium text-muted-foreground"
+							>
+								Transaction Data (JSON or base64)
+							</label>
+							{transactionData && (
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									onClick={handleCustomPreview}
+									disabled={
+										dryRunMutation.isPending ||
+										!transactionData
 									}
+								>
+									<Eye className="w-4 h-4 mr-1" />
+									{dryRunMutation.isPending
+										? 'Previewing...'
+										: 'Preview Effects'}
+								</Button>
+							)}
+						</div>
+						<textarea
+							id="transaction-data"
+							placeholder="Enter transaction data in JSON format or base64..."
+							{...form.register('transactionData', {
+								onChange: handleCustomTransactionDataChange,
+							})}
+							rows={dryRunMutation.data ? 6 : 12}
+							className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none font-mono text-sm"
+						/>
+						{form.formState.errors.transactionData && (
+							<p className="text-sm text-error-foreground">
+								{
+									form.formState.errors.transactionData
+										.message
+								}
+							</p>
+						)}
+					</div>
+				)}
+
+				{dryRunMutation.isPending && (
+					<div className="py-2">
+						<div className="flex items-center gap-2 mb-3">
+							<Eye className="w-5 h-5 text-muted-foreground animate-pulse" />
+							<h3 className="font-medium text-foreground">
+								Previewing transaction…
+							</h3>
+						</div>
+						<p className="text-sm text-muted-foreground">
+							Simulating the transaction on-chain to check
+							it would succeed.
+						</p>
+					</div>
+				)}
+
+				{!dryRunMutation.isPending &&
+					(dryRunMutation.data || dryRunMutation.error) && (
+						<div className="py-2">
+							<div className="flex items-center gap-2 mb-3">
+								{isDryRunSuccessful ? (
+									<>
+										<Check
+											strokeWidth={3}
+											className="w-4 h-4 text-success-foreground"
+										/>
+										<h3 className="font-medium text-foreground">
+											Transaction Preview - Success
+										</h3>
+									</>
+								) : (
+									<>
+										<AlertCircle className="w-5 h-5 text-error-foreground" />
+										<h3 className="font-medium text-foreground">
+											Transaction Preview - Failed
+										</h3>
+									</>
+								)}
+							</div>
+							{isDryRunSuccessful ? (
+								<EffectsPreview
+									output={dryRunMutation.data.result}
+									bytes={dryRunMutation.data.bytes}
+								/>
+							) : (
+								<p className="text-sm text-error-foreground">
+									{decodeURIComponent(
+										dryRunMutation.error?.message ||
+											'Transaction would fail on-chain',
+									)}
 								</p>
 							)}
 						</div>
 					)}
 
-					{dryRunMutation.isPending && (
-						<div className="py-2">
-							<div className="flex items-center gap-2 mb-3">
-								<Eye className="w-5 h-5 text-muted-foreground animate-pulse" />
-								<h3 className="font-medium text-foreground">
-									Previewing transaction…
-								</h3>
-							</div>
-							<p className="text-sm text-muted-foreground">
-								Simulating the transaction on-chain to check
-								it would succeed.
-							</p>
+				{createProposalMutation.error && (
+					<div className="border border-error-border bg-card rounded-lg p-4">
+						<div className="flex items-center gap-2 mb-3">
+							<AlertCircle className="w-5 h-5 text-error-foreground" />
+							<h3 className="font-medium text-foreground">
+								Failed to Create Proposal
+							</h3>
 						</div>
-					)}
-
-					{!dryRunMutation.isPending &&
-						(dryRunMutation.data ||
-							dryRunMutation.error) && (
-							<div className="py-2">
-								<div className="flex items-center gap-2 mb-3">
-									{isDryRunSuccessful ? (
-										<>
-											<Check
-												strokeWidth={3}
-												className="w-4 h-4 text-success-foreground"
-											/>
-											<h3 className="font-medium text-foreground">
-												Transaction Preview - Success
-											</h3>
-										</>
-									) : (
-										<>
-											<AlertCircle className="w-5 h-5 text-error-foreground" />
-											<h3 className="font-medium text-foreground">
-												Transaction Preview - Failed
-											</h3>
-										</>
-									)}
-								</div>
-								{isDryRunSuccessful ? (
-									<EffectsPreview
-										output={dryRunMutation.data.result}
-										bytes={dryRunMutation.data.bytes}
-									/>
-								) : (
-									<p className="text-sm text-error-foreground">
-										{decodeURIComponent(
-											dryRunMutation.error?.message ||
-												'Transaction would fail on-chain',
-										)}
-									</p>
-								)}
-							</div>
-						)}
-
-					{createProposalMutation.error && (
-						<div className="border border-error-border bg-card rounded-lg p-4">
-							<div className="flex items-center gap-2 mb-3">
-								<AlertCircle className="w-5 h-5 text-error-foreground" />
-								<h3 className="font-medium text-foreground">
-									Failed to Create Proposal
-								</h3>
-							</div>
-							<p className="text-sm text-error-foreground">
-								{createProposalMutation.error.message}
-							</p>
-						</div>
-					)}
-
-					<div className="space-y-2">
-						<label
-							htmlFor="description"
-							className="text-sm text-muted-foreground"
-						>
-							Description (optional)
-						</label>
-						<textarea
-							id="description"
-							placeholder="Optional description for this proposal..."
-							{...form.register('description')}
-							rows={2}
-							className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
-						/>
-						{form.formState.errors.description && (
-							<p className="text-sm text-error-foreground">
-								{form.formState.errors.description.message}
-							</p>
-						)}
+						<p className="text-sm text-error-foreground">
+							{createProposalMutation.error.message}
+						</p>
 					</div>
+				)}
 
-					<div className="flex justify-end space-x-3 pt-4 border-t">
+				<div className="space-y-2">
+					<label
+						htmlFor="description"
+						className="text-sm text-muted-foreground"
+					>
+						Description (optional)
+					</label>
+					<textarea
+						id="description"
+						placeholder="Optional description for this proposal..."
+						{...form.register('description')}
+						rows={2}
+						className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
+					/>
+					{form.formState.errors.description && (
+						<p className="text-sm text-error-foreground">
+							{form.formState.errors.description.message}
+						</p>
+					)}
+				</div>
+
+				<div className="flex justify-end space-x-3 pt-4 border-t">
+					<Button
+						type="button"
+						variant="outline"
+						onClick={onClose}
+					>
+						Cancel
+					</Button>
+					{!dryRunMutation.data ? (
 						<Button
 							type="button"
+							disabled
 							variant="outline"
-							onClick={() => handleClose(false)}
 						>
-							Cancel
+							Preview Required
 						</Button>
-						{!dryRunMutation.data ? (
-							<Button
-								type="button"
-								disabled
-								variant="outline"
-							>
-								Preview Required
-							</Button>
-						) : isDryRunSuccessful ? (
-							<Button
-								type="submit"
-								disabled={createProposalMutation.isPending}
-								variant="default"
-							>
-								{createProposalMutation.isPending
-									? 'Creating...'
-									: 'Create Proposal'}
-							</Button>
-						) : (
-							<Button
-								type="button"
-								disabled
-								variant="destructive"
-							>
-								Fix Transaction Errors
-							</Button>
-						)}
-					</div>
-				</form>
-			</SheetContent>
-		</Sheet>
+					) : isDryRunSuccessful ? (
+						<Button
+							type="submit"
+							disabled={createProposalMutation.isPending}
+							variant="default"
+						>
+							{createProposalMutation.isPending
+								? 'Creating...'
+								: 'Create Proposal'}
+						</Button>
+					) : (
+						<Button
+							type="button"
+							disabled
+							variant="destructive"
+						>
+							Fix Transaction Errors
+						</Button>
+					)}
+				</div>
+			</form>
+		</>
 	);
 }
