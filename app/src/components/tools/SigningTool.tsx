@@ -10,7 +10,7 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	AlertCircle,
-	CheckCircle,
+	Check,
 	ExternalLink,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -97,7 +97,10 @@ function PreviewResult({
 			<div className="flex items-center gap-2 mb-3">
 				{isSuccess ? (
 					<>
-						<CheckCircle className="w-5 h-5 text-success-foreground" />
+						<Check
+							strokeWidth={3}
+							className="w-4 h-4 text-success-foreground"
+						/>
 						<h3 className="font-medium text-foreground">
 							Transaction Preview - Success
 						</h3>
@@ -146,7 +149,10 @@ function SignedResultDisplay({
 		<div className="border border-border bg-card rounded-lg p-4">
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
-					<CheckCircle className="w-5 h-5 text-success-foreground" />
+					<Check
+						strokeWidth={3}
+						className="w-4 h-4 text-success-foreground"
+					/>
 					<h3 className="font-medium text-foreground">
 						Transaction{' '}
 						{result.digest

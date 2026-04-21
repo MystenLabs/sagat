@@ -4,7 +4,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
 	AlertCircle,
-	CheckCircle,
+	Check,
 	ChevronDown,
 	ChevronRight,
 	Code2,
@@ -394,7 +394,10 @@ export function ProposalSheet({
 								<div className="flex items-center gap-2 mb-3">
 									{isDryRunSuccessful ? (
 										<>
-											<CheckCircle className="w-5 h-5 text-success-foreground" />
+											<Check
+												strokeWidth={3}
+												className="w-4 h-4 text-success-foreground"
+											/>
 											<h3 className="font-medium text-foreground">
 												Transaction Preview - Success
 											</h3>
