@@ -15,13 +15,14 @@ import {
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useProposalsQueries } from '../../hooks/useProposalsQueries';
 import { ProposalCard } from '../proposals/ProposalCard';
+import { type ProposalIntent } from '../ProposalSheet';
 import { Button } from '../ui/button';
 import { Label } from '../ui/label';
 import { SkeletonList } from '../ui/skeleton';
 
 interface ProposalsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: () => void;
+	openProposalSheet: (intent?: ProposalIntent) => void;
 }
 
 type FilterType =
@@ -137,7 +138,10 @@ function EmptyState({
 					: `No proposals in "${filterLabel}" state`}
 			</p>
 			{activeFilter === 'all' && (
-				<Button onClick={onCreateProposal} size="sm">
+				<Button
+					onClick={() => onCreateProposal()}
+					size="sm"
+				>
 					<Plus className="w-4 h-4 mr-1" />
 					Create Proposal
 				</Button>
@@ -306,7 +310,9 @@ export function ProposalsTab() {
 							filters.find((f) => f.id === activeFilter)
 								?.label
 						}
-						onCreateProposal={openProposalSheet}
+						onCreateProposal={() =>
+							openProposalSheet({ kind: 'custom' })
+						}
 					/>
 				) : (
 					<ProposalsList

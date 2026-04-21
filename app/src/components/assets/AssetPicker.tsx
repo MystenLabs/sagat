@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ChevronDown } from 'lucide-react';
-import {
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from 'react';
+import { useRef, useState } from 'react';
 
 import { type CoinMetadata } from '../../hooks/useCoinMetadata';
 import { type Balance } from '../../hooks/useMultisigBalances';
+import { useOnClickOutside } from '../../hooks/useOnClickOutside';
 import { Skeleton } from '../ui/skeleton';
 import { Asset } from './Asset';
 
@@ -41,36 +37,17 @@ export function AssetPicker({
 	const [open, setOpen] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	const selected = useMemo(
-		() =>
-			selectedCoinType
-				? (balances.find(
-						(b) => b.coinType === selectedCoinType,
-					) ?? null)
-				: null,
-		[balances, selectedCoinType],
+	useOnClickOutside(
+		containerRef,
+		() => setOpen(false),
+		open,
 	);
 
-	useEffect(() => {
-		if (!open) return;
-		function handleClickOutside(event: MouseEvent) {
-			if (
-				containerRef.current &&
-				!containerRef.current.contains(event.target as Node)
-			) {
-				setOpen(false);
-			}
-		}
-		document.addEventListener(
-			'mousedown',
-			handleClickOutside,
-		);
-		return () =>
-			document.removeEventListener(
-				'mousedown',
-				handleClickOutside,
-			);
-	}, [open]);
+	const selected = selectedCoinType
+		? (balances.find(
+				(b) => b.coinType === selectedCoinType,
+			) ?? null)
+		: null;
 
 	const handleSelect = (coinType: string) => {
 		onSelect(coinType);

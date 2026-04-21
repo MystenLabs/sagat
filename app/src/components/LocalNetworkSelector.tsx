@@ -6,9 +6,10 @@ import {
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
 import { ChevronDown } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 
 export type LocalNetwork = 'mainnet' | 'testnet' | 'devnet';
 
@@ -25,30 +26,11 @@ export function NetworkSelector() {
 	const [isOpen, setIsOpen] = useState(false);
 	const dropdownRef = useRef<HTMLDivElement>(null);
 
-	useEffect(() => {
-		const handleClickOutside = (event: MouseEvent) => {
-			if (
-				dropdownRef.current &&
-				!dropdownRef.current.contains(event.target as Node)
-			) {
-				setIsOpen(false);
-			}
-		};
-
-		if (isOpen) {
-			document.addEventListener(
-				'mousedown',
-				handleClickOutside,
-			);
-		}
-
-		return () => {
-			document.removeEventListener(
-				'mousedown',
-				handleClickOutside,
-			);
-		};
-	}, [isOpen]);
+	useOnClickOutside(
+		dropdownRef,
+		() => setIsOpen(false),
+		isOpen,
+	);
 
 	const handleNetworkChange = (
 		newNetwork: LocalNetwork,

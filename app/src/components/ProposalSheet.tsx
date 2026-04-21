@@ -46,6 +46,20 @@ export type ProposalIntent =
 	| { kind: 'custom' }
 	| { kind: 'transfer'; coinType?: string | null };
 
+/**
+ * Cheap, structure-aware key for `ProposalIntent` so the apply-once
+ * `useEffect` can dedupe without `JSON.stringify` (which throws on
+ * accidental DOM/React Fiber inputs and would crash the whole sheet).
+ */
+function intentFingerprint(
+	intent: ProposalIntent | null | undefined,
+): string {
+	if (!intent) return 'none';
+	if (intent.kind === 'transfer')
+		return `transfer:${intent.coinType ?? ''}`;
+	return intent.kind;
+}
+
 interface ProposalSheetProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -107,25 +121,33 @@ export function ProposalSheet({
 		useState(false);
 	const lastAppliedIntentRef = useRef<string | null>(null);
 
+	// Single source of truth for "wipe local sheet state". Used by
+	// every flow that needs to reset (close, post-success, intent
+	// change, tab switch) so they can't drift apart.
+	const resetSheet = useCallback(
+		(nextMode: Mode = 'custom') => {
+			setMode(nextMode);
+			setShowRawTransaction(false);
+			form.reset({ description: '', transactionData: '' });
+			dryRunMutation.reset();
+			createProposalMutation.reset();
+		},
+		[createProposalMutation, dryRunMutation, form],
+	);
+
 	// Apply the launching `intent` exactly once per open(). The parent
 	// can stop passing `intent` after this effect runs without flipping
 	// us back to the default mode.
 	useEffect(() => {
 		if (!open) return;
-		const fingerprint = JSON.stringify(intent ?? null);
+		const fingerprint = intentFingerprint(intent);
 		if (lastAppliedIntentRef.current === fingerprint)
 			return;
 		lastAppliedIntentRef.current = fingerprint;
-
-		const nextMode: Mode =
-			intent?.kind === 'transfer' ? 'transfer' : 'custom';
-		setMode(nextMode);
-		setShowRawTransaction(false);
-		form.reset({ description: '', transactionData: '' });
-		dryRunMutation.reset();
-		createProposalMutation.reset();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [open, intent]);
+		resetSheet(
+			intent?.kind === 'transfer' ? 'transfer' : 'custom',
+		);
+	}, [open, intent, resetSheet]);
 
 	// Balances + metadata for the transfer-mode asset picker. Keyed by
 	// network/address inside the hooks, and cached aggressively, so
@@ -140,23 +162,6 @@ export function ProposalSheet({
 	const { map: metadataMap } =
 		useCoinMetadataMap(coinTypes);
 
-	const handleCreateSuccess = useCallback(() => {
-		onOpenChange(false);
-		form.reset();
-		dryRunMutation.reset();
-		setShowRawTransaction(false);
-		setMode('custom');
-		lastAppliedIntentRef.current = null;
-	}, [dryRunMutation, form, onOpenChange]);
-
-	useEffect(() => {
-		if (createProposalMutation.isSuccess) {
-			handleCreateSuccess();
-			createProposalMutation.reset();
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [createProposalMutation.isSuccess]);
-
 	const isDryRunSuccessful =
 		dryRunMutation.isSuccess &&
 		dryRunMutation.data?.result?.Transaction?.effects.status
@@ -164,21 +169,26 @@ export function ProposalSheet({
 
 	const onSubmit = (data: ProposalFormData) => {
 		if (!isDryRunSuccessful) return;
-		createProposalMutation.mutate({
-			multisigAddress,
-			transactionData: data.transactionData,
-			description: data.description,
-		});
+		createProposalMutation.mutate(
+			{
+				multisigAddress,
+				transactionData: data.transactionData,
+				description: data.description,
+			},
+			{
+				onSuccess: () => {
+					onOpenChange(false);
+					resetSheet();
+					lastAppliedIntentRef.current = null;
+				},
+			},
+		);
 	};
 
 	const handleClose = (nextOpen: boolean) => {
 		onOpenChange(nextOpen);
 		if (!nextOpen) {
-			form.reset();
-			dryRunMutation.reset();
-			createProposalMutation.reset();
-			setMode('custom');
-			setShowRawTransaction(false);
+			resetSheet();
 			lastAppliedIntentRef.current = null;
 		}
 	};
@@ -266,14 +276,7 @@ export function ProposalSheet({
 						onTabChange={(next) => {
 							const nextMode = next as Mode;
 							if (nextMode === mode) return;
-							setMode(nextMode);
-							form.reset({
-								description: '',
-								transactionData: '',
-							});
-							dryRunMutation.reset();
-							createProposalMutation.reset();
-							setShowRawTransaction(false);
+							resetSheet(nextMode);
 						}}
 					/>
 				</div>

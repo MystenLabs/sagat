@@ -201,38 +201,26 @@ function SignButton({
 	onSign,
 	isSigning,
 	shouldExecute,
+	disabled,
 }: {
 	onSign: (shouldExecute: boolean) => void;
 	isSigning: boolean;
 	shouldExecute: boolean;
+	disabled?: boolean;
 }) {
-	const currentAccount = useCurrentAccount();
 	return (
-		<>
-			<div className="flex justify-end pt-4">
-				<Button
-					type="button"
-					onClick={() => onSign(shouldExecute)}
-					disabled={isSigning || !currentAccount}
-					variant={shouldExecute ? 'default' : 'outline'}
-				>
-					{isSigning
-						? 'Signing...'
-						: shouldExecute
-							? 'Sign and Execute with Wallet'
-							: 'Sign with Wallet'}
-				</Button>
-			</div>
-
-			{!currentAccount && (
-				<Alert>
-					<span>
-						No wallet connected. Connect a wallet to sign
-						this transaction.
-					</span>
-				</Alert>
-			)}
-		</>
+		<Button
+			type="button"
+			onClick={() => onSign(shouldExecute)}
+			disabled={isSigning || disabled}
+			variant={shouldExecute ? 'default' : 'outline'}
+		>
+			{isSigning
+				? 'Signing...'
+				: shouldExecute
+					? 'Sign and Execute with Wallet'
+					: 'Sign with Wallet'}
+		</Button>
 	);
 }
 
@@ -247,6 +235,7 @@ export default function SigningTool() {
 
 	const network = useCurrentNetwork();
 	const dappKit = useDAppKit();
+	const currentAccount = useCurrentAccount();
 
 	const dryRunMutation = useDryRun();
 
@@ -370,17 +359,29 @@ export default function SigningTool() {
 				)}
 
 				{isDryRunSuccessful && !signedResult && (
-					<div className="flex gap-2 justify-end">
-						<SignButton
-							onSign={handleSign}
-							shouldExecute={true}
-							isSigning={isSigningAndExecuting}
-						/>
-						<SignButton
-							onSign={handleSign}
-							shouldExecute={false}
-							isSigning={isSigning}
-						/>
+					<div className="space-y-3 pt-4">
+						<div className="flex gap-2 justify-end">
+							<SignButton
+								onSign={handleSign}
+								shouldExecute={true}
+								isSigning={isSigningAndExecuting}
+								disabled={!currentAccount}
+							/>
+							<SignButton
+								onSign={handleSign}
+								shouldExecute={false}
+								isSigning={isSigning}
+								disabled={!currentAccount}
+							/>
+						</div>
+						{!currentAccount && (
+							<Alert>
+								<span>
+									No wallet connected. Connect a wallet to
+									sign this transaction.
+								</span>
+							</Alert>
+						)}
 					</div>
 				)}
 			</div>

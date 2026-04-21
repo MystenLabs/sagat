@@ -8,14 +8,10 @@ import {
 	Search,
 	Users,
 } from 'lucide-react';
-import {
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { Label } from '@/components/ui/label';
+import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 interface MultisigSelectorProps {
@@ -52,28 +48,10 @@ export function MultisigSelector({
 		(m) => m.address === selectedMultisig,
 	);
 
-	function handleClickOutside(event: MouseEvent) {
-		if (
-			dropdownRef.current &&
-			!dropdownRef.current.contains(event.target as Node)
-		) {
-			setShowDropdown(false);
-			setSearchQuery(''); // Clear search when closing dropdown
-		}
-	}
-
-	// Close dropdown when clicking outside
-	useEffect(() => {
-		document.addEventListener(
-			'mousedown',
-			handleClickOutside,
-		);
-		return () =>
-			document.removeEventListener(
-				'mousedown',
-				handleClickOutside,
-			);
-	}, []);
+	useOnClickOutside(dropdownRef, () => {
+		setShowDropdown(false);
+		setSearchQuery('');
+	});
 
 	if (!currentMultisig) return null;
 

@@ -3,7 +3,7 @@
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
-import { CheckCircle, Clock, X } from 'lucide-react';
+import { Check, Clock, X } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { type ProposalCardInput } from '@/lib/types';
@@ -72,7 +72,10 @@ export function ProposalPreview({
 						<>
 							{userHasSigned ? (
 								<div className="flex items-center gap-1 text-sm text-success-foreground">
-									<CheckCircle className="w-4 h-4" />
+									<Check
+										strokeWidth={3}
+										className="w-4 h-4"
+									/>
 									Already Signed
 								</div>
 							) : isMember ? (

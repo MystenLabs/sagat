@@ -16,12 +16,13 @@ import { useNetwork } from '../../contexts/NetworkContext';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import { CONFIG } from '../../lib/constants';
 import { MembersList } from '../invitations/MembersList';
+import { type ProposalIntent } from '../ProposalSheet';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Button } from '../ui/button';
 
 interface OverviewTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: () => void;
+	openProposalSheet: (intent?: ProposalIntent) => void;
 }
 
 export function OverviewTab() {

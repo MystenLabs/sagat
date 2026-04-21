@@ -6,7 +6,12 @@ import { useDAppKit } from '@mysten/dapp-kit-react';
 import { isValidSuiAddress } from '@mysten/sui/utils';
 import { useMutation } from '@tanstack/react-query';
 import { Eye } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+} from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
 
@@ -214,18 +219,23 @@ export function TransferForm({
 		onSuccess: (prepared) => onPrepare(prepared),
 	});
 
-	// Whenever the user edits the form after a successful prepare, the
-	// parent's dry-run / proposal-creation state is stale. Watch the
-	// values and reset on the first change post-success.
+	// Any user edit after a successful prepare invalidates the parent's
+	// dry-run / proposal-creation state. Bind to RHF's per-field
+	// `onChange` so we fire exactly once per keystroke without a watch
+	// subscription effect.
+	const invalidatePreparedRef = useRef<() => void>(
+		() => {},
+	);
 	useEffect(() => {
-		if (!buildMutation.isSuccess) return;
-		const subscription = form.watch(() => {
+		invalidatePreparedRef.current = () => {
+			if (!buildMutation.isSuccess) return;
 			buildMutation.reset();
 			onReset();
-		});
-		return () => subscription.unsubscribe();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [buildMutation.isSuccess]);
+		};
+	});
+	const onFieldChange = useCallback(() => {
+		invalidatePreparedRef.current();
+	}, []);
 
 	const isBusy = buildMutation.isPending || isPreviewing;
 	const handleMax = () => {
@@ -235,6 +245,7 @@ export function TransferForm({
 			formatBalance(selectedBalance.balance, decimals),
 			{ shouldDirty: true, shouldValidate: false },
 		);
+		onFieldChange();
 	};
 
 	// Nested <form>s are not valid HTML — `ProposalSheet` already renders
@@ -255,11 +266,12 @@ export function TransferForm({
 					balances={balances}
 					metadataMap={metadataMap}
 					selectedCoinType={coinType || null}
-					onSelect={(next) =>
+					onSelect={(next) => {
 						form.setValue('coinType', next, {
 							shouldDirty: true,
-						})
-					}
+						});
+						onFieldChange();
+					}}
 					disabled={isBusy}
 					isLoading={isLoadingBalances}
 				/>
@@ -283,7 +295,9 @@ export function TransferForm({
 					disabled={isBusy}
 					autoComplete="off"
 					spellCheck={false}
-					{...form.register('recipient')}
+					{...form.register('recipient', {
+						onChange: onFieldChange,
+					})}
 				/>
 				{errors.recipient && (
 					<p className="text-sm text-error-foreground">
@@ -322,7 +336,9 @@ export function TransferForm({
 						autoComplete="off"
 						spellCheck={false}
 						className={symbol ? 'pr-14' : undefined}
-						{...form.register('amount')}
+						{...form.register('amount', {
+							onChange: onFieldChange,
+						})}
 					/>
 					{symbol && (
 						<span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs uppercase tracking-wide text-muted-foreground">
