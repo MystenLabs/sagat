@@ -31,14 +31,21 @@ export function Overview({
 		transaction: true;
 	}>;
 }) {
+	// `Transaction.digest` is only populated for executed transactions;
+	// for simulator results the digest lives inside the effects payload
+	// as `transactionDigest`. Fall back so the row works in both cases.
+	const digest =
+		output.Transaction!.digest ||
+		output.Transaction!.effects.transactionDigest;
+
 	const metadata: Record<string, ReactNode> = {
 		digest: (
 			<div className="flex items-center gap-1.5 min-w-0">
 				<span className="font-mono text-sm break-all">
-					{output.Transaction!.digest}
+					{digest}
 				</span>
 				<CopyButton
-					value={output.Transaction!.digest}
+					value={digest}
 					size="xs"
 					className="size-3.5 p-0 text-muted-foreground [&_svg]:size-3 hover:bg-transparent hover:text-foreground"
 					successMessage="Digest copied"
