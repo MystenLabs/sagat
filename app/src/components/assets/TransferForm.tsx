@@ -1,10 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { isValidSuiAddress } from '@mysten/sui/utils';
+import { useMutation } from '@tanstack/react-query';
 import { Eye } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod/v3';
 
 import { type CoinMetadata } from '../../hooks/useCoinMetadata';
 import { type Balance } from '../../hooks/useMultisigBalances';
@@ -19,7 +23,6 @@ import {
 
 export interface PreparedTransfer {
 	transactionData: string;
-	description: string;
 }
 
 interface TransferFormProps {
@@ -39,6 +42,86 @@ interface TransferFormProps {
 	onReset: () => void;
 }
 
+interface TransferFormValues {
+	coinType: string;
+	recipient: string;
+	amount: string;
+}
+
+/**
+ * Build a Zod schema bound to the currently-selected coin's decimals
+ * and on-chain balance. We rebuild it whenever those change so the
+ * resolver always validates against fresh runtime values.
+ */
+function buildSchema(
+	balances: Balance[],
+	metadataMap: Map<string, CoinMetadata | null | undefined>,
+) {
+	return z
+		.object({
+			coinType: z.string().min(1, 'Pick an asset to send.'),
+			recipient: z
+				.string()
+				.trim()
+				.min(1, 'Please enter a recipient address.')
+				.refine(
+					isValidSuiAddress,
+					'Please enter a valid Sui address.',
+				),
+			amount: z.string(),
+		})
+		.superRefine((values, ctx) => {
+			const balance = balances.find(
+				(b) => b.coinType === values.coinType,
+			);
+			const decimals =
+				metadataMap.get(values.coinType)?.decimals ?? null;
+
+			if (!balance || decimals == null) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['amount'],
+					message:
+						"Coin metadata isn't loaded yet. Please try again in a moment.",
+				});
+				return;
+			}
+
+			const parsed = parseAmount(values.amount, decimals);
+			if (parsed == null) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['amount'],
+					message: `Enter a valid positive amount (up to ${decimals} decimals).`,
+				});
+				return;
+			}
+			if (parsed === 0n) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['amount'],
+					message: 'Amount must be greater than zero.',
+				});
+				return;
+			}
+			if (parsed > BigInt(balance.balance)) {
+				const symbol =
+					metadataMap.get(values.coinType)?.symbol ?? '';
+				const formatted = formatBalance(
+					balance.balance,
+					decimals,
+				);
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['amount'],
+					message: `Amount exceeds available balance (${formatted}${
+						symbol ? ` ${symbol}` : ''
+					}).`,
+				});
+			}
+		});
+}
+
 export function TransferForm({
 	multisigAddress,
 	balances,
@@ -51,53 +134,51 @@ export function TransferForm({
 }: TransferFormProps) {
 	const client = useDAppKit().getClient();
 
-	const [coinType, setCoinType] = useState<string | null>(
-		initialCoinType ?? null,
+	const schema = useMemo(
+		() => buildSchema(balances, metadataMap),
+		[balances, metadataMap],
 	);
-	const [recipient, setRecipient] = useState('');
-	const [amount, setAmount] = useState('');
-	const [recipientError, setRecipientError] = useState<
-		string | null
-	>(null);
-	const [amountError, setAmountError] = useState<
-		string | null
-	>(null);
-	const [buildError, setBuildError] = useState<
-		string | null
-	>(null);
-	const [isBuilding, setIsBuilding] = useState(false);
-	const [hasPrepared, setHasPrepared] = useState(false);
 
-	// If the parent updates the initial selection (e.g. user opens the
-	// sheet from a different asset row), respect that.
+	const form = useForm<TransferFormValues>({
+		resolver: zodResolver(schema),
+		mode: 'onSubmit',
+		reValidateMode: 'onSubmit',
+		defaultValues: {
+			coinType: initialCoinType ?? '',
+			recipient: '',
+			amount: '',
+		},
+	});
+
+	const coinType = form.watch('coinType');
+
+	// Apply prop-driven coin selection updates without making the
+	// component own that state outside RHF.
 	useEffect(() => {
 		if (initialCoinType && initialCoinType !== coinType) {
-			setCoinType(initialCoinType);
-			markDirty();
+			form.setValue('coinType', initialCoinType, {
+				shouldDirty: true,
+			});
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [initialCoinType]);
 
-	// If our currently-selected coin disappears from the balances list
-	// (e.g. balance dropped to zero, or a different multisig is loaded),
-	// fall back to the first available one.
+	// If the selected coin disappears (zero balance, multisig switched,
+	// etc.), fall back to whatever's first in the list.
 	useEffect(() => {
 		if (
 			coinType &&
 			!balances.some((b) => b.coinType === coinType)
 		) {
-			setCoinType(balances[0]?.coinType ?? null);
+			form.setValue(
+				'coinType',
+				balances[0]?.coinType ?? '',
+			);
 		}
-	}, [balances, coinType]);
+	}, [balances, coinType, form]);
 
-	const selectedBalance = useMemo(
-		() =>
-			coinType
-				? (balances.find((b) => b.coinType === coinType) ??
-					null)
-				: null,
-		[balances, coinType],
-	);
+	const selectedBalance =
+		balances.find((b) => b.coinType === coinType) ?? null;
 	const selectedMetadata = coinType
 		? metadataMap.get(coinType)
 		: null;
@@ -108,121 +189,63 @@ export function TransferForm({
 			? formatBalance(selectedBalance.balance, decimals)
 			: null;
 
-	function markDirty() {
-		if (hasPrepared) {
-			setHasPrepared(false);
-			onReset();
-		}
-		setBuildError(null);
-	}
+	const buildMutation = useMutation({
+		mutationFn: async (values: TransferFormValues) => {
+			const balance = balances.find(
+				(b) => b.coinType === values.coinType,
+			)!;
+			const meta = metadataMap.get(values.coinType)!;
+			const amount = parseAmount(
+				values.amount,
+				meta.decimals,
+			)!;
 
-	const handleSelectCoin = (next: string) => {
-		setCoinType(next);
-		setAmount('');
-		setAmountError(null);
-		markDirty();
-	};
-
-	const handleMax = () => {
-		if (!selectedBalance || decimals == null) return;
-		setAmount(
-			formatBalance(selectedBalance.balance, decimals),
-		);
-		setAmountError(null);
-		markDirty();
-	};
-
-	const handlePreview = async () => {
-		setRecipientError(null);
-		setAmountError(null);
-		setBuildError(null);
-
-		if (!selectedBalance || decimals == null) {
-			setBuildError(
-				"Coin metadata isn't loaded yet. Please try again in a moment.",
-			);
-			return;
-		}
-
-		const trimmedRecipient = recipient.trim();
-		if (!trimmedRecipient) {
-			setRecipientError(
-				'Please enter a recipient address.',
-			);
-			return;
-		}
-		if (!isValidSuiAddress(trimmedRecipient)) {
-			setRecipientError(
-				'Please enter a valid Sui address.',
-			);
-			return;
-		}
-
-		const parsed = parseAmount(amount, decimals);
-		if (parsed == null) {
-			setAmountError(
-				`Enter a valid positive amount (up to ${decimals} decimals).`,
-			);
-			return;
-		}
-		if (parsed === 0n) {
-			setAmountError('Amount must be greater than zero.');
-			return;
-		}
-
-		let availableBalance: bigint;
-		try {
-			availableBalance = BigInt(selectedBalance.balance);
-		} catch {
-			availableBalance = 0n;
-		}
-		if (parsed > availableBalance) {
-			setAmountError(
-				`Amount exceeds available balance (${formattedBalance ?? '0'}${
-					symbol ? ` ${symbol}` : ''
-				}).`,
-			);
-			return;
-		}
-
-		setIsBuilding(true);
-		try {
 			const transactionData =
 				await buildTransferTransaction({
 					sender: multisigAddress,
-					recipient: trimmedRecipient,
-					coinType: selectedBalance.coinType,
-					amount: parsed,
+					recipient: values.recipient.trim(),
+					coinType: balance.coinType,
+					amount,
 					client,
 				});
 
-			const description = `Transfer ${formatBalance(
-				parsed.toString(),
-				decimals,
-			)}${
-				symbol ? ` ${symbol}` : ''
-			} to ${trimmedRecipient}`;
+			return { transactionData };
+		},
+		onSuccess: (prepared) => onPrepare(prepared),
+	});
 
-			setHasPrepared(true);
-			onPrepare({ transactionData, description });
-		} catch (err) {
-			setBuildError(
-				err instanceof Error
-					? err.message
-					: 'Failed to build the transfer transaction.',
-			);
-		} finally {
-			setIsBuilding(false);
-		}
+	// Whenever the user edits the form after a successful prepare, the
+	// parent's dry-run / proposal-creation state is stale. Watch the
+	// values and reset on the first change post-success.
+	useEffect(() => {
+		if (!buildMutation.isSuccess) return;
+		const subscription = form.watch(() => {
+			buildMutation.reset();
+			onReset();
+		});
+		return () => subscription.unsubscribe();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [buildMutation.isSuccess]);
+
+	const isBusy = buildMutation.isPending || isPreviewing;
+	const handleMax = () => {
+		if (!selectedBalance || decimals == null) return;
+		form.setValue(
+			'amount',
+			formatBalance(selectedBalance.balance, decimals),
+			{ shouldDirty: true, shouldValidate: false },
+		);
 	};
 
-	const isBusy = isBuilding || isPreviewing;
-	const canPreview =
-		!!selectedBalance &&
-		decimals != null &&
-		recipient.trim().length > 0 &&
-		amount.trim().length > 0 &&
-		!isBusy;
+	// Nested <form>s are not valid HTML — `ProposalSheet` already renders
+	// a parent <form>, so we expose the submit handler imperatively from
+	// a button click instead.
+	const handleSubmit = form.handleSubmit((values) => {
+		buildMutation.mutate(values);
+	});
+
+	const errors = form.formState.errors;
+	const buildError = buildMutation.error;
 
 	return (
 		<div className="space-y-5">
@@ -231,11 +254,20 @@ export function TransferForm({
 				<AssetPicker
 					balances={balances}
 					metadataMap={metadataMap}
-					selectedCoinType={coinType}
-					onSelect={handleSelectCoin}
+					selectedCoinType={coinType || null}
+					onSelect={(next) =>
+						form.setValue('coinType', next, {
+							shouldDirty: true,
+						})
+					}
 					disabled={isBusy}
 					isLoading={isLoadingBalances}
 				/>
+				{errors.coinType && (
+					<p className="text-sm text-error-foreground">
+						{errors.coinType.message}
+					</p>
+				)}
 			</div>
 
 			<div className="space-y-1.5">
@@ -248,19 +280,14 @@ export function TransferForm({
 				<Input
 					id="transfer-recipient"
 					placeholder="0x..."
-					value={recipient}
-					onChange={(e) => {
-						setRecipient(e.target.value);
-						if (recipientError) setRecipientError(null);
-						markDirty();
-					}}
 					disabled={isBusy}
 					autoComplete="off"
 					spellCheck={false}
+					{...form.register('recipient')}
 				/>
-				{recipientError && (
+				{errors.recipient && (
 					<p className="text-sm text-error-foreground">
-						{recipientError}
+						{errors.recipient.message}
 					</p>
 				)}
 			</div>
@@ -290,17 +317,12 @@ export function TransferForm({
 					<Input
 						id="transfer-amount"
 						placeholder="0.0"
-						value={amount}
-						onChange={(e) => {
-							setAmount(e.target.value);
-							if (amountError) setAmountError(null);
-							markDirty();
-						}}
 						disabled={isBusy}
 						inputMode="decimal"
 						autoComplete="off"
 						spellCheck={false}
 						className={symbol ? 'pr-14' : undefined}
+						{...form.register('amount')}
 					/>
 					{symbol && (
 						<span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs uppercase tracking-wide text-muted-foreground">
@@ -308,9 +330,9 @@ export function TransferForm({
 						</span>
 					)}
 				</div>
-				{amountError && (
+				{errors.amount && (
 					<p className="text-sm text-error-foreground">
-						{amountError}
+						{errors.amount.message}
 					</p>
 				)}
 				{selectedBalance && (
@@ -330,7 +352,9 @@ export function TransferForm({
 
 			{buildError && (
 				<p className="text-sm text-error-foreground">
-					{buildError}
+					{buildError instanceof Error
+						? buildError.message
+						: 'Failed to build the transfer transaction.'}
 				</p>
 			)}
 
@@ -339,11 +363,11 @@ export function TransferForm({
 					type="button"
 					variant="outline"
 					size="sm"
-					onClick={handlePreview}
-					disabled={!canPreview}
+					disabled={isBusy}
+					onClick={handleSubmit}
 				>
 					<Eye className="w-4 h-4 mr-1" />
-					{isBuilding
+					{buildMutation.isPending
 						? 'Preparing…'
 						: isPreviewing
 							? 'Previewing…'

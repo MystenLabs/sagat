@@ -205,17 +205,8 @@ export function ProposalSheet({
 			form.setValue(
 				'transactionData',
 				prepared.transactionData,
-				{
-					shouldValidate: true,
-				},
+				{ shouldValidate: true },
 			);
-			// Only seed the description if the user hasn't already
-			// written something — never clobber their text.
-			const currentDescription =
-				form.getValues('description') ?? '';
-			if (!currentDescription.trim()) {
-				form.setValue('description', prepared.description);
-			}
 			dryRunMutation.reset();
 			createProposalMutation.reset();
 			dryRunMutation.mutate(prepared.transactionData);
