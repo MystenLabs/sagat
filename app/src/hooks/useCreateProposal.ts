@@ -41,20 +41,23 @@ export function useCreateProposal() {
 				throw new Error('No connected account');
 			}
 
-			// Parse transaction data
+			// `transactionData` may be either base64 BCS bytes or a
+			// serialized JSON `Transaction`. The wallet resolves and
+			// builds its own bytes when signing; we ship those exact
+			// bytes (`signatureResult.bytes`) to the API so the stored
+			// `transactionBytes` is always canonical base64 BCS,
+			// regardless of how the caller crafted the input.
 			const transaction = Transaction.from(transactionData);
 
-			// Sign the transaction (it will build and sign automatically)
 			const signatureResult = await dappKit.signTransaction(
 				{
 					transaction,
 				},
 			);
 
-			// Create proposal via API
 			return apiClient.createProposal({
 				multisigAddress,
-				transactionBytes: transactionData,
+				transactionBytes: signatureResult.bytes,
 				signature: signatureResult.signature as string,
 				description,
 				network,

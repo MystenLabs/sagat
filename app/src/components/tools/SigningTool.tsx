@@ -246,7 +246,7 @@ export default function SigningTool() {
 
 	const isDryRunSuccessful =
 		dryRunMutation.isSuccess &&
-		dryRunMutation.data?.Transaction?.effects.status
+		dryRunMutation.data?.result?.Transaction?.effects.status
 			.success;
 
 	useEffect(() => {
@@ -348,10 +348,10 @@ export default function SigningTool() {
 						dryRunMutation.error) && (
 						<PreviewResult
 							isSuccess={isDryRunSuccessful}
-							data={dryRunMutation.data}
+							data={dryRunMutation.data?.result}
 							error={dryRunMutation.error}
 							isLoading={dryRunMutation.isPending}
-							bytes={transactionData}
+							bytes={dryRunMutation.data?.bytes}
 						/>
 					)}
 

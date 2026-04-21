@@ -11,4 +11,6 @@ export const QueryKeys = {
 	All: 'all',
 	Executed: 'executed',
 	Invitations: 'invitations',
+	Balances: 'balances',
+	CoinMetadata: 'coin-metadata',
 } as const;

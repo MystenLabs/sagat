@@ -22,7 +22,10 @@ import {
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { MultisigSelector } from './MultisigSelector';
-import { ProposalSheet } from './ProposalSheet';
+import {
+	ProposalSheet,
+	type ProposalIntent,
+} from './ProposalSheet';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Loading } from './ui/loading';
@@ -36,6 +39,8 @@ export function MultisigDetailPage() {
 	const currentAccount = useCurrentAccount();
 	const [showProposalSheet, setShowProposalSheet] =
 		useState(false);
+	const [proposalIntent, setProposalIntent] =
+		useState<ProposalIntent | null>(null);
 	const { copied, copy } = useCopyToClipboard();
 
 	const { data: multisigs, isLoading } = useUserMultisigs();
@@ -155,7 +160,10 @@ export function MultisigDetailPage() {
 									)}
 								</Button>
 								<Button
-									onClick={() => setShowProposalSheet(true)}
+									onClick={() => {
+										setProposalIntent({ kind: 'custom' });
+										setShowProposalSheet(true);
+									}}
 								>
 									<Plus className="w-4 h-4 mr-2" />
 									New Proposal
@@ -207,8 +215,14 @@ export function MultisigDetailPage() {
 				<Outlet
 					context={{
 						multisig,
-						openProposalSheet: () =>
-							setShowProposalSheet(true),
+						openProposalSheet: (
+							intent?: ProposalIntent,
+						) => {
+							setProposalIntent(
+								intent ?? { kind: 'custom' },
+							);
+							setShowProposalSheet(true);
+						},
 					}}
 				/>
 			</div>
@@ -216,8 +230,12 @@ export function MultisigDetailPage() {
 			{/* Proposal Creation Sheet */}
 			<ProposalSheet
 				open={showProposalSheet}
-				onOpenChange={setShowProposalSheet}
+				onOpenChange={(open) => {
+					setShowProposalSheet(open);
+					if (!open) setProposalIntent(null);
+				}}
 				multisigAddress={address!}
+				intent={proposalIntent}
 			/>
 		</div>
 	);

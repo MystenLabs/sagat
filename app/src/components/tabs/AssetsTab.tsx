@@ -1,61 +1,88 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Coins, ExternalLink } from 'lucide-react';
+import { Send } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
+import { useCoinMetadataMap } from '../../hooks/useCoinMetadata';
+import { useMultisigBalances } from '../../hooks/useMultisigBalances';
 import { CONFIG } from '../../lib/constants';
+import { AssetsHeader } from '../assets/AssetsHeader';
+import { AssetsList } from '../assets/AssetsList';
+import { type ProposalIntent } from '../ProposalSheet';
 import { Button } from '../ui/button';
 
 interface AssetsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: () => void;
+	openProposalSheet: (intent?: ProposalIntent) => void;
 }
 
 export function AssetsTab() {
-	const { multisig } = useOutletContext<AssetsTabContext>();
+	const { multisig, openProposalSheet } =
+		useOutletContext<AssetsTabContext>();
 	const { network } = useNetwork();
+	const [isRefreshCooldown, setIsRefreshCooldown] =
+		useState(false);
 
-	const getExplorerUrl = (address: string) => {
-		const baseUrl = CONFIG.EXPLORER_URLS[network];
-		return `${baseUrl}/account/${address}`;
+	const balancesQuery = useMultisigBalances(
+		multisig.address,
+	);
+
+	const coinTypes = useMemo(
+		() => balancesQuery.balances.map((b) => b.coinType),
+		[balancesQuery.balances],
+	);
+	const { map: metadataMap } =
+		useCoinMetadataMap(coinTypes);
+
+	const handleRefresh = () => {
+		if (isRefreshCooldown || balancesQuery.isFetching) {
+			return;
+		}
+		setIsRefreshCooldown(true);
+		balancesQuery.refetch();
+		setTimeout(() => setIsRefreshCooldown(false), 5000);
 	};
 
+	const explorerUrl = `${CONFIG.EXPLORER_URLS[network]}/account/${multisig.address}`;
+
 	return (
-		<div className="space-y-6">
-			{/* Coming Soon Card */}
-			<div className="bg-card border rounded-lg p-8 text-center">
-				<div className="w-16 h-16 bg-info-soft rounded-full flex items-center justify-center mx-auto mb-4">
-					<Coins className="w-8 h-8 text-info-foreground" />
-				</div>
+		<div className="space-y-4">
+			<AssetsHeader
+				count={balancesQuery.balances.length}
+				hasMore={balancesQuery.hasNextPage ?? false}
+				isRefetching={balancesQuery.isFetching}
+				isRefreshCooldown={isRefreshCooldown}
+				onRefresh={handleRefresh}
+				explorerUrl={explorerUrl}
+			/>
 
-				<h2 className="text-xl font-semibold mb-2">
-					Asset Management
-				</h2>
-				<p className="text-muted-foreground mb-6">
-					Assets management is not supported. You can view
-					this multisig's assets directly on the Sui
-					explorer.
-				</p>
-
-				<div className="flex flex-col sm:flex-row gap-3 justify-center">
+			<AssetsList
+				query={balancesQuery}
+				metadataMap={metadataMap}
+				explorerUrl={explorerUrl}
+				renderRowActions={(balance, metadata) => (
 					<Button
+						variant="outline"
+						size="sm"
+						className="h-7 px-2.5 text-xs"
+						disabled={metadata?.decimals == null}
 						onClick={() =>
-							window.open(
-								getExplorerUrl(multisig.address),
-								'_blank',
-							)
+							openProposalSheet({
+								kind: 'transfer',
+								coinType: balance.coinType,
+							})
 						}
-						className="inline-flex items-center"
 					>
-						<ExternalLink className="w-4 h-4 mr-2" />
-						View Assets on Explorer
+						<Send className="w-3.5 h-3.5 mr-1" />
+						Send
 					</Button>
-				</div>
-			</div>
+				)}
+			/>
 		</div>
 	);
 }

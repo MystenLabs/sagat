@@ -68,6 +68,8 @@
 	--color-purple-foreground: var(--purple-foreground);
 
 	--color-surface: var(--surface);
+	--color-surface-hover: var(--surface-hover);
+	--color-row-selected: var(--row-selected);
 }
 
 :root {
@@ -127,7 +129,12 @@
 	--purple: oklch(0.93 0.06 300);
 	--purple-foreground: oklch(0.5 0.2 300);
 
-	--surface: oklch(0.97 0 0);
+	--surface: oklch(0.98 0 0);
+	/* Hover/selected tints for interactive rows. Tuned to be clearly
+	   perceptible on top of `--card`/`--popover` without overpowering the
+	   row's own contents. */
+	--surface-hover: oklch(0.93 0 0);
+	--row-selected: oklch(0.9 0 0);
 }
 
 .dark {
@@ -186,7 +193,9 @@
 	--purple: oklch(0.26 0.06 300);
 	--purple-foreground: oklch(0.75 0.15 300);
 
-	--surface: oklch(0.16 0 0);
+	--surface: oklch(0.18 0 0);
+	--surface-hover: oklch(0.32 0 0);
+	--row-selected: oklch(0.36 0 0);
 }
 
 @layer base {

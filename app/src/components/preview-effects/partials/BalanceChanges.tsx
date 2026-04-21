@@ -1,10 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useDAppKit } from '@mysten/dapp-kit-react';
 import type { SuiClientTypes } from '@mysten/sui/client';
-import { useQuery } from '@tanstack/react-query';
 
+import { useCoinMetadata } from '../../../hooks/useCoinMetadata';
+import { CoinIcon } from '../../ui/CoinIcon';
 import { PreviewCard } from '../PreviewCard';
 import {
 	onChainAmountToFloat,
@@ -30,21 +30,9 @@ function ChangedBalance({
 }: {
 	change: SuiClientTypes.BalanceChange;
 }) {
-	// TODO: This should use the "active" client of the selection, NOT
-	// the dappKit client!
-	// Otherwise, this does a query to the wrong network.
-	const client = useDAppKit().getClient();
-
-	const { data: coinMetadata } = useQuery({
-		queryKey: ['getCoinMetadata', change.coinType],
-		queryFn: async () => {
-			return await client.getCoinMetadata({
-				coinType: change.coinType!,
-			});
-		},
-		select: (data) => data.coinMetadata,
-		enabled: !!change.coinType,
-	});
+	const { data: coinMetadata } = useCoinMetadata(
+		change.coinType,
+	);
 
 	const amount = () => {
 		if (!coinMetadata) return '-';
@@ -62,13 +50,12 @@ function ChangedBalance({
 		<PreviewCard.Root>
 			<PreviewCard.Body>
 				<>
-					{coinMetadata.iconUrl && (
-						<img
-							src={coinMetadata.iconUrl as string}
-							alt={coinMetadata.name}
-							className="w-12 h-auto"
-						/>
-					)}
+					<CoinIcon
+						iconUrl={coinMetadata.iconUrl}
+						symbol={coinMetadata.symbol}
+						coinType={change.coinType}
+						size="xl"
+					/>
 					<p>
 						<span
 							className={`${Number(amount()) > 0.0 ? 'text-success-foreground' : 'text-error-foreground'}`}

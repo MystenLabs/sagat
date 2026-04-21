@@ -58,7 +58,7 @@ export function ProposalPreview({
 	};
 
 	const isDryRunSuccessful =
-		dryRunMutation.data?.Transaction?.effects.status
+		dryRunMutation.data?.result?.Transaction?.effects.status
 			.success;
 
 	return (
@@ -124,8 +124,8 @@ export function ProposalPreview({
 			{dryRunMutation.data && (
 				<div className="py-2">
 					<EffectsPreview
-						output={dryRunMutation.data}
-						bytes={proposal.transactionBytes}
+						output={dryRunMutation.data.result}
+						bytes={dryRunMutation.data.bytes}
 					/>
 				</div>
 			)}
