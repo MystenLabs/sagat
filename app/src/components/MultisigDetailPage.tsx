@@ -131,7 +131,7 @@ export function MultisigDetailPage() {
 	];
 
 	return (
-		<div className="container mx-auto mt-8 px-4 pb-12">
+		<div className="page-shell mt-8 pb-12">
 			{/* Header */}
 			<div className="mb-6">
 				{/* Multisig Selector & Info */}

@@ -206,3 +206,10 @@
 		@apply bg-background text-foreground;
 	}
 }
+
+/* Shared horizontal shell used by the top header and every page so the
+   left/right edges of header content align with body content. Tweak the
+   max-width and gutter here once and the entire app follows. */
+@utility page-shell {
+	@apply mx-auto w-full max-w-[1600px] px-4;
+}
