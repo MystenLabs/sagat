@@ -6,8 +6,8 @@ import { type ReactNode } from 'react';
 
 import { type CoinMetadata } from '../../hooks/useCoinMetadata';
 import {
-	type useMultisigBalances,
 	type Balance,
+	type useMultisigBalances,
 } from '../../hooks/useMultisigBalances';
 import { Button } from '../ui/button';
 import { EmptyState } from '../ui/empty-state';
