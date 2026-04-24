@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-	AlertCircle,
-	Check,
-	Eye,
-} from 'lucide-react';
+import { AlertCircle, Check, Eye } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
