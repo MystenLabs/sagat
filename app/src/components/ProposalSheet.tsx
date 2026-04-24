@@ -162,11 +162,12 @@ function ProposalSheetBody({
 
 	const onFormSubmit = (event: React.FormEvent) =>
 		handleSubmit((data) => {
-			if (!isDryRunSuccessful) return;
+			if (!isDryRunSuccessful || !dryRunMutation.data?.bytes)
+				return;
 			createProposalMutation.mutate(
 				{
 					multisigAddress,
-					transactionData: data.transactionData,
+					transactionBytes: dryRunMutation.data.bytes,
 					description: data.description,
 				},
 				{ onSuccess: onClose },

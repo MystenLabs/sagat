@@ -20,7 +20,7 @@ import { QueryKeys } from '../lib/queryKeys';
 
 interface CreateProposalParams {
 	multisigAddress: string;
-	transactionData: string;
+	transactionBytes: string;
 	description?: string;
 }
 
@@ -34,20 +34,15 @@ export function useCreateProposal() {
 	return useMutation({
 		mutationFn: async ({
 			multisigAddress,
-			transactionData,
+			transactionBytes,
 			description,
 		}: CreateProposalParams) => {
 			if (!currentAddress || !currentAccount) {
 				throw new Error('No connected account');
 			}
 
-			// `transactionData` may be either base64 BCS bytes or a
-			// serialized JSON `Transaction`. The wallet resolves and
-			// builds its own bytes when signing; we ship those exact
-			// bytes (`signatureResult.bytes`) to the API so the stored
-			// `transactionBytes` is always canonical base64 BCS,
-			// regardless of how the caller crafted the input.
-			const transaction = Transaction.from(transactionData);
+			// Sign exactly the bytes that were previewed in the UI.
+			const transaction = Transaction.from(transactionBytes);
 
 			const signatureResult = await dappKit.signTransaction(
 				{
@@ -57,7 +52,7 @@ export function useCreateProposal() {
 
 			return apiClient.createProposal({
 				multisigAddress,
-				transactionBytes: signatureResult.bytes,
+				transactionBytes,
 				signature: signatureResult.signature as string,
 				description,
 				network,

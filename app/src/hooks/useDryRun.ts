@@ -3,27 +3,40 @@
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { Transaction } from '@mysten/sui/transactions';
-import { toBase64 } from '@mysten/sui/utils';
+import {
+	fromBase64,
+	toBase64,
+} from '@mysten/sui/utils';
 import { useMutation } from '@tanstack/react-query';
 
 /**
- * Dry-runs an arbitrary transaction (passed as either base64 BCS bytes
- * or a JSON serialized Transaction) and returns both the simulation
- * result and the canonical base64-encoded BCS bytes that were sent on
- * the wire. Callers (e.g. `EffectsPreview`) need the bytes to compute
- * the ledger transaction hash, so we expose them alongside the result
- * to avoid the caller having to know the original input format.
+ * Dry-runs an arbitrary transaction (base64 BCS bytes or a JSON
+ * serialized `Transaction`) and returns both the simulation result and
+ * the exact base64 bytes that were simulated.
+ *
+ * For base64 input we simulate those bytes directly (no rebuild), so
+ * downstream components can rely on byte identity.
  */
 export function useDryRun() {
 	const client = useDAppKit().getClient();
 
 	return useMutation({
 		mutationFn: async (transactionData: string) => {
-			const tx = Transaction.from(transactionData);
-			const builtBytes = await tx.build({ client });
+			const trimmed = transactionData.trim();
+			let bytes: Uint8Array;
+			let transactionBytes: string;
+
+			try {
+				bytes = fromBase64(trimmed);
+				transactionBytes = trimmed;
+			} catch {
+				const tx = Transaction.from(trimmed);
+				bytes = await tx.build({ client });
+				transactionBytes = toBase64(bytes);
+			}
 
 			const result = await client.simulateTransaction({
-				transaction: builtBytes,
+				transaction: bytes,
 				include: {
 					effects: true,
 					balanceChanges: true,
@@ -40,7 +53,7 @@ export function useDryRun() {
 				);
 			}
 
-			return { result, bytes: toBase64(builtBytes) };
+			return { result, bytes: transactionBytes };
 		},
 		retry: false,
 	});

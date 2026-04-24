@@ -82,7 +82,7 @@ export function MultisigDetailPage() {
 		}
 	}, [address, verifiedMultisigs, currentAccount?.address]);
 
-	if (isLoading || isLoading) {
+	if (isLoading) {
 		return (
 			<Loading message="Loading multisig details..." />
 		);

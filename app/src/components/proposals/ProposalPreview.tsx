@@ -128,7 +128,7 @@ export function ProposalPreview({
 				<div className="py-2">
 					<EffectsPreview
 						output={dryRunMutation.data.result}
-						bytes={dryRunMutation.data.bytes}
+						bytes={proposal.transactionBytes}
 					/>
 				</div>
 			)}

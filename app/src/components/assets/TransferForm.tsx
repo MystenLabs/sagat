@@ -3,7 +3,10 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useDAppKit } from '@mysten/dapp-kit-react';
-import { isValidSuiAddress } from '@mysten/sui/utils';
+import {
+	isValidSuiAddress,
+	SUI_TYPE_ARG,
+} from '@mysten/sui/utils';
 import { useMutation } from '@tanstack/react-query';
 import { Eye } from 'lucide-react';
 import {
@@ -23,6 +26,7 @@ import { AssetPicker } from './AssetPicker';
 import { buildTransferTransaction } from './buildTransferTransaction';
 import {
 	formatBalance,
+	getMaxInputAmount,
 	parseAmount,
 } from './formatBalance';
 
@@ -52,6 +56,9 @@ interface TransferFormValues {
 	recipient: string;
 	amount: string;
 }
+
+// Keep a small SUI buffer so "Max" transfers do not consume the full gas coin.
+const SUI_TRANSFER_GAS_RESERVE = 50_000_000n; // 0.05 SUI
 
 /**
  * Build a Zod schema bound to the currently-selected coin's decimals
@@ -109,19 +116,43 @@ function buildSchema(
 				});
 				return;
 			}
-			if (parsed > BigInt(balance.balance)) {
+			const rawBalance = BigInt(balance.balance);
+			const maxSpendable =
+				values.coinType === SUI_TYPE_ARG
+					? rawBalance > SUI_TRANSFER_GAS_RESERVE
+						? rawBalance - SUI_TRANSFER_GAS_RESERVE
+						: 0n
+					: rawBalance;
+			if (
+				values.coinType === SUI_TYPE_ARG &&
+				maxSpendable === 0n
+			) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					path: ['amount'],
+					message:
+						'SUI balance is too low to cover transfer gas.',
+				});
+				return;
+			}
+			if (parsed > maxSpendable) {
 				const symbol =
 					metadataMap.get(values.coinType)?.symbol ?? '';
 				const formatted = formatBalance(
-					balance.balance,
+					maxSpendable.toString(),
 					decimals,
 				);
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
 					path: ['amount'],
-					message: `Amount exceeds available balance (${formatted}${
-						symbol ? ` ${symbol}` : ''
-					}).`,
+					message:
+						values.coinType === SUI_TYPE_ARG
+							? `Leave some SUI for gas. Maximum transferable amount is ${formatted}${
+									symbol ? ` ${symbol}` : ''
+								}.`
+							: `Amount exceeds available balance (${formatted}${
+									symbol ? ` ${symbol}` : ''
+								}).`,
 				});
 			}
 		});
@@ -194,6 +225,16 @@ export function TransferForm({
 		selectedBalance && decimals != null
 			? formatBalance(selectedBalance.balance, decimals)
 			: null;
+	const maxInputAmount =
+		selectedBalance && decimals != null
+			? getMaxInputAmount(
+					selectedBalance.balance,
+					decimals,
+					coinType === SUI_TYPE_ARG
+						? SUI_TRANSFER_GAS_RESERVE.toString()
+						: undefined,
+				)
+			: null;
 
 	const buildMutation = useMutation({
 		mutationFn: async (values: TransferFormValues) => {
@@ -240,10 +281,10 @@ export function TransferForm({
 
 	const isBusy = buildMutation.isPending || isPreviewing;
 	const handleMax = () => {
-		if (!selectedBalance || decimals == null) return;
+		if (!maxInputAmount) return;
 		form.setValue(
 			'amount',
-			formatBalance(selectedBalance.balance, decimals),
+			maxInputAmount,
 			{ shouldDirty: true, shouldValidate: false },
 		);
 		onFieldChange();
@@ -327,7 +368,7 @@ export function TransferForm({
 						className="h-6 px-2 text-xs"
 						onClick={handleMax}
 						disabled={
-							isBusy || !selectedBalance || decimals == null
+							isBusy || !maxInputAmount
 						}
 					>
 						Max
