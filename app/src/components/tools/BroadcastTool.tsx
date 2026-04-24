@@ -3,7 +3,7 @@
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { fromBase64 } from '@mysten/sui/utils';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { AlertCircle, Check } from 'lucide-react';
 import { useState } from 'react';
 
 import { NetworkSelector } from '@/components/LocalNetworkSelector';
@@ -80,7 +80,10 @@ function BroadcastResultDisplay({
 		<div className="border border-success-border bg-card rounded-lg p-4">
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
-					<CheckCircle className="w-5 h-5 text-success-foreground" />
+					<Check
+						strokeWidth={3}
+						className="w-5 h-5 text-success-foreground"
+					/>
 					<h3 className="font-medium text-foreground">
 						Transaction Broadcast Successfully
 					</h3>

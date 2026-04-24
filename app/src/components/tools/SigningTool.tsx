@@ -10,7 +10,7 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	AlertCircle,
-	CheckCircle,
+	Check,
 	ExternalLink,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -97,7 +97,10 @@ function PreviewResult({
 			<div className="flex items-center gap-2 mb-3">
 				{isSuccess ? (
 					<>
-						<CheckCircle className="w-5 h-5 text-success-foreground" />
+						<Check
+							strokeWidth={3}
+							className="w-4 h-4 text-success-foreground"
+						/>
 						<h3 className="font-medium text-foreground">
 							Transaction Preview - Success
 						</h3>
@@ -146,7 +149,10 @@ function SignedResultDisplay({
 		<div className="border border-border bg-card rounded-lg p-4">
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
-					<CheckCircle className="w-5 h-5 text-success-foreground" />
+					<Check
+						strokeWidth={3}
+						className="w-4 h-4 text-success-foreground"
+					/>
 					<h3 className="font-medium text-foreground">
 						Transaction{' '}
 						{result.digest
@@ -195,38 +201,26 @@ function SignButton({
 	onSign,
 	isSigning,
 	shouldExecute,
+	disabled,
 }: {
 	onSign: (shouldExecute: boolean) => void;
 	isSigning: boolean;
 	shouldExecute: boolean;
+	disabled?: boolean;
 }) {
-	const currentAccount = useCurrentAccount();
 	return (
-		<>
-			<div className="flex justify-end pt-4">
-				<Button
-					type="button"
-					onClick={() => onSign(shouldExecute)}
-					disabled={isSigning || !currentAccount}
-					variant={shouldExecute ? 'default' : 'outline'}
-				>
-					{isSigning
-						? 'Signing...'
-						: shouldExecute
-							? 'Sign and Execute with Wallet'
-							: 'Sign with Wallet'}
-				</Button>
-			</div>
-
-			{!currentAccount && (
-				<Alert>
-					<span>
-						No wallet connected. Connect a wallet to sign
-						this transaction.
-					</span>
-				</Alert>
-			)}
-		</>
+		<Button
+			type="button"
+			onClick={() => onSign(shouldExecute)}
+			disabled={isSigning || disabled}
+			variant={shouldExecute ? 'default' : 'outline'}
+		>
+			{isSigning
+				? 'Signing...'
+				: shouldExecute
+					? 'Sign and Execute with Wallet'
+					: 'Sign with Wallet'}
+		</Button>
 	);
 }
 
@@ -241,6 +235,7 @@ export default function SigningTool() {
 
 	const network = useCurrentNetwork();
 	const dappKit = useDAppKit();
+	const currentAccount = useCurrentAccount();
 
 	const dryRunMutation = useDryRun();
 
@@ -364,17 +359,29 @@ export default function SigningTool() {
 				)}
 
 				{isDryRunSuccessful && !signedResult && (
-					<div className="flex gap-2 justify-end">
-						<SignButton
-							onSign={handleSign}
-							shouldExecute={true}
-							isSigning={isSigningAndExecuting}
-						/>
-						<SignButton
-							onSign={handleSign}
-							shouldExecute={false}
-							isSigning={isSigning}
-						/>
+					<div className="space-y-3 pt-4">
+						<div className="flex gap-2 justify-end">
+							<SignButton
+								onSign={handleSign}
+								shouldExecute={true}
+								isSigning={isSigningAndExecuting}
+								disabled={!currentAccount}
+							/>
+							<SignButton
+								onSign={handleSign}
+								shouldExecute={false}
+								isSigning={isSigning}
+								disabled={!currentAccount}
+							/>
+						</div>
+						{!currentAccount && (
+							<Alert>
+								<span>
+									No wallet connected. Connect a wallet to
+									sign this transaction.
+								</span>
+							</Alert>
+						)}
 					</div>
 				)}
 			</div>

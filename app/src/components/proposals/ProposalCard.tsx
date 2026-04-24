@@ -11,7 +11,7 @@ import {
 	formatDigest,
 } from '@mysten/sui/utils';
 import {
-	CheckCircle,
+	Check,
 	ChevronDown,
 	ChevronRight,
 	ExternalLink,
@@ -158,7 +158,7 @@ export function ProposalCard({
 
 		return (
 			<Label variant="success">
-				<CheckCircle className="w-3 h-3" />
+				<Check strokeWidth={3} className="w-3 h-3" />
 				Already Signed
 			</Label>
 		);

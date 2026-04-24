@@ -24,15 +24,15 @@ export function Tabs({
 }: TabsProps) {
 	return (
 		<div className="border-b">
-			<div className="flex space-x-8">
+			<div className="flex">
 				{tabs.map((tab) => (
 					<button
 						key={tab.id}
 						onClick={() => onTabChange(tab.id)}
-						className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer ${
+						className={`flex cursor-pointer items-center gap-2 border-b-2 py-3 px-3 text-sm font-medium transition-colors ${
 							activeTab === tab.id
 								? 'border-info-border text-info-foreground'
-								: 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+								: 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
 						}`}
 					>
 						{tab.icon}

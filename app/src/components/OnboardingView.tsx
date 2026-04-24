@@ -1,12 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	CheckCircle,
-	Lock,
-	Plus,
-	Users,
-} from 'lucide-react';
+import { Check, Lock, Plus, Users } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from './ui/button';
@@ -87,7 +82,10 @@ export function OnboardingView() {
 
 				<div className="text-center p-6">
 					<div className="inline-flex items-center justify-center w-16 h-16 bg-info-soft rounded-full mb-4">
-						<CheckCircle className="w-8 h-8 text-info-foreground" />
+						<Check
+							strokeWidth={3}
+							className="w-8 h-8 text-info-foreground"
+						/>
 					</div>
 					<h3 className="font-semibold text-lg mb-2">
 						Transparent Governance
