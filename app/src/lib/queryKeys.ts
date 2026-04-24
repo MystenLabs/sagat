@@ -5,6 +5,7 @@ export const QueryKeys = {
 	Multisig: 'multisig',
 	Multisigs: 'multisigs',
 	User: 'user',
+	CoinMetadata: 'coin-metadata',
 	Proposal: 'proposal-single',
 	Proposals: 'proposals',
 	Pending: 'pending',
