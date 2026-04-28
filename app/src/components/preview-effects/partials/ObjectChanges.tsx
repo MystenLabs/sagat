@@ -107,9 +107,11 @@ function FilterPill({
 export function ObjectChanges({
 	objects,
 	objectTypes,
+	senderAddress,
 }: {
 	objects: SuiClientTypes.ChangedObject[];
 	objectTypes?: Record<string, string>;
+	senderAddress?: string;
 }) {
 	const { annotated, groups } = useMemo(() => {
 		const annotated: AnnotatedObject[] = [];
@@ -171,6 +173,7 @@ export function ObjectChanges({
 						object={object}
 						kind={kind}
 						objectType={objectTypes?.[object.objectId]}
+						senderAddress={senderAddress}
 					/>
 				))}
 			</div>
@@ -182,10 +185,12 @@ function ChangedObject({
 	object,
 	kind,
 	objectType,
+	senderAddress,
 }: {
 	object: SuiClientTypes.ChangedObject;
 	kind: ChangeKind;
 	objectType?: string;
+	senderAddress?: string;
 }) {
 	return (
 		<PreviewCard.Root>
@@ -215,6 +220,7 @@ function ChangedObject({
 
 			<PreviewCard.Footer
 				owner={object.outputOwner ?? undefined}
+				senderAddress={senderAddress}
 			/>
 		</PreviewCard.Root>
 	);

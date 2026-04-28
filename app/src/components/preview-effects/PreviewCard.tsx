@@ -54,8 +54,10 @@ function Header({ children }: HeaderProps) {
 function Footer({
 	children,
 	owner,
+	senderAddress,
 }: FooterProps & {
 	owner?: SuiClientTypes.ObjectOwner | string;
+	senderAddress?: string;
 }) {
 	return (
 		<div className="mt-auto bg-surface px-3 py-2 text-xs text-muted-foreground border-t">
@@ -70,9 +72,13 @@ function Footer({
 									$kind: 'AddressOwner',
 									AddressOwner: owner,
 								}}
+								senderAddress={senderAddress}
 							/>
 						) : (
-							<ObjectLink owner={owner} />
+							<ObjectLink
+								owner={owner}
+								senderAddress={senderAddress}
+							/>
 						)}
 					</div>
 				</div>

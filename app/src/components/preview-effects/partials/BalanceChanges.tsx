@@ -22,8 +22,10 @@ type CoinDataMap = ReturnType<
 
 export function BalanceChanges({
 	changes,
+	senderAddress,
 }: {
 	changes: SuiClientTypes.BalanceChange[];
+	senderAddress?: string;
 }) {
 	const coinTypes = useMemo(
 		() =>
@@ -49,6 +51,7 @@ export function BalanceChanges({
 					change={change}
 					coinDataMap={coinDataMap}
 					isCoinDataLoading={isLoading}
+					senderAddress={senderAddress}
 				/>
 			))}
 		</div>
@@ -59,10 +62,12 @@ function ChangedBalance({
 	change,
 	coinDataMap,
 	isCoinDataLoading,
+	senderAddress,
 }: {
 	change: SuiClientTypes.BalanceChange;
 	coinDataMap: CoinDataMap;
 	isCoinDataLoading: boolean;
+	senderAddress?: string;
 }) {
 	const coinData = change.coinType
 		? coinDataMap.get(change.coinType)
@@ -141,7 +146,10 @@ function ChangedBalance({
 					</div>
 				</div>
 			</PreviewCard.Body>
-			<PreviewCard.Footer owner={change.address} />
+			<PreviewCard.Footer
+				owner={change.address}
+				senderAddress={senderAddress}
+			/>
 		</PreviewCard.Root>
 	);
 }

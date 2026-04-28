@@ -3,7 +3,10 @@
 
 import { useCurrentNetwork } from '@mysten/dapp-kit-react';
 import type { SuiClientTypes } from '@mysten/sui/client';
-import { formatAddress } from '@mysten/sui/utils';
+import {
+	formatAddress,
+	normalizeSuiAddress,
+} from '@mysten/sui/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -39,12 +42,14 @@ export function ObjectLink({
 	type,
 	object,
 	inputObject,
+	senderAddress,
 	...tags
 }: {
 	inputObject?: string;
 	type?: string;
 	owner?: SuiClientTypes.ObjectOwner;
 	object?: SuiClientTypes.ChangedObject;
+	senderAddress?: string;
 } & React.HTMLAttributes<HTMLAnchorElement> &
 	React.ComponentPropsWithoutRef<'a'>) {
 	const [copied, setCopied] = useState(false);
@@ -82,6 +87,17 @@ export function ObjectLink({
 	if (object) {
 		objectId = object.objectId;
 		display = formatAddress(objectId);
+	}
+
+	if (
+		objectId &&
+		senderAddress &&
+		ownerDisplay &&
+		typeof ownerDisplay !== 'string' &&
+		'address' in ownerDisplay &&
+		isSameAddress(objectId, senderAddress)
+	) {
+		display = 'Sender';
 	}
 
 	const link = objectId
@@ -134,4 +150,14 @@ export function ObjectLink({
 			)}
 		</>
 	);
+}
+
+function isSameAddress(a: string, b: string): boolean {
+	try {
+		return (
+			normalizeSuiAddress(a) === normalizeSuiAddress(b)
+		);
+	} catch {
+		return false;
+	}
 }

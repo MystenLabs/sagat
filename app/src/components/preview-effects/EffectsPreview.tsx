@@ -96,6 +96,8 @@ export function EffectsPreview({
 		output.Transaction!.effects.changedObjects;
 	const balanceChanges = output.Transaction!.balanceChanges;
 	const objectTypes = output.Transaction!.objectTypes;
+	const senderAddress =
+		output.Transaction!.transaction.sender ?? undefined;
 
 	// Compute the blake2b hash (ledger transaction hash)
 	const ledgerTransactionHash = useMemo(() => {
@@ -121,7 +123,10 @@ export function EffectsPreview({
 			label: 'Balance Changes',
 			count: balanceChanges?.length,
 			component: () => (
-				<BalanceChanges changes={balanceChanges} />
+				<BalanceChanges
+					changes={balanceChanges}
+					senderAddress={senderAddress}
+				/>
 			),
 		},
 		{
@@ -132,6 +137,7 @@ export function EffectsPreview({
 				<ObjectChanges
 					objects={objectChanges}
 					objectTypes={objectTypes}
+					senderAddress={senderAddress}
 				/>
 			),
 		},
