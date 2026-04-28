@@ -2,26 +2,54 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { SuiClientTypes } from '@mysten/sui/client';
+import { useMemo } from 'react';
 
-import { useCoinMetadata } from '../../../hooks/useCoinMetadata';
+import { useCoinDisplayDataMap } from '../../../hooks/useCoinDisplayData';
+import {
+	coinUsdValue,
+	formatCoinAmount,
+	formatUsdValue,
+} from '../../../lib/coins';
 import { CoinIcon } from '../../ui/CoinIcon';
 import { CopyButton } from '../../ui/CopyButton';
 import { Skeleton } from '../../ui/skeleton';
 import { PreviewCard } from '../PreviewCard';
-import {
-	formatCoinType,
-	onChainAmountToFloat,
-} from '../utils';
+import { formatCoinType } from '../utils';
+
+type CoinDataMap = ReturnType<
+	typeof useCoinDisplayDataMap
+>['map'];
 
 export function BalanceChanges({
 	changes,
 }: {
 	changes: SuiClientTypes.BalanceChange[];
 }) {
+	const coinTypes = useMemo(
+		() =>
+			Array.from(
+				new Set(
+					changes
+						.map((change) => change.coinType)
+						.filter(
+							(coinType): coinType is string => !!coinType,
+						),
+				),
+			),
+		[changes],
+	);
+	const { map: coinDataMap, isLoading } =
+		useCoinDisplayDataMap(coinTypes);
+
 	return (
 		<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 			{changes.map((change, index) => (
-				<ChangedBalance key={index} change={change} />
+				<ChangedBalance
+					key={`${change.address ?? ''}-${change.coinType ?? ''}-${index}`}
+					change={change}
+					coinDataMap={coinDataMap}
+					isCoinDataLoading={isLoading}
+				/>
 			))}
 		</div>
 	);
@@ -29,39 +57,45 @@ export function BalanceChanges({
 
 function ChangedBalance({
 	change,
+	coinDataMap,
+	isCoinDataLoading,
 }: {
 	change: SuiClientTypes.BalanceChange;
+	coinDataMap: CoinDataMap;
+	isCoinDataLoading: boolean;
 }) {
-	const { data: coinMetadata, isLoading } = useCoinMetadata(
-		change.coinType,
-	);
+	const coinData = change.coinType
+		? coinDataMap.get(change.coinType)
+		: undefined;
 
-	const amount = coinMetadata
-		? onChainAmountToFloat(
-				change.amount!,
-				coinMetadata.decimals,
-			)
-		: null;
-	const isPositive = amount != null && amount > 0;
+	const rawAmount = change.amount;
+	const decimals = coinData?.decimals;
+
+	const usdValue = coinUsdValue(rawAmount, {
+		priceUsd: coinData?.priceUsd,
+		decimals,
+	});
+	const isPositive = isAmountPositive(rawAmount);
 	const formattedAmount =
-		amount == null
-			? '-'
-			: `${isPositive ? '+' : ''}${amount}`;
+		rawAmount != null && decimals != null
+			? `${isPositive ? '+' : ''}${formatCoinAmount(rawAmount, decimals)}`
+			: '-';
 
 	return (
 		<PreviewCard.Root>
 			<PreviewCard.Body>
 				<div className="flex items-center gap-3">
 					<CoinIcon
-						iconUrl={coinMetadata?.iconUrl}
-						symbol={coinMetadata?.symbol}
+						iconUrl={coinData?.iconUrl}
+						symbol={coinData?.symbol}
 						coinType={change.coinType}
+						recognized={coinData?.recognized}
 						size="md"
 					/>
 
 					<div className="flex-1 min-w-0 leading-tight">
 						<div className="flex items-baseline gap-2 min-w-0">
-							{isLoading ? (
+							{isCoinDataLoading && !coinData ? (
 								<Skeleton className="h-4 w-20" />
 							) : (
 								<>
@@ -74,9 +108,15 @@ function ChangedBalance({
 									>
 										{formattedAmount}
 									</span>
-									{coinMetadata?.symbol && (
+									{coinData?.symbol && (
 										<span className="text-xs text-muted-foreground uppercase tracking-wide">
-											{coinMetadata.symbol}
+											{coinData.symbol}
+										</span>
+									)}
+									{usdValue != null && (
+										<span className="text-xs text-muted-foreground tabular-nums">
+											({usdValue >= 0 ? '+' : ''}
+											{formatUsdValue(usdValue)})
 										</span>
 									)}
 								</>
@@ -104,4 +144,15 @@ function ChangedBalance({
 			<PreviewCard.Footer owner={change.address} />
 		</PreviewCard.Root>
 	);
+}
+
+function isAmountPositive(
+	rawAmount: string | null | undefined,
+): boolean {
+	if (rawAmount == null) return false;
+	try {
+		return BigInt(rawAmount) > 0n;
+	} catch {
+		return false;
+	}
 }
