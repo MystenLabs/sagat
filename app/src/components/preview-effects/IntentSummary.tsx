@@ -256,7 +256,7 @@ export function IntentSummary({
 		<PreviewCard.Root className={className}>
 			<PreviewCard.Header>
 				<div className="flex items-center justify-between gap-3">
-					<div className="font-medium">Intent Analysis</div>
+					<div className="font-medium">Static Analyzer</div>
 					<Label variant="neutral" size="sm">
 						Advisory
 					</Label>
@@ -397,9 +397,9 @@ export function IntentSummary({
 						</div>
 
 						<p className="text-xs text-muted-foreground">
-							This summary uses static analysis to estimate
-							the maximum balance outflows and object access
-							that the transaction can cause. Compare it
+							This summary estimates the maximum statically
+							allowed balance outflows, excluding gas payment,
+							and object access for the transaction. Compare it
 							with the simulation result and wallet review
 							before signing.
 						</p>

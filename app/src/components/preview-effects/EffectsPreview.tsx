@@ -5,9 +5,16 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { messageWithIntent } from '@mysten/sui/cryptography';
 import { fromBase64, toHex } from '@mysten/sui/utils';
 import { blake2b } from '@noble/hashes/blake2.js';
+import { HelpCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { Tabs } from '@/components/ui/tabs';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 import type { TransactionAnalysis } from '../../hooks/useTransactionAnalysis';
 import { Alert } from '../ui/Alert';
@@ -18,6 +25,46 @@ import { Events } from './partials/Events';
 import { ObjectChanges } from './partials/ObjectChanges';
 import { Overview } from './partials/Overview';
 import { Transactions } from './partials/Transactions';
+
+function PreviewModeHelp() {
+	return (
+		<TooltipProvider delayDuration={150}>
+			<Tooltip>
+				<TooltipTrigger asChild>
+					<button
+						type="button"
+						aria-label="Explain simulation and static analyzer"
+						className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					>
+						<HelpCircle className="size-4" />
+					</button>
+				</TooltipTrigger>
+				<TooltipContent
+					side="bottom"
+					align="start"
+					className="max-w-sm bg-card text-card-foreground border shadow-lg"
+				>
+					<div className="space-y-2 text-xs leading-relaxed">
+						<p>
+							<strong>Simulation Result</strong> shows one dry
+							run against current on-chain state. It is useful
+							for expected effects, but it is not guaranteed to
+							capture the full possible outflow because on-chain
+							state can change before execution.
+						</p>
+						<p>
+							<strong>Static Analyzer</strong> inspects the
+							transaction itself and estimates the maximum
+							statically allowed balance outflow, excluding gas
+							payment. It is intended to help protect against
+							on-chain state attacks.
+						</p>
+					</div>
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
+	);
+}
 
 export function EffectsPreview({
 	output,
@@ -134,7 +181,7 @@ export function EffectsPreview({
 		},
 		{
 			id: 'transaction-analysis',
-			label: 'Transaction Analysis',
+			label: 'Static Analyzer',
 			count: analysisIssueCount,
 		},
 	];
@@ -142,12 +189,15 @@ export function EffectsPreview({
 	return (
 		<div className="space-y-4">
 			<div className="w-full">
-				<Tabs
-					tabs={topTabs}
-					activeTab={activePreviewTab}
-					onTabChange={setActivePreviewTab}
-					variant="pills"
-				/>
+				<div className="flex items-center gap-2">
+					<Tabs
+						tabs={topTabs}
+						activeTab={activePreviewTab}
+						onTabChange={setActivePreviewTab}
+						variant="pills"
+					/>
+					<PreviewModeHelp />
+				</div>
 
 				<div className="py-6">
 					{activePreviewTab === 'transaction-analysis' ? (
