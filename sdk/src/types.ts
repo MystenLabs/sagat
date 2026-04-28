@@ -96,6 +96,7 @@ export interface PublicProposal extends Proposal {
 	signatures: ProposalSignature[];
 	multisig: {
 		address: string;
+		name?: string | null;
 		threshold: number;
 		members: {
 			publicKey: string;
