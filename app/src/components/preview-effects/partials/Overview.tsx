@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { SuiClientTypes } from '@mysten/sui/client';
-import { Check, Copy } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
+import { CopyButton } from '../../ui/CopyButton';
 import { ObjectLink } from '../ObjectLink';
 import { onChainAmountToFloat } from '../utils';
 
@@ -31,32 +31,25 @@ export function Overview({
 		transaction: true;
 	}>;
 }) {
-	const [copied, setCopied] = useState(false);
-
-	const copyToClipboard = (text: string) => {
-		navigator.clipboard.writeText(text);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 2000);
-	};
+	// `Transaction.digest` is only populated for executed transactions;
+	// for simulator results the digest lives inside the effects payload
+	// as `transactionDigest`. Fall back so the row works in both cases.
+	const digest =
+		output.Transaction!.digest ||
+		output.Transaction!.effects.transactionDigest;
 
 	const metadata: Record<string, ReactNode> = {
 		digest: (
-			<div className="flex items-center gap-2">
+			<div className="flex items-center gap-1.5 min-w-0">
 				<span className="font-mono text-sm break-all">
-					{output.Transaction!.digest}
+					{digest}
 				</span>
-				<button
-					onClick={() =>
-						copyToClipboard(output.Transaction!.digest)
-					}
-					className="p-1 hover:bg-accent rounded cursor-pointer"
-				>
-					{copied ? (
-						<Check className="w-4 h-4 text-success-foreground" />
-					) : (
-						<Copy className="w-4 h-4 text-muted-foreground" />
-					)}
-				</button>
+				<CopyButton
+					value={digest}
+					size="xs"
+					className="size-3.5 p-0 text-muted-foreground [&_svg]:size-3 hover:bg-transparent hover:text-foreground"
+					successMessage="Digest copied"
+				/>
 			</div>
 		),
 		status: output.Transaction!.effects.status.success

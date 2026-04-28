@@ -4,6 +4,7 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { type ReactNode } from 'react';
 
+import { cn } from '../../lib/utils';
 import { ObjectLink } from './ObjectLink';
 
 type HeaderProps = {
@@ -26,7 +27,10 @@ type FooterProps = {
 function Root({ children, className }: RootProps) {
 	return (
 		<div
-			className={`border flex flex-col  rounded-lg shadow overflow-hidden ${className}`}
+			className={cn(
+				'bg-card border flex flex-col rounded-lg overflow-hidden',
+				className,
+			)}
 		>
 			{children}
 		</div>
@@ -35,15 +39,13 @@ function Root({ children, className }: RootProps) {
 
 // eslint-disable-next-line react-refresh/only-export-components
 function Body({ children }: BodyProps) {
-	return (
-		<div className="p-3 overflow-x-auto">{children}</div>
-	);
+	return <div className="p-3">{children}</div>;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 function Header({ children }: HeaderProps) {
 	return (
-		<div className="bg-surface py-3 px-2 text-sm overflow-x-auto wrap-break-word">
+		<div className="bg-surface px-3 py-2 text-sm border-b">
 			{children}
 		</div>
 	);
@@ -56,12 +58,12 @@ function Footer({
 	owner?: SuiClientTypes.ObjectOwner | string;
 }) {
 	return (
-		<div className="mt-auto bg-surface py-3 px-2 text-sm overflow-x-auto wrap-break-word">
+		<div className="mt-auto bg-surface px-3 py-2 text-xs text-muted-foreground border-t">
 			{children}
 			{owner && (
-				<div className="flex items-center ">
-					<div>Owner</div>
-					<div className="col-span-3 text-right flex items-center gap-1 ml-auto">
+				<div className="flex items-center justify-between gap-2">
+					<span>Owner</span>
+					<div className="flex items-center gap-1 min-w-0">
 						{typeof owner === 'string' ? (
 							<ObjectLink
 								owner={{

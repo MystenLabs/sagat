@@ -8,7 +8,7 @@ import {
 import {
 	AlertCircle,
 	AlertTriangle,
-	CheckCircle,
+	Check,
 	Info,
 } from 'lucide-react';
 import { type ReactNode } from 'react';
@@ -61,7 +61,7 @@ const variantIcons = {
 	info: Info,
 	warning: AlertTriangle,
 	error: AlertCircle,
-	success: CheckCircle,
+	success: Check,
 };
 
 interface AlertProps extends VariantProps<
@@ -88,6 +88,7 @@ export function Alert({
 				{showIcon && (
 					<Icon
 						className={alertIconVariants({ variant })}
+						strokeWidth={variant === 'success' ? 3 : 2}
 					/>
 				)}
 				<div className={alertTextVariants({ variant })}>
