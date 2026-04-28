@@ -1,14 +1,16 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useDAppKit } from '@mysten/dapp-kit-react';
 import type { SuiClientTypes } from '@mysten/sui/client';
-import { useQuery } from '@tanstack/react-query';
 
+import { useCoinMetadata } from '../../../hooks/useCoinMetadata';
+import { CoinIcon } from '../../ui/CoinIcon';
+import { CopyButton } from '../../ui/CopyButton';
+import { Skeleton } from '../../ui/skeleton';
 import { PreviewCard } from '../PreviewCard';
 import {
+	formatCoinType,
 	onChainAmountToFloat,
-	prettifyType,
 } from '../utils';
 
 export function BalanceChanges({
@@ -17,7 +19,7 @@ export function BalanceChanges({
 	changes: SuiClientTypes.BalanceChange[];
 }) {
 	return (
-		<div className="grid grid-cols-2 gap-4">
+		<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
 			{changes.map((change, index) => (
 				<ChangedBalance key={index} change={change} />
 			))}
@@ -30,59 +32,74 @@ function ChangedBalance({
 }: {
 	change: SuiClientTypes.BalanceChange;
 }) {
-	// TODO: This should use the "active" client of the selection, NOT
-	// the dappKit client!
-	// Otherwise, this does a query to the wrong network.
-	const client = useDAppKit().getClient();
+	const { data: coinMetadata, isLoading } = useCoinMetadata(
+		change.coinType,
+	);
 
-	const { data: coinMetadata } = useQuery({
-		queryKey: ['getCoinMetadata', change.coinType],
-		queryFn: async () => {
-			return await client.getCoinMetadata({
-				coinType: change.coinType!,
-			});
-		},
-		select: (data) => data.coinMetadata,
-		enabled: !!change.coinType,
-	});
-
-	const amount = () => {
-		if (!coinMetadata) return '-';
-		const amt = onChainAmountToFloat(
-			change.amount!,
-			coinMetadata.decimals,
-		);
-
-		return `${amt && amt > 0.0 ? '+' : ''}${amt}`;
-	};
-
-	if (!coinMetadata) return <div>Loading...</div>;
+	const amount = coinMetadata
+		? onChainAmountToFloat(
+				change.amount!,
+				coinMetadata.decimals,
+			)
+		: null;
+	const isPositive = amount != null && amount > 0;
+	const formattedAmount =
+		amount == null
+			? '-'
+			: `${isPositive ? '+' : ''}${amount}`;
 
 	return (
 		<PreviewCard.Root>
 			<PreviewCard.Body>
-				<>
-					{coinMetadata.iconUrl && (
-						<img
-							src={coinMetadata.iconUrl as string}
-							alt={coinMetadata.name}
-							className="w-12 h-auto"
-						/>
-					)}
-					<p>
-						<span
-							className={`${Number(amount()) > 0.0 ? 'text-success-foreground' : 'text-error-foreground'}`}
-						>
-							{amount()}{' '}
-						</span>{' '}
-						{coinMetadata.symbol}
-						<span className="block text-sm text-muted-foreground">
-							{change.coinType
-								? prettifyType(change.coinType)
-								: null}
-						</span>
-					</p>
-				</>
+				<div className="flex items-center gap-3">
+					<CoinIcon
+						iconUrl={coinMetadata?.iconUrl}
+						symbol={coinMetadata?.symbol}
+						coinType={change.coinType}
+						size="md"
+					/>
+
+					<div className="flex-1 min-w-0 leading-tight">
+						<div className="flex items-baseline gap-2 min-w-0">
+							{isLoading ? (
+								<Skeleton className="h-4 w-20" />
+							) : (
+								<>
+									<span
+										className={`font-medium tabular-nums text-sm ${
+											isPositive
+												? 'text-success-foreground'
+												: 'text-error-foreground'
+										}`}
+									>
+										{formattedAmount}
+									</span>
+									{coinMetadata?.symbol && (
+										<span className="text-xs text-muted-foreground uppercase tracking-wide">
+											{coinMetadata.symbol}
+										</span>
+									)}
+								</>
+							)}
+						</div>
+						{change.coinType && (
+							<div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+								<span
+									className="font-mono text-xs text-muted-foreground truncate"
+									title={change.coinType}
+								>
+									{formatCoinType(change.coinType)}
+								</span>
+								<CopyButton
+									value={change.coinType}
+									size="xs"
+									className="size-3 p-0 text-muted-foreground [&_svg]:size-2.5 hover:bg-transparent hover:text-foreground"
+									successMessage="Coin type copied"
+								/>
+							</div>
+						)}
+					</div>
+				</div>
 			</PreviewCard.Body>
 			<PreviewCard.Footer owner={change.address} />
 		</PreviewCard.Root>
