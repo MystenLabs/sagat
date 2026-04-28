@@ -398,10 +398,10 @@ export function IntentSummary({
 
 						<p className="text-xs text-muted-foreground">
 							This summary estimates the maximum statically
-							allowed balance outflows, excluding gas payment,
-							and object access for the transaction. Compare it
-							with the simulation result and wallet review
-							before signing.
+							allowed balance outflows, excluding gas
+							payment, and object access for the
+							transaction. Compare it with the simulation
+							result and wallet review before signing.
 						</p>
 					</div>
 				)}

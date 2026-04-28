@@ -46,18 +46,19 @@ function PreviewModeHelp() {
 				>
 					<div className="space-y-2 text-xs leading-relaxed">
 						<p>
-							<strong>Simulation Result</strong> shows one dry
-							run against current on-chain state. It is useful
-							for expected effects, but it is not guaranteed to
-							capture the full possible outflow because on-chain
-							state can change before execution.
+							<strong>Simulation Result</strong> shows one
+							dry run against current on-chain state. It is
+							useful for expected effects, but it is not
+							guaranteed to capture the full possible
+							outflow because on-chain state can change
+							before execution.
 						</p>
 						<p>
 							<strong>Static Analyzer</strong> inspects the
 							transaction itself and estimates the maximum
-							statically allowed balance outflow, excluding gas
-							payment. It is intended to help protect against
-							on-chain state attacks.
+							statically allowed balance outflow, excluding
+							gas payment. It is intended to help protect
+							against on-chain state attacks.
 						</p>
 					</div>
 				</TooltipContent>
