@@ -10,8 +10,11 @@ import { describe, expect, test } from 'vitest';
 import {
 	coinUsdValue,
 	formatCoinAmount,
+	formatInputAmount,
 	formatUsdValue,
+	getMaxInputAmount,
 	isSuiCoinType,
+	parseAmount,
 	rawAmountToFloat,
 	sortBalances,
 	type SortableBalance,
@@ -203,6 +206,60 @@ describe('coinUsdValue', () => {
 				decimals: 9,
 				priceUsd: 1,
 			}),
+		).toBeNull();
+	});
+});
+
+describe('parseAmount', () => {
+	test('parses plain decimal input', () => {
+		expect(parseAmount('1.5', 9)).toBe(1_500_000_000n);
+	});
+
+	test('accepts grouped display strings', () => {
+		expect(parseAmount('1,234.567', 3)).toBe(1_234_567n);
+	});
+
+	test('accepts leading and trailing decimal points', () => {
+		expect(parseAmount('.5', 9)).toBe(500_000_000n);
+		expect(parseAmount('1.', 9)).toBe(1_000_000_000n);
+	});
+
+	test('rejects malformed grouping', () => {
+		expect(parseAmount('12,34.56', 2)).toBeNull();
+		expect(parseAmount('1,2,3', 0)).toBeNull();
+	});
+
+	test('rejects too many fractional digits', () => {
+		expect(parseAmount('1.234', 2)).toBeNull();
+	});
+
+	test('rejects empty and invalid input', () => {
+		expect(parseAmount('', 9)).toBeNull();
+		expect(parseAmount('.', 9)).toBeNull();
+		expect(parseAmount('abc', 9)).toBeNull();
+		expect(parseAmount('-1', 9)).toBeNull();
+	});
+});
+
+describe('input helpers', () => {
+	test('formats input amounts without grouping', () => {
+		expect(formatInputAmount('1234567890', 6)).toBe(
+			'1234.56789',
+		);
+	});
+
+	test('computes max amount after reserving raw units', () => {
+		expect(
+			getMaxInputAmount('200000000', 9, '50000000'),
+		).toBe('0.15');
+	});
+
+	test('returns null when reservation leaves no spendable amount', () => {
+		expect(
+			getMaxInputAmount('50000000', 9, '50000000'),
+		).toBeNull();
+		expect(
+			getMaxInputAmount('49999999', 9, '50000000'),
 		).toBeNull();
 	});
 });

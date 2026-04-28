@@ -4,11 +4,16 @@
 import { AlertCircle, ExternalLink } from 'lucide-react';
 import { type ReactNode } from 'react';
 
-import { type CoinDisplayData } from '../../hooks/useCoinDisplayData';
+import { useNetwork } from '../../contexts/NetworkContext';
+import {
+	useCoinDisplayData,
+	type CoinDisplayData,
+} from '../../hooks/useCoinDisplayData';
 import {
 	type Balance,
 	type useMultisigBalances,
 } from '../../hooks/useMultisigBalances';
+import { CONFIG } from '../../lib/constants';
 import { Button } from '../ui/button';
 import { EmptyState } from '../ui/empty-state';
 import { Skeleton } from '../ui/skeleton';
@@ -20,8 +25,7 @@ type BalancesQuery = ReturnType<typeof useMultisigBalances>;
 interface AssetsListProps {
 	query: BalancesQuery;
 	balances?: Balance[];
-	coinDataMap: Map<string, CoinDisplayData>;
-	explorerUrl: string;
+	multisigAddress: string;
 	renderRowActions?: (
 		balance: Balance,
 		coinData: CoinDisplayData | undefined,
@@ -31,8 +35,7 @@ interface AssetsListProps {
 export function AssetsList({
 	query,
 	balances,
-	coinDataMap,
-	explorerUrl,
+	multisigAddress,
 	renderRowActions,
 }: AssetsListProps) {
 	const rows = balances ?? query.balances;
@@ -51,28 +54,21 @@ export function AssetsList({
 	}
 
 	if (rows.length === 0) {
-		return <EmptyAssetsState explorerUrl={explorerUrl} />;
+		return (
+			<EmptyAssetsState multisigAddress={multisigAddress} />
+		);
 	}
 
 	return (
 		<div className="space-y-3">
 			<ul className="space-y-2">
-				{rows.map((balance) => {
-					const coinData = coinDataMap.get(
-						balance.coinType,
-					);
-					return (
-						<AssetRow
-							key={balance.coinType}
-							balance={balance}
-							coinData={coinData}
-							actions={renderRowActions?.(
-								balance,
-								coinData,
-							)}
-						/>
-					);
-				})}
+				{rows.map((balance) => (
+					<AssetRowWithCoinData
+						key={balance.coinType}
+						balance={balance}
+						renderRowActions={renderRowActions}
+					/>
+				))}
 			</ul>
 			{query.hasNextPage && (
 				<div className="flex items-center justify-center pt-1">
@@ -89,6 +85,29 @@ export function AssetsList({
 				</div>
 			)}
 		</div>
+	);
+}
+
+function AssetRowWithCoinData({
+	balance,
+	renderRowActions,
+}: {
+	balance: Balance;
+	renderRowActions?: (
+		balance: Balance,
+		coinData: CoinDisplayData | undefined,
+	) => ReactNode;
+}) {
+	const { data: coinData } = useCoinDisplayData(
+		balance.coinType,
+	);
+
+	return (
+		<AssetRow
+			balance={balance}
+			coinData={coinData}
+			actions={renderRowActions?.(balance, coinData)}
+		/>
 	);
 }
 
@@ -141,10 +160,13 @@ function ErrorState({
 }
 
 function EmptyAssetsState({
-	explorerUrl,
+	multisigAddress,
 }: {
-	explorerUrl: string;
+	multisigAddress: string;
 }) {
+	const { network } = useNetwork();
+	const explorerUrl = `${CONFIG.EXPLORER_URLS[network]}/account/${multisigAddress}`;
+
 	return (
 		<EmptyState
 			icon={

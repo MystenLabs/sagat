@@ -111,7 +111,7 @@ export function useExecuteProposal() {
 				throw error;
 			}
 		},
-		onSuccess: (data) => {
+		onSuccess: (data, variables) => {
 			// Invalidate all proposal-related queries
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
@@ -119,6 +119,14 @@ export function useExecuteProposal() {
 			// Remove standalone proposal too
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
+			});
+			// Execution changes on-chain balances; refresh the multisig asset view.
+			queryClient.invalidateQueries({
+				queryKey: [
+					QueryKeys.Balances,
+					variables.proposal.network,
+					variables.proposal.multisig.address,
+				],
 			});
 			toast.success(
 				`Transaction executed successfully! Digest: ${data.executionResult.digest}`,

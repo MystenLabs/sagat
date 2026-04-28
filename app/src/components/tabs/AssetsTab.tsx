@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Send } from 'lucide-react';
 import {
 	useEffect,
 	useMemo,
@@ -21,16 +22,19 @@ import {
 import { CONFIG } from '../../lib/constants';
 import { AssetsHeader } from '../assets/AssetsHeader';
 import { AssetsList } from '../assets/AssetsList';
+import { type ProposalIntent } from '../ProposalSheet';
+import { Button } from '../ui/button';
 
 interface AssetsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: () => void;
+	openProposalSheet: (intent?: ProposalIntent) => void;
 }
 
 const REFRESH_COOLDOWN_MS = 5_000;
 
 export function AssetsTab() {
-	const { multisig } = useOutletContext<AssetsTabContext>();
+	const { multisig, openProposalSheet } =
+		useOutletContext<AssetsTabContext>();
 	const { network } = useNetwork();
 	const [isRefreshCooldown, setIsRefreshCooldown] =
 		useState(false);
@@ -98,8 +102,24 @@ export function AssetsTab() {
 			<AssetsList
 				query={balancesQuery}
 				balances={sortedBalances}
-				coinDataMap={coinDataMap}
-				explorerUrl={explorerUrl}
+				multisigAddress={multisig.address}
+				renderRowActions={(balance, coinData) => (
+					<Button
+						variant="outline"
+						size="sm"
+						className="h-7 px-2.5 text-xs"
+						disabled={coinData?.decimals == null}
+						onClick={() =>
+							openProposalSheet({
+								kind: 'transfer',
+								coinType: balance.coinType,
+							})
+						}
+					>
+						<Send className="w-3.5 h-3.5 mr-1" />
+						Send
+					</Button>
+				)}
 			/>
 		</div>
 	);
