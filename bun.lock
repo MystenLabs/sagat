@@ -48,6 +48,7 @@
         "@mysten/dapp-kit-react": "^2.0.1",
         "@mysten/sagat": "workspace:*",
         "@mysten/sui": "^2.16.0",
+        "@mysten/wallet-sdk": "^0.3.0",
         "@mysten/walletconnect-wallet": "^1.0.2",
         "@noble/hashes": "^2.0.1",
         "@radix-ui/react-accordion": "^1.2.12",
@@ -292,6 +293,8 @@
     "@mysten/sui": ["@mysten/sui@2.16.0", "", { "dependencies": { "@graphql-typed-document-node/core": "^3.2.0", "@mysten/bcs": "^2.0.3", "@mysten/utils": "^0.3.1", "@noble/curves": "^2.0.1", "@noble/hashes": "^2.0.1", "@protobuf-ts/grpcweb-transport": "^2.11.1", "@protobuf-ts/runtime": "^2.11.1", "@protobuf-ts/runtime-rpc": "^2.11.1", "@scure/base": "^2.0.0", "@scure/bip32": "^2.0.1", "@scure/bip39": "^2.0.1", "gql.tada": "^1.9.0", "graphql": "^16.12.0", "poseidon-lite": "0.2.1", "valibot": "^1.2.0" } }, "sha512-xnf3e3uIuJGzIVEBLEl372Xk51CB45CP2ZlXXLSnWHH1MI0xIpko10JSQ44ohde9XhxygAy1jz26rkrlCgDGXQ=="],
 
     "@mysten/utils": ["@mysten/utils@0.3.1", "", { "dependencies": { "@scure/base": "^2.0.0" } }, "sha512-36KhxG284uhDdSnlkyNaS6fzKTX9FpP2WQWOwUKIRsqQFFIm2ooCf2TP1IuqrtMpkairwpiWkAS0eg7cpemVzg=="],
+
+    "@mysten/wallet-sdk": ["@mysten/wallet-sdk@0.3.0", "", { "dependencies": { "@mysten/bcs": "^2.0.3", "@mysten/wallet-standard": "^0.20.1", "valibot": "^1.2.0" }, "peerDependencies": { "@mysten/sui": "*" } }, "sha512-SdayPUWkj4bj+hvwYjcdG/4EBTEi/YqCoX1pQUdE48BRH4DgyKr3k8fAoTkawzzjK8SiNXkfYubDn6YhDqg9HA=="],
 
     "@mysten/wallet-standard": ["@mysten/wallet-standard@0.20.1", "", { "dependencies": { "@wallet-standard/core": "1.1.1" }, "peerDependencies": { "@mysten/sui": "*" } }, "sha512-Q2GoXO1SPLayqunNIWI3VT8cyOVGTFAPUvaCzx7jYIEoZBfyCR5RCUS4/ehgAlApF88Y/1c/OfjBvEoeRi76jw=="],
 

@@ -20,6 +20,7 @@
 		"@mysten/dapp-kit-react": "^2.0.1",
 		"@mysten/sagat": "workspace:*",
 		"@mysten/sui": "^2.16.0",
+		"@mysten/wallet-sdk": "^0.3.0",
 		"@mysten/walletconnect-wallet": "^1.0.2",
 		"@noble/hashes": "^2.0.1",
 		"@radix-ui/react-accordion": "^1.2.12",
