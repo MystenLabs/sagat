@@ -122,7 +122,7 @@ export function MultisigDetailPage() {
 			icon: Info,
 			count: multisig.pendingMembers,
 		},
-		{ id: 'assets', label: 'Assets', icon: Coins },
+		{ id: 'assets', label: 'Balances', icon: Coins },
 	];
 
 	return (

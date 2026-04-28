@@ -2,17 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
-import type { SuiClientTypes } from '@mysten/sui/client';
 import {
 	useQueries,
 	useQuery,
 	type UseQueryOptions,
 } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
+import { type CoinMetadata } from '../lib/coinDisplay';
 import { QueryKeys } from '../lib/queryKeys';
 
-export type CoinMetadata = SuiClientTypes.CoinMetadata;
+export type { CoinMetadata };
 
 // Coin metadata is effectively immutable on-chain, so we cache aggressively.
 const COIN_METADATA_STALE_TIME = 24 * 60 * 60 * 1000; // 24h
@@ -70,14 +71,24 @@ export function useCoinMetadataMap(coinTypes: string[]) {
 		})),
 	});
 
-	const map = new Map<string, CoinMetadata | null>();
-	coinTypes.forEach((coinType, idx) => {
-		map.set(coinType, results[idx].data ?? null);
-	});
+	// Stable reference across renders so consumers' useMemo deps don't churn.
+	const dataSignature = results
+		.map((r) => r.dataUpdatedAt)
+		.join('|');
+
+	const map = useMemo(() => {
+		const out = new Map<string, CoinMetadata | null>();
+		coinTypes.forEach((coinType, idx) => {
+			out.set(coinType, results[idx].data ?? null);
+		});
+		return out;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [coinTypes, dataSignature]);
 
 	return {
 		map,
 		isLoading: results.some((r) => r.isLoading),
 		isError: results.some((r) => r.isError),
+		error: results.find((r) => r.error)?.error ?? undefined,
 	};
 }
