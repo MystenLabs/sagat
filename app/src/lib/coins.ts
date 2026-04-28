@@ -29,6 +29,85 @@ export function formatCoinAmount(
 	rawBalance: string,
 	decimals: number,
 ): string {
+	return formatUnits(rawBalance, decimals, {
+		useGrouping: true,
+	});
+}
+
+/**
+ * Parser-safe decimal formatting for editable inputs (no grouping commas).
+ */
+export function formatInputAmount(
+	rawBalance: string,
+	decimals: number,
+): string {
+	return formatUnits(rawBalance, decimals, {
+		useGrouping: false,
+	});
+}
+
+/**
+ * Parse a human-entered decimal amount into on-chain integer units.
+ * Accepts plain decimals and grouped strings (e.g. "1,234.56").
+ */
+export function parseAmount(
+	input: string,
+	decimals: number,
+): bigint | null {
+	const trimmed = input.trim();
+	if (!trimmed) return null;
+
+	const match = trimmed.match(
+		/^(?:(?<whole>\d+|\d{1,3}(?:,\d{3})+))?(?:\.(?<fraction>\d*))?$/,
+	);
+	if (!match?.groups) return null;
+
+	const wholePart = match.groups.whole ?? '';
+	const fractionPart = match.groups.fraction ?? '';
+	if (!wholePart && fractionPart === '') return null;
+	if (fractionPart.length > decimals) return null;
+
+	const paddedFraction = fractionPart
+		.padEnd(decimals, '0')
+		.slice(0, decimals);
+
+	try {
+		const whole = BigInt(
+			wholePart ? wholePart.replace(/,/g, '') : '0',
+		);
+		const fraction = paddedFraction
+			? BigInt(paddedFraction)
+			: 0n;
+		return whole * 10n ** BigInt(decimals) + fraction;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Maximum transferable input amount after subtracting a raw-unit reserve.
+ * Useful for SUI where we reserve gas.
+ */
+export function getMaxInputAmount(
+	rawBalance: string,
+	decimals: number,
+	reservedRawBalance: string = '0',
+): string | null {
+	let big: bigint;
+	try {
+		big = BigInt(rawBalance) - BigInt(reservedRawBalance);
+	} catch {
+		return null;
+	}
+	if (big <= 0n) return null;
+	return formatInputAmount(big.toString(), decimals);
+}
+
+function formatUnits(
+	rawBalance: string,
+	decimals: number,
+	options?: { useGrouping?: boolean },
+): string {
 	let big: bigint;
 	try {
 		big = BigInt(rawBalance);
@@ -36,8 +115,12 @@ export function formatCoinAmount(
 		return rawBalance;
 	}
 
+	const useGrouping = options?.useGrouping ?? true;
+
 	if (decimals <= 0) {
-		return big.toLocaleString('en-US');
+		return useGrouping
+			? big.toLocaleString('en-US')
+			: big.toString();
 	}
 
 	const negative = big < 0n;
@@ -46,7 +129,9 @@ export function formatCoinAmount(
 	const whole = abs / base;
 	const fraction = abs % base;
 
-	const wholeStr = whole.toLocaleString('en-US');
+	const wholeStr = useGrouping
+		? whole.toLocaleString('en-US')
+		: whole.toString();
 	if (fraction === 0n) {
 		return negative ? `-${wholeStr}` : wholeStr;
 	}

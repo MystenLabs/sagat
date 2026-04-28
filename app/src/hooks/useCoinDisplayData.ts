@@ -5,13 +5,45 @@ import { useMemo } from 'react';
 
 import {
 	buildCoinDisplayMap,
+	fromMetadata,
+	fromRecognized,
 	selectFallbackCoinTypes,
 	type CoinDisplayData,
 } from '../lib/coinDisplay';
-import { useCoinMetadataMap } from './useCoinMetadata';
+import { useCoinMetadata, useCoinMetadataMap } from './useCoinMetadata';
 import { useRecognizedCoins } from './useRecognizedCoins';
 
 export type { CoinDisplayData };
+
+export function useCoinDisplayData(
+	coinType: string | null | undefined,
+) {
+	const recognizedQuery = useRecognizedCoins();
+	const recognizedCoin = coinType
+		? recognizedQuery.map.get(coinType)
+		: undefined;
+	const recognizedReady =
+		recognizedQuery.isFetched || recognizedQuery.isError;
+
+	const metadataQuery = useCoinMetadata(coinType, {
+		enabled: !!coinType && recognizedReady && !recognizedCoin,
+	});
+
+	const data = useMemo(() => {
+		if (!coinType) return undefined;
+		if (recognizedCoin) return fromRecognized(recognizedCoin);
+		if (metadataQuery.data) return fromMetadata(metadataQuery.data);
+		return undefined;
+	}, [coinType, recognizedCoin, metadataQuery.data]);
+
+	return {
+		data,
+		isLoading:
+			recognizedQuery.isLoading || metadataQuery.isLoading,
+		isError: metadataQuery.isError,
+		error: metadataQuery.error,
+	};
+}
 
 export function useCoinDisplayDataMap(coinTypes: string[]) {
 	const recognizedQuery = useRecognizedCoins();
