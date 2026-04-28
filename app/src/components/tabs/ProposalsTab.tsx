@@ -16,8 +16,8 @@ import { useNetwork } from '../../contexts/NetworkContext';
 import { useProposalsQueries } from '../../hooks/useProposalsQueries';
 import { ProposalCard } from '../proposals/ProposalCard';
 import { Button } from '../ui/button';
-import { Label } from '../ui/label';
 import { SkeletonList } from '../ui/skeleton';
+import { Tabs } from '../ui/tabs';
 
 interface ProposalsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
@@ -69,35 +69,14 @@ function FilterTabs({
 }) {
 	return (
 		<div className="flex items-center justify-between gap-2 py-3">
-			<div className="flex gap-2 overflow-x-auto">
-				{filters.map((filter) => {
-					const isActive = activeFilter === filter.id;
-					return (
-						<button
-							key={filter.id}
-							onClick={() =>
-								onFilterChange(filter.id as FilterType)
-							}
-							className={`
-								px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0
-								${isActive ? 'bg-info-soft text-info-foreground' : 'text-muted-foreground hover:bg-accent'}
-							`}
-						>
-							{filter.label}
-							{filter.count !== undefined &&
-								filter.count > 0 && (
-									<Label
-										variant={isActive ? 'info' : 'neutral'}
-										size="sm"
-										className="ml-2"
-									>
-										{filter.count}
-									</Label>
-								)}
-						</button>
-					);
-				})}
-			</div>
+			<Tabs
+				tabs={filters}
+				activeTab={activeFilter}
+				onTabChange={(id) =>
+					onFilterChange(id as FilterType)
+				}
+				variant="pills"
+			/>
 			{/* Refresh button for all tabs */}
 			<Button
 				variant="ghost"

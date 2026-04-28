@@ -17,13 +17,14 @@ import { z } from 'zod/v3';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCreateProposal } from '../hooks/useCreateProposal';
-import { useDryRun } from '../hooks/useDryRun';
 import { useMultisigBalances } from '../hooks/useMultisigBalances';
+import { useTransactionPreview } from '../hooks/useTransactionPreview';
 import {
 	TransferForm,
 	type PreparedTransfer,
 } from './assets/TransferForm';
 import { EffectsPreview } from './preview-effects/EffectsPreview';
+import { IntentSummary } from './preview-effects/IntentSummary';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import {
@@ -122,7 +123,13 @@ function ProposalSheetBody({
 	});
 	const { handleSubmit, control } = form;
 
-	const dryRunMutation = useDryRun();
+	const {
+		dryRun,
+		analysis,
+		preview,
+		reset: resetPreview,
+		isPreviewing,
+	} = useTransactionPreview();
 	const createProposalMutation = useCreateProposal();
 
 	const [mode, setMode] = useState<Mode>(() =>
@@ -135,9 +142,8 @@ function ProposalSheetBody({
 		useMultisigBalances(multisigAddress);
 
 	const isDryRunSuccessful =
-		dryRunMutation.isSuccess &&
-		dryRunMutation.data?.Transaction?.effects.status
-			.success;
+		dryRun.isSuccess &&
+		dryRun.data?.Transaction?.effects.status.success;
 
 	const onFormSubmit = (event: React.FormEvent) =>
 		handleSubmit((data) => {
@@ -157,13 +163,18 @@ function ProposalSheetBody({
 			'transactionData',
 		);
 		if (transactionData) {
-			dryRunMutation.mutate(transactionData);
+			preview(transactionData);
 		}
 	};
 
 	const handleCustomTransactionDataChange = () => {
-		if (dryRunMutation.data || dryRunMutation.error) {
-			dryRunMutation.reset();
+		if (
+			analysis.data ||
+			analysis.error ||
+			dryRun.data ||
+			dryRun.error
+		) {
+			resetPreview();
 		}
 		if (createProposalMutation.error) {
 			createProposalMutation.reset();
@@ -177,18 +188,17 @@ function ProposalSheetBody({
 				prepared.transactionData,
 				{ shouldValidate: true },
 			);
-			dryRunMutation.reset();
 			createProposalMutation.reset();
-			dryRunMutation.mutate(prepared.transactionData);
+			preview(prepared.transactionData);
 		},
-		[createProposalMutation, dryRunMutation, form],
+		[createProposalMutation, form, preview],
 	);
 
 	const handleTransferReset = useCallback(() => {
 		form.setValue('transactionData', '');
-		dryRunMutation.reset();
+		resetPreview();
 		createProposalMutation.reset();
-	}, [createProposalMutation, dryRunMutation, form]);
+	}, [createProposalMutation, form, resetPreview]);
 
 	const transactionData = useWatch({
 		control,
@@ -246,7 +256,7 @@ function ProposalSheetBody({
 							description: '',
 							transactionData: '',
 						});
-						dryRunMutation.reset();
+						resetPreview();
 						createProposalMutation.reset();
 					}}
 				/>
@@ -263,7 +273,7 @@ function ProposalSheetBody({
 							balances={balancesQuery.balances}
 							isLoadingBalances={balancesQuery.isLoading}
 							initialCoinType={initialTransferCoinType}
-							isPreviewing={dryRunMutation.isPending}
+							isPreviewing={isPreviewing}
 							onPrepare={handleTransferPrepared}
 							onReset={handleTransferReset}
 						/>
@@ -313,12 +323,11 @@ function ProposalSheetBody({
 									size="sm"
 									onClick={handleCustomPreview}
 									disabled={
-										dryRunMutation.isPending ||
-										!transactionData
+										isPreviewing || !transactionData
 									}
 								>
 									<Eye className="w-4 h-4 mr-1" />
-									{dryRunMutation.isPending
+									{isPreviewing
 										? 'Previewing...'
 										: 'Preview Effects'}
 								</Button>
@@ -330,7 +339,7 @@ function ProposalSheetBody({
 							{...form.register('transactionData', {
 								onChange: handleCustomTransactionDataChange,
 							})}
-							rows={dryRunMutation.data ? 6 : 12}
+							rows={dryRun.data ? 6 : 12}
 							className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none font-mono text-sm"
 						/>
 						{form.formState.errors.transactionData && (
@@ -344,7 +353,7 @@ function ProposalSheetBody({
 					</div>
 				)}
 
-				{dryRunMutation.isPending && (
+				{dryRun.isPending && (
 					<div className="py-2">
 						<div className="flex items-center gap-2 mb-3">
 							<Eye className="w-5 h-5 text-muted-foreground animate-pulse" />
@@ -359,8 +368,8 @@ function ProposalSheetBody({
 					</div>
 				)}
 
-				{!dryRunMutation.isPending &&
-					(dryRunMutation.data || dryRunMutation.error) && (
+				{!dryRun.isPending &&
+					(dryRun.data || dryRun.error) && (
 						<div className="py-2">
 							<div className="flex items-center gap-2 mb-3">
 								{isDryRunSuccessful ? (
@@ -384,16 +393,26 @@ function ProposalSheetBody({
 							</div>
 							{isDryRunSuccessful ? (
 								<EffectsPreview
-									output={dryRunMutation.data}
+									output={dryRun.data}
 									bytes={previewBytes}
+									analysis={analysis.data}
+									isAnalysisLoading={analysis.isPending}
+									analysisError={analysis.error}
 								/>
 							) : (
-								<p className="text-sm text-error-foreground">
-									{decodeURIComponent(
-										dryRunMutation.error?.message ||
-											'Transaction would fail on-chain',
-									)}
-								</p>
+								<div className="space-y-3">
+									<IntentSummary
+										analysis={analysis.data}
+										isLoading={analysis.isPending}
+										error={analysis.error}
+									/>
+									<p className="text-sm text-error-foreground">
+										{decodeURIComponent(
+											dryRun.error?.message ||
+												'Transaction would fail on-chain',
+										)}
+									</p>
+								</div>
 							)}
 						</div>
 					)}
@@ -441,7 +460,7 @@ function ProposalSheetBody({
 					>
 						Cancel
 					</Button>
-					{!dryRunMutation.data ? (
+					{!dryRun.data ? (
 						<Button
 							type="button"
 							disabled

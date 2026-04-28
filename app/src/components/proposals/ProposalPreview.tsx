@@ -9,9 +9,10 @@ import { useEffect } from 'react';
 import { type ProposalCardInput } from '@/lib/types';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
-import { useDryRun } from '../../hooks/useDryRun';
 import { useSignProposal } from '../../hooks/useSignProposal';
+import { useTransactionPreview } from '../../hooks/useTransactionPreview';
 import { EffectsPreview } from '../preview-effects/EffectsPreview';
+import { IntentSummary } from '../preview-effects/IntentSummary';
 import { Button } from '../ui/button';
 
 interface ProposalPreviewProps {
@@ -27,7 +28,8 @@ export function ProposalPreview({
 	onCancel,
 	isCancelling,
 }: ProposalPreviewProps) {
-	const dryRunMutation = useDryRun();
+	const { dryRun, analysis, preview } =
+		useTransactionPreview();
 	const signProposalMutation = useSignProposal();
 	const currentWallet = useCurrentAccount();
 
@@ -42,10 +44,10 @@ export function ProposalPreview({
 	useEffect(() => {
 		if (
 			proposal.transactionBytes &&
-			!dryRunMutation.data &&
-			!dryRunMutation.error
+			!dryRun.data &&
+			!dryRun.error
 		) {
-			dryRunMutation.mutate(proposal.transactionBytes);
+			preview(proposal.transactionBytes);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [proposal.transactionBytes]);
@@ -58,8 +60,7 @@ export function ProposalPreview({
 	};
 
 	const isDryRunSuccessful =
-		dryRunMutation.data?.Transaction?.effects.status
-			.success;
+		dryRun.data?.Transaction?.effects.status.success;
 
 	return (
 		<div className="space-y-3">
@@ -117,30 +118,40 @@ export function ProposalPreview({
 				</div>
 			</div>
 
-			{dryRunMutation.isPending && (
+			{dryRun.isPending && (
 				<div className="flex items-center gap-2 text-sm text-muted-foreground">
 					<div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full"></div>
 					Loading preview...
 				</div>
 			)}
 
-			{dryRunMutation.data && (
+			{dryRun.data && (
 				<div className="py-2">
 					<EffectsPreview
-						output={dryRunMutation.data}
+						output={dryRun.data}
 						bytes={proposal.transactionBytes}
+						analysis={analysis.data}
+						isAnalysisLoading={analysis.isPending}
+						analysisError={analysis.error}
 					/>
 				</div>
 			)}
 
-			{dryRunMutation.error && (
+			{dryRun.error && (
 				<div className="border border-error-border bg-card rounded-lg p-3">
-					<p className="text-sm text-error-foreground">
-						{decodeURIComponent(
-							dryRunMutation.error.message ||
-								'Transaction would fail on-chain',
-						)}
-					</p>
+					<div className="space-y-3">
+						<IntentSummary
+							analysis={analysis.data}
+							isLoading={analysis.isPending}
+							error={analysis.error}
+						/>
+						<p className="text-sm text-error-foreground">
+							{decodeURIComponent(
+								dryRun.error.message ||
+									'Transaction would fail on-chain',
+							)}
+						</p>
+					</div>
 				</div>
 			)}
 

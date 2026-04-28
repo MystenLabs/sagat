@@ -17,11 +17,13 @@ import { useEffect, useState } from 'react';
 
 import { NetworkSelector } from '@/components/LocalNetworkSelector';
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
+import { IntentSummary } from '@/components/preview-effects/IntentSummary';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Textarea } from '@/components/ui/textarea';
-import { useDryRun } from '@/hooks/useDryRun';
+import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
+import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { getExplorerUrl } from '@/lib/utils';
 
 type SimulateResult =
@@ -72,12 +74,18 @@ function PreviewResult({
 	error,
 	isLoading,
 	bytes,
+	analysis,
+	isAnalysisLoading,
+	analysisError,
 }: {
 	isSuccess: boolean;
 	data: SimulateResult | undefined;
 	error: Error | null;
 	isLoading: boolean;
 	bytes?: string;
+	analysis?: TransactionAnalysis;
+	isAnalysisLoading?: boolean;
+	analysisError?: Error | null;
 }) {
 	if (isLoading) {
 		return (
@@ -115,9 +123,20 @@ function PreviewResult({
 				)}
 			</div>
 			{isSuccess && data ? (
-				<EffectsPreview output={data} bytes={bytes} />
+				<EffectsPreview
+					output={data}
+					bytes={bytes}
+					analysis={analysis}
+					isAnalysisLoading={isAnalysisLoading}
+					analysisError={analysisError}
+				/>
 			) : (
 				<div className="space-y-3">
+					<IntentSummary
+						analysis={analysis}
+						isLoading={isAnalysisLoading}
+						error={analysisError}
+					/>
 					<p className="text-sm text-error-foreground whitespace-pre-wrap">
 						{decodeURIComponent(
 							error?.message ||
@@ -237,22 +256,26 @@ export default function SigningTool() {
 	const dappKit = useDAppKit();
 	const currentAccount = useCurrentAccount();
 
-	const dryRunMutation = useDryRun();
+	const {
+		dryRun,
+		analysis,
+		preview,
+		reset: resetPreview,
+	} = useTransactionPreview();
 
 	const isDryRunSuccessful =
-		dryRunMutation.isSuccess &&
-		dryRunMutation.data?.Transaction?.effects.status
-			.success;
+		dryRun.isSuccess &&
+		dryRun.data?.Transaction?.effects.status.success;
 
 	useEffect(() => {
-		dryRunMutation.reset();
+		resetPreview();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [network]);
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
 			if (transactionData.trim()) {
-				dryRunMutation.mutate(transactionData);
+				preview(transactionData);
 			}
 		}, 250);
 
@@ -262,8 +285,13 @@ export default function SigningTool() {
 
 	const handleTransactionDataChange = (value: string) => {
 		setTransactionData(value);
-		if (dryRunMutation.data || dryRunMutation.error) {
-			dryRunMutation.reset();
+		if (
+			analysis.data ||
+			analysis.error ||
+			dryRun.data ||
+			dryRun.error
+		) {
+			resetPreview();
 		}
 		if (signedResult) {
 			setSignedResult(null);
@@ -314,7 +342,7 @@ export default function SigningTool() {
 	const handleStartOver = () => {
 		setSignedResult(null);
 		setTransactionData('');
-		dryRunMutation.reset();
+		resetPreview();
 	};
 
 	return (
@@ -338,15 +366,18 @@ export default function SigningTool() {
 				)}
 
 				{!signedResult &&
-					(dryRunMutation.isPending ||
-						dryRunMutation.data ||
-						dryRunMutation.error) && (
+					(dryRun.isPending ||
+						dryRun.data ||
+						dryRun.error) && (
 						<PreviewResult
 							isSuccess={isDryRunSuccessful}
-							data={dryRunMutation.data}
-							error={dryRunMutation.error}
-							isLoading={dryRunMutation.isPending}
+							data={dryRun.data}
+							error={dryRun.error}
+							isLoading={dryRun.isPending}
 							bytes={transactionData}
+							analysis={analysis.data}
+							isAnalysisLoading={analysis.isPending}
+							analysisError={analysis.error}
 						/>
 					)}
 
