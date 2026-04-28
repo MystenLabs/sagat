@@ -7,6 +7,7 @@ export const QueryKeys = {
 	User: 'user',
 	Balances: 'balances',
 	CoinMetadata: 'coin-metadata',
+	SuinsDefaultName: 'suins-default-name',
 	RecognizedCoins: 'recognized-coins',
 	Proposal: 'proposal-single',
 	Proposals: 'proposals',
