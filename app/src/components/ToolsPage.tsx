@@ -83,7 +83,7 @@ export function ToolsPage() {
 	if (!selectedTool) return null;
 
 	return (
-		<div className="container mx-auto px-4 py-8">
+		<div className="page-shell py-8">
 			<div className="mb-8">
 				<h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
 					Developer Tools

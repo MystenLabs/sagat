@@ -20,12 +20,13 @@ import {
 	Shield,
 	Wallet,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
@@ -69,28 +70,9 @@ export function CustomWalletButton({
 	const { copied, copy: copyAddress } =
 		useCopyToClipboard();
 
-	// Close dropdown when clicking outside
-	useEffect(() => {
-		function handleClickOutside(event: MouseEvent) {
-			if (
-				dropdownRef.current &&
-				!dropdownRef.current.contains(event.target as Node)
-			) {
-				setShowWallets(false);
-			}
-		}
-
-		document.addEventListener(
-			'mousedown',
-			handleClickOutside,
-		);
-		return () => {
-			document.removeEventListener(
-				'mousedown',
-				handleClickOutside,
-			);
-		};
-	}, []);
+	useOnClickOutside(dropdownRef, () =>
+		setShowWallets(false),
+	);
 
 	const handleSwitchAccount = async (
 		account: UiWalletAccount,

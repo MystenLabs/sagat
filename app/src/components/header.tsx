@@ -304,7 +304,7 @@ export function Header() {
 
 	return (
 		<div className="border-b">
-			<div className="p-4 max-w-[1600px] mx-auto flex justify-between items-center">
+			<div className="page-shell flex items-center justify-between py-4">
 				{/* Logo - hide subtitle on mobile */}
 				<div className="block lg:hidden">
 					<Logo showSubtitle={false} size="sm" />

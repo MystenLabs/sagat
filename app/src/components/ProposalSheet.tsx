@@ -2,11 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import {
-	AlertCircle,
-	CheckCircle,
-	Eye,
-} from 'lucide-react';
+import { AlertCircle, Check, Eye } from 'lucide-react';
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod/v3';
@@ -140,10 +136,10 @@ export function ProposalSheet({
 
 	return (
 		<Sheet open={open} onOpenChange={handleClose}>
-			<SheetContent className="w-full! sm:w-[70vw]! max-w-none! px-4 sm:px-8 overflow-y-auto">
-				<SheetHeader>
-					<div className="flex items-center justify-between">
-						<div>
+			<SheetContent className="w-full! sm:w-[70vw]! max-w-none! px-4 sm:px-8 pt-6 overflow-y-auto">
+				<SheetHeader className="p-0 pr-12">
+					<div className="flex items-center justify-between gap-4">
+						<div className="min-w-0">
 							<SheetTitle>Create New Proposal</SheetTitle>
 							<SheetDescription>
 								Create a new proposal for the multisig to
@@ -162,7 +158,7 @@ export function ProposalSheet({
 
 				<form
 					onSubmit={form.handleSubmit(onSubmit)}
-					className="space-y-8 mt-8 pb-8"
+					className="space-y-8 mt-6 pb-8"
 				>
 					{/* Transaction Data */}
 					<div className="space-y-2">
@@ -217,7 +213,10 @@ export function ProposalSheet({
 							<div className="flex items-center gap-2 mb-3">
 								{isDryRunSuccessful ? (
 									<>
-										<CheckCircle className="w-5 h-5 text-success-foreground" />
+										<Check
+											strokeWidth={3}
+											className="w-4 h-4 text-success-foreground"
+										/>
 										<h3 className="font-medium text-foreground">
 											Transaction Preview - Success
 										</h3>

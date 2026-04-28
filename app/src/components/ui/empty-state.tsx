@@ -27,7 +27,11 @@ export function EmptyState({
 				className,
 			)}
 		>
-			{icon && <div className="mx-auto mb-4">{icon}</div>}
+			{icon && (
+				<div className="mb-4 flex justify-center">
+					{icon}
+				</div>
+			)}
 			<h3 className="text-lg font-medium text-foreground mb-2">
 				{title}
 			</h3>
