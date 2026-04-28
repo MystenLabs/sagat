@@ -23,6 +23,7 @@
 		/* Paths */
 		"baseUrl": ".",
 		"paths": {
+			"@mysten/sagat": ["../sdk/src/index.ts"],
 			"@/*": ["./src/*"]
 		}
 	},
