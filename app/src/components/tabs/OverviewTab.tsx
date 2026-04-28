@@ -4,6 +4,7 @@
 import {
 	Check,
 	Copy,
+	Download,
 	ExternalLink,
 	Users,
 } from 'lucide-react';
@@ -15,6 +16,11 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import { CONFIG } from '../../lib/constants';
+import {
+	buildMultisigCompositionExport,
+	downloadJson,
+	getMultisigExportFilename,
+} from '../../lib/exportUtils';
 import { MembersList } from '../invitations/MembersList';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Button } from '../ui/button';
@@ -41,6 +47,15 @@ export function OverviewTab() {
 		error,
 		refetch,
 	} = useGetMultisig(multisig.address);
+
+	const handleExportComposition = () => {
+		downloadJson(
+			getMultisigExportFilename(multisig.address),
+			buildMultisigCompositionExport(
+				multisigDetails ?? multisig,
+			),
+		);
+	};
 
 	return (
 		<div className="space-y-6">
@@ -90,8 +105,7 @@ export function OverviewTab() {
 					</div>
 				</div>
 
-				{/* Explorer Link */}
-				<div className="mt-6 pt-6 border-t">
+				<div className="mt-6 pt-6 border-t flex flex-col sm:flex-row gap-2">
 					<Button
 						variant="outline"
 						onClick={() =>
@@ -104,6 +118,14 @@ export function OverviewTab() {
 					>
 						<ExternalLink className="w-4 h-4 mr-2" />
 						View on Sui Explorer
+					</Button>
+					<Button
+						variant="outline"
+						onClick={handleExportComposition}
+						className="w-full sm:w-auto"
+					>
+						<Download className="w-4 h-4 mr-2" />
+						Download
 					</Button>
 				</div>
 			</div>
