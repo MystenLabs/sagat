@@ -20,8 +20,8 @@ import { useCreateProposal } from '../hooks/useCreateProposal';
 import { useDryRun } from '../hooks/useDryRun';
 import { useMultisigBalances } from '../hooks/useMultisigBalances';
 import {
-	type PreparedTransfer,
 	TransferForm,
+	type PreparedTransfer,
 } from './assets/TransferForm';
 import { EffectsPreview } from './preview-effects/EffectsPreview';
 import { Button } from './ui/button';
@@ -131,7 +131,8 @@ function ProposalSheetBody({
 	const [showRawTransaction, setShowRawTransaction] =
 		useState(false);
 
-	const balancesQuery = useMultisigBalances(multisigAddress);
+	const balancesQuery =
+		useMultisigBalances(multisigAddress);
 
 	const isDryRunSuccessful =
 		dryRunMutation.isSuccess &&

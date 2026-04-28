@@ -10,7 +10,10 @@ import {
 	selectFallbackCoinTypes,
 	type CoinDisplayData,
 } from '../lib/coinDisplay';
-import { useCoinMetadata, useCoinMetadataMap } from './useCoinMetadata';
+import {
+	useCoinMetadata,
+	useCoinMetadataMap,
+} from './useCoinMetadata';
 import { useRecognizedCoins } from './useRecognizedCoins';
 
 export type { CoinDisplayData };
@@ -26,13 +29,16 @@ export function useCoinDisplayData(
 		recognizedQuery.isFetched || recognizedQuery.isError;
 
 	const metadataQuery = useCoinMetadata(coinType, {
-		enabled: !!coinType && recognizedReady && !recognizedCoin,
+		enabled:
+			!!coinType && recognizedReady && !recognizedCoin,
 	});
 
 	const data = useMemo(() => {
 		if (!coinType) return undefined;
-		if (recognizedCoin) return fromRecognized(recognizedCoin);
-		if (metadataQuery.data) return fromMetadata(metadataQuery.data);
+		if (recognizedCoin)
+			return fromRecognized(recognizedCoin);
+		if (metadataQuery.data)
+			return fromMetadata(metadataQuery.data);
 		return undefined;
 	}, [coinType, recognizedCoin, metadataQuery.data]);
 

@@ -6,8 +6,8 @@ import { type ReactNode } from 'react';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import {
-	type CoinDisplayData,
 	useCoinDisplayData,
+	type CoinDisplayData,
 } from '../../hooks/useCoinDisplayData';
 import {
 	type Balance,
@@ -98,7 +98,9 @@ function AssetRowWithCoinData({
 		coinData: CoinDisplayData | undefined,
 	) => ReactNode;
 }) {
-	const { data: coinData } = useCoinDisplayData(balance.coinType);
+	const { data: coinData } = useCoinDisplayData(
+		balance.coinType,
+	);
 
 	return (
 		<AssetRow

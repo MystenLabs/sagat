@@ -6,11 +6,7 @@ import { useDAppKit } from '@mysten/dapp-kit-react';
 import { isValidSuiAddress } from '@mysten/sui/utils';
 import { useMutation } from '@tanstack/react-query';
 import { Eye } from 'lucide-react';
-import {
-	useCallback,
-	useEffect,
-	useRef,
-} from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod/v3';
 
@@ -53,8 +49,14 @@ const transferSchema = z.object({
 		.string()
 		.trim()
 		.min(1, 'Please enter a recipient address.')
-		.refine(isValidSuiAddress, 'Please enter a valid Sui address.'),
-	amount: z.string().trim().min(1, 'Please enter an amount.'),
+		.refine(
+			isValidSuiAddress,
+			'Please enter a valid Sui address.',
+		),
+	amount: z
+		.string()
+		.trim()
+		.min(1, 'Please enter an amount.'),
 });
 
 export function TransferForm({
@@ -185,7 +187,8 @@ export function TransferForm({
 			const balance = balances.find(
 				(b) => b.coinType === values.coinType,
 			);
-			const valueDecimals = selectedCoinData?.decimals ?? null;
+			const valueDecimals =
+				selectedCoinData?.decimals ?? null;
 			if (!balance || valueDecimals == null) {
 				form.setError('amount', {
 					type: 'manual',
@@ -195,7 +198,10 @@ export function TransferForm({
 				return;
 			}
 
-			const parsed = parseAmount(values.amount, valueDecimals);
+			const parsed = parseAmount(
+				values.amount,
+				valueDecimals,
+			);
 			if (parsed == null) {
 				form.setError('amount', {
 					type: 'manual',

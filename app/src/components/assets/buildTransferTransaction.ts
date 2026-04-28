@@ -40,7 +40,9 @@ export async function buildTransferTransaction({
 
 	if (transferAllSui) {
 		if (!isSuiCoinType(coinType)) {
-			throw new Error('MAX gas-coin transfer is only supported for SUI.');
+			throw new Error(
+				'MAX gas-coin transfer is only supported for SUI.',
+			);
 		}
 
 		tx.transferObjects([tx.gas], recipient);

@@ -122,7 +122,9 @@ function AssetOption({
 	isSelected: boolean;
 	onSelect: (coinType: string) => void;
 }) {
-	const { data: coinData } = useCoinDisplayData(balance.coinType);
+	const { data: coinData } = useCoinDisplayData(
+		balance.coinType,
+	);
 
 	return (
 		<li>
