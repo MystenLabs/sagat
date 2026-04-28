@@ -278,7 +278,7 @@ export function IntentSummary({
 						sponsorFlows.length > 0 ? (
 							<div className="space-y-4">
 								<FlowGroup
-									title="Sender asset movement"
+									title="Potential sender asset movement"
 									flows={senderFlows}
 									isCoinDataLoading={isCoinDataLoading}
 									coinDataMap={coinDataMap}
