@@ -383,6 +383,7 @@ proposalsRouter.get('/digest/:digest', async (c) => {
 		totalWeight: multisig.threshold,
 		multisig: {
 			address: multisig.address,
+			name: multisig.name,
 			threshold: multisig.threshold,
 			members: multisig.members.map((member) => ({
 				publicKey: member.publicKey,

@@ -9,6 +9,10 @@ export default defineConfig({
 	resolve: {
 		alias: {
 			'@': path.resolve(__dirname, './src'),
+			'@mysten/sagat': path.resolve(
+				__dirname,
+				'../sdk/src/index.ts',
+			),
 		},
 	},
 });
