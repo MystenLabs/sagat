@@ -14,6 +14,7 @@ import {
 	Check,
 	ChevronDown,
 	ChevronRight,
+	Download,
 	ExternalLink,
 	Eye,
 	Rocket,
@@ -29,11 +30,22 @@ import { useCancelProposal } from '../../hooks/useCancelProposal';
 import { useExecuteProposal } from '../../hooks/useExecuteProposal';
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { useVerifyProposal } from '../../hooks/useVerifyProposal';
+import {
+	buildProposalExport,
+	downloadJson,
+	getProposalExportFilename,
+} from '../../lib/exportUtils';
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button } from '../ui/button';
 import { CopyButton } from '../ui/copy-button';
 import { Label } from '../ui/label';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '../ui/tooltip';
 import { ProposalPreview } from './ProposalPreview';
 
 interface ProposalCardProps {
@@ -85,6 +97,13 @@ export function ProposalCard({
 				setShowCancelModal(false);
 			},
 		});
+	};
+
+	const handleExportProposal = () => {
+		downloadJson(
+			getProposalExportFilename(proposal.digest),
+			buildProposalExport(proposal),
+		);
 	};
 
 	const currentWallet = useCurrentAccount();
@@ -217,6 +236,25 @@ export function ProposalCard({
 								size="sm"
 								successMessage="Copied digest to clipboard"
 							/>
+							{!proposal.isPublic && (
+								<TooltipProvider delayDuration={150}>
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<button
+												type="button"
+												onClick={handleExportProposal}
+												className="inline-flex items-center justify-center rounded p-0.5 transition-colors hover:bg-accent cursor-pointer"
+												aria-label="Export proposal with signatures"
+											>
+												<Download className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+											</button>
+										</TooltipTrigger>
+										<TooltipContent>
+											Export proposal with signatures
+										</TooltipContent>
+									</Tooltip>
+								</TooltipProvider>
+							)}
 						</div>
 					</div>
 				</div>

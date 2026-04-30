@@ -149,6 +149,7 @@ function ProposalsList({
 			),
 			multisig: {
 				address: multisig.address,
+				name: multisig.name,
 				threshold: multisig.threshold,
 				members: multisig.members.map((member) => ({
 					...member,
