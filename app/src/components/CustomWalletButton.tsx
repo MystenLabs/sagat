@@ -26,6 +26,7 @@ import { toast } from 'sonner';
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
+import { useDefaultSuinsName } from '../hooks/useDefaultSuinsName';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
@@ -48,11 +49,45 @@ interface AccountItemProps {
 	isConnecting: boolean;
 }
 
+const getCompactWalletLabel = (
+	address: string,
+	suinsName?: string | null,
+) => suinsName ?? formatAddress(address);
+
+const AccountIdentity = ({
+	address,
+	suinsName,
+	label,
+}: {
+	address: string;
+	suinsName?: string | null;
+	label?: string;
+}) => (
+	<div className="flex-1 min-w-0">
+		<p className="font-mono text-xs truncate">
+			{getCompactWalletLabel(address, suinsName)}
+		</p>
+		{suinsName && (
+			<p className="text-xs text-muted-foreground mt-1 truncate">
+				{formatAddress(address)}
+			</p>
+		)}
+		{label && (
+			<p className="text-xs text-muted-foreground mt-1 truncate">
+				{label}
+			</p>
+		)}
+	</div>
+);
+
 export function CustomWalletButton({
 	variant = 'header',
 }: CustomWalletButtonProps) {
 	const currentAccount = useCurrentAccount();
 	const dappKit = useDAppKit();
+	const { data: currentSuinsName } = useDefaultSuinsName(
+		currentAccount?.address,
+	);
 
 	const currentWallet = useCurrentWallet();
 	const accounts = currentWallet?.accounts ?? [];
@@ -132,7 +167,10 @@ export function CustomWalletButton({
 				>
 					<Shield className="w-3 h-3 text-info-foreground" />
 					<span>
-						{formatAddress(currentAccount.address)}
+						{getCompactWalletLabel(
+							currentAccount.address,
+							currentSuinsName,
+						)}
 					</span>
 					<Label
 						variant={isTestMode ? 'warning' : 'info'}
@@ -187,7 +225,7 @@ export function CustomWalletButton({
 						<NetworkSwitchingSection />
 						<Divider />
 						<DisconnectButton
-							setShowWallets={setShowWallets}
+							onDisconnect={handleFullDisconnect}
 						/>
 					</div>
 				)}
@@ -204,10 +242,12 @@ export function CustomWalletButton({
 						<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
 					</div>
 					<h3 className="font-medium text-foreground mb-2">
-						Wallet Connected
+						{currentSuinsName ?? 'Wallet Connected'}
 					</h3>
-					<p className="text-sm text-muted-foreground mb-3">
-						{formatAddress(currentAccount.address)}
+					<p className="text-sm text-muted-foreground mb-3 break-all">
+						{currentSuinsName
+							? currentAccount.address
+							: formatAddress(currentAccount.address)}
 					</p>
 					<div className="flex gap-2">
 						<Button
@@ -251,7 +291,12 @@ export function CustomWalletButton({
 				className="flex items-center gap-2"
 			>
 				<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
-				<span>{formatAddress(currentAccount.address)}</span>
+				<span>
+					{getCompactWalletLabel(
+						currentAccount.address,
+						currentSuinsName,
+					)}
+				</span>
 				<Label
 					variant={isTestMode ? 'warning' : 'info'}
 					size="sm"
@@ -275,7 +320,7 @@ export function CustomWalletButton({
 					<NetworkSwitchingSection />
 					<Divider />
 					<DisconnectButton
-						setShowWallets={setShowWallets}
+						onDisconnect={handleFullDisconnect}
 					/>
 				</div>
 			)}
@@ -316,6 +361,9 @@ const AccountItem = ({
 	onSignAndConnect,
 	isConnecting,
 }: AccountItemProps) => {
+	const { data: suinsName } = useDefaultSuinsName(
+		account.address,
+	);
 	const isCurrent =
 		account.address === currentAccount?.address;
 	const isAccountAuthenticated =
@@ -345,16 +393,11 @@ const AccountItem = ({
 				onClick={() => onSwitchAccount(account)}
 				className="flex-1 text-left min-w-0 cursor-pointer"
 			>
-				<div className="flex-1 min-w-0">
-					<p className="font-mono text-xs truncate">
-						{formatAddress(account.address)}
-					</p>
-					{account.label && (
-						<p className="text-xs text-muted-foreground mt-1 truncate">
-							{account.label}
-						</p>
-					)}
-				</div>
+				<AccountIdentity
+					address={account.address}
+					suinsName={suinsName}
+					label={account.label}
+				/>
 			</button>
 
 			<div className="flex items-center ml-2 space-x-1">
@@ -381,26 +424,13 @@ const AccountItem = ({
 };
 
 const DisconnectButton = ({
-	setShowWallets,
+	onDisconnect,
 }: {
-	setShowWallets: (show: boolean) => void;
+	onDisconnect: () => Promise<void>;
 }) => {
-	const dappKit = useDAppKit();
-	const { disconnect: apiDisconnect } = useApiAuth();
-
-	const handleFullDisconnect = async () => {
-		try {
-			await apiDisconnect();
-			await dappKit.disconnectWallet();
-			setShowWallets(false);
-		} catch {
-			await dappKit.disconnectWallet();
-			setShowWallets(false);
-		}
-	};
 	return (
 		<Button
-			onClick={handleFullDisconnect}
+			onClick={onDisconnect}
 			variant="ghost"
 			size="sm"
 			className="w-full justify-start text-error-foreground rounded-none"
