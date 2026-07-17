@@ -3,3 +3,12 @@ node_modules
 .env
 .DS_Store
 dist
+
+# editor
+.idea/
+*.swp
+*.swo
+
+# rust
+target/
+*.rs.bk
