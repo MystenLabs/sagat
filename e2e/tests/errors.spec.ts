@@ -58,6 +58,9 @@ test.describe('errors', () => {
 		await expect(
 			card.getByTestId('proposal-execute-error'),
 		).toBeVisible();
+		// TODO: it can never execute now, so it should move to a new terminal
+		// status (see lookupAndVerifyProposal in the API) instead of staying
+		// ready.
 		await expect(card).toHaveAttribute(
 			'data-status',
 			'ready',

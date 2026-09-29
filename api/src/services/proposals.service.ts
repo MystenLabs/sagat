@@ -166,6 +166,12 @@ export const lookupAndVerifyProposal = async (
 			},
 		})
 		.catch((error) => {
+			// TODO: a transaction that isn't on-chain may also never be able to
+			// run, e.g. when one of its owned inputs was spent elsewhere. Such a
+			// proposal stays pending and blocks new proposals that use the same
+			// objects. Detect it (an input's version changed or it was deleted)
+			// and move the proposal to a new terminal status for it (not
+			// FAILURE, which means the transaction failed on-chain).
 			if (
 				error instanceof TransactionError &&
 				error.reason === 'notFound'
