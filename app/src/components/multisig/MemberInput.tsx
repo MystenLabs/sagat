@@ -121,13 +121,17 @@ export function MemberInput({
 								size="icon"
 								onClick={() => setShowLookup(true)}
 								title="Look up public key from address"
+								data-testid="member-lookup-button"
 							>
 								<Search className="w-4 h-4" />
 							</Button>
 						)}
 					</div>
 					{member.error && (
-						<p className="text-sm text-error-foreground mt-1">
+						<p
+							className="text-sm text-error-foreground mt-1"
+							data-testid="member-public-key-error"
+						>
 							{member.error}
 						</p>
 					)}
@@ -171,6 +175,7 @@ export function MemberInput({
 					variant="ghost"
 					size="icon"
 					onClick={() => onRemove(member.id)}
+					data-testid="member-remove-button"
 					className="shrink-0 mt-1"
 				>
 					<Trash2 className="w-4 h-4" />
