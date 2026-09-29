@@ -79,6 +79,50 @@ export const getSuiClient = (network: SuiNetwork) => {
 	return createInstrumentedClient(network, client);
 };
 
+// The longest to reuse a network's system state. Its epoch only changes when
+// the next one is due, but a network can also be wiped and start over (e.g.
+// devnet), which a longer wait would miss.
+const SYSTEM_STATE_TTL_MS = 60_000;
+
+const systemStates = new Map<
+	SuiNetwork,
+	{
+		expiresAt: number;
+		systemState: Promise<SuiClientTypes.SystemStateInfo>;
+	}
+>();
+
+// The network's current system state, shared between requests until its
+// epoch is due to end (or the TTL runs out). Epochs only move forward, so a
+// shared one can only be a little behind, which at worst notices an
+// expiration late. After a wipe it can be ahead, but for at most the TTL.
+export const getSystemState = (network: SuiNetwork) => {
+	const cached = systemStates.get(network);
+	if (cached && Date.now() < cached.expiresAt)
+		return cached.systemState;
+
+	const entry = {
+		// Also covers the requests that come in while it loads.
+		expiresAt: Date.now() + SYSTEM_STATE_TTL_MS,
+		systemState: getSuiClient(network)
+			.getCurrentSystemState()
+			.then(({ systemState }) => {
+				entry.expiresAt = Math.min(
+					entry.expiresAt,
+					Number(systemState.epochStartTimestampMs) +
+						Number(systemState.parameters.epochDurationMs),
+				);
+				return systemState;
+			}),
+	};
+	entry.systemState.catch(() => {
+		if (systemStates.get(network) === entry)
+			systemStates.delete(network);
+	});
+	systemStates.set(network, entry);
+	return entry.systemState;
+};
+
 // Query a list of objects
 // TODO: use a data loader to share queries across requests.
 export const queryAllOwnedObjects = async (

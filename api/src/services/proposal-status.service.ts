@@ -25,6 +25,7 @@ import {
 import {
 	getObjectVersions,
 	getSuiClient,
+	getSystemState,
 	type SuiNetwork,
 } from '../utils/client';
 
@@ -122,11 +123,7 @@ export const findInvalidTransactions = async (
 			refs.flat().map((ref) => ref.objectId),
 			network,
 		),
-		canExpire
-			? getSuiClient(network)
-					.getCurrentSystemState()
-					.then(({ systemState }) => systemState)
-			: null,
+		canExpire ? getSystemState(network) : null,
 	]);
 	return transactions.map(
 		(_, i) =>
