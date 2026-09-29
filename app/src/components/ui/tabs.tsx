@@ -19,6 +19,8 @@ interface TabsProps {
 	onTabChange: (tabId: string) => void;
 	variant?: 'underline' | 'pills';
 	className?: string;
+	/** Each tab button gets `data-testid="<testId>-<tab.id>"`. */
+	testId?: string;
 }
 
 export function Tabs({
@@ -27,7 +29,11 @@ export function Tabs({
 	onTabChange,
 	variant = 'underline',
 	className,
+	testId,
 }: TabsProps) {
+	const tabTestId = (id: string) =>
+		testId ? `${testId}-${id}` : undefined;
+
 	if (variant === 'pills') {
 		return (
 			<div
@@ -42,6 +48,7 @@ export function Tabs({
 						<button
 							key={tab.id}
 							type="button"
+							data-testid={tabTestId(tab.id)}
 							onClick={() => onTabChange(tab.id)}
 							className={cn(
 								'px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0',
@@ -75,6 +82,7 @@ export function Tabs({
 					<button
 						key={tab.id}
 						type="button"
+						data-testid={tabTestId(tab.id)}
 						onClick={() => onTabChange(tab.id)}
 						className={`flex cursor-pointer items-center gap-2 border-b-2 py-3 px-3 text-sm font-medium transition-colors ${
 							activeTab === tab.id

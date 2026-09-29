@@ -283,6 +283,7 @@ export function TransferForm({
 					disabled={isBusy}
 					autoComplete="off"
 					spellCheck={false}
+					data-testid="transfer-recipient-input"
 					{...form.register('recipient', {
 						onChange: onFieldChange,
 					})}
@@ -321,6 +322,7 @@ export function TransferForm({
 						inputMode="decimal"
 						autoComplete="off"
 						spellCheck={false}
+						data-testid="transfer-amount-input"
 						className={symbol ? 'pr-14' : undefined}
 						{...form.register('amount', {
 							onChange: onFieldChange,
@@ -333,7 +335,10 @@ export function TransferForm({
 					)}
 				</div>
 				{errors.amount && (
-					<p className="text-sm text-error-foreground">
+					<p
+						className="text-sm text-error-foreground"
+						data-testid="transfer-amount-error"
+					>
 						{errors.amount.message}
 					</p>
 				)}
@@ -367,6 +372,7 @@ export function TransferForm({
 					size="sm"
 					disabled={isBusy}
 					onClick={submitTransfer}
+					data-testid="transfer-preview-button"
 				>
 					<Eye className="w-4 h-4 mr-1" />
 					{buildMutation.isPending

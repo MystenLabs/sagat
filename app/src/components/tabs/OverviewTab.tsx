@@ -48,6 +48,10 @@ export function OverviewTab() {
 		refetch,
 	} = useGetMultisig(multisig.address);
 
+	const totalWeight = multisigDetails?.members
+		.map((m) => m.weight)
+		.reduce((a, b) => a + b, 0);
+
 	const handleExportComposition = () => {
 		downloadJson(
 			getMultisigExportFilename(multisig.address),
@@ -71,7 +75,10 @@ export function OverviewTab() {
 							Address
 						</label>
 						<div className="flex items-center gap-2 p-3 bg-surface rounded-lg flex-1">
-							<code className="text-sm font-mono text-foreground flex-1 break-all">
+							<code
+								className="text-sm font-mono text-foreground flex-1 break-all"
+								data-testid="multisig-address"
+							>
 								{multisig.address}
 							</code>
 							<Button
@@ -94,12 +101,14 @@ export function OverviewTab() {
 							Signature Threshold
 						</label>
 						<div className="flex items-center p-3 bg-surface rounded-lg flex-1">
-							<span className="text-sm text-foreground">
-								{multisig.threshold} of{' '}
-								{multisigDetails?.members
-									.map((m) => m.weight)
-									.reduce((a, b) => a + b, 0)}{' '}
-								weight required
+							<span
+								className="text-sm text-foreground"
+								data-testid="multisig-threshold"
+								data-threshold={multisig.threshold}
+								data-total-weight={totalWeight}
+							>
+								{multisig.threshold} of {totalWeight} weight
+								required
 							</span>
 						</div>
 					</div>
@@ -123,6 +132,7 @@ export function OverviewTab() {
 						variant="outline"
 						onClick={handleExportComposition}
 						className="w-full sm:w-auto"
+						data-testid="export-multisig-button"
 					>
 						<Download className="w-4 h-4 mr-2" />
 						Download
@@ -131,7 +141,10 @@ export function OverviewTab() {
 			</div>
 
 			{/* Members Section */}
-			<div className="bg-card border rounded-lg p-6">
+			<div
+				className="bg-card border rounded-lg p-6"
+				data-testid="members-section"
+			>
 				<h2 className="text-lg font-semibold mb-4 flex items-center">
 					<Users className="w-5 h-5 mr-2" />
 					Members ({multisig.totalMembers})

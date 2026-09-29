@@ -25,6 +25,15 @@ export function MembersList({ members }: MembersListProps) {
 					<div
 						key={member.publicKey}
 						className="flex items-center justify-between p-3 bg-card rounded border"
+						data-testid="member-item"
+						data-address={address}
+						data-status={
+							member.isAccepted
+								? 'accepted'
+								: member.isRejected
+									? 'rejected'
+									: 'pending'
+						}
 					>
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center space-x-2">

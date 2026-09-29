@@ -76,6 +76,7 @@ function FilterTabs({
 					onFilterChange(id as FilterType)
 				}
 				variant="pills"
+				testId="proposal-filter"
 			/>
 			{/* Refresh button for all tabs */}
 			<Button
@@ -85,6 +86,7 @@ function FilterTabs({
 				disabled={isRefreshCooldown || isRefetching}
 				className="shrink-0"
 				title="Refresh proposals (5s cooldown)"
+				data-testid="refresh-proposals-button"
 			>
 				<RefreshCw
 					className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`}
@@ -105,7 +107,10 @@ function EmptyState({
 	onCreateProposal: () => void;
 }) {
 	return (
-		<div className="text-center py-12">
+		<div
+			className="text-center py-12"
+			data-testid="proposals-empty"
+		>
 			<FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
 			<h3 className="text-lg font-medium mb-2">
 				No proposals found
@@ -160,7 +165,7 @@ function ProposalsList({
 	};
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-4" data-testid="proposals-list">
 			{proposals.map((proposal) => (
 				<ProposalCard
 					key={proposal.id}

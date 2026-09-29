@@ -50,6 +50,7 @@ export function InvitationDetails({
 							onClick={onReject}
 							disabled={isProcessing}
 							className="text-error-foreground hover:text-error-foreground hover:border-error-border"
+							data-testid="reject-invitation-button"
 						>
 							<X className="w-4 h-4 mr-1" />
 							Reject Invitation
@@ -59,6 +60,7 @@ export function InvitationDetails({
 						size="sm"
 						onClick={onAccept}
 						disabled={isProcessing}
+						data-testid="accept-invitation-button"
 					>
 						{isProcessing ? (
 							<>

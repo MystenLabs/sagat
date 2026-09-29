@@ -11,6 +11,7 @@ interface EmptyStateProps {
 	description?: string;
 	action?: ReactNode;
 	className?: string;
+	testId?: string;
 }
 
 export function EmptyState({
@@ -19,9 +20,11 @@ export function EmptyState({
 	description,
 	action,
 	className,
+	testId,
 }: EmptyStateProps) {
 	return (
 		<div
+			data-testid={testId}
 			className={cn(
 				'text-center py-12 bg-surface rounded-lg',
 				className,

@@ -49,7 +49,11 @@ export function InvitationCard({
 	};
 
 	return (
-		<div className="bg-card border rounded-lg hover:shadow-sm transition-shadow">
+		<div
+			className="bg-card border rounded-lg hover:shadow-sm transition-shadow"
+			data-testid="invitation-card"
+			data-multisig-address={multisig.address}
+		>
 			{/* Main invitation row */}
 			<div className="flex items-center justify-between p-4">
 				{/* Left side - Multisig info */}
@@ -84,6 +88,7 @@ export function InvitationCard({
 						size="sm"
 						onClick={toggleExpanded}
 						className="text-info-foreground hover:border-info-border"
+						data-testid="invitation-toggle-details"
 					>
 						{isExpanded ? (
 							<>

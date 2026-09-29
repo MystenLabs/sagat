@@ -164,6 +164,8 @@ export function CustomWalletButton({
 					size="sm"
 					onClick={() => setShowWallets(!showWallets)}
 					className="flex items-center gap-2"
+					data-testid="wallet-menu-button"
+					data-auth-state="unauthenticated"
 				>
 					<Shield className="w-3 h-3 text-info-foreground" />
 					<span>
@@ -203,6 +205,7 @@ export function CustomWalletButton({
 									disabled={isConnecting}
 									size="sm"
 									className="w-full mb-2"
+									data-testid="wallet-menu-sign-in"
 								>
 									{isConnecting ? (
 										<>
@@ -236,7 +239,10 @@ export function CustomWalletButton({
 	// Wallet connected and authenticated
 	if (variant === 'sidebar') {
 		return (
-			<div className="mt-8 p-4 bg-card rounded-lg border border-border">
+			<div
+				className="mt-8 p-4 bg-card rounded-lg border border-border"
+				data-testid="wallet-connected-card"
+			>
 				<div className="text-center">
 					<div className="w-6 h-6 bg-success-soft rounded-full mx-auto mb-3 flex items-center justify-center">
 						<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
@@ -271,6 +277,7 @@ export function CustomWalletButton({
 							variant="outline"
 							size="sm"
 							className="flex-1 text-xs hover:text-error-foreground hover:border-error-border"
+							data-testid="disconnect-button"
 						>
 							<LogOut className="w-3 h-3 mr-1" />
 							Disconnect
@@ -289,6 +296,8 @@ export function CustomWalletButton({
 				size="sm"
 				onClick={() => setShowWallets(!showWallets)}
 				className="flex items-center gap-2"
+				data-testid="wallet-menu-button"
+				data-auth-state="authenticated"
 			>
 				<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
 				<span>
@@ -388,10 +397,13 @@ const AccountItem = ({
 			className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-accent w-full ${
 				isCurrent ? 'bg-info-soft text-info-foreground' : ''
 			}`}
+			data-testid="wallet-account"
+			data-address={account.address}
 		>
 			<button
 				onClick={() => onSwitchAccount(account)}
 				className="flex-1 text-left min-w-0 cursor-pointer"
+				data-testid="wallet-account-switch"
 			>
 				<AccountIdentity
 					address={account.address}
@@ -411,6 +423,7 @@ const AccountItem = ({
 						onClick={handleSignClick}
 						disabled={isConnecting}
 						className="text-xs px-1.5 py-1 h-6 flex items-center gap-1"
+						data-testid="wallet-account-sign"
 					>
 						<Shield className="w-2.5 h-2.5" />
 						{isConnecting && isCurrent
@@ -434,6 +447,7 @@ const DisconnectButton = ({
 			variant="ghost"
 			size="sm"
 			className="w-full justify-start text-error-foreground rounded-none"
+			data-testid="disconnect-button"
 		>
 			<LogOut className="w-4 h-4" />
 			Disconnect
@@ -485,6 +499,7 @@ const NotConnectedWalletVariant = ({
 				size="sm"
 				onClick={() => setShowWallets(!showWallets)}
 				className="flex items-center gap-2"
+				data-testid="connect-wallet-button"
 			>
 				<Wallet className="w-4 h-4" />
 				Connect Wallet
@@ -505,6 +520,8 @@ const NotConnectedWalletVariant = ({
 								handleWalletConnect(wallet.name)
 							}
 							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent w-full text-left cursor-pointer"
+							data-testid="wallet-option"
+							data-wallet-name={wallet.name}
 						>
 							<img
 								src={wallet.icon}

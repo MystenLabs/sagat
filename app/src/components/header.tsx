@@ -206,7 +206,11 @@ const NavigationLinks = ({
 			{currentAccount && isCurrentAddressAuthenticated && (
 				<>
 					{/* Invitations button */}
-					<Link to="/invitations" onClick={onNavigate}>
+					<Link
+						to="/invitations"
+						onClick={onNavigate}
+						data-testid="nav-invitations"
+					>
 						<Button
 							variant={
 								location.pathname === '/invitations'
@@ -225,6 +229,7 @@ const NavigationLinks = ({
 									variant="warning"
 									size="sm"
 									className={`absolute ${mobile ? 'top-2 right-2' : '-top-1 -right-1'} bg-orange-500 text-white h-5 w-5 p-0 justify-center`}
+									data-testid="nav-invitations-count"
 								>
 									{pendingCount}
 								</Label>
@@ -233,7 +238,11 @@ const NavigationLinks = ({
 					</Link>
 
 					{/* Create multisig button */}
-					<Link to="/create" onClick={onNavigate}>
+					<Link
+						to="/create"
+						onClick={onNavigate}
+						data-testid="nav-create-multisig"
+					>
 						<Button
 							variant={
 								location.pathname === '/create'
@@ -303,7 +312,7 @@ export function Header() {
 	const pendingCount = invitations?.length ?? 0;
 
 	return (
-		<div className="border-b">
+		<div className="border-b" data-testid="app-header">
 			<div className="page-shell flex items-center justify-between py-4">
 				{/* Logo - hide subtitle on mobile */}
 				<div className="block lg:hidden">

@@ -56,6 +56,7 @@ export function CancelProposalModal({
 					variant="outline"
 					onClick={onClose}
 					disabled={isLoading}
+					data-testid="keep-proposal-button"
 				>
 					Keep Proposal
 				</Button>
@@ -63,6 +64,7 @@ export function CancelProposalModal({
 					onClick={onConfirm}
 					disabled={isLoading}
 					variant="destructive"
+					data-testid="confirm-cancel-proposal-button"
 				>
 					{isLoading ? 'Cancelling...' : 'Cancel Proposal'}
 				</Button>

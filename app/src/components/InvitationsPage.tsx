@@ -80,12 +80,14 @@ export function InvitationsPage() {
 					tabs={tabs}
 					activeTab={activeTab}
 					onTabChange={(id) => setActiveTab(id as TabType)}
+					testId="invitations-tab"
 				/>
 			</div>
 
 			{/* Content */}
 			{!invitations || invitations.length === 0 ? (
 				<EmptyState
+					testId="invitations-empty"
 					title={
 						activeTab === 'pending'
 							? 'No pending invitations'

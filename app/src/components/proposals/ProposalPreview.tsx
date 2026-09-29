@@ -72,7 +72,10 @@ export function ProposalPreview({
 					{isDryRunSuccessful && (
 						<>
 							{userHasSigned ? (
-								<div className="flex items-center gap-1 text-sm text-success-foreground">
+								<div
+									className="flex items-center gap-1 text-sm text-success-foreground"
+									data-testid="preview-already-signed"
+								>
 									<Check
 										strokeWidth={3}
 										className="w-4 h-4"
@@ -85,13 +88,17 @@ export function ProposalPreview({
 									onClick={handleSignProposal}
 									disabled={signProposalMutation.isPending}
 									variant="default"
+									data-testid="sign-proposal-button"
 								>
 									{signProposalMutation.isPending
 										? 'Signing...'
 										: 'Sign Proposal'}
 								</Button>
 							) : (
-								<div className="flex items-center gap-1 text-sm text-muted-foreground">
+								<div
+									className="flex items-center gap-1 text-sm text-muted-foreground"
+									data-testid="preview-cannot-sign"
+								>
 									<Clock className="w-4 h-4" />
 									Cannot sign:{' '}
 									{formatAddress(
@@ -138,7 +145,10 @@ export function ProposalPreview({
 			)}
 
 			{dryRun.error && (
-				<div className="border border-error-border bg-card rounded-lg p-3">
+				<div
+					className="border border-error-border bg-card rounded-lg p-3"
+					data-testid="proposal-preview-error"
+				>
 					<div className="space-y-3">
 						<IntentSummary
 							analysis={analysis.data}
@@ -157,7 +167,10 @@ export function ProposalPreview({
 
 			{/* Sign Proposal Error */}
 			{signProposalMutation.error && (
-				<div className="border border-error-border bg-error rounded-lg p-3">
+				<div
+					className="border border-error-border bg-error rounded-lg p-3"
+					data-testid="sign-proposal-error"
+				>
 					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Sign Proposal
 					</h6>

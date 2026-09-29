@@ -53,6 +53,14 @@ interface ProposalCardProps {
 	defaultExpanded?: boolean;
 }
 
+const STATUS_BADGES = {
+	executed: { variant: 'success', text: 'Executed' },
+	cancelled: { variant: 'neutral', text: 'Cancelled' },
+	failed: { variant: 'error', text: 'Failed' },
+	ready: { variant: 'info', text: 'Ready to Execute' },
+	pending: { variant: 'warning', text: 'Pending' },
+} as const;
+
 export function ProposalCard({
 	proposal,
 	defaultExpanded = false,
@@ -127,21 +135,30 @@ export function ProposalCard({
 		return `Transaction ${formatDigest(proposal.digest)}`;
 	};
 
-	const getStatusBadge = () => {
-		if (proposal.status === ProposalStatus.SUCCESS) {
-			return <Label variant="success">Executed</Label>;
-		}
-		if (proposal.status === ProposalStatus.CANCELLED) {
-			return <Label variant="neutral">Cancelled</Label>;
-		}
-		if (proposal.status === ProposalStatus.FAILURE) {
-			return <Label variant="error">Failed</Label>;
-		}
+	const getStatusKey = () => {
+		if (proposal.status === ProposalStatus.SUCCESS)
+			return 'executed';
+		if (proposal.status === ProposalStatus.CANCELLED)
+			return 'cancelled';
+		if (proposal.status === ProposalStatus.FAILURE)
+			return 'failed';
+		if (proposal.currentWeight >= proposal.totalWeight)
+			return 'ready';
+		return 'pending';
+	};
+	const statusKey = getStatusKey();
 
-		if (proposal.currentWeight >= proposal.totalWeight) {
-			return <Label variant="info">Ready to Execute</Label>;
-		}
-		return <Label variant="warning">Pending</Label>;
+	const getStatusBadge = () => {
+		const { variant, text } = STATUS_BADGES[statusKey];
+		return (
+			<Label
+				variant={variant}
+				data-testid="proposal-status"
+				data-status={statusKey}
+			>
+				{text}
+			</Label>
+		);
 	};
 
 	const isExternalProposer = () => {
@@ -176,7 +193,10 @@ export function ProposalCard({
 		if (!userHasSigned()) return null;
 
 		return (
-			<Label variant="success">
+			<Label
+				variant="success"
+				data-testid="proposal-already-signed"
+			>
 				<Check strokeWidth={3} className="w-3 h-3" />
 				Already Signed
 			</Label>
@@ -184,12 +204,21 @@ export function ProposalCard({
 	};
 
 	return (
-		<div className="bg-card border rounded-lg hover:shadow-sm transition-shadow">
+		<div
+			className="bg-card border rounded-lg hover:shadow-sm transition-shadow"
+			data-testid="proposal-card"
+			data-proposal-id={proposal.id}
+			data-digest={proposal.digest}
+			data-status={statusKey}
+		>
 			{/* Main proposal row */}
 			<div className="flex items-start justify-between p-4 max-md:flex-col max-md:gap-3">
 				<div className="flex-1">
 					<div className="flex max-md:flex-wrap items-center gap-2 mb-2">
-						<h4 className="font-medium text-foreground line-clamp-1">
+						<h4
+							className="font-medium text-foreground line-clamp-1"
+							data-testid="proposal-title"
+						>
 							{getProposalTitle()}
 						</h4>
 						{getStatusBadge()}
@@ -202,7 +231,11 @@ export function ProposalCard({
 					</div>
 
 					<div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
-						<span>
+						<span
+							data-testid="proposal-signature-weight"
+							data-current-weight={proposal.currentWeight}
+							data-threshold={proposal.totalWeight}
+						>
 							Signature Weight: {proposal.currentWeight}/
 							{proposal.totalWeight}
 						</span>
@@ -245,6 +278,7 @@ export function ProposalCard({
 												onClick={handleExportProposal}
 												className="inline-flex items-center justify-center rounded p-0.5 transition-colors hover:bg-accent cursor-pointer"
 												aria-label="Export proposal with signatures"
+												data-testid="export-proposal-button"
 											>
 												<Download className="w-3 h-3 text-muted-foreground hover:text-foreground" />
 											</button>
@@ -266,6 +300,7 @@ export function ProposalCard({
 							onClick={handleExecuteProposal}
 							disabled={executeProposalMutation.isPending}
 							variant="default"
+							data-testid="execute-proposal-button"
 						>
 							<Rocket className="w-4 h-4 mr-1" />
 							{executeProposalMutation.isPending
@@ -280,6 +315,7 @@ export function ProposalCard({
 								variant="outlineDestructive"
 								onClick={() => setShowCancelModal(true)}
 								disabled={cancelProposalMutation.isPending}
+								data-testid="cancel-proposal-button"
 							>
 								{cancelProposalMutation.isPending
 									? 'Cancelling...'
@@ -306,6 +342,7 @@ export function ProposalCard({
 							size="sm"
 							variant="outline"
 							onClick={() => setIsExpanded(!isExpanded)}
+							data-testid="proposal-toggle-details"
 						>
 							<ToggleIcon
 								proposal={proposal}
@@ -328,7 +365,10 @@ export function ProposalCard({
 
 			{/* Execute Error */}
 			{executeProposalMutation.error && (
-				<div className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3">
+				<div
+					className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3"
+					data-testid="proposal-execute-error"
+				>
 					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Execute Transaction
 					</h6>
@@ -352,7 +392,10 @@ export function ProposalCard({
 
 			{/* Cancel Error */}
 			{cancelProposalMutation.error && (
-				<div className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3">
+				<div
+					className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3"
+					data-testid="proposal-cancel-error"
+				>
 					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Cancel Proposal
 					</h6>
