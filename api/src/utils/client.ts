@@ -16,74 +16,51 @@ export type SuiNetwork =
 	| 'devnet'
 	| 'localnet';
 
+// Wraps an RPC method to record its duration and errors. The wrapper keeps
+// the method's own (generic) signature, so it doesn't need updating when the
+// SDK's types change.
+const withMetrics = <
+	F extends (...args: never[]) => Promise<unknown>,
+>(
+	network: SuiNetwork,
+	method: string,
+	fn: F,
+): F =>
+	(async (...args: Parameters<F>) => {
+		const start = Date.now();
+		try {
+			return await fn(...args);
+		} catch (error) {
+			rpcRequestErrors.inc({
+				network,
+				method,
+				error_type:
+					error instanceof Error ? error.name : 'unknown',
+			});
+			throw error;
+		} finally {
+			rpcRequestDuration.observe(
+				{ network, method },
+				(Date.now() - start) / 1000,
+			);
+		}
+	}) as F;
+
 // Create a wrapper that instruments RPC calls with metrics
 const createInstrumentedClient = (
 	network: SuiNetwork,
 	client: SuiGrpcClient,
 ) => {
-	const originalGetObjects = client.getObjects.bind(client);
-	const originalGetTransaction =
-		client.getTransaction.bind(client);
-
-	client.getObjects = async <
-		Include extends SuiClientTypes.ObjectInclude,
-	>(
-		input: SuiClientTypes.GetObjectsOptions<Include>,
-	) => {
-		const start = Date.now();
-		try {
-			const result = await originalGetObjects(input);
-			const duration = (Date.now() - start) / 1000;
-			rpcRequestDuration.observe(
-				{ network, method: 'getObjects' },
-				duration,
-			);
-			return result;
-		} catch (error) {
-			const duration = (Date.now() - start) / 1000;
-			rpcRequestDuration.observe(
-				{ network, method: 'getObjects' },
-				duration,
-			);
-			rpcRequestErrors.inc({
-				network,
-				method: 'getObjects',
-				error_type:
-					error instanceof Error ? error.name : 'unknown',
-			});
-			throw error;
-		}
-	};
-
-	client.getTransaction = async <
-		Include extends SuiClientTypes.TransactionInclude,
-	>(
-		input: SuiClientTypes.GetTransactionOptions<Include>,
-	): Promise<SuiClientTypes.TransactionResult<Include>> => {
-		const start = Date.now();
-		try {
-			const result = await originalGetTransaction(input);
-			const duration = (Date.now() - start) / 1000;
-			rpcRequestDuration.observe(
-				{ network, method: 'getTransaction' },
-				duration,
-			);
-			return result;
-		} catch (error) {
-			const duration = (Date.now() - start) / 1000;
-			rpcRequestDuration.observe(
-				{ network, method: 'getTransaction' },
-				duration,
-			);
-			rpcRequestErrors.inc({
-				network,
-				method: 'getTransaction',
-				error_type:
-					error instanceof Error ? error.name : 'unknown',
-			});
-			throw error;
-		}
-	};
+	client.getObjects = withMetrics(
+		network,
+		'getObjects',
+		client.getObjects.bind(client),
+	);
+	client.getTransaction = withMetrics(
+		network,
+		'getTransaction',
+		client.getTransaction.bind(client),
+	);
 
 	return client;
 };
