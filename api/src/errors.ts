@@ -3,7 +3,7 @@
 
 import { SuiHTTPTransportError } from '@mysten/sui/jsonRpc';
 import { DrizzleQueryError } from 'drizzle-orm';
-import { type Context } from 'hono';
+import { type ErrorHandler } from 'hono';
 
 export class NotFoundError extends Error {}
 
@@ -40,7 +40,7 @@ export const CommonErrors = {
 };
 
 // The error handler for the app.
-export const appErrorHandler = (err: Error, c: Context) => {
+export const appErrorHandler: ErrorHandler = (err, c) => {
 	if (err instanceof ValidationError)
 		return c.json({ error: err.message }, 400);
 

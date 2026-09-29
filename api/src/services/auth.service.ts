@@ -3,7 +3,7 @@
 
 import { PersonalMessages } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
-import { type Context } from 'hono';
+import { type Context, type Handler } from 'hono';
 import {
 	deleteCookie,
 	getCookie,
@@ -60,7 +60,7 @@ export type AuthEnv = {
 // Connect to the system for a script, this only grants access to a single
 // public key data.
 // Script tokens are short-lived (1hr), matching the maximum duration of a signature.
-export const connectForScript = async (c: Context) => {
+export const connectForScript: Handler = async (c) => {
 	try {
 		const { signature, expiry } = await c.req.json();
 		validateExpiry(expiry);
@@ -88,7 +88,7 @@ export const connectForScript = async (c: Context) => {
 
 // We connect to the system incrementally with each public key we verify.
 // This is because the wallet connect might have multiple keys..
-export const connectToPublicKey = async (c: Context) => {
+export const connectToPublicKey: Handler = async (c) => {
 	try {
 		// Read cookie from client
 		const cookie = getCookie(c, JWT_COOKIE_NAME);
@@ -275,7 +275,7 @@ export const validateExpiry = (expiry: string) => {
 		);
 };
 
-export const disconnect = async (c: Context) => {
+export const disconnect: Handler = async (c) => {
 	deleteCookie(c, JWT_COOKIE_NAME, {
 		path: '/',
 		secure: true,
