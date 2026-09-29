@@ -38,6 +38,9 @@ Configuration (all optional):
 | `E2E_SUI_RPC_URL`    | `http://127.0.0.1:9000`                 |
 | `E2E_SUI_FAUCET_URL` | `http://127.0.0.1:9123`                 |
 
+`E2E_SUI_RPC_URL` reaches the API, the app (as `VITE_LOCALNET_RPC_URL`), the
+test wallet and the test helpers, so they all use the same network.
+
 The database is created and migrated on start. Tests never clean it up, and
 don't need to (see below). Drop it whenever you like to start fresh.
 

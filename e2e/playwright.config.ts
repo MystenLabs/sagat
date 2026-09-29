@@ -7,6 +7,15 @@ import { E2E } from './support/env';
 
 const isCI = !!process.env.CI;
 
+// Start the local network on the ports the configured URLs point at.
+const suiCommand = [
+	'sui start --force-regenesis',
+	`--fullnode-rpc-port ${new URL(E2E.rpcUrl).port || 9000}`,
+	`--with-faucet=${new URL(E2E.faucetUrl).port || 9123}`,
+	// Long epochs so an epoch change never lands mid-test.
+	'--epoch-duration-ms 3600000',
+].join(' ');
+
 const appCommand =
 	E2E.appServer === 'preview'
 		? `bunx vite build && bunx vite preview --port ${E2E.appPort} --strictPort`
@@ -42,9 +51,7 @@ export default defineConfig({
 	webServer: [
 		{
 			name: 'sui',
-			// Long epochs so an epoch change never lands mid-test.
-			command:
-				'sui start --force-regenesis --with-faucet --epoch-duration-ms 3600000',
+			command: suiCommand,
 			url: `${E2E.faucetUrl}/`,
 			env: { RUST_LOG: 'off' },
 			stdout: 'ignore',
@@ -78,7 +85,10 @@ export default defineConfig({
 			cwd: '../app',
 			command: appCommand,
 			url: E2E.appUrl,
-			env: { VITE_API_URL: E2E.apiUrl },
+			env: {
+				VITE_API_URL: E2E.apiUrl,
+				VITE_LOCALNET_RPC_URL: E2E.rpcUrl,
+			},
 			timeout: 180_000,
 			reuseExistingServer: !isCI,
 		},
