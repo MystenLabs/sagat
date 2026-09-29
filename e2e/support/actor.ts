@@ -25,10 +25,14 @@ const RECOGNIZED_COINS_URL =
 // A test user with their own browser context (own cookies, own wallet).
 // Every person in a multi-party flow needs one: the API accepts invitations
 // automatically for every key signed in within the same browser.
+//
+// The actor is the wallet's first account. `otherAccounts` are further
+// accounts in the same wallet, e.g. to test switching between them.
 export class Actor extends Identity {
 	private constructor(
 		name: string,
 		keypair: Ed25519Keypair,
+		readonly otherAccounts: Identity[],
 		readonly context: BrowserContext,
 		readonly page: Page,
 	) {
@@ -39,6 +43,7 @@ export class Actor extends Identity {
 		browser: Browser,
 		name: string,
 		keypair: Ed25519Keypair,
+		otherAccounts: Identity[] = [],
 	) {
 		const context = await browser.newContext();
 		await isolateFromInternet(context);
@@ -48,6 +53,10 @@ export class Actor extends Identity {
 			rpcUrl: E2E.rpcUrl,
 			accounts: [
 				{ label: name, secretKey: keypair.getSecretKey() },
+				...otherAccounts.map((account) => ({
+					label: account.name,
+					secretKey: account.keypair.getSecretKey(),
+				})),
 			],
 		};
 		await context.addInitScript((config) => {
@@ -61,6 +70,7 @@ export class Actor extends Identity {
 		return new Actor(
 			name,
 			keypair,
+			otherAccounts,
 			context,
 			await context.newPage(),
 		);
@@ -88,6 +98,43 @@ export class Actor extends Identity {
 			)
 			.click();
 		await expect(this.walletMenuButton()).toBeVisible();
+	}
+
+	// Signs in `account` from the wallet menu's account list, switching to it
+	// first when it isn't the current one.
+	async signInAccount(account: Identity) {
+		await this.walletMenuButton().click();
+		await this.walletAccount(account.address)
+			.getByTestId('wallet-account-sign')
+			.click();
+		await expect(this.walletMenuButton()).toHaveAttribute(
+			'data-address',
+			account.address,
+		);
+		await expect(this.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+	}
+
+	// Makes `account` the current wallet account, without signing.
+	async switchAccount(account: Identity) {
+		await this.walletMenuButton().click();
+		await this.walletAccount(account.address)
+			.getByTestId('wallet-account-switch')
+			.click();
+		await expect(this.walletMenuButton()).toHaveAttribute(
+			'data-address',
+			account.address,
+		);
+	}
+
+	walletAccount(address: string) {
+		return this.page
+			.locator(
+				`[data-testid="wallet-account"][data-address="${address}"]`,
+			)
+			.filter({ visible: true });
 	}
 
 	// Connects the wallet and signs the auth message, like a user would.

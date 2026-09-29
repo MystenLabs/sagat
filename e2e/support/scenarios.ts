@@ -106,8 +106,56 @@ export async function signProposal(
 	});
 }
 
+type MultisigMember = {
+	identity: Identity;
+	weight?: number;
+};
+
 export function multisigAddressOf(
-	members: { identity: Identity; weight?: number }[],
+	members: MultisigMember[],
+	threshold: number,
+) {
+	return multisigPublicKeyOf(
+		members,
+		threshold,
+	).toSuiAddress();
+}
+
+// Executes a transaction from the multisig directly on-chain, without the app
+// or the API, e.g. to spend coins that a pending proposal also uses.
+// `members` must be in the multisig's order; `signers` must meet the threshold.
+export async function executeOutsideApp(
+	chain: Chain,
+	{
+		members,
+		threshold,
+		signers,
+		transactionBytes,
+	}: {
+		members: MultisigMember[];
+		threshold: number;
+		signers: Identity[];
+		transactionBytes: string;
+	},
+) {
+	const signatures = await Promise.all(
+		members
+			.filter(({ identity }) => signers.includes(identity))
+			.map(({ identity }) =>
+				identity.signTransaction(transactionBytes),
+			),
+	);
+	await chain.execute(
+		transactionBytes,
+		multisigPublicKeyOf(
+			members,
+			threshold,
+		).combinePartialSignatures(signatures),
+	);
+}
+
+function multisigPublicKeyOf(
+	members: MultisigMember[],
 	threshold: number,
 ) {
 	return MultiSigPublicKey.fromPublicKeys({
@@ -116,5 +164,5 @@ export function multisigAddressOf(
 			publicKey: identity.keypair.getPublicKey(),
 			weight: weight ?? 1,
 		})),
-	}).toSuiAddress();
+	});
 }

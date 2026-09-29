@@ -351,7 +351,10 @@ export function ProposalCard({
 
 			{/* Execute Error */}
 			{executeProposalMutation.error && (
-				<div className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3">
+				<div
+					className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3"
+					data-testid="proposal-execute-error"
+				>
 					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Execute Transaction
 					</h6>

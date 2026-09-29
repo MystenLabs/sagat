@@ -168,6 +168,7 @@ export function CustomWalletButton({
 					className="flex items-center gap-2"
 					data-testid="wallet-menu-button"
 					data-auth-state="unauthenticated"
+					data-address={currentAccount.address}
 				>
 					<Shield className="w-3 h-3 text-info-foreground" />
 					<span>
@@ -296,6 +297,7 @@ export function CustomWalletButton({
 				className="flex items-center gap-2"
 				data-testid="wallet-menu-button"
 				data-auth-state="authenticated"
+				data-address={currentAccount.address}
 			>
 				<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
 				<span>
@@ -388,10 +390,15 @@ const AccountItem = ({
 			className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-accent w-full ${
 				isCurrent ? 'bg-info-soft text-info-foreground' : ''
 			}`}
+			data-testid="wallet-account"
+			data-address={account.address}
+			data-current={isCurrent}
+			data-authenticated={isAccountAuthenticated}
 		>
 			<button
 				onClick={() => onSwitchAccount(account)}
 				className="flex-1 text-left min-w-0 cursor-pointer"
+				data-testid="wallet-account-switch"
 			>
 				<AccountIdentity
 					address={account.address}
@@ -411,6 +418,7 @@ const AccountItem = ({
 						onClick={handleSignClick}
 						disabled={isConnecting}
 						className="text-xs px-1.5 py-1 h-6 flex items-center gap-1"
+						data-testid="wallet-account-sign"
 					>
 						<Shield className="w-2.5 h-2.5" />
 						{isConnecting && isCurrent
