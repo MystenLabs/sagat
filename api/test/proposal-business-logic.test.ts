@@ -166,6 +166,29 @@ describe('Proposal Business Logic', () => {
 				),
 			).rejects.toThrow(/same digest/);
 		});
+
+		test('verifying a proposal that was never executed is a client error', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 1);
+
+			const tx = new Transaction();
+			tx.setSender(multisig.address);
+			const [coin] = tx.splitCoins(tx.gas, [1000000]);
+			tx.transferObjects([coin], multisig.address);
+			const proposal = await session.createProposal(
+				users[0],
+				multisig.address,
+				'localnet',
+				(await tx.build({ client })).toBase64(),
+				'Never executed',
+			);
+
+			await expect(
+				session
+					.getStatefulClient()
+					.verifyProposalByDigest(proposal.digest),
+			).rejects.toThrow(/has not been executed yet/);
+		});
 	});
 
 	describe('Weighted Voting Logic', () => {

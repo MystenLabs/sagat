@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { TransactionError } from '@mysten/sui/client';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
 import { db } from '../db';
@@ -157,12 +158,23 @@ export const lookupAndVerifyProposal = async (
 
 	const tx = await getSuiClient(
 		proposal.network as SuiNetwork,
-	).getTransaction({
-		digest: proposal.digest,
-		include: {
-			effects: true,
-		},
-	});
+	)
+		.getTransaction({
+			digest: proposal.digest,
+			include: {
+				effects: true,
+			},
+		})
+		.catch((error) => {
+			if (
+				error instanceof TransactionError &&
+				error.reason === 'notFound'
+			)
+				throw new ValidationError(
+					'The transaction has not been executed yet.',
+				);
+			throw error;
+		});
 
 	const isSuccess =
 		tx.$kind !== 'FailedTransaction' &&
