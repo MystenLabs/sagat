@@ -12,6 +12,12 @@ import { E2E } from './env';
 
 export const SUI_TYPE = '0x2::sui::SUI';
 
+export type GasCoin = {
+	objectId: string;
+	version: string;
+	digest: string;
+};
+
 // Reads and funds accounts on the local network, independently of the app.
 export class Chain {
 	readonly client = new SuiGrpcClient({
@@ -35,6 +41,49 @@ export class Chain {
 			.toBeGreaterThan(before);
 	}
 
+	// Sends `address` exactly `count` SUI coins of `amount` each, e.g. so that
+	// several proposals can each pay gas with their own coin.
+	async fundWithCoins(
+		address: string,
+		{ count, amount }: { count: number; amount: bigint },
+	) {
+		const funder = new Ed25519Keypair();
+		await this.fund(funder.toSuiAddress());
+		const tx = new Transaction();
+		const coins = tx.splitCoins(
+			tx.gas,
+			Array.from({ length: count }, () => amount),
+		);
+		tx.transferObjects(
+			Array.from({ length: count }, (_, i) => coins[i]),
+			address,
+		);
+		const result =
+			await this.client.signAndExecuteTransaction({
+				transaction: tx,
+				signer: funder,
+				include: { effects: true },
+			});
+		if (result.$kind !== 'Transaction')
+			throw new Error('Funding transaction failed');
+		await this.client.waitForTransaction({
+			digest: result.Transaction.digest,
+		});
+		return this.coins(address);
+	}
+
+	// The SUI coins `owner` holds, as gas payment references.
+	async coins(owner: string) {
+		const { objects } = await this.client.listCoins({
+			owner,
+		});
+		return objects.map(({ objectId, version, digest }) => ({
+			objectId,
+			version,
+			digest,
+		}));
+	}
+
 	async balance(address: string, coinType = SUI_TYPE) {
 		const { balance } = await this.client.getBalance({
 			owner: address,
@@ -44,17 +93,21 @@ export class Chain {
 	}
 
 	// Returns base64 bytes of a fully built SUI transfer, as the API expects.
+	// Pass `gasCoin` to pay gas with that coin only.
 	async buildSuiTransfer({
 		sender,
 		recipient,
 		amount,
+		gasCoin,
 	}: {
 		sender: string;
 		recipient: string;
 		amount: bigint;
+		gasCoin?: GasCoin;
 	}) {
 		const tx = new Transaction();
 		tx.setSender(sender);
+		if (gasCoin) tx.setGasPayment([gasCoin]);
 		const [coin] = tx.splitCoins(tx.gas, [amount]);
 		tx.transferObjects([coin], recipient);
 		return toBase64(

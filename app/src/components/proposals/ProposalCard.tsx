@@ -265,6 +265,7 @@ export function ProposalCard({
 												onClick={handleExportProposal}
 												className="inline-flex items-center justify-center rounded p-0.5 transition-colors hover:bg-accent cursor-pointer"
 												aria-label="Export proposal with signatures"
+												data-testid="export-proposal-button"
 											>
 												<Download className="w-3 h-3 text-muted-foreground hover:text-foreground" />
 											</button>

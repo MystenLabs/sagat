@@ -106,7 +106,10 @@ export function AddressLookupModal({
 
 	return (
 		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-			<div className="bg-card rounded-lg p-6 w-full max-w-md mx-4">
+			<div
+				className="bg-card rounded-lg p-6 w-full max-w-md mx-4"
+				data-testid="address-lookup-modal"
+			>
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-lg font-semibold">
 						Look up Public Key
@@ -131,6 +134,7 @@ export function AddressLookupModal({
 								onChange={(e) => setAddress(e.target.value)}
 								placeholder="0x..."
 								className="flex-1"
+								data-testid="address-lookup-input"
 								onKeyDown={(e) => {
 									if (
 										e.key === 'Enter' &&
@@ -144,6 +148,7 @@ export function AddressLookupModal({
 							<Button
 								onClick={lookupPublicKey}
 								disabled={isLoading || !address}
+								data-testid="address-lookup-submit"
 							>
 								<Search className="w-4 h-4 mr-2" />
 								{isLoading ? 'Looking up...' : 'Lookup'}
@@ -152,7 +157,10 @@ export function AddressLookupModal({
 					</div>
 
 					{error && (
-						<div className="p-3 bg-error border border-error-border rounded-lg">
+						<div
+							className="p-3 bg-error border border-error-border rounded-lg"
+							data-testid="address-lookup-error"
+						>
 							<p className="text-sm text-error-foreground">
 								{error}
 							</p>
@@ -165,7 +173,10 @@ export function AddressLookupModal({
 								Found Public Key:
 							</label>
 							<div className="flex items-center gap-2 p-3 border rounded-lg bg-success">
-								<span className="text-xs font-mono flex-1 break-all">
+								<span
+									className="text-xs font-mono flex-1 break-all"
+									data-testid="address-lookup-result"
+								>
 									{foundKey}
 								</span>
 								<Button
@@ -178,6 +189,7 @@ export function AddressLookupModal({
 								<Button
 									size="sm"
 									onClick={() => handleSelectKey(foundKey)}
+									data-testid="address-lookup-select"
 								>
 									Select
 								</Button>

@@ -10,7 +10,7 @@ import {
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 
-import { type Chain } from './chain';
+import { type Chain, type GasCoin } from './chain';
 import { type Identity } from './identity';
 
 // Creates a multisig with `creator` as its first member. Unless `accept` is
@@ -32,13 +32,7 @@ export async function setupMultisig({
 	accept?: boolean;
 }) {
 	// The API accepts the invitation right away for a signed-in creator.
-	const expiry = defaultExpiry();
-	await creator.api.connect(
-		await creator.signMessage(
-			PersonalMessages.connect(expiry),
-		),
-		expiry,
-	);
+	await signInViaApi(creator);
 	const all = [creator, ...members];
 	const multisig = await creator.api.createMultisig({
 		publicKeys: all.map((m) => m.publicKey),
@@ -62,8 +56,21 @@ export async function setupMultisig({
 	return multisig;
 }
 
+// Signs in to the API with the identity's key, which also registers its
+// address (so others can look up its public key).
+export async function signInViaApi(identity: Identity) {
+	const expiry = defaultExpiry();
+	await identity.api.connect(
+		await identity.signMessage(
+			PersonalMessages.connect(expiry),
+		),
+		expiry,
+	);
+}
+
 // Proposes a SUI transfer from the multisig. Proposing counts as the
-// proposer's signature.
+// proposer's signature. Pass `gasCoin` when several proposals are pending at
+// once: the API rejects two pending proposals that use the same coin.
 export async function proposeTransfer(
 	chain: Chain,
 	proposer: Identity,
@@ -72,17 +79,20 @@ export async function proposeTransfer(
 		recipient,
 		amount,
 		description,
+		gasCoin,
 	}: {
 		multisigAddress: string;
 		recipient: string;
 		amount: bigint;
 		description?: string;
+		gasCoin?: GasCoin;
 	},
 ) {
 	const transactionBytes = await chain.buildSuiTransfer({
 		sender: multisigAddress,
 		recipient,
 		amount,
+		gasCoin,
 	});
 	return proposer.api.createProposal({
 		multisigAddress,
@@ -102,6 +112,17 @@ export async function signProposal(
 	return member.api.voteForProposal(proposal.id, {
 		signature: await member.signTransaction(
 			proposal.transactionBytes,
+		),
+	});
+}
+
+export async function cancelProposal(
+	member: Identity,
+	proposal: Proposal,
+) {
+	return member.api.cancelProposal(proposal.id, {
+		signature: await member.signMessage(
+			PersonalMessages.cancelProposal(proposal.id),
 		),
 	});
 }
