@@ -51,7 +51,10 @@ const newClient = (
 ) => {
 	return new SuiGrpcClient({
 		network,
-		baseUrl: getJsonRpcFullnodeUrl(network),
+		baseUrl:
+			(network === 'localnet' &&
+				import.meta.env.VITE_LOCALNET_RPC_URL) ||
+			getJsonRpcFullnodeUrl(network),
 	});
 };
 

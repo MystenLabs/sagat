@@ -7,6 +7,7 @@
 		"test:watch": "bun test --watch",
 		"db:generate": "bun drizzle-kit generate",
 		"db:migrate": "bun drizzle-kit migrate",
+		"db:prepare": "bun run scripts/prepare-db.ts",
 		"fmt": "prettier --write ."
 	},
 	"dependencies": {

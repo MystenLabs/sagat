@@ -85,13 +85,17 @@ export function ProposalPreview({
 									onClick={handleSignProposal}
 									disabled={signProposalMutation.isPending}
 									variant="default"
+									data-testid="sign-proposal-button"
 								>
 									{signProposalMutation.isPending
 										? 'Signing...'
 										: 'Sign Proposal'}
 								</Button>
 							) : (
-								<div className="flex items-center gap-1 text-sm text-muted-foreground">
+								<div
+									className="flex items-center gap-1 text-sm text-muted-foreground"
+									data-testid="preview-cannot-sign"
+								>
 									<Clock className="w-4 h-4" />
 									Cannot sign:{' '}
 									{formatAddress(

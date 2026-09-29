@@ -220,6 +220,7 @@ export function CreateMultisigPage() {
 									{...register('name')}
 									placeholder="e.g., Team Treasury, Personal Vault"
 									maxLength={255}
+									data-testid="multisig-name-input"
 								/>
 								{errors.name && (
 									<p className="text-sm text-error-foreground mt-1">
@@ -261,6 +262,7 @@ export function CreateMultisigPage() {
 													variant="outline"
 													className="w-full"
 													onClick={handleAddMember}
+													data-testid="add-member-button"
 												>
 													<Plus className="w-4 h-4 mr-2" />
 													Add Another Member
@@ -290,6 +292,7 @@ export function CreateMultisigPage() {
 										className="w-24"
 										min={1}
 										max={totalWeight}
+										data-testid="threshold-input"
 									/>
 									<span className="text-sm text-muted-foreground">
 										out of {totalWeight} total weight
@@ -314,7 +317,10 @@ export function CreateMultisigPage() {
 								<div className="p-3 bg-surface rounded-lg">
 									{multisigPreview.address ? (
 										<div>
-											<p className="text-sm font-mono text-foreground break-all">
+											<p
+												className="text-sm font-mono text-foreground break-all"
+												data-testid="multisig-address-preview"
+											>
 												{multisigPreview.address}
 											</p>
 											<p className="text-xs text-muted-foreground mt-1">
@@ -351,6 +357,7 @@ export function CreateMultisigPage() {
 									disabled={
 										createMultisig.isPending || !canSubmit
 									}
+									data-testid="create-multisig-submit"
 								>
 									{createMultisig.isPending
 										? 'Creating...'

@@ -1,0 +1,24 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"types": ["node"],
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"noFallthroughCasesInSwitch": true,
+		"skipLibCheck": true,
+		"noEmit": true,
+		"isolatedModules": true,
+		"resolveJsonModule": true
+	},
+	"include": ["**/*.ts"],
+	"exclude": [
+		"node_modules",
+		".cache",
+		"test-results",
+		"playwright-report"
+	]
+}

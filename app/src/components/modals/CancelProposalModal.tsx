@@ -63,6 +63,7 @@ export function CancelProposalModal({
 					onClick={onConfirm}
 					disabled={isLoading}
 					variant="destructive"
+					data-testid="confirm-cancel-proposal-button"
 				>
 					{isLoading ? 'Cancelling...' : 'Cancel Proposal'}
 				</Button>

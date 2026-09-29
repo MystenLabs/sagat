@@ -57,6 +57,9 @@ export function AssetRow({
 				selected,
 				className,
 			)}
+			data-testid="asset-row"
+			data-coin-type={body.balance.coinType}
+			data-balance={body.balance.balance}
 		>
 			<AssetBody {...body} />
 		</li>

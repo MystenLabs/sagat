@@ -184,7 +184,10 @@ export function AppRouter() {
 	// Full auth routes - require wallet + API auth
 	if (!currentAccount) {
 		return (
-			<div className="flex flex-col items-center justify-center min-h-[60vh]">
+			<div
+				className="flex flex-col items-center justify-center min-h-[60vh]"
+				data-testid="connect-wallet-prompt"
+			>
 				<h1 className="text-3xl font-bold mb-4">
 					Welcome to Sagat
 				</h1>

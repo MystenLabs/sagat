@@ -1,0 +1,22 @@
+{
+	"name": "sagat-e2e",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"test": "playwright test",
+		"test:ui": "playwright test --ui",
+		"test:headed": "playwright test --headed",
+		"report": "playwright show-report",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@mysten-incubation/dev-wallet": "0.6.0",
+		"@mysten/sagat": "workspace:*",
+		"@mysten/signers": "^1.1.30",
+		"@mysten/sui": "^2.33.1",
+		"@playwright/test": "1.63.0",
+		"@types/node": "^24.5.2",
+		"esbuild": "^0.27.3",
+		"typescript": "^5.8.3"
+	}
+}

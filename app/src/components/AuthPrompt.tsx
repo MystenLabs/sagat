@@ -14,7 +14,10 @@ export function AuthPrompt() {
 	const { signAndConnect, isConnecting } = useApiAuth();
 
 	return (
-		<div className="mx-auto mt-20 p-8">
+		<div
+			className="mx-auto mt-20 p-8"
+			data-testid="auth-prompt"
+		>
 			<div className="text-center">
 				<div className="inline-flex items-center justify-center w-20 h-20 bg-info-soft rounded-full mb-6">
 					<Shield className="w-10 h-10 text-info-foreground" />
@@ -55,6 +58,7 @@ export function AuthPrompt() {
 					disabled={isConnecting}
 					size="lg"
 					className="w-full"
+					data-testid="sign-in-button"
 				>
 					{isConnecting ? (
 						<>

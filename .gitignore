@@ -3,3 +3,9 @@ node_modules
 .env
 .DS_Store
 dist
+
+# e2e output
+e2e/.cache
+e2e/test-results
+e2e/playwright-report
+e2e/blob-report

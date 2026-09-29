@@ -88,7 +88,10 @@ export function ProposalSheet({
 }: ProposalSheetProps) {
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent className="w-full! sm:w-[70vw]! max-w-none! px-4 sm:px-8 pt-6 overflow-y-auto">
+			<SheetContent
+				className="w-full! sm:w-[70vw]! max-w-none! px-4 sm:px-8 pt-6 overflow-y-auto"
+				data-testid="proposal-sheet"
+			>
 				{open && (
 					<ProposalSheetBody
 						multisigAddress={multisigAddress}
@@ -325,6 +328,7 @@ function ProposalSheetBody({
 									disabled={
 										isPreviewing || !transactionData
 									}
+									data-testid="custom-preview-button"
 								>
 									<Eye className="w-4 h-4 mr-1" />
 									{isPreviewing
@@ -341,6 +345,7 @@ function ProposalSheetBody({
 							})}
 							rows={dryRun.data ? 6 : 12}
 							className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none font-mono text-sm"
+							data-testid="custom-transaction-input"
 						/>
 						{form.formState.errors.transactionData && (
 							<p className="text-sm text-error-foreground">
@@ -370,7 +375,13 @@ function ProposalSheetBody({
 
 				{!dryRun.isPending &&
 					(dryRun.data || dryRun.error) && (
-						<div className="py-2">
+						<div
+							className="py-2"
+							data-testid="transaction-preview-result"
+							data-result={
+								isDryRunSuccessful ? 'success' : 'failure'
+							}
+						>
 							<div className="flex items-center gap-2 mb-3">
 								{isDryRunSuccessful ? (
 									<>
@@ -444,6 +455,7 @@ function ProposalSheetBody({
 						{...form.register('description')}
 						rows={2}
 						className="w-full px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent resize-none"
+						data-testid="proposal-description-input"
 					/>
 					{form.formState.errors.description && (
 						<p className="text-sm text-error-foreground">
@@ -473,6 +485,7 @@ function ProposalSheetBody({
 							type="submit"
 							disabled={createProposalMutation.isPending}
 							variant="default"
+							data-testid="create-proposal-submit"
 						>
 							{createProposalMutation.isPending
 								? 'Creating...'

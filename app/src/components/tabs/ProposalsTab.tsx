@@ -85,6 +85,7 @@ function FilterTabs({
 				disabled={isRefreshCooldown || isRefetching}
 				className="shrink-0"
 				title="Refresh proposals (5s cooldown)"
+				data-testid="refresh-proposals-button"
 			>
 				<RefreshCw
 					className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`}

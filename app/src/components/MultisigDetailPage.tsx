@@ -131,7 +131,11 @@ export function MultisigDetailPage() {
 	];
 
 	return (
-		<div className="page-shell mt-8 pb-12">
+		<div
+			className="page-shell mt-8 pb-12"
+			data-testid="multisig-detail"
+			data-multisig-address={multisig.address}
+		>
 			{/* Header */}
 			<div className="mb-6">
 				{/* Multisig Selector & Info */}
@@ -166,6 +170,7 @@ export function MultisigDetailPage() {
 										});
 										setShowProposalSheet(true);
 									}}
+									data-testid="new-proposal-button"
 								>
 									<Plus className="w-4 h-4 mr-2" />
 									New Proposal
@@ -185,6 +190,7 @@ export function MultisigDetailPage() {
 								<NavLink
 									key={tabItem.id}
 									to={`/multisig/${address}/${tabItem.id}`}
+									data-testid={`multisig-tab-${tabItem.id}`}
 									className={({ isActive }) =>
 										`px-4 py-2 text-sm shrink-0 font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${
 											isActive

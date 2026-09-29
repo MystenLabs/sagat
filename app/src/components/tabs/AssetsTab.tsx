@@ -109,6 +109,7 @@ export function AssetsTab() {
 						size="sm"
 						className="h-7 px-2.5 text-xs"
 						disabled={coinData?.decimals == null}
+						data-testid="asset-send-button"
 						onClick={() =>
 							openProposalSheet({
 								kind: 'transfer',

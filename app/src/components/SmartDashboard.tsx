@@ -55,7 +55,10 @@ export function SmartDashboard() {
 
 	// Case 2: User has no active multisigs - show welcome screen
 	return (
-		<div className="max-w-4xl mx-auto mt-10 px-4">
+		<div
+			className="max-w-4xl mx-auto mt-10 px-4"
+			data-testid="dashboard-empty"
+		>
 			<div className="text-center mb-12">
 				<h1 className="text-4xl font-bold mb-4">
 					Welcome to Sagat
@@ -65,7 +68,10 @@ export function SmartDashboard() {
 				</p>
 
 				{/* Primary CTA - Create Multisig */}
-				<Link to="/create">
+				<Link
+					to="/create"
+					data-testid="create-first-multisig"
+				>
 					<Button size="lg" className="px-8">
 						<Plus className="mr-2 h-5 w-5" />
 						Create Your First Multisig

@@ -164,6 +164,8 @@ export function CustomWalletButton({
 					size="sm"
 					onClick={() => setShowWallets(!showWallets)}
 					className="flex items-center gap-2"
+					data-testid="wallet-menu-button"
+					data-auth-state="unauthenticated"
 				>
 					<Shield className="w-3 h-3 text-info-foreground" />
 					<span>
@@ -271,6 +273,7 @@ export function CustomWalletButton({
 							variant="outline"
 							size="sm"
 							className="flex-1 text-xs hover:text-error-foreground hover:border-error-border"
+							data-testid="disconnect-button"
 						>
 							<LogOut className="w-3 h-3 mr-1" />
 							Disconnect
@@ -289,6 +292,8 @@ export function CustomWalletButton({
 				size="sm"
 				onClick={() => setShowWallets(!showWallets)}
 				className="flex items-center gap-2"
+				data-testid="wallet-menu-button"
+				data-auth-state="authenticated"
 			>
 				<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
 				<span>
@@ -434,6 +439,7 @@ const DisconnectButton = ({
 			variant="ghost"
 			size="sm"
 			className="w-full justify-start text-error-foreground rounded-none"
+			data-testid="disconnect-button"
 		>
 			<LogOut className="w-4 h-4" />
 			Disconnect
@@ -485,6 +491,7 @@ const NotConnectedWalletVariant = ({
 				size="sm"
 				onClick={() => setShowWallets(!showWallets)}
 				className="flex items-center gap-2"
+				data-testid="connect-wallet-button"
 			>
 				<Wallet className="w-4 h-4" />
 				Connect Wallet
@@ -505,6 +512,8 @@ const NotConnectedWalletVariant = ({
 								handleWalletConnect(wallet.name)
 							}
 							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent w-full text-left cursor-pointer"
+							data-testid="wallet-option"
+							data-wallet-name={wallet.name}
 						>
 							<img
 								src={wallet.icon}

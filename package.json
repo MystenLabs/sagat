@@ -22,6 +22,7 @@
 		"lint:fix": "eslint . --ext ts,tsx --fix --max-warnings 0 && cd app && eslint . --ext ts,tsx --fix --report-unused-disable-directives --max-warnings 0",
 		"typecheck": "cd sdk && bun run typecheck",
 		"test": "cd api && bun test:e2e",
+		"test:ui-e2e": "cd e2e && bun run test",
 		"dev:sdk": "cd sdk && bun run dev",
 		"dev:api": "cd api && bun run dev",
 		"dev:api:delayed": "sleep 2 && cd api && bun run dev",
@@ -35,6 +36,7 @@
 	"workspaces": [
 		"app",
 		"api",
-		"sdk"
+		"sdk",
+		"e2e"
 	]
 }
