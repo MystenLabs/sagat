@@ -25,7 +25,6 @@ export const E2E = {
 	// production build, which is what CI tests.
 	appServer: (process.env.E2E_APP_SERVER ??
 		(process.env.CI ? 'preview' : 'dev')) as
-		| 'dev'
-		| 'preview',
+		'dev' | 'preview',
 	walletName: 'E2E Wallet',
 };
