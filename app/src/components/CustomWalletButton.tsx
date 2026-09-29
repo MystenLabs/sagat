@@ -44,7 +44,9 @@ interface AccountItemProps {
 	account: UiWalletAccount;
 	currentAccount: UiWalletAccount | null;
 	authenticatedAddresses: string[];
-	onSwitchAccount: (account: UiWalletAccount) => void;
+	onSwitchAccount: (
+		account: UiWalletAccount,
+	) => Promise<void>;
 	onSignAndConnect: () => void;
 	isConnecting: boolean;
 }
@@ -374,18 +376,11 @@ const AccountItem = ({
 	const isAccountAuthenticated =
 		authenticatedAddresses.includes(account.address);
 
-	const handleSignClick = () => {
-		// If not current account, switch to it first
-		if (!isCurrent) {
-			onSwitchAccount(account);
-			// Give a small delay for the account switch to complete
-			setTimeout(() => {
-				onSignAndConnect();
-			}, 100);
-		} else {
-			// Already on this account, just sign
-			onSignAndConnect();
-		}
+	const handleSignClick = async () => {
+		// Switching is synchronous in dApp Kit, so once it returns the
+		// signature request goes to this account.
+		if (!isCurrent) await onSwitchAccount(account);
+		onSignAndConnect();
 	};
 
 	return (
