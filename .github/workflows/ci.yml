@@ -1,8 +1,8 @@
 name: Sagat CI
 
 on:
+  # Any base branch, so stacked PRs get checks too.
   pull_request:
-    branches: [main, master]
   push:
     branches: [main, master]
 
