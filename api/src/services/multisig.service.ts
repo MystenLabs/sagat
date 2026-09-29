@@ -17,6 +17,7 @@ import { type SuiNetwork } from '../utils/client';
 import {
 	finalizeStaleProposals,
 	loadChainState,
+	pinnedObjectRefs,
 	whyInvalid,
 } from './proposal-status.service';
 
@@ -174,23 +175,6 @@ export const getPendingProposals = async (
 	return proposals;
 };
 
-// Extracts all the owned or receiving objects from a supplied transaction.
-export const extractOwnedObjects = (tx: Transaction) => {
-	return [
-		...tx
-			.getData()
-			.inputs.filter(
-				(x) =>
-					x.$kind === 'Object' &&
-					x.Object.$kind === 'ImmOrOwnedObject',
-			)
-			.map((x) => x.Object!.ImmOrOwnedObject!.objectId),
-		...(tx
-			.getData()
-			.gasData?.payment?.map((x) => x.objectId) || []),
-	];
-};
-
 // Validates a proposed transaction.
 export const validateProposedTransaction = async (
 	proposedTransaction: Transaction,
@@ -240,14 +224,15 @@ export const validateProposedTransaction = async (
 		);
 	}
 
-	// The address-owned objects the pending proposals use (immutable ones
-	// can be shared). Make sure we do not have any of these in our proposal.
+	// The owned or receiving objects the pending proposals use (immutable
+	// ones can be shared). Make sure we do not have any of these in our
+	// proposal.
+	const objectIds = (tx: Transaction) =>
+		pinnedObjectRefs(tx).map((ref) => ref.objectId);
 	const pendingOwnedObjects = new Set(
 		stillPending
 			.flatMap((p) =>
-				extractOwnedObjects(
-					Transaction.from(p.transactionBytes),
-				),
+				objectIds(Transaction.from(p.transactionBytes)),
 			)
 			.filter(
 				(objectId) =>
@@ -255,7 +240,7 @@ export const validateProposedTransaction = async (
 					'AddressOwner',
 			),
 	);
-	const reusedObjects = extractOwnedObjects(
+	const reusedObjects = objectIds(
 		proposedTransaction,
 	).filter((objectId) => pendingOwnedObjects.has(objectId));
 

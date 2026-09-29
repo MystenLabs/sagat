@@ -45,7 +45,9 @@ const isCoinReservation = (ref: ObjectRef) =>
 
 // The objects a transaction uses at an exact version: its owned, immutable
 // and receiving inputs, and its gas coins.
-const pinnedObjectRefs = (tx: Transaction): ObjectRef[] => {
+export const pinnedObjectRefs = (
+	tx: Transaction,
+): ObjectRef[] => {
 	const { inputs, gasData } = tx.getData();
 	const refs: ObjectRef[] = [];
 	for (const input of inputs) {
