@@ -11,7 +11,11 @@ import { Identity } from './identity';
 type Fixtures = {
 	chain: Chain;
 	// A user with a browser, wallet and page, for people driving the UI.
-	createActor: (name: string) => Promise<Actor>;
+	// `otherAccounts` names further accounts in the same wallet.
+	createActor: (
+		name: string,
+		options?: { otherAccounts?: string[] },
+	) => Promise<Actor>;
 	// A user without a browser, for people who only act through the API.
 	createIdentity: (name: string) => Identity;
 };
@@ -22,11 +26,15 @@ export const test = base.extend<Fixtures>({
 	},
 	createActor: async ({ browser }, use) => {
 		const actors: Actor[] = [];
-		await use(async (name) => {
+		await use(async (name, options) => {
 			const actor = await Actor.create(
 				browser,
 				name,
 				new Ed25519Keypair(),
+				(options?.otherAccounts ?? []).map(
+					(other) =>
+						new Identity(other, new Ed25519Keypair()),
+				),
 			);
 			actors.push(actor);
 			return actor;

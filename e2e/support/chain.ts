@@ -5,7 +5,7 @@ import { requestSuiFromFaucetV2 } from '@mysten/sui/faucet';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
-import { toBase64 } from '@mysten/sui/utils';
+import { fromBase64, toBase64 } from '@mysten/sui/utils';
 import { expect } from '@playwright/test';
 
 import { E2E } from './env';
@@ -60,6 +60,42 @@ export class Chain {
 		return toBase64(
 			await tx.build({ client: this.client }),
 		);
+	}
+
+	// Net SUI a transaction's gas cost its payer. Negative when storage
+	// rebates (e.g. from coins merged into the gas coin) exceed the costs.
+	async gasCost(digest: string) {
+		const result = await this.client.getTransaction({
+			digest,
+			include: { effects: true },
+		});
+		const { gasUsed } = (
+			result.Transaction ?? result.FailedTransaction
+		).effects;
+		return (
+			BigInt(gasUsed.computationCost) +
+			BigInt(gasUsed.storageCost) -
+			BigInt(gasUsed.storageRebate)
+		);
+	}
+
+	// Executes signed base64 transaction bytes and waits for the result.
+	async execute(
+		transactionBytes: string,
+		signature: string,
+	) {
+		const result = await this.client.executeTransaction({
+			transaction: fromBase64(transactionBytes),
+			signatures: [signature],
+			include: { effects: true },
+		});
+		if (result.$kind !== 'Transaction')
+			throw new Error(
+				`Transaction failed: ${JSON.stringify(result.FailedTransaction.status)}`,
+			);
+		await this.client.waitForTransaction({
+			digest: result.Transaction.digest,
+		});
 	}
 }
 
