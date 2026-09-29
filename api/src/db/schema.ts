@@ -23,6 +23,8 @@ export enum ProposalStatus {
 	CANCELLED = 1,
 	SUCCESS = 2,
 	FAILURE = 3,
+	// Never executed, and never can: e.g. an object it uses has changed.
+	INVALID = 4,
 }
 
 export const proposalStatusFromString = (
@@ -37,6 +39,8 @@ export const proposalStatusFromString = (
 			return ProposalStatus.FAILURE;
 		case 'CANCELLED':
 			return ProposalStatus.CANCELLED;
+		case 'INVALID':
+			return ProposalStatus.INVALID;
 	}
 	throw new ValidationError('Invalid status');
 };

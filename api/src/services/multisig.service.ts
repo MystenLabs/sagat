@@ -17,6 +17,7 @@ import {
 	queryAllOwnedObjects,
 	type SuiNetwork,
 } from '../utils/client';
+import { finalizeStaleProposals } from './proposal-status.service';
 
 // Returns the multisig with its members.
 export const getMultisig = async (address: string) => {
@@ -195,9 +196,10 @@ export const validateProposedTransaction = async (
 	multisigAddress: string,
 	network: SuiNetwork,
 ) => {
-	// Get the list of pending proposals.
-	const pendingProposals = await getPendingProposals(
-		multisigAddress,
+	// Get the list of pending proposals, minus the ones that can never
+	// execute (or already did), which no longer hold on to their objects.
+	const pendingProposals = await finalizeStaleProposals(
+		await getPendingProposals(multisigAddress, network),
 		network,
 	);
 

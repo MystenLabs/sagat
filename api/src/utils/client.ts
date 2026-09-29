@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { SuiClientTypes } from '@mysten/sui/client';
+import {
+	ObjectError,
+	type SuiClientTypes,
+} from '@mysten/sui/client';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 
 import { SUI_RPC_URL } from '../db/env';
@@ -113,6 +116,35 @@ export const queryAllOwnedObjects = async (
 	);
 
 	return allOwnedObjects;
+};
+
+// The current version of each object, or null for one that no longer exists
+// (or never did).
+export const getObjectVersions = async (
+	objectIds: string[],
+	network: SuiNetwork,
+) => {
+	const versions = new Map<string, string | null>();
+	if (objectIds.length === 0) return versions;
+
+	// The SDK splits these into as many requests as it needs.
+	const uniqueObjectIds = Array.from(new Set(objectIds));
+	const { objects } = await getSuiClient(
+		network,
+	).getObjects({ objectIds: uniqueObjectIds });
+
+	objects.forEach((object, i) => {
+		if (!(object instanceof Error))
+			versions.set(uniqueObjectIds[i], object.version);
+		else if (
+			object instanceof ObjectError &&
+			object.reason !== 'unknown'
+		)
+			versions.set(uniqueObjectIds[i], null);
+		else throw object;
+	});
+
+	return versions;
 };
 
 function batchObjectRequests<T>(
