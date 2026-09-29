@@ -111,41 +111,57 @@ describe('Proposal Business Logic', () => {
 			const recipient =
 				'0x2222222222222222222222222222222222222222222222222222222222222222';
 
-			// Build identical transactions
-			const tx1 = new Transaction();
-			tx1.setSender(multisig.address);
-			const [coin1] = tx1.splitCoins(tx1.gas, [1000000]);
-			tx1.transferObjects([coin1], recipient);
+			// Without an expiration, the node picks one with a random nonce
+			// when it selects gas, so pin it: the same PTB must then build to
+			// the same digest.
+			const [{ chainIdentifier }, { systemState }] =
+				await Promise.all([
+					client.getChainIdentifier(),
+					client.getCurrentSystemState(),
+				]);
+			const epoch = BigInt(systemState.epoch);
+			const buildTransfer = async () => {
+				const tx = new Transaction();
+				tx.setSender(multisig.address);
+				tx.setExpiration({
+					ValidDuring: {
+						minEpoch: String(epoch),
+						maxEpoch: String(epoch + 1n),
+						minTimestamp: null,
+						maxTimestamp: null,
+						chain: chainIdentifier,
+						nonce: 0,
+					},
+				});
+				const [coin] = tx.splitCoins(tx.gas, [1000000]);
+				tx.transferObjects([coin], recipient);
+				const bytes = (
+					await tx.build({ client })
+				).toBase64();
+				return { bytes, digest: await tx.getDigest() };
+			};
 
-			const txBytes1 = (
-				await tx1.build({ client })
-			).toBase64();
+			// Build identical transactions
+			const tx1 = await buildTransfer();
+			const tx2 = await buildTransfer();
+			expect(tx2.digest).toBe(tx1.digest);
 
 			// Create first proposal
 			const response1 = await session.createProposal(
 				users[0],
 				multisig.address,
 				'localnet',
-				txBytes1,
+				tx1.bytes,
 				'First proposal',
 			);
 			expect(response1.id).toBeDefined();
 
-			// Build identical transaction
-			const tx2 = new Transaction();
-			tx2.setSender(multisig.address);
-			const [coin2] = tx2.splitCoins(tx2.gas, [1000000]);
-			tx2.transferObjects([coin2], recipient);
-
-			const txBytes2 = (
-				await tx2.build({ client })
-			).toBase64();
 			await expect(
 				session.createProposal(
 					users[0],
 					multisig.address,
 					'localnet',
-					txBytes2,
+					tx2.bytes,
 					'Duplicate proposal',
 				),
 			).rejects.toThrow(/same digest/);

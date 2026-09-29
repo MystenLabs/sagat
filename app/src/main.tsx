@@ -27,10 +27,8 @@ import { LocalStorageKeys } from './lib/localStorageKeys.ts';
 
 const storedNetwork =
 	(localStorage.getItem(LocalStorageKeys.SuiNetwork) as
-		| 'testnet'
-		| 'mainnet'
-		| 'devnet'
-		| 'localnet') || CONFIG.DEFAULT_NETWORK;
+		'testnet' | 'mainnet' | 'devnet' | 'localnet') ||
+	CONFIG.DEFAULT_NETWORK;
 
 export const dAppKit = createDAppKit({
 	networks: ['testnet', 'mainnet', 'devnet', 'localnet'],

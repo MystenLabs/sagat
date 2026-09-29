@@ -8,8 +8,7 @@ import {
 } from '@mysten/sagat';
 
 type ExportType =
-	| 'sagat.multisig-composition'
-	| 'sagat.proposal';
+	'sagat.multisig-composition' | 'sagat.proposal';
 
 interface ExportEnvelope {
 	type: ExportType;
