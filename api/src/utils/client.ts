@@ -11,10 +11,7 @@ import {
 } from '../metrics';
 
 export type SuiNetwork =
-	| 'mainnet'
-	| 'testnet'
-	| 'devnet'
-	| 'localnet';
+	'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
 // Wraps an RPC method to record its duration and errors. The wrapper keeps
 // the method's own (generic) signature, so it doesn't need updating when the

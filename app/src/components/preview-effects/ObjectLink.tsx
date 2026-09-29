@@ -12,9 +12,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 
 type OwnerDisplay =
-	| string
-	| { address: string }
-	| { object: string };
+	string | { address: string } | { object: string };
 
 const getOwnerDisplay = (
 	owner: SuiClientTypes.ObjectOwner,
