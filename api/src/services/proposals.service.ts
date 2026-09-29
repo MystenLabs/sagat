@@ -20,7 +20,8 @@ import {
 import { getMultisig } from './multisig.service';
 import {
 	finalizeProposal,
-	findInvalidTransactions,
+	loadChainState,
+	whyInvalid,
 } from './proposal-status.service';
 
 // Get a proposal by id, and its signatures.
@@ -153,14 +154,22 @@ export const lookupAndVerifyProposal = async (
 			'Proposal is not ready to execute',
 		);
 
-	// Checked before looking the transaction up, so a transaction that
+	// Loaded before looking the transaction up, so a transaction that
 	// executes in between is seen on chain rather than marked invalid.
-	const [invalidReason] = await findInvalidTransactions(
-		[Transaction.from(proposal.transactionBytes)],
+	const transaction = Transaction.from(
+		proposal.transactionBytes,
+	);
+	const state = await loadChainState(
+		[transaction],
 		proposal.network as SuiNetwork,
 	);
 
-	if (!(await finalizeProposal(proposal, !!invalidReason)))
+	if (
+		!(await finalizeProposal(
+			proposal,
+			!!whyInvalid(transaction, state),
+		))
+	)
 		throw new ValidationError(
 			'The transaction has not been executed yet.',
 		);

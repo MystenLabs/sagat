@@ -22,6 +22,7 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
+import { rpcCalls } from './setup/rpc-calls';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -319,6 +320,36 @@ describe('Proposal Invalidation', () => {
 		expect(await statusOf(session, proposal.digest)).toBe(
 			ProposalStatus.PENDING,
 		);
+	});
+
+	test('creating a proposal looks up the objects it checks once', async () => {
+		const { session, proposer, multisig, gasCoinId } =
+			await setup();
+		await session.createProposal(
+			proposer,
+			multisig.address,
+			'localnet',
+			await transferWithGasCoin(
+				multisig.address,
+				gasCoinId,
+			),
+		);
+		await spendElsewhere(multisig, proposer, gasCoinId);
+		const transactionBytes = await transferWithGasCoin(
+			multisig.address,
+			gasCoinId,
+		);
+
+		// Finalizing the stale proposal, checking for reused objects and
+		// checking the new transaction all share one lookup.
+		const before = await rpcCalls('getObjects');
+		await session.createProposal(
+			proposer,
+			multisig.address,
+			'localnet',
+			transactionBytes,
+		);
+		expect((await rpcCalls('getObjects')) - before).toBe(1);
 	});
 
 	test('a proposal executed without being verified is marked executed, not invalid', async () => {

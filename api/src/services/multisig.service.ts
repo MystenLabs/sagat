@@ -13,13 +13,11 @@ import {
 } from '../db/schema';
 import { NotFoundError, ValidationError } from '../errors';
 import { MultisigDataLoader } from '../loaders/multisig.loader';
-import {
-	queryAllOwnedObjects,
-	type SuiNetwork,
-} from '../utils/client';
+import { type SuiNetwork } from '../utils/client';
 import {
 	finalizeStaleProposals,
-	findInvalidTransactions,
+	loadChainState,
+	whyInvalid,
 } from './proposal-status.service';
 
 // Returns the multisig with its members.
@@ -199,18 +197,18 @@ export const validateProposedTransaction = async (
 	multisigAddress: string,
 	network: SuiNetwork,
 ) => {
-	// Get the list of pending proposals, minus the ones that can never
-	// execute (or already did), which no longer hold on to their objects.
-	const pendingProposals = await finalizeStaleProposals(
-		await getPendingProposals(multisigAddress, network),
-		network,
-	);
-
-	if (pendingProposals.length >= 10) {
+	if (
+		proposedTransaction.getData().sender !== multisigAddress
+	) {
 		throw new ValidationError(
-			'You cannot have more than 10 pending proposals at the same time. Please cancel or execute some proposals before proceeding.',
+			'The transaction sender does not match the multisig address.',
 		);
 	}
+
+	const pendingProposals = await getPendingProposals(
+		multisigAddress,
+		network,
+	);
 
 	//   Fail early on duplicats, avoid doing RPC calls.
 	const digest = await proposedTransaction.getDigest();
@@ -220,56 +218,59 @@ export const validateProposedTransaction = async (
 		);
 	}
 
-	if (
-		proposedTransaction.getData().sender !== multisigAddress
-	) {
-		throw new ValidationError(
-			'The transaction sender does not match the multisig address.',
-		);
-	}
-
-	// Get all the owned or receiving objects from the pending proposals.
-	// Make sure we do not have any of these in our proposal.
-	const ownedOrReceivingObjects: string[] = [];
-	for (const proposal of pendingProposals) {
-		const tx = Transaction.from(proposal.transactionBytes);
-		ownedOrReceivingObjects.push(
-			...extractOwnedObjects(tx),
-		);
-	}
-
-	//   Query all the owned objects.
-	const allOwnedObjects = await queryAllOwnedObjects(
-		ownedOrReceivingObjects,
+	// Look up everything the checks below need from the chain at once.
+	const pendingTransactions = pendingProposals.map((p) =>
+		Transaction.from(p.transactionBytes),
+	);
+	const state = await loadChainState(
+		[proposedTransaction, ...pendingTransactions],
 		network,
 	);
 
-	// Get all the owned or receiving objects from the proposed transaction.
-	const existingProposalObjects = extractOwnedObjects(
-		proposedTransaction,
+	// Leave out the pending proposals that can never execute (or already
+	// did), which no longer hold on to their objects.
+	const stillPending = await finalizeStaleProposals(
+		pendingProposals,
+		state,
 	);
-	const allUsedOwnedObjects = [];
 
-	for (const obj of allOwnedObjects) {
-		if (existingProposalObjects.includes(obj.objectId)) {
-			allUsedOwnedObjects.push(obj);
-		}
+	if (stillPending.length >= 10) {
+		throw new ValidationError(
+			'You cannot have more than 10 pending proposals at the same time. Please cancel or execute some proposals before proceeding.',
+		);
 	}
 
-	if (allUsedOwnedObjects.length > 0) {
+	// The address-owned objects the pending proposals use (immutable ones
+	// can be shared). Make sure we do not have any of these in our proposal.
+	const pendingOwnedObjects = new Set(
+		stillPending
+			.flatMap((p) =>
+				extractOwnedObjects(
+					Transaction.from(p.transactionBytes),
+				),
+			)
+			.filter(
+				(objectId) =>
+					state.objects.get(objectId)?.owner.$kind ===
+					'AddressOwner',
+			),
+	);
+	const reusedObjects = extractOwnedObjects(
+		proposedTransaction,
+	).filter((objectId) => pendingOwnedObjects.has(objectId));
+
+	if (reusedObjects.length > 0) {
 		throw new ValidationError(
 			'You cannot have re-use any owned or receiving objects that are already in pending proposals. The used objects are: ' +
-				allUsedOwnedObjects
-					.map((obj) => obj.objectId)
-					.join(', '),
+				reusedObjects.join(', '),
 		);
 	}
 
 	// Refuse a transaction that could never execute, rather than leave it
 	// for the next proposal to mark invalid.
-	const [invalidReason] = await findInvalidTransactions(
-		[proposedTransaction],
-		network,
+	const invalidReason = whyInvalid(
+		proposedTransaction,
+		state,
 	);
 	if (invalidReason)
 		throw new ValidationError(

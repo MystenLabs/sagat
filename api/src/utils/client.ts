@@ -123,86 +123,34 @@ export const getSystemState = (network: SuiNetwork) => {
 	return entry.systemState;
 };
 
-// Query a list of objects
-// TODO: use a data loader to share queries across requests.
-export const queryAllOwnedObjects = async (
-	objectIds: string[],
-	network: SuiNetwork,
-) => {
-	const uniqueObjectIds = Array.from(new Set(objectIds));
-
-	if (uniqueObjectIds.length === 0) {
-		return [];
-	}
-
-	const batches = batchObjectRequests(uniqueObjectIds, 100);
-
-	const allOwnedObjects: SuiClientTypes.Object[] = [];
-
-	// Go through the batches & query the objects, pick out the `AddressOwner` ones.
-	await Promise.all(
-		batches.map(async (batch) => {
-			const objects = await getSuiClient(
-				network,
-			).getObjects({
-				objectIds: batch,
-			});
-
-			for (const object of objects.objects) {
-				if (object instanceof Error) {
-					throw new Error(
-						`Failed to get object: ${object.message}`,
-					);
-				}
-				if (
-					object.owner &&
-					object.owner.$kind === 'AddressOwner'
-				) {
-					allOwnedObjects.push(object);
-				}
-			}
-		}),
-	);
-
-	return allOwnedObjects;
-};
-
-// The current version of each object, or null for one that no longer exists
+// The current state of each object, or null for one that no longer exists
 // (or never did).
-export const getObjectVersions = async (
+export const getCurrentObjects = async (
 	objectIds: string[],
 	network: SuiNetwork,
 ) => {
-	const versions = new Map<string, string | null>();
-	if (objectIds.length === 0) return versions;
+	const objects = new Map<
+		string,
+		SuiClientTypes.Object | null
+	>();
+	if (objectIds.length === 0) return objects;
 
 	// The SDK splits these into as many requests as it needs.
 	const uniqueObjectIds = Array.from(new Set(objectIds));
-	const { objects } = await getSuiClient(
-		network,
-	).getObjects({ objectIds: uniqueObjectIds });
+	const response = await getSuiClient(network).getObjects({
+		objectIds: uniqueObjectIds,
+	});
 
-	objects.forEach((object, i) => {
+	response.objects.forEach((object, i) => {
 		if (!(object instanceof Error))
-			versions.set(uniqueObjectIds[i], object.version);
+			objects.set(uniqueObjectIds[i], object);
 		else if (
 			object instanceof ObjectError &&
 			object.reason !== 'unknown'
 		)
-			versions.set(uniqueObjectIds[i], null);
+			objects.set(uniqueObjectIds[i], null);
 		else throw object;
 	});
 
-	return versions;
+	return objects;
 };
-
-function batchObjectRequests<T>(
-	objectIds: T[],
-	batchSize: number,
-) {
-	const batches = [];
-	for (let i = 0; i < objectIds.length; i += batchSize) {
-		batches.push(objectIds.slice(i, i + batchSize));
-	}
-	return batches;
-}

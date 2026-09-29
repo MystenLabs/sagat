@@ -23,7 +23,7 @@ import {
 	multisigProposalEvents,
 } from '../metrics';
 import {
-	getObjectVersions,
+	getCurrentObjects,
 	getSuiClient,
 	getSystemState,
 	type SuiNetwork,
@@ -105,38 +105,60 @@ export const hasExpired = (
 	}
 };
 
-// Why each transaction can never execute (it expired, or an object it uses
-// at an exact version has since moved to a newer one), or null if it still
-// can. Note that executing the transaction itself moves them too.
-export const findInvalidTransactions = async (
+// What the chain says about some transactions, looked up once so that
+// several checks can share it.
+export type ChainState = {
+	// The current state of each object the transactions use at an exact
+	// version, or null for one that no longer exists.
+	objects: Map<string, SuiClientTypes.Object | null>;
+	// Only looked up when one of the transactions can expire.
+	systemState: ChainTime | null;
+};
+
+export const loadChainState = async (
 	transactions: Transaction[],
 	network: SuiNetwork,
-) => {
-	const data = transactions.map((tx) => tx.getData());
-	const refs = transactions.map(pinnedObjectRefs);
-	const canExpire = data.some(
-		({ expiration }) =>
-			expiration && expiration.$kind !== 'None',
-	);
-	const [versions, now] = await Promise.all([
-		getObjectVersions(
-			refs.flat().map((ref) => ref.objectId),
+): Promise<ChainState> => {
+	const canExpire = transactions.some((tx) => {
+		const { expiration } = tx.getData();
+		return expiration && expiration.$kind !== 'None';
+	});
+	const [objects, systemState] = await Promise.all([
+		getCurrentObjects(
+			transactions
+				.flatMap(pinnedObjectRefs)
+				.map((ref) => ref.objectId),
 			network,
 		),
 		canExpire ? getSystemState(network) : null,
 	]);
-	return transactions.map((_, i) => {
-		if (now && hasExpired(data[i].expiration, now))
-			return 'it has expired';
-		const moved = refs[i]
-			.filter((ref) =>
-				hasMoved(ref, versions.get(ref.objectId)),
-			)
-			.map((ref) => ref.objectId);
-		if (moved.length > 0)
-			return `objects it uses have changed: ${moved.join(', ')}`;
-		return null;
-	});
+	return { objects, systemState };
+};
+
+// Why a transaction can never execute (it expired, or an object it uses at
+// an exact version has since moved to a newer one), or null if it still
+// can. `state` must have been loaded for it. Note that executing the
+// transaction itself moves its objects too.
+export const whyInvalid = (
+	tx: Transaction,
+	state: ChainState,
+) => {
+	if (
+		state.systemState &&
+		hasExpired(tx.getData().expiration, state.systemState)
+	)
+		return 'it has expired';
+	const moved = pinnedObjectRefs(tx)
+		.filter((ref) =>
+			hasMoved(
+				ref,
+				state.objects.get(ref.objectId)?.version,
+			),
+		)
+		.map((ref) => ref.objectId);
+	if (moved.length > 0)
+		return `objects it uses have changed: ${moved.join(', ')}`;
+	return null;
 };
 
 // Moves a pending proposal to SUCCESS or FAILURE once its transaction is on
@@ -200,19 +222,16 @@ export const finalizeProposal = async (
 // but weren't verified), so they stop blocking new ones. Returns the rest.
 export const finalizeStaleProposals = async (
 	proposals: Proposal[],
-	network: SuiNetwork,
-) => {
-	// Checked before looking the transactions up, so a transaction that
+	// Loaded before looking the transactions up, so a transaction that
 	// executes in between is seen on chain rather than marked invalid.
-	const invalidReasons = await findInvalidTransactions(
-		proposals.map((p) =>
-			Transaction.from(p.transactionBytes),
-		),
-		network,
-	);
+	state: ChainState,
+) => {
 	const finalized = await Promise.all(
-		proposals.map((proposal, i) =>
-			invalidReasons[i]
+		proposals.map((proposal) =>
+			whyInvalid(
+				Transaction.from(proposal.transactionBytes),
+				state,
+			)
 				? finalizeProposal(proposal, true)
 				: false,
 		),
