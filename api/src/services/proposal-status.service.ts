@@ -1,8 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { TransactionError } from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
+import {
+	TransactionError,
+	type SuiClientTypes,
+} from '@mysten/sui/client';
+import {
+	Transaction,
+	type TransactionData,
+} from '@mysten/sui/transactions';
 import { fromBase58 } from '@mysten/sui/utils';
 import { and, eq } from 'drizzle-orm';
 
@@ -64,22 +70,70 @@ export const hasMoved = (
 	currentVersion != null &&
 	BigInt(currentVersion) > BigInt(ref.version);
 
-// Whether each transaction can never execute, because an object it uses at
-// an exact version has since moved to a newer one. Note that executing the
-// transaction itself moves them too.
+// Where the chain is at: the current epoch, and when it started.
+type ChainTime = Pick<
+	SuiClientTypes.SystemStateInfo,
+	'epoch' | 'epochStartTimestampMs'
+>;
+
+// Whether a transaction's expiration has passed: its last epoch is over, or
+// its latest time is before the current epoch even started.
+export const hasExpired = (
+	expiration: TransactionData['expiration'],
+	now: ChainTime,
+) => {
+	switch (expiration?.$kind) {
+		case 'Epoch':
+			return BigInt(now.epoch) > BigInt(expiration.Epoch);
+		case 'ValidDuring':
+		case 'Validity': {
+			const { maxEpoch, maxTimestamp } =
+				expiration.$kind === 'ValidDuring'
+					? expiration.ValidDuring
+					: expiration.Validity;
+			return (
+				(maxEpoch != null &&
+					BigInt(now.epoch) > BigInt(maxEpoch)) ||
+				(maxTimestamp != null &&
+					BigInt(now.epochStartTimestampMs) >
+						BigInt(maxTimestamp))
+			);
+		}
+		default:
+			return false;
+	}
+};
+
+// Whether each transaction can never execute, because it expired or an
+// object it uses at an exact version has since moved to a newer one. Note
+// that executing the transaction itself moves them too.
 export const findInvalidTransactions = async (
 	transactions: Transaction[],
 	network: SuiNetwork,
 ) => {
+	const data = transactions.map((tx) => tx.getData());
 	const refs = transactions.map(pinnedObjectRefs);
-	const versions = await getObjectVersions(
-		refs.flat().map((ref) => ref.objectId),
-		network,
+	const canExpire = data.some(
+		({ expiration }) =>
+			expiration && expiration.$kind !== 'None',
 	);
-	return refs.map((txRefs) =>
-		txRefs.some((ref) =>
-			hasMoved(ref, versions.get(ref.objectId)),
+	const [versions, now] = await Promise.all([
+		getObjectVersions(
+			refs.flat().map((ref) => ref.objectId),
+			network,
 		),
+		canExpire
+			? getSuiClient(network)
+					.getCurrentSystemState()
+					.then(({ systemState }) => systemState)
+			: null,
+	]);
+	return transactions.map(
+		(_, i) =>
+			(!!now && hasExpired(data[i].expiration, now)) ||
+			refs[i].some((ref) =>
+				hasMoved(ref, versions.get(ref.objectId)),
+			),
 	);
 };
 
