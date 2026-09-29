@@ -155,12 +155,12 @@ export const lookupAndVerifyProposal = async (
 
 	// Checked before looking the transaction up, so a transaction that
 	// executes in between is seen on chain rather than marked invalid.
-	const [canNeverExecute] = await findInvalidTransactions(
+	const [invalidReason] = await findInvalidTransactions(
 		[Transaction.from(proposal.transactionBytes)],
 		proposal.network as SuiNetwork,
 	);
 
-	if (!(await finalizeProposal(proposal, canNeverExecute)))
+	if (!(await finalizeProposal(proposal, !!invalidReason)))
 		throw new ValidationError(
 			'The transaction has not been executed yet.',
 		);

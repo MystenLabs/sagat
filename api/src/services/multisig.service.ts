@@ -17,7 +17,10 @@ import {
 	queryAllOwnedObjects,
 	type SuiNetwork,
 } from '../utils/client';
-import { finalizeStaleProposals } from './proposal-status.service';
+import {
+	finalizeStaleProposals,
+	findInvalidTransactions,
+} from './proposal-status.service';
 
 // Returns the multisig with its members.
 export const getMultisig = async (address: string) => {
@@ -268,4 +271,15 @@ export const validateProposedTransaction = async (
 					.join(', '),
 		);
 	}
+
+	// Refuse a transaction that could never execute, rather than leave it
+	// for the next proposal to mark invalid.
+	const [invalidReason] = await findInvalidTransactions(
+		[proposedTransaction],
+		network,
+	);
+	if (invalidReason)
+		throw new ValidationError(
+			`The transaction can never execute: ${invalidReason}.`,
+		);
 };

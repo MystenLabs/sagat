@@ -105,9 +105,9 @@ export const hasExpired = (
 	}
 };
 
-// Whether each transaction can never execute, because it expired or an
-// object it uses at an exact version has since moved to a newer one. Note
-// that executing the transaction itself moves them too.
+// Why each transaction can never execute (it expired, or an object it uses
+// at an exact version has since moved to a newer one), or null if it still
+// can. Note that executing the transaction itself moves them too.
 export const findInvalidTransactions = async (
 	transactions: Transaction[],
 	network: SuiNetwork,
@@ -125,13 +125,18 @@ export const findInvalidTransactions = async (
 		),
 		canExpire ? getSystemState(network) : null,
 	]);
-	return transactions.map(
-		(_, i) =>
-			(!!now && hasExpired(data[i].expiration, now)) ||
-			refs[i].some((ref) =>
+	return transactions.map((_, i) => {
+		if (now && hasExpired(data[i].expiration, now))
+			return 'it has expired';
+		const moved = refs[i]
+			.filter((ref) =>
 				hasMoved(ref, versions.get(ref.objectId)),
-			),
-	);
+			)
+			.map((ref) => ref.objectId);
+		if (moved.length > 0)
+			return `objects it uses have changed: ${moved.join(', ')}`;
+		return null;
+	});
 };
 
 // Moves a pending proposal to SUCCESS or FAILURE once its transaction is on
@@ -199,16 +204,17 @@ export const finalizeStaleProposals = async (
 ) => {
 	// Checked before looking the transactions up, so a transaction that
 	// executes in between is seen on chain rather than marked invalid.
-	const invalid = await findInvalidTransactions(
+	const invalidReasons = await findInvalidTransactions(
 		proposals.map((p) =>
 			Transaction.from(p.transactionBytes),
 		),
 		network,
 	);
 	const finalized = await Promise.all(
-		proposals.map(
-			(proposal, i) =>
-				invalid[i] && finalizeProposal(proposal, true),
+		proposals.map((proposal, i) =>
+			invalidReasons[i]
+				? finalizeProposal(proposal, true)
+				: false,
 		),
 	);
 	return proposals.filter((_, i) => !finalized[i]);
