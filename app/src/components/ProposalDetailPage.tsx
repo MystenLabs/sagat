@@ -64,10 +64,7 @@ export function ProposalDetailPage() {
 					description="Failed to load proposal details"
 				/>
 				<div className="mt-8">
-					<div
-						className="border border-error-border bg-error rounded-lg p-6 flex items-start gap-3"
-						data-testid="proposal-detail-error"
-					>
+					<div className="border border-error-border bg-error rounded-lg p-6 flex items-start gap-3">
 						<AlertCircle className="w-5 h-5 text-error-foreground mt-0.5" />
 						<div>
 							<h3 className="font-medium text-error-foreground mb-1">
@@ -97,10 +94,7 @@ export function ProposalDetailPage() {
 	};
 
 	return (
-		<div
-			className="page-shell mt-8"
-			data-testid="proposal-detail-page"
-		>
+		<div className="page-shell mt-8">
 			<PageHeader
 				title="Proposal Details"
 				description={`Digest: ${digest}`}

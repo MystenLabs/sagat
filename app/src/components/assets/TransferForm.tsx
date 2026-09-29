@@ -335,10 +335,7 @@ export function TransferForm({
 					)}
 				</div>
 				{errors.amount && (
-					<p
-						className="text-sm text-error-foreground"
-						data-testid="transfer-amount-error"
-					>
+					<p className="text-sm text-error-foreground">
 						{errors.amount.message}
 					</p>
 				)}

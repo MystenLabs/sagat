@@ -80,10 +80,7 @@ export function SmartDashboard() {
 
 				{/* Secondary CTA - View Invitations */}
 				<div className="mt-4">
-					<Link
-						to="/invitations"
-						data-testid="dashboard-invitations-link"
-					>
+					<Link to="/invitations">
 						<Button
 							variant={
 								(pendingInvites?.length ?? 0) > 0

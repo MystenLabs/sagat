@@ -76,7 +76,6 @@ function FilterTabs({
 					onFilterChange(id as FilterType)
 				}
 				variant="pills"
-				testId="proposal-filter"
 			/>
 			{/* Refresh button for all tabs */}
 			<Button
@@ -107,10 +106,7 @@ function EmptyState({
 	onCreateProposal: () => void;
 }) {
 	return (
-		<div
-			className="text-center py-12"
-			data-testid="proposals-empty"
-		>
+		<div className="text-center py-12">
 			<FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
 			<h3 className="text-lg font-medium mb-2">
 				No proposals found
@@ -165,7 +161,7 @@ function ProposalsList({
 	};
 
 	return (
-		<div className="space-y-4" data-testid="proposals-list">
+		<div className="space-y-4">
 			{proposals.map((proposal) => (
 				<ProposalCard
 					key={proposal.id}

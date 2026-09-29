@@ -238,11 +238,7 @@ const NavigationLinks = ({
 					</Link>
 
 					{/* Create multisig button */}
-					<Link
-						to="/create"
-						onClick={onNavigate}
-						data-testid="nav-create-multisig"
-					>
+					<Link to="/create" onClick={onNavigate}>
 						<Button
 							variant={
 								location.pathname === '/create'

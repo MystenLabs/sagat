@@ -205,7 +205,6 @@ export function CustomWalletButton({
 									disabled={isConnecting}
 									size="sm"
 									className="w-full mb-2"
-									data-testid="wallet-menu-sign-in"
 								>
 									{isConnecting ? (
 										<>
@@ -239,10 +238,7 @@ export function CustomWalletButton({
 	// Wallet connected and authenticated
 	if (variant === 'sidebar') {
 		return (
-			<div
-				className="mt-8 p-4 bg-card rounded-lg border border-border"
-				data-testid="wallet-connected-card"
-			>
+			<div className="mt-8 p-4 bg-card rounded-lg border border-border">
 				<div className="text-center">
 					<div className="w-6 h-6 bg-success-soft rounded-full mx-auto mb-3 flex items-center justify-center">
 						<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
@@ -397,13 +393,10 @@ const AccountItem = ({
 			className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-accent w-full ${
 				isCurrent ? 'bg-info-soft text-info-foreground' : ''
 			}`}
-			data-testid="wallet-account"
-			data-address={account.address}
 		>
 			<button
 				onClick={() => onSwitchAccount(account)}
 				className="flex-1 text-left min-w-0 cursor-pointer"
-				data-testid="wallet-account-switch"
 			>
 				<AccountIdentity
 					address={account.address}
@@ -423,7 +416,6 @@ const AccountItem = ({
 						onClick={handleSignClick}
 						disabled={isConnecting}
 						className="text-xs px-1.5 py-1 h-6 flex items-center gap-1"
-						data-testid="wallet-account-sign"
 					>
 						<Shield className="w-2.5 h-2.5" />
 						{isConnecting && isCurrent

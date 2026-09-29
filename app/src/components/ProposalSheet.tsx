@@ -250,7 +250,6 @@ function ProposalSheetBody({
 						},
 					]}
 					activeTab={mode}
-					testId="proposal-mode"
 					onTabChange={(next) => {
 						const nextMode = next as Mode;
 						if (nextMode === mode) return;
@@ -430,10 +429,7 @@ function ProposalSheetBody({
 					)}
 
 				{createProposalMutation.error && (
-					<div
-						className="border border-error-border bg-card rounded-lg p-4"
-						data-testid="create-proposal-error"
-					>
+					<div className="border border-error-border bg-card rounded-lg p-4">
 						<div className="flex items-center gap-2 mb-3">
 							<AlertCircle className="w-5 h-5 text-error-foreground" />
 							<h3 className="font-medium text-foreground">

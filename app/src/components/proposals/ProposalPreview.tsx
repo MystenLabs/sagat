@@ -72,10 +72,7 @@ export function ProposalPreview({
 					{isDryRunSuccessful && (
 						<>
 							{userHasSigned ? (
-								<div
-									className="flex items-center gap-1 text-sm text-success-foreground"
-									data-testid="preview-already-signed"
-								>
+								<div className="flex items-center gap-1 text-sm text-success-foreground">
 									<Check
 										strokeWidth={3}
 										className="w-4 h-4"
@@ -145,10 +142,7 @@ export function ProposalPreview({
 			)}
 
 			{dryRun.error && (
-				<div
-					className="border border-error-border bg-card rounded-lg p-3"
-					data-testid="proposal-preview-error"
-				>
+				<div className="border border-error-border bg-card rounded-lg p-3">
 					<div className="space-y-3">
 						<IntentSummary
 							analysis={analysis.data}
@@ -167,10 +161,7 @@ export function ProposalPreview({
 
 			{/* Sign Proposal Error */}
 			{signProposalMutation.error && (
-				<div
-					className="border border-error-border bg-error rounded-lg p-3"
-					data-testid="sign-proposal-error"
-				>
+				<div className="border border-error-border bg-error rounded-lg p-3">
 					<h6 className="font-medium text-error-foreground mb-1">
 						Failed to Sign Proposal
 					</h6>

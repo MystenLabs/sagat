@@ -169,7 +169,6 @@ function EmptyAssetsState({
 
 	return (
 		<EmptyState
-			testId="assets-empty"
 			icon={
 				<div className="w-16 h-16 rounded-full bg-[#4DA2FF]/10 flex items-center justify-center">
 					<SuiLogo className="h-8 w-auto" />
