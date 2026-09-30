@@ -193,6 +193,58 @@ describe('Proposal Invalidation', () => {
 		);
 	});
 
+	test('a proposal whose object was deleted elsewhere stays pending', async () => {
+		// A missing object may just be one the node hasn't seen yet, so it
+		// doesn't prove anything.
+		const { session, proposer, multisig } = await setup();
+		const { objects: coins } = await client.listCoins({
+			owner: multisig.address,
+		});
+		expect(coins.length).toBeGreaterThanOrEqual(3);
+		const [gasCoin, coin, otherGasCoin] = coins.map(
+			({ objectId, version, digest }) => ({
+				objectId,
+				version,
+				digest,
+			}),
+		);
+		const tx = new Transaction();
+		tx.setSender(multisig.address);
+		tx.setGasPayment([gasCoin]);
+		tx.transferObjects(
+			[tx.object(coin.objectId)],
+			multisig.address,
+		);
+		const proposal = await session.createProposal(
+			proposer,
+			multisig.address,
+			'localnet',
+			(await tx.build({ client })).toBase64(),
+		);
+
+		// Merging the coin into another one deletes it.
+		const merge = new Transaction();
+		merge.setSender(multisig.address);
+		merge.setGasPayment([otherGasCoin]);
+		merge.mergeCoins(merge.gas, [
+			merge.object(coin.objectId),
+		]);
+		await executeOutsideApi(
+			multisig,
+			proposer,
+			(await merge.build({ client })).toBase64(),
+		);
+
+		await expect(
+			session
+				.getStatefulClient()
+				.verifyProposalByDigest(proposal.digest),
+		).rejects.toThrow(/has not been executed yet/);
+		expect(await statusOf(session, proposal.digest)).toBe(
+			ProposalStatus.PENDING,
+		);
+	});
+
 	test('a proposal executed without being verified is marked executed, not invalid', async () => {
 		const { session, proposer, multisig, gasCoinId } =
 			await setup();

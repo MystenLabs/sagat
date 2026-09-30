@@ -53,9 +53,20 @@ const pinnedObjectRefs = (tx: Transaction): ObjectRef[] => {
 	return refs;
 };
 
+// Whether an object has moved past the version a transaction pins. Only a
+// newer version proves it: versions only go up, so an older one just means
+// the node that answered is behind, and a missing object may be one it hasn't
+// seen yet (deleted ones look the same, so those stay undecided).
+export const hasMoved = (
+	ref: ObjectRef,
+	currentVersion: string | null | undefined,
+) =>
+	currentVersion != null &&
+	BigInt(currentVersion) > BigInt(ref.version);
+
 // Whether each transaction can never execute, because an object it uses at
-// an exact version has since changed or been deleted. Note that executing
-// the transaction itself changes them too.
+// an exact version has since moved to a newer one. Note that executing the
+// transaction itself moves them too.
 export const findInvalidTransactions = async (
 	transactions: Transaction[],
 	network: SuiNetwork,
@@ -66,9 +77,8 @@ export const findInvalidTransactions = async (
 		network,
 	);
 	return refs.map((txRefs) =>
-		txRefs.some(
-			(ref) =>
-				versions.get(ref.objectId) !== String(ref.version),
+		txRefs.some((ref) =>
+			hasMoved(ref, versions.get(ref.objectId)),
 		),
 	);
 };
