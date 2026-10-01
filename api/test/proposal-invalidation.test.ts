@@ -144,6 +144,80 @@ describe('Proposal Invalidation', () => {
 		return proposal.status;
 	}
 
+	test('refuses a proposal whose gas coin changed since it was built', async () => {
+		const { session, proposer, multisig, gasCoinId } =
+			await setup();
+		const stale = await transferWithGasCoin(
+			multisig.address,
+			gasCoinId,
+		);
+		await spendElsewhere(multisig, proposer, gasCoinId);
+
+		await expect(
+			session.createProposal(
+				proposer,
+				multisig.address,
+				'localnet',
+				stale,
+			),
+		).rejects.toThrow(
+			`The transaction can never execute: objects it uses have changed: ${gasCoinId}.`,
+		);
+	});
+
+	test('refuses a proposal that already expired', async () => {
+		const { session, proposer, multisig, gasCoinId } =
+			await setup();
+		const [
+			{ chainIdentifier },
+			{ systemState },
+			{ object: gasCoin },
+		] = await Promise.all([
+			client.getChainIdentifier(),
+			client.getCurrentSystemState(),
+			client.getObject({ objectId: gasCoinId }),
+		]);
+		const tx = new Transaction();
+		tx.setSender(multisig.address);
+		const [coin] = tx.splitCoins(tx.gas, [1_000_000]);
+		tx.transferObjects([coin], multisig.address);
+		// Within the current epochs, but only until a time long gone. (The
+		// network can't run timestamp expirations yet, and a fresh one is
+		// still in its first epoch, so this is the only way to expire it.)
+		tx.setExpiration({
+			ValidDuring: {
+				minEpoch: systemState.epoch,
+				maxEpoch: String(BigInt(systemState.epoch) + 1n),
+				minTimestamp: null,
+				maxTimestamp: '1',
+				chain: chainIdentifier,
+				nonce: 0,
+			},
+		});
+		// Set everything the network would otherwise fill in by simulating
+		// the transaction, which fails on the timestamp.
+		tx.setGasPayment([
+			{
+				objectId: gasCoin.objectId,
+				version: gasCoin.version,
+				digest: gasCoin.digest,
+			},
+		]);
+		tx.setGasPrice(BigInt(systemState.referenceGasPrice));
+		tx.setGasBudget(10_000_000);
+
+		await expect(
+			session.createProposal(
+				proposer,
+				multisig.address,
+				'localnet',
+				(await tx.build({ client })).toBase64(),
+			),
+		).rejects.toThrow(
+			'The transaction can never execute: it has expired.',
+		);
+	});
+
 	test('verifying a proposal whose gas coin was spent elsewhere marks it invalid', async () => {
 		const { session, proposer, multisig, gasCoinId } =
 			await setup();
@@ -269,8 +343,8 @@ describe('Proposal Invalidation', () => {
 			gasCoinId,
 		);
 
-		// Finalizing the stale proposal and checking for reused objects share
-		// one lookup.
+		// Finalizing the stale proposal, checking for reused objects and
+		// checking the new transaction all share one lookup.
 		const before = await rpcCalls('getObjects');
 		await session.createProposal(
 			proposer,
