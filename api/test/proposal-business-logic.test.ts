@@ -19,6 +19,7 @@ import {
 	newUser,
 	type TestSession,
 } from './framework/api-test-framework';
+import { rpcCalls } from './setup/rpc-calls';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -94,6 +95,7 @@ describe('Proposal Business Logic', () => {
 			const builtB = await txB.build({ client });
 
 			// Submit tx B's bytes with tx A's signature
+			const objectLookups = await rpcCalls('getObjects');
 			await expect(
 				session.getStatefulClient().createProposal({
 					multisigAddress: multisig.address,
@@ -102,6 +104,10 @@ describe('Proposal Business Logic', () => {
 					signature: sigA.signature,
 				}),
 			).rejects.toThrow(/Invalid Sui signature/);
+			// Refused before doing any RPC work for the request.
+			expect(await rpcCalls('getObjects')).toBe(
+				objectLookups,
+			);
 		});
 
 		test('prevents duplicate proposals with same transaction digest', async () => {

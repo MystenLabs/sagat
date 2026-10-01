@@ -181,13 +181,6 @@ export const validateProposedTransaction = async (
 	multisigAddress: string,
 	network: SuiNetwork,
 ) => {
-	// Make sure the transaction is fully resolved. We do not currently allow unresolved txs.
-	if (!proposedTransaction.isFullyResolved()) {
-		throw new ValidationError(
-			'The transaction is not fully resolved.',
-		);
-	}
-
 	if (
 		proposedTransaction.getData().sender !== multisigAddress
 	) {
