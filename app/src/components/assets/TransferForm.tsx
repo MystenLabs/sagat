@@ -309,6 +309,7 @@ export function TransferForm({
 						size="sm"
 						className="h-6 px-2 text-xs"
 						onClick={handleMax}
+						data-testid="transfer-max-button"
 						disabled={isBusy || !maxInputAmount}
 					>
 						Max
@@ -335,7 +336,10 @@ export function TransferForm({
 					)}
 				</div>
 				{errors.amount && (
-					<p className="text-sm text-error-foreground">
+					<p
+						className="text-sm text-error-foreground"
+						data-testid="transfer-amount-error"
+					>
 						{errors.amount.message}
 					</p>
 				)}

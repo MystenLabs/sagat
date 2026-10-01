@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { TransactionError } from '@mysten/sui/client';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
 import { db } from '../db';
@@ -157,12 +158,29 @@ export const lookupAndVerifyProposal = async (
 
 	const tx = await getSuiClient(
 		proposal.network as SuiNetwork,
-	).getTransaction({
-		digest: proposal.digest,
-		include: {
-			effects: true,
-		},
-	});
+	)
+		.getTransaction({
+			digest: proposal.digest,
+			include: {
+				effects: true,
+			},
+		})
+		.catch((error) => {
+			// TODO: a transaction that isn't on-chain may also never be able to
+			// run, e.g. when one of its owned inputs was spent elsewhere. Such a
+			// proposal stays pending and blocks new proposals that use the same
+			// objects. Detect it (an input's version changed or it was deleted)
+			// and move the proposal to a new terminal status for it (not
+			// FAILURE, which means the transaction failed on-chain).
+			if (
+				error instanceof TransactionError &&
+				error.reason === 'notFound'
+			)
+				throw new ValidationError(
+					'The transaction has not been executed yet.',
+				);
+			throw error;
+		});
 
 	const isSuccess =
 		tx.$kind !== 'FailedTransaction' &&
