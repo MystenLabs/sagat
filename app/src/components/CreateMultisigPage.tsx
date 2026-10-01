@@ -365,7 +365,10 @@ export function CreateMultisigPage() {
 								</Button>
 							</div>
 							{multisigPreview.error && (
-								<div className="text-sm text-error-foreground mt-2">
+								<div
+									className="text-sm text-error-foreground mt-2"
+									data-testid="multisig-address-error"
+								>
 									{multisigPreview.error}
 								</div>
 							)}

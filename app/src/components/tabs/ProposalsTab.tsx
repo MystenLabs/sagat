@@ -76,6 +76,7 @@ function FilterTabs({
 					onFilterChange(id as FilterType)
 				}
 				variant="pills"
+				testId="proposal-filter"
 			/>
 			{/* Refresh button for all tabs */}
 			<Button
