@@ -60,7 +60,7 @@ export enum ProposalStatus {
 	CANCELLED = 1,
 	SUCCESS = 2,
 	FAILURE = 3,
-	// Never executed, and never can: e.g. an object it uses has changed.
+	// Never executed, and never can: it expired or an object it uses changed.
 	INVALID = 4,
 }
 

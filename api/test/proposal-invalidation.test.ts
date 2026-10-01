@@ -14,6 +14,7 @@ import {
 	test,
 } from 'bun:test';
 
+import { hasExpired } from '../src/services/proposal-status.service';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -284,4 +285,95 @@ describe('Proposal Invalidation', () => {
 			ProposalStatus.SUCCESS,
 		);
 	});
+});
+
+describe('hasExpired', () => {
+	// Epoch 10 started at time 1000.
+	const now = {
+		epoch: '10',
+		epochStartTimestampMs: '1000',
+	};
+	const window: {
+		minEpoch: string | null;
+		maxEpoch: string | null;
+		minTimestamp: string | null;
+		maxTimestamp: string | null;
+		chain: string;
+		nonce: number;
+	} = {
+		minEpoch: null,
+		maxEpoch: null,
+		minTimestamp: null,
+		maxTimestamp: null,
+		chain: '',
+		nonce: 0,
+	};
+
+	test('a transaction without an expiration never expires', () => {
+		expect(hasExpired(null, now)).toBe(false);
+		expect(
+			hasExpired({ $kind: 'None', None: true }, now),
+		).toBe(false);
+	});
+
+	test('an epoch expiration passes once that epoch is over', () => {
+		expect(
+			hasExpired({ $kind: 'Epoch', Epoch: '10' }, now),
+		).toBe(false);
+		expect(
+			hasExpired({ $kind: 'Epoch', Epoch: '9' }, now),
+		).toBe(true);
+	});
+
+	for (const $kind of [
+		'ValidDuring',
+		'Validity',
+	] as const) {
+		const expiration = (
+			bounds: Partial<typeof window>,
+		): Parameters<typeof hasExpired>[0] =>
+			$kind === 'ValidDuring'
+				? { $kind, ValidDuring: { ...window, ...bounds } }
+				: {
+						$kind,
+						Validity: {
+							...window,
+							...bounds,
+							allowedProposers: null,
+						},
+					};
+
+		test(`a ${$kind} expiration passes once its last epoch is over`, () => {
+			expect(
+				hasExpired(expiration({ maxEpoch: '10' }), now),
+			).toBe(false);
+			expect(
+				hasExpired(expiration({ maxEpoch: '9' }), now),
+			).toBe(true);
+		});
+
+		test(`a ${$kind} expiration passes once its latest time is before the current epoch`, () => {
+			expect(
+				hasExpired(
+					expiration({ maxTimestamp: '1000' }),
+					now,
+				),
+			).toBe(false);
+			expect(
+				hasExpired(
+					expiration({ maxTimestamp: '999' }),
+					now,
+				),
+			).toBe(true);
+		});
+
+		test(`a ${$kind} expiration that hasn't started yet hasn't expired`, () => {
+			expect(
+				hasExpired(
+					expiration({ minEpoch: '11', maxEpoch: '12' }),
+					now,
+				),
+			).toBe(false);
+		});
+	}
 });

@@ -61,6 +61,11 @@ const createInstrumentedClient = (
 		'getTransaction',
 		client.getTransaction.bind(client),
 	);
+	client.getCurrentSystemState = withMetrics(
+		network,
+		'getCurrentSystemState',
+		client.getCurrentSystemState.bind(client),
+	);
 
 	return client;
 };
