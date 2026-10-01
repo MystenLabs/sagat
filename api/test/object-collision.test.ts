@@ -85,6 +85,60 @@ describe('Object Collision Detection', () => {
 			).rejects.toThrow(/re-use any owned or receiving/);
 		});
 
+		test('prevents concurrent proposals receiving the same object', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const { objects: coins } = await client.listCoins({
+				owner: multisig.address,
+			});
+			expect(coins.length).toBeGreaterThanOrEqual(3);
+			const [gasCoin1, gasCoin2, received] = coins.map(
+				({ objectId, version, digest }) => ({
+					objectId,
+					version,
+					digest,
+				}),
+			);
+			const { referenceGasPrice } =
+				await client.getReferenceGasPrice();
+
+			// Receives the same object each time, paying for gas with a
+			// different coin. Only its inputs matter, so it sets its gas data
+			// itself instead of having the network simulate it.
+			const receivingTx = async (
+				gasCoin: typeof received,
+			) => {
+				const tx = new Transaction();
+				tx.setSender(multisig.address);
+				tx.setGasPayment([gasCoin]);
+				tx.setGasPrice(BigInt(referenceGasPrice));
+				tx.setGasBudget(10_000_000);
+				tx.transferObjects(
+					[tx.receivingRef(received)],
+					multisig.address,
+				);
+				return (await tx.build({ client })).toBase64();
+			};
+
+			await session.createProposal(
+				users[0],
+				multisig.address,
+				'localnet',
+				await receivingTx(gasCoin1),
+			);
+
+			await expect(
+				session.createProposal(
+					users[0],
+					multisig.address,
+					'localnet',
+					await receivingTx(gasCoin2),
+				),
+			).rejects.toThrow(
+				`re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${received.objectId}`,
+			);
+		});
+
 		test('allows concurrent proposals using different gas coins', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
