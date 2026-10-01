@@ -58,6 +58,17 @@ export const pinnedObjectRefs = (
 	return refs;
 };
 
+// Whether an object has moved past the version a transaction pins. Only a
+// newer version proves it: versions only go up, so an older one just means
+// the node that answered is behind, and a missing object may be one it hasn't
+// seen yet (deleted ones look the same, so those stay undecided).
+export const hasMoved = (
+	ref: ObjectRef,
+	currentVersion: string | null | undefined,
+) =>
+	currentVersion != null &&
+	BigInt(currentVersion) > BigInt(ref.version);
+
 // What the chain says about some transactions, looked up once so that
 // several checks can share it.
 export type ChainState = {
@@ -79,22 +90,23 @@ export const loadChainState = async (
 });
 
 // Why a transaction can never execute (an object it uses at an exact
-// version has since changed or been deleted), or null if it still can.
-// `state` must have been loaded for it. Note that executing the transaction
-// itself changes its objects too.
+// version has since moved to a newer one), or null if it still can. `state`
+// must have been loaded for it. Note that executing the transaction itself
+// moves its objects too.
 export const whyInvalid = (
 	tx: Transaction,
 	state: ChainState,
 ) => {
-	const changed = pinnedObjectRefs(tx)
-		.filter(
-			(ref) =>
-				state.objects.get(ref.objectId)?.version !==
-				String(ref.version),
+	const moved = pinnedObjectRefs(tx)
+		.filter((ref) =>
+			hasMoved(
+				ref,
+				state.objects.get(ref.objectId)?.version,
+			),
 		)
 		.map((ref) => ref.objectId);
-	if (changed.length > 0)
-		return `objects it uses have changed: ${changed.join(', ')}`;
+	if (moved.length > 0)
+		return `objects it uses have changed: ${moved.join(', ')}`;
 	return null;
 };
 
