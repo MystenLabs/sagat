@@ -18,6 +18,7 @@ import {
 	finalizeStaleProposals,
 	loadChainState,
 	pinnedObjectRefs,
+	whyInvalid,
 } from './proposal-status.service';
 
 // Returns the multisig with its members.
@@ -180,13 +181,6 @@ export const validateProposedTransaction = async (
 	multisigAddress: string,
 	network: SuiNetwork,
 ) => {
-	// Make sure the transaction is fully resolved. We do not currently allow unresolved txs.
-	if (!proposedTransaction.isFullyResolved()) {
-		throw new ValidationError(
-			'The transaction is not fully resolved.',
-		);
-	}
-
 	if (
 		proposedTransaction.getData().sender !== multisigAddress
 	) {
@@ -213,7 +207,7 @@ export const validateProposedTransaction = async (
 		Transaction.from(p.transactionBytes),
 	);
 	const state = await loadChainState(
-		pendingTransactions,
+		[proposedTransaction, ...pendingTransactions],
 		network,
 	);
 
@@ -256,4 +250,15 @@ export const validateProposedTransaction = async (
 				reusedObjects.join(', '),
 		);
 	}
+
+	// Refuse a transaction that could never execute, rather than leave it
+	// for the next proposal to mark invalid.
+	const invalidReason = whyInvalid(
+		proposedTransaction,
+		state,
+	);
+	if (invalidReason)
+		throw new ValidationError(
+			`The transaction can never execute: ${invalidReason}.`,
+		);
 };
