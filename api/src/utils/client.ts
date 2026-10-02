@@ -66,6 +66,11 @@ const createInstrumentedClient = (
 		'getCurrentSystemState',
 		client.getCurrentSystemState.bind(client),
 	);
+	client.getChainIdentifier = withMetrics(
+		network,
+		'getChainIdentifier',
+		client.getChainIdentifier.bind(client),
+	);
 
 	return client;
 };
@@ -79,40 +84,59 @@ export const getSuiClient = (network: SuiNetwork) => {
 	return createInstrumentedClient(network, client);
 };
 
-const systemStates = new Map<
+// The chain identifiers of the networks that are never wiped, so checking
+// against them doesn't depend on what a fullnode answers.
+const KNOWN_CHAIN_IDENTIFIERS: Partial<
+	Record<SuiNetwork, string>
+> = {
+	mainnet: '4btiuiMPvEENsttpZC7CZ53DruC3MAgfznDbASZ7DR6S',
+	testnet: '69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD',
+};
+
+type ChainInfo = {
+	systemState: SuiClientTypes.SystemStateInfo;
+	chainIdentifier: string;
+};
+
+const chainInfos = new Map<
 	SuiNetwork,
-	{
-		expiresAt: number;
-		systemState: Promise<SuiClientTypes.SystemStateInfo>;
-	}
+	{ expiresAt: number; chainInfo: Promise<ChainInfo> }
 >();
 
-// The network's current system state, shared between requests until its
-// epoch is due to end. Epochs only move forward, so a shared one can only be
-// a little behind, which at worst notices an expiration late.
-export const getSystemState = (network: SuiNetwork) => {
-	const cached = systemStates.get(network);
+// The network's current system state and chain identifier, shared between
+// requests until its epoch is due to end. Epochs only move forward, so a
+// shared state can only be a little behind, which at worst notices an
+// expiration late.
+export const getChainInfo = (network: SuiNetwork) => {
+	const cached = chainInfos.get(network);
 	if (cached && Date.now() < cached.expiresAt)
-		return cached.systemState;
+		return cached.chainInfo;
 
+	const client = getSuiClient(network);
+	const knownChainIdentifier =
+		KNOWN_CHAIN_IDENTIFIERS[network];
 	const entry = {
 		// Shared by the requests that come in while it loads.
 		expiresAt: Infinity,
-		systemState: getSuiClient(network)
-			.getCurrentSystemState()
-			.then(({ systemState }) => {
-				entry.expiresAt =
-					Number(systemState.epochStartTimestampMs) +
-					Number(systemState.parameters.epochDurationMs);
-				return systemState;
-			}),
+		chainInfo: Promise.all([
+			client.getCurrentSystemState(),
+			knownChainIdentifier ??
+				client
+					.getChainIdentifier()
+					.then(({ chainIdentifier }) => chainIdentifier),
+		]).then(([{ systemState }, chainIdentifier]) => {
+			entry.expiresAt =
+				Number(systemState.epochStartTimestampMs) +
+				Number(systemState.parameters.epochDurationMs);
+			return { systemState, chainIdentifier };
+		}),
 	};
-	entry.systemState.catch(() => {
-		if (systemStates.get(network) === entry)
-			systemStates.delete(network);
+	entry.chainInfo.catch(() => {
+		if (chainInfos.get(network) === entry)
+			chainInfos.delete(network);
 	});
-	systemStates.set(network, entry);
-	return entry.systemState;
+	chainInfos.set(network, entry);
+	return entry.chainInfo;
 };
 
 // The current state of each object, or null for one that no longer exists

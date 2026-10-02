@@ -23,9 +23,9 @@ import {
 	multisigProposalEvents,
 } from '../metrics';
 import {
+	getChainInfo,
 	getCurrentObjects,
 	getSuiClient,
-	getSystemState,
 	type SuiNetwork,
 } from '../utils/client';
 
@@ -115,6 +115,9 @@ export type ChainState = {
 	objects: Map<string, SuiClientTypes.Object | null>;
 	// Only looked up when one of the transactions can expire.
 	systemState: ChainTime | null;
+	// Only looked up when one of the transactions can expire, which is when
+	// it can also be bound to a network.
+	chainIdentifier: string | null;
 };
 
 export const loadChainState = async (
@@ -125,29 +128,46 @@ export const loadChainState = async (
 		const { expiration } = tx.getData();
 		return expiration && expiration.$kind !== 'None';
 	});
-	const [objects, systemState] = await Promise.all([
+	const [objects, chainInfo] = await Promise.all([
 		getCurrentObjects(
 			transactions
 				.flatMap(pinnedObjectRefs)
 				.map((ref) => ref.objectId),
 			network,
 		),
-		canExpire ? getSystemState(network) : null,
+		canExpire ? getChainInfo(network) : null,
 	]);
-	return { objects, systemState };
+	return {
+		objects,
+		systemState: chainInfo?.systemState ?? null,
+		chainIdentifier: chainInfo?.chainIdentifier ?? null,
+	};
 };
 
-// Why a transaction can never execute (it expired, or an object it uses at
-// an exact version has since moved to a newer one), or null if it still
-// can. `state` must have been loaded for it. Note that executing the
-// transaction itself moves its objects too.
+// Why a transaction can never execute (it's bound to another network, it
+// expired, or an object it uses at an exact version has since moved to a
+// newer one), or null if it still can. `state` must have been loaded for it.
+// Note that executing the transaction itself moves its objects too.
 export const whyInvalid = (
 	tx: Transaction,
 	state: ChainState,
 ) => {
+	const { expiration } = tx.getData();
+	const chain =
+		expiration?.$kind === 'ValidDuring'
+			? expiration.ValidDuring.chain
+			: expiration?.$kind === 'Validity'
+				? expiration.Validity.chain
+				: null;
+	if (
+		chain !== null &&
+		state.chainIdentifier !== null &&
+		chain !== state.chainIdentifier
+	)
+		return 'it is for another network';
 	if (
 		state.systemState &&
-		hasExpired(tx.getData().expiration, state.systemState)
+		hasExpired(expiration, state.systemState)
 	)
 		return 'it has expired';
 	const moved = pinnedObjectRefs(tx)
