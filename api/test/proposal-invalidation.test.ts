@@ -15,6 +15,7 @@ import {
 } from 'bun:test';
 
 import { hasExpired } from '../src/services/proposal-status.service';
+import { getSystemState } from '../src/utils/client';
 import { parsePublicKey } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
@@ -400,4 +401,12 @@ describe('hasExpired', () => {
 			).toBe(false);
 		});
 	}
+});
+
+describe('getSystemState', () => {
+	test('requests share one fetch of the system state', async () => {
+		const first = getSystemState('localnet');
+		expect(getSystemState('localnet')).toBe(first);
+		expect((await first).epoch).toBeDefined();
+	});
 });

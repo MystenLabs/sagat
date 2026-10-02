@@ -25,6 +25,7 @@ import {
 import {
 	getCurrentObjects,
 	getSuiClient,
+	getSystemState,
 	type SuiNetwork,
 } from '../utils/client';
 
@@ -131,11 +132,7 @@ export const loadChainState = async (
 				.map((ref) => ref.objectId),
 			network,
 		),
-		canExpire
-			? getSuiClient(network)
-					.getCurrentSystemState()
-					.then(({ systemState }) => systemState)
-			: null,
+		canExpire ? getSystemState(network) : null,
 	]);
 	return { objects, systemState };
 };
