@@ -88,6 +88,42 @@ export const getSuiClient = (network: SuiNetwork) => {
 	return client;
 };
 
+const systemStates = new Map<
+	SuiNetwork,
+	{
+		expiresAt: number;
+		systemState: Promise<SuiClientTypes.SystemStateInfo>;
+	}
+>();
+
+// The network's current system state, shared between requests until its
+// epoch is due to end. Epochs only move forward, so a shared one can only be
+// a little behind, which at worst notices an expiration late.
+export const getSystemState = (network: SuiNetwork) => {
+	const cached = systemStates.get(network);
+	if (cached && Date.now() < cached.expiresAt)
+		return cached.systemState;
+
+	const entry = {
+		// Shared by the requests that come in while it loads.
+		expiresAt: Infinity,
+		systemState: getSuiClient(network)
+			.getCurrentSystemState()
+			.then(({ systemState }) => {
+				entry.expiresAt =
+					Number(systemState.epochStartTimestampMs) +
+					Number(systemState.parameters.epochDurationMs);
+				return systemState;
+			}),
+	};
+	entry.systemState.catch(() => {
+		if (systemStates.get(network) === entry)
+			systemStates.delete(network);
+	});
+	systemStates.set(network, entry);
+	return entry.systemState;
+};
+
 // The current state of each object, or null for one that no longer exists
 // (or never did).
 export const getCurrentObjects = async (
