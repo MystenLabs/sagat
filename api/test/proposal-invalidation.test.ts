@@ -14,8 +14,11 @@ import {
 	test,
 } from 'bun:test';
 
-import { hasExpired } from '../src/services/proposal-status.service';
-import { getSystemState } from '../src/utils/client';
+import {
+	hasExpired,
+	whyInvalid,
+} from '../src/services/proposal-status.service';
+import { getChainInfo } from '../src/utils/client';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -379,10 +382,67 @@ describe('hasExpired', () => {
 	}
 });
 
-describe('getSystemState', () => {
-	test('requests share one fetch of the system state', async () => {
-		const first = getSystemState('localnet');
-		expect(getSystemState('localnet')).toBe(first);
-		expect((await first).epoch).toBeDefined();
+describe('whyInvalid', () => {
+	// The current network, in epoch 10.
+	const state = {
+		objects: new Map(),
+		systemState: {
+			epoch: '10',
+			epochStartTimestampMs: '1000',
+		},
+		chainIdentifier: 'this-network',
+	};
+
+	const boundTo = (
+		$kind: 'ValidDuring' | 'Validity',
+		chain: string,
+	) => {
+		const window = {
+			minEpoch: '10',
+			maxEpoch: '11',
+			minTimestamp: null,
+			maxTimestamp: null,
+			chain,
+			nonce: 0,
+		};
+		const tx = new Transaction();
+		tx.setExpiration(
+			$kind === 'ValidDuring'
+				? { ValidDuring: window }
+				: {
+						Validity: { ...window, allowedProposers: null },
+					},
+		);
+		return tx;
+	};
+
+	for (const $kind of [
+		'ValidDuring',
+		'Validity',
+	] as const) {
+		test(`a ${$kind} transaction for another network can never execute`, () => {
+			expect(
+				whyInvalid(
+					boundTo($kind, 'another-network'),
+					state,
+				),
+			).toBe('it is for another network');
+		});
+
+		test(`a ${$kind} transaction for this network still can`, () => {
+			expect(
+				whyInvalid(boundTo($kind, 'this-network'), state),
+			).toBeNull();
+		});
+	}
+});
+
+describe('getChainInfo', () => {
+	test('requests share one fetch of the chain info', async () => {
+		const first = getChainInfo('localnet');
+		expect(getChainInfo('localnet')).toBe(first);
+		const { systemState, chainIdentifier } = await first;
+		expect(systemState.epoch).toBeDefined();
+		expect(chainIdentifier).toBeDefined();
 	});
 });
