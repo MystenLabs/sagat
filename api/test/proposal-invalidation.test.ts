@@ -14,6 +14,11 @@ import {
 	test,
 } from 'bun:test';
 
+import {
+	hasExpired,
+	whyInvalid,
+} from '../src/services/proposal-status.service';
+import { getChainInfo } from '../src/utils/client';
 import { parsePublicKey } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
@@ -307,5 +312,161 @@ describe('Proposal Invalidation', () => {
 		expect(await statusOf(session, executed.digest)).toBe(
 			ProposalStatus.SUCCESS,
 		);
+	});
+});
+
+describe('hasExpired', () => {
+	// Epoch 10 started at time 1000.
+	const now = {
+		epoch: '10',
+		epochStartTimestampMs: '1000',
+	};
+	const window: {
+		minEpoch: string | null;
+		maxEpoch: string | null;
+		minTimestamp: string | null;
+		maxTimestamp: string | null;
+		chain: string;
+		nonce: number;
+	} = {
+		minEpoch: null,
+		maxEpoch: null,
+		minTimestamp: null,
+		maxTimestamp: null,
+		chain: '',
+		nonce: 0,
+	};
+
+	test('a transaction without an expiration never expires', () => {
+		expect(hasExpired(null, now)).toBe(false);
+		expect(
+			hasExpired({ $kind: 'None', None: true }, now),
+		).toBe(false);
+	});
+
+	test('an epoch expiration passes once that epoch is over', () => {
+		expect(
+			hasExpired({ $kind: 'Epoch', Epoch: '10' }, now),
+		).toBe(false);
+		expect(
+			hasExpired({ $kind: 'Epoch', Epoch: '9' }, now),
+		).toBe(true);
+	});
+
+	for (const $kind of [
+		'ValidDuring',
+		'Validity',
+	] as const) {
+		const expiration = (
+			bounds: Partial<typeof window>,
+		): Parameters<typeof hasExpired>[0] =>
+			$kind === 'ValidDuring'
+				? { $kind, ValidDuring: { ...window, ...bounds } }
+				: {
+						$kind,
+						Validity: {
+							...window,
+							...bounds,
+							allowedProposers: null,
+						},
+					};
+
+		test(`a ${$kind} expiration passes once its last epoch is over`, () => {
+			expect(
+				hasExpired(expiration({ maxEpoch: '10' }), now),
+			).toBe(false);
+			expect(
+				hasExpired(expiration({ maxEpoch: '9' }), now),
+			).toBe(true);
+		});
+
+		test(`a ${$kind} expiration passes once its latest time is before the current epoch`, () => {
+			expect(
+				hasExpired(
+					expiration({ maxTimestamp: '1000' }),
+					now,
+				),
+			).toBe(false);
+			expect(
+				hasExpired(
+					expiration({ maxTimestamp: '999' }),
+					now,
+				),
+			).toBe(true);
+		});
+
+		test(`a ${$kind} expiration that hasn't started yet hasn't expired`, () => {
+			expect(
+				hasExpired(
+					expiration({ minEpoch: '11', maxEpoch: '12' }),
+					now,
+				),
+			).toBe(false);
+		});
+	}
+});
+
+describe('whyInvalid', () => {
+	// The current network, in epoch 10.
+	const state = {
+		objects: new Map(),
+		systemState: {
+			epoch: '10',
+			epochStartTimestampMs: '1000',
+		},
+		chainIdentifier: 'this-network',
+	};
+
+	const boundTo = (
+		$kind: 'ValidDuring' | 'Validity',
+		chain: string,
+	) => {
+		const window = {
+			minEpoch: '10',
+			maxEpoch: '11',
+			minTimestamp: null,
+			maxTimestamp: null,
+			chain,
+			nonce: 0,
+		};
+		const tx = new Transaction();
+		tx.setExpiration(
+			$kind === 'ValidDuring'
+				? { ValidDuring: window }
+				: {
+						Validity: { ...window, allowedProposers: null },
+					},
+		);
+		return tx;
+	};
+
+	for (const $kind of [
+		'ValidDuring',
+		'Validity',
+	] as const) {
+		test(`a ${$kind} transaction for another network can never execute`, () => {
+			expect(
+				whyInvalid(
+					boundTo($kind, 'another-network'),
+					state,
+				),
+			).toBe('it is for another network');
+		});
+
+		test(`a ${$kind} transaction for this network still can`, () => {
+			expect(
+				whyInvalid(boundTo($kind, 'this-network'), state),
+			).toBeNull();
+		});
+	}
+});
+
+describe('getChainInfo', () => {
+	test('requests share one fetch of the chain info', async () => {
+		const first = getChainInfo('localnet');
+		expect(getChainInfo('localnet')).toBe(first);
+		const { systemState, chainIdentifier } = await first;
+		expect(systemState.epoch).toBeDefined();
+		expect(chainIdentifier).toBeDefined();
 	});
 });

@@ -5,7 +5,10 @@ import {
 	TransactionError,
 	type SuiClientTypes,
 } from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
+import {
+	Transaction,
+	type TransactionData,
+} from '@mysten/sui/transactions';
 import { fromBase58 } from '@mysten/sui/utils';
 import { and, eq } from 'drizzle-orm';
 
@@ -20,6 +23,7 @@ import {
 	multisigProposalEvents,
 } from '../metrics';
 import {
+	getChainInfo,
 	getCurrentObjects,
 	getSuiClient,
 	type SuiNetwork,
@@ -69,34 +73,103 @@ export const hasMoved = (
 	currentVersion != null &&
 	BigInt(currentVersion) > BigInt(ref.version);
 
+// Where the chain is at: the current epoch, and when it started.
+type ChainTime = Pick<
+	SuiClientTypes.SystemStateInfo,
+	'epoch' | 'epochStartTimestampMs'
+>;
+
+// Whether a transaction's expiration has passed: its last epoch is over, or
+// its latest time is before the current epoch even started.
+export const hasExpired = (
+	expiration: TransactionData['expiration'],
+	now: ChainTime,
+) => {
+	switch (expiration?.$kind) {
+		case 'Epoch':
+			return BigInt(now.epoch) > BigInt(expiration.Epoch);
+		case 'ValidDuring':
+		case 'Validity': {
+			const { maxEpoch, maxTimestamp } =
+				expiration.$kind === 'ValidDuring'
+					? expiration.ValidDuring
+					: expiration.Validity;
+			return (
+				(maxEpoch != null &&
+					BigInt(now.epoch) > BigInt(maxEpoch)) ||
+				(maxTimestamp != null &&
+					BigInt(now.epochStartTimestampMs) >
+						BigInt(maxTimestamp))
+			);
+		}
+		default:
+			return false;
+	}
+};
+
 // What the chain says about some transactions, looked up once so that
 // several checks can share it.
 export type ChainState = {
 	// The current state of each object the transactions use at an exact
 	// version, or null for one that no longer exists.
 	objects: Map<string, SuiClientTypes.Object | null>;
+	// Only looked up when one of the transactions can expire.
+	systemState: ChainTime | null;
+	// Only looked up when one of the transactions can expire, which is when
+	// it can also be bound to a network.
+	chainIdentifier: string | null;
 };
 
 export const loadChainState = async (
 	transactions: Transaction[],
 	network: SuiNetwork,
-): Promise<ChainState> => ({
-	objects: await getCurrentObjects(
-		transactions
-			.flatMap(pinnedObjectRefs)
-			.map((ref) => ref.objectId),
-		network,
-	),
-});
+): Promise<ChainState> => {
+	const canExpire = transactions.some((tx) => {
+		const { expiration } = tx.getData();
+		return expiration && expiration.$kind !== 'None';
+	});
+	const [objects, chainInfo] = await Promise.all([
+		getCurrentObjects(
+			transactions
+				.flatMap(pinnedObjectRefs)
+				.map((ref) => ref.objectId),
+			network,
+		),
+		canExpire ? getChainInfo(network) : null,
+	]);
+	return {
+		objects,
+		systemState: chainInfo?.systemState ?? null,
+		chainIdentifier: chainInfo?.chainIdentifier ?? null,
+	};
+};
 
-// Why a transaction can never execute (an object it uses at an exact
-// version has since moved to a newer one), or null if it still can. `state`
-// must have been loaded for it. Note that executing the transaction itself
-// moves its objects too.
+// Why a transaction can never execute (it's bound to another network, it
+// expired, or an object it uses at an exact version has since moved to a
+// newer one), or null if it still can. `state` must have been loaded for it.
+// Note that executing the transaction itself moves its objects too.
 export const whyInvalid = (
 	tx: Transaction,
 	state: ChainState,
 ) => {
+	const { expiration } = tx.getData();
+	const chain =
+		expiration?.$kind === 'ValidDuring'
+			? expiration.ValidDuring.chain
+			: expiration?.$kind === 'Validity'
+				? expiration.Validity.chain
+				: null;
+	if (
+		chain !== null &&
+		state.chainIdentifier !== null &&
+		chain !== state.chainIdentifier
+	)
+		return 'it is for another network';
+	if (
+		state.systemState &&
+		hasExpired(expiration, state.systemState)
+	)
+		return 'it has expired';
 	const moved = pinnedObjectRefs(tx)
 		.filter((ref) =>
 			hasMoved(
