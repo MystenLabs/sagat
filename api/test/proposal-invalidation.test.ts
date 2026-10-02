@@ -7,6 +7,7 @@ import {
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
+import { toBase58 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -165,9 +166,18 @@ describe('Proposal Invalidation', () => {
 		);
 	});
 
-	test('refuses a proposal that already expired', async () => {
-		const { session, proposer, multisig, gasCoinId } =
-			await setup();
+	// A transfer from the multisig that's only valid in the current epochs,
+	// on `chain` (this network by default) and until `maxTimestamp`. It sets
+	// everything the network would otherwise fill in by simulating it, which
+	// fails for these expirations.
+	async function transferValidDuring(
+		multisigAddress: string,
+		gasCoinId: string,
+		{
+			chain,
+			maxTimestamp = null,
+		}: { chain?: string; maxTimestamp?: string | null },
+	) {
 		const [
 			{ chainIdentifier },
 			{ systemState },
@@ -178,24 +188,19 @@ describe('Proposal Invalidation', () => {
 			client.getObject({ objectId: gasCoinId }),
 		]);
 		const tx = new Transaction();
-		tx.setSender(multisig.address);
+		tx.setSender(multisigAddress);
 		const [coin] = tx.splitCoins(tx.gas, [1_000_000]);
-		tx.transferObjects([coin], multisig.address);
-		// Within the current epochs, but only until a time long gone. (The
-		// network can't run timestamp expirations yet, and a fresh one is
-		// still in its first epoch, so this is the only way to expire it.)
+		tx.transferObjects([coin], multisigAddress);
 		tx.setExpiration({
 			ValidDuring: {
 				minEpoch: systemState.epoch,
 				maxEpoch: String(BigInt(systemState.epoch) + 1n),
 				minTimestamp: null,
-				maxTimestamp: '1',
-				chain: chainIdentifier,
+				maxTimestamp,
+				chain: chain ?? chainIdentifier,
 				nonce: 0,
 			},
 		});
-		// Set everything the network would otherwise fill in by simulating
-		// the transaction, which fails on the timestamp.
 		tx.setGasPayment([
 			{
 				objectId: gasCoin.objectId,
@@ -205,16 +210,51 @@ describe('Proposal Invalidation', () => {
 		]);
 		tx.setGasPrice(BigInt(systemState.referenceGasPrice));
 		tx.setGasBudget(10_000_000);
+		return (await tx.build({ client })).toBase64();
+	}
+
+	test('refuses a proposal that already expired', async () => {
+		const { session, proposer, multisig, gasCoinId } =
+			await setup();
+		// Only until a time long gone. (The network can't run timestamp
+		// expirations yet, and a fresh one is still in its first epoch, so
+		// this is the only way to expire it.)
+		const transactionBytes = await transferValidDuring(
+			multisig.address,
+			gasCoinId,
+			{ maxTimestamp: '1' },
+		);
 
 		await expect(
 			session.createProposal(
 				proposer,
 				multisig.address,
 				'localnet',
-				(await tx.build({ client })).toBase64(),
+				transactionBytes,
 			),
 		).rejects.toThrow(
 			'The transaction can never execute: it has expired.',
+		);
+	});
+
+	test('refuses a proposal for another network', async () => {
+		const { session, proposer, multisig, gasCoinId } =
+			await setup();
+		const transactionBytes = await transferValidDuring(
+			multisig.address,
+			gasCoinId,
+			{ chain: toBase58(new Uint8Array(32).fill(7)) },
+		);
+
+		await expect(
+			session.createProposal(
+				proposer,
+				multisig.address,
+				'localnet',
+				transactionBytes,
+			),
+		).rejects.toThrow(
+			'The transaction can never execute: it is for another network.',
 		);
 	});
 
