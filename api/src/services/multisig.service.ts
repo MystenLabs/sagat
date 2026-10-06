@@ -14,9 +14,14 @@ import {
 import { NotFoundError, ValidationError } from '../errors';
 import { MultisigDataLoader } from '../loaders/multisig.loader';
 import {
-	queryAllOwnedObjects,
+	getCurrentObjects,
 	type SuiNetwork,
 } from '../utils/client';
+import {
+	movedObjects,
+	pinnedObjectRefs,
+	stillExecutable,
+} from './proposal-status.service';
 
 // Returns the multisig with its members.
 export const getMultisig = async (address: string) => {
@@ -172,23 +177,6 @@ export const getPendingProposals = async (
 	return proposals;
 };
 
-// Extracts all the owned or receiving objects from a supplied transaction.
-export const extractOwnedObjects = (tx: Transaction) => {
-	return [
-		...tx
-			.getData()
-			.inputs.filter(
-				(x) =>
-					x.$kind === 'Object' &&
-					x.Object.$kind === 'ImmOrOwnedObject',
-			)
-			.map((x) => x.Object!.ImmOrOwnedObject!.objectId),
-		...(tx
-			.getData()
-			.gasData?.payment?.map((x) => x.objectId) || []),
-	];
-};
-
 // Validates a proposed transaction.
 export const validateProposedTransaction = async (
 	proposedTransaction: Transaction,
@@ -230,40 +218,53 @@ export const validateProposedTransaction = async (
 		);
 	}
 
-	// Get all the owned or receiving objects from the pending proposals.
-	// Make sure we do not have any of these in our proposal.
-	const ownedOrReceivingObjects: string[] = [];
-	for (const proposal of pendingProposals) {
-		const tx = Transaction.from(proposal.transactionBytes);
-		ownedOrReceivingObjects.push(
-			...extractOwnedObjects(tx),
-		);
-	}
-
-	//   Query all the owned objects.
-	const allOwnedObjects = await queryAllOwnedObjects(
-		ownedOrReceivingObjects,
+	// Look up the objects the checks below need at once.
+	const pendingTransactions = pendingProposals.map((p) =>
+		Transaction.from(p.transactionBytes),
+	);
+	const objects = await getCurrentObjects(
+		[proposedTransaction, ...pendingTransactions]
+			.flatMap(pinnedObjectRefs)
+			.map((ref) => ref.objectId),
 		network,
 	);
 
-	// Get all the owned or receiving objects from the proposed transaction.
-	const existingProposalObjects = extractOwnedObjects(
-		proposedTransaction,
+	// Refuse a transaction that could never execute.
+	const moved = movedObjects(proposedTransaction, objects);
+	if (moved.length > 0)
+		throw new ValidationError(
+			`The transaction can never execute: objects it uses have changed: ${moved.join(', ')}.`,
+		);
+
+	const stillPending = await stillExecutable(
+		pendingProposals,
+		objects,
 	);
-	const allUsedOwnedObjects = [];
 
-	for (const obj of allOwnedObjects) {
-		if (existingProposalObjects.includes(obj.objectId)) {
-			allUsedOwnedObjects.push(obj);
-		}
-	}
+	// The objects the pending proposals pin at a version, except immutable
+	// ones, which can be shared. One the node didn't return stays held.
+	// Make sure we do not have any of these in our proposal.
+	const objectIds = (tx: Transaction) =>
+		pinnedObjectRefs(tx).map((ref) => ref.objectId);
+	const pendingOwnedObjects = new Set(
+		stillPending
+			.flatMap((p) =>
+				objectIds(Transaction.from(p.transactionBytes)),
+			)
+			.filter(
+				(objectId) =>
+					objects.get(objectId)?.owner.$kind !==
+					'Immutable',
+			),
+	);
+	const reusedObjects = objectIds(
+		proposedTransaction,
+	).filter((objectId) => pendingOwnedObjects.has(objectId));
 
-	if (allUsedOwnedObjects.length > 0) {
+	if (reusedObjects.length > 0) {
 		throw new ValidationError(
 			'You cannot have re-use any owned or receiving objects that are already in pending proposals. The used objects are: ' +
-				allUsedOwnedObjects
-					.map((obj) => obj.objectId)
-					.join(', '),
+				reusedObjects.join(', '),
 		);
 	}
 };

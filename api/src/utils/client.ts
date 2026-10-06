@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { SuiClientTypes } from '@mysten/sui/client';
+import {
+	ObjectError,
+	type SuiClientTypes,
+} from '@mysten/sui/client';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 
 import { SUI_RPC_URL } from '../db/env';
@@ -80,57 +83,34 @@ export const getSuiClient = (network: SuiNetwork) => {
 	return client;
 };
 
-// Query a list of objects
-// TODO: use a data loader to share queries across requests.
-export const queryAllOwnedObjects = async (
+// The current state of each object, or null for one that no longer exists
+// (or never did).
+export const getCurrentObjects = async (
 	objectIds: string[],
 	network: SuiNetwork,
 ) => {
+	const objects = new Map<
+		string,
+		SuiClientTypes.Object | null
+	>();
+	if (objectIds.length === 0) return objects;
+
+	// The SDK splits these into as many requests as it needs.
 	const uniqueObjectIds = Array.from(new Set(objectIds));
+	const response = await getSuiClient(network).getObjects({
+		objectIds: uniqueObjectIds,
+	});
 
-	if (uniqueObjectIds.length === 0) {
-		return [];
-	}
+	response.objects.forEach((object, i) => {
+		if (!(object instanceof Error))
+			objects.set(uniqueObjectIds[i], object);
+		else if (
+			object instanceof ObjectError &&
+			object.reason !== 'unknown'
+		)
+			objects.set(uniqueObjectIds[i], null);
+		else throw object;
+	});
 
-	const batches = batchObjectRequests(uniqueObjectIds, 100);
-
-	const allOwnedObjects: SuiClientTypes.Object[] = [];
-
-	// Go through the batches & query the objects, pick out the `AddressOwner` ones.
-	await Promise.all(
-		batches.map(async (batch) => {
-			const objects = await getSuiClient(
-				network,
-			).getObjects({
-				objectIds: batch,
-			});
-
-			for (const object of objects.objects) {
-				if (object instanceof Error) {
-					throw new Error(
-						`Failed to get object: ${object.message}`,
-					);
-				}
-				if (
-					object.owner &&
-					object.owner.$kind === 'AddressOwner'
-				) {
-					allOwnedObjects.push(object);
-				}
-			}
-		}),
-	);
-
-	return allOwnedObjects;
+	return objects;
 };
-
-function batchObjectRequests<T>(
-	objectIds: T[],
-	batchSize: number,
-) {
-	const batches = [];
-	for (let i = 0; i < objectIds.length; i += batchSize) {
-		batches.push(objectIds.slice(i, i + batchSize));
-	}
-	return batches;
-}
