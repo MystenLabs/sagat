@@ -23,18 +23,18 @@ describe('Addresses API', () => {
 		framework = new ApiTestFramework(await createTestApp());
 	});
 
-	test('connecting registers the address, and registering again is fine', async () => {
-		const {
-			session,
-			users: [user],
-		} = await framework.createAuthenticatedSession(1);
+	test('connecting registers every address in the session, and registering again is fine', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
 
 		await session.client.registerAddresses();
 
-		const info = await session.client.getAddressInfo(
-			user.address,
-		);
-		expect(info.publicKey).toBe(user.publicKey);
+		for (const user of users) {
+			const info = await session.client.getAddressInfo(
+				user.address,
+			);
+			expect(info.publicKey).toBe(user.publicKey);
+		}
 	});
 
 	test('looking up an unregistered address fails', async () => {

@@ -7,8 +7,8 @@ import {
 	SagatClient,
 	type MultisigWithMembers,
 } from '@mysten/sagat';
-import type { SuiClientTypes } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
@@ -16,6 +16,7 @@ import {
 } from '@mysten/sui/utils';
 import { type Hono } from 'hono';
 
+import { parsePublicKey } from '../../src/utils/pubKey';
 import {
 	executeTransaction,
 	fundAddress,
@@ -55,7 +56,11 @@ export async function buildTransfer(
 		gasCoin,
 	}: {
 		amount?: number;
-		gasCoin?: SuiClientTypes.Coin;
+		gasCoin?: {
+			objectId: string;
+			version: string;
+			digest: string;
+		};
 	} = {},
 ) {
 	const tx = new Transaction();
@@ -270,6 +275,62 @@ export class TestSession {
 		return this.client.voteForProposal(proposalId, {
 			signature,
 		});
+	}
+
+	// Collects the votes still needed from `voters`, executes the proposal
+	// on chain and verifies it through the API.
+	async voteAndExecute(voters: TestUser[], digest: string) {
+		const proposal =
+			await this.client.getProposalByDigest(digest);
+		for (const voter of voters) {
+			if (
+				proposal.signatures.some(
+					(sig) => sig.publicKey === voter.publicKey,
+				)
+			)
+				continue;
+			const { hasReachedThreshold } =
+				await this.voteOnProposal(
+					voter,
+					proposal.id,
+					proposal.transactionBytes,
+				);
+			if (hasReachedThreshold) break;
+		}
+
+		const { multisig, signatures, transactionBytes } =
+			await this.client.getProposalByDigest(digest);
+		const members = multisig.members.sort(
+			(a, b) => a.order - b.order,
+		);
+		const multisigKey = MultiSigPublicKey.fromPublicKeys({
+			threshold: multisig.threshold,
+			publicKeys: members.map((m) => ({
+				publicKey: parsePublicKey(m.publicKey),
+				weight: m.weight,
+			})),
+		});
+		const result = await client.executeTransaction({
+			transaction: fromBase64(transactionBytes),
+			signatures: [
+				multisigKey.combinePartialSignatures(
+					members.flatMap(
+						(m) =>
+							signatures.find(
+								(sig) => sig.publicKey === m.publicKey,
+							)?.signature ?? [],
+					),
+				),
+			],
+			include: { effects: true },
+		});
+		const tx =
+			result.$kind === 'Transaction'
+				? result.Transaction
+				: result.FailedTransaction;
+		await client.waitForTransaction({ digest: tx.digest });
+		await this.client.verifyProposalByDigest(digest);
+		return tx;
 	}
 
 	async cancelProposal(

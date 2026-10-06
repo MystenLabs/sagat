@@ -59,6 +59,38 @@ describe('Object Collision Detection', () => {
 		);
 	});
 
+	test('an executed proposal stops blocking its gas coin', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const {
+			objects: [gasCoin],
+		} = await client.listCoins({ owner: multisig.address });
+		const proposal = await session.createProposal(
+			users[0],
+			multisig.address,
+			'localnet',
+			await buildTransfer(multisig.address, { gasCoin }),
+		);
+
+		const tx = await session.voteAndExecute(
+			users,
+			proposal.digest,
+		);
+		expect(tx.effects!.status.success).toBe(true);
+
+		const { object: spentCoin } = await client.getObject({
+			objectId: gasCoin.objectId,
+		});
+		await session.createProposal(
+			users[0],
+			multisig.address,
+			'localnet',
+			await buildTransfer(multisig.address, {
+				gasCoin: spentCoin,
+			}),
+		);
+	});
+
 	test('allows concurrent proposals using different gas coins', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
