@@ -17,6 +17,11 @@ import {
 	queryAllOwnedObjects,
 	type SuiNetwork,
 } from '../utils/client';
+import {
+	finalizeStaleProposals,
+	loadChainInfo,
+	whyInvalid,
+} from './proposal-status.service';
 
 // Returns the multisig with its members.
 export const getMultisig = async (address: string) => {
@@ -201,12 +206,6 @@ export const validateProposedTransaction = async (
 		network,
 	);
 
-	if (pendingProposals.length >= 10) {
-		throw new ValidationError(
-			'You cannot have more than 10 pending proposals at the same time. Please cancel or execute some proposals before proceeding.',
-		);
-	}
-
 	// Make sure the transaction is fully resolved. We do not currently allow unresolved txs.
 	if (!proposedTransaction.isFullyResolved()) {
 		throw new ValidationError(
@@ -230,10 +229,43 @@ export const validateProposedTransaction = async (
 		);
 	}
 
+	const chainInfo = await loadChainInfo(
+		[
+			proposedTransaction,
+			...pendingProposals.map((p) =>
+				Transaction.from(p.transactionBytes),
+			),
+		],
+		network,
+	);
+
+	// Refuse a transaction that could never execute.
+	const invalidReason = whyInvalid(
+		proposedTransaction,
+		chainInfo,
+	);
+	if (invalidReason)
+		throw new ValidationError(
+			`The transaction can never execute: ${invalidReason}.`,
+		);
+
+	// Leave out the pending proposals that can never execute, which no
+	// longer count towards the limit or hold on to their objects.
+	const stillPending = await finalizeStaleProposals(
+		pendingProposals,
+		chainInfo,
+	);
+
+	if (stillPending.length >= 10) {
+		throw new ValidationError(
+			'You cannot have more than 10 pending proposals at the same time. Please cancel or execute some proposals before proceeding.',
+		);
+	}
+
 	// Get all the owned or receiving objects from the pending proposals.
 	// Make sure we do not have any of these in our proposal.
 	const ownedOrReceivingObjects: string[] = [];
-	for (const proposal of pendingProposals) {
+	for (const proposal of stillPending) {
 		const tx = Transaction.from(proposal.transactionBytes);
 		ownedOrReceivingObjects.push(
 			...extractOwnedObjects(tx),
