@@ -165,7 +165,7 @@ export const lookupAndVerifyProposal = async (
 	if (
 		!(await finalizeProposal(
 			proposal,
-			!!whyInvalid(transaction, chainInfo),
+			whyInvalid(transaction, chainInfo),
 		))
 	)
 		throw new ValidationError(

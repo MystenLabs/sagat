@@ -84,6 +84,8 @@ export const loadChainInfo = async (
 		? getChainInfo(network)
 		: null;
 
+const EXPIRED = 'it has expired';
+
 // Why a transaction can never execute (it's bound to another network, or it
 // expired), or null if it still can. `chainInfo` must have been loaded for
 // it.
@@ -102,7 +104,7 @@ export const whyInvalid = (
 	if (chain !== null && chain !== chainInfo.chainIdentifier)
 		return 'it is for another network';
 	if (hasExpired(expiration, chainInfo.systemState))
-		return 'it has expired';
+		return EXPIRED;
 	return null;
 };
 
@@ -172,11 +174,11 @@ export const provesNeverExecuted = async (
 };
 
 // Moves a pending proposal to SUCCESS or FAILURE once its transaction is on
-// chain, or to INVALID if it isn't and `canNeverExecute`. Returns whether
-// the proposal moved.
+// chain, or to INVALID if it isn't and `invalidReason` says it never can.
+// Returns whether the proposal moved.
 export const finalizeProposal = async (
 	proposal: Proposal,
-	canNeverExecute: boolean,
+	invalidReason: string | null,
 ) => {
 	const network = proposal.network as SuiNetwork;
 	const tx = await getSuiClient(network)
@@ -196,16 +198,19 @@ export const finalizeProposal = async (
 	if (
 		tx instanceof TransactionError &&
 		!(
-			canNeverExecute &&
+			invalidReason &&
 			(await provesNeverExecuted(
 				network,
 				tx,
 				proposal.createdAt,
-				lastEpoch(
-					Transaction.from(
-						proposal.transactionBytes,
-					).getData().expiration,
-				),
+				// One that expired could have run until its last epoch.
+				invalidReason === EXPIRED
+					? lastEpoch(
+							Transaction.from(
+								proposal.transactionBytes,
+							).getData().expiration,
+						)
+					: null,
 			))
 		)
 	)
@@ -254,17 +259,18 @@ export const finalizeStaleProposals = async (
 	chainInfo: ChainNow | null,
 ) => {
 	const finalized = await Promise.all(
-		proposals.map((proposal) =>
-			whyInvalid(
+		proposals.map((proposal) => {
+			const invalidReason = whyInvalid(
 				Transaction.from(proposal.transactionBytes),
 				chainInfo,
-			)
-				? // Best effort: one that isn't finalized stays pending.
-					finalizeProposal(proposal, true).catch(
+			);
+			// Best effort: one that isn't finalized stays pending.
+			return invalidReason
+				? finalizeProposal(proposal, invalidReason).catch(
 						() => false,
 					)
-				: false,
-		),
+				: false;
+		}),
 	);
 	return proposals.filter((_, i) => !finalized[i]);
 };
