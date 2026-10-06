@@ -189,6 +189,12 @@ export const validateProposedTransaction = async (
 		network,
 	);
 
+	if (pendingProposals.length >= 10) {
+		throw new ValidationError(
+			'You cannot have more than 10 pending proposals at the same time. Please cancel or execute some proposals before proceeding.',
+		);
+	}
+
 	// Make sure the transaction is fully resolved. We do not currently allow unresolved txs.
 	if (!proposedTransaction.isFullyResolved()) {
 		throw new ValidationError(
@@ -234,12 +240,6 @@ export const validateProposedTransaction = async (
 		pendingProposals,
 		objects,
 	);
-
-	if (stillPending.length >= 10) {
-		throw new ValidationError(
-			'You cannot have more than 10 pending proposals at the same time. Please cancel or execute some proposals before proceeding.',
-		);
-	}
 
 	// The objects the pending proposals pin at a version, except immutable
 	// ones, which can be shared. One the node didn't return stays held.

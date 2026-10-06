@@ -52,9 +52,8 @@ export const pinnedObjectRefs = (
 		if (input.Object.$kind === 'Receiving')
 			refs.push(input.Object.Receiving);
 	}
-	for (const coin of gasData.payment ?? [])
-		if (!isCoinReservation(coin)) refs.push(coin);
-	return refs;
+	refs.push(...(gasData.payment ?? []));
+	return refs.filter((ref) => !isCoinReservation(ref));
 };
 
 // Whether an object has moved past the version a transaction pins. Only a
@@ -107,7 +106,7 @@ export const recordExecution = async (
 		tx.$kind !== 'FailedTransaction' &&
 		tx.Transaction.effects.status.success;
 
-	await db
+	const updated = await db
 		.update(SchemaProposals)
 		.set({
 			status: isSuccess
@@ -119,22 +118,26 @@ export const recordExecution = async (
 				eq(SchemaProposals.id, proposal.id),
 				eq(SchemaProposals.status, ProposalStatus.PENDING),
 			),
-		);
+		)
+		.returning({ id: SchemaProposals.id });
 
-	multisigProposalEvents.inc({
-		network: proposal.network,
-		event_type: isSuccess
-			? MultisigEventType.PROPOSAL_SUCCESS
-			: MultisigEventType.PROPOSAL_FAILURE,
-	});
+	// Another request may have recorded it first.
+	if (updated.length > 0)
+		multisigProposalEvents.inc({
+			network: proposal.network,
+			event_type: isSuccess
+				? MultisigEventType.PROPOSAL_SUCCESS
+				: MultisigEventType.PROPOSAL_FAILURE,
+		});
 
 	return true;
 };
 
-// The pending proposals that can still execute. The rest had objects move
-// on since: they either executed without being verified (which this
-// records) or never can. Either way they no longer hold on to their
-// objects, since a new proposal can only use the newer versions.
+// The pending proposals that can still execute, and so hold on to their
+// objects. The rest had objects move on since: they either executed without
+// being verified (which this records) or never can. Either way a new
+// proposal can only use the newer versions, so they can't collide. They
+// still count as pending until they're verified or cancelled.
 export const stillExecutable = async (
 	proposals: Proposal[],
 	// Looked up before the transactions, so one that executes in between is
@@ -148,7 +151,8 @@ export const stillExecutable = async (
 			);
 			if (movedObjects(tx, objects).length === 0)
 				return false;
-			await recordExecution(proposal);
+			// It's released either way, so recording it can fail.
+			await recordExecution(proposal).catch(() => false);
 			return true;
 		}),
 	);
