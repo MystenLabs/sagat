@@ -60,6 +60,8 @@ export enum ProposalStatus {
 	CANCELLED = 1,
 	SUCCESS = 2,
 	FAILURE = 3,
+	// Never executed, and never can: it expired or is for another network.
+	INVALID = 4,
 }
 
 export interface CreateProposalRequest {
