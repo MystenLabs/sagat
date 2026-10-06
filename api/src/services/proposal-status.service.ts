@@ -20,6 +20,7 @@ import {
 	multisigProposalEvents,
 } from '../metrics';
 import {
+	getCheckpointTimestamp,
 	getCurrentObjects,
 	getSuiClient,
 	type SuiNetwork,
@@ -110,6 +111,30 @@ export const whyInvalid = (
 	return null;
 };
 
+// Whether the node that couldn't find a transaction still has every
+// transaction since `since`. Fullnodes prune old transactions (after about
+// two weeks on mainnet) but keep the objects they changed, so an object can
+// have moved on while the transaction that moved it is gone.
+export const keepsHistorySince = async (
+	network: SuiNetwork,
+	notFound: TransactionError,
+	since: Date,
+) => {
+	// Sent along with the error, so it's from the node that answered.
+	const lowest = (
+		notFound.cause as
+			| { meta?: Record<string, string | string[]> }
+			| undefined
+	)?.meta?.['x-sui-lowest-available-checkpoint'];
+	if (typeof lowest !== 'string') return false;
+
+	const oldest = await getCheckpointTimestamp(
+		network,
+		BigInt(lowest),
+	).catch(() => null);
+	return oldest !== null && oldest <= since.getTime();
+};
+
 // Moves a pending proposal to SUCCESS or FAILURE once its transaction is on
 // chain, or to INVALID if it isn't and `canNeverExecute`. Returns whether
 // the proposal moved.
@@ -117,9 +142,8 @@ export const finalizeProposal = async (
 	proposal: Proposal,
 	canNeverExecute: boolean,
 ) => {
-	const tx = await getSuiClient(
-		proposal.network as SuiNetwork,
-	)
+	const network = proposal.network as SuiNetwork;
+	const tx = await getSuiClient(network)
 		.getTransaction({
 			digest: proposal.digest,
 			include: { effects: true },
@@ -129,18 +153,32 @@ export const finalizeProposal = async (
 				error instanceof TransactionError &&
 				error.reason === 'notFound'
 			)
-				return null;
+				return error;
 			throw error;
 		});
 
-	if (!tx && !canNeverExecute) return false;
+	// Not finding the transaction only proves it never executed if the node
+	// still has every transaction since the proposal was made.
+	if (
+		tx instanceof TransactionError &&
+		!(
+			canNeverExecute &&
+			(await keepsHistorySince(
+				network,
+				tx,
+				proposal.createdAt,
+			))
+		)
+	)
+		return false;
 
-	const status = !tx
-		? ProposalStatus.INVALID
-		: tx.$kind !== 'FailedTransaction' &&
-			  tx.Transaction.effects.status.success
-			? ProposalStatus.SUCCESS
-			: ProposalStatus.FAILURE;
+	const status =
+		tx instanceof TransactionError
+			? ProposalStatus.INVALID
+			: tx.$kind !== 'FailedTransaction' &&
+				  tx.Transaction.effects.status.success
+				? ProposalStatus.SUCCESS
+				: ProposalStatus.FAILURE;
 
 	await db
 		.update(SchemaProposals)

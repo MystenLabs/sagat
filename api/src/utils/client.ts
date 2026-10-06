@@ -114,3 +114,28 @@ export const getCurrentObjects = async (
 
 	return objects;
 };
+
+// When a checkpoint was made, in milliseconds. The SDK's client API has no
+// checkpoint lookup, so this goes through the gRPC service directly.
+export const getCheckpointTimestamp = (
+	network: SuiNetwork,
+	sequenceNumber: bigint,
+) =>
+	withMetrics(network, 'getCheckpoint', async () => {
+		const { response } = await getSuiClient(
+			network,
+		).ledgerService.getCheckpoint({
+			checkpointId: {
+				oneofKind: 'sequenceNumber',
+				sequenceNumber,
+			},
+			readMask: { paths: ['summary.timestamp'] },
+		});
+		const seconds =
+			response.checkpoint?.summary?.timestamp?.seconds;
+		if (seconds == null)
+			throw new Error(
+				`Checkpoint ${sequenceNumber} has no timestamp`,
+			);
+		return Number(seconds) * 1000;
+	})();
