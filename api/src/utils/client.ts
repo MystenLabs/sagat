@@ -62,13 +62,22 @@ const createInstrumentedClient = (
 	return client;
 };
 
-export const getSuiClient = (network: SuiNetwork) => {
-	const client = new SuiGrpcClient({
-		network,
-		baseUrl: SUI_RPC_URL[network],
-	});
+// One client per network, shared between requests.
+const clients = new Map<SuiNetwork, SuiGrpcClient>();
 
-	return createInstrumentedClient(network, client);
+export const getSuiClient = (network: SuiNetwork) => {
+	let client = clients.get(network);
+	if (!client) {
+		client = createInstrumentedClient(
+			network,
+			new SuiGrpcClient({
+				network,
+				baseUrl: SUI_RPC_URL[network],
+			}),
+		);
+		clients.set(network, client);
+	}
+	return client;
 };
 
 // Query a list of objects
