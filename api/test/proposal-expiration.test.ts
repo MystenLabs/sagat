@@ -14,10 +14,7 @@ import {
 } from 'bun:test';
 
 import * as apiClient from '../src/utils/client';
-import {
-	ApiTestFramework,
-	buildTransfer,
-} from './framework/api-test-framework';
+import { ApiTestFramework } from './framework/api-test-framework';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -73,8 +70,9 @@ describe('Proposal Expiration', () => {
 		};
 	}
 
-	// A transfer from the multisig that's only valid in the current and next
-	// epoch, on `chain` (this network by default) and until `maxTimestamp`.
+	// A transfer from the multisig that's only valid from the current epoch
+	// for `epochs` more, on `chain` (this network by default) and until
+	// `maxTimestamp`.
 	// It sets everything the network would otherwise fill in by simulating
 	// it, which fails for some of these expirations.
 	async function transferValidDuring(
@@ -85,9 +83,11 @@ describe('Proposal Expiration', () => {
 			digest: string;
 		},
 		{
+			epochs = 1,
 			chain,
 			maxTimestamp = null,
 		}: {
+			epochs?: number;
 			chain?: string;
 			maxTimestamp?: string | null;
 		} = {},
@@ -104,7 +104,9 @@ describe('Proposal Expiration', () => {
 		tx.setExpiration({
 			ValidDuring: {
 				minEpoch: systemState.epoch,
-				maxEpoch: String(BigInt(systemState.epoch) + 1n),
+				maxEpoch: String(
+					BigInt(systemState.epoch) + BigInt(epochs),
+				),
 				minTimestamp: null,
 				maxTimestamp,
 				chain: chain ?? chainIdentifier,
@@ -197,7 +199,9 @@ describe('Proposal Expiration', () => {
 			proposer,
 			multisig.address,
 			'localnet',
-			await buildTransfer(multisig.address, { gasCoin }),
+			await transferValidDuring(multisig.address, gasCoin, {
+				epochs: 3,
+			}),
 		);
 
 		const { status } =
