@@ -106,27 +106,69 @@ export const whyInvalid = (
 	return null;
 };
 
-// Whether the node that couldn't find a transaction still has every
-// transaction since `since`. Fullnodes prune old transactions (after about
-// two weeks on mainnet), so a transaction that executed long ago can be gone.
-export const keepsHistorySince = async (
+// The last epoch a transaction can execute in, if it has one.
+export const lastEpoch = (
+	expiration: TransactionData['expiration'],
+) => {
+	switch (expiration?.$kind) {
+		case 'Epoch':
+			return BigInt(expiration.Epoch);
+		case 'ValidDuring':
+		case 'Validity': {
+			const { maxEpoch } =
+				expiration.$kind === 'ValidDuring'
+					? expiration.ValidDuring
+					: expiration.Validity;
+			return maxEpoch == null ? null : BigInt(maxEpoch);
+		}
+		default:
+			return null;
+	}
+};
+
+// `createdAt` is stored without a time zone, so it may be off by the
+// database's offset from UTC.
+const CREATED_AT_MARGIN_MS = 24 * 60 * 60 * 1000;
+
+// Whether the node that couldn't find a transaction would have it if it had
+// executed. The node must still have every transaction since `since`
+// (fullnodes prune old ones, after about two weeks on mainnet), and have
+// executed every checkpoint of the epochs up to `lastEpoch`, if given
+// (a node can report a new epoch before it serves the last checkpoints of
+// the one before).
+export const provesNeverExecuted = async (
 	network: SuiNetwork,
 	notFound: TransactionError,
 	since: Date,
+	lastEpoch: bigint | null,
 ) => {
-	// Sent along with the error, so it's from the node that answered.
-	const lowest = (
-		notFound.cause as
-			| { meta?: Record<string, string | string[]> }
-			| undefined
-	)?.meta?.['x-sui-lowest-available-checkpoint'];
-	if (typeof lowest !== 'string') return false;
-
-	const oldest = await getCheckpointTimestamp(
-		network,
-		BigInt(lowest),
-	).catch(() => null);
-	return oldest !== null && oldest <= since.getTime();
+	// Sent along with the error, so they're from the node that answered.
+	const meta =
+		(
+			notFound.cause as
+				| { meta?: Record<string, string | string[]> }
+				| undefined
+		)?.meta ?? {};
+	const lowest = meta['x-sui-lowest-available-checkpoint'];
+	const epoch = meta['x-sui-epoch'];
+	try {
+		if (typeof lowest !== 'string') return false;
+		if (
+			lastEpoch !== null &&
+			!(
+				typeof epoch === 'string' &&
+				BigInt(epoch) > lastEpoch
+			)
+		)
+			return false;
+		const oldest = await getCheckpointTimestamp(
+			network,
+			BigInt(lowest),
+		);
+		return oldest <= since.getTime() - CREATED_AT_MARGIN_MS;
+	} catch {
+		return false;
+	}
 };
 
 // Moves a pending proposal to SUCCESS or FAILURE once its transaction is on
@@ -151,16 +193,19 @@ export const finalizeProposal = async (
 			throw error;
 		});
 
-	// Not finding the transaction only proves it never executed if the node
-	// still has every transaction since the proposal was made.
 	if (
 		tx instanceof TransactionError &&
 		!(
 			canNeverExecute &&
-			(await keepsHistorySince(
+			(await provesNeverExecuted(
 				network,
 				tx,
 				proposal.createdAt,
+				lastEpoch(
+					Transaction.from(
+						proposal.transactionBytes,
+					).getData().expiration,
+				),
 			))
 		)
 	)
@@ -174,7 +219,7 @@ export const finalizeProposal = async (
 				? ProposalStatus.SUCCESS
 				: ProposalStatus.FAILURE;
 
-	await db
+	const updated = await db
 		.update(SchemaProposals)
 		.set({ status })
 		.where(
@@ -182,19 +227,22 @@ export const finalizeProposal = async (
 				eq(SchemaProposals.id, proposal.id),
 				eq(SchemaProposals.status, ProposalStatus.PENDING),
 			),
-		);
+		)
+		.returning({ id: SchemaProposals.id });
 
-	multisigProposalEvents.inc({
-		network: proposal.network,
-		event_type: {
-			[ProposalStatus.SUCCESS]:
-				MultisigEventType.PROPOSAL_SUCCESS,
-			[ProposalStatus.FAILURE]:
-				MultisigEventType.PROPOSAL_FAILURE,
-			[ProposalStatus.INVALID]:
-				MultisigEventType.PROPOSAL_INVALID,
-		}[status],
-	});
+	// Another request may have finalized it first.
+	if (updated.length > 0)
+		multisigProposalEvents.inc({
+			network: proposal.network,
+			event_type: {
+				[ProposalStatus.SUCCESS]:
+					MultisigEventType.PROPOSAL_SUCCESS,
+				[ProposalStatus.FAILURE]:
+					MultisigEventType.PROPOSAL_FAILURE,
+				[ProposalStatus.INVALID]:
+					MultisigEventType.PROPOSAL_INVALID,
+			}[status],
+		});
 
 	return true;
 };
@@ -211,7 +259,10 @@ export const finalizeStaleProposals = async (
 				Transaction.from(proposal.transactionBytes),
 				chainInfo,
 			)
-				? finalizeProposal(proposal, true)
+				? // Best effort: one that isn't finalized stays pending.
+					finalizeProposal(proposal, true).catch(
+						() => false,
+					)
 				: false,
 		),
 	);
