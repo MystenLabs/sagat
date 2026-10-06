@@ -9,6 +9,7 @@ import {
 	Transaction,
 	type TransactionData,
 } from '@mysten/sui/transactions';
+import { fromBase58 } from '@mysten/sui/utils';
 import { and, eq } from 'drizzle-orm';
 
 import { db } from '../db';
@@ -24,9 +25,66 @@ import {
 import {
 	getChainInfo,
 	getCheckpointTimestamp,
+	getCurrentObjects,
 	getSuiClient,
 	type SuiNetwork,
 } from '../utils/client';
+
+type ObjectRef = {
+	objectId: string;
+	version: string | number;
+	digest: string;
+};
+
+// Coin reservations look like gas coins but withdraw from the address
+// balance, so there's no object whose version could change. Mirrors
+// `isCoinReservationDigest` in @mysten/sui, which isn't exported.
+const isCoinReservation = (ref: ObjectRef) =>
+	fromBase58(ref.digest)
+		.slice(12)
+		.every((byte) => byte === 0xac);
+
+// The objects a transaction uses at an exact version: its owned, immutable
+// and receiving inputs, and its gas coins.
+export const pinnedObjectRefs = (
+	tx: Transaction,
+): ObjectRef[] => {
+	const { inputs, gasData } = tx.getData();
+	const refs: ObjectRef[] = [];
+	for (const input of inputs) {
+		if (input.$kind !== 'Object') continue;
+		if (input.Object.$kind === 'ImmOrOwnedObject')
+			refs.push(input.Object.ImmOrOwnedObject);
+		if (input.Object.$kind === 'Receiving')
+			refs.push(input.Object.Receiving);
+	}
+	refs.push(...(gasData.payment ?? []));
+	return refs.filter((ref) => !isCoinReservation(ref));
+};
+
+// Whether an object has moved past the version a transaction pins. Only a
+// newer version proves it: versions only go up, so an older one just means
+// the node that answered is behind, and a missing object may be one it hasn't
+// seen yet (deleted ones look the same, so those stay undecided).
+export const hasMoved = (
+	ref: ObjectRef,
+	currentVersion: string | null | undefined,
+) =>
+	currentVersion != null &&
+	BigInt(currentVersion) > BigInt(ref.version);
+
+// The objects a transaction uses that have moved on since, so it can't
+// execute anymore (or it already did). `objects` must have been looked up
+// for it.
+export const movedObjects = (
+	tx: Transaction,
+	objects: Map<string, SuiClientTypes.Object | null>,
+) =>
+	pinnedObjectRefs(tx)
+		.filter((ref) =>
+			hasMoved(ref, objects.get(ref.objectId)?.version),
+		)
+		.map((ref) => ref.objectId);
 
 // Where the chain is at: the current epoch, and when it started.
 type ChainTime = Pick<
@@ -252,25 +310,65 @@ export const finalizeProposal = async (
 	return true;
 };
 
-// Finalizes the pending proposals that can never execute (or already did,
-// but weren't verified), so they stop blocking new ones. Returns the rest.
+// What the chain says about some transactions, looked up once so that
+// several checks can share it.
+export type ChainState = {
+	// The current state of each object the transactions use at an exact
+	// version, or null for one that no longer exists.
+	objects: Map<string, SuiClientTypes.Object | null>;
+	chainInfo: ChainNow | null;
+};
+
+export const loadChainState = async (
+	transactions: Transaction[],
+	network: SuiNetwork,
+): Promise<ChainState> => {
+	const [objects, chainInfo] = await Promise.all([
+		getCurrentObjects(
+			transactions
+				.flatMap(pinnedObjectRefs)
+				.map((ref) => ref.objectId),
+			network,
+		),
+		loadChainInfo(transactions, network),
+	]);
+	return { objects, chainInfo };
+};
+
+// Finalizes the pending proposals that can never execute, or already did
+// without being verified, where that's proven. Returns the ones still
+// pending, and of those the ones that still hold on to their objects: one
+// whose objects moved on doesn't, since a new proposal can only use the
+// newer versions, whether it executed or never will.
 export const finalizeStaleProposals = async (
 	proposals: Proposal[],
-	chainInfo: ChainNow | null,
+	// Loaded before looking the transactions up, so a transaction that
+	// executes in between is seen on chain.
+	state: ChainState,
 ) => {
-	const finalized = await Promise.all(
-		proposals.map((proposal) => {
-			const invalidReason = whyInvalid(
-				Transaction.from(proposal.transactionBytes),
-				chainInfo,
+	const results = await Promise.all(
+		proposals.map(async (proposal) => {
+			const tx = Transaction.from(
+				proposal.transactionBytes,
 			);
+			const invalidReason = whyInvalid(tx, state.chainInfo);
+			const moved =
+				movedObjects(tx, state.objects).length > 0;
+			if (!invalidReason && !moved)
+				return { finalized: false, holds: true };
 			// Best effort: one that isn't finalized stays pending.
-			return invalidReason
-				? finalizeProposal(proposal, invalidReason).catch(
-						() => false,
-					)
-				: false;
+			const finalized = await finalizeProposal(
+				proposal,
+				invalidReason,
+			).catch(() => false);
+			return { finalized, holds: false };
 		}),
 	);
-	return proposals.filter((_, i) => !finalized[i]);
+	const pending = proposals.filter(
+		(_, i) => !results[i].finalized,
+	);
+	const holding = proposals.filter(
+		(_, i) => !results[i].finalized && results[i].holds,
+	);
+	return { pending, holding };
 };

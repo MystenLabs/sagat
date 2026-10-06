@@ -13,13 +13,12 @@ import {
 } from '../db/schema';
 import { NotFoundError, ValidationError } from '../errors';
 import { MultisigDataLoader } from '../loaders/multisig.loader';
-import {
-	queryAllOwnedObjects,
-	type SuiNetwork,
-} from '../utils/client';
+import { type SuiNetwork } from '../utils/client';
 import {
 	finalizeStaleProposals,
-	loadChainInfo,
+	loadChainState,
+	movedObjects,
+	pinnedObjectRefs,
 	whyInvalid,
 } from './proposal-status.service';
 
@@ -177,23 +176,6 @@ export const getPendingProposals = async (
 	return proposals;
 };
 
-// Extracts all the owned or receiving objects from a supplied transaction.
-export const extractOwnedObjects = (tx: Transaction) => {
-	return [
-		...tx
-			.getData()
-			.inputs.filter(
-				(x) =>
-					x.$kind === 'Object' &&
-					x.Object.$kind === 'ImmOrOwnedObject',
-			)
-			.map((x) => x.Object!.ImmOrOwnedObject!.objectId),
-		...(tx
-			.getData()
-			.gasData?.payment?.map((x) => x.objectId) || []),
-	];
-};
-
 // Validates a proposed transaction.
 export const validateProposedTransaction = async (
 	proposedTransaction: Transaction,
@@ -229,7 +211,8 @@ export const validateProposedTransaction = async (
 		);
 	}
 
-	const chainInfo = await loadChainInfo(
+	// Look up everything the checks below need from the chain at once.
+	const state = await loadChainState(
 		[
 			proposedTransaction,
 			...pendingProposals.map((p) =>
@@ -242,60 +225,56 @@ export const validateProposedTransaction = async (
 	// Refuse a transaction that could never execute.
 	const invalidReason = whyInvalid(
 		proposedTransaction,
-		chainInfo,
+		state.chainInfo,
 	);
 	if (invalidReason)
 		throw new ValidationError(
 			`The transaction can never execute: ${invalidReason}.`,
 		);
+	const moved = movedObjects(
+		proposedTransaction,
+		state.objects,
+	);
+	if (moved.length > 0)
+		throw new ValidationError(
+			`The transaction can never execute: objects it uses have changed: ${moved.join(', ')}.`,
+		);
 
-	// Leave out the pending proposals that can never execute, which no
-	// longer count towards the limit or hold on to their objects.
-	const stillPending = await finalizeStaleProposals(
+	const { pending, holding } = await finalizeStaleProposals(
 		pendingProposals,
-		chainInfo,
+		state,
 	);
 
-	if (stillPending.length >= 10) {
+	if (pending.length >= 10) {
 		throw new ValidationError(
 			'You cannot have more than 10 pending proposals at the same time. Please cancel or execute some proposals before proceeding.',
 		);
 	}
 
-	// Get all the owned or receiving objects from the pending proposals.
+	// The objects the pending proposals pin at a version, except immutable
+	// ones, which can be shared. One the node didn't return stays held.
 	// Make sure we do not have any of these in our proposal.
-	const ownedOrReceivingObjects: string[] = [];
-	for (const proposal of stillPending) {
-		const tx = Transaction.from(proposal.transactionBytes);
-		ownedOrReceivingObjects.push(
-			...extractOwnedObjects(tx),
-		);
-	}
-
-	//   Query all the owned objects.
-	const allOwnedObjects = await queryAllOwnedObjects(
-		ownedOrReceivingObjects,
-		network,
+	const objectIds = (tx: Transaction) =>
+		pinnedObjectRefs(tx).map((ref) => ref.objectId);
+	const pendingOwnedObjects = new Set(
+		holding
+			.flatMap((p) =>
+				objectIds(Transaction.from(p.transactionBytes)),
+			)
+			.filter(
+				(objectId) =>
+					state.objects.get(objectId)?.owner.$kind !==
+					'Immutable',
+			),
 	);
-
-	// Get all the owned or receiving objects from the proposed transaction.
-	const existingProposalObjects = extractOwnedObjects(
+	const reusedObjects = objectIds(
 		proposedTransaction,
-	);
-	const allUsedOwnedObjects = [];
+	).filter((objectId) => pendingOwnedObjects.has(objectId));
 
-	for (const obj of allOwnedObjects) {
-		if (existingProposalObjects.includes(obj.objectId)) {
-			allUsedOwnedObjects.push(obj);
-		}
-	}
-
-	if (allUsedOwnedObjects.length > 0) {
+	if (reusedObjects.length > 0) {
 		throw new ValidationError(
 			'You cannot have re-use any owned or receiving objects that are already in pending proposals. The used objects are: ' +
-				allUsedOwnedObjects
-					.map((obj) => obj.objectId)
-					.join(', '),
+				reusedObjects.join(', '),
 		);
 	}
 };
