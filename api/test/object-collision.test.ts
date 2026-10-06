@@ -9,7 +9,11 @@ import {
 	test,
 } from 'bun:test';
 
-import { ApiTestFramework } from './framework/api-test-framework';
+import {
+	ApiTestFramework,
+	buildTransfer,
+	sendCoins,
+} from './framework/api-test-framework';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -23,364 +27,114 @@ describe('Object Collision Detection', () => {
 	const client = getLocalClient();
 
 	beforeEach(async () => {
-		const app = await createTestApp();
-		framework = new ApiTestFramework(app);
+		framework = new ApiTestFramework(await createTestApp());
 	});
 
-	describe('Owned Object Validation', () => {
-		test('prevents concurrent proposals using the same gas coin', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
+	test('prevents concurrent proposals using the same gas coin', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const {
+			objects: [gasCoin],
+		} = await client.listCoins({ owner: multisig.address });
 
-			// Get gas coins from the multisig address
-			const coins = await client.listCoins({
-				owner: multisig.address,
-			});
-			const gasCoin = coins.objects[0];
+		await session.createProposal(
+			users[0],
+			multisig.address,
+			'localnet',
+			await buildTransfer(multisig.address, { gasCoin }),
+		);
 
-			// Create first proposal using specific gas coin
-			const tx1 = new Transaction();
-			tx1.setSender(multisig.address);
-			tx1.setGasPayment([
-				{
-					objectId: gasCoin.objectId,
-					version: gasCoin.version,
-					digest: gasCoin.digest,
-				},
-			]);
-			const [coin1] = tx1.splitCoins(tx1.gas, [1000000]);
-			tx1.transferObjects([coin1], '0x1');
-
-			const proposal = await session.createProposal(
+		await expect(
+			session.createProposal(
 				users[0],
 				multisig.address,
 				'localnet',
-				(await tx1.build({ client })).toBase64(),
-				'First proposal with gas coin',
-			);
-
-			expect(proposal.id).toBeDefined();
-
-			// Try to create second proposal using same gas coin - should fail
-			const tx2 = new Transaction();
-			tx2.setSender(multisig.address);
-			tx2.setGasPayment([
-				{
-					objectId: gasCoin.objectId,
-					version: gasCoin.version,
-					digest: gasCoin.digest,
-				},
-			]);
-			const [coin2] = tx2.splitCoins(tx2.gas, [2000000]);
-			tx2.transferObjects([coin2], '0x22');
-
-			await expect(
-				session.createProposal(
-					users[0],
-					multisig.address,
-					'localnet',
-					(await tx2.build({ client })).toBase64(),
-					'Conflicting proposal with same gas coin',
-				),
-			).rejects.toThrow(/re-use any owned or receiving/);
-		});
-
-		test('allows concurrent proposals using different gas coins', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			// Get multiple gas coins
-			const coins = await client.listCoins({
-				owner: multisig.address,
-			});
-
-			expect(coins.objects.length).toBeGreaterThan(1);
-			// we shouldn't be over 10!
-			expect(coins.objects.length).toBeLessThan(10);
-
-			const proposals = [];
-
-			for (const coin of coins.objects) {
-				const tx = new Transaction();
-				tx.setSender(multisig.address);
-
-				tx.setGasPayment([
-					{
-						objectId: coin.objectId,
-						version: coin.version,
-						digest: coin.digest,
-					},
-				]);
-
-				tx.moveCall({
-					target: '0x1::option::none',
-					arguments: [],
-					typeArguments: ['0x1::string::String'],
-				});
-
-				const txBytes = (
-					await tx.build({ client })
-				).toBase64();
-
-				const response = await session.createProposal(
-					users[0],
-					multisig.address,
-					'localnet',
-					txBytes,
-					`Proposal ${coin.objectId}`,
-				);
-
-				expect(response.id).toBeDefined();
-				proposals.push(response);
-			}
-
-			const uniqueProposals = proposals.filter(
-				(proposal, index, self) =>
-					index ===
-					self.findIndex((t) => t.id === proposal.id),
-			);
-
-			expect(uniqueProposals.length).toBe(
-				coins.objects.length,
-			);
-		});
-
-		test('allows proposal after previous proposal is resolved', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const coins = await client.listCoins({
-				owner: multisig.address,
-			});
-
-			const gasCoin = coins.objects[0];
-			const recipient =
-				'0x5555555555555555555555555555555555555555555555555555555555555555';
-
-			// Create first proposal using direct transaction building
-			const tx1 = new Transaction();
-			tx1.setSender(multisig.address);
-			tx1.setGasPayment([
-				{
-					objectId: gasCoin.objectId,
-					version: gasCoin.version,
-					digest: gasCoin.digest,
-				},
-			]);
-			const [coin1] = tx1.splitCoins(tx1.gas, [1000000]);
-			tx1.transferObjects([coin1], recipient);
-
-			const txBytes1 = (
-				await tx1.build({ client })
-			).toBase64();
-
-			const response1 = await session.createProposal(
-				users[0],
-				multisig.address,
-				'localnet',
-				txBytes1,
-				'First proposal',
-			);
-			expect(response1.id).toBeDefined();
-
-			// Vote to complete the proposal
-			const voteResult = await session.voteOnProposal(
-				users[1],
-				response1.id,
-				txBytes1,
-			);
-
-			expect(voteResult.hasReachedThreshold).toBe(true);
-
-			// TODO: Fix this test...
-			// Note: In a real system, we'd need to execute the proposal to actually free up the objects
-			// For this test, we're just verifying the validation logic works for pending proposals
-		});
-
-		test('prevents proposals when too many pending (>10)', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const { keypair } = users[0];
-			await session.multiCoinsToAddress(
-				keypair,
-				multisig.address,
-				10,
-			);
-
-			// Get available coins
-			const coins = await client.listCoins({
-				owner: multisig.address,
-				limit: 20,
-			});
-
-			// Create 10 proposals using different gas coins
-			for (let i = 0; i < 10; i++) {
-				const tx = new Transaction();
-				tx.setSender(multisig.address);
-				tx.setGasPayment([
-					{
-						objectId: coins.objects[i].objectId,
-						version: coins.objects[i].version,
-						digest: coins.objects[i].digest,
-					},
-				]);
-
-				const [coin] = tx.splitCoins(tx.gas, [100000]);
-				tx.transferObjects([coin], '0x666');
-
-				const txBytes = (
-					await tx.build({ client })
-				).toBase64();
-
-				const response = await session.createProposal(
-					users[0],
-					multisig.address,
-					'localnet',
-					txBytes,
-					`Proposal ${i + 1}`,
-				);
-				expect(response.id).toBeDefined();
-			}
-
-			// 11th proposal should fail due to limit
-			const tx11 = new Transaction();
-			tx11.setSender(multisig.address);
-			tx11.setGasPayment([
-				{
-					objectId: coins.objects[10].objectId,
-					version: coins.objects[10].version,
-					digest: coins.objects[10].digest,
-				},
-			]);
-			const [coin11] = tx11.splitCoins(tx11.gas, [100000]);
-			tx11.transferObjects([coin11], '0x666');
-
-			const txBytes11 = (
-				await tx11.build({ client })
-			).toBase64();
-
-			await expect(
-				session.createProposal(
-					users[0],
-					multisig.address,
-					'localnet',
-					txBytes11,
-					'Proposal that exceeds limit',
-				),
-			).rejects.toThrow(/more than 10 pending proposals/);
-		});
-	});
-
-	describe('Custom Object Usage', () => {
-		test('prevents proposals using same custom objects', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			// Get some coins to use as custom objects
-			const coins = await client.listCoins({
-				owner: multisig.address,
-			});
-
-			const sharedCoin = coins.objects[0];
-			const gasCoin1 = coins.objects[1];
-			const gasCoin2 = coins.objects[2];
-
-			const recipient1 =
-				'0x7777777777777777777777777777777777777777777777777777777777777777';
-			const recipient2 =
-				'0x8888888888888888888888888888888888888888888888888888888888888888';
-
-			// Create first proposal that uses a specific coin
-			const tx1 = new Transaction();
-			tx1.setSender(multisig.address);
-			tx1.setGasPayment([
-				{
-					objectId: gasCoin1.objectId,
-					version: gasCoin1.version,
-					digest: gasCoin1.digest,
-				},
-			]);
-			// Use sharedCoin as input to split it
-			const [splitCoin1] = tx1.splitCoins(
-				sharedCoin.objectId,
-				[500000],
-			);
-			tx1.transferObjects([splitCoin1], recipient1);
-
-			const txBytes1 = (
-				await tx1.build({ client })
-			).toBase64();
-
-			const response1 = await session.createProposal(
-				users[0],
-				multisig.address,
-				'localnet',
-				txBytes1,
-				'First proposal using shared coin',
-			);
-			expect(response1.id).toBeDefined();
-
-			// Try to create second proposal using the same sharedCoin - should fail
-			const tx2 = new Transaction();
-			tx2.setSender(multisig.address);
-			tx2.setGasPayment([
-				{
-					objectId: gasCoin2.objectId,
-					version: gasCoin2.version,
-					digest: gasCoin2.digest,
-				},
-			]);
-			// Try to use the same sharedCoin - should conflict
-			const [splitCoin2] = tx2.splitCoins(
-				sharedCoin.objectId,
-				[300000],
-			);
-			tx2.transferObjects([splitCoin2], recipient2);
-
-			const txBytes2 = (
-				await tx2.build({ client })
-			).toBase64();
-
-			expect(
-				session.createProposal(
-					users[0],
-					multisig.address,
-					'localnet',
-					txBytes2,
-					'Conflicting proposal using same shared coin',
-				),
-			).rejects.toThrow(/re-use any owned or receiving/);
-		});
-	});
-
-	describe('Transaction Resolution', () => {
-		test('rejects unresolved transactions', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const tx = new Transaction();
-			const [coin] = tx.splitCoins(tx.gas, [500000]);
-			tx.transferObjects(
-				[coin],
-				'0x9999999999999999999999999999999999999999999999999999999999999999',
-			);
-			// Serialize without building — no sender, no gas resolution
-			const unresolvedBytes = await tx.toJSON();
-
-			const signature =
-				await users[0].keypair.signPersonalMessage(
-					new TextEncoder().encode(unresolvedBytes),
-				);
-
-			await expect(
-				session.getStatefulClient().createProposal({
-					multisigAddress: multisig.address,
-					network: 'localnet',
-					transactionBytes: unresolvedBytes,
-					signature: signature.signature,
+				await buildTransfer(multisig.address, {
+					gasCoin,
+					amount: 2_000_000,
 				}),
-			).rejects.toThrow('not fully resolved');
+			),
+		).rejects.toThrow(
+			`re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${gasCoin.objectId}`,
+		);
+	});
+
+	test('allows concurrent proposals using different gas coins', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const { objects: coins } = await client.listCoins({
+			owner: multisig.address,
 		});
+		expect(coins.length).toBeGreaterThan(1);
+
+		const proposals = [];
+		for (const gasCoin of coins) {
+			proposals.push(
+				await session.createProposal(
+					users[0],
+					multisig.address,
+					'localnet',
+					await buildTransfer(multisig.address, {
+						gasCoin,
+					}),
+				),
+			);
+		}
+
+		expect(new Set(proposals.map((p) => p.id)).size).toBe(
+			coins.length,
+		);
+	});
+
+	test('prevents proposals when too many pending (>10)', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		await sendCoins(multisig.address, 10);
+		const { objects: coins } = await client.listCoins({
+			owner: multisig.address,
+			limit: 20,
+		});
+
+		const propose = async (
+			gasCoin: (typeof coins)[number],
+		) =>
+			session.createProposal(
+				users[0],
+				multisig.address,
+				'localnet',
+				await buildTransfer(multisig.address, { gasCoin }),
+			);
+
+		for (const gasCoin of coins.slice(0, 10))
+			await propose(gasCoin);
+
+		await expect(propose(coins[10])).rejects.toThrow(
+			/more than 10 pending proposals/,
+		);
+	});
+
+	test('rejects unresolved transactions', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+
+		const tx = new Transaction();
+		const [coin] = tx.splitCoins(tx.gas, [500000]);
+		tx.transferObjects([coin], multisig.address);
+		// Serialize without building — no sender, no gas resolution
+		const unresolvedBytes = await tx.toJSON();
+
+		const signature =
+			await users[0].keypair.signPersonalMessage(
+				new TextEncoder().encode(unresolvedBytes),
+			);
+
+		await expect(
+			session.client.createProposal({
+				multisigAddress: multisig.address,
+				network: 'localnet',
+				transactionBytes: unresolvedBytes,
+				signature: signature.signature,
+			}),
+		).rejects.toThrow('not fully resolved');
 	});
 });

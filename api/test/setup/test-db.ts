@@ -11,6 +11,10 @@ const CONNECTION_STRING =
 	process.env.TEST_DATABASE_URL ||
 	'postgresql://localhost:5432/postgres';
 
+export type TestDatabase = Awaited<
+	ReturnType<typeof setupTestDatabase>
+>;
+
 export async function setupTestDatabase() {
 	const dbName = `test_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
@@ -36,10 +40,10 @@ export async function setupTestDatabase() {
 	return { db, dbName, pool };
 }
 
-export async function teardownTestDatabase(
-	dbName: string,
-	pool: Pool,
-) {
+export async function teardownTestDatabase({
+	dbName,
+	pool,
+}: TestDatabase) {
 	await pool.end();
 
 	const adminPool = new Pool({
@@ -51,8 +55,9 @@ export async function teardownTestDatabase(
 	await adminPool.end();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function clearTestData(db: any) {
+export async function clearTestData(
+	db: TestDatabase['db'],
+) {
 	await db.delete(schema.SchemaMultisigProposers);
 	await db.delete(schema.SchemaProposalSignatures);
 	await db.delete(schema.SchemaProposals);

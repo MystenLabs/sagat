@@ -1,11 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	ProposalStatus,
-	type Proposal,
-} from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
+import { fromBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -16,8 +14,9 @@ import {
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
+	buildTransfer,
 	newUser,
-	type TestSession,
+	sendCoins,
 } from './framework/api-test-framework';
 import {
 	createTestApp,
@@ -33,73 +32,32 @@ describe('Proposal Business Logic', () => {
 	let framework: ApiTestFramework;
 
 	beforeEach(async () => {
-		const app = await createTestApp();
-		framework = new ApiTestFramework(app);
+		framework = new ApiTestFramework(await createTestApp());
 	});
 
 	describe('Transaction Validation', () => {
-		test('validates transaction signature before creating proposal', async () => {
-			const { session, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			// Try to create proposal with invalid signature (using wrong keypair)
-			const wrongUser = session.createUser();
-			const recipient =
-				'0x1234567890123456789012345678901234567890123456789012345678901234';
-
-			// Build transaction
-			const tx = new Transaction();
-			tx.setSender(multisig.address);
-			const [coin] = tx.splitCoins(tx.gas, [1000000]);
-			tx.transferObjects([coin], recipient);
-
-			const txBytes = (
-				await tx.build({ client })
-			).toBase64();
-			await expect(
-				session.createProposal(
-					wrongUser,
-					multisig.address,
-					'localnet',
-					txBytes,
-					'Test proposal',
-				),
-			).rejects.toThrow(/not a member/);
-		});
-
 		test('rejects proposal when signature is for a different transaction', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
 
-			// Build tx A — the one we'll sign
-			const txA = new Transaction();
-			txA.setSender(multisig.address);
-			const [coinA] = txA.splitCoins(txA.gas, [500000]);
-			txA.transferObjects(
-				[coinA],
-				'0x1111111111111111111111111111111111111111111111111111111111111111',
+			const signed = await buildTransfer(multisig.address, {
+				amount: 500_000,
+			});
+			const submitted = await buildTransfer(
+				multisig.address,
+				{ amount: 999_999 },
 			);
-			const builtA = await txA.build({ client });
-			const sigA =
-				await users[0].keypair.signTransaction(builtA);
+			const { signature } =
+				await users[0].keypair.signTransaction(
+					fromBase64(signed),
+				);
 
-			// Build tx B — the one we'll actually submit
-			const txB = new Transaction();
-			txB.setSender(multisig.address);
-			const [coinB] = txB.splitCoins(txB.gas, [999999]);
-			txB.transferObjects(
-				[coinB],
-				'0x2222222222222222222222222222222222222222222222222222222222222222',
-			);
-			const builtB = await txB.build({ client });
-
-			// Submit tx B's bytes with tx A's signature
 			await expect(
-				session.getStatefulClient().createProposal({
+				session.client.createProposal({
 					multisigAddress: multisig.address,
 					network: 'localnet',
-					transactionBytes: builtB.toBase64(),
-					signature: sigA.signature,
+					transactionBytes: submitted,
+					signature,
 				}),
 			).rejects.toThrow(/Invalid Sui signature/);
 		});
@@ -107,9 +65,6 @@ describe('Proposal Business Logic', () => {
 		test('prevents duplicate proposals with same transaction digest', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const recipient =
-				'0x2222222222222222222222222222222222222222222222222222222222222222';
 
 			// Without an expiration, the node picks one with a random nonce
 			// when it selects gas, so pin it: the same PTB must then build to
@@ -120,7 +75,7 @@ describe('Proposal Business Logic', () => {
 					client.getCurrentSystemState(),
 				]);
 			const epoch = BigInt(systemState.epoch);
-			const buildTransfer = async () => {
+			const buildPinnedTransfer = async () => {
 				const tx = new Transaction();
 				tx.setSender(multisig.address);
 				tx.setExpiration({
@@ -134,7 +89,7 @@ describe('Proposal Business Logic', () => {
 					},
 				});
 				const [coin] = tx.splitCoins(tx.gas, [1000000]);
-				tx.transferObjects([coin], recipient);
+				tx.transferObjects([coin], multisig.address);
 				const bytes = (
 					await tx.build({ client })
 				).toBase64();
@@ -142,19 +97,16 @@ describe('Proposal Business Logic', () => {
 			};
 
 			// Build identical transactions
-			const tx1 = await buildTransfer();
-			const tx2 = await buildTransfer();
+			const tx1 = await buildPinnedTransfer();
+			const tx2 = await buildPinnedTransfer();
 			expect(tx2.digest).toBe(tx1.digest);
 
-			// Create first proposal
-			const response1 = await session.createProposal(
+			await session.createProposal(
 				users[0],
 				multisig.address,
 				'localnet',
 				tx1.bytes,
-				'First proposal',
 			);
-			expect(response1.id).toBeDefined();
 
 			await expect(
 				session.createProposal(
@@ -162,7 +114,6 @@ describe('Proposal Business Logic', () => {
 					multisig.address,
 					'localnet',
 					tx2.bytes,
-					'Duplicate proposal',
 				),
 			).rejects.toThrow(/same digest/);
 		});
@@ -171,135 +122,60 @@ describe('Proposal Business Logic', () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 1);
 
-			const tx = new Transaction();
-			tx.setSender(multisig.address);
-			const [coin] = tx.splitCoins(tx.gas, [1000000]);
-			tx.transferObjects([coin], multisig.address);
-			const proposal = await session.createProposal(
+			const proposal = await session.proposeTransfer(
 				users[0],
 				multisig.address,
-				'localnet',
-				(await tx.build({ client })).toBase64(),
-				'Never executed',
 			);
 
 			await expect(
-				session
-					.getStatefulClient()
-					.verifyProposalByDigest(proposal.digest),
+				session.client.verifyProposalByDigest(
+					proposal.digest,
+				),
 			).rejects.toThrow(/has not been executed yet/);
 		});
 	});
 
-	describe('Weighted Voting Logic', () => {
-		test('calculates threshold with weighted votes correctly', async () => {
-			const { session, users } =
-				await framework.createAuthenticatedSession(3);
+	test('weighs votes by member weight', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(3);
+		const multisig = await session.createMultisig(
+			users,
+			3,
+			{
+				weights: [1, 2, 1],
+				fund: true,
+			},
+		);
+		await session.acceptMultisig(
+			users[1],
+			multisig.address,
+		);
 
-			// Create 3-member multisig with different weights: [1, 2, 1], threshold 3
-			const multisig = await session.createCustomMultisig(
-				users,
-				[1, 2, 1],
-				3,
-				undefined,
-				true,
-			);
+		const proposal = await session.proposeTransfer(
+			users[0],
+			multisig.address,
+		);
 
-			// Verify multisig (accept invitations)
-			await session.acceptMultisig(
-				users[1],
-				multisig.address,
-			);
-			await session.acceptMultisig(
-				users[2],
-				multisig.address,
-			);
-
-			const recipient =
-				'0x3333333333333333333333333333333333333333333333333333333333333333';
-
-			// Build and submit proposal
-			const tx = new Transaction();
-			tx.setSender(multisig.address);
-			const [coin] = tx.splitCoins(tx.gas, [500000]);
-			tx.transferObjects([coin], recipient);
-
-			const txBytes = (
-				await tx.build({ client })
-			).toBase64();
-
-			const proposal = await session.createProposal(
-				users[0],
-				multisig.address,
-				'localnet',
-				txBytes,
-				'Test proposal',
-			);
-			expect(proposal.id).toBeDefined();
-
-			// Alice voted (weight 1), now Bob votes (weight 2) = total 3, should reach threshold
-			const voteResult = await session.voteOnProposal(
-				users[1],
-				proposal.id,
-				proposal.transactionBytes,
-			);
-
-			expect(voteResult.hasReachedThreshold).toBe(true);
-		});
-
-		test('does not reach threshold with insufficient weighted votes', async () => {
-			const { session, users } =
-				await framework.createAuthenticatedSession(3);
-
-			// Create multisig with weights [1, 1, 1], threshold 3
-			const multisig = await session.createCustomMultisig(
-				users,
-				[1, 1, 1],
-				3,
-				undefined,
-				true,
-			);
-
-			// Verify multisig
-			await session.acceptMultisig(
-				users[1],
-				multisig.address,
-			);
-			await session.acceptMultisig(
-				users[2],
-				multisig.address,
-			);
-
-			// Build and submit proposal
-			const tx = new Transaction();
-			tx.setSender(multisig.address);
-			const [coin] = tx.splitCoins(tx.gas, [500000]);
-			tx.transferObjects(
-				[coin],
-				'0x4444444444444444444444444444444444444444444444444444444444444444',
-			);
-
-			const txBytes = (
-				await tx.build({ client })
-			).toBase64();
-			const proposal = await session.createProposal(
-				users[0],
-				multisig.address,
-				'localnet',
-				txBytes,
-				'Test proposal',
-			);
-			expect(proposal.id).toBeDefined();
-
-			// Only Alice (1) + Bob (1) = 2 votes, need 3 for threshold
-			const voteResult = await session.voteOnProposal(
-				users[1],
-				proposal.id,
-				txBytes,
-			);
-
-			expect(voteResult.hasReachedThreshold).toBe(false);
-		});
+		// 1 + 1 out of 3.
+		expect(
+			(
+				await session.voteOnProposal(
+					users[2],
+					proposal.id,
+					proposal.transactionBytes,
+				)
+			).hasReachedThreshold,
+		).toBe(false);
+		// 1 + 1 + 2 out of 3.
+		expect(
+			(
+				await session.voteOnProposal(
+					users[1],
+					proposal.id,
+					proposal.transactionBytes,
+				)
+			).hasReachedThreshold,
+		).toBe(true);
 	});
 
 	describe('Vote Validation', () => {
@@ -307,139 +183,78 @@ describe('Proposal Business Logic', () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
 
-			// Build and submit proposal
-			const tx = new Transaction();
-			tx.setSender(multisig.address);
-			const [coin] = tx.splitCoins(tx.gas, [500000]);
-			tx.transferObjects(
-				[coin],
-				'0x5555555555555555555555555555555555555555555555555555555555555555',
-			);
-
-			const txBytes = (
-				await tx.build({ client })
-			).toBase64();
-			const proposal = await session.createProposal(
+			const proposal = await session.proposeTransfer(
 				users[0],
 				multisig.address,
-				'localnet',
-				txBytes,
-				'Test proposal',
 			);
-			expect(proposal.id).toBeDefined();
 
-			// Try to vote again with the proposer (who already voted during creation)
+			// The proposer already voted by proposing.
 			await expect(
 				session.voteOnProposal(
 					users[0],
-					proposal.id,
-					txBytes,
-				),
-			).rejects.toThrow('already voted');
-		});
-
-		test('cannot vote on a cancelled proposal', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(3, 2);
-
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0x6666666666666666666666666666666666666666666666666666666666666666',
-					500000,
-				);
-
-			await session.cancelProposal(users[0], proposal.id);
-
-			await expect(
-				session.voteOnProposal(
-					users[1],
 					proposal.id,
 					proposal.transactionBytes,
 				),
-			).rejects.toThrow('not pending');
+			).rejects.toThrow('already voted');
 		});
 
 		test('rejects vote when signature is for a different transaction', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(3, 2);
 
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0x7777777777777777777777777777777777777777777777777777777777777777',
-					500000,
+			const proposal = await session.proposeTransfer(
+				users[0],
+				multisig.address,
+			);
+			const { signature } =
+				await users[1].keypair.signTransaction(
+					fromBase64(
+						await buildTransfer(multisig.address, {
+							amount: 999_999,
+						}),
+					),
 				);
 
-			// Build a completely different transaction and sign it
-			const wrongTx = new Transaction();
-			wrongTx.setSender(multisig.address);
-			const [coin] = wrongTx.splitCoins(
-				wrongTx.gas,
-				[999999],
-			);
-			wrongTx.transferObjects(
-				[coin],
-				'0x8888888888888888888888888888888888888888888888888888888888888888',
-			);
-			const wrongBuilt = await wrongTx.build({ client });
-			const wrongSig =
-				await users[1].keypair.signTransaction(wrongBuilt);
-
-			// Submit the wrong signature against the real proposal
 			await expect(
-				session
-					.getStatefulClient()
-					.voteForProposal(proposal.id, {
-						signature: wrongSig.signature,
-					}),
+				session.client.voteForProposal(proposal.id, {
+					signature,
+				}),
 			).rejects.toThrow(/Invalid Sui signature/);
 		});
 	});
 
 	describe('Member Access Control', () => {
-		test('only verified multisig members can create proposals', async () => {
+		test('only members who accepted can propose', async () => {
 			const { session, users } =
-				await framework.createAuthenticatedSession(2);
-			const alice = newUser();
-
-			// Create multisig but don't have all members accept
+				await framework.createAuthenticatedSession(1);
+			const invitee = newUser();
 			const multisig = await session.createMultisig(
-				[users[0], alice],
+				[users[0], invitee],
 				2,
-				undefined,
-				true,
+				{ fund: true },
 			);
 
 			await expect(
-				session.createSimpleTransferProposal(
-					alice,
-					multisig.address,
-					'0x7777777777777777777777777777777777777777777777777777777777777777',
-					500000,
-				),
+				session.proposeTransfer(invitee, multisig.address),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
 		});
 
-		test('only multisig members can vote on proposals', async () => {
+		test('non-members cannot propose or vote', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0x8888888888888888888888888888888888888888888888888888888888888888',
-					500000,
-				);
-
-			// Create outsider who is not a multisig member
+			const outsider = newUser();
 
 			await expect(
+				session.proposeTransfer(outsider, multisig.address),
+			).rejects.toThrow(AuthErrors.NotAMultisigMember);
+
+			const proposal = await session.proposeTransfer(
+				users[0],
+				multisig.address,
+			);
+			await expect(
 				session.voteOnProposal(
-					session.createUser(),
+					outsider,
 					proposal.id,
 					proposal.transactionBytes,
 				),
@@ -448,55 +263,13 @@ describe('Proposal Business Logic', () => {
 	});
 
 	describe('Proposer Access Control', () => {
-		test('non-multisig/non-proposer members cannot create proposals', async () => {
-			const { session, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const outsider = newUser();
-
-			await expect(
-				session.createSimpleTransferProposal(
-					outsider,
-					multisig.address,
-					'0x7777777777777777777777777777777777777777777777777777777777777777',
-					500000,
-				),
-			).rejects.toThrow(AuthErrors.NotAMultisigMember);
-		});
-
-		test('Proposers can create proposals', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const proposer = session.createUser();
-
-			await framework.addProposer(
-				users[0],
-				proposer.address,
-				multisig.address,
-			);
-
-			const proposal =
-				await session.createSimpleTransferProposal(
-					proposer,
-					multisig.address,
-					'0x9999999999999999999999999999999999999999999999999999999999999999',
-					1000000,
-					'Proposal from proposer',
-				);
-
-			expect(proposal.id).toBeDefined();
-			expect(proposal.transactionBytes).toBeDefined();
-		});
-
 		test('Only members can add proposers', async () => {
 			const { session, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const outsider = session.createUser();
+			const outsider = newUser();
 
 			await expect(
-				framework.addProposer(
+				session.addProposer(
 					outsider,
 					outsider.address,
 					multisig.address,
@@ -508,12 +281,10 @@ describe('Proposal Business Logic', () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
 
-			const proposer = session.createUser();
-
 			await expect(
-				framework.addProposer(
+				session.addProposer(
 					users[0],
-					proposer.address,
+					newUser().address,
 					multisig.address,
 					'2021-01-01',
 				),
@@ -523,281 +294,131 @@ describe('Proposal Business Logic', () => {
 		test('Add proposer, propose, remove proposer, try to propose and fail', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
+			const proposer = newUser();
 
-			const proposer = session.createUser();
+			await session.addProposer(
+				users[0],
+				proposer.address,
+				multisig.address,
+			);
+			await session.proposeTransfer(
+				proposer,
+				multisig.address,
+			);
 
-			await framework.addProposer(
+			await session.removeProposer(
 				users[0],
 				proposer.address,
 				multisig.address,
 			);
 
-			const proposal =
-				await session.createSimpleTransferProposal(
-					proposer,
-					multisig.address,
-					'0x9999999999999999999999999999999999999999999999999999999999999999',
-					1000000,
-				);
-
-			expect(proposal.id).toBeDefined();
-
-			const listOfProposals = await session.getProposals({
-				multisigAddress: multisig.address,
-				network: 'localnet',
-			});
-
-			expect(listOfProposals.data.length).toBe(1);
-
-			await framework.removeProposer(
-				users[0],
-				proposer.address,
+			// Removing the proposer cancels their proposals.
+			const { data } = await session.client.getProposals(
 				multisig.address,
+				'localnet',
+				{},
 			);
-
-			const shouldBeCancelled = await session.getProposals({
-				multisigAddress: multisig.address,
-				network: 'localnet',
-			});
-
-			expect(shouldBeCancelled.data.length).toBe(1);
-			expect(shouldBeCancelled.data.length).toBe(1);
-			expect(shouldBeCancelled.data[0].status).toBe(
+			expect(data.map((p) => p.status)).toEqual([
 				ProposalStatus.CANCELLED,
-			);
+			]);
 
 			await expect(
-				session.createSimpleTransferProposal(
-					proposer,
-					multisig.address,
-					'0x9999999999999999999999999999999999999999999999999999999999999999',
-					1000000,
-				),
+				session.proposeTransfer(proposer, multisig.address),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
 		});
 	});
 
-	describe('Proposal State Management', () => {
-		test('creates proposal with correct initial state', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
+	test('a new proposal can be fetched by digest, with the proposer signature', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
 
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0x9999999999999999999999999999999999999999999999999999999999999999',
-					1000000,
-					'Test proposal',
-				);
+		const proposal = await session.proposeTransfer(
+			users[0],
+			multisig.address,
+			'Test proposal',
+		);
 
-			const proposalWithSigs = await session
-				.getStatefulClient()
-				.getProposalByDigest(proposal.digest);
-
-			expect(proposalWithSigs.signatures.length).toBe(1);
-			expect(proposalWithSigs.signatures[0].publicKey).toBe(
-				users[0].keypair.getPublicKey().toSuiPublicKey(),
+		const byDigest =
+			await session.client.getProposalByDigest(
+				proposal.digest,
 			);
-			expect(
-				proposalWithSigs.signatures[0].signature,
-			).toBeDefined();
-		});
-
-		test('tracks signatures and calculates threshold correctly', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(3, 2);
-
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-					750000,
-				);
-
-			// First additional vote - should reach threshold (proposer + 1 vote = 2 votes, threshold = 2)
-			const voteResult = await session.voteOnProposal(
-				users[1],
-				proposal.id,
-				proposal.transactionBytes,
-			);
-			expect(voteResult.hasReachedThreshold).toBe(true);
-		});
+		expect(byDigest).toMatchObject(proposal);
+		expect(byDigest.signatures).toMatchObject([
+			{ publicKey: users[0].publicKey },
+		]);
 	});
 
-	describe('Test proposals pagination', () => {
-		test('Get paginated proposals', async () => {
-			// Create 10 proposals.
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const { keypair } = users[0];
-			await session.multiCoinsToAddress(
-				keypair,
-				multisig.address,
-				10,
-			);
-
-			// Get available coins
-			const coins = await client.listCoins({
-				owner: multisig.address,
-				limit: 20,
-			});
-
-			// Create 10 proposals using different gas coins
-			for (let i = 0; i < 10; i++) {
-				const tx = new Transaction();
-				tx.setSender(multisig.address);
-				tx.setGasPayment([
-					{
-						objectId: coins.objects[i].objectId,
-						version: coins.objects[i].version,
-						digest: coins.objects[i].digest,
-					},
-				]);
-				const [coin] = tx.splitCoins(tx.gas, [100000]);
-				tx.transferObjects([coin], '0x666');
-
-				const txBytes = (
-					await tx.build({ client })
-				).toBase64();
-
-				const response = await session.createProposal(
-					users[0],
-					multisig.address,
-					'localnet',
-					txBytes,
-					`Proposal ${i + 1}`,
-				);
-				expect(response.id).toBeDefined();
-			}
-
-			let hasNextPage = true;
-			let cursor = undefined;
-			const perPage = 1;
-			const results = [];
-
-			while (hasNextPage) {
-				const proposals = await session.getProposals({
-					multisigAddress: multisig.address,
-					network: 'localnet',
-					cursor: { nextCursor: cursor, perPage },
-					status: undefined,
-				});
-				expect(proposals.data.length).toBe(1);
-
-				const hasDuplicate = results.some(
-					(r) => r.id === proposals.data[0].id,
-				);
-				expect(hasDuplicate).toBe(false);
-
-				results.push(proposals.data[0]);
-
-				hasNextPage = proposals.hasNextPage;
-				cursor = proposals.nextCursor
-					? Number(proposals.nextCursor)
-					: undefined;
-			}
-
-			expect(results.length).toBe(10);
+	test('Get paginated proposals', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		await sendCoins(multisig.address, 10);
+		const { objects: coins } = await client.listCoins({
+			owner: multisig.address,
+			limit: 20,
 		});
+
+		// Each with its own gas coin, so they don't collide.
+		for (const gasCoin of coins.slice(0, 10)) {
+			await session.createProposal(
+				users[0],
+				multisig.address,
+				'localnet',
+				await buildTransfer(multisig.address, { gasCoin }),
+			);
+		}
+
+		const ids = new Set<number>();
+		let cursor: number | undefined;
+		do {
+			const page = await session.client.getProposals(
+				multisig.address,
+				'localnet',
+				{ nextCursor: cursor, perPage: 1 },
+			);
+			expect(page.data).toHaveLength(1);
+			ids.add(page.data[0].id);
+			cursor = page.hasNextPage
+				? Number(page.nextCursor)
+				: undefined;
+		} while (cursor !== undefined);
+
+		expect(ids.size).toBe(10);
 	});
 
 	describe('Proposal Cancellation', () => {
-		test('proposer can cancel their own pending proposal', async () => {
+		test('a cancelled proposal takes no more votes or cancels', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0x7777777777777777777777777777777777777777777777777777777777777777',
-					500000,
-				);
-
-			const result = await session.cancelProposal(
+			const proposal = await session.proposeTransfer(
 				users[0],
-				proposal.id,
+				multisig.address,
 			);
-			expect(result).toBeDefined();
 
-			// Verify it's cancelled by trying to vote — should fail
+			await session.cancelProposal(users[0], proposal.id);
+
 			await expect(
 				session.voteOnProposal(
 					users[1],
 					proposal.id,
 					proposal.transactionBytes,
 				),
-			).rejects.toThrow('not pending');
+			).rejects.toThrow('Proposal is not pending');
+			await expect(
+				session.cancelProposal(users[0], proposal.id),
+			).rejects.toThrow('Proposal is not pending');
 		});
 
 		test('non-member cannot cancel a proposal', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0x8888888888888888888888888888888888888888888888888888888888888888',
-					500000,
-				);
-
-			const outsider = session.createUser();
-			await expect(
-				session.cancelProposal(outsider, proposal.id),
-			).rejects.toThrow();
-		});
-
-		test('cannot cancel an already cancelled proposal', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const proposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0x9999999999999999999999999999999999999999999999999999999999999999',
-					500000,
-				);
-
-			await session.cancelProposal(users[0], proposal.id);
+			const proposal = await session.proposeTransfer(
+				users[0],
+				multisig.address,
+			);
 
 			await expect(
-				session.cancelProposal(users[0], proposal.id),
-			).rejects.toThrow();
-		});
-	});
-
-	describe('Test proposal by digest', () => {
-		let testProposal: Proposal;
-		let testSession: TestSession;
-
-		beforeEach(async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			const newProposal =
-				await session.createSimpleTransferProposal(
-					users[0],
-					multisig.address,
-					'0x1',
-					1000000,
-					'Test proposal',
-				);
-			testProposal = newProposal;
-			testSession = session;
-		});
-
-		test('Get proposal by digest', async () => {
-			const queried = await testSession
-				.getStatefulClient()
-				.getProposalByDigest(testProposal.digest);
-
-			expect(queried).toBeDefined();
-			expect(queried).toMatchObject(testProposal);
+				session.cancelProposal(newUser(), proposal.id),
+			).rejects.toThrow('Not a member of the multisig');
 		});
 	});
 });

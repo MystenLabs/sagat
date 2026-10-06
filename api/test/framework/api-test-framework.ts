@@ -4,26 +4,25 @@
 import {
 	defaultExpiry,
 	PersonalMessages,
-	ProposalStatus,
 	SagatClient,
 	type MultisigWithMembers,
 } from '@mysten/sagat';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
-import { MIST_PER_SUI } from '@mysten/sui/utils';
+import {
+	fromBase64,
+	MIST_PER_SUI,
+} from '@mysten/sui/utils';
 import { type Hono } from 'hono';
 
 import {
+	executeTransaction,
 	fundAddress,
 	getLocalClient,
 } from '../setup/sui-network';
-import {
-	createCookieFetch,
-	type FetchLike,
-} from './cookie-fetch';
 
 const client = getLocalClient();
-const TEST_PLACEHOLDER_URL = 'http://test-placeholder-url';
 
 export interface TestUser {
 	keypair: Ed25519Keypair;
@@ -40,106 +39,104 @@ export const newUser = (): TestUser => {
 	};
 };
 
+const sign = async (user: TestUser, message: string) =>
+	(
+		await user.keypair.signPersonalMessage(
+			new TextEncoder().encode(message),
+		)
+	).signature;
+
+// A transfer of `amount` MIST from `sender` back to itself, paying for gas
+// with `gasCoin` if given (so proposals using different coins don't collide).
+export async function buildTransfer(
+	sender: string,
+	{
+		amount = 1_000_000,
+		gasCoin,
+	}: {
+		amount?: number;
+		gasCoin?: SuiClientTypes.Coin;
+	} = {},
+) {
+	const tx = new Transaction();
+	tx.setSender(sender);
+	if (gasCoin) tx.setGasPayment([gasCoin]);
+	const [coin] = tx.splitCoins(tx.gas, [amount]);
+	tx.transferObjects([coin], sender);
+	return (await tx.build({ client })).toBase64();
+}
+
+// Sends `count` coins of 0.1 SUI each to `recipient`.
+export async function sendCoins(
+	recipient: string,
+	count: number,
+) {
+	const funder = new Ed25519Keypair();
+	await fundAddress(funder.toSuiAddress());
+
+	const tx = new Transaction();
+	for (let i = 0; i < count; i++) {
+		tx.moveCall({
+			target: '0x2::pay::split_and_transfer',
+			arguments: [
+				tx.gas,
+				tx.pure.u64(MIST_PER_SUI / 10n),
+				tx.pure.address(recipient),
+			],
+			typeArguments: ['0x2::sui::SUI'],
+		});
+	}
+	await executeTransaction(funder, tx);
+}
+
+// A client for the API (calling the app directly), that keeps the session
+// cookie between requests like a browser would.
 export class TestSession {
-	private cookie: string = '';
-	private users: TestUser[] = [];
-	private cookieFetch: ReturnType<typeof createCookieFetch>;
-	private client: SagatClient;
+	#cookie = '';
+	readonly client: SagatClient;
 
-	constructor(private app: Hono) {
-		this.cookieFetch = createCookieFetch(
-			this.#createFreshAppFetch(),
-		);
+	constructor(app: Hono) {
 		this.client = new SagatClient(
-			TEST_PLACEHOLDER_URL,
+			'',
 			'cookie',
-			this.cookieFetch.fetch,
+			async (url, init) => {
+				const headers = new Headers(init?.headers);
+				if (this.#cookie)
+					headers.set('Cookie', this.#cookie);
+				const response = await app.request(url as string, {
+					...init,
+					headers,
+				});
+				const cookie = response.headers
+					.get('set-cookie')
+					?.match(/connected-wallet=([^;]*)/);
+				if (cookie)
+					this.#cookie = cookie[1] ? cookie[0] : '';
+				return response;
+			},
 		);
-	}
-
-	createUser() {
-		const user = newUser();
-		this.users.push(user);
-		return user;
-	}
-
-	private async signMessage(
-		keypair: Ed25519Keypair,
-		message: string,
-	) {
-		const bytes = new TextEncoder().encode(message);
-		const { signature } =
-			await keypair.signPersonalMessage(bytes);
-		return signature;
 	}
 
 	async connectUser(user: TestUser) {
 		const expiry = defaultExpiry();
-		const message = PersonalMessages.connect(expiry);
-		const signature = await this.signMessage(
-			user.keypair,
-			message,
+		await this.client.connect(
+			await sign(user, PersonalMessages.connect(expiry)),
+			expiry,
 		);
-
-		try {
-			const response = await this.client.connect(
-				signature,
-				expiry,
-			);
-
-			if (!response.success) {
-				throw new Error(
-					`Auth failed for user ${user.address}`,
-				);
-			}
-		} catch (error) {
-			throw new Error(
-				`Auth failed for user ${user.address}: ${error}`,
-			);
-		}
-
-		this.cookie =
-			this.cookieFetch.jar.getConnectedWalletCookie();
-
-		// Track connected user if not already tracked
-		if (
-			!this.users.find((u) => u.address === user.address)
-		) {
-			this.users.push(user);
-		}
-	}
-
-	async registerAddresses() {
-		if (!this.cookie) {
-			throw new Error(
-				'No users connected - call connectUsers first',
-			);
-		}
-
-		await this.client.registerAddresses();
 	}
 
 	async createMultisig(
 		members: TestUser[],
 		threshold: number,
-		name?: string,
-		fund: boolean = false,
-	) {
-		return this.createCustomMultisig(
-			members,
-			members.map(() => 1),
-			threshold,
+		{
+			weights = members.map(() => 1),
 			name,
-			fund,
-		);
-	}
-
-	async createCustomMultisig(
-		members: TestUser[],
-		weights: number[],
-		threshold: number,
-		name?: string,
-		fund: boolean = false,
+			fund = false,
+		}: {
+			weights?: number[];
+			name?: string;
+			fund?: boolean;
+		} = {},
 	) {
 		const multisig = await this.client.createMultisig({
 			publicKeys: members.map((m) => m.publicKey),
@@ -147,70 +144,84 @@ export class TestSession {
 			threshold,
 			name,
 		});
-
-		// Only fund if explicitly requested
 		if (fund) await fundAddress(multisig.address);
-
 		return multisig;
-	}
-
-	async multiCoinsToAddress(
-		keypair: Ed25519Keypair,
-		recipient: string,
-		count: number,
-		totalPerCoin: number = 0.1 * Number(MIST_PER_SUI),
-	) {
-		await fundAddress(keypair.toSuiAddress());
-
-		const tx = new Transaction();
-		tx.setSender(keypair.toSuiAddress());
-		for (let i = 0; i < count; i++) {
-			tx.moveCall({
-				target: '0x2::pay::split_and_transfer',
-				arguments: [
-					tx.gas,
-					tx.pure.u64(totalPerCoin),
-					tx.pure.address(recipient),
-				],
-				typeArguments: ['0x2::sui::SUI'],
-			});
-		}
-		// use the first user's gas to send a few sui to the multisig.
-		const result = await keypair.signAndExecuteTransaction({
-			transaction: tx,
-			client,
-		});
-
-		if (result.$kind !== 'Transaction')
-			throw new Error('Transaction failed to execute.');
-
-		await client.waitForTransaction({
-			digest: result.Transaction.digest,
-		});
 	}
 
 	async acceptMultisig(
 		member: TestUser,
 		multisigAddress: string,
 	) {
-		const message =
-			PersonalMessages.acceptMultisigInvitation(
-				multisigAddress,
-			);
-		const signature = await this.signMessage(
-			member.keypair,
-			message,
-		);
-
 		await this.client.acceptMultisigInvite(
 			multisigAddress,
-			{ signature },
+			{
+				signature: await sign(
+					member,
+					PersonalMessages.acceptMultisigInvitation(
+						multisigAddress,
+					),
+				),
+			},
 		);
 	}
 
-	// Expose app for direct API calls when needed
-	getApp(): Hono {
-		return this.app;
+	async rejectMultisig(
+		member: TestUser,
+		multisigAddress: string,
+	) {
+		return this.client.rejectMultisigInvite(
+			multisigAddress,
+			{
+				signature: await sign(
+					member,
+					PersonalMessages.rejectMultisigInvitation(
+						multisigAddress,
+					),
+				),
+			},
+		);
+	}
+
+	async addProposer(
+		member: TestUser,
+		proposer: string,
+		multisigAddress: string,
+		expiry = defaultExpiry(),
+	) {
+		await this.client.addMultisigProposer(
+			multisigAddress,
+			proposer,
+			await sign(
+				member,
+				PersonalMessages.addMultisigProposer(
+					proposer,
+					multisigAddress,
+					expiry,
+				),
+			),
+			expiry,
+		);
+	}
+
+	async removeProposer(
+		member: TestUser,
+		proposer: string,
+		multisigAddress: string,
+	) {
+		const expiry = defaultExpiry();
+		await this.client.removeMultisigProposer(
+			multisigAddress,
+			proposer,
+			await sign(
+				member,
+				PersonalMessages.removeMultisigProposer(
+					proposer,
+					multisigAddress,
+					expiry,
+				),
+			),
+			expiry,
+		);
 	}
 
 	async createProposal(
@@ -220,77 +231,31 @@ export class TestSession {
 		transactionBytes: string,
 		description?: string,
 	) {
-		const txBytes = Transaction.from(transactionBytes);
-		const builtTx = await txBytes.build({ client });
-		const signature =
-			await proposer.keypair.signTransaction(builtTx);
-
+		const { signature } =
+			await proposer.keypair.signTransaction(
+				fromBase64(transactionBytes),
+			);
 		return this.client.createProposal({
 			multisigAddress,
 			network,
 			transactionBytes,
-			signature: signature.signature,
+			signature,
 			description,
 		});
 	}
 
-	async getProposals({
-		multisigAddress,
-		network,
-		status,
-		cursor,
-	}: {
-		multisigAddress: string;
-		network: string;
-		status?: string;
-		cursor?: { nextCursor?: number; perPage?: number };
-	}) {
-		// Convert status string to ProposalStatus enum if provided
-		let statusEnum: ProposalStatus | undefined;
-		if (status) {
-			statusEnum =
-				ProposalStatus[
-					status as keyof typeof ProposalStatus
-				];
-		}
-
-		return this.client.getProposals(
-			multisigAddress,
-			network,
-			{
-				status: statusEnum,
-				nextCursor: cursor?.nextCursor,
-				perPage: cursor?.perPage,
-			},
-		);
-	}
-
-	// Simple helper for repetitive test transfers - builds transaction inline for clarity
-	async createSimpleTransferProposal(
+	async proposeTransfer(
 		proposer: TestUser,
 		multisigAddress: string,
-		recipient: string,
-		amount: number,
 		description?: string,
 	) {
-		const tx = new Transaction();
-		tx.setSender(multisigAddress);
-		const [coin] = tx.splitCoins(tx.gas, [amount]);
-		tx.transferObjects([coin], recipient);
-
-		const txBytes = await tx.build({ client });
-		const signature =
-			await proposer.keypair.signTransaction(txBytes);
-
-		const proposal = await this.client.createProposal({
+		return this.createProposal(
+			proposer,
 			multisigAddress,
-			network: 'localnet',
-			transactionBytes: txBytes.toBase64(),
-			signature: signature.signature,
+			'localnet',
+			await buildTransfer(multisigAddress),
 			description,
-		});
-
-		return proposal;
+		);
 	}
 
 	async voteOnProposal(
@@ -298,151 +263,50 @@ export class TestSession {
 		proposalId: number,
 		transactionBytes: string,
 	) {
-		const txBytes = Transaction.from(transactionBytes);
-		const builtTx = await txBytes.build({ client });
-		const signature =
-			await voter.keypair.signTransaction(builtTx);
-
-		return this.client.voteForProposal(proposalId, {
-			signature: signature.signature,
-		});
-	}
-
-	async disconnect() {
-		await this.client.disconnect();
-		this.cookie = '';
-		this.cookieFetch = createCookieFetch(
-			this.#createFreshAppFetch(),
-		);
-		// Reset client!
-		this.client = new SagatClient(
-			'http://localhost:3000',
-			'cookie',
-			this.cookieFetch.fetch,
-		);
-		this.users = [];
-	}
-
-	getConnectedUsers() {
-		if (!this.cookieFetch.jar.getConnectedWalletCookie())
-			return [];
-
-		try {
-			// Extract JWT from cookie
-			const jwt =
-				this.cookieFetch.jar.getConnectedWalletCookie();
-			if (!jwt) return [];
-
-			// Decode JWT payload (it's base64 encoded)
-			const parts = jwt.split('.');
-			if (parts.length !== 3) return [];
-
-			const payload = JSON.parse(atob(parts[1]));
-			const publicKeysFromJWT = payload.publicKeys || [];
-
-			// Map JWT public keys back to our test users
-			return this.users.filter((user) =>
-				publicKeysFromJWT.includes(user.publicKey),
+		const { signature } =
+			await voter.keypair.signTransaction(
+				fromBase64(transactionBytes),
 			);
-		} catch {
-			return [];
-		}
-	}
-
-	hasActiveCookie(): boolean {
-		return (
-			!!this.cookieFetch.jar.getConnectedWalletCookie() &&
-			this.getConnectedUsers().length > 0
-		);
+		return this.client.voteForProposal(proposalId, {
+			signature,
+		});
 	}
 
 	async cancelProposal(
 		member: TestUser,
 		proposalId: number,
 	) {
-		const message =
-			PersonalMessages.cancelProposal(proposalId);
-		const signature = await this.signMessage(
-			member.keypair,
-			message,
-		);
-
 		return this.client.cancelProposal(proposalId, {
-			signature,
+			signature: await sign(
+				member,
+				PersonalMessages.cancelProposal(proposalId),
+			),
 		});
-	}
-
-	async rejectMultisig(
-		member: TestUser,
-		multisigAddress: string,
-	) {
-		const message = `Rejecting multisig invitation ${multisigAddress}`;
-		const signature = await this.signMessage(
-			member.keypair,
-			message,
-		);
-
-		return this.client.rejectMultisigInvite(
-			multisigAddress,
-			{ signature },
-		);
-	}
-
-	getStatefulClient(): SagatClient {
-		return this.client;
-	}
-
-	#createFreshAppFetch(): FetchLike {
-		return async (
-			input: RequestInfo | URL,
-			init?: RequestInit,
-		) => {
-			const url =
-				typeof input === 'string'
-					? input
-					: input instanceof URL
-						? input.href
-						: input.url;
-
-			const path = url.replace(TEST_PLACEHOLDER_URL, '');
-			return this.app.request(path, init);
-		};
 	}
 }
 
 export class ApiTestFramework {
 	constructor(private app: Hono) {}
 
-	createSession(): TestSession {
+	createSession() {
 		return new TestSession(this.app);
 	}
 
-	// Helper methods for common workflows
-	async createAuthenticatedSession(
-		userCount: number = 2,
-	): Promise<{
-		session: TestSession;
-		users: TestUser[];
-	}> {
+	async createAuthenticatedSession(userCount: number) {
 		const session = this.createSession();
-		const users: TestUser[] = [];
-
-		for (let i = 0; i < userCount; i++) {
-			users.push(session.createUser());
-		}
-
+		const users = Array.from(
+			{ length: userCount },
+			newUser,
+		);
 		for (const user of users)
 			await session.connectUser(user);
-		await session.registerAddresses();
-
 		return { session, users };
 	}
 
 	async createVerifiedMultisig(
-		userCount: number = 2,
-		threshold?: number,
-		name?: string,
-		fund: boolean = false,
+		userCount: number,
+		threshold: number,
+		fund = false,
 	): Promise<{
 		session: TestSession;
 		users: TestUser[];
@@ -450,117 +314,26 @@ export class ApiTestFramework {
 	}> {
 		const { session, users } =
 			await this.createAuthenticatedSession(userCount);
-		const actualThreshold = threshold || userCount;
-
 		const multisig = await session.createMultisig(
 			users,
-			actualThreshold,
-			name,
-			fund,
+			threshold,
+			{ fund },
 		);
-
-		// Accept for all non-creator members
-		for (let i = 1; i < users.length; i++) {
-			await session.acceptMultisig(
-				users[i],
-				multisig.address,
-			);
-		}
-
+		// Members connected to the session are accepted on creation, but
+		// only an accept verifies the multisig.
+		for (const user of users.slice(1))
+			await session.acceptMultisig(user, multisig.address);
 		return { session, users, multisig };
 	}
 
-	async createFundedVerifiedMultisig(
-		userCount: number = 2,
-		threshold?: number,
-		name?: string,
-	): Promise<{
-		session: TestSession;
-		users: TestUser[];
-		multisig: MultisigWithMembers;
-	}> {
+	createFundedVerifiedMultisig(
+		userCount: number,
+		threshold: number,
+	) {
 		return this.createVerifiedMultisig(
 			userCount,
 			threshold,
-			name,
 			true,
 		);
-	}
-
-	async addProposer(
-		member: TestUser,
-		proposer: string,
-		multisigAddress: string,
-		customExpiry?: string,
-	): Promise<void> {
-		const expiry = customExpiry || defaultExpiry();
-		const message = PersonalMessages.addMultisigProposer(
-			proposer,
-			multisigAddress,
-			expiry,
-		);
-		const bytes = new TextEncoder().encode(message);
-		const signature =
-			await member.keypair.signPersonalMessage(bytes);
-
-		await this.statelessClient().addMultisigProposer(
-			multisigAddress,
-			proposer,
-			signature.signature,
-			expiry,
-		);
-	}
-
-	// Remove proposer for a multisig.
-	async removeProposer(
-		member: TestUser,
-		proposer: string,
-		multisigAddress: string,
-	): Promise<void> {
-		const expiry = defaultExpiry();
-		const message = PersonalMessages.removeMultisigProposer(
-			proposer,
-			multisigAddress,
-			expiry,
-		);
-		const bytes = new TextEncoder().encode(message);
-		const signature =
-			await member.keypair.signPersonalMessage(bytes);
-
-		await this.statelessClient().removeMultisigProposer(
-			multisigAddress,
-			proposer,
-			signature.signature,
-			expiry,
-		);
-	}
-
-	statelessClient(): SagatClient {
-		return new SagatClient(
-			TEST_PLACEHOLDER_URL,
-			'cookie',
-			this.#createFreshAppFetch(),
-		);
-	}
-
-	// Create a fresh fetch function that uses the app directly, instead of
-	// going through the actual API call.
-	// Practically, what this does is call `app.request('/route')` internally,
-	// instead of calling `http://localhost:3000/route`.
-	#createFreshAppFetch(): FetchLike {
-		return async (
-			input: RequestInfo | URL,
-			init?: RequestInit,
-		) => {
-			const url =
-				typeof input === 'string'
-					? input
-					: input instanceof URL
-						? input.href
-						: input.url;
-
-			const path = url.replace(TEST_PLACEHOLDER_URL, '');
-			return this.app.request(path, init);
-		};
 	}
 }
