@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { TransactionError } from '@mysten/sui/client';
+import { Transaction } from '@mysten/sui/transactions';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
 import { db } from '../db';
@@ -12,19 +12,17 @@ import {
 	type ProposalWithSignatures,
 } from '../db/schema';
 import { ValidationError } from '../errors';
-import {
-	MultisigEventType,
-	multisigProposalEvents,
-} from '../metrics';
-import {
-	getSuiClient,
-	type SuiNetwork,
-} from '../utils/client';
+import { type SuiNetwork } from '../utils/client';
 import {
 	paginateResponse,
 	type PaginationCursor,
 } from '../utils/pagination';
 import { getMultisig } from './multisig.service';
+import {
+	finalizeProposal,
+	loadChainInfo,
+	whyInvalid,
+} from './proposal-status.service';
 
 // Get a proposal by id, and its signatures.
 export const getProposalById = async (
@@ -156,51 +154,23 @@ export const lookupAndVerifyProposal = async (
 			'Proposal is not ready to execute',
 		);
 
-	const tx = await getSuiClient(
+	const transaction = Transaction.from(
+		proposal.transactionBytes,
+	);
+	const chainInfo = await loadChainInfo(
+		[transaction],
 		proposal.network as SuiNetwork,
+	);
+
+	if (
+		!(await finalizeProposal(
+			proposal,
+			!!whyInvalid(transaction, chainInfo),
+		))
 	)
-		.getTransaction({
-			digest: proposal.digest,
-			include: {
-				effects: true,
-			},
-		})
-		.catch((error) => {
-			// TODO: a transaction that isn't on-chain may also never be able to
-			// run, e.g. when one of its owned inputs was spent elsewhere. Such a
-			// proposal stays pending and blocks new proposals that use the same
-			// objects. Detect it (an input's version changed or it was deleted)
-			// and move the proposal to a new terminal status for it (not
-			// FAILURE, which means the transaction failed on-chain).
-			if (
-				error instanceof TransactionError &&
-				error.reason === 'notFound'
-			)
-				throw new ValidationError(
-					'The transaction has not been executed yet.',
-				);
-			throw error;
-		});
-
-	const isSuccess =
-		tx.$kind !== 'FailedTransaction' &&
-		!!tx.Transaction.effects.status.success;
-
-	await db
-		.update(SchemaProposals)
-		.set({
-			status: isSuccess
-				? ProposalStatus.SUCCESS
-				: ProposalStatus.FAILURE,
-		})
-		.where(eq(SchemaProposals.id, proposal.id));
-
-	multisigProposalEvents.inc({
-		network: proposal.network,
-		event_type: isSuccess
-			? MultisigEventType.PROPOSAL_SUCCESS
-			: MultisigEventType.PROPOSAL_FAILURE,
-	});
+		throw new ValidationError(
+			'The transaction has not been executed yet.',
+		);
 
 	return { verified: true };
 };
