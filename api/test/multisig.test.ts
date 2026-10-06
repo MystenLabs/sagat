@@ -91,8 +91,12 @@ describe('Multisig API', () => {
 		await session.acceptMultisig(bob, address);
 		const details =
 			await session.client.getMultisig(address);
-		expect(details.isVerified).toBe(true);
-		expect(details.members).toHaveLength(2);
+		expect(details).toMatchObject({
+			address,
+			threshold: 2,
+			isVerified: true,
+			totalMembers: 2,
+		});
 	});
 
 	test('non-members cannot accept or reject', async () => {

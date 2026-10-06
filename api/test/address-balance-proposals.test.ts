@@ -1,17 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { PublicProposal } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
 	coinWithBalance,
 	Transaction,
 } from '@mysten/sui/transactions';
-import {
-	fromBase64,
-	MIST_PER_SUI,
-} from '@mysten/sui/utils';
+import { MIST_PER_SUI } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -19,12 +14,9 @@ import {
 	test,
 } from 'bun:test';
 
-import { parsePublicKey } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
 	buildTransfer,
-	type TestSession,
-	type TestUser,
 } from './framework/api-test-framework';
 import {
 	createTestApp,
@@ -107,99 +99,6 @@ describe('Address Balance Proposals', () => {
 		expect(parsed.getData().expiration).not.toBeNull();
 	}
 
-	/**
-	 * Collects remaining votes needed to reach threshold,
-	 * combines into a multisig signature, executes on chain,
-	 * and verifies the result through the API.
-	 */
-	async function voteAndExecute(
-		session: TestSession,
-		voters: TestUser[],
-		proposalDigest: string,
-	) {
-		const proposal =
-			await session.client.getProposalByDigest(
-				proposalDigest,
-			);
-
-		for (const voter of voters) {
-			const alreadySigned = proposal.signatures.some(
-				(sig) => sig.publicKey === voter.publicKey,
-			);
-			if (alreadySigned) continue;
-
-			const { hasReachedThreshold } =
-				await session.voteOnProposal(
-					voter,
-					proposal.id,
-					proposal.transactionBytes,
-				);
-
-			if (hasReachedThreshold) break;
-		}
-
-		// Re-fetch to get all signatures after voting
-		const signed =
-			await session.client.getProposalByDigest(
-				proposalDigest,
-			);
-
-		const combinedSignature =
-			combineMultisigSignatures(signed);
-
-		const result = await client.executeTransaction({
-			transaction: fromBase64(signed.transactionBytes),
-			signatures: [combinedSignature],
-			include: { effects: true },
-		});
-
-		const tx =
-			result.$kind === 'Transaction'
-				? result.Transaction
-				: result.FailedTransaction;
-
-		await client.waitForTransaction({
-			digest: tx.digest,
-		});
-
-		await session.client.verifyProposalByDigest(
-			proposalDigest,
-		);
-
-		return tx;
-	}
-
-	function combineMultisigSignatures(
-		proposal: PublicProposal,
-	) {
-		const members = proposal.multisig.members.sort(
-			(a, b) => a.order - b.order,
-		);
-
-		const multisigPubKey = MultiSigPublicKey.fromPublicKeys(
-			{
-				threshold: proposal.multisig.threshold,
-				publicKeys: members.map((m) => ({
-					publicKey: parsePublicKey(m.publicKey),
-					weight: m.weight,
-				})),
-			},
-		);
-
-		const orderedSignatures = members
-			.map((member) =>
-				proposal.signatures.find(
-					(sig) => sig.publicKey === member.publicKey,
-				),
-			)
-			.filter(Boolean)
-			.map((sig) => sig!.signature);
-
-		return multisigPubKey.combinePartialSignatures(
-			orderedSignatures,
-		);
-	}
-
 	describe('Basic Address Balance Proposals', () => {
 		test('creates, votes, and executes a proposal using address balance gas', async () => {
 			const { session, users, multisig } =
@@ -227,8 +126,7 @@ describe('Address Balance Proposals', () => {
 				multisig.address,
 			);
 
-			const tx = await voteAndExecute(
-				session,
+			const tx = await session.voteAndExecute(
 				users,
 				proposal.digest,
 			);
@@ -274,8 +172,7 @@ describe('Address Balance Proposals', () => {
 			);
 
 			for (const proposal of proposals) {
-				const tx = await voteAndExecute(
-					session,
+				const tx = await session.voteAndExecute(
 					users,
 					proposal.digest,
 				);
@@ -331,15 +228,13 @@ describe('Address Balance Proposals', () => {
 				coinProposal.id,
 			);
 
-			const abTx = await voteAndExecute(
-				session,
+			const abTx = await session.voteAndExecute(
 				users,
 				addrBalanceProposal.digest,
 			);
 			expect(abTx.effects!.status.success).toBe(true);
 
-			const coinTxResult = await voteAndExecute(
-				session,
+			const coinTxResult = await session.voteAndExecute(
 				users,
 				coinProposal.digest,
 			);
