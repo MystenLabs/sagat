@@ -94,6 +94,39 @@ export async function sendCoins(
 	await executeTransaction(funder, tx);
 }
 
+// Combines members' signatures into the multisig's signature (they have to
+// be in the members' order).
+export function multisigSignature(
+	multisig: {
+		threshold: number;
+		members: {
+			publicKey: string;
+			weight: number;
+			order: number;
+		}[];
+	},
+	signatures: { publicKey: string; signature: string }[],
+) {
+	const members = [...multisig.members].sort(
+		(a, b) => a.order - b.order,
+	);
+	const multisigKey = MultiSigPublicKey.fromPublicKeys({
+		threshold: multisig.threshold,
+		publicKeys: members.map((m) => ({
+			publicKey: parsePublicKey(m.publicKey),
+			weight: m.weight,
+		})),
+	});
+	return multisigKey.combinePartialSignatures(
+		members.flatMap(
+			(m) =>
+				signatures.find(
+					(sig) => sig.publicKey === m.publicKey,
+				)?.signature ?? [],
+		),
+	);
+}
+
 // A client for the API (calling the app directly), that keeps the session
 // cookie between requests like a browser would.
 export class TestSession {
@@ -300,28 +333,9 @@ export class TestSession {
 
 		const { multisig, signatures, transactionBytes } =
 			await this.client.getProposalByDigest(digest);
-		const members = multisig.members.sort(
-			(a, b) => a.order - b.order,
-		);
-		const multisigKey = MultiSigPublicKey.fromPublicKeys({
-			threshold: multisig.threshold,
-			publicKeys: members.map((m) => ({
-				publicKey: parsePublicKey(m.publicKey),
-				weight: m.weight,
-			})),
-		});
 		const result = await client.executeTransaction({
 			transaction: fromBase64(transactionBytes),
-			signatures: [
-				multisigKey.combinePartialSignatures(
-					members.flatMap(
-						(m) =>
-							signatures.find(
-								(sig) => sig.publicKey === m.publicKey,
-							)?.signature ?? [],
-					),
-				),
-			],
+			signatures: [multisigSignature(multisig, signatures)],
 			include: { effects: true },
 		});
 		const tx =
