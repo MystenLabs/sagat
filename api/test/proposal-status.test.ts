@@ -5,6 +5,7 @@ import { TransactionError } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	afterAll,
+	beforeAll,
 	describe,
 	expect,
 	spyOn,
@@ -13,7 +14,7 @@ import {
 
 import {
 	hasExpired,
-	keepsHistorySince,
+	provesNeverExecuted,
 	whyInvalid,
 } from '../src/services/proposal-status.service';
 import * as client from '../src/utils/client';
@@ -161,74 +162,129 @@ describe('whyInvalid', () => {
 	}
 });
 
-describe('keepsHistorySince', () => {
+describe('provesNeverExecuted', () => {
 	const proposedAt = new Date('2026-10-01T00:00:00Z');
+	const dayBefore = new Date('2026-09-30T00:00:00Z');
 
 	// When the node's oldest checkpoint was made, or null once it's gone.
 	let oldestCheckpointAt: Date | null = null;
-	const checkpointTimestamp = spyOn(
-		client,
-		'getCheckpointTimestamp',
-	).mockImplementation(async () => {
-		if (!oldestCheckpointAt)
-			throw new Error('Checkpoint not found');
-		return oldestCheckpointAt.getTime();
+	let checkpointTimestamp: ReturnType<typeof spyOn>;
+	beforeAll(() => {
+		checkpointTimestamp = spyOn(
+			client,
+			'getCheckpointTimestamp',
+		).mockImplementation(async () => {
+			if (!oldestCheckpointAt)
+				throw new Error('Checkpoint not found');
+			return oldestCheckpointAt.getTime();
+		});
 	});
 	afterAll(() => checkpointTimestamp.mockRestore());
 
-	// The error a node sends when it can't find a transaction.
-	const notFound = new TransactionError(
-		'notFound',
-		'digest',
-		{
-			cause: {
-				meta: {
-					'x-sui-lowest-available-checkpoint': '1000',
-				},
-			},
-		},
-	);
+	// The error a node in epoch 20 sends when it can't find a transaction.
+	const notFound = (meta: Record<string, string>) =>
+		new TransactionError('notFound', 'digest', {
+			cause: { meta },
+		});
+	const fromNode = notFound({
+		'x-sui-lowest-available-checkpoint': '1000',
+		'x-sui-epoch': '20',
+	});
 
-	test('a node with history from before the proposal keeps it', async () => {
+	test('a node with history from well before the proposal proves it', async () => {
 		oldestCheckpointAt = new Date('2026-09-20T00:00:00Z');
 		expect(
-			await keepsHistorySince(
+			await provesNeverExecuted(
 				'mainnet',
-				notFound,
+				fromNode,
 				proposedAt,
+				null,
 			),
 		).toBe(true);
+	});
+
+	test('a node whose history starts less than a day before the proposal does not', async () => {
+		oldestCheckpointAt = new Date('2026-09-30T12:00:00Z');
+		expect(
+			await provesNeverExecuted(
+				'mainnet',
+				fromNode,
+				proposedAt,
+				null,
+			),
+		).toBe(false);
+		expect(
+			await provesNeverExecuted(
+				'mainnet',
+				fromNode,
+				dayBefore,
+				null,
+			),
+		).toBe(false);
 	});
 
 	test('a node that pruned past the proposal does not', async () => {
 		oldestCheckpointAt = new Date('2026-10-02T00:00:00Z');
 		expect(
-			await keepsHistorySince(
+			await provesNeverExecuted(
 				'mainnet',
-				notFound,
+				fromNode,
 				proposedAt,
+				null,
 			),
 		).toBe(false);
+	});
+
+	test('a node still in the last epoch the transaction could run in does not', async () => {
+		oldestCheckpointAt = new Date('2026-09-20T00:00:00Z');
+		expect(
+			await provesNeverExecuted(
+				'mainnet',
+				fromNode,
+				proposedAt,
+				20n,
+			),
+		).toBe(false);
+		expect(
+			await provesNeverExecuted(
+				'mainnet',
+				fromNode,
+				proposedAt,
+				19n,
+			),
+		).toBe(true);
 	});
 
 	test('a node whose oldest checkpoint is gone proves nothing', async () => {
 		oldestCheckpointAt = null;
 		expect(
-			await keepsHistorySince(
+			await provesNeverExecuted(
 				'mainnet',
-				notFound,
+				fromNode,
 				proposedAt,
+				null,
 			),
 		).toBe(false);
 	});
 
-	test('an error without the header proves nothing', async () => {
+	test('an error without the headers proves nothing', async () => {
 		oldestCheckpointAt = new Date('2026-09-20T00:00:00Z');
 		expect(
-			await keepsHistorySince(
+			await provesNeverExecuted(
 				'mainnet',
 				new TransactionError('notFound', 'digest'),
 				proposedAt,
+				null,
+			),
+		).toBe(false);
+		expect(
+			await provesNeverExecuted(
+				'mainnet',
+				notFound({
+					'x-sui-lowest-available-checkpoint': '1000',
+				}),
+				proposedAt,
+				19n,
 			),
 		).toBe(false);
 	});

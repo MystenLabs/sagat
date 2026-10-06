@@ -5,7 +5,8 @@ import { ProposalStatus } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import { toBase58 } from '@mysten/sui/utils';
 import {
-	afterEach,
+	afterAll,
+	beforeAll,
 	beforeEach,
 	describe,
 	expect,
@@ -14,7 +15,10 @@ import {
 } from 'bun:test';
 
 import * as apiClient from '../src/utils/client';
-import { ApiTestFramework } from './framework/api-test-framework';
+import {
+	ApiTestFramework,
+	type TestSession,
+} from './framework/api-test-framework';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -25,6 +29,12 @@ const client = getLocalClient();
 
 setupSharedTestEnvironment();
 
+type CoinRef = {
+	objectId: string;
+	version: string;
+	digest: string;
+};
+
 describe('Proposal Expiration', () => {
 	let framework: ApiTestFramework;
 
@@ -32,56 +42,41 @@ describe('Proposal Expiration', () => {
 		framework = new ApiTestFramework(await createTestApp());
 	});
 
-	// Makes the API see the network `epochs` epochs ahead of where it is.
-	// Localnet doesn't change epochs during a test.
-	let chainInfo: ReturnType<typeof spyOn> | undefined;
-	async function advanceEpochs(epochs: number) {
-		const real = await apiClient.getChainInfo('localnet');
-		chainInfo = spyOn(
+	// Localnet prunes all but its last few seconds of transactions, so
+	// pretend its history goes back to the start. (Which also means a
+	// proposal that executed before it expired can't be told apart here.)
+	let checkpointTimestamp: ReturnType<typeof spyOn>;
+	beforeAll(() => {
+		checkpointTimestamp = spyOn(
 			apiClient,
-			'getChainInfo',
-		).mockResolvedValue({
-			...real,
-			systemState: {
-				...real.systemState,
-				epoch: String(
-					BigInt(real.systemState.epoch) + BigInt(epochs),
-				),
-			},
-		});
-	}
-	afterEach(() => chainInfo?.mockRestore());
+			'getCheckpointTimestamp',
+		).mockResolvedValue(0);
+	});
+	afterAll(() => checkpointTimestamp.mockRestore());
 
 	// A 1-of-2 multisig, so every proposal is ready to execute right away,
-	// and one of its gas coins.
+	// and its gas coins.
 	async function setup() {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 1);
-		const {
-			objects: [gasCoin],
-		} = await client.listCoins({
+		const { objects: coins } = await client.listCoins({
 			owner: multisig.address,
 		});
 		return {
 			session,
 			proposer: users[0],
 			multisig,
-			gasCoin,
+			coins,
 		};
 	}
 
 	// A transfer from the multisig that's only valid from the current epoch
 	// for `epochs` more, on `chain` (this network by default) and until
-	// `maxTimestamp`.
-	// It sets everything the network would otherwise fill in by simulating
-	// it, which fails for some of these expirations.
+	// `maxTimestamp`. It sets everything the network would otherwise fill in
+	// by simulating it, which fails for some of these expirations.
 	async function transferValidDuring(
 		multisigAddress: string,
-		gasCoin: {
-			objectId: string;
-			version: string;
-			digest: string;
-		},
+		gasCoin: CoinRef,
 		{
 			epochs = 1,
 			chain,
@@ -119,13 +114,56 @@ describe('Proposal Expiration', () => {
 		return (await tx.build({ client })).toBase64();
 	}
 
+	const currentEpoch = async () => {
+		const { systemState } =
+			await client.getCurrentSystemState();
+		return systemState;
+	};
+
+	// The epoch of the last checkpoint the node has executed, which it sends
+	// with every response (here, for a transaction that doesn't exist).
+	const executedEpoch = async () => {
+		const error = await client
+			.getTransaction({ digest: '1'.repeat(32) })
+			.catch((error) => error);
+		return BigInt(error.cause.meta['x-sui-epoch']);
+	};
+
+	// Waits until the node has executed a checkpoint past `epoch`. Localnet's
+	// epochs last a minute.
+	async function waitForEpochAfter(epoch: string) {
+		while ((await executedEpoch()) <= BigInt(epoch))
+			await Bun.sleep(1000);
+	}
+
+	// Makes sure the current epoch has at least `ms` left, so what's
+	// created for it doesn't expire too soon.
+	async function waitForTimeLeftInEpoch(ms: number) {
+		const { epoch, epochStartTimestampMs, parameters } =
+			await currentEpoch();
+		const end =
+			Number(epochStartTimestampMs) +
+			Number(parameters.epochDurationMs);
+		if (end - Date.now() < ms)
+			await waitForEpochAfter(epoch);
+	}
+
+	async function statusOf(
+		session: TestSession,
+		digest: string,
+	) {
+		const proposal =
+			await session.client.getProposalByDigest(digest);
+		return proposal.status;
+	}
+
 	test('refuses a proposal that already expired', async () => {
-		const { session, proposer, multisig, gasCoin } =
+		const { session, proposer, multisig, coins } =
 			await setup();
 		// Only until a time long gone.
 		const transactionBytes = await transferValidDuring(
 			multisig.address,
-			gasCoin,
+			coins[0],
 			{ maxTimestamp: '1' },
 		);
 
@@ -142,11 +180,11 @@ describe('Proposal Expiration', () => {
 	});
 
 	test('refuses a proposal for another network', async () => {
-		const { session, proposer, multisig, gasCoin } =
+		const { session, proposer, multisig, coins } =
 			await setup();
 		const transactionBytes = await transferValidDuring(
 			multisig.address,
-			gasCoin,
+			coins[0],
 			{ chain: toBase58(new Uint8Array(32).fill(7)) },
 		);
 
@@ -162,63 +200,14 @@ describe('Proposal Expiration', () => {
 		);
 	});
 
-	test('verifying a proposal that expired marks it invalid', async () => {
-		const { session, proposer, multisig, gasCoin } =
-			await setup();
-		const proposal = await session.createProposal(
-			proposer,
-			multisig.address,
-			'localnet',
-			await transferValidDuring(multisig.address, gasCoin),
-		);
-
-		await advanceEpochs(2);
-		await session.client.verifyProposalByDigest(
-			proposal.digest,
-		);
-
-		const { status } =
-			await session.client.getProposalByDigest(
-				proposal.digest,
-			);
-		expect(status).toBe(ProposalStatus.INVALID);
-	});
-
-	test('a proposal that expired no longer blocks its gas coin', async () => {
-		const { session, proposer, multisig, gasCoin } =
-			await setup();
-		const expired = await session.createProposal(
-			proposer,
-			multisig.address,
-			'localnet',
-			await transferValidDuring(multisig.address, gasCoin),
-		);
-
-		await advanceEpochs(2);
-		await session.createProposal(
-			proposer,
-			multisig.address,
-			'localnet',
-			await transferValidDuring(multisig.address, gasCoin, {
-				epochs: 3,
-			}),
-		);
-
-		const { status } =
-			await session.client.getProposalByDigest(
-				expired.digest,
-			);
-		expect(status).toBe(ProposalStatus.INVALID);
-	});
-
 	test("a proposal that hasn't expired stays pending", async () => {
-		const { session, proposer, multisig, gasCoin } =
+		const { session, proposer, multisig, coins } =
 			await setup();
 		const proposal = await session.createProposal(
 			proposer,
 			multisig.address,
 			'localnet',
-			await transferValidDuring(multisig.address, gasCoin),
+			await transferValidDuring(multisig.address, coins[0]),
 		);
 
 		await expect(
@@ -226,5 +215,61 @@ describe('Proposal Expiration', () => {
 				proposal.digest,
 			),
 		).rejects.toThrow(/has not been executed yet/);
+		expect(await statusOf(session, proposal.digest)).toBe(
+			ProposalStatus.PENDING,
+		);
 	});
+
+	test(
+		'proposals that expired are marked invalid',
+		async () => {
+			const { session, proposer, multisig, coins } =
+				await setup();
+			expect(coins.length).toBeGreaterThanOrEqual(2);
+			const [verified, replaced] = coins;
+
+			// Proposals only valid in the current epoch.
+			await waitForTimeLeftInEpoch(20_000);
+			const { epoch } = await currentEpoch();
+			const propose = async (gasCoin: CoinRef) =>
+				session.createProposal(
+					proposer,
+					multisig.address,
+					'localnet',
+					await transferValidDuring(
+						multisig.address,
+						gasCoin,
+						{ epochs: 0 },
+					),
+				);
+			const toVerify = await propose(verified);
+			const toReplace = await propose(replaced);
+
+			await waitForEpochAfter(epoch);
+
+			// Verifying one marks it invalid.
+			await session.client.verifyProposalByDigest(
+				toVerify.digest,
+			);
+			expect(await statusOf(session, toVerify.digest)).toBe(
+				ProposalStatus.INVALID,
+			);
+
+			// A new proposal can use the gas coin of another, which is marked
+			// invalid along the way.
+			await session.createProposal(
+				proposer,
+				multisig.address,
+				'localnet',
+				await transferValidDuring(
+					multisig.address,
+					replaced,
+				),
+			);
+			expect(
+				await statusOf(session, toReplace.digest),
+			).toBe(ProposalStatus.INVALID);
+		},
+		{ timeout: 120_000 },
+	);
 });

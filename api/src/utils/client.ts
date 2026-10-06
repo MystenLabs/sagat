@@ -104,6 +104,9 @@ type ChainInfo = {
 	chainIdentifier: string;
 };
 
+const CHAIN_INFO_TIMEOUT_MS = 10_000;
+const CHAIN_INFO_MIN_TTL_MS = 10_000;
+
 const chainInfos = new Map<
 	SuiNetwork,
 	{ expiresAt: number; chainInfo: Promise<ChainInfo> }
@@ -125,15 +128,24 @@ export const getChainInfo = (network: SuiNetwork) => {
 		// Shared by the requests that come in while it loads.
 		expiresAt: Infinity,
 		chainInfo: Promise.all([
-			client.getCurrentSystemState(),
+			client.getCurrentSystemState({
+				signal: AbortSignal.timeout(CHAIN_INFO_TIMEOUT_MS),
+			}),
 			knownChainIdentifier ??
 				client
-					.getChainIdentifier()
+					.getChainIdentifier({
+						signal: AbortSignal.timeout(
+							CHAIN_INFO_TIMEOUT_MS,
+						),
+					})
 					.then(({ chainIdentifier }) => chainIdentifier),
 		]).then(([{ systemState }, chainIdentifier]) => {
-			entry.expiresAt =
+			// Epochs can run late, so it's kept for a little while at least.
+			entry.expiresAt = Math.max(
 				Number(systemState.epochStartTimestampMs) +
-				Number(systemState.parameters.epochDurationMs);
+					Number(systemState.parameters.epochDurationMs),
+				Date.now() + CHAIN_INFO_MIN_TTL_MS,
+			);
 			return { systemState, chainIdentifier };
 		}),
 	};
