@@ -144,14 +144,23 @@ export const loadChainInfo = async (
 
 const EXPIRED = 'it has expired';
 
-// Why a transaction can never execute (it's bound to another network, or it
-// expired), or null if it still can. `chainInfo` must have been loaded for
-// it.
+// What the chain says about some transactions, looked up once so that
+// several checks can share it.
+export type ChainState = {
+	// The current state of each object the transactions use at an exact
+	// version, or null for one that no longer exists.
+	objects: Map<string, SuiClientTypes.Object | null>;
+	chainInfo: ChainNow | null;
+};
+
+// Why a transaction can never execute (it's bound to another network, it
+// expired, or an object it uses at an exact version has since moved to a
+// newer one), or null if it still can. `state` must have been loaded for it.
+// Note that executing the transaction itself moves its objects too.
 export const whyInvalid = (
 	tx: Transaction,
-	chainInfo: ChainNow | null,
+	{ objects, chainInfo }: ChainState,
 ) => {
-	if (!chainInfo) return null;
 	const { expiration } = tx.getData();
 	const chain =
 		expiration?.$kind === 'ValidDuring'
@@ -159,10 +168,20 @@ export const whyInvalid = (
 			: expiration?.$kind === 'Validity'
 				? expiration.Validity.chain
 				: null;
-	if (chain !== null && chain !== chainInfo.chainIdentifier)
+	if (
+		chainInfo &&
+		chain !== null &&
+		chain !== chainInfo.chainIdentifier
+	)
 		return 'it is for another network';
-	if (hasExpired(expiration, chainInfo.systemState))
+	if (
+		chainInfo &&
+		hasExpired(expiration, chainInfo.systemState)
+	)
 		return EXPIRED;
+	const moved = movedObjects(tx, objects);
+	if (moved.length > 0)
+		return `objects it uses have changed: ${moved.join(', ')}`;
 	return null;
 };
 
@@ -310,15 +329,6 @@ export const finalizeProposal = async (
 	return true;
 };
 
-// What the chain says about some transactions, looked up once so that
-// several checks can share it.
-export type ChainState = {
-	// The current state of each object the transactions use at an exact
-	// version, or null for one that no longer exists.
-	objects: Map<string, SuiClientTypes.Object | null>;
-	chainInfo: ChainNow | null;
-};
-
 export const loadChainState = async (
 	transactions: Transaction[],
 	network: SuiNetwork,
@@ -337,9 +347,9 @@ export const loadChainState = async (
 
 // Finalizes the pending proposals that can never execute, or already did
 // without being verified, where that's proven. Returns the ones still
-// pending, and of those the ones that still hold on to their objects: one
-// whose objects moved on doesn't, since a new proposal can only use the
-// newer versions, whether it executed or never will.
+// pending, and of those the ones that still hold on to their objects (one
+// that can never execute doesn't, even when that isn't proven enough to
+// finalize it).
 export const finalizeStaleProposals = async (
 	proposals: Proposal[],
 	// Loaded before looking the transactions up, so a transaction that
@@ -351,10 +361,8 @@ export const finalizeStaleProposals = async (
 			const tx = Transaction.from(
 				proposal.transactionBytes,
 			);
-			const invalidReason = whyInvalid(tx, state.chainInfo);
-			const moved =
-				movedObjects(tx, state.objects).length > 0;
-			if (!invalidReason && !moved)
+			const invalidReason = whyInvalid(tx, state);
+			if (!invalidReason)
 				return { finalized: false, holds: true };
 			// Best effort: one that isn't finalized stays pending.
 			const finalized = await finalizeProposal(

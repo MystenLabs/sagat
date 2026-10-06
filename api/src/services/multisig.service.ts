@@ -17,7 +17,6 @@ import { type SuiNetwork } from '../utils/client';
 import {
 	finalizeStaleProposals,
 	loadChainState,
-	movedObjects,
 	pinnedObjectRefs,
 	whyInvalid,
 } from './proposal-status.service';
@@ -225,19 +224,11 @@ export const validateProposedTransaction = async (
 	// Refuse a transaction that could never execute.
 	const invalidReason = whyInvalid(
 		proposedTransaction,
-		state.chainInfo,
+		state,
 	);
 	if (invalidReason)
 		throw new ValidationError(
 			`The transaction can never execute: ${invalidReason}.`,
-		);
-	const moved = movedObjects(
-		proposedTransaction,
-		state.objects,
-	);
-	if (moved.length > 0)
-		throw new ValidationError(
-			`The transaction can never execute: objects it uses have changed: ${moved.join(', ')}.`,
 		);
 
 	const { pending, holding } = await finalizeStaleProposals(

@@ -8,12 +8,16 @@ import {
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
+	afterAll,
+	beforeAll,
 	beforeEach,
 	describe,
 	expect,
+	spyOn,
 	test,
 } from 'bun:test';
 
+import * as apiClient from '../src/utils/client';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -227,6 +231,17 @@ describe('Object Collision Detection', () => {
 		).rejects.toThrow('not fully resolved');
 	});
 	describe('when objects move on', () => {
+		// Localnet prunes all but its last few seconds of transactions, so
+		// pretend its history goes back to the start.
+		let checkpointTimestamp: ReturnType<typeof spyOn>;
+		beforeAll(() => {
+			checkpointTimestamp = spyOn(
+				apiClient,
+				'getCheckpointTimestamp',
+			).mockResolvedValue(0);
+		});
+		afterAll(() => checkpointTimestamp.mockRestore());
+
 		// A 1-of-2 multisig, so every proposal is ready to execute right
 		// away, and one of its gas coins.
 		async function setup() {
@@ -310,6 +325,75 @@ describe('Object Collision Detection', () => {
 			return proposal.status;
 		}
 
+		test('verifying a proposal whose gas coin was spent elsewhere marks it invalid', async () => {
+			const { session, proposer, multisig, gasCoinId } =
+				await setup();
+			const proposal = await session.createProposal(
+				proposer,
+				multisig.address,
+				'localnet',
+				await transferWithGasCoin(
+					multisig.address,
+					gasCoinId,
+				),
+			);
+
+			await spendElsewhere(multisig, proposer, gasCoinId);
+			await session.client.verifyProposalByDigest(
+				proposal.digest,
+			);
+
+			expect(await statusOf(session, proposal.digest)).toBe(
+				ProposalStatus.INVALID,
+			);
+		});
+
+		test('a proposal whose object was deleted elsewhere stays pending', async () => {
+			// A missing object may just be one the node hasn't seen yet, so it
+			// doesn't prove anything.
+			const { session, proposer, multisig } = await setup();
+			const { objects: coins } = await client.listCoins({
+				owner: multisig.address,
+			});
+			expect(coins.length).toBeGreaterThanOrEqual(3);
+			const [gasCoin, coin, otherGasCoin] = coins;
+			const tx = new Transaction();
+			tx.setSender(multisig.address);
+			tx.setGasPayment([gasCoin]);
+			tx.transferObjects(
+				[tx.object(coin.objectId)],
+				multisig.address,
+			);
+			const proposal = await session.createProposal(
+				proposer,
+				multisig.address,
+				'localnet',
+				(await tx.build({ client })).toBase64(),
+			);
+
+			// Merging the coin into another one deletes it.
+			const merge = new Transaction();
+			merge.setSender(multisig.address);
+			merge.setGasPayment([otherGasCoin]);
+			merge.mergeCoins(merge.gas, [
+				merge.object(coin.objectId),
+			]);
+			await executeOutsideApi(
+				multisig,
+				proposer,
+				(await merge.build({ client })).toBase64(),
+			);
+
+			await expect(
+				session.client.verifyProposalByDigest(
+					proposal.digest,
+				),
+			).rejects.toThrow(/has not been executed yet/);
+			expect(await statusOf(session, proposal.digest)).toBe(
+				ProposalStatus.PENDING,
+			);
+		});
+
 		test('refuses a proposal whose gas coin changed since it was built', async () => {
 			const { session, proposer, multisig, gasCoinId } =
 				await setup();
@@ -357,7 +441,7 @@ describe('Object Collision Detection', () => {
 
 			// Whether it can never execute is for verifying it to decide.
 			expect(await statusOf(session, stale.digest)).toBe(
-				ProposalStatus.PENDING,
+				ProposalStatus.INVALID,
 			);
 			expect(await statusOf(session, next.digest)).toBe(
 				ProposalStatus.PENDING,

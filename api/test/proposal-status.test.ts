@@ -113,9 +113,12 @@ describe('hasExpired', () => {
 });
 
 describe('whyInvalid', () => {
-	const chainInfo = {
-		systemState: now,
-		chainIdentifier: 'this-network',
+	const state = {
+		objects: new Map(),
+		chainInfo: {
+			systemState: now,
+			chainIdentifier: 'this-network',
+		},
 	};
 
 	const boundTo = (
@@ -147,17 +150,14 @@ describe('whyInvalid', () => {
 			expect(
 				whyInvalid(
 					boundTo($kind, 'another-network'),
-					chainInfo,
+					state,
 				),
 			).toBe('it is for another network');
 		});
 
 		test(`a ${$kind} transaction for this network still can`, () => {
 			expect(
-				whyInvalid(
-					boundTo($kind, 'this-network'),
-					chainInfo,
-				),
+				whyInvalid(boundTo($kind, 'this-network'), state),
 			).toBeNull();
 		});
 	}

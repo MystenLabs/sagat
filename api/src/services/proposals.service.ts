@@ -20,7 +20,7 @@ import {
 import { getMultisig } from './multisig.service';
 import {
 	finalizeProposal,
-	loadChainInfo,
+	loadChainState,
 	whyInvalid,
 } from './proposal-status.service';
 
@@ -157,7 +157,9 @@ export const lookupAndVerifyProposal = async (
 	const transaction = Transaction.from(
 		proposal.transactionBytes,
 	);
-	const chainInfo = await loadChainInfo(
+	// Loaded before looking the transaction up, so a transaction that
+	// executes in between is seen on chain rather than marked invalid.
+	const state = await loadChainState(
 		[transaction],
 		proposal.network as SuiNetwork,
 	);
@@ -165,7 +167,7 @@ export const lookupAndVerifyProposal = async (
 	if (
 		!(await finalizeProposal(
 			proposal,
-			whyInvalid(transaction, chainInfo),
+			whyInvalid(transaction, state),
 		))
 	)
 		throw new ValidationError(

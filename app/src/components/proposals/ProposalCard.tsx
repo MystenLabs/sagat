@@ -81,7 +81,7 @@ const FINAL_STATUS_DETAILS: Partial<
 	[ProposalStatus.INVALID]: {
 		title: 'Proposal Invalid',
 		description:
-			'This proposal can no longer be executed, because it expired or is for another network.',
+			'This proposal can no longer be executed, because it expired, is for another network, or an object it uses has changed since it was proposed.',
 	},
 };
 
