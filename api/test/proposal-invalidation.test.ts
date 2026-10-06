@@ -5,8 +5,8 @@ import {
 	ProposalStatus,
 	type MultisigWithMembers,
 } from '@mysten/sagat';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
+import { fromBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -14,9 +14,10 @@ import {
 	test,
 } from 'bun:test';
 
-import { parsePublicKey } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
+	buildTransfer,
+	multisigSignature,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -35,8 +36,7 @@ describe('Proposal Invalidation', () => {
 	let framework: ApiTestFramework;
 
 	beforeEach(async () => {
-		const app = await createTestApp();
-		framework = new ApiTestFramework(app);
+		framework = new ApiTestFramework(await createTestApp());
 	});
 
 	// A 1-of-2 multisig, so every proposal is ready to execute right away,
@@ -44,14 +44,14 @@ describe('Proposal Invalidation', () => {
 	async function setup() {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 1);
-		const coins = await client.listCoins({
+		const { objects: coins } = await client.listCoins({
 			owner: multisig.address,
 		});
 		return {
 			session,
 			proposer: users[0],
 			multisig,
-			gasCoinId: coins.objects[0].objectId,
+			gasCoinId: coins[0].objectId,
 		};
 	}
 
@@ -60,23 +60,15 @@ describe('Proposal Invalidation', () => {
 	async function transferWithGasCoin(
 		multisigAddress: string,
 		gasCoinId: string,
-		amount = 1_000_000,
+		amount?: number,
 	) {
-		const { object } = await client.getObject({
+		const { object: gasCoin } = await client.getObject({
 			objectId: gasCoinId,
 		});
-		const tx = new Transaction();
-		tx.setSender(multisigAddress);
-		tx.setGasPayment([
-			{
-				objectId: object.objectId,
-				version: object.version,
-				digest: object.digest,
-			},
-		]);
-		const [coin] = tx.splitCoins(tx.gas, [amount]);
-		tx.transferObjects([coin], multisigAddress);
-		return (await tx.build({ client })).toBase64();
+		return buildTransfer(multisigAddress, {
+			gasCoin,
+			amount,
+		});
 	}
 
 	// Executes a transaction as the multisig, without going through the API.
@@ -85,24 +77,15 @@ describe('Proposal Invalidation', () => {
 		signer: TestUser,
 		transactionBytes: string,
 	) {
-		const multisigKey = MultiSigPublicKey.fromPublicKeys({
-			threshold: multisig.threshold,
-			publicKeys: [...multisig.members]
-				.sort((a, b) => a.order - b.order)
-				.map((member) => ({
-					publicKey: parsePublicKey(member.publicKey),
-					weight: member.weight,
-				})),
-		});
-		const bytes = await Transaction.from(
-			transactionBytes,
-		).build({ client });
+		const bytes = fromBase64(transactionBytes);
 		const { signature } =
 			await signer.keypair.signTransaction(bytes);
 		const result = await client.executeTransaction({
 			transaction: bytes,
 			signatures: [
-				multisigKey.combinePartialSignatures([signature]),
+				multisigSignature(multisig, [
+					{ publicKey: signer.publicKey, signature },
+				]),
 			],
 		});
 		if (result.$kind !== 'Transaction')
@@ -133,9 +116,8 @@ describe('Proposal Invalidation', () => {
 		session: TestSession,
 		digest: string,
 	) {
-		const proposal = await session
-			.getStatefulClient()
-			.getProposalByDigest(digest);
+		const proposal =
+			await session.client.getProposalByDigest(digest);
 		return proposal.status;
 	}
 
@@ -153,9 +135,9 @@ describe('Proposal Invalidation', () => {
 		);
 
 		await spendElsewhere(multisig, proposer, gasCoinId);
-		await session
-			.getStatefulClient()
-			.verifyProposalByDigest(proposal.digest);
+		await session.client.verifyProposalByDigest(
+			proposal.digest,
+		);
 
 		expect(await statusOf(session, proposal.digest)).toBe(
 			ProposalStatus.INVALID,
@@ -202,13 +184,7 @@ describe('Proposal Invalidation', () => {
 			owner: multisig.address,
 		});
 		expect(coins.length).toBeGreaterThanOrEqual(3);
-		const [gasCoin, coin, otherGasCoin] = coins.map(
-			({ objectId, version, digest }) => ({
-				objectId,
-				version,
-				digest,
-			}),
-		);
+		const [gasCoin, coin, otherGasCoin] = coins;
 		const tx = new Transaction();
 		tx.setSender(multisig.address);
 		tx.setGasPayment([gasCoin]);
@@ -237,9 +213,9 @@ describe('Proposal Invalidation', () => {
 		);
 
 		await expect(
-			session
-				.getStatefulClient()
-				.verifyProposalByDigest(proposal.digest),
+			session.client.verifyProposalByDigest(
+				proposal.digest,
+			),
 		).rejects.toThrow(/has not been executed yet/);
 		expect(await statusOf(session, proposal.digest)).toBe(
 			ProposalStatus.PENDING,
