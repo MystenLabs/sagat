@@ -230,9 +230,9 @@ export const validateProposedTransaction = async (
 		);
 	}
 
-	// The owned or receiving objects the pending proposals use (immutable
-	// ones can be shared). Make sure we do not have any of these in our
-	// proposal.
+	// The objects the pending proposals pin at a version, except immutable
+	// ones, which can be shared. One the node didn't return stays held.
+	// Make sure we do not have any of these in our proposal.
 	const objectIds = (tx: Transaction) =>
 		pinnedObjectRefs(tx).map((ref) => ref.objectId);
 	const pendingOwnedObjects = new Set(
@@ -242,8 +242,8 @@ export const validateProposedTransaction = async (
 			)
 			.filter(
 				(objectId) =>
-					state.objects.get(objectId)?.owner.$kind ===
-					'AddressOwner',
+					state.objects.get(objectId)?.owner.$kind !==
+					'Immutable',
 			),
 	);
 	const reusedObjects = objectIds(
