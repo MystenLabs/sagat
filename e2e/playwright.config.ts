@@ -9,11 +9,9 @@ const isCI = !!process.env.CI;
 
 // Start the local network on the ports the configured URLs point at.
 const suiCommand = [
-	'sui start --force-regenesis',
-	`--fullnode-rpc-port ${new URL(E2E.rpcUrl).port || 9000}`,
-	`--with-faucet=${new URL(E2E.faucetUrl).port || 9123}`,
-	// Long epochs so an epoch change never lands mid-test.
-	'--epoch-duration-ms 3600000',
+	'./start-localnet.sh',
+	new URL(E2E.rpcUrl).port || 9000,
+	new URL(E2E.faucetUrl).port || 9123,
 ].join(' ');
 
 const appCommand =
