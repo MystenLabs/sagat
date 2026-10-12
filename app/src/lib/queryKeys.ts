@@ -15,4 +15,5 @@ export const QueryKeys = {
 	All: 'all',
 	Executed: 'executed',
 	Invitations: 'invitations',
+	EpochInfo: 'epoch-info',
 } as const;

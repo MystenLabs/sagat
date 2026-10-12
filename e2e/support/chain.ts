@@ -19,6 +19,10 @@ export type GasCoin = {
 };
 
 // Reads and funds accounts on the local network, independently of the app.
+export type Expiration = Parameters<
+	Transaction['setExpiration']
+>[0];
+
 export class Chain {
 	readonly client = new SuiGrpcClient({
 		network: 'localnet',
@@ -87,6 +91,12 @@ export class Chain {
 			}));
 	}
 
+	async epoch() {
+		const { systemState } =
+			await this.client.getCurrentSystemState();
+		return Number(systemState.epoch);
+	}
+
 	// The SUI coins `owner` holds, as gas payment references.
 	async coins(owner: string) {
 		const { objects } = await this.client.listCoins({
@@ -114,15 +124,18 @@ export class Chain {
 		recipient,
 		amount,
 		gasCoin,
+		expiration,
 	}: {
 		sender: string;
 		recipient: string;
 		amount: bigint;
 		gasCoin?: GasCoin;
+		expiration?: Expiration;
 	}) {
 		const tx = new Transaction();
 		tx.setSender(sender);
 		if (gasCoin) tx.setGasPayment([gasCoin]);
+		if (expiration) tx.setExpiration(expiration);
 		const [coin] = tx.splitCoins(tx.gas, [amount]);
 		tx.transferObjects([coin], recipient);
 		return toBase64(
