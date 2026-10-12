@@ -207,13 +207,6 @@ export const validateProposedTransaction = async (
 		);
 	}
 
-	// Make sure the transaction is fully resolved. We do not currently allow unresolved txs.
-	if (!proposedTransaction.isFullyResolved()) {
-		throw new ValidationError(
-			'The transaction is not fully resolved.',
-		);
-	}
-
 	//   Fail early on duplicats, avoid doing RPC calls.
 	const digest = await proposedTransaction.getDigest();
 	if (pendingProposals.some((p) => p.digest === digest)) {
