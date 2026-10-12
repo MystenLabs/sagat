@@ -6,8 +6,8 @@ verifies them and the chain executes the transactions.
 
 ## Running
 
-You need the `sui` CLI (`suiup install sui@mainnet`, then `sui client -y envs`
-once to create its config) and a Postgres server. Then,
+You need the `sui` CLI, 1.74.1 or later (`suiup install sui@mainnet`, then
+`sui client -y envs` once to create its config), and a Postgres server. Then,
 from the repo root:
 
 ```sh
@@ -19,14 +19,16 @@ bun run test                       # or: bun run test:ui / bun run test:headed
 
 Playwright starts everything it needs and stops it afterwards:
 
-| Server    | Command                                         | URL                     |
-| --------- | ----------------------------------------------- | ----------------------- |
-| Local Sui | `sui start --force-regenesis --with-faucet`     | `http://127.0.0.1:9000` |
-| API       | builds the SDK, prepares the DB, starts the API | `http://localhost:3100` |
-| App       | Vite dev server (CI: production build)          | `http://localhost:4173` |
+| Server    | Command                                          | URL                     |
+| --------- | ------------------------------------------------ | ----------------------- |
+| Local Sui | `start-localnet.sh` (`sui start`, keeps history) | `http://127.0.0.1:9000` |
+| API       | builds the SDK, prepares the DB, starts the API  | `http://localhost:3100` |
+| App       | Vite dev server (CI: production build)           | `http://localhost:4173` |
 
-Anything already listening on those URLs is reused locally, so a running
-`sui start --with-faucet` is picked up. The ports don't clash with `bun dev`.
+Anything already listening on those URLs is reused locally. The ports don't
+clash with `bun dev`. A plain `sui start` isn't enough: its fullnode prunes
+aggressively, so transactions stop being readable seconds after they land, and
+global setup refuses it. Stop it, or keep one from `./start-localnet.sh 9000 9123` running.
 
 Configuration (all optional):
 
