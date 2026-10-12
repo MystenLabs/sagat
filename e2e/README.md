@@ -6,7 +6,8 @@ verifies them and the chain executes the transactions.
 
 ## Running
 
-You need the `sui` CLI (`suiup install sui@mainnet`) and a Postgres server. Then,
+You need the `sui` CLI (`suiup install sui@mainnet`, then `sui client -y envs`
+once to create its config) and a Postgres server. Then,
 from the repo root:
 
 ```sh
