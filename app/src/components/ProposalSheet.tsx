@@ -250,6 +250,7 @@ function ProposalSheetBody({
 						},
 					]}
 					activeTab={mode}
+					testId="proposal-mode"
 					onTabChange={(next) => {
 						const nextMode = next as Mode;
 						if (nextMode === mode) return;

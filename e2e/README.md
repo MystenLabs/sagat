@@ -75,6 +75,11 @@ helpers in `support/scenarios.ts` (`setupMultisig`, `proposeTransfer`,
 `signProposal`) use them to set up state fast; drive the flow under test
 through the UI.
 
+**A second coin.** Global setup publishes `move/test_coin`, a 6-decimal TEST
+coin anyone can mint from a shared faucet. `mintTestCoin(chain, address,
+amounts)` in `support/test-coin.ts` sends it, for flows that need a coin other
+than SUI.
+
 Fresh keys mean fresh multisig addresses, so tests never share state and run in
 parallel against one database and chain.
 
