@@ -18,11 +18,11 @@ export type GasCoin = {
 	digest: string;
 };
 
-// Reads and funds accounts on the local network, independently of the app.
 export type Expiration = Parameters<
 	Transaction['setExpiration']
 >[0];
 
+// Reads and funds accounts on the local network, independently of the app.
 export class Chain {
 	readonly client = new SuiGrpcClient({
 		network: 'localnet',

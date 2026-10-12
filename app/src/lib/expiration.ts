@@ -26,14 +26,14 @@ export function getExpiry(
 	if (lastEpoch === null) return null;
 
 	const epochsLeft = lastEpoch - BigInt(now.epoch) + 1n;
-	return {
-		lastEpoch,
-		expired: epochsLeft <= 0n,
-		endsAt: new Date(
-			Number(now.epochStartTimestampMs) +
-				Number(epochsLeft) * Number(now.epochDurationMs),
-		),
-	};
+	const endsAt = new Date(
+		Number(now.epochStartTimestampMs) +
+			Number(epochsLeft) * Number(now.epochDurationMs),
+	);
+	// Too far in the future to be a date, so as good as never.
+	if (Number.isNaN(endsAt.getTime())) return null;
+
+	return { lastEpoch, expired: epochsLeft <= 0n, endsAt };
 }
 
 function getLastEpoch(transactionBytes: string) {

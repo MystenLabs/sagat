@@ -90,6 +90,19 @@ describe('getExpiry', () => {
 			getExpiry(await transfer({ Epoch: 9 }), now)?.expired,
 		).toBe(true);
 	});
+
+	test('one that expires too far in the future to be a date never does', async () => {
+		const oneDay = {
+			...now,
+			epochDurationMs: String(24 * 60 * 60 * 1000),
+		};
+		expect(
+			getExpiry(
+				await transfer({ Epoch: 200_000_000 }),
+				oneDay,
+			),
+		).toBeNull();
+	});
 });
 
 describe('formatTimeLeft', () => {
