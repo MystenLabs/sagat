@@ -1,23 +1,34 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { Transaction } from '@mysten/sui/transactions';
 
 import { type Chain } from './chain';
 import { PATHS } from './paths';
 
-// TEST, a 6-decimal coin other than SUI that anyone can mint
-// (`move/test_coin`). Its compiled bytecode is checked in; `bun run build:move`
-// rebuilds it.
+// TEST, a coin other than SUI that anyone can mint (`move/test_coin`).
+export const TEST_COIN_DECIMALS = 6;
+
 export type TestCoin = { type: string; faucetId: string };
 
-// Publishes the compiled package. Global setup runs this once per run.
+// Builds and publishes the package. Global setup runs this once per run.
 export async function publishTestCoin(
 	chain: Chain,
 ): Promise<TestCoin> {
 	const { modules, dependencies } = JSON.parse(
-		await readFile(PATHS.testCoinBytecode, 'utf8'),
+		execFileSync(
+			'sui',
+			[
+				'move',
+				'build',
+				'--dump-bytecode-as-base64',
+				'--path',
+				PATHS.testCoinPackage,
+			],
+			// Piped so a failed build's output ends up in the error.
+			{ encoding: 'utf8', stdio: 'pipe' },
+		),
 	) as { modules: string[]; dependencies: string[] };
 
 	const tx = new Transaction();

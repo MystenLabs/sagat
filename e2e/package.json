@@ -7,8 +7,7 @@
 		"test:ui": "playwright test --ui",
 		"test:headed": "playwright test --headed",
 		"report": "playwright show-report",
-		"typecheck": "tsc --noEmit",
-		"build:move": "sui move build --dump-bytecode-as-base64 --path move/test_coin > move/test_coin/bytecode.json"
+		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
 		"@mysten-incubation/dev-wallet": "0.6.0",

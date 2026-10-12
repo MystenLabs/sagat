@@ -23,9 +23,6 @@ e2e/test-results
 e2e/playwright-report
 e2e/blob-report
 
-# Compiled Move package (bun run build:move)
-e2e/move/*/bytecode.json
-
 # Drizzle generated files
 **/drizzle/meta/*.json
 
