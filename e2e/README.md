@@ -26,9 +26,11 @@ Playwright starts everything it needs and stops it afterwards:
 | App       | Vite dev server (CI: production build)           | `http://localhost:4173` |
 
 Anything already listening on those URLs is reused locally. The ports don't
-clash with `bun dev`. A plain `sui start` isn't enough: its fullnode prunes
-aggressively, so transactions stop being readable seconds after they land, and
-global setup refuses it. Stop it, or keep one from `./start-localnet.sh 9000 9123` running.
+clash with `bun dev`. Don't reuse a plain `sui start`: an hour after it starts,
+its fullnode prunes aggressively, so transactions stop being readable seconds
+after they land. Global setup refuses one that is already pruning, but not one
+that starts pruning mid-run. Stop it, or keep one from
+`./start-localnet.sh 9000 9123` running.
 
 Configuration (all optional):
 
