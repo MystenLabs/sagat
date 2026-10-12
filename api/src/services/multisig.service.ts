@@ -174,18 +174,18 @@ export const getPendingProposals = async (
 
 // Extracts all the owned or receiving objects from a supplied transaction.
 export const extractOwnedObjects = (tx: Transaction) => {
+	const { inputs, gasData } = tx.getData();
 	return [
-		...tx
-			.getData()
-			.inputs.filter(
-				(x) =>
-					x.$kind === 'Object' &&
-					x.Object.$kind === 'ImmOrOwnedObject',
-			)
-			.map((x) => x.Object!.ImmOrOwnedObject!.objectId),
-		...(tx
-			.getData()
-			.gasData?.payment?.map((x) => x.objectId) || []),
+		...inputs.flatMap((input) =>
+			input.$kind !== 'Object'
+				? []
+				: input.Object.$kind === 'ImmOrOwnedObject'
+					? [input.Object.ImmOrOwnedObject.objectId]
+					: input.Object.$kind === 'Receiving'
+						? [input.Object.Receiving.objectId]
+						: [],
+		),
+		...(gasData?.payment?.map((x) => x.objectId) || []),
 	];
 };
 
