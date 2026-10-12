@@ -11,4 +11,5 @@ export const PATHS = {
 	walletEntry: `${e2eRoot}wallet/inject.ts`,
 	// Built by global-setup.ts; gitignored.
 	walletBundle: `${e2eRoot}.cache/e2e-wallet.js`,
+	testCoinPackage: `${e2eRoot}move/test_coin`,
 };

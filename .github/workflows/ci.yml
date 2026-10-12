@@ -202,6 +202,10 @@ jobs:
           suiup install sui@mainnet -y
           sui --version
 
+      # Global setup builds a Move package, which needs a client config.
+      - name: Create Sui client config
+        run: sui client -y envs
+
       - name: Install Playwright Chromium
         run: bunx playwright install --with-deps chromium
         working-directory: e2e

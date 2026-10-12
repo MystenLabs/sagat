@@ -66,6 +66,7 @@ export function AssetPicker({
 				onClick={() => setOpen((v) => !v)}
 				aria-haspopup="listbox"
 				aria-expanded={open}
+				data-testid="asset-picker-button"
 				className="block w-full text-left cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
 			>
 				{isLoading && !selected ? (
@@ -133,6 +134,8 @@ function AssetOption({
 				role="option"
 				aria-selected={isSelected}
 				onClick={() => onSelect(balance.coinType)}
+				data-testid="asset-picker-option"
+				data-coin-type={balance.coinType}
 				className="block w-full text-left cursor-pointer"
 			>
 				<AssetCard

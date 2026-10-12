@@ -47,8 +47,6 @@ export class Chain {
 		address: string,
 		{ count, amount }: { count: number; amount: bigint },
 	) {
-		const funder = new Ed25519Keypair();
-		await this.fund(funder.toSuiAddress());
 		const tx = new Transaction();
 		const coins = tx.splitCoins(
 			tx.gas,
@@ -58,18 +56,35 @@ export class Chain {
 			Array.from({ length: count }, (_, i) => coins[i]),
 			address,
 		);
+		await this.executeAsFunder(tx);
+		return this.coins(address);
+	}
+
+	// Executes `tx` from a fresh account the faucet funds, and returns the
+	// objects it created, with their types.
+	async executeAsFunder(tx: Transaction) {
+		const funder = new Ed25519Keypair();
+		await this.fund(funder.toSuiAddress());
 		const result =
 			await this.client.signAndExecuteTransaction({
 				transaction: tx,
 				signer: funder,
-				include: { effects: true },
+				include: { effects: true, objectTypes: true },
 			});
 		if (result.$kind !== 'Transaction')
-			throw new Error('Funding transaction failed');
+			throw new Error(
+				`Transaction failed: ${JSON.stringify(result.FailedTransaction.status)}`,
+			);
 		await this.client.waitForTransaction({
 			digest: result.Transaction.digest,
 		});
-		return this.coins(address);
+		const { effects, objectTypes } = result.Transaction;
+		return effects.changedObjects
+			.filter((o) => o.idOperation === 'Created')
+			.map((o) => ({
+				objectId: o.objectId,
+				type: objectTypes[o.objectId],
+			}));
 	}
 
 	// The SUI coins `owner` holds, as gas payment references.

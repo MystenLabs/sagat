@@ -4,6 +4,7 @@
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import { setupMultisig } from '../support/scenarios';
+import { mintTestCoin } from '../support/test-coin';
 
 test.describe('transfer form', () => {
 	test('refuses an amount above the balance', async ({
@@ -114,5 +115,77 @@ test.describe('transfer form', () => {
 		expect(await chain.balance(recipient)).toBe(
 			funded - (await chain.gasCost(digest!)),
 		);
+	});
+
+	test('sends a coin other than SUI, picked in the panel', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 1,
+		});
+		await chain.fund(multisig.address);
+		// 10 TEST in each of three coins, so sending 12.5 merges coins.
+		const coinType = await mintTestCoin(
+			chain,
+			multisig.address,
+			[10_000_000n, 10_000_000n, 10_000_000n],
+		);
+		const recipient = randomAddress();
+
+		await alice.signIn();
+		await alice.page
+			.getByTestId('new-proposal-button')
+			.click();
+		const sheet = alice.page.getByTestId('proposal-sheet');
+		await sheet
+			.getByTestId('proposal-mode-transfer')
+			.click();
+		await sheet.getByTestId('asset-picker-button').click();
+		await sheet
+			.locator(
+				`[data-testid="asset-picker-option"][data-coin-type="${coinType}"]`,
+			)
+			.click();
+		await sheet
+			.getByTestId('transfer-recipient-input')
+			.fill(recipient);
+		await sheet
+			.getByTestId('transfer-amount-input')
+			.fill('12.5');
+		await sheet
+			.getByTestId('transfer-preview-button')
+			.click();
+		await expect(
+			sheet.getByTestId('transaction-preview-result'),
+		).toHaveAttribute('data-result', 'success');
+		await sheet
+			.getByTestId('create-proposal-submit')
+			.click();
+		await expect(sheet).toBeHidden();
+
+		await alice.page
+			.getByTestId('multisig-tab-proposals')
+			.click();
+		const card = alice.page.getByTestId('proposal-card');
+		await card
+			.getByTestId('execute-proposal-button')
+			.click();
+		await expect(card).toHaveAttribute(
+			'data-status',
+			'executed',
+		);
+
+		expect(await chain.balance(recipient, coinType)).toBe(
+			12_500_000n,
+		);
+		expect(
+			await chain.balance(multisig.address, coinType),
+		).toBe(17_500_000n);
 	});
 });

@@ -1,0 +1,3 @@
+[package]
+name = "test_coin"
+edition = "2024"
