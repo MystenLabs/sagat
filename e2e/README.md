@@ -76,7 +76,8 @@ helpers in `support/scenarios.ts` (`setupMultisig`, `proposeTransfer`,
 through the UI.
 
 **A second coin.** Global setup publishes `move/test_coin`, a 6-decimal TEST
-coin anyone can mint from a shared faucet. `mintTestCoin(chain, address,
+coin anyone can mint from a shared faucet. Its compiled bytecode is checked in;
+run `bun run build:move` after changing the Move source. `mintTestCoin(chain, address,
 amounts)` in `support/test-coin.ts` sends it, for flows that need a coin other
 than SUI.
 
