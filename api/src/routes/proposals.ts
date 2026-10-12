@@ -48,7 +48,6 @@ import {
 	getProposalsByMultisigAddress,
 	lookupAndVerifyProposal,
 } from '../services/proposals.service';
-import { getSuiClient } from '../utils/client';
 import { newCursor } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 
@@ -88,22 +87,16 @@ proposalsRouter.post('/', async (c) => {
 		transactionBytes,
 	);
 
-	// Validate the proposed transaction for:
-	// 1. No other pending proposal with the same owned objects in them.
-	// 2. The transaction is fully resolved.
-	// 3. The transaction is not already in a pending proposal.
-	await validateProposedTransaction(
-		proposedTransaction,
-		multisigAddress,
-		network,
-	);
+	// We do not currently allow unresolved txs, and resolving one would need
+	// RPC calls.
+	if (!proposedTransaction.isFullyResolved())
+		throw new ValidationError(
+			'The transaction is not fully resolved.',
+		);
 
-	// Build the transaction to verify the supplied user signature
-	const built = await proposedTransaction.build({
-		client: getSuiClient(network),
-	});
-
-	// Verify the supplied user signature.
+	// Verify the supplied user signature before doing any RPC work for the
+	// request. A fully resolved transaction builds without a client.
+	const built = await proposedTransaction.build();
 	const isValidSuiSignature =
 		await pubKey.verifyTransaction(built, signature);
 
@@ -111,6 +104,15 @@ proposalsRouter.post('/', async (c) => {
 		throw new ValidationError(
 			'Invalid Sui signature for the proposed transaction.',
 		);
+
+	// Validate the proposed transaction for:
+	// 1. No other pending proposal with the same owned objects in them.
+	// 2. The transaction is not already in a pending proposal.
+	await validateProposedTransaction(
+		proposedTransaction,
+		multisigAddress,
+		network,
+	);
 
 	// Insert the proposal and the first sig!
 	const proposal = await db.transaction(async (tx) => {

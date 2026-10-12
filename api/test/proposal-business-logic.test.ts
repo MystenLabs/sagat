@@ -18,6 +18,7 @@ import {
 	newUser,
 	sendCoins,
 } from './framework/api-test-framework';
+import { rpcCalls } from './setup/rpc-calls';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -60,6 +61,34 @@ describe('Proposal Business Logic', () => {
 					signature,
 				}),
 			).rejects.toThrow(/Invalid Sui signature/);
+		});
+
+		test('checks the signature before any RPC work', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			// A pending proposal, whose objects a new one is checked against.
+			await session.proposeTransfer(
+				users[0],
+				multisig.address,
+			);
+
+			const { signature } =
+				await users[0].keypair.signTransaction(
+					fromBase64(await buildTransfer(multisig.address)),
+				);
+			const before = await rpcCalls('getObjects');
+			await expect(
+				session.client.createProposal({
+					multisigAddress: multisig.address,
+					network: 'localnet',
+					transactionBytes: await buildTransfer(
+						multisig.address,
+						{ amount: 999_999 },
+					),
+					signature,
+				}),
+			).rejects.toThrow(/Invalid Sui signature/);
+			expect(await rpcCalls('getObjects')).toBe(before);
 		});
 
 		test('prevents duplicate proposals with same transaction digest', async () => {
