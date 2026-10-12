@@ -54,11 +54,14 @@ describe('Proposal Expiration', () => {
 	});
 	afterAll(() => checkpointTimestamp.mockRestore());
 
-	// A 1-of-2 multisig, so every proposal is ready to execute right away,
-	// and its gas coins.
-	async function setup() {
+	// A multisig of two (by default 1-of-2, so every proposal is ready to
+	// execute right away), and its gas coins.
+	async function setup(threshold = 1) {
 		const { session, users, multisig } =
-			await framework.createFundedVerifiedMultisig(2, 1);
+			await framework.createFundedVerifiedMultisig(
+				2,
+				threshold,
+			);
 		const { objects: coins } = await client.listCoins({
 			owner: multisig.address,
 		});
@@ -223,8 +226,9 @@ describe('Proposal Expiration', () => {
 	test(
 		'proposals that expired are marked invalid',
 		async () => {
+			// 2-of-2, so the proposals never get enough signatures.
 			const { session, proposer, multisig, coins } =
-				await setup();
+				await setup(2);
 			expect(coins.length).toBeGreaterThanOrEqual(2);
 			const [verified, replaced] = coins;
 

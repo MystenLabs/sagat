@@ -149,11 +149,6 @@ export const lookupAndVerifyProposal = async (
 		0,
 	);
 
-	if (multisig.threshold > currentWeight)
-		throw new ValidationError(
-			'Proposal is not ready to execute',
-		);
-
 	const transaction = Transaction.from(
 		proposal.transactionBytes,
 	);
@@ -161,13 +156,15 @@ export const lookupAndVerifyProposal = async (
 		[transaction],
 		proposal.network as SuiNetwork,
 	);
+	const invalidReason = whyInvalid(transaction, chainInfo);
 
-	if (
-		!(await finalizeProposal(
-			proposal,
-			whyInvalid(transaction, chainInfo),
-		))
-	)
+	// One that can never execute is finalized whatever its signatures.
+	if (!invalidReason && multisig.threshold > currentWeight)
+		throw new ValidationError(
+			'Proposal is not ready to execute',
+		);
+
+	if (!(await finalizeProposal(proposal, invalidReason)))
 		throw new ValidationError(
 			'The transaction has not been executed yet.',
 		);
