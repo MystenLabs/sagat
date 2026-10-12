@@ -8,8 +8,6 @@ import { type Chain } from './chain';
 import { PATHS } from './paths';
 
 // TEST, a coin other than SUI that anyone can mint (`move/test_coin`).
-export const TEST_COIN_DECIMALS = 6;
-
 export type TestCoin = { type: string; faucetId: string };
 
 // Builds and publishes the package. Global setup runs this once per run.
