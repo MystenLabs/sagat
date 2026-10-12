@@ -10,7 +10,11 @@ import {
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 
-import { type Chain, type GasCoin } from './chain';
+import {
+	type Chain,
+	type Expiration,
+	type GasCoin,
+} from './chain';
 import { type Identity } from './identity';
 
 // Creates a multisig with `creator` as its first member. Unless `accept` is
@@ -80,12 +84,14 @@ export async function proposeTransfer(
 		amount,
 		description,
 		gasCoin,
+		expiration,
 	}: {
 		multisigAddress: string;
 		recipient: string;
 		amount: bigint;
 		description?: string;
 		gasCoin?: GasCoin;
+		expiration?: Expiration;
 	},
 ) {
 	const transactionBytes = await chain.buildSuiTransfer({
@@ -93,6 +99,7 @@ export async function proposeTransfer(
 		recipient,
 		amount,
 		gasCoin,
+		expiration,
 	});
 	return proposer.api.createProposal({
 		multisigAddress,

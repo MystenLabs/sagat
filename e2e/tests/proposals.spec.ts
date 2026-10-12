@@ -113,6 +113,55 @@ test.describe('proposals', () => {
 		).toHaveAttribute('data-status', 'executed');
 	});
 
+	test('pending proposals show when they expire', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const [expiringGas, lastingGas] = await chain.coins(
+			multisig.address,
+		);
+		const transfer = {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		};
+		// Only valid until the end of the next epoch.
+		const expiring = await proposeTransfer(chain, alice, {
+			...transfer,
+			gasCoin: expiringGas,
+			expiration: { Epoch: (await chain.epoch()) + 1 },
+		});
+		const lasting = await proposeTransfer(chain, alice, {
+			...transfer,
+			gasCoin: lastingGas,
+			expiration: { None: true },
+		});
+
+		await bob.signIn();
+		const expiry = bob
+			.proposalCard(expiring.digest)
+			.getByTestId('proposal-expiry');
+		await expect(expiry).toHaveText(/^Expires in /);
+		await expiry.hover();
+		await expect(
+			bob.page.getByRole('tooltip'),
+		).toContainText('it has to be proposed again');
+		const lastingCard = bob.proposalCard(lasting.digest);
+		await expect(lastingCard).toBeVisible();
+		await expect(
+			lastingCard.getByTestId('proposal-expiry'),
+		).toHaveCount(0);
+	});
+
 	test('a member cancels a pending proposal', async ({
 		createActor,
 		createIdentity,

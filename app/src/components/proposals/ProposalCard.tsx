@@ -46,6 +46,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from '../ui/tooltip';
+import { ProposalExpiry } from './ProposalExpiry';
 import { ProposalPreview } from './ProposalPreview';
 
 interface ProposalCardProps {
@@ -210,6 +211,14 @@ export function ProposalCard({
 							{getProposalTitle()}
 						</h4>
 						{getStatusBadge()}
+						{proposal.status === ProposalStatus.PENDING &&
+							!isNetworkMismatch && (
+								<ProposalExpiry
+									transactionBytes={
+										proposal.transactionBytes
+									}
+								/>
+							)}
 						{getSignatureStatus()}
 						{isExternalProposer() && (
 							<Label variant="purple">
