@@ -298,6 +298,29 @@ describe('Proposal Business Logic', () => {
 				),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
 		});
+
+		test('an invited member who has not accepted can still vote', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(1);
+			const invitee = newUser();
+			const multisig = await session.createMultisig(
+				[users[0], invitee],
+				2,
+				{ fund: true },
+			);
+
+			const proposal = await session.proposeTransfer(
+				users[0],
+				multisig.address,
+			);
+			expect(
+				await session.voteOnProposal(
+					invitee,
+					proposal.id,
+					proposal.transactionBytes,
+				),
+			).toEqual({ hasReachedThreshold: true });
+		});
 	});
 
 	describe('Proposer Access Control', () => {
@@ -362,6 +385,35 @@ describe('Proposal Business Logic', () => {
 
 			await expect(
 				session.proposeTransfer(proposer, multisig.address),
+			).rejects.toThrow(AuthErrors.NotAMultisigMember);
+		});
+
+		test('a proposer can propose but cannot list or verify proposals by id', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const proposer = newUser();
+
+			await session.addProposer(
+				users[0],
+				proposer.address,
+				multisig.address,
+			);
+			const proposed = await session.proposeTransfer(
+				proposer,
+				multisig.address,
+			);
+
+			const proposerSession = framework.createSession();
+			await proposerSession.connectUser(proposer);
+			await expect(
+				proposerSession.client.getProposals(
+					multisig.address,
+					'localnet',
+					{},
+				),
+			).rejects.toThrow(AuthErrors.NotAMultisigMember);
+			await expect(
+				proposerSession.client.verifyProposal(proposed.id),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
 		});
 	});

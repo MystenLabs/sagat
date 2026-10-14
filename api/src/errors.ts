@@ -26,6 +26,21 @@ export class ApiAuthError extends Error {
 // Generic error for unknown errors
 export class ValidationError extends Error {}
 
+// A needed alias refresh failed, so an access decision cannot be made.
+export class AliasStateUnavailableError extends Error {
+	constructor(
+		accountAddress: string,
+		network: string,
+		options?: { cause?: unknown },
+	) {
+		super(
+			`Could not read the alias set of ${accountAddress} on ${network} from chain. Try again later.`,
+			options,
+		);
+		this.name = 'AliasStateUnavailableError';
+	}
+}
+
 export const AuthErrors = {
 	NotAMultisigMember:
 		'Proposer is either not a member of the multisig, or has not accepted the invitation to the multisig.',
@@ -64,6 +79,9 @@ export const appErrorHandler: ErrorHandler = (err, c) => {
 			);
 		}
 	}
+
+	if (err instanceof AliasStateUnavailableError)
+		return c.json({ error: err.message }, 503);
 
 	if (err instanceof NotFoundError)
 		return c.json(
