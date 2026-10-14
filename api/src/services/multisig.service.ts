@@ -8,21 +8,43 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import {
 	ProposalStatus,
-	SchemaMultisigMembers,
+	SchemaAccounts,
 	SchemaProposals,
+	SchemaSignerSetMembers,
 } from '../db/schema';
 import { NotFoundError, ValidationError } from '../errors';
-import { MultisigDataLoader } from '../loaders/multisig.loader';
+import { toLegacyMultisigWithMembers } from '../legacy/serializers';
+import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
+import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import {
 	queryAllOwnedObjects,
 	type SuiNetwork,
 } from '../utils/client';
 
-// Returns the multisig with its members.
-export const getMultisig = async (address: string) => {
-	const multisig = await MultisigDataLoader.load(address);
-	if (!multisig) throw new NotFoundError();
-	return multisig;
+// Returns the signer set with its members.
+export const getSignerSet = async (address: string) => {
+	const signerSet = await SignerSetDataLoader.load(address);
+	if (!signerSet) throw new NotFoundError();
+	return signerSet;
+};
+
+// The legacy multisig shape: a signer set that is also an account, with the
+// account's proposers. A signer set without an account row (a draft for
+// another account) is not a multisig to legacy clients.
+export const getLegacyMultisig = async (
+	address: string,
+) => {
+	const [signerSet, account, proposers] = await Promise.all(
+		[
+			SignerSetDataLoader.load(address),
+			db.query.SchemaAccounts.findFirst({
+				where: eq(SchemaAccounts.address, address),
+			}),
+			AccountProposersDataLoader.load(address),
+		],
+	);
+	if (!signerSet || !account) throw new NotFoundError();
+	return toLegacyMultisigWithMembers(signerSet, proposers);
 };
 
 export const validateQuorum = async (
@@ -78,74 +100,83 @@ export const validateQuorum = async (
 	}
 };
 
-// Returns true if the multisig is finalized (all members have accepted the invitation).
-export const isMultisigFinalized = async (
+// Returns true if the signer set is finalized (all members have accepted the invitation).
+export const isSignerSetFinalized = async (
 	address: string,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	tx?: any,
 ) => {
 	const query = tx ? tx.query : db.query;
 	const isFinalized =
-		await query.SchemaMultisigMembers.findMany({
+		await query.SchemaSignerSetMembers.findMany({
 			where: and(
-				eq(SchemaMultisigMembers.multisigAddress, address),
-				eq(SchemaMultisigMembers.isAccepted, false),
+				eq(
+					SchemaSignerSetMembers.signerSetAddress,
+					address,
+				),
+				eq(SchemaSignerSetMembers.isAccepted, false),
 			),
 		});
 
 	return isFinalized.length === 0;
 };
 
-// Returns true if the public key is a member of the multisig and has accepted the invitation.
-export const isMultisigMember = async (
-	msigAddress: string,
+// Returns true if the public key is a member of the signer set and has accepted the invitation.
+export const isSignerSetMember = async (
+	signerSetAddress: string,
 	publicKey: PublicKey,
 	checkAcceptance: boolean = true,
 ) => {
 	const whereConditions = [
-		eq(SchemaMultisigMembers.multisigAddress, msigAddress),
 		eq(
-			SchemaMultisigMembers.publicKey,
+			SchemaSignerSetMembers.signerSetAddress,
+			signerSetAddress,
+		),
+		eq(
+			SchemaSignerSetMembers.publicKey,
 			publicKey.toSuiPublicKey(),
 		),
 	];
 
 	if (checkAcceptance) {
 		whereConditions.push(
-			eq(SchemaMultisigMembers.isAccepted, true),
+			eq(SchemaSignerSetMembers.isAccepted, true),
 		);
 	}
 
 	const member =
-		await db.query.SchemaMultisigMembers.findFirst({
+		await db.query.SchemaSignerSetMembers.findFirst({
 			where: and(...whereConditions),
 		});
 	return !!member;
 };
 
 // A convenient checker to see if ANY of the JWT addresses from the header
-// have acess to the requested multisig.
-export const jwtHasMultisigMemberAccess = async (
-	msigAddress: string,
+// have acess to the requested signer set.
+export const jwtHasSignerSetMemberAccess = async (
+	signerSetAddress: string,
 	publicKeys: PublicKey[],
 	checkAcceptance: boolean = true,
 ) => {
 	const whereConditions = [
-		eq(SchemaMultisigMembers.multisigAddress, msigAddress),
+		eq(
+			SchemaSignerSetMembers.signerSetAddress,
+			signerSetAddress,
+		),
 		inArray(
-			SchemaMultisigMembers.publicKey,
+			SchemaSignerSetMembers.publicKey,
 			publicKeys.map((key) => key.toSuiPublicKey()),
 		),
 	];
 
 	if (checkAcceptance) {
 		whereConditions.push(
-			eq(SchemaMultisigMembers.isAccepted, true),
+			eq(SchemaSignerSetMembers.isAccepted, true),
 		);
 	}
 
 	const member =
-		await db.query.SchemaMultisigMembers.findFirst({
+		await db.query.SchemaSignerSetMembers.findFirst({
 			where: and(...whereConditions),
 		});
 
@@ -160,10 +191,7 @@ export const getPendingProposals = async (
 	const proposals = await db.query.SchemaProposals.findMany(
 		{
 			where: and(
-				eq(
-					SchemaProposals.multisigAddress,
-					multisigAddress,
-				),
+				eq(SchemaProposals.accountAddress, multisigAddress),
 				eq(SchemaProposals.status, ProposalStatus.PENDING),
 				eq(SchemaProposals.network, network),
 			),

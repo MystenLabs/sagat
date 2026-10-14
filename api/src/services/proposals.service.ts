@@ -24,7 +24,7 @@ import {
 	paginateResponse,
 	type PaginationCursor,
 } from '../utils/pagination';
-import { getMultisig } from './multisig.service';
+import { getSignerSet } from './multisig.service';
 
 // Get a proposal by id, and its signatures.
 export const getProposalById = async (
@@ -61,7 +61,7 @@ export const getProposalById = async (
 	};
 };
 
-export const getProposalsByMultisigAddress = async (
+export const getProposalsByAccountAddress = async (
 	multisigAddress: string,
 	network: string,
 	cursor: PaginationCursor,
@@ -77,10 +77,7 @@ export const getProposalsByMultisigAddress = async (
 	const proposals = await db.query.SchemaProposals.findMany(
 		{
 			where: and(
-				eq(
-					SchemaProposals.multisigAddress,
-					multisigAddress,
-				),
+				eq(SchemaProposals.accountAddress, multisigAddress),
 				status !== undefined
 					? eq(SchemaProposals.status, status)
 					: undefined,
@@ -138,8 +135,8 @@ export const lookupAndVerifyProposal = async (
 	if (proposal.status !== ProposalStatus.PENDING)
 		return { verified: true };
 
-	const multisig = await getMultisig(
-		proposal.multisigAddress,
+	const multisig = await getSignerSet(
+		proposal.accountAddress,
 	);
 
 	const currentWeight = proposal.signatures.reduce(

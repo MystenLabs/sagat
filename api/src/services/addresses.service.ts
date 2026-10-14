@@ -6,10 +6,10 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { db } from '../db';
 import {
 	SchemaAddresses,
-	type MultisigWithMembers,
+	type SignerSetWithMembers,
 } from '../db/schema';
 import { CommonError } from '../errors';
-import { MultisigDataLoader } from '../loaders/multisig.loader';
+import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import { parsePublicKey } from '../utils/pubKey';
 
 // Takes a pub key, a signature, and a message, and validates it.
@@ -76,17 +76,19 @@ export async function registerPublicKeyStrings(
 }
 
 /**
- * Expands multisig addresses to full MultisigWithMembers objects
- * Takes an array of multisig addresses and returns complete multisig data with all members
+ * Expands signer set addresses to full SignerSetWithMembers objects, with all
+ * members. Unknown addresses are left out.
  */
-export async function expandMultisigsWithMembers(
-	multisigAddresses: string[],
-): Promise<MultisigWithMembers[]> {
-	if (multisigAddresses.length === 0) return [];
+export async function expandSignerSetsWithMembers(
+	signerSetAddresses: string[],
+): Promise<SignerSetWithMembers[]> {
+	if (signerSetAddresses.length === 0) return [];
 
-	const multisigs = await MultisigDataLoader.loadMany(
-		multisigAddresses,
+	const signerSets = await SignerSetDataLoader.loadMany(
+		signerSetAddresses,
 	);
 
-	return multisigs.filter(Boolean) as MultisigWithMembers[];
+	return signerSets.filter(
+		Boolean,
+	) as SignerSetWithMembers[];
 }

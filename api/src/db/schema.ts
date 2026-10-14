@@ -3,7 +3,9 @@
 
 import { sql } from 'drizzle-orm';
 import {
+	bigint,
 	boolean,
+	check,
 	index,
 	integer,
 	pgTable,
@@ -14,6 +16,7 @@ import {
 	timestamp,
 	uniqueIndex,
 	varchar,
+	type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 import { ValidationError } from '../errors';
@@ -41,31 +44,59 @@ export const proposalStatusFromString = (
 	throw new ValidationError('Invalid status');
 };
 
-// Multisig addresses table
-const multisigs = pgTable(
-	'multisigs',
-	{
-		// The address (combined) of the multisig
-		address: text('address').notNull().primaryKey(),
-		isVerified: boolean('is_verified')
-			.default(false)
-			.notNull(),
-		threshold: integer('threshold').notNull(),
-		name: varchar('name', { length: 255 }),
-	},
-	(table) => [
-		index('multisig_address_idx').on(table.address),
-	],
-);
+// Lifecycle of a signer set within an account (`account_signer_sets.status`).
+export const AccountSignerSetStatus = {
+	DRAFT: 'draft',
+	INVITING: 'inviting',
+	VERIFIED: 'verified',
+	ABANDONED: 'abandoned',
+} as const;
 
-// Store the members of a multisig and their weight.
-const multisigMembers = pgTable(
-	'multisig_members',
+export type AccountSignerSetStatus =
+	(typeof AccountSignerSetStatus)[keyof typeof AccountSignerSetStatus];
+
+const accountSignerSetStatuses = Object.values(
+	AccountSignerSetStatus,
+) as [AccountSignerSetStatus, ...AccountSignerSetStatus[]];
+
+// Allowed values of every `network` column in the account rotation tables.
+const networkCheck = (name: string, column: AnyPgColumn) =>
+	check(
+		name,
+		sql`${column} IN ('mainnet', 'testnet', 'devnet', 'localnet')`,
+	);
+
+// Accounts: the on-chain addresses that own assets and are the `sender` of
+// proposals. Network-agnostic identity.
+const accounts = pgTable('accounts', {
+	address: text('address').notNull().primaryKey(),
+	name: varchar('name', { length: 255 }),
+	createdAt: timestamp('created_at')
+		.notNull()
+		.default(sql`NOW()`),
+});
+
+// Signer sets: a composition (public keys, weights, threshold). The address is
+// derived from the composition, so it is immutable.
+const signerSets = pgTable('signer_sets', {
+	// The address (combined) of the signer set
+	address: text('address').notNull().primaryKey(),
+	isVerified: boolean('is_verified')
+		.default(false)
+		.notNull(),
+	threshold: integer('threshold').notNull(),
+	// Kept for the legacy routes, which return it as the multisig name.
+	name: varchar('name', { length: 255 }),
+});
+
+// Store the members of a signer set and their weight.
+const signerSetMembers = pgTable(
+	'signer_set_members',
 	{
-		// The multisig address
-		multisigAddress: text('multisig_address')
+		// The signer set address
+		signerSetAddress: text('signer_set_address')
 			.notNull()
-			.references(() => multisigs.address),
+			.references(() => signerSets.address),
 		// The public key of the member. This is always a `sui` public key (includes flag!)
 		publicKey: text('public_key')
 			.notNull()
@@ -80,19 +111,19 @@ const multisigMembers = pgTable(
 		isRejected: boolean('is_rejected')
 			.default(false)
 			.notNull(),
-		// order of the m
+		// order of the member in the composition
 		order: integer('order').notNull(),
 	},
-	// We only allow a pub key once per multisig address
+	// We only allow a pub key once per signer set address
 	(table) => [
-		uniqueIndex('multisig_member_idx').on(
-			table.multisigAddress,
+		uniqueIndex('signer_set_member_idx').on(
+			table.signerSetAddress,
 			table.publicKey,
 		),
-		index('multisig_member_multisig_address_idx').on(
-			table.multisigAddress,
+		index('signer_set_member_signer_set_address_idx').on(
+			table.signerSetAddress,
 		),
-		index('multisig_member_public_key_idx').on(
+		index('signer_set_member_public_key_idx').on(
 			table.publicKey,
 		),
 	],
@@ -116,10 +147,10 @@ const proposals = pgTable(
 	{
 		// The id of the proposal (sequential, so we can keep ordering)
 		id: serial('id').primaryKey(),
-		// The multisig address.
-		multisigAddress: text('multisig_address')
+		// The account address (the sender of the transaction).
+		accountAddress: text('account_address')
 			.notNull()
-			.references(() => multisigs.address),
+			.references(() => accounts.address),
 		// the digest of the proposed transaction (avoid duplicates)
 		digest: text('digest').notNull().unique(),
 		// The status of the proposal.
@@ -138,14 +169,16 @@ const proposals = pgTable(
 		createdAt: timestamp('created_at')
 			.notNull()
 			.default(sql`NOW()`),
+		// The address of the signer set used at execution.
+		executedVia: text('executed_via'),
 	},
 	(table) => [
 		index('proposals_addr_network_idx').on(
-			table.multisigAddress,
+			table.accountAddress,
 			table.network,
 		),
-		index('proposals_multisig_address_idx').on(
-			table.multisigAddress,
+		index('proposals_account_address_idx').on(
+			table.accountAddress,
 		),
 		index('proposals_digest_idx').on(table.digest),
 	],
@@ -170,14 +203,14 @@ const proposalSignatures = pgTable(
 	],
 );
 
-// Store extra proposers for a given multisig.
-// Proposers can propose transactions in a multi-sig.
-const multisigProposers = pgTable(
-	'multisig_proposers',
+// Store extra proposers for a given account.
+// Proposers can propose transactions for an account.
+const accountProposers = pgTable(
+	'account_proposers',
 	{
-		multisigAddress: text('multisig_address')
+		accountAddress: text('account_address')
 			.notNull()
-			.references(() => multisigs.address),
+			.references(() => accounts.address),
 		address: text('address').notNull(),
 		addedBy: text('added_by').notNull(),
 		addedAt: timestamp('added_at')
@@ -186,37 +219,150 @@ const multisigProposers = pgTable(
 	},
 	(table) => [
 		primaryKey({
-			columns: [table.multisigAddress, table.address],
+			columns: [table.accountAddress, table.address],
 		}),
+	],
+);
+
+// Mirror of the on-chain alias set of an account, per network.
+// Written only by the alias refresh function; the chain is the source of truth.
+const accountAliases = pgTable(
+	'account_aliases',
+	{
+		accountAddress: text('account_address')
+			.notNull()
+			.references(() => accounts.address),
+		network: text('network').notNull(),
+		aliasAddress: text('alias_address').notNull(),
+	},
+	(table) => [
+		primaryKey({
+			columns: [
+				table.accountAddress,
+				table.network,
+				table.aliasAddress,
+			],
+		}),
+		networkCheck(
+			'account_aliases_network_check',
+			table.network,
+		),
+	],
+);
+
+// What the last alias refresh saw for an account on a network. No row means
+// the network was never refreshed; `exists = false` means the account never
+// called `enable` there, so its alias set is `{account}`.
+// Written only by the alias refresh function.
+const accountAliasState = pgTable(
+	'account_alias_state',
+	{
+		accountAddress: text('account_address')
+			.notNull()
+			.references(() => accounts.address),
+		network: text('network').notNull(),
+		exists: boolean('exists').notNull(),
+		// Version of the `AddressAliases` object, null when it does not exist.
+		observedVersion: bigint('observed_version', {
+			mode: 'number',
+		}),
+		observedAt: timestamp('observed_at').notNull(),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.accountAddress, table.network],
+		}),
+		networkCheck(
+			'account_alias_state_network_check',
+			table.network,
+		),
+	],
+);
+
+// The link between an account and a signer set: one row per pair, for the
+// facts that belong to the pair (label, who drafted it, draft status). A
+// composition can be shared by several accounts, so these do not live on
+// `signer_sets`. Whether the set is valid on a network is not stored here:
+// it comes from the alias mirror at read time. Every account has a row for
+// its original composition (the account address itself): `verified` or
+// `inviting`, from that signer set's `is_verified`.
+const accountSignerSets = pgTable(
+	'account_signer_sets',
+	{
+		accountAddress: text('account_address')
+			.notNull()
+			.references(() => accounts.address),
+		signerSetAddress: text('signer_set_address')
+			.notNull()
+			.references(() => signerSets.address),
+		// A label for the signer set within the account (e.g. "Operations").
+		label: varchar('label', { length: 255 }),
+		status: text('status', {
+			enum: accountSignerSetStatuses,
+		})
+			.notNull()
+			.default(AccountSignerSetStatus.DRAFT),
+		draftedBy: text('drafted_by').notNull(),
+		createdAt: timestamp('created_at')
+			.notNull()
+			.default(sql`NOW()`),
+	},
+	(table) => [
+		primaryKey({
+			columns: [
+				table.accountAddress,
+				table.signerSetAddress,
+			],
+		}),
+		check(
+			'account_signer_sets_status_check',
+			sql`${table.status} IN (${sql.raw(
+				accountSignerSetStatuses
+					.map((status) => `'${status}'`)
+					.join(', '),
+			)})`,
+		),
 	],
 );
 
 // Export re-usable types.
 
 export const SchemaAddresses = addresses;
-export const SchemaMultisigs = multisigs;
-export const SchemaMultisigMembers = multisigMembers;
+export const SchemaAccounts = accounts;
+export const SchemaSignerSets = signerSets;
+export const SchemaSignerSetMembers = signerSetMembers;
 export const SchemaProposals = proposals;
 export const SchemaProposalSignatures = proposalSignatures;
-export const SchemaMultisigProposers = multisigProposers;
+export const SchemaAccountProposers = accountProposers;
+export const SchemaAccountAliases = accountAliases;
+export const SchemaAccountAliasState = accountAliasState;
+export const SchemaAccountSignerSets = accountSignerSets;
 
 export type Proposal = typeof proposals.$inferSelect;
-export type Multisig = typeof multisigs.$inferSelect;
-export type MultisigMember =
-	typeof multisigMembers.$inferSelect;
+export type Account = typeof accounts.$inferSelect;
+export type SignerSet = typeof signerSets.$inferSelect;
+export type SignerSetMember =
+	typeof signerSetMembers.$inferSelect;
 export type Address = typeof addresses.$inferSelect;
 export type ProposalSignature =
 	typeof proposalSignatures.$inferSelect;
-export type MultisigProposer =
-	typeof multisigProposers.$inferSelect;
+export type AccountProposer =
+	typeof accountProposers.$inferSelect;
+export type AccountAlias =
+	typeof accountAliases.$inferSelect;
+export type AccountAliasState =
+	typeof accountAliasState.$inferSelect;
+export type AccountSignerSet =
+	typeof accountSignerSets.$inferSelect;
 
 export type ProposalWithSignatures = Proposal & {
 	signatures: ProposalSignature[];
 };
 
-export type MultisigWithMembers = Multisig & {
-	members: MultisigMember[];
+// A signer set with its members. Proposers belong to accounts, see
+// `AccountProposersDataLoader`.
+export type SignerSetWithMembers = SignerSet & {
+	members: SignerSetMember[];
 	totalMembers: number;
 	totalWeight: number;
-	proposers: Omit<MultisigProposer, 'multisigAddress'>[];
 };

@@ -9,12 +9,16 @@ import {
 	dbQueryErrors,
 } from '../metrics';
 import {
+	SchemaAccountAliases,
+	SchemaAccountAliasState,
+	SchemaAccountProposers,
+	SchemaAccounts,
+	SchemaAccountSignerSets,
 	SchemaAddresses,
-	SchemaMultisigMembers,
-	SchemaMultisigProposers,
-	SchemaMultisigs,
 	SchemaProposals,
 	SchemaProposalSignatures,
+	SchemaSignerSetMembers,
+	SchemaSignerSets,
 } from './schema';
 
 // Create a connection pool with configuration
@@ -64,10 +68,14 @@ pool.on('error', (err) => {
 export const db = drizzle(pool, {
 	schema: {
 		SchemaAddresses,
-		SchemaMultisigs,
-		SchemaMultisigMembers,
+		SchemaAccounts,
+		SchemaSignerSets,
+		SchemaSignerSetMembers,
 		SchemaProposals,
-		SchemaMultisigProposers,
+		SchemaAccountProposers,
 		SchemaProposalSignatures,
+		SchemaAccountAliases,
+		SchemaAccountAliasState,
+		SchemaAccountSignerSets,
 	},
 });

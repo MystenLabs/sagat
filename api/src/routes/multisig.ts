@@ -5,23 +5,30 @@ import { PersonalMessages } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { isValidSuiAddress } from '@mysten/sui/utils';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
+	AccountSignerSetStatus,
 	ProposalStatus,
-	SchemaMultisigMembers,
-	SchemaMultisigProposers,
-	SchemaMultisigs,
+	SchemaAccountProposers,
+	SchemaAccounts,
+	SchemaAccountSignerSets,
 	SchemaProposals,
+	SchemaSignerSetMembers,
+	SchemaSignerSets,
 } from '../db/schema';
 import {
 	ApiAuthError,
 	CommonError,
 	ValidationError,
 } from '../errors';
+import {
+	toLegacyMultisig,
+	toLegacyMultisigMember,
+} from '../legacy/serializers';
 import {
 	registerPublicKeyStrings,
 	validatePersonalMessage,
@@ -32,10 +39,11 @@ import {
 	type AuthEnv,
 } from '../services/auth.service';
 import {
-	getMultisig,
-	isMultisigFinalized,
-	isMultisigMember,
-	jwtHasMultisigMemberAccess,
+	getLegacyMultisig,
+	getSignerSet,
+	isSignerSetFinalized,
+	isSignerSetMember,
+	jwtHasSignerSetMemberAccess,
 	validateQuorum,
 } from '../services/multisig.service';
 import {
@@ -54,7 +62,7 @@ multisigRouter.get(
 		const publicKeys = c.get('publicKeys');
 
 		// Verify the authenticated user is a member of this multisig
-		const hasAccess = await jwtHasMultisigMemberAccess(
+		const hasAccess = await jwtHasSignerSetMemberAccess(
 			address,
 			publicKeys,
 			false,
@@ -70,8 +78,7 @@ multisigRouter.get(
 			);
 		}
 
-		const multisig = await getMultisig(address);
-		return c.json(multisig);
+		return c.json(await getLegacyMultisig(address));
 	},
 );
 
@@ -124,7 +131,7 @@ multisigRouter.post(
 		const database = await db.transaction(async (tx) => {
 			const msig = (
 				await tx
-					.insert(SchemaMultisigs)
+					.insert(SchemaSignerSets)
 					.values({
 						address: multisig.toSuiAddress(),
 						isVerified: false,
@@ -134,12 +141,37 @@ multisigRouter.post(
 					.returning()
 			)[0];
 
+			// A legacy multisig is also an account with the same address, so the
+			// `/v1` API sees what the legacy routes created.
+			await tx
+				.insert(SchemaAccounts)
+				.values({ address: msig.address, name })
+				.onConflictDoNothing();
+
+			// The multisig is the account's original signer set. The creator is
+			// the first authenticated key in the composition, else the first
+			// authenticated key.
+			const creator =
+				authorizedPubKeys.find((k) =>
+					addresses.includes(k.toSuiAddress()),
+				) ?? authorizedPubKeys[0];
+			await tx
+				.insert(SchemaAccountSignerSets)
+				.values({
+					accountAddress: msig.address,
+					signerSetAddress: msig.address,
+					label: name,
+					status: AccountSignerSetStatus.INVITING,
+					draftedBy: creator.toSuiAddress(),
+				})
+				.onConflictDoNothing();
+
 			// insert the multisig members in the DB.
 			const members = await tx
-				.insert(SchemaMultisigMembers)
+				.insert(SchemaSignerSetMembers)
 				.values(
 					parsedPubKeys.map((key, index) => ({
-						multisigAddress: msig.address,
+						signerSetAddress: msig.address,
 						publicKey: key.toSuiPublicKey(),
 						weight:
 							weights[
@@ -158,8 +190,8 @@ multisigRouter.post(
 				.returning();
 
 			return {
-				multisig: msig,
-				members,
+				multisig: toLegacyMultisig(msig),
+				members: members.map(toLegacyMultisigMember),
 			};
 		});
 
@@ -175,7 +207,7 @@ multisigRouter.post('/:address/accept', async (c) => {
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
 
-	if (!(await isMultisigMember(address, pubKey, false)))
+	if (!(await isSignerSetMember(address, pubKey, false)))
 		throw new ValidationError(
 			'You are not a member of this multisig',
 		);
@@ -187,13 +219,13 @@ multisigRouter.post('/:address/accept', async (c) => {
 	);
 
 	const existingConnections =
-		await db.query.SchemaMultisigMembers.findMany({
+		await db.query.SchemaSignerSetMembers.findMany({
 			where: and(
 				eq(
-					SchemaMultisigMembers.publicKey,
+					SchemaSignerSetMembers.publicKey,
 					pubKey.toSuiPublicKey(),
 				),
-				eq(SchemaMultisigMembers.isAccepted, true),
+				eq(SchemaSignerSetMembers.isAccepted, true),
 			),
 		});
 
@@ -207,42 +239,59 @@ multisigRouter.post('/:address/accept', async (c) => {
 		);
 
 	const result = await db.transaction(async (tx) => {
-		const msig = await tx.query.SchemaMultisigs.findFirst({
-			where: eq(SchemaMultisigs.address, address),
+		const msig = await tx.query.SchemaSignerSets.findFirst({
+			where: eq(SchemaSignerSets.address, address),
 		});
 
 		if (!msig)
 			throw new ValidationError('Multisig not found');
 
 		await tx
-			.update(SchemaMultisigMembers)
+			.update(SchemaSignerSetMembers)
 			.set({ isAccepted: true, isRejected: false })
 			.where(
 				and(
 					eq(
-						SchemaMultisigMembers.multisigAddress,
+						SchemaSignerSetMembers.signerSetAddress,
 						address,
 					),
 					eq(
-						SchemaMultisigMembers.publicKey,
+						SchemaSignerSetMembers.publicKey,
 						pubKey.toSuiPublicKey(),
 					),
 				),
 			);
 
-		const isFinalized = await isMultisigFinalized(
+		const isFinalized = await isSignerSetFinalized(
 			address,
 			tx,
 		);
 		// if all members have accepted, we can finalize the multisig.
 		if (isFinalized) {
 			await tx
-				.update(SchemaMultisigs)
+				.update(SchemaSignerSets)
 				.set({ isVerified: true })
-				.where(eq(SchemaMultisigs.address, address));
+				.where(eq(SchemaSignerSets.address, address));
+			// Verification is a property of the composition, so every
+			// account linked to it sees the set as verified.
+			await tx
+				.update(SchemaAccountSignerSets)
+				.set({ status: AccountSignerSetStatus.VERIFIED })
+				.where(
+					and(
+						eq(
+							SchemaAccountSignerSets.signerSetAddress,
+							address,
+						),
+						inArray(SchemaAccountSignerSets.status, [
+							AccountSignerSetStatus.DRAFT,
+							AccountSignerSetStatus.INVITING,
+						]),
+					),
+				);
 		}
 		msig.isVerified = isFinalized;
-		return msig;
+		return toLegacyMultisig(msig);
 	});
 
 	return c.json(result);
@@ -263,7 +312,7 @@ multisigRouter.post('/:address/reject', async (c) => {
 		`Rejecting multisig invitation ${address}`,
 	);
 
-	const multisig = await getMultisig(address);
+	const multisig = await getSignerSet(address);
 
 	if (multisig.isVerified)
 		throw new ValidationError(
@@ -289,13 +338,16 @@ multisigRouter.post('/:address/reject', async (c) => {
 		);
 
 	await db
-		.update(SchemaMultisigMembers)
+		.update(SchemaSignerSetMembers)
 		.set({ isRejected: true })
 		.where(
 			and(
-				eq(SchemaMultisigMembers.multisigAddress, address),
 				eq(
-					SchemaMultisigMembers.publicKey,
+					SchemaSignerSetMembers.signerSetAddress,
+					address,
+				),
+				eq(
+					SchemaSignerSetMembers.publicKey,
 					pubKey.toSuiPublicKey(),
 				),
 			),
@@ -323,7 +375,7 @@ multisigRouter.post('/:address/add-proposer', async (c) => {
 	const publicKey =
 		getPublicKeyFromSerializedSignature(signature);
 
-	if (!(await isMultisigMember(address, publicKey)))
+	if (!(await isSignerSetMember(address, publicKey)))
 		throw new ApiAuthError('NotAMultisigMember');
 
 	// Validate the signature.
@@ -341,11 +393,11 @@ multisigRouter.post('/:address/add-proposer', async (c) => {
 	await db.transaction(
 		async (tx) => {
 			const existingProposers =
-				await tx.query.SchemaMultisigProposers.findMany({
+				await tx.query.SchemaAccountProposers.findMany({
 					columns: { address: true },
 					where: and(
 						eq(
-							SchemaMultisigProposers.multisigAddress,
+							SchemaAccountProposers.accountAddress,
 							address,
 						),
 					),
@@ -368,8 +420,8 @@ multisigRouter.post('/:address/add-proposer', async (c) => {
 					`${proposer} is already a proposer for this multisig`,
 				);
 
-			await tx.insert(SchemaMultisigProposers).values({
-				multisigAddress: address,
+			await tx.insert(SchemaAccountProposers).values({
+				accountAddress: address,
 				address: proposer,
 				addedBy: publicKey.toSuiAddress(),
 			});
@@ -393,7 +445,7 @@ multisigRouter.post(
 		const publicKey =
 			getPublicKeyFromSerializedSignature(signature);
 
-		if (!(await isMultisigMember(address, publicKey)))
+		if (!(await isSignerSetMember(address, publicKey)))
 			throw new ApiAuthError('NotAMultisigMember');
 
 		await validatePersonalMessage(
@@ -414,7 +466,7 @@ multisigRouter.post(
 				.set({ status: ProposalStatus.CANCELLED })
 				.where(
 					and(
-						eq(SchemaProposals.multisigAddress, address),
+						eq(SchemaProposals.accountAddress, address),
 						eq(SchemaProposals.proposerAddress, proposer),
 						eq(
 							SchemaProposals.status,
@@ -424,14 +476,14 @@ multisigRouter.post(
 				);
 
 			await tx
-				.delete(SchemaMultisigProposers)
+				.delete(SchemaAccountProposers)
 				.where(
 					and(
 						eq(
-							SchemaMultisigProposers.multisigAddress,
+							SchemaAccountProposers.accountAddress,
 							address,
 						),
-						eq(SchemaMultisigProposers.address, proposer),
+						eq(SchemaAccountProposers.address, proposer),
 					),
 				);
 		});
