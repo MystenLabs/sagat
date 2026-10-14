@@ -3,7 +3,8 @@
 	"scripts": {
 		"dev": "bun run --hot src/index.ts",
 		"build": "bun build src/index.ts --outdir dist --target bun",
-		"test:e2e": "bun test --timeout 30000",
+		"test:e2e": "bun test --timeout 30000 ./test/*.test.ts",
+		"test:migrations": "bun test ./test/migrations",
 		"test:watch": "bun test --watch",
 		"db:generate": "bun drizzle-kit generate",
 		"db:migrate": "bun drizzle-kit migrate",

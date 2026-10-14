@@ -18,6 +18,14 @@ export function getLocalClient(): SuiGrpcClient {
 	});
 }
 
+// Options for `waitForTransaction` on localnet. A long-running `sui start`
+// fullnode serves only a few seconds of checkpoints over gRPC, and the default
+// poll schedule can step past them, so poll every 100ms and allow 30s.
+export const LOCALNET_WAIT = {
+	pollSchedule: [0, 100],
+	timeout: 30_000,
+};
+
 export async function isNetworkRunning(): Promise<boolean> {
 	try {
 		await getLocalClient().getReferenceGasPrice();
@@ -49,5 +57,6 @@ export async function executeTransaction(
 		throw new Error('Transaction failed to execute.');
 	await client.waitForTransaction({
 		digest: result.Transaction.digest,
+		...LOCALNET_WAIT,
 	});
 }

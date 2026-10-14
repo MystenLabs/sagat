@@ -26,6 +26,9 @@ e2e/blob-report
 # Drizzle generated files
 **/drizzle/meta/*.json
 
+# Golden fixtures, written by the tests (UPDATE_GOLDEN=1)
+api/test/golden/*.json
+
 # Environment files
 .env
 .env.*
