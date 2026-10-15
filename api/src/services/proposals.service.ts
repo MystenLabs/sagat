@@ -81,7 +81,7 @@ export const getProposalsByMultisigAddress = async (
 					SchemaProposals.multisigAddress,
 					multisigAddress,
 				),
-				status
+				status !== undefined
 					? eq(SchemaProposals.status, status)
 					: undefined,
 				eq(SchemaProposals.network, network),
