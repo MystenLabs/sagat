@@ -54,6 +54,7 @@ export const MultisigEventType = {
 	PROPOSAL_CANCELLED: 'proposal_cancelled',
 	PROPOSAL_SUCCESS: 'proposal_success',
 	PROPOSAL_FAILURE: 'proposal_failure',
+	PROPOSAL_INVALID: 'proposal_invalid',
 } as const;
 
 export type MultisigEventType =
@@ -71,9 +72,11 @@ export const multisigProposalEvents = new Counter({
 //           - multisig_proposal_events_total{event_type="proposal_cancelled"}
 //           - multisig_proposal_events_total{event_type="proposal_success"}
 //           - multisig_proposal_events_total{event_type="proposal_failure"}
+//           - multisig_proposal_events_total{event_type="proposal_invalid"}
 // - Cancelled: multisig_proposal_events_total{event_type="proposal_cancelled"}
 // - Success: multisig_proposal_events_total{event_type="proposal_success"}
 // - Failed: multisig_proposal_events_total{event_type="proposal_failure"}
+// - Invalid: multisig_proposal_events_total{event_type="proposal_invalid"}
 // - Signatures: multisig_proposal_events_total{event_type="signature_added"}
 
 // Database Metrics
