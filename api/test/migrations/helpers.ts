@@ -182,6 +182,7 @@ async function adminQuery(sql: string) {
 
 export interface ScratchDb {
 	name: string;
+	url: string;
 	pool: Pool;
 	/** Runs `sql` and returns the rows as arrays, without column names. */
 	rows: (sql: string) => Promise<unknown[][]>;
@@ -211,6 +212,7 @@ export async function withScratchDb(
 
 	const db: ScratchDb = {
 		name,
+		url: urlFor(name),
 		pool,
 		rows: async (sql) =>
 			(await pool.query({ text: sql, rowMode: 'array' }))
