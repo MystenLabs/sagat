@@ -58,6 +58,7 @@ function TransactionInput({
 			</label>
 			<Textarea
 				id="transaction-data"
+				data-testid="transaction-data-input"
 				placeholder="Enter transaction data in JSON format or base64..."
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
@@ -101,7 +102,11 @@ function PreviewResult({
 	}
 
 	return (
-		<div className="py-2">
+		<div
+			className="py-2"
+			data-testid="transaction-preview-result"
+			data-result={isSuccess ? 'success' : 'failure'}
+		>
 			<div className="flex items-center gap-2 mb-3">
 				{isSuccess ? (
 					<>
@@ -165,7 +170,12 @@ function SignedResultDisplay({
 	network: string;
 }) {
 	return (
-		<div className="border border-border bg-card rounded-lg p-4">
+		<div
+			className="border border-border bg-card rounded-lg p-4"
+			data-testid="signed-result"
+			data-digest={result.digest}
+			data-signature={result.signature}
+		>
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
 					<Check
@@ -185,6 +195,7 @@ function SignedResultDisplay({
 					onClick={onStartOver}
 					variant="outline"
 					size="sm"
+					data-testid="start-over-button"
 				>
 					Start Over
 				</Button>
@@ -233,6 +244,11 @@ function SignButton({
 			onClick={() => onSign(shouldExecute)}
 			disabled={isSigning || disabled}
 			variant={shouldExecute ? 'default' : 'outline'}
+			data-testid={
+				shouldExecute
+					? 'sign-and-execute-button'
+					: 'sign-button'
+			}
 		>
 			{isSigning
 				? 'Signing...'

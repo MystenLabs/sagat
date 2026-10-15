@@ -1,13 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from '@mysten/sui/transactions';
-import { MIST_PER_SUI, toBase64 } from '@mysten/sui/utils';
+import { MIST_PER_SUI } from '@mysten/sui/utils';
 
-import {
-	randomAddress,
-	type Chain,
-} from '../support/chain';
+import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
 	proposeTransfer,
@@ -284,7 +280,12 @@ test.describe('proposals', () => {
 		const sheet = alice.page.getByTestId('proposal-sheet');
 		await sheet
 			.getByTestId('custom-transaction-input')
-			.fill(await buildOverdraft(chain, multisig.address));
+			.fill(
+				await chain.buildOverdrawnSuiTransfer({
+					sender: multisig.address,
+					recipient: randomAddress(),
+				}),
+			);
 		await sheet
 			.getByTestId('custom-preview-button')
 			.click();
@@ -297,33 +298,3 @@ test.describe('proposals', () => {
 		).toHaveCount(0);
 	});
 });
-
-// Spends far more than the 1,000 SUI the faucet sent. Building with a client
-// would simulate the transaction and reject it, so pin the gas coin, price
-// and budget and build it offline instead.
-async function buildOverdraft(
-	chain: Chain,
-	sender: string,
-) {
-	const [{ objects: coins }, { referenceGasPrice }] =
-		await Promise.all([
-			chain.client.listCoins({ owner: sender }),
-			chain.client.getReferenceGasPrice(),
-		]);
-	const tx = new Transaction();
-	tx.setSender(sender);
-	tx.setGasPayment(
-		coins.map(({ objectId, version, digest }) => ({
-			objectId,
-			version,
-			digest,
-		})),
-	);
-	tx.setGasPrice(BigInt(referenceGasPrice));
-	tx.setGasBudget(50_000_000n);
-	const [coin] = tx.splitCoins(tx.gas, [
-		100_000n * MIST_PER_SUI,
-	]);
-	tx.transferObjects([coin], randomAddress());
-	return toBase64(await tx.build());
-}
