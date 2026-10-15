@@ -32,6 +32,7 @@ function TransactionBytesInput({
 			</label>
 			<Textarea
 				id="transaction-bytes"
+				data-testid="broadcast-bytes-input"
 				placeholder="Enter transaction bytes in base64 format..."
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
@@ -59,6 +60,7 @@ function SignatureInput({
 			</label>
 			<Textarea
 				id="signature"
+				data-testid="broadcast-signature-input"
 				placeholder="Enter combined signature in base64 format..."
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
@@ -77,7 +79,11 @@ function BroadcastResultDisplay({
 	onReset: () => void;
 }) {
 	return (
-		<div className="border border-success-border bg-card rounded-lg p-4">
+		<div
+			className="border border-success-border bg-card rounded-lg p-4"
+			data-testid="broadcast-result"
+			data-digest={result.digest}
+		>
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
 					<Check
@@ -93,6 +99,7 @@ function BroadcastResultDisplay({
 					onClick={onReset}
 					variant="outline"
 					size="sm"
+					data-testid="broadcast-reset-button"
 				>
 					Broadcast Another
 				</Button>
@@ -115,7 +122,10 @@ function BroadcastError({
 	onReset: () => void;
 }) {
 	return (
-		<div className="border border-error-border bg-card rounded-lg p-4">
+		<div
+			className="border border-error-border bg-card rounded-lg p-4"
+			data-testid="broadcast-error"
+		>
 			<div className="flex items-center justify-between mb-3">
 				<div className="flex items-center gap-2">
 					<AlertCircle className="w-5 h-5 text-error-foreground" />
@@ -128,6 +138,7 @@ function BroadcastError({
 					onClick={onReset}
 					variant="outline"
 					size="sm"
+					data-testid="broadcast-reset-button"
 				>
 					Try Again
 				</Button>
@@ -236,6 +247,7 @@ export default function BroadcastTool() {
 								type="button"
 								onClick={handleBroadcast}
 								disabled={!canBroadcast}
+								data-testid="broadcast-button"
 							>
 								{broadcasting
 									? 'Broadcasting...'

@@ -75,7 +75,12 @@ function Signature({
 	const scheme = signature.signatureScheme.toString();
 
 	return (
-		<div className="bg-card border rounded-lg">
+		<div
+			className="bg-card border rounded-lg"
+			data-testid="signature-card"
+			data-address={suiAddress}
+			data-scheme={scheme}
+		>
 			<div className="p-4 border-b">
 				<h3 className="text-lg font-semibold">
 					Signature #{index}
@@ -114,7 +119,12 @@ function MultiSigDetails({
 	multisigInfo: MultiSigInfo;
 }) {
 	return (
-		<div className="bg-card border border-info-border rounded-lg">
+		<div
+			className="bg-card border border-info-border rounded-lg"
+			data-testid="multisig-details"
+			data-address={multisigInfo.publicKey.toSuiAddress()}
+			data-threshold={multisigInfo.threshold}
+		>
 			<div className="p-4 border-b border-info-border">
 				<h3 className="text-lg font-semibold">
 					MultiSig Configuration
@@ -152,6 +162,9 @@ function MultiSigDetails({
 									<div
 										key={index}
 										className="bg-surface rounded-md p-3 border"
+										data-testid="multisig-participant"
+										data-address={participant.suiAddress}
+										data-weight={participant.weight}
 									>
 										<div className="flex justify-between items-start mb-2">
 											<span className="font-medium text-foreground">
@@ -320,6 +333,7 @@ export default function SignatureAnalyzer() {
 				</label>
 				<Textarea
 					rows={4}
+					data-testid="signature-input"
 					value={signature}
 					onChange={(e) => setSignature(e.target.value)}
 					placeholder="Paste your signature bytes here (base64 encoded)..."
@@ -327,7 +341,10 @@ export default function SignatureAnalyzer() {
 			</div>
 
 			{error && (
-				<div className="border border-error-border bg-error rounded-lg p-4">
+				<div
+					className="border border-error-border bg-error rounded-lg p-4"
+					data-testid="signature-error"
+				>
 					<div className="flex items-center gap-2 mb-2">
 						<AlertCircle className="w-5 h-5 text-error-foreground" />
 						<h3 className="font-medium text-error-foreground">
