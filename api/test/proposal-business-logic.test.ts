@@ -414,6 +414,48 @@ describe('Proposal Business Logic', () => {
 		expect(ids.size).toBe(10);
 	});
 
+	test('filters proposals by status, including PENDING', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+
+		const cancelled = await session.proposeTransfer(
+			users[0],
+			multisig.address,
+		);
+		await session.cancelProposal(users[0], cancelled.id);
+		const pending = await session.createProposal(
+			users[0],
+			multisig.address,
+			'localnet',
+			await buildTransfer(multisig.address, {
+				amount: 2_000_000,
+			}),
+		);
+
+		const listByStatus = async (status: ProposalStatus) =>
+			(
+				await session.client.getProposals(
+					multisig.address,
+					'localnet',
+					{ status },
+				)
+			).data.map((p) => ({ id: p.id, status: p.status }));
+
+		expect(
+			await listByStatus(ProposalStatus.PENDING),
+		).toEqual([
+			{ id: pending.id, status: ProposalStatus.PENDING },
+		]);
+		expect(
+			await listByStatus(ProposalStatus.CANCELLED),
+		).toEqual([
+			{
+				id: cancelled.id,
+				status: ProposalStatus.CANCELLED,
+			},
+		]);
+	});
+
 	describe('Proposal Cancellation', () => {
 		test('a cancelled proposal takes no more votes or cancels', async () => {
 			const { session, users, multisig } =
