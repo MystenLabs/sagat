@@ -143,6 +143,34 @@ export class Chain {
 		);
 	}
 
+	// Returns base64 bytes of a SUI transfer of more than `sender` holds, so
+	// executing (or simulating) it fails. Building with a client would
+	// simulate the transaction and reject it, so pin the gas coins, price and
+	// budget and build it offline instead.
+	async buildOverdrawnSuiTransfer({
+		sender,
+		recipient,
+	}: {
+		sender: string;
+		recipient: string;
+	}) {
+		const [coins, { referenceGasPrice }] =
+			await Promise.all([
+				this.coins(sender),
+				this.client.getReferenceGasPrice(),
+			]);
+		const tx = new Transaction();
+		tx.setSender(sender);
+		tx.setGasPayment(coins);
+		tx.setGasPrice(BigInt(referenceGasPrice));
+		tx.setGasBudget(10_000_000n);
+		const [coin] = tx.splitCoins(tx.gas, [
+			(await this.balance(sender)) + 1n,
+		]);
+		tx.transferObjects([coin], recipient);
+		return toBase64(await tx.build());
+	}
+
 	// Net SUI a transaction's gas cost its payer. Negative when storage
 	// rebates (e.g. from coins merged into the gas coin) exceed the costs.
 	async gasCost(digest: string) {
