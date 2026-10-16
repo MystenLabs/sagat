@@ -89,7 +89,7 @@ const AccountIdentity = ({
 // sidebar rail, where the trigger sits at the bottom of the screen.
 const menuClass = (variant: WalletVariant) =>
 	cn(
-		'absolute z-50 min-w-64 rounded-lg border bg-popover py-2 text-sm text-popover-foreground shadow-lg',
+		'absolute z-50 min-w-64 rounded-lg border bg-popover py-1 text-13 text-popover-foreground shadow-lg',
 		variant === 'rail'
 			? 'bottom-full left-0 mb-1 w-full'
 			: 'top-full right-0 mt-1',
@@ -243,7 +243,7 @@ export function CustomWalletButton({
 				{showWallets && (
 					<div className={menuClass(variant)}>
 						<div className="px-3 pb-2 border-b text-center">
-							<p className="text-sm font-medium text-foreground">
+							<p className="text-13 font-medium text-foreground">
 								Authentication Required
 							</p>
 						</div>
@@ -422,7 +422,7 @@ const CopyAddressButton = () => {
 				currentAccount?.address &&
 				copyAddress(currentAccount.address)
 			}
-			className="w-full justify-start rounded-none"
+			className="h-9 w-full justify-start rounded-none px-3 text-13"
 		>
 			{copied ? (
 				<Check className="w-4 h-4" />
@@ -459,7 +459,7 @@ const AccountItem = ({
 
 	return (
 		<div
-			className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-accent w-full ${
+			className={`flex items-center justify-between px-3 py-2 text-13 hover:bg-accent w-full ${
 				isCurrent ? 'bg-accent text-foreground' : ''
 			}`}
 			data-testid="wallet-account"
@@ -513,7 +513,7 @@ const DisconnectButton = ({
 			onClick={onDisconnect}
 			variant="ghost"
 			size="sm"
-			className="w-full justify-start text-error-foreground rounded-none"
+			className="h-9 w-full justify-start rounded-none px-3 text-13 text-error-foreground"
 			data-testid="disconnect-button"
 		>
 			<LogOut className="w-4 h-4" />
@@ -530,7 +530,7 @@ const NetworkSwitchingSection = () => {
 	const { isTestMode, setNetwork } = useNetwork();
 	return (
 		<>
-			<div className="flex items-center justify-between px-3 py-2 text-sm">
+			<div className="flex h-9 items-center justify-between px-3 text-13">
 				<div className="flex items-center gap-2">
 					<Globe className="w-4 h-4" />
 					<span className="font-medium">Test Mode</span>
@@ -585,7 +585,7 @@ const NotConnectedWalletVariant = ({
 			{showWallets && (
 				<div className={cn(menuClass(variant), 'min-w-48')}>
 					<div className="px-3 pb-2 border-b">
-						<p className="text-sm font-medium">
+						<p className="text-13 font-medium">
 							Choose Wallet
 						</p>
 					</div>
@@ -595,7 +595,7 @@ const NotConnectedWalletVariant = ({
 							onClick={() =>
 								handleWalletConnect(wallet.name)
 							}
-							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent w-full text-left cursor-pointer"
+							className="flex h-9 w-full cursor-pointer items-center gap-3 px-3 text-13 text-left hover:bg-accent"
 							data-testid="wallet-option"
 							data-wallet-name={wallet.name}
 						>
@@ -610,7 +610,7 @@ const NotConnectedWalletVariant = ({
 					{wallets.length === 0 && (
 						<div className="px-3 py-3 text-center">
 							<AlertTriangle className="w-6 h-6 text-muted-foreground mx-auto mb-3" />
-							<p className="text-sm text-muted-foreground">
+							<p className="text-13 text-muted-foreground">
 								No wallets found.
 								<br /> Install a wallet (e.g. Slush Wallet)
 								to continue.
@@ -647,7 +647,7 @@ const AccountSwitchingSection = ({
 		<>
 			{showTitle && (
 				<div className="px-3 pb-2 border-b">
-					<p className="text-sm font-medium">
+					<p className="text-13 font-medium">
 						Switch Account
 					</p>
 				</div>
