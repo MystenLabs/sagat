@@ -12,7 +12,10 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
-import { validatePublicKey } from '../../lib/sui-utils';
+import {
+	isValidWeight,
+	validatePublicKey,
+} from '../../lib/sui-utils';
 import type { Member } from '../../lib/validations/multisig';
 import { AddressLookupModal } from '../modals/AddressLookupModal';
 import { Button } from '../ui/button';
@@ -88,6 +91,7 @@ export function MemberInput({
 				{...attributes}
 				{...listeners}
 				className="flex items-center justify-center w-6 h-6 cursor-grab active:cursor-grabbing shrink-0 mt-1 hover:bg-accent rounded"
+				data-testid="member-drag-handle"
 			>
 				<GripVertical className="w-4 h-4 text-muted-foreground" />
 			</div>
@@ -167,6 +171,14 @@ export function MemberInput({
 						data-testid="member-weight-input"
 					/>
 				</div>
+				{!isValidWeight(member.weight) && (
+					<p
+						className="text-sm text-error-foreground"
+						data-testid="member-weight-error"
+					>
+						Weight must be between 1 and 255
+					</p>
+				)}
 			</div>
 
 			{/* Remove button */}

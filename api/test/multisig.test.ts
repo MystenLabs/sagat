@@ -59,6 +59,61 @@ describe('Multisig API', () => {
 		);
 	});
 
+	test('rejects weights outside 1 to 255', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+
+		await expect(
+			session.createMultisig(users, 1, { weights: [0, 1] }),
+		).rejects.toThrow('Weights must be greater than 0');
+		await expect(
+			session.createMultisig(users, 1, {
+				weights: [256, 1],
+			}),
+		).rejects.toThrow('Weights must be less than 256');
+	});
+
+	test('rejects fewer than 2 or more than 10 members', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(1);
+		const tooMany = [
+			...users,
+			...Array.from({ length: 10 }, newUser),
+		];
+
+		await expect(
+			session.createMultisig(users, 1),
+		).rejects.toThrow(
+			'Addresses cannot be more than 10 or less than 2',
+		);
+		await expect(
+			session.createMultisig(tooMany, 1),
+		).rejects.toThrow(
+			'Addresses cannot be more than 10 or less than 2',
+		);
+	});
+
+	test('rejects weights that do not match the members', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+
+		await expect(
+			session.createMultisig(users, 1, { weights: [1] }),
+		).rejects.toThrow(
+			'Addresses and weights must be the same length',
+		);
+	});
+
+	test('rejects creating the same multisig twice', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+		await session.createMultisig(users, 2);
+
+		await expect(
+			session.createMultisig(users, 2),
+		).rejects.toThrow('Data already exists');
+	});
+
 	test('registers the public keys of members who never connected', async () => {
 		const session = framework.createSession();
 		const alice = newUser();
