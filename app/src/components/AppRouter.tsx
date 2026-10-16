@@ -4,6 +4,7 @@
 import {
 	useCurrentAccount,
 	useCurrentNetwork,
+	useWalletConnection,
 } from '@mysten/dapp-kit-react';
 import { useMemo, type ReactElement } from 'react';
 import {
@@ -112,6 +113,7 @@ function getAuthLevel(pathname: string): AuthLevel {
 
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
+	const { isReconnecting } = useWalletConnection();
 	const { isCheckingAuth, isCurrentAddressAuthenticated } =
 		useApiAuth();
 	const location = useLocation();
@@ -179,6 +181,17 @@ export function AppRouter() {
 
 	if (network === 'devnet') {
 		return <DevnetNotSupported />;
+	}
+
+	// The wallet kit is still restoring the previous session: hold the
+	// layout instead of flashing the connect prompt.
+	if (isReconnecting) {
+		return (
+			<SkeletonPage
+				rows={3}
+				message="Reconnecting wallet"
+			/>
+		);
 	}
 
 	// Full auth routes - require wallet + API auth
