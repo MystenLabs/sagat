@@ -10,7 +10,7 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 const chipVariants = cva(
-	'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full shrink-0 font-medium',
+	'inline-flex shrink-0 items-center gap-1 rounded-full font-normal whitespace-nowrap uppercase',
 	{
 		variants: {
 			variant: {
@@ -18,13 +18,15 @@ const chipVariants = cva(
 				warning: 'bg-warning text-warning-foreground',
 				error: 'bg-error text-error-foreground',
 				info: 'bg-info text-info-foreground',
-				neutral: 'bg-muted text-muted-foreground',
+				neutral: 'bg-chip text-chip-foreground',
 				purple: 'bg-purple text-purple-foreground',
+				/** Square, mixed-case category chip (key type, network). */
+				tag: 'rounded-sm bg-chip text-chip-foreground normal-case tracking-normal',
 			},
 			size: {
-				sm: 'text-xs px-1.5 py-0.5',
-				md: 'text-xs px-2 py-1',
-				lg: 'text-sm px-3 py-1.5',
+				sm: 'px-1.5 py-0.5 text-10',
+				md: 'px-2 py-1 text-10',
+				lg: 'px-2.5 py-1 text-11 tracking-[0.02em]',
 			},
 		},
 		defaultVariants: {
