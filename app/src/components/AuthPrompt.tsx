@@ -15,7 +15,7 @@ export function AuthPrompt() {
 
 	return (
 		<div
-			className="mx-auto mt-20 p-8"
+			className="mx-auto mt-16 w-full max-w-lg rounded-xl border bg-card p-8"
 			data-testid="auth-prompt"
 		>
 			<div className="text-center">
@@ -32,7 +32,7 @@ export function AuthPrompt() {
 					Sagat
 				</p>
 
-				<div className="bg-surface rounded-lg p-6 mb-8 space-y-3 max-w-lg mx-auto">
+				<div className="bg-muted rounded-lg p-6 mb-8 space-y-3">
 					<div>
 						<p className="text-xs text-muted-foreground mb-1">
 							Address
