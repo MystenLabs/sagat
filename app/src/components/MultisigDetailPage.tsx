@@ -2,47 +2,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import {
-	Check,
-	Coins,
-	Copy,
-	FileText,
-	Info,
-	Plus,
-} from 'lucide-react';
+import { formatAddress } from '@mysten/sui/utils';
+import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
 	Navigate,
-	NavLink,
 	Outlet,
-	useNavigate,
 	useParams,
 } from 'react-router-dom';
 
-import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
-import { MultisigSelector } from './MultisigSelector';
 import {
 	ProposalSheet,
 	type ProposalIntent,
 } from './ProposalSheet';
 import { Button } from './ui/button';
-import { Chip } from './ui/chip';
 import { Loading } from './ui/loading';
+import { PageHeader } from './ui/page-header';
 
 export function MultisigDetailPage() {
-	const { address, tab } = useParams<{
-		address: string;
-		tab?: string;
-	}>();
-	const navigate = useNavigate();
+	const { address } = useParams<{ address: string }>();
 	const currentAccount = useCurrentAccount();
 	const [showProposalSheet, setShowProposalSheet] =
 		useState(false);
 	const [proposalIntent, setProposalIntent] =
 		useState<ProposalIntent | null>(null);
-	const { copied, copy } = useCopyToClipboard();
-
 	const { data: multisigs, isLoading } = useUserMultisigs();
 
 	// Find the multisig details from the selected accts
@@ -59,13 +43,6 @@ export function MultisigDetailPage() {
 		() => multisigs?.filter((m) => m.isAccepted) ?? [],
 		[multisigs],
 	);
-
-	// Handle multisig selection change
-	const handleMultisigChange = (newAddress: string) => {
-		navigate(
-			`/multisig/${newAddress}/${tab || 'proposals'}`,
-		);
-	};
 
 	// Store the current multisig address in localStorage per wallet address
 	useEffect(() => {
@@ -115,108 +92,35 @@ export function MultisigDetailPage() {
 		return <Navigate to="/" replace />;
 	}
 
-	const tabs = [
-		{
-			id: 'proposals',
-			label: 'Proposals',
-			icon: FileText,
-		},
-		{
-			id: 'overview',
-			label: 'Overview',
-			icon: Info,
-			count: multisig.pendingMembers,
-		},
-		{ id: 'assets', label: 'Balances', icon: Coins },
-	];
+	const title =
+		multisig.name || formatAddress(multisig.address);
 
 	return (
 		<div
-			className="page-shell mt-8 pb-12"
+			className="page-shell"
 			data-testid="multisig-detail"
 			data-multisig-address={multisig.address}
 		>
-			{/* Header */}
-			<div className="mb-6">
-				{/* Multisig Selector & Info */}
-				<div className="bg-card border rounded-lg p-6 mb-6">
-					<div className="flex flex-col gap-6">
-						{/* Multisig Selector */}
-						<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-							<div className="flex-1 min-w-0">
-								<MultisigSelector
-									multisigs={verifiedMultisigs}
-									selectedMultisig={address!}
-									onSelectMultisig={handleMultisigChange}
-								/>
-							</div>
-							<div className="flex items-center space-x-3 shrink-0">
-								<Button
-									variant="outline"
-									onClick={() => copy(address!)}
-									className="whitespace-nowrap"
-									title="Copy multisig address"
-								>
-									{copied ? (
-										<Check className="w-4 h-4" />
-									) : (
-										<Copy className="w-4 h-4" />
-									)}
-								</Button>
-								<Button
-									onClick={() => {
-										setProposalIntent({
-											kind: 'custom',
-										});
-										setShowProposalSheet(true);
-									}}
-									data-testid="new-proposal-button"
-								>
-									<Plus className="w-4 h-4 mr-2" />
-									New Proposal
-								</Button>
-							</div>
-						</div>
-					</div>
-				</div>
-
-				{/* Navigation Tabs */}
-				<div className="overflow-x-auto border-b">
-					<div className="flex space-x-1 min-w-max">
-						{tabs.map((tabItem) => {
-							const Icon = tabItem.icon;
-
-							return (
-								<NavLink
-									key={tabItem.id}
-									to={`/multisig/${address}/${tabItem.id}`}
-									data-testid={`multisig-tab-${tabItem.id}`}
-									className={({ isActive }) =>
-										`px-4 py-2 text-sm shrink-0 font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${
-											isActive
-												? 'text-info-foreground border-b-2 border-info-border'
-												: 'text-muted-foreground hover:text-foreground'
-										}`
-									}
-								>
-									<Icon className="w-4 h-4" />
-									{tabItem.label}
-									{(tabItem.count && tabItem.count > 0 && (
-										<Chip
-											variant="warning"
-											size="sm"
-											className="ml-1"
-										>
-											{tabItem.count} pending
-										</Chip>
-									)) ||
-										null}
-								</NavLink>
-							);
-						})}
-					</div>
-				</div>
-			</div>
+			<PageHeader
+				breadcrumb={[
+					{ label: 'Multisigs', to: '/' },
+					{ label: title },
+				]}
+				title={title}
+				address={multisig.address}
+				actions={
+					<Button
+						onClick={() => {
+							setProposalIntent({ kind: 'custom' });
+							setShowProposalSheet(true);
+						}}
+						data-testid="new-proposal-button"
+					>
+						<Plus />
+						New proposal
+					</Button>
+				}
+			/>
 
 			{/* Tab Content */}
 			<div>
