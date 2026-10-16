@@ -20,7 +20,7 @@ import {
 	Plus,
 	Users,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
 	Link,
 	matchPath,
@@ -110,7 +110,17 @@ const groupLabelClass =
 
 export function AppSidebar() {
 	const location = useLocation();
-	const { setOpenMobile } = useSidebar();
+	const { setOpenMobile, isMobile, state } = useSidebar();
+	// Collapsed rail: expand as an overlay while hovered so the labels are a
+	// pointer-move away; the toggle still pins it open.
+	const [peek, setPeek] = useState(false);
+	const peekHandlers =
+		!isMobile && state === 'collapsed'
+			? {
+					onMouseEnter: () => setPeek(true),
+					onMouseLeave: () => setPeek(false),
+				}
+			: {};
 	const currentAccount = useCurrentAccount();
 	const { isCurrentAddressAuthenticated } = useApiAuth();
 	const signedIn =
@@ -144,7 +154,11 @@ export function AppSidebar() {
 	const closeMobile = () => setOpenMobile(false);
 
 	return (
-		<Sidebar collapsible="icon">
+		<Sidebar
+			collapsible="icon"
+			peek={peek}
+			{...peekHandlers}
+		>
 			<div
 				className="flex min-h-0 flex-1 flex-col"
 				data-testid="app-header"
