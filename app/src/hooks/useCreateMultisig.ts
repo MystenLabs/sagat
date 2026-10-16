@@ -6,9 +6,9 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'sonner';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';

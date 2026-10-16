@@ -48,7 +48,7 @@ export function CopyButton({
 			className={cn(sizeClasses[size], className)}
 			title={
 				copied
-					? 'Copied to clipboard!'
+					? 'Copied'
 					: 'Copy to clipboard'
 			}
 		>

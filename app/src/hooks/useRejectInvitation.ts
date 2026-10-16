@@ -10,10 +10,10 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { QueryKeys } from '@/lib/queryKeys';
+import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
 

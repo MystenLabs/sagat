@@ -308,6 +308,13 @@
 	}
 }
 
+/* Toasts hang off the bottom centre of the content column; the shell sets
+   --content-left to the sidebar's current width. */
+html [data-sonner-toaster][data-x-position='center'] {
+	left: calc(50% + var(--content-left, 0px) / 2);
+	transform: translateX(-50%);
+}
+
 /* Main column of every page: the padding from the designs (44px top,
    56px sides on desktop), no max-width. */
 @utility page-shell {
