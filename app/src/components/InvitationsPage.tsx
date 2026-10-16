@@ -1,118 +1,84 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Info, Mail } from 'lucide-react';
+import { useState } from 'react';
 
 import { useInvitations } from '../hooks/useInvitations';
 import { InvitationCard } from './invitations/InvitationCard';
-import { Button } from './ui/button';
 import { EmptyState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
-import { SkeletonPage } from './ui/skeleton';
+import { SkeletonRows } from './ui/skeleton';
 import { Tabs } from './ui/tabs';
 
 type TabType = 'pending' | 'rejected';
 
+/** The invitations inbox: accounts asking the signed-in key to join. */
 export function InvitationsPage() {
 	const [activeTab, setActiveTab] =
 		useState<TabType>('pending');
-	const {
-		data: pendingInvites,
-		isLoading: isPendingLoading,
-		isFetching: isPendingFetching,
-	} = useInvitations(false);
+	const pending = useInvitations(false);
+	const rejected = useInvitations(true);
 
-	// Only fetch rejected invitations when the user switches to that tab
-	const shouldFetchRejected = activeTab === 'rejected';
-	const {
-		data: rejectedInvites,
-		isLoading: isRejectedLoading,
-		isFetching: isRejectedFetching,
-	} = useInvitations(true, shouldFetchRejected);
-
-	const isLoading =
-		activeTab === 'pending'
-			? isPendingLoading && isPendingFetching
-			: isRejectedLoading && isRejectedFetching;
-
-	const invitations =
-		activeTab === 'pending'
-			? pendingInvites
-			: rejectedInvites;
-
-	const tabs = useMemo(
-		() => [
-			{
-				id: 'pending',
-				label: 'Pending',
-				count: pendingInvites?.length,
-				countColor: 'gray' as const,
-			},
-			{
-				id: 'rejected',
-				label: 'Rejected',
-				// Don't show count - will load when tab is clicked
-				countColor: 'gray' as const,
-			},
-		],
-		[pendingInvites?.length],
-	);
-
-	if (isLoading)
-		return (
-			<SkeletonPage
-				rows={3}
-				message="Loading invitations"
-			/>
-		);
+	const current =
+		activeTab === 'pending' ? pending : rejected;
+	const invitations = current.data ?? [];
+	const isLoading = current.isLoading;
 
 	return (
-		<div className="max-w-4xl mx-auto mt-8 px-4">
+		<div
+			className="page-shell"
+			data-testid="invitations-page"
+		>
 			<PageHeader
 				title="Invitations"
-				description={
-					activeTab === 'pending'
-						? `You have ${pendingInvites?.length ?? 0} pending invitation${(pendingInvites?.length ?? 0) !== 1 ? 's' : ''}`
-						: `You have ${rejectedInvites?.length ?? 0} rejected invitation${(rejectedInvites?.length ?? 0) !== 1 ? 's' : ''}`
-				}
-				backLink="/"
-				backLabel="Back to Dashboard"
+				description="Accounts you've been asked to join as a signer."
 			/>
 
-			<div className="mb-6">
-				<Tabs
-					tabs={tabs}
-					activeTab={activeTab}
-					onTabChange={(id) => setActiveTab(id as TabType)}
-					testId="invitations-tab"
-				/>
-			</div>
+			<Tabs
+				tabs={[
+					{
+						id: 'pending',
+						label: 'Pending',
+						count: pending.data?.length,
+						countColor: 'gray',
+					},
+					{
+						id: 'rejected',
+						label: 'Rejected',
+						count: rejected.data?.length,
+						countColor: 'gray',
+					},
+				]}
+				activeTab={activeTab}
+				onTabChange={(id) => setActiveTab(id as TabType)}
+				testId="invitations-tab"
+				className="mb-6"
+			/>
 
-			{/* Content */}
-			{!invitations || invitations.length === 0 ? (
+			{isLoading ? (
+				<SkeletonRows
+					rows={2}
+					header={false}
+					testId="invitations-loading"
+				/>
+			) : invitations.length === 0 ? (
 				<EmptyState
+					icon={Mail}
 					testId="invitations-empty"
 					title={
 						activeTab === 'pending'
-							? 'No pending invitations'
+							? 'No invitations yet'
 							: 'No rejected invitations'
 					}
 					description={
 						activeTab === 'pending'
-							? "You don't have any pending multisig invitations at the moment"
-							: "You haven't rejected any multisig invitations"
-					}
-					action={
-						<Link to="/">
-							<Button variant="outline">
-								Back to Dashboard
-							</Button>
-						</Link>
+							? 'When someone adds you as a signer on an account, the invitation shows up here.'
+							: 'Invitations you turn down stay here for your records.'
 					}
 				/>
 			) : (
-				<div className="space-y-3">
+				<div className="flex flex-col gap-3">
 					{invitations.map((multisig) => (
 						<InvitationCard
 							key={multisig.address}
@@ -121,6 +87,13 @@ export function InvitationsPage() {
 					))}
 				</div>
 			)}
+
+			<p className="mt-5 flex items-center gap-2 text-13 text-muted-foreground">
+				<Info className="size-4 shrink-0" />
+				{activeTab === 'pending'
+					? 'Accepted accounts appear in your sidebar. Rejected invitations move to the Rejected tab.'
+					: 'Rejected invitations stay here for your records.'}
+			</p>
 		</div>
 	);
 }

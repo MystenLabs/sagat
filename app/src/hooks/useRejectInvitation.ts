@@ -24,7 +24,12 @@ export function useRejectInvitation() {
 	const dappKit = useDAppKit();
 
 	return useMutation({
-		mutationFn: async (multisigAddress: string) => {
+		mutationFn: async ({
+			address: multisigAddress,
+		}: {
+			address: string;
+			name?: string | null;
+		}) => {
 			if (!currentAccount || !currentAddress) {
 				throw new Error('No wallet connected');
 			}
@@ -47,7 +52,7 @@ export function useRejectInvitation() {
 			);
 		},
 		onSuccess: () => {
-			toast.success('Invitation rejected successfully!');
+			toast.success('Invitation rejected');
 			// Invalidate the multisig queries to refresh the list
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
@@ -57,9 +62,9 @@ export function useRejectInvitation() {
 			});
 		},
 		onError: (error: Error) => {
-			toast.error(
-				`Failed to reject invitation: ${error.message}`,
-			);
+			toast.error("Couldn't reject the invitation", {
+				description: error.message,
+			});
 		},
 	});
 }

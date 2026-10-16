@@ -20,7 +20,12 @@ export function useAcceptInvitation() {
 	const { currentAddress } = useApiAuth();
 
 	return useMutation({
-		mutationFn: async (multisigAddress: string) => {
+		mutationFn: async ({
+			address: multisigAddress,
+		}: {
+			address: string;
+			name?: string | null;
+		}) => {
 			if (!currentAddress)
 				throw new Error('No wallet connected');
 
@@ -41,7 +46,7 @@ export function useAcceptInvitation() {
 				},
 			);
 		},
-		onSuccess: () => {
+		onSuccess: (_data, { name }) => {
 			// Invalidate queries to refresh multisig data
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
@@ -49,12 +54,16 @@ export function useAcceptInvitation() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Invitations],
 			});
-			toast.success('Invitation accepted successfully!');
+			toast.success(
+				name
+					? `You've joined ${name}`
+					: 'Invitation accepted',
+			);
 		},
 		onError: (error: Error) => {
-			toast.error(
-				`Failed to accept invitation: ${error.message}`,
-			);
+			toast.error("Couldn't accept the invitation", {
+				description: error.message,
+			});
 		},
 	});
 }
