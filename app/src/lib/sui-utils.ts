@@ -33,6 +33,13 @@ export function validatePublicKey(
 	}
 }
 
+// A member's weight is a single byte in the multisig public key.
+export function isValidWeight(weight: number) {
+	return (
+		Number.isInteger(weight) && weight >= 1 && weight <= 255
+	);
+}
+
 /**
  * Computes the multisig address from public keys and threshold
  */
@@ -57,6 +64,15 @@ export function computeMultisigAddress(
 				address: null,
 				error:
 					'Cannot compute multisig address. Some public keys are empty',
+			};
+		}
+
+		// The SDK doesn't check the upper bound and would truncate the weight.
+		if (!weights.every(isValidWeight)) {
+			return {
+				address: null,
+				error:
+					'Cannot compute multisig address. Weights must be between 1 and 255',
 			};
 		}
 
