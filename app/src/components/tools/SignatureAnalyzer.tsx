@@ -120,12 +120,12 @@ function MultiSigDetails({
 }) {
 	return (
 		<div
-			className="bg-card border border-info-border rounded-lg"
+			className="bg-card border rounded-lg"
 			data-testid="multisig-details"
 			data-address={multisigInfo.publicKey.toSuiAddress()}
 			data-threshold={multisigInfo.threshold}
 		>
-			<div className="p-4 border-b border-info-border">
+			<div className="p-4 border-b">
 				<h3 className="text-lg font-semibold">
 					MultiSig Configuration
 				</h3>
@@ -174,7 +174,7 @@ function MultiSigDetails({
 												<span className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs font-medium">
 													{participant.keyType}
 												</span>
-												<span className="bg-info-soft text-info-foreground px-2 py-1 rounded text-xs font-medium">
+												<span className="bg-chip text-chip-foreground px-2 py-1 rounded text-xs font-medium">
 													Weight: {participant.weight}
 												</span>
 											</div>

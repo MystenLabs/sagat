@@ -135,6 +135,9 @@
 	--color-toast: var(--toast);
 	--color-toast-foreground: var(--toast-foreground);
 
+	/* Sui brand blue, for the coin and the logo only. */
+	--color-sui: var(--sui);
+
 	--color-surface: var(--surface);
 	--color-surface-hover: var(--surface-hover);
 	--color-row-selected: var(--row-selected);
@@ -209,6 +212,8 @@
 	--toast: oklch(0.182 0 0);
 	--toast-foreground: oklch(1 0 0);
 
+	--sui: #4da2ff;
+
 	--surface: oklch(0.973 0 0);
 	--surface-hover: oklch(0.95 0 0);
 	--row-selected: oklch(0.93 0 0);
@@ -279,6 +284,8 @@
 	--toast: oklch(0.26 0 0);
 	--toast-foreground: oklch(0.985 0 0);
 
+	--sui: #4da2ff;
+
 	--surface: oklch(0.18 0 0);
 	--surface-hover: oklch(0.24 0 0);
 	--row-selected: oklch(0.28 0 0);
@@ -301,9 +308,8 @@
 	}
 }
 
-/* Shared horizontal shell used by the top header and every page so the
-   left/right edges of header content align with body content. Tweak the
-   max-width and gutter here once and the entire app follows. */
+/* Main column of every page: the padding from the designs (44px top,
+   56px sides on desktop), no max-width. */
 @utility page-shell {
-	@apply mx-auto w-full max-w-[1600px] px-4;
+	@apply flex w-full flex-col px-5 pt-6 pb-10 md:px-14 md:pt-11 md:pb-14;
 }

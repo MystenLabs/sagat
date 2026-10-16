@@ -13,7 +13,7 @@ function ToolDetail({ tool }: { tool: Tool }) {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center gap-3">
-				<div className="p-2 bg-info-soft rounded-lg">
+				<div className="p-2 bg-muted rounded-lg">
 					{tool.icon}
 				</div>
 				<div>
@@ -26,7 +26,7 @@ function ToolDetail({ tool }: { tool: Tool }) {
 				</div>
 			</div>
 
-			<div className="border rounded-lg p-6">
+			<div className="rounded-xl border bg-card p-6">
 				<ToolComponent />
 			</div>
 		</div>
@@ -83,7 +83,7 @@ export function ToolsPage() {
 	if (!selectedTool) return null;
 
 	return (
-		<div className="page-shell py-8">
+		<div className="page-shell">
 			<div className="mb-8">
 				<h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
 					Developer Tools

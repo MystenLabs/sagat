@@ -14,14 +14,17 @@ import {
 	ArrowRight,
 	Check,
 	ChevronDown,
+	ChevronRight,
 	Copy,
 	Globe,
 	LogOut,
 	Shield,
 	Wallet,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+
+import { cn } from '@/lib/utils';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -32,7 +35,7 @@ import { Button } from './ui/button';
 import { Chip } from './ui/chip';
 import { Switch } from './ui/switch';
 
-type WalletVariant = 'header' | 'sidebar';
+type WalletVariant = 'header' | 'sidebar' | 'rail';
 
 interface CustomWalletButtonProps {
 	variant?: WalletVariant;
@@ -80,6 +83,38 @@ const AccountIdentity = ({
 			</p>
 		)}
 	</div>
+);
+
+// The menu opens below the trigger in the header and above it in the
+// sidebar rail, where the trigger sits at the bottom of the screen.
+const menuClass = (variant: WalletVariant) =>
+	cn(
+		'absolute z-50 min-w-64 rounded-lg border bg-popover py-1 text-13 text-popover-foreground shadow-lg',
+		variant === 'rail'
+			? 'bottom-full left-0 mb-1 w-full'
+			: 'top-full right-0 mt-1',
+	);
+
+// Full-width row used as the trigger in the sidebar rail.
+const RailTrigger = ({
+	children,
+	...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+	children: ReactNode;
+}) => (
+	<button
+		type="button"
+		{...props}
+		className="flex w-full cursor-pointer items-center gap-2.5 rounded-md p-2 text-left text-13 text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+	>
+		{children}
+	</button>
+);
+
+const RailAvatar = ({ address }: { address: string }) => (
+	<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-11 font-medium text-sidebar-foreground uppercase">
+		{address.slice(2, 3)}
+	</span>
 );
 
 export function CustomWalletButton({
@@ -148,6 +183,7 @@ export function CustomWalletButton({
 	if (!currentAccount) {
 		return (
 			<NotConnectedWalletVariant
+				variant={variant}
 				showWallets={showWallets}
 				setShowWallets={setShowWallets}
 				handleWalletConnect={handleWalletConnect}
@@ -161,35 +197,53 @@ export function CustomWalletButton({
 		// For header variant, still show the dropdown but with auth prompt
 		return (
 			<div className="relative" ref={dropdownRef}>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => setShowWallets(!showWallets)}
-					className="flex items-center gap-2"
-					data-testid="wallet-menu-button"
-					data-auth-state="unauthenticated"
-					data-address={currentAccount.address}
-				>
-					<Shield className="w-3 h-3 text-info-foreground" />
-					<span>
-						{getCompactWalletLabel(
-							currentAccount.address,
-							currentSuinsName,
-						)}
-					</span>
-					<Chip
-						variant={isTestMode ? 'warning' : 'info'}
-						size="sm"
+				{variant === 'rail' ? (
+					<RailTrigger
+						onClick={() => setShowWallets(!showWallets)}
+						data-testid="wallet-menu-button"
+						data-auth-state="unauthenticated"
+						data-address={currentAccount.address}
 					>
-						{network}
-					</Chip>
-					<ChevronDown className="w-3 h-3" />
-				</Button>
+						<RailAvatar address={currentAccount.address} />
+						<span className="min-w-0 flex-1 truncate font-mono text-12 group-data-[collapsible=icon]:hidden">
+							{getCompactWalletLabel(
+								currentAccount.address,
+								currentSuinsName,
+							)}
+						</span>
+						<Shield className="size-3 shrink-0 text-warning-foreground group-data-[collapsible=icon]:hidden" />
+					</RailTrigger>
+				) : (
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setShowWallets(!showWallets)}
+						className="flex items-center gap-2"
+						data-testid="wallet-menu-button"
+						data-auth-state="unauthenticated"
+						data-address={currentAccount.address}
+					>
+						<Shield className="w-3 h-3 text-muted-foreground" />
+						<span>
+							{getCompactWalletLabel(
+								currentAccount.address,
+								currentSuinsName,
+							)}
+						</span>
+						<Chip
+							variant={isTestMode ? 'warning' : 'info'}
+							size="sm"
+						>
+							{network}
+						</Chip>
+						<ChevronDown className="w-3 h-3" />
+					</Button>
+				)}
 
 				{showWallets && (
-					<div className="absolute top-full mt-1 right-0 bg-popover border rounded-lg shadow-lg py-2 min-w-64 z-50">
+					<div className={menuClass(variant)}>
 						<div className="px-3 pb-2 border-b text-center">
-							<p className="text-sm font-medium text-info-foreground">
+							<p className="text-13 font-medium text-foreground">
 								Authentication Required
 							</p>
 						</div>
@@ -287,36 +341,54 @@ export function CustomWalletButton({
 		);
 	}
 
-	// Header variant - authenticated
+	// Header and rail variants - authenticated
 	return (
 		<div className="relative" ref={dropdownRef}>
-			<Button
-				variant="outline"
-				size="sm"
-				onClick={() => setShowWallets(!showWallets)}
-				className="flex items-center gap-2"
-				data-testid="wallet-menu-button"
-				data-auth-state="authenticated"
-				data-address={currentAccount.address}
-			>
-				<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
-				<span>
-					{getCompactWalletLabel(
-						currentAccount.address,
-						currentSuinsName,
-					)}
-				</span>
-				<Chip
-					variant={isTestMode ? 'warning' : 'info'}
-					size="sm"
+			{variant === 'rail' ? (
+				<RailTrigger
+					onClick={() => setShowWallets(!showWallets)}
+					data-testid="wallet-menu-button"
+					data-auth-state="authenticated"
+					data-address={currentAccount.address}
 				>
-					{network}
-				</Chip>
-				<ChevronDown className="w-3 h-3" />
-			</Button>
+					<RailAvatar address={currentAccount.address} />
+					<span className="min-w-0 flex-1 truncate font-mono text-12 group-data-[collapsible=icon]:hidden">
+						{getCompactWalletLabel(
+							currentAccount.address,
+							currentSuinsName,
+						)}
+					</span>
+					<ChevronRight className="size-3 shrink-0 opacity-60 group-data-[collapsible=icon]:hidden" />
+				</RailTrigger>
+			) : (
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => setShowWallets(!showWallets)}
+					className="flex items-center gap-2"
+					data-testid="wallet-menu-button"
+					data-auth-state="authenticated"
+					data-address={currentAccount.address}
+				>
+					<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
+					<span>
+						{getCompactWalletLabel(
+							currentAccount.address,
+							currentSuinsName,
+						)}
+					</span>
+					<Chip
+						variant={isTestMode ? 'warning' : 'info'}
+						size="sm"
+					>
+						{network}
+					</Chip>
+					<ChevronDown className="w-3 h-3" />
+				</Button>
+			)}
 
 			{showWallets && (
-				<div className="absolute top-full mt-1 right-0 bg-popover border rounded-lg shadow-lg py-2 min-w-64 z-50">
+				<div className={menuClass(variant)}>
 					{accounts.length > 1 && (
 						<AccountSwitchingSection
 							handleSwitchAccount={handleSwitchAccount}
@@ -350,7 +422,7 @@ const CopyAddressButton = () => {
 				currentAccount?.address &&
 				copyAddress(currentAccount.address)
 			}
-			className="w-full justify-start rounded-none"
+			className="h-9 w-full justify-start rounded-none px-3 text-13"
 		>
 			{copied ? (
 				<Check className="w-4 h-4" />
@@ -387,8 +459,8 @@ const AccountItem = ({
 
 	return (
 		<div
-			className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-accent w-full ${
-				isCurrent ? 'bg-info-soft text-info-foreground' : ''
+			className={`flex items-center justify-between px-3 py-2 text-13 hover:bg-accent w-full ${
+				isCurrent ? 'bg-accent text-foreground' : ''
 			}`}
 			data-testid="wallet-account"
 			data-address={account.address}
@@ -409,7 +481,7 @@ const AccountItem = ({
 
 			<div className="flex items-center ml-2 space-x-1">
 				{isCurrent && (
-					<div className="w-2 h-2 bg-info-foreground rounded-full"></div>
+					<div className="w-2 h-2 bg-foreground rounded-full"></div>
 				)}
 				{!isAccountAuthenticated && (
 					<Button
@@ -441,7 +513,7 @@ const DisconnectButton = ({
 			onClick={onDisconnect}
 			variant="ghost"
 			size="sm"
-			className="w-full justify-start text-error-foreground rounded-none"
+			className="h-9 w-full justify-start rounded-none px-3 text-13 text-error-foreground"
 			data-testid="disconnect-button"
 		>
 			<LogOut className="w-4 h-4" />
@@ -458,7 +530,7 @@ const NetworkSwitchingSection = () => {
 	const { isTestMode, setNetwork } = useNetwork();
 	return (
 		<>
-			<div className="flex items-center justify-between px-3 py-2 text-sm">
+			<div className="flex h-9 items-center justify-between px-3 text-13">
 				<div className="flex items-center gap-2">
 					<Globe className="w-4 h-4" />
 					<span className="font-medium">Test Mode</span>
@@ -476,11 +548,13 @@ const NetworkSwitchingSection = () => {
 };
 
 const NotConnectedWalletVariant = ({
+	variant,
 	showWallets,
 	setShowWallets,
 	handleWalletConnect,
 	dropdownRef,
 }: {
+	variant: WalletVariant;
 	showWallets: boolean;
 	setShowWallets: (show: boolean) => void;
 	handleWalletConnect: (walletName: string) => void;
@@ -490,21 +564,29 @@ const NotConnectedWalletVariant = ({
 	return (
 		<div className="relative" ref={dropdownRef}>
 			<Button
-				variant="default"
+				variant={
+					variant === 'rail' ? 'secondary' : 'default'
+				}
 				size="sm"
 				onClick={() => setShowWallets(!showWallets)}
-				className="flex items-center gap-2"
+				className={cn(
+					'flex items-center gap-2',
+					variant === 'rail' &&
+						'w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0',
+				)}
 				data-testid="connect-wallet-button"
 			>
 				<Wallet className="w-4 h-4" />
-				Connect Wallet
-				<ChevronDown className="w-3 h-3" />
+				<span className="group-data-[collapsible=icon]:hidden">
+					Connect Wallet
+				</span>
+				<ChevronDown className="w-3 h-3 group-data-[collapsible=icon]:hidden" />
 			</Button>
 
 			{showWallets && (
-				<div className="absolute top-full mt-1 right-0 bg-popover border rounded-lg shadow-lg py-2 min-w-48 z-50">
+				<div className={cn(menuClass(variant), 'min-w-48')}>
 					<div className="px-3 pb-2 border-b">
-						<p className="text-sm font-medium">
+						<p className="text-13 font-medium">
 							Choose Wallet
 						</p>
 					</div>
@@ -514,7 +596,7 @@ const NotConnectedWalletVariant = ({
 							onClick={() =>
 								handleWalletConnect(wallet.name)
 							}
-							className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent w-full text-left cursor-pointer"
+							className="flex h-9 w-full cursor-pointer items-center gap-3 px-3 text-13 text-left hover:bg-accent"
 							data-testid="wallet-option"
 							data-wallet-name={wallet.name}
 						>
@@ -529,7 +611,7 @@ const NotConnectedWalletVariant = ({
 					{wallets.length === 0 && (
 						<div className="px-3 py-3 text-center">
 							<AlertTriangle className="w-6 h-6 text-muted-foreground mx-auto mb-3" />
-							<p className="text-sm text-muted-foreground">
+							<p className="text-13 text-muted-foreground">
 								No wallets found.
 								<br /> Install a wallet (e.g. Slush Wallet)
 								to continue.
@@ -566,7 +648,7 @@ const AccountSwitchingSection = ({
 		<>
 			{showTitle && (
 				<div className="px-3 pb-2 border-b">
-					<p className="text-sm font-medium">
+					<p className="text-13 font-medium">
 						Switch Account
 					</p>
 				</div>

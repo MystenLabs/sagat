@@ -4,16 +4,24 @@
 import { LucideLock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import { cn } from '@/lib/utils';
+
 interface LogoProps {
 	showSubtitle?: boolean;
 	size?: 'sm' | 'md' | 'lg';
 	asLink?: boolean;
+	/** Only the icon tile, for the collapsed sidebar. */
+	compact?: boolean;
+	/** White treatment regardless of theme, for dark surfaces like the sidebar. */
+	onDark?: boolean;
 }
 
 export function Logo({
 	showSubtitle = true,
 	size = 'md',
 	asLink = true,
+	compact = false,
+	onDark = false,
 }: LogoProps) {
 	const sizeClasses = {
 		sm: {
@@ -37,33 +45,50 @@ export function Logo({
 	};
 
 	const classes = sizeClasses[size];
+	// Flat tile and plain wordmark; the lock stands in for the future site icon.
+	const tile = onDark ? 'bg-white' : 'bg-foreground';
+	const glyph = onDark ? 'text-black' : 'text-background';
+	const wordmark = onDark
+		? 'text-white'
+		: 'text-foreground';
 
 	const logoContent = (
 		<div className="flex items-center gap-2">
-			<div className="relative">
-				<div className="absolute inset-0 bg-linear-to-br from-blue-600 to-purple-600 dark:from-white dark:to-white rounded-lg opacity-90 group-hover:opacity-100 transition-opacity"></div>
-				<div
-					className={`relative bg-linear-to-br from-blue-500 to-purple-500 dark:from-white dark:to-white ${classes.iconPadding} rounded-lg shadow-sm`}
-				>
-					<LucideLock
-						className={`${classes.icon} text-white dark:text-black`}
-					/>
-				</div>
-			</div>
-			<div className="flex flex-col">
-				<span
-					className={`${classes.text} font-bold bg-linear-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent dark:text-white`}
-				>
-					SAGAT
-				</span>
-				{showSubtitle && (
-					<span
-						className={`${classes.subtitle} text-muted-foreground -mt-0.5`}
-					>
-						Sui Multisig Manager
-					</span>
+			<div
+				className={cn(
+					'relative rounded-lg',
+					classes.iconPadding,
+					tile,
 				)}
+			>
+				<LucideLock className={cn(classes.icon, glyph)} />
 			</div>
+			{!compact && (
+				<div className="flex flex-col">
+					<span
+						className={cn(
+							classes.text,
+							'font-bold tracking-tight',
+							wordmark,
+						)}
+					>
+						SAGAT
+					</span>
+					{showSubtitle && (
+						<span
+							className={cn(
+								classes.subtitle,
+								'-mt-0.5',
+								onDark
+									? 'text-white/60'
+									: 'text-muted-foreground',
+							)}
+						>
+							Sui Multisig Manager
+						</span>
+					)}
+				</div>
+			)}
 		</div>
 	);
 
