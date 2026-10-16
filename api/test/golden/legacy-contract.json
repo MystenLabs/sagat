@@ -1,0 +1,730 @@
+[
+	{
+		"route": "POST /auth/connect",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "POST /auth/connect",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "POST /auth/connect",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "POST /addresses",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "POST /multisig",
+		"status": 200,
+		"body": {
+			"multisig": {
+				"address": "<address:0>",
+				"isVerified": false,
+				"threshold": 2,
+				"name": "Treasury"
+			},
+			"members": [
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:0>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 0
+				},
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:1>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 1
+				},
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:2>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 2
+				}
+			]
+		}
+	},
+	{
+		"route": "POST /multisig/<address:0>/accept",
+		"status": 200,
+		"body": {
+			"address": "<address:0>",
+			"isVerified": true,
+			"threshold": 2,
+			"name": "Treasury"
+		}
+	},
+	{
+		"route": "POST /multisig/<address:0>/accept",
+		"status": 200,
+		"body": {
+			"address": "<address:0>",
+			"isVerified": true,
+			"threshold": 2,
+			"name": "Treasury"
+		}
+	},
+	{
+		"route": "POST /multisig/<address:0>/add-proposer",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "GET /multisig/<address:0>",
+		"status": 200,
+		"body": {
+			"address": "<address:0>",
+			"isVerified": true,
+			"threshold": 2,
+			"name": "Treasury",
+			"members": [
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:0>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 0
+				},
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:1>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 1
+				},
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:2>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 2
+				}
+			],
+			"proposers": [
+				{
+					"address": "<address:1>",
+					"addedBy": "<address:2>",
+					"addedAt": "<timestamp>"
+				}
+			],
+			"totalMembers": 3,
+			"totalWeight": 3
+		}
+	},
+	{
+		"route": "GET /addresses/connections",
+		"status": 200,
+		"body": {
+			"<publicKey:0>": [
+				{
+					"address": "<address:0>",
+					"isVerified": true,
+					"threshold": 2,
+					"name": "Treasury",
+					"members": [
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:0>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 0
+						},
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:1>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 1
+						},
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:2>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 2
+						}
+					],
+					"proposers": [
+						{
+							"address": "<address:1>",
+							"addedBy": "<address:2>",
+							"addedAt": "<timestamp>"
+						}
+					],
+					"totalMembers": 3,
+					"totalWeight": 3
+				}
+			],
+			"<publicKey:1>": [
+				{
+					"address": "<address:0>",
+					"isVerified": true,
+					"threshold": 2,
+					"name": "Treasury",
+					"members": [
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:0>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 0
+						},
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:1>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 1
+						},
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:2>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 2
+						}
+					],
+					"proposers": [
+						{
+							"address": "<address:1>",
+							"addedBy": "<address:2>",
+							"addedAt": "<timestamp>"
+						}
+					],
+					"totalMembers": 3,
+					"totalWeight": 3
+				}
+			],
+			"<publicKey:2>": [
+				{
+					"address": "<address:0>",
+					"isVerified": true,
+					"threshold": 2,
+					"name": "Treasury",
+					"members": [
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:0>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 0
+						},
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:1>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 1
+						},
+						{
+							"multisigAddress": "<address:0>",
+							"publicKey": "<publicKey:2>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 2
+						}
+					],
+					"proposers": [
+						{
+							"address": "<address:1>",
+							"addedBy": "<address:2>",
+							"addedAt": "<timestamp>"
+						}
+					],
+					"totalMembers": 3,
+					"totalWeight": 3
+				}
+			]
+		}
+	},
+	{
+		"route": "POST /auth/connect",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "POST /auth/connect",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "POST /addresses",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "POST /multisig",
+		"status": 200,
+		"body": {
+			"multisig": {
+				"address": "<address:3>",
+				"isVerified": false,
+				"threshold": 2,
+				"name": null
+			},
+			"members": [
+				{
+					"multisigAddress": "<address:3>",
+					"publicKey": "<publicKey:0>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 0
+				},
+				{
+					"multisigAddress": "<address:3>",
+					"publicKey": "<publicKey:3>",
+					"weight": 1,
+					"isAccepted": false,
+					"isRejected": false,
+					"order": 1
+				},
+				{
+					"multisigAddress": "<address:3>",
+					"publicKey": "<publicKey:4>",
+					"weight": 1,
+					"isAccepted": false,
+					"isRejected": false,
+					"order": 2
+				}
+			]
+		}
+	},
+	{
+		"route": "GET /addresses/invitations/<publicKey:3>",
+		"status": 200,
+		"body": [
+			{
+				"address": "<address:3>",
+				"isVerified": false,
+				"threshold": 2,
+				"name": null,
+				"members": [
+					{
+						"multisigAddress": "<address:3>",
+						"publicKey": "<publicKey:0>",
+						"weight": 1,
+						"isAccepted": true,
+						"isRejected": false,
+						"order": 0
+					},
+					{
+						"multisigAddress": "<address:3>",
+						"publicKey": "<publicKey:3>",
+						"weight": 1,
+						"isAccepted": false,
+						"isRejected": false,
+						"order": 1
+					},
+					{
+						"multisigAddress": "<address:3>",
+						"publicKey": "<publicKey:4>",
+						"weight": 1,
+						"isAccepted": false,
+						"isRejected": false,
+						"order": 2
+					}
+				],
+				"proposers": [],
+				"totalMembers": 3,
+				"totalWeight": 3
+			}
+		]
+	},
+	{
+		"route": "POST /multisig/<address:3>/reject",
+		"status": 200,
+		"body": {
+			"message": "Multisig invitation rejected and removed",
+			"address": "<address:3>"
+		}
+	},
+	{
+		"route": "GET /addresses/invitations/<publicKey:4>?showRejected=true",
+		"status": 200,
+		"body": [
+			{
+				"address": "<address:3>",
+				"isVerified": false,
+				"threshold": 2,
+				"name": null,
+				"members": [
+					{
+						"multisigAddress": "<address:3>",
+						"publicKey": "<publicKey:0>",
+						"weight": 1,
+						"isAccepted": true,
+						"isRejected": false,
+						"order": 0
+					},
+					{
+						"multisigAddress": "<address:3>",
+						"publicKey": "<publicKey:3>",
+						"weight": 1,
+						"isAccepted": false,
+						"isRejected": false,
+						"order": 1
+					},
+					{
+						"multisigAddress": "<address:3>",
+						"publicKey": "<publicKey:4>",
+						"weight": 1,
+						"isAccepted": false,
+						"isRejected": true,
+						"order": 2
+					}
+				],
+				"proposers": [],
+				"totalMembers": 3,
+				"totalWeight": 3
+			}
+		]
+	},
+	{
+		"route": "POST /multisig/<address:3>/accept",
+		"status": 200,
+		"body": {
+			"address": "<address:3>",
+			"isVerified": false,
+			"threshold": 2,
+			"name": null
+		}
+	},
+	{
+		"route": "GET /addresses/connections",
+		"status": 200,
+		"body": {
+			"<publicKey:3>": [
+				{
+					"address": "<address:3>",
+					"isVerified": false,
+					"threshold": 2,
+					"name": null,
+					"members": [
+						{
+							"multisigAddress": "<address:3>",
+							"publicKey": "<publicKey:0>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 0
+						},
+						{
+							"multisigAddress": "<address:3>",
+							"publicKey": "<publicKey:3>",
+							"weight": 1,
+							"isAccepted": true,
+							"isRejected": false,
+							"order": 1
+						},
+						{
+							"multisigAddress": "<address:3>",
+							"publicKey": "<publicKey:4>",
+							"weight": 1,
+							"isAccepted": false,
+							"isRejected": true,
+							"order": 2
+						}
+					],
+					"proposers": [],
+					"totalMembers": 3,
+					"totalWeight": 3
+				}
+			],
+			"<publicKey:4>": []
+		}
+	},
+	{
+		"route": "POST /proposals",
+		"status": 201,
+		"body": {
+			"id": "<id:0>",
+			"multisigAddress": "<address:0>",
+			"digest": "<digest:0>",
+			"status": 0,
+			"transactionBytes": "<txBytes:0>",
+			"proposerAddress": "<address:2>",
+			"description": "pay vendor",
+			"network": "localnet",
+			"createdAt": "<timestamp>"
+		}
+	},
+	{
+		"route": "POST /proposals/<id:0>/vote",
+		"status": 200,
+		"body": {
+			"hasReachedThreshold": true
+		}
+	},
+	{
+		"route": "GET /proposals?multisigAddress=<address:0>&network=localnet",
+		"status": 200,
+		"body": {
+			"data": [
+				{
+					"id": "<id:0>",
+					"multisigAddress": "<address:0>",
+					"digest": "<digest:0>",
+					"status": 0,
+					"transactionBytes": "<txBytes:0>",
+					"proposerAddress": "<address:2>",
+					"description": "pay vendor",
+					"network": "localnet",
+					"createdAt": "<timestamp>",
+					"signatures": [
+						{
+							"proposalId": "<id:0>",
+							"publicKey": "<publicKey:0>",
+							"signature": "<signature:0>"
+						},
+						{
+							"proposalId": "<id:0>",
+							"publicKey": "<publicKey:1>",
+							"signature": "<signature:1>"
+						}
+					]
+				}
+			],
+			"nextCursor": "<id:0:string>",
+			"perPage": 100,
+			"hasNextPage": false
+		}
+	},
+	{
+		"route": "GET /proposals/digest/<digest:0>",
+		"status": 200,
+		"body": {
+			"id": "<id:0>",
+			"multisigAddress": "<address:0>",
+			"digest": "<digest:0>",
+			"status": 0,
+			"transactionBytes": "<txBytes:0>",
+			"proposerAddress": "<address:2>",
+			"description": "pay vendor",
+			"network": "localnet",
+			"createdAt": "<timestamp>",
+			"signatures": [
+				{
+					"publicKey": "<publicKey:0>",
+					"proposalId": "<id:0>",
+					"signature": "<signature:0>"
+				},
+				{
+					"publicKey": "<publicKey:1>",
+					"proposalId": "<id:0>",
+					"signature": "<signature:1>"
+				}
+			],
+			"currentWeight": 2,
+			"totalWeight": 2,
+			"multisig": {
+				"address": "<address:0>",
+				"name": "Treasury",
+				"threshold": 2,
+				"members": [
+					{
+						"publicKey": "<publicKey:0>",
+						"weight": 1,
+						"order": 0
+					},
+					{
+						"publicKey": "<publicKey:1>",
+						"weight": 1,
+						"order": 1
+					},
+					{
+						"publicKey": "<publicKey:2>",
+						"weight": 1,
+						"order": 2
+					}
+				]
+			}
+		}
+	},
+	{
+		"route": "POST /proposals/<id:0>/cancel",
+		"status": 200,
+		"body": {
+			"message": "Proposal cancelled successfully"
+		}
+	},
+	{
+		"route": "POST /proposals/<id:0>/verify",
+		"status": 200,
+		"body": {
+			"verified": true
+		}
+	},
+	{
+		"route": "POST /proposals/<digest:0>/verify-by-digest",
+		"status": 200,
+		"body": {
+			"verified": true
+		}
+	},
+	{
+		"route": "POST /proposals",
+		"status": 201,
+		"body": {
+			"id": "<id:1>",
+			"multisigAddress": "<address:0>",
+			"digest": "<digest:1>",
+			"status": 0,
+			"transactionBytes": "<txBytes:1>",
+			"proposerAddress": "<address:1>",
+			"description": null,
+			"network": "localnet",
+			"createdAt": "<timestamp>"
+		}
+	},
+	{
+		"route": "GET /proposals?multisigAddress=<address:0>&network=localnet&status=PENDING",
+		"status": 200,
+		"body": {
+			"data": [
+				{
+					"id": "<id:1>",
+					"multisigAddress": "<address:0>",
+					"digest": "<digest:1>",
+					"status": 0,
+					"transactionBytes": "<txBytes:1>",
+					"proposerAddress": "<address:1>",
+					"description": null,
+					"network": "localnet",
+					"createdAt": "<timestamp>",
+					"signatures": []
+				}
+			],
+			"nextCursor": "<id:1:string>",
+			"perPage": 100,
+			"hasNextPage": false
+		}
+	},
+	{
+		"route": "GET /proposals/digest/<digest:1>",
+		"status": 200,
+		"body": {
+			"id": "<id:1>",
+			"multisigAddress": "<address:0>",
+			"digest": "<digest:1>",
+			"status": 0,
+			"transactionBytes": "<txBytes:1>",
+			"proposerAddress": "<address:1>",
+			"description": null,
+			"network": "localnet",
+			"createdAt": "<timestamp>",
+			"signatures": [],
+			"currentWeight": 0,
+			"totalWeight": 2,
+			"multisig": {
+				"address": "<address:0>",
+				"name": "Treasury",
+				"threshold": 2,
+				"members": [
+					{
+						"publicKey": "<publicKey:0>",
+						"weight": 1,
+						"order": 0
+					},
+					{
+						"publicKey": "<publicKey:1>",
+						"weight": 1,
+						"order": 1
+					},
+					{
+						"publicKey": "<publicKey:2>",
+						"weight": 1,
+						"order": 2
+					}
+				]
+			}
+		}
+	},
+	{
+		"route": "POST /multisig/<address:0>/remove-proposer",
+		"status": 200,
+		"body": {
+			"success": true
+		}
+	},
+	{
+		"route": "GET /multisig/<address:0>",
+		"status": 200,
+		"body": {
+			"address": "<address:0>",
+			"isVerified": true,
+			"threshold": 2,
+			"name": "Treasury",
+			"members": [
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:0>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 0
+				},
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:1>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 1
+				},
+				{
+					"multisigAddress": "<address:0>",
+					"publicKey": "<publicKey:2>",
+					"weight": 1,
+					"isAccepted": true,
+					"isRejected": false,
+					"order": 2
+				}
+			],
+			"proposers": [],
+			"totalMembers": 3,
+			"totalWeight": 3
+		}
+	}
+]

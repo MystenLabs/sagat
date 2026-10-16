@@ -21,6 +21,7 @@ import {
 	executeTransaction,
 	fundAddress,
 	getLocalClient,
+	LOCALNET_WAIT,
 } from '../setup/sui-network';
 
 const client = getLocalClient();
@@ -328,7 +329,10 @@ export class TestSession {
 			result.$kind === 'Transaction'
 				? result.Transaction
 				: result.FailedTransaction;
-		await client.waitForTransaction({ digest: tx.digest });
+		await client.waitForTransaction({
+			digest: tx.digest,
+			...LOCALNET_WAIT,
+		});
 		await this.client.verifyProposalByDigest(digest);
 		return tx;
 	}

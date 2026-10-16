@@ -34,6 +34,7 @@ import {
 	fundAddress,
 	getLocalClient,
 	isNetworkRunning,
+	LOCALNET_WAIT,
 } from './setup/sui-network';
 
 setDefaultTimeout(60_000);
@@ -119,12 +120,9 @@ async function execute(
 		signatures: [signature],
 		include,
 	});
-	// Poll often: the localnet fullnode keeps only a few seconds of
-	// checkpoints for gRPC reads, and the default schedule can miss them.
 	await client.waitForTransaction({
 		result,
-		pollSchedule: [0, 100],
-		timeout: 30_000,
+		...LOCALNET_WAIT,
 	});
 	return result;
 }

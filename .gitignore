@@ -3,6 +3,7 @@ node_modules
 .env
 .DS_Store
 dist
+*.tsbuildinfo
 
 # e2e output
 e2e/.cache
