@@ -22,8 +22,8 @@ import {
 	Wallet,
 } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
-import { toast } from 'sonner';
 
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';

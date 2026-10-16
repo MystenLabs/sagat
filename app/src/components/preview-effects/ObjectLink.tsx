@@ -9,7 +9,8 @@ import {
 } from '@mysten/sui/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
+
+import { toast } from '@/lib/toast';
 
 type OwnerDisplay =
 	string | { address: string } | { object: string };
@@ -111,7 +112,7 @@ export function ObjectLink({
 			objectId || display || '',
 		);
 		setCopied(true);
-		toast.success('Copied to clipboard!');
+		toast.success('Copied');
 
 		setTimeout(() => {
 			setCopied(false);

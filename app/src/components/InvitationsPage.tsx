@@ -8,8 +8,8 @@ import { useInvitations } from '../hooks/useInvitations';
 import { InvitationCard } from './invitations/InvitationCard';
 import { Button } from './ui/button';
 import { EmptyState } from './ui/empty-state';
-import { Loading } from './ui/loading';
 import { PageHeader } from './ui/page-header';
+import { SkeletonPage } from './ui/skeleton';
 import { Tabs } from './ui/tabs';
 
 type TabType = 'pending' | 'rejected';
@@ -60,7 +60,12 @@ export function InvitationsPage() {
 	);
 
 	if (isLoading)
-		return <Loading message="Loading invitations..." />;
+		return (
+			<SkeletonPage
+				rows={3}
+				message="Loading invitations"
+			/>
+		);
 
 	return (
 		<div className="max-w-4xl mx-auto mt-8 px-4">
