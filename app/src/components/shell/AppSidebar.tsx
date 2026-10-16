@@ -332,7 +332,7 @@ export function AppSidebar() {
 					</SidebarGroup>
 				</SidebarContent>
 
-				<SidebarFooter className="gap-0 px-2 pb-4">
+				<SidebarFooter className="gap-1 px-2 pb-4">
 					<SidebarSeparator className="mx-0 mb-2" />
 					<NetworkRow />
 					<CustomWalletButton variant="rail" />
