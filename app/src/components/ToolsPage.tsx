@@ -4,7 +4,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { NetworkSelector } from '@/components/LocalNetworkSelector';
 import { PageHeader } from '@/components/ui/page-header';
 import { Tabs, type Tab } from '@/components/ui/tabs';
 import { TOOLS, type Tool } from '@/config/tools';
@@ -12,7 +11,7 @@ import { TOOLS, type Tool } from '@/config/tools';
 /**
  * Developer tools. One page per tool, switched with pills under a shared
  * header; the tool itself renders inside a card. Tools that talk to the
- * chain get the network picker as the header action.
+ * chain place the network picker next to the action it affects.
  */
 export function ToolsPage() {
 	const location = useLocation();
@@ -53,11 +52,6 @@ export function ToolsPage() {
 				]}
 				title={selectedTool.name}
 				description={selectedTool.description}
-				actions={
-					selectedTool.needsNetwork ? (
-						<NetworkSelector />
-					) : undefined
-				}
 			/>
 
 			<Tabs
