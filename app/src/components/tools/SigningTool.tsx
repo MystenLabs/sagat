@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { NetworkSelector } from '@/components/LocalNetworkSelector';
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
 import { Alert } from '@/components/ui/Alert';
@@ -51,9 +52,12 @@ function TransactionInput({
 }) {
 	return (
 		<div className="flex flex-col gap-2">
-			<Label htmlFor="transaction-data">
-				Transaction data (JSON or base64)
-			</Label>
+			<div className="flex items-center justify-between gap-3">
+				<Label htmlFor="transaction-data">
+					Transaction data (JSON or base64)
+				</Label>
+				<NetworkSelector />
+			</div>
 			<Textarea
 				id="transaction-data"
 				data-testid="transaction-data-input"
@@ -142,8 +146,8 @@ function PreviewResult({
 						)}
 					</p>
 					<Alert variant="warning">
-						Make sure the network picked above matches the
-						transaction.
+						Make sure the network next to the input matches
+						the transaction.
 					</Alert>
 				</div>
 			)}

@@ -14,8 +14,6 @@ export type Tool = {
 	icon: React.ReactNode;
 	component: React.ComponentType;
 	path: string;
-	/** Talks to the chain, so the page shows the network picker. */
-	needsNetwork?: boolean;
 };
 
 export const TOOLS: Tool[] = [
@@ -36,7 +34,6 @@ export const TOOLS: Tool[] = [
 		icon: <PenLine className="size-4" />,
 		component: SigningTool,
 		path: '/tools/sign',
-		needsNetwork: true,
 	},
 	{
 		id: 'broadcast',
@@ -46,6 +43,5 @@ export const TOOLS: Tool[] = [
 		icon: <Radio className="size-4" />,
 		component: BroadcastTool,
 		path: '/tools/broadcast',
-		needsNetwork: true,
 	},
 ];

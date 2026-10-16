@@ -6,6 +6,7 @@ import { fromBase64 } from '@mysten/sui/utils';
 import { AlertCircle, Check } from 'lucide-react';
 import { useState } from 'react';
 
+import { NetworkSelector } from '@/components/LocalNetworkSelector';
 import { Button } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Label } from '@/components/ui/label';
@@ -211,7 +212,8 @@ export default function BroadcastTool() {
 						value={signature}
 						onChange={setSignature}
 					/>
-					<div className="flex justify-end border-t pt-4">
+					<div className="flex items-center justify-between gap-3 border-t pt-4">
+						<NetworkSelector />
 						<Button
 							type="button"
 							onClick={handleBroadcast}
