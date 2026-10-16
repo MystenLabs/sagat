@@ -172,6 +172,7 @@ function Sidebar({
 	side = 'left',
 	variant = 'sidebar',
 	collapsible = 'offcanvas',
+	peek = false,
 	className,
 	children,
 	dir,
@@ -180,6 +181,8 @@ function Sidebar({
 	side?: 'left' | 'right';
 	variant?: 'sidebar' | 'floating' | 'inset';
 	collapsible?: 'offcanvas' | 'icon' | 'none';
+	/** While collapsed, show the full sidebar as an overlay (hover peek). */
+	peek?: boolean;
 }) {
 	const { isMobile, state, openMobile, setOpenMobile } =
 		useSidebar();
@@ -238,7 +241,10 @@ function Sidebar({
 			className="group peer hidden text-sidebar-foreground md:block"
 			data-state={state}
 			data-collapsible={
-				state === 'collapsed' ? collapsible : ''
+				state === 'collapsed' && !peek ? collapsible : ''
+			}
+			data-peek={
+				state === 'collapsed' && peek ? 'true' : undefined
 			}
 			data-variant={variant}
 			data-side={side}
@@ -249,6 +255,7 @@ function Sidebar({
 				data-slot="sidebar-gap"
 				className={cn(
 					'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear',
+					'group-data-[peek=true]:w-(--sidebar-width-icon)',
 					'group-data-[collapsible=offcanvas]:w-0',
 					'group-data-[side=right]:rotate-180',
 					variant === 'floating' || variant === 'inset'
@@ -260,7 +267,7 @@ function Sidebar({
 				data-slot="sidebar-container"
 				data-side={side}
 				className={cn(
-					'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
+					'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear group-data-[peek=true]:z-30 group-data-[peek=true]:shadow-[8px_0_24px_rgb(0_0_0/0.18)] data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
 					// Adjust the padding for floating and inset variants.
 					variant === 'floating' || variant === 'inset'
 						? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
