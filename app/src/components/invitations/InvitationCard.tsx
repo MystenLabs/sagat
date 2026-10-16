@@ -58,8 +58,8 @@ export function InvitationCard({
 			<div className="flex items-center justify-between p-4">
 				{/* Left side - Multisig info */}
 				<div className="flex items-center space-x-4 flex-1">
-					<div className="w-10 h-10 bg-info-soft rounded-full flex items-center justify-center">
-						<Users className="w-5 h-5 text-info-foreground" />
+					<div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
+						<Users className="w-5 h-5 text-foreground" />
 					</div>
 					<div className="flex-1">
 						<h3 className="font-medium text-foreground">
@@ -87,7 +87,7 @@ export function InvitationCard({
 						variant="outline"
 						size="sm"
 						onClick={toggleExpanded}
-						className="text-info-foreground hover:border-info-border"
+
 						data-testid="invitation-toggle-details"
 					>
 						{isExpanded ? (

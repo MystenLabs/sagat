@@ -60,8 +60,8 @@ export function MultisigSelector({
 		return (
 			<div className="flex items-center space-x-4">
 				<div className="flex items-center">
-					<div className="w-10 h-10 bg-info-soft rounded-full flex items-center justify-center mr-3">
-						<Users className="w-5 h-5 text-info-foreground" />
+					<div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center mr-3">
+						<Users className="w-5 h-5 text-foreground" />
 					</div>
 					<div>
 						<h2 className="font-semibold">
@@ -89,8 +89,8 @@ export function MultisigSelector({
 				className="flex items-center cursor-pointer justify-between w-full max-w-lg px-4 py-2 text-left bg-surface border rounded-lg hover:bg-accent transition-colors"
 			>
 				<div className="flex items-center">
-					<div className="w-8 h-8 bg-info-soft rounded-full flex items-center justify-center mr-3">
-						<Users className="w-4 h-4 text-info-foreground" />
+					<div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center mr-3">
+						<Users className="w-4 h-4 text-foreground" />
 					</div>
 					<div>
 						<div className="font-medium">
@@ -176,14 +176,14 @@ export function MultisigSelector({
 									}}
 									className={`w-full px-3 cursor-pointer py-2 text-left rounded-md hover:bg-accent transition-colors ${
 										multisig.address === selectedMultisig
-											? 'bg-info-soft'
+											? 'bg-accent'
 											: ''
 									}`}
 								>
 									<div className="flex items-center justify-between">
 										<div className="flex items-center">
-											<div className="w-8 h-8 bg-info-soft rounded-full flex items-center justify-center mr-3">
-												<Users className="w-4 h-4 text-info-foreground" />
+											<div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center mr-3">
+												<Users className="w-4 h-4 text-foreground" />
 											</div>
 											<div>
 												<div className="font-medium">

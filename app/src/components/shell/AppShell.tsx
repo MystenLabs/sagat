@@ -4,6 +4,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { CustomWalletButton } from '@/components/CustomWalletButton';
+import { Logo } from '@/components/Logo';
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -13,6 +15,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 
 import { AppSidebar } from './AppSidebar';
+import { ThemeToggle } from './ThemeToggle';
 
 /** Sidebar width from the designs; the icon rail when collapsed. */
 const SIDEBAR_WIDTH = '232px';
@@ -57,12 +60,17 @@ export function AppShell({
 			>
 				<header className="flex h-12 items-center gap-2 border-b bg-card px-3 md:hidden">
 					<SidebarTrigger className="-ml-1" />
-					<Link
-						to="/"
-						className="text-14 font-bold tracking-tight"
-					>
-						Sagat
+					<Link to="/" className="flex items-center">
+						<Logo
+							size="sm"
+							showSubtitle={false}
+							asLink={false}
+						/>
 					</Link>
+					<div className="ml-auto flex items-center gap-1">
+						<ThemeToggle className="text-muted-foreground hover:bg-accent hover:text-foreground data-open:bg-accent" />
+						<CustomWalletButton />
+					</div>
 				</header>
 				{children}
 			</SidebarInset>

@@ -30,7 +30,7 @@ export function Loading({
 		<div className={cn(containerClasses, className)}>
 			<div
 				className={cn(
-					'animate-spin rounded-full border-info-border',
+					'animate-spin rounded-full border-foreground border-t-transparent',
 					sizeClasses[size],
 				)}
 			/>
