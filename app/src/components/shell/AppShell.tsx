@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
-import { Logo } from '@/components/Logo';
 import {
 	SidebarInset,
 	SidebarProvider,
@@ -60,13 +58,6 @@ export function AppShell({
 			>
 				<header className="flex h-12 items-center gap-2 border-b bg-card px-3 md:hidden">
 					<SidebarTrigger className="-ml-1" />
-					<Link to="/" className="flex items-center">
-						<Logo
-							size="sm"
-							showSubtitle={false}
-							asLink={false}
-						/>
-					</Link>
 					<div className="ml-auto flex items-center gap-1">
 						<ThemeToggle className="text-muted-foreground hover:bg-accent hover:text-foreground data-open:bg-accent" />
 						<CustomWalletButton />
