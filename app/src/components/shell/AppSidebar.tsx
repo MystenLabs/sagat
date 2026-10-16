@@ -4,6 +4,7 @@
 import {
 	useCurrentAccount,
 	useDAppKit,
+	useWalletConnection,
 } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
 import {
@@ -57,6 +58,7 @@ import {
 	SidebarTrigger,
 	useSidebar,
 } from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import { TOOLS } from '@/config/tools';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
@@ -112,11 +114,20 @@ export function AppSidebar() {
 	const location = useLocation();
 	const { setOpenMobile } = useSidebar();
 	const currentAccount = useCurrentAccount();
-	const { isCurrentAddressAuthenticated } = useApiAuth();
+	const { isReconnecting } = useWalletConnection();
+	const { isCurrentAddressAuthenticated, isCheckingAuth } =
+		useApiAuth();
 	const signedIn =
 		!!currentAccount && isCurrentAddressAuthenticated;
 
-	const { data: multisigs } = useUserMultisigs();
+	const { data: multisigs, isLoading: multisigsLoading } =
+		useUserMultisigs();
+	// Restoring the session: wallet reconnecting, the API check running,
+	// or the accounts not here yet. Hold the layout with skeletons.
+	const booting =
+		isReconnecting ||
+		(!!currentAccount && isCheckingAuth) ||
+		(signedIn && multisigsLoading);
 	const { data: invitations } = useInvitations();
 	const pendingInvites = invitations?.length ?? 0;
 
@@ -179,18 +190,23 @@ export function AppSidebar() {
 							className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:hidden"
 						/>
 					</div>
-					{signedIn && (
-						<MultisigSwitcher
-							multisigs={accepted}
-							selected={selected}
-							page={routePage}
-							onNavigate={closeMobile}
-						/>
+					{booting ? (
+						<SwitcherSkeleton />
+					) : (
+						signedIn && (
+							<MultisigSwitcher
+								multisigs={accepted}
+								selected={selected}
+								page={routePage}
+								onNavigate={closeMobile}
+							/>
+						)
 					)}
 				</SidebarHeader>
 
 				<SidebarContent className="gap-0 px-2 pt-2">
-					{signedIn && selected && (
+					{booting && <NavSkeleton />}
+					{!booting && signedIn && selected && (
 						<SidebarGroup className="p-0 pb-5 group-data-[collapsible=icon]:pb-0">
 							<SidebarGroupContent>
 								<SidebarMenu className="gap-0.5">
@@ -340,6 +356,51 @@ export function AppSidebar() {
 				</SidebarFooter>
 			</div>
 		</Sidebar>
+	);
+}
+
+/** The switcher's footprint while the session is being restored. */
+function SwitcherSkeleton() {
+	return (
+		<div
+			className="flex flex-col gap-2.5"
+			data-testid="sidebar-loading"
+			aria-busy
+		>
+			<div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
+				<Skeleton className="size-7 rounded-md bg-sidebar-accent" />
+				<div className="flex flex-1 flex-col gap-1.5 group-data-[collapsible=icon]:hidden">
+					<Skeleton className="h-2.5 w-28 bg-sidebar-accent" />
+					<Skeleton className="h-2 w-20 bg-sidebar-accent" />
+				</div>
+			</div>
+			<Skeleton className="h-7 w-full rounded-md bg-sidebar-accent/60 group-data-[collapsible=icon]:hidden" />
+		</div>
+	);
+}
+
+/** Three nav rows standing in for the account's pages. */
+function NavSkeleton() {
+	return (
+		<div
+			className="flex flex-col gap-0.5 pb-5 group-data-[collapsible=icon]:pb-0"
+			aria-hidden
+		>
+			{[0, 1, 2].map((i) => (
+				<div
+					key={i}
+					className="flex h-8 items-center gap-2.5 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+				>
+					<Skeleton className="size-4 rounded-sm bg-sidebar-accent" />
+					<Skeleton
+						className={cn(
+							'h-2.5 bg-sidebar-accent group-data-[collapsible=icon]:hidden',
+							i === 0 ? 'w-16' : i === 1 ? 'w-20' : 'w-12',
+						)}
+					/>
+				</div>
+			))}
+		</div>
 	);
 }
 
