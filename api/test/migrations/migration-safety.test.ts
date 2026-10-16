@@ -11,15 +11,25 @@
  *    data survived plus the migration-specific assertions.
  * 2. Empty path: every migration on an empty database, and the result
  *    matches the latest drizzle snapshot.
+ * 3. Startup: `runMigrations`, which the API calls when it starts, brings an
+ *    empty database to the latest migration, does nothing the second time,
+ *    serialises concurrent callers on its advisory lock, and refuses a
+ *    database that has tables but no migration journal.
  */
 import { describe, expect, test } from 'bun:test';
 
+import {
+	defaultMigrationsFolder,
+	MISSING_JOURNAL_MESSAGE,
+	runMigrations,
+} from '../../src/db/migrate';
 import { migrationCases } from './cases';
 import {
 	appliedMigrationCount,
 	journalEntry,
 	latestMigrationIndex,
 	liveStructure,
+	MIGRATIONS_FOLDER,
 	publicTables,
 	readSnapshot,
 	snapshotStructure,
@@ -94,6 +104,77 @@ describe('migration empty path', () => {
 			expect(await liveStructure(db)).toEqual(
 				snapshotStructure(snapshot),
 			);
+		});
+	});
+});
+
+describe('startup migrations', () => {
+	const quiet = { log: () => {} };
+
+	test('the default migrations folder is the real one', () => {
+		expect(defaultMigrationsFolder()).toBe(
+			MIGRATIONS_FOLDER,
+		);
+	});
+
+	test('runMigrations brings an empty database to the latest migration, then does nothing', async () => {
+		const latest = latestMigrationIndex();
+		await withScratchDb('startup', async (db) => {
+			expect(
+				await runMigrations({
+					database: db.pool,
+					...quiet,
+				}),
+			).toBe(latest + 1);
+			expect(await appliedMigrationCount(db)).toBe(
+				latest + 1,
+			);
+
+			expect(
+				await runMigrations({
+					database: db.pool,
+					...quiet,
+				}),
+			).toBe(0);
+			expect(await appliedMigrationCount(db)).toBe(
+				latest + 1,
+			);
+		});
+	});
+
+	test('concurrent runMigrations calls apply the migrations once', async () => {
+		const latest = latestMigrationIndex();
+		await withScratchDb('startuplock', async (db) => {
+			// Separate pools, like two replicas starting together.
+			const applied = await Promise.all([
+				runMigrations({ database: db.url, ...quiet }),
+				runMigrations({ database: db.url, ...quiet }),
+			]);
+			expect(applied.sort()).toEqual([0, latest + 1]);
+			expect(await appliedMigrationCount(db)).toBe(
+				latest + 1,
+			);
+			expect(await liveStructure(db)).toEqual(
+				snapshotStructure(readSnapshot(latest)),
+			);
+		});
+	});
+
+	test('runMigrations refuses a database with tables but no migration journal', async () => {
+		await withScratchDb('nojournal', async (db) => {
+			await db.pool.query(
+				'CREATE TABLE "multisigs" (address text)',
+			);
+			await expect(
+				runMigrations({ database: db.pool, ...quiet }),
+			).rejects.toThrow(MISSING_JOURNAL_MESSAGE);
+			expect(await publicTables(db)).toEqual(['multisigs']);
+			// Refused before drizzle creates its journal table.
+			expect(
+				await db.value(
+					`SELECT to_regclass('drizzle.__drizzle_migrations') IS NULL`,
+				),
+			).toBe(true);
 		});
 	});
 });

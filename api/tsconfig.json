@@ -2,6 +2,8 @@
 	"extends": "../tsconfig.shared.json",
 	"compilerOptions": {
 		"strict": true,
+		"module": "Preserve",
+		"moduleResolution": "Bundler",
 		"jsx": "react-jsx",
 		"jsxImportSource": "hono/jsx"
 	}

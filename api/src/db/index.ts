@@ -8,6 +8,7 @@ import {
 	dbConnectionPoolSize,
 	dbQueryErrors,
 } from '../metrics';
+import { databaseUrl } from './database-url';
 import {
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
@@ -23,9 +24,7 @@ import {
 
 // Create a connection pool with configuration
 const pool = new Pool({
-	connectionString:
-		process.env.DATABASE_URL ||
-		'postgresql://localhost:5432/multisig_db',
+	connectionString: databaseUrl(),
 	max: 20,
 	idleTimeoutMillis: 30000,
 	connectionTimeoutMillis: 2000,

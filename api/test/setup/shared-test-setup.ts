@@ -3,6 +3,8 @@
 
 import { afterAll, beforeAll, mock } from 'bun:test';
 
+import './no-startup-migrations';
+
 import app from '../../src/index.js';
 import { isNetworkRunning } from './sui-network';
 import {

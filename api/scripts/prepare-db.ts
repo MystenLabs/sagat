@@ -6,10 +6,9 @@
 // Creates the database in `DATABASE_URL` if it does not exist yet, then
 // applies all pending migrations. Used by the UI e2e suite before it boots the
 // API, and safe to run against an existing database.
-import path from 'node:path';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
+
+import { runMigrations } from '../src/db/migrate';
 
 async function main() {
 	const databaseUrl = process.env.DATABASE_URL;
@@ -45,19 +44,8 @@ async function main() {
 		await admin.end();
 	}
 
-	const pool = new Pool({ connectionString: databaseUrl });
-	try {
-		await migrate(drizzle(pool), {
-			migrationsFolder: path.join(
-				__dirname,
-				'..',
-				'drizzle',
-			),
-		});
-		console.log(`Database ${databaseName} is migrated`);
-	} finally {
-		await pool.end();
-	}
+	await runMigrations({ database: databaseUrl });
+	console.log(`Database ${databaseName} is migrated`);
 }
 
 main().catch((error) => {

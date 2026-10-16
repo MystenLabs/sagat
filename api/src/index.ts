@@ -9,6 +9,7 @@ import {
 	SUI_RPC_URL,
 	SUPPORTED_NETWORKS,
 } from './db/env';
+import { runMigrations } from './db/migrate';
 import { appErrorHandler } from './errors';
 import { register } from './metrics';
 import { metricsMiddleware } from './middleware/metrics';
@@ -16,6 +17,19 @@ import addressesRouter from './routes/addresses';
 import authRouter from './routes/auth';
 import multisigRouter from './routes/multisig';
 import proposalsRouter from './routes/proposals';
+
+// Bun serves the default export only once this module has finished
+// evaluating, so no request reaches a database that is behind. Set
+// MIGRATE_ON_START=false when migrations run as a separate step.
+if (process.env.MIGRATE_ON_START !== 'false') {
+	try {
+		await runMigrations();
+	} catch (error) {
+		// eslint-disable-next-line no-console
+		console.error('Migrations failed, not starting', error);
+		process.exit(1);
+	}
+}
 
 const app = new Hono();
 
