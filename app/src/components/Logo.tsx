@@ -45,21 +45,18 @@ export function Logo({
 	};
 
 	const classes = sizeClasses[size];
-	const tile = onDark
-		? 'bg-white'
-		: 'bg-linear-to-br from-blue-500 to-purple-500 dark:from-white dark:to-white';
-	const glyph = onDark
-		? 'text-black'
-		: 'text-white dark:text-black';
+	// Flat tile and plain wordmark; the lock stands in for the future site icon.
+	const tile = onDark ? 'bg-white' : 'bg-foreground';
+	const glyph = onDark ? 'text-black' : 'text-background';
 	const wordmark = onDark
 		? 'text-white'
-		: 'bg-linear-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent dark:text-white';
+		: 'text-foreground';
 
 	const logoContent = (
 		<div className="flex items-center gap-2">
 			<div
 				className={cn(
-					'relative rounded-lg shadow-sm',
+					'relative rounded-lg',
 					classes.iconPadding,
 					tile,
 				)}

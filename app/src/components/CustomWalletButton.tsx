@@ -223,7 +223,7 @@ export function CustomWalletButton({
 						data-auth-state="unauthenticated"
 						data-address={currentAccount.address}
 					>
-						<Shield className="w-3 h-3 text-info-foreground" />
+						<Shield className="w-3 h-3 text-muted-foreground" />
 						<span>
 							{getCompactWalletLabel(
 								currentAccount.address,
@@ -243,7 +243,7 @@ export function CustomWalletButton({
 				{showWallets && (
 					<div className={menuClass(variant)}>
 						<div className="px-3 pb-2 border-b text-center">
-							<p className="text-sm font-medium text-info-foreground">
+							<p className="text-sm font-medium text-foreground">
 								Authentication Required
 							</p>
 						</div>
@@ -460,7 +460,7 @@ const AccountItem = ({
 	return (
 		<div
 			className={`flex items-center justify-between px-3 py-2 text-sm hover:bg-accent w-full ${
-				isCurrent ? 'bg-info-soft text-info-foreground' : ''
+				isCurrent ? 'bg-accent text-foreground' : ''
 			}`}
 			data-testid="wallet-account"
 			data-address={account.address}
@@ -481,7 +481,7 @@ const AccountItem = ({
 
 			<div className="flex items-center ml-2 space-x-1">
 				{isCurrent && (
-					<div className="w-2 h-2 bg-info-foreground rounded-full"></div>
+					<div className="w-2 h-2 bg-foreground rounded-full"></div>
 				)}
 				{!isAccountAuthenticated && (
 					<Button

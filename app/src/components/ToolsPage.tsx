@@ -13,7 +13,7 @@ function ToolDetail({ tool }: { tool: Tool }) {
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center gap-3">
-				<div className="p-2 bg-info-soft rounded-lg">
+				<div className="p-2 bg-muted rounded-lg">
 					{tool.icon}
 				</div>
 				<div>

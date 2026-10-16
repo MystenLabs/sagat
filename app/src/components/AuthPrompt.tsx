@@ -19,8 +19,8 @@ export function AuthPrompt() {
 			data-testid="auth-prompt"
 		>
 			<div className="text-center">
-				<div className="inline-flex items-center justify-center w-20 h-20 bg-info-soft rounded-full mb-6">
-					<Shield className="w-10 h-10 text-info-foreground" />
+				<div className="inline-flex items-center justify-center w-20 h-20 bg-muted rounded-full mb-6">
+					<Shield className="w-10 h-10 text-foreground" />
 				</div>
 
 				<h1 className="text-3xl font-bold mb-3">

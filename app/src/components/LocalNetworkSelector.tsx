@@ -59,7 +59,7 @@ export function NetworkSelector() {
 							onClick={() => handleNetworkChange(net.value)}
 							className={`w-full text-left px-4 py-2 text-sm hover:bg-accent first:rounded-t-lg last:rounded-b-lg cursor-pointer ${
 								network === net.value
-									? 'bg-info-soft text-info-foreground font-medium'
+									? 'bg-accent text-foreground font-medium'
 									: 'text-muted-foreground'
 							}`}
 						>
