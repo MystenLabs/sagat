@@ -107,7 +107,7 @@ const navItemClass =
 // Hidden outright on the icon rail: the block only fades labels out and
 // pulls them up 32px, which would leave an invisible box over the item above.
 const groupLabelClass =
-	'px-2 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase group-data-[collapsible=icon]:hidden';
+	'h-6 px-2 pb-1 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase group-data-[collapsible=icon]:hidden';
 
 export function AppSidebar() {
 	const location = useLocation();
@@ -150,8 +150,8 @@ export function AppSidebar() {
 				className="flex min-h-0 flex-1 flex-col"
 				data-testid="app-header"
 			>
-				<SidebarHeader className="gap-4 px-2 pt-4">
-					<div className="flex items-center justify-between gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
+				<SidebarHeader className="gap-4 px-2 pt-4 group-data-[collapsible=icon]:gap-2">
+					<div className="flex items-center justify-between gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
 						<Link
 							to="/"
 							onClick={closeMobile}
@@ -175,7 +175,7 @@ export function AppSidebar() {
 								/>
 							</span>
 						</Link>
-						<div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
+						<div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
 							<ThemeToggle className="text-sidebar-foreground/70 hover:text-sidebar-foreground" />
 							<SidebarTrigger
 								data-testid="sidebar-toggle"
@@ -193,11 +193,11 @@ export function AppSidebar() {
 					)}
 				</SidebarHeader>
 
-				<SidebarContent className="px-2 pt-2">
+				<SidebarContent className="gap-0 px-2 pt-2">
 					{signedIn && selected && (
-						<SidebarGroup className="p-0">
+						<SidebarGroup className="p-0 pb-5 group-data-[collapsible=icon]:pb-0">
 							<SidebarGroupContent>
-								<SidebarMenu>
+								<SidebarMenu className="gap-0.5">
 									{MULTISIG_PAGES.map((page) => {
 										const to = `/multisig/${selected.address}/${page.id}`;
 										const active =
@@ -229,12 +229,12 @@ export function AppSidebar() {
 					)}
 
 					{signedIn && (
-						<SidebarSeparator className="mx-auto hidden w-4 group-data-[collapsible=icon]:block" />
+						<SidebarSeparator className="mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block" />
 					)}
 					{signedIn && (
-						<SidebarGroup className="p-0">
+						<SidebarGroup className="p-0 pb-5 group-data-[collapsible=icon]:pb-0">
 							<SidebarGroupContent>
-								<SidebarMenu>
+								<SidebarMenu className="gap-0.5">
 									<SidebarMenuItem>
 										<SidebarMenuButton
 											isActive={
@@ -267,13 +267,13 @@ export function AppSidebar() {
 						</SidebarGroup>
 					)}
 
-					<SidebarSeparator className="mx-auto hidden w-4 group-data-[collapsible=icon]:block" />
-					<SidebarGroup className="p-0">
+					<SidebarSeparator className="mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block" />
+					<SidebarGroup className="p-0 pb-5 group-data-[collapsible=icon]:pb-0">
 						<SidebarGroupLabel className={groupLabelClass}>
 							Developer
 						</SidebarGroupLabel>
 						<SidebarGroupContent>
-							<SidebarMenu>
+							<SidebarMenu className="gap-0.5">
 								{TOOLS.map((tool) => (
 									<SidebarMenuItem key={tool.id}>
 										<SidebarMenuButton
@@ -298,13 +298,13 @@ export function AppSidebar() {
 						</SidebarGroupContent>
 					</SidebarGroup>
 
-					<SidebarSeparator className="mx-auto hidden w-4 group-data-[collapsible=icon]:block" />
+					<SidebarSeparator className="mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block" />
 					<SidebarGroup className="p-0">
 						<SidebarGroupLabel className={groupLabelClass}>
 							Resources
 						</SidebarGroupLabel>
 						<SidebarGroupContent>
-							<SidebarMenu>
+							<SidebarMenu className="gap-0.5">
 								{RESOURCE_LINKS.map(
 									({ href, label, icon: Icon }) => (
 										<SidebarMenuItem key={href}>
