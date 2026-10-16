@@ -98,11 +98,7 @@ const faqData: FAQItem[] = [
 
 export function MultisigPageFAQ() {
 	return (
-		<Accordion
-			type="single"
-			collapsible
-			className="space-y-2"
-		>
+		<Accordion multiple={false} className="space-y-2">
 			{faqData.map((faq) => {
 				const IconComponent = faq.icon;
 				return (

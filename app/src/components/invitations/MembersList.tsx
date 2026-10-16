@@ -4,7 +4,7 @@
 import type { MultisigMember } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
-import { Label } from '@/components/ui/label';
+import { Chip } from '@/components/ui/chip';
 
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CopyButton } from '../ui/CopyButton';
@@ -37,9 +37,9 @@ export function MembersList({ members }: MembersListProps) {
 					>
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center space-x-2">
-								<Label variant="info" className="font-mono">
+								<Chip variant="info" className="font-mono">
 									#{index + 1}
-								</Label>
+								</Chip>
 								<div className="flex flex-col min-w-0">
 									{address && (
 										<div className="flex items-center gap-1">

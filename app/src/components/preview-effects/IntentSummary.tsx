@@ -16,8 +16,8 @@ import {
 } from '../../lib/coins';
 import { cn } from '../../lib/utils';
 import { Alert } from '../ui/Alert';
+import { Chip } from '../ui/chip';
 import { CoinIcon } from '../ui/CoinIcon';
-import { Label } from '../ui/label';
 import { ObjectLink } from './ObjectLink';
 import { PreviewCard } from './PreviewCard';
 import { formatCoinType } from './utils';
@@ -257,9 +257,9 @@ export function IntentSummary({
 			<PreviewCard.Header>
 				<div className="flex items-center justify-between gap-3">
 					<div className="font-medium">Static Analyzer</div>
-					<Label variant="neutral" size="sm">
+					<Chip variant="neutral" size="sm">
 						Advisory
-					</Label>
+					</Chip>
 				</div>
 			</PreviewCard.Header>
 			<PreviewCard.Body>
@@ -329,13 +329,13 @@ export function IntentSummary({
 								{commandCounts.length > 0 ? (
 									<div className="flex flex-wrap gap-2">
 										{commandCounts.map(([kind, count]) => (
-											<Label
+											<Chip
 												key={kind}
 												variant="neutral"
 												size="sm"
 											>
 												{kind}: {count}
-											</Label>
+											</Chip>
 										))}
 									</div>
 								) : (
@@ -350,15 +350,15 @@ export function IntentSummary({
 									Object Access
 								</div>
 								<div className="flex flex-wrap gap-2">
-									<Label variant="neutral" size="sm">
+									<Chip variant="neutral" size="sm">
 										Read: {accessCounts.read}
-									</Label>
-									<Label variant="warning" size="sm">
+									</Chip>
+									<Chip variant="warning" size="sm">
 										Mutate: {accessCounts.mutate}
-									</Label>
-									<Label variant="error" size="sm">
+									</Chip>
+									<Chip variant="error" size="sm">
 										Transfer: {accessCounts.transfer}
-									</Label>
+									</Chip>
 								</div>
 								{elevatedAccess.length > 0 && (
 									<div className="space-y-1 pt-1">
@@ -374,12 +374,12 @@ export function IntentSummary({
 															inputObject={objectId}
 														/>
 													</span>
-													<Label
+													<Chip
 														variant={accessVariant(level)}
 														size="sm"
 													>
 														{level}
-													</Label>
+													</Chip>
 												</div>
 											))}
 										{elevatedAccess.length > 3 && (

@@ -3,16 +3,15 @@
 
 import { cn } from '@/lib/utils';
 
-type SkeletonProps = React.HTMLAttributes<HTMLDivElement>;
-
-export function Skeleton({
+function Skeleton({
 	className,
 	...props
-}: SkeletonProps) {
+}: React.ComponentProps<'div'>) {
 	return (
 		<div
+			data-slot="skeleton"
 			className={cn(
-				'animate-pulse rounded bg-muted',
+				'animate-pulse rounded-md bg-muted',
 				className,
 			)}
 			{...props}
@@ -20,6 +19,7 @@ export function Skeleton({
 	);
 }
 
+export { Skeleton };
 interface SkeletonListProps {
 	count?: number;
 	className?: string;

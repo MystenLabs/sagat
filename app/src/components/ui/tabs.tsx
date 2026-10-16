@@ -3,7 +3,7 @@
 
 import { cn } from '@/lib/utils';
 
-import { Label } from './label';
+import { Chip } from './chip';
 
 export interface Tab {
 	id: string;
@@ -60,13 +60,13 @@ export function Tabs({
 							{tab.icon}
 							{tab.label}
 							{tab.count !== undefined && tab.count > 0 && (
-								<Label
+								<Chip
 									variant={isActive ? 'info' : 'neutral'}
 									size="sm"
 									className="ml-2"
 								>
 									{tab.count}
-								</Label>
+								</Chip>
 							)}
 						</button>
 					);
@@ -93,7 +93,7 @@ export function Tabs({
 						{tab.icon}
 						{tab.label}
 						{tab.count !== undefined && tab.count > 0 && (
-							<Label
+							<Chip
 								variant={
 									tab.countColor === 'orange'
 										? 'warning'
@@ -105,7 +105,7 @@ export function Tabs({
 								className="ml-2"
 							>
 								{tab.count}
-							</Label>
+							</Chip>
 						)}
 					</button>
 				))}
