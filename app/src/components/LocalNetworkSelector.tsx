@@ -6,10 +6,17 @@ import {
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
 import { ChevronDown } from 'lucide-react';
-import { useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
 export type LocalNetwork = 'mainnet' | 'testnet' | 'devnet';
 
@@ -19,55 +26,52 @@ const networks: { value: LocalNetwork; label: string }[] = [
 	{ value: 'devnet', label: 'Devnet' },
 ];
 
+/** Picks the network a tool talks to; the choice is the wallet kit's. */
 export function NetworkSelector() {
 	const dappKit = useDAppKit();
 	const network = useCurrentNetwork() as LocalNetwork;
-
-	const [isOpen, setIsOpen] = useState(false);
-	const dropdownRef = useRef<HTMLDivElement>(null);
-
-	useOnClickOutside(
-		dropdownRef,
-		() => setIsOpen(false),
-		isOpen,
-	);
-
-	const handleNetworkChange = (
-		newNetwork: LocalNetwork,
-	) => {
-		dappKit.switchNetwork(newNetwork);
-		setIsOpen(false);
-	};
+	const isTestMode = network !== 'mainnet';
 
 	return (
-		<div className="relative" ref={dropdownRef}>
-			<Button
-				variant="outline"
-				size="sm"
-				onClick={() => setIsOpen(!isOpen)}
-				className="flex items-center gap-2"
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<Button
+						variant="outline"
+						size="sm"
+						data-testid="tool-network-button"
+					/>
+				}
 			>
+				<span
+					className={cn(
+						'size-2 rounded-full',
+						isTestMode
+							? 'bg-warning-foreground'
+							: 'bg-success-foreground',
+					)}
+				/>
 				<span className="capitalize">{network}</span>
-				<ChevronDown className="w-4 h-4" />
-			</Button>
-
-			{isOpen && (
-				<div className="absolute right-0 mt-2 w-40 bg-popover border border-border rounded-lg shadow-lg z-50">
+				<ChevronDown className="size-3 opacity-60" />
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" className="min-w-40">
+				<DropdownMenuGroup>
+					<DropdownMenuLabel>Network</DropdownMenuLabel>
 					{networks.map((net) => (
-						<button
+						<DropdownMenuItem
 							key={net.value}
-							onClick={() => handleNetworkChange(net.value)}
-							className={`w-full text-left px-4 py-2 text-sm hover:bg-accent first:rounded-t-lg last:rounded-b-lg cursor-pointer ${
-								network === net.value
-									? 'bg-accent text-foreground font-medium'
-									: 'text-muted-foreground'
-							}`}
+							className={cn(
+								net.value === network && 'bg-accent',
+							)}
+							onClick={() =>
+								dappKit.switchNetwork(net.value)
+							}
 						>
 							{net.label}
-						</button>
+						</DropdownMenuItem>
 					))}
-				</div>
-			)}
-		</div>
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
