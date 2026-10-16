@@ -2,18 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Switch as SwitchPrimitive } from '@base-ui/react/switch';
+import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-function Switch({
-	className,
-	size = 'default',
-	...props
-}: SwitchPrimitive.Root.Props & {
-	size?: 'sm' | 'default';
-}) {
+const Switch = React.forwardRef<
+	HTMLButtonElement,
+	SwitchPrimitive.Root.Props & {
+		size?: 'sm' | 'default';
+	}
+>(({ className, size = 'default', ...props }, ref) => {
 	return (
 		<SwitchPrimitive.Root
+			ref={ref}
 			data-slot="switch"
 			data-size={size}
 			className={cn(
@@ -28,6 +29,7 @@ function Switch({
 			/>
 		</SwitchPrimitive.Root>
 	);
-}
+});
+Switch.displayName = 'Switch';
 
 export { Switch };
