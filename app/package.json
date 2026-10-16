@@ -7,7 +7,8 @@
 		"dev": "vite",
 		"build": "tsc && vite build",
 		"fmt": "prettier --write .",
-		"lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+		"lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 && bun run lint:design",
+		"lint:design": "bun scripts/check-design-tokens.ts",
 		"preview": "vite preview",
 		"test": "vitest run"
 	},

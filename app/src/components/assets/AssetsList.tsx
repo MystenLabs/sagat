@@ -170,7 +170,7 @@ function EmptyAssetsState({
 	return (
 		<EmptyState
 			icon={
-				<div className="w-16 h-16 rounded-full bg-[#4DA2FF]/10 flex items-center justify-center">
+				<div className="w-16 h-16 rounded-full bg-sui/10 flex items-center justify-center">
 					<SuiLogo className="h-8 w-auto" />
 				</div>
 			}
