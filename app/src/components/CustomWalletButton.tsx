@@ -18,13 +18,9 @@ import {
 	Copy,
 	Globe,
 	LogOut,
-	Monitor,
-	Moon,
 	Shield,
-	Sun,
 	Wallet,
 } from 'lucide-react';
-import { useTheme } from 'next-themes';
 import { useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
@@ -287,8 +283,6 @@ export function CustomWalletButton({
 						<Divider />
 						<NetworkSwitchingSection />
 						<Divider />
-						<ThemeSection />
-						<Divider />
 						<DisconnectButton
 							onDisconnect={handleFullDisconnect}
 						/>
@@ -405,8 +399,6 @@ export function CustomWalletButton({
 					<CopyAddressButton />
 					<Divider />
 					<NetworkSwitchingSection />
-					<Divider />
-					<ThemeSection />
 					<Divider />
 					<DisconnectButton
 						onDisconnect={handleFullDisconnect}
@@ -551,40 +543,6 @@ const NetworkSwitchingSection = () => {
 				/>
 			</div>
 		</>
-	);
-};
-
-const THEME_OPTIONS = [
-	{ value: 'light', icon: Sun, label: 'Light' },
-	{ value: 'dark', icon: Moon, label: 'Dark' },
-	{ value: 'system', icon: Monitor, label: 'System' },
-] as const;
-
-// Light / dark / system, as a row of icon buttons.
-const ThemeSection = () => {
-	const { theme, setTheme } = useTheme();
-	return (
-		<div className="flex items-center justify-between px-3 py-2 text-sm">
-			<span className="font-medium">Theme</span>
-			<div className="flex gap-1">
-				{THEME_OPTIONS.map(
-					({ value, icon: Icon, label }) => (
-						<Button
-							key={value}
-							size="icon-sm"
-							variant={
-								theme === value ? 'secondary' : 'ghost'
-							}
-							onClick={() => setTheme(value)}
-							aria-label={label}
-							title={label}
-						>
-							<Icon />
-						</Button>
-					),
-				)}
-			</div>
-		</div>
 	);
 };
 

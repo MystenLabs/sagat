@@ -16,7 +16,7 @@ import { AppSidebar } from './AppSidebar';
 
 /** Sidebar width from the designs; the icon rail when collapsed. */
 const SIDEBAR_WIDTH = '232px';
-const SIDEBAR_WIDTH_ICON = '56px';
+const SIDEBAR_WIDTH_ICON = '48px';
 
 /**
  * App chrome: the sidebar on the left and the page on the right. The sidebar

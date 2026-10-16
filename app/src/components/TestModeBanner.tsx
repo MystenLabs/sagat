@@ -19,7 +19,10 @@ export function TestModeBanner() {
 	};
 
 	return (
-		<div className="fixed bottom-0 left-0 right-0 bg-warning border-t-2 border-warning-border px-4 py-3 shadow-lg z-50">
+		<div
+			className="sticky bottom-0 z-40 mt-auto border-t-2 border-warning-border bg-warning px-4 py-3"
+			data-testid="test-mode-banner"
+		>
 			<div className="flex items-center justify-between max-w-7xl mx-auto">
 				<div className="flex items-center gap-3">
 					<AlertTriangle className="w-5 h-5 text-warning-foreground" />

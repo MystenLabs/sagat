@@ -29,10 +29,13 @@ import {
 } from 'react-router-dom';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
+import { Logo } from '@/components/Logo';
+import { ThemeToggle } from '@/components/shell/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
@@ -50,7 +53,9 @@ import {
 	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarRail,
 	SidebarSeparator,
+	SidebarTrigger,
 	useSidebar,
 } from '@/components/ui/sidebar';
 import { TOOLS } from '@/config/tools';
@@ -99,6 +104,9 @@ const NETWORKS = [
 const navItemClass =
 	'text-13 text-sidebar-foreground/70 data-active:text-sidebar-foreground hover:text-sidebar-foreground';
 
+const groupLabelClass =
+	'px-2 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase';
+
 export function AppSidebar() {
 	const location = useLocation();
 	const { setOpenMobile } = useSidebar();
@@ -140,19 +148,39 @@ export function AppSidebar() {
 				className="flex min-h-0 flex-1 flex-col"
 				data-testid="app-header"
 			>
-				<SidebarHeader className="gap-4 px-2 pt-5">
-					<Link
-						to="/"
-						onClick={closeMobile}
-						className="px-2 text-15 font-bold tracking-tight text-sidebar-foreground group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:text-center"
-					>
-						<span className="group-data-[collapsible=icon]:hidden">
-							Sagat
-						</span>
-						<span className="hidden group-data-[collapsible=icon]:inline">
-							S
-						</span>
-					</Link>
+				<SidebarHeader className="gap-4 px-2 pt-4">
+					<div className="flex items-center justify-between gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:px-0">
+						<Link
+							to="/"
+							onClick={closeMobile}
+							aria-label="Home"
+							className="flex items-center"
+						>
+							<span className="group-data-[collapsible=icon]:hidden">
+								<Logo
+									size="sm"
+									showSubtitle={false}
+									asLink={false}
+									onDark
+								/>
+							</span>
+							<span className="hidden group-data-[collapsible=icon]:block">
+								<Logo
+									size="sm"
+									compact
+									asLink={false}
+									onDark
+								/>
+							</span>
+						</Link>
+						<div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
+							<ThemeToggle className="text-sidebar-foreground/70 hover:text-sidebar-foreground" />
+							<SidebarTrigger
+								data-testid="sidebar-toggle"
+								className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:hidden"
+							/>
+						</div>
+					</div>
 					{signedIn && (
 						<MultisigSwitcher
 							multisigs={accepted}
@@ -235,7 +263,7 @@ export function AppSidebar() {
 					)}
 
 					<SidebarGroup className="p-0">
-						<SidebarGroupLabel className="px-2 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase">
+						<SidebarGroupLabel className={groupLabelClass}>
 							Developer
 						</SidebarGroupLabel>
 						<SidebarGroupContent>
@@ -265,7 +293,7 @@ export function AppSidebar() {
 					</SidebarGroup>
 
 					<SidebarGroup className="p-0">
-						<SidebarGroupLabel className="px-2 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase">
+						<SidebarGroupLabel className={groupLabelClass}>
 							Resources
 						</SidebarGroupLabel>
 						<SidebarGroupContent>
@@ -288,7 +316,7 @@ export function AppSidebar() {
 												<span className="flex-1">
 													{label}
 												</span>
-												<ArrowUpRight className="size-3! opacity-60" />
+												<ArrowUpRight className="size-3! opacity-60 group-data-[collapsible=icon]:hidden" />
 											</SidebarMenuButton>
 										</SidebarMenuItem>
 									),
@@ -304,6 +332,7 @@ export function AppSidebar() {
 					<CustomWalletButton variant="rail" />
 				</SidebarFooter>
 			</div>
+			<SidebarRail />
 		</Sidebar>
 	);
 }
@@ -334,13 +363,8 @@ function MultisigSwitcher({
 		<div className="flex flex-col gap-2.5">
 			<DropdownMenu>
 				<DropdownMenuTrigger
-					render={
-						<button
-							type="button"
-							data-testid="multisig-switcher"
-							className="flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-left text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
-						/>
-					}
+					data-testid="multisig-switcher"
+					className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-left text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
 				>
 					<span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
 						{selected ? (
@@ -366,7 +390,7 @@ function MultisigSwitcher({
 					className="w-(--anchor-width) min-w-56"
 				>
 					{multisigs.length > 0 && (
-						<>
+						<DropdownMenuGroup>
 							<DropdownMenuLabel>
 								Multisigs
 							</DropdownMenuLabel>
@@ -392,8 +416,10 @@ function MultisigSwitcher({
 									</span>
 								</DropdownMenuItem>
 							))}
-							<DropdownMenuSeparator />
-						</>
+						</DropdownMenuGroup>
+					)}
+					{multisigs.length > 0 && (
+						<DropdownMenuSeparator />
 					)}
 					<DropdownMenuItem onClick={() => go('/create')}>
 						<Plus />
@@ -422,14 +448,13 @@ function NetworkRow() {
 
 	return (
 		<DropdownMenu>
+			{/* A plain button: Base UI anchors the menu to the trigger's ref. */}
 			<DropdownMenuTrigger
-				render={
-					<SidebarMenuButton
-						tooltip="Network"
-						className={navItemClass}
-						data-testid="network-menu-button"
-					/>
-				}
+				data-testid="network-menu-button"
+				className={cn(
+					'flex h-8 w-full cursor-pointer items-center gap-2 rounded-md p-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0',
+					navItemClass,
+				)}
 			>
 				<span
 					className={cn(
@@ -442,32 +467,34 @@ function NetworkRow() {
 				<span className="flex-1 capitalize group-data-[collapsible=icon]:hidden">
 					{network}
 				</span>
-				<ChevronRight className="size-3! opacity-60 group-data-[collapsible=icon]:hidden" />
+				<ChevronRight className="size-3 opacity-60 group-data-[collapsible=icon]:hidden" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				side="top"
 				align="start"
 				className="min-w-40"
 			>
-				<DropdownMenuLabel>Network</DropdownMenuLabel>
-				{NETWORKS.map((value) => (
-					<DropdownMenuItem
-						key={value}
-						className={cn(
-							'capitalize',
-							value === network && 'bg-accent',
-						)}
-						onClick={() => {
-							dappKit.switchNetwork(value);
-							localStorage.setItem(
-								LocalStorageKeys.SuiNetwork,
-								value,
-							);
-						}}
-					>
-						{value}
-					</DropdownMenuItem>
-				))}
+				<DropdownMenuGroup>
+					<DropdownMenuLabel>Network</DropdownMenuLabel>
+					{NETWORKS.map((value) => (
+						<DropdownMenuItem
+							key={value}
+							className={cn(
+								'capitalize',
+								value === network && 'bg-accent',
+							)}
+							onClick={() => {
+								dappKit.switchNetwork(value);
+								localStorage.setItem(
+									LocalStorageKeys.SuiNetwork,
+									value,
+								);
+							}}
+						>
+							{value}
+						</DropdownMenuItem>
+					))}
+				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

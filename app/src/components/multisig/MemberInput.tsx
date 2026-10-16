@@ -83,7 +83,7 @@ export function MemberInput({
 		<div
 			ref={setNodeRef}
 			style={style}
-			className="flex gap-3 items-start p-3 border rounded-lg"
+			className="flex gap-3 items-start p-3 border rounded-lg bg-card"
 			data-testid="member-row"
 		>
 			{/* Drag handle */}
