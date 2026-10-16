@@ -21,6 +21,8 @@ export const ADDRESS_ALIAS_STATE_ID =
 export const MAX_ALIASES = 8;
 
 const MODULE = '0x2::address_alias';
+const SUI_FRAMEWORK = normalizeSuiAddress('0x2');
+const MODULE_NAME = 'address_alias';
 const ALIAS_KEY_TYPE = `${MODULE}::AliasKey`;
 const ADDRESS_ALIASES_TYPE = normalizeStructTag(
 	`${MODULE}::AddressAliases`,
@@ -150,4 +152,39 @@ export function buildRemove(
 			tx.pure.address(alias),
 		],
 	});
+}
+
+/** The `address_alias` functions a rotation may use. `replace_all` is never accepted. */
+export const ROTATION_ALIAS_FUNCTIONS = [
+	'enable',
+	'add',
+	'remove',
+] as const;
+
+export interface AddressAliasCall {
+	/** Index of the command in the transaction. */
+	index: number;
+	function: string;
+}
+
+/**
+ * Every top-level MoveCall into `0x2::address_alias` in `tx`, whichever way
+ * the framework address is written. Alias calls cannot be wrapped by other
+ * Move code, so top-level commands are all there is to find. For the
+ * transaction preview warning and the rotation builders, which allow exactly
+ * `ROTATION_ALIAS_FUNCTIONS`.
+ */
+export function findAddressAliasCalls(
+	tx: Transaction,
+): AddressAliasCall[] {
+	return tx
+		.getData()
+		.commands.flatMap((command, index) =>
+			command.$kind === 'MoveCall' &&
+			normalizeSuiAddress(command.MoveCall.package) ===
+				SUI_FRAMEWORK &&
+			command.MoveCall.module === MODULE_NAME
+				? [{ index, function: command.MoveCall.function }]
+				: [],
+		);
 }

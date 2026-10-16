@@ -76,6 +76,15 @@ export const multisigProposalEvents = new Counter({
 // - Failed: multisig_proposal_events_total{event_type="proposal_failure"}
 // - Signatures: multisig_proposal_events_total{event_type="signature_added"}
 
+// Account rotation events (alias mirror refreshes, signer set lifecycle).
+// Recorded only through `recordEvent` in services/events.ts.
+export const accountRotationEvents = new Counter({
+	name: 'account_rotation_events_total',
+	help: 'Total number of account rotation events',
+	labelNames: ['network', 'event_type'] as const,
+	registers: [register],
+});
+
 // Database Metrics
 export const dbQueryDuration = new Histogram({
 	name: 'db_query_duration_seconds',
