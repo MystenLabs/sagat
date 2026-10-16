@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
 import {
@@ -9,6 +9,7 @@ import {
 	SidebarProvider,
 	SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 
@@ -40,6 +41,26 @@ export function AppShell({
 		setPrevWide(wide);
 		setOpen(wide);
 	}
+
+	// Toasts centre on the content column, not the viewport: tell the
+	// toaster (mounted outside the shell) how much the sidebar takes.
+	const isMobile = useIsMobile();
+	useEffect(() => {
+		const left = isMobile
+			? '0px'
+			: open
+				? SIDEBAR_WIDTH
+				: SIDEBAR_WIDTH_ICON;
+		document.documentElement.style.setProperty(
+			'--content-left',
+			left,
+		);
+		return () => {
+			document.documentElement.style.removeProperty(
+				'--content-left',
+			);
+		};
+	}, [isMobile, open]);
 
 	return (
 		<SidebarProvider

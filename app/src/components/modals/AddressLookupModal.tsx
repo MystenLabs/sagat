@@ -3,7 +3,8 @@
 
 import { Copy, Globe, Search, X } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
+
+import { toast } from '@/lib/toast';
 
 import { apiClient } from '../../lib/api';
 import {
@@ -99,7 +100,7 @@ export function AddressLookupModal({
 
 	const copyToClipboard = (text: string) => {
 		navigator.clipboard.writeText(text);
-		toast.success('Copied to clipboard');
+		toast.success('Copied');
 	};
 
 	const foundKey = publicKey ?? onChainResult?.publicKey;

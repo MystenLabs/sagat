@@ -10,7 +10,7 @@ import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 import { useInvitations } from '../hooks/useInvitations';
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { Button } from './ui/button';
-import { Loading } from './ui/loading';
+import { SkeletonPage } from './ui/skeleton';
 
 export function SmartDashboard() {
 	const { data: multisigs, isLoading } = useUserMultisigs(); // Only accepted multisigs
@@ -18,7 +18,9 @@ export function SmartDashboard() {
 	const currentAccount = useCurrentAccount();
 
 	if (isLoading)
-		return <Loading message="Loading your multisigs..." />;
+		return (
+			<SkeletonPage rows={3} message="Loading accounts" />
+		);
 
 	// Case 1: User has active multisigs - smart redirect
 	if (multisigs?.length && multisigs.length > 0) {

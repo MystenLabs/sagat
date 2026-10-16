@@ -12,8 +12,9 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
+import { toast } from '@/lib/toast';
+import { getExplorerUrl } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiClient } from '../lib/api';
@@ -128,14 +129,20 @@ export function useExecuteProposal() {
 					variables.proposal.multisig.address,
 				],
 			});
-			toast.success(
-				`Transaction executed successfully! Digest: ${data.executionResult.digest}`,
-			);
+			toast.success('Proposal executed', {
+				link: {
+					label: 'View on explorer',
+					href: getExplorerUrl(
+						data.executionResult.digest,
+						variables.proposal.network,
+					),
+				},
+			});
 		},
 		onError: (error: Error) => {
-			toast.error(
-				`Failed to execute proposal: ${error.message}`,
-			);
+			toast.error("Couldn't execute the proposal", {
+				description: error.message,
+			});
 		},
 	});
 }
