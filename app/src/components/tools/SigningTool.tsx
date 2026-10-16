@@ -12,15 +12,16 @@ import {
 	AlertCircle,
 	Check,
 	ExternalLink,
+	Loader2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { NetworkSelector } from '@/components/LocalNetworkSelector';
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
@@ -49,21 +50,18 @@ function TransactionInput({
 	onChange: (value: string) => void;
 }) {
 	return (
-		<div className="space-y-2">
-			<label
-				htmlFor="transaction-data"
-				className="text-sm font-medium text-muted-foreground"
-			>
-				Transaction Data (JSON or base64)
-			</label>
+		<div className="flex flex-col gap-2">
+			<Label htmlFor="transaction-data">
+				Transaction data (JSON or base64)
+			</Label>
 			<Textarea
 				id="transaction-data"
 				data-testid="transaction-data-input"
-				placeholder="Enter transaction data in JSON format or base64..."
+				placeholder="Paste transaction JSON or base64 bytes…"
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				rows={6}
-				className="font-mono text-sm"
+				className="font-mono text-12"
 			/>
 		</div>
 	);
@@ -90,40 +88,35 @@ function PreviewResult({
 }) {
 	if (isLoading) {
 		return (
-			<div className="border border-border bg-card rounded-lg p-4">
-				<div className="flex items-center gap-2">
-					<div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
-					<h3 className="font-medium text-foreground">
-						Previewing transaction...
-					</h3>
-				</div>
+			<div
+				role="status"
+				className="flex items-center gap-2 rounded-lg border bg-surface p-4 text-13 text-muted-foreground"
+			>
+				<Loader2 className="size-4 animate-spin" />
+				Previewing transaction…
 			</div>
 		);
 	}
 
 	return (
 		<div
-			className="py-2"
+			className="flex flex-col gap-3"
 			data-testid="transaction-preview-result"
 			data-result={isSuccess ? 'success' : 'failure'}
 		>
-			<div className="flex items-center gap-2 mb-3">
+			<div className="flex items-center gap-2 text-14 font-medium">
 				{isSuccess ? (
 					<>
 						<Check
 							strokeWidth={3}
-							className="w-4 h-4 text-success-foreground"
+							className="size-4 text-success-foreground"
 						/>
-						<h3 className="font-medium text-foreground">
-							Transaction Preview - Success
-						</h3>
+						Preview succeeded
 					</>
 				) : (
 					<>
-						<AlertCircle className="w-5 h-5 text-error-foreground" />
-						<h3 className="font-medium text-foreground">
-							Transaction Preview - Failed
-						</h3>
+						<AlertCircle className="size-4 text-error-foreground" />
+						Preview failed
 					</>
 				)}
 			</div>
@@ -136,23 +129,21 @@ function PreviewResult({
 					analysisError={analysisError}
 				/>
 			) : (
-				<div className="space-y-3">
+				<div className="flex flex-col gap-3">
 					<IntentSummary
 						analysis={analysis}
 						isLoading={isAnalysisLoading}
 						error={analysisError}
 					/>
-					<p className="text-sm text-error-foreground whitespace-pre-wrap">
+					<p className="text-13 whitespace-pre-wrap text-error-foreground">
 						{decodeURIComponent(
 							error?.message ||
 								'Transaction would fail on-chain',
 						)}
 					</p>
 					<Alert variant="warning">
-						<span className="">
-							Make sure you've selected the correct network
-							above
-						</span>
+						Make sure the network picked above matches the
+						transaction.
 					</Alert>
 				</div>
 			)}
@@ -171,24 +162,20 @@ function SignedResultDisplay({
 }) {
 	return (
 		<div
-			className="border border-border bg-card rounded-lg p-4"
+			className="flex flex-col gap-4 rounded-lg border border-success-border bg-surface p-4"
 			data-testid="signed-result"
 			data-digest={result.digest}
 			data-signature={result.signature}
 		>
-			<div className="flex items-center justify-between mb-3">
-				<div className="flex items-center gap-2">
+			<div className="flex items-center justify-between gap-3">
+				<div className="flex items-center gap-2 text-14 font-medium">
 					<Check
 						strokeWidth={3}
-						className="w-4 h-4 text-success-foreground"
+						className="size-4 text-success-foreground"
 					/>
-					<h3 className="font-medium text-foreground">
-						Transaction{' '}
-						{result.digest
-							? 'Signed and Executed'
-							: 'Signed'}{' '}
-						Successfully
-					</h3>
+					{result.digest
+						? 'Transaction signed and executed'
+						: 'Transaction signed'}
 				</div>
 				<Button
 					type="button"
@@ -197,19 +184,17 @@ function SignedResultDisplay({
 					size="sm"
 					data-testid="start-over-button"
 				>
-					Start Over
+					Start over
 				</Button>
 			</div>
-			<div className="space-y-3">
-				<FieldDisplay
-					label={
-						result.digest
-							? 'Transaction Digest'
-							: 'Signature'
-					}
-					value={result.digest || result.signature}
-				/>
-				{result.digest && (
+			<FieldDisplay
+				label={
+					result.digest ? 'Transaction digest' : 'Signature'
+				}
+				value={result.digest || result.signature}
+			/>
+			{result.digest && (
+				<div>
 					<Button
 						size="sm"
 						variant="outline"
@@ -221,15 +206,14 @@ function SignedResultDisplay({
 								)}
 								target="_blank"
 								rel="noopener noreferrer"
-								className="flex items-center gap-1"
 							/>
 						}
 					>
-						<ExternalLink className="w-4 h-4" />
-						View Transaction
+						<ExternalLink />
+						View on explorer
 					</Button>
-				)}
-			</div>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -258,10 +242,10 @@ function SignButton({
 			}
 		>
 			{isSigning
-				? 'Signing...'
+				? 'Signing…'
 				: shouldExecute
-					? 'Sign and Execute with Wallet'
-					: 'Sign with Wallet'}
+					? 'Sign and execute'
+					: 'Sign only'}
 		</Button>
 	);
 }
@@ -369,76 +353,61 @@ export default function SigningTool() {
 	};
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center justify-between gap-4">
-				<div>
-					<p className="text-sm text-muted-foreground">
-						Preview and sign transactions with your
-						connected wallet.
-					</p>
-				</div>
-				<NetworkSelector />
-			</div>
+		<div className="flex flex-col gap-6">
+			{!signedResult && (
+				<TransactionInput
+					value={transactionData}
+					onChange={handleTransactionDataChange}
+				/>
+			)}
 
-			<div className="space-y-6">
-				{!signedResult && (
-					<TransactionInput
-						value={transactionData}
-						onChange={handleTransactionDataChange}
+			{!signedResult &&
+				(dryRun.isPending ||
+					dryRun.data ||
+					dryRun.error) && (
+					<PreviewResult
+						isSuccess={isDryRunSuccessful}
+						data={dryRun.data}
+						error={dryRun.error}
+						isLoading={dryRun.isPending}
+						bytes={transactionData}
+						analysis={analysis.data}
+						isAnalysisLoading={analysis.isPending}
+						analysisError={analysis.error}
 					/>
 				)}
 
-				{!signedResult &&
-					(dryRun.isPending ||
-						dryRun.data ||
-						dryRun.error) && (
-						<PreviewResult
-							isSuccess={isDryRunSuccessful}
-							data={dryRun.data}
-							error={dryRun.error}
-							isLoading={dryRun.isPending}
-							bytes={transactionData}
-							analysis={analysis.data}
-							isAnalysisLoading={analysis.isPending}
-							analysisError={analysis.error}
-						/>
+			{signedResult && (
+				<SignedResultDisplay
+					result={signedResult}
+					onStartOver={handleStartOver}
+					network={network}
+				/>
+			)}
+
+			{isDryRunSuccessful && !signedResult && (
+				<div className="flex flex-col gap-3 border-t pt-4">
+					{!currentAccount && (
+						<Alert>
+							Connect a wallet to sign this transaction.
+						</Alert>
 					)}
-
-				{signedResult && (
-					<SignedResultDisplay
-						result={signedResult}
-						onStartOver={handleStartOver}
-						network={network}
-					/>
-				)}
-
-				{isDryRunSuccessful && !signedResult && (
-					<div className="space-y-3 pt-4">
-						<div className="flex gap-2 justify-end">
-							<SignButton
-								onSign={handleSign}
-								shouldExecute={true}
-								isSigning={isSigningAndExecuting}
-								disabled={!currentAccount}
-							/>
-							<SignButton
-								onSign={handleSign}
-								shouldExecute={false}
-								isSigning={isSigning}
-								disabled={!currentAccount}
-							/>
-						</div>
-						{!currentAccount && (
-							<Alert>
-								<span>
-									No wallet connected. Connect a wallet to
-									sign this transaction.
-								</span>
-							</Alert>
-						)}
+					<div className="flex justify-end gap-2">
+						<SignButton
+							onSign={handleSign}
+							shouldExecute={false}
+							isSigning={isSigning}
+							disabled={!currentAccount}
+						/>
+						<SignButton
+							onSign={handleSign}
+							shouldExecute={true}
+							isSigning={isSigningAndExecuting}
+							disabled={!currentAccount}
+						/>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 		</div>
 	);
 }
