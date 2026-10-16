@@ -104,8 +104,10 @@ const NETWORKS = [
 const navItemClass =
 	'text-13 text-sidebar-foreground/70 data-active:text-sidebar-foreground hover:text-sidebar-foreground';
 
+// Hidden outright on the icon rail: the block only fades labels out and
+// pulls them up 32px, which would leave an invisible box over the item above.
 const groupLabelClass =
-	'px-2 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase';
+	'px-2 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase group-data-[collapsible=icon]:hidden';
 
 export function AppSidebar() {
 	const location = useLocation();
@@ -227,6 +229,9 @@ export function AppSidebar() {
 					)}
 
 					{signedIn && (
+						<SidebarSeparator className="mx-auto hidden w-4 group-data-[collapsible=icon]:block" />
+					)}
+					{signedIn && (
 						<SidebarGroup className="p-0">
 							<SidebarGroupContent>
 								<SidebarMenu>
@@ -262,6 +267,7 @@ export function AppSidebar() {
 						</SidebarGroup>
 					)}
 
+					<SidebarSeparator className="mx-auto hidden w-4 group-data-[collapsible=icon]:block" />
 					<SidebarGroup className="p-0">
 						<SidebarGroupLabel className={groupLabelClass}>
 							Developer
@@ -292,6 +298,7 @@ export function AppSidebar() {
 						</SidebarGroupContent>
 					</SidebarGroup>
 
+					<SidebarSeparator className="mx-auto hidden w-4 group-data-[collapsible=icon]:block" />
 					<SidebarGroup className="p-0">
 						<SidebarGroupLabel className={groupLabelClass}>
 							Resources
