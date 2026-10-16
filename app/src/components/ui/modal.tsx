@@ -1,7 +1,17 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
+
+import { cn } from '@/lib/utils';
+
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from './dialog';
 
 interface ModalProps {
 	open: boolean;
@@ -11,45 +21,32 @@ interface ModalProps {
 }
 
 const sizeClasses = {
-	sm: 'max-w-sm',
-	md: 'max-w-md',
-	lg: 'max-w-lg',
+	sm: 'sm:max-w-sm',
+	md: 'sm:max-w-md',
+	lg: 'sm:max-w-lg',
 };
 
+/** Thin wrapper over Dialog that keeps the older Modal API. */
 export function Modal({
 	open,
 	onClose,
 	children,
 	size = 'md',
 }: ModalProps) {
-	useEffect(() => {
-		if (!open) return;
-
-		const handleEscape = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				onClose();
-			}
-		};
-
-		document.addEventListener('keydown', handleEscape);
-		return () =>
-			document.removeEventListener('keydown', handleEscape);
-	}, [open, onClose]);
-
-	if (!open) return null;
-
 	return (
-		<div
-			className="fixed inset-1 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
-			onClick={onClose}
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				if (!next) onClose();
+			}}
 		>
-			<div
-				className={`bg-card rounded-lg p-6 w-full mx-4 ${sizeClasses[size]}`}
-				onClick={(e) => e.stopPropagation()}
+			<DialogContent
+				showCloseButton={false}
+				className={cn('p-6', sizeClasses[size])}
 			>
 				{children}
-			</div>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -63,10 +60,12 @@ export function ModalHeader({
 	title,
 }: ModalHeaderProps) {
 	return (
-		<div className="flex items-center gap-3 mb-4">
+		<DialogHeader className="mb-4 flex-row items-center gap-3">
 			{icon}
-			<h2 className="text-lg font-semibold">{title}</h2>
-		</div>
+			<DialogTitle className="text-lg font-semibold">
+				{title}
+			</DialogTitle>
+		</DialogHeader>
 	);
 }
 
@@ -84,7 +83,9 @@ export function ModalActions({
 	children: ReactNode;
 }) {
 	return (
-		<div className="flex gap-3 justify-end">{children}</div>
+		<DialogFooter className="m-0 flex-row justify-end gap-3 border-0 bg-transparent p-0">
+			{children}
+		</DialogFooter>
 	);
 }
 

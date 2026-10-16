@@ -9,7 +9,7 @@ import {
 	getExpiry,
 	type Expiry,
 } from '../../lib/expiration';
-import { Label } from '../ui/label';
+import { Chip } from '../ui/chip';
 import {
 	Tooltip,
 	TooltipContent,
@@ -36,18 +36,20 @@ export function ProposalExpiry({
 	if (!expiry) return null;
 
 	return (
-		<TooltipProvider delayDuration={150}>
+		<TooltipProvider delay={150}>
 			<Tooltip>
-				<TooltipTrigger asChild>
-					<Label
-						variant={expiry.expired ? 'error' : 'neutral'}
-						data-testid="proposal-expiry"
-						tabIndex={0}
-					>
-						{expiry.expired
-							? 'Expired'
-							: `Expires in ${formatTimeLeft(expiry.endsAt, now)}`}
-					</Label>
+				<TooltipTrigger
+					render={
+						<Chip
+							variant={expiry.expired ? 'error' : 'neutral'}
+							data-testid="proposal-expiry"
+							tabIndex={0}
+						/>
+					}
+				>
+					{expiry.expired
+						? 'Expired'
+						: `Expires in ${formatTimeLeft(expiry.endsAt, now)}`}
 				</TooltipTrigger>
 				<TooltipContent className="max-w-xs">
 					{explain(expiry)}

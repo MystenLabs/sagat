@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 
-import { Label } from '@/components/ui/label';
+import { Chip } from '@/components/ui/chip';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
@@ -97,7 +97,7 @@ export function MultisigSelector({
 							{currentMultisig?.name ||
 								formatAddress(currentMultisig.address)}
 							{currentMultisig.pendingMembers ? (
-								<Label
+								<Chip
 									variant="warning"
 									size="sm"
 									className="ml-2"
@@ -107,10 +107,10 @@ export function MultisigSelector({
 									{currentMultisig.pendingMembers > 1
 										? 's'
 										: ''}
-								</Label>
+								</Chip>
 							) : null}
 							{currentMultisig.rejectedMembers > 0 ? (
-								<Label
+								<Chip
 									variant="error"
 									size="sm"
 									className="ml-2"
@@ -120,7 +120,7 @@ export function MultisigSelector({
 									{currentMultisig.rejectedMembers > 1
 										? 's'
 										: ''}
-								</Label>
+								</Chip>
 							) : null}
 						</div>
 						<p className="text-xs text-muted-foreground">
@@ -199,14 +199,14 @@ export function MultisigSelector({
 											</div>
 										</div>
 										{multisig.pendingMembers > 0 && (
-											<Label variant="warning">
+											<Chip variant="warning">
 												<AlertTriangle className="w-4 h-4" />
-											</Label>
+											</Chip>
 										)}
 										{multisig.rejectedMembers > 0 && (
-											<Label variant="error">
+											<Chip variant="error">
 												<AlertTriangle className="w-4 h-4" />
-											</Label>
+											</Chip>
 										)}
 									</div>
 								</button>

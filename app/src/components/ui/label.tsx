@@ -1,58 +1,24 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	cva,
-	type VariantProps,
-} from 'class-variance-authority';
 import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-const labelVariants = cva(
-	'inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full shrink-0 font-medium',
-	{
-		variants: {
-			variant: {
-				success: 'bg-success text-success-foreground',
-				warning: 'bg-warning text-warning-foreground',
-				error: 'bg-error text-error-foreground',
-				info: 'bg-info text-info-foreground',
-				neutral: 'bg-muted text-muted-foreground',
-				purple: 'bg-purple text-purple-foreground',
-			},
-			size: {
-				sm: 'text-xs px-1.5 py-0.5',
-				md: 'text-xs px-2 py-1',
-				lg: 'text-sm px-3 py-1.5',
-			},
-		},
-		defaultVariants: {
-			variant: 'neutral',
-			size: 'md',
-		},
-	},
-);
+function Label({
+	className,
+	...props
+}: React.ComponentProps<'label'>) {
+	return (
+		<label
+			data-slot="label"
+			className={cn(
+				'flex items-center gap-2 text-sm leading-none font-medium select-none group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50 peer-disabled:cursor-not-allowed peer-disabled:opacity-50',
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
 
-export interface LabelProps
-	extends
-		React.HTMLAttributes<HTMLSpanElement>,
-		VariantProps<typeof labelVariants> {}
-
-const Label = React.forwardRef<HTMLSpanElement, LabelProps>(
-	({ className, variant, size, ...props }, ref) => {
-		return (
-			<span
-				className={cn(
-					labelVariants({ variant, size, className }),
-				)}
-				ref={ref}
-				{...props}
-			/>
-		);
-	},
-);
-Label.displayName = 'Label';
-
-// eslint-disable-next-line react-refresh/only-export-components
-export { Label, labelVariants };
+export { Label };

@@ -210,16 +210,23 @@ function SignedResultDisplay({
 					value={result.digest || result.signature}
 				/>
 				{result.digest && (
-					<Button size="sm" variant="outline" asChild>
-						<a
-							href={getExplorerUrl(result.digest, network)}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="flex items-center gap-1"
-						>
-							<ExternalLink className="w-4 h-4" />
-							View Transaction
-						</a>
+					<Button
+						size="sm"
+						variant="outline"
+						render={
+							<a
+								href={getExplorerUrl(
+									result.digest,
+									network,
+								)}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="flex items-center gap-1"
+							/>
+						}
+					>
+						<ExternalLink className="w-4 h-4" />
+						View Transaction
 					</Button>
 				)}
 			</div>
