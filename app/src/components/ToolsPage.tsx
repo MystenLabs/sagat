@@ -26,7 +26,7 @@ function ToolDetail({ tool }: { tool: Tool }) {
 				</div>
 			</div>
 
-			<div className="border rounded-lg p-6">
+			<div className="rounded-xl border bg-card p-6">
 				<ToolComponent />
 			</div>
 		</div>

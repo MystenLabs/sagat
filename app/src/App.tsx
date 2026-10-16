@@ -22,7 +22,7 @@ function AppContent() {
 	const showBanner = isTestMode && !hideBanner;
 
 	return (
-		<AppShell contentClassName={showBanner ? 'pb-20' : ''}>
+		<AppShell>
 			<AppRouter />
 			{showBanner && <TestModeBanner />}
 		</AppShell>
