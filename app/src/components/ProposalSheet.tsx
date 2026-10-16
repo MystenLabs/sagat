@@ -289,7 +289,7 @@ function ProposalSheetBody({
 									onClick={() =>
 										setShowRawTransaction((v) => !v)
 									}
-									className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+									className="cursor-pointer flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
 								>
 									{showRawTransaction ? (
 										<ChevronDown className="w-3.5 h-3.5" />
