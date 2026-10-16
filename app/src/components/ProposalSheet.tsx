@@ -26,7 +26,7 @@ import {
 import { EffectsPreview } from './preview-effects/EffectsPreview';
 import { IntentSummary } from './preview-effects/IntentSummary';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
+import { Chip } from './ui/chip';
 import {
 	Sheet,
 	SheetContent,
@@ -225,13 +225,13 @@ function ProposalSheetBody({
 							once submitted.
 						</SheetDescription>
 					</div>
-					<Label
+					<Chip
 						variant={
 							network === 'testnet' ? 'warning' : 'info'
 						}
 					>
 						{network}
-					</Label>
+					</Chip>
 				</div>
 			</SheetHeader>
 
