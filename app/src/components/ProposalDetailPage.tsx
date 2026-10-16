@@ -97,7 +97,7 @@ export function ProposalDetailPage() {
 	};
 
 	return (
-		<div className="page-shell mt-8">
+		<div className="page-shell">
 			<PageHeader
 				title="Proposal Details"
 				description={`Digest: ${digest}`}

@@ -301,9 +301,8 @@
 	}
 }
 
-/* Shared horizontal shell used by the top header and every page so the
-   left/right edges of header content align with body content. Tweak the
-   max-width and gutter here once and the entire app follows. */
+/* Main column of every page: the padding from the designs (44px top,
+   56px sides on desktop), no max-width. */
 @utility page-shell {
-	@apply mx-auto w-full max-w-[1600px] px-4;
+	@apply flex w-full flex-col px-5 pt-6 pb-10 md:px-14 md:pt-11 md:pb-14;
 }
