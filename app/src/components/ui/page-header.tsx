@@ -12,6 +12,8 @@ import { CopyButton } from './CopyButton';
 export interface Crumb {
 	label: string;
 	to?: string;
+	/** Addresses and digests: mono, not uppercased. */
+	mono?: boolean;
 }
 
 interface PageHeaderProps {
@@ -69,13 +71,19 @@ export function PageHeader({
 								{crumb.to ? (
 									<Link
 										to={crumb.to}
-										className="truncate hover:text-foreground"
+										className={cn(
+											'truncate hover:text-foreground',
+											crumb.mono && 'font-mono normal-case',
+										)}
 									>
 										{crumb.label}
 									</Link>
 								) : (
 									<span
-										className="truncate"
+										className={cn(
+											'truncate',
+											crumb.mono && 'font-mono normal-case',
+										)}
 										aria-current="page"
 									>
 										{crumb.label}

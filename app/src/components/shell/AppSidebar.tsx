@@ -439,8 +439,10 @@ function NetworkRow() {
 							: 'bg-success-foreground',
 					)}
 				/>
-				<span className="flex-1 capitalize">{network}</span>
-				<ChevronRight className="size-3! opacity-60" />
+				<span className="flex-1 capitalize group-data-[collapsible=icon]:hidden">
+					{network}
+				</span>
+				<ChevronRight className="size-3! opacity-60 group-data-[collapsible=icon]:hidden" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent
 				side="top"
