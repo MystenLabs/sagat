@@ -34,7 +34,8 @@ test.describe('invitations', () => {
 		await expect(
 			bob.memberItem(bob.address),
 		).toHaveAttribute('data-status', 'pending');
-		await card
+		// The review dialog renders in a portal, outside the card.
+		await bob.page
 			.getByTestId('accept-invitation-button')
 			.click();
 
@@ -72,10 +73,11 @@ test.describe('invitations', () => {
 		await bob.signIn();
 		await bob.page.getByTestId('nav-invitations').click();
 		const card = bob.invitationCard(multisig.address);
+		// Rejecting asks for confirmation first.
 		await card
-			.getByTestId('invitation-toggle-details')
+			.getByTestId('reject-invitation-open')
 			.click();
-		await card
+		await bob.page
 			.getByTestId('reject-invitation-button')
 			.click();
 		await expect(card).toBeHidden();
