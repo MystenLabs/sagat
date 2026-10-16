@@ -53,7 +53,6 @@ import {
 	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarMenuItem,
-	SidebarRail,
 	SidebarSeparator,
 	SidebarTrigger,
 	useSidebar,
@@ -339,7 +338,6 @@ export function AppSidebar() {
 					<CustomWalletButton variant="rail" />
 				</SidebarFooter>
 			</div>
-			<SidebarRail />
 		</Sidebar>
 	);
 }
