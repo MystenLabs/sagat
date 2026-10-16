@@ -1,7 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Monitor, Moon, Sun } from 'lucide-react';
+import {
+	ChevronRight,
+	Monitor,
+	Moon,
+	Sun,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 import {
@@ -20,16 +25,23 @@ const OPTIONS = [
 	{ value: 'system', icon: Monitor, label: 'System' },
 ] as const;
 
-/** Light / dark / system picker for the sidebar header. */
+/**
+ * Light / dark / system picker. The `icon` variant is a bare icon button
+ * (mobile header); the `row` variant is a full sidebar footer row that
+ * shrinks to its icon on the collapsed rail.
+ */
 export function ThemeToggle({
+	variant = 'icon',
 	className,
 }: {
+	variant?: 'icon' | 'row';
 	className?: string;
 }) {
 	const { theme, setTheme } = useTheme();
 	const active =
 		OPTIONS.find((o) => o.value === theme) ?? OPTIONS[2];
 	const ActiveIcon = active.icon;
+	const row = variant === 'row';
 
 	return (
 		<DropdownMenu>
@@ -37,13 +49,31 @@ export function ThemeToggle({
 				aria-label={`Theme: ${active.label}`}
 				data-testid="theme-toggle"
 				className={cn(
-					'inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent',
+					'cursor-pointer items-center rounded-md outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent',
+					row
+						? 'flex h-8 w-full gap-2 p-2 text-left group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0'
+						: 'inline-flex size-7 shrink-0 justify-center',
 					className,
 				)}
 			>
-				<ActiveIcon className="size-4" />
+				<ActiveIcon className="size-4 shrink-0" />
+				{row && (
+					<>
+						<span className="flex-1 group-data-[collapsible=icon]:hidden">
+							Theme
+						</span>
+						<span className="text-11 opacity-60 group-data-[collapsible=icon]:hidden">
+							{active.label}
+						</span>
+						<ChevronRight className="size-3 opacity-60 group-data-[collapsible=icon]:hidden" />
+					</>
+				)}
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="min-w-36">
+			<DropdownMenuContent
+				side={row ? 'top' : 'bottom'}
+				align={row ? 'start' : 'end'}
+				className="min-w-36"
+			>
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>Theme</DropdownMenuLabel>
 					{OPTIONS.map(({ value, icon: Icon, label }) => (

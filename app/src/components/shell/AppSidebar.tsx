@@ -174,13 +174,10 @@ export function AppSidebar() {
 								/>
 							</span>
 						</Link>
-						<div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
-							<ThemeToggle className="text-sidebar-foreground/70 hover:text-sidebar-foreground" />
-							<SidebarTrigger
-								data-testid="sidebar-toggle"
-								className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:hidden"
-							/>
-						</div>
+						<SidebarTrigger
+							data-testid="sidebar-toggle"
+							className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:hidden"
+						/>
 					</div>
 					{signedIn && (
 						<MultisigSwitcher
@@ -335,6 +332,10 @@ export function AppSidebar() {
 				<SidebarFooter className="gap-1 px-2 pb-4">
 					<SidebarSeparator className="mx-0 mb-2" />
 					<NetworkRow />
+					<ThemeToggle
+						variant="row"
+						className={navItemClass}
+					/>
 					<CustomWalletButton variant="rail" />
 				</SidebarFooter>
 			</div>
