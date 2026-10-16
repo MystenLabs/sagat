@@ -104,7 +104,7 @@ export function MultisigDetailPage() {
 			<PageHeader
 				breadcrumb={[
 					{ label: 'Multisigs', to: '/' },
-					{ label: title },
+					{ label: title, mono: !multisig.name },
 				]}
 				title={title}
 				address={multisig.address}
