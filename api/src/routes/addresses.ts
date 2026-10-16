@@ -1,18 +1,23 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, type SQL } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 
 import { db } from '../db';
 import {
+	SchemaAccounts,
 	SchemaAddresses,
-	SchemaMultisigMembers,
-	type MultisigWithMembers,
+	SchemaSignerSetMembers,
 } from '../db/schema';
 import { ValidationError } from '../errors';
 import {
-	expandMultisigsWithMembers,
+	toLegacyMultisigWithMembers,
+	type LegacyMultisigWithMembers,
+} from '../legacy/serializers';
+import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
+import {
+	expandSignerSetsWithMembers,
 	registerPublicKeys,
 } from '../services/addresses.service';
 import {
@@ -22,6 +27,49 @@ import {
 import { parsePublicKey } from '../utils/pubKey';
 
 const addressesRouter = new Hono();
+
+// Signer set addresses with a member matching `where`. Legacy clients only
+// see signer sets that are also accounts: a signer set drafted for another
+// account would otherwise show up as a standalone multisig.
+const selectLegacyMultisigAddresses = async (
+	where: SQL | undefined,
+) =>
+	(
+		await db
+			.selectDistinct({
+				address: SchemaSignerSetMembers.signerSetAddress,
+			})
+			.from(SchemaSignerSetMembers)
+			.innerJoin(
+				SchemaAccounts,
+				eq(
+					SchemaAccounts.address,
+					SchemaSignerSetMembers.signerSetAddress,
+				),
+			)
+			.where(where)
+	).map((m) => m.address);
+
+// Signer sets in the legacy multisig shape, with their account's proposers.
+const expandLegacyMultisigs = async (
+	addresses: string[],
+): Promise<LegacyMultisigWithMembers[]> => {
+	const signerSets =
+		await expandSignerSetsWithMembers(addresses);
+	const proposers =
+		await AccountProposersDataLoader.loadMany(
+			signerSets.map((s) => s.address),
+		);
+	return signerSets.map((signerSet, i) => {
+		const accountProposers = proposers[i];
+		if (accountProposers instanceof Error)
+			throw accountProposers;
+		return toLegacyMultisigWithMembers(
+			signerSet,
+			accountProposers,
+		);
+	});
+};
 
 /**
  * Register addresses from authenticated JWT context.
@@ -75,29 +123,27 @@ addressesRouter.get(
 
 		const whereConditions = [
 			inArray(
-				SchemaMultisigMembers.publicKey,
+				SchemaSignerSetMembers.publicKey,
 				publicKeys.map((pubKey) => pubKey.toSuiPublicKey()),
 			),
-			eq(SchemaMultisigMembers.isAccepted, true),
-			eq(SchemaMultisigMembers.isRejected, false),
+			eq(SchemaSignerSetMembers.isAccepted, true),
+			eq(SchemaSignerSetMembers.isRejected, false),
 		];
 
 		// Step 1: Find multisig addresses that the given publicKeys belong to
-		const multisigAddresses = await db
-			.selectDistinct({
-				address: SchemaMultisigMembers.multisigAddress,
-			})
-			.from(SchemaMultisigMembers)
-			.where(and(...whereConditions.filter((x) => !!x)));
+		const multisigAddresses =
+			await selectLegacyMultisigAddresses(
+				and(...whereConditions.filter((x) => !!x)),
+			);
 
 		// Step 2: Expand multisigs to full objects with all members
 		const multisigsWithMembers =
-			await expandMultisigsWithMembers(
-				multisigAddresses.map((m) => m.address),
-			);
+			await expandLegacyMultisigs(multisigAddresses);
 
-		const grouped: Record<string, MultisigWithMembers[]> =
-			{};
+		const grouped: Record<
+			string,
+			LegacyMultisigWithMembers[]
+		> = {};
 
 		for (const pubkey of publicKeys) {
 			const pubKeyBase64 = pubkey.toSuiPublicKey();
@@ -135,30 +181,25 @@ addressesRouter.get(
 			throw new ValidationError('You are not authorized.');
 
 		const whereConditions = [
-			eq(SchemaMultisigMembers.publicKey, publicKey),
+			eq(SchemaSignerSetMembers.publicKey, publicKey),
 			showRejected === 'true'
-				? eq(SchemaMultisigMembers.isRejected, true)
+				? eq(SchemaSignerSetMembers.isRejected, true)
 				: and(
-						eq(SchemaMultisigMembers.isAccepted, false),
-						eq(SchemaMultisigMembers.isRejected, false),
+						eq(SchemaSignerSetMembers.isAccepted, false),
+						eq(SchemaSignerSetMembers.isRejected, false),
 					),
 		];
 
 		// Step 1: Find multisig addresses for this public key's invitations
-		const multisigAddresses = await db
-			.selectDistinct({
-				address: SchemaMultisigMembers.multisigAddress,
-			})
-			.from(SchemaMultisigMembers)
-			.where(and(...whereConditions.filter((x) => !!x)));
-
-		// Step 2: Expand multisigs to full objects with all members
-		const multisigsWithMembers =
-			await expandMultisigsWithMembers(
-				multisigAddresses.map((m) => m.address),
+		const multisigAddresses =
+			await selectLegacyMultisigAddresses(
+				and(...whereConditions.filter((x) => !!x)),
 			);
 
-		return c.json(multisigsWithMembers);
+		// Step 2: Expand multisigs to full objects with all members
+		return c.json(
+			await expandLegacyMultisigs(multisigAddresses),
+		);
 	},
 );
 

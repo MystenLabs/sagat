@@ -64,6 +64,13 @@
 			"when": 1760006361060,
 			"tag": "0008_panoramic_tag",
 			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1791962065384,
+			"tag": "0009_account_rotation",
+			"breakpoints": true
 		}
 	]
 }

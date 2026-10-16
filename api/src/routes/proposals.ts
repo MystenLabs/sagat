@@ -27,6 +27,12 @@ import {
 	NotFoundError,
 	ValidationError,
 } from '../errors';
+import {
+	toLegacyPaginatedProposals,
+	toLegacyProposal,
+	toLegacyProposalWithSignatures,
+} from '../legacy/serializers';
+import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
 import { ProposalByDigestLoader } from '../loaders/proposals.loader';
 import {
 	MultisigEventType,
@@ -38,14 +44,14 @@ import {
 	type AuthEnv,
 } from '../services/auth.service';
 import {
-	getMultisig,
-	isMultisigMember,
-	jwtHasMultisigMemberAccess,
+	getSignerSet,
+	isSignerSetMember,
+	jwtHasSignerSetMemberAccess,
 	validateProposedTransaction,
 } from '../services/multisig.service';
 import {
 	getProposalById,
-	getProposalsByMultisigAddress,
+	getProposalsByAccountAddress,
 	lookupAndVerifyProposal,
 } from '../services/proposals.service';
 import { newCursor } from '../utils/pagination';
@@ -68,14 +74,16 @@ proposalsRouter.post('/', async (c) => {
 	// Get the public key out of the sui signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
-	const multisig = await getMultisig(multisigAddress);
+	const multisig = await getSignerSet(multisigAddress);
 
 	const isMember = multisig.members.some(
 		(member) =>
 			member.publicKey === pubKey.toSuiPublicKey() &&
 			member.isAccepted,
 	);
-	const isProposer = multisig.proposers.some(
+	const proposers =
+		await AccountProposersDataLoader.load(multisigAddress);
+	const isProposer = proposers.some(
 		(proposer) =>
 			proposer.address === pubKey.toSuiAddress(),
 	);
@@ -119,7 +127,7 @@ proposalsRouter.post('/', async (c) => {
 		const proposal = await tx
 			.insert(SchemaProposals)
 			.values({
-				multisigAddress,
+				accountAddress: multisigAddress,
 				digest: await proposedTransaction.getDigest(),
 				transactionBytes: built.toBase64(),
 				proposerAddress: pubKey.toSuiAddress(),
@@ -149,7 +157,7 @@ proposalsRouter.post('/', async (c) => {
 		event_type: MultisigEventType.PROPOSAL_CREATED,
 	});
 
-	return c.json(proposal, 201);
+	return c.json(toLegacyProposal(proposal), 201);
 });
 
 // Adds a signature for the transaction.
@@ -165,8 +173,8 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 		getPublicKeyFromSerializedSignature(signature);
 
 	if (
-		!(await isMultisigMember(
-			proposal.multisigAddress,
+		!(await isSignerSetMember(
+			proposal.accountAddress,
 			pubKey,
 			false,
 		))
@@ -213,8 +221,8 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 		event_type: MultisigEventType.SIGNATURE_ADDED,
 	});
 
-	const multisig = await getMultisig(
-		proposal.multisigAddress,
+	const multisig = await getSignerSet(
+		proposal.accountAddress,
 	);
 	let totalVotes = 0;
 
@@ -247,8 +255,8 @@ proposalsRouter.post('/:proposalId/cancel', async (c) => {
 		getPublicKeyFromSerializedSignature(signature);
 
 	if (
-		!(await isMultisigMember(
-			proposal.multisigAddress,
+		!(await isSignerSetMember(
+			proposal.accountAddress,
 			pubKey,
 		))
 	)
@@ -289,8 +297,8 @@ proposalsRouter.post(
 		);
 
 		if (
-			!(await jwtHasMultisigMemberAccess(
-				proposal.multisigAddress,
+			!(await jwtHasSignerSetMemberAccess(
+				proposal.accountAddress,
 				publicKeys,
 			))
 		)
@@ -334,21 +342,21 @@ proposalsRouter.get(
 		validateNetwork(network);
 
 		if (
-			!(await jwtHasMultisigMemberAccess(
+			!(await jwtHasSignerSetMemberAccess(
 				multisigAddress,
 				publicKeys,
 			))
 		)
 			throw new ApiAuthError('NotAMultisigMember');
 
-		const proposals = await getProposalsByMultisigAddress(
+		const proposals = await getProposalsByAccountAddress(
 			multisigAddress,
 			network,
 			newCursor({ nextCursor, perPage }),
 			status ? proposalStatusFromString(status) : undefined,
 		);
 
-		return c.json(proposals);
+		return c.json(toLegacyPaginatedProposals(proposals));
 	},
 );
 
@@ -363,8 +371,8 @@ proposalsRouter.get('/digest/:digest', async (c) => {
 
 	if (!proposal) throw new NotFoundError();
 
-	const multisig = await getMultisig(
-		proposal.multisigAddress,
+	const multisig = await getSignerSet(
+		proposal.accountAddress,
 	);
 
 	const currentWeight = proposal.signatures.reduce(
@@ -380,7 +388,7 @@ proposalsRouter.get('/digest/:digest', async (c) => {
 	// public information worth sharing.
 	// The multisig composition is public, so that is fine.
 	const proposalWithMultisig: PublicProposal = {
-		...proposal,
+		...toLegacyProposalWithSignatures(proposal),
 		currentWeight,
 		totalWeight: multisig.threshold,
 		multisig: {
