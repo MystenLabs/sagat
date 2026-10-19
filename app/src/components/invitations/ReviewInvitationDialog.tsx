@@ -21,6 +21,7 @@ import {
 	DialogTitle,
 } from '../ui/dialog';
 import { accountName } from './account-name';
+import { ShortAddress } from './ShortAddress';
 
 /**
  * The invitation in full before accepting: the account's setup, its
@@ -210,9 +211,13 @@ export function ReviewInvitationDialog({
 											</td>
 											<td className="px-3 py-2.5">
 												<span className="flex items-center gap-1.5 font-mono text-12">
-													{signer.address
-														? formatAddress(signer.address)
-														: 'Unknown key'}
+													{signer.address ? (
+														<ShortAddress
+															address={signer.address}
+														/>
+													) : (
+														'Unknown key'
+													)}
 													{(signer.isCreator ||
 														signer.isYou) && (
 														<span className="font-sans text-12 text-muted-foreground">

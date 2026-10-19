@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatAddress } from '@mysten/sui/utils';
 import { Users } from 'lucide-react';
 import { useState } from 'react';
 
@@ -18,6 +17,7 @@ import {
 } from './account-name';
 import { RejectInvitationDialog } from './RejectInvitationDialog';
 import { ReviewInvitationDialog } from './ReviewInvitationDialog';
+import { ShortAddress } from './ShortAddress';
 
 /**
  * One invitation in the inbox: the account, who sent it, and the way in.
@@ -65,7 +65,13 @@ export function InvitationCard({
 				<div className="flex min-w-0 flex-col gap-1">
 					<div className="flex items-center gap-2.5">
 						<h3 className="truncate text-16 font-medium">
-							{name}
+							{multisig.name ? (
+								name
+							) : (
+								<ShortAddress address={multisig.address}>
+									{name}
+								</ShortAddress>
+							)}
 						</h3>
 						{multisig.isRejected ? (
 							<Chip variant="error">Rejected</Chip>
@@ -76,9 +82,11 @@ export function InvitationCard({
 					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-13 text-muted-foreground">
 						<span>Invited by</span>
 						<span className="flex items-center gap-1 font-mono text-12 text-foreground-secondary">
-							{creator
-								? formatAddress(creator)
-								: 'an unknown key'}
+							{creator ? (
+								<ShortAddress address={creator} />
+							) : (
+								'an unknown key'
+							)}
 							{creator && (
 								<CopyButton
 									value={creator}

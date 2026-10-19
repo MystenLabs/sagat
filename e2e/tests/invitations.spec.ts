@@ -25,12 +25,37 @@ test.describe('invitations', () => {
 		await bob.page.getByTestId('nav-invitations').click();
 
 		const card = bob.invitationCard(multisig.address);
+		// The short creator address shows the full one on hover.
+		await card
+			.locator(`[data-address="${alice.address}"]`)
+			.hover();
+		await expect(
+			bob.page
+				.getByRole('tooltip')
+				.filter({ hasText: alice.address }),
+		).toBeVisible();
 		await card
 			.getByTestId('invitation-toggle-details')
 			.click();
 		await expect(
 			bob.memberItem(alice.address),
 		).toHaveAttribute('data-status', 'accepted');
+		// Signer rows do the same when tabbed to.
+		await bob
+			.memberItem(alice.address)
+			.locator(`button[data-address="${alice.address}"]`)
+			.focus();
+		await bob.page.keyboard.press('Tab');
+		await expect(
+			bob
+				.memberItem(bob.address)
+				.locator(`button[data-address="${bob.address}"]`),
+		).toBeFocused();
+		await expect(
+			bob.page
+				.getByRole('tooltip')
+				.filter({ hasText: bob.address }),
+		).toBeVisible();
 		await expect(
 			bob.memberItem(bob.address),
 		).toHaveAttribute('data-status', 'pending');
