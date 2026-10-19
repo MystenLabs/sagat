@@ -14,6 +14,7 @@ import {
 } from '../db/schema';
 import { NotFoundError, ValidationError } from '../errors';
 import { toLegacyMultisigWithMembers } from '../legacy/serializers';
+import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import {
@@ -34,17 +35,21 @@ export const getSignerSet = async (address: string) => {
 export const getLegacyMultisig = async (
 	address: string,
 ) => {
-	const [signerSet, account, proposers] = await Promise.all(
-		[
+	const [signerSet, account, proposers, labels] =
+		await Promise.all([
 			SignerSetDataLoader.load(address),
 			db.query.SchemaAccounts.findFirst({
 				where: eq(SchemaAccounts.address, address),
 			}),
 			AccountProposersDataLoader.load(address),
-		],
-	);
+			AccountKeyLabelsDataLoader.load(address),
+		]);
 	if (!signerSet || !account) throw new NotFoundError();
-	return toLegacyMultisigWithMembers(signerSet, proposers);
+	return toLegacyMultisigWithMembers(
+		signerSet,
+		proposers,
+		labels,
+	);
 };
 
 export const validateQuorum = async (

@@ -137,10 +137,12 @@ export class TestSession {
 		{
 			weights = members.map(() => 1),
 			name,
+			labels,
 			fund = false,
 		}: {
 			weights?: number[];
 			name?: string;
+			labels?: (string | null)[];
 			fund?: boolean;
 		} = {},
 	) {
@@ -149,6 +151,7 @@ export class TestSession {
 			weights,
 			threshold,
 			name,
+			labels,
 		});
 		if (fund) await fundAddress(multisig.address);
 		return multisig;

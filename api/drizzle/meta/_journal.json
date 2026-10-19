@@ -71,6 +71,13 @@
 			"when": 1791962065384,
 			"tag": "0009_account_rotation",
 			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1792407474885,
+			"tag": "0010_account_keys",
+			"breakpoints": true
 		}
 	]
 }

@@ -201,6 +201,150 @@ describe('Multisig API', () => {
 		expect(await invitations(true)).toEqual([address]);
 	});
 
+	describe('key labels', () => {
+		const labelsOf = (
+			members: {
+				publicKey: string;
+				label: string | null;
+			}[],
+		) => members.map((m) => m.label);
+
+		test('members have no label unless one was given', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(2);
+			const multisig = await session.createMultisig(
+				users,
+				2,
+			);
+			expect(labelsOf(multisig.members)).toEqual([
+				null,
+				null,
+			]);
+
+			const fetched = await session.client.getMultisig(
+				multisig.address,
+			);
+			expect(labelsOf(fetched.members)).toEqual([
+				null,
+				null,
+			]);
+		});
+
+		test('labels given at creation are stored per key and shown everywhere members are', async () => {
+			const session = framework.createSession();
+			const creator = newUser();
+			const invitee = newUser();
+			await session.connectUser(creator);
+			const multisig = await session.createMultisig(
+				[creator, invitee],
+				2,
+				{ labels: ["Alice's Ledger", null] },
+			);
+			expect(labelsOf(multisig.members)).toEqual([
+				"Alice's Ledger",
+				null,
+			]);
+
+			const fetched = await session.client.getMultisig(
+				multisig.address,
+			);
+			expect(labelsOf(fetched.members)).toEqual([
+				"Alice's Ledger",
+				null,
+			]);
+
+			// The invitee sees the labels in the invitation.
+			await session.connectUser(invitee);
+			const [invitation] =
+				await session.client.getInvitations(
+					invitee.publicKey,
+				);
+			expect(labelsOf(invitation.members)).toEqual([
+				"Alice's Ledger",
+				null,
+			]);
+
+			// And in the connections listing once accepted.
+			await session.acceptMultisig(
+				invitee,
+				multisig.address,
+			);
+			const connections =
+				await session.client.getMultisigConnections();
+			const listed = Object.values(connections)
+				.flat()
+				.find((m) => m.address === multisig.address);
+			expect(labelsOf(listed!.members)).toEqual([
+				"Alice's Ledger",
+				null,
+			]);
+		});
+
+		test('labels are trimmed and blank labels mean no label', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(2);
+			const multisig = await session.createMultisig(
+				users,
+				2,
+				{
+					labels: ['  Ops key  ', '   '],
+				},
+			);
+			expect(labelsOf(multisig.members)).toEqual([
+				'Ops key',
+				null,
+			]);
+		});
+
+		test('labels are per multisig, not per key', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(2);
+			const first = await session.createMultisig(users, 2, {
+				labels: ['Treasury signer', null],
+			});
+			const second = await session.createMultisig(
+				users,
+				1,
+				{
+					labels: [null, 'Ops signer'],
+				},
+			);
+			expect(
+				labelsOf(
+					(await session.client.getMultisig(first.address))
+						.members,
+				),
+			).toEqual(['Treasury signer', null]);
+			expect(
+				labelsOf(
+					(await session.client.getMultisig(second.address))
+						.members,
+				),
+			).toEqual([null, 'Ops signer']);
+		});
+
+		test('rejects labels that do not line up with the members or are too long', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(2);
+			await expect(
+				session.createMultisig(users, 2, {
+					labels: ['Only one'],
+				}),
+			).rejects.toThrow('one entry per public key');
+			await expect(
+				session.createMultisig(users, 2, {
+					labels: ['x'.repeat(256), null],
+				}),
+			).rejects.toThrow('at most 255 characters');
+			await expect(
+				session.createMultisig(users, 2, {
+					// @ts-expect-error a number is not a label
+					labels: [1, null],
+				}),
+			).rejects.toThrow('string or null');
+		});
+	});
+
 	test('lists the multisigs of the connected members', async () => {
 		const { session, multisig } =
 			await framework.createVerifiedMultisig(2, 2);

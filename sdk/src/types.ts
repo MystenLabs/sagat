@@ -25,6 +25,12 @@ export interface CreateMultisigRequest {
 	weights: number[];
 	threshold: number;
 	name?: string;
+	/**
+	 * Optional names for the keys, aligned with `publicKeys` ("Alice's
+	 * Ledger"). Null or blank entries leave a key unlabelled. Labels belong
+	 * to the multisig and the key, and can only be set at creation.
+	 */
+	labels?: (string | null)[];
 }
 
 export interface SignedMessageRequest {
@@ -52,6 +58,8 @@ export interface MultisigMember {
 	isAccepted: boolean;
 	isRejected: boolean;
 	order: number;
+	/** The name this multisig gave the key at creation, or null. */
+	label: string | null;
 }
 
 // Proposal types

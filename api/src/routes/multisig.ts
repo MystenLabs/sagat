@@ -13,6 +13,7 @@ import { db } from '../db';
 import {
 	AccountSignerSetStatus,
 	ProposalStatus,
+	SchemaAccountKeys,
 	SchemaAccountProposers,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
@@ -29,6 +30,7 @@ import {
 	toLegacyMultisig,
 	toLegacyMultisigMember,
 } from '../legacy/serializers';
+import { normalizeKeyLabels } from '../services/account-keys.service';
 import {
 	registerPublicKeyStrings,
 	validatePersonalMessage,
@@ -91,11 +93,14 @@ multisigRouter.post(
 			weights,
 			threshold,
 			name,
+			labels: rawLabels,
 		}: {
 			publicKeys: string[];
 			weights: number[];
 			threshold: number;
 			name?: string;
+			// Optional, aligned with `publicKeys`: what this account calls each key.
+			labels?: (string | null)[];
 		} = await c.req.json();
 
 		// Get a list of the public keys that are authorized.
@@ -118,6 +123,10 @@ multisigRouter.post(
 
 		// Validate the quorum with computed addresses
 		await validateQuorum(addresses, weights, threshold);
+		const labels = normalizeKeyLabels(
+			rawLabels,
+			publicKeys.length,
+		);
 
 		const multisig = MultiSigPublicKey.fromPublicKeys({
 			threshold,
@@ -189,9 +198,31 @@ multisigRouter.post(
 				)
 				.returning();
 
+			// The account's names for its keys. Only labelled keys get a row.
+			const keyLabels = new Map<string, string>();
+			parsedPubKeys.forEach((key, index) => {
+				const label = labels[index];
+				if (label !== null)
+					keyLabels.set(key.toSuiPublicKey(), label);
+			});
+			if (keyLabels.size > 0)
+				await tx.insert(SchemaAccountKeys).values(
+					[...keyLabels].map(([publicKey, label]) => ({
+						accountAddress: msig.address,
+						publicKey,
+						label,
+						updatedBy: creator.toSuiAddress(),
+					})),
+				);
+
 			return {
 				multisig: toLegacyMultisig(msig),
-				members: members.map(toLegacyMultisigMember),
+				members: members.map((member) =>
+					toLegacyMultisigMember(
+						member,
+						keyLabels.get(member.publicKey) ?? null,
+					),
+				),
 			};
 		});
 

@@ -21,6 +21,10 @@ import type {
 } from '../db/schema';
 import type { PaginatedResponse } from '../utils/pagination';
 
+/** Labels of one account's keys, by public key. Unlabelled keys are absent. */
+export type KeyLabels = ReadonlyMap<string, string>;
+const NO_LABELS: KeyLabels = new Map();
+
 export type LegacyMultisig = {
 	address: string;
 	isVerified: boolean;
@@ -35,6 +39,9 @@ export type LegacyMultisigMember = {
 	isAccepted: boolean;
 	isRejected: boolean;
 	order: number;
+	// Added after the freeze (additive, nullable): what the account calls
+	// this key, from `account_keys`. Null when the key was never labelled.
+	label: string | null;
 };
 
 export type LegacyMultisigProposer = Omit<
@@ -77,6 +84,7 @@ export const toLegacyMultisig = (
 
 export const toLegacyMultisigMember = (
 	member: SignerSetMember,
+	label: string | null = null,
 ): LegacyMultisigMember => ({
 	multisigAddress: member.signerSetAddress,
 	publicKey: member.publicKey,
@@ -84,6 +92,7 @@ export const toLegacyMultisigMember = (
 	isAccepted: member.isAccepted,
 	isRejected: member.isRejected,
 	order: member.order,
+	label,
 });
 
 // A legacy multisig is a signer set plus the proposers of the account with
@@ -91,9 +100,16 @@ export const toLegacyMultisigMember = (
 export const toLegacyMultisigWithMembers = (
 	signerSet: SignerSetWithMembers,
 	proposers: LegacyMultisigProposer[],
+	// Labels of the account with the same address, by public key.
+	labels: KeyLabels = NO_LABELS,
 ): LegacyMultisigWithMembers => ({
 	...toLegacyMultisig(signerSet),
-	members: signerSet.members.map(toLegacyMultisigMember),
+	members: signerSet.members.map((member) =>
+		toLegacyMultisigMember(
+			member,
+			labels.get(member.publicKey) ?? null,
+		),
+	),
 	proposers: proposers.map((proposer) => ({
 		address: proposer.address,
 		addedBy: proposer.addedBy,

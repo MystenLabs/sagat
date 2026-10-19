@@ -228,6 +228,87 @@ const accountRotation: MigrationCase = {
 	},
 };
 
+const accountKeys: MigrationCase = {
+	name: '0010 account keys (per-account key labels)',
+	baseline: 9,
+	target: 10,
+	seed: `
+		INSERT INTO addresses (public_key, address) VALUES
+			('AKEY1', '0xa1'), ('AKEY2', '0xa2');
+		INSERT INTO accounts (address, name) VALUES ('0xacc', 'Treasury');
+		INSERT INTO signer_sets (address, is_verified, threshold, name) VALUES
+			('0xacc', true, 2, 'Treasury');
+		INSERT INTO signer_set_members (signer_set_address, public_key, weight, is_accepted, is_rejected, "order") VALUES
+			('0xacc', 'AKEY1', 1, true, false, 0),
+			('0xacc', 'AKEY2', 1, true, false, 1);
+		INSERT INTO account_signer_sets (account_address, signer_set_address, label, status, drafted_by) VALUES
+			('0xacc', '0xacc', 'Treasury', 'verified', '0xacc');
+	`,
+	preserved: [
+		{
+			label: 'accounts',
+			before: `SELECT address, name FROM accounts ORDER BY 1`,
+			after: `SELECT address, name FROM accounts ORDER BY 1`,
+		},
+		{
+			label: 'signer_set_members',
+			before: `SELECT signer_set_address, public_key, weight, is_accepted, is_rejected, "order" FROM signer_set_members ORDER BY 1, 2`,
+			after: `SELECT signer_set_address, public_key, weight, is_accepted, is_rejected, "order" FROM signer_set_members ORDER BY 1, 2`,
+		},
+		{
+			label: 'account_signer_sets',
+			before: `SELECT account_address, signer_set_address, label, status, drafted_by FROM account_signer_sets ORDER BY 1, 2`,
+			after: `SELECT account_address, signer_set_address, label, status, drafted_by FROM account_signer_sets ORDER BY 1, 2`,
+		},
+	],
+	verify: async (db) => {
+		// Additive: the new table starts empty, nothing is seeded.
+		expect(
+			Number(
+				await db.value(`SELECT count(*) FROM account_keys`),
+			),
+		).toBe(0);
+		expect(await publicTables(db)).toContain(
+			'account_keys',
+		);
+
+		// One row per account and key, label optional, updated_at defaulted.
+		expect(
+			await db.rows(`
+				INSERT INTO account_keys (account_address, public_key, label, updated_by)
+				VALUES ('0xacc', 'AKEY1', 'Alice''s Ledger', '0xa1'), ('0xacc', 'AKEY2', NULL, '0xa1')
+				RETURNING account_address, public_key, label, updated_by, updated_at IS NOT NULL`),
+		).toEqual([
+			['0xacc', 'AKEY1', "Alice's Ledger", '0xa1', true],
+			['0xacc', 'AKEY2', null, '0xa1', true],
+		]);
+		await expect(
+			db.value(`
+				INSERT INTO account_keys (account_address, public_key, updated_by)
+				VALUES ('0xacc', 'AKEY1', '0xa1')`),
+		).rejects.toThrow(
+			/account_keys_account_address_public_key_pk/,
+		);
+
+		// Rows reference a known account and a known key.
+		await expect(
+			db.value(`
+				INSERT INTO account_keys (account_address, public_key, updated_by)
+				VALUES ('0xunknown', 'AKEY1', '0xa1')`),
+		).rejects.toThrow(
+			/account_keys_account_address_accounts_address_fk/,
+		);
+		await expect(
+			db.value(`
+				INSERT INTO account_keys (account_address, public_key, updated_by)
+				VALUES ('0xacc', 'UNKNOWN_KEY', '0xa1')`),
+		).rejects.toThrow(
+			/account_keys_public_key_addresses_public_key_fk/,
+		);
+	},
+};
+
 export const migrationCases: MigrationCase[] = [
 	accountRotation,
+	accountKeys,
 ];

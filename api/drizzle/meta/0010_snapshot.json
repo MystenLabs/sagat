@@ -1,0 +1,779 @@
+{
+	"id": "33e40562-35f2-4607-b046-ba5741a27398",
+	"prevId": "c1c2b8ba-0cab-4999-884b-702a0ffbd8e6",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.account_alias_state": {
+			"name": "account_alias_state",
+			"schema": "",
+			"columns": {
+				"account_address": {
+					"name": "account_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"network": {
+					"name": "network",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"exists": {
+					"name": "exists",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"observed_version": {
+					"name": "observed_version",
+					"type": "bigint",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"observed_at": {
+					"name": "observed_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"account_alias_state_account_address_accounts_address_fk": {
+					"name": "account_alias_state_account_address_accounts_address_fk",
+					"tableFrom": "account_alias_state",
+					"tableTo": "accounts",
+					"columnsFrom": ["account_address"],
+					"columnsTo": ["address"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"account_alias_state_account_address_network_pk": {
+					"name": "account_alias_state_account_address_network_pk",
+					"columns": ["account_address", "network"]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"account_alias_state_network_check": {
+					"name": "account_alias_state_network_check",
+					"value": "\"account_alias_state\".\"network\" IN ('mainnet', 'testnet', 'devnet', 'localnet')"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.account_aliases": {
+			"name": "account_aliases",
+			"schema": "",
+			"columns": {
+				"account_address": {
+					"name": "account_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"network": {
+					"name": "network",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"alias_address": {
+					"name": "alias_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"account_aliases_account_address_accounts_address_fk": {
+					"name": "account_aliases_account_address_accounts_address_fk",
+					"tableFrom": "account_aliases",
+					"tableTo": "accounts",
+					"columnsFrom": ["account_address"],
+					"columnsTo": ["address"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"account_aliases_account_address_network_alias_address_pk": {
+					"name": "account_aliases_account_address_network_alias_address_pk",
+					"columns": [
+						"account_address",
+						"network",
+						"alias_address"
+					]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"account_aliases_network_check": {
+					"name": "account_aliases_network_check",
+					"value": "\"account_aliases\".\"network\" IN ('mainnet', 'testnet', 'devnet', 'localnet')"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.account_keys": {
+			"name": "account_keys",
+			"schema": "",
+			"columns": {
+				"account_address": {
+					"name": "account_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"public_key": {
+					"name": "public_key",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"label": {
+					"name": "label",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"updated_by": {
+					"name": "updated_by",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "NOW()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"account_keys_account_address_accounts_address_fk": {
+					"name": "account_keys_account_address_accounts_address_fk",
+					"tableFrom": "account_keys",
+					"tableTo": "accounts",
+					"columnsFrom": ["account_address"],
+					"columnsTo": ["address"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"account_keys_public_key_addresses_public_key_fk": {
+					"name": "account_keys_public_key_addresses_public_key_fk",
+					"tableFrom": "account_keys",
+					"tableTo": "addresses",
+					"columnsFrom": ["public_key"],
+					"columnsTo": ["public_key"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"account_keys_account_address_public_key_pk": {
+					"name": "account_keys_account_address_public_key_pk",
+					"columns": ["account_address", "public_key"]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.account_proposers": {
+			"name": "account_proposers",
+			"schema": "",
+			"columns": {
+				"account_address": {
+					"name": "account_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"address": {
+					"name": "address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"added_by": {
+					"name": "added_by",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"added_at": {
+					"name": "added_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "NOW()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"account_proposers_account_address_accounts_address_fk": {
+					"name": "account_proposers_account_address_accounts_address_fk",
+					"tableFrom": "account_proposers",
+					"tableTo": "accounts",
+					"columnsFrom": ["account_address"],
+					"columnsTo": ["address"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"account_proposers_account_address_address_pk": {
+					"name": "account_proposers_account_address_address_pk",
+					"columns": ["account_address", "address"]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.account_signer_sets": {
+			"name": "account_signer_sets",
+			"schema": "",
+			"columns": {
+				"account_address": {
+					"name": "account_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"signer_set_address": {
+					"name": "signer_set_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"label": {
+					"name": "label",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'draft'"
+				},
+				"drafted_by": {
+					"name": "drafted_by",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "NOW()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"account_signer_sets_account_address_accounts_address_fk": {
+					"name": "account_signer_sets_account_address_accounts_address_fk",
+					"tableFrom": "account_signer_sets",
+					"tableTo": "accounts",
+					"columnsFrom": ["account_address"],
+					"columnsTo": ["address"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"account_signer_sets_signer_set_address_signer_sets_address_fk": {
+					"name": "account_signer_sets_signer_set_address_signer_sets_address_fk",
+					"tableFrom": "account_signer_sets",
+					"tableTo": "signer_sets",
+					"columnsFrom": ["signer_set_address"],
+					"columnsTo": ["address"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"account_signer_sets_account_address_signer_set_address_pk": {
+					"name": "account_signer_sets_account_address_signer_set_address_pk",
+					"columns": [
+						"account_address",
+						"signer_set_address"
+					]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"account_signer_sets_status_check": {
+					"name": "account_signer_sets_status_check",
+					"value": "\"account_signer_sets\".\"status\" IN ('draft', 'inviting', 'verified', 'abandoned')"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.accounts": {
+			"name": "accounts",
+			"schema": "",
+			"columns": {
+				"address": {
+					"name": "address",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "NOW()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.addresses": {
+			"name": "addresses",
+			"schema": "",
+			"columns": {
+				"public_key": {
+					"name": "public_key",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"address": {
+					"name": "address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"addresses_address_idx": {
+					"name": "addresses_address_idx",
+					"columns": [
+						{
+							"expression": "address",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"addresses_address_unique": {
+					"name": "addresses_address_unique",
+					"nullsNotDistinct": false,
+					"columns": ["address"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.proposal_signatures": {
+			"name": "proposal_signatures",
+			"schema": "",
+			"columns": {
+				"proposal_id": {
+					"name": "proposal_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"public_key": {
+					"name": "public_key",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"signature": {
+					"name": "signature",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"proposal_signatures_proposal_id_proposals_id_fk": {
+					"name": "proposal_signatures_proposal_id_proposals_id_fk",
+					"tableFrom": "proposal_signatures",
+					"tableTo": "proposals",
+					"columnsFrom": ["proposal_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"proposal_signatures_public_key_addresses_public_key_fk": {
+					"name": "proposal_signatures_public_key_addresses_public_key_fk",
+					"tableFrom": "proposal_signatures",
+					"tableTo": "addresses",
+					"columnsFrom": ["public_key"],
+					"columnsTo": ["public_key"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"proposal_signatures_proposal_id_public_key_pk": {
+					"name": "proposal_signatures_proposal_id_public_key_pk",
+					"columns": ["proposal_id", "public_key"]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.proposals": {
+			"name": "proposals",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "serial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"account_address": {
+					"name": "account_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"digest": {
+					"name": "digest",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "smallint",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"transaction_bytes": {
+					"name": "transaction_bytes",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"proposer_address": {
+					"name": "proposer_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"description": {
+					"name": "description",
+					"type": "varchar(1000)",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"network": {
+					"name": "network",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "NOW()"
+				},
+				"executed_via": {
+					"name": "executed_via",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"proposals_addr_network_idx": {
+					"name": "proposals_addr_network_idx",
+					"columns": [
+						{
+							"expression": "account_address",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "network",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"proposals_account_address_idx": {
+					"name": "proposals_account_address_idx",
+					"columns": [
+						{
+							"expression": "account_address",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"proposals_digest_idx": {
+					"name": "proposals_digest_idx",
+					"columns": [
+						{
+							"expression": "digest",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"proposals_account_address_accounts_address_fk": {
+					"name": "proposals_account_address_accounts_address_fk",
+					"tableFrom": "proposals",
+					"tableTo": "accounts",
+					"columnsFrom": ["account_address"],
+					"columnsTo": ["address"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"proposals_digest_unique": {
+					"name": "proposals_digest_unique",
+					"nullsNotDistinct": false,
+					"columns": ["digest"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.signer_set_members": {
+			"name": "signer_set_members",
+			"schema": "",
+			"columns": {
+				"signer_set_address": {
+					"name": "signer_set_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"public_key": {
+					"name": "public_key",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"weight": {
+					"name": "weight",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 1
+				},
+				"is_accepted": {
+					"name": "is_accepted",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"is_rejected": {
+					"name": "is_rejected",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"order": {
+					"name": "order",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"signer_set_member_idx": {
+					"name": "signer_set_member_idx",
+					"columns": [
+						{
+							"expression": "signer_set_address",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "public_key",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"signer_set_member_signer_set_address_idx": {
+					"name": "signer_set_member_signer_set_address_idx",
+					"columns": [
+						{
+							"expression": "signer_set_address",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"signer_set_member_public_key_idx": {
+					"name": "signer_set_member_public_key_idx",
+					"columns": [
+						{
+							"expression": "public_key",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"signer_set_members_signer_set_address_signer_sets_address_fk": {
+					"name": "signer_set_members_signer_set_address_signer_sets_address_fk",
+					"tableFrom": "signer_set_members",
+					"tableTo": "signer_sets",
+					"columnsFrom": ["signer_set_address"],
+					"columnsTo": ["address"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"signer_set_members_public_key_addresses_public_key_fk": {
+					"name": "signer_set_members_public_key_addresses_public_key_fk",
+					"tableFrom": "signer_set_members",
+					"tableTo": "addresses",
+					"columnsFrom": ["public_key"],
+					"columnsTo": ["public_key"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.signer_sets": {
+			"name": "signer_sets",
+			"schema": "",
+			"columns": {
+				"address": {
+					"name": "address",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"is_verified": {
+					"name": "is_verified",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"threshold": {
+					"name": "threshold",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		}
+	},
+	"enums": {},
+	"schemas": {},
+	"sequences": {},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
+}

@@ -44,7 +44,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 0
+					"order": 0,
+					"label": "Alice's Ledger"
 				},
 				{
 					"multisigAddress": "<address:0>",
@@ -52,7 +53,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 1
+					"order": 1,
+					"label": null
 				},
 				{
 					"multisigAddress": "<address:0>",
@@ -60,7 +62,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 2
+					"order": 2,
+					"label": "Ops key"
 				}
 			]
 		}
@@ -107,7 +110,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 0
+					"order": 0,
+					"label": "Alice's Ledger"
 				},
 				{
 					"multisigAddress": "<address:0>",
@@ -115,7 +119,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 1
+					"order": 1,
+					"label": null
 				},
 				{
 					"multisigAddress": "<address:0>",
@@ -123,7 +128,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 2
+					"order": 2,
+					"label": "Ops key"
 				}
 			],
 			"proposers": [
@@ -154,7 +160,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 0
+							"order": 0,
+							"label": "Alice's Ledger"
 						},
 						{
 							"multisigAddress": "<address:0>",
@@ -162,7 +169,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 1
+							"order": 1,
+							"label": null
 						},
 						{
 							"multisigAddress": "<address:0>",
@@ -170,7 +178,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 2
+							"order": 2,
+							"label": "Ops key"
 						}
 					],
 					"proposers": [
@@ -197,7 +206,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 0
+							"order": 0,
+							"label": "Alice's Ledger"
 						},
 						{
 							"multisigAddress": "<address:0>",
@@ -205,7 +215,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 1
+							"order": 1,
+							"label": null
 						},
 						{
 							"multisigAddress": "<address:0>",
@@ -213,7 +224,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 2
+							"order": 2,
+							"label": "Ops key"
 						}
 					],
 					"proposers": [
@@ -240,7 +252,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 0
+							"order": 0,
+							"label": "Alice's Ledger"
 						},
 						{
 							"multisigAddress": "<address:0>",
@@ -248,7 +261,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 1
+							"order": 1,
+							"label": null
 						},
 						{
 							"multisigAddress": "<address:0>",
@@ -256,7 +270,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 2
+							"order": 2,
+							"label": "Ops key"
 						}
 					],
 					"proposers": [
@@ -310,7 +325,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 0
+					"order": 0,
+					"label": null
 				},
 				{
 					"multisigAddress": "<address:3>",
@@ -318,7 +334,8 @@
 					"weight": 1,
 					"isAccepted": false,
 					"isRejected": false,
-					"order": 1
+					"order": 1,
+					"label": null
 				},
 				{
 					"multisigAddress": "<address:3>",
@@ -326,7 +343,8 @@
 					"weight": 1,
 					"isAccepted": false,
 					"isRejected": false,
-					"order": 2
+					"order": 2,
+					"label": null
 				}
 			]
 		}
@@ -347,7 +365,8 @@
 						"weight": 1,
 						"isAccepted": true,
 						"isRejected": false,
-						"order": 0
+						"order": 0,
+						"label": null
 					},
 					{
 						"multisigAddress": "<address:3>",
@@ -355,7 +374,8 @@
 						"weight": 1,
 						"isAccepted": false,
 						"isRejected": false,
-						"order": 1
+						"order": 1,
+						"label": null
 					},
 					{
 						"multisigAddress": "<address:3>",
@@ -363,7 +383,8 @@
 						"weight": 1,
 						"isAccepted": false,
 						"isRejected": false,
-						"order": 2
+						"order": 2,
+						"label": null
 					}
 				],
 				"proposers": [],
@@ -396,7 +417,8 @@
 						"weight": 1,
 						"isAccepted": true,
 						"isRejected": false,
-						"order": 0
+						"order": 0,
+						"label": null
 					},
 					{
 						"multisigAddress": "<address:3>",
@@ -404,7 +426,8 @@
 						"weight": 1,
 						"isAccepted": false,
 						"isRejected": false,
-						"order": 1
+						"order": 1,
+						"label": null
 					},
 					{
 						"multisigAddress": "<address:3>",
@@ -412,7 +435,8 @@
 						"weight": 1,
 						"isAccepted": false,
 						"isRejected": true,
-						"order": 2
+						"order": 2,
+						"label": null
 					}
 				],
 				"proposers": [],
@@ -448,7 +472,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 0
+							"order": 0,
+							"label": null
 						},
 						{
 							"multisigAddress": "<address:3>",
@@ -456,7 +481,8 @@
 							"weight": 1,
 							"isAccepted": true,
 							"isRejected": false,
-							"order": 1
+							"order": 1,
+							"label": null
 						},
 						{
 							"multisigAddress": "<address:3>",
@@ -464,7 +490,8 @@
 							"weight": 1,
 							"isAccepted": false,
 							"isRejected": true,
-							"order": 2
+							"order": 2,
+							"label": null
 						}
 					],
 					"proposers": [],
@@ -703,7 +730,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 0
+					"order": 0,
+					"label": "Alice's Ledger"
 				},
 				{
 					"multisigAddress": "<address:0>",
@@ -711,7 +739,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 1
+					"order": 1,
+					"label": null
 				},
 				{
 					"multisigAddress": "<address:0>",
@@ -719,7 +748,8 @@
 					"weight": 1,
 					"isAccepted": true,
 					"isRejected": false,
-					"order": 2
+					"order": 2,
+					"label": "Ops key"
 				}
 			],
 			"proposers": [],

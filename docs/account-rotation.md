@@ -44,6 +44,8 @@ account_alias_state (account_address, network, exists,
                      observed_version, observed_at)                    new, one row per refreshed network
 account_signer_sets (account_address, signer_set_address, label,
                      status, drafted_by, created_at)                   new, account to signer set link; network-agnostic
+account_keys        (account_address, public_key, label,
+                     updated_by, updated_at)                           0010; what an account calls a key, optional row
 account_rotations   (account_address, network, signer_set_address,
                      status, created_at)                               phase 3; per-network progress
 ```
@@ -81,7 +83,7 @@ The migration is hand-written (`api/drizzle/0009_account_rotation.sql`, added in
 **Decision (2026-10-14): one schema, two route sets, no breaking change.** This replaces the earlier decision to ship a breaking release.
 
 - The database is renamed and the accounts table is added as described above. Legacy routes keep their JSON contract through explicit serializers in `api/src/legacy/serializers.ts`, because the ORM property names change with the columns and the new columns must not leak into old responses.
-- The existing routes stay mounted and **frozen**: bug fixes only. Two of them change: the create route also inserts the account row and its `account_signer_sets` row, so the new API sees what it created, and the accept route flips those link rows to `verified` when the composition is finalized.
+- The existing routes stay mounted and **frozen**: no field is removed, renamed or changes meaning. Additive nullable fields are allowed when the current product needs them, each a deliberate regeneration of the golden fixture. Two routes change behaviour: the create route also inserts the account row and its `account_signer_sets` row, so the new API sees what it created, and the accept route flips those link rows to `verified` when the composition is finalized. One field was added: `label` on every member object (see per-account key labels below).
 - New routes live under a version prefix, `/v1`. Proposals keep their path but change their fields, so the prefix applies to everything new.
 - The new SDK targets `/v1` only. The old SDK stays in the repository, unpublished and frozen.
 - The session cookie and script token are shared, so a script can move one call at a time.
@@ -92,7 +94,7 @@ Before deploying 0009:
 
 - As a role that owns the tables, `SELECT count(*), max(created_at) FROM drizzle.__drizzle_migrations;` returns 9 rows (the journal through 0008). If not, the database was not built with drizzle migrations: baseline it as described below, deploy with `MIGRATE_ON_START=false` and run `bun run db:migrate:prod` as the owner. Both are added in #101 of this stack: `MIGRATE_ON_START` (on unless set to `false`) makes the API apply pending migrations at startup, and `bun run db:migrate:prod` applies them as a separate step.
 - `SELECT DISTINCT tableowner FROM pg_tables WHERE schemaname = 'public';` returns the role the API connects with. Otherwise startup migrations fail on the renames.
-- Grant the read-only roles access to `accounts`, `account_signer_sets`, `account_aliases` and `account_alias_state`, or set default privileges. Otherwise the new tables are invisible to them.
+- Grant the read-only roles access to `accounts`, `account_signer_sets`, `account_aliases`, `account_alias_state` and, after 0010, `account_keys`, or set default privileges. Otherwise the new tables are invisible to them.
 - Anything outside the API that queries `multisigs`, `multisig_members` or `multisig_proposers` by name breaks at the rename. Check dashboards and scripts.
 - Deploy with recreate, not a rolling update (see below).
 
@@ -284,9 +286,16 @@ Rules that keep this true while building:
 3. States such as "proposal lost signatures" and "networks diverge" are computed on read, not stored.
 4. New rotation code records changes through the single recording function. Existing inline metric calls are left alone unless the code around them is already being changed.
 
-### To do later
+### Per-account key labels (0010, shipped)
 
-- **Per-account key labels** (decided 2026-10-14, punted). Teams want to name the keys in a signer set ("Alice's Ledger"). The label belongs to the account and public key, not to the signer set member row: a key carries over across rotations, and a composition can be shared by several accounts, so a label on the member row would have to be re-entered per set and would leak between accounts. Planned shape: an `account_keys` table keyed by account address and public key, with `label`, `updated_by`, and `updated_at`, joined into member listings under `/v1`. Legacy routes never see it. The table is named after the pair, not the label, because the same row later takes a role, a last-active time, and the link to a person record; each is one nullable column, and the name stays true (decided 2026-10-15).
+Teams want to name the keys in a signer set ("Alice's Ledger"). The label belongs to the account and public key, not to the signer set member row: a key carries over across rotations, and a composition can be shared by several accounts, so a label on the member row would have to be re-entered per set and would leak between accounts. `account_keys` is keyed by account address and public key, with `label`, `updated_by` and `updated_at`. The table is named after the pair, not the label, because the same row later takes a role, a last-active time, and the link to a person record; each is one nullable column, and the name stays true (decided 2026-10-15).
+
+Decisions (2026-10-19):
+
+- **Labels are optional.** No row is required per key. The create route takes an optional `labels` array aligned with `publicKeys`; null and blank entries are skipped, the rest are trimmed and limited to 255 characters. Only labelled keys get a row.
+- **Set at creation only.** There is no update route. Creating an account labels its keys; drafting a new signer set during rotation is the second creation step and labels any new keys there, while keys the account already knows keep their row. Whether to add renaming later is an open question; `updated_by` and `updated_at` are what such a route would write.
+- **Legacy routes show them.** Every member object in the legacy multisig responses carries `label: string | null`, joined from the account with the same address. This is the one additive field on the frozen routes. The public proposal-by-digest route keeps its member shape without labels.
+- The label is inside Sagat's control, so the create route refuses a `labels` array that does not line up with the keys. It does not try to keep labels unique.
 
 ## Edge cases
 

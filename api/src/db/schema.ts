@@ -325,6 +325,36 @@ const accountSignerSets = pgTable(
 	],
 );
 
+// A key as one account knows it. Keyed by the account and the public key,
+// not by the signer set member row: a key carries over across rotations and
+// a composition can be shared by several accounts. Rows are optional; a key
+// without a row simply has no label. Written at account creation only for
+// now; the create route for a new signer set during rotation is the second
+// entry point. Later columns (role, last active, link to a person) are each
+// nullable additions.
+const accountKeys = pgTable(
+	'account_keys',
+	{
+		accountAddress: text('account_address')
+			.notNull()
+			.references(() => accounts.address),
+		publicKey: text('public_key')
+			.notNull()
+			.references(() => addresses.publicKey),
+		// What this account calls the key (e.g. "Alice's Ledger").
+		label: varchar('label', { length: 255 }),
+		updatedBy: text('updated_by').notNull(),
+		updatedAt: timestamp('updated_at')
+			.notNull()
+			.default(sql`NOW()`),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.accountAddress, table.publicKey],
+		}),
+	],
+);
+
 // Export re-usable types.
 
 export const SchemaAddresses = addresses;
@@ -337,6 +367,7 @@ export const SchemaAccountProposers = accountProposers;
 export const SchemaAccountAliases = accountAliases;
 export const SchemaAccountAliasState = accountAliasState;
 export const SchemaAccountSignerSets = accountSignerSets;
+export const SchemaAccountKeys = accountKeys;
 
 export type Proposal = typeof proposals.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
@@ -354,6 +385,7 @@ export type AccountAliasState =
 	typeof accountAliasState.$inferSelect;
 export type AccountSignerSet =
 	typeof accountSignerSets.$inferSelect;
+export type AccountKey = typeof accountKeys.$inferSelect;
 
 export type ProposalWithSignatures = Proposal & {
 	signatures: ProposalSignature[];
