@@ -1,9 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { MAX_KEY_LABEL_LENGTH } from '../db/schema';
 import { ValidationError } from '../errors';
 
-export const MAX_KEY_LABEL_LENGTH = 64;
+export { MAX_KEY_LABEL_LENGTH };
 
 // Control characters (C0, DEL, C1) and format characters: bidi overrides,
 // zero-width joiners and the like. A label is shown next to a key, so

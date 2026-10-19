@@ -332,6 +332,10 @@ const accountSignerSets = pgTable(
 // only by a member; there is no update route. Drafting a new signer set
 // during rotation (phase 3) is meant to be the second entry point. Later
 // columns (role, last active, link to a person) are each nullable additions.
+// The validator in `account-keys.service.ts` enforces the same limit, so a
+// label that passes validation always fits the column.
+export const MAX_KEY_LABEL_LENGTH = 64;
+
 const accountKeys = pgTable(
 	'account_keys',
 	{
@@ -343,7 +347,9 @@ const accountKeys = pgTable(
 			.references(() => addresses.publicKey),
 		// What this account calls the key (e.g. "Alice's Ledger"). Short on
 		// purpose: it sits next to a key in lists.
-		label: varchar('label', { length: 64 }),
+		label: varchar('label', {
+			length: MAX_KEY_LABEL_LENGTH,
+		}),
 		updatedBy: text('updated_by').notNull(),
 		updatedAt: timestamp('updated_at')
 			.notNull()
