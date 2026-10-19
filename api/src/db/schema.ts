@@ -341,8 +341,9 @@ const accountKeys = pgTable(
 		publicKey: text('public_key')
 			.notNull()
 			.references(() => addresses.publicKey),
-		// What this account calls the key (e.g. "Alice's Ledger").
-		label: varchar('label', { length: 255 }),
+		// What this account calls the key (e.g. "Alice's Ledger"). Short on
+		// purpose: it sits next to a key in lists.
+		label: varchar('label', { length: 64 }),
 		updatedBy: text('updated_by').notNull(),
 		updatedAt: timestamp('updated_at')
 			.notNull()

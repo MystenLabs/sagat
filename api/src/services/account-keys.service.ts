@@ -3,7 +3,7 @@
 
 import { ValidationError } from '../errors';
 
-export const MAX_KEY_LABEL_LENGTH = 255;
+export const MAX_KEY_LABEL_LENGTH = 64;
 
 /**
  * Normalizes the optional `labels` of a create request: one entry per public

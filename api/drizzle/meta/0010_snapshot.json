@@ -1,5 +1,5 @@
 {
-	"id": "33e40562-35f2-4607-b046-ba5741a27398",
+	"id": "0dd83056-17b1-41a9-8303-6f06d351ad84",
 	"prevId": "c1c2b8ba-0cab-4999-884b-702a0ffbd8e6",
 	"version": "7",
 	"dialect": "postgresql",
@@ -140,7 +140,7 @@
 				},
 				"label": {
 					"name": "label",
-					"type": "varchar(255)",
+					"type": "varchar(64)",
 					"primaryKey": false,
 					"notNull": false
 				},

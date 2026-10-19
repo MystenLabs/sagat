@@ -1,7 +1,7 @@
 CREATE TABLE "account_keys" (
 	"account_address" text NOT NULL,
 	"public_key" text NOT NULL,
-	"label" varchar(255),
+	"label" varchar(64),
 	"updated_by" text NOT NULL,
 	"updated_at" timestamp DEFAULT NOW() NOT NULL,
 	CONSTRAINT "account_keys_account_address_public_key_pk" PRIMARY KEY("account_address","public_key")

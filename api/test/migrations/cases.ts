@@ -272,7 +272,7 @@ const accountKeys: MigrationCase = {
 			'account_keys',
 		);
 
-		// One row per account and key, label optional, updated_at defaulted.
+		// One row per account and key, label optional (64 chars), updated_at defaulted.
 		expect(
 			await db.rows(`
 				INSERT INTO account_keys (account_address, public_key, label, updated_by)
@@ -289,6 +289,13 @@ const accountKeys: MigrationCase = {
 		).rejects.toThrow(
 			/account_keys_account_address_public_key_pk/,
 		);
+
+		await expect(
+			db.value(`
+				INSERT INTO account_keys (account_address, public_key, label, updated_by)
+				VALUES ('0xacc', 'AKEY2', repeat('x', 65), '0xa1')
+				ON CONFLICT (account_address, public_key) DO UPDATE SET label = EXCLUDED.label`),
+		).rejects.toThrow(/value too long/);
 
 		// Rows reference a known account and a known key.
 		await expect(

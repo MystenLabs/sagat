@@ -385,8 +385,9 @@ proposalsRouter.get('/digest/:digest', async (c) => {
 	);
 
 	// We are hiding the proposers on purpose, as this is not
-	// public information worth sharing.
-	// The multisig composition is public, so that is fine.
+	// public information worth sharing. The same goes for key labels
+	// (`account_keys`): they are only ever returned on authenticated
+	// routes. The multisig composition is public, so that is fine.
 	const proposalWithMultisig: PublicProposal = {
 		...toLegacyProposalWithSignatures(proposal),
 		currentWeight,

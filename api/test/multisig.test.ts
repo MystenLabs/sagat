@@ -323,6 +323,56 @@ describe('Multisig API', () => {
 			).toEqual([null, 'Ops signer']);
 		});
 
+		test('labels never reach unauthenticated routes', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(2);
+			const multisig = await session.createMultisig(
+				users,
+				2,
+				{
+					labels: ["Alice's Ledger", 'Ops key'],
+					fund: true,
+				},
+			);
+			await session.acceptMultisig(
+				users[1],
+				multisig.address,
+			);
+			const proposal = await session.proposeTransfer(
+				users[0],
+				multisig.address,
+			);
+
+			// A client that never connected.
+			const anonymous = framework.createSession().client;
+
+			// The public proposal lookup shows the composition, never the labels.
+			const byDigest = await anonymous.getProposalByDigest(
+				proposal.digest,
+			);
+			expect(byDigest.multisig.members).toHaveLength(2);
+			const serialized = JSON.stringify(byDigest);
+			expect(serialized).not.toContain('"label"');
+			expect(serialized).not.toContain("Alice's Ledger");
+			expect(serialized).not.toContain('Ops key');
+
+			// Member listings need a session.
+			await expect(
+				anonymous.getMultisig(multisig.address),
+			).rejects.toThrow();
+
+			// The same data, authenticated, does carry them.
+			expect(
+				labelsOf(
+					(
+						await session.client.getMultisig(
+							multisig.address,
+						)
+					).members,
+				),
+			).toEqual(["Alice's Ledger", 'Ops key']);
+		});
+
 		test('rejects labels that do not line up with the members or are too long', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(2);
@@ -333,9 +383,9 @@ describe('Multisig API', () => {
 			).rejects.toThrow('one entry per public key');
 			await expect(
 				session.createMultisig(users, 2, {
-					labels: ['x'.repeat(256), null],
+					labels: ['x'.repeat(65), null],
 				}),
-			).rejects.toThrow('at most 255 characters');
+			).rejects.toThrow('at most 64 characters');
 			await expect(
 				session.createMultisig(users, 2, {
 					// @ts-expect-error a number is not a label

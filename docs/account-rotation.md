@@ -292,9 +292,9 @@ Teams want to name the keys in a signer set ("Alice's Ledger"). The label belong
 
 Decisions (2026-10-19):
 
-- **Labels are optional.** No row is required per key. The create route takes an optional `labels` array aligned with `publicKeys`; null and blank entries are skipped, the rest are trimmed and limited to 255 characters. Only labelled keys get a row.
+- **Labels are optional.** No row is required per key. The create route takes an optional `labels` array aligned with `publicKeys`; null and blank entries are skipped, the rest are trimmed and limited to 64 characters. Only labelled keys get a row.
 - **Set at creation only.** There is no update route. Creating an account labels its keys; drafting a new signer set during rotation is the second creation step and labels any new keys there, while keys the account already knows keep their row. Whether to add renaming later is an open question; `updated_by` and `updated_at` are what such a route would write.
-- **Legacy routes show them.** Every member object in the legacy multisig responses carries `label: string | null`, joined from the account with the same address. This is the one additive field on the frozen routes. The public proposal-by-digest route keeps its member shape without labels.
+- **Legacy routes show them, authenticated only.** Every member object in the legacy multisig responses carries `label: string | null`, joined from the account with the same address. This is the one additive field on the frozen routes. Labels are never returned on an unauthenticated route: the public proposal-by-digest lookup keeps its member shape (key, weight, order), and a test asserts it. Labels reach a response only through the legacy serializer, which is called by the four session-authenticated routes (get multisig, create, connections, invitations).
 - The label is inside Sagat's control, so the create route refuses a `labels` array that does not line up with the keys. It does not try to keep labels unique.
 
 ## Edge cases
