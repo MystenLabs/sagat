@@ -52,47 +52,31 @@ function SkeletonChip({
 	);
 }
 
-/** A paragraph: `lines` lines, the last one shorter. */
-export function SkeletonText({
-	lines = 2,
-	className,
-}: {
-	lines?: number;
-	className?: string;
-}) {
-	return (
-		<div className={cn('flex flex-col gap-2', className)}>
-			{Array.from({ length: lines }).map((_, i) => (
-				<SkeletonLine
-					key={i}
-					className={i === lines - 1 ? 'w-1/4' : 'w-3/4'}
-				/>
-			))}
-		</div>
-	);
-}
-
 /**
  * A table of `rows` rows in a bordered shell: a two-line title cell on the
  * left, then a chip and a couple of value cells, matching the proposals
- * and invitations lists.
+ * and invitations lists. Header bars sit in cells as wide as the row cells
+ * below them. `status={false}` drops the live region when a parent
+ * already announces the loading.
  */
 export function SkeletonRows({
 	rows = 5,
 	header = true,
+	status = true,
 	className,
 	testId = 'skeleton-rows',
 }: {
 	rows?: number;
 	header?: boolean;
+	status?: boolean;
 	className?: string;
 	testId?: string;
 }) {
 	return (
 		<div
-			role="status"
-			aria-label="Loading"
-			aria-busy
+			role={status ? 'status' : undefined}
+			aria-label={status ? 'Loading' : undefined}
+			aria-busy={status || undefined}
 			data-testid={testId}
 			className={cn(
 				'overflow-hidden rounded-2xl border bg-card',
@@ -101,10 +85,18 @@ export function SkeletonRows({
 		>
 			{header && (
 				<div className="flex h-8 items-center gap-3 bg-muted px-3">
-					<SkeletonLine className="w-12 flex-1 max-w-12" />
-					<SkeletonLine className="hidden w-10 sm:block" />
-					<SkeletonLine className="hidden w-10 md:block" />
-					<SkeletonLine className="w-10" />
+					<div className="min-w-0 flex-1">
+						<SkeletonLine className="w-12" />
+					</div>
+					<div className="hidden w-16 shrink-0 sm:block">
+						<SkeletonLine className="w-10" />
+					</div>
+					<div className="hidden w-20 shrink-0 md:block">
+						<SkeletonLine className="w-10" />
+					</div>
+					<div className="w-16 shrink-0">
+						<SkeletonLine className="w-10" />
+					</div>
 				</div>
 			)}
 			{Array.from({ length: rows }).map((_, i) => (
@@ -112,7 +104,7 @@ export function SkeletonRows({
 					key={i}
 					className="flex h-[62px] items-center gap-3 border-b px-3 last:border-b-0"
 				>
-					<div className="flex flex-1 flex-col gap-2">
+					<div className="flex min-w-0 flex-1 flex-col gap-2">
 						<SkeletonLine
 							className={cn(
 								i % 3 === 0
@@ -125,9 +117,9 @@ export function SkeletonRows({
 						/>
 						<SkeletonLine className="w-24" />
 					</div>
-					<SkeletonChip className="hidden sm:block" />
-					<SkeletonLine className="hidden w-20 md:block" />
-					<SkeletonLine className="w-16" />
+					<SkeletonChip className="hidden shrink-0 sm:block" />
+					<SkeletonLine className="hidden w-20 shrink-0 md:block" />
+					<SkeletonLine className="w-16 shrink-0" />
 				</div>
 			))}
 		</div>
@@ -135,16 +127,9 @@ export function SkeletonRows({
 }
 
 /** The page header while its title is still loading. */
-export function SkeletonPageHeader({
-	className,
-}: {
-	className?: string;
-}) {
+function SkeletonPageHeader() {
 	return (
-		<div
-			className={cn('mb-7 flex flex-col gap-3', className)}
-			aria-hidden
-		>
+		<div className="mb-7 flex flex-col gap-3" aria-hidden>
 			<SkeletonLine className="w-40" />
 			<Skeleton className="h-7 w-56 rounded-md" />
 			<SkeletonLine className="w-28" />
@@ -170,7 +155,11 @@ export function SkeletonPage({
 			data-testid={testId}
 		>
 			<SkeletonPageHeader />
-			<SkeletonRows rows={rows} testId={`${testId}-rows`} />
+			<SkeletonRows
+				rows={rows}
+				status={false}
+				testId={`${testId}-rows`}
+			/>
 			<span className="sr-only" role="status">
 				{message}
 			</span>

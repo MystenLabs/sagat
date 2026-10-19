@@ -17,7 +17,7 @@ export function useCopyToClipboard(
 			try {
 				await navigator.clipboard.writeText(text);
 				setCopied(true);
-				toast.success(successMessage);
+				toast.copied(successMessage);
 				setTimeout(
 					() => setCopied(false),
 					CONFIG.COPY_FEEDBACK_DURATION,

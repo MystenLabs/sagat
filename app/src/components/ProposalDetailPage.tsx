@@ -37,11 +37,8 @@ export function ProposalDetailPage() {
 	// No digest in URL
 	if (!digest) {
 		return (
-			<div className="max-w-4xl mx-auto mt-8 px-4">
-				<PageHeader
-					title="Proposal Not Found"
-					description="No proposal digest provided in URL"
-				/>
+			<div className="page-shell">
+				<PageHeader title="Proposal Details" />
 				<EmptyState
 					icon={FileSearch}
 					title="Missing digest"
@@ -61,15 +58,15 @@ export function ProposalDetailPage() {
 	// Error state
 	if (proposalQuery.error) {
 		return (
-			<div className="max-w-4xl mx-auto mt-8 px-4">
+			<div className="page-shell">
 				<PageHeader
-					title="Error Loading Proposal"
-					description="Failed to load proposal details"
+					title="Proposal Details"
+					description={`Digest: ${digest}`}
 				/>
 				<ErrorState
 					title="Failed to load proposal"
 					error={proposalQuery.error}
-					fallback="Check that the digest is correct."
+					hint="Check that the digest is correct."
 					testId="proposal-detail-error"
 				/>
 			</div>

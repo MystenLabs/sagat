@@ -1,21 +1,23 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertCircle, type LucideIcon } from 'lucide-react';
-import { isValidElement, type ReactNode } from 'react';
+import { AlertCircle } from 'lucide-react';
+import { type ComponentType, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
 import { Button } from './button';
 
+/** A lucide icon or any icon component that takes a className. */
+type IconComponent = ComponentType<{ className?: string }>;
+
 interface EmptyStateProps {
-	/** A lucide icon, or a ready-made element for custom tiles. */
-	icon?: LucideIcon | ReactNode;
+	icon?: IconComponent;
+	/** Extra classes for the icon tile, e.g. a brand tint. */
+	iconClassName?: string;
 	title: string;
 	description?: string;
 	action?: ReactNode;
-	/** `card` draws the bordered shell; `plain` sits inside an existing one. */
-	variant?: 'card' | 'plain';
 	className?: string;
 	testId?: string;
 }
@@ -26,10 +28,10 @@ interface EmptyStateProps {
  */
 export function EmptyState({
 	icon,
+	iconClassName,
 	title,
 	description,
 	action,
-	variant = 'card',
 	className,
 	testId,
 }: EmptyStateProps) {
@@ -37,12 +39,13 @@ export function EmptyState({
 		<div
 			data-testid={testId}
 			className={cn(
-				'flex flex-col items-center px-6 py-14 text-center',
-				variant === 'card' && 'rounded-2xl border bg-card',
+				'flex flex-col items-center rounded-2xl border bg-card px-6 py-14 text-center',
 				className,
 			)}
 		>
-			{icon && <IconTile icon={icon} />}
+			{icon && (
+				<IconTile icon={icon} className={iconClassName} />
+			)}
 			<h3 className="text-16 font-semibold">{title}</h3>
 			{description && (
 				<p className="mt-1.5 max-w-sm text-13 text-muted-foreground">
@@ -63,9 +66,10 @@ interface ErrorStateProps {
 	error?: unknown;
 	/** Shown when the error has no message of its own. */
 	fallback?: string;
+	/** A line under the message, shown whatever the error says. */
+	hint?: string;
 	onRetry?: () => void;
 	retryLabel?: string;
-	variant?: 'card' | 'plain';
 	className?: string;
 	testId?: string;
 }
@@ -75,9 +79,9 @@ export function ErrorState({
 	title = 'Something went wrong',
 	error,
 	fallback = 'Try again in a moment.',
+	hint,
 	onRetry,
 	retryLabel = 'Try again',
-	variant = 'card',
 	className,
 	testId,
 }: ErrorStateProps) {
@@ -92,9 +96,7 @@ export function ErrorState({
 			role="alert"
 			data-testid={testId}
 			className={cn(
-				'flex flex-col items-center px-6 py-14 text-center',
-				variant === 'card' &&
-					'rounded-2xl border border-error-border bg-card',
+				'flex flex-col items-center rounded-2xl border border-error-border bg-card px-6 py-14 text-center',
 				className,
 			)}
 		>
@@ -103,6 +105,11 @@ export function ErrorState({
 			<p className="mt-1.5 max-w-sm text-13 break-words text-muted-foreground">
 				{message}
 			</p>
+			{hint && (
+				<p className="mt-1 max-w-sm text-13 text-muted-foreground">
+					{hint}
+				</p>
+			)}
 			{onRetry && (
 				<Button
 					variant="outline"
@@ -118,15 +125,14 @@ export function ErrorState({
 }
 
 function IconTile({
-	icon,
+	icon: Icon,
 	tone = 'neutral',
+	className,
 }: {
-	icon: LucideIcon | ReactNode;
+	icon: IconComponent;
 	tone?: 'neutral' | 'error';
+	className?: string;
 }) {
-	if (isValidElement(icon))
-		return <div className="mb-4">{icon}</div>;
-	const Icon = icon as LucideIcon;
 	return (
 		<div
 			className={cn(
@@ -134,6 +140,7 @@ function IconTile({
 				tone === 'error'
 					? 'bg-error text-error-foreground'
 					: 'bg-muted text-muted-foreground',
+				className,
 			)}
 		>
 			<Icon className="size-5" />

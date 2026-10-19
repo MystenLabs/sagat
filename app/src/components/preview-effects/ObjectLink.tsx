@@ -11,6 +11,7 @@ import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { toast } from '@/lib/toast';
+import { getExplorerUrl } from '@/lib/utils';
 
 type OwnerDisplay =
 	string | { address: string } | { object: string };
@@ -100,10 +101,12 @@ export function ObjectLink({
 	}
 
 	const link = objectId
-		? `https://suiexplorer.com/${ownerDisplay ? 'address' : 'object'}/${objectId}?network=${
-				network.split(':')[1]
-			}`
-		: undefined;
+		? getExplorerUrl(
+				objectId,
+				network,
+				ownerDisplay ? 'account' : 'object',
+			)
+		: null;
 
 	const copy = () => {
 		if (!objectId && !display) return;
@@ -112,7 +115,7 @@ export function ObjectLink({
 			objectId || display || '',
 		);
 		setCopied(true);
-		toast.success('Copied');
+		toast.copied();
 
 		setTimeout(() => {
 			setCopied(false);

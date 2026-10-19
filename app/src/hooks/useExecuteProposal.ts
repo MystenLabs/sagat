@@ -129,14 +129,16 @@ export function useExecuteProposal() {
 					variables.proposal.multisig.address,
 				],
 			});
+			const digest = data.executionResult.digest;
+			const explorerUrl = getExplorerUrl(
+				digest,
+				variables.proposal.network,
+			);
 			toast.success('Proposal executed', {
-				link: {
-					label: 'View on explorer',
-					href: getExplorerUrl(
-						data.executionResult.digest,
-						variables.proposal.network,
-					),
-				},
+				description: digest,
+				link: explorerUrl
+					? { label: 'View on explorer', href: explorerUrl }
+					: undefined,
 			});
 		},
 		onError: (error: Error) => {

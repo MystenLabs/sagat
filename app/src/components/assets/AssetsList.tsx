@@ -13,7 +13,7 @@ import {
 	type Balance,
 	type useMultisigBalances,
 } from '../../hooks/useMultisigBalances';
-import { CONFIG } from '../../lib/constants';
+import { getExplorerUrl } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { EmptyState, ErrorState } from '../ui/empty-state';
 import { Skeleton } from '../ui/skeleton';
@@ -139,26 +139,31 @@ function EmptyAssetsState({
 	multisigAddress: string;
 }) {
 	const { network } = useNetwork();
-	const explorerUrl = `${CONFIG.EXPLORER_URLS[network]}/account/${multisigAddress}`;
+	const explorerUrl = getExplorerUrl(
+		multisigAddress,
+		network,
+		'account',
+	);
 
 	return (
 		<EmptyState
-			icon={
-				<div className="flex size-10 items-center justify-center rounded-xl bg-sui/10">
-					<SuiLogo className="h-5 w-auto" />
-				</div>
-			}
+			icon={SuiLogo}
+			iconClassName="bg-sui/10"
 			title="No balances yet"
 			description="This account holds no coins yet. Once it receives funds they show up here."
 			testId="assets-empty"
 			action={
-				<Button
-					variant="outline"
-					onClick={() => window.open(explorerUrl, '_blank')}
-				>
-					<ExternalLink />
-					View on explorer
-				</Button>
+				explorerUrl && (
+					<Button
+						variant="outline"
+						onClick={() =>
+							window.open(explorerUrl, '_blank')
+						}
+					>
+						<ExternalLink />
+						View on explorer
+					</Button>
+				)
 			}
 		/>
 	);

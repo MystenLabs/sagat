@@ -35,9 +35,18 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
+const EXPLORER_NETWORKS = ['mainnet', 'testnet', 'devnet'];
+
+/**
+ * The suiscan page for a transaction (default), account or object. Returns
+ * `null` on networks suiscan doesn't index (localnet), so callers hide the
+ * link.
+ */
 export const getExplorerUrl = (
-	digest: string,
+	id: string,
 	network: string,
-) => {
-	return `https://suiexplorer.com/txblock/${digest}?network=${network}`;
+	kind: 'tx' | 'account' | 'object' = 'tx',
+): string | null => {
+	if (!EXPLORER_NETWORKS.includes(network)) return null;
+	return `https://suiscan.xyz/${network}/${kind}/${id}`;
 };

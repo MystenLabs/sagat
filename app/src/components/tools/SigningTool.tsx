@@ -172,6 +172,9 @@ function SignedResultDisplay({
 	onStartOver: () => void;
 	network: string;
 }) {
+	const explorerUrl = result.digest
+		? getExplorerUrl(result.digest, network)
+		: null;
 	return (
 		<div
 			className="border border-border bg-card rounded-lg p-4"
@@ -212,9 +215,9 @@ function SignedResultDisplay({
 					}
 					value={result.digest || result.signature}
 				/>
-				{result.digest && (
+				{explorerUrl && (
 					<a
-						href={getExplorerUrl(result.digest, network)}
+						href={explorerUrl}
 						target="_blank"
 						rel="noopener noreferrer"
 						className={buttonVariants({

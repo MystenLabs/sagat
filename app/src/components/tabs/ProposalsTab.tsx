@@ -242,16 +242,21 @@ export function ProposalsTab() {
 					<ErrorState
 						title="Failed to load proposals"
 						error={error}
+						onRetry={() => pagination.refetch()}
 						testId="proposals-error"
 					/>
 				) : filteredProposals.length === 0 ? (
 					<EmptyState
 						icon={FileText}
-						title="No proposals yet"
+						title={
+							activeFilter === 'all'
+								? 'No proposals yet'
+								: 'No matching proposals'
+						}
 						description={
 							activeFilter === 'all'
 								? 'Create the first proposal for this account.'
-								: `No proposals are ${filters.find((f) => f.id === activeFilter)?.label?.toLowerCase() ?? activeFilter}.`
+								: `No proposals are in “${filters.find((f) => f.id === activeFilter)?.label ?? activeFilter}”.`
 						}
 						action={
 							activeFilter === 'all' && (

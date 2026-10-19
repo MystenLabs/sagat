@@ -9,8 +9,7 @@ import {
 /** An underlined link at the end of the toast: a URL opens in a new tab. */
 export type ToastLink = {
 	label: string;
-	href?: string;
-	onClick?: () => void;
+	href: string;
 };
 
 type Options = Omit<ExternalToast, 'action'> & {
@@ -26,11 +25,8 @@ function withLink({
 		...rest,
 		action: {
 			label: link.label,
-			onClick: () => {
-				if (link.href)
-					window.open(link.href, '_blank', 'noopener');
-				link.onClick?.();
-			},
+			onClick: () =>
+				window.open(link.href, '_blank', 'noopener'),
 		},
 	};
 }
@@ -43,10 +39,6 @@ function withLink({
 export const toast = {
 	success: (message: string, options?: Options) =>
 		sonner.success(message, withLink(options)),
-	info: (message: string, options?: Options) =>
-		sonner.info(message, withLink(options)),
-	warning: (message: string, options?: Options) =>
-		sonner.warning(message, withLink(options)),
 	error: (message: string, options?: Options) =>
 		sonner.error(message, {
 			duration: Infinity,
@@ -56,7 +48,4 @@ export const toast = {
 	/** "Address copied" and friends. */
 	copied: (what = 'Copied', options?: Options) =>
 		sonner.success(what, withLink(options)),
-	loading: (message: string, options?: Options) =>
-		sonner.loading(message, withLink(options)),
-	dismiss: (id?: string | number) => sonner.dismiss(id),
 };

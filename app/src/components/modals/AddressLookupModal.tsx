@@ -100,7 +100,7 @@ export function AddressLookupModal({
 
 	const copyToClipboard = (text: string) => {
 		navigator.clipboard.writeText(text);
-		toast.success('Copied');
+		toast.copied();
 	};
 
 	const foundKey = publicKey ?? onChainResult?.publicKey;
