@@ -46,8 +46,6 @@ export function InvitationsPage() {
 					{
 						id: 'rejected',
 						label: 'Rejected',
-						count: rejected.data?.length,
-						countColor: 'gray',
 					},
 				]}
 				activeTab={activeTab}
