@@ -114,7 +114,7 @@ const separatorClass =
 // icon's top-right corner. The `!` beats the primitive's peer-* top and text
 // rules, which would otherwise win on hover and on the active item.
 const invitationsBadgeClass =
-	'rounded-full bg-sidebar-accent px-1.5 text-10 text-sidebar-foreground group-data-[collapsible=icon]:top-0.5! group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:min-w-4 group-data-[collapsible=icon]:bg-sidebar-primary group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:text-sidebar-primary-foreground! group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar';
+	'rounded-full bg-sidebar-accent px-1.5 text-10 text-sidebar-foreground group-data-[collapsible=icon]:top-0.5! group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-3 group-data-[collapsible=icon]:min-w-3 group-data-[collapsible=icon]:bg-sidebar-primary group-data-[collapsible=icon]:px-px group-data-[collapsible=icon]:text-10 group-data-[collapsible=icon]:leading-none group-data-[collapsible=icon]:text-sidebar-primary-foreground! group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-sidebar';
 
 // Hidden outright on the icon rail: the block only fades labels out and
 // pulls them up 32px, which would leave an invisible box over the item above.
