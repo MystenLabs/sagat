@@ -14,6 +14,22 @@ test.describe('wallet sign-in', () => {
 			alice.page.getByTestId('dashboard-empty'),
 		).toBeVisible();
 
+		// The restore holds the layout: the connect prompt never shows.
+		await alice.page.addInitScript(() => {
+			new MutationObserver(() => {
+				if (
+					document.querySelector(
+						'[data-testid="connect-wallet-prompt"]',
+					)
+				) {
+					(window as { sawPrompt?: boolean }).sawPrompt =
+						true;
+				}
+			}).observe(document, {
+				childList: true,
+				subtree: true,
+			});
+		});
 		await alice.page.reload();
 		await expect(alice.walletMenuButton()).toHaveAttribute(
 			'data-auth-state',
@@ -22,6 +38,11 @@ test.describe('wallet sign-in', () => {
 		await expect(
 			alice.page.getByTestId('dashboard-empty'),
 		).toBeVisible();
+		expect(
+			await alice.page.evaluate(
+				() => (window as { sawPrompt?: boolean }).sawPrompt,
+			),
+		).toBeUndefined();
 	});
 
 	test('disconnecting ends the API session', async ({

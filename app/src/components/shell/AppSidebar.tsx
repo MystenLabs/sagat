@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	useCurrentAccount,
-	useWalletConnection,
-} from '@mysten/dapp-kit-react';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
 import {
 	ArrowDownToLine,
@@ -72,6 +69,7 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInvitations } from '@/hooks/useInvitations';
+import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 import { thresholdLabel } from '@/lib/threshold';
@@ -118,9 +116,8 @@ export function AppSidebar() {
 	const location = useLocation();
 	const { setOpenMobile } = useSidebar();
 	const currentAccount = useCurrentAccount();
-	const { isReconnecting } = useWalletConnection();
-	const { isCurrentAddressAuthenticated, isCheckingAuth } =
-		useApiAuth();
+	const { reconnecting, checkingAuth } = useSessionBoot();
+	const { isCurrentAddressAuthenticated } = useApiAuth();
 	const signedIn =
 		!!currentAccount && isCurrentAddressAuthenticated;
 
@@ -129,8 +126,8 @@ export function AppSidebar() {
 	// Restoring the session: wallet reconnecting, the API check running,
 	// or the accounts not here yet. Hold the layout with skeletons.
 	const booting =
-		isReconnecting ||
-		(!!currentAccount && isCheckingAuth) ||
+		reconnecting ||
+		checkingAuth ||
 		(signedIn && multisigsLoading);
 	const { data: invitations } = useInvitations();
 	const pendingInvites = invitations?.length ?? 0;
@@ -358,7 +355,11 @@ export function AppSidebar() {
 						variant="row"
 						className={navItemClass}
 					/>
-					<CustomWalletButton variant="rail" />
+					{reconnecting ? (
+						<WalletRowSkeleton />
+					) : (
+						<CustomWalletButton variant="rail" />
+					)}
 				</SidebarFooter>
 			</div>
 		</Sidebar>
@@ -381,6 +382,19 @@ function SwitcherSkeleton() {
 				</div>
 			</div>
 			<Skeleton className="h-7 w-full rounded-md bg-sidebar-accent/60 group-data-[collapsible=icon]:hidden" />
+		</div>
+	);
+}
+
+/** The footer wallet row while the wallet kit reconnects. */
+function WalletRowSkeleton() {
+	return (
+		<div
+			className="flex items-center gap-2.5 p-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+			data-testid="wallet-loading"
+		>
+			<Skeleton className="size-6 rounded-full bg-sidebar-accent" />
+			<Skeleton className="h-2.5 w-24 bg-sidebar-accent group-data-[collapsible=icon]:hidden" />
 		</div>
 	);
 }

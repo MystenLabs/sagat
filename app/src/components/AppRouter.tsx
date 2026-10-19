@@ -4,7 +4,6 @@
 import {
 	useCurrentAccount,
 	useCurrentNetwork,
-	useWalletConnection,
 } from '@mysten/dapp-kit-react';
 import { useMemo, type ReactElement } from 'react';
 import {
@@ -17,6 +16,7 @@ import {
 
 import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
+import { useSessionBoot } from '../hooks/useSessionBoot';
 import { AuthPrompt } from './AuthPrompt';
 import { CreateMultisigPage } from './CreateMultisigPage';
 import { CustomWalletButton } from './CustomWalletButton';
@@ -113,9 +113,8 @@ function getAuthLevel(pathname: string): AuthLevel {
 
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
-	const { isReconnecting } = useWalletConnection();
-	const { isCheckingAuth, isCurrentAddressAuthenticated } =
-		useApiAuth();
+	const { reconnecting, checkingAuth } = useSessionBoot();
+	const { isCurrentAddressAuthenticated } = useApiAuth();
 	const location = useLocation();
 	const network = useCurrentNetwork();
 
@@ -185,7 +184,7 @@ export function AppRouter() {
 
 	// The wallet kit is still restoring the previous session: hold the
 	// layout instead of flashing the connect prompt.
-	if (isReconnecting) {
+	if (reconnecting) {
 		return (
 			<SkeletonPage
 				rows={3}
@@ -215,7 +214,7 @@ export function AppRouter() {
 	// Wallet-only routes - require wallet but not API auth
 	if (authLevel === 'wallet') return renderRoutes;
 
-	if (isCheckingAuth) {
+	if (checkingAuth) {
 		return (
 			<SkeletonPage
 				rows={3}
