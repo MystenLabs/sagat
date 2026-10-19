@@ -28,7 +28,6 @@ export function useRejectInvitation() {
 			address: multisigAddress,
 		}: {
 			address: string;
-			name?: string | null;
 		}) => {
 			if (!currentAccount || !currentAddress) {
 				throw new Error('No wallet connected');
@@ -59,11 +58,6 @@ export function useRejectInvitation() {
 			});
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Invitations],
-			});
-		},
-		onError: (error: Error) => {
-			toast.error("Couldn't reject the invitation", {
-				description: error.message,
 			});
 		},
 	});

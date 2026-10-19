@@ -3,11 +3,13 @@
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
 	Navigate,
 	Outlet,
+	useLocation,
+	useNavigate,
 	useParams,
 } from 'react-router-dom';
 
@@ -18,6 +20,7 @@ import {
 	ProposalSheet,
 	type ProposalIntent,
 } from './ProposalSheet';
+import { Alert } from './ui/Alert';
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
@@ -30,6 +33,12 @@ export function MultisigDetailPage() {
 	const [proposalIntent, setProposalIntent] =
 		useState<ProposalIntent | null>(null);
 	const { data: multisigs, isLoading } = useUserMultisigs();
+	// Set by the invitation flow right after accepting.
+	const location = useLocation();
+	const navigate = useNavigate();
+	const joined = !!(
+		location.state as { joined?: boolean } | null
+	)?.joined;
 
 	// Find the multisig details from the selected accts
 	const multisigDetails = useMemo(
@@ -123,6 +132,39 @@ export function MultisigDetailPage() {
 					</Button>
 				}
 			/>
+
+			{joined && (
+				<Alert
+					variant="success"
+					className="mb-6 items-center font-medium"
+					data-testid="joined-banner"
+				>
+					<div className="flex items-center gap-3">
+						<span className="flex-1">
+							You joined {title}.
+							{multisig.pendingMembers > 0 &&
+								` ${multisig.pendingMembers} ${
+									multisig.pendingMembers === 1
+										? 'signer hasn’t'
+										: 'signers haven’t'
+								} accepted yet.`}
+						</span>
+						<button
+							type="button"
+							aria-label="Dismiss"
+							className="cursor-pointer rounded-sm opacity-70 hover:opacity-100"
+							onClick={() =>
+								navigate(location.pathname, {
+									replace: true,
+									state: null,
+								})
+							}
+						>
+							<X className="size-3.5" />
+						</button>
+					</div>
+				</Alert>
+			)}
 
 			{/* Tab Content */}
 			<div>

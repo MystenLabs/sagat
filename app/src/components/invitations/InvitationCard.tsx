@@ -12,13 +12,17 @@ import { useRejectInvitation } from '../../hooks/useRejectInvitation';
 import { Button } from '../ui/button';
 import { Chip } from '../ui/chip';
 import { CopyButton } from '../ui/CopyButton';
-import { accountName } from './account-name';
+import {
+	accountName,
+	creatorAddress,
+} from './account-name';
 import { RejectInvitationDialog } from './RejectInvitationDialog';
 import { ReviewInvitationDialog } from './ReviewInvitationDialog';
 
 /**
- * One invitation in the inbox: the account, who has accepted so far, and
- * the way in. Reviewing opens the signer set; rejecting asks first.
+ * One invitation in the inbox: the account, who sent it, and the way in.
+ * Reviewing opens the signer set; rejecting asks first. Both sign with
+ * the wallet straight away and show what happened in their dialog.
  */
 export function InvitationCard({
 	multisig,
@@ -31,19 +35,15 @@ export function InvitationCard({
 	const reject = useRejectInvitation();
 	const busy = accept.isPending || reject.isPending;
 
-	const accepted = multisig.members.filter(
-		(m) => m.isAccepted,
-	).length;
 	const name = accountName(multisig);
+	const creator = creatorAddress(multisig);
 
+	// On success the hook moves to the account page itself.
 	const handleAccept = () =>
-		accept.mutate(
-			{ address: multisig.address, name: multisig.name },
-			{ onSuccess: () => setReviewing(false) },
-		);
+		accept.mutate({ address: multisig.address });
 	const handleReject = () =>
 		reject.mutate(
-			{ address: multisig.address, name: multisig.name },
+			{ address: multisig.address },
 			{
 				onSuccess: () => {
 					setRejecting(false);
@@ -74,28 +74,28 @@ export function InvitationCard({
 						)}
 					</div>
 					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-13 text-muted-foreground">
-						<span>
-							Threshold {multisig.threshold} of{' '}
-							{multisig.totalWeight}
-						</span>
-						<span aria-hidden>·</span>
-						<span>
-							{accepted} of {multisig.totalMembers} accepted
-						</span>
-						<span aria-hidden>·</span>
+						<span>Invited by</span>
 						<span className="flex items-center gap-1 font-mono text-12 text-foreground-secondary">
-							{formatAddress(multisig.address)}
-							<CopyButton
-								value={multisig.address}
-								size="xs"
-								successMessage="Address copied"
-							/>
+							{creator
+								? formatAddress(creator)
+								: 'an unknown key'}
+							{creator && (
+								<CopyButton
+									value={creator}
+									size="xs"
+									successMessage="Address copied"
+								/>
+							)}
 						</span>
 					</div>
 				</div>
 			</div>
 
-			{!multisig.isRejected && (
+			{multisig.isRejected ? (
+				<p className="shrink-0 text-13 text-muted-foreground">
+					You rejected this invitation.
+				</p>
+			) : (
 				<div className="flex shrink-0 gap-2 max-md:justify-end">
 					<Button
 						variant="outline"
@@ -117,18 +117,29 @@ export function InvitationCard({
 
 			<ReviewInvitationDialog
 				open={reviewing}
-				onClose={() => setReviewing(false)}
+				onClose={() => {
+					setReviewing(false);
+					accept.reset();
+				}}
 				multisig={multisig}
+				creator={creator}
 				onAccept={handleAccept}
 				onReject={() => setRejecting(true)}
 				accepting={accept.isPending}
+				error={accept.error}
+				onBack={() => accept.reset()}
 			/>
 			<RejectInvitationDialog
 				open={rejecting}
-				onClose={() => setRejecting(false)}
+				onClose={() => {
+					setRejecting(false);
+					reject.reset();
+				}}
 				name={name}
 				onConfirm={handleReject}
 				rejecting={reject.isPending}
+				error={reject.error}
+				onBack={() => reject.reset()}
 			/>
 		</div>
 	);

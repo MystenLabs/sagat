@@ -7,9 +7,9 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
@@ -17,6 +17,7 @@ import { QueryKeys } from '../lib/queryKeys';
 export function useAcceptInvitation() {
 	const queryClient = useQueryClient();
 	const dappKit = useDAppKit();
+	const navigate = useNavigate();
 	const { currentAddress } = useApiAuth();
 
 	return useMutation({
@@ -24,7 +25,6 @@ export function useAcceptInvitation() {
 			address: multisigAddress,
 		}: {
 			address: string;
-			name?: string | null;
 		}) => {
 			if (!currentAddress)
 				throw new Error('No wallet connected');
@@ -46,23 +46,19 @@ export function useAcceptInvitation() {
 				},
 			);
 		},
-		onSuccess: (_data, { name }) => {
-			// Invalidate queries to refresh multisig data
-			queryClient.invalidateQueries({
+		// Lives here rather than in the caller: the invitation card unmounts
+		// as soon as the inbox refetches, which drops per-call callbacks.
+		// Refetch the accounts first so the account page can find the new
+		// one, then land on it with a greeting.
+		onSuccess: async (_data, { address }) => {
+			await queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
 			});
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Invitations],
+			navigate(`/multisig/${address}/overview`, {
+				state: { joined: true },
 			});
-			toast.success(
-				name
-					? `You've joined ${name}`
-					: 'Invitation accepted',
-			);
-		},
-		onError: (error: Error) => {
-			toast.error("Couldn't accept the invitation", {
-				description: error.message,
+			await queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Invitations],
 			});
 		},
 	});

@@ -39,19 +39,22 @@ test.describe('invitations', () => {
 			.getByTestId('accept-invitation-button')
 			.click();
 
-		await expect(card).toBeHidden();
-		await expect(
-			bob.page.getByTestId('invitations-empty'),
-		).toBeVisible();
-
-		// With every member on board, the multisig is verified and opens.
-		await bob.page.goto('/');
+		// Accepting lands on the account with a greeting.
 		await expect(
 			bob.page.getByTestId('multisig-detail'),
 		).toHaveAttribute(
 			'data-multisig-address',
 			multisig.address,
 		);
+		await expect(
+			bob.page.getByTestId('joined-banner'),
+		).toContainText('You joined');
+		await bob.page.getByTestId('nav-invitations').click();
+		await expect(
+			bob.page.getByTestId('invitations-empty'),
+		).toBeVisible();
+
+		// With every member on board, the multisig is verified.
 		const saved = await alice.api.getMultisig(
 			multisig.address,
 		);

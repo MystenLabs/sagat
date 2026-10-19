@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Info, Mail } from 'lucide-react';
+import { Mail } from 'lucide-react';
 import { useState } from 'react';
 
 import { useInvitations } from '../hooks/useInvitations';
@@ -87,13 +87,6 @@ export function InvitationsPage() {
 					))}
 				</div>
 			)}
-
-			<p className="mt-5 flex items-center gap-2 text-13 text-muted-foreground">
-				<Info className="size-4 shrink-0" />
-				{activeTab === 'pending'
-					? 'Accepted accounts appear in your sidebar. Rejected invitations move to the Rejected tab.'
-					: 'Rejected invitations stay here for your records.'}
-			</p>
 		</div>
 	);
 }
