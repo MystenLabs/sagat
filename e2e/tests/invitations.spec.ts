@@ -104,6 +104,70 @@ test.describe('invitations', () => {
 		expect(saved.isVerified).toBe(true);
 	});
 
+	test('accepting lands on the account even while the account list fails to refresh', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+
+		await bob.signIn();
+		await bob.page.getByTestId('nav-invitations').click();
+		await bob
+			.invitationCard(multisig.address)
+			.getByTestId('invitation-toggle-details')
+			.click();
+
+		const paths: string[] = [];
+		bob.page.on('framenavigated', (frame) => {
+			if (frame === bob.page.mainFrame())
+				paths.push(new URL(frame.url()).pathname);
+		});
+		// The account list refresh fails; the accept call still goes through.
+		const accountList = '**/addresses/connections**';
+		await bob.page.route(accountList, (route) =>
+			route.abort(),
+		);
+		await bob.page
+			.getByTestId('accept-invitation-button')
+			.click();
+
+		// It goes to the account at once (before the refresh gives up after
+		// its retries) and waits there rather than bouncing to the dashboard.
+		const accountPath = `/multisig/${multisig.address}/overview`;
+		await expect(bob.page).toHaveURL(
+			new RegExp(`${accountPath}$`),
+			{ timeout: 3_000 },
+		);
+		await expect(
+			bob.page.getByTestId('skeleton-page'),
+		).toBeVisible();
+
+		await bob.page.unroute(accountList);
+		await expect(
+			bob.page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+		await expect(
+			bob.page.getByTestId('joined-banner'),
+		).toContainText('You joined');
+		expect(paths).not.toContain('/');
+		await bob.page.getByTestId('multisig-switcher').click();
+		await expect(
+			bob.page.locator(
+				`[data-testid="multisig-switcher-option"][data-address="${multisig.address}"]`,
+			),
+		).toBeVisible();
+	});
+
 	test('an invited member rejects and the creator sees it', async ({
 		createActor,
 	}) => {
