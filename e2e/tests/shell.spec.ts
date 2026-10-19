@@ -39,6 +39,13 @@ test.describe('app shell', () => {
 			threshold: 1,
 			name: 'Shell test',
 		});
+		// A pending invitation for alice, so the sidebar shows a count.
+		await setupMultisig({
+			creator: bob,
+			members: [alice],
+			threshold: 2,
+			accept: false,
+		});
 		const { page } = alice;
 
 		// The network menu works before signing in and picking the current
@@ -85,17 +92,24 @@ test.describe('app shell', () => {
 		).toBeVisible();
 		await page.keyboard.press('Escape');
 
-		// Collapsing hides the labels; the toggle brings them back.
+		// Collapsing hides the labels but keeps the invitations count on the
+		// rail; the toggle brings the labels back.
 		const sidebar = page.locator('[data-slot="sidebar"]');
+		const inviteCount = page.getByTestId(
+			'nav-invitations-count',
+		);
 		await expect(sidebar).toHaveAttribute(
 			'data-state',
 			'expanded',
 		);
+		await expect(inviteCount).toHaveText('1');
 		await page.getByTestId('sidebar-toggle').click();
 		await expect(sidebar).toHaveAttribute(
 			'data-state',
 			'collapsed',
 		);
+		await expect(inviteCount).toBeVisible();
+		await expect(inviteCount).toHaveText('1');
 		await page.getByTestId('sidebar-toggle').click();
 		await expect(sidebar).toHaveAttribute(
 			'data-state',
@@ -193,5 +207,20 @@ test.describe('app shell', () => {
 		await expect(
 			page.getByTestId('receive-address'),
 		).toHaveText(multisig.address);
+
+		// Clicking the QR code copies the address, like the button.
+		await alice.context.grantPermissions([
+			'clipboard-read',
+			'clipboard-write',
+		]);
+		await page.getByTestId('receive-qr').click();
+		await expect(
+			page.getByTestId('receive-copy'),
+		).toHaveText('Address copied');
+		expect(
+			await page.evaluate(() =>
+				navigator.clipboard.readText(),
+			),
+		).toBe(multisig.address);
 	});
 });

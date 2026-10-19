@@ -69,7 +69,13 @@ export function ReceiveDialog({
 					</DialogClose>
 				</div>
 
-				<div className="justify-self-center rounded-lg border bg-qr p-4.5 text-qr-foreground">
+				<button
+					type="button"
+					onClick={() => copy(address)}
+					aria-label="Copy address"
+					className="cursor-pointer justify-self-center rounded-lg border bg-qr p-4.5 text-qr-foreground outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+					data-testid="receive-qr"
+				>
 					<QRCodeSVG
 						value={address}
 						size={202}
@@ -77,7 +83,7 @@ export function ReceiveDialog({
 						fgColor="currentColor"
 						title={`QR code for ${address}`}
 					/>
-				</div>
+				</button>
 
 				<div className="flex flex-col gap-1">
 					<div className="text-12 text-muted-foreground">

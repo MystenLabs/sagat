@@ -67,6 +67,7 @@ import {
 	useSidebar,
 } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { TOOLS } from '@/config/tools';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
@@ -109,12 +110,28 @@ const navItemClass =
 const separatorClass =
 	'mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block';
 
+// Beside the label when expanded; on the icon rail, a pill over the Mail
+// icon's top-right corner. The `!` beats the primitive's peer-* top and text
+// rules, which would otherwise win on hover and on the active item.
+const invitationsBadgeClass =
+	'rounded-full bg-sidebar-accent px-1.5 text-10 text-sidebar-foreground group-data-[collapsible=icon]:top-0.5! group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-4 group-data-[collapsible=icon]:min-w-4 group-data-[collapsible=icon]:bg-sidebar-primary group-data-[collapsible=icon]:px-1 group-data-[collapsible=icon]:text-sidebar-primary-foreground! group-data-[collapsible=icon]:ring-2 group-data-[collapsible=icon]:ring-sidebar';
+
 // Hidden outright on the icon rail: the block only fades labels out and
 // pulls them up 32px, which would leave an invisible box over the item above.
 const groupLabelClass =
 	'h-6 px-2 pb-1 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase group-data-[collapsible=icon]:hidden';
 
 export function AppSidebar() {
+	// One provider for every rail tooltip, so they open as fast as the
+	// tooltips elsewhere instead of after Base UI's default 600ms.
+	return (
+		<TooltipProvider delay={150}>
+			<SidebarNav />
+		</TooltipProvider>
+	);
+}
+
+function SidebarNav() {
 	const location = useLocation();
 	const { setOpenMobile } = useSidebar();
 	const currentAccount = useCurrentAccount();
@@ -270,7 +287,7 @@ export function AppSidebar() {
 										</SidebarMenuButton>
 										{pendingInvites > 0 && (
 											<SidebarMenuBadge
-												className="rounded-full bg-sidebar-accent px-1.5 text-10 text-sidebar-foreground"
+												className={invitationsBadgeClass}
 												data-testid="nav-invitations-count"
 											>
 												{pendingInvites}
