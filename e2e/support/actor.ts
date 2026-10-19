@@ -62,7 +62,10 @@ export class Actor extends Identity {
 			chains: walletChains,
 		};
 		await context.addInitScript((config) => {
-			localStorage.setItem('SuiNetwork', 'localnet');
+			// Start on localnet, but keep a network the app saved, so a
+			// reload lands where the user left off.
+			if (!localStorage.getItem('SuiNetwork'))
+				localStorage.setItem('SuiNetwork', 'localnet');
 			window.__E2E_WALLET_CONFIG__ = config;
 		}, walletConfig);
 		await context.addInitScript({

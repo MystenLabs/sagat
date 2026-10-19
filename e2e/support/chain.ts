@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { bcs } from '@mysten/sui/bcs';
 import { requestSuiFromFaucetV2 } from '@mysten/sui/faucet';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
@@ -11,6 +12,11 @@ import { expect } from '@playwright/test';
 import { E2E } from './env';
 
 export const SUI_TYPE = '0x2::sui::SUI';
+
+const Clock = bcs.struct('Clock', {
+	id: bcs.Address,
+	timestamp_ms: bcs.u64(),
+});
 
 export type GasCoin = {
 	objectId: string;
@@ -169,6 +175,76 @@ export class Chain {
 		]);
 		tx.transferObjects([coin], recipient);
 		return toBase64(await tx.build());
+	}
+
+	// Returns base64 bytes of a SUI transfer that passes a dry run now but
+	// fails on chain once `seconds` more have passed. It sends the clock's
+	// time in seconds, as MIST, out of a coin holding just `seconds` MIST
+	// more than that. (Spending an input first doesn't do: the network then
+	// refuses the transaction before executing it.) `sender` pays gas with
+	// the coins it already holds.
+	async buildSuiTransferFailingAfter({
+		sender,
+		recipient,
+		seconds,
+	}: {
+		sender: string;
+		recipient: string;
+		seconds: number;
+	}) {
+		const funding = new Transaction();
+		const [funds] = funding.splitCoins(funding.gas, [
+			(await this.clockMs()) / 1000n + BigInt(seconds),
+		]);
+		funding.transferObjects([funds], sender);
+		const [coin] = await this.executeAsFunder(funding);
+
+		const tx = new Transaction();
+		tx.setSender(sender);
+		tx.setGasPayment(
+			(await this.coins(sender)).filter(
+				({ objectId }) => objectId !== coin.objectId,
+			),
+		);
+		const nowSeconds = tx.moveCall({
+			target: '0x1::u64::divide_and_round_up',
+			arguments: [
+				tx.moveCall({
+					target: '0x2::clock::timestamp_ms',
+					arguments: [tx.object.clock()],
+				}),
+				tx.pure.u64(1000),
+			],
+		});
+		const [payment] = tx.splitCoins(
+			tx.object(coin.objectId),
+			[nowSeconds],
+		);
+		tx.transferObjects([payment], recipient);
+		return toBase64(
+			await tx.build({ client: this.client }),
+		);
+	}
+
+	// Whether a dry run of base64 transaction bytes succeeds right now.
+	async dryRunSucceeds(transactionBytes: string) {
+		const result = await this.client.simulateTransaction({
+			transaction: fromBase64(transactionBytes),
+			include: { effects: true },
+		});
+		return (
+			result.$kind === 'Transaction' &&
+			result.Transaction.effects.status.success
+		);
+	}
+
+	// The on-chain clock (0x6), in milliseconds.
+	async clockMs() {
+		const { object } = await this.client.getObject({
+			objectId: '0x6',
+			include: { content: true },
+		});
+		return BigInt(Clock.parse(object.content).timestamp_ms);
 	}
 
 	// Net SUI a transaction's gas cost its payer. Negative when storage
