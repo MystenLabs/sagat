@@ -25,6 +25,17 @@ export type Fetch = (
 	init?: RequestInit,
 ) => Promise<Response>;
 
+/** The API answered with a non-2xx status. */
+export class SagatApiError extends Error {
+	status: number;
+
+	constructor(message: string, status: number) {
+		super(message);
+		this.name = 'SagatApiError';
+		this.status = status;
+	}
+}
+
 export class SagatClient {
 	#apiUrl: string;
 	#mode: 'script' | 'cookie';
@@ -378,7 +389,10 @@ export class SagatClient {
 					if (errorData) errorMessage = errorData;
 				} catch {}
 			}
-			throw new Error(errorMessage);
+			throw new SagatApiError(
+				errorMessage,
+				response.status,
+			);
 		}
 
 		return response.json();

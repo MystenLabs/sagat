@@ -145,6 +145,7 @@ export function CustomWalletButton({
 	const wallets = useWallets();
 	const {
 		isCurrentAddressAuthenticated,
+		isApiUnreachable,
 		signAndConnect,
 		isConnecting,
 		disconnect: apiDisconnect,
@@ -256,43 +257,49 @@ export function CustomWalletButton({
 
 				{showWallets && (
 					<div className={menuClass(variant)}>
-						<div className="px-3 pb-2 border-b text-center">
-							<p className="text-13 font-medium text-foreground">
-								Authentication Required
-							</p>
-						</div>
+						{!isApiUnreachable && (
+							<>
+								<div className="px-3 pb-2 border-b text-center">
+									<p className="text-13 font-medium text-foreground">
+										Authentication Required
+									</p>
+								</div>
 
-						{accounts.length > 1 ? (
-							<AccountSwitchingSection
-								showTitle={false}
-								handleSwitchAccount={handleSwitchAccount}
-								handleSignAndConnect={signAndConnect}
-								isConnecting={isConnecting}
-							/>
-						) : (
-							<div className="px-3 pt-3">
-								<Button
-									onClick={signAndConnect}
-									disabled={isConnecting}
-									size="sm"
-									className="w-full mb-2"
-								>
-									{isConnecting ? (
-										<>
-											<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
-											Signing...
-										</>
-									) : (
-										<>
-											Sign Message
-											<ArrowRight className="ml-2 h-3 w-3" />
-										</>
-									)}
-								</Button>
-							</div>
+								{accounts.length > 1 ? (
+									<AccountSwitchingSection
+										showTitle={false}
+										handleSwitchAccount={
+											handleSwitchAccount
+										}
+										handleSignAndConnect={signAndConnect}
+										isConnecting={isConnecting}
+									/>
+								) : (
+									<div className="px-3 pt-3">
+										<Button
+											onClick={signAndConnect}
+											disabled={isConnecting}
+											size="sm"
+											className="w-full mb-2"
+										>
+											{isConnecting ? (
+												<>
+													<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
+													Signing...
+												</>
+											) : (
+												<>
+													Sign Message
+													<ArrowRight className="ml-2 h-3 w-3" />
+												</>
+											)}
+										</Button>
+									</div>
+								)}
+
+								<Divider />
+							</>
 						)}
-
-						<Divider />
 						<CopyAddressButton />
 						<Divider />
 						<NetworkSwitchingSection />

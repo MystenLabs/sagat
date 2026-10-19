@@ -111,4 +111,43 @@ test.describe('wallet sign-in', () => {
 			`${E2E.walletName}:${stranger}:`,
 		);
 	});
+
+	test('an unreachable API shows a retry state instead of asking for a signature', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		await alice.signIn();
+
+		const apiRoutes = `${E2E.apiUrl}/**`;
+		await alice.page.route(apiRoutes, (route) =>
+			route.abort('connectionrefused'),
+		);
+		await alice.page.reload();
+
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toHaveCount(0);
+		await expect(
+			alice.page.getByTestId('sign-in-button'),
+		).toHaveCount(0);
+
+		await alice.page.unroute(apiRoutes);
+		await alice.page
+			.getByTestId('api-retry-button')
+			.click();
+
+		await expect(alice.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+		await expect(
+			alice.page.getByTestId('dashboard-empty'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toHaveCount(0);
+	});
 });

@@ -17,6 +17,7 @@ import {
 import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useSessionBoot } from '../hooks/useSessionBoot';
+import { ApiUnreachable } from './ApiUnreachable';
 import { AuthPrompt } from './AuthPrompt';
 import { CreateMultisigPage } from './CreateMultisigPage';
 import { CustomWalletButton } from './CustomWalletButton';
@@ -114,7 +115,8 @@ function getAuthLevel(pathname: string): AuthLevel {
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
 	const { reconnecting, checkingAuth } = useSessionBoot();
-	const { isCurrentAddressAuthenticated } = useApiAuth();
+	const { isApiUnreachable, isCurrentAddressAuthenticated } =
+		useApiAuth();
 	const location = useLocation();
 	const network = useCurrentNetwork();
 
@@ -223,6 +225,8 @@ export function AppRouter() {
 			/>
 		);
 	}
+
+	if (isApiUnreachable) return <ApiUnreachable />;
 
 	if (!isCurrentAddressAuthenticated) {
 		return <AuthPrompt />;

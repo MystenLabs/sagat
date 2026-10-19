@@ -8,6 +8,7 @@ import {
 import {
 	defaultExpiry,
 	PersonalMessages,
+	SagatApiError,
 	type Address,
 	type AuthCheckResponse,
 } from '@mysten/sagat';
@@ -32,6 +33,11 @@ interface ApiAuthContextType {
 	isAuthenticated: boolean;
 	authenticatedAddresses: string[];
 	isCheckingAuth: boolean;
+	// The auth check failed without an answer from the API (network
+	// error, timeout, 5xx), so we can't tell whether the user is signed in.
+	isApiUnreachable: boolean;
+	isRetryingAuth: boolean;
+	retryAuthCheck: () => void;
 
 	// Current wallet account state
 	currentAddress: Address | null;
@@ -50,6 +56,26 @@ const ApiAuthContext = createContext<
 
 const AUTH_QUERY_KEY = ['auth', 'check'] as const;
 
+const SIGNED_OUT: AuthCheckResponse = {
+	authenticated: false,
+	addresses: [],
+};
+
+async function checkAuth(): Promise<AuthCheckResponse> {
+	try {
+		return await apiClient.checkAuth();
+	} catch (error) {
+		// No (or an expired) session is an answer, not an outage.
+		if (
+			error instanceof SagatApiError &&
+			(error.status === 401 || error.status === 403)
+		) {
+			return SIGNED_OUT;
+		}
+		throw error;
+	}
+}
+
 export function ApiAuthProvider({
 	children,
 }: {
@@ -66,10 +92,12 @@ export function ApiAuthProvider({
 	const {
 		data: authData,
 		isLoading: isCheckingAuth,
+		isError: isAuthCheckError,
+		isFetching: isFetchingAuth,
 		refetch: refetchAuth,
 	} = useQuery<AuthCheckResponse>({
 		queryKey: [...AUTH_QUERY_KEY, currentAccount?.address],
-		queryFn: () => apiClient.checkAuth(),
+		queryFn: checkAuth,
 		retry: false,
 		// Always check when account changes
 		enabled: true,
@@ -145,12 +173,23 @@ export function ApiAuthProvider({
 		) ??
 			false);
 
+	// A failed refetch keeps the last answer, so a blip on refocus doesn't
+	// sign anyone out. Without a session for this address, a failed check
+	// means we can't tell, and asking for a signature would only fail.
+	const isApiUnreachable =
+		isAuthCheckError && !isCurrentAddressAuthenticated;
+
 	const value: ApiAuthContextType = {
 		// Auth state
 		isAuthenticated: authData?.authenticated ?? false,
 		authenticatedAddresses:
 			authData?.addresses?.map((x) => x.address) ?? [],
 		isCheckingAuth,
+		isApiUnreachable,
+		isRetryingAuth: isFetchingAuth,
+		retryAuthCheck: () => {
+			void refetchAuth();
+		},
 
 		// Current wallet
 		currentAddress,
@@ -158,6 +197,7 @@ export function ApiAuthProvider({
 
 		// Actions
 		signAndConnect: async () => {
+			if (isApiUnreachable) return;
 			await connectMutation.mutateAsync();
 		},
 		disconnect: async () => {
