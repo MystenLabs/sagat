@@ -1,7 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useState,
+	type ReactNode,
+} from 'react';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
 import {
@@ -13,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
+import { LocalStorageKeys } from '@/lib/localStorageKeys';
 import { cn } from '@/lib/utils';
 
 import { AppSidebar } from './AppSidebar';
@@ -21,6 +27,17 @@ import { ThemeToggle } from './ThemeToggle';
 /** Sidebar width from the designs; the icon rail when collapsed. */
 const SIDEBAR_WIDTH = '232px';
 const SIDEBAR_WIDTH_ICON = '48px';
+
+function readStoredOpen() {
+	try {
+		return (
+			localStorage.getItem(LocalStorageKeys.SidebarOpen) !==
+			'false'
+		);
+	} catch {
+		return true;
+	}
+}
 
 /**
  * App chrome: the sidebar on the left and the page on the right. The sidebar
@@ -35,13 +52,28 @@ export function AppShell({
 	contentClassName?: string;
 }) {
 	const wide = useMediaQuery('(min-width: 1280px)');
-	const [open, setOpen] = useState(wide);
+	// On wide screens the user's last choice wins; narrower viewports always
+	// start on the icon rail.
+	const [open, setOpenState] = useState(
+		() => wide && readStoredOpen(),
+	);
+	const setOpen = useCallback((next: boolean) => {
+		setOpenState(next);
+		try {
+			localStorage.setItem(
+				LocalStorageKeys.SidebarOpen,
+				String(next),
+			);
+		} catch {
+			// Private mode or blocked storage: the choice just won't persist.
+		}
+	}, []);
 	// Follow the viewport when it crosses the breakpoint; the user can still
 	// toggle manually in between.
 	const [prevWide, setPrevWide] = useState(wide);
 	if (wide !== prevWide) {
 		setPrevWide(wide);
-		setOpen(wide);
+		setOpenState(wide && readStoredOpen());
 	}
 
 	// Toasts centre on the content column, not the viewport: tell the

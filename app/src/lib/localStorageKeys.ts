@@ -3,6 +3,7 @@
 
 export const LocalStorageKeys = {
 	SuiNetwork: 'SuiNetwork',
+	SidebarOpen: 'SidebarOpen',
 	// The wallet kit's saved session, restored on load. Keep the value: a
 	// new one would sign everyone out.
 	WalletSession:

@@ -67,7 +67,12 @@ import {
 	useSidebar,
 } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { TOOLS } from '@/config/tools';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
@@ -133,7 +138,8 @@ export function AppSidebar() {
 
 function SidebarNav() {
 	const location = useLocation();
-	const { setOpenMobile } = useSidebar();
+	const { setOpenMobile, state: sidebarState } =
+		useSidebar();
 	const currentAccount = useCurrentAccount();
 	const { holdWalletControls } = useSessionBoot();
 	const { isCurrentAddressAuthenticated } = useApiAuth();
@@ -205,10 +211,21 @@ function SidebarNav() {
 								/>
 							</span>
 						</Link>
-						<SidebarTrigger
-							data-testid="sidebar-toggle"
-							className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:hidden"
-						/>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<SidebarTrigger
+										data-testid="sidebar-toggle"
+										className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:hidden"
+									/>
+								}
+							/>
+							<TooltipContent side="right">
+								{sidebarState === 'collapsed'
+									? 'Expand sidebar'
+									: 'Collapse sidebar'}
+							</TooltipContent>
+						</Tooltip>
 					</div>
 					{booting ? (
 						<SwitcherSkeleton />
@@ -355,7 +372,7 @@ function SidebarNav() {
 												<span className="flex-1">
 													{label}
 												</span>
-												<ArrowUpRight className="size-3! opacity-60 group-data-[collapsible=icon]:hidden" />
+												<ArrowUpRight className="size-3! opacity-60 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-1 group-data-[collapsible=icon]:right-1 group-data-[collapsible=icon]:size-2.5!" />
 											</SidebarMenuButton>
 										</SidebarMenuItem>
 									),
