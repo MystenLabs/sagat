@@ -35,7 +35,7 @@ export function ShortAddress({
 					type="button"
 					data-address={address}
 					className={cn(
-						'cursor-default rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
+						'cursor-help rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
 						className,
 					)}
 				>

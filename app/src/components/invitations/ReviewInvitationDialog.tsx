@@ -5,10 +5,9 @@ import { formatAddress } from '@mysten/sui/utils';
 import { Check, Info } from 'lucide-react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { useNetwork } from '@/contexts/NetworkContext';
 import { validatePublicKey } from '@/lib/sui-utils';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import { cn } from '@/lib/utils';
+import { cn, errorMessage } from '@/lib/utils';
 
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/button';
@@ -47,10 +46,9 @@ export function ReviewInvitationDialog({
 	onAccept: () => void;
 	onReject: () => void;
 	accepting: boolean;
-	error: Error | null;
+	error: unknown;
 	onBack: () => void;
 }) {
-	const { network } = useNetwork();
 	const { currentAddress } = useApiAuth();
 	const name = accountName(multisig);
 	const signers = [...multisig.members]
@@ -86,7 +84,7 @@ export function ReviewInvitationDialog({
 				{error ? (
 					<>
 						<div className="flex flex-col gap-1 pr-8">
-							<DialogTitle className="text-24 font-bold tracking-[-0.03em]">
+							<DialogTitle className="text-24 font-bold">
 								Couldn't join {name}
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
@@ -98,7 +96,10 @@ export function ReviewInvitationDialog({
 							className="mt-5"
 							data-testid="accept-invitation-error"
 						>
-							{error.message}
+							{errorMessage(
+								error,
+								'The wallet rejected the request.',
+							)}
 						</Alert>
 						<div className="mt-5 flex justify-end gap-2 border-t pt-5">
 							<Button variant="outline" onClick={onBack}>
@@ -116,7 +117,7 @@ export function ReviewInvitationDialog({
 				) : (
 					<>
 						<div className="flex flex-col gap-1 pr-8">
-							<DialogTitle className="text-24 font-bold tracking-[-0.03em]">
+							<DialogTitle className="text-24 font-bold">
 								Join {name}?
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
@@ -127,11 +128,7 @@ export function ReviewInvitationDialog({
 								) : (
 									'Someone'
 								)}{' '}
-								invited you as a signer on{' '}
-								<span className="capitalize">
-									{network}
-								</span>
-								.
+								invited you as a signer.
 							</DialogDescription>
 						</div>
 
@@ -170,7 +167,7 @@ export function ReviewInvitationDialog({
 							</div>
 						</div>
 
-						<div className="mt-4 overflow-hidden rounded-lg border">
+						<div className="mt-4 overflow-hidden rounded-2xl border">
 							<table className="w-full text-13">
 								<thead>
 									<tr className="bg-muted text-left text-12 text-muted-foreground">
@@ -252,7 +249,7 @@ export function ReviewInvitationDialog({
 							</table>
 						</div>
 
-						<p className="mt-4 flex items-start gap-2.5 text-13 leading-[1.5] text-foreground-secondary">
+						<p className="mt-4 flex items-start gap-2.5 text-13 text-foreground-secondary">
 							<Info className="mt-0.5 size-4 shrink-0" />
 							<span>
 								Check each address before you accept.

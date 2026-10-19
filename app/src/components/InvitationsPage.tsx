@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { useInvitations } from '../hooks/useInvitations';
 import { InvitationCard } from './invitations/InvitationCard';
-import { EmptyState } from './ui/empty-state';
+import { EmptyState, ErrorState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
 import { SkeletonRows } from './ui/skeleton';
 import { Tabs } from './ui/tabs';
@@ -59,6 +59,13 @@ export function InvitationsPage() {
 					rows={2}
 					header={false}
 					testId="invitations-loading"
+				/>
+			) : current.isError && !current.data ? (
+				<ErrorState
+					title="Failed to load invitations"
+					error={current.error}
+					onRetry={() => current.refetch()}
+					testId="invitations-error"
 				/>
 			) : invitations.length === 0 ? (
 				<EmptyState

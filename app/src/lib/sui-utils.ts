@@ -119,25 +119,3 @@ export function computeMultisigAddress(
 		};
 	}
 }
-
-const KEY_TYPES: Record<number, string> = {
-	0: 'Ed25519',
-	1: 'Secp256k1',
-	2: 'Secp256r1',
-	3: 'MultiSig',
-	5: 'ZkLogin',
-	6: 'Passkey',
-};
-
-/** The signature scheme behind a Sui-format public key, for display. */
-export function keyTypeFromPublicKey(
-	publicKeyString: string,
-): string {
-	try {
-		const flag =
-			extractPublicKeyFromBase64(publicKeyString).flag();
-		return KEY_TYPES[flag] ?? `Unknown (${flag})`;
-	} catch {
-		return 'Unknown';
-	}
-}

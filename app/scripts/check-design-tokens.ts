@@ -93,11 +93,6 @@ const ERRORS: Rule[] = [
 			/(?<![\w-])(?:[\w-]+:)*shadow-(?!(?:none|toast)(?![\w-]))(?:\[[^\]\s]*\]|\([^)\s]*\)|[\w-]+)/g,
 		message:
 			'shadow; the design system has none except shadow-toast, use a border',
-		// Old screens that are rebuilt on the design system; drop each one
-		// from here when it is.
-		allow: [
-			/components\/invitations\/InvitationCard\.tsx$/,
-		],
 	},
 	{
 		pattern:

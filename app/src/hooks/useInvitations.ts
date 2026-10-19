@@ -10,10 +10,7 @@ import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 // Hook to fetch invitations for the current user's public key
-export function useInvitations(
-	showRejected = false,
-	enabled = true,
-) {
+export function useInvitations(showRejected = false) {
 	const { isCurrentAddressAuthenticated, currentAddress } =
 		useApiAuth();
 
@@ -59,9 +56,7 @@ export function useInvitations(
 			});
 		},
 		enabled:
-			isCurrentAddressAuthenticated &&
-			!!currentAddress &&
-			enabled,
+			isCurrentAddressAuthenticated && !!currentAddress,
 		staleTime: 0, // Don't cache - always refetch when needed
 		refetchOnMount: true, // Refetch when component mounts
 	});

@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { errorMessage } from '@/lib/utils';
+
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/button';
 import {
@@ -28,7 +30,7 @@ export function RejectInvitationDialog({
 	name: string;
 	onConfirm: () => void;
 	rejecting: boolean;
-	error: Error | null;
+	error: unknown;
 	onBack: () => void;
 }) {
 	return (
@@ -58,7 +60,10 @@ export function RejectInvitationDialog({
 							className="mt-4"
 							data-testid="reject-invitation-error"
 						>
-							{error.message}
+							{errorMessage(
+								error,
+								'The wallet rejected the request.',
+							)}
 						</Alert>
 						<div className="mt-5 grid grid-cols-2 gap-2">
 							<Button variant="outline" onClick={onBack}>

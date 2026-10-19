@@ -26,6 +26,7 @@ import {
 } from 'react-router-dom';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
+import { accountName } from '@/components/invitations/account-name';
 import { Logo } from '@/components/Logo';
 import {
 	NetworkMenuItems,
@@ -435,8 +436,6 @@ function MultisigSwitcher({
 		navigate(to);
 		onNavigate();
 	};
-	const name = (m: MultisigWithMembersForPublicKey) =>
-		m.name || formatAddress(m.address);
 
 	return (
 		<div className="flex flex-col gap-2.5">
@@ -446,7 +445,9 @@ function MultisigSwitcher({
 					render={
 						<SidebarRailTooltip
 							tooltip={
-								selected ? name(selected) : 'New multisig'
+								selected
+									? accountName(selected)
+									: 'New multisig'
 							}
 						/>
 					}
@@ -465,7 +466,9 @@ function MultisigSwitcher({
 					</span>
 					<span className="flex min-w-0 flex-1 flex-col gap-0.5 group-data-[collapsible=icon]:sr-only">
 						<span className="truncate text-13 font-medium">
-							{selected ? name(selected) : 'New multisig'}
+							{selected
+								? accountName(selected)
+								: 'New multisig'}
 						</span>
 						<span className="truncate text-11 tracking-[0.04em] text-sidebar-foreground/60">
 							{selected
@@ -499,7 +502,7 @@ function MultisigSwitcher({
 									)}
 								>
 									<span className="text-13 font-medium">
-										{name(m)}
+										{accountName(m)}
 									</span>
 									<span className="font-mono text-11 text-muted-foreground">
 										{formatAddress(m.address)}

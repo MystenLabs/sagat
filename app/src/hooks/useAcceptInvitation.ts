@@ -48,17 +48,18 @@ export function useAcceptInvitation() {
 		},
 		// Lives here rather than in the caller: the invitation card unmounts
 		// as soon as the inbox refetches, which drops per-call callbacks.
-		// Refetch the accounts first so the account page can find the new
-		// one, then land on it with a greeting.
-		onSuccess: async (_data, { address }) => {
-			await queryClient.invalidateQueries({
+		// The accept has landed, so go to the account right away; the
+		// account page waits for the refreshed list instead of blocking
+		// the button on it.
+		onSuccess: (_data, { address }) => {
+			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
+			});
+			void queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Invitations],
 			});
 			navigate(`/multisig/${address}/overview`, {
 				state: { joined: true },
-			});
-			await queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Invitations],
 			});
 		},
 	});

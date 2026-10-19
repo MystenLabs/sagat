@@ -84,6 +84,14 @@ test.describe('invitations', () => {
 		await expect(
 			bob.page.getByTestId('joined-banner'),
 		).toContainText('You joined');
+		// The greeting shows once, not again on reload.
+		await bob.page.reload();
+		await expect(
+			bob.page.getByTestId('multisig-detail'),
+		).toBeVisible();
+		await expect(
+			bob.page.getByTestId('joined-banner'),
+		).toBeHidden();
 		await bob.page.getByTestId('nav-invitations').click();
 		await expect(
 			bob.page.getByTestId('invitations-empty'),
