@@ -30,9 +30,11 @@ import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useDefaultSuinsName } from '../hooks/useDefaultSuinsName';
+import { useNetworkOptions } from '../hooks/useNetworkOptions';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { Button } from './ui/button';
 import { Chip } from './ui/chip';
+import { SidebarRailTooltip } from './ui/sidebar';
 import { Switch } from './ui/switch';
 
 type WalletVariant = 'header' | 'sidebar' | 'rail';
@@ -89,7 +91,7 @@ const AccountIdentity = ({
 // sidebar rail, where the trigger sits at the bottom of the screen.
 const menuClass = (variant: WalletVariant) =>
 	cn(
-		'absolute z-50 min-w-64 rounded-lg border bg-popover py-1 text-13 text-popover-foreground shadow-lg',
+		'absolute z-50 min-w-64 rounded-lg border bg-popover py-1 text-13 text-popover-foreground',
 		variant === 'rail'
 			? 'bottom-full left-0 mb-1 w-full'
 			: 'top-full right-0 mt-1',
@@ -98,17 +100,20 @@ const menuClass = (variant: WalletVariant) =>
 // Full-width row used as the trigger in the sidebar rail.
 const RailTrigger = ({
 	children,
+	label,
 	...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
 	children: ReactNode;
+	label: string;
 }) => (
-	<button
-		type="button"
+	<SidebarRailTooltip
+		tooltip={label}
+		aria-label={label}
 		{...props}
 		className="flex w-full cursor-pointer items-center gap-2.5 rounded-md p-2 text-left text-13 text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
 	>
 		{children}
-	</button>
+	</SidebarRailTooltip>
 );
 
 const RailAvatar = ({ address }: { address: string }) => (
@@ -199,6 +204,7 @@ export function CustomWalletButton({
 			<div className="relative" ref={dropdownRef}>
 				{variant === 'rail' ? (
 					<RailTrigger
+						label={`Wallet ${getCompactWalletLabel(currentAccount.address, currentSuinsName)}`}
 						onClick={() => setShowWallets(!showWallets)}
 						data-testid="wallet-menu-button"
 						data-auth-state="unauthenticated"
@@ -265,7 +271,7 @@ export function CustomWalletButton({
 								>
 									{isConnecting ? (
 										<>
-											<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2" />
+											<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
 											Signing...
 										</>
 									) : (
@@ -346,6 +352,7 @@ export function CustomWalletButton({
 		<div className="relative" ref={dropdownRef}>
 			{variant === 'rail' ? (
 				<RailTrigger
+					label={`Wallet ${getCompactWalletLabel(currentAccount.address, currentSuinsName)}`}
 					onClick={() => setShowWallets(!showWallets)}
 					data-testid="wallet-menu-button"
 					data-auth-state="authenticated"
@@ -528,15 +535,26 @@ const Divider = () => <div className="border-t my-1"></div>;
 // A network switcher for the test mode.
 const NetworkSwitchingSection = () => {
 	const { isTestMode, setNetwork } = useNetwork();
+	const target = useNetworkOptions().find(
+		(option) =>
+			option.value === (isTestMode ? 'mainnet' : 'testnet'),
+	);
+	const hint = target ? target.hint : 'Not available';
 	return (
 		<>
 			<div className="flex h-9 items-center justify-between px-3 text-13">
 				<div className="flex items-center gap-2">
 					<Globe className="w-4 h-4" />
 					<span className="font-medium">Test Mode</span>
+					{hint && (
+						<span className="text-11 text-muted-foreground">
+							{hint}
+						</span>
+					)}
 				</div>
 				<Switch
 					checked={isTestMode}
+					disabled={!target?.enabled}
 					onCheckedChange={(checked) =>
 						setNetwork(checked ? 'testnet' : 'mainnet')
 					}
@@ -568,6 +586,12 @@ const NotConnectedWalletVariant = ({
 				}
 				size="sm"
 				onClick={() => setShowWallets(!showWallets)}
+				aria-label="Connect Wallet"
+				render={
+					variant === 'rail' ? (
+						<SidebarRailTooltip tooltip="Connect Wallet" />
+					) : undefined
+				}
 				className={cn(
 					'flex items-center gap-2',
 					variant === 'rail' &&

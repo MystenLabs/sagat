@@ -54,6 +54,7 @@ import {
 	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarRailTooltip,
 	SidebarSeparator,
 	SidebarTrigger,
 	useSidebar,
@@ -64,6 +65,7 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
+import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -124,7 +126,7 @@ export function AppSidebar() {
 	);
 	const lastViewed = currentAccount
 		? localStorage.getItem(
-				`lastViewedMultisig_${currentAccount.address}`,
+				lastViewedMultisigKey(currentAccount.address),
 			)
 		: null;
 	const selected =
@@ -135,7 +137,9 @@ export function AppSidebar() {
 	const closeMobile = () => setOpenMobile(false);
 
 	return (
-		<Sidebar collapsible="icon">
+		// Above the sticky test-mode banner: the wallet menu opens out of the
+		// rail over the page.
+		<Sidebar collapsible="icon" className="z-50">
 			<div
 				className="flex min-h-0 flex-1 flex-col"
 				data-testid="app-header"
@@ -361,6 +365,13 @@ function MultisigSwitcher({
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					data-testid="multisig-switcher"
+					render={
+						<SidebarRailTooltip
+							tooltip={
+								selected ? name(selected) : 'New multisig'
+							}
+						/>
+					}
 					className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-left text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
 				>
 					<span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
@@ -370,7 +381,7 @@ function MultisigSwitcher({
 							<Plus className="size-4" />
 						)}
 					</span>
-					<span className="flex min-w-0 flex-1 flex-col gap-0.5 group-data-[collapsible=icon]:hidden">
+					<span className="flex min-w-0 flex-1 flex-col gap-0.5 group-data-[collapsible=icon]:sr-only">
 						<span className="truncate text-13 font-medium">
 							{selected ? name(selected) : 'New multisig'}
 						</span>
@@ -447,6 +458,12 @@ function NetworkRow() {
 			{/* A plain button: Base UI anchors the menu to the trigger's ref. */}
 			<DropdownMenuTrigger
 				data-testid="network-menu-button"
+				aria-label={`Network: ${network}`}
+				render={
+					<SidebarRailTooltip
+						tooltip={`Network: ${network}`}
+					/>
+				}
 				className={cn(
 					'flex h-8 w-full cursor-pointer items-center gap-2 rounded-md p-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0',
 					navItemClass,

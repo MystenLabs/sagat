@@ -5,10 +5,17 @@ import { AlertTriangle, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
+import { useNetworkOptions } from '../hooks/useNetworkOptions';
 
 export function TestModeBanner() {
 	const { isTestMode, network, setNetwork } = useNetwork();
 	const [isDismissed, setIsDismissed] = useState(false);
+	const mainnet = useNetworkOptions().find(
+		(option) => option.value === 'mainnet',
+	);
+	const mainnetHint = mainnet
+		? mainnet.hint
+		: 'Not available';
 
 	if (!isTestMode || isDismissed) {
 		return null;
@@ -37,9 +44,15 @@ export function TestModeBanner() {
 					</div>
 				</div>
 				<div className="flex items-center gap-2">
+					{mainnetHint && (
+						<span className="text-12 text-warning-foreground">
+							{mainnetHint}
+						</span>
+					)}
 					<button
 						onClick={() => setNetwork('mainnet')}
-						className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1.5 rounded transition-colors cursor-pointer"
+						disabled={!mainnet?.enabled}
+						className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1.5 rounded transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50"
 					>
 						Switch to Mainnet
 					</button>

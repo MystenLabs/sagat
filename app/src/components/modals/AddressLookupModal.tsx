@@ -105,7 +105,7 @@ export function AddressLookupModal({
 	const foundKey = publicKey ?? onChainResult?.publicKey;
 
 	return (
-		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+		<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
 			<div
 				className="bg-card rounded-lg p-6 w-full max-w-md mx-4"
 				data-testid="address-lookup-modal"

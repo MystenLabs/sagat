@@ -68,7 +68,7 @@ function RecognizedBadge({
 	return (
 		<span
 			className={cn(
-				'absolute rounded-full bg-success-foreground text-primary-foreground ring-1 ring-background border border-success-border flex items-center justify-center shadow-sm',
+				'absolute rounded-full bg-success-foreground text-primary-foreground ring-1 ring-background border border-success-border flex items-center justify-center',
 				badgeClassName,
 			)}
 			title="Recognized coin"

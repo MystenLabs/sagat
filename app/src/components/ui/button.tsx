@@ -25,7 +25,7 @@ const buttonVariants = cva(
 				ghost:
 					'hover:bg-muted hover:text-foreground aria-expanded:bg-muted dark:hover:bg-muted/50',
 				destructive:
-					'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
+					'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40', // design-tokens-ignore: white reads on the red in both themes
 				outlineDestructive:
 					'border-destructive text-destructive hover:bg-destructive/10',
 				link: 'text-primary underline-offset-4 hover:underline',

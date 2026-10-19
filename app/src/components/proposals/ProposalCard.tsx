@@ -198,7 +198,7 @@ export function ProposalCard({
 
 	return (
 		<div
-			className="bg-card border rounded-lg hover:shadow-sm transition-shadow"
+			className="bg-card border rounded-lg"
 			data-testid="proposal-card"
 			data-digest={proposal.digest}
 			data-status={statusKey}

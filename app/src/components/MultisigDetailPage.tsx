@@ -11,6 +11,8 @@ import {
 	useParams,
 } from 'react-router-dom';
 
+import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
+
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import {
 	ProposalSheet,
@@ -54,8 +56,10 @@ export function MultisigDetailPage() {
 			multisig?.isAccepted &&
 			currentAccount?.address
 		) {
-			const lastViewedKey = `lastViewedMultisig_${currentAccount.address}`;
-			localStorage.setItem(lastViewedKey, address);
+			localStorage.setItem(
+				lastViewedMultisigKey(currentAccount.address),
+				address,
+			);
 		}
 	}, [address, verifiedMultisigs, currentAccount?.address]);
 

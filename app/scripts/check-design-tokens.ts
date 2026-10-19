@@ -9,6 +9,10 @@
  * Errors fail the run:
  * - hex colours and colour functions (rgb, hsl, oklch, color-mix)
  * - Tailwind palette shades such as `bg-blue-500` or `text-gray-400`
+ * - `white` and `black` colour utilities such as `bg-white` or
+ *   `text-black`, which the skill keeps for overlays and the logo tile
+ * - shadows (`shadow-sm`, `shadow-lg`, ...) other than `shadow-none` and
+ *   `shadow-toast`; depth comes from borders and surfaces
  * - arbitrary text sizes such as `text-[13px]`
  *
  * The default Tailwind text scale (`text-sm`, `text-lg`, ...) is reported
@@ -43,29 +47,57 @@ const COLOR_UTILITIES =
 const HUES =
 	'(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)';
 
-type Rule = { pattern: RegExp; message: string };
+type Rule = {
+	pattern: RegExp;
+	message: string;
+	/** Files the rule does not apply to. */
+	allow?: RegExp[];
+};
 
 const ERRORS: Rule[] = [
 	{
-		pattern: /(?<![\w&])#[0-9a-fA-F]{3,8}\b/,
+		pattern: /(?<![\w&])#[0-9a-fA-F]{3,8}\b/g,
 		message:
 			'hex colour; add a token to src/index.css and use its class',
 	},
 	{
-		pattern: /\b(?:rgba?|hsla?|oklch|color-mix)\(/,
+		pattern: /\b(?:rgba?|hsla?|oklch|color-mix)\(/g,
 		message:
 			'colour function; colours live in src/index.css as tokens',
 	},
 	{
 		pattern: new RegExp(
-			`(?<![\\w-])(?:[\\w-]+:)*${COLOR_UTILITIES}-${HUES}-\\d{2,3}\\b`,
+			`(?<![\\w-])(?:[\\w-]+:)*${COLOR_UTILITIES}-(?:offset-)?${HUES}-\\d{2,3}\\b`,
+			'g',
 		),
 		message:
 			'Tailwind palette shade; use a semantic token class instead',
 	},
 	{
+		pattern: new RegExp(
+			// A translucent black background is an overlay: allowed.
+			`(?<![\\w-])(?:[\\w-]+:)*(?!bg-black\\/)${COLOR_UTILITIES}-(?:offset-)?(?:white|black)(?![\\w-])`,
+			'g',
+		),
+		message:
+			'white/black; use a semantic token (white and black are for overlays and the logo tile only)',
+		allow: [/components\/Logo\.tsx$/],
+	},
+	{
 		pattern:
-			/(?<![\w-])(?:[\w-]+:)*text-\[\d*\.?\d+(?:px|rem|em)\]/,
+			/(?<![\w-])(?:[\w-]+:)*shadow-(?!(?:none|toast)(?![\w-]))[\w-]+/g,
+		message:
+			'shadow; the design system has none except shadow-toast, use a border',
+		// Old screens that are rebuilt on the design system; drop each one
+		// from here when it is.
+		allow: [
+			/components\/LocalNetworkSelector\.tsx$/,
+			/components\/invitations\/InvitationCard\.tsx$/,
+		],
+	},
+	{
+		pattern:
+			/(?<![\w-])(?:[\w-]+:)*text-\[\d*\.?\d+(?:px|rem|em)\]/g,
 		message:
 			'arbitrary text size; use the pixel scale (text-13, text-16, ...) or add a step in src/index.css',
 	},
@@ -97,9 +129,9 @@ for (const file of walk(ROOT).sort()) {
 
 	lines.forEach((line, i) => {
 		if (line.includes(IGNORE_MARK)) return;
-		for (const { pattern, message } of ERRORS) {
-			const match = line.match(pattern);
-			if (match) {
+		for (const { pattern, message, allow } of ERRORS) {
+			if (allow?.some((re) => re.test(file))) continue;
+			for (const match of line.matchAll(pattern)) {
 				errorCount++;
 				console.error(
 					`${rel}:${i + 1}: ${match[0]} — ${message}`,
