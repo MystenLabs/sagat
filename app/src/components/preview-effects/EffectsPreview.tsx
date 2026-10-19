@@ -32,6 +32,7 @@ function PreviewModeHelp() {
 			<Tooltip>
 				<TooltipTrigger
 					aria-label="Explain simulation and static analyzer"
+					data-testid="preview-help"
 					className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
 					<HelpCircle className="size-4" />
