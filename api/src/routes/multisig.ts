@@ -46,6 +46,7 @@ import {
 	isSignerSetFinalized,
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
+	validateMemberCount,
 	validateQuorum,
 } from '../services/multisig.service';
 import {
@@ -104,7 +105,9 @@ multisigRouter.post(
 			labels?: unknown;
 		} = await c.req.json();
 
-		// Pure checks first, before anything is written.
+		// Pure checks first, before anything is written. The member count is
+		// bounded before anything is sized by it.
+		validateMemberCount(publicKeys);
 		const labels = normalizeKeyLabels(
 			rawLabels,
 			publicKeys.length,

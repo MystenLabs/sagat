@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { LIMITS } from '../constants/limits';
 import { MAX_KEY_LABEL_LENGTH } from '../db/schema';
 import { ValidationError } from '../errors';
 
@@ -22,6 +23,16 @@ export const normalizeKeyLabels = (
 	labels: unknown,
 	publicKeyCount: number,
 ): (string | null)[] => {
+	// Never size anything by an unchecked count, whatever the caller did.
+	if (
+		!Number.isSafeInteger(publicKeyCount) ||
+		publicKeyCount < 0 ||
+		publicKeyCount > LIMITS.maxMembersPerMultisig
+	)
+		throw new ValidationError(
+			`A multisig has at most ${LIMITS.maxMembersPerMultisig} keys.`,
+		);
+
 	if (labels === undefined || labels === null)
 		return Array.from(
 			{ length: publicKeyCount },

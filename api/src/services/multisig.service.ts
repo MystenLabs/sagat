@@ -5,6 +5,7 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
 import { and, eq, inArray } from 'drizzle-orm';
 
+import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
 	ProposalStatus,
@@ -52,6 +53,24 @@ export const getLegacyMultisig = async (
 	);
 };
 
+/**
+ * Bounds the member count of a create request. Pure and cheap, so the
+ * create route runs it before anything is sized by `publicKeys.length`:
+ * an unbounded length from the request body must never reach an
+ * allocation.
+ */
+export const validateMemberCount = (members: unknown) => {
+	if (
+		!Array.isArray(members) ||
+		members.length > LIMITS.maxMembersPerMultisig ||
+		members.length < LIMITS.minMembersPerMultisig
+	) {
+		throw new ValidationError(
+			`Addresses cannot be more than ${LIMITS.maxMembersPerMultisig} or less than ${LIMITS.minMembersPerMultisig}`,
+		);
+	}
+};
+
 export const validateQuorum = async (
 	addresses: string[],
 	weights: number[],
@@ -63,11 +82,7 @@ export const validateQuorum = async (
 		);
 	}
 
-	if (addresses.length > 10 || addresses.length < 2) {
-		throw new ValidationError(
-			'Addresses cannot be more than 10 or less than 2',
-		);
-	}
+	validateMemberCount(addresses);
 
 	// validate weights.
 	weights.forEach((weight) => {

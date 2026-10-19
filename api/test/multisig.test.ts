@@ -91,6 +91,19 @@ describe('Multisig API', () => {
 		).rejects.toThrow(
 			'Addresses cannot be more than 10 or less than 2',
 		);
+
+		// A body that only claims a length must be refused before anything
+		// is sized by it.
+		await expect(
+			session.client.createMultisig({
+				// @ts-expect-error not an array, on purpose
+				publicKeys: { length: 4294967295 },
+				weights: [],
+				threshold: 1,
+			}),
+		).rejects.toThrow(
+			'Addresses cannot be more than 10 or less than 2',
+		);
 	});
 
 	test('rejects weights that do not match the members', async () => {
