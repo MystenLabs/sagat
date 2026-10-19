@@ -3,6 +3,7 @@
 
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 
+import { getExplorerUrl } from '../../app/src/lib/utils';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
@@ -106,6 +107,16 @@ test.describe('proposals', () => {
 		await bobCard
 			.getByTestId('execute-proposal-button')
 			.click();
+		// The success toast names the transaction. Suiscan doesn't index
+		// localnet, so there is no explorer link here.
+		const toast = bob.page.locator(
+			'[data-sonner-toast][data-type="success"]',
+			{ hasText: 'Proposal executed' },
+		);
+		await expect(toast).toContainText(digest!);
+		await expect(
+			toast.getByRole('button', { name: /explorer/i }),
+		).toHaveCount(0);
 		await expect(bobCard).toHaveAttribute(
 			'data-status',
 			'executed',
@@ -121,6 +132,13 @@ test.describe('proposals', () => {
 		await expect(
 			alice.proposalCard(digest!),
 		).toHaveAttribute('data-status', 'executed');
+	});
+
+	test('explorer links go to suiscan, and not on localnet', () => {
+		expect(getExplorerUrl('abc', 'testnet')).toBe(
+			'https://suiscan.xyz/testnet/tx/abc',
+		);
+		expect(getExplorerUrl('abc', 'localnet')).toBeNull();
 	});
 
 	test('pending proposals show when they expire', async ({
