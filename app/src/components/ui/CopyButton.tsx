@@ -13,6 +13,7 @@ interface CopyButtonProps {
 	variant?: 'default' | 'ghost' | 'outline';
 	size?: 'default' | 'sm' | 'xs';
 	successMessage?: string;
+	'data-testid'?: string;
 }
 
 export function CopyButton({
@@ -21,6 +22,7 @@ export function CopyButton({
 	variant = 'ghost',
 	size = 'xs',
 	successMessage,
+	...rest
 }: CopyButtonProps) {
 	const { copied, copy } =
 		useCopyToClipboard(successMessage);
@@ -47,6 +49,7 @@ export function CopyButton({
 			}}
 			className={cn(sizeClasses[size], className)}
 			title={copied ? 'Copied' : 'Copy to clipboard'}
+			{...rest}
 		>
 			{copied ? (
 				<Check

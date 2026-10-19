@@ -29,11 +29,21 @@ test.describe('invitations', () => {
 		await card
 			.locator(`[data-address="${alice.address}"]`)
 			.hover();
-		await expect(
-			bob.page
-				.getByRole('tooltip')
-				.filter({ hasText: alice.address }),
-		).toBeVisible();
+		const addressTip = bob.page
+			.getByRole('tooltip')
+			.filter({ hasText: alice.address });
+		await expect(addressTip).toBeVisible();
+		// The tooltip stays open while hovered and can copy the address.
+		await bob.context.grantPermissions([
+			'clipboard-read',
+			'clipboard-write',
+		]);
+		await addressTip.getByTestId('address-copy').click();
+		expect(
+			await bob.page.evaluate(() =>
+				navigator.clipboard.readText(),
+			),
+		).toBe(alice.address);
 		await card
 			.getByTestId('invitation-toggle-details')
 			.click();

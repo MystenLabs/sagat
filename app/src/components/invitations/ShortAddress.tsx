@@ -6,6 +6,7 @@ import { type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
+import { CopyButton } from '../ui/CopyButton';
 import {
 	Tooltip,
 	TooltipContent,
@@ -40,8 +41,13 @@ export function ShortAddress({
 				>
 					{children ?? formatAddress(address)}
 				</TooltipTrigger>
-				<TooltipContent className="max-w-[calc(100vw-2rem)] font-mono text-11 break-all">
+				<TooltipContent className="max-w-[calc(100vw-2rem)] gap-2 pr-1.5 font-mono text-11 break-all">
 					{address}
+					<CopyButton
+						value={address}
+						className="shrink-0 text-background hover:bg-background/15 hover:text-background"
+						data-testid="address-copy"
+					/>
 				</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
