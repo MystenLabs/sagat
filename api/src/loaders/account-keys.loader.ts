@@ -11,11 +11,13 @@ import { and, inArray, isNotNull } from 'drizzle-orm';
 
 import { db } from '../db';
 import { SchemaAccountKeys } from '../db/schema';
-import { type KeyLabels } from '../legacy/serializers';
 import {
 	BATCH_SIZE,
 	SCHEDULER_INTERVAL,
 } from './signer-set.loader';
+
+/** Labels of one account's keys, by public key. Unlabelled keys are absent. */
+export type KeyLabels = ReadonlyMap<string, string>;
 
 async function batchLoadAccountKeyLabels(
 	accountAddresses: readonly string[],
@@ -38,6 +40,7 @@ async function batchLoadAccountKeyLabels(
 
 	const byAccount = new Map<string, Map<string, string>>();
 	for (const row of rows) {
+		// Filtered in SQL already; this narrows the type.
 		if (row.label === null) continue;
 		let labels = byAccount.get(row.accountAddress);
 		if (!labels) {

@@ -280,6 +280,75 @@ describe('Multisig API', () => {
 			]);
 		});
 
+		test('each label sits on its own key, whatever the order', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(3);
+			const reordered = [users[2], users[0], users[1]];
+			const multisig = await session.createMultisig(
+				reordered,
+				2,
+				{ labels: ['Third', 'First', null] },
+			);
+			const byKey = (
+				members: {
+					publicKey: string;
+					label: string | null;
+				}[],
+			) =>
+				Object.fromEntries(
+					members.map((m) => [m.publicKey, m.label]),
+				);
+			const expected = {
+				[users[2].publicKey]: 'Third',
+				[users[0].publicKey]: 'First',
+				[users[1].publicKey]: null,
+			};
+			expect(byKey(multisig.members)).toEqual(expected);
+			expect(
+				byKey(
+					(
+						await session.client.getMultisig(
+							multisig.address,
+						)
+					).members,
+				),
+			).toEqual(expected);
+		});
+
+		test('only a member can label the keys', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(1);
+			const others = [newUser(), newUser()];
+			// Setting up a multisig for others is allowed, labelling it is not.
+			await expect(
+				session.createMultisig(others, 2, {
+					labels: ['Planted', null],
+				}),
+			).rejects.toThrow('Only a member of the multisig');
+			const unlabelled = await session.createMultisig(
+				others,
+				2,
+				{
+					labels: [null, null],
+				},
+			);
+			expect(labelsOf(unlabelled.members)).toEqual([
+				null,
+				null,
+			]);
+			// A member among the keys may label them.
+			const labelled = await session.createMultisig(
+				[users[0], ...others],
+				2,
+				{ labels: ['Me', 'Alice', null] },
+			);
+			expect(labelsOf(labelled.members)).toEqual([
+				'Me',
+				'Alice',
+				null,
+			]);
+		});
+
 		test('labels are trimmed and blank labels mean no label', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(2);
@@ -386,6 +455,33 @@ describe('Multisig API', () => {
 					labels: ['x'.repeat(65), null],
 				}),
 			).rejects.toThrow('at most 64 characters');
+			// Exactly 64 is fine, counted in characters, not UTF-16 units.
+			const emoji = '\u{1F512}'.repeat(64);
+			const atLimit = await session.createMultisig(
+				users,
+				1,
+				{
+					labels: ['x'.repeat(64), emoji],
+				},
+			);
+			expect(labelsOf(atLimit.members)).toEqual([
+				'x'.repeat(64),
+				emoji,
+			]);
+			// Nothing that can reorder or hide text next to a key.
+			for (const bad of [
+				'Alice\u202Eevil',
+				'zero\u200Bwidth',
+				'new\nline',
+				'\u200B',
+			])
+				await expect(
+					session.createMultisig(users, 2, {
+						labels: [bad, null],
+					}),
+				).rejects.toThrow(
+					'control or formatting characters',
+				);
 			await expect(
 				session.createMultisig(users, 2, {
 					// @ts-expect-error a number is not a label

@@ -99,9 +99,16 @@ multisigRouter.post(
 			weights: number[];
 			threshold: number;
 			name?: string;
-			// Optional, aligned with `publicKeys`: what this account calls each key.
-			labels?: (string | null)[];
+			// Optional, aligned with `publicKeys`: what this account calls each
+			// key. Unvalidated until `normalizeKeyLabels`.
+			labels?: unknown;
 		} = await c.req.json();
+
+		// Pure checks first, before anything is written.
+		const labels = normalizeKeyLabels(
+			rawLabels,
+			publicKeys.length,
+		);
 
 		// Get a list of the public keys that are authorized.
 		const authorizedPubKeys = c.get('publicKeys');
@@ -123,10 +130,17 @@ multisigRouter.post(
 
 		// Validate the quorum with computed addresses
 		await validateQuorum(addresses, weights, threshold);
-		const labels = normalizeKeyLabels(
-			rawLabels,
-			publicKeys.length,
+
+		// Anyone holding a key may set up a multisig for others, but only a
+		// member may name its keys: labels are shown to every member and there
+		// is no route to change them, so an outsider must not get to write them.
+		const callerIsMember = authorizedPubKeys.some((k) =>
+			addresses.includes(k.toSuiAddress()),
 		);
+		if (!callerIsMember && labels.some((l) => l !== null))
+			throw new ValidationError(
+				'Only a member of the multisig can label its keys.',
+			);
 
 		const multisig = MultiSigPublicKey.fromPublicKeys({
 			threshold,

@@ -102,7 +102,7 @@ Shape of `signerSets` on a proposal:
 }
 ```
 
-Only signer sets that are valid for the account on the proposal's network are listed. `label` belongs to the account's entry for that signer set, or is null; the same signer set can have a different label in another account. Members carry their own `label`, the account's name for that key, which is also present on the legacy routes since 0010.
+Only signer sets that are valid for the account on the proposal's network are listed. `label` belongs to the account's entry for that signer set, or is null; the same signer set can have a different label in another account. Members here carry no `label`: key labels (0010) are returned only on authenticated member listings, never on proposal shapes or public lookups.
 
 ## SDK
 

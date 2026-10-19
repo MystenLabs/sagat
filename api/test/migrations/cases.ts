@@ -276,11 +276,10 @@ const accountKeys: MigrationCase = {
 		expect(
 			await db.rows(`
 				INSERT INTO account_keys (account_address, public_key, label, updated_by)
-				VALUES ('0xacc', 'AKEY1', 'Alice''s Ledger', '0xa1'), ('0xacc', 'AKEY2', NULL, '0xa1')
+				VALUES ('0xacc', 'AKEY1', 'Alice''s Ledger', '0xa1')
 				RETURNING account_address, public_key, label, updated_by, updated_at IS NOT NULL`),
 		).toEqual([
 			['0xacc', 'AKEY1', "Alice's Ledger", '0xa1', true],
-			['0xacc', 'AKEY2', null, '0xa1', true],
 		]);
 		await expect(
 			db.value(`
@@ -293,8 +292,7 @@ const accountKeys: MigrationCase = {
 		await expect(
 			db.value(`
 				INSERT INTO account_keys (account_address, public_key, label, updated_by)
-				VALUES ('0xacc', 'AKEY2', repeat('x', 65), '0xa1')
-				ON CONFLICT (account_address, public_key) DO UPDATE SET label = EXCLUDED.label`),
+				VALUES ('0xacc', 'AKEY2', repeat('x', 65), '0xa1')`),
 		).rejects.toThrow(/value too long/);
 
 		// Rows reference a known account and a known key.

@@ -328,10 +328,10 @@ const accountSignerSets = pgTable(
 // A key as one account knows it. Keyed by the account and the public key,
 // not by the signer set member row: a key carries over across rotations and
 // a composition can be shared by several accounts. Rows are optional; a key
-// without a row simply has no label. Written at account creation only for
-// now; the create route for a new signer set during rotation is the second
-// entry point. Later columns (role, last active, link to a person) are each
-// nullable additions.
+// without a row simply has no label. Written by the create route only, and
+// only by a member; there is no update route. Drafting a new signer set
+// during rotation (phase 3) is meant to be the second entry point. Later
+// columns (role, last active, link to a person) are each nullable additions.
 const accountKeys = pgTable(
 	'account_keys',
 	{

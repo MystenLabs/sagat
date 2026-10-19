@@ -19,11 +19,8 @@ import type {
 	SignerSetMember,
 	SignerSetWithMembers,
 } from '../db/schema';
+import { type KeyLabels } from '../loaders/account-keys.loader';
 import type { PaginatedResponse } from '../utils/pagination';
-
-/** Labels of one account's keys, by public key. Unlabelled keys are absent. */
-export type KeyLabels = ReadonlyMap<string, string>;
-const NO_LABELS: KeyLabels = new Map();
 
 export type LegacyMultisig = {
 	address: string;
@@ -84,7 +81,7 @@ export const toLegacyMultisig = (
 
 export const toLegacyMultisigMember = (
 	member: SignerSetMember,
-	label: string | null = null,
+	label: string | null,
 ): LegacyMultisigMember => ({
 	multisigAddress: member.signerSetAddress,
 	publicKey: member.publicKey,
@@ -100,8 +97,9 @@ export const toLegacyMultisigMember = (
 export const toLegacyMultisigWithMembers = (
 	signerSet: SignerSetWithMembers,
 	proposers: LegacyMultisigProposer[],
-	// Labels of the account with the same address, by public key.
-	labels: KeyLabels = NO_LABELS,
+	// Labels of the account with the same address, by public key. Required
+	// so that every call site decides where they come from.
+	labels: KeyLabels,
 ): LegacyMultisigWithMembers => ({
 	...toLegacyMultisig(signerSet),
 	members: signerSet.members.map((member) =>
