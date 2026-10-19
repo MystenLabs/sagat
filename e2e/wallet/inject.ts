@@ -47,6 +47,14 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 		autoApprove: true,
 		autoConnect: true,
 	});
+	// The dev wallet always advertises every standard chain, so a narrower
+	// list replaces its getter.
+	const { chains } = config;
+	if (chains) {
+		Object.defineProperty(wallet, 'chains', {
+			get: () => chains,
+		});
+	}
 	window.__e2eWallet = wallet;
 
 	const register = ({ register }: RegisterApi) =>

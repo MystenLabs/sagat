@@ -11,10 +11,14 @@ import { Identity } from './identity';
 type Fixtures = {
 	chain: Chain;
 	// A user with a browser, wallet and page, for people driving the UI.
-	// `otherAccounts` names further accounts in the same wallet.
+	// `otherAccounts` names further accounts in the same wallet;
+	// `walletChains` narrows the chains the wallet advertises.
 	createActor: (
 		name: string,
-		options?: { otherAccounts?: string[] },
+		options?: {
+			otherAccounts?: string[];
+			walletChains?: `sui:${string}`[];
+		},
 	) => Promise<Actor>;
 	// A user without a browser, for people who only act through the API.
 	createIdentity: (name: string) => Identity;
@@ -35,6 +39,7 @@ export const test = base.extend<Fixtures>({
 					(other) =>
 						new Identity(other, new Ed25519Keypair()),
 				),
+				options?.walletChains,
 			);
 			actors.push(actor);
 			return actor;

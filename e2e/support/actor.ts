@@ -44,6 +44,7 @@ export class Actor extends Identity {
 		name: string,
 		keypair: Ed25519Keypair,
 		otherAccounts: Identity[] = [],
+		walletChains?: E2EWalletConfig['chains'],
 	) {
 		const context = await browser.newContext();
 		await isolateFromInternet(context);
@@ -58,6 +59,7 @@ export class Actor extends Identity {
 					secretKey: account.keypair.getSecretKey(),
 				})),
 			],
+			chains: walletChains,
 		};
 		await context.addInitScript((config) => {
 			localStorage.setItem('SuiNetwork', 'localnet');
