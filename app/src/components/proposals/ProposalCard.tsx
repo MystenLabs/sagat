@@ -37,7 +37,7 @@ import {
 } from '../../lib/exportUtils';
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
-import { Button } from '../ui/button';
+import { Button, buttonVariants } from '../ui/button';
 import { Chip } from '../ui/chip';
 import { CopyButton } from '../ui/copy-button';
 import {
@@ -316,24 +316,22 @@ export function ProposalCard({
 							</Button>
 						)}
 					{proposal.status === ProposalStatus.SUCCESS ? (
-						<Button
-							size="sm"
-							variant="outline"
-							render={
-								<a
-									href={getExplorerUrl(
-										proposal.digest,
-										network,
-									)}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="flex items-center gap-1"
-								/>
-							}
+						<a
+							href={getExplorerUrl(
+								proposal.digest,
+								network,
+							)}
+							target="_blank"
+							rel="noopener noreferrer"
+							className={buttonVariants({
+								variant: 'outline',
+								size: 'sm',
+								className: 'flex items-center gap-1',
+							})}
 						>
 							<ExternalLink className="w-4 h-4" />
 							View Transaction
-						</Button>
+						</a>
 					) : (
 						<Button
 							size="sm"
@@ -410,24 +408,22 @@ export function ProposalCard({
 								on-chain.
 							</p>
 							<div className="flex items-center gap-2">
-								<Button
-									size="sm"
-									variant="outline"
-									render={
-										<a
-											href={getExplorerUrl(
-												proposal.digest,
-												network,
-											)}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="flex items-center gap-1"
-										/>
-									}
+								<a
+									href={getExplorerUrl(
+										proposal.digest,
+										network,
+									)}
+									target="_blank"
+									rel="noopener noreferrer"
+									className={buttonVariants({
+										variant: 'outline',
+										size: 'sm',
+										className: 'flex items-center gap-1',
+									})}
 								>
 									<ExternalLink className="w-4 h-4" />
 									View on Explorer
-								</Button>
+								</a>
 								<span className="text-xs text-muted-foreground">
 									Digest: {proposal.digest}
 								</span>

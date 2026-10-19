@@ -468,7 +468,6 @@ const NetworkSwitchingSection = () => {
 					onCheckedChange={(checked) =>
 						setNetwork(checked ? 'testnet' : 'mainnet')
 					}
-					className="scale-75"
 				/>
 			</div>
 		</>

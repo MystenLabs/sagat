@@ -19,7 +19,10 @@ import { NetworkSelector } from '@/components/LocalNetworkSelector';
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
 import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/button';
+import {
+	Button,
+	buttonVariants,
+} from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Textarea } from '@/components/ui/textarea';
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
@@ -210,24 +213,19 @@ function SignedResultDisplay({
 					value={result.digest || result.signature}
 				/>
 				{result.digest && (
-					<Button
-						size="sm"
-						variant="outline"
-						render={
-							<a
-								href={getExplorerUrl(
-									result.digest,
-									network,
-								)}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex items-center gap-1"
-							/>
-						}
+					<a
+						href={getExplorerUrl(result.digest, network)}
+						target="_blank"
+						rel="noopener noreferrer"
+						className={buttonVariants({
+							variant: 'outline',
+							size: 'sm',
+							className: 'flex items-center gap-1',
+						})}
 					>
 						<ExternalLink className="w-4 h-4" />
 						View Transaction
-					</Button>
+					</a>
 				)}
 			</div>
 		</div>

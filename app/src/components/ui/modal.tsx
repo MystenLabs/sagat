@@ -60,7 +60,7 @@ export function ModalHeader({
 	title,
 }: ModalHeaderProps) {
 	return (
-		<DialogHeader className="mb-4 flex-row items-center gap-3">
+		<DialogHeader className="flex-row items-center gap-3">
 			{icon}
 			<DialogTitle className="text-lg font-semibold">
 				{title}
@@ -74,7 +74,7 @@ export function ModalContent({
 }: {
 	children: ReactNode;
 }) {
-	return <div className="space-y-3 mb-6">{children}</div>;
+	return <div className="space-y-3">{children}</div>;
 }
 
 export function ModalActions({
