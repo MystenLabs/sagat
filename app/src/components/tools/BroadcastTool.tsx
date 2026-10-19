@@ -6,7 +6,7 @@ import { fromBase64 } from '@mysten/sui/utils';
 import { AlertCircle, Check } from 'lucide-react';
 import { useState } from 'react';
 
-import { NetworkSelector } from '@/components/LocalNetworkSelector';
+import { NetworkSelector } from '@/components/NetworkSelector';
 import { Button } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Label } from '@/components/ui/label';

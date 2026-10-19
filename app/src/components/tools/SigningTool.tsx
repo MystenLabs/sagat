@@ -12,11 +12,10 @@ import {
 	AlertCircle,
 	Check,
 	ExternalLink,
-	Loader2,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { NetworkSelector } from '@/components/LocalNetworkSelector';
+import { NetworkSelector } from '@/components/NetworkSelector';
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
 import { Alert } from '@/components/ui/Alert';
@@ -26,10 +25,15 @@ import {
 } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Label } from '@/components/ui/label';
+import {
+	Skeleton,
+	SkeletonLine,
+} from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
-import { getExplorerUrl } from '@/lib/utils';
+import { toast } from '@/lib/toast';
+import { cn, getExplorerUrl } from '@/lib/utils';
 
 type SimulateResult =
 	SuiClientTypes.SimulateTransactionResult<{
@@ -44,6 +48,23 @@ interface SignedResult {
 	digest?: string;
 	signature: string;
 	bytes: string;
+	/** Set when the transaction executed but failed on chain. */
+	failure?: { message: string };
+}
+
+/** Error messages can quote user input, so a stray `%` must not throw. */
+function safeDecode(message: string) {
+	try {
+		return decodeURIComponent(message);
+	} catch {
+		return message;
+	}
+}
+
+function errorMessage(error: unknown, fallback: string) {
+	return error instanceof Error && error.message
+		? error.message
+		: fallback;
 }
 
 function TransactionInput({
@@ -97,10 +118,23 @@ function PreviewResult({
 		return (
 			<div
 				role="status"
-				className="flex items-center gap-2 rounded-lg border bg-surface p-4 text-13 text-muted-foreground"
+				aria-busy
+				className="flex flex-col gap-3"
+				data-testid="transaction-preview-loading"
 			>
-				<Loader2 className="size-4 animate-spin" />
-				Previewing transaction…
+				<span className="sr-only">
+					Previewing transaction…
+				</span>
+				<SkeletonLine className="h-3 w-36" />
+				<div className="flex flex-col gap-3 rounded-lg border bg-surface p-4">
+					<SkeletonLine className="w-48" />
+					<div className="flex flex-col gap-2">
+						<SkeletonLine className="w-3/4" />
+						<SkeletonLine className="w-3/4" />
+						<SkeletonLine className="w-1/4" />
+					</div>
+					<Skeleton className="h-8 w-full rounded-md" />
+				</div>
 			</div>
 		);
 	}
@@ -143,7 +177,7 @@ function PreviewResult({
 						error={analysisError}
 					/>
 					<p className="text-13 whitespace-pre-wrap text-error-foreground">
-						{decodeURIComponent(
+						{safeDecode(
 							error?.message ||
 								'Transaction would fail on-chain',
 						)}
@@ -167,25 +201,42 @@ function SignedResultDisplay({
 	onStartOver: () => void;
 	network: string;
 }) {
+	const failed = !!result.failure;
 	const explorerUrl = result.digest
 		? getExplorerUrl(result.digest, network)
 		: null;
+
 	return (
 		<div
-			className="flex flex-col gap-4 rounded-lg border border-success-border bg-surface p-4"
+			className={cn(
+				'flex flex-col gap-4 rounded-lg border bg-surface p-4',
+				failed
+					? 'border-error-border'
+					: 'border-success-border',
+			)}
 			data-testid="signed-result"
+			data-result={failed ? 'failure' : 'success'}
 			data-digest={result.digest}
 			data-signature={result.signature}
 		>
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex items-center gap-2 text-14 font-medium">
-					<Check
-						strokeWidth={3}
-						className="size-4 text-success-foreground"
-					/>
-					{result.digest
-						? 'Transaction signed and executed'
-						: 'Transaction signed'}
+					{failed ? (
+						<>
+							<AlertCircle className="size-4 text-error-foreground" />
+							Transaction failed
+						</>
+					) : (
+						<>
+							<Check
+								strokeWidth={3}
+								className="size-4 text-success-foreground"
+							/>
+							{result.digest
+								? 'Transaction signed and executed'
+								: 'Transaction signed'}
+						</>
+					)}
 				</div>
 				<Button
 					type="button"
@@ -203,6 +254,14 @@ function SignedResultDisplay({
 				}
 				value={result.digest || result.signature}
 			/>
+			{result.failure && (
+				<p
+					className="text-13 whitespace-pre-wrap text-error-foreground"
+					data-testid="signed-result-error"
+				>
+					{safeDecode(result.failure.message)}
+				</p>
+			)}
 			{explorerUrl && (
 				<div>
 					<a
@@ -263,6 +322,7 @@ export default function SigningTool() {
 	const [isSigning, setIsSigning] = useState(false);
 	const [isSigningAndExecuting, setIsSigningAndExecuting] =
 		useState(false);
+	const isSignPending = isSigning || isSigningAndExecuting;
 
 	const network = useCurrentNetwork();
 	const dappKit = useDAppKit();
@@ -311,7 +371,7 @@ export default function SigningTool() {
 	};
 
 	const handleSign = async (shouldExecute: boolean) => {
-		if (!transactionData) return;
+		if (!transactionData || isSignPending) return;
 
 		try {
 			const tx = Transaction.from(transactionData);
@@ -323,13 +383,20 @@ export default function SigningTool() {
 						transaction: tx,
 					});
 
-				const txResult =
-					result.Transaction ?? result.FailedTransaction;
+				const failed = result.FailedTransaction;
+				const txResult = result.Transaction ?? failed;
 
 				setSignedResult({
 					digest: txResult?.digest,
 					signature: txResult?.signatures[0] ?? '',
 					bytes: transactionData,
+					failure: failed
+						? {
+								message:
+									failed.effects?.status.error?.message ||
+									'The transaction failed on chain.',
+							}
+						: undefined,
 				});
 			} else {
 				setIsSigning(true);
@@ -343,8 +410,16 @@ export default function SigningTool() {
 					bytes: result.bytes,
 				});
 			}
-		} catch {
-			// Error handled by mutation
+		} catch (error) {
+			// The input stays, so the user can retry.
+			toast.error(
+				safeDecode(
+					errorMessage(
+						error,
+						'Failed to sign the transaction',
+					),
+				),
+			);
 		} finally {
 			setIsSigning(false);
 			setIsSigningAndExecuting(false);
@@ -402,13 +477,13 @@ export default function SigningTool() {
 							onSign={handleSign}
 							shouldExecute={false}
 							isSigning={isSigning}
-							disabled={!currentAccount}
+							disabled={!currentAccount || isSignPending}
 						/>
 						<SignButton
 							onSign={handleSign}
 							shouldExecute={true}
 							isSigning={isSigningAndExecuting}
-							disabled={!currentAccount}
+							disabled={!currentAccount || isSignPending}
 						/>
 					</div>
 				</div>

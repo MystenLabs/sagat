@@ -7,7 +7,7 @@ import {
 	NetworkMenuItems,
 	NetworkStatusDot,
 } from '@/components/NetworkMenu';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -25,18 +25,18 @@ export function NetworkSelector() {
 
 	return (
 		<DropdownMenu>
+			{/* A plain button: Base UI anchors the menu to the trigger's ref. */}
 			<DropdownMenuTrigger
-				render={
-					<Button
-						variant="outline"
-						size="sm"
-						data-testid="tool-network-button"
-					/>
-				}
+				data-testid="tool-network-button"
+				aria-label={`Network: ${network}`}
+				className={buttonVariants({
+					variant: 'outline',
+					size: 'sm',
+				})}
 			>
 				<NetworkStatusDot />
 				<span className="capitalize">{network}</span>
-				<ChevronDown className="size-3 opacity-60" />
+				<ChevronDown className="size-4 opacity-60" />
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="min-w-40">
 				<NetworkMenuItems scope="tools" />
