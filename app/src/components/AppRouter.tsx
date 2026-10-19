@@ -115,8 +115,10 @@ function getAuthLevel(pathname: string): AuthLevel {
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
 	const { reconnecting, checkingAuth } = useSessionBoot();
-	const { isApiUnreachable, isCurrentAddressAuthenticated } =
-		useApiAuth();
+	const {
+		isApiUnreachable,
+		isCurrentAddressAuthenticated,
+	} = useApiAuth();
 	const location = useLocation();
 	const network = useCurrentNetwork();
 
