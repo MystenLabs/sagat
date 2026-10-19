@@ -12,7 +12,6 @@ import {
 	DialogDescription,
 	DialogTitle,
 } from '@/components/ui/dialog';
-import { useNetwork } from '@/contexts/NetworkContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 
 /** The account's address as a QR code and in full, to share for deposits. */
@@ -27,7 +26,6 @@ export function ReceiveDialog({
 	address: string;
 	name: string;
 }) {
-	const { network } = useNetwork();
 	const { copied, copy } = useCopyToClipboard(
 		'Address copied',
 	);
@@ -50,9 +48,7 @@ export function ReceiveDialog({
 							Receive
 						</DialogTitle>
 						<DialogDescription className="text-14 text-muted-foreground">
-							Send SUI and tokens on{' '}
-							<span className="capitalize">{network}</span>{' '}
-							to {name}.
+							Send SUI and tokens to {name}.
 						</DialogDescription>
 					</div>
 					<DialogClose
@@ -73,12 +69,15 @@ export function ReceiveDialog({
 					type="button"
 					onClick={() => copy(address)}
 					aria-label="Copy address"
-					className="cursor-pointer justify-self-center rounded-lg border bg-qr p-4.5 text-qr-foreground outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+					className="cursor-pointer justify-self-center rounded-lg border bg-qr p-4 text-qr-foreground outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 					data-testid="receive-qr"
 				>
 					<QRCodeSVG
 						value={address}
-						size={202}
+						// 41 modules (33 plus a 4-module quiet zone on each
+						// side) at 5px each keeps the tile about 240px.
+						size={205}
+						marginSize={4}
 						bgColor="transparent"
 						fgColor="currentColor"
 						title={`QR code for ${address}`}
@@ -108,7 +107,7 @@ export function ReceiveDialog({
 					data-testid="receive-copy"
 				>
 					{copied ? <Check /> : <Copy />}
-					{copied ? 'Address copied' : 'Copy address'}
+					Copy address
 				</Button>
 			</DialogContent>
 		</Dialog>

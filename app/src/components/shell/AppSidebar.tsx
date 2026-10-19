@@ -115,11 +115,20 @@ const navItemClass =
 const separatorClass =
 	'mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block';
 
-// Beside the label when expanded; on the icon rail, a pill over the Mail
-// icon's top-right corner. The `!` beats the primitive's peer-* top and text
-// rules, which would otherwise win on hover and on the active item.
-const invitationsBadgeClass =
-	'rounded-full bg-sidebar-accent px-1.5 text-10 text-sidebar-foreground group-data-[collapsible=icon]:top-0.5! group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-3 group-data-[collapsible=icon]:min-w-3 group-data-[collapsible=icon]:bg-sidebar-primary group-data-[collapsible=icon]:px-px group-data-[collapsible=icon]:text-10 group-data-[collapsible=icon]:leading-none group-data-[collapsible=icon]:text-sidebar-primary-foreground! group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-sidebar';
+// On the icon rail, a pill cut out of the icon's top-right corner, shared by
+// the invitations count and the external-link arrow. It is pinned by its left
+// edge so a longer count grows away from the icon. The `!` on top beats the
+// badge primitive's peer-* top rules.
+const railCornerClass =
+	'group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5! group-data-[collapsible=icon]:right-auto group-data-[collapsible=icon]:left-4.5 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-sidebar';
+
+// Beside the label when expanded; the corner pill on the icon rail. The `!`
+// on the text colour beats the primitive's peer-* rules, which would
+// otherwise win on hover and on the active item.
+const invitationsBadgeClass = cn(
+	railCornerClass,
+	'rounded-full bg-sidebar-accent px-1.5 text-10 text-sidebar-foreground group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-3 group-data-[collapsible=icon]:min-w-3 group-data-[collapsible=icon]:bg-sidebar-primary group-data-[collapsible=icon]:px-0.5 group-data-[collapsible=icon]:leading-none group-data-[collapsible=icon]:text-sidebar-primary-foreground!',
+);
 
 // Hidden outright on the icon rail: the block only fades labels out and
 // pulls them up 32px, which would leave an invisible box over the item above.
@@ -307,7 +316,9 @@ function SidebarNav() {
 												className={invitationsBadgeClass}
 												data-testid="nav-invitations-count"
 											>
-												{pendingInvites}
+												{pendingInvites > 99
+													? '99+'
+													: pendingInvites}
 											</SidebarMenuBadge>
 										)}
 									</SidebarMenuItem>
@@ -372,7 +383,12 @@ function SidebarNav() {
 												<span className="flex-1">
 													{label}
 												</span>
-												<ArrowUpRight className="size-3! opacity-60 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5 group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:size-3! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-sidebar group-data-[collapsible=icon]:p-px group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-sidebar" />
+												<ArrowUpRight
+													className={cn(
+														railCornerClass,
+														'size-3! opacity-60 group-data-[collapsible=icon]:bg-sidebar group-data-[collapsible=icon]:p-px group-data-[collapsible=icon]:opacity-100',
+													)}
+												/>
 											</SidebarMenuButton>
 										</SidebarMenuItem>
 									),

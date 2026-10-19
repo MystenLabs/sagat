@@ -19,7 +19,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { LocalStorageKeys } from '@/lib/localStorageKeys';
-import { cn } from '@/lib/utils';
 
 import { AppSidebar } from './AppSidebar';
 import { ThemeToggle } from './ThemeToggle';
@@ -46,10 +45,8 @@ function readStoredOpen() {
  */
 export function AppShell({
 	children,
-	contentClassName,
 }: {
 	children: ReactNode;
-	contentClassName?: string;
 }) {
 	const wide = useMediaQuery('(min-width: 1280px)');
 	// On wide screens the user's last choice wins; narrower viewports always
@@ -57,17 +54,23 @@ export function AppShell({
 	const [open, setOpenState] = useState(
 		() => wide && readStoredOpen(),
 	);
-	const setOpen = useCallback((next: boolean) => {
-		setOpenState(next);
-		try {
-			localStorage.setItem(
-				LocalStorageKeys.SidebarOpen,
-				String(next),
-			);
-		} catch {
-			// Private mode or blocked storage: the choice just won't persist.
-		}
-	}, []);
+	const setOpen = useCallback(
+		(next: boolean) => {
+			setOpenState(next);
+			// Only a wide-screen choice is saved, so toggling the rail on a
+			// narrower window doesn't overwrite it.
+			if (!wide) return;
+			try {
+				localStorage.setItem(
+					LocalStorageKeys.SidebarOpen,
+					String(next),
+				);
+			} catch {
+				// Private mode or blocked storage: the choice just won't persist.
+			}
+		},
+		[wide],
+	);
 	// Follow the viewport when it crosses the breakpoint; the user can still
 	// toggle manually in between.
 	const [prevWide, setPrevWide] = useState(wide);
@@ -109,9 +112,7 @@ export function AppShell({
 			}
 		>
 			<AppSidebar />
-			<SidebarInset
-				className={cn('min-w-0', contentClassName)}
-			>
+			<SidebarInset className="min-w-0">
 				<header className="flex h-12 items-center gap-2 border-b bg-card px-3 md:hidden">
 					<SidebarTrigger className="-ml-1" />
 					<div className="ml-auto flex items-center gap-1">

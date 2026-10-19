@@ -47,6 +47,12 @@ test.describe('app shell', () => {
 			accept: false,
 		});
 		const { page } = alice;
+		// The designs' width; anything from 1280 keeps the sidebar expanded
+		// and saves the user's choice.
+		await page.setViewportSize({
+			width: 1440,
+			height: 900,
+		});
 
 		// The network menu works before signing in and picking the current
 		// network keeps the app alive.
@@ -103,14 +109,56 @@ test.describe('app shell', () => {
 			'expanded',
 		);
 		await expect(inviteCount).toHaveText('1');
-		await page.getByTestId('sidebar-toggle').click();
+		const toggle = page.getByTestId('sidebar-toggle');
+		await toggle.hover();
+		await expect(
+			page.getByRole('tooltip', {
+				name: 'Collapse sidebar',
+			}),
+		).toBeVisible();
+		await expect(toggle).toHaveAccessibleName(
+			'Collapse sidebar',
+		);
+		await toggle.click();
 		await expect(sidebar).toHaveAttribute(
 			'data-state',
 			'collapsed',
 		);
+		await expect(toggle).toHaveAccessibleName(
+			'Expand sidebar',
+		);
 		await expect(inviteCount).toBeVisible();
 		await expect(inviteCount).toHaveText('1');
-		await page.getByTestId('sidebar-toggle').click();
+
+		// The choice survives a reload on a wide screen.
+		await page.reload();
+		await expect(sidebar).toHaveAttribute(
+			'data-state',
+			'collapsed',
+		);
+		await expect(inviteCount).toHaveText('1');
+
+		// Expanding the rail on a narrower window isn't saved: back on the
+		// wide screen the sidebar stays collapsed.
+		await page.setViewportSize({
+			width: 1024,
+			height: 900,
+		});
+		await toggle.click();
+		await expect(sidebar).toHaveAttribute(
+			'data-state',
+			'expanded',
+		);
+		await page.setViewportSize({
+			width: 1440,
+			height: 900,
+		});
+		await expect(sidebar).toHaveAttribute(
+			'data-state',
+			'collapsed',
+		);
+
+		await toggle.click();
 		await expect(sidebar).toHaveAttribute(
 			'data-state',
 			'expanded',
@@ -215,8 +263,13 @@ test.describe('app shell', () => {
 		]);
 		await page.getByTestId('receive-qr').click();
 		await expect(
+			page
+				.locator('[data-sonner-toast]')
+				.filter({ hasText: 'Address copied' }),
+		).toBeVisible();
+		await expect(
 			page.getByTestId('receive-copy'),
-		).toHaveText('Address copied');
+		).toHaveText('Copy address');
 		expect(
 			await page.evaluate(() =>
 				navigator.clipboard.readText(),
