@@ -68,7 +68,6 @@
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-foreground-secondary: var(--foreground-secondary);
-	--color-foreground-disabled: var(--foreground-disabled);
 	--color-card: var(--card);
 	--color-card-foreground: var(--card-foreground);
 	--color-popover: var(--popover);
@@ -85,11 +84,6 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
-	--color-chart-1: var(--chart-1);
-	--color-chart-2: var(--chart-2);
-	--color-chart-3: var(--chart-3);
-	--color-chart-4: var(--chart-4);
-	--color-chart-5: var(--chart-5);
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
 	--color-sidebar-primary: var(--sidebar-primary);
@@ -103,8 +97,9 @@
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
 
-	/* Status tints: a coloured foreground over a translucent tint of the
-	   same hue, so the pair works on any surface in either theme. */
+	/* Status tints: a coloured foreground over a translucent tint, so the
+	   pair works on any surface in either theme. The tint shares the text
+	   hue, except warning, which puts olive text on a brighter yellow. */
 	--color-success: var(--success);
 	--color-success-soft: var(--success-soft);
 	--color-success-foreground: var(--success-foreground);
@@ -121,7 +116,6 @@
 	--color-info-border: var(--info-border);
 
 	--color-error: var(--error);
-	--color-error-soft: var(--error-soft);
 	--color-error-foreground: var(--error-foreground);
 	--color-error-border: var(--error-border);
 
@@ -147,7 +141,6 @@
 	--background: oklch(0.973 0 0);
 	--foreground: oklch(0 0 0);
 	--foreground-secondary: oklch(0.39 0 0);
-	--foreground-disabled: oklch(0.715 0 0);
 	--card: oklch(1 0 0);
 	--card-foreground: oklch(0 0 0);
 	--popover: oklch(1 0 0);
@@ -164,11 +157,6 @@
 	--border: oklch(0.949 0 0);
 	--input: oklch(0 0 0 / 24%);
 	--ring: oklch(0 0 0 / 40%);
-	--chart-1: oklch(0.87 0 0);
-	--chart-2: oklch(0.556 0 0);
-	--chart-3: oklch(0.439 0 0);
-	--chart-4: oklch(0.371 0 0);
-	--chart-5: oklch(0.269 0 0);
 
 	/* The sidebar is black in both themes. */
 	--sidebar: oklch(0 0 0);
@@ -197,7 +185,6 @@
 
 	--error-foreground: oklch(0.575 0.186 30);
 	--error: oklch(0.575 0.186 30 / 8%);
-	--error-soft: oklch(0.575 0.186 30 / 5%);
 	--error-border: oklch(0.575 0.186 30 / 40%);
 
 	--purple-foreground: oklch(0.5 0.2 300);
@@ -218,7 +205,6 @@
 	--background: oklch(0.145 0 0);
 	--foreground: oklch(0.985 0 0);
 	--foreground-secondary: oklch(0.8 0 0);
-	--foreground-disabled: oklch(0.5 0 0);
 	--card: oklch(0.205 0 0);
 	--card-foreground: oklch(0.985 0 0);
 	--popover: oklch(0.205 0 0);
@@ -231,15 +217,10 @@
 	--muted-foreground: oklch(0.65 0 0);
 	--accent: oklch(0.285 0 0);
 	--accent-foreground: oklch(0.985 0 0);
-	--destructive: oklch(0.7 0.17 25);
+	--destructive: oklch(0.72 0.17 30);
 	--border: oklch(1 0 0 / 12%);
 	--input: oklch(1 0 0 / 24%);
 	--ring: oklch(1 0 0 / 40%);
-	--chart-1: oklch(0.87 0 0);
-	--chart-2: oklch(0.556 0 0);
-	--chart-3: oklch(0.439 0 0);
-	--chart-4: oklch(0.371 0 0);
-	--chart-5: oklch(0.269 0 0);
 
 	--sidebar: oklch(0 0 0);
 	--sidebar-foreground: oklch(1 0 0);
@@ -267,7 +248,6 @@
 
 	--error-foreground: oklch(0.72 0.17 30);
 	--error: oklch(0.72 0.17 30 / 14%);
-	--error-soft: oklch(0.72 0.17 30 / 8%);
 	--error-border: oklch(0.72 0.17 30 / 40%);
 
 	--purple-foreground: oklch(0.75 0.15 300);
@@ -295,7 +275,6 @@
 		@apply bg-background text-foreground;
 	}
 	/* Amounts line up in columns without switching to the mono face. */
-	.tabular-nums,
 	table {
 		font-variant-numeric: tabular-nums;
 	}
