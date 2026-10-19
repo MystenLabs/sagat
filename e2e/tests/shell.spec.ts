@@ -162,4 +162,36 @@ test.describe('app shell', () => {
 			}),
 		).toBeDisabled();
 	});
+
+	test('receive shows the full multisig address', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 1,
+			name: 'Receive test',
+		});
+		const { page } = alice;
+
+		await page.goto('/');
+		await alice.signIn();
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+
+		await page.getByTestId('receive-button').click();
+		const dialog = page.getByTestId('receive-dialog');
+		await expect(dialog).toBeVisible();
+		await expect(dialog).toContainText('Receive test');
+		await expect(
+			page.getByTestId('receive-address'),
+		).toHaveText(multisig.address);
+	});
 });

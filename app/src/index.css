@@ -132,6 +132,10 @@
 	/* Sui brand blue, for the coin and the logo only. */
 	--color-sui: var(--sui);
 
+	/* QR codes stay dark on light in both themes so they scan. */
+	--color-qr: var(--qr);
+	--color-qr-foreground: var(--qr-foreground);
+
 	--color-surface: var(--surface);
 	--color-surface-hover: var(--surface-hover);
 	--color-row-selected: var(--row-selected);
@@ -201,6 +205,9 @@
 
 	--sui: #4da2ff;
 
+	--qr: oklch(1 0 0);
+	--qr-foreground: oklch(0 0 0);
+
 	--surface: oklch(0.973 0 0);
 	--surface-hover: oklch(0.95 0 0);
 	--row-selected: oklch(0.93 0 0);
@@ -256,6 +263,9 @@
 	--toast-foreground: oklch(0.985 0 0);
 
 	--sui: #4da2ff;
+
+	--qr: oklch(1 0 0);
+	--qr-foreground: oklch(0 0 0);
 
 	--surface: oklch(0.18 0 0);
 	--surface-hover: oklch(0.24 0 0);

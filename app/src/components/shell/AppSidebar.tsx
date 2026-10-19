@@ -17,7 +17,7 @@ import {
 	Plus,
 	Users,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
 	Link,
 	matchPath,
@@ -36,6 +36,7 @@ import {
 	railSquareClass,
 	railTriggerClass,
 } from '@/components/shell/rail-classes';
+import { ReceiveDialog } from '@/components/shell/ReceiveDialog';
 import { ThemeToggle } from '@/components/shell/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import {
@@ -69,7 +70,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TOOLS } from '@/config/tools';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
-import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
@@ -429,9 +429,7 @@ function MultisigSwitcher({
 	onNavigate: () => void;
 }) {
 	const navigate = useNavigate();
-	const { copied, copy } = useCopyToClipboard(
-		'Address copied',
-	);
+	const [receiveOpen, setReceiveOpen] = useState(false);
 	const go = (to: string) => {
 		navigate(to);
 		onNavigate();
@@ -525,11 +523,20 @@ function MultisigSwitcher({
 					variant="secondary"
 					size="sm"
 					className="w-full group-data-[collapsible=icon]:hidden"
-					onClick={() => copy(selected.address)}
+					onClick={() => setReceiveOpen(true)}
+					data-testid="receive-button"
 				>
 					<ArrowDownToLine />
-					{copied ? 'Address copied' : 'Receive'}
+					Receive
 				</Button>
+			)}
+			{selected && (
+				<ReceiveDialog
+					open={receiveOpen}
+					onClose={() => setReceiveOpen(false)}
+					address={selected.address}
+					name={accountName(selected)}
+				/>
 			)}
 		</div>
 	);
