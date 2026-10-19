@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	useCurrentAccount,
-	useDAppKit,
-} from '@mysten/dapp-kit-react';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
 import {
 	ArrowDownToLine,
@@ -30,6 +27,10 @@ import {
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
 import { Logo } from '@/components/Logo';
+import {
+	NetworkMenuItems,
+	NetworkStatusDot,
+} from '@/components/NetworkMenu';
 import { ThemeToggle } from '@/components/shell/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import {
@@ -63,7 +64,6 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
-import { LocalStorageKeys } from '@/lib/localStorageKeys';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -88,15 +88,6 @@ const MULTISIG_PAGES = [
 	},
 	{ id: 'proposals', label: 'Proposals', icon: FileText },
 	{ id: 'assets', label: 'Assets', icon: Coins },
-] as const;
-
-const NETWORKS = [
-	'mainnet',
-	'testnet',
-	'devnet',
-	...(import.meta.env.VITE_LOCALNET_RPC_URL
-		? (['localnet'] as const)
-		: []),
 ] as const;
 
 /** Nav label: 13px at 72% white, full white when active (from the designs). */
@@ -449,8 +440,7 @@ function MultisigSwitcher({
 }
 
 function NetworkRow() {
-	const dappKit = useDAppKit();
-	const { network, isTestMode } = useNetwork();
+	const { network } = useNetwork();
 
 	return (
 		<DropdownMenu>
@@ -462,14 +452,7 @@ function NetworkRow() {
 					navItemClass,
 				)}
 			>
-				<span
-					className={cn(
-						'size-2 shrink-0 rounded-full',
-						isTestMode
-							? 'bg-warning-foreground'
-							: 'bg-success-foreground',
-					)}
-				/>
+				<NetworkStatusDot />
 				<span className="flex-1 capitalize group-data-[collapsible=icon]:hidden">
 					{network}
 				</span>
@@ -480,27 +463,7 @@ function NetworkRow() {
 				align="start"
 				className="min-w-40"
 			>
-				<DropdownMenuGroup>
-					<DropdownMenuLabel>Network</DropdownMenuLabel>
-					{NETWORKS.map((value) => (
-						<DropdownMenuItem
-							key={value}
-							className={cn(
-								'capitalize',
-								value === network && 'bg-accent',
-							)}
-							onClick={() => {
-								dappKit.switchNetwork(value);
-								localStorage.setItem(
-									LocalStorageKeys.SuiNetwork,
-									value,
-								);
-							}}
-						>
-							{value}
-						</DropdownMenuItem>
-					))}
-				</DropdownMenuGroup>
+				<NetworkMenuItems />
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

@@ -8,7 +8,8 @@ import {
 
 import { LocalStorageKeys } from '@/lib/localStorageKeys';
 
-export type SuiNetwork = 'testnet' | 'mainnet' | 'devnet';
+export type SuiNetwork =
+	'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
 export function useNetwork() {
 	const dappKit = useDAppKit();
@@ -23,7 +24,6 @@ export function useNetwork() {
 				network,
 			);
 		},
-		isTestMode:
-			network === 'testnet' || network === 'devnet',
+		isTestMode: network !== 'mainnet',
 	};
 }
