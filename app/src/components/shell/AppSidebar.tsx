@@ -372,7 +372,7 @@ function SidebarNav() {
 												<span className="flex-1">
 													{label}
 												</span>
-												<ArrowUpRight className="size-3! opacity-60 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-1 group-data-[collapsible=icon]:right-1 group-data-[collapsible=icon]:size-2.5!" />
+												<ArrowUpRight className="size-3! opacity-60 group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5 group-data-[collapsible=icon]:right-0.5 group-data-[collapsible=icon]:size-3! group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:bg-sidebar group-data-[collapsible=icon]:p-px group-data-[collapsible=icon]:opacity-100 group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-sidebar" />
 											</SidebarMenuButton>
 										</SidebarMenuItem>
 									),
