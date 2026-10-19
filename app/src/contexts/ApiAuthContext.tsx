@@ -21,6 +21,7 @@ import React, {
 	createContext,
 	useContext,
 	useEffect,
+	useRef,
 } from 'react';
 
 import { toast } from '@/lib/toast';
@@ -34,7 +35,8 @@ interface ApiAuthContextType {
 	authenticatedAddresses: string[];
 	isCheckingAuth: boolean;
 	// The auth check failed without an answer from the API (network
-	// error, timeout, 5xx), so we can't tell whether the user is signed in.
+	// error, timeout, 5xx, or a block in front of it), so we can't tell
+	// whether the user is signed in.
 	isApiUnreachable: boolean;
 	isRetryingAuth: boolean;
 	retryAuthCheck: () => void;
@@ -65,10 +67,11 @@ async function checkAuth(): Promise<AuthCheckResponse> {
 	try {
 		return await apiClient.checkAuth();
 	} catch (error) {
-		// No (or an expired) session is an answer, not an outage.
+		// No (or an expired) session is an answer, not an outage. The API
+		// only answers 401 here; a 403 comes from something in front of it.
 		if (
 			error instanceof SagatApiError &&
-			(error.status === 401 || error.status === 403)
+			error.status === 401
 		) {
 			return SIGNED_OUT;
 		}
@@ -98,12 +101,19 @@ export function ApiAuthProvider({
 	} = useQuery<AuthCheckResponse>({
 		queryKey: [...AUTH_QUERY_KEY, currentAccount?.address],
 		queryFn: checkAuth,
-		retry: false,
+		// One quick retry rides out a single 502 during a deploy; a real
+		// outage still reaches the unreachable state in about a second.
+		retry: 1,
+		retryDelay: 500,
 		// Always check when account changes
 		enabled: true,
 		// refetch on windows focus to make sure we sync across tabs.
 		refetchOnWindowFocus: true,
 	});
+
+	// Read at call time: a menu can hold a `signAndConnect` from an earlier
+	// render.
+	const isApiUnreachableRef = useRef(false);
 
 	// Re-check auth when wallet account changes
 	useEffect(() => {
@@ -116,6 +126,10 @@ export function ApiAuthProvider({
 		mutationFn: async () => {
 			if (!currentAccount)
 				throw new Error('No wallet connected');
+			// Rejecting here (not returning) lets onError toast it and tells
+			// the caller that signing didn't happen.
+			if (isApiUnreachableRef.current)
+				throw new Error("Can't reach the service");
 			const expiry = defaultExpiry();
 
 			// Sign with current account
@@ -178,6 +192,7 @@ export function ApiAuthProvider({
 	// means we can't tell, and asking for a signature would only fail.
 	const isApiUnreachable =
 		isAuthCheckError && !isCurrentAddressAuthenticated;
+	isApiUnreachableRef.current = isApiUnreachable;
 
 	const value: ApiAuthContextType = {
 		// Auth state
@@ -197,7 +212,6 @@ export function ApiAuthProvider({
 
 		// Actions
 		signAndConnect: async () => {
-			if (isApiUnreachable) return;
 			await connectMutation.mutateAsync();
 		},
 		disconnect: async () => {

@@ -62,6 +62,7 @@ export function EmptyState({
 }
 
 interface ErrorStateProps {
+	icon?: IconComponent;
 	title?: string;
 	error?: unknown;
 	/** Shown when the error has no message of its own. */
@@ -69,17 +70,23 @@ interface ErrorStateProps {
 	/** A line under the message, shown whatever the error says. */
 	hint?: string;
 	onRetry?: () => void;
+	/** A retry is in flight: the button is disabled and says so. */
+	retrying?: boolean;
+	retryTestId?: string;
 	className?: string;
 	testId?: string;
 }
 
 /** Something failed to load: the same shell on the error tint. */
 export function ErrorState({
+	icon = AlertCircle,
 	title = 'Something went wrong',
 	error,
 	fallback = 'Try again in a moment.',
 	hint,
 	onRetry,
+	retrying = false,
+	retryTestId,
 	className,
 	testId,
 }: ErrorStateProps) {
@@ -93,7 +100,7 @@ export function ErrorState({
 				className,
 			)}
 		>
-			<IconTile icon={AlertCircle} tone="error" />
+			<IconTile icon={icon} tone="error" />
 			<h3 className="text-16 font-semibold">{title}</h3>
 			<p className="mt-1.5 max-w-sm text-13 break-words text-muted-foreground">
 				{message}
@@ -109,8 +116,10 @@ export function ErrorState({
 					size="sm"
 					className="mt-5"
 					onClick={onRetry}
+					disabled={retrying}
+					data-testid={retryTestId}
 				>
-					Try again
+					{retrying ? 'Trying again...' : 'Try again'}
 				</Button>
 			)}
 		</div>

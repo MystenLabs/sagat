@@ -58,6 +58,7 @@ interface AccountItemProps {
 	) => Promise<void>;
 	onSignAndConnect: () => void;
 	isConnecting: boolean;
+	canSign: boolean;
 }
 
 const getCompactWalletLabel = (
@@ -169,6 +170,12 @@ export function CustomWalletButton({
 		setShowWallets(false);
 	};
 
+	// The connect mutation already toasts its failures; catching here only
+	// keeps the rejection from going unhandled.
+	const handleSignAndConnect = () => {
+		signAndConnect().catch(() => {});
+	};
+
 	const handleWalletConnect = async (
 		walletName: string,
 	) => {
@@ -258,29 +265,36 @@ export function CustomWalletButton({
 				{showWallets && (
 					<div className={menuClass(variant)}>
 						{!isApiUnreachable && (
-							<>
-								<div className="px-3 pb-2 border-b text-center">
-									<p className="text-13 font-medium text-foreground">
-										Authentication Required
-									</p>
-								</div>
+							<div className="px-3 pb-2 border-b text-center">
+								<p className="text-13 font-medium text-foreground">
+									Authentication Required
+								</p>
+							</div>
+						)}
 
-								{accounts.length > 1 ? (
-									<AccountSwitchingSection
-										showTitle={false}
-										handleSwitchAccount={
-											handleSwitchAccount
-										}
-										handleSignAndConnect={signAndConnect}
-										isConnecting={isConnecting}
-									/>
-								) : (
+						{accounts.length > 1 ? (
+							<>
+								<AccountSwitchingSection
+									showTitle={false}
+									handleSwitchAccount={handleSwitchAccount}
+									handleSignAndConnect={
+										handleSignAndConnect
+									}
+									isConnecting={isConnecting}
+									canSign={!isApiUnreachable}
+								/>
+								<Divider />
+							</>
+						) : (
+							!isApiUnreachable && (
+								<>
 									<div className="px-3 pt-3">
 										<Button
-											onClick={signAndConnect}
+											onClick={handleSignAndConnect}
 											disabled={isConnecting}
 											size="sm"
 											className="w-full mb-2"
+											data-testid="wallet-menu-sign"
 										>
 											{isConnecting ? (
 												<>
@@ -295,10 +309,9 @@ export function CustomWalletButton({
 											)}
 										</Button>
 									</div>
-								)}
-
-								<Divider />
-							</>
+									<Divider />
+								</>
+							)
 						)}
 						<CopyAddressButton />
 						<Divider />
@@ -414,8 +427,9 @@ export function CustomWalletButton({
 					{accounts.length > 1 && (
 						<AccountSwitchingSection
 							handleSwitchAccount={handleSwitchAccount}
-							handleSignAndConnect={signAndConnect}
+							handleSignAndConnect={handleSignAndConnect}
 							isConnecting={isConnecting}
+							canSign
 						/>
 					)}
 					<CopyAddressButton />
@@ -463,6 +477,7 @@ const AccountItem = ({
 	onSwitchAccount,
 	onSignAndConnect,
 	isConnecting,
+	canSign,
 }: AccountItemProps) => {
 	const { data: suinsName } = useDefaultSuinsName(
 		account.address,
@@ -505,7 +520,7 @@ const AccountItem = ({
 				{isCurrent && (
 					<div className="w-2 h-2 bg-foreground rounded-full"></div>
 				)}
-				{!isAccountAuthenticated && (
+				{canSign && !isAccountAuthenticated && (
 					<Button
 						size="sm"
 						variant="outline"
@@ -666,6 +681,7 @@ const AccountSwitchingSection = ({
 	handleSwitchAccount,
 	handleSignAndConnect,
 	isConnecting,
+	canSign,
 }: {
 	showTitle?: boolean;
 	handleSwitchAccount: (
@@ -673,6 +689,9 @@ const AccountSwitchingSection = ({
 	) => Promise<void>;
 	handleSignAndConnect: () => void;
 	isConnecting: boolean;
+	// False while the API is unreachable: switching still works, signing
+	// would only fail.
+	canSign: boolean;
 }) => {
 	const currentWallet = useCurrentWallet();
 	const accounts = currentWallet?.accounts ?? [];
@@ -698,6 +717,7 @@ const AccountSwitchingSection = ({
 					onSwitchAccount={handleSwitchAccount}
 					onSignAndConnect={handleSignAndConnect}
 					isConnecting={isConnecting}
+					canSign={canSign}
 				/>
 			))}
 			{showTitle && <Divider />}

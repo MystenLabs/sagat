@@ -5,6 +5,7 @@ export {
 	SagatApiError,
 	SagatClient,
 	type Fetch,
+	type SagatClientOptions,
 } from './client.js';
 
 export { ProposalStatus } from './types.js';

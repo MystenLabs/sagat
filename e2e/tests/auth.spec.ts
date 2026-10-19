@@ -130,15 +130,67 @@ test.describe('wallet sign-in', () => {
 		await expect(
 			alice.page.getByTestId('auth-prompt'),
 		).toHaveCount(0);
+
+		// The wallet menu doesn't offer a signature that would only fail.
+		await alice.walletMenuButton().click();
 		await expect(
-			alice.page.getByTestId('sign-in-button'),
+			alice.page.getByTestId('disconnect-button'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('wallet-menu-sign'),
 		).toHaveCount(0);
+		await expect(
+			alice.page.getByTestId('wallet-account-sign'),
+		).toHaveCount(0);
+		await expect(
+			alice.page.getByText('Authentication Required'),
+		).toHaveCount(0);
+		await alice.walletMenuButton().click();
 
 		await alice.page.unroute(apiRoutes);
 		await alice.page
 			.getByTestId('api-retry-button')
 			.click();
 
+		await expect(alice.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+		await expect(
+			alice.page.getByTestId('dashboard-empty'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toHaveCount(0);
+	});
+
+	test('a failed refetch keeps a signed-in user on the dashboard', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		await alice.signIn();
+		await expect(
+			alice.page.getByTestId('dashboard-empty'),
+		).toBeVisible();
+
+		let failedChecks = 0;
+		await alice.page.route(
+			`${E2E.apiUrl}/auth/check`,
+			(route) => {
+				failedChecks++;
+				return route.abort('connectionrefused');
+			},
+		);
+
+		// React Query refetches on visibilitychange (its focus signal).
+		await alice.page.evaluate(() =>
+			window.dispatchEvent(new Event('visibilitychange')),
+		);
+		// The first attempt and its one retry.
+		await expect.poll(() => failedChecks).toBe(2);
+
+		// Opening the menu waits for a render after the failure settled.
+		await alice.walletMenuButton().click();
 		await expect(alice.walletMenuButton()).toHaveAttribute(
 			'data-auth-state',
 			'authenticated',
