@@ -39,9 +39,9 @@ function readStoredOpen() {
 }
 
 /**
- * App chrome: the sidebar on the left and the page on the right. The sidebar
- * is expanded on wide screens, collapses to an icon rail below 1280px and
- * becomes a sheet under 768px. Cmd/Ctrl+B toggles it anywhere.
+ * App chrome: the sidebar on the left and the page on the right. On wide
+ * screens the sidebar keeps the user's last choice (expanded by default),
+ * collapses to an icon rail below 1280px and becomes a sheet under 768px. Cmd/Ctrl+B toggles it anywhere.
  */
 export function AppShell({
 	children,
