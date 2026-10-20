@@ -178,11 +178,12 @@ export class Chain {
 	}
 
 	// Returns base64 bytes of a SUI transfer that passes a dry run now but
-	// fails on chain once `seconds` more have passed. It sends the clock's
-	// time in seconds, as MIST, out of a coin holding just `seconds` MIST
-	// more than that. (Spending an input first doesn't do: the network then
-	// refuses the transaction before executing it.) `sender` pays gas with
-	// the coins it already holds.
+	// fails on chain once `seconds` more have passed. Out of a funded coin it
+	// sets aside all but the deadline (the clock's time in seconds, read once
+	// funding is done, plus `seconds`) as MIST, then sends the clock's time
+	// in seconds, as MIST. (Spending an input first doesn't do: the network
+	// then refuses the transaction before executing it.) `sender` pays gas
+	// with the coins it already holds.
 	async buildSuiTransferFailingAfter({
 		sender,
 		recipient,
@@ -192,12 +193,16 @@ export class Chain {
 		recipient: string;
 		seconds: number;
 	}) {
+		// Enough until the clock passes 10^10 seconds, centuries away.
+		const funded = 10n ** 10n;
 		const funding = new Transaction();
 		const [funds] = funding.splitCoins(funding.gas, [
-			(await this.clockMs()) / 1000n + BigInt(seconds),
+			funded,
 		]);
 		funding.transferObjects([funds], sender);
 		const [coin] = await this.executeAsFunder(funding);
+		const deadline =
+			(await this.clockMs()) / 1000n + BigInt(seconds);
 
 		const tx = new Transaction();
 		tx.setSender(sender);
@@ -216,10 +221,11 @@ export class Chain {
 				tx.pure.u64(1000),
 			],
 		});
-		const [payment] = tx.splitCoins(
+		const [setAside, payment] = tx.splitCoins(
 			tx.object(coin.objectId),
-			[nowSeconds],
+			[funded - deadline, nowSeconds],
 		);
+		tx.transferObjects([setAside], sender);
 		tx.transferObjects([payment], recipient);
 		return toBase64(
 			await tx.build({ client: this.client }),

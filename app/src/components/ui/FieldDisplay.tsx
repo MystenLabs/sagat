@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { CopyButton } from '@/components/ui/CopyButton';
-import { cn } from '@/lib/utils';
 
 /** A labelled read-only value, mono, with a copy button. */
 export function FieldDisplay({
@@ -10,16 +9,14 @@ export function FieldDisplay({
 	value,
 	copyable = true,
 	copyMessage,
-	className,
 }: {
 	label: string;
 	value: string | number;
 	copyable?: boolean;
 	copyMessage?: string;
-	className?: string;
 }) {
 	return (
-		<div className={cn('flex flex-col gap-1.5', className)}>
+		<div className="flex flex-col gap-1.5">
 			<div className="text-12 text-muted-foreground">
 				{label}
 			</div>

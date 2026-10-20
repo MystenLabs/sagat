@@ -15,6 +15,8 @@ import { useCallback, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod/v3';
 
+import { safeDecode } from '@/lib/utils';
+
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCreateProposal } from '../hooks/useCreateProposal';
 import { useMultisigBalances } from '../hooks/useMultisigBalances';
@@ -419,7 +421,7 @@ function ProposalSheetBody({
 										error={analysis.error}
 									/>
 									<p className="text-sm text-error-foreground">
-										{decodeURIComponent(
+										{safeDecode(
 											dryRun.error?.message ||
 												'Transaction would fail on-chain',
 										)}

@@ -18,7 +18,10 @@ export function DevnetNotSupported() {
 					<AlertTriangle className="w-10 h-10 text-warning-foreground" />
 				</div>
 
-				<h1 className="text-3xl font-bold mb-3">
+				<h1
+					className="text-3xl font-bold mb-3"
+					data-testid="devnet-not-supported"
+				>
 					Devnet Not Supported
 				</h1>
 
@@ -32,6 +35,7 @@ export function DevnetNotSupported() {
 					<Button
 						size="lg"
 						onClick={() => setNetwork('mainnet')}
+						data-testid="switch-to-mainnet-button"
 					>
 						Switch to Mainnet
 					</Button>
@@ -39,6 +43,7 @@ export function DevnetNotSupported() {
 						size="lg"
 						variant="outline"
 						onClick={() => setNetwork('testnet')}
+						data-testid="switch-to-testnet-button"
 					>
 						Switch to Testnet
 					</Button>

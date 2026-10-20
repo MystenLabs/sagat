@@ -33,7 +33,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { toast } from '@/lib/toast';
-import { cn, getExplorerUrl } from '@/lib/utils';
+import {
+	cn,
+	getExplorerUrl,
+	safeDecode,
+} from '@/lib/utils';
 
 type SimulateResult =
 	SuiClientTypes.SimulateTransactionResult<{
@@ -50,15 +54,6 @@ interface SignedResult {
 	bytes: string;
 	/** Set when the transaction executed but failed on chain. */
 	failure?: { message: string };
-}
-
-/** Error messages can quote user input, so a stray `%` must not throw. */
-function safeDecode(message: string) {
-	try {
-		return decodeURIComponent(message);
-	} catch {
-		return message;
-	}
 }
 
 function errorMessage(error: unknown, fallback: string) {

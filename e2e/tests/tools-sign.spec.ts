@@ -175,12 +175,12 @@ test.describe('transaction signer tool', () => {
 		).toHaveAccessibleName('Network: devnet');
 
 		await page.goto('/');
-		const devnetNotSupported = page.getByRole('heading', {
-			name: 'Devnet Not Supported',
-		});
+		const devnetNotSupported = page.getByTestId(
+			'devnet-not-supported',
+		);
 		await expect(devnetNotSupported).toBeVisible();
 		await page
-			.getByRole('button', { name: 'Switch to Testnet' })
+			.getByTestId('switch-to-testnet-button')
 			.click();
 		await expect(
 			page.getByTestId('connect-wallet-prompt'),
