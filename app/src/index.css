@@ -52,7 +52,7 @@
 	--text-40--line-height: 1.1;
 	--text-40--letter-spacing: -0.03em;
 
-	/* Radii: 6 on controls, 10 on cards, 12 on dialogs and table shells. */
+	/* Radii: 6 on buttons, 8 on inputs, 10 on cards and dialogs, 12 on table shells. */
 	--radius-xs: 2px;
 	--radius-sm: 4px;
 	--radius-md: 6px;
@@ -221,15 +221,6 @@
 	--border: oklch(1 0 0 / 12%);
 	--input: oklch(1 0 0 / 24%);
 	--ring: oklch(1 0 0 / 40%);
-
-	--sidebar: oklch(0 0 0);
-	--sidebar-foreground: oklch(1 0 0);
-	--sidebar-primary: oklch(1 0 0);
-	--sidebar-primary-foreground: oklch(0 0 0);
-	--sidebar-accent: oklch(1 0 0 / 10%);
-	--sidebar-accent-foreground: oklch(1 0 0);
-	--sidebar-border: oklch(1 0 0 / 12%);
-	--sidebar-ring: oklch(1 0 0 / 40%);
 
 	--success-foreground: oklch(0.74 0.12 161);
 	--success: oklch(0.74 0.12 161 / 14%);
