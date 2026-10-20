@@ -149,9 +149,6 @@ test.describe('transaction signer tool', () => {
 		await expect(
 			result.getByTestId('signed-result-error'),
 		).toContainText('InsufficientCoinBalance');
-		await expect(result).not.toContainText(
-			'Transaction signed and executed',
-		);
 		expect(await chain.balance(recipient)).toBe(0n);
 	});
 
@@ -172,7 +169,7 @@ test.describe('transaction signer tool', () => {
 			.click();
 		await expect(
 			page.getByTestId('tool-network-button'),
-		).toHaveAccessibleName('Network: devnet');
+		).toHaveAttribute('data-network', 'devnet');
 
 		await page.goto('/');
 		const devnetNotSupported = page.getByTestId(

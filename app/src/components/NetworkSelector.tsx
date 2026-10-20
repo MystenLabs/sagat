@@ -29,6 +29,7 @@ export function NetworkSelector() {
 			<DropdownMenuTrigger
 				data-testid="tool-network-button"
 				aria-label={`Network: ${network}`}
+				data-network={network}
 				className={buttonVariants({
 					variant: 'outline',
 					size: 'sm',

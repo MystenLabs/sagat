@@ -408,11 +408,9 @@ export default function SigningTool() {
 		} catch (error) {
 			// The input stays, so the user can retry.
 			toast.error(
-				safeDecode(
-					errorMessage(
-						error,
-						'Failed to sign the transaction',
-					),
+				errorMessage(
+					error,
+					'Failed to sign the transaction',
 				),
 			);
 		} finally {
