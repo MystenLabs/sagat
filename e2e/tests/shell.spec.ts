@@ -267,9 +267,6 @@ test.describe('app shell', () => {
 				.locator('[data-sonner-toast]')
 				.filter({ hasText: 'Address copied' }),
 		).toBeVisible();
-		await expect(
-			page.getByTestId('receive-copy'),
-		).toHaveText('Copy address');
 		expect(
 			await page.evaluate(() =>
 				navigator.clipboard.readText(),

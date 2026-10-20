@@ -63,6 +63,7 @@ import {
 	SidebarMenuSkeleton,
 	SidebarRailTooltip,
 	SidebarSeparator,
+	sidebarToggleLabel,
 	SidebarTrigger,
 	useSidebar,
 } from '@/components/ui/sidebar';
@@ -230,9 +231,9 @@ function SidebarNav() {
 								}
 							/>
 							<TooltipContent side="right">
-								{sidebarState === 'collapsed'
-									? 'Expand sidebar'
-									: 'Collapse sidebar'}
+								{sidebarToggleLabel(
+									sidebarState !== 'collapsed',
+								)}
 							</TooltipContent>
 						</Tooltip>
 					</div>

@@ -277,6 +277,11 @@ function Sidebar({
 }
 
 // forwardRef so a Tooltip trigger can render it and anchor to it.
+/** What the toggle does next: one wording for its name and its tooltip. */
+export function sidebarToggleLabel(expanded: boolean) {
+	return expanded ? 'Collapse sidebar' : 'Expand sidebar';
+}
+
 const SidebarTrigger = React.forwardRef<
 	HTMLButtonElement,
 	React.ComponentPropsWithoutRef<typeof Button>
@@ -306,7 +311,7 @@ const SidebarTrigger = React.forwardRef<
 		>
 			<PanelLeftIcon />
 			<span className="sr-only">
-				{expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+				{sidebarToggleLabel(expanded)}
 			</span>
 		</Button>
 	);
