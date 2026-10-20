@@ -48,6 +48,8 @@ export interface SignerCheck {
 	status: SignerStatus;
 	labelLength: number;
 	labelTooLong: boolean;
+	/** Holds a control or format character the API refuses. */
+	labelInvalid: boolean;
 	/** Counts towards the signers and the total weight. */
 	complete: boolean;
 }
@@ -59,6 +61,12 @@ export function addressInput(key: string): string | null {
 		? normalizeSuiAddress(trimmed)
 		: null;
 }
+
+/**
+ * Control and format characters, which the API refuses in a key label.
+ * The same rule as the API's, so a name never fails only at Create.
+ */
+export const HIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}]/u;
 
 /** Characters as the API counts them: code points, after trimming. */
 export function textLength(value: string) {
@@ -126,7 +134,9 @@ export const COPY = {
 	lookupFailed:
 		'Couldn’t look up this address. Check your connection and try again.',
 	createFailed:
-		'Couldn’t create the multisig. Nothing was sent to the signers and your setup is still here. Check your connection and try again.',
+		'Couldn’t create the multisig. Your setup is still here. Check your connection and try again.',
+	labelInvalid:
+		'This name has hidden characters (such as a zero-width joiner) that can’t be saved. Remove them to continue.',
 };
 
 export interface SignersCheck {
@@ -174,6 +184,9 @@ export function checkSigners({
 		const labelLength = textLength(signer.label);
 		const labelTooLong =
 			labelLength > CONFIG.MAX_KEY_LABEL_LENGTH;
+		const labelInvalid = HIDDEN_CHARACTERS.test(
+			signer.label,
+		);
 		const status = statuses[index];
 
 		let finalStatus = status;
@@ -205,8 +218,11 @@ export function checkSigners({
 			status: finalStatus,
 			labelLength,
 			labelTooLong,
+			labelInvalid,
 			complete:
-				finalStatus.kind === 'valid' && !labelTooLong,
+				finalStatus.kind === 'valid' &&
+				!labelTooLong &&
+				!labelInvalid,
 		};
 	});
 

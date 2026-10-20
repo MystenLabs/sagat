@@ -442,3 +442,35 @@ describe('invited name', () => {
 		);
 	});
 });
+
+describe('hidden characters in names', () => {
+	test('a zero-width joiner holds the row, as the API would refuse it', () => {
+		const check = checkSigners({
+			signers: [
+				signer('1', { isCreator: true, label: 'Maya' }),
+				signer('2', {
+					label: 'Daniel \u{1F469}‍\u{1F4BB}',
+				}),
+			],
+			threshold: 1,
+			lookups: {},
+		});
+		expect(check.signers[1].labelInvalid).toBe(true);
+		expect(check.signers[1].complete).toBe(false);
+		expect(check.canContinue).toBe(false);
+		expect(check.blockedMessage).toBe(
+			'Finish or remove signer 2 to continue.',
+		);
+		// Emoji without a joiner are fine.
+		expect(
+			checkSigners({
+				signers: [
+					signer('1', { isCreator: true }),
+					signer('2', { label: 'Daniel \u{1F4BB}' }),
+				],
+				threshold: 1,
+				lookups: {},
+			}).signers[1].labelInvalid,
+		).toBe(false);
+	});
+});

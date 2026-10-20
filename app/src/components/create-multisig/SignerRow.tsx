@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/tooltip';
 import { CONFIG } from '@/lib/constants';
 import {
+	COPY,
 	type SignerCheck,
 	type SignerDraft,
 	type SignerStatus,
@@ -110,7 +111,11 @@ export function SignerRow({
 					}
 					placeholder={creator ? 'Your name' : 'Name'}
 					aria-label={`Signer ${index + 1} name`}
-					aria-invalid={check.labelTooLong || undefined}
+					aria-invalid={
+						check.labelTooLong ||
+						check.labelInvalid ||
+						undefined
+					}
 					autoFocus={autoFocus}
 					className={cn(
 						field,
@@ -259,22 +264,27 @@ function StatusLine({
 	check: SignerCheck;
 }) {
 	const { status } = check;
-	const label =
-		check.labelLength >= LABEL_NEAR ? (
-			<p
-				className={cn(
-					'text-12',
-					check.labelTooLong
-						? 'text-error-foreground'
-						: 'text-muted-foreground',
-				)}
-				data-testid="create-signer-label-hint"
-			>
-				Name: {check.labelLength} of {LABEL_MAX} characters
-				{check.labelTooLong &&
-					`. Use ${LABEL_MAX} or fewer.`}
-			</p>
-		) : null;
+	const label = check.labelInvalid ? (
+		<p
+			className="text-12 text-error-foreground"
+			data-testid="create-signer-label-hint"
+		>
+			{COPY.labelInvalid}
+		</p>
+	) : check.labelLength >= LABEL_NEAR ? (
+		<p
+			className={cn(
+				'text-12',
+				check.labelTooLong
+					? 'text-error-foreground'
+					: 'text-muted-foreground',
+			)}
+			data-testid="create-signer-label-hint"
+		>
+			Name: {check.labelLength} of {LABEL_MAX} characters
+			{check.labelTooLong && `. Use ${LABEL_MAX} or fewer.`}
+		</p>
+	) : null;
 
 	let line = null;
 	if (status.kind === 'valid')

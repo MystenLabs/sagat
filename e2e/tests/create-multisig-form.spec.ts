@@ -184,7 +184,7 @@ test.describe('create multisig wizard', () => {
 		release();
 
 		await expect(error).toHaveText(
-			'Couldn’t create the multisig. Nothing was sent to the signers and your setup is still here. Check your connection and try again.',
+			'Couldn’t create the multisig. Your setup is still here. Check your connection and try again.',
 		);
 		await expect(submit).toHaveText('Try again');
 		await expect(page).toHaveURL(/\/create$/);

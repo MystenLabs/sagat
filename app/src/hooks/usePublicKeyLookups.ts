@@ -14,9 +14,9 @@ const DEBOUNCE_MS = 400;
 /**
  * Looks up the public key of each address pasted into a key field, once
  * typing settles. A found key goes to `onFound` (which must be stable);
- * the addresses that came back empty are returned. Each address is looked
- * up once per mount and pasting it again reuses the answer, except after
- * no source could be reached: then the next paste retries.
+ * the addresses that came back empty are returned. A found key is kept
+ * for the visit; an answer without one is kept only while the address is
+ * in a field, so pasting it again retries the lookup.
  */
 export function usePublicKeyLookups(
 	addresses: string[],
@@ -28,13 +28,13 @@ export function usePublicKeyLookups(
 	const started = useRef(new Set<string>());
 	const found = useRef(new Map<string, string>());
 
-	// An unreachable address that has left every field is forgotten, so
-	// pasting it again looks it up afresh. Adjusted during render rather
-	// than in an effect, like the page's threshold clamp.
+	// An address that came back without a key and has left every field is
+	// forgotten, so pasting it again looks it up afresh: a "missing" can
+	// hide a source that was down at the time. Adjusted during render
+	// rather than in an effect, like the page's threshold clamp.
 	const present = new Set(addresses);
 	const stale = Object.keys(failed).filter(
-		(a) =>
-			failed[a].kind === 'unreachable' && !present.has(a),
+		(a) => failed[a].kind !== 'error' && !present.has(a),
 	);
 	if (stale.length > 0)
 		setFailed((prev) => {
@@ -63,8 +63,7 @@ export function usePublicKeyLookups(
 							onFound(address, result.publicKey);
 							return;
 						}
-						if (result.kind === 'unreachable')
-							started.current.delete(address);
+						started.current.delete(address);
 						setFailed((prev) => ({
 							...prev,
 							[address]: { kind: result.kind },
