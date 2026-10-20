@@ -311,7 +311,13 @@ export function thresholdWarning({
 		);
 		return `${joinList(names, 'or')} can approve proposals alone. Raise the threshold to ${highest + 1} or more so every proposal needs at least two signers.`;
 	}
-	if (totalWeight > 0 && threshold >= totalWeight)
+	// Everyone is needed when leaving any one signer out drops the rest
+	// below the threshold: weights 2 and 2 with a threshold of 3, not only
+	// a threshold at the total.
+	if (
+		signers.length > 0 &&
+		signers.every((s) => totalWeight - s.weight < threshold)
+	)
 		return COPY.everyoneMustSign;
 	return null;
 }

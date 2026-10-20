@@ -57,6 +57,32 @@ describe('threshold warnings', () => {
 		);
 	});
 
+	test('every signer must sign when leaving any one out falls short', () => {
+		// 2 and 2 at a threshold of 3: neither can be spared.
+		expect(
+			thresholdWarning({
+				signers: [
+					{ name: 'Manos', weight: 2 },
+					{ name: 'Marcus', weight: 2 },
+				],
+				threshold: 3,
+				totalWeight: 4,
+			}),
+		).toMatch(/^Every signer must sign/);
+		// 2, 2 and 1 at 3: the 1 can be spared, so no warning.
+		expect(
+			thresholdWarning({
+				signers: [
+					{ name: 'Manos', weight: 2 },
+					{ name: 'Marcus', weight: 2 },
+					{ name: 'Alice', weight: 1 },
+				],
+				threshold: 3,
+				totalWeight: 5,
+			}),
+		).toBeNull();
+	});
+
 	test('every signer must sign, and nothing below that', () => {
 		const signers = [1, 1, 1].map((weight) => ({
 			name: 'x',
