@@ -625,7 +625,7 @@ describe('Proposal Business Logic', () => {
 			});
 		});
 
-		test('remove-proposer checks the expiry, then membership, and not the address', async () => {
+		test('remove-proposer checks the expiry, then the address, then membership', async () => {
 			const { session, multisig } =
 				await framework.createVerifiedMultisig(2, 2);
 			const outsider = newUser();
@@ -646,6 +646,19 @@ describe('Proposal Business Logic', () => {
 					signer: outsider,
 					multisigAddress: multisig.address,
 					proposer: 'not-an-address',
+				}),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'Invalid address. Must be a valid Sui address.',
+				},
+			});
+			expect(
+				await changeProposer(session, 'remove-proposer', {
+					signer: outsider,
+					multisigAddress: multisig.address,
+					proposer: newUser().address,
 				}),
 			).toEqual(notAMember);
 		});

@@ -899,6 +899,9 @@ export const removeProposer = async ({
 	// Validate the expiry time of the signature.
 	validateExpiry(expiry);
 
+	if (!isValidSuiAddress(proposer))
+		throw new CommonError('InvalidAddress');
+
 	await verifyMemberSignedMessage({
 		signerSetAddress: address,
 		signature,
