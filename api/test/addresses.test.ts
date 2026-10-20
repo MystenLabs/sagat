@@ -8,7 +8,11 @@ import {
 	test,
 } from 'bun:test';
 
-import { ApiTestFramework } from './framework/api-test-framework';
+import {
+	ApiTestFramework,
+	errorOf,
+	newUser,
+} from './framework/api-test-framework';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -46,6 +50,22 @@ describe('Addresses API', () => {
 		).rejects.toThrow(
 			'Address is not registered in the system.',
 		);
+	});
+
+	test('invitations are only listed for a key the session holds', async () => {
+		const { session } =
+			await framework.createAuthenticatedSession(1);
+
+		expect(
+			await errorOf(
+				await session.request(
+					`/addresses/invitations/${encodeURIComponent(newUser().publicKey)}`,
+				),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'You are not authorized.' },
+		});
 	});
 
 	test('registering requires a session', async () => {

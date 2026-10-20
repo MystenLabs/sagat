@@ -41,12 +41,21 @@ export const newUser = (): TestUser => {
 	};
 };
 
-const sign = async (user: TestUser, message: string) =>
+export const sign = async (
+	user: TestUser,
+	message: string,
+) =>
 	(
 		await user.keypair.signPersonalMessage(
 			new TextEncoder().encode(message),
 		)
 	).signature;
+
+// The status and JSON body of an error response, to assert both at once.
+export const errorOf = async (response: Response) => ({
+	status: response.status,
+	body: await response.json(),
+});
 
 // A transfer of `amount` MIST from `sender` back to itself, paying for gas
 // with `gasCoin` if given (so proposals using different coins don't collide).
@@ -101,26 +110,40 @@ export class TestSession {
 	#cookie = '';
 	readonly client: SagatClient;
 
+	readonly #app: Hono;
+
 	constructor(app: Hono) {
+		this.#app = app;
 		this.client = new SagatClient(
 			'',
 			'cookie',
-			async (url, init) => {
-				const headers = new Headers(init?.headers);
-				if (this.#cookie)
-					headers.set('Cookie', this.#cookie);
-				const response = await app.request(url as string, {
-					...init,
-					headers,
-				});
-				const cookie = response.headers
-					.get('set-cookie')
-					?.match(/connected-wallet=([^;]*)/);
-				if (cookie)
-					this.#cookie = cookie[1] ? cookie[0] : '';
-				return response;
-			},
+			(url, init) => this.request(url as string, init),
 		);
+	}
+
+	// A request with the session cookie, returning the raw response (the
+	// client hides the status code).
+	async request(path: string, init?: RequestInit) {
+		const headers = new Headers(init?.headers);
+		if (this.#cookie) headers.set('Cookie', this.#cookie);
+		const response = await this.#app.request(path, {
+			...init,
+			headers,
+		});
+		const cookie = response.headers
+			.get('set-cookie')
+			?.match(/connected-wallet=([^;]*)/);
+		if (cookie) this.#cookie = cookie[1] ? cookie[0] : '';
+		return response;
+	}
+
+	// A raw JSON POST with the session cookie.
+	post(path: string, body: unknown) {
+		return this.request(path, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+		});
 	}
 
 	async connectUser(user: TestUser) {

@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { PersonalMessages } from '@mysten/sagat';
 import {
 	beforeEach,
 	describe,
@@ -10,7 +11,10 @@ import {
 
 import {
 	ApiTestFramework,
+	errorOf,
 	newUser,
+	sign,
+	type TestUser,
 } from './framework/api-test-framework';
 import {
 	createTestApp,
@@ -186,6 +190,138 @@ describe('Multisig API', () => {
 		).rejects.toThrow(
 			'You are not a member of this multisig',
 		);
+	});
+
+	test('non-members cannot read a multisig', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+		const { address } = await session.createMultisig(
+			users,
+			2,
+		);
+
+		const outsider = framework.createSession();
+		await outsider.connectUser(newUser());
+
+		const response = await outsider.request(
+			`/multisig/${address}`,
+		);
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({
+			error:
+				'Access denied. You are not a member of this multisig.',
+		});
+	});
+
+	test('an accepted invitation cannot be rejected, nor can a verified multisig', async () => {
+		const session = framework.createSession();
+		const [creator, early, late] = [
+			newUser(),
+			newUser(),
+			newUser(),
+		];
+		await session.connectUser(creator);
+		const { address } = await session.createMultisig(
+			[creator, early, late],
+			3,
+		);
+		await session.acceptMultisig(early, address);
+
+		const reject = async (user: TestUser) =>
+			errorOf(
+				await session.post(`/multisig/${address}/reject`, {
+					signature: await sign(
+						user,
+						PersonalMessages.rejectMultisigInvitation(
+							address,
+						),
+					),
+				}),
+			);
+
+		expect(await reject(early)).toEqual({
+			status: 400,
+			body: { error: 'Cannot reject after accepting' },
+		});
+
+		await session.acceptMultisig(late, address);
+
+		// Once verified, that is the error for anyone, member or not.
+		expect(await reject(late)).toEqual({
+			status: 400,
+			body: { error: 'Multisig is already verified' },
+		});
+		expect(await reject(newUser())).toEqual({
+			status: 400,
+			body: { error: 'Multisig is already verified' },
+		});
+	});
+
+	test('an invitation cannot be rejected twice', async () => {
+		const session = framework.createSession();
+		const [creator, invitee] = [newUser(), newUser()];
+		await session.connectUser(creator);
+		const { address } = await session.createMultisig(
+			[creator, invitee],
+			2,
+		);
+		await session.rejectMultisig(invitee, address);
+
+		expect(
+			await errorOf(
+				await session.post(`/multisig/${address}/reject`, {
+					signature: await sign(
+						invitee,
+						PersonalMessages.rejectMultisigInvitation(
+							address,
+						),
+					),
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: {
+				error: 'This invitation has already been rejected',
+			},
+		});
+	});
+
+	test('accept checks membership before the signature, reject the reverse', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+		const { address } = await session.createMultisig(
+			users,
+			2,
+		);
+		const outsider = newUser();
+		// Signed, but not the message either route expects.
+		const signature = await sign(
+			outsider,
+			'Something else',
+		);
+
+		expect(
+			await errorOf(
+				await session.post(`/multisig/${address}/accept`, {
+					signature,
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: {
+				error: 'You are not a member of this multisig',
+			},
+		});
+		expect(
+			await errorOf(
+				await session.post(`/multisig/${address}/reject`, {
+					signature,
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'Invalid signature for message.' },
+		});
 	});
 
 	test('rejected invitations are only listed when asked for', async () => {

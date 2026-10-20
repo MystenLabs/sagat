@@ -1,46 +1,24 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * Registered public keys and the Sui addresses they derive (keys are
+ * registered when they connect, are passed to `POST /addresses`, or are put
+ * in a multisig), plus loading signer sets by address.
+ */
+
 import { type PublicKey } from '@mysten/sui/cryptography';
+import { eq } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
 	SchemaAddresses,
+	type Address,
 	type SignerSetWithMembers,
 } from '../db/schema';
-import { CommonError } from '../errors';
+import { ValidationError } from '../errors';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import { parsePublicKey } from '../utils/pubKey';
-
-// Takes a pub key, a signature, and a message, and validates it.
-// Returns the Sui address if valid, or null if not.
-export const validatePersonalMessage = async (
-	publicKey: PublicKey,
-	signature: string,
-	message: string,
-) => {
-	const isValid = await publicKey.verifyPersonalMessage(
-		new TextEncoder().encode(message),
-		signature,
-	);
-
-	if (!isValid) throw new CommonError('InvalidSignature');
-};
-
-/**
- * Registers a single public key in the addresses table
- */
-export async function registerPublicKey(
-	publicKey: PublicKey,
-): Promise<void> {
-	await db
-		.insert(SchemaAddresses)
-		.values({
-			publicKey: publicKey.toSuiPublicKey(),
-			address: publicKey.toSuiAddress(),
-		})
-		.onConflictDoNothing();
-}
 
 /**
  * Registers multiple public keys in the addresses table
@@ -73,6 +51,56 @@ export async function registerPublicKeyStrings(
 		parsePublicKey(keyStr),
 	);
 	await registerPublicKeys(publicKeys);
+}
+
+/**
+ * Registers the caller's keys and any extra keys they pass. Extra keys that
+ * fail to parse are skipped.
+ */
+export async function registerCallerKeys({
+	callerKeys,
+	extraPublicKeys,
+}: {
+	callerKeys: PublicKey[];
+	extraPublicKeys: string[];
+}): Promise<void> {
+	// Parse extra public keys using the existing utility
+	const parsedExtraKeys = extraPublicKeys
+		.map((keyStr) => {
+			try {
+				return parsePublicKey(keyStr);
+			} catch (error) {
+				// eslint-disable-next-line no-console
+				console.warn(
+					'Failed to parse public key:',
+					keyStr,
+					error,
+				);
+				return null;
+			}
+		})
+		.filter((key) => key !== null);
+
+	await registerPublicKeys([
+		...callerKeys,
+		...parsedExtraKeys,
+	]);
+}
+
+// The registered public key of an address.
+export async function getRegisteredAddress(
+	address: string,
+): Promise<Address> {
+	const addr = await db.query.SchemaAddresses.findFirst({
+		where: eq(SchemaAddresses.address, address),
+	});
+
+	if (!addr)
+		throw new ValidationError(
+			'Address is not registered in the system.',
+		);
+
+	return addr;
 }
 
 /**
