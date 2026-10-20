@@ -4,7 +4,8 @@
 /**
  * Authorization for the requests that carry a signature instead of a JWT:
  * the signer is recovered from the signature, then checked against the
- * message (or transaction) it must have signed.
+ * message (or transaction) it must have signed. Signed personal messages go
+ * through `verifySignedMessage` or `verifyMemberSignedMessage` only.
  */
 
 import { type PublicKey } from '@mysten/sui/cryptography';
@@ -13,15 +14,9 @@ import { CommonError, ValidationError } from '../errors';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import { isSignerSetMember } from './membership.service';
 
-// The public key that produced a serialized signature.
-export const recoverSigner = (
-	signature: string,
-): PublicKey =>
-	getPublicKeyFromSerializedSignature(signature);
-
 // Takes a pub key, a signature, and a message, and validates it.
 // Throws `InvalidSignature` if the signature does not sign the message.
-export const validatePersonalMessage = async (
+const validatePersonalMessage = async (
 	publicKey: PublicKey,
 	signature: string,
 	message: string,
@@ -39,7 +34,8 @@ export const verifySignedMessage = async (
 	signature: string,
 	message: string,
 ): Promise<PublicKey> => {
-	const signer = recoverSigner(signature);
+	const signer =
+		getPublicKeyFromSerializedSignature(signature);
 	await validatePersonalMessage(signer, signature, message);
 	return signer;
 };
@@ -63,7 +59,8 @@ export const verifyMemberSignedMessage = async ({
 	acceptedOnly: boolean;
 	notMemberError: () => Error;
 }): Promise<PublicKey> => {
-	const signer = recoverSigner(signature);
+	const signer =
+		getPublicKeyFromSerializedSignature(signature);
 
 	if (
 		!(await isSignerSetMember(

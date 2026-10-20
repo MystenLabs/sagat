@@ -49,6 +49,7 @@ import {
 	type PaginatedResponse,
 	type PaginationCursor,
 } from '../utils/pagination';
+import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import {
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -58,7 +59,6 @@ import {
 	validateProposedTransaction,
 } from './multisig.service';
 import {
-	recoverSigner,
 	verifyMemberSignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
@@ -290,7 +290,8 @@ export const createProposal = async ({
 	const network = validateNetwork(rawNetwork);
 
 	// Get the public key out of the sui signature.
-	const pubKey = recoverSigner(signature);
+	const pubKey =
+		getPublicKeyFromSerializedSignature(signature);
 	const multisig = await getSignerSet(multisigAddress);
 
 	const isMember = multisig.members.some(
@@ -386,7 +387,8 @@ export const voteOnProposal = async ({
 }): Promise<ProposalTally> => {
 	const proposal = await getProposalById(proposalId);
 
-	const pubKey = recoverSigner(signature);
+	const pubKey =
+		getPublicKeyFromSerializedSignature(signature);
 
 	if (
 		!(await isSignerSetMember(
