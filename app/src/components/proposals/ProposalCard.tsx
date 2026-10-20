@@ -37,9 +37,9 @@ import {
 } from '../../lib/exportUtils';
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
-import { Button } from '../ui/button';
+import { Button, buttonVariants } from '../ui/button';
+import { Chip } from '../ui/chip';
 import { CopyButton } from '../ui/copy-button';
-import { Label } from '../ui/label';
 import {
 	Tooltip,
 	TooltipContent,
@@ -151,7 +151,7 @@ export function ProposalCard({
 
 	const getStatusBadge = () => {
 		const { variant, text } = STATUS_BADGES[statusKey];
-		return <Label variant={variant}>{text}</Label>;
+		return <Chip variant={variant}>{text}</Chip>;
 	};
 
 	const isExternalProposer = () => {
@@ -186,13 +186,13 @@ export function ProposalCard({
 		if (!userHasSigned()) return null;
 
 		return (
-			<Label
+			<Chip
 				variant="success"
 				data-testid="proposal-already-signed"
 			>
 				<Check strokeWidth={3} className="w-3 h-3" />
 				Already Signed
-			</Label>
+			</Chip>
 		);
 	};
 
@@ -221,9 +221,9 @@ export function ProposalCard({
 							)}
 						{getSignatureStatus()}
 						{isExternalProposer() && (
-							<Label variant="purple">
+							<Chip variant="purple">
 								External Proposer
-							</Label>
+							</Chip>
 						)}
 					</div>
 
@@ -266,18 +266,15 @@ export function ProposalCard({
 								successMessage="Copied digest to clipboard"
 							/>
 							{!proposal.isPublic && (
-								<TooltipProvider delayDuration={150}>
+								<TooltipProvider delay={150}>
 									<Tooltip>
-										<TooltipTrigger asChild>
-											<button
-												type="button"
-												onClick={handleExportProposal}
-												className="inline-flex items-center justify-center rounded p-0.5 transition-colors hover:bg-accent cursor-pointer"
-												aria-label="Export proposal with signatures"
-												data-testid="export-proposal-button"
-											>
-												<Download className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-											</button>
+										<TooltipTrigger
+											onClick={handleExportProposal}
+											className="inline-flex items-center justify-center rounded p-0.5 transition-colors hover:bg-accent cursor-pointer"
+											aria-label="Export proposal with signatures"
+											data-testid="export-proposal-button"
+										>
+											<Download className="w-3 h-3 text-muted-foreground hover:text-foreground" />
 										</TooltipTrigger>
 										<TooltipContent>
 											Export proposal with signatures
@@ -319,20 +316,22 @@ export function ProposalCard({
 							</Button>
 						)}
 					{proposal.status === ProposalStatus.SUCCESS ? (
-						<Button size="sm" variant="outline" asChild>
-							<a
-								href={getExplorerUrl(
-									proposal.digest,
-									network,
-								)}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex items-center gap-1"
-							>
-								<ExternalLink className="w-4 h-4" />
-								View Transaction
-							</a>
-						</Button>
+						<a
+							href={getExplorerUrl(
+								proposal.digest,
+								network,
+							)}
+							target="_blank"
+							rel="noopener noreferrer"
+							className={buttonVariants({
+								variant: 'outline',
+								size: 'sm',
+								className: 'flex items-center gap-1',
+							})}
+						>
+							<ExternalLink className="w-4 h-4" />
+							View Transaction
+						</a>
 					) : (
 						<Button
 							size="sm"
@@ -348,13 +347,11 @@ export function ProposalCard({
 						</Button>
 					)}
 					{proposal.status === ProposalStatus.PENDING && (
-						<Button size="sm" variant="ghost" asChild>
-							<CopyButton
-								size="md"
-								value={`${window.location.origin}/proposals?digest=${proposal.digest}`}
-								successMessage="Copied proposal link to clipboard"
-							/>
-						</Button>
+						<CopyButton
+							size="md"
+							value={`${window.location.origin}/proposals?digest=${proposal.digest}`}
+							successMessage="Copied proposal link to clipboard"
+						/>
 					)}
 				</div>
 			</div>
@@ -411,20 +408,22 @@ export function ProposalCard({
 								on-chain.
 							</p>
 							<div className="flex items-center gap-2">
-								<Button size="sm" variant="outline" asChild>
-									<a
-										href={getExplorerUrl(
-											proposal.digest,
-											network,
-										)}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="flex items-center gap-1"
-									>
-										<ExternalLink className="w-4 h-4" />
-										View on Explorer
-									</a>
-								</Button>
+								<a
+									href={getExplorerUrl(
+										proposal.digest,
+										network,
+									)}
+									target="_blank"
+									rel="noopener noreferrer"
+									className={buttonVariants({
+										variant: 'outline',
+										size: 'sm',
+										className: 'flex items-center gap-1',
+									})}
+								>
+									<ExternalLink className="w-4 h-4" />
+									View on Explorer
+								</a>
 								<span className="text-xs text-muted-foreground">
 									Digest: {proposal.digest}
 								</span>

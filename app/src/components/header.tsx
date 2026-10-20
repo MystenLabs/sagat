@@ -23,7 +23,7 @@ import { CustomWalletButton } from './CustomWalletButton';
 import { Logo } from './Logo';
 import { ToolsDropdown } from './ToolsDropdown';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
+import { Chip } from './ui/chip';
 import {
 	Sheet,
 	SheetContent,
@@ -53,25 +53,27 @@ const RESOURCE_LINKS = [
 
 function ResourceLinks() {
 	return (
-		<TooltipProvider delayDuration={150}>
+		<TooltipProvider delay={150}>
 			<div className="flex items-center gap-1 ml-1 border-l pl-3">
 				{RESOURCE_LINKS.map(
 					({ href, label, icon: Icon }) => (
 						<Tooltip key={href}>
-							<TooltipTrigger asChild>
-								<a
-									href={href}
-									target="_blank"
-									rel="noreferrer"
+							<TooltipTrigger
+								render={
+									<a
+										href={href}
+										target="_blank"
+										rel="noreferrer"
+									/>
+								}
+							>
+								<Button
+									variant="ghost"
+									size="sm"
+									className="px-2 text-muted-foreground"
 								>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="px-2 text-muted-foreground"
-									>
-										<Icon className="w-4 h-4" />
-									</Button>
-								</a>
+									<Icon className="w-4 h-4" />
+								</Button>
 							</TooltipTrigger>
 							<TooltipContent>{label}</TooltipContent>
 						</Tooltip>
@@ -225,14 +227,14 @@ const NavigationLinks = ({
 							<Mail className="w-4 h-4 mr-2" />
 							Invitations
 							{pendingCount > 0 && (
-								<Label
+								<Chip
 									variant="warning"
 									size="sm"
 									className={`absolute ${mobile ? 'top-2 right-2' : '-top-1 -right-1'} bg-orange-500 text-white h-5 w-5 p-0 justify-center`}
 									data-testid="nav-invitations-count"
 								>
 									{pendingCount}
-								</Label>
+								</Chip>
 							)}
 						</Button>
 					</Link>
@@ -334,23 +336,25 @@ export function Header() {
 						open={sheetOpen}
 						onOpenChange={setSheetOpen}
 					>
-						<SheetTrigger asChild>
-							<Button
-								variant="outline"
-								size="sm"
-								className="relative"
-							>
-								<Menu className="w-4 h-4" />
-								{pendingCount > 0 && (
-									<Label
-										variant="warning"
-										size="sm"
-										className="absolute -top-1 -right-1 bg-orange-500 text-white h-4 w-4 p-0 justify-center"
-									>
-										{pendingCount}
-									</Label>
-								)}
-							</Button>
+						<SheetTrigger
+							render={
+								<Button
+									variant="outline"
+									size="sm"
+									className="relative"
+								/>
+							}
+						>
+							<Menu className="w-4 h-4" />
+							{pendingCount > 0 && (
+								<Chip
+									variant="warning"
+									size="sm"
+									className="absolute -top-1 -right-1 bg-orange-500 text-white h-4 w-4 p-0 justify-center"
+								>
+									{pendingCount}
+								</Chip>
+							)}
 						</SheetTrigger>
 						<SheetContent
 							side="right"

@@ -29,7 +29,7 @@ import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useDefaultSuinsName } from '../hooks/useDefaultSuinsName';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
+import { Chip } from './ui/chip';
 import { Switch } from './ui/switch';
 
 type WalletVariant = 'header' | 'sidebar';
@@ -177,12 +177,12 @@ export function CustomWalletButton({
 							currentSuinsName,
 						)}
 					</span>
-					<Label
+					<Chip
 						variant={isTestMode ? 'warning' : 'info'}
 						size="sm"
 					>
 						{network}
-					</Label>
+					</Chip>
 					<ChevronDown className="w-3 h-3" />
 				</Button>
 
@@ -306,12 +306,12 @@ export function CustomWalletButton({
 						currentSuinsName,
 					)}
 				</span>
-				<Label
+				<Chip
 					variant={isTestMode ? 'warning' : 'info'}
 					size="sm"
 				>
 					{network}
-				</Label>
+				</Chip>
 				<ChevronDown className="w-3 h-3" />
 			</Button>
 
@@ -468,7 +468,6 @@ const NetworkSwitchingSection = () => {
 					onCheckedChange={(checked) =>
 						setNetwork(checked ? 'testnet' : 'mainnet')
 					}
-					className="scale-75"
 				/>
 			</div>
 		</>

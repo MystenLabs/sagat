@@ -27,7 +27,7 @@ import {
 	type ProposalIntent,
 } from './ProposalSheet';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
+import { Chip } from './ui/chip';
 import { Loading } from './ui/loading';
 
 export function MultisigDetailPage() {
@@ -202,13 +202,13 @@ export function MultisigDetailPage() {
 									<Icon className="w-4 h-4" />
 									{tabItem.label}
 									{(tabItem.count && tabItem.count > 0 && (
-										<Label
+										<Chip
 											variant="warning"
 											size="sm"
 											className="ml-1"
 										>
 											{tabItem.count} pending
-										</Label>
+										</Chip>
 									)) ||
 										null}
 								</NavLink>
