@@ -101,26 +101,31 @@ export class TestSession {
 	#cookie = '';
 	readonly client: SagatClient;
 
+	readonly #app: Hono;
+
 	constructor(app: Hono) {
+		this.#app = app;
 		this.client = new SagatClient(
 			'',
 			'cookie',
-			async (url, init) => {
-				const headers = new Headers(init?.headers);
-				if (this.#cookie)
-					headers.set('Cookie', this.#cookie);
-				const response = await app.request(url as string, {
-					...init,
-					headers,
-				});
-				const cookie = response.headers
-					.get('set-cookie')
-					?.match(/connected-wallet=([^;]*)/);
-				if (cookie)
-					this.#cookie = cookie[1] ? cookie[0] : '';
-				return response;
-			},
+			(url, init) => this.request(url as string, init),
 		);
+	}
+
+	// A request with the session cookie, returning the raw response (the
+	// client hides the status code).
+	async request(path: string, init?: RequestInit) {
+		const headers = new Headers(init?.headers);
+		if (this.#cookie) headers.set('Cookie', this.#cookie);
+		const response = await this.#app.request(path, {
+			...init,
+			headers,
+		});
+		const cookie = response.headers
+			.get('set-cookie')
+			?.match(/connected-wallet=([^;]*)/);
+		if (cookie) this.#cookie = cookie[1] ? cookie[0] : '';
+		return response;
 	}
 
 	async connectUser(user: TestUser) {

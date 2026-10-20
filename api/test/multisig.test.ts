@@ -188,6 +188,27 @@ describe('Multisig API', () => {
 		);
 	});
 
+	test('non-members cannot read a multisig', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+		const { address } = await session.createMultisig(
+			users,
+			2,
+		);
+
+		const outsider = framework.createSession();
+		await outsider.connectUser(newUser());
+
+		const response = await outsider.request(
+			`/multisig/${address}`,
+		);
+		expect(response.status).toBe(403);
+		expect(await response.json()).toEqual({
+			error:
+				'Access denied. You are not a member of this multisig.',
+		});
+	});
+
 	test('rejected invitations are only listed when asked for', async () => {
 		const session = framework.createSession();
 		const creator = newUser();
