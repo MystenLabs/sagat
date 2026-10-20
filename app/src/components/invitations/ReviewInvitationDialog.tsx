@@ -42,7 +42,7 @@ export function ReviewInvitationDialog({
 	open: boolean;
 	onClose: () => void;
 	multisig: MultisigWithMembersForPublicKey;
-	creator: string | null;
+	creator: { address: string; label: string | null } | null;
 	onAccept: () => void;
 	onReject: () => void;
 	accepting: boolean;
@@ -61,7 +61,8 @@ export function ReviewInvitationDialog({
 				...member,
 				address,
 				isYou: address === currentAddress?.address,
-				isCreator: !!address && address === creator,
+				isCreator:
+					!!address && address === creator?.address,
 			};
 		});
 	const you = signers.find((s) => s.isYou);
@@ -121,9 +122,11 @@ export function ReviewInvitationDialog({
 								Join {name}?
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
-								{creator ? (
+								{creator?.label ? (
+									creator.label
+								) : creator ? (
 									<span className="font-mono text-13">
-										{formatAddress(creator)}
+										{formatAddress(creator.address)}
 									</span>
 								) : (
 									'Someone'
@@ -168,7 +171,7 @@ export function ReviewInvitationDialog({
 						</div>
 
 						<div className="mt-4 overflow-hidden rounded-2xl border">
-							<table className="w-full text-13">
+							<table className="w-full table-fixed text-13">
 								<thead>
 									<tr className="bg-muted text-left text-12 text-muted-foreground">
 										<th className="w-9 px-3 py-1.5 font-normal">
@@ -206,24 +209,8 @@ export function ReviewInvitationDialog({
 											<td className="px-3 py-2.5 text-12 text-muted-foreground">
 												{i + 1}
 											</td>
-											<td className="px-3 py-2.5">
-												<span className="flex items-center gap-1.5 font-mono text-12">
-													{signer.address ? (
-														<ShortAddress
-															address={signer.address}
-														/>
-													) : (
-														'Unknown key'
-													)}
-													{(signer.isCreator ||
-														signer.isYou) && (
-														<span className="font-sans text-12 text-muted-foreground">
-															{signer.isYou
-																? 'You'
-																: 'Creator'}
-														</span>
-													)}
-												</span>
+											<td className="px-3 py-1">
+												<SignerCell signer={signer} />
 											</td>
 											<td className="px-3 py-2.5 text-right font-medium">
 												{signer.weight}
@@ -297,6 +284,61 @@ function Stat({
 				{label}
 			</dt>
 			<dd className="text-14">{value}</dd>
+		</div>
+	);
+}
+
+/**
+ * A signer's name over their address when the account named the key,
+ * otherwise the address alone. "You" or "Creator" follows the first line.
+ */
+function SignerCell({
+	signer,
+}: {
+	signer: {
+		address?: string;
+		label: string | null;
+		isYou: boolean;
+		isCreator: boolean;
+	};
+}) {
+	const marker = signer.isYou
+		? 'You'
+		: signer.isCreator
+			? 'Creator'
+			: null;
+	const markerText = marker && (
+		<span className="shrink-0 font-sans text-12 text-muted-foreground">
+			{marker}
+		</span>
+	);
+	const address = signer.address ? (
+		<ShortAddress address={signer.address} />
+	) : (
+		'Unknown key'
+	);
+
+	if (!signer.label)
+		return (
+			<span className="flex items-center gap-1.5 font-mono text-12">
+				{address}
+				{markerText}
+			</span>
+		);
+	return (
+		<div className="flex min-w-0 flex-col gap-px">
+			<span className="flex min-w-0 items-center gap-1.5">
+				<span
+					className="truncate text-13 font-medium"
+					data-testid="member-label"
+				>
+					{signer.label}
+				</span>
+				{markerText}
+			</span>
+			<span className="flex font-mono text-12">
+				{address}
+			</span>
 		</div>
 	);
 }

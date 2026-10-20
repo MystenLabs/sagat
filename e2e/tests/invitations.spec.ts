@@ -15,6 +15,7 @@ test.describe('invitations', () => {
 			creator: alice,
 			members: [bob],
 			threshold: 2,
+			labels: ['Alice', null],
 			accept: false,
 		});
 
@@ -25,6 +26,10 @@ test.describe('invitations', () => {
 		await bob.page.getByTestId('nav-invitations').click();
 
 		const card = bob.invitationCard(multisig.address);
+		// A labelled creator shows by name, beside their address.
+		await expect(
+			card.getByTestId('invitation-invited-by'),
+		).toHaveText('Invited by Alice');
 		// The short creator address shows the full one on hover.
 		await card
 			.locator(`[data-address="${alice.address}"]`)
@@ -50,7 +55,22 @@ test.describe('invitations', () => {
 		await expect(
 			bob.memberItem(alice.address),
 		).toHaveAttribute('data-status', 'accepted');
-		// Signer rows do the same when tabbed to.
+		await expect(
+			bob.page.getByTestId('invitation-review'),
+		).toContainText('Alice invited you as a signer.');
+		// A labelled signer shows by name over the address; an unlabelled
+		// one shows the address alone.
+		await expect(
+			bob
+				.memberItem(alice.address)
+				.getByTestId('member-label'),
+		).toHaveText('Alice');
+		await expect(
+			bob
+				.memberItem(bob.address)
+				.getByTestId('member-label'),
+		).toHaveCount(0);
+		// Signer addresses show the full one when tabbed to.
 		await bob
 			.memberItem(alice.address)
 			.locator(`button[data-address="${alice.address}"]`)

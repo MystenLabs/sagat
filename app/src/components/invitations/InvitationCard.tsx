@@ -12,8 +12,8 @@ import { Button } from '../ui/button';
 import { Chip } from '../ui/chip';
 import { CopyButton } from '../ui/CopyButton';
 import {
+	accountCreator,
 	accountName,
-	creatorAddress,
 } from './account-name';
 import { RejectInvitationDialog } from './RejectInvitationDialog';
 import { ReviewInvitationDialog } from './ReviewInvitationDialog';
@@ -36,7 +36,7 @@ export function InvitationCard({
 	const busy = accept.isPending || reject.isPending;
 
 	const name = accountName(multisig);
-	const creator = creatorAddress(multisig);
+	const creator = accountCreator(multisig);
 
 	// On success the hook moves to the account page itself.
 	const handleAccept = () =>
@@ -80,16 +80,20 @@ export function InvitationCard({
 						)}
 					</div>
 					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-13 text-muted-foreground">
-						<span>Invited by</span>
+						<span data-testid="invitation-invited-by">
+							{creator?.label
+								? `Invited by ${creator.label}`
+								: 'Invited by'}
+						</span>
 						<span className="flex items-center gap-1 font-mono text-12 text-foreground-secondary">
 							{creator ? (
-								<ShortAddress address={creator} />
+								<ShortAddress address={creator.address} />
 							) : (
 								'an unknown key'
 							)}
 							{creator && (
 								<CopyButton
-									value={creator}
+									value={creator.address}
 									size="xs"
 									successMessage="Address copied"
 								/>
