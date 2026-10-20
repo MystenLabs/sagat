@@ -207,9 +207,31 @@ test.describe('invitations', () => {
 		await card
 			.getByTestId('reject-invitation-open')
 			.click();
-		await bob.page
-			.getByTestId('reject-invitation-button')
-			.click();
+		// Hold the request: Escape mid-request leaves the dialog open, so a
+		// second reject can't start.
+		let release = () => {};
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await bob.page.route(
+			'**/multisig/*/reject',
+			async (route) => {
+				await held;
+				await route.continue();
+			},
+		);
+		const rejectButton = bob.page.getByTestId(
+			'reject-invitation-button',
+		);
+		await rejectButton.click();
+		await expect(rejectButton).toHaveText(
+			'Confirm in your wallet…',
+		);
+		await bob.page.keyboard.press('Escape');
+		await expect(
+			bob.page.getByTestId('invitation-reject-confirm'),
+		).toHaveAttribute('data-open', '');
+		release();
 		await expect(card).toBeHidden();
 
 		await bob.page

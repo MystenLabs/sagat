@@ -60,6 +60,11 @@ export function ReviewInvitationDialog({
 			return {
 				...member,
 				address,
+				status: member.isAccepted
+					? ('accepted' as const)
+					: member.isRejected
+						? ('rejected' as const)
+						: ('pending' as const),
 				isYou: address === currentAddress?.address,
 				isCreator:
 					!!address && address === creator?.address,
@@ -74,10 +79,12 @@ export function ReviewInvitationDialog({
 		<Dialog
 			open={open}
 			onOpenChange={(next) => {
-				if (!next) onClose();
+				// Closing mid-sign would reset the request and allow a second one.
+				if (!next && !accepting) onClose();
 			}}
 		>
 			<DialogContent
+				closeDisabled={accepting}
 				className="gap-0 p-8 sm:max-w-[640px]"
 				data-testid="invitation-review"
 				data-state-kind={error ? 'failed' : 'review'}
@@ -198,13 +205,7 @@ export function ReviewInvitationDialog({
 											)}
 											data-testid="member-item"
 											data-address={signer.address}
-											data-status={
-												signer.isAccepted
-													? 'accepted'
-													: signer.isRejected
-														? 'rejected'
-														: 'pending'
-											}
+											data-status={signer.status}
 										>
 											<td className="px-3 py-2.5 text-12 text-muted-foreground">
 												{i + 1}
@@ -216,19 +217,14 @@ export function ReviewInvitationDialog({
 												{signer.weight}
 											</td>
 											<td className="px-3 py-2.5">
-												{signer.isAccepted ? (
-													<Chip variant="success">
-														Accepted
-													</Chip>
-												) : signer.isRejected ? (
-													<Chip variant="error">
-														Rejected
-													</Chip>
-												) : (
-													<Chip variant="warning">
-														Invited
-													</Chip>
-												)}
+												<Chip
+													variant={
+														STATUS_CHIP[signer.status]
+															.variant
+													}
+												>
+													{STATUS_CHIP[signer.status].label}
+												</Chip>
 											</td>
 										</tr>
 									))}
@@ -270,6 +266,12 @@ export function ReviewInvitationDialog({
 		</Dialog>
 	);
 }
+
+const STATUS_CHIP = {
+	accepted: { variant: 'success', label: 'Accepted' },
+	rejected: { variant: 'error', label: 'Rejected' },
+	pending: { variant: 'warning', label: 'Invited' },
+} as const;
 
 function Stat({
 	label,

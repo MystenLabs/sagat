@@ -30,7 +30,9 @@ clash with `bun dev`. Don't reuse a plain `sui start`: an hour after it starts,
 its fullnode prunes aggressively, so transactions stop being readable seconds
 after they land. Global setup refuses one that is already pruning, but not one
 that starts pruning mid-run. Stop it, or keep one from
-`./start-localnet.sh 9000 9123` running.
+`./start-localnet.sh 9000 9123` running. The script wipes its data directory
+on startup, so give a second network (say, one for manual testing) its own:
+`LOCALNET_DIR=/tmp/my-localnet ./start-localnet.sh 9200 9223`.
 
 Configuration (all optional):
 

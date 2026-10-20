@@ -60,5 +60,12 @@ export function useRejectInvitation() {
 				queryKey: [QueryKeys.Invitations],
 			});
 		},
+		// The invitation may have been handled elsewhere (another tab), so
+		// refresh the list rather than assume it's still pending.
+		onError: () => {
+			void queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Invitations],
+			});
+		},
 	});
 }

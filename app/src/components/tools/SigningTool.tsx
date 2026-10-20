@@ -35,6 +35,7 @@ import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { toast } from '@/lib/toast';
 import {
 	cn,
+	errorMessage,
 	getExplorerUrl,
 	safeDecode,
 } from '@/lib/utils';
@@ -54,12 +55,6 @@ interface SignedResult {
 	bytes: string;
 	/** Set when the transaction executed but failed on chain. */
 	failure?: { message: string };
-}
-
-function errorMessage(error: unknown, fallback: string) {
-	return error instanceof Error && error.message
-		? error.message
-		: fallback;
 }
 
 function TransactionInput({

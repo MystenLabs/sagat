@@ -37,7 +37,8 @@ export function RejectInvitationDialog({
 		<Dialog
 			open={open}
 			onOpenChange={(next) => {
-				if (!next) onClose();
+				// Closing mid-sign would reset the request and allow a second one.
+				if (!next && !rejecting) onClose();
 			}}
 		>
 			<DialogContent
@@ -52,8 +53,8 @@ export function RejectInvitationDialog({
 							Couldn't reject the invitation
 						</DialogTitle>
 						<DialogDescription className="mt-2 text-13 text-muted-foreground">
-							Nothing changed: the invitation is still
-							pending.
+							The rejection didn't go through. Try again, or
+							go back to the invitation.
 						</DialogDescription>
 						<Alert
 							variant="error"
