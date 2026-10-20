@@ -23,8 +23,8 @@ function AppContent() {
 
 	return (
 		<AppShell>
-			<AppRouter />
 			{showBanner && <TestModeBanner />}
+			<AppRouter />
 		</AppShell>
 	);
 }

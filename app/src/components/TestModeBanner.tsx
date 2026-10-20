@@ -6,7 +6,19 @@ import { useState } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import { useNetworkOption } from '../hooks/useNetworkOptions';
+import { Button } from './ui/button';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from './ui/tooltip';
 
+/**
+ * A strip across the top of the content column while the app points at a
+ * test network. It sits in the flow and pushes the page down, on an opaque
+ * surface, so nothing shows through it.
+ */
 export function TestModeBanner() {
 	const { isTestMode, network, setNetwork } = useNetwork();
 	const [isDismissed, setIsDismissed] = useState(false);
@@ -16,51 +28,47 @@ export function TestModeBanner() {
 		return null;
 	}
 
-	const handleDismiss = () => {
-		setIsDismissed(true);
-	};
-
 	return (
 		<div
-			className="sticky bottom-0 z-40 mt-auto bg-background"
+			role="status"
+			className="bg-background"
 			data-testid="test-mode-banner"
 		>
-			<div className="border-t-2 border-warning-border bg-warning px-4 py-3">
-				<div className="flex items-center justify-between max-w-7xl mx-auto">
-					<div className="flex items-center gap-3">
-						<AlertTriangle className="w-5 h-5 text-warning-foreground" />
-						<div>
-							<p className="text-sm font-medium text-warning-foreground">
-								Test Mode Active
-							</p>
-							<p className="text-xs text-warning-foreground">
-								You're connected to {network}. No real funds
-								will be used.
-							</p>
-						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						{mainnet.hint && (
-							<span className="text-12 text-warning-foreground">
-								{mainnet.hint}
-							</span>
-						)}
-						<button
-							onClick={() => setNetwork('mainnet')}
-							disabled={!mainnet.enabled}
-							className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1.5 rounded transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50"
+			<div className="flex items-center gap-3 border-b border-warning-border bg-warning px-4 py-2.5 text-warning-foreground md:px-6">
+				<AlertTriangle className="size-4 shrink-0" />
+				<p className="min-w-0 flex-1 text-13">
+					<span className="font-medium">Test mode.</span>{' '}
+					You're connected to {network}.{' '}
+					<span className="hidden sm:inline">
+						No real funds will be used.
+					</span>
+				</p>
+				{mainnet.hint && (
+					<span className="hidden text-12 sm:inline">
+						{mainnet.hint}
+					</span>
+				)}
+				<Button
+					size="sm"
+					onClick={() => setNetwork('mainnet')}
+					disabled={!mainnet.enabled}
+					className="shrink-0"
+				>
+					Switch to Mainnet
+				</Button>
+				<TooltipProvider delay={150}>
+					<Tooltip>
+						<TooltipTrigger
+							type="button"
+							aria-label="Dismiss"
+							onClick={() => setIsDismissed(true)}
+							className="shrink-0 cursor-pointer rounded-sm p-1 opacity-70 outline-none hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
 						>
-							Switch to Mainnet
-						</button>
-						<button
-							onClick={handleDismiss}
-							className="p-1 hover:bg-warning rounded transition-colors cursor-pointer"
-							title="Dismiss"
-						>
-							<X className="w-4 h-4 text-warning-foreground" />
-						</button>
-					</div>
-				</div>
+							<X className="size-4" />
+						</TooltipTrigger>
+						<TooltipContent>Dismiss</TooltipContent>
+					</Tooltip>
+				</TooltipProvider>
 			</div>
 		</div>
 	);
