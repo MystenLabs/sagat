@@ -35,6 +35,20 @@ export function cn(...inputs: ClassValue[]) {
 	return twMerge(clsx(inputs));
 }
 
+/**
+ * Readable text for a caught error. Wallets can reject with a bare
+ * string or object, or an Error with no message.
+ */
+export function errorMessage(
+	error: unknown,
+	fallback: string,
+): string {
+	if (error instanceof Error && error.message)
+		return error.message;
+	if (typeof error === 'string' && error) return error;
+	return fallback;
+}
+
 const EXPLORER_NETWORKS = ['mainnet', 'testnet', 'devnet'];
 
 /**

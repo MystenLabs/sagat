@@ -15,6 +15,7 @@ test.describe('invitations', () => {
 			creator: alice,
 			members: [bob],
 			threshold: 2,
+			labels: ['Alice', null],
 			accept: false,
 		});
 
@@ -25,6 +26,29 @@ test.describe('invitations', () => {
 		await bob.page.getByTestId('nav-invitations').click();
 
 		const card = bob.invitationCard(multisig.address);
+		// A labelled creator shows by name, beside their address.
+		await expect(
+			card.getByTestId('invitation-invited-by'),
+		).toHaveText('Invited by Alice');
+		// The short creator address shows the full one on hover.
+		await card
+			.locator(`[data-address="${alice.address}"]`)
+			.hover();
+		const addressTip = bob.page
+			.getByRole('tooltip')
+			.filter({ hasText: alice.address });
+		await expect(addressTip).toBeVisible();
+		// The tooltip stays open while hovered and can copy the address.
+		await bob.context.grantPermissions([
+			'clipboard-read',
+			'clipboard-write',
+		]);
+		await addressTip.getByTestId('address-copy').click();
+		expect(
+			await bob.page.evaluate(() =>
+				navigator.clipboard.readText(),
+			),
+		).toBe(alice.address);
 		await card
 			.getByTestId('invitation-toggle-details')
 			.click();
@@ -32,29 +56,244 @@ test.describe('invitations', () => {
 			bob.memberItem(alice.address),
 		).toHaveAttribute('data-status', 'accepted');
 		await expect(
+			bob.page.getByTestId('invitation-review'),
+		).toContainText('Alice invited you as a signer.');
+		// A labelled signer shows by name over the address; an unlabelled
+		// one shows the address alone.
+		await expect(
+			bob
+				.memberItem(alice.address)
+				.getByTestId('member-label'),
+		).toHaveText('Alice');
+		await expect(
+			bob
+				.memberItem(bob.address)
+				.getByTestId('member-label'),
+		).toHaveCount(0);
+		// Signer addresses show the full one when tabbed to.
+		await bob
+			.memberItem(alice.address)
+			.locator(`button[data-address="${alice.address}"]`)
+			.focus();
+		await bob.page.keyboard.press('Tab');
+		await expect(
+			bob
+				.memberItem(bob.address)
+				.locator(`button[data-address="${bob.address}"]`),
+		).toBeFocused();
+		await expect(
+			bob.page
+				.getByRole('tooltip')
+				.filter({ hasText: bob.address }),
+		).toBeVisible();
+		await expect(
 			bob.memberItem(bob.address),
 		).toHaveAttribute('data-status', 'pending');
-		await card
+		// The review dialog renders in a portal, outside the card.
+		await bob.page
 			.getByTestId('accept-invitation-button')
 			.click();
 
-		await expect(card).toBeHidden();
-		await expect(
-			bob.page.getByTestId('invitations-empty'),
-		).toBeVisible();
-
-		// With every member on board, the multisig is verified and opens.
-		await bob.page.goto('/');
+		// Accepting lands on the account with a greeting.
 		await expect(
 			bob.page.getByTestId('multisig-detail'),
 		).toHaveAttribute(
 			'data-multisig-address',
 			multisig.address,
 		);
+		await expect(
+			bob.page.getByTestId('joined-banner'),
+		).toContainText('You joined');
+		// The greeting shows once, not again on reload.
+		await bob.page.reload();
+		await expect(
+			bob.page.getByTestId('multisig-detail'),
+		).toBeVisible();
+		await expect(
+			bob.page.getByTestId('joined-banner'),
+		).toBeHidden();
+		await bob.page.getByTestId('nav-invitations').click();
+		await expect(
+			bob.page.getByTestId('invitations-empty'),
+		).toBeVisible();
+
+		// With every member on board, the multisig is verified.
 		const saved = await alice.api.getMultisig(
 			multisig.address,
 		);
 		expect(saved.isVerified).toBe(true);
+	});
+
+	test('accepting lands on the account even while the account list fails to refresh', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+
+		await bob.signIn();
+		await bob.page.getByTestId('nav-invitations').click();
+		await bob
+			.invitationCard(multisig.address)
+			.getByTestId('invitation-toggle-details')
+			.click();
+
+		const paths: string[] = [];
+		bob.page.on('framenavigated', (frame) => {
+			if (frame === bob.page.mainFrame())
+				paths.push(new URL(frame.url()).pathname);
+		});
+		// The account list refresh fails; the accept call still goes through.
+		const accountList = '**/addresses/connections**';
+		await bob.page.route(accountList, (route) =>
+			route.abort(),
+		);
+		await bob.page
+			.getByTestId('accept-invitation-button')
+			.click();
+
+		// It goes to the account at once (before the refresh gives up after
+		// its retries) and waits there rather than bouncing to the dashboard.
+		const accountPath = `/multisig/${multisig.address}/overview`;
+		await expect(bob.page).toHaveURL(
+			new RegExp(`${accountPath}$`),
+			{ timeout: 3_000 },
+		);
+		await expect(
+			bob.page.getByTestId('skeleton-page'),
+		).toBeVisible();
+
+		await bob.page.unroute(accountList);
+		await expect(
+			bob.page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+		await expect(
+			bob.page.getByTestId('joined-banner'),
+		).toContainText('You joined');
+		expect(paths).not.toContain('/');
+		await bob.page.getByTestId('multisig-switcher').click();
+		await expect(
+			bob.page.locator(
+				`[data-testid="multisig-switcher-option"][data-address="${multisig.address}"]`,
+			),
+		).toBeVisible();
+	});
+
+	test('an accept that lands after switching accounts stays on the invitations page', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob', {
+			otherAccounts: ['bob-savings'],
+		});
+		const [savings] = bob.otherAccounts;
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+
+		await bob.signIn();
+		// Savings signs in too, so its inbox loads once it's selected and the
+		// accept's refresh of that inbox shows the hook has settled.
+		await bob.signInAccount(savings);
+		await bob.switchAccount(bob);
+		await bob.page.getByTestId('nav-invitations').click();
+		await bob
+			.invitationCard(multisig.address)
+			.getByTestId('invitation-toggle-details')
+			.click();
+
+		const paths: string[] = [];
+		bob.page.on('framenavigated', (frame) => {
+			if (frame === bob.page.mainFrame())
+				paths.push(new URL(frame.url()).pathname);
+		});
+		// Hold the accept until bob has moved to his other account.
+		let release = () => {};
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await bob.page.route(
+			'**/multisig/*/accept',
+			async (route) => {
+				await held;
+				await route.continue();
+			},
+		);
+		await bob.page
+			.getByTestId('accept-invitation-button')
+			.click();
+		await expect(
+			bob.page.getByTestId('accept-invitation-button'),
+		).toHaveText('Confirm in your wallet…');
+		// The review dialog covers the header mid-sign, so switch from the
+		// wallet side, the way an extension's account picker would.
+		const selectInWallet = (address: string) =>
+			bob.page.evaluate(
+				(address) =>
+					window.__e2eWallet!.setSelectedAccount(address),
+				address,
+			);
+		const savingsInbox = `/addresses/invitations/${encodeURIComponent(savings.publicKey)}`;
+		const waitForSavingsInbox = () =>
+			bob.page.waitForResponse((response) => {
+				const { pathname, searchParams } = new URL(
+					response.url(),
+				);
+				return (
+					response.request().method() === 'GET' &&
+					pathname.endsWith(savingsInbox) &&
+					!searchParams.has('showRejected')
+				);
+			});
+		const inboxLoaded = waitForSavingsInbox();
+		await selectInWallet(savings.address);
+		await expect(bob.walletMenuButton()).toHaveAttribute(
+			'data-address',
+			savings.address,
+		);
+		await inboxLoaded;
+		// Savings' inbox has data, so the accept's refresh starts a new fetch
+		// even if this one is still being read.
+		await expect(
+			bob.page.getByTestId('invitations-empty'),
+		).toBeVisible();
+
+		// From here only the accept's onSuccess refetches savings' inbox, and
+		// it does so before it decides whether to navigate.
+		const accepted = bob.page.waitForResponse(
+			'**/multisig/*/accept',
+		);
+		const refreshed = waitForSavingsInbox();
+		release();
+		expect((await accepted).ok()).toBe(true);
+		await refreshed;
+
+		// Back on bob, the invitation is gone and the page never moved.
+		await selectInWallet(bob.address);
+		await expect(bob.walletMenuButton()).toHaveAttribute(
+			'data-address',
+			bob.address,
+		);
+		await expect(
+			bob.page.getByTestId('invitations-empty'),
+		).toBeVisible();
+		await expect(bob.page).toHaveURL(/\/invitations$/);
+		expect(
+			paths.some((path) => path.startsWith('/multisig/')),
+		).toBe(false);
 	});
 
 	test('an invited member rejects and the creator sees it', async ({
@@ -72,12 +311,35 @@ test.describe('invitations', () => {
 		await bob.signIn();
 		await bob.page.getByTestId('nav-invitations').click();
 		const card = bob.invitationCard(multisig.address);
+		// Rejecting asks for confirmation first.
 		await card
-			.getByTestId('invitation-toggle-details')
+			.getByTestId('reject-invitation-open')
 			.click();
-		await card
-			.getByTestId('reject-invitation-button')
-			.click();
+		// Hold the request: Escape mid-request leaves the dialog open, so a
+		// second reject can't start.
+		let release = () => {};
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await bob.page.route(
+			'**/multisig/*/reject',
+			async (route) => {
+				await held;
+				await route.continue();
+			},
+		);
+		const rejectButton = bob.page.getByTestId(
+			'reject-invitation-button',
+		);
+		await rejectButton.click();
+		await expect(rejectButton).toHaveText(
+			'Confirm in your wallet…',
+		);
+		await bob.page.keyboard.press('Escape');
+		await expect(
+			bob.page.getByTestId('invitation-reject-confirm'),
+		).toHaveAttribute('data-open', '');
+		release();
 		await expect(card).toBeHidden();
 
 		await bob.page

@@ -8,6 +8,7 @@ import { Chip } from '@/components/ui/chip';
 
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CopyButton } from '../ui/CopyButton';
+import { memberStatus } from './member-status';
 
 interface MembersListProps {
 	members: MultisigMember[];
@@ -27,13 +28,7 @@ export function MembersList({ members }: MembersListProps) {
 						className="flex items-center justify-between p-3 bg-card rounded border"
 						data-testid="member-item"
 						data-address={address}
-						data-status={
-							member.isAccepted
-								? 'accepted'
-								: member.isRejected
-									? 'rejected'
-									: 'pending'
-						}
+						data-status={memberStatus(member)}
 					>
 						<div className="flex-1 min-w-0">
 							<div className="flex items-center space-x-2">

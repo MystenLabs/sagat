@@ -2,25 +2,34 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { formatAddress } from '@mysten/sui/utils';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
 	Navigate,
 	Outlet,
+	useLocation,
+	useNavigate,
 	useParams,
 } from 'react-router-dom';
 
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
+import { accountName } from './invitations/account-name';
 import {
 	ProposalSheet,
 	type ProposalIntent,
 } from './ProposalSheet';
+import { Alert } from './ui/Alert';
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from './ui/tooltip';
 
 export function MultisigDetailPage() {
 	const { address } = useParams<{ address: string }>();
@@ -29,7 +38,47 @@ export function MultisigDetailPage() {
 		useState(false);
 	const [proposalIntent, setProposalIntent] =
 		useState<ProposalIntent | null>(null);
-	const { data: multisigs, isLoading } = useUserMultisigs();
+	const {
+		data: multisigs,
+		isLoading,
+		isFetching,
+	} = useUserMultisigs();
+	// Set by the invitation flow right after accepting. Router state
+	// lives in history, so it is copied here and cleared at once: the
+	// greeting shows one time, not again on reload or Back. It belongs
+	// to the page it landed on and goes once you move to another tab.
+	const location = useLocation();
+	const navigate = useNavigate();
+	const joinedState = !!(
+		location.state as { joined?: boolean } | null
+	)?.joined;
+	const [joinedAt, setJoinedAt] = useState<string | null>(
+		() => (joinedState ? location.pathname : null),
+	);
+	// Adjusted during render (not in an effect) so the banner never
+	// flashes on the wrong page.
+	if (joinedState && joinedAt !== location.pathname) {
+		setJoinedAt(location.pathname);
+	} else if (
+		!joinedState &&
+		joinedAt &&
+		joinedAt !== location.pathname
+	) {
+		setJoinedAt(null);
+	}
+	useEffect(() => {
+		if (!joinedState) return;
+		navigate(location.pathname + location.search, {
+			replace: true,
+			state: null,
+		});
+	}, [
+		joinedState,
+		location.pathname,
+		location.search,
+		navigate,
+	]);
+	const joined = joinedAt === location.pathname;
 
 	// Find the multisig details from the selected accts
 	const multisigDetails = useMemo(
@@ -63,7 +112,9 @@ export function MultisigDetailPage() {
 		}
 	}, [address, verifiedMultisigs, currentAccount?.address]);
 
-	if (isLoading) {
+	// Also wait while the list refreshes without this account (just
+	// joined), rather than redirecting on the stale list.
+	if (isLoading || (isFetching && !multisigDetails)) {
 		return <SkeletonPage message="Loading account" />;
 	}
 
@@ -94,8 +145,7 @@ export function MultisigDetailPage() {
 		return <Navigate to="/" replace />;
 	}
 
-	const title =
-		multisig.name || formatAddress(multisig.address);
+	const title = accountName(multisig);
 
 	return (
 		<div
@@ -123,6 +173,40 @@ export function MultisigDetailPage() {
 					</Button>
 				}
 			/>
+
+			{joined && (
+				<Alert
+					variant="success"
+					className="mb-6 items-center font-medium"
+					data-testid="joined-banner"
+				>
+					<div className="flex items-center gap-3">
+						<span className="flex-1">
+							You joined {title}.
+							{multisig.pendingMembers > 0 &&
+								` ${multisig.pendingMembers} ${
+									multisig.pendingMembers === 1
+										? 'signer hasn’t'
+										: 'signers haven’t'
+								} accepted yet.`}
+						</span>
+						<TooltipProvider delay={150}>
+							<Tooltip>
+								<TooltipTrigger
+									type="button"
+									aria-label="Dismiss"
+									className="cursor-pointer rounded-sm opacity-70 hover:opacity-100"
+									onClick={() => setJoinedAt(null)}
+									data-testid="joined-banner-dismiss"
+								>
+									<X className="size-4" />
+								</TooltipTrigger>
+								<TooltipContent>Dismiss</TooltipContent>
+							</Tooltip>
+						</TooltipProvider>
+					</div>
+				</Alert>
+			)}
 
 			{/* Tab Content */}
 			<div>

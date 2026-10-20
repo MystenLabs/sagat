@@ -4,7 +4,7 @@
 import { AlertCircle } from 'lucide-react';
 import { type ComponentType, type ReactNode } from 'react';
 
-import { cn } from '@/lib/utils';
+import { cn, errorMessage } from '@/lib/utils';
 
 import { Button } from './button';
 
@@ -83,12 +83,7 @@ export function ErrorState({
 	className,
 	testId,
 }: ErrorStateProps) {
-	const message =
-		error instanceof Error && error.message
-			? error.message
-			: typeof error === 'string' && error
-				? error
-				: fallback;
+	const message = errorMessage(error, fallback);
 	return (
 		<div
 			role="alert"
