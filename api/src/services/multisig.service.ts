@@ -12,7 +12,7 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { isValidSuiAddress } from '@mysten/sui/utils';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, type SQL } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -52,7 +52,10 @@ import {
 } from '../utils/client';
 import { parsePublicKey } from '../utils/pubKey';
 import { normalizeKeyLabels } from './account-keys.service';
-import { registerPublicKeyStrings } from './addresses.service';
+import {
+	expandSignerSetsWithMembers,
+	registerPublicKeyStrings,
+} from './addresses.service';
 import { validateExpiry } from './auth.service';
 import { jwtHasSignerSetMemberAccess } from './membership.service';
 import {
@@ -90,7 +93,9 @@ export type MultisigAccount = {
 	signerSet: SignerSetWithMembers;
 	proposers: Proposer[];
 	labels: KeyLabels;
-	origin: SignerSetOrigin;
+	// Who created it and when. The lookups below only find multisigs that
+	// have it, so null is not expected.
+	origin: SignerSetOrigin | null;
 };
 
 // The multisig at `address`, for a caller holding one of its keys (accepted
@@ -122,6 +127,158 @@ export const getMultisigAccount = async ({
 		]);
 	if (!signerSet || !origin) throw new NotFoundError();
 	return { signerSet, proposers, labels, origin };
+};
+
+type MultisigAccountRow = SignerSetOrigin & {
+	address: string;
+};
+
+// Signer sets with a member matching `where`, with who drafted them and
+// when. Legacy clients only see signer sets that have their account's link
+// row for the original composition, `(A, A)` in `account_signer_sets`: a
+// signer set drafted for another account would otherwise show up as a
+// standalone multisig.
+const selectMultisigAccounts = async (
+	where: SQL | undefined,
+): Promise<MultisigAccountRow[]> =>
+	db
+		.selectDistinct({
+			address: SchemaSignerSetMembers.signerSetAddress,
+			draftedBy: SchemaAccountSignerSets.draftedBy,
+			createdAt: SchemaAccountSignerSets.createdAt,
+		})
+		.from(SchemaSignerSetMembers)
+		.innerJoin(
+			SchemaAccountSignerSets,
+			and(
+				eq(
+					SchemaAccountSignerSets.accountAddress,
+					SchemaSignerSetMembers.signerSetAddress,
+				),
+				eq(
+					SchemaAccountSignerSets.signerSetAddress,
+					SchemaSignerSetMembers.signerSetAddress,
+				),
+			),
+		)
+		.where(where);
+
+// Signer sets with their account's proposers, key labels and origin.
+const loadMultisigAccounts = async (
+	rows: MultisigAccountRow[],
+): Promise<MultisigAccount[]> => {
+	const origins = new Map(
+		rows.map(({ address, ...origin }) => [address, origin]),
+	);
+	const signerSets = await expandSignerSetsWithMembers([
+		...origins.keys(),
+	]);
+	const accountAddresses = signerSets.map((s) => s.address);
+	const [proposers, labels] = await Promise.all([
+		AccountProposersDataLoader.loadMany(accountAddresses),
+		AccountKeyLabelsDataLoader.loadMany(accountAddresses),
+	]);
+	return signerSets.map((signerSet, i) => {
+		const accountProposers = proposers[i];
+		if (accountProposers instanceof Error)
+			throw accountProposers;
+		const keyLabels = labels[i];
+		if (keyLabels instanceof Error) throw keyLabels;
+		return {
+			signerSet,
+			proposers: accountProposers,
+			labels: keyLabels,
+			origin: origins.get(signerSet.address) ?? null,
+		};
+	});
+};
+
+/**
+ * The multisigs each of the caller's keys has accepted, by public key, in
+ * the order of `callerKeys`.
+ */
+export const listConnections = async ({
+	callerKeys,
+}: {
+	callerKeys: PublicKey[];
+}): Promise<Map<string, MultisigAccount[]>> => {
+	const whereConditions = [
+		inArray(
+			SchemaSignerSetMembers.publicKey,
+			callerKeys.map((pubKey) => pubKey.toSuiPublicKey()),
+		),
+		eq(SchemaSignerSetMembers.isAccepted, true),
+		eq(SchemaSignerSetMembers.isRejected, false),
+	];
+
+	// Step 1: Find multisigs that the given publicKeys belong to
+	const rows = await selectMultisigAccounts(
+		and(...whereConditions.filter((x) => !!x)),
+	);
+
+	// Step 2: Expand multisigs to full objects with all members
+	const multisigs = await loadMultisigAccounts(rows);
+
+	const grouped = new Map<string, MultisigAccount[]>();
+
+	for (const pubkey of callerKeys) {
+		const pubKeyBase64 = pubkey.toSuiPublicKey();
+		// shouldnt really happen
+		if (grouped.has(pubKeyBase64)) continue;
+
+		// Only include accepted multisigs for individual public keys.
+		grouped.set(
+			pubKeyBase64,
+			multisigs.filter(({ signerSet }) =>
+				signerSet.members.some(
+					(m) =>
+						m.publicKey === pubKeyBase64 && m.isAccepted,
+				),
+			),
+		);
+	}
+
+	return grouped;
+};
+
+/**
+ * The multisigs `publicKey` is invited to and has not answered, or with
+ * `showRejected`, the ones it rejected. `publicKey` must be one of the
+ * caller's keys.
+ */
+export const listInvitations = async ({
+	publicKey,
+	showRejected,
+	callerKeys,
+}: {
+	publicKey: string;
+	showRejected: boolean;
+	callerKeys: PublicKey[];
+}): Promise<MultisigAccount[]> => {
+	if (
+		!callerKeys.some(
+			(pubKey) => pubKey.toSuiPublicKey() === publicKey,
+		)
+	)
+		throw new ValidationError('You are not authorized.');
+
+	const whereConditions = [
+		eq(SchemaSignerSetMembers.publicKey, publicKey),
+		showRejected
+			? eq(SchemaSignerSetMembers.isRejected, true)
+			: and(
+					eq(SchemaSignerSetMembers.isAccepted, false),
+					eq(SchemaSignerSetMembers.isRejected, false),
+				),
+	];
+
+	// Step 1: Find multisigs for this public key's invitations
+	const rows = await selectMultisigAccounts(
+		and(...whereConditions.filter((x) => !!x)),
+	);
+
+	// Step 2: Expand multisigs to full objects with all members
+	return await loadMultisigAccounts(rows);
 };
 
 /**
