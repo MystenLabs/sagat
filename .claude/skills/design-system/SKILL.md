@@ -111,6 +111,12 @@ Rules:
   through `Modal` / `ModalHeader` / `ModalContent` / `ModalActions`.
 - Tooltips on every icon-only control, including the collapsed sidebar
   rail.
+- Feedback states are shared: `toast` from `@/lib/toast` (never `sonner`
+  directly; errors persist with a close button, everything else closes
+  after four seconds, `link` adds the underlined action), `Skeleton`,
+  `SkeletonRows` and `SkeletonPage` from `ui/skeleton` for loading
+  (shaped like the content, no spinners), and `EmptyState` / `ErrorState`
+  from `ui/empty-state` for nothing-here and failed-to-load.
 - Give new interactive elements a stable `data-testid` so the e2e suite
   can find them.
 

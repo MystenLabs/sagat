@@ -19,8 +19,8 @@ import {
 	type ProposalIntent,
 } from './ProposalSheet';
 import { Button } from './ui/button';
-import { Loading } from './ui/loading';
 import { PageHeader } from './ui/page-header';
+import { SkeletonPage } from './ui/skeleton';
 
 export function MultisigDetailPage() {
 	const { address } = useParams<{ address: string }>();
@@ -64,9 +64,7 @@ export function MultisigDetailPage() {
 	}, [address, verifiedMultisigs, currentAccount?.address]);
 
 	if (isLoading) {
-		return (
-			<Loading message="Loading multisig details..." />
-		);
+		return <SkeletonPage message="Loading account" />;
 	}
 
 	// If we're trying to access a specific multisig but it's not verified, redirect to dashboard

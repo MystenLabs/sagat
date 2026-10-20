@@ -6,9 +6,9 @@ import {
 	useDAppKit,
 	useWalletConnection,
 } from '@mysten/dapp-kit-react';
-import { toast } from 'sonner';
 
 import { LocalStorageKeys } from '@/lib/localStorageKeys';
+import { toast } from '@/lib/toast';
 
 export type SuiNetwork =
 	'mainnet' | 'testnet' | 'devnet' | 'localnet';

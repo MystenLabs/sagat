@@ -28,7 +28,7 @@ import { AssetsTab } from './tabs/AssetsTab';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ProposalsTab } from './tabs/ProposalsTab';
 import { ToolsPage } from './ToolsPage';
-import { Loading } from './ui/loading';
+import { SkeletonPage } from './ui/skeleton';
 
 type AuthLevel = 'public' | 'wallet' | 'full';
 
@@ -203,7 +203,12 @@ export function AppRouter() {
 	if (authLevel === 'wallet') return renderRoutes;
 
 	if (isCheckingAuth) {
-		return <Loading message="Checking authentication..." />;
+		return (
+			<SkeletonPage
+				rows={3}
+				message="Checking authentication"
+			/>
+		);
 	}
 
 	if (!isCurrentAddressAuthenticated) {

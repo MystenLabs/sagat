@@ -16,12 +16,12 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
-import { CONFIG } from '../../lib/constants';
 import {
 	buildMultisigCompositionExport,
 	downloadJson,
 	getMultisigExportFilename,
 } from '../../lib/exportUtils';
+import { getExplorerUrl } from '../../lib/utils';
 import { MembersList } from '../invitations/MembersList';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Button } from '../ui/button';
@@ -37,10 +37,11 @@ export function OverviewTab() {
 	const { copied, copy } = useCopyToClipboard();
 	const { network } = useNetwork();
 
-	const getExplorerUrl = (address: string) => {
-		const baseUrl = CONFIG.EXPLORER_URLS[network];
-		return `${baseUrl}/account/${address}`;
-	};
+	const explorerUrl = getExplorerUrl(
+		multisig.address,
+		network,
+		'account',
+	);
 
 	const {
 		data: multisigDetails,
@@ -118,19 +119,18 @@ export function OverviewTab() {
 				</div>
 
 				<div className="mt-6 pt-6 border-t flex flex-col sm:flex-row gap-2">
-					<Button
-						variant="outline"
-						onClick={() =>
-							window.open(
-								getExplorerUrl(multisig.address),
-								'_blank',
-							)
-						}
-						className="w-full sm:w-auto"
-					>
-						<ExternalLink className="w-4 h-4 mr-2" />
-						View on Sui Explorer
-					</Button>
+					{explorerUrl && (
+						<Button
+							variant="outline"
+							onClick={() =>
+								window.open(explorerUrl, '_blank')
+							}
+							className="w-full sm:w-auto"
+						>
+							<ExternalLink className="w-4 h-4 mr-2" />
+							View on Sui Explorer
+						</Button>
+					)}
 					<Button
 						variant="outline"
 						onClick={handleExportComposition}

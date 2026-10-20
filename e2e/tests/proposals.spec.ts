@@ -106,6 +106,16 @@ test.describe('proposals', () => {
 		await bobCard
 			.getByTestId('execute-proposal-button')
 			.click();
+		// The success toast names the transaction. Suiscan doesn't index
+		// localnet, so there is no explorer link here.
+		const toast = bob.page.locator(
+			'[data-sonner-toast][data-type="success"]',
+			{ hasText: 'Proposal executed' },
+		);
+		await expect(toast).toContainText(digest!);
+		await expect(
+			toast.getByRole('button', { name: /explorer/i }),
+		).toHaveCount(0);
 		await expect(bobCard).toHaveAttribute(
 			'data-status',
 			'executed',

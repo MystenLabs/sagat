@@ -21,7 +21,8 @@ import React, {
 	useContext,
 	useEffect,
 } from 'react';
-import { toast } from 'sonner';
+
+import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';

@@ -19,7 +19,7 @@ import {
 	coinUsdValue,
 	sortBalances,
 } from '../../lib/coins';
-import { CONFIG } from '../../lib/constants';
+import { getExplorerUrl } from '../../lib/utils';
 import { AssetsHeader } from '../assets/AssetsHeader';
 import { AssetsList } from '../assets/AssetsList';
 import { type ProposalIntent } from '../ProposalSheet';
@@ -86,7 +86,11 @@ export function AssetsTab() {
 		}, REFRESH_COOLDOWN_MS);
 	};
 
-	const explorerUrl = `${CONFIG.EXPLORER_URLS[network]}/account/${multisig.address}`;
+	const explorerUrl = getExplorerUrl(
+		multisig.address,
+		network,
+		'account',
+	);
 
 	return (
 		<div className="space-y-4 px-3">

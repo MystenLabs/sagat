@@ -22,17 +22,7 @@ export const CONFIG = {
 
 	// Pagination
 	DEFAULT_PAGE_SIZE: 20,
-
-	// Explorer URLs
-	EXPLORER_URLS: {
-		testnet: 'https://suiscan.xyz/testnet',
-		mainnet: 'https://suiscan.xyz/mainnet',
-		devnet: 'https://suiscan.xyz/devnet',
-		localnet: 'http://localhost:9001', // For local development
-	},
 } as const;
-
-export type Network = keyof typeof CONFIG.EXPLORER_URLS;
 
 // Validation constants
 export const VALIDATION = {

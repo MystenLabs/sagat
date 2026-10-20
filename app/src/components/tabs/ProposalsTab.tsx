@@ -16,7 +16,8 @@ import { useNetwork } from '../../contexts/NetworkContext';
 import { useProposalsQueries } from '../../hooks/useProposalsQueries';
 import { ProposalCard } from '../proposals/ProposalCard';
 import { Button } from '../ui/button';
-import { SkeletonList } from '../ui/skeleton';
+import { EmptyState, ErrorState } from '../ui/empty-state';
+import { SkeletonRows } from '../ui/skeleton';
 import { Tabs } from '../ui/tabs';
 
 interface ProposalsTabContext {
@@ -31,21 +32,6 @@ type FilterType =
 	| 'ready'
 	| 'executed'
 	| 'cancelled';
-
-// Error State Component
-function ErrorState({ error }: { error: Error }) {
-	return (
-		<div className="text-center py-12">
-			<FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-			<h3 className="text-lg font-medium mb-2">
-				Failed to load proposals
-			</h3>
-			<p className="text-muted-foreground mb-4">
-				{error.message}
-			</p>
-		</div>
-	);
-}
 
 // Filter Tabs Component
 function FilterTabs({
@@ -92,37 +78,6 @@ function FilterTabs({
 					className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`}
 				/>
 			</Button>
-		</div>
-	);
-}
-
-// Empty State Component
-function EmptyState({
-	activeFilter,
-	filterLabel,
-	onCreateProposal,
-}: {
-	activeFilter: FilterType;
-	filterLabel?: string;
-	onCreateProposal: () => void;
-}) {
-	return (
-		<div className="text-center py-12">
-			<FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-			<h3 className="text-lg font-medium mb-2">
-				No proposals found
-			</h3>
-			<p className="text-muted-foreground mb-4">
-				{activeFilter === 'all'
-					? 'Create your first proposal to get started'
-					: `No proposals in "${filterLabel}" state`}
-			</p>
-			{activeFilter === 'all' && (
-				<Button onClick={onCreateProposal} size="sm">
-					<Plus className="w-4 h-4 mr-1" />
-					Create Proposal
-				</Button>
-			)}
 		</div>
 	);
 }
@@ -221,6 +176,7 @@ export function ProposalsTab() {
 		error,
 		pagination,
 		isRefetching,
+		retry,
 	} = useProposalsQueries({
 		multisig,
 		network,
@@ -278,17 +234,42 @@ export function ProposalsTab() {
 
 			<div className="flex-1 overflow-y-auto mt-6">
 				{isLoading ? (
-					<SkeletonList />
+					<SkeletonRows
+						rows={5}
+						testId="proposals-loading"
+					/>
 				) : error ? (
-					<ErrorState error={error as Error} />
+					<ErrorState
+						title="Failed to load proposals"
+						error={error}
+						onRetry={retry}
+						testId="proposals-error"
+					/>
 				) : filteredProposals.length === 0 ? (
 					<EmptyState
-						activeFilter={activeFilter}
-						filterLabel={
-							filters.find((f) => f.id === activeFilter)
-								?.label
+						icon={FileText}
+						title={
+							activeFilter === 'all'
+								? 'No proposals yet'
+								: 'No matching proposals'
 						}
-						onCreateProposal={openProposalSheet}
+						description={
+							activeFilter === 'all'
+								? 'Create the first proposal for this account.'
+								: `No proposals are in “${filters.find((f) => f.id === activeFilter)?.label ?? activeFilter}”.`
+						}
+						action={
+							activeFilter === 'all' && (
+								<Button
+									onClick={openProposalSheet}
+									size="sm"
+								>
+									<Plus />
+									New proposal
+								</Button>
+							)
+						}
+						testId="proposals-empty"
 					/>
 				) : (
 					<ProposalsList

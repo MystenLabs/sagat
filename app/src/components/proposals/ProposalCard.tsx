@@ -68,6 +68,10 @@ export function ProposalCard({
 }: ProposalCardProps) {
 	const { network } = useNetwork();
 	const isNetworkMismatch = proposal.network !== network;
+	const explorerUrl = getExplorerUrl(
+		proposal.digest,
+		proposal.network,
+	);
 
 	const [isExpanded, setIsExpanded] =
 		useState(defaultExpanded);
@@ -315,12 +319,10 @@ export function ProposalCard({
 									: 'Cancel'}
 							</Button>
 						)}
-					{proposal.status === ProposalStatus.SUCCESS ? (
+					{proposal.status === ProposalStatus.SUCCESS &&
+					explorerUrl ? (
 						<a
-							href={getExplorerUrl(
-								proposal.digest,
-								network,
-							)}
+							href={explorerUrl}
 							target="_blank"
 							rel="noopener noreferrer"
 							className={buttonVariants({
@@ -408,22 +410,21 @@ export function ProposalCard({
 								on-chain.
 							</p>
 							<div className="flex items-center gap-2">
-								<a
-									href={getExplorerUrl(
-										proposal.digest,
-										network,
-									)}
-									target="_blank"
-									rel="noopener noreferrer"
-									className={buttonVariants({
-										variant: 'outline',
-										size: 'sm',
-										className: 'flex items-center gap-1',
-									})}
-								>
-									<ExternalLink className="w-4 h-4" />
-									View on Explorer
-								</a>
+								{explorerUrl && (
+									<a
+										href={explorerUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className={buttonVariants({
+											variant: 'outline',
+											size: 'sm',
+											className: 'flex items-center gap-1',
+										})}
+									>
+										<ExternalLink className="w-4 h-4" />
+										View on Explorer
+									</a>
+								)}
 								<span className="text-xs text-muted-foreground">
 									Digest: {proposal.digest}
 								</span>

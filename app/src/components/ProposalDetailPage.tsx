@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertCircle, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, FileSearch } from 'lucide-react';
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -13,9 +13,9 @@ import {
 import { useGetProposal } from '../hooks/useGetProposal';
 import { ProposalCard } from './proposals/ProposalCard';
 import { Button } from './ui/button';
-import { EmptyState } from './ui/empty-state';
-import { Loading } from './ui/loading';
+import { EmptyState, ErrorState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
+import { SkeletonPage } from './ui/skeleton';
 
 export function ProposalDetailPage() {
 	const [searchParams] = useSearchParams();
@@ -37,14 +37,12 @@ export function ProposalDetailPage() {
 	// No digest in URL
 	if (!digest) {
 		return (
-			<div className="max-w-4xl mx-auto mt-8 px-4">
-				<PageHeader
-					title="Proposal Not Found"
-					description="No proposal digest provided in URL"
-				/>
+			<div className="page-shell">
+				<PageHeader title="Proposal Details" />
 				<EmptyState
-					title="Missing Digest"
-					description="Please provide a valid proposal digest in the URL query parameter (?digest=...)"
+					icon={FileSearch}
+					title="Missing digest"
+					description="Add the proposal digest to the URL as ?digest=… to open it."
 				/>
 			</div>
 		);
@@ -52,35 +50,25 @@ export function ProposalDetailPage() {
 
 	// Loading state
 	if (proposalQuery.isLoading) {
-		return <Loading message="Loading proposal..." />;
+		return (
+			<SkeletonPage rows={3} message="Loading proposal" />
+		);
 	}
 
 	// Error state
 	if (proposalQuery.error) {
 		return (
-			<div className="max-w-4xl mx-auto mt-8 px-4">
+			<div className="page-shell">
 				<PageHeader
-					title="Error Loading Proposal"
-					description="Failed to load proposal details"
+					title="Proposal Details"
+					description={`Digest: ${digest}`}
 				/>
-				<div className="mt-8">
-					<div
-						className="border border-error-border bg-error rounded-lg p-6 flex items-start gap-3"
-						data-testid="proposal-detail-error"
-					>
-						<AlertCircle className="w-5 h-5 text-error-foreground mt-0.5" />
-						<div>
-							<h3 className="font-medium text-error-foreground mb-1">
-								{proposalQuery.error instanceof Error
-									? proposalQuery.error.message
-									: 'Failed to load proposal'}
-							</h3>
-							<p className="text-sm text-error-foreground">
-								Please check that the digest is correct.
-							</p>
-						</div>
-					</div>
-				</div>
+				<ErrorState
+					title="Failed to load proposal"
+					error={proposalQuery.error}
+					hint="Check that the digest is correct."
+					testId="proposal-detail-error"
+				/>
 			</div>
 		);
 	}
