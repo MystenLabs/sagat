@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { expect, test } from '../support/fixtures';
-import { setupMultisig } from '../support/scenarios';
+import {
+	setupMultisig,
+	signInViaApi,
+} from '../support/scenarios';
 
 test.describe('invitations', () => {
 	test('an invited member accepts from their own browser', async ({
@@ -356,5 +359,45 @@ test.describe('invitations', () => {
 		await expect(
 			alice.memberItem(bob.address),
 		).toHaveAttribute('data-status', 'rejected');
+	});
+
+	test('the creator is named from the API, not from their position', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		// Alice creates with Bob's key first, so position would say Bob.
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		await signInViaApi(alice);
+		const multisig = await alice.api.createMultisig({
+			publicKeys: [bob.publicKey, alice.publicKey],
+			weights: [1, 1],
+			threshold: 2,
+			name: 'Second seat',
+			labels: [null, 'Alice'],
+		});
+
+		await bob.signIn();
+		await bob.page.getByTestId('nav-invitations').click();
+		const card = bob.invitationCard(multisig.address);
+		await expect(
+			card.getByTestId('invitation-invited-by'),
+		).toHaveText('Invited by Alice');
+		await expect(
+			card.locator(`[data-address="${alice.address}"]`),
+		).toBeVisible();
+		await card
+			.getByTestId('invitation-toggle-details')
+			.click();
+		await expect(
+			bob.page.getByTestId('invitation-review'),
+		).toContainText('Alice invited you as a signer.');
+		// The Creator marker follows the API's answer too.
+		await expect(
+			bob.memberItem(alice.address).getByText('Creator'),
+		).toBeVisible();
+		await expect(
+			bob.memberItem(bob.address).getByText('Creator'),
+		).toHaveCount(0);
 	});
 });
