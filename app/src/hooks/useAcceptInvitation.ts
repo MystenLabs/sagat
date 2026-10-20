@@ -22,6 +22,15 @@ export function useAcceptInvitation() {
 	// Read live rather than from this render: the card may have unmounted.
 	const currentAccountAddress = () =>
 		dappKit.stores.$connection.get().account?.address;
+	// The same refresh whether the accept landed or its response was lost.
+	const refreshAfterAccept = () => {
+		void queryClient.invalidateQueries({
+			queryKey: [QueryKeys.Multisigs],
+		});
+		void queryClient.invalidateQueries({
+			queryKey: [QueryKeys.Invitations],
+		});
+	};
 
 	return useMutation({
 		mutationFn: async ({
@@ -61,12 +70,7 @@ export function useAcceptInvitation() {
 		// account page waits for the refreshed list instead of blocking
 		// the button on it.
 		onSuccess: (_data, { address }, started) => {
-			void queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Multisigs],
-			});
-			void queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Invitations],
-			});
+			refreshAfterAccept();
 			const stillHere =
 				currentAccountAddress() === started.account &&
 				window.location.pathname === started.path;
@@ -77,13 +81,6 @@ export function useAcceptInvitation() {
 		},
 		// The accept may have landed even though the response was lost, so
 		// refresh rather than assume nothing changed.
-		onError: () => {
-			void queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Multisigs],
-			});
-			void queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Invitations],
-			});
-		},
+		onError: refreshAfterAccept,
 	});
 }

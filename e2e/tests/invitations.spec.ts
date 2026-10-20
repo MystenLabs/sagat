@@ -248,11 +248,20 @@ test.describe('invitations', () => {
 			savings.address,
 		);
 
+		// The response headers aren't enough: the hook still reads the body
+		// before it settles. Wait for the body, then let the page run one
+		// task, by which time onSuccess has run.
 		const accepted = bob.page.waitForResponse(
 			'**/multisig/*/accept',
 		);
 		release();
-		expect((await accepted).ok()).toBe(true);
+		const response = await accepted;
+		expect(response.ok()).toBe(true);
+		await response.finished();
+		await bob.page.evaluate(
+			() =>
+				new Promise((resolve) => setTimeout(resolve, 0)),
+		);
 
 		// Back on bob, the invitation is gone and the page never moved.
 		await selectInWallet(bob.address);
