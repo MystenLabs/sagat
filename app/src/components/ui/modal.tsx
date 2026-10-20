@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import {
 	Dialog,
 	DialogContent,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 } from './dialog';
@@ -83,9 +82,7 @@ export function ModalActions({
 	children: ReactNode;
 }) {
 	return (
-		<DialogFooter className="m-0 flex-row justify-end gap-3 border-0 bg-transparent p-0">
-			{children}
-		</DialogFooter>
+		<div className="flex justify-end gap-3">{children}</div>
 	);
 }
 
