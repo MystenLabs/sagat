@@ -70,7 +70,7 @@ export function ProposalCard({
 	const isNetworkMismatch = proposal.network !== network;
 	const explorerUrl = getExplorerUrl(
 		proposal.digest,
-		network,
+		proposal.network,
 	);
 
 	const [isExpanded, setIsExpanded] =

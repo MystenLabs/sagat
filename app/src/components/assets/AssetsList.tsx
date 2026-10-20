@@ -16,7 +16,7 @@ import {
 import { getExplorerUrl } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { EmptyState, ErrorState } from '../ui/empty-state';
-import { Skeleton } from '../ui/skeleton';
+import { Skeleton, SkeletonLine } from '../ui/skeleton';
 import { SuiLogo } from '../ui/SuiLogo';
 import { AssetRow } from './Asset';
 
@@ -123,10 +123,10 @@ function ListSkeleton() {
 				>
 					<Skeleton className="size-8 rounded-full" />
 					<div className="flex flex-1 flex-col gap-2">
-						<Skeleton className="h-2.5 w-32" />
-						<Skeleton className="h-2.5 w-48" />
+						<SkeletonLine className="w-32" />
+						<SkeletonLine className="w-48" />
 					</div>
-					<Skeleton className="h-2.5 w-28" />
+					<SkeletonLine className="w-28" />
 				</li>
 			))}
 		</ul>

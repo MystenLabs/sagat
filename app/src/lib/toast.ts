@@ -49,5 +49,5 @@ export const toast = {
 		}),
 	/** "Address copied" and friends. */
 	copied: (what = 'Copied', options?: Options) =>
-		sonner.success(what, withLink(options)),
+		toast.success(what, options),
 };
