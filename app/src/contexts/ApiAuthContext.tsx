@@ -38,6 +38,9 @@ interface ApiAuthContextType {
 	// error, timeout, 5xx, or a block in front of it), so we can't tell
 	// whether the user is signed in.
 	isApiUnreachable: boolean;
+	// The last auth check failed, even if an earlier answer still holds.
+	// A signature would only fail at the connect call.
+	isAuthCheckFailing: boolean;
 	isRetryingAuth: boolean;
 	retryAuthCheck: () => void;
 
@@ -46,7 +49,7 @@ interface ApiAuthContextType {
 	isCurrentAddressAuthenticated: boolean;
 
 	// Actions
-	signAndConnect: () => Promise<void>;
+	signAndConnect: () => void;
 	disconnect: () => Promise<void>;
 	isConnecting: boolean;
 	isDisconnecting: boolean;
@@ -105,6 +108,12 @@ export function ApiAuthProvider({
 		// outage still reaches the unreachable state in about a second.
 		retry: 1,
 		retryDelay: 500,
+		// Offline is just another way to not reach the API: run the check
+		// anyway so it fails, instead of pausing in a state that reads as
+		// signed out. This mode turns off the re-check on reconnect, so
+		// turn it back on.
+		networkMode: 'always',
+		refetchOnReconnect: true,
 		// Always check when account changes
 		enabled: true,
 		// refetch on windows focus to make sure we sync across tabs.
@@ -113,7 +122,7 @@ export function ApiAuthProvider({
 
 	// Read at call time: a menu can hold a `signAndConnect` from an earlier
 	// render.
-	const isApiUnreachableRef = useRef(false);
+	const isAuthCheckFailingRef = useRef(false);
 
 	// Re-check auth when wallet account changes
 	useEffect(() => {
@@ -126,9 +135,8 @@ export function ApiAuthProvider({
 		mutationFn: async () => {
 			if (!currentAccount)
 				throw new Error('No wallet connected');
-			// Rejecting here (not returning) lets onError toast it and tells
-			// the caller that signing didn't happen.
-			if (isApiUnreachableRef.current)
+			// Rejecting here (not returning) lets onError toast it.
+			if (isAuthCheckFailingRef.current)
 				throw new Error("Can't reach the service");
 			const expiry = defaultExpiry();
 
@@ -192,7 +200,7 @@ export function ApiAuthProvider({
 	// means we can't tell, and asking for a signature would only fail.
 	const isApiUnreachable =
 		isAuthCheckError && !isCurrentAddressAuthenticated;
-	isApiUnreachableRef.current = isApiUnreachable;
+	isAuthCheckFailingRef.current = isAuthCheckError;
 
 	const value: ApiAuthContextType = {
 		// Auth state
@@ -201,6 +209,7 @@ export function ApiAuthProvider({
 			authData?.addresses?.map((x) => x.address) ?? [],
 		isCheckingAuth,
 		isApiUnreachable,
+		isAuthCheckFailing: isAuthCheckError,
 		isRetryingAuth: isFetchingAuth,
 		retryAuthCheck: () => {
 			void refetchAuth();
@@ -211,9 +220,8 @@ export function ApiAuthProvider({
 		isCurrentAddressAuthenticated,
 
 		// Actions
-		signAndConnect: async () => {
-			await connectMutation.mutateAsync();
-		},
+		// `mutate` leaves failures to onError, so callers needn't catch.
+		signAndConnect: () => connectMutation.mutate(),
 		disconnect: async () => {
 			await disconnectMutation.mutateAsync();
 		},

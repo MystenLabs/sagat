@@ -147,6 +147,7 @@ export function CustomWalletButton({
 	const {
 		isCurrentAddressAuthenticated,
 		isApiUnreachable,
+		isAuthCheckFailing,
 		signAndConnect,
 		isConnecting,
 		disconnect: apiDisconnect,
@@ -168,12 +169,6 @@ export function CustomWalletButton({
 			await dappKit.switchAccount({ account });
 		}
 		setShowWallets(false);
-	};
-
-	// The connect mutation already toasts its failures; catching here only
-	// keeps the rejection from going unhandled.
-	const handleSignAndConnect = () => {
-		signAndConnect().catch(() => {});
 	};
 
 	const handleWalletConnect = async (
@@ -277,11 +272,9 @@ export function CustomWalletButton({
 								<AccountSwitchingSection
 									showTitle={false}
 									handleSwitchAccount={handleSwitchAccount}
-									handleSignAndConnect={
-										handleSignAndConnect
-									}
+									handleSignAndConnect={signAndConnect}
 									isConnecting={isConnecting}
-									canSign={!isApiUnreachable}
+									canSign={!isAuthCheckFailing}
 								/>
 								<Divider />
 							</>
@@ -290,7 +283,7 @@ export function CustomWalletButton({
 								<>
 									<div className="px-3 pt-3">
 										<Button
-											onClick={handleSignAndConnect}
+											onClick={signAndConnect}
 											disabled={isConnecting}
 											size="sm"
 											className="w-full mb-2"
@@ -427,9 +420,9 @@ export function CustomWalletButton({
 					{accounts.length > 1 && (
 						<AccountSwitchingSection
 							handleSwitchAccount={handleSwitchAccount}
-							handleSignAndConnect={handleSignAndConnect}
+							handleSignAndConnect={signAndConnect}
 							isConnecting={isConnecting}
-							canSign
+							canSign={!isAuthCheckFailing}
 						/>
 					)}
 					<CopyAddressButton />
@@ -689,8 +682,8 @@ const AccountSwitchingSection = ({
 	) => Promise<void>;
 	handleSignAndConnect: () => void;
 	isConnecting: boolean;
-	// False while the API is unreachable: switching still works, signing
-	// would only fail.
+	// False while the auth check is failing: switching still works,
+	// signing would only fail.
 	canSign: boolean;
 }) => {
 	const currentWallet = useCurrentWallet();

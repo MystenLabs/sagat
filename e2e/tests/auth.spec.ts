@@ -164,10 +164,39 @@ test.describe('wallet sign-in', () => {
 		).toHaveCount(0);
 	});
 
+	test('a check made offline shows the retry state, and reconnecting re-checks', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice', {
+			otherAccounts: ['alice-savings'],
+		});
+		const [savings] = alice.otherAccounts;
+		await alice.signIn();
+
+		// A new account starts a fresh check while the browser is offline.
+		await alice.context.setOffline(true);
+		await alice.switchAccount(savings);
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toHaveCount(0);
+
+		// Coming back online re-checks on its own.
+		await alice.context.setOffline(false);
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toBeVisible();
+	});
+
 	test('a failed refetch keeps a signed-in user on the dashboard', async ({
 		createActor,
 	}) => {
-		const alice = await createActor('alice');
+		const alice = await createActor('alice', {
+			otherAccounts: ['alice-savings'],
+		});
+		const [savings] = alice.otherAccounts;
 		await alice.signIn();
 		await expect(
 			alice.page.getByTestId('dashboard-empty'),
@@ -200,6 +229,14 @@ test.describe('wallet sign-in', () => {
 		).toBeVisible();
 		await expect(
 			alice.page.getByTestId('api-unreachable'),
+		).toHaveCount(0);
+
+		// Other accounts stay listed, but signing one in would only fail.
+		await expect(
+			alice.walletAccount(savings.address),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('wallet-account-sign'),
 		).toHaveCount(0);
 	});
 });
