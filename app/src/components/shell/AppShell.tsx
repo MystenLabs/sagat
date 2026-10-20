@@ -47,7 +47,7 @@ export function AppShell({
 	// Toasts centre on the content column, not the viewport: tell the
 	// toaster (mounted outside the shell) how much the sidebar takes.
 	const isMobile = useIsMobile();
-	const { reconnecting } = useSessionBoot();
+	const { reconnecting, checkingAuth } = useSessionBoot();
 	useEffect(() => {
 		const left = isMobile
 			? '0px'
@@ -84,7 +84,7 @@ export function AppShell({
 					<SidebarTrigger className="-ml-1" />
 					<div className="ml-auto flex items-center gap-1">
 						<ThemeToggle className="text-muted-foreground hover:bg-accent hover:text-foreground data-open:bg-accent" />
-						{reconnecting ? (
+						{reconnecting || checkingAuth ? (
 							<Skeleton className="h-7 w-36 rounded-md" />
 						) : (
 							<CustomWalletButton />

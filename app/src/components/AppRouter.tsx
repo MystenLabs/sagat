@@ -189,6 +189,7 @@ export function AppRouter() {
 			<SkeletonPage
 				rows={3}
 				message="Reconnecting wallet"
+				testId="wallet-reconnecting"
 			/>
 		);
 	}

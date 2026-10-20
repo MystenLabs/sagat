@@ -3,12 +3,9 @@
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 
+import { LocalStorageKeys } from '../../app/src/lib/localStorageKeys';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
-
-// Where the wallet kit keeps the session it restores on load.
-const SAVED_SESSION_KEY =
-	'mysten-dapp-kit:selected-wallet-and-address';
 
 test.describe('wallet sign-in', () => {
 	test('signs in with a wallet signature and keeps the session across reloads', async ({
@@ -81,16 +78,16 @@ test.describe('wallet sign-in', () => {
 		const prompt = page.getByTestId(
 			'connect-wallet-prompt',
 		);
-		const reconnecting = page
-			.getByRole('status')
-			.filter({ hasText: 'Reconnecting wallet' });
+		const reconnecting = page.getByTestId(
+			'wallet-reconnecting',
+		);
 
 		// Reloads with `session` saved and expects the connect prompt within
 		// the restore budget (kit timeout 2s, layout hold capped at 3s).
 		const reloadWithSession = async (session: string) => {
 			await page.evaluate(
 				([key, value]) => localStorage.setItem(key, value),
-				[SAVED_SESSION_KEY, session],
+				[LocalStorageKeys.WalletSession, session],
 			);
 			await page.reload();
 			await expect(reconnecting).toBeAttached();

@@ -8,6 +8,7 @@ import {
 import { useEffect, useState } from 'react';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
+import { LocalStorageKeys } from '../lib/localStorageKeys';
 
 /**
  * How long to hold the layout for the wallet kit's silent restore. The kit
@@ -22,7 +23,7 @@ const RECONNECT_CAP_MS = 3000;
 const hadSavedSession = (() => {
 	try {
 		return !!localStorage.getItem(
-			'mysten-dapp-kit:selected-wallet-and-address',
+			LocalStorageKeys.WalletSession,
 		);
 	} catch {
 		return false;

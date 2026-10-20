@@ -355,7 +355,7 @@ export function AppSidebar() {
 						variant="row"
 						className={navItemClass}
 					/>
-					{reconnecting ? (
+					{reconnecting || checkingAuth ? (
 						<WalletRowSkeleton />
 					) : (
 						<CustomWalletButton variant="rail" />
