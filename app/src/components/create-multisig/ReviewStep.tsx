@@ -28,7 +28,6 @@ import {
 export function ReviewStep({
 	name,
 	signers,
-	creatorName,
 	threshold,
 	totalWeight,
 	address,
@@ -41,7 +40,6 @@ export function ReviewStep({
 }: {
 	name: string;
 	signers: SignerDraft[];
-	creatorName: string | null;
 	threshold: number;
 	totalWeight: number;
 	address: string;
@@ -153,8 +151,8 @@ export function ReviewStep({
 													data-testid="create-review-signer-name"
 												>
 													{signer.isCreator
-														? creatorName
-															? `${creatorName} (you)`
+														? signer.label.trim()
+															? `${signer.label.trim()} (you)`
 															: 'You'
 														: signer.label.trim() ||
 															`Signer ${i + 1}`}

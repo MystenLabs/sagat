@@ -46,17 +46,23 @@ test('creates a labelled multisig through the three steps', async ({
 	});
 
 	await test.step('signers and threshold', async () => {
-		// The creator comes from the connected wallet and can't be removed.
+		// The creator's key comes from the connected wallet and can't be
+		// removed; their name starts as the wallet's and can be changed.
 		const creator = signerRows(page).first();
 		await expect(
 			creator.getByTestId('create-signer-key'),
 		).toHaveValue(alice.publicKey);
 		await expect(
-			creator.getByTestId('create-signer-label'),
-		).toHaveValue('alice (you)');
+			creator.getByTestId('create-signer-key'),
+		).toHaveAttribute('readonly', '');
 		await expect(
 			creator.getByTestId('create-signer-remove'),
 		).toHaveCount(0);
+		const creatorLabel = creator.getByTestId(
+			'create-signer-label',
+		);
+		await expect(creatorLabel).toHaveValue('alice');
+		await creatorLabel.fill('Alice T');
 
 		// Carol is left unnamed: a label is optional.
 		await addSigners(page, [
@@ -90,7 +96,7 @@ test('creates a labelled multisig through the three steps', async ({
 		).toHaveText(expectedAddress);
 		await expect(
 			page.getByTestId('create-review-signer-name'),
-		).toHaveText(['alice (you)', 'Bob', 'Signer 3']);
+		).toHaveText(['Alice T (you)', 'Bob', 'Signer 3']);
 		await page.getByTestId('create-submit').click();
 	});
 
@@ -121,11 +127,11 @@ test('creates a labelled multisig through the three steps', async ({
 			label,
 		})),
 	).toEqual([
-		// The creator's key is named after their wallet account.
+		// The creator's key carries the name they typed over the wallet's.
 		{
 			publicKey: alice.publicKey,
 			weight: 1,
-			label: 'alice',
+			label: 'Alice T',
 		},
 		{ publicKey: bob.publicKey, weight: 2, label: 'Bob' },
 		{ publicKey: carol.publicKey, weight: 1, label: null },

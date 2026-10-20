@@ -101,8 +101,22 @@ export function CopyText({
 
 const STEPS = ['Name', 'Signers and threshold', 'Review'];
 
-/** Where the wizard is. Not clickable: Back and Edit move between steps. */
-export function WizardStepper({ step }: { step: number }) {
+export type WizardStep = 1 | 2 | 3;
+
+/**
+ * Where the wizard is. Every step up to `reach` (the furthest one whose
+ * earlier steps are all valid) is a button, so a visitor can move around
+ * without Back; the rest are plain.
+ */
+export function WizardStepper({
+	step,
+	reach,
+	onStep,
+}: {
+	step: WizardStep;
+	reach: WizardStep;
+	onStep: (step: WizardStep) => void;
+}) {
 	return (
 		<ol
 			aria-label="Steps"
@@ -111,13 +125,14 @@ export function WizardStepper({ step }: { step: number }) {
 			data-step={step}
 		>
 			{STEPS.map((label, i) => {
-				const n = i + 1;
+				const n = (i + 1) as WizardStep;
 				const state =
 					n < step
 						? 'done'
 						: n === step
 							? 'current'
 							: 'upcoming';
+				const navigable = n !== step && n <= reach;
 				return (
 					<li
 						key={label}
@@ -126,7 +141,17 @@ export function WizardStepper({ step }: { step: number }) {
 							state === 'current' ? 'step' : undefined
 						}
 					>
-						<span className="flex items-center gap-2">
+						<button
+							type="button"
+							disabled={!navigable}
+							onClick={() => onStep(n)}
+							className={cn(
+								'flex items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
+								navigable &&
+									'cursor-pointer hover:[&>span:last-child]:underline',
+							)}
+							data-testid={`create-step-${n}`}
+						>
 							<span
 								className={cn(
 									'flex size-5.5 shrink-0 items-center justify-center rounded-full text-11 leading-none',
@@ -156,7 +181,7 @@ export function WizardStepper({ step }: { step: number }) {
 							>
 								{label}
 							</span>
-						</span>
+						</button>
 						{n < STEPS.length && (
 							<span
 								aria-hidden

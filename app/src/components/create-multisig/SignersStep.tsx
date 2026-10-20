@@ -47,7 +47,6 @@ export function SignersStep({
 	signers,
 	check,
 	threshold,
-	creatorName,
 	focusId,
 	onSignersChange,
 	onAddSigner,
@@ -58,7 +57,6 @@ export function SignersStep({
 	signers: SignerDraft[];
 	check: SignersCheck;
 	threshold: number;
-	creatorName: string | null;
 	/** A row just added, whose name field takes focus. */
 	focusId: string | null;
 	onSignersChange: (signers: SignerDraft[]) => void;
@@ -145,7 +143,6 @@ export function SignersStep({
 									signer={signer}
 									check={check.signers[index]}
 									index={index}
-									creatorName={creatorName}
 									autoFocus={signer.id === focusId}
 									onChange={(changes) =>
 										onSignersChange(

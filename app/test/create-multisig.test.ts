@@ -107,7 +107,7 @@ describe('signer checks', () => {
 		});
 		const check = checkSigners({
 			signers: [
-				signer('1', { isCreator: true }),
+				signer('1', { isCreator: true, label: 'Maya' }),
 				daniel,
 				signer('3', { key: '' }),
 				signer('4', { key: 'AGx9Q2mT7vR4kLpZ' }),
@@ -115,7 +115,6 @@ describe('signer checks', () => {
 			],
 			threshold: 1,
 			lookups: {},
-			creatorName: 'Maya',
 		});
 		expect(check.completeCount).toBe(2);
 		expect(check.incompleteCount).toBe(3);
@@ -141,7 +140,6 @@ describe('signer checks', () => {
 			],
 			threshold: 1,
 			lookups: { [address]: { kind: 'missing' } },
-			creatorName: null,
 		});
 		expect(check.signers[1].status).toEqual({
 			kind: 'no-key',
@@ -158,7 +156,6 @@ describe('signer checks', () => {
 			signers: [signer('1', { isCreator: true })],
 			threshold: 1,
 			lookups: {},
-			creatorName: null,
 		});
 		expect(check.tooFewSigners).toBe(true);
 		expect(check.canContinue).toBe(false);

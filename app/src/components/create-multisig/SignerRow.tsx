@@ -34,15 +34,15 @@ const LABEL_NEAR = LABEL_MAX - 8;
 
 const field =
 	'h-9.5 rounded-md border-foreground/12 bg-card text-14 placeholder:text-muted-foreground/70 focus-visible:border-foreground focus-visible:ring-0 md:text-14 dark:bg-card';
-const readOnlyField =
-	'border-foreground/10 bg-muted text-muted-foreground focus-visible:border-foreground/10 dark:bg-muted';
 
-/** One signer: drag handle, name, key, weight and remove. */
+/**
+ * One signer: drag handle, name, key, weight and remove. The creator's
+ * key is their wallet's and read-only; their name is theirs to edit.
+ */
 export function SignerRow({
 	signer,
 	check,
 	index,
-	creatorName,
 	autoFocus,
 	onChange,
 	onRemove,
@@ -50,7 +50,6 @@ export function SignerRow({
 	signer: SignerDraft;
 	check: SignerCheck;
 	index: number;
-	creatorName: string | null;
 	autoFocus: boolean;
 	onChange: (changes: Partial<SignerDraft>) => void;
 	onRemove: () => void;
@@ -105,25 +104,17 @@ export function SignerRow({
 				</div>
 
 				<Input
-					value={
-						creator
-							? creatorName
-								? `${creatorName} (you)`
-								: 'You'
-							: signer.label
-					}
-					readOnly={creator}
+					value={signer.label}
 					onChange={(e) =>
 						onChange({ label: e.target.value })
 					}
-					placeholder="Name"
+					placeholder={creator ? 'Your name' : 'Name'}
 					aria-label={`Signer ${index + 1} name`}
 					aria-invalid={check.labelTooLong || undefined}
 					autoFocus={autoFocus}
 					className={cn(
 						field,
 						'min-w-0 flex-1 px-3 aria-invalid:border-error-foreground aria-invalid:ring-0 @xl/card:w-25 @xl/card:flex-none',
-						creator && readOnlyField,
 					)}
 					data-testid="create-signer-label"
 				/>

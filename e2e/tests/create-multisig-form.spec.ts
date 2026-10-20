@@ -215,4 +215,49 @@ test.describe('create multisig wizard', () => {
 		).toHaveText('Try again');
 		await expect(page).toHaveURL(/\/create$/);
 	});
+
+	test('the steps are links once the ones before them are valid', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const { page } = alice;
+		const step = (n: number) =>
+			page.getByTestId(`create-step-${n}`);
+
+		await alice.signIn();
+		await page.goto('/create');
+		// Nothing is named yet, so the later steps are out of reach.
+		await expect(step(2)).toBeDisabled();
+		await expect(step(3)).toBeDisabled();
+
+		await nameMultisig(page, 'Steps');
+		await expect(step(1)).toBeEnabled();
+		// The creator alone can't continue, so Review stays out of reach.
+		await expect(step(3)).toBeDisabled();
+		await addSigners(page, [
+			{ label: 'Bob', key: bob.publicKey },
+		]);
+		await step(3).click();
+		await expect(
+			page.getByTestId('create-review-step'),
+		).toBeVisible();
+
+		// From Review back to the name, then straight to Review again.
+		await step(1).click();
+		await expect(
+			page.getByTestId('create-name-input'),
+		).toHaveValue('Steps');
+		await step(3).click();
+		await expect(
+			page.getByTestId('create-review-step'),
+		).toBeVisible();
+
+		// Clearing the name closes the later steps again.
+		await step(1).click();
+		await page.getByTestId('create-name-input').fill('');
+		await expect(step(2)).toBeDisabled();
+		await expect(step(3)).toBeDisabled();
+	});
 });

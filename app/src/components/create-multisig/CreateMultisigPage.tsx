@@ -18,11 +18,12 @@ import {
 	addressInput,
 	checkSigners,
 	invitedName,
+	nameError,
 	type SignerDraft,
 } from '@/lib/create-multisig';
 
 import { NameStep } from './NameStep';
-import { WizardStepper } from './parts';
+import { WizardStepper, type WizardStep } from './parts';
 import { ReviewStep } from './ReviewStep';
 import {
 	HelpCard,
@@ -53,7 +54,7 @@ export function CreateMultisigPage() {
 	const { isTestMode } = useNetwork();
 	const create = useCreateMultisig();
 
-	const [step, setStep] = useState<1 | 2 | 3>(1);
+	const [step, setStep] = useState<WizardStep>(1);
 	const [signersOpened, setSignersOpened] = useState(false);
 	const [name, setName] = useState('');
 	const [drafts, setDrafts] = useState<SignerDraft[]>([
@@ -70,11 +71,21 @@ export function CreateMultisigPage() {
 		null,
 	);
 
-	const creatorName = currentAccount?.label?.trim() || null;
-	// The creator's key always follows the connected wallet.
+	// The creator's name is their wallet's account name (cut to the label
+	// limit) until they edit it; the key always follows the wallet.
+	const [creatorNamed, setCreatorNamed] = useState(false);
+	const walletLabel = [
+		...(currentAccount?.label?.trim() ?? ''),
+	]
+		.slice(0, CONFIG.MAX_KEY_LABEL_LENGTH)
+		.join('');
 	const signers = drafts.map((d) =>
 		d.isCreator
-			? { ...d, key: currentAddress?.publicKey ?? '' }
+			? {
+					...d,
+					key: currentAddress?.publicKey ?? '',
+					label: creatorNamed ? d.label : walletLabel,
+				}
 			: d,
 	);
 
@@ -102,11 +113,18 @@ export function CreateMultisigPage() {
 		signers,
 		threshold,
 		lookups: failedLookups,
-		creatorName,
 	});
 	// The threshold never exceeds the total weight.
 	const maxThreshold = Math.max(check.totalWeight, 1);
 	if (threshold > maxThreshold) setThreshold(maxThreshold);
+
+	// The furthest step whose earlier steps are all valid: the stepper
+	// goes that far, the same as Continue would.
+	const reach: WizardStep = nameError(name)
+		? 1
+		: check.canContinue
+			? 3
+			: 2;
 
 	const invited = signers
 		.filter((s) => !s.isCreator)
@@ -119,21 +137,12 @@ export function CreateMultisigPage() {
 				publicKeys: signers.map((s) => s.key.trim()),
 				weights: signers.map((s) => s.weight),
 				threshold,
-				// The creator's key carries their wallet's account name, so
-				// invitations say who sent them (cut to the API's label limit).
-				labels: signers.map((s) =>
-					s.isCreator
-						? creatorName &&
-							[...creatorName]
-								.slice(0, CONFIG.MAX_KEY_LABEL_LENGTH)
-								.join('')
-						: s.label.trim() || null,
-				),
+				labels: signers.map((s) => s.label.trim() || null),
 			},
 			invited,
 		});
 
-	const goTo = (next: 1 | 2 | 3) => {
+	const goTo = (next: WizardStep) => {
 		create.reset();
 		setFocusId(null);
 		setStep(next);
@@ -174,7 +183,11 @@ export function CreateMultisigPage() {
 					}
 				/>
 
-				<WizardStepper step={step} />
+				<WizardStepper
+					step={step}
+					reach={reach}
+					onStep={goTo}
+				/>
 
 				<div className="mt-7 flex flex-col gap-8 @5xl:flex-row @5xl:items-start">
 					<div className="@container/card w-full max-w-185 min-w-0 rounded-xl border bg-card @5xl:flex-1">
@@ -190,9 +203,18 @@ export function CreateMultisigPage() {
 								signers={signers}
 								check={check}
 								threshold={threshold}
-								creatorName={creatorName}
 								focusId={focusId}
 								onSignersChange={(next) => {
+									// Once the creator types in their name field, it
+									// stops following the wallet.
+									if (
+										next.some(
+											(d) =>
+												d.isCreator &&
+												d.label !== walletLabel,
+										)
+									)
+										setCreatorNamed(true);
 									setDrafts(next);
 									setFocusId(null);
 								}}
@@ -210,7 +232,6 @@ export function CreateMultisigPage() {
 							<ReviewStep
 								name={name}
 								signers={signers}
-								creatorName={creatorName}
 								threshold={threshold}
 								totalWeight={check.totalWeight}
 								address={check.address}

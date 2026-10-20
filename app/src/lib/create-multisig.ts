@@ -24,7 +24,7 @@ export interface SignerDraft {
 	/** A public key, or a 0x address to look the key up from. */
 	key: string;
 	weight: number;
-	/** The connected wallet: read-only key and name, can't be removed. */
+	/** The connected wallet: read-only key, can't be removed. */
 	isCreator?: boolean;
 }
 
@@ -43,7 +43,7 @@ export type SignerStatus =
 
 export interface SignerCheck {
 	status: SignerStatus;
-	/** What copy calls the signer: its label, or "Signer N". */
+	/** What copy calls the signer: its label, "You" or "Signer N". */
 	name: string;
 	labelLength: number;
 	labelTooLong: boolean;
@@ -132,19 +132,15 @@ export function checkSigners({
 	signers,
 	threshold,
 	lookups,
-	creatorName,
 }: {
 	signers: SignerDraft[];
 	threshold: number;
 	/** Addresses whose lookup came back empty. */
 	lookups: Record<string, FailedLookup>;
-	/** The connected wallet's name, if it has one. */
-	creatorName: string | null;
 }): SignersCheck {
 	const nameOf = (signer: SignerDraft, index: number) =>
 		signer.label.trim() ||
-		(signer.isCreator && creatorName) ||
-		`Signer ${index + 1}`;
+		(signer.isCreator ? 'You' : `Signer ${index + 1}`);
 
 	// The first row with a key owns it; later rows are duplicates.
 	const firstWithKey = new Map<string, number>();
@@ -245,10 +241,7 @@ export function checkSigners({
 									{
 										name: checks[i].name,
 										weight: s.weight,
-										you:
-											!!s.isCreator &&
-											!s.label.trim() &&
-											!creatorName,
+										you: !!s.isCreator && !s.label.trim(),
 									},
 								]
 							: [],
@@ -287,7 +280,7 @@ function keyStatus(
 
 /**
  * Warns when one signer can approve alone, or when every signer has to
- * sign. `you` marks the creator when their wallet has no name.
+ * sign. `you` marks an unnamed creator.
  */
 export function thresholdWarning({
 	signers,
