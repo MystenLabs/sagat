@@ -154,7 +154,7 @@ for (const file of walk(ROOT).sort()) {
 // missing there is read as a colour and dropped from merged class lists.
 const cssSizes = [
 	...readFileSync(join(ROOT, 'index.css'), 'utf8').matchAll(
-		/--text-(\d+):/g,
+		/--text-(\d+)\s*:/g,
 	),
 ].map((m) => m[1]);
 const mergeList = readFileSync(
