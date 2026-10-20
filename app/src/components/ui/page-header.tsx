@@ -47,11 +47,13 @@ export function PageHeader({
 	return (
 		<div
 			className={cn(
-				'mb-7 flex flex-col gap-4 md:flex-row md:items-start md:justify-between',
+				// Actions sit beside the title and only wrap under it when the
+				// title block would be squeezed below 12rem.
+				'mb-7 flex flex-wrap items-start justify-between gap-x-4 gap-y-3',
 				className,
 			)}
 		>
-			<div className="flex min-w-0 flex-col gap-1">
+			<div className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
 				{breadcrumb && breadcrumb.length > 0 ? (
 					<nav
 						aria-label="Breadcrumb"
@@ -99,7 +101,7 @@ export function PageHeader({
 						</Link>
 					)
 				)}
-				<h1 className="text-30 font-bold text-foreground">
+				<h1 className="text-24 font-bold text-foreground sm:text-30">
 					{title}
 				</h1>
 				{address && (

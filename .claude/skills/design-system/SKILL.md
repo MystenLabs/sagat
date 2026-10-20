@@ -63,10 +63,11 @@ Rules:
 
 - Pixel-named scale with line-height and tracking baked in:
   `text-10`, `text-11`, `text-12`, `text-13`, `text-14`, `text-15`,
-  `text-16`, `text-24`, `text-30`, `text-32`, `text-40`.
+  `text-16`, `text-18`, `text-20`, `text-24`, `text-30`, `text-32`,
+  `text-40`.
 - Body and controls are `text-13`. Secondary text `text-12`. Labels and
   breadcrumbs `text-11 uppercase`. Chips `text-10 uppercase`. Page
-  titles `text-30 font-bold`. Card titles `text-16 font-semibold`.
+  titles `text-24 font-bold sm:text-30`. Card titles `text-16 font-semibold`.
 - No arbitrary sizes (`text-[13px]`). The default Tailwind scale
   (`text-sm`, `text-lg`) is legacy and goes away as screens are
   migrated; do not add new uses of it.
@@ -82,7 +83,9 @@ Rules:
 - No shadows except `shadow-toast`. Depth comes from borders and
   surface changes.
 - Page content starts with the `page-shell` utility (page padding) and
-  a `PageHeader`; do not add a max-width.
+  a `PageHeader`; do not add a max-width. The one exception is the create
+  wizard, whose frames fix the content at 1092px (`max-w-273`) so the
+  header's Cancel ends where the side column does.
 - Control heights: buttons `h-9` (default) and `h-7` (sm); menu rows
   `h-9`; sidebar rows `h-8`. Icons inside controls are `size-4`.
 

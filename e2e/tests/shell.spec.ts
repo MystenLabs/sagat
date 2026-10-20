@@ -86,7 +86,7 @@ test.describe('app shell', () => {
 			.getByRole('menuitem', { name: 'New multisig' })
 			.click();
 		await expect(
-			page.getByTestId('create-multisig-submit'),
+			page.getByTestId('create-page'),
 		).toBeVisible();
 
 		// The wallet menu opens from the footer.

@@ -19,7 +19,7 @@ import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useSessionBoot } from '../hooks/useSessionBoot';
 import { ApiUnreachable } from './ApiUnreachable';
 import { AuthPrompt } from './AuthPrompt';
-import { CreateMultisigPage } from './CreateMultisigPage';
+import { CreateMultisigPage } from './create-multisig/CreateMultisigPage';
 import { CustomWalletButton } from './CustomWalletButton';
 import { DevnetNotSupported } from './DevnetNotSupported';
 import { InvitationsPage } from './InvitationsPage';

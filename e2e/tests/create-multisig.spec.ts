@@ -1,10 +1,20 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { expect, test } from '../support/fixtures';
-import { multisigAddressOf } from '../support/scenarios';
+import { formatAddress } from '@mysten/sui/utils';
 
-test('creates a weighted multisig and invites the other members', async ({
+import {
+	addSigners,
+	setThreshold,
+	signerRows,
+} from '../support/create-wizard';
+import { expect, test } from '../support/fixtures';
+import {
+	multisigAddressOf,
+	signInViaApi,
+} from '../support/scenarios';
+
+test('creates a labelled multisig through the three steps', async ({
 	createActor,
 	createIdentity,
 }) => {
@@ -14,8 +24,8 @@ test('creates a weighted multisig and invites the other members', async ({
 	const expectedAddress = multisigAddressOf(
 		[
 			{ identity: alice },
-			{ identity: bob },
-			{ identity: carol, weight: 2 },
+			{ identity: bob, weight: 2 },
+			{ identity: carol },
 		],
 		3,
 	);
@@ -23,69 +33,122 @@ test('creates a weighted multisig and invites the other members', async ({
 	await alice.signIn();
 	const { page } = alice;
 	await page.getByTestId('create-first-multisig').click();
+	const continueButton = page.getByTestId(
+		'create-continue',
+	);
 
-	await page
-		.getByTestId('multisig-name-input')
-		.fill('E2E Treasury');
-	const members = page.getByTestId('member-row');
-	// The creator is filled in from the signed-in account.
-	await expect(
-		members.nth(0).getByTestId('member-public-key-input'),
-	).toHaveValue(alice.publicKey);
-	await page.getByTestId('add-member-button').click();
-	await members
-		.nth(1)
-		.getByTestId('member-public-key-input')
-		.fill(bob.publicKey);
-	await page.getByTestId('add-member-button').click();
-	await members
-		.nth(2)
-		.getByTestId('member-public-key-input')
-		.fill(carol.publicKey);
-	await members
-		.nth(2)
-		.getByTestId('member-weight-input')
-		.fill('2');
-	await page.getByTestId('threshold-input').fill('3');
+	await test.step('name', async () => {
+		await expect(continueButton).toBeDisabled();
+		await page
+			.getByTestId('create-name-input')
+			.fill('E2E Treasury');
+		await continueButton.click();
+	});
 
-	// The live preview must match the address the chain will use.
-	await expect(
-		page.getByTestId('multisig-address-preview'),
-	).toHaveText(expectedAddress);
+	await test.step('signers and threshold', async () => {
+		// The creator's key comes from the connected wallet and can't be
+		// removed; their name starts as the wallet's and can be changed.
+		const creator = signerRows(page).first();
+		await expect(
+			creator.getByTestId('create-signer-key'),
+		).toHaveValue(alice.publicKey);
+		await expect(
+			creator.getByTestId('create-signer-key'),
+		).toHaveAttribute('readonly', '');
+		await expect(
+			creator.getByTestId('create-signer-remove'),
+		).toHaveCount(0);
+		const creatorLabel = creator.getByTestId(
+			'create-signer-label',
+		);
+		await expect(creatorLabel).toHaveValue('alice');
+		await creatorLabel.fill('Alice T');
 
-	await page.getByTestId('create-multisig-submit').click();
+		// Carol is left unnamed: a label is optional.
+		await addSigners(page, [
+			{ label: 'Bob', key: bob.publicKey, weight: 2 },
+			{ key: carol.publicKey },
+		]);
 
-	// The creator lands on the new multisig; the others still have to accept.
+		// Bob alone meeting the threshold is a warning, not a block.
+		await setThreshold(page, 2);
+		await expect(
+			page.getByTestId('create-threshold-warning'),
+		).toHaveText(
+			'Bob can approve proposals alone. Bob’s weight (2) is at or above the threshold (2). Lower Bob’s weight below 2, or raise the threshold above 2.',
+		);
+		await expect(continueButton).toBeEnabled();
+
+		await setThreshold(page, 3);
+		await expect(
+			page.getByTestId('create-threshold-warning'),
+		).toHaveCount(0);
+		// The live preview must match the address the chain will use.
+		await expect(
+			page.getByTestId('create-preview-address'),
+		).toHaveText(expectedAddress);
+		await continueButton.click();
+	});
+
+	await test.step('review and create', async () => {
+		await expect(
+			page.getByTestId('create-review-address'),
+		).toHaveText(expectedAddress);
+		await expect(
+			page.getByTestId('create-review-signer-name'),
+		).toHaveText(['Alice T (you)', 'Bob', 'Signer 3']);
+		await page.getByTestId('create-submit').click();
+	});
+
+	// The creator lands on the new multisig, greeted once with who was
+	// invited; an unnamed signer goes by their short address.
 	await expect(
 		page.getByTestId('multisig-detail'),
 	).toHaveAttribute(
 		'data-multisig-address',
 		expectedAddress,
 	);
-	await page.getByTestId('multisig-tab-overview').click();
-	const threshold = page.getByTestId('multisig-threshold');
-	await expect(threshold).toHaveAttribute(
-		'data-threshold',
-		'3',
+	await expect(
+		page.getByTestId('created-banner'),
+	).toHaveText(
+		`Multisig created. Invitations sent to Bob and ${formatAddress(carol.address)}.`,
 	);
-	await expect(threshold).toHaveAttribute(
-		'data-total-weight',
-		'4',
-	);
+
+	// The API saved the labels, aligned with the keys.
+	await signInViaApi(alice);
+	const saved =
+		await alice.api.getMultisig(expectedAddress);
+	expect(saved.name).toBe('E2E Treasury');
+	expect(saved.threshold).toBe(3);
+	expect(
+		saved.members.map(({ publicKey, weight, label }) => ({
+			publicKey,
+			weight,
+			label,
+		})),
+	).toEqual([
+		// The creator's key carries the name they typed over the wallet's.
+		{
+			publicKey: alice.publicKey,
+			weight: 1,
+			label: 'Alice T',
+		},
+		{ publicKey: bob.publicKey, weight: 2, label: 'Bob' },
+		{ publicKey: carol.publicKey, weight: 1, label: null },
+	]);
+
+	await page.reload();
 	await expect(
-		alice.memberItem(alice.address),
-	).toHaveAttribute('data-status', 'accepted');
+		page.getByTestId('multisig-detail'),
+	).toBeVisible();
 	await expect(
-		alice.memberItem(bob.address),
-	).toHaveAttribute('data-status', 'pending');
-	await expect(
-		alice.memberItem(carol.address),
-	).toHaveAttribute('data-status', 'pending');
+		page.getByTestId('created-banner'),
+	).toBeHidden();
 });
 
-// The address depends on the order of the members, so reordering them makes
+// The address depends on the order of the signers, so reordering them makes
 // a different multisig.
-test('reordering the members changes the multisig', async ({
+test('reordering the signers changes the multisig', async ({
 	createActor,
 	createIdentity,
 }) => {
@@ -112,29 +175,28 @@ test('reordering the members changes the multisig', async ({
 
 	await alice.signIn();
 	const { page } = alice;
-	await page.getByTestId('create-first-multisig').click();
-	const members = page.getByTestId('member-row');
-	for (const [index, member] of [bob, carol].entries()) {
-		await page.getByTestId('add-member-button').click();
-		await members
-			.nth(index + 1)
-			.getByTestId('member-public-key-input')
-			.fill(member.publicKey);
-	}
-	await page.getByTestId('threshold-input').fill('2');
+	await page.goto('/create');
+	await page.getByTestId('create-name-input').fill('Order');
+	await page.getByTestId('create-continue').click();
+	await addSigners(page, [
+		{ key: bob.publicKey },
+		{ key: carol.publicKey },
+	]);
+	await setThreshold(page, 2);
 	const preview = page.getByTestId(
-		'multisig-address-preview',
+		'create-preview-address',
 	);
 	await expect(preview).toHaveText(inOrder);
 
 	// Drag Bob's handle down past Carol's row, in steps so the list sees
 	// the pointer move.
-	const handle = members
+	const rows = signerRows(page);
+	const handle = rows
 		.nth(1)
-		.getByTestId('member-drag-handle');
+		.getByTestId('create-signer-drag');
 	const from = (await handle.boundingBox())!;
-	const bobRow = (await members.nth(1).boundingBox())!;
-	const carolRow = (await members.nth(2).boundingBox())!;
+	const bobRow = (await rows.nth(1).boundingBox())!;
+	const carolRow = (await rows.nth(2).boundingBox())!;
 	const x = from.x + from.width / 2;
 	const y = from.y + from.height / 2;
 	await page.mouse.move(x, y);
@@ -142,17 +204,23 @@ test('reordering the members changes the multisig', async ({
 	await page.mouse.move(
 		x,
 		y + (carolRow.y - bobRow.y) + 10,
-		{
-			steps: 20,
-		},
+		{ steps: 20 },
 	);
 	await page.mouse.up();
 	await expect(
-		members.nth(2).getByTestId('member-public-key-input'),
+		rows.nth(2).getByTestId('create-signer-key'),
 	).toHaveValue(bob.publicKey);
 	await expect(preview).toHaveText(reordered);
 
-	await page.getByTestId('create-multisig-submit').click();
+	// The list swallows clicks for 50ms after a drop, so retry until
+	// Continue takes.
+	await expect(async () => {
+		await page.getByTestId('create-continue').click();
+		await expect(
+			page.getByTestId('create-review-step'),
+		).toBeVisible({ timeout: 1_000 });
+	}).toPass();
+	await page.getByTestId('create-submit').click();
 	await expect(
 		page.getByTestId('multisig-detail'),
 	).toHaveAttribute('data-multisig-address', reordered);
