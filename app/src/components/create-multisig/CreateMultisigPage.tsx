@@ -5,6 +5,7 @@ import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { SagatApiError } from '@mysten/sagat';
 import {
 	useCallback,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -39,6 +40,14 @@ import {
 	PreviewStrip,
 } from './SideCards';
 import { SignersStep } from './SignersStep';
+
+// The API's reasons worth showing as they are; anything else gets the
+// general message.
+const SHOWN_STATUSES = [400, 409, 422];
+
+// Control and format characters, which a wallet's account name can carry
+// but a label can't.
+const INVISIBLE = /[\p{Cc}\p{Cf}]/gu;
 
 const newSigner = (id: number): SignerDraft => ({
 	id: `signer-${id}`,
@@ -87,7 +96,9 @@ export function CreateMultisigPage() {
 	// limit) until they edit it; the key always follows the wallet.
 	const [creatorNamed, setCreatorNamed] = useState(false);
 	const walletLabel = [
-		...(currentAccount?.label?.trim() ?? ''),
+		...(currentAccount?.label
+			?.replace(INVISIBLE, '')
+			.trim() ?? ''),
 	]
 		.slice(0, CONFIG.MAX_KEY_LABEL_LENGTH)
 		.join('');
@@ -137,8 +148,12 @@ export function CreateMultisigPage() {
 			}),
 		[signers, threshold, failedLookups],
 	);
-	// The threshold never exceeds the total weight.
-	const maxThreshold = Math.max(check.totalWeight, 1);
+	// The threshold never exceeds the weight of every row, complete or
+	// not, so clearing a key for a moment doesn't lower it for good.
+	const maxThreshold = Math.max(
+		signers.reduce((sum, s) => sum + s.weight, 0),
+		1,
+	);
 	if (threshold > maxThreshold) setThreshold(maxThreshold);
 
 	// The furthest step whose earlier steps are all valid: the stepper
@@ -167,9 +182,13 @@ export function CreateMultisigPage() {
 			invited,
 		});
 
+	const creating = create.isPending;
 	const cancel = () => navigate('/');
 
+	// Resetting a pending create would detach it and enable Create again,
+	// so the steps stay put until it settles.
 	const goTo = (next: WizardStep) => {
+		if (creating) return;
 		create.reset();
 		setFocusId(null);
 		setDirection(next > step ? 'forward' : 'back');
@@ -178,15 +197,24 @@ export function CreateMultisigPage() {
 		window.scrollTo({ top: 0 });
 	};
 
-	// A 4xx means the API refused the setup and says why; anything else
-	// (offline, 5xx) gets the general message.
+	// A 400, 409 or 422 means the API refused the setup and says why;
+	// anything else (offline, 5xx, auth) gets the general message.
 	const createError = create.error
 		? create.error instanceof SagatApiError &&
-			create.error.status >= 400 &&
-			create.error.status < 500
+			SHOWN_STATUSES.includes(create.error.status)
 			? create.error.message
 			: COPY.createFailed
 		: null;
+
+	// A new step's heading takes focus, so a screen reader starts there.
+	// Step 1 focuses its name field instead.
+	const cardRef = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (step === 1) return;
+		cardRef.current
+			?.querySelector<HTMLElement>('h2')
+			?.focus({ preventScroll: true });
+	}, [step]);
 
 	return (
 		<TooltipProvider delay={150}>
@@ -207,6 +235,7 @@ export function CreateMultisigPage() {
 							<Button
 								variant="ghost"
 								onClick={cancel}
+								disabled={creating}
 								className="max-sm:hidden"
 								data-testid="create-cancel"
 							>
@@ -218,6 +247,7 @@ export function CreateMultisigPage() {
 					<WizardStepper
 						step={step}
 						reach={reach}
+						disabled={creating}
 						onStep={goTo}
 					/>
 					{step === 2 && (
@@ -239,6 +269,7 @@ export function CreateMultisigPage() {
 						<div
 							// Remounting on each step change plays the entrance.
 							key={step}
+							ref={cardRef}
 							className={cn(
 								'@container/card w-full min-w-0 rounded-xl border bg-card @4xl:max-w-185 @4xl:flex-1',
 								'animate-in fade-in duration-200 ease-out motion-reduce:animate-none',
@@ -260,6 +291,7 @@ export function CreateMultisigPage() {
 									signers={signers}
 									check={check}
 									threshold={threshold}
+									maxThreshold={maxThreshold}
 									focusId={focusId}
 									onSignersChange={(next) => {
 										// Once the creator types in their name field, it
@@ -295,7 +327,7 @@ export function CreateMultisigPage() {
 									threshold={threshold}
 									totalWeight={check.totalWeight}
 									address={check.address}
-									creating={create.isPending}
+									creating={creating}
 									error={createError}
 									onEditName={() => goTo(1)}
 									onEditSigners={() => goTo(2)}

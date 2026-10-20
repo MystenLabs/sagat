@@ -30,7 +30,10 @@ export interface SignerDraft {
 
 /** An address whose public key couldn't be found. */
 export type FailedLookup =
-	{ kind: 'missing' } | { kind: 'error'; message: string };
+	| { kind: 'missing' }
+	| { kind: 'error'; message: string }
+	/** No source answered (offline, 5xx); pasting it again retries. */
+	| { kind: 'unreachable' };
 
 export type SignerStatus =
 	/** Nothing typed yet: no status line. */
@@ -118,6 +121,8 @@ export const COPY = {
 		'Every signer must sign every proposal. If one signer loses their key, the multisig can’t move funds.',
 	emptyAddress:
 		'Appears once you add signers and set a threshold.',
+	lookupFailed:
+		'Couldn’t look up this address. Check your connection and try again.',
 	createFailed:
 		'Couldn’t create the multisig. Nothing was sent to the signers and your setup is still here. Check your connection and try again.',
 };
@@ -150,22 +155,31 @@ export function checkSigners({
 	lookups: Record<string, FailedLookup>;
 }): SignersCheck {
 	const names = signers.map(signerName);
+	const statuses = signers.map((s) =>
+		keyStatus(s, lookups),
+	);
 
-	// The first row with a key owns it; later rows are duplicates.
+	// The first row with a key owns it; later rows are duplicates. The
+	// creator's read-only key is theirs wherever their row sits, so a row
+	// dragged above it is the duplicate.
 	const firstWithKey = new Map<string, number>();
+	const creator = signers.findIndex((s) => s.isCreator);
+	const creatorStatus = statuses[creator];
+	if (creatorStatus?.kind === 'valid')
+		firstWithKey.set(creatorStatus.address, creator);
 
 	const checks = signers.map((signer, index) => {
 		const labelLength = textLength(signer.label);
 		const labelTooLong =
 			labelLength > CONFIG.MAX_KEY_LABEL_LENGTH;
-		const status = keyStatus(signer, lookups);
+		const status = statuses[index];
 
 		let finalStatus = status;
 		if (status.kind === 'valid') {
 			const owner = firstWithKey.get(status.address);
 			if (owner === undefined)
 				firstWithKey.set(status.address, index);
-			else {
+			else if (owner !== index) {
 				// "Daniel (signer 2)", or just "Signer 2" when unnamed.
 				const ownerName = names[owner];
 				const position = `Signer ${owner + 1}`;
@@ -249,7 +263,7 @@ export function checkSigners({
 									{
 										name: names[i],
 										weight: s.weight,
-										you: !!s.isCreator && !s.label.trim(),
+										you: !!s.isCreator,
 									},
 								]
 							: [],
@@ -274,6 +288,8 @@ function keyStatus(
 		if (!failed) return { kind: 'looking-up' };
 		if (failed.kind === 'error')
 			return { kind: 'error', message: failed.message };
+		if (failed.kind === 'unreachable')
+			return { kind: 'error', message: COPY.lookupFailed };
 		return {
 			kind: 'no-key',
 			message: COPY.noKey(signer.label.trim()),
@@ -288,7 +304,7 @@ function keyStatus(
 
 /**
  * Warns when one signer can approve alone, or when every signer has to
- * sign. `you` marks an unnamed creator.
+ * sign. `you` marks the creator, who the copy addresses as "you".
  */
 export function thresholdWarning({
 	signers,
@@ -314,8 +330,8 @@ export function thresholdWarning({
 	}
 	if (alone.length > 1) {
 		const highest = Math.max(...alone.map((s) => s.weight));
-		const names = alone.map((s) =>
-			s.you ? 'You' : s.name,
+		const names = alone.map((s, i) =>
+			s.you ? (i === 0 ? 'You' : 'you') : s.name,
 		);
 		return `${joinList(names, 'or')} can approve proposals alone. Raise the threshold to ${highest + 1} or more so every proposal needs at least two signers.`;
 	}

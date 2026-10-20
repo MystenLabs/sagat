@@ -44,9 +44,11 @@ test('the wizard fits a phone', async ({
 	await expect(
 		page.getByTestId('create-preview-strip').locator('dd'),
 	).toHaveText(['2', '2', '1 of 2', /^0x/]);
-	await expect(signerRows(page).first()).toContainText(
-		'Weight',
-	);
+	await expect(
+		signerRows(page)
+			.first()
+			.getByText('Weight', { exact: true }),
+	).toBeVisible();
 
 	await page.getByTestId('create-continue').click();
 	await expect(

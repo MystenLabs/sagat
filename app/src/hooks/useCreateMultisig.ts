@@ -30,10 +30,14 @@ export function useCreateMultisig() {
 			/** What the greeting calls the other signers. */
 			invited: string[];
 		}) => apiClient.createMultisig(request),
-		onSuccess: (multisig, { invited }) => {
+		// Note where the create started, so a late response doesn't pull
+		// the user away from a page they moved on to.
+		onMutate: () => ({ path: window.location.pathname }),
+		onSuccess: (multisig, { invited }, started) => {
 			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
 			});
+			if (window.location.pathname !== started.path) return;
 			navigate(`/multisig/${multisig.address}/overview`, {
 				state: {
 					created: { invited },

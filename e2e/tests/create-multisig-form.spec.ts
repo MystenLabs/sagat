@@ -159,14 +159,30 @@ test.describe('create multisig wizard', () => {
 			threshold: 2,
 		});
 
-		// The request never reaches the API.
+		// The request is held, then never reaches the API.
 		const createRoute = '**/multisig';
-		await page.route(createRoute, (route) =>
-			route.request().method() === 'POST'
-				? route.abort()
-				: route.fallback(),
-		);
+		let release = () => {};
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await page.route(createRoute, async (route) => {
+			if (route.request().method() !== 'POST')
+				return route.fallback();
+			await held;
+			return route.abort();
+		});
 		await submit.click();
+
+		// While it is pending, nothing can leave the step or the page.
+		await expect(submit).toHaveText('Creating multisig…');
+		await expect(
+			page.getByTestId('create-cancel'),
+		).toBeDisabled();
+		await expect(
+			page.getByTestId('create-step-1'),
+		).toBeDisabled();
+		release();
+
 		await expect(error).toHaveText(
 			'Couldn’t create the multisig. Nothing was sent to the signers and your setup is still here. Check your connection and try again.',
 		);
@@ -317,8 +333,51 @@ test.describe('create multisig wizard', () => {
 			.getByTestId('create-signer-weight-increase')
 			.click();
 		await expect(
+			rows.nth(2).getByTestId('create-signer-weight'),
+		).toHaveValue('2');
+		await expect(
 			rows.nth(1).getByTestId('create-signer-weight'),
 		).toHaveValue('1');
+	});
+
+	test('clearing a key for a moment keeps the threshold', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const carol = createIdentity('carol');
+		const { page } = alice;
+		const rows = signerRows(page);
+		const threshold = page.getByTestId('create-threshold');
+
+		await alice.signIn();
+		await page.goto('/create');
+		await nameMultisig(page, 'Steady');
+		await addSigners(page, [
+			{ label: 'Bob', key: bob.publicKey, weight: 2 },
+			{ label: 'Carol', key: carol.publicKey },
+		]);
+		await setThreshold(page, 3);
+
+		// Bob's weight still counts while his key is missing.
+		await rows
+			.nth(1)
+			.getByTestId('create-signer-key-clear')
+			.click();
+		await expect(threshold).toHaveValue('3');
+		await rows
+			.nth(1)
+			.getByTestId('create-signer-key')
+			.fill(bob.publicKey);
+		await expect(rows.nth(1)).toHaveAttribute(
+			'data-status',
+			'valid',
+		);
+		await expect(threshold).toHaveValue('3');
+		await expect(
+			page.getByTestId('create-continue'),
+		).toBeEnabled();
 	});
 
 	test('warns that everyone must sign whenever no signer can be spared', async ({

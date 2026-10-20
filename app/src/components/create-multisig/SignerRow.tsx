@@ -11,6 +11,7 @@ import {
 	Trash2,
 	X,
 } from 'lucide-react';
+import { useRef } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Input } from '@/components/ui/input';
@@ -63,6 +64,7 @@ export function SignerRow({
 	} = useSortable({ id: signer.id });
 	const { status } = check;
 	const creator = !!signer.isCreator;
+	const statusId = `${signer.id}-status`;
 
 	return (
 		<div
@@ -72,7 +74,7 @@ export function SignerRow({
 				transition,
 			}}
 			className={cn(
-				'relative flex flex-col gap-1.5 rounded-lg border bg-muted/50 px-3 py-2.5 focus-within:border-foreground/55',
+				'relative flex flex-col rounded-lg border bg-muted/50 px-3 py-2.5 focus-within:border-foreground/55',
 				isDragging && 'z-10 border-foreground/55 bg-card',
 			)}
 			data-testid="create-signer-row"
@@ -121,6 +123,7 @@ export function SignerRow({
 					signer={signer}
 					status={status}
 					index={index}
+					describedBy={statusId}
 					onChange={(key) => onChange({ key })}
 				/>
 
@@ -135,7 +138,7 @@ export function SignerRow({
 						min={1}
 						max={CONFIG.MAX_WEIGHT}
 						onChange={(weight) => onChange({ weight })}
-						label="Weight"
+						label={`Signer ${index + 1} weight`}
 						size="sm"
 						testId="create-signer-weight"
 					/>
@@ -161,7 +164,11 @@ export function SignerRow({
 				</div>
 			</div>
 
-			<StatusLine creator={creator} check={check} />
+			<StatusLine
+				id={statusId}
+				creator={creator}
+				check={check}
+			/>
 		</div>
 	);
 }
@@ -170,14 +177,18 @@ function KeyField({
 	signer,
 	status,
 	index,
+	describedBy,
 	onChange,
 }: {
 	signer: SignerDraft;
 	status: SignerStatus;
 	index: number;
+	/** The status line's id. */
+	describedBy: string;
 	onChange: (key: string) => void;
 }) {
 	const creator = !!signer.isCreator;
+	const input = useRef<HTMLInputElement>(null);
 	return (
 		<div
 			className={cn(
@@ -190,11 +201,19 @@ function KeyField({
 			)}
 		>
 			<input
+				ref={input}
 				value={signer.key}
 				readOnly={creator}
 				onChange={(e) => onChange(e.target.value)}
 				placeholder="Paste a public key, or search by address"
 				aria-label={`Signer ${index + 1} public key or address`}
+				aria-invalid={
+					status.kind === 'error' ||
+					status.kind === 'no-key'
+						? true
+						: undefined
+				}
+				aria-describedby={describedBy}
 				spellCheck={false}
 				autoComplete="off"
 				className={cn(
@@ -209,7 +228,11 @@ function KeyField({
 				<Tooltip>
 					<TooltipTrigger
 						aria-label="Clear"
-						onClick={() => onChange('')}
+						onClick={() => {
+							onChange('');
+							// The button goes with the key, so focus stays in the row.
+							input.current?.focus();
+						}}
 						className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 						data-testid="create-signer-key-clear"
 					>
@@ -227,9 +250,11 @@ function KeyField({
 }
 
 function StatusLine({
+	id,
 	creator,
 	check,
 }: {
+	id: string;
 	creator: boolean;
 	check: SignerCheck;
 }) {
@@ -297,14 +322,19 @@ function StatusLine({
 			</p>
 		);
 
-	if (!line && !label) return null;
+	// Always rendered, empty when there is nothing to say, so the key
+	// field can point at it and changes are announced.
 	return (
-		<div
-			className="flex flex-col gap-0.5 pl-6.5"
-			data-testid="create-signer-status"
-		>
-			{line}
-			{label}
+		<div id={id} aria-live="polite">
+			{(line || label) && (
+				<div
+					className="mt-1.5 flex flex-col gap-0.5 pl-6.5"
+					data-testid="create-signer-status"
+				>
+					{line}
+					{label}
+				</div>
+			)}
 		</div>
 	);
 }

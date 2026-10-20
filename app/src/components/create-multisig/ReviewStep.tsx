@@ -258,6 +258,7 @@ export function ReviewStep({
 
 			<StepFooter
 				onCancel={onCancel}
+				cancelDisabled={creating}
 				back={
 					<Button
 						type="button"

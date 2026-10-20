@@ -34,7 +34,13 @@ export function SectionHeading({
 }) {
 	return (
 		<div className={cn('flex flex-col gap-1', className)}>
-			<h2 className="text-18 font-medium">{title}</h2>
+			{/* Focusable so a step change can move focus here. */}
+			<h2
+				tabIndex={-1}
+				className="text-18 font-medium outline-none"
+			>
+				{title}
+			</h2>
 			<p className="text-14 text-muted-foreground">
 				{description}
 			</p>
@@ -111,15 +117,18 @@ export type WizardStep = 1 | 2 | 3;
 /**
  * Where the wizard is. Every step up to `reach` (the furthest one whose
  * earlier steps are all valid) is a button, so a visitor can move around
- * without Back; the rest are plain.
+ * without Back; the rest are plain. `disabled` holds every step, as while
+ * the multisig is being created.
  */
 export function WizardStepper({
 	step,
 	reach,
+	disabled = false,
 	onStep,
 }: {
 	step: WizardStep;
 	reach: WizardStep;
+	disabled?: boolean;
 	onStep: (step: WizardStep) => void;
 }) {
 	return (
@@ -164,7 +173,8 @@ export function WizardStepper({
 							: n === step
 								? 'current'
 								: 'upcoming';
-					const navigable = n !== step && n <= reach;
+					const navigable =
+						!disabled && n !== step && n <= reach;
 					return (
 						<li
 							key={label}
@@ -204,21 +214,22 @@ export function WizardStepper({
 								<span
 									className={cn(
 										'text-13 whitespace-nowrap transition-colors duration-200',
-										state === 'current'
-											? 'font-medium'
-											: 'max-sm:sr-only',
+										state === 'current' && 'font-medium',
 										state === 'upcoming' &&
 											'text-muted-foreground',
 									)}
 								>
 									{label}
+									{state === 'done' && (
+										<span className="sr-only"> (done)</span>
+									)}
 								</span>
 							</button>
 							{n < STEPS.length && (
 								<span
 									aria-hidden
 									className={cn(
-										'h-px w-10 transition-colors duration-200 max-sm:w-6',
+										'h-px w-10 transition-colors duration-200',
 										n < step
 											? 'bg-foreground'
 											: 'bg-foreground/15',
@@ -244,6 +255,7 @@ export function StepFooter({
 	noteTestId,
 	primary,
 	onCancel,
+	cancelDisabled = false,
 }: {
 	back?: ReactNode;
 	note?: ReactNode;
@@ -251,6 +263,7 @@ export function StepFooter({
 	/** A button with `w-full sm:w-auto`. */
 	primary: ReactNode;
 	onCancel: () => void;
+	cancelDisabled?: boolean;
 }) {
 	return (
 		<div className="flex flex-wrap items-center gap-3">
@@ -272,6 +285,7 @@ export function StepFooter({
 				type="button"
 				variant="ghost"
 				onClick={onCancel}
+				disabled={cancelDisabled}
 				className="order-4 sm:hidden"
 				data-testid="create-cancel-footer"
 			>

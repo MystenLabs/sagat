@@ -48,6 +48,7 @@ export function SignersStep({
 	signers,
 	check,
 	threshold,
+	maxThreshold,
 	focusId,
 	onSignersChange,
 	onAddSigner,
@@ -59,6 +60,8 @@ export function SignersStep({
 	signers: SignerDraft[];
 	check: SignersCheck;
 	threshold: number;
+	/** Every row's weight, complete or not. */
+	maxThreshold: number;
 	/** A row just added, whose name field takes focus. */
 	focusId: string | null;
 	onSignersChange: (signers: SignerDraft[]) => void;
@@ -205,7 +208,7 @@ export function SignersStep({
 					<NumberStepper
 						value={threshold}
 						min={1}
-						max={Math.max(check.totalWeight, 1)}
+						max={maxThreshold}
 						onChange={onThresholdChange}
 						label="Threshold"
 						size="lg"
@@ -290,14 +293,8 @@ function ThresholdBar({
 }) {
 	const bar = thresholdBar(threshold, totalWeight);
 	return (
-		<div
-			role="meter"
-			aria-label="Threshold"
-			aria-valuemin={0}
-			aria-valuemax={totalWeight}
-			aria-valuenow={threshold}
-			className="flex h-1.5 gap-1"
-		>
+		// The threshold field and "of N total weight" already say this.
+		<div aria-hidden className="flex h-1.5 gap-1">
 			{bar.kind === 'segments' ? (
 				bar.filled.map((filled, i) => (
 					<span
