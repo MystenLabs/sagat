@@ -74,7 +74,7 @@ export function AddProposerDialog({
 				title="Add Proposer"
 			/>
 
-			<form onSubmit={handleSubmit}>
+			<form onSubmit={handleSubmit} className="grid gap-4">
 				<ModalContent>
 					<p className="text-sm text-muted-foreground mb-4">
 						Add an external address that can create
