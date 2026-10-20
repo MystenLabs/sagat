@@ -41,12 +41,21 @@ export const newUser = (): TestUser => {
 	};
 };
 
-const sign = async (user: TestUser, message: string) =>
+export const sign = async (
+	user: TestUser,
+	message: string,
+) =>
 	(
 		await user.keypair.signPersonalMessage(
 			new TextEncoder().encode(message),
 		)
 	).signature;
+
+// The status and JSON body of an error response, to assert both at once.
+export const errorOf = async (response: Response) => ({
+	status: response.status,
+	body: await response.json(),
+});
 
 // A transfer of `amount` MIST from `sender` back to itself, paying for gas
 // with `gasCoin` if given (so proposals using different coins don't collide).
@@ -126,6 +135,15 @@ export class TestSession {
 			?.match(/connected-wallet=([^;]*)/);
 		if (cookie) this.#cookie = cookie[1] ? cookie[0] : '';
 		return response;
+	}
+
+	// A raw JSON POST with the session cookie.
+	post(path: string, body: unknown) {
+		return this.request(path, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+		});
 	}
 
 	async connectUser(user: TestUser) {
