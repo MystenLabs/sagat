@@ -6,6 +6,7 @@ import { Check, Info } from 'lucide-react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { validatePublicKey } from '@/lib/sui-utils';
+import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, errorMessage } from '@/lib/utils';
 
@@ -152,7 +153,7 @@ export function ReviewInvitationDialog({
 							/>
 							<Stat
 								label="Threshold"
-								value={`${multisig.threshold} of ${multisig.totalWeight}`}
+								value={thresholdLabel(multisig)}
 							/>
 							<Stat
 								label="Accepted"
