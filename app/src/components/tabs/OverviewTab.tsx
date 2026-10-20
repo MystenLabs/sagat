@@ -1,186 +1,94 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	Check,
-	Copy,
-	Download,
-	ExternalLink,
-	Users,
-} from 'lucide-react';
+import { type ReactNode } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
-import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
-import { useNetwork } from '../../contexts/NetworkContext';
-import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
-import {
-	buildMultisigCompositionExport,
-	downloadJson,
-	getMultisigExportFilename,
-} from '../../lib/exportUtils';
-import { getExplorerUrl } from '../../lib/utils';
-import { MembersList } from '../invitations/MembersList';
-import { ProposersSection } from '../proposers/ProposersSection';
-import { Button } from '../ui/button';
+import { accountSetup } from '../multisig/account-setup';
+import { CreatedBy } from '../multisig/CreatedBy';
 
 interface OverviewTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: () => void;
 }
 
+/**
+ * The account at a glance: its threshold against the signers' weight, how
+ * many signers it has, and when and by whom it was created.
+ */
 export function OverviewTab() {
 	const { multisig } =
 		useOutletContext<OverviewTabContext>();
-	const { copied, copy } = useCopyToClipboard();
-	const { network } = useNetwork();
-
-	const explorerUrl = getExplorerUrl(
+	const { currentAddress } = useApiAuth();
+	const { data: details } = useGetMultisig(
 		multisig.address,
-		network,
-		'account',
 	);
-
-	const {
-		data: multisigDetails,
-		isLoading,
-		error,
-		refetch,
-	} = useGetMultisig(multisig.address);
-
-	const totalWeight =
-		multisigDetails?.totalWeight ?? multisig.totalWeight;
-
-	const handleExportComposition = () => {
-		downloadJson(
-			getMultisigExportFilename(multisig.address),
-			buildMultisigCompositionExport(
-				multisigDetails ?? multisig,
-			),
-		);
-	};
+	const account = details ?? multisig;
+	const setup = accountSetup({
+		multisig: account,
+		totalWeight:
+			details?.totalWeight ?? multisig.totalWeight,
+		currentAddress: currentAddress?.address,
+	});
 
 	return (
-		<div className="space-y-6">
-			{/* Multisig Info Card */}
-			<div className="bg-card border rounded-lg p-6">
-				<h2 className="text-lg font-semibold mb-4">
-					Multisig Information
-				</h2>
-
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div className="flex flex-col">
-						<label className="block text-sm font-medium text-muted-foreground mb-2">
-							Address
-						</label>
-						<div className="flex items-center gap-2 p-3 bg-surface rounded-lg flex-1">
-							<code
-								className="text-sm font-mono text-foreground flex-1 break-all"
-								data-testid="multisig-address"
-							>
-								{multisig.address}
-							</code>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => copy(multisig.address)}
-								className="h-8 px-2 shrink-0"
-							>
-								{copied ? (
-									<Check className="w-4 h-4" />
-								) : (
-									<Copy className="w-4 h-4" />
-								)}
-							</Button>
-						</div>
-					</div>
-
-					<div className="flex flex-col">
-						<label className="block text-sm font-medium text-muted-foreground mb-2">
-							Signature Threshold
-						</label>
-						<div className="flex items-center p-3 bg-surface rounded-lg flex-1">
-							<span
-								className="text-sm text-foreground"
-								data-testid="multisig-threshold"
-								data-threshold={multisig.threshold}
-								data-total-weight={totalWeight}
-							>
-								{thresholdLabel({
-									threshold: multisig.threshold,
-									totalWeight,
-								})}{' '}
-								weight required
-							</span>
-						</div>
-					</div>
-				</div>
-
-				<div className="mt-6 pt-6 border-t flex flex-col sm:flex-row gap-2">
-					{explorerUrl && (
-						<Button
-							variant="outline"
-							onClick={() =>
-								window.open(explorerUrl, '_blank')
-							}
-							className="w-full sm:w-auto"
-						>
-							<ExternalLink className="w-4 h-4 mr-2" />
-							View on Sui Explorer
-						</Button>
-					)}
-					<Button
-						variant="outline"
-						onClick={handleExportComposition}
-						className="w-full sm:w-auto"
+		<div className="@container flex flex-col gap-7">
+			<dl
+				className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-3 md:p-6 @3xl:flex @3xl:gap-8"
+				data-testid="account-summary"
+			>
+				<Stat label="Threshold">
+					<span
+						data-testid="multisig-threshold"
+						data-threshold={account.threshold}
+						data-total-weight={setup.totalWeight}
 					>
-						<Download className="w-4 h-4 mr-2" />
-						Download
-					</Button>
-				</div>
-			</div>
+						{setup.threshold}
+					</span>
+				</Stat>
+				<Stat label="Signers">{setup.signers}</Stat>
+				<Stat label="Total weight">
+					{setup.totalWeight}
+				</Stat>
+				<Stat label="Created">
+					<span
+						data-testid="account-created"
+						data-created-at={setup.createdAt ?? undefined}
+						className={cn(
+							!setup.created && 'text-muted-foreground',
+						)}
+					>
+						{setup.created ?? 'Unknown'}
+					</span>
+				</Stat>
+				<Stat label="Created by">
+					<CreatedBy creator={setup.creator} />
+				</Stat>
+			</dl>
+		</div>
+	);
+}
 
-			{/* Members Section */}
-			<div className="bg-card border rounded-lg p-6">
-				<h2 className="text-lg font-semibold mb-4 flex items-center">
-					<Users className="w-5 h-5 mr-2" />
-					Members ({multisig.totalMembers})
-				</h2>
-
-				{isLoading ? (
-					<div className="flex items-center justify-center py-8">
-						<div className="text-sm text-muted-foreground">
-							Loading member details...
-						</div>
-					</div>
-				) : error ? (
-					<div className="text-sm text-muted-foreground text-center py-8">
-						<p className="mb-4">
-							Failed to load member details
-						</p>
-						<Button
-							variant="outline"
-							onClick={() => refetch()}
-						>
-							Retry
-						</Button>
-					</div>
-				) : multisigDetails ? (
-					<MembersList members={multisigDetails.members} />
-				) : null}
-			</div>
-
-			{/* Proposers Section */}
-			{multisigDetails ? (
-				<ProposersSection
-					proposers={multisigDetails.proposers}
-					multisigAddress={multisig.address}
-					isLoading={isLoading}
-					error={error}
-				/>
-			) : null}
+/** A label over its value, as on the summary strip. */
+function Stat({
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactNode;
+}) {
+	return (
+		<div className="flex min-w-0 flex-col gap-1 @3xl:min-w-fit @3xl:flex-1">
+			<dt className="text-13 whitespace-nowrap text-muted-foreground">
+				{label}
+			</dt>
+			<dd className="flex min-w-0 text-16 font-medium whitespace-nowrap">
+				{children}
+			</dd>
 		</div>
 	);
 }

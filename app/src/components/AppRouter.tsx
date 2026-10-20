@@ -29,6 +29,7 @@ import { SmartDashboard } from './SmartDashboard';
 import { AssetsTab } from './tabs/AssetsTab';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ProposalsTab } from './tabs/ProposalsTab';
+import { SignersTab } from './tabs/SignersTab';
 import { ToolsPage } from './ToolsPage';
 import { SkeletonPage } from './ui/skeleton';
 
@@ -96,6 +97,11 @@ const routes: RouteConfig[] = [
 			{
 				path: 'assets',
 				element: <AssetsTab />,
+				authLevel: 'full',
+			},
+			{
+				path: 'signers',
+				element: <SignersTab />,
 				authLevel: 'full',
 			},
 		],

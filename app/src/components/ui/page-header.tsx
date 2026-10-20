@@ -106,7 +106,12 @@ export function PageHeader({
 				</h1>
 				{address && (
 					<div className="flex min-w-0 items-center gap-1 font-mono text-13 text-foreground-secondary">
-						<span className="truncate">{address}</span>
+						<span
+							className="truncate"
+							data-testid="page-header-address"
+						>
+							{address}
+						</span>
 						<CopyButton value={address} size="sm" />
 					</div>
 				)}

@@ -5,8 +5,10 @@ import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
+	matchPath,
 	Navigate,
 	Outlet,
+	useLocation,
 	useParams,
 } from 'react-router-dom';
 
@@ -25,8 +27,20 @@ import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
 
+/** The page title per tab, as in the designs; the account is the crumb. */
+const PAGE_TITLES: Record<string, string> = {
+	overview: 'Overview',
+	proposals: 'Proposals',
+	assets: 'Assets',
+	signers: 'Signers',
+};
+
 export function MultisigDetailPage() {
 	const { address } = useParams<{ address: string }>();
+	const location = useLocation();
+	const page =
+		matchPath('/multisig/:address/:page', location.pathname)
+			?.params.page ?? 'proposals';
 	const currentAccount = useCurrentAccount();
 	const [showProposalSheet, setShowProposalSheet] =
 		useState(false);
@@ -105,7 +119,8 @@ export function MultisigDetailPage() {
 		return <Navigate to="/" replace />;
 	}
 
-	const title = accountName(multisig);
+	const name = accountName(multisig);
+	const title = PAGE_TITLES[page] ?? name;
 
 	return (
 		<div
@@ -116,7 +131,7 @@ export function MultisigDetailPage() {
 			<PageHeader
 				breadcrumb={[
 					{ label: 'Multisigs', to: '/' },
-					{ label: title, mono: !multisig.name },
+					{ label: name, mono: !multisig.name },
 				]}
 				title={title}
 				address={multisig.address}
@@ -139,7 +154,7 @@ export function MultisigDetailPage() {
 					onDismiss={dismissArrival}
 					testId="joined-banner"
 				>
-					You joined {title}.
+					You joined {name}.
 					{multisig.pendingMembers > 0 &&
 						` ${multisig.pendingMembers} ${
 							multisig.pendingMembers === 1

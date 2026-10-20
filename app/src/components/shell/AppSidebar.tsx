@@ -11,6 +11,7 @@ import {
 	Github,
 	LayoutDashboard,
 	Mail,
+	Users,
 } from 'lucide-react';
 import { useMemo } from 'react';
 import {
@@ -95,6 +96,7 @@ const MULTISIG_PAGES = [
 	},
 	{ id: 'proposals', label: 'Proposals', icon: FileText },
 	{ id: 'assets', label: 'Assets', icon: Coins },
+	{ id: 'signers', label: 'Signers', icon: Users },
 ] as const;
 
 /** Nav label: 13px at 72% white, full white when active (from the designs). */
