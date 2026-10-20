@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import {
 	disabledButton,
 	Divider,
+	field,
 	SectionHeading,
 	StepFooter,
 } from './parts';
@@ -71,7 +72,7 @@ export function NameStep({
 					autoFocus
 					aria-invalid={!!shownError}
 					aria-describedby="create-name-hint"
-					className="h-10.5 rounded-md border-foreground/12 bg-card px-3 text-14 placeholder:text-muted-foreground/70 focus-visible:border-foreground focus-visible:ring-0 md:text-14 aria-invalid:border-error-foreground aria-invalid:ring-0 dark:bg-card"
+					className={cn(field, 'h-10.5 px-3')}
 					data-testid="create-name-input"
 				/>
 				<p

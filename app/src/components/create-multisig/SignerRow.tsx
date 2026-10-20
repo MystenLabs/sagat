@@ -23,17 +23,15 @@ import { CONFIG } from '@/lib/constants';
 import {
 	type SignerCheck,
 	type SignerDraft,
+	type SignerStatus,
 } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
 
-import { NumberStepper } from './parts';
+import { field, NumberStepper } from './parts';
 
 const LABEL_MAX = CONFIG.MAX_KEY_LABEL_LENGTH;
 // The label counter shows from here on.
 const LABEL_NEAR = LABEL_MAX - 8;
-
-const field =
-	'h-9.5 rounded-md border-foreground/12 bg-card text-14 placeholder:text-muted-foreground/70 focus-visible:border-foreground focus-visible:ring-0 md:text-14 dark:bg-card';
 
 /**
  * One signer: drag handle, name, key, weight and remove. The creator's
@@ -114,7 +112,7 @@ export function SignerRow({
 					autoFocus={autoFocus}
 					className={cn(
 						field,
-						'min-w-0 flex-1 px-3 aria-invalid:border-error-foreground aria-invalid:ring-0 @xl/card:w-25 @xl/card:flex-none',
+						'h-9.5 min-w-0 flex-1 px-3 @xl/card:w-25 @xl/card:flex-none',
 					)}
 					data-testid="create-signer-label"
 				/>
@@ -163,11 +161,7 @@ export function SignerRow({
 				</div>
 			</div>
 
-			<StatusLine
-				creator={creator}
-				status={status}
-				check={check}
-			/>
+			<StatusLine creator={creator} check={check} />
 		</div>
 	);
 }
@@ -179,7 +173,7 @@ function KeyField({
 	onChange,
 }: {
 	signer: SignerDraft;
-	status: SignerCheck['status'];
+	status: SignerStatus;
 	index: number;
 	onChange: (key: string) => void;
 }) {
@@ -234,13 +228,12 @@ function KeyField({
 
 function StatusLine({
 	creator,
-	status,
 	check,
 }: {
 	creator: boolean;
-	status: SignerCheck['status'];
 	check: SignerCheck;
 }) {
+	const { status } = check;
 	const label =
 		check.labelLength >= LABEL_NEAR ? (
 			<p

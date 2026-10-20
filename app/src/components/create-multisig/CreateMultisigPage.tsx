@@ -3,7 +3,12 @@
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { SagatApiError } from '@mysten/sagat';
-import { useCallback, useRef, useState } from 'react';
+import {
+	useCallback,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -17,6 +22,7 @@ import { CONFIG } from '@/lib/constants';
 import {
 	addressInput,
 	checkSigners,
+	COPY,
 	invitedName,
 	nameError,
 	type SignerDraft,
@@ -33,9 +39,6 @@ import {
 	PreviewStrip,
 } from './SideCards';
 import { SignersStep } from './SignersStep';
-
-const CREATE_FAILED =
-	'Couldn’t create the multisig. Nothing was sent to the signers and your setup is still here. Check your connection and try again.';
 
 const newSigner = (id: number): SignerDraft => ({
 	id: `signer-${id}`,
@@ -88,14 +91,19 @@ export function CreateMultisigPage() {
 	]
 		.slice(0, CONFIG.MAX_KEY_LABEL_LENGTH)
 		.join('');
-	const signers = drafts.map((d) =>
-		d.isCreator
-			? {
-					...d,
-					key: currentAddress?.publicKey ?? '',
-					label: creatorNamed ? d.label : walletLabel,
-				}
-			: d,
+	const creatorKey = currentAddress?.publicKey ?? '';
+	const signers = useMemo(
+		() =>
+			drafts.map((d) =>
+				d.isCreator
+					? {
+							...d,
+							key: creatorKey,
+							label: creatorNamed ? d.label : walletLabel,
+						}
+					: d,
+			),
+		[drafts, creatorKey, creatorNamed, walletLabel],
 	);
 
 	// An address pasted into a key field is swapped for its key once found.
@@ -118,11 +126,17 @@ export function CreateMultisigPage() {
 		onKeyFound,
 	);
 
-	const check = checkSigners({
-		signers,
-		threshold,
-		lookups: failedLookups,
-	});
+	// Parses every key and derives the address, so it reruns only when
+	// the signers, the threshold or the lookups change.
+	const check = useMemo(
+		() =>
+			checkSigners({
+				signers,
+				threshold,
+				lookups: failedLookups,
+			}),
+		[signers, threshold, failedLookups],
+	);
 	// The threshold never exceeds the total weight.
 	const maxThreshold = Math.max(check.totalWeight, 1);
 	if (threshold > maxThreshold) setThreshold(maxThreshold);
@@ -135,9 +149,11 @@ export function CreateMultisigPage() {
 			? 3
 			: 2;
 
-	const invited = signers
-		.filter((s) => !s.isCreator)
-		.map(invitedName);
+	const invited = useMemo(
+		() =>
+			signers.filter((s) => !s.isCreator).map(invitedName),
+		[signers],
+	);
 
 	const submit = () =>
 		create.mutate({
@@ -169,7 +185,7 @@ export function CreateMultisigPage() {
 			create.error.status >= 400 &&
 			create.error.status < 500
 			? create.error.message
-			: CREATE_FAILED
+			: COPY.createFailed
 		: null;
 
 	return (

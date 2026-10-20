@@ -3,6 +3,7 @@
 
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 
+import { CONFIG } from './constants';
 import { extractPublicKeyFromBase64 } from './wallet';
 
 /**
@@ -33,10 +34,11 @@ export function validatePublicKey(
 	}
 }
 
-// A member's weight is a single byte in the multisig public key.
 function isValidWeight(weight: number) {
 	return (
-		Number.isInteger(weight) && weight >= 1 && weight <= 255
+		Number.isInteger(weight) &&
+		weight >= 1 &&
+		weight <= CONFIG.MAX_WEIGHT
 	);
 }
 
@@ -71,8 +73,7 @@ export function computeMultisigAddress(
 		if (!weights.every(isValidWeight)) {
 			return {
 				address: null,
-				error:
-					'Cannot compute multisig address. Weights must be between 1 and 255',
+				error: `Cannot compute multisig address. Weights must be between 1 and ${CONFIG.MAX_WEIGHT}`,
 			};
 		}
 

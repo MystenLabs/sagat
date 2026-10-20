@@ -43,8 +43,6 @@ export type SignerStatus =
 
 export interface SignerCheck {
 	status: SignerStatus;
-	/** What copy calls the signer: its label, "You" or "Signer N". */
-	name: string;
 	labelLength: number;
 	labelTooLong: boolean;
 	/** Counts towards the signers and the total weight. */
@@ -81,6 +79,17 @@ export function joinList(
 	return `${items.slice(0, -1).join(', ')} ${conjunction} ${items[items.length - 1]}`;
 }
 
+/** What copy calls a signer: its label, "You" or "Signer N". */
+export function signerName(
+	signer: SignerDraft,
+	index: number,
+) {
+	return (
+		signer.label.trim() ||
+		(signer.isCreator ? 'You' : `Signer ${index + 1}`)
+	);
+}
+
 export const NAME_MAX = VALIDATION.MAX_MULTISIG_NAME_LENGTH;
 
 /** The step 1 error for a name, or null when it is fine. */
@@ -109,6 +118,8 @@ export const COPY = {
 		'Every signer must sign every proposal. If one signer loses their key, the multisig can’t move funds.',
 	emptyAddress:
 		'Appears once you add signers and set a threshold.',
+	createFailed:
+		'Couldn’t create the multisig. Nothing was sent to the signers and your setup is still here. Check your connection and try again.',
 };
 
 export interface SignersCheck {
@@ -138,15 +149,12 @@ export function checkSigners({
 	/** Addresses whose lookup came back empty. */
 	lookups: Record<string, FailedLookup>;
 }): SignersCheck {
-	const nameOf = (signer: SignerDraft, index: number) =>
-		signer.label.trim() ||
-		(signer.isCreator ? 'You' : `Signer ${index + 1}`);
+	const names = signers.map(signerName);
 
 	// The first row with a key owns it; later rows are duplicates.
 	const firstWithKey = new Map<string, number>();
 
 	const checks = signers.map((signer, index) => {
-		const name = nameOf(signer, index);
 		const labelLength = textLength(signer.label);
 		const labelTooLong =
 			labelLength > CONFIG.MAX_KEY_LABEL_LENGTH;
@@ -159,7 +167,7 @@ export function checkSigners({
 				firstWithKey.set(status.address, index);
 			else {
 				// "Daniel (signer 2)", or just "Signer 2" when unnamed.
-				const ownerName = nameOf(signers[owner], owner);
+				const ownerName = names[owner];
 				const position = `Signer ${owner + 1}`;
 				finalStatus = {
 					kind: 'error',
@@ -174,7 +182,6 @@ export function checkSigners({
 
 		return {
 			status: finalStatus,
-			name,
 			labelLength,
 			labelTooLong,
 			complete:
@@ -182,8 +189,9 @@ export function checkSigners({
 		};
 	});
 
-	const complete = checks.filter((c) => c.complete);
-	const completeCount = complete.length;
+	const completeCount = checks.filter(
+		(c) => c.complete,
+	).length;
 	const incompleteCount = checks.length - completeCount;
 	const totalWeight = signers.reduce(
 		(sum, signer, i) =>
@@ -239,7 +247,7 @@ export function checkSigners({
 						checks[i].complete
 							? [
 									{
-										name: checks[i].name,
+										name: names[i],
 										weight: s.weight,
 										you: !!s.isCreator && !s.label.trim(),
 									},

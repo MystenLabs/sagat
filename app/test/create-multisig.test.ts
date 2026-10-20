@@ -6,6 +6,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
 	checkSigners,
+	signerName,
 	thresholdBar,
 	thresholdWarning,
 	type SignerDraft,
@@ -175,6 +176,34 @@ describe('signer checks', () => {
 		expect(check.blockedMessage).toBe(
 			'Add a public key for signer 2, or remove the row, to continue.',
 		);
+	});
+
+	test('an unnamed duplicate owner goes by its position', () => {
+		const bob = signer('2');
+		const check = checkSigners({
+			signers: [
+				signer('1', { isCreator: true }),
+				bob,
+				signer('3', { key: bob.key }),
+			],
+			threshold: 1,
+			lookups: {},
+		});
+		expect(check.signers[2].status).toEqual({
+			kind: 'error',
+			message:
+				'Signer 2 already uses this key. Each signer needs their own key.',
+		});
+	});
+
+	test('signers go by their label, "You" or their position', () => {
+		expect(
+			signerName(signer('1', { label: ' Maya ' }), 0),
+		).toBe('Maya');
+		expect(
+			signerName(signer('1', { isCreator: true }), 0),
+		).toBe('You');
+		expect(signerName(signer('3'), 2)).toBe('Signer 3');
 	});
 
 	test('the creator alone cannot continue, with no helper text', () => {

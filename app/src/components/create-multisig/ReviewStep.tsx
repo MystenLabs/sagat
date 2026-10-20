@@ -11,7 +11,10 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { type SignerDraft } from '@/lib/create-multisig';
+import {
+	signerName,
+	type SignerDraft,
+} from '@/lib/create-multisig';
 import { validatePublicKey } from '@/lib/sui-utils';
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
@@ -27,11 +30,14 @@ import {
 
 /** "Maya (you)", "You", "Daniel" or "Signer 3". */
 function reviewName(signer: SignerDraft, index: number) {
-	const label = signer.label.trim();
-	if (signer.isCreator)
-		return label ? `${label} (you)` : 'You';
-	return label || `Signer ${index + 1}`;
+	const name = signerName(signer, index);
+	return signer.isCreator && signer.label.trim()
+		? `${name} (you)`
+		: name;
 }
+
+const shortAddress =
+	'w-fit font-mono text-11 text-muted-foreground';
 
 /** Step 3: everything at a glance, then create. */
 export function ReviewStep({
@@ -62,6 +68,19 @@ export function ReviewStep({
 	onCreate: () => void;
 	onCancel: () => void;
 }) {
+	// Shared by the table and the list, which render the same rows.
+	const rows = signers.map((signer, i) => {
+		const key = signer.key.trim();
+		return {
+			id: signer.id,
+			position: i + 1,
+			name: reviewName(signer, i),
+			key,
+			address: validatePublicKey(key).address,
+			weight: signer.weight,
+		};
+	});
+
 	return (
 		<div
 			className="flex flex-col gap-4.5 p-5 md:p-7"
@@ -143,44 +162,39 @@ export function ReviewStep({
 							</tr>
 						</thead>
 						<tbody>
-							{signers.map((signer, i) => {
-								const key = signer.key.trim();
-								const signerAddress =
-									validatePublicKey(key).address;
-								return (
-									<tr
-										key={signer.id}
-										className="border-b last:border-b-0"
-										data-testid="create-review-signer"
-									>
-										<td className="py-3 pl-3 align-middle text-12 text-muted-foreground">
-											{i + 1}
-										</td>
-										<td className="py-3 pr-3 align-middle">
-											<div className="flex flex-col">
-												<span
-													className="text-14 break-words"
-													data-testid="create-review-signer-name"
-												>
-													{reviewName(signer, i)}
-												</span>
-												{signerAddress && (
-													<ShortAddress
-														address={signerAddress}
-														className="w-fit font-mono text-11 text-muted-foreground"
-													/>
-												)}
-											</div>
-										</td>
-										<td className="py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary">
-											{key}
-										</td>
-										<td className="py-3 pr-3 text-right align-middle text-13">
-											{signer.weight}
-										</td>
-									</tr>
-								);
-							})}
+							{rows.map((row) => (
+								<tr
+									key={row.id}
+									className="border-b last:border-b-0"
+									data-testid="create-review-signer"
+								>
+									<td className="py-3 pl-3 align-middle text-12 text-muted-foreground">
+										{row.position}
+									</td>
+									<td className="py-3 pr-3 align-middle">
+										<div className="flex flex-col">
+											<span
+												className="text-14 break-words"
+												data-testid="create-review-signer-name"
+											>
+												{row.name}
+											</span>
+											{row.address && (
+												<ShortAddress
+													address={row.address}
+													className={shortAddress}
+												/>
+											)}
+										</div>
+									</td>
+									<td className="py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary">
+										{row.key}
+									</td>
+									<td className="py-3 pr-3 text-right align-middle text-13">
+										{row.weight}
+									</td>
+								</tr>
+							))}
 						</tbody>
 					</table>
 				</div>
@@ -188,39 +202,34 @@ export function ReviewStep({
 					className="divide-y divide-foreground/8 rounded-lg border border-foreground/8 bg-card @xl/card:hidden"
 					data-testid="create-review-list"
 				>
-					{signers.map((signer, i) => {
-						const key = signer.key.trim();
-						const signerAddress =
-							validatePublicKey(key).address;
-						return (
-							<li
-								key={signer.id}
-								className="flex items-center gap-3 px-3 py-2.5"
-								data-testid="create-review-item"
-							>
-								<span className="w-4 shrink-0 text-12 text-muted-foreground">
-									{i + 1}
+					{rows.map((row) => (
+						<li
+							key={row.id}
+							className="flex items-center gap-3 px-3 py-2.5"
+							data-testid="create-review-item"
+						>
+							<span className="w-4 shrink-0 text-12 text-muted-foreground">
+								{row.position}
+							</span>
+							<div className="flex min-w-0 flex-1 flex-col">
+								<span className="text-14 break-words">
+									{row.name}
 								</span>
-								<div className="flex min-w-0 flex-1 flex-col">
-									<span className="text-14 break-words">
-										{reviewName(signer, i)}
-									</span>
-									{signerAddress && (
-										<ShortAddress
-											address={signerAddress}
-											className="w-fit font-mono text-11 text-muted-foreground"
-										/>
-									)}
-									<span className="truncate font-mono text-11 text-foreground-secondary">
-										{key}
-									</span>
-								</div>
-								<span className="shrink-0 text-13">
-									{signer.weight}
+								{row.address && (
+									<ShortAddress
+										address={row.address}
+										className={shortAddress}
+									/>
+								)}
+								<span className="truncate font-mono text-11 text-foreground-secondary">
+									{row.key}
 								</span>
-							</li>
-						);
-					})}
+							</div>
+							<span className="shrink-0 text-13">
+								{row.weight}
+							</span>
+						</li>
+					))}
 				</ul>
 			</section>
 

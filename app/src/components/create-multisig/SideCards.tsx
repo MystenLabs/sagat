@@ -20,6 +20,13 @@ import { CopyText, Divider } from './parts';
 
 const card = 'rounded-xl border bg-card';
 
+/** "3", or "3 (+1 incomplete)". */
+function signersLabel(signers: number, incomplete: number) {
+	return incomplete
+		? `${signers} (+${incomplete} incomplete)`
+		: signers;
+}
+
 /**
  * The preview's numbers in one line, shown under the stepper while the
  * preview card sits below the form.
@@ -48,9 +55,7 @@ export function PreviewStrip({
 			data-testid="create-preview-strip"
 		>
 			<StripStat label="Signers">
-				{incomplete
-					? `${signers} (+${incomplete} incomplete)`
-					: signers}
+				{signersLabel(signers, incomplete)}
 			</StripStat>
 			<StripStat label="Total weight">
 				{totalWeight}
@@ -132,10 +137,7 @@ export function PreviewCard({
 						className={cn('text-12', !setUp && muted)}
 						data-testid="create-preview-signers"
 					>
-						{setUp ? signers : 0}
-						{setUp &&
-							incomplete > 0 &&
-							` (+${incomplete} incomplete)`}
+						{setUp ? signersLabel(signers, incomplete) : 0}
 					</span>
 				</PreviewRow>
 				<PreviewRow label="Total weight">
