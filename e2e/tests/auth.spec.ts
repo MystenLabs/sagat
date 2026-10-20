@@ -198,17 +198,23 @@ test.describe('wallet sign-in', () => {
 			otherAccounts: ['alice-savings'],
 		});
 		const [savings] = alice.otherAccounts;
+		// A fake clock lets the test run past the 5 minutes after which
+		// React Query evicts unused cache entries. Request timeouts keep
+		// real time, so a held check stays held.
+		await alice.page.addInitScript(() => {
+			(
+				window as { nativeTimeout?: unknown }
+			).nativeTimeout = AbortSignal.timeout;
+		});
+		await alice.page.clock.install();
+		await alice.page.addInitScript(() => {
+			AbortSignal.timeout = (
+				window as {
+					nativeTimeout?: typeof AbortSignal.timeout;
+				}
+			).nativeTimeout!;
+		});
 		await alice.signIn();
-
-		// Leave a successful check cached for the signed-out account.
-		await alice.switchAccount(savings);
-		await expect(
-			alice.page.getByTestId('auth-prompt'),
-		).toBeVisible();
-		await alice.switchAccount(alice);
-		await expect(
-			alice.page.getByTestId('dashboard-empty'),
-		).toBeVisible();
 
 		let failedChecks = 0;
 		let holdChecks = false;
@@ -254,8 +260,8 @@ test.describe('wallet sign-in', () => {
 		).toHaveCount(0);
 		await alice.walletMenuButton().click();
 
-		// The outage holds for the cached account too, while its own
-		// re-check hangs.
+		// The outage holds for another account too, while its re-check
+		// hangs.
 		holdChecks = true;
 		await alice.switchAccount(savings);
 		await expect
@@ -283,5 +289,20 @@ test.describe('wallet sign-in', () => {
 		await expect(
 			alice.page.getByTestId('api-unreachable'),
 		).toHaveCount(0);
+
+		// Evicting unused cache entries doesn't bring the outage back, even
+		// while the next check hangs.
+		const held = heldChecks.length;
+		await alice.switchAccount(alice);
+		await expect
+			.poll(() => heldChecks.length)
+			.toBeGreaterThan(held);
+		await alice.page.clock.fastForward('06:00');
+		await alice.walletMenuButton().click();
+		await expect(
+			alice
+				.walletAccount(savings.address)
+				.getByTestId('wallet-account-sign'),
+		).toBeVisible();
 	});
 });
