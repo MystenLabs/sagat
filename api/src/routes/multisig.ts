@@ -181,7 +181,7 @@ multisigRouter.post(
 				authorizedPubKeys.find((k) =>
 					addresses.includes(k.toSuiAddress()),
 				) ?? authorizedPubKeys[0];
-			await tx
+			const [origin] = await tx
 				.insert(SchemaAccountSignerSets)
 				.values({
 					accountAddress: msig.address,
@@ -190,7 +190,11 @@ multisigRouter.post(
 					status: AccountSignerSetStatus.INVITING,
 					draftedBy: creator.toSuiAddress(),
 				})
-				.onConflictDoNothing();
+				.onConflictDoNothing()
+				.returning({
+					draftedBy: SchemaAccountSignerSets.draftedBy,
+					createdAt: SchemaAccountSignerSets.createdAt,
+				});
 
 			// insert the multisig members in the DB.
 			const members = await tx
@@ -233,7 +237,7 @@ multisigRouter.post(
 				);
 
 			return {
-				multisig: toLegacyMultisig(msig),
+				multisig: toLegacyMultisig(msig, origin ?? null),
 				members: members.map((member) =>
 					toLegacyMultisigMember(
 						member,
@@ -339,7 +343,21 @@ multisigRouter.post('/:address/accept', async (c) => {
 				);
 		}
 		msig.isVerified = isFinalized;
-		return toLegacyMultisig(msig);
+		const origin =
+			await tx.query.SchemaAccountSignerSets.findFirst({
+				columns: { draftedBy: true, createdAt: true },
+				where: and(
+					eq(
+						SchemaAccountSignerSets.accountAddress,
+						address,
+					),
+					eq(
+						SchemaAccountSignerSets.signerSetAddress,
+						address,
+					),
+				),
+			});
+		return toLegacyMultisig(msig, origin ?? null);
 	});
 
 	return c.json(result);

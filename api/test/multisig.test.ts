@@ -214,6 +214,67 @@ describe('Multisig API', () => {
 		expect(await invitations(true)).toEqual([address]);
 	});
 
+	describe('creator', () => {
+		test('is the caller, whatever the member order', async () => {
+			const session = framework.createSession();
+			const creator = newUser();
+			const others = [newUser(), newUser()];
+			await session.connectUser(creator);
+			// The creator lists itself second, so the first member is someone
+			// else: the creator must come from the session, not the order.
+			const multisig = await session.createMultisig(
+				[others[0], creator, others[1]],
+				2,
+			);
+			expect(multisig.members[0].publicKey).toBe(
+				others[0].publicKey,
+			);
+			expect(multisig.draftedBy).toBe(creator.address);
+			expect(
+				Date.parse(multisig.createdAt ?? ''),
+			).not.toBeNaN();
+
+			const fetched = await session.client.getMultisig(
+				multisig.address,
+			);
+			expect(fetched.draftedBy).toBe(creator.address);
+			expect(fetched.createdAt).toBe(multisig.createdAt);
+
+			// The invitee sees who invited them.
+			await session.connectUser(others[0]);
+			const [invitation] =
+				await session.client.getInvitations(
+					others[0].publicKey,
+				);
+			expect(invitation.draftedBy).toBe(creator.address);
+			expect(invitation.createdAt).toBe(multisig.createdAt);
+
+			// And in the connections listing once accepted.
+			await session.acceptMultisig(
+				others[0],
+				multisig.address,
+			);
+			const connections =
+				await session.client.getMultisigConnections();
+			const listed = Object.values(connections)
+				.flat()
+				.find((m) => m.address === multisig.address);
+			expect(listed?.draftedBy).toBe(creator.address);
+			expect(listed?.createdAt).toBe(multisig.createdAt);
+		});
+
+		test('is the caller even when the caller is not a member', async () => {
+			const { session, users } =
+				await framework.createAuthenticatedSession(1);
+			const others = [newUser(), newUser()];
+			const multisig = await session.createMultisig(
+				others,
+				2,
+			);
+			expect(multisig.draftedBy).toBe(users[0].address);
+		});
+	});
+
 	describe('key labels', () => {
 		const labelsOf = (
 			members: {

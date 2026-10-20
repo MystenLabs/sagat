@@ -35,7 +35,9 @@
 				"address": "<address:0>",
 				"isVerified": false,
 				"threshold": 2,
-				"name": "Treasury"
+				"name": "Treasury",
+				"draftedBy": "<address:1>",
+				"createdAt": "<timestamp>"
 			},
 			"members": [
 				{
@@ -75,7 +77,9 @@
 			"address": "<address:0>",
 			"isVerified": true,
 			"threshold": 2,
-			"name": "Treasury"
+			"name": "Treasury",
+			"draftedBy": "<address:1>",
+			"createdAt": "<timestamp>"
 		}
 	},
 	{
@@ -85,7 +89,9 @@
 			"address": "<address:0>",
 			"isVerified": true,
 			"threshold": 2,
-			"name": "Treasury"
+			"name": "Treasury",
+			"draftedBy": "<address:1>",
+			"createdAt": "<timestamp>"
 		}
 	},
 	{
@@ -103,6 +109,8 @@
 			"isVerified": true,
 			"threshold": 2,
 			"name": "Treasury",
+			"draftedBy": "<address:1>",
+			"createdAt": "<timestamp>",
 			"members": [
 				{
 					"multisigAddress": "<address:0>",
@@ -134,8 +142,8 @@
 			],
 			"proposers": [
 				{
-					"address": "<address:1>",
-					"addedBy": "<address:2>",
+					"address": "<address:2>",
+					"addedBy": "<address:1>",
 					"addedAt": "<timestamp>"
 				}
 			],
@@ -153,6 +161,8 @@
 					"isVerified": true,
 					"threshold": 2,
 					"name": "Treasury",
+					"draftedBy": "<address:1>",
+					"createdAt": "<timestamp>",
 					"members": [
 						{
 							"multisigAddress": "<address:0>",
@@ -184,8 +194,8 @@
 					],
 					"proposers": [
 						{
-							"address": "<address:1>",
-							"addedBy": "<address:2>",
+							"address": "<address:2>",
+							"addedBy": "<address:1>",
 							"addedAt": "<timestamp>"
 						}
 					],
@@ -199,6 +209,8 @@
 					"isVerified": true,
 					"threshold": 2,
 					"name": "Treasury",
+					"draftedBy": "<address:1>",
+					"createdAt": "<timestamp>",
 					"members": [
 						{
 							"multisigAddress": "<address:0>",
@@ -230,8 +242,8 @@
 					],
 					"proposers": [
 						{
-							"address": "<address:1>",
-							"addedBy": "<address:2>",
+							"address": "<address:2>",
+							"addedBy": "<address:1>",
 							"addedAt": "<timestamp>"
 						}
 					],
@@ -245,6 +257,8 @@
 					"isVerified": true,
 					"threshold": 2,
 					"name": "Treasury",
+					"draftedBy": "<address:1>",
+					"createdAt": "<timestamp>",
 					"members": [
 						{
 							"multisigAddress": "<address:0>",
@@ -276,8 +290,8 @@
 					],
 					"proposers": [
 						{
-							"address": "<address:1>",
-							"addedBy": "<address:2>",
+							"address": "<address:2>",
+							"addedBy": "<address:1>",
 							"addedAt": "<timestamp>"
 						}
 					],
@@ -316,7 +330,9 @@
 				"address": "<address:3>",
 				"isVerified": false,
 				"threshold": 2,
-				"name": null
+				"name": null,
+				"draftedBy": "<address:1>",
+				"createdAt": "<timestamp>"
 			},
 			"members": [
 				{
@@ -358,6 +374,8 @@
 				"isVerified": false,
 				"threshold": 2,
 				"name": null,
+				"draftedBy": "<address:1>",
+				"createdAt": "<timestamp>",
 				"members": [
 					{
 						"multisigAddress": "<address:3>",
@@ -410,6 +428,8 @@
 				"isVerified": false,
 				"threshold": 2,
 				"name": null,
+				"draftedBy": "<address:1>",
+				"createdAt": "<timestamp>",
 				"members": [
 					{
 						"multisigAddress": "<address:3>",
@@ -452,7 +472,9 @@
 			"address": "<address:3>",
 			"isVerified": false,
 			"threshold": 2,
-			"name": null
+			"name": null,
+			"draftedBy": "<address:1>",
+			"createdAt": "<timestamp>"
 		}
 	},
 	{
@@ -465,6 +487,8 @@
 					"isVerified": false,
 					"threshold": 2,
 					"name": null,
+					"draftedBy": "<address:1>",
+					"createdAt": "<timestamp>",
 					"members": [
 						{
 							"multisigAddress": "<address:3>",
@@ -511,7 +535,7 @@
 			"digest": "<digest:0>",
 			"status": 0,
 			"transactionBytes": "<txBytes:0>",
-			"proposerAddress": "<address:2>",
+			"proposerAddress": "<address:1>",
 			"description": "pay vendor",
 			"network": "localnet",
 			"createdAt": "<timestamp>"
@@ -535,7 +559,7 @@
 					"digest": "<digest:0>",
 					"status": 0,
 					"transactionBytes": "<txBytes:0>",
-					"proposerAddress": "<address:2>",
+					"proposerAddress": "<address:1>",
 					"description": "pay vendor",
 					"network": "localnet",
 					"createdAt": "<timestamp>",
@@ -567,7 +591,7 @@
 			"digest": "<digest:0>",
 			"status": 0,
 			"transactionBytes": "<txBytes:0>",
-			"proposerAddress": "<address:2>",
+			"proposerAddress": "<address:1>",
 			"description": "pay vendor",
 			"network": "localnet",
 			"createdAt": "<timestamp>",
@@ -639,7 +663,7 @@
 			"digest": "<digest:1>",
 			"status": 0,
 			"transactionBytes": "<txBytes:1>",
-			"proposerAddress": "<address:1>",
+			"proposerAddress": "<address:2>",
 			"description": null,
 			"network": "localnet",
 			"createdAt": "<timestamp>"
@@ -656,7 +680,7 @@
 					"digest": "<digest:1>",
 					"status": 0,
 					"transactionBytes": "<txBytes:1>",
-					"proposerAddress": "<address:1>",
+					"proposerAddress": "<address:2>",
 					"description": null,
 					"network": "localnet",
 					"createdAt": "<timestamp>",
@@ -677,7 +701,7 @@
 			"digest": "<digest:1>",
 			"status": 0,
 			"transactionBytes": "<txBytes:1>",
-			"proposerAddress": "<address:1>",
+			"proposerAddress": "<address:2>",
 			"description": null,
 			"network": "localnet",
 			"createdAt": "<timestamp>",
@@ -723,6 +747,8 @@
 			"isVerified": true,
 			"threshold": 2,
 			"name": "Treasury",
+			"draftedBy": "<address:1>",
+			"createdAt": "<timestamp>",
 			"members": [
 				{
 					"multisigAddress": "<address:0>",

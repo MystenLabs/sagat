@@ -20,6 +20,7 @@ import type {
 	SignerSetWithMembers,
 } from '../db/schema';
 import { type KeyLabels } from '../loaders/account-keys.loader';
+import { type SignerSetOrigin } from '../loaders/account-signer-sets.loader';
 import type { PaginatedResponse } from '../utils/pagination';
 
 export type LegacyMultisig = {
@@ -27,6 +28,11 @@ export type LegacyMultisig = {
 	isVerified: boolean;
 	threshold: number;
 	name: string | null;
+	// Added after the freeze (additive, nullable): who created the multisig
+	// and when, from the account's `account_signer_sets` row for its
+	// original composition. Null when the account has no such row.
+	draftedBy: string | null;
+	createdAt: Date | null;
 };
 
 export type LegacyMultisigMember = {
@@ -72,11 +78,16 @@ export type LegacyProposalWithSignatures =
 
 export const toLegacyMultisig = (
 	signerSet: SignerSet,
+	// Who created the multisig and when. Required so that every call site
+	// decides where it comes from.
+	origin: SignerSetOrigin | null,
 ): LegacyMultisig => ({
 	address: signerSet.address,
 	isVerified: signerSet.isVerified,
 	threshold: signerSet.threshold,
 	name: signerSet.name,
+	draftedBy: origin?.draftedBy ?? null,
+	createdAt: origin?.createdAt ?? null,
 });
 
 export const toLegacyMultisigMember = (
@@ -100,8 +111,9 @@ export const toLegacyMultisigWithMembers = (
 	// Labels of the account with the same address, by public key. Required
 	// so that every call site decides where they come from.
 	labels: KeyLabels,
+	origin: SignerSetOrigin | null,
 ): LegacyMultisigWithMembers => ({
-	...toLegacyMultisig(signerSet),
+	...toLegacyMultisig(signerSet, origin),
 	members: signerSet.members.map((member) =>
 		toLegacyMultisigMember(
 			member,

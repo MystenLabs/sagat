@@ -17,6 +17,7 @@ import {
 } from '../legacy/serializers';
 import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
+import { SignerSetOriginDataLoader } from '../loaders/account-signer-sets.loader';
 import {
 	expandSignerSetsWithMembers,
 	registerPublicKeys,
@@ -58,9 +59,10 @@ const expandLegacyMultisigs = async (
 	const signerSets =
 		await expandSignerSetsWithMembers(addresses);
 	const accountAddresses = signerSets.map((s) => s.address);
-	const [proposers, labels] = await Promise.all([
+	const [proposers, labels, origins] = await Promise.all([
 		AccountProposersDataLoader.loadMany(accountAddresses),
 		AccountKeyLabelsDataLoader.loadMany(accountAddresses),
+		SignerSetOriginDataLoader.loadMany(accountAddresses),
 	]);
 	return signerSets.map((signerSet, i) => {
 		const accountProposers = proposers[i];
@@ -68,10 +70,13 @@ const expandLegacyMultisigs = async (
 			throw accountProposers;
 		const keyLabels = labels[i];
 		if (keyLabels instanceof Error) throw keyLabels;
+		const origin = origins[i];
+		if (origin instanceof Error) throw origin;
 		return toLegacyMultisigWithMembers(
 			signerSet,
 			accountProposers,
 			keyLabels,
+			origin,
 		);
 	});
 };

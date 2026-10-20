@@ -49,6 +49,15 @@ export interface Multisig {
 	isVerified: boolean;
 	threshold: number;
 	name: string | null;
+	/**
+	 * The address of the key that created the multisig: the caller's key in
+	 * the composition, whatever its order, so it is not the first member.
+	 * Multisigs created before this was recorded carry their own address.
+	 * Null when unknown.
+	 */
+	draftedBy: string | null;
+	/** When the multisig was created, as an ISO timestamp, or null. */
+	createdAt: string | null;
 }
 
 export interface MultisigMember {

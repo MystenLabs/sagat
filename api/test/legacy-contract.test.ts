@@ -61,6 +61,7 @@ const FIELD_KINDS: Record<string, Kind> = {
 	multisigAddress: 'address',
 	proposerAddress: 'address',
 	addedBy: 'address',
+	draftedBy: 'address',
 	publicKey: 'publicKey',
 	signature: 'signature',
 	digest: 'digest',
