@@ -50,13 +50,17 @@ export interface Multisig {
 	threshold: number;
 	name: string | null;
 	/**
-	 * The address of the key that created the multisig: the caller's key in
-	 * the composition, whatever its order, so it is not the first member.
-	 * Multisigs created before this was recorded carry their own address.
-	 * Null when unknown.
+	 * The address of the authenticated key that created the multisig: its
+	 * key in the composition when it has one, so it need not be the first
+	 * member, and it may not be a member at all. Multisigs that predate this
+	 * field carry their own address. Null when unknown.
 	 */
 	draftedBy: string | null;
-	/** When the multisig was created, as an ISO timestamp, or null. */
+	/**
+	 * When the multisig was created, as an ISO timestamp. Multisigs that
+	 * predate this field carry the time the field was added. Null when
+	 * unknown.
+	 */
 	createdAt: string | null;
 }
 

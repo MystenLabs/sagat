@@ -41,9 +41,9 @@ import {
 	type AuthEnv,
 } from '../services/auth.service';
 import {
+	getAccountOrigin,
 	getLegacyMultisig,
 	getSignerSet,
-	getSignerSetOrigin,
 	isSignerSetFinalized,
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -182,6 +182,8 @@ multisigRouter.post(
 				authorizedPubKeys.find((k) =>
 					addresses.includes(k.toSuiAddress()),
 				) ?? authorizedPubKeys[0];
+			// Never empty: a duplicate address already threw on the
+			// `signer_sets` insert above, which has no conflict handling.
 			const [origin] = await tx
 				.insert(SchemaAccountSignerSets)
 				.values({
@@ -271,8 +273,10 @@ multisigRouter.post('/:address/accept', async (c) => {
 		PersonalMessages.acceptMultisigInvitation(address),
 	);
 
-	const existingConnections =
-		await db.query.SchemaSignerSetMembers.findMany({
+	// The origin never changes after insert, so it is read outside the
+	// transaction.
+	const [existingConnections, origin] = await Promise.all([
+		db.query.SchemaSignerSetMembers.findMany({
 			where: and(
 				eq(
 					SchemaSignerSetMembers.publicKey,
@@ -280,7 +284,9 @@ multisigRouter.post('/:address/accept', async (c) => {
 				),
 				eq(SchemaSignerSetMembers.isAccepted, true),
 			),
-		});
+		}),
+		getAccountOrigin(address),
+	]);
 
 	// Maximum connections per public key.
 	if (
@@ -344,8 +350,7 @@ multisigRouter.post('/:address/accept', async (c) => {
 				);
 		}
 		msig.isVerified = isFinalized;
-		const origin = await getSignerSetOrigin(address, tx);
-		return toLegacyMultisig(msig, origin ?? null);
+		return toLegacyMultisig(msig, origin);
 	});
 
 	return c.json(result);

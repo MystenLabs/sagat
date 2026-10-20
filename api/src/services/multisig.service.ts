@@ -33,19 +33,19 @@ export const getSignerSet = async (address: string) => {
 	return signerSet;
 };
 
-// Who drafted the account's original signer set and when: the `(A, A)` row
-// in `account_signer_sets`. Takes an optional transaction.
-export const getSignerSetOrigin = async (
+// Who created the account and when, from its link row for its original
+// composition: `(A, A)` in `account_signer_sets`. Null when the account has
+// no such row. These columns never change after the row is inserted.
+export const getAccountOrigin = async (
 	address: string,
-	tx: Pick<typeof db, 'query'> = db,
-): Promise<SignerSetOrigin | undefined> =>
-	tx.query.SchemaAccountSignerSets.findFirst({
+): Promise<SignerSetOrigin | null> =>
+	(await db.query.SchemaAccountSignerSets.findFirst({
 		columns: { draftedBy: true, createdAt: true },
 		where: and(
 			eq(SchemaAccountSignerSets.accountAddress, address),
 			eq(SchemaAccountSignerSets.signerSetAddress, address),
 		),
-	});
+	})) ?? null;
 
 // The legacy multisig shape: a signer set with the account's proposers. A
 // signer set without the account's link row for its original composition
@@ -56,7 +56,7 @@ export const getLegacyMultisig = async (
 	const [signerSet, origin, proposers, labels] =
 		await Promise.all([
 			SignerSetDataLoader.load(address),
-			getSignerSetOrigin(address),
+			getAccountOrigin(address),
 			AccountProposersDataLoader.load(address),
 			AccountKeyLabelsDataLoader.load(address),
 		]);

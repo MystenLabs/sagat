@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Multisig } from '@mysten/sagat';
 import {
 	beforeEach,
 	describe,
@@ -249,11 +250,15 @@ describe('Multisig API', () => {
 			expect(invitation.draftedBy).toBe(creator.address);
 			expect(invitation.createdAt).toBe(multisig.createdAt);
 
-			// And in the connections listing once accepted.
-			await session.acceptMultisig(
+			// The accept route returns it too (the SDK types it loosely).
+			const accepted = (await session.acceptMultisig(
 				others[0],
 				multisig.address,
-			);
+			)) as unknown as Multisig;
+			expect(accepted.draftedBy).toBe(creator.address);
+			expect(accepted.createdAt).toBe(multisig.createdAt);
+
+			// And in the connections listing once accepted.
 			const connections =
 				await session.client.getMultisigConnections();
 			const listed = Object.values(connections)
@@ -272,6 +277,22 @@ describe('Multisig API', () => {
 				2,
 			);
 			expect(multisig.draftedBy).toBe(users[0].address);
+		});
+
+		test('is the caller key in the composition, not the first connected key', async () => {
+			const session = framework.createSession();
+			const [outsider, member, someone] = [
+				newUser(),
+				newUser(),
+				newUser(),
+			];
+			await session.connectUser(outsider);
+			await session.connectUser(member);
+			const multisig = await session.createMultisig(
+				[someone, member],
+				2,
+			);
+			expect(multisig.draftedBy).toBe(member.address);
 		});
 	});
 
