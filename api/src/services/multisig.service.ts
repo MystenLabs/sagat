@@ -9,12 +9,15 @@ import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
 	ProposalStatus,
-	SchemaAccounts,
+	SchemaAccountSignerSets,
 	SchemaProposals,
 	SchemaSignerSetMembers,
 } from '../db/schema';
 import { NotFoundError, ValidationError } from '../errors';
-import { toLegacyMultisigWithMembers } from '../legacy/serializers';
+import {
+	toLegacyMultisigWithMembers,
+	type SignerSetOrigin,
+} from '../legacy/serializers';
 import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
@@ -30,26 +33,39 @@ export const getSignerSet = async (address: string) => {
 	return signerSet;
 };
 
-// The legacy multisig shape: a signer set that is also an account, with the
-// account's proposers. A signer set without an account row (a draft for
-// another account) is not a multisig to legacy clients.
+// Who created the account and when, from its link row for its original
+// composition: `(A, A)` in `account_signer_sets`. Null when the account has
+// no such row. These columns never change after the row is inserted.
+export const getAccountOrigin = async (
+	address: string,
+): Promise<SignerSetOrigin | null> =>
+	(await db.query.SchemaAccountSignerSets.findFirst({
+		columns: { draftedBy: true, createdAt: true },
+		where: and(
+			eq(SchemaAccountSignerSets.accountAddress, address),
+			eq(SchemaAccountSignerSets.signerSetAddress, address),
+		),
+	})) ?? null;
+
+// The legacy multisig shape: a signer set with the account's proposers. A
+// signer set without the account's link row for its original composition
+// (a draft for another account) is not a multisig to legacy clients.
 export const getLegacyMultisig = async (
 	address: string,
 ) => {
-	const [signerSet, account, proposers, labels] =
+	const [signerSet, origin, proposers, labels] =
 		await Promise.all([
 			SignerSetDataLoader.load(address),
-			db.query.SchemaAccounts.findFirst({
-				where: eq(SchemaAccounts.address, address),
-			}),
+			getAccountOrigin(address),
 			AccountProposersDataLoader.load(address),
 			AccountKeyLabelsDataLoader.load(address),
 		]);
-	if (!signerSet || !account) throw new NotFoundError();
+	if (!signerSet || !origin) throw new NotFoundError();
 	return toLegacyMultisigWithMembers(
 		signerSet,
 		proposers,
 		labels,
+		origin,
 	);
 };
 

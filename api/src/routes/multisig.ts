@@ -41,6 +41,7 @@ import {
 	type AuthEnv,
 } from '../services/auth.service';
 import {
+	getAccountOrigin,
 	getLegacyMultisig,
 	getSignerSet,
 	isSignerSetFinalized,
@@ -181,7 +182,7 @@ multisigRouter.post(
 				authorizedPubKeys.find((k) =>
 					addresses.includes(k.toSuiAddress()),
 				) ?? authorizedPubKeys[0];
-			await tx
+			const [origin] = await tx
 				.insert(SchemaAccountSignerSets)
 				.values({
 					accountAddress: msig.address,
@@ -190,7 +191,10 @@ multisigRouter.post(
 					status: AccountSignerSetStatus.INVITING,
 					draftedBy: creator.toSuiAddress(),
 				})
-				.onConflictDoNothing();
+				.returning({
+					draftedBy: SchemaAccountSignerSets.draftedBy,
+					createdAt: SchemaAccountSignerSets.createdAt,
+				});
 
 			// insert the multisig members in the DB.
 			const members = await tx
@@ -233,7 +237,7 @@ multisigRouter.post(
 				);
 
 			return {
-				multisig: toLegacyMultisig(msig),
+				multisig: toLegacyMultisig(msig, origin),
 				members: members.map((member) =>
 					toLegacyMultisigMember(
 						member,
@@ -266,8 +270,10 @@ multisigRouter.post('/:address/accept', async (c) => {
 		PersonalMessages.acceptMultisigInvitation(address),
 	);
 
-	const existingConnections =
-		await db.query.SchemaSignerSetMembers.findMany({
+	// The origin never changes after insert, so it is read outside the
+	// transaction.
+	const [existingConnections, origin] = await Promise.all([
+		db.query.SchemaSignerSetMembers.findMany({
 			where: and(
 				eq(
 					SchemaSignerSetMembers.publicKey,
@@ -275,7 +281,9 @@ multisigRouter.post('/:address/accept', async (c) => {
 				),
 				eq(SchemaSignerSetMembers.isAccepted, true),
 			),
-		});
+		}),
+		getAccountOrigin(address),
+	]);
 
 	// Maximum connections per public key.
 	if (
@@ -339,7 +347,7 @@ multisigRouter.post('/:address/accept', async (c) => {
 				);
 		}
 		msig.isVerified = isFinalized;
-		return toLegacyMultisig(msig);
+		return toLegacyMultisig(msig, origin);
 	});
 
 	return c.json(result);
