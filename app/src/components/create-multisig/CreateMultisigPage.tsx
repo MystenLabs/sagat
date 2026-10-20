@@ -21,6 +21,7 @@ import {
 	nameError,
 	type SignerDraft,
 } from '@/lib/create-multisig';
+import { cn } from '@/lib/utils';
 
 import { NameStep } from './NameStep';
 import { WizardStepper, type WizardStep } from './parts';
@@ -55,6 +56,11 @@ export function CreateMultisigPage() {
 	const create = useCreateMultisig();
 
 	const [step, setStep] = useState<WizardStep>(1);
+	// Which way the last step change went, so the new step slides in
+	// from that side.
+	const [direction, setDirection] = useState<
+		'forward' | 'back'
+	>('forward');
 	const [signersOpened, setSignersOpened] = useState(false);
 	const [name, setName] = useState('');
 	const [drafts, setDrafts] = useState<SignerDraft[]>([
@@ -145,6 +151,7 @@ export function CreateMultisigPage() {
 	const goTo = (next: WizardStep) => {
 		create.reset();
 		setFocusId(null);
+		setDirection(next > step ? 'forward' : 'back');
 		setStep(next);
 		if (next === 2) setSignersOpened(true);
 		window.scrollTo({ top: 0 });
@@ -190,7 +197,17 @@ export function CreateMultisigPage() {
 				/>
 
 				<div className="mt-7 flex flex-col gap-8 @5xl:flex-row @5xl:items-start">
-					<div className="@container/card w-full max-w-185 min-w-0 rounded-xl border bg-card @5xl:flex-1">
+					<div
+						// Remounting on each step change plays the entrance.
+						key={step}
+						className={cn(
+							'@container/card w-full max-w-185 min-w-0 rounded-xl border bg-card @5xl:flex-1',
+							'animate-in fade-in duration-200 ease-out motion-reduce:animate-none',
+							direction === 'forward'
+								? 'slide-in-from-right-2'
+								: 'slide-in-from-left-2',
+						)}
+					>
 						{step === 1 && (
 							<NameStep
 								name={name}
@@ -245,7 +262,12 @@ export function CreateMultisigPage() {
 						)}
 					</div>
 
-					<div className="flex w-full max-w-185 flex-col gap-5 @5xl:w-80 @5xl:shrink-0">
+					<div
+						// The side column only changes at Review, so it fades
+						// just then.
+						key={step === 3 ? 'next-steps' : 'preview'}
+						className="flex w-full max-w-185 flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @5xl:w-80 @5xl:shrink-0"
+					>
 						{step === 3 ? (
 							<NextStepsCard
 								name={name.trim()}

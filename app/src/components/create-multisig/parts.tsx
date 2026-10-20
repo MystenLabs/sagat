@@ -154,7 +154,7 @@ export function WizardStepper({
 						>
 							<span
 								className={cn(
-									'flex size-5.5 shrink-0 items-center justify-center rounded-full text-11 leading-none',
+									'flex size-5.5 shrink-0 items-center justify-center rounded-full text-11 leading-none transition-colors duration-200',
 									state === 'upcoming'
 										? 'border border-foreground/15 text-muted-foreground'
 										: 'bg-primary text-primary-foreground',
@@ -171,7 +171,7 @@ export function WizardStepper({
 							</span>
 							<span
 								className={cn(
-									'text-13 whitespace-nowrap',
+									'text-13 whitespace-nowrap transition-colors duration-200',
 									state === 'current'
 										? 'font-medium'
 										: 'max-sm:sr-only',
@@ -186,7 +186,7 @@ export function WizardStepper({
 							<span
 								aria-hidden
 								className={cn(
-									'h-px w-10 max-sm:w-6',
+									'h-px w-10 transition-colors duration-200 max-sm:w-6',
 									n < step
 										? 'bg-foreground'
 										: 'bg-foreground/15',
