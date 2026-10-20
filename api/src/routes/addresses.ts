@@ -4,7 +4,7 @@
 import { Hono, type Context } from 'hono';
 
 import {
-	toLegacyMultisigAccount,
+	toLegacyMultisigWithMembers,
 	type LegacyMultisigWithMembers,
 } from '../legacy/serializers';
 import {
@@ -58,7 +58,7 @@ addressesRouter.get(
 		> = {};
 		for (const [publicKey, multisigs] of connections)
 			grouped[publicKey] = multisigs.map(
-				toLegacyMultisigAccount,
+				toLegacyMultisigWithMembers,
 			);
 
 		return c.json(grouped);
@@ -79,7 +79,9 @@ addressesRouter.get(
 			callerKeys: c.get('publicKeys'),
 		});
 
-		return c.json(invitations.map(toLegacyMultisigAccount));
+		return c.json(
+			invitations.map(toLegacyMultisigWithMembers),
+		);
 	},
 );
 

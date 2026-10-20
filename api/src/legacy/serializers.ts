@@ -22,7 +22,6 @@ import type {
 	SignerSetOrigin,
 	SignerSetWithMembers,
 } from '../db/schema';
-import { type KeyLabels } from '../loaders/account-keys.loader';
 import type { MultisigAccount } from '../services/multisig.service';
 import type { PaginatedResponse } from '../utils/pagination';
 
@@ -107,15 +106,14 @@ export const toLegacyMultisigMember = (
 });
 
 // A legacy multisig is a signer set plus the proposers of the account with
-// the same address.
-export const toLegacyMultisigWithMembers = (
-	signerSet: SignerSetWithMembers,
-	proposers: LegacyMultisigProposer[],
-	// Labels of the account with the same address, by public key. Required
-	// so that every call site decides where they come from.
-	labels: KeyLabels,
-	origin: SignerSetOrigin | null,
-): LegacyMultisigWithMembers => ({
+// the same address, its labels for the keys (by public key), and who
+// created it.
+export const toLegacyMultisigWithMembers = ({
+	signerSet,
+	proposers,
+	labels,
+	origin,
+}: MultisigAccount): LegacyMultisigWithMembers => ({
 	...toLegacyMultisig(signerSet, origin),
 	members: signerSet.members.map((member) =>
 		toLegacyMultisigMember(
@@ -131,20 +129,6 @@ export const toLegacyMultisigWithMembers = (
 	totalMembers: signerSet.totalMembers,
 	totalWeight: signerSet.totalWeight,
 });
-
-// A multisig as the services return it, in the legacy shape.
-export const toLegacyMultisigAccount = ({
-	signerSet,
-	proposers,
-	labels,
-	origin,
-}: MultisigAccount): LegacyMultisigWithMembers =>
-	toLegacyMultisigWithMembers(
-		signerSet,
-		proposers,
-		labels,
-		origin,
-	);
 
 export const toLegacyProposal = (
 	proposal: Proposal,

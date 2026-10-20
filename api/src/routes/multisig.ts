@@ -5,8 +5,8 @@ import { Hono, type Context } from 'hono';
 
 import {
 	toLegacyMultisig,
-	toLegacyMultisigAccount,
 	toLegacyMultisigMember,
+	toLegacyMultisigWithMembers,
 } from '../legacy/serializers';
 import {
 	authMiddleware,
@@ -36,7 +36,7 @@ multisigRouter.get(
 			callerKeys: c.get('publicKeys'),
 		});
 
-		return c.json(toLegacyMultisigAccount(multisig));
+		return c.json(toLegacyMultisigWithMembers(multisig));
 	},
 );
 
