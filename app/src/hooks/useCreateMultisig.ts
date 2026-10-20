@@ -1,60 +1,44 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type CreateMultisigRequest } from '@mysten/sagat';
 import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
-import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { toast } from '@/lib/toast';
+import { type ArrivalState } from '@/hooks/useArrivalBanner';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
-import type { CreateMultisigForm } from '../lib/validations/multisig';
 
+/**
+ * Creates the multisig and lands on its overview, which greets the
+ * creator with who was invited. Failures stay with the caller: the wizard
+ * shows them in place, with no toast.
+ */
 export function useCreateMultisig() {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
-	const { currentAddress } = useApiAuth();
 
 	return useMutation({
-		mutationFn: async (data: CreateMultisigForm) => {
-			if (!currentAddress)
-				throw new Error('No wallet connected');
-
-			// Extract public keys and weights directly
-			const publicKeys = data.members.map(
-				(m) => m.publicKey,
-			);
-			const weights = data.members.map((m) => m.weight);
-
-			const payload = {
-				publicKey: currentAddress.publicKey,
-				publicKeys,
-				weights,
-				threshold: data.threshold,
-				name: data.name || undefined,
-			};
-
-			return apiClient.createMultisig(payload);
-		},
-		onSuccess: () => {
-			// Invalidate queries
-			queryClient.invalidateQueries({
+		mutationFn: ({
+			request,
+		}: {
+			request: CreateMultisigRequest;
+			/** What the greeting calls the other signers. */
+			invited: string[];
+		}) => apiClient.createMultisig(request),
+		onSuccess: (multisig, { invited }) => {
+			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
 			});
-
-			toast.success('Multisig created successfully!');
-
-			// Navigate to dashboard
-			navigate('/');
-		},
-		onError: (error: Error) => {
-			toast.error(
-				`Failed to create multisig: ${error.message}`,
-			);
+			navigate(`/multisig/${multisig.address}/overview`, {
+				state: {
+					created: { invited },
+				} satisfies ArrivalState,
+			});
 		},
 	});
 }

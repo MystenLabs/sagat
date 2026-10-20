@@ -10,6 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { type ArrivalState } from '@/hooks/useArrivalBanner';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
@@ -76,7 +77,7 @@ export function useAcceptInvitation() {
 				window.location.pathname === started.path;
 			if (!stillHere) return;
 			navigate(`/multisig/${address}/overview`, {
-				state: { joined: true },
+				state: { joined: true } satisfies ArrivalState,
 			});
 		},
 		// The accept may have landed even though the response was lost, so

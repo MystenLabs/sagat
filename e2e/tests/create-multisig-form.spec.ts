@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { randomAddress } from '../support/chain';
+import {
+	addSigners,
+	nameMultisig,
+	reviewMultisig,
+	signerRows,
+} from '../support/create-wizard';
 import { expect, test } from '../support/fixtures';
 import {
 	multisigAddressOf,
@@ -9,196 +15,80 @@ import {
 	signInViaApi,
 } from '../support/scenarios';
 
-test.describe('create multisig form', () => {
-	test('refuses invalid members until they are fixed', async ({
+test.describe('create multisig wizard', () => {
+	test('holds Continue until every signer is complete and unique', async ({
 		createActor,
 		createIdentity,
 	}) => {
 		const alice = await createActor('alice');
 		const bob = createIdentity('bob');
 		const { page } = alice;
-		const members = page.getByTestId('member-row');
-		const submit = page.getByTestId(
-			'create-multisig-submit',
+		const rows = signerRows(page);
+		const continueButton = page.getByTestId(
+			'create-continue',
 		);
-		const addressError = page.getByTestId(
-			'multisig-address-error',
+		const blockedReason = page.getByTestId(
+			'create-blocked-reason',
 		);
-
-		await alice.signIn();
-		await page.getByTestId('create-first-multisig').click();
-		await page.getByTestId('add-member-button').click();
-		const bobKey = members
-			.nth(1)
-			.getByTestId('member-public-key-input');
-
-		await test.step('an invalid public key', async () => {
-			await bobKey.fill('not-a-public-key');
-			await expect(
-				members
-					.nth(1)
-					.getByTestId('member-public-key-error'),
-			).toBeVisible();
-			await expect(submit).toBeDisabled();
-
-			await bobKey.fill(bob.publicKey);
-			await expect(
-				members
-					.nth(1)
-					.getByTestId('member-public-key-error'),
-			).toHaveCount(0);
-			await expect(submit).toBeEnabled();
-		});
-
-		await test.step('the same member twice', async () => {
-			await page.getByTestId('add-member-button').click();
-			await members
-				.nth(2)
-				.getByTestId('member-public-key-input')
-				.fill(bob.publicKey);
-			await expect(addressError).toBeVisible();
-			await expect(submit).toBeDisabled();
-
-			await members
-				.nth(2)
-				.getByTestId('member-remove-button')
-				.click();
-			await expect(members).toHaveCount(2);
-			await expect(addressError).toHaveCount(0);
-			await expect(submit).toBeEnabled();
-		});
-
-		await test.step('a threshold above the total weight', async () => {
-			await page.getByTestId('threshold-input').fill('3');
-			await expect(addressError).toBeVisible();
-			await expect(submit).toBeDisabled();
-
-			await page.getByTestId('threshold-input').fill('2');
-			await expect(
-				page.getByTestId('multisig-address-preview'),
-			).toHaveText(
-				multisigAddressOf(
-					[{ identity: alice }, { identity: bob }],
-					2,
-				),
-			);
-			await expect(submit).toBeEnabled();
-		});
-
-		// A weight is a single byte in the multisig public key.
-		await test.step('a weight above 255', async () => {
-			const bobWeight = members
-				.nth(1)
-				.getByTestId('member-weight-input');
-			await bobWeight.fill('256');
-			await expect(
-				members.nth(1).getByTestId('member-weight-error'),
-			).toBeVisible();
-			await expect(addressError).toBeVisible();
-			await expect(submit).toBeDisabled();
-
-			await bobWeight.fill('255');
-			await expect(
-				members.nth(1).getByTestId('member-weight-error'),
-			).toHaveCount(0);
-			await expect(
-				page.getByTestId('multisig-address-preview'),
-			).toHaveText(
-				multisigAddressOf(
-					[
-						{ identity: alice },
-						{ identity: bob, weight: 255 },
-					],
-					2,
-				),
-			);
-			await expect(submit).toBeEnabled();
-		});
-	});
-
-	test('keeps between two and ten members', async ({
-		createActor,
-	}) => {
-		const alice = await createActor('alice');
-		const { page } = alice;
-		const members = page.getByTestId('member-row');
-		const addMember = page.getByTestId('add-member-button');
-		const removeButtons = page.getByTestId(
-			'member-remove-button',
-		);
-
-		await alice.signIn();
-		await page.getByTestId('create-first-multisig').click();
-
-		await test.step('the creator cannot be removed', async () => {
-			await expect(members).toHaveCount(1);
-			await expect(removeButtons).toHaveCount(0);
-			await expect(
-				page.getByTestId('create-multisig-submit'),
-			).toBeDisabled();
-		});
-
-		await test.step('neither can the second member', async () => {
-			await addMember.click();
-			await expect(members).toHaveCount(2);
-			await expect(removeButtons).toHaveCount(0);
-		});
-
-		await test.step('the tenth member is the last', async () => {
-			for (let i = 2; i < 10; i++) await addMember.click();
-			await expect(members).toHaveCount(10);
-			await expect(addMember).toHaveCount(0);
-			// Everyone but the creator can go now.
-			await expect(removeButtons).toHaveCount(9);
-
-			await removeButtons.last().click();
-			await expect(members).toHaveCount(9);
-			await expect(addMember).toBeVisible();
-		});
-	});
-
-	test('refuses a multisig that already exists', async ({
-		createActor,
-		createIdentity,
-	}) => {
-		const alice = await createActor('alice');
-		const bob = createIdentity('bob');
-		const existing = await setupMultisig({
-			creator: alice,
-			members: [bob],
-			threshold: 2,
-			accept: false,
-		});
-		const { page } = alice;
-		const submit = page.getByTestId(
-			'create-multisig-submit',
+		const addressMessage = page.getByTestId(
+			'create-preview-address-message',
 		);
 
 		await alice.signIn();
 		await page.goto('/create');
-		await page.getByTestId('add-member-button').click();
-		await page
-			.getByTestId('member-row')
-			.nth(1)
-			.getByTestId('member-public-key-input')
-			.fill(bob.publicKey);
-		await page.getByTestId('threshold-input').fill('2');
-		await expect(
-			page.getByTestId('multisig-address-preview'),
-		).toHaveText(existing.address);
-		await submit.click();
+		await nameMultisig(page, 'Checks');
 
-		// The API refuses it and the form stays, ready for another try.
-		await expect(
-			page.locator(
-				'[data-sonner-toast][data-type="error"]',
-			),
-		).toContainText('already exists');
-		await expect(page).toHaveURL(/\/create$/);
-		await expect(submit).toBeEnabled();
+		await test.step('the creator alone', async () => {
+			await expect(rows).toHaveCount(1);
+			await expect(
+				page.getByTestId('create-too-few'),
+			).toBeVisible();
+			await expect(continueButton).toBeDisabled();
+		});
+
+		await test.step('a key that is already used', async () => {
+			await addSigners(page, [
+				{ label: 'Bob', key: bob.publicKey },
+				{ label: 'Bob again', key: bob.publicKey },
+			]);
+			await expect(
+				page.getByTestId('create-too-few'),
+			).toHaveCount(0);
+			await expect(
+				rows.nth(2).getByTestId('create-signer-status'),
+			).toHaveText(
+				'Bob (signer 2) already uses this key. Each signer needs their own key.',
+			);
+			await expect(blockedReason).toHaveText(
+				'Finish or remove signer 3 to continue.',
+			);
+			await expect(addressMessage).toHaveText(
+				'Finish or remove signer 3 to see the address.',
+			);
+			await expect(
+				page.getByTestId('create-preview-signers'),
+			).toHaveText('2 (+1 incomplete)');
+			await expect(continueButton).toBeDisabled();
+
+			await rows
+				.nth(2)
+				.getByTestId('create-signer-remove')
+				.click();
+			await expect(rows).toHaveCount(2);
+			await expect(blockedReason).toHaveCount(0);
+			await expect(
+				page.getByTestId('create-preview-address'),
+			).toHaveText(
+				multisigAddressOf(
+					[{ identity: alice }, { identity: bob }],
+					1,
+				),
+			);
+			await expect(continueButton).toBeEnabled();
+		});
 	});
 
-	test("looks up a member's public key by address", async ({
+	test('finds a public key from an address, and holds Continue when it can’t', async ({
 		createActor,
 		createIdentity,
 	}) => {
@@ -207,70 +97,122 @@ test.describe('create multisig form', () => {
 		const bob = createIdentity('bob');
 		await signInViaApi(bob);
 		const { page } = alice;
-		const members = page.getByTestId('member-row');
-		const modal = page.getByTestId('address-lookup-modal');
-		const lookupError = modal.getByTestId(
-			'address-lookup-error',
-		);
-		const lookupResult = modal.getByTestId(
-			'address-lookup-result',
+		const rows = signerRows(page);
+		const continueButton = page.getByTestId(
+			'create-continue',
 		);
 
 		await alice.signIn();
-		await page.getByTestId('create-first-multisig').click();
-		await page.getByTestId('add-member-button').click();
-		await members
-			.nth(1)
-			.getByTestId('member-lookup-button')
-			.click();
-
-		await test.step('a malformed address', async () => {
-			await modal
-				.getByTestId('address-lookup-input')
-				.fill('0x123');
-			await modal
-				.getByTestId('address-lookup-submit')
-				.click();
-			await expect(lookupError).toBeVisible();
-			await expect(lookupResult).toHaveCount(0);
-		});
+		await page.goto('/create');
+		await nameMultisig(page, 'Lookups');
 
 		await test.step('a registered address', async () => {
-			await modal
-				.getByTestId('address-lookup-input')
-				.fill(bob.address);
-			await modal
-				.getByTestId('address-lookup-submit')
-				.click();
-			await expect(lookupResult).toHaveText(bob.publicKey);
-			await expect(lookupError).toHaveCount(0);
-			await modal
-				.getByTestId('address-lookup-select')
-				.click();
-
-			await expect(modal).toBeHidden();
+			await addSigners(page, [{ key: bob.address }]);
 			await expect(
-				members
-					.nth(1)
-					.getByTestId('member-public-key-input'),
+				rows.nth(1).getByTestId('create-signer-key'),
 			).toHaveValue(bob.publicKey);
+			await expect(rows.nth(1)).toHaveAttribute(
+				'data-status',
+				'valid',
+			);
+			await expect(continueButton).toBeEnabled();
 		});
 
-		// Public networks are blocked in tests, so only the API can know it.
-		await test.step('an unknown address', async () => {
-			await page.getByTestId('add-member-button').click();
-			await members
-				.nth(2)
-				.getByTestId('member-lookup-button')
-				.click();
-			await modal
-				.getByTestId('address-lookup-input')
-				.fill(randomAddress());
-			await modal
-				.getByTestId('address-lookup-submit')
-				.click();
-			await expect(lookupError).toBeVisible();
-			await expect(lookupResult).toHaveCount(0);
+		// Public networks are blocked in tests, so only the API could know it.
+		await test.step('an address with no key on record', async () => {
+			await addSigners(page, [
+				{ label: 'Dave', key: randomAddress() },
+			]);
+			await expect(
+				rows.nth(2).getByTestId('create-signer-status'),
+			).toHaveText(
+				'No public key found for this address. It hasn’t signed a transaction yet. Ask Dave for their public key.',
+			);
+			await expect(
+				page.getByTestId('create-blocked-reason'),
+			).toHaveText(
+				'Add a public key for signer 3, or remove the row, to continue.',
+			);
+			await expect(continueButton).toBeDisabled();
 		});
+	});
+
+	test('keeps the setup when create fails, and tries again', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const { page } = alice;
+		const submit = page.getByTestId('create-submit');
+		const error = page.getByTestId('create-error');
+		const expectedAddress = multisigAddressOf(
+			[{ identity: alice }, { identity: bob }],
+			2,
+		);
+
+		await alice.signIn();
+		await reviewMultisig(page, {
+			name: 'Retry',
+			signers: [{ label: 'Bob', key: bob.publicKey }],
+			threshold: 2,
+		});
+
+		// The request never reaches the API.
+		const createRoute = '**/multisig';
+		await page.route(createRoute, (route) =>
+			route.request().method() === 'POST'
+				? route.abort()
+				: route.fallback(),
+		);
+		await submit.click();
+		await expect(error).toHaveText(
+			'Couldn’t create the multisig. Nothing was sent to the signers and your setup is still here. Check your connection and try again.',
+		);
+		await expect(submit).toHaveText('Try again');
+		await expect(page).toHaveURL(/\/create$/);
+		await expect(
+			page.getByTestId('create-review-address'),
+		).toHaveText(expectedAddress);
+
+		await page.unroute(createRoute);
+		await submit.click();
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			expectedAddress,
+		);
+	});
+
+	test("shows the API's reason when it refuses the setup", async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+		const { page } = alice;
+
+		await alice.signIn();
+		await reviewMultisig(page, {
+			name: 'Twice',
+			signers: [{ key: bob.publicKey }],
+			threshold: 2,
+		});
+		await page.getByTestId('create-submit').click();
+
+		await expect(
+			page.getByTestId('create-error'),
+		).toContainText('already exists');
+		await expect(
+			page.getByTestId('create-submit'),
+		).toHaveText('Try again');
+		await expect(page).toHaveURL(/\/create$/);
 	});
 });

@@ -63,7 +63,8 @@ Rules:
 
 - Pixel-named scale with line-height and tracking baked in:
   `text-10`, `text-11`, `text-12`, `text-13`, `text-14`, `text-15`,
-  `text-16`, `text-24`, `text-30`, `text-32`, `text-40`.
+  `text-16`, `text-18`, `text-20`, `text-24`, `text-30`, `text-32`,
+  `text-40`.
 - Body and controls are `text-13`. Secondary text `text-12`. Labels and
   breadcrumbs `text-11 uppercase`. Chips `text-10 uppercase`. Page
   titles `text-30 font-bold`. Card titles `text-16 font-semibold`.

@@ -34,7 +34,7 @@ export function validatePublicKey(
 }
 
 // A member's weight is a single byte in the multisig public key.
-export function isValidWeight(weight: number) {
+function isValidWeight(weight: number) {
 	return (
 		Number.isInteger(weight) && weight >= 1 && weight <= 255
 	);

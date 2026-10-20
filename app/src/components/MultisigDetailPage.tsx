@@ -2,34 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
 	Navigate,
 	Outlet,
-	useLocation,
-	useNavigate,
 	useParams,
 } from 'react-router-dom';
 
+import { useArrivalBanner } from '@/hooks/useArrivalBanner';
+import { joinList } from '@/lib/create-multisig';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { accountName } from './invitations/account-name';
+import { SuccessBanner } from './multisig/SuccessBanner';
 import {
 	ProposalSheet,
 	type ProposalIntent,
 } from './ProposalSheet';
-import { Alert } from './ui/Alert';
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from './ui/tooltip';
 
 export function MultisigDetailPage() {
 	const { address } = useParams<{ address: string }>();
@@ -43,42 +37,8 @@ export function MultisigDetailPage() {
 		isLoading,
 		isFetching,
 	} = useUserMultisigs();
-	// Set by the invitation flow right after accepting. Router state
-	// lives in history, so it is copied here and cleared at once: the
-	// greeting shows one time, not again on reload or Back. It belongs
-	// to the page it landed on and goes once you move to another tab.
-	const location = useLocation();
-	const navigate = useNavigate();
-	const joinedState = !!(
-		location.state as { joined?: boolean } | null
-	)?.joined;
-	const [joinedAt, setJoinedAt] = useState<string | null>(
-		() => (joinedState ? location.pathname : null),
-	);
-	// Adjusted during render (not in an effect) so the banner never
-	// flashes on the wrong page.
-	if (joinedState && joinedAt !== location.pathname) {
-		setJoinedAt(location.pathname);
-	} else if (
-		!joinedState &&
-		joinedAt &&
-		joinedAt !== location.pathname
-	) {
-		setJoinedAt(null);
-	}
-	useEffect(() => {
-		if (!joinedState) return;
-		navigate(location.pathname + location.search, {
-			replace: true,
-			state: null,
-		});
-	}, [
-		joinedState,
-		location.pathname,
-		location.search,
-		navigate,
-	]);
-	const joined = joinedAt === location.pathname;
+	// Set by the invitation and create flows: a greeting shown once.
+	const [arrival, dismissArrival] = useArrivalBanner();
 
 	// Find the multisig details from the selected accts
 	const multisigDetails = useMemo(
@@ -174,38 +134,28 @@ export function MultisigDetailPage() {
 				}
 			/>
 
-			{joined && (
-				<Alert
-					variant="success"
-					className="mb-6 items-center font-medium"
-					data-testid="joined-banner"
+			{arrival?.kind === 'joined' && (
+				<SuccessBanner
+					onDismiss={dismissArrival}
+					testId="joined-banner"
 				>
-					<div className="flex items-center gap-3">
-						<span className="flex-1">
-							You joined {title}.
-							{multisig.pendingMembers > 0 &&
-								` ${multisig.pendingMembers} ${
-									multisig.pendingMembers === 1
-										? 'signer hasn’t'
-										: 'signers haven’t'
-								} accepted yet.`}
-						</span>
-						<TooltipProvider delay={150}>
-							<Tooltip>
-								<TooltipTrigger
-									type="button"
-									aria-label="Dismiss"
-									className="cursor-pointer rounded-sm opacity-70 hover:opacity-100"
-									onClick={() => setJoinedAt(null)}
-									data-testid="joined-banner-dismiss"
-								>
-									<X className="size-4" />
-								</TooltipTrigger>
-								<TooltipContent>Dismiss</TooltipContent>
-							</Tooltip>
-						</TooltipProvider>
-					</div>
-				</Alert>
+					You joined {title}.
+					{multisig.pendingMembers > 0 &&
+						` ${multisig.pendingMembers} ${
+							multisig.pendingMembers === 1
+								? 'signer hasn’t'
+								: 'signers haven’t'
+						} accepted yet.`}
+				</SuccessBanner>
+			)}
+			{arrival?.kind === 'created' && (
+				<SuccessBanner
+					onDismiss={dismissArrival}
+					testId="created-banner"
+				>
+					Multisig created. Invitations sent to{' '}
+					{joinList(arrival.invited, 'and')}.
+				</SuccessBanner>
 			)}
 
 			{/* Tab Content */}

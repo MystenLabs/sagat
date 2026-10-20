@@ -5,13 +5,15 @@ import { parseSerializedSignature } from '@mysten/sui/cryptography';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { publicKeyFromRawBytes } from '@mysten/sui/verify';
 
+import { apiClient } from './api';
+
 const GRAPHQL_URLS = {
 	mainnet: 'https://graphql.mainnet.sui.io/graphql',
 	testnet: 'https://graphql.testnet.sui.io/graphql',
 	devnet: 'https://graphql.devnet.sui.io/graphql',
 } as const;
 
-export type NetworkName = keyof typeof GRAPHQL_URLS;
+type NetworkName = keyof typeof GRAPHQL_URLS;
 
 const gqlClients = Object.fromEntries(
 	Object.entries(GRAPHQL_URLS).map(([network, url]) => [
@@ -40,7 +42,7 @@ interface TransactionsQueryResult {
 	};
 }
 
-export interface OnChainPublicKeyResult {
+interface OnChainPublicKeyResult {
 	publicKey: string;
 	network: NetworkName;
 }
@@ -105,7 +107,7 @@ async function lookupOnNetwork(
  *
  * Throws `MultisigAddressError` if any network detects a multisig signature.
  */
-export async function findPublicKeyOnChain(
+async function findPublicKeyOnChain(
 	address: string,
 ): Promise<OnChainPublicKeyResult | null> {
 	const results = await Promise.allSettled(
@@ -137,4 +139,34 @@ export async function findPublicKeyOnChain(
 				r.status === 'fulfilled' && r.value !== null,
 		)?.value ?? null
 	);
+}
+
+/**
+ * The public key behind an address: the API knows it when the address
+ * has signed in here, the chain when it has sent a transaction recently.
+ * Resolves to null when neither does.
+ *
+ * Throws `MultisigAddressError` when the address is a multisig.
+ */
+export async function lookupPublicKey(
+	address: string,
+): Promise<string | null> {
+	const [registered, onChain] = await Promise.allSettled([
+		apiClient.getAddressInfo(address),
+		findPublicKeyOnChain(address),
+	]);
+
+	if (
+		onChain.status === 'rejected' &&
+		onChain.reason instanceof MultisigAddressError
+	)
+		throw onChain.reason;
+	if (
+		registered.status === 'fulfilled' &&
+		registered.value?.publicKey
+	)
+		return registered.value.publicKey;
+	if (onChain.status === 'fulfilled' && onChain.value)
+		return onChain.value.publicKey;
+	return null;
 }

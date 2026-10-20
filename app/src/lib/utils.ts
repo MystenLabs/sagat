@@ -20,6 +20,8 @@ const twMerge = extendTailwindMerge({
 						'14',
 						'15',
 						'16',
+						'18',
+						'20',
 						'24',
 						'30',
 						'32',
