@@ -205,6 +205,10 @@ test.describe('invitations', () => {
 		});
 
 		await bob.signIn();
+		// Savings signs in too, so its inbox loads once it's selected and the
+		// accept's refresh of that inbox shows the hook has settled.
+		await bob.signInAccount(savings);
+		await bob.switchAccount(bob);
 		await bob.page.getByTestId('nav-invitations').click();
 		await bob
 			.invitationCard(multisig.address)
@@ -242,26 +246,40 @@ test.describe('invitations', () => {
 					window.__e2eWallet!.setSelectedAccount(address),
 				address,
 			);
+		const savingsInbox = `/addresses/invitations/${encodeURIComponent(savings.publicKey)}`;
+		const waitForSavingsInbox = () =>
+			bob.page.waitForResponse((response) => {
+				const { pathname, searchParams } = new URL(
+					response.url(),
+				);
+				return (
+					response.request().method() === 'GET' &&
+					pathname.endsWith(savingsInbox) &&
+					!searchParams.has('showRejected')
+				);
+			});
+		const inboxLoaded = waitForSavingsInbox();
 		await selectInWallet(savings.address);
 		await expect(bob.walletMenuButton()).toHaveAttribute(
 			'data-address',
 			savings.address,
 		);
+		await inboxLoaded;
+		// Savings' inbox has data, so the accept's refresh starts a new fetch
+		// even if this one is still being read.
+		await expect(
+			bob.page.getByTestId('invitations-empty'),
+		).toBeVisible();
 
-		// The response headers aren't enough: the hook still reads the body
-		// before it settles. Wait for the body, then let the page run one
-		// task, by which time onSuccess has run.
+		// From here only the accept's onSuccess refetches savings' inbox, and
+		// it does so before it decides whether to navigate.
 		const accepted = bob.page.waitForResponse(
 			'**/multisig/*/accept',
 		);
+		const refreshed = waitForSavingsInbox();
 		release();
-		const response = await accepted;
-		expect(response.ok()).toBe(true);
-		await response.finished();
-		await bob.page.evaluate(
-			() =>
-				new Promise((resolve) => setTimeout(resolve, 0)),
-		);
+		expect((await accepted).ok()).toBe(true);
+		await refreshed;
 
 		// Back on bob, the invitation is gone and the page never moved.
 		await selectInWallet(bob.address);
