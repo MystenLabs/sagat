@@ -63,10 +63,10 @@ import {
 	SidebarMenuSkeleton,
 	SidebarRailTooltip,
 	SidebarSeparator,
-	sidebarToggleLabel,
 	SidebarTrigger,
 	useSidebar,
 } from '@/components/ui/sidebar';
+import { sidebarToggleLabel } from '@/components/ui/sidebar-toggle-label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
 	Tooltip,

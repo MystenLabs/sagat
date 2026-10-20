@@ -29,6 +29,8 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
+import { sidebarToggleLabel } from './sidebar-toggle-label';
+
 const SIDEBAR_WIDTH = '16rem';
 const SIDEBAR_WIDTH_MOBILE = '18rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
@@ -277,11 +279,6 @@ function Sidebar({
 }
 
 // forwardRef so a Tooltip trigger can render it and anchor to it.
-/** What the toggle does next: one wording for its name and its tooltip. */
-export function sidebarToggleLabel(expanded: boolean) {
-	return expanded ? 'Collapse sidebar' : 'Expand sidebar';
-}
-
 const SidebarTrigger = React.forwardRef<
 	HTMLButtonElement,
 	React.ComponentPropsWithoutRef<typeof Button>
