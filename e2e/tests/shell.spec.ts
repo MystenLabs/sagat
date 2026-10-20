@@ -39,7 +39,20 @@ test.describe('app shell', () => {
 			threshold: 1,
 			name: 'Shell test',
 		});
+		// A pending invitation for alice, so the sidebar shows a count.
+		await setupMultisig({
+			creator: bob,
+			members: [alice],
+			threshold: 2,
+			accept: false,
+		});
 		const { page } = alice;
+		// The designs' width; anything from 1280 keeps the sidebar expanded
+		// and saves the user's choice.
+		await page.setViewportSize({
+			width: 1440,
+			height: 900,
+		});
 
 		// The network menu works before signing in and picking the current
 		// network keeps the app alive.
@@ -85,18 +98,67 @@ test.describe('app shell', () => {
 		).toBeVisible();
 		await page.keyboard.press('Escape');
 
-		// Collapsing hides the labels; the toggle brings them back.
+		// Collapsing hides the labels but keeps the invitations count on the
+		// rail; the toggle brings the labels back.
 		const sidebar = page.locator('[data-slot="sidebar"]');
+		const inviteCount = page.getByTestId(
+			'nav-invitations-count',
+		);
 		await expect(sidebar).toHaveAttribute(
 			'data-state',
 			'expanded',
 		);
-		await page.getByTestId('sidebar-toggle').click();
+		await expect(inviteCount).toHaveText('1');
+		const toggle = page.getByTestId('sidebar-toggle');
+		await toggle.hover();
+		await expect(
+			page.getByRole('tooltip', {
+				name: 'Collapse sidebar',
+			}),
+		).toBeVisible();
+		await expect(toggle).toHaveAccessibleName(
+			'Collapse sidebar',
+		);
+		await toggle.click();
 		await expect(sidebar).toHaveAttribute(
 			'data-state',
 			'collapsed',
 		);
-		await page.getByTestId('sidebar-toggle').click();
+		await expect(toggle).toHaveAccessibleName(
+			'Expand sidebar',
+		);
+		await expect(inviteCount).toBeVisible();
+		await expect(inviteCount).toHaveText('1');
+
+		// The choice survives a reload on a wide screen.
+		await page.reload();
+		await expect(sidebar).toHaveAttribute(
+			'data-state',
+			'collapsed',
+		);
+		await expect(inviteCount).toHaveText('1');
+
+		// Expanding the rail on a narrower window isn't saved: back on the
+		// wide screen the sidebar stays collapsed.
+		await page.setViewportSize({
+			width: 1024,
+			height: 900,
+		});
+		await toggle.click();
+		await expect(sidebar).toHaveAttribute(
+			'data-state',
+			'expanded',
+		);
+		await page.setViewportSize({
+			width: 1440,
+			height: 900,
+		});
+		await expect(sidebar).toHaveAttribute(
+			'data-state',
+			'collapsed',
+		);
+
+		await toggle.click();
 		await expect(sidebar).toHaveAttribute(
 			'data-state',
 			'expanded',
@@ -161,5 +223,54 @@ test.describe('app shell', () => {
 				name: 'Switch to Mainnet',
 			}),
 		).toBeDisabled();
+	});
+
+	test('receive shows the full multisig address', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 1,
+			name: 'Receive test',
+		});
+		const { page } = alice;
+
+		await page.goto('/');
+		await alice.signIn();
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+
+		await page.getByTestId('receive-button').click();
+		const dialog = page.getByTestId('receive-dialog');
+		await expect(dialog).toBeVisible();
+		await expect(dialog).toContainText('Receive test');
+		await expect(
+			page.getByTestId('receive-address'),
+		).toHaveText(multisig.address);
+
+		// Clicking the QR code copies the address, like the button.
+		await alice.context.grantPermissions([
+			'clipboard-read',
+			'clipboard-write',
+		]);
+		await page.getByTestId('receive-qr').click();
+		await expect(
+			page
+				.locator('[data-sonner-toast]')
+				.filter({ hasText: 'Address copied' }),
+		).toBeVisible();
+		expect(
+			await page.evaluate(() =>
+				navigator.clipboard.readText(),
+			),
+		).toBe(multisig.address);
 	});
 });

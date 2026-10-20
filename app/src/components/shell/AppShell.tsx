@@ -1,7 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState, type ReactNode } from 'react';
+import {
+	useCallback,
+	useEffect,
+	useState,
+	type ReactNode,
+} from 'react';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
 import {
@@ -13,7 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
-import { cn } from '@/lib/utils';
+import { LocalStorageKeys } from '@/lib/localStorageKeys';
 
 import { AppSidebar } from './AppSidebar';
 import { ThemeToggle } from './ThemeToggle';
@@ -22,26 +27,56 @@ import { ThemeToggle } from './ThemeToggle';
 const SIDEBAR_WIDTH = '232px';
 const SIDEBAR_WIDTH_ICON = '48px';
 
+function readStoredOpen() {
+	try {
+		return (
+			localStorage.getItem(LocalStorageKeys.SidebarOpen) !==
+			'false'
+		);
+	} catch {
+		return true;
+	}
+}
+
 /**
- * App chrome: the sidebar on the left and the page on the right. The sidebar
- * is expanded on wide screens, collapses to an icon rail below 1280px and
- * becomes a sheet under 768px. Cmd/Ctrl+B toggles it anywhere.
+ * App chrome: the sidebar on the left and the page on the right. On wide
+ * screens the sidebar keeps the user's last choice (expanded by default),
+ * collapses to an icon rail below 1280px and becomes a sheet under 768px. Cmd/Ctrl+B toggles it anywhere.
  */
 export function AppShell({
 	children,
-	contentClassName,
 }: {
 	children: ReactNode;
-	contentClassName?: string;
 }) {
 	const wide = useMediaQuery('(min-width: 1280px)');
-	const [open, setOpen] = useState(wide);
+	// On wide screens the user's last choice wins; narrower viewports always
+	// start on the icon rail.
+	const [open, setOpenState] = useState(
+		() => wide && readStoredOpen(),
+	);
+	const setOpen = useCallback(
+		(next: boolean) => {
+			setOpenState(next);
+			// Only a wide-screen choice is saved, so toggling the rail on a
+			// narrower window doesn't overwrite it.
+			if (!wide) return;
+			try {
+				localStorage.setItem(
+					LocalStorageKeys.SidebarOpen,
+					String(next),
+				);
+			} catch {
+				// Private mode or blocked storage: the choice just won't persist.
+			}
+		},
+		[wide],
+	);
 	// Follow the viewport when it crosses the breakpoint; the user can still
 	// toggle manually in between.
 	const [prevWide, setPrevWide] = useState(wide);
 	if (wide !== prevWide) {
 		setPrevWide(wide);
-		setOpen(wide);
+		setOpenState(wide && readStoredOpen());
 	}
 
 	// Toasts centre on the content column, not the viewport: tell the
@@ -77,9 +112,7 @@ export function AppShell({
 			}
 		>
 			<AppSidebar />
-			<SidebarInset
-				className={cn('min-w-0', contentClassName)}
-			>
+			<SidebarInset className="min-w-0">
 				<header className="flex h-12 items-center gap-2 border-b bg-card px-3 md:hidden">
 					<SidebarTrigger className="-ml-1" />
 					<div className="ml-auto flex items-center gap-1">

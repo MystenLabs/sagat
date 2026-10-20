@@ -17,7 +17,7 @@ import {
 	Plus,
 	Users,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
 	Link,
 	matchPath,
@@ -36,6 +36,7 @@ import {
 	railSquareClass,
 	railTriggerClass,
 } from '@/components/shell/rail-classes';
+import { ReceiveDialog } from '@/components/shell/ReceiveDialog';
 import { ThemeToggle } from '@/components/shell/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import {
@@ -65,11 +66,17 @@ import {
 	SidebarTrigger,
 	useSidebar,
 } from '@/components/ui/sidebar';
+import { sidebarToggleLabel } from '@/components/ui/sidebar-toggle-label';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { TOOLS } from '@/config/tools';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
-import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
@@ -109,14 +116,40 @@ const navItemClass =
 const separatorClass =
 	'mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block';
 
+// On the icon rail, a pill cut out of the icon's top-right corner, shared by
+// the invitations count and the external-link arrow. It is pinned by its left
+// edge so a longer count grows away from the icon. The `!` on top beats the
+// badge primitive's peer-* top rules.
+const railCornerClass =
+	'group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5! group-data-[collapsible=icon]:right-auto group-data-[collapsible=icon]:left-4.5 group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:ring-1 group-data-[collapsible=icon]:ring-sidebar';
+
+// Beside the label when expanded; the corner pill on the icon rail. The `!`
+// on the text colour beats the primitive's peer-* rules, which would
+// otherwise win on hover and on the active item.
+const invitationsBadgeClass = cn(
+	railCornerClass,
+	'rounded-full bg-sidebar-accent px-1.5 text-10 text-sidebar-foreground group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:h-3 group-data-[collapsible=icon]:min-w-3 group-data-[collapsible=icon]:bg-sidebar-primary group-data-[collapsible=icon]:px-0.5 group-data-[collapsible=icon]:leading-none group-data-[collapsible=icon]:text-sidebar-primary-foreground!',
+);
+
 // Hidden outright on the icon rail: the block only fades labels out and
 // pulls them up 32px, which would leave an invisible box over the item above.
 const groupLabelClass =
 	'h-6 px-2 pb-1 text-10 tracking-[0.04em] text-sidebar-foreground/50 uppercase group-data-[collapsible=icon]:hidden';
 
 export function AppSidebar() {
+	// One provider for every rail tooltip, so they open as fast as the
+	// tooltips elsewhere instead of after Base UI's default 600ms.
+	return (
+		<TooltipProvider delay={150}>
+			<SidebarNav />
+		</TooltipProvider>
+	);
+}
+
+function SidebarNav() {
 	const location = useLocation();
-	const { setOpenMobile } = useSidebar();
+	const { setOpenMobile, state: sidebarState } =
+		useSidebar();
 	const currentAccount = useCurrentAccount();
 	const { holdWalletControls } = useSessionBoot();
 	const { isCurrentAddressAuthenticated } = useApiAuth();
@@ -188,10 +221,21 @@ export function AppSidebar() {
 								/>
 							</span>
 						</Link>
-						<SidebarTrigger
-							data-testid="sidebar-toggle"
-							className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:hidden"
-						/>
+						<Tooltip>
+							<TooltipTrigger
+								render={
+									<SidebarTrigger
+										data-testid="sidebar-toggle"
+										className="text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground max-md:hidden"
+									/>
+								}
+							/>
+							<TooltipContent side="right">
+								{sidebarToggleLabel(
+									sidebarState !== 'collapsed',
+								)}
+							</TooltipContent>
+						</Tooltip>
 					</div>
 					{booting ? (
 						<SwitcherSkeleton />
@@ -270,10 +314,12 @@ export function AppSidebar() {
 										</SidebarMenuButton>
 										{pendingInvites > 0 && (
 											<SidebarMenuBadge
-												className="rounded-full bg-sidebar-accent px-1.5 text-10 text-sidebar-foreground"
+												className={invitationsBadgeClass}
 												data-testid="nav-invitations-count"
 											>
-												{pendingInvites}
+												{pendingInvites > 99
+													? '99+'
+													: pendingInvites}
 											</SidebarMenuBadge>
 										)}
 									</SidebarMenuItem>
@@ -338,7 +384,12 @@ export function AppSidebar() {
 												<span className="flex-1">
 													{label}
 												</span>
-												<ArrowUpRight className="size-3! opacity-60 group-data-[collapsible=icon]:hidden" />
+												<ArrowUpRight
+													className={cn(
+														railCornerClass,
+														'size-3! opacity-60 group-data-[collapsible=icon]:bg-sidebar group-data-[collapsible=icon]:p-px group-data-[collapsible=icon]:opacity-100',
+													)}
+												/>
 											</SidebarMenuButton>
 										</SidebarMenuItem>
 									),
@@ -429,9 +480,7 @@ function MultisigSwitcher({
 	onNavigate: () => void;
 }) {
 	const navigate = useNavigate();
-	const { copied, copy } = useCopyToClipboard(
-		'Address copied',
-	);
+	const [receiveOpen, setReceiveOpen] = useState(false);
 	const go = (to: string) => {
 		navigate(to);
 		onNavigate();
@@ -525,11 +574,20 @@ function MultisigSwitcher({
 					variant="secondary"
 					size="sm"
 					className="w-full group-data-[collapsible=icon]:hidden"
-					onClick={() => copy(selected.address)}
+					onClick={() => setReceiveOpen(true)}
+					data-testid="receive-button"
 				>
 					<ArrowDownToLine />
-					{copied ? 'Address copied' : 'Receive'}
+					Receive
 				</Button>
+			)}
+			{selected && (
+				<ReceiveDialog
+					open={receiveOpen}
+					onClose={() => setReceiveOpen(false)}
+					address={selected.address}
+					name={accountName(selected)}
+				/>
 			)}
 		</div>
 	);

@@ -29,6 +29,8 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
+import { sidebarToggleLabel } from './sidebar-toggle-label';
+
 const SIDEBAR_WIDTH = '16rem';
 const SIDEBAR_WIDTH_MOBILE = '18rem';
 const SIDEBAR_WIDTH_ICON = '3rem';
@@ -276,15 +278,23 @@ function Sidebar({
 	);
 }
 
-function SidebarTrigger({
-	className,
-	onClick,
-	...props
-}: React.ComponentProps<typeof Button>) {
-	const { toggleSidebar } = useSidebar();
+// forwardRef so a Tooltip trigger can render it and anchor to it.
+const SidebarTrigger = React.forwardRef<
+	HTMLButtonElement,
+	React.ComponentPropsWithoutRef<typeof Button>
+>(function SidebarTrigger(
+	{ className, onClick, ...props },
+	ref,
+) {
+	const { toggleSidebar, state, isMobile, openMobile } =
+		useSidebar();
+	const expanded = isMobile
+		? openMobile
+		: state === 'expanded';
 
 	return (
 		<Button
+			ref={ref}
 			data-sidebar="trigger"
 			data-slot="sidebar-trigger"
 			variant="ghost"
@@ -297,10 +307,12 @@ function SidebarTrigger({
 			{...props}
 		>
 			<PanelLeftIcon />
-			<span className="sr-only">Toggle Sidebar</span>
+			<span className="sr-only">
+				{sidebarToggleLabel(expanded)}
+			</span>
 		</Button>
 	);
-}
+});
 
 function SidebarRail({
 	className,
