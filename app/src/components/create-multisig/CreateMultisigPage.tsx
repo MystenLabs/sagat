@@ -173,124 +173,128 @@ export function CreateMultisigPage() {
 				className="page-shell @container"
 				data-testid="create-page"
 			>
-				<PageHeader
-					breadcrumb={[
-						{ label: 'Multisigs', to: '/' },
-						{ label: 'Create a multisig' },
-					]}
-					title="Create a multisig"
-					actions={
-						<Button
-							variant="ghost"
-							onClick={() => navigate('/')}
-							data-testid="create-cancel"
+				{/* The content stays 1092px wide, as designed, so Cancel ends where
+				    the side column does on wide screens. */}
+				<div className="w-full max-w-273">
+					<PageHeader
+						breadcrumb={[
+							{ label: 'Multisigs', to: '/' },
+							{ label: 'Create a multisig' },
+						]}
+						title="Create a multisig"
+						actions={
+							<Button
+								variant="ghost"
+								onClick={() => navigate('/')}
+								data-testid="create-cancel"
+							>
+								Cancel
+							</Button>
+						}
+					/>
+
+					<WizardStepper
+						step={step}
+						reach={reach}
+						onStep={goTo}
+					/>
+
+					<div className="mt-7 flex flex-col gap-8 @5xl:flex-row @5xl:items-start">
+						<div
+							// Remounting on each step change plays the entrance.
+							key={step}
+							className={cn(
+								'@container/card w-full max-w-185 min-w-0 rounded-xl border bg-card @5xl:flex-1',
+								'animate-in fade-in duration-200 ease-out motion-reduce:animate-none',
+								direction === 'forward'
+									? 'slide-in-from-right-2'
+									: 'slide-in-from-left-2',
+							)}
 						>
-							Cancel
-						</Button>
-					}
-				/>
-
-				<WizardStepper
-					step={step}
-					reach={reach}
-					onStep={goTo}
-				/>
-
-				<div className="mt-7 flex flex-col gap-8 @5xl:flex-row @5xl:items-start">
-					<div
-						// Remounting on each step change plays the entrance.
-						key={step}
-						className={cn(
-							'@container/card w-full max-w-185 min-w-0 rounded-xl border bg-card @5xl:flex-1',
-							'animate-in fade-in duration-200 ease-out motion-reduce:animate-none',
-							direction === 'forward'
-								? 'slide-in-from-right-2'
-								: 'slide-in-from-left-2',
-						)}
-					>
-						{step === 1 && (
-							<NameStep
-								name={name}
-								onNameChange={setName}
-								onContinue={() => goTo(2)}
-							/>
-						)}
-						{step === 2 && (
-							<SignersStep
-								signers={signers}
-								check={check}
-								threshold={threshold}
-								focusId={focusId}
-								onSignersChange={(next) => {
-									// Once the creator types in their name field, it
-									// stops following the wallet.
-									if (
-										next.some(
-											(d) =>
-												d.isCreator &&
-												d.label !== walletLabel,
-										)
-									)
-										setCreatorNamed(true);
-									setDrafts(next);
-									setFocusId(null);
-								}}
-								onAddSigner={() => {
-									const signer = newSigner();
-									setDrafts((prev) => [...prev, signer]);
-									setFocusId(signer.id);
-								}}
-								onThresholdChange={setThreshold}
-								onBack={() => goTo(1)}
-								onContinue={() => goTo(3)}
-							/>
-						)}
-						{step === 3 && check.address && (
-							<ReviewStep
-								name={name}
-								signers={signers}
-								threshold={threshold}
-								totalWeight={check.totalWeight}
-								address={check.address}
-								creating={create.isPending}
-								error={createError}
-								onEditName={() => goTo(1)}
-								onEditSigners={() => goTo(2)}
-								onBack={() => goTo(2)}
-								onCreate={submit}
-							/>
-						)}
-					</div>
-
-					<div
-						// The side column only changes at Review, so it fades
-						// just then.
-						key={step === 3 ? 'next-steps' : 'preview'}
-						className="flex w-full max-w-185 flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @5xl:w-80 @5xl:shrink-0"
-					>
-						{step === 3 ? (
-							<NextStepsCard
-								name={name.trim()}
-								invited={invited}
-								threshold={threshold}
-								totalWeight={check.totalWeight}
-								isTestMode={isTestMode}
-							/>
-						) : (
-							<>
-								<PreviewCard
+							{step === 1 && (
+								<NameStep
 									name={name}
-									setUp={signersOpened}
-									signers={check.completeCount}
-									incomplete={check.incompleteCount}
-									totalWeight={check.totalWeight}
-									threshold={threshold}
-									address={check.address}
-									addressMessage={check.addressMessage}
+									onNameChange={setName}
+									onContinue={() => goTo(2)}
 								/>
-								<HelpCard />
-							</>
-						)}
+							)}
+							{step === 2 && (
+								<SignersStep
+									signers={signers}
+									check={check}
+									threshold={threshold}
+									focusId={focusId}
+									onSignersChange={(next) => {
+										// Once the creator types in their name field, it
+										// stops following the wallet.
+										if (
+											next.some(
+												(d) =>
+													d.isCreator &&
+													d.label !== walletLabel,
+											)
+										)
+											setCreatorNamed(true);
+										setDrafts(next);
+										setFocusId(null);
+									}}
+									onAddSigner={() => {
+										const signer = newSigner();
+										setDrafts((prev) => [...prev, signer]);
+										setFocusId(signer.id);
+									}}
+									onThresholdChange={setThreshold}
+									onBack={() => goTo(1)}
+									onContinue={() => goTo(3)}
+								/>
+							)}
+							{step === 3 && check.address && (
+								<ReviewStep
+									name={name}
+									signers={signers}
+									threshold={threshold}
+									totalWeight={check.totalWeight}
+									address={check.address}
+									creating={create.isPending}
+									error={createError}
+									onEditName={() => goTo(1)}
+									onEditSigners={() => goTo(2)}
+									onBack={() => goTo(2)}
+									onCreate={submit}
+								/>
+							)}
+						</div>
+
+						<div
+							// The side column only changes at Review, so it fades
+							// just then.
+							key={step === 3 ? 'next-steps' : 'preview'}
+							className="flex w-full max-w-185 flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @5xl:w-80 @5xl:shrink-0"
+						>
+							{step === 3 ? (
+								<NextStepsCard
+									name={name.trim()}
+									invited={invited}
+									threshold={threshold}
+									totalWeight={check.totalWeight}
+									isTestMode={isTestMode}
+								/>
+							) : (
+								<>
+									<PreviewCard
+										name={name}
+										setUp={signersOpened}
+										signers={check.completeCount}
+										incomplete={check.incompleteCount}
+										totalWeight={check.totalWeight}
+										threshold={threshold}
+										address={check.address}
+										addressMessage={check.addressMessage}
+									/>
+									<HelpCard />
+								</>
+							)}
+						</div>
 					</div>
 				</div>
 			</div>
