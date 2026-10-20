@@ -257,6 +257,35 @@ describe('Multisig API', () => {
 		});
 	});
 
+	test('an invitation cannot be rejected twice', async () => {
+		const session = framework.createSession();
+		const [creator, invitee] = [newUser(), newUser()];
+		await session.connectUser(creator);
+		const { address } = await session.createMultisig(
+			[creator, invitee],
+			2,
+		);
+		await session.rejectMultisig(invitee, address);
+
+		expect(
+			await errorOf(
+				await session.post(`/multisig/${address}/reject`, {
+					signature: await sign(
+						invitee,
+						PersonalMessages.rejectMultisigInvitation(
+							address,
+						),
+					),
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: {
+				error: 'This invitation has already been rejected',
+			},
+		});
+	});
+
 	test('accept checks membership before the signature, reject the reverse', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);

@@ -15,6 +15,7 @@ import {
 	test,
 } from 'bun:test';
 
+import { LIMITS } from '../src/constants/limits';
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
@@ -623,6 +624,69 @@ describe('Proposal Business Logic', () => {
 				status: 400,
 				body: { error: 'Invalid signature for message.' },
 			});
+		});
+
+		test('add-proposer refuses a proposer that is already there', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const proposer = newUser().address;
+			await session.addProposer(
+				users[0],
+				proposer,
+				multisig.address,
+			);
+
+			expect(
+				await changeProposer(session, 'add-proposer', {
+					signer: users[1],
+					multisigAddress: multisig.address,
+					proposer,
+				}),
+			).toEqual({
+				status: 400,
+				body: {
+					error: `${proposer} is already a proposer for this multisig`,
+				},
+			});
+		});
+
+		test('add-proposer checks the proposer limit before duplicates', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const proposers = Array.from(
+				{ length: LIMITS.maxProposersPerMultisig },
+				() => newUser().address,
+			);
+			for (const proposer of proposers)
+				await session.addProposer(
+					users[0],
+					proposer,
+					multisig.address,
+				);
+
+			const limitReached = {
+				status: 400,
+				body: {
+					error:
+						'You have reached the maximum number of proposers for this multisig',
+				},
+			};
+			expect(
+				await changeProposer(session, 'add-proposer', {
+					signer: users[0],
+					multisigAddress: multisig.address,
+					proposer: newUser().address,
+				}),
+			).toEqual(limitReached);
+			// At the limit, even a proposer that is already there gets the
+			// limit error, not the duplicate one.
+			expect(
+				await changeProposer(session, 'add-proposer', {
+					signer: users[0],
+					multisigAddress: multisig.address,
+					proposer: proposers[0],
+				}),
+			).toEqual(limitReached);
 		});
 
 		test('remove-proposer checks the expiry, then the address, then membership', async () => {
