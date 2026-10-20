@@ -19,10 +19,8 @@ import {
 	getPublicKeyFromSerializedSignature,
 	parsePublicKey,
 } from '../utils/pubKey';
-import {
-	registerPublicKeys,
-	validatePersonalMessage,
-} from './addresses.service';
+import { registerPublicKeys } from './addresses.service';
+import { validatePersonalMessage } from './signatures.service';
 
 const JWT_COOKIE_NAME = 'connected-wallet';
 

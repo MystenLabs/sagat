@@ -38,15 +38,16 @@ import {
 	MultisigEventType,
 	multisigProposalEvents,
 } from '../metrics';
-import { validatePersonalMessage } from '../services/addresses.service';
 import {
 	authMiddleware,
 	type AuthEnv,
 } from '../services/auth.service';
 import {
-	getSignerSet,
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
+} from '../services/membership.service';
+import {
+	getSignerSet,
 	validateProposedTransaction,
 } from '../services/multisig.service';
 import {
@@ -54,6 +55,7 @@ import {
 	getProposalsByAccountAddress,
 	lookupAndVerifyProposal,
 } from '../services/proposals.service';
+import { validatePersonalMessage } from '../services/signatures.service';
 import { newCursor } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 
