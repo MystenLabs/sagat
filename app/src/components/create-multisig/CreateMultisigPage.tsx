@@ -3,7 +3,7 @@
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { SagatApiError } from '@mysten/sagat';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -36,9 +36,8 @@ import { SignersStep } from './SignersStep';
 const CREATE_FAILED =
 	'Couldn’t create the multisig. Nothing was sent to the signers and your setup is still here. Check your connection and try again.';
 
-let nextId = 0;
-const newSigner = (): SignerDraft => ({
-	id: `signer-${++nextId}`,
+const newSigner = (id: number): SignerDraft => ({
+	id: `signer-${id}`,
 	label: '',
 	key: '',
 	weight: 1,
@@ -73,6 +72,9 @@ export function CreateMultisigPage() {
 		},
 	]);
 	const [threshold, setThreshold] = useState(1);
+	// Row ids live with the draft, not in the module: a module counter
+	// restarts on hot reload and hands a new row an id already in use.
+	const signerIds = useRef(0);
 	const [focusId, setFocusId] = useState<string | null>(
 		null,
 	);
@@ -199,12 +201,14 @@ export function CreateMultisigPage() {
 						onStep={goTo}
 					/>
 
-					<div className="mt-7 flex flex-col gap-8 @5xl:flex-row @5xl:items-start">
+					{/* Stacked below 896px of content, where the card and the side
+					    cards fill the row; two columns from there. */}
+					<div className="mt-7 flex flex-col gap-8 @4xl:flex-row @4xl:items-start">
 						<div
 							// Remounting on each step change plays the entrance.
 							key={step}
 							className={cn(
-								'@container/card w-full max-w-185 min-w-0 rounded-xl border bg-card @5xl:flex-1',
+								'@container/card w-full min-w-0 rounded-xl border bg-card @4xl:max-w-185 @4xl:flex-1',
 								'animate-in fade-in duration-200 ease-out motion-reduce:animate-none',
 								direction === 'forward'
 									? 'slide-in-from-right-2'
@@ -239,7 +243,9 @@ export function CreateMultisigPage() {
 										setFocusId(null);
 									}}
 									onAddSigner={() => {
-										const signer = newSigner();
+										const signer = newSigner(
+											++signerIds.current,
+										);
 										setDrafts((prev) => [...prev, signer]);
 										setFocusId(signer.id);
 									}}
@@ -269,7 +275,7 @@ export function CreateMultisigPage() {
 							// The side column only changes at Review, so it fades
 							// just then.
 							key={step === 3 ? 'next-steps' : 'preview'}
-							className="flex w-full max-w-185 flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @5xl:w-80 @5xl:shrink-0"
+							className="flex w-full flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @4xl:w-80 @4xl:shrink-0"
 						>
 							{step === 3 ? (
 								<NextStepsCard
