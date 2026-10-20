@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import type { Route } from '@playwright/test';
 
 import { LocalStorageKeys } from '../../app/src/lib/localStorageKeys';
 import { E2E } from '../support/env';
@@ -190,7 +191,7 @@ test.describe('wallet sign-in', () => {
 		).toBeVisible();
 	});
 
-	test('a failed refetch keeps a signed-in user on the dashboard', async ({
+	test('a failed refetch keeps a signed-in user on the dashboard, and withholds signing until a check succeeds', async ({
 		createActor,
 	}) => {
 		const alice = await createActor('alice', {
@@ -198,14 +199,27 @@ test.describe('wallet sign-in', () => {
 		});
 		const [savings] = alice.otherAccounts;
 		await alice.signIn();
+
+		// Leave a successful check cached for the signed-out account.
+		await alice.switchAccount(savings);
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toBeVisible();
+		await alice.switchAccount(alice);
 		await expect(
 			alice.page.getByTestId('dashboard-empty'),
 		).toBeVisible();
 
 		let failedChecks = 0;
+		let holdChecks = false;
+		const heldChecks: Route[] = [];
 		await alice.page.route(
 			`${E2E.apiUrl}/auth/check`,
 			(route) => {
+				if (holdChecks) {
+					heldChecks.push(route);
+					return;
+				}
 				failedChecks++;
 				return route.abort('connectionrefused');
 			},
@@ -237,6 +251,37 @@ test.describe('wallet sign-in', () => {
 		).toBeVisible();
 		await expect(
 			alice.page.getByTestId('wallet-account-sign'),
+		).toHaveCount(0);
+		await alice.walletMenuButton().click();
+
+		// The outage holds for the cached account too, while its own
+		// re-check hangs.
+		holdChecks = true;
+		await alice.switchAccount(savings);
+		await expect
+			.poll(() => heldChecks.length)
+			.toBeGreaterThan(0);
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toHaveCount(0);
+		await alice.walletMenuButton().click();
+		await expect(
+			alice.page.getByTestId('wallet-account-sign'),
+		).toHaveCount(0);
+		await alice.walletMenuButton().click();
+
+		// Once a check gets through, signing is back.
+		await Promise.all(
+			heldChecks.map((route) => route.continue()),
+		);
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
 		).toHaveCount(0);
 	});
 });

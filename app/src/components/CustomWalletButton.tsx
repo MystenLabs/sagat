@@ -146,7 +146,6 @@ export function CustomWalletButton({
 	const wallets = useWallets();
 	const {
 		isCurrentAddressAuthenticated,
-		isApiUnreachable,
 		isAuthCheckFailing,
 		signAndConnect,
 		isConnecting,
@@ -259,7 +258,7 @@ export function CustomWalletButton({
 
 				{showWallets && (
 					<div className={menuClass(variant)}>
-						{!isApiUnreachable && (
+						{!isAuthCheckFailing && (
 							<div className="px-3 pb-2 border-b text-center">
 								<p className="text-13 font-medium text-foreground">
 									Authentication Required
@@ -279,7 +278,7 @@ export function CustomWalletButton({
 								<Divider />
 							</>
 						) : (
-							!isApiUnreachable && (
+							!isAuthCheckFailing && (
 								<>
 									<div className="px-3 pt-3">
 										<Button

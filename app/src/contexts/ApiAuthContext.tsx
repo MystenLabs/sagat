@@ -13,15 +13,18 @@ import {
 	type AuthCheckResponse,
 } from '@mysten/sagat';
 import {
+	notifyManager,
 	useMutation,
 	useQuery,
 	useQueryClient,
+	type QueryClient,
 } from '@tanstack/react-query';
 import React, {
 	createContext,
+	useCallback,
 	useContext,
 	useEffect,
-	useRef,
+	useSyncExternalStore,
 } from 'react';
 
 import { toast } from '@/lib/toast';
@@ -38,8 +41,9 @@ interface ApiAuthContextType {
 	// error, timeout, 5xx, or a block in front of it), so we can't tell
 	// whether the user is signed in.
 	isApiUnreachable: boolean;
-	// The last auth check failed, even if an earlier answer still holds.
-	// A signature would only fail at the connect call.
+	// The last settled auth check, for any account, failed, even if an
+	// earlier answer still holds. A signature would only fail at the
+	// connect call.
 	isAuthCheckFailing: boolean;
 	isRetryingAuth: boolean;
 	retryAuthCheck: () => void;
@@ -82,6 +86,23 @@ async function checkAuth(): Promise<AuthCheckResponse> {
 	}
 }
 
+// `/auth/check` answers for the session, not one account, so a failure
+// seen by any account's check holds until any later check succeeds.
+function didLastAuthCheckFail(queryClient: QueryClient) {
+	let lastError = 0;
+	let lastSuccess = 0;
+	for (const { state } of queryClient
+		.getQueryCache()
+		.findAll({ queryKey: AUTH_QUERY_KEY })) {
+		lastError = Math.max(lastError, state.errorUpdatedAt);
+		lastSuccess = Math.max(
+			lastSuccess,
+			state.dataUpdatedAt,
+		);
+	}
+	return lastError > lastSuccess;
+}
+
 export function ApiAuthProvider({
 	children,
 }: {
@@ -98,14 +119,14 @@ export function ApiAuthProvider({
 	const {
 		data: authData,
 		isLoading: isCheckingAuth,
-		isError: isAuthCheckError,
 		isFetching: isFetchingAuth,
 		refetch: refetchAuth,
 	} = useQuery<AuthCheckResponse>({
 		queryKey: [...AUTH_QUERY_KEY, currentAccount?.address],
 		queryFn: checkAuth,
-		// One quick retry rides out a single 502 during a deploy; a real
-		// outage still reaches the unreachable state in about a second.
+		// One quick retry rides out a single 502 during a deploy. An API
+		// that refuses or errors still reaches the unreachable state in
+		// about a second; one that hangs takes two request timeouts.
 		retry: 1,
 		retryDelay: 500,
 		// Offline is just another way to not reach the API: run the check
@@ -120,9 +141,16 @@ export function ApiAuthProvider({
 		refetchOnWindowFocus: true,
 	});
 
-	// Read at call time: a menu can hold a `signAndConnect` from an earlier
-	// render.
-	const isAuthCheckFailingRef = useRef(false);
+	const isAuthCheckFailing = useSyncExternalStore(
+		useCallback(
+			(onChange: () => void) =>
+				queryClient
+					.getQueryCache()
+					.subscribe(notifyManager.batchCalls(onChange)),
+			[queryClient],
+		),
+		() => didLastAuthCheckFail(queryClient),
+	);
 
 	// Re-check auth when wallet account changes
 	useEffect(() => {
@@ -136,7 +164,7 @@ export function ApiAuthProvider({
 			if (!currentAccount)
 				throw new Error('No wallet connected');
 			// Rejecting here (not returning) lets onError toast it.
-			if (isAuthCheckFailingRef.current)
+			if (isAuthCheckFailing)
 				throw new Error("Can't reach the service");
 			const expiry = defaultExpiry();
 
@@ -199,8 +227,7 @@ export function ApiAuthProvider({
 	// sign anyone out. Without a session for this address, a failed check
 	// means we can't tell, and asking for a signature would only fail.
 	const isApiUnreachable =
-		isAuthCheckError && !isCurrentAddressAuthenticated;
-	isAuthCheckFailingRef.current = isAuthCheckError;
+		isAuthCheckFailing && !isCurrentAddressAuthenticated;
 
 	const value: ApiAuthContextType = {
 		// Auth state
@@ -209,7 +236,7 @@ export function ApiAuthProvider({
 			authData?.addresses?.map((x) => x.address) ?? [],
 		isCheckingAuth,
 		isApiUnreachable,
-		isAuthCheckFailing: isAuthCheckError,
+		isAuthCheckFailing,
 		isRetryingAuth: isFetchingAuth,
 		retryAuthCheck: () => {
 			void refetchAuth();
