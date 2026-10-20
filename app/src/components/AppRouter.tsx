@@ -16,6 +16,7 @@ import {
 
 import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
+import { useSessionBoot } from '../hooks/useSessionBoot';
 import { AuthPrompt } from './AuthPrompt';
 import { CreateMultisigPage } from './CreateMultisigPage';
 import { CustomWalletButton } from './CustomWalletButton';
@@ -112,8 +113,8 @@ function getAuthLevel(pathname: string): AuthLevel {
 
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
-	const { isCheckingAuth, isCurrentAddressAuthenticated } =
-		useApiAuth();
+	const { reconnecting, checkingAuth } = useSessionBoot();
+	const { isCurrentAddressAuthenticated } = useApiAuth();
 	const location = useLocation();
 	const network = useCurrentNetwork();
 
@@ -181,6 +182,18 @@ export function AppRouter() {
 		return <DevnetNotSupported />;
 	}
 
+	// The wallet kit is still restoring the previous session: hold the
+	// layout instead of flashing the connect prompt.
+	if (reconnecting) {
+		return (
+			<SkeletonPage
+				rows={3}
+				message="Reconnecting wallet"
+				testId="wallet-reconnecting"
+			/>
+		);
+	}
+
 	// Full auth routes - require wallet + API auth
 	if (!currentAccount) {
 		return (
@@ -202,7 +215,7 @@ export function AppRouter() {
 	// Wallet-only routes - require wallet but not API auth
 	if (authLevel === 'wallet') return renderRoutes;
 
-	if (isCheckingAuth) {
+	if (checkingAuth) {
 		return (
 			<SkeletonPage
 				rows={3}

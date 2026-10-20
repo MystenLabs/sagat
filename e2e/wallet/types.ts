@@ -11,4 +11,8 @@ export interface E2EWalletConfig {
 	// The chains the wallet advertises. Defaults to the dev wallet's own list
 	// (every standard Sui chain plus `sui:localnet`).
 	chains?: `sui:${string}`[];
+	// Rejects the silent connect the wallet kit restores a saved session
+	// with, the way a wallet whose restore throws does. Connecting from the
+	// app still works.
+	failRestore?: boolean;
 }

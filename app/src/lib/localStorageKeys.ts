@@ -3,6 +3,10 @@
 
 export const LocalStorageKeys = {
 	SuiNetwork: 'SuiNetwork',
+	// The wallet kit's saved session, restored on load. Keep the value: a
+	// new one would sign everyone out.
+	WalletSession:
+		'mysten-dapp-kit:selected-wallet-and-address',
 } as const;
 
 /** The multisig a wallet address last opened. */
