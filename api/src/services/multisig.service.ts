@@ -1,29 +1,64 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * Signer set flows. They take plain input and the caller's keys (from the
+ * JWT, or recovered from a signature), throw the errors in `../errors`, and
+ * return rows: each router maps them to its own response shapes.
+ */
+
+import { PersonalMessages } from '@mysten/sagat';
+import { type PublicKey } from '@mysten/sui/cryptography';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
-import { and, eq } from 'drizzle-orm';
+import { isValidSuiAddress } from '@mysten/sui/utils';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
+	AccountSignerSetStatus,
 	ProposalStatus,
+	SchemaAccountKeys,
+	SchemaAccountProposers,
+	SchemaAccounts,
 	SchemaAccountSignerSets,
 	SchemaProposals,
 	SchemaSignerSetMembers,
+	SchemaSignerSets,
+	type SignerSet,
+	type SignerSetMember,
+	type SignerSetWithMembers,
 } from '../db/schema';
-import { NotFoundError, ValidationError } from '../errors';
 import {
-	toLegacyMultisigWithMembers,
-	type SignerSetOrigin,
-} from '../legacy/serializers';
-import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
-import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
+	ApiAuthError,
+	CommonError,
+	NotFoundError,
+	ValidationError,
+} from '../errors';
+import { type SignerSetOrigin } from '../legacy/serializers';
+import {
+	AccountKeyLabelsDataLoader,
+	type KeyLabels,
+} from '../loaders/account-keys.loader';
+import {
+	AccountProposersDataLoader,
+	type Proposer,
+} from '../loaders/account-proposers.loader';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import {
 	queryAllOwnedObjects,
 	type SuiNetwork,
 } from '../utils/client';
+import { parsePublicKey } from '../utils/pubKey';
+import { normalizeKeyLabels } from './account-keys.service';
+import { registerPublicKeyStrings } from './addresses.service';
+import { validateExpiry } from './auth.service';
+import { jwtHasSignerSetMemberAccess } from './membership.service';
+import {
+	verifyMemberSignedMessage,
+	verifySignedMessage,
+} from './signatures.service';
 
 // Returns the signer set with its members.
 export const getSignerSet = async (address: string) => {
@@ -46,12 +81,38 @@ export const getAccountOrigin = async (
 		),
 	})) ?? null;
 
-// The legacy multisig shape: a signer set with the account's proposers. A
-// signer set without the account's link row for its original composition
-// (a draft for another account) is not a multisig to legacy clients.
-export const getLegacyMultisig = async (
-	address: string,
-) => {
+/**
+ * What the legacy routes call a multisig: a signer set that is the
+ * original composition of the account with the same address, with the
+ * account's proposers, its labels for the keys, and who created it.
+ */
+export type MultisigAccount = {
+	signerSet: SignerSetWithMembers;
+	proposers: Proposer[];
+	labels: KeyLabels;
+	origin: SignerSetOrigin;
+};
+
+// The multisig at `address`, for a caller holding one of its keys (accepted
+// or not). A signer set without the account's link row for its original
+// composition (a draft for another account) is not a multisig to legacy
+// clients.
+export const getMultisigAccount = async ({
+	address,
+	callerKeys,
+}: {
+	address: string;
+	callerKeys: PublicKey[];
+}): Promise<MultisigAccount> => {
+	if (
+		!(await jwtHasSignerSetMemberAccess(
+			address,
+			callerKeys,
+			false,
+		))
+	)
+		throw new ApiAuthError('AccessDenied');
+
 	const [signerSet, origin, proposers, labels] =
 		await Promise.all([
 			SignerSetDataLoader.load(address),
@@ -60,12 +121,7 @@ export const getLegacyMultisig = async (
 			AccountKeyLabelsDataLoader.load(address),
 		]);
 	if (!signerSet || !origin) throw new NotFoundError();
-	return toLegacyMultisigWithMembers(
-		signerSet,
-		proposers,
-		labels,
-		origin,
-	);
+	return { signerSet, proposers, labels, origin };
 };
 
 /**
@@ -260,4 +316,466 @@ export const validateProposedTransaction = async (
 					.join(', '),
 		);
 	}
+};
+
+export type CreateSignerSetInput = {
+	publicKeys: string[];
+	weights: number[];
+	threshold: number;
+	name?: string;
+	// Optional, aligned with `publicKeys`: what this account calls each
+	// key. Unvalidated until `normalizeKeyLabels`.
+	labels?: unknown;
+};
+
+export type CreatedSignerSet = {
+	signerSet: SignerSet;
+	members: SignerSetMember[];
+	// The labels that were set, by public key.
+	labels: KeyLabels;
+	origin: SignerSetOrigin;
+};
+
+/**
+ * Creates a signer set together with the account of the same address, as
+ * the account's original signer set. The caller's keys that are in the
+ * composition accept right away.
+ */
+export const createSignerSet = async ({
+	publicKeys,
+	weights,
+	threshold,
+	name,
+	labels: rawLabels,
+	callerKeys,
+}: CreateSignerSetInput & {
+	callerKeys: PublicKey[];
+}): Promise<CreatedSignerSet> => {
+	// Pure checks first, before anything is written. The member count is
+	// bounded before anything is sized by it.
+	validateMemberCount(publicKeys);
+	const labels = normalizeKeyLabels(
+		rawLabels,
+		publicKeys.length,
+	);
+
+	// Register all public keys first
+	await registerPublicKeyStrings(publicKeys);
+
+	// Parse all public keys and get their addresses
+	const parsedPubKeys: PublicKey[] = [];
+	const addresses: string[] = [];
+
+	for (const pubKeyStr of publicKeys) {
+		const parsedKey = parsePublicKey(pubKeyStr);
+		const address = parsedKey.toSuiAddress();
+
+		parsedPubKeys.push(parsedKey);
+		addresses.push(address);
+	}
+
+	// Validate the quorum with computed addresses
+	await validateQuorum(addresses, weights, threshold);
+
+	// Anyone holding a key may set up a multisig for others, but only a
+	// member may name its keys: labels are shown to every member and there
+	// is no route to change them, so an outsider must not get to write them.
+	const callerIsMember = callerKeys.some((k) =>
+		addresses.includes(k.toSuiAddress()),
+	);
+	if (!callerIsMember && labels.some((l) => l !== null))
+		throw new ValidationError(
+			'Only a member of the multisig can label its keys.',
+		);
+
+	const multisig = MultiSigPublicKey.fromPublicKeys({
+		threshold,
+		publicKeys: parsedPubKeys.map((key, index) => ({
+			publicKey: key,
+			weight: weights[index],
+		})),
+	});
+
+	// add the multisig to the database.
+	return await db.transaction(async (tx) => {
+		const msig = (
+			await tx
+				.insert(SchemaSignerSets)
+				.values({
+					address: multisig.toSuiAddress(),
+					isVerified: false,
+					threshold,
+					name,
+				})
+				.returning()
+		)[0];
+
+		// A legacy multisig is also an account with the same address, so the
+		// `/v1` API sees what the legacy routes created.
+		await tx
+			.insert(SchemaAccounts)
+			.values({ address: msig.address, name })
+			.onConflictDoNothing();
+
+		// The multisig is the account's original signer set. The creator is
+		// the first authenticated key in the composition, else the first
+		// authenticated key.
+		const creator =
+			callerKeys.find((k) =>
+				addresses.includes(k.toSuiAddress()),
+			) ?? callerKeys[0];
+		const [origin] = await tx
+			.insert(SchemaAccountSignerSets)
+			.values({
+				accountAddress: msig.address,
+				signerSetAddress: msig.address,
+				label: name,
+				status: AccountSignerSetStatus.INVITING,
+				draftedBy: creator.toSuiAddress(),
+			})
+			.returning({
+				draftedBy: SchemaAccountSignerSets.draftedBy,
+				createdAt: SchemaAccountSignerSets.createdAt,
+			});
+
+		// insert the multisig members in the DB.
+		const members = await tx
+			.insert(SchemaSignerSetMembers)
+			.values(
+				parsedPubKeys.map((key, index) => ({
+					signerSetAddress: msig.address,
+					publicKey: key.toSuiPublicKey(),
+					weight:
+						weights[
+							addresses.findIndex(
+								(addr) => addr === key.toSuiAddress(),
+							)
+						],
+					// If authorization includes the user, we can accept immediately.
+					isAccepted: callerKeys.some(
+						(k) => k.toSuiAddress() === key.toSuiAddress(),
+					),
+					order: index,
+				})),
+			)
+			.returning();
+
+		// The account's names for its keys. Only labelled keys get a row.
+		const keyLabels = new Map<string, string>();
+		parsedPubKeys.forEach((key, index) => {
+			const label = labels[index];
+			if (label !== null)
+				keyLabels.set(key.toSuiPublicKey(), label);
+		});
+		if (keyLabels.size > 0)
+			await tx.insert(SchemaAccountKeys).values(
+				[...keyLabels].map(([publicKey, label]) => ({
+					accountAddress: msig.address,
+					publicKey,
+					label,
+					updatedBy: creator.toSuiAddress(),
+				})),
+			);
+
+		return {
+			signerSet: msig,
+			members,
+			labels: keyLabels,
+			origin,
+		};
+	});
+};
+
+/**
+ * Accepts an invitation to a signer set, signed by the invited key. Once
+ * every member has accepted, the signer set is verified. Returns the signer
+ * set as it is after the change, and who created it.
+ */
+export const acceptInvitation = async ({
+	address,
+	signature,
+}: {
+	address: string;
+	signature: string;
+}): Promise<{
+	signerSet: SignerSet;
+	origin: SignerSetOrigin | null;
+}> => {
+	const pubKey = await verifyMemberSignedMessage({
+		signerSetAddress: address,
+		signature,
+		message:
+			PersonalMessages.acceptMultisigInvitation(address),
+		acceptedOnly: false,
+		notMemberError: () =>
+			new ValidationError(
+				'You are not a member of this multisig',
+			),
+	});
+
+	// The origin never changes after insert, so it is read outside the
+	// transaction.
+	const [existingConnections, origin] = await Promise.all([
+		db.query.SchemaSignerSetMembers.findMany({
+			where: and(
+				eq(
+					SchemaSignerSetMembers.publicKey,
+					pubKey.toSuiPublicKey(),
+				),
+				eq(SchemaSignerSetMembers.isAccepted, true),
+			),
+		}),
+		getAccountOrigin(address),
+	]);
+
+	// Maximum connections per public key.
+	if (
+		existingConnections.length >
+		LIMITS.maxMultisigsPerPublicKey
+	)
+		throw new ValidationError(
+			'You have reached the maximum number of multisigs for this public key',
+		);
+
+	return await db.transaction(async (tx) => {
+		const msig = await tx.query.SchemaSignerSets.findFirst({
+			where: eq(SchemaSignerSets.address, address),
+		});
+
+		if (!msig)
+			throw new ValidationError('Multisig not found');
+
+		await tx
+			.update(SchemaSignerSetMembers)
+			.set({ isAccepted: true, isRejected: false })
+			.where(
+				and(
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						address,
+					),
+					eq(
+						SchemaSignerSetMembers.publicKey,
+						pubKey.toSuiPublicKey(),
+					),
+				),
+			);
+
+		const isFinalized = await isSignerSetFinalized(
+			address,
+			tx,
+		);
+		// if all members have accepted, we can finalize the multisig.
+		if (isFinalized) {
+			await tx
+				.update(SchemaSignerSets)
+				.set({ isVerified: true })
+				.where(eq(SchemaSignerSets.address, address));
+			// Verification is a property of the composition, so every
+			// account linked to it sees the set as verified.
+			await tx
+				.update(SchemaAccountSignerSets)
+				.set({ status: AccountSignerSetStatus.VERIFIED })
+				.where(
+					and(
+						eq(
+							SchemaAccountSignerSets.signerSetAddress,
+							address,
+						),
+						inArray(SchemaAccountSignerSets.status, [
+							AccountSignerSetStatus.DRAFT,
+							AccountSignerSetStatus.INVITING,
+						]),
+					),
+				);
+		}
+		msig.isVerified = isFinalized;
+		return { signerSet: msig, origin };
+	});
+};
+
+// Rejects an invitation to a signer set, signed by the invited key.
+export const rejectInvitation = async ({
+	address,
+	signature,
+}: {
+	address: string;
+	signature: string;
+}) => {
+	// Validate signature with rejection-specific message
+	const pubKey = await verifySignedMessage(
+		signature,
+		PersonalMessages.rejectMultisigInvitation(address),
+	);
+
+	const multisig = await getSignerSet(address);
+
+	if (multisig.isVerified)
+		throw new ValidationError(
+			'Multisig is already verified',
+		);
+
+	const member = multisig.members.find(
+		(x) => x?.publicKey == pubKey.toSuiPublicKey(),
+	);
+	if (!member)
+		throw new ValidationError(
+			'You are not a member of this multisig',
+		);
+
+	if (member.isAccepted)
+		throw new ValidationError(
+			'Cannot reject after accepting',
+		);
+
+	if (member.isRejected)
+		throw new ValidationError(
+			'This invitation has already been rejected',
+		);
+
+	await db
+		.update(SchemaSignerSetMembers)
+		.set({ isRejected: true })
+		.where(
+			and(
+				eq(
+					SchemaSignerSetMembers.signerSetAddress,
+					address,
+				),
+				eq(
+					SchemaSignerSetMembers.publicKey,
+					pubKey.toSuiPublicKey(),
+				),
+			),
+		);
+};
+
+type ProposerChange = {
+	// The account (multisig) address.
+	address: string;
+	proposer: string;
+	signature: string;
+	expiry: string;
+};
+
+// Adds an external proposer to an account, signed by an accepted member.
+export const addProposer = async ({
+	address,
+	proposer,
+	signature,
+	expiry,
+}: ProposerChange) => {
+	// Validate the expiry time of the signature.
+	validateExpiry(expiry);
+
+	if (!isValidSuiAddress(proposer))
+		throw new CommonError('InvalidAddress');
+
+	const publicKey = await verifyMemberSignedMessage({
+		signerSetAddress: address,
+		signature,
+		message: PersonalMessages.addMultisigProposer(
+			proposer,
+			address,
+			expiry,
+		),
+		acceptedOnly: true,
+		notMemberError: () =>
+			new ApiAuthError('NotAMultisigMember'),
+	});
+
+	// Add the proposer to the multisig.
+	await db.transaction(
+		async (tx) => {
+			const existingProposers =
+				await tx.query.SchemaAccountProposers.findMany({
+					columns: { address: true },
+					where: and(
+						eq(
+							SchemaAccountProposers.accountAddress,
+							address,
+						),
+					),
+				});
+
+			if (
+				existingProposers.length >=
+				LIMITS.maxProposersPerMultisig
+			)
+				throw new ValidationError(
+					'You have reached the maximum number of proposers for this multisig',
+				);
+
+			if (
+				existingProposers.some(
+					(p) => p.address === proposer,
+				)
+			)
+				throw new ValidationError(
+					`${proposer} is already a proposer for this multisig`,
+				);
+
+			await tx.insert(SchemaAccountProposers).values({
+				accountAddress: address,
+				address: proposer,
+				addedBy: publicKey.toSuiAddress(),
+			});
+		},
+		{ isolationLevel: 'repeatable read' },
+	);
+};
+
+// Removes an external proposer from an account, signed by an accepted
+// member. The proposer's pending proposals are cancelled.
+export const removeProposer = async ({
+	address,
+	proposer,
+	signature,
+	expiry,
+}: ProposerChange) => {
+	// Validate the expiry time of the signature.
+	validateExpiry(expiry);
+
+	await verifyMemberSignedMessage({
+		signerSetAddress: address,
+		signature,
+		message: PersonalMessages.removeMultisigProposer(
+			proposer,
+			address,
+			expiry,
+		),
+		acceptedOnly: true,
+		notMemberError: () =>
+			new ApiAuthError('NotAMultisigMember'),
+	});
+
+	// Remove the proposer from the multisig, removing all pending transactions from the proposer.
+	await db.transaction(async (tx) => {
+		// Cancel all pending transactions from the proposer.
+		await tx
+			.update(SchemaProposals)
+			.set({ status: ProposalStatus.CANCELLED })
+			.where(
+				and(
+					eq(SchemaProposals.accountAddress, address),
+					eq(SchemaProposals.proposerAddress, proposer),
+					eq(
+						SchemaProposals.status,
+						ProposalStatus.PENDING,
+					),
+				),
+			);
+
+		await tx
+			.delete(SchemaAccountProposers)
+			.where(
+				and(
+					eq(
+						SchemaAccountProposers.accountAddress,
+						address,
+					),
+					eq(SchemaAccountProposers.address, proposer),
+				),
+			);
+	});
 };

@@ -29,6 +29,8 @@ export class ValidationError extends Error {}
 export const AuthErrors = {
 	NotAMultisigMember:
 		'Proposer is either not a member of the multisig, or has not accepted the invitation to the multisig.',
+	AccessDenied:
+		'Access denied. You are not a member of this multisig.',
 };
 
 export const CommonErrors = {
