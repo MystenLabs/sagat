@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import type { Route } from '@playwright/test';
 
 import { LocalStorageKeys } from '../../app/src/lib/localStorageKeys';
 import { E2E } from '../support/env';
@@ -110,5 +111,198 @@ test.describe('wallet sign-in', () => {
 		await reloadWithSession(
 			`${E2E.walletName}:${stranger}:`,
 		);
+	});
+
+	test('an unreachable API shows a retry state instead of asking for a signature', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		await alice.signIn();
+
+		const apiRoutes = `${E2E.apiUrl}/**`;
+		await alice.page.route(apiRoutes, (route) =>
+			route.abort('connectionrefused'),
+		);
+		await alice.page.reload();
+
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toHaveCount(0);
+
+		// The wallet menu doesn't offer a signature that would only fail.
+		await alice.walletMenuButton().click();
+		await expect(
+			alice.page.getByTestId('disconnect-button'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('wallet-menu-sign'),
+		).toHaveCount(0);
+		await expect(
+			alice.page.getByTestId('wallet-account-sign'),
+		).toHaveCount(0);
+		await expect(
+			alice.page.getByText('Authentication Required'),
+		).toHaveCount(0);
+		await alice.walletMenuButton().click();
+
+		await alice.page.unroute(apiRoutes);
+		await alice.page
+			.getByTestId('api-retry-button')
+			.click();
+
+		await expect(alice.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+		await expect(
+			alice.page.getByTestId('dashboard-empty'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toHaveCount(0);
+	});
+
+	test('a check made offline shows the retry state, and reconnecting re-checks', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice', {
+			otherAccounts: ['alice-savings'],
+		});
+		const [savings] = alice.otherAccounts;
+		await alice.signIn();
+
+		// A new account starts a fresh check while the browser is offline.
+		await alice.context.setOffline(true);
+		await alice.switchAccount(savings);
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toHaveCount(0);
+
+		// Coming back online re-checks on its own.
+		await alice.context.setOffline(false);
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toBeVisible();
+	});
+
+	test('a failed refetch keeps a signed-in user on the dashboard, and withholds signing until a check succeeds', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice', {
+			otherAccounts: ['alice-savings'],
+		});
+		const [savings] = alice.otherAccounts;
+		// A fake clock lets the test run past the 5 minutes after which
+		// React Query evicts unused cache entries. Request timeouts keep
+		// real time, so a held check stays held.
+		await alice.page.addInitScript(() => {
+			(
+				window as { nativeTimeout?: unknown }
+			).nativeTimeout = AbortSignal.timeout;
+		});
+		await alice.page.clock.install();
+		await alice.page.addInitScript(() => {
+			AbortSignal.timeout = (
+				window as {
+					nativeTimeout?: typeof AbortSignal.timeout;
+				}
+			).nativeTimeout!;
+		});
+		await alice.signIn();
+
+		let failedChecks = 0;
+		let holdChecks = false;
+		const heldChecks: Route[] = [];
+		await alice.page.route(
+			`${E2E.apiUrl}/auth/check`,
+			(route) => {
+				if (holdChecks) {
+					heldChecks.push(route);
+					return;
+				}
+				failedChecks++;
+				return route.abort('connectionrefused');
+			},
+		);
+
+		// React Query refetches on visibilitychange (its focus signal).
+		await alice.page.evaluate(() =>
+			window.dispatchEvent(new Event('visibilitychange')),
+		);
+		// The first attempt and its one retry.
+		await expect.poll(() => failedChecks).toBe(2);
+
+		// Opening the menu waits for a render after the failure settled.
+		await alice.walletMenuButton().click();
+		await expect(alice.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+		await expect(
+			alice.page.getByTestId('dashboard-empty'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toHaveCount(0);
+
+		// Other accounts stay listed, but signing one in would only fail.
+		await expect(
+			alice.walletAccount(savings.address),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('wallet-account-sign'),
+		).toHaveCount(0);
+		await alice.walletMenuButton().click();
+
+		// The outage holds for another account too, while its re-check
+		// hangs.
+		holdChecks = true;
+		await alice.switchAccount(savings);
+		await expect
+			.poll(() => heldChecks.length)
+			.toBeGreaterThan(0);
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toHaveCount(0);
+		await alice.walletMenuButton().click();
+		await expect(
+			alice.page.getByTestId('wallet-account-sign'),
+		).toHaveCount(0);
+		await alice.walletMenuButton().click();
+
+		// Once a check gets through, signing is back.
+		await Promise.all(
+			heldChecks.map((route) => route.continue()),
+		);
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('api-unreachable'),
+		).toHaveCount(0);
+
+		// Evicting unused cache entries doesn't bring the outage back, even
+		// while the next check hangs.
+		const held = heldChecks.length;
+		await alice.switchAccount(alice);
+		await expect
+			.poll(() => heldChecks.length)
+			.toBeGreaterThan(held);
+		await alice.page.clock.fastForward('06:00');
+		await alice.walletMenuButton().click();
+		await expect(
+			alice
+				.walletAccount(savings.address)
+				.getByTestId('wallet-account-sign'),
+		).toBeVisible();
 	});
 });

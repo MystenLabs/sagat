@@ -58,6 +58,7 @@ interface AccountItemProps {
 	) => Promise<void>;
 	onSignAndConnect: () => void;
 	isConnecting: boolean;
+	canSign: boolean;
 }
 
 const getCompactWalletLabel = (
@@ -145,6 +146,7 @@ export function CustomWalletButton({
 	const wallets = useWallets();
 	const {
 		isCurrentAddressAuthenticated,
+		isAuthCheckFailing,
 		signAndConnect,
 		isConnecting,
 		disconnect: apiDisconnect,
@@ -256,43 +258,53 @@ export function CustomWalletButton({
 
 				{showWallets && (
 					<div className={menuClass(variant)}>
-						<div className="px-3 pb-2 border-b text-center">
-							<p className="text-13 font-medium text-foreground">
-								Authentication Required
-							</p>
-						</div>
-
-						{accounts.length > 1 ? (
-							<AccountSwitchingSection
-								showTitle={false}
-								handleSwitchAccount={handleSwitchAccount}
-								handleSignAndConnect={signAndConnect}
-								isConnecting={isConnecting}
-							/>
-						) : (
-							<div className="px-3 pt-3">
-								<Button
-									onClick={signAndConnect}
-									disabled={isConnecting}
-									size="sm"
-									className="w-full mb-2"
-								>
-									{isConnecting ? (
-										<>
-											<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
-											Signing...
-										</>
-									) : (
-										<>
-											Sign Message
-											<ArrowRight className="ml-2 h-3 w-3" />
-										</>
-									)}
-								</Button>
+						{!isAuthCheckFailing && (
+							<div className="px-3 pb-2 border-b text-center">
+								<p className="text-13 font-medium text-foreground">
+									Authentication Required
+								</p>
 							</div>
 						)}
 
-						<Divider />
+						{accounts.length > 1 ? (
+							<>
+								<AccountSwitchingSection
+									showTitle={false}
+									handleSwitchAccount={handleSwitchAccount}
+									handleSignAndConnect={signAndConnect}
+									isConnecting={isConnecting}
+									canSign={!isAuthCheckFailing}
+								/>
+								<Divider />
+							</>
+						) : (
+							!isAuthCheckFailing && (
+								<>
+									<div className="px-3 pt-3">
+										<Button
+											onClick={signAndConnect}
+											disabled={isConnecting}
+											size="sm"
+											className="w-full mb-2"
+											data-testid="wallet-menu-sign"
+										>
+											{isConnecting ? (
+												<>
+													<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
+													Signing...
+												</>
+											) : (
+												<>
+													Sign Message
+													<ArrowRight className="ml-2 h-3 w-3" />
+												</>
+											)}
+										</Button>
+									</div>
+									<Divider />
+								</>
+							)
+						)}
 						<CopyAddressButton />
 						<Divider />
 						<NetworkSwitchingSection />
@@ -409,6 +421,7 @@ export function CustomWalletButton({
 							handleSwitchAccount={handleSwitchAccount}
 							handleSignAndConnect={signAndConnect}
 							isConnecting={isConnecting}
+							canSign={!isAuthCheckFailing}
 						/>
 					)}
 					<CopyAddressButton />
@@ -456,6 +469,7 @@ const AccountItem = ({
 	onSwitchAccount,
 	onSignAndConnect,
 	isConnecting,
+	canSign,
 }: AccountItemProps) => {
 	const { data: suinsName } = useDefaultSuinsName(
 		account.address,
@@ -498,7 +512,7 @@ const AccountItem = ({
 				{isCurrent && (
 					<div className="w-2 h-2 bg-foreground rounded-full"></div>
 				)}
-				{!isAccountAuthenticated && (
+				{canSign && !isAccountAuthenticated && (
 					<Button
 						size="sm"
 						variant="outline"
@@ -659,6 +673,7 @@ const AccountSwitchingSection = ({
 	handleSwitchAccount,
 	handleSignAndConnect,
 	isConnecting,
+	canSign,
 }: {
 	showTitle?: boolean;
 	handleSwitchAccount: (
@@ -666,6 +681,9 @@ const AccountSwitchingSection = ({
 	) => Promise<void>;
 	handleSignAndConnect: () => void;
 	isConnecting: boolean;
+	// False while the auth check is failing: switching still works,
+	// signing would only fail.
+	canSign: boolean;
 }) => {
 	const currentWallet = useCurrentWallet();
 	const accounts = currentWallet?.accounts ?? [];
@@ -691,6 +709,7 @@ const AccountSwitchingSection = ({
 					onSwitchAccount={handleSwitchAccount}
 					onSignAndConnect={handleSignAndConnect}
 					isConnecting={isConnecting}
+					canSign={canSign}
 				/>
 			))}
 			{showTitle && <Divider />}

@@ -25,21 +25,47 @@ export type Fetch = (
 	init?: RequestInit,
 ) => Promise<Response>;
 
+/** The API answered with a non-2xx status. */
+export class SagatApiError extends Error {
+	status: number;
+
+	constructor(message: string, status: number) {
+		super(message);
+		this.name = 'SagatApiError';
+		this.status = status;
+	}
+}
+
+export interface SagatClientOptions {
+	/**
+	 * Abort a request that hasn't answered after this many milliseconds.
+	 * The call then rejects with a `TimeoutError` DOMException.
+	 * @default 20000
+	 */
+	timeoutMs?: number;
+}
+
+const DEFAULT_TIMEOUT_MS = 20_000;
+
 export class SagatClient {
 	#apiUrl: string;
 	#mode: 'script' | 'cookie';
 	#jwt: string | null = null;
 	#fetchOverride: Fetch;
+	#timeoutMs: number;
 
 	constructor(
 		apiUrl: string,
 		mode: 'script' | 'cookie',
 		fetchOverride?: Fetch,
+		options: SagatClientOptions = {},
 	) {
 		this.#apiUrl = apiUrl;
 		this.#mode = mode;
 		this.#fetchOverride =
 			fetchOverride || ((url, init) => fetch(url, init));
+		this.#timeoutMs =
+			options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	}
 
 	async connect(signature: string, expiry: string) {
@@ -349,10 +375,14 @@ export class SagatClient {
 		endpoint: string,
 		options: RequestInit = {},
 	): Promise<T> {
+		const timeout = AbortSignal.timeout(this.#timeoutMs);
 		const response = await this.#fetchOverride(
 			`${this.#apiUrl}${endpoint}`,
 			{
 				...options,
+				signal: options.signal
+					? AbortSignal.any([options.signal, timeout])
+					: timeout,
 				headers: {
 					'Content-Type': 'application/json',
 					...options.headers,
@@ -378,7 +408,10 @@ export class SagatClient {
 					if (errorData) errorMessage = errorData;
 				} catch {}
 			}
-			throw new Error(errorMessage);
+			throw new SagatApiError(
+				errorMessage,
+				response.status,
+			);
 		}
 
 		return response.json();
