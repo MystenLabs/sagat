@@ -244,35 +244,36 @@ export function SignersStep({
 
 			<Divider />
 
-			<div className="flex items-center justify-between gap-3">
+			{/* Back left, the blocked reason and Continue right. In a narrow
+			    card the reason takes its own line above the buttons. */}
+			<div className="flex flex-wrap items-center gap-3">
 				<Button
 					type="button"
 					variant="ghost"
 					onClick={onBack}
+					className="mr-auto"
 					data-testid="create-back"
 				>
 					<ArrowLeft />
 					Back
 				</Button>
-				<div className="flex min-w-0 items-center gap-3">
-					{check.blockedMessage && (
-						<p
-							className="text-right text-12 text-muted-foreground"
-							data-testid="create-blocked-reason"
-						>
-							{check.blockedMessage}
-						</p>
-					)}
-					<Button
-						type="button"
-						disabled={!check.canContinue}
-						onClick={onContinue}
-						className={disabledButton}
-						data-testid="create-continue"
+				{check.blockedMessage && (
+					<p
+						className="order-first basis-full text-12 text-muted-foreground @xl/card:order-none @xl/card:basis-auto @xl/card:text-right"
+						data-testid="create-blocked-reason"
 					>
-						Continue
-					</Button>
-				</div>
+						{check.blockedMessage}
+					</p>
+				)}
+				<Button
+					type="button"
+					disabled={!check.canContinue}
+					onClick={onContinue}
+					className={disabledButton}
+					data-testid="create-continue"
+				>
+					Continue
+				</Button>
 			</div>
 		</div>
 	);

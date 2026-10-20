@@ -113,16 +113,18 @@ export function ReviewStep({
 					</button>
 				</div>
 				<div className="overflow-x-auto rounded-lg border border-foreground/8 bg-card">
-					<table className="w-full min-w-150 text-left">
+					{/* Narrow cards drop the key column and show the key,
+					    cut short, under the signer instead. */}
+					<table className="w-full text-left @xl/card:min-w-150">
 						<thead>
 							<tr className="bg-muted text-12 text-muted-foreground">
 								<th className="w-10 py-1.75 pl-3 font-normal">
 									#
 								</th>
-								<th className="w-30 py-1.75 font-normal">
+								<th className="py-1.75 font-normal @xl/card:w-30">
 									Signer
 								</th>
-								<th className="py-1.75 font-normal">
+								<th className="hidden py-1.75 font-normal @xl/card:table-cell">
 									Public key
 								</th>
 								<th className="w-16 py-1.75 pr-3 text-right font-normal">
@@ -144,8 +146,8 @@ export function ReviewStep({
 										<td className="py-3 pl-3 align-middle text-12 text-muted-foreground">
 											{i + 1}
 										</td>
-										<td className="py-3 pr-3 align-middle">
-											<div className="flex flex-col">
+										<td className="max-w-0 py-3 pr-3 align-middle @xl/card:max-w-none">
+											<div className="flex min-w-0 flex-col">
 												<span
 													className="text-14 break-words"
 													data-testid="create-review-signer-name"
@@ -163,9 +165,12 @@ export function ReviewStep({
 														className="w-fit font-mono text-11 text-muted-foreground"
 													/>
 												)}
+												<span className="truncate font-mono text-11 text-foreground-secondary @xl/card:hidden">
+													{key}
+												</span>
 											</div>
 										</td>
-										<td className="py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary">
+										<td className="hidden py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary @xl/card:table-cell">
 											{key}
 										</td>
 										<td className="py-3 pr-3 text-right align-middle text-13">
