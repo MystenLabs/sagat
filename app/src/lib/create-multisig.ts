@@ -4,7 +4,11 @@
 // The rules of the create-multisig wizard, kept free of React so the copy
 // and the limits are in one place: which signer rows are complete, what
 // blocks Continue, which warnings show, and the address preview.
-import { formatAddress } from '@mysten/sui/utils';
+import {
+	formatAddress,
+	isValidSuiAddress,
+	normalizeSuiAddress,
+} from '@mysten/sui/utils';
 
 import { CONFIG, VALIDATION } from './constants';
 import {
@@ -47,13 +51,11 @@ export interface SignerCheck {
 	complete: boolean;
 }
 
-const SUI_ADDRESS = /^0x[0-9a-fA-F]{64}$/;
-
-/** A full 0x address pasted into the key field, normalized; else null. */
+/** A full address pasted into the key field, normalized; else null. */
 export function addressInput(key: string): string | null {
 	const trimmed = key.trim();
-	return SUI_ADDRESS.test(trimmed)
-		? trimmed.toLowerCase()
+	return isValidSuiAddress(trimmed)
+		? normalizeSuiAddress(trimmed)
 		: null;
 }
 
