@@ -70,6 +70,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
+import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -399,7 +400,7 @@ function MultisigSwitcher({
 						</span>
 						<span className="truncate text-11 tracking-[0.04em] text-sidebar-foreground/60">
 							{selected
-								? `${selected.threshold} of ${selected.totalMembers} · ${formatAddress(selected.address)}`
+								? `${thresholdLabel(selected)} · ${formatAddress(selected.address)}`
 								: 'Not created yet'}
 						</span>
 					</span>
