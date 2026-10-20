@@ -69,7 +69,6 @@ interface ErrorStateProps {
 	/** A line under the message, shown whatever the error says. */
 	hint?: string;
 	onRetry?: () => void;
-	retryLabel?: string;
 	className?: string;
 	testId?: string;
 }
@@ -81,7 +80,6 @@ export function ErrorState({
 	fallback = 'Try again in a moment.',
 	hint,
 	onRetry,
-	retryLabel = 'Try again',
 	className,
 	testId,
 }: ErrorStateProps) {
@@ -117,7 +115,7 @@ export function ErrorState({
 					className="mt-5"
 					onClick={onRetry}
 				>
-					{retryLabel}
+					Try again
 				</Button>
 			)}
 		</div>

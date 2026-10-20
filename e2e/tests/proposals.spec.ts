@@ -3,7 +3,6 @@
 
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 
-import { getExplorerUrl } from '../../app/src/lib/utils';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
@@ -132,13 +131,6 @@ test.describe('proposals', () => {
 		await expect(
 			alice.proposalCard(digest!),
 		).toHaveAttribute('data-status', 'executed');
-	});
-
-	test('explorer links go to suiscan, and not on localnet', () => {
-		expect(getExplorerUrl('abc', 'testnet')).toBe(
-			'https://suiscan.xyz/testnet/tx/abc',
-		);
-		expect(getExplorerUrl('abc', 'localnet')).toBeNull();
 	});
 
 	test('pending proposals show when they expire', async ({

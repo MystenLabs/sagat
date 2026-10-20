@@ -43,6 +43,8 @@ export const toast = {
 		sonner.error(message, {
 			duration: Infinity,
 			closeButton: true,
+			// Sticky, so repeats of the same error replace it instead of stacking
+			id: message,
 			...withLink(options),
 		}),
 	/** "Address copied" and friends. */

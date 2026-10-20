@@ -248,7 +248,14 @@ export function useProposalsQueries({
 			isFetchingNextPage: proposalsQuery.isFetchingNextPage,
 			refetch: proposalsQuery.refetch,
 		},
-		isRefetching: proposalsQuery.isRefetching,
+		isRefetching:
+			proposalsQuery.isRefetching ||
+			multisigDetailsQuery.isRefetching,
+		// Either query can fail, so a retry refetches both
+		retry: () => {
+			proposalsQuery.refetch();
+			multisigDetailsQuery.refetch();
+		},
 		// Helpers
 		userHasSignedProposal,
 	};

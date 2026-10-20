@@ -82,7 +82,6 @@ function FilterTabs({
 	);
 }
 
-// Empty State Component
 // Proposals List Component
 function ProposalsList({
 	proposals,
@@ -177,6 +176,7 @@ export function ProposalsTab() {
 		error,
 		pagination,
 		isRefetching,
+		retry,
 	} = useProposalsQueries({
 		multisig,
 		network,
@@ -242,7 +242,7 @@ export function ProposalsTab() {
 					<ErrorState
 						title="Failed to load proposals"
 						error={error}
-						onRetry={() => pagination.refetch()}
+						onRetry={retry}
 						testId="proposals-error"
 					/>
 				) : filteredProposals.length === 0 ? (
