@@ -31,24 +31,24 @@ import {
 	toLegacyMultisigMember,
 } from '../legacy/serializers';
 import { normalizeKeyLabels } from '../services/account-keys.service';
-import {
-	registerPublicKeyStrings,
-	validatePersonalMessage,
-} from '../services/addresses.service';
+import { registerPublicKeyStrings } from '../services/addresses.service';
 import {
 	authMiddleware,
 	validateExpiry,
 	type AuthEnv,
 } from '../services/auth.service';
 import {
+	isSignerSetMember,
+	jwtHasSignerSetMemberAccess,
+} from '../services/membership.service';
+import {
 	getLegacyMultisig,
 	getSignerSet,
 	isSignerSetFinalized,
-	isSignerSetMember,
-	jwtHasSignerSetMemberAccess,
 	validateMemberCount,
 	validateQuorum,
 } from '../services/multisig.service';
+import { validatePersonalMessage } from '../services/signatures.service';
 import {
 	getPublicKeyFromSerializedSignature,
 	parsePublicKey,

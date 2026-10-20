@@ -8,24 +8,8 @@ import {
 	SchemaAddresses,
 	type SignerSetWithMembers,
 } from '../db/schema';
-import { CommonError } from '../errors';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import { parsePublicKey } from '../utils/pubKey';
-
-// Takes a pub key, a signature, and a message, and validates it.
-// Returns the Sui address if valid, or null if not.
-export const validatePersonalMessage = async (
-	publicKey: PublicKey,
-	signature: string,
-	message: string,
-) => {
-	const isValid = await publicKey.verifyPersonalMessage(
-		new TextEncoder().encode(message),
-		signature,
-	);
-
-	if (!isValid) throw new CommonError('InvalidSignature');
-};
 
 /**
  * Registers a single public key in the addresses table

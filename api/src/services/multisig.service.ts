@@ -1,9 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -139,68 +138,6 @@ export const isSignerSetFinalized = async (
 		});
 
 	return isFinalized.length === 0;
-};
-
-// Returns true if the public key is a member of the signer set and has accepted the invitation.
-export const isSignerSetMember = async (
-	signerSetAddress: string,
-	publicKey: PublicKey,
-	checkAcceptance: boolean = true,
-) => {
-	const whereConditions = [
-		eq(
-			SchemaSignerSetMembers.signerSetAddress,
-			signerSetAddress,
-		),
-		eq(
-			SchemaSignerSetMembers.publicKey,
-			publicKey.toSuiPublicKey(),
-		),
-	];
-
-	if (checkAcceptance) {
-		whereConditions.push(
-			eq(SchemaSignerSetMembers.isAccepted, true),
-		);
-	}
-
-	const member =
-		await db.query.SchemaSignerSetMembers.findFirst({
-			where: and(...whereConditions),
-		});
-	return !!member;
-};
-
-// A convenient checker to see if ANY of the JWT addresses from the header
-// have acess to the requested signer set.
-export const jwtHasSignerSetMemberAccess = async (
-	signerSetAddress: string,
-	publicKeys: PublicKey[],
-	checkAcceptance: boolean = true,
-) => {
-	const whereConditions = [
-		eq(
-			SchemaSignerSetMembers.signerSetAddress,
-			signerSetAddress,
-		),
-		inArray(
-			SchemaSignerSetMembers.publicKey,
-			publicKeys.map((key) => key.toSuiPublicKey()),
-		),
-	];
-
-	if (checkAcceptance) {
-		whereConditions.push(
-			eq(SchemaSignerSetMembers.isAccepted, true),
-		);
-	}
-
-	const member =
-		await db.query.SchemaSignerSetMembers.findFirst({
-			where: and(...whereConditions),
-		});
-
-	return !!member;
 };
 
 // Get a list of pending proposals for a given multisig address.
