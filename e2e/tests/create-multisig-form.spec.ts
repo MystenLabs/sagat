@@ -6,6 +6,7 @@ import {
 	addSigners,
 	nameMultisig,
 	reviewMultisig,
+	setThreshold,
 	signerRows,
 } from '../support/create-wizard';
 import { expect, test } from '../support/fixtures';
@@ -259,5 +260,97 @@ test.describe('create multisig wizard', () => {
 		await page.getByTestId('create-name-input').fill('');
 		await expect(step(2)).toBeDisabled();
 		await expect(step(3)).toBeDisabled();
+	});
+
+	test('editing or clearing a row touches that row alone', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		// Pins a bug where two rows shared an id, so a change to one hit
+		// both: pasting the same key into two rows must keep them apart.
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const { page } = alice;
+		const rows = signerRows(page);
+
+		await alice.signIn();
+		await page.goto('/create');
+		await nameMultisig(page, 'Rows');
+		await addSigners(page, [
+			{ label: 'Bob', key: bob.publicKey },
+			{ label: 'Bob again', key: bob.publicKey },
+			{ label: 'Carol', key: bob.publicKey },
+		]);
+		await expect(rows).toHaveCount(4);
+
+		// Clearing the last duplicate leaves the other two untouched.
+		await rows
+			.nth(3)
+			.getByTestId('create-signer-key-clear')
+			.click();
+		await expect(
+			rows.nth(3).getByTestId('create-signer-key'),
+		).toHaveValue('');
+		await expect(
+			rows.nth(2).getByTestId('create-signer-key'),
+		).toHaveValue(bob.publicKey);
+		await expect(
+			rows.nth(1).getByTestId('create-signer-key'),
+		).toHaveValue(bob.publicKey);
+
+		// Typing in one row's name changes no other row.
+		await rows
+			.nth(2)
+			.getByTestId('create-signer-label')
+			.fill('Only me');
+		await expect(
+			rows.nth(1).getByTestId('create-signer-label'),
+		).toHaveValue('Bob');
+		await expect(
+			rows.nth(3).getByTestId('create-signer-label'),
+		).toHaveValue('Carol');
+		await expect(
+			rows.nth(2).getByTestId('create-signer-weight'),
+		).toHaveValue('1');
+		await rows
+			.nth(2)
+			.getByTestId('create-signer-weight-increase')
+			.click();
+		await expect(
+			rows.nth(1).getByTestId('create-signer-weight'),
+		).toHaveValue('1');
+	});
+
+	test('warns that everyone must sign whenever no signer can be spared', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const carol = createIdentity('carol');
+		const { page } = alice;
+		const warning = page.getByTestId(
+			'create-threshold-warning',
+		);
+
+		await alice.signIn();
+		await page.goto('/create');
+		await nameMultisig(page, 'Weights');
+		// Weights 2 and 2 at a threshold of 3: both must sign, though the
+		// threshold is below the total.
+		await signerRows(page)
+			.first()
+			.getByTestId('create-signer-weight-increase')
+			.click();
+		await addSigners(page, [
+			{ label: 'Bob', key: bob.publicKey, weight: 2 },
+		]);
+		await setThreshold(page, 3);
+		await expect(warning).toHaveText(
+			'Every signer must sign every proposal. If one signer loses their key, the multisig can’t move funds.',
+		);
+		// A third signer of weight 1 can be spared, so the warning goes.
+		await addSigners(page, [{ key: carol.publicKey }]);
+		await expect(warning).toHaveCount(0);
 	});
 });

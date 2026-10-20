@@ -101,7 +101,7 @@ export function PageHeader({
 						</Link>
 					)
 				)}
-				<h1 className="text-30 font-bold text-foreground">
+				<h1 className="text-24 font-bold text-foreground sm:text-30">
 					{title}
 				</h1>
 				{address && (

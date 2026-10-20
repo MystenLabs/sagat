@@ -30,6 +30,7 @@ import {
 	HelpCard,
 	NextStepsCard,
 	PreviewCard,
+	PreviewStrip,
 } from './SideCards';
 import { SignersStep } from './SignersStep';
 
@@ -150,6 +151,8 @@ export function CreateMultisigPage() {
 			invited,
 		});
 
+	const cancel = () => navigate('/');
+
 	const goTo = (next: WizardStep) => {
 		create.reset();
 		setFocusId(null);
@@ -187,7 +190,8 @@ export function CreateMultisigPage() {
 						actions={
 							<Button
 								variant="ghost"
-								onClick={() => navigate('/')}
+								onClick={cancel}
+								className="max-sm:hidden"
 								data-testid="create-cancel"
 							>
 								Cancel
@@ -200,6 +204,18 @@ export function CreateMultisigPage() {
 						reach={reach}
 						onStep={goTo}
 					/>
+					{step === 2 && (
+						// While the preview card sits below the form, its
+						// numbers stay in sight here.
+						<PreviewStrip
+							signers={check.completeCount}
+							incomplete={check.incompleteCount}
+							totalWeight={check.totalWeight}
+							threshold={threshold}
+							address={check.address}
+							className="mt-5 @4xl:hidden"
+						/>
+					)}
 
 					{/* Stacked below 896px of content, where the card and the side
 					    cards fill the row; two columns from there. */}
@@ -220,6 +236,7 @@ export function CreateMultisigPage() {
 									name={name}
 									onNameChange={setName}
 									onContinue={() => goTo(2)}
+									onCancel={cancel}
 								/>
 							)}
 							{step === 2 && (
@@ -252,6 +269,7 @@ export function CreateMultisigPage() {
 									onThresholdChange={setThreshold}
 									onBack={() => goTo(1)}
 									onContinue={() => goTo(3)}
+									onCancel={cancel}
 								/>
 							)}
 							{step === 3 && check.address && (
@@ -267,6 +285,7 @@ export function CreateMultisigPage() {
 									onEditSigners={() => goTo(2)}
 									onBack={() => goTo(2)}
 									onCreate={submit}
+									onCancel={cancel}
 								/>
 							)}
 						</div>

@@ -126,31 +126,41 @@ export function SignerRow({
 					onChange={(key) => onChange({ key })}
 				/>
 
-				<NumberStepper
-					value={signer.weight}
-					min={1}
-					max={CONFIG.MAX_WEIGHT}
-					onChange={(weight) => onChange({ weight })}
-					label="Weight"
-					size="sm"
-					testId="create-signer-weight"
-				/>
+				{/* In a narrow card the weight and remove controls take a
+				    third line of their own, under a "Weight" label. */}
+				<div className="order-last flex w-full items-center gap-2.5 @xl/card:contents">
+					<span className="mr-auto text-12 text-muted-foreground @xl/card:hidden">
+						Weight
+					</span>
+					<NumberStepper
+						value={signer.weight}
+						min={1}
+						max={CONFIG.MAX_WEIGHT}
+						onChange={(weight) => onChange({ weight })}
+						label="Weight"
+						size="sm"
+						testId="create-signer-weight"
+					/>
 
-				{creator ? (
-					<span aria-hidden className="size-4.5 shrink-0" />
-				) : (
-					<Tooltip>
-						<TooltipTrigger
-							aria-label={`Remove signer ${index + 1}`}
-							onClick={onRemove}
-							className="flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-							data-testid="create-signer-remove"
-						>
-							<Trash2 className="size-3.5" />
-						</TooltipTrigger>
-						<TooltipContent>Remove signer</TooltipContent>
-					</Tooltip>
-				)}
+					{creator ? (
+						<span
+							aria-hidden
+							className="size-4.5 shrink-0"
+						/>
+					) : (
+						<Tooltip>
+							<TooltipTrigger
+								aria-label={`Remove signer ${index + 1}`}
+								onClick={onRemove}
+								className="flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+								data-testid="create-signer-remove"
+							>
+								<Trash2 className="size-3.5" />
+							</TooltipTrigger>
+							<TooltipContent>Remove signer</TooltipContent>
+						</Tooltip>
+					)}
+				</div>
 			</div>
 
 			<StatusLine

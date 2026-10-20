@@ -22,7 +22,16 @@ import {
 	Divider,
 	Notice,
 	SectionHeading,
+	StepFooter,
 } from './parts';
+
+/** "Maya (you)", "You", "Daniel" or "Signer 3". */
+function reviewName(signer: SignerDraft, index: number) {
+	const label = signer.label.trim();
+	if (signer.isCreator)
+		return label ? `${label} (you)` : 'You';
+	return label || `Signer ${index + 1}`;
+}
 
 /** Step 3: everything at a glance, then create. */
 export function ReviewStep({
@@ -37,6 +46,7 @@ export function ReviewStep({
 	onEditSigners,
 	onBack,
 	onCreate,
+	onCancel,
 }: {
 	name: string;
 	signers: SignerDraft[];
@@ -50,6 +60,7 @@ export function ReviewStep({
 	onEditSigners: () => void;
 	onBack: () => void;
 	onCreate: () => void;
+	onCancel: () => void;
 }) {
 	return (
 		<div
@@ -112,19 +123,18 @@ export function ReviewStep({
 						Edit
 					</button>
 				</div>
-				<div className="overflow-x-auto rounded-lg border border-foreground/8 bg-card">
-					{/* Narrow cards drop the key column and show the key,
-					    cut short, under the signer instead. */}
-					<table className="w-full text-left @xl/card:min-w-150">
+				{/* A table in a wide card; a list of signers in a narrow one. */}
+				<div className="hidden overflow-x-auto rounded-lg border border-foreground/8 bg-card @xl/card:block">
+					<table className="w-full min-w-150 text-left">
 						<thead>
 							<tr className="bg-muted text-12 text-muted-foreground">
 								<th className="w-10 py-1.75 pl-3 font-normal">
 									#
 								</th>
-								<th className="py-1.75 font-normal @xl/card:w-30">
+								<th className="w-30 py-1.75 font-normal">
 									Signer
 								</th>
-								<th className="hidden py-1.75 font-normal @xl/card:table-cell">
+								<th className="py-1.75 font-normal">
 									Public key
 								</th>
 								<th className="w-16 py-1.75 pr-3 text-right font-normal">
@@ -146,18 +156,13 @@ export function ReviewStep({
 										<td className="py-3 pl-3 align-middle text-12 text-muted-foreground">
 											{i + 1}
 										</td>
-										<td className="max-w-0 py-3 pr-3 align-middle @xl/card:max-w-none">
-											<div className="flex min-w-0 flex-col">
+										<td className="py-3 pr-3 align-middle">
+											<div className="flex flex-col">
 												<span
 													className="text-14 break-words"
 													data-testid="create-review-signer-name"
 												>
-													{signer.isCreator
-														? signer.label.trim()
-															? `${signer.label.trim()} (you)`
-															: 'You'
-														: signer.label.trim() ||
-															`Signer ${i + 1}`}
+													{reviewName(signer, i)}
 												</span>
 												{signerAddress && (
 													<ShortAddress
@@ -165,12 +170,9 @@ export function ReviewStep({
 														className="w-fit font-mono text-11 text-muted-foreground"
 													/>
 												)}
-												<span className="truncate font-mono text-11 text-foreground-secondary @xl/card:hidden">
-													{key}
-												</span>
 											</div>
 										</td>
-										<td className="hidden py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary @xl/card:table-cell">
+										<td className="py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary">
 											{key}
 										</td>
 										<td className="py-3 pr-3 text-right align-middle text-13">
@@ -182,6 +184,44 @@ export function ReviewStep({
 						</tbody>
 					</table>
 				</div>
+				<ul
+					className="divide-y divide-foreground/8 rounded-lg border border-foreground/8 bg-card @xl/card:hidden"
+					data-testid="create-review-list"
+				>
+					{signers.map((signer, i) => {
+						const key = signer.key.trim();
+						const signerAddress =
+							validatePublicKey(key).address;
+						return (
+							<li
+								key={signer.id}
+								className="flex items-center gap-3 px-3 py-2.5"
+								data-testid="create-review-item"
+							>
+								<span className="w-4 shrink-0 text-12 text-muted-foreground">
+									{i + 1}
+								</span>
+								<div className="flex min-w-0 flex-1 flex-col">
+									<span className="text-14 break-words">
+										{reviewName(signer, i)}
+									</span>
+									{signerAddress && (
+										<ShortAddress
+											address={signerAddress}
+											className="w-fit font-mono text-11 text-muted-foreground"
+										/>
+									)}
+									<span className="truncate font-mono text-11 text-foreground-secondary">
+										{key}
+									</span>
+								</div>
+								<span className="shrink-0 text-13">
+									{signer.weight}
+								</span>
+							</li>
+						);
+					})}
+				</ul>
 			</section>
 
 			<div className="flex flex-col gap-1.5 rounded-lg border border-foreground/12 p-3.5">
@@ -207,32 +247,40 @@ export function ReviewStep({
 				</Notice>
 			)}
 
-			<div className="flex items-center justify-between gap-3">
-				<Button
-					type="button"
-					variant="ghost"
-					onClick={onBack}
-					disabled={creating}
-					className={disabledButton}
-					data-testid="create-back"
-				>
-					<ArrowLeft />
-					Back
-				</Button>
-				<Button
-					type="button"
-					onClick={onCreate}
-					disabled={creating}
-					className={disabledButton}
-					data-testid="create-submit"
-				>
-					{creating
-						? 'Creating multisig…'
-						: error
-							? 'Try again'
-							: 'Create multisig'}
-				</Button>
-			</div>
+			<StepFooter
+				onCancel={onCancel}
+				back={
+					<Button
+						type="button"
+						variant="ghost"
+						onClick={onBack}
+						disabled={creating}
+						className={disabledButton}
+						data-testid="create-back"
+					>
+						<ArrowLeft />
+						Back
+					</Button>
+				}
+				primary={
+					<Button
+						type="button"
+						onClick={onCreate}
+						disabled={creating}
+						className={cn(
+							disabledButton,
+							'w-full sm:w-auto',
+						)}
+						data-testid="create-submit"
+					>
+						{creating
+							? 'Creating multisig…'
+							: error
+								? 'Try again'
+								: 'Create multisig'}
+					</Button>
+				}
+			/>
 		</div>
 	);
 }

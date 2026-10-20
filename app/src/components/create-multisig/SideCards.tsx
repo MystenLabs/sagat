@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatAddress } from '@mysten/sui/utils';
 import { Check } from 'lucide-react';
 import { type ReactNode } from 'react';
 
@@ -18,6 +19,70 @@ import { HELP } from './help';
 import { CopyText, Divider } from './parts';
 
 const card = 'rounded-xl border bg-card';
+
+/**
+ * The preview's numbers in one line, shown under the stepper while the
+ * preview card sits below the form.
+ */
+export function PreviewStrip({
+	signers,
+	incomplete,
+	totalWeight,
+	threshold,
+	address,
+	className,
+}: {
+	signers: number;
+	incomplete: number;
+	totalWeight: number;
+	threshold: number;
+	address: string | null;
+	className?: string;
+}) {
+	return (
+		<dl
+			className={cn(
+				'flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-muted px-3 py-2 text-12',
+				className,
+			)}
+			data-testid="create-preview-strip"
+		>
+			<StripStat label="Signers">
+				{incomplete
+					? `${signers} (+${incomplete} incomplete)`
+					: signers}
+			</StripStat>
+			<StripStat label="Total weight">
+				{totalWeight}
+			</StripStat>
+			<StripStat label="Threshold">
+				{thresholdLabel({ threshold, totalWeight })}
+			</StripStat>
+			{address && (
+				<StripStat label="Address">
+					<span className="font-mono">
+						{formatAddress(address)}
+					</span>
+				</StripStat>
+			)}
+		</dl>
+	);
+}
+
+function StripStat({
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactNode;
+}) {
+	return (
+		<div className="flex items-center gap-1.5">
+			<dt className="text-muted-foreground">{label}</dt>
+			<dd className="font-medium">{children}</dd>
+		</div>
+	);
+}
 
 /** Steps 1 and 2: what the multisig will look like so far. */
 export function PreviewCard({

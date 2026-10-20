@@ -39,6 +39,7 @@ import {
 	Notice,
 	NumberStepper,
 	SectionHeading,
+	StepFooter,
 } from './parts';
 import { SignerRow } from './SignerRow';
 
@@ -53,6 +54,7 @@ export function SignersStep({
 	onThresholdChange,
 	onBack,
 	onContinue,
+	onCancel,
 }: {
 	signers: SignerDraft[];
 	check: SignersCheck;
@@ -64,6 +66,7 @@ export function SignersStep({
 	onThresholdChange: (threshold: number) => void;
 	onBack: () => void;
 	onContinue: () => void;
+	onCancel: () => void;
 }) {
 	const sensors = useSensors(
 		useSensor(PointerSensor),
@@ -244,37 +247,36 @@ export function SignersStep({
 
 			<Divider />
 
-			{/* Back left, the blocked reason and Continue right. In a narrow
-			    card the reason takes its own line above the buttons. */}
-			<div className="flex flex-wrap items-center gap-3">
-				<Button
-					type="button"
-					variant="ghost"
-					onClick={onBack}
-					className="mr-auto"
-					data-testid="create-back"
-				>
-					<ArrowLeft />
-					Back
-				</Button>
-				{check.blockedMessage && (
-					<p
-						className="order-first basis-full text-12 text-muted-foreground @xl/card:order-none @xl/card:basis-auto @xl/card:text-right"
-						data-testid="create-blocked-reason"
+			<StepFooter
+				onCancel={onCancel}
+				back={
+					<Button
+						type="button"
+						variant="ghost"
+						onClick={onBack}
+						data-testid="create-back"
 					>
-						{check.blockedMessage}
-					</p>
-				)}
-				<Button
-					type="button"
-					disabled={!check.canContinue}
-					onClick={onContinue}
-					className={disabledButton}
-					data-testid="create-continue"
-				>
-					Continue
-				</Button>
-			</div>
+						<ArrowLeft />
+						Back
+					</Button>
+				}
+				note={check.blockedMessage}
+				noteTestId="create-blocked-reason"
+				primary={
+					<Button
+						type="button"
+						disabled={!check.canContinue}
+						onClick={onContinue}
+						className={cn(
+							disabledButton,
+							'w-full sm:w-auto',
+						)}
+						data-testid="create-continue"
+					>
+						Continue
+					</Button>
+				}
+			/>
 		</div>
 	);
 }

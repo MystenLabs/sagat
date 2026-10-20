@@ -16,6 +16,7 @@ import {
 	disabledButton,
 	Divider,
 	SectionHeading,
+	StepFooter,
 } from './parts';
 
 /** Step 1: the name every signer sees in their invitation. */
@@ -23,10 +24,12 @@ export function NameStep({
 	name,
 	onNameChange,
 	onContinue,
+	onCancel,
 }: {
 	name: string;
 	onNameChange: (name: string) => void;
 	onContinue: () => void;
+	onCancel: () => void;
 }) {
 	// "Give it a name" waits until the field has been used; too long
 	// shows at once.
@@ -86,16 +89,22 @@ export function NameStep({
 				</p>
 			</div>
 			<Divider />
-			<div className="flex justify-end">
-				<Button
-					type="submit"
-					disabled={!!error}
-					className={disabledButton}
-					data-testid="create-continue"
-				>
-					Continue
-				</Button>
-			</div>
+			<StepFooter
+				onCancel={onCancel}
+				primary={
+					<Button
+						type="submit"
+						disabled={!!error}
+						className={cn(
+							disabledButton,
+							'w-full sm:w-auto',
+						)}
+						data-testid="create-continue"
+					>
+						Continue
+					</Button>
+				}
+			/>
 		</form>
 	);
 }

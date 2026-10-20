@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
+import { Button } from '@/components/ui/button';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { clamp } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
@@ -118,85 +119,161 @@ export function WizardStepper({
 	onStep: (step: WizardStep) => void;
 }) {
 	return (
-		<ol
-			aria-label="Steps"
-			className="flex items-center gap-3"
-			data-testid="create-stepper"
-			data-step={step}
-		>
-			{STEPS.map((label, i) => {
-				const n = (i + 1) as WizardStep;
-				const state =
-					n < step
-						? 'done'
-						: n === step
-							? 'current'
-							: 'upcoming';
-				const navigable = n !== step && n <= reach;
-				return (
-					<li
-						key={label}
-						className="flex items-center gap-3"
-						aria-current={
-							state === 'current' ? 'step' : undefined
-						}
-					>
-						<button
-							type="button"
-							disabled={!navigable}
-							onClick={() => onStep(n)}
+		<div data-testid="create-stepper" data-step={step}>
+			{/* Phones: one line and a bar, since three labels don't fit. */}
+			<div
+				className="flex flex-col gap-2 sm:hidden"
+				data-testid="create-stepper-compact"
+			>
+				<p className="text-13">
+					<span className="text-muted-foreground">
+						Step {step} of {STEPS.length}
+					</span>
+					<span className="font-medium">
+						{' '}
+						· {STEPS[step - 1]}
+					</span>
+				</p>
+				<div aria-hidden className="flex gap-1.5">
+					{STEPS.map((label, i) => (
+						<span
+							key={label}
 							className={cn(
-								'flex items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
-								navigable &&
-									'cursor-pointer hover:[&>span:last-child]:underline',
+								'h-1 flex-1 rounded-full transition-colors duration-200',
+								i < step
+									? 'bg-primary'
+									: 'bg-foreground/15',
 							)}
-							data-testid={`create-step-${n}`}
+						/>
+					))}
+				</div>
+			</div>
+			<ol
+				aria-label="Steps"
+				className="flex items-center gap-3 max-sm:hidden"
+			>
+				{STEPS.map((label, i) => {
+					const n = (i + 1) as WizardStep;
+					const state =
+						n < step
+							? 'done'
+							: n === step
+								? 'current'
+								: 'upcoming';
+					const navigable = n !== step && n <= reach;
+					return (
+						<li
+							key={label}
+							className="flex items-center gap-3"
+							aria-current={
+								state === 'current' ? 'step' : undefined
+							}
 						>
-							<span
+							<button
+								type="button"
+								disabled={!navigable}
+								onClick={() => onStep(n)}
 								className={cn(
-									'flex size-5.5 shrink-0 items-center justify-center rounded-full text-11 leading-none transition-colors duration-200',
-									state === 'upcoming'
-										? 'border border-foreground/15 text-muted-foreground'
-										: 'bg-primary text-primary-foreground',
+									'flex items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
+									navigable &&
+										'cursor-pointer hover:[&>span:last-child]:underline',
 								)}
+								data-testid={`create-step-${n}`}
 							>
-								{state === 'done' ? (
-									<Check
-										className="size-3"
-										strokeWidth={2.5}
-									/>
-								) : (
-									n
-								)}
-							</span>
-							<span
-								className={cn(
-									'text-13 whitespace-nowrap transition-colors duration-200',
-									state === 'current'
-										? 'font-medium'
-										: 'max-sm:sr-only',
-									state === 'upcoming' &&
-										'text-muted-foreground',
-								)}
-							>
-								{label}
-							</span>
-						</button>
-						{n < STEPS.length && (
-							<span
-								aria-hidden
-								className={cn(
-									'h-px w-10 transition-colors duration-200 max-sm:w-6',
-									n < step
-										? 'bg-foreground'
-										: 'bg-foreground/15',
-								)}
-							/>
-						)}
-					</li>
-				);
-			})}
-		</ol>
+								<span
+									className={cn(
+										'flex size-5.5 shrink-0 items-center justify-center rounded-full text-11 leading-none transition-colors duration-200',
+										state === 'upcoming'
+											? 'border border-foreground/15 text-muted-foreground'
+											: 'bg-primary text-primary-foreground',
+									)}
+								>
+									{state === 'done' ? (
+										<Check
+											className="size-3"
+											strokeWidth={2.5}
+										/>
+									) : (
+										n
+									)}
+								</span>
+								<span
+									className={cn(
+										'text-13 whitespace-nowrap transition-colors duration-200',
+										state === 'current'
+											? 'font-medium'
+											: 'max-sm:sr-only',
+										state === 'upcoming' &&
+											'text-muted-foreground',
+									)}
+								>
+									{label}
+								</span>
+							</button>
+							{n < STEPS.length && (
+								<span
+									aria-hidden
+									className={cn(
+										'h-px w-10 transition-colors duration-200 max-sm:w-6',
+										n < step
+											? 'bg-foreground'
+											: 'bg-foreground/15',
+									)}
+								/>
+							)}
+						</li>
+					);
+				})}
+			</ol>
+		</div>
+	);
+}
+
+/**
+ * Back on the left, a note and the primary action on the right. On phones
+ * the primary spans the card with Back and Cancel under it; Cancel lives
+ * here because the page header hides its own Cancel on phones.
+ */
+export function StepFooter({
+	back,
+	note,
+	noteTestId,
+	primary,
+	onCancel,
+}: {
+	back?: ReactNode;
+	note?: ReactNode;
+	noteTestId?: string;
+	/** A button with `w-full sm:w-auto`. */
+	primary: ReactNode;
+	onCancel: () => void;
+}) {
+	return (
+		<div className="flex flex-wrap items-center gap-3">
+			<div className="order-3 mr-auto sm:order-1">
+				{back}
+			</div>
+			{note && (
+				<p
+					className="order-1 basis-full text-12 text-muted-foreground sm:order-2 sm:basis-auto sm:text-right"
+					data-testid={noteTestId}
+				>
+					{note}
+				</p>
+			)}
+			<div className="order-2 basis-full sm:order-3 sm:basis-auto">
+				{primary}
+			</div>
+			<Button
+				type="button"
+				variant="ghost"
+				onClick={onCancel}
+				className="order-4 sm:hidden"
+				data-testid="create-cancel-footer"
+			>
+				Cancel
+			</Button>
+		</div>
 	);
 }
 
