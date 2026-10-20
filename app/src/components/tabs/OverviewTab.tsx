@@ -49,7 +49,8 @@ export function OverviewTab() {
 		refetch,
 	} = useGetMultisig(multisig.address);
 
-	const totalWeight = multisigDetails?.totalWeight ?? 0;
+	const totalWeight =
+		multisigDetails?.totalWeight ?? multisig.totalWeight;
 
 	const handleExportComposition = () => {
 		downloadJson(
