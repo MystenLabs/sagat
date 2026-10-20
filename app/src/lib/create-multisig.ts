@@ -109,6 +109,8 @@ export const COPY = {
 		'This isn’t a valid Sui public key. Check that you copied the whole key.',
 	duplicateKey: (other: string) =>
 		`${other} already uses this key. Each signer needs their own key.`,
+	duplicateKeyYours: (position: number) =>
+		`You already use this key (signer ${position}). Each signer needs their own key.`,
 	noKey: (label: string) =>
 		`No public key found for this address. It hasn’t signed a transaction yet. ${
 			label
@@ -180,16 +182,21 @@ export function checkSigners({
 			if (owner === undefined)
 				firstWithKey.set(status.address, index);
 			else if (owner !== index) {
-				// "Daniel (signer 2)", or just "Signer 2" when unnamed.
+				// "Daniel (signer 2)", "Signer 2" when unnamed, or a sentence of
+				// its own when the key is the unnamed creator's.
 				const ownerName = names[owner];
 				const position = `Signer ${owner + 1}`;
+				const owned = signers[owner];
 				finalStatus = {
 					kind: 'error',
-					message: COPY.duplicateKey(
-						ownerName === position
-							? position
-							: `${ownerName} (signer ${owner + 1})`,
-					),
+					message:
+						owned.isCreator && !owned.label.trim()
+							? COPY.duplicateKeyYours(owner + 1)
+							: COPY.duplicateKey(
+									ownerName === position
+										? position
+										: `${ownerName} (signer ${owner + 1})`,
+								),
 				};
 			}
 		}

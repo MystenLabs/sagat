@@ -342,7 +342,7 @@ describe('signer checks', () => {
 		expect(check.signers[0].status).toEqual({
 			kind: 'error',
 			message:
-				'You (signer 2) already uses this key. Each signer needs their own key.',
+				'You already use this key (signer 2). Each signer needs their own key.',
 		});
 		expect(check.signers[1].status.kind).toBe('valid');
 	});
