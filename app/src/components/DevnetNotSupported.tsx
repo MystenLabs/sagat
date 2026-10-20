@@ -1,13 +1,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useDAppKit } from '@mysten/dapp-kit-react';
 import { AlertTriangle } from 'lucide-react';
+
+import { useNetwork } from '@/contexts/NetworkContext';
 
 import { Button } from './ui/button';
 
 export function DevnetNotSupported() {
-	const dappKit = useDAppKit();
+	// setNetwork also saves the choice, so a reload does not land on devnet.
+	const { setNetwork } = useNetwork();
 
 	return (
 		<div className="mx-auto mt-20 p-8">
@@ -16,7 +18,10 @@ export function DevnetNotSupported() {
 					<AlertTriangle className="w-10 h-10 text-warning-foreground" />
 				</div>
 
-				<h1 className="text-3xl font-bold mb-3">
+				<h1
+					className="text-3xl font-bold mb-3"
+					data-testid="devnet-not-supported"
+				>
 					Devnet Not Supported
 				</h1>
 
@@ -29,14 +34,16 @@ export function DevnetNotSupported() {
 				<div className="flex gap-3 justify-center">
 					<Button
 						size="lg"
-						onClick={() => dappKit.switchNetwork('mainnet')}
+						onClick={() => setNetwork('mainnet')}
+						data-testid="switch-to-mainnet-button"
 					>
 						Switch to Mainnet
 					</Button>
 					<Button
 						size="lg"
 						variant="outline"
-						onClick={() => dappKit.switchNetwork('testnet')}
+						onClick={() => setNetwork('testnet')}
+						data-testid="switch-to-testnet-button"
 					>
 						Switch to Testnet
 					</Button>

@@ -96,7 +96,6 @@ const ERRORS: Rule[] = [
 		// Old screens that are rebuilt on the design system; drop each one
 		// from here when it is.
 		allow: [
-			/components\/LocalNetworkSelector\.tsx$/,
 			/components\/invitations\/InvitationCard\.tsx$/,
 		],
 	},

@@ -50,3 +50,15 @@ export const getExplorerUrl = (
 	if (!EXPLORER_NETWORKS.includes(network)) return null;
 	return `https://suiscan.xyz/${network}/${kind}/${id}`;
 };
+
+/**
+ * URI-decodes an error message. Messages can quote user input, so a stray
+ * `%` must not throw: the message is then returned as is.
+ */
+export function safeDecode(message: string): string {
+	try {
+		return decodeURIComponent(message);
+	} catch {
+		return message;
+	}
+}

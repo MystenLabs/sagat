@@ -13,6 +13,7 @@ import { DevWallet } from '@mysten-incubation/dev-wallet';
 import { InMemorySignerAdapter } from '@mysten-incubation/dev-wallet/adapters';
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { fromBase64, toBase64 } from '@mysten/sui/utils';
 
 import type { E2EWalletConfig } from './types';
 
@@ -20,6 +21,48 @@ declare global {
 	interface Window {
 		__E2E_WALLET_CONFIG__?: E2EWalletConfig;
 		__e2eWallet?: DevWallet;
+	}
+}
+
+type SignAndExecute =
+	DevWallet['features']['sui:signAndExecuteTransaction']['signAndExecuteTransaction'];
+
+// A transaction that executes but fails on chain comes back from real
+// wallets with its effects, which say it failed; the dev wallet throws
+// instead. Sign with the dev wallet and execute here, like a real wallet.
+class E2EWallet extends DevWallet {
+	get features() {
+		const features = super.features;
+		const signAndExecuteTransaction: SignAndExecute =
+			async (input) => {
+				const { bytes, signature } =
+					await features[
+						'sui:signTransaction'
+					].signTransaction(input);
+				const network = input.chain.replace(/^sui:/, '');
+				const result = await this.getClient(
+					network,
+				).core.executeTransaction({
+					transaction: fromBase64(bytes),
+					signatures: [signature],
+					include: { effects: true },
+				});
+				const { digest, effects } =
+					result.Transaction ?? result.FailedTransaction;
+				return {
+					bytes,
+					signature,
+					digest,
+					effects: toBase64(effects.bcs!),
+				};
+			};
+		return {
+			...features,
+			'sui:signAndExecuteTransaction': {
+				version: '2.0.0' as const,
+				signAndExecuteTransaction,
+			},
+		};
 	}
 }
 
@@ -39,7 +82,7 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 		});
 	}
 
-	const wallet = new DevWallet({
+	const wallet = new E2EWallet({
 		name: config.name,
 		adapters: [adapter],
 		networks: { localnet: config.rpcUrl },

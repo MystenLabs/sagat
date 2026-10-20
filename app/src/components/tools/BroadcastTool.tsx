@@ -6,66 +6,44 @@ import { fromBase64 } from '@mysten/sui/utils';
 import { AlertCircle, Check } from 'lucide-react';
 import { useState } from 'react';
 
-import { NetworkSelector } from '@/components/LocalNetworkSelector';
+import { NetworkSelector } from '@/components/NetworkSelector';
 import { Button } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 interface BroadcastResult {
 	digest: string;
 }
 
-function TransactionBytesInput({
+function BytesField({
+	id,
+	label,
+	testId,
+	placeholder,
+	rows,
 	value,
 	onChange,
 }: {
+	id: string;
+	label: string;
+	testId: string;
+	placeholder: string;
+	rows: number;
 	value: string;
 	onChange: (value: string) => void;
 }) {
 	return (
-		<div className="space-y-2">
-			<label
-				htmlFor="transaction-bytes"
-				className="text-sm font-medium text-muted-foreground"
-			>
-				Transaction Bytes (base64)
-			</label>
+		<div className="flex flex-col gap-2">
+			<Label htmlFor={id}>{label}</Label>
 			<Textarea
-				id="transaction-bytes"
-				data-testid="broadcast-bytes-input"
-				placeholder="Enter transaction bytes in base64 format..."
+				id={id}
+				data-testid={testId}
+				placeholder={placeholder}
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
-				rows={4}
-				className="font-mono text-sm"
-			/>
-		</div>
-	);
-}
-
-function SignatureInput({
-	value,
-	onChange,
-}: {
-	value: string;
-	onChange: (value: string) => void;
-}) {
-	return (
-		<div className="space-y-2">
-			<label
-				htmlFor="signature"
-				className="text-sm font-medium text-muted-foreground"
-			>
-				Combined Signature (base64)
-			</label>
-			<Textarea
-				id="signature"
-				data-testid="broadcast-signature-input"
-				placeholder="Enter combined signature in base64 format..."
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				rows={3}
-				className="font-mono text-sm"
+				rows={rows}
+				className="font-mono text-12"
 			/>
 		</div>
 	);
@@ -80,19 +58,17 @@ function BroadcastResultDisplay({
 }) {
 	return (
 		<div
-			className="border border-success-border bg-card rounded-lg p-4"
+			className="flex flex-col gap-4 rounded-lg border border-success-border bg-surface p-4"
 			data-testid="broadcast-result"
 			data-digest={result.digest}
 		>
-			<div className="flex items-center justify-between mb-3">
-				<div className="flex items-center gap-2">
+			<div className="flex items-center justify-between gap-3">
+				<div className="flex items-center gap-2 text-14 font-medium">
 					<Check
 						strokeWidth={3}
-						className="w-5 h-5 text-success-foreground"
+						className="size-4 text-success-foreground"
 					/>
-					<h3 className="font-medium text-foreground">
-						Transaction Broadcast Successfully
-					</h3>
+					Transaction broadcast
 				</div>
 				<Button
 					type="button"
@@ -101,15 +77,13 @@ function BroadcastResultDisplay({
 					size="sm"
 					data-testid="broadcast-reset-button"
 				>
-					Broadcast Another
+					Broadcast another
 				</Button>
 			</div>
-			<div className="space-y-3">
-				<FieldDisplay
-					label="Transaction Digest"
-					value={result.digest}
-				/>
-			</div>
+			<FieldDisplay
+				label="Transaction digest"
+				value={result.digest}
+			/>
 		</div>
 	);
 }
@@ -123,15 +97,14 @@ function BroadcastError({
 }) {
 	return (
 		<div
-			className="border border-error-border bg-card rounded-lg p-4"
+			role="alert"
+			className="flex flex-col gap-3 rounded-lg border border-error-border bg-error p-4"
 			data-testid="broadcast-error"
 		>
-			<div className="flex items-center justify-between mb-3">
-				<div className="flex items-center gap-2">
-					<AlertCircle className="w-5 h-5 text-error-foreground" />
-					<h3 className="font-medium text-foreground">
-						Broadcast Failed
-					</h3>
+			<div className="flex items-center justify-between gap-3">
+				<div className="flex items-center gap-2 text-14 font-medium text-error-foreground">
+					<AlertCircle className="size-4" />
+					Broadcast failed
 				</div>
 				<Button
 					type="button"
@@ -140,10 +113,10 @@ function BroadcastError({
 					size="sm"
 					data-testid="broadcast-reset-button"
 				>
-					Try Again
+					Try again
 				</Button>
 			</div>
-			<p className="text-sm text-error-foreground whitespace-pre-wrap">
+			<p className="text-13 whitespace-pre-wrap text-error-foreground">
 				{error}
 			</p>
 		</div>
@@ -218,59 +191,54 @@ export default function BroadcastTool() {
 		!broadcasting;
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center justify-between gap-4">
-				<div>
-					<p className="text-sm text-muted-foreground">
-						Broadcast a signed transaction to the Sui
-						network.
-					</p>
-				</div>
-				<NetworkSelector />
-			</div>
-
-			<div className="space-y-6">
-				{!result && !error && (
-					<>
-						<TransactionBytesInput
-							value={transactionBytes}
-							onChange={setTransactionBytes}
-						/>
-
-						<SignatureInput
-							value={signature}
-							onChange={setSignature}
-						/>
-
-						<div className="flex justify-end pt-4 border-t">
-							<Button
-								type="button"
-								onClick={handleBroadcast}
-								disabled={!canBroadcast}
-								data-testid="broadcast-button"
-							>
-								{broadcasting
-									? 'Broadcasting...'
-									: 'Broadcast Transaction'}
-							</Button>
-						</div>
-					</>
-				)}
-
-				{result && (
-					<BroadcastResultDisplay
-						result={result}
-						onReset={handleReset}
+		<div className="flex flex-col gap-6">
+			{!result && !error && (
+				<>
+					<BytesField
+						id="transaction-bytes"
+						label="Transaction bytes (base64)"
+						testId="broadcast-bytes-input"
+						placeholder="Paste the transaction bytes…"
+						rows={4}
+						value={transactionBytes}
+						onChange={setTransactionBytes}
 					/>
-				)}
-
-				{error && (
-					<BroadcastError
-						error={error}
-						onReset={handleReset}
+					<BytesField
+						id="signature"
+						label="Combined signature (base64)"
+						testId="broadcast-signature-input"
+						placeholder="Paste the combined signature…"
+						rows={3}
+						value={signature}
+						onChange={setSignature}
 					/>
-				)}
-			</div>
+					<div className="flex items-center justify-between gap-3 border-t pt-4">
+						<NetworkSelector />
+						<Button
+							type="button"
+							onClick={handleBroadcast}
+							disabled={!canBroadcast}
+							data-testid="broadcast-button"
+						>
+							{broadcasting ? 'Broadcasting…' : 'Broadcast'}
+						</Button>
+					</div>
+				</>
+			)}
+
+			{result && (
+				<BroadcastResultDisplay
+					result={result}
+					onReset={handleReset}
+				/>
+			)}
+
+			{error && (
+				<BroadcastError
+					error={error}
+					onReset={handleReset}
+				/>
+			)}
 		</div>
 	);
 }
