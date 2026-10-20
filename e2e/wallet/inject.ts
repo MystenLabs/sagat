@@ -26,13 +26,23 @@ declare global {
 
 type SignAndExecute =
 	DevWallet['features']['sui:signAndExecuteTransaction']['signAndExecuteTransaction'];
+type Connect =
+	DevWallet['features']['standard:connect']['connect'];
 
 // A transaction that executes but fails on chain comes back from real
 // wallets with its effects, which say it failed; the dev wallet throws
 // instead. Sign with the dev wallet and execute here, like a real wallet.
 class E2EWallet extends DevWallet {
+	// See `E2EWalletConfig.failRestore`.
+	failRestore = false;
+
 	get features() {
 		const features = super.features;
+		const { connect } = features['standard:connect'];
+		const restoreOrConnect: Connect = (input) =>
+			this.failRestore && input?.silent
+				? Promise.reject(new Error('restore failed'))
+				: connect(input);
 		const signAndExecuteTransaction: SignAndExecute =
 			async (input) => {
 				const { bytes, signature } =
@@ -58,6 +68,10 @@ class E2EWallet extends DevWallet {
 			};
 		return {
 			...features,
+			'standard:connect': {
+				version: '1.0.0' as const,
+				connect: restoreOrConnect,
+			},
 			'sui:signAndExecuteTransaction': {
 				version: '2.0.0' as const,
 				signAndExecuteTransaction,
@@ -98,6 +112,7 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 			get: () => chains,
 		});
 	}
+	wallet.failRestore = !!config.failRestore;
 	window.__e2eWallet = wallet;
 
 	const register = ({ register }: RegisterApi) =>

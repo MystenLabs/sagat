@@ -34,8 +34,9 @@ let kitStarted = false;
 /**
  * Whether the previous session is still being restored: `reconnecting`
  * while the wallet kit reconnects (capped), `checkingAuth` while the API
- * check for the connected address runs. The router and the shell both read
- * this so they hold and release together.
+ * check for the connected address runs, `holdWalletControls` while either
+ * does. The router and the shell both read this so they hold and release
+ * together.
  */
 export function useSessionBoot() {
 	const currentAccount = useCurrentAccount();
@@ -65,8 +66,11 @@ export function useSessionBoot() {
 		};
 	}, [restoring]);
 
+	const reconnecting = restoring && !capped;
+	const checkingAuth = !!currentAccount && isCheckingAuth;
 	return {
-		reconnecting: restoring && !capped,
-		checkingAuth: !!currentAccount && isCheckingAuth,
+		reconnecting,
+		checkingAuth,
+		holdWalletControls: reconnecting || checkingAuth,
 	};
 }

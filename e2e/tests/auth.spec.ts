@@ -73,7 +73,9 @@ test.describe('wallet sign-in', () => {
 	test("a saved session that can't be restored falls back to the connect prompt", async ({
 		createActor,
 	}) => {
-		const alice = await createActor('alice');
+		const alice = await createActor('alice', {
+			failRestore: true,
+		});
 		const { page } = alice;
 		const prompt = page.getByTestId(
 			'connect-wallet-prompt',
@@ -104,27 +106,6 @@ test.describe('wallet sign-in', () => {
 		// The installed wallet, for an address it doesn't hold, and its silent
 		// reconnect throws: the kit stays in `reconnecting` for good, so only
 		// the 3s cap lets the prompt show.
-		await page.addInitScript(() => {
-			const timer = setInterval(() => {
-				const wallet = window.__e2eWallet;
-				if (!wallet) return;
-				clearInterval(timer);
-				const features = Object.getOwnPropertyDescriptor(
-					Object.getPrototypeOf(wallet),
-					'features',
-				)!.get!;
-				Object.defineProperty(wallet, 'features', {
-					get: () => ({
-						...features.call(wallet),
-						'standard:connect': {
-							version: '1.0.0',
-							connect: () =>
-								Promise.reject(new Error('restore failed')),
-						},
-					}),
-				});
-			}, 10);
-		});
 		const stranger = new Ed25519Keypair().toSuiAddress();
 		await reloadWithSession(
 			`${E2E.walletName}:${stranger}:`,

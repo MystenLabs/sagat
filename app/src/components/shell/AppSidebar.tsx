@@ -58,6 +58,7 @@ import {
 	SidebarMenuBadge,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarMenuSkeleton,
 	SidebarRailTooltip,
 	SidebarSeparator,
 	SidebarTrigger,
@@ -116,7 +117,7 @@ export function AppSidebar() {
 	const location = useLocation();
 	const { setOpenMobile } = useSidebar();
 	const currentAccount = useCurrentAccount();
-	const { reconnecting, checkingAuth } = useSessionBoot();
+	const { holdWalletControls } = useSessionBoot();
 	const { isCurrentAddressAuthenticated } = useApiAuth();
 	const signedIn =
 		!!currentAccount && isCurrentAddressAuthenticated;
@@ -126,9 +127,7 @@ export function AppSidebar() {
 	// Restoring the session: wallet reconnecting, the API check running,
 	// or the accounts not here yet. Hold the layout with skeletons.
 	const booting =
-		reconnecting ||
-		checkingAuth ||
-		(signedIn && multisigsLoading);
+		holdWalletControls || (signedIn && multisigsLoading);
 	const { data: invitations } = useInvitations();
 	const pendingInvites = invitations?.length ?? 0;
 
@@ -355,7 +354,7 @@ export function AppSidebar() {
 						variant="row"
 						className={navItemClass}
 					/>
-					{reconnecting || checkingAuth ? (
+					{holdWalletControls ? (
 						<WalletRowSkeleton />
 					) : (
 						<CustomWalletButton variant="rail" />
@@ -406,19 +405,12 @@ function NavSkeleton() {
 			className="flex flex-col gap-0.5 pb-5 group-data-[collapsible=icon]:pb-0"
 			aria-hidden
 		>
-			{[0, 1, 2].map((i) => (
-				<div
-					key={i}
-					className="flex h-8 items-center gap-2.5 px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
-				>
-					<Skeleton className="size-4 rounded-sm bg-sidebar-accent" />
-					<Skeleton
-						className={cn(
-							'h-2.5 bg-sidebar-accent group-data-[collapsible=icon]:hidden',
-							i === 0 ? 'w-16' : i === 1 ? 'w-20' : 'w-12',
-						)}
-					/>
-				</div>
+			{[16, 20, 12].map((units) => (
+				<SidebarMenuSkeleton
+					key={units}
+					showIcon
+					width={`calc(var(--spacing) * ${units})`}
+				/>
 			))}
 		</div>
 	);
