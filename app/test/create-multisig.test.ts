@@ -449,7 +449,7 @@ describe('hidden characters in names', () => {
 			signers: [
 				signer('1', { isCreator: true, label: 'Maya' }),
 				signer('2', {
-					label: 'Daniel \u{1F469}‍\u{1F4BB}',
+					label: 'Daniel \u{1F469}\u200D\u{1F4BB}',
 				}),
 			],
 			threshold: 1,

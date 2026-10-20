@@ -26,6 +26,7 @@ import {
 	COPY,
 	invitedName,
 	nameError,
+	stripHiddenCharacters,
 	type SignerDraft,
 } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
@@ -44,10 +45,6 @@ import { SignersStep } from './SignersStep';
 // The API's reasons worth showing as they are; anything else gets the
 // general message.
 const SHOWN_STATUSES = [400, 409, 422];
-
-// Control and format characters, which a wallet's account name can carry
-// but a label can't.
-const INVISIBLE = /[\p{Cc}\p{Cf}]/gu;
 
 const newSigner = (id: number): SignerDraft => ({
 	id: `signer-${id}`,
@@ -96,9 +93,7 @@ export function CreateMultisigPage() {
 	// limit) until they edit it; the key always follows the wallet.
 	const [creatorNamed, setCreatorNamed] = useState(false);
 	const walletLabel = [
-		...(currentAccount?.label
-			?.replace(INVISIBLE, '')
-			.trim() ?? ''),
+		...stripHiddenCharacters(currentAccount?.label ?? ''),
 	]
 		.slice(0, CONFIG.MAX_KEY_LABEL_LENGTH)
 		.join('');

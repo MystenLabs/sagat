@@ -68,6 +68,13 @@ export function addressInput(key: string): string | null {
  */
 export const HIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}]/u;
 
+/** A wallet's account name as a label: hidden characters out, trimmed. */
+export function stripHiddenCharacters(value: string) {
+	return value
+		.replace(new RegExp(HIDDEN_CHARACTERS.source, 'gu'), '')
+		.trim();
+}
+
 /** Characters as the API counts them: code points, after trimming. */
 export function textLength(value: string) {
 	return [...value.normalize('NFC').trim()].length;
@@ -184,8 +191,10 @@ export function checkSigners({
 		const labelLength = textLength(signer.label);
 		const labelTooLong =
 			labelLength > CONFIG.MAX_KEY_LABEL_LENGTH;
+		// The trimmed value is what gets sent, so trailing whitespace or a
+		// stray BOM at the ends doesn't count.
 		const labelInvalid = HIDDEN_CHARACTERS.test(
-			signer.label,
+			signer.label.trim(),
 		);
 		const status = statuses[index];
 
