@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/tooltip';
 import { type SignerDraft } from '@/lib/create-multisig';
 import { validatePublicKey } from '@/lib/sui-utils';
+import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 
 import {
@@ -93,7 +94,7 @@ export function ReviewStep({
 					{totalWeight}
 				</Summary>
 				<Summary label="Threshold">
-					{threshold} of {totalWeight}
+					{thresholdLabel({ threshold, totalWeight })}
 				</Summary>
 			</dl>
 

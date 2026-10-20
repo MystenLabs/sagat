@@ -11,6 +11,7 @@ import {
 	AccordionTrigger,
 } from '@/components/ui/accordion';
 import { COPY, joinList } from '@/lib/create-multisig';
+import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 
 import { HELP } from './help';
@@ -83,7 +84,7 @@ export function PreviewCard({
 							className="text-12"
 							data-testid="create-preview-threshold"
 						>
-							{threshold} of {totalWeight}
+							{thresholdLabel({ threshold, totalWeight })}
 						</span>
 					) : (
 						<span className={cn('text-13', muted)}>
