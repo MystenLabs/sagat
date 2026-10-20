@@ -40,7 +40,7 @@ function PreviewModeHelp() {
 				<TooltipContent
 					side="bottom"
 					align="start"
-					className="max-w-sm bg-card text-card-foreground border shadow-lg"
+					className="max-w-sm bg-card text-card-foreground border"
 				>
 					<div className="space-y-2 text-xs leading-relaxed">
 						<p>

@@ -97,7 +97,7 @@ export function ProposalDetailPage() {
 	};
 
 	return (
-		<div className="page-shell mt-8">
+		<div className="page-shell">
 			<PageHeader
 				title="Proposal Details"
 				description={`Digest: ${digest}`}
@@ -147,7 +147,7 @@ function NetworkMismatchBanner({
 				<Button
 					size="sm"
 					onClick={onSwitch}
-					className="bg-warning-foreground hover:bg-warning-foreground/90 text-white"
+					className="bg-warning-foreground hover:bg-warning-foreground/90 text-background"
 				>
 					Switch to {requestedNetwork}
 				</Button>

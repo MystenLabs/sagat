@@ -11,6 +11,7 @@ import {
 import { useOutletContext } from 'react-router-dom';
 
 import { useGetMultisig } from '@/hooks/useGetMultisig';
+import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
@@ -48,9 +49,8 @@ export function OverviewTab() {
 		refetch,
 	} = useGetMultisig(multisig.address);
 
-	const totalWeight = multisigDetails?.members
-		.map((m) => m.weight)
-		.reduce((a, b) => a + b, 0);
+	const totalWeight =
+		multisigDetails?.totalWeight ?? multisig.totalWeight;
 
 	const handleExportComposition = () => {
 		downloadJson(
@@ -107,8 +107,11 @@ export function OverviewTab() {
 								data-threshold={multisig.threshold}
 								data-total-weight={totalWeight}
 							>
-								{multisig.threshold} of {totalWeight} weight
-								required
+								{thresholdLabel({
+									threshold: multisig.threshold,
+									totalWeight,
+								})}{' '}
+								weight required
 							</span>
 						</div>
 					</div>

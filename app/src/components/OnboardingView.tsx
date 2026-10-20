@@ -55,8 +55,8 @@ export function OnboardingView() {
 			{/* Features */}
 			<div className="grid md:grid-cols-3 gap-6 mt-16">
 				<div className="text-center p-6">
-					<div className="inline-flex items-center justify-center w-16 h-16 bg-info-soft rounded-full mb-4">
-						<Users className="w-8 h-8 text-info-foreground" />
+					<div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
+						<Users className="w-8 h-8 text-foreground" />
 					</div>
 					<h3 className="font-semibold text-lg mb-2">
 						Shared Control
@@ -81,10 +81,10 @@ export function OnboardingView() {
 				</div>
 
 				<div className="text-center p-6">
-					<div className="inline-flex items-center justify-center w-16 h-16 bg-info-soft rounded-full mb-4">
+					<div className="inline-flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
 						<Check
 							strokeWidth={3}
-							className="w-8 h-8 text-info-foreground"
+							className="w-8 h-8 text-foreground"
 						/>
 					</div>
 					<h3 className="font-semibold text-lg mb-2">

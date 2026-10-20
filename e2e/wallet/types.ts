@@ -8,4 +8,7 @@ export interface E2EWalletConfig {
 	rpcUrl: string;
 	// Bech32 `suiprivkey1…` Ed25519 secret keys, in account order.
 	accounts: { label: string; secretKey: string }[];
+	// The chains the wallet advertises. Defaults to the dev wallet's own list
+	// (every standard Sui chain plus `sui:localnet`).
+	chains?: `sui:${string}`[];
 }

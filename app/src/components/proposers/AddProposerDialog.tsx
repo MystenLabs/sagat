@@ -68,9 +68,7 @@ export function AddProposerDialog({
 	return (
 		<Modal open={open} onClose={handleClose} size="lg">
 			<ModalHeader
-				icon={
-					<Plus className="w-6 h-6 text-info-foreground" />
-				}
+				icon={<Plus className="w-6 h-6 text-foreground" />}
 				title="Add Proposer"
 			/>
 

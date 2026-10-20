@@ -10,7 +10,7 @@ export interface Tab {
 	label: string;
 	icon?: React.ReactNode;
 	count?: number;
-	countColor?: 'blue' | 'orange' | 'gray';
+	countColor?: 'gray' | 'orange';
 }
 
 interface TabsProps {
@@ -23,6 +23,11 @@ interface TabsProps {
 	testId?: string;
 }
 
+/**
+ * Filter tabs. `pills` is the redesign's segmented filter: the active pill
+ * is black with white text, the others white. `underline` is the quieter
+ * in-page variant, neutral as well.
+ */
 export function Tabs({
 	tabs,
 	activeTab,
@@ -38,7 +43,7 @@ export function Tabs({
 		return (
 			<div
 				className={cn(
-					'flex gap-2 overflow-x-auto',
+					'flex gap-1.5 overflow-x-auto',
 					className,
 				)}
 			>
@@ -49,24 +54,28 @@ export function Tabs({
 							key={tab.id}
 							type="button"
 							data-testid={tabTestId(tab.id)}
+							data-active={isActive || undefined}
 							onClick={() => onTabChange(tab.id)}
 							className={cn(
-								'px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer shrink-0',
+								'inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1.5 text-13 transition-colors',
 								isActive
-									? 'bg-info-soft text-info-foreground'
-									: 'text-muted-foreground hover:bg-accent',
+									? 'bg-primary font-medium text-primary-foreground'
+									: 'bg-card text-foreground hover:bg-accent',
 							)}
 						>
 							{tab.icon}
 							{tab.label}
 							{tab.count !== undefined && tab.count > 0 && (
-								<Chip
-									variant={isActive ? 'info' : 'neutral'}
-									size="sm"
-									className="ml-2"
+								<span
+									className={cn(
+										'text-12',
+										isActive
+											? 'text-primary-foreground/60'
+											: 'text-muted-foreground',
+									)}
 								>
 									{tab.count}
-								</Chip>
+								</span>
 							)}
 						</button>
 					);
@@ -83,12 +92,14 @@ export function Tabs({
 						key={tab.id}
 						type="button"
 						data-testid={tabTestId(tab.id)}
+						data-active={activeTab === tab.id || undefined}
 						onClick={() => onTabChange(tab.id)}
-						className={`flex cursor-pointer items-center gap-2 border-b-2 py-3 px-3 text-sm font-medium transition-colors ${
+						className={cn(
+							'-mb-px flex cursor-pointer items-center gap-2 border-b-2 px-3 py-3 text-13 font-medium transition-colors',
 							activeTab === tab.id
-								? 'border-info-border text-info-foreground'
-								: 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
-						}`}
+								? 'border-foreground text-foreground'
+								: 'border-transparent text-muted-foreground hover:border-border hover:text-foreground',
+						)}
 					>
 						{tab.icon}
 						{tab.label}
@@ -97,12 +108,10 @@ export function Tabs({
 								variant={
 									tab.countColor === 'orange'
 										? 'warning'
-										: tab.countColor === 'gray'
-											? 'neutral'
-											: 'info'
+										: 'neutral'
 								}
 								size="sm"
-								className="ml-2"
+								className="ml-1"
 							>
 								{tab.count}
 							</Chip>

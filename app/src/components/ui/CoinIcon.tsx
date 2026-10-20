@@ -68,7 +68,7 @@ function RecognizedBadge({
 	return (
 		<span
 			className={cn(
-				'absolute rounded-full bg-emerald-600 text-white ring-1 ring-background border border-emerald-300/80 flex items-center justify-center shadow-sm',
+				'absolute rounded-full bg-success-foreground text-primary-foreground ring-1 ring-background border border-success-border flex items-center justify-center',
 				badgeClassName,
 			)}
 			title="Recognized coin"
@@ -108,7 +108,7 @@ export function CoinIcon({
 				className={cn(
 					'relative',
 					wrapper,
-					'rounded-full flex items-center justify-center shrink-0 bg-[#4DA2FF]/10',
+					'rounded-full flex items-center justify-center shrink-0 bg-sui/10',
 					className,
 				)}
 				aria-label={symbol ? `${symbol} icon` : 'coin icon'}

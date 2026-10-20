@@ -5,6 +5,8 @@ import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { Mail, Plus } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 
+import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
+
 import { useInvitations } from '../hooks/useInvitations';
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { Button } from './ui/button';
@@ -23,7 +25,7 @@ export function SmartDashboard() {
 		// Check if there's a last viewed multisig for this wallet address
 		const walletAddress = currentAccount?.address;
 		const lastViewedKey = walletAddress
-			? `lastViewedMultisig_${walletAddress}`
+			? lastViewedMultisigKey(walletAddress)
 			: null;
 		const lastViewedMultisig = lastViewedKey
 			? localStorage.getItem(lastViewedKey)

@@ -83,7 +83,7 @@ export function MemberInput({
 		<div
 			ref={setNodeRef}
 			style={style}
-			className="flex gap-3 items-start p-3 border rounded-lg"
+			className="flex gap-3 items-start p-3 border rounded-lg bg-card"
 			data-testid="member-row"
 		>
 			{/* Drag handle */}
@@ -97,8 +97,8 @@ export function MemberInput({
 			</div>
 
 			{/* Member indicator */}
-			<div className="flex items-center justify-center w-8 h-8 rounded-full shrink-0 mt-1 bg-info-soft">
-				<Key className="w-4 h-4 text-info-foreground" />
+			<div className="flex items-center justify-center w-8 h-8 rounded-full shrink-0 mt-1 bg-muted">
+				<Key className="w-4 h-4 text-foreground" />
 			</div>
 
 			<div className="flex-1 space-y-2">

@@ -64,7 +64,7 @@ export function InvitationDetails({
 					>
 						{isProcessing ? (
 							<>
-								<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-2" />
+								<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
 								Accepting...
 							</>
 						) : (
