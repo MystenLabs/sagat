@@ -4,7 +4,8 @@
 /**
  * Signer set flows. They take plain input and the caller's keys (from the
  * JWT, or recovered from a signature), throw the errors in `../errors`, and
- * return rows: each router maps them to its own response shapes.
+ * return domain objects (rows, or rows grouped with what belongs to them,
+ * like `MultisigAccount`): each router maps them to its own response shapes.
  */
 
 import { PersonalMessages } from '@mysten/sagat';
@@ -28,6 +29,7 @@ import {
 	SchemaSignerSets,
 	type SignerSet,
 	type SignerSetMember,
+	type SignerSetOrigin,
 	type SignerSetWithMembers,
 } from '../db/schema';
 import {
@@ -36,7 +38,6 @@ import {
 	NotFoundError,
 	ValidationError,
 } from '../errors';
-import { type SignerSetOrigin } from '../legacy/serializers';
 import {
 	AccountKeyLabelsDataLoader,
 	type KeyLabels,
@@ -93,9 +94,8 @@ export type MultisigAccount = {
 	signerSet: SignerSetWithMembers;
 	proposers: Proposer[];
 	labels: KeyLabels;
-	// Who created it and when. The lookups below only find multisigs that
-	// have it, so null is not expected.
-	origin: SignerSetOrigin | null;
+	// Who created it and when. A signer set without it is not a multisig.
+	origin: SignerSetOrigin;
 };
 
 // The multisig at `address`, for a caller holding one of its keys (accepted
@@ -184,11 +184,17 @@ const loadMultisigAccounts = async (
 			throw accountProposers;
 		const keyLabels = labels[i];
 		if (keyLabels instanceof Error) throw keyLabels;
+		// Each signer set was loaded from a row, so it has one.
+		const origin = origins.get(signerSet.address);
+		if (!origin)
+			throw new Error(
+				`No origin for signer set ${signerSet.address}`,
+			);
 		return {
 			signerSet,
 			proposers: accountProposers,
 			labels: keyLabels,
-			origin: origins.get(signerSet.address) ?? null,
+			origin,
 		};
 	});
 };
@@ -213,7 +219,7 @@ export const listConnections = async ({
 
 	// Step 1: Find multisigs that the given publicKeys belong to
 	const rows = await selectMultisigAccounts(
-		and(...whereConditions.filter((x) => !!x)),
+		and(...whereConditions),
 	);
 
 	// Step 2: Expand multisigs to full objects with all members
@@ -274,7 +280,7 @@ export const listInvitations = async ({
 
 	// Step 1: Find multisigs for this public key's invitations
 	const rows = await selectMultisigAccounts(
-		and(...whereConditions.filter((x) => !!x)),
+		and(...whereConditions),
 	);
 
 	// Step 2: Expand multisigs to full objects with all members
@@ -370,7 +376,7 @@ export const isSignerSetFinalized = async (
 };
 
 // Get a list of pending proposals for a given multisig address.
-export const getPendingProposals = async (
+const getPendingProposals = async (
 	multisigAddress: string,
 	network: string,
 ) => {
@@ -387,7 +393,7 @@ export const getPendingProposals = async (
 };
 
 // Extracts all the owned or receiving objects from a supplied transaction.
-export const extractOwnedObjects = (tx: Transaction) => {
+const extractOwnedObjects = (tx: Transaction) => {
 	const { inputs, gasData } = tx.getData();
 	return [
 		...inputs.flatMap((input) =>

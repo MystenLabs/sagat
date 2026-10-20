@@ -4,7 +4,7 @@
 import { Hono, type Context } from 'hono';
 
 import {
-	toLegacyMultisigWithMembers,
+	toLegacyMultisigAccount,
 	type LegacyMultisigWithMembers,
 } from '../legacy/serializers';
 import {
@@ -18,23 +18,9 @@ import {
 import {
 	listConnections,
 	listInvitations,
-	type MultisigAccount,
 } from '../services/multisig.service';
 
 const addressesRouter = new Hono();
-
-const toLegacy = ({
-	signerSet,
-	proposers,
-	labels,
-	origin,
-}: MultisigAccount): LegacyMultisigWithMembers =>
-	toLegacyMultisigWithMembers(
-		signerSet,
-		proposers,
-		labels,
-		origin,
-	);
 
 /**
  * Register addresses from authenticated JWT context.
@@ -71,7 +57,9 @@ addressesRouter.get(
 			LegacyMultisigWithMembers[]
 		> = {};
 		for (const [publicKey, multisigs] of connections)
-			grouped[publicKey] = multisigs.map(toLegacy);
+			grouped[publicKey] = multisigs.map(
+				toLegacyMultisigAccount,
+			);
 
 		return c.json(grouped);
 	},
@@ -91,7 +79,7 @@ addressesRouter.get(
 			callerKeys: c.get('publicKeys'),
 		});
 
-		return c.json(invitations.map(toLegacy));
+		return c.json(invitations.map(toLegacyMultisigAccount));
 	},
 );
 

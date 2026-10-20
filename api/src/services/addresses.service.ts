@@ -1,6 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * Registered public keys and the Sui addresses they derive (keys are
+ * registered when they connect, are passed to `POST /addresses`, or are put
+ * in a multisig), plus loading signer sets by address.
+ */
+
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { eq } from 'drizzle-orm';
 
@@ -13,21 +19,6 @@ import {
 import { ValidationError } from '../errors';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import { parsePublicKey } from '../utils/pubKey';
-
-/**
- * Registers a single public key in the addresses table
- */
-export async function registerPublicKey(
-	publicKey: PublicKey,
-): Promise<void> {
-	await db
-		.insert(SchemaAddresses)
-		.values({
-			publicKey: publicKey.toSuiPublicKey(),
-			address: publicKey.toSuiAddress(),
-		})
-		.onConflictDoNothing();
-}
 
 /**
  * Registers multiple public keys in the addresses table

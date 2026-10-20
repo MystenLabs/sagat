@@ -5,8 +5,8 @@ import { Hono, type Context } from 'hono';
 
 import {
 	toLegacyMultisig,
+	toLegacyMultisigAccount,
 	toLegacyMultisigMember,
-	toLegacyMultisigWithMembers,
 } from '../legacy/serializers';
 import {
 	authMiddleware,
@@ -31,20 +31,12 @@ multisigRouter.get(
 	async (c: Context<AuthEnv>) => {
 		const { address } = c.req.param();
 
-		const { signerSet, proposers, labels, origin } =
-			await getMultisigAccount({
-				address,
-				callerKeys: c.get('publicKeys'),
-			});
+		const multisig = await getMultisigAccount({
+			address,
+			callerKeys: c.get('publicKeys'),
+		});
 
-		return c.json(
-			toLegacyMultisigWithMembers(
-				signerSet,
-				proposers,
-				labels,
-				origin,
-			),
-		);
+		return c.json(toLegacyMultisigAccount(multisig));
 	},
 );
 

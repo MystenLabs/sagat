@@ -14,15 +14,16 @@ import { type PublicProposal } from '@mysten/sagat';
 
 import type {
 	AccountProposer,
-	AccountSignerSet,
 	Proposal,
 	ProposalSignature,
 	ProposalWithSignatures,
 	SignerSet,
 	SignerSetMember,
+	SignerSetOrigin,
 	SignerSetWithMembers,
 } from '../db/schema';
 import { type KeyLabels } from '../loaders/account-keys.loader';
+import type { MultisigAccount } from '../services/multisig.service';
 import type { PaginatedResponse } from '../utils/pagination';
 
 export type LegacyMultisig = {
@@ -36,12 +37,6 @@ export type LegacyMultisig = {
 	draftedBy: string | null;
 	createdAt: Date | null;
 };
-
-/** Who drafted a signer set for an account, and when. */
-export type SignerSetOrigin = Pick<
-	AccountSignerSet,
-	'draftedBy' | 'createdAt'
->;
 
 export type LegacyMultisigMember = {
 	multisigAddress: string;
@@ -136,6 +131,20 @@ export const toLegacyMultisigWithMembers = (
 	totalMembers: signerSet.totalMembers,
 	totalWeight: signerSet.totalWeight,
 });
+
+// A multisig as the services return it, in the legacy shape.
+export const toLegacyMultisigAccount = ({
+	signerSet,
+	proposers,
+	labels,
+	origin,
+}: MultisigAccount): LegacyMultisigWithMembers =>
+	toLegacyMultisigWithMembers(
+		signerSet,
+		proposers,
+		labels,
+		origin,
+	);
 
 export const toLegacyProposal = (
 	proposal: Proposal,

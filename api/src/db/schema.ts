@@ -392,6 +392,11 @@ export type AccountAliasState =
 	typeof accountAliasState.$inferSelect;
 export type AccountSignerSet =
 	typeof accountSignerSets.$inferSelect;
+/** Who drafted a signer set for an account, and when. */
+export type SignerSetOrigin = Pick<
+	AccountSignerSet,
+	'draftedBy' | 'createdAt'
+>;
 export type AccountKey = typeof accountKeys.$inferSelect;
 
 export type ProposalWithSignatures = Proposal & {

@@ -3,7 +3,8 @@
 
 /**
  * Proposal flows. Like the signer set flows, they take plain input and the
- * caller's keys, throw the errors in `../errors`, and return rows.
+ * caller's keys, throw the errors in `../errors`, and return domain objects
+ * (rows, or composites like `ProposalTally`).
  */
 
 import { PersonalMessages } from '@mysten/sagat';
@@ -128,7 +129,7 @@ export const getProposalById = async (
 	};
 };
 
-export const getProposalsByAccountAddress = async (
+const getProposalsByAccountAddress = async (
 	multisigAddress: string,
 	network: string,
 	cursor: PaginationCursor,
@@ -201,7 +202,7 @@ export const getProposalsByAccountAddress = async (
  * records whether it succeeded. Returns the proposal's status afterwards;
  * a proposal that is no longer pending is returned as is.
  */
-export const lookupAndVerifyProposal = async (
+const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
 ): Promise<ProposalStatus> => {
 	if (proposal.status !== ProposalStatus.PENDING)
