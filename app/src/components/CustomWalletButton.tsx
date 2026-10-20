@@ -30,8 +30,12 @@ import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useDefaultSuinsName } from '../hooks/useDefaultSuinsName';
-import { useNetworkOptions } from '../hooks/useNetworkOptions';
+import { useNetworkOption } from '../hooks/useNetworkOptions';
 import { useOnClickOutside } from '../hooks/useOnClickOutside';
+import {
+	railSquareClass,
+	railTriggerClass,
+} from './shell/rail-classes';
 import { Button } from './ui/button';
 import { Chip } from './ui/chip';
 import { SidebarRailTooltip } from './ui/sidebar';
@@ -110,7 +114,11 @@ const RailTrigger = ({
 		tooltip={label}
 		aria-label={label}
 		{...props}
-		className="flex w-full cursor-pointer items-center gap-2.5 rounded-md p-2 text-left text-13 text-sidebar-foreground/70 outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+		className={cn(
+			'flex w-full items-center gap-2.5 rounded-md p-2 text-left text-13 text-sidebar-foreground/70 hover:text-sidebar-foreground',
+			railTriggerClass,
+			railSquareClass,
+		)}
 	>
 		{children}
 	</SidebarRailTooltip>
@@ -535,26 +543,24 @@ const Divider = () => <div className="border-t my-1"></div>;
 // A network switcher for the test mode.
 const NetworkSwitchingSection = () => {
 	const { isTestMode, setNetwork } = useNetwork();
-	const target = useNetworkOptions().find(
-		(option) =>
-			option.value === (isTestMode ? 'mainnet' : 'testnet'),
+	const target = useNetworkOption(
+		isTestMode ? 'mainnet' : 'testnet',
 	);
-	const hint = target ? target.hint : 'Not available';
 	return (
 		<>
 			<div className="flex h-9 items-center justify-between px-3 text-13">
 				<div className="flex items-center gap-2">
 					<Globe className="w-4 h-4" />
 					<span className="font-medium">Test Mode</span>
-					{hint && (
+					{target.hint && (
 						<span className="text-11 text-muted-foreground">
-							{hint}
+							{target.hint}
 						</span>
 					)}
 				</div>
 				<Switch
 					checked={isTestMode}
-					disabled={!target?.enabled}
+					disabled={!target.enabled}
 					onCheckedChange={(checked) =>
 						setNetwork(checked ? 'testnet' : 'mainnet')
 					}

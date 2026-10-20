@@ -10,7 +10,7 @@ export interface Tab {
 	label: string;
 	icon?: React.ReactNode;
 	count?: number;
-	countColor?: 'blue' | 'orange' | 'gray';
+	countColor?: 'gray' | 'orange';
 }
 
 interface TabsProps {

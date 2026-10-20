@@ -10,6 +10,10 @@ import {
 import { useTheme } from 'next-themes';
 
 import {
+	railSquareClass,
+	railTriggerClass,
+} from '@/components/shell/rail-classes';
+import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuGroup,
@@ -49,9 +53,11 @@ export function ThemeToggle({
 				aria-label={`Theme: ${active.label}`}
 				data-testid="theme-toggle"
 				className={cn(
-					'cursor-pointer items-center rounded-md outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent',
+					'items-center rounded-md data-open:bg-sidebar-accent',
+					railTriggerClass,
+					row && railSquareClass,
 					row
-						? 'flex h-8 w-full gap-2 p-2 text-left group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0'
+						? 'flex h-8 w-full gap-2 p-2 text-left'
 						: 'inline-flex size-7 shrink-0 justify-center',
 					className,
 				)}

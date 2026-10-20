@@ -31,6 +31,10 @@ import {
 	NetworkMenuItems,
 	NetworkStatusDot,
 } from '@/components/NetworkMenu';
+import {
+	railSquareClass,
+	railTriggerClass,
+} from '@/components/shell/rail-classes';
 import { ThemeToggle } from '@/components/shell/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import {
@@ -95,6 +99,10 @@ const MULTISIG_PAGES = [
 /** Nav label: 13px at 72% white, full white when active (from the designs). */
 const navItemClass =
 	'text-13 text-sidebar-foreground/70 data-active:text-sidebar-foreground hover:text-sidebar-foreground';
+
+// The short divider between nav groups, shown on the icon rail only.
+const separatorClass =
+	'mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block';
 
 // Hidden outright on the icon rail: the block only fades labels out and
 // pulls them up 32px, which would leave an invisible box over the item above.
@@ -220,7 +228,7 @@ export function AppSidebar() {
 					)}
 
 					{signedIn && (
-						<SidebarSeparator className="mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block" />
+						<SidebarSeparator className={separatorClass} />
 					)}
 					{signedIn && (
 						<SidebarGroup className="p-0 pb-5 group-data-[collapsible=icon]:pb-0">
@@ -258,7 +266,7 @@ export function AppSidebar() {
 						</SidebarGroup>
 					)}
 
-					<SidebarSeparator className="mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block" />
+					<SidebarSeparator className={separatorClass} />
 					<SidebarGroup className="p-0 pb-5 group-data-[collapsible=icon]:pb-0">
 						<SidebarGroupLabel className={groupLabelClass}>
 							Developer
@@ -289,7 +297,7 @@ export function AppSidebar() {
 						</SidebarGroupContent>
 					</SidebarGroup>
 
-					<SidebarSeparator className="mx-auto my-2 hidden w-4 data-[orientation=horizontal]:w-4 group-data-[collapsible=icon]:block" />
+					<SidebarSeparator className={separatorClass} />
 					<SidebarGroup className="p-0">
 						<SidebarGroupLabel className={groupLabelClass}>
 							Resources
@@ -372,7 +380,11 @@ function MultisigSwitcher({
 							}
 						/>
 					}
-					className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-left text-sidebar-foreground outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+					className={cn(
+						'flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-left text-sidebar-foreground data-open:bg-sidebar-accent',
+						railTriggerClass,
+						railSquareClass,
+					)}
 				>
 					<span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
 						{selected ? (
@@ -465,7 +477,9 @@ function NetworkRow() {
 					/>
 				}
 				className={cn(
-					'flex h-8 w-full cursor-pointer items-center gap-2 rounded-md p-2 text-left outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring data-open:bg-sidebar-accent group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0',
+					'flex h-8 w-full items-center gap-2 rounded-md p-2 text-left data-open:bg-sidebar-accent',
+					railTriggerClass,
+					railSquareClass,
 					navItemClass,
 				)}
 			>

@@ -27,8 +27,6 @@ interface PageHeaderProps {
 	backLink?: string;
 	backLabel?: string;
 	actions?: ReactNode;
-	/** @deprecated use `actions` */
-	action?: ReactNode;
 	className?: string;
 }
 
@@ -44,10 +42,8 @@ export function PageHeader({
 	backLink,
 	backLabel = 'Back',
 	actions,
-	action,
 	className,
 }: PageHeaderProps) {
-	const right = actions ?? action;
 	return (
 		<div
 			className={cn(
@@ -118,9 +114,9 @@ export function PageHeader({
 					</p>
 				)}
 			</div>
-			{right && (
+			{actions && (
 				<div className="flex shrink-0 items-center gap-2">
-					{right}
+					{actions}
 				</div>
 			)}
 		</div>

@@ -14,6 +14,8 @@
  * - shadows (`shadow-sm`, `shadow-lg`, ...) other than `shadow-none` and
  *   `shadow-toast`; depth comes from borders and surfaces
  * - arbitrary text sizes such as `text-[13px]`
+ * - a pixel text scale in `src/lib/utils.ts` (for tailwind-merge) that
+ *   differs from the `--text-NN` steps in `src/index.css`
  *
  * The default Tailwind text scale (`text-sm`, `text-lg`, ...) is reported
  * per file as legacy usage but does not fail: the pixel scale (`text-13`)
@@ -29,8 +31,11 @@ import {
 	statSync,
 } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../src/', import.meta.url).pathname;
+const ROOT = fileURLToPath(
+	new URL('../src/', import.meta.url),
+);
 const STRICT = process.argv.includes('--strict');
 const VERBOSE =
 	STRICT || process.argv.includes('--verbose');
@@ -85,7 +90,7 @@ const ERRORS: Rule[] = [
 	},
 	{
 		pattern:
-			/(?<![\w-])(?:[\w-]+:)*shadow-(?!(?:none|toast)(?![\w-]))[\w-]+/g,
+			/(?<![\w-])(?:[\w-]+:)*shadow-(?!(?:none|toast)(?![\w-]))(?:\[[^\]\s]*\]|\([^)\s]*\)|[\w-]+)/g,
 		message:
 			'shadow; the design system has none except shadow-toast, use a border',
 		// Old screens that are rebuilt on the design system; drop each one
@@ -143,6 +148,32 @@ for (const file of walk(ROOT).sort()) {
 	});
 
 	if (legacyHits) legacy.push([rel, legacyHits]);
+}
+
+// tailwind-merge only knows the text sizes listed in utils.ts; a step
+// missing there is read as a colour and dropped from merged class lists.
+const cssSizes = [
+	...readFileSync(join(ROOT, 'index.css'), 'utf8').matchAll(
+		/--text-(\d+):/g,
+	),
+].map((m) => m[1]);
+const mergeList = readFileSync(
+	join(ROOT, 'lib/utils.ts'),
+	'utf8',
+).match(/text:\s*\[([^\]]*)\]/)?.[1];
+const mergeSizes = [
+	...(mergeList ?? '').matchAll(/'(\d+)'/g),
+].map((m) => m[1]);
+const sameScale = (a: string[], b: string[]) =>
+	[...a].sort().join() === [...b].sort().join();
+if (
+	!mergeSizes.length ||
+	!sameScale(cssSizes, mergeSizes)
+) {
+	errorCount++;
+	console.error(
+		`src/lib/utils.ts: tailwind-merge text sizes [${mergeSizes.join(', ')}] differ from the --text-NN steps in src/index.css [${cssSizes.join(', ')}]; keep the two lists in sync`,
+	);
 }
 
 if (legacy.length) {

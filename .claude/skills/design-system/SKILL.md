@@ -31,13 +31,14 @@ colours, so there is no judgment call here.
 
 | Need                     | Use                                                                                                                                     |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Page background / text   | `bg-background`, `text-foreground`, `text-foreground-secondary`, `text-foreground-disabled`                                             |
+| Page background / text   | `bg-background`, `text-foreground`, `text-foreground-secondary`                                                                         |
 | Card or panel            | `rounded-xl border bg-card` (radius 10, hairline `border-border`)                                                                       |
 | Popovers, menus          | `bg-popover text-popover-foreground`                                                                                                    |
 | Primary action           | `bg-primary text-primary-foreground` (black on light, white on dark)                                                                    |
 | Secondary surfaces       | `bg-secondary`, `bg-muted`, `bg-accent` (hover rows), `bg-surface`, `bg-surface-hover`, `bg-row-selected`                               |
 | Dimmed text              | `text-muted-foreground`                                                                                                                 |
-| Status                   | `bg-success text-success-foreground border-success-border`, same for `warning`, `info`, `error`, `purple`; `-soft` for the lighter tint |
+| Status                   | `bg-success text-success-foreground border-success-border`, same for `warning`, `info`, `error`; and `bg-purple text-purple-foreground` |
+| Status, lighter tint     | `bg-success-soft`, `bg-warning-soft`, `bg-info-soft` for a lighter tint of the colour; there are no `bg-error-soft` or `bg-purple-soft` |
 | Destructive              | `bg-destructive`, `text-destructive`, `border-destructive`                                                                              |
 | Inputs and focus         | `border-input`, `ring-ring`                                                                                                             |
 | Sidebar                  | `bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-accent`, `border-sidebar-border`                                                   |
@@ -75,8 +76,8 @@ Rules:
 
 ### Spacing and shape
 
-- Radius: `rounded-md` (6) on controls, `rounded-xl` (10) on cards,
-  `rounded-2xl` (12) on dialogs and table shells. Pills use
+- Radius: `rounded-md` (6) on controls, `rounded-xl` (10) on cards
+  and dialogs, `rounded-2xl` (12) on table shells. Pills use
   `rounded-full`.
 - No shadows except `shadow-toast`. Depth comes from borders and
   surface changes.

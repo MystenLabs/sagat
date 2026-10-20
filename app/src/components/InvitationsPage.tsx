@@ -47,7 +47,7 @@ export function InvitationsPage() {
 				id: 'pending',
 				label: 'Pending',
 				count: pendingInvites?.length,
-				countColor: 'blue' as const,
+				countColor: 'gray' as const,
 			},
 			{
 				id: 'rejected',

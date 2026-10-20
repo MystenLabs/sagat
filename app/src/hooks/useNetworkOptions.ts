@@ -9,6 +9,7 @@ import {
 	type SuiNetwork,
 } from '@/contexts/NetworkContext';
 import { API_BASE_URL } from '@/lib/api';
+import { QueryKeys } from '@/lib/queryKeys';
 
 export interface NetworkOption {
 	value: SuiNetwork;
@@ -47,7 +48,7 @@ export function useNetworkOptions(
 ): NetworkOption[] {
 	const { wallet } = useWalletConnection();
 	const { data } = useQuery({
-		queryKey: ['api-health'],
+		queryKey: [QueryKeys.ApiHealth],
 		queryFn: async () => {
 			const response = await fetch(
 				`${API_BASE_URL}/health`,
@@ -80,4 +81,23 @@ export function useNetworkOptions(
 			? { value, enabled }
 			: { value, enabled, hint: `Not in ${wallet?.name}` };
 	});
+}
+
+/**
+ * One network's option from `useNetworkOptions`, or a disabled stand-in
+ * with a hint when the picker does not offer that network at all.
+ */
+export function useNetworkOption(
+	network: SuiNetwork,
+	scope: NetworkScope = 'app',
+): NetworkOption {
+	return (
+		useNetworkOptions(scope).find(
+			(option) => option.value === network,
+		) ?? {
+			value: network,
+			enabled: false,
+			hint: 'Not available',
+		}
+	);
 }
