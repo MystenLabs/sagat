@@ -13,6 +13,7 @@ import { db } from '../db';
 import {
 	AccountSignerSetStatus,
 	ProposalStatus,
+	SchemaAccountKeys,
 	SchemaAccountProposers,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
@@ -29,6 +30,7 @@ import {
 	toLegacyMultisig,
 	toLegacyMultisigMember,
 } from '../legacy/serializers';
+import { normalizeKeyLabels } from '../services/account-keys.service';
 import {
 	registerPublicKeyStrings,
 	validatePersonalMessage,
@@ -44,6 +46,7 @@ import {
 	isSignerSetFinalized,
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
+	validateMemberCount,
 	validateQuorum,
 } from '../services/multisig.service';
 import {
@@ -91,12 +94,24 @@ multisigRouter.post(
 			weights,
 			threshold,
 			name,
+			labels: rawLabels,
 		}: {
 			publicKeys: string[];
 			weights: number[];
 			threshold: number;
 			name?: string;
+			// Optional, aligned with `publicKeys`: what this account calls each
+			// key. Unvalidated until `normalizeKeyLabels`.
+			labels?: unknown;
 		} = await c.req.json();
+
+		// Pure checks first, before anything is written. The member count is
+		// bounded before anything is sized by it.
+		validateMemberCount(publicKeys);
+		const labels = normalizeKeyLabels(
+			rawLabels,
+			publicKeys.length,
+		);
 
 		// Get a list of the public keys that are authorized.
 		const authorizedPubKeys = c.get('publicKeys');
@@ -118,6 +133,17 @@ multisigRouter.post(
 
 		// Validate the quorum with computed addresses
 		await validateQuorum(addresses, weights, threshold);
+
+		// Anyone holding a key may set up a multisig for others, but only a
+		// member may name its keys: labels are shown to every member and there
+		// is no route to change them, so an outsider must not get to write them.
+		const callerIsMember = authorizedPubKeys.some((k) =>
+			addresses.includes(k.toSuiAddress()),
+		);
+		if (!callerIsMember && labels.some((l) => l !== null))
+			throw new ValidationError(
+				'Only a member of the multisig can label its keys.',
+			);
 
 		const multisig = MultiSigPublicKey.fromPublicKeys({
 			threshold,
@@ -189,9 +215,31 @@ multisigRouter.post(
 				)
 				.returning();
 
+			// The account's names for its keys. Only labelled keys get a row.
+			const keyLabels = new Map<string, string>();
+			parsedPubKeys.forEach((key, index) => {
+				const label = labels[index];
+				if (label !== null)
+					keyLabels.set(key.toSuiPublicKey(), label);
+			});
+			if (keyLabels.size > 0)
+				await tx.insert(SchemaAccountKeys).values(
+					[...keyLabels].map(([publicKey, label]) => ({
+						accountAddress: msig.address,
+						publicKey,
+						label,
+						updatedBy: creator.toSuiAddress(),
+					})),
+				);
+
 			return {
 				multisig: toLegacyMultisig(msig),
-				members: members.map(toLegacyMultisigMember),
+				members: members.map((member) =>
+					toLegacyMultisigMember(
+						member,
+						keyLabels.get(member.publicKey) ?? null,
+					),
+				),
 			};
 		});
 

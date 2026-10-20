@@ -325,6 +325,43 @@ const accountSignerSets = pgTable(
 	],
 );
 
+// A key as one account knows it. Keyed by the account and the public key,
+// not by the signer set member row: a key carries over across rotations and
+// a composition can be shared by several accounts. Rows are optional; a key
+// without a row simply has no label. Written by the create route only, and
+// only by a member; there is no update route. Drafting a new signer set
+// during rotation (phase 3) is meant to be the second entry point. Later
+// columns (role, last active, link to a person) are each nullable additions.
+// The validator in `account-keys.service.ts` enforces the same limit, so a
+// label that passes validation always fits the column.
+export const MAX_KEY_LABEL_LENGTH = 64;
+
+const accountKeys = pgTable(
+	'account_keys',
+	{
+		accountAddress: text('account_address')
+			.notNull()
+			.references(() => accounts.address),
+		publicKey: text('public_key')
+			.notNull()
+			.references(() => addresses.publicKey),
+		// What this account calls the key (e.g. "Alice's Ledger"). Short on
+		// purpose: it sits next to a key in lists.
+		label: varchar('label', {
+			length: MAX_KEY_LABEL_LENGTH,
+		}),
+		updatedBy: text('updated_by').notNull(),
+		updatedAt: timestamp('updated_at')
+			.notNull()
+			.default(sql`NOW()`),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.accountAddress, table.publicKey],
+		}),
+	],
+);
+
 // Export re-usable types.
 
 export const SchemaAddresses = addresses;
@@ -337,6 +374,7 @@ export const SchemaAccountProposers = accountProposers;
 export const SchemaAccountAliases = accountAliases;
 export const SchemaAccountAliasState = accountAliasState;
 export const SchemaAccountSignerSets = accountSignerSets;
+export const SchemaAccountKeys = accountKeys;
 
 export type Proposal = typeof proposals.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
@@ -354,6 +392,7 @@ export type AccountAliasState =
 	typeof accountAliasState.$inferSelect;
 export type AccountSignerSet =
 	typeof accountSignerSets.$inferSelect;
+export type AccountKey = typeof accountKeys.$inferSelect;
 
 export type ProposalWithSignatures = Proposal & {
 	signatures: ProposalSignature[];

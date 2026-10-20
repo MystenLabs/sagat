@@ -5,6 +5,7 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
 import { and, eq, inArray } from 'drizzle-orm';
 
+import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
 	ProposalStatus,
@@ -14,6 +15,7 @@ import {
 } from '../db/schema';
 import { NotFoundError, ValidationError } from '../errors';
 import { toLegacyMultisigWithMembers } from '../legacy/serializers';
+import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import {
@@ -34,17 +36,39 @@ export const getSignerSet = async (address: string) => {
 export const getLegacyMultisig = async (
 	address: string,
 ) => {
-	const [signerSet, account, proposers] = await Promise.all(
-		[
+	const [signerSet, account, proposers, labels] =
+		await Promise.all([
 			SignerSetDataLoader.load(address),
 			db.query.SchemaAccounts.findFirst({
 				where: eq(SchemaAccounts.address, address),
 			}),
 			AccountProposersDataLoader.load(address),
-		],
-	);
+			AccountKeyLabelsDataLoader.load(address),
+		]);
 	if (!signerSet || !account) throw new NotFoundError();
-	return toLegacyMultisigWithMembers(signerSet, proposers);
+	return toLegacyMultisigWithMembers(
+		signerSet,
+		proposers,
+		labels,
+	);
+};
+
+/**
+ * Bounds the member count of a create request. Pure and cheap, so the
+ * create route runs it before anything is sized by `publicKeys.length`:
+ * an unbounded length from the request body must never reach an
+ * allocation.
+ */
+export const validateMemberCount = (members: unknown) => {
+	if (
+		!Array.isArray(members) ||
+		members.length > LIMITS.maxMembersPerMultisig ||
+		members.length < LIMITS.minMembersPerMultisig
+	) {
+		throw new ValidationError(
+			`Addresses cannot be more than ${LIMITS.maxMembersPerMultisig} or less than ${LIMITS.minMembersPerMultisig}`,
+		);
+	}
 };
 
 export const validateQuorum = async (
@@ -58,11 +82,7 @@ export const validateQuorum = async (
 		);
 	}
 
-	if (addresses.length > 10 || addresses.length < 2) {
-		throw new ValidationError(
-			'Addresses cannot be more than 10 or less than 2',
-		);
-	}
+	validateMemberCount(addresses);
 
 	// validate weights.
 	weights.forEach((weight) => {

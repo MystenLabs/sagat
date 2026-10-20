@@ -62,6 +62,7 @@ export async function clearTestData(
 	await db.delete(schema.SchemaProposalSignatures);
 	await db.delete(schema.SchemaProposals);
 	await db.delete(schema.SchemaAccountSignerSets);
+	await db.delete(schema.SchemaAccountKeys);
 	await db.delete(schema.SchemaAccountAliases);
 	await db.delete(schema.SchemaAccountAliasState);
 	await db.delete(schema.SchemaSignerSetMembers);

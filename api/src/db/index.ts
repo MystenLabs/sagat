@@ -12,6 +12,7 @@ import { databaseUrl } from './database-url';
 import {
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
+	SchemaAccountKeys,
 	SchemaAccountProposers,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
@@ -76,5 +77,6 @@ export const db = drizzle(pool, {
 		SchemaAccountAliases,
 		SchemaAccountAliasState,
 		SchemaAccountSignerSets,
+		SchemaAccountKeys,
 	},
 });

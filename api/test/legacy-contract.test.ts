@@ -243,6 +243,7 @@ async function driveLegacyRoutes(app: Hono) {
 	await client.registerAddresses();
 	const multisig = await session.createMultisig(users, 2, {
 		name: 'Treasury',
+		labels: ["Alice's Ledger", null, 'Ops key'],
 		fund: true,
 	});
 	for (const user of users.slice(1))
