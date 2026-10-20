@@ -49,6 +49,20 @@ export interface Multisig {
 	isVerified: boolean;
 	threshold: number;
 	name: string | null;
+	/**
+	 * The address of the authenticated key that created the multisig: its
+	 * key in the composition when it has one, so it need not be the first
+	 * member, and it may not be a member at all. Multisigs created before
+	 * the account rotation migration (0009) carry their own address. Null
+	 * when unknown.
+	 */
+	draftedBy: string | null;
+	/**
+	 * When the multisig was created, as an ISO timestamp. Multisigs created
+	 * before the account rotation migration (0009) carry the time that
+	 * migration ran. Null when unknown.
+	 */
+	createdAt: string | null;
 }
 
 export interface MultisigMember {

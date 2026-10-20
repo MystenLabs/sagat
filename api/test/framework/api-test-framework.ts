@@ -161,7 +161,7 @@ export class TestSession {
 		member: TestUser,
 		multisigAddress: string,
 	) {
-		await this.client.acceptMultisigInvite(
+		return this.client.acceptMultisigInvite(
 			multisigAddress,
 			{
 				signature: await sign(

@@ -129,7 +129,7 @@ export class SagatClient {
 		address: string,
 		data: SignedMessageRequest,
 	) {
-		return this.#request<{ success: boolean }>(
+		return this.#request<Multisig>(
 			`/multisig/${address}/accept`,
 			{
 				method: 'POST',
