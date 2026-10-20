@@ -1,63 +1,28 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	PersonalMessages,
-	type PublicProposal,
-} from '@mysten/sagat';
-import { Transaction } from '@mysten/sui/transactions';
-import {
-	fromBase64,
-	isValidTransactionDigest,
-} from '@mysten/sui/utils';
-import { eq } from 'drizzle-orm';
 import { Hono, type Context } from 'hono';
 
-import { db } from '../db';
-import { validateNetwork } from '../db/env';
-import {
-	ProposalStatus,
-	proposalStatusFromString,
-	SchemaProposals,
-	SchemaProposalSignatures,
-} from '../db/schema';
-import {
-	ApiAuthError,
-	CommonError,
-	NotFoundError,
-	ValidationError,
-} from '../errors';
 import {
 	toLegacyPaginatedProposals,
 	toLegacyProposal,
-	toLegacyProposalWithSignatures,
+	toLegacyPublicProposal,
 } from '../legacy/serializers';
-import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
-import { ProposalByDigestLoader } from '../loaders/proposals.loader';
-import {
-	MultisigEventType,
-	multisigProposalEvents,
-} from '../metrics';
 import {
 	authMiddleware,
 	type AuthEnv,
 } from '../services/auth.service';
 import {
-	isSignerSetMember,
-	jwtHasSignerSetMemberAccess,
-} from '../services/membership.service';
-import {
-	getSignerSet,
-	validateProposedTransaction,
-} from '../services/multisig.service';
-import {
-	getProposalById,
-	getProposalsByAccountAddress,
-	lookupAndVerifyProposal,
+	cancelProposal,
+	createProposal,
+	getProposalByDigest,
+	listProposals,
+	verifyProposal,
+	verifyProposalByDigest,
+	voteOnProposal,
+	type CreateProposalInput,
 } from '../services/proposals.service';
-import { validatePersonalMessage } from '../services/signatures.service';
 import { newCursor } from '../utils/pagination';
-import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 
 const proposalsRouter = new Hono();
 
@@ -69,94 +34,14 @@ proposalsRouter.post('/', async (c) => {
 		signature,
 		description,
 		network,
-	} = await c.req.json();
+	}: CreateProposalInput = await c.req.json();
 
-	validateNetwork(network);
-
-	// Get the public key out of the sui signature.
-	const pubKey =
-		getPublicKeyFromSerializedSignature(signature);
-	const multisig = await getSignerSet(multisigAddress);
-
-	const isMember = multisig.members.some(
-		(member) =>
-			member.publicKey === pubKey.toSuiPublicKey() &&
-			member.isAccepted,
-	);
-	const proposers =
-		await AccountProposersDataLoader.load(multisigAddress);
-	const isProposer = proposers.some(
-		(proposer) =>
-			proposer.address === pubKey.toSuiAddress(),
-	);
-
-	if (!isMember && !isProposer)
-		throw new ApiAuthError('NotAMultisigMember');
-
-	const proposedTransaction = Transaction.from(
-		transactionBytes,
-	);
-
-	// We do not currently allow unresolved txs, and resolving one would need
-	// RPC calls.
-	if (!proposedTransaction.isFullyResolved())
-		throw new ValidationError(
-			'The transaction is not fully resolved.',
-		);
-
-	// Verify the supplied user signature before doing any RPC work for the
-	// request. A fully resolved transaction builds without a client.
-	const built = await proposedTransaction.build();
-	const isValidSuiSignature =
-		await pubKey.verifyTransaction(built, signature);
-
-	if (!isValidSuiSignature)
-		throw new ValidationError(
-			'Invalid Sui signature for the proposed transaction.',
-		);
-
-	// Validate the proposed transaction for:
-	// 1. No other pending proposal with the same owned objects in them.
-	// 2. The transaction is not already in a pending proposal.
-	await validateProposedTransaction(
-		proposedTransaction,
+	const proposal = await createProposal({
 		multisigAddress,
+		transactionBytes,
+		signature,
+		description,
 		network,
-	);
-
-	// Insert the proposal and the first sig!
-	const proposal = await db.transaction(async (tx) => {
-		const proposal = await tx
-			.insert(SchemaProposals)
-			.values({
-				accountAddress: multisigAddress,
-				digest: await proposedTransaction.getDigest(),
-				transactionBytes: built.toBase64(),
-				proposerAddress: pubKey.toSuiAddress(),
-				description,
-				network,
-			})
-			.returning();
-
-		// We only save the signature if the proposer is a member.
-		if (isMember) {
-			await tx.insert(SchemaProposalSignatures).values({
-				proposalId: proposal[0].id,
-				publicKey: pubKey.toSuiPublicKey(),
-				signature,
-			});
-			multisigProposalEvents.inc({
-				network,
-				event_type: MultisigEventType.SIGNATURE_ADDED,
-			});
-		}
-
-		return proposal[0];
-	});
-
-	multisigProposalEvents.inc({
-		network,
-		event_type: MultisigEventType.PROPOSAL_CREATED,
 	});
 
 	return c.json(toLegacyProposal(proposal), 201);
@@ -167,119 +52,22 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 	const { signature } = await c.req.json();
 	const { proposalId } = c.req.param();
 
-	const proposal = await getProposalById(
-		parseInt(proposalId),
-	);
-
-	const pubKey =
-		getPublicKeyFromSerializedSignature(signature);
-
-	if (
-		!(await isSignerSetMember(
-			proposal.accountAddress,
-			pubKey,
-			false,
-		))
-	)
-		throw new ApiAuthError('NotAMultisigMember');
-
-	if (proposal.status !== ProposalStatus.PENDING)
-		throw new ValidationError('Proposal is not pending');
-
-	if (
-		proposal.signatures.some(
-			(sig) => sig?.publicKey === pubKey.toSuiPublicKey(),
-		)
-	)
-		throw new ValidationError(
-			'Voter has already voted for this proposal',
-		);
-
-	const isValidSuiSignature =
-		await pubKey.verifyTransaction(
-			fromBase64(proposal.transactionBytes),
-			signature,
-		);
-
-	if (!isValidSuiSignature)
-		throw new ValidationError(
-			'Invalid Sui signature for the proposed transaction.',
-		);
-
-	const signatureObject = {
-		proposalId: proposal.id,
-		publicKey: pubKey.toSuiPublicKey(),
+	const { hasReachedThreshold } = await voteOnProposal({
+		proposalId: parseInt(proposalId),
 		signature,
-	};
-
-	// cast the vote in the DB.
-	await db
-		.insert(SchemaProposalSignatures)
-		.values(signatureObject);
-	proposal.signatures.push(signatureObject);
-
-	multisigProposalEvents.inc({
-		network: proposal.network,
-		event_type: MultisigEventType.SIGNATURE_ADDED,
 	});
 
-	const multisig = await getSignerSet(
-		proposal.accountAddress,
-	);
-	let totalVotes = 0;
-
-	for (const sig of proposal.signatures) {
-		totalVotes +=
-			multisig.members.find(
-				(member) => member?.publicKey === sig?.publicKey,
-			)?.weight || 0;
-	}
-
-	return c.json({
-		hasReachedThreshold: totalVotes >= multisig.threshold,
-	});
+	return c.json({ hasReachedThreshold });
 });
 
 // Cancel a transaction as a valid member of the commitee.
-// TODO: this is pretty powerful (but probably safe to do).
 proposalsRouter.post('/:proposalId/cancel', async (c) => {
 	const { proposalId } = c.req.param();
 	const { signature } = await c.req.json();
 
-	const proposal = await getProposalById(
-		parseInt(proposalId),
-	);
-
-	if (proposal.status !== ProposalStatus.PENDING)
-		throw new ValidationError('Proposal is not pending');
-
-	const pubKey =
-		getPublicKeyFromSerializedSignature(signature);
-
-	if (
-		!(await isSignerSetMember(
-			proposal.accountAddress,
-			pubKey,
-		))
-	)
-		throw new ValidationError(
-			'Not a member of the multisig',
-		);
-
-	await validatePersonalMessage(
-		pubKey,
+	await cancelProposal({
+		proposalId: parseInt(proposalId),
 		signature,
-		PersonalMessages.cancelProposal(parseInt(proposalId)),
-	);
-
-	await db
-		.update(SchemaProposals)
-		.set({ status: ProposalStatus.CANCELLED })
-		.where(eq(SchemaProposals.id, proposal.id));
-
-	multisigProposalEvents.inc({
-		network: proposal.network,
-		event_type: MultisigEventType.PROPOSAL_CANCELLED,
 	});
 
 	return c.json({
@@ -292,23 +80,14 @@ proposalsRouter.post(
 	'/:proposalId/verify',
 	authMiddleware,
 	async (c: Context<AuthEnv>) => {
-		const publicKeys = c.get('publicKeys');
 		const { proposalId } = c.req.param();
-		const proposal = await getProposalById(
-			parseInt(proposalId),
-		);
 
-		if (
-			!(await jwtHasSignerSetMemberAccess(
-				proposal.accountAddress,
-				publicKeys,
-			))
-		)
-			throw new ApiAuthError('NotAMultisigMember');
+		await verifyProposal({
+			proposalId: parseInt(proposalId),
+			callerKeys: c.get('publicKeys'),
+		});
 
-		const result = await lookupAndVerifyProposal(proposal);
-
-		return c.json(result);
+		return c.json({ verified: true });
 	},
 );
 
@@ -318,14 +97,9 @@ proposalsRouter.post(
 	async (c) => {
 		const { digest } = c.req.param();
 
-		const proposal =
-			await ProposalByDigestLoader.load(digest);
+		await verifyProposalByDigest(digest);
 
-		if (!proposal) throw new NotFoundError();
-
-		const result = await lookupAndVerifyProposal(proposal);
-
-		return c.json(result);
+		return c.json({ verified: true });
 	},
 );
 
@@ -333,7 +107,6 @@ proposalsRouter.get(
 	'/',
 	authMiddleware,
 	async (c: Context<AuthEnv>) => {
-		const publicKeys = c.get('publicKeys');
 		const {
 			multisigAddress,
 			status,
@@ -341,22 +114,14 @@ proposalsRouter.get(
 			nextCursor,
 			perPage,
 		} = c.req.query();
-		validateNetwork(network);
 
-		if (
-			!(await jwtHasSignerSetMemberAccess(
-				multisigAddress,
-				publicKeys,
-			))
-		)
-			throw new ApiAuthError('NotAMultisigMember');
-
-		const proposals = await getProposalsByAccountAddress(
+		const proposals = await listProposals({
 			multisigAddress,
 			network,
-			newCursor({ nextCursor, perPage }),
-			status ? proposalStatusFromString(status) : undefined,
-		);
+			status,
+			cursor: newCursor({ nextCursor, perPage }),
+			callerKeys: c.get('publicKeys'),
+		});
 
 		return c.json(toLegacyPaginatedProposals(proposals));
 	},
@@ -365,48 +130,16 @@ proposalsRouter.get(
 proposalsRouter.get('/digest/:digest', async (c) => {
 	const { digest } = c.req.param();
 
-	if (!isValidTransactionDigest(digest))
-		throw new CommonError('InvalidDigest');
+	const { proposal, signerSet, currentWeight } =
+		await getProposalByDigest(digest);
 
-	const proposal =
-		await ProposalByDigestLoader.load(digest);
-
-	if (!proposal) throw new NotFoundError();
-
-	const multisig = await getSignerSet(
-		proposal.accountAddress,
+	return c.json(
+		toLegacyPublicProposal(
+			proposal,
+			signerSet,
+			currentWeight,
+		),
 	);
-
-	const currentWeight = proposal.signatures.reduce(
-		(acc, sig) =>
-			acc +
-			(multisig.members.find(
-				(member) => member.publicKey === sig.publicKey,
-			)?.weight ?? 0),
-		0,
-	);
-
-	// We are hiding the proposers on purpose, as this is not
-	// public information worth sharing. The same goes for key labels
-	// (`account_keys`): they are only ever returned on authenticated
-	// routes. The multisig composition is public, so that is fine.
-	const proposalWithMultisig: PublicProposal = {
-		...toLegacyProposalWithSignatures(proposal),
-		currentWeight,
-		totalWeight: multisig.threshold,
-		multisig: {
-			address: multisig.address,
-			name: multisig.name,
-			threshold: multisig.threshold,
-			members: multisig.members.map((member) => ({
-				publicKey: member.publicKey,
-				weight: member.weight,
-				order: member.order,
-			})),
-		},
-	};
-
-	return c.json(proposalWithMultisig);
 });
 
 export default proposalsRouter;
