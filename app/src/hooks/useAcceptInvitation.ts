@@ -19,6 +19,9 @@ export function useAcceptInvitation() {
 	const dappKit = useDAppKit();
 	const navigate = useNavigate();
 	const { currentAddress } = useApiAuth();
+	// Read live rather than from this render: the card may have unmounted.
+	const currentAccountAddress = () =>
+		dappKit.stores.$connection.get().account?.address;
 
 	return useMutation({
 		mutationFn: async ({
@@ -46,20 +49,40 @@ export function useAcceptInvitation() {
 				},
 			);
 		},
+		// Note who is accepting, and where, so a late response doesn't pull
+		// the user away after they switched accounts or left the page.
+		onMutate: () => ({
+			account: currentAccountAddress(),
+			path: window.location.pathname,
+		}),
 		// Lives here rather than in the caller: the invitation card unmounts
 		// as soon as the inbox refetches, which drops per-call callbacks.
 		// The accept has landed, so go to the account right away; the
 		// account page waits for the refreshed list instead of blocking
 		// the button on it.
-		onSuccess: (_data, { address }) => {
+		onSuccess: (_data, { address }, started) => {
 			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
 			});
 			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Invitations],
 			});
+			const stillHere =
+				currentAccountAddress() === started.account &&
+				window.location.pathname === started.path;
+			if (!stillHere) return;
 			navigate(`/multisig/${address}/overview`, {
 				state: { joined: true },
+			});
+		},
+		// The accept may have landed even though the response was lost, so
+		// refresh rather than assume nothing changed.
+		onError: () => {
+			void queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Multisigs],
+			});
+			void queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Invitations],
 			});
 		},
 	});

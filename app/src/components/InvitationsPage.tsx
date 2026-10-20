@@ -18,7 +18,10 @@ export function InvitationsPage() {
 	const [activeTab, setActiveTab] =
 		useState<TabType>('pending');
 	const pending = useInvitations(false);
-	const rejected = useInvitations(true);
+	// Nothing shows the rejected list until its tab opens.
+	const rejected = useInvitations(true, {
+		enabled: activeTab === 'rejected',
+	});
 
 	const current =
 		activeTab === 'pending' ? pending : rejected;

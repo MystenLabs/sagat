@@ -20,6 +20,7 @@ import {
 	DialogTitle,
 } from '../ui/dialog';
 import { accountName } from './account-name';
+import { memberStatus } from './member-status';
 import { ShortAddress } from './ShortAddress';
 
 /**
@@ -60,11 +61,7 @@ export function ReviewInvitationDialog({
 			return {
 				...member,
 				address,
-				status: member.isAccepted
-					? ('accepted' as const)
-					: member.isRejected
-						? ('rejected' as const)
-						: ('pending' as const),
+				status: memberStatus(member),
 				isYou: address === currentAddress?.address,
 				isCreator:
 					!!address && address === creator?.address,
@@ -96,7 +93,9 @@ export function ReviewInvitationDialog({
 								Couldn't join {name}
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
-								Nothing changed: you haven't joined yet.
+								Accepting didn't complete. Try again, or
+								check your account list in case it went
+								through.
 							</DialogDescription>
 						</div>
 						<Alert

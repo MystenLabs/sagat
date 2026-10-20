@@ -52,6 +52,12 @@ export function InvitationCard({
 			},
 		);
 
+	// Back from a failed reject returns to the invitation, as its copy says.
+	const closeReject = () => {
+		setRejecting(false);
+		reject.reset();
+	};
+
 	return (
 		<div
 			className="flex flex-col gap-4 rounded-xl border bg-card p-5 md:flex-row md:items-center md:p-7"
@@ -143,15 +149,12 @@ export function InvitationCard({
 			/>
 			<RejectInvitationDialog
 				open={rejecting}
-				onClose={() => {
-					setRejecting(false);
-					reject.reset();
-				}}
+				onClose={closeReject}
 				name={name}
 				onConfirm={handleReject}
 				rejecting={reject.isPending}
 				error={reject.error}
-				onBack={() => reject.reset()}
+				onBack={closeReject}
 			/>
 		</div>
 	);

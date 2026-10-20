@@ -188,6 +188,87 @@ test.describe('invitations', () => {
 		).toBeVisible();
 	});
 
+	test('an accept that lands after switching accounts stays on the invitations page', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob', {
+			otherAccounts: ['bob-savings'],
+		});
+		const [savings] = bob.otherAccounts;
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+
+		await bob.signIn();
+		await bob.page.getByTestId('nav-invitations').click();
+		await bob
+			.invitationCard(multisig.address)
+			.getByTestId('invitation-toggle-details')
+			.click();
+
+		const paths: string[] = [];
+		bob.page.on('framenavigated', (frame) => {
+			if (frame === bob.page.mainFrame())
+				paths.push(new URL(frame.url()).pathname);
+		});
+		// Hold the accept until bob has moved to his other account.
+		let release = () => {};
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await bob.page.route(
+			'**/multisig/*/accept',
+			async (route) => {
+				await held;
+				await route.continue();
+			},
+		);
+		await bob.page
+			.getByTestId('accept-invitation-button')
+			.click();
+		await expect(
+			bob.page.getByTestId('accept-invitation-button'),
+		).toHaveText('Confirm in your wallet…');
+		// The review dialog covers the header mid-sign, so switch from the
+		// wallet side, the way an extension's account picker would.
+		const selectInWallet = (address: string) =>
+			bob.page.evaluate(
+				(address) =>
+					window.__e2eWallet!.setSelectedAccount(address),
+				address,
+			);
+		await selectInWallet(savings.address);
+		await expect(bob.walletMenuButton()).toHaveAttribute(
+			'data-address',
+			savings.address,
+		);
+
+		const accepted = bob.page.waitForResponse(
+			'**/multisig/*/accept',
+		);
+		release();
+		expect((await accepted).ok()).toBe(true);
+
+		// Back on bob, the invitation is gone and the page never moved.
+		await selectInWallet(bob.address);
+		await expect(bob.walletMenuButton()).toHaveAttribute(
+			'data-address',
+			bob.address,
+		);
+		await expect(
+			bob.page.getByTestId('invitations-empty'),
+		).toBeVisible();
+		await expect(bob.page).toHaveURL(/\/invitations$/);
+		expect(
+			paths.some((path) => path.startsWith('/multisig/')),
+		).toBe(false);
+	});
+
 	test('an invited member rejects and the creator sees it', async ({
 		createActor,
 	}) => {
