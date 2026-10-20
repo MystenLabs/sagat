@@ -6,7 +6,7 @@ import { Hono, type Context } from 'hono';
 
 import { db } from '../db';
 import {
-	SchemaAccounts,
+	SchemaAccountSignerSets,
 	SchemaAddresses,
 	SchemaSignerSetMembers,
 } from '../db/schema';
@@ -14,10 +14,10 @@ import { ValidationError } from '../errors';
 import {
 	toLegacyMultisigWithMembers,
 	type LegacyMultisigWithMembers,
+	type SignerSetOrigin,
 } from '../legacy/serializers';
 import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
-import { SignerSetOriginDataLoader } from '../loaders/account-signer-sets.loader';
 import {
 	expandSignerSetsWithMembers,
 	registerPublicKeys,
@@ -30,39 +30,54 @@ import { parsePublicKey } from '../utils/pubKey';
 
 const addressesRouter = new Hono();
 
-// Signer set addresses with a member matching `where`. Legacy clients only
-// see signer sets that are also accounts: a signer set drafted for another
-// account would otherwise show up as a standalone multisig.
-const selectLegacyMultisigAddresses = async (
+type LegacyMultisigRow = SignerSetOrigin & {
+	address: string;
+};
+
+// Signer sets with a member matching `where`, with who drafted them and
+// when. Legacy clients only see signer sets that have their account's link
+// row for the original composition, `(A, A)` in `account_signer_sets`: a
+// signer set drafted for another account would otherwise show up as a
+// standalone multisig.
+const selectLegacyMultisigs = async (
 	where: SQL | undefined,
-) =>
-	(
-		await db
-			.selectDistinct({
-				address: SchemaSignerSetMembers.signerSetAddress,
-			})
-			.from(SchemaSignerSetMembers)
-			.innerJoin(
-				SchemaAccounts,
+): Promise<LegacyMultisigRow[]> =>
+	db
+		.selectDistinct({
+			address: SchemaSignerSetMembers.signerSetAddress,
+			draftedBy: SchemaAccountSignerSets.draftedBy,
+			createdAt: SchemaAccountSignerSets.createdAt,
+		})
+		.from(SchemaSignerSetMembers)
+		.innerJoin(
+			SchemaAccountSignerSets,
+			and(
 				eq(
-					SchemaAccounts.address,
+					SchemaAccountSignerSets.accountAddress,
 					SchemaSignerSetMembers.signerSetAddress,
 				),
-			)
-			.where(where)
-	).map((m) => m.address);
+				eq(
+					SchemaAccountSignerSets.signerSetAddress,
+					SchemaSignerSetMembers.signerSetAddress,
+				),
+			),
+		)
+		.where(where);
 
 // Signer sets in the legacy multisig shape, with their account's proposers.
 const expandLegacyMultisigs = async (
-	addresses: string[],
+	rows: LegacyMultisigRow[],
 ): Promise<LegacyMultisigWithMembers[]> => {
-	const signerSets =
-		await expandSignerSetsWithMembers(addresses);
+	const origins = new Map(
+		rows.map(({ address, ...origin }) => [address, origin]),
+	);
+	const signerSets = await expandSignerSetsWithMembers([
+		...origins.keys(),
+	]);
 	const accountAddresses = signerSets.map((s) => s.address);
-	const [proposers, labels, origins] = await Promise.all([
+	const [proposers, labels] = await Promise.all([
 		AccountProposersDataLoader.loadMany(accountAddresses),
 		AccountKeyLabelsDataLoader.loadMany(accountAddresses),
-		SignerSetOriginDataLoader.loadMany(accountAddresses),
 	]);
 	return signerSets.map((signerSet, i) => {
 		const accountProposers = proposers[i];
@@ -70,13 +85,11 @@ const expandLegacyMultisigs = async (
 			throw accountProposers;
 		const keyLabels = labels[i];
 		if (keyLabels instanceof Error) throw keyLabels;
-		const origin = origins[i];
-		if (origin instanceof Error) throw origin;
 		return toLegacyMultisigWithMembers(
 			signerSet,
 			accountProposers,
 			keyLabels,
-			origin,
+			origins.get(signerSet.address) ?? null,
 		);
 	});
 };
@@ -140,15 +153,14 @@ addressesRouter.get(
 			eq(SchemaSignerSetMembers.isRejected, false),
 		];
 
-		// Step 1: Find multisig addresses that the given publicKeys belong to
-		const multisigAddresses =
-			await selectLegacyMultisigAddresses(
-				and(...whereConditions.filter((x) => !!x)),
-			);
+		// Step 1: Find multisigs that the given publicKeys belong to
+		const multisigs = await selectLegacyMultisigs(
+			and(...whereConditions.filter((x) => !!x)),
+		);
 
 		// Step 2: Expand multisigs to full objects with all members
 		const multisigsWithMembers =
-			await expandLegacyMultisigs(multisigAddresses);
+			await expandLegacyMultisigs(multisigs);
 
 		const grouped: Record<
 			string,
@@ -200,16 +212,13 @@ addressesRouter.get(
 					),
 		];
 
-		// Step 1: Find multisig addresses for this public key's invitations
-		const multisigAddresses =
-			await selectLegacyMultisigAddresses(
-				and(...whereConditions.filter((x) => !!x)),
-			);
+		// Step 1: Find multisigs for this public key's invitations
+		const multisigs = await selectLegacyMultisigs(
+			and(...whereConditions.filter((x) => !!x)),
+		);
 
 		// Step 2: Expand multisigs to full objects with all members
-		return c.json(
-			await expandLegacyMultisigs(multisigAddresses),
-		);
+		return c.json(await expandLegacyMultisigs(multisigs));
 	},
 );
 

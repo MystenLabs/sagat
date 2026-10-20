@@ -9,15 +9,17 @@ import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
 	ProposalStatus,
-	SchemaAccounts,
+	SchemaAccountSignerSets,
 	SchemaProposals,
 	SchemaSignerSetMembers,
 } from '../db/schema';
 import { NotFoundError, ValidationError } from '../errors';
-import { toLegacyMultisigWithMembers } from '../legacy/serializers';
+import {
+	toLegacyMultisigWithMembers,
+	type SignerSetOrigin,
+} from '../legacy/serializers';
 import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
-import { SignerSetOriginDataLoader } from '../loaders/account-signer-sets.loader';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import {
 	queryAllOwnedObjects,
@@ -31,23 +33,34 @@ export const getSignerSet = async (address: string) => {
 	return signerSet;
 };
 
-// The legacy multisig shape: a signer set that is also an account, with the
-// account's proposers. A signer set without an account row (a draft for
-// another account) is not a multisig to legacy clients.
+// Who drafted the account's original signer set and when: the `(A, A)` row
+// in `account_signer_sets`. Takes an optional transaction.
+export const getSignerSetOrigin = async (
+	address: string,
+	tx: Pick<typeof db, 'query'> = db,
+): Promise<SignerSetOrigin | undefined> =>
+	tx.query.SchemaAccountSignerSets.findFirst({
+		columns: { draftedBy: true, createdAt: true },
+		where: and(
+			eq(SchemaAccountSignerSets.accountAddress, address),
+			eq(SchemaAccountSignerSets.signerSetAddress, address),
+		),
+	});
+
+// The legacy multisig shape: a signer set with the account's proposers. A
+// signer set without the account's link row for its original composition
+// (a draft for another account) is not a multisig to legacy clients.
 export const getLegacyMultisig = async (
 	address: string,
 ) => {
-	const [signerSet, account, proposers, labels, origin] =
+	const [signerSet, origin, proposers, labels] =
 		await Promise.all([
 			SignerSetDataLoader.load(address),
-			db.query.SchemaAccounts.findFirst({
-				where: eq(SchemaAccounts.address, address),
-			}),
+			getSignerSetOrigin(address),
 			AccountProposersDataLoader.load(address),
 			AccountKeyLabelsDataLoader.load(address),
-			SignerSetOriginDataLoader.load(address),
 		]);
-	if (!signerSet || !account) throw new NotFoundError();
+	if (!signerSet || !origin) throw new NotFoundError();
 	return toLegacyMultisigWithMembers(
 		signerSet,
 		proposers,

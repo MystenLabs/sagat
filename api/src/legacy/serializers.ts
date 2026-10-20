@@ -12,6 +12,7 @@
 
 import type {
 	AccountProposer,
+	AccountSignerSet,
 	Proposal,
 	ProposalSignature,
 	ProposalWithSignatures,
@@ -20,7 +21,6 @@ import type {
 	SignerSetWithMembers,
 } from '../db/schema';
 import { type KeyLabels } from '../loaders/account-keys.loader';
-import { type SignerSetOrigin } from '../loaders/account-signer-sets.loader';
 import type { PaginatedResponse } from '../utils/pagination';
 
 export type LegacyMultisig = {
@@ -34,6 +34,12 @@ export type LegacyMultisig = {
 	draftedBy: string | null;
 	createdAt: Date | null;
 };
+
+/** Who drafted a signer set for an account, and when. */
+export type SignerSetOrigin = Pick<
+	AccountSignerSet,
+	'draftedBy' | 'createdAt'
+>;
 
 export type LegacyMultisigMember = {
 	multisigAddress: string;

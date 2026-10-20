@@ -43,6 +43,7 @@ import {
 import {
 	getLegacyMultisig,
 	getSignerSet,
+	getSignerSetOrigin,
 	isSignerSetFinalized,
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -343,20 +344,7 @@ multisigRouter.post('/:address/accept', async (c) => {
 				);
 		}
 		msig.isVerified = isFinalized;
-		const origin =
-			await tx.query.SchemaAccountSignerSets.findFirst({
-				columns: { draftedBy: true, createdAt: true },
-				where: and(
-					eq(
-						SchemaAccountSignerSets.accountAddress,
-						address,
-					),
-					eq(
-						SchemaAccountSignerSets.signerSetAddress,
-						address,
-					),
-				),
-			});
+		const origin = await getSignerSetOrigin(address, tx);
 		return toLegacyMultisig(msig, origin ?? null);
 	});
 
