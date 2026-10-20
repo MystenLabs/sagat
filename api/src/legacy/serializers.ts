@@ -10,6 +10,8 @@
  * keeping the original field names and order, and leaving out new columns.
  */
 
+import { type PublicProposal } from '@mysten/sagat';
+
 import type {
 	AccountProposer,
 	Proposal,
@@ -136,6 +138,30 @@ export const toLegacyProposalWithSignatures = (
 ): LegacyProposalWithSignatures => ({
 	...toLegacyProposal(proposal),
 	signatures: proposal.signatures,
+});
+
+// The public view of a proposal, by digest. The proposers are hidden on
+// purpose, as this is not public information worth sharing. The same goes
+// for key labels (`account_keys`): they are only ever returned on
+// authenticated routes. The multisig composition is public, so that is fine.
+export const toLegacyPublicProposal = (
+	proposal: ProposalWithSignatures,
+	signerSet: SignerSetWithMembers,
+	currentWeight: number,
+): PublicProposal => ({
+	...toLegacyProposalWithSignatures(proposal),
+	currentWeight,
+	totalWeight: signerSet.threshold,
+	multisig: {
+		address: signerSet.address,
+		name: signerSet.name,
+		threshold: signerSet.threshold,
+		members: signerSet.members.map((member) => ({
+			publicKey: member.publicKey,
+			weight: member.weight,
+			order: member.order,
+		})),
+	},
 });
 
 export const toLegacyPaginatedProposals = (
