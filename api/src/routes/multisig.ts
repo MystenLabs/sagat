@@ -182,8 +182,6 @@ multisigRouter.post(
 				authorizedPubKeys.find((k) =>
 					addresses.includes(k.toSuiAddress()),
 				) ?? authorizedPubKeys[0];
-			// Never empty: a duplicate address already threw on the
-			// `signer_sets` insert above, which has no conflict handling.
 			const [origin] = await tx
 				.insert(SchemaAccountSignerSets)
 				.values({
@@ -193,7 +191,6 @@ multisigRouter.post(
 					status: AccountSignerSetStatus.INVITING,
 					draftedBy: creator.toSuiAddress(),
 				})
-				.onConflictDoNothing()
 				.returning({
 					draftedBy: SchemaAccountSignerSets.draftedBy,
 					createdAt: SchemaAccountSignerSets.createdAt,
@@ -240,7 +237,7 @@ multisigRouter.post(
 				);
 
 			return {
-				multisig: toLegacyMultisig(msig, origin ?? null),
+				multisig: toLegacyMultisig(msig, origin),
 				members: members.map((member) =>
 					toLegacyMultisigMember(
 						member,

@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Multisig } from '@mysten/sagat';
 import {
 	beforeEach,
 	describe,
@@ -250,11 +249,11 @@ describe('Multisig API', () => {
 			expect(invitation.draftedBy).toBe(creator.address);
 			expect(invitation.createdAt).toBe(multisig.createdAt);
 
-			// The accept route returns it too (the SDK types it loosely).
-			const accepted = (await session.acceptMultisig(
+			// The accept route returns it too.
+			const accepted = await session.acceptMultisig(
 				others[0],
 				multisig.address,
-			)) as unknown as Multisig;
+			);
 			expect(accepted.draftedBy).toBe(creator.address);
 			expect(accepted.createdAt).toBe(multisig.createdAt);
 
