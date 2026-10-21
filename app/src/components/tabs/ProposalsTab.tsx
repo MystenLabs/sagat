@@ -3,15 +3,12 @@
 
 import {
 	type AccountProposer,
-	type ProposalWithSignatures,
-	type SignerSetWithMembers,
+	type PublicProposal,
 } from '@mysten/sagat';
 import { FileText, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
-import { tallySignerSet } from '@/lib/proposalUtils';
-import { getOriginalSignerSet } from '@/lib/signerSets';
 import {
 	type AccountForPublicKey,
 	type ProposalCardInput,
@@ -136,17 +133,14 @@ function EmptyState({
 function ProposalsList({
 	proposals,
 	proposers,
-	signerSet,
 }: {
-	proposals: ProposalWithSignatures[];
+	proposals: PublicProposal[];
 	proposers: AccountProposer[];
-	signerSet: SignerSetWithMembers;
 }) {
-	// The account shape doesn't say which signer sets are valid on which
-	// network, so the list counts progress in the set the screens show. The
-	// proposal page, by digest, gets the API's list per network.
+	// Each item carries its progress in the signer sets valid on its
+	// network, counted by the server.
 	const formatProposal = (
-		proposal: ProposalWithSignatures,
+		proposal: PublicProposal,
 	): ProposalCardInput => {
 		return {
 			...proposal,
@@ -154,7 +148,6 @@ function ProposalsList({
 			proposers: proposers.map(
 				(proposer) => proposer.address,
 			),
-			signerSets: [tallySignerSet(proposal, signerSet)],
 		};
 	};
 
@@ -292,10 +285,6 @@ export function ProposalsTab() {
 					<ProposalsList
 						proposals={filteredProposals}
 						proposers={(account ?? multisig).proposers}
-						signerSet={
-							(account && getOriginalSignerSet(account)) ??
-							multisig.signerSet
-						}
 					/>
 				)}
 			</div>

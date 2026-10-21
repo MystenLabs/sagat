@@ -22,6 +22,7 @@ import {
 import { useState } from 'react';
 
 import {
+	describeProgress,
 	getProgressSignerSet,
 	isReadyToExecute,
 } from '@/lib/proposalUtils';
@@ -85,6 +86,9 @@ export function ProposalCard({
 	// Ready once any signer set has reached its threshold.
 	const isReady = isReadyToExecute(proposal.signerSets);
 	const progress = getProgressSignerSet(
+		proposal.signerSets,
+	);
+	const progressText = describeProgress(
 		proposal.signerSets,
 	);
 
@@ -236,9 +240,9 @@ export function ProposalCard({
 							data-testid="proposal-signature-weight"
 							data-current-weight={progress?.currentWeight}
 						>
-							Signature Weight:{' '}
-							{progress?.currentWeight ?? 0}/
-							{progress?.threshold ?? 0}
+							{progressText
+								? `Signature Weight: ${progressText}`
+								: `No signer set is valid on ${proposal.network}`}
 						</span>
 
 						<span className="flex items-center gap-1">

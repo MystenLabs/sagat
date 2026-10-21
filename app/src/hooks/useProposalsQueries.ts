@@ -3,12 +3,11 @@
 
 import {
 	ProposalStatus,
-	type ProposalWithSignatures,
+	type PublicProposal,
 } from '@mysten/sagat';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { tallySignerSet } from '@/lib/proposalUtils';
-import { getOriginalSignerSet } from '@/lib/signerSets';
+import { isReadyToExecute as anySetReady } from '@/lib/proposalUtils';
 import { type AccountForPublicKey } from '@/lib/types';
 
 import { useGetAccount } from './useGetAccount';
@@ -33,12 +32,8 @@ export function useProposalsQueries({
 }: UseProposalsQueriesParams) {
 	const { currentAddress } = useApiAuth();
 
+	// For the proposers the cards show.
 	const accountQuery = useGetAccount(multisig.address);
-	// Progress is counted in the signer set the screens show, from the
-	// fresh copy of the account once it has loaded.
-	const signerSet = accountQuery.data
-		? getOriginalSignerSet(accountQuery.data)
-		: undefined;
 
 	// Get API query type based on active tab
 	const getApiQueryType = () => {
@@ -92,7 +87,7 @@ export function useProposalsQueries({
 
 	// Helper to check if current user has signed a proposal
 	const userHasSignedProposal = (
-		proposal: ProposalWithSignatures,
+		proposal: PublicProposal,
 	) => {
 		if (!currentAddress) return false;
 		return proposal.signatures.some(
@@ -100,29 +95,29 @@ export function useProposalsQueries({
 		);
 	};
 
-	// Whether a pending proposal can be executed now.
-	const isReady = (proposal: ProposalWithSignatures) =>
-		!!signerSet &&
-		tallySignerSet(proposal, signerSet).hasReachedThreshold;
+	// Whether a pending proposal can be executed now: some signer set
+	// valid on its network reached its threshold, as the server counts it.
+	const isReady = (proposal: PublicProposal) =>
+		anySetReady(proposal.signerSets);
 
 	// Pending, not signed by the current user, and short of the threshold.
-	const isPendingForUser = (p: ProposalWithSignatures) =>
+	const isPendingForUser = (p: PublicProposal) =>
 		p.status === ProposalStatus.PENDING &&
 		!userHasSignedProposal(p) &&
 		!isReady(p);
 
 	// Pending, signed by the current user, and short of the threshold.
-	const isWaitingForOthers = (p: ProposalWithSignatures) =>
+	const isWaitingForOthers = (p: PublicProposal) =>
 		p.status === ProposalStatus.PENDING &&
 		userHasSignedProposal(p) &&
 		!isReady(p);
 
-	const isReadyToExecute = (p: ProposalWithSignatures) =>
+	const isReadyToExecute = (p: PublicProposal) =>
 		p.status === ProposalStatus.PENDING && isReady(p);
 
 	// Filter proposals based on current tab
 	const getFilteredProposals = (
-		proposals: ProposalWithSignatures[],
+		proposals: PublicProposal[],
 	) => {
 		switch (activeFilter) {
 			case 'pending':
@@ -143,7 +138,7 @@ export function useProposalsQueries({
 				(page) => page.data,
 			) ?? [];
 
-		if (!signerSet || !pendingProposals.length) {
+		if (!pendingProposals.length) {
 			return { pending: 0, waiting: 0, ready: 0 };
 		}
 
@@ -158,7 +153,7 @@ export function useProposalsQueries({
 	};
 
 	// Flatten all loaded pages into a single array
-	const currentProposals: ProposalWithSignatures[] =
+	const currentProposals: PublicProposal[] =
 		proposalsQuery.data?.pages.flatMap(
 			(page) => page.data,
 		) ?? [];

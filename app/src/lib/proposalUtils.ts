@@ -3,46 +3,22 @@
 
 import type {
 	ProposalSignerSet,
-	ProposalWithSignatures,
 	PublicProposal,
-	SignerSetWithMembers,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { formatAddress } from '@mysten/sui/utils';
 
 import { extractPublicKeyFromBase64 } from './wallet';
 
-/**
- * A proposal's progress in `signerSet`, in the shape the public proposal
- * gives it, for listings that only have the proposal and the account.
+/*
+ * Progress comes from the server: every proposal it returns carries
+ * `signerSets`, the account's sets valid on the proposal's network, each
+ * tallied. The app never recounts it from the account, which would not
+ * know which sets are valid where.
  */
-export function tallySignerSet(
-	proposal: Pick<ProposalWithSignatures, 'signatures'>,
-	signerSet: SignerSetWithMembers,
-): ProposalSignerSet {
-	const members = signerSet.members.map((member) => ({
-		publicKey: member.publicKey,
-		weight: member.weight,
-		order: member.order,
-		hasSigned: proposal.signatures.some(
-			(s) => s.publicKey === member.publicKey,
-		),
-	}));
-	const currentWeight = members
-		.filter((m) => m.hasSigned)
-		.reduce((sum, m) => sum + m.weight, 0);
-	return {
-		address: signerSet.address,
-		label: signerSet.label,
-		threshold: signerSet.threshold,
-		totalWeight: signerSet.totalWeight,
-		currentWeight,
-		hasReachedThreshold:
-			currentWeight >= signerSet.threshold,
-		members,
-	};
-}
 
-// A signer set that can execute the proposal now, if any.
+// A signer set that can execute the proposal now, if any. The first one,
+// in link order, so the choice is stable across renders.
 export function getExecutingSignerSet(
 	signerSets: ProposalSignerSet[],
 ) {
@@ -65,6 +41,30 @@ export function getProgressSignerSet(
 				a.currentWeight / a.threshold,
 		)[0]
 	);
+}
+
+/**
+ * The progress a card shows after "Signature Weight:". One signer set
+ * reads as before ("1/2"). Several read per set, the one shown by
+ * `getProgressSignerSet` first: "2 of 3 via Operations, 1 of 4 via Board".
+ * Null when no signer set is valid on the proposal's network.
+ */
+export function describeProgress(
+	signerSets: ProposalSignerSet[],
+): string | null {
+	const progress = getProgressSignerSet(signerSets);
+	if (!progress) return null;
+	if (signerSets.length === 1)
+		return `${progress.currentWeight}/${progress.threshold}`;
+	return [
+		progress,
+		...signerSets.filter((s) => s !== progress),
+	]
+		.map(
+			(s) =>
+				`${s.currentWeight} of ${s.threshold} via ${s.label || formatAddress(s.address)}`,
+		)
+		.join(', ');
 }
 
 export function isReadyToExecute(
