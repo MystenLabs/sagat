@@ -43,9 +43,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build SDK
-        run: bun run build
-        working-directory: sdk
+      - name: Build SDKs
+        run: bun run build:sdk
 
       - name: Typecheck SDK and API
         run: bun typecheck
@@ -102,9 +101,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build SDK
-        run: bun run build
-        working-directory: sdk
+      - name: Build SDKs
+        run: bun run build:sdk
 
       # Regenerates the /v1 spec from the app and diffs it with the
       # committed api/openapi/v1.json. Needs no database or Sui network.
@@ -115,6 +113,16 @@ jobs:
           JWT_SECRET: a-super-long-jwt-secret-to-use-in-the-service
           SUPPORTED_NETWORKS: localnet
           CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+
+      - name: Check the generated SDK types
+        run: |
+          bun run generate
+          if ! git diff --quiet -- src/generated; then
+            echo "::error::sdk-v1/src/generated differs from api/openapi/v1.json. Run 'bun run openapi:update' at the repository root and commit the result."
+            git diff -- src/generated
+            exit 1
+          fi
+        working-directory: sdk-v1
 
   migration-test:
     name: Migration Tests
@@ -211,9 +219,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build SDK
-        run: bun run build
-        working-directory: sdk
+      - name: Build SDKs
+        run: bun run build:sdk
 
       - name: Install suiup
         run: |
