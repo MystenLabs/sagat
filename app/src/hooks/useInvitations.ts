@@ -39,7 +39,7 @@ export function useInvitations(
 			// Every listed set has the key as a member.
 			return invitations.flatMap((signerSet) => {
 				const membership = getKeyMembership(
-					signerSet,
+					[signerSet],
 					currentAddress.publicKey,
 				);
 				return membership

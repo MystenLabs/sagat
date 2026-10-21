@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import {
 	getKeyMembership,
-	getOriginalSignerSet,
+	validSignerSets,
 } from '@/lib/signerSets';
 import { type AccountForPublicKey } from '@/lib/types';
 
@@ -33,16 +33,15 @@ export function useUserMultisigs() {
 			const accounts = await apiClient.getAccounts();
 
 			return accounts.flatMap((account) => {
-				// The screens show the original signer set; an account whose
-				// key sits only in another set needs the rotation screens.
-				const signerSet = getOriginalSignerSet(account);
-				if (!signerSet) return [];
+				// Membership in any signer set valid on some network, not
+				// only the original one: after a rotation the key may sit in
+				// a newer set only. Drafts and retired sets give no access.
 				const membership = getKeyMembership(
-					signerSet,
+					validSignerSets(account),
 					currentAddress.publicKey,
 				);
 				if (!membership?.isAccepted) return [];
-				return [{ ...account, ...membership, signerSet }];
+				return [{ ...account, ...membership }];
 			});
 		},
 		enabled: isCurrentAddressAuthenticated,

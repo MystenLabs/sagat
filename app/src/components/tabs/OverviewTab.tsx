@@ -11,7 +11,10 @@ import {
 import { useOutletContext } from 'react-router-dom';
 
 import { useGetAccount } from '@/hooks/useGetAccount';
-import { getOriginalSignerSet } from '@/lib/signerSets';
+import {
+	hasSingleSignerSet,
+	validSignerSets,
+} from '@/lib/signerSets';
 import { type AccountForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
@@ -23,6 +26,10 @@ import {
 	getMultisigExportFilename,
 } from '../../lib/exportUtils';
 import { MembersList } from '../invitations/MembersList';
+import {
+	AliasWarnings,
+	SignerSetsSection,
+} from '../overview/SignerSetsSection';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Button } from '../ui/button';
 
@@ -49,11 +56,14 @@ export function OverviewTab() {
 		refetch,
 	} = useGetAccount(multisig.address);
 
-	// The fresh copy of the set the screens show, once it has loaded.
-	const signerSet =
-		(accountDetails &&
-			getOriginalSignerSet(accountDetails)) ??
-		multisig.signerSet;
+	// The fresh copy of the account once it has loaded.
+	const account = accountDetails ?? multisig;
+	// An account with one signer set, valid everywhere and with no alias
+	// warning, looks as it always has. Any other lists every set.
+	const signerSet = hasSingleSignerSet(account)
+		? account.signerSets[0]
+		: undefined;
+	const signingCount = validSignerSets(account).length;
 
 	const handleExportComposition = () => {
 		downloadJson(
@@ -99,22 +109,42 @@ export function OverviewTab() {
 						</div>
 					</div>
 
-					<div className="flex flex-col">
-						<label className="block text-sm font-medium text-muted-foreground mb-2">
-							Signature Threshold
-						</label>
-						<div className="flex items-center p-3 bg-surface rounded-lg flex-1">
-							<span
-								className="text-sm text-foreground"
-								data-testid="multisig-threshold"
-								data-threshold={signerSet.threshold}
-								data-total-weight={signerSet.totalWeight}
-							>
-								{signerSet.threshold} of{' '}
-								{signerSet.totalWeight} weight required
-							</span>
+					{signerSet ? (
+						<div className="flex flex-col">
+							<label className="block text-sm font-medium text-muted-foreground mb-2">
+								Signature Threshold
+							</label>
+							<div className="flex items-center p-3 bg-surface rounded-lg flex-1">
+								<span
+									className="text-sm text-foreground"
+									data-testid="multisig-threshold"
+									data-threshold={signerSet.threshold}
+									data-total-weight={signerSet.totalWeight}
+								>
+									{signerSet.threshold} of{' '}
+									{signerSet.totalWeight} weight required
+								</span>
+							</div>
 						</div>
-					</div>
+					) : (
+						<div className="flex flex-col">
+							<label className="block text-sm font-medium text-muted-foreground mb-2">
+								Signer Sets
+							</label>
+							<div className="flex items-center p-3 bg-surface rounded-lg flex-1">
+								<span
+									className="text-sm text-foreground"
+									data-testid="multisig-signer-set-count"
+									data-signing={signingCount}
+									data-total={account.signerSets.length}
+								>
+									{signingCount} of{' '}
+									{account.signerSets.length} can sign on
+									some network
+								</span>
+							</div>
+						</div>
+					)}
 				</div>
 
 				<div className="mt-6 pt-6 border-t flex flex-col sm:flex-row gap-2">
@@ -142,35 +172,47 @@ export function OverviewTab() {
 				</div>
 			</div>
 
-			{/* Members Section */}
-			<div className="bg-card border rounded-lg p-6">
-				<h2 className="text-lg font-semibold mb-4 flex items-center">
-					<Users className="w-5 h-5 mr-2" />
-					Members ({signerSet.members.length})
-				</h2>
+			{!signerSet && (
+				<>
+					<AliasWarnings account={account} />
+					<SignerSetsSection
+						signerSets={account.signerSets}
+						network={network}
+					/>
+				</>
+			)}
 
-				{isLoading ? (
-					<div className="flex items-center justify-center py-8">
-						<div className="text-sm text-muted-foreground">
-							Loading member details...
+			{/* Members Section */}
+			{signerSet && (
+				<div className="bg-card border rounded-lg p-6">
+					<h2 className="text-lg font-semibold mb-4 flex items-center">
+						<Users className="w-5 h-5 mr-2" />
+						Members ({signerSet.members.length})
+					</h2>
+
+					{isLoading ? (
+						<div className="flex items-center justify-center py-8">
+							<div className="text-sm text-muted-foreground">
+								Loading member details...
+							</div>
 						</div>
-					</div>
-				) : error ? (
-					<div className="text-sm text-muted-foreground text-center py-8">
-						<p className="mb-4">
-							Failed to load member details
-						</p>
-						<Button
-							variant="outline"
-							onClick={() => refetch()}
-						>
-							Retry
-						</Button>
-					</div>
-				) : accountDetails ? (
-					<MembersList members={signerSet.members} />
-				) : null}
-			</div>
+					) : error ? (
+						<div className="text-sm text-muted-foreground text-center py-8">
+							<p className="mb-4">
+								Failed to load member details
+							</p>
+							<Button
+								variant="outline"
+								onClick={() => refetch()}
+							>
+								Retry
+							</Button>
+						</div>
+					) : accountDetails ? (
+						<MembersList members={signerSet.members} />
+					) : null}
+				</div>
+			)}
 
 			{/* Proposers Section */}
 			{accountDetails ? (

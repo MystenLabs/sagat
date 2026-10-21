@@ -16,12 +16,10 @@ export interface KeyMembership {
 	rejectedMembers: number;
 }
 
-// An account the connected key signs for, with the signer set the screens
-// show (see `getOriginalSignerSet`) and the key's place in it.
+// An account the connected key signs for, with the key's place in the
+// signer sets it is a member of that are valid on some network.
 export interface AccountForPublicKey
-	extends Account, KeyMembership {
-	signerSet: SignerSetWithMembers;
-}
+	extends Account, KeyMembership {}
 
 // A signer set the connected key is invited to.
 export interface InvitationForPublicKey
