@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ReactNode } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
@@ -11,10 +10,17 @@ import { cn } from '@/lib/utils';
 
 import { accountSetup } from '../multisig/account-setup';
 import { CreatedBy } from '../multisig/CreatedBy';
+import { Stat } from '../ui/stat';
 
 interface OverviewTabContext {
 	multisig: MultisigWithMembersForPublicKey;
 }
+
+/** Stats on the strip share a row once the card is wide enough. */
+const stat = {
+	size: 'md',
+	className: '@3xl:min-w-fit @3xl:flex-1',
+} as const;
 
 /**
  * The account at a glance: its threshold against the signers' weight, how
@@ -41,7 +47,7 @@ export function OverviewTab() {
 				className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-3 md:p-6 @3xl:flex @3xl:gap-8"
 				data-testid="account-summary"
 			>
-				<Stat label="Threshold">
+				<Stat {...stat} label="Threshold">
 					<span
 						data-testid="multisig-threshold"
 						data-threshold={account.threshold}
@@ -50,11 +56,13 @@ export function OverviewTab() {
 						{setup.threshold}
 					</span>
 				</Stat>
-				<Stat label="Signers">{setup.signers}</Stat>
-				<Stat label="Total weight">
+				<Stat {...stat} label="Signers">
+					{setup.signers}
+				</Stat>
+				<Stat {...stat} label="Total weight">
 					{setup.totalWeight}
 				</Stat>
-				<Stat label="Created">
+				<Stat {...stat} label="Created">
 					<span
 						data-testid="account-created"
 						data-created-at={setup.createdAt ?? undefined}
@@ -65,30 +73,10 @@ export function OverviewTab() {
 						{setup.created ?? 'Unknown'}
 					</span>
 				</Stat>
-				<Stat label="Created by">
+				<Stat {...stat} label="Created by">
 					<CreatedBy creator={setup.creator} />
 				</Stat>
 			</dl>
-		</div>
-	);
-}
-
-/** A label over its value, as on the summary strip. */
-function Stat({
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactNode;
-}) {
-	return (
-		<div className="flex min-w-0 flex-col gap-1 @3xl:min-w-fit @3xl:flex-1">
-			<dt className="text-13 whitespace-nowrap text-muted-foreground">
-				{label}
-			</dt>
-			<dd className="flex min-w-0 text-16 font-medium whitespace-nowrap">
-				{children}
-			</dd>
 		</div>
 	);
 }

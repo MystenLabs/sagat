@@ -1,10 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { cn } from '@/lib/utils';
 
 import { type AccountCreator } from './account-setup';
+import { SignerName } from './SignerName';
 
 /**
  * Who created the account: their key's name ("Maya (you)"), their short
@@ -29,30 +29,23 @@ export function CreatedBy({
 				Unknown
 			</span>
 		);
-	const you = creator.isYou ? ' (you)' : '';
 	return (
 		<span
-			className={cn(
-				'inline-flex min-w-0 items-center gap-1',
-				className,
-			)}
+			className={cn('inline-flex min-w-0', className)}
 			data-testid={testId}
 			data-address={creator.address}
 		>
-			{creator.label ? (
-				<span className="truncate">
-					{creator.label}
-					{you}
-				</span>
-			) : (
-				<>
-					<ShortAddress
-						address={creator.address}
-						className="font-mono"
-					/>
-					{you}
-				</>
-			)}
+			{/* The name stands alone here; the address only when unnamed. */}
+			<SignerName
+				label={creator.label}
+				address={
+					creator.label ? undefined : creator.address
+				}
+				marker={creator.isYou ? 'you' : null}
+				markerStyle="parens"
+				size="inline"
+				labelTestId={null}
+			/>
 		</span>
 	);
 }

@@ -33,12 +33,18 @@ export interface SignerRow {
 	name: string;
 	status: ReturnType<typeof memberStatus>;
 	isYou: boolean;
+	/** The key that created the account. */
+	isCreator: boolean;
 }
 
-/** The members in composition order, with what the table needs. */
+/**
+ * The members in composition order, with what the signer tables need.
+ * `creatorAddress` marks the account's creator, when known.
+ */
 export function signerRows(
 	members: MultisigMember[],
 	currentAddress: string | null | undefined,
+	creatorAddress?: string | null,
 ): SignerRow[] {
 	return [...members]
 		.sort((a, b) => a.order - b.order)
@@ -56,6 +62,7 @@ export function signerRows(
 						: 'Unknown key'),
 				status: memberStatus(member),
 				isYou: !!address && address === currentAddress,
+				isCreator: !!address && address === creatorAddress,
 			};
 		});
 }

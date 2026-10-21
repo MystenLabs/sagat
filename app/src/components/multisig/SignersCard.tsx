@@ -1,9 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ShortAddress } from '@/components/invitations/ShortAddress';
-import { Chip } from '@/components/ui/chip';
-import { CopyButton } from '@/components/ui/copy-button';
 import {
 	signerSetStatus,
 	signerSummary,
@@ -11,11 +8,8 @@ import {
 } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
-const STATUS_CHIP = {
-	accepted: { variant: 'success', label: 'Accepted' },
-	rejected: { variant: 'error', label: 'Rejected' },
-	pending: { variant: 'warning', label: 'Invited' },
-} as const;
+import { SignerName } from './SignerName';
+import { SignerStatusChip } from './SignerStatusChip';
 
 /**
  * The signer set as a card: a numbered row per key with its name over its
@@ -100,7 +94,13 @@ export function SignersCard({
 									>
 										{i + 1}
 									</span>
-									<SignerCell row={row} />
+									<SignerName
+										label={row.member.label}
+										address={row.address}
+										marker={row.isYou ? 'you' : null}
+										markerStyle="parens"
+										copy
+									/>
 								</div>
 							</td>
 							<td
@@ -110,72 +110,12 @@ export function SignersCard({
 								{row.member.weight}
 							</td>
 							<td className="px-3 py-2.5">
-								<Chip
-									variant={STATUS_CHIP[row.status].variant}
-								>
-									{STATUS_CHIP[row.status].label}
-								</Chip>
+								<SignerStatusChip status={row.status} />
 							</td>
 						</tr>
 					))}
 				</tbody>
 			</table>
 		</section>
-	);
-}
-
-/**
- * The key's name over its short address when the account named it; the
- * short address alone otherwise. "(you)" follows the signed-in key.
- */
-function SignerCell({ row }: { row: SignerRow }) {
-	const you = row.isYou && (
-		<span className="shrink-0 text-muted-foreground">
-			(you)
-		</span>
-	);
-	const address = row.address && (
-		<span className="flex items-center gap-1 font-mono text-11 text-muted-foreground">
-			<ShortAddress address={row.address} />
-			<CopyButton
-				value={row.address}
-				size="sm"
-				successMessage="Address copied"
-			/>
-		</span>
-	);
-
-	// An unnamed key goes by its short address, with copy right after it.
-	if (!row.member.label)
-		return (
-			<span className="flex min-w-0 items-center gap-1.5 text-14 font-medium">
-				<span className="truncate font-mono text-13">
-					{row.name}
-				</span>
-				{row.address && (
-					<CopyButton
-						value={row.address}
-						size="sm"
-						className="shrink-0 text-muted-foreground"
-						successMessage="Address copied"
-					/>
-				)}
-				{you}
-			</span>
-		);
-
-	return (
-		<div className="flex min-w-0 flex-col gap-px">
-			<span className="flex min-w-0 items-center gap-1.5 text-14 font-medium">
-				<span
-					className="truncate"
-					data-testid="member-label"
-				>
-					{row.member.label}
-				</span>
-				{you}
-			</span>
-			{address}
-		</div>
 	);
 }

@@ -1,0 +1,156 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { ShortAddress } from '@/components/invitations/ShortAddress';
+import { CopyButton } from '@/components/ui/copy-button';
+import { cn } from '@/lib/utils';
+
+/**
+ * Type per place the name shows. `inline` takes the surrounding text's
+ * size (the "Created by" values); `sm` is the invitation review table;
+ * `md` the signers card and the create wizard's review.
+ */
+const SIZES = {
+	inline: {
+		gap: 'gap-1',
+		label: '',
+		address: '',
+		bare: '',
+		bareAddress: '',
+		marker: '',
+	},
+	sm: {
+		gap: 'gap-1.5',
+		label: 'text-13 font-medium',
+		address: 'text-12 whitespace-nowrap',
+		bare: 'text-12 whitespace-nowrap',
+		bareAddress: '',
+		marker: 'font-sans text-12 text-muted-foreground',
+	},
+	md: {
+		gap: 'gap-1.5',
+		label: 'text-14 font-medium',
+		address: 'text-11 text-muted-foreground',
+		bare: 'text-14 font-medium',
+		bareAddress: 'text-13',
+		marker: 'text-muted-foreground',
+	},
+} as const;
+
+const MARKERS = {
+	you: { word: 'You', parens: '(you)' },
+	creator: { word: 'Creator', parens: '(creator)' },
+} as const;
+
+/**
+ * A signer's name over their short address when the key has a label;
+ * the short address alone when it doesn't. A marker ("You", "(you)",
+ * "Creator") follows the first line, and `copy` adds a copy button
+ * after the address.
+ */
+export function SignerName({
+	label,
+	address,
+	marker = null,
+	markerStyle = 'word',
+	copy = false,
+	size = 'md',
+	wrap = false,
+	labelTestId = 'member-label',
+}: {
+	label: string | null;
+	address?: string;
+	marker?: 'you' | 'creator' | null;
+	markerStyle?: 'word' | 'parens';
+	copy?: boolean;
+	size?: keyof typeof SIZES;
+	/**
+	 * Show the whole name, wrapped and at regular weight, instead of
+	 * truncating it (the create wizard's review).
+	 */
+	wrap?: boolean;
+	labelTestId?: string | null;
+}) {
+	const s = SIZES[size];
+	// The space keeps "Alice (you)" readable as text; the gap spaces it.
+	const markerText = marker && (
+		<>
+			{' '}
+			<span className={cn('shrink-0', s.marker)}>
+				{MARKERS[marker][markerStyle]}
+			</span>
+		</>
+	);
+	const copyButton = copy && address && (
+		<CopyButton
+			value={address}
+			size="sm"
+			className="shrink-0 text-muted-foreground"
+			successMessage="Address copied"
+		/>
+	);
+
+	if (!label)
+		return (
+			<span
+				className={cn(
+					'flex min-w-0 items-center',
+					s.gap,
+					s.bare,
+				)}
+			>
+				{address ? (
+					<ShortAddress
+						address={address}
+						className={cn(
+							'truncate font-mono',
+							s.bareAddress,
+						)}
+					/>
+				) : (
+					<span
+						className={cn(
+							'truncate font-mono',
+							s.bareAddress,
+						)}
+					>
+						Unknown key
+					</span>
+				)}
+				{copyButton}
+				{markerText}
+			</span>
+		);
+
+	return (
+		<span className="flex min-w-0 flex-col gap-px">
+			<span
+				className={cn('flex min-w-0 items-center', s.gap)}
+			>
+				<span
+					className={cn(
+						s.label,
+						wrap
+							? 'min-w-0 font-normal break-words'
+							: 'truncate',
+					)}
+					data-testid={labelTestId ?? undefined}
+				>
+					{label}
+				</span>
+				{markerText}
+			</span>
+			{address && (
+				<span
+					className={cn(
+						'flex items-center gap-1 font-mono',
+						s.address,
+					)}
+				>
+					<ShortAddress address={address} />
+					{copyButton}
+				</span>
+			)}
+		</span>
+	);
+}

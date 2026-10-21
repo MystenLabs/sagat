@@ -1,10 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
 import {
 	rejectionNotice,
+	signerRows,
 	signerSetStatus,
 	signerSummary,
 } from '../src/lib/signers';
@@ -170,5 +173,84 @@ describe('rejection notice', () => {
 			message:
 				'3 signers rejected their invitations to join this account. The rest can’t reach the threshold, so this account can’t move funds.',
 		});
+	});
+});
+
+describe('signer rows', () => {
+	const key = () => {
+		const publicKey = new Ed25519Keypair().getPublicKey();
+		return {
+			publicKey: publicKey.toSuiPublicKey(),
+			address: publicKey.toSuiAddress(),
+		};
+	};
+	const row = (
+		publicKey: string,
+		order: number,
+		label: string | null,
+	) => ({
+		multisigAddress: '0x1',
+		publicKey,
+		weight: 1,
+		isAccepted: false,
+		isRejected: false,
+		order,
+		label,
+	});
+
+	test('sorts by order and names, marks you and the creator', () => {
+		const alice = key();
+		const bob = key();
+		const rows = signerRows(
+			[
+				row(bob.publicKey, 1, null),
+				row(alice.publicKey, 0, 'Alice'),
+			],
+			bob.address,
+			alice.address,
+		);
+		expect(
+			rows.map(({ address, name, isYou, isCreator }) => ({
+				address,
+				name,
+				isYou,
+				isCreator,
+			})),
+		).toEqual([
+			{
+				address: alice.address,
+				name: 'Alice',
+				isYou: false,
+				isCreator: true,
+			},
+			{
+				address: bob.address,
+				name: formatAddress(bob.address),
+				isYou: true,
+				isCreator: false,
+			},
+		]);
+	});
+
+	test('marks no creator when the account does not know it', () => {
+		const alice = key();
+		const [only] = signerRows(
+			[row(alice.publicKey, 0, null)],
+			null,
+		);
+		expect(only.isCreator).toBe(false);
+		expect(only.isYou).toBe(false);
+	});
+
+	test('names a key it cannot read', () => {
+		const [only] = signerRows(
+			[row('not-a-key', 0, null)],
+			undefined,
+			undefined,
+		);
+		expect(only.address).toBeUndefined();
+		expect(only.name).toBe('Unknown key');
+		expect(only.isYou).toBe(false);
+		expect(only.isCreator).toBe(false);
 	});
 });
