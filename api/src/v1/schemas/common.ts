@@ -19,11 +19,12 @@ export const ErrorSchema = z
 	})
 	.openapi('Error');
 
-// A Sui address, as `isValidSuiAddress` accepts it.
+// A Sui address, as `isValidSuiAddress` accepts it. Registered as a
+// component, so every route that takes one refers to it.
 export const SuiAddressSchema = z
 	.string()
 	.refine(isValidSuiAddress, 'Must be a valid Sui address.')
-	.openapi({
+	.openapi('SuiAddress', {
 		description: 'A Sui address.',
 		example: `0x${'ab'.repeat(32)}`,
 	});

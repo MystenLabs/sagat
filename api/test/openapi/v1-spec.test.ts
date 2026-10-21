@@ -13,6 +13,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from 'bun:test';
+import { format, resolveConfig } from 'prettier';
 
 import '../setup/no-startup-migrations';
 
@@ -21,13 +22,18 @@ import { OPENAPI_PATH } from '../../src/v1/app';
 
 const SNAPSHOT = join(__dirname, '../../openapi/v1.json');
 
-const render = (document: unknown) =>
-	JSON.stringify(document, null, '\t') + '\n';
+// Formatted with the repository's prettier config, like every other JSON
+// file, so `bun fmt:check` passes on the snapshot.
+const render = async (document: unknown) =>
+	format(JSON.stringify(document), {
+		...(await resolveConfig(SNAPSHOT)),
+		parser: 'json',
+	});
 
 test('the committed /v1 spec matches the mounted app', async () => {
 	const response = await app.request(OPENAPI_PATH);
 	expect(response.status).toBe(200);
-	const actual = render(await response.json());
+	const actual = await render(await response.json());
 
 	if (process.env.UPDATE_OPENAPI) {
 		writeFileSync(SNAPSHOT, actual);

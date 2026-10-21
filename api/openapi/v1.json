@@ -36,15 +36,15 @@
 						"example": "AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz"
 					},
 					"address": {
-						"type": "string",
-						"description": "A Sui address.",
-						"example": "0xabababababababababababababababababababababababababababababababab"
+						"$ref": "#/components/schemas/SuiAddress"
 					}
 				},
-				"required": [
-					"publicKey",
-					"address"
-				]
+				"required": ["publicKey", "address"]
+			},
+			"SuiAddress": {
+				"type": "string",
+				"description": "A Sui address.",
+				"example": "0xabababababababababababababababababababababababababababababababab"
 			},
 			"Error": {
 				"type": "object",
@@ -54,9 +54,7 @@
 						"example": "Address is not registered in the system."
 					}
 				},
-				"required": [
-					"error"
-				]
+				"required": ["error"]
 			}
 		},
 		"parameters": {}
@@ -64,17 +62,13 @@
 	"paths": {
 		"/v1/addresses/{address}": {
 			"get": {
-				"tags": [
-					"Addresses"
-				],
+				"tags": ["Addresses"],
 				"summary": "Look up a registered address",
 				"description": "The public key registered for a Sui address. An address is registered when its key connects, is passed to the register route, or is put in a signer set.",
 				"parameters": [
 					{
 						"schema": {
-							"type": "string",
-							"description": "A Sui address.",
-							"example": "0xabababababababababababababababababababababababababababababababab"
+							"$ref": "#/components/schemas/SuiAddress"
 						},
 						"required": true,
 						"description": "A Sui address.",
