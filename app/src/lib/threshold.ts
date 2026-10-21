@@ -17,3 +17,11 @@ export function thresholdLabel({
 
 /** Bars draw one segment per unit of weight up to this many units. */
 export const BAR_SEGMENT_CAP = 10;
+
+/** The weight the given signers carry together. */
+export function sumWeight(signers: { weight: number }[]) {
+	return signers.reduce(
+		(total, signer) => total + signer.weight,
+		0,
+	);
+}

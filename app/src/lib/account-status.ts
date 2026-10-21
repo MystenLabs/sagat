@@ -6,6 +6,7 @@ import { formatAddress } from '@mysten/sui/utils';
 import { memberStatus } from '@/components/invitations/member-status';
 
 import { validatePublicKey } from './sui-utils';
+import { sumWeight } from './threshold';
 
 interface MemberLike {
 	publicKey: string;
@@ -37,9 +38,11 @@ export function accountStatus({
 	);
 	if (rejected.length === 0) return { tone: 'ok' };
 
-	const reachableWeight = members
-		.filter((member) => memberStatus(member) !== 'rejected')
-		.reduce((sum, member) => sum + member.weight, 0);
+	const reachableWeight = sumWeight(
+		members.filter(
+			(member) => memberStatus(member) !== 'rejected',
+		),
+	);
 	if (reachableWeight < threshold)
 		return {
 			tone: 'error',
@@ -50,7 +53,7 @@ export function accountStatus({
 		tone: 'warning',
 		message:
 			rejected.length === 1
-				? `${signerName(rejected[0])} rejected the invitation.`
+				? `${memberName(rejected[0])} rejected the invitation.`
 				: `${signerCount(rejected.length)} rejected their invitations.`,
 	};
 }
@@ -59,9 +62,9 @@ function signerCount(count: number) {
 	return count === 1 ? '1 signer' : `${count} signers`;
 }
 
-/** The key's label, else its short address. */
-function signerName(member: MemberLike) {
+/** The key's label, else its short address, like the signers table. */
+function memberName(member: MemberLike) {
 	if (member.label) return member.label;
 	const { address } = validatePublicKey(member.publicKey);
-	return address ? formatAddress(address) : 'A signer';
+	return address ? formatAddress(address) : 'Unknown key';
 }

@@ -66,6 +66,21 @@ describe('account status', () => {
 		});
 	});
 
+	test('a key that will not parse is "Unknown key"', () => {
+		expect(
+			accountStatus({
+				members: [
+					signer('accepted'),
+					{ ...signer('rejected'), publicKey: 'not-a-key' },
+				],
+				threshold: 1,
+			}),
+		).toEqual({
+			tone: 'warning',
+			message: 'Unknown key rejected the invitation.',
+		});
+	});
+
 	test('counts several rejections', () => {
 		expect(
 			accountStatus({

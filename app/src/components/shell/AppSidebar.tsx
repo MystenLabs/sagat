@@ -473,38 +473,37 @@ function NavSkeleton() {
 	);
 }
 
-// The status line's colour, and the warning icon's fill, per surface: the
-// sidebar is black in both themes and has its own tokens; the menu is a
-// popover and takes the theme's. The `!` on the menu text beats the item's
-// focus rule, which otherwise recolours every descendant.
-const STATUS_TEXT_CLASS = {
+// The status colours per surface. The sidebar is black in both themes and
+// has its own tokens; the menu is a popover and takes the theme's, with `!`
+// to beat the item's focus rule, which otherwise recolours every descendant.
+// The icon is filled in the status colour, its mark cut out in the tile's.
+const SURFACE = {
 	sidebar: {
-		warning: 'text-sidebar-warning',
-		error: 'text-sidebar-error',
+		text: {
+			warning: 'text-sidebar-warning',
+			error: 'text-sidebar-error',
+		},
+		icon: {
+			warning:
+				'fill-sidebar-warning stroke-sidebar-primary',
+			error: 'fill-sidebar-error stroke-sidebar-primary',
+		},
 	},
 	menu: {
-		warning: 'text-warning-foreground!',
-		error: 'text-error-foreground!',
+		text: {
+			warning: 'text-warning-foreground!',
+			error: 'text-error-foreground!',
+		},
+		icon: {
+			warning: 'fill-warning-foreground stroke-secondary',
+			error: 'fill-error-foreground stroke-secondary',
+		},
 	},
 } as const;
 
-const STATUS_ICON_CLASS = {
-	sidebar: {
-		warning: 'fill-sidebar-warning stroke-sidebar-primary',
-		error: 'fill-sidebar-error stroke-sidebar-primary',
-	},
-	menu: {
-		warning: 'fill-warning-foreground stroke-secondary',
-		error: 'fill-error-foreground stroke-secondary',
-	},
-} as const;
+type StatusSurface = keyof typeof SURFACE;
 
-type StatusSurface = keyof typeof STATUS_TEXT_CLASS;
-
-/**
- * The account's tile icon: the signers icon, or a filled warning triangle
- * in the status colour, its mark cut out in the tile's colour.
- */
+/** The account's tile icon: the signers icon, or the warning triangle. */
 function AccountIcon({
 	status,
 	surface,
@@ -519,7 +518,7 @@ function AccountIcon({
 	return (
 		<TriangleAlert
 			className={cn(
-				STATUS_ICON_CLASS[surface][status.tone],
+				SURFACE[surface].icon[status.tone],
 				className,
 			)}
 		/>
@@ -527,32 +526,35 @@ function AccountIcon({
 }
 
 /**
- * Under the account's name: its short address, or the status sentence in
- * the warning or error colour. Never the threshold, per the designs.
+ * Under the account's name: its short address, styled by
+ * `addressClassName`, or the status sentence in the warning or error
+ * colour. Never the threshold, per the designs.
  */
 function AccountSubtitle({
 	status,
 	address,
 	surface,
-	className,
+	addressClassName,
+	testId,
 }: {
 	status: AccountStatus;
 	address: string;
 	surface: StatusSurface;
-	className?: string;
+	addressClassName?: string;
+	testId?: string;
 }) {
 	return (
 		<span
 			className={cn(
 				'text-11',
 				status.tone === 'ok'
-					? cn('truncate', className)
+					? cn('truncate', addressClassName)
 					: cn(
 							'leading-snug',
-							STATUS_TEXT_CLASS[surface][status.tone],
+							SURFACE[surface].text[status.tone],
 						),
 			)}
-			data-testid={`multisig-switcher-${surface === 'sidebar' ? 'subtitle' : 'option-subtitle'}`}
+			data-testid={testId}
 			data-tone={status.tone}
 		>
 			{status.tone === 'ok'
@@ -624,7 +626,8 @@ function MultisigSwitcher({
 								status={selectedStatus}
 								address={selected.address}
 								surface="sidebar"
-								className="tracking-[0.04em] text-sidebar-foreground/60"
+								addressClassName="tracking-[0.04em] text-sidebar-foreground/60"
+								testId="multisig-switcher-subtitle"
 							/>
 						) : (
 							<span className="truncate text-11 tracking-[0.04em] text-sidebar-foreground/60">
@@ -676,7 +679,7 @@ function MultisigSwitcher({
 												status={status}
 												address={m.address}
 												surface="menu"
-												className="font-mono text-muted-foreground"
+												addressClassName="font-mono text-muted-foreground"
 											/>
 										</span>
 										{isSelected && (
