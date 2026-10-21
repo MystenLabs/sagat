@@ -33,6 +33,16 @@ export const setupSharedTestEnvironment = () => {
 	});
 };
 
+// The database the app uses in this test file, for helpers that write what
+// no route writes yet (see `framework/rotation.ts`).
+export const testDatabase = () => {
+	if (!testDb)
+		throw new Error(
+			'Call setupSharedTestEnvironment() first.',
+		);
+	return testDb.db;
+};
+
 // The app, with an empty database.
 export const createTestApp = async () => {
 	if (!testDb)

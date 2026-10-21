@@ -37,6 +37,7 @@ export const toSignerSetMember = (
 export const toSignerSet = ({
 	link,
 	signerSet,
+	validOn,
 }: Omit<LinkedSignerSet, 'labels'>) => ({
 	address: signerSet.address,
 	label: link.label,
@@ -46,15 +47,15 @@ export const toSignerSet = ({
 	totalWeight: signerSet.totalWeight,
 	draftedBy: link.draftedBy,
 	createdAt: link.createdAt,
+	validOn: [...validOn],
 });
 
 export const toSignerSetWithMembers = ({
-	link,
-	signerSet,
 	labels,
+	...linked
 }: LinkedSignerSet) => ({
-	...toSignerSet({ link, signerSet }),
-	members: signerSet.members.map((member) =>
+	...toSignerSet(linked),
+	members: linked.signerSet.members.map((member) =>
 		toSignerSetMember(member, labels),
 	),
 });
@@ -63,6 +64,7 @@ export const toAccount = ({
 	account,
 	proposers,
 	signerSets,
+	aliases,
 }: AccountWithSignerSets) => ({
 	address: account.address,
 	name: account.name,
@@ -74,6 +76,13 @@ export const toAccount = ({
 		addedAt: proposer.addedAt,
 	})),
 	signerSets: signerSets.map(toSignerSetWithMembers),
+	aliases: aliases.map(
+		({ network, addresses, observedAt }) => ({
+			network,
+			addresses: [...addresses],
+			observedAt,
+		}),
+	),
 });
 
 export const toProposal = (proposal: Proposal) => ({

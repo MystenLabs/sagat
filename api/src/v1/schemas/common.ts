@@ -57,6 +57,11 @@ export const TransactionDigestSchema = z
 		example: 'C5xDL4jZ5cDyDqUt1ZwhmB1Mw3vKpA7Y2qTxwZv3Wpv4',
 	});
 
+// A Sui network. Responses only list the networks the server supports.
+export const NetworkSchema = z
+	.enum(['mainnet', 'testnet', 'devnet', 'localnet'])
+	.openapi('Network', { example: 'mainnet' });
+
 // A timestamp, as JSON serializes a `Date`.
 export const TimestampSchema = z.iso.datetime().openapi({
 	example: '2026-10-01T12:00:00.000Z',

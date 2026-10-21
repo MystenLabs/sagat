@@ -13,13 +13,11 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
-	AccountSignerSetStatus,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
 	SchemaSignerSetMembers,
 	type Account,
 	type AccountSignerSet,
-	type SignerSetWithMembers,
 } from '../db/schema';
 import {
 	ApiAuthError,
@@ -36,14 +34,22 @@ import {
 } from '../loaders/account-proposers.loader';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import { jwtHasSignerSetMemberAccess } from './membership.service';
+import {
+	hasMember,
+	loadAliasSets,
+	resolveAccounts,
+	validOn,
+	validSignerSetsAcrossNetworks,
+	type AliasSet,
+	type ValidatedSignerSet,
+} from './validity.service';
 
 /**
  * A signer set as one account knows it: the link row (label, status, who
- * drafted it), the composition, and the account's labels for the keys.
+ * drafted it), the composition, where it is valid for the account, and the
+ * account's labels for the keys.
  */
-export type LinkedSignerSet = {
-	link: AccountSignerSet;
-	signerSet: SignerSetWithMembers;
+export type LinkedSignerSet = ValidatedSignerSet & {
 	labels: KeyLabels;
 };
 
@@ -51,81 +57,83 @@ export type AccountWithSignerSets = {
 	account: Account;
 	proposers: Proposer[];
 	signerSets: LinkedSignerSet[];
+	aliases: AliasSet[];
 };
-
-// Link statuses under which a signer set acts for its account. Drafts and
-// abandoned sets are listed with the account, but give no access to it.
-export const ACTIVE_LINK_STATUSES = [
-	AccountSignerSetStatus.INVITING,
-	AccountSignerSetStatus.VERIFIED,
-];
 
 const unwrap = <T>(value: T | Error): T => {
 	if (value instanceof Error) throw value;
 	return value;
 };
 
-// The compositions of `links`, with the labels of each link's account.
+// The compositions of `links`, each with where it is valid for the link's
+// account and that account's labels for the keys.
 const expandLinks = async (
 	links: AccountSignerSet[],
 ): Promise<LinkedSignerSet[]> => {
-	const [signerSets, labels] = await Promise.all([
-		SignerSetDataLoader.loadMany(
-			links.map((l) => l.signerSetAddress),
-		),
-		AccountKeyLabelsDataLoader.loadMany(
-			links.map((l) => l.accountAddress),
-		),
-	]);
+	const [signerSets, labels, aliasSets] = await Promise.all(
+		[
+			SignerSetDataLoader.loadMany(
+				links.map((l) => l.signerSetAddress),
+			),
+			AccountKeyLabelsDataLoader.loadMany(
+				links.map((l) => l.accountAddress),
+			),
+			loadAliasSets(links.map((l) => l.accountAddress)),
+		],
+	);
 	return links.flatMap((link, i) => {
 		const signerSet = unwrap(signerSets[i]);
 		// The link row references the signer set, so it exists.
 		if (!signerSet) return [];
-		return [{ link, signerSet, labels: unwrap(labels[i]) }];
+		return [
+			{
+				link,
+				signerSet,
+				validOn: validOn(
+					link.signerSetAddress,
+					aliasSets.get(link.accountAddress) ?? [],
+				),
+				labels: unwrap(labels[i]),
+			},
+		];
 	});
 };
 
-// Accounts with their proposers and linked signer sets, in the order of
-// `addresses`. Unknown addresses are left out.
+// Accounts with their proposers, linked signer sets (with where each is
+// valid) and alias sets, in the order of `addresses`. Unknown addresses are
+// left out.
 const loadAccounts = async (
 	addresses: string[],
 ): Promise<AccountWithSignerSets[]> => {
 	if (addresses.length === 0) return [];
 
-	const [accounts, links, proposers] = await Promise.all([
-		db
-			.select()
-			.from(SchemaAccounts)
-			.where(inArray(SchemaAccounts.address, addresses)),
-		db
-			.select()
-			.from(SchemaAccountSignerSets)
-			.where(
-				inArray(
-					SchemaAccountSignerSets.accountAddress,
-					addresses,
-				),
-			)
-			.orderBy(
-				asc(SchemaAccountSignerSets.createdAt),
-				asc(SchemaAccountSignerSets.signerSetAddress),
-			),
-		AccountProposersDataLoader.loadMany(addresses),
-	]);
-	const linked = await expandLinks(links);
+	const [accounts, resolved, proposers, labels] =
+		await Promise.all([
+			db
+				.select()
+				.from(SchemaAccounts)
+				.where(inArray(SchemaAccounts.address, addresses)),
+			resolveAccounts(addresses),
+			AccountProposersDataLoader.loadMany(addresses),
+			AccountKeyLabelsDataLoader.loadMany(addresses),
+		]);
 
 	return addresses.flatMap((address, i) => {
 		const account = accounts.find(
 			(a) => a.address === address,
 		);
-		if (!account) return [];
+		const resolution = resolved.get(address);
+		if (!account || !resolution) return [];
+		const keyLabels = unwrap(labels[i]);
 		return [
 			{
 				account,
 				proposers: unwrap(proposers[i]),
-				signerSets: linked.filter(
-					(s) => s.link.accountAddress === address,
-				),
+				signerSets: resolution.signerSets.map((s) => ({
+					...s,
+					labels: keyLabels,
+				})),
+				aliases: resolution.aliases,
 			},
 		];
 	});
@@ -141,46 +149,21 @@ export const loadAccount = async (address: string) => {
 	return account;
 };
 
-// Whether one of `callerKeys` is a member, accepted or not, of an active
-// signer set of the account.
+// Whether one of `callerKeys` is a member, accepted or not, of a signer
+// set of the account that is valid on some network. Invitees of a draft
+// have no access: they only see their invitation.
 const hasAccountAccess = async (
 	accountAddress: string,
 	callerKeys: PublicKey[],
-) => {
-	const [row] = await db
-		.select({
-			publicKey: SchemaSignerSetMembers.publicKey,
-		})
-		.from(SchemaSignerSetMembers)
-		.innerJoin(
-			SchemaAccountSignerSets,
-			eq(
-				SchemaAccountSignerSets.signerSetAddress,
-				SchemaSignerSetMembers.signerSetAddress,
-			),
-		)
-		.where(
-			and(
-				eq(
-					SchemaAccountSignerSets.accountAddress,
-					accountAddress,
-				),
-				inArray(
-					SchemaSignerSetMembers.publicKey,
-					callerKeys.map((k) => k.toSuiPublicKey()),
-				),
-				inArray(
-					SchemaAccountSignerSets.status,
-					ACTIVE_LINK_STATUSES,
-				),
-			),
-		)
-		.limit(1);
-	return !!row;
-};
+) =>
+	hasMember(
+		await validSignerSetsAcrossNetworks(accountAddress),
+		callerKeys,
+		{ acceptedOnly: false },
+	);
 
-// The account at `address`, for a caller holding a key in one of its
-// active signer sets (accepted or not).
+// The account at `address`, for a caller holding a key (accepted or not)
+// in one of its signer sets that is valid on some network.
 export const getAccount = async ({
 	address,
 	callerKeys,
@@ -194,15 +177,19 @@ export const getAccount = async ({
 };
 
 /**
- * The accounts the caller can sign for: those with an active signer set in
- * which one of the caller's keys has accepted (and not rejected). Each
- * account is listed once, however many of the caller's keys it has.
+ * The accounts the caller can sign for: those with a signer set, valid on
+ * some network, in which one of the caller's keys has accepted (and not
+ * rejected). Each account is listed once, however many of the caller's
+ * keys it has.
  */
 export const listAccounts = async ({
 	callerKeys,
 }: {
 	callerKeys: PublicKey[];
 }): Promise<AccountWithSignerSets[]> => {
+	const keys = callerKeys.map((k) => k.toSuiPublicKey());
+	// Every account linked to a composition the caller accepted; the ones
+	// where no such composition is valid are dropped below.
 	const rows = await db
 		.selectDistinct({
 			address: SchemaAccountSignerSets.accountAddress,
@@ -217,21 +204,25 @@ export const listAccounts = async ({
 		)
 		.where(
 			and(
-				inArray(
-					SchemaSignerSetMembers.publicKey,
-					callerKeys.map((k) => k.toSuiPublicKey()),
-				),
+				inArray(SchemaSignerSetMembers.publicKey, keys),
 				eq(SchemaSignerSetMembers.isAccepted, true),
 				eq(SchemaSignerSetMembers.isRejected, false),
-				inArray(
-					SchemaAccountSignerSets.status,
-					ACTIVE_LINK_STATUSES,
-				),
 			),
 		);
 
-	const accounts = await loadAccounts(
-		rows.map((r) => r.address),
+	const accounts = (
+		await loadAccounts(rows.map((r) => r.address))
+	).filter(({ signerSets }) =>
+		signerSets.some(
+			({ signerSet, validOn }) =>
+				validOn.length > 0 &&
+				signerSet.members.some(
+					(m) =>
+						keys.includes(m.publicKey) &&
+						m.isAccepted &&
+						!m.isRejected,
+				),
+		),
 	);
 	// Oldest first, so the order is stable.
 	return accounts.sort(
@@ -240,41 +231,6 @@ export const listAccounts = async ({
 				b.account.createdAt.getTime() ||
 			a.account.address.localeCompare(b.account.address),
 	);
-};
-
-/**
- * The active signer sets of an account, in the order they were linked,
- * without key labels: for the public proposal view and the vote tally.
- */
-export const loadActiveSignerSets = async (
-	accountAddress: string,
-): Promise<Omit<LinkedSignerSet, 'labels'>[]> => {
-	const links = await db
-		.select()
-		.from(SchemaAccountSignerSets)
-		.where(
-			and(
-				eq(
-					SchemaAccountSignerSets.accountAddress,
-					accountAddress,
-				),
-				inArray(
-					SchemaAccountSignerSets.status,
-					ACTIVE_LINK_STATUSES,
-				),
-			),
-		)
-		.orderBy(
-			asc(SchemaAccountSignerSets.createdAt),
-			asc(SchemaAccountSignerSets.signerSetAddress),
-		);
-	const signerSets = await SignerSetDataLoader.loadMany(
-		links.map((l) => l.signerSetAddress),
-	);
-	return links.flatMap((link, i) => {
-		const signerSet = unwrap(signerSets[i]);
-		return signerSet ? [{ link, signerSet }] : [];
-	});
 };
 
 /**

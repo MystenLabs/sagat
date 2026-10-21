@@ -10,8 +10,10 @@
 import { z } from '@hono/zod-openapi';
 
 import {
+	NetworkSchema,
 	PublicKeySchema,
 	SuiAddressSchema,
+	TimestampSchema,
 } from './common';
 import {
 	AccountProposerSchema,
@@ -57,6 +59,10 @@ export const SignerSetSchema = z
 					'The address of the key that created the signer set for the account.',
 			}),
 		createdAt: AccountSignerSetRowSchema.shape.createdAt,
+		validOn: z.array(NetworkSchema).openapi({
+			description:
+				'The networks on which the signer set can sign for the account: those whose alias set holds its address. Empty for a draft, or a set retired everywhere.',
+		}),
 	})
 	.openapi('SignerSet');
 
@@ -65,9 +71,30 @@ export const SignerSetWithMembersSchema =
 		members: z.array(SignerSetMemberSchema),
 	}).openapi('SignerSetWithMembers');
 
+export const AccountAliasesSchema = z
+	.object({
+		network: NetworkSchema,
+		addresses: z.array(SuiAddressSchema).openapi({
+			description:
+				'The addresses allowed to sign for the account on the network, sorted. Some may be signer sets the account does not link, or single keys.',
+		}),
+		observedAt: TimestampSchema.nullable().openapi({
+			description:
+				'When the alias set was last read from chain, or null while it is the default, the account alone.',
+		}),
+	})
+	.openapi('AccountAliases');
+
 export const AccountSchema = AccountRowSchema.extend({
 	proposers: z.array(AccountProposerSchema),
-	signerSets: z.array(SignerSetWithMembersSchema),
+	signerSets: z.array(SignerSetWithMembersSchema).openapi({
+		description:
+			'Every signer set linked to the account, oldest first, including drafts and retired sets: see `validOn`.',
+	}),
+	aliases: z.array(AccountAliasesSchema).openapi({
+		description:
+			'The alias set of the account on each supported network, as last read from chain.',
+	}),
 }).openapi('Account');
 
 export const CreateSignerSetRequestSchema = z

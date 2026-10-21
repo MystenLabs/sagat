@@ -1168,7 +1168,10 @@ export interface components {
              */
             createdAt: string;
             proposers: components["schemas"]["AccountProposer"][];
+            /** @description Every signer set linked to the account, oldest first, including drafts and retired sets: see `validOn`. */
             signerSets: components["schemas"]["SignerSetWithMembers"][];
+            /** @description The alias set of the account on each supported network, as last read from chain. */
+            aliases: components["schemas"]["AccountAliases"][];
         };
         AccountProposer: {
             accountAddress: components["schemas"]["SuiAddress"];
@@ -1183,6 +1186,11 @@ export interface components {
         SignerSetWithMembers: components["schemas"]["SignerSet"] & {
             members: components["schemas"]["SignerSetMember"][];
         };
+        /**
+         * @example mainnet
+         * @enum {string}
+         */
+        Network: "mainnet" | "testnet" | "devnet" | "localnet";
         SignerSetMember: {
             signerSetAddress: components["schemas"]["SuiAddress"];
             /**
@@ -1223,6 +1231,19 @@ export interface components {
              * @example 2026-10-01T12:00:00.000Z
              */
             createdAt: string;
+            /** @description The networks on which the signer set can sign for the account: those whose alias set holds its address. Empty for a draft, or a set retired everywhere. */
+            validOn: components["schemas"]["Network"][];
+        };
+        AccountAliases: {
+            network: components["schemas"]["Network"];
+            /** @description The addresses allowed to sign for the account on the network, sorted. Some may be signer sets the account does not link, or single keys. */
+            addresses: components["schemas"]["SuiAddress"][];
+            /**
+             * Format: date-time
+             * @description When the alias set was last read from chain, or null while it is the default, the account alone.
+             * @example 2026-10-01T12:00:00.000Z
+             */
+            observedAt: string | null;
         };
         AddProposerRequest: {
             proposer: components["schemas"]["SuiAddress"];

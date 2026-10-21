@@ -110,7 +110,15 @@
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/SignerSetWithMembers"
-						}
+						},
+						"description": "Every signer set linked to the account, oldest first, including drafts and retired sets: see `validOn`."
+					},
+					"aliases": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/AccountAliases"
+						},
+						"description": "The alias set of the account on each supported network, as last read from chain."
 					}
 				},
 				"required": [
@@ -118,7 +126,8 @@
 					"name",
 					"createdAt",
 					"proposers",
-					"signerSets"
+					"signerSets",
+					"aliases"
 				]
 			},
 			"AccountProposer": {
@@ -162,6 +171,16 @@
 						"required": ["members"]
 					}
 				]
+			},
+			"Network": {
+				"type": "string",
+				"enum": [
+					"mainnet",
+					"testnet",
+					"devnet",
+					"localnet"
+				],
+				"example": "mainnet"
 			},
 			"SignerSetMember": {
 				"type": "object",
@@ -249,6 +268,13 @@
 						"type": "string",
 						"format": "date-time",
 						"example": "2026-10-01T12:00:00.000Z"
+					},
+					"validOn": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"description": "The networks on which the signer set can sign for the account: those whose alias set holds its address. Empty for a draft, or a set retired everywhere."
 					}
 				},
 				"required": [
@@ -259,8 +285,31 @@
 					"threshold",
 					"totalWeight",
 					"draftedBy",
-					"createdAt"
+					"createdAt",
+					"validOn"
 				]
+			},
+			"AccountAliases": {
+				"type": "object",
+				"properties": {
+					"network": {
+						"$ref": "#/components/schemas/Network"
+					},
+					"addresses": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"description": "The addresses allowed to sign for the account on the network, sorted. Some may be signer sets the account does not link, or single keys."
+					},
+					"observedAt": {
+						"type": ["string", "null"],
+						"format": "date-time",
+						"example": "2026-10-01T12:00:00.000Z",
+						"description": "When the alias set was last read from chain, or null while it is the default, the account alone."
+					}
+				},
+				"required": ["network", "addresses", "observedAt"]
 			},
 			"AddProposerRequest": {
 				"type": "object",

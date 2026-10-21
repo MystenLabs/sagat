@@ -13,6 +13,8 @@ type Schemas = components['schemas'];
 
 export type Address = Schemas['Address'];
 export type Account = Schemas['Account'];
+export type AccountAliases = Schemas['AccountAliases'];
+export type Network = Schemas['Network'];
 export type AccountProposer = Schemas['AccountProposer'];
 export type SignerSet = Schemas['SignerSet'];
 export type SignerSetWithMembers =

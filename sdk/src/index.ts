@@ -15,12 +15,14 @@ export {
 export { ProposalStatus } from './types.js';
 export type {
 	Account,
+	AccountAliases,
 	AccountProposer,
 	Address,
 	AuthCheckResponse,
 	AuthResponse,
 	CreateProposalRequest,
 	CreateSignerSetRequest,
+	Network,
 	PaginatedResponse,
 	Proposal,
 	ProposalSignature,

@@ -51,7 +51,6 @@ import {
 	type PaginationCursor,
 } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
-import { loadActiveSignerSets } from './accounts.service';
 import {
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -64,6 +63,10 @@ import {
 	verifyMemberSignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
+import {
+	validSignerSets,
+	type ValidatedSignerSet,
+} from './validity.service';
 
 // A proposal with the signer set of its account and how far its signatures
 // get it.
@@ -572,24 +575,37 @@ export type SignerSetTally = {
 	hasReachedThreshold: boolean;
 };
 
+// Tallies a proposal against each of `signerSets`. A signature counts
+// towards every set that has its key; one from a key in none of them is
+// kept but counts nowhere.
+const tallyEach = (
+	proposal: ProposalWithSignatures,
+	signerSets: ValidatedSignerSet[],
+): SignerSetTally[] =>
+	signerSets.map(({ link, signerSet }) => {
+		const { currentWeight, hasReachedThreshold } =
+			tallyProposal(proposal, signerSet);
+		return {
+			link,
+			signerSet,
+			currentWeight,
+			hasReachedThreshold,
+		};
+	});
+
 /**
- * Tallies a proposal against each active signer set of its account. A
- * signature counts towards every set that has its key.
+ * Tallies a proposal against each signer set of its account that is valid
+ * on the proposal's network.
  */
 export const tallySignerSets = async (
 	proposal: ProposalWithSignatures,
 ): Promise<SignerSetTally[]> =>
-	(await loadActiveSignerSets(proposal.accountAddress)).map(
-		({ link, signerSet }) => {
-			const { currentWeight, hasReachedThreshold } =
-				tallyProposal(proposal, signerSet);
-			return {
-				link,
-				signerSet,
-				currentWeight,
-				hasReachedThreshold,
-			};
-		},
+	tallyEach(
+		proposal,
+		await validSignerSets(
+			proposal.accountAddress,
+			proposal.network as SuiNetwork,
+		),
 	);
 
 // Adds a member's signature, then tallies every signer set of the account.
