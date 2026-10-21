@@ -13,12 +13,8 @@
  *   GET /v1/docs          the reference page (Scalar)
  */
 
-import {
-	OpenAPIHono,
-	type OpenAPIObjectConfigure,
-} from '@hono/zod-openapi';
+import { OpenAPIHono } from '@hono/zod-openapi';
 import { Scalar } from '@scalar/hono-api-reference';
-import { type Env } from 'hono';
 
 import { mountAccounts } from './routes/accounts';
 import { mountAddresses } from './routes/addresses';
@@ -45,10 +41,9 @@ export const SecuritySchemes = {
 	},
 } as const;
 
-const openApiConfig: OpenAPIObjectConfigure<
-	Env,
-	'/openapi.json'
-> = {
+const openApiConfig: Parameters<
+	OpenAPIHono['getOpenAPI31Document']
+>[0] = {
 	openapi: '3.1.0',
 	info: {
 		title: 'Sagat API',
@@ -111,7 +106,10 @@ export const createV1App = () => {
 	mountSignerSets(v1);
 	mountProposals(v1);
 
-	v1.doc31('/openapi.json', openApiConfig);
+	// The spec depends on the routes only, so it is built once, after they
+	// are mounted, instead of on every request.
+	const document = v1.getOpenAPI31Document(openApiConfig);
+	v1.get('/openapi.json', (c) => c.json(document));
 	v1.get(
 		'/docs',
 		Scalar({ url: OPENAPI_PATH, pageTitle: 'Sagat API' }),
