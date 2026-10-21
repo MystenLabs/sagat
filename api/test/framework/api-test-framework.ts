@@ -3,8 +3,10 @@
 
 import {
 	ApiClient,
+	combineSignerSetSignatures,
 	PersonalMessages as V1Messages,
 	type Account,
+	type SignerSetKeyInput,
 } from '@mysten/sagat';
 import {
 	defaultExpiry,
@@ -12,7 +14,6 @@ import {
 	SagatClient,
 } from '@mysten/sagat-legacy';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
@@ -20,7 +21,6 @@ import {
 } from '@mysten/sui/utils';
 import { type Hono } from 'hono';
 
-import { parsePublicKey } from '../../src/utils/pubKey';
 import {
 	executeTransaction,
 	fundAddress,
@@ -408,36 +408,12 @@ export class TestSession {
 	// from the signatures collected so far, without verifying it.
 	async executeProposal(
 		digest: string,
-		set: {
-			threshold: number;
-			members: {
-				publicKey: string;
-				weight: number;
-				order: number;
-			}[];
-		},
+		set: SignerSetKeyInput,
 	) {
 		const { signatures, transactionBytes } =
 			await this.v1.getProposalByDigest(digest);
-		const members = [...set.members].sort(
-			(a, b) => a.order - b.order,
-		);
-		const signerSetKey = MultiSigPublicKey.fromPublicKeys({
-			threshold: set.threshold,
-			publicKeys: members.map((m) => ({
-				publicKey: parsePublicKey(m.publicKey),
-				weight: m.weight,
-			})),
-		});
 		return executeSigned(transactionBytes, [
-			signerSetKey.combinePartialSignatures(
-				members.flatMap(
-					(m) =>
-						signatures.find(
-							(sig) => sig.publicKey === m.publicKey,
-						)?.signature ?? [],
-				),
-			),
+			combineSignerSetSignatures(set, signatures),
 		]);
 	}
 

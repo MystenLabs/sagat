@@ -35,8 +35,7 @@ export function useExecuteProposal() {
 
 			// Step 1: Combine the signatures of a signer set that has
 			// reached its threshold. The sender stays the account.
-			const { signature } =
-				combineProposalSignatures(proposal);
+			const signature = combineProposalSignatures(proposal);
 
 			// Step 2: Execute the transaction with the combined signature
 			const result = await suiClient.executeTransaction({

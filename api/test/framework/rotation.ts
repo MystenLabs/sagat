@@ -9,7 +9,7 @@
  * through the `/v1` routes with real signatures.
  */
 
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { signerSetPublicKey } from '@mysten/sagat';
 import { and, eq } from 'drizzle-orm';
 
 import {
@@ -58,46 +58,40 @@ export async function linkSignerSet(
 		});
 }
 
-/** The address of the composition of `members` with `threshold`. */
-export const signerSetAddress = (
+/** The address of `members`, each of weight 1, with `threshold`. */
+const signerSetAddress = (
 	members: TestUser[],
 	threshold: number,
-	weights = members.map(() => 1),
 ) =>
-	MultiSigPublicKey.fromPublicKeys({
+	signerSetPublicKey({
 		threshold,
-		publicKeys: members.map((m, i) => ({
-			publicKey: m.keypair.getPublicKey(),
-			weight: weights[i],
+		members: members.map((m, order) => ({
+			publicKey: m.publicKey,
+			weight: 1,
+			order,
 		})),
 	}).toSuiAddress();
 
 /**
  * Drafts a signer set for an account: the composition with its members
  * invited (or accepted, for `accepted`), linked to the account, without an
- * account of its own. An existing composition is reused and only linked.
- * Returns its address.
+ * account of its own. Every member has weight 1. An existing composition
+ * is reused and only linked. Returns its address.
  */
 export async function draftSignerSet(
 	accountAddress: string,
 	members: TestUser[],
 	threshold: number,
 	{
-		weights = members.map(() => 1),
 		accepted = [],
 		...link
 	}: LinkOptions & {
-		weights?: number[];
 		// Members that accept right away, like carried-over keys.
 		accepted?: TestUser[];
 	} = {},
 ) {
 	const db = testDatabase();
-	const address = signerSetAddress(
-		members,
-		threshold,
-		weights,
-	);
+	const address = signerSetAddress(members, threshold);
 	const existing =
 		await db.query.SchemaSignerSets.findFirst({
 			where: eq(SchemaSignerSets.address, address),
@@ -123,7 +117,7 @@ export async function draftSignerSet(
 			members.map((m, order) => ({
 				signerSetAddress: address,
 				publicKey: m.publicKey,
-				weight: weights[order],
+				weight: 1,
 				isAccepted: accepted.includes(m),
 				order,
 			})),

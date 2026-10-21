@@ -1,14 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type {
-	ProposalSignerSet,
-	PublicProposal,
+import {
+	combineSignerSetSignatures,
+	type ProposalSignerSet,
+	type PublicProposal,
 } from '@mysten/sagat';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { formatAddress } from '@mysten/sui/utils';
-
-import { extractPublicKeyFromBase64 } from './wallet';
 
 /*
  * Progress comes from the server: every proposal it returns carries
@@ -100,9 +98,7 @@ export function isReadyToExecute(
 
 /**
  * The combined signature for a proposal, from the first signer set that has
- * reached its threshold: its key is rebuilt from its members in order, and
- * only their signatures are combined. A signature from a key outside the
- * set would make the combination fail.
+ * reached its threshold, with only that set's signatures.
  */
 export function combineProposalSignatures(
 	proposal: Pick<
@@ -117,31 +113,8 @@ export function combineProposalSignatures(
 		throw new Error(
 			'No signer set has reached its threshold',
 		);
-
-	const members = [...signerSet.members].sort(
-		(a, b) => a.order - b.order,
-	);
-	const multiSigPublicKey =
-		MultiSigPublicKey.fromPublicKeys({
-			threshold: signerSet.threshold,
-			publicKeys: members.map((m) => ({
-				publicKey: extractPublicKeyFromBase64(m.publicKey),
-				weight: m.weight,
-			})),
-		});
-	const signatures = members.flatMap((m) => {
-		const signature = proposal.signatures.find(
-			(s) => s.publicKey === m.publicKey,
-		);
-		return signature ? [signature.signature] : [];
-	});
-
-	return {
+	return combineSignerSetSignatures(
 		signerSet,
-		multiSigPublicKey,
-		signature:
-			multiSigPublicKey.combinePartialSignatures(
-				signatures,
-			),
-	};
+		proposal.signatures,
+	);
 }

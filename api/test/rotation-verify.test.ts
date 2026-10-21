@@ -7,9 +7,12 @@
 // network through Sagat proposals; the mirror is then written as the
 // refresh would, since there is no refresh yet.
 
-import { ProposalStatus } from '@mysten/sagat';
+import {
+	combineSignerSetSignatures,
+	ProposalStatus,
+	signerSetPublicKey,
+} from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
@@ -188,18 +191,20 @@ describe('Rotation: verify records the executing signer set', () => {
 		).signatures.find(
 			(sig) => sig.publicKey === s.k3.publicKey,
 		)!.signature;
-		const s2Key = MultiSigPublicKey.fromPublicKeys({
-			threshold: 2,
-			publicKeys: [s.k3, s.k4].map((k) => ({
-				publicKey: k.keypair.getPublicKey(),
-				weight: 1,
-			})),
-		});
-		expect(s2Key.toSuiAddress()).toBe(s.S2);
+		const s2 = await s.creator.v1.getSignerSet(s.S2);
+		expect(signerSetPublicKey(s2).toSuiAddress()).toBe(
+			s.S2,
+		);
 		await executeSigned(proposal.transactionBytes, [
-			s2Key.combinePartialSignatures([
-				k3Signature,
-				k4Signature,
+			combineSignerSetSignatures(s2, [
+				{
+					publicKey: s.k3.publicKey,
+					signature: k3Signature,
+				},
+				{
+					publicKey: s.k4.publicKey,
+					signature: k4Signature,
+				},
 			]),
 		]);
 		await s.creator.verifyByDigest(proposal.digest);

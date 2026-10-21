@@ -12,6 +12,11 @@ export {
 	defaultExpiry,
 	getDefaultSagatApiUrl,
 } from './constants.js';
+export {
+	combineSignerSetSignatures,
+	signerSetPublicKey,
+	type SignerSetKeyInput,
+} from './signer-sets.js';
 export { ProposalStatus } from './types.js';
 export type {
 	Account,

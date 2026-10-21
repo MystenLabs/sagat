@@ -169,21 +169,20 @@ describe('proposal utils', () => {
 			tallied('0xb', 2, [alice, bob], signatures),
 		];
 
-		const { signerSet: used, multiSigPublicKey } =
-			combineProposalSignatures({
-				signatures,
-				signerSets,
-			});
-
-		expect(used.address).toBe('0xb');
-		expect(multiSigPublicKey.toSuiAddress()).toBe(
+		const [, bobSignature, aliceSignature] = signatures;
+		expect(
+			combineProposalSignatures({ signatures, signerSets }),
+		).toBe(
 			MultiSigPublicKey.fromPublicKeys({
 				threshold: 2,
 				publicKeys: [alice, bob].map((k) => ({
 					publicKey: k.getPublicKey(),
 					weight: 1,
 				})),
-			}).toSuiAddress(),
+			}).combinePartialSignatures([
+				aliceSignature.signature,
+				bobSignature.signature,
+			]),
 		);
 	});
 

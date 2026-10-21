@@ -6,9 +6,9 @@
 import {
 	defaultExpiry,
 	PersonalMessages,
+	signerSetPublicKey,
 	type Proposal,
 } from '@mysten/sagat';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 
 import {
 	type Chain,
@@ -187,11 +187,14 @@ function multisigPublicKeyOf(
 	members: MultisigMember[],
 	threshold: number,
 ) {
-	return MultiSigPublicKey.fromPublicKeys({
+	return signerSetPublicKey({
 		threshold,
-		publicKeys: members.map(({ identity, weight }) => ({
-			publicKey: identity.keypair.getPublicKey(),
+		members: members.map(({ identity, weight }, order) => ({
+			publicKey: identity.keypair
+				.getPublicKey()
+				.toSuiPublicKey(),
 			weight: weight ?? 1,
+			order,
 		})),
 	});
 }

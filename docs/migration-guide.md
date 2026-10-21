@@ -180,6 +180,25 @@ After:
 3. Combine only the signatures whose public key is in that set, in the same order.
 4. Execute, then call verify as before. Verify reads the executed transaction and records the address that signed it in `executedVia`: the signer set you used, or a single key alias.
 
+With the SDK, `combineSignerSetSignatures` does steps 2 and 3, and `signerSetPublicKey` returns the set's key on its own:
+
+```ts
+import { combineSignerSetSignatures } from '@mysten/sagat';
+
+const set = proposal.signerSets.find(
+	(s) => s.hasReachedThreshold,
+);
+if (!set)
+	throw new Error('No signer set has reached threshold');
+
+const combined = combineSignerSetSignatures(
+	set,
+	proposal.signatures,
+);
+```
+
+Calling the API directly, the same steps by hand:
+
 ```ts
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { publicKeyFromSuiBytes } from '@mysten/sui/verify';

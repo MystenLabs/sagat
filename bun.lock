@@ -114,11 +114,13 @@
         "openapi-fetch": "^0.17.0",
       },
       "devDependencies": {
+        "@mysten/sui": "^2.33.1",
         "@types/bun": "latest",
         "openapi-typescript": "^7.13.0",
         "tsup": "^8.5.1",
       },
       "peerDependencies": {
+        "@mysten/sui": "^2.33.1",
         "typescript": "^5.0.0",
       },
     },
