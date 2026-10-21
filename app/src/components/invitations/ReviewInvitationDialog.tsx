@@ -6,7 +6,6 @@ import { Check, Info } from 'lucide-react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { validatePublicKey } from '@/lib/sui-utils';
-import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, errorMessage } from '@/lib/utils';
 
@@ -21,8 +20,9 @@ import {
 	DialogTitle,
 } from '../ui/dialog';
 import { accountName } from './account-name';
-import { memberStatus } from './member-status';
+import { memberStatus, weightTone } from './member-status';
 import { ShortAddress } from './ShortAddress';
+import { WeightBar } from './WeightBar';
 
 /**
  * The invitation in full before accepting: the account's setup, its
@@ -69,9 +69,6 @@ export function ReviewInvitationDialog({
 			};
 		});
 	const you = signers.find((s) => s.isYou);
-	const accepted = signers.filter(
-		(s) => s.isAccepted,
-	).length;
 
 	return (
 		<Dialog
@@ -142,26 +139,18 @@ export function ReviewInvitationDialog({
 							</DialogDescription>
 						</div>
 
-						<dl className="mt-5 grid grid-cols-3 gap-4 rounded-lg bg-surface p-4">
-							<Stat
-								label="Your weight"
-								value={
-									you
-										? `${you.weight} of ${multisig.totalWeight}`
-										: '—'
-								}
+						<div className="mt-5">
+							<WeightBar
+								signers={signers.map((signer) => ({
+									weight: signer.weight,
+									tone: weightTone(signer),
+								}))}
+								threshold={multisig.threshold}
+								yourWeight={you?.weight ?? null}
 							/>
-							<Stat
-								label="Threshold"
-								value={thresholdLabel(multisig)}
-							/>
-							<Stat
-								label="Accepted"
-								value={`${accepted} of ${multisig.totalMembers}`}
-							/>
-						</dl>
+						</div>
 
-						<div className="mt-4 flex flex-col gap-1">
+						<div className="mt-5 flex flex-col gap-1">
 							<div className="text-12 text-muted-foreground">
 								Sui address
 							</div>
@@ -181,7 +170,8 @@ export function ReviewInvitationDialog({
 							<table className="w-full table-fixed text-13">
 								<thead>
 									<tr className="bg-muted text-left text-12 text-muted-foreground">
-										<th className="w-9 px-3 py-1.5 font-normal">
+										{/* Hidden at phone width so the name and address keep their room. */}
+										<th className="hidden w-9 px-3 py-1.5 font-normal sm:table-cell">
 											#
 										</th>
 										<th className="px-3 py-1.5 font-normal">
@@ -207,7 +197,7 @@ export function ReviewInvitationDialog({
 											data-address={signer.address}
 											data-status={signer.status}
 										>
-											<td className="px-3 py-2.5 text-12 text-muted-foreground">
+											<td className="hidden px-3 py-2.5 text-12 text-muted-foreground sm:table-cell">
 												{i + 1}
 											</td>
 											<td className="px-3 py-1">
@@ -273,23 +263,6 @@ const STATUS_CHIP = {
 	pending: { variant: 'warning', label: 'Invited' },
 } as const;
 
-function Stat({
-	label,
-	value,
-}: {
-	label: string;
-	value: string;
-}) {
-	return (
-		<div className="flex flex-col gap-0.5">
-			<dt className="text-12 text-muted-foreground">
-				{label}
-			</dt>
-			<dd className="text-14">{value}</dd>
-		</div>
-	);
-}
-
 /**
  * A signer's name over their address when the account named the key,
  * otherwise the address alone. "You" or "Creator" follows the first line.
@@ -322,7 +295,7 @@ function SignerCell({
 
 	if (!signer.label)
 		return (
-			<span className="flex items-center gap-1.5 font-mono text-12">
+			<span className="flex items-center gap-1.5 font-mono text-12 whitespace-nowrap">
 				{address}
 				{markerText}
 			</span>
@@ -338,7 +311,7 @@ function SignerCell({
 				</span>
 				{markerText}
 			</span>
-			<span className="flex font-mono text-12">
+			<span className="flex font-mono text-12 whitespace-nowrap">
 				{address}
 			</span>
 		</div>

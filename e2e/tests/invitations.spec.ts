@@ -61,6 +61,27 @@ test.describe('invitations', () => {
 		await expect(
 			bob.page.getByTestId('invitation-review'),
 		).toContainText('Alice invited you as a signer.');
+		// The weight bar: Alice's accepted weight, yours, the threshold,
+		// and one segment per unit of weight in signer order.
+		const weightBar = bob.page.getByTestId(
+			'invitation-weight-bar',
+		);
+		await expect(
+			weightBar.getByTestId('weight-legend-you'),
+		).toHaveText('Your weight 1');
+		await expect(
+			weightBar.getByTestId('weight-legend-accepted'),
+		).toHaveText('Accepted 1');
+		await expect(
+			weightBar.getByTestId('weight-legend-threshold'),
+		).toHaveText('Threshold 2 of 2');
+		expect(
+			await weightBar
+				.locator('[data-tone]')
+				.evaluateAll((segments) =>
+					segments.map((s) => s.getAttribute('data-tone')),
+				),
+		).toEqual(['accepted', 'you']);
 		// A labelled signer shows by name over the address; an unlabelled
 		// one shows the address alone.
 		await expect(

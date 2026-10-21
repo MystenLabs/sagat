@@ -14,3 +14,6 @@ export function thresholdLabel({
 }) {
 	return `${threshold} of ${totalWeight}`;
 }
+
+/** Bars draw one segment per unit of weight up to this many units. */
+export const BAR_SEGMENT_CAP = 10;

@@ -15,6 +15,7 @@ import {
 	computeMultisigAddress,
 	validatePublicKey,
 } from './sui-utils';
+import { BAR_SEGMENT_CAP } from './threshold';
 
 /** A row in the signers table, as the creator typed it. */
 export interface SignerDraft {
@@ -379,7 +380,7 @@ export function thresholdWarning({
 }
 
 /**
- * The threshold bar: one segment per unit of weight up to 10, then a
+ * The threshold bar: one segment per unit of weight up to the cap, then a
  * continuous bar whose filled part never shrinks below a visible sliver.
  */
 export function thresholdBar(
@@ -388,7 +389,7 @@ export function thresholdBar(
 ):
 	| { kind: 'segments'; filled: boolean[] }
 	| { kind: 'continuous'; percent: number } {
-	if (totalWeight <= 10)
+	if (totalWeight <= BAR_SEGMENT_CAP)
 		return {
 			kind: 'segments',
 			filled: Array.from(
