@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { weightTone } from '../src/components/invitations/member-status';
 import {
+	runMarkerLeft,
 	thresholdMarkerLeft,
 	weightBarLayout,
 } from '../src/lib/weight-bar';
@@ -61,6 +62,10 @@ describe('thresholdMarkerLeft', () => {
 		expect(thresholdMarkerLeft(7, 7)).toBe(
 			'calc(100% - 1px)',
 		);
+	});
+
+	it('is centred on the threshold share over runs', () => {
+		expect(runMarkerLeft(50)).toBe('calc(50% - 1px)');
 	});
 });
 

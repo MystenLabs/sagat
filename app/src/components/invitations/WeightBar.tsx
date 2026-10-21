@@ -6,6 +6,8 @@ import { type ReactNode } from 'react';
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 import {
+	MARKER_WIDTH_PX,
+	runMarkerLeft,
 	SEGMENT_GAP_PX,
 	sumWeight,
 	thresholdMarkerLeft,
@@ -118,7 +120,7 @@ export function WeightBar({
 					))}
 					{/* Runs have no gaps, so the marker needs an edge of its own. */}
 					<Marker
-						left={`calc(${bar.thresholdPercent}% - 1px)`}
+						left={runMarkerLeft(bar.thresholdPercent)}
 						className="outline-2 outline-card"
 					/>
 				</div>
@@ -173,10 +175,10 @@ function Marker({
 	return (
 		<span
 			className={cn(
-				'absolute -top-1 h-3.5 w-0.5 bg-foreground',
+				'absolute -top-1 h-3.5 bg-foreground',
 				className,
 			)}
-			style={{ left }}
+			style={{ left, width: MARKER_WIDTH_PX }}
 		/>
 	);
 }

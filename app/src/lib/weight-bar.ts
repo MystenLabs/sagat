@@ -12,13 +12,14 @@ export type WeightedSigner = {
 };
 
 /**
- * The space between segments, used by the markup and by the marker
- * maths so the marker lands in the middle of a gap.
+ * The space between segments: Tailwind's `gap-1`, the same gap the
+ * create wizard's threshold bar draws with. A number rather than the
+ * class so the marker maths below can use it too.
  */
 export const SEGMENT_GAP_PX = 4;
 
-/** The marker's width; its `left` is offset by half of it. */
-const MARKER_WIDTH_PX = 2;
+/** The threshold marker's width; its `left` is offset by half of it. */
+export const MARKER_WIDTH_PX = 2;
 
 export function sumWeight(signers: WeightedSigner[]) {
 	return signers.reduce(
@@ -77,4 +78,9 @@ export function thresholdMarkerLeft(
 	const segments = `(100% - ${(count - 1) * gap}px) * ${threshold / count}`;
 	const gaps = (threshold - 1) * gap + gap / 2 - half;
 	return `calc(${segments} + ${gaps}px)`;
+}
+
+/** The marker's `left` over gapless runs: centred on the threshold's share. */
+export function runMarkerLeft(thresholdPercent: number) {
+	return `calc(${thresholdPercent}% - ${MARKER_WIDTH_PX / 2}px)`;
 }

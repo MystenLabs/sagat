@@ -170,7 +170,8 @@ export function ReviewInvitationDialog({
 							<table className="w-full table-fixed text-13">
 								<thead>
 									<tr className="bg-muted text-left text-12 text-muted-foreground">
-										<th className="w-9 px-3 py-1.5 font-normal">
+										{/* Hidden at phone width so the name and address keep their room. */}
+										<th className="hidden w-9 px-3 py-1.5 font-normal sm:table-cell">
 											#
 										</th>
 										<th className="px-3 py-1.5 font-normal">
@@ -196,7 +197,7 @@ export function ReviewInvitationDialog({
 											data-address={signer.address}
 											data-status={signer.status}
 										>
-											<td className="px-3 py-2.5 text-12 text-muted-foreground">
+											<td className="hidden px-3 py-2.5 text-12 text-muted-foreground sm:table-cell">
 												{i + 1}
 											</td>
 											<td className="px-3 py-1">
@@ -294,7 +295,7 @@ function SignerCell({
 
 	if (!signer.label)
 		return (
-			<span className="flex items-center gap-1.5 font-mono text-12">
+			<span className="flex items-center gap-1.5 font-mono text-12 whitespace-nowrap">
 				{address}
 				{markerText}
 			</span>
@@ -310,7 +311,7 @@ function SignerCell({
 				</span>
 				{markerText}
 			</span>
-			<span className="flex font-mono text-12">
+			<span className="flex font-mono text-12 whitespace-nowrap">
 				{address}
 			</span>
 		</div>
