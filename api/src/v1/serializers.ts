@@ -8,6 +8,7 @@
  */
 
 import {
+	type AccountSignerSet,
 	type Proposal,
 	type ProposalWithSignatures,
 	type SignerSetMember,
@@ -19,20 +20,41 @@ import {
 	type SignerSetComposition,
 	type SignerSetInvitation,
 } from '../services/accounts.service';
-import { type SignerSetTally } from '../services/proposals.service';
+import {
+	type ProposalWithTallies,
+	type SignerSetTally,
+} from '../services/proposals.service';
+import { type ValidatedSignerSet } from '../services/validity.service';
 import { type PaginatedResponse } from '../utils/pagination';
 
-export const toSignerSetMember = (
-	member: SignerSetMember,
-	labels: KeyLabels,
-) => ({
+// A member as the composition has it, without an account's key label.
+const toSignerSetMemberRow = (member: SignerSetMember) => ({
 	signerSetAddress: member.signerSetAddress,
 	publicKey: member.publicKey,
 	weight: member.weight,
 	order: member.order,
 	isAccepted: member.isAccepted,
 	isRejected: member.isRejected,
+});
+
+const toSignerSetMember = (
+	member: SignerSetMember,
+	labels: KeyLabels,
+) => ({
+	...toSignerSetMemberRow(member),
 	label: labels.get(member.publicKey) ?? null,
+});
+
+// What one account says about a signer set it links.
+const toLink = (
+	link: AccountSignerSet,
+	validOn: ValidatedSignerSet['validOn'],
+) => ({
+	label: link.label,
+	status: link.status,
+	draftedBy: link.draftedBy,
+	createdAt: link.createdAt,
+	validOn,
 });
 
 // A signer set without its members, so without key labels.
@@ -40,19 +62,15 @@ export const toSignerSet = ({
 	link,
 	signerSet,
 	validOn,
-}: Omit<LinkedSignerSet, 'labels'>) => ({
+}: ValidatedSignerSet) => ({
 	address: signerSet.address,
-	label: link.label,
-	status: link.status,
 	isVerified: signerSet.isVerified,
 	threshold: signerSet.threshold,
 	totalWeight: signerSet.totalWeight,
-	draftedBy: link.draftedBy,
-	createdAt: link.createdAt,
-	validOn: [...validOn],
+	...toLink(link, validOn),
 });
 
-export const toSignerSetWithMembers = ({
+const toSignerSetWithMembers = ({
 	labels,
 	...linked
 }: LinkedSignerSet) => ({
@@ -72,22 +90,11 @@ export const toSignerSetComposition = ({
 	threshold: signerSet.threshold,
 	isVerified: signerSet.isVerified,
 	totalWeight: signerSet.totalWeight,
-	members: signerSet.members.map((member) => ({
-		signerSetAddress: member.signerSetAddress,
-		publicKey: member.publicKey,
-		weight: member.weight,
-		order: member.order,
-		isAccepted: member.isAccepted,
-		isRejected: member.isRejected,
-	})),
+	members: signerSet.members.map(toSignerSetMemberRow),
 	links: links.map(({ link, account, validOn }) => ({
 		accountAddress: account.address,
 		accountName: account.name,
-		label: link.label,
-		status: link.status,
-		draftedBy: link.draftedBy,
-		createdAt: link.createdAt,
-		validOn: [...validOn],
+		...toLink(link, validOn),
 	})),
 });
 
@@ -119,7 +126,7 @@ export const toAccount = ({
 	aliases: aliases.map(
 		({ network, addresses, observedAt }) => ({
 			network,
-			addresses: [...addresses],
+			addresses,
 			observedAt,
 		}),
 	),
@@ -138,7 +145,7 @@ export const toProposal = (proposal: Proposal) => ({
 	executedVia: proposal.executedVia,
 });
 
-export const toProposalWithSignatures = (
+const toProposalWithSignatures = (
 	proposal: ProposalWithSignatures,
 ) => ({
 	...toProposal(proposal),
@@ -154,10 +161,7 @@ export const toProposalWithSignatures = (
 export const toPublicProposal = ({
 	proposal,
 	signerSets,
-}: {
-	proposal: ProposalWithSignatures;
-	signerSets: SignerSetTally[];
-}) => ({
+}: ProposalWithTallies) => ({
 	...toProposalWithSignatures(proposal),
 	signerSets: signerSets.map(
 		({
@@ -186,13 +190,26 @@ export const toPublicProposal = ({
 
 // A page of proposals, each with its tally per valid signer set.
 export const toProposalPage = (
-	page: PaginatedResponse<{
-		proposal: ProposalWithSignatures;
-		signerSets: SignerSetTally[];
-	}>,
+	page: PaginatedResponse<ProposalWithTallies>,
 ) => ({
 	data: page.data.map(toPublicProposal),
 	hasNextPage: page.hasNextPage,
 	nextCursor: page.nextCursor,
 	perPage: page.perPage,
 });
+
+// Which signer sets can execute a proposal after a vote.
+export const toVoteResponse = (
+	signerSets: Pick<
+		SignerSetTally,
+		'signerSet' | 'hasReachedThreshold'
+	>[],
+) => {
+	const readySignerSets = signerSets
+		.filter((s) => s.hasReachedThreshold)
+		.map((s) => s.signerSet.address);
+	return {
+		hasReachedThreshold: readySignerSets.length > 0,
+		readySignerSets,
+	};
+};

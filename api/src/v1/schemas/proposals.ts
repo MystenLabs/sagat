@@ -10,7 +10,7 @@
 import { z } from '@hono/zod-openapi';
 
 import {
-	PublicKeySchema,
+	SignatureSchema,
 	SuiAddressSchema,
 } from './common';
 import {
@@ -26,16 +26,19 @@ export const ProposalWithSignaturesSchema =
 		signatures: z.array(ProposalSignatureSchema),
 	}).openapi('ProposalWithSignatures');
 
-export const PublicSignerSetMemberSchema = z
-	.object({
-		publicKey: PublicKeySchema,
-		weight: SignerSetMemberRowSchema.shape.weight,
-		order: SignerSetMemberRowSchema.shape.order,
-		hasSigned: z.boolean().openapi({
-			description: 'Whether this key signed the proposal.',
-		}),
+export const PublicSignerSetMemberSchema =
+	SignerSetMemberRowSchema.pick({
+		publicKey: true,
+		weight: true,
+		order: true,
 	})
-	.openapi('PublicSignerSetMember');
+		.extend({
+			hasSigned: z.boolean().openapi({
+				description:
+					'Whether this key signed the proposal.',
+			}),
+		})
+		.openapi('PublicSignerSetMember');
 
 export const ProposalSignerSetSchema = z
 	.object({
@@ -85,7 +88,7 @@ export const CreateProposalRequestSchema = z
 			description:
 				'The fully resolved transaction, base64. Its sender is the account.',
 		}),
-		signature: z.string().openapi({
+		signature: SignatureSchema.openapi({
 			description:
 				"The proposer's signature over the transaction. A member's signature counts as its vote.",
 		}),
@@ -100,7 +103,7 @@ export const CreateProposalRequestSchema = z
 
 export const VoteProposalRequestSchema = z
 	.object({
-		signature: z.string().openapi({
+		signature: SignatureSchema.openapi({
 			description:
 				"The member's signature over the proposal's transaction.",
 		}),

@@ -7,6 +7,7 @@ import {
 	type OpenAPIHono,
 } from '@hono/zod-openapi';
 
+import { ProposalStatus } from '../../db/schema';
 import {
 	cancelProposal,
 	createProposal,
@@ -42,9 +43,19 @@ import {
 	toProposal,
 	toProposalPage,
 	toPublicProposal,
+	toVoteResponse,
 } from '../serializers';
 
 const tags = ['Proposals'];
+
+// The names of the `ProposalStatus` values, in their order: the list
+// filter takes a name, while proposals carry the number.
+const PROPOSAL_STATUS_NAMES = Object.keys(
+	ProposalStatus,
+).filter((key) => Number.isNaN(Number(key))) as [
+	keyof typeof ProposalStatus,
+	...(keyof typeof ProposalStatus)[],
+];
 
 const IdParams = z.object({
 	id: z.coerce
@@ -91,14 +102,7 @@ const list = createRoute({
 		query: z.object({
 			accountAddress: SuiAddressSchema,
 			network: z.string().openapi({ example: 'mainnet' }),
-			status: z
-				.enum([
-					'PENDING',
-					'CANCELLED',
-					'SUCCESS',
-					'FAILURE',
-				])
-				.optional(),
+			status: z.enum(PROPOSAL_STATUS_NAMES).optional(),
 			nextCursor: z.string().optional().openapi({
 				description:
 					'The `nextCursor` of the previous page.',
@@ -290,16 +294,7 @@ export const mountProposals = (v1: OpenAPIHono) =>
 				proposalId: id,
 				signature,
 			});
-			const readySignerSets = signerSets
-				.filter((s) => s.hasReachedThreshold)
-				.map((s) => s.signerSet.address);
-			return c.json(
-				{
-					hasReachedThreshold: readySignerSets.length > 0,
-					readySignerSets,
-				},
-				200,
-			);
+			return c.json(toVoteResponse(signerSets), 200);
 		})
 		.openapi(cancel, async (c) => {
 			const { id } = c.req.valid('param');

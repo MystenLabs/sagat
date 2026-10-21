@@ -16,6 +16,7 @@ import {
 	removeAccountProposer,
 } from '../../services/multisig.service';
 import {
+	AddressParams,
 	authenticated,
 	errorResponse,
 	jsonBody,
@@ -62,7 +63,7 @@ const get = createRoute({
 	middleware: [requireAuth] as const,
 	security: authenticated,
 	request: {
-		params: z.object({ address: SuiAddressSchema }),
+		params: AddressParams,
 	},
 	responses: {
 		200: jsonResponse(AccountSchema, 'The account.'),
@@ -92,7 +93,7 @@ const addProposer = createRoute({
 	description:
 		'Lets an address propose transactions for the account on every network, without voting. Signed by an accepted member of a signer set valid on any network; no session needed.',
 	request: {
-		params: z.object({ address: SuiAddressSchema }),
+		params: AddressParams,
 		body: jsonBody(AddProposerRequestSchema),
 	},
 	responses: {
@@ -115,8 +116,7 @@ const removeProposer = createRoute({
 	description:
 		"Removes a proposer, signed by an accepted member of a signer set valid on any network; no session needed. The proposer's pending proposals are cancelled.",
 	request: {
-		params: z.object({
-			address: SuiAddressSchema,
+		params: AddressParams.extend({
 			proposer: SuiAddressSchema,
 		}),
 		body: jsonBody(RemoveProposerRequestSchema),

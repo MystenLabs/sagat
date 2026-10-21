@@ -3,6 +3,7 @@
 
 import { getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
 
+import { SUI_NETWORKS } from '../constants/networks';
 import { ValidationError } from '../errors';
 import { type SuiNetwork } from '../utils/client';
 
@@ -33,12 +34,7 @@ export const CORS_ALLOWED_ORIGINS = corsAllowedOrigins;
 export const SUPPORTED_NETWORKS = supportedNetworks.map(
 	(network) => {
 		if (
-			![
-				'mainnet',
-				'testnet',
-				'devnet',
-				'localnet',
-			].includes(network)
+			!(SUI_NETWORKS as readonly string[]).includes(network)
 		)
 			throw new Error(`Unsupported network: ${network}`);
 		return network as SuiNetwork;

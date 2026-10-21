@@ -3,7 +3,8 @@
 
 /**
  * Schemas shared by every `/v1` route: the error body, the Sui address path
- * parameter, and helpers that keep the route declarations short.
+ * parameter, the scalar types, and helpers that keep the route
+ * declarations short.
  */
 
 import { z } from '@hono/zod-openapi';
@@ -13,6 +14,7 @@ import {
 } from '@mysten/sui/utils';
 import { type MiddlewareHandler } from 'hono';
 
+import { SUI_NETWORKS } from '../../constants/networks';
 import {
 	authMiddleware,
 	type AuthEnv,
@@ -59,8 +61,16 @@ export const TransactionDigestSchema = z
 
 // A Sui network. Responses only list the networks the server supports.
 export const NetworkSchema = z
-	.enum(['mainnet', 'testnet', 'devnet', 'localnet'])
+	.enum(SUI_NETWORKS)
 	.openapi('Network', { example: 'mainnet' });
+
+// A serialized Sui signature, base64. Each use describes what it signs.
+export const SignatureSchema = z.string();
+
+// The path parameter of the routes on one address.
+export const AddressParams = z.object({
+	address: SuiAddressSchema,
+});
 
 // A timestamp, as JSON serializes a `Date`.
 export const TimestampSchema = z.iso.datetime().openapi({

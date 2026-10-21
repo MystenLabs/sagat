@@ -12,6 +12,7 @@ import { z } from '@hono/zod-openapi';
 import {
 	NetworkSchema,
 	PublicKeySchema,
+	SignatureSchema,
 	SuiAddressSchema,
 	TimestampSchema,
 } from './common';
@@ -82,24 +83,34 @@ export const SignerSetInvitationSchema =
 		}),
 	}).openapi('SignerSetInvitation');
 
+// The link fields of a signer set, as one of its accounts knows it.
+const LinkFields = SignerSetSchema.pick({
+	label: true,
+	status: true,
+	draftedBy: true,
+	createdAt: true,
+	validOn: true,
+}).shape;
+
 export const SignerSetLinkSchema = z
 	.object({
 		accountAddress: SuiAddressSchema,
 		accountName: AccountRowSchema.shape.name,
-		label: SignerSetSchema.shape.label,
-		status: SignerSetSchema.shape.status,
-		draftedBy: SignerSetSchema.shape.draftedBy,
-		createdAt: SignerSetSchema.shape.createdAt,
-		validOn: SignerSetSchema.shape.validOn,
 	})
+	.extend(LinkFields)
 	.openapi('SignerSetLink');
+
+// The composition fields of a signer set, in the order the spec lists
+// them.
+const { address, threshold, isVerified, totalWeight } =
+	SignerSetSchema.shape;
 
 export const SignerSetCompositionSchema = z
 	.object({
-		address: SuiAddressSchema,
-		threshold: SignerSetRowSchema.shape.threshold,
-		isVerified: SignerSetSchema.shape.isVerified,
-		totalWeight: SignerSetSchema.shape.totalWeight,
+		address,
+		threshold,
+		isVerified,
+		totalWeight,
 		members: z.array(SignerSetMemberRowSchema).openapi({
 			description:
 				'The members, in order. Key labels belong to an account, so they are only on `Account.signerSets`.',
@@ -166,30 +177,16 @@ export const CreateSignerSetRequestSchema = z
 
 export const SignedMessageRequestSchema = z
 	.object({
-		signature: z.string().openapi({
+		signature: SignatureSchema.openapi({
 			description:
 				'A signature over the personal message the route verifies.',
 		}),
 	})
 	.openapi('SignedMessageRequest');
 
-export const AddProposerRequestSchema = z
-	.object({
-		proposer: SuiAddressSchema,
-		signature: z.string().openapi({
-			description:
-				'An accepted member\'s signature over "Adding proposer <proposer> to account <address>. Valid until: <expiry>".',
-		}),
-		expiry: z.string().openapi({
-			description:
-				'The expiry in the signed message, an ISO timestamp at most one hour ahead.',
-		}),
-	})
-	.openapi('AddProposerRequest');
-
 export const RemoveProposerRequestSchema = z
 	.object({
-		signature: z.string().openapi({
+		signature: SignatureSchema.openapi({
 			description:
 				'An accepted member\'s signature over "Removing proposer <proposer> from account <address>. Valid until: <expiry>".',
 		}),
@@ -199,3 +196,17 @@ export const RemoveProposerRequestSchema = z
 		}),
 	})
 	.openapi('RemoveProposerRequest');
+
+// The remove request's fields, with the proposer first and the signature
+// over the add message. Built from the shape, not `.extend()`, which
+// would make it an `allOf` of the remove request in the spec.
+export const AddProposerRequestSchema = z
+	.object({
+		proposer: SuiAddressSchema,
+		...RemoveProposerRequestSchema.shape,
+		signature: SignatureSchema.openapi({
+			description:
+				'An accepted member\'s signature over "Adding proposer <proposer> to account <address>. Valid until: <expiry>".',
+		}),
+	})
+	.openapi('AddProposerRequest');

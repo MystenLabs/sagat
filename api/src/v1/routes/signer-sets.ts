@@ -19,13 +19,13 @@ import {
 	rejectInvitation,
 } from '../../services/multisig.service';
 import {
+	AddressParams,
 	authenticated,
 	errorResponse,
 	jsonBody,
 	jsonResponse,
 	PublicKeySchema,
 	requireAuth,
-	SuiAddressSchema,
 	unauthorizedResponse,
 } from '../schemas/common';
 import {
@@ -44,10 +44,6 @@ import {
 } from '../serializers';
 
 const tags = ['Signer sets'];
-
-const AddressParams = z.object({
-	address: SuiAddressSchema,
-});
 
 const create = createRoute({
 	method: 'post',
@@ -152,9 +148,11 @@ const invitations = createRoute({
 		params: z.object({ publicKey: PublicKeySchema }),
 		query: z.object({
 			showRejected: z
-				.enum(['true', 'false'])
+				.stringbool({ truthy: ['true'], falsy: ['false'] })
 				.optional()
 				.openapi({
+					// What it accepts: the parsed boolean has no enum.
+					enum: ['true', 'false'],
 					description:
 						'List the rejected invitations instead.',
 				}),
@@ -202,7 +200,7 @@ export const mountSignerSets = (v1: OpenAPIHono) =>
 			const { showRejected } = c.req.valid('query');
 			const signerSets = await listSignerSetInvitations({
 				publicKey,
-				showRejected: showRejected === 'true',
+				showRejected: showRejected ?? false,
 				callerKeys: c.get('publicKeys'),
 			});
 			return c.json(

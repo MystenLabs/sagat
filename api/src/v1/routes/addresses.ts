@@ -12,12 +12,12 @@ import {
 	registerCallerKeys,
 } from '../../services/addresses.service';
 import {
+	AddressParams,
 	authenticated,
 	errorResponse,
 	jsonResponse,
 	requireAuth,
 	SuccessSchema,
-	SuiAddressSchema,
 	unauthorizedResponse,
 } from '../schemas/common';
 import { AddressSchema } from '../schemas/rows';
@@ -70,7 +70,7 @@ const getAddress = createRoute({
 	description:
 		'The public key registered for a Sui address. An address is registered when its key connects, is passed to the register route, or is put in a signer set.',
 	request: {
-		params: z.object({ address: SuiAddressSchema }),
+		params: AddressParams,
 	},
 	responses: {
 		200: jsonResponse(

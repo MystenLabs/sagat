@@ -4,14 +4,14 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 
+import { SUI_NETWORKS } from '../constants/networks';
 import { SUI_RPC_URL } from '../db/env';
 import {
 	rpcRequestDuration,
 	rpcRequestErrors,
 } from '../metrics';
 
-export type SuiNetwork =
-	'mainnet' | 'testnet' | 'devnet' | 'localnet';
+export type SuiNetwork = (typeof SUI_NETWORKS)[number];
 
 // Wraps an RPC method to record its duration and errors. The wrapper keeps
 // the method's own (generic) signature, so it doesn't need updating when the
