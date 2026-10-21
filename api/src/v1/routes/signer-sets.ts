@@ -32,12 +32,14 @@ import {
 	AccountSchema,
 	CreateSignerSetRequestSchema,
 	SignedMessageRequestSchema,
+	SignerSetInvitationSchema,
 	SignerSetSchema,
 	SignerSetWithMembersSchema,
 } from '../schemas/signer-sets';
 import {
 	toAccount,
 	toSignerSet,
+	toSignerSetInvitation,
 	toSignerSetWithMembers,
 } from '../serializers';
 
@@ -121,7 +123,7 @@ const reject = createRoute({
 	tags,
 	summary: 'Reject an invitation',
 	description:
-		'Rejects the invitation of the key that signed "Rejecting multisig invitation <address>". No session needed: the signature identifies the member. An accepted invitation, or a verified signer set, cannot be rejected.',
+		'Rejects the invitation of the key that signed "Rejecting multisig invitation <address>". No session needed: the signature identifies the member. An accepted invitation, or a verified signer set, cannot be rejected. A rejection kills every draft of the signer set: its links on other accounts that are still drafting or inviting become abandoned.',
 	request: {
 		params: AddressParams,
 		body: jsonBody(SignedMessageRequestSchema),
@@ -144,7 +146,7 @@ const invitations = createRoute({
 	tags,
 	summary: 'List invitations',
 	description:
-		'The signer sets a key of the session is invited to and has not answered, or with `showRejected`, the ones it rejected.',
+		'The invitations of a key of the session: one per account and signer set still drafting or inviting, in which the key has not answered. With `showRejected`, the ones it rejected that were never verified, abandoned drafts included. Abandoned drafts are never listed otherwise.',
 	middleware: [requireAuth] as const,
 	security: authenticated,
 	request: {
@@ -161,8 +163,8 @@ const invitations = createRoute({
 	},
 	responses: {
 		200: jsonResponse(
-			z.array(SignerSetWithMembersSchema),
-			'The signer sets.',
+			z.array(SignerSetInvitationSchema),
+			'The invitations, oldest first.',
 		),
 		400: errorResponse(
 			'The public key is not one of the session.',
@@ -205,7 +207,7 @@ export const mountSignerSets = (v1: OpenAPIHono) =>
 				callerKeys: c.get('publicKeys'),
 			});
 			return c.json(
-				signerSets.map(toSignerSetWithMembers),
+				signerSets.map(toSignerSetInvitation),
 				200,
 			);
 		})
@@ -233,7 +235,11 @@ export const mountSignerSets = (v1: OpenAPIHono) =>
 		.openapi(reject, async (c) => {
 			const { address } = c.req.valid('param');
 			const { signature } = c.req.valid('json');
-			await rejectInvitation({ address, signature });
+			await rejectInvitation({
+				address,
+				signature,
+				abandonDrafts: true,
+			});
 			return c.json(
 				toSignerSet(await loadSignerSet(address)),
 				200,

@@ -32,6 +32,7 @@ export type {
 	PublicSignerSetMember,
 	SignedMessageRequest,
 	SignerSet,
+	SignerSetInvitation,
 	SignerSetMember,
 	SignerSetWithMembers,
 	VoteProposalRequest,

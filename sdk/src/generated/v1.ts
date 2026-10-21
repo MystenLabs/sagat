@@ -442,7 +442,7 @@ export interface paths {
         };
         /**
          * List invitations
-         * @description The signer sets a key of the session is invited to and has not answered, or with `showRejected`, the ones it rejected.
+         * @description The invitations of a key of the session: one per account and signer set still drafting or inviting, in which the key has not answered. With `showRejected`, the ones it rejected that were never verified, abandoned drafts included. Abandoned drafts are never listed otherwise.
          */
         get: {
             parameters: {
@@ -459,13 +459,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The signer sets. */
+                /** @description The invitations, oldest first. */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SignerSetWithMembers"][];
+                        "application/json": components["schemas"]["SignerSetInvitation"][];
                     };
                 };
                 /** @description The public key is not one of the session. */
@@ -640,7 +640,7 @@ export interface paths {
         put?: never;
         /**
          * Reject an invitation
-         * @description Rejects the invitation of the key that signed "Rejecting multisig invitation <address>". No session needed: the signature identifies the member. An accepted invitation, or a verified signer set, cannot be rejected.
+         * @description Rejects the invitation of the key that signed "Rejecting multisig invitation <address>". No session needed: the signature identifies the member. An accepted invitation, or a verified signer set, cannot be rejected. A rejection kills every draft of the signer set: its links on other accounts that are still drafting or inviting become abandoned.
          */
         post: {
             parameters: {
@@ -1269,6 +1269,11 @@ export interface components {
             name?: string;
             /** @description What the account calls each key, aligned with `publicKeys`. Null or blank leaves a key unlabelled. Only a member may set them, and only at creation. */
             labels?: (string | null)[];
+        };
+        SignerSetInvitation: components["schemas"]["SignerSetWithMembers"] & {
+            accountAddress: components["schemas"]["SuiAddress"] & unknown;
+            /** @description The name of that account, or null. */
+            accountName: string | null;
         };
         SignedMessageRequest: {
             /** @description A signature over the personal message the route verifies. */

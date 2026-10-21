@@ -20,6 +20,8 @@ export type SignerSet = Schemas['SignerSet'];
 export type SignerSetWithMembers =
 	Schemas['SignerSetWithMembers'];
 export type SignerSetMember = Schemas['SignerSetMember'];
+export type SignerSetInvitation =
+	Schemas['SignerSetInvitation'];
 
 export type Proposal = Schemas['Proposal'];
 export type ProposalWithSignatures =

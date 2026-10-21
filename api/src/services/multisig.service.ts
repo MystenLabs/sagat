@@ -13,7 +13,13 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { isValidSuiAddress } from '@mysten/sui/utils';
-import { and, eq, inArray, type SQL } from 'drizzle-orm';
+import {
+	and,
+	eq,
+	inArray,
+	ne,
+	type SQL,
+} from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -761,13 +767,21 @@ export const acceptInvitation = async ({
 	});
 };
 
-// Rejects an invitation to a signer set, signed by the invited key.
+/**
+ * Rejects an invitation to a signer set, signed by the invited key. With
+ * `abandonDrafts` (`/v1`), the rejection also kills every draft of the
+ * composition: its links still drafting or inviting on other accounts
+ * become abandoned. The link of an account to its own original
+ * composition keeps the legacy behaviour and is left as it is.
+ */
 export const rejectInvitation = async ({
 	address,
 	signature,
+	abandonDrafts = false,
 }: {
 	address: string;
 	signature: string;
+	abandonDrafts?: boolean;
 }) => {
 	// Validate signature with rejection-specific message
 	const pubKey = await verifySignedMessage(
@@ -800,21 +814,43 @@ export const rejectInvitation = async ({
 			'This invitation has already been rejected',
 		);
 
-	await db
-		.update(SchemaSignerSetMembers)
-		.set({ isRejected: true })
-		.where(
-			and(
-				eq(
-					SchemaSignerSetMembers.signerSetAddress,
-					address,
+	await db.transaction(async (tx) => {
+		await tx
+			.update(SchemaSignerSetMembers)
+			.set({ isRejected: true })
+			.where(
+				and(
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						address,
+					),
+					eq(
+						SchemaSignerSetMembers.publicKey,
+						pubKey.toSuiPublicKey(),
+					),
 				),
-				eq(
-					SchemaSignerSetMembers.publicKey,
-					pubKey.toSuiPublicKey(),
+			);
+		if (!abandonDrafts) return;
+		await tx
+			.update(SchemaAccountSignerSets)
+			.set({ status: AccountSignerSetStatus.ABANDONED })
+			.where(
+				and(
+					eq(
+						SchemaAccountSignerSets.signerSetAddress,
+						address,
+					),
+					ne(
+						SchemaAccountSignerSets.accountAddress,
+						address,
+					),
+					inArray(SchemaAccountSignerSets.status, [
+						AccountSignerSetStatus.DRAFT,
+						AccountSignerSetStatus.INVITING,
+					]),
 				),
-			),
-		);
+			);
+	});
 };
 
 // Builds the message a proposer change must be signed over.

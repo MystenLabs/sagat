@@ -16,6 +16,7 @@ import { type KeyLabels } from '../loaders/account-keys.loader';
 import {
 	type AccountWithSignerSets,
 	type LinkedSignerSet,
+	type SignerSetInvitation,
 } from '../services/accounts.service';
 import { type SignerSetTally } from '../services/proposals.service';
 import { type PaginatedResponse } from '../utils/pagination';
@@ -58,6 +59,15 @@ export const toSignerSetWithMembers = ({
 	members: linked.signerSet.members.map((member) =>
 		toSignerSetMember(member, labels),
 	),
+});
+
+export const toSignerSetInvitation = ({
+	account,
+	...linked
+}: SignerSetInvitation) => ({
+	...toSignerSetWithMembers(linked),
+	accountAddress: account.address,
+	accountName: account.name,
 });
 
 export const toAccount = ({

@@ -375,6 +375,34 @@
 				},
 				"required": ["publicKeys", "weights", "threshold"]
 			},
+			"SignerSetInvitation": {
+				"allOf": [
+					{
+						"$ref": "#/components/schemas/SignerSetWithMembers"
+					},
+					{
+						"type": "object",
+						"properties": {
+							"accountAddress": {
+								"allOf": [
+									{
+										"$ref": "#/components/schemas/SuiAddress"
+									},
+									{
+										"description": "The account the signer set is drafted for. A signer set shared by several accounts has one invitation per account."
+									}
+								]
+							},
+							"accountName": {
+								"type": ["string", "null"],
+								"maxLength": 255,
+								"description": "The name of that account, or null."
+							}
+						},
+						"required": ["accountAddress", "accountName"]
+					}
+				]
+			},
 			"SignedMessageRequest": {
 				"type": "object",
 				"properties": {
@@ -1080,7 +1108,7 @@
 			"get": {
 				"tags": ["Signer sets"],
 				"summary": "List invitations",
-				"description": "The signer sets a key of the session is invited to and has not answered, or with `showRejected`, the ones it rejected.",
+				"description": "The invitations of a key of the session: one per account and signer set still drafting or inviting, in which the key has not answered. With `showRejected`, the ones it rejected that were never verified, abandoned drafts included. Abandoned drafts are never listed otherwise.",
 				"security": [
 					{ "cookieAuth": [] },
 					{ "bearerAuth": [] }
@@ -1111,13 +1139,13 @@
 				],
 				"responses": {
 					"200": {
-						"description": "The signer sets.",
+						"description": "The invitations, oldest first.",
 						"content": {
 							"application/json": {
 								"schema": {
 									"type": "array",
 									"items": {
-										"$ref": "#/components/schemas/SignerSetWithMembers"
+										"$ref": "#/components/schemas/SignerSetInvitation"
 									}
 								}
 							}
@@ -1276,7 +1304,7 @@
 			"post": {
 				"tags": ["Signer sets"],
 				"summary": "Reject an invitation",
-				"description": "Rejects the invitation of the key that signed \"Rejecting multisig invitation <address>\". No session needed: the signature identifies the member. An accepted invitation, or a verified signer set, cannot be rejected.",
+				"description": "Rejects the invitation of the key that signed \"Rejecting multisig invitation <address>\". No session needed: the signature identifies the member. An accepted invitation, or a verified signer set, cannot be rejected. A rejection kills every draft of the signer set: its links on other accounts that are still drafting or inviting become abandoned.",
 				"parameters": [
 					{
 						"schema": {

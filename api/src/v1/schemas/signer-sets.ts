@@ -71,6 +71,17 @@ export const SignerSetWithMembersSchema =
 		members: z.array(SignerSetMemberSchema),
 	}).openapi('SignerSetWithMembers');
 
+export const SignerSetInvitationSchema =
+	SignerSetWithMembersSchema.extend({
+		accountAddress: SuiAddressSchema.openapi({
+			description:
+				'The account the signer set is drafted for. A signer set shared by several accounts has one invitation per account.',
+		}),
+		accountName: AccountRowSchema.shape.name.openapi({
+			description: 'The name of that account, or null.',
+		}),
+	}).openapi('SignerSetInvitation');
+
 export const AccountAliasesSchema = z
 	.object({
 		network: NetworkSchema,

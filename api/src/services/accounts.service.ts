@@ -9,10 +9,11 @@
  */
 
 import { type PublicKey } from '@mysten/sui/cryptography';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
+	AccountSignerSetStatus,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
 	SchemaSignerSetMembers,
@@ -234,10 +235,10 @@ export const listAccounts = async ({
 };
 
 /**
- * Signer sets with the link row of the account they belong to. A signer set
- * outside an account route is shown as its own account knows it (the link
- * row whose account has the signer set's address), else as the account it
- * was first linked to. Signer sets without a link row are left out.
+ * The signer set at `address` as one of its accounts knows it, for the
+ * responses of routes that need no session (accept, reject): its own
+ * account's link when it has one, else the oldest link still in use, else
+ * the oldest. Signer sets without a link row are left out.
  */
 const loadSignerSets = async (
 	signerSetAddresses: string[],
@@ -253,17 +254,22 @@ const loadSignerSets = async (
 				signerSetAddresses,
 			),
 		)
-		.orderBy(asc(SchemaAccountSignerSets.createdAt));
+		.orderBy(
+			asc(SchemaAccountSignerSets.createdAt),
+			asc(SchemaAccountSignerSets.accountAddress),
+		);
 
 	const chosen = signerSetAddresses.flatMap((address) => {
-		const own = links.find(
-			(l) =>
-				l.signerSetAddress === address &&
-				l.accountAddress === address,
+		const own = links.filter(
+			(l) => l.signerSetAddress === address,
 		);
 		const link =
-			own ??
-			links.find((l) => l.signerSetAddress === address);
+			own.find((l) => l.accountAddress === address) ??
+			own.find(
+				(l) =>
+					l.status !== AccountSignerSetStatus.ABANDONED,
+			) ??
+			own[0];
 		return link ? [link] : [];
 	});
 	return expandLinks(chosen);
@@ -299,10 +305,24 @@ export const getSignerSetForMember = async ({
 	return loadSignerSet(address);
 };
 
+/** An invitation: a signer set as the account it is drafted for knows it. */
+export type SignerSetInvitation = LinkedSignerSet & {
+	account: Account;
+};
+
+// Link statuses under which an unanswered member is invited.
+const INVITING_STATUSES = [
+	AccountSignerSetStatus.DRAFT,
+	AccountSignerSetStatus.INVITING,
+];
+
 /**
- * The signer sets `publicKey` is invited to and has not answered, or with
- * `showRejected`, the ones it rejected. `publicKey` must be one of the
- * caller's keys.
+ * The invitations of `publicKey`: one per account and signer set, for each
+ * link still drafting or inviting in which the key has not answered. With
+ * `showRejected`, the links of the compositions it rejected that never got
+ * verified, abandoned ones included. A composition shared by several
+ * accounts is listed once per account, with that account's label and key
+ * labels. `publicKey` must be one of the caller's keys.
  */
 export const listSignerSetInvitations = async ({
 	publicKey,
@@ -312,7 +332,7 @@ export const listSignerSetInvitations = async ({
 	publicKey: string;
 	showRejected: boolean;
 	callerKeys: PublicKey[];
-}): Promise<LinkedSignerSet[]> => {
+}): Promise<SignerSetInvitation[]> => {
 	if (
 		!callerKeys.some(
 			(pubKey) => pubKey.toSuiPublicKey() === publicKey,
@@ -321,21 +341,61 @@ export const listSignerSetInvitations = async ({
 		throw new ValidationError('You are not authorized.');
 
 	const rows = await db
-		.select({
-			address: SchemaSignerSetMembers.signerSetAddress,
-		})
+		.select({ link: SchemaAccountSignerSets })
 		.from(SchemaSignerSetMembers)
+		.innerJoin(
+			SchemaAccountSignerSets,
+			eq(
+				SchemaAccountSignerSets.signerSetAddress,
+				SchemaSignerSetMembers.signerSetAddress,
+			),
+		)
 		.where(
 			and(
 				eq(SchemaSignerSetMembers.publicKey, publicKey),
 				showRejected
-					? eq(SchemaSignerSetMembers.isRejected, true)
+					? and(
+							eq(SchemaSignerSetMembers.isRejected, true),
+							ne(
+								SchemaAccountSignerSets.status,
+								AccountSignerSetStatus.VERIFIED,
+							),
+						)
 					: and(
 							eq(SchemaSignerSetMembers.isAccepted, false),
 							eq(SchemaSignerSetMembers.isRejected, false),
+							inArray(
+								SchemaAccountSignerSets.status,
+								INVITING_STATUSES,
+							),
 						),
 			),
+		)
+		.orderBy(
+			asc(SchemaAccountSignerSets.createdAt),
+			asc(SchemaAccountSignerSets.accountAddress),
 		);
 
-	return loadSignerSets(rows.map((r) => r.address));
+	const links = rows.map((r) => r.link);
+	const [linked, accounts] = await Promise.all([
+		expandLinks(links),
+		links.length === 0
+			? []
+			: db
+					.select()
+					.from(SchemaAccounts)
+					.where(
+						inArray(
+							SchemaAccounts.address,
+							links.map((l) => l.accountAddress),
+						),
+					),
+	]);
+	return linked.flatMap((signerSet) => {
+		const account = accounts.find(
+			(a) => a.address === signerSet.link.accountAddress,
+		);
+		// The link row references the account, so it exists.
+		return account ? [{ ...signerSet, account }] : [];
+	});
 };

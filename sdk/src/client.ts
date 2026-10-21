@@ -17,6 +17,7 @@ import {
 	type PublicProposal,
 	type SignedMessageRequest,
 	type SignerSet,
+	type SignerSetInvitation,
 	type SignerSetWithMembers,
 	type VoteProposalRequest,
 	type VoteProposalResponse,
@@ -199,13 +200,14 @@ export class ApiClient {
 	}
 
 	/**
-	 * The signer sets `publicKey` is invited to, or with `showRejected`,
-	 * the ones it rejected. `publicKey` must be connected in the session.
+	 * The invitations of `publicKey`, one per account and signer set, or
+	 * with `showRejected`, the ones it rejected. `publicKey` must be
+	 * connected in the session.
 	 */
 	async getInvitations(
 		publicKey: string,
 		params?: { showRejected?: boolean },
-	): Promise<SignerSetWithMembers[]> {
+	): Promise<SignerSetInvitation[]> {
 		return this.#unwrap(
 			await this.#api.GET(
 				'/v1/signer-sets/invitations/{publicKey}',
