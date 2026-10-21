@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 import { useNetwork } from '../contexts/NetworkContext';
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 interface CreateProposalParams {
@@ -52,7 +52,7 @@ export function useCreateProposal() {
 			);
 
 			// Create proposal via API
-			return apiClient.createProposal({
+			return legacyClient.createProposal({
 				multisigAddress,
 				transactionBytes: transactionData,
 				signature: signatureResult.signature as string,

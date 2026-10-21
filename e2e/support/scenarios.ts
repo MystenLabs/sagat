@@ -7,7 +7,7 @@ import {
 	defaultExpiry,
 	PersonalMessages,
 	type Proposal,
-} from '@mysten/sagat';
+} from '@mysten/sagat-legacy';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 
 import {

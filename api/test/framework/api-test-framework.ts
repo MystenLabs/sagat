@@ -1,13 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { ApiClient } from '@mysten/sagat';
 import {
 	defaultExpiry,
 	PersonalMessages,
 	SagatClient,
 	type MultisigWithMembers,
-} from '@mysten/sagat';
-import { ApiClient } from '@mysten/sagat-v1';
+} from '@mysten/sagat-legacy';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';

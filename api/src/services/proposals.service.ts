@@ -7,7 +7,7 @@
  * (rows, or composites like `ProposalTally`).
  */
 
-import { PersonalMessages } from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat-legacy';
 import { TransactionError } from '@mysten/sui/client';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';

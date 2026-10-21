@@ -1,11 +1,11 @@
 # Sagat SDK for the `/v1` API
 
-A thin client over the `/v1` API. Request and response types are generated from the API's OpenAPI spec (`api/openapi/v1.json`) into `src/generated/v1.ts`, so the client cannot drift from the server. The `/auth` routes are shared with the legacy API and typed by hand.
+The SDK for the `/v1` API: a thin client over it. Request and response types are generated from the API's OpenAPI spec (`api/openapi/v1.json`) into `src/generated/v1.ts`, so the client cannot drift from the server. The `/auth` routes are shared with the legacy API and typed by hand.
 
-The package name is a placeholder until the first publish.
+Marked private until the first publish. The legacy client that drives the old routes is `sdk-legacy/`, frozen at the `sdk-legacy` tag.
 
 ```ts
-import { ApiClient } from '@mysten/sagat-v1';
+import { ApiClient } from '@mysten/sagat';
 
 const client = new ApiClient({ apiUrl: 'https://...' });
 const { publicKey } = await client.getAddressInfo('0x...');

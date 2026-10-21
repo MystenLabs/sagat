@@ -1,10 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat-legacy';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
-import { apiClient } from '@/lib/api';
+import { legacyClient } from '@/lib/api';
 import { QueryKeys } from '@/lib/queryKeys';
 
 interface UsePaginatedProposalsParams {
@@ -31,7 +31,7 @@ export function usePaginatedProposals({
 			perPage,
 		],
 		queryFn: ({ pageParam }) =>
-			apiClient.getProposals(multisigAddress, network, {
+			legacyClient.getProposals(multisigAddress, network, {
 				status,
 				nextCursor: pageParam,
 				perPage,

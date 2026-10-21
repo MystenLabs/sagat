@@ -1,7 +1,7 @@
 {
-	"name": "@mysten/sagat-v1",
-	"version": "0.0.1",
+	"name": "@mysten/sagat-legacy",
 	"private": true,
+	"version": "0.0.1",
 	"type": "commonjs",
 	"main": "./dist/index.js",
 	"module": "./dist/index.mjs",
@@ -23,19 +23,14 @@
 			}
 		}
 	},
-	"dependencies": {
-		"openapi-fetch": "^0.17.0"
-	},
 	"devDependencies": {
 		"@types/bun": "latest",
-		"openapi-typescript": "^7.13.0",
 		"tsup": "^8.5.1"
 	},
 	"peerDependencies": {
 		"typescript": "^5.0.0"
 	},
 	"scripts": {
-		"generate": "openapi-typescript ../api/openapi/v1.json -o src/generated/v1.ts",
 		"typecheck": "tsc --noEmit",
 		"build": "tsup",
 		"dev": "tsup --watch",

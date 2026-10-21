@@ -5,7 +5,7 @@ import {
 	ProposalStatus,
 	type MultisigWithMembers,
 	type PublicProposal,
-} from '@mysten/sagat';
+} from '@mysten/sagat-legacy';
 
 type ExportType =
 	'sagat.multisig-composition' | 'sagat.proposal';

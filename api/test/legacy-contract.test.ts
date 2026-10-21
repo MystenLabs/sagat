@@ -16,7 +16,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ProposalStatus } from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat-legacy';
 import { Transaction } from '@mysten/sui/transactions';
 import { expect, test } from 'bun:test';
 import { type Hono } from 'hono';

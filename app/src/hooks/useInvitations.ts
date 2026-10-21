@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 // Hook to fetch invitations for the current user's public key
@@ -31,7 +31,7 @@ export function useInvitations(
 			}
 
 			// Get invitations for this public key
-			const invitations = await apiClient.getInvitations(
+			const invitations = await legacyClient.getInvitations(
 				currentAddress.publicKey,
 				{
 					showRejected,

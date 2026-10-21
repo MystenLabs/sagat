@@ -118,11 +118,11 @@ jobs:
         run: |
           bun run generate
           if ! git diff --quiet -- src/generated; then
-            echo "::error::sdk-v1/src/generated differs from api/openapi/v1.json. Run 'bun run openapi:update' at the repository root and commit the result."
+            echo "::error::sdk/src/generated differs from api/openapi/v1.json. Run 'bun run openapi:update' at the repository root and commit the result."
             git diff -- src/generated
             exit 1
           fi
-        working-directory: sdk-v1
+        working-directory: sdk
 
   migration-test:
     name: Migration Tests

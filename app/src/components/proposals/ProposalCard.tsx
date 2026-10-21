@@ -5,7 +5,7 @@ import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import {
 	ProposalStatus,
 	type ProposalWithSignatures,
-} from '@mysten/sagat';
+} from '@mysten/sagat-legacy';
 import {
 	formatAddress,
 	formatDigest,

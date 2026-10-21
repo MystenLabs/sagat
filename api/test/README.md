@@ -4,8 +4,8 @@ End-to-end tests for the API. They call the Hono app directly, against a local S
 
 ## What is tested where
 
-- **`/v1` carries the behavioural coverage.** Business rules live in the services, so each rule is tested once, through the `/v1` route and the new SDK (`sdk-v1/`, `TestSession.v1`). This also covers the SDK itself: request building, error mapping, signing helpers.
-- **Legacy routes keep the golden contract plus spot checks.** `legacy-contract.test.ts` pins their responses; `legacy-*.test.ts` files cover what is legacy-specific (listing semantics, later the rotated-account refusal). The legacy SDK (`TestSession.client`) is only used for those and for setup that has no `/v1` route yet.
+- **`/v1` carries the behavioural coverage.** Business rules live in the services, so each rule is tested once, through the `/v1` route and the SDK (`sdk/`, `TestSession.v1`). This also covers the SDK itself: request building, error mapping, signing helpers.
+- **Legacy routes keep the golden contract plus spot checks.** `legacy-contract.test.ts` pins their responses; `legacy-*.test.ts` files cover what is legacy-specific (listing semantics, later the rotated-account refusal). The legacy SDK (`sdk-legacy/`, frozen at the `sdk-legacy` tag, `TestSession.client`) is only used for those and for setup that has no `/v1` route yet.
 - **Tests move with the routes.** When a `/v1` route lands, the tests of its rules switch to it and their legacy copies are deleted; nothing is tested twice. Until `/v1` has a route, its legacy test stays as is.
 
 ## Running

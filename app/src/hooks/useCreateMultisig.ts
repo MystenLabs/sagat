@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 import type { CreateMultisigForm } from '../lib/validations/multisig';
 
@@ -38,7 +38,7 @@ export function useCreateMultisig() {
 				name: data.name || undefined,
 			};
 
-			return apiClient.createMultisig(payload);
+			return legacyClient.createMultisig(payload);
 		},
 		onSuccess: () => {
 			// Invalidate queries

@@ -8,14 +8,14 @@ import {
 import {
 	defaultExpiry,
 	PersonalMessages,
-} from '@mysten/sagat';
+} from '@mysten/sagat-legacy';
 import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 export function useAddProposer(
@@ -46,7 +46,7 @@ export function useAddProposer(
 					message: new TextEncoder().encode(message),
 				});
 
-			return apiClient.addMultisigProposer(
+			return legacyClient.addMultisigProposer(
 				multisigAddress,
 				proposerAddress,
 				signature,

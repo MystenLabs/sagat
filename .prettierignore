@@ -27,7 +27,7 @@ e2e/blob-report
 **/drizzle/meta/*.json
 
 # openapi-typescript output
-sdk-v1/src/generated
+sdk/src/generated
 
 # Golden fixtures, written by the tests (UPDATE_GOLDEN=1)
 api/test/golden/*.json
