@@ -40,20 +40,20 @@ Authentication does not change. The connect message, the script token, and its o
 | Before                                       | After (proposed)                                   | Notes                                                                                                |
 | -------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `POST /multisig`                             | `POST /v1/signer-sets`                             | Creates a composition. Also creates the account with the same address, unless `forAccount` is given. |
-| `GET /multisig/:address`                     | `GET /v1/accounts/:address`                        | Returns the account with its signer sets per network.                                                |
-|                                              | `GET /v1/signer-sets/:address`                     | Returns one composition with its members.                                                            |
+| `GET /multisig/:address`                     | `GET /v1/accounts/:address`                        | Returns the account with its signer sets, each with `validOn`, and its alias set per network.        |
+|                                              | `GET /v1/signer-sets/:address`                     | Returns one composition with its members, without key labels, and its `links` to accounts.           |
 | `POST /multisig/:address/accept`             | `POST /v1/signer-sets/:address/accept`             |                                                                                                      |
 | `POST /multisig/:address/reject`             | `POST /v1/signer-sets/:address/reject`             |                                                                                                      |
 | `POST /multisig/:address/add-proposer`       | `POST /v1/accounts/:address/proposers`             |                                                                                                      |
 | `POST /multisig/:address/remove-proposer`    | `DELETE /v1/accounts/:address/proposers/:proposer` |                                                                                                      |
-| `GET /addresses/connections`                 | `GET /v1/accounts`                                 | Accounts you can sign for.                                                                           |
-| `GET /addresses/invitations/:publicKey`      | `GET /v1/signer-sets/invitations/:publicKey`       |                                                                                                      |
+| `GET /addresses/connections`                 | `GET /v1/accounts`                                 | Accounts you can sign for: one of your keys accepted in a signer set valid on some network.          |
+| `GET /addresses/invitations/:publicKey`      | `GET /v1/signer-sets/invitations/:publicKey`       | One item per account and signer set, with `accountAddress` and `accountName`.                        |
 | `POST /proposals`                            | `POST /v1/proposals`                               | Body field renamed, see below.                                                                       |
-| `GET /proposals`                             | `GET /v1/proposals`                                | Query parameter `multisigAddress` becomes `accountAddress`.                                          |
+| `GET /proposals`                             | `GET /v1/proposals`                                | Query parameter `multisigAddress` becomes `accountAddress`. Items carry `signerSets`.                |
 | `POST /proposals/:id/vote`                   | `POST /v1/proposals/:id/vote`                      | Response changed, see below.                                                                         |
 | `POST /proposals/:id/cancel`                 | `POST /v1/proposals/:id/cancel`                    |                                                                                                      |
-| `POST /proposals/:id/verify`                 | `POST /v1/proposals/:id/verify`                    |                                                                                                      |
-| `POST /proposals/:digest/verify-by-digest`   | `POST /v1/proposals/:digest/verify-by-digest`      |                                                                                                      |
+| `POST /proposals/:id/verify`                 | `POST /v1/proposals/:id/verify`                    | No threshold check: reads the chain and records `executedVia`.                                       |
+| `POST /proposals/:digest/verify-by-digest`   | `POST /v1/proposals/:digest/verify-by-digest`      | Same as verify.                                                                                      |
 | `GET /proposals/digest/:digest`              | `GET /v1/proposals/digest/:digest`                 | Response changed, see below.                                                                         |
 | `POST /addresses`, `GET /addresses/:address` | `/v1/addresses`, same shape                        |                                                                                                      |
 | `/auth/*`                                    | unchanged, shared by both route sets               |                                                                                                      |
@@ -67,13 +67,17 @@ New routes for rotation are listed at the end. You do not need them unless you r
 | Create proposal body | `multisigAddress`              | `accountAddress`                                                       |
 | Proposal             | `multisigAddress`              | `accountAddress`                                                       |
 | Public proposal      | `currentWeight`, `totalWeight` | Removed, see the note below the table.                                 |
-| Proposal             |                                | `executedVia`: address of the signer set used at execution, or null.   |
+| Proposal             |                                | `executedVia`: address that signed at execution, or null. See below.   |
 | Public proposal      | `multisig`                     | Removed. Use `signerSets`.                                             |
 | Public proposal      | `signatures`                   | Still every signature collected, by public key.                        |
 | Vote response        | `hasReachedThreshold`          | Still present. True when **any** signer set has reached its threshold. |
 | Vote response        |                                | `readySignerSets`: addresses of the sets that reached threshold.       |
 | Member               | `multisigAddress`              | `signerSetAddress`                                                     |
 | Proposer             | `multisigAddress`              | `accountAddress`                                                       |
+| Proposal list item   |                                | `signerSets`, as on the public proposal.                               |
+| Account signer set   |                                | `validOn`: the networks where it can sign for the account.             |
+| Account              |                                | `aliases`: the alias set per network, as last read from chain.         |
+| Invitation           |                                | `accountAddress`, `accountName`: the account it is drafted for.        |
 
 The legacy `totalWeight` on `GET /proposals/digest/:digest` is the multisig's threshold, not the sum of member weights; the name was misleading. To check progress, compare `signerSets[].currentWeight` with `signerSets[].threshold`, or use `signerSets[].hasReachedThreshold`. `signerSets[].totalWeight` is the sum of member weights.
 
@@ -102,7 +106,34 @@ Shape of `signerSets` on a proposal:
 }
 ```
 
-Only signer sets that are valid for the account on the proposal's network are listed. `label` belongs to the account's entry for that signer set, or is null; the same signer set can have a different label in another account. Members here carry no `label`: key labels (0010) are returned only on authenticated member listings, never on proposal shapes or public lookups.
+Only signer sets that are valid for the account on the proposal's network are listed. A signature from a key in none of them is kept in `signatures` but counts nowhere. `label` belongs to the account's entry for that signer set, or is null; the same signer set can have a different label in another account. Members here carry no `label`: key labels (0010) are returned only on authenticated member listings, never on proposal shapes or public lookups. Each item of `GET /v1/proposals` has the same `signerSets`.
+
+An account lists every signer set linked to it, drafts and retired sets included, and says where each is valid:
+
+```json
+{
+	"signerSets": [
+		{
+			"address": "0x...",
+			"label": "Operations",
+			"status": "verified",
+			"validOn": ["mainnet", "testnet"],
+			"members": []
+		}
+	],
+	"aliases": [
+		{
+			"network": "mainnet",
+			"addresses": ["0x..."],
+			"observedAt": null
+		}
+	]
+}
+```
+
+A signer set is valid on a network when its address is in the account's alias set there. An account that never rotated has the alias set `{account}` on every network (`observedAt` is null), so its original signer set is valid everywhere. A draft has an empty `validOn`. `aliases` can hold addresses that are not linked signer sets: single keys, or sets added outside Sagat.
+
+Access follows `validOn`. Creating, voting, cancelling and listing need an accepted key in a set valid on the proposal's network. Reading the account, changing proposers and verifying need one valid on any network. Members of a draft only see their invitation.
 
 ## SDK
 
@@ -147,7 +178,7 @@ After:
 1. Pick a signer set from `proposal.signerSets` where `hasReachedThreshold` is true.
 2. Rebuild the combined key from that set's `members`, in `order`.
 3. Combine only the signatures whose public key is in that set, in the same order.
-4. Execute, then call verify as before.
+4. Execute, then call verify as before. Verify reads the executed transaction and records the address that signed it in `executedVia`: the signer set you used, or a single key alias.
 
 ```ts
 import { MultiSigPublicKey } from '@mysten/sui/multisig';

@@ -63,3 +63,5 @@ See `golden/README.md` for what is normalized and when not to regenerate.
 ## Writing tests
 
 Each file calls `setupSharedTestEnvironment()`, and each test starts from `createTestApp()`, which empties the database. `ApiTestFramework` (in `framework/`) sets up sessions, users and accounts. `TestSession.v1` is the `/v1` SDK client and `TestSession.client` the legacy one; both keep the session cookie like a browser would. The session helpers (`createSignerSet`, `proposeTransfer`, `voteAndExecute`, ...) drive `/v1`; the legacy ones (`createMultisig`, `legacyCreateProposal`, ...) are kept for the legacy tests.
+
+Rotation tests (`rotation-*.test.ts`) need what no route writes yet: draft links and the alias mirror. `framework/rotation.ts` writes them straight into the database (`draftSignerSet`, `linkSignerSet`, `setAliasMirror`) and sets up the shared scenario (`rotationScenario`). The test environment supports two networks, `localnet` and `testnet`, and both point at the local network, so per-network rules are tested without a public network (`.env.test`, and the API E2E job in CI).
