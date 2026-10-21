@@ -60,6 +60,14 @@ export const refreshAliasesIfStale = async (
 	_network: SuiNetwork,
 ): Promise<void> => {};
 
+// The refresh hook for a network-agnostic decision about an account.
+export const refreshAliasesOnEveryNetwork = async (
+	accountAddress: string,
+) => {
+	for (const network of SUPPORTED_NETWORKS)
+		await refreshAliasesIfStale(accountAddress, network);
+};
+
 /**
  * The alias set of each account on each supported network. Mirror rows of
  * other networks are ignored. No state row, or `exists = false`, means the
@@ -237,8 +245,7 @@ export const validSignerSets = async (
 export const validSignerSetsAcrossNetworks = async (
 	accountAddress: string,
 ): Promise<ValidatedSignerSet[]> => {
-	for (const network of SUPPORTED_NETWORKS)
-		await refreshAliasesIfStale(accountAddress, network);
+	await refreshAliasesOnEveryNetwork(accountAddress);
 	return (
 		await resolveAccount(accountAddress)
 	).signerSets.filter((s) => s.validOn.length > 0);

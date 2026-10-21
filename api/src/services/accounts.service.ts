@@ -38,9 +38,9 @@ import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import {
 	hasMember,
 	loadAliasSets,
+	refreshAliasesOnEveryNetwork,
 	resolveAccounts,
 	validOn,
-	validSignerSetsAcrossNetworks,
 	type AliasSet,
 	type ValidatedSignerSet,
 } from './validity.service';
@@ -150,21 +150,10 @@ export const loadAccount = async (address: string) => {
 	return account;
 };
 
-// Whether one of `callerKeys` is a member, accepted or not, of a signer
-// set of the account that is valid on some network. Invitees of a draft
-// have no access: they only see their invitation.
-const hasAccountAccess = async (
-	accountAddress: string,
-	callerKeys: PublicKey[],
-) =>
-	hasMember(
-		await validSignerSetsAcrossNetworks(accountAddress),
-		callerKeys,
-		{ acceptedOnly: false },
-	);
-
 // The account at `address`, for a caller holding a key (accepted or not)
-// in one of its signer sets that is valid on some network.
+// in one of its signer sets that is valid on some network. Invitees of a
+// draft have no access: they only see their invitation. An unknown account
+// is refused the same way, so its existence does not leak.
 export const getAccount = async ({
 	address,
 	callerKeys,
@@ -172,9 +161,20 @@ export const getAccount = async ({
 	address: string;
 	callerKeys: PublicKey[];
 }) => {
-	if (!(await hasAccountAccess(address, callerKeys)))
+	await refreshAliasesOnEveryNetwork(address);
+	const [account] = await loadAccounts([address]);
+	if (
+		!account ||
+		!hasMember(
+			account.signerSets.filter(
+				(s) => s.validOn.length > 0,
+			),
+			callerKeys,
+			{ acceptedOnly: false },
+		)
+	)
 		throw new ApiAuthError('AccessDenied');
-	return loadAccount(address);
+	return account;
 };
 
 /**
