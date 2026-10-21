@@ -170,4 +170,90 @@ describe('Rotation: tallies', () => {
 			[s.S1, 1, false],
 		]);
 	});
+	test('a second signer set reaches its threshold with its own keys', async () => {
+		await setAliasMirror(s.A, 'localnet', {
+			aliases: [s.A, s.S2],
+		});
+		const proposal = await propose(s.k1, 'localnet');
+		await vote(s.k3, proposal);
+		expect(await vote(s.k4, proposal)).toEqual({
+			hasReachedThreshold: true,
+			readySignerSets: [s.S1, s.S2],
+		});
+		expect(await tally(proposal.digest)).toEqual([
+			[s.S1, 2, true],
+			[s.S2, 2, true],
+		]);
+	});
+
+	test('a pending proposal across a retire: stored signatures stay, only valid sets count', async () => {
+		await setAliasMirror(s.A, 'localnet', {
+			aliases: [s.A, s.S2],
+		});
+		const proposal = await propose(s.k1, 'localnet');
+		expect(await vote(s.k2, proposal)).toEqual({
+			hasReachedThreshold: true,
+			readySignerSets: [s.S1],
+		});
+
+		// S1 is retired on localnet.
+		await setAliasMirror(s.A, 'localnet', {
+			aliases: [s.S2],
+		});
+		const anonymous = framework.createSession().v1;
+		const after = await anonymous.getProposalByDigest(
+			proposal.digest,
+		);
+		expect(
+			after.signatures.map((sig) => sig.publicKey),
+		).toEqual([s.k1.publicKey, s.k2.publicKey]);
+		expect(await tally(proposal.digest)).toEqual([
+			[s.S2, 0, false],
+		]);
+
+		expect(await vote(s.k3, proposal)).toEqual({
+			hasReachedThreshold: false,
+			readySignerSets: [],
+		});
+		expect(await vote(s.k4, proposal)).toEqual({
+			hasReachedThreshold: true,
+			readySignerSets: [s.S2],
+		});
+		expect(await tally(proposal.digest)).toEqual([
+			[s.S2, 2, true],
+		]);
+	});
+
+	describe('with S2 as 1-of-2', () => {
+		beforeEach(async () => {
+			framework = new ApiTestFramework(
+				await createTestApp(),
+			);
+			s = await rotationScenario(framework, {
+				s2Threshold: 1,
+				fund: true,
+			});
+			await setAliasMirror(s.A, 'localnet', {
+				aliases: [s.A, s.S2],
+			});
+		});
+
+		test('a set that would reach its threshold is not ready on a network where it is not valid', async () => {
+			const remote = await propose(s.k1, 'testnet');
+			// On localnet k3 alone would make S2 ready.
+			expect(await vote(s.k3, remote)).toEqual({
+				hasReachedThreshold: true,
+				readySignerSets: [s.S1],
+			});
+			expect(await tally(remote.digest)).toEqual([
+				[s.S1, 2, true],
+			]);
+
+			const local = await propose(s.k3, 'localnet');
+			expect(await tally(local.digest)).toEqual([
+				[s.S1, 1, false],
+				[s.S2, 1, true],
+			]);
+		});
+	});
 });

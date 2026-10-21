@@ -42,34 +42,43 @@ export const verifySignedMessage = async (
 
 /**
  * Recovers the signer of a personal message, checks that it is a member of
- * the signer set, then checks the signature. Membership is checked first,
- * so a non-member gets `notMemberError` whatever it signed.
+ * the signer set (or passes `isMember`), then checks the signature.
+ * Membership is checked first, so a non-member gets `notMemberError`
+ * whatever it signed.
  */
 export const verifyMemberSignedMessage = async ({
-	signerSetAddress,
 	signature,
 	message,
-	acceptedOnly,
 	notMemberError,
+	...membership
 }: {
-	signerSetAddress: string;
 	signature: string;
 	message: string;
-	// Whether the member must have accepted the invitation.
-	acceptedOnly: boolean;
 	notMemberError: () => Error;
-}): Promise<PublicKey> => {
+} & (
+	| {
+			signerSetAddress: string;
+			// Whether the member must have accepted the invitation.
+			acceptedOnly: boolean;
+	  }
+	| {
+			// Decides membership instead, e.g. across an account's valid
+			// signer sets.
+			isMember: (signer: PublicKey) => Promise<boolean>;
+	  }
+)): Promise<PublicKey> => {
 	const signer =
 		getPublicKeyFromSerializedSignature(signature);
 
-	if (
-		!(await isSignerSetMember(
-			signerSetAddress,
-			signer,
-			acceptedOnly,
-		))
-	)
-		throw notMemberError();
+	const isMember =
+		'isMember' in membership
+			? await membership.isMember(signer)
+			: await isSignerSetMember(
+					membership.signerSetAddress,
+					signer,
+					membership.acceptedOnly,
+				);
+	if (!isMember) throw notMemberError();
 
 	await validatePersonalMessage(signer, signature, message);
 	return signer;

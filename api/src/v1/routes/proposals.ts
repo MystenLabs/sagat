@@ -64,7 +64,7 @@ const create = createRoute({
 	tags,
 	summary: 'Create a proposal',
 	description:
-		"Proposes a transaction for an account, signed by an accepted member or a proposer of the account. A member's signature is its first vote. The transaction may not reuse an owned object of another pending proposal.",
+		"Proposes a transaction for an account, signed by an accepted member of a signer set valid on the network, or by a proposer of the account. A member's signature is its first vote. The transaction may not reuse an owned object of another pending proposal.",
 	request: { body: jsonBody(CreateProposalRequestSchema) },
 	responses: {
 		201: jsonResponse(ProposalSchema, 'The new proposal.'),
@@ -72,7 +72,7 @@ const create = createRoute({
 			'The network is unsupported, the transaction is unresolved, invalid or conflicts with a pending proposal, or the signature is invalid.',
 		),
 		403: errorResponse(
-			'The signer is neither an accepted member nor a proposer.',
+			'The signer is neither an accepted member of a signer set valid on the network nor a proposer.',
 		),
 		404: errorResponse('The account does not exist.'),
 	},
@@ -84,7 +84,7 @@ const list = createRoute({
 	tags,
 	summary: 'List proposals',
 	description:
-		"An account's proposals on a network, newest first, for a session holding an accepted key of the account.",
+		"An account's proposals on a network, newest first, for a session holding an accepted key in a signer set valid on that network.",
 	middleware: [requireAuth] as const,
 	security: authenticated,
 	request: {
@@ -121,7 +121,7 @@ const list = createRoute({
 		),
 		401: unauthorizedResponse,
 		403: errorResponse(
-			'No accepted key of the session is in the account.',
+			'No accepted key of the session is in a signer set valid on the network.',
 		),
 	},
 });
@@ -132,7 +132,7 @@ const getByDigest = createRoute({
 	tags,
 	summary: 'Get a proposal by digest',
 	description:
-		"Public. The proposal with its signatures and the account's signer sets, each with its progress. Key labels and proposers are never included.",
+		"Public. The proposal with its signatures and the account's signer sets valid on the proposal's network, each with its progress. Key labels and proposers are never included.",
 	request: { params: DigestParams },
 	responses: {
 		200: jsonResponse(
@@ -150,7 +150,7 @@ const vote = createRoute({
 	tags,
 	summary: 'Vote for a proposal',
 	description:
-		"Adds a member's signature over the proposal's transaction.",
+		"Adds the signature over the proposal's transaction of an accepted member of a signer set valid on the proposal's network.",
 	request: {
 		params: IdParams,
 		body: jsonBody(VoteProposalRequestSchema),
@@ -164,7 +164,7 @@ const vote = createRoute({
 			'The proposal does not exist or is not pending, the member already voted, or the signature is not over the transaction.',
 		),
 		403: errorResponse(
-			'The signer is not a member of the account.',
+			"The signer is not an accepted member of a signer set valid on the proposal's network.",
 		),
 	},
 });
@@ -175,7 +175,7 @@ const cancel = createRoute({
 	tags,
 	summary: 'Cancel a proposal',
 	description:
-		'Cancels a pending proposal, signed by an accepted member over "Cancel proposal <id>".',
+		'Cancels a pending proposal, signed over "Cancel proposal <id>" by an accepted member of a signer set valid on the proposal\'s network.',
 	request: {
 		params: IdParams,
 		body: jsonBody(SignedMessageRequestSchema),
@@ -186,7 +186,7 @@ const cancel = createRoute({
 			'The proposal is cancelled.',
 		),
 		400: errorResponse(
-			'The proposal does not exist or is not pending, the signer is not an accepted member, or the signature is invalid.',
+			"The proposal does not exist or is not pending, the signer is not an accepted member of a signer set valid on the proposal's network, or the signature is invalid.",
 		),
 	},
 });
@@ -204,7 +204,7 @@ const verify = createRoute({
 	tags,
 	summary: 'Verify an executed proposal',
 	description:
-		'Reads the transaction from the chain and records whether it succeeded, for a session holding an accepted key of the account. Call it after executing.',
+		'Reads the transaction from the chain and records whether it succeeded, for a session holding an accepted key in a signer set of the account valid on any network. Call it after executing.',
 	middleware: [requireAuth] as const,
 	security: authenticated,
 	request: { params: IdParams },
@@ -215,7 +215,7 @@ const verify = createRoute({
 		),
 		401: unauthorizedResponse,
 		403: errorResponse(
-			'No accepted key of the session is in the account.',
+			'No accepted key of the session is in a valid signer set of the account.',
 		),
 	},
 });
@@ -253,6 +253,7 @@ export const mountProposals = (v1: OpenAPIHono) =>
 				signature,
 				description,
 				network,
+				signerSets: 'valid',
 			});
 			return c.json(toProposal(proposal), 201);
 		})
@@ -270,6 +271,7 @@ export const mountProposals = (v1: OpenAPIHono) =>
 				status,
 				cursor: newCursor({ nextCursor, perPage }),
 				callerKeys: c.get('publicKeys'),
+				signerSets: 'valid',
 			});
 			return c.json(toProposalPage(page), 200);
 		})
@@ -303,7 +305,11 @@ export const mountProposals = (v1: OpenAPIHono) =>
 		.openapi(cancel, async (c) => {
 			const { id } = c.req.valid('param');
 			const { signature } = c.req.valid('json');
-			await cancelProposal({ proposalId: id, signature });
+			await cancelProposal({
+				proposalId: id,
+				signature,
+				signerSets: 'valid',
+			});
 			return c.json(
 				{ message: 'Proposal cancelled successfully' },
 				200,
@@ -314,6 +320,7 @@ export const mountProposals = (v1: OpenAPIHono) =>
 			await verifyProposal({
 				proposalId: id,
 				callerKeys: c.get('publicKeys'),
+				signerSets: 'valid',
 			});
 			return c.json({ verified: true as const }, 200);
 		})

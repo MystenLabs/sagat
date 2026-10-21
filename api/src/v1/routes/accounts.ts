@@ -41,7 +41,7 @@ const list = createRoute({
 	tags,
 	summary: 'List accounts',
 	description:
-		"The accounts the session can sign for: those with a signer set in which one of the session's keys has accepted. Each account is listed once.",
+		"The accounts the session can sign for: those with a signer set, valid on some network, in which one of the session's keys has accepted. Each account is listed once. Drafts are not listed: their members see them as invitations.",
 	middleware: [requireAuth] as const,
 	security: authenticated,
 	responses: {
@@ -59,7 +59,7 @@ const get = createRoute({
 	tags,
 	summary: 'Get an account',
 	description:
-		'An account with its proposers and signer sets, for a session holding a key in one of its signer sets (accepted or not).',
+		'An account with its proposers, signer sets and alias sets, for a session holding a key (accepted or not) in one of its signer sets that is valid on some network.',
 	middleware: [requireAuth] as const,
 	security: authenticated,
 	request: {
@@ -70,7 +70,7 @@ const get = createRoute({
 		400: errorResponse('The address is malformed.'),
 		401: unauthorizedResponse,
 		403: errorResponse(
-			"No key of the session is in the account's signer sets.",
+			'No key of the session is in a valid signer set of the account.',
 		),
 		404: errorResponse('The account does not exist.'),
 	},
@@ -81,7 +81,7 @@ const proposerErrors = {
 		'The body is malformed, the expiry is invalid or past, or the signature is invalid.',
 	),
 	403: errorResponse(
-		'The signer is not an accepted member of the account.',
+		'The signer is not an accepted member of a signer set of the account valid on any network.',
 	),
 };
 
@@ -91,7 +91,7 @@ const addAccountProposer = createRoute({
 	tags,
 	summary: 'Add a proposer',
 	description:
-		'Lets an address propose transactions for the account, without voting. Signed by an accepted member; no session needed.',
+		'Lets an address propose transactions for the account on every network, without voting. Signed by an accepted member of a signer set valid on any network; no session needed.',
 	request: {
 		params: z.object({ address: SuiAddressSchema }),
 		body: jsonBody(AddProposerRequestSchema),
@@ -114,7 +114,7 @@ const removeAccountProposer = createRoute({
 	tags,
 	summary: 'Remove a proposer',
 	description:
-		"Removes a proposer, signed by an accepted member; no session needed. The proposer's pending proposals are cancelled.",
+		"Removes a proposer, signed by an accepted member of a signer set valid on any network; no session needed. The proposer's pending proposals are cancelled.",
 	request: {
 		params: z.object({
 			address: SuiAddressSchema,
@@ -161,6 +161,7 @@ export const mountAccounts = (v1: OpenAPIHono) =>
 				signature,
 				expiry,
 				message: PersonalMessages.addAccountProposer,
+				signerSets: 'valid',
 			});
 			return c.json({ success: true as const }, 200);
 		})
@@ -173,6 +174,7 @@ export const mountAccounts = (v1: OpenAPIHono) =>
 				signature,
 				expiry,
 				message: PersonalMessages.removeAccountProposer,
+				signerSets: 'valid',
 			});
 			return c.json({ success: true as const }, 200);
 		});

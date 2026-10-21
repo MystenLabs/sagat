@@ -264,3 +264,27 @@ export const hasMember = (
 		),
 	);
 };
+
+/**
+ * Which signer sets a flow lets act for an account. The legacy routes know
+ * only the original composition, the one at the account's address, and
+ * keep their checks; `/v1` asks the resolver for the valid signer sets.
+ */
+export type SignerSetScope = 'original' | 'valid';
+
+/**
+ * Whether one of `keys` is an accepted member of a signer set of the
+ * account valid on `network`, or with `'any'`, on some network.
+ */
+export const isAcceptedMember = async (
+	accountAddress: string,
+	network: SuiNetwork | 'any',
+	keys: (PublicKey | string)[],
+) =>
+	hasMember(
+		network === 'any'
+			? await validSignerSetsAcrossNetworks(accountAddress)
+			: await validSignerSets(accountAddress, network),
+		keys,
+		{ acceptedOnly: true },
+	);

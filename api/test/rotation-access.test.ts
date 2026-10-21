@@ -18,6 +18,7 @@ import {
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
+	buildTransfer,
 	failureOf,
 	newUser,
 	type TestUser,
@@ -358,6 +359,294 @@ describe('Rotation: account access', () => {
 					(await s.as(s.k4)).v1.getAccount(s.A),
 				),
 			).toEqual(accessDenied);
+		});
+	});
+});
+
+describe('Rotation: acting for the account', () => {
+	let framework: ApiTestFramework;
+	let s: RotationScenario;
+
+	beforeEach(async () => {
+		framework = new ApiTestFramework(await createTestApp());
+		s = await rotationScenario(framework, { fund: true });
+	});
+
+	const notAMember = {
+		status: 403,
+		message: AuthErrors.NotAMultisigMember,
+	};
+	const notAMemberToCancel = {
+		status: 400,
+		message: 'Not a member of the multisig',
+	};
+
+	const propose = async (
+		proposer: TestUser,
+		network: Network,
+	) =>
+		s.creator.createProposal(
+			proposer,
+			s.A,
+			network,
+			await buildTransfer(s.A),
+		);
+	const vote = (
+		voter: TestUser,
+		proposal: { id: number; transactionBytes: string },
+	) =>
+		s.creator.voteOnProposal(
+			voter,
+			proposal.id,
+			proposal.transactionBytes,
+		);
+	const cancel = (
+		member: TestUser,
+		proposal: { id: number },
+	) => s.creator.cancelProposal(member, proposal.id);
+	const list = async (member: TestUser, network: Network) =>
+		(await s.as(member)).v1.getProposals(s.A, network);
+
+	describe('S2 linked on localnet only', () => {
+		beforeEach(async () => {
+			await setAliasMirror(s.A, 'localnet', {
+				aliases: [s.A, s.S2],
+			});
+		});
+
+		test('k4 creates and lists proposals on localnet', async () => {
+			const proposal = await propose(s.k4, 'localnet');
+			expect(proposal.proposerAddress).toBe(s.k4.address);
+			const { data } = await list(s.k4, 'localnet');
+			expect(data.map((p) => p.id)).toEqual([proposal.id]);
+			// The proposer's signature is its vote.
+			expect(data[0].signatures).toEqual([
+				expect.objectContaining({
+					publicKey: s.k4.publicKey,
+				}),
+			]);
+		});
+
+		test('k4 votes on and cancels a localnet proposal', async () => {
+			const proposal = await propose(s.k1, 'localnet');
+			expect(await vote(s.k4, proposal)).toEqual({
+				hasReachedThreshold: false,
+				readySignerSets: [],
+			});
+			expect(await cancel(s.k4, proposal)).toEqual({
+				message: 'Proposal cancelled successfully',
+			});
+		});
+
+		test('k4 is refused on testnet: create, vote, cancel and list', async () => {
+			const proposal = await propose(s.k1, 'testnet');
+
+			expect(
+				await failureOf(propose(s.k4, 'testnet')),
+			).toEqual(notAMember);
+			expect(await failureOf(vote(s.k4, proposal))).toEqual(
+				notAMember,
+			);
+			expect(
+				await failureOf(cancel(s.k4, proposal)),
+			).toEqual(notAMemberToCancel);
+			expect(
+				await failureOf(list(s.k4, 'testnet')),
+			).toEqual(notAMember);
+			// The refused vote was not stored.
+			const stored = await s.creator.v1.getProposalByDigest(
+				proposal.digest,
+			);
+			expect(
+				stored.signatures.map((sig) => sig.publicKey),
+			).toEqual([s.k1.publicKey]);
+		});
+
+		test('k1 still acts on both networks', async () => {
+			for (const network of [
+				'localnet',
+				'testnet',
+			] as const)
+				expect((await propose(s.k1, network)).network).toBe(
+					network,
+				);
+			expect(
+				(await list(s.k1, 'testnet')).data,
+			).toHaveLength(1);
+		});
+	});
+
+	describe('S1 retired on localnet', () => {
+		beforeEach(async () => {
+			await setAliasMirror(s.A, 'localnet', {
+				aliases: [s.S2],
+			});
+		});
+
+		test('k1, only in S1, cannot create, vote, cancel or list on localnet', async () => {
+			const proposal = await propose(s.k3, 'localnet');
+
+			expect(
+				await failureOf(propose(s.k1, 'localnet')),
+			).toEqual(notAMember);
+			expect(await failureOf(vote(s.k1, proposal))).toEqual(
+				notAMember,
+			);
+			expect(
+				await failureOf(cancel(s.k1, proposal)),
+			).toEqual(notAMemberToCancel);
+			expect(
+				await failureOf(list(s.k1, 'localnet')),
+			).toEqual(notAMember);
+		});
+
+		test('k1 still creates, votes, lists and cancels on testnet', async () => {
+			const proposal = await propose(s.k2, 'testnet');
+			expect(await vote(s.k1, proposal)).toEqual({
+				hasReachedThreshold: true,
+				readySignerSets: [s.S1],
+			});
+			expect(
+				(await list(s.k1, 'testnet')).data.map((p) => p.id),
+			).toEqual([proposal.id]);
+			await cancel(s.k1, proposal);
+			expect(
+				(await propose(s.k1, 'testnet')).proposerAddress,
+			).toBe(s.k1.address);
+		});
+	});
+
+	describe('S1 retired on every network', () => {
+		beforeEach(async () => {
+			for (const network of [
+				'localnet',
+				'testnet',
+			] as const)
+				await setAliasMirror(s.A, network, {
+					aliases: [s.S2],
+				});
+		});
+
+		test('k1 cannot change proposers, k4 can', async () => {
+			const proposer = newUser().address;
+			expect(
+				await failureOf(
+					s.creator.addAccountProposer(s.k1, proposer, s.A),
+				),
+			).toEqual(notAMember);
+			expect(
+				await s.creator.addAccountProposer(
+					s.k4,
+					proposer,
+					s.A,
+				),
+			).toEqual({ success: true });
+			expect(
+				await failureOf(
+					s.creator.removeAccountProposer(
+						s.k1,
+						proposer,
+						s.A,
+					),
+				),
+			).toEqual(notAMember);
+			expect(
+				await s.creator.removeAccountProposer(
+					s.k4,
+					proposer,
+					s.A,
+				),
+			).toEqual({ success: true });
+		});
+
+		test('a proposer of the account still proposes, without voting', async () => {
+			const proposer = newUser();
+			await s.creator.addAccountProposer(
+				s.k3,
+				proposer.address,
+				s.A,
+			);
+			const proposal = await propose(proposer, 'testnet');
+			expect(
+				(
+					await s.creator.v1.getProposalByDigest(
+						proposal.digest,
+					)
+				).signatures,
+			).toEqual([]);
+		});
+	});
+
+	describe('S2 linked on localnet only, for proposer changes', () => {
+		test('k4 adds and removes a proposer: proposers use the union of networks', async () => {
+			await setAliasMirror(s.A, 'localnet', {
+				aliases: [s.A, s.S2],
+			});
+			const proposer = newUser().address;
+			expect(
+				await s.creator.addAccountProposer(
+					s.k4,
+					proposer,
+					s.A,
+				),
+			).toEqual({ success: true });
+			expect(
+				(await (await s.as(s.k1)).v1.getAccount(s.A))
+					.proposers,
+			).toEqual([
+				expect.objectContaining({
+					address: proposer,
+					addedBy: s.k4.address,
+				}),
+			]);
+		});
+	});
+
+	describe('drafts', () => {
+		test('a member of a draft cannot act for the account', async () => {
+			// Accepted in full: verified, but still in no alias set.
+			await s.creator.acceptSignerSet(s.k5, s.S3);
+			await s.creator.acceptSignerSet(s.k6, s.S3);
+			const proposal = await propose(s.k1, 'localnet');
+
+			expect(
+				await failureOf(propose(s.k5, 'localnet')),
+			).toEqual(notAMember);
+			expect(await failureOf(vote(s.k5, proposal))).toEqual(
+				notAMember,
+			);
+			expect(
+				await failureOf(cancel(s.k5, proposal)),
+			).toEqual(notAMemberToCancel);
+			expect(
+				await failureOf(list(s.k5, 'localnet')),
+			).toEqual(notAMember);
+			expect(
+				await failureOf(
+					s.creator.addAccountProposer(
+						s.k5,
+						newUser().address,
+						s.A,
+					),
+				),
+			).toEqual(notAMember);
+		});
+	});
+
+	test('creating for an unknown account is a 404', async () => {
+		const stranger = newUser();
+		expect(
+			await failureOf(
+				s.creator.createProposal(
+					stranger,
+					stranger.address,
+					'localnet',
+					await buildTransfer(s.A),
+				),
+			),
+		).toEqual({
+			status: 404,
+			message: 'The requested resource was not found.',
 		});
 	});
 });

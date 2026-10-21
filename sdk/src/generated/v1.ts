@@ -125,7 +125,7 @@ export interface paths {
         };
         /**
          * List accounts
-         * @description The accounts the session can sign for: those with a signer set in which one of the session's keys has accepted. Each account is listed once.
+         * @description The accounts the session can sign for: those with a signer set, valid on some network, in which one of the session's keys has accepted. Each account is listed once. Drafts are not listed: their members see them as invitations.
          */
         get: {
             parameters: {
@@ -173,7 +173,7 @@ export interface paths {
         };
         /**
          * Get an account
-         * @description An account with its proposers and signer sets, for a session holding a key in one of its signer sets (accepted or not).
+         * @description An account with its proposers, signer sets and alias sets, for a session holding a key (accepted or not) in one of its signer sets that is valid on some network.
          */
         get: {
             parameters: {
@@ -214,7 +214,7 @@ export interface paths {
                         "text/plain": string;
                     };
                 };
-                /** @description No key of the session is in the account's signer sets. */
+                /** @description No key of the session is in a valid signer set of the account. */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -253,7 +253,7 @@ export interface paths {
         put?: never;
         /**
          * Add a proposer
-         * @description Lets an address propose transactions for the account, without voting. Signed by an accepted member; no session needed.
+         * @description Lets an address propose transactions for the account on every network, without voting. Signed by an accepted member of a signer set valid on any network; no session needed.
          */
         post: {
             parameters: {
@@ -289,7 +289,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description The signer is not an accepted member of the account. */
+                /** @description The signer is not an accepted member of a signer set of the account valid on any network. */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -318,7 +318,7 @@ export interface paths {
         post?: never;
         /**
          * Remove a proposer
-         * @description Removes a proposer, signed by an accepted member; no session needed. The proposer's pending proposals are cancelled.
+         * @description Removes a proposer, signed by an accepted member of a signer set valid on any network; no session needed. The proposer's pending proposals are cancelled.
          */
         delete: {
             parameters: {
@@ -356,7 +356,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description The signer is not an accepted member of the account. */
+                /** @description The signer is not an accepted member of a signer set of the account valid on any network. */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -702,7 +702,7 @@ export interface paths {
         };
         /**
          * List proposals
-         * @description An account's proposals on a network, newest first, for a session holding an accepted key of the account.
+         * @description An account's proposals on a network, newest first, for a session holding an accepted key in a signer set valid on that network.
          */
         get: {
             parameters: {
@@ -749,7 +749,7 @@ export interface paths {
                         "text/plain": string;
                     };
                 };
-                /** @description No accepted key of the session is in the account. */
+                /** @description No accepted key of the session is in a signer set valid on the network. */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -763,7 +763,7 @@ export interface paths {
         put?: never;
         /**
          * Create a proposal
-         * @description Proposes a transaction for an account, signed by an accepted member or a proposer of the account. A member's signature is its first vote. The transaction may not reuse an owned object of another pending proposal.
+         * @description Proposes a transaction for an account, signed by an accepted member of a signer set valid on the network, or by a proposer of the account. A member's signature is its first vote. The transaction may not reuse an owned object of another pending proposal.
          */
         post: {
             parameters: {
@@ -796,7 +796,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description The signer is neither an accepted member nor a proposer. */
+                /** @description The signer is neither an accepted member of a signer set valid on the network nor a proposer. */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -831,7 +831,7 @@ export interface paths {
         };
         /**
          * Get a proposal by digest
-         * @description Public. The proposal with its signatures and the account's signer sets, each with its progress. Key labels and proposers are never included.
+         * @description Public. The proposal with its signatures and the account's signer sets valid on the proposal's network, each with its progress. Key labels and proposers are never included.
          */
         get: {
             parameters: {
@@ -893,7 +893,7 @@ export interface paths {
         put?: never;
         /**
          * Vote for a proposal
-         * @description Adds a member's signature over the proposal's transaction.
+         * @description Adds the signature over the proposal's transaction of an accepted member of a signer set valid on the proposal's network.
          */
         post: {
             parameters: {
@@ -929,7 +929,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description The signer is not a member of the account. */
+                /** @description The signer is not an accepted member of a signer set valid on the proposal's network. */
                 403: {
                     headers: {
                         [name: string]: unknown;
@@ -957,7 +957,7 @@ export interface paths {
         put?: never;
         /**
          * Cancel a proposal
-         * @description Cancels a pending proposal, signed by an accepted member over "Cancel proposal <id>".
+         * @description Cancels a pending proposal, signed over "Cancel proposal <id>" by an accepted member of a signer set valid on the proposal's network.
          */
         post: {
             parameters: {
@@ -984,7 +984,7 @@ export interface paths {
                         "application/json": components["schemas"]["CancelProposalResponse"];
                     };
                 };
-                /** @description The proposal does not exist or is not pending, the signer is not an accepted member, or the signature is invalid. */
+                /** @description The proposal does not exist or is not pending, the signer is not an accepted member of a signer set valid on the proposal's network, or the signature is invalid. */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -1012,7 +1012,7 @@ export interface paths {
         put?: never;
         /**
          * Verify an executed proposal
-         * @description Reads the transaction from the chain and records whether it succeeded, for a session holding an accepted key of the account. Call it after executing.
+         * @description Reads the transaction from the chain and records whether it succeeded, for a session holding an accepted key in a signer set of the account valid on any network. Call it after executing.
          */
         post: {
             parameters: {
@@ -1053,7 +1053,7 @@ export interface paths {
                         "text/plain": string;
                     };
                 };
-                /** @description No accepted key of the session is in the account. */
+                /** @description No accepted key of the session is in a valid signer set of the account. */
                 403: {
                     headers: {
                         [name: string]: unknown;

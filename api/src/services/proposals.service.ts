@@ -22,6 +22,7 @@ import { validateNetwork } from '../db/env';
 import {
 	ProposalStatus,
 	proposalStatusFromString,
+	SchemaAccounts,
 	SchemaProposals,
 	SchemaProposalSignatures,
 	type AccountSignerSet,
@@ -64,7 +65,9 @@ import {
 	verifyTransactionSignature,
 } from './signatures.service';
 import {
+	isAcceptedMember,
 	validSignerSets,
+	type SignerSetScope,
 	type ValidatedSignerSet,
 } from './validity.service';
 
@@ -279,6 +282,37 @@ export type CreateProposalInput = {
 	signature: string;
 	description?: string | null;
 	network: string;
+	// Who counts as a member. Defaults to the legacy check.
+	signerSets?: SignerSetScope;
+};
+
+// Whether `pubKey` is an accepted member of the original composition of the
+// account (legacy), or of a signer set valid on `network` (`/v1`). Throws
+// `NotFoundError` for an unknown account.
+const isAcceptedSigner = async (
+	accountAddress: string,
+	network: SuiNetwork,
+	pubKey: PublicKey,
+	signerSets: SignerSetScope,
+) => {
+	if (signerSets === 'valid') {
+		const account = await db.query.SchemaAccounts.findFirst(
+			{
+				columns: { address: true },
+				where: eq(SchemaAccounts.address, accountAddress),
+			},
+		);
+		if (!account) throw new NotFoundError();
+		return isAcceptedMember(accountAddress, network, [
+			pubKey,
+		]);
+	}
+	const multisig = await getSignerSet(accountAddress);
+	return multisig.members.some(
+		(member) =>
+			member.publicKey === pubKey.toSuiPublicKey() &&
+			member.isAccepted,
+	);
 };
 
 /**
@@ -291,18 +325,18 @@ export const createProposal = async ({
 	signature,
 	description,
 	network: rawNetwork,
+	signerSets = 'original',
 }: CreateProposalInput): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
 
 	// Get the public key out of the sui signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
-	const multisig = await getSignerSet(multisigAddress);
-
-	const isMember = multisig.members.some(
-		(member) =>
-			member.publicKey === pubKey.toSuiPublicKey() &&
-			member.isAccepted,
+	const isMember = await isAcceptedSigner(
+		multisigAddress,
+		network,
+		pubKey,
+		signerSets,
 	);
 	const proposers =
 		await AccountProposersDataLoader.load(multisigAddress);
@@ -381,27 +415,27 @@ export const createProposal = async ({
 	return proposal;
 };
 
-// Adds a member's signature to a pending proposal.
-export const voteOnProposal = async ({
-	proposalId,
-	signature,
-}: {
+type VoteInput = {
 	proposalId: number;
 	// The member's signature over the proposal's transaction.
 	signature: string;
-}): Promise<ProposalTally> => {
+};
+
+// Adds a member's signature to a pending proposal, and returns the
+// proposal with it. `isVoter` decides who is a member.
+const castVote = async (
+	{ proposalId, signature }: VoteInput,
+	isVoter: (
+		proposal: ProposalWithSignatures,
+		pubKey: PublicKey,
+	) => Promise<boolean>,
+): Promise<ProposalWithSignatures> => {
 	const proposal = await getProposalById(proposalId);
 
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
 
-	if (
-		!(await isSignerSetMember(
-			proposal.accountAddress,
-			pubKey,
-			false,
-		))
-	)
+	if (!(await isVoter(proposal, pubKey)))
 		throw new ApiAuthError('NotAMultisigMember');
 
 	if (proposal.status !== ProposalStatus.PENDING)
@@ -439,11 +473,21 @@ export const voteOnProposal = async ({
 		event_type: MultisigEventType.SIGNATURE_ADDED,
 	});
 
-	const multisig = await getSignerSet(
-		proposal.accountAddress,
-	);
+	return proposal;
+};
 
-	return tallyProposal(proposal, multisig);
+// Adds a signature from a member of the original composition, accepted or
+// not, and tallies it. For the legacy routes.
+export const voteOnProposal = async (
+	input: VoteInput,
+): Promise<ProposalTally> => {
+	const proposal = await castVote(input, (p, pubKey) =>
+		isSignerSetMember(p.accountAddress, pubKey, false),
+	);
+	return tallyProposal(
+		proposal,
+		await getSignerSet(proposal.accountAddress),
+	);
 };
 
 // Cancels a pending proposal, signed by an accepted member.
@@ -451,9 +495,11 @@ export const voteOnProposal = async ({
 export const cancelProposal = async ({
 	proposalId,
 	signature,
+	signerSets = 'original',
 }: {
 	proposalId: number;
 	signature: string;
+	signerSets?: SignerSetScope;
 }) => {
 	const proposal = await getProposalById(proposalId);
 
@@ -461,12 +507,23 @@ export const cancelProposal = async ({
 		throw new ValidationError('Proposal is not pending');
 
 	await verifyMemberSignedMessage({
-		signerSetAddress: proposal.accountAddress,
 		signature,
 		message: PersonalMessages.cancelProposal(proposalId),
-		acceptedOnly: true,
 		notMemberError: () =>
 			new ValidationError('Not a member of the multisig'),
+		...(signerSets === 'valid'
+			? {
+					isMember: (signer) =>
+						isAcceptedMember(
+							proposal.accountAddress,
+							proposal.network as SuiNetwork,
+							[signer],
+						),
+				}
+			: {
+					signerSetAddress: proposal.accountAddress,
+					acceptedOnly: true,
+				}),
 	});
 
 	await db
@@ -480,21 +537,31 @@ export const cancelProposal = async ({
 	});
 };
 
-// Verifies the execution of a proposal, for an accepted member.
+// Verifies the execution of a proposal, for an accepted member. Under
+// `/v1`, of a signer set valid on any network: verifying only reads the
+// chain, so it is not tied to the proposal's network.
 export const verifyProposal = async ({
 	proposalId,
 	callerKeys,
+	signerSets = 'original',
 }: {
 	proposalId: number;
 	callerKeys: PublicKey[];
+	signerSets?: SignerSetScope;
 }) => {
 	const proposal = await getProposalById(proposalId);
 
 	if (
-		!(await jwtHasSignerSetMemberAccess(
-			proposal.accountAddress,
-			callerKeys,
-		))
+		!(signerSets === 'valid'
+			? await isAcceptedMember(
+					proposal.accountAddress,
+					'any',
+					callerKeys,
+				)
+			: await jwtHasSignerSetMemberAccess(
+					proposal.accountAddress,
+					callerKeys,
+				))
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
@@ -521,6 +588,7 @@ export const listProposals = async ({
 	status,
 	cursor,
 	callerKeys,
+	signerSets = 'original',
 }: {
 	multisigAddress: string;
 	network: string;
@@ -528,14 +596,21 @@ export const listProposals = async ({
 	status?: string;
 	cursor: PaginationCursor;
 	callerKeys: PublicKey[];
+	signerSets?: SignerSetScope;
 }): Promise<PaginatedResponse<ProposalWithSignatures>> => {
-	validateNetwork(network);
+	const validNetwork = validateNetwork(network);
 
 	if (
-		!(await jwtHasSignerSetMemberAccess(
-			multisigAddress,
-			callerKeys,
-		))
+		!(signerSets === 'valid'
+			? await isAcceptedMember(
+					multisigAddress,
+					validNetwork,
+					callerKeys,
+				)
+			: await jwtHasSignerSetMemberAccess(
+					multisigAddress,
+					callerKeys,
+				))
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
@@ -608,11 +683,21 @@ export const tallySignerSets = async (
 		),
 	);
 
-// Adds a member's signature, then tallies every signer set of the account.
+/**
+ * Adds a signature from an accepted member of a signer set valid on the
+ * proposal's network, then tallies the valid signer sets. A key valid only
+ * on another network is refused.
+ */
 export const voteAndTallySignerSets = async (
-	input: Parameters<typeof voteOnProposal>[0],
+	input: VoteInput,
 ) => {
-	const { proposal } = await voteOnProposal(input);
+	const proposal = await castVote(input, (p, pubKey) =>
+		isAcceptedMember(
+			p.accountAddress,
+			p.network as SuiNetwork,
+			[pubKey],
+		),
+	);
 	return {
 		proposal,
 		signerSets: await tallySignerSets(proposal),

@@ -63,6 +63,10 @@ import {
 	verifyMemberSignedMessage,
 	verifySignedMessage,
 } from './signatures.service';
+import {
+	isAcceptedMember,
+	type SignerSetScope,
+} from './validity.service';
 
 // Returns the signer set with its members.
 export const getSignerSet = async (address: string) => {
@@ -829,7 +833,23 @@ type ProposerChange = {
 	// The legacy routes verify the text that names a multisig, the `/v1`
 	// routes the one that names the account. Defaults to the legacy text.
 	message?: ProposerMessage;
+	// Who may sign: the legacy routes take an accepted member of the
+	// original composition, `/v1` one of a signer set valid on any network
+	// (proposers are not per network).
+	signerSets?: SignerSetScope;
 };
+
+// The membership part of `verifyMemberSignedMessage` for a proposer change.
+const proposerChangeSigner = (
+	address: string,
+	signerSets: SignerSetScope,
+) =>
+	signerSets === 'valid'
+		? {
+				isMember: (signer: PublicKey) =>
+					isAcceptedMember(address, 'any', [signer]),
+			}
+		: { signerSetAddress: address, acceptedOnly: true };
 
 // Adds an external proposer to an account, signed by an accepted member.
 export const addProposer = async ({
@@ -838,6 +858,7 @@ export const addProposer = async ({
 	signature,
 	expiry,
 	message = PersonalMessages.addMultisigProposer,
+	signerSets = 'original',
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
 	validateExpiry(expiry);
@@ -846,10 +867,9 @@ export const addProposer = async ({
 		throw new CommonError('InvalidAddress');
 
 	const publicKey = await verifyMemberSignedMessage({
-		signerSetAddress: address,
+		...proposerChangeSigner(address, signerSets),
 		signature,
 		message: message(proposer, address, expiry),
-		acceptedOnly: true,
 		notMemberError: () =>
 			new ApiAuthError('NotAMultisigMember'),
 	});
@@ -903,6 +923,7 @@ export const removeProposer = async ({
 	signature,
 	expiry,
 	message = PersonalMessages.removeMultisigProposer,
+	signerSets = 'original',
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
 	validateExpiry(expiry);
@@ -911,10 +932,9 @@ export const removeProposer = async ({
 		throw new CommonError('InvalidAddress');
 
 	await verifyMemberSignedMessage({
-		signerSetAddress: address,
+		...proposerChangeSigner(address, signerSets),
 		signature,
 		message: message(proposer, address, expiry),
-		acceptedOnly: true,
 		notMemberError: () =>
 			new ApiAuthError('NotAMultisigMember'),
 	});
