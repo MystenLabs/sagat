@@ -59,13 +59,16 @@ export const PublicProposalSchema =
 	ProposalWithSignaturesSchema.extend({
 		signerSets: z.array(ProposalSignerSetSchema).openapi({
 			description:
-				"The account's signer sets that can execute the proposal, with its progress in each.",
+				"The account's signer sets that are valid on the proposal's network, oldest link first, with its progress in each. Signatures from keys in none of them are kept but count nowhere.",
 		}),
 	}).openapi('PublicProposal');
 
 export const ProposalPageSchema = z
 	.object({
-		data: z.array(ProposalWithSignaturesSchema),
+		data: z.array(PublicProposalSchema).openapi({
+			description:
+				"The proposals, each with its progress in the account's signer sets valid on the network.",
+		}),
 		hasNextPage: z.boolean(),
 		nextCursor: z.string().optional().openapi({
 			description:

@@ -224,6 +224,49 @@ describe('Rotation: tallies', () => {
 		]);
 	});
 
+	test('each listed proposal carries the tally of the sets valid on its network', async () => {
+		await setAliasMirror(s.A, 'localnet', {
+			aliases: [s.A, s.S2],
+		});
+		const local = await propose(s.k1, 'localnet');
+		await vote(s.k3, local);
+		const remote = await propose(s.k1, 'testnet');
+		const anonymous = framework.createSession().v1;
+		const k1 = await s.as(s.k1);
+
+		const localPage = await k1.v1.getProposals(
+			s.A,
+			'localnet',
+		);
+		// The same item the public lookup returns.
+		expect(localPage.data).toEqual([
+			await anonymous.getProposalByDigest(local.digest),
+		]);
+		expect(
+			localPage.data[0].signerSets.map((set) => [
+				set.address,
+				set.currentWeight,
+				set.hasReachedThreshold,
+			]),
+		).toEqual([
+			[s.S1, 2, true],
+			[s.S2, 1, false],
+		]);
+
+		const remotePage = await k1.v1.getProposals(
+			s.A,
+			'testnet',
+		);
+		expect(remotePage.data).toEqual([
+			await anonymous.getProposalByDigest(remote.digest),
+		]);
+		expect(
+			remotePage.data[0].signerSets.map(
+				(set) => set.address,
+			),
+		).toEqual([s.S1]);
+	});
+
 	describe('with S2 as 1-of-2', () => {
 		beforeEach(async () => {
 			framework = new ApiTestFramework(

@@ -109,15 +109,6 @@ export const toProposalWithSignatures = (
 	})),
 });
 
-export const toProposalPage = (
-	page: PaginatedResponse<ProposalWithSignatures>,
-) => ({
-	data: page.data.map(toProposalWithSignatures),
-	hasNextPage: page.hasNextPage,
-	nextCursor: page.nextCursor,
-	perPage: page.perPage,
-});
-
 // The public view of a proposal. Members are listed with whether they
 // signed, never with the account's labels for their keys.
 export const toPublicProposal = ({
@@ -151,4 +142,17 @@ export const toPublicProposal = ({
 			})),
 		}),
 	),
+});
+
+// A page of proposals, each with its tally per valid signer set.
+export const toProposalPage = (
+	page: PaginatedResponse<{
+		proposal: ProposalWithSignatures;
+		signerSets: SignerSetTally[];
+	}>,
+) => ({
+	data: page.data.map(toPublicProposal),
+	hasNextPage: page.hasNextPage,
+	nextCursor: page.nextCursor,
+	perPage: page.perPage,
 });

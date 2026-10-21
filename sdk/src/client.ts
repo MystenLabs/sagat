@@ -14,7 +14,6 @@ import {
 	type CreateSignerSetRequest,
 	type PaginatedResponse,
 	type Proposal,
-	type ProposalWithSignatures,
 	type PublicProposal,
 	type SignedMessageRequest,
 	type SignerSet,
@@ -300,7 +299,10 @@ export class ApiClient {
 		);
 	}
 
-	/** An account's proposals on a network, newest first. */
+	/**
+	 * An account's proposals on a network, newest first, each with its
+	 * progress in the signer sets valid on that network.
+	 */
 	async getProposals(
 		accountAddress: string,
 		network: string,
@@ -309,7 +311,7 @@ export class ApiClient {
 			nextCursor?: number;
 			perPage?: number;
 		} = {},
-	): Promise<PaginatedResponse<ProposalWithSignatures>> {
+	): Promise<PaginatedResponse<PublicProposal>> {
 		return this.#unwrap(
 			await this.#api.GET('/v1/proposals', {
 				params: {

@@ -65,6 +65,7 @@ import {
 	verifyTransactionSignature,
 } from './signatures.service';
 import {
+	hasMember,
 	isAcceptedMember,
 	validSignerSets,
 	type SignerSetScope,
@@ -581,36 +582,33 @@ export const verifyProposalByDigest = async (
 	return await lookupAndVerifyProposal(proposal);
 };
 
-// Lists an account's proposals on a network, for an accepted member.
-export const listProposals = async ({
-	multisigAddress,
-	network,
-	status,
-	cursor,
-	callerKeys,
-	signerSets = 'original',
-}: {
+type ListProposalsInput = {
 	multisigAddress: string;
 	network: string;
 	// One of the `ProposalStatus` names. Parsed after the access check.
 	status?: string;
 	cursor: PaginationCursor;
 	callerKeys: PublicKey[];
-	signerSets?: SignerSetScope;
-}): Promise<PaginatedResponse<ProposalWithSignatures>> => {
-	const validNetwork = validateNetwork(network);
+};
+
+// Lists an account's proposals on a network, for an accepted member of the
+// original composition. For the legacy routes.
+export const listProposals = async ({
+	multisigAddress,
+	network,
+	status,
+	cursor,
+	callerKeys,
+}: ListProposalsInput): Promise<
+	PaginatedResponse<ProposalWithSignatures>
+> => {
+	validateNetwork(network);
 
 	if (
-		!(signerSets === 'valid'
-			? await isAcceptedMember(
-					multisigAddress,
-					validNetwork,
-					callerKeys,
-				)
-			: await jwtHasSignerSetMemberAccess(
-					multisigAddress,
-					callerKeys,
-				))
+		!(await jwtHasSignerSetMemberAccess(
+			multisigAddress,
+			callerKeys,
+		))
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
@@ -620,6 +618,52 @@ export const listProposals = async ({
 		cursor,
 		status ? proposalStatusFromString(status) : undefined,
 	);
+};
+
+/**
+ * Lists an account's proposals on a network, each tallied against the
+ * signer sets valid there, for an accepted member of one of them. Every
+ * proposal of the page shares the account and network, so the valid sets
+ * are resolved once.
+ */
+export const listProposalsWithSignerSets = async ({
+	multisigAddress,
+	network,
+	status,
+	cursor,
+	callerKeys,
+}: ListProposalsInput): Promise<
+	PaginatedResponse<{
+		proposal: ProposalWithSignatures;
+		signerSets: SignerSetTally[];
+	}>
+> => {
+	const validNetwork = validateNetwork(network);
+
+	const signerSets = await validSignerSets(
+		multisigAddress,
+		validNetwork,
+	);
+	if (
+		!hasMember(signerSets, callerKeys, {
+			acceptedOnly: true,
+		})
+	)
+		throw new ApiAuthError('NotAMultisigMember');
+
+	const page = await getProposalsByAccountAddress(
+		multisigAddress,
+		network,
+		cursor,
+		status ? proposalStatusFromString(status) : undefined,
+	);
+	return {
+		...page,
+		data: page.data.map((proposal) => ({
+			proposal,
+			signerSets: tallyEach(proposal, signerSets),
+		})),
+	};
 };
 
 // A proposal by its transaction digest, with its signer set. Public.

@@ -11,7 +11,7 @@ import {
 	cancelProposal,
 	createProposal,
 	getProposalSignerSetsByDigest,
-	listProposals,
+	listProposalsWithSignerSets,
 	verifyProposal,
 	verifyProposalByDigest,
 	voteAndTallySignerSets,
@@ -265,13 +265,12 @@ export const mountProposals = (v1: OpenAPIHono) =>
 				nextCursor,
 				perPage,
 			} = c.req.valid('query');
-			const page = await listProposals({
+			const page = await listProposalsWithSignerSets({
 				multisigAddress: accountAddress,
 				network,
 				status,
 				cursor: newCursor({ nextCursor, perPage }),
 				callerKeys: c.get('publicKeys'),
-				signerSets: 'valid',
 			});
 			return c.json(toProposalPage(page), 200);
 		})

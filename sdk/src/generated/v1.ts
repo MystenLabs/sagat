@@ -1314,14 +1314,16 @@ export interface components {
             network: string;
         };
         ProposalPage: {
-            data: components["schemas"]["ProposalWithSignatures"][];
+            /** @description The proposals, each with its progress in the account's signer sets valid on the network. */
+            data: components["schemas"]["PublicProposal"][];
             hasNextPage: boolean;
             /** @description Pass it as `nextCursor` to get the next page. Absent when the page is empty. */
             nextCursor?: string;
             perPage: number;
         };
-        ProposalWithSignatures: components["schemas"]["Proposal"] & {
-            signatures: components["schemas"]["ProposalSignature"][];
+        PublicProposal: components["schemas"]["ProposalWithSignatures"] & {
+            /** @description The account's signer sets that are valid on the proposal's network, oldest link first, with its progress in each. Signatures from keys in none of them are kept but count nowhere. */
+            signerSets: components["schemas"]["ProposalSignerSet"][];
         };
         ProposalSignature: {
             proposalId: number;
@@ -1332,10 +1334,6 @@ export interface components {
             publicKey: string;
             /** @description The member's signature over the transaction, base64. */
             signature: string;
-        };
-        PublicProposal: components["schemas"]["ProposalWithSignatures"] & {
-            /** @description The account's signer sets that can execute the proposal, with its progress in each. */
-            signerSets: components["schemas"]["ProposalSignerSet"][];
         };
         ProposalSignerSet: {
             address: components["schemas"]["SuiAddress"];
@@ -1363,6 +1361,9 @@ export interface components {
             order: number;
             /** @description Whether this key signed the proposal. */
             hasSigned: boolean;
+        };
+        ProposalWithSignatures: components["schemas"]["Proposal"] & {
+            signatures: components["schemas"]["ProposalSignature"][];
         };
         VoteProposalResponse: {
             /** @description Whether any signer set has reached its threshold. */
