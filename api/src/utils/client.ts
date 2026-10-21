@@ -4,7 +4,7 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 
-import { SUI_NETWORKS } from '../constants/networks';
+import type { SUI_NETWORKS } from '../constants/networks';
 import { SUI_RPC_URL } from '../db/env';
 import {
 	rpcRequestDuration,
