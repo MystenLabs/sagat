@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SagatClient } from '@mysten/sagat-legacy';
+import { ApiClient } from '@mysten/sagat';
 import { type Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { fromBase64 } from '@mysten/sui/utils';
 
@@ -14,7 +14,7 @@ export class Identity {
 	readonly publicKey: string;
 	// The SDK client, pointed at the e2e API. It keeps this identity's session
 	// cookie, since Node's fetch has no cookie jar.
-	readonly api: SagatClient;
+	readonly api: ApiClient;
 	#cookie: string | null = null;
 
 	constructor(
@@ -25,24 +25,22 @@ export class Identity {
 		this.publicKey = keypair
 			.getPublicKey()
 			.toSuiPublicKey();
-		this.api = new SagatClient(
-			E2E.apiUrl,
-			'cookie',
-			async (input, init) => {
-				const headers = new Headers(init?.headers);
+		this.api = new ApiClient({
+			apiUrl: E2E.apiUrl,
+			fetch: async (request) => {
+				const headers = new Headers(request.headers);
 				if (this.#cookie)
 					headers.set('Cookie', this.#cookie);
-				const response = await fetch(input, {
-					...init,
-					headers,
-				});
+				const response = await fetch(
+					new Request(request, { headers }),
+				);
 				const cookie = response.headers
 					.get('set-cookie')
 					?.match(/connected-wallet=[^;]*/)?.[0];
 				if (cookie) this.#cookie = cookie;
 				return response;
 			},
-		);
+		});
 	}
 
 	async signMessage(message: string) {

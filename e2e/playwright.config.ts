@@ -63,6 +63,8 @@ export default defineConfig({
 		{
 			name: 'api',
 			cwd: '../api',
+			// The API still imports the legacy SDK's signed messages at
+			// runtime, so it is built too.
 			command:
 				'bun run --cwd ../sdk-legacy build && bun run --cwd ../sdk build && bun run db:prepare && bun run src/index.ts',
 			url: `${E2E.apiUrl}/health`,

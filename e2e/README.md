@@ -74,8 +74,8 @@ so the app runs unmodified and no test code ships in it.
 - `createIdentity('bob')` is a user without a browser, for people who only act
   through the API.
 
-Both have `.api` (the SDK client, authenticated as that user once signed in)
-and `signMessage` / `signTransaction` with the same key the wallet uses. The
+Both have `.api` (the `/v1` SDK client, authenticated as that user once signed
+in) and `signMessage` / `signTransaction` with the same key the wallet uses. The
 helpers in `support/scenarios.ts` (`setupMultisig`, `proposeTransfer`,
 `signProposal`) use them to set up state fast; drive the flow under test
 through the UI.

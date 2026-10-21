@@ -51,7 +51,7 @@ test.describe('invitations', () => {
 			'data-multisig-address',
 			multisig.address,
 		);
-		const saved = await alice.api.getMultisig(
+		const saved = await alice.api.getSignerSet(
 			multisig.address,
 		);
 		expect(saved.isVerified).toBe(true);

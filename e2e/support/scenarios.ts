@@ -7,7 +7,7 @@ import {
 	defaultExpiry,
 	PersonalMessages,
 	type Proposal,
-} from '@mysten/sagat-legacy';
+} from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 
 import {
@@ -38,7 +38,8 @@ export async function setupMultisig({
 	// The API accepts the invitation right away for a signed-in creator.
 	await signInViaApi(creator);
 	const all = [creator, ...members];
-	const multisig = await creator.api.createMultisig({
+	// Creates the account and its original signer set, at the same address.
+	const multisig = await creator.api.createSignerSet({
 		publicKeys: all.map((m) => m.publicKey),
 		weights: weights ?? all.map(() => 1),
 		threshold,
@@ -47,11 +48,11 @@ export async function setupMultisig({
 
 	if (accept)
 		for (const member of members)
-			await member.api.acceptMultisigInvite(
+			await member.api.acceptSignerSetInvite(
 				multisig.address,
 				{
 					signature: await member.signMessage(
-						PersonalMessages.acceptMultisigInvitation(
+						PersonalMessages.acceptSignerSetInvitation(
 							multisig.address,
 						),
 					),
@@ -102,7 +103,7 @@ export async function proposeTransfer(
 		expiration,
 	});
 	return proposer.api.createProposal({
-		multisigAddress,
+		accountAddress: multisigAddress,
 		transactionBytes,
 		signature: await proposer.signTransaction(
 			transactionBytes,

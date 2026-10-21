@@ -19,19 +19,21 @@ import {
 // app/src/lib/exportUtils.ts) needed to execute it.
 type ProposalExport = {
 	type: string;
+	version: number;
 	proposal: {
 		digest: string;
 		transactionBytes: string;
-		signatures: { signature: string }[];
+		signatures: { publicKey: string; signature: string }[];
 	};
-	multisig: {
+	signerSets: {
 		threshold: number;
+		hasReachedThreshold: boolean;
 		members: {
 			publicKey: string;
 			weight: number;
 			order: number;
 		}[];
-	};
+	}[];
 };
 
 // Unit tests cover the export's fields; this checks the file actually works.
@@ -63,23 +65,33 @@ test('a proposal export is enough to execute it without the app', async ({
 			.getByTestId('export-proposal-button'),
 	);
 	expect(exported.type).toBe('sagat.proposal');
+	expect(exported.version).toBe(2);
 	expect(exported.proposal.digest).toBe(proposal.digest);
 
-	// Everything below comes from the file alone.
+	// Everything below comes from the file alone: pick a signer set that
+	// reached its threshold and combine its members' signatures in order.
+	const signerSet = exported.signerSets.find(
+		(s) => s.hasReachedThreshold,
+	)!;
+	const members = [...signerSet.members].sort(
+		(a, b) => a.order - b.order,
+	);
 	const multisigKey = MultiSigPublicKey.fromPublicKeys({
-		threshold: exported.multisig.threshold,
-		publicKeys: [...exported.multisig.members]
-			.sort((a, b) => a.order - b.order)
-			.map(({ publicKey, weight }) => ({
-				publicKey: publicKeyFromSuiBytes(publicKey),
-				weight,
-			})),
+		threshold: signerSet.threshold,
+		publicKeys: members.map(({ publicKey, weight }) => ({
+			publicKey: publicKeyFromSuiBytes(publicKey),
+			weight,
+		})),
 	});
 	expect(multisigKey.toSuiAddress()).toBe(multisig.address);
 	await chain.execute(
 		exported.proposal.transactionBytes,
 		multisigKey.combinePartialSignatures(
-			exported.proposal.signatures.map((s) => s.signature),
+			members.flatMap(({ publicKey }) =>
+				exported.proposal.signatures
+					.filter((s) => s.publicKey === publicKey)
+					.map((s) => s.signature),
+			),
 		),
 	);
 	expect(await chain.balance(recipient)).toBe(MIST_PER_SUI);

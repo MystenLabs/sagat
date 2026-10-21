@@ -11,7 +11,7 @@
 	},
 	"devDependencies": {
 		"@mysten-incubation/dev-wallet": "0.6.0",
-		"@mysten/sagat-legacy": "workspace:*",
+		"@mysten/sagat": "workspace:*",
 		"@mysten/signers": "^1.1.30",
 		"@mysten/sui": "^2.33.1",
 		"@playwright/test": "1.63.0",
