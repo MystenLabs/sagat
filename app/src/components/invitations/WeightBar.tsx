@@ -25,8 +25,8 @@ const TONE_CLASS: Record<WeightTone, string> = {
 /**
  * Where the account stands against its threshold and where you fit: a
  * legend over a bar drawn like the create wizard's threshold bar, one
- * segment per unit of weight in signer order, with a marker at the
- * threshold.
+ * segment per unit of weight, accepted first and yours next, with a
+ * marker at the threshold.
  */
 export function WeightBar({
 	signers,

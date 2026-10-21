@@ -11,13 +11,15 @@ import {
 } from '../src/lib/weight-bar';
 
 describe('weightBarLayout', () => {
-	it('draws one segment per unit of weight in signer order', () => {
+	it('draws one segment per unit of weight, accepted first, then yours', () => {
+		// Signer order is Daniel (pending), you, then two accepted signers.
 		expect(
 			weightBarLayout(
 				[
-					{ weight: 2, tone: 'accepted' },
-					{ weight: 1, tone: 'you' },
 					{ weight: 1, tone: 'pending' },
+					{ weight: 1, tone: 'you' },
+					{ weight: 1, tone: 'accepted' },
+					{ weight: 1, tone: 'accepted' },
 				],
 				3,
 			),
@@ -31,9 +33,9 @@ describe('weightBarLayout', () => {
 		expect(
 			weightBarLayout(
 				[
-					{ weight: 8, tone: 'accepted' },
-					{ weight: 0, tone: 'pending' },
 					{ weight: 4, tone: 'you' },
+					{ weight: 0, tone: 'pending' },
+					{ weight: 8, tone: 'accepted' },
 				],
 				6,
 			),
