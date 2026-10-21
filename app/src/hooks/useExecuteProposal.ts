@@ -5,8 +5,7 @@ import { useDAppKit } from '@mysten/dapp-kit-react';
 import {
 	ProposalStatus,
 	type PublicProposal,
-} from '@mysten/sagat-legacy';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
+} from '@mysten/sagat';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
 	useMutation,
@@ -14,9 +13,9 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { extractPublicKeyFromBase64 } from '@/lib/wallet';
+import { combineProposalSignatures } from '@/lib/proposalUtils';
 
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 interface ExecuteProposalParams {
@@ -34,82 +33,43 @@ export function useExecuteProposal() {
 			if (proposal.status !== ProposalStatus.PENDING)
 				throw new Error('Proposal is not pending');
 
-			try {
-				// Order the members.
-				const multisigMembers =
-					proposal.multisig.members.sort(
-						(a, b) => a.order - b.order,
-					);
-				// Step 1: Reconstruct the MultiSigPublicKey
-				const publicKeys = multisigMembers.map(
-					(member) => ({
-						publicKey: extractPublicKeyFromBase64(
-							member.publicKey,
-						),
-						weight: member.weight,
-					}),
+			// Step 1: Combine the signatures of a signer set that has
+			// reached its threshold. The sender stays the account.
+			const { signature } =
+				combineProposalSignatures(proposal);
+
+			// Step 2: Execute the transaction with the combined signature
+			const result = await suiClient.executeTransaction({
+				transaction: fromBase64(proposal.transactionBytes),
+				signatures: [signature],
+				include: {
+					effects: true,
+				},
+			});
+
+			await suiClient.waitForTransaction({
+				digest:
+					result.Transaction?.digest ||
+					result.FailedTransaction?.digest ||
+					'',
+			});
+
+			// Sleep for 500ms to give a bit more time to index.
+			await new Promise((resolve) =>
+				setTimeout(resolve, 500),
+			);
+
+			// Step 3: Call the verify endpoint to update proposal status in the backend
+			const verifyResponse =
+				await apiClient.verifyProposalByDigest(
+					proposal.digest,
 				);
 
-				const multiSigPublicKey =
-					MultiSigPublicKey.fromPublicKeys({
-						threshold: proposal.multisig.threshold,
-						publicKeys,
-					});
-
-				// Step 2: Map signatures to the correct order based on the multisig public key order
-				// The signatures need to be in the same order as the public keys in the multisig
-				const orderedSignatures: string[] = [];
-				for (const member of proposal.multisig.members) {
-					const signature = proposal.signatures.find(
-						(sig) => sig.publicKey === member.publicKey,
-					);
-					if (signature) {
-						orderedSignatures.push(signature.signature);
-					}
-				}
-
-				const combinedSignature =
-					multiSigPublicKey.combinePartialSignatures(
-						orderedSignatures,
-					);
-
-				// Step 3: Execute the transaction with the combined signature
-				const result = await suiClient.executeTransaction({
-					transaction: fromBase64(
-						proposal.transactionBytes,
-					),
-					signatures: [combinedSignature],
-					include: {
-						effects: true,
-					},
-				});
-
-				await suiClient.waitForTransaction({
-					digest:
-						result.Transaction?.digest ||
-						result.FailedTransaction?.digest ||
-						'',
-				});
-
-				// Sleep for 500ms to give a bit more time to index.
-				await new Promise((resolve) =>
-					setTimeout(resolve, 500),
-				);
-
-				// Step 4: Call the verify endpoint to update proposal status in the backend
-				const verifyResponse =
-					await legacyClient.verifyProposalByDigest(
-						proposal.digest,
-					);
-
-				return {
-					executionResult:
-						result.Transaction || result.FailedTransaction,
-					verifyResponse,
-				};
-			} catch (error) {
-				throw error;
-			}
+			return {
+				executionResult:
+					result.Transaction || result.FailedTransaction,
+				verifyResponse,
+			};
 		},
 		onSuccess: (data, variables) => {
 			// Invalidate all proposal-related queries
@@ -125,7 +85,7 @@ export function useExecuteProposal() {
 				queryKey: [
 					QueryKeys.Balances,
 					variables.proposal.network,
-					variables.proposal.multisig.address,
+					variables.proposal.accountAddress,
 				],
 			});
 			toast.success(

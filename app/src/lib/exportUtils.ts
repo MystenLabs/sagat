@@ -3,49 +3,57 @@
 
 import {
 	ProposalStatus,
-	type MultisigWithMembers,
+	type Account,
+	type ProposalSignerSet,
 	type PublicProposal,
-} from '@mysten/sagat-legacy';
+	type SignerSetWithMembers,
+} from '@mysten/sagat';
 
 type ExportType =
 	'sagat.multisig-composition' | 'sagat.proposal';
 
+// Version 2 names the account and its signer sets apart (`accountAddress`,
+// `signerSets`); version 1 files had a single `multisig`.
 interface ExportEnvelope {
 	type: ExportType;
-	version: 1;
+	version: 2;
 }
 
-interface ExportedMultisigMember {
+interface ExportedSignerSetMember {
 	publicKey: string;
 	weight: number;
 	order: number;
 }
 
-interface MultisigCompositionInput {
+interface ExportedSignerSet {
 	address: string;
-	name: string | null;
+	label: string | null;
+	status: SignerSetWithMembers['status'];
 	threshold: number;
-	members: ExportedMultisigMember[];
+	totalWeight: number;
+	totalMembers: number;
+	members: ExportedSignerSetMember[];
 }
 
-interface ExportedMultisigComposition extends ExportEnvelope {
+interface ExportedAccountComposition extends ExportEnvelope {
 	type: 'sagat.multisig-composition';
-	multisig: {
+	account: {
 		address: string;
 		name: string | null;
-		threshold: number;
-		totalWeight: number;
-		totalMembers: number;
-		members: ExportedMultisigMember[];
 	};
+	signerSets: ExportedSignerSet[];
 }
 
-interface ExportedProposalSignature {
-	proposalId: number;
-	publicKey: string;
-	signature: string;
-	weight: number | null;
-	order: number | null;
+interface ExportedProposalSignerSet {
+	address: string;
+	label: string | null;
+	threshold: number;
+	totalWeight: number;
+	currentWeight: number;
+	hasReachedThreshold: boolean;
+	members: (ExportedSignerSetMember & {
+		hasSigned: boolean;
+	})[];
 }
 
 interface ExportedProposal extends ExportEnvelope {
@@ -55,26 +63,49 @@ interface ExportedProposal extends ExportEnvelope {
 		id: number;
 		digest: string;
 		network: string;
-		multisigAddress: string;
+		accountAddress: string;
 		status: ProposalStatus;
 		statusLabel: string;
 		transactionBytes: string;
 		proposerAddress: string;
 		description: string | null;
-		currentWeight: number;
-		threshold: number;
-		signatures: ExportedProposalSignature[];
+		createdAt: string;
+		executedVia: string | null;
+		// Each signature belongs to a key; its weight and order depend on
+		// the signer set, so they are listed under `signerSets`.
+		signatures: {
+			proposalId: number;
+			publicKey: string;
+			signature: string;
+		}[];
 	};
-	multisig: ExportedMultisigComposition['multisig'];
+	// The signer sets that can execute the proposal, with the progress in
+	// each. Combine only the signatures of one set's members, in order.
+	signerSets: ExportedProposalSignerSet[];
 }
 
 export function buildMultisigCompositionExport(
-	multisig: MultisigWithMembers,
-): ExportedMultisigComposition {
+	account: Pick<Account, 'address' | 'name' | 'signerSets'>,
+): ExportedAccountComposition {
 	return {
 		type: 'sagat.multisig-composition',
-		version: 1,
-		multisig: buildMultisigComposition(multisig),
+		version: 2,
+		account: {
+			address: account.address,
+			name: account.name,
+		},
+		signerSets: account.signerSets.map((signerSet) => {
+			const members = getOrderedMembers(signerSet.members);
+			return {
+				address: signerSet.address,
+				label: signerSet.label,
+				status: signerSet.status,
+				threshold: signerSet.threshold,
+				totalWeight: signerSet.totalWeight,
+				totalMembers: members.length,
+				members,
+			};
+		}),
 	};
 }
 
@@ -82,56 +113,31 @@ export function buildProposalExport(
 	proposal: PublicProposal,
 	now = new Date(),
 ): ExportedProposal {
-	const multisig = buildMultisigComposition({
-		...proposal.multisig,
-		name: proposal.multisig.name ?? null,
-	});
-	const memberByPublicKey = new Map(
-		multisig.members.map((member) => [
-			member.publicKey,
-			member,
-		]),
-	);
-
 	return {
 		type: 'sagat.proposal',
-		version: 1,
+		version: 2,
 		exportedAt: now.toISOString(),
 		proposal: {
 			id: proposal.id,
 			digest: proposal.digest,
 			network: proposal.network,
-			multisigAddress: proposal.multisigAddress,
+			accountAddress: proposal.accountAddress,
 			status: proposal.status,
 			statusLabel: getProposalStatusLabel(proposal.status),
 			transactionBytes: proposal.transactionBytes,
 			proposerAddress: proposal.proposerAddress,
 			description: proposal.description,
-			currentWeight: proposal.currentWeight,
-			threshold: proposal.multisig.threshold,
-			signatures: proposal.signatures
-				.map((signature) => {
-					const member = memberByPublicKey.get(
-						signature.publicKey,
-					);
-					return {
-						proposalId: signature.proposalId,
-						publicKey: signature.publicKey,
-						signature: signature.signature,
-						weight: member?.weight ?? null,
-						order: member?.order ?? null,
-					};
-				})
-				.sort((a, b) => {
-					if (a.order === null && b.order === null) {
-						return a.publicKey.localeCompare(b.publicKey);
-					}
-					if (a.order === null) return 1;
-					if (b.order === null) return -1;
-					return a.order - b.order;
-				}),
+			createdAt: proposal.createdAt,
+			executedVia: proposal.executedVia,
+			signatures: proposal.signatures.map((signature) => ({
+				proposalId: signature.proposalId,
+				publicKey: signature.publicKey,
+				signature: signature.signature,
+			})),
 		},
-		multisig,
+		signerSets: proposal.signerSets.map(
+			buildProposalSignerSet,
+		),
 	};
 }
 
@@ -167,8 +173,8 @@ export function getProposalExportFilename(digest: string) {
 }
 
 function getOrderedMembers(
-	members: ExportedMultisigMember[],
-): ExportedMultisigMember[] {
+	members: ExportedSignerSetMember[],
+): ExportedSignerSetMember[] {
 	return members
 		.map((member) => ({
 			publicKey: member.publicKey,
@@ -178,21 +184,24 @@ function getOrderedMembers(
 		.sort((a, b) => a.order - b.order);
 }
 
-function buildMultisigComposition(
-	multisig: MultisigCompositionInput,
-): ExportedMultisigComposition['multisig'] {
-	const members = getOrderedMembers(multisig.members);
-
+function buildProposalSignerSet(
+	signerSet: ProposalSignerSet,
+): ExportedProposalSignerSet {
 	return {
-		address: multisig.address,
-		name: multisig.name,
-		threshold: multisig.threshold,
-		totalWeight: members.reduce(
-			(sum, member) => sum + member.weight,
-			0,
-		),
-		totalMembers: members.length,
-		members,
+		address: signerSet.address,
+		label: signerSet.label,
+		threshold: signerSet.threshold,
+		totalWeight: signerSet.totalWeight,
+		currentWeight: signerSet.currentWeight,
+		hasReachedThreshold: signerSet.hasReachedThreshold,
+		members: [...signerSet.members]
+			.sort((a, b) => a.order - b.order)
+			.map((member) => ({
+				publicKey: member.publicKey,
+				weight: member.weight,
+				order: member.order,
+				hasSigned: member.hasSigned,
+			})),
 	};
 }
 

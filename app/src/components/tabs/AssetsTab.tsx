@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { type AccountForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useCoinDisplayDataMap } from '../../hooks/useCoinDisplayData';
@@ -26,7 +26,7 @@ import { type ProposalIntent } from '../ProposalSheet';
 import { Button } from '../ui/button';
 
 interface AssetsTabContext {
-	multisig: MultisigWithMembersForPublicKey;
+	multisig: AccountForPublicKey;
 	openProposalSheet: (intent?: ProposalIntent) => void;
 }
 

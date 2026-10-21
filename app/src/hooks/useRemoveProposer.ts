@@ -8,18 +8,18 @@ import {
 import {
 	defaultExpiry,
 	PersonalMessages,
-} from '@mysten/sagat-legacy';
+} from '@mysten/sagat';
 import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 export function useRemoveProposer(
-	multisigAddress: string,
+	accountAddress: string,
 	options?: {
 		onSuccess?: () => void;
 	},
@@ -36,9 +36,9 @@ export function useRemoveProposer(
 
 			const expiry = defaultExpiry();
 			const message =
-				PersonalMessages.removeMultisigProposer(
+				PersonalMessages.removeAccountProposer(
 					proposerAddress,
-					multisigAddress,
+					accountAddress,
 					expiry,
 				);
 
@@ -47,8 +47,8 @@ export function useRemoveProposer(
 					message: new TextEncoder().encode(message),
 				});
 
-			return legacyClient.removeMultisigProposer(
-				multisigAddress,
+			return apiClient.removeAccountProposer(
+				accountAddress,
 				proposerAddress,
 				signature,
 				expiry,
@@ -57,7 +57,7 @@ export function useRemoveProposer(
 		onSuccess: () => {
 			// Invalidate the multisig query to refetch with updated proposers
 			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Multisig, multisigAddress],
+				queryKey: [QueryKeys.Multisig, accountAddress],
 			});
 			toast.success('Proposer removed successfully');
 			options?.onSuccess?.();

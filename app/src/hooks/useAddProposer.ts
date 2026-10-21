@@ -8,18 +8,18 @@ import {
 import {
 	defaultExpiry,
 	PersonalMessages,
-} from '@mysten/sagat-legacy';
+} from '@mysten/sagat';
 import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 export function useAddProposer(
-	multisigAddress: string,
+	accountAddress: string,
 	options?: {
 		onSuccess?: () => void;
 	},
@@ -35,9 +35,9 @@ export function useAddProposer(
 			}
 
 			const expiry = defaultExpiry();
-			const message = PersonalMessages.addMultisigProposer(
+			const message = PersonalMessages.addAccountProposer(
 				proposerAddress,
-				multisigAddress,
+				accountAddress,
 				expiry,
 			);
 
@@ -46,8 +46,8 @@ export function useAddProposer(
 					message: new TextEncoder().encode(message),
 				});
 
-			return legacyClient.addMultisigProposer(
-				multisigAddress,
+			return apiClient.addAccountProposer(
+				accountAddress,
 				proposerAddress,
 				signature,
 				expiry,
@@ -56,7 +56,7 @@ export function useAddProposer(
 		onSuccess: () => {
 			// Invalidate the multisig query to refetch with new proposers
 			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Multisig, multisigAddress],
+				queryKey: [QueryKeys.Multisig, accountAddress],
 			});
 			toast.success('Proposer added successfully');
 			options?.onSuccess?.();

@@ -4,20 +4,18 @@
 import {
 	ProposalStatus,
 	type ProposalWithSignatures,
-} from '@mysten/sagat-legacy';
+} from '@mysten/sagat';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { tallySignerSet } from '@/lib/proposalUtils';
+import { getOriginalSignerSet } from '@/lib/signerSets';
+import { type AccountForPublicKey } from '@/lib/types';
 
-import {
-	calculateCurrentWeight,
-	getTotalWeight,
-} from '../lib/proposalUtils';
-import { useGetMultisig } from './useGetMultisig';
+import { useGetAccount } from './useGetAccount';
 import { usePaginatedProposals } from './usePaginatedProposals';
 
 interface UseProposalsQueriesParams {
-	multisig: MultisigWithMembersForPublicKey;
+	multisig: AccountForPublicKey;
 	network: string;
 	activeFilter:
 		| 'all'
@@ -35,9 +33,12 @@ export function useProposalsQueries({
 }: UseProposalsQueriesParams) {
 	const { currentAddress } = useApiAuth();
 
-	const multisigDetailsQuery = useGetMultisig(
-		multisig.address,
-	);
+	const accountQuery = useGetAccount(multisig.address);
+	// Progress is counted in the signer set the screens show, from the
+	// fresh copy of the account once it has loaded.
+	const signerSet = accountQuery.data
+		? getOriginalSignerSet(accountQuery.data)
+		: undefined;
 
 	// Get API query type based on active tab
 	const getApiQueryType = () => {
@@ -73,7 +74,7 @@ export function useProposalsQueries({
 
 	// Use infinite query for all tabs (pending will just have 1 page)
 	const proposalsQuery = usePaginatedProposals({
-		multisigAddress: multisig.address,
+		accountAddress: multisig.address,
 		network,
 		status: getStatusFilter(),
 		perPage: 10,
@@ -82,7 +83,7 @@ export function useProposalsQueries({
 
 	// Always fetch pending proposals for counts
 	const pendingProposalsQuery = usePaginatedProposals({
-		multisigAddress: multisig.address,
+		accountAddress: multisig.address,
 		network,
 		status: ProposalStatus.PENDING,
 		perPage: 10,
@@ -99,63 +100,37 @@ export function useProposalsQueries({
 		);
 	};
 
+	// Whether a pending proposal can be executed now.
+	const isReady = (proposal: ProposalWithSignatures) =>
+		!!signerSet &&
+		tallySignerSet(proposal, signerSet).hasReachedThreshold;
+
+	// Pending, not signed by the current user, and short of the threshold.
+	const isPendingForUser = (p: ProposalWithSignatures) =>
+		p.status === ProposalStatus.PENDING &&
+		!userHasSignedProposal(p) &&
+		!isReady(p);
+
+	// Pending, signed by the current user, and short of the threshold.
+	const isWaitingForOthers = (p: ProposalWithSignatures) =>
+		p.status === ProposalStatus.PENDING &&
+		userHasSignedProposal(p) &&
+		!isReady(p);
+
+	const isReadyToExecute = (p: ProposalWithSignatures) =>
+		p.status === ProposalStatus.PENDING && isReady(p);
+
 	// Filter proposals based on current tab
 	const getFilteredProposals = (
 		proposals: ProposalWithSignatures[],
 	) => {
-		const multisigDetails = multisigDetailsQuery.data;
-
 		switch (activeFilter) {
 			case 'pending':
-				return proposals.filter((p) => {
-					if (p.status !== ProposalStatus.PENDING)
-						return false;
-					const hasUserSigned = userHasSignedProposal(p);
-					const currentWeight = calculateCurrentWeight(
-						p,
-						multisigDetails,
-					);
-					const totalWeight =
-						getTotalWeight(multisigDetails);
-					const needsMoreSigs = currentWeight < totalWeight;
-					return !hasUserSigned && needsMoreSigs;
-				});
-
+				return proposals.filter(isPendingForUser);
 			case 'waiting':
-				return proposals.filter((p) => {
-					if (p.status !== ProposalStatus.PENDING)
-						return false;
-					const hasUserSigned = userHasSignedProposal(p);
-					const currentWeight = calculateCurrentWeight(
-						p,
-						multisigDetails,
-					);
-					const totalWeight =
-						getTotalWeight(multisigDetails);
-					const needsMoreSigs = currentWeight < totalWeight;
-					return hasUserSigned && needsMoreSigs;
-				});
-
+				return proposals.filter(isWaitingForOthers);
 			case 'ready':
-				return proposals.filter((p) => {
-					const currentWeight = calculateCurrentWeight(
-						p,
-						multisigDetails,
-					);
-					const totalWeight =
-						getTotalWeight(multisigDetails);
-					return (
-						p.status === ProposalStatus.PENDING &&
-						currentWeight >= totalWeight
-					);
-				});
-
-			case 'executed':
-				return proposals;
-
-			case 'cancelled':
-				return proposals;
-
+				return proposals.filter(isReadyToExecute);
 			default:
 				return proposals;
 		}
@@ -163,59 +138,22 @@ export function useProposalsQueries({
 
 	// Calculate counts for pending tabs
 	const getPendingTabCounts = () => {
-		const multisigDetails = multisigDetailsQuery.data;
 		const pendingProposals =
 			pendingProposalsQuery.data?.pages.flatMap(
 				(page) => page.data,
 			) ?? [];
 
-		if (
-			!multisigDetails?.members ||
-			!pendingProposals.length
-		) {
+		if (!signerSet || !pendingProposals.length) {
 			return { pending: 0, waiting: 0, ready: 0 };
 		}
 
-		const pendingCount = pendingProposals.filter((p) => {
-			if (p.status !== ProposalStatus.PENDING) return false;
-			const hasUserSigned = userHasSignedProposal(p);
-			const currentWeight = calculateCurrentWeight(
-				p,
-				multisigDetails,
-			);
-			const totalWeight = getTotalWeight(multisigDetails);
-			const needsMoreSigs = currentWeight < totalWeight;
-			return !hasUserSigned && needsMoreSigs;
-		}).length;
-
-		const waitingCount = pendingProposals.filter((p) => {
-			if (p.status !== ProposalStatus.PENDING) return false;
-			const hasUserSigned = userHasSignedProposal(p);
-			const currentWeight = calculateCurrentWeight(
-				p,
-				multisigDetails,
-			);
-			const totalWeight = getTotalWeight(multisigDetails);
-			const needsMoreSigs = currentWeight < totalWeight;
-			return hasUserSigned && needsMoreSigs;
-		}).length;
-
-		const readyCount = pendingProposals.filter((p) => {
-			const currentWeight = calculateCurrentWeight(
-				p,
-				multisigDetails,
-			);
-			const totalWeight = getTotalWeight(multisigDetails);
-			return (
-				p.status === ProposalStatus.PENDING &&
-				currentWeight >= totalWeight
-			);
-		}).length;
-
 		return {
-			pending: pendingCount,
-			waiting: waitingCount,
-			ready: readyCount,
+			pending: pendingProposals.filter(isPendingForUser)
+				.length,
+			waiting: pendingProposals.filter(isWaitingForOthers)
+				.length,
+			ready: pendingProposals.filter(isReadyToExecute)
+				.length,
 		};
 	};
 
@@ -227,13 +165,11 @@ export function useProposalsQueries({
 
 	return {
 		// Queries
-		multisigDetails: multisigDetailsQuery.data,
+		account: accountQuery.data,
 		proposals: currentProposals,
 		isLoading:
-			proposalsQuery.isLoading ||
-			multisigDetailsQuery.isLoading,
-		error:
-			proposalsQuery.error || multisigDetailsQuery.error,
+			proposalsQuery.isLoading || accountQuery.isLoading,
+		error: proposalsQuery.error || accountQuery.error,
 
 		// Filtered data
 		filteredProposals: getFilteredProposals(

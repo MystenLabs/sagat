@@ -1,13 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigProposer } from '@mysten/sagat-legacy';
+import type { AccountProposer } from '@mysten/sagat';
 
 import { Button } from '../ui/button';
 import { CopyButton } from '../ui/CopyButton';
 
 interface ProposersListProps {
-	proposers: Omit<MultisigProposer, 'multisigAddress'>[];
+	proposers: AccountProposer[];
 	onRemoveProposer: (address: string) => void;
 }
 

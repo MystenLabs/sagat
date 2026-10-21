@@ -1,14 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ProposalWithSignatures } from '@mysten/sagat-legacy';
+import {
+	type AccountProposer,
+	type ProposalWithSignatures,
+	type SignerSetWithMembers,
+} from '@mysten/sagat';
 import { FileText, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
-import { calculateCurrentWeight } from '@/lib/proposalUtils';
+import { tallySignerSet } from '@/lib/proposalUtils';
+import { getOriginalSignerSet } from '@/lib/signerSets';
 import {
-	type MultisigWithMembersForPublicKey,
+	type AccountForPublicKey,
 	type ProposalCardInput,
 } from '@/lib/types';
 
@@ -20,7 +25,7 @@ import { SkeletonList } from '../ui/skeleton';
 import { Tabs } from '../ui/tabs';
 
 interface ProposalsTabContext {
-	multisig: MultisigWithMembersForPublicKey;
+	multisig: AccountForPublicKey;
 	openProposalSheet: () => void;
 }
 
@@ -130,34 +135,26 @@ function EmptyState({
 // Proposals List Component
 function ProposalsList({
 	proposals,
-	multisig,
+	proposers,
+	signerSet,
 }: {
 	proposals: ProposalWithSignatures[];
-	multisig: MultisigWithMembersForPublicKey;
+	proposers: AccountProposer[];
+	signerSet: SignerSetWithMembers;
 }) {
+	// The account shape doesn't say which signer sets are valid on which
+	// network, so the list counts progress in the set the screens show. The
+	// proposal page, by digest, gets the API's list per network.
 	const formatProposal = (
 		proposal: ProposalWithSignatures,
 	): ProposalCardInput => {
 		return {
 			...proposal,
 			isPublic: false,
-			totalWeight: multisig.threshold,
-			currentWeight: calculateCurrentWeight(
-				proposal,
-				multisig,
-			),
-			proposers: multisig.proposers.map(
+			proposers: proposers.map(
 				(proposer) => proposer.address,
 			),
-			multisig: {
-				address: multisig.address,
-				name: multisig.name,
-				threshold: multisig.threshold,
-				members: multisig.members.map((member) => ({
-					...member,
-					publicKey: member.publicKey,
-				})),
-			},
+			signerSets: [tallySignerSet(proposal, signerSet)],
 		};
 	};
 
@@ -215,6 +212,7 @@ export function ProposalsTab() {
 
 	// Use the new hook to manage all queries and filtering
 	const {
+		account,
 		filteredProposals,
 		pendingTabCounts,
 		isLoading,
@@ -293,7 +291,11 @@ export function ProposalsTab() {
 				) : (
 					<ProposalsList
 						proposals={filteredProposals}
-						multisig={multisig}
+						proposers={(account ?? multisig).proposers}
+						signerSet={
+							(account && getOriginalSignerSet(account)) ??
+							multisig.signerSet
+						}
 					/>
 				)}
 			</div>

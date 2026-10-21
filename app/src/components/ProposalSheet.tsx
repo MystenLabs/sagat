@@ -153,7 +153,7 @@ function ProposalSheetBody({
 			if (!isDryRunSuccessful) return;
 			createProposalMutation.mutate(
 				{
-					multisigAddress,
+					accountAddress: multisigAddress,
 					transactionData: data.transactionData,
 					description: data.description,
 				},

@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigProposer } from '@mysten/sagat-legacy';
+import type { AccountProposer } from '@mysten/sagat';
 import { Plus, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
@@ -11,7 +11,7 @@ import { ProposersList } from './ProposersList';
 import { RemoveProposerDialog } from './RemoveProposerDialog';
 
 interface ProposersSectionProps {
-	proposers: Omit<MultisigProposer, 'multisigAddress'>[];
+	proposers: AccountProposer[];
 	multisigAddress: string;
 	isLoading?: boolean;
 	error?: Error | null;

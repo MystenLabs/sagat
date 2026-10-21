@@ -15,11 +15,11 @@ import { toast } from 'sonner';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 
 import { useNetwork } from '../contexts/NetworkContext';
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 interface CreateProposalParams {
-	multisigAddress: string;
+	accountAddress: string;
 	transactionData: string;
 	description?: string;
 }
@@ -33,7 +33,7 @@ export function useCreateProposal() {
 
 	return useMutation({
 		mutationFn: async ({
-			multisigAddress,
+			accountAddress,
 			transactionData,
 			description,
 		}: CreateProposalParams) => {
@@ -52,8 +52,8 @@ export function useCreateProposal() {
 			);
 
 			// Create proposal via API
-			return legacyClient.createProposal({
-				multisigAddress,
+			return apiClient.createProposal({
+				accountAddress,
 				transactionBytes: transactionData,
 				signature: signatureResult.signature as string,
 				description,

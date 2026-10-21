@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { type InvitationForPublicKey } from '@/lib/types';
 
 import { useAcceptInvitation } from '../../hooks/useAcceptInvitation';
 import { useRejectInvitation } from '../../hooks/useRejectInvitation';
@@ -18,7 +18,7 @@ import { CopyButton } from '../ui/CopyButton';
 import { InvitationDetails } from './InvitationDetails';
 
 interface InvitationCardProps {
-	multisig: MultisigWithMembersForPublicKey;
+	multisig: InvitationForPublicKey;
 }
 
 export function InvitationCard({
@@ -62,9 +62,11 @@ export function InvitationCard({
 						<Users className="w-5 h-5 text-info-foreground" />
 					</div>
 					<div className="flex-1">
+						{/* An account labels its original signer set with
+						its own name, so the label is the name. */}
 						<h3 className="font-medium text-foreground">
-							{multisig.name ||
-								formatAddress(multisig?.address)}
+							{multisig.label ||
+								formatAddress(multisig.address)}
 						</h3>
 						<div className="flex items-center gap-1">
 							<p className="text-sm text-muted-foreground">
@@ -76,7 +78,7 @@ export function InvitationCard({
 							/>
 						</div>
 						<p className="text-xs text-muted-foreground">
-							{`${multisig.totalMembers - multisig.pendingMembers - multisig.rejectedMembers} out of ${multisig.totalMembers} members accepted`}
+							{`${multisig.members.length - multisig.pendingMembers - multisig.rejectedMembers} out of ${multisig.members.length} members accepted`}
 						</p>
 					</div>
 				</div>

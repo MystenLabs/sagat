@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 import type { CreateMultisigForm } from '../lib/validations/multisig';
 
@@ -31,14 +31,14 @@ export function useCreateMultisig() {
 			const weights = data.members.map((m) => m.weight);
 
 			const payload = {
-				publicKey: currentAddress.publicKey,
 				publicKeys,
 				weights,
 				threshold: data.threshold,
 				name: data.name || undefined,
 			};
 
-			return legacyClient.createMultisig(payload);
+			// Creates the account and its original signer set.
+			return apiClient.createSignerSet(payload);
 		},
 		onSuccess: () => {
 			// Invalidate queries

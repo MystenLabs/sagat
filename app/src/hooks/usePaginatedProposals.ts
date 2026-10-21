@@ -1,14 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat-legacy';
+import { ProposalStatus } from '@mysten/sagat';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
-import { legacyClient } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import { QueryKeys } from '@/lib/queryKeys';
 
 interface UsePaginatedProposalsParams {
-	multisigAddress: string;
+	accountAddress: string;
 	network: string;
 	status?: ProposalStatus;
 	perPage?: number;
@@ -16,7 +16,7 @@ interface UsePaginatedProposalsParams {
 }
 
 export function usePaginatedProposals({
-	multisigAddress,
+	accountAddress,
 	network,
 	status,
 	perPage = 10,
@@ -26,12 +26,12 @@ export function usePaginatedProposals({
 		queryKey: [
 			QueryKeys.Proposals,
 			status !== undefined ? ProposalStatus[status] : 'all',
-			multisigAddress,
+			accountAddress,
 			network,
 			perPage,
 		],
 		queryFn: ({ pageParam }) =>
-			legacyClient.getProposals(multisigAddress, network, {
+			apiClient.getProposals(accountAddress, network, {
 				status,
 				nextCursor: pageParam,
 				perPage,
@@ -41,7 +41,7 @@ export function usePaginatedProposals({
 			lastPage.hasNextPage && lastPage.nextCursor
 				? Number(lastPage.nextCursor)
 				: undefined,
-		enabled: enabled && !!multisigAddress && !!network,
+		enabled: enabled && !!accountAddress && !!network,
 		refetchInterval: 30000, // Refetch first page every 30 seconds
 		staleTime: 0, // Consider data stale immediately to ensure fresh data
 	});

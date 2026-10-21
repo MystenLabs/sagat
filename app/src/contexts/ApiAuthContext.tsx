@@ -10,7 +10,7 @@ import {
 	PersonalMessages,
 	type Address,
 	type AuthCheckResponse,
-} from '@mysten/sagat-legacy';
+} from '@mysten/sagat';
 import {
 	useMutation,
 	useQuery,
@@ -23,7 +23,7 @@ import React, {
 } from 'react';
 import { toast } from 'sonner';
 
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 interface ApiAuthContextType {
@@ -68,7 +68,7 @@ export function ApiAuthProvider({
 		refetch: refetchAuth,
 	} = useQuery<AuthCheckResponse>({
 		queryKey: [...AUTH_QUERY_KEY, currentAccount?.address],
-		queryFn: () => legacyClient.checkAuth(),
+		queryFn: () => apiClient.checkAuth(),
 		retry: false,
 		// Always check when account changes
 		enabled: true,
@@ -97,7 +97,7 @@ export function ApiAuthProvider({
 			});
 
 			// Send to API
-			return legacyClient.connect(
+			return apiClient.connect(
 				signResult.signature,
 				expiry,
 			);
@@ -121,7 +121,7 @@ export function ApiAuthProvider({
 
 	// Disconnect mutation
 	const disconnectMutation = useMutation({
-		mutationFn: () => legacyClient.disconnect(),
+		mutationFn: () => apiClient.disconnect(),
 		onSuccess: async () => {
 			queryClient.clear();
 			await refetchAuth();

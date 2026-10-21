@@ -3,10 +3,11 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { getKeyMembership } from '@/lib/signerSets';
+import { type InvitationForPublicKey } from '@/lib/types';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 // Hook to fetch invitations for the current user's public key
@@ -24,38 +25,26 @@ export function useInvitations(
 			showRejected,
 		],
 		queryFn: async (): Promise<
-			MultisigWithMembersForPublicKey[]
+			InvitationForPublicKey[]
 		> => {
 			if (!currentAddress) {
 				throw new Error('No wallet connected');
 			}
 
-			// Get invitations for this public key
-			const invitations = await legacyClient.getInvitations(
+			const invitations = await apiClient.getInvitations(
 				currentAddress.publicKey,
-				{
-					showRejected,
-				},
+				{ showRejected },
 			);
 
-			// Transform to add the fields expected by components
-			return invitations.map((m) => {
-				const currentMember = m.members.find(
-					(member) =>
-						member.publicKey === currentAddress.publicKey,
-				)!;
-				return {
-					...m,
-					isAccepted: currentMember.isAccepted,
-					isRejected: currentMember.isRejected,
-					pendingMembers: m.members.filter(
-						(member) =>
-							!member.isAccepted && !member.isRejected,
-					).length,
-					rejectedMembers: m.members.filter(
-						(member) => member.isRejected,
-					).length,
-				};
+			// Every listed set has the key as a member.
+			return invitations.flatMap((signerSet) => {
+				const membership = getKeyMembership(
+					signerSet,
+					currentAddress.publicKey,
+				);
+				return membership
+					? [{ ...signerSet, ...membership }]
+					: [];
 			});
 		},
 		enabled:

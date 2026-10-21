@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
-import { PersonalMessages } from '@mysten/sagat-legacy';
+import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,
 	useQueryClient,
@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 export function useAcceptInvitation() {
@@ -20,22 +20,22 @@ export function useAcceptInvitation() {
 	const { currentAddress } = useApiAuth();
 
 	return useMutation({
-		mutationFn: async (multisigAddress: string) => {
+		mutationFn: async (signerSetAddress: string) => {
 			if (!currentAddress)
 				throw new Error('No wallet connected');
 
 			// Create and sign the message
 			const result = await dappKit.signPersonalMessage({
 				message: new TextEncoder().encode(
-					PersonalMessages.acceptMultisigInvitation(
-						multisigAddress,
+					PersonalMessages.acceptSignerSetInvitation(
+						signerSetAddress,
 					),
 				),
 			});
 
 			// Call API to accept the invitation
-			return legacyClient.acceptMultisigInvite(
-				multisigAddress,
+			return apiClient.acceptSignerSetInvite(
+				signerSetAddress,
 				{
 					signature: result.signature,
 				},

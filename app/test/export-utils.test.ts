@@ -3,9 +3,9 @@
 
 import {
 	ProposalStatus,
-	type MultisigWithMembers,
+	type Account,
 	type PublicProposal,
-} from '@mysten/sagat-legacy';
+} from '@mysten/sagat';
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -17,65 +17,75 @@ import {
 
 const exportedAt = new Date('2026-04-28T06:30:00.000Z');
 
-const multisig: MultisigWithMembers = {
-	address: '0xmultisig',
-	isVerified: false,
-	threshold: 3,
+const member = (
+	publicKey: string,
+	weight: number,
+	order: number,
+	isAccepted: boolean,
+) => ({
+	signerSetAddress: '0xaccount',
+	publicKey,
+	weight,
+	order,
+	isAccepted,
+	isRejected: false,
+	label: null,
+});
+
+const account: Account = {
+	address: '0xaccount',
 	name: 'Treasury',
-	totalMembers: 3,
-	totalWeight: 6,
+	createdAt: '2026-04-01T00:00:00.000Z',
 	proposers: [],
-	members: [
+	signerSets: [
 		{
-			multisigAddress: '0xmultisig',
-			publicKey: 'member-c',
-			weight: 3,
-			isAccepted: false,
-			isRejected: false,
-			order: 2,
-		},
-		{
-			multisigAddress: '0xmultisig',
-			publicKey: 'member-a',
-			weight: 1,
-			isAccepted: true,
-			isRejected: false,
-			order: 0,
-		},
-		{
-			multisigAddress: '0xmultisig',
-			publicKey: 'member-b',
-			weight: 2,
-			isAccepted: true,
-			isRejected: false,
-			order: 1,
+			address: '0xaccount',
+			label: 'Treasury',
+			status: 'inviting',
+			isVerified: false,
+			threshold: 3,
+			totalWeight: 6,
+			draftedBy: '0xcreator',
+			createdAt: '2026-04-01T00:00:00.000Z',
+			members: [
+				member('member-c', 3, 2, false),
+				member('member-a', 1, 0, true),
+				member('member-b', 2, 1, true),
+			],
 		},
 	],
 };
 
 describe('export utils', () => {
-	test('builds a narrow multisig composition export', () => {
-		const result = buildMultisigCompositionExport(multisig);
+	test('builds a narrow account composition export', () => {
+		const result = buildMultisigCompositionExport(account);
 
 		expect(result).toEqual({
 			type: 'sagat.multisig-composition',
-			version: 1,
-			multisig: {
-				address: '0xmultisig',
+			version: 2,
+			account: {
+				address: '0xaccount',
 				name: 'Treasury',
-				threshold: 3,
-				totalWeight: 6,
-				totalMembers: 3,
-				members: [
-					{ publicKey: 'member-a', weight: 1, order: 0 },
-					{ publicKey: 'member-b', weight: 2, order: 1 },
-					{ publicKey: 'member-c', weight: 3, order: 2 },
-				],
 			},
+			signerSets: [
+				{
+					address: '0xaccount',
+					label: 'Treasury',
+					status: 'inviting',
+					threshold: 3,
+					totalWeight: 6,
+					totalMembers: 3,
+					members: [
+						{ publicKey: 'member-a', weight: 1, order: 0 },
+						{ publicKey: 'member-b', weight: 2, order: 1 },
+						{ publicKey: 'member-c', weight: 3, order: 2 },
+					],
+				},
+			],
 		});
 	});
 
-	test('associates proposal signatures with multisig member weights', () => {
+	test('exports each signer set with its progress', () => {
 		const proposal: PublicProposal = {
 			id: 42,
 			digest: '0xdigest',
@@ -83,10 +93,10 @@ describe('export utils', () => {
 			transactionBytes: 'transaction-bytes',
 			proposerAddress: '0xproposer',
 			description: 'Pay supplier',
-			totalWeight: 3,
-			currentWeight: 3,
 			network: 'testnet',
-			multisigAddress: '0xmultisig',
+			accountAddress: '0xaccount',
+			createdAt: '2026-04-28T06:00:00.000Z',
+			executedVia: null,
 			signatures: [
 				{
 					proposalId: 42,
@@ -99,16 +109,36 @@ describe('export utils', () => {
 					signature: 'sig-a',
 				},
 			],
-			multisig: {
-				address: '0xmultisig',
-				name: 'Treasury',
-				threshold: 3,
-				members: [
-					{ publicKey: 'member-b', weight: 2, order: 1 },
-					{ publicKey: 'member-a', weight: 1, order: 0 },
-					{ publicKey: 'member-c', weight: 3, order: 2 },
-				],
-			},
+			signerSets: [
+				{
+					address: '0xaccount',
+					label: 'Treasury',
+					threshold: 3,
+					totalWeight: 6,
+					currentWeight: 3,
+					hasReachedThreshold: true,
+					members: [
+						{
+							publicKey: 'member-b',
+							weight: 2,
+							order: 1,
+							hasSigned: true,
+						},
+						{
+							publicKey: 'member-a',
+							weight: 1,
+							order: 0,
+							hasSigned: true,
+						},
+						{
+							publicKey: 'member-c',
+							weight: 3,
+							order: 2,
+							hasSigned: false,
+						},
+					],
+				},
+			],
 		};
 
 		const result = buildProposalExport(
@@ -116,46 +146,66 @@ describe('export utils', () => {
 			exportedAt,
 		);
 
-		expect(result).toMatchObject({
+		expect(result).toEqual({
 			type: 'sagat.proposal',
-			version: 1,
+			version: 2,
 			exportedAt: exportedAt.toISOString(),
 			proposal: {
 				id: 42,
 				digest: '0xdigest',
 				network: 'testnet',
-				multisigAddress: '0xmultisig',
+				accountAddress: '0xaccount',
 				status: ProposalStatus.PENDING,
 				statusLabel: 'PENDING',
 				transactionBytes: 'transaction-bytes',
 				proposerAddress: '0xproposer',
 				description: 'Pay supplier',
-				currentWeight: 3,
-				threshold: 3,
+				createdAt: '2026-04-28T06:00:00.000Z',
+				executedVia: null,
 				signatures: [
-					{
-						proposalId: 42,
-						publicKey: 'member-a',
-						signature: 'sig-a',
-						weight: 1,
-						order: 0,
-					},
 					{
 						proposalId: 42,
 						publicKey: 'member-b',
 						signature: 'sig-b',
-						weight: 2,
-						order: 1,
+					},
+					{
+						proposalId: 42,
+						publicKey: 'member-a',
+						signature: 'sig-a',
 					},
 				],
 			},
+			signerSets: [
+				{
+					address: '0xaccount',
+					label: 'Treasury',
+					threshold: 3,
+					totalWeight: 6,
+					currentWeight: 3,
+					hasReachedThreshold: true,
+					members: [
+						{
+							publicKey: 'member-a',
+							weight: 1,
+							order: 0,
+							hasSigned: true,
+						},
+						{
+							publicKey: 'member-b',
+							weight: 2,
+							order: 1,
+							hasSigned: true,
+						},
+						{
+							publicKey: 'member-c',
+							weight: 3,
+							order: 2,
+							hasSigned: false,
+						},
+					],
+				},
+			],
 		});
-		expect(result.multisig.name).toBe('Treasury');
-		expect(result.multisig.members).toEqual([
-			{ publicKey: 'member-a', weight: 1, order: 0 },
-			{ publicKey: 'member-b', weight: 2, order: 1 },
-			{ publicKey: 'member-c', weight: 3, order: 2 },
-		]);
 	});
 
 	test('sanitizes export filenames', () => {

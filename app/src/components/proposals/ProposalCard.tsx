@@ -5,7 +5,7 @@ import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import {
 	ProposalStatus,
 	type ProposalWithSignatures,
-} from '@mysten/sagat-legacy';
+} from '@mysten/sagat';
 import {
 	formatAddress,
 	formatDigest,
@@ -21,6 +21,10 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import {
+	getProgressSignerSet,
+	isReadyToExecute,
+} from '@/lib/proposalUtils';
 import { type ProposalCardInput } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
@@ -78,13 +82,14 @@ export function ProposalCard({
 	const cancelProposalMutation = useCancelProposal();
 	const signProposalMutation = useSignProposal();
 
-	// Check if current user has already signed this proposal
-	// Check if the proposal is ready to execute
-	const isReadyToExecute = () => {
-		if (proposal.status !== ProposalStatus.PENDING)
-			return false;
-		return proposal.currentWeight >= proposal.totalWeight;
-	};
+	// Ready once any signer set has reached its threshold.
+	const isReady = isReadyToExecute(proposal.signerSets);
+	const progress = getProgressSignerSet(
+		proposal.signerSets,
+	);
+
+	const canExecute =
+		proposal.status === ProposalStatus.PENDING && isReady;
 
 	const handleExecuteProposal = () => {
 		executeProposalMutation.mutate(
@@ -143,8 +148,7 @@ export function ProposalCard({
 			return 'cancelled';
 		if (proposal.status === ProposalStatus.FAILURE)
 			return 'failed';
-		if (proposal.currentWeight >= proposal.totalWeight)
-			return 'ready';
+		if (isReady) return 'ready';
 		return 'pending';
 	};
 	const statusKey = getStatusKey();
@@ -155,11 +159,11 @@ export function ProposalCard({
 	};
 
 	const isExternalProposer = () => {
-		if (!proposal.multisig) return false;
-
-		// Check if proposer address is NOT a member by comparing addresses
-		// Members are stored as public keys, need to derive addresses
-		const memberAddresses = proposal.multisig.members
+		// Check if proposer address is NOT a member of any signer set by
+		// comparing addresses. Members are stored as public keys, need to
+		// derive addresses
+		const memberAddresses = proposal.signerSets
+			.flatMap((signerSet) => signerSet.members)
 			.map((member) => {
 				try {
 					// Derive address from public key
@@ -230,17 +234,18 @@ export function ProposalCard({
 					<div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
 						<span
 							data-testid="proposal-signature-weight"
-							data-current-weight={proposal.currentWeight}
+							data-current-weight={progress?.currentWeight}
 						>
-							Signature Weight: {proposal.currentWeight}/
-							{proposal.totalWeight}
+							Signature Weight:{' '}
+							{progress?.currentWeight ?? 0}/
+							{progress?.threshold ?? 0}
 						</span>
 
 						<span className="flex items-center gap-1">
 							Address:{' '}
-							{formatAddress(proposal.multisigAddress)}
+							{formatAddress(proposal.accountAddress)}
 							<CopyButton
-								value={proposal.multisigAddress}
+								value={proposal.accountAddress}
 								size="sm"
 								successMessage="Copied multisig address to clipboard"
 							/>
@@ -290,7 +295,7 @@ export function ProposalCard({
 				</div>
 
 				<div className="md:ml-4 flex items-center gap-2">
-					{isReadyToExecute() && (
+					{canExecute && (
 						<Button
 							size="sm"
 							onClick={handleExecuteProposal}

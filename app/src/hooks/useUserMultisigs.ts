@@ -3,13 +3,17 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import {
+	getKeyMembership,
+	getOriginalSignerSet,
+} from '@/lib/signerSets';
+import { type AccountForPublicKey } from '@/lib/types';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
-// Hook to fetch user's accepted multisigs from the /addresses/connections endpoint
+// The accounts the connected key has accepted to sign for.
 export function useUserMultisigs() {
 	const { isCurrentAddressAuthenticated, currentAddress } =
 		useApiAuth();
@@ -20,36 +24,25 @@ export function useUserMultisigs() {
 			QueryKeys.User,
 			currentAddress,
 		],
-		queryFn: async (): Promise<
-			MultisigWithMembersForPublicKey[]
-		> => {
+		queryFn: async (): Promise<AccountForPublicKey[]> => {
 			if (!currentAddress)
 				throw new Error('No wallet connected');
 
-			// Get accepted multisig connections grouped by public key
-			const connections =
-				await legacyClient.getMultisigConnections();
+			// Lists the accounts of every key in the session, so keep the
+			// ones where the connected key has accepted.
+			const accounts = await apiClient.getAccounts();
 
-			return (
-				connections[currentAddress?.publicKey] || []
-			).map((m) => {
-				const currentMember = m.members.find(
-					(member) =>
-						member.publicKey === currentAddress?.publicKey,
-				)!;
-
-				return {
-					...m,
-					isAccepted: currentMember.isAccepted,
-					isRejected: currentMember.isRejected,
-					pendingMembers: m.members.filter(
-						(member) =>
-							!member.isAccepted && !member.isRejected,
-					).length,
-					rejectedMembers: m.members.filter(
-						(member) => member.isRejected,
-					).length,
-				};
+			return accounts.flatMap((account) => {
+				// The screens show the original signer set; an account whose
+				// key sits only in another set needs the rotation screens.
+				const signerSet = getOriginalSignerSet(account);
+				if (!signerSet) return [];
+				const membership = getKeyMembership(
+					signerSet,
+					currentAddress.publicKey,
+				);
+				if (!membership?.isAccepted) return [];
+				return [{ ...account, ...membership, signerSet }];
 			});
 		},
 		enabled: isCurrentAddressAuthenticated,

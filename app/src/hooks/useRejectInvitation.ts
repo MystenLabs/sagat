@@ -5,7 +5,7 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { PersonalMessages } from '@mysten/sagat-legacy';
+import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,
 	useQueryClient,
@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { QueryKeys } from '@/lib/queryKeys';
 
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 
 export function useRejectInvitation() {
 	const currentAccount = useCurrentAccount();
@@ -24,23 +24,23 @@ export function useRejectInvitation() {
 	const dappKit = useDAppKit();
 
 	return useMutation({
-		mutationFn: async (multisigAddress: string) => {
+		mutationFn: async (signerSetAddress: string) => {
 			if (!currentAccount || !currentAddress) {
 				throw new Error('No wallet connected');
 			}
 
 			// Sign rejection message
 			const message =
-				PersonalMessages.rejectMultisigInvitation(
-					multisigAddress,
+				PersonalMessages.rejectSignerSetInvitation(
+					signerSetAddress,
 				);
 			const result = await dappKit.signPersonalMessage({
 				message: new TextEncoder().encode(message),
 			});
 
 			// Send to API
-			return legacyClient.rejectMultisigInvite(
-				multisigAddress,
+			return apiClient.rejectSignerSetInvite(
+				signerSetAddress,
 				{
 					signature: result.signature,
 				},

@@ -12,10 +12,10 @@ import { useMemo, useRef, useState } from 'react';
 
 import { Label } from '@/components/ui/label';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { type AccountForPublicKey } from '@/lib/types';
 
 interface MultisigSelectorProps {
-	multisigs: MultisigWithMembersForPublicKey[];
+	multisigs: AccountForPublicKey[];
 	selectedMultisig: string;
 	onSelectMultisig: (address: string) => void;
 }
@@ -69,8 +69,9 @@ export function MultisigSelector({
 								formatAddress(currentMultisig?.address)}
 						</h2>
 						<p className="text-sm text-muted-foreground">
-							{currentMultisig?.threshold}/
-							{currentMultisig?.totalMembers} threshold •{' '}
+							{currentMultisig.signerSet.threshold}/
+							{currentMultisig.signerSet.members.length}{' '}
+							threshold •{' '}
 							{formatAddress(
 								currentMultisig?.address || '',
 							)}
@@ -124,8 +125,10 @@ export function MultisigSelector({
 							) : null}
 						</div>
 						<p className="text-xs text-muted-foreground">
-							{currentMultisig?.threshold} threshold •{' '}
-							{currentMultisig?.totalMembers} members •{' '}
+							{currentMultisig.signerSet.threshold}{' '}
+							threshold •{' '}
+							{currentMultisig.signerSet.members.length}{' '}
+							members •{' '}
 							{formatAddress(
 								currentMultisig?.address || '',
 							)}
@@ -192,9 +195,10 @@ export function MultisigSelector({
 												</div>
 												<p className="text-xs text-muted-foreground">
 													{formatAddress(multisig.address)}{' '}
-													• {multisig.threshold} out of{' '}
-													{multisig.totalWeight} weight
-													threshold
+													• {multisig.signerSet.threshold}{' '}
+													out of{' '}
+													{multisig.signerSet.totalWeight}{' '}
+													weight threshold
 												</p>
 											</div>
 										</div>

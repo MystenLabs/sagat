@@ -4,10 +4,11 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { legacyClient } from '@/lib/api';
+import { apiClient } from '@/lib/api';
 import { QueryKeys } from '@/lib/queryKeys';
 
-export function useGetMultisig(
+// An account with its proposers and signer sets.
+export function useGetAccount(
 	address: string | null | undefined,
 ) {
 	const { isCurrentAddressAuthenticated, currentAddress } =
@@ -22,7 +23,7 @@ export function useGetMultisig(
 		queryFn: async () => {
 			if (!address) throw new Error('No address provided');
 
-			return legacyClient.getMultisig(address);
+			return apiClient.getAccount(address);
 		},
 		enabled: !!address && isCurrentAddressAuthenticated,
 	});

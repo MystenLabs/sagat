@@ -3,13 +3,13 @@
 
 import { Check, Users, X } from 'lucide-react';
 
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { type InvitationForPublicKey } from '@/lib/types';
 
 import { Button } from '../ui/button';
 import { MembersList } from './MembersList';
 
 interface InvitationDetailsProps {
-	multisig: MultisigWithMembersForPublicKey;
+	multisig: InvitationForPublicKey;
 	onAccept: () => void;
 	onReject: () => void;
 	isProcessing: boolean;
@@ -26,7 +26,7 @@ export function InvitationDetails({
 			<div className="flex items-center justify-between mb-3">
 				<h4 className="font-medium text-foreground flex items-center">
 					<Users className="w-4 h-4 mr-2" />
-					Members ({multisig.totalMembers})
+					Members ({multisig.members.length})
 				</h4>
 
 				<p className="text-sm text-muted-foreground">

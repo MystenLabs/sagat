@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigMember } from '@mysten/sagat-legacy';
+import type { SignerSetMember } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { Label } from '@/components/ui/label';
@@ -10,7 +10,7 @@ import { validatePublicKey } from '../../lib/sui-utils';
 import { CopyButton } from '../ui/CopyButton';
 
 interface MembersListProps {
-	members: MultisigMember[];
+	members: SignerSetMember[];
 }
 
 export function MembersList({ members }: MembersListProps) {

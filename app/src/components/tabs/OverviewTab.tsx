@@ -10,8 +10,9 @@ import {
 } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
-import { useGetMultisig } from '@/hooks/useGetMultisig';
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { useGetAccount } from '@/hooks/useGetAccount';
+import { getOriginalSignerSet } from '@/lib/signerSets';
+import { type AccountForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
@@ -26,7 +27,7 @@ import { ProposersSection } from '../proposers/ProposersSection';
 import { Button } from '../ui/button';
 
 interface OverviewTabContext {
-	multisig: MultisigWithMembersForPublicKey;
+	multisig: AccountForPublicKey;
 	openProposalSheet: () => void;
 }
 
@@ -42,21 +43,23 @@ export function OverviewTab() {
 	};
 
 	const {
-		data: multisigDetails,
+		data: accountDetails,
 		isLoading,
 		error,
 		refetch,
-	} = useGetMultisig(multisig.address);
+	} = useGetAccount(multisig.address);
 
-	const totalWeight = multisigDetails?.members
-		.map((m) => m.weight)
-		.reduce((a, b) => a + b, 0);
+	// The fresh copy of the set the screens show, once it has loaded.
+	const signerSet =
+		(accountDetails &&
+			getOriginalSignerSet(accountDetails)) ??
+		multisig.signerSet;
 
 	const handleExportComposition = () => {
 		downloadJson(
 			getMultisigExportFilename(multisig.address),
 			buildMultisigCompositionExport(
-				multisigDetails ?? multisig,
+				accountDetails ?? multisig,
 			),
 		);
 	};
@@ -104,11 +107,11 @@ export function OverviewTab() {
 							<span
 								className="text-sm text-foreground"
 								data-testid="multisig-threshold"
-								data-threshold={multisig.threshold}
-								data-total-weight={totalWeight}
+								data-threshold={signerSet.threshold}
+								data-total-weight={signerSet.totalWeight}
 							>
-								{multisig.threshold} of {totalWeight} weight
-								required
+								{signerSet.threshold} of{' '}
+								{signerSet.totalWeight} weight required
 							</span>
 						</div>
 					</div>
@@ -143,7 +146,7 @@ export function OverviewTab() {
 			<div className="bg-card border rounded-lg p-6">
 				<h2 className="text-lg font-semibold mb-4 flex items-center">
 					<Users className="w-5 h-5 mr-2" />
-					Members ({multisig.totalMembers})
+					Members ({signerSet.members.length})
 				</h2>
 
 				{isLoading ? (
@@ -164,15 +167,15 @@ export function OverviewTab() {
 							Retry
 						</Button>
 					</div>
-				) : multisigDetails ? (
-					<MembersList members={multisigDetails.members} />
+				) : accountDetails ? (
+					<MembersList members={signerSet.members} />
 				) : null}
 			</div>
 
 			{/* Proposers Section */}
-			{multisigDetails ? (
+			{accountDetails ? (
 				<ProposersSection
-					proposers={multisigDetails.proposers}
+					proposers={accountDetails.proposers}
 					multisigAddress={multisig.address}
 					isLoading={isLoading}
 					error={error}

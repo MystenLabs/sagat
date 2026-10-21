@@ -5,7 +5,7 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { PersonalMessages } from '@mysten/sagat-legacy';
+import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,
 	useQueryClient,
@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 
-import { legacyClient } from '../lib/api';
+import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 export function useCancelProposal() {
@@ -38,7 +38,7 @@ export function useCancelProposal() {
 			});
 
 			// Call API to cancel the proposal
-			return legacyClient.cancelProposal(proposalId, {
+			return apiClient.cancelProposal(proposalId, {
 				signature: signResult.signature,
 			});
 		},

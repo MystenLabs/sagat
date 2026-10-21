@@ -2,18 +2,30 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
-	MultisigWithMembers,
+	Account,
 	PublicProposal,
-} from '@mysten/sagat-legacy';
+	SignerSetWithMembers,
+} from '@mysten/sagat';
 
-// Extended type that adds frontend-specific fields for displaying multisig state
-// for a specific public key
-export interface MultisigWithMembersForPublicKey extends MultisigWithMembers {
-	rejectedMembers: number;
-	pendingMembers: number;
+// How the connected key stands in a signer set, and how far the set's other
+// members are, for the cards that show it.
+export interface KeyMembership {
 	isAccepted: boolean;
 	isRejected: boolean;
+	pendingMembers: number;
+	rejectedMembers: number;
 }
+
+// An account the connected key signs for, with the signer set the screens
+// show (see `getOriginalSignerSet`) and the key's place in it.
+export interface AccountForPublicKey
+	extends Account, KeyMembership {
+	signerSet: SignerSetWithMembers;
+}
+
+// A signer set the connected key is invited to.
+export interface InvitationForPublicKey
+	extends SignerSetWithMembers, KeyMembership {}
 
 export interface ProposalCardInput extends PublicProposal {
 	isPublic: boolean;

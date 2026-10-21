@@ -33,11 +33,14 @@ export function ProposalPreview({
 	const signProposalMutation = useSignProposal();
 	const currentWallet = useCurrentAccount();
 
-	const isMember = proposal.multisig.members.some(
-		(member) =>
-			extractPublicKeyFromBase64(
-				member.publicKey,
-			).toSuiAddress() === currentWallet?.address,
+	// A member of any signer set that can execute the proposal can sign.
+	const isMember = proposal.signerSets.some((signerSet) =>
+		signerSet.members.some(
+			(member) =>
+				extractPublicKeyFromBase64(
+					member.publicKey,
+				).toSuiAddress() === currentWallet?.address,
+		),
 	);
 
 	// Automatically run dry run when component mounts
