@@ -10,9 +10,10 @@ import {
 	type WeightTone,
 } from '@/lib/weight-bar';
 
+// Accepted weight is solid, yours is grey while you decide, the rest light.
 const TONE_CLASS: Record<WeightTone, string> = {
-	you: 'bg-foreground',
-	accepted: 'bg-foreground/40',
+	you: 'bg-foreground/40',
+	accepted: 'bg-foreground',
 	pending: 'bg-secondary',
 };
 
