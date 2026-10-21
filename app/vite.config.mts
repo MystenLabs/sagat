@@ -13,10 +13,6 @@ export default defineConfig({
 				__dirname,
 				'../sdk/src/index.ts',
 			),
-			'@mysten/sagat-legacy': path.resolve(
-				__dirname,
-				'../sdk-legacy/src/index.ts',
-			),
 		},
 	},
 	test: {
