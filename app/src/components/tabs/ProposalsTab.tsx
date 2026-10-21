@@ -6,11 +6,8 @@ import { FileText, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
-import { calculateCurrentWeight } from '@/lib/proposalUtils';
-import {
-	type MultisigWithMembersForPublicKey,
-	type ProposalCardInput,
-} from '@/lib/types';
+import { toProposalCardInput } from '@/lib/proposalUtils';
+import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useProposalsQueries } from '../../hooks/useProposalsQueries';
@@ -90,38 +87,12 @@ function ProposalsList({
 	proposals: ProposalWithSignatures[];
 	multisig: MultisigWithMembersForPublicKey;
 }) {
-	const formatProposal = (
-		proposal: ProposalWithSignatures,
-	): ProposalCardInput => {
-		return {
-			...proposal,
-			isPublic: false,
-			totalWeight: multisig.threshold,
-			currentWeight: calculateCurrentWeight(
-				proposal,
-				multisig,
-			),
-			proposers: multisig.proposers.map(
-				(proposer) => proposer.address,
-			),
-			multisig: {
-				address: multisig.address,
-				name: multisig.name,
-				threshold: multisig.threshold,
-				members: multisig.members.map((member) => ({
-					...member,
-					publicKey: member.publicKey,
-				})),
-			},
-		};
-	};
-
 	return (
 		<div className="space-y-4">
 			{proposals.map((proposal) => (
 				<ProposalCard
 					key={proposal.id}
-					proposal={formatProposal(proposal)}
+					proposal={toProposalCardInput(proposal, multisig)}
 				/>
 			))}
 		</div>

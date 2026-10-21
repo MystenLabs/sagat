@@ -19,6 +19,7 @@ import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
+import { useVerifyProposal } from './useVerifyProposal';
 
 interface ExecuteProposalParams {
 	proposal: PublicProposal;
@@ -147,4 +148,24 @@ export function useExecuteProposal() {
 			});
 		},
 	});
+}
+
+/**
+ * Executes a proposal from a button. When execution fails, checks the
+ * proposal with the API in case someone else executed it meanwhile.
+ */
+export function useExecuteOrVerify() {
+	const execute = useExecuteProposal();
+	const verify = useVerifyProposal();
+	return {
+		execute: (proposal: PublicProposal) =>
+			execute.mutate(
+				{ proposal },
+				{
+					onError: () => verify.mutate(proposal.digest),
+				},
+			),
+		isPending: execute.isPending,
+		error: execute.error,
+	};
 }
