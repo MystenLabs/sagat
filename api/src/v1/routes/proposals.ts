@@ -12,8 +12,8 @@ import {
 	createProposal,
 	getProposalSignerSetsByDigest,
 	listProposalsWithSignerSets,
-	verifyProposal,
-	verifyProposalByDigest,
+	verifyAccountProposal,
+	verifyAccountProposalByDigest,
 	voteAndTallySignerSets,
 } from '../../services/proposals.service';
 import { newCursor } from '../../utils/pagination';
@@ -286,7 +286,7 @@ export const mountProposals = (v1: OpenAPIHono) =>
 		.openapi(vote, async (c) => {
 			const { id } = c.req.valid('param');
 			const { signature } = c.req.valid('json');
-			const { signerSets } = await voteAndTallySignerSets({
+			const signerSets = await voteAndTallySignerSets({
 				proposalId: id,
 				signature,
 			});
@@ -316,15 +316,14 @@ export const mountProposals = (v1: OpenAPIHono) =>
 		})
 		.openapi(verify, async (c) => {
 			const { id } = c.req.valid('param');
-			await verifyProposal({
+			await verifyAccountProposal({
 				proposalId: id,
 				callerKeys: c.get('publicKeys'),
-				signerSets: 'valid',
 			});
 			return c.json({ verified: true as const }, 200);
 		})
 		.openapi(verifyByDigest, async (c) => {
 			const { digest } = c.req.valid('param');
-			await verifyProposalByDigest(digest, 'valid');
+			await verifyAccountProposalByDigest(digest);
 			return c.json({ verified: true as const }, 200);
 		});

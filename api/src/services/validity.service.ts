@@ -6,9 +6,9 @@
  * resolver of docs/account-rotation.md. A linked signer set is valid on a
  * network when its address is in the account's alias set there, as the
  * alias mirror (`account_alias_state`, `account_aliases`) knows it. Every
- * `/v1` access check and tally goes through this module; routes never read
- * the alias rows themselves. The legacy routes keep checking the original
- * composition only.
+ * access check and tally of a proposal flow picks its signer sets through
+ * `signerSetsInScope`: `/v1` the valid ones, the legacy routes the original
+ * composition only. Routes never read the alias rows themselves.
  */
 
 import { type PublicKey } from '@mysten/sui/cryptography';
@@ -223,32 +223,31 @@ const resolveAccount = async (accountAddress: string) =>
 		accountAddress,
 	) ?? { signerSets: [], aliases: [] };
 
+// Whether a signer set can sign for its account somewhere.
+export const isValidSomewhere = (
+	signerSet: Pick<ValidatedSignerSet, 'validOn'>,
+) => signerSet.validOn.length > 0;
+
 /**
- * The account's signer sets that are valid on `network`, oldest link
- * first. Without a refreshed mirror that is its original composition.
+ * The account's signer sets that are valid on `network`, or without one,
+ * on at least one supported network (for network-agnostic decisions:
+ * reading the account, changing its proposers), oldest link first.
+ * Without a refreshed mirror that is its original composition.
  */
 export const validSignerSets = async (
 	accountAddress: string,
-	network: SuiNetwork,
+	network?: SuiNetwork,
 ): Promise<ValidatedSignerSet[]> => {
-	await refreshAliasesIfStale(accountAddress, network);
+	await (network
+		? refreshAliasesIfStale(accountAddress, network)
+		: refreshAliasesOnEveryNetwork(accountAddress));
 	return (
 		await resolveAccount(accountAddress)
-	).signerSets.filter((s) => s.validOn.includes(network));
-};
-
-/**
- * The account's signer sets that are valid on at least one supported
- * network, for network-agnostic decisions (reading the account, changing
- * its proposers).
- */
-export const validSignerSetsAcrossNetworks = async (
-	accountAddress: string,
-): Promise<ValidatedSignerSet[]> => {
-	await refreshAliasesOnEveryNetwork(accountAddress);
-	return (
-		await resolveAccount(accountAddress)
-	).signerSets.filter((s) => s.validOn.length > 0);
+	).signerSets.filter((s) =>
+		network
+			? s.validOn.includes(network)
+			: isValidSomewhere(s),
+	);
 };
 
 /**
@@ -279,19 +278,38 @@ export const hasMember = (
  */
 export type SignerSetScope = 'original' | 'valid';
 
+/** A signer set that `SignerSetScope` lets act for an account. */
+export type ScopedSignerSet = Pick<
+	ValidatedSignerSet,
+	'signerSet'
+>;
+
 /**
- * Whether one of `keys` is an accepted member of a signer set of the
- * account valid on `network`, or with `'any'`, on some network.
+ * The signer sets `scope` lets act for the account. `'original'`: the
+ * composition at its address, none for an unknown address. `'valid'`: the
+ * sets valid on `network`, or on some network without one.
  */
+export const signerSetsInScope = async (
+	accountAddress: string,
+	network: SuiNetwork | undefined,
+	scope: SignerSetScope,
+): Promise<ScopedSignerSet[]> => {
+	if (scope === 'valid')
+		return validSignerSets(accountAddress, network);
+	const signerSet =
+		await SignerSetDataLoader.load(accountAddress);
+	return signerSet ? [{ signerSet }] : [];
+};
+
+// Whether one of `keys` is an accepted member of a signer set in scope.
 export const isAcceptedMember = async (
 	accountAddress: string,
-	network: SuiNetwork | 'any',
+	network: SuiNetwork | undefined,
+	scope: SignerSetScope,
 	keys: (PublicKey | string)[],
 ) =>
 	hasMember(
-		network === 'any'
-			? await validSignerSetsAcrossNetworks(accountAddress)
-			: await validSignerSets(accountAddress, network),
+		await signerSetsInScope(accountAddress, network, scope),
 		keys,
 		{ acceptedOnly: true },
 	);

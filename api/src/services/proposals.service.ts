@@ -22,10 +22,8 @@ import { validateNetwork } from '../db/env';
 import {
 	ProposalStatus,
 	proposalStatusFromString,
-	SchemaAccounts,
 	SchemaProposals,
 	SchemaProposalSignatures,
-	type AccountSignerSet,
 	type Proposal,
 	type ProposalWithSignatures,
 	type SignerSetWithMembers,
@@ -53,14 +51,8 @@ import {
 } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import { senderSignerAddress } from '../utils/signer';
-import {
-	isSignerSetMember,
-	jwtHasSignerSetMemberAccess,
-} from './membership.service';
-import {
-	getSignerSet,
-	validateProposedTransaction,
-} from './multisig.service';
+import { selectAccounts } from './accounts.service';
+import { validateProposedTransaction } from './multisig.service';
 import {
 	verifyMemberSignedMessage,
 	verifyTransactionSignature,
@@ -68,25 +60,24 @@ import {
 import {
 	hasMember,
 	isAcceptedMember,
+	signerSetsInScope,
 	validSignerSets,
+	type ScopedSignerSet,
 	type SignerSetScope,
 	type ValidatedSignerSet,
 } from './validity.service';
 
-// A proposal with the signer set of its account and how far its signatures
-// get it.
-export type ProposalTally = {
-	proposal: ProposalWithSignatures;
-	signerSet: SignerSetWithMembers;
+// How far a proposal's signatures get a signer set.
+type Progress = {
 	// Sum of the weights of the members that signed.
 	currentWeight: number;
 	hasReachedThreshold: boolean;
 };
 
-const tallyProposal = (
+const progress = (
 	proposal: ProposalWithSignatures,
 	signerSet: SignerSetWithMembers,
-): ProposalTally => {
+): Progress => {
 	const currentWeight = proposal.signatures.reduce(
 		(acc, sig) =>
 			acc +
@@ -96,13 +87,53 @@ const tallyProposal = (
 		0,
 	);
 	return {
-		proposal,
-		signerSet,
 		currentWeight,
 		hasReachedThreshold:
 			currentWeight >= signerSet.threshold,
 	};
 };
+
+// Tallies a proposal against each of `signerSets`. A signature counts
+// towards every set that has its key; one from a key in none of them is
+// kept but counts nowhere.
+const tallyEach = <S extends ScopedSignerSet>(
+	proposal: ProposalWithSignatures,
+	signerSets: S[],
+): (S & Progress)[] =>
+	signerSets.map((s) => ({
+		...s,
+		...progress(proposal, s.signerSet),
+	}));
+
+// A proposal with the original composition of its account and how far its
+// signatures get it, for the legacy routes.
+export type ProposalTally = {
+	proposal: ProposalWithSignatures;
+} & ScopedSignerSet &
+	Progress;
+
+// The legacy tally: the first (and only) entry of the original scope.
+// Throws `NotFoundError` when the account has no original composition.
+const originalTally = (
+	proposal: ProposalWithSignatures,
+	signerSets: ScopedSignerSet[],
+): ProposalTally => {
+	const [tally] = tallyEach(proposal, signerSets);
+	if (!tally) throw new NotFoundError();
+	return { proposal, ...tally };
+};
+
+const tallyAgainstOriginal = async (
+	proposal: ProposalWithSignatures,
+) =>
+	originalTally(
+		proposal,
+		await signerSetsInScope(
+			proposal.accountAddress,
+			undefined,
+			'original',
+		),
+	);
 
 // Get a proposal by id, and its signatures.
 export const getProposalById = async (
@@ -208,34 +239,35 @@ const getProposalsByAccountAddress = async (
 };
 
 /**
+ * The legacy routes verify a pending proposal only once the original
+ * composition has reached its threshold. `/v1` does not: any valid signer
+ * set, or one Sagat does not know, may have executed it, and the chain
+ * says which.
+ */
+const assertOriginalThreshold = async (
+	proposal: ProposalWithSignatures,
+) => {
+	if (proposal.status !== ProposalStatus.PENDING) return;
+	if (
+		!(await tallyAgainstOriginal(proposal))
+			.hasReachedThreshold
+	)
+		throw new ValidationError(
+			'Proposal is not ready to execute',
+		);
+};
+
+/**
  * Checks a pending proposal on-chain and records whether it succeeded, and
  * the address that signed it for the account (`executed_via`). Returns the
  * proposal's status afterwards; a proposal that is no longer pending is
  * returned as is.
- *
- * The legacy routes first require the original composition to have reached
- * its threshold. `/v1` does not: any valid signer set, or one Sagat does
- * not know, may have executed it, and the chain says which.
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
-	signerSets: SignerSetScope,
 ): Promise<ProposalStatus> => {
 	if (proposal.status !== ProposalStatus.PENDING)
 		return proposal.status;
-
-	if (signerSets === 'original') {
-		const multisig = await getSignerSet(
-			proposal.accountAddress,
-		);
-
-		if (
-			!tallyProposal(proposal, multisig).hasReachedThreshold
-		)
-			throw new ValidationError(
-				'Proposal is not ready to execute',
-			);
-	}
 
 	const tx = await getSuiClient(
 		proposal.network as SuiNetwork,
@@ -309,35 +341,6 @@ export type CreateProposalInput = {
 	signerSets?: SignerSetScope;
 };
 
-// Whether `pubKey` is an accepted member of the original composition of the
-// account (legacy), or of a signer set valid on `network` (`/v1`). Throws
-// `NotFoundError` for an unknown account.
-const isAcceptedSigner = async (
-	accountAddress: string,
-	network: SuiNetwork,
-	pubKey: PublicKey,
-	signerSets: SignerSetScope,
-) => {
-	if (signerSets === 'valid') {
-		const account = await db.query.SchemaAccounts.findFirst(
-			{
-				columns: { address: true },
-				where: eq(SchemaAccounts.address, accountAddress),
-			},
-		);
-		if (!account) throw new NotFoundError();
-		return isAcceptedMember(accountAddress, network, [
-			pubKey,
-		]);
-	}
-	const multisig = await getSignerSet(accountAddress);
-	return multisig.members.some(
-		(member) =>
-			member.publicKey === pubKey.toSuiPublicKey() &&
-			member.isAccepted,
-	);
-};
-
 /**
  * Creates a proposal, signed by an accepted member or an external proposer
  * of the account. A member's signature counts as its first vote.
@@ -348,21 +351,33 @@ export const createProposal = async ({
 	signature,
 	description,
 	network: rawNetwork,
-	signerSets = 'original',
+	signerSets: scope = 'original',
 }: CreateProposalInput): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
 
 	// Get the public key out of the sui signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
-	const isMember = await isAcceptedSigner(
-		multisigAddress,
-		network,
-		pubKey,
-		signerSets,
-	);
-	const proposers =
-		await AccountProposersDataLoader.load(multisigAddress);
+	const [signerSets, proposers, accounts] =
+		await Promise.all([
+			signerSetsInScope(multisigAddress, network, scope),
+			AccountProposersDataLoader.load(multisigAddress),
+			// `/v1` knows an account by its row, the legacy routes by its
+			// original composition.
+			scope === 'valid'
+				? selectAccounts([multisigAddress])
+				: undefined,
+		]);
+	if (
+		accounts
+			? accounts.length === 0
+			: signerSets.length === 0
+	)
+		throw new NotFoundError();
+
+	const isMember = hasMember(signerSets, [pubKey], {
+		acceptedOnly: true,
+	});
 	const isProposer = proposers.some(
 		(proposer) =>
 			proposer.address === pubKey.toSuiAddress(),
@@ -499,26 +514,65 @@ const castVote = async (
 	return proposal;
 };
 
-// Adds a signature from a member of the original composition, accepted or
-// not, and tallies it. For the legacy routes.
+/**
+ * Adds a signature from a member (accepted or not) of a signer set in
+ * scope, and tallies the proposal against those sets. Acceptance is
+ * Sagat's bookkeeping: the chain counts every key of the set. Under `/v1`
+ * the sets are those valid on the proposal's network, so a key valid only
+ * on another network is refused.
+ */
+const voteInScope = async (
+	input: VoteInput,
+	scope: SignerSetScope,
+) => {
+	let signerSets: ScopedSignerSet[] = [];
+	const proposal = await castVote(
+		input,
+		async (p, pubKey) => {
+			signerSets = await signerSetsInScope(
+				p.accountAddress,
+				p.network as SuiNetwork,
+				scope,
+			);
+			return hasMember(signerSets, [pubKey], {
+				acceptedOnly: false,
+			});
+		},
+	);
+	return { proposal, signerSets };
+};
+
+// Adds a signature from a member of the original composition and tallies
+// it. For the legacy routes.
 export const voteOnProposal = async (
 	input: VoteInput,
 ): Promise<ProposalTally> => {
-	const proposal = await castVote(input, (p, pubKey) =>
-		isSignerSetMember(p.accountAddress, pubKey, false),
+	const { proposal, signerSets } = await voteInScope(
+		input,
+		'original',
 	);
-	return tallyProposal(
-		proposal,
-		await getSignerSet(proposal.accountAddress),
-	);
+	return originalTally(proposal, signerSets);
 };
 
-// Cancels a pending proposal, signed by an accepted member.
+// Adds a signature from a member of a signer set valid on the proposal's
+// network, and tallies each of those sets.
+export const voteAndTallySignerSets = async (
+	input: VoteInput,
+) => {
+	const { proposal, signerSets } = await voteInScope(
+		input,
+		'valid',
+	);
+	return tallyEach(proposal, signerSets);
+};
+
+// Cancels a pending proposal, signed by an accepted member of a signer set
+// in scope (under `/v1`, valid on the proposal's network).
 // TODO: this is pretty powerful (but probably safe to do).
 export const cancelProposal = async ({
 	proposalId,
 	signature,
-	signerSets = 'original',
+	signerSets: scope = 'original',
 }: {
 	proposalId: number;
 	signature: string;
@@ -532,21 +586,15 @@ export const cancelProposal = async ({
 	await verifyMemberSignedMessage({
 		signature,
 		message: LegacyMessages.cancelProposal(proposalId),
+		isMember: (signer) =>
+			isAcceptedMember(
+				proposal.accountAddress,
+				proposal.network as SuiNetwork,
+				scope,
+				[signer],
+			),
 		notMemberError: () =>
 			new ValidationError('Not a member of the multisig'),
-		...(signerSets === 'valid'
-			? {
-					isMember: (signer) =>
-						isAcceptedMember(
-							proposal.accountAddress,
-							proposal.network as SuiNetwork,
-							[signer],
-						),
-				}
-			: {
-					signerSetAddress: proposal.accountAddress,
-					acceptedOnly: true,
-				}),
 	});
 
 	await db
@@ -560,56 +608,78 @@ export const cancelProposal = async ({
 	});
 };
 
-// Verifies the execution of a proposal, for an accepted member. Under
-// `/v1`, of a signer set valid on any network: verifying only reads the
-// chain, so it is not tied to the proposal's network.
-export const verifyProposal = async ({
-	proposalId,
-	callerKeys,
-	signerSets = 'original',
-}: {
+type VerifyInput = {
 	proposalId: number;
 	callerKeys: PublicKey[];
-	signerSets?: SignerSetScope;
-}) => {
-	const proposal = await getProposalById(proposalId);
+};
 
+// The proposal, for a caller holding an accepted key in a signer set in
+// scope. Verifying only reads the chain, so it is not tied to the
+// proposal's network: under `/v1` a set valid on any network will do.
+const getProposalForMember = async (
+	{ proposalId, callerKeys }: VerifyInput,
+	scope: SignerSetScope,
+) => {
+	const proposal = await getProposalById(proposalId);
 	if (
-		!(signerSets === 'valid'
-			? await isAcceptedMember(
-					proposal.accountAddress,
-					'any',
-					callerKeys,
-				)
-			: await jwtHasSignerSetMemberAccess(
-					proposal.accountAddress,
-					callerKeys,
-				))
+		!(await isAcceptedMember(
+			proposal.accountAddress,
+			undefined,
+			scope,
+			callerKeys,
+		))
 	)
 		throw new ApiAuthError('NotAMultisigMember');
-
-	return await lookupAndVerifyProposal(
-		proposal,
-		signerSets,
-	);
+	return proposal;
 };
 
-// Verifies the execution of a proposal. Open to anyone: it only reads the
-// chain.
-export const verifyProposalByDigest = async (
-	digest: string,
-	signerSets: SignerSetScope = 'original',
-) => {
+// A proposal by its transaction digest, or `NotFoundError`.
+const loadProposalByDigest = async (digest: string) => {
 	const proposal =
 		await ProposalByDigestLoader.load(digest);
-
 	if (!proposal) throw new NotFoundError();
-
-	return await lookupAndVerifyProposal(
-		proposal,
-		signerSets,
-	);
+	return proposal;
 };
+
+// Verifies the execution of a proposal, for an accepted member of the
+// original composition. For the legacy routes.
+export const verifyProposal = async (
+	input: VerifyInput,
+) => {
+	const proposal = await getProposalForMember(
+		input,
+		'original',
+	);
+	await assertOriginalThreshold(proposal);
+	return await lookupAndVerifyProposal(proposal);
+};
+
+// Verifies the execution of a proposal, for an accepted member of a signer
+// set of the account valid on any network.
+export const verifyAccountProposal = async (
+	input: VerifyInput,
+) =>
+	await lookupAndVerifyProposal(
+		await getProposalForMember(input, 'valid'),
+	);
+
+// Verifies the execution of a proposal. Open to anyone: it only reads the
+// chain. For the legacy routes.
+export const verifyProposalByDigest = async (
+	digest: string,
+) => {
+	const proposal = await loadProposalByDigest(digest);
+	await assertOriginalThreshold(proposal);
+	return await lookupAndVerifyProposal(proposal);
+};
+
+// Verifies the execution of a proposal. Open to anyone.
+export const verifyAccountProposalByDigest = async (
+	digest: string,
+) =>
+	await lookupAndVerifyProposal(
+		await loadProposalByDigest(digest),
+	);
 
 type ListProposalsInput = {
 	multisigAddress: string;
@@ -634,8 +704,10 @@ export const listProposals = async ({
 	validateNetwork(network);
 
 	if (
-		!(await jwtHasSignerSetMemberAccess(
+		!(await isAcceptedMember(
 			multisigAddress,
+			undefined,
+			'original',
 			callerKeys,
 		))
 	)
@@ -647,6 +719,17 @@ export const listProposals = async ({
 		cursor,
 		status ? proposalStatusFromString(status) : undefined,
 	);
+};
+
+// One of the account's signer sets, and how far a proposal's signatures
+// get it.
+export type SignerSetTally = ValidatedSignerSet & Progress;
+
+// A proposal, tallied against each signer set of its account valid on the
+// proposal's network.
+export type ProposalWithTallies = {
+	proposal: ProposalWithSignatures;
+	signerSets: SignerSetTally[];
 };
 
 /**
@@ -662,10 +745,7 @@ export const listProposalsWithSignerSets = async ({
 	cursor,
 	callerKeys,
 }: ListProposalsInput): Promise<
-	PaginatedResponse<{
-		proposal: ProposalWithSignatures;
-		signerSets: SignerSetTally[];
-	}>
+	PaginatedResponse<ProposalWithTallies>
 > => {
 	const validNetwork = validateNetwork(network);
 
@@ -695,111 +775,34 @@ export const listProposalsWithSignerSets = async ({
 	};
 };
 
-// A proposal by its transaction digest, with its signer set. Public.
+// A proposal by its transaction digest, with the original composition of
+// its account. Public. For the legacy routes.
 export const getProposalByDigest = async (
 	digest: string,
 ): Promise<ProposalTally> => {
 	if (!isValidTransactionDigest(digest))
 		throw new CommonError('InvalidDigest');
 
-	const proposal =
-		await ProposalByDigestLoader.load(digest);
-
-	if (!proposal) throw new NotFoundError();
-
-	const multisig = await getSignerSet(
-		proposal.accountAddress,
+	return await tallyAgainstOriginal(
+		await loadProposalByDigest(digest),
 	);
-
-	return tallyProposal(proposal, multisig);
-};
-
-// One of the account's signer sets, and how far a proposal's signatures
-// get it.
-export type SignerSetTally = {
-	link: AccountSignerSet;
-	signerSet: SignerSetWithMembers;
-	currentWeight: number;
-	hasReachedThreshold: boolean;
-};
-
-// Tallies a proposal against each of `signerSets`. A signature counts
-// towards every set that has its key; one from a key in none of them is
-// kept but counts nowhere.
-const tallyEach = (
-	proposal: ProposalWithSignatures,
-	signerSets: ValidatedSignerSet[],
-): SignerSetTally[] =>
-	signerSets.map(({ link, signerSet }) => {
-		const { currentWeight, hasReachedThreshold } =
-			tallyProposal(proposal, signerSet);
-		return {
-			link,
-			signerSet,
-			currentWeight,
-			hasReachedThreshold,
-		};
-	});
-
-/**
- * Tallies a proposal against each signer set of its account that is valid
- * on the proposal's network.
- */
-export const tallySignerSets = async (
-	proposal: ProposalWithSignatures,
-): Promise<SignerSetTally[]> =>
-	tallyEach(
-		proposal,
-		await validSignerSets(
-			proposal.accountAddress,
-			proposal.network as SuiNetwork,
-		),
-	);
-
-/**
- * Adds a signature from an accepted member of a signer set valid on the
- * proposal's network, then tallies the valid signer sets. A key valid only
- * on another network is refused.
- */
-export const voteAndTallySignerSets = async (
-	input: VoteInput,
-) => {
-	// Any member of a set valid on the proposal's network may sign, accepted
-	// or not, as on the legacy route: acceptance is Sagat's bookkeeping, the
-	// chain counts every key of the set.
-	const proposal = await castVote(
-		input,
-		async (p, pubKey) =>
-			hasMember(
-				await validSignerSets(
-					p.accountAddress,
-					p.network as SuiNetwork,
-				),
-				[pubKey],
-				{ acceptedOnly: false },
-			),
-	);
-	return {
-		proposal,
-		signerSets: await tallySignerSets(proposal),
-	};
 };
 
 // A proposal by its transaction digest, tallied against each signer set of
-// its account. Public.
+// its account valid on the proposal's network. Public. The `/v1` route
+// validates the digest.
 export const getProposalSignerSetsByDigest = async (
 	digest: string,
-) => {
-	if (!isValidTransactionDigest(digest))
-		throw new CommonError('InvalidDigest');
-
-	const proposal =
-		await ProposalByDigestLoader.load(digest);
-
-	if (!proposal) throw new NotFoundError();
-
+): Promise<ProposalWithTallies> => {
+	const proposal = await loadProposalByDigest(digest);
 	return {
 		proposal,
-		signerSets: await tallySignerSets(proposal),
+		signerSets: tallyEach(
+			proposal,
+			await validSignerSets(
+				proposal.accountAddress,
+				proposal.network as SuiNetwork,
+			),
+		),
 	};
 };

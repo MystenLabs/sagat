@@ -21,7 +21,10 @@ import {
 } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
-import { LegacyMessages } from '../constants/messages';
+import {
+	LegacyMessages,
+	V1Messages,
+} from '../constants/messages';
 import { db } from '../db';
 import {
 	AccountSignerSetStatus,
@@ -64,7 +67,10 @@ import {
 	registerPublicKeyStrings,
 } from './addresses.service';
 import { validateExpiry } from './auth.service';
-import { jwtHasSignerSetMemberAccess } from './membership.service';
+import {
+	isSignerSetMember,
+	jwtHasSignerSetMemberAccess,
+} from './membership.service';
 import {
 	verifyMemberSignedMessage,
 	verifySignedMessage,
@@ -675,11 +681,11 @@ export const acceptInvitation = async ({
 	origin: SignerSetOrigin | null;
 }> => {
 	const pubKey = await verifyMemberSignedMessage({
-		signerSetAddress: address,
 		signature,
 		message:
 			LegacyMessages.acceptMultisigInvitation(address),
-		acceptedOnly: false,
+		isMember: (signer) =>
+			isSignerSetMember(address, signer, false),
 		notMemberError: () =>
 			new ValidationError(
 				'You are not a member of this multisig',
@@ -874,64 +880,45 @@ export const rejectInvitation = async ({
 	});
 };
 
-// Builds the message a proposer change must be signed over.
-export type ProposerMessage = (
-	proposer: string,
-	accountAddress: string,
-	expiry: string,
-) => string;
-
 type ProposerChange = {
 	// The account (multisig) address.
 	address: string;
 	proposer: string;
 	signature: string;
 	expiry: string;
-	// The legacy routes verify the text that names a multisig, the `/v1`
-	// routes the one that names the account. Defaults to the legacy text.
-	message?: ProposerMessage;
-	// Who may sign: the legacy routes take an accepted member of the
-	// original composition, `/v1` one of a signer set valid on any network
-	// (proposers are not per network).
-	signerSets?: SignerSetScope;
 };
 
-// The membership part of `verifyMemberSignedMessage` for a proposer change.
-const proposerChangeSigner = (
-	address: string,
-	signerSets: SignerSetScope,
-) =>
-	signerSets === 'valid'
-		? {
-				isMember: (signer: PublicKey) =>
-					isAcceptedMember(address, 'any', [signer]),
-			}
-		: { signerSetAddress: address, acceptedOnly: true };
-
-// Adds an external proposer to an account, signed by an accepted member.
-export const addProposer = async ({
-	address,
-	proposer,
-	signature,
-	expiry,
-	message = LegacyMessages.addMultisigProposer,
-	signerSets = 'original',
-}: ProposerChange) => {
+/**
+ * Checks a proposer change signed over `message` by an accepted member of
+ * a signer set in `scope`, and returns the signer. Proposers are not per
+ * network, so under `/v1` a set valid on any network will do.
+ */
+const verifyProposerChange = async (
+	{ address, proposer, signature, expiry }: ProposerChange,
+	message: string,
+	scope: SignerSetScope,
+) => {
 	// Validate the expiry time of the signature.
 	validateExpiry(expiry);
 
 	if (!isValidSuiAddress(proposer))
 		throw new CommonError('InvalidAddress');
 
-	const publicKey = await verifyMemberSignedMessage({
-		...proposerChangeSigner(address, signerSets),
+	return await verifyMemberSignedMessage({
 		signature,
-		message: message(proposer, address, expiry),
+		message,
+		isMember: (signer) =>
+			isAcceptedMember(address, undefined, scope, [signer]),
 		notMemberError: () =>
 			new ApiAuthError('NotAMultisigMember'),
 	});
+};
 
-	// Add the proposer to the multisig.
+// Adds the proposer to the account, as added by `addedBy`.
+const insertProposer = async (
+	{ address, proposer }: ProposerChange,
+	addedBy: PublicKey,
+) =>
 	await db.transaction(
 		async (tx) => {
 			const existingProposers =
@@ -965,40 +952,18 @@ export const addProposer = async ({
 			await tx.insert(SchemaAccountProposers).values({
 				accountAddress: address,
 				address: proposer,
-				addedBy: publicKey.toSuiAddress(),
+				addedBy: addedBy.toSuiAddress(),
 			});
 		},
 		{ isolationLevel: 'repeatable read' },
 	);
-};
 
-// Removes an external proposer from an account, signed by an accepted
-// member. The proposer's pending proposals are cancelled.
-export const removeProposer = async ({
+// Removes the proposer from the account, cancelling its pending proposals.
+const deleteProposer = async ({
 	address,
 	proposer,
-	signature,
-	expiry,
-	message = LegacyMessages.removeMultisigProposer,
-	signerSets = 'original',
-}: ProposerChange) => {
-	// Validate the expiry time of the signature.
-	validateExpiry(expiry);
-
-	if (!isValidSuiAddress(proposer))
-		throw new CommonError('InvalidAddress');
-
-	await verifyMemberSignedMessage({
-		...proposerChangeSigner(address, signerSets),
-		signature,
-		message: message(proposer, address, expiry),
-		notMemberError: () =>
-			new ApiAuthError('NotAMultisigMember'),
-	});
-
-	// Remove the proposer from the multisig, removing all pending transactions from the proposer.
+}: ProposerChange) =>
 	await db.transaction(async (tx) => {
-		// Cancel all pending transactions from the proposer.
 		await tx
 			.update(SchemaProposals)
 			.set({ status: ProposalStatus.CANCELLED })
@@ -1025,4 +990,73 @@ export const removeProposer = async ({
 				),
 			);
 	});
+
+// Adds an external proposer to a multisig, signed by an accepted member of
+// its original composition over the message that names the multisig. For
+// the legacy routes.
+export const addProposer = async (change: ProposerChange) =>
+	await insertProposer(
+		change,
+		await verifyProposerChange(
+			change,
+			LegacyMessages.addMultisigProposer(
+				change.proposer,
+				change.address,
+				change.expiry,
+			),
+			'original',
+		),
+	);
+
+// Removes an external proposer from a multisig, like `addProposer`. The
+// proposer's pending proposals are cancelled.
+export const removeProposer = async (
+	change: ProposerChange,
+) => {
+	await verifyProposerChange(
+		change,
+		LegacyMessages.removeMultisigProposer(
+			change.proposer,
+			change.address,
+			change.expiry,
+		),
+		'original',
+	);
+	await deleteProposer(change);
+};
+
+// Adds an external proposer to an account, signed by an accepted member of
+// a signer set valid on any network over the message that names the
+// account.
+export const addAccountProposer = async (
+	change: ProposerChange,
+) =>
+	await insertProposer(
+		change,
+		await verifyProposerChange(
+			change,
+			V1Messages.addAccountProposer(
+				change.proposer,
+				change.address,
+				change.expiry,
+			),
+			'valid',
+		),
+	);
+
+// Removes an external proposer from an account, like `addAccountProposer`.
+// The proposer's pending proposals are cancelled.
+export const removeAccountProposer = async (
+	change: ProposerChange,
+) => {
+	await verifyProposerChange(
+		change,
+		V1Messages.removeAccountProposer(
+			change.proposer,
+			change.address,
+			change.expiry,
+		),
+		'valid',
+	);
+	await deleteProposer(change);
 };

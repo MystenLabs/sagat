@@ -2,9 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * Who belongs to a signer set. Kept apart from the flows in
- * `multisig.service.ts` so that the signature helpers can check membership
- * without a circular import.
+ * Who belongs to a signer set, by its address, for the flows that act on
+ * a composition rather than an account (accepting, reading a multisig).
  */
 
 import { type PublicKey } from '@mysten/sui/cryptography';

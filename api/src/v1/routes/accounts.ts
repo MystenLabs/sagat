@@ -7,14 +7,13 @@ import {
 	type OpenAPIHono,
 } from '@hono/zod-openapi';
 
-import { V1Messages } from '../../constants/messages';
 import {
 	getAccount,
 	listAccounts,
 } from '../../services/accounts.service';
 import {
-	addProposer,
-	removeProposer,
+	addAccountProposer,
+	removeAccountProposer,
 } from '../../services/multisig.service';
 import {
 	authenticated,
@@ -85,7 +84,7 @@ const proposerErrors = {
 	),
 };
 
-const addAccountProposer = createRoute({
+const addProposer = createRoute({
 	method: 'post',
 	path: '/accounts/{address}/proposers',
 	tags,
@@ -108,7 +107,7 @@ const addAccountProposer = createRoute({
 	},
 });
 
-const removeAccountProposer = createRoute({
+const removeProposer = createRoute({
 	method: 'delete',
 	path: '/accounts/{address}/proposers/{proposer}',
 	tags,
@@ -151,30 +150,26 @@ export const mountAccounts = (v1: OpenAPIHono) =>
 				200,
 			);
 		})
-		.openapi(addAccountProposer, async (c) => {
+		.openapi(addProposer, async (c) => {
 			const { address } = c.req.valid('param');
 			const { proposer, signature, expiry } =
 				c.req.valid('json');
-			await addProposer({
+			await addAccountProposer({
 				address,
 				proposer,
 				signature,
 				expiry,
-				message: V1Messages.addAccountProposer,
-				signerSets: 'valid',
 			});
 			return c.json({ success: true as const }, 200);
 		})
-		.openapi(removeAccountProposer, async (c) => {
+		.openapi(removeProposer, async (c) => {
 			const { address, proposer } = c.req.valid('param');
 			const { signature, expiry } = c.req.valid('json');
-			await removeProposer({
+			await removeAccountProposer({
 				address,
 				proposer,
 				signature,
 				expiry,
-				message: V1Messages.removeAccountProposer,
-				signerSets: 'valid',
 			});
 			return c.json({ success: true as const }, 200);
 		});

@@ -12,7 +12,6 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 
 import { CommonError, ValidationError } from '../errors';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
-import { isSignerSetMember } from './membership.service';
 
 // Takes a pub key, a signature, and a message, and validates it.
 // Throws `InvalidSignature` if the signature does not sign the message.
@@ -41,44 +40,24 @@ export const verifySignedMessage = async (
 };
 
 /**
- * Recovers the signer of a personal message, checks that it is a member of
- * the signer set (or passes `isMember`), then checks the signature.
- * Membership is checked first, so a non-member gets `notMemberError`
- * whatever it signed.
+ * Recovers the signer of a personal message, checks that `isMember` takes
+ * it, then checks the signature. Membership is checked first, so a
+ * non-member gets `notMemberError` whatever it signed.
  */
 export const verifyMemberSignedMessage = async ({
 	signature,
 	message,
+	isMember,
 	notMemberError,
-	...membership
 }: {
 	signature: string;
 	message: string;
+	isMember: (signer: PublicKey) => Promise<boolean>;
 	notMemberError: () => Error;
-} & (
-	| {
-			signerSetAddress: string;
-			// Whether the member must have accepted the invitation.
-			acceptedOnly: boolean;
-	  }
-	| {
-			// Decides membership instead, e.g. across an account's valid
-			// signer sets.
-			isMember: (signer: PublicKey) => Promise<boolean>;
-	  }
-)): Promise<PublicKey> => {
+}): Promise<PublicKey> => {
 	const signer =
 		getPublicKeyFromSerializedSignature(signature);
-
-	const isMember =
-		'isMember' in membership
-			? await membership.isMember(signer)
-			: await isSignerSetMember(
-					membership.signerSetAddress,
-					signer,
-					membership.acceptedOnly,
-				);
-	if (!isMember) throw notMemberError();
+	if (!(await isMember(signer))) throw notMemberError();
 
 	await validatePersonalMessage(signer, signature, message);
 	return signer;

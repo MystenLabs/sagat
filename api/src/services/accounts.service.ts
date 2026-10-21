@@ -61,6 +61,17 @@ export type AccountWithSignerSets = {
 	aliases: AliasSet[];
 };
 
+// The account rows at `addresses`, in no particular order.
+export const selectAccounts = async (
+	addresses: string[],
+): Promise<Account[]> =>
+	addresses.length === 0
+		? []
+		: db
+				.select()
+				.from(SchemaAccounts)
+				.where(inArray(SchemaAccounts.address, addresses));
+
 const unwrap = <T>(value: T | Error): T => {
 	if (value instanceof Error) throw value;
 	return value;
