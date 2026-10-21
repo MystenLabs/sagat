@@ -505,7 +505,7 @@ export interface paths {
         };
         /**
          * Get a signer set
-         * @description A signer set with its members, for a session holding one of its keys (accepted or not). Labels and status are those of the signer set's own account.
+         * @description A composition with its members, without key labels, and its links to accounts: those the session can read, and for a session holding one of its keys (accepted or not), every account it is drafted for. Labels and status are per link.
          */
         get: {
             parameters: {
@@ -525,7 +525,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SignerSetWithMembers"];
+                        "application/json": components["schemas"]["SignerSetComposition"];
                     };
                 };
                 /** @description The address is malformed. */
@@ -546,17 +546,8 @@ export interface paths {
                         "text/plain": string;
                     };
                 };
-                /** @description No key of the session is in the signer set. */
+                /** @description No key of the session is in the signer set, and the session can read none of its accounts. Also returned for an unknown address. */
                 403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description The signer set does not exist. */
-                404: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -1274,6 +1265,51 @@ export interface components {
             accountAddress: components["schemas"]["SuiAddress"] & unknown;
             /** @description The name of that account, or null. */
             accountName: string | null;
+        };
+        SignerSetComposition: {
+            address: components["schemas"]["SuiAddress"];
+            threshold: number;
+            /** @description Whether every member has accepted. */
+            isVerified: boolean;
+            /** @description The sum of the member weights. */
+            totalWeight: number;
+            /** @description The members, in order. Key labels belong to an account, so they are only on `Account.signerSets`. */
+            members: {
+                signerSetAddress: components["schemas"]["SuiAddress"];
+                /**
+                 * @description The Sui public key, base64, with its scheme flag.
+                 * @example AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz
+                 */
+                publicKey: string;
+                weight: number;
+                isAccepted: boolean;
+                isRejected: boolean;
+                order: number;
+            }[];
+            /** @description The accounts the signer set is linked to, as each knows it: those the session can read, and for a member of the set, the ones it is drafted for. Oldest first. */
+            links: components["schemas"]["SignerSetLink"][];
+        };
+        SignerSetLink: {
+            accountAddress: components["schemas"]["SuiAddress"];
+            accountName: string | null;
+            /**
+             * @description The account's label for the signer set, or null.
+             * @example Operations
+             */
+            label: string | null;
+            /**
+             * @description The signer set's status within the account.
+             * @enum {string}
+             */
+            status: "draft" | "inviting" | "verified" | "abandoned";
+            draftedBy: components["schemas"]["SuiAddress"] & unknown;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T12:00:00.000Z
+             */
+            createdAt: string;
+            /** @description The networks on which the signer set can sign for the account: those whose alias set holds its address. Empty for a draft, or a set retired everywhere. */
+            validOn: components["schemas"]["Network"][];
         };
         SignedMessageRequest: {
             /** @description A signature over the personal message the route verifies. */

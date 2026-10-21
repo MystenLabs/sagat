@@ -17,8 +17,8 @@ import {
 	type PublicProposal,
 	type SignedMessageRequest,
 	type SignerSet,
+	type SignerSetComposition,
 	type SignerSetInvitation,
-	type SignerSetWithMembers,
 	type VoteProposalRequest,
 	type VoteProposalResponse,
 } from './types.js';
@@ -152,10 +152,13 @@ export class ApiClient {
 		);
 	}
 
-	/** A signer set with its members, for a member. */
+	/**
+	 * A signer set with its members (without key labels) and the accounts
+	 * it is linked to, for a member or a reader of one of those accounts.
+	 */
 	async getSignerSet(
 		address: string,
-	): Promise<SignerSetWithMembers> {
+	): Promise<SignerSetComposition> {
 		return this.#unwrap(
 			await this.#api.GET('/v1/signer-sets/{address}', {
 				params: { path: { address } },

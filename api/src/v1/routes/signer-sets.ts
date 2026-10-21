@@ -8,7 +8,7 @@ import {
 } from '@hono/zod-openapi';
 
 import {
-	getSignerSetForMember,
+	getSignerSetComposition,
 	listSignerSetInvitations,
 	loadAccount,
 	loadSignerSet,
@@ -32,15 +32,15 @@ import {
 	AccountSchema,
 	CreateSignerSetRequestSchema,
 	SignedMessageRequestSchema,
+	SignerSetCompositionSchema,
 	SignerSetInvitationSchema,
 	SignerSetSchema,
-	SignerSetWithMembersSchema,
 } from '../schemas/signer-sets';
 import {
 	toAccount,
 	toSignerSet,
+	toSignerSetComposition,
 	toSignerSetInvitation,
-	toSignerSetWithMembers,
 } from '../serializers';
 
 const tags = ['Signer sets'];
@@ -77,21 +77,20 @@ const get = createRoute({
 	tags,
 	summary: 'Get a signer set',
 	description:
-		"A signer set with its members, for a session holding one of its keys (accepted or not). Labels and status are those of the signer set's own account.",
+		'A composition with its members, without key labels, and its links to accounts: those the session can read, and for a session holding one of its keys (accepted or not), every account it is drafted for. Labels and status are per link.',
 	middleware: [requireAuth] as const,
 	security: authenticated,
 	request: { params: AddressParams },
 	responses: {
 		200: jsonResponse(
-			SignerSetWithMembersSchema,
+			SignerSetCompositionSchema,
 			'The signer set.',
 		),
 		400: errorResponse('The address is malformed.'),
 		401: unauthorizedResponse,
 		403: errorResponse(
-			'No key of the session is in the signer set.',
+			'No key of the session is in the signer set, and the session can read none of its accounts. Also returned for an unknown address.',
 		),
-		404: errorResponse('The signer set does not exist.'),
 	},
 });
 
@@ -214,8 +213,8 @@ export const mountSignerSets = (v1: OpenAPIHono) =>
 		.openapi(get, async (c) => {
 			const { address } = c.req.valid('param');
 			return c.json(
-				toSignerSetWithMembers(
-					await getSignerSetForMember({
+				toSignerSetComposition(
+					await getSignerSetComposition({
 						address,
 						callerKeys: c.get('publicKeys'),
 					}),

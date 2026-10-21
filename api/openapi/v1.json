@@ -403,6 +403,136 @@
 					}
 				]
 			},
+			"SignerSetComposition": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"threshold": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"isVerified": {
+						"type": "boolean",
+						"description": "Whether every member has accepted."
+					},
+					"totalWeight": {
+						"type": "integer",
+						"description": "The sum of the member weights."
+					},
+					"members": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"signerSetAddress": {
+									"$ref": "#/components/schemas/SuiAddress"
+								},
+								"publicKey": {
+									"type": "string",
+									"description": "The Sui public key, base64, with its scheme flag.",
+									"example": "AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz"
+								},
+								"weight": {
+									"type": "integer",
+									"minimum": -2147483648,
+									"maximum": 2147483647
+								},
+								"isAccepted": { "type": "boolean" },
+								"isRejected": { "type": "boolean" },
+								"order": {
+									"type": "integer",
+									"minimum": -2147483648,
+									"maximum": 2147483647
+								}
+							},
+							"required": [
+								"signerSetAddress",
+								"publicKey",
+								"weight",
+								"isAccepted",
+								"isRejected",
+								"order"
+							]
+						},
+						"description": "The members, in order. Key labels belong to an account, so they are only on `Account.signerSets`."
+					},
+					"links": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SignerSetLink"
+						},
+						"description": "The accounts the signer set is linked to, as each knows it: those the session can read, and for a member of the set, the ones it is drafted for. Oldest first."
+					}
+				},
+				"required": [
+					"address",
+					"threshold",
+					"isVerified",
+					"totalWeight",
+					"members",
+					"links"
+				]
+			},
+			"SignerSetLink": {
+				"type": "object",
+				"properties": {
+					"accountAddress": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"accountName": {
+						"type": ["string", "null"],
+						"maxLength": 255
+					},
+					"label": {
+						"type": ["string", "null"],
+						"maxLength": 255,
+						"description": "The account's label for the signer set, or null.",
+						"example": "Operations"
+					},
+					"status": {
+						"type": "string",
+						"enum": [
+							"draft",
+							"inviting",
+							"verified",
+							"abandoned"
+						],
+						"description": "The signer set's status within the account."
+					},
+					"draftedBy": {
+						"allOf": [
+							{ "$ref": "#/components/schemas/SuiAddress" },
+							{
+								"description": "The address of the key that created the signer set for the account."
+							}
+						]
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2026-10-01T12:00:00.000Z"
+					},
+					"validOn": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"description": "The networks on which the signer set can sign for the account: those whose alias set holds its address. Empty for a draft, or a set retired everywhere."
+					}
+				},
+				"required": [
+					"accountAddress",
+					"accountName",
+					"label",
+					"status",
+					"draftedBy",
+					"createdAt",
+					"validOn"
+				]
+			},
 			"SignedMessageRequest": {
 				"type": "object",
 				"properties": {
@@ -1179,7 +1309,7 @@
 			"get": {
 				"tags": ["Signer sets"],
 				"summary": "Get a signer set",
-				"description": "A signer set with its members, for a session holding one of its keys (accepted or not). Labels and status are those of the signer set's own account.",
+				"description": "A composition with its members, without key labels, and its links to accounts: those the session can read, and for a session holding one of its keys (accepted or not), every account it is drafted for. Labels and status are per link.",
 				"security": [
 					{ "cookieAuth": [] },
 					{ "bearerAuth": [] }
@@ -1201,7 +1331,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/SignerSetWithMembers"
+									"$ref": "#/components/schemas/SignerSetComposition"
 								}
 							}
 						}
@@ -1228,17 +1358,7 @@
 						}
 					},
 					"403": {
-						"description": "No key of the session is in the signer set.",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/Error"
-								}
-							}
-						}
-					},
-					"404": {
-						"description": "The signer set does not exist.",
+						"description": "No key of the session is in the signer set, and the session can read none of its accounts. Also returned for an unknown address.",
 						"content": {
 							"application/json": {
 								"schema": {

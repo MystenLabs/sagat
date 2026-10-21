@@ -82,6 +82,35 @@ export const SignerSetInvitationSchema =
 		}),
 	}).openapi('SignerSetInvitation');
 
+export const SignerSetLinkSchema = z
+	.object({
+		accountAddress: SuiAddressSchema,
+		accountName: AccountRowSchema.shape.name,
+		label: SignerSetSchema.shape.label,
+		status: SignerSetSchema.shape.status,
+		draftedBy: SignerSetSchema.shape.draftedBy,
+		createdAt: SignerSetSchema.shape.createdAt,
+		validOn: SignerSetSchema.shape.validOn,
+	})
+	.openapi('SignerSetLink');
+
+export const SignerSetCompositionSchema = z
+	.object({
+		address: SuiAddressSchema,
+		threshold: SignerSetRowSchema.shape.threshold,
+		isVerified: SignerSetSchema.shape.isVerified,
+		totalWeight: SignerSetSchema.shape.totalWeight,
+		members: z.array(SignerSetMemberRowSchema).openapi({
+			description:
+				'The members, in order. Key labels belong to an account, so they are only on `Account.signerSets`.',
+		}),
+		links: z.array(SignerSetLinkSchema).openapi({
+			description:
+				'The accounts the signer set is linked to, as each knows it: those the session can read, and for a member of the set, the ones it is drafted for. Oldest first.',
+		}),
+	})
+	.openapi('SignerSetComposition');
+
 export const AccountAliasesSchema = z
 	.object({
 		network: NetworkSchema,

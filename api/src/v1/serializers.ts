@@ -16,6 +16,7 @@ import { type KeyLabels } from '../loaders/account-keys.loader';
 import {
 	type AccountWithSignerSets,
 	type LinkedSignerSet,
+	type SignerSetComposition,
 	type SignerSetInvitation,
 } from '../services/accounts.service';
 import { type SignerSetTally } from '../services/proposals.service';
@@ -59,6 +60,35 @@ export const toSignerSetWithMembers = ({
 	members: linked.signerSet.members.map((member) =>
 		toSignerSetMember(member, labels),
 	),
+});
+
+// A composition outside any account: members without key labels, and the
+// links the caller may see.
+export const toSignerSetComposition = ({
+	signerSet,
+	links,
+}: SignerSetComposition) => ({
+	address: signerSet.address,
+	threshold: signerSet.threshold,
+	isVerified: signerSet.isVerified,
+	totalWeight: signerSet.totalWeight,
+	members: signerSet.members.map((member) => ({
+		signerSetAddress: member.signerSetAddress,
+		publicKey: member.publicKey,
+		weight: member.weight,
+		order: member.order,
+		isAccepted: member.isAccepted,
+		isRejected: member.isRejected,
+	})),
+	links: links.map(({ link, account, validOn }) => ({
+		accountAddress: account.address,
+		accountName: account.name,
+		label: link.label,
+		status: link.status,
+		draftedBy: link.draftedBy,
+		createdAt: link.createdAt,
+		validOn: [...validOn],
+	})),
 });
 
 export const toSignerSetInvitation = ({

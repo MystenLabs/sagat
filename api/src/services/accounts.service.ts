@@ -19,6 +19,7 @@ import {
 	SchemaSignerSetMembers,
 	type Account,
 	type AccountSignerSet,
+	type SignerSetWithMembers,
 } from '../db/schema';
 import {
 	ApiAuthError,
@@ -34,7 +35,6 @@ import {
 	type Proposer,
 } from '../loaders/account-proposers.loader';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
-import { jwtHasSignerSetMemberAccess } from './membership.service';
 import {
 	hasMember,
 	loadAliasSets,
@@ -285,24 +285,92 @@ export const loadSignerSet = async (address: string) => {
 	return signerSet;
 };
 
-// The signer set at `address`, for a caller holding one of its keys
-// (accepted or not).
-export const getSignerSetForMember = async ({
+/** A composition with the links the caller may see. */
+export type SignerSetComposition = {
+	signerSet: SignerSetWithMembers;
+	links: (ValidatedSignerSet & { account: Account })[];
+};
+
+/**
+ * The composition at `address`, with its links to the accounts the caller
+ * can read, and, for a caller holding one of its keys, every link still in
+ * use (what it is drafted for). No key labels: those belong to an account.
+ * Refused when the caller sees no link and holds no key of it.
+ */
+export const getSignerSetComposition = async ({
 	address,
 	callerKeys,
 }: {
 	address: string;
 	callerKeys: PublicKey[];
-}) => {
-	if (
-		!(await jwtHasSignerSetMemberAccess(
-			address,
+}): Promise<SignerSetComposition> => {
+	const [signerSet, links] = await Promise.all([
+		SignerSetDataLoader.load(address),
+		db
+			.select()
+			.from(SchemaAccountSignerSets)
+			.where(
+				eq(
+					SchemaAccountSignerSets.signerSetAddress,
+					address,
+				),
+			)
+			.orderBy(
+				asc(SchemaAccountSignerSets.createdAt),
+				asc(SchemaAccountSignerSets.accountAddress),
+			),
+	]);
+	const isMember =
+		!!signerSet &&
+		hasMember([{ signerSet }], callerKeys, {
+			acceptedOnly: false,
+		});
+
+	const accountAddresses = links.map(
+		(l) => l.accountAddress,
+	);
+	const [resolved, accounts] = await Promise.all([
+		resolveAccounts(accountAddresses),
+		accountAddresses.length === 0
+			? []
+			: db
+					.select()
+					.from(SchemaAccounts)
+					.where(
+						inArray(
+							SchemaAccounts.address,
+							accountAddresses,
+						),
+					),
+	]);
+
+	const visible = links.flatMap((link) => {
+		const resolution = resolved.get(link.accountAddress);
+		const account = accounts.find(
+			(a) => a.address === link.accountAddress,
+		);
+		const own = resolution?.signerSets.find(
+			(s) => s.link.signerSetAddress === address,
+		);
+		if (!signerSet || !resolution || !account || !own)
+			return [];
+		const canRead = hasMember(
+			resolution.signerSets.filter(
+				(s) => s.validOn.length > 0,
+			),
 			callerKeys,
-			false,
-		))
-	)
+			{ acceptedOnly: false },
+		);
+		const isInUse =
+			link.status !== AccountSignerSetStatus.ABANDONED;
+		return canRead || (isMember && isInUse)
+			? [{ ...own, account }]
+			: [];
+	});
+
+	if (!signerSet || (!isMember && visible.length === 0))
 		throw new ApiAuthError('AccessDenied');
-	return loadSignerSet(address);
+	return { signerSet, links: visible };
 };
 
 /** An invitation: a signer set as the account it is drafted for knows it. */

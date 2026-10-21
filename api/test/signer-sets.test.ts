@@ -171,7 +171,9 @@ describe('Signer sets API', () => {
 			await session.v1.getSignerSet(address),
 		).toMatchObject({
 			isVerified: false,
-			status: 'inviting',
+			links: [
+				{ accountAddress: address, status: 'inviting' },
+			],
 		});
 
 		const accepted = await session.acceptSignerSet(
@@ -185,10 +187,39 @@ describe('Signer sets API', () => {
 			status: 'verified',
 		});
 		const fetched = await session.v1.getSignerSet(address);
-		expect(fetched).toMatchObject(accepted);
-		expect(
-			(await session.v1.getAccount(address)).signerSets,
-		).toEqual([fetched]);
+		expect(fetched).toEqual({
+			address,
+			threshold: 2,
+			isVerified: true,
+			totalWeight: 2,
+			members: [alice, bob].map((user, order) => ({
+				signerSetAddress: address,
+				publicKey: user.publicKey,
+				weight: 1,
+				order,
+				isAccepted: true,
+				isRejected: false,
+			})),
+			links: [
+				{
+					accountAddress: address,
+					accountName: null,
+					label: null,
+					status: 'verified',
+					draftedBy: alice.address,
+					createdAt: accepted.createdAt,
+					validOn: ['localnet', 'testnet'],
+				},
+			],
+		});
+		const { members, ...withoutMembers } = (
+			await session.v1.getAccount(address)
+		).signerSets[0];
+		expect(withoutMembers).toEqual(accepted);
+		expect(members.map((m) => m.publicKey)).toEqual([
+			alice.publicKey,
+			bob.publicKey,
+		]);
 	});
 
 	test('accepting and rejecting need no session, only the signature', async () => {
@@ -467,11 +498,11 @@ describe('Signer sets API', () => {
 			expect(created.draftedBy).toBe(creator.address);
 			expect(Date.parse(created.createdAt)).not.toBeNaN();
 
-			const fetched = await session.v1.getSignerSet(
-				account.address,
-			);
-			expect(fetched.draftedBy).toBe(creator.address);
-			expect(fetched.createdAt).toBe(created.createdAt);
+			const [link] = (
+				await session.v1.getSignerSet(account.address)
+			).links;
+			expect(link.draftedBy).toBe(creator.address);
+			expect(link.createdAt).toBe(created.createdAt);
 
 			// The invitee sees who invited them.
 			await session.connectUser(others[0]);
@@ -541,12 +572,15 @@ describe('Signer sets API', () => {
 			}[],
 		) => members.map((m) => m.label);
 
+		// Key labels belong to the account, so they are read from it.
 		const membersOf = async (
 			session: ReturnType<
 				ApiTestFramework['createSession']
 			>,
 			address: string,
-		) => (await session.v1.getSignerSet(address)).members;
+		) =>
+			(await session.v1.getAccount(address)).signerSets[0]
+				.members;
 
 		test('members have no label unless one was given', async () => {
 			const { session, users } =
