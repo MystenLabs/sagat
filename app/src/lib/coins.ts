@@ -241,3 +241,34 @@ function normalizeUsd(value: number | null): number | null {
 		? value
 		: null;
 }
+
+export interface PortfolioValue {
+	/** USD across the balances that have a price. */
+	total: number;
+	/** How many balances went into `total`. */
+	priced: number;
+	/** How many balances have no price and are left out. */
+	unpriced: number;
+}
+
+/** Sums the USD value of the balances that have one and counts the rest. */
+export function totalUsdValue<T>(
+	balances: readonly T[],
+	getUsdValue: (balance: T) => number | null,
+): PortfolioValue {
+	const value: PortfolioValue = {
+		total: 0,
+		priced: 0,
+		unpriced: 0,
+	};
+	for (const balance of balances) {
+		const usd = getUsdValue(balance);
+		if (usd == null || !Number.isFinite(usd)) {
+			value.unpriced++;
+		} else {
+			value.total += usd;
+			value.priced++;
+		}
+	}
+	return value;
+}

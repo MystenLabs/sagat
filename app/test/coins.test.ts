@@ -17,6 +17,7 @@ import {
 	parseAmount,
 	rawAmountToFloat,
 	sortBalances,
+	totalUsdValue,
 	type SortableBalance,
 } from '../src/lib/coins';
 
@@ -379,5 +380,27 @@ describe('sortBalances', () => {
 			USDC,
 			FOO,
 		]);
+	});
+});
+
+describe('totalUsdValue', () => {
+	test('sums the priced balances and counts the rest', () => {
+		const balances = [
+			{ coinType: 'a', usd: 10.5 },
+			{ coinType: 'b', usd: null },
+			{ coinType: 'c', usd: 2 },
+			{ coinType: 'd', usd: Number.NaN },
+		];
+		expect(
+			totalUsdValue(balances, (balance) => balance.usd),
+		).toEqual({ total: 12.5, priced: 2, unpriced: 2 });
+	});
+
+	test('is zero for no balances', () => {
+		expect(totalUsdValue([], () => null)).toEqual({
+			total: 0,
+			priced: 0,
+			unpriced: 0,
+		});
 	});
 });

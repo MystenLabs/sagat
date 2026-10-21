@@ -346,6 +346,46 @@ test.describe('overview and signers', () => {
 		const rows = page.getByTestId('open-proposal');
 		await expect(rows).toHaveCount(2);
 
+		await test.step('the value, the tokens, receive and send', async () => {
+			// Localnet has no prices, so SUI is unpriced and the total is withheld.
+			const value = page.getByTestId('account-value');
+			await expect(value).toHaveAttribute(
+				'data-unpriced',
+				'1',
+			);
+			await expect(value).not.toHaveAttribute(
+				'data-usd',
+				/.*/,
+			);
+			const sui = page.locator(
+				'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
+			);
+			await expect(sui).toContainText('SUI');
+			await expect(
+				sui.getByTestId('token-value'),
+			).toHaveText('—');
+
+			await page
+				.getByTestId('overview-receive-button')
+				.click();
+			const dialog = page.getByTestId('receive-dialog');
+			await expect(
+				dialog.getByTestId('receive-address'),
+			).toHaveText(multisig.address);
+			await page.keyboard.press('Escape');
+			await expect(dialog).toBeHidden();
+
+			await page
+				.getByTestId('overview-send-button')
+				.click();
+			const sheet = page.getByTestId('proposal-sheet');
+			await expect(
+				sheet.getByTestId('transfer-recipient-input'),
+			).toBeVisible();
+			await page.keyboard.press('Escape');
+			await expect(sheet).toBeHidden();
+		});
+
 		await test.step('each open proposal shows its title, proposer, status and weight', async () => {
 			const row = alice.openProposal(pending.digest);
 			await expect(row).toHaveAttribute(
