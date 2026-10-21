@@ -51,17 +51,34 @@ export async function setupMultisig({
 
 	if (accept)
 		for (const member of members)
-			await member.api.acceptMultisigInvite(
-				multisig.address,
-				{
-					signature: await member.signMessage(
-						PersonalMessages.acceptMultisigInvitation(
-							multisig.address,
-						),
-					),
-				},
-			);
+			await acceptInvitation(member, multisig.address);
 	return multisig;
+}
+
+export async function acceptInvitation(
+	member: Identity,
+	multisigAddress: string,
+) {
+	return member.api.acceptMultisigInvite(multisigAddress, {
+		signature: await member.signMessage(
+			PersonalMessages.acceptMultisigInvitation(
+				multisigAddress,
+			),
+		),
+	});
+}
+
+export async function rejectInvitation(
+	member: Identity,
+	multisigAddress: string,
+) {
+	return member.api.rejectMultisigInvite(multisigAddress, {
+		signature: await member.signMessage(
+			PersonalMessages.rejectMultisigInvitation(
+				multisigAddress,
+			),
+		),
+	});
 }
 
 // Signs in to the API with the identity's key, which also registers its

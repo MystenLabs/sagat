@@ -1,11 +1,16 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatAddress } from '@mysten/sui/utils';
 import type { Page } from '@playwright/test';
 
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
-import { setupMultisig } from '../support/scenarios';
+import {
+	acceptInvitation,
+	rejectInvitation,
+	setupMultisig,
+} from '../support/scenarios';
 
 // The e2e API only serves localnet, so the app would never offer mainnet or
 // testnet. Report them as served too, so the only thing that can disable
@@ -75,7 +80,18 @@ test.describe('app shell', () => {
 			multisig.address,
 		);
 
-		// The multisig switcher lists the multisig and offers to create one.
+		// The multisig switcher shows the account over its short address (never
+		// the threshold), lists the multisig and offers to create one.
+		const subtitle = page.getByTestId(
+			'multisig-switcher-subtitle',
+		);
+		await expect(subtitle).toHaveAttribute(
+			'data-tone',
+			'ok',
+		);
+		await expect(subtitle).toHaveText(
+			formatAddress(multisig.address),
+		);
 		await page.getByTestId('multisig-switcher').click();
 		await expect(
 			page
@@ -163,6 +179,116 @@ test.describe('app shell', () => {
 			'data-state',
 			'expanded',
 		);
+	});
+
+	test('the switcher flags rejected invitations and an unreachable threshold', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const carol = createIdentity('carol');
+		// Grants: Carol rejects, but Alice and Bob still reach the threshold.
+		const grants = await setupMultisig({
+			creator: alice,
+			members: [bob, carol],
+			threshold: 2,
+			name: 'Grants',
+			labels: ['Alice', 'Bob', 'Carol'],
+			accept: false,
+		});
+		await acceptInvitation(bob, grants.address);
+		await rejectInvitation(carol, grants.address);
+		// Treasury: both reject, so Alice alone can never reach 3.
+		const treasury = await setupMultisig({
+			creator: alice,
+			members: [bob, carol],
+			threshold: 3,
+			name: 'Treasury',
+			accept: false,
+		});
+		await rejectInvitation(bob, treasury.address);
+		await rejectInvitation(carol, treasury.address);
+
+		const { page } = alice;
+		await page.setViewportSize({
+			width: 1440,
+			height: 900,
+		});
+		await alice.signIn();
+		await page.goto(
+			`/multisig/${grants.address}/proposals`,
+		);
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			grants.address,
+		);
+
+		const trigger = page.getByTestId('multisig-switcher');
+		const subtitle = page.getByTestId(
+			'multisig-switcher-subtitle',
+		);
+		const option = (address: string) =>
+			page.locator(
+				`[data-testid="multisig-switcher-option"][data-address="${address}"]`,
+			);
+
+		await test.step('a rejection the others can absorb is a warning', async () => {
+			await expect(trigger).toHaveAttribute(
+				'data-tone',
+				'warning',
+			);
+			await expect(subtitle).toHaveText(
+				'Carol rejected the invitation.',
+			);
+
+			await trigger.click();
+			await expect(option(grants.address)).toHaveAttribute(
+				'data-tone',
+				'warning',
+			);
+			await expect(option(grants.address)).toContainText(
+				'Carol rejected the invitation.',
+			);
+			await expect(
+				option(treasury.address),
+			).toHaveAttribute('data-tone', 'error');
+			await expect(option(treasury.address)).toContainText(
+				'Can’t move funds. 2 signers rejected.',
+			);
+		});
+
+		await test.step('an unreachable threshold is an error', async () => {
+			await option(treasury.address).click();
+			await expect(
+				page.getByTestId('multisig-detail'),
+			).toHaveAttribute(
+				'data-multisig-address',
+				treasury.address,
+			);
+			await expect(trigger).toHaveAttribute(
+				'data-tone',
+				'error',
+			);
+			await expect(subtitle).toHaveText(
+				'Can’t move funds. 2 signers rejected.',
+			);
+		});
+
+		await test.step('the icon rail keeps the status in the tooltip', async () => {
+			await page.getByTestId('sidebar-toggle').click();
+			await expect(
+				page.locator('[data-slot="sidebar"]'),
+			).toHaveAttribute('data-state', 'collapsed');
+			await trigger.hover();
+			await expect(
+				page.getByRole('tooltip', {
+					name: 'Treasury · Can’t move funds. 2 signers rejected.',
+				}),
+			).toBeVisible();
+		});
 	});
 
 	test('networks the wallet does not advertise are disabled', async ({

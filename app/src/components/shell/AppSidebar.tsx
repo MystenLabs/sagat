@@ -7,6 +7,7 @@ import {
 	ArrowDownToLine,
 	ArrowUpRight,
 	BookOpen,
+	Check,
 	ChevronRight,
 	ChevronsUpDown,
 	Coins,
@@ -15,6 +16,7 @@ import {
 	LayoutDashboard,
 	Mail,
 	Plus,
+	TriangleAlert,
 	Users,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -80,8 +82,11 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
+import {
+	accountStatus,
+	type AccountStatus,
+} from '@/lib/account-status';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
-import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -468,6 +473,95 @@ function NavSkeleton() {
 	);
 }
 
+// The status line's colour, and the warning icon's fill, per surface: the
+// sidebar is black in both themes and has its own tokens; the menu is a
+// popover and takes the theme's. The `!` on the menu text beats the item's
+// focus rule, which otherwise recolours every descendant.
+const STATUS_TEXT_CLASS = {
+	sidebar: {
+		warning: 'text-sidebar-warning',
+		error: 'text-sidebar-error',
+	},
+	menu: {
+		warning: 'text-warning-foreground!',
+		error: 'text-error-foreground!',
+	},
+} as const;
+
+const STATUS_ICON_CLASS = {
+	sidebar: {
+		warning: 'fill-sidebar-warning stroke-sidebar-primary',
+		error: 'fill-sidebar-error stroke-sidebar-primary',
+	},
+	menu: {
+		warning: 'fill-warning-foreground stroke-secondary',
+		error: 'fill-error-foreground stroke-secondary',
+	},
+} as const;
+
+type StatusSurface = keyof typeof STATUS_TEXT_CLASS;
+
+/**
+ * The account's tile icon: the signers icon, or a filled warning triangle
+ * in the status colour, its mark cut out in the tile's colour.
+ */
+function AccountIcon({
+	status,
+	surface,
+	className,
+}: {
+	status: AccountStatus;
+	surface: StatusSurface;
+	className?: string;
+}) {
+	if (status.tone === 'ok')
+		return <Users className={className} />;
+	return (
+		<TriangleAlert
+			className={cn(
+				STATUS_ICON_CLASS[surface][status.tone],
+				className,
+			)}
+		/>
+	);
+}
+
+/**
+ * Under the account's name: its short address, or the status sentence in
+ * the warning or error colour. Never the threshold, per the designs.
+ */
+function AccountSubtitle({
+	status,
+	address,
+	surface,
+	className,
+}: {
+	status: AccountStatus;
+	address: string;
+	surface: StatusSurface;
+	className?: string;
+}) {
+	return (
+		<span
+			className={cn(
+				'text-11',
+				status.tone === 'ok'
+					? cn('truncate', className)
+					: cn(
+							'leading-snug',
+							STATUS_TEXT_CLASS[surface][status.tone],
+						),
+			)}
+			data-testid={`multisig-switcher-${surface === 'sidebar' ? 'subtitle' : 'option-subtitle'}`}
+			data-tone={status.tone}
+		>
+			{status.tone === 'ok'
+				? formatAddress(address)
+				: status.message}
+		</span>
+	);
+}
+
 function MultisigSwitcher({
 	multisigs,
 	selected,
@@ -485,21 +579,23 @@ function MultisigSwitcher({
 		navigate(to);
 		onNavigate();
 	};
+	const selectedStatus: AccountStatus = selected
+		? accountStatus(selected)
+		: { tone: 'ok' };
+	// On the icon rail only the tile shows, so the tooltip carries the status.
+	const tooltip = !selected
+		? 'New multisig'
+		: selectedStatus.tone === 'ok'
+			? accountName(selected)
+			: `${accountName(selected)} · ${selectedStatus.message}`;
 
 	return (
 		<div className="flex flex-col gap-2.5">
 			<DropdownMenu>
 				<DropdownMenuTrigger
 					data-testid="multisig-switcher"
-					render={
-						<SidebarRailTooltip
-							tooltip={
-								selected
-									? accountName(selected)
-									: 'New multisig'
-							}
-						/>
-					}
+					data-tone={selectedStatus.tone}
+					render={<SidebarRailTooltip tooltip={tooltip} />}
 					className={cn(
 						'flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-left text-sidebar-foreground data-open:bg-sidebar-accent',
 						railTriggerClass,
@@ -508,7 +604,11 @@ function MultisigSwitcher({
 				>
 					<span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
 						{selected ? (
-							<Users className="size-4" />
+							<AccountIcon
+								status={selectedStatus}
+								surface="sidebar"
+								className="size-4"
+							/>
 						) : (
 							<Plus className="size-4" />
 						)}
@@ -519,11 +619,18 @@ function MultisigSwitcher({
 								? accountName(selected)
 								: 'New multisig'}
 						</span>
-						<span className="truncate text-11 tracking-[0.04em] text-sidebar-foreground/60">
-							{selected
-								? `${thresholdLabel(selected)} · ${formatAddress(selected.address)}`
-								: 'Not created yet'}
-						</span>
+						{selected ? (
+							<AccountSubtitle
+								status={selectedStatus}
+								address={selected.address}
+								surface="sidebar"
+								className="tracking-[0.04em] text-sidebar-foreground/60"
+							/>
+						) : (
+							<span className="truncate text-11 tracking-[0.04em] text-sidebar-foreground/60">
+								Not created yet
+							</span>
+						)}
 					</span>
 					<ChevronsUpDown className="size-3.5 shrink-0 opacity-60 group-data-[collapsible=icon]:hidden" />
 				</DropdownMenuTrigger>
@@ -536,28 +643,48 @@ function MultisigSwitcher({
 							<DropdownMenuLabel>
 								Multisigs
 							</DropdownMenuLabel>
-							{multisigs.map((m) => (
-								<DropdownMenuItem
-									key={m.address}
-									data-testid="multisig-switcher-option"
-									data-address={m.address}
-									onClick={() =>
-										go(`/multisig/${m.address}/${page}`)
-									}
-									className={cn(
-										'flex-col items-start gap-0',
-										m.address === selected?.address &&
-											'bg-accent',
-									)}
-								>
-									<span className="text-13 font-medium">
-										{accountName(m)}
-									</span>
-									<span className="font-mono text-11 text-muted-foreground">
-										{formatAddress(m.address)}
-									</span>
-								</DropdownMenuItem>
-							))}
+							{multisigs.map((m) => {
+								const status = accountStatus(m);
+								const isSelected =
+									m.address === selected?.address;
+								return (
+									<DropdownMenuItem
+										key={m.address}
+										data-testid="multisig-switcher-option"
+										data-address={m.address}
+										data-tone={status.tone}
+										onClick={() =>
+											go(`/multisig/${m.address}/${page}`)
+										}
+										className={cn(
+											'items-center gap-2.5',
+											isSelected && 'bg-accent',
+										)}
+									>
+										<span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+											<AccountIcon
+												status={status}
+												surface="menu"
+												className="size-3.5"
+											/>
+										</span>
+										<span className="flex min-w-0 flex-1 flex-col gap-px">
+											<span className="truncate text-13 font-medium">
+												{accountName(m)}
+											</span>
+											<AccountSubtitle
+												status={status}
+												address={m.address}
+												surface="menu"
+												className="font-mono text-muted-foreground"
+											/>
+										</span>
+										{isSelected && (
+											<Check className="size-4 shrink-0 opacity-60" />
+										)}
+									</DropdownMenuItem>
+								);
+							})}
 						</DropdownMenuGroup>
 					)}
 					{multisigs.length > 0 && (
