@@ -24,6 +24,7 @@ import {
 	type TestUser,
 } from './framework/api-test-framework';
 import {
+	draftSignerSet,
 	rotationScenario,
 	setAliasMirror,
 	type RotationScenario,
@@ -425,6 +426,33 @@ describe('Rotation: acting for the account', () => {
 					publicKey: s.k4.publicKey,
 				}),
 			]);
+		});
+
+		test('a member who has not accepted still votes, like on the legacy route, but cannot cancel', async () => {
+			// S4: k1 carried over, k6 invited and silent. The chain counts
+			// k6's key regardless of Sagat's invitation state.
+			const S4 = await draftSignerSet(
+				s.A,
+				[s.k1, s.k6],
+				2,
+				{
+					label: 'Recovery',
+					accepted: [s.k1],
+					draftedBy: s.k1.address,
+				},
+			);
+			await setAliasMirror(s.A, 'localnet', {
+				aliases: [s.A, s.S2, S4],
+			});
+			const proposal = await propose(s.k1, 'localnet');
+
+			expect(await vote(s.k6, proposal)).toEqual({
+				hasReachedThreshold: true,
+				readySignerSets: [S4],
+			});
+			expect(
+				await failureOf(cancel(s.k6, proposal)),
+			).toEqual(notAMemberToCancel);
 		});
 
 		test('k4 votes on and cancels a localnet proposal', async () => {

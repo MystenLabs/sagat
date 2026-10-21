@@ -764,12 +764,20 @@ export const tallySignerSets = async (
 export const voteAndTallySignerSets = async (
 	input: VoteInput,
 ) => {
-	const proposal = await castVote(input, (p, pubKey) =>
-		isAcceptedMember(
-			p.accountAddress,
-			p.network as SuiNetwork,
-			[pubKey],
-		),
+	// Any member of a set valid on the proposal's network may sign, accepted
+	// or not, as on the legacy route: acceptance is Sagat's bookkeeping, the
+	// chain counts every key of the set.
+	const proposal = await castVote(
+		input,
+		async (p, pubKey) =>
+			hasMember(
+				await validSignerSets(
+					p.accountAddress,
+					p.network as SuiNetwork,
+				),
+				[pubKey],
+				{ acceptedOnly: false },
+			),
 	);
 	return {
 		proposal,
