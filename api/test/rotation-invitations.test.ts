@@ -274,5 +274,11 @@ describe('Rotation: drafts and invitations', () => {
 				[s.A, s.S3, 'draft'],
 			]);
 		});
+
+		test('a rejection through the legacy route abandons them too', async () => {
+			await s.creator.rejectMultisig(s.k4, S4);
+			expect(await linkStatus(s.A, S4)).toBe('abandoned');
+			expect(await linkStatus(B, S4)).toBe('abandoned');
+		});
 	});
 });

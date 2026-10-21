@@ -795,20 +795,19 @@ export const acceptInvitation = async ({
 };
 
 /**
- * Rejects an invitation to a signer set, signed by the invited key. With
- * `abandonDrafts` (`/v1`), the rejection also kills every draft of the
- * composition: its links still drafting or inviting on other accounts
- * become abandoned. The link of an account to its own original
- * composition keeps the legacy behaviour and is left as it is.
+ * Rejects an invitation to a signer set, signed by the invited key. The
+ * rejection also kills every draft of the composition, whichever route
+ * asked: its links still drafting or inviting on other accounts become
+ * abandoned. The legacy routes never show those links. The link of an
+ * account to its own original composition keeps the legacy behaviour and
+ * is left as it is.
  */
 export const rejectInvitation = async ({
 	address,
 	signature,
-	abandonDrafts = false,
 }: {
 	address: string;
 	signature: string;
-	abandonDrafts?: boolean;
 }) => {
 	// Validate signature with rejection-specific message
 	const pubKey = await verifySignedMessage(
@@ -857,7 +856,6 @@ export const rejectInvitation = async ({
 					),
 				),
 			);
-		if (!abandonDrafts) return;
 		await tx
 			.update(SchemaAccountSignerSets)
 			.set({ status: AccountSignerSetStatus.ABANDONED })

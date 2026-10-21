@@ -234,11 +234,7 @@ export const mountSignerSets = (v1: OpenAPIHono) =>
 		.openapi(reject, async (c) => {
 			const { address } = c.req.valid('param');
 			const { signature } = c.req.valid('json');
-			await rejectInvitation({
-				address,
-				signature,
-				abandonDrafts: true,
-			});
+			await rejectInvitation({ address, signature });
 			return c.json(
 				toSignerSet(await loadSignerSet(address)),
 				200,
