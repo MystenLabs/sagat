@@ -20,7 +20,7 @@ import {
 	DialogTitle,
 } from '../ui/dialog';
 import { accountName } from './account-name';
-import { memberStatus } from './member-status';
+import { memberStatus, weightTone } from './member-status';
 import { ShortAddress } from './ShortAddress';
 import { WeightBar } from './WeightBar';
 
@@ -143,11 +143,7 @@ export function ReviewInvitationDialog({
 							<WeightBar
 								signers={signers.map((signer) => ({
 									weight: signer.weight,
-									tone: signer.isYou
-										? 'you'
-										: signer.isAccepted
-											? 'accepted'
-											: 'pending',
+									tone: weightTone(signer),
 								}))}
 								threshold={multisig.threshold}
 								yourWeight={you?.weight ?? null}

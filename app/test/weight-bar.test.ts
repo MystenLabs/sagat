@@ -3,15 +3,16 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { weightTone } from '../src/components/invitations/member-status';
 import {
 	thresholdMarkerLeft,
-	weightBar,
+	weightBarLayout,
 } from '../src/lib/weight-bar';
 
-describe('weightBar', () => {
+describe('weightBarLayout', () => {
 	it('draws one segment per unit of weight in signer order', () => {
 		expect(
-			weightBar(
+			weightBarLayout(
 				[
 					{ weight: 2, tone: 'accepted' },
 					{ weight: 1, tone: 'you' },
@@ -26,21 +27,22 @@ describe('weightBar', () => {
 	});
 
 	it('switches to one run per signer past ten units', () => {
-		const bar = weightBar(
-			[
-				{ weight: 8, tone: 'accepted' },
-				{ weight: 0, tone: 'pending' },
-				{ weight: 4, tone: 'you' },
-			],
-			6,
-		);
-		expect(bar).toEqual({
+		expect(
+			weightBarLayout(
+				[
+					{ weight: 8, tone: 'accepted' },
+					{ weight: 0, tone: 'pending' },
+					{ weight: 4, tone: 'you' },
+				],
+				6,
+			),
+		).toEqual({
 			kind: 'runs',
 			runs: [
 				{ weight: 8, tone: 'accepted' },
 				{ weight: 4, tone: 'you' },
 			],
-			percent: 50,
+			thresholdPercent: 50,
 		});
 	});
 });
@@ -59,5 +61,19 @@ describe('thresholdMarkerLeft', () => {
 		expect(thresholdMarkerLeft(7, 7)).toBe(
 			'calc(100% - 1px)',
 		);
+	});
+});
+
+describe('weightTone', () => {
+	it('counts your weight as accepted once you have accepted', () => {
+		expect(
+			weightTone({ isAccepted: true, isYou: true }),
+		).toBe('accepted');
+		expect(
+			weightTone({ isAccepted: false, isYou: true }),
+		).toBe('you');
+		expect(
+			weightTone({ isAccepted: false, isYou: false }),
+		).toBe('pending');
 	});
 });

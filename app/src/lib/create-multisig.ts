@@ -15,6 +15,7 @@ import {
 	computeMultisigAddress,
 	validatePublicKey,
 } from './sui-utils';
+import { BAR_SEGMENT_CAP } from './threshold';
 
 /** A row in the signers table, as the creator typed it. */
 export interface SignerDraft {
@@ -377,9 +378,6 @@ export function thresholdWarning({
 		return COPY.everyoneMustSign;
 	return null;
 }
-
-/** Bars draw one segment per unit of weight up to this many units. */
-export const BAR_SEGMENT_CAP = 10;
 
 /**
  * The threshold bar: one segment per unit of weight up to the cap, then a

@@ -68,13 +68,13 @@ test.describe('invitations', () => {
 		);
 		await expect(
 			weightBar.getByTestId('weight-legend-you'),
-		).toHaveAttribute('data-value', '1');
+		).toHaveText('Your weight 1');
 		await expect(
 			weightBar.getByTestId('weight-legend-accepted'),
-		).toHaveAttribute('data-value', '1');
+		).toHaveText('Accepted 1');
 		await expect(
 			weightBar.getByTestId('weight-legend-threshold'),
-		).toHaveAttribute('data-value', '2 of 2');
+		).toHaveText('Threshold 2 of 2');
 		expect(
 			await weightBar
 				.locator('[data-tone]')

@@ -1,16 +1,20 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type ReactNode } from 'react';
+
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 import {
+	SEGMENT_GAP_PX,
+	sumWeight,
 	thresholdMarkerLeft,
-	weightBar,
+	weightBarLayout,
 	type WeightedSigner,
 	type WeightTone,
 } from '@/lib/weight-bar';
 
-// Accepted weight is solid, yours is grey while you decide, the rest light.
+/** Accepted weight is solid, yours is grey while you decide, the rest light. */
 const TONE_CLASS: Record<WeightTone, string> = {
 	you: 'bg-foreground/40',
 	accepted: 'bg-foreground',
@@ -33,11 +37,11 @@ export function WeightBar({
 	/** Null when you are not among the signers. */
 	yourWeight: number | null;
 }) {
-	const totalWeight = sum(signers);
-	const accepted = sum(
+	const totalWeight = sumWeight(signers);
+	const accepted = sumWeight(
 		signers.filter((signer) => signer.tone === 'accepted'),
 	);
-	const bar = weightBar(signers, threshold);
+	const bar = weightBarLayout(signers, threshold);
 
 	return (
 		<div
@@ -75,7 +79,8 @@ export function WeightBar({
 				// The legend already says what the bar shows.
 				<div
 					aria-hidden
-					className="relative flex h-1.5 gap-1"
+					className="relative flex h-1.5"
+					style={{ gap: SEGMENT_GAP_PX }}
 				>
 					{bar.tones.map((tone, i) => (
 						<span
@@ -87,12 +92,14 @@ export function WeightBar({
 							data-tone={tone}
 						/>
 					))}
-					<Marker
-						left={thresholdMarkerLeft(
-							threshold,
-							bar.tones.length,
-						)}
-					/>
+					{bar.tones.length > 0 && (
+						<Marker
+							left={thresholdMarkerLeft(
+								threshold,
+								bar.tones.length,
+							)}
+						/>
+					)}
 				</div>
 			) : (
 				<div aria-hidden className="relative flex h-1.5">
@@ -100,27 +107,23 @@ export function WeightBar({
 						<span
 							key={i}
 							className={cn(
-								'min-w-0 basis-0',
+								'min-w-1 basis-0',
 								TONE_CLASS[run.tone],
 								i === 0 && 'rounded-l-xs',
 								i === bar.runs.length - 1 && 'rounded-r-xs',
 							)}
 							style={{ flexGrow: run.weight }}
 							data-tone={run.tone}
-							data-weight={run.weight}
 						/>
 					))}
-					<Marker left={`calc(${bar.percent}% - 1px)`} />
+					{/* Runs have no gaps, so the marker needs an edge of its own. */}
+					<Marker
+						left={`calc(${bar.thresholdPercent}% - 1px)`}
+						className="outline-2 outline-card"
+					/>
 				</div>
 			)}
 		</div>
-	);
-}
-
-function sum(signers: WeightedSigner[]) {
-	return signers.reduce(
-		(total, signer) => total + signer.weight,
-		0,
 	);
 }
 
@@ -133,16 +136,17 @@ function Legend({
 	label: string;
 	value: string;
 	testId: string;
-	children: React.ReactNode;
+	children: ReactNode;
 }) {
 	return (
 		<span
 			className="flex items-center gap-1.5"
 			data-testid={testId}
-			data-value={value}
 		>
 			{children}
-			<span className="text-muted-foreground">{label}</span>
+			<span className="text-muted-foreground">
+				{label}
+			</span>{' '}
 			<span className="font-medium">{value}</span>
 		</span>
 	);
@@ -159,10 +163,19 @@ function Swatch({ tone }: { tone: WeightTone }) {
 	);
 }
 
-function Marker({ left }: { left: string }) {
+function Marker({
+	left,
+	className,
+}: {
+	left: string;
+	className?: string;
+}) {
 	return (
 		<span
-			className="absolute -top-1 h-3.5 w-0.5 bg-foreground"
+			className={cn(
+				'absolute -top-1 h-3.5 w-0.5 bg-foreground',
+				className,
+			)}
 			style={{ left }}
 		/>
 	);
