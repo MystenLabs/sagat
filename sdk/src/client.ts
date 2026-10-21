@@ -12,8 +12,8 @@ import {
 	type AuthResponse,
 	type CreateProposalRequest,
 	type CreateSignerSetRequest,
-	type PaginatedResponse,
 	type Proposal,
+	type ProposalPage,
 	type PublicProposal,
 	type SignedMessageRequest,
 	type SignerSet,
@@ -24,6 +24,32 @@ import {
 } from './types.js';
 
 export type Fetch = (request: Request) => Promise<Response>;
+
+type JsonContent<T> = {
+	content: { 'application/json': T };
+};
+
+// The `/auth` routes, shared with the legacy API and so not in the spec,
+// typed by hand in the shape `openapi-typescript` generates.
+interface AuthPaths {
+	'/auth/connect': {
+		post: {
+			requestBody: JsonContent<{
+				signature: string;
+				expiry: string;
+			}>;
+			responses: { 200: JsonContent<AuthResponse> };
+		};
+	};
+	'/auth/disconnect': {
+		post: { responses: { 200: JsonContent<AuthResponse> } };
+	};
+	'/auth/check': {
+		get: {
+			responses: { 200: JsonContent<AuthCheckResponse> };
+		};
+	};
+}
 
 export interface ApiClientOptions {
 	/** Origin of the API, without a trailing slash. */
@@ -58,66 +84,60 @@ export class ApiError extends Error {
 
 export class ApiClient {
 	readonly #api: Client<paths>;
-	readonly #apiUrl: string;
-	readonly #headers: Record<string, string>;
-	readonly #fetch: Fetch;
+	readonly #auth: Client<AuthPaths>;
 
 	constructor({
 		apiUrl,
 		token,
 		fetch,
 		timeoutMs = DEFAULT_TIMEOUT_MS,
-		...rest
 	}: ApiClientOptions) {
-		this.#apiUrl = apiUrl;
 		const send: Fetch =
 			fetch ?? ((request) => globalThis.fetch(request));
-		// Every request, `/auth` included, goes through here, so each gets
-		// its own timeout, combined with the signal the request carries.
-		this.#fetch = (request) =>
-			send(
-				new Request(request, {
-					signal: AbortSignal.any([
-						request.signal,
-						AbortSignal.timeout(timeoutMs),
-					]),
-				}),
-			);
-		this.#headers = token
-			? { Authorization: `Bearer ${token}` }
-			: {};
-		this.#api = createClient<paths>({
+		// Both clients send through here, so every request gets its own
+		// timeout, combined with the signal the request carries.
+		const options = {
 			baseUrl: apiUrl,
-			headers: this.#headers,
-			credentials: token ? undefined : 'include',
-			fetch: this.#fetch,
-			...rest,
-		});
+			headers: token
+				? { Authorization: `Bearer ${token}` }
+				: {},
+			// A script token stands alone; the session lives in a cookie.
+			credentials: token ? undefined : ('include' as const),
+			fetch: (request: Request) =>
+				send(
+					new Request(request, {
+						signal: AbortSignal.any([
+							request.signal,
+							AbortSignal.timeout(timeoutMs),
+						]),
+					}),
+				),
+		};
+		this.#api = createClient<paths>(options);
+		this.#auth = createClient<AuthPaths>(options);
 	}
 
 	// Auth: shared with the legacy API, so typed by hand.
 
 	/** Starts a session for the key that signed the connect message. */
-	connect(signature: string, expiry: string) {
-		return this.#auth<AuthResponse>(
-			'POST',
-			'/auth/connect',
-			{ signature, expiry },
+	async connect(signature: string, expiry: string) {
+		return this.#unwrap(
+			await this.#auth.POST('/auth/connect', {
+				body: { signature, expiry },
+			}),
 		);
 	}
 
-	disconnect() {
-		return this.#auth<AuthResponse>(
-			'POST',
-			'/auth/disconnect',
+	async disconnect() {
+		return this.#unwrap(
+			await this.#auth.POST('/auth/disconnect'),
 		);
 	}
 
 	/** Whether the session is valid, and the addresses it holds. */
-	checkAuth() {
-		return this.#auth<AuthCheckResponse>(
-			'GET',
-			'/auth/check',
+	async checkAuth() {
+		return this.#unwrap(
+			await this.#auth.GET('/auth/check'),
 		);
 	}
 
@@ -336,7 +356,7 @@ export class ApiClient {
 			nextCursor?: number;
 			perPage?: number;
 		} = {},
-	): Promise<PaginatedResponse<PublicProposal>> {
+	): Promise<ProposalPage> {
 		return this.#unwrap(
 			await this.#api.GET('/v1/proposals', {
 				params: {
@@ -440,43 +460,6 @@ export class ApiClient {
 			response.status,
 			errorMessage(error, response),
 		);
-	}
-
-	async #auth<T>(
-		method: 'GET' | 'POST',
-		path: string,
-		body?: unknown,
-	): Promise<T> {
-		const response = await this.#fetch(
-			new Request(`${this.#apiUrl}${path}`, {
-				method,
-				headers: {
-					'Content-Type': 'application/json',
-					...this.#headers,
-				},
-				body:
-					body === undefined
-						? undefined
-						: JSON.stringify(body),
-				credentials:
-					'Authorization' in this.#headers
-						? undefined
-						: 'include',
-			}),
-		);
-		if (!response.ok) {
-			let error: unknown;
-			try {
-				error = await response.clone().json();
-			} catch {
-				error = await response.text();
-			}
-			throw new ApiError(
-				response.status,
-				errorMessage(error, response),
-			);
-		}
-		return response.json();
 	}
 }
 

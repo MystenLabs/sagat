@@ -39,11 +39,8 @@ export type PublicSignerSetMember =
 export type VoteProposalResponse =
 	Schemas['VoteProposalResponse'];
 
-/** A page of a listing, as `GET /v1/proposals` returns it. */
-export type PaginatedResponse<T> = Omit<
-	Schemas['ProposalPage'],
-	'data'
-> & { data: T[] };
+/** A page of proposals, as `GET /v1/proposals` returns it. */
+export type ProposalPage = Schemas['ProposalPage'];
 
 /** The `status` of a proposal. */
 export enum ProposalStatus {
