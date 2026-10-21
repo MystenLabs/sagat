@@ -138,7 +138,8 @@ export async function executeSigned(
 
 // Runs a verify call until the API sees the transaction. The API reads the
 // chain through its own client, which can lag the one that executed for a
-// few seconds, so "not executed yet" is retried for up to 15 seconds.
+// few seconds (longer on a localnet that has run for hours), so "not
+// executed yet" is retried for up to 30 seconds.
 export async function untilIndexed<T>(
 	verify: () => Promise<T>,
 ) {
@@ -147,7 +148,7 @@ export async function untilIndexed<T>(
 			return await verify();
 		} catch (error) {
 			if (
-				attempt >= 60 ||
+				attempt >= 120 ||
 				!(error instanceof Error) ||
 				!error.message.includes('not been executed yet')
 			)
