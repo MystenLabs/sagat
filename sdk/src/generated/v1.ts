@@ -253,7 +253,7 @@ export interface paths {
         put?: never;
         /**
          * Add a proposer
-         * @description Lets an address propose transactions for the account, without voting. Signed by an accepted member.
+         * @description Lets an address propose transactions for the account, without voting. Signed by an accepted member; no session needed.
          */
         post: {
             parameters: {
@@ -289,15 +289,6 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description No session, or the session has expired. */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": string;
-                    };
-                };
                 /** @description The signer is not an accepted member of the account. */
                 403: {
                     headers: {
@@ -327,7 +318,7 @@ export interface paths {
         post?: never;
         /**
          * Remove a proposer
-         * @description Removes a proposer, signed by an accepted member. The proposer's pending proposals are cancelled.
+         * @description Removes a proposer, signed by an accepted member; no session needed. The proposer's pending proposals are cancelled.
          */
         delete: {
             parameters: {
@@ -363,15 +354,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description No session, or the session has expired. */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": string;
                     };
                 };
                 /** @description The signer is not an accepted member of the account. */
@@ -603,7 +585,7 @@ export interface paths {
         put?: never;
         /**
          * Accept an invitation
-         * @description Accepts the invitation of the key that signed "Participating in multisig <address>". Once every member has accepted, the signer set is verified.
+         * @description Accepts the invitation of the key that signed "Participating in multisig <address>". No session needed: the signature identifies the member. Once every member has accepted, the signer set is verified.
          */
         post: {
             parameters: {
@@ -621,13 +603,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description The signer set after the change. */
+                /** @description The signer set after the change, without its members: the route needs no session, so it never returns key labels. */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SignerSetWithMembers"];
+                        "application/json": components["schemas"]["SignerSet"];
                     };
                 };
                 /** @description The signer is not a member, the signature is invalid, or the key is in too many signer sets. */
@@ -637,15 +619,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description No session, or the session has expired. */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": string;
                     };
                 };
             };
@@ -667,7 +640,7 @@ export interface paths {
         put?: never;
         /**
          * Reject an invitation
-         * @description Rejects the invitation of the key that signed "Rejecting multisig invitation <address>". An accepted invitation, or a verified signer set, cannot be rejected.
+         * @description Rejects the invitation of the key that signed "Rejecting multisig invitation <address>". No session needed: the signature identifies the member. An accepted invitation, or a verified signer set, cannot be rejected.
          */
         post: {
             parameters: {
@@ -685,13 +658,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description The signer set after the change. */
+                /** @description The signer set after the change, without its members: the route needs no session, so it never returns key labels. */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["SignerSetWithMembers"];
+                        "application/json": components["schemas"]["SignerSet"];
                     };
                 };
                 /** @description The signature is invalid, the signer is not a member, or the invitation was already answered. */
@@ -701,15 +674,6 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Error"];
-                    };
-                };
-                /** @description No session, or the session has expired. */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "text/plain": string;
                     };
                 };
                 /** @description The signer set does not exist. */

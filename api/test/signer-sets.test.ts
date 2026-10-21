@@ -184,12 +184,65 @@ describe('Signer sets API', () => {
 			isVerified: true,
 			status: 'verified',
 		});
-		expect(await session.v1.getSignerSet(address)).toEqual(
-			accepted,
-		);
+		const fetched = await session.v1.getSignerSet(address);
+		expect(fetched).toMatchObject(accepted);
 		expect(
 			(await session.v1.getAccount(address)).signerSets,
-		).toEqual([accepted]);
+		).toEqual([fetched]);
+	});
+
+	test('accepting and rejecting need no session, only the signature', async () => {
+		const session = framework.createSession();
+		const [creator, early, late, outsider] = [
+			newUser(),
+			newUser(),
+			newUser(),
+			newUser(),
+		];
+		await session.connectUser(creator);
+		const { address } = await session.createSignerSet(
+			[creator, early, late],
+			3,
+		);
+
+		const anonymous = framework.createSession();
+		// The response carries no members, so no key labels.
+		const accepted = await anonymous.acceptSignerSet(
+			early,
+			address,
+		);
+		expect(accepted).toMatchObject({
+			address,
+			isVerified: false,
+		});
+		expect(accepted).not.toHaveProperty('members');
+		expect(
+			await anonymous.rejectSignerSet(late, address),
+		).not.toHaveProperty('members');
+
+		const members = (await session.v1.getSignerSet(address))
+			.members;
+		expect(
+			members.map((m) => [m.isAccepted, m.isRejected]),
+		).toEqual([
+			[true, false],
+			[true, false],
+			[false, true],
+		]);
+
+		// A wrong signer is still refused.
+		await expect(
+			anonymous.acceptSignerSet(outsider, address),
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'You are not a member of this multisig',
+		});
+		await expect(
+			anonymous.rejectSignerSet(outsider, address),
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'You are not a member of this multisig',
+		});
 	});
 
 	test('non-members cannot accept or reject', async () => {
@@ -308,12 +361,9 @@ describe('Signer sets API', () => {
 			[creator, invitee],
 			2,
 		);
-		const rejected = await session.rejectSignerSet(
-			invitee,
-			address,
-		);
+		await session.rejectSignerSet(invitee, address);
 		expect(
-			rejected.members.find(
+			(await session.v1.getSignerSet(address)).members.find(
 				(m) => m.publicKey === invitee.publicKey,
 			),
 		).toMatchObject({
@@ -546,12 +596,13 @@ describe('Signer sets API', () => {
 				expected,
 			);
 
-			// In the accept response.
-			const accepted = await session.acceptSignerSet(
-				invitee,
-				account.address,
-			);
-			expect(labelsOf(accepted.members)).toEqual(expected);
+			// Not in the accept response, which needs no session.
+			expect(
+				await session.acceptSignerSet(
+					invitee,
+					account.address,
+				),
+			).not.toHaveProperty('members');
 
 			// And in the accounts listing once accepted.
 			const listed = (await session.v1.getAccounts()).find(

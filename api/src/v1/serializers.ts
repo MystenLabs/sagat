@@ -33,11 +33,11 @@ export const toSignerSetMember = (
 	label: labels.get(member.publicKey) ?? null,
 });
 
-export const toSignerSetWithMembers = ({
+// A signer set without its members, so without key labels.
+export const toSignerSet = ({
 	link,
 	signerSet,
-	labels,
-}: LinkedSignerSet) => ({
+}: Omit<LinkedSignerSet, 'labels'>) => ({
 	address: signerSet.address,
 	label: link.label,
 	status: link.status,
@@ -46,6 +46,14 @@ export const toSignerSetWithMembers = ({
 	totalWeight: signerSet.totalWeight,
 	draftedBy: link.draftedBy,
 	createdAt: link.createdAt,
+});
+
+export const toSignerSetWithMembers = ({
+	link,
+	signerSet,
+	labels,
+}: LinkedSignerSet) => ({
+	...toSignerSet({ link, signerSet }),
 	members: signerSet.members.map((member) =>
 		toSignerSetMember(member, labels),
 	),

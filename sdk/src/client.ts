@@ -17,6 +17,7 @@ import {
 	type ProposalWithSignatures,
 	type PublicProposal,
 	type SignedMessageRequest,
+	type SignerSet,
 	type SignerSetWithMembers,
 	type VoteProposalRequest,
 	type VoteProposalResponse,
@@ -163,14 +164,15 @@ export class ApiClient {
 	}
 
 	/**
-	 * Accepts an invitation.
+	 * Accepts an invitation. Needs no session: the signature identifies
+	 * the member. Returns the signer set without its members.
 	 * @param data Expects a signed
 	 *   `PersonalMessages.acceptSignerSetInvitation()` message.
 	 */
 	async acceptSignerSetInvite(
 		address: string,
 		data: SignedMessageRequest,
-	): Promise<SignerSetWithMembers> {
+	): Promise<SignerSet> {
 		return this.#unwrap(
 			await this.#api.POST(
 				'/v1/signer-sets/{address}/accept',
@@ -180,14 +182,15 @@ export class ApiClient {
 	}
 
 	/**
-	 * Rejects an invitation.
+	 * Rejects an invitation. Needs no session: the signature identifies
+	 * the member. Returns the signer set without its members.
 	 * @param data Expects a signed
 	 *   `PersonalMessages.rejectSignerSetInvitation()` message.
 	 */
 	async rejectSignerSetInvite(
 		address: string,
 		data: SignedMessageRequest,
-	): Promise<SignerSetWithMembers> {
+	): Promise<SignerSet> {
 		return this.#unwrap(
 			await this.#api.POST(
 				'/v1/signer-sets/{address}/reject',

@@ -847,11 +847,7 @@
 			"post": {
 				"tags": ["Accounts"],
 				"summary": "Add a proposer",
-				"description": "Lets an address propose transactions for the account, without voting. Signed by an accepted member.",
-				"security": [
-					{ "cookieAuth": [] },
-					{ "bearerAuth": [] }
-				],
+				"description": "Lets an address propose transactions for the account, without voting. Signed by an accepted member; no session needed.",
 				"parameters": [
 					{
 						"schema": {
@@ -894,17 +890,6 @@
 							}
 						}
 					},
-					"401": {
-						"description": "No session, or the session has expired.",
-						"content": {
-							"text/plain": {
-								"schema": {
-									"type": "string",
-									"example": "Unauthorized"
-								}
-							}
-						}
-					},
 					"403": {
 						"description": "The signer is not an accepted member of the account.",
 						"content": {
@@ -922,11 +907,7 @@
 			"delete": {
 				"tags": ["Accounts"],
 				"summary": "Remove a proposer",
-				"description": "Removes a proposer, signed by an accepted member. The proposer's pending proposals are cancelled.",
-				"security": [
-					{ "cookieAuth": [] },
-					{ "bearerAuth": [] }
-				],
+				"description": "Removes a proposer, signed by an accepted member; no session needed. The proposer's pending proposals are cancelled.",
 				"parameters": [
 					{
 						"schema": {
@@ -974,17 +955,6 @@
 							"application/json": {
 								"schema": {
 									"$ref": "#/components/schemas/Error"
-								}
-							}
-						}
-					},
-					"401": {
-						"description": "No session, or the session has expired.",
-						"content": {
-							"text/plain": {
-								"schema": {
-									"type": "string",
-									"example": "Unauthorized"
 								}
 							}
 						}
@@ -1206,11 +1176,7 @@
 			"post": {
 				"tags": ["Signer sets"],
 				"summary": "Accept an invitation",
-				"description": "Accepts the invitation of the key that signed \"Participating in multisig <address>\". Once every member has accepted, the signer set is verified.",
-				"security": [
-					{ "cookieAuth": [] },
-					{ "bearerAuth": [] }
-				],
+				"description": "Accepts the invitation of the key that signed \"Participating in multisig <address>\". No session needed: the signature identifies the member. Once every member has accepted, the signer set is verified.",
 				"parameters": [
 					{
 						"schema": {
@@ -1234,11 +1200,11 @@
 				},
 				"responses": {
 					"200": {
-						"description": "The signer set after the change.",
+						"description": "The signer set after the change, without its members: the route needs no session, so it never returns key labels.",
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/SignerSetWithMembers"
+									"$ref": "#/components/schemas/SignerSet"
 								}
 							}
 						}
@@ -1252,17 +1218,6 @@
 								}
 							}
 						}
-					},
-					"401": {
-						"description": "No session, or the session has expired.",
-						"content": {
-							"text/plain": {
-								"schema": {
-									"type": "string",
-									"example": "Unauthorized"
-								}
-							}
-						}
 					}
 				}
 			}
@@ -1271,11 +1226,7 @@
 			"post": {
 				"tags": ["Signer sets"],
 				"summary": "Reject an invitation",
-				"description": "Rejects the invitation of the key that signed \"Rejecting multisig invitation <address>\". An accepted invitation, or a verified signer set, cannot be rejected.",
-				"security": [
-					{ "cookieAuth": [] },
-					{ "bearerAuth": [] }
-				],
+				"description": "Rejects the invitation of the key that signed \"Rejecting multisig invitation <address>\". No session needed: the signature identifies the member. An accepted invitation, or a verified signer set, cannot be rejected.",
 				"parameters": [
 					{
 						"schema": {
@@ -1299,11 +1250,11 @@
 				},
 				"responses": {
 					"200": {
-						"description": "The signer set after the change.",
+						"description": "The signer set after the change, without its members: the route needs no session, so it never returns key labels.",
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/SignerSetWithMembers"
+									"$ref": "#/components/schemas/SignerSet"
 								}
 							}
 						}
@@ -1314,17 +1265,6 @@
 							"application/json": {
 								"schema": {
 									"$ref": "#/components/schemas/Error"
-								}
-							}
-						}
-					},
-					"401": {
-						"description": "No session, or the session has expired.",
-						"content": {
-							"text/plain": {
-								"schema": {
-									"type": "string",
-									"example": "Unauthorized"
 								}
 							}
 						}

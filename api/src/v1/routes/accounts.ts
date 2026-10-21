@@ -80,7 +80,6 @@ const proposerErrors = {
 	400: errorResponse(
 		'The body is malformed, the expiry is invalid or past, or the signature is invalid.',
 	),
-	401: unauthorizedResponse,
 	403: errorResponse(
 		'The signer is not an accepted member of the account.',
 	),
@@ -92,9 +91,7 @@ const addAccountProposer = createRoute({
 	tags,
 	summary: 'Add a proposer',
 	description:
-		'Lets an address propose transactions for the account, without voting. Signed by an accepted member.',
-	middleware: [requireAuth] as const,
-	security: authenticated,
+		'Lets an address propose transactions for the account, without voting. Signed by an accepted member; no session needed.',
 	request: {
 		params: z.object({ address: SuiAddressSchema }),
 		body: jsonBody(AddProposerRequestSchema),
@@ -117,9 +114,7 @@ const removeAccountProposer = createRoute({
 	tags,
 	summary: 'Remove a proposer',
 	description:
-		"Removes a proposer, signed by an accepted member. The proposer's pending proposals are cancelled.",
-	middleware: [requireAuth] as const,
-	security: authenticated,
+		"Removes a proposer, signed by an accepted member; no session needed. The proposer's pending proposals are cancelled.",
 	request: {
 		params: z.object({
 			address: SuiAddressSchema,

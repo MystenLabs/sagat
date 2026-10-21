@@ -154,6 +154,50 @@ describe('Accounts API', () => {
 			).toEqual([]);
 		});
 
+		test('changing proposers needs no session, only the signature', async () => {
+			const { users, account } =
+				await framework.createVerifiedAccount(2, 2);
+			const anonymous = framework.createSession();
+			const proposer = newUser().address;
+
+			expect(
+				await anonymous.addAccountProposer(
+					users[0],
+					proposer,
+					account.address,
+				),
+			).toEqual({ success: true });
+			// A wrong signer is still refused.
+			await expect(
+				anonymous.addAccountProposer(
+					newUser(),
+					newUser().address,
+					account.address,
+				),
+			).rejects.toMatchObject({
+				status: 403,
+				message: AuthErrors.NotAMultisigMember,
+			});
+			await expect(
+				anonymous.removeAccountProposer(
+					newUser(),
+					proposer,
+					account.address,
+				),
+			).rejects.toMatchObject({
+				status: 403,
+				message: AuthErrors.NotAMultisigMember,
+			});
+
+			expect(
+				await anonymous.removeAccountProposer(
+					users[1],
+					proposer,
+					account.address,
+				),
+			).toEqual({ success: true });
+		});
+
 		test('the legacy multisig messages are refused', async () => {
 			const { session, users, account } =
 				await framework.createVerifiedAccount(2, 2);
