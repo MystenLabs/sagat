@@ -91,6 +91,7 @@ export function WeightBar({
 								TONE_CLASS[tone],
 							)}
 							data-tone={tone}
+							data-weight={1}
 						/>
 					))}
 					{bar.tones.length > 0 && (
@@ -115,6 +116,7 @@ export function WeightBar({
 							)}
 							style={{ flexGrow: run.weight }}
 							data-tone={run.tone}
+							data-weight={run.weight}
 						/>
 					))}
 					{/* Runs have no gaps, so the marker needs an edge of its own. */}

@@ -21,7 +21,7 @@ describe('weightBarLayout', () => {
 					{ weight: 1, tone: 'accepted' },
 					{ weight: 1, tone: 'accepted' },
 				],
-				3,
+				2,
 			),
 		).toEqual({
 			kind: 'segments',
@@ -29,24 +29,59 @@ describe('weightBarLayout', () => {
 		});
 	});
 
-	it('switches to one run per signer past ten units', () => {
+	it('keeps the order stable among signers in the same state', () => {
 		expect(
 			weightBarLayout(
 				[
-					{ weight: 4, tone: 'you' },
-					{ weight: 0, tone: 'pending' },
-					{ weight: 8, tone: 'accepted' },
+					{ weight: 2, tone: 'accepted' },
+					{ weight: 1, tone: 'you' },
+					{ weight: 1, tone: 'accepted' },
 				],
-				6,
+				3,
+			),
+		).toEqual({
+			kind: 'segments',
+			tones: ['accepted', 'accepted', 'accepted', 'you'],
+		});
+	});
+
+	it('collapses to one run per signer past ten units, in the same order', () => {
+		expect(
+			weightBarLayout(
+				[
+					{ weight: 2, tone: 'you' },
+					{ weight: 0, tone: 'pending' },
+					{ weight: 4, tone: 'accepted' },
+					{ weight: 1, tone: 'pending' },
+					{ weight: 3, tone: 'accepted' },
+					{ weight: 2, tone: 'pending' },
+				],
+				8,
 			),
 		).toEqual({
 			kind: 'runs',
 			runs: [
-				{ weight: 8, tone: 'accepted' },
-				{ weight: 4, tone: 'you' },
+				{ weight: 4, tone: 'accepted' },
+				{ weight: 3, tone: 'accepted' },
+				{ weight: 2, tone: 'you' },
+				{ weight: 1, tone: 'pending' },
+				{ weight: 2, tone: 'pending' },
 			],
-			thresholdPercent: 50,
+			thresholdPercent: (8 / 12) * 100,
 		});
+	});
+
+	it('caps the threshold share at the whole bar', () => {
+		const bar = weightBarLayout(
+			[
+				{ weight: 6, tone: 'accepted' },
+				{ weight: 6, tone: 'you' },
+			],
+			15,
+		);
+		expect(bar.kind).toBe('runs');
+		if (bar.kind === 'runs')
+			expect(bar.thresholdPercent).toBe(100);
 	});
 });
 
@@ -68,6 +103,9 @@ describe('thresholdMarkerLeft', () => {
 
 	it('is centred on the threshold share over runs', () => {
 		expect(runMarkerLeft(50)).toBe('calc(50% - 1px)');
+		expect(runMarkerLeft((8 / 12) * 100)).toBe(
+			`calc(${(8 / 12) * 100}% - 1px)`,
+		);
 	});
 });
 
