@@ -5,7 +5,7 @@ export const LIMITS = {
 	/** how many members a multisig has, at least and at most. */
 	minMembersPerMultisig: 2,
 	maxMembersPerMultisig: 10,
-	/** how many multisigs a public key can be part of. */
+	/** how many accounts a public key can be part of (not signer sets). */
 	maxMultisigsPerPublicKey: 50,
 	/** how many external proposers a multisig can have. */
 	maxProposersPerMultisig: 5,

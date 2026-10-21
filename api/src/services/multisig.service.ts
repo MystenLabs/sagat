@@ -688,22 +688,43 @@ export const acceptInvitation = async ({
 
 	// The origin never changes after insert, so it is read outside the
 	// transaction.
-	const [existingConnections, origin] = await Promise.all([
-		db.query.SchemaSignerSetMembers.findMany({
-			where: and(
+	const [existingAccounts, origin] = await Promise.all([
+		// The accounts the key already signs for or is drafted into: those
+		// linked to a composition it accepted. The cap counts accounts, not
+		// signer sets, so a key carried over into a new signer set of the
+		// same account counts once. Before rotation every composition is
+		// one account, so the count is the legacy one.
+		db
+			.selectDistinct({
+				address: SchemaAccountSignerSets.accountAddress,
+			})
+			.from(SchemaSignerSetMembers)
+			.innerJoin(
+				SchemaAccountSignerSets,
 				eq(
-					SchemaSignerSetMembers.publicKey,
-					pubKey.toSuiPublicKey(),
+					SchemaAccountSignerSets.signerSetAddress,
+					SchemaSignerSetMembers.signerSetAddress,
 				),
-				eq(SchemaSignerSetMembers.isAccepted, true),
+			)
+			.where(
+				and(
+					eq(
+						SchemaSignerSetMembers.publicKey,
+						pubKey.toSuiPublicKey(),
+					),
+					eq(SchemaSignerSetMembers.isAccepted, true),
+					ne(
+						SchemaAccountSignerSets.status,
+						AccountSignerSetStatus.ABANDONED,
+					),
+				),
 			),
-		}),
 		getAccountOrigin(address),
 	]);
 
-	// Maximum connections per public key.
+	// Maximum accounts per public key.
 	if (
-		existingConnections.length >
+		existingAccounts.length >
 		LIMITS.maxMultisigsPerPublicKey
 	)
 		throw new ValidationError(
