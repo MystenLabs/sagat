@@ -7,6 +7,7 @@ import {
 	SagatClient,
 	type MultisigWithMembers,
 } from '@mysten/sagat';
+import { ApiClient } from '@mysten/sagat-v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
@@ -105,10 +106,14 @@ export async function sendCoins(
 }
 
 // A client for the API (calling the app directly), that keeps the session
-// cookie between requests like a browser would.
+// cookie between requests like a browser would. `v1` is the new SDK, for
+// the `/v1` routes; `client` is the legacy SDK, for the legacy routes.
+// Both share the cookie, so a session connected through either is
+// authenticated for both.
 export class TestSession {
 	#cookie = '';
 	readonly client: SagatClient;
+	readonly v1: ApiClient;
 
 	readonly #app: Hono;
 
@@ -119,14 +124,25 @@ export class TestSession {
 			'cookie',
 			(url, init) => this.request(url as string, init),
 		);
+		this.v1 = new ApiClient({
+			apiUrl: 'http://localhost',
+			fetch: (request) => this.request(request),
+		});
 	}
 
 	// A request with the session cookie, returning the raw response (the
-	// client hides the status code).
-	async request(path: string, init?: RequestInit) {
-		const headers = new Headers(init?.headers);
+	// clients hide the status code).
+	async request(
+		input: string | Request,
+		init?: RequestInit,
+	) {
+		const headers = new Headers(
+			input instanceof Request
+				? input.headers
+				: init?.headers,
+		);
 		if (this.#cookie) headers.set('Cookie', this.#cookie);
-		const response = await this.#app.request(path, {
+		const response = await this.#app.request(input, {
 			...init,
 			headers,
 		});

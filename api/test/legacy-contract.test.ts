@@ -317,6 +317,9 @@ async function driveLegacyRoutes(app: Hono) {
 		multisig.address,
 	);
 	await client.getMultisig(multisig.address);
+
+	// The address lookup, which has no other legacy test.
+	await client.getAddressInfo(users[0].address);
 }
 
 test('legacy routes keep their JSON contract', async () => {

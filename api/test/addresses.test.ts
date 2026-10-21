@@ -34,7 +34,7 @@ describe('Addresses API', () => {
 		await session.client.registerAddresses();
 
 		for (const user of users) {
-			const info = await session.client.getAddressInfo(
+			const info = await session.v1.getAddressInfo(
 				user.address,
 			);
 			expect(info.publicKey).toBe(user.publicKey);
@@ -46,50 +46,21 @@ describe('Addresses API', () => {
 			await framework.createAuthenticatedSession(1);
 
 		await expect(
-			session.client.getAddressInfo(`0x${'a'.repeat(64)}`),
-		).rejects.toThrow(
-			'Address is not registered in the system.',
-		);
+			session.v1.getAddressInfo(`0x${'a'.repeat(64)}`),
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Address is not registered in the system.',
+		});
 	});
 
-	test('GET /v1/addresses/:address has the legacy shape', async () => {
-		const { session, users } =
-			await framework.createAuthenticatedSession(1);
-		await session.client.registerAddresses();
-		const [user] = users;
-
-		const v1 = await session.request(
-			`/v1/addresses/${user.address}`,
-		);
-		expect(v1.status).toBe(200);
-		expect(await v1.json()).toEqual(
-			await session.client.getAddressInfo(user.address),
-		);
-
-		expect(
-			await errorOf(
-				await framework
-					.createSession()
-					.request(`/v1/addresses/0x${'a'.repeat(64)}`),
-			),
-		).toEqual({
+	test('looking up a malformed address fails without a session', async () => {
+		await expect(
+			framework
+				.createSession()
+				.v1.getAddressInfo('not-an-address'),
+		).rejects.toMatchObject({
 			status: 400,
-			body: {
-				error: 'Address is not registered in the system.',
-			},
-		});
-
-		expect(
-			await errorOf(
-				await framework
-					.createSession()
-					.request('/v1/addresses/not-an-address'),
-			),
-		).toEqual({
-			status: 400,
-			body: {
-				error: 'address: Must be a valid Sui address.',
-			},
+			message: 'address: Must be a valid Sui address.',
 		});
 	});
 
