@@ -51,3 +51,39 @@ test('the docs page is served next to the spec', async () => {
 	);
 	expect(await response.text()).toContain(OPENAPI_PATH);
 });
+
+test('the public proposal never refers to a member with a key label', async () => {
+	const { components } = await (
+		await app.request(OPENAPI_PATH)
+	).json();
+	const schemas: Record<string, unknown> =
+		components.schemas;
+
+	// Every component the public proposal refers to, directly or not.
+	const reached = new Set<string>();
+	const visit = (node: unknown) => {
+		if (Array.isArray(node)) return node.forEach(visit);
+		if (!node || typeof node !== 'object') return;
+		for (const [key, value] of Object.entries(node)) {
+			if (key === '$ref' && typeof value === 'string') {
+				const name = value.split('/').pop()!;
+				if (reached.has(name)) continue;
+				reached.add(name);
+				visit(schemas[name]);
+			} else visit(value);
+		}
+	};
+	visit(schemas.PublicProposal);
+
+	expect(reached).toContain('PublicSignerSetMember');
+	expect(reached).not.toContain('SignerSetMember');
+	expect(
+		Object.keys(
+			(
+				schemas.PublicSignerSetMember as {
+					properties: object;
+				}
+			).properties,
+		),
+	).toEqual(['publicKey', 'weight', 'order', 'hasSigned']);
+});

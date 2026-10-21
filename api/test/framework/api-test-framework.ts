@@ -10,7 +10,6 @@ import {
 	defaultExpiry,
 	PersonalMessages,
 	SagatClient,
-	type MultisigWithMembers,
 } from '@mysten/sagat-legacy';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
@@ -56,11 +55,17 @@ export const sign = async (
 		)
 	).signature;
 
-// The status and JSON body of an error response, to assert both at once.
-export const errorOf = async (response: Response) => ({
-	status: response.status,
-	body: await response.json(),
-});
+// The status and message of an SDK call that must fail.
+export const failureOf = (call: Promise<unknown>) =>
+	call.then(
+		() => {
+			throw new Error('Expected the call to fail');
+		},
+		(error: { status: number; message: string }) => ({
+			status: error.status,
+			message: error.message,
+		}),
+	);
 
 // A transfer of `amount` MIST from `sender` back to itself, paying for gas
 // with `gasCoin` if given (so proposals using different coins don't collide).
@@ -155,15 +160,6 @@ export class TestSession {
 			?.match(/connected-wallet=([^;]*)/);
 		if (cookie) this.#cookie = cookie[1] ? cookie[0] : '';
 		return response;
-	}
-
-	// A raw JSON POST with the session cookie.
-	post(path: string, body: unknown) {
-		return this.request(path, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body),
-		});
 	}
 
 	async connectUser(user: TestUser) {
@@ -272,6 +268,133 @@ export class TestSession {
 		);
 	}
 
+	async createProposal(
+		proposer: TestUser,
+		accountAddress: string,
+		network: string,
+		transactionBytes: string,
+		description?: string,
+	) {
+		const { signature } =
+			await proposer.keypair.signTransaction(
+				fromBase64(transactionBytes),
+			);
+		return this.v1.createProposal({
+			accountAddress,
+			network,
+			transactionBytes,
+			signature,
+			description,
+		});
+	}
+
+	async proposeTransfer(
+		proposer: TestUser,
+		accountAddress: string,
+		description?: string,
+	) {
+		return this.createProposal(
+			proposer,
+			accountAddress,
+			'localnet',
+			await buildTransfer(accountAddress),
+			description,
+		);
+	}
+
+	async voteOnProposal(
+		voter: TestUser,
+		proposalId: number,
+		transactionBytes: string,
+	) {
+		const { signature } =
+			await voter.keypair.signTransaction(
+				fromBase64(transactionBytes),
+			);
+		return this.v1.voteForProposal(proposalId, {
+			signature,
+		});
+	}
+
+	// Collects the votes still needed from `voters`, executes the proposal
+	// on chain with the first signer set that reached its threshold (as
+	// docs/migration-guide.md describes) and verifies it through the API.
+	async voteAndExecute(voters: TestUser[], digest: string) {
+		const proposal =
+			await this.v1.getProposalByDigest(digest);
+		for (const voter of voters) {
+			if (
+				proposal.signatures.some(
+					(sig) => sig.publicKey === voter.publicKey,
+				)
+			)
+				continue;
+			const { hasReachedThreshold } =
+				await this.voteOnProposal(
+					voter,
+					proposal.id,
+					proposal.transactionBytes,
+				);
+			if (hasReachedThreshold) break;
+		}
+
+		const { signerSets, signatures, transactionBytes } =
+			await this.v1.getProposalByDigest(digest);
+		const set = signerSets.find(
+			(s) => s.hasReachedThreshold,
+		);
+		if (!set)
+			throw new Error(
+				'No signer set has reached its threshold',
+			);
+		const members = [...set.members].sort(
+			(a, b) => a.order - b.order,
+		);
+		const signerSetKey = MultiSigPublicKey.fromPublicKeys({
+			threshold: set.threshold,
+			publicKeys: members.map((m) => ({
+				publicKey: parsePublicKey(m.publicKey),
+				weight: m.weight,
+			})),
+		});
+		const result = await client.executeTransaction({
+			transaction: fromBase64(transactionBytes),
+			signatures: [
+				signerSetKey.combinePartialSignatures(
+					members.flatMap(
+						(m) =>
+							signatures.find(
+								(sig) => sig.publicKey === m.publicKey,
+							)?.signature ?? [],
+					),
+				),
+			],
+			include: { effects: true },
+		});
+		const tx =
+			result.$kind === 'Transaction'
+				? result.Transaction
+				: result.FailedTransaction;
+		await client.waitForTransaction({
+			digest: tx.digest,
+			...LOCALNET_WAIT,
+		});
+		await this.v1.verifyProposalByDigest(digest);
+		return tx;
+	}
+
+	async cancelProposal(
+		member: TestUser,
+		proposalId: number,
+	) {
+		return this.v1.cancelProposal(proposalId, {
+			signature: await sign(
+				member,
+				V1Messages.cancelProposal(proposalId),
+			),
+		});
+	}
+
 	// Legacy helpers, through `client`.
 
 	async createMultisig(
@@ -376,7 +499,7 @@ export class TestSession {
 		);
 	}
 
-	async createProposal(
+	async legacyCreateProposal(
 		proposer: TestUser,
 		multisigAddress: string,
 		network: string,
@@ -396,21 +519,7 @@ export class TestSession {
 		});
 	}
 
-	async proposeTransfer(
-		proposer: TestUser,
-		multisigAddress: string,
-		description?: string,
-	) {
-		return this.createProposal(
-			proposer,
-			multisigAddress,
-			'localnet',
-			await buildTransfer(multisigAddress),
-			description,
-		);
-	}
-
-	async voteOnProposal(
+	async legacyVoteOnProposal(
 		voter: TestUser,
 		proposalId: number,
 		transactionBytes: string,
@@ -424,66 +533,7 @@ export class TestSession {
 		});
 	}
 
-	// Collects the votes still needed from `voters`, executes the proposal
-	// on chain and verifies it through the API.
-	async voteAndExecute(voters: TestUser[], digest: string) {
-		const proposal =
-			await this.client.getProposalByDigest(digest);
-		for (const voter of voters) {
-			if (
-				proposal.signatures.some(
-					(sig) => sig.publicKey === voter.publicKey,
-				)
-			)
-				continue;
-			const { hasReachedThreshold } =
-				await this.voteOnProposal(
-					voter,
-					proposal.id,
-					proposal.transactionBytes,
-				);
-			if (hasReachedThreshold) break;
-		}
-
-		const { multisig, signatures, transactionBytes } =
-			await this.client.getProposalByDigest(digest);
-		const members = multisig.members.sort(
-			(a, b) => a.order - b.order,
-		);
-		const multisigKey = MultiSigPublicKey.fromPublicKeys({
-			threshold: multisig.threshold,
-			publicKeys: members.map((m) => ({
-				publicKey: parsePublicKey(m.publicKey),
-				weight: m.weight,
-			})),
-		});
-		const result = await client.executeTransaction({
-			transaction: fromBase64(transactionBytes),
-			signatures: [
-				multisigKey.combinePartialSignatures(
-					members.flatMap(
-						(m) =>
-							signatures.find(
-								(sig) => sig.publicKey === m.publicKey,
-							)?.signature ?? [],
-					),
-				),
-			],
-			include: { effects: true },
-		});
-		const tx =
-			result.$kind === 'Transaction'
-				? result.Transaction
-				: result.FailedTransaction;
-		await client.waitForTransaction({
-			digest: tx.digest,
-			...LOCALNET_WAIT,
-		});
-		await this.client.verifyProposalByDigest(digest);
-		return tx;
-	}
-
-	async cancelProposal(
+	async legacyCancelProposal(
 		member: TestUser,
 		proposalId: number,
 	) {
@@ -512,29 +562,6 @@ export class ApiTestFramework {
 		for (const user of users)
 			await session.connectUser(user);
 		return { session, users };
-	}
-
-	async createVerifiedMultisig(
-		userCount: number,
-		threshold: number,
-		fund = false,
-	): Promise<{
-		session: TestSession;
-		users: TestUser[];
-		multisig: MultisigWithMembers;
-	}> {
-		const { session, users } =
-			await this.createAuthenticatedSession(userCount);
-		const multisig = await session.createMultisig(
-			users,
-			threshold,
-			{ fund },
-		);
-		// Members connected to the session are accepted on creation, but
-		// only an accept verifies the multisig.
-		for (const user of users.slice(1))
-			await session.acceptMultisig(user, multisig.address);
-		return { session, users, multisig };
 	}
 
 	// An account whose original signer set has every user as a member, all
@@ -568,17 +595,6 @@ export class ApiTestFramework {
 		threshold: number,
 	) {
 		return this.createVerifiedAccount(
-			userCount,
-			threshold,
-			true,
-		);
-	}
-
-	createFundedVerifiedMultisig(
-		userCount: number,
-		threshold: number,
-	) {
-		return this.createVerifiedMultisig(
 			userCount,
 			threshold,
 			true,

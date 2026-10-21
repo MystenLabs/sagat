@@ -101,13 +101,13 @@ describe('Address Balance Proposals', () => {
 
 	describe('Basic Address Balance Proposals', () => {
 		test('creates, votes, and executes a proposal using address balance gas', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
+			const { session, users, account } =
+				await framework.createFundedVerifiedAccount(2, 2);
 
-			await depositToAddressBalance(multisig.address);
+			await depositToAddressBalance(account.address);
 
 			const built = await buildAddressBalanceTx(
-				multisig.address,
+				account.address,
 				'0x1111111111111111111111111111111111111111111111111111111111111111',
 				1_000_000,
 			);
@@ -115,16 +115,14 @@ describe('Address Balance Proposals', () => {
 
 			const proposal = await session.createProposal(
 				users[0],
-				multisig.address,
+				account.address,
 				'localnet',
 				built.toBase64(),
 				'Address balance proposal',
 			);
 
 			expect(proposal.id).toBeDefined();
-			expect(proposal.multisigAddress).toBe(
-				multisig.address,
-			);
+			expect(proposal.accountAddress).toBe(account.address);
 
 			const tx = await session.voteAndExecute(
 				users,
@@ -136,10 +134,10 @@ describe('Address Balance Proposals', () => {
 
 	describe('Parallel Address Balance Proposals', () => {
 		test('creates, votes, and executes multiple proposals in parallel using coinWithBalance', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
+			const { session, users, account } =
+				await framework.createFundedVerifiedAccount(2, 2);
 
-			await depositToAddressBalance(multisig.address);
+			await depositToAddressBalance(account.address);
 
 			const count = 5;
 			const builtTxs: Uint8Array[] = [];
@@ -147,7 +145,7 @@ describe('Address Balance Proposals', () => {
 			for (let i = 0; i < count; i++) {
 				const recipient = `0x${String(i + 1).padStart(64, '0')}`;
 				const built = await buildCoinWithBalanceTx(
-					multisig.address,
+					account.address,
 					recipient,
 					100_000 * (i + 1),
 				);
@@ -159,7 +157,7 @@ describe('Address Balance Proposals', () => {
 				builtTxs.map((built, i) =>
 					session.createProposal(
 						users[0],
-						multisig.address,
+						account.address,
 						'localnet',
 						built.toBase64(),
 						`Parallel proposal ${i + 1}`,
@@ -183,25 +181,25 @@ describe('Address Balance Proposals', () => {
 
 	describe('Mixed Gas Payment Proposals', () => {
 		test('executes both coin-based and address balance proposals without collision', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
+			const { session, users, account } =
+				await framework.createFundedVerifiedAccount(2, 2);
 
-			await depositToAddressBalance(multisig.address);
+			await depositToAddressBalance(account.address);
 
 			// Coin-based proposal
 			const {
 				objects: [gasCoin],
 			} = await client.listCoins({
-				owner: multisig.address,
+				owner: account.address,
 			});
 			const coinTxBytes = await buildTransfer(
-				multisig.address,
+				account.address,
 				{ gasCoin },
 			);
 
 			const coinProposal = await session.createProposal(
 				users[0],
-				multisig.address,
+				account.address,
 				'localnet',
 				coinTxBytes,
 				'Coin-based proposal',
@@ -209,7 +207,7 @@ describe('Address Balance Proposals', () => {
 
 			// Address balance proposal
 			const addrBalanceTx = await buildAddressBalanceTx(
-				multisig.address,
+				account.address,
 				'0x3333333333333333333333333333333333333333333333333333333333333333',
 				500_000,
 			);
@@ -218,7 +216,7 @@ describe('Address Balance Proposals', () => {
 			const addrBalanceProposal =
 				await session.createProposal(
 					users[0],
-					multisig.address,
+					account.address,
 					'localnet',
 					addrBalanceTx.toBase64(),
 					'Address balance proposal',
@@ -246,18 +244,18 @@ describe('Address Balance Proposals', () => {
 
 	describe('Object Collision With Address Balance Gas', () => {
 		test('still detects non-gas owned object collisions', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
+			const { session, users, account } =
+				await framework.createFundedVerifiedAccount(2, 2);
 
-			await depositToAddressBalance(multisig.address);
+			await depositToAddressBalance(account.address);
 
 			const coins = await client.listCoins({
-				owner: multisig.address,
+				owner: account.address,
 			});
 			const sharedCoin = coins.objects[0];
 
 			const tx1 = new Transaction();
-			tx1.setSender(multisig.address);
+			tx1.setSender(account.address);
 			const [split1] = tx1.splitCoins(
 				sharedCoin.objectId,
 				[100_000],
@@ -272,7 +270,7 @@ describe('Address Balance Proposals', () => {
 
 			const proposal1 = await session.createProposal(
 				users[0],
-				multisig.address,
+				account.address,
 				'localnet',
 				built1.toBase64(),
 				'First address balance proposal with owned object',
@@ -280,7 +278,7 @@ describe('Address Balance Proposals', () => {
 			expect(proposal1.id).toBeDefined();
 
 			const tx2 = new Transaction();
-			tx2.setSender(multisig.address);
+			tx2.setSender(account.address);
 			const [split2] = tx2.splitCoins(
 				sharedCoin.objectId,
 				[200_000],
@@ -296,7 +294,7 @@ describe('Address Balance Proposals', () => {
 			await expect(
 				session.createProposal(
 					users[0],
-					multisig.address,
+					account.address,
 					'localnet',
 					built2.toBase64(),
 					'Conflicting address balance proposal',

@@ -729,6 +729,443 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List proposals
+         * @description An account's proposals on a network, newest first, for a session holding an accepted key of the account.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description A Sui address. */
+                    accountAddress: components["schemas"]["SuiAddress"];
+                    network: string;
+                    status?: "PENDING" | "CANCELLED" | "SUCCESS" | "FAILURE";
+                    /** @description The `nextCursor` of the previous page. */
+                    nextCursor?: string;
+                    /** @description The page size. Larger values are capped. */
+                    perPage?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description A page. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProposalPage"];
+                    };
+                };
+                /** @description The query is malformed or the network is unsupported. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+                /** @description No accepted key of the session is in the account. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a proposal
+         * @description Proposes a transaction for an account, signed by an accepted member or a proposer of the account. A member's signature is its first vote. The transaction may not reuse an owned object of another pending proposal.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description The new proposal. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Proposal"];
+                    };
+                };
+                /** @description The network is unsupported, the transaction is unresolved, invalid or conflicts with a pending proposal, or the signature is invalid. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The signer is neither an accepted member nor a proposer. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The account does not exist. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/proposals/digest/{digest}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a proposal by digest
+         * @description Public. The proposal with its signatures and the account's signer sets, each with its progress. Key labels and proposers are never included.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description A Sui transaction digest, base58. */
+                    digest: components["schemas"]["TransactionDigest"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The proposal. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PublicProposal"];
+                    };
+                };
+                /** @description The digest is malformed. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No proposal has this digest. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/proposals/{id}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Vote for a proposal
+         * @description Adds a member's signature over the proposal's transaction.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The proposal id. */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VoteProposalRequest"];
+                };
+            };
+            responses: {
+                /** @description Which signer sets can now execute the proposal. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VoteProposalResponse"];
+                    };
+                };
+                /** @description The proposal does not exist or is not pending, the member already voted, or the signature is not over the transaction. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The signer is not a member of the account. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/proposals/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a proposal
+         * @description Cancels a pending proposal, signed by an accepted member over "Cancel proposal <id>".
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The proposal id. */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SignedMessageRequest"];
+                };
+            };
+            responses: {
+                /** @description The proposal is cancelled. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CancelProposalResponse"];
+                    };
+                };
+                /** @description The proposal does not exist or is not pending, the signer is not an accepted member, or the signature is invalid. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/proposals/{id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an executed proposal
+         * @description Reads the transaction from the chain and records whether it succeeded, for a session holding an accepted key of the account. Call it after executing.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description The proposal id. */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The outcome on chain is recorded in the proposal status. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VerifyProposalResponse"];
+                    };
+                };
+                /** @description The proposal does not exist, has not reached its threshold, or was not executed yet. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+                /** @description No accepted key of the session is in the account. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/proposals/{digest}/verify-by-digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an executed proposal by digest
+         * @description Public. Like the verify route, for a proposal found by its digest: it only reads the chain.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description A Sui transaction digest, base58. */
+                    digest: components["schemas"]["TransactionDigest"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The outcome on chain is recorded in the proposal status. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VerifyProposalResponse"];
+                    };
+                };
+                /** @description The digest is malformed, or the proposal has not reached its threshold or was not executed yet. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No proposal has this digest. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -851,6 +1288,114 @@ export interface components {
         SignedMessageRequest: {
             /** @description A signature over the personal message the route verifies. */
             signature: string;
+        };
+        Proposal: {
+            id: number;
+            accountAddress: components["schemas"]["SuiAddress"];
+            digest: components["schemas"]["TransactionDigest"];
+            status: components["schemas"]["ProposalStatus"];
+            /** @description The built transaction, base64. */
+            transactionBytes: string;
+            proposerAddress: components["schemas"]["SuiAddress"];
+            description: string | null;
+            /** @example mainnet */
+            network: string;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T12:00:00.000Z
+             */
+            createdAt: string;
+            executedVia: components["schemas"]["SuiAddress"] & (string | null);
+        };
+        /**
+         * @description A Sui transaction digest, base58.
+         * @example C5xDL4jZ5cDyDqUt1ZwhmB1Mw3vKpA7Y2qTxwZv3Wpv4
+         */
+        TransactionDigest: string;
+        /**
+         * @description 0 pending, 1 cancelled, 2 succeeded on chain, 3 failed on chain.
+         * @enum {integer}
+         */
+        ProposalStatus: 0 | 1 | 2 | 3;
+        CreateProposalRequest: {
+            accountAddress: components["schemas"]["SuiAddress"];
+            /** @description The fully resolved transaction, base64. Its sender is the account. */
+            transactionBytes: string;
+            /** @description The proposer's signature over the transaction. A member's signature counts as its vote. */
+            signature: string;
+            /** @description What the proposal does. */
+            description?: string | null;
+            /** @example mainnet */
+            network: string;
+        };
+        ProposalPage: {
+            data: components["schemas"]["ProposalWithSignatures"][];
+            hasNextPage: boolean;
+            /** @description Pass it as `nextCursor` to get the next page. Absent when the page is empty. */
+            nextCursor?: string;
+            perPage: number;
+        };
+        ProposalWithSignatures: components["schemas"]["Proposal"] & {
+            signatures: components["schemas"]["ProposalSignature"][];
+        };
+        ProposalSignature: {
+            proposalId: number;
+            /**
+             * @description The Sui public key, base64, with its scheme flag.
+             * @example AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz
+             */
+            publicKey: string;
+            /** @description The member's signature over the transaction, base64. */
+            signature: string;
+        };
+        PublicProposal: components["schemas"]["ProposalWithSignatures"] & {
+            /** @description The account's signer sets that can execute the proposal, with its progress in each. */
+            signerSets: components["schemas"]["ProposalSignerSet"][];
+        };
+        ProposalSignerSet: {
+            address: components["schemas"]["SuiAddress"];
+            /**
+             * @description The account's label for the signer set, or null.
+             * @example Operations
+             */
+            label: string | null;
+            threshold: number;
+            /** @description The sum of the member weights. */
+            totalWeight: number;
+            /** @description The sum of the weights of the members that signed. */
+            currentWeight: number;
+            /** @description Whether `currentWeight` reaches `threshold`, so the set can execute the proposal. */
+            hasReachedThreshold: boolean;
+            members: components["schemas"]["PublicSignerSetMember"][];
+        };
+        PublicSignerSetMember: {
+            /**
+             * @description The Sui public key, base64, with its scheme flag.
+             * @example AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz
+             */
+            publicKey: string;
+            weight: number;
+            order: number;
+            /** @description Whether this key signed the proposal. */
+            hasSigned: boolean;
+        };
+        VoteProposalResponse: {
+            /** @description Whether any signer set has reached its threshold. */
+            hasReachedThreshold: boolean;
+            /** @description The signer sets that have reached their threshold. */
+            readySignerSets: components["schemas"]["SuiAddress"][];
+        };
+        VoteProposalRequest: {
+            /** @description The member's signature over the proposal's transaction. */
+            signature: string;
+        };
+        CancelProposalResponse: {
+            /** @example Proposal cancelled successfully */
+            message: string;
+        };
+        VerifyProposalResponse: {
+            /** @enum {boolean} */
+            verified: true;
         };
     };
     responses: never;

@@ -243,6 +243,41 @@ export const listAccounts = async ({
 };
 
 /**
+ * The active signer sets of an account, in the order they were linked,
+ * without key labels: for the public proposal view and the vote tally.
+ */
+export const loadActiveSignerSets = async (
+	accountAddress: string,
+): Promise<Omit<LinkedSignerSet, 'labels'>[]> => {
+	const links = await db
+		.select()
+		.from(SchemaAccountSignerSets)
+		.where(
+			and(
+				eq(
+					SchemaAccountSignerSets.accountAddress,
+					accountAddress,
+				),
+				inArray(
+					SchemaAccountSignerSets.status,
+					ACTIVE_LINK_STATUSES,
+				),
+			),
+		)
+		.orderBy(
+			asc(SchemaAccountSignerSets.createdAt),
+			asc(SchemaAccountSignerSets.signerSetAddress),
+		);
+	const signerSets = await SignerSetDataLoader.loadMany(
+		links.map((l) => l.signerSetAddress),
+	);
+	return links.flatMap((link, i) => {
+		const signerSet = unwrap(signerSets[i]);
+		return signerSet ? [{ link, signerSet }] : [];
+	});
+};
+
+/**
  * Signer sets with the link row of the account they belong to. A signer set
  * outside an account route is shown as its own account knows it (the link
  * row whose account has the signer set's address), else as the account it

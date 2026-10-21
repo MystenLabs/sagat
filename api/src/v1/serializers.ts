@@ -7,12 +7,18 @@
  * column never reaches a response by accident.
  */
 
-import { type SignerSetMember } from '../db/schema';
+import {
+	type Proposal,
+	type ProposalWithSignatures,
+	type SignerSetMember,
+} from '../db/schema';
 import { type KeyLabels } from '../loaders/account-keys.loader';
 import {
 	type AccountWithSignerSets,
 	type LinkedSignerSet,
 } from '../services/accounts.service';
+import { type SignerSetTally } from '../services/proposals.service';
+import { type PaginatedResponse } from '../utils/pagination';
 
 export const toSignerSetMember = (
 	member: SignerSetMember,
@@ -60,4 +66,72 @@ export const toAccount = ({
 		addedAt: proposer.addedAt,
 	})),
 	signerSets: signerSets.map(toSignerSetWithMembers),
+});
+
+export const toProposal = (proposal: Proposal) => ({
+	id: proposal.id,
+	accountAddress: proposal.accountAddress,
+	digest: proposal.digest,
+	status: proposal.status,
+	transactionBytes: proposal.transactionBytes,
+	proposerAddress: proposal.proposerAddress,
+	description: proposal.description,
+	network: proposal.network,
+	createdAt: proposal.createdAt,
+	executedVia: proposal.executedVia,
+});
+
+export const toProposalWithSignatures = (
+	proposal: ProposalWithSignatures,
+) => ({
+	...toProposal(proposal),
+	signatures: proposal.signatures.map((signature) => ({
+		proposalId: signature.proposalId,
+		publicKey: signature.publicKey,
+		signature: signature.signature,
+	})),
+});
+
+export const toProposalPage = (
+	page: PaginatedResponse<ProposalWithSignatures>,
+) => ({
+	data: page.data.map(toProposalWithSignatures),
+	hasNextPage: page.hasNextPage,
+	nextCursor: page.nextCursor,
+	perPage: page.perPage,
+});
+
+// The public view of a proposal. Members are listed with whether they
+// signed, never with the account's labels for their keys.
+export const toPublicProposal = ({
+	proposal,
+	signerSets,
+}: {
+	proposal: ProposalWithSignatures;
+	signerSets: SignerSetTally[];
+}) => ({
+	...toProposalWithSignatures(proposal),
+	signerSets: signerSets.map(
+		({
+			link,
+			signerSet,
+			currentWeight,
+			hasReachedThreshold,
+		}) => ({
+			address: signerSet.address,
+			label: link.label,
+			threshold: signerSet.threshold,
+			totalWeight: signerSet.totalWeight,
+			currentWeight,
+			hasReachedThreshold,
+			members: signerSet.members.map((member) => ({
+				publicKey: member.publicKey,
+				weight: member.weight,
+				order: member.order,
+				hasSigned: proposal.signatures.some(
+					(s) => s.publicKey === member.publicKey,
+				),
+			})),
+		}),
+	),
 });

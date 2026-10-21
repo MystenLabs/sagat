@@ -687,14 +687,22 @@ describe('Signer sets API', () => {
 			// A client that never connected.
 			const anonymous = framework.createSession();
 
-			// The public proposal lookup shows the composition, never the labels.
+			// The public proposal lookup shows the composition, never the key
+			// labels. The signer set's own label is the account's, not a key's.
 			const byDigest =
-				await anonymous.client.getProposalByDigest(
+				await anonymous.v1.getProposalByDigest(
 					proposal.digest,
 				);
-			expect(byDigest.multisig.members).toHaveLength(2);
+			const [signerSet] = byDigest.signerSets;
+			expect(signerSet.members).toHaveLength(2);
+			for (const member of signerSet.members)
+				expect(Object.keys(member).sort()).toEqual([
+					'hasSigned',
+					'order',
+					'publicKey',
+					'weight',
+				]);
 			const serialized = JSON.stringify(byDigest);
-			expect(serialized).not.toContain('"label"');
 			expect(serialized).not.toContain("Alice's Ledger");
 			expect(serialized).not.toContain('Ops key');
 

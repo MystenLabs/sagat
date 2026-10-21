@@ -17,6 +17,10 @@
 		{
 			"name": "Signer sets",
 			"description": "Compositions of keys, weights and a threshold that sign for an account, and the invitations to join them."
+		},
+		{
+			"name": "Proposals",
+			"description": "Transactions proposed for an account, the signatures collected for them, and their outcome on chain."
 		}
 	],
 	"components": {
@@ -331,6 +335,304 @@
 					}
 				},
 				"required": ["signature"]
+			},
+			"Proposal": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"accountAddress": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"digest": {
+						"$ref": "#/components/schemas/TransactionDigest"
+					},
+					"status": {
+						"$ref": "#/components/schemas/ProposalStatus"
+					},
+					"transactionBytes": {
+						"type": "string",
+						"description": "The built transaction, base64."
+					},
+					"proposerAddress": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"description": {
+						"type": ["string", "null"],
+						"maxLength": 1000
+					},
+					"network": {
+						"type": "string",
+						"example": "mainnet"
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2026-10-01T12:00:00.000Z"
+					},
+					"executedVia": {
+						"allOf": [
+							{ "$ref": "#/components/schemas/SuiAddress" },
+							{
+								"type": ["string", "null"],
+								"description": "The signer set whose signatures executed the proposal, or null."
+							}
+						]
+					}
+				},
+				"required": [
+					"id",
+					"accountAddress",
+					"digest",
+					"status",
+					"transactionBytes",
+					"proposerAddress",
+					"description",
+					"network",
+					"createdAt",
+					"executedVia"
+				]
+			},
+			"TransactionDigest": {
+				"type": "string",
+				"description": "A Sui transaction digest, base58.",
+				"example": "C5xDL4jZ5cDyDqUt1ZwhmB1Mw3vKpA7Y2qTxwZv3Wpv4"
+			},
+			"ProposalStatus": {
+				"type": "integer",
+				"enum": [0, 1, 2, 3],
+				"description": "0 pending, 1 cancelled, 2 succeeded on chain, 3 failed on chain."
+			},
+			"CreateProposalRequest": {
+				"type": "object",
+				"properties": {
+					"accountAddress": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"transactionBytes": {
+						"type": "string",
+						"description": "The fully resolved transaction, base64. Its sender is the account."
+					},
+					"signature": {
+						"type": "string",
+						"description": "The proposer's signature over the transaction. A member's signature counts as its vote."
+					},
+					"description": {
+						"type": ["string", "null"],
+						"description": "What the proposal does."
+					},
+					"network": {
+						"type": "string",
+						"example": "mainnet"
+					}
+				},
+				"required": [
+					"accountAddress",
+					"transactionBytes",
+					"signature",
+					"network"
+				]
+			},
+			"ProposalPage": {
+				"type": "object",
+				"properties": {
+					"data": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ProposalWithSignatures"
+						}
+					},
+					"hasNextPage": { "type": "boolean" },
+					"nextCursor": {
+						"type": "string",
+						"description": "Pass it as `nextCursor` to get the next page. Absent when the page is empty."
+					},
+					"perPage": { "type": "integer" }
+				},
+				"required": ["data", "hasNextPage", "perPage"]
+			},
+			"ProposalWithSignatures": {
+				"allOf": [
+					{ "$ref": "#/components/schemas/Proposal" },
+					{
+						"type": "object",
+						"properties": {
+							"signatures": {
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/ProposalSignature"
+								}
+							}
+						},
+						"required": ["signatures"]
+					}
+				]
+			},
+			"ProposalSignature": {
+				"type": "object",
+				"properties": {
+					"proposalId": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"publicKey": {
+						"type": "string",
+						"description": "The Sui public key, base64, with its scheme flag.",
+						"example": "AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz"
+					},
+					"signature": {
+						"type": "string",
+						"description": "The member's signature over the transaction, base64."
+					}
+				},
+				"required": ["proposalId", "publicKey", "signature"]
+			},
+			"PublicProposal": {
+				"allOf": [
+					{
+						"$ref": "#/components/schemas/ProposalWithSignatures"
+					},
+					{
+						"type": "object",
+						"properties": {
+							"signerSets": {
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/ProposalSignerSet"
+								},
+								"description": "The account's signer sets that can execute the proposal, with its progress in each."
+							}
+						},
+						"required": ["signerSets"]
+					}
+				]
+			},
+			"ProposalSignerSet": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"label": {
+						"type": ["string", "null"],
+						"maxLength": 255,
+						"description": "The account's label for the signer set, or null.",
+						"example": "Operations"
+					},
+					"threshold": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"totalWeight": {
+						"type": "integer",
+						"description": "The sum of the member weights."
+					},
+					"currentWeight": {
+						"type": "integer",
+						"description": "The sum of the weights of the members that signed."
+					},
+					"hasReachedThreshold": {
+						"type": "boolean",
+						"description": "Whether `currentWeight` reaches `threshold`, so the set can execute the proposal."
+					},
+					"members": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/PublicSignerSetMember"
+						}
+					}
+				},
+				"required": [
+					"address",
+					"label",
+					"threshold",
+					"totalWeight",
+					"currentWeight",
+					"hasReachedThreshold",
+					"members"
+				]
+			},
+			"PublicSignerSetMember": {
+				"type": "object",
+				"properties": {
+					"publicKey": {
+						"type": "string",
+						"description": "The Sui public key, base64, with its scheme flag.",
+						"example": "AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz"
+					},
+					"weight": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"order": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"hasSigned": {
+						"type": "boolean",
+						"description": "Whether this key signed the proposal."
+					}
+				},
+				"required": [
+					"publicKey",
+					"weight",
+					"order",
+					"hasSigned"
+				]
+			},
+			"VoteProposalResponse": {
+				"type": "object",
+				"properties": {
+					"hasReachedThreshold": {
+						"type": "boolean",
+						"description": "Whether any signer set has reached its threshold."
+					},
+					"readySignerSets": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"description": "The signer sets that have reached their threshold."
+					}
+				},
+				"required": [
+					"hasReachedThreshold",
+					"readySignerSets"
+				]
+			},
+			"VoteProposalRequest": {
+				"type": "object",
+				"properties": {
+					"signature": {
+						"type": "string",
+						"description": "The member's signature over the proposal's transaction."
+					}
+				},
+				"required": ["signature"]
+			},
+			"CancelProposalResponse": {
+				"type": "object",
+				"properties": {
+					"message": {
+						"type": "string",
+						"example": "Proposal cancelled successfully"
+					}
+				},
+				"required": ["message"]
+			},
+			"VerifyProposalResponse": {
+				"type": "object",
+				"properties": {
+					"verified": { "type": "boolean", "enum": [true] }
+				},
+				"required": ["verified"]
 			}
 		},
 		"parameters": {}
@@ -1029,6 +1331,453 @@
 					},
 					"404": {
 						"description": "The signer set does not exist.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals": {
+			"post": {
+				"tags": ["Proposals"],
+				"summary": "Create a proposal",
+				"description": "Proposes a transaction for an account, signed by an accepted member or a proposer of the account. A member's signature is its first vote. The transaction may not reuse an owned object of another pending proposal.",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateProposalRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "The new proposal.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The network is unsupported, the transaction is unresolved, invalid or conflicts with a pending proposal, or the signature is invalid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is neither an accepted member nor a proposer.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "The account does not exist.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"get": {
+				"tags": ["Proposals"],
+				"summary": "List proposals",
+				"description": "An account's proposals on a network, newest first, for a session holding an accepted key of the account.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "accountAddress",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"example": "mainnet"
+						},
+						"required": true,
+						"name": "network",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"enum": [
+								"PENDING",
+								"CANCELLED",
+								"SUCCESS",
+								"FAILURE"
+							]
+						},
+						"required": false,
+						"name": "status",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"description": "The `nextCursor` of the previous page."
+						},
+						"required": false,
+						"description": "The `nextCursor` of the previous page.",
+						"name": "nextCursor",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "integer",
+							"exclusiveMinimum": 0,
+							"description": "The page size. Larger values are capped."
+						},
+						"required": false,
+						"description": "The page size. Larger values are capped.",
+						"name": "perPage",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "A page.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ProposalPage"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The query is malformed or the network is unsupported.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "No accepted key of the session is in the account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/digest/{digest}": {
+			"get": {
+				"tags": ["Proposals"],
+				"summary": "Get a proposal by digest",
+				"description": "Public. The proposal with its signatures and the account's signer sets, each with its progress. Key labels and proposers are never included.",
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/TransactionDigest"
+						},
+						"required": true,
+						"description": "A Sui transaction digest, base58.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The proposal.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PublicProposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest is malformed.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{id}/vote": {
+			"post": {
+				"tags": ["Proposals"],
+				"summary": "Vote for a proposal",
+				"description": "Adds a member's signature over the proposal's transaction.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"exclusiveMinimum": 0,
+							"description": "The proposal id."
+						},
+						"required": true,
+						"description": "The proposal id.",
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/VoteProposalRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Which signer sets can now execute the proposal.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VoteProposalResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The proposal does not exist or is not pending, the member already voted, or the signature is not over the transaction.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is not a member of the account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{id}/cancel": {
+			"post": {
+				"tags": ["Proposals"],
+				"summary": "Cancel a proposal",
+				"description": "Cancels a pending proposal, signed by an accepted member over \"Cancel proposal <id>\".",
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"exclusiveMinimum": 0,
+							"description": "The proposal id."
+						},
+						"required": true,
+						"description": "The proposal id.",
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignedMessageRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The proposal is cancelled.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CancelProposalResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The proposal does not exist or is not pending, the signer is not an accepted member, or the signature is invalid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{id}/verify": {
+			"post": {
+				"tags": ["Proposals"],
+				"summary": "Verify an executed proposal",
+				"description": "Reads the transaction from the chain and records whether it succeeded, for a session holding an accepted key of the account. Call it after executing.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "integer",
+							"exclusiveMinimum": 0,
+							"description": "The proposal id."
+						},
+						"required": true,
+						"description": "The proposal id.",
+						"name": "id",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The outcome on chain is recorded in the proposal status.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VerifyProposalResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The proposal does not exist, has not reached its threshold, or was not executed yet.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "No accepted key of the session is in the account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{digest}/verify-by-digest": {
+			"post": {
+				"tags": ["Proposals"],
+				"summary": "Verify an executed proposal by digest",
+				"description": "Public. Like the verify route, for a proposal found by its digest: it only reads the chain.",
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/TransactionDigest"
+						},
+						"required": true,
+						"description": "A Sui transaction digest, base58.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The outcome on chain is recorded in the proposal status.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VerifyProposalResponse"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest is malformed, or the proposal has not reached its threshold or was not executed yet.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
 						"content": {
 							"application/json": {
 								"schema": {

@@ -22,6 +22,7 @@ import { type Env } from 'hono';
 
 import { mountAccounts } from './routes/accounts';
 import { mountAddresses } from './routes/addresses';
+import { mountProposals } from './routes/proposals';
 import { mountSignerSets } from './routes/signer-sets';
 
 export const OPENAPI_PATH = '/v1/openapi.json';
@@ -71,6 +72,11 @@ const openApiConfig: OpenAPIObjectConfigure<
 			description:
 				'Compositions of keys, weights and a threshold that sign for an account, and the invitations to join them.',
 		},
+		{
+			name: 'Proposals',
+			description:
+				'Transactions proposed for an account, the signatures collected for them, and their outcome on chain.',
+		},
 	],
 };
 
@@ -103,6 +109,7 @@ export const createV1App = () => {
 	mountAddresses(v1);
 	mountAccounts(v1);
 	mountSignerSets(v1);
+	mountProposals(v1);
 
 	v1.doc31('/openapi.json', openApiConfig);
 	v1.get(

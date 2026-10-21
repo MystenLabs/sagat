@@ -62,4 +62,4 @@ See `golden/README.md` for what is normalized and when not to regenerate.
 
 ## Writing tests
 
-Each file calls `setupSharedTestEnvironment()`, and each test starts from `createTestApp()`, which empties the database. `ApiTestFramework` (in `framework/`) sets up sessions, users and multisigs; `TestSession.client` is a `SagatClient` that keeps the session cookie like a browser would.
+Each file calls `setupSharedTestEnvironment()`, and each test starts from `createTestApp()`, which empties the database. `ApiTestFramework` (in `framework/`) sets up sessions, users and accounts. `TestSession.v1` is the `/v1` SDK client and `TestSession.client` the legacy one; both keep the session cookie like a browser would. The session helpers (`createSignerSet`, `proposeTransfer`, `voteAndExecute`, ...) drive `/v1`; the legacy ones (`createMultisig`, `legacyCreateProposal`, ...) are kept for the legacy tests.

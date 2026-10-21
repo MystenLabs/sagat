@@ -12,16 +12,27 @@ export {
 	defaultExpiry,
 	getDefaultSagatApiUrl,
 } from './constants.js';
+export { ProposalStatus } from './types.js';
 export type {
 	Account,
 	AccountProposer,
 	Address,
 	AuthCheckResponse,
 	AuthResponse,
+	CreateProposalRequest,
 	CreateSignerSetRequest,
+	PaginatedResponse,
+	Proposal,
+	ProposalSignature,
+	ProposalSignerSet,
+	ProposalWithSignatures,
+	PublicProposal,
+	PublicSignerSetMember,
 	SignedMessageRequest,
 	SignerSet,
 	SignerSetMember,
 	SignerSetWithMembers,
+	VoteProposalRequest,
+	VoteProposalResponse,
 } from './types.js';
 export type { paths, components } from './generated/v1.js';

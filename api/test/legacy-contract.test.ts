@@ -222,7 +222,7 @@ async function proposeTransfer(
 	tx.setSender(multisigAddress);
 	const [coin] = tx.splitCoins(tx.gas, [amount]);
 	tx.transferObjects([coin], recipient);
-	return session.createProposal(
+	return session.legacyCreateProposal(
 		proposer,
 		multisigAddress,
 		'localnet',
@@ -284,7 +284,7 @@ async function driveLegacyRoutes(app: Hono) {
 		1000,
 		'pay vendor',
 	);
-	await session.voteOnProposal(
+	await session.legacyVoteOnProposal(
 		users[1],
 		first.id,
 		first.transactionBytes,
@@ -295,7 +295,7 @@ async function driveLegacyRoutes(app: Hono) {
 		{},
 	);
 	await client.getProposalByDigest(first.digest);
-	await session.cancelProposal(users[0], first.id);
+	await session.legacyCancelProposal(users[0], first.id);
 	await client.verifyProposal(first.id);
 	await client.verifyProposalByDigest(first.digest);
 

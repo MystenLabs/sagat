@@ -17,6 +17,7 @@ import { LIMITS } from '../src/constants/limits';
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
+	failureOf,
 	newUser,
 	sign,
 	type TestSession,
@@ -272,7 +273,7 @@ describe('Accounts API', () => {
 								signedExpiry,
 							);
 				const signature = await sign(signer, message);
-				return (
+				return failureOf(
 					route === 'add'
 						? session.v1.addAccountProposer(
 								accountAddress,
@@ -285,11 +286,8 @@ describe('Accounts API', () => {
 								proposer,
 								signature,
 								expiry,
-							)
-				).catch((e) => ({
-					status: e.status,
-					message: e.message,
-				}));
+							),
+				);
 			};
 
 			test('adding checks the address, then the expiry, then membership, then the signature', async () => {

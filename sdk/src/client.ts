@@ -5,13 +5,21 @@ import createClient, { type Client } from 'openapi-fetch';
 
 import { type paths } from './generated/v1.js';
 import {
+	ProposalStatus,
 	type Account,
 	type Address,
 	type AuthCheckResponse,
 	type AuthResponse,
+	type CreateProposalRequest,
 	type CreateSignerSetRequest,
+	type PaginatedResponse,
+	type Proposal,
+	type ProposalWithSignatures,
+	type PublicProposal,
 	type SignedMessageRequest,
 	type SignerSetWithMembers,
+	type VoteProposalRequest,
+	type VoteProposalResponse,
 } from './types.js';
 
 export type Fetch = (request: Request) => Promise<Response>;
@@ -274,6 +282,115 @@ export class ApiClient {
 					params: { path: { address, proposer } },
 					body: { signature, expiry },
 				},
+			),
+		);
+	}
+
+	// Proposals
+
+	/** Proposes a transaction, signed by a member or a proposer. */
+	async createProposal(
+		data: CreateProposalRequest,
+	): Promise<Proposal> {
+		return this.#unwrap(
+			await this.#api.POST('/v1/proposals', { body: data }),
+		);
+	}
+
+	/** An account's proposals on a network, newest first. */
+	async getProposals(
+		accountAddress: string,
+		network: string,
+		params: {
+			status?: ProposalStatus;
+			nextCursor?: number;
+			perPage?: number;
+		} = {},
+	): Promise<PaginatedResponse<ProposalWithSignatures>> {
+		return this.#unwrap(
+			await this.#api.GET('/v1/proposals', {
+				params: {
+					query: {
+						accountAddress,
+						network,
+						status:
+							params.status === undefined
+								? undefined
+								: (ProposalStatus[
+										params.status
+									] as keyof typeof ProposalStatus),
+						nextCursor: params.nextCursor?.toString(),
+						perPage: params.perPage,
+					},
+				},
+			}),
+		);
+	}
+
+	/**
+	 * A proposal by digest, with each signer set that can execute it.
+	 * Public: no session needed.
+	 */
+	async getProposalByDigest(
+		digest: string,
+	): Promise<PublicProposal> {
+		return this.#unwrap(
+			await this.#api.GET('/v1/proposals/digest/{digest}', {
+				params: { path: { digest } },
+			}),
+		);
+	}
+
+	/**
+	 * Adds a member's signature over the proposal's transaction.
+	 * `readySignerSets` lists the signer sets that can now execute it.
+	 */
+	async voteForProposal(
+		proposalId: number,
+		data: VoteProposalRequest,
+	): Promise<VoteProposalResponse> {
+		return this.#unwrap(
+			await this.#api.POST('/v1/proposals/{id}/vote', {
+				params: { path: { id: proposalId } },
+				body: data,
+			}),
+		);
+	}
+
+	/**
+	 * Cancels a proposal.
+	 * @param data Expects a signed `PersonalMessages.cancelProposal()` message.
+	 */
+	async cancelProposal(
+		proposalId: number,
+		data: SignedMessageRequest,
+	) {
+		return this.#unwrap(
+			await this.#api.POST('/v1/proposals/{id}/cancel', {
+				params: { path: { id: proposalId } },
+				body: data,
+			}),
+		);
+	}
+
+	/**
+	 * Call this after a proposal has been executed, to record whether it
+	 * succeeded. That unblocks the pending queue.
+	 */
+	async verifyProposal(proposalId: number) {
+		return this.#unwrap(
+			await this.#api.POST('/v1/proposals/{id}/verify', {
+				params: { path: { id: proposalId } },
+			}),
+		);
+	}
+
+	/** Like `verifyProposal`, by digest. Public: no session needed. */
+	async verifyProposalByDigest(digest: string) {
+		return this.#unwrap(
+			await this.#api.POST(
+				'/v1/proposals/{digest}/verify-by-digest',
+				{ params: { path: { digest } } },
 			),
 		);
 	}

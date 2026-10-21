@@ -24,6 +24,7 @@ import {
 	proposalStatusFromString,
 	SchemaProposals,
 	SchemaProposalSignatures,
+	type AccountSignerSet,
 	type Proposal,
 	type ProposalWithSignatures,
 	type SignerSetWithMembers,
@@ -50,6 +51,7 @@ import {
 	type PaginationCursor,
 } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
+import { loadActiveSignerSets } from './accounts.service';
 import {
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -559,4 +561,63 @@ export const getProposalByDigest = async (
 	);
 
 	return tallyProposal(proposal, multisig);
+};
+
+// One of the account's signer sets, and how far a proposal's signatures
+// get it.
+export type SignerSetTally = {
+	link: AccountSignerSet;
+	signerSet: SignerSetWithMembers;
+	currentWeight: number;
+	hasReachedThreshold: boolean;
+};
+
+/**
+ * Tallies a proposal against each active signer set of its account. A
+ * signature counts towards every set that has its key.
+ */
+export const tallySignerSets = async (
+	proposal: ProposalWithSignatures,
+): Promise<SignerSetTally[]> =>
+	(await loadActiveSignerSets(proposal.accountAddress)).map(
+		({ link, signerSet }) => {
+			const { currentWeight, hasReachedThreshold } =
+				tallyProposal(proposal, signerSet);
+			return {
+				link,
+				signerSet,
+				currentWeight,
+				hasReachedThreshold,
+			};
+		},
+	);
+
+// Adds a member's signature, then tallies every signer set of the account.
+export const voteAndTallySignerSets = async (
+	input: Parameters<typeof voteOnProposal>[0],
+) => {
+	const { proposal } = await voteOnProposal(input);
+	return {
+		proposal,
+		signerSets: await tallySignerSets(proposal),
+	};
+};
+
+// A proposal by its transaction digest, tallied against each signer set of
+// its account. Public.
+export const getProposalSignerSetsByDigest = async (
+	digest: string,
+) => {
+	if (!isValidTransactionDigest(digest))
+		throw new CommonError('InvalidDigest');
+
+	const proposal =
+		await ProposalByDigestLoader.load(digest);
+
+	if (!proposal) throw new NotFoundError();
+
+	return {
+		proposal,
+		signerSets: await tallySignerSets(proposal),
+	};
 };

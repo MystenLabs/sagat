@@ -19,6 +19,37 @@ export type SignerSetWithMembers =
 	Schemas['SignerSetWithMembers'];
 export type SignerSetMember = Schemas['SignerSetMember'];
 
+export type Proposal = Schemas['Proposal'];
+export type ProposalWithSignatures =
+	Schemas['ProposalWithSignatures'];
+export type ProposalSignature =
+	Schemas['ProposalSignature'];
+export type PublicProposal = Schemas['PublicProposal'];
+export type ProposalSignerSet =
+	Schemas['ProposalSignerSet'];
+export type PublicSignerSetMember =
+	Schemas['PublicSignerSetMember'];
+export type VoteProposalResponse =
+	Schemas['VoteProposalResponse'];
+
+/** A page of a listing, as `GET /v1/proposals` returns it. */
+export type PaginatedResponse<T> = Omit<
+	Schemas['ProposalPage'],
+	'data'
+> & { data: T[] };
+
+/** The `status` of a proposal. */
+export enum ProposalStatus {
+	PENDING = 0,
+	CANCELLED = 1,
+	SUCCESS = 2,
+	FAILURE = 3,
+}
+
+export type CreateProposalRequest =
+	Schemas['CreateProposalRequest'];
+export type VoteProposalRequest =
+	Schemas['VoteProposalRequest'];
 export type CreateSignerSetRequest =
 	Schemas['CreateSignerSetRequest'];
 export type SignedMessageRequest =
