@@ -52,6 +52,7 @@ import {
 	type PaginationCursor,
 } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
+import { senderSignerAddress } from '../utils/signer';
 import {
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -207,26 +208,34 @@ const getProposalsByAccountAddress = async (
 };
 
 /**
- * Checks a pending proposal on-chain once it has enough signatures, and
- * records whether it succeeded. Returns the proposal's status afterwards;
- * a proposal that is no longer pending is returned as is.
+ * Checks a pending proposal on-chain and records whether it succeeded, and
+ * the address that signed it for the account (`executed_via`). Returns the
+ * proposal's status afterwards; a proposal that is no longer pending is
+ * returned as is.
+ *
+ * The legacy routes first require the original composition to have reached
+ * its threshold. `/v1` does not: any valid signer set, or one Sagat does
+ * not know, may have executed it, and the chain says which.
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
+	signerSets: SignerSetScope,
 ): Promise<ProposalStatus> => {
 	if (proposal.status !== ProposalStatus.PENDING)
 		return proposal.status;
 
-	const multisig = await getSignerSet(
-		proposal.accountAddress,
-	);
-
-	if (
-		!tallyProposal(proposal, multisig).hasReachedThreshold
-	)
-		throw new ValidationError(
-			'Proposal is not ready to execute',
+	if (signerSets === 'original') {
+		const multisig = await getSignerSet(
+			proposal.accountAddress,
 		);
+
+		if (
+			!tallyProposal(proposal, multisig).hasReachedThreshold
+		)
+			throw new ValidationError(
+				'Proposal is not ready to execute',
+			);
+	}
 
 	const tx = await getSuiClient(
 		proposal.network as SuiNetwork,
@@ -235,6 +244,7 @@ const lookupAndVerifyProposal = async (
 			digest: proposal.digest,
 			include: {
 				effects: true,
+				transaction: true,
 			},
 		})
 		.catch((error) => {
@@ -260,10 +270,22 @@ const lookupAndVerifyProposal = async (
 	const status = isSuccess
 		? ProposalStatus.SUCCESS
 		: ProposalStatus.FAILURE;
+	const executed = tx.Transaction ?? tx.FailedTransaction;
+	const executedVia = senderSignerAddress(
+		executed.signatures,
+		{
+			sender:
+				executed.transaction.sender ??
+				proposal.accountAddress,
+			gasOwner:
+				executed.transaction.gasData.owner ??
+				proposal.accountAddress,
+		},
+	);
 
 	await db
 		.update(SchemaProposals)
-		.set({ status })
+		.set({ status, executedVia })
 		.where(eq(SchemaProposals.id, proposal.id));
 
 	multisigProposalEvents.inc({
@@ -566,20 +588,27 @@ export const verifyProposal = async ({
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
-	return await lookupAndVerifyProposal(proposal);
+	return await lookupAndVerifyProposal(
+		proposal,
+		signerSets,
+	);
 };
 
 // Verifies the execution of a proposal. Open to anyone: it only reads the
 // chain.
 export const verifyProposalByDigest = async (
 	digest: string,
+	signerSets: SignerSetScope = 'original',
 ) => {
 	const proposal =
 		await ProposalByDigestLoader.load(digest);
 
 	if (!proposal) throw new NotFoundError();
 
-	return await lookupAndVerifyProposal(proposal);
+	return await lookupAndVerifyProposal(
+		proposal,
+		signerSets,
+	);
 };
 
 type ListProposalsInput = {

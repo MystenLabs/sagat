@@ -1012,7 +1012,7 @@ export interface paths {
         put?: never;
         /**
          * Verify an executed proposal
-         * @description Reads the transaction from the chain and records whether it succeeded, for a session holding an accepted key in a signer set of the account valid on any network. Call it after executing.
+         * @description Reads the transaction from the chain and records whether it succeeded and which signer set executed it (`executedVia`), for a session holding an accepted key in a signer set of the account valid on any network. Call it after executing.
          */
         post: {
             parameters: {
@@ -1026,7 +1026,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The outcome on chain is recorded in the proposal status. */
+                /** @description The outcome on chain is recorded in the proposal status, and the signer in `executedVia`. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1035,7 +1035,7 @@ export interface paths {
                         "application/json": components["schemas"]["VerifyProposalResponse"];
                     };
                 };
-                /** @description The proposal does not exist, has not reached its threshold, or was not executed yet. */
+                /** @description The proposal does not exist, or was not executed yet. */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -1095,7 +1095,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The outcome on chain is recorded in the proposal status. */
+                /** @description The outcome on chain is recorded in the proposal status, and the signer in `executedVia`. */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -1104,7 +1104,7 @@ export interface paths {
                         "application/json": components["schemas"]["VerifyProposalResponse"];
                     };
                 };
-                /** @description The digest is malformed, or the proposal has not reached its threshold or was not executed yet. */
+                /** @description The digest is malformed, or the proposal was not executed yet. */
                 400: {
                     headers: {
                         [name: string]: unknown;

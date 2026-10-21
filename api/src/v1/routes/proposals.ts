@@ -194,7 +194,7 @@ const cancel = createRoute({
 const verifyResponses = {
 	200: jsonResponse(
 		VerifyProposalResponseSchema,
-		'The outcome on chain is recorded in the proposal status.',
+		'The outcome on chain is recorded in the proposal status, and the signer in `executedVia`.',
 	),
 };
 
@@ -204,14 +204,14 @@ const verify = createRoute({
 	tags,
 	summary: 'Verify an executed proposal',
 	description:
-		'Reads the transaction from the chain and records whether it succeeded, for a session holding an accepted key in a signer set of the account valid on any network. Call it after executing.',
+		'Reads the transaction from the chain and records whether it succeeded and which signer set executed it (`executedVia`), for a session holding an accepted key in a signer set of the account valid on any network. Call it after executing.',
 	middleware: [requireAuth] as const,
 	security: authenticated,
 	request: { params: IdParams },
 	responses: {
 		...verifyResponses,
 		400: errorResponse(
-			'The proposal does not exist, has not reached its threshold, or was not executed yet.',
+			'The proposal does not exist, or was not executed yet.',
 		),
 		401: unauthorizedResponse,
 		403: errorResponse(
@@ -231,7 +231,7 @@ const verifyByDigest = createRoute({
 	responses: {
 		...verifyResponses,
 		400: errorResponse(
-			'The digest is malformed, or the proposal has not reached its threshold or was not executed yet.',
+			'The digest is malformed, or the proposal was not executed yet.',
 		),
 		404: errorResponse('No proposal has this digest.'),
 	},
@@ -325,6 +325,6 @@ export const mountProposals = (v1: OpenAPIHono) =>
 		})
 		.openapi(verifyByDigest, async (c) => {
 			const { digest } = c.req.valid('param');
-			await verifyProposalByDigest(digest);
+			await verifyProposalByDigest(digest, 'valid');
 			return c.json({ verified: true as const }, 200);
 		});

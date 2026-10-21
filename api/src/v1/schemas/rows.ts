@@ -109,7 +109,7 @@ export const ProposalSchema = createSelectSchema(
 		createdAt: TimestampSchema,
 		executedVia: SuiAddressSchema.nullable().openapi({
 			description:
-				'The signer set whose signatures executed the proposal, or null.',
+				'The address that signed the executed transaction for the account, recorded by verify: a signer set (possibly one the account does not link) or a single key alias. Null until verified.',
 		}),
 	},
 ).openapi('Proposal');

@@ -114,6 +114,28 @@ export async function sendCoins(
 	await executeTransaction(funder, tx);
 }
 
+// Executes transaction bytes with `signatures` on the local network and
+// waits for the node to index it. Returns the transaction, failed or not.
+export async function executeSigned(
+	transactionBytes: string,
+	signatures: string[],
+) {
+	const result = await client.executeTransaction({
+		transaction: fromBase64(transactionBytes),
+		signatures,
+		include: { effects: true },
+	});
+	const tx =
+		result.$kind === 'Transaction'
+			? result.Transaction
+			: result.FailedTransaction;
+	await client.waitForTransaction({
+		digest: tx.digest,
+		...LOCALNET_WAIT,
+	});
+	return tx;
+}
+
 // A client for the API (calling the app directly), that keeps the session
 // cookie between requests like a browser would. `v1` is the new SDK, for
 // the `/v1` routes; `client` is the legacy SDK, for the legacy routes.
@@ -317,9 +339,16 @@ export class TestSession {
 	}
 
 	// Collects the votes still needed from `voters`, executes the proposal
-	// on chain with the first signer set that reached its threshold (as
-	// docs/migration-guide.md describes) and verifies it through the API.
-	async voteAndExecute(voters: TestUser[], digest: string) {
+	// on chain with a signer set that reached its threshold (as
+	// docs/migration-guide.md describes: `via` names it, else the first one)
+	// and verifies it through the API.
+	async voteAndExecute(
+		voters: TestUser[],
+		digest: string,
+		{ via }: { via?: string } = {},
+	) {
+		const ready = (sets: string[]) =>
+			via ? sets.includes(via) : sets.length > 0;
 		const proposal =
 			await this.v1.getProposalByDigest(digest);
 		for (const voter of voters) {
@@ -329,24 +358,45 @@ export class TestSession {
 				)
 			)
 				continue;
-			const { hasReachedThreshold } =
-				await this.voteOnProposal(
-					voter,
-					proposal.id,
-					proposal.transactionBytes,
-				);
-			if (hasReachedThreshold) break;
+			const { readySignerSets } = await this.voteOnProposal(
+				voter,
+				proposal.id,
+				proposal.transactionBytes,
+			);
+			if (ready(readySignerSets)) break;
 		}
 
-		const { signerSets, signatures, transactionBytes } =
+		const { signerSets } =
 			await this.v1.getProposalByDigest(digest);
 		const set = signerSets.find(
-			(s) => s.hasReachedThreshold,
+			(s) =>
+				s.hasReachedThreshold &&
+				(!via || s.address === via),
 		);
 		if (!set)
 			throw new Error(
 				'No signer set has reached its threshold',
 			);
+		const tx = await this.executeProposal(digest, set);
+		await this.verifyByDigest(digest);
+		return tx;
+	}
+
+	// Executes a proposal on chain with the combined signature of `set`,
+	// from the signatures collected so far, without verifying it.
+	async executeProposal(
+		digest: string,
+		set: {
+			threshold: number;
+			members: {
+				publicKey: string;
+				weight: number;
+				order: number;
+			}[];
+		},
+	) {
+		const { signatures, transactionBytes } =
+			await this.v1.getProposalByDigest(digest);
 		const members = [...set.members].sort(
 			(a, b) => a.order - b.order,
 		);
@@ -357,30 +407,48 @@ export class TestSession {
 				weight: m.weight,
 			})),
 		});
-		const result = await client.executeTransaction({
-			transaction: fromBase64(transactionBytes),
-			signatures: [
-				signerSetKey.combinePartialSignatures(
-					members.flatMap(
-						(m) =>
-							signatures.find(
-								(sig) => sig.publicKey === m.publicKey,
-							)?.signature ?? [],
-					),
+		return executeSigned(transactionBytes, [
+			signerSetKey.combinePartialSignatures(
+				members.flatMap(
+					(m) =>
+						signatures.find(
+							(sig) => sig.publicKey === m.publicKey,
+						)?.signature ?? [],
 				),
-			],
-			include: { effects: true },
-		});
-		const tx =
-			result.$kind === 'Transaction'
-				? result.Transaction
-				: result.FailedTransaction;
-		await client.waitForTransaction({
-			digest: tx.digest,
-			...LOCALNET_WAIT,
-		});
-		await this.v1.verifyProposalByDigest(digest);
-		return tx;
+			),
+		]);
+	}
+
+	// The API reads the chain through its own client, which can lag the one
+	// that executed for a moment, so "not executed yet" is retried briefly.
+	async #untilIndexed<T>(verify: () => Promise<T>) {
+		for (let attempt = 0; ; attempt++) {
+			try {
+				return await verify();
+			} catch (error) {
+				if (
+					attempt >= 20 ||
+					!(error instanceof Error) ||
+					!error.message.includes('not been executed yet')
+				)
+					throw error;
+				await new Promise((r) => setTimeout(r, 250));
+			}
+		}
+	}
+
+	// Verifies an executed proposal by digest, with no session needed.
+	verifyByDigest(digest: string) {
+		return this.#untilIndexed(() =>
+			this.v1.verifyProposalByDigest(digest),
+		);
+	}
+
+	// Verifies an executed proposal with this session.
+	verify(proposalId: number) {
+		return this.#untilIndexed(() =>
+			this.v1.verifyProposal(proposalId),
+		);
 	}
 
 	async cancelProposal(
