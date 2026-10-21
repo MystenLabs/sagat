@@ -4,7 +4,7 @@
 import {
 	ApiClient,
 	combineSignerSetSignatures,
-	PersonalMessages as V1Messages,
+	PersonalMessages as Messages,
 	type Account,
 	type SignerSetKeyInput,
 } from '@mysten/sagat';
@@ -313,7 +313,7 @@ export class TestSession {
 			signerSetAddress,
 			await this.#signed(
 				member,
-				V1Messages.acceptSignerSetInvitation(
+				Messages.acceptSignerSetInvitation(
 					signerSetAddress,
 				),
 			),
@@ -328,7 +328,7 @@ export class TestSession {
 			signerSetAddress,
 			await this.#signed(
 				member,
-				V1Messages.rejectSignerSetInvitation(
+				Messages.rejectSignerSetInvitation(
 					signerSetAddress,
 				),
 			),
@@ -345,7 +345,7 @@ export class TestSession {
 			member,
 			proposer,
 			accountAddress,
-			V1Messages.addAccountProposer,
+			Messages.addAccountProposer,
 			(signature, expiry) =>
 				this.v1.addAccountProposer(
 					accountAddress,
@@ -367,7 +367,7 @@ export class TestSession {
 			member,
 			proposer,
 			accountAddress,
-			V1Messages.removeAccountProposer,
+			Messages.removeAccountProposer,
 			(signature, expiry) =>
 				this.v1.removeAccountProposer(
 					accountAddress,
@@ -499,7 +499,7 @@ export class TestSession {
 			proposalId,
 			await this.#signed(
 				member,
-				V1Messages.cancelProposal(proposalId),
+				Messages.cancelProposal(proposalId),
 			),
 		);
 	}

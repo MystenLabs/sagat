@@ -23,7 +23,7 @@ import {
 import { LIMITS } from '../constants/limits';
 import {
 	LegacyMessages,
-	V1Messages,
+	Messages,
 } from '../constants/messages';
 import { db } from '../db';
 import {
@@ -1015,7 +1015,7 @@ export const addAccountProposer = async (
 		change,
 		await verifyProposerChange(
 			change,
-			V1Messages.addAccountProposer(
+			Messages.addAccountProposer(
 				change.proposer,
 				change.address,
 				change.expiry,
@@ -1031,7 +1031,7 @@ export const removeAccountProposer = async (
 ) => {
 	await verifyProposerChange(
 		change,
-		V1Messages.removeAccountProposer(
+		Messages.removeAccountProposer(
 			change.proposer,
 			change.address,
 			change.expiry,
