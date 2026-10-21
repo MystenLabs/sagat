@@ -596,7 +596,7 @@ describe('Proposal Business Logic', () => {
 		const unsupportedNetwork = {
 			status: 400,
 			message:
-				'Unsupported network: mainnet. Only localnet are supported.',
+				'Unsupported network: mainnet. Only localnet, testnet are supported.',
 		};
 
 		test('an unsupported network is checked before anything else', async () => {

@@ -256,7 +256,10 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql://sagat:sagat@localhost:5432/sagat_test
           JWT_SECRET: a-super-long-jwt-secret-to-use-in-the-service
-          SUPPORTED_NETWORKS: localnet
+          # `testnet` is a second label for the same localnet, for the
+          # per-network rotation tests. Keep in sync with api/.env.test.
+          SUPPORTED_NETWORKS: localnet,testnet
+          SUI_RPC_URL_testnet: http://127.0.0.1:9000
           CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
 
   ui-e2e:
