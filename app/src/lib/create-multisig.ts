@@ -378,8 +378,11 @@ export function thresholdWarning({
 	return null;
 }
 
+/** Bars draw one segment per unit of weight up to this many units. */
+export const BAR_SEGMENT_CAP = 10;
+
 /**
- * The threshold bar: one segment per unit of weight up to 10, then a
+ * The threshold bar: one segment per unit of weight up to the cap, then a
  * continuous bar whose filled part never shrinks below a visible sliver.
  */
 export function thresholdBar(
@@ -388,7 +391,7 @@ export function thresholdBar(
 ):
 	| { kind: 'segments'; filled: boolean[] }
 	| { kind: 'continuous'; percent: number } {
-	if (totalWeight <= 10)
+	if (totalWeight <= BAR_SEGMENT_CAP)
 		return {
 			kind: 'segments',
 			filled: Array.from(

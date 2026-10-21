@@ -6,7 +6,6 @@ import { Check, Info } from 'lucide-react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { validatePublicKey } from '@/lib/sui-utils';
-import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, errorMessage } from '@/lib/utils';
 
@@ -23,6 +22,7 @@ import {
 import { accountName } from './account-name';
 import { memberStatus } from './member-status';
 import { ShortAddress } from './ShortAddress';
+import { WeightBar } from './WeightBar';
 
 /**
  * The invitation in full before accepting: the account's setup, its
@@ -69,9 +69,6 @@ export function ReviewInvitationDialog({
 			};
 		});
 	const you = signers.find((s) => s.isYou);
-	const accepted = signers.filter(
-		(s) => s.isAccepted,
-	).length;
 
 	return (
 		<Dialog
@@ -142,26 +139,22 @@ export function ReviewInvitationDialog({
 							</DialogDescription>
 						</div>
 
-						<dl className="mt-5 grid grid-cols-3 gap-4 rounded-lg bg-surface p-4">
-							<Stat
-								label="Your weight"
-								value={
-									you
-										? `${you.weight} of ${multisig.totalWeight}`
-										: '—'
-								}
+						<div className="mt-5">
+							<WeightBar
+								signers={signers.map((signer) => ({
+									weight: signer.weight,
+									tone: signer.isYou
+										? 'you'
+										: signer.isAccepted
+											? 'accepted'
+											: 'pending',
+								}))}
+								threshold={multisig.threshold}
+								yourWeight={you?.weight ?? null}
 							/>
-							<Stat
-								label="Threshold"
-								value={thresholdLabel(multisig)}
-							/>
-							<Stat
-								label="Accepted"
-								value={`${accepted} of ${multisig.totalMembers}`}
-							/>
-						</dl>
+						</div>
 
-						<div className="mt-4 flex flex-col gap-1">
+						<div className="mt-5 flex flex-col gap-1">
 							<div className="text-12 text-muted-foreground">
 								Sui address
 							</div>
@@ -272,23 +265,6 @@ const STATUS_CHIP = {
 	rejected: { variant: 'error', label: 'Rejected' },
 	pending: { variant: 'warning', label: 'Invited' },
 } as const;
-
-function Stat({
-	label,
-	value,
-}: {
-	label: string;
-	value: string;
-}) {
-	return (
-		<div className="flex flex-col gap-0.5">
-			<dt className="text-12 text-muted-foreground">
-				{label}
-			</dt>
-			<dd className="text-14">{value}</dd>
-		</div>
-	);
-}
 
 /**
  * A signer's name over their address when the account named the key,
