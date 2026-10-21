@@ -3,11 +3,20 @@
 
 /**
  * Schemas shared by every `/v1` route: the error body, the Sui address path
- * parameter, and helpers that keep the response declarations short.
+ * parameter, and helpers that keep the route declarations short.
  */
 
 import { z } from '@hono/zod-openapi';
-import { isValidSuiAddress } from '@mysten/sui/utils';
+import {
+	isValidSuiAddress,
+	isValidTransactionDigest,
+} from '@mysten/sui/utils';
+import { type MiddlewareHandler } from 'hono';
+
+import {
+	authMiddleware,
+	type AuthEnv,
+} from '../../services/auth.service';
 
 // Every error the API returns has this body (see `appErrorHandler` and the
 // validation hook in `../app.ts`).
@@ -29,6 +38,38 @@ export const SuiAddressSchema = z
 		example: `0x${'ab'.repeat(32)}`,
 	});
 
+// A transaction digest, as `isValidTransactionDigest` accepts it.
+export const TransactionDigestSchema = z
+	.string()
+	.refine(
+		isValidTransactionDigest,
+		'Must be a valid transaction digest.',
+	)
+	.openapi('TransactionDigest', {
+		description: 'A Sui transaction digest, base58.',
+		example: 'C5xDL4jZ5cDyDqUt1ZwhmB1Mw3vKpA7Y2qTxwZv3Wpv4',
+	});
+
+// A timestamp, as JSON serializes a `Date`.
+export const TimestampSchema = z.iso.datetime().openapi({
+	example: '2026-10-01T12:00:00.000Z',
+});
+
+export const SuccessSchema = z
+	.object({ success: z.literal(true) })
+	.openapi('Success');
+
+// The session's keys, from the cookie or a script token. Typed so that the
+// handlers of routes that use it can read `publicKeys`.
+export const requireAuth: MiddlewareHandler<AuthEnv> =
+	authMiddleware;
+
+// The security requirement of routes behind `requireAuth`: either scheme.
+export const authenticated: Record<string, string[]>[] = [
+	{ cookieAuth: [] },
+	{ bearerAuth: [] },
+];
+
 /** A JSON response of the given schema. */
 export const jsonResponse = <T extends z.ZodType>(
 	schema: T,
@@ -41,3 +82,15 @@ export const jsonResponse = <T extends z.ZodType>(
 /** An error response, with the shared error body. */
 export const errorResponse = (description: string) =>
 	jsonResponse(ErrorSchema, description);
+
+// `authMiddleware` answers in plain text, shared with the legacy routes.
+export const unauthorizedResponse = {
+	description: 'No session, or the session has expired.',
+	content: {
+		'text/plain': {
+			schema: z
+				.string()
+				.openapi({ example: 'Unauthorized' }),
+		},
+	},
+};

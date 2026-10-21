@@ -31,7 +31,12 @@ describe('Addresses API', () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);
 
-		await session.client.registerAddresses();
+		expect(await session.v1.registerAddresses()).toEqual({
+			success: true,
+		});
+		expect(await session.v1.registerAddresses()).toEqual({
+			success: true,
+		});
 
 		for (const user of users) {
 			const info = await session.v1.getAddressInfo(
@@ -39,6 +44,24 @@ describe('Addresses API', () => {
 			);
 			expect(info.publicKey).toBe(user.publicKey);
 		}
+	});
+
+	test('registering extra keys registers them too, and skips keys that do not parse', async () => {
+		const { session } =
+			await framework.createAuthenticatedSession(1);
+		const extra = newUser();
+
+		await session.v1.registerPublicKeys([
+			extra.publicKey,
+			'not-a-key',
+		]);
+
+		expect(
+			await session.v1.getAddressInfo(extra.address),
+		).toEqual({
+			publicKey: extra.publicKey,
+			address: extra.address,
+		});
 	});
 
 	test('looking up an unregistered address fails', async () => {
@@ -82,7 +105,10 @@ describe('Addresses API', () => {
 
 	test('registering requires a session', async () => {
 		await expect(
-			framework.createSession().client.registerAddresses(),
-		).rejects.toThrow('Unauthorized');
+			framework.createSession().v1.registerAddresses(),
+		).rejects.toMatchObject({
+			status: 401,
+			message: 'Unauthorized',
+		});
 	});
 });

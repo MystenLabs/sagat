@@ -66,22 +66,53 @@ export class ApiClient {
 
 	/** Starts a session for the key that signed the connect message. */
 	connect(signature: string, expiry: string) {
-		return this.#auth<AuthResponse>('/auth/connect', {
-			signature,
-			expiry,
-		});
+		return this.#auth<AuthResponse>(
+			'POST',
+			'/auth/connect',
+			{ signature, expiry },
+		);
 	}
 
 	disconnect() {
-		return this.#auth<AuthResponse>('/auth/disconnect');
+		return this.#auth<AuthResponse>(
+			'POST',
+			'/auth/disconnect',
+		);
 	}
 
 	/** Whether the session is valid, and the addresses it holds. */
 	checkAuth() {
-		return this.#auth<AuthCheckResponse>('/auth/check');
+		return this.#auth<AuthCheckResponse>(
+			'GET',
+			'/auth/check',
+		);
 	}
 
 	// Addresses
+
+	/**
+	 * Registers the session's keys, so they can be put in a signer set.
+	 * Call it after `connect()`.
+	 */
+	registerAddresses() {
+		return this.registerPublicKeys();
+	}
+
+	/**
+	 * Registers the session's keys and `extraPublicKeys`. Only Sui public
+	 * keys are supported (`PublicKey.toSuiPublicKey()`, not `toBase64()`).
+	 */
+	async registerPublicKeys(extraPublicKeys: string[] = []) {
+		return this.#unwrap(
+			await this.#api.POST('/v1/addresses', {
+				body: { extraPublicKeys },
+			}),
+		);
+	}
+
+	registerPublicKey(publicKey: string) {
+		return this.registerPublicKeys([publicKey]);
+	}
 
 	/** The public key registered for an address. */
 	async getAddressInfo(address: string): Promise<Address> {
@@ -109,10 +140,14 @@ export class ApiClient {
 		);
 	}
 
-	async #auth<T>(path: string, body?: unknown): Promise<T> {
+	async #auth<T>(
+		method: 'GET' | 'POST',
+		path: string,
+		body?: unknown,
+	): Promise<T> {
 		const response = await this.#fetch(
 			new Request(`${this.#apiUrl}${path}`, {
-				method: body === undefined ? 'GET' : 'POST',
+				method,
 				headers: {
 					'Content-Type': 'application/json',
 					...this.#headers,

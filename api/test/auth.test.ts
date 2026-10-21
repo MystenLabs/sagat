@@ -21,7 +21,7 @@ import {
 setupSharedTestEnvironment();
 
 const connectedAddresses = async (session: TestSession) =>
-	(await session.client.checkAuth()).addresses
+	(await session.v1.checkAuth()).addresses
 		.map((a) => a.address)
 		.sort();
 
@@ -51,10 +51,13 @@ describe('Auth API', () => {
 		const user = newUser();
 
 		await session.connectUser(user);
-		await session.client.disconnect();
+		await session.v1.disconnect();
 		await expect(
-			session.client.checkAuth(),
-		).rejects.toThrow('Unauthorized');
+			session.v1.checkAuth(),
+		).rejects.toMatchObject({
+			status: 401,
+			message: 'Unauthorized',
+		});
 
 		await session.connectUser(user);
 		expect(await connectedAddresses(session)).toEqual([

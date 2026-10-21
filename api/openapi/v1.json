@@ -27,6 +27,33 @@
 			}
 		},
 		"schemas": {
+			"Success": {
+				"type": "object",
+				"properties": {
+					"success": { "type": "boolean", "enum": [true] }
+				},
+				"required": ["success"]
+			},
+			"Error": {
+				"type": "object",
+				"properties": {
+					"error": {
+						"type": "string",
+						"example": "Address is not registered in the system."
+					}
+				},
+				"required": ["error"]
+			},
+			"RegisterAddressesRequest": {
+				"type": "object",
+				"properties": {
+					"extraPublicKeys": {
+						"type": "array",
+						"items": { "type": "string" },
+						"description": "More Sui public keys (base64, with their scheme flag) to register. Keys that fail to parse are skipped."
+					}
+				}
+			},
 			"Address": {
 				"type": "object",
 				"properties": {
@@ -45,21 +72,64 @@
 				"type": "string",
 				"description": "A Sui address.",
 				"example": "0xabababababababababababababababababababababababababababababababab"
-			},
-			"Error": {
-				"type": "object",
-				"properties": {
-					"error": {
-						"type": "string",
-						"example": "Address is not registered in the system."
-					}
-				},
-				"required": ["error"]
 			}
 		},
 		"parameters": {}
 	},
 	"paths": {
+		"/v1/addresses": {
+			"post": {
+				"tags": ["Addresses"],
+				"summary": "Register addresses",
+				"description": "Registers the session's keys, and any extra keys passed, so they can be put in a signer set.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RegisterAddressesRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The keys are registered.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Success"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body is malformed.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
 		"/v1/addresses/{address}": {
 			"get": {
 				"tags": ["Addresses"],
