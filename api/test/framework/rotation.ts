@@ -22,10 +22,13 @@ import {
 	SchemaSignerSets,
 } from '../../src/db/schema';
 import { type SuiNetwork } from '../../src/utils/client';
-import { testDatabase } from '../setup/shared-test-setup';
 import {
+	createTestApp,
+	testDatabase,
+} from '../setup/shared-test-setup';
+import {
+	ApiTestFramework,
 	newUser,
-	type ApiTestFramework,
 	type TestSession,
 	type TestUser,
 } from './api-test-framework';
@@ -182,6 +185,29 @@ export async function setAliasMirror(
 	});
 }
 
+/** Removes every mirror row of an account, on every network. */
+export async function clearAliasMirror(
+	accountAddress: string,
+) {
+	const db = testDatabase();
+	await db
+		.delete(SchemaAccountAliases)
+		.where(
+			eq(
+				SchemaAccountAliases.accountAddress,
+				accountAddress,
+			),
+		);
+	await db
+		.delete(SchemaAccountAliasState)
+		.where(
+			eq(
+				SchemaAccountAliasState.accountAddress,
+				accountAddress,
+			),
+		);
+}
+
 /** The link row of a signer set in an account. */
 export const linkStatus = async (
 	accountAddress: string,
@@ -215,15 +241,16 @@ export const linkStatus = async (
  * - `S3` = k5, k6, 2-of-2, drafted for A as "Board" and still a draft.
  *
  * No alias mirror rows are written. `as(user)` is a session holding that
- * key only, for checks that depend on who is asking.
+ * key only, for checks that depend on who is asking. Starts from an empty
+ * database, with its own `framework`.
  */
-export async function rotationScenario(
-	framework: ApiTestFramework,
-	{
-		s2Threshold = 2,
-		fund = false,
-	}: { s2Threshold?: number; fund?: boolean } = {},
-) {
+export async function rotationScenario({
+	s2Threshold = 2,
+	fund = false,
+}: { s2Threshold?: number; fund?: boolean } = {}) {
+	const framework = new ApiTestFramework(
+		await createTestApp(),
+	);
 	const keys = Array.from({ length: 6 }, newUser);
 	const [k1, k2, k3, k4, k5, k6] = keys;
 
@@ -273,6 +300,7 @@ export async function rotationScenario(
 	});
 
 	return {
+		framework,
 		A,
 		S1: A,
 		S2,
@@ -291,3 +319,23 @@ export async function rotationScenario(
 export type RotationScenario = Awaited<
 	ReturnType<typeof rotationScenario>
 >;
+
+/**
+ * "Payroll", a second account: `owner` and the scenario's k3, 1-of-2, with
+ * its own label for k3, created by a session holding both keys.
+ */
+export async function secondAccount(s: RotationScenario) {
+	const owner = newUser();
+	const session = s.framework.createSession();
+	await session.connectUser(owner);
+	await session.connectUser(s.k3);
+	const { address: B } = await session.createSignerSet(
+		[owner, s.k3],
+		1,
+		{
+			name: 'Payroll',
+			labels: [null, 'k3 in Payroll'],
+		},
+	);
+	return { B, owner };
+}

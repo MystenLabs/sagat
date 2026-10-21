@@ -21,6 +21,7 @@ import {
 } from '@mysten/sui/utils';
 import { type Hono } from 'hono';
 
+import { AuthErrors } from '../../src/errors';
 import {
 	executeTransaction,
 	fundAddress,
@@ -55,6 +56,14 @@ export const sign = async (
 		)
 	).signature;
 
+// `user`'s signature over the transaction `bytes` (base64).
+export const signTx = async (
+	user: TestUser,
+	bytes: string,
+) =>
+	(await user.keypair.signTransaction(fromBase64(bytes)))
+		.signature;
+
 // The status and message of an SDK call that must fail.
 export const failureOf = (call: Promise<unknown>) =>
 	call.then(
@@ -66,6 +75,34 @@ export const failureOf = (call: Promise<unknown>) =>
 			message: error.message,
 		}),
 	);
+
+// What `failureOf` returns for the common refusals.
+export const ACCESS_DENIED = {
+	status: 403,
+	message: AuthErrors.AccessDenied,
+};
+export const NOT_A_MEMBER = {
+	status: 403,
+	message: AuthErrors.NotAMultisigMember,
+};
+
+type ProposerMessage = (
+	proposer: string,
+	accountAddress: string,
+	expiry: string,
+) => string;
+
+// What a voter needs of a proposal to sign it.
+type ProposalToSign = {
+	id: number;
+	transactionBytes: string;
+};
+
+type ExpiryOptions = {
+	expiry?: string;
+	// The expiry in the signed message, if not `expiry`.
+	signedExpiry?: string;
+};
 
 // A transfer of `amount` MIST from `sender` back to itself, paying for gas
 // with `gasCoin` if given (so proposals using different coins don't collide).
@@ -242,73 +279,103 @@ export class TestSession {
 		return account;
 	}
 
+	// A signed personal message, as the routes without a session take it.
+	async #signed(member: TestUser, message: string) {
+		return { signature: await sign(member, message) };
+	}
+
+	// Signs a proposer change and sends it with the expiry through `send`.
+	async #changeProposer<T>(
+		member: TestUser,
+		proposer: string,
+		accountAddress: string,
+		message: ProposerMessage,
+		send: (signature: string, expiry: string) => Promise<T>,
+		{
+			expiry = defaultExpiry(),
+			signedExpiry = expiry,
+		}: ExpiryOptions = {},
+	) {
+		return send(
+			await sign(
+				member,
+				message(proposer, accountAddress, signedExpiry),
+			),
+			expiry,
+		);
+	}
+
 	async acceptSignerSet(
 		member: TestUser,
 		signerSetAddress: string,
 	) {
-		return this.v1.acceptSignerSetInvite(signerSetAddress, {
-			signature: await sign(
+		return this.v1.acceptSignerSetInvite(
+			signerSetAddress,
+			await this.#signed(
 				member,
 				V1Messages.acceptSignerSetInvitation(
 					signerSetAddress,
 				),
 			),
-		});
+		);
 	}
 
 	async rejectSignerSet(
 		member: TestUser,
 		signerSetAddress: string,
 	) {
-		return this.v1.rejectSignerSetInvite(signerSetAddress, {
-			signature: await sign(
+		return this.v1.rejectSignerSetInvite(
+			signerSetAddress,
+			await this.#signed(
 				member,
 				V1Messages.rejectSignerSetInvitation(
 					signerSetAddress,
 				),
 			),
-		});
-	}
-
-	async addAccountProposer(
-		member: TestUser,
-		proposer: string,
-		accountAddress: string,
-		expiry = defaultExpiry(),
-	) {
-		return this.v1.addAccountProposer(
-			accountAddress,
-			proposer,
-			await sign(
-				member,
-				V1Messages.addAccountProposer(
-					proposer,
-					accountAddress,
-					expiry,
-				),
-			),
-			expiry,
 		);
 	}
 
-	async removeAccountProposer(
+	addAccountProposer(
 		member: TestUser,
 		proposer: string,
 		accountAddress: string,
+		options?: ExpiryOptions,
 	) {
-		const expiry = defaultExpiry();
-		return this.v1.removeAccountProposer(
-			accountAddress,
+		return this.#changeProposer(
+			member,
 			proposer,
-			await sign(
-				member,
-				V1Messages.removeAccountProposer(
-					proposer,
+			accountAddress,
+			V1Messages.addAccountProposer,
+			(signature, expiry) =>
+				this.v1.addAccountProposer(
 					accountAddress,
+					proposer,
+					signature,
 					expiry,
 				),
-			),
-			expiry,
+			options,
+		);
+	}
+
+	removeAccountProposer(
+		member: TestUser,
+		proposer: string,
+		accountAddress: string,
+		options?: ExpiryOptions,
+	) {
+		return this.#changeProposer(
+			member,
+			proposer,
+			accountAddress,
+			V1Messages.removeAccountProposer,
+			(signature, expiry) =>
+				this.v1.removeAccountProposer(
+					accountAddress,
+					proposer,
+					signature,
+					expiry,
+				),
+			options,
 		);
 	}
 
@@ -319,15 +386,11 @@ export class TestSession {
 		transactionBytes: string,
 		description?: string,
 	) {
-		const { signature } =
-			await proposer.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			);
 		return this.v1.createProposal({
 			accountAddress,
 			network,
 			transactionBytes,
-			signature,
+			signature: await signTx(proposer, transactionBytes),
 			description,
 		});
 	}
@@ -335,12 +398,15 @@ export class TestSession {
 	async proposeTransfer(
 		proposer: TestUser,
 		accountAddress: string,
-		description?: string,
+		{
+			network = 'localnet',
+			description,
+		}: { network?: string; description?: string } = {},
 	) {
 		return this.createProposal(
 			proposer,
 			accountAddress,
-			'localnet',
+			network,
 			await buildTransfer(accountAddress),
 			description,
 		);
@@ -348,15 +414,10 @@ export class TestSession {
 
 	async voteOnProposal(
 		voter: TestUser,
-		proposalId: number,
-		transactionBytes: string,
+		{ id, transactionBytes }: ProposalToSign,
 	) {
-		const { signature } =
-			await voter.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			);
-		return this.v1.voteForProposal(proposalId, {
-			signature,
+		return this.v1.voteForProposal(id, {
+			signature: await signTx(voter, transactionBytes),
 		});
 	}
 
@@ -382,8 +443,7 @@ export class TestSession {
 				continue;
 			const { readySignerSets } = await this.voteOnProposal(
 				voter,
-				proposal.id,
-				proposal.transactionBytes,
+				proposal,
 			);
 			if (ready(readySignerSets)) break;
 		}
@@ -435,12 +495,13 @@ export class TestSession {
 		member: TestUser,
 		proposalId: number,
 	) {
-		return this.v1.cancelProposal(proposalId, {
-			signature: await sign(
+		return this.v1.cancelProposal(
+			proposalId,
+			await this.#signed(
 				member,
 				V1Messages.cancelProposal(proposalId),
 			),
-		});
+		);
 	}
 
 	// Legacy helpers, through `client`.
@@ -477,14 +538,12 @@ export class TestSession {
 	) {
 		return this.client.acceptMultisigInvite(
 			multisigAddress,
-			{
-				signature: await sign(
-					member,
-					PersonalMessages.acceptMultisigInvitation(
-						multisigAddress,
-					),
+			await this.#signed(
+				member,
+				PersonalMessages.acceptMultisigInvitation(
+					multisigAddress,
 				),
-			},
+			),
 		);
 	}
 
@@ -494,14 +553,12 @@ export class TestSession {
 	) {
 		return this.client.rejectMultisigInvite(
 			multisigAddress,
-			{
-				signature: await sign(
-					member,
-					PersonalMessages.rejectMultisigInvitation(
-						multisigAddress,
-					),
+			await this.#signed(
+				member,
+				PersonalMessages.rejectMultisigInvitation(
+					multisigAddress,
 				),
-			},
+			),
 		);
 	}
 
@@ -509,20 +566,21 @@ export class TestSession {
 		member: TestUser,
 		proposer: string,
 		multisigAddress: string,
-		expiry = defaultExpiry(),
+		expiry?: string,
 	) {
-		await this.client.addMultisigProposer(
-			multisigAddress,
+		await this.#changeProposer(
+			member,
 			proposer,
-			await sign(
-				member,
-				PersonalMessages.addMultisigProposer(
-					proposer,
+			multisigAddress,
+			PersonalMessages.addMultisigProposer,
+			(signature, expiry) =>
+				this.client.addMultisigProposer(
 					multisigAddress,
+					proposer,
+					signature,
 					expiry,
 				),
-			),
-			expiry,
+			{ expiry },
 		);
 	}
 
@@ -531,19 +589,18 @@ export class TestSession {
 		proposer: string,
 		multisigAddress: string,
 	) {
-		const expiry = defaultExpiry();
-		await this.client.removeMultisigProposer(
-			multisigAddress,
+		await this.#changeProposer(
+			member,
 			proposer,
-			await sign(
-				member,
-				PersonalMessages.removeMultisigProposer(
-					proposer,
+			multisigAddress,
+			PersonalMessages.removeMultisigProposer,
+			(signature, expiry) =>
+				this.client.removeMultisigProposer(
 					multisigAddress,
+					proposer,
+					signature,
 					expiry,
 				),
-			),
-			expiry,
 		);
 	}
 
@@ -554,30 +611,21 @@ export class TestSession {
 		transactionBytes: string,
 		description?: string,
 	) {
-		const { signature } =
-			await proposer.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			);
 		return this.client.createProposal({
 			multisigAddress,
 			network,
 			transactionBytes,
-			signature,
+			signature: await signTx(proposer, transactionBytes),
 			description,
 		});
 	}
 
 	async legacyVoteOnProposal(
 		voter: TestUser,
-		proposalId: number,
-		transactionBytes: string,
+		{ id, transactionBytes }: ProposalToSign,
 	) {
-		const { signature } =
-			await voter.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			);
-		return this.client.voteForProposal(proposalId, {
-			signature,
+		return this.client.voteForProposal(id, {
+			signature: await signTx(voter, transactionBytes),
 		});
 	}
 
@@ -585,12 +633,13 @@ export class TestSession {
 		member: TestUser,
 		proposalId: number,
 	) {
-		return this.client.cancelProposal(proposalId, {
-			signature: await sign(
+		return this.client.cancelProposal(
+			proposalId,
+			await this.#signed(
 				member,
 				PersonalMessages.cancelProposal(proposalId),
 			),
-		});
+		);
 	}
 }
 

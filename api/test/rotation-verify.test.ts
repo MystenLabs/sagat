@@ -22,17 +22,17 @@ import {
 	test,
 } from 'bun:test';
 
-import { AuthErrors } from '../src/errors';
 import {
 	buildAdd,
 	buildEnable,
 	fetchAliasSet,
 } from '../src/utils/aliases';
 import {
-	ApiTestFramework,
 	buildTransfer,
 	executeSigned,
 	failureOf,
+	NOT_A_MEMBER,
+	signTx,
 	untilIndexed,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -41,10 +41,7 @@ import {
 	setAliasMirror,
 	type RotationScenario,
 } from './framework/rotation';
-import {
-	createTestApp,
-	setupSharedTestEnvironment,
-} from './setup/shared-test-setup';
+import { setupSharedTestEnvironment } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
 
 setupSharedTestEnvironment();
@@ -52,12 +49,10 @@ setupSharedTestEnvironment();
 const client = getLocalClient();
 
 describe('Rotation: verify records the executing signer set', () => {
-	let framework: ApiTestFramework;
 	let s: RotationScenario;
 
 	beforeEach(async () => {
-		framework = new ApiTestFramework(await createTestApp());
-		s = await rotationScenario(framework, { fund: true });
+		s = await rotationScenario({ fund: true });
 	});
 
 	const build = async (fill: (tx: Transaction) => void) => {
@@ -79,7 +74,7 @@ describe('Rotation: verify records the executing signer set', () => {
 		);
 
 	const stored = (digest: string) =>
-		framework
+		s.framework
 			.createSession()
 			.v1.getProposalByDigest(digest);
 
@@ -127,11 +122,7 @@ describe('Rotation: verify records the executing signer set', () => {
 
 		// Verified with the session route, by a member of S2 only.
 		const first = await propose(s.k3);
-		await s.creator.voteOnProposal(
-			s.k4,
-			first.id,
-			first.transactionBytes,
-		);
+		await s.creator.voteOnProposal(s.k4, first);
 		const { signerSets } = await stored(first.digest);
 		const viaS2 = signerSets.find(
 			(x) => x.address === s.S2,
@@ -176,16 +167,11 @@ describe('Rotation: verify records the executing signer set', () => {
 		const proposal = await propose(s.k1);
 		// k3 signs as a member of S1; k4 cannot vote through Sagat, so its
 		// signature is combined outside, as any client can.
-		await s.creator.voteOnProposal(
-			s.k3,
-			proposal.id,
+		await s.creator.voteOnProposal(s.k3, proposal);
+		const k4Signature = await signTx(
+			s.k4,
 			proposal.transactionBytes,
 		);
-		const k4Signature = (
-			await s.k4.keypair.signTransaction(
-				fromBase64(proposal.transactionBytes),
-			)
-		).signature;
 		const k3Signature = (
 			await stored(proposal.digest)
 		).signatures.find(
@@ -247,7 +233,7 @@ describe('Rotation: verify records the executing signer set', () => {
 		};
 		expect(
 			await failureOf(
-				framework
+				s.framework
 					.createSession()
 					.v1.verifyProposalByDigest(proposal.digest),
 			),
@@ -274,11 +260,7 @@ describe('Rotation: verify records the executing signer set', () => {
 
 	test('the legacy verify records the executing set too, without returning it', async () => {
 		const proposal = await propose(s.k1);
-		await s.creator.voteOnProposal(
-			s.k2,
-			proposal.id,
-			proposal.transactionBytes,
-		);
+		await s.creator.voteOnProposal(s.k2, proposal);
 		const { signerSets } = await stored(proposal.digest);
 		await s.creator.executeProposal(
 			proposal.digest,
@@ -309,9 +291,6 @@ describe('Rotation: verify records the executing signer set', () => {
 			await failureOf(
 				(await s.as(s.k5)).v1.verifyProposal(proposal.id),
 			),
-		).toEqual({
-			status: 403,
-			message: AuthErrors.NotAMultisigMember,
-		});
+		).toEqual(NOT_A_MEMBER);
 	});
 });

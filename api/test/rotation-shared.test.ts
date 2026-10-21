@@ -13,9 +13,8 @@ import {
 	test,
 } from 'bun:test';
 
-import { AuthErrors } from '../src/errors';
 import {
-	ApiTestFramework,
+	ACCESS_DENIED,
 	failureOf,
 	newUser,
 	type TestUser,
@@ -24,13 +23,11 @@ import {
 	draftSignerSet,
 	linkSignerSet,
 	rotationScenario,
+	secondAccount,
 	setAliasMirror,
 	type RotationScenario,
 } from './framework/rotation';
-import {
-	createTestApp,
-	setupSharedTestEnvironment,
-} from './setup/shared-test-setup';
+import { setupSharedTestEnvironment } from './setup/shared-test-setup';
 
 setupSharedTestEnvironment();
 
@@ -48,30 +45,19 @@ const expectNoKeyLabels = (value: unknown) => {
 };
 
 describe('Rotation: a composition shared by two accounts', () => {
-	let framework: ApiTestFramework;
 	let s: RotationScenario;
 	let B: string;
 	let owner: TestUser;
 
 	beforeEach(async () => {
-		framework = new ApiTestFramework(await createTestApp());
-		s = await rotationScenario(framework, { fund: true });
+		s = await rotationScenario({ fund: true });
 		await setAliasMirror(s.A, 'localnet', {
 			aliases: [s.A, s.S2],
 		});
 
 		// B: another account with k3 in its original set and its own label
 		// for k3. S2 is linked to it too, verified but not in its alias set.
-		owner = newUser();
-		const other = framework.createSession();
-		await other.connectUser(owner);
-		await other.connectUser(s.k3);
-		B = (
-			await other.createSignerSet([owner, s.k3], 1, {
-				name: 'Payroll',
-				labels: [null, 'k3 in Payroll'],
-			})
-		).address;
+		({ B, owner } = await secondAccount(s));
 		await linkSignerSet(B, s.S2, {
 			label: 'Ops for Payroll',
 			status: 'verified',
@@ -134,20 +120,16 @@ describe('Rotation: a composition shared by two accounts', () => {
 	});
 
 	test('anyone else is refused, as for an unknown address', async () => {
-		const denied = {
-			status: 403,
-			message: AuthErrors.AccessDenied,
-		};
 		expect(
 			await failureOf(compositionFor(newUser())),
-		).toEqual(denied);
+		).toEqual(ACCESS_DENIED);
 		expect(
 			await failureOf(
 				(await s.as(s.k1)).v1.getSignerSet(
 					newUser().address,
 				),
 			),
-		).toEqual(denied);
+		).toEqual(ACCESS_DENIED);
 	});
 
 	test("each account shows its own key labels, never the other account's", async () => {
@@ -205,12 +187,8 @@ describe('Rotation: a composition shared by two accounts', () => {
 			s.k1,
 			s.A,
 		);
-		await s.creator.voteOnProposal(
-			s.k4,
-			proposal.id,
-			proposal.transactionBytes,
-		);
-		const anonymous = framework.createSession().v1;
+		await s.creator.voteOnProposal(s.k4, proposal);
+		const anonymous = s.framework.createSession().v1;
 
 		const byDigest = await anonymous.getProposalByDigest(
 			proposal.digest,
@@ -230,12 +208,12 @@ describe('Rotation: a composition shared by two accounts', () => {
 
 		// Accept and reject return no members.
 		const S6 = await draftSignerSet(s.A, [s.k3, s.k6], 1);
-		const accepted = await framework
+		const accepted = await s.framework
 			.createSession()
 			.acceptSignerSet(s.k3, S6);
 		expect(accepted).not.toHaveProperty('members');
 		expectNoKeyLabels(accepted);
-		const rejected = await framework
+		const rejected = await s.framework
 			.createSession()
 			.rejectSignerSet(s.k6, S6);
 		expect(rejected).not.toHaveProperty('members');

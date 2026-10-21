@@ -8,8 +8,8 @@ import {
 	test,
 } from 'bun:test';
 
-import { AuthErrors } from '../src/errors';
 import {
+	ACCESS_DENIED,
 	ApiTestFramework,
 	newUser,
 	sign,
@@ -308,16 +308,12 @@ describe('Signer sets API', () => {
 		const outsider = framework.createSession();
 		await outsider.connectUser(newUser());
 
-		const denied = {
-			status: 403,
-			message: AuthErrors.AccessDenied,
-		};
 		await expect(
 			outsider.v1.getSignerSet(address),
-		).rejects.toMatchObject(denied);
+		).rejects.toMatchObject(ACCESS_DENIED);
 		await expect(
 			outsider.v1.getAccount(address),
-		).rejects.toMatchObject(denied);
+		).rejects.toMatchObject(ACCESS_DENIED);
 	});
 
 	test('reading needs a session and a well-formed address', async () => {

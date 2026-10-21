@@ -9,39 +9,33 @@
 import { type Network } from '@mysten/sagat';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
+	beforeAll,
 	beforeEach,
 	describe,
 	expect,
 	test,
 } from 'bun:test';
 
-import { AuthErrors } from '../src/errors';
 import {
-	ApiTestFramework,
+	ACCESS_DENIED,
 	buildTransfer,
 	failureOf,
 	newUser,
+	NOT_A_MEMBER,
 	type TestUser,
 } from './framework/api-test-framework';
 import {
+	clearAliasMirror,
 	draftSignerSet,
 	rotationScenario,
 	setAliasMirror,
 	type RotationScenario,
 } from './framework/rotation';
-import {
-	createTestApp,
-	setupSharedTestEnvironment,
-} from './setup/shared-test-setup';
+import { setupSharedTestEnvironment } from './setup/shared-test-setup';
 
 setupSharedTestEnvironment();
 
 const ALL: Network[] = ['localnet', 'testnet'];
-
-const accessDenied = {
-	status: 403,
-	message: AuthErrors.AccessDenied,
-};
 
 // The account's signer sets as `[address, validOn]`, in link order.
 const validity = (account: {
@@ -57,12 +51,15 @@ const dashboardOf = async (
 	);
 
 describe('Rotation: account access', () => {
-	let framework: ApiTestFramework;
 	let s: RotationScenario;
 
+	// These tests only rewrite A's alias mirror and read, so they share one
+	// scenario and start from an empty mirror.
+	beforeAll(async () => {
+		s = await rotationScenario();
+	});
 	beforeEach(async () => {
-		framework = new ApiTestFramework(await createTestApp());
-		s = await rotationScenario(framework);
+		await clearAliasMirror(s.A);
 	});
 
 	describe('default: no mirror rows', () => {
@@ -174,16 +171,13 @@ describe('Rotation: account access', () => {
 				await failureOf(
 					(await s.as(s.k4)).v1.getAccount(s.A),
 				),
-			).toEqual(accessDenied);
+			).toEqual(ACCESS_DENIED);
 			expect(await dashboardOf(s, s.k4)).toEqual([]);
 			expect(await dashboardOf(s, s.k3)).toEqual([s.A]);
 		});
 
 		test('a state row saying the alias object does not exist is the same default', async () => {
-			for (const network of [
-				'localnet',
-				'testnet',
-			] as const)
+			for (const network of ALL)
 				await setAliasMirror(s.A, network, {
 					exists: false,
 				});
@@ -278,10 +272,7 @@ describe('Rotation: account access', () => {
 
 	describe('S1 retired on every network', () => {
 		beforeEach(async () => {
-			for (const network of [
-				'localnet',
-				'testnet',
-			] as const)
+			for (const network of ALL)
 				await setAliasMirror(s.A, network, {
 					aliases: [s.S2],
 				});
@@ -293,7 +284,7 @@ describe('Rotation: account access', () => {
 					await failureOf(
 						(await s.as(key)).v1.getAccount(s.A),
 					),
-				).toEqual(accessDenied);
+				).toEqual(ACCESS_DENIED);
 				expect(await dashboardOf(s, key)).toEqual([]);
 			}
 		});
@@ -359,48 +350,23 @@ describe('Rotation: account access', () => {
 				await failureOf(
 					(await s.as(s.k4)).v1.getAccount(s.A),
 				),
-			).toEqual(accessDenied);
+			).toEqual(ACCESS_DENIED);
 		});
 	});
 });
 
 describe('Rotation: acting for the account', () => {
-	let framework: ApiTestFramework;
 	let s: RotationScenario;
 
 	beforeEach(async () => {
-		framework = new ApiTestFramework(await createTestApp());
-		s = await rotationScenario(framework, { fund: true });
+		s = await rotationScenario({ fund: true });
 	});
 
-	const notAMember = {
-		status: 403,
-		message: AuthErrors.NotAMultisigMember,
-	};
 	const notAMemberToCancel = {
 		status: 400,
 		message: 'Not a member of the multisig',
 	};
 
-	const propose = async (
-		proposer: TestUser,
-		network: Network,
-	) =>
-		s.creator.createProposal(
-			proposer,
-			s.A,
-			network,
-			await buildTransfer(s.A),
-		);
-	const vote = (
-		voter: TestUser,
-		proposal: { id: number; transactionBytes: string },
-	) =>
-		s.creator.voteOnProposal(
-			voter,
-			proposal.id,
-			proposal.transactionBytes,
-		);
 	const cancel = (
 		member: TestUser,
 		proposal: { id: number },
@@ -416,7 +382,11 @@ describe('Rotation: acting for the account', () => {
 		});
 
 		test('k4 creates and lists proposals on localnet', async () => {
-			const proposal = await propose(s.k4, 'localnet');
+			const proposal = await s.creator.proposeTransfer(
+				s.k4,
+				s.A,
+				{ network: 'localnet' },
+			);
 			expect(proposal.proposerAddress).toBe(s.k4.address);
 			const { data } = await list(s.k4, 'localnet');
 			expect(data.map((p) => p.id)).toEqual([proposal.id]);
@@ -444,9 +414,15 @@ describe('Rotation: acting for the account', () => {
 			await setAliasMirror(s.A, 'localnet', {
 				aliases: [s.A, s.S2, S4],
 			});
-			const proposal = await propose(s.k1, 'localnet');
+			const proposal = await s.creator.proposeTransfer(
+				s.k1,
+				s.A,
+				{ network: 'localnet' },
+			);
 
-			expect(await vote(s.k6, proposal)).toEqual({
+			expect(
+				await s.creator.voteOnProposal(s.k6, proposal),
+			).toEqual({
 				hasReachedThreshold: true,
 				readySignerSets: [S4],
 			});
@@ -456,8 +432,14 @@ describe('Rotation: acting for the account', () => {
 		});
 
 		test('k4 votes on and cancels a localnet proposal', async () => {
-			const proposal = await propose(s.k1, 'localnet');
-			expect(await vote(s.k4, proposal)).toEqual({
+			const proposal = await s.creator.proposeTransfer(
+				s.k1,
+				s.A,
+				{ network: 'localnet' },
+			);
+			expect(
+				await s.creator.voteOnProposal(s.k4, proposal),
+			).toEqual({
 				hasReachedThreshold: false,
 				readySignerSets: [],
 			});
@@ -467,20 +449,30 @@ describe('Rotation: acting for the account', () => {
 		});
 
 		test('k4 is refused on testnet: create, vote, cancel and list', async () => {
-			const proposal = await propose(s.k1, 'testnet');
+			const proposal = await s.creator.proposeTransfer(
+				s.k1,
+				s.A,
+				{ network: 'testnet' },
+			);
 
 			expect(
-				await failureOf(propose(s.k4, 'testnet')),
-			).toEqual(notAMember);
-			expect(await failureOf(vote(s.k4, proposal))).toEqual(
-				notAMember,
-			);
+				await failureOf(
+					s.creator.proposeTransfer(s.k4, s.A, {
+						network: 'testnet',
+					}),
+				),
+			).toEqual(NOT_A_MEMBER);
+			expect(
+				await failureOf(
+					s.creator.voteOnProposal(s.k4, proposal),
+				),
+			).toEqual(NOT_A_MEMBER);
 			expect(
 				await failureOf(cancel(s.k4, proposal)),
 			).toEqual(notAMemberToCancel);
 			expect(
 				await failureOf(list(s.k4, 'testnet')),
-			).toEqual(notAMember);
+			).toEqual(NOT_A_MEMBER);
 			// The refused vote was not stored.
 			const stored = await s.creator.v1.getProposalByDigest(
 				proposal.digest,
@@ -491,13 +483,14 @@ describe('Rotation: acting for the account', () => {
 		});
 
 		test('k1 still acts on both networks', async () => {
-			for (const network of [
-				'localnet',
-				'testnet',
-			] as const)
-				expect((await propose(s.k1, network)).network).toBe(
-					network,
-				);
+			for (const network of ALL)
+				expect(
+					(
+						await s.creator.proposeTransfer(s.k1, s.A, {
+							network: network,
+						})
+					).network,
+				).toBe(network);
 			expect(
 				(await list(s.k1, 'testnet')).data,
 			).toHaveLength(1);
@@ -512,25 +505,41 @@ describe('Rotation: acting for the account', () => {
 		});
 
 		test('k1, only in S1, cannot create, vote, cancel or list on localnet', async () => {
-			const proposal = await propose(s.k3, 'localnet');
+			const proposal = await s.creator.proposeTransfer(
+				s.k3,
+				s.A,
+				{ network: 'localnet' },
+			);
 
 			expect(
-				await failureOf(propose(s.k1, 'localnet')),
-			).toEqual(notAMember);
-			expect(await failureOf(vote(s.k1, proposal))).toEqual(
-				notAMember,
-			);
+				await failureOf(
+					s.creator.proposeTransfer(s.k1, s.A, {
+						network: 'localnet',
+					}),
+				),
+			).toEqual(NOT_A_MEMBER);
+			expect(
+				await failureOf(
+					s.creator.voteOnProposal(s.k1, proposal),
+				),
+			).toEqual(NOT_A_MEMBER);
 			expect(
 				await failureOf(cancel(s.k1, proposal)),
 			).toEqual(notAMemberToCancel);
 			expect(
 				await failureOf(list(s.k1, 'localnet')),
-			).toEqual(notAMember);
+			).toEqual(NOT_A_MEMBER);
 		});
 
 		test('k1 still creates, votes, lists and cancels on testnet', async () => {
-			const proposal = await propose(s.k2, 'testnet');
-			expect(await vote(s.k1, proposal)).toEqual({
+			const proposal = await s.creator.proposeTransfer(
+				s.k2,
+				s.A,
+				{ network: 'testnet' },
+			);
+			expect(
+				await s.creator.voteOnProposal(s.k1, proposal),
+			).toEqual({
 				hasReachedThreshold: true,
 				readySignerSets: [s.S1],
 			});
@@ -539,17 +548,18 @@ describe('Rotation: acting for the account', () => {
 			).toEqual([proposal.id]);
 			await cancel(s.k1, proposal);
 			expect(
-				(await propose(s.k1, 'testnet')).proposerAddress,
+				(
+					await s.creator.proposeTransfer(s.k1, s.A, {
+						network: 'testnet',
+					})
+				).proposerAddress,
 			).toBe(s.k1.address);
 		});
 	});
 
 	describe('S1 retired on every network', () => {
 		beforeEach(async () => {
-			for (const network of [
-				'localnet',
-				'testnet',
-			] as const)
+			for (const network of ALL)
 				await setAliasMirror(s.A, network, {
 					aliases: [s.S2],
 				});
@@ -561,7 +571,7 @@ describe('Rotation: acting for the account', () => {
 				await failureOf(
 					s.creator.addAccountProposer(s.k1, proposer, s.A),
 				),
-			).toEqual(notAMember);
+			).toEqual(NOT_A_MEMBER);
 			expect(
 				await s.creator.addAccountProposer(
 					s.k4,
@@ -577,7 +587,7 @@ describe('Rotation: acting for the account', () => {
 						s.A,
 					),
 				),
-			).toEqual(notAMember);
+			).toEqual(NOT_A_MEMBER);
 			expect(
 				await s.creator.removeAccountProposer(
 					s.k4,
@@ -594,7 +604,11 @@ describe('Rotation: acting for the account', () => {
 				proposer.address,
 				s.A,
 			);
-			const proposal = await propose(proposer, 'testnet');
+			const proposal = await s.creator.proposeTransfer(
+				proposer,
+				s.A,
+				{ network: 'testnet' },
+			);
 			expect(
 				(
 					await s.creator.v1.getProposalByDigest(
@@ -635,20 +649,30 @@ describe('Rotation: acting for the account', () => {
 			// Accepted in full: verified, but still in no alias set.
 			await s.creator.acceptSignerSet(s.k5, s.S3);
 			await s.creator.acceptSignerSet(s.k6, s.S3);
-			const proposal = await propose(s.k1, 'localnet');
+			const proposal = await s.creator.proposeTransfer(
+				s.k1,
+				s.A,
+				{ network: 'localnet' },
+			);
 
 			expect(
-				await failureOf(propose(s.k5, 'localnet')),
-			).toEqual(notAMember);
-			expect(await failureOf(vote(s.k5, proposal))).toEqual(
-				notAMember,
-			);
+				await failureOf(
+					s.creator.proposeTransfer(s.k5, s.A, {
+						network: 'localnet',
+					}),
+				),
+			).toEqual(NOT_A_MEMBER);
+			expect(
+				await failureOf(
+					s.creator.voteOnProposal(s.k5, proposal),
+				),
+			).toEqual(NOT_A_MEMBER);
 			expect(
 				await failureOf(cancel(s.k5, proposal)),
 			).toEqual(notAMemberToCancel);
 			expect(
 				await failureOf(list(s.k5, 'localnet')),
-			).toEqual(notAMember);
+			).toEqual(NOT_A_MEMBER);
 			expect(
 				await failureOf(
 					s.creator.addAccountProposer(
@@ -657,7 +681,7 @@ describe('Rotation: acting for the account', () => {
 						s.A,
 					),
 				),
-			).toEqual(notAMember);
+			).toEqual(NOT_A_MEMBER);
 		});
 	});
 

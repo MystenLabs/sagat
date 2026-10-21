@@ -6,7 +6,7 @@ import {
 	ProposalStatus,
 } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
-import { fromBase64 } from '@mysten/sui/utils';
+import { toBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -20,8 +20,10 @@ import {
 	buildTransfer,
 	failureOf,
 	newUser,
+	NOT_A_MEMBER,
 	sendCoins,
 	sign,
+	signTx,
 	type TestUser,
 } from './framework/api-test-framework';
 import { rpcCalls } from './setup/rpc-calls';
@@ -54,10 +56,7 @@ describe('Proposal Business Logic', () => {
 				account.address,
 				{ amount: 999_999 },
 			);
-			const { signature } =
-				await users[0].keypair.signTransaction(
-					fromBase64(signed),
-				);
+			const signature = await signTx(users[0], signed);
 
 			await expect(
 				session.v1.createProposal({
@@ -78,10 +77,10 @@ describe('Proposal Business Logic', () => {
 				account.address,
 			);
 
-			const { signature } =
-				await users[0].keypair.signTransaction(
-					fromBase64(await buildTransfer(account.address)),
-				);
+			const signature = await signTx(
+				users[0],
+				await buildTransfer(account.address),
+			);
 			const before = await rpcCalls('getObjects');
 			await expect(
 				session.v1.createProposal({
@@ -191,22 +190,14 @@ describe('Proposal Business Logic', () => {
 
 		// 1 + 1 out of 3.
 		expect(
-			await session.voteOnProposal(
-				users[2],
-				proposal.id,
-				proposal.transactionBytes,
-			),
+			await session.voteOnProposal(users[2], proposal),
 		).toEqual({
 			hasReachedThreshold: false,
 			readySignerSets: [],
 		});
 		// 1 + 1 + 2 out of 3.
 		expect(
-			await session.voteOnProposal(
-				users[1],
-				proposal.id,
-				proposal.transactionBytes,
-			),
+			await session.voteOnProposal(users[1], proposal),
 		).toEqual({
 			hasReachedThreshold: true,
 			readySignerSets: [account.address],
@@ -265,11 +256,7 @@ describe('Proposal Business Logic', () => {
 			])
 				expect(byDigest).not.toHaveProperty(field);
 
-			await session.voteOnProposal(
-				users[1],
-				proposal.id,
-				proposal.transactionBytes,
-			);
+			await session.voteOnProposal(users[1], proposal);
 			const [signerSet] = (
 				await anonymous.getProposalByDigest(proposal.digest)
 			).signerSets;
@@ -291,11 +278,7 @@ describe('Proposal Business Logic', () => {
 			);
 
 			expect(
-				await session.voteOnProposal(
-					users[1],
-					proposal.id,
-					proposal.transactionBytes,
-				),
+				await session.voteOnProposal(users[1], proposal),
 			).toEqual({
 				hasReachedThreshold: true,
 				readySignerSets: [account.address],
@@ -341,11 +324,7 @@ describe('Proposal Business Logic', () => {
 
 			// The proposer already voted by proposing.
 			await expect(
-				session.voteOnProposal(
-					users[0],
-					proposal.id,
-					proposal.transactionBytes,
-				),
+				session.voteOnProposal(users[0], proposal),
 			).rejects.toThrow('already voted');
 		});
 
@@ -357,14 +336,12 @@ describe('Proposal Business Logic', () => {
 				users[0],
 				account.address,
 			);
-			const { signature } =
-				await users[1].keypair.signTransaction(
-					fromBase64(
-						await buildTransfer(account.address, {
-							amount: 999_999,
-						}),
-					),
-				);
+			const signature = await signTx(
+				users[1],
+				await buildTransfer(account.address, {
+					amount: 999_999,
+				}),
+			);
 
 			await expect(
 				session.v1.voteForProposal(proposal.id, {
@@ -404,11 +381,7 @@ describe('Proposal Business Logic', () => {
 				account.address,
 			);
 			await expect(
-				session.voteOnProposal(
-					outsider,
-					proposal.id,
-					proposal.transactionBytes,
-				),
+				session.voteOnProposal(outsider, proposal),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
 		});
 	});
@@ -458,7 +431,7 @@ describe('Proposal Business Logic', () => {
 		const proposal = await session.proposeTransfer(
 			users[0],
 			account.address,
-			'Test proposal',
+			{ description: 'Test proposal' },
 		);
 
 		const byDigest = await session.v1.getProposalByDigest(
@@ -561,11 +534,7 @@ describe('Proposal Business Logic', () => {
 			await session.cancelProposal(users[0], proposal.id);
 
 			await expect(
-				session.voteOnProposal(
-					users[1],
-					proposal.id,
-					proposal.transactionBytes,
-				),
+				session.voteOnProposal(users[1], proposal),
 			).rejects.toThrow('Proposal is not pending');
 			await expect(
 				session.cancelProposal(users[0], proposal.id),
@@ -589,10 +558,6 @@ describe('Proposal Business Logic', () => {
 	// Status, body and check order of the error responses, locked so that a
 	// refactor of the flows cannot change them unnoticed.
 	describe('Error responses', () => {
-		const notAMember = {
-			status: 403,
-			message: AuthErrors.NotAMultisigMember,
-		};
 		const unsupportedNetwork = {
 			status: 400,
 			message:
@@ -624,7 +589,7 @@ describe('Proposal Business Logic', () => {
 			expect(await list('mainnet')).toEqual(
 				unsupportedNetwork,
 			);
-			expect(await list('localnet')).toEqual(notAMember);
+			expect(await list('localnet')).toEqual(NOT_A_MEMBER);
 		});
 
 		test('votes and cancels by non-members, and their check order', async () => {
@@ -636,16 +601,15 @@ describe('Proposal Business Logic', () => {
 				account.address,
 			);
 
+			// `bytes` is the base64 transaction the voter signs.
 			const vote = async (
 				voter: TestUser,
 				proposalId: number,
-				bytes: Uint8Array,
+				bytes: string,
 			) =>
 				failureOf(
 					session.v1.voteForProposal(proposalId, {
-						signature: (
-							await voter.keypair.signTransaction(bytes)
-						).signature,
+						signature: await signTx(voter, bytes),
 					}),
 				);
 			const cancel = async (
@@ -666,7 +630,7 @@ describe('Proposal Business Logic', () => {
 				await vote(
 					outsider,
 					proposal.id + 1000,
-					fromBase64(proposal.transactionBytes),
+					proposal.transactionBytes,
 				),
 			).toEqual({
 				status: 400,
@@ -678,9 +642,9 @@ describe('Proposal Business Logic', () => {
 				await vote(
 					outsider,
 					proposal.id,
-					new Uint8Array([1, 2, 3]),
+					toBase64(new Uint8Array([1, 2, 3])),
 				),
-			).toEqual(notAMember);
+			).toEqual(NOT_A_MEMBER);
 
 			// A cancel: 400 for a non-member, before its signature is checked.
 			expect(
@@ -714,9 +678,9 @@ describe('Proposal Business Logic', () => {
 				await vote(
 					outsider,
 					proposal.id,
-					fromBase64(proposal.transactionBytes),
+					proposal.transactionBytes,
 				),
-			).toEqual(notAMember);
+			).toEqual(NOT_A_MEMBER);
 		});
 
 		test('malformed addresses, digests and ids are refused by the request schema', async () => {

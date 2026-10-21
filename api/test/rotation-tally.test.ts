@@ -14,58 +14,27 @@ import {
 	test,
 } from 'bun:test';
 
-import {
-	ApiTestFramework,
-	buildTransfer,
-	newUser,
-	type TestUser,
-} from './framework/api-test-framework';
+import { newUser } from './framework/api-test-framework';
 import {
 	rotationScenario,
 	setAliasMirror,
 	type RotationScenario,
 } from './framework/rotation';
-import {
-	createTestApp,
-	setupSharedTestEnvironment,
-} from './setup/shared-test-setup';
+import { setupSharedTestEnvironment } from './setup/shared-test-setup';
 
 setupSharedTestEnvironment();
 
 describe('Rotation: tallies', () => {
-	let framework: ApiTestFramework;
 	let s: RotationScenario;
 
 	beforeEach(async () => {
-		framework = new ApiTestFramework(await createTestApp());
-		s = await rotationScenario(framework, { fund: true });
+		s = await rotationScenario({ fund: true });
 	});
-
-	const propose = async (
-		proposer: TestUser,
-		network: 'localnet' | 'testnet',
-	) =>
-		s.creator.createProposal(
-			proposer,
-			s.A,
-			network,
-			await buildTransfer(s.A),
-		);
-
-	const vote = (
-		voter: TestUser,
-		proposal: { id: number; transactionBytes: string },
-	) =>
-		s.creator.voteOnProposal(
-			voter,
-			proposal.id,
-			proposal.transactionBytes,
-		);
 
 	// The public tally as `[address, currentWeight, hasReachedThreshold]`.
 	const tally = async (digest: string) =>
 		(
-			await framework
+			await s.framework
 				.createSession()
 				.v1.getProposalByDigest(digest)
 		).signerSets.map((set) => [
@@ -79,7 +48,11 @@ describe('Rotation: tallies', () => {
 			'localnet',
 			'testnet',
 		] as const) {
-			const proposal = await propose(s.k1, network);
+			const proposal = await s.creator.proposeTransfer(
+				s.k1,
+				s.A,
+				{ network: network },
+			);
 			expect(await tally(proposal.digest)).toEqual([
 				[s.S1, 1, false],
 			]);
@@ -90,10 +63,18 @@ describe('Rotation: tallies', () => {
 		await setAliasMirror(s.A, 'localnet', {
 			aliases: [s.A, s.S2],
 		});
-		const local = await propose(s.k1, 'localnet');
-		const remote = await propose(s.k1, 'testnet');
+		const local = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'localnet' },
+		);
+		const remote = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'testnet' },
+		);
 
-		const byDigest = await framework
+		const byDigest = await s.framework
 			.createSession()
 			.v1.getProposalByDigest(local.digest);
 		expect(byDigest.signerSets).toEqual([
@@ -138,7 +119,11 @@ describe('Rotation: tallies', () => {
 		await s.creator.acceptSignerSet(s.k5, s.S3);
 		await s.creator.acceptSignerSet(s.k6, s.S3);
 
-		const proposal = await propose(s.k1, 'localnet');
+		const proposal = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'localnet' },
+		);
 		expect(
 			(await tally(proposal.digest)).map(([a]) => a),
 		).toEqual([s.S1, s.S2]);
@@ -148,10 +133,16 @@ describe('Rotation: tallies', () => {
 		await setAliasMirror(s.A, 'localnet', {
 			aliases: [s.A, s.S2],
 		});
-		const proposal = await propose(s.k1, 'localnet');
+		const proposal = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'localnet' },
+		);
 
 		// k3 is in S1 and S2: S1 reaches 2 of 2, S2 has 1 of 2.
-		expect(await vote(s.k3, proposal)).toEqual({
+		expect(
+			await s.creator.voteOnProposal(s.k3, proposal),
+		).toEqual({
 			hasReachedThreshold: true,
 			readySignerSets: [s.S1],
 		});
@@ -165,7 +156,11 @@ describe('Rotation: tallies', () => {
 		await setAliasMirror(s.A, 'localnet', {
 			aliases: [s.A, newUser().address],
 		});
-		const proposal = await propose(s.k1, 'localnet');
+		const proposal = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'localnet' },
+		);
 		expect(await tally(proposal.digest)).toEqual([
 			[s.S1, 1, false],
 		]);
@@ -174,9 +169,15 @@ describe('Rotation: tallies', () => {
 		await setAliasMirror(s.A, 'localnet', {
 			aliases: [s.A, s.S2],
 		});
-		const proposal = await propose(s.k1, 'localnet');
-		await vote(s.k3, proposal);
-		expect(await vote(s.k4, proposal)).toEqual({
+		const proposal = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'localnet' },
+		);
+		await s.creator.voteOnProposal(s.k3, proposal);
+		expect(
+			await s.creator.voteOnProposal(s.k4, proposal),
+		).toEqual({
 			hasReachedThreshold: true,
 			readySignerSets: [s.S1, s.S2],
 		});
@@ -190,8 +191,14 @@ describe('Rotation: tallies', () => {
 		await setAliasMirror(s.A, 'localnet', {
 			aliases: [s.A, s.S2],
 		});
-		const proposal = await propose(s.k1, 'localnet');
-		expect(await vote(s.k2, proposal)).toEqual({
+		const proposal = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'localnet' },
+		);
+		expect(
+			await s.creator.voteOnProposal(s.k2, proposal),
+		).toEqual({
 			hasReachedThreshold: true,
 			readySignerSets: [s.S1],
 		});
@@ -200,7 +207,7 @@ describe('Rotation: tallies', () => {
 		await setAliasMirror(s.A, 'localnet', {
 			aliases: [s.S2],
 		});
-		const anonymous = framework.createSession().v1;
+		const anonymous = s.framework.createSession().v1;
 		const after = await anonymous.getProposalByDigest(
 			proposal.digest,
 		);
@@ -211,11 +218,15 @@ describe('Rotation: tallies', () => {
 			[s.S2, 0, false],
 		]);
 
-		expect(await vote(s.k3, proposal)).toEqual({
+		expect(
+			await s.creator.voteOnProposal(s.k3, proposal),
+		).toEqual({
 			hasReachedThreshold: false,
 			readySignerSets: [],
 		});
-		expect(await vote(s.k4, proposal)).toEqual({
+		expect(
+			await s.creator.voteOnProposal(s.k4, proposal),
+		).toEqual({
 			hasReachedThreshold: true,
 			readySignerSets: [s.S2],
 		});
@@ -228,10 +239,18 @@ describe('Rotation: tallies', () => {
 		await setAliasMirror(s.A, 'localnet', {
 			aliases: [s.A, s.S2],
 		});
-		const local = await propose(s.k1, 'localnet');
-		await vote(s.k3, local);
-		const remote = await propose(s.k1, 'testnet');
-		const anonymous = framework.createSession().v1;
+		const local = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'localnet' },
+		);
+		await s.creator.voteOnProposal(s.k3, local);
+		const remote = await s.creator.proposeTransfer(
+			s.k1,
+			s.A,
+			{ network: 'testnet' },
+		);
+		const anonymous = s.framework.createSession().v1;
 		const k1 = await s.as(s.k1);
 
 		const localPage = await k1.v1.getProposals(
@@ -269,10 +288,7 @@ describe('Rotation: tallies', () => {
 
 	describe('with S2 as 1-of-2', () => {
 		beforeEach(async () => {
-			framework = new ApiTestFramework(
-				await createTestApp(),
-			);
-			s = await rotationScenario(framework, {
+			s = await rotationScenario({
 				s2Threshold: 1,
 				fund: true,
 			});
@@ -282,9 +298,15 @@ describe('Rotation: tallies', () => {
 		});
 
 		test('a set that would reach its threshold is not ready on a network where it is not valid', async () => {
-			const remote = await propose(s.k1, 'testnet');
+			const remote = await s.creator.proposeTransfer(
+				s.k1,
+				s.A,
+				{ network: 'testnet' },
+			);
 			// On localnet k3 alone would make S2 ready.
-			expect(await vote(s.k3, remote)).toEqual({
+			expect(
+				await s.creator.voteOnProposal(s.k3, remote),
+			).toEqual({
 				hasReachedThreshold: true,
 				readySignerSets: [s.S1],
 			});
@@ -292,7 +314,11 @@ describe('Rotation: tallies', () => {
 				[s.S1, 2, true],
 			]);
 
-			const local = await propose(s.k3, 'localnet');
+			const local = await s.creator.proposeTransfer(
+				s.k3,
+				s.A,
+				{ network: 'localnet' },
+			);
 			expect(await tally(local.digest)).toEqual([
 				[s.S1, 1, false],
 				[s.S2, 1, true],

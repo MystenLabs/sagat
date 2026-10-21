@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	defaultExpiry,
-	PersonalMessages,
-} from '@mysten/sagat';
+import { defaultExpiry } from '@mysten/sagat';
 import { PersonalMessages as LegacyMessages } from '@mysten/sagat-legacy';
 import {
 	beforeEach,
@@ -19,8 +16,8 @@ import {
 	ApiTestFramework,
 	failureOf,
 	newUser,
+	NOT_A_MEMBER,
 	sign,
-	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
 import {
@@ -174,20 +171,14 @@ describe('Accounts API', () => {
 					newUser().address,
 					account.address,
 				),
-			).rejects.toMatchObject({
-				status: 403,
-				message: AuthErrors.NotAMultisigMember,
-			});
+			).rejects.toMatchObject(NOT_A_MEMBER);
 			await expect(
 				anonymous.removeAccountProposer(
 					newUser(),
 					proposer,
 					account.address,
 				),
-			).rejects.toMatchObject({
-				status: 403,
-				message: AuthErrors.NotAMultisigMember,
-			});
+			).rejects.toMatchObject(NOT_A_MEMBER);
 
 			expect(
 				await anonymous.removeAccountProposer(
@@ -271,7 +262,7 @@ describe('Accounts API', () => {
 					users[0],
 					newUser().address,
 					account.address,
-					'2021-01-01',
+					{ expiry: '2021-01-01' },
 				),
 			).rejects.toThrow('Signature has expired');
 		});
@@ -281,78 +272,29 @@ describe('Accounts API', () => {
 		// malformed address never reaches the flow: the request schema
 		// refuses it first.
 		describe('error responses', () => {
-			const notAMember = {
-				status: 403,
-				message: AuthErrors.NotAMultisigMember,
-			};
-
-			const changeProposer = async (
-				session: TestSession,
-				route: 'add' | 'remove',
-				{
-					signer,
-					accountAddress,
-					proposer,
-					expiry = defaultExpiry(),
-					signedExpiry = expiry,
-				}: {
-					signer: TestUser;
-					accountAddress: string;
-					proposer: string;
-					expiry?: string;
-					// The expiry in the signed message, if not `expiry`.
-					signedExpiry?: string;
-				},
-			) => {
-				const message =
-					route === 'add'
-						? PersonalMessages.addAccountProposer(
-								proposer,
-								accountAddress,
-								signedExpiry,
-							)
-						: PersonalMessages.removeAccountProposer(
-								proposer,
-								accountAddress,
-								signedExpiry,
-							);
-				const signature = await sign(signer, message);
-				return failureOf(
-					route === 'add'
-						? session.v1.addAccountProposer(
-								accountAddress,
-								proposer,
-								signature,
-								expiry,
-							)
-						: session.v1.removeAccountProposer(
-								accountAddress,
-								proposer,
-								signature,
-								expiry,
-							),
-				);
-			};
-
 			test('adding checks the address, then the expiry, then membership, then the signature', async () => {
 				const { session, users, account } =
 					await framework.createVerifiedAccount(2, 2);
 				const outsider = newUser();
 				const add = (
-					options: Omit<
-						Parameters<typeof changeProposer>[2],
-						'accountAddress'
-					>,
+					signer: TestUser,
+					proposer: string,
+					options?: {
+						expiry?: string;
+						signedExpiry?: string;
+					},
 				) =>
-					changeProposer(session, 'add', {
-						accountAddress: account.address,
-						...options,
-					});
+					failureOf(
+						session.addAccountProposer(
+							signer,
+							proposer,
+							account.address,
+							options,
+						),
+					);
 
 				expect(
-					await add({
-						signer: outsider,
-						proposer: 'not-an-address',
+					await add(outsider, 'not-an-address', {
 						expiry: 'not-a-date',
 					}),
 				).toEqual({
@@ -360,9 +302,7 @@ describe('Accounts API', () => {
 					message: 'proposer: Must be a valid Sui address.',
 				});
 				expect(
-					await add({
-						signer: outsider,
-						proposer: newUser().address,
+					await add(outsider, newUser().address, {
 						expiry: 'not-a-date',
 					}),
 				).toEqual({
@@ -370,9 +310,7 @@ describe('Accounts API', () => {
 					message: 'Invalid expiry date format',
 				});
 				expect(
-					await add({
-						signer: outsider,
-						proposer: newUser().address,
+					await add(outsider, newUser().address, {
 						expiry: '2021-01-01',
 					}),
 				).toEqual({
@@ -380,15 +318,10 @@ describe('Accounts API', () => {
 					message: 'Signature has expired',
 				});
 				expect(
-					await add({
-						signer: outsider,
-						proposer: newUser().address,
-					}),
-				).toEqual(notAMember);
+					await add(outsider, newUser().address),
+				).toEqual(NOT_A_MEMBER);
 				expect(
-					await add({
-						signer: users[0],
-						proposer: newUser().address,
+					await add(users[0], newUser().address, {
 						signedExpiry: new Date(
 							Date.now() + 60_000,
 						).toISOString(),
@@ -410,11 +343,13 @@ describe('Accounts API', () => {
 				);
 
 				expect(
-					await changeProposer(session, 'add', {
-						signer: users[1],
-						accountAddress: account.address,
-						proposer,
-					}),
+					await failureOf(
+						session.addAccountProposer(
+							users[1],
+							proposer,
+							account.address,
+						),
+					),
 				).toEqual({
 					status: 400,
 					message: `${proposer} is already a proposer for this multisig`,
@@ -441,20 +376,24 @@ describe('Accounts API', () => {
 						'You have reached the maximum number of proposers for this multisig',
 				};
 				expect(
-					await changeProposer(session, 'add', {
-						signer: users[0],
-						accountAddress: account.address,
-						proposer: newUser().address,
-					}),
+					await failureOf(
+						session.addAccountProposer(
+							users[0],
+							newUser().address,
+							account.address,
+						),
+					),
 				).toEqual(limitReached);
 				// At the limit, even a proposer that is already there gets the
 				// limit error, not the duplicate one.
 				expect(
-					await changeProposer(session, 'add', {
-						signer: users[0],
-						accountAddress: account.address,
-						proposer: proposers[0],
-					}),
+					await failureOf(
+						session.addAccountProposer(
+							users[0],
+							proposers[0],
+							account.address,
+						),
+					),
 				).toEqual(limitReached);
 			});
 
@@ -464,34 +403,40 @@ describe('Accounts API', () => {
 				const outsider = newUser();
 
 				expect(
-					await changeProposer(session, 'remove', {
-						signer: outsider,
-						accountAddress: account.address,
-						proposer: 'not-an-address',
-						expiry: '2021-01-01',
-					}),
+					await failureOf(
+						session.removeAccountProposer(
+							outsider,
+							'not-an-address',
+							account.address,
+							{ expiry: '2021-01-01' },
+						),
+					),
 				).toEqual({
 					status: 400,
 					message: 'proposer: Must be a valid Sui address.',
 				});
 				expect(
-					await changeProposer(session, 'remove', {
-						signer: outsider,
-						accountAddress: account.address,
-						proposer: newUser().address,
-						expiry: '2021-01-01',
-					}),
+					await failureOf(
+						session.removeAccountProposer(
+							outsider,
+							newUser().address,
+							account.address,
+							{ expiry: '2021-01-01' },
+						),
+					),
 				).toEqual({
 					status: 400,
 					message: 'Signature has expired',
 				});
 				expect(
-					await changeProposer(session, 'remove', {
-						signer: outsider,
-						accountAddress: account.address,
-						proposer: newUser().address,
-					}),
-				).toEqual(notAMember);
+					await failureOf(
+						session.removeAccountProposer(
+							outsider,
+							newUser().address,
+							account.address,
+						),
+					),
+				).toEqual(NOT_A_MEMBER);
 			});
 		});
 	});

@@ -14,9 +14,8 @@ import {
 	test,
 } from 'bun:test';
 
-import { AuthErrors } from '../src/errors';
 import {
-	ApiTestFramework,
+	ACCESS_DENIED,
 	failureOf,
 	newUser,
 	type TestUser,
@@ -25,22 +24,18 @@ import {
 	draftSignerSet,
 	linkStatus,
 	rotationScenario,
+	secondAccount,
 	type RotationScenario,
 } from './framework/rotation';
-import {
-	createTestApp,
-	setupSharedTestEnvironment,
-} from './setup/shared-test-setup';
+import { setupSharedTestEnvironment } from './setup/shared-test-setup';
 
 setupSharedTestEnvironment();
 
 describe('Rotation: drafts and invitations', () => {
-	let framework: ApiTestFramework;
 	let s: RotationScenario;
 
 	beforeEach(async () => {
-		framework = new ApiTestFramework(await createTestApp());
-		s = await rotationScenario(framework);
+		s = await rotationScenario();
 	});
 
 	const invitations = async (
@@ -64,11 +59,6 @@ describe('Rotation: drafts and invitations', () => {
 
 	const accountOf = async (user: TestUser) =>
 		(await s.as(user)).v1.getAccount(s.A);
-
-	const accessDenied = {
-		status: 403,
-		message: AuthErrors.AccessDenied,
-	};
 
 	test('an invitee sees the draft as an invitation that names the account', async () => {
 		expect(await invitations(s.k5)).toEqual([
@@ -99,7 +89,7 @@ describe('Rotation: drafts and invitations', () => {
 
 	test('an invitee of a draft cannot read the account, and does not see it on the dashboard', async () => {
 		expect(await failureOf(accountOf(s.k5))).toEqual(
-			accessDenied,
+			ACCESS_DENIED,
 		);
 		expect(
 			await (await s.as(s.k5)).v1.getAccounts(),
@@ -125,7 +115,7 @@ describe('Rotation: drafts and invitations', () => {
 		expect(await summary(s.k5)).toEqual([]);
 		expect(await summary(s.k6)).toEqual([]);
 		expect(await failureOf(accountOf(s.k5))).toEqual(
-			accessDenied,
+			ACCESS_DENIED,
 		);
 		expect(
 			await (await s.as(s.k5)).v1.getAccounts(),
@@ -178,7 +168,7 @@ describe('Rotation: drafts and invitations', () => {
 	});
 
 	test("a rejection of an account's own original set keeps the legacy behaviour", async () => {
-		const session = framework.createSession();
+		const session = s.framework.createSession();
 		const [creator, invitee] = [newUser(), newUser()];
 		await session.connectUser(creator);
 		const { address } = await session.createSignerSet(
@@ -203,16 +193,8 @@ describe('Rotation: drafts and invitations', () => {
 		beforeEach(async () => {
 			// B: another account, with k3 in its original set, and its own
 			// label for k3.
-			const other = framework.createSession();
-			const owner = newUser();
-			await other.connectUser(owner);
-			await other.connectUser(s.k3);
-			B = (
-				await other.createSignerSet([owner, s.k3], 1, {
-					name: 'Payroll',
-					labels: [null, 'k3 in Payroll'],
-				})
-			).address;
+			const second = await secondAccount(s);
+			B = second.B;
 
 			// S4 = k3, k4, k5, drafted for A and for B.
 			S4 = await draftSignerSet(
@@ -227,7 +209,7 @@ describe('Rotation: drafts and invitations', () => {
 			);
 			await draftSignerSet(B, [s.k3, s.k4, s.k5], 2, {
 				label: 'Ops for Payroll',
-				draftedBy: owner.address,
+				draftedBy: second.owner.address,
 			});
 		});
 

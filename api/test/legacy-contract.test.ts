@@ -284,11 +284,7 @@ async function driveLegacyRoutes(app: Hono) {
 		1000,
 		'pay vendor',
 	);
-	await session.legacyVoteOnProposal(
-		users[1],
-		first.id,
-		first.transactionBytes,
-	);
+	await session.legacyVoteOnProposal(users[1], first);
 	await client.getProposals(
 		multisig.address,
 		'localnet',
