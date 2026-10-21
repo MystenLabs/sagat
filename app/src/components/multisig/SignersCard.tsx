@@ -145,25 +145,23 @@ function SignerCell({ row }: { row: SignerRow }) {
 		</span>
 	);
 
+	// An unnamed key goes by its short address, with copy right after it.
 	if (!row.member.label)
 		return (
-			<div className="flex min-w-0 flex-col gap-px">
-				<span className="flex min-w-0 items-center gap-1.5 text-14 font-medium">
-					<span className="truncate font-mono text-13">
-						{row.name}
-					</span>
-					{you}
+			<span className="flex min-w-0 items-center gap-1.5 text-14 font-medium">
+				<span className="truncate font-mono text-13">
+					{row.name}
 				</span>
 				{row.address && (
-					<span className="flex items-center font-mono text-11 text-muted-foreground">
-						<CopyButton
-							value={row.address}
-							size="sm"
-							successMessage="Address copied"
-						/>
-					</span>
+					<CopyButton
+						value={row.address}
+						size="sm"
+						className="shrink-0 text-muted-foreground"
+						successMessage="Address copied"
+					/>
 				)}
-			</div>
+				{you}
+			</span>
 		);
 
 	return (
