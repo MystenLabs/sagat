@@ -3,8 +3,7 @@
 
 import { formatAddress } from '@mysten/sui/utils';
 
-import { memberStatus } from '@/components/invitations/member-status';
-
+import { memberStatus } from './member-status';
 import { validatePublicKey } from './sui-utils';
 import { sumWeight } from './threshold';
 
