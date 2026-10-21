@@ -42,6 +42,7 @@ colours, so there is no judgment call here.
 | Destructive              | `bg-destructive`, `text-destructive`, `border-destructive`                                                                              |
 | Inputs and focus         | `border-input`, `ring-ring`                                                                                                             |
 | Sidebar                  | `bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-accent`, `border-sidebar-border`                                                   |
+| Sidebar status text      | `text-sidebar-warning`, `text-sidebar-error` (fixed in both themes, since the sidebar is black in both)                                 |
 | Chips, skeletons, toasts | `bg-chip text-chip-foreground`, `bg-skeleton`, `bg-toast text-toast-foreground`                                                         |
 | Sui brand blue           | `text-sui`, `bg-sui/10` (coin icon and logo only)                                                                                       |
 
@@ -54,6 +55,9 @@ Rules:
 - Every new colour has a light value in `:root` and a dark value in
   `.dark`. The designs are light-only; derive the dark value from the
   neighbouring tokens and say in the PR that it needs design sign-off.
+  The exception is the sidebar, which is black in both themes: its
+  tokens (`--sidebar-*`, including `--sidebar-warning` and
+  `--sidebar-error`) live in `:root` only.
 - Status colours are a coloured foreground over a translucent tint of
   the same hue, so they work on any surface. Keep that pattern.
 - Blue is a status colour (`info`) or the Sui brand, never an accent.

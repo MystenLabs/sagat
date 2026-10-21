@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { BAR_SEGMENT_CAP } from './threshold';
+import { BAR_SEGMENT_CAP, sumWeight } from './threshold';
 
 /** Whose weight a part of the bar is: yours, accepted, or pending. */
 export type WeightTone = 'you' | 'accepted' | 'pending';
@@ -20,13 +20,6 @@ export const SEGMENT_GAP_PX = 4;
 
 /** The threshold marker's width; its `left` is offset by half of it. */
 export const MARKER_WIDTH_PX = 2;
-
-export function sumWeight(signers: WeightedSigner[]) {
-	return signers.reduce(
-		(total, signer) => total + signer.weight,
-		0,
-	);
-}
 
 /**
  * How the weight bar on an invitation is drawn, in signer order: one

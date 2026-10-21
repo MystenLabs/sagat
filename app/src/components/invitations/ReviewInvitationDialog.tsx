@@ -5,6 +5,10 @@ import { formatAddress } from '@mysten/sui/utils';
 import { Check, Info } from 'lucide-react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import {
+	memberStatus,
+	weightTone,
+} from '@/lib/member-status';
 import { validatePublicKey } from '@/lib/sui-utils';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, errorMessage } from '@/lib/utils';
@@ -20,7 +24,6 @@ import {
 	DialogTitle,
 } from '../ui/dialog';
 import { accountName } from './account-name';
-import { memberStatus, weightTone } from './member-status';
 import { ShortAddress } from './ShortAddress';
 import { WeightBar } from './WeightBar';
 

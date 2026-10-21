@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { weightTone } from '../src/components/invitations/member-status';
+import { weightTone } from '../src/lib/member-status';
 import {
 	runMarkerLeft,
 	thresholdMarkerLeft,

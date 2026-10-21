@@ -100,6 +100,9 @@
 	);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
+	/* Status text on the sidebar, which is black in both themes. */
+	--color-sidebar-warning: var(--sidebar-warning);
+	--color-sidebar-error: var(--sidebar-error);
 
 	/* Status tints: a coloured foreground over a translucent tint, so the
 	   pair works on any surface in either theme. The tint shares the text
@@ -178,6 +181,8 @@
 	--sidebar-accent-foreground: oklch(1 0 0);
 	--sidebar-border: oklch(1 0 0 / 12%);
 	--sidebar-ring: oklch(1 0 0 / 40%);
+	--sidebar-warning: oklch(0.85 0.139 78);
+	--sidebar-error: oklch(0.742 0.157 27);
 
 	--success-foreground: oklch(0.469 0.104 161);
 	--success: oklch(0.469 0.104 161 / 10%);

@@ -2,50 +2,41 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { formatAddress } from '@mysten/sui/utils';
 import {
-	ArrowDownToLine,
 	ArrowUpRight,
 	BookOpen,
 	ChevronRight,
-	ChevronsUpDown,
 	Coins,
 	FileText,
 	Github,
 	LayoutDashboard,
 	Mail,
-	Plus,
-	Users,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
 	Link,
 	matchPath,
 	useLocation,
-	useNavigate,
 } from 'react-router-dom';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
-import { accountName } from '@/components/invitations/account-name';
 import { Logo } from '@/components/Logo';
 import {
 	NetworkMenuItems,
 	NetworkStatusDot,
 } from '@/components/NetworkMenu';
 import {
+	MultisigSwitcher,
+	SwitcherSkeleton,
+} from '@/components/shell/MultisigSwitcher';
+import {
 	railSquareClass,
 	railTriggerClass,
 } from '@/components/shell/rail-classes';
-import { ReceiveDialog } from '@/components/shell/ReceiveDialog';
 import { ThemeToggle } from '@/components/shell/ThemeToggle';
-import { Button } from '@/components/ui/button';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuGroup,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -81,8 +72,6 @@ import { useInvitations } from '@/hooks/useInvitations';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
-import { thresholdLabel } from '@/lib/threshold';
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const RESOURCE_LINKS = [
@@ -417,26 +406,6 @@ function SidebarNav() {
 	);
 }
 
-/** The switcher's footprint while the session is being restored. */
-function SwitcherSkeleton() {
-	return (
-		<div
-			className="flex flex-col gap-2.5"
-			data-testid="sidebar-loading"
-			aria-busy
-		>
-			<div className="flex items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
-				<Skeleton className="size-7 rounded-md bg-sidebar-accent" />
-				<div className="flex flex-1 flex-col gap-1.5 group-data-[collapsible=icon]:hidden">
-					<Skeleton className="h-2.5 w-28 bg-sidebar-accent" />
-					<Skeleton className="h-2 w-20 bg-sidebar-accent" />
-				</div>
-			</div>
-			<Skeleton className="h-7 w-full rounded-md bg-sidebar-accent/60 group-data-[collapsible=icon]:hidden" />
-		</div>
-	);
-}
-
 /** The footer wallet row while the wallet kit reconnects. */
 function WalletRowSkeleton() {
 	return (
@@ -464,131 +433,6 @@ function NavSkeleton() {
 					width={`calc(var(--spacing) * ${units})`}
 				/>
 			))}
-		</div>
-	);
-}
-
-function MultisigSwitcher({
-	multisigs,
-	selected,
-	page,
-	onNavigate,
-}: {
-	multisigs: MultisigWithMembersForPublicKey[];
-	selected?: MultisigWithMembersForPublicKey;
-	page: string;
-	onNavigate: () => void;
-}) {
-	const navigate = useNavigate();
-	const [receiveOpen, setReceiveOpen] = useState(false);
-	const go = (to: string) => {
-		navigate(to);
-		onNavigate();
-	};
-
-	return (
-		<div className="flex flex-col gap-2.5">
-			<DropdownMenu>
-				<DropdownMenuTrigger
-					data-testid="multisig-switcher"
-					render={
-						<SidebarRailTooltip
-							tooltip={
-								selected
-									? accountName(selected)
-									: 'New multisig'
-							}
-						/>
-					}
-					className={cn(
-						'flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-left text-sidebar-foreground data-open:bg-sidebar-accent',
-						railTriggerClass,
-						railSquareClass,
-					)}
-				>
-					<span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-						{selected ? (
-							<Users className="size-4" />
-						) : (
-							<Plus className="size-4" />
-						)}
-					</span>
-					<span className="flex min-w-0 flex-1 flex-col gap-0.5 group-data-[collapsible=icon]:sr-only">
-						<span className="truncate text-13 font-medium">
-							{selected
-								? accountName(selected)
-								: 'New multisig'}
-						</span>
-						<span className="truncate text-11 tracking-[0.04em] text-sidebar-foreground/60">
-							{selected
-								? `${thresholdLabel(selected)} · ${formatAddress(selected.address)}`
-								: 'Not created yet'}
-						</span>
-					</span>
-					<ChevronsUpDown className="size-3.5 shrink-0 opacity-60 group-data-[collapsible=icon]:hidden" />
-				</DropdownMenuTrigger>
-				<DropdownMenuContent
-					align="start"
-					className="w-(--anchor-width) min-w-56"
-				>
-					{multisigs.length > 0 && (
-						<DropdownMenuGroup>
-							<DropdownMenuLabel>
-								Multisigs
-							</DropdownMenuLabel>
-							{multisigs.map((m) => (
-								<DropdownMenuItem
-									key={m.address}
-									data-testid="multisig-switcher-option"
-									data-address={m.address}
-									onClick={() =>
-										go(`/multisig/${m.address}/${page}`)
-									}
-									className={cn(
-										'flex-col items-start gap-0',
-										m.address === selected?.address &&
-											'bg-accent',
-									)}
-								>
-									<span className="text-13 font-medium">
-										{accountName(m)}
-									</span>
-									<span className="font-mono text-11 text-muted-foreground">
-										{formatAddress(m.address)}
-									</span>
-								</DropdownMenuItem>
-							))}
-						</DropdownMenuGroup>
-					)}
-					{multisigs.length > 0 && (
-						<DropdownMenuSeparator />
-					)}
-					<DropdownMenuItem onClick={() => go('/create')}>
-						<Plus />
-						New multisig
-					</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>
-			{selected && (
-				<Button
-					variant="secondary"
-					size="sm"
-					className="w-full group-data-[collapsible=icon]:hidden"
-					onClick={() => setReceiveOpen(true)}
-					data-testid="receive-button"
-				>
-					<ArrowDownToLine />
-					Receive
-				</Button>
-			)}
-			{selected && (
-				<ReceiveDialog
-					open={receiveOpen}
-					onClose={() => setReceiveOpen(false)}
-					address={selected.address}
-					name={accountName(selected)}
-				/>
-			)}
 		</div>
 	);
 }

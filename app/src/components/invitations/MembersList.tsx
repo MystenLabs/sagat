@@ -5,10 +5,10 @@ import type { MultisigMember } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { Chip } from '@/components/ui/chip';
+import { memberStatus } from '@/lib/member-status';
 
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CopyButton } from '../ui/CopyButton';
-import { memberStatus } from './member-status';
 
 interface MembersListProps {
 	members: MultisigMember[];

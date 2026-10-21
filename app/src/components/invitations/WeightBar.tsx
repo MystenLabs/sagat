@@ -3,13 +3,12 @@
 
 import { type ReactNode } from 'react';
 
-import { thresholdLabel } from '@/lib/threshold';
+import { sumWeight, thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 import {
 	MARKER_WIDTH_PX,
 	runMarkerLeft,
 	SEGMENT_GAP_PX,
-	sumWeight,
 	thresholdMarkerLeft,
 	weightBarLayout,
 	type WeightedSigner,
