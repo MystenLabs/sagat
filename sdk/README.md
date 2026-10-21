@@ -13,6 +13,8 @@ const { publicKey } = await client.getAddressInfo('0x...');
 
 Pass `token` for a script token (`POST /auth/script-connect`); without it the client sends the session cookie.
 
+Every request is aborted after `timeoutMs` (default 20000), rejecting with a `TimeoutError` DOMException; a signal on the request still aborts it earlier.
+
 When the spec changes, regenerate the types (also run by `bun run openapi:update` at the repository root):
 
 ```bash

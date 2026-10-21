@@ -35,7 +35,15 @@ export interface ApiClientOptions {
 	token?: string;
 	/** Replaces the global `fetch`, for tests and custom transports. */
 	fetch?: Fetch;
+	/**
+	 * Abort a request that hasn't answered after this many milliseconds.
+	 * The call then rejects with a `TimeoutError` DOMException.
+	 * @default 20000
+	 */
+	timeoutMs?: number;
 }
+
+const DEFAULT_TIMEOUT_MS = 20_000;
 
 /** An error response from the API, with its status and message. */
 export class ApiError extends Error {
@@ -58,11 +66,23 @@ export class ApiClient {
 		apiUrl,
 		token,
 		fetch,
+		timeoutMs = DEFAULT_TIMEOUT_MS,
 		...rest
 	}: ApiClientOptions) {
 		this.#apiUrl = apiUrl;
-		this.#fetch =
+		const send: Fetch =
 			fetch ?? ((request) => globalThis.fetch(request));
+		// Every request, `/auth` included, goes through here, so each gets
+		// its own timeout, combined with the signal the request carries.
+		this.#fetch = (request) =>
+			send(
+				new Request(request, {
+					signal: AbortSignal.any([
+						request.signal,
+						AbortSignal.timeout(timeoutMs),
+					]),
+				}),
+			);
 		this.#headers = token
 			? { Authorization: `Bearer ${token}` }
 			: {};
