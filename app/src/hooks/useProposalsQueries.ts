@@ -7,7 +7,7 @@ import {
 } from '@mysten/sagat';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { isReadyToExecute as anySetReady } from '@/lib/proposalUtils';
+import { isReadyToExecute } from '@/lib/proposalUtils';
 import { type AccountForPublicKey } from '@/lib/types';
 
 import { useGetAccount } from './useGetAccount';
@@ -95,10 +95,10 @@ export function useProposalsQueries({
 		);
 	};
 
-	// Whether a pending proposal can be executed now: some signer set
-	// valid on its network reached its threshold, as the server counts it.
+	// Whether a proposal can be executed now: some signer set valid on its
+	// network reached its threshold, as the server counts it.
 	const isReady = (proposal: PublicProposal) =>
-		anySetReady(proposal.signerSets);
+		isReadyToExecute(proposal.signerSets);
 
 	// Pending, not signed by the current user, and short of the threshold.
 	const isPendingForUser = (p: PublicProposal) =>
@@ -112,7 +112,7 @@ export function useProposalsQueries({
 		userHasSignedProposal(p) &&
 		!isReady(p);
 
-	const isReadyToExecute = (p: PublicProposal) =>
+	const isPendingAndReady = (p: PublicProposal) =>
 		p.status === ProposalStatus.PENDING && isReady(p);
 
 	// Filter proposals based on current tab
@@ -125,7 +125,7 @@ export function useProposalsQueries({
 			case 'waiting':
 				return proposals.filter(isWaitingForOthers);
 			case 'ready':
-				return proposals.filter(isReadyToExecute);
+				return proposals.filter(isPendingAndReady);
 			default:
 				return proposals;
 		}
@@ -147,7 +147,7 @@ export function useProposalsQueries({
 				.length,
 			waiting: pendingProposals.filter(isWaitingForOthers)
 				.length,
-			ready: pendingProposals.filter(isReadyToExecute)
+			ready: pendingProposals.filter(isPendingAndReady)
 				.length,
 		};
 	};

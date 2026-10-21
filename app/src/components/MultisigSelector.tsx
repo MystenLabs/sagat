@@ -12,7 +12,15 @@ import { useMemo, useRef, useState } from 'react';
 
 import { Label } from '@/components/ui/label';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
+import { summarySignerSet } from '@/lib/signerSets';
 import { type AccountForPublicKey } from '@/lib/types';
+
+// "2 out of 3 weight threshold", for the set the account is summarised
+// with.
+const weightThreshold = (account: AccountForPublicKey) => {
+	const signerSet = summarySignerSet(account);
+	return `${signerSet?.threshold} out of ${signerSet?.totalWeight} weight threshold`;
+};
 
 interface MultisigSelectorProps {
 	multisigs: AccountForPublicKey[];
@@ -53,7 +61,10 @@ export function MultisigSelector({
 		setSearchQuery('');
 	});
 
-	if (!currentMultisig) return null;
+	// Every listed account has a set valid on some network.
+	const currentSignerSet =
+		currentMultisig && summarySignerSet(currentMultisig);
+	if (!currentMultisig || !currentSignerSet) return null;
 
 	if (multisigs.length === 1) {
 		// Single multisig - no dropdown needed
@@ -69,9 +80,8 @@ export function MultisigSelector({
 								formatAddress(currentMultisig?.address)}
 						</h2>
 						<p className="text-sm text-muted-foreground">
-							{currentMultisig.signerSet.threshold}/
-							{currentMultisig.signerSet.members.length}{' '}
-							threshold •{' '}
+							{currentSignerSet.threshold}/
+							{currentSignerSet.members.length} threshold •{' '}
 							{formatAddress(
 								currentMultisig?.address || '',
 							)}
@@ -125,10 +135,8 @@ export function MultisigSelector({
 							) : null}
 						</div>
 						<p className="text-xs text-muted-foreground">
-							{currentMultisig.signerSet.threshold}{' '}
-							threshold •{' '}
-							{currentMultisig.signerSet.members.length}{' '}
-							members •{' '}
+							{currentSignerSet.threshold} threshold •{' '}
+							{currentSignerSet.members.length} members •{' '}
 							{formatAddress(
 								currentMultisig?.address || '',
 							)}
@@ -195,10 +203,7 @@ export function MultisigSelector({
 												</div>
 												<p className="text-xs text-muted-foreground">
 													{formatAddress(multisig.address)}{' '}
-													• {multisig.signerSet.threshold}{' '}
-													out of{' '}
-													{multisig.signerSet.totalWeight}{' '}
-													weight threshold
+													• {weightThreshold(multisig)}
 												</p>
 											</div>
 										</div>

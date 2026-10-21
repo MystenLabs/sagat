@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type {
-	Account,
 	Network,
 	SignerSet,
 	SignerSetWithMembers,
 } from '@mysten/sagat';
 
 import type { KeyMembership } from './types';
+import { extractPublicKeyFromBase64 } from './wallet';
 
 /*
  * An account can have several signer sets, each valid on some networks:
@@ -32,26 +32,20 @@ export function validSignerSets<
 	);
 }
 
-/** The signer sets of the account that have `publicKey` as a member. */
+/** The signer sets among `signerSets` that have `publicKey` as a member. */
 export function signerSetsForKey<
 	T extends Pick<SignerSetWithMembers, 'members'>,
->(account: { signerSets: T[] }, publicKey: string): T[] {
-	return account.signerSets.filter((signerSet) =>
+>(signerSets: T[], publicKey: string): T[] {
+	return signerSets.filter((signerSet) =>
 		signerSet.members.some(
 			(m) => m.publicKey === publicKey,
 		),
 	);
 }
 
-/**
- * The one signer set to summarise the account with, where the screen has
- * room for a single one: the set valid on the most networks, ties broken
- * by link order, so an account that never rotated shows its original set.
- * With `network`, only sets valid there are considered. Undefined when no
- * set qualifies. Never use it to decide access, progress or execution:
- * any valid set counts.
- */
-export function primarySignerSet<
+// The set valid on the most networks, ties broken by link order, among
+// those valid on `network` if given, else on some network.
+function primarySignerSet<
 	T extends Pick<SignerSet, 'validOn'>,
 >(
 	account: { signerSets: T[] },
@@ -70,18 +64,24 @@ export function primarySignerSet<
 }
 
 /**
- * The signer set the overview shows: the primary set on `network`, else
- * on any network, else the original set (at the account's address), so a
- * locked-out account still shows who used to sign for it.
+ * The one signer set to summarise the account with, where the screen has
+ * room for a single one: the set valid on the most networks (on `network`
+ * when given and one is valid there), ties broken by link order, so an
+ * account that never rotated shows its original set. A locked-out account
+ * shows its original set (at the account's address), who used to sign
+ * for it. Never use it to decide access, progress or execution: any valid
+ * set counts.
  */
-export function displayedSignerSet<
+export function summarySignerSet<
 	T extends Pick<SignerSet, 'address' | 'validOn'>,
 >(
 	account: { address: string; signerSets: T[] },
-	network: Network,
+	network?: Network,
 ): T | undefined {
 	return (
-		primarySignerSet(account, network) ??
+		(network
+			? primarySignerSet(account, network)
+			: undefined) ??
 		primarySignerSet(account) ??
 		account.signerSets.find(
 			(s) => s.address === account.address,
@@ -128,7 +128,7 @@ export function getKeyMembership(
 	signerSets: SignerSetWithMembers[],
 	publicKey: string,
 ): KeyMembership | undefined {
-	const sets = signerSetsForKey({ signerSets }, publicKey);
+	const sets = signerSetsForKey(signerSets, publicKey);
 	if (sets.length === 0) return undefined;
 	const own = sets.flatMap((s) =>
 		s.members.filter((m) => m.publicKey === publicKey),
@@ -151,60 +151,28 @@ export function getKeyMembership(
 }
 
 /**
- * What is worth warning about in the account's alias sets, which the API
- * reads from chain per network: the dangerous case is believing a
- * rotation happened everywhere when it happened on one network only. Not
- * rendered yet; the redesigned overview will show it.
+ * Whether `address` is the address of a member of one of `signerSets`.
+ * Keys that fail to parse are skipped.
  */
-export type AliasWarning =
-	| {
-			kind: 'networks-disagree';
-			// Every network with its alias set, sorted by network.
-			aliasSets: {
-				network: Network;
-				addresses: string[];
-			}[];
-	  }
-	| {
-			// An address allowed to sign for the account that is not one of
-			// its signer sets: a single key, or a set added outside Sagat.
-			kind: 'unknown-alias';
-			network: Network;
-			address: string;
-	  };
-
-export function getAliasWarnings(
-	account: Pick<Account, 'signerSets' | 'aliases'>,
-): AliasWarning[] {
-	const warnings: AliasWarning[] = [];
-	const key = (addresses: string[]) =>
-		[...addresses].sort().join(',');
-	const aliasSets = [...account.aliases].sort((a, b) =>
-		a.network.localeCompare(b.network),
+export function signerSetsHaveAddress(
+	signerSets: { members: { publicKey: string }[] }[],
+	address: string | undefined,
+): boolean {
+	if (!address) return false;
+	const publicKeys = new Set(
+		signerSets.flatMap((s) =>
+			s.members.map((m) => m.publicKey),
+		),
 	);
-	if (
-		new Set(aliasSets.map((a) => key(a.addresses))).size > 1
-	)
-		warnings.push({
-			kind: 'networks-disagree',
-			aliasSets: aliasSets.map(
-				({ network, addresses }) => ({
-					network,
-					addresses,
-				}),
-			),
-		});
-
-	const known = new Set(
-		account.signerSets.map((s) => s.address),
-	);
-	for (const { network, addresses } of aliasSets)
-		for (const address of addresses)
-			if (!known.has(address))
-				warnings.push({
-					kind: 'unknown-alias',
-					network,
-					address,
-				});
-	return warnings;
+	return [...publicKeys].some((publicKey) => {
+		try {
+			return (
+				extractPublicKeyFromBase64(
+					publicKey,
+				).toSuiAddress() === address
+			);
+		} catch {
+			return false;
+		}
+	});
 }

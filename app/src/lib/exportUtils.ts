@@ -6,6 +6,8 @@ import {
 	type Account,
 	type ProposalSignerSet,
 	type PublicProposal,
+	type PublicSignerSetMember,
+	type SignerSetMember,
 	type SignerSetWithMembers,
 } from '@mysten/sagat';
 
@@ -19,11 +21,12 @@ interface ExportEnvelope {
 	version: 2;
 }
 
-interface ExportedSignerSetMember {
-	publicKey: string;
-	weight: number;
-	order: number;
-}
+// The fields an export keeps, picked so a new API field does not change
+// the file format.
+type ExportedSignerSetMember = Pick<
+	SignerSetMember,
+	'publicKey' | 'weight' | 'order'
+>;
 
 interface ExportedSignerSet {
 	address: string;
@@ -47,17 +50,20 @@ interface ExportedAccountComposition extends ExportEnvelope {
 	signerSets: ExportedSignerSet[];
 }
 
-interface ExportedProposalSignerSet {
-	address: string;
-	label: string | null;
-	threshold: number;
-	totalWeight: number;
-	currentWeight: number;
-	hasReachedThreshold: boolean;
-	members: (ExportedSignerSetMember & {
-		hasSigned: boolean;
-	})[];
-}
+type ExportedProposalSignerSet = Pick<
+	ProposalSignerSet,
+	| 'address'
+	| 'label'
+	| 'threshold'
+	| 'totalWeight'
+	| 'currentWeight'
+	| 'hasReachedThreshold'
+> & {
+	members: Pick<
+		PublicSignerSetMember,
+		'publicKey' | 'weight' | 'order' | 'hasSigned'
+	>[];
+};
 
 interface ExportedProposal extends ExportEnvelope {
 	type: 'sagat.proposal';
@@ -99,7 +105,10 @@ export function buildMultisigCompositionExport(
 			name: account.name,
 		},
 		signerSets: account.signerSets.map((signerSet) => {
-			const members = getOrderedMembers(signerSet.members);
+			const members = getOrderedMembers(
+				signerSet.members,
+				toExportedMember,
+			);
 			return {
 				address: signerSet.address,
 				label: signerSet.label,
@@ -177,16 +186,24 @@ export function getProposalExportFilename(digest: string) {
 	return `sagat-proposal-${sanitizeFilenameSegment(digest)}.json`;
 }
 
-function getOrderedMembers(
-	members: ExportedSignerSetMember[],
-): ExportedSignerSetMember[] {
-	return members
-		.map((member) => ({
-			publicKey: member.publicKey,
-			weight: member.weight,
-			order: member.order,
-		}))
-		.sort((a, b) => a.order - b.order);
+// `members` in their order, each built by `toExported`.
+function getOrderedMembers<M extends { order: number }, E>(
+	members: M[],
+	toExported: (member: M) => E,
+): E[] {
+	return [...members]
+		.sort((a, b) => a.order - b.order)
+		.map(toExported);
+}
+
+function toExportedMember(
+	member: ExportedSignerSetMember,
+): ExportedSignerSetMember {
+	return {
+		publicKey: member.publicKey,
+		weight: member.weight,
+		order: member.order,
+	};
 }
 
 function buildProposalSignerSet(
@@ -199,14 +216,13 @@ function buildProposalSignerSet(
 		totalWeight: signerSet.totalWeight,
 		currentWeight: signerSet.currentWeight,
 		hasReachedThreshold: signerSet.hasReachedThreshold,
-		members: [...signerSet.members]
-			.sort((a, b) => a.order - b.order)
-			.map((member) => ({
-				publicKey: member.publicKey,
-				weight: member.weight,
-				order: member.order,
+		members: getOrderedMembers(
+			signerSet.members,
+			(member) => ({
+				...toExportedMember(member),
 				hasSigned: member.hasSigned,
-			})),
+			}),
+		),
 	};
 }
 

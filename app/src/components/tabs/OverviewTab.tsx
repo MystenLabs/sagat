@@ -11,7 +11,7 @@ import {
 import { useOutletContext } from 'react-router-dom';
 
 import { useGetAccount } from '@/hooks/useGetAccount';
-import { displayedSignerSet } from '@/lib/signerSets';
+import { summarySignerSet } from '@/lib/signerSets';
 import { type AccountForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
@@ -51,10 +51,9 @@ export function OverviewTab() {
 
 	// One signer set, from the fresh copy once it has loaded: one valid on
 	// this network if any. Listing every set is left to the redesign.
-	const signerSet =
-		(accountDetails &&
-			displayedSignerSet(accountDetails, network)) ??
-		multisig.signerSet;
+	const signerSet = accountDetails
+		? summarySignerSet(accountDetails, network)
+		: summarySignerSet(multisig);
 
 	const handleExportComposition = () => {
 		downloadJson(
@@ -64,6 +63,9 @@ export function OverviewTab() {
 			),
 		);
 	};
+
+	// Every account links at least its original signer set.
+	if (!signerSet) return null;
 
 	return (
 		<div className="space-y-6">

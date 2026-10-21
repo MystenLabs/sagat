@@ -14,23 +14,22 @@ import {
 	getMultisigExportFilename,
 	getProposalExportFilename,
 } from '../src/lib/exportUtils';
+import { member } from './fixtures';
 
 const exportedAt = new Date('2026-04-28T06:30:00.000Z');
 
-const member = (
+// A member of the account's original signer set.
+const accountMember = (
 	publicKey: string,
 	weight: number,
 	order: number,
 	isAccepted: boolean,
-) => ({
-	signerSetAddress: '0xaccount',
-	publicKey,
-	weight,
-	order,
-	isAccepted,
-	isRejected: false,
-	label: null,
-});
+) =>
+	member('0xaccount', publicKey, {
+		weight,
+		order,
+		isAccepted,
+	});
 
 const account: Account = {
 	address: '0xaccount',
@@ -49,9 +48,9 @@ const account: Account = {
 			createdAt: '2026-04-01T00:00:00.000Z',
 			validOn: ['mainnet', 'testnet'],
 			members: [
-				member('member-c', 3, 2, false),
-				member('member-a', 1, 0, true),
-				member('member-b', 2, 1, true),
+				accountMember('member-c', 3, 2, false),
+				accountMember('member-a', 1, 0, true),
+				accountMember('member-b', 2, 1, true),
 			],
 		},
 		// A draft: listed, valid nowhere.
@@ -65,7 +64,7 @@ const account: Account = {
 			draftedBy: '0xcreator',
 			createdAt: '2026-04-02T00:00:00.000Z',
 			validOn: [],
-			members: [member('member-a', 1, 0, true)],
+			members: [accountMember('member-a', 1, 0, true)],
 		},
 	],
 	aliases: [

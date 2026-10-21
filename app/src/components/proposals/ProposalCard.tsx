@@ -19,13 +19,14 @@ import {
 	Eye,
 	Rocket,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
 	describeProgress,
 	getProgressSignerSet,
 	isReadyToExecute,
 } from '@/lib/proposalUtils';
+import { signerSetsHaveAddress } from '@/lib/signerSets';
 import { type ProposalCardInput } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
@@ -40,7 +41,6 @@ import {
 	downloadJson,
 	getProposalExportFilename,
 } from '../../lib/exportUtils';
-import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button } from '../ui/button';
 import { CopyButton } from '../ui/copy-button';
@@ -165,30 +165,15 @@ export function ProposalCard({
 		return <Label variant={variant}>{text}</Label>;
 	};
 
-	const isExternalProposer = () => {
-		// Check if proposer address is NOT a member of any signer set by
-		// comparing addresses. Members are stored as public keys, need to
-		// derive addresses
-		const memberAddresses = proposal.signerSets
-			.flatMap((signerSet) => signerSet.members)
-			.map((member) => {
-				try {
-					// Derive address from public key
-					const { address } = validatePublicKey(
-						member.publicKey,
-					);
-					return address;
-				} catch {
-					return null;
-				}
-			})
-			.filter(Boolean);
-
-		// Proposer is external if their address is NOT in member addresses
-		return !memberAddresses.includes(
-			proposal.proposerAddress,
-		);
-	};
+	// A proposer that is not a member of any of the proposal's signer sets.
+	const isExternalProposer = useMemo(
+		() =>
+			!signerSetsHaveAddress(
+				proposal.signerSets,
+				proposal.proposerAddress,
+			),
+		[proposal.signerSets, proposal.proposerAddress],
+	);
 
 	const getSignatureStatus = () => {
 		if (proposal.status !== ProposalStatus.PENDING)
@@ -231,7 +216,7 @@ export function ProposalCard({
 								/>
 							)}
 						{getSignatureStatus()}
-						{isExternalProposer() && (
+						{isExternalProposer && (
 							<Label variant="purple">
 								External Proposer
 							</Label>

@@ -4,10 +4,10 @@
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
 import { Check, Clock, X } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
+import { signerSetsHaveAddress } from '@/lib/signerSets';
 import { type ProposalCardInput } from '@/lib/types';
-import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { useTransactionPreview } from '../../hooks/useTransactionPreview';
@@ -34,13 +34,13 @@ export function ProposalPreview({
 	const currentWallet = useCurrentAccount();
 
 	// A member of any signer set that can execute the proposal can sign.
-	const isMember = proposal.signerSets.some((signerSet) =>
-		signerSet.members.some(
-			(member) =>
-				extractPublicKeyFromBase64(
-					member.publicKey,
-				).toSuiAddress() === currentWallet?.address,
-		),
+	const isMember = useMemo(
+		() =>
+			signerSetsHaveAddress(
+				proposal.signerSets,
+				currentWallet?.address,
+			),
+		[proposal.signerSets, currentWallet?.address],
 	);
 
 	// Automatically run dry run when component mounts

@@ -4,46 +4,28 @@
 import {
 	type Account,
 	type Network,
+	type SignerSetMember,
 	type SignerSetWithMembers,
 } from '@mysten/sagat';
 import { describe, expect, test } from 'vitest';
 
 import {
-	displayedSignerSet,
-	getAliasWarnings,
 	getKeyMembership,
 	getNetworkAccess,
-	primarySignerSet,
 	signerSetsForKey,
+	summarySignerSet,
 	validSignerSets,
 } from '../src/lib/signerSets';
+import { member } from './fixtures';
 
 const ACCOUNT = '0xaccount';
 const OPS = '0xops';
-const BOARD = '0xboard';
 const DRAFT = '0xdraft';
-
-const member = (
-	signerSetAddress: string,
-	publicKey: string,
-	{
-		isAccepted = true,
-		isRejected = false,
-	}: { isAccepted?: boolean; isRejected?: boolean } = {},
-) => ({
-	signerSetAddress,
-	publicKey,
-	weight: 1,
-	order: 0,
-	isAccepted,
-	isRejected,
-	label: null,
-});
 
 const set = (
 	address: string,
 	validOn: Network[],
-	members: ReturnType<typeof member>[],
+	members: SignerSetMember[],
 	status: SignerSetWithMembers['status'] = 'verified',
 ): SignerSetWithMembers => ({
 	address,
@@ -118,8 +100,7 @@ const rotated = {
 
 describe('signer sets', () => {
 	test("today's account has one set, valid everywhere, shown as before", () => {
-		expect(getAliasWarnings(todays)).toEqual([]);
-		expect(primarySignerSet(todays)?.address).toBe(ACCOUNT);
+		expect(summarySignerSet(todays)?.address).toBe(ACCOUNT);
 		expect(
 			getKeyMembership(validSignerSets(todays), 'bob'),
 		).toEqual({
@@ -159,7 +140,7 @@ describe('signer sets', () => {
 			],
 			aliases: aliases({ mainnet: [OPS], testnet: [OPS] }),
 		};
-		expect(primarySignerSet(retired)?.address).toBe(OPS);
+		expect(summarySignerSet(retired)?.address).toBe(OPS);
 		expect(
 			validSignerSets(retired).map((s) => s.address),
 		).toEqual([OPS]);
@@ -171,7 +152,7 @@ describe('signer sets', () => {
 
 	test('a draft gives no membership', () => {
 		expect(
-			signerSetsForKey(rotated, 'erin').map(
+			signerSetsForKey(rotated.signerSets, 'erin').map(
 				(s) => s.address,
 			),
 		).toEqual([DRAFT]);
@@ -197,10 +178,11 @@ describe('signer sets', () => {
 	});
 
 	test('the primary set is valid on the most networks, ties by link order', () => {
-		expect(primarySignerSet(rotated)?.address).toBe(
+		expect(summarySignerSet(rotated)?.address).toBe(
 			ACCOUNT,
 		);
 		const wider = {
+			address: ACCOUNT,
 			signerSets: [
 				rotated.signerSets[0],
 				{
@@ -209,62 +191,20 @@ describe('signer sets', () => {
 				},
 			],
 		};
-		expect(primarySignerSet(wider)?.address).toBe(OPS);
-		expect(
-			primarySignerSet({
-				signerSets: [rotated.signerSets[2]],
-			}),
-		).toBeUndefined();
-	});
-
-	test('networks that disagree are a warning', () => {
-		expect(getAliasWarnings(rotated)).toEqual([
-			{
-				kind: 'networks-disagree',
-				aliasSets: [
-					{ network: 'mainnet', addresses: [ACCOUNT] },
-					{ network: 'testnet', addresses: [OPS] },
-				],
-			},
-		]);
-	});
-
-	test('an alias that is not a signer set of the account is a warning', () => {
-		const withRecoveryKey = {
-			...todays,
-			aliases: aliases({
-				mainnet: [ACCOUNT, BOARD],
-				testnet: [ACCOUNT, BOARD],
-			}),
-		};
-		expect(getAliasWarnings(withRecoveryKey)).toEqual([
-			{
-				kind: 'unknown-alias',
-				network: 'mainnet',
-				address: BOARD,
-			},
-			{
-				kind: 'unknown-alias',
-				network: 'testnet',
-				address: BOARD,
-			},
-		]);
+		expect(summarySignerSet(wider)?.address).toBe(OPS);
 	});
 
 	test('the overview shows a set valid on the selected network', () => {
 		expect(
-			displayedSignerSet(rotated, 'testnet')?.address,
+			summarySignerSet(rotated, 'testnet')?.address,
 		).toBe(OPS);
 		expect(
-			displayedSignerSet(rotated, 'mainnet')?.address,
+			summarySignerSet(rotated, 'mainnet')?.address,
 		).toBe(ACCOUNT);
 		// Valid nowhere on devnet: fall back to the primary set.
 		expect(
-			displayedSignerSet(rotated, 'devnet')?.address,
+			summarySignerSet(rotated, 'devnet')?.address,
 		).toBe(ACCOUNT);
-		expect(
-			primarySignerSet(rotated, 'testnet')?.address,
-		).toBe(OPS);
 		// Locked out everywhere: still the original set.
 		const lockedOut = {
 			address: ACCOUNT,
@@ -274,7 +214,7 @@ describe('signer sets', () => {
 			})),
 		};
 		expect(
-			displayedSignerSet(lockedOut, 'mainnet')?.address,
+			summarySignerSet(lockedOut, 'mainnet')?.address,
 		).toBe(ACCOUNT);
 	});
 
