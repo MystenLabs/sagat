@@ -47,11 +47,37 @@ const account: Account = {
 			totalWeight: 6,
 			draftedBy: '0xcreator',
 			createdAt: '2026-04-01T00:00:00.000Z',
+			validOn: ['mainnet', 'testnet'],
 			members: [
 				member('member-c', 3, 2, false),
 				member('member-a', 1, 0, true),
 				member('member-b', 2, 1, true),
 			],
+		},
+		// A draft: listed, valid nowhere.
+		{
+			address: '0xdraft',
+			label: 'Operations',
+			status: 'draft',
+			isVerified: false,
+			threshold: 1,
+			totalWeight: 1,
+			draftedBy: '0xcreator',
+			createdAt: '2026-04-02T00:00:00.000Z',
+			validOn: [],
+			members: [member('member-a', 1, 0, true)],
+		},
+	],
+	aliases: [
+		{
+			network: 'mainnet',
+			addresses: ['0xaccount'],
+			observedAt: null,
+		},
+		{
+			network: 'testnet',
+			addresses: ['0xaccount'],
+			observedAt: null,
 		},
 	],
 };
@@ -72,6 +98,7 @@ describe('export utils', () => {
 					address: '0xaccount',
 					label: 'Treasury',
 					status: 'inviting',
+					validOn: ['mainnet', 'testnet'],
 					threshold: 3,
 					totalWeight: 6,
 					totalMembers: 3,
@@ -81,11 +108,23 @@ describe('export utils', () => {
 						{ publicKey: 'member-c', weight: 3, order: 2 },
 					],
 				},
+				{
+					address: '0xdraft',
+					label: 'Operations',
+					status: 'draft',
+					validOn: [],
+					threshold: 1,
+					totalWeight: 1,
+					totalMembers: 1,
+					members: [
+						{ publicKey: 'member-a', weight: 1, order: 0 },
+					],
+				},
 			],
 		});
 	});
 
-	test('exports each signer set with its progress', () => {
+	test('exports each signer set with its progress, as the server counts it', () => {
 		const proposal: PublicProposal = {
 			id: 42,
 			digest: '0xdigest',

@@ -10,7 +10,15 @@ import { toast } from 'sonner';
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
-export function useVerifyProposal() {
+/**
+ * Records a proposal's outcome on chain, and the address it was executed
+ * via. `/v1` accepts whichever signer set executed it, so it refuses
+ * mainly a transaction that is not on chain yet. With `quiet`, failures
+ * show no toast: the caller only checks whether someone else executed it.
+ */
+export function useVerifyProposal({
+	quiet = false,
+}: { quiet?: boolean } = {}) {
 	const queryClient = useQueryClient();
 
 	return useMutation({
@@ -28,6 +36,7 @@ export function useVerifyProposal() {
 			toast.success('Proposal verified successfully!');
 		},
 		onError: (error: Error) => {
+			if (quiet) return;
 			toast.error(
 				`Failed to verify proposal: ${error.message}`,
 			);

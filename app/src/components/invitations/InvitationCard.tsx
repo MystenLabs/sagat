@@ -53,6 +53,7 @@ export function InvitationCard({
 			className="bg-card border rounded-lg hover:shadow-sm transition-shadow"
 			data-testid="invitation-card"
 			data-multisig-address={multisig.address}
+			data-account-address={multisig.accountAddress}
 		>
 			{/* Main invitation row */}
 			<div className="flex items-center justify-between p-4">
@@ -62,14 +63,23 @@ export function InvitationCard({
 						<Users className="w-5 h-5 text-info-foreground" />
 					</div>
 					<div className="flex-1">
-						{/* An account labels its original signer set with
-						its own name, so the label is the name. */}
-						<h3 className="font-medium text-foreground">
-							{multisig.label ||
-								formatAddress(multisig.address)}
+						{/* The invitation is to sign for an account, with the
+						signer set it is drafted for underneath. An account
+						labels its original set with its own name, so the
+						label is only repeated when it differs. */}
+						<h3
+							className="font-medium text-foreground"
+							data-testid="invitation-account-name"
+						>
+							{multisig.accountName ||
+								formatAddress(multisig.accountAddress)}
 						</h3>
 						<div className="flex items-center gap-1">
 							<p className="text-sm text-muted-foreground">
+								{multisig.label &&
+								multisig.label !== multisig.accountName
+									? `${multisig.label} • `
+									: ''}
 								{formatAddress(multisig.address)}
 							</p>
 							<CopyButton

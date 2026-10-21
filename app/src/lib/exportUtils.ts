@@ -29,6 +29,9 @@ interface ExportedSignerSet {
 	address: string;
 	label: string | null;
 	status: SignerSetWithMembers['status'];
+	// Where the set can sign for the account. Empty for a draft, an
+	// abandoned set, or one retired everywhere.
+	validOn: SignerSetWithMembers['validOn'];
 	threshold: number;
 	totalWeight: number;
 	totalMembers: number;
@@ -79,8 +82,9 @@ interface ExportedProposal extends ExportEnvelope {
 			signature: string;
 		}[];
 	};
-	// The signer sets that can execute the proposal, with the progress in
-	// each. Combine only the signatures of one set's members, in order.
+	// The signer sets valid on the proposal's network, with the progress
+	// in each, as the server counts it. Combine only the signatures of one
+	// set's members, in order.
 	signerSets: ExportedProposalSignerSet[];
 }
 
@@ -100,6 +104,7 @@ export function buildMultisigCompositionExport(
 				address: signerSet.address,
 				label: signerSet.label,
 				status: signerSet.status,
+				validOn: signerSet.validOn,
 				threshold: signerSet.threshold,
 				totalWeight: signerSet.totalWeight,
 				totalMembers: members.length,

@@ -32,7 +32,7 @@ export function useProposalsQueries({
 }: UseProposalsQueriesParams) {
 	const { currentAddress } = useApiAuth();
 
-	// For the proposers the cards show.
+	// For the proposers and signer set labels the cards show.
 	const accountQuery = useGetAccount(multisig.address);
 
 	// Get API query type based on active tab

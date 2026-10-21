@@ -67,6 +67,31 @@ export function describeProgress(
 		.join(', ');
 }
 
+/**
+ * What to call the address a proposal was executed via, recorded by
+ * verify: the label of a signer set the proposal or the account knows,
+ * else the short address (a set added outside Sagat, or a single key).
+ * Null until verified.
+ */
+export function executedViaName(
+	proposal: Pick<
+		PublicProposal,
+		'executedVia' | 'signerSets'
+	>,
+	accountSignerSets: Pick<
+		ProposalSignerSet,
+		'address' | 'label'
+	>[] = [],
+): string | null {
+	const address = proposal.executedVia;
+	if (!address) return null;
+	const known = [
+		...proposal.signerSets,
+		...accountSignerSets,
+	].find((s) => s.address === address);
+	return known?.label || formatAddress(address);
+}
+
 export function isReadyToExecute(
 	signerSets: ProposalSignerSet[],
 ) {

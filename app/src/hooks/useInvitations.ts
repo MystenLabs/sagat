@@ -36,7 +36,8 @@ export function useInvitations(
 				{ showRejected },
 			);
 
-			// Every listed set has the key as a member.
+			// Every listed set has the key as a member. A set drafted for
+			// several accounts is listed once per account.
 			return invitations.flatMap((signerSet) => {
 				const membership = getKeyMembership(
 					[signerSet],

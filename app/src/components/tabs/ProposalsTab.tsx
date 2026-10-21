@@ -4,6 +4,7 @@
 import {
 	type AccountProposer,
 	type PublicProposal,
+	type SignerSet,
 } from '@mysten/sagat';
 import { FileText, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
@@ -133,9 +134,11 @@ function EmptyState({
 function ProposalsList({
 	proposals,
 	proposers,
+	signerSets,
 }: {
 	proposals: PublicProposal[];
 	proposers: AccountProposer[];
+	signerSets: Pick<SignerSet, 'address' | 'label'>[];
 }) {
 	// Each item carries its progress in the signer sets valid on its
 	// network, counted by the server.
@@ -148,6 +151,7 @@ function ProposalsList({
 			proposers: proposers.map(
 				(proposer) => proposer.address,
 			),
+			accountSignerSets: signerSets,
 		};
 	};
 
@@ -285,6 +289,7 @@ export function ProposalsTab() {
 					<ProposalsList
 						proposals={filteredProposals}
 						proposers={(account ?? multisig).proposers}
+						signerSets={(account ?? multisig).signerSets}
 					/>
 				)}
 			</div>

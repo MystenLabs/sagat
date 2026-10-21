@@ -108,10 +108,10 @@ export function InvitationsPage() {
 				/>
 			) : (
 				<div className="space-y-3">
-					{invitations.map((multisig) => (
+					{invitations.map((invitation) => (
 						<InvitationCard
-							key={multisig.address}
-							multisig={multisig}
+							key={`${invitation.accountAddress}:${invitation.address}`}
+							multisig={invitation}
 						/>
 					))}
 				</div>

@@ -12,6 +12,7 @@ import { describe, expect, test } from 'vitest';
 import {
 	combineProposalSignatures,
 	describeProgress,
+	executedViaName,
 	getExecutingSignerSet,
 	getProgressSignerSet,
 	isReadyToExecute,
@@ -123,6 +124,31 @@ describe('proposal utils', () => {
 			]),
 		).toBe('2 of 3 via Operations, 1 of 4 via Board');
 		expect(describeProgress([])).toBeNull();
+	});
+
+	test('names the set a proposal was executed via', () => {
+		const ops = `0x${'a'.repeat(64)}`;
+		const retired = `0x${'b'.repeat(64)}`;
+		const unknown = `0x${'c'.repeat(64)}`;
+		const signerSets = [
+			progressOf(ops, 2, 2, 'Operations'),
+		];
+		expect(
+			executedViaName({ executedVia: null, signerSets }),
+		).toBeNull();
+		expect(
+			executedViaName({ executedVia: ops, signerSets }),
+		).toBe('Operations');
+		// No longer valid on the network: the account still names it.
+		expect(
+			executedViaName(
+				{ executedVia: retired, signerSets },
+				[{ address: retired, label: 'Original' }],
+			),
+		).toBe('Original');
+		expect(
+			executedViaName({ executedVia: unknown, signerSets }),
+		).toBe('0xcccc…cccc');
 	});
 
 	test('combines only the signatures of the set that reached its threshold', async () => {
