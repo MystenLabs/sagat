@@ -45,3 +45,14 @@ To accomplish that, you can run:
 sui client switch --env localnet
 sui start --force-regenesis --with-faucet
 ```
+
+A regenesis wipes the chain but not the database. The alias mirror never moves backwards (see `docs/account-rotation.md`, "Phase 2 notes"), so after a regenesis stop every API instance, clear the mirrored alias state for localnet in one transaction, and start the API again. A refresh still in flight could otherwise read the old chain and write after the cleanup.
+
+```sql
+BEGIN;
+DELETE FROM account_aliases WHERE network = 'localnet';
+DELETE FROM account_alias_state WHERE network = 'localnet';
+COMMIT;
+```
+
+The same applies to devnet after one of its resets. Mainnet and testnet never reset.
