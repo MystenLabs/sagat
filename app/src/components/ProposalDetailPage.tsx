@@ -31,7 +31,6 @@ export function ProposalDetailPage() {
 			...proposalQuery.data,
 			isPublic: true,
 			proposers: [],
-			accountSignerSets: [],
 		};
 	}, [proposalQuery.data]);
 

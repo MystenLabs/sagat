@@ -19,6 +19,10 @@ import {
 	useParams,
 } from 'react-router-dom';
 
+import { getNetworkAccess } from '@/lib/signerSets';
+
+import { useApiAuth } from '../contexts/ApiAuthContext';
+import { useNetwork } from '../contexts/NetworkContext';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { MultisigSelector } from './MultisigSelector';
@@ -26,6 +30,7 @@ import {
 	ProposalSheet,
 	type ProposalIntent,
 } from './ProposalSheet';
+import { Alert } from './ui/Alert';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Loading } from './ui/loading';
@@ -42,6 +47,8 @@ export function MultisigDetailPage() {
 	const [proposalIntent, setProposalIntent] =
 		useState<ProposalIntent | null>(null);
 	const { copied, copy } = useCopyToClipboard();
+	const { currentAddress } = useApiAuth();
+	const { network } = useNetwork();
 
 	const { data: multisigs, isLoading } = useUserMultisigs();
 
@@ -115,6 +122,15 @@ export function MultisigDetailPage() {
 		return <Navigate to="/" replace />;
 	}
 
+	// Validity is per network: on another network the account may have no
+	// signer set at all, or none the connected key is in.
+	const access = getNetworkAccess(
+		multisig,
+		network,
+		currentAddress?.publicKey,
+	);
+	const isLockedOut = access === 'locked-out';
+
 	const tabs = [
 		{
 			id: 'proposals',
@@ -170,6 +186,7 @@ export function MultisigDetailPage() {
 										});
 										setShowProposalSheet(true);
 									}}
+									disabled={isLockedOut}
 									data-testid="new-proposal-button"
 								>
 									<Plus className="w-4 h-4 mr-2" />
@@ -179,6 +196,19 @@ export function MultisigDetailPage() {
 						</div>
 					</div>
 				</div>
+
+				{access !== 'signer' && (
+					<Alert variant="warning" className="mb-6">
+						<span
+							data-testid="network-access-notice"
+							data-access={access}
+						>
+							{isLockedOut
+								? `No signer set can sign for this account on ${network}.`
+								: `Your keys are not in a signer set that is valid on ${network}.`}
+						</span>
+					</Alert>
+				)}
 
 				{/* Navigation Tabs */}
 				<div className="overflow-x-auto border-b">
@@ -226,6 +256,8 @@ export function MultisigDetailPage() {
 						openProposalSheet: (
 							intent?: ProposalIntent,
 						) => {
+							// Nothing could sign it on this network.
+							if (isLockedOut) return;
 							setProposalIntent(
 								intent ?? { kind: 'custom' },
 							);

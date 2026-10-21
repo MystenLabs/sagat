@@ -9,11 +9,11 @@ import {
 import { describe, expect, test } from 'vitest';
 
 import {
+	displayedSignerSet,
 	getAliasWarnings,
 	getKeyMembership,
-	hasSingleSignerSet,
+	getNetworkAccess,
 	primarySignerSet,
-	signerSetRole,
 	signerSetsForKey,
 	validSignerSets,
 } from '../src/lib/signerSets';
@@ -118,7 +118,6 @@ const rotated = {
 
 describe('signer sets', () => {
 	test("today's account has one set, valid everywhere, shown as before", () => {
-		expect(hasSingleSignerSet(todays)).toBe(true);
 		expect(getAliasWarnings(todays)).toEqual([]);
 		expect(primarySignerSet(todays)?.address).toBe(ACCOUNT);
 		expect(
@@ -146,7 +145,6 @@ describe('signer sets', () => {
 		expect(
 			validSignerSets(rotated).map((s) => s.address),
 		).toEqual([ACCOUNT, OPS]);
-		expect(hasSingleSignerSet(rotated)).toBe(false);
 	});
 
 	test('a retired original set signs nowhere and is not the primary set', () => {
@@ -161,9 +159,6 @@ describe('signer sets', () => {
 			],
 			aliases: aliases({ mainnet: [OPS], testnet: [OPS] }),
 		};
-		expect(signerSetRole(retired.signerSets[0])).toBe(
-			'inactive',
-		);
 		expect(primarySignerSet(retired)?.address).toBe(OPS);
 		expect(
 			validSignerSets(retired).map((s) => s.address),
@@ -174,15 +169,7 @@ describe('signer sets', () => {
 		).toBeUndefined();
 	});
 
-	test('a draft is shown as such and gives no membership', () => {
-		const draft = rotated.signerSets[2];
-		expect(signerSetRole(draft)).toBe('inviting');
-		expect(
-			signerSetRole({ ...draft, status: 'draft' }),
-		).toBe('draft');
-		expect(
-			signerSetRole({ ...draft, status: 'abandoned' }),
-		).toBe('abandoned');
+	test('a draft gives no membership', () => {
 		expect(
 			signerSetsForKey(rotated, 'erin').map(
 				(s) => s.address,
@@ -262,6 +249,61 @@ describe('signer sets', () => {
 				address: BOARD,
 			},
 		]);
-		expect(hasSingleSignerSet(withRecoveryKey)).toBe(false);
+	});
+
+	test('the overview shows a set valid on the selected network', () => {
+		expect(
+			displayedSignerSet(rotated, 'testnet')?.address,
+		).toBe(OPS);
+		expect(
+			displayedSignerSet(rotated, 'mainnet')?.address,
+		).toBe(ACCOUNT);
+		// Valid nowhere on devnet: fall back to the primary set.
+		expect(
+			displayedSignerSet(rotated, 'devnet')?.address,
+		).toBe(ACCOUNT);
+		expect(
+			primarySignerSet(rotated, 'testnet')?.address,
+		).toBe(OPS);
+		// Locked out everywhere: still the original set.
+		const lockedOut = {
+			address: ACCOUNT,
+			signerSets: rotated.signerSets.map((s) => ({
+				...s,
+				validOn: [] as Network[],
+			})),
+		};
+		expect(
+			displayedSignerSet(lockedOut, 'mainnet')?.address,
+		).toBe(ACCOUNT);
+	});
+
+	test('an account with no set valid on the network is locked out there', () => {
+		expect(
+			getNetworkAccess(rotated, 'devnet', 'alice'),
+		).toBe('locked-out');
+		expect(
+			getNetworkAccess(rotated, 'devnet', undefined),
+		).toBe('locked-out');
+	});
+
+	test('keys outside every set valid on the network can view, not sign', () => {
+		// Carol is only in Ops, valid on testnet.
+		expect(
+			getNetworkAccess(rotated, 'mainnet', 'carol'),
+		).toBe('not-a-signer');
+		expect(
+			getNetworkAccess(rotated, 'testnet', 'carol'),
+		).toBe('signer');
+		// Dave never accepted in Ops; Erin is only in the draft.
+		expect(
+			getNetworkAccess(rotated, 'testnet', 'dave'),
+		).toBe('not-a-signer');
+		expect(
+			getNetworkAccess(rotated, 'testnet', 'erin'),
+		).toBe('not-a-signer');
+		expect(getNetworkAccess(todays, 'mainnet', 'bob')).toBe(
+			'signer',
+		);
 	});
 });

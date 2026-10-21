@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import {
 	getKeyMembership,
+	primarySignerSet,
 	validSignerSets,
 } from '@/lib/signerSets';
 import { type AccountForPublicKey } from '@/lib/types';
@@ -40,8 +41,11 @@ export function useUserMultisigs() {
 					validSignerSets(account),
 					currentAddress.publicKey,
 				);
-				if (!membership?.isAccepted) return [];
-				return [{ ...account, ...membership }];
+				// A member of a valid set means one exists.
+				const signerSet = primarySignerSet(account);
+				if (!membership?.isAccepted || !signerSet)
+					return [];
+				return [{ ...account, ...membership, signerSet }];
 			});
 		},
 		enabled: isCurrentAddressAuthenticated,

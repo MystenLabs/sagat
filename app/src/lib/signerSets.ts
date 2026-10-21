@@ -7,7 +7,6 @@ import type {
 	SignerSet,
 	SignerSetWithMembers,
 } from '@mysten/sagat';
-import { formatAddress } from '@mysten/sui/utils';
 
 import type { KeyMembership } from './types';
 
@@ -46,15 +45,21 @@ export function signerSetsForKey<
 
 /**
  * The one signer set to summarise the account with, where the screen has
- * room for a single one (the account selector): the set valid on the most
- * networks, ties broken by link order, so an account that never rotated
- * shows its original set. Undefined when no set is valid anywhere. Never
- * use it to decide access, progress or execution: any valid set counts.
+ * room for a single one: the set valid on the most networks, ties broken
+ * by link order, so an account that never rotated shows its original set.
+ * With `network`, only sets valid there are considered. Undefined when no
+ * set qualifies. Never use it to decide access, progress or execution:
+ * any valid set counts.
  */
 export function primarySignerSet<
 	T extends Pick<SignerSet, 'validOn'>,
->(account: { signerSets: T[] }): T | undefined {
-	return validSignerSets(account).reduce<T | undefined>(
+>(
+	account: { signerSets: T[] },
+	network?: Network,
+): T | undefined {
+	return validSignerSets(account, network).reduce<
+		T | undefined
+	>(
 		(best, signerSet) =>
 			!best ||
 			signerSet.validOn.length > best.validOn.length
@@ -62,6 +67,55 @@ export function primarySignerSet<
 				: best,
 		undefined,
 	);
+}
+
+/**
+ * The signer set the overview shows: the primary set on `network`, else
+ * on any network, else the original set (at the account's address), so a
+ * locked-out account still shows who used to sign for it.
+ */
+export function displayedSignerSet<
+	T extends Pick<SignerSet, 'address' | 'validOn'>,
+>(
+	account: { address: string; signerSets: T[] },
+	network: Network,
+): T | undefined {
+	return (
+		primarySignerSet(account, network) ??
+		primarySignerSet(account) ??
+		account.signerSets.find(
+			(s) => s.address === account.address,
+		) ??
+		account.signerSets[0]
+	);
+}
+
+/**
+ * What the connected key can do for the account on `network`:
+ * - `locked-out`: no signer set of the account is valid there, so nobody
+ *   can sign for it through Sagat.
+ * - `not-a-signer`: some set is valid there, but the key is not an
+ *   accepted member of any of them. It can view, not sign.
+ * - `signer`: the key is an accepted member of a set valid there.
+ */
+export type NetworkAccess =
+	'locked-out' | 'not-a-signer' | 'signer';
+
+export function getNetworkAccess(
+	account: { signerSets: SignerSetWithMembers[] },
+	network: Network,
+	publicKey: string | undefined,
+): NetworkAccess {
+	const valid = validSignerSets(account, network);
+	if (valid.length === 0) return 'locked-out';
+	const canSign =
+		!!publicKey &&
+		valid.some((s) =>
+			s.members.some(
+				(m) => m.publicKey === publicKey && m.isAccepted,
+			),
+		);
+	return canSign ? 'signer' : 'not-a-signer';
 }
 
 /**
@@ -96,41 +150,11 @@ export function getKeyMembership(
 	};
 }
 
-/** A signer set's label, else its short address. */
-export function signerSetName(
-	signerSet: Pick<SignerSet, 'address' | 'label'>,
-) {
-	return (
-		signerSet.label || formatAddress(signerSet.address)
-	);
-}
-
 /**
- * What the overview says a signer set is: `signing` when it is valid on
- * some network, else what keeps it from signing. A verified set valid
- * nowhere is either not linked yet or retired; the account shape cannot
- * tell which, so it is `inactive`.
- */
-export type SignerSetRole =
-	| 'signing'
-	| 'draft'
-	| 'inviting'
-	| 'abandoned'
-	| 'inactive';
-
-export function signerSetRole(
-	signerSet: Pick<SignerSet, 'status' | 'validOn'>,
-): SignerSetRole {
-	if (signerSet.validOn.length > 0) return 'signing';
-	if (signerSet.status === 'verified') return 'inactive';
-	return signerSet.status;
-}
-
-/**
- * What the overview warns about the account's alias sets, which the API
- * reads from chain per network. Shown, never hidden: the dangerous case
- * is believing a rotation happened everywhere when it happened on one
- * network only.
+ * What is worth warning about in the account's alias sets, which the API
+ * reads from chain per network: the dangerous case is believing a
+ * rotation happened everywhere when it happened on one network only. Not
+ * rendered yet; the redesigned overview will show it.
  */
 export type AliasWarning =
 	| {
@@ -183,20 +207,4 @@ export function getAliasWarnings(
 					address,
 				});
 	return warnings;
-}
-
-/**
- * Whether the overview can show the account as it always has, with one
- * signer set and its members: the account has a single set, and it is
- * valid wherever the account is, with no alias warning.
- */
-export function hasSingleSignerSet(
-	account: Pick<Account, 'signerSets' | 'aliases'>,
-) {
-	return (
-		account.signerSets.length === 1 &&
-		account.signerSets[0].validOn.length ===
-			account.aliases.length &&
-		getAliasWarnings(account).length === 0
-	);
 }

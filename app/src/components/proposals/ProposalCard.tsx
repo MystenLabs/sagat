@@ -23,7 +23,6 @@ import { useState } from 'react';
 
 import {
 	describeProgress,
-	executedViaName,
 	getProgressSignerSet,
 	isReadyToExecute,
 } from '@/lib/proposalUtils';
@@ -94,10 +93,6 @@ export function ProposalCard({
 	);
 	const progressText = describeProgress(
 		proposal.signerSets,
-	);
-	const executedVia = executedViaName(
-		proposal,
-		proposal.accountSignerSets,
 	);
 
 	const canExecute =
@@ -252,21 +247,6 @@ export function ProposalCard({
 								? `Signature Weight: ${progressText}`
 								: `No signer set is valid on ${proposal.network}`}
 						</span>
-
-						{proposal.executedVia && executedVia && (
-							<span
-								className="flex items-center gap-1"
-								data-testid="proposal-executed-via"
-								data-address={proposal.executedVia}
-							>
-								Executed via {executedVia}
-								<CopyButton
-									value={proposal.executedVia}
-									size="sm"
-									successMessage="Copied signer address to clipboard"
-								/>
-							</span>
-						)}
 
 						<span className="flex items-center gap-1">
 							Address:{' '}

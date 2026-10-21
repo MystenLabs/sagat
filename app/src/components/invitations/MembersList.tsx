@@ -41,16 +41,6 @@ export function MembersList({ members }: MembersListProps) {
 									#{index + 1}
 								</Label>
 								<div className="flex flex-col min-w-0">
-									{/* What the account calls the key, if it
-									named it. */}
-									{member.label && (
-										<span
-											className="text-sm font-medium text-foreground break-all"
-											data-testid="member-label"
-										>
-											{member.label}
-										</span>
-									)}
 									{address && (
 										<div className="flex items-center gap-1">
 											<span className="text-xs font-mono text-foreground">

@@ -4,8 +4,8 @@
 import type {
 	Account,
 	PublicProposal,
-	SignerSet,
 	SignerSetInvitation,
+	SignerSetWithMembers,
 } from '@mysten/sagat';
 
 // How the connected key stands in a signer set, and how far the set's other
@@ -18,9 +18,12 @@ export interface KeyMembership {
 }
 
 // An account the connected key signs for, with the key's place in the
-// signer sets it is a member of that are valid on some network.
+// signer sets it is a member of that are valid on some network, and the
+// set the account selector summarises it with (see `primarySignerSet`).
 export interface AccountForPublicKey
-	extends Account, KeyMembership {}
+	extends Account, KeyMembership {
+	signerSet: SignerSetWithMembers;
+}
 
 // A signer set the connected key is invited to, for one account.
 export interface InvitationForPublicKey
@@ -29,7 +32,4 @@ export interface InvitationForPublicKey
 export interface ProposalCardInput extends PublicProposal {
 	isPublic: boolean;
 	proposers: string[];
-	// The account's signer sets, to name the one a proposal was executed
-	// via when it is no longer valid; empty on the public page.
-	accountSignerSets: Pick<SignerSet, 'address' | 'label'>[];
 }

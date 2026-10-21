@@ -12,27 +12,7 @@ import { useMemo, useRef, useState } from 'react';
 
 import { Label } from '@/components/ui/label';
 import { useOnClickOutside } from '@/hooks/useOnClickOutside';
-import {
-	primarySignerSet,
-	validSignerSets,
-} from '@/lib/signerSets';
 import { type AccountForPublicKey } from '@/lib/types';
-
-// The subtitle shows one signer set, the primary one; an account with
-// several valid sets says how many, and the overview lists them.
-function moreSets(account: AccountForPublicKey) {
-	const count = validSignerSets(account).length;
-	return count > 1 ? ` • ${count} signer sets` : '';
-}
-
-// The dropdown row's text after the address.
-function summarise(account: AccountForPublicKey) {
-	const signerSet = primarySignerSet(account);
-	const threshold = signerSet
-		? ` • ${signerSet.threshold} out of ${signerSet.totalWeight} weight threshold`
-		: '';
-	return `${threshold}${moreSets(account)}`;
-}
 
 interface MultisigSelectorProps {
 	multisigs: AccountForPublicKey[];
@@ -67,8 +47,6 @@ export function MultisigSelector({
 	const currentMultisig = multisigs.find(
 		(m) => m.address === selectedMultisig,
 	);
-	const currentSet =
-		currentMultisig && primarySignerSet(currentMultisig);
 
 	useOnClickOutside(dropdownRef, () => {
 		setShowDropdown(false);
@@ -91,12 +69,12 @@ export function MultisigSelector({
 								formatAddress(currentMultisig?.address)}
 						</h2>
 						<p className="text-sm text-muted-foreground">
-							{currentSet &&
-								`${currentSet.threshold}/${currentSet.members.length} threshold • `}
+							{currentMultisig.signerSet.threshold}/
+							{currentMultisig.signerSet.members.length}{' '}
+							threshold •{' '}
 							{formatAddress(
 								currentMultisig?.address || '',
 							)}
-							{moreSets(currentMultisig)}
 						</p>
 					</div>
 				</div>
@@ -147,12 +125,13 @@ export function MultisigSelector({
 							) : null}
 						</div>
 						<p className="text-xs text-muted-foreground">
-							{currentSet &&
-								`${currentSet.threshold} threshold • ${currentSet.members.length} members • `}
+							{currentMultisig.signerSet.threshold}{' '}
+							threshold •{' '}
+							{currentMultisig.signerSet.members.length}{' '}
+							members •{' '}
 							{formatAddress(
 								currentMultisig?.address || '',
 							)}
-							{moreSets(currentMultisig)}
 						</p>
 					</div>
 				</div>
@@ -215,8 +194,11 @@ export function MultisigSelector({
 														formatAddress(multisig.address)}
 												</div>
 												<p className="text-xs text-muted-foreground">
-													{formatAddress(multisig.address)}
-													{summarise(multisig)}
+													{formatAddress(multisig.address)}{' '}
+													• {multisig.signerSet.threshold}{' '}
+													out of{' '}
+													{multisig.signerSet.totalWeight}{' '}
+													weight threshold
 												</p>
 											</div>
 										</div>
