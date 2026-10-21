@@ -10,6 +10,7 @@ export {
 export {
 	PersonalMessages,
 	defaultExpiry,
+	getDefaultSagatApiUrl,
 } from './constants.js';
 export type {
 	Address,
