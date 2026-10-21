@@ -6,8 +6,8 @@ import {
 	z,
 	type OpenAPIHono,
 } from '@hono/zod-openapi';
-import { PersonalMessages } from '@mysten/sagat';
 
+import { V1Messages } from '../../constants/messages';
 import {
 	getAccount,
 	listAccounts,
@@ -160,7 +160,7 @@ export const mountAccounts = (v1: OpenAPIHono) =>
 				proposer,
 				signature,
 				expiry,
-				message: PersonalMessages.addAccountProposer,
+				message: V1Messages.addAccountProposer,
 				signerSets: 'valid',
 			});
 			return c.json({ success: true as const }, 200);
@@ -173,7 +173,7 @@ export const mountAccounts = (v1: OpenAPIHono) =>
 				proposer,
 				signature,
 				expiry,
-				message: PersonalMessages.removeAccountProposer,
+				message: V1Messages.removeAccountProposer,
 				signerSets: 'valid',
 			});
 			return c.json({ success: true as const }, 200);

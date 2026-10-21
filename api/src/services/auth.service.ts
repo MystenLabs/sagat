@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat-legacy';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { type Context, type Handler } from 'hono';
 import {
@@ -12,6 +11,7 @@ import {
 import { jwtVerify, SignJWT } from 'jose';
 
 import { LIMITS } from '../constants/limits';
+import { LegacyMessages } from '../constants/messages';
 import { JWT_SECRET } from '../db/env';
 import { ValidationError } from '../errors';
 import { activeJwtTokens, authAttempts } from '../metrics';
@@ -62,7 +62,7 @@ export const connectForScript: Handler = async (c) => {
 
 		const pubKey = await verifySignedMessage(
 			signature,
-			PersonalMessages.connect(expiry),
+			LegacyMessages.connect(expiry),
 		);
 
 		const jwt = await issueJwt([pubKey], 'script');
@@ -128,7 +128,7 @@ export const connectToPublicKey: Handler = async (c) => {
 
 		const pubKey = await verifySignedMessage(
 			signature,
-			PersonalMessages.connect(expiry),
+			LegacyMessages.connect(expiry),
 		);
 
 		// If the public key is not already in the list, we add it.

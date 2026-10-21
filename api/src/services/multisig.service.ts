@@ -8,7 +8,6 @@
  * like `MultisigAccount`): each router maps them to its own response shapes.
  */
 
-import { PersonalMessages } from '@mysten/sagat-legacy';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
@@ -22,6 +21,7 @@ import {
 } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
+import { LegacyMessages } from '../constants/messages';
 import { db } from '../db';
 import {
 	AccountSignerSetStatus,
@@ -678,7 +678,7 @@ export const acceptInvitation = async ({
 		signerSetAddress: address,
 		signature,
 		message:
-			PersonalMessages.acceptMultisigInvitation(address),
+			LegacyMessages.acceptMultisigInvitation(address),
 		acceptedOnly: false,
 		notMemberError: () =>
 			new ValidationError(
@@ -807,7 +807,7 @@ export const rejectInvitation = async ({
 	// Validate signature with rejection-specific message
 	const pubKey = await verifySignedMessage(
 		signature,
-		PersonalMessages.rejectMultisigInvitation(address),
+		LegacyMessages.rejectMultisigInvitation(address),
 	);
 
 	const multisig = await getSignerSet(address);
@@ -914,7 +914,7 @@ export const addProposer = async ({
 	proposer,
 	signature,
 	expiry,
-	message = PersonalMessages.addMultisigProposer,
+	message = LegacyMessages.addMultisigProposer,
 	signerSets = 'original',
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
@@ -979,7 +979,7 @@ export const removeProposer = async ({
 	proposer,
 	signature,
 	expiry,
-	message = PersonalMessages.removeMultisigProposer,
+	message = LegacyMessages.removeMultisigProposer,
 	signerSets = 'original',
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.

@@ -7,7 +7,6 @@
  * (rows, or composites like `ProposalTally`).
  */
 
-import { PersonalMessages } from '@mysten/sagat-legacy';
 import { TransactionError } from '@mysten/sui/client';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
@@ -17,6 +16,7 @@ import {
 } from '@mysten/sui/utils';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
+import { LegacyMessages } from '../constants/messages';
 import { db } from '../db';
 import { validateNetwork } from '../db/env';
 import {
@@ -531,7 +531,7 @@ export const cancelProposal = async ({
 
 	await verifyMemberSignedMessage({
 		signature,
-		message: PersonalMessages.cancelProposal(proposalId),
+		message: LegacyMessages.cancelProposal(proposalId),
 		notMemberError: () =>
 			new ValidationError('Not a member of the multisig'),
 		...(signerSets === 'valid'
