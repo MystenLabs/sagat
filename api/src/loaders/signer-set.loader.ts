@@ -21,8 +21,15 @@ import {
 export const SCHEDULER_INTERVAL = 5; // ms. Requests are grouped by either 5ms or 100 keys.
 export const BATCH_SIZE = 100;
 
-// Data loader to query multiple signer sets at the same time.
-async function batchLoadSignerSets(
+// A `loadMany` result, or its error thrown.
+export const unwrap = <T>(value: T | Error): T => {
+	if (value instanceof Error) throw value;
+	return value;
+};
+
+// Queries several signer sets at once. Called directly for a lookup that
+// has all its keys at hand; the loader below batches concurrent ones.
+export async function batchLoadSignerSets(
 	addresses: readonly string[],
 ) {
 	const uniqueAddresses = [...new Set(addresses)];

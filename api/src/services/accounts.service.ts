@@ -14,6 +14,7 @@ import { and, asc, eq, inArray, ne } from 'drizzle-orm';
 import { db } from '../db';
 import {
 	AccountSignerSetStatus,
+	OPEN_LINK_STATUSES,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
 	SchemaSignerSetMembers,
@@ -34,14 +35,18 @@ import {
 	AccountProposersDataLoader,
 	type Proposer,
 } from '../loaders/account-proposers.loader';
-import { SignerSetDataLoader } from '../loaders/signer-set.loader';
+import {
+	batchLoadSignerSets,
+	unwrap,
+} from '../loaders/signer-set.loader';
+import { accountsAcceptedByKeys } from './membership.service';
 import {
 	hasMember,
-	loadAliasSets,
+	isValidSomewhere,
 	refreshAliasesOnEveryNetwork,
 	resolveAccounts,
-	validOn,
-	type AliasSet,
+	validateLinks,
+	type MirroredAliasSet,
 	type ValidatedSignerSet,
 } from './validity.service';
 
@@ -58,8 +63,14 @@ export type AccountWithSignerSets = {
 	account: Account;
 	proposers: Proposer[];
 	signerSets: LinkedSignerSet[];
-	aliases: AliasSet[];
+	aliases: MirroredAliasSet[];
 };
+
+// Links in the order the responses list them: oldest first.
+const LINK_ORDER = [
+	asc(SchemaAccountSignerSets.createdAt),
+	asc(SchemaAccountSignerSets.accountAddress),
+];
 
 // The account rows at `addresses`, in no particular order.
 export const selectAccounts = async (
@@ -72,43 +83,30 @@ export const selectAccounts = async (
 				.from(SchemaAccounts)
 				.where(inArray(SchemaAccounts.address, addresses));
 
-const unwrap = <T>(value: T | Error): T => {
-	if (value instanceof Error) throw value;
-	return value;
-};
-
 // The compositions of `links`, each with where it is valid for the link's
 // account and that account's labels for the keys.
 const expandLinks = async (
 	links: AccountSignerSet[],
 ): Promise<LinkedSignerSet[]> => {
-	const [signerSets, labels, aliasSets] = await Promise.all(
-		[
-			SignerSetDataLoader.loadMany(
-				links.map((l) => l.signerSetAddress),
-			),
-			AccountKeyLabelsDataLoader.loadMany(
-				links.map((l) => l.accountAddress),
-			),
-			loadAliasSets(links.map((l) => l.accountAddress)),
-		],
+	const accountAddresses = [
+		...new Set(links.map((l) => l.accountAddress)),
+	];
+	const [signerSets, labels] = await Promise.all([
+		validateLinks(links),
+		AccountKeyLabelsDataLoader.loadMany(accountAddresses),
+	]);
+	const labelsOf = new Map(
+		accountAddresses.map((address, i) => [
+			address,
+			unwrap(labels[i]),
+		]),
 	);
-	return links.flatMap((link, i) => {
-		const signerSet = unwrap(signerSets[i]);
-		// The link row references the signer set, so it exists.
-		if (!signerSet) return [];
-		return [
-			{
-				link,
-				signerSet,
-				validOn: validOn(
-					link.signerSetAddress,
-					aliasSets.get(link.accountAddress) ?? [],
-				),
-				labels: unwrap(labels[i]),
-			},
-		];
-	});
+	return signerSets.map((signerSet) => ({
+		...signerSet,
+		labels:
+			labelsOf.get(signerSet.link.accountAddress) ??
+			new Map(),
+	}));
 };
 
 // Accounts with their proposers, linked signer sets (with where each is
@@ -121,19 +119,17 @@ const loadAccounts = async (
 
 	const [accounts, resolved, proposers, labels] =
 		await Promise.all([
-			db
-				.select()
-				.from(SchemaAccounts)
-				.where(inArray(SchemaAccounts.address, addresses)),
+			selectAccounts(addresses),
 			resolveAccounts(addresses),
 			AccountProposersDataLoader.loadMany(addresses),
 			AccountKeyLabelsDataLoader.loadMany(addresses),
 		]);
+	const accountOf = new Map(
+		accounts.map((a) => [a.address, a]),
+	);
 
 	return addresses.flatMap((address, i) => {
-		const account = accounts.find(
-			(a) => a.address === address,
-		);
+		const account = accountOf.get(address);
 		const resolution = resolved.get(address);
 		if (!account || !resolution) return [];
 		const keyLabels = unwrap(labels[i]);
@@ -177,9 +173,7 @@ export const getAccount = async ({
 	if (
 		!account ||
 		!hasMember(
-			account.signerSets.filter(
-				(s) => s.validOn.length > 0,
-			),
+			account.signerSets.filter(isValidSomewhere),
 			callerKeys,
 			{ acceptedOnly: false },
 		)
@@ -202,39 +196,17 @@ export const listAccounts = async ({
 	const keys = callerKeys.map((k) => k.toSuiPublicKey());
 	// Every account linked to a composition the caller accepted; the ones
 	// where no such composition is valid are dropped below.
-	const rows = await db
-		.selectDistinct({
-			address: SchemaAccountSignerSets.accountAddress,
-		})
-		.from(SchemaSignerSetMembers)
-		.innerJoin(
-			SchemaAccountSignerSets,
-			eq(
-				SchemaAccountSignerSets.signerSetAddress,
-				SchemaSignerSetMembers.signerSetAddress,
-			),
-		)
-		.where(
-			and(
-				inArray(SchemaSignerSetMembers.publicKey, keys),
-				eq(SchemaSignerSetMembers.isAccepted, true),
-				eq(SchemaSignerSetMembers.isRejected, false),
-			),
-		);
+	const addresses = await accountsAcceptedByKeys(
+		keys,
+		eq(SchemaSignerSetMembers.isRejected, false),
+	);
 
-	const accounts = (
-		await loadAccounts(rows.map((r) => r.address))
-	).filter(({ signerSets }) =>
-		signerSets.some(
-			({ signerSet, validOn }) =>
-				validOn.length > 0 &&
-				signerSet.members.some(
-					(m) =>
-						keys.includes(m.publicKey) &&
-						m.isAccepted &&
-						!m.isRejected,
-				),
-		),
+	const accounts = (await loadAccounts(addresses)).filter(
+		({ signerSets }) =>
+			hasMember(signerSets.filter(isValidSomewhere), keys, {
+				acceptedOnly: true,
+				excludeRejected: true,
+			}),
 	);
 	// Oldest first, so the order is stable.
 	return accounts.sort(
@@ -247,51 +219,31 @@ export const listAccounts = async ({
 
 /**
  * The signer set at `address` as one of its accounts knows it, for the
- * responses of routes that need no session (accept, reject): its own
- * account's link when it has one, else the oldest link still in use, else
- * the oldest. Signer sets without a link row are left out.
+ * responses of routes that need no session (accept, reject), so without
+ * key labels: its own account's link when it has one, else the oldest link
+ * still in use, else the oldest. A signer set without a link row is not
+ * found.
  */
-const loadSignerSets = async (
-	signerSetAddresses: string[],
-): Promise<LinkedSignerSet[]> => {
-	if (signerSetAddresses.length === 0) return [];
-
+export const loadSignerSet = async (
+	address: string,
+): Promise<ValidatedSignerSet> => {
 	const links = await db
 		.select()
 		.from(SchemaAccountSignerSets)
 		.where(
-			inArray(
-				SchemaAccountSignerSets.signerSetAddress,
-				signerSetAddresses,
-			),
+			eq(SchemaAccountSignerSets.signerSetAddress, address),
 		)
-		.orderBy(
-			asc(SchemaAccountSignerSets.createdAt),
-			asc(SchemaAccountSignerSets.accountAddress),
-		);
+		.orderBy(...LINK_ORDER);
 
-	const chosen = signerSetAddresses.flatMap((address) => {
-		const own = links.filter(
-			(l) => l.signerSetAddress === address,
-		);
-		const link =
-			own.find((l) => l.accountAddress === address) ??
-			own.find(
-				(l) =>
-					l.status !== AccountSignerSetStatus.ABANDONED,
-			) ??
-			own[0];
-		return link ? [link] : [];
-	});
-	return expandLinks(chosen);
-};
-
-/**
- * The signer set at `address`. Loaded for the response of a route that has
- * just changed it, so there is no access check.
- */
-export const loadSignerSet = async (address: string) => {
-	const [signerSet] = await loadSignerSets([address]);
+	const link =
+		links.find((l) => l.accountAddress === address) ??
+		links.find(
+			(l) => l.status !== AccountSignerSetStatus.ABANDONED,
+		) ??
+		links[0];
+	const [signerSet] = link
+		? await validateLinks([link])
+		: [];
 	if (!signerSet) throw new NotFoundError();
 	return signerSet;
 };
@@ -315,61 +267,52 @@ export const getSignerSetComposition = async ({
 	address: string;
 	callerKeys: PublicKey[];
 }): Promise<SignerSetComposition> => {
-	const [signerSet, links] = await Promise.all([
-		SignerSetDataLoader.load(address),
-		db
-			.select()
-			.from(SchemaAccountSignerSets)
-			.where(
-				eq(
-					SchemaAccountSignerSets.signerSetAddress,
-					address,
-				),
-			)
-			.orderBy(
-				asc(SchemaAccountSignerSets.createdAt),
-				asc(SchemaAccountSignerSets.accountAddress),
-			),
-	]);
-	const isMember =
-		!!signerSet &&
-		hasMember([{ signerSet }], callerKeys, {
-			acceptedOnly: false,
-		});
+	const keys = callerKeys.map((k) => k.toSuiPublicKey());
+	const links = await db
+		.select()
+		.from(SchemaAccountSignerSets)
+		.where(
+			eq(SchemaAccountSignerSets.signerSetAddress, address),
+		)
+		.orderBy(...LINK_ORDER);
 
 	const accountAddresses = links.map(
 		(l) => l.accountAddress,
 	);
 	const [resolved, accounts] = await Promise.all([
 		resolveAccounts(accountAddresses),
-		accountAddresses.length === 0
-			? []
-			: db
-					.select()
-					.from(SchemaAccounts)
-					.where(
-						inArray(
-							SchemaAccounts.address,
-							accountAddresses,
-						),
-					),
+		selectAccounts(accountAddresses),
 	]);
+	const accountOf = new Map(
+		accounts.map((a) => [a.address, a]),
+	);
+	// The link of `accountAddress` to this composition, resolved.
+	const ownLink = (accountAddress: string) =>
+		resolved
+			.get(accountAddress)
+			?.signerSets.find(
+				(s) => s.link.signerSetAddress === address,
+			);
+
+	// A linked composition comes with its accounts' signer sets; one
+	// without links is loaded on its own.
+	const signerSet =
+		links.length > 0
+			? ownLink(links[0].accountAddress)?.signerSet
+			: (await batchLoadSignerSets([address]))[0];
+	if (!signerSet) throw new ApiAuthError('AccessDenied');
+	const isMember = hasMember([{ signerSet }], keys, {
+		acceptedOnly: false,
+	});
 
 	const visible = links.flatMap((link) => {
 		const resolution = resolved.get(link.accountAddress);
-		const account = accounts.find(
-			(a) => a.address === link.accountAddress,
-		);
-		const own = resolution?.signerSets.find(
-			(s) => s.link.signerSetAddress === address,
-		);
-		if (!signerSet || !resolution || !account || !own)
-			return [];
+		const account = accountOf.get(link.accountAddress);
+		const own = ownLink(link.accountAddress);
+		if (!resolution || !account || !own) return [];
 		const canRead = hasMember(
-			resolution.signerSets.filter(
-				(s) => s.validOn.length > 0,
-			),
-			callerKeys,
+			resolution.signerSets.filter(isValidSomewhere),
+			keys,
 			{ acceptedOnly: false },
 		);
 		const isInUse =
@@ -379,7 +322,7 @@ export const getSignerSetComposition = async ({
 			: [];
 	});
 
-	if (!signerSet || (!isMember && visible.length === 0))
+	if (!isMember && visible.length === 0)
 		throw new ApiAuthError('AccessDenied');
 	return { signerSet, links: visible };
 };
@@ -388,12 +331,6 @@ export const getSignerSetComposition = async ({
 export type SignerSetInvitation = LinkedSignerSet & {
 	account: Account;
 };
-
-// Link statuses under which an unanswered member is invited.
-const INVITING_STATUSES = [
-	AccountSignerSetStatus.DRAFT,
-	AccountSignerSetStatus.INVITING,
-];
 
 /**
  * The invitations of `publicKey`: one per account and signer set, for each
@@ -443,36 +380,28 @@ export const listSignerSetInvitations = async ({
 					: and(
 							eq(SchemaSignerSetMembers.isAccepted, false),
 							eq(SchemaSignerSetMembers.isRejected, false),
+							// An unanswered member is invited while the link is
+							// still open.
 							inArray(
 								SchemaAccountSignerSets.status,
-								INVITING_STATUSES,
+								OPEN_LINK_STATUSES,
 							),
 						),
 			),
 		)
-		.orderBy(
-			asc(SchemaAccountSignerSets.createdAt),
-			asc(SchemaAccountSignerSets.accountAddress),
-		);
+		.orderBy(...LINK_ORDER);
 
 	const links = rows.map((r) => r.link);
 	const [linked, accounts] = await Promise.all([
 		expandLinks(links),
-		links.length === 0
-			? []
-			: db
-					.select()
-					.from(SchemaAccounts)
-					.where(
-						inArray(
-							SchemaAccounts.address,
-							links.map((l) => l.accountAddress),
-						),
-					),
+		selectAccounts(links.map((l) => l.accountAddress)),
 	]);
+	const accountOf = new Map(
+		accounts.map((a) => [a.address, a]),
+	);
 	return linked.flatMap((signerSet) => {
-		const account = accounts.find(
-			(a) => a.address === signerSet.link.accountAddress,
+		const account = accountOf.get(
+			signerSet.link.accountAddress,
 		);
 		// The link row references the account, so it exists.
 		return account ? [{ ...signerSet, account }] : [];

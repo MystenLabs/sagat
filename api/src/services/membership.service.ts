@@ -3,14 +3,18 @@
 
 /**
  * Who belongs to a signer set, by its address, for the flows that act on
- * a composition rather than an account (accepting, reading a multisig).
+ * a composition rather than an account (accepting, reading a multisig),
+ * and which accounts a key has accepted to sign for.
  */
 
 import { type PublicKey } from '@mysten/sui/cryptography';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, type SQL } from 'drizzle-orm';
 
 import { db } from '../db';
-import { SchemaSignerSetMembers } from '../db/schema';
+import {
+	SchemaAccountSignerSets,
+	SchemaSignerSetMembers,
+} from '../db/schema';
 
 // Returns true if the public key is a member of the signer set and has accepted the invitation.
 export const isSignerSetMember = async (
@@ -73,3 +77,37 @@ export const jwtHasSignerSetMemberAccess = async (
 
 	return !!member;
 };
+
+/**
+ * The accounts linked to a composition in which one of `publicKeys` has
+ * accepted, whatever the link's status, narrowed by `where` on the member
+ * or link row. Each account once.
+ */
+export const accountsAcceptedByKeys = async (
+	publicKeys: string[],
+	where?: SQL,
+): Promise<string[]> =>
+	(
+		await db
+			.selectDistinct({
+				address: SchemaAccountSignerSets.accountAddress,
+			})
+			.from(SchemaSignerSetMembers)
+			.innerJoin(
+				SchemaAccountSignerSets,
+				eq(
+					SchemaAccountSignerSets.signerSetAddress,
+					SchemaSignerSetMembers.signerSetAddress,
+				),
+			)
+			.where(
+				and(
+					inArray(
+						SchemaSignerSetMembers.publicKey,
+						publicKeys,
+					),
+					eq(SchemaSignerSetMembers.isAccepted, true),
+					where,
+				),
+			)
+	).map((row) => row.address);

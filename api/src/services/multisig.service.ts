@@ -28,6 +28,7 @@ import {
 import { db } from '../db';
 import {
 	AccountSignerSetStatus,
+	OPEN_LINK_STATUSES,
 	ProposalStatus,
 	SchemaAccountKeys,
 	SchemaAccountProposers,
@@ -55,7 +56,10 @@ import {
 	AccountProposersDataLoader,
 	type Proposer,
 } from '../loaders/account-proposers.loader';
-import { SignerSetDataLoader } from '../loaders/signer-set.loader';
+import {
+	SignerSetDataLoader,
+	unwrap,
+} from '../loaders/signer-set.loader';
 import {
 	queryAllOwnedObjects,
 	type SuiNetwork,
@@ -68,6 +72,7 @@ import {
 } from './addresses.service';
 import { validateExpiry } from './auth.service';
 import {
+	accountsAcceptedByKeys,
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
 } from './membership.service';
@@ -90,7 +95,7 @@ export const getSignerSet = async (address: string) => {
 // Who created the account and when, from its link row for its original
 // composition: `(A, A)` in `account_signer_sets`. Null when the account has
 // no such row. These columns never change after the row is inserted.
-export const getAccountOrigin = async (
+const getAccountOrigin = async (
 	address: string,
 ): Promise<SignerSetOrigin | null> =>
 	(await db.query.SchemaAccountSignerSets.findFirst({
@@ -195,11 +200,6 @@ const loadMultisigAccounts = async (
 		AccountKeyLabelsDataLoader.loadMany(accountAddresses),
 	]);
 	return signerSets.map((signerSet, i) => {
-		const accountProposers = proposers[i];
-		if (accountProposers instanceof Error)
-			throw accountProposers;
-		const keyLabels = labels[i];
-		if (keyLabels instanceof Error) throw keyLabels;
 		// Each signer set was loaded from a row, so it has one.
 		const origin = origins.get(signerSet.address);
 		if (!origin)
@@ -208,8 +208,8 @@ const loadMultisigAccounts = async (
 			);
 		return {
 			signerSet,
-			proposers: accountProposers,
-			labels: keyLabels,
+			proposers: unwrap(proposers[i]),
+			labels: unwrap(labels[i]),
 			origin,
 		};
 	});
@@ -309,7 +309,7 @@ export const listInvitations = async ({
  * an unbounded length from the request body must never reach an
  * allocation.
  */
-export const validateMemberCount = (members: unknown) => {
+const validateMemberCount = (members: unknown) => {
 	if (
 		!Array.isArray(members) ||
 		members.length > LIMITS.maxMembersPerMultisig ||
@@ -321,7 +321,7 @@ export const validateMemberCount = (members: unknown) => {
 	}
 };
 
-export const validateQuorum = async (
+const validateQuorum = async (
 	addresses: string[],
 	weights: number[],
 	threshold: number,
@@ -371,7 +371,7 @@ export const validateQuorum = async (
 };
 
 // Returns true if the signer set is finalized (all members have accepted the invitation).
-export const isSignerSetFinalized = async (
+const isSignerSetFinalized = async (
 	address: string,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	tx?: any,
@@ -507,7 +507,7 @@ export type CreateSignerSetInput = {
 	labels?: unknown;
 };
 
-export type CreatedSignerSet = {
+type CreatedSignerSet = {
 	signerSet: SignerSet;
 	members: SignerSetMember[];
 	// The labels that were set, by public key.
@@ -700,31 +700,13 @@ export const acceptInvitation = async ({
 		// signer sets, so a key carried over into a new signer set of the
 		// same account counts once. Before rotation every composition is
 		// one account, so the count is the legacy one.
-		db
-			.selectDistinct({
-				address: SchemaAccountSignerSets.accountAddress,
-			})
-			.from(SchemaSignerSetMembers)
-			.innerJoin(
-				SchemaAccountSignerSets,
-				eq(
-					SchemaAccountSignerSets.signerSetAddress,
-					SchemaSignerSetMembers.signerSetAddress,
-				),
-			)
-			.where(
-				and(
-					eq(
-						SchemaSignerSetMembers.publicKey,
-						pubKey.toSuiPublicKey(),
-					),
-					eq(SchemaSignerSetMembers.isAccepted, true),
-					ne(
-						SchemaAccountSignerSets.status,
-						AccountSignerSetStatus.ABANDONED,
-					),
-				),
+		accountsAcceptedByKeys(
+			[pubKey.toSuiPublicKey()],
+			ne(
+				SchemaAccountSignerSets.status,
+				AccountSignerSetStatus.ABANDONED,
 			),
+		),
 		getAccountOrigin(address),
 	]);
 
@@ -782,10 +764,10 @@ export const acceptInvitation = async ({
 							SchemaAccountSignerSets.signerSetAddress,
 							address,
 						),
-						inArray(SchemaAccountSignerSets.status, [
-							AccountSignerSetStatus.DRAFT,
-							AccountSignerSetStatus.INVITING,
-						]),
+						inArray(
+							SchemaAccountSignerSets.status,
+							OPEN_LINK_STATUSES,
+						),
 					),
 				);
 		}
@@ -869,10 +851,10 @@ export const rejectInvitation = async ({
 						SchemaAccountSignerSets.accountAddress,
 						address,
 					),
-					inArray(SchemaAccountSignerSets.status, [
-						AccountSignerSetStatus.DRAFT,
-						AccountSignerSetStatus.INVITING,
-					]),
+					inArray(
+						SchemaAccountSignerSets.status,
+						OPEN_LINK_STATUSES,
+					),
 				),
 			);
 	});

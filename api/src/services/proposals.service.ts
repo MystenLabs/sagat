@@ -107,7 +107,7 @@ const tallyEach = <S extends ScopedSignerSet>(
 
 // A proposal with the original composition of its account and how far its
 // signatures get it, for the legacy routes.
-export type ProposalTally = {
+type ProposalTally = {
 	proposal: ProposalWithSignatures;
 } & ScopedSignerSet &
 	Progress;
@@ -136,7 +136,7 @@ const tallyAgainstOriginal = async (
 	);
 
 // Get a proposal by id, and its signatures.
-export const getProposalById = async (
+const getProposalById = async (
 	proposalId: number,
 ): Promise<ProposalWithSignatures> => {
 	const result = await db

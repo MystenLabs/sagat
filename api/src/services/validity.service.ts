@@ -23,11 +23,18 @@ import {
 	type AccountSignerSet,
 	type SignerSetWithMembers,
 } from '../db/schema';
-import { SignerSetDataLoader } from '../loaders/signer-set.loader';
+import {
+	batchLoadSignerSets,
+	SignerSetDataLoader,
+	unwrap,
+} from '../loaders/signer-set.loader';
 import { type SuiNetwork } from '../utils/client';
 
-/** An account's alias set on one network, as the mirror knows it. */
-export type AliasSet = {
+/**
+ * An account's alias set on one network, as the mirror knows it. The chain
+ * view, read by the refresh, is `AliasSet` in `utils/aliases.ts`.
+ */
+export type MirroredAliasSet = {
 	network: SuiNetwork;
 	// Sorted by address: the mirror keeps no order.
 	addresses: string[];
@@ -44,9 +51,9 @@ export type ValidatedSignerSet = {
 	validOn: SuiNetwork[];
 };
 
-export type ResolvedAccount = {
+type ResolvedAccount = {
 	signerSets: ValidatedSignerSet[];
-	aliases: AliasSet[];
+	aliases: MirroredAliasSet[];
 };
 
 /**
@@ -55,7 +62,7 @@ export type ResolvedAccount = {
  * and decide on the result. This pass has no chain access, so the mirror
  * is used as it is.
  */
-export const refreshAliasesIfStale = async (
+const refreshAliasesIfStale = async (
 	_accountAddress: string,
 	_network: SuiNetwork,
 ): Promise<void> => {};
@@ -64,18 +71,25 @@ export const refreshAliasesIfStale = async (
 export const refreshAliasesOnEveryNetwork = async (
 	accountAddress: string,
 ) => {
-	for (const network of SUPPORTED_NETWORKS)
-		await refreshAliasesIfStale(accountAddress, network);
+	await Promise.all(
+		SUPPORTED_NETWORKS.map((network) =>
+			refreshAliasesIfStale(accountAddress, network),
+		),
+	);
 };
+
+// Keys the mirror rows of an account on a network.
+const mirrorKey = (account: string, network: string) =>
+	`${account}:${network}`;
 
 /**
  * The alias set of each account on each supported network. Mirror rows of
  * other networks are ignored. No state row, or `exists = false`, means the
  * alias set is `{account}`.
  */
-export const loadAliasSets = async (
+const loadAliasSets = async (
 	accountAddresses: string[],
-): Promise<Map<string, AliasSet[]>> => {
+): Promise<Map<string, MirroredAliasSet[]>> => {
 	const accounts = [...new Set(accountAddresses)];
 	if (accounts.length === 0) return new Map();
 
@@ -111,15 +125,30 @@ export const loadAliasSets = async (
 			.orderBy(asc(SchemaAccountAliases.aliasAddress)),
 	]);
 
+	const stateOf = new Map(
+		states.map((state) => [
+			mirrorKey(state.accountAddress, state.network),
+			state,
+		]),
+	);
+	// Each list keeps the query's order, by address.
+	const aliasesOf = new Map<string, string[]>();
+	for (const alias of aliases) {
+		const key = mirrorKey(
+			alias.accountAddress,
+			alias.network,
+		);
+		const list = aliasesOf.get(key);
+		if (list) list.push(alias.aliasAddress);
+		else aliasesOf.set(key, [alias.aliasAddress]);
+	}
+
 	return new Map(
 		accounts.map((account) => [
 			account,
-			networks.map((network): AliasSet => {
-				const state = states.find(
-					(s) =>
-						s.accountAddress === account &&
-						s.network === network,
-				);
+			networks.map((network): MirroredAliasSet => {
+				const key = mirrorKey(account, network);
+				const state = stateOf.get(key);
 				if (!state?.exists)
 					return {
 						network,
@@ -128,13 +157,7 @@ export const loadAliasSets = async (
 					};
 				return {
 					network,
-					addresses: aliases
-						.filter(
-							(a) =>
-								a.accountAddress === account &&
-								a.network === network,
-						)
-						.map((a) => a.aliasAddress),
+					addresses: aliasesOf.get(key) ?? [],
 					observedAt: state.observedAt,
 				};
 			}),
@@ -143,17 +166,59 @@ export const loadAliasSets = async (
 };
 
 /** The networks on which `signerSetAddress` is in the alias set. */
-export const validOn = (
+const validOn = (
 	signerSetAddress: string,
-	aliasSets: AliasSet[],
+	aliasSets: MirroredAliasSet[],
 ): SuiNetwork[] =>
 	aliasSets
 		.filter((s) => s.addresses.includes(signerSetAddress))
 		.map((s) => s.network);
 
-const unwrap = <T>(value: T | Error): T => {
-	if (value instanceof Error) throw value;
-	return value;
+// Loads signer sets by address, like `batchLoadSignerSets`.
+type SignerSetBatch = (
+	addresses: readonly string[],
+) => Promise<(SignerSetWithMembers | null | Error)[]>;
+
+// Across accounts, through the loader, which batches concurrent lookups.
+const loadThroughLoader: SignerSetBatch = (addresses) =>
+	SignerSetDataLoader.loadMany(addresses);
+
+/**
+ * The composition of each of `links`, with the networks it is valid on for
+ * the link's account. Pass `aliasSets` when they are loaded already, and
+ * `loadSignerSets` to load the compositions other than through the loader.
+ */
+export const validateLinks = async (
+	links: AccountSignerSet[],
+	{
+		aliasSets,
+		loadSignerSets = loadThroughLoader,
+	}: {
+		aliasSets?: Map<string, MirroredAliasSet[]>;
+		loadSignerSets?: SignerSetBatch;
+	} = {},
+): Promise<ValidatedSignerSet[]> => {
+	if (links.length === 0) return [];
+	const [signerSets, aliases] = await Promise.all([
+		loadSignerSets(links.map((l) => l.signerSetAddress)),
+		aliasSets ??
+			loadAliasSets(links.map((l) => l.accountAddress)),
+	]);
+	return links.flatMap((link, i) => {
+		const signerSet = unwrap(signerSets[i]);
+		// The link row references the signer set, so it exists.
+		if (!signerSet) return [];
+		return [
+			{
+				link,
+				signerSet,
+				validOn: validOn(
+					link.signerSetAddress,
+					aliases.get(link.accountAddress) ?? [],
+				),
+			},
+		];
+	});
 };
 
 /**
@@ -165,6 +230,7 @@ const unwrap = <T>(value: T | Error): T => {
  */
 export const resolveAccounts = async (
 	accountAddresses: string[],
+	loadSignerSets?: SignerSetBatch,
 ): Promise<Map<string, ResolvedAccount>> => {
 	const accounts = [...new Set(accountAddresses)];
 	if (accounts.length === 0) return new Map();
@@ -185,43 +251,40 @@ export const resolveAccounts = async (
 			),
 		loadAliasSets(accounts),
 	]);
-	const signerSets = await SignerSetDataLoader.loadMany(
-		links.map((l) => l.signerSetAddress),
-	);
+	const signerSetsOf = new Map<
+		string,
+		ValidatedSignerSet[]
+	>();
+	for (const signerSet of await validateLinks(links, {
+		aliasSets,
+		loadSignerSets,
+	})) {
+		const account = signerSet.link.accountAddress;
+		const list = signerSetsOf.get(account);
+		if (list) list.push(signerSet);
+		else signerSetsOf.set(account, [signerSet]);
+	}
 
 	return new Map(
-		accounts.map((account) => {
-			const aliases = aliasSets.get(account) ?? [];
-			return [
-				account,
-				{
-					aliases,
-					signerSets: links.flatMap((link, i) => {
-						if (link.accountAddress !== account) return [];
-						const signerSet = unwrap(signerSets[i]);
-						// The link row references the signer set, so it exists.
-						if (!signerSet) return [];
-						return [
-							{
-								link,
-								signerSet,
-								validOn: validOn(
-									link.signerSetAddress,
-									aliases,
-								),
-							},
-						];
-					}),
-				},
-			];
-		}),
+		accounts.map((account) => [
+			account,
+			{
+				aliases: aliasSets.get(account) ?? [],
+				signerSets: signerSetsOf.get(account) ?? [],
+			},
+		]),
 	);
 };
 
+// One account's lookup has all its keys at hand, so it queries directly
+// instead of waiting for the loader's batch.
 const resolveAccount = async (accountAddress: string) =>
-	(await resolveAccounts([accountAddress])).get(
-		accountAddress,
-	) ?? { signerSets: [], aliases: [] };
+	(
+		await resolveAccounts(
+			[accountAddress],
+			batchLoadSignerSets,
+		)
+	).get(accountAddress) ?? { signerSets: [], aliases: [] };
 
 // Whether a signer set can sign for its account somewhere.
 export const isValidSomewhere = (
@@ -252,12 +315,16 @@ export const validSignerSets = async (
 
 /**
  * Whether one of `keys` is a member of one of `signerSets`; with
- * `acceptedOnly`, a member that accepted its invitation.
+ * `acceptedOnly`, a member that accepted its invitation, and with
+ * `excludeRejected`, one that has not rejected it.
  */
 export const hasMember = (
 	signerSets: Pick<ValidatedSignerSet, 'signerSet'>[],
 	keys: (PublicKey | string)[],
-	{ acceptedOnly }: { acceptedOnly: boolean },
+	{
+		acceptedOnly,
+		excludeRejected = false,
+	}: { acceptedOnly: boolean; excludeRejected?: boolean },
 ) => {
 	const publicKeys = keys.map((k) =>
 		typeof k === 'string' ? k : k.toSuiPublicKey(),
@@ -266,7 +333,8 @@ export const hasMember = (
 		signerSet.members.some(
 			(m) =>
 				publicKeys.includes(m.publicKey) &&
-				(!acceptedOnly || m.isAccepted),
+				(!acceptedOnly || m.isAccepted) &&
+				(!excludeRejected || !m.isRejected),
 		),
 	);
 };
@@ -296,8 +364,9 @@ export const signerSetsInScope = async (
 ): Promise<ScopedSignerSet[]> => {
 	if (scope === 'valid')
 		return validSignerSets(accountAddress, network);
-	const signerSet =
-		await SignerSetDataLoader.load(accountAddress);
+	const [signerSet] = await batchLoadSignerSets([
+		accountAddress,
+	]);
 	return signerSet ? [{ signerSet }] : [];
 };
 

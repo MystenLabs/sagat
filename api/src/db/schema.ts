@@ -55,6 +55,13 @@ export const AccountSignerSetStatus = {
 export type AccountSignerSetStatus =
 	(typeof AccountSignerSetStatus)[keyof typeof AccountSignerSetStatus];
 
+// The statuses of a link still in the making: drafting, or inviting its
+// members. Verifying or abandoning the composition closes it.
+export const OPEN_LINK_STATUSES = [
+	AccountSignerSetStatus.DRAFT,
+	AccountSignerSetStatus.INVITING,
+];
+
 const accountSignerSetStatuses = Object.values(
 	AccountSignerSetStatus,
 ) as [AccountSignerSetStatus, ...AccountSignerSetStatus[]];
