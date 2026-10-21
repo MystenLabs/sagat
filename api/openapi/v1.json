@@ -37,7 +37,7 @@
 					},
 					"address": {
 						"type": "string",
-						"pattern": "^0x[0-9a-f]{64}$",
+						"description": "A Sui address.",
 						"example": "0xabababababababababababababababababababababababababababababababab"
 					}
 				},
@@ -73,10 +73,11 @@
 					{
 						"schema": {
 							"type": "string",
-							"pattern": "^0x[0-9a-f]{64}$",
+							"description": "A Sui address.",
 							"example": "0xabababababababababababababababababababababababababababababababab"
 						},
 						"required": true,
+						"description": "A Sui address.",
 						"name": "address",
 						"in": "path"
 					}

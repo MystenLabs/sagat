@@ -88,7 +88,7 @@ describe('Addresses API', () => {
 		).toEqual({
 			status: 400,
 			body: {
-				error: 'address: Must be a normalized Sui address.',
+				error: 'address: Must be a valid Sui address.',
 			},
 		});
 	});

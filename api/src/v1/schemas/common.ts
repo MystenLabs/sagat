@@ -7,6 +7,7 @@
  */
 
 import { z } from '@hono/zod-openapi';
+import { isValidSuiAddress } from '@mysten/sui/utils';
 
 // Every error the API returns has this body (see `appErrorHandler` and the
 // validation hook in `../app.ts`).
@@ -18,13 +19,12 @@ export const ErrorSchema = z
 	})
 	.openapi('Error');
 
-const SUI_ADDRESS = /^0x[0-9a-f]{64}$/;
-
-// A normalized Sui address: `0x` and 64 lowercase hex digits.
+// A Sui address, as `isValidSuiAddress` accepts it.
 export const SuiAddressSchema = z
 	.string()
-	.regex(SUI_ADDRESS, 'Must be a normalized Sui address.')
+	.refine(isValidSuiAddress, 'Must be a valid Sui address.')
 	.openapi({
+		description: 'A Sui address.',
 		example: `0x${'ab'.repeat(32)}`,
 	});
 
