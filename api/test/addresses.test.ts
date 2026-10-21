@@ -52,6 +52,47 @@ describe('Addresses API', () => {
 		);
 	});
 
+	test('GET /v1/addresses/:address has the legacy shape', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(1);
+		await session.client.registerAddresses();
+		const [user] = users;
+
+		const v1 = await session.request(
+			`/v1/addresses/${user.address}`,
+		);
+		expect(v1.status).toBe(200);
+		expect(await v1.json()).toEqual(
+			await session.client.getAddressInfo(user.address),
+		);
+
+		expect(
+			await errorOf(
+				await framework
+					.createSession()
+					.request(`/v1/addresses/0x${'a'.repeat(64)}`),
+			),
+		).toEqual({
+			status: 400,
+			body: {
+				error: 'Address is not registered in the system.',
+			},
+		});
+
+		expect(
+			await errorOf(
+				await framework
+					.createSession()
+					.request('/v1/addresses/not-an-address'),
+			),
+		).toEqual({
+			status: 400,
+			body: {
+				error: 'address: Must be a normalized Sui address.',
+			},
+		});
+	});
+
 	test('invitations are only listed for a key the session holds', async () => {
 		const { session } =
 			await framework.createAuthenticatedSession(1);
