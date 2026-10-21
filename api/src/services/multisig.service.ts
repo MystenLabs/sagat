@@ -813,12 +813,22 @@ export const rejectInvitation = async ({
 		);
 };
 
+// Builds the message a proposer change must be signed over.
+export type ProposerMessage = (
+	proposer: string,
+	accountAddress: string,
+	expiry: string,
+) => string;
+
 type ProposerChange = {
 	// The account (multisig) address.
 	address: string;
 	proposer: string;
 	signature: string;
 	expiry: string;
+	// The legacy routes verify the text that names a multisig, the `/v1`
+	// routes the one that names the account. Defaults to the legacy text.
+	message?: ProposerMessage;
 };
 
 // Adds an external proposer to an account, signed by an accepted member.
@@ -827,6 +837,7 @@ export const addProposer = async ({
 	proposer,
 	signature,
 	expiry,
+	message = PersonalMessages.addMultisigProposer,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
 	validateExpiry(expiry);
@@ -837,11 +848,7 @@ export const addProposer = async ({
 	const publicKey = await verifyMemberSignedMessage({
 		signerSetAddress: address,
 		signature,
-		message: PersonalMessages.addMultisigProposer(
-			proposer,
-			address,
-			expiry,
-		),
+		message: message(proposer, address, expiry),
 		acceptedOnly: true,
 		notMemberError: () =>
 			new ApiAuthError('NotAMultisigMember'),
@@ -895,6 +902,7 @@ export const removeProposer = async ({
 	proposer,
 	signature,
 	expiry,
+	message = PersonalMessages.removeMultisigProposer,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
 	validateExpiry(expiry);
@@ -905,11 +913,7 @@ export const removeProposer = async ({
 	await verifyMemberSignedMessage({
 		signerSetAddress: address,
 		signature,
-		message: PersonalMessages.removeMultisigProposer(
-			proposer,
-			address,
-			expiry,
-		),
+		message: message(proposer, address, expiry),
 		acceptedOnly: true,
 		notMemberError: () =>
 			new ApiAuthError('NotAMultisigMember'),

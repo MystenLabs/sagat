@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat-legacy';
 import {
 	beforeEach,
 	describe,
@@ -9,12 +8,11 @@ import {
 	test,
 } from 'bun:test';
 
+import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
-	errorOf,
 	newUser,
 	sign,
-	type TestUser,
 } from './framework/api-test-framework';
 import {
 	createTestApp,
@@ -23,18 +21,18 @@ import {
 
 setupSharedTestEnvironment();
 
-describe('Multisig API', () => {
+describe('Signer sets API', () => {
 	let framework: ApiTestFramework;
 
 	beforeEach(async () => {
 		framework = new ApiTestFramework(await createTestApp());
 	});
 
-	test('creates a multisig', async () => {
+	test('creates a signer set and its account', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(3);
 
-		const multisig = await session.createMultisig(
+		const account = await session.createSignerSet(
 			users,
 			2,
 			{
@@ -42,11 +40,21 @@ describe('Multisig API', () => {
 			},
 		);
 
-		expect(multisig).toMatchObject({
-			threshold: 2,
+		expect(account).toMatchObject({
 			name: 'My Test Multisig',
-			totalMembers: 3,
+			proposers: [],
+			signerSets: [
+				{
+					address: account.address,
+					label: 'My Test Multisig',
+					status: 'inviting',
+					isVerified: false,
+					threshold: 2,
+					totalWeight: 3,
+				},
+			],
 		});
+		expect(account.signerSets[0].members).toHaveLength(3);
 	});
 
 	test('rejects invalid thresholds', async () => {
@@ -54,10 +62,10 @@ describe('Multisig API', () => {
 			await framework.createAuthenticatedSession(2);
 
 		await expect(
-			session.createMultisig(users, 3),
+			session.createSignerSet(users, 3),
 		).rejects.toThrow('Threshold must be less than');
 		await expect(
-			session.createMultisig(users, 0),
+			session.createSignerSet(users, 0),
 		).rejects.toThrow(
 			'Threshold must be greater or equal to 1',
 		);
@@ -68,10 +76,12 @@ describe('Multisig API', () => {
 			await framework.createAuthenticatedSession(2);
 
 		await expect(
-			session.createMultisig(users, 1, { weights: [0, 1] }),
+			session.createSignerSet(users, 1, {
+				weights: [0, 1],
+			}),
 		).rejects.toThrow('Weights must be greater than 0');
 		await expect(
-			session.createMultisig(users, 1, {
+			session.createSignerSet(users, 1, {
 				weights: [256, 1],
 			}),
 		).rejects.toThrow('Weights must be less than 256');
@@ -86,12 +96,12 @@ describe('Multisig API', () => {
 		];
 
 		await expect(
-			session.createMultisig(users, 1),
+			session.createSignerSet(users, 1),
 		).rejects.toThrow(
 			'Addresses cannot be more than 10 or less than 2',
 		);
 		await expect(
-			session.createMultisig(tooMany, 1),
+			session.createSignerSet(tooMany, 1),
 		).rejects.toThrow(
 			'Addresses cannot be more than 10 or less than 2',
 		);
@@ -99,15 +109,17 @@ describe('Multisig API', () => {
 		// A body that only claims a length must be refused before anything
 		// is sized by it.
 		await expect(
-			session.client.createMultisig({
+			session.v1.createSignerSet({
 				// @ts-expect-error not an array, on purpose
 				publicKeys: { length: 4294967295 },
 				weights: [],
 				threshold: 1,
 			}),
-		).rejects.toThrow(
-			'Addresses cannot be more than 10 or less than 2',
-		);
+		).rejects.toMatchObject({
+			status: 400,
+			message:
+				'publicKeys: Invalid input: expected array, received object',
+		});
 	});
 
 	test('rejects weights that do not match the members', async () => {
@@ -115,19 +127,19 @@ describe('Multisig API', () => {
 			await framework.createAuthenticatedSession(2);
 
 		await expect(
-			session.createMultisig(users, 1, { weights: [1] }),
+			session.createSignerSet(users, 1, { weights: [1] }),
 		).rejects.toThrow(
 			'Addresses and weights must be the same length',
 		);
 	});
 
-	test('rejects creating the same multisig twice', async () => {
+	test('rejects creating the same signer set twice', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);
-		await session.createMultisig(users, 2);
+		await session.createSignerSet(users, 2);
 
 		await expect(
-			session.createMultisig(users, 2),
+			session.createSignerSet(users, 2),
 		).rejects.toThrow('Data already exists');
 	});
 
@@ -137,9 +149,9 @@ describe('Multisig API', () => {
 		const bob = newUser();
 		await session.connectUser(alice);
 
-		await session.createMultisig([alice, bob], 2);
+		await session.createSignerSet([alice, bob], 2);
 
-		const info = await session.client.getAddressInfo(
+		const info = await session.v1.getAddressInfo(
 			bob.address,
 		);
 		expect(info.publicKey).toBe(bob.publicKey);
@@ -151,51 +163,60 @@ describe('Multisig API', () => {
 		const bob = newUser();
 		await session.connectUser(alice);
 
-		const { address } = await session.createMultisig(
+		const { address } = await session.createSignerSet(
 			[alice, bob],
 			2,
 		);
 		expect(
-			(await session.client.getMultisig(address))
-				.isVerified,
-		).toBe(false);
+			await session.v1.getSignerSet(address),
+		).toMatchObject({
+			isVerified: false,
+			status: 'inviting',
+		});
 
-		await session.acceptMultisig(bob, address);
-		const details =
-			await session.client.getMultisig(address);
-		expect(details).toMatchObject({
+		const accepted = await session.acceptSignerSet(
+			bob,
+			address,
+		);
+		expect(accepted).toMatchObject({
 			address,
 			threshold: 2,
 			isVerified: true,
-			totalMembers: 2,
+			status: 'verified',
 		});
+		expect(await session.v1.getSignerSet(address)).toEqual(
+			accepted,
+		);
+		expect(
+			(await session.v1.getAccount(address)).signerSets,
+		).toEqual([accepted]);
 	});
 
 	test('non-members cannot accept or reject', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);
 		const outsider = newUser();
-		const { address } = await session.createMultisig(
+		const { address } = await session.createSignerSet(
 			users,
 			2,
 		);
 
 		await expect(
-			session.acceptMultisig(outsider, address),
+			session.acceptSignerSet(outsider, address),
 		).rejects.toThrow(
 			'You are not a member of this multisig',
 		);
 		await expect(
-			session.rejectMultisig(outsider, address),
+			session.rejectSignerSet(outsider, address),
 		).rejects.toThrow(
 			'You are not a member of this multisig',
 		);
 	});
 
-	test('non-members cannot read a multisig', async () => {
+	test('non-members cannot read a signer set or its account', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);
-		const { address } = await session.createMultisig(
+		const { address } = await session.createSignerSet(
 			users,
 			2,
 		);
@@ -203,17 +224,50 @@ describe('Multisig API', () => {
 		const outsider = framework.createSession();
 		await outsider.connectUser(newUser());
 
-		const response = await outsider.request(
-			`/multisig/${address}`,
-		);
-		expect(response.status).toBe(403);
-		expect(await response.json()).toEqual({
-			error:
-				'Access denied. You are not a member of this multisig.',
-		});
+		const denied = {
+			status: 403,
+			message: AuthErrors.AccessDenied,
+		};
+		await expect(
+			outsider.v1.getSignerSet(address),
+		).rejects.toMatchObject(denied);
+		await expect(
+			outsider.v1.getAccount(address),
+		).rejects.toMatchObject(denied);
 	});
 
-	test('an accepted invitation cannot be rejected, nor can a verified multisig', async () => {
+	test('reading needs a session and a well-formed address', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+		const { address } = await session.createSignerSet(
+			users,
+			2,
+		);
+
+		const anonymous = framework.createSession().v1;
+		await expect(
+			anonymous.getSignerSet(address),
+		).rejects.toMatchObject({
+			status: 401,
+			message: 'Unauthorized',
+		});
+
+		const malformed = {
+			status: 400,
+			message: 'address: Must be a valid Sui address.',
+		};
+		await expect(
+			session.v1.getSignerSet('0x123'),
+		).rejects.toMatchObject(malformed);
+		await expect(
+			session.v1.getAccount('not-an-address'),
+		).rejects.toMatchObject(malformed);
+		await expect(
+			session.acceptSignerSet(users[1], 'not-an-address'),
+		).rejects.toMatchObject(malformed);
+	});
+
+	test('an accepted invitation cannot be rejected, nor can a verified signer set', async () => {
 		const session = framework.createSession();
 		const [creator, early, late] = [
 			newUser(),
@@ -221,75 +275,64 @@ describe('Multisig API', () => {
 			newUser(),
 		];
 		await session.connectUser(creator);
-		const { address } = await session.createMultisig(
+		const { address } = await session.createSignerSet(
 			[creator, early, late],
 			3,
 		);
-		await session.acceptMultisig(early, address);
+		await session.acceptSignerSet(early, address);
 
-		const reject = async (user: TestUser) =>
-			errorOf(
-				await session.post(`/multisig/${address}/reject`, {
-					signature: await sign(
-						user,
-						PersonalMessages.rejectMultisigInvitation(
-							address,
-						),
-					),
-				}),
-			);
-
-		expect(await reject(early)).toEqual({
+		await expect(
+			session.rejectSignerSet(early, address),
+		).rejects.toMatchObject({
 			status: 400,
-			body: { error: 'Cannot reject after accepting' },
+			message: 'Cannot reject after accepting',
 		});
 
-		await session.acceptMultisig(late, address);
+		await session.acceptSignerSet(late, address);
 
 		// Once verified, that is the error for anyone, member or not.
-		expect(await reject(late)).toEqual({
-			status: 400,
-			body: { error: 'Multisig is already verified' },
-		});
-		expect(await reject(newUser())).toEqual({
-			status: 400,
-			body: { error: 'Multisig is already verified' },
-		});
+		for (const user of [late, newUser()])
+			await expect(
+				session.rejectSignerSet(user, address),
+			).rejects.toMatchObject({
+				status: 400,
+				message: 'Multisig is already verified',
+			});
 	});
 
 	test('an invitation cannot be rejected twice', async () => {
 		const session = framework.createSession();
 		const [creator, invitee] = [newUser(), newUser()];
 		await session.connectUser(creator);
-		const { address } = await session.createMultisig(
+		const { address } = await session.createSignerSet(
 			[creator, invitee],
 			2,
 		);
-		await session.rejectMultisig(invitee, address);
-
+		const rejected = await session.rejectSignerSet(
+			invitee,
+			address,
+		);
 		expect(
-			await errorOf(
-				await session.post(`/multisig/${address}/reject`, {
-					signature: await sign(
-						invitee,
-						PersonalMessages.rejectMultisigInvitation(
-							address,
-						),
-					),
-				}),
+			rejected.members.find(
+				(m) => m.publicKey === invitee.publicKey,
 			),
-		).toEqual({
+		).toMatchObject({
+			isAccepted: false,
+			isRejected: true,
+		});
+
+		await expect(
+			session.rejectSignerSet(invitee, address),
+		).rejects.toMatchObject({
 			status: 400,
-			body: {
-				error: 'This invitation has already been rejected',
-			},
+			message: 'This invitation has already been rejected',
 		});
 	});
 
 	test('accept checks membership before the signature, reject the reverse', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);
-		const { address } = await session.createMultisig(
+		const { address } = await session.createSignerSet(
 			users,
 			2,
 		);
@@ -300,27 +343,21 @@ describe('Multisig API', () => {
 			'Something else',
 		);
 
-		expect(
-			await errorOf(
-				await session.post(`/multisig/${address}/accept`, {
-					signature,
-				}),
-			),
-		).toEqual({
+		await expect(
+			session.v1.acceptSignerSetInvite(address, {
+				signature,
+			}),
+		).rejects.toMatchObject({
 			status: 400,
-			body: {
-				error: 'You are not a member of this multisig',
-			},
+			message: 'You are not a member of this multisig',
 		});
-		expect(
-			await errorOf(
-				await session.post(`/multisig/${address}/reject`, {
-					signature,
-				}),
-			),
-		).toEqual({
+		await expect(
+			session.v1.rejectSignerSetInvite(address, {
+				signature,
+			}),
+		).rejects.toMatchObject({
 			status: 400,
-			body: { error: 'Invalid signature for message.' },
+			message: 'Invalid signature for message.',
 		});
 	});
 
@@ -329,7 +366,7 @@ describe('Multisig API', () => {
 		const creator = newUser();
 		const invitee = newUser();
 		await session.connectUser(creator);
-		const { address } = await session.createMultisig(
+		const { address } = await session.createSignerSet(
 			[creator, invitee],
 			2,
 		);
@@ -337,17 +374,28 @@ describe('Multisig API', () => {
 
 		const invitations = async (showRejected = false) =>
 			(
-				await session.client.getInvitations(
-					invitee.publicKey,
-					{ showRejected },
-				)
+				await session.v1.getInvitations(invitee.publicKey, {
+					showRejected,
+				})
 			).map((m) => m.address);
 
 		expect(await invitations()).toEqual([address]);
 
-		await session.rejectMultisig(invitee, address);
+		await session.rejectSignerSet(invitee, address);
 		expect(await invitations()).toEqual([]);
 		expect(await invitations(true)).toEqual([address]);
+	});
+
+	test('invitations are only listed for a key the session holds', async () => {
+		const { session } =
+			await framework.createAuthenticatedSession(1);
+
+		await expect(
+			session.v1.getInvitations(newUser().publicKey),
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'You are not authorized.',
+		});
 	});
 
 	describe('creator', () => {
@@ -358,60 +406,62 @@ describe('Multisig API', () => {
 			await session.connectUser(creator);
 			// The creator lists itself second, so the first member is someone
 			// else: the creator must come from the session, not the order.
-			const multisig = await session.createMultisig(
+			const account = await session.createSignerSet(
 				[others[0], creator, others[1]],
 				2,
 			);
-			expect(multisig.members[0].publicKey).toBe(
+			const [created] = account.signerSets;
+			expect(created.members[0].publicKey).toBe(
 				others[0].publicKey,
 			);
-			expect(multisig.draftedBy).toBe(creator.address);
-			expect(
-				Date.parse(multisig.createdAt ?? ''),
-			).not.toBeNaN();
+			expect(created.draftedBy).toBe(creator.address);
+			expect(Date.parse(created.createdAt)).not.toBeNaN();
 
-			const fetched = await session.client.getMultisig(
-				multisig.address,
+			const fetched = await session.v1.getSignerSet(
+				account.address,
 			);
 			expect(fetched.draftedBy).toBe(creator.address);
-			expect(fetched.createdAt).toBe(multisig.createdAt);
+			expect(fetched.createdAt).toBe(created.createdAt);
 
 			// The invitee sees who invited them.
 			await session.connectUser(others[0]);
-			const [invitation] =
-				await session.client.getInvitations(
-					others[0].publicKey,
-				);
+			const [invitation] = await session.v1.getInvitations(
+				others[0].publicKey,
+			);
 			expect(invitation.draftedBy).toBe(creator.address);
-			expect(invitation.createdAt).toBe(multisig.createdAt);
+			expect(invitation.createdAt).toBe(created.createdAt);
 
 			// The accept route returns it too.
-			const accepted = await session.acceptMultisig(
+			const accepted = await session.acceptSignerSet(
 				others[0],
-				multisig.address,
+				account.address,
 			);
 			expect(accepted.draftedBy).toBe(creator.address);
-			expect(accepted.createdAt).toBe(multisig.createdAt);
+			expect(accepted.createdAt).toBe(created.createdAt);
 
-			// And in the connections listing once accepted.
-			const connections =
-				await session.client.getMultisigConnections();
-			const listed = Object.values(connections)
-				.flat()
-				.find((m) => m.address === multisig.address);
-			expect(listed?.draftedBy).toBe(creator.address);
-			expect(listed?.createdAt).toBe(multisig.createdAt);
+			// And in the accounts listing once accepted.
+			const listed = (await session.v1.getAccounts()).find(
+				(a) => a.address === account.address,
+			);
+			expect(listed?.signerSets[0].draftedBy).toBe(
+				creator.address,
+			);
+			expect(listed?.signerSets[0].createdAt).toBe(
+				created.createdAt,
+			);
 		});
 
 		test('is the caller even when the caller is not a member', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(1);
 			const others = [newUser(), newUser()];
-			const multisig = await session.createMultisig(
+			const account = await session.createSignerSet(
 				others,
 				2,
 			);
-			expect(multisig.draftedBy).toBe(users[0].address);
+			expect(account.signerSets[0].draftedBy).toBe(
+				users[0].address,
+			);
 		});
 
 		test('is the caller key in the composition, not the first connected key', async () => {
@@ -423,11 +473,13 @@ describe('Multisig API', () => {
 			];
 			await session.connectUser(outsider);
 			await session.connectUser(member);
-			const multisig = await session.createMultisig(
+			const account = await session.createSignerSet(
 				[someone, member],
 				2,
 			);
-			expect(multisig.draftedBy).toBe(member.address);
+			expect(account.signerSets[0].draftedBy).toBe(
+				member.address,
+			);
 		});
 	});
 
@@ -439,25 +491,26 @@ describe('Multisig API', () => {
 			}[],
 		) => members.map((m) => m.label);
 
+		const membersOf = async (
+			session: ReturnType<
+				ApiTestFramework['createSession']
+			>,
+			address: string,
+		) => (await session.v1.getSignerSet(address)).members;
+
 		test('members have no label unless one was given', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(2);
-			const multisig = await session.createMultisig(
+			const account = await session.createSignerSet(
 				users,
 				2,
 			);
-			expect(labelsOf(multisig.members)).toEqual([
-				null,
-				null,
-			]);
-
-			const fetched = await session.client.getMultisig(
-				multisig.address,
-			);
-			expect(labelsOf(fetched.members)).toEqual([
-				null,
-				null,
-			]);
+			expect(
+				labelsOf(account.signerSets[0].members),
+			).toEqual([null, null]);
+			expect(
+				labelsOf(await membersOf(session, account.address)),
+			).toEqual([null, null]);
 		});
 
 		test('labels given at creation are stored per key and shown everywhere members are', async () => {
@@ -465,56 +518,55 @@ describe('Multisig API', () => {
 			const creator = newUser();
 			const invitee = newUser();
 			await session.connectUser(creator);
-			const multisig = await session.createMultisig(
+			const account = await session.createSignerSet(
 				[creator, invitee],
 				2,
 				{ labels: ["Alice's Ledger", null] },
 			);
-			expect(labelsOf(multisig.members)).toEqual([
-				"Alice's Ledger",
-				null,
-			]);
-
-			const fetched = await session.client.getMultisig(
-				multisig.address,
-			);
-			expect(labelsOf(fetched.members)).toEqual([
-				"Alice's Ledger",
-				null,
-			]);
+			const expected = ["Alice's Ledger", null];
+			expect(
+				labelsOf(account.signerSets[0].members),
+			).toEqual(expected);
+			expect(
+				labelsOf(await membersOf(session, account.address)),
+			).toEqual(expected);
+			expect(
+				labelsOf(
+					(await session.v1.getAccount(account.address))
+						.signerSets[0].members,
+				),
+			).toEqual(expected);
 
 			// The invitee sees the labels in the invitation.
 			await session.connectUser(invitee);
-			const [invitation] =
-				await session.client.getInvitations(
-					invitee.publicKey,
-				);
-			expect(labelsOf(invitation.members)).toEqual([
-				"Alice's Ledger",
-				null,
-			]);
-
-			// And in the connections listing once accepted.
-			await session.acceptMultisig(
-				invitee,
-				multisig.address,
+			const [invitation] = await session.v1.getInvitations(
+				invitee.publicKey,
 			);
-			const connections =
-				await session.client.getMultisigConnections();
-			const listed = Object.values(connections)
-				.flat()
-				.find((m) => m.address === multisig.address);
-			expect(labelsOf(listed!.members)).toEqual([
-				"Alice's Ledger",
-				null,
-			]);
+			expect(labelsOf(invitation.members)).toEqual(
+				expected,
+			);
+
+			// In the accept response.
+			const accepted = await session.acceptSignerSet(
+				invitee,
+				account.address,
+			);
+			expect(labelsOf(accepted.members)).toEqual(expected);
+
+			// And in the accounts listing once accepted.
+			const listed = (await session.v1.getAccounts()).find(
+				(a) => a.address === account.address,
+			);
+			expect(
+				labelsOf(listed!.signerSets[0].members),
+			).toEqual(expected);
 		});
 
 		test('each label sits on its own key, whatever the order', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(3);
 			const reordered = [users[2], users[0], users[1]];
-			const multisig = await session.createMultisig(
+			const account = await session.createSignerSet(
 				reordered,
 				2,
 				{ labels: ['Third', 'First', null] },
@@ -533,15 +585,11 @@ describe('Multisig API', () => {
 				[users[0].publicKey]: 'First',
 				[users[1].publicKey]: null,
 			};
-			expect(byKey(multisig.members)).toEqual(expected);
+			expect(byKey(account.signerSets[0].members)).toEqual(
+				expected,
+			);
 			expect(
-				byKey(
-					(
-						await session.client.getMultisig(
-							multisig.address,
-						)
-					).members,
-				),
+				byKey(await membersOf(session, account.address)),
 			).toEqual(expected);
 		});
 
@@ -549,59 +597,59 @@ describe('Multisig API', () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(1);
 			const others = [newUser(), newUser()];
-			// Setting up a multisig for others is allowed, labelling it is not.
+			// Setting up a signer set for others is allowed, labelling it is not.
 			await expect(
-				session.createMultisig(others, 2, {
+				session.createSignerSet(others, 2, {
 					labels: ['Planted', null],
 				}),
 			).rejects.toThrow('Only a member of the multisig');
-			const unlabelled = await session.createMultisig(
+			const unlabelled = await session.createSignerSet(
 				others,
 				2,
 				{
 					labels: [null, null],
 				},
 			);
-			expect(labelsOf(unlabelled.members)).toEqual([
-				null,
-				null,
-			]);
+			expect(
+				labelsOf(unlabelled.signerSets[0].members),
+			).toEqual([null, null]);
 			// A member among the keys may label them.
-			const labelled = await session.createMultisig(
+			const labelled = await session.createSignerSet(
 				[users[0], ...others],
 				2,
 				{ labels: ['Me', 'Alice', null] },
 			);
-			expect(labelsOf(labelled.members)).toEqual([
-				'Me',
-				'Alice',
-				null,
-			]);
+			expect(
+				labelsOf(labelled.signerSets[0].members),
+			).toEqual(['Me', 'Alice', null]);
 		});
 
 		test('labels are trimmed and blank labels mean no label', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(2);
-			const multisig = await session.createMultisig(
+			const account = await session.createSignerSet(
 				users,
 				2,
 				{
 					labels: ['  Ops key  ', '   '],
 				},
 			);
-			expect(labelsOf(multisig.members)).toEqual([
-				'Ops key',
-				null,
-			]);
+			expect(
+				labelsOf(account.signerSets[0].members),
+			).toEqual(['Ops key', null]);
 		});
 
-		test('labels are per multisig, not per key', async () => {
+		test('labels are per account, not per key', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(2);
-			const first = await session.createMultisig(users, 2, {
-				labels: ['Treasury signer', null],
-			});
-			const second = await session.createMultisig(
+			const first = await session.createSignerSet(
+				users,
+				2,
+				{
+					labels: ['Treasury signer', null],
+				},
+			);
+			const second = await session.createSignerSet(
 				users,
 				1,
 				{
@@ -609,23 +657,17 @@ describe('Multisig API', () => {
 				},
 			);
 			expect(
-				labelsOf(
-					(await session.client.getMultisig(first.address))
-						.members,
-				),
+				labelsOf(await membersOf(session, first.address)),
 			).toEqual(['Treasury signer', null]);
 			expect(
-				labelsOf(
-					(await session.client.getMultisig(second.address))
-						.members,
-				),
+				labelsOf(await membersOf(session, second.address)),
 			).toEqual([null, 'Ops signer']);
 		});
 
 		test('labels never reach unauthenticated routes', async () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(2);
-			const multisig = await session.createMultisig(
+			const account = await session.createSignerSet(
 				users,
 				2,
 				{
@@ -633,22 +675,23 @@ describe('Multisig API', () => {
 					fund: true,
 				},
 			);
-			await session.acceptMultisig(
+			await session.acceptSignerSet(
 				users[1],
-				multisig.address,
+				account.address,
 			);
 			const proposal = await session.proposeTransfer(
 				users[0],
-				multisig.address,
+				account.address,
 			);
 
 			// A client that never connected.
-			const anonymous = framework.createSession().client;
+			const anonymous = framework.createSession();
 
 			// The public proposal lookup shows the composition, never the labels.
-			const byDigest = await anonymous.getProposalByDigest(
-				proposal.digest,
-			);
+			const byDigest =
+				await anonymous.client.getProposalByDigest(
+					proposal.digest,
+				);
 			expect(byDigest.multisig.members).toHaveLength(2);
 			const serialized = JSON.stringify(byDigest);
 			expect(serialized).not.toContain('"label"');
@@ -657,18 +700,15 @@ describe('Multisig API', () => {
 
 			// Member listings need a session.
 			await expect(
-				anonymous.getMultisig(multisig.address),
-			).rejects.toThrow();
+				anonymous.v1.getSignerSet(account.address),
+			).rejects.toMatchObject({ status: 401 });
+			await expect(
+				anonymous.v1.getAccount(account.address),
+			).rejects.toMatchObject({ status: 401 });
 
 			// The same data, authenticated, does carry them.
 			expect(
-				labelsOf(
-					(
-						await session.client.getMultisig(
-							multisig.address,
-						)
-					).members,
-				),
+				labelsOf(await membersOf(session, account.address)),
 			).toEqual(["Alice's Ledger", 'Ops key']);
 		});
 
@@ -676,62 +716,52 @@ describe('Multisig API', () => {
 			const { session, users } =
 				await framework.createAuthenticatedSession(2);
 			await expect(
-				session.createMultisig(users, 2, {
+				session.createSignerSet(users, 2, {
 					labels: ['Only one'],
 				}),
 			).rejects.toThrow('one entry per public key');
 			await expect(
-				session.createMultisig(users, 2, {
+				session.createSignerSet(users, 2, {
 					labels: ['x'.repeat(65), null],
 				}),
 			).rejects.toThrow('at most 64 characters');
 			// Exactly 64 is fine, counted in characters, not UTF-16 units.
 			const emoji = '\u{1F512}'.repeat(64);
-			const atLimit = await session.createMultisig(
+			const atLimit = await session.createSignerSet(
 				users,
 				1,
 				{
 					labels: ['x'.repeat(64), emoji],
 				},
 			);
-			expect(labelsOf(atLimit.members)).toEqual([
-				'x'.repeat(64),
-				emoji,
-			]);
+			expect(
+				labelsOf(atLimit.signerSets[0].members),
+			).toEqual(['x'.repeat(64), emoji]);
 			// Nothing that can reorder or hide text next to a key.
 			for (const bad of [
-				'Alice\u202Eevil',
-				'zero\u200Bwidth',
+				'Alice‮evil',
+				'zero​width',
 				'new\nline',
-				'\u200B',
+				'​',
 			])
 				await expect(
-					session.createMultisig(users, 2, {
+					session.createSignerSet(users, 2, {
 						labels: [bad, null],
 					}),
 				).rejects.toThrow(
 					'control or formatting characters',
 				);
+			// The body schema refuses anything but strings and nulls.
 			await expect(
-				session.createMultisig(users, 2, {
+				session.createSignerSet(users, 2, {
 					// @ts-expect-error a number is not a label
 					labels: [1, null],
 				}),
-			).rejects.toThrow('string or null');
+			).rejects.toMatchObject({
+				status: 400,
+				message:
+					'labels.0: Invalid input: expected string, received number',
+			});
 		});
-	});
-
-	test('lists the multisigs of the connected members', async () => {
-		const { session, multisig } =
-			await framework.createVerifiedMultisig(2, 2);
-
-		const connections =
-			await session.client.getMultisigConnections();
-
-		expect(
-			Object.values(connections)
-				.flat()
-				.map((m) => m.address),
-		).toContain(multisig.address);
 	});
 });

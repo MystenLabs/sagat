@@ -9,7 +9,20 @@
 
 import { type components } from './generated/v1.js';
 
-export type Address = components['schemas']['Address'];
+type Schemas = components['schemas'];
+
+export type Address = Schemas['Address'];
+export type Account = Schemas['Account'];
+export type AccountProposer = Schemas['AccountProposer'];
+export type SignerSet = Schemas['SignerSet'];
+export type SignerSetWithMembers =
+	Schemas['SignerSetWithMembers'];
+export type SignerSetMember = Schemas['SignerSetMember'];
+
+export type CreateSignerSetRequest =
+	Schemas['CreateSignerSetRequest'];
+export type SignedMessageRequest =
+	Schemas['SignedMessageRequest'];
 
 export interface AuthResponse {
 	success: boolean;

@@ -9,6 +9,14 @@
 		{
 			"name": "Addresses",
 			"description": "Public keys registered with the service and the addresses they derive."
+		},
+		{
+			"name": "Accounts",
+			"description": "The addresses that own assets and send transactions, with their proposers and signer sets."
+		},
+		{
+			"name": "Signer sets",
+			"description": "Compositions of keys, weights and a threshold that sign for an account, and the invitations to join them."
 		}
 	],
 	"components": {
@@ -72,6 +80,257 @@
 				"type": "string",
 				"description": "A Sui address.",
 				"example": "0xabababababababababababababababababababababababababababababababab"
+			},
+			"Account": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"name": {
+						"type": ["string", "null"],
+						"maxLength": 255
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2026-10-01T12:00:00.000Z"
+					},
+					"proposers": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/AccountProposer"
+						}
+					},
+					"signerSets": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SignerSetWithMembers"
+						}
+					}
+				},
+				"required": [
+					"address",
+					"name",
+					"createdAt",
+					"proposers",
+					"signerSets"
+				]
+			},
+			"AccountProposer": {
+				"type": "object",
+				"properties": {
+					"accountAddress": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"address": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"addedBy": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"addedAt": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2026-10-01T12:00:00.000Z"
+					}
+				},
+				"required": [
+					"accountAddress",
+					"address",
+					"addedBy",
+					"addedAt"
+				]
+			},
+			"SignerSetWithMembers": {
+				"allOf": [
+					{ "$ref": "#/components/schemas/SignerSet" },
+					{
+						"type": "object",
+						"properties": {
+							"members": {
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/SignerSetMember"
+								}
+							}
+						},
+						"required": ["members"]
+					}
+				]
+			},
+			"SignerSetMember": {
+				"type": "object",
+				"properties": {
+					"signerSetAddress": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"publicKey": {
+						"type": "string",
+						"description": "The Sui public key, base64, with its scheme flag.",
+						"example": "AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz"
+					},
+					"weight": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"isAccepted": { "type": "boolean" },
+					"isRejected": { "type": "boolean" },
+					"order": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"label": {
+						"type": ["string", "null"],
+						"description": "What the account calls this key, or null. Only returned to members.",
+						"example": "Alice's Ledger"
+					}
+				},
+				"required": [
+					"signerSetAddress",
+					"publicKey",
+					"weight",
+					"isAccepted",
+					"isRejected",
+					"order",
+					"label"
+				]
+			},
+			"SignerSet": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"label": {
+						"type": ["string", "null"],
+						"maxLength": 255,
+						"description": "The account's label for the signer set, or null.",
+						"example": "Operations"
+					},
+					"status": {
+						"type": "string",
+						"enum": [
+							"draft",
+							"inviting",
+							"verified",
+							"abandoned"
+						],
+						"description": "The signer set's status within the account."
+					},
+					"isVerified": {
+						"type": "boolean",
+						"description": "Whether every member has accepted."
+					},
+					"threshold": {
+						"type": "integer",
+						"minimum": -2147483648,
+						"maximum": 2147483647
+					},
+					"totalWeight": {
+						"type": "integer",
+						"description": "The sum of the member weights."
+					},
+					"draftedBy": {
+						"allOf": [
+							{ "$ref": "#/components/schemas/SuiAddress" },
+							{
+								"description": "The address of the key that created the signer set for the account."
+							}
+						]
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2026-10-01T12:00:00.000Z"
+					}
+				},
+				"required": [
+					"address",
+					"label",
+					"status",
+					"isVerified",
+					"threshold",
+					"totalWeight",
+					"draftedBy",
+					"createdAt"
+				]
+			},
+			"AddProposerRequest": {
+				"type": "object",
+				"properties": {
+					"proposer": {
+						"$ref": "#/components/schemas/SuiAddress"
+					},
+					"signature": {
+						"type": "string",
+						"description": "An accepted member's signature over \"Adding proposer <proposer> to account <address>. Valid until: <expiry>\"."
+					},
+					"expiry": {
+						"type": "string",
+						"description": "The expiry in the signed message, an ISO timestamp at most one hour ahead."
+					}
+				},
+				"required": ["proposer", "signature", "expiry"]
+			},
+			"RemoveProposerRequest": {
+				"type": "object",
+				"properties": {
+					"signature": {
+						"type": "string",
+						"description": "An accepted member's signature over \"Removing proposer <proposer> from account <address>. Valid until: <expiry>\"."
+					},
+					"expiry": {
+						"type": "string",
+						"description": "The expiry in the signed message, an ISO timestamp at most one hour ahead."
+					}
+				},
+				"required": ["signature", "expiry"]
+			},
+			"CreateSignerSetRequest": {
+				"type": "object",
+				"properties": {
+					"publicKeys": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"description": "The Sui public key, base64, with its scheme flag.",
+							"example": "AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz"
+						},
+						"description": "The members, in order. The order is part of the signer set address."
+					},
+					"weights": {
+						"type": "array",
+						"items": { "type": "integer" },
+						"description": "The weight of each member, aligned with `publicKeys`, from 1 to 255."
+					},
+					"threshold": {
+						"type": "integer",
+						"description": "The total weight a transaction needs, at most the sum of the weights."
+					},
+					"name": {
+						"type": "string",
+						"description": "A name for the account."
+					},
+					"labels": {
+						"type": "array",
+						"items": { "type": ["string", "null"] },
+						"description": "What the account calls each key, aligned with `publicKeys`. Null or blank leaves a key unlabelled. Only a member may set them, and only at creation."
+					}
+				},
+				"required": ["publicKeys", "weights", "threshold"]
+			},
+			"SignedMessageRequest": {
+				"type": "object",
+				"properties": {
+					"signature": {
+						"type": "string",
+						"description": "A signature over the personal message the route verifies."
+					}
+				},
+				"required": ["signature"]
 			}
 		},
 		"parameters": {}
@@ -159,6 +418,617 @@
 					},
 					"400": {
 						"description": "The address is malformed or not registered.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts": {
+			"get": {
+				"tags": ["Accounts"],
+				"summary": "List accounts",
+				"description": "The accounts the session can sign for: those with a signer set in which one of the session's keys has accepted. Each account is listed once.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"responses": {
+					"200": {
+						"description": "The accounts, oldest first.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/Account"
+									}
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts/{address}": {
+			"get": {
+				"tags": ["Accounts"],
+				"summary": "Get an account",
+				"description": "An account with its proposers and signer sets, for a session holding a key in one of its signer sets (accepted or not).",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "address",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Account"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The address is malformed.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "No key of the session is in the account's signer sets.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "The account does not exist.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts/{address}/proposers": {
+			"post": {
+				"tags": ["Accounts"],
+				"summary": "Add a proposer",
+				"description": "Lets an address propose transactions for the account, without voting. Signed by an accepted member.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "address",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/AddProposerRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The proposer is added.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Success"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body is malformed, the expiry is invalid or past, the signature is invalid, the proposer is already there, or the account has too many proposers.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is not an accepted member of the account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts/{address}/proposers/{proposer}": {
+			"delete": {
+				"tags": ["Accounts"],
+				"summary": "Remove a proposer",
+				"description": "Removes a proposer, signed by an accepted member. The proposer's pending proposals are cancelled.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "address",
+						"in": "path"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "proposer",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RemoveProposerRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The proposer is removed.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Success"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The body is malformed, the expiry is invalid or past, or the signature is invalid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is not an accepted member of the account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/signer-sets": {
+			"post": {
+				"tags": ["Signer sets"],
+				"summary": "Create a signer set",
+				"description": "Creates a signer set and the account with the same address, which it is the original signer set of. The session's keys in the set accept right away; the others are invited.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateSignerSetRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The new account, with the signer set.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Account"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The composition or the labels are invalid, or the signer set already exists.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/signer-sets/invitations/{publicKey}": {
+			"get": {
+				"tags": ["Signer sets"],
+				"summary": "List invitations",
+				"description": "The signer sets a key of the session is invited to and has not answered, or with `showRejected`, the ones it rejected.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "The Sui public key, base64, with its scheme flag.",
+							"example": "AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz"
+						},
+						"required": true,
+						"description": "The Sui public key, base64, with its scheme flag.",
+						"name": "publicKey",
+						"in": "path"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"enum": ["true", "false"],
+							"description": "List the rejected invitations instead."
+						},
+						"required": false,
+						"description": "List the rejected invitations instead.",
+						"name": "showRejected",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The signer sets.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/SignerSetWithMembers"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The public key is not one of the session.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/signer-sets/{address}": {
+			"get": {
+				"tags": ["Signer sets"],
+				"summary": "Get a signer set",
+				"description": "A signer set with its members, for a session holding one of its keys (accepted or not). Labels and status are those of the signer set's own account.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "address",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The signer set.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SignerSetWithMembers"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The address is malformed.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "No key of the session is in the signer set.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "The signer set does not exist.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/signer-sets/{address}/accept": {
+			"post": {
+				"tags": ["Signer sets"],
+				"summary": "Accept an invitation",
+				"description": "Accepts the invitation of the key that signed \"Participating in multisig <address>\". Once every member has accepted, the signer set is verified.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "address",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignedMessageRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The signer set after the change.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SignerSetWithMembers"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The signer is not a member, the signature is invalid, or the key is in too many signer sets.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/signer-sets/{address}/reject": {
+			"post": {
+				"tags": ["Signer sets"],
+				"summary": "Reject an invitation",
+				"description": "Rejects the invitation of the key that signed \"Rejecting multisig invitation <address>\". An accepted invitation, or a verified signer set, cannot be rejected.",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "address",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignedMessageRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The signer set after the change.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SignerSetWithMembers"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The signature is invalid, the signer is not a member, or the invitation was already answered.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No session, or the session has expired.",
+						"content": {
+							"text/plain": {
+								"schema": {
+									"type": "string",
+									"example": "Unauthorized"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "The signer set does not exist.",
 						"content": {
 							"application/json": {
 								"schema": {

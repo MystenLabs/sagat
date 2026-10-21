@@ -116,6 +116,619 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List accounts
+         * @description The accounts the session can sign for: those with a signer set in which one of the session's keys has accepted. Each account is listed once.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The accounts, oldest first. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Account"][];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/accounts/{address}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an account
+         * @description An account with its proposers and signer sets, for a session holding a key in one of its signer sets (accepted or not).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description A Sui address. */
+                    address: components["schemas"]["SuiAddress"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The account. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Account"];
+                    };
+                };
+                /** @description The address is malformed. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+                /** @description No key of the session is in the account's signer sets. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The account does not exist. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/accounts/{address}/proposers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a proposer
+         * @description Lets an address propose transactions for the account, without voting. Signed by an accepted member.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description A Sui address. */
+                    address: components["schemas"]["SuiAddress"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AddProposerRequest"];
+                };
+            };
+            responses: {
+                /** @description The proposer is added. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Success"];
+                    };
+                };
+                /** @description The body is malformed, the expiry is invalid or past, the signature is invalid, the proposer is already there, or the account has too many proposers. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+                /** @description The signer is not an accepted member of the account. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/accounts/{address}/proposers/{proposer}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a proposer
+         * @description Removes a proposer, signed by an accepted member. The proposer's pending proposals are cancelled.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description A Sui address. */
+                    address: components["schemas"]["SuiAddress"];
+                    /** @description A Sui address. */
+                    proposer: components["schemas"]["SuiAddress"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RemoveProposerRequest"];
+                };
+            };
+            responses: {
+                /** @description The proposer is removed. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Success"];
+                    };
+                };
+                /** @description The body is malformed, the expiry is invalid or past, or the signature is invalid. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+                /** @description The signer is not an accepted member of the account. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/signer-sets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a signer set
+         * @description Creates a signer set and the account with the same address, which it is the original signer set of. The session's keys in the set accept right away; the others are invited.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateSignerSetRequest"];
+                };
+            };
+            responses: {
+                /** @description The new account, with the signer set. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Account"];
+                    };
+                };
+                /** @description The composition or the labels are invalid, or the signer set already exists. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/signer-sets/invitations/{publicKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List invitations
+         * @description The signer sets a key of the session is invited to and has not answered, or with `showRejected`, the ones it rejected.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description List the rejected invitations instead. */
+                    showRejected?: "true" | "false";
+                };
+                header?: never;
+                path: {
+                    /** @description The Sui public key, base64, with its scheme flag. */
+                    publicKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The signer sets. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignerSetWithMembers"][];
+                    };
+                };
+                /** @description The public key is not one of the session. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/signer-sets/{address}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a signer set
+         * @description A signer set with its members, for a session holding one of its keys (accepted or not). Labels and status are those of the signer set's own account.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description A Sui address. */
+                    address: components["schemas"]["SuiAddress"];
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The signer set. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignerSetWithMembers"];
+                    };
+                };
+                /** @description The address is malformed. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+                /** @description No key of the session is in the signer set. */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description The signer set does not exist. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/signer-sets/{address}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an invitation
+         * @description Accepts the invitation of the key that signed "Participating in multisig <address>". Once every member has accepted, the signer set is verified.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description A Sui address. */
+                    address: components["schemas"]["SuiAddress"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SignedMessageRequest"];
+                };
+            };
+            responses: {
+                /** @description The signer set after the change. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignerSetWithMembers"];
+                    };
+                };
+                /** @description The signer is not a member, the signature is invalid, or the key is in too many signer sets. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/signer-sets/{address}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject an invitation
+         * @description Rejects the invitation of the key that signed "Rejecting multisig invitation <address>". An accepted invitation, or a verified signer set, cannot be rejected.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description A Sui address. */
+                    address: components["schemas"]["SuiAddress"];
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SignedMessageRequest"];
+                };
+            };
+            responses: {
+                /** @description The signer set after the change. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SignerSetWithMembers"];
+                    };
+                };
+                /** @description The signature is invalid, the signer is not a member, or the invitation was already answered. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description No session, or the session has expired. */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": string;
+                    };
+                };
+                /** @description The signer set does not exist. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -145,6 +758,100 @@ export interface components {
          * @example 0xabababababababababababababababababababababababababababababababab
          */
         SuiAddress: string;
+        Account: {
+            address: components["schemas"]["SuiAddress"];
+            name: string | null;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T12:00:00.000Z
+             */
+            createdAt: string;
+            proposers: components["schemas"]["AccountProposer"][];
+            signerSets: components["schemas"]["SignerSetWithMembers"][];
+        };
+        AccountProposer: {
+            accountAddress: components["schemas"]["SuiAddress"];
+            address: components["schemas"]["SuiAddress"];
+            addedBy: components["schemas"]["SuiAddress"];
+            /**
+             * Format: date-time
+             * @example 2026-10-01T12:00:00.000Z
+             */
+            addedAt: string;
+        };
+        SignerSetWithMembers: components["schemas"]["SignerSet"] & {
+            members: components["schemas"]["SignerSetMember"][];
+        };
+        SignerSetMember: {
+            signerSetAddress: components["schemas"]["SuiAddress"];
+            /**
+             * @description The Sui public key, base64, with its scheme flag.
+             * @example AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz
+             */
+            publicKey: string;
+            weight: number;
+            isAccepted: boolean;
+            isRejected: boolean;
+            order: number;
+            /**
+             * @description What the account calls this key, or null. Only returned to members.
+             * @example Alice's Ledger
+             */
+            label: string | null;
+        };
+        SignerSet: {
+            address: components["schemas"]["SuiAddress"];
+            /**
+             * @description The account's label for the signer set, or null.
+             * @example Operations
+             */
+            label: string | null;
+            /**
+             * @description The signer set's status within the account.
+             * @enum {string}
+             */
+            status: "draft" | "inviting" | "verified" | "abandoned";
+            /** @description Whether every member has accepted. */
+            isVerified: boolean;
+            threshold: number;
+            /** @description The sum of the member weights. */
+            totalWeight: number;
+            draftedBy: components["schemas"]["SuiAddress"] & unknown;
+            /**
+             * Format: date-time
+             * @example 2026-10-01T12:00:00.000Z
+             */
+            createdAt: string;
+        };
+        AddProposerRequest: {
+            proposer: components["schemas"]["SuiAddress"];
+            /** @description An accepted member's signature over "Adding proposer <proposer> to account <address>. Valid until: <expiry>". */
+            signature: string;
+            /** @description The expiry in the signed message, an ISO timestamp at most one hour ahead. */
+            expiry: string;
+        };
+        RemoveProposerRequest: {
+            /** @description An accepted member's signature over "Removing proposer <proposer> from account <address>. Valid until: <expiry>". */
+            signature: string;
+            /** @description The expiry in the signed message, an ISO timestamp at most one hour ahead. */
+            expiry: string;
+        };
+        CreateSignerSetRequest: {
+            /** @description The members, in order. The order is part of the signer set address. */
+            publicKeys: string[];
+            /** @description The weight of each member, aligned with `publicKeys`, from 1 to 255. */
+            weights: number[];
+            /** @description The total weight a transaction needs, at most the sum of the weights. */
+            threshold: number;
+            /** @description A name for the account. */
+            name?: string;
+            /** @description What the account calls each key, aligned with `publicKeys`. Null or blank leaves a key unlabelled. Only a member may set them, and only at creation. */
+            labels?: (string | null)[];
+        };
+        SignedMessageRequest: {
+            /** @description A signature over the personal message the route verifies. */
+            signature: string;
+        };
     };
     responses: never;
     parameters: never;

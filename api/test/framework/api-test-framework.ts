@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ApiClient } from '@mysten/sagat';
+import {
+	ApiClient,
+	PersonalMessages as V1Messages,
+	type Account,
+} from '@mysten/sagat';
 import {
 	defaultExpiry,
 	PersonalMessages,
@@ -169,6 +173,106 @@ export class TestSession {
 			expiry,
 		);
 	}
+
+	// `/v1` helpers, through `v1`.
+
+	async createSignerSet(
+		members: TestUser[],
+		threshold: number,
+		{
+			weights = members.map(() => 1),
+			name,
+			labels,
+			fund = false,
+		}: {
+			weights?: number[];
+			name?: string;
+			labels?: (string | null)[];
+			fund?: boolean;
+		} = {},
+	) {
+		const account = await this.v1.createSignerSet({
+			publicKeys: members.map((m) => m.publicKey),
+			weights,
+			threshold,
+			name,
+			labels,
+		});
+		if (fund) await fundAddress(account.address);
+		return account;
+	}
+
+	async acceptSignerSet(
+		member: TestUser,
+		signerSetAddress: string,
+	) {
+		return this.v1.acceptSignerSetInvite(signerSetAddress, {
+			signature: await sign(
+				member,
+				V1Messages.acceptSignerSetInvitation(
+					signerSetAddress,
+				),
+			),
+		});
+	}
+
+	async rejectSignerSet(
+		member: TestUser,
+		signerSetAddress: string,
+	) {
+		return this.v1.rejectSignerSetInvite(signerSetAddress, {
+			signature: await sign(
+				member,
+				V1Messages.rejectSignerSetInvitation(
+					signerSetAddress,
+				),
+			),
+		});
+	}
+
+	async addAccountProposer(
+		member: TestUser,
+		proposer: string,
+		accountAddress: string,
+		expiry = defaultExpiry(),
+	) {
+		return this.v1.addAccountProposer(
+			accountAddress,
+			proposer,
+			await sign(
+				member,
+				V1Messages.addAccountProposer(
+					proposer,
+					accountAddress,
+					expiry,
+				),
+			),
+			expiry,
+		);
+	}
+
+	async removeAccountProposer(
+		member: TestUser,
+		proposer: string,
+		accountAddress: string,
+	) {
+		const expiry = defaultExpiry();
+		return this.v1.removeAccountProposer(
+			accountAddress,
+			proposer,
+			await sign(
+				member,
+				V1Messages.removeAccountProposer(
+					proposer,
+					accountAddress,
+					expiry,
+				),
+			),
+			expiry,
+		);
+	}
+
+	// Legacy helpers, through `client`.
 
 	async createMultisig(
 		members: TestUser[],
@@ -431,6 +535,43 @@ export class ApiTestFramework {
 		for (const user of users.slice(1))
 			await session.acceptMultisig(user, multisig.address);
 		return { session, users, multisig };
+	}
+
+	// An account whose original signer set has every user as a member, all
+	// accepted, created through `/v1`.
+	async createVerifiedAccount(
+		userCount: number,
+		threshold: number,
+		fund = false,
+	): Promise<{
+		session: TestSession;
+		users: TestUser[];
+		account: Account;
+	}> {
+		const { session, users } =
+			await this.createAuthenticatedSession(userCount);
+		const created = await session.createSignerSet(
+			users,
+			threshold,
+			{ fund },
+		);
+		for (const user of users.slice(1))
+			await session.acceptSignerSet(user, created.address);
+		const account = await session.v1.getAccount(
+			created.address,
+		);
+		return { session, users, account };
+	}
+
+	createFundedVerifiedAccount(
+		userCount: number,
+		threshold: number,
+	) {
+		return this.createVerifiedAccount(
+			userCount,
+			threshold,
+			true,
+		);
 	}
 
 	createFundedVerifiedMultisig(

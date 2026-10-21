@@ -10,7 +10,6 @@ import {
 
 import {
 	ApiTestFramework,
-	errorOf,
 	newUser,
 } from './framework/api-test-framework';
 import {
@@ -84,22 +83,6 @@ describe('Addresses API', () => {
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'address: Must be a valid Sui address.',
-		});
-	});
-
-	test('invitations are only listed for a key the session holds', async () => {
-		const { session } =
-			await framework.createAuthenticatedSession(1);
-
-		expect(
-			await errorOf(
-				await session.request(
-					`/addresses/invitations/${encodeURIComponent(newUser().publicKey)}`,
-				),
-			),
-		).toEqual({
-			status: 400,
-			body: { error: 'You are not authorized.' },
 		});
 	});
 

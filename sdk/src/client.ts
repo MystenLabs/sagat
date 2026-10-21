@@ -5,9 +5,13 @@ import createClient, { type Client } from 'openapi-fetch';
 
 import { type paths } from './generated/v1.js';
 import {
+	type Account,
 	type Address,
 	type AuthCheckResponse,
 	type AuthResponse,
+	type CreateSignerSetRequest,
+	type SignedMessageRequest,
+	type SignerSetWithMembers,
 } from './types.js';
 
 export type Fetch = (request: Request) => Promise<Response>;
@@ -120,6 +124,157 @@ export class ApiClient {
 			await this.#api.GET('/v1/addresses/{address}', {
 				params: { path: { address } },
 			}),
+		);
+	}
+
+	// Signer sets
+
+	/**
+	 * Creates a signer set and the account with the same address. The
+	 * session's keys in the set accept right away.
+	 */
+	async createSignerSet(
+		data: CreateSignerSetRequest,
+	): Promise<Account> {
+		return this.#unwrap(
+			await this.#api.POST('/v1/signer-sets', {
+				body: data,
+			}),
+		);
+	}
+
+	/** A signer set with its members, for a member. */
+	async getSignerSet(
+		address: string,
+	): Promise<SignerSetWithMembers> {
+		return this.#unwrap(
+			await this.#api.GET('/v1/signer-sets/{address}', {
+				params: { path: { address } },
+			}),
+		);
+	}
+
+	/**
+	 * Accepts an invitation.
+	 * @param data Expects a signed
+	 *   `PersonalMessages.acceptSignerSetInvitation()` message.
+	 */
+	async acceptSignerSetInvite(
+		address: string,
+		data: SignedMessageRequest,
+	): Promise<SignerSetWithMembers> {
+		return this.#unwrap(
+			await this.#api.POST(
+				'/v1/signer-sets/{address}/accept',
+				{ params: { path: { address } }, body: data },
+			),
+		);
+	}
+
+	/**
+	 * Rejects an invitation.
+	 * @param data Expects a signed
+	 *   `PersonalMessages.rejectSignerSetInvitation()` message.
+	 */
+	async rejectSignerSetInvite(
+		address: string,
+		data: SignedMessageRequest,
+	): Promise<SignerSetWithMembers> {
+		return this.#unwrap(
+			await this.#api.POST(
+				'/v1/signer-sets/{address}/reject',
+				{ params: { path: { address } }, body: data },
+			),
+		);
+	}
+
+	/**
+	 * The signer sets `publicKey` is invited to, or with `showRejected`,
+	 * the ones it rejected. `publicKey` must be connected in the session.
+	 */
+	async getInvitations(
+		publicKey: string,
+		params?: { showRejected?: boolean },
+	): Promise<SignerSetWithMembers[]> {
+		return this.#unwrap(
+			await this.#api.GET(
+				'/v1/signer-sets/invitations/{publicKey}',
+				{
+					params: {
+						path: { publicKey },
+						query: params?.showRejected
+							? { showRejected: 'true' }
+							: {},
+					},
+				},
+			),
+		);
+	}
+
+	// Accounts
+
+	/** An account with its proposers and signer sets, for a member. */
+	async getAccount(address: string): Promise<Account> {
+		return this.#unwrap(
+			await this.#api.GET('/v1/accounts/{address}', {
+				params: { path: { address } },
+			}),
+		);
+	}
+
+	/** The accounts the session can sign for, each once. */
+	async getAccounts(): Promise<Account[]> {
+		return this.#unwrap(
+			await this.#api.GET('/v1/accounts'),
+		);
+	}
+
+	/**
+	 * Adds a proposer to an account.
+	 * @param address The account address
+	 * @param proposer The proposer address to add
+	 * @param signature Signed `PersonalMessages.addAccountProposer()` message
+	 * @param expiry The expiry timestamp used in the message
+	 */
+	async addAccountProposer(
+		address: string,
+		proposer: string,
+		signature: string,
+		expiry: string,
+	) {
+		return this.#unwrap(
+			await this.#api.POST(
+				'/v1/accounts/{address}/proposers',
+				{
+					params: { path: { address } },
+					body: { proposer, signature, expiry },
+				},
+			),
+		);
+	}
+
+	/**
+	 * Removes a proposer from an account, cancelling its pending
+	 * proposals.
+	 * @param address The account address
+	 * @param proposer The proposer address to remove
+	 * @param signature Signed `PersonalMessages.removeAccountProposer()` message
+	 * @param expiry The expiry timestamp used in the message
+	 */
+	async removeAccountProposer(
+		address: string,
+		proposer: string,
+		signature: string,
+		expiry: string,
+	) {
+		return this.#unwrap(
+			await this.#api.DELETE(
+				'/v1/accounts/{address}/proposers/{proposer}',
+				{
+					params: { path: { address, proposer } },
+					body: { signature, expiry },
+				},
+			),
 		);
 	}
 

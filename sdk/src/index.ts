@@ -13,8 +13,15 @@ export {
 	getDefaultSagatApiUrl,
 } from './constants.js';
 export type {
+	Account,
+	AccountProposer,
 	Address,
 	AuthCheckResponse,
 	AuthResponse,
+	CreateSignerSetRequest,
+	SignedMessageRequest,
+	SignerSet,
+	SignerSetMember,
+	SignerSetWithMembers,
 } from './types.js';
 export type { paths, components } from './generated/v1.js';

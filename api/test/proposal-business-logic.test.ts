@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	defaultExpiry,
 	PersonalMessages,
 	ProposalStatus,
 } from '@mysten/sagat-legacy';
@@ -15,7 +14,6 @@ import {
 	test,
 } from 'bun:test';
 
-import { LIMITS } from '../src/constants/limits';
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
@@ -24,7 +22,6 @@ import {
 	newUser,
 	sendCoins,
 	sign,
-	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
 import { rpcCalls } from './setup/rpc-calls';
@@ -301,34 +298,6 @@ describe('Proposal Business Logic', () => {
 	});
 
 	describe('Proposer Access Control', () => {
-		test('Only members can add proposers', async () => {
-			const { session, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-			const outsider = newUser();
-
-			await expect(
-				session.addProposer(
-					outsider,
-					outsider.address,
-					multisig.address,
-				),
-			).rejects.toThrow(AuthErrors.NotAMultisigMember);
-		});
-
-		test('Try to add proposer with expired signature', async () => {
-			const { session, users, multisig } =
-				await framework.createFundedVerifiedMultisig(2, 2);
-
-			await expect(
-				session.addProposer(
-					users[0],
-					newUser().address,
-					multisig.address,
-					'2021-01-01',
-				),
-			).rejects.toThrow('Signature has expired');
-		});
-
 		test('Add proposer, propose, remove proposer, try to propose and fail', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
@@ -516,216 +485,6 @@ describe('Proposal Business Logic', () => {
 					'Unsupported network: mainnet. Only localnet are supported.',
 			},
 		};
-
-		const changeProposer = async (
-			session: TestSession,
-			route: 'add-proposer' | 'remove-proposer',
-			{
-				signer,
-				multisigAddress,
-				proposer,
-				expiry = defaultExpiry(),
-				signedExpiry = expiry,
-			}: {
-				signer: TestUser;
-				multisigAddress: string;
-				proposer: string;
-				expiry?: string;
-				// The expiry in the signed message, if not `expiry`.
-				signedExpiry?: string;
-			},
-		) => {
-			const message =
-				route === 'add-proposer'
-					? PersonalMessages.addMultisigProposer(
-							proposer,
-							multisigAddress,
-							signedExpiry,
-						)
-					: PersonalMessages.removeMultisigProposer(
-							proposer,
-							multisigAddress,
-							signedExpiry,
-						);
-			return errorOf(
-				await session.post(
-					`/multisig/${multisigAddress}/${route}`,
-					{
-						signature: await sign(signer, message),
-						proposer,
-						expiry,
-					},
-				),
-			);
-		};
-
-		test('add-proposer checks the expiry, then the address, then membership, then the signature', async () => {
-			const { session, users, multisig } =
-				await framework.createVerifiedMultisig(2, 2);
-			const outsider = newUser();
-			const add = (
-				options: Omit<
-					Parameters<typeof changeProposer>[2],
-					'multisigAddress'
-				>,
-			) =>
-				changeProposer(session, 'add-proposer', {
-					multisigAddress: multisig.address,
-					...options,
-				});
-
-			expect(
-				await add({
-					signer: outsider,
-					proposer: 'not-an-address',
-					expiry: 'not-a-date',
-				}),
-			).toEqual({
-				status: 400,
-				body: { error: 'Invalid expiry date format' },
-			});
-			expect(
-				await add({
-					signer: outsider,
-					proposer: 'not-an-address',
-					expiry: '2021-01-01',
-				}),
-			).toEqual({
-				status: 400,
-				body: { error: 'Signature has expired' },
-			});
-			expect(
-				await add({
-					signer: outsider,
-					proposer: 'not-an-address',
-				}),
-			).toEqual({
-				status: 400,
-				body: {
-					error:
-						'Invalid address. Must be a valid Sui address.',
-				},
-			});
-			expect(
-				await add({
-					signer: outsider,
-					proposer: newUser().address,
-				}),
-			).toEqual(notAMember);
-			expect(
-				await add({
-					signer: users[0],
-					proposer: newUser().address,
-					signedExpiry: new Date(
-						Date.now() + 60_000,
-					).toISOString(),
-				}),
-			).toEqual({
-				status: 400,
-				body: { error: 'Invalid signature for message.' },
-			});
-		});
-
-		test('add-proposer refuses a proposer that is already there', async () => {
-			const { session, users, multisig } =
-				await framework.createVerifiedMultisig(2, 2);
-			const proposer = newUser().address;
-			await session.addProposer(
-				users[0],
-				proposer,
-				multisig.address,
-			);
-
-			expect(
-				await changeProposer(session, 'add-proposer', {
-					signer: users[1],
-					multisigAddress: multisig.address,
-					proposer,
-				}),
-			).toEqual({
-				status: 400,
-				body: {
-					error: `${proposer} is already a proposer for this multisig`,
-				},
-			});
-		});
-
-		test('add-proposer checks the proposer limit before duplicates', async () => {
-			const { session, users, multisig } =
-				await framework.createVerifiedMultisig(2, 2);
-			const proposers = Array.from(
-				{ length: LIMITS.maxProposersPerMultisig },
-				() => newUser().address,
-			);
-			for (const proposer of proposers)
-				await session.addProposer(
-					users[0],
-					proposer,
-					multisig.address,
-				);
-
-			const limitReached = {
-				status: 400,
-				body: {
-					error:
-						'You have reached the maximum number of proposers for this multisig',
-				},
-			};
-			expect(
-				await changeProposer(session, 'add-proposer', {
-					signer: users[0],
-					multisigAddress: multisig.address,
-					proposer: newUser().address,
-				}),
-			).toEqual(limitReached);
-			// At the limit, even a proposer that is already there gets the
-			// limit error, not the duplicate one.
-			expect(
-				await changeProposer(session, 'add-proposer', {
-					signer: users[0],
-					multisigAddress: multisig.address,
-					proposer: proposers[0],
-				}),
-			).toEqual(limitReached);
-		});
-
-		test('remove-proposer checks the expiry, then the address, then membership', async () => {
-			const { session, multisig } =
-				await framework.createVerifiedMultisig(2, 2);
-			const outsider = newUser();
-
-			expect(
-				await changeProposer(session, 'remove-proposer', {
-					signer: outsider,
-					multisigAddress: multisig.address,
-					proposer: 'not-an-address',
-					expiry: '2021-01-01',
-				}),
-			).toEqual({
-				status: 400,
-				body: { error: 'Signature has expired' },
-			});
-			expect(
-				await changeProposer(session, 'remove-proposer', {
-					signer: outsider,
-					multisigAddress: multisig.address,
-					proposer: 'not-an-address',
-				}),
-			).toEqual({
-				status: 400,
-				body: {
-					error:
-						'Invalid address. Must be a valid Sui address.',
-				},
-			});
-			expect(
-				await changeProposer(session, 'remove-proposer', {
-					signer: outsider,
-					multisigAddress: multisig.address,
-					proposer: newUser().address,
-				}),
-			).toEqual(notAMember);
-		});
 
 		test('an unsupported network is checked before anything else', async () => {
 			const { session } =

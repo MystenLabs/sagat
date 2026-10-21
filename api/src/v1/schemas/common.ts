@@ -38,6 +38,13 @@ export const SuiAddressSchema = z
 		example: `0x${'ab'.repeat(32)}`,
 	});
 
+// A Sui public key. Not a component: it is described where it is used.
+export const PublicKeySchema = z.string().openapi({
+	description:
+		'The Sui public key, base64, with its scheme flag.',
+	example: 'AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz',
+});
+
 // A transaction digest, as `isValidTransactionDigest` accepts it.
 export const TransactionDigestSchema = z
 	.string()
@@ -69,6 +76,14 @@ export const authenticated: Record<string, string[]>[] = [
 	{ cookieAuth: [] },
 	{ bearerAuth: [] },
 ];
+
+/** A required JSON request body of the given schema. */
+export const jsonBody = <T extends z.ZodType>(
+	schema: T,
+) => ({
+	required: true,
+	content: { 'application/json': { schema } },
+});
 
 /** A JSON response of the given schema. */
 export const jsonResponse = <T extends z.ZodType>(
