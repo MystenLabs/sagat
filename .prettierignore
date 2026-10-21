@@ -29,6 +29,9 @@ e2e/blob-report
 # Golden fixtures, written by the tests (UPDATE_GOLDEN=1)
 api/test/golden/*.json
 
+# OpenAPI snapshot, written by the tests (UPDATE_OPENAPI=1)
+api/openapi/*.json
+
 # Environment files
 .env
 .env.*

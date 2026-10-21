@@ -29,6 +29,21 @@ bun test:migrations   # uses TEST_DATABASE_URL, default postgresql://localhost:5
 
 Scratch databases are dropped whether the test passes or fails. When you add a migration, add a case with the previous migration as the baseline. `bun test:e2e` runs only `test/*.test.ts`, so it does not pick these up.
 
+## OpenAPI snapshot test (`openapi/`)
+
+`openapi/v1-spec.test.ts` generates the `/v1` spec from the mounted app and compares it with `api/openapi/v1.json`. It needs neither Postgres nor the Sui network. CI runs it in the `openapi-check` job; locally:
+
+```bash
+bun test:openapi
+```
+
+A failure means a `/v1` route, schema or the spec metadata changed. Regenerate the snapshot and commit the diff with the change, so the API change is reviewed as a spec diff:
+
+```bash
+UPDATE_OPENAPI=1 bun test:openapi
+git diff openapi/
+```
+
 ## Legacy contract test (`legacy-contract.test.ts`)
 
 Drives the legacy routes and compares the normalized responses with `golden/legacy-contract.json`. The legacy routes are frozen, so a failure means a legacy response changed. If the change is intended, regenerate the fixture and commit the diff with the change:
