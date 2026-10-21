@@ -136,6 +136,27 @@ export async function executeSigned(
 	return tx;
 }
 
+// Runs a verify call until the API sees the transaction. The API reads the
+// chain through its own client, which can lag the one that executed for a
+// few seconds, so "not executed yet" is retried for up to 15 seconds.
+export async function untilIndexed<T>(
+	verify: () => Promise<T>,
+) {
+	for (let attempt = 0; ; attempt++) {
+		try {
+			return await verify();
+		} catch (error) {
+			if (
+				attempt >= 60 ||
+				!(error instanceof Error) ||
+				!error.message.includes('not been executed yet')
+			)
+				throw error;
+			await new Promise((r) => setTimeout(r, 250));
+		}
+	}
+}
+
 // A client for the API (calling the app directly), that keeps the session
 // cookie between requests like a browser would. `v1` is the new SDK, for
 // the `/v1` routes; `client` is the legacy SDK, for the legacy routes.
@@ -419,34 +440,16 @@ export class TestSession {
 		]);
 	}
 
-	// The API reads the chain through its own client, which can lag the one
-	// that executed for a moment, so "not executed yet" is retried briefly.
-	async #untilIndexed<T>(verify: () => Promise<T>) {
-		for (let attempt = 0; ; attempt++) {
-			try {
-				return await verify();
-			} catch (error) {
-				if (
-					attempt >= 20 ||
-					!(error instanceof Error) ||
-					!error.message.includes('not been executed yet')
-				)
-					throw error;
-				await new Promise((r) => setTimeout(r, 250));
-			}
-		}
-	}
-
 	// Verifies an executed proposal by digest, with no session needed.
 	verifyByDigest(digest: string) {
-		return this.#untilIndexed(() =>
+		return untilIndexed(() =>
 			this.v1.verifyProposalByDigest(digest),
 		);
 	}
 
 	// Verifies an executed proposal with this session.
 	verify(proposalId: number) {
-		return this.#untilIndexed(() =>
+		return untilIndexed(() =>
 			this.v1.verifyProposal(proposalId),
 		);
 	}

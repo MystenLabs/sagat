@@ -30,6 +30,7 @@ import {
 	buildTransfer,
 	executeSigned,
 	failureOf,
+	untilIndexed,
 	type TestUser,
 } from './framework/api-test-framework';
 import {
@@ -278,17 +279,11 @@ describe('Rotation: verify records the executing signer set', () => {
 			proposal.digest,
 			signerSets[0],
 		);
-		for (let attempt = 0; ; attempt++) {
-			try {
-				await s.creator.client.verifyProposalByDigest(
-					proposal.digest,
-				);
-				break;
-			} catch (error) {
-				if (attempt > 20) throw error;
-				await new Promise((r) => setTimeout(r, 250));
-			}
-		}
+		await untilIndexed(() =>
+			s.creator.client.verifyProposalByDigest(
+				proposal.digest,
+			),
+		);
 		expect(await stored(proposal.digest)).toMatchObject({
 			status: ProposalStatus.SUCCESS,
 			executedVia: s.S1,
