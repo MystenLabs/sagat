@@ -64,7 +64,7 @@ export default defineConfig({
 			name: 'api',
 			cwd: '../api',
 			command:
-				'bun run --cwd ../sdk build && bun run db:prepare && bun run src/index.ts',
+				'bun run --cwd ../sdk-legacy build && bun run --cwd ../sdk build && bun run db:prepare && bun run src/index.ts',
 			url: `${E2E.apiUrl}/health`,
 			env: {
 				DATABASE_URL: E2E.databaseUrl,
