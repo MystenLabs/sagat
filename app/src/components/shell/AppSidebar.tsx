@@ -20,7 +20,7 @@ import {
 } from 'react-router-dom';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
-import { Logo } from '@/components/Logo';
+import { PodsMark, PodsWordmark } from '@/components/Logo';
 import {
 	NetworkMenuItems,
 	NetworkStatusDot,
@@ -185,8 +185,8 @@ function SidebarNav() {
 				className="flex min-h-0 flex-1 flex-col"
 				data-testid="app-header"
 			>
-				<SidebarHeader className="gap-4 px-2 pt-4 group-data-[collapsible=icon]:gap-2">
-					<div className="flex items-center justify-between gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
+				<SidebarHeader className="gap-4 px-2 pt-4.5 group-data-[collapsible=icon]:gap-2">
+					<div className="flex items-center justify-between gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
 						<Link
 							to="/"
 							onClick={closeMobile}
@@ -194,20 +194,10 @@ function SidebarNav() {
 							className="flex items-center"
 						>
 							<span className="group-data-[collapsible=icon]:hidden">
-								<Logo
-									size="sm"
-									showSubtitle={false}
-									asLink={false}
-									onDark
-								/>
+								<PodsWordmark />
 							</span>
 							<span className="hidden group-data-[collapsible=icon]:block">
-								<Logo
-									size="sm"
-									compact
-									asLink={false}
-									onDark
-								/>
+								<PodsMark />
 							</span>
 						</Link>
 						<Tooltip>
