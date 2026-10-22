@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
+import {
+	defaultExpiry,
+	PersonalMessages,
+	ProposalStatus,
+} from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
@@ -11,12 +15,17 @@ import {
 	test,
 } from 'bun:test';
 
+import { LIMITS } from '../src/constants/limits';
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
 	buildTransfer,
+	errorOf,
 	newUser,
 	sendCoins,
+	sign,
+	type TestSession,
+	type TestUser,
 } from './framework/api-test-framework';
 import { rpcCalls } from './setup/rpc-calls';
 import {
@@ -490,6 +499,358 @@ describe('Proposal Business Logic', () => {
 			await expect(
 				session.cancelProposal(newUser(), proposal.id),
 			).rejects.toThrow('Not a member of the multisig');
+		});
+	});
+
+	// Status, body and check order of the error responses, locked so that a
+	// refactor of the flows cannot change them unnoticed.
+	describe('Error responses', () => {
+		const notAMember = {
+			status: 403,
+			body: { error: AuthErrors.NotAMultisigMember },
+		};
+		const unsupportedNetwork = {
+			status: 400,
+			body: {
+				error:
+					'Unsupported network: mainnet. Only localnet are supported.',
+			},
+		};
+
+		const changeProposer = async (
+			session: TestSession,
+			route: 'add-proposer' | 'remove-proposer',
+			{
+				signer,
+				multisigAddress,
+				proposer,
+				expiry = defaultExpiry(),
+				signedExpiry = expiry,
+			}: {
+				signer: TestUser;
+				multisigAddress: string;
+				proposer: string;
+				expiry?: string;
+				// The expiry in the signed message, if not `expiry`.
+				signedExpiry?: string;
+			},
+		) => {
+			const message =
+				route === 'add-proposer'
+					? PersonalMessages.addMultisigProposer(
+							proposer,
+							multisigAddress,
+							signedExpiry,
+						)
+					: PersonalMessages.removeMultisigProposer(
+							proposer,
+							multisigAddress,
+							signedExpiry,
+						);
+			return errorOf(
+				await session.post(
+					`/multisig/${multisigAddress}/${route}`,
+					{
+						signature: await sign(signer, message),
+						proposer,
+						expiry,
+					},
+				),
+			);
+		};
+
+		test('add-proposer checks the expiry, then the address, then membership, then the signature', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const outsider = newUser();
+			const add = (
+				options: Omit<
+					Parameters<typeof changeProposer>[2],
+					'multisigAddress'
+				>,
+			) =>
+				changeProposer(session, 'add-proposer', {
+					multisigAddress: multisig.address,
+					...options,
+				});
+
+			expect(
+				await add({
+					signer: outsider,
+					proposer: 'not-an-address',
+					expiry: 'not-a-date',
+				}),
+			).toEqual({
+				status: 400,
+				body: { error: 'Invalid expiry date format' },
+			});
+			expect(
+				await add({
+					signer: outsider,
+					proposer: 'not-an-address',
+					expiry: '2021-01-01',
+				}),
+			).toEqual({
+				status: 400,
+				body: { error: 'Signature has expired' },
+			});
+			expect(
+				await add({
+					signer: outsider,
+					proposer: 'not-an-address',
+				}),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'Invalid address. Must be a valid Sui address.',
+				},
+			});
+			expect(
+				await add({
+					signer: outsider,
+					proposer: newUser().address,
+				}),
+			).toEqual(notAMember);
+			expect(
+				await add({
+					signer: users[0],
+					proposer: newUser().address,
+					signedExpiry: new Date(
+						Date.now() + 60_000,
+					).toISOString(),
+				}),
+			).toEqual({
+				status: 400,
+				body: { error: 'Invalid signature for message.' },
+			});
+		});
+
+		test('add-proposer refuses a proposer that is already there', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const proposer = newUser().address;
+			await session.addProposer(
+				users[0],
+				proposer,
+				multisig.address,
+			);
+
+			expect(
+				await changeProposer(session, 'add-proposer', {
+					signer: users[1],
+					multisigAddress: multisig.address,
+					proposer,
+				}),
+			).toEqual({
+				status: 400,
+				body: {
+					error: `${proposer} is already a proposer for this multisig`,
+				},
+			});
+		});
+
+		test('add-proposer checks the proposer limit before duplicates', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const proposers = Array.from(
+				{ length: LIMITS.maxProposersPerMultisig },
+				() => newUser().address,
+			);
+			for (const proposer of proposers)
+				await session.addProposer(
+					users[0],
+					proposer,
+					multisig.address,
+				);
+
+			const limitReached = {
+				status: 400,
+				body: {
+					error:
+						'You have reached the maximum number of proposers for this multisig',
+				},
+			};
+			expect(
+				await changeProposer(session, 'add-proposer', {
+					signer: users[0],
+					multisigAddress: multisig.address,
+					proposer: newUser().address,
+				}),
+			).toEqual(limitReached);
+			// At the limit, even a proposer that is already there gets the
+			// limit error, not the duplicate one.
+			expect(
+				await changeProposer(session, 'add-proposer', {
+					signer: users[0],
+					multisigAddress: multisig.address,
+					proposer: proposers[0],
+				}),
+			).toEqual(limitReached);
+		});
+
+		test('remove-proposer checks the expiry, then the address, then membership', async () => {
+			const { session, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const outsider = newUser();
+
+			expect(
+				await changeProposer(session, 'remove-proposer', {
+					signer: outsider,
+					multisigAddress: multisig.address,
+					proposer: 'not-an-address',
+					expiry: '2021-01-01',
+				}),
+			).toEqual({
+				status: 400,
+				body: { error: 'Signature has expired' },
+			});
+			expect(
+				await changeProposer(session, 'remove-proposer', {
+					signer: outsider,
+					multisigAddress: multisig.address,
+					proposer: 'not-an-address',
+				}),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'Invalid address. Must be a valid Sui address.',
+				},
+			});
+			expect(
+				await changeProposer(session, 'remove-proposer', {
+					signer: outsider,
+					multisigAddress: multisig.address,
+					proposer: newUser().address,
+				}),
+			).toEqual(notAMember);
+		});
+
+		test('an unsupported network is checked before anything else', async () => {
+			const { session } =
+				await framework.createAuthenticatedSession(1);
+			const multisigAddress = newUser().address;
+
+			// Creating: before the signature is even parsed.
+			expect(
+				await errorOf(
+					await session.post('/proposals', {
+						multisigAddress,
+						transactionBytes: 'not-a-transaction',
+						signature: 'not-a-signature',
+						network: 'mainnet',
+					}),
+				),
+			).toEqual(unsupportedNetwork);
+
+			// Listing: before the membership check.
+			const list = async (network: string) =>
+				errorOf(
+					await session.request(
+						`/proposals?multisigAddress=${multisigAddress}&network=${network}`,
+					),
+				);
+			expect(await list('mainnet')).toEqual(
+				unsupportedNetwork,
+			);
+			expect(await list('localnet')).toEqual(notAMember);
+		});
+
+		test('votes and cancels by non-members, and their check order', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const outsider = newUser();
+			const proposal = await session.proposeTransfer(
+				users[0],
+				multisig.address,
+			);
+
+			const vote = async (
+				voter: TestUser,
+				proposalId: number,
+				bytes: Uint8Array,
+			) =>
+				errorOf(
+					await session.post(
+						`/proposals/${proposalId}/vote`,
+						{
+							signature: (
+								await voter.keypair.signTransaction(bytes)
+							).signature,
+						},
+					),
+				);
+			const cancel = async (
+				member: TestUser,
+				proposalId: number,
+				message = PersonalMessages.cancelProposal(
+					proposalId,
+				),
+			) =>
+				errorOf(
+					await session.post(
+						`/proposals/${proposalId}/cancel`,
+						{ signature: await sign(member, message) },
+					),
+				);
+
+			// The proposal is looked up first.
+			expect(
+				await vote(
+					outsider,
+					proposal.id + 1000,
+					fromBase64(proposal.transactionBytes),
+				),
+			).toEqual({
+				status: 400,
+				body: { error: 'Proposal not found' },
+			});
+
+			// A vote: 403 for a non-member, before its signature is checked.
+			expect(
+				await vote(
+					outsider,
+					proposal.id,
+					new Uint8Array([1, 2, 3]),
+				),
+			).toEqual(notAMember);
+
+			// A cancel: 400 for a non-member, before its signature is checked.
+			expect(
+				await cancel(
+					outsider,
+					proposal.id,
+					'Something else',
+				),
+			).toEqual({
+				status: 400,
+				body: { error: 'Not a member of the multisig' },
+			});
+			expect(
+				await cancel(
+					users[0],
+					proposal.id,
+					'Something else',
+				),
+			).toEqual({
+				status: 400,
+				body: { error: 'Invalid signature for message.' },
+			});
+
+			// Once cancelled, the status is checked before membership.
+			await session.cancelProposal(users[0], proposal.id);
+			expect(await cancel(outsider, proposal.id)).toEqual({
+				status: 400,
+				body: { error: 'Proposal is not pending' },
+			});
+			expect(
+				await vote(
+					outsider,
+					proposal.id,
+					fromBase64(proposal.transactionBytes),
+				),
+			).toEqual(notAMember);
 		});
 	});
 });

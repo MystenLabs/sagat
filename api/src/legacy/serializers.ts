@@ -10,17 +10,19 @@
  * keeping the original field names and order, and leaving out new columns.
  */
 
+import { type PublicProposal } from '@mysten/sagat';
+
 import type {
 	AccountProposer,
-	AccountSignerSet,
 	Proposal,
 	ProposalSignature,
 	ProposalWithSignatures,
 	SignerSet,
 	SignerSetMember,
+	SignerSetOrigin,
 	SignerSetWithMembers,
 } from '../db/schema';
-import { type KeyLabels } from '../loaders/account-keys.loader';
+import type { MultisigAccount } from '../services/multisig.service';
 import type { PaginatedResponse } from '../utils/pagination';
 
 export type LegacyMultisig = {
@@ -34,12 +36,6 @@ export type LegacyMultisig = {
 	draftedBy: string | null;
 	createdAt: Date | null;
 };
-
-/** Who drafted a signer set for an account, and when. */
-export type SignerSetOrigin = Pick<
-	AccountSignerSet,
-	'draftedBy' | 'createdAt'
->;
 
 export type LegacyMultisigMember = {
 	multisigAddress: string;
@@ -110,15 +106,14 @@ export const toLegacyMultisigMember = (
 });
 
 // A legacy multisig is a signer set plus the proposers of the account with
-// the same address.
-export const toLegacyMultisigWithMembers = (
-	signerSet: SignerSetWithMembers,
-	proposers: LegacyMultisigProposer[],
-	// Labels of the account with the same address, by public key. Required
-	// so that every call site decides where they come from.
-	labels: KeyLabels,
-	origin: SignerSetOrigin | null,
-): LegacyMultisigWithMembers => ({
+// the same address, its labels for the keys (by public key), and who
+// created it.
+export const toLegacyMultisigWithMembers = ({
+	signerSet,
+	proposers,
+	labels,
+	origin,
+}: MultisigAccount): LegacyMultisigWithMembers => ({
 	...toLegacyMultisig(signerSet, origin),
 	members: signerSet.members.map((member) =>
 		toLegacyMultisigMember(
@@ -154,6 +149,30 @@ export const toLegacyProposalWithSignatures = (
 ): LegacyProposalWithSignatures => ({
 	...toLegacyProposal(proposal),
 	signatures: proposal.signatures,
+});
+
+// The public view of a proposal, by digest. The proposers are hidden on
+// purpose, as this is not public information worth sharing. The same goes
+// for key labels (`account_keys`): they are only ever returned on
+// authenticated routes. The multisig composition is public, so that is fine.
+export const toLegacyPublicProposal = (
+	proposal: ProposalWithSignatures,
+	signerSet: SignerSetWithMembers,
+	currentWeight: number,
+): PublicProposal => ({
+	...toLegacyProposalWithSignatures(proposal),
+	currentWeight,
+	totalWeight: signerSet.threshold,
+	multisig: {
+		address: signerSet.address,
+		name: signerSet.name,
+		threshold: signerSet.threshold,
+		members: signerSet.members.map((member) => ({
+			publicKey: member.publicKey,
+			weight: member.weight,
+			order: member.order,
+		})),
+	},
 });
 
 export const toLegacyPaginatedProposals = (

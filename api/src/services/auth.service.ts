@@ -15,14 +15,9 @@ import { LIMITS } from '../constants/limits';
 import { JWT_SECRET } from '../db/env';
 import { ValidationError } from '../errors';
 import { activeJwtTokens, authAttempts } from '../metrics';
-import {
-	getPublicKeyFromSerializedSignature,
-	parsePublicKey,
-} from '../utils/pubKey';
-import {
-	registerPublicKeys,
-	validatePersonalMessage,
-} from './addresses.service';
+import { parsePublicKey } from '../utils/pubKey';
+import { registerPublicKeys } from './addresses.service';
+import { verifySignedMessage } from './signatures.service';
 
 const JWT_COOKIE_NAME = 'connected-wallet';
 
@@ -65,11 +60,7 @@ export const connectForScript: Handler = async (c) => {
 		const { signature, expiry } = await c.req.json();
 		validateExpiry(expiry);
 
-		const pubKey =
-			getPublicKeyFromSerializedSignature(signature);
-
-		await validatePersonalMessage(
-			pubKey,
+		const pubKey = await verifySignedMessage(
 			signature,
 			PersonalMessages.connect(expiry),
 		);
@@ -135,10 +126,7 @@ export const connectToPublicKey: Handler = async (c) => {
 
 		validateExpiry(expiry);
 
-		const pubKey =
-			getPublicKeyFromSerializedSignature(signature);
-		await validatePersonalMessage(
-			pubKey,
+		const pubKey = await verifySignedMessage(
 			signature,
 			PersonalMessages.connect(expiry),
 		);
