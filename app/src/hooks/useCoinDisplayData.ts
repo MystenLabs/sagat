@@ -3,6 +3,7 @@
 
 import { useMemo } from 'react';
 
+import { useNetwork } from '../contexts/NetworkContext';
 import {
 	buildCoinDisplayMap,
 	fromMetadata,
@@ -21,6 +22,7 @@ export type { CoinDisplayData };
 export function useCoinDisplayData(
 	coinType: string | null | undefined,
 ) {
+	const { network } = useNetwork();
 	const recognizedQuery = useRecognizedCoins();
 	const recognizedCoin = coinType
 		? recognizedQuery.map.get(coinType)
@@ -36,11 +38,16 @@ export function useCoinDisplayData(
 	const data = useMemo(() => {
 		if (!coinType) return undefined;
 		if (recognizedCoin)
-			return fromRecognized(recognizedCoin);
+			return fromRecognized(recognizedCoin, network);
 		if (metadataQuery.data)
 			return fromMetadata(metadataQuery.data);
 		return undefined;
-	}, [coinType, recognizedCoin, metadataQuery.data]);
+	}, [
+		coinType,
+		recognizedCoin,
+		metadataQuery.data,
+		network,
+	]);
 
 	return {
 		data,
@@ -52,6 +59,7 @@ export function useCoinDisplayData(
 }
 
 export function useCoinDisplayDataMap(coinTypes: string[]) {
+	const { network } = useNetwork();
 	const recognizedQuery = useRecognizedCoins();
 	const uniqueCoinTypes = useMemo(
 		() => Array.from(new Set(coinTypes)),
@@ -80,11 +88,13 @@ export function useCoinDisplayDataMap(coinTypes: string[]) {
 				uniqueCoinTypes,
 				recognizedQuery.map,
 				fallbackMetadata.map,
+				network,
 			),
 		[
 			uniqueCoinTypes,
 			recognizedQuery.map,
 			fallbackMetadata.map,
+			network,
 		],
 	);
 

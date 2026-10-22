@@ -15,6 +15,7 @@ import {
 	getMaxInputAmount,
 	isSuiCoinType,
 	parseAmount,
+	pricingOnNetwork,
 	rawAmountToFloat,
 	shownUsdTotal,
 	sortBalances,
@@ -424,5 +425,51 @@ describe('shownUsdTotal', () => {
 
 	test('is zero without coins', () => {
 		expect(total()).toBe(0);
+	});
+});
+
+describe('pricingOnNetwork', () => {
+	const pricing = {
+		priceUsd: 1.5,
+		priceChange24hUsd: 0.05,
+		priceChange24hPercentage: 3,
+	};
+
+	test('keeps the prices on mainnet', () => {
+		expect(pricingOnNetwork('mainnet', pricing)).toEqual(
+			pricing,
+		);
+	});
+
+	test('fills missing mainnet prices with null', () => {
+		expect(pricingOnNetwork('mainnet', {})).toEqual({
+			priceUsd: null,
+			priceChange24hUsd: null,
+			priceChange24hPercentage: null,
+		});
+	});
+
+	test.each(['testnet', 'devnet', 'localnet'])(
+		'drops every price on %s',
+		(network) => {
+			expect(pricingOnNetwork(network, pricing)).toEqual({
+				priceUsd: null,
+				priceChange24hUsd: null,
+				priceChange24hPercentage: null,
+			});
+		},
+	);
+
+	test('leaves coins unvalued off mainnet', () => {
+		const { priceUsd } = pricingOnNetwork(
+			'testnet',
+			pricing,
+		);
+		expect(
+			coinUsdValue('20000000000', {
+				priceUsd,
+				decimals: 9,
+			}),
+		).toBeNull();
 	});
 });

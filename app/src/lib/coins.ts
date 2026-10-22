@@ -156,6 +156,30 @@ export function formatUsdValue(value: number): string {
 	}).format(value);
 }
 
+/**
+ * A coin's prices as shown on `network`. The registry's prices are
+ * mainnet's and keyed by coin type, so elsewhere they would value test
+ * coins at mainnet prices: off mainnet nothing has a price.
+ */
+export function pricingOnNetwork(
+	network: string,
+	pricing: CoinPricing,
+): Required<CoinPricing> {
+	if (network !== 'mainnet') {
+		return {
+			priceUsd: null,
+			priceChange24hUsd: null,
+			priceChange24hPercentage: null,
+		};
+	}
+	return {
+		priceUsd: pricing.priceUsd ?? null,
+		priceChange24hUsd: pricing.priceChange24hUsd ?? null,
+		priceChange24hPercentage:
+			pricing.priceChange24hPercentage ?? null,
+	};
+}
+
 /** USD value of a raw on-chain amount, or `null` if any input is missing. */
 export function coinUsdValue(
 	rawAmount: string | null | undefined,

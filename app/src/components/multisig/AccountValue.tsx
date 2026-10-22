@@ -53,7 +53,10 @@ export function AccountValue({
 				{isLoading ? (
 					<Skeleton className="my-1 h-9 w-48 @3xl:h-10" />
 				) : (
-					<span className="text-32 font-bold tabular-nums @3xl:text-40">
+					<span
+						className="text-32 font-bold tabular-nums @3xl:text-40"
+						data-testid="account-value-amount"
+					>
 						{total != null ? formatUsdValue(total) : '—'}
 					</span>
 				)}

@@ -342,7 +342,8 @@ test.describe('overview and signers', () => {
 			gasCoin: coins[1],
 		});
 		await signProposal(bob, ready);
-		// TEST has no price, so the total covers SUI alone.
+		// The registry prices SUI, but its prices are mainnet's: on localnet
+		// neither coin gets a value.
 		await mintTestCoin(chain, multisig.address, [
 			1_000_000n,
 		]);
@@ -363,24 +364,26 @@ test.describe('overview and signers', () => {
 		await expect(rows).toHaveCount(2);
 
 		await test.step('the value, the tokens, receive and send', async () => {
-			// 20 SUI at $1.50; the TEST coin is left out of the total.
 			const value = page.getByTestId('account-value');
-			await expect(value).toHaveAttribute('data-usd', '30');
 			await expect(value).toHaveAttribute(
 				'data-unpriced',
-				'1',
+				'2',
 			);
-			await expect(value).toContainText('$30.00');
+			await expect(value).not.toHaveAttribute('data-usd');
+			await expect(
+				value.getByTestId('account-value-amount'),
+			).toHaveText('—');
 			await expect(value).toContainText(
-				'Excludes 1 token without a price.',
+				'No prices for the tokens this account holds.',
 			);
+			await expect(value).not.toContainText('Excludes');
 			const sui = page.locator(
 				'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
 			);
 			await expect(sui).toContainText('SUI');
 			await expect(
 				sui.getByTestId('token-value'),
-			).toHaveText('$30.00');
+			).toHaveText('—');
 			const testCoin = page.locator(
 				'[data-testid="token-row"][data-coin-type$="::test_coin::TEST_COIN"]',
 			);
