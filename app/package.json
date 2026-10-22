@@ -19,6 +19,7 @@
 		"@mysten/dapp-kit-core": "^1.6.34",
 		"@mysten/dapp-kit-react": "^2.1.36",
 		"@mysten/sagat": "workspace:*",
+		"@mysten/sagat-legacy": "workspace:*",
 		"@mysten/sui": "^2.33.1",
 		"@mysten/wallet-sdk": "^0.9.6",
 		"@mysten/walletconnect-wallet": "^1.1.30",

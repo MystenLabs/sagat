@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigProposer } from '@mysten/sagat';
+import type { MultisigProposer } from '@mysten/sagat-legacy';
 import { Plus, Users } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 

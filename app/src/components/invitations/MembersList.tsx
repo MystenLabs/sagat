@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigMember } from '@mysten/sagat';
+import type { MultisigMember } from '@mysten/sagat-legacy';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { Label } from '@/components/ui/label';

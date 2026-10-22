@@ -10,7 +10,7 @@
  * keeping the original field names and order, and leaving out new columns.
  */
 
-import { type PublicProposal } from '@mysten/sagat';
+import { type PublicProposal } from '@mysten/sagat-legacy';
 
 import type {
 	AccountProposer,

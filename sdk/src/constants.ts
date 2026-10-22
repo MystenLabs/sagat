@@ -1,25 +1,30 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+/**
+ * The messages a key signs, as the API verifies them. Same as the legacy
+ * SDK except the proposer messages, which name the account (see
+ * docs/migration-guide.md, "Signed messages").
+ */
 export const PersonalMessages = {
 	connect: (expiry: string) =>
 		`Verifying address ownership until: ${expiry}`,
-	acceptMultisigInvitation: (multisigAddress: string) =>
-		`Participating in multisig ${multisigAddress}`,
-	rejectMultisigInvitation: (multisigAddress: string) =>
-		`Rejecting multisig invitation ${multisigAddress}`,
-	addMultisigProposer: (
+	acceptSignerSetInvitation: (signerSetAddress: string) =>
+		`Participating in multisig ${signerSetAddress}`,
+	rejectSignerSetInvitation: (signerSetAddress: string) =>
+		`Rejecting multisig invitation ${signerSetAddress}`,
+	addAccountProposer: (
 		proposer: string,
-		multisigAddress: string,
+		accountAddress: string,
 		expiry: string,
 	) =>
-		`Adding proposer ${proposer} to multisig ${multisigAddress}. Valid until: ${expiry}`,
-	removeMultisigProposer: (
+		`Adding proposer ${proposer} to account ${accountAddress}. Valid until: ${expiry}`,
+	removeAccountProposer: (
 		proposer: string,
-		multisigAddress: string,
+		accountAddress: string,
 		expiry: string,
 	) =>
-		`Removing proposer ${proposer} from multisig ${multisigAddress}. Valid until: ${expiry}`,
+		`Removing proposer ${proposer} from account ${accountAddress}. Valid until: ${expiry}`,
 	cancelProposal: (proposalId: number) =>
 		`Cancel proposal ${proposalId}`,
 } as const;

@@ -5,7 +5,7 @@ import { useDAppKit } from '@mysten/dapp-kit-react';
 import {
 	ProposalStatus,
 	type PublicProposal,
-} from '@mysten/sagat';
+} from '@mysten/sagat-legacy';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
@@ -16,7 +16,7 @@ import { toast } from 'sonner';
 
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 interface ExecuteProposalParams {
@@ -98,7 +98,7 @@ export function useExecuteProposal() {
 
 				// Step 4: Call the verify endpoint to update proposal status in the backend
 				const verifyResponse =
-					await apiClient.verifyProposalByDigest(
+					await legacyClient.verifyProposalByDigest(
 						proposal.digest,
 					);
 

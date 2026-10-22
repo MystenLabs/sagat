@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 // Hook to fetch user's accepted multisigs from the /addresses/connections endpoint
@@ -28,7 +28,7 @@ export function useUserMultisigs() {
 
 			// Get accepted multisig connections grouped by public key
 			const connections =
-				await apiClient.getMultisigConnections();
+				await legacyClient.getMultisigConnections();
 
 			return (
 				connections[currentAddress?.publicKey] || []

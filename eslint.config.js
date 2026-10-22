@@ -14,6 +14,7 @@ export default [
 			'**/.next',
 			'**/storybook-static',
 			'**/vite-env.d.ts',
+			'**/src/generated/**', // openapi-typescript output
 			'app/**', // App has its own config with React rules
 		],
 	},

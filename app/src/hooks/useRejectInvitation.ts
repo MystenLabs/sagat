@@ -5,7 +5,7 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { PersonalMessages } from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat-legacy';
 import {
 	useMutation,
 	useQueryClient,
@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { QueryKeys } from '@/lib/queryKeys';
 
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 
 export function useRejectInvitation() {
 	const currentAccount = useCurrentAccount();
@@ -39,7 +39,7 @@ export function useRejectInvitation() {
 			});
 
 			// Send to API
-			return apiClient.rejectMultisigInvite(
+			return legacyClient.rejectMultisigInvite(
 				multisigAddress,
 				{
 					signature: result.signature,

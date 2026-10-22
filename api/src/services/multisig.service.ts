@@ -8,7 +8,7 @@
  * like `MultisigAccount`): each router maps them to its own response shapes.
  */
 
-import { PersonalMessages } from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat-legacy';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';

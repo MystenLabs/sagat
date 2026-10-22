@@ -4,7 +4,7 @@
 import {
 	ProposalStatus,
 	type ProposalWithSignatures,
-} from '@mysten/sagat';
+} from '@mysten/sagat-legacy';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';

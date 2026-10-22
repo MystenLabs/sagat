@@ -17,6 +17,7 @@ import addressesRouter from './routes/addresses';
 import authRouter from './routes/auth';
 import multisigRouter from './routes/multisig';
 import proposalsRouter from './routes/proposals';
+import { createV1App } from './v1/app';
 
 // Bun serves the default export only once this module has finished
 // evaluating, so no request reaches a database that is behind. Set
@@ -94,6 +95,9 @@ app.route('/auth', authRouter);
 app.route('/addresses', addressesRouter);
 app.route('/multisig', multisigRouter);
 app.route('/proposals', proposalsRouter);
+
+// The `/v1` API, with its spec and docs page. See `v1/app.ts`.
+app.route('/', createV1App());
 
 // Map known errors
 app.onError(appErrorHandler);

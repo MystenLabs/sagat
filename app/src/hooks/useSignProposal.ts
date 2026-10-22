@@ -12,7 +12,7 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 interface SignProposalParams {
@@ -44,7 +44,7 @@ export function useSignProposal() {
 			});
 
 			// Call API to vote on the proposal
-			return apiClient.voteForProposal(proposalId, {
+			return legacyClient.voteForProposal(proposalId, {
 				signature: result.signature as string,
 			});
 		},

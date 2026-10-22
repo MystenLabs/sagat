@@ -4,7 +4,7 @@
 import type {
 	MultisigWithMembers,
 	PublicProposal,
-} from '@mysten/sagat';
+} from '@mysten/sagat-legacy';
 
 // Extended type that adds frontend-specific fields for displaying multisig state
 // for a specific public key

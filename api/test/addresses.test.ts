@@ -34,7 +34,7 @@ describe('Addresses API', () => {
 		await session.client.registerAddresses();
 
 		for (const user of users) {
-			const info = await session.client.getAddressInfo(
+			const info = await session.v1.getAddressInfo(
 				user.address,
 			);
 			expect(info.publicKey).toBe(user.publicKey);
@@ -46,10 +46,22 @@ describe('Addresses API', () => {
 			await framework.createAuthenticatedSession(1);
 
 		await expect(
-			session.client.getAddressInfo(`0x${'a'.repeat(64)}`),
-		).rejects.toThrow(
-			'Address is not registered in the system.',
-		);
+			session.v1.getAddressInfo(`0x${'a'.repeat(64)}`),
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'Address is not registered in the system.',
+		});
+	});
+
+	test('looking up a malformed address fails without a session', async () => {
+		await expect(
+			framework
+				.createSession()
+				.v1.getAddressInfo('not-an-address'),
+		).rejects.toMatchObject({
+			status: 400,
+			message: 'address: Must be a valid Sui address.',
+		});
 	});
 
 	test('invitations are only listed for a key the session holds', async () => {

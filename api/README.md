@@ -18,6 +18,10 @@ bun test:e2e
 
 open http://localhost:3000
 
+## The `/v1` API
+
+Routes under `/v1` are declared with `@hono/zod-openapi` in `src/v1/`: one `createRoute` per route validates the request, types the handler and lands in the spec. The spec is served at `/v1/openapi.json`, with a reference page at `/v1/docs`, and committed as `openapi/v1.json`; `bun test:openapi` checks that the snapshot matches the app, and `UPDATE_OPENAPI=1 bun test:openapi` regenerates it (see `test/README.md`). The legacy routes (`/multisig`, `/addresses`, `/proposals`) are frozen and stay out of the spec.
+
 ## Migrations
 
 The API applies pending migrations from `drizzle/` when it starts, before it serves any request. Replicas that start together take turns on a Postgres advisory lock, so only one of them applies the migrations. If a migration fails, the API exits instead of serving an outdated schema.

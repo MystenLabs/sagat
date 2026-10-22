@@ -1,0 +1,105 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "Sagat API",
+		"version": "1.0.0",
+		"description": "Multisig accounts, signer sets and proposals on Sui. Authenticate with the session cookie or a script token; both are issued by the `/auth` routes, which are shared with the legacy API."
+	},
+	"tags": [
+		{
+			"name": "Addresses",
+			"description": "Public keys registered with the service and the addresses they derive."
+		}
+	],
+	"components": {
+		"securitySchemes": {
+			"cookieAuth": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "connected-wallet",
+				"description": "Session cookie set by `POST /auth/connect`. Holds every key connected in the session."
+			},
+			"bearerAuth": {
+				"type": "http",
+				"scheme": "bearer",
+				"bearerFormat": "JWT",
+				"description": "Script token from `POST /auth/script-connect`: a single key, valid for one hour. Takes precedence over the cookie."
+			}
+		},
+		"schemas": {
+			"Address": {
+				"type": "object",
+				"properties": {
+					"publicKey": {
+						"type": "string",
+						"description": "The Sui public key, base64, with its scheme flag.",
+						"example": "AJDCUe2/8eIAPvKY5uE9GHnWf1xdNThxNVL94GxOx1Yz"
+					},
+					"address": {
+						"$ref": "#/components/schemas/SuiAddress"
+					}
+				},
+				"required": ["publicKey", "address"]
+			},
+			"SuiAddress": {
+				"type": "string",
+				"description": "A Sui address.",
+				"example": "0xabababababababababababababababababababababababababababababababab"
+			},
+			"Error": {
+				"type": "object",
+				"properties": {
+					"error": {
+						"type": "string",
+						"example": "Address is not registered in the system."
+					}
+				},
+				"required": ["error"]
+			}
+		},
+		"parameters": {}
+	},
+	"paths": {
+		"/v1/addresses/{address}": {
+			"get": {
+				"tags": ["Addresses"],
+				"summary": "Look up a registered address",
+				"description": "The public key registered for a Sui address. An address is registered when its key connects, is passed to the register route, or is put in a signer set.",
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/SuiAddress"
+						},
+						"required": true,
+						"description": "A Sui address.",
+						"name": "address",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The address and its public key.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Address"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The address is malformed or not registered.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"webhooks": {}
+}

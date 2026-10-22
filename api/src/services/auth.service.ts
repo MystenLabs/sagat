@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat-legacy';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { type Context, type Handler } from 'hono';
 import {

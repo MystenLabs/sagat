@@ -43,9 +43,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build SDK
-        run: bun run build
-        working-directory: sdk
+      - name: Build SDKs
+        run: bun run build:sdk
 
       - name: Typecheck SDK and API
         run: bun typecheck
@@ -88,6 +87,42 @@ jobs:
             echo "$changes"
             exit 1
           fi
+
+  openapi-check:
+    name: OpenAPI Spec Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build SDKs
+        run: bun run build:sdk
+
+      # Regenerates the /v1 spec from the app and diffs it with the
+      # committed api/openapi/v1.json. Needs no database or Sui network.
+      - name: Check the OpenAPI snapshot
+        run: bun test:openapi
+        working-directory: api
+        env:
+          JWT_SECRET: a-super-long-jwt-secret-to-use-in-the-service
+          SUPPORTED_NETWORKS: localnet
+          CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+
+      - name: Check the generated SDK types
+        run: |
+          bun run generate
+          if ! git diff --quiet -- src/generated; then
+            echo "::error::sdk/src/generated differs from api/openapi/v1.json. Run 'bun run openapi:update' at the repository root and commit the result."
+            git diff -- src/generated
+            exit 1
+          fi
+        working-directory: sdk
 
   migration-test:
     name: Migration Tests
@@ -184,9 +219,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build SDK
-        run: bun run build
-        working-directory: sdk
+      - name: Build SDKs
+        run: bun run build:sdk
 
       - name: Install suiup
         run: |

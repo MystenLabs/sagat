@@ -16,7 +16,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ProposalStatus } from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat-legacy';
 import { Transaction } from '@mysten/sui/transactions';
 import { expect, test } from 'bun:test';
 import { type Hono } from 'hono';
@@ -317,6 +317,9 @@ async function driveLegacyRoutes(app: Hono) {
 		multisig.address,
 	);
 	await client.getMultisig(multisig.address);
+
+	// The address lookup, which has no other legacy test.
+	await client.getAddressInfo(users[0].address);
 }
 
 test('legacy routes keep their JSON contract', async () => {

@@ -782,5 +782,13 @@
 			"totalMembers": 3,
 			"totalWeight": 3
 		}
+	},
+	{
+		"route": "GET /addresses/<address:1>",
+		"status": 200,
+		"body": {
+			"publicKey": "<publicKey:0>",
+			"address": "<address:1>"
+		}
 	}
 ]

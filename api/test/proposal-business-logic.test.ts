@@ -5,7 +5,7 @@ import {
 	defaultExpiry,
 	PersonalMessages,
 	ProposalStatus,
-} from '@mysten/sagat';
+} from '@mysten/sagat-legacy';
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64 } from '@mysten/sui/utils';
 import {

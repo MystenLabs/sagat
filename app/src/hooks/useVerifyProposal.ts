@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
-import { apiClient } from '../lib/api';
+import { legacyClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 export function useVerifyProposal() {
@@ -15,7 +15,7 @@ export function useVerifyProposal() {
 
 	return useMutation({
 		mutationFn: async (digest: string) => {
-			return apiClient.verifyProposalByDigest(digest);
+			return legacyClient.verifyProposalByDigest(digest);
 		},
 		onSuccess: () => {
 			// Invalidate all proposal-related queries
