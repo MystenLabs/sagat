@@ -5,7 +5,10 @@ import { ArrowLeft, Pen } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
-import { Button } from '@/components/ui/button';
+import {
+	Button,
+	disabledButton,
+} from '@/components/ui/button';
 import {
 	Tooltip,
 	TooltipContent,
@@ -21,7 +24,6 @@ import { cn } from '@/lib/utils';
 
 import {
 	CopyText,
-	disabledButton,
 	Divider,
 	Notice,
 	SectionHeading,

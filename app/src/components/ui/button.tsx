@@ -49,6 +49,10 @@ const buttonVariants = cva(
 	},
 );
 
+/** The designs' disabled button: grey fill and label, not faded. */
+const disabledButton =
+	'disabled:bg-muted disabled:text-muted-foreground/70 disabled:opacity-100';
+
 const Button = React.forwardRef<
 	HTMLButtonElement,
 	ButtonPrimitive.Props &
@@ -78,4 +82,4 @@ const Button = React.forwardRef<
 Button.displayName = 'Button';
 
 // eslint-disable-next-line react-refresh/only-export-components
-export { Button, buttonVariants };
+export { Button, buttonVariants, disabledButton };

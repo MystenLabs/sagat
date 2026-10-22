@@ -342,13 +342,33 @@ test.describe('app shell', () => {
 		).toBeVisible();
 		await page.keyboard.press('Escape');
 
-		const banner = page.getByTestId('test-mode-banner');
+		const banner = page.getByRole('region', {
+			name: 'Test mode',
+		});
 		await expect(banner).toContainText(hint);
 		await expect(
 			banner.getByRole('button', {
 				name: 'Switch to Mainnet',
 			}),
 		).toBeDisabled();
+
+		await test.step('the banner sits above the page and dismisses', async () => {
+			const heading = page
+				.getByRole('main')
+				.getByRole('heading', { level: 1 })
+				.first();
+			await expect(heading).toBeVisible();
+			const bannerBox = await banner.boundingBox();
+			const headingBox = await heading.boundingBox();
+			expect(
+				bannerBox!.y + bannerBox!.height,
+			).toBeLessThanOrEqual(headingBox!.y);
+
+			await banner
+				.getByRole('button', { name: 'Dismiss' })
+				.click();
+			await expect(banner).toBeHidden();
+		});
 	});
 
 	test('receive shows the full multisig address', async ({
