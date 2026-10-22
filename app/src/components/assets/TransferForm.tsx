@@ -250,7 +250,7 @@ export function TransferForm({
 	return (
 		<div className="space-y-5">
 			<div className="space-y-1.5">
-				<label className="text-sm font-medium">Asset</label>
+				<label className="text-13 font-medium">Asset</label>
 				<AssetPicker
 					balances={balances}
 					selectedCoinType={coinType || null}
@@ -264,7 +264,7 @@ export function TransferForm({
 					isLoading={isLoadingBalances}
 				/>
 				{errors.coinType && (
-					<p className="text-sm text-error-foreground">
+					<p className="text-12 text-error-foreground">
 						{errors.coinType.message}
 					</p>
 				)}
@@ -273,7 +273,7 @@ export function TransferForm({
 			<div className="space-y-1.5">
 				<label
 					htmlFor="transfer-recipient"
-					className="text-sm font-medium"
+					className="text-13 font-medium"
 				>
 					Recipient
 				</label>
@@ -283,13 +283,14 @@ export function TransferForm({
 					disabled={isBusy}
 					autoComplete="off"
 					spellCheck={false}
+					aria-invalid={!!errors.recipient}
 					data-testid="transfer-recipient-input"
 					{...form.register('recipient', {
 						onChange: onFieldChange,
 					})}
 				/>
 				{errors.recipient && (
-					<p className="text-sm text-error-foreground">
+					<p className="text-12 text-error-foreground">
 						{errors.recipient.message}
 					</p>
 				)}
@@ -299,7 +300,7 @@ export function TransferForm({
 				<div className="flex items-center justify-between">
 					<label
 						htmlFor="transfer-amount"
-						className="text-sm font-medium"
+						className="text-13 font-medium"
 					>
 						Amount
 					</label>
@@ -323,6 +324,7 @@ export function TransferForm({
 						inputMode="decimal"
 						autoComplete="off"
 						spellCheck={false}
+						aria-invalid={!!errors.amount}
 						data-testid="transfer-amount-input"
 						className={symbol ? 'pr-14' : undefined}
 						{...form.register('amount', {
@@ -337,7 +339,7 @@ export function TransferForm({
 				</div>
 				{errors.amount && (
 					<p
-						className="text-sm text-error-foreground"
+						className="text-12 text-error-foreground"
 						data-testid="transfer-amount-error"
 					>
 						{errors.amount.message}

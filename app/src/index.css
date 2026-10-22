@@ -56,7 +56,7 @@
 	--text-40--line-height: 1.1;
 	--text-40--letter-spacing: -0.03em;
 
-	/* Radii: 6 on buttons, 8 on inputs, 10 on cards and dialogs, 12 on table shells. */
+	/* Radii: 6 on buttons and inputs, 10 on cards and dialogs, 12 on table shells. */
 	--radius-xs: 2px;
 	--radius-sm: 4px;
 	--radius-md: 6px;

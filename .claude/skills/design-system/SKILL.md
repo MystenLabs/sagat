@@ -29,22 +29,22 @@ the token layer in `app/src/index.css`, the shell in
 Components use semantic classes only. The check script fails on raw
 colours, so there is no judgment call here.
 
-| Need                     | Use                                                                                                                                     |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Page background / text   | `bg-background`, `text-foreground`, `text-foreground-secondary`                                                                         |
-| Card or panel            | `rounded-xl border bg-card` (radius 10, hairline `border-border`)                                                                       |
-| Popovers, menus          | `bg-popover text-popover-foreground`                                                                                                    |
-| Primary action           | `bg-primary text-primary-foreground` (black on light, white on dark)                                                                    |
-| Secondary surfaces       | `bg-secondary`, `bg-muted`, `bg-accent` (hover rows), `bg-surface`, `bg-surface-hover`, `bg-row-selected`                               |
-| Dimmed text              | `text-muted-foreground`                                                                                                                 |
-| Status                   | `bg-success text-success-foreground border-success-border`, same for `warning`, `info`, `error`; and `bg-purple text-purple-foreground` |
-| Status, lighter tint     | `bg-success-soft`, `bg-warning-soft`, `bg-info-soft` for a lighter tint of the colour; there are no `bg-error-soft` or `bg-purple-soft` |
-| Destructive              | `bg-destructive`, `text-destructive`, `border-destructive`                                                                              |
-| Inputs and focus         | `border-input`, `ring-ring`                                                                                                             |
-| Sidebar                  | `bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-accent`, `border-sidebar-border`                                                   |
-| Sidebar status text      | `text-sidebar-warning`, `text-sidebar-error` (fixed in both themes, since the sidebar is black in both)                                 |
-| Chips, skeletons, toasts | `bg-chip text-chip-foreground`, `bg-skeleton`, `bg-toast text-toast-foreground`                                                         |
-| Sui brand blue           | `text-sui`, `bg-sui/10` (coin icon and logo only)                                                                                       |
+| Need                     | Use                                                                                                                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page background / text   | `bg-background`, `text-foreground`, `text-foreground-secondary`                                                                                                                    |
+| Card or panel            | `rounded-xl border bg-card` (radius 10, hairline `border-border`)                                                                                                                  |
+| Popovers, menus          | `bg-popover text-popover-foreground`                                                                                                                                               |
+| Primary action           | `bg-primary text-primary-foreground` (black on light, white on dark)                                                                                                               |
+| Secondary surfaces       | `bg-secondary`, `bg-muted`, `bg-accent` (hover rows), `bg-surface`, `bg-surface-hover`, `bg-row-selected`                                                                          |
+| Dimmed text              | `text-muted-foreground`                                                                                                                                                            |
+| Status                   | `bg-success text-success-foreground border-success-border`, same for `warning`, `info`, `error`; and `bg-purple text-purple-foreground`                                            |
+| Status, lighter tint     | `bg-success-soft`, `bg-warning-soft`, `bg-info-soft` for a lighter tint of the colour; there are no `bg-error-soft` or `bg-purple-soft`                                            |
+| Destructive              | `bg-destructive`, `text-destructive`, `border-destructive`                                                                                                                         |
+| Text fields              | `Input`, `Textarea`, `SelectTrigger`, `InputGroup`: `rounded-md border-foreground/12 bg-card text-14`; focus is `border-foreground`, no ring; invalid is `border-error-foreground` |
+| Sidebar                  | `bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-accent`, `border-sidebar-border`                                                                                              |
+| Sidebar status text      | `text-sidebar-warning`, `text-sidebar-error` (fixed in both themes, since the sidebar is black in both)                                                                            |
+| Chips, skeletons, toasts | `bg-chip text-chip-foreground`, `bg-skeleton`, `bg-toast text-toast-foreground`                                                                                                    |
+| Sui brand blue           | `text-sui`, `bg-sui/10` (coin icon and logo only)                                                                                                                                  |
 
 Rules:
 
@@ -90,8 +90,11 @@ Rules:
   a `PageHeader`; do not add a max-width. The one exception is the create
   wizard, whose frames fix the content at 1092px (`max-w-273`) so the
   header's Cancel ends where the side column does.
-- Control heights: buttons `h-9` (default) and `h-7` (sm); menu rows
-  `h-9`; sidebar rows `h-8`. Icons inside controls are `size-4`.
+- Control heights: buttons `h-9` (default) and `h-7` (sm); text fields
+  (`Input`, `InputGroup`) `size="sm"` 38px (`h-9.5`), `md` 42px
+  (`h-10.5`, the default) and `lg` 46px (`h-11.5`), with `SelectTrigger`
+  matching `sm` and `md`; menu rows `h-9`; sidebar rows `h-8`. Icons
+  inside controls are `size-4`.
 
 ## Components
 

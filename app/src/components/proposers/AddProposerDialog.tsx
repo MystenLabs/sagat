@@ -83,7 +83,7 @@ export function AddProposerDialog({
 					<div className="space-y-2">
 						<label
 							htmlFor="proposer-address"
-							className="text-sm font-medium"
+							className="text-13 font-medium"
 						>
 							Proposer Address
 						</label>
@@ -95,9 +95,20 @@ export function AddProposerDialog({
 								setProposerAddress(e.target.value)
 							}
 							disabled={addProposer.isPending}
+							aria-invalid={!!validationError}
+							aria-describedby={
+								validationError
+									? 'proposer-address-error'
+									: undefined
+							}
+							data-testid="add-proposer-address-input"
 						/>
 						{validationError && (
-							<p className="text-sm text-error-foreground">
+							<p
+								id="proposer-address-error"
+								className="text-12 text-error-foreground"
+								data-testid="add-proposer-error"
+							>
 								{validationError}
 							</p>
 						)}

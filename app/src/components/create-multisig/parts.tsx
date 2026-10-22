@@ -19,10 +19,6 @@ import { cn } from '@/lib/utils';
 export const disabledButton =
 	'disabled:bg-muted disabled:text-muted-foreground/70 disabled:opacity-100';
 
-/** The designs' text field, on top of `Input`; callers set height and padding. */
-export const field =
-	'rounded-md border-foreground/12 bg-card text-14 placeholder:text-muted-foreground/70 focus-visible:border-foreground focus-visible:ring-0 md:text-14 aria-invalid:border-error-foreground aria-invalid:ring-0 dark:bg-card';
-
 export function SectionHeading({
 	title,
 	description,
@@ -336,10 +332,8 @@ export function NumberStepper({
 	return (
 		<div
 			className={cn(
-				'inline-flex shrink-0 overflow-hidden border border-foreground/12',
-				size === 'sm'
-					? 'h-9.5 rounded-md'
-					: 'h-11.5 rounded-lg',
+				'inline-flex shrink-0 overflow-hidden rounded-md border border-foreground/12',
+				size === 'sm' ? 'h-9.5' : 'h-11.5',
 			)}
 		>
 			<button
