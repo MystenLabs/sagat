@@ -19,7 +19,8 @@ const fieldFrame =
 
 /**
  * The field's text. `text-field` is 16px on phones (so iOS does not zoom
- * on focus) and 14px from `md`; a caller's `text-12` replaces it.
+ * on focus) and 14px from `md`; a caller's `md:text-12` replaces the
+ * desktop size and keeps 16px on phones.
  */
 const fieldText =
 	'text-field text-foreground placeholder:text-muted-foreground/70 disabled:text-muted-foreground';

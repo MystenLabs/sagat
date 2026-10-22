@@ -305,8 +305,8 @@ html [data-sonner-toaster][data-x-position='center'] {
 }
 
 /* Text-field text: 16px on phones, so iOS Safari does not zoom the page
-   when a field takes focus, and the design's 14px from md up. One class,
-   so a caller's text-12 (registered with tailwind-merge) replaces it. */
+   when a field takes focus, and the design's 14px from md up. A caller's
+   md:text-12 replaces the desktop size and keeps 16px on phones. */
 @utility text-field {
 	@apply text-16 md:text-14;
 }
