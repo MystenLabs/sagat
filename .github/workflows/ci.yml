@@ -202,19 +202,19 @@ jobs:
           suiup install sui@mainnet -y
           sui --version
 
+      # Since sui 1.82 the fullnode serves gRPC only, so wait on the faucet and
+      # the RPC port instead of a JSON-RPC call. The script is the one the UI
+      # job's Playwright harness uses.
       - name: Start Sui local network
         env:
           RUST_LOG: off
         run: |
           export PATH="$HOME/.sui/bin:$PATH"
-          sui start --force-regenesis --with-faucet &
+          sh e2e/start-localnet.sh 9000 9123 &
           # Wait for network to be ready
           echo "Waiting for Sui network to start..."
-          timeout 90 bash -c 'until curl -sf -X POST http://127.0.0.1:9000 -H "Content-Type: application/json" -d '\''{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}'\'' 2>/dev/null | grep -q result; do echo "Waiting..."; sleep 2; done'
+          timeout 120 bash -c 'until curl -sf http://127.0.0.1:9123/ >/dev/null && curl -s -o /dev/null http://127.0.0.1:9000/; do echo "Waiting..."; sleep 2; done'
           echo "Sui network is ready!"
-          curl -X POST http://127.0.0.1:9000 \
-            -H "Content-Type: application/json" \
-            -d '{"jsonrpc":"2.0","id":1,"method":"sui_getChainIdentifier","params":[]}'
 
       - name: Run API E2E tests
         run: bun test:e2e
