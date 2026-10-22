@@ -74,12 +74,6 @@ test.describe('overview and signers', () => {
 					.locator('[aria-current="page"]'),
 			).toHaveText('Treasury');
 			await expect(
-				page.getByTestId('multisig-threshold'),
-			).toHaveText('3 of 4');
-			await expect(
-				page.getByTestId('account-signers'),
-			).toHaveText('3');
-			await expect(
 				page.getByTestId('open-proposals-empty'),
 			).toBeVisible();
 		});
@@ -144,6 +138,9 @@ test.describe('overview and signers', () => {
 			await expect(
 				setup.getByTestId('setup-threshold'),
 			).toHaveText('3 of 4');
+			await expect(
+				setup.getByTestId('setup-signers'),
+			).toHaveText('3');
 			await expect(
 				setup.getByTestId('setup-created'),
 			).toHaveAttribute(

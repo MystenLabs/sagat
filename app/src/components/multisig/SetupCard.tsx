@@ -55,7 +55,11 @@ export function SetupCard({
 						{setup.thresholdLabel}
 					</span>
 				</Row>
-				<Row label="Signers">{setup.signerCount}</Row>
+				<Row label="Signers">
+					<span data-testid="setup-signers">
+						{setup.signerCount}
+					</span>
+				</Row>
 				<Row label="Total weight">{setup.totalWeight}</Row>
 				<Row label="Created">
 					<span
