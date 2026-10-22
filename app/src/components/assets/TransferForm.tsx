@@ -343,8 +343,7 @@ export function TransferForm({
 						})}
 					/>
 					{symbol && (
-						// The addon's default 4px edge gap suits the wizard's Clear button.
-						// A bare label sits 12px in, like the control's text.
+						// Inset the symbol 12px, like the control's text, not the addon's default 4px.
 						<InputGroupAddon
 							align="inline-end"
 							className="pr-3"
