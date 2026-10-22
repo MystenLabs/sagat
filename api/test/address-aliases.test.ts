@@ -229,7 +229,7 @@ describe('Address aliases on multisig accounts', () => {
 	beforeAll(async () => {
 		if (!(await isNetworkRunning())) {
 			throw new Error(
-				'Local Sui network not running. Start with: sui start --force-regenesis --with-faucet',
+				'Local Sui network not running. Start with: sh ../e2e/start-localnet.sh 9000 9123',
 			);
 		}
 		const config = await client.core.getProtocolConfig();

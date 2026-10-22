@@ -43,5 +43,7 @@ To accomplish that, you can run:
 
 ```
 sui client switch --env localnet
-sui start --force-regenesis --with-faucet
+sh ../e2e/start-localnet.sh 9000 9123
 ```
+
+Run it from `api/`. The script keeps two epochs of history, where plain `sui start --force-regenesis` prunes transactions after about an hour; see `test/README.md`.

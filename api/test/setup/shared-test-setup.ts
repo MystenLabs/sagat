@@ -20,7 +20,7 @@ export const setupSharedTestEnvironment = () => {
 	beforeAll(async () => {
 		if (!(await isNetworkRunning()))
 			throw new Error(
-				'Local Sui network not running. Start it with: sui start --force-regenesis --with-faucet',
+				'Local Sui network not running. Start it with: sh ../e2e/start-localnet.sh 9000 9123',
 			);
 
 		testDb = await setupTestDatabase();

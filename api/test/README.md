@@ -4,8 +4,10 @@ End-to-end tests for the API. They call the Hono app directly, against a local S
 
 ## Running
 
+From `api/`, start a local Sui network with the script CI uses. It keeps two epochs of history, so a network left running for over an hour still serves the tests' transactions (plain `sui start --force-regenesis` prunes them after about an hour).
+
 ```bash
-sui start --force-regenesis --with-faucet
+sh ../e2e/start-localnet.sh 9000 9123
 ```
 
 ```bash
