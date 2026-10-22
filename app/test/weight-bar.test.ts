@@ -29,7 +29,7 @@ describe('weightBarLayout', () => {
 		});
 	});
 
-	it('keeps the order stable among signers in the same state', () => {
+	it('expands each signer into one segment per unit of their weight', () => {
 		expect(
 			weightBarLayout(
 				[

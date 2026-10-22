@@ -1,10 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
-
 import { expect, test } from '../support/fixtures';
 import {
+	acceptInvitation,
 	setupMultisig,
 	signInViaApi,
 } from '../support/scenarios';
@@ -223,26 +222,17 @@ test.describe('invitations', () => {
 		const bob = await createActor('bob');
 		const carol = createIdentity('carol');
 		const dave = createIdentity('dave');
-		// Bob sits in the middle of the signer order with weight 2; Alice
-		// (4) and Daniel (3) have accepted, Carol (2) and Dave (1) have not.
+		// Signer order puts pending Carol (2) before Bob (2) and accepted
+		// Daniel (3) after him; Alice (4) has accepted, Dave (1) has not.
 		const multisig = await setupMultisig({
 			creator: alice,
-			members: [daniel, bob, carol, dave],
-			weights: [4, 3, 2, 2, 1],
+			members: [carol, bob, daniel, dave],
+			weights: [4, 2, 2, 3, 1],
 			threshold: 8,
-			labels: ['Alice', 'Daniel', 'Bob', 'Carol', 'Dave'],
+			labels: ['Alice', 'Carol', 'Bob', 'Daniel', 'Dave'],
 			accept: false,
 		});
-		await daniel.api.acceptMultisigInvite(
-			multisig.address,
-			{
-				signature: await daniel.signMessage(
-					PersonalMessages.acceptMultisigInvitation(
-						multisig.address,
-					),
-				),
-			},
-		);
+		await acceptInvitation(daniel, multisig.address);
 
 		await bob.signIn();
 		await bob.page.getByTestId('nav-invitations').click();
@@ -279,7 +269,7 @@ test.describe('invitations', () => {
 		const boxes = await parts.evaluateAll((runs) =>
 			runs.map((r) => {
 				const b = r.getBoundingClientRect();
-				return { x: b.x, width: b.width, right: b.right };
+				return { x: b.x, width: b.width };
 			}),
 		);
 		expect(boxes[0].width / boxes[1].width).toBeCloseTo(
@@ -293,7 +283,7 @@ test.describe('invitations', () => {
 		// The threshold of 8 falls one unit into Bob's run of two, so the
 		// marker sits halfway along it.
 		const marker = await weightBar
-			.locator('span.absolute')
+			.getByTestId('weight-threshold-marker')
 			.evaluate((m) => m.getBoundingClientRect().x);
 		expect(marker).toBeCloseTo(
 			boxes[2].x + boxes[2].width / 2,

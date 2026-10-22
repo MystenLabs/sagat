@@ -180,6 +180,7 @@ function Marker({
 				className,
 			)}
 			style={{ left, width: MARKER_WIDTH_PX }}
+			data-testid="weight-threshold-marker"
 		/>
 	);
 }
