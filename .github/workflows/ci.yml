@@ -188,19 +188,8 @@ jobs:
         run: bun run build
         working-directory: sdk
 
-      - name: Install suiup
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh
-
-      - name: Add Sui to PATH
-        run: |
-          echo "$HOME/.sui/bin" >> $GITHUB_PATH
-
-      - name: Install Sui binaries
-        run: |
-          export PATH="$HOME/.sui/bin:$PATH"
-          suiup install sui@mainnet -y
-          sui --version
+      - name: Set up Sui
+        uses: ./.github/actions/setup-sui
 
       # Since sui 1.82 the fullnode serves gRPC only, so wait on the faucet and
       # the RPC port instead of a JSON-RPC call. The script is the one the UI
@@ -257,19 +246,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install suiup
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh
-
-      - name: Add Sui to PATH
-        run: |
-          echo "$HOME/.sui/bin" >> $GITHUB_PATH
-
-      - name: Install Sui binaries
-        run: |
-          export PATH="$HOME/.sui/bin:$PATH"
-          suiup install sui@mainnet -y
-          sui --version
+      - name: Set up Sui
+        uses: ./.github/actions/setup-sui
 
       # Global setup builds a Move package, which needs a client config.
       - name: Create Sui client config
