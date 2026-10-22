@@ -272,3 +272,15 @@ export function totalUsdValue<T>(
 	}
 	return value;
 }
+
+/**
+ * The total to show for the account: withheld (`null`) when it holds coins
+ * but none of them has a price, since $0.00 would then be wrong.
+ */
+export function shownUsdTotal(
+	value: PortfolioValue,
+): number | null {
+	return value.priced > 0 || value.unpriced === 0
+		? value.total
+		: null;
+}

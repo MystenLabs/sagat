@@ -19,16 +19,16 @@ import {
 import { buttonVariants } from '../ui/button';
 import { CoinIcon } from '../ui/CoinIcon';
 import { EmptyState, ErrorState } from '../ui/empty-state';
-import { Skeleton, SkeletonLine } from '../ui/skeleton';
+import { Skeleton, SkeletonRows } from '../ui/skeleton';
 import { SuiLogo } from '../ui/SuiLogo';
 
 /** The overview lists this many tokens; the rest are on the assets tab. */
-export const TOKENS_SHOWN = 5;
+const TOKENS_SHOWN = 5;
 
 /**
  * The account's largest holdings as a table: each coin with its balance
- * and USD value, as far as a price is known. Links to the assets tab for
- * the full list.
+ * and USD value, as far as a price is known. SUI stays first whatever its
+ * value, as on the assets tab. Links to the assets tab for the full list.
  */
 export function TokensCard({
 	address,
@@ -66,7 +66,12 @@ export function TokensCard({
 			</div>
 			<div className="overflow-hidden rounded-xl border bg-card">
 				{assets.query.isLoading ? (
-					<TokensSkeleton />
+					<SkeletonRows
+						rows={3}
+						header={false}
+						className="p-3"
+						testId="tokens-loading"
+					/>
 				) : assets.query.isError ? (
 					<ErrorState
 						title="Failed to load balances"
@@ -104,6 +109,7 @@ export function TokensCard({
 										balance.coinType,
 									)}
 									usd={assets.usdValue(balance)}
+									isLoading={assets.isLoading}
 								/>
 							))}
 						</tbody>
@@ -118,10 +124,12 @@ function TokenRow({
 	balance,
 	coinData,
 	usd,
+	isLoading,
 }: {
 	balance: Balance;
 	coinData: CoinDisplayData | undefined;
 	usd: number | null;
+	isLoading: boolean;
 }) {
 	const decimals = coinData?.decimals;
 	const name =
@@ -163,8 +171,16 @@ function TokenRow({
 			>
 				{decimals != null ? (
 					formatCoinAmount(balance.balance, decimals)
-				) : (
+				) : isLoading ? (
 					<Skeleton className="ml-auto h-4 w-16" />
+				) : (
+					// Without its decimals the raw amount would mislead.
+					<span
+						className="text-muted-foreground"
+						title={`${balance.balance} (raw)`}
+					>
+						—
+					</span>
 				)}
 			</td>
 			<td
@@ -180,25 +196,5 @@ function TokenRow({
 				)}
 			</td>
 		</tr>
-	);
-}
-
-function TokensSkeleton() {
-	return (
-		<ul data-testid="tokens-loading">
-			{[0, 1, 2].map((i) => (
-				<li
-					key={i}
-					className="flex items-center gap-2.5 border-b px-3 py-3 last:border-b-0"
-				>
-					<Skeleton className="size-8 rounded-full" />
-					<div className="flex flex-1 flex-col gap-1.5">
-						<SkeletonLine className="w-16" />
-						<SkeletonLine className="w-24" />
-					</div>
-					<SkeletonLine className="w-20" />
-				</li>
-			))}
-		</ul>
 	);
 }

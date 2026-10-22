@@ -16,6 +16,7 @@ import {
 	isSuiCoinType,
 	parseAmount,
 	rawAmountToFloat,
+	shownUsdTotal,
 	sortBalances,
 	totalUsdValue,
 	type SortableBalance,
@@ -402,5 +403,26 @@ describe('totalUsdValue', () => {
 			priced: 0,
 			unpriced: 0,
 		});
+	});
+});
+
+describe('shownUsdTotal', () => {
+	const total = (...usd: (number | null)[]) =>
+		shownUsdTotal(totalUsdValue(usd, (value) => value));
+
+	test('shows the sum when every coin is priced', () => {
+		expect(total(10, 2.5)).toBe(12.5);
+	});
+
+	test('shows the priced coins when some have no price', () => {
+		expect(total(10, null)).toBe(10);
+	});
+
+	test('withholds the total when no coin has a price', () => {
+		expect(total(null, null)).toBeNull();
+	});
+
+	test('is zero without coins', () => {
+		expect(total()).toBe(0);
 	});
 });

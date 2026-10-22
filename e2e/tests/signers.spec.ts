@@ -6,6 +6,8 @@ import {
 	formatAddress,
 	formatDigest,
 	MIST_PER_SUI,
+	normalizeStructTag,
+	SUI_TYPE_ARG,
 } from '@mysten/sui/utils';
 
 import { randomAddress } from '../support/chain';
@@ -16,6 +18,7 @@ import {
 	signInViaApi,
 	signProposal,
 } from '../support/scenarios';
+import { mintTestCoin } from '../support/test-coin';
 
 test.describe('overview and signers', () => {
 	test('show the setup, each key by its label and weight, and who created it', async ({
@@ -339,6 +342,19 @@ test.describe('overview and signers', () => {
 			gasCoin: coins[1],
 		});
 		await signProposal(bob, ready);
+		// TEST has no price, so the total covers SUI alone.
+		await mintTestCoin(chain, multisig.address, [
+			1_000_000n,
+		]);
+		await alice.stubRecognizedCoins([
+			{
+				coinType: normalizeStructTag(SUI_TYPE_ARG),
+				symbol: 'SUI',
+				name: 'Sui',
+				decimals: 9,
+				priceUsd: 1.5,
+			},
+		]);
 
 		await alice.signIn();
 		const { page } = alice;
@@ -347,15 +363,16 @@ test.describe('overview and signers', () => {
 		await expect(rows).toHaveCount(2);
 
 		await test.step('the value, the tokens, receive and send', async () => {
-			// Localnet has no prices, so SUI is unpriced and the total is withheld.
+			// 20 SUI at $1.50; the TEST coin is left out of the total.
 			const value = page.getByTestId('account-value');
+			await expect(value).toHaveAttribute('data-usd', '30');
 			await expect(value).toHaveAttribute(
 				'data-unpriced',
 				'1',
 			);
-			await expect(value).not.toHaveAttribute(
-				'data-usd',
-				/.*/,
+			await expect(value).toContainText('$30.00');
+			await expect(value).toContainText(
+				'Excludes 1 token without a price.',
 			);
 			const sui = page.locator(
 				'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
@@ -363,6 +380,15 @@ test.describe('overview and signers', () => {
 			await expect(sui).toContainText('SUI');
 			await expect(
 				sui.getByTestId('token-value'),
+			).toHaveText('$30.00');
+			const testCoin = page.locator(
+				'[data-testid="token-row"][data-coin-type$="::test_coin::TEST_COIN"]',
+			);
+			await expect(
+				testCoin.getByTestId('token-balance'),
+			).toHaveText('1');
+			await expect(
+				testCoin.getByTestId('token-value'),
 			).toHaveText('—');
 
 			await page

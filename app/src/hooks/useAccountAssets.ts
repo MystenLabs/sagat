@@ -53,5 +53,7 @@ export function useAccountAssets(address: string) {
 		value,
 		/** Balances or coin details still loading, so `value` may grow. */
 		isLoading: query.isLoading || coinData.isLoading,
+		/** The balances failed to load, so `value` means nothing. */
+		isError: query.isError,
 	};
 }

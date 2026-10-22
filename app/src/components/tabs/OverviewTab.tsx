@@ -53,6 +53,7 @@ export function OverviewTab() {
 				name={accountName(multisig)}
 				value={assets.value}
 				isLoading={assets.isLoading}
+				isError={assets.isError}
 				onSend={() =>
 					openProposalSheet({ kind: 'transfer' })
 				}
