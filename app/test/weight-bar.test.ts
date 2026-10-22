@@ -11,15 +11,17 @@ import {
 } from '../src/lib/weight-bar';
 
 describe('weightBarLayout', () => {
-	it('draws one segment per unit of weight in signer order', () => {
+	it('draws one segment per unit of weight: accepted, then yours, then pending', () => {
+		// Signer order is pending, you, then two accepted signers.
 		expect(
 			weightBarLayout(
 				[
-					{ weight: 2, tone: 'accepted' },
-					{ weight: 1, tone: 'you' },
 					{ weight: 1, tone: 'pending' },
+					{ weight: 1, tone: 'you' },
+					{ weight: 1, tone: 'accepted' },
+					{ weight: 1, tone: 'accepted' },
 				],
-				3,
+				2,
 			),
 		).toEqual({
 			kind: 'segments',
@@ -27,23 +29,60 @@ describe('weightBarLayout', () => {
 		});
 	});
 
-	it('switches to one run per signer past ten units', () => {
+	it('expands each signer into one segment per unit of their weight', () => {
 		expect(
 			weightBarLayout(
 				[
-					{ weight: 8, tone: 'accepted' },
-					{ weight: 0, tone: 'pending' },
-					{ weight: 4, tone: 'you' },
+					{ weight: 2, tone: 'accepted' },
+					{ weight: 1, tone: 'you' },
+					{ weight: 1, tone: 'accepted' },
 				],
-				6,
+				3,
+			),
+		).toEqual({
+			kind: 'segments',
+			tones: ['accepted', 'accepted', 'accepted', 'you'],
+		});
+	});
+
+	it('collapses to one run per signer past ten units, in the same order', () => {
+		expect(
+			weightBarLayout(
+				[
+					{ weight: 2, tone: 'you' },
+					{ weight: 0, tone: 'pending' },
+					{ weight: 4, tone: 'accepted' },
+					{ weight: 1, tone: 'pending' },
+					{ weight: 3, tone: 'accepted' },
+					{ weight: 2, tone: 'pending' },
+				],
+				8,
 			),
 		).toEqual({
 			kind: 'runs',
 			runs: [
-				{ weight: 8, tone: 'accepted' },
-				{ weight: 4, tone: 'you' },
+				{ weight: 4, tone: 'accepted' },
+				{ weight: 3, tone: 'accepted' },
+				{ weight: 2, tone: 'you' },
+				{ weight: 1, tone: 'pending' },
+				{ weight: 2, tone: 'pending' },
 			],
-			thresholdPercent: 50,
+			thresholdPercent: (8 / 12) * 100,
+		});
+	});
+
+	it('caps the threshold share at the whole bar', () => {
+		expect(
+			weightBarLayout(
+				[
+					{ weight: 6, tone: 'accepted' },
+					{ weight: 6, tone: 'you' },
+				],
+				15,
+			),
+		).toMatchObject({
+			kind: 'runs',
+			thresholdPercent: 100,
 		});
 	});
 });

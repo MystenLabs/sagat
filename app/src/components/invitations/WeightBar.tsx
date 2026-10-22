@@ -25,8 +25,8 @@ const TONE_CLASS: Record<WeightTone, string> = {
 /**
  * Where the account stands against its threshold and where you fit: a
  * legend over a bar drawn like the create wizard's threshold bar, one
- * segment per unit of weight in signer order, with a marker at the
- * threshold.
+ * segment per unit of weight, accepted first and yours next, with a
+ * marker at the threshold.
  */
 export function WeightBar({
 	signers,
@@ -91,6 +91,7 @@ export function WeightBar({
 								TONE_CLASS[tone],
 							)}
 							data-tone={tone}
+							data-weight={1}
 						/>
 					))}
 					{bar.tones.length > 0 && (
@@ -115,6 +116,7 @@ export function WeightBar({
 							)}
 							style={{ flexGrow: run.weight }}
 							data-tone={run.tone}
+							data-weight={run.weight}
 						/>
 					))}
 					{/* Runs have no gaps, so the marker needs an edge of its own. */}
@@ -178,6 +180,7 @@ function Marker({
 				className,
 			)}
 			style={{ left, width: MARKER_WIDTH_PX }}
+			data-testid="weight-threshold-marker"
 		/>
 	);
 }

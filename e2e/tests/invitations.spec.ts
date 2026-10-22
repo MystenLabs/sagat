@@ -3,6 +3,7 @@
 
 import { expect, test } from '../support/fixtures';
 import {
+	acceptInvitation,
 	setupMultisig,
 	signInViaApi,
 } from '../support/scenarios';
@@ -62,7 +63,7 @@ test.describe('invitations', () => {
 			bob.page.getByTestId('invitation-review'),
 		).toContainText('Alice invited you as a signer.');
 		// The weight bar: Alice's accepted weight, yours, the threshold,
-		// and one segment per unit of weight in signer order.
+		// and one segment per unit of weight, accepted first.
 		const weightBar = bob.page.getByTestId(
 			'invitation-weight-bar',
 		);
@@ -210,6 +211,84 @@ test.describe('invitations', () => {
 				`[data-testid="multisig-switcher-option"][data-address="${multisig.address}"]`,
 			),
 		).toBeVisible();
+	});
+
+	test('the weight bar sorts by state and collapses to runs past ten units', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const daniel = createIdentity('daniel');
+		const bob = await createActor('bob');
+		const carol = createIdentity('carol');
+		const dave = createIdentity('dave');
+		// Signer order puts pending Carol (2) before Bob (2) and accepted
+		// Daniel (3) after him; Alice (4) has accepted, Dave (1) has not.
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [carol, bob, daniel, dave],
+			weights: [4, 2, 2, 3, 1],
+			threshold: 8,
+			labels: ['Alice', 'Carol', 'Bob', 'Daniel', 'Dave'],
+			accept: false,
+		});
+		await acceptInvitation(daniel, multisig.address);
+
+		await bob.signIn();
+		await bob.page.getByTestId('nav-invitations').click();
+		await bob
+			.invitationCard(multisig.address)
+			.getByTestId('invitation-toggle-details')
+			.click();
+		const weightBar = bob.page.getByTestId(
+			'invitation-weight-bar',
+		);
+		await expect(
+			weightBar.getByTestId('weight-legend-you'),
+		).toHaveText('Your weight 2');
+		await expect(
+			weightBar.getByTestId('weight-legend-accepted'),
+		).toHaveText('Accepted 7');
+		await expect(
+			weightBar.getByTestId('weight-legend-threshold'),
+		).toHaveText('Threshold 8 of 12');
+		// Accepted runs first, then Bob's, then the pending ones: never in
+		// signer order, one run per signer sized by their weight.
+		const parts = weightBar.locator('[data-tone]');
+		const runs = await parts.evaluateAll((spans) =>
+			spans.map((s) => {
+				const b = s.getBoundingClientRect();
+				return {
+					tone: s.getAttribute('data-tone'),
+					weight: s.getAttribute('data-weight'),
+					x: b.x,
+					width: b.width,
+				};
+			}),
+		);
+		expect(
+			runs.map((r) => `${r.tone}:${r.weight}`),
+		).toEqual([
+			'accepted:4',
+			'accepted:3',
+			'you:2',
+			'pending:2',
+			'pending:1',
+		]);
+		expect(runs[0].width / runs[1].width).toBeCloseTo(
+			4 / 3,
+			1,
+		);
+		expect(runs[3].width / runs[4].width).toBeCloseTo(2, 1);
+		// The threshold of 8 falls one unit into Bob's run of two, so the
+		// marker sits halfway along it.
+		const marker = await weightBar
+			.getByTestId('weight-threshold-marker')
+			.evaluate((m) => m.getBoundingClientRect().x);
+		expect(marker).toBeCloseTo(
+			runs[2].x + runs[2].width / 2,
+			-1,
+		);
 	});
 
 	test('an accept that lands after switching accounts stays on the invitations page', async ({

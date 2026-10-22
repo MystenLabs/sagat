@@ -21,11 +21,20 @@ export const SEGMENT_GAP_PX = 4;
 /** The threshold marker's width; its `left` is offset by half of it. */
 export const MARKER_WIDTH_PX = 2;
 
+/** Accepted weight comes first, then yours, then what is still pending. */
+const TONE_ORDER: Record<WeightTone, number> = {
+	accepted: 0,
+	you: 1,
+	pending: 2,
+};
+
 /**
- * How the weight bar on an invitation is drawn, in signer order: one
- * segment per unit of weight up to the same cap as the create wizard's
- * threshold bar, then one run per signer sized by their weight with the
- * threshold as a share of the total.
+ * How the weight bar on an invitation is drawn: accepted weight first,
+ * then yours, then the pending rest, so the threshold marker reads
+ * against what has been accepted so far. One segment per unit of weight
+ * up to the same cap as the create wizard's threshold bar, then one run
+ * per signer sized by their weight with the threshold as a share of the
+ * total.
  */
 export function weightBarLayout(
 	signers: WeightedSigner[],
@@ -37,11 +46,14 @@ export function weightBarLayout(
 			runs: WeightedSigner[];
 			thresholdPercent: number;
 	  } {
-	const totalWeight = sumWeight(signers);
+	const ordered = [...signers].sort(
+		(a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone],
+	);
+	const totalWeight = sumWeight(ordered);
 	if (totalWeight <= BAR_SEGMENT_CAP)
 		return {
 			kind: 'segments',
-			tones: signers.flatMap((signer) =>
+			tones: ordered.flatMap((signer) =>
 				Array.from(
 					{ length: Math.max(signer.weight, 0) },
 					() => signer.tone,
@@ -50,7 +62,7 @@ export function weightBarLayout(
 		};
 	return {
 		kind: 'runs',
-		runs: signers.filter((signer) => signer.weight > 0),
+		runs: ordered.filter((signer) => signer.weight > 0),
 		thresholdPercent:
 			Math.min(threshold / totalWeight, 1) * 100,
 	};
