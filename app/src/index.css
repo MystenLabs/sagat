@@ -114,7 +114,7 @@
 
 	--color-warning: var(--warning);
 	--color-warning-soft: var(--warning-soft);
-	/* Opaque yellow for the test-mode strip, which must hide what's under it. */
+	/* Opaque yellow for the test-mode strip, stronger than the translucent tint. */
 	--color-warning-solid: var(--warning-solid);
 	--color-warning-foreground: var(--warning-foreground);
 	--color-warning-border: var(--warning-border);

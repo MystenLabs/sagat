@@ -3,7 +3,10 @@
 
 import { useState } from 'react';
 
-import { Button } from '@/components/ui/button';
+import {
+	Button,
+	disabledButton,
+} from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
 	NAME_MAX,
@@ -13,7 +16,6 @@ import {
 import { cn } from '@/lib/utils';
 
 import {
-	disabledButton,
 	Divider,
 	field,
 	SectionHeading,

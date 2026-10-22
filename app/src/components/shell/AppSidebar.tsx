@@ -178,9 +178,7 @@ function SidebarNav() {
 	const closeMobile = () => setOpenMobile(false);
 
 	return (
-		// Above the sticky test-mode banner: the wallet menu opens out of the
-		// rail over the page.
-		<Sidebar collapsible="icon" className="z-50">
+		<Sidebar collapsible="icon">
 			<div
 				className="flex min-h-0 flex-1 flex-col"
 				data-testid="app-header"

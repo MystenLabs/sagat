@@ -18,7 +18,10 @@ import {
 } from '@dnd-kit/sortable';
 import { ArrowLeft, Info, Plus } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
+import {
+	Button,
+	disabledButton,
+} from '@/components/ui/button';
 import {
 	Tooltip,
 	TooltipContent,
@@ -34,7 +37,6 @@ import {
 import { cn } from '@/lib/utils';
 
 import {
-	disabledButton,
 	Divider,
 	Notice,
 	NumberStepper,
