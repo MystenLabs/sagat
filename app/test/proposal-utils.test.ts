@@ -107,4 +107,16 @@ describe('weightDots', () => {
 			weightDots({ currentWeight: 100, totalWeight: 100 }),
 		).toEqual({ dots: 10, filled: 10 });
 	});
+
+	it('keeps a scaled proposal short of full until it reaches the threshold', () => {
+		expect(
+			weightDots({ currentWeight: 95, totalWeight: 100 }),
+		).toEqual({ dots: 10, filled: 9 });
+		expect(
+			weightDots({ currentWeight: 1, totalWeight: 100 }),
+		).toEqual({ dots: 10, filled: 1 });
+		expect(
+			weightDots({ currentWeight: 0, totalWeight: 100 }),
+		).toEqual({ dots: 10, filled: 0 });
+	});
 });

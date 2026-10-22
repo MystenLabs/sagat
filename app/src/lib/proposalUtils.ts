@@ -109,13 +109,14 @@ export function proposalTitle(
 }
 
 /** At most this many dots stand for a proposal's weight. */
-export const MAX_WEIGHT_DOTS = 10;
+const MAX_WEIGHT_DOTS = 10;
 
 /**
  * How many dots show a proposal's progress toward its threshold, and how
  * many of them are filled. One dot per unit of weight up to
  * `MAX_WEIGHT_DOTS`; past that the dots scale, so the tooltip carries the
- * exact numbers.
+ * exact numbers. Scaled, any weight fills a dot and only the threshold
+ * fills them all.
  */
 export function weightDots({
 	currentWeight,
@@ -128,8 +129,19 @@ export function weightDots({
 	);
 	if (total <= MAX_WEIGHT_DOTS)
 		return { dots: total, filled: current };
+	const scaled = Math.round(
+		(current / total) * MAX_WEIGHT_DOTS,
+	);
 	return {
 		dots: MAX_WEIGHT_DOTS,
-		filled: Math.round((current / total) * MAX_WEIGHT_DOTS),
+		filled:
+			current === total
+				? MAX_WEIGHT_DOTS
+				: current === 0
+					? 0
+					: Math.min(
+							Math.max(scaled, 1),
+							MAX_WEIGHT_DOTS - 1,
+						),
 	};
 }

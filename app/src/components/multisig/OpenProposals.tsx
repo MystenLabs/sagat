@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ProposalStatus } from '@mysten/sagat';
-import { formatAddress } from '@mysten/sui/utils';
 import { ChevronRight, FileText } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -28,9 +27,10 @@ import { ProposalWeight } from '../proposals/ProposalWeight';
 import { Button, buttonVariants } from '../ui/button';
 import { EmptyState, ErrorState } from '../ui/empty-state';
 import { SkeletonRows } from '../ui/skeleton';
+import { SignerName } from './SignerName';
 
 /** The overview lists this many open proposals; the rest are on the proposals tab. */
-export const OPEN_PROPOSALS_SHOWN = 5;
+const OPEN_PROPOSALS_SHOWN = 5;
 
 /**
  * The account's open proposals as a table: what each proposes, where it
@@ -48,7 +48,8 @@ export function OpenProposals({
 		multisigAddress: multisig.address,
 		network,
 		status: ProposalStatus.PENDING,
-		perPage: OPEN_PROPOSALS_SHOWN,
+		// The proposals tab's page size, so both share one cached query.
+		perPage: 10,
 	});
 	const proposals = useMemo(
 		() =>
@@ -59,21 +60,17 @@ export function OpenProposals({
 				),
 		[query.data, multisig],
 	);
-	// Proposers are named like signers: by label, else short address.
-	const signers = useMemo(
+	// Proposers are named like signers: by their key's label, if any.
+	const labels = useMemo(
 		() =>
-			signerRows(multisig.members, currentAddress?.address),
-		[multisig.members, currentAddress?.address],
+			new Map(
+				signerRows(multisig.members, null).map((s) => [
+					s.address,
+					s.member.label || null,
+				]),
+			),
+		[multisig.members],
 	);
-	const proposerName = (address: string) => {
-		const signer = signers.find(
-			(s) => s.address === address,
-		);
-		if (!signer) return formatAddress(address);
-		return signer.isYou
-			? `${signer.name} (you)`
-			: signer.name;
-	};
 
 	return (
 		<section
@@ -100,29 +97,27 @@ export function OpenProposals({
 					View all proposals
 				</Link>
 			</div>
-			<div className="overflow-hidden rounded-xl border bg-card">
-				{query.isLoading ? (
-					<SkeletonRows
-						rows={3}
-						header={false}
-						className="p-3"
-						testId="open-proposals-loading"
-					/>
-				) : query.error ? (
-					<ErrorState
-						title="Failed to load proposals"
-						error={query.error}
-						onRetry={() => query.refetch()}
-						testId="open-proposals-error"
-					/>
-				) : proposals.length === 0 ? (
-					<EmptyState
-						icon={FileText}
-						title="No open proposals"
-						description="Every proposal has been executed or cancelled."
-						testId="open-proposals-empty"
-					/>
-				) : (
+			{query.isLoading ? (
+				<SkeletonRows
+					rows={3}
+					testId="open-proposals-loading"
+				/>
+			) : query.error ? (
+				<ErrorState
+					title="Failed to load proposals"
+					error={query.error}
+					onRetry={() => query.refetch()}
+					testId="open-proposals-error"
+				/>
+			) : proposals.length === 0 ? (
+				<EmptyState
+					icon={FileText}
+					title="No open proposals"
+					description="Proposals waiting for signatures show up here."
+					testId="open-proposals-empty"
+				/>
+			) : (
+				<div className="overflow-hidden rounded-xl border bg-card">
 					<table className="w-full table-fixed text-13">
 						<thead>
 							<tr className="bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal">
@@ -143,25 +138,32 @@ export function OpenProposals({
 								<OpenProposalRow
 									key={proposal.id}
 									proposal={proposal}
-									proposer={proposerName(
-										proposal.proposerAddress,
-									)}
+									proposerLabel={
+										labels.get(proposal.proposerAddress) ??
+										null
+									}
+									proposedByYou={
+										proposal.proposerAddress ===
+										currentAddress?.address
+									}
 								/>
 							))}
 						</tbody>
 					</table>
-				)}
-			</div>
+				</div>
+			)}
 		</section>
 	);
 }
 
 function OpenProposalRow({
 	proposal,
-	proposer,
+	proposerLabel,
+	proposedByYou,
 }: {
 	proposal: ProposalCardInput;
-	proposer: string;
+	proposerLabel: string | null;
+	proposedByYou: boolean;
 }) {
 	const status = proposalStatusKey(proposal);
 	const executing = useExecuteOrVerify();
@@ -181,8 +183,24 @@ function OpenProposalRow({
 						{proposalTitle(proposal)}
 					</span>
 					<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-12 text-muted-foreground">
-						<span data-testid="open-proposal-proposer">
-							Proposed by {proposer}
+						<span
+							className="inline-flex min-w-0 items-center gap-1"
+							data-testid="open-proposal-proposer"
+						>
+							Proposed by{' '}
+							{/* The name alone; the address only when unnamed. */}
+							<SignerName
+								label={proposerLabel}
+								address={
+									proposerLabel
+										? undefined
+										: proposal.proposerAddress
+								}
+								marker={proposedByYou ? 'you' : null}
+								markerStyle="parens"
+								size="inline"
+								labelTestId={null}
+							/>
 						</span>
 						<ProposalExpiry
 							transactionBytes={proposal.transactionBytes}

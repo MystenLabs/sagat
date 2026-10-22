@@ -77,14 +77,6 @@ export function ProposalCard({
 	const cancelProposalMutation = useCancelProposal();
 	const signProposalMutation = useSignProposal();
 
-	// Check if current user has already signed this proposal
-	// Check if the proposal is ready to execute
-	const isReadyToExecute = () => {
-		if (proposal.status !== ProposalStatus.PENDING)
-			return false;
-		return proposal.currentWeight >= proposal.totalWeight;
-	};
-
 	const handleConfirmCancel = () => {
 		cancelProposalMutation.mutate(proposal.id, {
 			onSuccess: () => {
@@ -247,7 +239,7 @@ export function ProposalCard({
 				</div>
 
 				<div className="md:ml-4 flex items-center gap-2">
-					{isReadyToExecute() && (
+					{statusKey === 'ready' && (
 						<Button
 							size="sm"
 							onClick={() => executing.execute(proposal)}
@@ -257,7 +249,7 @@ export function ProposalCard({
 						>
 							<Rocket className="w-4 h-4 mr-1" />
 							{executing.isPending
-								? 'Executing...'
+								? 'Executing…'
 								: 'Execute'}
 						</Button>
 					)}
