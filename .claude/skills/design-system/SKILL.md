@@ -40,7 +40,7 @@ colours, so there is no judgment call here.
 | Status                   | `bg-success text-success-foreground border-success-border`, same for `warning`, `info`, `error`; and `bg-purple text-purple-foreground`                                            |
 | Status, lighter tint     | `bg-success-soft`, `bg-warning-soft`, `bg-info-soft` for a lighter tint of the colour; there are no `bg-error-soft` or `bg-purple-soft`                                            |
 | Destructive              | `bg-destructive`, `text-destructive`, `border-destructive`                                                                                                                         |
-| Text fields              | `Input`, `Textarea`, `SelectTrigger`, `InputGroup`: `rounded-md border-foreground/12 bg-card text-14`; focus is `border-foreground`, no ring; invalid is `border-error-foreground` |
+| Text fields              | `Input`, `Textarea`, `SelectTrigger`, `InputGroup`: `rounded-md border-foreground/12 bg-card text-14` (16 on phones); focus `border-foreground`; invalid `border-error-foreground` |
 | Sidebar                  | `bg-sidebar`, `text-sidebar-foreground`, `bg-sidebar-accent`, `border-sidebar-border`                                                                                              |
 | Sidebar status text      | `text-sidebar-warning`, `text-sidebar-error` (fixed in both themes, since the sidebar is black in both)                                                                            |
 | Chips, skeletons, toasts | `bg-chip text-chip-foreground`, `bg-skeleton`, `bg-toast text-toast-foreground`                                                                                                    |
@@ -69,9 +69,11 @@ Rules:
   `text-10`, `text-11`, `text-12`, `text-13`, `text-14`, `text-15`,
   `text-16`, `text-18`, `text-20`, `text-24`, `text-30`, `text-32`,
   `text-40`.
-- Body and controls are `text-13`. Secondary text `text-12`. Labels and
-  breadcrumbs `text-11 uppercase`. Chips `text-10 uppercase`. Page
-  titles `text-24 font-bold sm:text-30`. Card titles `text-16 font-semibold`.
+- Body and controls are `text-13`. Text fields are `text-14`, and 16px
+  below `md` so iOS does not zoom on focus (the `text-field` utility).
+  Secondary text `text-12`. Labels and breadcrumbs `text-11 uppercase`.
+  Chips `text-10 uppercase`. Page titles `text-24 font-bold sm:text-30`.
+  Card titles `text-16 font-semibold`.
 - No arbitrary sizes (`text-[13px]`). The default Tailwind scale
   (`text-sm`, `text-lg`) is legacy and goes away as screens are
   migrated; do not add new uses of it.
@@ -93,8 +95,9 @@ Rules:
 - Control heights: buttons `h-9` (default) and `h-7` (sm); text fields
   (`Input`, `InputGroup`) `size="sm"` 38px (`h-9.5`), `md` 42px
   (`h-10.5`, the default) and `lg` 46px (`h-11.5`), with `SelectTrigger`
-  matching `sm` and `md`; menu rows `h-9`; sidebar rows `h-8`. Icons
-  inside controls are `size-4`.
+  matching `sm` and `md` (all from `inputSizes`), text `text-14` (16px
+  below `md`); menu rows `h-9`; sidebar rows `h-8`. Icons inside
+  controls are `size-4`.
 
 ## Components
 

@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
 	NAME_MAX,
 	nameError,
@@ -53,12 +54,7 @@ export function NameStep({
 				description="Signers see this name in their invitation."
 			/>
 			<div className="flex flex-col gap-1.5">
-				<label
-					htmlFor="create-name"
-					className="text-13 font-medium"
-				>
-					Multisig name
-				</label>
+				<Label htmlFor="create-name">Multisig name</Label>
 				<Input
 					id="create-name"
 					value={name}

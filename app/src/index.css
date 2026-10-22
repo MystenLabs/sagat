@@ -304,6 +304,13 @@ html [data-sonner-toaster][data-x-position='center'] {
 	transform: translateX(-50%);
 }
 
+/* Text-field text: 16px on phones, so iOS Safari does not zoom the page
+   when a field takes focus, and the design's 14px from md up. One class,
+   so a caller's text-12 (registered with tailwind-merge) replaces it. */
+@utility text-field {
+	@apply text-16 md:text-14;
+}
+
 /* Main column of every page: the padding from the designs (44px top,
    56px sides on desktop), no max-width. */
 @utility page-shell {

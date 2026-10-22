@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useAddProposer } from '../../hooks/useAddProposer';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import {
 	Modal,
 	ModalActions,
@@ -81,12 +82,9 @@ export function AddProposerDialog({
 					</p>
 
 					<div className="space-y-2">
-						<label
-							htmlFor="proposer-address"
-							className="text-13 font-medium"
-						>
+						<Label htmlFor="proposer-address">
 							Proposer Address
-						</label>
+						</Label>
 						<Input
 							id="proposer-address"
 							placeholder="0x..."

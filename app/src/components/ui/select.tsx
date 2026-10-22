@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Select as SelectPrimitive } from '@base-ui/react/select';
+import { cva } from 'class-variance-authority';
 import {
 	CheckIcon,
 	ChevronDownIcon,
@@ -9,6 +10,11 @@ import {
 } from 'lucide-react';
 import * as React from 'react';
 
+import {
+	fieldFrame,
+	fieldText,
+	inputSizes,
+} from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 const Select = SelectPrimitive.Root;
@@ -39,6 +45,20 @@ function SelectValue({
 	);
 }
 
+const selectTriggerVariants = cva(
+	[
+		fieldFrame,
+		fieldText,
+		"flex w-fit cursor-pointer items-center justify-between gap-1.5 px-3 whitespace-nowrap select-none data-placeholder:text-muted-foreground/70 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+	],
+	{
+		variants: {
+			size: { default: inputSizes.md, sm: inputSizes.sm },
+		},
+		defaultVariants: { size: 'default' },
+	},
+);
+
 function SelectTrigger({
 	className,
 	size = 'default',
@@ -52,7 +72,7 @@ function SelectTrigger({
 			data-slot="select-trigger"
 			data-size={size}
 			className={cn(
-				"flex w-fit cursor-pointer items-center justify-between gap-1.5 rounded-md border border-foreground/12 bg-card px-3 text-14 whitespace-nowrap text-foreground transition-colors outline-none select-none focus-visible:border-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground aria-invalid:border-error-foreground data-placeholder:text-muted-foreground/70 data-[size=default]:h-10.5 data-[size=sm]:h-9.5 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+				selectTriggerVariants({ size }),
 				className,
 			)}
 			{...props}

@@ -200,7 +200,7 @@ function KeyField({
 	return (
 		<InputGroup
 			size="sm"
-			data-tone={
+			tone={
 				status.kind === 'no-key' ? 'warning' : undefined
 			}
 			className={cn(
@@ -230,12 +230,7 @@ function KeyField({
 				)}
 				data-testid="create-signer-key"
 			/>
-			{/* The control keeps 6px before the addon; the trailing
-			    control sits 4px from the edge. */}
-			<InputGroupAddon
-				align="inline-end"
-				className="py-0 pr-1 has-[>button]:mr-0"
-			>
+			<InputGroupAddon align="inline-end">
 				{creator ? (
 					<span aria-hidden className="size-7 shrink-0" />
 				) : signer.key ? (

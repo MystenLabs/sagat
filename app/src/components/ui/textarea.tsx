@@ -3,6 +3,10 @@
 
 import * as React from 'react';
 
+import {
+	fieldFrame,
+	fieldText,
+} from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 const Textarea = React.forwardRef<
@@ -14,7 +18,9 @@ const Textarea = React.forwardRef<
 			ref={ref}
 			data-slot="textarea"
 			className={cn(
-				'flex min-h-16 w-full rounded-md border border-foreground/12 bg-card px-3 py-2 text-14 text-foreground transition-colors outline-none placeholder:text-muted-foreground/70 focus-visible:border-foreground aria-invalid:border-error-foreground disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground',
+				fieldFrame,
+				fieldText,
+				'flex min-h-16 w-full px-3 py-2',
 				className,
 			)}
 			{...props}
