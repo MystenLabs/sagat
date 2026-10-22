@@ -56,7 +56,7 @@
 	--text-40--line-height: 1.1;
 	--text-40--letter-spacing: -0.03em;
 
-	/* Radii: 6 on buttons, 8 on inputs, 10 on cards and dialogs, 12 on table shells. */
+	/* Radii: 6 on buttons and inputs, 10 on cards and dialogs, 12 on table shells. */
 	--radius-xs: 2px;
 	--radius-sm: 4px;
 	--radius-md: 6px;
@@ -306,6 +306,13 @@
 html [data-sonner-toaster][data-x-position='center'] {
 	left: calc(50% + var(--content-left, 0px) / 2);
 	transform: translateX(-50%);
+}
+
+/* Text-field text: 16px on phones, so iOS Safari does not zoom the page
+   when a field takes focus, and the design's 14px from md up. A caller's
+   md:text-12 replaces the desktop size and keeps 16px on phones. */
+@utility text-field {
+	@apply text-16 md:text-14;
 }
 
 /* Main column of every page: the padding from the designs (44px top,

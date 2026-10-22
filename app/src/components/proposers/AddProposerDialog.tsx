@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useAddProposer } from '../../hooks/useAddProposer';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import {
 	Modal,
 	ModalActions,
@@ -81,12 +82,9 @@ export function AddProposerDialog({
 					</p>
 
 					<div className="space-y-2">
-						<label
-							htmlFor="proposer-address"
-							className="text-sm font-medium"
-						>
+						<Label htmlFor="proposer-address">
 							Proposer Address
-						</label>
+						</Label>
 						<Input
 							id="proposer-address"
 							placeholder="0x..."
@@ -95,9 +93,20 @@ export function AddProposerDialog({
 								setProposerAddress(e.target.value)
 							}
 							disabled={addProposer.isPending}
+							aria-invalid={!!validationError}
+							aria-describedby={
+								validationError
+									? 'proposer-address-error'
+									: undefined
+							}
+							data-testid="add-proposer-address-input"
 						/>
 						{validationError && (
-							<p className="text-sm text-error-foreground">
+							<p
+								id="proposer-address-error"
+								className="text-12 text-error-foreground"
+								data-testid="add-proposer-error"
+							>
 								{validationError}
 							</p>
 						)}
