@@ -16,10 +16,6 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { clamp } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
 
-/** The designs' disabled button: grey fill and label, not faded. */
-export const disabledButton =
-	'disabled:bg-muted disabled:text-muted-foreground/70 disabled:opacity-100';
-
 export function SectionHeading({
 	title,
 	description,

@@ -1,15 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Check, X } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { type ReactNode } from 'react';
 
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '../ui/tooltip';
+import { DismissButton } from '../ui/dismiss-button';
 
 /** A dismissible green note at the top of a page, after a flow ends. */
 export function SuccessBanner({
@@ -32,20 +27,12 @@ export function SuccessBanner({
 				strokeWidth={2.5}
 			/>
 			<span className="min-w-0 flex-1">{children}</span>
-			<TooltipProvider delay={150}>
-				<Tooltip>
-					<TooltipTrigger
-						type="button"
-						aria-label="Dismiss"
-						className="cursor-pointer rounded-sm opacity-70 outline-none hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring"
-						onClick={onDismiss}
-						data-testid={`${testId}-dismiss`}
-					>
-						<X className="size-3.5" />
-					</TooltipTrigger>
-					<TooltipContent>Dismiss</TooltipContent>
-				</Tooltip>
-			</TooltipProvider>
+			<DismissButton
+				onClick={onDismiss}
+				className="opacity-70 hover:opacity-100"
+				iconClassName="size-3.5"
+				data-testid={`${testId}-dismiss`}
+			/>
 		</div>
 	);
 }
