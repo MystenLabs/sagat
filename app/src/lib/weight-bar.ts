@@ -37,7 +37,7 @@ const TONE_ORDER: Record<WeightTone, number> = {
  * total.
  */
 export function weightBarLayout(
-	unordered: WeightedSigner[],
+	signers: WeightedSigner[],
 	threshold: number,
 ):
 	| { kind: 'segments'; tones: WeightTone[] }
@@ -46,14 +46,14 @@ export function weightBarLayout(
 			runs: WeightedSigner[];
 			thresholdPercent: number;
 	  } {
-	const signers = [...unordered].sort(
+	const ordered = [...signers].sort(
 		(a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone],
 	);
-	const totalWeight = sumWeight(signers);
+	const totalWeight = sumWeight(ordered);
 	if (totalWeight <= BAR_SEGMENT_CAP)
 		return {
 			kind: 'segments',
-			tones: signers.flatMap((signer) =>
+			tones: ordered.flatMap((signer) =>
 				Array.from(
 					{ length: Math.max(signer.weight, 0) },
 					() => signer.tone,
@@ -62,7 +62,7 @@ export function weightBarLayout(
 		};
 	return {
 		kind: 'runs',
-		runs: signers.filter((signer) => signer.weight > 0),
+		runs: ordered.filter((signer) => signer.weight > 0),
 		thresholdPercent:
 			Math.min(threshold / totalWeight, 1) * 100,
 	};

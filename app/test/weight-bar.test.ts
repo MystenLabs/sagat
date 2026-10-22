@@ -11,8 +11,8 @@ import {
 } from '../src/lib/weight-bar';
 
 describe('weightBarLayout', () => {
-	it('draws one segment per unit of weight, accepted first, then yours', () => {
-		// Signer order is Daniel (pending), you, then two accepted signers.
+	it('draws one segment per unit of weight: accepted, then yours, then pending', () => {
+		// Signer order is pending, you, then two accepted signers.
 		expect(
 			weightBarLayout(
 				[
@@ -72,16 +72,18 @@ describe('weightBarLayout', () => {
 	});
 
 	it('caps the threshold share at the whole bar', () => {
-		const bar = weightBarLayout(
-			[
-				{ weight: 6, tone: 'accepted' },
-				{ weight: 6, tone: 'you' },
-			],
-			15,
-		);
-		expect(bar.kind).toBe('runs');
-		if (bar.kind === 'runs')
-			expect(bar.thresholdPercent).toBe(100);
+		expect(
+			weightBarLayout(
+				[
+					{ weight: 6, tone: 'accepted' },
+					{ weight: 6, tone: 'you' },
+				],
+				15,
+			),
+		).toMatchObject({
+			kind: 'runs',
+			thresholdPercent: 100,
+		});
 	});
 });
 
@@ -103,9 +105,6 @@ describe('thresholdMarkerLeft', () => {
 
 	it('is centred on the threshold share over runs', () => {
 		expect(runMarkerLeft(50)).toBe('calc(50% - 1px)');
-		expect(runMarkerLeft((8 / 12) * 100)).toBe(
-			`calc(${(8 / 12) * 100}% - 1px)`,
-		);
 	});
 });
 

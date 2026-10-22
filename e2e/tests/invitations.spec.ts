@@ -244,6 +244,9 @@ test.describe('invitations', () => {
 			'invitation-weight-bar',
 		);
 		await expect(
+			weightBar.getByTestId('weight-legend-you'),
+		).toHaveText('Your weight 2');
+		await expect(
 			weightBar.getByTestId('weight-legend-accepted'),
 		).toHaveText('Accepted 7');
 		await expect(
@@ -252,13 +255,19 @@ test.describe('invitations', () => {
 		// Accepted runs first, then Bob's, then the pending ones: never in
 		// signer order, one run per signer sized by their weight.
 		const parts = weightBar.locator('[data-tone]');
+		const runs = await parts.evaluateAll((spans) =>
+			spans.map((s) => {
+				const b = s.getBoundingClientRect();
+				return {
+					tone: s.getAttribute('data-tone'),
+					weight: s.getAttribute('data-weight'),
+					x: b.x,
+					width: b.width,
+				};
+			}),
+		);
 		expect(
-			await parts.evaluateAll((runs) =>
-				runs.map(
-					(r) =>
-						`${r.getAttribute('data-tone')}:${r.getAttribute('data-weight')}`,
-				),
-			),
+			runs.map((r) => `${r.tone}:${r.weight}`),
 		).toEqual([
 			'accepted:4',
 			'accepted:3',
@@ -266,27 +275,18 @@ test.describe('invitations', () => {
 			'pending:2',
 			'pending:1',
 		]);
-		const boxes = await parts.evaluateAll((runs) =>
-			runs.map((r) => {
-				const b = r.getBoundingClientRect();
-				return { x: b.x, width: b.width };
-			}),
-		);
-		expect(boxes[0].width / boxes[1].width).toBeCloseTo(
+		expect(runs[0].width / runs[1].width).toBeCloseTo(
 			4 / 3,
 			1,
 		);
-		expect(boxes[3].width / boxes[4].width).toBeCloseTo(
-			2,
-			1,
-		);
+		expect(runs[3].width / runs[4].width).toBeCloseTo(2, 1);
 		// The threshold of 8 falls one unit into Bob's run of two, so the
 		// marker sits halfway along it.
 		const marker = await weightBar
 			.getByTestId('weight-threshold-marker')
 			.evaluate((m) => m.getBoundingClientRect().x);
 		expect(marker).toBeCloseTo(
-			boxes[2].x + boxes[2].width / 2,
+			runs[2].x + runs[2].width / 2,
 			-1,
 		);
 	});
