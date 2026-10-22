@@ -225,7 +225,7 @@ function KeyField({
 				spellCheck={false}
 				autoComplete="off"
 				className={cn(
-					'truncate font-mono text-12 placeholder:font-sans',
+					'truncate font-mono placeholder:font-sans md:text-12',
 					creator && 'text-muted-foreground',
 				)}
 				data-testid="create-signer-key"

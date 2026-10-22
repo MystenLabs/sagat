@@ -11,6 +11,7 @@ import {
 import { useState, type ReactNode } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { inputSizes } from '@/components/ui/input';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { clamp } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
@@ -333,7 +334,7 @@ export function NumberStepper({
 		<div
 			className={cn(
 				'inline-flex shrink-0 overflow-hidden rounded-md border border-foreground/12',
-				size === 'sm' ? 'h-9.5' : 'h-11.5',
+				size === 'sm' ? inputSizes.sm : inputSizes.lg,
 			)}
 		>
 			<button
