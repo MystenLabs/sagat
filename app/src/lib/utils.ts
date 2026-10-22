@@ -26,6 +26,8 @@ const twMerge = extendTailwindMerge({
 						'30',
 						'32',
 						'40',
+						// 16px on phones, 14px from md (index.css).
+						'field',
 					],
 				},
 			],

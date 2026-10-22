@@ -16,6 +16,11 @@ import { useRef } from 'react';
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Input } from '@/components/ui/input';
 import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+} from '@/components/ui/input-group';
+import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
@@ -29,7 +34,7 @@ import {
 } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
 
-import { field, NumberStepper } from './parts';
+import { NumberStepper } from './parts';
 
 const LABEL_MAX = CONFIG.MAX_KEY_LABEL_LENGTH;
 // The label counter shows from here on.
@@ -117,10 +122,8 @@ export function SignerRow({
 						undefined
 					}
 					autoFocus={autoFocus}
-					className={cn(
-						field,
-						'h-9.5 min-w-0 flex-1 px-3 @xl/card:w-25 @xl/card:flex-none',
-					)}
+					size="sm"
+					className="min-w-0 flex-1 @xl/card:w-25 @xl/card:flex-none"
 					data-testid="create-signer-label"
 				/>
 
@@ -195,17 +198,17 @@ function KeyField({
 	const creator = !!signer.isCreator;
 	const input = useRef<HTMLInputElement>(null);
 	return (
-		<div
+		<InputGroup
+			size="sm"
+			tone={
+				status.kind === 'no-key' ? 'warning' : undefined
+			}
 			className={cn(
-				'order-last flex h-9.5 w-full min-w-0 items-center gap-1.5 rounded-md border border-foreground/12 bg-card py-1 pr-1 pl-3 focus-within:border-foreground @xl/card:order-none @xl/card:w-auto @xl/card:flex-1',
-				status.kind === 'error' &&
-					'border-error-foreground focus-within:border-error-foreground',
-				status.kind === 'no-key' &&
-					'border-warning-border focus-within:border-warning-foreground',
-				creator && 'border-foreground/10 bg-muted',
+				'order-last w-full @xl/card:order-none @xl/card:w-auto @xl/card:flex-1',
+				creator && 'bg-muted',
 			)}
 		>
-			<input
+			<InputGroupInput
 				ref={input}
 				value={signer.key}
 				readOnly={creator}
@@ -222,35 +225,37 @@ function KeyField({
 				spellCheck={false}
 				autoComplete="off"
 				className={cn(
-					'h-full min-w-0 flex-1 truncate bg-transparent font-mono text-12 outline-none placeholder:font-sans placeholder:text-muted-foreground/70',
+					'truncate font-mono placeholder:font-sans md:text-12',
 					creator && 'text-muted-foreground',
 				)}
 				data-testid="create-signer-key"
 			/>
-			{creator ? (
-				<span aria-hidden className="size-7 shrink-0" />
-			) : signer.key ? (
-				<Tooltip>
-					<TooltipTrigger
-						aria-label="Clear"
-						onClick={() => {
-							onChange('');
-							// The button goes with the key, so focus stays in the row.
-							input.current?.focus();
-						}}
-						className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-						data-testid="create-signer-key-clear"
-					>
-						<X className="size-3.5" />
-					</TooltipTrigger>
-					<TooltipContent>Clear</TooltipContent>
-				</Tooltip>
-			) : (
-				<span className="flex size-7 shrink-0 items-center justify-center text-muted-foreground">
-					<Search aria-hidden className="size-3.5" />
-				</span>
-			)}
-		</div>
+			<InputGroupAddon align="inline-end">
+				{creator ? (
+					<span aria-hidden className="size-7 shrink-0" />
+				) : signer.key ? (
+					<Tooltip>
+						<TooltipTrigger
+							aria-label="Clear"
+							onClick={() => {
+								onChange('');
+								// The button goes with the key, so focus stays in the row.
+								input.current?.focus();
+							}}
+							className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+							data-testid="create-signer-key-clear"
+						>
+							<X className="size-3.5" />
+						</TooltipTrigger>
+						<TooltipContent>Clear</TooltipContent>
+					</Tooltip>
+				) : (
+					<span className="flex size-7 shrink-0 items-center justify-center text-muted-foreground">
+						<Search aria-hidden className="size-3.5" />
+					</span>
+				)}
+			</InputGroupAddon>
+		</InputGroup>
 	);
 }
 

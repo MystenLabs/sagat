@@ -20,6 +20,7 @@ import {
 } from '../../lib/coins';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import { AssetPicker } from './AssetPicker';
 import { buildTransferTransaction } from './buildTransferTransaction';
 
@@ -250,7 +251,7 @@ export function TransferForm({
 	return (
 		<div className="space-y-5">
 			<div className="space-y-1.5">
-				<label className="text-sm font-medium">Asset</label>
+				<Label>Asset</Label>
 				<AssetPicker
 					balances={balances}
 					selectedCoinType={coinType || null}
@@ -264,32 +265,38 @@ export function TransferForm({
 					isLoading={isLoadingBalances}
 				/>
 				{errors.coinType && (
-					<p className="text-sm text-error-foreground">
+					<p className="text-12 text-error-foreground">
 						{errors.coinType.message}
 					</p>
 				)}
 			</div>
 
 			<div className="space-y-1.5">
-				<label
-					htmlFor="transfer-recipient"
-					className="text-sm font-medium"
-				>
+				<Label htmlFor="transfer-recipient">
 					Recipient
-				</label>
+				</Label>
 				<Input
 					id="transfer-recipient"
 					placeholder="0x..."
 					disabled={isBusy}
 					autoComplete="off"
 					spellCheck={false}
+					aria-invalid={!!errors.recipient}
+					aria-describedby={
+						errors.recipient
+							? 'transfer-recipient-error'
+							: undefined
+					}
 					data-testid="transfer-recipient-input"
 					{...form.register('recipient', {
 						onChange: onFieldChange,
 					})}
 				/>
 				{errors.recipient && (
-					<p className="text-sm text-error-foreground">
+					<p
+						id="transfer-recipient-error"
+						className="text-12 text-error-foreground"
+					>
 						{errors.recipient.message}
 					</p>
 				)}
@@ -297,12 +304,7 @@ export function TransferForm({
 
 			<div className="space-y-1.5">
 				<div className="flex items-center justify-between">
-					<label
-						htmlFor="transfer-amount"
-						className="text-sm font-medium"
-					>
-						Amount
-					</label>
+					<Label htmlFor="transfer-amount">Amount</Label>
 					<Button
 						type="button"
 						variant="ghost"
@@ -323,6 +325,12 @@ export function TransferForm({
 						inputMode="decimal"
 						autoComplete="off"
 						spellCheck={false}
+						aria-invalid={!!errors.amount}
+						aria-describedby={
+							errors.amount
+								? 'transfer-amount-error'
+								: undefined
+						}
 						data-testid="transfer-amount-input"
 						className={symbol ? 'pr-14' : undefined}
 						{...form.register('amount', {
@@ -337,7 +345,8 @@ export function TransferForm({
 				</div>
 				{errors.amount && (
 					<p
-						className="text-sm text-error-foreground"
+						id="transfer-amount-error"
+						className="text-12 text-error-foreground"
 						data-testid="transfer-amount-error"
 					>
 						{errors.amount.message}
@@ -359,7 +368,7 @@ export function TransferForm({
 			</div>
 
 			{buildError && (
-				<p className="text-sm text-error-foreground">
+				<p className="text-12 text-error-foreground">
 					{buildError instanceof Error
 						? buildError.message
 						: 'Failed to build the transfer transaction.'}
