@@ -10,7 +10,7 @@
  * - hex colours and colour functions (rgb, hsl, oklch, color-mix)
  * - Tailwind palette shades such as `bg-blue-500` or `text-gray-400`
  * - `white` and `black` colour utilities such as `bg-white` or
- *   `text-black`, which the skill keeps for overlays and the logo tile
+ *   `text-black`, which the skill keeps for overlays
  * - shadows (`shadow-sm`, `shadow-lg`, ...) other than `shadow-none` and
  *   `shadow-toast`; depth comes from borders and surfaces
  * - arbitrary text sizes such as `text-[13px]`
@@ -85,8 +85,7 @@ const ERRORS: Rule[] = [
 			'g',
 		),
 		message:
-			'white/black; use a semantic token (white and black are for overlays and the logo tile only)',
-		allow: [/components\/Logo\.tsx$/],
+			'white/black; use a semantic token (white and black are for overlays only)',
 	},
 	{
 		pattern:
