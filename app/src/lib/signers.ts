@@ -26,7 +26,7 @@ export interface SignerSetStatus {
 	canReachThreshold: boolean;
 }
 
-export interface SignerRow {
+export interface SignerEntry {
 	member: MultisigMember;
 	address: string | undefined;
 	/** The key's label, else its short address. */
@@ -45,7 +45,7 @@ export function signerRows(
 	members: MultisigMember[],
 	currentAddress: string | null | undefined,
 	creatorAddress?: string | null,
-): SignerRow[] {
+): SignerEntry[] {
 	return [...members]
 		.sort((a, b) => a.order - b.order)
 		.map((member) => {

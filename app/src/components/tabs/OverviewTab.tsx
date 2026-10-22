@@ -5,10 +5,10 @@ import { useOutletContext } from 'react-router-dom';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
+import { accountSetup } from '@/lib/account-setup';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-import { accountSetup } from '../multisig/account-setup';
 import { CreatedBy } from '../multisig/CreatedBy';
 import { Stat } from '../ui/stat';
 
@@ -36,8 +36,6 @@ export function OverviewTab() {
 	const account = details ?? multisig;
 	const setup = accountSetup({
 		multisig: account,
-		totalWeight:
-			details?.totalWeight ?? multisig.totalWeight,
 		currentAddress: currentAddress?.address,
 	});
 
@@ -53,7 +51,7 @@ export function OverviewTab() {
 						data-threshold={account.threshold}
 						data-total-weight={setup.totalWeight}
 					>
-						{setup.threshold}
+						{setup.thresholdLabel}
 					</span>
 				</Stat>
 				<Stat {...stat} label="Signers">

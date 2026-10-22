@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Chip } from '@/components/ui/chip';
-import { type SignerRow } from '@/lib/signers';
+import { type SignerEntry } from '@/lib/signers';
 
 const STATUS_CHIP = {
 	accepted: { variant: 'success', label: 'Accepted' },
@@ -14,7 +14,7 @@ const STATUS_CHIP = {
 export function SignerStatusChip({
 	status,
 }: {
-	status: SignerRow['status'];
+	status: SignerEntry['status'];
 }) {
 	const { variant, label } = STATUS_CHIP[status];
 	return <Chip variant={variant}>{label}</Chip>;

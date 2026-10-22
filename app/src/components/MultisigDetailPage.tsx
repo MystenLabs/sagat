@@ -15,6 +15,7 @@ import {
 import { useArrivalBanner } from '@/hooks/useArrivalBanner';
 import { joinList } from '@/lib/create-multisig';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
+import { MULTISIG_PAGES } from '@/lib/multisig-pages';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { accountName } from './invitations/account-name';
@@ -26,14 +27,6 @@ import {
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
-
-/** The page title per tab, as in the designs; the account is the crumb. */
-const PAGE_TITLES: Record<string, string> = {
-	overview: 'Overview',
-	proposals: 'Proposals',
-	assets: 'Assets',
-	signers: 'Signers',
-};
 
 export function MultisigDetailPage() {
 	const { address } = useParams<{ address: string }>();
@@ -120,7 +113,10 @@ export function MultisigDetailPage() {
 	}
 
 	const name = accountName(multisig);
-	const title = PAGE_TITLES[page] ?? name;
+	// The page is the title, as in the designs; the account is the crumb.
+	const title =
+		MULTISIG_PAGES.find((p) => p.id === page)?.label ??
+		name;
 
 	return (
 		<div

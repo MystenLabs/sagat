@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatAddress } from '@mysten/sui/utils';
 import { Check, Info } from 'lucide-react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
@@ -116,11 +115,18 @@ export function ReviewInvitationDialog({
 								Join {name}?
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
-								{creator?.label ? (
-									creator.label
-								) : creator ? (
-									<span className="font-mono text-13">
-										{formatAddress(creator.address)}
+								{creator ? (
+									<span className="inline-flex">
+										<SignerName
+											label={creator.label}
+											address={
+												creator.label
+													? undefined
+													: creator.address
+											}
+											size="inline"
+											labelTestId={null}
+										/>
 									</span>
 								) : (
 									'Someone'

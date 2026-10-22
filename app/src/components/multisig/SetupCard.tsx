@@ -4,9 +4,9 @@
 import { ArrowUpRight, Download } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { type AccountSetup } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
-import { type AccountSetup } from './account-setup';
 import { CreatedBy } from './CreatedBy';
 
 /**
@@ -45,10 +45,10 @@ export function SetupCard({
 				<Row label="Threshold">
 					<span
 						data-testid="setup-threshold"
-						data-threshold={setup.threshold.split(' ')[0]}
+						data-threshold={setup.threshold}
 						data-total-weight={setup.totalWeight}
 					>
-						{setup.threshold}
+						{setup.thresholdLabel}
 					</span>
 				</Row>
 				<Row label="Signers">{setup.signers}</Row>

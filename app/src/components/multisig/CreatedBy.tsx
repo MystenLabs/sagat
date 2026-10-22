@@ -1,9 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type AccountCreator } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
-import { type AccountCreator } from './account-setup';
 import { SignerName } from './SignerName';
 
 /**

@@ -96,7 +96,17 @@ test('creates a labelled multisig through the three steps', async ({
 		).toHaveText(expectedAddress);
 		await expect(
 			page.getByTestId('create-review-signer-name'),
-		).toHaveText(['Alice T (you)', 'Bob', 'Signer 3']);
+		).toHaveText(['Alice T', 'Bob', 'Signer 3']);
+		// Only the creator's row says "(you)".
+		const reviewRows = page.getByTestId(
+			'create-review-signer',
+		);
+		await expect(reviewRows.first()).toContainText(
+			'Alice T (you)',
+		);
+		await expect(reviewRows.nth(1)).not.toContainText(
+			'(you)',
+		);
 		await page.getByTestId('create-submit').click();
 	});
 

@@ -57,17 +57,15 @@ test.describe('overview and signers', () => {
 			await expect(
 				page.getByRole('heading', { level: 1 }),
 			).toHaveText('Overview');
+			// The account is the last crumb.
 			await expect(
-				page.getByTestId('page-header-address'),
-			).toHaveText(multisig.address);
-			const threshold = page.getByTestId(
-				'multisig-threshold',
-			);
-			await expect(threshold).toHaveText('3 of 4');
-			await expect(threshold).toHaveAttribute(
-				'data-total-weight',
-				'4',
-			);
+				page
+					.getByRole('navigation', { name: 'Breadcrumb' })
+					.locator('[aria-current="page"]'),
+			).toHaveText('Treasury');
+			await expect(
+				page.getByTestId('multisig-threshold'),
+			).toHaveText('3 of 4');
 			await expect(
 				page.getByTestId('account-created'),
 			).toHaveAttribute(
@@ -148,6 +146,13 @@ test.describe('overview and signers', () => {
 			await expect(
 				setup.getByTestId('setup-created-by'),
 			).toHaveText('Alice (you)');
+			// Suiscan doesn't index localnet, so only the download shows.
+			await expect(
+				setup.getByTestId('setup-explorer-link'),
+			).toHaveCount(0);
+			await expect(
+				setup.getByTestId('setup-download'),
+			).toBeVisible();
 		});
 	});
 
@@ -219,5 +224,85 @@ test.describe('overview and signers', () => {
 		await expect(
 			page.getByTestId('setup-created-by'),
 		).toHaveText('Alice');
+	});
+	test('add and remove an external proposer', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const payments = createIdentity('payments');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 1,
+		});
+
+		await alice.signIn();
+		const { page } = alice;
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+		await page.getByTestId('multisig-tab-signers').click();
+
+		const card = page.getByTestId('proposers-card');
+		await expect(
+			card.getByTestId('proposers-empty'),
+		).toBeVisible();
+
+		// Adding signs a message with the wallet.
+		await card.getByTestId('add-proposer-button').click();
+		const add = page.getByRole('dialog', {
+			name: 'Add Proposer',
+		});
+		await add
+			.getByLabel('Proposer Address')
+			.fill(payments.address);
+		await add
+			.getByRole('button', {
+				name: 'Add Proposer',
+				exact: true,
+			})
+			.click();
+		const item = card.getByTestId('proposer-item');
+		await expect(item).toHaveCount(1);
+		await expect(item).toHaveAttribute(
+			'data-address',
+			payments.address,
+		);
+		await expect(item).toContainText(
+			formatAddress(payments.address),
+		);
+		await expect(
+			card.getByTestId('proposers-empty'),
+		).toHaveCount(0);
+
+		// Removing asks first, naming the whole address.
+		const remove = item.getByTestId(
+			'remove-proposer-button',
+		);
+		await expect(remove).toHaveAccessibleName(
+			`Remove ${formatAddress(payments.address)}`,
+		);
+		await remove.click();
+		const confirm = page.getByRole('dialog', {
+			name: 'Remove Proposer',
+		});
+		await expect(confirm).toContainText(payments.address);
+		await confirm
+			.getByRole('button', {
+				name: 'Remove Proposer',
+				exact: true,
+			})
+			.click();
+		await expect(
+			card.getByTestId('proposer-item'),
+		).toHaveCount(0);
+		await expect(
+			card.getByTestId('proposers-empty'),
+		).toBeVisible();
 	});
 });

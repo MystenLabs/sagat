@@ -28,14 +28,6 @@ import {
 	StepFooter,
 } from './parts';
 
-/** "Maya (you)", "You", "Daniel" or "Signer 3". */
-function reviewName(signer: SignerDraft, index: number) {
-	const name = signerName(signer, index);
-	return signer.isCreator && signer.label.trim()
-		? `${name} (you)`
-		: name;
-}
-
 /** Step 3: everything at a glance, then create. */
 export function ReviewStep({
 	name,
@@ -71,7 +63,10 @@ export function ReviewStep({
 		return {
 			id: signer.id,
 			position: i + 1,
-			name: reviewName(signer, i),
+			// "Maya", "You", "Daniel" or "Signer 3"; a named creator also gets
+			// "(you)".
+			name: signerName(signer, i),
+			isYou: signer.isCreator && !!signer.label.trim(),
 			key,
 			address: validatePublicKey(key).address,
 			weight: signer.weight,
@@ -170,6 +165,8 @@ export function ReviewStep({
 										<SignerName
 											label={row.name}
 											address={row.address}
+											marker={row.isYou ? 'you' : null}
+											markerStyle="parens"
 											wrap
 											labelTestId="create-review-signer-name"
 										/>
@@ -202,6 +199,8 @@ export function ReviewStep({
 								<SignerName
 									label={row.name}
 									address={row.address}
+									marker={row.isYou ? 'you' : null}
+									markerStyle="parens"
 									wrap
 									labelTestId={null}
 								/>

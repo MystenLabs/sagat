@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	signerSetStatus,
 	signerSummary,
-	type SignerRow,
+	type SignerEntry,
+	type SignerSetStatus,
 } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
@@ -18,23 +18,17 @@ import { SignerStatusChip } from './SignerStatusChip';
  */
 export function SignersCard({
 	rows,
-	threshold,
+	status,
+	rejectedNames,
 	className,
 }: {
-	rows: SignerRow[];
-	threshold: number;
+	rows: SignerEntry[];
+	status: SignerSetStatus;
+	/** The rejected signers' names, in order. */
+	rejectedNames: string[];
 	className?: string;
 }) {
-	const status = signerSetStatus(
-		rows.map((r) => r.member),
-		threshold,
-	);
-	const summary = signerSummary(
-		status,
-		rows
-			.filter((r) => r.status === 'rejected')
-			.map((r) => r.name),
-	);
+	const summary = signerSummary(status, rejectedNames);
 
 	return (
 		<section

@@ -6,6 +6,7 @@ import { useOutletContext } from 'react-router-dom';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
+import { accountSetup } from '@/lib/account-setup';
 import {
 	buildMultisigCompositionExport,
 	downloadJson,
@@ -19,7 +20,6 @@ import {
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 
-import { accountSetup } from '../multisig/account-setup';
 import { SetupCard } from '../multisig/SetupCard';
 import { SignersCard } from '../multisig/SignersCard';
 import { ProposersSection } from '../proposers/ProposersSection';
@@ -48,16 +48,16 @@ export function SignersTab() {
 		account.members,
 		currentAddress?.address,
 	);
-	const notice = rejectionNotice(
-		signerSetStatus(account.members, account.threshold),
-		rows
-			.filter((r) => r.status === 'rejected')
-			.map((r) => r.name),
+	const status = signerSetStatus(
+		account.members,
+		account.threshold,
 	);
+	const rejectedNames = rows
+		.filter((r) => r.status === 'rejected')
+		.map((r) => r.name);
+	const notice = rejectionNotice(status, rejectedNames);
 	const setup = accountSetup({
 		multisig: account,
-		totalWeight:
-			details?.totalWeight ?? multisig.totalWeight,
 		currentAddress: currentAddress?.address,
 	});
 
@@ -78,7 +78,8 @@ export function SignersTab() {
 				<div className="flex min-w-0 flex-1 flex-col gap-5">
 					<SignersCard
 						rows={rows}
-						threshold={account.threshold}
+						status={status}
+						rejectedNames={rejectedNames}
 					/>
 					<ProposersSection
 						proposers={account.proposers}

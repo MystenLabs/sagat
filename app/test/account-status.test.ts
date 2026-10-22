@@ -18,6 +18,8 @@ const signer = (
 ) => {
 	const keypair = new Ed25519Keypair();
 	return {
+		multisigAddress: '0x1',
+		order: 0,
 		address: keypair.toSuiAddress(),
 		publicKey: keypair.getPublicKey().toSuiPublicKey(),
 		label,

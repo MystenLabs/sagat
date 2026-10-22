@@ -6,12 +6,8 @@ import {
 	ArrowUpRight,
 	BookOpen,
 	ChevronRight,
-	Coins,
-	FileText,
 	Github,
-	LayoutDashboard,
 	Mail,
-	Users,
 } from 'lucide-react';
 import { useMemo } from 'react';
 import {
@@ -73,6 +69,7 @@ import { useInvitations } from '@/hooks/useInvitations';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
+import { MULTISIG_PAGES } from '@/lib/multisig-pages';
 import { cn } from '@/lib/utils';
 
 const RESOURCE_LINKS = [
@@ -86,17 +83,6 @@ const RESOURCE_LINKS = [
 		label: 'GitHub',
 		icon: Github,
 	},
-] as const;
-
-const MULTISIG_PAGES = [
-	{
-		id: 'overview',
-		label: 'Overview',
-		icon: LayoutDashboard,
-	},
-	{ id: 'proposals', label: 'Proposals', icon: FileText },
-	{ id: 'assets', label: 'Assets', icon: Coins },
-	{ id: 'signers', label: 'Signers', icon: Users },
 ] as const;
 
 /** Nav label: 13px at 72% white, full white when active (from the designs). */

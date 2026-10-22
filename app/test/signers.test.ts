@@ -6,6 +6,8 @@ import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
 import {
+	formatDate,
+	formatDateTime,
 	rejectionNotice,
 	signerRows,
 	signerSetStatus,
@@ -252,5 +254,30 @@ describe('signer rows', () => {
 		expect(only.name).toBe('Unknown key');
 		expect(only.isYou).toBe(false);
 		expect(only.isCreator).toBe(false);
+	});
+});
+
+describe('dates', () => {
+	const iso = '2026-09-04T10:42:00.000Z';
+
+	test('format a known time for people', () => {
+		expect(formatDate(iso)).toBe(
+			new Date(iso).toLocaleDateString(undefined, {
+				dateStyle: 'medium',
+			}),
+		);
+		expect(formatDateTime(iso)).toBe(
+			new Date(iso).toLocaleString(undefined, {
+				dateStyle: 'medium',
+				timeStyle: 'short',
+			}),
+		);
+	});
+
+	test('are null when unknown or unreadable', () => {
+		for (const value of [null, '', 'not-a-date']) {
+			expect(formatDate(value)).toBeNull();
+			expect(formatDateTime(value)).toBeNull();
+		}
 	});
 });

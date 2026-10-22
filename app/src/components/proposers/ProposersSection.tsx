@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { MultisigProposer } from '@mysten/sagat';
+import { formatAddress } from '@mysten/sui/utils';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
@@ -31,9 +32,12 @@ export function ProposersSection({
 	className?: string;
 }) {
 	const [adding, setAdding] = useState(false);
-	const [removing, setRemoving] = useState<string | null>(
-		null,
-	);
+	// The address outlives the dialog's open state, so the dialog keeps its
+	// content while it animates out.
+	const [removing, setRemoving] = useState(false);
+	const [removingAddress, setRemovingAddress] = useState<
+		string | null
+	>(null);
 
 	return (
 		<section
@@ -114,9 +118,13 @@ export function ProposersSection({
 										<Button
 											variant="ghost"
 											size="sm"
-											onClick={() =>
-												setRemoving(proposer.address)
-											}
+											onClick={() => {
+												setRemovingAddress(
+													proposer.address,
+												);
+												setRemoving(true);
+											}}
+											aria-label={`Remove ${formatAddress(proposer.address)}`}
 											data-testid="remove-proposer-button"
 										>
 											Remove
@@ -138,12 +146,10 @@ export function ProposersSection({
 				multisigAddress={multisigAddress}
 			/>
 			<RemoveProposerDialog
-				open={removing !== null}
-				onOpenChange={(open) => {
-					if (!open) setRemoving(null);
-				}}
+				open={removing}
+				onOpenChange={setRemoving}
 				multisigAddress={multisigAddress}
-				proposerAddress={removing}
+				proposerAddress={removingAddress}
 			/>
 		</section>
 	);
