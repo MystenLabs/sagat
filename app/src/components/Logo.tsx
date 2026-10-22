@@ -23,7 +23,11 @@ export function PodsWordmark({
 	);
 }
 
-/** The ring-drop mark: the logo on the collapsed icon rail, and the favicon shape. */
+/**
+ * The ring-drop mark: the logo on the collapsed icon rail, and the favicon shape.
+ * The path is the one in `app/public/favicon.svg`, in the 32px icon's coordinates
+ * (hence the `6 6 20 20` viewBox); change both together.
+ */
 export function PodsMark({
 	className,
 }: {
