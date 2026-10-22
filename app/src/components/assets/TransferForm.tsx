@@ -20,6 +20,12 @@ import {
 } from '../../lib/coins';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+	InputGroupText,
+} from '../ui/input-group';
 import { Label } from '../ui/label';
 import { AssetPicker } from './AssetPicker';
 import { buildTransferTransaction } from './buildTransferTransaction';
@@ -317,8 +323,8 @@ export function TransferForm({
 						Max
 					</Button>
 				</div>
-				<div className="relative">
-					<Input
+				<InputGroup>
+					<InputGroupInput
 						id="transfer-amount"
 						placeholder="0.0"
 						disabled={isBusy}
@@ -332,17 +338,22 @@ export function TransferForm({
 								: undefined
 						}
 						data-testid="transfer-amount-input"
-						className={symbol ? 'pr-14' : undefined}
 						{...form.register('amount', {
 							onChange: onFieldChange,
 						})}
 					/>
 					{symbol && (
-						<span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs uppercase tracking-wide text-muted-foreground">
-							{symbol}
-						</span>
+						// Inset the symbol 12px, like the control's text, not the addon's default 4px.
+						<InputGroupAddon
+							align="inline-end"
+							className="pr-3"
+						>
+							<InputGroupText className="text-12 font-normal uppercase tracking-wide">
+								{symbol}
+							</InputGroupText>
+						</InputGroupAddon>
 					)}
-				</div>
+				</InputGroup>
 				{errors.amount && (
 					<p
 						id="transfer-amount-error"
