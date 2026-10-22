@@ -1,12 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import { useNetworkOption } from '../hooks/useNetworkOptions';
+import { Button, disabledButton } from './ui/button';
+import { DismissButton } from './ui/dismiss-button';
 
+/**
+ * A strip across the top of the content column while the app points at a
+ * test network. It sits in the flow and pushes the page down, on an opaque
+ * yellow that reads stronger than the translucent warning tint.
+ */
 export function TestModeBanner() {
 	const { isTestMode, network, setNetwork } = useNetwork();
 	const [isDismissed, setIsDismissed] = useState(false);
@@ -16,52 +23,39 @@ export function TestModeBanner() {
 		return null;
 	}
 
-	const handleDismiss = () => {
-		setIsDismissed(true);
-	};
-
 	return (
 		<div
-			className="sticky bottom-0 z-40 mt-auto bg-background"
+			role="region"
+			aria-label="Test mode"
+			className="flex items-center gap-3 border-b border-warning-border bg-warning-solid px-4 py-2.5 text-warning-foreground md:px-6"
 			data-testid="test-mode-banner"
 		>
-			<div className="border-t-2 border-warning-border bg-warning px-4 py-3">
-				<div className="flex items-center justify-between max-w-7xl mx-auto">
-					<div className="flex items-center gap-3">
-						<AlertTriangle className="w-5 h-5 text-warning-foreground" />
-						<div>
-							<p className="text-sm font-medium text-warning-foreground">
-								Test Mode Active
-							</p>
-							<p className="text-xs text-warning-foreground">
-								You're connected to {network}. No real funds
-								will be used.
-							</p>
-						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						{mainnet.hint && (
-							<span className="text-12 text-warning-foreground">
-								{mainnet.hint}
-							</span>
-						)}
-						<button
-							onClick={() => setNetwork('mainnet')}
-							disabled={!mainnet.enabled}
-							className="text-xs bg-primary hover:bg-primary/90 text-primary-foreground px-3 py-1.5 rounded transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50"
-						>
-							Switch to Mainnet
-						</button>
-						<button
-							onClick={handleDismiss}
-							className="p-1 hover:bg-warning rounded transition-colors cursor-pointer"
-							title="Dismiss"
-						>
-							<X className="w-4 h-4 text-warning-foreground" />
-						</button>
-					</div>
-				</div>
+			<AlertTriangle className="size-4 shrink-0" />
+			{/* On phones the hint wraps under the sentence. */}
+			<div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+				<p className="min-w-0 text-13 sm:flex-1">
+					<span className="font-medium">Test mode.</span>{' '}
+					You're connected to {network}.{' '}
+					<span className="hidden sm:inline">
+						No real funds will be used.
+					</span>
+				</p>
+				{mainnet.hint && (
+					<span className="text-12">{mainnet.hint}</span>
+				)}
 			</div>
+			<Button
+				size="sm"
+				onClick={() => setNetwork('mainnet')}
+				disabled={!mainnet.enabled}
+				className={disabledButton}
+			>
+				Switch to Mainnet
+			</Button>
+			<DismissButton
+				onClick={() => setIsDismissed(true)}
+				className="shrink-0 p-1 hover:bg-warning-foreground/10"
+			/>
 		</div>
 	);
 }

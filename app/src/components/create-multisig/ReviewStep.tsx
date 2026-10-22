@@ -4,7 +4,10 @@
 import { ArrowLeft, Pen } from 'lucide-react';
 
 import { SignerName } from '@/components/multisig/SignerName';
-import { Button } from '@/components/ui/button';
+import {
+	Button,
+	disabledButton,
+} from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import {
 	Tooltip,
@@ -21,7 +24,6 @@ import { cn } from '@/lib/utils';
 
 import {
 	CopyText,
-	disabledButton,
 	Divider,
 	Notice,
 	SectionHeading,

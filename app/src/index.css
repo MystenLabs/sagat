@@ -114,6 +114,8 @@
 
 	--color-warning: var(--warning);
 	--color-warning-soft: var(--warning-soft);
+	/* Opaque yellow for the test-mode strip, stronger than the translucent tint. */
+	--color-warning-solid: var(--warning-solid);
 	--color-warning-foreground: var(--warning-foreground);
 	--color-warning-border: var(--warning-border);
 
@@ -192,6 +194,7 @@
 	--warning-foreground: oklch(0.443 0.077 96);
 	--warning: oklch(0.926 0.185 102 / 18%);
 	--warning-soft: oklch(0.926 0.185 102 / 10%);
+	--warning-solid: oklch(0.95 0.13 100);
 	--warning-border: oklch(0.443 0.077 96 / 40%);
 
 	--info-foreground: oklch(0.451 0.13 251);
@@ -251,6 +254,7 @@
 	--warning-foreground: oklch(0.82 0.12 96);
 	--warning: oklch(0.926 0.185 102 / 14%);
 	--warning-soft: oklch(0.926 0.185 102 / 8%);
+	--warning-solid: oklch(0.33 0.07 100);
 	--warning-border: oklch(0.82 0.12 96 / 40%);
 
 	--info-foreground: oklch(0.72 0.12 251);

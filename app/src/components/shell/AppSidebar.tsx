@@ -17,7 +17,7 @@ import {
 } from 'react-router-dom';
 
 import { CustomWalletButton } from '@/components/CustomWalletButton';
-import { Logo } from '@/components/Logo';
+import { PodsMark, PodsWordmark } from '@/components/Logo';
 import {
 	NetworkMenuItems,
 	NetworkStatusDot,
@@ -166,38 +166,31 @@ function SidebarNav() {
 	const closeMobile = () => setOpenMobile(false);
 
 	return (
-		// Above the sticky test-mode banner: the wallet menu opens out of the
-		// rail over the page.
-		<Sidebar collapsible="icon" className="z-50">
+		<Sidebar collapsible="icon">
 			<div
 				className="flex min-h-0 flex-1 flex-col"
 				data-testid="app-header"
 			>
-				<SidebarHeader className="gap-4 px-2 pt-4 group-data-[collapsible=icon]:gap-2">
-					<div className="flex items-center justify-between gap-2 px-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
-						<Link
-							to="/"
-							onClick={closeMobile}
-							aria-label="Home"
-							className="flex items-center"
+				<SidebarHeader className="gap-4 px-2 pt-4.5 group-data-[collapsible=icon]:gap-2">
+					<div className="flex items-center justify-between gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
+						<SidebarRailTooltip
+							tooltip="Home"
+							render={
+								<Link
+									to="/"
+									onClick={closeMobile}
+									aria-label="Home"
+									className="flex items-center group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:justify-center"
+								/>
+							}
 						>
 							<span className="group-data-[collapsible=icon]:hidden">
-								<Logo
-									size="sm"
-									showSubtitle={false}
-									asLink={false}
-									onDark
-								/>
+								<PodsWordmark />
 							</span>
 							<span className="hidden group-data-[collapsible=icon]:block">
-								<Logo
-									size="sm"
-									compact
-									asLink={false}
-									onDark
-								/>
+								<PodsMark />
 							</span>
-						</Link>
+						</SidebarRailTooltip>
 						<Tooltip>
 							<TooltipTrigger
 								render={
