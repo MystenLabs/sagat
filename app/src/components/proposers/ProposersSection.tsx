@@ -8,8 +8,10 @@ import { useState } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Button } from '@/components/ui/button';
+import { cardClass } from '@/components/ui/card';
 import { CopyButton } from '@/components/ui/copy-button';
-import { formatDate } from '@/lib/signers';
+import { tableHeadRowClass } from '@/components/ui/table';
+import { formatDate } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 import { AddProposerDialog } from './AddProposerDialog';
@@ -41,10 +43,7 @@ export function ProposersSection({
 
 	return (
 		<section
-			className={cn(
-				'flex flex-col gap-3 rounded-xl border bg-card p-5 md:p-6',
-				className,
-			)}
+			className={cn(cardClass, className)}
 			aria-labelledby="proposers-title"
 			data-testid="proposers-card"
 		>
@@ -81,7 +80,7 @@ export function ProposersSection({
 				<>
 					<table className="w-full table-fixed text-13">
 						<thead>
-							<tr className="bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md">
+							<tr className={tableHeadRowClass}>
 								<th className="px-3 whitespace-nowrap">
 									External proposer
 								</th>

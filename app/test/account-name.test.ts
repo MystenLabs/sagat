@@ -4,7 +4,7 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { describe, expect, test } from 'vitest';
 
-import { accountCreator } from '../src/components/invitations/account-name';
+import { accountCreator } from '../src/lib/account-name';
 
 const signer = (label: string | null) => {
 	const keypair = new Ed25519Keypair();

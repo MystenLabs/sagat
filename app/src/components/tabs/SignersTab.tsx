@@ -32,30 +32,28 @@ interface SignersTabContext {
 /**
  * The signer set and who else may propose. The account list already
  * carries everything shown; the account query on top keeps the proposers
- * and weights fresh after a change on this page.
+ * and weights fresh after a change on this page. When it fails, the
+ * list's copy stays up under a notice with a way to try again.
  */
 export function SignersTab() {
 	const { multisig } =
 		useOutletContext<SignersTabContext>();
 	const { currentAddress } = useApiAuth();
 	const { network } = useNetwork();
-	const { data: details } = useGetMultisig(
-		multisig.address,
-	);
+	const {
+		data: details,
+		isError,
+		isFetching,
+		refetch,
+	} = useGetMultisig(multisig.address);
 	const account = details ?? multisig;
 
 	const rows = signerRows(
 		account.members,
 		currentAddress?.address,
 	);
-	const status = signerSetStatus(
-		account.members,
-		account.threshold,
-	);
-	const rejectedNames = rows
-		.filter((r) => r.status === 'rejected')
-		.map((r) => r.name);
-	const notice = rejectionNotice(status, rejectedNames);
+	const status = signerSetStatus(rows, account.threshold);
+	const notice = rejectionNotice(status);
 	const setup = accountSetup({
 		multisig: account,
 		currentAddress: currentAddress?.address,
@@ -63,6 +61,21 @@ export function SignersTab() {
 
 	return (
 		<div className="@container flex flex-col gap-5">
+			{isError && (
+				<Alert variant="error" data-testid="signers-error">
+					The latest account details couldn’t be loaded, so
+					this may be out of date.{' '}
+					<button
+						type="button"
+						onClick={() => refetch()}
+						disabled={isFetching}
+						className="cursor-pointer rounded-sm font-medium underline underline-offset-4 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
+						data-testid="signers-retry"
+					>
+						{isFetching ? 'Trying again...' : 'Try again'}
+					</button>
+				</Alert>
+			)}
 			{notice && (
 				<Alert
 					variant={notice.tone}
@@ -76,11 +89,7 @@ export function SignersTab() {
 			    under them before that. */}
 			<div className="flex flex-col gap-5 @4xl:flex-row @4xl:items-start @4xl:gap-7">
 				<div className="flex min-w-0 flex-1 flex-col gap-5">
-					<SignersCard
-						rows={rows}
-						status={status}
-						rejectedNames={rejectedNames}
-					/>
+					<SignersCard rows={rows} status={status} />
 					<ProposersSection
 						proposers={account.proposers}
 						multisigAddress={multisig.address}

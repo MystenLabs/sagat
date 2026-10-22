@@ -4,6 +4,7 @@
 import { Check, Info } from 'lucide-react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { accountName } from '@/lib/account-name';
 import { weightTone } from '@/lib/member-status';
 import { signerRows } from '@/lib/signers';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -20,7 +21,6 @@ import {
 	DialogDescription,
 	DialogTitle,
 } from '../ui/dialog';
-import { accountName } from './account-name';
 import { WeightBar } from './WeightBar';
 
 /**
@@ -116,18 +116,16 @@ export function ReviewInvitationDialog({
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
 								{creator ? (
-									<span className="inline-flex">
-										<SignerName
-											label={creator.label}
-											address={
-												creator.label
-													? undefined
-													: creator.address
-											}
-											size="inline"
-											labelTestId={null}
-										/>
-									</span>
+									<SignerName
+										label={creator.label}
+										address={
+											creator.label
+												? undefined
+												: creator.address
+										}
+										size="inline"
+										labelTestId={null}
+									/>
 								) : (
 									'Someone'
 								)}{' '}

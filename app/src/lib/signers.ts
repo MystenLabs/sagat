@@ -7,12 +7,6 @@ import { formatAddress } from '@mysten/sui/utils';
 import { memberStatus } from './member-status';
 import { validatePublicKey } from './sui-utils';
 
-interface SignerLike {
-	weight: number;
-	isAccepted: boolean;
-	isRejected: boolean;
-}
-
 export interface SignerSetStatus {
 	total: number;
 	accepted: number;
@@ -24,6 +18,8 @@ export interface SignerSetStatus {
 	 * can never execute a proposal with this set.
 	 */
 	canReachThreshold: boolean;
+	/** The rejected signers' names, in row order. */
+	rejectedNames: string[];
 }
 
 export interface SignerEntry {
@@ -67,39 +63,44 @@ export function signerRows(
 		});
 }
 
-/** Where the signer set stands, counted by invitation status. */
+/**
+ * Where the signer set stands, counted by invitation status, from the
+ * rows `signerRows` builds.
+ */
 export function signerSetStatus(
-	members: SignerLike[],
+	rows: SignerEntry[],
 	threshold: number,
 ): SignerSetStatus {
 	let accepted = 0;
-	let rejected = 0;
 	let reachableWeight = 0;
-	for (const member of members) {
-		const status = memberStatus(member);
-		if (status === 'accepted') accepted += 1;
-		if (status === 'rejected') rejected += 1;
-		else reachableWeight += member.weight;
+	const rejectedNames: string[] = [];
+	for (const row of rows) {
+		if (row.status === 'accepted') accepted += 1;
+		if (row.status === 'rejected')
+			rejectedNames.push(row.name);
+		else reachableWeight += row.member.weight;
 	}
+	const rejected = rejectedNames.length;
 	return {
-		total: members.length,
+		total: rows.length,
 		accepted,
 		rejected,
-		pending: members.length - accepted - rejected,
+		pending: rows.length - accepted - rejected,
 		canReachThreshold: reachableWeight >= threshold,
+		rejectedNames,
 	};
 }
 
 /**
  * The one-line summary beside the signers heading: "All 5 accepted",
  * "Both accepted", "4 of 5 accepted · Hana rejected", "2 of 5 accepted ·
- * 3 rejected". `rejectedNames` names the rejected signers, in order.
+ * 3 rejected".
  */
 export function signerSummary(
 	status: SignerSetStatus,
-	rejectedNames: string[],
 ): string {
-	const { total, accepted, rejected } = status;
+	const { total, accepted, rejected, rejectedNames } =
+		status;
 	if (accepted === total)
 		return total === 2
 			? 'Both accepted'
@@ -119,9 +120,9 @@ export function signerSummary(
  */
 export function rejectionNotice(
 	status: SignerSetStatus,
-	rejectedNames: string[],
 ): { tone: 'warning' | 'error'; message: string } | null {
-	const { rejected, canReachThreshold } = status;
+	const { rejected, canReachThreshold, rejectedNames } =
+		status;
 	if (rejected === 0) return null;
 	const who =
 		rejected === 1
@@ -136,25 +137,4 @@ export function rejectionNotice(
 				tone: 'error',
 				message: `${who} The rest can’t reach the threshold, so this account can’t move funds.`,
 			};
-}
-
-/** "Sep 2, 2026, 10:42 AM" in the viewer's locale, or null when unknown. */
-export function formatDateTime(iso: string | null) {
-	if (!iso) return null;
-	const date = new Date(iso);
-	if (Number.isNaN(date.getTime())) return null;
-	return date.toLocaleString(undefined, {
-		dateStyle: 'medium',
-		timeStyle: 'short',
-	});
-}
-
-/** "Sep 4, 2026" in the viewer's locale, or null when unknown. */
-export function formatDate(iso: string | null) {
-	if (!iso) return null;
-	const date = new Date(iso);
-	if (Number.isNaN(date.getTime())) return null;
-	return date.toLocaleDateString(undefined, {
-		dateStyle: 'medium',
-	});
 }

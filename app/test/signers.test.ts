@@ -6,30 +6,42 @@ import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
 import {
-	formatDate,
-	formatDateTime,
 	rejectionNotice,
 	signerRows,
 	signerSetStatus,
 	signerSummary,
 } from '../src/lib/signers';
 
+let order = 0;
 const member = (
 	weight: number,
 	status: 'accepted' | 'rejected' | 'pending',
+	label: string | null = null,
 ) => ({
+	multisigAddress: '0x1',
+	publicKey: new Ed25519Keypair()
+		.getPublicKey()
+		.toSuiPublicKey(),
 	weight,
 	isAccepted: status === 'accepted',
 	isRejected: status === 'rejected',
+	order: order++,
+	label,
 });
+
+/** The status of a set, through the rows the screens build. */
+const setStatus = (
+	members: ReturnType<typeof member>[],
+	threshold: number,
+) => signerSetStatus(signerRows(members, null), threshold);
 
 describe('signer set status', () => {
 	test('counts each invitation status once', () => {
 		expect(
-			signerSetStatus(
+			setStatus(
 				[
 					member(2, 'accepted'),
-					member(1, 'rejected'),
+					member(1, 'rejected', 'Hana'),
 					member(1, 'pending'),
 				],
 				2,
@@ -40,12 +52,13 @@ describe('signer set status', () => {
 			rejected: 1,
 			pending: 1,
 			canReachThreshold: true,
+			rejectedNames: ['Hana'],
 		});
 	});
 
 	test('the threshold is out of reach once the rejected weight leaves too little', () => {
 		expect(
-			signerSetStatus(
+			setStatus(
 				[
 					member(2, 'accepted'),
 					member(2, 'rejected'),
@@ -57,12 +70,29 @@ describe('signer set status', () => {
 	});
 
 	test('an accept wins over a reject on the same key', () => {
-		const status = signerSetStatus(
-			[{ weight: 1, isAccepted: true, isRejected: true }],
+		const status = setStatus(
+			[{ ...member(1, 'accepted'), isRejected: true }],
 			1,
 		);
 		expect(status.accepted).toBe(1);
 		expect(status.rejected).toBe(0);
+		expect(status.rejectedNames).toEqual([]);
+	});
+
+	test('names the rejected signers in row order', () => {
+		const daniel = member(1, 'rejected', 'Daniel');
+		const accepted = member(1, 'accepted');
+		const unnamed = member(1, 'rejected');
+		const hana = member(1, 'rejected', 'Hana');
+		const rows = signerRows(
+			[hana, unnamed, accepted, daniel],
+			null,
+		);
+		expect(signerSetStatus(rows, 1).rejectedNames).toEqual([
+			'Daniel',
+			rows[2].name,
+			'Hana',
+		]);
 	});
 });
 
@@ -71,18 +101,18 @@ describe('signer summary', () => {
 		Array.from({ length: n }, () => member(1, 'accepted'));
 
 	test('says when everyone accepted', () => {
-		expect(
-			signerSummary(signerSetStatus(all(5), 1), []),
-		).toBe('All 5 accepted');
-		expect(
-			signerSummary(signerSetStatus(all(2), 1), []),
-		).toBe('Both accepted');
+		expect(signerSummary(setStatus(all(5), 1))).toBe(
+			'All 5 accepted',
+		);
+		expect(signerSummary(setStatus(all(2), 1))).toBe(
+			'Both accepted',
+		);
 	});
 
 	test('counts acceptances while invitations are open', () => {
 		expect(
 			signerSummary(
-				signerSetStatus(
+				setStatus(
 					[
 						...all(3),
 						member(1, 'pending'),
@@ -90,7 +120,6 @@ describe('signer summary', () => {
 					],
 					1,
 				),
-				[],
 			),
 		).toBe('3 of 5 accepted');
 	});
@@ -98,25 +127,23 @@ describe('signer summary', () => {
 	test('names one rejected signer, counts several', () => {
 		expect(
 			signerSummary(
-				signerSetStatus(
-					[...all(4), member(1, 'rejected')],
+				setStatus(
+					[...all(4), member(1, 'rejected', 'Hana')],
 					1,
 				),
-				['Hana'],
 			),
 		).toBe('4 of 5 accepted · Hana rejected');
 		expect(
 			signerSummary(
-				signerSetStatus(
+				setStatus(
 					[
 						...all(2),
-						member(1, 'rejected'),
-						member(1, 'rejected'),
-						member(1, 'rejected'),
+						member(1, 'rejected', 'Daniel'),
+						member(1, 'rejected', 'Tomás'),
+						member(1, 'rejected', 'Hana'),
 					],
 					1,
 				),
-				['Daniel', 'Tomás', 'Hana'],
 			),
 		).toBe('2 of 5 accepted · 3 rejected');
 	});
@@ -126,11 +153,10 @@ describe('rejection notice', () => {
 	test('nothing while nobody rejected', () => {
 		expect(
 			rejectionNotice(
-				signerSetStatus(
+				setStatus(
 					[member(1, 'accepted'), member(1, 'pending')],
 					2,
 				),
-				[],
 			),
 		).toBeNull();
 	});
@@ -138,15 +164,14 @@ describe('rejection notice', () => {
 	test('a warning while the others can still reach the threshold', () => {
 		expect(
 			rejectionNotice(
-				signerSetStatus(
+				setStatus(
 					[
 						member(2, 'accepted'),
 						member(2, 'accepted'),
-						member(1, 'rejected'),
+						member(1, 'rejected', 'Hana'),
 					],
 					4,
 				),
-				['Hana'],
 			),
 		).toEqual({
 			tone: 'warning',
@@ -158,17 +183,16 @@ describe('rejection notice', () => {
 	test('an error once the rest cannot reach the threshold', () => {
 		expect(
 			rejectionNotice(
-				signerSetStatus(
+				setStatus(
 					[
 						member(2, 'accepted'),
-						member(2, 'rejected'),
+						member(2, 'rejected', 'Daniel'),
 						member(1, 'accepted'),
-						member(1, 'rejected'),
-						member(1, 'rejected'),
+						member(1, 'rejected', 'Tomás'),
+						member(1, 'rejected', 'Hana'),
 					],
 					4,
 				),
-				['Daniel', 'Tomás', 'Hana'],
 			),
 		).toEqual({
 			tone: 'error',
@@ -254,30 +278,5 @@ describe('signer rows', () => {
 		expect(only.name).toBe('Unknown key');
 		expect(only.isYou).toBe(false);
 		expect(only.isCreator).toBe(false);
-	});
-});
-
-describe('dates', () => {
-	const iso = '2026-09-04T10:42:00.000Z';
-
-	test('format a known time for people', () => {
-		expect(formatDate(iso)).toBe(
-			new Date(iso).toLocaleDateString(undefined, {
-				dateStyle: 'medium',
-			}),
-		);
-		expect(formatDateTime(iso)).toBe(
-			new Date(iso).toLocaleString(undefined, {
-				dateStyle: 'medium',
-				timeStyle: 'short',
-			}),
-		);
-	});
-
-	test('are null when unknown or unreadable', () => {
-		for (const value of [null, '', 'not-a-date']) {
-			expect(formatDate(value)).toBeNull();
-			expect(formatDateTime(value)).toBeNull();
-		}
 	});
 });

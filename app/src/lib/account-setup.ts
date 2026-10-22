@@ -3,9 +3,8 @@
 
 import type { MultisigWithMembers } from '@mysten/sagat';
 
-import { accountCreator } from '@/components/invitations/account-name';
-
-import { formatDateTime } from './signers';
+import { accountCreator } from './account-name';
+import { formatDateTime } from './dates';
 import { thresholdLabel } from './threshold';
 
 export interface AccountCreator {
@@ -19,12 +18,12 @@ export interface AccountSetup {
 	threshold: number;
 	/** "4 of 7". */
 	thresholdLabel: string;
-	signers: number;
+	signerCount: number;
 	totalWeight: number;
 	/** ISO timestamp, or null when the API doesn't know. */
 	createdAt: string | null;
 	/** `createdAt` for people, or null. */
-	created: string | null;
+	createdLabel: string | null;
 	creator: AccountCreator | null;
 }
 
@@ -40,10 +39,10 @@ export function accountSetup({
 	return {
 		threshold: multisig.threshold,
 		thresholdLabel: thresholdLabel(multisig),
-		signers: multisig.totalMembers,
+		signerCount: multisig.totalMembers,
 		totalWeight: multisig.totalWeight,
 		createdAt: multisig.createdAt,
-		created: formatDateTime(multisig.createdAt),
+		createdLabel: formatDateTime(multisig.createdAt),
 		creator: creator && {
 			...creator,
 			isYou: creator.address === currentAddress,

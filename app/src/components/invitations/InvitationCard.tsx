@@ -4,6 +4,10 @@
 import { Users } from 'lucide-react';
 import { useState } from 'react';
 
+import {
+	accountCreator,
+	accountName,
+} from '@/lib/account-name';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useAcceptInvitation } from '../../hooks/useAcceptInvitation';
@@ -11,10 +15,6 @@ import { useRejectInvitation } from '../../hooks/useRejectInvitation';
 import { Button } from '../ui/button';
 import { Chip } from '../ui/chip';
 import { CopyButton } from '../ui/CopyButton';
-import {
-	accountCreator,
-	accountName,
-} from './account-name';
 import { RejectInvitationDialog } from './RejectInvitationDialog';
 import { ReviewInvitationDialog } from './ReviewInvitationDialog';
 import { ShortAddress } from './ShortAddress';

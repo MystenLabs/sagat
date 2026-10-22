@@ -7,7 +7,12 @@ import { type ReactNode } from 'react';
 import { type AccountSetup } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
+import { cardClass } from '../ui/card';
 import { CreatedBy } from './CreatedBy';
+
+/** The explorer link and the download button: quiet text actions. */
+const textAction =
+	'inline-flex cursor-pointer items-center gap-1 rounded-sm text-12 text-foreground-secondary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring';
 
 /**
  * The "Setup" card beside the signers: the account's numbers, when and by
@@ -27,10 +32,7 @@ export function SetupCard({
 }) {
 	return (
 		<section
-			className={cn(
-				'flex flex-col gap-2 rounded-xl border bg-card p-5 md:p-6',
-				className,
-			)}
+			className={cn(cardClass, 'gap-2', className)}
 			aria-labelledby="account-setup-title"
 			data-testid="account-setup"
 		>
@@ -51,17 +53,18 @@ export function SetupCard({
 						{setup.thresholdLabel}
 					</span>
 				</Row>
-				<Row label="Signers">{setup.signers}</Row>
+				<Row label="Signers">{setup.signerCount}</Row>
 				<Row label="Total weight">{setup.totalWeight}</Row>
 				<Row label="Created">
 					<span
 						data-testid="setup-created"
 						data-created-at={setup.createdAt ?? undefined}
 						className={cn(
-							!setup.created && 'text-muted-foreground',
+							!setup.createdLabel &&
+								'text-muted-foreground',
 						)}
 					>
-						{setup.created ?? 'Unknown'}
+						{setup.createdLabel ?? 'Unknown'}
 					</span>
 				</Row>
 				<Row label="Created by">
@@ -77,7 +80,7 @@ export function SetupCard({
 						href={explorerUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						className="inline-flex items-center gap-1 rounded-sm text-12 text-foreground-secondary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+						className={textAction}
 						data-testid="setup-explorer-link"
 					>
 						View on explorer
@@ -87,7 +90,7 @@ export function SetupCard({
 				<button
 					type="button"
 					onClick={onDownload}
-					className="inline-flex cursor-pointer items-center gap-1 rounded-sm text-12 text-foreground-secondary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					className={textAction}
 					data-testid="setup-download"
 				>
 					Download setup

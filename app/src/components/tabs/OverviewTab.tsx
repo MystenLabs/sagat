@@ -55,7 +55,7 @@ export function OverviewTab() {
 					</span>
 				</Stat>
 				<Stat {...stat} label="Signers">
-					{setup.signers}
+					{setup.signerCount}
 				</Stat>
 				<Stat {...stat} label="Total weight">
 					{setup.totalWeight}
@@ -65,10 +65,11 @@ export function OverviewTab() {
 						data-testid="account-created"
 						data-created-at={setup.createdAt ?? undefined}
 						className={cn(
-							!setup.created && 'text-muted-foreground',
+							!setup.createdLabel &&
+								'text-muted-foreground',
 						)}
 					>
-						{setup.created ?? 'Unknown'}
+						{setup.createdLabel ?? 'Unknown'}
 					</span>
 				</Stat>
 				<Stat {...stat} label="Created by">

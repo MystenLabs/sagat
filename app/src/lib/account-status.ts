@@ -22,10 +22,8 @@ export function accountStatus({
 	members: MultisigMember[];
 	threshold: number;
 }): AccountStatus {
-	const { rejected, canReachThreshold } = signerSetStatus(
-		members,
-		threshold,
-	);
+	const { rejected, canReachThreshold, rejectedNames } =
+		signerSetStatus(signerRows(members, null), threshold);
 	if (rejected === 0) return { tone: 'ok' };
 
 	if (!canReachThreshold)
@@ -40,12 +38,9 @@ export function accountStatus({
 			message: `${signerCount(rejected)} rejected their invitations.`,
 		};
 
-	const [first] = signerRows(members, null).filter(
-		(row) => row.status === 'rejected',
-	);
 	return {
 		tone: 'warning',
-		message: `${first.name} rejected the invitation.`,
+		message: `${rejectedNames[0]} rejected the invitation.`,
 	};
 }
 

@@ -13,7 +13,6 @@ import {
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { accountName } from '@/components/invitations/account-name';
 import {
 	railSquareClass,
 	railTriggerClass,
@@ -31,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SidebarRailTooltip } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { accountName } from '@/lib/account-name';
 import {
 	accountStatus,
 	type AccountStatus,

@@ -8,6 +8,8 @@ import {
 } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
+import { cardClass } from '../ui/card';
+import { tableHeadRowClass } from '../ui/table';
 import { SignerName } from './SignerName';
 import { SignerStatusChip } from './SignerStatusChip';
 
@@ -19,23 +21,17 @@ import { SignerStatusChip } from './SignerStatusChip';
 export function SignersCard({
 	rows,
 	status,
-	rejectedNames,
 	className,
 }: {
 	rows: SignerEntry[];
 	status: SignerSetStatus;
-	/** The rejected signers' names, in order. */
-	rejectedNames: string[];
 	className?: string;
 }) {
-	const summary = signerSummary(status, rejectedNames);
+	const summary = signerSummary(status);
 
 	return (
 		<section
-			className={cn(
-				'flex flex-col gap-3 rounded-xl border bg-card p-5 md:p-6',
-				className,
-			)}
+			className={cn(cardClass, className)}
 			aria-labelledby="signers-title"
 			data-testid="signers-card"
 		>
@@ -58,7 +54,7 @@ export function SignersCard({
 			</div>
 			<table className="w-full table-fixed text-13">
 				<thead>
-					<tr className="bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md">
+					<tr className={tableHeadRowClass}>
 						<th className="px-3">Signer</th>
 						<th className="w-12 px-3 sm:w-16">Weight</th>
 						<th className="w-24 px-3 sm:w-26">

@@ -5,7 +5,7 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { describe, expect, test } from 'vitest';
 
 import { accountSetup } from '../src/lib/account-setup';
-import { formatDateTime } from '../src/lib/signers';
+import { formatDateTime } from '../src/lib/dates';
 
 const key = () => {
 	const keypair = new Ed25519Keypair();
@@ -60,10 +60,10 @@ describe('account setup', () => {
 		).toEqual({
 			threshold: 2,
 			thresholdLabel: '2 of 3',
-			signers: 2,
+			signerCount: 2,
 			totalWeight: 3,
 			createdAt,
-			created: formatDateTime(createdAt),
+			createdLabel: formatDateTime(createdAt),
 			creator: {
 				address: alice.address,
 				label: 'Alice',
@@ -116,6 +116,6 @@ describe('account setup', () => {
 			currentAddress: undefined,
 		});
 		expect(setup.createdAt).toBeNull();
-		expect(setup.created).toBeNull();
+		expect(setup.createdLabel).toBeNull();
 	});
 });

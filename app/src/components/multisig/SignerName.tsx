@@ -7,11 +7,12 @@ import { cn } from '@/lib/utils';
 
 /**
  * Type per place the name shows. `inline` takes the surrounding text's
- * size (the "Created by" values); `sm` is the invitation review table;
- * `md` the signers card and the create wizard's review.
+ * size and flows in it (the "Created by" values); `sm` is the invitation
+ * review table; `md` the signers card and the create wizard's review.
  */
 const SIZES = {
 	inline: {
+		display: 'inline-flex',
 		gap: 'gap-1',
 		label: '',
 		address: '',
@@ -20,6 +21,7 @@ const SIZES = {
 		marker: '',
 	},
 	sm: {
+		display: 'flex',
 		gap: 'gap-1.5',
 		label: 'text-13 font-medium',
 		address: 'text-12 whitespace-nowrap',
@@ -28,6 +30,7 @@ const SIZES = {
 		marker: 'font-sans text-12 text-muted-foreground',
 	},
 	md: {
+		display: 'flex',
 		gap: 'gap-1.5',
 		label: 'text-14 font-medium',
 		address: 'text-11 text-muted-foreground',
@@ -94,7 +97,8 @@ export function SignerName({
 		return (
 			<span
 				className={cn(
-					'flex min-w-0 items-center',
+					'min-w-0 items-center',
+					s.display,
 					s.gap,
 					s.bare,
 				)}
@@ -123,7 +127,9 @@ export function SignerName({
 		);
 
 	return (
-		<span className="flex min-w-0 flex-col gap-px">
+		<span
+			className={cn('min-w-0 flex-col gap-px', s.display)}
+		>
 			<span
 				className={cn('flex min-w-0 items-center', s.gap)}
 			>
