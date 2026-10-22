@@ -638,19 +638,23 @@ function SidebarMenuButton({
  * For a trigger whose label the icon rail hides, such as a menu trigger:
  * pass it as that trigger's `render` to get the tooltip SidebarMenuButton's
  * `tooltip` gives, shown only while the sidebar is collapsed.
+ * Pass `render` for a trigger that is not a button, such as a link.
  */
 const SidebarRailTooltip = React.forwardRef<
 	HTMLButtonElement,
 	React.ComponentPropsWithoutRef<'button'> & {
 		tooltip: string;
+		render?: React.ReactElement;
 	}
->(({ tooltip, ...props }, ref) => {
+>(({ tooltip, render, ...props }, ref) => {
 	const { isMobile, state } = useSidebar();
 	return (
 		<Tooltip>
 			<TooltipTrigger
 				{...props}
-				render={<button ref={ref} type="button" />}
+				render={
+					render ?? <button ref={ref} type="button" />
+				}
 			/>
 			<TooltipContent
 				side="right"

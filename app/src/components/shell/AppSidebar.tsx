@@ -137,11 +137,8 @@ export function AppSidebar() {
 
 function SidebarNav() {
 	const location = useLocation();
-	const {
-		isMobile,
-		setOpenMobile,
-		state: sidebarState,
-	} = useSidebar();
+	const { setOpenMobile, state: sidebarState } =
+		useSidebar();
 	const currentAccount = useCurrentAccount();
 	const { holdWalletControls } = useSessionBoot();
 	const { isCurrentAddressAuthenticated } = useApiAuth();
@@ -190,35 +187,24 @@ function SidebarNav() {
 			>
 				<SidebarHeader className="gap-4 px-2 pt-4.5 group-data-[collapsible=icon]:gap-2">
 					<div className="flex items-center justify-between gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
-						{/* SidebarRailTooltip always renders a button, so the link gets its own rail-only tooltip. */}
-						<Tooltip>
-							<TooltipTrigger
-								render={
-									<Link
-										to="/"
-										onClick={closeMobile}
-										aria-label="Home"
-										className="flex items-center group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:justify-center"
-									/>
-								}
-							>
-								<span className="group-data-[collapsible=icon]:hidden">
-									<PodsWordmark />
-								</span>
-								<span className="hidden group-data-[collapsible=icon]:block">
-									<PodsMark />
-								</span>
-							</TooltipTrigger>
-							<TooltipContent
-								side="right"
-								align="center"
-								hidden={
-									sidebarState !== 'collapsed' || isMobile
-								}
-							>
-								Home
-							</TooltipContent>
-						</Tooltip>
+						<SidebarRailTooltip
+							tooltip="Home"
+							render={
+								<Link
+									to="/"
+									onClick={closeMobile}
+									aria-label="Home"
+									className="flex items-center group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:justify-center"
+								/>
+							}
+						>
+							<span className="group-data-[collapsible=icon]:hidden">
+								<PodsWordmark />
+							</span>
+							<span className="hidden group-data-[collapsible=icon]:block">
+								<PodsMark />
+							</span>
+						</SidebarRailTooltip>
 						<Tooltip>
 							<TooltipTrigger
 								render={

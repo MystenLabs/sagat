@@ -51,7 +51,7 @@ Rules:
 - No hex, `rgb()`, `hsl()`, `oklch()`, `color-mix()` in components.
 - No Tailwind palette shades (`bg-blue-500`, `text-gray-400`,
   `border-emerald-300`). `white` and `black` are allowed only for
-  overlays and for the logo tile.
+  overlays.
 - Every new colour has a light value in `:root` and a dark value in
   `.dark`. The designs are light-only; derive the dark value from the
   neighbouring tokens and say in the PR that it needs design sign-off.
