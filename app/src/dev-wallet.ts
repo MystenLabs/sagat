@@ -2,19 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // A local-only wallet for trying the app on localnet. Loaded from
-// main.tsx only when VITE_DEV_WALLET is set, so production bundles never
-// include it. It holds the demo identities the seed script funds and asks
-// for approval like a real wallet.
+// main.tsx only when VITE_DEV_WALLET=1, so production bundles never
+// include it. It holds fixed demo identities and asks for approval like a
+// real wallet.
 import {
 	DEFAULT_NETWORK_URLS,
 	mountAndRegisterDevWallet,
 } from '@mysten-incubation/dev-wallet';
 import { InMemorySignerAdapter } from '@mysten-incubation/dev-wallet/adapters';
-import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 
-// Same derivation as the seed script, so the addresses match the ones it
-// funded.
+// Each demo signer's Ed25519 secret key is sha256("sagat-demo:<name>"),
+// so the addresses are stable and a local seed can fund them.
 const PEOPLE = [
 	['maya', 'Maya'],
 	['daniel', 'Daniel'],
@@ -37,10 +36,9 @@ export async function registerDevWallet() {
 	const secretKey = import.meta.env
 		.VITE_DEV_WALLET_SECRET_KEY;
 	if (secretKey) {
-		const { secretKey: bytes } =
-			decodeSuiPrivateKey(secretKey);
 		await adapter.importAccount({
-			signer: Ed25519Keypair.fromSecretKey(bytes),
+			// The string form rejects non-Ed25519 keys.
+			signer: Ed25519Keypair.fromSecretKey(secretKey),
 			label: 'You (demo)',
 		});
 	} else {

@@ -73,7 +73,7 @@ registerWalletConnectWallet({
 
 // Local-only: the flag is inlined at build time, so without it the dev
 // wallet is not in the bundle at all.
-if (import.meta.env.VITE_DEV_WALLET) {
+if (import.meta.env.VITE_DEV_WALLET === '1') {
 	import('./dev-wallet')
 		.then(({ registerDevWallet }) => registerDevWallet())
 		.catch((error) => {
