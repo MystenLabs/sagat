@@ -3,9 +3,7 @@
 
 import { type ReactNode } from 'react';
 
-import { cn } from '@/lib/utils';
-
-/** The account tabs' card shell: a bordered panel with its content stacked. */
+/** The card shell: a bordered panel with its content stacked. */
 export const cardClass =
 	'flex flex-col gap-3 rounded-xl border bg-card p-5 md:p-6';
 
@@ -20,21 +18,14 @@ export function CardHeading({
 	title,
 	count,
 	children,
-	className,
 }: {
 	id?: string;
 	title: ReactNode;
 	count?: ReactNode;
 	children?: ReactNode;
-	className?: string;
 }) {
 	return (
-		<div
-			className={cn(
-				'flex flex-wrap items-center gap-2',
-				className,
-			)}
-		>
+		<div className="flex flex-wrap items-center gap-2">
 			<h2 id={id} className="text-16 font-medium">
 				{title}
 			</h2>

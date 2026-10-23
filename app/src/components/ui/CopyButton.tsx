@@ -31,8 +31,10 @@ export function CopyButton({
 		default: 'p-1.5',
 		sm: 'p-1',
 		xs: 'p-0.5',
-		// A 12px icon in a 16px box, for an address in running text: the
-		// others stay 36px icon buttons whatever their padding.
+		// A 16px box with a 12px icon, for an address in running text.
+		// The icon's own `size-3` keeps the button's default
+		// `[&_svg:not([class*='size-'])]:size-4` rule from applying, so
+		// no `!` override is needed.
 		inline: 'size-4 shrink-0 text-muted-foreground',
 	};
 

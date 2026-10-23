@@ -6,15 +6,15 @@ import { BAR_SEGMENT_CAP, sumWeight } from './threshold';
 /** Whose weight a part of the bar is: yours, accepted, or pending. */
 export type WeightTone = 'you' | 'accepted' | 'pending';
 
-export type WeightedSigner = {
+/** A stretch of weight and whose it is. */
+export type WeightPart = {
 	weight: number;
 	tone: WeightTone;
 };
 
 /**
- * The space between segments: Tailwind's `gap-1`, the same gap the
- * create wizard's threshold bar draws with. A number rather than the
- * class so the marker maths below can use it too.
+ * The space between segments: Tailwind's `gap-1` as a number, so the
+ * marker maths below can use it.
  */
 export const SEGMENT_GAP_PX = 4;
 
@@ -33,39 +33,38 @@ export type WeightBarLayout =
 	| { kind: 'segments'; tones: WeightTone[] }
 	| {
 			kind: 'runs';
-			runs: WeightedSigner[];
+			runs: WeightPart[];
 			thresholdPercent: number;
 	  };
 
 /**
- * How the weight bar on an invitation is drawn: accepted weight first,
- * then yours, then the pending rest, so the threshold marker reads
- * against what has been accepted so far. One segment per unit of weight
- * up to the same cap as the create wizard's threshold bar, then one run
- * per signer sized by their weight with the threshold as a share of the
- * total.
+ * How a weight bar is drawn: accepted weight first, then yours, then the
+ * pending rest, so the threshold marker reads against what has been
+ * accepted so far. One segment per unit of weight up to
+ * `BAR_SEGMENT_CAP`, then one run per part sized by its weight with the
+ * threshold as a share of the total.
  */
 export function weightBarLayout(
-	signers: WeightedSigner[],
+	parts: WeightPart[],
 	threshold: number,
 ): WeightBarLayout {
-	const ordered = [...signers].sort(
+	const ordered = [...parts].sort(
 		(a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone],
 	);
 	const totalWeight = sumWeight(ordered);
 	if (totalWeight <= BAR_SEGMENT_CAP)
 		return {
 			kind: 'segments',
-			tones: ordered.flatMap((signer) =>
+			tones: ordered.flatMap((part) =>
 				Array.from(
-					{ length: Math.max(signer.weight, 0) },
-					() => signer.tone,
+					{ length: Math.max(part.weight, 0) },
+					() => part.tone,
 				),
 			),
 		};
 	return {
 		kind: 'runs',
-		runs: ordered.filter((signer) => signer.weight > 0),
+		runs: ordered.filter((part) => part.weight > 0),
 		thresholdPercent:
 			Math.min(threshold / totalWeight, 1) * 100,
 	};

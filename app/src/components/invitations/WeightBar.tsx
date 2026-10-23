@@ -14,7 +14,7 @@ import {
 	runMarkerLeft,
 	thresholdMarkerLeft,
 	weightBarLayout,
-	type WeightedSigner,
+	type WeightPart,
 } from '@/lib/weight-bar';
 
 /**
@@ -28,7 +28,7 @@ export function WeightBar({
 	threshold,
 	yourWeight,
 }: {
-	signers: WeightedSigner[];
+	signers: WeightPart[];
 	threshold: number;
 	/** Null when you are not among the signers. */
 	yourWeight: number | null;

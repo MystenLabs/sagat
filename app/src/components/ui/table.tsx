@@ -15,8 +15,8 @@ export const tableShellHeadRowClass =
 
 /**
  * The header row of the account tabs' plain tables: the same band with
- * its own rounded ends. Built by adding the corners rather than with
- * `cn`, as Fast Refresh only allows literal constants beside components.
+ * rounded ends. A template literal, since
+ * `react-refresh/only-export-components` only allows literal constants here.
  */
 export const tableHeadRowClass = `${tableShellHeadRowClass} [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md`;
 

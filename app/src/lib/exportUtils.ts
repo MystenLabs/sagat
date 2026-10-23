@@ -7,6 +7,8 @@ import {
 	type PublicProposal,
 } from '@mysten/sagat';
 
+import { sumWeight } from './threshold';
+
 type ExportType =
 	'sagat.multisig-composition' | 'sagat.proposal';
 
@@ -187,10 +189,7 @@ function buildMultisigComposition(
 		address: multisig.address,
 		name: multisig.name,
 		threshold: multisig.threshold,
-		totalWeight: members.reduce(
-			(sum, member) => sum + member.weight,
-			0,
-		),
+		totalWeight: sumWeight(members),
 		totalMembers: members.length,
 		members,
 	};

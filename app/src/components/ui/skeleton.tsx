@@ -3,6 +3,8 @@
 
 import { cn } from '@/lib/utils';
 
+import { tableShellClass } from './table';
+
 /**
  * Loading placeholders from the designs: flat bars on the skeleton token,
  * laid out like the content they stand in for so nothing jumps when the
@@ -78,10 +80,7 @@ export function SkeletonRows({
 			aria-label={status ? 'Loading' : undefined}
 			aria-busy={status || undefined}
 			data-testid={testId}
-			className={cn(
-				'overflow-hidden rounded-2xl border bg-card',
-				className,
-			)}
+			className={cn(tableShellClass, className)}
 		>
 			{header && (
 				<div className="flex h-8 items-center gap-3 bg-muted px-3">
