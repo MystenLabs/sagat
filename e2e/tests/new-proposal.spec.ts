@@ -161,7 +161,7 @@ test.describe('new proposal: transfer', () => {
 		).toHaveAttribute('data-step', '2');
 		await expect(
 			page.getByTestId('transfer-asset-select'),
-		).toContainText('SUI');
+		).toHaveAttribute('data-coin-type', /::sui::SUI$/);
 	});
 
 	test('Send on the overview opens Details for a transfer', async ({
@@ -417,6 +417,40 @@ test.describe('new proposal: transfer details', () => {
 		).toBeDisabled();
 	});
 
+	test('closing the asset list without a choice asks for an asset', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await fundedAccount(
+			fixtures,
+			2,
+		);
+		const { page } = alice;
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		const error = page.getByTestId('transfer-asset-error');
+		await expect(
+			page.getByTestId('transfer-review'),
+		).toBeDisabled();
+		await expect(error).toHaveCount(0);
+
+		await page.getByTestId('transfer-asset-select').click();
+		await expect(
+			page.getByTestId('transfer-asset-option').first(),
+		).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(error).toHaveText(
+			'Choose an asset to send.',
+		);
+		await expect(
+			page.getByTestId('transfer-review'),
+		).toBeDisabled();
+	});
+
 	test('clearing the generated title shows its error and blocks Review', async ({
 		createActor,
 		createIdentity,
@@ -631,7 +665,7 @@ test.describe('new proposal: review', () => {
 		await expect(
 			page.getByTestId('review-create-error'),
 		).toHaveText(
-			'Couldn’t create the proposal. Nothing was signed or sent. Check your connection and try again.',
+			'Couldn’t create the proposal. Nothing was sent to the other signers. Check your connection and try again.',
 		);
 		await expect(submit).toHaveText('Try again');
 
@@ -687,7 +721,7 @@ test.describe('new proposal: review', () => {
 		).toBeVisible();
 		await expect(
 			page.getByTestId('transfer-asset-select'),
-		).toContainText('SUI');
+		).toHaveAttribute('data-coin-type', /::sui::SUI$/);
 		await expect(
 			page.getByTestId('transfer-amount-input'),
 		).toHaveValue('2.25');

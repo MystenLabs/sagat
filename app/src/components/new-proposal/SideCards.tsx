@@ -7,6 +7,10 @@ import {
 	NumberedSteps,
 	SummaryRow,
 } from '@/components/wizard/parts';
+import {
+	networkLabel,
+	type SuiNetwork,
+} from '@/contexts/NetworkContext';
 import { accountName } from '@/lib/account-name';
 import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -20,15 +24,12 @@ export function FromCard({
 	yourWeight,
 }: {
 	multisig: MultisigWithMembersForPublicKey;
-	network: string;
+	network: SuiNetwork;
 	yourWeight: number | null;
 }) {
 	const rows: [string, string][] = [
 		['Account', accountName(multisig)],
-		[
-			'Network',
-			network.charAt(0).toUpperCase() + network.slice(1),
-		],
+		['Network', networkLabel(network)],
 		['Threshold', thresholdLabel(multisig)],
 		...(yourWeight != null
 			? [

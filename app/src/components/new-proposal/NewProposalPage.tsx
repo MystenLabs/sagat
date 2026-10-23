@@ -31,8 +31,10 @@ import {
 	COPY,
 	proposalTypeFromQuery,
 	type ProposalType,
+	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
+import { signerRows } from '@/lib/signers';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -94,7 +96,7 @@ function NewProposalWizard({
 	const { currentAddress } = useApiAuth();
 	const { network } = useNetwork();
 	const create = useCreateProposal();
-	const { dryRun, analysis, preview } =
+	const { dryRun, analysis, preview, reset } =
 		useTransactionPreview();
 
 	// The account query keeps the weights fresh; the list's copy stands
@@ -108,9 +110,10 @@ function NewProposalWizard({
 		currentAddress: currentAddress?.address,
 	});
 	const yourWeight =
-		multisig.members.find(
-			(m) => m.publicKey === currentAddress?.publicKey,
-		)?.weight ?? null;
+		signerRows(
+			multisig.members,
+			currentAddress?.address,
+		).find((row) => row.isYou)?.member.weight ?? null;
 
 	const queryType = proposalTypeFromQuery(
 		searchParams.get('type'),
@@ -137,10 +140,9 @@ function NewProposalWizard({
 	const [title, setTitle] = useState<string | null>(null);
 	// The built transaction and the title Details had when it was built.
 	// Set by Details' Review, cleared when the type or the draft changes.
-	const [ready, setReady] = useState<{
-		bytes: string;
-		title: string;
-	} | null>(null);
+	const [ready, setReady] = useState<ReadyProposal | null>(
+		null,
+	);
 
 	const creating = create.isPending;
 	const address = multisig.address;
@@ -177,6 +179,13 @@ function NewProposalWizard({
 	// Simulate each transaction once, when Review first shows it. Back
 	// and forward again keeps the result.
 	const previewed = useRef<string | null>(null);
+	// The type or the draft changed: the transaction and its simulation
+	// are stale.
+	const clearReady = () => {
+		setReady(null);
+		reset();
+		previewed.current = null;
+	};
 	useEffect(() => {
 		if (step !== 3 || !ready) return;
 		if (previewed.current === ready.bytes) return;
@@ -215,7 +224,7 @@ function NewProposalWizard({
 		multisig,
 		title,
 		onTitleChange: setTitle,
-		onReady: (next: { bytes: string; title: string }) => {
+		onReady: (next: ReadyProposal) => {
 			setReady(next);
 			goTo(3);
 		},
@@ -257,7 +266,7 @@ function NewProposalWizard({
 						reach={reach}
 						disabled={creating}
 						onStep={goTo}
-						testId="new-proposal-stepper"
+						testId="new-proposal"
 					/>
 
 					{/* Stacked below 896px of content, where the card and the side
@@ -281,7 +290,8 @@ function NewProposalWizard({
 									onTypeChange={(next) => {
 										if (next === type) return;
 										setType(next);
-										setReady(null);
+										setTitle(null);
+										clearReady();
 									}}
 									onContinue={() => goTo(2)}
 									onCancel={cancel}
@@ -294,7 +304,7 @@ function NewProposalWizard({
 										draft={transferDraft}
 										onDraftChange={(next) => {
 											setTransferDraft(next);
-											setReady(null);
+											clearReady();
 										}}
 									/>
 								) : (
@@ -303,13 +313,12 @@ function NewProposalWizard({
 										draft={bytesDraft}
 										onDraftChange={(next) => {
 											setBytesDraft(next);
-											setReady(null);
+											clearReady();
 										}}
 									/>
 								))}
 							{step === 3 && ready && (
 								<ReviewStep
-									multisig={multisig}
 									bytes={ready.bytes}
 									title={reviewTitle}
 									onTitleChange={setTitle}

@@ -410,7 +410,6 @@ describe('checkBytes', () => {
 			kind: 'ok',
 			bytes,
 			commands: 2,
-			sender: ACCOUNT,
 		});
 	});
 
@@ -419,7 +418,7 @@ describe('checkBytes', () => {
 		const bytes = await transferBytes(short);
 		expect(checkBytes(bytes, '0xa1b7')).toMatchObject({
 			kind: 'ok',
-			sender: short,
+			bytes,
 		});
 	});
 
@@ -460,7 +459,6 @@ describe('bytesStatusText', () => {
 		const ok = {
 			kind: 'ok' as const,
 			bytes: 'AA==',
-			sender: ACCOUNT,
 		};
 		expect(
 			bytesStatusText({ ...ok, commands: 3 }, 'Treasury'),

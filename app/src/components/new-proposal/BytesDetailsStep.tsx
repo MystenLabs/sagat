@@ -1,30 +1,34 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ArrowLeft, Check, Info } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ArrowLeft, Check } from 'lucide-react';
+import { useMemo } from 'react';
 
 import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
 	Divider,
+	FooterNote,
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
+import { useTouched } from '@/components/wizard/use-touched';
 import { accountName } from '@/lib/account-name';
 import {
 	bytesStatusText,
 	checkBytes,
 	COPY,
 	titleError,
+	type ReadyProposal,
 } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+import { TitleField } from './TitleField';
 
 /** Step 2 for pasted bytes: the bytes, read at once, and a title. */
 export function BytesDetailsStep({
@@ -42,10 +46,7 @@ export function BytesDetailsStep({
 	onDraftChange: (draft: string) => void;
 	title: string | null;
 	onTitleChange: (title: string) => void;
-	onReady: (ready: {
-		bytes: string;
-		title: string;
-	}) => void;
+	onReady: (ready: ReadyProposal) => void;
 	onBack: () => void;
 	onCancel: () => void;
 }) {
@@ -64,10 +65,10 @@ export function BytesDetailsStep({
 	const value = title ?? '';
 	const currentTitleError = titleError(value);
 	// Like the transfer: the title's error waits until the field is used.
-	const [titleTouched, setTitleTouched] = useState(
-		value !== '',
-	);
-	const shownTitleError = titleTouched
+	const { touched, touch } = useTouched({
+		title: value !== '',
+	});
+	const shownTitleError = touched.title
 		? currentTitleError
 		: null;
 
@@ -132,36 +133,17 @@ export function BytesDetailsStep({
 				)}
 			</div>
 
-			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="proposal-title">Title</Label>
-				<Input
-					id="proposal-title"
-					value={value}
-					onChange={(e) => {
-						setTitleTouched(true);
-						onTitleChange(e.target.value);
-					}}
-					onBlur={() => setTitleTouched(true)}
-					placeholder={COPY.titlePlaceholder}
-					autoComplete="off"
-					aria-invalid={!!shownTitleError}
-					aria-describedby="proposal-title-hint"
-					data-testid="proposal-title-input"
-				/>
-				<p
-					id="proposal-title-hint"
-					className={cn(
-						'text-12',
-						shownTitleError
-							? 'text-error-foreground'
-							: 'text-muted-foreground',
-					)}
-					data-state={shownTitleError ? 'error' : undefined}
-					data-testid="proposal-title-hint"
-				>
-					{shownTitleError ?? COPY.titleHintBytes}
-				</p>
-			</div>
+			<TitleField
+				value={value}
+				placeholder={COPY.titlePlaceholder}
+				hint={COPY.titleHintBytes}
+				error={shownTitleError}
+				onChange={(next) => {
+					if (value !== '') touch('title');
+					onTitleChange(next);
+				}}
+				onBlur={() => touch('title')}
+			/>
 
 			<Divider />
 
@@ -180,12 +162,7 @@ export function BytesDetailsStep({
 						Back
 					</Button>
 				}
-				note={
-					<span className="inline-flex items-center gap-1.5">
-						<Info className="size-3 shrink-0" />
-						{COPY.bytesNote}
-					</span>
-				}
+				note={<FooterNote>{COPY.bytesNote}</FooterNote>}
 				primary={
 					<Button
 						type="submit"

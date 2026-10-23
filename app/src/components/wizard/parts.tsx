@@ -1,7 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertTriangle, Check, Copy } from 'lucide-react';
+import {
+	AlertTriangle,
+	Check,
+	Copy,
+	Info,
+} from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import {
@@ -109,8 +114,9 @@ export type WizardStep = 1 | 2 | 3;
  * Where the wizard is. Every step up to `reach` (the furthest one whose
  * earlier steps are all valid) is a button, so a visitor can move around
  * without Back; the rest are plain. `disabled` holds every step, as while
- * the multisig or the proposal is being created. Step buttons are `<prefix>-step-<n>`,
- * where the prefix is `testId` without `-stepper`.
+ * the multisig or the proposal is being created. `testId` is the prefix of
+ * the test ids: `<testId>-stepper`, `<testId>-stepper-compact` and
+ * `<testId>-step-<n>`.
  */
 export function WizardStepper({
 	steps,
@@ -120,21 +126,20 @@ export function WizardStepper({
 	onStep,
 	testId,
 }: {
-	/** One label per step: three, to match `WizardStep`. */
-	steps: readonly string[];
+	/** One label per step, to match `WizardStep`. */
+	steps: readonly [string, string, string];
 	step: WizardStep;
 	reach: WizardStep;
 	disabled?: boolean;
 	onStep: (step: WizardStep) => void;
 	testId: string;
 }) {
-	const prefix = testId.replace(/-stepper$/, '');
 	return (
-		<div data-testid={testId} data-step={step}>
+		<div data-testid={`${testId}-stepper`} data-step={step}>
 			{/* Phones: one line and a bar, since three labels don't fit. */}
 			<div
 				className="flex flex-col gap-2 sm:hidden"
-				data-testid={`${testId}-compact`}
+				data-testid={`${testId}-stepper-compact`}
 			>
 				<p className="text-13">
 					<span className="text-muted-foreground">
@@ -190,7 +195,7 @@ export function WizardStepper({
 									navigable &&
 										'cursor-pointer hover:[&>span:last-child]:underline',
 								)}
-								data-testid={`${prefix}-step-${n}`}
+								data-testid={`${testId}-step-${n}`}
 							>
 								<span
 									className={cn(
@@ -292,6 +297,20 @@ export function StepFooter({
 				Cancel
 			</Button>
 		</div>
+	);
+}
+
+/** A footer note with an info icon, for `StepFooter`'s `note`. */
+export function FooterNote({
+	children,
+}: {
+	children: ReactNode;
+}) {
+	return (
+		<span className="inline-flex items-center gap-1.5">
+			<Info className="size-3 shrink-0" />
+			{children}
+		</span>
 	);
 }
 

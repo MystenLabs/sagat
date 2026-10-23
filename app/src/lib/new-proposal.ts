@@ -42,6 +42,12 @@ export const PROPOSAL_TYPES: readonly {
 	},
 ];
 
+/** What Details hands to Review: the built transaction and its title. */
+export interface ReadyProposal {
+	bytes: string;
+	title: string;
+}
+
 /** A transfer as typed on the Details step. */
 export interface TransferDraft {
 	coinType: string;
@@ -75,9 +81,10 @@ export function newProposalPath(
 export function proposalTypeFromQuery(
 	value: string | null,
 ): ProposalType | null {
-	return value === 'transfer' || value === 'bytes'
-		? value
-		: null;
+	return (
+		PROPOSAL_TYPES.find((type) => type.id === value)?.id ??
+		null
+	);
 }
 
 /**
@@ -171,8 +178,11 @@ export function checkTransfer({
 			amountError = COPY.invalidAmount(decimals);
 		else if (rawAmount === 0n)
 			amountError = COPY.zeroAmount;
-		else if (held !== null && balance !== null) {
-			const shown = formatCoinAmount(balance, decimals);
+		else if (held !== null) {
+			const shown = formatCoinAmount(
+				held.toString(),
+				decimals,
+			);
 			if (isSuiCoinType(draft.coinType)) {
 				if (rawAmount > held - SUI_GAS_RESERVE)
 					amountError = COPY.overSuiBalance(shown);
@@ -235,12 +245,7 @@ export type BytesCheck =
 	| { kind: 'unreadable' }
 	| { kind: 'wrong-sender'; sender: string }
 	/** `bytes` is the trimmed input, proposed as it is. */
-	| {
-			kind: 'ok';
-			bytes: string;
-			commands: number;
-			sender: string;
-	  };
+	| { kind: 'ok'; bytes: string; commands: number };
 
 /**
  * Reads pasted transaction bytes: trims them, parses them as base64 BCS
@@ -276,7 +281,6 @@ export function checkBytes(
 		kind: 'ok',
 		bytes: trimmed,
 		commands,
-		sender: normalized,
 	};
 }
 
@@ -335,7 +339,7 @@ export const COPY = {
 	simulationFailed: (reason: string) =>
 		`Simulation failed: ${reason}. If executed, it would fail and the account would still pay gas.`,
 	createFailed:
-		'Couldn’t create the proposal. Nothing was signed or sent. Check your connection and try again.',
+		'Couldn’t create the proposal. Nothing was sent to the other signers. Check your connection and try again.',
 	signatureDeclined:
-		'Signature declined in the wallet. Nothing was created.',
+		'The wallet didn’t sign the proposal. Nothing was created.',
 };

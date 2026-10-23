@@ -19,7 +19,6 @@
 		"@dnd-kit/utilities": "^3.2.2",
 		"@fontsource-variable/geist": "^5.3.0",
 		"@fontsource-variable/geist-mono": "^5.3.0",
-		"@hookform/resolvers": "^5.9.1",
 		"@mysten/dapp-kit-core": "^1.6.34",
 		"@mysten/dapp-kit-react": "^2.1.36",
 		"@mysten/sagat": "workspace:*",
@@ -37,12 +36,10 @@
 		"qrcode.react": "^4.2.0",
 		"react": "^18.3.1",
 		"react-dom": "^18.3.1",
-		"react-hook-form": "^7.89.0",
 		"react-router-dom": "^7.18.4",
 		"sonner": "^2.0.8",
 		"tailwind-merge": "^3.7.0",
-		"tailwindcss": "^4.3.3",
-		"zod": "^4.6.5"
+		"tailwindcss": "^4.3.3"
 	},
 	"devDependencies": {
 		"@tony.ganchev/eslint-plugin-header": "^3.4.4",

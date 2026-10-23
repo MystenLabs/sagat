@@ -254,7 +254,7 @@ export function CreateMultisigPage() {
 						reach={reach}
 						disabled={creating}
 						onStep={goTo}
-						testId="create-stepper"
+						testId="create"
 					/>
 					{step === 2 && (
 						// While the preview card sits below the form, its

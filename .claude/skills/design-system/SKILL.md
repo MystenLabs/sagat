@@ -89,9 +89,10 @@ Rules:
 - No shadows except `shadow-toast`. Depth comes from borders and
   surface changes.
 - Page content starts with the `page-shell` utility (page padding) and
-  a `PageHeader`; do not add a max-width. The one exception is the create
-  wizard, whose frames fix the content at 1092px (`max-w-273`) so the
-  header's Cancel ends where the side column does.
+  a `PageHeader`; do not add a max-width. The one exception is the two
+  wizards (create a multisig, new proposal), whose frames fix the
+  content at 1092px (`max-w-273`) so the header's Cancel ends where the
+  side column does.
 - Control heights: buttons `h-9` (default) and `h-7` (sm); text fields
   (`Input`, `InputGroup`) `size="sm"` 38px (`h-9.5`), `md` 42px
   (`h-10.5`, the default) and `lg` 46px (`h-11.5`), with `SelectTrigger`

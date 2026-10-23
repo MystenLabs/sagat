@@ -1,8 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState } from 'react';
-
 import {
 	Button,
 	disabledButton,
@@ -14,6 +12,7 @@ import {
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
+import { useTouched } from '@/components/wizard/use-touched';
 import {
 	NAME_MAX,
 	nameError,
@@ -33,13 +32,17 @@ export function NameStep({
 	onContinue: () => void;
 	onCancel: () => void;
 }) {
-	// "Give it a name" waits until the field has been used; too long
-	// shows at once.
-	const [touched, setTouched] = useState(name !== '');
+	// "Give it a name" waits until the field has been used
+	// (`useTouched`); too long shows at once.
+	const { touched, touch } = useTouched({
+		name: name !== '',
+	});
 	const error = nameError(name);
 	const length = textLength(name);
 	const shownError =
-		error && (touched || length > NAME_MAX) ? error : null;
+		error && (touched.name || length > NAME_MAX)
+			? error
+			: null;
 
 	return (
 		<form
@@ -60,10 +63,10 @@ export function NameStep({
 					id="create-name"
 					value={name}
 					onChange={(e) => {
+						if (name !== '') touch('name');
 						onNameChange(e.target.value);
-						setTouched(true);
 					}}
-					onBlur={() => setTouched(true)}
+					onBlur={() => touch('name')}
 					placeholder="e.g. Treasury Operations"
 					autoFocus
 					aria-invalid={!!shownError}

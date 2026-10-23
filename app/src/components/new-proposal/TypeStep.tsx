@@ -5,7 +5,6 @@ import { Radio } from '@base-ui/react/radio';
 import { RadioGroup } from '@base-ui/react/radio-group';
 import {
 	FileCode2,
-	Info,
 	Send,
 	type LucideIcon,
 } from 'lucide-react';
@@ -13,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import {
 	Divider,
+	FooterNote,
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
@@ -103,12 +103,7 @@ export function TypeStep({
 			<StepFooter
 				cancelTestId="new-proposal-cancel-footer"
 				onCancel={onCancel}
-				note={
-					<span className="inline-flex items-center gap-1.5">
-						<Info className="size-3 shrink-0" />
-						{COPY.typeNote}
-					</span>
-				}
+				note={<FooterNote>{COPY.typeNote}</FooterNote>}
 				primary={
 					<Button
 						type="submit"

@@ -29,11 +29,13 @@ import {
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
-import { useNetwork } from '@/contexts/NetworkContext';
+import {
+	networkLabel,
+	useNetwork,
+} from '@/contexts/NetworkContext';
 import { type useDryRun } from '@/hooks/useDryRun';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { COPY, titleError } from '@/lib/new-proposal';
-import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, safeDecode } from '@/lib/utils';
 
 /** Step 3: the title, the simulated effects and the raw bytes, then propose. */
@@ -49,7 +51,6 @@ export function ReviewStep({
 	onBack,
 	onCancel,
 }: {
-	multisig: MultisigWithMembersForPublicKey;
 	bytes: string;
 	title: string;
 	onTitleChange: (title: string) => void;
@@ -133,7 +134,7 @@ export function ReviewStep({
 					data-testid="review-simulating"
 				>
 					<p className="text-12 text-muted-foreground">
-						Simulating on {networkName(network)}…
+						Simulating on {networkLabel(network)}…
 					</p>
 					<SkeletonRows rows={3} header />
 				</div>
@@ -318,8 +319,4 @@ function TitleCard({
 			)}
 		</div>
 	);
-}
-
-function networkName(network: string) {
-	return network.charAt(0).toUpperCase() + network.slice(1);
 }

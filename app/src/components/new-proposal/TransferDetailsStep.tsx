@@ -4,15 +4,14 @@
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Check, Info, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Check, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 
 import { buildTransferTransaction } from '@/components/assets/buildTransferTransaction';
 import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -27,10 +26,12 @@ import {
 } from '@/components/ui/tooltip';
 import {
 	Divider,
+	FooterNote,
 	Notice,
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
+import { useTouched } from '@/components/wizard/use-touched';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
 import { accountName } from '@/lib/account-name';
 import { coinLabels } from '@/lib/coinDisplay';
@@ -45,14 +46,14 @@ import {
 	maxAmount,
 	titleError,
 	transferTitle,
+	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 import { AssetSelect } from './AssetSelect';
-
-type Field = 'asset' | 'amount' | 'recipient' | 'title';
+import { TitleField } from './TitleField';
 
 /** Step 2 for a transfer: the asset, amount, recipient and title. */
 export function TransferDetailsStep({
@@ -71,10 +72,7 @@ export function TransferDetailsStep({
 	/** Null shows the title generated from the transfer. */
 	title: string | null;
 	onTitleChange: (title: string) => void;
-	onReady: (ready: {
-		bytes: string;
-		title: string;
-	}) => void;
+	onReady: (ready: ReadyProposal) => void;
 	onBack: () => void;
 	onCancel: () => void;
 }) {
@@ -106,14 +104,14 @@ export function TransferDetailsStep({
 		draft,
 		balance: balance?.balance ?? null,
 		decimals,
-		symbol: coin?.symbol ?? null,
+		symbol,
 	});
 	const shownTitle =
 		title ??
 		transferTitle({
 			rawAmount: check.rawAmount,
 			decimals,
-			symbol: coin?.symbol ?? null,
+			symbol,
 			recipient: draft.recipient,
 		}) ??
 		'';
@@ -139,21 +137,14 @@ export function TransferDetailsStep({
 	const gasKept =
 		isSui && max !== null && draft.amount === max;
 
-	// A field shows its error once it has been left or edited after the
-	// first keystroke; a field that arrives filled (back from Review)
-	// counts as used.
-	const [touched, setTouched] = useState<
-		Record<Field, boolean>
-	>(() => ({
+	// A field shows its error once it has been used (`useTouched`). The
+	// asset counts as used once its list has closed.
+	const { touched, touch } = useTouched({
 		asset: false,
 		amount: draft.amount !== '',
 		recipient: draft.recipient !== '',
 		title: title !== null && title !== '',
-	}));
-	const touch = (field: Field) =>
-		setTouched((t) =>
-			t[field] ? t : { ...t, [field]: true },
-		);
+	});
 
 	const build = useMutation({
 		mutationFn: (input: {
@@ -258,7 +249,7 @@ export function TransferDetailsStep({
 					coinData={assets.coinData}
 					value={draft.coinType}
 					onValueChange={(coinType) => {
-						touch('asset');
+						if (draft.coinType !== '') touch('asset');
 						changeDraft({ ...draft, coinType });
 					}}
 					onClose={() => touch('asset')}
@@ -415,41 +406,22 @@ export function TransferDetailsStep({
 				/>
 			</div>
 
-			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="proposal-title">Title</Label>
-				<Input
-					id="proposal-title"
-					value={shownTitle}
-					onChange={(e) => {
-						touch('title');
-						changeTitle(e.target.value);
-					}}
-					onBlur={() => touch('title')}
-					// Once edited, the field no longer fills itself in.
-					placeholder={
-						title === null
-							? COPY.titlePlaceholderTransfer
-							: COPY.titlePlaceholder
-					}
-					autoComplete="off"
-					aria-invalid={!!shownTitleError}
-					aria-describedby="proposal-title-hint"
-					data-testid="proposal-title-input"
-				/>
-				<p
-					id="proposal-title-hint"
-					className={cn(
-						'text-12',
-						shownTitleError
-							? 'text-error-foreground'
-							: 'text-muted-foreground',
-					)}
-					data-state={shownTitleError ? 'error' : undefined}
-					data-testid="proposal-title-hint"
-				>
-					{shownTitleError ?? COPY.titleHintTransfer}
-				</p>
-			</div>
+			<TitleField
+				value={shownTitle}
+				// Once edited, the field no longer fills itself in.
+				placeholder={
+					title === null
+						? COPY.titlePlaceholderTransfer
+						: COPY.titlePlaceholder
+				}
+				hint={COPY.titleHintTransfer}
+				error={shownTitleError}
+				onChange={(next) => {
+					if (shownTitle !== '') touch('title');
+					changeTitle(next);
+				}}
+				onBlur={() => touch('title')}
+			/>
 
 			{build.isError && (
 				<Notice tone="error" testId="transfer-error">
@@ -474,12 +446,7 @@ export function TransferDetailsStep({
 						Back
 					</Button>
 				}
-				note={
-					<span className="inline-flex items-center gap-1.5">
-						<Info className="size-3 shrink-0" />
-						{COPY.transferNote}
-					</span>
-				}
+				note={<FooterNote>{COPY.transferNote}</FooterNote>}
 				primary={
 					<Button
 						type="submit"
