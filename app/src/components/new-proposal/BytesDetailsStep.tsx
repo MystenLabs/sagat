@@ -9,9 +9,9 @@ import {
 	disabledButton,
 } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import {
-	Divider,
 	FooterNote,
 	SectionHeading,
 	StepFooter,
@@ -145,7 +145,7 @@ export function BytesDetailsStep({
 				onBlur={() => touch('title')}
 			/>
 
-			<Divider />
+			<Separator />
 
 			<StepFooter
 				onCancel={onCancel}

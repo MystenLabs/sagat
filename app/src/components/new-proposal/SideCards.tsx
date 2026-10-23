@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	Divider,
+	cardClass,
+	CardHeading,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import {
 	HelpAccordion,
 	NumberedSteps,
 	SummaryRow,
@@ -14,6 +18,7 @@ import {
 import { accountName } from '@/lib/account-name';
 import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 import { HELP } from './help';
 
@@ -43,11 +48,12 @@ export function FromCard({
 	];
 	return (
 		<section
-			className="flex flex-col gap-2 rounded-xl border bg-card p-6"
+			className={cn(cardClass, 'gap-2 p-6')}
+			aria-labelledby="proposal-from-title"
 			data-testid="proposal-from-card"
 		>
-			<h2 className="text-16 font-medium">From</h2>
-			<Divider />
+			<CardHeading id="proposal-from-title" title="From" />
+			<Separator />
 			<dl className="flex flex-col gap-1">
 				{rows.map(([label, value]) => (
 					<SummaryRow key={label} label={label}>
@@ -95,13 +101,15 @@ export function NextStepsCard({
 	];
 	return (
 		<section
-			className="flex flex-col gap-4 rounded-xl border bg-card p-6"
+			className={cn(cardClass, 'gap-4 p-6')}
+			aria-labelledby="proposal-next-steps-title"
 			data-testid="proposal-next-steps"
 		>
-			<h2 className="text-16 font-medium">
-				What happens next
-			</h2>
-			<Divider />
+			<CardHeading
+				id="proposal-next-steps-title"
+				title="What happens next"
+			/>
+			<Separator />
 			<NumberedSteps items={items} />
 		</section>
 	);

@@ -16,6 +16,7 @@ import {
 	disabledButton,
 } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 import { SkeletonRows } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -24,7 +25,6 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-	Divider,
 	Notice,
 	SectionHeading,
 	StepFooter,
@@ -170,7 +170,7 @@ export function ReviewStep({
 				)}
 			</div>
 
-			<Divider />
+			<Separator />
 
 			{createError && (
 				<Notice tone="error" testId="review-create-error">

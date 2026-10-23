@@ -6,11 +6,29 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * The header row of the account tabs' plain tables: small muted labels on
- * a rounded muted band.
+ * The head row inside a rounded shell (`tableShellClass` or the wizard's
+ * own `rounded-lg` one): small muted labels on a flush muted band, since
+ * the shell's corners already round it.
  */
-export const tableHeadRowClass =
-	'bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md';
+export const tableShellHeadRowClass =
+	'bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal';
+
+/**
+ * The header row of the account tabs' plain tables: the same band with
+ * rounded ends. A template literal, since
+ * `react-refresh/only-export-components` only allows literal constants here.
+ */
+export const tableHeadRowClass = `${tableShellHeadRowClass} [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md`;
+
+/** The account tabs' plain tables: fixed columns at body size. */
+export const tableClass = 'w-full table-fixed text-13';
+
+/** A body row of those tables: a hairline under every row but the last. */
+export const tableRowClass = 'border-b last:border-b-0';
+
+/** The rounded, bordered shell a table sits in when it isn't in a card. */
+export const tableShellClass =
+	'overflow-hidden rounded-2xl border bg-card';
 
 function Table({
 	className,

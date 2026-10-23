@@ -8,8 +8,12 @@ import {
 } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
-import { cardClass } from '../ui/card';
-import { tableHeadRowClass } from '../ui/table';
+import { cardClass, CardHeading } from '../ui/card';
+import {
+	tableClass,
+	tableHeadRowClass,
+	tableRowClass,
+} from '../ui/table';
 import { SignerName } from './SignerName';
 import { SignerStatusChip } from './SignerStatusChip';
 
@@ -35,24 +39,19 @@ export function SignersCard({
 			aria-labelledby="signers-title"
 			data-testid="signers-card"
 		>
-			<div className="flex items-center gap-2">
-				<h2
-					id="signers-title"
-					className="text-16 font-medium"
-				>
-					Signers
-				</h2>
-				<span className="text-12 text-muted-foreground">
-					{rows.length}
-				</span>
+			<CardHeading
+				id="signers-title"
+				title="Signers"
+				count={rows.length}
+			>
 				<span
 					className="ml-auto text-right text-13 text-muted-foreground"
 					data-testid="signers-summary"
 				>
 					{summary}
 				</span>
-			</div>
-			<table className="w-full table-fixed text-13">
+			</CardHeading>
+			<table className={tableClass}>
 				<thead>
 					<tr className={tableHeadRowClass}>
 						<th className="px-3">Signer</th>
@@ -66,7 +65,7 @@ export function SignersCard({
 					{rows.map((row, i) => (
 						<tr
 							key={row.member.publicKey}
-							className="border-b last:border-b-0"
+							className={tableRowClass}
 							data-testid="member-item"
 							data-address={row.address}
 							data-status={row.status}

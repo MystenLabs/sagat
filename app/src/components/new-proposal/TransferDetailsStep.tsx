@@ -19,13 +19,13 @@ import {
 	InputGroupInput,
 } from '@/components/ui/input-group';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-	Divider,
 	FooterNote,
 	Notice,
 	SectionHeading,
@@ -429,7 +429,7 @@ export function TransferDetailsStep({
 				</Notice>
 			)}
 
-			<Divider />
+			<Separator />
 
 			<StepFooter
 				onCancel={onCancel}

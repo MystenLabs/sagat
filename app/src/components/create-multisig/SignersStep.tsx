@@ -18,17 +18,18 @@ import {
 } from '@dnd-kit/sortable';
 import { ArrowLeft, Info, Plus } from 'lucide-react';
 
+import { SegmentBar } from '@/components/multisig/SegmentBar';
 import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-	Divider,
 	Notice,
 	SectionHeading,
 	StepFooter,
@@ -199,7 +200,7 @@ export function SignersStep({
 				</div>
 			</section>
 
-			<Divider />
+			<Separator />
 
 			<section className="flex flex-col gap-3.5">
 				<SectionHeading
@@ -250,7 +251,7 @@ export function SignersStep({
 				</div>
 			</section>
 
-			<Divider />
+			<Separator />
 
 			<StepFooter
 				cancelTestId="create-cancel-footer"
@@ -294,31 +295,10 @@ function ThresholdBar({
 	threshold: number;
 	totalWeight: number;
 }) {
-	const bar = thresholdBar(threshold, totalWeight);
 	return (
 		// The threshold field and "of N total weight" already say this.
-		<div aria-hidden className="flex h-1.5 gap-1">
-			{bar.kind === 'segments' ? (
-				bar.filled.map((filled, i) => (
-					<span
-						key={i}
-						className={cn(
-							'flex-1 rounded-xs',
-							filled ? 'bg-foreground' : 'bg-secondary',
-						)}
-					/>
-				))
-			) : (
-				<>
-					<span
-						className="rounded-xs bg-foreground"
-						style={{ width: `${bar.percent}%` }}
-					/>
-					{bar.percent < 100 && (
-						<span className="flex-1 rounded-xs bg-secondary" />
-					)}
-				</>
-			)}
-		</div>
+		<SegmentBar
+			layout={thresholdBar(threshold, totalWeight)}
+		/>
 	);
 }

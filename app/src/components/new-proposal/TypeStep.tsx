@@ -10,8 +10,8 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import {
-	Divider,
 	FooterNote,
 	SectionHeading,
 	StepFooter,
@@ -99,7 +99,7 @@ export function TypeStep({
 					);
 				})}
 			</RadioGroup>
-			<Divider />
+			<Separator />
 			<StepFooter
 				cancelTestId="new-proposal-cancel-footer"
 				onCancel={onCancel}

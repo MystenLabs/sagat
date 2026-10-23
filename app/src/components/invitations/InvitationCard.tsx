@@ -12,8 +12,8 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useAcceptInvitation } from '../../hooks/useAcceptInvitation';
 import { useRejectInvitation } from '../../hooks/useRejectInvitation';
+import { SignerStatusChip } from '../multisig/SignerStatusChip';
 import { Button } from '../ui/button';
-import { Chip } from '../ui/chip';
 import { CopyButton } from '../ui/CopyButton';
 import { RejectInvitationDialog } from './RejectInvitationDialog';
 import { ReviewInvitationDialog } from './ReviewInvitationDialog';
@@ -79,11 +79,11 @@ export function InvitationCard({
 								</ShortAddress>
 							)}
 						</h3>
-						{multisig.isRejected ? (
-							<Chip variant="error">Rejected</Chip>
-						) : (
-							<Chip variant="warning">Invited</Chip>
-						)}
+						<SignerStatusChip
+							status={
+								multisig.isRejected ? 'rejected' : 'pending'
+							}
+						/>
 					</div>
 					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-13 text-muted-foreground">
 						<span data-testid="invitation-invited-by">

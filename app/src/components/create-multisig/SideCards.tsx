@@ -6,8 +6,12 @@ import { Check } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import {
+	cardClass,
+	CardHeading,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import {
 	CopyText,
-	Divider,
 	HelpAccordion,
 	NumberedSteps,
 	SummaryRow,
@@ -17,8 +21,6 @@ import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 
 import { HELP } from './help';
-
-const card = 'rounded-xl border bg-card';
 
 /** "3", or "3 (+1 incomplete)". */
 function signersLabel(signers: number, incomplete: number) {
@@ -113,13 +115,15 @@ export function PreviewCard({
 	const muted = 'text-muted-foreground/70';
 	return (
 		<section
-			className={cn(card, 'flex flex-col gap-2 p-6')}
+			className={cn(cardClass, 'gap-2 p-6')}
+			aria-labelledby="create-preview-title"
 			data-testid="create-preview"
 		>
-			<h2 className="text-16 font-medium">
-				Multisig preview
-			</h2>
-			<Divider />
+			<CardHeading
+				id="create-preview-title"
+				title="Multisig preview"
+			/>
+			<Separator />
 			<dl className="flex flex-col gap-1">
 				<SummaryRow label="Name">
 					<span
@@ -160,7 +164,7 @@ export function PreviewCard({
 					)}
 				</SummaryRow>
 			</dl>
-			<Divider />
+			<Separator />
 			<div className="flex flex-col gap-1.5 pt-1">
 				<span className="text-13 text-muted-foreground">
 					Sui address
@@ -236,13 +240,15 @@ export function NextStepsCard({
 	];
 	return (
 		<section
-			className={cn(card, 'flex flex-col gap-4 p-6')}
+			className={cn(cardClass, 'gap-4 p-6')}
+			aria-labelledby="create-next-steps-title"
 			data-testid="create-next-steps"
 		>
-			<h2 className="text-16 font-medium">
-				What happens next
-			</h2>
-			<Divider />
+			<CardHeading
+				id="create-next-steps-title"
+				title="What happens next"
+			/>
+			<Separator />
 			<NumberedSteps items={items} />
 		</section>
 	);

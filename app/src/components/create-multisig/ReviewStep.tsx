@@ -8,7 +8,12 @@ import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { Stat } from '@/components/ui/stat';
+import {
+	tableRowClass,
+	tableShellHeadRowClass,
+} from '@/components/ui/table';
 import {
 	Tooltip,
 	TooltipContent,
@@ -16,7 +21,6 @@ import {
 } from '@/components/ui/tooltip';
 import {
 	CopyText,
-	Divider,
 	Notice,
 	SectionHeading,
 	StepFooter,
@@ -137,17 +141,11 @@ export function ReviewStep({
 				<div className="hidden overflow-x-auto rounded-lg border border-foreground/8 bg-card @xl/card:block">
 					<table className="w-full min-w-150 text-left">
 						<thead>
-							<tr className="bg-muted text-12 text-muted-foreground">
-								<th className="w-10 py-1.75 pl-3 font-normal">
-									#
-								</th>
-								<th className="w-30 py-1.75 font-normal">
-									Signer
-								</th>
-								<th className="py-1.75 font-normal">
-									Public key
-								</th>
-								<th className="w-16 py-1.75 pr-3 text-right font-normal">
+							<tr className={tableShellHeadRowClass}>
+								<th className="w-10 pl-3">#</th>
+								<th className="w-30">Signer</th>
+								<th>Public key</th>
+								<th className="w-16 pr-3 text-right">
 									Weight
 								</th>
 							</tr>
@@ -156,7 +154,7 @@ export function ReviewStep({
 							{rows.map((row) => (
 								<tr
 									key={row.id}
-									className="border-b last:border-b-0"
+									className={tableRowClass}
 									data-testid="create-review-signer"
 								>
 									<td className="py-3 pl-3 align-middle text-12 text-muted-foreground">
@@ -231,7 +229,7 @@ export function ReviewStep({
 				</span>
 			</div>
 
-			<Divider />
+			<Separator />
 
 			{error && (
 				<Notice tone="error" testId="create-error">
