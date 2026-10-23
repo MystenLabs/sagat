@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
-import { CopyButton } from '@/components/ui/copy-button';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { cn } from '@/lib/utils';
 
 /**
@@ -59,7 +59,7 @@ export function SignerName({
 	copy = false,
 	size = 'md',
 	wrap = false,
-	labelTestId = 'member-label',
+	labelTestId,
 }: {
 	label: string | null;
 	address?: string;
@@ -72,7 +72,8 @@ export function SignerName({
 	 * truncating it (the create wizard's review).
 	 */
 	wrap?: boolean;
-	labelTestId?: string | null;
+	/** A test id on the label, for the member tables. */
+	labelTestId?: string;
 }) {
 	const s = SIZES[size];
 	// The space keeps "Alice (you)" readable as text; the gap spaces it.
@@ -87,8 +88,9 @@ export function SignerName({
 	const copyButton = copy && address && (
 		<CopyButton
 			value={address}
-			size="sm"
-			className="shrink-0 text-muted-foreground"
+			// The row's 12px icon in a 16px box: CopyButton is otherwise a
+			// 36px icon button with a 16px icon, whatever its size.
+			className="size-4 shrink-0 text-muted-foreground [&_svg]:size-3!"
 			successMessage="Address copied"
 		/>
 	);
@@ -140,7 +142,7 @@ export function SignerName({
 							? 'min-w-0 font-normal break-words'
 							: 'truncate',
 					)}
-					data-testid={labelTestId ?? undefined}
+					data-testid={labelTestId}
 				>
 					{label}
 				</span>

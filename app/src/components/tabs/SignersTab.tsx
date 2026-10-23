@@ -24,6 +24,7 @@ import { SetupCard } from '../multisig/SetupCard';
 import { SignersCard } from '../multisig/SignersCard';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Alert } from '../ui/Alert';
+import { Button } from '../ui/button';
 
 interface SignersTabContext {
 	multisig: MultisigWithMembersForPublicKey;
@@ -65,15 +66,16 @@ export function SignersTab() {
 				<Alert variant="error" data-testid="signers-error">
 					The latest account details couldn’t be loaded, so
 					this may be out of date.{' '}
-					<button
-						type="button"
+					<Button
+						variant="link"
+						size="xs"
 						onClick={() => refetch()}
 						disabled={isFetching}
-						className="cursor-pointer rounded-sm font-medium underline underline-offset-4 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60"
+						className="h-auto border-0 px-0 text-13 text-inherit underline hover:no-underline"
 						data-testid="signers-retry"
 					>
 						{isFetching ? 'Trying again...' : 'Try again'}
-					</button>
+					</Button>
 				</Alert>
 			)}
 			{notice && (

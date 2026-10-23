@@ -204,7 +204,6 @@ export function ReviewStep({
 									marker={row.isYou ? 'you' : null}
 									markerStyle="parens"
 									wrap
-									labelTestId={null}
 								/>
 								<span className="truncate font-mono text-11 text-foreground-secondary">
 									{row.key}

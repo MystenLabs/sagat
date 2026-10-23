@@ -5,7 +5,6 @@ import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-	matchPath,
 	Navigate,
 	Outlet,
 	useLocation,
@@ -16,7 +15,10 @@ import { useArrivalBanner } from '@/hooks/useArrivalBanner';
 import { accountName } from '@/lib/account-name';
 import { joinList } from '@/lib/create-multisig';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
-import { MULTISIG_PAGES } from '@/lib/multisig-pages';
+import {
+	currentMultisigPage,
+	MULTISIG_PAGES,
+} from '@/lib/multisig-pages';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { SuccessBanner } from './multisig/SuccessBanner';
@@ -31,11 +33,7 @@ import { SkeletonPage } from './ui/skeleton';
 export function MultisigDetailPage() {
 	const { address } = useParams<{ address: string }>();
 	const location = useLocation();
-	const page =
-		matchPath(
-			{ path: '/multisig/:address/:page', end: false },
-			location.pathname,
-		)?.params.page ?? 'proposals';
+	const page = currentMultisigPage(location.pathname);
 	const currentAccount = useCurrentAccount();
 	const [showProposalSheet, setShowProposalSheet] =
 		useState(false);

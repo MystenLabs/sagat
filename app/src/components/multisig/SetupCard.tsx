@@ -7,12 +7,14 @@ import { type ReactNode } from 'react';
 import { type AccountSetup } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
+import { Button, buttonVariants } from '../ui/button';
 import { cardClass } from '../ui/card';
+import { Separator } from '../ui/separator';
 import { CreatedBy } from './CreatedBy';
 
 /** The explorer link and the download button: quiet text actions. */
 const textAction =
-	'inline-flex cursor-pointer items-center gap-1 rounded-sm text-12 text-foreground-secondary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring';
+	'h-auto gap-1 border-0 px-0 text-12 font-normal text-foreground-secondary hover:text-foreground hover:no-underline';
 
 /**
  * The "Setup" card beside the signers: the account's numbers, when and by
@@ -38,11 +40,11 @@ export function SetupCard({
 		>
 			<h2
 				id="account-setup-title"
-				className="text-15 font-medium"
+				className="text-16 font-medium"
 			>
 				Setup
 			</h2>
-			<div className="h-px w-full bg-border" />
+			<Separator />
 			<dl className="flex flex-col gap-1">
 				<Row label="Threshold">
 					<span
@@ -76,26 +78,35 @@ export function SetupCard({
 			</dl>
 			<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t pt-3">
 				{explorerUrl && (
+					// Styled as the button, not rendered through it: Base UI
+					// would give the anchor role="button".
 					<a
 						href={explorerUrl}
 						target="_blank"
 						rel="noopener noreferrer"
-						className={textAction}
+						className={cn(
+							buttonVariants({
+								variant: 'link',
+								size: 'xs',
+							}),
+							textAction,
+						)}
 						data-testid="setup-explorer-link"
 					>
 						View on explorer
 						<ArrowUpRight className="size-3" />
 					</a>
 				)}
-				<button
-					type="button"
+				<Button
+					variant="link"
+					size="xs"
 					onClick={onDownload}
 					className={textAction}
 					data-testid="setup-download"
 				>
 					Download setup
 					<Download className="size-3" />
-				</button>
+				</Button>
 			</div>
 		</section>
 	);

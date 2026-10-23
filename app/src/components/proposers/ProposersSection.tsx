@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Button } from '@/components/ui/button';
 import { cardClass } from '@/components/ui/card';
-import { CopyButton } from '@/components/ui/copy-button';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { tableHeadRowClass } from '@/components/ui/table';
 import { formatDate } from '@/lib/dates';
 import { cn } from '@/lib/utils';
@@ -105,7 +105,7 @@ export function ProposersSection({
 											/>
 											<CopyButton
 												value={proposer.address}
-												size="sm"
+												className="size-4 shrink-0 text-muted-foreground [&_svg]:size-3!"
 												successMessage="Address copied"
 											/>
 										</span>

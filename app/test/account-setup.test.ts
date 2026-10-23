@@ -118,4 +118,14 @@ describe('account setup', () => {
 		expect(setup.createdAt).toBeNull();
 		expect(setup.createdLabel).toBeNull();
 	});
+
+	test('leaves the creation time empty for accounts from before the rotation', () => {
+		// The migration stamped them with its own run time.
+		const setup = accountSetup({
+			multisig: multisig({ draftedBy: ACCOUNT }),
+			currentAddress: alice.address,
+		});
+		expect(setup.createdAt).toBeNull();
+		expect(setup.createdLabel).toBeNull();
+	});
 });

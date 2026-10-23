@@ -6,7 +6,7 @@ import { type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 const SIZES = {
-	/** 12px label over a 14px value: the invitation review and wizard. */
+	/** 12px label over a 14px value: the create wizard's review. */
 	sm: {
 		root: 'gap-0.5',
 		label: 'text-12',

@@ -3,7 +3,10 @@
 
 import type { MultisigWithMembers } from '@mysten/sagat';
 
-import { accountCreator } from './account-name';
+import {
+	accountCreator,
+	isLegacyAccount,
+} from './account-name';
 import { formatDateTime } from './dates';
 import { thresholdLabel } from './threshold';
 
@@ -36,13 +39,18 @@ export function accountSetup({
 	currentAddress: string | null | undefined;
 }): AccountSetup {
 	const creator = accountCreator(multisig);
+	// Legacy accounts were stamped with the migration's run time, not the
+	// time they were made, so their creation date is unknown.
+	const createdAt = isLegacyAccount(multisig)
+		? null
+		: multisig.createdAt;
 	return {
 		threshold: multisig.threshold,
 		thresholdLabel: thresholdLabel(multisig),
 		signerCount: multisig.totalMembers,
 		totalWeight: multisig.totalWeight,
-		createdAt: multisig.createdAt,
-		createdLabel: formatDateTime(multisig.createdAt),
+		createdAt,
+		createdLabel: formatDateTime(createdAt),
 		creator: creator && {
 			...creator,
 			isYou: creator.address === currentAddress,

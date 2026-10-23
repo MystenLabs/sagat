@@ -44,7 +44,6 @@ export function CreatedBy({
 				marker={creator.isYou ? 'you' : null}
 				markerStyle="parens"
 				size="inline"
-				labelTestId={null}
 			/>
 		</span>
 	);

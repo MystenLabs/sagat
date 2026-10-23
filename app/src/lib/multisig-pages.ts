@@ -7,6 +7,7 @@ import {
 	LayoutDashboard,
 	Users,
 } from 'lucide-react';
+import { matchPath } from 'react-router-dom';
 
 /**
  * An account's pages, in sidebar order. The label names the sidebar item
@@ -22,3 +23,23 @@ export const MULTISIG_PAGES = [
 	{ id: 'assets', label: 'Assets', icon: Coins },
 	{ id: 'signers', label: 'Signers', icon: Users },
 ] as const;
+
+export type MultisigPageId =
+	(typeof MULTISIG_PAGES)[number]['id'];
+
+/**
+ * The account page a path is on, for the title and the sidebar. The
+ * account's bare path redirects to its proposals.
+ */
+export function currentMultisigPage(
+	pathname: string,
+): MultisigPageId {
+	const page = matchPath(
+		{ path: '/multisig/:address/:page', end: false },
+		pathname,
+	)?.params.page;
+	return (
+		MULTISIG_PAGES.find((p) => p.id === page)?.id ??
+		'proposals'
+	);
+}

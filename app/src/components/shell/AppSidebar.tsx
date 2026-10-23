@@ -69,7 +69,10 @@ import { useInvitations } from '@/hooks/useInvitations';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
-import { MULTISIG_PAGES } from '@/lib/multisig-pages';
+import {
+	currentMultisigPage,
+	MULTISIG_PAGES,
+} from '@/lib/multisig-pages';
 import { cn } from '@/lib/utils';
 
 const RESOURCE_LINKS = [
@@ -142,12 +145,11 @@ function SidebarNav() {
 	const { data: invitations } = useInvitations();
 	const pendingInvites = invitations?.length ?? 0;
 
-	const match = matchPath(
+	const routeAddress = matchPath(
 		'/multisig/:address/:page?',
 		location.pathname,
-	);
-	const routeAddress = match?.params.address;
-	const routePage = match?.params.page ?? 'proposals';
+	)?.params.address;
+	const routePage = currentMultisigPage(location.pathname);
 
 	const accepted = useMemo(
 		() => multisigs?.filter((m) => m.isAccepted) ?? [],

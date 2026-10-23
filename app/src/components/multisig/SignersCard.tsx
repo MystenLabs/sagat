@@ -90,6 +90,7 @@ export function SignersCard({
 										marker={row.isYou ? 'you' : null}
 										markerStyle="parens"
 										copy
+										labelTestId="member-label"
 									/>
 								</div>
 							</td>

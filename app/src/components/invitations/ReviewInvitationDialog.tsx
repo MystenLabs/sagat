@@ -124,7 +124,6 @@ export function ReviewInvitationDialog({
 												: creator.address
 										}
 										size="inline"
-										labelTestId={null}
 									/>
 								) : (
 									'Someone'
@@ -209,6 +208,7 @@ export function ReviewInvitationDialog({
 																: null
 													}
 													size="sm"
+													labelTestId="member-label"
 												/>
 											</td>
 											<td className="px-3 py-2.5 text-right font-medium">
