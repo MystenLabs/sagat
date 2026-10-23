@@ -16,7 +16,10 @@ import {
 	validatePublicKey,
 } from './sui-utils';
 import { sumWeight } from './threshold';
-import { weightBarLayout } from './weight-bar';
+import {
+	weightBarLayout,
+	type WeightBarLayout,
+} from './weight-bar';
 
 /** A row in the signers table, as the creator typed it. */
 export interface SignerDraft {
@@ -382,22 +385,21 @@ export function thresholdWarning({
  * The threshold bar, drawn like the invitation's weight bar: the weight
  * the threshold needs as accepted, the rest as pending. One segment per
  * unit of weight up to the cap, then two runs whose accepted part keeps
- * a minimum width so a small threshold stays visible. With no weight
- * yet it still shows the one unit the threshold starts at.
+ * a minimum width so a small threshold stays visible. The accepted
+ * weight never drops below one, so with no weight yet the bar still
+ * shows the one unit the threshold starts at rather than nothing.
  */
 export function thresholdBar(
 	threshold: number,
 	totalWeight: number,
-) {
-	if (totalWeight === 0)
-		return weightBarLayout(
-			[{ weight: 1, tone: 'accepted' }],
-			threshold,
-		);
+): WeightBarLayout {
 	return weightBarLayout(
 		[
 			{
-				weight: Math.min(threshold, totalWeight),
+				weight: Math.max(
+					Math.min(threshold, totalWeight),
+					1,
+				),
 				tone: 'accepted',
 			},
 			{

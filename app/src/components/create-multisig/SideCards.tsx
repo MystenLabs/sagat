@@ -121,7 +121,7 @@ export function PreviewCard({
 		>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<DetailRow className="gap-4" label="Name" wrap>
+				<DetailRow label="Name" wrap>
 					<span
 						className={cn(
 							'text-13 break-all',
@@ -132,7 +132,7 @@ export function PreviewCard({
 						{name.trim() || 'Not set'}
 					</span>
 				</DetailRow>
-				<DetailRow className="gap-4" label="Signers">
+				<DetailRow label="Signers">
 					<span
 						className={cn('text-12', !setUp && muted)}
 						data-testid="create-preview-signers"
@@ -140,12 +140,12 @@ export function PreviewCard({
 						{setUp ? signersLabel(signers, incomplete) : 0}
 					</span>
 				</DetailRow>
-				<DetailRow className="gap-4" label="Total weight">
+				<DetailRow label="Total weight">
 					<span className={cn('text-12', !setUp && muted)}>
 						{setUp ? totalWeight : 0}
 					</span>
 				</DetailRow>
-				<DetailRow className="gap-4" label="Threshold">
+				<DetailRow label="Threshold">
 					{setUp ? (
 						<span
 							className="text-12"

@@ -6,18 +6,19 @@ import * as React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * The header row of the account tabs' plain tables: small muted labels on
- * a rounded muted band.
+ * The head row inside a rounded shell (`tableShellClass` or the wizard's
+ * own `rounded-lg` one): small muted labels on a flush muted band, since
+ * the shell's corners already round it.
  */
-export const tableHeadRowClass =
-	'bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md';
+export const tableShellHeadRowClass =
+	'bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal';
 
 /**
- * The head row inside a `tableShellClass` shell: flush, since the shell's
- * corners already round the band.
+ * The header row of the account tabs' plain tables: the same band with
+ * its own rounded ends. Built by adding the corners rather than with
+ * `cn`, as Fast Refresh only allows literal constants beside components.
  */
-export const tableHeadRowFlushClass =
-	'[&>th:first-child]:rounded-l-none [&>th:last-child]:rounded-r-none';
+export const tableHeadRowClass = `${tableShellHeadRowClass} [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md`;
 
 /** The account tabs' plain tables: fixed columns at body size. */
 export const tableClass = 'w-full table-fixed text-13';

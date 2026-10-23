@@ -6,7 +6,7 @@ import { type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import {
 	SEGMENT_GAP_PX,
-	type weightBarLayout,
+	type WeightBarLayout,
 	type WeightTone,
 } from '@/lib/weight-bar';
 
@@ -25,17 +25,15 @@ const TONE_CLASS: Record<WeightTone, string> = {
  */
 export function SegmentBar({
 	layout,
-	className,
 	children,
 }: {
-	layout: ReturnType<typeof weightBarLayout>;
-	className?: string;
+	layout: WeightBarLayout;
 	children?: ReactNode;
 }) {
 	return (
 		<div
 			aria-hidden
-			className={cn('relative flex h-1.5', className)}
+			className="relative flex h-1.5"
 			style={
 				layout.kind === 'segments'
 					? { gap: SEGMENT_GAP_PX }

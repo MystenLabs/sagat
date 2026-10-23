@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	type ComponentPropsWithoutRef,
-	type ReactNode,
-} from 'react';
+import { type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -15,7 +12,8 @@ export const cardClass =
 /**
  * A card's title line: the title, an optional muted count after it, and
  * whatever trails it. Trailing elements push themselves right with
- * `ml-auto`.
+ * `ml-auto`; the line wraps so a trailing action or summary drops under
+ * the title when it does not fit beside it.
  */
 export function CardHeading({
 	id,
@@ -32,7 +30,10 @@ export function CardHeading({
 }) {
 	return (
 		<div
-			className={cn('flex items-center gap-2', className)}
+			className={cn(
+				'flex flex-wrap items-center gap-2',
+				className,
+			)}
 		>
 			<h2 id={id} className="text-16 font-medium">
 				{title}
@@ -57,33 +58,25 @@ export function Card({
 	count,
 	trailing,
 	className,
-	headingClassName,
 	testId,
 	children,
-	...rest
 }: {
 	title: ReactNode;
 	titleId: string;
 	count?: ReactNode;
 	/** After the title and count; give it `ml-auto` to sit right. */
 	trailing?: ReactNode;
-	/** Only for a heading that has to wrap its trailing (`flex-wrap`). */
-	headingClassName?: string;
+	className?: string;
 	testId?: string;
-} & Omit<ComponentPropsWithoutRef<'section'>, 'title'>) {
+	children?: ReactNode;
+}) {
 	return (
 		<section
 			className={cn(cardClass, className)}
 			aria-labelledby={titleId}
 			data-testid={testId}
-			{...rest}
 		>
-			<CardHeading
-				id={titleId}
-				title={title}
-				count={count}
-				className={headingClassName}
-			>
+			<CardHeading id={titleId} title={title} count={count}>
 				{trailing}
 			</CardHeading>
 			{children}

@@ -23,10 +23,9 @@ import {
 } from '../ui/dialog';
 import {
 	tableClass,
-	tableHeadRowClass,
-	tableHeadRowFlushClass,
 	tableRowClass,
 	tableShellClass,
+	tableShellHeadRowClass,
 } from '../ui/table';
 import { WeightBar } from './WeightBar';
 
@@ -172,12 +171,7 @@ export function ReviewInvitationDialog({
 						<div className={cn('mt-4', tableShellClass)}>
 							<table className={tableClass}>
 								<thead>
-									<tr
-										className={cn(
-											tableHeadRowClass,
-											tableHeadRowFlushClass,
-										)}
-									>
+									<tr className={tableShellHeadRowClass}>
 										{/* Hidden at phone width so the name and address keep their room. */}
 										<th className="hidden w-9 px-3 sm:table-cell">
 											#

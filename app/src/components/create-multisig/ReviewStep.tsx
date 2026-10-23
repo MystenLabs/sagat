@@ -11,9 +11,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Stat } from '@/components/ui/stat';
 import {
-	tableHeadRowClass,
-	tableHeadRowFlushClass,
 	tableRowClass,
+	tableShellHeadRowClass,
 } from '@/components/ui/table';
 import {
 	Tooltip,
@@ -143,12 +142,7 @@ export function ReviewStep({
 				<div className="hidden overflow-x-auto rounded-lg border border-foreground/8 bg-card @xl/card:block">
 					<table className="w-full min-w-150 text-left">
 						<thead>
-							<tr
-								className={cn(
-									tableHeadRowClass,
-									tableHeadRowFlushClass,
-								)}
-							>
+							<tr className={tableShellHeadRowClass}>
 								<th className="w-10 pl-3">#</th>
 								<th className="w-30">Signer</th>
 								<th>Public key</th>

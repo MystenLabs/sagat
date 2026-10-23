@@ -28,6 +28,15 @@ const TONE_ORDER: Record<WeightTone, number> = {
 	pending: 2,
 };
 
+/** How a weight bar is drawn: unit segments, or runs sized by weight. */
+export type WeightBarLayout =
+	| { kind: 'segments'; tones: WeightTone[] }
+	| {
+			kind: 'runs';
+			runs: WeightedSigner[];
+			thresholdPercent: number;
+	  };
+
 /**
  * How the weight bar on an invitation is drawn: accepted weight first,
  * then yours, then the pending rest, so the threshold marker reads
@@ -39,13 +48,7 @@ const TONE_ORDER: Record<WeightTone, number> = {
 export function weightBarLayout(
 	signers: WeightedSigner[],
 	threshold: number,
-):
-	| { kind: 'segments'; tones: WeightTone[] }
-	| {
-			kind: 'runs';
-			runs: WeightedSigner[];
-			thresholdPercent: number;
-	  } {
+): WeightBarLayout {
 	const ordered = [...signers].sort(
 		(a, b) => TONE_ORDER[a.tone] - TONE_ORDER[b.tone],
 	);

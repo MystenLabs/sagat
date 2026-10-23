@@ -15,20 +15,13 @@ export function DetailRow({
 	label,
 	children,
 	wrap = false,
-	className,
 }: {
 	label: ReactNode;
 	children: ReactNode;
 	wrap?: boolean;
-	className?: string;
 }) {
 	return (
-		<div
-			className={cn(
-				'flex min-h-5.5 items-center justify-between gap-3 py-0.5 text-13',
-				className,
-			)}
-		>
+		<div className="flex min-h-5.5 items-center justify-between gap-3 py-0.5 text-13">
 			<dt className="shrink-0 text-muted-foreground">
 				{label}
 			</dt>

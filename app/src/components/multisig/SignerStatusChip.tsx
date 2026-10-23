@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Chip, type ChipProps } from '@/components/ui/chip';
+import { Chip } from '@/components/ui/chip';
 import { type SignerEntry } from '@/lib/signers';
 
 const STATUS_CHIP = {
@@ -13,15 +13,9 @@ const STATUS_CHIP = {
 /** Where a signer's invitation stands, as a status chip. */
 export function SignerStatusChip({
 	status,
-	...props
-}: { status: SignerEntry['status'] } & Omit<
-	ChipProps,
-	'variant' | 'children'
->) {
+}: {
+	status: SignerEntry['status'];
+}) {
 	const { variant, label } = STATUS_CHIP[status];
-	return (
-		<Chip variant={variant} {...props}>
-			{label}
-		</Chip>
-	);
+	return <Chip variant={variant}>{label}</Chip>;
 }

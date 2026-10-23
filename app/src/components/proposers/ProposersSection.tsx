@@ -61,8 +61,6 @@ export function ProposersSection({
 					Add external proposer
 				</Button>
 			}
-			// The button wraps under the title on a narrow card.
-			headingClassName="flex-wrap"
 			className={className}
 			testId="proposers-card"
 		>

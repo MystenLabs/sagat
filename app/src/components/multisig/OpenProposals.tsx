@@ -34,10 +34,9 @@ import { EmptyState, ErrorState } from '../ui/empty-state';
 import { SkeletonRows } from '../ui/skeleton';
 import {
 	tableClass,
-	tableHeadRowClass,
-	tableHeadRowFlushClass,
 	tableRowClass,
 	tableShellClass,
+	tableShellHeadRowClass,
 } from '../ui/table';
 import { SignerName } from './SignerName';
 
@@ -127,12 +126,7 @@ export function OpenProposals({
 				<div className={tableShellClass}>
 					<table className={tableClass}>
 						<thead>
-							<tr
-								className={cn(
-									tableHeadRowClass,
-									tableHeadRowFlushClass,
-								)}
-							>
+							<tr className={tableShellHeadRowClass}>
 								<th className="px-3">Proposal</th>
 								<th className="w-20 px-3 sm:w-24">
 									Status
