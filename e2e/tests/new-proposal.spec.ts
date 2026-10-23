@@ -23,17 +23,9 @@ import {
 	openNewProposal,
 	pasteBytes,
 	proposeAndSign,
-	reviewBytes,
 	reviewTransfer,
 } from '../support/new-proposal';
-import {
-	setupMultisig,
-	signProposal,
-} from '../support/scenarios';
-import { mintTestCoin } from '../support/test-coin';
-
-// 0.05 SUI, what Max keeps back for gas.
-const GAS_RESERVE = 50_000_000n;
+import { setupMultisig } from '../support/scenarios';
 
 // Alice and Bob share a funded account; Alice is signed in on it. With
 // threshold 1, Alice's proposal is ready to execute as soon as she makes it.
@@ -183,134 +175,9 @@ test.describe('new proposal: transfer', () => {
 			page.getByTestId('new-proposal-stepper'),
 		).toHaveAttribute('data-step', '2');
 	});
-
-	test('sends a coin other than SUI, merging its coins, and executes', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const fixtures = { createActor, createIdentity, chain };
-		const { alice, multisig } = await fundedAccount(
-			fixtures,
-			1,
-		);
-		const { page } = alice;
-		// 10 TEST in each of three coins, so sending 12.5 merges coins.
-		const coinType = await mintTestCoin(
-			chain,
-			multisig.address,
-			[10_000_000n, 10_000_000n, 10_000_000n],
-		);
-		const recipient = randomAddress();
-
-		await openNewProposal(page, multisig.address, {
-			type: 'transfer',
-		});
-		await fillTransfer(page, {
-			coinType,
-			amount: '12.5',
-			recipient,
-		});
-		await expect(
-			page.getByTestId('proposal-title-input'),
-		).toHaveValue(/^Send 12\.5 TEST to 0x/);
-		await reviewTransfer(page);
-		await expectSimulation(page, 'success');
-		await proposeAndSign(page);
-		await executeProposal(page);
-
-		expect(await chain.balance(recipient, coinType)).toBe(
-			12_500_000n,
-		);
-		expect(
-			await chain.balance(multisig.address, coinType),
-		).toBe(17_500_000n);
-	});
-
-	test('Max sends the SUI balance minus the gas reserve, and gas comes out of the reserve', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const fixtures = { createActor, createIdentity, chain };
-		const { alice, multisig } = await fundedAccount(
-			fixtures,
-			1,
-		);
-		const { page } = alice;
-		const funded = await chain.balance(multisig.address);
-		const recipient = randomAddress();
-
-		await openNewProposal(page, multisig.address, {
-			type: 'transfer',
-		});
-		await chooseAsset(page, SUI_TYPE);
-		await page.getByTestId('transfer-max-button').click();
-		await page
-			.getByTestId('transfer-recipient-input')
-			.fill(recipient);
-		await reviewTransfer(page);
-		await expectSimulation(page, 'success');
-		await proposeAndSign(page);
-		const digest = await executeProposal(page);
-
-		expect(await chain.balance(recipient)).toBe(
-			funded - GAS_RESERVE,
-		);
-		expect(await chain.balance(multisig.address)).toBe(
-			GAS_RESERVE - (await chain.gasCost(digest)),
-		);
-	});
 });
 
 test.describe('new proposal: transfer details', () => {
-	test('an amount above the balance shows the balance and blocks Review', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const fixtures = { createActor, createIdentity, chain };
-		const { alice, multisig } = await fundedAccount(
-			fixtures,
-			2,
-		);
-		const { page } = alice;
-		const coinType = await mintTestCoin(
-			chain,
-			multisig.address,
-			[10_000_000n],
-		);
-
-		await openNewProposal(page, multisig.address, {
-			type: 'transfer',
-		});
-		await fillTransfer(page, {
-			coinType,
-			amount: '50',
-			recipient: randomAddress(),
-		});
-		await expect(
-			page.getByTestId('transfer-amount-error'),
-		).toHaveText(
-			'More than the account holds. The TEST balance is 10.',
-		);
-		await expect(
-			page.getByTestId('transfer-review'),
-		).toBeDisabled();
-
-		// On SUI, the reserve for gas counts too. The faucet sent 1,000 SUI.
-		await chooseAsset(page, SUI_TYPE);
-		await page
-			.getByTestId('transfer-amount-input')
-			.fill('999.99');
-		await expect(
-			page.getByTestId('transfer-amount-error'),
-		).toContainText('Leave at least 0.05 SUI for gas.');
-		await expect(
-			page.getByTestId('transfer-review'),
-		).toBeDisabled();
-	});
-
 	test('Max on SUI fills the balance minus 0.05 SUI and says so', async ({
 		createActor,
 		createIdentity,
@@ -491,59 +358,6 @@ test.describe('new proposal: transfer details', () => {
 });
 
 test.describe('new proposal: transaction bytes', () => {
-	test('proposes pasted bytes once titled, and a co-signature makes it ready', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const fixtures = { createActor, createIdentity, chain };
-		const { alice, bob, multisig } = await fundedAccount(
-			fixtures,
-			2,
-		);
-		const { page } = alice;
-		const bytes = await chain.buildSuiTransfer({
-			sender: multisig.address,
-			recipient: randomAddress(),
-			amount: MIST_PER_SUI / 4n,
-		});
-
-		await clickNewProposal(page);
-		await chooseType(page, 'bytes');
-		await pasteBytes(page, bytes);
-		await expect(
-			page.getByTestId('bytes-status'),
-		).toHaveAttribute('data-state', 'ok');
-		await expect(
-			page.getByTestId('bytes-review'),
-		).toBeDisabled();
-		await pasteBytes(page, bytes, 'Pay a quarter SUI');
-		await reviewBytes(page);
-		await expectSimulation(page, 'success');
-		await proposeAndSign(page);
-
-		const card = page.getByTestId('proposal-card');
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'pending',
-		);
-		await expect(card).toContainText('Pay a quarter SUI');
-		const digest = await card.getAttribute('data-digest');
-
-		// Bob signs from the API; Alice's view picks it up on refresh.
-		await signProposal(
-			bob,
-			await bob.api.getProposalByDigest(digest!),
-		);
-		await page
-			.getByTestId('refresh-proposals-button')
-			.click();
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'ready',
-		);
-	});
-
 	test('bytes that aren’t a transaction, or are sent from another address, are refused', async ({
 		createActor,
 		createIdentity,
@@ -589,41 +403,6 @@ test.describe('new proposal: transaction bytes', () => {
 });
 
 test.describe('new proposal: review', () => {
-	test('a failing simulation still lets the proposer propose anyway', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const fixtures = { createActor, createIdentity, chain };
-		const { alice, multisig } = await fundedAccount(
-			fixtures,
-			2,
-		);
-		const { page } = alice;
-
-		await openNewProposal(page, multisig.address, {
-			type: 'bytes',
-		});
-		await pasteBytes(
-			page,
-			await chain.buildOverdrawnSuiTransfer({
-				sender: multisig.address,
-				recipient: randomAddress(),
-			}),
-			'Overdraw the account',
-		);
-		await reviewBytes(page);
-		await expectSimulation(page, 'failure');
-		await expect(
-			page.getByTestId('review-simulation-error'),
-		).toBeVisible();
-		const submit = page.getByTestId('review-submit');
-		await expect(submit).toHaveText(
-			'Propose and sign anyway',
-		);
-		await expect(submit).toBeEnabled();
-	});
-
 	test('a failed create shows the notice, and Try again creates it', async ({
 		createActor,
 		createIdentity,

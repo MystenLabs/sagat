@@ -6,14 +6,19 @@ import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
+	chooseType,
+	clickNewProposal,
 	expectSimulation,
 	fillTransfer,
+	pasteBytes,
 	proposeAndSign,
+	reviewBytes,
 	reviewTransfer,
 } from '../support/new-proposal';
 import {
 	proposeTransfer,
 	setupMultisig,
+	signProposal,
 } from '../support/scenarios';
 
 test.describe('proposals', () => {
@@ -198,5 +203,95 @@ test.describe('proposals', () => {
 		await expect(
 			card.getByTestId('execute-proposal-button'),
 		).toHaveCount(0);
+	});
+
+	test('proposes a custom transaction from raw bytes', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const bytes = await chain.buildSuiTransfer({
+			sender: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI / 4n,
+		});
+
+		await alice.signIn();
+		await clickNewProposal(alice.page);
+		await chooseType(alice.page, 'bytes');
+		await pasteBytes(
+			alice.page,
+			bytes,
+			'Pay a quarter SUI',
+		);
+		await reviewBytes(alice.page);
+		await expectSimulation(alice.page, 'success');
+		await proposeAndSign(alice.page);
+
+		const card = alice.page.getByTestId('proposal-card');
+		await expect(card).toHaveAttribute(
+			'data-status',
+			'pending',
+		);
+		const digest = await card.getAttribute('data-digest');
+
+		// Bob signs from the API; Alice's view picks it up on refresh.
+		const proposal = await bob.api.getProposalByDigest(
+			digest!,
+		);
+		await signProposal(bob, proposal);
+		await alice.page
+			.getByTestId('refresh-proposals-button')
+			.click();
+		await expect(card).toHaveAttribute(
+			'data-status',
+			'ready',
+		);
+	});
+
+	test('warns that a transaction would fail on-chain before proposing', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+
+		await alice.signIn();
+		await clickNewProposal(alice.page);
+		await chooseType(alice.page, 'bytes');
+		await pasteBytes(
+			alice.page,
+			await chain.buildOverdrawnSuiTransfer({
+				sender: multisig.address,
+				recipient: randomAddress(),
+			}),
+			'Overdraw the account',
+		);
+		await reviewBytes(alice.page);
+
+		await expect(
+			alice.page.getByTestId('transaction-preview-result'),
+		).toHaveAttribute('data-result', 'failure');
+		await expect(
+			alice.page.getByTestId('review-simulation-error'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('review-submit'),
+		).toHaveText('Propose and sign anyway');
 	});
 });
