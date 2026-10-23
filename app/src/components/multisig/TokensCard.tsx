@@ -74,6 +74,7 @@ export function TokensCard({
 					title="Failed to load balances"
 					error={assets.query.error}
 					onRetry={assets.retry}
+					retrying={assets.query.isFetching}
 					testId="tokens-error"
 				/>
 			) : rows.length === 0 ? (
@@ -113,7 +114,7 @@ export function TokensCard({
 										balance.coinType,
 									)}
 									usd={assets.usdValue(balance)}
-									isLoading={assets.coinDataLoading(
+									isLoading={assets.isCoinDataLoadingFor(
 										balance.coinType,
 									)}
 								/>

@@ -124,7 +124,7 @@ export function useAccountAssets(
 		/** Display data for the first `displayCount` balances. */
 		coinData: coinData.map,
 		/** Whether the display data of `coinType` is still loading. */
-		coinDataLoading: coinData.isLoadingFor,
+		isCoinDataLoadingFor: coinData.isLoadingFor,
 		usdValue,
 		value,
 		pricesAvailable,
