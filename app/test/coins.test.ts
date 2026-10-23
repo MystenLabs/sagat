@@ -9,6 +9,7 @@ import { describe, expect, test } from 'vitest';
 
 import type { SuiNetwork } from '../src/contexts/NetworkContext';
 import {
+	accountAssetsState,
 	coinUsdValue,
 	formatCoinAmount,
 	formatInputAmount,
@@ -22,7 +23,6 @@ import {
 	shownUsdTotal,
 	sortBalances,
 	totalUsdValue,
-	valuationReady,
 	type SortableBalance,
 } from '../src/lib/coins';
 
@@ -493,26 +493,98 @@ describe('pricesAvailableOn', () => {
 	});
 });
 
-describe('valuationReady', () => {
-	const loaded = {
+describe('accountAssetsState', () => {
+	const ready = {
 		balancesLoading: false,
-		hasNextPage: false,
+		balancesError: false,
+		hasData: true,
+		pagesLeft: false,
 		pricesLoading: false,
+		pricesError: false,
+		pricesAvailable: true,
 	};
+	const settled = {
+		isLoading: false,
+		isError: false,
+		pricesError: false,
+	};
+	const loading = { ...settled, isLoading: true };
 
-	test('is ready once balances and prices are loaded', () => {
-		expect(valuationReady(loaded)).toBe(true);
+	test('loads until the first page arrives', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesLoading: true,
+				hasData: false,
+			}),
+		).toEqual(loading);
 	});
 
-	test('waits while balances, a page or prices are pending', () => {
+	test('loads while pages are left', () => {
 		expect(
-			valuationReady({ ...loaded, balancesLoading: true }),
-		).toBe(false);
+			accountAssetsState({ ...ready, pagesLeft: true }),
+		).toEqual(loading);
+	});
+
+	test('is ready once every page and the prices are loaded', () => {
+		expect(accountAssetsState(ready)).toEqual(settled);
+	});
+
+	test('loads while the prices are pending', () => {
 		expect(
-			valuationReady({ ...loaded, hasNextPage: true }),
-		).toBe(false);
+			accountAssetsState({ ...ready, pricesLoading: true }),
+		).toEqual(loading);
+	});
+
+	test('does not wait on prices where there are none', () => {
 		expect(
-			valuationReady({ ...loaded, pricesLoading: true }),
-		).toBe(false);
+			accountAssetsState({
+				...ready,
+				pricesLoading: true,
+				pricesAvailable: false,
+			}),
+		).toEqual(settled);
+	});
+
+	test('fails when the first load fails', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesError: true,
+				hasData: false,
+			}),
+		).toEqual({ ...settled, isError: true });
+	});
+
+	test('keeps the cached balances through a failed refetch', () => {
+		expect(
+			accountAssetsState({ ...ready, balancesError: true }),
+		).toEqual(settled);
+	});
+
+	test('fails when a later page fails', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesError: true,
+				pagesLeft: true,
+			}),
+		).toEqual({ ...settled, isError: true });
+	});
+
+	test('reports a failed registry without loading', () => {
+		expect(
+			accountAssetsState({ ...ready, pricesError: true }),
+		).toEqual({ ...settled, pricesError: true });
+	});
+
+	test('ignores a failed registry where there are no prices', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				pricesError: true,
+				pricesAvailable: false,
+			}),
+		).toEqual(settled);
 	});
 });

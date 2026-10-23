@@ -320,19 +320,54 @@ export function shownUsdTotal(
 		: null;
 }
 
-/**
- * Whether the account's value can be shown: its balances are loaded,
- * with no page left to fetch, and so are the prices. Metadata for coins
- * outside the registry is not waited on, since those have no price.
- */
-export function valuationReady({
-	balancesLoading,
-	hasNextPage,
-	pricesLoading,
-}: {
+export interface AccountAssetsInput {
 	balancesLoading: boolean;
-	hasNextPage: boolean;
+	/** The balances query is in an error state. */
+	balancesError: boolean;
+	/** Some balances are loaded (kept through a failed refetch). */
+	hasData: boolean;
+	/** Balances pages are still to be fetched for the total. */
+	pagesLeft: boolean;
+	/** The registry, the only source of prices, is loading. */
 	pricesLoading: boolean;
-}): boolean {
-	return !balancesLoading && !hasNextPage && !pricesLoading;
+	/** The registry failed to load. */
+	pricesError: boolean;
+	pricesAvailable: boolean;
+}
+
+export interface AccountAssetsState {
+	/** Balances or prices still loading, so the value may change. */
+	isLoading: boolean;
+	/** The balances failed or stopped part-way, so the value means nothing. */
+	isError: boolean;
+	/** Prices should exist but the registry failed to load. */
+	pricesError: boolean;
+}
+
+/**
+ * Where the account's value stands. A failed refetch keeps the cached
+ * balances, but a failed later page would leave the total partial, so
+ * that counts as an error. Metadata for coins outside the registry is
+ * never waited on, since those have no price; nor is the registry where
+ * prices are unavailable.
+ */
+export function accountAssetsState({
+	balancesLoading,
+	balancesError,
+	hasData,
+	pagesLeft,
+	pricesLoading,
+	pricesError,
+	pricesAvailable,
+}: AccountAssetsInput): AccountAssetsState {
+	const isError = balancesError && (!hasData || pagesLeft);
+	return {
+		isLoading:
+			!isError &&
+			(balancesLoading ||
+				pagesLeft ||
+				(pricesAvailable && pricesLoading)),
+		isError,
+		pricesError: pricesAvailable && pricesError,
+	};
 }

@@ -18,13 +18,15 @@ import { Skeleton } from '../ui/skeleton';
  * What the account holds, in USD, with Receive and Send beside it. Only
  * coins with a known price count; the line under the amount says when
  * some were left out, and the amount is withheld when none has a price,
- * prices are unavailable (off mainnet) or the balances failed to load.
+ * prices are unavailable (off mainnet), the price service failed or the
+ * balances failed to load.
  */
 export function AccountValue({
 	address,
 	name,
 	value,
 	pricesAvailable,
+	pricesError,
 	isLoading,
 	isError,
 	onSend,
@@ -33,15 +35,21 @@ export function AccountValue({
 	name: string;
 	value: PortfolioValue;
 	pricesAvailable: boolean;
+	pricesError: boolean;
 	isLoading: boolean;
 	isError: boolean;
 	onSend: () => void;
 }) {
 	const [receiveOpen, setReceiveOpen] = useState(false);
 	const settled = !isLoading && !isError;
-	const total = settled
-		? shownUsdTotal(value, pricesAvailable)
-		: null;
+	// Every coin is unpriced without the price service; an account with
+	// no coins is still worth $0.00.
+	const pricesFailed =
+		settled && pricesError && value.unpriced > 0;
+	const total =
+		settled && !pricesFailed
+			? shownUsdTotal(value, pricesAvailable)
+			: null;
 
 	return (
 		<div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
@@ -49,7 +57,12 @@ export function AccountValue({
 				className="flex min-w-0 flex-col gap-1"
 				data-testid="account-value"
 				data-usd={total ?? undefined}
-				data-unpriced={settled ? value.unpriced : undefined}
+				data-unpriced={
+					settled && !pricesFailed
+						? value.unpriced
+						: undefined
+				}
+				data-prices-error={pricesFailed ? '1' : undefined}
 			>
 				<span className="text-13 text-muted-foreground">
 					Total value
@@ -66,9 +79,11 @@ export function AccountValue({
 				)}
 				{settled && value.unpriced > 0 && (
 					<span className="text-12 text-muted-foreground">
-						{total != null
-							? `Excludes ${value.unpriced} ${value.unpriced === 1 ? 'token' : 'tokens'} without a price.`
-							: 'No prices for the tokens this account holds.'}
+						{pricesFailed
+							? 'Prices are unavailable right now.'
+							: total != null
+								? `Excludes ${value.unpriced} ${value.unpriced === 1 ? 'token' : 'tokens'} without a price.`
+								: 'No prices for the tokens this account holds.'}
 					</span>
 				)}
 			</div>

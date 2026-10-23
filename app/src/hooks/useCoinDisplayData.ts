@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import {
@@ -98,16 +98,23 @@ export function useCoinDisplayDataMap(coinTypes: string[]) {
 		],
 	);
 
+	const metadataLoadingFor = fallbackMetadata.isLoadingFor;
+	const isLoadingFor = useCallback(
+		(coinType: string) =>
+			recognizedQuery.isLoading ||
+			metadataLoadingFor(coinType),
+		[recognizedQuery.isLoading, metadataLoadingFor],
+	);
+
 	// Recognized errors stay silent — the metadata fallback covers them.
 	return {
 		map,
+		/** The registry or some coin's metadata is still loading. */
 		isLoading:
 			recognizedQuery.isLoading ||
 			fallbackMetadata.isLoading,
-		/** The registry, the only source of prices, is still loading. */
-		isRecognizedLoading: recognizedQuery.isLoading,
-		/** Metadata for coins outside the registry is still loading. */
-		isMetadataLoading: fallbackMetadata.isLoading,
+		/** The registry or `coinType`'s metadata is still loading. */
+		isLoadingFor,
 		isError: fallbackMetadata.isError,
 		error: fallbackMetadata.error,
 	};

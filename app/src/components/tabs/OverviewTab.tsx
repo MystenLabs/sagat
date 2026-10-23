@@ -9,7 +9,10 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { AccountValue } from '../multisig/AccountValue';
 import { OpenProposals } from '../multisig/OpenProposals';
-import { TokensCard } from '../multisig/TokensCard';
+import {
+	TOKENS_SHOWN,
+	TokensCard,
+} from '../multisig/TokensCard';
 import { type ProposalIntent } from '../ProposalSheet';
 
 interface OverviewTabContext {
@@ -26,6 +29,7 @@ export function OverviewTab() {
 		useOutletContext<OverviewTabContext>();
 	const assets = useAccountAssets(multisig.address, {
 		allPages: true,
+		displayCount: TOKENS_SHOWN,
 	});
 
 	return (
@@ -35,6 +39,7 @@ export function OverviewTab() {
 				name={accountName(multisig)}
 				value={assets.value}
 				pricesAvailable={assets.pricesAvailable}
+				pricesError={assets.pricesError}
 				isLoading={assets.isLoading}
 				isError={assets.isError}
 				onSend={() =>

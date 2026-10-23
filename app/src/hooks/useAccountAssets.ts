@@ -5,27 +5,37 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import {
+	accountAssetsState,
 	coinUsdValue,
 	pricesAvailableOn,
+	pricingOnNetwork,
 	sortBalances,
 	totalUsdValue,
-	valuationReady,
 } from '../lib/coins';
 import { useCoinDisplayDataMap } from './useCoinDisplayData';
 import {
 	useMultisigBalances,
 	type Balance,
 } from './useMultisigBalances';
+import { useRecognizedCoins } from './useRecognizedCoins';
 
 /**
  * The account's balances with what is known about each coin: sorted the
  * way the assets tab lists them, each one's USD value, and the total
  * across those that have a price. With `allPages` every balances page is
  * fetched, so the total and the largest holdings cover all coins.
+ *
+ * Prices come from the registry alone, so valuing and sorting never wait
+ * on coin metadata. Display data (with the metadata fallback for coins
+ * outside the registry) is fetched only for the first `displayCount`
+ * balances; without it `coinData` stays empty.
  */
 export function useAccountAssets(
 	address: string,
-	{ allPages = false }: { allPages?: boolean } = {},
+	{
+		allPages = false,
+		displayCount,
+	}: { allPages?: boolean; displayCount?: number } = {},
 ) {
 	const { network } = useNetwork();
 	const query = useMultisigBalances(address);
@@ -33,7 +43,9 @@ export function useAccountAssets(
 		hasNextPage,
 		isFetching,
 		isError,
+		isFetchNextPageError,
 		fetchNextPage,
+		refetch,
 	} = query;
 
 	useEffect(() => {
@@ -53,20 +65,17 @@ export function useAccountAssets(
 		fetchNextPage,
 	]);
 
-	const coinTypes = useMemo(
-		() => query.balances.map((b) => b.coinType),
-		[query.balances],
-	);
-	const coinData = useCoinDisplayDataMap(coinTypes);
+	const recognized = useRecognizedCoins();
 	const usdValue = useCallback(
 		(balance: Balance) => {
-			const coin = coinData.map.get(balance.coinType);
+			const coin = recognized.map.get(balance.coinType);
+			if (!coin) return null;
 			return coinUsdValue(balance.balance, {
-				priceUsd: coin?.priceUsd,
-				decimals: coin?.decimals,
+				priceUsd: pricingOnNetwork(network, coin).priceUsd,
+				decimals: coin.decimals,
 			});
 		},
-		[coinData.map],
+		[recognized.map, network],
 	);
 	const balances = useMemo(
 		() => sortBalances(query.balances, usdValue),
@@ -77,29 +86,50 @@ export function useAccountAssets(
 		[balances, usdValue],
 	);
 
-	const pagesLeft = allPages && hasNextPage;
-	// A failed refetch keeps the cached total; a failed later page would
-	// leave it partial.
-	const valueFailed = isError && (!query.data || pagesLeft);
+	const shownCoinTypes = useMemo(
+		() =>
+			balances
+				.slice(0, displayCount ?? 0)
+				.map((b) => b.coinType),
+		[balances, displayCount],
+	);
+	const coinData = useCoinDisplayDataMap(shownCoinTypes);
+
+	const pricesAvailable = pricesAvailableOn(network);
+	const state = accountAssetsState({
+		balancesLoading: query.isLoading,
+		balancesError: isError,
+		hasData: !!query.data,
+		// Not `allPages && …`: passing an option itself would make the
+		// React Compiler treat `displayCount` as mutable.
+		pagesLeft: allPages ? hasNextPage : false,
+		pricesLoading: recognized.isLoading,
+		pricesError: recognized.isError,
+		pricesAvailable,
+	});
+
+	// A failed later page is fetched again on its own; anything else
+	// reloads from the first page.
+	const retry = useCallback(
+		() =>
+			void (isFetchNextPageError
+				? fetchNextPage()
+				: refetch()),
+		[isFetchNextPageError, fetchNextPage, refetch],
+	);
 
 	return {
 		query,
 		balances,
+		/** Display data for the first `displayCount` balances. */
 		coinData: coinData.map,
-		/** Details (decimals, symbol) of some coin are still loading. */
-		coinDataLoading: coinData.isLoading,
+		/** Whether the display data of `coinType` is still loading. */
+		coinDataLoading: coinData.isLoadingFor,
 		usdValue,
 		value,
-		pricesAvailable: pricesAvailableOn(network),
-		/** Balances or prices still loading, so `value` may change. */
-		isLoading:
-			!valueFailed &&
-			!valuationReady({
-				balancesLoading: query.isLoading,
-				hasNextPage: pagesLeft,
-				pricesLoading: coinData.isRecognizedLoading,
-			}),
-		/** The balances failed to load, so `value` means nothing. */
-		isError: valueFailed,
+		pricesAvailable,
+		...state,
+		/** Loads what failed again: the first page or a later one. */
+		retry,
 	};
 }

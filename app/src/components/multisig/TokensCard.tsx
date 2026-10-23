@@ -24,7 +24,7 @@ import { SuiLogo } from '../ui/SuiLogo';
 import { tableHeadRowClass } from '../ui/table';
 
 /** The overview lists this many tokens; the rest are on the assets tab. */
-const TOKENS_SHOWN = 5;
+export const TOKENS_SHOWN = 5;
 
 /**
  * The account's largest holdings as a table: each coin with its balance
@@ -67,12 +67,13 @@ export function TokensCard({
 			</div>
 			{assets.query.isLoading ? (
 				<SkeletonRows rows={3} testId="tokens-loading" />
-			) : assets.query.error && !assets.query.data ? (
-				// A failed background refetch keeps the loaded rows.
+			) : assets.isError ? (
+				// A failed background refetch keeps the loaded rows; a
+				// failed later page would leave them partial.
 				<ErrorState
 					title="Failed to load balances"
 					error={assets.query.error}
-					onRetry={() => assets.query.refetch()}
+					onRetry={assets.retry}
 					testId="tokens-error"
 				/>
 			) : rows.length === 0 ? (
@@ -112,7 +113,9 @@ export function TokensCard({
 										balance.coinType,
 									)}
 									usd={assets.usdValue(balance)}
-									isLoading={assets.coinDataLoading}
+									isLoading={assets.coinDataLoading(
+										balance.coinType,
+									)}
 								/>
 							))}
 						</tbody>

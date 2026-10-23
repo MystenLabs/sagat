@@ -7,7 +7,7 @@ import {
 	useQuery,
 	type UseQueryOptions,
 } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import { type CoinMetadata } from '../lib/coinDisplay';
@@ -85,9 +85,22 @@ export function useCoinMetadataMap(coinTypes: string[]) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [coinTypes, dataSignature]);
 
+	const loadingSignature = results
+		.map((r) => (r.isLoading ? 1 : 0))
+		.join('');
+	const isLoadingFor = useCallback(
+		(coinType: string) => {
+			const idx = coinTypes.indexOf(coinType);
+			return idx >= 0 && loadingSignature[idx] === '1';
+		},
+		[coinTypes, loadingSignature],
+	);
+
 	return {
 		map,
 		isLoading: results.some((r) => r.isLoading),
+		/** Whether the metadata of `coinType` is still loading. */
+		isLoadingFor,
 		isError: results.some((r) => r.isError),
 		error: results.find((r) => r.error)?.error ?? undefined,
 	};
