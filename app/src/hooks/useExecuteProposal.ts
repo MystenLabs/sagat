@@ -60,7 +60,7 @@ export function useExecuteProposal() {
 				// Step 2: Map signatures to the correct order based on the multisig public key order
 				// The signatures need to be in the same order as the public keys in the multisig
 				const orderedSignatures: string[] = [];
-				for (const member of proposal.multisig.members) {
+				for (const member of multisigMembers) {
 					const signature = proposal.signatures.find(
 						(sig) => sig.publicKey === member.publicKey,
 					);
