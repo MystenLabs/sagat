@@ -47,39 +47,3 @@ export function CardHeading({
 		</div>
 	);
 }
-
-/**
- * The card shell with its heading first, labelled by the heading's id so
- * the section reads as its title.
- */
-export function Card({
-	title,
-	titleId,
-	count,
-	trailing,
-	className,
-	testId,
-	children,
-}: {
-	title: ReactNode;
-	titleId: string;
-	count?: ReactNode;
-	/** After the title and count; give it `ml-auto` to sit right. */
-	trailing?: ReactNode;
-	className?: string;
-	testId?: string;
-	children?: ReactNode;
-}) {
-	return (
-		<section
-			className={cn(cardClass, className)}
-			aria-labelledby={titleId}
-			data-testid={testId}
-		>
-			<CardHeading id={titleId} title={title} count={count}>
-				{trailing}
-			</CardHeading>
-			{children}
-		</section>
-	);
-}

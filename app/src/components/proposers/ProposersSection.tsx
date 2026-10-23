@@ -8,7 +8,10 @@ import { useState } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import {
+	cardClass,
+	CardHeading,
+} from '@/components/ui/card';
 import { CopyButton } from '@/components/ui/CopyButton';
 import {
 	tableClass,
@@ -16,6 +19,7 @@ import {
 	tableRowClass,
 } from '@/components/ui/table';
 import { formatDate } from '@/lib/dates';
+import { cn } from '@/lib/utils';
 
 import { AddProposerDialog } from './AddProposerDialog';
 import { RemoveProposerDialog } from './RemoveProposerDialog';
@@ -45,11 +49,16 @@ export function ProposersSection({
 	>(null);
 
 	return (
-		<Card
-			title="External proposers"
-			titleId="proposers-title"
-			count={proposers.length}
-			trailing={
+		<section
+			className={cn(cardClass, className)}
+			aria-labelledby="proposers-title"
+			data-testid="proposers-card"
+		>
+			<CardHeading
+				id="proposers-title"
+				title="External proposers"
+				count={proposers.length}
+			>
 				<Button
 					variant="outline"
 					size="sm"
@@ -60,10 +69,8 @@ export function ProposersSection({
 					<Plus />
 					Add external proposer
 				</Button>
-			}
-			className={className}
-			testId="proposers-card"
-		>
+			</CardHeading>
+
 			{proposers.length === 0 ? (
 				<p
 					className="text-13 text-muted-foreground"
@@ -145,6 +152,6 @@ export function ProposersSection({
 				multisigAddress={multisigAddress}
 				proposerAddress={removingAddress}
 			/>
-		</Card>
+		</section>
 	);
 }

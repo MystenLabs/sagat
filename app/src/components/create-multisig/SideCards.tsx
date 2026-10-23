@@ -11,8 +11,10 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Card } from '@/components/ui/card';
-import { DetailRow } from '@/components/ui/detail-row';
+import {
+	cardClass,
+	CardHeading,
+} from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { COPY, joinList } from '@/lib/create-multisig';
 import { thresholdLabel } from '@/lib/threshold';
@@ -113,15 +115,18 @@ export function PreviewCard({
 }) {
 	const muted = 'text-muted-foreground/70';
 	return (
-		<Card
-			title="Multisig preview"
-			titleId="create-preview-title"
-			className="gap-2 p-6"
-			testId="create-preview"
+		<section
+			className={cn(cardClass, 'gap-2 p-6')}
+			aria-labelledby="create-preview-title"
+			data-testid="create-preview"
 		>
+			<CardHeading
+				id="create-preview-title"
+				title="Multisig preview"
+			/>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<DetailRow label="Name" wrap>
+				<PreviewRow label="Name">
 					<span
 						className={cn(
 							'text-13 break-all',
@@ -131,21 +136,21 @@ export function PreviewCard({
 					>
 						{name.trim() || 'Not set'}
 					</span>
-				</DetailRow>
-				<DetailRow label="Signers">
+				</PreviewRow>
+				<PreviewRow label="Signers">
 					<span
 						className={cn('text-12', !setUp && muted)}
 						data-testid="create-preview-signers"
 					>
 						{setUp ? signersLabel(signers, incomplete) : 0}
 					</span>
-				</DetailRow>
-				<DetailRow label="Total weight">
+				</PreviewRow>
+				<PreviewRow label="Total weight">
 					<span className={cn('text-12', !setUp && muted)}>
 						{setUp ? totalWeight : 0}
 					</span>
-				</DetailRow>
-				<DetailRow label="Threshold">
+				</PreviewRow>
+				<PreviewRow label="Threshold">
 					{setUp ? (
 						<span
 							className="text-12"
@@ -158,7 +163,7 @@ export function PreviewCard({
 							Not set
 						</span>
 					)}
-				</DetailRow>
+				</PreviewRow>
 			</dl>
 			<Separator />
 			<div className="flex flex-col gap-1.5 pt-1">
@@ -193,7 +198,24 @@ export function PreviewCard({
 					</p>
 				)}
 			</div>
-		</Card>
+		</section>
+	);
+}
+
+function PreviewRow({
+	label,
+	children,
+}: {
+	label: string;
+	children: ReactNode;
+}) {
+	return (
+		<div className="flex min-h-5.5 items-center justify-between gap-4 py-0.5">
+			<dt className="shrink-0 text-13 text-muted-foreground">
+				{label}
+			</dt>
+			<dd className="min-w-0 text-right">{children}</dd>
+		</div>
 	);
 }
 
@@ -249,12 +271,15 @@ export function NextStepsCard({
 		},
 	];
 	return (
-		<Card
-			title="What happens next"
-			titleId="create-next-steps-title"
-			className="gap-4 p-6"
-			testId="create-next-steps"
+		<section
+			className={cn(cardClass, 'gap-4 p-6')}
+			aria-labelledby="create-next-steps-title"
+			data-testid="create-next-steps"
 		>
+			<CardHeading
+				id="create-next-steps-title"
+				title="What happens next"
+			/>
 			<Separator />
 			<ol className="flex flex-col gap-3">
 				{items.map((item, i) => (
@@ -273,6 +298,6 @@ export function NextStepsCard({
 					</li>
 				))}
 			</ol>
-		</Card>
+		</section>
 	);
 }

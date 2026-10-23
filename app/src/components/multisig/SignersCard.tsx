@@ -8,7 +8,7 @@ import {
 } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
-import { Card } from '../ui/card';
+import { cardClass, CardHeading } from '../ui/card';
 import {
 	tableClass,
 	tableHeadRowClass,
@@ -34,21 +34,23 @@ export function SignersCard({
 	const summary = signerSummary(status);
 
 	return (
-		<Card
-			title="Signers"
-			titleId="signers-title"
-			count={rows.length}
-			trailing={
+		<section
+			className={cn(cardClass, className)}
+			aria-labelledby="signers-title"
+			data-testid="signers-card"
+		>
+			<CardHeading
+				id="signers-title"
+				title="Signers"
+				count={rows.length}
+			>
 				<span
 					className="ml-auto text-right text-13 text-muted-foreground"
 					data-testid="signers-summary"
 				>
 					{summary}
 				</span>
-			}
-			className={className}
-			testId="signers-card"
-		>
+			</CardHeading>
 			<table className={tableClass}>
 				<thead>
 					<tr className={tableHeadRowClass}>
@@ -104,6 +106,6 @@ export function SignersCard({
 					))}
 				</tbody>
 			</table>
-		</Card>
+		</section>
 	);
 }
