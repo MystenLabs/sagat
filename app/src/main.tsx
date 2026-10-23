@@ -71,6 +71,17 @@ registerWalletConnectWallet({
 	},
 });
 
+// Local-only: the flag is inlined at build time, so without it the dev
+// wallet is not in the bundle at all.
+if (import.meta.env.VITE_DEV_WALLET) {
+	import('./dev-wallet')
+		.then(({ registerDevWallet }) => registerDevWallet())
+		.catch((error) => {
+			// eslint-disable-next-line no-console
+			console.error('Dev wallet failed to register', error);
+		});
+}
+
 ReactDOM.createRoot(
 	document.getElementById('root')!,
 ).render(

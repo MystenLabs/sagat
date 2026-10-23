@@ -72,6 +72,8 @@
         "zod": "^4.6.5",
       },
       "devDependencies": {
+        "@mysten-incubation/dev-wallet": "0.6.0",
+        "@mysten/signers": "^1.1.30",
         "@tony.ganchev/eslint-plugin-header": "^3.4.4",
         "@types/node": "^24.19.0",
         "@types/react": "^18.3.31",
