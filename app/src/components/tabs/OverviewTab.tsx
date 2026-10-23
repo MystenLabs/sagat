@@ -24,7 +24,9 @@ interface OverviewTabContext {
 export function OverviewTab() {
 	const { multisig, openProposalSheet } =
 		useOutletContext<OverviewTabContext>();
-	const assets = useAccountAssets(multisig.address);
+	const assets = useAccountAssets(multisig.address, {
+		allPages: true,
+	});
 
 	return (
 		<div className="@container flex flex-col gap-7">

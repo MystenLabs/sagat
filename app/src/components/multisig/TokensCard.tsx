@@ -112,7 +112,7 @@ export function TokensCard({
 										balance.coinType,
 									)}
 									usd={assets.usdValue(balance)}
-									isLoading={assets.isLoading}
+									isLoading={assets.coinDataLoading}
 								/>
 							))}
 						</tbody>

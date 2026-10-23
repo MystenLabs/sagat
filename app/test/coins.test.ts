@@ -16,11 +16,13 @@ import {
 	getMaxInputAmount,
 	isSuiCoinType,
 	parseAmount,
+	pricesAvailableOn,
 	pricingOnNetwork,
 	rawAmountToFloat,
 	shownUsdTotal,
 	sortBalances,
 	totalUsdValue,
+	valuationReady,
 	type SortableBalance,
 } from '../src/lib/coins';
 
@@ -476,17 +478,41 @@ describe('pricingOnNetwork', () => {
 			});
 		},
 	);
+});
 
-	test('leaves coins unvalued off mainnet', () => {
-		const { priceUsd } = pricingOnNetwork(
+describe('pricesAvailableOn', () => {
+	test('has prices on mainnet only', () => {
+		expect(pricesAvailableOn('mainnet')).toBe(true);
+		for (const network of [
 			'testnet',
-			pricing,
-		);
+			'devnet',
+			'localnet',
+		] as const) {
+			expect(pricesAvailableOn(network)).toBe(false);
+		}
+	});
+});
+
+describe('valuationReady', () => {
+	const loaded = {
+		balancesLoading: false,
+		hasNextPage: false,
+		pricesLoading: false,
+	};
+
+	test('is ready once balances and prices are loaded', () => {
+		expect(valuationReady(loaded)).toBe(true);
+	});
+
+	test('waits while balances, a page or prices are pending', () => {
 		expect(
-			coinUsdValue('20000000000', {
-				priceUsd,
-				decimals: 9,
-			}),
-		).toBeNull();
+			valuationReady({ ...loaded, balancesLoading: true }),
+		).toBe(false);
+		expect(
+			valuationReady({ ...loaded, hasNextPage: true }),
+		).toBe(false);
+		expect(
+			valuationReady({ ...loaded, pricesLoading: true }),
+		).toBe(false);
 	});
 });

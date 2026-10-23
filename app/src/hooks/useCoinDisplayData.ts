@@ -104,6 +104,10 @@ export function useCoinDisplayDataMap(coinTypes: string[]) {
 		isLoading:
 			recognizedQuery.isLoading ||
 			fallbackMetadata.isLoading,
+		/** The registry, the only source of prices, is still loading. */
+		isRecognizedLoading: recognizedQuery.isLoading,
+		/** Metadata for coins outside the registry is still loading. */
+		isMetadataLoading: fallbackMetadata.isLoading,
 		isError: fallbackMetadata.isError,
 		error: fallbackMetadata.error,
 	};

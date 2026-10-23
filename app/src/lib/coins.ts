@@ -158,15 +158,22 @@ export function formatUsdValue(value: number): string {
 }
 
 /**
- * A coin's prices as shown on `network`. The registry's prices are
+ * Whether coins have prices on `network`. The registry's prices are
  * mainnet's and keyed by coin type, so elsewhere they would value test
  * coins at mainnet prices: off mainnet nothing has a price.
  */
+export function pricesAvailableOn(
+	network: SuiNetwork,
+): boolean {
+	return network === 'mainnet';
+}
+
+/** A coin's prices as shown on `network`; see `pricesAvailableOn`. */
 export function pricingOnNetwork(
 	network: SuiNetwork,
 	pricing: CoinPricing,
 ): Required<CoinPricing> {
-	if (network !== 'mainnet') {
+	if (!pricesAvailableOn(network)) {
 		return {
 			priceUsd: null,
 			priceChange24hUsd: null,
@@ -311,4 +318,21 @@ export function shownUsdTotal(
 	return value.priced > 0 || value.unpriced === 0
 		? value.total
 		: null;
+}
+
+/**
+ * Whether the account's value can be shown: its balances are loaded,
+ * with no page left to fetch, and so are the prices. Metadata for coins
+ * outside the registry is not waited on, since those have no price.
+ */
+export function valuationReady({
+	balancesLoading,
+	hasNextPage,
+	pricesLoading,
+}: {
+	balancesLoading: boolean;
+	hasNextPage: boolean;
+	pricesLoading: boolean;
+}): boolean {
+	return !balancesLoading && !hasNextPage && !pricesLoading;
 }
