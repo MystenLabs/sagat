@@ -41,10 +41,6 @@ export function SectionHeading({
 	);
 }
 
-export function Divider() {
-	return <div className="h-px w-full bg-border" />;
-}
-
 /** A yellow or red note with an alert icon. */
 export function Notice({
 	tone,

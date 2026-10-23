@@ -12,6 +12,23 @@ import { cn } from '@/lib/utils';
 export const tableHeadRowClass =
 	'bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md';
 
+/**
+ * The head row inside a `tableShellClass` shell: flush, since the shell's
+ * corners already round the band.
+ */
+export const tableHeadRowFlushClass =
+	'[&>th:first-child]:rounded-l-none [&>th:last-child]:rounded-r-none';
+
+/** The account tabs' plain tables: fixed columns at body size. */
+export const tableClass = 'w-full table-fixed text-13';
+
+/** A body row of those tables: a hairline under every row but the last. */
+export const tableRowClass = 'border-b last:border-b-0';
+
+/** The rounded, bordered shell a table sits in when it isn't in a card. */
+export const tableShellClass =
+	'overflow-hidden rounded-2xl border bg-card';
+
 function Table({
 	className,
 	...props

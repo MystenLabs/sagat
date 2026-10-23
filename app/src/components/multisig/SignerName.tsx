@@ -88,9 +88,7 @@ export function SignerName({
 	const copyButton = copy && address && (
 		<CopyButton
 			value={address}
-			// The row's 12px icon in a 16px box: CopyButton is otherwise a
-			// 36px icon button with a 16px icon, whatever its size.
-			className="size-4 shrink-0 text-muted-foreground [&_svg]:size-3!"
+			size="inline"
 			successMessage="Address copied"
 		/>
 	);

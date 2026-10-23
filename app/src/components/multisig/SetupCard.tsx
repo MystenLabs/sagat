@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ArrowUpRight, Download } from 'lucide-react';
-import { type ReactNode } from 'react';
 
 import { type AccountSetup } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
 import { Button, buttonVariants } from '../ui/button';
-import { cardClass } from '../ui/card';
+import { Card } from '../ui/card';
+import { DetailRow } from '../ui/detail-row';
 import { Separator } from '../ui/separator';
 import { CreatedBy } from './CreatedBy';
 
@@ -33,20 +33,15 @@ export function SetupCard({
 	className?: string;
 }) {
 	return (
-		<section
-			className={cn(cardClass, 'gap-2', className)}
-			aria-labelledby="account-setup-title"
-			data-testid="account-setup"
+		<Card
+			title="Setup"
+			titleId="account-setup-title"
+			className={cn('gap-2', className)}
+			testId="account-setup"
 		>
-			<h2
-				id="account-setup-title"
-				className="text-16 font-medium"
-			>
-				Setup
-			</h2>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<Row label="Threshold">
+				<DetailRow label="Threshold">
 					<span
 						data-testid="setup-threshold"
 						data-threshold={setup.threshold}
@@ -54,14 +49,16 @@ export function SetupCard({
 					>
 						{setup.thresholdLabel}
 					</span>
-				</Row>
-				<Row label="Signers">
+				</DetailRow>
+				<DetailRow label="Signers">
 					<span data-testid="setup-signers">
 						{setup.signerCount}
 					</span>
-				</Row>
-				<Row label="Total weight">{setup.totalWeight}</Row>
-				<Row label="Created">
+				</DetailRow>
+				<DetailRow label="Total weight">
+					{setup.totalWeight}
+				</DetailRow>
+				<DetailRow label="Created">
 					<span
 						data-testid="setup-created"
 						data-created-at={setup.createdAt ?? undefined}
@@ -72,13 +69,13 @@ export function SetupCard({
 					>
 						{setup.createdLabel ?? 'Unknown'}
 					</span>
-				</Row>
-				<Row label="Created by">
+				</DetailRow>
+				<DetailRow label="Created by">
 					<CreatedBy
 						creator={setup.creator}
 						testId="setup-created-by"
 					/>
-				</Row>
+				</DetailRow>
 			</dl>
 			<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t pt-3">
 				{explorerUrl && (
@@ -112,25 +109,6 @@ export function SetupCard({
 					<Download className="size-3" />
 				</Button>
 			</div>
-		</section>
-	);
-}
-
-function Row({
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactNode;
-}) {
-	return (
-		<div className="flex items-center justify-between gap-3 py-0.5 text-13">
-			<dt className="shrink-0 text-muted-foreground">
-				{label}
-			</dt>
-			<dd className="min-w-0 truncate text-right">
-				{children}
-			</dd>
-		</div>
+		</Card>
 	);
 }

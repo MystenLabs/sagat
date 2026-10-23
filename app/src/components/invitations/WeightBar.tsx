@@ -3,24 +3,19 @@
 
 import { type ReactNode } from 'react';
 
+import {
+	SegmentBar,
+	ToneSwatch,
+} from '@/components/multisig/SegmentBar';
 import { sumWeight, thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 import {
 	MARKER_WIDTH_PX,
 	runMarkerLeft,
-	SEGMENT_GAP_PX,
 	thresholdMarkerLeft,
 	weightBarLayout,
 	type WeightedSigner,
-	type WeightTone,
 } from '@/lib/weight-bar';
-
-/** Accepted weight is solid, yours is grey while you decide, the rest light. */
-const TONE_CLASS: Record<WeightTone, string> = {
-	you: 'bg-foreground/40',
-	accepted: 'bg-foreground',
-	pending: 'bg-secondary',
-};
 
 /**
  * Where the account stands against its threshold and where you fit: a
@@ -58,14 +53,14 @@ export function WeightBar({
 						}
 						testId="weight-legend-you"
 					>
-						<Swatch tone="you" />
+						<ToneSwatch tone="you" />
 					</Legend>
 					<Legend
 						label="Accepted"
 						value={String(accepted)}
 						testId="weight-legend-accepted"
 					>
-						<Swatch tone="accepted" />
+						<ToneSwatch tone="accepted" />
 					</Legend>
 				</div>
 				<Legend
@@ -76,56 +71,25 @@ export function WeightBar({
 					<span className="h-3 w-0.5 bg-foreground" />
 				</Legend>
 			</div>
-			{bar.kind === 'segments' ? (
-				// The legend already says what the bar shows.
-				<div
-					aria-hidden
-					className="relative flex h-1.5"
-					style={{ gap: SEGMENT_GAP_PX }}
-				>
-					{bar.tones.map((tone, i) => (
-						<span
-							key={i}
-							className={cn(
-								'flex-1 rounded-xs',
-								TONE_CLASS[tone],
-							)}
-							data-tone={tone}
-							data-weight={1}
-						/>
-					))}
-					{bar.tones.length > 0 && (
+			{/* The legend already says what the bar shows. */}
+			<SegmentBar layout={bar}>
+				{bar.kind === 'segments' ? (
+					bar.tones.length > 0 && (
 						<Marker
 							left={thresholdMarkerLeft(
 								threshold,
 								bar.tones.length,
 							)}
 						/>
-					)}
-				</div>
-			) : (
-				<div aria-hidden className="relative flex h-1.5">
-					{bar.runs.map((run, i) => (
-						<span
-							key={i}
-							className={cn(
-								'min-w-1 basis-0',
-								TONE_CLASS[run.tone],
-								i === 0 && 'rounded-l-xs',
-								i === bar.runs.length - 1 && 'rounded-r-xs',
-							)}
-							style={{ flexGrow: run.weight }}
-							data-tone={run.tone}
-							data-weight={run.weight}
-						/>
-					))}
-					{/* Runs have no gaps, so the marker needs an edge of its own. */}
+					)
+				) : (
+					// Runs have no gaps, so the marker needs an edge of its own.
 					<Marker
 						left={runMarkerLeft(bar.thresholdPercent)}
 						className="outline-2 outline-card"
 					/>
-				</div>
-			)}
+				)}
+			</SegmentBar>
 		</div>
 	);
 }
@@ -152,17 +116,6 @@ function Legend({
 			</span>{' '}
 			<span className="font-medium">{value}</span>
 		</span>
-	);
-}
-
-function Swatch({ tone }: { tone: WeightTone }) {
-	return (
-		<span
-			className={cn(
-				'h-1.5 w-2.5 rounded-xs',
-				TONE_CLASS[tone],
-			)}
-		/>
 	);
 }
 

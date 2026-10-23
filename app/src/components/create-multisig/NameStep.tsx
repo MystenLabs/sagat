@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 import {
 	NAME_MAX,
 	nameError,
@@ -16,11 +17,7 @@ import {
 } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
 
-import {
-	Divider,
-	SectionHeading,
-	StepFooter,
-} from './parts';
+import { SectionHeading, StepFooter } from './parts';
 
 /** Step 1: the name every signer sees in their invitation. */
 export function NameStep({
@@ -85,7 +82,7 @@ export function NameStep({
 						`${length} of ${NAME_MAX} characters`}
 				</p>
 			</div>
-			<Divider />
+			<Separator />
 			<StepFooter
 				onCancel={onCancel}
 				primary={

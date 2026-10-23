@@ -11,7 +11,7 @@ interface CopyButtonProps {
 	value: string;
 	className?: string;
 	variant?: 'default' | 'ghost' | 'outline';
-	size?: 'default' | 'sm' | 'xs';
+	size?: 'default' | 'sm' | 'xs' | 'inline';
 	successMessage?: string;
 	'data-testid'?: string;
 }
@@ -31,12 +31,16 @@ export function CopyButton({
 		default: 'p-1.5',
 		sm: 'p-1',
 		xs: 'p-0.5',
+		// A 12px icon in a 16px box, for an address in running text: the
+		// others stay 36px icon buttons whatever their padding.
+		inline: 'size-4 shrink-0 text-muted-foreground',
 	};
 
 	const iconSizes = {
 		default: 'w-3.5 h-3.5',
 		sm: 'w-3 h-3',
 		xs: 'w-2.5 h-2.5',
+		inline: 'size-3',
 	};
 
 	return (
