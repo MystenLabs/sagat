@@ -101,7 +101,8 @@ export function OpenProposals({
 					rows={3}
 					testId="open-proposals-loading"
 				/>
-			) : query.error ? (
+			) : query.error && !query.data ? (
+				// A failed background refetch keeps the loaded rows.
 				<ErrorState
 					title="Failed to load proposals"
 					error={query.error}

@@ -38,10 +38,9 @@ export function useExecuteProposal() {
 
 			try {
 				// Order the members.
-				const multisigMembers =
-					proposal.multisig.members.sort(
-						(a, b) => a.order - b.order,
-					);
+				const multisigMembers = [
+					...proposal.multisig.members,
+				].sort((a, b) => a.order - b.order);
 				// Step 1: Reconstruct the MultiSigPublicKey
 				const publicKeys = multisigMembers.map(
 					(member) => ({

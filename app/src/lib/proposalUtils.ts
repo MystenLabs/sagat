@@ -61,7 +61,8 @@ export function toProposalCardInput(
 			address: multisig.address,
 			name: multisig.name,
 			threshold: multisig.threshold,
-			members: multisig.members,
+			// A copy, so nothing downstream touches the cached array.
+			members: [...multisig.members],
 		},
 	};
 }
@@ -124,19 +125,22 @@ export function weightDots({
 	);
 	if (total <= MAX_WEIGHT_DOTS)
 		return { dots: total, filled: current };
+	if (current === total)
+		return {
+			dots: MAX_WEIGHT_DOTS,
+			filled: MAX_WEIGHT_DOTS,
+		};
+	if (current === 0)
+		return { dots: MAX_WEIGHT_DOTS, filled: 0 };
+	// Partial weight shows at least one dot and never all of them.
 	const scaled = Math.round(
 		(current / total) * MAX_WEIGHT_DOTS,
 	);
 	return {
 		dots: MAX_WEIGHT_DOTS,
-		filled:
-			current === total
-				? MAX_WEIGHT_DOTS
-				: current === 0
-					? 0
-					: Math.min(
-							Math.max(scaled, 1),
-							MAX_WEIGHT_DOTS - 1,
-						),
+		filled: Math.min(
+			Math.max(scaled, 1),
+			MAX_WEIGHT_DOTS - 1,
+		),
 	};
 }

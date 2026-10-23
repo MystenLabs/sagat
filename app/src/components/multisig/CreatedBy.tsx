@@ -14,11 +14,11 @@ import { SignerName } from './SignerName';
 export function CreatedBy({
 	creator,
 	className,
-	testId = 'account-created-by',
+	testId,
 }: {
 	creator: AccountCreator | null;
 	className?: string;
-	testId?: string;
+	testId: string;
 }) {
 	if (!creator)
 		return (

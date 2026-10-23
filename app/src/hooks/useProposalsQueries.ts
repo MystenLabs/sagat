@@ -235,8 +235,13 @@ export function useProposalsQueries({
 		isLoading:
 			proposalsQuery.isLoading ||
 			multisigDetailsQuery.isLoading,
+		// A failed background refetch keeps the loaded rows; only a
+		// query with nothing to show blocks the list.
 		error:
-			proposalsQuery.error || multisigDetailsQuery.error,
+			(proposalsQuery.data ? null : proposalsQuery.error) ??
+			(multisigDetailsQuery.data
+				? null
+				: multisigDetailsQuery.error),
 
 		// Filtered data
 		filteredProposals: getFilteredProposals(
