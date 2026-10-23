@@ -15,6 +15,10 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/ui/page-header';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+	WizardStepper,
+	type WizardStep,
+} from '@/components/wizard/parts';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCreateMultisig } from '@/hooks/useCreateMultisig';
@@ -32,7 +36,6 @@ import {
 import { cn } from '@/lib/utils';
 
 import { NameStep } from './NameStep';
-import { WizardStepper, type WizardStep } from './parts';
 import { ReviewStep } from './ReviewStep';
 import {
 	HelpCard,
@@ -41,6 +44,12 @@ import {
 	PreviewStrip,
 } from './SideCards';
 import { SignersStep } from './SignersStep';
+
+const STEPS = [
+	'Name',
+	'Signers and threshold',
+	'Review',
+] as const;
 
 // The API's reasons worth showing as they are; anything else gets the
 // general message.
@@ -240,10 +249,12 @@ export function CreateMultisigPage() {
 					/>
 
 					<WizardStepper
+						steps={STEPS}
 						step={step}
 						reach={reach}
 						disabled={creating}
 						onStep={goTo}
+						testId="create-stepper"
 					/>
 					{step === 2 && (
 						// While the preview card sits below the form, its

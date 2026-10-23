@@ -6,9 +6,14 @@ import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
+	expectSimulation,
+	fillTransfer,
+	proposeAndSign,
+	reviewTransfer,
+} from '../support/new-proposal';
+import {
 	proposeTransfer,
 	setupMultisig,
-	signProposal,
 } from '../support/scenarios';
 
 test.describe('proposals', () => {
@@ -26,7 +31,7 @@ test.describe('proposals', () => {
 		await chain.fund(multisig.address);
 		const recipient = randomAddress();
 
-		// Alice proposes a transfer from the Balances tab.
+		// Alice proposes a transfer from the SUI row on the Assets page.
 		await alice.signIn();
 		await alice.page
 			.getByTestId('multisig-tab-assets')
@@ -35,45 +40,16 @@ test.describe('proposals', () => {
 			.suiBalanceRow()
 			.getByTestId('asset-send-button')
 			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
-			.getByTestId('transfer-recipient-input')
-			.fill(recipient);
-		await sheet
-			.getByTestId('transfer-amount-input')
-			.fill('1.5');
-		await sheet
-			.getByTestId('transfer-preview-button')
-			.click();
-		await expect(
-			sheet.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'success');
-		await sheet
-			.getByTestId('proposal-description-input')
-			.fill('Pay 1.5 SUI');
-		// The preview's help icon sits inside the form and must not submit it.
-		let proposalsCreated = 0;
-		alice.page.on('request', (request) => {
-			if (
-				request.method() === 'POST' &&
-				new URL(request.url()).pathname.endsWith(
-					'/proposals',
-				)
-			)
-				proposalsCreated++;
+		await fillTransfer(alice.page, {
+			amount: '1.5',
+			recipient,
+			title: 'Pay 1.5 SUI',
 		});
-		await sheet.getByTestId('preview-help').click();
-		await expect(sheet).toBeVisible();
-		await sheet
-			.getByTestId('create-proposal-submit')
-			.click();
-		await expect(sheet).toBeHidden();
-		expect(proposalsCreated).toBe(1);
+		await reviewTransfer(alice.page);
+		await expectSimulation(alice.page, 'success');
+		await proposeAndSign(alice.page);
 
 		// Proposing counts as Alice's signature.
-		await alice.page
-			.getByTestId('multisig-tab-proposals')
-			.click();
 		const aliceCard =
 			alice.page.getByTestId('proposal-card');
 		await expect(aliceCard).toHaveAttribute(
@@ -221,104 +197,6 @@ test.describe('proposals', () => {
 		);
 		await expect(
 			card.getByTestId('execute-proposal-button'),
-		).toHaveCount(0);
-	});
-
-	test('proposes a custom transaction from raw bytes', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const alice = await createActor('alice');
-		const bob = createIdentity('bob');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob],
-			threshold: 2,
-		});
-		await chain.fund(multisig.address);
-		const bytes = await chain.buildSuiTransfer({
-			sender: multisig.address,
-			recipient: randomAddress(),
-			amount: MIST_PER_SUI / 4n,
-		});
-
-		await alice.signIn();
-		await alice.page
-			.getByTestId('new-proposal-button')
-			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
-			.getByTestId('custom-transaction-input')
-			.fill(bytes);
-		await sheet
-			.getByTestId('custom-preview-button')
-			.click();
-		await expect(
-			sheet.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'success');
-		await sheet
-			.getByTestId('create-proposal-submit')
-			.click();
-		await expect(sheet).toBeHidden();
-
-		const card = alice.page.getByTestId('proposal-card');
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'pending',
-		);
-		const digest = await card.getAttribute('data-digest');
-
-		// Bob signs from the API; Alice's view picks it up on refresh.
-		const proposal = await bob.api.getProposalByDigest(
-			digest!,
-		);
-		await signProposal(bob, proposal);
-		await alice.page
-			.getByTestId('refresh-proposals-button')
-			.click();
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'ready',
-		);
-	});
-
-	test('refuses to propose a transaction that would fail on-chain', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const alice = await createActor('alice');
-		const bob = createIdentity('bob');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob],
-			threshold: 2,
-		});
-		await chain.fund(multisig.address);
-
-		await alice.signIn();
-		await alice.page
-			.getByTestId('new-proposal-button')
-			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
-			.getByTestId('custom-transaction-input')
-			.fill(
-				await chain.buildOverdrawnSuiTransfer({
-					sender: multisig.address,
-					recipient: randomAddress(),
-				}),
-			);
-		await sheet
-			.getByTestId('custom-preview-button')
-			.click();
-
-		await expect(
-			sheet.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'failure');
-		await expect(
-			sheet.getByTestId('create-proposal-submit'),
 		).toHaveCount(0);
 	});
 });

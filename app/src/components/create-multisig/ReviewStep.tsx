@@ -15,20 +15,19 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+	CopyText,
+	Divider,
+	Notice,
+	SectionHeading,
+	StepFooter,
+} from '@/components/wizard/parts';
+import {
 	signerName,
 	type SignerDraft,
 } from '@/lib/create-multisig';
 import { validatePublicKey } from '@/lib/sui-utils';
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
-
-import {
-	CopyText,
-	Divider,
-	Notice,
-	SectionHeading,
-	StepFooter,
-} from './parts';
 
 /** Step 3: everything at a glance, then create. */
 export function ReviewStep({
@@ -241,6 +240,7 @@ export function ReviewStep({
 			)}
 
 			<StepFooter
+				cancelTestId="create-cancel-footer"
 				onCancel={onCancel}
 				cancelDisabled={creating}
 				back={

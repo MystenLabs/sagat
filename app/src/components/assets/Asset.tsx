@@ -64,25 +64,6 @@ export function AssetRow({
 	);
 }
 
-export function AssetCard({
-	selected = false,
-	bare = false,
-	className,
-	...body
-}: AssetWrapperProps) {
-	return (
-		<div
-			className={containerClasses(
-				bare,
-				selected,
-				className,
-			)}
-		>
-			<AssetBody {...body} />
-		</div>
-	);
-}
-
 function AssetBody({
 	balance,
 	coinData,

@@ -24,6 +24,7 @@ import { CustomWalletButton } from './CustomWalletButton';
 import { DevnetNotSupported } from './DevnetNotSupported';
 import { InvitationsPage } from './InvitationsPage';
 import { MultisigDetailPage } from './MultisigDetailPage';
+import { NewProposalPage } from './new-proposal/NewProposalPage';
 import { ProposalDetailPage } from './ProposalDetailPage';
 import { SmartDashboard } from './SmartDashboard';
 import { AssetsTab } from './tabs/AssetsTab';
@@ -72,6 +73,12 @@ const routes: RouteConfig[] = [
 	{
 		path: '/invitations',
 		element: <InvitationsPage />,
+		authLevel: 'full',
+	},
+	// Before the account's own routes, so the wizard wins over them.
+	{
+		path: '/multisig/:address/proposals/new',
+		element: <NewProposalPage />,
 		authLevel: 'full',
 	},
 	{

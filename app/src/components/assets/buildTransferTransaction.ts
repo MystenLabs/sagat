@@ -16,7 +16,6 @@ export interface BuildTransferTransactionParams {
 	coinType: string;
 	/** On-chain integer amount (already scaled by decimals). */
 	amount: bigint;
-	transferAllSui?: boolean;
 	client: ClientWithCoreApi;
 }
 
@@ -28,7 +27,6 @@ export async function buildTransferTransaction({
 	recipient,
 	coinType,
 	amount,
-	transferAllSui = false,
 	client,
 }: BuildTransferTransactionParams): Promise<string> {
 	if (amount <= 0n) {
@@ -37,17 +35,6 @@ export async function buildTransferTransaction({
 
 	const tx = new Transaction();
 	tx.setSender(sender);
-
-	if (transferAllSui) {
-		if (!isSuiCoinType(coinType)) {
-			throw new Error(
-				'MAX gas-coin transfer is only supported for SUI.',
-			);
-		}
-
-		tx.transferObjects([tx.gas], recipient);
-		return toBase64(await tx.build({ client }));
-	}
 
 	const coin = tx.add(
 		coinWithBalance({

@@ -10,17 +10,16 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
+	Divider,
+	SectionHeading,
+	StepFooter,
+} from '@/components/wizard/parts';
+import {
 	NAME_MAX,
 	nameError,
 	textLength,
 } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
-
-import {
-	Divider,
-	SectionHeading,
-	StepFooter,
-} from './parts';
 
 /** Step 1: the name every signer sees in their invitation. */
 export function NameStep({
@@ -87,6 +86,7 @@ export function NameStep({
 			</div>
 			<Divider />
 			<StepFooter
+				cancelTestId="create-cancel-footer"
 				onCancel={onCancel}
 				primary={
 					<Button
