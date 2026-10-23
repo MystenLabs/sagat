@@ -111,7 +111,7 @@ test.describe('several accounts in one wallet', () => {
 		await expect(
 			page.getByTestId('multisig-detail'),
 		).toBeVisible();
-		await page.getByTestId('multisig-tab-overview').click();
+		await page.getByTestId('multisig-tab-signers').click();
 		await expect(
 			alice.memberItem(alice.address),
 		).toHaveAttribute('data-status', 'accepted');

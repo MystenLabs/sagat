@@ -1,21 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatAddress } from '@mysten/sui/utils';
 import { Check, Info } from 'lucide-react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import {
-	memberStatus,
-	weightTone,
-} from '@/lib/member-status';
-import { validatePublicKey } from '@/lib/sui-utils';
+import { accountName } from '@/lib/account-name';
+import { weightTone } from '@/lib/member-status';
+import { signerRows } from '@/lib/signers';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, errorMessage } from '@/lib/utils';
 
+import { SignerName } from '../multisig/SignerName';
+import { SignerStatusChip } from '../multisig/SignerStatusChip';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/button';
-import { Chip } from '../ui/chip';
 import { CopyButton } from '../ui/CopyButton';
 import {
 	Dialog,
@@ -23,8 +21,6 @@ import {
 	DialogDescription,
 	DialogTitle,
 } from '../ui/dialog';
-import { accountName } from './account-name';
-import { ShortAddress } from './ShortAddress';
 import { WeightBar } from './WeightBar';
 
 /**
@@ -56,22 +52,12 @@ export function ReviewInvitationDialog({
 }) {
 	const { currentAddress } = useApiAuth();
 	const name = accountName(multisig);
-	const signers = [...multisig.members]
-		.sort((a, b) => a.order - b.order)
-		.map((member) => {
-			const address = validatePublicKey(
-				member.publicKey,
-			).address;
-			return {
-				...member,
-				address,
-				status: memberStatus(member),
-				isYou: address === currentAddress?.address,
-				isCreator:
-					!!address && address === creator?.address,
-			};
-		});
-	const you = signers.find((s) => s.isYou);
+	const rows = signerRows(
+		multisig.members,
+		currentAddress?.address,
+		creator?.address,
+	);
+	const you = rows.find((row) => row.isYou);
 
 	return (
 		<Dialog
@@ -129,12 +115,16 @@ export function ReviewInvitationDialog({
 								Join {name}?
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
-								{creator?.label ? (
-									creator.label
-								) : creator ? (
-									<span className="font-mono text-13">
-										{formatAddress(creator.address)}
-									</span>
+								{creator ? (
+									<SignerName
+										label={creator.label}
+										address={
+											creator.label
+												? undefined
+												: creator.address
+										}
+										size="inline"
+									/>
 								) : (
 									'Someone'
 								)}{' '}
@@ -144,12 +134,15 @@ export function ReviewInvitationDialog({
 
 						<div className="mt-5">
 							<WeightBar
-								signers={signers.map((signer) => ({
-									weight: signer.weight,
-									tone: weightTone(signer),
+								signers={rows.map((row) => ({
+									weight: row.member.weight,
+									tone: weightTone({
+										isAccepted: row.member.isAccepted,
+										isYou: row.isYou,
+									}),
 								}))}
 								threshold={multisig.threshold}
-								yourWeight={you?.weight ?? null}
+								yourWeight={you?.member.weight ?? null}
 							/>
 						</div>
 
@@ -189,35 +182,42 @@ export function ReviewInvitationDialog({
 									</tr>
 								</thead>
 								<tbody>
-									{signers.map((signer, i) => (
+									{rows.map((row, i) => (
 										<tr
-											key={signer.publicKey}
+											key={row.member.publicKey}
 											className={cn(
 												'border-t',
-												signer.isYou && 'bg-surface',
+												row.isYou && 'bg-surface',
 											)}
 											data-testid="member-item"
-											data-address={signer.address}
-											data-status={signer.status}
+											data-address={row.address}
+											data-status={row.status}
 										>
 											<td className="hidden px-3 py-2.5 text-12 text-muted-foreground sm:table-cell">
 												{i + 1}
 											</td>
 											<td className="px-3 py-1">
-												<SignerCell signer={signer} />
+												<SignerName
+													label={row.member.label}
+													address={row.address}
+													marker={
+														row.isYou
+															? 'you'
+															: row.isCreator
+																? 'creator'
+																: null
+													}
+													size="sm"
+													labelTestId="member-label"
+												/>
 											</td>
 											<td className="px-3 py-2.5 text-right font-medium">
-												{signer.weight}
+												{row.member.weight}
 											</td>
 											<td className="px-3 py-2.5">
-												<Chip
-													variant={
-														STATUS_CHIP[signer.status]
-															.variant
-													}
-												>
-													{STATUS_CHIP[signer.status].label}
-												</Chip>
+												<SignerStatusChip
+													status={row.status}
+												/>
 											</td>
 										</tr>
 									))}
@@ -257,66 +257,5 @@ export function ReviewInvitationDialog({
 				)}
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-const STATUS_CHIP = {
-	accepted: { variant: 'success', label: 'Accepted' },
-	rejected: { variant: 'error', label: 'Rejected' },
-	pending: { variant: 'warning', label: 'Invited' },
-} as const;
-
-/**
- * A signer's name over their address when the account named the key,
- * otherwise the address alone. "You" or "Creator" follows the first line.
- */
-function SignerCell({
-	signer,
-}: {
-	signer: {
-		address?: string;
-		label: string | null;
-		isYou: boolean;
-		isCreator: boolean;
-	};
-}) {
-	const marker = signer.isYou
-		? 'You'
-		: signer.isCreator
-			? 'Creator'
-			: null;
-	const markerText = marker && (
-		<span className="shrink-0 font-sans text-12 text-muted-foreground">
-			{marker}
-		</span>
-	);
-	const address = signer.address ? (
-		<ShortAddress address={signer.address} />
-	) : (
-		'Unknown key'
-	);
-
-	if (!signer.label)
-		return (
-			<span className="flex items-center gap-1.5 font-mono text-12 whitespace-nowrap">
-				{address}
-				{markerText}
-			</span>
-		);
-	return (
-		<div className="flex min-w-0 flex-col gap-px">
-			<span className="flex min-w-0 items-center gap-1.5">
-				<span
-					className="truncate text-13 font-medium"
-					data-testid="member-label"
-				>
-					{signer.label}
-				</span>
-				{markerText}
-			</span>
-			<span className="flex font-mono text-12 whitespace-nowrap">
-				{address}
-			</span>
-		</div>
 	);
 }

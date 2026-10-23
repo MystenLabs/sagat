@@ -5,6 +5,13 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
+/**
+ * The header row of the account tabs' plain tables: small muted labels on
+ * a rounded muted band.
+ */
+export const tableHeadRowClass =
+	'bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal [&>th:first-child]:rounded-l-md [&>th:last-child]:rounded-r-md';
+
 function Table({
 	className,
 	...props

@@ -3,6 +3,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { formatDateTime } from '@/lib/dates';
+
 import { useEpochInfo } from '../../hooks/useEpochInfo';
 import {
 	formatTimeLeft,
@@ -63,11 +65,7 @@ function explain({ lastEpoch, expired, endsAt }: Expiry) {
 	if (expired)
 		return `This transaction could only execute until the end of epoch ${lastEpoch}, so it can't run anymore. Cancel it and propose it again.`;
 
-	const time = endsAt.toLocaleString(undefined, {
-		dateStyle: 'medium',
-		timeStyle: 'short',
-	});
-	return `This transaction can only execute until the end of epoch ${lastEpoch}, around ${time}. After that, it has to be proposed again.`;
+	return `This transaction can only execute until the end of epoch ${lastEpoch}, around ${formatDateTime(endsAt)}. After that, it has to be proposed again.`;
 }
 
 // The current time, updated every minute.

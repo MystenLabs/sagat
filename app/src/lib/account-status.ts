@@ -1,19 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatAddress } from '@mysten/sui/utils';
+import type { MultisigMember } from '@mysten/sagat';
 
-import { memberStatus } from './member-status';
-import { validatePublicKey } from './sui-utils';
-import { sumWeight } from './threshold';
-
-interface MemberLike {
-	publicKey: string;
-	label: string | null;
-	weight: number;
-	isAccepted: boolean;
-	isRejected: boolean;
-}
+import { signerRows, signerSetStatus } from './signers';
 
 export type AccountStatus =
 	| { tone: 'ok' }
@@ -29,41 +19,31 @@ export function accountStatus({
 	members,
 	threshold,
 }: {
-	members: MemberLike[];
+	members: MultisigMember[];
 	threshold: number;
 }): AccountStatus {
-	const rejected = members.filter(
-		(member) => memberStatus(member) === 'rejected',
-	);
-	if (rejected.length === 0) return { tone: 'ok' };
+	const { rejected, canReachThreshold, rejectedNames } =
+		signerSetStatus(signerRows(members, null), threshold);
+	if (rejected === 0) return { tone: 'ok' };
 
-	const reachableWeight = sumWeight(
-		members.filter(
-			(member) => memberStatus(member) !== 'rejected',
-		),
-	);
-	if (reachableWeight < threshold)
+	if (!canReachThreshold)
 		return {
 			tone: 'error',
-			message: `Can’t move funds. ${signerCount(rejected.length)} rejected.`,
+			message: `Can’t move funds. ${signerCount(rejected)} rejected.`,
+		};
+
+	if (rejected > 1)
+		return {
+			tone: 'warning',
+			message: `${signerCount(rejected)} rejected their invitations.`,
 		};
 
 	return {
 		tone: 'warning',
-		message:
-			rejected.length === 1
-				? `${memberName(rejected[0])} rejected the invitation.`
-				: `${signerCount(rejected.length)} rejected their invitations.`,
+		message: `${rejectedNames[0]} rejected the invitation.`,
 	};
 }
 
 function signerCount(count: number) {
 	return count === 1 ? '1 signer' : `${count} signers`;
-}
-
-/** The key's label, else its short address, like the signers table. */
-function memberName(member: MemberLike) {
-	if (member.label) return member.label;
-	const { address } = validatePublicKey(member.publicKey);
-	return address ? formatAddress(address) : 'Unknown key';
 }

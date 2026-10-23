@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ArrowLeft, Pen } from 'lucide-react';
-import { type ReactNode } from 'react';
 
-import { ShortAddress } from '@/components/invitations/ShortAddress';
+import { SignerName } from '@/components/multisig/SignerName';
 import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
+import { Stat } from '@/components/ui/stat';
 import {
 	Tooltip,
 	TooltipContent,
@@ -29,17 +29,6 @@ import {
 	SectionHeading,
 	StepFooter,
 } from './parts';
-
-/** "Maya (you)", "You", "Daniel" or "Signer 3". */
-function reviewName(signer: SignerDraft, index: number) {
-	const name = signerName(signer, index);
-	return signer.isCreator && signer.label.trim()
-		? `${name} (you)`
-		: name;
-}
-
-const shortAddress =
-	'w-fit font-mono text-11 text-muted-foreground';
 
 /** Step 3: everything at a glance, then create. */
 export function ReviewStep({
@@ -76,7 +65,10 @@ export function ReviewStep({
 		return {
 			id: signer.id,
 			position: i + 1,
-			name: reviewName(signer, i),
+			// "Maya", "You", "Daniel" or "Signer 3"; a named creator also gets
+			// "(you)".
+			name: signerName(signer, i),
+			isYou: signer.isCreator && !!signer.label.trim(),
 			key,
 			address: validatePublicKey(key).address,
 			weight: signer.weight,
@@ -94,7 +86,7 @@ export function ReviewStep({
 			/>
 
 			<dl className="grid grid-cols-3 gap-3 rounded-lg bg-muted p-4 @xl/card:grid-cols-[minmax(0,1fr)_60px_80px_80px]">
-				<Summary
+				<Stat
 					label="Name"
 					className="col-span-3 @xl/card:col-span-1"
 				>
@@ -118,14 +110,12 @@ export function ReviewStep({
 							<TooltipContent>Edit name</TooltipContent>
 						</Tooltip>
 					</span>
-				</Summary>
-				<Summary label="Signers">{signers.length}</Summary>
-				<Summary label="Total weight">
-					{totalWeight}
-				</Summary>
-				<Summary label="Threshold">
+				</Stat>
+				<Stat label="Signers">{signers.length}</Stat>
+				<Stat label="Total weight">{totalWeight}</Stat>
+				<Stat label="Threshold">
 					{thresholdLabel({ threshold, totalWeight })}
-				</Summary>
+				</Stat>
 			</dl>
 
 			<section className="flex flex-col gap-3">
@@ -174,20 +164,14 @@ export function ReviewStep({
 										{row.position}
 									</td>
 									<td className="py-3 pr-3 align-middle">
-										<div className="flex flex-col">
-											<span
-												className="text-14 break-words"
-												data-testid="create-review-signer-name"
-											>
-												{row.name}
-											</span>
-											{row.address && (
-												<ShortAddress
-													address={row.address}
-													className={shortAddress}
-												/>
-											)}
-										</div>
+										<SignerName
+											label={row.name}
+											address={row.address}
+											marker={row.isYou ? 'you' : null}
+											markerStyle="parens"
+											wrap
+											labelTestId="create-review-signer-name"
+										/>
 									</td>
 									<td className="py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary">
 										{row.key}
@@ -214,15 +198,13 @@ export function ReviewStep({
 								{row.position}
 							</span>
 							<div className="flex min-w-0 flex-1 flex-col">
-								<span className="text-14 break-words">
-									{row.name}
-								</span>
-								{row.address && (
-									<ShortAddress
-										address={row.address}
-										className={shortAddress}
-									/>
-								)}
+								<SignerName
+									label={row.name}
+									address={row.address}
+									marker={row.isYou ? 'you' : null}
+									markerStyle="parens"
+									wrap
+								/>
 								<span className="truncate font-mono text-11 text-foreground-secondary">
 									{row.key}
 								</span>
@@ -293,30 +275,6 @@ export function ReviewStep({
 					</Button>
 				}
 			/>
-		</div>
-	);
-}
-
-function Summary({
-	label,
-	children,
-	className,
-}: {
-	label: string;
-	children: ReactNode;
-	className?: string;
-}) {
-	return (
-		<div
-			className={cn(
-				'flex min-w-0 flex-col gap-0.5',
-				className,
-			)}
-		>
-			<dt className="text-12 text-muted-foreground">
-				{label}
-			</dt>
-			<dd className="text-14 font-medium">{children}</dd>
 		</div>
 	);
 }

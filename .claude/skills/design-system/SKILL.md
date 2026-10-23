@@ -73,7 +73,7 @@ Rules:
   below `md` so iOS does not zoom on focus (the `text-field` utility).
   Secondary text `text-12`. Labels and breadcrumbs `text-11 uppercase`.
   Chips `text-10 uppercase`. Page titles `text-24 font-bold sm:text-30`.
-  Card titles `text-16 font-semibold`.
+  Card titles `text-16 font-medium`.
 - No arbitrary sizes (`text-[13px]`). The default Tailwind scale
   (`text-sm`, `text-lg`) is legacy and goes away as screens are
   migrated; do not add new uses of it.

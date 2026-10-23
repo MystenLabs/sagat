@@ -454,11 +454,15 @@ test.describe('invitations', () => {
 
 		await alice.signIn();
 		await alice.page
-			.getByTestId('multisig-tab-overview')
+			.getByTestId('multisig-tab-signers')
 			.click();
 		await expect(
 			alice.memberItem(bob.address),
 		).toHaveAttribute('data-status', 'rejected');
+		// With Bob out, Alice alone can't reach the threshold of 2.
+		await expect(
+			alice.page.getByTestId('signers-notice'),
+		).toHaveAttribute('data-tone', 'error');
 	});
 
 	test('the creator is named from the API, not from their position', async ({

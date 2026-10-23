@@ -6,10 +6,7 @@ import {
 	ArrowUpRight,
 	BookOpen,
 	ChevronRight,
-	Coins,
-	FileText,
 	Github,
-	LayoutDashboard,
 	Mail,
 } from 'lucide-react';
 import { useMemo } from 'react';
@@ -72,6 +69,10 @@ import { useInvitations } from '@/hooks/useInvitations';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
+import {
+	currentMultisigPage,
+	MULTISIG_PAGES,
+} from '@/lib/multisig-pages';
 import { cn } from '@/lib/utils';
 
 const RESOURCE_LINKS = [
@@ -85,16 +86,6 @@ const RESOURCE_LINKS = [
 		label: 'GitHub',
 		icon: Github,
 	},
-] as const;
-
-const MULTISIG_PAGES = [
-	{
-		id: 'overview',
-		label: 'Overview',
-		icon: LayoutDashboard,
-	},
-	{ id: 'proposals', label: 'Proposals', icon: FileText },
-	{ id: 'assets', label: 'Assets', icon: Coins },
 ] as const;
 
 /** Nav label: 13px at 72% white, full white when active (from the designs). */
@@ -154,12 +145,11 @@ function SidebarNav() {
 	const { data: invitations } = useInvitations();
 	const pendingInvites = invitations?.length ?? 0;
 
-	const match = matchPath(
+	const routeAddress = matchPath(
 		'/multisig/:address/:page?',
 		location.pathname,
-	);
-	const routeAddress = match?.params.address;
-	const routePage = match?.params.page ?? 'proposals';
+	)?.params.address;
+	const routePage = currentMultisigPage(location.pathname);
 
 	const accepted = useMemo(
 		() => multisigs?.filter((m) => m.isAccepted) ?? [],

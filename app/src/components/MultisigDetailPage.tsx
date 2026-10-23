@@ -7,15 +7,20 @@ import { useEffect, useMemo, useState } from 'react';
 import {
 	Navigate,
 	Outlet,
+	useLocation,
 	useParams,
 } from 'react-router-dom';
 
 import { useArrivalBanner } from '@/hooks/useArrivalBanner';
+import { accountName } from '@/lib/account-name';
 import { joinList } from '@/lib/create-multisig';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
+import {
+	currentMultisigPage,
+	MULTISIG_PAGES,
+} from '@/lib/multisig-pages';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
-import { accountName } from './invitations/account-name';
 import { SuccessBanner } from './multisig/SuccessBanner';
 import {
 	ProposalSheet,
@@ -27,6 +32,8 @@ import { SkeletonPage } from './ui/skeleton';
 
 export function MultisigDetailPage() {
 	const { address } = useParams<{ address: string }>();
+	const location = useLocation();
+	const page = currentMultisigPage(location.pathname);
 	const currentAccount = useCurrentAccount();
 	const [showProposalSheet, setShowProposalSheet] =
 		useState(false);
@@ -105,7 +112,11 @@ export function MultisigDetailPage() {
 		return <Navigate to="/" replace />;
 	}
 
-	const title = accountName(multisig);
+	const name = accountName(multisig);
+	// The page is the title, as in the designs; the account is the crumb.
+	const title =
+		MULTISIG_PAGES.find((p) => p.id === page)?.label ??
+		name;
 
 	return (
 		<div
@@ -116,7 +127,7 @@ export function MultisigDetailPage() {
 			<PageHeader
 				breadcrumb={[
 					{ label: 'Multisigs', to: '/' },
-					{ label: title, mono: !multisig.name },
+					{ label: name, mono: !multisig.name },
 				]}
 				title={title}
 				address={multisig.address}
@@ -139,7 +150,7 @@ export function MultisigDetailPage() {
 					onDismiss={dismissArrival}
 					testId="joined-banner"
 				>
-					You joined {title}.
+					You joined {name}.
 					{multisig.pendingMembers > 0 &&
 						` ${multisig.pendingMembers} ${
 							multisig.pendingMembers === 1

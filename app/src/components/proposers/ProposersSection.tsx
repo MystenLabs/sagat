@@ -2,135 +2,154 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { MultisigProposer } from '@mysten/sagat';
-import { Plus, Users } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { formatAddress } from '@mysten/sui/utils';
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
 
-import { Button } from '../ui/button';
+import { ShortAddress } from '@/components/invitations/ShortAddress';
+import { Button } from '@/components/ui/button';
+import { cardClass } from '@/components/ui/card';
+import { CopyButton } from '@/components/ui/CopyButton';
+import { tableHeadRowClass } from '@/components/ui/table';
+import { formatDate } from '@/lib/dates';
+import { cn } from '@/lib/utils';
+
 import { AddProposerDialog } from './AddProposerDialog';
-import { ProposersList } from './ProposersList';
 import { RemoveProposerDialog } from './RemoveProposerDialog';
 
-interface ProposersSectionProps {
-	proposers: Omit<MultisigProposer, 'multisigAddress'>[];
-	multisigAddress: string;
-	isLoading?: boolean;
-	error?: Error | null;
-}
+const EXPLANATION =
+	'External proposers are outside addresses, like a payments service, that can create proposals but can’t sign or execute them.';
 
-interface ContainerProps {
-	count?: number;
-	isLoading?: boolean;
-	error?: boolean;
-	onAddProposer: () => void;
-	children: ReactNode;
-}
-
-function Container({
-	count,
-	isLoading = false,
-	error = false,
-	onAddProposer,
-	children,
-}: ContainerProps) {
-	const showCount =
-		!isLoading && !error && count !== undefined;
-	const showActions = !isLoading && !error;
-
-	return (
-		<div className="bg-card border rounded-lg p-6">
-			<div className="flex items-center justify-between mb-2">
-				<h2 className="text-lg font-semibold flex items-center">
-					<Users className="w-5 h-5 mr-2" />
-					Proposers{showCount && ` (${count})`}
-				</h2>
-				{showActions && (
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={onAddProposer}
-					>
-						<Plus className="w-4 h-4 mr-2" />
-						Add Proposer
-					</Button>
-				)}
-			</div>
-
-			{showActions && (
-				<p className="text-sm text-muted-foreground mb-4">
-					External proposers can create proposals for this
-					multisig without being signers. They cannot
-					approve or execute transactions.
-				</p>
-			)}
-
-			{children}
-		</div>
-	);
-}
-
+/**
+ * The account's external proposers as a card: each address with the day it
+ * was added and a way to remove it, plus a button to add one.
+ */
 export function ProposersSection({
 	proposers,
 	multisigAddress,
-	isLoading = false,
-	error = null,
-}: ProposersSectionProps) {
-	const [showAddProposer, setShowAddProposer] =
-		useState(false);
-	const [showRemoveProposer, setShowRemoveProposer] =
-		useState(false);
-	const [selectedProposer, setSelectedProposer] = useState<
+	className,
+}: {
+	proposers: Omit<MultisigProposer, 'multisigAddress'>[];
+	multisigAddress: string;
+	className?: string;
+}) {
+	const [adding, setAdding] = useState(false);
+	// The address outlives the dialog's open state, so the dialog keeps its
+	// content while it animates out.
+	const [removing, setRemoving] = useState(false);
+	const [removingAddress, setRemovingAddress] = useState<
 		string | null
 	>(null);
 
 	return (
-		<>
-			<Container
-				count={proposers.length}
-				isLoading={isLoading}
-				error={!!error}
-				onAddProposer={() => setShowAddProposer(true)}
-			>
-				{isLoading ? (
-					<div className="flex items-center justify-center py-8">
-						<div className="text-sm text-muted-foreground">
-							Loading proposers...
-						</div>
-					</div>
-				) : error ? (
-					<div className="text-sm text-muted-foreground text-center py-8">
-						<p>Failed to load proposers</p>
-					</div>
-				) : proposers.length === 0 ? (
-					<div className="text-sm text-muted-foreground text-center py-8">
-						<p>
-							No external proposers added yet. Members can
-							add proposers who can create proposals without
-							being signers.
-						</p>
-					</div>
-				) : (
-					<ProposersList
-						proposers={proposers}
-						onRemoveProposer={(address) => {
-							setSelectedProposer(address);
-							setShowRemoveProposer(true);
-						}}
-					/>
-				)}
-			</Container>
+		<section
+			className={cn(cardClass, className)}
+			aria-labelledby="proposers-title"
+			data-testid="proposers-card"
+		>
+			<div className="flex flex-wrap items-center gap-2">
+				<h2
+					id="proposers-title"
+					className="text-16 font-medium"
+				>
+					External proposers
+				</h2>
+				<span className="text-12 text-muted-foreground">
+					{proposers.length}
+				</span>
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => setAdding(true)}
+					className="ml-auto"
+					data-testid="add-proposer-button"
+				>
+					<Plus />
+					Add external proposer
+				</Button>
+			</div>
+
+			{proposers.length === 0 ? (
+				<p
+					className="text-13 text-muted-foreground"
+					data-testid="proposers-empty"
+				>
+					No external proposers yet. {EXPLANATION}
+				</p>
+			) : (
+				<>
+					<table className="w-full table-fixed text-13">
+						<thead>
+							<tr className={tableHeadRowClass}>
+								<th className="px-3 whitespace-nowrap">
+									External proposer
+								</th>
+								<th className="w-22 px-3 sm:w-27">Added</th>
+								<th className="w-18 px-3 sm:w-22">
+									<span className="sr-only">Actions</span>
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+							{proposers.map((proposer) => (
+								<tr
+									key={proposer.address}
+									className="border-b last:border-b-0"
+									data-testid="proposer-item"
+									data-address={proposer.address}
+								>
+									<td className="px-3 py-2.5">
+										<span className="flex items-center gap-1 font-mono text-13">
+											<ShortAddress
+												address={proposer.address}
+											/>
+											<CopyButton
+												value={proposer.address}
+												className="size-4 shrink-0 text-muted-foreground [&_svg]:size-3!"
+												successMessage="Address copied"
+											/>
+										</span>
+									</td>
+									<td className="px-3 py-2.5 whitespace-nowrap">
+										{formatDate(proposer.addedAt) ?? '—'}
+									</td>
+									<td className="px-3 py-1.5 text-right">
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												setRemovingAddress(
+													proposer.address,
+												);
+												setRemoving(true);
+											}}
+											aria-label={`Remove ${formatAddress(proposer.address)}`}
+											data-testid="remove-proposer-button"
+										>
+											Remove
+										</Button>
+									</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+					<p className="text-13 leading-normal text-foreground-secondary">
+						{EXPLANATION}
+					</p>
+				</>
+			)}
 
 			<AddProposerDialog
-				open={showAddProposer}
-				onOpenChange={setShowAddProposer}
+				open={adding}
+				onOpenChange={setAdding}
 				multisigAddress={multisigAddress}
 			/>
-
 			<RemoveProposerDialog
-				open={showRemoveProposer}
-				onOpenChange={setShowRemoveProposer}
+				open={removing}
+				onOpenChange={setRemoving}
 				multisigAddress={multisigAddress}
-				proposerAddress={selectedProposer}
+				proposerAddress={removingAddress}
 			/>
-		</>
+		</section>
 	);
 }
