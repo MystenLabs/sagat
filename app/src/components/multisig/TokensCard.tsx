@@ -17,11 +17,17 @@ import {
 import { cn } from '@/lib/utils';
 
 import { buttonVariants } from '../ui/button';
+import { CardHeading } from '../ui/card';
 import { CoinIcon } from '../ui/CoinIcon';
 import { EmptyState, ErrorState } from '../ui/empty-state';
 import { Skeleton, SkeletonRows } from '../ui/skeleton';
 import { SuiLogo } from '../ui/SuiLogo';
-import { tableHeadRowClass } from '../ui/table';
+import {
+	tableClass,
+	tableRowClass,
+	tableShellClass,
+	tableShellHeadRowClass,
+} from '../ui/table';
 
 /** The overview lists this many tokens; the rest are on the assets tab. */
 export const TOKENS_SHOWN = 5;
@@ -46,25 +52,22 @@ export function TokensCard({
 			aria-labelledby="tokens-title"
 			data-testid="tokens"
 		>
-			<div className="flex items-center justify-between gap-2">
-				<h2
-					id="tokens-title"
-					className="text-16 font-medium"
-				>
-					Tokens
-				</h2>
+			<CardHeading id="tokens-title" title="Tokens">
 				<Link
 					to={`/multisig/${address}/assets`}
-					className={buttonVariants({
-						variant: 'ghost',
-						size: 'sm',
-					})}
+					className={cn(
+						buttonVariants({
+							variant: 'ghost',
+							size: 'sm',
+						}),
+						'ml-auto',
+					)}
 					data-testid="view-all-assets"
 				>
 					<ChevronRight />
 					View all assets
 				</Link>
-			</div>
+			</CardHeading>
 			{assets.query.isLoading ? (
 				<SkeletonRows rows={3} testId="tokens-loading" />
 			) : assets.isError ? (
@@ -86,16 +89,10 @@ export function TokensCard({
 					testId="tokens-empty"
 				/>
 			) : (
-				<div className="overflow-hidden rounded-2xl border bg-card">
-					<table className="w-full table-fixed text-13">
+				<div className={tableShellClass}>
+					<table className={tableClass}>
 						<thead>
-							{/* Flush in the shell, whose corners already round the band. */}
-							<tr
-								className={cn(
-									tableHeadRowClass,
-									'[&>th:first-child]:rounded-l-none [&>th:last-child]:rounded-r-none',
-								)}
-							>
+							<tr className={tableShellHeadRowClass}>
 								<th className="px-3">Asset</th>
 								<th className="w-26 px-3 text-right sm:w-30">
 									Balance
@@ -145,7 +142,7 @@ function TokenRow({
 	);
 	return (
 		<tr
-			className="border-b last:border-b-0"
+			className={tableRowClass}
 			data-testid="token-row"
 			data-coin-type={balance.coinType}
 			data-balance={balance.balance}
