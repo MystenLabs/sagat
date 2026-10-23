@@ -6,6 +6,8 @@ import {
 	formatAddress,
 	formatDigest,
 	MIST_PER_SUI,
+	normalizeStructTag,
+	SUI_TYPE_ARG,
 } from '@mysten/sui/utils';
 
 import { randomAddress } from '../support/chain';
@@ -16,6 +18,7 @@ import {
 	signInViaApi,
 	signProposal,
 } from '../support/scenarios';
+import { mintTestCoin } from '../support/test-coin';
 
 test.describe('overview and signers', () => {
 	test('show the setup, each key by its label and weight, and who created it', async ({
@@ -70,12 +73,6 @@ test.describe('overview and signers', () => {
 					.getByRole('navigation', { name: 'Breadcrumb' })
 					.locator('[aria-current="page"]'),
 			).toHaveText('Treasury');
-			await expect(
-				page.getByTestId('multisig-threshold'),
-			).toHaveText('3 of 4');
-			await expect(
-				page.getByTestId('account-signers'),
-			).toHaveText('3');
 			await expect(
 				page.getByTestId('open-proposals-empty'),
 			).toBeVisible();
@@ -141,6 +138,9 @@ test.describe('overview and signers', () => {
 			await expect(
 				setup.getByTestId('setup-threshold'),
 			).toHaveText('3 of 4');
+			await expect(
+				setup.getByTestId('setup-signers'),
+			).toHaveText('3');
 			await expect(
 				setup.getByTestId('setup-created'),
 			).toHaveAttribute(
@@ -339,12 +339,94 @@ test.describe('overview and signers', () => {
 			gasCoin: coins[1],
 		});
 		await signProposal(bob, ready);
+		// The registry prices SUI, but its prices are mainnet's: on localnet
+		// neither coin gets a value.
+		await mintTestCoin(chain, multisig.address, [
+			1_000_000n,
+		]);
+		await alice.stubRecognizedCoins([
+			{
+				coinType: normalizeStructTag(SUI_TYPE_ARG),
+				symbol: 'SUI',
+				name: 'Sui',
+				decimals: 9,
+				priceUsd: 1.5,
+			},
+		]);
 
 		await alice.signIn();
 		const { page } = alice;
 		await page.getByTestId('multisig-tab-overview').click();
 		const rows = page.getByTestId('open-proposal');
 		await expect(rows).toHaveCount(2);
+
+		await test.step('the value, the tokens, receive and send', async () => {
+			const value = page.getByTestId('account-value');
+			await expect(value).toHaveAttribute(
+				'data-unpriced',
+				'2',
+			);
+			await expect(value).not.toHaveAttribute('data-usd');
+			await expect(
+				value.getByTestId('account-value-amount'),
+			).toHaveText('—');
+			await expect(value).toContainText(
+				'No prices for the tokens this account holds.',
+			);
+			await expect(value).not.toContainText('Excludes');
+			const sui = page.locator(
+				'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
+			);
+			await expect(sui).toContainText('SUI');
+			// SUI leads; the funder paid every fee, so both coins are whole.
+			await expect(
+				page.getByTestId('token-row').first(),
+			).toHaveAttribute('data-coin-type', /::sui::SUI$/);
+			await expect(
+				sui.getByTestId('token-balance'),
+			).toHaveText('20');
+			await expect(
+				sui.getByTestId('token-value'),
+			).toHaveText('—');
+			const testCoin = page.locator(
+				'[data-testid="token-row"][data-coin-type$="::test_coin::TEST_COIN"]',
+			);
+			await expect(
+				testCoin.getByTestId('token-balance'),
+			).toHaveText('1');
+			await expect(
+				testCoin.getByTestId('token-value'),
+			).toHaveText('—');
+
+			await page
+				.getByTestId('overview-receive-button')
+				.click();
+			const dialog = page.getByTestId('receive-dialog');
+			await expect(
+				dialog.getByTestId('receive-address'),
+			).toHaveText(multisig.address);
+			await page.keyboard.press('Escape');
+			await expect(dialog).toBeHidden();
+
+			await page
+				.getByTestId('overview-send-button')
+				.click();
+			const sheet = page.getByTestId('proposal-sheet');
+			await expect(
+				sheet.getByTestId('transfer-recipient-input'),
+			).toBeVisible();
+			await page.keyboard.press('Escape');
+			await expect(sheet).toBeHidden();
+
+			await page.getByTestId('view-all-assets').click();
+			await expect(
+				page.getByRole('heading', { level: 1 }),
+			).toHaveText('Assets');
+			await page
+				.getByTestId('multisig-tab-overview')
+				.click();
+			await expect(rows).toHaveCount(2);
+		});
 
 		await test.step('each open proposal shows its title, proposer, status and weight', async () => {
 			const row = alice.openProposal(pending.digest);

@@ -5,16 +5,14 @@ import { type ReactNode } from 'react';
 
 import { type CoinDisplayData } from '../../hooks/useCoinDisplayData';
 import { type Balance } from '../../hooks/useMultisigBalances';
+import { formatCoinType } from '../../lib/coin-type';
+import { coinLabels } from '../../lib/coinDisplay';
 import {
 	coinUsdValue,
 	formatCoinAmount,
 	formatUsdValue,
 } from '../../lib/coins';
 import { cn } from '../../lib/utils';
-import {
-	formatCoinType,
-	prettifyType,
-} from '../preview-effects/utils';
 import { CoinIcon } from '../ui/CoinIcon';
 import { CopyButton } from '../ui/CopyButton';
 import { Skeleton } from '../ui/skeleton';
@@ -92,7 +90,6 @@ function AssetBody({
 	showCopyButton = true,
 }: AssetBodyProps) {
 	const symbol = coinData?.symbol;
-	const name = coinData?.name;
 	const decimals = coinData?.decimals;
 	const formatted =
 		decimals != null
@@ -104,8 +101,10 @@ function AssetBody({
 	});
 	const priceChangePct =
 		coinData?.priceChange24hPercentage ?? null;
-	const displayName =
-		name ?? prettifyType(balance.coinType);
+	const { name: displayName } = coinLabels(
+		balance.coinType,
+		coinData,
+	);
 	const compactType = formatCoinType(balance.coinType);
 	const showTypeLine = displayName !== compactType;
 	const showSymbolBadge =

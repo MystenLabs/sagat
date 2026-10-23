@@ -7,7 +7,9 @@ import {
 } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
+import type { SuiNetwork } from '../src/contexts/NetworkContext';
 import {
+	accountAssetsState,
 	coinUsdValue,
 	formatCoinAmount,
 	formatInputAmount,
@@ -15,8 +17,12 @@ import {
 	getMaxInputAmount,
 	isSuiCoinType,
 	parseAmount,
+	pricesAvailableOn,
+	pricingOnNetwork,
 	rawAmountToFloat,
+	shownUsdTotal,
 	sortBalances,
+	totalUsdValue,
 	type SortableBalance,
 } from '../src/lib/coins';
 
@@ -379,5 +385,206 @@ describe('sortBalances', () => {
 			USDC,
 			FOO,
 		]);
+	});
+});
+
+describe('totalUsdValue', () => {
+	test('sums the priced balances and counts the rest', () => {
+		const balances = [
+			{ coinType: 'a', usd: 10.5 },
+			{ coinType: 'b', usd: null },
+			{ coinType: 'c', usd: 2 },
+			{ coinType: 'd', usd: Number.NaN },
+		];
+		expect(
+			totalUsdValue(balances, (balance) => balance.usd),
+		).toEqual({ total: 12.5, priced: 2, unpriced: 2 });
+	});
+
+	test('is zero for no balances', () => {
+		expect(totalUsdValue([], () => null)).toEqual({
+			total: 0,
+			priced: 0,
+			unpriced: 0,
+		});
+	});
+});
+
+describe('shownUsdTotal', () => {
+	const total = (...usd: (number | null)[]) =>
+		shownUsdTotal(
+			totalUsdValue(usd, (value) => value),
+			true,
+		);
+	const offMainnet = (...usd: (number | null)[]) =>
+		shownUsdTotal(
+			totalUsdValue(usd, (value) => value),
+			false,
+		);
+
+	test('shows the sum when every coin is priced', () => {
+		expect(total(10, 2.5)).toBe(12.5);
+	});
+
+	test('shows the priced coins when some have no price', () => {
+		expect(total(10, null)).toBe(10);
+	});
+
+	test('withholds the total when no coin has a price', () => {
+		expect(total(null, null)).toBeNull();
+	});
+
+	test('is zero without coins', () => {
+		expect(total()).toBe(0);
+	});
+
+	test('withholds the total of an empty account without prices', () => {
+		expect(offMainnet()).toBeNull();
+	});
+
+	test('withholds the total of coins without prices', () => {
+		expect(offMainnet(null, null)).toBeNull();
+	});
+});
+
+describe('pricingOnNetwork', () => {
+	const pricing = {
+		priceUsd: 1.5,
+		priceChange24hUsd: 0.05,
+		priceChange24hPercentage: 3,
+	};
+
+	test('keeps the prices on mainnet', () => {
+		expect(pricingOnNetwork('mainnet', pricing)).toEqual(
+			pricing,
+		);
+	});
+
+	test('fills missing mainnet prices with null', () => {
+		expect(pricingOnNetwork('mainnet', {})).toEqual({
+			priceUsd: null,
+			priceChange24hUsd: null,
+			priceChange24hPercentage: null,
+		});
+	});
+
+	test.each<SuiNetwork>(['testnet', 'devnet', 'localnet'])(
+		'drops every price on %s',
+		(network) => {
+			expect(pricingOnNetwork(network, pricing)).toEqual({
+				priceUsd: null,
+				priceChange24hUsd: null,
+				priceChange24hPercentage: null,
+			});
+		},
+	);
+});
+
+describe('pricesAvailableOn', () => {
+	test('has prices on mainnet only', () => {
+		expect(pricesAvailableOn('mainnet')).toBe(true);
+		for (const network of [
+			'testnet',
+			'devnet',
+			'localnet',
+		] as const) {
+			expect(pricesAvailableOn(network)).toBe(false);
+		}
+	});
+});
+
+describe('accountAssetsState', () => {
+	const ready = {
+		balancesLoading: false,
+		balancesError: false,
+		hasData: true,
+		pagesLeft: false,
+		pricesLoading: false,
+		pricesError: false,
+		pricesAvailable: true,
+	};
+	const settled = {
+		isLoading: false,
+		isError: false,
+		pricesError: false,
+	};
+	const loading = { ...settled, isLoading: true };
+
+	test('loads until the first page arrives', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesLoading: true,
+				hasData: false,
+			}),
+		).toEqual(loading);
+	});
+
+	test('loads while pages are left', () => {
+		expect(
+			accountAssetsState({ ...ready, pagesLeft: true }),
+		).toEqual(loading);
+	});
+
+	test('is ready once every page and the prices are loaded', () => {
+		expect(accountAssetsState(ready)).toEqual(settled);
+	});
+
+	test('loads while the prices are pending', () => {
+		expect(
+			accountAssetsState({ ...ready, pricesLoading: true }),
+		).toEqual(loading);
+	});
+
+	test('does not wait on prices where there are none', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				pricesLoading: true,
+				pricesAvailable: false,
+			}),
+		).toEqual(settled);
+	});
+
+	test('fails when the first load fails', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesError: true,
+				hasData: false,
+			}),
+		).toEqual({ ...settled, isError: true });
+	});
+
+	test('keeps the cached balances through a failed refetch', () => {
+		expect(
+			accountAssetsState({ ...ready, balancesError: true }),
+		).toEqual(settled);
+	});
+
+	test('fails when a later page fails', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesError: true,
+				pagesLeft: true,
+			}),
+		).toEqual({ ...settled, isError: true });
+	});
+
+	test('reports a failed registry without loading', () => {
+		expect(
+			accountAssetsState({ ...ready, pricesError: true }),
+		).toEqual({ ...settled, pricesError: true });
+	});
+
+	test('ignores a failed registry where there are no prices', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				pricesError: true,
+				pricesAvailable: false,
+			}),
+		).toEqual(settled);
 	});
 });

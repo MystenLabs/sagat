@@ -126,7 +126,8 @@ test('the overview and balances match the multisig on-chain', async ({
 	await expect(
 		page.getByTestId('page-header-address'),
 	).toHaveText(multisig.address);
-	const threshold = page.getByTestId('multisig-threshold');
+	await page.getByTestId('multisig-tab-signers').click();
+	const threshold = page.getByTestId('setup-threshold');
 	await expect(threshold).toHaveAttribute(
 		'data-threshold',
 		'1',
@@ -135,7 +136,6 @@ test('the overview and balances match the multisig on-chain', async ({
 		'data-total-weight',
 		'2',
 	);
-	await page.getByTestId('multisig-tab-signers').click();
 	for (const member of [alice, bob])
 		await expect(
 			alice.memberItem(member.address),

@@ -1,8 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import { useNetwork } from '../contexts/NetworkContext';
 import {
 	buildCoinDisplayMap,
 	fromMetadata,
@@ -21,6 +22,7 @@ export type { CoinDisplayData };
 export function useCoinDisplayData(
 	coinType: string | null | undefined,
 ) {
+	const { network } = useNetwork();
 	const recognizedQuery = useRecognizedCoins();
 	const recognizedCoin = coinType
 		? recognizedQuery.map.get(coinType)
@@ -36,11 +38,16 @@ export function useCoinDisplayData(
 	const data = useMemo(() => {
 		if (!coinType) return undefined;
 		if (recognizedCoin)
-			return fromRecognized(recognizedCoin);
+			return fromRecognized(recognizedCoin, network);
 		if (metadataQuery.data)
 			return fromMetadata(metadataQuery.data);
 		return undefined;
-	}, [coinType, recognizedCoin, metadataQuery.data]);
+	}, [
+		coinType,
+		recognizedCoin,
+		metadataQuery.data,
+		network,
+	]);
 
 	return {
 		data,
@@ -52,6 +59,7 @@ export function useCoinDisplayData(
 }
 
 export function useCoinDisplayDataMap(coinTypes: string[]) {
+	const { network } = useNetwork();
 	const recognizedQuery = useRecognizedCoins();
 	const uniqueCoinTypes = useMemo(
 		() => Array.from(new Set(coinTypes)),
@@ -80,20 +88,33 @@ export function useCoinDisplayDataMap(coinTypes: string[]) {
 				uniqueCoinTypes,
 				recognizedQuery.map,
 				fallbackMetadata.map,
+				network,
 			),
 		[
 			uniqueCoinTypes,
 			recognizedQuery.map,
 			fallbackMetadata.map,
+			network,
 		],
+	);
+
+	const metadataLoadingFor = fallbackMetadata.isLoadingFor;
+	const isLoadingFor = useCallback(
+		(coinType: string) =>
+			recognizedQuery.isLoading ||
+			metadataLoadingFor(coinType),
+		[recognizedQuery.isLoading, metadataLoadingFor],
 	);
 
 	// Recognized errors stay silent — the metadata fallback covers them.
 	return {
 		map,
+		/** The registry or some coin's metadata is still loading. */
 		isLoading:
 			recognizedQuery.isLoading ||
 			fallbackMetadata.isLoading,
+		/** The registry or `coinType`'s metadata is still loading. */
+		isLoadingFor,
 		isError: fallbackMetadata.isError,
 		error: fallbackMetadata.error,
 	};
