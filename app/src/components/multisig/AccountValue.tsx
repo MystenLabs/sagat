@@ -17,13 +17,14 @@ import { Skeleton } from '../ui/skeleton';
 /**
  * What the account holds, in USD, with Receive and Send beside it. Only
  * coins with a known price count; the line under the amount says when
- * some were left out, and the amount is withheld when none has a price
- * or the balances failed to load.
+ * some were left out, and the amount is withheld when none has a price,
+ * prices are unavailable (off mainnet) or the balances failed to load.
  */
 export function AccountValue({
 	address,
 	name,
 	value,
+	pricesAvailable,
 	isLoading,
 	isError,
 	onSend,
@@ -31,13 +32,16 @@ export function AccountValue({
 	address: string;
 	name: string;
 	value: PortfolioValue;
+	pricesAvailable: boolean;
 	isLoading: boolean;
 	isError: boolean;
 	onSend: () => void;
 }) {
 	const [receiveOpen, setReceiveOpen] = useState(false);
 	const settled = !isLoading && !isError;
-	const total = settled ? shownUsdTotal(value) : null;
+	const total = settled
+		? shownUsdTotal(value, pricesAvailable)
+		: null;
 
 	return (
 		<div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">

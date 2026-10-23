@@ -5,11 +5,11 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { useMemo, useState } from 'react';
 
 import { Chip, type ChipProps } from '@/components/ui/chip';
+import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
 import { ObjectLink } from '../ObjectLink';
 import { PreviewCard } from '../PreviewCard';
-import { prettifyType } from '../utils';
 
 type ChangeKind = {
 	title: string;

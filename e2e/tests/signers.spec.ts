@@ -378,6 +378,13 @@ test.describe('overview and signers', () => {
 				'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
 			);
 			await expect(sui).toContainText('SUI');
+			// SUI leads; the funder paid every fee, so both coins are whole.
+			await expect(
+				page.getByTestId('token-row').first(),
+			).toHaveAttribute('data-coin-type', /::sui::SUI$/);
+			await expect(
+				sui.getByTestId('token-balance'),
+			).toHaveText('20');
 			await expect(
 				sui.getByTestId('token-value'),
 			).toHaveText('—');
@@ -410,6 +417,15 @@ test.describe('overview and signers', () => {
 			).toBeVisible();
 			await page.keyboard.press('Escape');
 			await expect(sheet).toBeHidden();
+
+			await page.getByTestId('view-all-assets').click();
+			await expect(
+				page.getByRole('heading', { level: 1 }),
+			).toHaveText('Assets');
+			await page
+				.getByTestId('multisig-tab-overview')
+				.click();
+			await expect(rows).toHaveCount(2);
 		});
 
 		await test.step('each open proposal shows its title, proposer, status and weight', async () => {

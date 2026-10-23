@@ -3,6 +3,8 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
+import type { SuiNetwork } from '../contexts/NetworkContext';
+import { formatCoinType, prettifyType } from './coin-type';
 import { pricingOnNetwork } from './coins';
 
 export type CoinMetadata = SuiClientTypes.CoinMetadata;
@@ -44,7 +46,7 @@ export function fromMetadata(
 /** A registry entry for display on `network`, priced only on mainnet. */
 export function fromRecognized(
 	coin: RecognizedCoin,
-	network: string,
+	network: SuiNetwork,
 ): CoinDisplayData {
 	const { coinType: _coinType, ...rest } = coin;
 	return {
@@ -75,7 +77,7 @@ export function buildCoinDisplayMap(
 	coinTypes: readonly string[],
 	recognizedMap: ReadonlyMap<string, RecognizedCoin>,
 	metadataMap: ReadonlyMap<string, CoinMetadata | null>,
-	network: string,
+	network: SuiNetwork,
 ): Map<string, CoinDisplayData> {
 	const out = new Map<string, CoinDisplayData>();
 	for (const coinType of coinTypes) {
@@ -93,4 +95,19 @@ export function buildCoinDisplayMap(
 		}
 	}
 	return out;
+}
+
+/**
+ * A coin's symbol and name for display, falling back to its compact and
+ * full type when its details are unknown.
+ */
+export function coinLabels(
+	coinType: string,
+	coinData:
+		Pick<CoinDisplayBase, 'symbol' | 'name'> | undefined,
+): { symbol: string; name: string } {
+	return {
+		symbol: coinData?.symbol ?? formatCoinType(coinType),
+		name: coinData?.name ?? prettifyType(coinType),
+	};
 }

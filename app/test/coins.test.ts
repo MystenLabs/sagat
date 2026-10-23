@@ -7,6 +7,7 @@ import {
 } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
+import type { SuiNetwork } from '../src/contexts/NetworkContext';
 import {
 	coinUsdValue,
 	formatCoinAmount,
@@ -409,7 +410,15 @@ describe('totalUsdValue', () => {
 
 describe('shownUsdTotal', () => {
 	const total = (...usd: (number | null)[]) =>
-		shownUsdTotal(totalUsdValue(usd, (value) => value));
+		shownUsdTotal(
+			totalUsdValue(usd, (value) => value),
+			true,
+		);
+	const offMainnet = (...usd: (number | null)[]) =>
+		shownUsdTotal(
+			totalUsdValue(usd, (value) => value),
+			false,
+		);
 
 	test('shows the sum when every coin is priced', () => {
 		expect(total(10, 2.5)).toBe(12.5);
@@ -425,6 +434,14 @@ describe('shownUsdTotal', () => {
 
 	test('is zero without coins', () => {
 		expect(total()).toBe(0);
+	});
+
+	test('withholds the total of an empty account without prices', () => {
+		expect(offMainnet()).toBeNull();
+	});
+
+	test('withholds the total of coins without prices', () => {
+		expect(offMainnet(null, null)).toBeNull();
 	});
 });
 
@@ -449,7 +466,7 @@ describe('pricingOnNetwork', () => {
 		});
 	});
 
-	test.each(['testnet', 'devnet', 'localnet'])(
+	test.each<SuiNetwork>(['testnet', 'devnet', 'localnet'])(
 		'drops every price on %s',
 		(network) => {
 			expect(pricingOnNetwork(network, pricing)).toEqual({

@@ -32,6 +32,7 @@ export function OverviewTab() {
 				address={multisig.address}
 				name={accountName(multisig)}
 				value={assets.value}
+				pricesAvailable={assets.pricesAvailable}
 				isLoading={assets.isLoading}
 				isError={assets.isError}
 				onSend={() =>

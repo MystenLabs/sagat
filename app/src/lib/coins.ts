@@ -6,6 +6,7 @@ import {
 	SUI_TYPE_ARG,
 } from '@mysten/sui/utils';
 
+import type { SuiNetwork } from '../contexts/NetworkContext';
 import type { CoinPricing } from './coinDisplay';
 
 const NORMALIZED_SUI_COIN_TYPE =
@@ -162,7 +163,7 @@ export function formatUsdValue(value: number): string {
  * coins at mainnet prices: off mainnet nothing has a price.
  */
 export function pricingOnNetwork(
-	network: string,
+	network: SuiNetwork,
 	pricing: CoinPricing,
 ): Required<CoinPricing> {
 	if (network !== 'mainnet') {
@@ -298,12 +299,15 @@ export function totalUsdValue<T>(
 }
 
 /**
- * The total to show for the account: withheld (`null`) when it holds coins
- * but none of them has a price, since $0.00 would then be wrong.
+ * The total to show for the account, or `null` to withhold it: always
+ * without prices (off mainnet), and when it holds coins but none of them
+ * has a price, since $0.00 would then be wrong.
  */
 export function shownUsdTotal(
 	value: PortfolioValue,
+	pricesAvailable: boolean,
 ): number | null {
+	if (!pricesAvailable) return null;
 	return value.priced > 0 || value.unpriced === 0
 		? value.total
 		: null;

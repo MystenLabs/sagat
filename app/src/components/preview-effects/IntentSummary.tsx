@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 
 import { useCoinDisplayDataMap } from '../../hooks/useCoinDisplayData';
 import type { TransactionAnalysis } from '../../hooks/useTransactionAnalysis';
+import { formatCoinType } from '../../lib/coin-type';
 import {
 	coinUsdValue,
 	formatCoinAmount,
@@ -20,7 +21,6 @@ import { Chip } from '../ui/chip';
 import { CoinIcon } from '../ui/CoinIcon';
 import { ObjectLink } from './ObjectLink';
 import { PreviewCard } from './PreviewCard';
-import { formatCoinType } from './utils';
 
 type Flow = BalanceFlowsResult['sender'][number];
 type AccessLevel = 'read' | 'mutate' | 'transfer';

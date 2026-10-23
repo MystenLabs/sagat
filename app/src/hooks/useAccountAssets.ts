@@ -3,6 +3,7 @@
 
 import { useCallback, useMemo } from 'react';
 
+import { useNetwork } from '../contexts/NetworkContext';
 import {
 	coinUsdValue,
 	sortBalances,
@@ -20,6 +21,7 @@ import {
  * across those that have a price.
  */
 export function useAccountAssets(address: string) {
+	const { isTestMode } = useNetwork();
 	const query = useMultisigBalances(address);
 	const coinTypes = useMemo(
 		() => query.balances.map((b) => b.coinType),
@@ -27,13 +29,13 @@ export function useAccountAssets(address: string) {
 	);
 	const coinData = useCoinDisplayDataMap(coinTypes);
 	const usdValue = useCallback(
-		(balance: Balance) =>
-			coinUsdValue(balance.balance, {
-				priceUsd: coinData.map.get(balance.coinType)
-					?.priceUsd,
-				decimals: coinData.map.get(balance.coinType)
-					?.decimals,
-			}),
+		(balance: Balance) => {
+			const coin = coinData.map.get(balance.coinType);
+			return coinUsdValue(balance.balance, {
+				priceUsd: coin?.priceUsd,
+				decimals: coin?.decimals,
+			});
+		},
 		[coinData.map],
 	);
 	const balances = useMemo(
@@ -51,6 +53,8 @@ export function useAccountAssets(address: string) {
 		coinData: coinData.map,
 		usdValue,
 		value,
+		/** Prices are mainnet's, so elsewhere nothing has a USD value. */
+		pricesAvailable: !isTestMode,
 		/** Balances or coin details still loading, so `value` may grow. */
 		isLoading: query.isLoading || coinData.isLoading,
 		/** The balances failed to load, so `value` means nothing. */

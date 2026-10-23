@@ -6,21 +6,22 @@ import { Link } from 'react-router-dom';
 
 import { type useAccountAssets } from '@/hooks/useAccountAssets';
 import { type Balance } from '@/hooks/useMultisigBalances';
-import { type CoinDisplayData } from '@/lib/coinDisplay';
+import {
+	coinLabels,
+	type CoinDisplayData,
+} from '@/lib/coinDisplay';
 import {
 	formatCoinAmount,
 	formatUsdValue,
 } from '@/lib/coins';
+import { cn } from '@/lib/utils';
 
-import {
-	formatCoinType,
-	prettifyType,
-} from '../preview-effects/utils';
 import { buttonVariants } from '../ui/button';
 import { CoinIcon } from '../ui/CoinIcon';
 import { EmptyState, ErrorState } from '../ui/empty-state';
 import { Skeleton, SkeletonRows } from '../ui/skeleton';
 import { SuiLogo } from '../ui/SuiLogo';
+import { tableHeadRowClass } from '../ui/table';
 
 /** The overview lists this many tokens; the rest are on the assets tab. */
 const TOKENS_SHOWN = 5;
@@ -64,33 +65,35 @@ export function TokensCard({
 					View all assets
 				</Link>
 			</div>
-			<div className="overflow-hidden rounded-xl border bg-card">
-				{assets.query.isLoading ? (
-					<SkeletonRows
-						rows={3}
-						header={false}
-						className="p-3"
-						testId="tokens-loading"
-					/>
-				) : assets.query.isError ? (
-					<ErrorState
-						title="Failed to load balances"
-						error={assets.query.error}
-						onRetry={() => assets.query.refetch()}
-						testId="tokens-error"
-					/>
-				) : rows.length === 0 ? (
-					<EmptyState
-						icon={SuiLogo}
-						iconClassName="bg-sui/10"
-						title="No balances yet"
-						description="Once the account receives funds they show up here."
-						testId="tokens-empty"
-					/>
-				) : (
+			{assets.query.isLoading ? (
+				<SkeletonRows rows={3} testId="tokens-loading" />
+			) : assets.query.error && !assets.query.data ? (
+				// A failed background refetch keeps the loaded rows.
+				<ErrorState
+					title="Failed to load balances"
+					error={assets.query.error}
+					onRetry={() => assets.query.refetch()}
+					testId="tokens-error"
+				/>
+			) : rows.length === 0 ? (
+				<EmptyState
+					icon={SuiLogo}
+					iconClassName="bg-sui/10"
+					title="No balances yet"
+					description="Once the account receives funds they show up here."
+					testId="tokens-empty"
+				/>
+			) : (
+				<div className="overflow-hidden rounded-2xl border bg-card">
 					<table className="w-full table-fixed text-13">
 						<thead>
-							<tr className="bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal">
+							{/* Flush in the shell, whose corners already round the band. */}
+							<tr
+								className={cn(
+									tableHeadRowClass,
+									'[&>th:first-child]:rounded-l-none [&>th:last-child]:rounded-r-none',
+								)}
+							>
 								<th className="px-3">Asset</th>
 								<th className="w-26 px-3 text-right sm:w-30">
 									Balance
@@ -114,8 +117,8 @@ export function TokensCard({
 							))}
 						</tbody>
 					</table>
-				)}
-			</div>
+				</div>
+			)}
 		</section>
 	);
 }
@@ -132,10 +135,10 @@ function TokenRow({
 	isLoading: boolean;
 }) {
 	const decimals = coinData?.decimals;
-	const name =
-		coinData?.name ?? prettifyType(balance.coinType);
-	const symbol =
-		coinData?.symbol ?? formatCoinType(balance.coinType);
+	const { symbol, name } = coinLabels(
+		balance.coinType,
+		coinData,
+	);
 	return (
 		<tr
 			className="border-b last:border-b-0"
