@@ -29,9 +29,15 @@ import { ProposalExpiry } from '../proposals/ProposalExpiry';
 import { ProposalStatusChip } from '../proposals/ProposalStatusChip';
 import { ProposalWeight } from '../proposals/ProposalWeight';
 import { Button, buttonVariants } from '../ui/button';
+import { CardHeading } from '../ui/card';
 import { EmptyState, ErrorState } from '../ui/empty-state';
 import { SkeletonRows } from '../ui/skeleton';
-import { tableHeadRowClass } from '../ui/table';
+import {
+	tableClass,
+	tableRowClass,
+	tableShellClass,
+	tableShellHeadRowClass,
+} from '../ui/table';
 import { SignerName } from './SignerName';
 
 /** The overview lists this many open proposals; the rest are on the proposals tab. */
@@ -77,25 +83,25 @@ export function OpenProposals({
 			aria-labelledby="open-proposals-title"
 			data-testid="open-proposals"
 		>
-			<div className="flex items-center justify-between gap-2">
-				<h2
-					id="open-proposals-title"
-					className="text-16 font-medium"
-				>
-					Open proposals
-				</h2>
+			<CardHeading
+				id="open-proposals-title"
+				title="Open proposals"
+			>
 				<Link
 					to={`/multisig/${multisig.address}/proposals`}
-					className={buttonVariants({
-						variant: 'ghost',
-						size: 'sm',
-					})}
+					className={cn(
+						buttonVariants({
+							variant: 'ghost',
+							size: 'sm',
+						}),
+						'ml-auto',
+					)}
 					data-testid="view-all-proposals"
 				>
 					<ChevronRight />
 					View all proposals
 				</Link>
-			</div>
+			</CardHeading>
 			{query.isLoading ? (
 				<SkeletonRows
 					rows={3}
@@ -117,16 +123,10 @@ export function OpenProposals({
 					testId="open-proposals-empty"
 				/>
 			) : (
-				<div className="overflow-hidden rounded-2xl border bg-card">
-					<table className="w-full table-fixed text-13">
+				<div className={tableShellClass}>
+					<table className={tableClass}>
 						<thead>
-							{/* Flush in the shell, whose corners already round the band. */}
-							<tr
-								className={cn(
-									tableHeadRowClass,
-									'[&>th:first-child]:rounded-l-none [&>th:last-child]:rounded-r-none',
-								)}
-							>
+							<tr className={tableShellHeadRowClass}>
 								<th className="px-3">Proposal</th>
 								<th className="w-20 px-3 sm:w-24">
 									Status
@@ -175,7 +175,7 @@ function OpenProposalRow({
 	const executing = useExecuteOrVerify();
 	return (
 		<tr
-			className="border-b last:border-b-0"
+			className={tableRowClass}
 			data-testid="open-proposal"
 			data-digest={proposal.digest}
 			data-status={status}

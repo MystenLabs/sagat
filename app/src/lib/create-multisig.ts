@@ -15,7 +15,11 @@ import {
 	computeMultisigAddress,
 	validatePublicKey,
 } from './sui-utils';
-import { BAR_SEGMENT_CAP } from './threshold';
+import { sumWeight } from './threshold';
+import {
+	weightBarLayout,
+	type WeightBarLayout,
+} from './weight-bar';
 
 /** A row in the signers table, as the creator typed it. */
 export interface SignerDraft {
@@ -240,10 +244,8 @@ export function checkSigners({
 		(c) => c.complete,
 	).length;
 	const incompleteCount = checks.length - completeCount;
-	const totalWeight = signers.reduce(
-		(sum, signer, i) =>
-			checks[i].complete ? sum + signer.weight : sum,
-		0,
+	const totalWeight = sumWeight(
+		signers.filter((_, i) => checks[i].complete),
 	);
 	const tooFewSigners = signers.length < CONFIG.MIN_MEMBERS;
 
@@ -380,34 +382,33 @@ export function thresholdWarning({
 }
 
 /**
- * The threshold bar: one segment per unit of weight up to the cap, then a
- * continuous bar whose filled part never shrinks below a visible sliver.
+ * The threshold bar, drawn like the invitation's weight bar: the weight
+ * the threshold needs as accepted, the rest as pending. One segment per
+ * unit of weight up to the cap, then two runs whose accepted part keeps
+ * a minimum width so a small threshold stays visible. The accepted
+ * weight never drops below one, so with no weight yet the bar still
+ * shows the one unit the threshold starts at rather than nothing.
  */
 export function thresholdBar(
 	threshold: number,
 	totalWeight: number,
-):
-	| { kind: 'segments'; filled: boolean[] }
-	| { kind: 'continuous'; percent: number } {
-	if (totalWeight <= BAR_SEGMENT_CAP)
-		return {
-			kind: 'segments',
-			filled: Array.from(
-				{ length: Math.max(totalWeight, 1) },
-				(_, i) => i < threshold,
-			),
-		};
-	const MIN_PERCENT = 4;
-	return {
-		kind: 'continuous',
-		percent:
-			threshold >= totalWeight
-				? 100
-				: Math.max(
-						(threshold / totalWeight) * 100,
-						MIN_PERCENT,
-					),
-	};
+): WeightBarLayout {
+	return weightBarLayout(
+		[
+			{
+				weight: Math.max(
+					Math.min(threshold, totalWeight),
+					1,
+				),
+				tone: 'accepted',
+			},
+			{
+				weight: Math.max(totalWeight - threshold, 0),
+				tone: 'pending',
+			},
+		],
+		threshold,
+	);
 }
 
 /** What the success banner calls an invited signer. */

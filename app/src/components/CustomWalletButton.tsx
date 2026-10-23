@@ -38,6 +38,7 @@ import {
 } from './shell/rail-classes';
 import { Button } from './ui/button';
 import { Chip } from './ui/chip';
+import { Separator } from './ui/separator';
 import { SidebarRailTooltip } from './ui/sidebar';
 import { Switch } from './ui/switch';
 
@@ -275,7 +276,7 @@ export function CustomWalletButton({
 									isConnecting={isConnecting}
 									canSign={!isAuthCheckFailing}
 								/>
-								<Divider />
+								<Separator className="my-1" />
 							</>
 						) : (
 							!isAuthCheckFailing && (
@@ -301,14 +302,14 @@ export function CustomWalletButton({
 											)}
 										</Button>
 									</div>
-									<Divider />
+									<Separator className="my-1" />
 								</>
 							)
 						)}
 						<CopyAddressButton />
-						<Divider />
+						<Separator className="my-1" />
 						<NetworkSwitchingSection />
-						<Divider />
+						<Separator className="my-1" />
 						<DisconnectButton
 							onDisconnect={handleFullDisconnect}
 						/>
@@ -425,9 +426,9 @@ export function CustomWalletButton({
 						/>
 					)}
 					<CopyAddressButton />
-					<Divider />
+					<Separator className="my-1" />
 					<NetworkSwitchingSection />
-					<Divider />
+					<Separator className="my-1" />
 					<DisconnectButton
 						onDisconnect={handleFullDisconnect}
 					/>
@@ -550,9 +551,6 @@ const DisconnectButton = ({
 		</Button>
 	);
 };
-
-// A divider for the dropdown.
-const Divider = () => <div className="border-t my-1"></div>;
 
 // A network switcher for the test mode.
 const NetworkSwitchingSection = () => {
@@ -712,7 +710,7 @@ const AccountSwitchingSection = ({
 					canSign={canSign}
 				/>
 			))}
-			{showTitle && <Divider />}
+			{showTitle && <Separator className="my-1" />}
 		</>
 	);
 };

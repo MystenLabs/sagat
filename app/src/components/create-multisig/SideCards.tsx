@@ -11,14 +11,17 @@ import {
 	AccordionItem,
 	AccordionTrigger,
 } from '@/components/ui/accordion';
+import {
+	cardClass,
+	CardHeading,
+} from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { COPY, joinList } from '@/lib/create-multisig';
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 
 import { HELP } from './help';
-import { CopyText, Divider } from './parts';
-
-const card = 'rounded-xl border bg-card';
+import { CopyText } from './parts';
 
 /** "3", or "3 (+1 incomplete)". */
 function signersLabel(signers: number, incomplete: number) {
@@ -113,13 +116,15 @@ export function PreviewCard({
 	const muted = 'text-muted-foreground/70';
 	return (
 		<section
-			className={cn(card, 'flex flex-col gap-2 p-6')}
+			className={cn(cardClass, 'gap-2 p-6')}
+			aria-labelledby="create-preview-title"
 			data-testid="create-preview"
 		>
-			<h2 className="text-16 font-medium">
-				Multisig preview
-			</h2>
-			<Divider />
+			<CardHeading
+				id="create-preview-title"
+				title="Multisig preview"
+			/>
+			<Separator />
 			<dl className="flex flex-col gap-1">
 				<PreviewRow label="Name">
 					<span
@@ -160,7 +165,7 @@ export function PreviewCard({
 					)}
 				</PreviewRow>
 			</dl>
-			<Divider />
+			<Separator />
 			<div className="flex flex-col gap-1.5 pt-1">
 				<span className="text-13 text-muted-foreground">
 					Sui address
@@ -217,7 +222,10 @@ function PreviewRow({
 /** Steps 1 and 2: four short answers, one open at a time. */
 export function HelpCard() {
 	return (
-		<Accordion className={card} data-testid="create-help">
+		<Accordion
+			className="rounded-xl border bg-card"
+			data-testid="create-help"
+		>
 			{HELP.map((item) => (
 				<AccordionItem key={item.id} value={item.id}>
 					<AccordionTrigger className="items-center gap-3 rounded-none px-5 py-3 text-13 font-normal hover:no-underline focus-visible:ring-inset **:data-[slot=accordion-trigger-icon]:size-3.5">
@@ -264,13 +272,15 @@ export function NextStepsCard({
 	];
 	return (
 		<section
-			className={cn(card, 'flex flex-col gap-4 p-6')}
+			className={cn(cardClass, 'gap-4 p-6')}
+			aria-labelledby="create-next-steps-title"
 			data-testid="create-next-steps"
 		>
-			<h2 className="text-16 font-medium">
-				What happens next
-			</h2>
-			<Divider />
+			<CardHeading
+				id="create-next-steps-title"
+				title="What happens next"
+			/>
+			<Separator />
 			<ol className="flex flex-col gap-3">
 				{items.map((item, i) => (
 					<li key={item.title} className="flex gap-3">

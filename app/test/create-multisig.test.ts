@@ -167,42 +167,60 @@ describe('threshold bar', () => {
 	test('a segment per weight up to 10', () => {
 		expect(thresholdBar(4, 7)).toEqual({
 			kind: 'segments',
-			filled: [true, true, true, true, false, false, false],
+			tones: [
+				'accepted',
+				'accepted',
+				'accepted',
+				'accepted',
+				'pending',
+				'pending',
+				'pending',
+			],
 		});
 	});
 
-	test('every segment fills at and above the total', () => {
+	test('every unit is accepted at and above the total', () => {
 		const full = {
 			kind: 'segments',
-			filled: [true, true, true],
+			tones: ['accepted', 'accepted', 'accepted'],
 		};
 		expect(thresholdBar(3, 3)).toEqual(full);
 		expect(thresholdBar(4, 3)).toEqual(full);
 		expect(thresholdBar(20, 20)).toEqual({
-			kind: 'continuous',
-			percent: 100,
+			kind: 'runs',
+			runs: [{ weight: 20, tone: 'accepted' }],
+			thresholdPercent: 100,
 		});
 		expect(thresholdBar(30, 20)).toEqual({
-			kind: 'continuous',
-			percent: 100,
+			kind: 'runs',
+			runs: [{ weight: 20, tone: 'accepted' }],
+			thresholdPercent: 100,
 		});
 	});
 
-	test('one segment while there is no weight yet', () => {
+	test('one accepted segment while there is no weight yet', () => {
 		expect(thresholdBar(1, 0)).toEqual({
 			kind: 'segments',
-			filled: [true],
+			tones: ['accepted'],
 		});
 	});
 
-	test('a continuous bar above 10 that stays visible', () => {
+	test('accepted and pending runs above 10', () => {
 		expect(thresholdBar(4, 260)).toEqual({
-			kind: 'continuous',
-			percent: 4,
+			kind: 'runs',
+			runs: [
+				{ weight: 4, tone: 'accepted' },
+				{ weight: 256, tone: 'pending' },
+			],
+			thresholdPercent: (4 / 260) * 100,
 		});
 		expect(thresholdBar(130, 260)).toEqual({
-			kind: 'continuous',
-			percent: 50,
+			kind: 'runs',
+			runs: [
+				{ weight: 130, tone: 'accepted' },
+				{ weight: 130, tone: 'pending' },
+			],
+			thresholdPercent: 50,
 		});
 	});
 });

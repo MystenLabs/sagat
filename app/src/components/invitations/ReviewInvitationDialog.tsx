@@ -21,6 +21,12 @@ import {
 	DialogDescription,
 	DialogTitle,
 } from '../ui/dialog';
+import {
+	tableClass,
+	tableRowClass,
+	tableShellClass,
+	tableShellHeadRowClass,
+} from '../ui/table';
 import { WeightBar } from './WeightBar';
 
 /**
@@ -162,23 +168,19 @@ export function ReviewInvitationDialog({
 							</div>
 						</div>
 
-						<div className="mt-4 overflow-hidden rounded-2xl border">
-							<table className="w-full table-fixed text-13">
+						<div className={cn('mt-4', tableShellClass)}>
+							<table className={tableClass}>
 								<thead>
-									<tr className="bg-muted text-left text-12 text-muted-foreground">
+									<tr className={tableShellHeadRowClass}>
 										{/* Hidden at phone width so the name and address keep their room. */}
-										<th className="hidden w-9 px-3 py-1.5 font-normal sm:table-cell">
+										<th className="hidden w-9 px-3 sm:table-cell">
 											#
 										</th>
-										<th className="px-3 py-1.5 font-normal">
-											Signer
-										</th>
-										<th className="w-15 px-3 py-1.5 text-right font-normal">
+										<th className="px-3">Signer</th>
+										<th className="w-15 px-3 text-right">
 											Weight
 										</th>
-										<th className="w-24 px-3 py-1.5 font-normal">
-											Status
-										</th>
+										<th className="w-24 px-3">Status</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -186,7 +188,7 @@ export function ReviewInvitationDialog({
 										<tr
 											key={row.member.publicKey}
 											className={cn(
-												'border-t',
+												tableRowClass,
 												row.isYou && 'bg-surface',
 											)}
 											data-testid="member-item"

@@ -8,9 +8,16 @@ import { useState } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Button } from '@/components/ui/button';
-import { cardClass } from '@/components/ui/card';
+import {
+	cardClass,
+	CardHeading,
+} from '@/components/ui/card';
 import { CopyButton } from '@/components/ui/CopyButton';
-import { tableHeadRowClass } from '@/components/ui/table';
+import {
+	tableClass,
+	tableHeadRowClass,
+	tableRowClass,
+} from '@/components/ui/table';
 import { formatDate } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
@@ -47,16 +54,11 @@ export function ProposersSection({
 			aria-labelledby="proposers-title"
 			data-testid="proposers-card"
 		>
-			<div className="flex flex-wrap items-center gap-2">
-				<h2
-					id="proposers-title"
-					className="text-16 font-medium"
-				>
-					External proposers
-				</h2>
-				<span className="text-12 text-muted-foreground">
-					{proposers.length}
-				</span>
+			<CardHeading
+				id="proposers-title"
+				title="External proposers"
+				count={proposers.length}
+			>
 				<Button
 					variant="outline"
 					size="sm"
@@ -67,7 +69,7 @@ export function ProposersSection({
 					<Plus />
 					Add external proposer
 				</Button>
-			</div>
+			</CardHeading>
 
 			{proposers.length === 0 ? (
 				<p
@@ -78,7 +80,7 @@ export function ProposersSection({
 				</p>
 			) : (
 				<>
-					<table className="w-full table-fixed text-13">
+					<table className={tableClass}>
 						<thead>
 							<tr className={tableHeadRowClass}>
 								<th className="px-3 whitespace-nowrap">
@@ -94,7 +96,7 @@ export function ProposersSection({
 							{proposers.map((proposer) => (
 								<tr
 									key={proposer.address}
-									className="border-b last:border-b-0"
+									className={tableRowClass}
 									data-testid="proposer-item"
 									data-address={proposer.address}
 								>
@@ -105,7 +107,7 @@ export function ProposersSection({
 											/>
 											<CopyButton
 												value={proposer.address}
-												className="size-4 shrink-0 text-muted-foreground [&_svg]:size-3!"
+												size="inline"
 												successMessage="Address copied"
 											/>
 										</span>

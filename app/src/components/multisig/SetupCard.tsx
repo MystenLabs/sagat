@@ -8,7 +8,7 @@ import { type AccountSetup } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
 import { Button, buttonVariants } from '../ui/button';
-import { cardClass } from '../ui/card';
+import { cardClass, CardHeading } from '../ui/card';
 import { Separator } from '../ui/separator';
 import { CreatedBy } from './CreatedBy';
 
@@ -38,12 +38,7 @@ export function SetupCard({
 			aria-labelledby="account-setup-title"
 			data-testid="account-setup"
 		>
-			<h2
-				id="account-setup-title"
-				className="text-16 font-medium"
-			>
-				Setup
-			</h2>
+			<CardHeading id="account-setup-title" title="Setup" />
 			<Separator />
 			<dl className="flex flex-col gap-1">
 				<Row label="Threshold">

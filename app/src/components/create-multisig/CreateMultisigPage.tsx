@@ -29,6 +29,7 @@ import {
 	stripHiddenCharacters,
 	type SignerDraft,
 } from '@/lib/create-multisig';
+import { sumWeight } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 
 import { NameStep } from './NameStep';
@@ -145,10 +146,7 @@ export function CreateMultisigPage() {
 	);
 	// The threshold never exceeds the weight of every row, complete or
 	// not, so clearing a key for a moment doesn't lower it for good.
-	const maxThreshold = Math.max(
-		signers.reduce((sum, s) => sum + s.weight, 0),
-		1,
-	);
+	const maxThreshold = Math.max(sumWeight(signers), 1);
 	if (threshold > maxThreshold) setThreshold(maxThreshold);
 
 	// The furthest step whose earlier steps are all valid: the stepper
