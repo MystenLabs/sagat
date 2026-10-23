@@ -70,7 +70,7 @@ describe('proposalTitle', () => {
 				description: 'x'.repeat(60),
 				digest: DIGEST,
 			}),
-		).toBe(`${'x'.repeat(50)}...`);
+		).toBe(`${'x'.repeat(50)}…`);
 	});
 
 	it('falls back to the short digest', () => {

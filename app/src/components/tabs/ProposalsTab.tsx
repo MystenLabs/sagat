@@ -183,7 +183,7 @@ export function ProposalsTab() {
 		},
 		{
 			id: 'ready',
-			label: 'Ready to Execute',
+			label: 'Ready',
 			count: pendingTabCounts.ready,
 		},
 		{ id: 'executed', label: 'Executed' },

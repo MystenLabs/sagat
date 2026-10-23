@@ -14,7 +14,10 @@ import {
 	getTotalWeight,
 } from '../lib/proposalUtils';
 import { useGetMultisig } from './useGetMultisig';
-import { usePaginatedProposals } from './usePaginatedProposals';
+import {
+	PROPOSALS_PAGE_SIZE,
+	usePaginatedProposals,
+} from './usePaginatedProposals';
 
 interface UseProposalsQueriesParams {
 	multisig: MultisigWithMembersForPublicKey;
@@ -76,7 +79,7 @@ export function useProposalsQueries({
 		multisigAddress: multisig.address,
 		network,
 		status: getStatusFilter(),
-		perPage: 10,
+		perPage: PROPOSALS_PAGE_SIZE,
 		enabled: !!multisig.address && !!network,
 	});
 
@@ -85,7 +88,7 @@ export function useProposalsQueries({
 		multisigAddress: multisig.address,
 		network,
 		status: ProposalStatus.PENDING,
-		perPage: 10,
+		perPage: PROPOSALS_PAGE_SIZE,
 		enabled: !!multisig.address && !!network,
 	});
 

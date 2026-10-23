@@ -9,17 +9,21 @@ import { Link } from 'react-router-dom';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
-import { usePaginatedProposals } from '@/hooks/usePaginatedProposals';
+import {
+	PROPOSALS_PAGE_SIZE,
+	usePaginatedProposals,
+} from '@/hooks/usePaginatedProposals';
 import {
 	proposalStatusKey,
 	proposalTitle,
 	toProposalCardInput,
 } from '@/lib/proposalUtils';
-import { signerRows } from '@/lib/signers';
+import { memberLabels } from '@/lib/signers';
 import {
 	type MultisigWithMembersForPublicKey,
 	type ProposalCardInput,
 } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 import { ProposalExpiry } from '../proposals/ProposalExpiry';
 import { ProposalStatusChip } from '../proposals/ProposalStatusChip';
@@ -27,6 +31,7 @@ import { ProposalWeight } from '../proposals/ProposalWeight';
 import { Button, buttonVariants } from '../ui/button';
 import { EmptyState, ErrorState } from '../ui/empty-state';
 import { SkeletonRows } from '../ui/skeleton';
+import { tableHeadRowClass } from '../ui/table';
 import { SignerName } from './SignerName';
 
 /** The overview lists this many open proposals; the rest are on the proposals tab. */
@@ -49,7 +54,7 @@ export function OpenProposals({
 		network,
 		status: ProposalStatus.PENDING,
 		// The proposals tab's page size, so both share one cached query.
-		perPage: 10,
+		perPage: PROPOSALS_PAGE_SIZE,
 	});
 	const proposals = useMemo(
 		() =>
@@ -62,13 +67,7 @@ export function OpenProposals({
 	);
 	// Proposers are named like signers: by their key's label, if any.
 	const labels = useMemo(
-		() =>
-			new Map(
-				signerRows(multisig.members, null).map((s) => [
-					s.address,
-					s.member.label || null,
-				]),
-			),
+		() => memberLabels(multisig.members),
 		[multisig.members],
 	);
 
@@ -117,10 +116,16 @@ export function OpenProposals({
 					testId="open-proposals-empty"
 				/>
 			) : (
-				<div className="overflow-hidden rounded-xl border bg-card">
+				<div className="overflow-hidden rounded-2xl border bg-card">
 					<table className="w-full table-fixed text-13">
 						<thead>
-							<tr className="bg-muted text-left text-12 text-muted-foreground [&>th]:py-1.75 [&>th]:font-normal">
+							{/* Flush in the shell, whose corners already round the band. */}
+							<tr
+								className={cn(
+									tableHeadRowClass,
+									'[&>th:first-child]:rounded-l-none [&>th:last-child]:rounded-r-none',
+								)}
+							>
 								<th className="px-3">Proposal</th>
 								<th className="w-20 px-3 sm:w-24">
 									Status
@@ -199,7 +204,6 @@ function OpenProposalRow({
 								marker={proposedByYou ? 'you' : null}
 								markerStyle="parens"
 								size="inline"
-								labelTestId={null}
 							/>
 						</span>
 						<ProposalExpiry
@@ -209,7 +213,10 @@ function OpenProposalRow({
 				</div>
 			</td>
 			<td className="px-3 py-2.5">
-				<ProposalStatusChip status={status} />
+				<ProposalStatusChip
+					status={status}
+					data-testid="proposal-status"
+				/>
 			</td>
 			<td className="hidden px-3 py-2.5 sm:table-cell">
 				<ProposalWeight proposal={proposal} />

@@ -353,6 +353,9 @@ test.describe('overview and signers', () => {
 				'pending',
 			);
 			await expect(
+				row.getByTestId('proposal-status'),
+			).toHaveText('Pending');
+			await expect(
 				row.getByTestId('open-proposal-title'),
 			).toHaveText('Pay the grants wallet');
 			await expect(
@@ -380,6 +383,9 @@ test.describe('overview and signers', () => {
 				'data-status',
 				'ready',
 			);
+			await expect(
+				other.getByTestId('proposal-status'),
+			).toHaveText('Ready');
 			// Without a description, the proposal goes by its digest.
 			await expect(
 				other.getByTestId('open-proposal-title'),

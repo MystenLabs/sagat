@@ -44,9 +44,7 @@ export const getTotalWeight = (
  */
 export function toProposalCardInput(
 	proposal: ProposalWithSignatures,
-	multisig: MultisigWithMembers & {
-		proposers: { address: string }[];
-	},
+	multisig: MultisigWithMembers,
 ): ProposalCardInput {
 	return {
 		...proposal,
@@ -63,10 +61,7 @@ export function toProposalCardInput(
 			address: multisig.address,
 			name: multisig.name,
 			threshold: multisig.threshold,
-			members: multisig.members.map((member) => ({
-				...member,
-				publicKey: member.publicKey,
-			})),
+			members: multisig.members,
 		},
 	};
 }
@@ -102,7 +97,7 @@ export function proposalTitle(
 	const description = proposal.description?.trim();
 	if (description) {
 		return description.length > 50
-			? `${description.slice(0, 50)}...`
+			? `${description.slice(0, 50)}…`
 			: description;
 	}
 	return `Transaction ${formatDigest(proposal.digest)}`;
