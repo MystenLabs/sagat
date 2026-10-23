@@ -64,6 +64,21 @@ export function signerRows(
 }
 
 /**
+ * Each member's address and its key's label, or null when unlabelled.
+ * Skips members whose key does not parse.
+ */
+export function memberLabels(
+	members: MultisigMember[],
+): Map<string, string | null> {
+	const labels = new Map<string, string | null>();
+	for (const member of members) {
+		const { address } = validatePublicKey(member.publicKey);
+		if (address) labels.set(address, member.label || null);
+	}
+	return labels;
+}
+
+/**
  * Where the signer set stands, counted by invitation status, from the
  * rows `signerRows` builds.
  */

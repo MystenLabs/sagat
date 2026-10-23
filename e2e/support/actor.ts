@@ -161,6 +161,12 @@ export class Actor extends Identity {
 		);
 	}
 
+	openProposal(digest: string) {
+		return this.page.locator(
+			`[data-testid="open-proposal"][data-digest="${digest}"]`,
+		);
+	}
+
 	invitationCard(multisigAddress: string) {
 		return this.page.locator(
 			`[data-testid="invitation-card"][data-multisig-address="${multisigAddress}"]`,

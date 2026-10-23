@@ -2,12 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { PersonalMessages } from '@mysten/sagat';
-import { formatAddress } from '@mysten/sui/utils';
+import {
+	formatAddress,
+	formatDigest,
+	MIST_PER_SUI,
+} from '@mysten/sui/utils';
 
+import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
+	proposeTransfer,
 	setupMultisig,
 	signInViaApi,
+	signProposal,
 } from '../support/scenarios';
 
 test.describe('overview and signers', () => {
@@ -67,15 +74,11 @@ test.describe('overview and signers', () => {
 				page.getByTestId('multisig-threshold'),
 			).toHaveText('3 of 4');
 			await expect(
-				page.getByTestId('account-created'),
-			).toHaveAttribute(
-				'data-created-at',
-				saved.createdAt!,
-			);
-			// The creator is the signed-in key, named by its label.
+				page.getByTestId('account-signers'),
+			).toHaveText('3');
 			await expect(
-				page.getByTestId('account-created-by'),
-			).toHaveText('Alice (you)');
+				page.getByTestId('open-proposals-empty'),
+			).toBeVisible();
 		});
 
 		await test.step('the signers list each key with its label and weight', async () => {
@@ -132,7 +135,8 @@ test.describe('overview and signers', () => {
 			);
 			await expect(her).toContainText('Invited');
 
-			// The setup card repeats the numbers and the creator.
+			// The setup card has the numbers, when the account was created
+			// and by whom: the signed-in key, named by its label.
 			const setup = page.getByTestId('account-setup');
 			await expect(
 				setup.getByTestId('setup-threshold'),
@@ -194,11 +198,6 @@ test.describe('overview and signers', () => {
 			'data-multisig-address',
 			multisig.address,
 		);
-
-		await page.getByTestId('multisig-tab-overview').click();
-		await expect(
-			page.getByTestId('account-created-by'),
-		).toHaveText('Alice');
 
 		await page.getByTestId('multisig-tab-signers').click();
 		// Alice and Bob together still reach the threshold of 2.
@@ -304,5 +303,128 @@ test.describe('overview and signers', () => {
 		await expect(
 			card.getByTestId('proposers-empty'),
 		).toBeVisible();
+	});
+
+	test('list the open proposals and execute the one that is ready', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			name: 'Treasury',
+			labels: ['Alice', 'Bob'],
+		});
+		// One gas coin per proposal, so both can be pending at once.
+		const coins = await chain.fundWithCoins(
+			multisig.address,
+			{ count: 2, amount: 10n * MIST_PER_SUI },
+		);
+		// Bob's proposal still needs Alice; Alice's has Bob's signature too.
+		const pending = await proposeTransfer(chain, bob, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+			description: 'Pay the grants wallet',
+			gasCoin: coins[0],
+		});
+		const ready = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+			gasCoin: coins[1],
+		});
+		await signProposal(bob, ready);
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.getByTestId('multisig-tab-overview').click();
+		const rows = page.getByTestId('open-proposal');
+		await expect(rows).toHaveCount(2);
+
+		await test.step('each open proposal shows its title, proposer, status and weight', async () => {
+			const row = alice.openProposal(pending.digest);
+			await expect(row).toHaveAttribute(
+				'data-status',
+				'pending',
+			);
+			await expect(
+				row.getByTestId('proposal-status'),
+			).toHaveText('Pending');
+			await expect(
+				row.getByTestId('open-proposal-title'),
+			).toHaveText('Pay the grants wallet');
+			await expect(
+				row.getByTestId('open-proposal-proposer'),
+			).toHaveText('Proposed by Bob');
+			const weight = row.getByTestId('proposal-weight');
+			await expect(weight).toHaveAttribute(
+				'data-current-weight',
+				'1',
+			);
+			await expect(weight).toHaveAttribute(
+				'data-total-weight',
+				'2',
+			);
+			await weight.hover();
+			await expect(page.getByRole('tooltip')).toHaveText(
+				'1 of 2',
+			);
+			await expect(
+				row.getByTestId('execute-proposal-button'),
+			).toHaveCount(0);
+
+			const other = alice.openProposal(ready.digest);
+			await expect(other).toHaveAttribute(
+				'data-status',
+				'ready',
+			);
+			await expect(
+				other.getByTestId('proposal-status'),
+			).toHaveText('Ready');
+			// Without a description, the proposal goes by its digest.
+			await expect(
+				other.getByTestId('open-proposal-title'),
+			).toHaveText(
+				`Transaction ${formatDigest(ready.digest)}`,
+			);
+			await expect(
+				other.getByTestId('open-proposal-proposer'),
+			).toHaveText('Proposed by Alice (you)');
+			await expect(
+				other.getByTestId('proposal-weight'),
+			).toHaveAttribute('data-current-weight', '2');
+		});
+
+		await test.step('executing a ready proposal takes it off the list', async () => {
+			await alice
+				.openProposal(ready.digest)
+				.getByTestId('execute-proposal-button')
+				.click();
+			await expect(
+				page.locator(
+					'[data-sonner-toast][data-type="success"]',
+					{ hasText: 'Proposal executed' },
+				),
+			).toBeVisible();
+			await expect(
+				alice.openProposal(ready.digest),
+			).toHaveCount(0);
+			await expect(rows).toHaveCount(1);
+		});
+
+		await test.step('the link leads to the proposals tab', async () => {
+			await page.getByTestId('view-all-proposals').click();
+			await expect(
+				page.getByRole('heading', { level: 1 }),
+			).toHaveText('Proposals');
+			await expect(
+				alice.proposalCard(pending.digest),
+			).toBeVisible();
+		});
 	});
 });

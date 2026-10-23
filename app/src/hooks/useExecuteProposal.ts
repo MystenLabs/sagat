@@ -19,6 +19,7 @@ import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
+import { useVerifyProposal } from './useVerifyProposal';
 
 interface ExecuteProposalParams {
 	proposal: PublicProposal;
@@ -37,10 +38,9 @@ export function useExecuteProposal() {
 
 			try {
 				// Order the members.
-				const multisigMembers =
-					proposal.multisig.members.sort(
-						(a, b) => a.order - b.order,
-					);
+				const multisigMembers = [
+					...proposal.multisig.members,
+				].sort((a, b) => a.order - b.order);
 				// Step 1: Reconstruct the MultiSigPublicKey
 				const publicKeys = multisigMembers.map(
 					(member) => ({
@@ -60,7 +60,7 @@ export function useExecuteProposal() {
 				// Step 2: Map signatures to the correct order based on the multisig public key order
 				// The signatures need to be in the same order as the public keys in the multisig
 				const orderedSignatures: string[] = [];
-				for (const member of proposal.multisig.members) {
+				for (const member of multisigMembers) {
 					const signature = proposal.signatures.find(
 						(sig) => sig.publicKey === member.publicKey,
 					);
@@ -147,4 +147,24 @@ export function useExecuteProposal() {
 			});
 		},
 	});
+}
+
+/**
+ * Executes a proposal from a button. When execution fails, checks the
+ * proposal with the API in case someone else executed it meanwhile.
+ */
+export function useExecuteOrVerify() {
+	const execute = useExecuteProposal();
+	const verify = useVerifyProposal();
+	return {
+		execute: (proposal: PublicProposal) =>
+			execute.mutate(
+				{ proposal },
+				{
+					onError: () => verify.mutate(proposal.digest),
+				},
+			),
+		isPending: execute.isPending,
+		error: execute.error,
+	};
 }

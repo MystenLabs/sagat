@@ -21,15 +21,18 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import {
+	proposalStatusKey,
+	proposalTitle,
+} from '@/lib/proposalUtils';
 import { type ProposalCardInput } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useCancelProposal } from '../../hooks/useCancelProposal';
-import { useExecuteProposal } from '../../hooks/useExecuteProposal';
+import { useExecuteOrVerify } from '../../hooks/useExecuteProposal';
 import { useSignProposal } from '../../hooks/useSignProposal';
-import { useVerifyProposal } from '../../hooks/useVerifyProposal';
 import {
 	buildProposalExport,
 	downloadJson,
@@ -48,19 +51,12 @@ import {
 } from '../ui/tooltip';
 import { ProposalExpiry } from './ProposalExpiry';
 import { ProposalPreview } from './ProposalPreview';
+import { ProposalStatusChip } from './ProposalStatusChip';
 
 interface ProposalCardProps {
 	proposal: ProposalCardInput;
 	defaultExpanded?: boolean;
 }
-
-const STATUS_BADGES = {
-	executed: { variant: 'success', text: 'Executed' },
-	cancelled: { variant: 'neutral', text: 'Cancelled' },
-	failed: { variant: 'error', text: 'Failed' },
-	ready: { variant: 'info', text: 'Ready to Execute' },
-	pending: { variant: 'warning', text: 'Pending' },
-} as const;
 
 export function ProposalCard({
 	proposal,
@@ -77,32 +73,9 @@ export function ProposalCard({
 		useState(defaultExpanded);
 	const [showCancelModal, setShowCancelModal] =
 		useState(false);
-	const executeProposalMutation = useExecuteProposal();
-	const verifyProposalMutation = useVerifyProposal();
+	const executing = useExecuteOrVerify();
 	const cancelProposalMutation = useCancelProposal();
 	const signProposalMutation = useSignProposal();
-
-	// Check if current user has already signed this proposal
-	// Check if the proposal is ready to execute
-	const isReadyToExecute = () => {
-		if (proposal.status !== ProposalStatus.PENDING)
-			return false;
-		return proposal.currentWeight >= proposal.totalWeight;
-	};
-
-	const handleExecuteProposal = () => {
-		executeProposalMutation.mutate(
-			{
-				proposal,
-			},
-			{
-				onError: () => {
-					// If execution fails, try to verify (it might have been executed by someone else)
-					verifyProposalMutation.mutate(proposal.digest);
-				},
-			},
-		);
-	};
 
 	const handleConfirmCancel = () => {
 		cancelProposalMutation.mutate(proposal.id, {
@@ -131,32 +104,7 @@ export function ProposalCard({
 		);
 	};
 
-	const getProposalTitle = () => {
-		// Use description if available, otherwise use a truncated digest
-		if (proposal.description?.trim()) {
-			const length = proposal.description.trim().length;
-			return `${proposal.description.trim().slice(0, 50)}${length > 50 ? '...' : ''}`;
-		}
-		return `Transaction ${formatDigest(proposal.digest)}`;
-	};
-
-	const getStatusKey = () => {
-		if (proposal.status === ProposalStatus.SUCCESS)
-			return 'executed';
-		if (proposal.status === ProposalStatus.CANCELLED)
-			return 'cancelled';
-		if (proposal.status === ProposalStatus.FAILURE)
-			return 'failed';
-		if (proposal.currentWeight >= proposal.totalWeight)
-			return 'ready';
-		return 'pending';
-	};
-	const statusKey = getStatusKey();
-
-	const getStatusBadge = () => {
-		const { variant, text } = STATUS_BADGES[statusKey];
-		return <Chip variant={variant}>{text}</Chip>;
-	};
+	const statusKey = proposalStatusKey(proposal);
 
 	const isExternalProposer = () => {
 		if (!proposal.multisig) return false;
@@ -212,9 +160,9 @@ export function ProposalCard({
 				<div className="flex-1">
 					<div className="flex max-md:flex-wrap items-center gap-2 mb-2">
 						<h4 className="font-medium text-foreground line-clamp-1">
-							{getProposalTitle()}
+							{proposalTitle(proposal)}
 						</h4>
-						{getStatusBadge()}
+						<ProposalStatusChip status={statusKey} />
 						{proposal.status === ProposalStatus.PENDING &&
 							!isNetworkMismatch && (
 								<ProposalExpiry
@@ -291,17 +239,17 @@ export function ProposalCard({
 				</div>
 
 				<div className="md:ml-4 flex items-center gap-2">
-					{isReadyToExecute() && (
+					{statusKey === 'ready' && (
 						<Button
 							size="sm"
-							onClick={handleExecuteProposal}
-							disabled={executeProposalMutation.isPending}
+							onClick={() => executing.execute(proposal)}
+							disabled={executing.isPending}
 							variant="default"
 							data-testid="execute-proposal-button"
 						>
 							<Rocket className="w-4 h-4 mr-1" />
-							{executeProposalMutation.isPending
-								? 'Executing...'
+							{executing.isPending
+								? 'Executing…'
 								: 'Execute'}
 						</Button>
 					)}
@@ -359,7 +307,7 @@ export function ProposalCard({
 			</div>
 
 			{/* Execute Error */}
-			{executeProposalMutation.error && (
+			{executing.error && (
 				<div
 					className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3"
 					data-testid="proposal-execute-error"
@@ -368,7 +316,7 @@ export function ProposalCard({
 						Failed to Execute Transaction
 					</h6>
 					<p className="text-sm text-error-foreground">
-						{executeProposalMutation.error.message}
+						{executing.error.message}
 					</p>
 				</div>
 			)}

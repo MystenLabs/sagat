@@ -6,6 +6,7 @@ import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
 import {
+	memberLabels,
 	rejectionNotice,
 	signerRows,
 	signerSetStatus,
@@ -278,5 +279,31 @@ describe('signer rows', () => {
 		expect(only.name).toBe('Unknown key');
 		expect(only.isYou).toBe(false);
 		expect(only.isCreator).toBe(false);
+	});
+
+	test('labels each member by address, null when unlabelled', () => {
+		const alice = key();
+		const bob = key();
+		expect(
+			memberLabels([
+				row(alice.publicKey, 0, 'Alice'),
+				row(bob.publicKey, 1, null),
+			]),
+		).toEqual(
+			new Map([
+				[alice.address, 'Alice'],
+				[bob.address, null],
+			]),
+		);
+	});
+
+	test('skips a key it cannot read', () => {
+		const alice = key();
+		expect(
+			memberLabels([
+				row('not-a-key', 0, 'Ghost'),
+				row(alice.publicKey, 1, 'Alice'),
+			]),
+		).toEqual(new Map([[alice.address, 'Alice']]));
 	});
 });

@@ -7,9 +7,8 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
 import { accountSetup } from '@/lib/account-setup';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import { cn } from '@/lib/utils';
 
-import { CreatedBy } from '../multisig/CreatedBy';
+import { OpenProposals } from '../multisig/OpenProposals';
 import { Stat } from '../ui/stat';
 
 interface OverviewTabContext {
@@ -23,8 +22,9 @@ const stat = {
 } as const;
 
 /**
- * The account at a glance: its threshold against the signers' weight, how
- * many signers it has, and when and by whom it was created.
+ * The account at a glance: its threshold against the signers' weight and
+ * how many signers it has, then the proposals still open. The value stats
+ * and the token table of the design wait for balances and prices.
  */
 export function OverviewTab() {
 	const { multisig } =
@@ -42,7 +42,7 @@ export function OverviewTab() {
 	return (
 		<div className="@container flex flex-col gap-7">
 			<dl
-				className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-xl border bg-card p-5 sm:grid-cols-3 md:p-6 @3xl:flex @3xl:gap-8"
+				className="grid grid-cols-2 gap-x-6 gap-y-5 rounded-xl border bg-card p-5 md:p-6 @3xl:flex @3xl:gap-8"
 				data-testid="account-summary"
 			>
 				<Stat {...stat} label="Threshold">
@@ -55,27 +55,12 @@ export function OverviewTab() {
 					</span>
 				</Stat>
 				<Stat {...stat} label="Signers">
-					{setup.signerCount}
-				</Stat>
-				<Stat {...stat} label="Total weight">
-					{setup.totalWeight}
-				</Stat>
-				<Stat {...stat} label="Created">
-					<span
-						data-testid="account-created"
-						data-created-at={setup.createdAt ?? undefined}
-						className={cn(
-							!setup.createdLabel &&
-								'text-muted-foreground',
-						)}
-					>
-						{setup.createdLabel ?? 'Unknown'}
+					<span data-testid="account-signers">
+						{setup.signerCount}
 					</span>
 				</Stat>
-				<Stat {...stat} label="Created by">
-					<CreatedBy creator={setup.creator} />
-				</Stat>
 			</dl>
+			<OpenProposals multisig={multisig} />
 		</div>
 	);
 }
