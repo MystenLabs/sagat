@@ -34,11 +34,13 @@ import {
 import { useTouched } from '@/components/wizard/use-touched';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
 import { accountName } from '@/lib/account-name';
+import { normalizeCoinType } from '@/lib/coin-type';
 import { coinLabels } from '@/lib/coinDisplay';
 import { coinUsdValue, formatUsdValue } from '@/lib/coins';
 import {
 	checkTransfer,
 	COPY,
+	lacksGas,
 	maxAmount,
 	titleError,
 	transferTitle,
@@ -83,20 +85,27 @@ export function TransferDetailsStep({
 		!assets.query.isError &&
 		!assets.query.hasNextPage;
 
+	// The balances carry the long form; a preselected short one
+	// (`0x2::sui::SUI`) is read as the same coin.
+	const coinType = draft.coinType
+		? normalizeCoinType(draft.coinType)
+		: '';
 	const balance =
-		assets.balances.find(
-			(b) => b.coinType === draft.coinType,
-		) ?? null;
-	const coin = draft.coinType
-		? assets.coinData.get(draft.coinType)
+		assets.balances.find((b) => b.coinType === coinType) ??
+		null;
+	const coin = coinType
+		? assets.coinData.get(coinType)
 		: undefined;
 	const decimals = coin?.decimals ?? null;
-	const symbol = draft.coinType
-		? coinLabels(draft.coinType, coin).symbol
+	const symbol = coinType
+		? coinLabels(coinType, coin).symbol
 		: null;
+	// Gas is paid in SUI: an account without any can’t send anything.
+	const noGas =
+		balancesComplete && lacksGas(assets.balances);
 
 	const check = checkTransfer({
-		draft,
+		draft: { ...draft, coinType },
 		balance: balance?.balance ?? null,
 		decimals,
 		symbol,
@@ -166,15 +175,14 @@ export function TransferDetailsStep({
 		if (
 			balancesComplete &&
 			draft.coinType &&
-			!assets.balances.some(
-				(b) => b.coinType === draft.coinType,
-			)
+			!assets.balances.some((b) => b.coinType === coinType)
 		) {
 			onDraftChange({ ...draft, coinType: '' });
 		}
 	}, [
 		balancesComplete,
 		assets.balances,
+		coinType,
 		draft,
 		onDraftChange,
 	]);
@@ -197,6 +205,7 @@ export function TransferDetailsStep({
 
 	const canReview =
 		check.canReview &&
+		!noGas &&
 		!currentTitleError &&
 		!build.isPending;
 
@@ -205,7 +214,7 @@ export function TransferDetailsStep({
 		const finalTitle = shownTitle.trim();
 		build.mutate(
 			{
-				coinType: draft.coinType,
+				coinType,
 				recipient: normalizeSuiAddress(
 					draft.recipient.trim(),
 				),
@@ -240,7 +249,7 @@ export function TransferDetailsStep({
 					id="transfer-asset"
 					balances={assets.balances}
 					coinData={assets.coinData}
-					value={draft.coinType}
+					value={coinType}
 					onValueChange={(coinType) => {
 						if (draft.coinType !== '') touch('asset');
 						changeDraft({ ...draft, coinType });
@@ -285,7 +294,7 @@ export function TransferDetailsStep({
 						aria-describedby="transfer-amount-hint"
 						data-testid="transfer-amount-input"
 					/>
-					{draft.coinType && (
+					{coinType && (
 						<InputGroupAddon
 							align="inline-end"
 							className="gap-1 pr-1.5"
@@ -403,9 +412,15 @@ export function TransferDetailsStep({
 				onBlur={() => touch('title')}
 			/>
 
+			{noGas && (
+				<Notice tone="warning" testId="transfer-no-gas">
+					{COPY.noGas}
+				</Notice>
+			)}
+
 			{build.isError && (
 				<Notice tone="error" testId="transfer-error">
-					{COPY.buildFailed}
+					{COPY.buildFailed(build.error.message)}
 				</Notice>
 			)}
 

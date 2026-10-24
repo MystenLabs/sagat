@@ -12,12 +12,14 @@ import {
 import { describe, expect, test } from 'vitest';
 
 import { buildTransferTransaction } from '../src/components/assets/buildTransferTransaction';
+import { normalizeCoinType } from '../src/lib/coin-type';
 import { formatInputAmount } from '../src/lib/coins';
 import {
 	bytesStatusText,
 	checkBytes,
 	checkTransfer,
 	COPY,
+	lacksGas,
 	maxAmount,
 	newProposalPath,
 	proposalTypeFromQuery,
@@ -389,6 +391,79 @@ describe('titleError', () => {
 	test('accepts a title within the limit', () => {
 		expect(titleError('Pay the auditors')).toBeNull();
 		expect(titleError('a'.repeat(TITLE_MAX))).toBeNull();
+	});
+
+	test('counts code points after NFC', () => {
+		// 각 typed as three conjoining jamo composes to one syllable.
+		const jamo = '\u1100\u1161\u11a8';
+		expect(titleError(jamo.repeat(TITLE_MAX))).toBeNull();
+		expect(titleError(jamo.repeat(TITLE_MAX + 1))).toBe(
+			COPY.titleTooLong(TITLE_MAX + 1),
+		);
+	});
+});
+
+describe('lacksGas', () => {
+	const sui = (balance: string) => ({
+		coinType: SUI_TYPE_ARG,
+		balance,
+	});
+	const usdc = { coinType: USDC, balance: '5000000' };
+
+	test('is true without SUI or with a SUI balance of 0', () => {
+		expect(lacksGas([])).toBe(true);
+		expect(lacksGas([usdc])).toBe(true);
+		expect(lacksGas([usdc, sui('0')])).toBe(true);
+	});
+
+	test('is false with any SUI, in either form of its type', () => {
+		expect(lacksGas([usdc, sui('1')])).toBe(false);
+		expect(
+			lacksGas([
+				{
+					coinType: normalizeCoinType(SUI_TYPE_ARG),
+					balance: '1',
+				},
+			]),
+		).toBe(false);
+	});
+});
+
+describe('COPY', () => {
+	test('a 0-decimal coin asks for a whole number', () => {
+		expect(COPY.invalidAmount(0)).toBe(
+			'Enter a whole number.',
+		);
+		expect(COPY.invalidAmount(6)).toBe(
+			'Enter a valid amount (up to 6 decimals).',
+		);
+	});
+
+	test('a failed build gives the reason when there is one', () => {
+		expect(
+			COPY.buildFailed('No valid gas coins found'),
+		).toBe(
+			'Couldn’t build the transfer: No valid gas coins found',
+		);
+		expect(COPY.buildFailed('')).toBe(
+			'Couldn’t build the transfer. Check your connection and try again.',
+		);
+	});
+});
+
+describe('normalizeCoinType', () => {
+	test('reads the short and long forms as one type', () => {
+		const long = normalizeCoinType(SUI_TYPE_ARG);
+		expect(long).toBe(
+			`${normalizeSuiAddress('0x2')}::sui::SUI`,
+		);
+		expect(normalizeCoinType(long)).toBe(long);
+		expect(normalizeCoinType(' 0x2::sui::SUI ')).toBe(long);
+	});
+
+	test('is empty for anything that isn’t a type', () => {
+		for (const value of ['', 'sui', '0x2::sui', 'SUI'])
+			expect(normalizeCoinType(value)).toBe('');
 	});
 });
 

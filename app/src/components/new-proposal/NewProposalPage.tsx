@@ -23,6 +23,7 @@ import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountSetup } from '@/lib/account-setup';
 import { shownApiError } from '@/lib/api-errors';
+import { normalizeCoinType } from '@/lib/coin-type';
 import {
 	COPY,
 	proposalTypeFromQuery,
@@ -126,7 +127,10 @@ function NewProposalWizard({
 	);
 	const [transferDraft, setTransferDraft] =
 		useState<TransferDraft>({
-			coinType: searchParams.get('asset') ?? '',
+			// Long form, as the balances have it; '' when not a type.
+			coinType: normalizeCoinType(
+				searchParams.get('asset') ?? '',
+			),
 			amount: '',
 			recipient: '',
 		});
@@ -190,19 +194,31 @@ function NewProposalWizard({
 
 	const reviewTitle = title ?? ready?.title ?? '';
 
+	// Propose is disabled only once React re-renders with the create
+	// pending, so a second click in the same tick still lands here.
+	const submitting = useRef(false);
 	const submit = () => {
-		if (!ready) return;
+		if (!ready || create.isPending || submitting.current)
+			return;
+		submitting.current = true;
 		create.mutate(
 			{
 				multisigAddress: address,
 				transactionData: ready.bytes,
-				description: reviewTitle.trim() || undefined,
+				// The length check counts the NFC form (`textLength`), and
+				// the API stores what it gets, so send that form: typed as
+				// conjoining jamo, a title is up to three times longer.
+				description:
+					reviewTitle.normalize('NFC').trim() || undefined,
 			},
 			{
 				onSuccess: () => navigate(proposalsPath),
 				onError: (error) => {
 					if (error instanceof SignatureDeclinedError)
 						toast.error(COPY.signatureDeclined);
+				},
+				onSettled: () => {
+					submitting.current = false;
 				},
 			},
 		);

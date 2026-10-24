@@ -58,6 +58,13 @@ export function TypeStep({
 					onTypeChange(value as ProposalType)
 				}
 				aria-label="Proposal type"
+				// The cards are buttons, so Enter doesn't submit the form
+				// the way it does on a native radio.
+				onKeyDown={(e) => {
+					if (e.key !== 'Enter') return;
+					e.preventDefault();
+					e.currentTarget.closest('form')?.requestSubmit();
+				}}
 				className="flex flex-col gap-3"
 			>
 				{PROPOSAL_TYPES.map((option) => {

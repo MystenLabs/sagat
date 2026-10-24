@@ -101,7 +101,14 @@ export function ReviewStep({
 							{name.trim()}
 						</span>
 						<Tooltip>
+							{/* The trigger's `disabled` only mutes the tooltip. */}
 							<TooltipTrigger
+								render={
+									<button
+										type="button"
+										disabled={creating}
+									/>
+								}
 								aria-label="Edit name"
 								onClick={onEditName}
 								disabled={creating}

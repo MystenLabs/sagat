@@ -43,18 +43,27 @@ import {
 import { mintTestCoin } from '../support/test-coin';
 
 type Fixtures = {
-	createActor: (name: string) => Promise<Actor>;
+	createActor: (
+		name: string,
+		options?: { rejectSigning?: boolean },
+	) => Promise<Actor>;
 	createIdentity: (name: string) => Identity;
 	chain: Chain;
 };
 
 // Alice and Bob share an account; Alice is signed in on it. 2-of-2, so
-// Alice's proposals stay pending. `fund: false` leaves it empty.
+// Alice's proposals stay pending. `fund: false` leaves it empty;
+// `rejectSigning` has Alice's wallet decline every transaction.
 async function account(
 	{ createActor, createIdentity, chain }: Fixtures,
-	{ fund = true }: { fund?: boolean } = {},
+	{
+		fund = true,
+		rejectSigning,
+	}: { fund?: boolean; rejectSigning?: boolean } = {},
 ) {
-	const alice = await createActor('alice');
+	const alice = await createActor('alice', {
+		rejectSigning,
+	});
 	const bob = createIdentity('bob');
 	const multisig = await setupMultisig({
 		creator: alice,
@@ -371,11 +380,7 @@ test.describe('new proposal edges: deep links', () => {
 		).toHaveAttribute('data-coin-type', /::sui::SUI$/);
 	});
 
-	// BUG: the preselected asset is matched against the balances as an
-	// exact string (TransferDetailsStep.tsx:86 and :165), so the short
-	// form 0x2::sui::SUI, which is how people write it, isn't recognised
-	// and is dropped once the balances load. Only the app's own links
-	// (asset row, overview Send) pass the long form. Expected SUI chosen.
+	// The app's own links pass the long form; people write the short one.
 	test('?asset=0x2::sui::SUI preselects SUI like the long form does', async ({
 		createActor,
 		createIdentity,
@@ -436,12 +441,9 @@ test.describe('new proposal edges: deep links', () => {
 });
 
 test.describe('new proposal edges: accounts without gas or assets', () => {
-	// BUG: an account with TEST but no SUI can't pay gas, so building the
-	// transfer fails. Expected a message saying the account needs SUI for
-	// gas; actual: "Couldn’t build the transfer. Check your connection and
-	// try again." (COPY.buildFailed, TransferDetailsStep.tsx:406), which
-	// sends the user after their connection.
-	test('Max on a coin with no SUI for gas fails on Details with a message about gas', async ({
+	// An account with TEST but no SUI can't pay gas, so no transfer can
+	// be built.
+	test('Max on a coin with no SUI for gas stays on Details with a message about gas', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -471,15 +473,19 @@ test.describe('new proposal edges: accounts without gas or assets', () => {
 		);
 		await recipient.fill(randomAddress());
 		await recipient.blur();
-		await page.getByTestId('transfer-review').click();
 
-		const error = page.getByTestId('transfer-error');
-		await expect(error).toBeVisible();
+		await expect(
+			page.getByTestId('transfer-no-gas'),
+		).toHaveText(
+			'This account has no SUI to pay gas. Send it some SUI before proposing a transfer.',
+		);
+		const review = page.getByTestId('transfer-review');
+		await expect(review).toBeDisabled();
+		await review.click({ force: true });
 		await expect(
 			page.getByTestId('review-step'),
 		).toHaveCount(0);
 		expect(creates).toHaveLength(0);
-		await expect(error).toContainText(/gas|SUI/);
 	});
 
 	test('an account with no balances shows “No assets to send” and Review stays out of reach', async ({
@@ -621,16 +627,10 @@ test.describe('new proposal edges: title', () => {
 		);
 	});
 
-	// BUG: the length check counts code points after NFC (textLength in
-	// lib/create-multisig.ts:84), but the title is sent as typed
-	// (NewProposalPage.tsx:199), and the API stores it in a
-	// varchar(1000) without a check of its own (api/src/db/schema.ts:165).
-	// 500 Hangul syllables typed as conjoining jamo pass the check (500
-	// after NFC) but are 1,500 code points, so the insert fails and the
-	// user gets the generic "Couldn’t create the proposal. … Check your
-	// connection and try again." notice (the API logs Postgres 22001).
-	// Expected: the proposal is created (send the NFC form, or count what
-	// is sent).
+	// The length check counts code points after NFC, and the API stores
+	// the title in a varchar(1000) without a check of its own, so the
+	// title is sent in its NFC form: 500 Hangul syllables typed as
+	// conjoining jamo are 1,500 code points as typed.
 	test('a 500-character title that is longer before NFC is still proposed', async ({
 		createActor,
 		createIdentity,
@@ -655,10 +655,14 @@ test.describe('new proposal edges: title', () => {
 		await expect(
 			page.getByTestId('proposal-title-hint'),
 		).not.toHaveAttribute('data-state', 'error');
+		const creates = recordCreates(page);
 		await reviewBytes(page);
 		await expectSimulation(page, 'success');
 		await page.getByTestId('review-submit').click();
 		await expectOnProposals(page);
+		expect(creates[0].postDataJSON().description).toBe(
+			title.normalize('NFC'),
+		);
 	});
 
 	test('leading and trailing spaces are trimmed from the title shown and sent', async ({
@@ -800,15 +804,8 @@ test.describe('new proposal edges: submitting', () => {
 		await expectSimulation(page, 'success');
 	}
 
-	// BUG: Propose is only disabled once React re-renders with the
-	// mutation pending, and submit() doesn't guard on a create in flight
-	// (NewProposalPage.tsx:193), so a second click before that re-render
-	// starts a second create. The first creates the proposal; the second
-	// signs again and the API refuses it ("A proposal with the same digest
-	// already exists."). useMutation only runs the latest mutate's
-	// callbacks, so the user stays on Review with that refusal and "Try
-	// again", although the proposal exists. Expected: one POST, then the
-	// proposals.
+	// Propose is only disabled once React re-renders with the create
+	// pending, so a second click can come before that.
 	test('two clicks on Propose in the same tick send one POST /proposals', async ({
 		createActor,
 		createIdentity,
@@ -838,10 +835,6 @@ test.describe('new proposal edges: submitting', () => {
 		await expectOnProposals(page);
 	});
 
-	// BUG: same as above, with a real double click: Playwright's dblclick
-	// sends two POSTs too, and Review shows "A proposal with the same digest
-	// already exists." for a proposal that was created.
-
 	test('a double click on Propose sends one POST /proposals', async ({
 		createActor,
 		createIdentity,
@@ -868,11 +861,6 @@ test.describe('new proposal edges: submitting', () => {
 		).toHaveCount(1);
 	});
 
-	// BUG: the title's pen stays enabled while creating: `disabled` on
-	// Base UI's TooltipTrigger disables the tooltip, not the button
-	// (ReviewStep.tsx:314). A click opens the editor mid-create, and an
-	// edit made there is silently not part of the proposal (the title was
-	// read when Propose was clicked). Expected the pen disabled.
 	test('while the proposal is being created, Back, Cancel, the stepper and the title are disabled', async ({
 		createActor,
 		createIdentity,
@@ -911,9 +899,11 @@ test.describe('new proposal edges: submitting', () => {
 			'new-proposal-step-2',
 		])
 			await expect(page.getByTestId(id)).toBeDisabled();
-		await expect
-			.soft(page.getByTestId('review-edit-title'))
-			.toBeDisabled();
+		// The title was read when Propose was clicked, so an edit now
+		// wouldn't be part of the proposal.
+		await expect(
+			page.getByTestId('review-edit-title'),
+		).toBeDisabled();
 		// A forced click on Back doesn't leave Review either.
 		await page
 			.getByTestId('review-back')
@@ -986,42 +976,13 @@ test.describe('new proposal edges: submitting', () => {
 		createIdentity,
 		chain,
 	}) => {
-		const { alice, multisig } = await account({
-			createActor,
-			createIdentity,
-			chain,
-		});
+		const { alice, multisig } = await account(
+			{ createActor, createIdentity, chain },
+			{ rejectSigning: true },
+		);
 		const { page } = alice;
 		const creates = recordCreates(page);
 		await toReview(page, chain, multisig.address);
-
-		// The test wallet approves everything and has no setting to decline.
-		// The app reads the wallet's features on every call, so replace its
-		// signTransaction with one that rejects, as a wallet does when the
-		// user declines.
-		await page.evaluate(() => {
-			const wallet = window.__e2eWallet!;
-			const base = Object.getOwnPropertyDescriptor(
-				Object.getPrototypeOf(wallet),
-				'features',
-			)!.get!;
-			Object.defineProperty(wallet, 'features', {
-				configurable: true,
-				get() {
-					const features = base.call(wallet);
-					return {
-						...features,
-						'sui:signTransaction': {
-							...features['sui:signTransaction'],
-							signTransaction: () =>
-								Promise.reject(
-									new Error('User rejected the request'),
-								),
-						},
-					};
-				},
-			});
-		});
 
 		const submit = page.getByTestId('review-submit');
 		await submit.click();
@@ -1273,11 +1234,7 @@ test.describe('new proposal edges: keyboard', () => {
 		return order;
 	}
 
-	// BUG: (rough edge) Enter on a focused type card does nothing. The
-	// cards are Base UI radios (buttons), not inputs, so the form's
-	// implicit submission doesn't happen (TypeStep.tsx:66); a keyboard
-	// user has to Tab to Continue. Expected Enter to continue, as it would
-	// on a native radio in a form.
+	// Enter on a card continues, as it would on a native radio in a form.
 	test('Tab goes from the chosen type card to Continue, arrows change the type, and Enter continues', async ({
 		createActor,
 		createIdentity,
@@ -1313,17 +1270,9 @@ test.describe('new proposal edges: keyboard', () => {
 		await expect(bytes).toBeFocused();
 		await expect(bytes).toHaveAttribute('data-checked');
 		await page.keyboard.press('Enter');
-		const bytesStep = page.getByTestId('bytes-step');
-		await expect.soft(bytesStep).toBeVisible();
-		if (!(await bytesStep.isVisible())) {
-			// Continue from the keyboard instead.
-			await page.keyboard.press('Tab');
-			await expect(
-				page.getByTestId('type-continue'),
-			).toBeFocused();
-			await page.keyboard.press('Enter');
-			await expect(bytesStep).toBeVisible();
-		}
+		await expect(
+			page.getByTestId('bytes-step'),
+		).toBeVisible();
 		// The new step's heading takes focus.
 		await expect(
 			page.getByTestId('bytes-step').locator('h2'),

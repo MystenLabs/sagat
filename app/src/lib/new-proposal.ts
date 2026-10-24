@@ -219,6 +219,23 @@ export function checkTransfer({
 	};
 }
 
+/**
+ * Whether the account holds no SUI to pay gas with: no SUI balance, or
+ * one of 0. `balances` must be complete.
+ */
+export function lacksGas(
+	balances: readonly {
+		coinType: string;
+		balance: string;
+	}[],
+): boolean {
+	return !balances.some(
+		(b) =>
+			isSuiCoinType(b.coinType) &&
+			(toBigInt(b.balance) ?? 0n) > 0n,
+	);
+}
+
 function toBigInt(value: string | null): bigint | null {
 	if (value === null) return null;
 	try {
@@ -303,7 +320,9 @@ export function bytesStatusText(
 export const COPY = {
 	chooseAsset: 'Choose an asset to send.',
 	invalidAmount: (decimals: number) =>
-		`Enter a valid amount (up to ${decimals} decimals).`,
+		decimals === 0
+			? 'Enter a whole number.'
+			: `Enter a valid amount (up to ${decimals} decimals).`,
 	zeroAmount: 'Enter an amount above 0.',
 	overBalance: (symbol: string, balance: string) =>
 		`More than the account holds. The ${symbol} balance is ${balance}.`,
@@ -328,8 +347,12 @@ export const COPY = {
 		'The transfer is simulated before anyone signs. You’ll see the result on the next step.',
 	bytesNote:
 		'The transaction is simulated before anyone signs. You’ll see the result on the next step.',
-	buildFailed:
-		'Couldn’t build the transfer. Check your connection and try again.',
+	buildFailed: (reason?: string) =>
+		reason
+			? `Couldn’t build the transfer: ${reason}`
+			: 'Couldn’t build the transfer. Check your connection and try again.',
+	noGas:
+		'This account has no SUI to pay gas. Send it some SUI before proposing a transfer.',
 	simulationFailed: (reason: string) =>
 		`Simulation failed: ${reason}. If executed, it would fail and the account would still pay gas.`,
 	createFailed:

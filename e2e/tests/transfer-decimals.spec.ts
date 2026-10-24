@@ -10,11 +10,13 @@ import { type Page } from '@playwright/test';
 import { type Actor } from '../support/actor';
 import {
 	randomAddress,
+	SUI_TYPE,
 	type Chain,
 } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import { type Identity } from '../support/identity';
 import {
+	chooseAsset,
 	expectSimulation,
 	fillTransfer,
 	openNewProposal,
@@ -170,7 +172,8 @@ async function proposeAndExecute(
 
 // For each coin: an amount with one decimal too many, then a fractional
 // amount with exactly its decimals (none for a 0-decimal coin) and a
-// whole one, both sent.
+// whole one, both sent. Zeros past the decimals change nothing, so the
+// 0-decimal coin's whole amount is typed with one.
 const COINS: {
 	decimals: number;
 	symbol: string;
@@ -185,7 +188,7 @@ const COINS: {
 		tooPrecise: '1.5',
 		sends: [
 			{ amount: '1,000', shown: '1,000', raw: 1_000n },
-			{ amount: '7', shown: '7', raw: 7n },
+			{ amount: '7.0', shown: '7', raw: 7n },
 		],
 	},
 	{
@@ -276,7 +279,9 @@ test.describe('transfer: coins with other decimals', () => {
 			});
 			await expectAmountRefused(
 				page,
-				`Enter a valid amount (up to ${coin.decimals} decimals).`,
+				coin.decimals === 0
+					? 'Enter a whole number.'
+					: `Enter a valid amount (up to ${coin.decimals} decimals).`,
 			);
 
 			for (const send of coin.sends) {
@@ -484,14 +489,8 @@ test.describe('transfer: coins with other decimals', () => {
 		).toBe(2_250_000_000n);
 	});
 
-	// BUG: a coin whose metadata has an empty symbol and name should be
-	// labelled like one without metadata, by its compact type. Actual: the
-	// empty strings are used as they are, because `coinLabels` falls back
-	// only on null (app/src/lib/coinDisplay.ts:110-111). The asset option
-	// and the select show only the balance ("5Balance", "Balance 5"), the
-	// over-balance error reads "The  balance is 5.", and no title is
-	// generated (transferTitle bails on the empty symbol,
-	// app/src/lib/new-proposal.ts:107), so the proposal goes out untitled.
+	// Blank metadata is read like none: the compact type stands in for the
+	// symbol, in the asset list, the errors and the generated title.
 	test('a coin without a symbol or name is labelled by its type', async ({
 		createActor,
 		createIdentity,
@@ -518,27 +517,96 @@ test.describe('transfer: coins with other decimals', () => {
 			`[data-testid="transfer-asset-option"][data-coin-type="${coinType}"]`,
 		);
 		await expect(option).toContainText('5');
-		await expect.soft(option).toContainText(label);
+		await expect(option).toContainText(label);
 		await option.click();
-		await expect
-			.soft(page.getByTestId('transfer-asset-select'))
-			.toContainText(label);
+		await expect(
+			page.getByTestId('transfer-asset-select'),
+		).toContainText(label);
 
 		await fillTransfer(page, {
 			amount: '6',
 			recipient,
 		});
-		await expect
-			.soft(amountError(page))
-			.toHaveText(
-				`More than the account holds. The ${label} balance is 5.`,
-			);
+		await expect(amountError(page)).toHaveText(
+			`More than the account holds. The ${label} balance is 5.`,
+		);
 
 		await fillTransfer(page, { amount: '1', recipient });
-		await expect
-			.soft(page.getByTestId('proposal-title-input'))
-			.toHaveValue(
-				`Send 1 ${label} to ${formatAddress(recipient)}`,
-			);
+		await expect(
+			page.getByTestId('proposal-title-input'),
+		).toHaveValue(
+			`Send 1 ${label} to ${formatAddress(recipient)}`,
+		);
+	});
+
+	// BUG: Max sends the gas coin, and the SDK pays gas with at most 256
+	// coins (MAX_GAS_PAYMENT_OBJECTS in @mysten/sui's core resolver), so
+	// only 256 of the 300 are merged into it: the recipient gets 128 SUI
+	// minus gas and the account keeps 22 SUI in 44 coins, while Max said
+	// 150. Expected the whole balance sent. Marked failing until the build
+	// handles more coins than gas can carry.
+	test('Max on SUI held in 300 coins sends all of it and leaves the account at 0', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		test.fail();
+		const alice = await createActor('alice');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 1,
+		});
+		// 150 SUI, as 300 coins of 0.5.
+		const count = 300;
+		const each = 500_000_000n;
+		await chain.fundWithCoins(multisig.address, {
+			count,
+			amount: each,
+		});
+		const total = BigInt(count) * each;
+		expect(await chain.balance(multisig.address)).toBe(
+			total,
+		);
+		await alice.signIn();
+		const { page } = alice;
+		const recipient = randomAddress();
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		await chooseAsset(page, SUI_TYPE);
+		await page.getByTestId('transfer-max-button').click();
+		await expect(
+			page.getByTestId('transfer-amount-input'),
+		).toHaveValue('150');
+		const recipientInput = page.getByTestId(
+			'transfer-recipient-input',
+		);
+		await recipientInput.fill(recipient);
+		await recipientInput.blur();
+		await reviewTransfer(page);
+		await expectSimulation(page, 'success');
+		await proposeAndSign(page);
+
+		const ready = page.locator(
+			'[data-testid="proposal-card"][data-status="ready"]',
+		);
+		await expect(ready).toHaveCount(1);
+		const digest =
+			(await ready.getAttribute('data-digest'))!;
+		await ready
+			.getByTestId('execute-proposal-button')
+			.click();
+		await expect(
+			page.locator(
+				`[data-testid="proposal-card"][data-digest="${digest}"]`,
+			),
+		).toHaveAttribute('data-status', 'executed');
+
+		expect(await chain.balance(multisig.address)).toBe(0n);
+		expect(await chain.balance(recipient)).toBe(
+			total - (await chain.gasCost(digest)),
+		);
 	});
 });

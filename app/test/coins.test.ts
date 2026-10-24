@@ -235,7 +235,7 @@ describe('parseAmount', () => {
 		expect(parseAmount('1,2,3', 0)).toBeNull();
 	});
 
-	test('rejects too many fractional digits', () => {
+	test('rejects a non-zero digit past the decimals', () => {
 		expect(parseAmount('1.234', 2)).toBeNull();
 	});
 
@@ -705,22 +705,31 @@ describe('parseAmount across coin decimals', () => {
 		},
 	);
 
-	test('a 0-decimal coin takes no fraction at all, not even zeros', () => {
+	test('a 0-decimal coin takes no fraction but zeros', () => {
 		for (const input of [
 			'0.5',
 			'.5',
 			'1.5',
 			'00.5',
-			'1.0',
-			'0.0',
+			'1.01',
 		])
 			expect(parseAmount(input, 0)).toBeNull();
+		expect(parseAmount('1.0', 0)).toBe(1n);
+		expect(parseAmount('1.000', 0)).toBe(1n);
+		expect(parseAmount('0.0', 0)).toBe(0n);
 	});
 
-	test('zeros past the coin’s decimals are refused like any other digit', () => {
-		expect(parseAmount('1.50', 1)).toBeNull();
-		expect(parseAmount('1.000', 2)).toBeNull();
-		expect(parseAmount('1.0000000', 6)).toBeNull();
+	test('zeros past the coin’s decimals are read as the same amount', () => {
+		expect(parseAmount('1.50', 1)).toBe(15n);
+		expect(parseAmount('1.000', 2)).toBe(100n);
+		expect(parseAmount('1.0000000', 6)).toBe(1_000_000n);
+		expect(parseAmount('0.1234560000', 6)).toBe(123_456n);
+	});
+
+	test('a non-zero digit past the coin’s decimals is refused, even after zeros', () => {
+		expect(parseAmount('1.501', 1)).toBeNull();
+		expect(parseAmount('1.0001', 2)).toBeNull();
+		expect(parseAmount('1.0000001', 6)).toBeNull();
 	});
 
 	test('a comma is always grouping: "1,500" is fifteen hundred and "0,5" is refused', () => {

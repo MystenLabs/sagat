@@ -305,7 +305,11 @@ function TitleCard({
 						{title.trim() || 'No title'}
 					</span>
 					<Tooltip>
+						{/* The trigger's `disabled` only mutes the tooltip. */}
 						<TooltipTrigger
+							render={
+								<button type="button" disabled={disabled} />
+							}
 							aria-label="Edit title"
 							onClick={() => {
 								cancelled.current = false;
