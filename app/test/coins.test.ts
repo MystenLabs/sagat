@@ -588,3 +588,245 @@ describe('accountAssetsState', () => {
 		).toEqual(settled);
 	});
 });
+
+// Coins seen on Sui: 0 (NFT-like counts), 6 (USDC), 8 (wrapped BTC),
+// 9 (SUI), 18 (bridged ETH-style tokens), and a couple in between.
+const COIN_DECIMALS = [0, 1, 2, 6, 8, 9, 18] as const;
+/** The largest balance a coin can hold on chain. */
+const U64_MAX = 2n ** 64n - 1n;
+/** u64 max in whole units, grouped, for each decimals value. */
+const U64_MAX_SHOWN: Record<
+	(typeof COIN_DECIMALS)[number],
+	string
+> = {
+	0: '18,446,744,073,709,551,615',
+	1: '1,844,674,407,370,955,161.5',
+	2: '184,467,440,737,095,516.15',
+	6: '18,446,744,073,709.551615',
+	8: '184,467,440,737.09551615',
+	9: '18,446,744,073.709551615',
+	18: '18.446744073709551615',
+};
+
+describe('parseAmount across coin decimals', () => {
+	describe.each(COIN_DECIMALS)(
+		'%i decimals',
+		(decimals) => {
+			const unit = 10n ** BigInt(decimals);
+
+			test('reads whole amounts, with a trailing point, grouping or spaces around', () => {
+				expect(parseAmount('1', decimals)).toBe(unit);
+				expect(parseAmount('1.', decimals)).toBe(unit);
+				expect(parseAmount(' 1 ', decimals)).toBe(unit);
+				expect(parseAmount('1,000', decimals)).toBe(
+					1000n * unit,
+				);
+				expect(parseAmount('01,000', decimals)).toBe(
+					1000n * unit,
+				);
+				expect(parseAmount('1,000.', decimals)).toBe(
+					1000n * unit,
+				);
+				expect(parseAmount('0', decimals)).toBe(0n);
+			});
+
+			test('reads a 25-digit whole part exactly, past u64 max', () => {
+				const whole = '1234567890123456789012345';
+				expect(parseAmount(whole, decimals)).toBe(
+					BigInt(whole) * unit,
+				);
+			});
+
+			test('rejects one fractional digit more than the coin has, never rounding', () => {
+				expect(
+					parseAmount(
+						`1.${'1'.repeat(decimals + 1)}`,
+						decimals,
+					),
+				).toBeNull();
+				expect(
+					parseAmount('1.0000000000000000001', decimals),
+				).toBeNull();
+			});
+
+			test('rejects signs, exponents, inner spaces and non-ASCII digits', () => {
+				for (const input of [
+					'+1',
+					'-1',
+					'1e3',
+					'1 000',
+					'1_000',
+					'0x10',
+					'Infinity',
+					'١٢',
+					'１２',
+					'1​',
+					'.',
+					'1..5',
+					'1,',
+					',100',
+					'1,000,',
+				])
+					expect(parseAmount(input, decimals)).toBeNull();
+			});
+		},
+	);
+
+	describe.each(COIN_DECIMALS.filter((d) => d > 0))(
+		'%i decimals, fractions',
+		(decimals) => {
+			const unit = 10n ** BigInt(decimals);
+
+			test('reads a half however it is written', () => {
+				for (const input of ['.5', '0.5', '00.5'])
+					expect(parseAmount(input, decimals)).toBe(
+						unit / 2n,
+					);
+				expect(parseAmount('1,000.5', decimals)).toBe(
+					1000n * unit + unit / 2n,
+				);
+				expect(parseAmount('0.0', decimals)).toBe(0n);
+			});
+
+			test('reads exactly as many fractional digits as the coin has', () => {
+				expect(
+					parseAmount(
+						`1.${'1'.repeat(decimals)}`,
+						decimals,
+					),
+				).toBe(BigInt(`1${'1'.repeat(decimals)}`));
+				expect(
+					parseAmount(
+						`0.${'0'.repeat(decimals - 1)}1`,
+						decimals,
+					),
+				).toBe(1n);
+			});
+		},
+	);
+
+	test('a 0-decimal coin takes no fraction at all, not even zeros', () => {
+		for (const input of [
+			'0.5',
+			'.5',
+			'1.5',
+			'00.5',
+			'1.0',
+			'0.0',
+		])
+			expect(parseAmount(input, 0)).toBeNull();
+	});
+
+	test('zeros past the coin’s decimals are refused like any other digit', () => {
+		expect(parseAmount('1.50', 1)).toBeNull();
+		expect(parseAmount('1.000', 2)).toBeNull();
+		expect(parseAmount('1.0000000', 6)).toBeNull();
+	});
+
+	test('a comma is always grouping: "1,500" is fifteen hundred and "0,5" is refused', () => {
+		expect(parseAmount('1,500', 6)).toBe(1_500_000_000n);
+		expect(parseAmount('0,5', 6)).toBeNull();
+		expect(parseAmount('1,5', 6)).toBeNull();
+	});
+});
+
+describe('formatting round trips across coin decimals', () => {
+	describe.each(COIN_DECIMALS)(
+		'%i decimals',
+		(decimals) => {
+			const unit = 10n ** BigInt(decimals);
+			const balances = [
+				1n,
+				unit,
+				unit - 1n,
+				U64_MAX,
+				U64_MAX + 1n,
+			];
+
+			test('the input form parses back to the same raw amount', () => {
+				for (const raw of balances)
+					expect(
+						parseAmount(
+							formatInputAmount(raw.toString(), decimals),
+							decimals,
+						),
+					).toBe(raw);
+			});
+
+			test('the grouped display form parses back to the same raw amount', () => {
+				for (const raw of balances)
+					expect(
+						parseAmount(
+							formatCoinAmount(raw.toString(), decimals),
+							decimals,
+						),
+					).toBe(raw);
+			});
+
+			test('shows u64 max to the last raw unit, grouped', () => {
+				expect(
+					formatCoinAmount(U64_MAX.toString(), decimals),
+				).toBe(U64_MAX_SHOWN[decimals]);
+				expect(
+					formatInputAmount(U64_MAX.toString(), decimals),
+				).toBe(U64_MAX_SHOWN[decimals].replace(/,/g, ''));
+			});
+		},
+	);
+
+	test('shows one raw unit with every leading zero', () => {
+		expect(formatCoinAmount('1', 0)).toBe('1');
+		expect(formatCoinAmount('1', 1)).toBe('0.1');
+		expect(formatCoinAmount('1', 8)).toBe('0.00000001');
+		expect(formatCoinAmount('999999999999999999', 18)).toBe(
+			'0.999999999999999999',
+		);
+	});
+});
+
+describe('USD value of 18-decimal and 0-decimal coins', () => {
+	test('u64 max of an 18-decimal coin is within float precision', () => {
+		expect(
+			rawAmountToFloat(U64_MAX.toString(), 18),
+		).toBeCloseTo(18.446744073709551615, 14);
+		expect(
+			coinUsdValue(U64_MAX.toString(), {
+				decimals: 18,
+				priceUsd: 3000,
+			}),
+		).toBeCloseTo(55_340.232221, 5);
+	});
+
+	test('a large 18-decimal balance keeps its whole part exact', () => {
+		// 1,000,000,000.5 tokens.
+		expect(
+			rawAmountToFloat('1000000000500000000000000000', 18),
+		).toBe(1_000_000_000.5);
+	});
+
+	test('just under one token reads as one in floating point', () => {
+		expect(rawAmountToFloat('999999999999999999', 18)).toBe(
+			1,
+		);
+	});
+
+	test('one raw unit of an 18-decimal coin shows as $0.0000', () => {
+		const usd = coinUsdValue('1', {
+			decimals: 18,
+			priceUsd: 3000,
+		});
+		expect(usd).toBeGreaterThan(0);
+		expect(formatUsdValue(usd!)).toBe('$0.0000');
+	});
+
+	test('a 0-decimal balance past 2^53 loses its last digits', () => {
+		expect(
+			formatUsdValue(
+				coinUsdValue(U64_MAX.toString(), {
+					decimals: 0,
+					priceUsd: 1,
+				})!,
+			),
+		).toBe('$18,446,744,073,709,552,000.00');
+	});
+});
