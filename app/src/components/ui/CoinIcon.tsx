@@ -14,7 +14,7 @@ interface CoinIconProps {
 	symbol?: string | null;
 	coinType?: string | null;
 	recognized?: boolean;
-	size?: 'sm' | 'md' | 'lg' | 'xl';
+	size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 	className?: string;
 }
 
@@ -28,6 +28,13 @@ const sizeClasses: Record<
 		badgeIcon: string;
 	}
 > = {
+	xs: {
+		wrapper: 'w-5 h-5',
+		icon: 'w-2.5 h-2.5',
+		sui: 'h-3',
+		badge: 'w-2.5 h-2.5 -right-0.5 -top-0.5',
+		badgeIcon: 'w-1.5 h-1.5',
+	},
 	sm: {
 		wrapper: 'w-6 h-6',
 		icon: 'w-3 h-3',

@@ -11,12 +11,16 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { type CoinDisplayData } from '@/hooks/useCoinDisplayData';
 import { type Balance } from '@/hooks/useMultisigBalances';
-import { coinLabels } from '@/lib/coinDisplay';
+import {
+	coinLabels,
+	sameCoinLabel,
+} from '@/lib/coinDisplay';
 import { formatCoinAmount } from '@/lib/coins';
 
 /**
  * The asset to send: each balance the account holds, with its icon,
- * symbol, name and balance. A skeleton while the balances load.
+ * symbol, name (when it differs from the symbol) and balance. A
+ * skeleton while the balances load.
  */
 export function AssetSelect({
 	id,
@@ -123,14 +127,16 @@ function TriggerValue({
 				iconUrl={coinData?.iconUrl}
 				symbol={coinData?.symbol}
 				coinType={balance.coinType}
-				size="sm"
+				size="xs"
 			/>
 			<span className="shrink-0 text-14 font-medium">
 				{symbol}
 			</span>
-			<span className="min-w-0 truncate text-13 text-muted-foreground">
-				{name}
-			</span>
+			{!sameCoinLabel(symbol, name) && (
+				<span className="min-w-0 truncate text-13 text-muted-foreground">
+					{name}
+				</span>
+			)}
 			<span className="ml-auto shrink-0 pl-3 text-13 text-muted-foreground tabular-nums">
 				{decimals != null ? (
 					`Balance ${formatCoinAmount(balance.balance, decimals)}`
@@ -158,7 +164,7 @@ function AssetOption({
 		<SelectItem
 			value={balance.coinType}
 			label={symbol}
-			className="gap-3 py-2 pr-9 pl-2 text-13"
+			className="gap-3 py-1.5 pl-2 text-13 leading-tight"
 			data-testid="transfer-asset-option"
 			data-coin-type={balance.coinType}
 		>
@@ -167,25 +173,27 @@ function AssetOption({
 					iconUrl={coinData?.iconUrl}
 					symbol={coinData?.symbol}
 					coinType={balance.coinType}
-					size="sm"
+					size="xs"
 				/>
 				<span className="flex min-w-0 flex-col">
 					<span className="truncate font-medium">
 						{symbol}
 					</span>
-					<span className="truncate text-12 text-muted-foreground">
-						{name}
-					</span>
+					{!sameCoinLabel(symbol, name) && (
+						<span className="truncate text-12 leading-tight text-muted-foreground">
+							{name}
+						</span>
+					)}
 				</span>
 				<span className="ml-auto flex shrink-0 flex-col items-end pl-3">
 					<span className="font-medium tabular-nums">
 						{decimals != null ? (
 							formatCoinAmount(balance.balance, decimals)
 						) : (
-							<Skeleton className="my-1 h-2.5 w-20" />
+							<Skeleton className="my-0.5 h-2.5 w-20" />
 						)}
 					</span>
-					<span className="text-12 text-muted-foreground">
+					<span className="text-12 leading-tight text-muted-foreground">
 						Balance
 					</span>
 				</span>

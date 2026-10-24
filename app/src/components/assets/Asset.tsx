@@ -6,7 +6,10 @@ import { type ReactNode } from 'react';
 import { type CoinDisplayData } from '../../hooks/useCoinDisplayData';
 import { type Balance } from '../../hooks/useMultisigBalances';
 import { formatCoinType } from '../../lib/coin-type';
-import { coinLabels } from '../../lib/coinDisplay';
+import {
+	coinLabels,
+	sameCoinLabel,
+} from '../../lib/coinDisplay';
 import {
 	coinUsdValue,
 	formatCoinAmount,
@@ -62,8 +65,7 @@ function AssetBody({
 	const compactType = formatCoinType(balance.coinType);
 	const showTypeLine = displayName !== compactType;
 	const showSymbolBadge =
-		!!symbol &&
-		symbol.toLowerCase() !== displayName.toLowerCase();
+		!!symbol && !sameCoinLabel(symbol, displayName);
 
 	return (
 		<div className="flex items-center gap-3">

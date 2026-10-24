@@ -111,3 +111,11 @@ export function coinLabels(
 		name: coinData?.name ?? prettifyType(coinType),
 	};
 }
+
+/** Whether two coin labels, such as a symbol and a name, read the same. */
+export function sameCoinLabel(
+	a: string,
+	b: string,
+): boolean {
+	return a.toLowerCase() === b.toLowerCase();
+}
