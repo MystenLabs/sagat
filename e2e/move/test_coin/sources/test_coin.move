@@ -6,6 +6,12 @@ module test_coin::test_coin;
 
 use sui::coin::{Self, Coin, TreasuryCap};
 
+// `publishTestCoin` in `support/test-coin.ts` rewrites these three lines to
+// publish coins with other decimals, symbols and names.
+const DECIMALS: u8 = 6;
+const SYMBOL: vector<u8> = b"TEST";
+const NAME: vector<u8> = b"Test Coin";
+
 public struct TEST_COIN has drop {}
 
 public struct Faucet has key {
@@ -17,9 +23,9 @@ public struct Faucet has key {
 fun init(otw: TEST_COIN, ctx: &mut TxContext) {
     let (cap, metadata) = coin::create_currency(
         otw,
-        6,
-        b"TEST",
-        b"Test Coin",
+        DECIMALS,
+        SYMBOL,
+        NAME,
         b"",
         option::none(),
         ctx,
