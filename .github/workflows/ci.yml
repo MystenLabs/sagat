@@ -218,6 +218,11 @@ jobs:
     name: UI E2E Tests
     # Larger runner: Playwright runs 6 workers alongside the local network, API and app.
     runs-on: ubuntu-ghcloud
+    # The Playwright image ships Chromium, its system libraries and Node. Bump
+    # the tag together with the @playwright/test pin in e2e/package.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+    # Inside a container job, services are reached by name, not on localhost.
     services:
       postgres:
         image: postgres:16
@@ -230,22 +235,26 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
+      # setup-bun extracts a zip, and the image has no unzip.
+      - name: Install unzip
+        timeout-minutes: 2
+        run: apt-get update && apt-get install -y --no-install-recommends unzip
+
       - uses: actions/checkout@v4
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      # suiup installs itself and sui into ~/.local/bin, which is on the hosted
+      # runner's PATH but not the image's.
+      - name: Add ~/.local/bin to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Set up Sui
         uses: ./.github/actions/setup-sui
@@ -254,37 +263,13 @@ jobs:
       - name: Create Sui client config
         run: sui client -y envs
 
-      - name: Read Playwright version
-        id: playwright-version
-        run: echo "version=$(jq -r '.devDependencies["@playwright/test"]' e2e/package.json)" >> "$GITHUB_OUTPUT"
-
-      # The browser download is keyed on the pinned Playwright version.
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-
-      - name: Install Playwright Chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: bunx playwright install chromium
-        working-directory: e2e
-
-      # System libraries come from the runner's apt mirror, which is sometimes
-      # slow or stuck. Fail fast instead of hanging.
-      - name: Install Playwright system dependencies
-        timeout-minutes: 5
-        run: bunx playwright install-deps chromium
-        working-directory: e2e
-
       # Playwright starts the local Sui network, the API and a production
       # build of the app itself (see e2e/playwright.config.ts).
       - name: Run UI E2E tests
         run: bun run test
         working-directory: e2e
         env:
-          E2E_DATABASE_URL: postgresql://sagat:sagat@localhost:5432/sagat_e2e
+          E2E_DATABASE_URL: postgresql://sagat:sagat@postgres:5432/sagat_e2e
 
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
