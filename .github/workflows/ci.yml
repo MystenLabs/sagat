@@ -198,7 +198,6 @@ jobs:
         env:
           RUST_LOG: off
         run: |
-          export PATH="$HOME/.sui/bin:$PATH"
           sh e2e/start-localnet.sh 9000 9123 &
           # Wait for network to be ready
           echo "Waiting for Sui network to start..."
@@ -216,7 +215,7 @@ jobs:
 
   ui-e2e:
     name: UI E2E Tests
-    # Larger runner: Playwright runs 6 workers alongside the local network, API and app.
+    # Larger runner: Playwright runs its CI workers alongside the local network, API and app.
     runs-on: ubuntu-ghcloud
     # The Playwright image ships Chromium, its system libraries and Node. Bump
     # the tag together with the @playwright/test pin in e2e/package.json.
@@ -250,11 +249,6 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
-
-      # suiup installs itself and sui into ~/.local/bin, which is on the hosted
-      # runner's PATH but not the image's.
-      - name: Add ~/.local/bin to PATH
-        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Set up Sui
         uses: ./.github/actions/setup-sui
