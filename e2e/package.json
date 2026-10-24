@@ -12,11 +12,11 @@
 	"devDependencies": {
 		"@mysten-incubation/dev-wallet": "0.6.0",
 		"@mysten/sagat": "workspace:*",
-		"@mysten/signers": "^1.1.30",
-		"@mysten/sui": "^2.33.1",
+		"@mysten/signers": "^1.1.35",
+		"@mysten/sui": "^2.37.0",
 		"@playwright/test": "1.63.0",
 		"@types/node": "^24.5.2",
-		"esbuild": "^0.27.3",
+		"esbuild": "^0.28.2",
 		"typescript": "^5.8.3"
 	}
 }

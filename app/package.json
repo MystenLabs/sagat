@@ -22,9 +22,9 @@
 		"@mysten/dapp-kit-core": "^1.6.34",
 		"@mysten/dapp-kit-react": "^2.1.36",
 		"@mysten/sagat": "workspace:*",
-		"@mysten/sui": "^2.33.1",
+		"@mysten/sui": "^2.37.0",
 		"@mysten/wallet-sdk": "^0.9.6",
-		"@mysten/walletconnect-wallet": "^1.1.30",
+		"@mysten/walletconnect-wallet": "^1.1.35",
 		"@noble/hashes": "^2.4.0",
 		"@tailwindcss/vite": "^4.3.3",
 		"@tanstack/react-query": "^5.104.0",
@@ -42,6 +42,8 @@
 		"tailwindcss": "^4.3.3"
 	},
 	"devDependencies": {
+		"@mysten-incubation/dev-wallet": "0.6.0",
+		"@mysten/signers": "^1.1.35",
 		"@tony.ganchev/eslint-plugin-header": "^3.4.4",
 		"@types/node": "^24.19.0",
 		"@types/react": "^18.3.31",
@@ -57,6 +59,6 @@
 		"shadcn": "^4.21.5",
 		"tw-animate-css": "^1.4.0",
 		"typescript": "^5.9.3",
-		"vite": "^6.4.3"
+		"vite": "^6.4.5"
 	}
 }

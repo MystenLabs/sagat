@@ -1,0 +1,33 @@
+name: Set up Sui
+description: Install suiup and the mainnet Sui binaries, and put them on PATH.
+
+inputs:
+  github-token:
+    description: Token the suiup installer and suiup use for GitHub API calls.
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    # The token avoids the unauthenticated GitHub API rate limit, which runners
+    # share by IP and which fails the install with a 403.
+    - name: Install suiup
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh
+
+    - name: Add Sui to PATH
+      shell: bash
+      run: |
+        echo "$HOME/.sui/bin" >> $GITHUB_PATH
+
+    - name: Install Sui binaries
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        export PATH="$HOME/.sui/bin:$PATH"
+        suiup install sui@mainnet -y
+        sui --version

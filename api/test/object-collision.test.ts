@@ -13,6 +13,8 @@ import {
 	ApiTestFramework,
 	buildTransfer,
 	sendCoins,
+	type TestSession,
+	type TestUser,
 } from './framework/api-test-framework';
 import {
 	createTestApp,
@@ -21,6 +23,32 @@ import {
 import { getLocalClient } from './setup/sui-network';
 
 setupSharedTestEnvironment();
+
+// Sends all proposals at once and waits for every request to settle.
+const proposeAll = (
+	session: TestSession,
+	proposer: TestUser,
+	multisigAddress: string,
+	txs: string[],
+) =>
+	Promise.allSettled(
+		txs.map((tx) =>
+			session.createProposal(
+				proposer,
+				multisigAddress,
+				'localnet',
+				tx,
+			),
+		),
+	);
+
+// The errors of the rejected requests.
+const rejections = (
+	results: PromiseSettledResult<unknown>[],
+) =>
+	results.flatMap((r) =>
+		r.status === 'rejected' ? [r.reason as Error] : [],
+	);
 
 describe('Object Collision Detection', () => {
 	let framework: ApiTestFramework;
@@ -57,6 +85,37 @@ describe('Object Collision Detection', () => {
 		).rejects.toThrow(
 			`re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${gasCoin.objectId}`,
 		);
+	});
+
+	test('accepts one of several simultaneous proposals using the same gas coin', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const {
+			objects: [gasCoin],
+		} = await client.listCoins({ owner: multisig.address });
+		const txs = await Promise.all(
+			[1, 2, 3].map((i) =>
+				buildTransfer(multisig.address, {
+					gasCoin,
+					amount: 1_000_000 * i,
+				}),
+			),
+		);
+
+		const results = await proposeAll(
+			session,
+			users[0],
+			multisig.address,
+			txs,
+		);
+
+		expect(
+			results.filter((r) => r.status === 'fulfilled'),
+		).toHaveLength(1);
+		for (const error of rejections(results))
+			expect(error.message).toContain(
+				`re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${gasCoin.objectId}`,
+			);
 	});
 
 	test('prevents concurrent proposals receiving the same object', async () => {
@@ -139,6 +198,45 @@ describe('Object Collision Detection', () => {
 		);
 	});
 
+	test('rejects a proposal whose gas coin no longer exists', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const {
+			objects: [coinA, coinB],
+		} = await client.listCoins({ owner: multisig.address });
+		const transfer = await buildTransfer(multisig.address, {
+			gasCoin: coinA,
+		});
+
+		// Merge coin A into coin B, which deletes A.
+		const merge = new Transaction();
+		merge.setSender(multisig.address);
+		merge.setGasPayment([coinB]);
+		merge.mergeCoins(merge.gas, [merge.objectRef(coinA)]);
+		const mergeProposal = await session.createProposal(
+			users[0],
+			multisig.address,
+			'localnet',
+			(await merge.build({ client })).toBase64(),
+		);
+		const tx = await session.voteAndExecute(
+			users,
+			mergeProposal.digest,
+		);
+		expect(tx.effects!.status.success).toBe(true);
+
+		await expect(
+			session.createProposal(
+				users[0],
+				multisig.address,
+				'localnet',
+				transfer,
+			),
+		).rejects.toThrow(
+			`Object ${coinA.objectId} does not exist or has been deleted.`,
+		);
+	});
+
 	test('allows concurrent proposals using different gas coins', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
@@ -191,6 +289,38 @@ describe('Object Collision Detection', () => {
 		await expect(propose(coins[10])).rejects.toThrow(
 			/more than 10 pending proposals/,
 		);
+	});
+
+	test('keeps the pending limit for simultaneous proposals', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		await sendCoins(multisig.address, 12);
+		const { objects: coins } = await client.listCoins({
+			owner: multisig.address,
+			limit: 20,
+		});
+		const txs = await Promise.all(
+			coins
+				.slice(0, 12)
+				.map((gasCoin) =>
+					buildTransfer(multisig.address, { gasCoin }),
+				),
+		);
+
+		const results = await proposeAll(
+			session,
+			users[0],
+			multisig.address,
+			txs,
+		);
+
+		expect(
+			results.filter((r) => r.status === 'fulfilled'),
+		).toHaveLength(10);
+		for (const error of rejections(results))
+			expect(error.message).toMatch(
+				/more than 10 pending proposals/,
+			);
 	});
 
 	test('rejects unresolved transactions', async () => {
