@@ -21,13 +21,13 @@ runs:
     - name: Add Sui to PATH
       shell: bash
       run: |
-        echo "$HOME/.sui/bin" >> $GITHUB_PATH
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Install Sui binaries
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
-        export PATH="$HOME/.sui/bin:$PATH"
+        export PATH="$HOME/.local/bin:$PATH"
         suiup install sui@mainnet -y
         sui --version
