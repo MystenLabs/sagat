@@ -489,7 +489,7 @@ test.describe('new proposal: review', () => {
 					: route.fallback(),
 			);
 		const reused =
-			'You cannot have re-use any owned or receiving objects that are already in pending proposals. The used objects are: 0xabc';
+			'These owned/receiving objects are already used by pending proposals: 0xabc';
 		await refuseCreate(400, reused);
 
 		await openNewProposal(page, multisig.address, {
