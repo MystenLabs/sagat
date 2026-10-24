@@ -42,8 +42,11 @@ with the Ed25519 secret key `sha256("sagat-demo:<name>")`, so their addresses
 are stable for a local seed to fund. When `VITE_DEV_WALLET_SECRET_KEY` is set
 to an Ed25519 `suiprivkey…` string, it also holds that key as "You (demo)".
 `VITE_LOCALNET_RPC_URL` points the wallet's localnet at your local node, as it
-already does for the app. The wallet is loaded through a dynamic import, so
-builds without the flag contain none of it.
+already does for the app. The API must serve localnet too: run it with
+`SUPPORTED_NETWORKS` including `localnet` and `SUI_RPC_URL_localnet` pointing at
+the same node, since `api/.env.example` only enables mainnet and testnet. The
+wallet is loaded through a dynamic import, so builds without the flag contain
+none of it.
 
 Vite inlines `VITE_*` variables into the client JavaScript, so the key is
 readable by anyone who can load the app, and it ends up in `dist` if you build

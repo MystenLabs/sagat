@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // A local-only wallet for trying the app on localnet. Loaded from
-// main.tsx only when VITE_DEV_WALLET=1, so production bundles never
-// include it. It holds fixed demo identities and asks for approval like a
-// real wallet.
+// main.tsx only when VITE_DEV_WALLET=1, so builds without the flag
+// contain none of it (a build with it does, along with any inlined key).
+// It holds fixed demo identities and asks for approval like a real wallet.
 import {
 	DEFAULT_NETWORK_URLS,
 	mountAndRegisterDevWallet,
