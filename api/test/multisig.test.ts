@@ -799,6 +799,43 @@ describe('Multisig API', () => {
 				limitReached,
 			);
 		});
+
+		test('a key can create multisigs up to the limit, and no more', async () => {
+			const key = newUser();
+			const session = await joinMultisigs(
+				key,
+				LIMITS.maxMultisigsPerPublicKey - 1,
+			);
+
+			await session.createMultisig([key, newUser()], 1);
+			await expect(
+				session.createMultisig([key, newUser()], 1),
+			).rejects.toThrow(limitReached);
+		});
+
+		test('keeps the limit for simultaneous creations', async () => {
+			const key = newUser();
+			const session = await joinMultisigs(
+				key,
+				LIMITS.maxMultisigsPerPublicKey - 1,
+			);
+
+			const results = await Promise.allSettled(
+				[newUser(), newUser()].map((other) =>
+					session.createMultisig([key, other], 1),
+				),
+			);
+
+			expect(
+				results.filter((r) => r.status === 'fulfilled'),
+			).toHaveLength(1);
+			const [rejected] = results.filter(
+				(r) => r.status === 'rejected',
+			);
+			expect((rejected.reason as Error).message).toContain(
+				limitReached,
+			);
+		});
 	});
 
 	test('lists the multisigs of the connected members', async () => {

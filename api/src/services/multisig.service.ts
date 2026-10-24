@@ -365,6 +365,42 @@ type DatabaseTransaction = Parameters<
 	Parameters<(typeof db)['transaction']>[0]
 >[0];
 
+// Throws if `publicKey` has already accepted the maximum number of
+// multisigs, not counting `signerSetAddress`, the one it is joining. It
+// locks the key's address row until `tx` ends, so the caller must accept in
+// the same transaction: a concurrent accept by the key then waits, and
+// counts this one. The row must exist, which holds once the key is
+// registered. This relies on READ COMMITTED (the default): REPEATABLE READ
+// would count from a snapshot taken before the other accept committed.
+const assertKeyBelowMultisigLimit = async (
+	tx: DatabaseTransaction,
+	publicKey: string,
+	signerSetAddress: string,
+) => {
+	await tx
+		.select({ publicKey: SchemaAddresses.publicKey })
+		.from(SchemaAddresses)
+		.where(eq(SchemaAddresses.publicKey, publicKey))
+		.for('no key update');
+
+	const accepted =
+		await tx.query.SchemaSignerSetMembers.findMany({
+			columns: { signerSetAddress: true },
+			where: and(
+				eq(SchemaSignerSetMembers.publicKey, publicKey),
+				eq(SchemaSignerSetMembers.isAccepted, true),
+				ne(
+					SchemaSignerSetMembers.signerSetAddress,
+					signerSetAddress,
+				),
+			),
+		});
+	if (accepted.length >= LIMITS.maxMultisigsPerPublicKey)
+		throw new ValidationError(
+			'You have reached the maximum number of multisigs for this public key',
+		);
+};
+
 // Returns true if the signer set is finalized (all members have accepted the invitation).
 export const isSignerSetFinalized = async (
 	address: string,
@@ -562,6 +598,15 @@ export const createSignerSet = async ({
 			'Only a member of the multisig can label its keys.',
 		);
 
+	// The caller's keys in the composition, which accept on creation.
+	const acceptingKeys = parsedPubKeys
+		.filter((key) =>
+			callerKeys.some(
+				(k) => k.toSuiAddress() === key.toSuiAddress(),
+			),
+		)
+		.map((key) => key.toSuiPublicKey());
+
 	const multisig = MultiSigPublicKey.fromPublicKeys({
 		threshold,
 		publicKeys: parsedPubKeys.map((key, index) => ({
@@ -583,6 +628,17 @@ export const createSignerSet = async ({
 				})
 				.returning()
 		)[0];
+
+		// The accepting keys count against their multisig limit, checked
+		// after the insert so that a duplicate still fails as one. Their
+		// address rows were registered above, and are locked in a fixed
+		// order so that two creations sharing keys cannot deadlock.
+		for (const key of acceptingKeys.toSorted())
+			await assertKeyBelowMultisigLimit(
+				tx,
+				key,
+				msig.address,
+			);
 
 		// A legacy multisig is also an account with the same address, so the
 		// `/v1` API sees what the legacy routes created.
@@ -626,8 +682,8 @@ export const createSignerSet = async ({
 							)
 						],
 					// If authorization includes the user, we can accept immediately.
-					isAccepted: callerKeys.some(
-						(k) => k.toSuiAddress() === key.toSuiAddress(),
+					isAccepted: acceptingKeys.includes(
+						key.toSuiPublicKey(),
 					),
 					order: index,
 				})),
@@ -692,46 +748,11 @@ export const acceptInvitation = async ({
 	const origin = await getAccountOrigin(address);
 
 	return await db.transaction(async (tx) => {
-		// Lock the key's address row until the accept commits, so a
-		// concurrent accept by the same key waits and then counts this one.
-		// The member row references it, so it exists. This relies on READ
-		// COMMITTED (the default): REPEATABLE READ would count from a
-		// snapshot taken before the other accept committed.
-		await tx
-			.select({ publicKey: SchemaAddresses.publicKey })
-			.from(SchemaAddresses)
-			.where(
-				eq(
-					SchemaAddresses.publicKey,
-					pubKey.toSuiPublicKey(),
-				),
-			)
-			.for('no key update');
-
-		// Maximum connections per public key. Accepting a multisig the key
-		// already accepted adds none.
-		const existingConnections =
-			await tx.query.SchemaSignerSetMembers.findMany({
-				columns: { signerSetAddress: true },
-				where: and(
-					eq(
-						SchemaSignerSetMembers.publicKey,
-						pubKey.toSuiPublicKey(),
-					),
-					eq(SchemaSignerSetMembers.isAccepted, true),
-					ne(
-						SchemaSignerSetMembers.signerSetAddress,
-						address,
-					),
-				),
-			});
-		if (
-			existingConnections.length >=
-			LIMITS.maxMultisigsPerPublicKey
-		)
-			throw new ValidationError(
-				'You have reached the maximum number of multisigs for this public key',
-			);
+		await assertKeyBelowMultisigLimit(
+			tx,
+			pubKey.toSuiPublicKey(),
+			address,
+		);
 
 		const msig = await tx.query.SchemaSignerSets.findFirst({
 			where: eq(SchemaSignerSets.address, address),
