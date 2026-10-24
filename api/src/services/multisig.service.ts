@@ -354,11 +354,14 @@ export const validateQuorum = async (
 	}
 };
 
+type DatabaseTransaction = Parameters<
+	Parameters<(typeof db)['transaction']>[0]
+>[0];
+
 // Returns true if the signer set is finalized (all members have accepted the invitation).
 export const isSignerSetFinalized = async (
 	address: string,
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	tx?: any,
+	tx?: DatabaseTransaction,
 ) => {
 	const query = tx ? tx.query : db.query;
 	const isFinalized =
@@ -375,25 +378,21 @@ export const isSignerSetFinalized = async (
 	return isFinalized.length === 0;
 };
 
-type Database = typeof db;
-type DatabaseTransaction = Parameters<
-	Parameters<Database['transaction']>[0]
->[0];
-
 // Get a list of pending proposals for a given multisig address.
 const getPendingProposals = async (
 	multisigAddress: string,
 	network: string,
-	database: Database | DatabaseTransaction = db,
+	tx: DatabaseTransaction,
 ) => {
-	const proposals =
-		await database.query.SchemaProposals.findMany({
+	const proposals = await tx.query.SchemaProposals.findMany(
+		{
 			where: and(
 				eq(SchemaProposals.accountAddress, multisigAddress),
 				eq(SchemaProposals.status, ProposalStatus.PENDING),
 				eq(SchemaProposals.network, network),
 			),
-		});
+		},
+	);
 	return proposals;
 };
 
@@ -431,7 +430,9 @@ export const getExclusiveObjects = async (
 // Validates a proposed transaction against the pending proposals of its
 // account. It locks the account until `tx` ends, so the caller must insert
 // the proposal in the same transaction: a concurrent proposal for the
-// account then waits, and sees this one when it checks.
+// account then waits, and sees this one when it checks. This relies on READ
+// COMMITTED (the default): the read after the lock sees proposals committed
+// meanwhile, which REPEATABLE READ would hide.
 export const validateProposedTransaction = async (
 	tx: DatabaseTransaction,
 	proposedTransaction: Transaction,
@@ -443,7 +444,7 @@ export const validateProposedTransaction = async (
 		.select({ address: SchemaAccounts.address })
 		.from(SchemaAccounts)
 		.where(eq(SchemaAccounts.address, multisigAddress))
-		.for('update');
+		.for('no key update');
 
 	const pendingProposals = await getPendingProposals(
 		multisigAddress,
