@@ -12,6 +12,7 @@ import {
 import {
 	ApiTestFramework,
 	buildTransfer,
+	expectSettled,
 	sendCoins,
 	type TestSession,
 	type TestUser,
@@ -40,14 +41,6 @@ const proposeAll = (
 				tx,
 			),
 		),
-	);
-
-// The errors of the rejected requests.
-const rejections = (
-	results: PromiseSettledResult<unknown>[],
-) =>
-	results.flatMap((r) =>
-		r.status === 'rejected' ? [r.reason as Error] : [],
 	);
 
 describe('Object Collision Detection', () => {
@@ -109,13 +102,10 @@ describe('Object Collision Detection', () => {
 			txs,
 		);
 
-		expect(
-			results.filter((r) => r.status === 'fulfilled'),
-		).toHaveLength(1);
-		for (const error of rejections(results))
-			expect(error.message).toContain(
-				`re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${gasCoin.objectId}`,
-			);
+		expectSettled(results, {
+			fulfilled: 1,
+			rejectedWith: `re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${gasCoin.objectId}`,
+		});
 	});
 
 	test('prevents concurrent proposals receiving the same object', async () => {
@@ -314,13 +304,10 @@ describe('Object Collision Detection', () => {
 			txs,
 		);
 
-		expect(
-			results.filter((r) => r.status === 'fulfilled'),
-		).toHaveLength(10);
-		for (const error of rejections(results))
-			expect(error.message).toMatch(
-				/more than 10 pending proposals/,
-			);
+		expectSettled(results, {
+			fulfilled: 10,
+			rejectedWith: 'more than 10 pending proposals',
+		});
 	});
 
 	test('rejects unresolved transactions', async () => {
