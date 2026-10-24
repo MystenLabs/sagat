@@ -9,6 +9,7 @@ import {
 	test,
 } from 'bun:test';
 
+import { LIMITS } from '../src/constants/limits';
 import {
 	ApiTestFramework,
 	errorOf,
@@ -718,6 +719,85 @@ describe('Multisig API', () => {
 					labels: [1, null],
 				}),
 			).rejects.toThrow('string or null');
+		});
+	});
+
+	describe('multisigs per key', () => {
+		const limitReached =
+			'You have reached the maximum number of multisigs for this public key';
+
+		// Makes `key` an accepted member of `count` new multisigs: creating a
+		// multisig accepts it for the members connected to the session.
+		const joinMultisigs = async (
+			key: TestUser,
+			count: number,
+		) => {
+			const session = framework.createSession();
+			await session.connectUser(key);
+			await Promise.all(
+				Array.from({ length: count }, () =>
+					session.createMultisig([key, newUser()], 1),
+				),
+			);
+			return session;
+		};
+
+		// A multisig that `key` is invited to and has not accepted.
+		const inviteTo = async (key: TestUser) => {
+			const {
+				session,
+				users: [creator],
+			} = await framework.createAuthenticatedSession(1);
+			return (
+				await session.createMultisig([creator, key], 1)
+			).address;
+		};
+
+		test('a key can accept up to the limit, and no more', async () => {
+			const key = newUser();
+			const session = await joinMultisigs(
+				key,
+				LIMITS.maxMultisigsPerPublicKey - 1,
+			);
+			const [last, oneTooMany] = await Promise.all([
+				inviteTo(key),
+				inviteTo(key),
+			]);
+
+			await session.acceptMultisig(key, last);
+			await expect(
+				session.acceptMultisig(key, oneTooMany),
+			).rejects.toThrow(limitReached);
+			// At the limit, accepting a multisig again is still allowed.
+			await session.acceptMultisig(key, last);
+		});
+
+		test('keeps the limit for simultaneous accepts', async () => {
+			const key = newUser();
+			const session = await joinMultisigs(
+				key,
+				LIMITS.maxMultisigsPerPublicKey - 1,
+			);
+			const invitations = await Promise.all([
+				inviteTo(key),
+				inviteTo(key),
+			]);
+
+			const results = await Promise.allSettled(
+				invitations.map((address) =>
+					session.acceptMultisig(key, address),
+				),
+			);
+
+			expect(
+				results.filter((r) => r.status === 'fulfilled'),
+			).toHaveLength(1);
+			const [rejected] = results.filter(
+				(r) => r.status === 'rejected',
+			);
+			expect((rejected.reason as Error).message).toContain(
+				limitReached,
+			);
 		});
 	});
 

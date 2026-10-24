@@ -13,7 +13,13 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { isValidSuiAddress } from '@mysten/sui/utils';
-import { and, eq, inArray, type SQL } from 'drizzle-orm';
+import {
+	and,
+	eq,
+	inArray,
+	ne,
+	type SQL,
+} from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -24,6 +30,7 @@ import {
 	SchemaAccountProposers,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
+	SchemaAddresses,
 	SchemaProposals,
 	SchemaSignerSetMembers,
 	SchemaSignerSets,
@@ -682,29 +689,50 @@ export const acceptInvitation = async ({
 
 	// The origin never changes after insert, so it is read outside the
 	// transaction.
-	const [existingConnections, origin] = await Promise.all([
-		db.query.SchemaSignerSetMembers.findMany({
-			where: and(
-				eq(
-					SchemaSignerSetMembers.publicKey,
-					pubKey.toSuiPublicKey(),
-				),
-				eq(SchemaSignerSetMembers.isAccepted, true),
-			),
-		}),
-		getAccountOrigin(address),
-	]);
-
-	// Maximum connections per public key.
-	if (
-		existingConnections.length >
-		LIMITS.maxMultisigsPerPublicKey
-	)
-		throw new ValidationError(
-			'You have reached the maximum number of multisigs for this public key',
-		);
+	const origin = await getAccountOrigin(address);
 
 	return await db.transaction(async (tx) => {
+		// Lock the key's address row until the accept commits, so a
+		// concurrent accept by the same key waits and then counts this one.
+		// The member row references it, so it exists. This relies on READ
+		// COMMITTED (the default): REPEATABLE READ would count from a
+		// snapshot taken before the other accept committed.
+		await tx
+			.select({ publicKey: SchemaAddresses.publicKey })
+			.from(SchemaAddresses)
+			.where(
+				eq(
+					SchemaAddresses.publicKey,
+					pubKey.toSuiPublicKey(),
+				),
+			)
+			.for('no key update');
+
+		// Maximum connections per public key. Accepting a multisig the key
+		// already accepted adds none.
+		const existingConnections =
+			await tx.query.SchemaSignerSetMembers.findMany({
+				columns: { signerSetAddress: true },
+				where: and(
+					eq(
+						SchemaSignerSetMembers.publicKey,
+						pubKey.toSuiPublicKey(),
+					),
+					eq(SchemaSignerSetMembers.isAccepted, true),
+					ne(
+						SchemaSignerSetMembers.signerSetAddress,
+						address,
+					),
+				),
+			});
+		if (
+			existingConnections.length >=
+			LIMITS.maxMultisigsPerPublicKey
+		)
+			throw new ValidationError(
+				'You have reached the maximum number of multisigs for this public key',
+			);
+
 		const msig = await tx.query.SchemaSignerSets.findFirst({
 			where: eq(SchemaSignerSets.address, address),
 		});
@@ -852,44 +880,49 @@ export const addProposer = async ({
 	});
 
 	// Add the proposer to the multisig.
-	await db.transaction(
-		async (tx) => {
-			const existingProposers =
-				await tx.query.SchemaAccountProposers.findMany({
-					columns: { address: true },
-					where: and(
-						eq(
-							SchemaAccountProposers.accountAddress,
-							address,
-						),
+	await db.transaction(async (tx) => {
+		// Lock the account until the insert commits, so a concurrent add
+		// waits and then counts this proposer. This relies on READ COMMITTED
+		// (the default): REPEATABLE READ would count from a snapshot taken
+		// before the other add committed.
+		await tx
+			.select({ address: SchemaAccounts.address })
+			.from(SchemaAccounts)
+			.where(eq(SchemaAccounts.address, address))
+			.for('no key update');
+
+		const existingProposers =
+			await tx.query.SchemaAccountProposers.findMany({
+				columns: { address: true },
+				where: and(
+					eq(
+						SchemaAccountProposers.accountAddress,
+						address,
 					),
-				});
-
-			if (
-				existingProposers.length >=
-				LIMITS.maxProposersPerMultisig
-			)
-				throw new ValidationError(
-					'You have reached the maximum number of proposers for this multisig',
-				);
-
-			if (
-				existingProposers.some(
-					(p) => p.address === proposer,
-				)
-			)
-				throw new ValidationError(
-					`${proposer} is already a proposer for this multisig`,
-				);
-
-			await tx.insert(SchemaAccountProposers).values({
-				accountAddress: address,
-				address: proposer,
-				addedBy: publicKey.toSuiAddress(),
+				),
 			});
-		},
-		{ isolationLevel: 'repeatable read' },
-	);
+
+		if (
+			existingProposers.length >=
+			LIMITS.maxProposersPerMultisig
+		)
+			throw new ValidationError(
+				'You have reached the maximum number of proposers for this multisig',
+			);
+
+		if (
+			existingProposers.some((p) => p.address === proposer)
+		)
+			throw new ValidationError(
+				`${proposer} is already a proposer for this multisig`,
+			);
+
+		await tx.insert(SchemaAccountProposers).values({
+			accountAddress: address,
+			address: proposer,
+			addedBy: publicKey.toSuiAddress(),
+		});
+	});
 };
 
 // Removes an external proposer from an account, signed by an accepted

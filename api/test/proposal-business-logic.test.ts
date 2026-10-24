@@ -364,6 +364,39 @@ describe('Proposal Business Logic', () => {
 				session.proposeTransfer(proposer, multisig.address),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
 		});
+
+		test('keeps the proposer limit for simultaneous adds', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const add = (proposer: TestUser) =>
+				session.addProposer(
+					users[0],
+					proposer.address,
+					multisig.address,
+				);
+			// Added together, which also opens enough database connections
+			// for the two adds below to overlap.
+			await Promise.all(
+				Array.from(
+					{ length: LIMITS.maxProposersPerMultisig - 1 },
+					() => add(newUser()),
+				),
+			);
+
+			const results = await Promise.allSettled(
+				[newUser(), newUser()].map(add),
+			);
+
+			expect(
+				results.filter((r) => r.status === 'fulfilled'),
+			).toHaveLength(1);
+			const [rejected] = results.filter(
+				(r) => r.status === 'rejected',
+			);
+			expect((rejected.reason as Error).message).toContain(
+				'You have reached the maximum number of proposers for this multisig',
+			);
+		});
 	});
 
 	test('a new proposal can be fetched by digest, with the proposer signature', async () => {
