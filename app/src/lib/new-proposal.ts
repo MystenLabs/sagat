@@ -229,12 +229,12 @@ function toBigInt(value: string | null): bigint | null {
 }
 
 /**
- * The error for a proposal title, or null when it is fine. Counts code
- * points after trimming, as the API does.
+ * The error for a proposal title, or null when it is fine. The title is
+ * optional, so only a long one is refused. Counts code points after
+ * trimming, as the API does.
  */
 export function titleError(title: string): string | null {
 	const length = textLength(title);
-	if (length === 0) return COPY.titleMissing;
 	if (length > TITLE_MAX) return COPY.titleTooLong(length);
 	return null;
 }
@@ -318,8 +318,6 @@ export const COPY = {
 		'Signers see this title in the proposal list. You can change it.',
 	titleHintBytes:
 		'Bytes don’t include a title. Name it so signers know what it does.',
-	titleMissing:
-		'Add a title so signers know what this proposal is for.',
 	titleTooLong: (length: number) =>
 		`${length} of ${TITLE_MAX} characters. Use ${TITLE_MAX} or fewer.`,
 	unreadableBytes:

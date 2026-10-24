@@ -368,9 +368,9 @@ describe('checkTransfer', () => {
 });
 
 describe('titleError', () => {
-	test('asks for a title', () => {
-		expect(titleError('')).toBe(COPY.titleMissing);
-		expect(titleError('   ')).toBe(COPY.titleMissing);
+	test('accepts no title', () => {
+		expect(titleError('')).toBeNull();
+		expect(titleError('   ')).toBeNull();
 	});
 
 	test('counts code points, not UTF-16 units', () => {

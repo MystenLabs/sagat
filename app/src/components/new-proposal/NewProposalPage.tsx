@@ -9,14 +9,9 @@ import {
 	useSearchParams,
 } from 'react-router-dom';
 
-import { Button } from '@/components/ui/button';
-import { PageHeader } from '@/components/ui/page-header';
 import { SkeletonPage } from '@/components/ui/skeleton';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import {
-	WizardStepper,
-	type WizardStep,
-} from '@/components/wizard/parts';
+import { type WizardStep } from '@/components/wizard/parts';
+import { WizardPage } from '@/components/wizard/WizardPage';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
@@ -38,7 +33,6 @@ import {
 import { signerRows } from '@/lib/signers';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import { cn } from '@/lib/utils';
 
 import { BytesDetailsStep } from './BytesDetailsStep';
 import { ReviewStep } from './ReviewStep';
@@ -202,7 +196,7 @@ function NewProposalWizard({
 			{
 				multisigAddress: address,
 				transactionData: ready.bytes,
-				description: reviewTitle.trim(),
+				description: reviewTitle.trim() || undefined,
 			},
 			{
 				onSuccess: () => navigate(proposalsPath),
@@ -235,134 +229,89 @@ function NewProposalWizard({
 	};
 
 	return (
-		<TooltipProvider delay={150}>
-			<div
-				className="page-shell @container"
-				data-testid="new-proposal-page"
-			>
-				{/* The content stays 1092px wide, as designed, so Cancel ends where
-				    the side column does on wide screens. */}
-				<div className="w-full max-w-273">
-					<PageHeader
-						breadcrumb={[
-							{ label: 'Proposals', to: proposalsPath },
-							{ label: 'New proposal' },
-						]}
-						title="New proposal"
-						actions={
-							<Button
-								variant="ghost"
-								onClick={cancel}
-								disabled={creating}
-								className="max-sm:hidden"
-								data-testid="new-proposal-cancel"
-							>
-								Cancel
-							</Button>
-						}
+		<WizardPage
+			title="New proposal"
+			breadcrumb={[
+				{ label: 'Proposals', to: proposalsPath },
+				{ label: 'New proposal' },
+			]}
+			testId="new-proposal"
+			steps={STEPS}
+			step={step}
+			reach={reach}
+			onStep={goTo}
+			busy={creating}
+			onCancel={cancel}
+			direction={direction}
+			cardRef={cardRef}
+			// The side column only changes at Review, so it fades just then.
+			sideKey={step === 3 ? 'next-steps' : 'from'}
+			sideClassName={step === 3 ? '@4xl:w-90' : '@4xl:w-80'}
+			side={
+				step === 3 ? (
+					<NextStepsCard
+						threshold={setup.threshold}
+						yourWeight={yourWeight}
 					/>
-
-					<WizardStepper
-						steps={STEPS}
-						step={step}
-						reach={reach}
-						disabled={creating}
-						onStep={goTo}
-						testId="new-proposal"
+				) : (
+					<>
+						<FromCard
+							multisig={multisig}
+							network={network}
+							yourWeight={yourWeight}
+						/>
+						<HelpCard />
+					</>
+				)
+			}
+		>
+			{step === 1 && (
+				<TypeStep
+					type={type}
+					onTypeChange={(next) => {
+						if (next === type) return;
+						setType(next);
+						setTitle(null);
+						clearReady();
+					}}
+					onContinue={() => goTo(2)}
+					onCancel={cancel}
+				/>
+			)}
+			{step === 2 &&
+				(type === 'transfer' ? (
+					<TransferDetailsStep
+						{...detailsProps}
+						draft={transferDraft}
+						onDraftChange={(next) => {
+							setTransferDraft(next);
+							clearReady();
+						}}
 					/>
-
-					{/* Stacked below 896px of content, where the card and the side
-					    cards fill the row; two columns from there. */}
-					<div className="mt-7 flex flex-col gap-8 @4xl:flex-row @4xl:items-start">
-						<div
-							// Remounting on each step change plays the entrance.
-							key={step}
-							ref={cardRef}
-							className={cn(
-								'@container/card w-full min-w-0 rounded-xl border bg-card @4xl:max-w-185 @4xl:flex-1',
-								'animate-in fade-in duration-200 ease-out motion-reduce:animate-none',
-								direction === 'forward'
-									? 'slide-in-from-right-2'
-									: 'slide-in-from-left-2',
-							)}
-						>
-							{step === 1 && (
-								<TypeStep
-									type={type}
-									onTypeChange={(next) => {
-										if (next === type) return;
-										setType(next);
-										setTitle(null);
-										clearReady();
-									}}
-									onContinue={() => goTo(2)}
-									onCancel={cancel}
-								/>
-							)}
-							{step === 2 &&
-								(type === 'transfer' ? (
-									<TransferDetailsStep
-										{...detailsProps}
-										draft={transferDraft}
-										onDraftChange={(next) => {
-											setTransferDraft(next);
-											clearReady();
-										}}
-									/>
-								) : (
-									<BytesDetailsStep
-										{...detailsProps}
-										draft={bytesDraft}
-										onDraftChange={(next) => {
-											setBytesDraft(next);
-											clearReady();
-										}}
-									/>
-								))}
-							{step === 3 && ready && (
-								<ReviewStep
-									bytes={ready.bytes}
-									title={reviewTitle}
-									onTitleChange={setTitle}
-									dryRun={dryRun}
-									analysis={analysis}
-									creating={creating}
-									createError={createError}
-									onSubmit={submit}
-									onBack={() => goTo(2)}
-									onCancel={cancel}
-								/>
-							)}
-						</div>
-
-						<div
-							// The side column only changes at Review, so it fades
-							// just then.
-							key={step === 3 ? 'next-steps' : 'from'}
-							className={cn(
-								'flex w-full flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @4xl:shrink-0',
-								step === 3 ? '@4xl:w-90' : '@4xl:w-80',
-							)}
-						>
-							{step === 3 ? (
-								<NextStepsCard
-									threshold={setup.threshold}
-									yourWeight={yourWeight}
-								/>
-							) : (
-								<>
-									<FromCard
-										multisig={multisig}
-										network={network}
-										yourWeight={yourWeight}
-									/>
-									<HelpCard />
-								</>
-							)}
-						</div>
-					</div>
-				</div>
-			</div>
-		</TooltipProvider>
+				) : (
+					<BytesDetailsStep
+						{...detailsProps}
+						draft={bytesDraft}
+						onDraftChange={(next) => {
+							setBytesDraft(next);
+							clearReady();
+						}}
+					/>
+				))}
+			{step === 3 && ready && (
+				<ReviewStep
+					bytes={ready.bytes}
+					title={reviewTitle}
+					onTitleChange={setTitle}
+					dryRun={dryRun}
+					analysis={analysis}
+					creating={creating}
+					createError={createError}
+					onSubmit={submit}
+					onBack={() => goTo(2)}
+					onCancel={cancel}
+				/>
+			)}
+		</WizardPage>
 	);
 }

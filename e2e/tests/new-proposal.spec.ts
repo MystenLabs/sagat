@@ -380,7 +380,7 @@ test.describe('new proposal: transfer details', () => {
 		).toBeDisabled();
 	});
 
-	test('clearing the generated title shows its error and blocks Review', async ({
+	test('clearing the generated title leaves the proposal untitled', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -405,17 +405,13 @@ test.describe('new proposal: transfer details', () => {
 		).toBeEnabled();
 
 		await page.getByTestId('proposal-title-input').fill('');
-		const hint = page.getByTestId('proposal-title-hint');
-		await expect(hint).toHaveAttribute(
-			'data-state',
-			'error',
-		);
-		await expect(hint).toHaveText(
-			'Add a title so signers know what this proposal is for.',
-		);
 		await expect(
-			page.getByTestId('transfer-review'),
-		).toBeDisabled();
+			page.getByTestId('proposal-title-hint'),
+		).not.toHaveAttribute('data-state', 'error');
+		await reviewTransfer(page);
+		await expect(
+			page.getByTestId('review-title'),
+		).toHaveText('No title');
 	});
 });
 
