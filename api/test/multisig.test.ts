@@ -173,6 +173,37 @@ describe('Multisig API', () => {
 		});
 	});
 
+	test('becomes verified when its last members accept at once', async () => {
+		const session = framework.createSession();
+		const creator = newUser();
+		await session.connectUser(creator);
+		// A few multisigs, created together, which also opens enough
+		// database connections for the accepts below to overlap.
+		const multisigs = await Promise.all(
+			[1, 2, 3].map(async () => {
+				const invitees = [newUser(), newUser()];
+				const { address } = await session.createMultisig(
+					[creator, ...invitees],
+					2,
+				);
+				return { address, invitees };
+			}),
+		);
+
+		await Promise.all(
+			multisigs.flatMap(({ address, invitees }) =>
+				invitees.map((user) =>
+					session.acceptMultisig(user, address),
+				),
+			),
+		);
+		for (const { address } of multisigs)
+			expect(
+				(await session.client.getMultisig(address))
+					.isVerified,
+			).toBe(true);
+	});
+
 	test('non-members cannot accept or reject', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);

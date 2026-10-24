@@ -757,18 +757,24 @@ export const acceptInvitation = async ({
 	const origin = await getAccountOrigin(address);
 
 	return await db.transaction(async (tx) => {
+		// Lock the signer set, so that when its last members accept at once,
+		// the later one sees the other's acceptance and verifies the set.
+		// Taken before the key lock, in the order creation takes them. Like
+		// lockAccount, this relies on READ COMMITTED.
+		const [msig] = await tx
+			.select()
+			.from(SchemaSignerSets)
+			.where(eq(SchemaSignerSets.address, address))
+			.for('no key update');
+
+		if (!msig)
+			throw new ValidationError('Multisig not found');
+
 		await assertKeyBelowMultisigLimit(
 			tx,
 			pubKey.toSuiPublicKey(),
 			address,
 		);
-
-		const msig = await tx.query.SchemaSignerSets.findFirst({
-			where: eq(SchemaSignerSets.address, address),
-		});
-
-		if (!msig)
-			throw new ValidationError('Multisig not found');
 
 		await tx
 			.update(SchemaSignerSetMembers)
