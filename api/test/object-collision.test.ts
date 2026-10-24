@@ -59,6 +59,37 @@ describe('Object Collision Detection', () => {
 		);
 	});
 
+	test('accepts one of several simultaneous proposals using the same gas coin', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const {
+			objects: [gasCoin],
+		} = await client.listCoins({ owner: multisig.address });
+		const txs = await Promise.all(
+			[1, 2, 3].map((i) =>
+				buildTransfer(multisig.address, {
+					gasCoin,
+					amount: 1_000_000 * i,
+				}),
+			),
+		);
+
+		const results = await Promise.allSettled(
+			txs.map((tx) =>
+				session.createProposal(
+					users[0],
+					multisig.address,
+					'localnet',
+					tx,
+				),
+			),
+		);
+
+		expect(
+			results.filter((r) => r.status === 'fulfilled'),
+		).toHaveLength(1);
+	});
+
 	test('prevents concurrent proposals receiving the same object', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
@@ -191,6 +222,38 @@ describe('Object Collision Detection', () => {
 		await expect(propose(coins[10])).rejects.toThrow(
 			/more than 10 pending proposals/,
 		);
+	});
+
+	test('keeps the pending limit for simultaneous proposals', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		await sendCoins(multisig.address, 12);
+		const { objects: coins } = await client.listCoins({
+			owner: multisig.address,
+			limit: 20,
+		});
+		const txs = await Promise.all(
+			coins
+				.slice(0, 12)
+				.map((gasCoin) =>
+					buildTransfer(multisig.address, { gasCoin }),
+				),
+		);
+
+		const results = await Promise.allSettled(
+			txs.map((tx) =>
+				session.createProposal(
+					users[0],
+					multisig.address,
+					'localnet',
+					tx,
+				),
+			),
+		);
+
+		expect(
+			results.filter((r) => r.status === 'fulfilled'),
+		).toHaveLength(10);
 	});
 
 	test('rejects unresolved transactions', async () => {

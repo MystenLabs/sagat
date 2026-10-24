@@ -375,20 +375,25 @@ export const isSignerSetFinalized = async (
 	return isFinalized.length === 0;
 };
 
+type Database = typeof db;
+type DatabaseTransaction = Parameters<
+	Parameters<Database['transaction']>[0]
+>[0];
+
 // Get a list of pending proposals for a given multisig address.
 const getPendingProposals = async (
 	multisigAddress: string,
 	network: string,
+	database: Database | DatabaseTransaction = db,
 ) => {
-	const proposals = await db.query.SchemaProposals.findMany(
-		{
+	const proposals =
+		await database.query.SchemaProposals.findMany({
 			where: and(
 				eq(SchemaProposals.accountAddress, multisigAddress),
 				eq(SchemaProposals.status, ProposalStatus.PENDING),
 				eq(SchemaProposals.network, network),
 			),
-		},
-	);
+		});
 	return proposals;
 };
 
@@ -409,16 +414,41 @@ const extractOwnedObjects = (tx: Transaction) => {
 	];
 };
 
-// Validates a proposed transaction.
-export const validateProposedTransaction = async (
+// Returns the objects of a proposed transaction that no other pending
+// proposal can use: the address-owned objects it uses or receives. Immutable
+// objects can be shared between proposals.
+export const getExclusiveObjects = async (
 	proposedTransaction: Transaction,
+	network: SuiNetwork,
+) => {
+	const objects = await queryAllOwnedObjects(
+		extractOwnedObjects(proposedTransaction),
+		network,
+	);
+	return objects.map((obj) => obj.objectId);
+};
+
+// Validates a proposed transaction against the pending proposals of its
+// account. It locks the account until `tx` ends, so the caller must insert
+// the proposal in the same transaction: a concurrent proposal for the
+// account then waits, and sees this one when it checks.
+export const validateProposedTransaction = async (
+	tx: DatabaseTransaction,
+	proposedTransaction: Transaction,
+	exclusiveObjects: string[],
 	multisigAddress: string,
 	network: SuiNetwork,
 ) => {
-	// Get the list of pending proposals.
+	await tx
+		.select({ address: SchemaAccounts.address })
+		.from(SchemaAccounts)
+		.where(eq(SchemaAccounts.address, multisigAddress))
+		.for('update');
+
 	const pendingProposals = await getPendingProposals(
 		multisigAddress,
 		network,
+		tx,
 	);
 
 	if (pendingProposals.length >= 10) {
@@ -427,7 +457,6 @@ export const validateProposedTransaction = async (
 		);
 	}
 
-	//   Fail early on duplicats, avoid doing RPC calls.
 	const digest = await proposedTransaction.getDigest();
 	if (pendingProposals.some((p) => p.digest === digest)) {
 		throw new ValidationError(
@@ -435,48 +464,22 @@ export const validateProposedTransaction = async (
 		);
 	}
 
-	if (
-		proposedTransaction.getData().sender !== multisigAddress
-	) {
-		throw new ValidationError(
-			'The transaction sender does not match the multisig address.',
-		);
-	}
-
-	// Get all the owned or receiving objects from the pending proposals.
-	// Make sure we do not have any of these in our proposal.
-	const ownedOrReceivingObjects: string[] = [];
-	for (const proposal of pendingProposals) {
-		const tx = Transaction.from(proposal.transactionBytes);
-		ownedOrReceivingObjects.push(
-			...extractOwnedObjects(tx),
-		);
-	}
-
-	//   Query all the owned objects.
-	const allOwnedObjects = await queryAllOwnedObjects(
-		ownedOrReceivingObjects,
-		network,
+	// Make sure none of our exclusive objects is used by a pending proposal.
+	const pendingObjects = new Set(
+		pendingProposals.flatMap((proposal) =>
+			extractOwnedObjects(
+				Transaction.from(proposal.transactionBytes),
+			),
+		),
+	);
+	const usedObjects = exclusiveObjects.filter((id) =>
+		pendingObjects.has(id),
 	);
 
-	// Get all the owned or receiving objects from the proposed transaction.
-	const existingProposalObjects = extractOwnedObjects(
-		proposedTransaction,
-	);
-	const allUsedOwnedObjects = [];
-
-	for (const obj of allOwnedObjects) {
-		if (existingProposalObjects.includes(obj.objectId)) {
-			allUsedOwnedObjects.push(obj);
-		}
-	}
-
-	if (allUsedOwnedObjects.length > 0) {
+	if (usedObjects.length > 0) {
 		throw new ValidationError(
 			'You cannot have re-use any owned or receiving objects that are already in pending proposals. The used objects are: ' +
-				allUsedOwnedObjects
-					.map((obj) => obj.objectId)
-					.join(', '),
+				usedObjects.join(', '),
 		);
 	}
 };
