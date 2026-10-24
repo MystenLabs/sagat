@@ -28,7 +28,11 @@ import { LocalStorageKeys } from './lib/localStorageKeys.ts';
 const storedNetwork =
 	(localStorage.getItem(LocalStorageKeys.SuiNetwork) as
 		'testnet' | 'mainnet' | 'devnet' | 'localnet') ||
-	CONFIG.DEFAULT_NETWORK;
+	// With the dev wallet on, start on localnet until a network is chosen.
+	(import.meta.env.VITE_DEV_WALLET === '1' &&
+	import.meta.env.VITE_LOCALNET_RPC_URL
+		? 'localnet'
+		: CONFIG.DEFAULT_NETWORK);
 
 export const dAppKit = createDAppKit({
 	networks: ['testnet', 'mainnet', 'devnet', 'localnet'],

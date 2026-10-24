@@ -29,8 +29,13 @@ pnpm dev
 
 Production wallets don't connect to a local network, so for manual testing
 against one the app can embed a development wallet. Start the dev server with
-`VITE_DEV_WALLET=1` to add "Dev Wallet" to the connect picker, with a floating
-panel for switching accounts and an approval prompt for every signature.
+`VITE_DEV_WALLET=1` to add "Dev Wallet" to the connect picker. Its floating
+panel shows balances and an approval prompt for every signature. Switch the
+signing account through the app's own account menu (the address button in the
+header, which lists every connected account): picking an account in the panel
+does not change what the app signs with. With the flag on and
+`VITE_LOCALNET_RPC_URL` set, the app starts on localnet until you choose a
+network.
 
 The wallet holds five demo signers (maya, daniel, tomas, hana, payments), each
 with the Ed25519 secret key `sha256("sagat-demo:<name>")`, so their addresses
@@ -38,8 +43,13 @@ are stable for a local seed to fund. When `VITE_DEV_WALLET_SECRET_KEY` is set
 to an Ed25519 `suiprivkey…` string, it also holds that key as "You (demo)".
 `VITE_LOCALNET_RPC_URL` points the wallet's localnet at your local node, as it
 already does for the app. The wallet is loaded through a dynamic import, so
-builds without the flag contain none of it. Keep secret keys out of committed
-files.
+builds without the flag contain none of it.
+
+Vite inlines `VITE_*` variables into the client JavaScript, so the key is
+readable by anyone who can load the app, and it ends up in `dist` if you build
+with the flag. Use a throwaway localnet-only key that never holds real funds,
+and set it in your shell or in `app/.env` (gitignored), never in a committed
+file.
 
 ## Building
 
