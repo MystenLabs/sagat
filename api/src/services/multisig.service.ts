@@ -365,17 +365,34 @@ type DatabaseTransaction = Parameters<
 	Parameters<(typeof db)['transaction']>[0]
 >[0];
 
+// Locks the account row until `tx` ends, so the caller must write in the
+// same transaction: a concurrent caller for the account then waits, and sees
+// what this one wrote when it checks. FOR NO KEY UPDATE conflicts with itself
+// but not with the KEY SHARE locks that inserts referencing the account
+// take. This relies on READ COMMITTED (the default): the reads after the
+// lock see rows committed meanwhile, which REPEATABLE READ would hide.
+const lockAccount = async (
+	tx: DatabaseTransaction,
+	address: string,
+) => {
+	await tx
+		.select({ address: SchemaAccounts.address })
+		.from(SchemaAccounts)
+		.where(eq(SchemaAccounts.address, address))
+		.for('no key update');
+};
+
 // Throws if `publicKey` has already accepted the maximum number of
-// multisigs, not counting `signerSetAddress`, the one it is joining. It
-// locks the key's address row until `tx` ends, so the caller must accept in
-// the same transaction: a concurrent accept by the key then waits, and
-// counts this one. The row must exist, which holds once the key is
-// registered. This relies on READ COMMITTED (the default): REPEATABLE READ
-// would count from a snapshot taken before the other accept committed.
+// multisigs, not counting `joiningSignerSetAddress`, the one it is joining
+// (so accepting it again adds none). It locks the key's address row until
+// `tx` ends, so the caller must accept in the same transaction: a
+// concurrent accept by the key then waits, and counts this one. The row
+// must exist, which holds once the key is registered. Like lockAccount,
+// this relies on READ COMMITTED.
 const assertKeyBelowMultisigLimit = async (
 	tx: DatabaseTransaction,
 	publicKey: string,
-	signerSetAddress: string,
+	joiningSignerSetAddress: string,
 ) => {
 	await tx
 		.select({ publicKey: SchemaAddresses.publicKey })
@@ -383,19 +400,18 @@ const assertKeyBelowMultisigLimit = async (
 		.where(eq(SchemaAddresses.publicKey, publicKey))
 		.for('no key update');
 
-	const accepted =
-		await tx.query.SchemaSignerSetMembers.findMany({
-			columns: { signerSetAddress: true },
-			where: and(
-				eq(SchemaSignerSetMembers.publicKey, publicKey),
-				eq(SchemaSignerSetMembers.isAccepted, true),
-				ne(
-					SchemaSignerSetMembers.signerSetAddress,
-					signerSetAddress,
-				),
+	const accepted = await tx.$count(
+		SchemaSignerSetMembers,
+		and(
+			eq(SchemaSignerSetMembers.publicKey, publicKey),
+			eq(SchemaSignerSetMembers.isAccepted, true),
+			ne(
+				SchemaSignerSetMembers.signerSetAddress,
+				joiningSignerSetAddress,
 			),
-		});
-	if (accepted.length >= LIMITS.maxMultisigsPerPublicKey)
+		),
+	);
+	if (accepted >= LIMITS.maxMultisigsPerPublicKey)
 		throw new ValidationError(
 			'You have reached the maximum number of multisigs for this public key',
 		);
@@ -472,10 +488,7 @@ export const getExclusiveObjects = async (
 
 // Validates a proposed transaction against the pending proposals of its
 // account. It locks the account until `tx` ends, so the caller must insert
-// the proposal in the same transaction: a concurrent proposal for the
-// account then waits, and sees this one when it checks. This relies on READ
-// COMMITTED (the default): the read after the lock sees proposals committed
-// meanwhile, which REPEATABLE READ would hide.
+// the proposal in the same transaction.
 export const validateProposedTransaction = async (
 	tx: DatabaseTransaction,
 	proposedTransaction: Transaction,
@@ -483,11 +496,7 @@ export const validateProposedTransaction = async (
 	multisigAddress: string,
 	network: SuiNetwork,
 ) => {
-	await tx
-		.select({ address: SchemaAccounts.address })
-		.from(SchemaAccounts)
-		.where(eq(SchemaAccounts.address, multisigAddress))
-		.for('no key update');
+	await lockAccount(tx, multisigAddress);
 
 	const pendingProposals = await getPendingProposals(
 		multisigAddress,
@@ -902,15 +911,8 @@ export const addProposer = async ({
 
 	// Add the proposer to the multisig.
 	await db.transaction(async (tx) => {
-		// Lock the account until the insert commits, so a concurrent add
-		// waits and then counts this proposer. This relies on READ COMMITTED
-		// (the default): REPEATABLE READ would count from a snapshot taken
-		// before the other add committed.
-		await tx
-			.select({ address: SchemaAccounts.address })
-			.from(SchemaAccounts)
-			.where(eq(SchemaAccounts.address, address))
-			.for('no key update');
+		// Serializes proposer adds for the account.
+		await lockAccount(tx, address);
 
 		const existingProposers =
 			await tx.query.SchemaAccountProposers.findMany({

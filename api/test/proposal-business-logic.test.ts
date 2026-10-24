@@ -21,6 +21,7 @@ import {
 	ApiTestFramework,
 	buildTransfer,
 	errorOf,
+	expectSettled,
 	newUser,
 	sendCoins,
 	sign,
@@ -40,6 +41,14 @@ setupSharedTestEnvironment();
 
 describe('Proposal Business Logic', () => {
 	let framework: ApiTestFramework;
+
+	const proposerLimitResponse = {
+		status: 400,
+		body: {
+			error:
+				'You have reached the maximum number of proposers for this multisig',
+		},
+	};
 
 	beforeEach(async () => {
 		framework = new ApiTestFramework(await createTestApp());
@@ -387,15 +396,10 @@ describe('Proposal Business Logic', () => {
 				[newUser(), newUser()].map(add),
 			);
 
-			expect(
-				results.filter((r) => r.status === 'fulfilled'),
-			).toHaveLength(1);
-			const [rejected] = results.filter(
-				(r) => r.status === 'rejected',
-			);
-			expect((rejected.reason as Error).message).toContain(
-				'You have reached the maximum number of proposers for this multisig',
-			);
+			expectSettled(results, {
+				fulfilled: 1,
+				rejectedWith: proposerLimitResponse.body.error,
+			});
 		});
 	});
 
@@ -697,20 +701,13 @@ describe('Proposal Business Logic', () => {
 					multisig.address,
 				);
 
-			const limitReached = {
-				status: 400,
-				body: {
-					error:
-						'You have reached the maximum number of proposers for this multisig',
-				},
-			};
 			expect(
 				await changeProposer(session, 'add-proposer', {
 					signer: users[0],
 					multisigAddress: multisig.address,
 					proposer: newUser().address,
 				}),
-			).toEqual(limitReached);
+			).toEqual(proposerLimitResponse);
 			// At the limit, even a proposer that is already there gets the
 			// limit error, not the duplicate one.
 			expect(
@@ -719,7 +716,7 @@ describe('Proposal Business Logic', () => {
 					multisigAddress: multisig.address,
 					proposer: proposers[0],
 				}),
-			).toEqual(limitReached);
+			).toEqual(proposerLimitResponse);
 		});
 
 		test('remove-proposer checks the expiry, then the address, then membership', async () => {

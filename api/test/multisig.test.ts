@@ -13,6 +13,7 @@ import { LIMITS } from '../src/constants/limits';
 import {
 	ApiTestFramework,
 	errorOf,
+	expectSettled,
 	newUser,
 	sign,
 	type TestUser,
@@ -726,115 +727,105 @@ describe('Multisig API', () => {
 		const limitReached =
 			'You have reached the maximum number of multisigs for this public key';
 
-		// Makes `key` an accepted member of `count` new multisigs: creating a
+		// Makes `user` an accepted member of `count` new multisigs: creating a
 		// multisig accepts it for the members connected to the session.
 		const joinMultisigs = async (
-			key: TestUser,
+			user: TestUser,
 			count: number,
 		) => {
 			const session = framework.createSession();
-			await session.connectUser(key);
+			await session.connectUser(user);
 			await Promise.all(
 				Array.from({ length: count }, () =>
-					session.createMultisig([key, newUser()], 1),
+					session.createMultisig([user, newUser()], 1),
 				),
 			);
 			return session;
 		};
 
-		// A multisig that `key` is invited to and has not accepted.
-		const inviteTo = async (key: TestUser) => {
+		// A multisig that `user` is invited to and has not accepted.
+		const inviteTo = async (user: TestUser) => {
 			const {
 				session,
 				users: [creator],
 			} = await framework.createAuthenticatedSession(1);
 			return (
-				await session.createMultisig([creator, key], 1)
+				await session.createMultisig([creator, user], 1)
 			).address;
 		};
 
 		test('a key can accept up to the limit, and no more', async () => {
-			const key = newUser();
+			const user = newUser();
 			const session = await joinMultisigs(
-				key,
+				user,
 				LIMITS.maxMultisigsPerPublicKey - 1,
 			);
 			const [last, oneTooMany] = await Promise.all([
-				inviteTo(key),
-				inviteTo(key),
+				inviteTo(user),
+				inviteTo(user),
 			]);
 
-			await session.acceptMultisig(key, last);
+			await session.acceptMultisig(user, last);
 			await expect(
-				session.acceptMultisig(key, oneTooMany),
+				session.acceptMultisig(user, oneTooMany),
 			).rejects.toThrow(limitReached);
 			// At the limit, accepting a multisig again is still allowed.
-			await session.acceptMultisig(key, last);
+			await session.acceptMultisig(user, last);
 		});
 
 		test('keeps the limit for simultaneous accepts', async () => {
-			const key = newUser();
+			const user = newUser();
 			const session = await joinMultisigs(
-				key,
+				user,
 				LIMITS.maxMultisigsPerPublicKey - 1,
 			);
 			const invitations = await Promise.all([
-				inviteTo(key),
-				inviteTo(key),
+				inviteTo(user),
+				inviteTo(user),
 			]);
 
 			const results = await Promise.allSettled(
 				invitations.map((address) =>
-					session.acceptMultisig(key, address),
+					session.acceptMultisig(user, address),
 				),
 			);
 
-			expect(
-				results.filter((r) => r.status === 'fulfilled'),
-			).toHaveLength(1);
-			const [rejected] = results.filter(
-				(r) => r.status === 'rejected',
-			);
-			expect((rejected.reason as Error).message).toContain(
-				limitReached,
-			);
+			expectSettled(results, {
+				fulfilled: 1,
+				rejectedWith: limitReached,
+			});
 		});
 
 		test('a key can create multisigs up to the limit, and no more', async () => {
-			const key = newUser();
+			const user = newUser();
 			const session = await joinMultisigs(
-				key,
+				user,
 				LIMITS.maxMultisigsPerPublicKey - 1,
 			);
 
-			await session.createMultisig([key, newUser()], 1);
+			await session.createMultisig([user, newUser()], 1);
 			await expect(
-				session.createMultisig([key, newUser()], 1),
+				session.createMultisig([user, newUser()], 1),
 			).rejects.toThrow(limitReached);
 		});
 
 		test('keeps the limit for simultaneous creations', async () => {
-			const key = newUser();
+			const user = newUser();
 			const session = await joinMultisigs(
-				key,
+				user,
 				LIMITS.maxMultisigsPerPublicKey - 1,
 			);
 
 			const results = await Promise.allSettled(
 				[newUser(), newUser()].map((other) =>
-					session.createMultisig([key, other], 1),
+					session.createMultisig([user, other], 1),
 				),
 			);
 
-			expect(
-				results.filter((r) => r.status === 'fulfilled'),
-			).toHaveLength(1);
-			const [rejected] = results.filter(
-				(r) => r.status === 'rejected',
-			);
-			expect((rejected.reason as Error).message).toContain(
-				limitReached,
-			);
+			expectSettled(results, {
+				fulfilled: 1,
+				rejectedWith: limitReached,
+			});
 		});
 	});
 
