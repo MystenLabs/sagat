@@ -178,7 +178,7 @@ test.describe('new proposal: transfer', () => {
 });
 
 test.describe('new proposal: transfer details', () => {
-	test('Max on SUI fills the balance minus 0.05 SUI and says so', async ({
+	test('Max on SUI fills the whole balance', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -194,18 +194,15 @@ test.describe('new proposal: transfer details', () => {
 			type: 'transfer',
 		});
 		await chooseAsset(page, SUI_TYPE);
+		await page.getByTestId('transfer-max-button').click();
+
+		// The faucet sent 1,000 SUI; nothing is kept back for gas.
+		await expect(
+			page.getByTestId('transfer-amount-input'),
+		).toHaveValue('1000');
 		await expect(
 			page.getByTestId('transfer-gas-note'),
 		).toHaveCount(0);
-		await page.getByTestId('transfer-max-button').click();
-
-		// The faucet sent 1,000 SUI.
-		await expect(
-			page.getByTestId('transfer-amount-input'),
-		).toHaveValue('999.95');
-		await expect(
-			page.getByTestId('transfer-gas-note'),
-		).toHaveText('0.05 SUI is kept for gas.');
 		await expect(
 			page.getByTestId('transfer-amount-error'),
 		).toHaveCount(0);

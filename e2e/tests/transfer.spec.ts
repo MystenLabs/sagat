@@ -15,9 +15,6 @@ import {
 import { setupMultisig } from '../support/scenarios';
 import { mintTestCoin } from '../support/test-coin';
 
-// 0.05 SUI, what Max keeps back for gas.
-const GAS_RESERVE = 50_000_000n;
-
 test.describe('transfer form', () => {
 	test('refuses an amount above the balance', async ({
 		createActor,
@@ -56,9 +53,8 @@ test.describe('transfer form', () => {
 			'transfer-amount-error',
 		);
 		await expect(error).toBeVisible();
-		// On SUI, the reserve for gas counts too.
-		await expect(error).toContainText(
-			'Leave at least 0.05 SUI for gas.',
+		await expect(error).toHaveText(
+			'More than the account holds. The SUI balance is 1,000.',
 		);
 		await expect(
 			alice.page.getByTestId('transfer-review'),
@@ -81,7 +77,7 @@ test.describe('transfer form', () => {
 		).toBeDisabled();
 	});
 
-	test('Max sends the SUI balance, keeping 0.05 SUI for gas', async ({
+	test('Max sends the whole SUI balance', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -129,14 +125,11 @@ test.describe('transfer form', () => {
 			'executed',
 		);
 
-		// All but the reserve reached the recipient; gas came out of the
-		// reserve.
+		// Everything left the multisig; the recipient got it minus gas.
 		const digest = await card.getAttribute('data-digest');
+		expect(await chain.balance(multisig.address)).toBe(0n);
 		expect(await chain.balance(recipient)).toBe(
-			funded - GAS_RESERVE,
-		);
-		expect(await chain.balance(multisig.address)).toBe(
-			GAS_RESERVE - (await chain.gasCost(digest!)),
+			funded - (await chain.gasCost(digest!)),
 		);
 	});
 

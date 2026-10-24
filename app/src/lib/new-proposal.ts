@@ -59,9 +59,6 @@ export interface TransferDraft {
 export const TITLE_MAX =
 	VALIDATION.MAX_PROPOSAL_DESCRIPTION_LENGTH;
 
-/** 0.05 SUI in MIST, kept back when Max is pressed on SUI. */
-export const SUI_GAS_RESERVE = 50_000_000n;
-
 /**
  * The wizard's route. `type` lands on Details for that type, `coinType`
  * preselects the asset to send.
@@ -115,26 +112,19 @@ export function transferTitle({
 }
 
 /**
- * Highest amount the field accepts, as an input string (no grouping):
- * the balance, minus SUI_GAS_RESERVE for SUI; null when nothing can be
- * sent.
+ * What Max puts in the field, as an input string (no grouping): the
+ * whole balance, SUI included, since a SUI transfer of the whole balance
+ * sends the gas coin itself (see `TransferCheck.transferAllSui`). Null
+ * when nothing can be sent.
  */
 export function maxAmount({
 	balance,
 	decimals,
-	coinType,
 }: {
 	balance: string;
 	decimals: number;
-	coinType: string;
 }): string | null {
-	return getMaxInputAmount(
-		balance,
-		decimals,
-		isSuiCoinType(coinType)
-			? SUI_GAS_RESERVE.toString()
-			: '0',
-	);
+	return getMaxInputAmount(balance, decimals);
 }
 
 export interface TransferCheck {
@@ -146,6 +136,12 @@ export interface TransferCheck {
 	recipientValid: boolean;
 	/** The amount in on-chain units once it parses. */
 	rawAmount: bigint | null;
+	/**
+	 * True when the amount is the whole SUI balance. The transfer then
+	 * sends the gas coin itself, so the recipient gets the balance minus
+	 * the gas fee and the account ends at zero.
+	 */
+	transferAllSui: boolean;
 	canReview: boolean;
 }
 
@@ -183,16 +179,18 @@ export function checkTransfer({
 				held.toString(),
 				decimals,
 			);
-			if (isSuiCoinType(draft.coinType)) {
-				if (rawAmount > held - SUI_GAS_RESERVE)
-					amountError = COPY.overSuiBalance(shown);
-			} else if (rawAmount > held)
+			if (rawAmount > held)
 				amountError = COPY.overBalance(
 					symbol ?? 'asset',
 					shown,
 				);
 		}
 	}
+	const transferAllSui =
+		isSuiCoinType(draft.coinType) &&
+		held !== null &&
+		rawAmount !== null &&
+		rawAmount === held;
 
 	const recipient = draft.recipient.trim();
 	const recipientValid =
@@ -208,6 +206,7 @@ export function checkTransfer({
 		recipientError,
 		recipientValid,
 		rawAmount,
+		transferAllSui,
 		canReview:
 			!assetError &&
 			!amountError &&
@@ -308,9 +307,6 @@ export const COPY = {
 	zeroAmount: 'Enter an amount above 0.',
 	overBalance: (symbol: string, balance: string) =>
 		`More than the account holds. The ${symbol} balance is ${balance}.`,
-	overSuiBalance: (balance: string) =>
-		`Leave at least 0.05 SUI for gas. The SUI balance is ${balance}.`,
-	gasKept: '0.05 SUI is kept for gas.',
 	invalidAddress:
 		'This isn’t a valid Sui address. Check you pasted all of it: 0x and 64 characters.',
 	validAddress: 'Valid Sui address',

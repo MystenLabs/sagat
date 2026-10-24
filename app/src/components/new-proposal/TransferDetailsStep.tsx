@@ -35,11 +35,7 @@ import { useTouched } from '@/components/wizard/use-touched';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
 import { accountName } from '@/lib/account-name';
 import { coinLabels } from '@/lib/coinDisplay';
-import {
-	coinUsdValue,
-	formatUsdValue,
-	isSuiCoinType,
-} from '@/lib/coins';
+import { coinUsdValue, formatUsdValue } from '@/lib/coins';
 import {
 	checkTransfer,
 	COPY,
@@ -98,7 +94,6 @@ export function TransferDetailsStep({
 	const symbol = draft.coinType
 		? coinLabels(draft.coinType, coin).symbol
 		: null;
-	const isSui = isSuiCoinType(draft.coinType);
 
 	const check = checkTransfer({
 		draft,
@@ -122,7 +117,6 @@ export function TransferDetailsStep({
 			? maxAmount({
 					balance: balance.balance,
 					decimals,
-					coinType: draft.coinType,
 				})
 			: null;
 	const priceUsd = coin?.priceUsd ?? null;
@@ -133,9 +127,6 @@ export function TransferDetailsStep({
 					decimals,
 				})
 			: null;
-	// The reserve note shows while the amount is SUI's Max.
-	const gasKept =
-		isSui && max !== null && draft.amount === max;
 
 	// A field shows its error once it has been used (`useTouched`). The
 	// asset counts as used once its list has closed.
@@ -151,6 +142,7 @@ export function TransferDetailsStep({
 			coinType: string;
 			recipient: string;
 			amount: bigint;
+			transferAllSui: boolean;
 		}) =>
 			buildTransferTransaction({
 				sender: multisig.address,
@@ -218,6 +210,7 @@ export function TransferDetailsStep({
 					draft.recipient.trim(),
 				),
 				amount: check.rawAmount,
+				transferAllSui: check.transferAllSui,
 			},
 			{
 				onSuccess: (bytes) =>
@@ -315,10 +308,7 @@ export function TransferDetailsStep({
 						</InputGroupAddon>
 					)}
 				</InputGroup>
-				<div
-					id="transfer-amount-hint"
-					className="flex items-start justify-between gap-3 text-12"
-				>
+				<div id="transfer-amount-hint" className="text-12">
 					{amountError ? (
 						<p
 							className="text-error-foreground"
@@ -333,17 +323,7 @@ export function TransferDetailsStep({
 						>
 							{formatUsdValue(usd)}
 						</p>
-					) : (
-						<span />
-					)}
-					{gasKept && (
-						<p
-							className="shrink-0 text-right text-muted-foreground"
-							data-testid="transfer-gas-note"
-						>
-							{COPY.gasKept}
-						</p>
-					)}
+					) : null}
 				</div>
 			</div>
 

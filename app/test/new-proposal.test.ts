@@ -19,7 +19,6 @@ import {
 	maxAmount,
 	newProposalPath,
 	proposalTypeFromQuery,
-	SUI_GAS_RESERVE,
 	TITLE_MAX,
 	titleError,
 	transferTitle,
@@ -117,44 +116,51 @@ describe('maxAmount', () => {
 			maxAmount({
 				balance: '1234567890000',
 				decimals: 6,
-				coinType: USDC,
 			}),
 		).toBe('1234567.89');
 	});
 
-	test('keeps the gas reserve back on SUI', () => {
+	test('is the full balance on SUI too', () => {
 		expect(
 			maxAmount({
 				balance: '2000000000',
 				decimals: 9,
-				coinType: SUI_TYPE_ARG,
 			}),
-		).toBe('1.95');
+		).toBe('2');
 	});
 
-	test('reads the long form of the SUI type', () => {
-		expect(
-			maxAmount({
-				balance: '2000000000',
-				decimals: 9,
+	test('sends the gas coin on the long form of the SUI type', () => {
+		const max = maxAmount({
+			balance: '2000000000',
+			decimals: 9,
+		});
+		const check = checkTransfer({
+			draft: {
 				coinType: `${normalizeSuiAddress('0x2')}::sui::SUI`,
-			}),
-		).toBe('1.95');
+				amount: max!,
+				recipient: RECIPIENT,
+			},
+			balance: '2000000000',
+			decimals: 9,
+			symbol: 'SUI',
+		});
+		expect(check.transferAllSui).toBe(true);
+		expect(check.canReview).toBe(true);
 	});
 
-	test('is null when SUI holds no more than the reserve', () => {
-		for (const balance of [
-			SUI_GAS_RESERVE.toString(),
-			(SUI_GAS_RESERVE - 1n).toString(),
-			'0',
-		])
-			expect(
-				maxAmount({
-					balance,
-					decimals: 9,
-					coinType: SUI_TYPE_ARG,
-				}),
-			).toBeNull();
+	test('keeps nothing back on SUI, down to one MIST', () => {
+		expect(
+			maxAmount({
+				balance: '1',
+				decimals: 9,
+			}),
+		).toBe('0.000000001');
+		expect(
+			maxAmount({
+				balance: '0',
+				decimals: 9,
+			}),
+		).toBeNull();
 	});
 
 	test('is null for an empty balance', () => {
@@ -162,7 +168,6 @@ describe('maxAmount', () => {
 			maxAmount({
 				balance: '0',
 				decimals: 6,
-				coinType: USDC,
 			}),
 		).toBeNull();
 	});
@@ -171,7 +176,6 @@ describe('maxAmount', () => {
 		const max = maxAmount({
 			balance: '1234567890000000',
 			decimals: 6,
-			coinType: USDC,
 		});
 		expect(max).toBe('1234567890');
 		const check = checkTransfer({
@@ -228,6 +232,7 @@ describe('checkTransfer', () => {
 			recipientError: null,
 			recipientValid: true,
 			rawAmount: 1_250_500_000n,
+			transferAllSui: false,
 			canReview: true,
 		});
 	});
@@ -288,28 +293,35 @@ describe('checkTransfer', () => {
 	});
 
 	test('takes the whole balance of a coin other than SUI', () => {
-		expect(
-			usdc({ amount: '5000', recipient: RECIPIENT })
-				.canReview,
-		).toBe(true);
+		const check = usdc({
+			amount: '5000',
+			recipient: RECIPIENT,
+		});
+		expect(check.canReview).toBe(true);
+		expect(check.transferAllSui).toBe(false);
 	});
 
-	test('keeps the gas reserve on SUI', () => {
+	test('sends the gas coin only for the whole SUI balance', () => {
 		expect(sui('0.95').canReview).toBe(true);
-		expect(sui('0.950000001').amountError).toBe(
-			COPY.overSuiBalance('1'),
+		expect(sui('0.95').transferAllSui).toBe(false);
+		expect(sui('1').canReview).toBe(true);
+		expect(sui('1').transferAllSui).toBe(true);
+		expect(sui('1.000000001').amountError).toBe(
+			COPY.overBalance('SUI', '1'),
 		);
-		expect(sui('1').amountError).toBe(
-			COPY.overSuiBalance('1'),
-		);
+		expect(sui('1.000000001').transferAllSui).toBe(false);
 		expect(sui('2').amountError).toBe(
-			COPY.overSuiBalance('1'),
+			COPY.overBalance('SUI', '1'),
 		);
 	});
 
-	test('refuses any SUI when the balance is under the reserve', () => {
-		expect(sui('0.01', '40000000').amountError).toBe(
-			COPY.overSuiBalance('0.04'),
+	test('keeps nothing back on a small SUI balance', () => {
+		expect(sui('0.01', '40000000').canReview).toBe(true);
+		expect(sui('0.01', '40000000').transferAllSui).toBe(
+			false,
+		);
+		expect(sui('0.04', '40000000').transferAllSui).toBe(
+			true,
 		);
 	});
 
