@@ -938,3 +938,131 @@ describe('buildTransferTransaction amounts', () => {
 		);
 	});
 });
+
+describe('buildTransferTransaction Max on SUI', () => {
+	const SENDER = normalizeSuiAddress('0x5d2e');
+	const PICKED = normalizeSuiAddress('0x9a5');
+	const coinId = (i: number) =>
+		normalizeSuiAddress(`0xc0${i.toString(16)}`);
+
+	// A client that holds `count` SUI coins, listed 100 per page. Its
+	// resolver pins price and budget, and stands in for the client's own
+	// gas pick with one coin when the build leaves the payment unset.
+	function fakeClient(count: number) {
+		const resolved = { pickedGas: false };
+		const core = {
+			listCoins: async ({
+				cursor,
+			}: {
+				cursor?: string | null;
+			}) => {
+				const start = Number(cursor ?? 0);
+				const end = Math.min(start + 100, count);
+				return {
+					objects: Array.from(
+						{ length: end - start },
+						(_, i) => ({
+							objectId: coinId(start + i),
+							version: '1',
+							digest: toBase58(new Uint8Array(32).fill(1)),
+							balance: '500000000',
+							coinType: SUI_TYPE_ARG,
+							owner: SENDER,
+						}),
+					),
+					hasNextPage: end < count,
+					cursor: end < count ? String(end) : null,
+				};
+			},
+			resolveTransactionPlugin:
+				() =>
+				async (
+					data: ReturnType<Transaction['getData']>,
+					_options: unknown,
+					next: () => Promise<void>,
+				) => {
+					data.gasData.price ??= '1000';
+					data.gasData.budget ??= '10000000';
+					if (!data.gasData.payment) {
+						resolved.pickedGas = true;
+						data.gasData.payment = [
+							{
+								objectId: PICKED,
+								version: '1',
+								digest: toBase58(
+									new Uint8Array(32).fill(2),
+								),
+							},
+						];
+					}
+					await next();
+				},
+		};
+		const client = { core } as unknown as Parameters<
+			typeof buildTransferTransaction
+		>[0]['client'];
+		return { client, resolved };
+	}
+
+	async function buildMax(count: number) {
+		const { client, resolved } = fakeClient(count);
+		const bytes = await buildTransferTransaction({
+			sender: SENDER,
+			recipient: RECIPIENT,
+			coinType: SUI_TYPE_ARG,
+			amount: BigInt(count) * 500_000_000n,
+			transferAllSui: true,
+			client,
+		});
+		const data = Transaction.from(bytes).getData();
+		const merges = data.commands.flatMap((c) =>
+			c.MergeCoins ? [c.MergeCoins] : [],
+		);
+		return { bytes, data, merges, resolved };
+	}
+
+	test('leaves gas to the client up to 256 coins', async () => {
+		const { data, merges, resolved } = await buildMax(256);
+		expect(resolved.pickedGas).toBe(true);
+		expect(data.gasData.payment).toEqual([
+			expect.objectContaining({ objectId: PICKED }),
+		]);
+		expect(merges).toEqual([]);
+	});
+
+	test('pays gas with 256 of 300 coins and merges the other 44 into it', async () => {
+		const { data, merges, resolved } = await buildMax(300);
+		expect(resolved.pickedGas).toBe(false);
+		expect(
+			data.gasData.payment?.map((c) => c.objectId),
+		).toEqual(
+			Array.from({ length: 256 }, (_, i) => coinId(i)),
+		);
+		expect(merges).toHaveLength(1);
+		expect(merges[0].destination.$kind).toBe('GasCoin');
+		expect(merges[0].sources).toHaveLength(44);
+		const merged = merges[0].sources.map((arg) =>
+			arg.$kind === 'Input'
+				? data.inputs[arg.Input].Object?.ImmOrOwnedObject
+						?.objectId
+				: undefined,
+		);
+		expect(merged).toEqual(
+			Array.from({ length: 44 }, (_, i) => coinId(256 + i)),
+		);
+		expect(
+			data.commands.at(-1)?.TransferObjects?.objects,
+		).toEqual([{ $kind: 'GasCoin', GasCoin: true }]);
+	});
+
+	test('merges at most 1200 coins past the gas payment, 511 per command, within the size limit', async () => {
+		const { bytes, data, merges } = await buildMax(3000);
+		expect(data.gasData.payment).toHaveLength(256);
+		expect(merges.map((m) => m.sources.length)).toEqual([
+			511, 511, 178,
+		]);
+		expect(
+			Buffer.from(bytes, 'base64').length,
+		).toBeLessThan(128 * 1024 - 16 * 1024);
+	});
+});

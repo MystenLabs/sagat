@@ -539,18 +539,11 @@ test.describe('transfer: coins with other decimals', () => {
 		);
 	});
 
-	// BUG: Max sends the gas coin, and the SDK pays gas with at most 256
-	// coins (MAX_GAS_PAYMENT_OBJECTS in @mysten/sui's core resolver), so
-	// only 256 of the 300 are merged into it: the recipient gets 128 SUI
-	// minus gas and the account keeps 22 SUI in 44 coins, while Max said
-	// 150. Expected the whole balance sent. Marked failing until the build
-	// handles more coins than gas can carry.
 	test('Max on SUI held in 300 coins sends all of it and leaves the account at 0', async ({
 		createActor,
 		createIdentity,
 		chain,
 	}) => {
-		test.fail();
 		const alice = await createActor('alice');
 		const multisig = await setupMultisig({
 			creator: alice,
