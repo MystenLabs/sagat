@@ -11,6 +11,7 @@ import { useRef, useState } from 'react';
 
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
+import { ExpiryChip } from '@/components/proposals/ProposalExpiry';
 import {
 	Button,
 	disabledButton,
@@ -34,6 +35,7 @@ import {
 	useNetwork,
 } from '@/contexts/NetworkContext';
 import { type useDryRun } from '@/hooks/useDryRun';
+import { useExpiry } from '@/hooks/useExpiry';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { COPY, titleError } from '@/lib/new-proposal';
 import { cn, safeDecode } from '@/lib/utils';
@@ -78,6 +80,7 @@ export function ReviewStep({
 			'the transaction would fail on-chain',
 	);
 	const currentTitleError = titleError(title);
+	const expiry = useExpiry(bytes);
 
 	return (
 		<div
@@ -95,6 +98,12 @@ export function ReviewStep({
 				disabled={creating}
 				onTitleChange={onTitleChange}
 			/>
+
+			{expiry && (
+				<div className="flex" data-testid="review-expiry">
+					<ExpiryChip expiry={expiry} />
+				</div>
+			)}
 
 			{simulationFailed && (
 				<Notice

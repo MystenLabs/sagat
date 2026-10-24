@@ -19,7 +19,7 @@ export const HELP = [
 		id: 'expiry',
 		question: 'When does a proposal expire?',
 		answer:
-			'Only if the transaction sets an expiry epoch, and most don’t. Until it’s executed, the signer who proposed it can cancel it.',
+			'Only when the transaction sets an expiry. Sending SUI from an account that holds some of it as an address balance sets one of up to two epochs, about two days; most other transactions don’t expire. Until it’s executed, the signer who proposed it can cancel it.',
 	},
 	{
 		id: 'change',

@@ -156,6 +156,58 @@ test.describe('new proposal: transfer', () => {
 		).toHaveAttribute('data-coin-type', /::sui::SUI$/);
 	});
 
+	// Not proposed: the API 400s on the reservation ref an address balance adds to gasData.payment
+	// (extractOwnedObjects in api/src/services/multisig.service.ts). The end-to-end part lands with that fix.
+	test('Max fills the coins and the address balance together, and Review shows the expiry', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		// 1,000 SUI in coins, then 300 SUI as an address balance.
+		const { alice, multisig } = await fundedAccount(
+			fixtures,
+			1,
+		);
+		await chain.fundAddressBalance(
+			multisig.address,
+			300n * MIST_PER_SUI,
+		);
+		const funded = 1_300n * MIST_PER_SUI;
+		expect(await chain.balance(multisig.address)).toBe(
+			funded,
+		);
+		expect(
+			await chain.addressBalance(multisig.address),
+		).toBe(300n * MIST_PER_SUI);
+		const { page } = alice;
+		const recipient = randomAddress();
+
+		await page.getByTestId('multisig-tab-assets').click();
+		await alice
+			.suiBalanceRow()
+			.getByTestId('asset-send-button')
+			.click();
+		const recipientInput = page.getByTestId(
+			'transfer-recipient-input',
+		);
+		await recipientInput.fill(recipient);
+		await recipientInput.blur();
+		await page.getByTestId('transfer-max-button').click();
+		await expect(
+			page.getByTestId('transfer-amount-input'),
+		).toHaveValue('1300');
+
+		await reviewTransfer(page);
+		await expectSimulation(page, 'success');
+		// Spending an address balance makes the transaction expire.
+		const expiry = page.getByTestId('review-expiry');
+		await expect(expiry).toBeVisible();
+		await expect(
+			expiry.getByTestId('proposal-expiry'),
+		).toHaveText(/^Expires in /);
+	});
+
 	test('Send on the overview opens Details for a transfer', async ({
 		createActor,
 		createIdentity,
