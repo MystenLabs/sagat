@@ -365,12 +365,8 @@ type DatabaseTransaction = Parameters<
 	Parameters<(typeof db)['transaction']>[0]
 >[0];
 
-// Locks the account row until `tx` ends, so the caller must write in the
-// same transaction: a concurrent caller for the account then waits, and sees
-// what this one wrote when it checks. FOR NO KEY UPDATE conflicts with itself
-// but not with the KEY SHARE locks that inserts referencing the account
-// take. This relies on READ COMMITTED (the default): the reads after the
-// lock see rows committed meanwhile, which REPEATABLE READ would hide.
+// Locks the account until `tx` ends, so writers for it run one at a time.
+// Relies on READ COMMITTED: reads after the lock see the other's writes.
 const lockAccount = async (
 	tx: DatabaseTransaction,
 	address: string,
@@ -382,13 +378,8 @@ const lockAccount = async (
 		.for('no key update');
 };
 
-// Throws if `publicKey` has already accepted the maximum number of
-// multisigs, not counting `joiningSignerSetAddress`, the one it is joining
-// (so accepting it again adds none). It locks the key's address row until
-// `tx` ends, so the caller must accept in the same transaction: a
-// concurrent accept by the key then waits, and counts this one. The row
-// must exist, which holds once the key is registered. Like lockAccount,
-// this relies on READ COMMITTED.
+// Throws if `publicKey` is already in the maximum number of multisigs, not
+// counting the one it is joining. Locks the key's row until `tx` ends.
 const assertKeyBelowMultisigLimit = async (
 	tx: DatabaseTransaction,
 	publicKey: string,
@@ -638,10 +629,8 @@ export const createSignerSet = async ({
 				.returning()
 		)[0];
 
-		// The accepting keys count against their multisig limit, checked
-		// after the insert so that a duplicate still fails as one. Their
-		// address rows were registered above, and are locked in a fixed
-		// order so that two creations sharing keys cannot deadlock.
+		// Checked after the insert so a duplicate still fails as one. Keys are
+		// locked in sorted order so creations sharing keys can't deadlock.
 		for (const key of acceptingKeys.toSorted())
 			await assertKeyBelowMultisigLimit(
 				tx,
@@ -757,10 +746,8 @@ export const acceptInvitation = async ({
 	const origin = await getAccountOrigin(address);
 
 	return await db.transaction(async (tx) => {
-		// Lock the signer set, so that when its last members accept at once,
-		// the later one sees the other's acceptance and verifies the set.
-		// Taken before the key lock, in the order creation takes them. Like
-		// lockAccount, this relies on READ COMMITTED.
+		// Lock the set first, as creation does, so when its last members accept
+		// at once the later one sees the other and verifies the set.
 		const [msig] = await tx
 			.select()
 			.from(SchemaSignerSets)

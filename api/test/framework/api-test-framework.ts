@@ -58,9 +58,8 @@ export const errorOf = async (response: Response) => ({
 	body: await response.json(),
 });
 
-// Checks requests that were sent at once: that `fulfilled` of them
-// succeeded, and that every other one failed with `rejectedWith` in its
-// message.
+// Expects `fulfilled` successes, and every other result to fail with
+// `rejectedWith`.
 export const expectSettled = (
 	results: PromiseSettledResult<unknown>[],
 	{
