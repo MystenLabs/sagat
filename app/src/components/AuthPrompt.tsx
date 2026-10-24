@@ -15,12 +15,12 @@ export function AuthPrompt() {
 
 	return (
 		<div
-			className="mx-auto mt-20 p-8"
+			className="mx-auto mt-16 w-full max-w-lg rounded-xl border bg-card p-8"
 			data-testid="auth-prompt"
 		>
 			<div className="text-center">
-				<div className="inline-flex items-center justify-center w-20 h-20 bg-info-soft rounded-full mb-6">
-					<Shield className="w-10 h-10 text-info-foreground" />
+				<div className="inline-flex items-center justify-center w-20 h-20 bg-muted rounded-full mb-6">
+					<Shield className="w-10 h-10 text-foreground" />
 				</div>
 
 				<h1 className="text-3xl font-bold mb-3">
@@ -32,7 +32,7 @@ export function AuthPrompt() {
 					Sagat
 				</p>
 
-				<div className="bg-surface rounded-lg p-6 mb-8 space-y-3 max-w-lg mx-auto">
+				<div className="bg-muted rounded-lg p-6 mb-8 space-y-3">
 					<div>
 						<p className="text-xs text-muted-foreground mb-1">
 							Address
@@ -62,7 +62,7 @@ export function AuthPrompt() {
 				>
 					{isConnecting ? (
 						<>
-							<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+							<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
 							Signing message...
 						</>
 					) : (

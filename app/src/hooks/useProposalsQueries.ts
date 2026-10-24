@@ -14,7 +14,10 @@ import {
 	getTotalWeight,
 } from '../lib/proposalUtils';
 import { useGetMultisig } from './useGetMultisig';
-import { usePaginatedProposals } from './usePaginatedProposals';
+import {
+	PROPOSALS_PAGE_SIZE,
+	usePaginatedProposals,
+} from './usePaginatedProposals';
 
 interface UseProposalsQueriesParams {
 	multisig: MultisigWithMembersForPublicKey;
@@ -76,7 +79,7 @@ export function useProposalsQueries({
 		multisigAddress: multisig.address,
 		network,
 		status: getStatusFilter(),
-		perPage: 10,
+		perPage: PROPOSALS_PAGE_SIZE,
 		enabled: !!multisig.address && !!network,
 	});
 
@@ -85,7 +88,7 @@ export function useProposalsQueries({
 		multisigAddress: multisig.address,
 		network,
 		status: ProposalStatus.PENDING,
-		perPage: 10,
+		perPage: PROPOSALS_PAGE_SIZE,
 		enabled: !!multisig.address && !!network,
 	});
 
@@ -232,8 +235,13 @@ export function useProposalsQueries({
 		isLoading:
 			proposalsQuery.isLoading ||
 			multisigDetailsQuery.isLoading,
+		// A failed background refetch keeps the loaded rows; only a
+		// query with nothing to show blocks the list.
 		error:
-			proposalsQuery.error || multisigDetailsQuery.error,
+			(proposalsQuery.data ? null : proposalsQuery.error) ??
+			(multisigDetailsQuery.data
+				? null
+				: multisigDetailsQuery.error),
 
 		// Filtered data
 		filteredProposals: getFilteredProposals(
@@ -248,7 +256,14 @@ export function useProposalsQueries({
 			isFetchingNextPage: proposalsQuery.isFetchingNextPage,
 			refetch: proposalsQuery.refetch,
 		},
-		isRefetching: proposalsQuery.isRefetching,
+		isRefetching:
+			proposalsQuery.isRefetching ||
+			multisigDetailsQuery.isRefetching,
+		// Either query can fail, so a retry refetches both
+		retry: () => {
+			proposalsQuery.refetch();
+			multisigDetailsQuery.refetch();
+		},
 		// Helpers
 		userHasSignedProposal,
 	};

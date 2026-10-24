@@ -30,7 +30,9 @@ clash with `bun dev`. Don't reuse a plain `sui start`: an hour after it starts,
 its fullnode prunes aggressively, so transactions stop being readable seconds
 after they land. Global setup refuses one that is already pruning, but not one
 that starts pruning mid-run. Stop it, or keep one from
-`./start-localnet.sh 9000 9123` running.
+`./start-localnet.sh 9000 9123` running. The script wipes its data directory
+on startup, so give a second network (say, one for manual testing) its own:
+`LOCALNET_DIR=/tmp/my-localnet ./start-localnet.sh 9200 9223`.
 
 Configuration (all optional):
 
@@ -63,7 +65,10 @@ into every page before the app loads. It is
 [`@mysten-incubation/dev-wallet`](https://ts-sdks-incubation.vercel.app/dev-wallet/guides/e2e-testing)
 holding keys the test controls, with every request auto-approved. It registers
 through the wallet-standard window events, the same way extension wallets do,
-so the app runs unmodified and no test code ships in it.
+so the app runs unmodified and no test code ships in it. One difference from
+the stock wallet: `E2EWallet` executes a signed transaction itself and returns
+the chain's effects, so a transaction that fails on chain comes back as a
+failure the way real wallets report it, where the stock wallet would throw.
 
 **People.** Each test creates its own users with fresh keys:
 

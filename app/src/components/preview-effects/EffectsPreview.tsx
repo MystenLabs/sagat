@@ -28,21 +28,19 @@ import { Transactions } from './partials/Transactions';
 
 function PreviewModeHelp() {
 	return (
-		<TooltipProvider delayDuration={150}>
+		<TooltipProvider delay={150}>
 			<Tooltip>
-				<TooltipTrigger asChild>
-					<button
-						type="button"
-						aria-label="Explain simulation and static analyzer"
-						className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-					>
-						<HelpCircle className="size-4" />
-					</button>
+				<TooltipTrigger
+					aria-label="Explain simulation and static analyzer"
+					data-testid="preview-help"
+					className="inline-flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+				>
+					<HelpCircle className="size-4" />
 				</TooltipTrigger>
 				<TooltipContent
 					side="bottom"
 					align="start"
-					className="max-w-sm bg-card text-card-foreground border shadow-lg"
+					className="max-w-sm bg-card text-card-foreground border"
 				>
 					<div className="space-y-2 text-xs leading-relaxed">
 						<p>

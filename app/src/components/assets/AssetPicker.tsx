@@ -77,6 +77,7 @@ export function AssetPicker({
 						coinData={selectedCoinData}
 						actions={chevron}
 						showCopyButton={false}
+						className="rounded-md border-foreground/12"
 					/>
 				) : (
 					<EmptyTrigger chevron={chevron} />
@@ -152,7 +153,7 @@ function AssetOption({
 
 function EmptyTrigger({ chevron }: { chevron: ReactNode }) {
 	return (
-		<div className="bg-card border rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/40 flex items-center gap-3">
+		<div className="bg-card border border-foreground/12 rounded-md px-3 py-2.5 transition-colors hover:bg-accent/40 flex items-center gap-3">
 			<div className="w-8 h-8 rounded-full bg-muted/40" />
 			<span className="flex-1 text-sm text-muted-foreground">
 				Choose an asset to send
@@ -166,7 +167,7 @@ function EmptyTrigger({ chevron }: { chevron: ReactNode }) {
 
 function TriggerSkeleton() {
 	return (
-		<div className="bg-card border rounded-lg px-3 py-2.5 flex items-center gap-3">
+		<div className="bg-card border border-foreground/12 rounded-md px-3 py-2.5 flex items-center gap-3">
 			<Skeleton className="w-8 h-8 rounded-full" />
 			<div className="flex-1 space-y-1.5">
 				<Skeleton className="h-3.5 w-24" />

@@ -7,6 +7,12 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { QueryKeys } from '@/lib/queryKeys';
 
+/**
+ * Proposals per page. The overview and the proposals tab both ask for this
+ * many, so they share one cached query.
+ */
+export const PROPOSALS_PAGE_SIZE = 10;
+
 interface UsePaginatedProposalsParams {
 	multisigAddress: string;
 	network: string;
@@ -19,7 +25,7 @@ export function usePaginatedProposals({
 	multisigAddress,
 	network,
 	status,
-	perPage = 10,
+	perPage = PROPOSALS_PAGE_SIZE,
 	enabled = true,
 }: UsePaginatedProposalsParams) {
 	return useInfiniteQuery({

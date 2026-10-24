@@ -12,10 +12,12 @@ import {
 	parsePartialSignatures,
 } from '@mysten/sui/multisig';
 import { publicKeyFromRawBytes } from '@mysten/sui/verify';
-import { AlertCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { Alert } from '@/components/ui/Alert';
+import { Chip } from '@/components/ui/chip';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 interface SignaturePubkeyPair {
@@ -75,41 +77,30 @@ function Signature({
 	const scheme = signature.signatureScheme.toString();
 
 	return (
-		<div
-			className="bg-card border rounded-lg"
+		<Panel
+			title={`Signature #${index}`}
+			subtitle={scheme}
 			data-testid="signature-card"
 			data-address={suiAddress}
 			data-scheme={scheme}
 		>
-			<div className="p-4 border-b">
-				<h3 className="text-lg font-semibold">
-					Signature #{index}
-				</h3>
-				<p className="text-sm text-muted-foreground">
-					{scheme}
-				</p>
-			</div>
-			<div className="p-4">
-				<div className="space-y-3">
-					<FieldDisplay
-						label="Sui Address"
-						value={suiAddress}
-					/>
-					<FieldDisplay
-						label="Sui Format Public Key ( flag | pk )"
-						value={signature.publicKey.toSuiPublicKey()}
-					/>
-					<FieldDisplay
-						label="Serialized Signature"
-						value={signature.serializedSignature}
-					/>
-					<FieldDisplay
-						label="Public Key"
-						value={signature.publicKey.toBase64()}
-					/>
-				</div>
-			</div>
-		</div>
+			<FieldDisplay
+				label="Sui address"
+				value={suiAddress}
+			/>
+			<FieldDisplay
+				label="Sui public key (flag | pk)"
+				value={signature.publicKey.toSuiPublicKey()}
+			/>
+			<FieldDisplay
+				label="Serialized signature"
+				value={signature.serializedSignature}
+			/>
+			<FieldDisplay
+				label="Public key"
+				value={signature.publicKey.toBase64()}
+			/>
+		</Panel>
 	);
 }
 
@@ -119,96 +110,109 @@ function MultiSigDetails({
 	multisigInfo: MultiSigInfo;
 }) {
 	return (
-		<div
-			className="bg-card border border-info-border rounded-lg"
+		<Panel
+			title="Multisig configuration"
+			subtitle="The combined public key and its signers"
 			data-testid="multisig-details"
 			data-address={multisigInfo.publicKey.toSuiAddress()}
 			data-threshold={multisigInfo.threshold}
 		>
-			<div className="p-4 border-b border-info-border">
-				<h3 className="text-lg font-semibold">
-					MultiSig Configuration
-				</h3>
-				<p className="text-sm text-muted-foreground">
-					Combined MultiSig Public Key Information
-				</p>
-			</div>
-			<div className="p-4">
-				<div className="space-y-4">
-					<FieldDisplay
-						label="MultiSig Address"
-						value={multisigInfo.publicKey.toSuiAddress()}
-						copyMessage="Copied multisig address to clipboard"
-					/>
-					<FieldDisplay
-						label="MultiSig Public Key"
-						value={multisigInfo.publicKey.toSuiPublicKey()}
-						copyMessage="Copied multisig public key to clipboard"
-					/>
-					<FieldDisplay
-						label="Threshold"
-						value={multisigInfo.threshold}
-						copyable={false}
-					/>
+			<FieldDisplay
+				label="Multisig address"
+				value={multisigInfo.publicKey.toSuiAddress()}
+				copyMessage="Multisig address copied"
+			/>
+			<FieldDisplay
+				label="Multisig public key"
+				value={multisigInfo.publicKey.toSuiPublicKey()}
+				copyMessage="Multisig public key copied"
+			/>
+			<FieldDisplay
+				label="Threshold"
+				value={multisigInfo.threshold}
+				copyable={false}
+			/>
 
-					<div className="space-y-1">
-						<div className="text-sm font-medium text-muted-foreground">
-							Participants (
-							{multisigInfo.participants.length})
-						</div>
-						<div className="space-y-3">
-							{multisigInfo.participants.map(
-								(participant, index) => (
-									<div
-										key={index}
-										className="bg-surface rounded-md p-3 border"
-										data-testid="multisig-participant"
-										data-address={participant.suiAddress}
-										data-weight={participant.weight}
-									>
-										<div className="flex justify-between items-start mb-2">
-											<span className="font-medium text-foreground">
-												Participant #{index + 1}
-											</span>
-											<div className="flex gap-2">
-												<span className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs font-medium">
-													{participant.keyType}
-												</span>
-												<span className="bg-info-soft text-info-foreground px-2 py-1 rounded text-xs font-medium">
-													Weight: {participant.weight}
-												</span>
-											</div>
-										</div>
-										<div className="space-y-2 text-sm">
-											<div className="flex items-center justify-between">
-												<div className="flex-1 min-w-0">
-													<span className="text-muted-foreground">
-														Address:
-													</span>{' '}
-													<span className="font-mono">
-														{participant.suiAddress}
-													</span>
-												</div>
-											</div>
-											<div className="flex items-center justify-between">
-												<div className="flex-1 min-w-0">
-													<span className="text-muted-foreground">
-														Public Key:
-													</span>{' '}
-													<span className="font-mono break-all">
-														{participant.publicKey.toBase64()}
-													</span>
-												</div>
-											</div>
-										</div>
-									</div>
-								),
-							)}
-						</div>
-					</div>
+			<div className="flex flex-col gap-2">
+				<div className="text-12 text-muted-foreground">
+					Participants ({multisigInfo.participants.length})
 				</div>
+				<ul className="flex flex-col gap-2">
+					{multisigInfo.participants.map(
+						(participant, index) => (
+							<li
+								key={index}
+								className="flex flex-col gap-2 rounded-lg border bg-surface p-3"
+								data-testid="multisig-participant"
+								data-address={participant.suiAddress}
+								data-weight={participant.weight}
+							>
+								<div className="flex items-center justify-between gap-2">
+									<span className="text-13 font-medium">
+										Participant #{index + 1}
+									</span>
+									<div className="flex gap-1.5">
+										<Chip variant="tag">
+											{participant.keyType}
+										</Chip>
+										<Chip variant="neutral">
+											Weight {participant.weight}
+										</Chip>
+									</div>
+								</div>
+								<dl className="grid gap-1 text-12">
+									<div className="flex gap-2">
+										<dt className="w-20 shrink-0 text-muted-foreground">
+											Address
+										</dt>
+										<dd className="min-w-0 font-mono break-all">
+											{participant.suiAddress}
+										</dd>
+									</div>
+									<div className="flex gap-2">
+										<dt className="w-20 shrink-0 text-muted-foreground">
+											Public key
+										</dt>
+										<dd className="min-w-0 font-mono break-all">
+											{participant.publicKey.toBase64()}
+										</dd>
+									</div>
+								</dl>
+							</li>
+						),
+					)}
+				</ul>
 			</div>
-		</div>
+		</Panel>
+	);
+}
+
+/** A titled block of fields inside the tool card. */
+function Panel({
+	title,
+	subtitle,
+	children,
+	...props
+}: {
+	title: string;
+	subtitle?: string;
+	children: React.ReactNode;
+} & React.ComponentProps<'section'>) {
+	return (
+		<section
+			className="flex flex-col gap-4 rounded-lg border p-4"
+			{...props}
+		>
+			<div className="flex flex-col gap-0.5">
+				<h3 className="text-14 font-medium">{title}</h3>
+				{subtitle && (
+					<p className="text-12 text-muted-foreground">
+						{subtitle}
+					</p>
+				)}
+			</div>
+			{children}
+		</section>
 	);
 }
 
@@ -326,60 +330,55 @@ export default function SignatureAnalyzer() {
 	}, [signature]);
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="grid w-full gap-1.5">
-				<label className="text-sm font-medium text-muted-foreground">
-					Signature Bytes (base64 encoded)
-				</label>
+		<div className="flex flex-col gap-6">
+			<div className="flex flex-col gap-2">
+				<Label htmlFor="signature-bytes">
+					Signature bytes (base64)
+				</Label>
 				<Textarea
+					id="signature-bytes"
 					rows={4}
 					data-testid="signature-input"
 					value={signature}
 					onChange={(e) => setSignature(e.target.value)}
-					placeholder="Paste your signature bytes here (base64 encoded)..."
+					placeholder="Paste a serialized signature…"
+					className="font-mono text-12"
 				/>
 			</div>
 
 			{error && (
-				<div
-					className="border border-error-border bg-error rounded-lg p-4"
+				<Alert
+					variant="error"
 					data-testid="signature-error"
 				>
-					<div className="flex items-center gap-2 mb-2">
-						<AlertCircle className="w-5 h-5 text-error-foreground" />
-						<h3 className="font-medium text-error-foreground">
-							Error
-						</h3>
-					</div>
-					<p className="text-sm text-error-foreground">
-						{error.message}
-					</p>
-				</div>
+					<span className="font-medium">
+						Couldn't parse the signature.
+					</span>{' '}
+					{error.message}
+				</Alert>
 			)}
 
-			<div className="flex flex-col gap-6 mt-6">
-				{multisigInfo && (
-					<MultiSigDetails multisigInfo={multisigInfo} />
-				)}
+			{multisigInfo && (
+				<MultiSigDetails multisigInfo={multisigInfo} />
+			)}
 
-				{listSignaturePubKeys &&
-					listSignaturePubKeys.length > 0 && (
-						<div className="flex flex-col gap-4">
-							<h3 className="text-2xl font-bold">
-								Signatures
-							</h3>
-							{listSignaturePubKeys.map(
-								(signature, index) => (
-									<Signature
-										key={index}
-										index={index}
-										signature={signature}
-									/>
-								),
-							)}
-						</div>
-					)}
-			</div>
+			{listSignaturePubKeys &&
+				listSignaturePubKeys.length > 0 && (
+					<div className="flex flex-col gap-3">
+						<h3 className="text-16 font-semibold">
+							Signatures
+						</h3>
+						{listSignaturePubKeys.map(
+							(signature, index) => (
+								<Signature
+									key={index}
+									index={index}
+									signature={signature}
+								/>
+							),
+						)}
+					</div>
+				)}
 		</div>
 	);
 }

@@ -38,6 +38,10 @@ export const dAppKit = createDAppKit({
 	networks: ['testnet', 'mainnet', 'devnet', 'localnet'],
 	createClient: (network) => newClient(network),
 	defaultNetwork: storedNetwork,
+	storageKey: LocalStorageKeys.WalletSession,
+	// A saved session that no longer resolves holds the layout until this
+	// runs out; extension wallets register well within it.
+	autoConnectTimeout: 2000,
 });
 
 // Register types for hook type inference

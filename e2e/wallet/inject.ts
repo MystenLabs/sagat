@@ -13,6 +13,7 @@ import { DevWallet } from '@mysten-incubation/dev-wallet';
 import { InMemorySignerAdapter } from '@mysten-incubation/dev-wallet/adapters';
 import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { fromBase64, toBase64 } from '@mysten/sui/utils';
 
 import type { E2EWalletConfig } from './types';
 
@@ -20,6 +21,62 @@ declare global {
 	interface Window {
 		__E2E_WALLET_CONFIG__?: E2EWalletConfig;
 		__e2eWallet?: DevWallet;
+	}
+}
+
+type SignAndExecute =
+	DevWallet['features']['sui:signAndExecuteTransaction']['signAndExecuteTransaction'];
+type Connect =
+	DevWallet['features']['standard:connect']['connect'];
+
+// A transaction that executes but fails on chain comes back from real
+// wallets with its effects, which say it failed; the dev wallet throws
+// instead. Sign with the dev wallet and execute here, like a real wallet.
+class E2EWallet extends DevWallet {
+	// See `E2EWalletConfig.failRestore`.
+	failRestore = false;
+
+	get features() {
+		const features = super.features;
+		const { connect } = features['standard:connect'];
+		const restoreOrConnect: Connect = (input) =>
+			this.failRestore && input?.silent
+				? Promise.reject(new Error('restore failed'))
+				: connect(input);
+		const signAndExecuteTransaction: SignAndExecute =
+			async (input) => {
+				const { bytes, signature } =
+					await features[
+						'sui:signTransaction'
+					].signTransaction(input);
+				const network = input.chain.replace(/^sui:/, '');
+				const result = await this.getClient(
+					network,
+				).core.executeTransaction({
+					transaction: fromBase64(bytes),
+					signatures: [signature],
+					include: { effects: true },
+				});
+				const { digest, effects } =
+					result.Transaction ?? result.FailedTransaction;
+				return {
+					bytes,
+					signature,
+					digest,
+					effects: toBase64(effects.bcs!),
+				};
+			};
+		return {
+			...features,
+			'standard:connect': {
+				version: '1.0.0' as const,
+				connect: restoreOrConnect,
+			},
+			'sui:signAndExecuteTransaction': {
+				version: '2.0.0' as const,
+				signAndExecuteTransaction,
+			},
+		};
 	}
 }
 
@@ -39,7 +96,7 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 		});
 	}
 
-	const wallet = new DevWallet({
+	const wallet = new E2EWallet({
 		name: config.name,
 		adapters: [adapter],
 		networks: { localnet: config.rpcUrl },
@@ -47,6 +104,15 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 		autoApprove: true,
 		autoConnect: true,
 	});
+	// The dev wallet always advertises every standard chain, so a narrower
+	// list replaces its getter.
+	const { chains } = config;
+	if (chains) {
+		Object.defineProperty(wallet, 'chains', {
+			get: () => chains,
+		});
+	}
+	wallet.failRestore = !!config.failRestore;
 	window.__e2eWallet = wallet;
 
 	const register = ({ register }: RegisterApi) =>

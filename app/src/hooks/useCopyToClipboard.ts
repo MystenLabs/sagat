@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCallback, useState } from 'react';
-import { toast } from 'sonner';
+
+import { toast } from '@/lib/toast';
 
 import { CONFIG } from '../lib/constants';
 
+/** Pass a null message to skip the toast when the caller shows "Copied". */
 export function useCopyToClipboard(
-	successMessage = 'Copied!',
+	successMessage: string | null = 'Copied',
 ) {
 	const [copied, setCopied] = useState(false);
 
@@ -16,7 +18,7 @@ export function useCopyToClipboard(
 			try {
 				await navigator.clipboard.writeText(text);
 				setCopied(true);
-				toast.success(successMessage);
+				if (successMessage) toast.copied(successMessage);
 				setTimeout(
 					() => setCopied(false),
 					CONFIG.COPY_FEEDBACK_DURATION,

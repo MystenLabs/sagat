@@ -1,0 +1,420 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+// The rules of the create-multisig wizard, kept free of React so the copy
+// and the limits are in one place: which signer rows are complete, what
+// blocks Continue, which warnings show, and the address preview.
+import {
+	formatAddress,
+	isValidSuiAddress,
+	normalizeSuiAddress,
+} from '@mysten/sui/utils';
+
+import { CONFIG, VALIDATION } from './constants';
+import {
+	computeMultisigAddress,
+	validatePublicKey,
+} from './sui-utils';
+import { sumWeight } from './threshold';
+import {
+	weightBarLayout,
+	type WeightBarLayout,
+} from './weight-bar';
+
+/** A row in the signers table, as the creator typed it. */
+export interface SignerDraft {
+	id: string;
+	/** The per-key label sent to the API. Optional. */
+	label: string;
+	/** A public key, or a 0x address to look the key up from. */
+	key: string;
+	weight: number;
+	/** The connected wallet: read-only key, can't be removed. */
+	isCreator?: boolean;
+}
+
+/** An address whose public key couldn't be found. */
+export type FailedLookup =
+	| { kind: 'missing' }
+	| { kind: 'error'; message: string }
+	/** No source answered (offline, 5xx); pasting it again retries. */
+	| { kind: 'unreachable' };
+
+export type SignerStatus =
+	/** Nothing typed yet: no status line. */
+	| { kind: 'blank' }
+	| { kind: 'valid'; address: string }
+	| { kind: 'looking-up' }
+	/** An address with no key on record: a warning, not an error. */
+	| { kind: 'no-key'; message: string }
+	| { kind: 'error'; message: string };
+
+export interface SignerCheck {
+	status: SignerStatus;
+	labelLength: number;
+	labelTooLong: boolean;
+	/** Holds a control or format character the API refuses. */
+	labelInvalid: boolean;
+	/** Counts towards the signers and the total weight. */
+	complete: boolean;
+}
+
+/** A full address pasted into the key field, normalized; else null. */
+export function addressInput(key: string): string | null {
+	const trimmed = key.trim();
+	return isValidSuiAddress(trimmed)
+		? normalizeSuiAddress(trimmed)
+		: null;
+}
+
+/**
+ * Control and format characters, which the API refuses in a key label.
+ * The same rule as the API's, so a name never fails only at Create.
+ */
+export const HIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}]/u;
+
+/** A wallet's account name as a label: hidden characters out, trimmed. */
+export function stripHiddenCharacters(value: string) {
+	return value
+		.replace(new RegExp(HIDDEN_CHARACTERS.source, 'gu'), '')
+		.trim();
+}
+
+/** Characters as the API counts them: code points, after trimming. */
+export function textLength(value: string) {
+	return [...value.normalize('NFC').trim()].length;
+}
+
+export function clamp(
+	value: number,
+	min: number,
+	max: number,
+) {
+	return Math.min(Math.max(value, min), max);
+}
+
+/** "a", "a and b", "a, b and c". */
+export function joinList(
+	items: string[],
+	conjunction: 'and' | 'or',
+) {
+	if (items.length <= 1) return items.join('');
+	return `${items.slice(0, -1).join(', ')} ${conjunction} ${items[items.length - 1]}`;
+}
+
+/** What copy calls a signer: its label, "You" or "Signer N". */
+export function signerName(
+	signer: SignerDraft,
+	index: number,
+) {
+	return (
+		signer.label.trim() ||
+		(signer.isCreator ? 'You' : `Signer ${index + 1}`)
+	);
+}
+
+export const NAME_MAX = VALIDATION.MAX_MULTISIG_NAME_LENGTH;
+
+/** The step 1 error for a name, or null when it is fine. */
+export function nameError(name: string): string | null {
+	const length = textLength(name);
+	if (length === 0) return 'Give the multisig a name.';
+	if (length > NAME_MAX)
+		return `${length} of ${NAME_MAX} characters. Use ${NAME_MAX} or fewer.`;
+	return null;
+}
+
+export const COPY = {
+	invalidKey:
+		'This isn’t a valid Sui public key. Check that you copied the whole key.',
+	duplicateKey: (other: string) =>
+		`${other} already uses this key. Each signer needs their own key.`,
+	duplicateKeyYours: (position: number) =>
+		`You already use this key (signer ${position}). Each signer needs their own key.`,
+	noKey: (label: string) =>
+		`No public key found for this address. It hasn’t signed a transaction yet. ${
+			label
+				? `Ask ${label} for their public key.`
+				: 'Ask them for their public key.'
+		}`,
+	tooFewSigners:
+		'Add at least one more signer. A multisig needs 2 or more.',
+	everyoneMustSign:
+		'Every signer must sign every proposal. If one signer loses their key, the multisig can’t move funds.',
+	emptyAddress:
+		'Appears once you add signers and set a threshold.',
+	lookupFailed:
+		'Couldn’t look up this address. Check your connection and try again.',
+	createFailed:
+		'Couldn’t create the multisig. Your setup is still here. Check your connection and try again.',
+	labelInvalid:
+		'This name has hidden characters (such as a zero-width joiner) that can’t be saved. Remove them to continue.',
+};
+
+export interface SignersCheck {
+	signers: SignerCheck[];
+	completeCount: number;
+	incompleteCount: number;
+	/** Sum of the complete signers' weights. */
+	totalWeight: number;
+	tooFewSigners: boolean;
+	/** Left of the disabled Continue; null when nothing is blocking. */
+	blockedMessage: string | null;
+	/** The dashed address box while rows are incomplete. */
+	addressMessage: string | null;
+	canContinue: boolean;
+	/** One of the threshold warnings; never blocks. */
+	warning: string | null;
+	address: string | null;
+}
+
+export function checkSigners({
+	signers,
+	threshold,
+	lookups,
+}: {
+	signers: SignerDraft[];
+	threshold: number;
+	/** Addresses whose lookup came back empty. */
+	lookups: Record<string, FailedLookup>;
+}): SignersCheck {
+	const names = signers.map(signerName);
+	const statuses = signers.map((s) =>
+		keyStatus(s, lookups),
+	);
+
+	// The first row with a key owns it; later rows are duplicates. The
+	// creator's read-only key is theirs wherever their row sits, so a row
+	// dragged above it is the duplicate.
+	const firstWithKey = new Map<string, number>();
+	const creator = signers.findIndex((s) => s.isCreator);
+	const creatorStatus = statuses[creator];
+	if (creatorStatus?.kind === 'valid')
+		firstWithKey.set(creatorStatus.address, creator);
+
+	const checks = signers.map((signer, index) => {
+		const labelLength = textLength(signer.label);
+		const labelTooLong =
+			labelLength > CONFIG.MAX_KEY_LABEL_LENGTH;
+		// The trimmed value is what gets sent, so trailing whitespace or a
+		// stray BOM at the ends doesn't count.
+		const labelInvalid = HIDDEN_CHARACTERS.test(
+			signer.label.trim(),
+		);
+		const status = statuses[index];
+
+		let finalStatus = status;
+		if (status.kind === 'valid') {
+			const owner = firstWithKey.get(status.address);
+			if (owner === undefined)
+				firstWithKey.set(status.address, index);
+			else if (owner !== index) {
+				// "Daniel (signer 2)", "Signer 2" when unnamed, or a sentence of
+				// its own when the key is the unnamed creator's.
+				const ownerName = names[owner];
+				const position = `Signer ${owner + 1}`;
+				const owned = signers[owner];
+				finalStatus = {
+					kind: 'error',
+					message:
+						owned.isCreator && !owned.label.trim()
+							? COPY.duplicateKeyYours(owner + 1)
+							: COPY.duplicateKey(
+									ownerName === position
+										? position
+										: `${ownerName} (signer ${owner + 1})`,
+								),
+				};
+			}
+		}
+
+		return {
+			status: finalStatus,
+			labelLength,
+			labelTooLong,
+			labelInvalid,
+			complete:
+				finalStatus.kind === 'valid' &&
+				!labelTooLong &&
+				!labelInvalid,
+		};
+	});
+
+	const completeCount = checks.filter(
+		(c) => c.complete,
+	).length;
+	const incompleteCount = checks.length - completeCount;
+	const totalWeight = sumWeight(
+		signers.filter((_, i) => checks[i].complete),
+	);
+	const tooFewSigners = signers.length < CONFIG.MIN_MEMBERS;
+
+	// Rows that hold Continue back, by their 1-based position.
+	const blocked = checks.flatMap((c, i) =>
+		c.complete ? [] : [i + 1],
+	);
+	let blockedMessage: string | null = null;
+	let addressMessage: string | null = null;
+	if (blocked.length > 0) {
+		const only = checks[blocked[0] - 1];
+		if (
+			blocked.length === 1 &&
+			only.status.kind === 'no-key'
+		) {
+			blockedMessage = `Add a public key for signer ${blocked[0]}, or remove the row, to continue.`;
+			addressMessage = `Add a public key for signer ${blocked[0]}, or remove the row to see the address.`;
+		} else {
+			const which = `${blocked.length === 1 ? 'signer' : 'signers'} ${joinList(blocked.map(String), 'and')}`;
+			blockedMessage = `Finish or remove ${which} to continue.`;
+			addressMessage = `Finish or remove ${which} to see the address.`;
+		}
+	}
+
+	const address =
+		blocked.length === 0 && signers.length > 0
+			? computeMultisigAddress(
+					signers.map((s) => s.key.trim()),
+					signers.map((s) => s.weight),
+					threshold,
+				).address
+			: null;
+
+	return {
+		signers: checks,
+		completeCount,
+		incompleteCount,
+		totalWeight,
+		tooFewSigners,
+		blockedMessage: tooFewSigners ? null : blockedMessage,
+		addressMessage,
+		canContinue:
+			!tooFewSigners && blocked.length === 0 && !!address,
+		warning: tooFewSigners
+			? null
+			: thresholdWarning({
+					signers: signers.flatMap((s, i) =>
+						checks[i].complete
+							? [
+									{
+										name: names[i],
+										weight: s.weight,
+										you: !!s.isCreator,
+									},
+								]
+							: [],
+					),
+					threshold,
+					totalWeight,
+				}),
+		address,
+	};
+}
+
+function keyStatus(
+	signer: SignerDraft,
+	lookups: Record<string, FailedLookup>,
+): SignerStatus {
+	const key = signer.key.trim();
+	if (!key) return { kind: 'blank' };
+
+	const address = addressInput(key);
+	if (address) {
+		const failed = lookups[address];
+		if (!failed) return { kind: 'looking-up' };
+		if (failed.kind === 'error')
+			return { kind: 'error', message: failed.message };
+		if (failed.kind === 'unreachable')
+			return { kind: 'error', message: COPY.lookupFailed };
+		return {
+			kind: 'no-key',
+			message: COPY.noKey(signer.label.trim()),
+		};
+	}
+
+	const parsed = validatePublicKey(key);
+	return parsed.isValid && parsed.address
+		? { kind: 'valid', address: parsed.address }
+		: { kind: 'error', message: COPY.invalidKey };
+}
+
+/**
+ * Warns when one signer can approve alone, or when every signer has to
+ * sign. `you` marks the creator, who the copy addresses as "you".
+ */
+export function thresholdWarning({
+	signers,
+	threshold,
+	totalWeight,
+}: {
+	signers: {
+		name: string;
+		weight: number;
+		you?: boolean;
+	}[];
+	threshold: number;
+	totalWeight: number;
+}): string | null {
+	const alone = signers.filter(
+		(s) => s.weight >= threshold,
+	);
+	if (alone.length === 1) {
+		const [{ name, weight, you }] = alone;
+		return you
+			? `You can approve proposals alone. Your weight (${weight}) is at or above the threshold (${threshold}). Lower your weight below ${threshold}, or raise the threshold above ${weight}.`
+			: `${name} can approve proposals alone. ${name}’s weight (${weight}) is at or above the threshold (${threshold}). Lower ${name}’s weight below ${threshold}, or raise the threshold above ${weight}.`;
+	}
+	if (alone.length > 1) {
+		const highest = Math.max(...alone.map((s) => s.weight));
+		const names = alone.map((s, i) =>
+			s.you ? (i === 0 ? 'You' : 'you') : s.name,
+		);
+		return `${joinList(names, 'or')} can approve proposals alone. Raise the threshold to ${highest + 1} or more so every proposal needs at least two signers.`;
+	}
+	// Everyone is needed when leaving any one signer out drops the rest
+	// below the threshold: weights 2 and 2 with a threshold of 3, not only
+	// a threshold at the total.
+	if (
+		signers.length > 0 &&
+		signers.every((s) => totalWeight - s.weight < threshold)
+	)
+		return COPY.everyoneMustSign;
+	return null;
+}
+
+/**
+ * The threshold bar, drawn like the invitation's weight bar: the weight
+ * the threshold needs as accepted, the rest as pending. One segment per
+ * unit of weight up to the cap, then two runs whose accepted part keeps
+ * a minimum width so a small threshold stays visible. The accepted
+ * weight never drops below one, so with no weight yet the bar still
+ * shows the one unit the threshold starts at rather than nothing.
+ */
+export function thresholdBar(
+	threshold: number,
+	totalWeight: number,
+): WeightBarLayout {
+	return weightBarLayout(
+		[
+			{
+				weight: Math.max(
+					Math.min(threshold, totalWeight),
+					1,
+				),
+				tone: 'accepted',
+			},
+			{
+				weight: Math.max(totalWeight - threshold, 0),
+				tone: 'pending',
+			},
+		],
+		threshold,
+	);
+}
+
+/** What the success banner calls an invited signer. */
+export function invitedName(signer: SignerDraft) {
+	const label = signer.label.trim();
+	if (label) return label;
+	const { address } = validatePublicKey(signer.key.trim());
+	return address ? formatAddress(address) : 'a signer';
+}

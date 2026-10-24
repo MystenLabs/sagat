@@ -15,16 +15,30 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { NetworkSelector } from '@/components/LocalNetworkSelector';
+import { NetworkSelector } from '@/components/NetworkSelector';
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
 import { Alert } from '@/components/ui/Alert';
-import { Button } from '@/components/ui/button';
+import {
+	Button,
+	buttonVariants,
+} from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
+import { Label } from '@/components/ui/label';
+import {
+	Skeleton,
+	SkeletonLine,
+} from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
-import { getExplorerUrl } from '@/lib/utils';
+import { toast } from '@/lib/toast';
+import {
+	cn,
+	errorMessage,
+	getExplorerUrl,
+	safeDecode,
+} from '@/lib/utils';
 
 type SimulateResult =
 	SuiClientTypes.SimulateTransactionResult<{
@@ -39,6 +53,8 @@ interface SignedResult {
 	digest?: string;
 	signature: string;
 	bytes: string;
+	/** Set when the transaction executed but failed on chain. */
+	failure?: { message: string };
 }
 
 function TransactionInput({
@@ -49,21 +65,21 @@ function TransactionInput({
 	onChange: (value: string) => void;
 }) {
 	return (
-		<div className="space-y-2">
-			<label
-				htmlFor="transaction-data"
-				className="text-sm font-medium text-muted-foreground"
-			>
-				Transaction Data (JSON or base64)
-			</label>
+		<div className="flex flex-col gap-2">
+			<div className="flex items-center justify-between gap-3">
+				<Label htmlFor="transaction-data">
+					Transaction data (JSON or base64)
+				</Label>
+				<NetworkSelector />
+			</div>
 			<Textarea
 				id="transaction-data"
 				data-testid="transaction-data-input"
-				placeholder="Enter transaction data in JSON format or base64..."
+				placeholder="Paste transaction JSON or base64 bytes…"
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				rows={6}
-				className="font-mono text-sm"
+				className="font-mono text-12"
 			/>
 		</div>
 	);
@@ -90,12 +106,24 @@ function PreviewResult({
 }) {
 	if (isLoading) {
 		return (
-			<div className="border border-border bg-card rounded-lg p-4">
-				<div className="flex items-center gap-2">
-					<div className="w-5 h-5 border-2 border-border border-t-primary rounded-full animate-spin" />
-					<h3 className="font-medium text-foreground">
-						Previewing transaction...
-					</h3>
+			<div
+				role="status"
+				aria-busy
+				className="flex flex-col gap-3"
+				data-testid="transaction-preview-loading"
+			>
+				<span className="sr-only">
+					Previewing transaction…
+				</span>
+				<SkeletonLine className="h-3 w-36" />
+				<div className="flex flex-col gap-3 rounded-lg border bg-surface p-4">
+					<SkeletonLine className="w-48" />
+					<div className="flex flex-col gap-2">
+						<SkeletonLine className="w-3/4" />
+						<SkeletonLine className="w-3/4" />
+						<SkeletonLine className="w-1/4" />
+					</div>
+					<Skeleton className="h-8 w-full rounded-md" />
 				</div>
 			</div>
 		);
@@ -103,27 +131,23 @@ function PreviewResult({
 
 	return (
 		<div
-			className="py-2"
+			className="flex flex-col gap-3"
 			data-testid="transaction-preview-result"
 			data-result={isSuccess ? 'success' : 'failure'}
 		>
-			<div className="flex items-center gap-2 mb-3">
+			<div className="flex items-center gap-2 text-14 font-medium">
 				{isSuccess ? (
 					<>
 						<Check
 							strokeWidth={3}
-							className="w-4 h-4 text-success-foreground"
+							className="size-4 text-success-foreground"
 						/>
-						<h3 className="font-medium text-foreground">
-							Transaction Preview - Success
-						</h3>
+						Preview succeeded
 					</>
 				) : (
 					<>
-						<AlertCircle className="w-5 h-5 text-error-foreground" />
-						<h3 className="font-medium text-foreground">
-							Transaction Preview - Failed
-						</h3>
+						<AlertCircle className="size-4 text-error-foreground" />
+						Preview failed
 					</>
 				)}
 			</div>
@@ -136,23 +160,21 @@ function PreviewResult({
 					analysisError={analysisError}
 				/>
 			) : (
-				<div className="space-y-3">
+				<div className="flex flex-col gap-3">
 					<IntentSummary
 						analysis={analysis}
 						isLoading={isAnalysisLoading}
 						error={analysisError}
 					/>
-					<p className="text-sm text-error-foreground whitespace-pre-wrap">
-						{decodeURIComponent(
+					<p className="text-13 whitespace-pre-wrap text-error-foreground">
+						{safeDecode(
 							error?.message ||
 								'Transaction would fail on-chain',
 						)}
 					</p>
 					<Alert variant="warning">
-						<span className="">
-							Make sure you've selected the correct network
-							above
-						</span>
+						Make sure the network next to the input matches
+						the transaction.
 					</Alert>
 				</div>
 			)}
@@ -169,26 +191,42 @@ function SignedResultDisplay({
 	onStartOver: () => void;
 	network: string;
 }) {
+	const failed = !!result.failure;
+	const explorerUrl = result.digest
+		? getExplorerUrl(result.digest, network)
+		: null;
+
 	return (
 		<div
-			className="border border-border bg-card rounded-lg p-4"
+			className={cn(
+				'flex flex-col gap-4 rounded-lg border bg-surface p-4',
+				failed
+					? 'border-error-border'
+					: 'border-success-border',
+			)}
 			data-testid="signed-result"
+			data-result={failed ? 'failure' : 'success'}
 			data-digest={result.digest}
 			data-signature={result.signature}
 		>
-			<div className="flex items-center justify-between mb-3">
-				<div className="flex items-center gap-2">
-					<Check
-						strokeWidth={3}
-						className="w-4 h-4 text-success-foreground"
-					/>
-					<h3 className="font-medium text-foreground">
-						Transaction{' '}
-						{result.digest
-							? 'Signed and Executed'
-							: 'Signed'}{' '}
-						Successfully
-					</h3>
+			<div className="flex items-center justify-between gap-3">
+				<div className="flex items-center gap-2 text-14 font-medium">
+					{failed ? (
+						<>
+							<AlertCircle className="size-4 text-error-foreground" />
+							Transaction failed
+						</>
+					) : (
+						<>
+							<Check
+								strokeWidth={3}
+								className="size-4 text-success-foreground"
+							/>
+							{result.digest
+								? 'Transaction signed and executed'
+								: 'Transaction signed'}
+						</>
+					)}
 				</div>
 				<Button
 					type="button"
@@ -197,32 +235,39 @@ function SignedResultDisplay({
 					size="sm"
 					data-testid="start-over-button"
 				>
-					Start Over
+					Start over
 				</Button>
 			</div>
-			<div className="space-y-3">
-				<FieldDisplay
-					label={
-						result.digest
-							? 'Transaction Digest'
-							: 'Signature'
-					}
-					value={result.digest || result.signature}
-				/>
-				{result.digest && (
-					<Button size="sm" variant="outline" asChild>
-						<a
-							href={getExplorerUrl(result.digest, network)}
-							target="_blank"
-							rel="noopener noreferrer"
-							className="flex items-center gap-1"
-						>
-							<ExternalLink className="w-4 h-4" />
-							View Transaction
-						</a>
-					</Button>
-				)}
-			</div>
+			<FieldDisplay
+				label={
+					result.digest ? 'Transaction digest' : 'Signature'
+				}
+				value={result.digest || result.signature}
+			/>
+			{result.failure && (
+				<p
+					className="text-13 whitespace-pre-wrap text-error-foreground"
+					data-testid="signed-result-error"
+				>
+					{safeDecode(result.failure.message)}
+				</p>
+			)}
+			{explorerUrl && (
+				<div>
+					<a
+						href={explorerUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						className={buttonVariants({
+							variant: 'outline',
+							size: 'sm',
+						})}
+					>
+						<ExternalLink />
+						View on explorer
+					</a>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -251,10 +296,10 @@ function SignButton({
 			}
 		>
 			{isSigning
-				? 'Signing...'
+				? 'Signing…'
 				: shouldExecute
-					? 'Sign and Execute with Wallet'
-					: 'Sign with Wallet'}
+					? 'Sign and execute'
+					: 'Sign only'}
 		</Button>
 	);
 }
@@ -267,6 +312,7 @@ export default function SigningTool() {
 	const [isSigning, setIsSigning] = useState(false);
 	const [isSigningAndExecuting, setIsSigningAndExecuting] =
 		useState(false);
+	const isSignPending = isSigning || isSigningAndExecuting;
 
 	const network = useCurrentNetwork();
 	const dappKit = useDAppKit();
@@ -315,7 +361,7 @@ export default function SigningTool() {
 	};
 
 	const handleSign = async (shouldExecute: boolean) => {
-		if (!transactionData) return;
+		if (!transactionData || isSignPending) return;
 
 		try {
 			const tx = Transaction.from(transactionData);
@@ -327,13 +373,20 @@ export default function SigningTool() {
 						transaction: tx,
 					});
 
-				const txResult =
-					result.Transaction ?? result.FailedTransaction;
+				const failed = result.FailedTransaction;
+				const txResult = result.Transaction ?? failed;
 
 				setSignedResult({
 					digest: txResult?.digest,
 					signature: txResult?.signatures[0] ?? '',
 					bytes: transactionData,
+					failure: failed
+						? {
+								message:
+									failed.effects?.status.error?.message ||
+									'The transaction failed on chain.',
+							}
+						: undefined,
 				});
 			} else {
 				setIsSigning(true);
@@ -347,8 +400,14 @@ export default function SigningTool() {
 					bytes: result.bytes,
 				});
 			}
-		} catch {
-			// Error handled by mutation
+		} catch (error) {
+			// The input stays, so the user can retry.
+			toast.error(
+				errorMessage(
+					error,
+					'Failed to sign the transaction',
+				),
+			);
 		} finally {
 			setIsSigning(false);
 			setIsSigningAndExecuting(false);
@@ -362,76 +421,61 @@ export default function SigningTool() {
 	};
 
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center justify-between gap-4">
-				<div>
-					<p className="text-sm text-muted-foreground">
-						Preview and sign transactions with your
-						connected wallet.
-					</p>
-				</div>
-				<NetworkSelector />
-			</div>
+		<div className="flex flex-col gap-6">
+			{!signedResult && (
+				<TransactionInput
+					value={transactionData}
+					onChange={handleTransactionDataChange}
+				/>
+			)}
 
-			<div className="space-y-6">
-				{!signedResult && (
-					<TransactionInput
-						value={transactionData}
-						onChange={handleTransactionDataChange}
+			{!signedResult &&
+				(dryRun.isPending ||
+					dryRun.data ||
+					dryRun.error) && (
+					<PreviewResult
+						isSuccess={isDryRunSuccessful}
+						data={dryRun.data}
+						error={dryRun.error}
+						isLoading={dryRun.isPending}
+						bytes={transactionData}
+						analysis={analysis.data}
+						isAnalysisLoading={analysis.isPending}
+						analysisError={analysis.error}
 					/>
 				)}
 
-				{!signedResult &&
-					(dryRun.isPending ||
-						dryRun.data ||
-						dryRun.error) && (
-						<PreviewResult
-							isSuccess={isDryRunSuccessful}
-							data={dryRun.data}
-							error={dryRun.error}
-							isLoading={dryRun.isPending}
-							bytes={transactionData}
-							analysis={analysis.data}
-							isAnalysisLoading={analysis.isPending}
-							analysisError={analysis.error}
-						/>
+			{signedResult && (
+				<SignedResultDisplay
+					result={signedResult}
+					onStartOver={handleStartOver}
+					network={network}
+				/>
+			)}
+
+			{isDryRunSuccessful && !signedResult && (
+				<div className="flex flex-col gap-3 border-t pt-4">
+					{!currentAccount && (
+						<Alert>
+							Connect a wallet to sign this transaction.
+						</Alert>
 					)}
-
-				{signedResult && (
-					<SignedResultDisplay
-						result={signedResult}
-						onStartOver={handleStartOver}
-						network={network}
-					/>
-				)}
-
-				{isDryRunSuccessful && !signedResult && (
-					<div className="space-y-3 pt-4">
-						<div className="flex gap-2 justify-end">
-							<SignButton
-								onSign={handleSign}
-								shouldExecute={true}
-								isSigning={isSigningAndExecuting}
-								disabled={!currentAccount}
-							/>
-							<SignButton
-								onSign={handleSign}
-								shouldExecute={false}
-								isSigning={isSigning}
-								disabled={!currentAccount}
-							/>
-						</div>
-						{!currentAccount && (
-							<Alert>
-								<span>
-									No wallet connected. Connect a wallet to
-									sign this transaction.
-								</span>
-							</Alert>
-						)}
+					<div className="flex justify-end gap-2">
+						<SignButton
+							onSign={handleSign}
+							shouldExecute={false}
+							isSigning={isSigning}
+							disabled={!currentAccount || isSignPending}
+						/>
+						<SignButton
+							onSign={handleSign}
+							shouldExecute={true}
+							isSigning={isSigningAndExecuting}
+							disabled={!currentAccount || isSignPending}
+						/>
 					</div>
-				)}
-			</div>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -3,8 +3,10 @@
 
 import { describe, expect, test } from 'vitest';
 
+import type { SuiNetwork } from '../src/contexts/NetworkContext';
 import {
 	buildCoinDisplayMap,
+	coinLabels,
 	selectFallbackCoinTypes,
 	type CoinMetadata,
 	type RecognizedCoin,
@@ -110,6 +112,7 @@ describe('buildCoinDisplayMap', () => {
 			[SUI],
 			recMap,
 			metaMap,
+			'mainnet',
 		);
 		const entry = result.get(SUI);
 		expect(entry?.recognized).toBe(true);
@@ -122,6 +125,7 @@ describe('buildCoinDisplayMap', () => {
 			[USDC],
 			new Map(),
 			new Map([[USDC, metadata({ symbol: 'USDC' })]]),
+			'mainnet',
 		);
 		const entry = result.get(USDC);
 		expect(entry?.recognized).toBe(false);
@@ -139,6 +143,7 @@ describe('buildCoinDisplayMap', () => {
 			[SUI, USDC, FOO],
 			new Map(),
 			metaMap,
+			'mainnet',
 		);
 		expect(result.size).toBe(3);
 		expect(result.get(SUI)?.symbol).toBe('SUI');
@@ -161,6 +166,7 @@ describe('buildCoinDisplayMap', () => {
 			[SUI, USDC, FOO],
 			recMap,
 			metaMap,
+			'mainnet',
 		);
 		expect(result.get(SUI)?.recognized).toBe(false);
 		expect(result.get(USDC)?.recognized).toBe(true);
@@ -172,6 +178,7 @@ describe('buildCoinDisplayMap', () => {
 			[SUI, FOO],
 			new Map([[SUI, recognized(SUI)]]),
 			new Map(),
+			'mainnet',
 		);
 		expect(result.has(SUI)).toBe(true);
 		expect(result.has(FOO)).toBe(false);
@@ -182,7 +189,60 @@ describe('buildCoinDisplayMap', () => {
 			[FOO],
 			new Map(),
 			new Map([[FOO, null]]),
+			'mainnet',
 		);
 		expect(result.has(FOO)).toBe(false);
+	});
+
+	test('keeps the registry details but drops its prices off mainnet', () => {
+		for (const network of [
+			'testnet',
+			'devnet',
+			'localnet',
+		] satisfies SuiNetwork[]) {
+			const entry = buildCoinDisplayMap(
+				[SUI],
+				new Map([[SUI, recognized(SUI)]]),
+				new Map(),
+				network,
+			).get(SUI);
+			expect(entry).toMatchObject({
+				recognized: true,
+				symbol: 'REC',
+				decimals: 9,
+				iconUrl: 'https://example.test/rec.png',
+				priceUsd: null,
+				priceChange24hUsd: null,
+				priceChange24hPercentage: null,
+			});
+		}
+	});
+});
+
+describe('coinLabels', () => {
+	test("uses the coin's symbol and name", () => {
+		expect(
+			coinLabels(USDC, {
+				symbol: 'USDC',
+				name: 'USD Coin',
+			}),
+		).toEqual({ symbol: 'USDC', name: 'USD Coin' });
+	});
+
+	test('falls back to the compact and full type without details', () => {
+		const coinType =
+			'0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI';
+		expect(coinLabels(coinType, undefined)).toEqual({
+			symbol: '0x2::sui::SUI',
+			name: '0x2::sui::SUI',
+		});
+	});
+
+	test('truncates a long package in the fallback symbol only', () => {
+		const coinType = `0x${'ab'.repeat(32)}::foo::FOO`;
+		expect(coinLabels(coinType, { name: null })).toEqual({
+			symbol: `0xabab...abababab::foo::FOO`,
+			name: coinType,
+		});
 	});
 });

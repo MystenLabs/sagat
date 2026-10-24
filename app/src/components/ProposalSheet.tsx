@@ -15,6 +15,8 @@ import { useCallback, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod/v3';
 
+import { safeDecode } from '@/lib/utils';
+
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCreateProposal } from '../hooks/useCreateProposal';
 import { useMultisigBalances } from '../hooks/useMultisigBalances';
@@ -26,7 +28,7 @@ import {
 import { EffectsPreview } from './preview-effects/EffectsPreview';
 import { IntentSummary } from './preview-effects/IntentSummary';
 import { Button } from './ui/button';
-import { Label } from './ui/label';
+import { Chip } from './ui/chip';
 import {
 	Sheet,
 	SheetContent,
@@ -225,13 +227,13 @@ function ProposalSheetBody({
 							once submitted.
 						</SheetDescription>
 					</div>
-					<Label
+					<Chip
 						variant={
 							network === 'testnet' ? 'warning' : 'info'
 						}
 					>
 						{network}
-					</Label>
+					</Chip>
 				</div>
 			</SheetHeader>
 
@@ -289,7 +291,7 @@ function ProposalSheetBody({
 									onClick={() =>
 										setShowRawTransaction((v) => !v)
 									}
-									className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+									className="cursor-pointer flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
 								>
 									{showRawTransaction ? (
 										<ChevronDown className="w-3.5 h-3.5" />
@@ -419,7 +421,7 @@ function ProposalSheetBody({
 										error={analysis.error}
 									/>
 									<p className="text-sm text-error-foreground">
-										{decodeURIComponent(
+										{safeDecode(
 											dryRun.error?.message ||
 												'Transaction would fail on-chain',
 										)}

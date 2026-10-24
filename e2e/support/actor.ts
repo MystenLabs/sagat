@@ -7,6 +7,7 @@ import {
 	type Browser,
 	type BrowserContext,
 	type Page,
+	type Route,
 } from '@playwright/test';
 
 import type { E2EWalletConfig } from '../wallet/types';
@@ -21,6 +22,15 @@ const LOCAL_HOSTS = new Set([
 ]);
 const RECOGNIZED_COINS_URL =
 	'https://apps-backend.sui.io/v2/recognized-coins';
+
+// An entry of the price list, as the endpoint returns it.
+export interface RecognizedCoin {
+	coinType: string;
+	symbol: string;
+	name: string;
+	decimals: number;
+	priceUsd: number | null;
+}
 
 // A test user with their own browser context (own cookies, own wallet).
 // Every person in a multi-party flow needs one: the API accepts invitations
@@ -44,6 +54,8 @@ export class Actor extends Identity {
 		name: string,
 		keypair: Ed25519Keypair,
 		otherAccounts: Identity[] = [],
+		walletChains?: E2EWalletConfig['chains'],
+		failRestore?: boolean,
 	) {
 		const context = await browser.newContext();
 		await isolateFromInternet(context);
@@ -58,9 +70,14 @@ export class Actor extends Identity {
 					secretKey: account.keypair.getSecretKey(),
 				})),
 			],
+			chains: walletChains,
+			failRestore,
 		};
 		await context.addInitScript((config) => {
-			localStorage.setItem('SuiNetwork', 'localnet');
+			// Start on localnet, but keep a network the app saved, so a
+			// reload lands where the user left off.
+			if (!localStorage.getItem('SuiNetwork'))
+				localStorage.setItem('SuiNetwork', 'localnet');
 			window.__E2E_WALLET_CONFIG__ = config;
 		}, walletConfig);
 		await context.addInitScript({
@@ -148,9 +165,23 @@ export class Actor extends Identity {
 		);
 	}
 
+	// Answers the price list with `coins` instead of an empty one. Call it
+	// before the page loads, as the app reads the list once.
+	async stubRecognizedCoins(coins: RecognizedCoin[]) {
+		await this.page.route(RECOGNIZED_COINS_URL, (route) =>
+			fulfillRecognizedCoins(route, coins),
+		);
+	}
+
 	proposalCard(digest: string) {
 		return this.page.locator(
 			`[data-testid="proposal-card"][data-digest="${digest}"]`,
+		);
+	}
+
+	openProposal(digest: string) {
+		return this.page.locator(
+			`[data-testid="open-proposal"][data-digest="${digest}"]`,
 		);
 	}
 
@@ -189,11 +220,18 @@ async function isolateFromInternet(
 					.url()
 					.startsWith(RECOGNIZED_COINS_URL)
 			)
-				return route.fulfill({
-					json: { coins: [] },
-					headers: { 'access-control-allow-origin': '*' },
-				});
+				return fulfillRecognizedCoins(route, []);
 			return route.abort('blockedbyclient');
 		},
 	);
+}
+
+function fulfillRecognizedCoins(
+	route: Route,
+	coins: RecognizedCoin[],
+) {
+	return route.fulfill({
+		json: { coins },
+		headers: { 'access-control-allow-origin': '*' },
+	});
 }

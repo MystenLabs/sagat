@@ -19,13 +19,15 @@ import { type Identity } from './identity';
 
 // Creates a multisig with `creator` as its first member. Unless `accept` is
 // false, every other member accepts their invitation, so the multisig is
-// ready for proposals.
+// ready for proposals. `labels`, like `weights`, are aligned with the
+// creator followed by `members`.
 export async function setupMultisig({
 	creator,
 	members,
 	threshold,
 	weights,
 	name,
+	labels,
 	accept = true,
 }: {
 	creator: Identity;
@@ -33,6 +35,7 @@ export async function setupMultisig({
 	threshold: number;
 	weights?: number[];
 	name?: string;
+	labels?: (string | null)[];
 	accept?: boolean;
 }) {
 	// The API accepts the invitation right away for a signed-in creator.
@@ -43,21 +46,39 @@ export async function setupMultisig({
 		weights: weights ?? all.map(() => 1),
 		threshold,
 		name,
+		labels,
 	});
 
 	if (accept)
 		for (const member of members)
-			await member.api.acceptMultisigInvite(
-				multisig.address,
-				{
-					signature: await member.signMessage(
-						PersonalMessages.acceptMultisigInvitation(
-							multisig.address,
-						),
-					),
-				},
-			);
+			await acceptInvitation(member, multisig.address);
 	return multisig;
+}
+
+export async function acceptInvitation(
+	member: Identity,
+	multisigAddress: string,
+) {
+	return member.api.acceptMultisigInvite(multisigAddress, {
+		signature: await member.signMessage(
+			PersonalMessages.acceptMultisigInvitation(
+				multisigAddress,
+			),
+		),
+	});
+}
+
+export async function rejectInvitation(
+	member: Identity,
+	multisigAddress: string,
+) {
+	return member.api.rejectMultisigInvite(multisigAddress, {
+		signature: await member.signMessage(
+			PersonalMessages.rejectMultisigInvitation(
+				multisigAddress,
+			),
+		),
+	});
 }
 
 // Signs in to the API with the identity's key, which also registers its

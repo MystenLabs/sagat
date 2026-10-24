@@ -16,8 +16,10 @@ import {
 
 import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
+import { useSessionBoot } from '../hooks/useSessionBoot';
+import { ApiUnreachable } from './ApiUnreachable';
 import { AuthPrompt } from './AuthPrompt';
-import { CreateMultisigPage } from './CreateMultisigPage';
+import { CreateMultisigPage } from './create-multisig/CreateMultisigPage';
 import { CustomWalletButton } from './CustomWalletButton';
 import { DevnetNotSupported } from './DevnetNotSupported';
 import { InvitationsPage } from './InvitationsPage';
@@ -27,8 +29,9 @@ import { SmartDashboard } from './SmartDashboard';
 import { AssetsTab } from './tabs/AssetsTab';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ProposalsTab } from './tabs/ProposalsTab';
+import { SignersTab } from './tabs/SignersTab';
 import { ToolsPage } from './ToolsPage';
-import { Loading } from './ui/loading';
+import { SkeletonPage } from './ui/skeleton';
 
 type AuthLevel = 'public' | 'wallet' | 'full';
 
@@ -96,6 +99,11 @@ const routes: RouteConfig[] = [
 				element: <AssetsTab />,
 				authLevel: 'full',
 			},
+			{
+				path: 'signers',
+				element: <SignersTab />,
+				authLevel: 'full',
+			},
 		],
 	},
 ];
@@ -112,8 +120,11 @@ function getAuthLevel(pathname: string): AuthLevel {
 
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
-	const { isCheckingAuth, isCurrentAddressAuthenticated } =
-		useApiAuth();
+	const { reconnecting, checkingAuth } = useSessionBoot();
+	const {
+		isApiUnreachable,
+		isCurrentAddressAuthenticated,
+	} = useApiAuth();
 	const location = useLocation();
 	const network = useCurrentNetwork();
 
@@ -181,6 +192,18 @@ export function AppRouter() {
 		return <DevnetNotSupported />;
 	}
 
+	// The wallet kit is still restoring the previous session: hold the
+	// layout instead of flashing the connect prompt.
+	if (reconnecting) {
+		return (
+			<SkeletonPage
+				rows={3}
+				message="Reconnecting wallet"
+				testId="wallet-reconnecting"
+			/>
+		);
+	}
+
 	// Full auth routes - require wallet + API auth
 	if (!currentAccount) {
 		return (
@@ -202,9 +225,16 @@ export function AppRouter() {
 	// Wallet-only routes - require wallet but not API auth
 	if (authLevel === 'wallet') return renderRoutes;
 
-	if (isCheckingAuth) {
-		return <Loading message="Checking authentication..." />;
+	if (checkingAuth) {
+		return (
+			<SkeletonPage
+				rows={3}
+				message="Checking authentication"
+			/>
+		);
 	}
+
+	if (isApiUnreachable) return <ApiUnreachable />;
 
 	if (!isCurrentAddressAuthenticated) {
 		return <AuthPrompt />;

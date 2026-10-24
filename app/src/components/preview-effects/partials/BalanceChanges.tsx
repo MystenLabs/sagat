@@ -5,6 +5,7 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { useMemo } from 'react';
 
 import { useCoinDisplayDataMap } from '../../../hooks/useCoinDisplayData';
+import { formatCoinType } from '../../../lib/coin-type';
 import {
 	coinUsdValue,
 	formatCoinAmount,
@@ -14,7 +15,6 @@ import { CoinIcon } from '../../ui/CoinIcon';
 import { CopyButton } from '../../ui/CopyButton';
 import { Skeleton } from '../../ui/skeleton';
 import { PreviewCard } from '../PreviewCard';
-import { formatCoinType } from '../utils';
 
 type CoinDataMap = ReturnType<
 	typeof useCoinDisplayDataMap

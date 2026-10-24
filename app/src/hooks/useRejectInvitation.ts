@@ -10,10 +10,10 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { QueryKeys } from '@/lib/queryKeys';
+import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
 
@@ -24,7 +24,11 @@ export function useRejectInvitation() {
 	const dappKit = useDAppKit();
 
 	return useMutation({
-		mutationFn: async (multisigAddress: string) => {
+		mutationFn: async ({
+			address: multisigAddress,
+		}: {
+			address: string;
+		}) => {
 			if (!currentAccount || !currentAddress) {
 				throw new Error('No wallet connected');
 			}
@@ -47,7 +51,7 @@ export function useRejectInvitation() {
 			);
 		},
 		onSuccess: () => {
-			toast.success('Invitation rejected successfully!');
+			toast.success('Invitation rejected');
 			// Invalidate the multisig queries to refresh the list
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
@@ -56,10 +60,12 @@ export function useRejectInvitation() {
 				queryKey: [QueryKeys.Invitations],
 			});
 		},
-		onError: (error: Error) => {
-			toast.error(
-				`Failed to reject invitation: ${error.message}`,
-			);
+		// The invitation may have been handled elsewhere (another tab), so
+		// refresh the list rather than assume it's still pending.
+		onError: () => {
+			void queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Invitations],
+			});
 		},
 	});
 }

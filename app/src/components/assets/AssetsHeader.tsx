@@ -13,7 +13,7 @@ interface AssetsHeaderProps {
 	isRefetching: boolean;
 	isRefreshCooldown: boolean;
 	onRefresh: () => void;
-	explorerUrl: string;
+	explorerUrl: string | null;
 	actions?: ReactNode;
 }
 
@@ -57,14 +57,18 @@ export function AssetsHeader({
 						)}
 					/>
 				</Button>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => window.open(explorerUrl, '_blank')}
-				>
-					<ExternalLink className="w-4 h-4 mr-2" />
-					Explorer
-				</Button>
+				{explorerUrl && (
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() =>
+							window.open(explorerUrl, '_blank')
+						}
+					>
+						<ExternalLink className="w-4 h-4 mr-2" />
+						Explorer
+					</Button>
+				)}
 			</div>
 		</div>
 	);

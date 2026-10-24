@@ -7,6 +7,7 @@ import { Check, Clock, X } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { type ProposalCardInput } from '@/lib/types';
+import { safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { useSignProposal } from '../../hooks/useSignProposal';
@@ -150,7 +151,7 @@ export function ProposalPreview({
 							error={analysis.error}
 						/>
 						<p className="text-sm text-error-foreground">
-							{decodeURIComponent(
+							{safeDecode(
 								dryRun.error.message ||
 									'Transaction would fail on-chain',
 							)}

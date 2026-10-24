@@ -4,19 +4,16 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { useMemo, useState } from 'react';
 
-import {
-	Label,
-	type LabelProps,
-} from '@/components/ui/label';
+import { Chip, type ChipProps } from '@/components/ui/chip';
+import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
 import { ObjectLink } from '../ObjectLink';
 import { PreviewCard } from '../PreviewCard';
-import { prettifyType } from '../utils';
 
 type ChangeKind = {
 	title: string;
-	variant: NonNullable<LabelProps['variant']>;
+	variant: NonNullable<ChipProps['variant']>;
 };
 
 function deriveChangeKind(
@@ -67,7 +64,7 @@ type AnnotatedObject = {
 };
 
 type KindGroup = {
-	variant: NonNullable<LabelProps['variant']>;
+	variant: NonNullable<ChipProps['variant']>;
 	count: number;
 };
 
@@ -80,7 +77,7 @@ function FilterPill({
 }: {
 	label: string;
 	count: number;
-	variant: NonNullable<LabelProps['variant']>;
+	variant: NonNullable<ChipProps['variant']>;
 	active: boolean;
 	onClick: () => void;
 }) {
@@ -90,7 +87,7 @@ function FilterPill({
 			onClick={onClick}
 			className="cursor-pointer"
 		>
-			<Label
+			<Chip
 				variant={variant}
 				size="sm"
 				className={cn(
@@ -99,7 +96,7 @@ function FilterPill({
 				)}
 			>
 				{label} ({count})
-			</Label>
+			</Chip>
 		</button>
 	);
 }
@@ -195,13 +192,13 @@ function ChangedObject({
 	return (
 		<PreviewCard.Root>
 			<PreviewCard.Body>
-				<Label
+				<Chip
 					variant={kind.variant}
 					size="sm"
 					className="rounded"
 				>
 					{kind.title}
-				</Label>
+				</Chip>
 
 				{objectType && (
 					<div className="flex gap-3 items-center wrap-break-word my-2">

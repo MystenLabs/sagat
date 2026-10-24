@@ -16,4 +16,5 @@ export const QueryKeys = {
 	Executed: 'executed',
 	Invitations: 'invitations',
 	EpochInfo: 'epoch-info',
+	ApiHealth: 'api-health',
 } as const;

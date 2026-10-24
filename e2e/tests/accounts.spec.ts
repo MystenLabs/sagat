@@ -1,6 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+	addSigners,
+	nameMultisig,
+	setThreshold,
+	signerRows,
+} from '../support/create-wizard';
 import { expect, test } from '../support/fixtures';
 import { setupMultisig } from '../support/scenarios';
 
@@ -88,29 +94,24 @@ test.describe('several accounts in one wallet', () => {
 		await alice.switchAccount(alice);
 
 		await page.goto('/create');
-		const members = page.getByTestId('member-row');
+		await nameMultisig(page, 'Shared');
 		await expect(
-			members.nth(0).getByTestId('member-public-key-input'),
+			signerRows(page)
+				.first()
+				.getByTestId('create-signer-key'),
 		).toHaveValue(alice.publicKey);
-		for (const [index, member] of [
-			savings,
-			carol,
-		].entries()) {
-			await page.getByTestId('add-member-button').click();
-			await members
-				.nth(index + 1)
-				.getByTestId('member-public-key-input')
-				.fill(member.publicKey);
-		}
-		await page.getByTestId('threshold-input').fill('2');
-		await page
-			.getByTestId('create-multisig-submit')
-			.click();
+		await addSigners(page, [
+			{ key: savings.publicKey },
+			{ key: carol.publicKey },
+		]);
+		await setThreshold(page, 2);
+		await page.getByTestId('create-continue').click();
+		await page.getByTestId('create-submit').click();
 
 		await expect(
 			page.getByTestId('multisig-detail'),
 		).toBeVisible();
-		await page.getByTestId('multisig-tab-overview').click();
+		await page.getByTestId('multisig-tab-signers').click();
 		await expect(
 			alice.memberItem(alice.address),
 		).toHaveAttribute('data-status', 'accepted');

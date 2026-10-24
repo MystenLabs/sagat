@@ -51,10 +51,24 @@ test.describe('proposals', () => {
 		await sheet
 			.getByTestId('proposal-description-input')
 			.fill('Pay 1.5 SUI');
+		// The preview's help icon sits inside the form and must not submit it.
+		let proposalsCreated = 0;
+		alice.page.on('request', (request) => {
+			if (
+				request.method() === 'POST' &&
+				new URL(request.url()).pathname.endsWith(
+					'/proposals',
+				)
+			)
+				proposalsCreated++;
+		});
+		await sheet.getByTestId('preview-help').click();
+		await expect(sheet).toBeVisible();
 		await sheet
 			.getByTestId('create-proposal-submit')
 			.click();
 		await expect(sheet).toBeHidden();
+		expect(proposalsCreated).toBe(1);
 
 		// Proposing counts as Alice's signature.
 		await alice.page
@@ -92,6 +106,16 @@ test.describe('proposals', () => {
 		await bobCard
 			.getByTestId('execute-proposal-button')
 			.click();
+		// The success toast names the transaction. Suiscan doesn't index
+		// localnet, so there is no explorer link here.
+		const toast = bob.page.locator(
+			'[data-sonner-toast][data-type="success"]',
+			{ hasText: 'Proposal executed' },
+		);
+		await expect(toast).toContainText(digest!);
+		await expect(
+			toast.getByRole('button', { name: /explorer/i }),
+		).toHaveCount(0);
 		await expect(bobCard).toHaveAttribute(
 			'data-status',
 			'executed',

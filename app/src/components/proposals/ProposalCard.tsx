@@ -21,15 +21,18 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 
+import {
+	proposalStatusKey,
+	proposalTitle,
+} from '@/lib/proposalUtils';
 import { type ProposalCardInput } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import { useCancelProposal } from '../../hooks/useCancelProposal';
-import { useExecuteProposal } from '../../hooks/useExecuteProposal';
+import { useExecuteOrVerify } from '../../hooks/useExecuteProposal';
 import { useSignProposal } from '../../hooks/useSignProposal';
-import { useVerifyProposal } from '../../hooks/useVerifyProposal';
 import {
 	buildProposalExport,
 	downloadJson,
@@ -37,9 +40,9 @@ import {
 } from '../../lib/exportUtils';
 import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
-import { Button } from '../ui/button';
+import { Button, buttonVariants } from '../ui/button';
+import { Chip } from '../ui/chip';
 import { CopyButton } from '../ui/copy-button';
-import { Label } from '../ui/label';
 import {
 	Tooltip,
 	TooltipContent,
@@ -48,19 +51,12 @@ import {
 } from '../ui/tooltip';
 import { ProposalExpiry } from './ProposalExpiry';
 import { ProposalPreview } from './ProposalPreview';
+import { ProposalStatusChip } from './ProposalStatusChip';
 
 interface ProposalCardProps {
 	proposal: ProposalCardInput;
 	defaultExpanded?: boolean;
 }
-
-const STATUS_BADGES = {
-	executed: { variant: 'success', text: 'Executed' },
-	cancelled: { variant: 'neutral', text: 'Cancelled' },
-	failed: { variant: 'error', text: 'Failed' },
-	ready: { variant: 'info', text: 'Ready to Execute' },
-	pending: { variant: 'warning', text: 'Pending' },
-} as const;
 
 export function ProposalCard({
 	proposal,
@@ -68,37 +64,18 @@ export function ProposalCard({
 }: ProposalCardProps) {
 	const { network } = useNetwork();
 	const isNetworkMismatch = proposal.network !== network;
+	const explorerUrl = getExplorerUrl(
+		proposal.digest,
+		proposal.network,
+	);
 
 	const [isExpanded, setIsExpanded] =
 		useState(defaultExpanded);
 	const [showCancelModal, setShowCancelModal] =
 		useState(false);
-	const executeProposalMutation = useExecuteProposal();
-	const verifyProposalMutation = useVerifyProposal();
+	const executing = useExecuteOrVerify();
 	const cancelProposalMutation = useCancelProposal();
 	const signProposalMutation = useSignProposal();
-
-	// Check if current user has already signed this proposal
-	// Check if the proposal is ready to execute
-	const isReadyToExecute = () => {
-		if (proposal.status !== ProposalStatus.PENDING)
-			return false;
-		return proposal.currentWeight >= proposal.totalWeight;
-	};
-
-	const handleExecuteProposal = () => {
-		executeProposalMutation.mutate(
-			{
-				proposal,
-			},
-			{
-				onError: () => {
-					// If execution fails, try to verify (it might have been executed by someone else)
-					verifyProposalMutation.mutate(proposal.digest);
-				},
-			},
-		);
-	};
 
 	const handleConfirmCancel = () => {
 		cancelProposalMutation.mutate(proposal.id, {
@@ -127,32 +104,7 @@ export function ProposalCard({
 		);
 	};
 
-	const getProposalTitle = () => {
-		// Use description if available, otherwise use a truncated digest
-		if (proposal.description?.trim()) {
-			const length = proposal.description.trim().length;
-			return `${proposal.description.trim().slice(0, 50)}${length > 50 ? '...' : ''}`;
-		}
-		return `Transaction ${formatDigest(proposal.digest)}`;
-	};
-
-	const getStatusKey = () => {
-		if (proposal.status === ProposalStatus.SUCCESS)
-			return 'executed';
-		if (proposal.status === ProposalStatus.CANCELLED)
-			return 'cancelled';
-		if (proposal.status === ProposalStatus.FAILURE)
-			return 'failed';
-		if (proposal.currentWeight >= proposal.totalWeight)
-			return 'ready';
-		return 'pending';
-	};
-	const statusKey = getStatusKey();
-
-	const getStatusBadge = () => {
-		const { variant, text } = STATUS_BADGES[statusKey];
-		return <Label variant={variant}>{text}</Label>;
-	};
+	const statusKey = proposalStatusKey(proposal);
 
 	const isExternalProposer = () => {
 		if (!proposal.multisig) return false;
@@ -186,19 +138,19 @@ export function ProposalCard({
 		if (!userHasSigned()) return null;
 
 		return (
-			<Label
+			<Chip
 				variant="success"
 				data-testid="proposal-already-signed"
 			>
 				<Check strokeWidth={3} className="w-3 h-3" />
 				Already Signed
-			</Label>
+			</Chip>
 		);
 	};
 
 	return (
 		<div
-			className="bg-card border rounded-lg hover:shadow-sm transition-shadow"
+			className="bg-card border rounded-lg"
 			data-testid="proposal-card"
 			data-digest={proposal.digest}
 			data-status={statusKey}
@@ -208,9 +160,9 @@ export function ProposalCard({
 				<div className="flex-1">
 					<div className="flex max-md:flex-wrap items-center gap-2 mb-2">
 						<h4 className="font-medium text-foreground line-clamp-1">
-							{getProposalTitle()}
+							{proposalTitle(proposal)}
 						</h4>
-						{getStatusBadge()}
+						<ProposalStatusChip status={statusKey} />
 						{proposal.status === ProposalStatus.PENDING &&
 							!isNetworkMismatch && (
 								<ProposalExpiry
@@ -221,9 +173,9 @@ export function ProposalCard({
 							)}
 						{getSignatureStatus()}
 						{isExternalProposer() && (
-							<Label variant="purple">
+							<Chip variant="purple">
 								External Proposer
-							</Label>
+							</Chip>
 						)}
 					</div>
 
@@ -266,18 +218,15 @@ export function ProposalCard({
 								successMessage="Copied digest to clipboard"
 							/>
 							{!proposal.isPublic && (
-								<TooltipProvider delayDuration={150}>
+								<TooltipProvider delay={150}>
 									<Tooltip>
-										<TooltipTrigger asChild>
-											<button
-												type="button"
-												onClick={handleExportProposal}
-												className="inline-flex items-center justify-center rounded p-0.5 transition-colors hover:bg-accent cursor-pointer"
-												aria-label="Export proposal with signatures"
-												data-testid="export-proposal-button"
-											>
-												<Download className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-											</button>
+										<TooltipTrigger
+											onClick={handleExportProposal}
+											className="inline-flex items-center justify-center rounded p-0.5 transition-colors hover:bg-accent cursor-pointer"
+											aria-label="Export proposal with signatures"
+											data-testid="export-proposal-button"
+										>
+											<Download className="w-3 h-3 text-muted-foreground hover:text-foreground" />
 										</TooltipTrigger>
 										<TooltipContent>
 											Export proposal with signatures
@@ -290,17 +239,17 @@ export function ProposalCard({
 				</div>
 
 				<div className="md:ml-4 flex items-center gap-2">
-					{isReadyToExecute() && (
+					{statusKey === 'ready' && (
 						<Button
 							size="sm"
-							onClick={handleExecuteProposal}
-							disabled={executeProposalMutation.isPending}
+							onClick={() => executing.execute(proposal)}
+							disabled={executing.isPending}
 							variant="default"
 							data-testid="execute-proposal-button"
 						>
 							<Rocket className="w-4 h-4 mr-1" />
-							{executeProposalMutation.isPending
-								? 'Executing...'
+							{executing.isPending
+								? 'Executing…'
 								: 'Execute'}
 						</Button>
 					)}
@@ -318,21 +267,21 @@ export function ProposalCard({
 									: 'Cancel'}
 							</Button>
 						)}
-					{proposal.status === ProposalStatus.SUCCESS ? (
-						<Button size="sm" variant="outline" asChild>
-							<a
-								href={getExplorerUrl(
-									proposal.digest,
-									network,
-								)}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="flex items-center gap-1"
-							>
-								<ExternalLink className="w-4 h-4" />
-								View Transaction
-							</a>
-						</Button>
+					{proposal.status === ProposalStatus.SUCCESS &&
+					explorerUrl ? (
+						<a
+							href={explorerUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className={buttonVariants({
+								variant: 'outline',
+								size: 'sm',
+								className: 'flex items-center gap-1',
+							})}
+						>
+							<ExternalLink className="w-4 h-4" />
+							View Transaction
+						</a>
 					) : (
 						<Button
 							size="sm"
@@ -348,19 +297,17 @@ export function ProposalCard({
 						</Button>
 					)}
 					{proposal.status === ProposalStatus.PENDING && (
-						<Button size="sm" variant="ghost" asChild>
-							<CopyButton
-								size="md"
-								value={`${window.location.origin}/proposals?digest=${proposal.digest}`}
-								successMessage="Copied proposal link to clipboard"
-							/>
-						</Button>
+						<CopyButton
+							size="md"
+							value={`${window.location.origin}/proposals?digest=${proposal.digest}`}
+							successMessage="Copied proposal link to clipboard"
+						/>
 					)}
 				</div>
 			</div>
 
 			{/* Execute Error */}
-			{executeProposalMutation.error && (
+			{executing.error && (
 				<div
 					className="mx-4 mb-4 border border-error-border bg-error rounded-lg p-3"
 					data-testid="proposal-execute-error"
@@ -369,7 +316,7 @@ export function ProposalCard({
 						Failed to Execute Transaction
 					</h6>
 					<p className="text-sm text-error-foreground">
-						{executeProposalMutation.error.message}
+						{executing.error.message}
 					</p>
 				</div>
 			)}
@@ -411,20 +358,21 @@ export function ProposalCard({
 								on-chain.
 							</p>
 							<div className="flex items-center gap-2">
-								<Button size="sm" variant="outline" asChild>
+								{explorerUrl && (
 									<a
-										href={getExplorerUrl(
-											proposal.digest,
-											network,
-										)}
+										href={explorerUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="flex items-center gap-1"
+										className={buttonVariants({
+											variant: 'outline',
+											size: 'sm',
+											className: 'flex items-center gap-1',
+										})}
 									>
 										<ExternalLink className="w-4 h-4" />
 										View on Explorer
 									</a>
-								</Button>
+								)}
 								<span className="text-xs text-muted-foreground">
 									Digest: {proposal.digest}
 								</span>

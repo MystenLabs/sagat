@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { useAddProposer } from '../../hooks/useAddProposer';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Label } from '../ui/label';
 import {
 	Modal,
 	ModalActions,
@@ -68,13 +69,11 @@ export function AddProposerDialog({
 	return (
 		<Modal open={open} onClose={handleClose} size="lg">
 			<ModalHeader
-				icon={
-					<Plus className="w-6 h-6 text-info-foreground" />
-				}
+				icon={<Plus className="w-6 h-6 text-foreground" />}
 				title="Add Proposer"
 			/>
 
-			<form onSubmit={handleSubmit}>
+			<form onSubmit={handleSubmit} className="grid gap-4">
 				<ModalContent>
 					<p className="text-sm text-muted-foreground mb-4">
 						Add an external address that can create
@@ -83,12 +82,9 @@ export function AddProposerDialog({
 					</p>
 
 					<div className="space-y-2">
-						<label
-							htmlFor="proposer-address"
-							className="text-sm font-medium"
-						>
+						<Label htmlFor="proposer-address">
 							Proposer Address
-						</label>
+						</Label>
 						<Input
 							id="proposer-address"
 							placeholder="0x..."
@@ -97,9 +93,20 @@ export function AddProposerDialog({
 								setProposerAddress(e.target.value)
 							}
 							disabled={addProposer.isPending}
+							aria-invalid={!!validationError}
+							aria-describedby={
+								validationError
+									? 'proposer-address-error'
+									: undefined
+							}
+							data-testid="add-proposer-address-input"
 						/>
 						{validationError && (
-							<p className="text-sm text-error-foreground">
+							<p
+								id="proposer-address-error"
+								className="text-12 text-error-foreground"
+								data-testid="add-proposer-error"
+							>
 								{validationError}
 							</p>
 						)}

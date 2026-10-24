@@ -3,13 +3,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
+import { formatDateTime } from '@/lib/dates';
+
 import { useEpochInfo } from '../../hooks/useEpochInfo';
 import {
 	formatTimeLeft,
 	getExpiry,
 	type Expiry,
 } from '../../lib/expiration';
-import { Label } from '../ui/label';
+import { Chip } from '../ui/chip';
 import {
 	Tooltip,
 	TooltipContent,
@@ -36,18 +38,20 @@ export function ProposalExpiry({
 	if (!expiry) return null;
 
 	return (
-		<TooltipProvider delayDuration={150}>
+		<TooltipProvider delay={150}>
 			<Tooltip>
-				<TooltipTrigger asChild>
-					<Label
-						variant={expiry.expired ? 'error' : 'neutral'}
-						data-testid="proposal-expiry"
-						tabIndex={0}
-					>
-						{expiry.expired
-							? 'Expired'
-							: `Expires in ${formatTimeLeft(expiry.endsAt, now)}`}
-					</Label>
+				<TooltipTrigger
+					render={
+						<Chip
+							variant={expiry.expired ? 'error' : 'neutral'}
+							data-testid="proposal-expiry"
+							tabIndex={0}
+						/>
+					}
+				>
+					{expiry.expired
+						? 'Expired'
+						: `Expires in ${formatTimeLeft(expiry.endsAt, now)}`}
 				</TooltipTrigger>
 				<TooltipContent className="max-w-xs">
 					{explain(expiry)}
@@ -61,11 +65,7 @@ function explain({ lastEpoch, expired, endsAt }: Expiry) {
 	if (expired)
 		return `This transaction could only execute until the end of epoch ${lastEpoch}, so it can't run anymore. Cancel it and propose it again.`;
 
-	const time = endsAt.toLocaleString(undefined, {
-		dateStyle: 'medium',
-		timeStyle: 'short',
-	});
-	return `This transaction can only execute until the end of epoch ${lastEpoch}, around ${time}. After that, it has to be proposed again.`;
+	return `This transaction can only execute until the end of epoch ${lastEpoch}, around ${formatDateTime(endsAt)}. After that, it has to be proposed again.`;
 }
 
 // The current time, updated every minute.

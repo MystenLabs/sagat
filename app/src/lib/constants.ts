@@ -12,27 +12,20 @@ export const CONFIG = {
 	REFETCH_INTERVAL: 60000, // 1 minute
 	STALE_TIME: 300000, // 5 minutes
 
-	// Multisig Limits
+	// Multisig limits, mirroring the API (api/src/constants/limits.ts)
 	MAX_MEMBERS: 10,
 	MIN_MEMBERS: 2,
-	MIN_THRESHOLD: 1,
+	// A member's weight is a single byte in the multisig public key.
+	MAX_WEIGHT: 255,
+	// The API's MAX_KEY_LABEL_LENGTH, in characters (code points).
+	MAX_KEY_LABEL_LENGTH: 64,
 
 	// Network
 	DEFAULT_NETWORK: 'testnet' as const,
 
 	// Pagination
 	DEFAULT_PAGE_SIZE: 20,
-
-	// Explorer URLs
-	EXPLORER_URLS: {
-		testnet: 'https://suiscan.xyz/testnet',
-		mainnet: 'https://suiscan.xyz/mainnet',
-		devnet: 'https://suiscan.xyz/devnet',
-		localnet: 'http://localhost:9001', // For local development
-	},
 } as const;
-
-export type Network = keyof typeof CONFIG.EXPLORER_URLS;
 
 // Validation constants
 export const VALIDATION = {
@@ -40,7 +33,7 @@ export const VALIDATION = {
 	SUI_ADDRESS_LENGTH: 66, // Including 0x prefix
 
 	// Form validation
-	MAX_MULTISIG_NAME_LENGTH: 50,
+	MAX_MULTISIG_NAME_LENGTH: 40,
 	MAX_PROPOSAL_DESCRIPTION_LENGTH: 500,
 
 	// Transaction limits

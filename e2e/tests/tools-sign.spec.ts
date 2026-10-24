@@ -104,6 +104,97 @@ test.describe('transaction signer tool', () => {
 		);
 	});
 
+	test('shows a transaction that executes but fails on chain as failed', async ({
+		createActor,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		await chain.fund(alice.address);
+		const recipient = randomAddress();
+
+		await alice.page.goto('/tools/sign');
+		await alice.connectWallet();
+		const bytes = await chain.buildSuiTransferFailingAfter({
+			sender: alice.address,
+			recipient,
+			seconds: 10,
+		});
+		await alice.page
+			.getByTestId('transaction-data-input')
+			.fill(bytes);
+		await expect(
+			alice.page.getByTestId('transaction-preview-result'),
+		).toHaveAttribute('data-result', 'success');
+
+		await expect
+			.poll(() => chain.dryRunSucceeds(bytes), {
+				message: 'the transfer starts to fail',
+				timeout: 30_000,
+			})
+			.toBe(false);
+		await alice.page
+			.getByTestId('sign-and-execute-button')
+			.click();
+
+		// It executed, so it has a digest, but it failed.
+		const result = alice.page.getByTestId('signed-result');
+		await expect(result).toHaveAttribute(
+			'data-result',
+			'failure',
+		);
+		await expect(result).toHaveAttribute(
+			'data-digest',
+			/.+/,
+		);
+		await expect(
+			result.getByTestId('signed-result-error'),
+		).toContainText('InsufficientCoinBalance');
+		expect(await chain.balance(recipient)).toBe(0n);
+	});
+
+	// The tools offer devnet, which the rest of the app refuses. Leaving it
+	// from that refusal page must stick, or every reload lands back there.
+	test('switching away from devnet survives a reload', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		const { page } = alice;
+
+		// No wallet is connected: the test wallet only has localnet, so the
+		// menu disables devnet once it is.
+		await page.goto('/tools/sign');
+		await page.getByTestId('tool-network-button').click();
+		await page
+			.getByRole('menuitem', { name: 'devnet' })
+			.click();
+		await expect(
+			page.getByTestId('tool-network-button'),
+		).toHaveAttribute('data-network', 'devnet');
+
+		await page.goto('/');
+		const devnetNotSupported = page.getByTestId(
+			'devnet-not-supported',
+		);
+		await expect(devnetNotSupported).toBeVisible();
+		await page
+			.getByTestId('switch-to-testnet-button')
+			.click();
+		await expect(
+			page.getByTestId('connect-wallet-prompt'),
+		).toBeVisible();
+
+		await page.reload();
+		await expect(
+			page.getByTestId('connect-wallet-prompt'),
+		).toBeVisible();
+		await expect(devnetNotSupported).toHaveCount(0);
+		expect(
+			await page.evaluate(() =>
+				localStorage.getItem('SuiNetwork'),
+			),
+		).toBe('testnet');
+	});
+
 	test('does not offer to sign a transaction whose dry run fails', async ({
 		createActor,
 		chain,

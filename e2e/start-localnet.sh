@@ -19,7 +19,9 @@ if ! printf '%s\n' 1.74.1 "$version" | sort -C -t. -k1,1n -k2,2n -k3,3n; then
 	exit 1
 fi
 
-dir="$(dirname "$0")/.cache/localnet"
+# LOCALNET_DIR picks the data directory, so a second network (say, one kept
+# running for manual testing) does not get wiped by the next test run.
+dir="${LOCALNET_DIR:-$(dirname "$0")/.cache/localnet}"
 rm -rf "$dir"
 mkdir -p "$dir"
 

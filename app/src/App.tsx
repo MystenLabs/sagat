@@ -7,32 +7,25 @@ import {
 } from 'react-router-dom';
 
 import { AppRouter } from './components/AppRouter';
-import { Header } from './components/header';
+import { AppShell } from './components/shell/AppShell';
 import { TestModeBanner } from './components/TestModeBanner';
 import { useNetwork } from './contexts/NetworkContext';
 
 function AppContent() {
 	const location = useLocation();
 	const { isTestMode } = useNetwork();
-	const hideHeaderOnPaths = ['/create'];
-	const hideBannerOnPaths = ['/create'];
 
-	// Hide banner on tools pages (public/offline pages)
-	const shouldHideHeader = hideHeaderOnPaths.includes(
-		location.pathname,
-	);
-	const shouldHideBanner =
-		hideBannerOnPaths.includes(location.pathname) ||
+	// Hide the banner on the create flow and the public tools pages.
+	const hideBanner =
+		location.pathname === '/create' ||
 		location.pathname.startsWith('/tools');
-
-	const showBanner = isTestMode && !shouldHideBanner;
+	const showBanner = isTestMode && !hideBanner;
 
 	return (
-		<div className={showBanner ? 'pb-20' : ''}>
-			{!shouldHideHeader && <Header />}
+		<AppShell>
+			{showBanner && <TestModeBanner />}
 			<AppRouter />
-			{!shouldHideBanner && <TestModeBanner />}
-		</div>
+		</AppShell>
 	);
 }
 
