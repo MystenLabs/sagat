@@ -13,7 +13,13 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { isValidSuiAddress } from '@mysten/sui/utils';
-import { and, eq, inArray, type SQL } from 'drizzle-orm';
+import {
+	and,
+	eq,
+	inArray,
+	ne,
+	type SQL,
+} from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -24,6 +30,7 @@ import {
 	SchemaAccountProposers,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
+	SchemaAddresses,
 	SchemaProposals,
 	SchemaSignerSetMembers,
 	SchemaSignerSets,
@@ -358,6 +365,49 @@ type DatabaseTransaction = Parameters<
 	Parameters<(typeof db)['transaction']>[0]
 >[0];
 
+// Locks the account until `tx` ends, so writers for it run one at a time.
+// Relies on READ COMMITTED: reads after the lock see the other's writes.
+const lockAccount = async (
+	tx: DatabaseTransaction,
+	address: string,
+) => {
+	await tx
+		.select({ address: SchemaAccounts.address })
+		.from(SchemaAccounts)
+		.where(eq(SchemaAccounts.address, address))
+		.for('no key update');
+};
+
+// Throws if `publicKey` is already in the maximum number of multisigs, not
+// counting the one it is joining. Locks the key's row until `tx` ends.
+const assertKeyBelowMultisigLimit = async (
+	tx: DatabaseTransaction,
+	publicKey: string,
+	joiningSignerSetAddress: string,
+) => {
+	await tx
+		.select({ publicKey: SchemaAddresses.publicKey })
+		.from(SchemaAddresses)
+		.where(eq(SchemaAddresses.publicKey, publicKey))
+		.for('no key update');
+
+	const accepted = await tx.$count(
+		SchemaSignerSetMembers,
+		and(
+			eq(SchemaSignerSetMembers.publicKey, publicKey),
+			eq(SchemaSignerSetMembers.isAccepted, true),
+			ne(
+				SchemaSignerSetMembers.signerSetAddress,
+				joiningSignerSetAddress,
+			),
+		),
+	);
+	if (accepted >= LIMITS.maxMultisigsPerPublicKey)
+		throw new ValidationError(
+			'You have reached the maximum number of multisigs for this public key',
+		);
+};
+
 // Returns true if the signer set is finalized (all members have accepted the invitation).
 export const isSignerSetFinalized = async (
 	address: string,
@@ -429,10 +479,7 @@ export const getExclusiveObjects = async (
 
 // Validates a proposed transaction against the pending proposals of its
 // account. It locks the account until `tx` ends, so the caller must insert
-// the proposal in the same transaction: a concurrent proposal for the
-// account then waits, and sees this one when it checks. This relies on READ
-// COMMITTED (the default): the read after the lock sees proposals committed
-// meanwhile, which REPEATABLE READ would hide.
+// the proposal in the same transaction.
 export const validateProposedTransaction = async (
 	tx: DatabaseTransaction,
 	proposedTransaction: Transaction,
@@ -440,11 +487,7 @@ export const validateProposedTransaction = async (
 	multisigAddress: string,
 	network: SuiNetwork,
 ) => {
-	await tx
-		.select({ address: SchemaAccounts.address })
-		.from(SchemaAccounts)
-		.where(eq(SchemaAccounts.address, multisigAddress))
-		.for('no key update');
+	await lockAccount(tx, multisigAddress);
 
 	const pendingProposals = await getPendingProposals(
 		multisigAddress,
@@ -555,6 +598,15 @@ export const createSignerSet = async ({
 			'Only a member of the multisig can label its keys.',
 		);
 
+	// The caller's keys in the composition, which accept on creation.
+	const acceptingKeys = parsedPubKeys
+		.filter((key) =>
+			callerKeys.some(
+				(k) => k.toSuiAddress() === key.toSuiAddress(),
+			),
+		)
+		.map((key) => key.toSuiPublicKey());
+
 	const multisig = MultiSigPublicKey.fromPublicKeys({
 		threshold,
 		publicKeys: parsedPubKeys.map((key, index) => ({
@@ -576,6 +628,15 @@ export const createSignerSet = async ({
 				})
 				.returning()
 		)[0];
+
+		// Checked after the insert so a duplicate still fails as one. Keys are
+		// locked in sorted order so creations sharing keys can't deadlock.
+		for (const key of acceptingKeys.toSorted())
+			await assertKeyBelowMultisigLimit(
+				tx,
+				key,
+				msig.address,
+			);
 
 		// A legacy multisig is also an account with the same address, so the
 		// `/v1` API sees what the legacy routes created.
@@ -619,8 +680,8 @@ export const createSignerSet = async ({
 							)
 						],
 					// If authorization includes the user, we can accept immediately.
-					isAccepted: callerKeys.some(
-						(k) => k.toSuiAddress() === key.toSuiAddress(),
+					isAccepted: acceptingKeys.includes(
+						key.toSuiPublicKey(),
 					),
 					order: index,
 				})),
@@ -682,35 +743,25 @@ export const acceptInvitation = async ({
 
 	// The origin never changes after insert, so it is read outside the
 	// transaction.
-	const [existingConnections, origin] = await Promise.all([
-		db.query.SchemaSignerSetMembers.findMany({
-			where: and(
-				eq(
-					SchemaSignerSetMembers.publicKey,
-					pubKey.toSuiPublicKey(),
-				),
-				eq(SchemaSignerSetMembers.isAccepted, true),
-			),
-		}),
-		getAccountOrigin(address),
-	]);
-
-	// Maximum connections per public key.
-	if (
-		existingConnections.length >
-		LIMITS.maxMultisigsPerPublicKey
-	)
-		throw new ValidationError(
-			'You have reached the maximum number of multisigs for this public key',
-		);
+	const origin = await getAccountOrigin(address);
 
 	return await db.transaction(async (tx) => {
-		const msig = await tx.query.SchemaSignerSets.findFirst({
-			where: eq(SchemaSignerSets.address, address),
-		});
+		// Lock the set first, as creation does, so when its last members accept
+		// at once the later one sees the other and verifies the set.
+		const [msig] = await tx
+			.select()
+			.from(SchemaSignerSets)
+			.where(eq(SchemaSignerSets.address, address))
+			.for('no key update');
 
 		if (!msig)
 			throw new ValidationError('Multisig not found');
+
+		await assertKeyBelowMultisigLimit(
+			tx,
+			pubKey.toSuiPublicKey(),
+			address,
+		);
 
 		await tx
 			.update(SchemaSignerSetMembers)
@@ -800,7 +851,8 @@ export const rejectInvitation = async ({
 			'This invitation has already been rejected',
 		);
 
-	await db
+	// Re-checked by the update, in case an accept landed since the read.
+	const rejected = await db
 		.update(SchemaSignerSetMembers)
 		.set({ isRejected: true })
 		.where(
@@ -813,7 +865,15 @@ export const rejectInvitation = async ({
 					SchemaSignerSetMembers.publicKey,
 					pubKey.toSuiPublicKey(),
 				),
+				eq(SchemaSignerSetMembers.isAccepted, false),
 			),
+		)
+		.returning({
+			publicKey: SchemaSignerSetMembers.publicKey,
+		});
+	if (rejected.length === 0)
+		throw new ValidationError(
+			'Cannot reject after accepting',
 		);
 };
 
@@ -852,44 +912,42 @@ export const addProposer = async ({
 	});
 
 	// Add the proposer to the multisig.
-	await db.transaction(
-		async (tx) => {
-			const existingProposers =
-				await tx.query.SchemaAccountProposers.findMany({
-					columns: { address: true },
-					where: and(
-						eq(
-							SchemaAccountProposers.accountAddress,
-							address,
-						),
+	await db.transaction(async (tx) => {
+		// Serializes proposer adds for the account.
+		await lockAccount(tx, address);
+
+		const existingProposers =
+			await tx.query.SchemaAccountProposers.findMany({
+				columns: { address: true },
+				where: and(
+					eq(
+						SchemaAccountProposers.accountAddress,
+						address,
 					),
-				});
-
-			if (
-				existingProposers.length >=
-				LIMITS.maxProposersPerMultisig
-			)
-				throw new ValidationError(
-					'You have reached the maximum number of proposers for this multisig',
-				);
-
-			if (
-				existingProposers.some(
-					(p) => p.address === proposer,
-				)
-			)
-				throw new ValidationError(
-					`${proposer} is already a proposer for this multisig`,
-				);
-
-			await tx.insert(SchemaAccountProposers).values({
-				accountAddress: address,
-				address: proposer,
-				addedBy: publicKey.toSuiAddress(),
+				),
 			});
-		},
-		{ isolationLevel: 'repeatable read' },
-	);
+
+		if (
+			existingProposers.length >=
+			LIMITS.maxProposersPerMultisig
+		)
+			throw new ValidationError(
+				'You have reached the maximum number of proposers for this multisig',
+			);
+
+		if (
+			existingProposers.some((p) => p.address === proposer)
+		)
+			throw new ValidationError(
+				`${proposer} is already a proposer for this multisig`,
+			);
+
+		await tx.insert(SchemaAccountProposers).values({
+			accountAddress: address,
+			address: proposer,
+			addedBy: publicKey.toSuiAddress(),
+		});
+	});
 };
 
 // Removes an external proposer from an account, signed by an accepted
