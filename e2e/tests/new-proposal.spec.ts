@@ -271,6 +271,18 @@ test.describe('new proposal: transfer details', () => {
 			2,
 		);
 		const { page } = alice;
+		const refWarnings: string[] = [];
+		page.on('console', (message) => {
+			if (
+				['warning', 'error'].includes(message.type()) &&
+				message
+					.text()
+					.includes(
+						'Function components cannot be given refs',
+					)
+			)
+				refWarnings.push(message.text());
+		});
 
 		await openNewProposal(page, multisig.address, {
 			type: 'transfer',
@@ -303,6 +315,7 @@ test.describe('new proposal: transfer details', () => {
 			.click();
 		await expect(input).toHaveValue('');
 		await expect(status).toHaveCount(0);
+		expect(refWarnings).toEqual([]);
 	});
 
 	test('a zero amount asks for an amount above 0', async ({
@@ -465,18 +478,23 @@ test.describe('new proposal: review', () => {
 		const { page } = alice;
 		const createProposal = (url: URL) =>
 			url.pathname.endsWith('/proposals');
-		await page.route(createProposal, (route) =>
-			route.request().method() === 'POST'
-				? route.fulfill({
-						status: 500,
-						json: { error: 'Internal server error' },
-						headers: {
-							'access-control-allow-origin': E2E.appUrl,
-							'access-control-allow-credentials': 'true',
-						},
-					})
-				: route.fallback(),
-		);
+		// The API's error shape: `{ error }` with the status.
+		const refuseCreate = (status: number, error: string) =>
+			page.route(createProposal, (route) =>
+				route.request().method() === 'POST'
+					? route.fulfill({
+							status,
+							json: { error },
+							headers: {
+								'access-control-allow-origin': E2E.appUrl,
+								'access-control-allow-credentials': 'true',
+							},
+						})
+					: route.fallback(),
+			);
+		const reused =
+			'You cannot have re-use any owned or receiving objects that are already in pending proposals. The used objects are: 0xabc';
+		await refuseCreate(400, reused);
 
 		await openNewProposal(page, multisig.address, {
 			type: 'transfer',
@@ -489,10 +507,19 @@ test.describe('new proposal: review', () => {
 		await reviewTransfer(page);
 		await expectSimulation(page, 'success');
 		const submit = page.getByTestId('review-submit');
+		const createError = page.getByTestId(
+			'review-create-error',
+		);
+		// A refusal shows the API's reason.
 		await submit.click();
-		await expect(
-			page.getByTestId('review-create-error'),
-		).toHaveText(
+		await expect(createError).toHaveText(reused);
+		await expect(submit).toHaveText('Try again');
+
+		// Anything else shows the general notice.
+		await page.unroute(createProposal);
+		await refuseCreate(500, 'Internal server error');
+		await submit.click();
+		await expect(createError).toHaveText(
 			'Couldn’t create the proposal. Nothing was sent to the other signers. Check your connection and try again.',
 		);
 		await expect(submit).toHaveText('Try again');

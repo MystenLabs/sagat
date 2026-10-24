@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { SagatApiError } from '@mysten/sagat';
 import {
 	useCallback,
 	useEffect,
@@ -23,6 +22,7 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCreateMultisig } from '@/hooks/useCreateMultisig';
 import { usePublicKeyLookups } from '@/hooks/usePublicKeyLookups';
+import { shownApiError } from '@/lib/api-errors';
 import { CONFIG } from '@/lib/constants';
 import {
 	addressInput,
@@ -51,10 +51,6 @@ const STEPS = [
 	'Signers and threshold',
 	'Review',
 ] as const;
-
-// The API's reasons worth showing as they are; anything else gets the
-// general message.
-const SHOWN_STATUSES = [400, 409, 422];
 
 const newSigner = (id: number): SignerDraft => ({
 	id: `signer-${id}`,
@@ -202,10 +198,7 @@ export function CreateMultisigPage() {
 	// A 400, 409 or 422 means the API refused the setup and says why;
 	// anything else (offline, 5xx, auth) gets the general message.
 	const createError = create.error
-		? create.error instanceof SagatApiError &&
-			SHOWN_STATUSES.includes(create.error.status)
-			? create.error.message
-			: COPY.createFailed
+		? shownApiError(create.error, COPY.createFailed)
 		: null;
 
 	// A new step's heading takes focus, so a screen reader starts there.

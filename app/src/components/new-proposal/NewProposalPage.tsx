@@ -27,6 +27,7 @@ import { useGetMultisig } from '@/hooks/useGetMultisig';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountSetup } from '@/lib/account-setup';
+import { shownApiError } from '@/lib/api-errors';
 import {
 	COPY,
 	proposalTypeFromQuery,
@@ -213,11 +214,12 @@ function NewProposalWizard({
 		);
 	};
 	// A declined signature is the toast alone; anything else is the
-	// notice on Review.
+	// notice on Review, with the API's reason when it refused the
+	// proposal (a coin another pending proposal uses, say).
 	const createError =
 		create.error &&
 		!(create.error instanceof SignatureDeclinedError)
-			? COPY.createFailed
+			? shownApiError(create.error, COPY.createFailed)
 			: null;
 
 	const detailsProps = {
