@@ -49,7 +49,8 @@ export function formatInputAmount(
 
 /**
  * Parse a human-entered decimal amount into on-chain integer units.
- * Accepts plain decimals and grouped strings (e.g. "1,234.56").
+ * Accepts plain decimals and grouped strings (e.g. "1,234.56"), and
+ * trailing zeros past `decimals`.
  */
 export function parseAmount(
 	input: string,
@@ -66,7 +67,10 @@ export function parseAmount(
 	const wholePart = match.groups.whole ?? '';
 	const fractionPart = match.groups.fraction ?? '';
 	if (!wholePart && fractionPart === '') return null;
-	if (fractionPart.length > decimals) return null;
+	// Zeros past the coin's decimals change nothing ("1.50" of a
+	// 1-decimal coin is 1.5); any other digit there can't be sent.
+	if (/[^0]/.test(fractionPart.slice(decimals)))
+		return null;
 
 	const paddedFraction = fractionPart
 		.padEnd(decimals, '0')

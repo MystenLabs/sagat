@@ -411,12 +411,10 @@ test.describe('overview and signers', () => {
 			await page
 				.getByTestId('overview-send-button')
 				.click();
-			const sheet = page.getByTestId('proposal-sheet');
 			await expect(
-				sheet.getByTestId('transfer-recipient-input'),
+				page.getByTestId('transfer-step'),
 			).toBeVisible();
-			await page.keyboard.press('Escape');
-			await expect(sheet).toBeHidden();
+			await page.goBack();
 
 			await page.getByTestId('view-all-assets').click();
 			await expect(
