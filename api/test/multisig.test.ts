@@ -9,9 +9,11 @@ import {
 	test,
 } from 'bun:test';
 
+import { LIMITS } from '../src/constants/limits';
 import {
 	ApiTestFramework,
 	errorOf,
+	expectSettled,
 	newUser,
 	sign,
 	type TestUser,
@@ -171,6 +173,37 @@ describe('Multisig API', () => {
 		});
 	});
 
+	test('becomes verified when its last members accept at once', async () => {
+		const session = framework.createSession();
+		const creator = newUser();
+		await session.connectUser(creator);
+		// A few multisigs, created together, which also opens enough
+		// database connections for the accepts below to overlap.
+		const multisigs = await Promise.all(
+			[1, 2, 3].map(async () => {
+				const invitees = [newUser(), newUser()];
+				const { address } = await session.createMultisig(
+					[creator, ...invitees],
+					2,
+				);
+				return { address, invitees };
+			}),
+		);
+
+		await Promise.all(
+			multisigs.flatMap(({ address, invitees }) =>
+				invitees.map((user) =>
+					session.acceptMultisig(user, address),
+				),
+			),
+		);
+		for (const { address } of multisigs)
+			expect(
+				(await session.client.getMultisig(address))
+					.isVerified,
+			).toBe(true);
+	});
+
 	test('non-members cannot accept or reject', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);
@@ -284,6 +317,57 @@ describe('Multisig API', () => {
 				error: 'This invitation has already been rejected',
 			},
 		});
+	});
+
+	test('an invitation accepted and rejected at once ends up accepted', async () => {
+		const session = framework.createSession();
+		const creator = newUser();
+		await session.connectUser(creator);
+		// Created together, which also opens enough database connections
+		// for the requests below to overlap.
+		const multisigs = await Promise.all(
+			Array.from({ length: 10 }, async () => {
+				const invitee = newUser();
+				const { address } = await session.createMultisig(
+					[creator, invitee],
+					2,
+				);
+				return { address, invitee };
+			}),
+		);
+
+		// Each accept starts a millisecond later than the one before, so
+		// that some reject reads the member while its accept is in flight.
+		await Promise.all(
+			multisigs.map(async ({ address, invitee }, i) => {
+				const [rejected, accepted] =
+					await Promise.allSettled([
+						session.rejectMultisig(invitee, address),
+						Bun.sleep(i).then(() =>
+							session.acceptMultisig(invitee, address),
+						),
+					]);
+				// A reject that came first is undone by the accept.
+				expect(accepted.status).toBe('fulfilled');
+				if (rejected.status === 'rejected')
+					expect(
+						(rejected.reason as Error).message,
+					).toMatch(
+						/Cannot reject after accepting|Multisig is already verified/,
+					);
+
+				const { members } =
+					await session.client.getMultisig(address);
+				expect(
+					members.find(
+						(m) => m.publicKey === invitee.publicKey,
+					),
+				).toMatchObject({
+					isAccepted: true,
+					isRejected: false,
+				});
+			}),
+		);
 	});
 
 	test('accept checks membership before the signature, reject the reverse', async () => {
@@ -718,6 +802,112 @@ describe('Multisig API', () => {
 					labels: [1, null],
 				}),
 			).rejects.toThrow('string or null');
+		});
+	});
+
+	describe('multisigs per key', () => {
+		const limitReached =
+			'You have reached the maximum number of multisigs for this public key';
+
+		// Makes `user` an accepted member of `count` new multisigs: creating a
+		// multisig accepts it for the members connected to the session.
+		const joinMultisigs = async (
+			user: TestUser,
+			count: number,
+		) => {
+			const session = framework.createSession();
+			await session.connectUser(user);
+			await Promise.all(
+				Array.from({ length: count }, () =>
+					session.createMultisig([user, newUser()], 1),
+				),
+			);
+			return session;
+		};
+
+		// A multisig that `user` is invited to and has not accepted.
+		const inviteTo = async (user: TestUser) => {
+			const {
+				session,
+				users: [creator],
+			} = await framework.createAuthenticatedSession(1);
+			return (
+				await session.createMultisig([creator, user], 1)
+			).address;
+		};
+
+		test('a key can accept up to the limit, and no more', async () => {
+			const user = newUser();
+			const session = await joinMultisigs(
+				user,
+				LIMITS.maxMultisigsPerPublicKey - 1,
+			);
+			const [last, oneTooMany] = await Promise.all([
+				inviteTo(user),
+				inviteTo(user),
+			]);
+
+			await session.acceptMultisig(user, last);
+			await expect(
+				session.acceptMultisig(user, oneTooMany),
+			).rejects.toThrow(limitReached);
+			// At the limit, accepting a multisig again is still allowed.
+			await session.acceptMultisig(user, last);
+		});
+
+		test('keeps the limit for simultaneous accepts', async () => {
+			const user = newUser();
+			const session = await joinMultisigs(
+				user,
+				LIMITS.maxMultisigsPerPublicKey - 1,
+			);
+			const invitations = await Promise.all([
+				inviteTo(user),
+				inviteTo(user),
+			]);
+
+			const results = await Promise.allSettled(
+				invitations.map((address) =>
+					session.acceptMultisig(user, address),
+				),
+			);
+
+			expectSettled(results, {
+				fulfilled: 1,
+				rejectedWith: limitReached,
+			});
+		});
+
+		test('a key can create multisigs up to the limit, and no more', async () => {
+			const user = newUser();
+			const session = await joinMultisigs(
+				user,
+				LIMITS.maxMultisigsPerPublicKey - 1,
+			);
+
+			await session.createMultisig([user, newUser()], 1);
+			await expect(
+				session.createMultisig([user, newUser()], 1),
+			).rejects.toThrow(limitReached);
+		});
+
+		test('keeps the limit for simultaneous creations', async () => {
+			const user = newUser();
+			const session = await joinMultisigs(
+				user,
+				LIMITS.maxMultisigsPerPublicKey - 1,
+			);
+
+			const results = await Promise.allSettled(
+				[newUser(), newUser()].map((other) =>
+					session.createMultisig([user, other], 1),
+				),
+			);
+
+			expectSettled(results, {
+				fulfilled: 1,
+				rejectedWith: limitReached,
+			});
 		});
 	});
 
