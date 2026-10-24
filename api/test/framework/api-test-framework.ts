@@ -14,6 +14,7 @@ import {
 	fromBase64,
 	MIST_PER_SUI,
 } from '@mysten/sui/utils';
+import { expect } from 'bun:test';
 import { type Hono } from 'hono';
 
 import { parsePublicKey } from '../../src/utils/pubKey';
@@ -56,6 +57,25 @@ export const errorOf = async (response: Response) => ({
 	status: response.status,
 	body: await response.json(),
 });
+
+// Expects `fulfilled` successes, and every other result to fail with
+// `rejectedWith`.
+export const expectSettled = (
+	results: PromiseSettledResult<unknown>[],
+	{
+		fulfilled,
+		rejectedWith,
+	}: { fulfilled: number; rejectedWith: string },
+) => {
+	expect(
+		results.filter((r) => r.status === 'fulfilled'),
+	).toHaveLength(fulfilled);
+	for (const result of results)
+		if (result.status === 'rejected')
+			expect((result.reason as Error).message).toContain(
+				rejectedWith,
+			);
+};
 
 // A transfer of `amount` MIST from `sender` back to itself, paying for gas
 // with `gasCoin` if given (so proposals using different coins don't collide).

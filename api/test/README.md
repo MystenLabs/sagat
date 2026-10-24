@@ -14,6 +14,8 @@ sh ../e2e/start-localnet.sh 9000 9123
 bun test:e2e
 ```
 
+The files run across 4 worker processes (`--parallel`, which needs bun 1.4 or later; run `bun upgrade`). A worker runs several files, but `--parallel` implies `--isolate`, a fresh module registry per file. The tests need that, since every file points `src/db` at its own database via `mock.module`, so don't add `--no-isolate`. The cap keeps the pg pools, up to 10 connections each, under Postgres's default limit of 100. `bun test ./test/<file>` still runs a single file.
+
 Set `TEST_DATABASE_URL` to a Postgres server you can create databases on (defaults to `postgresql://localhost:5432/postgres`).
 
 ## Migration tests (`migrations/`)

@@ -21,6 +21,7 @@ import {
 	ApiTestFramework,
 	buildTransfer,
 	errorOf,
+	expectSettled,
 	newUser,
 	sendCoins,
 	sign,
@@ -40,6 +41,14 @@ setupSharedTestEnvironment();
 
 describe('Proposal Business Logic', () => {
 	let framework: ApiTestFramework;
+
+	const proposerLimitResponse = {
+		status: 400,
+		body: {
+			error:
+				'You have reached the maximum number of proposers for this multisig',
+		},
+	};
 
 	beforeEach(async () => {
 		framework = new ApiTestFramework(await createTestApp());
@@ -364,6 +373,34 @@ describe('Proposal Business Logic', () => {
 				session.proposeTransfer(proposer, multisig.address),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
 		});
+
+		test('keeps the proposer limit for simultaneous adds', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const add = (proposer: TestUser) =>
+				session.addProposer(
+					users[0],
+					proposer.address,
+					multisig.address,
+				);
+			// Added together, which also opens enough database connections
+			// for the two adds below to overlap.
+			await Promise.all(
+				Array.from(
+					{ length: LIMITS.maxProposersPerMultisig - 1 },
+					() => add(newUser()),
+				),
+			);
+
+			const results = await Promise.allSettled(
+				[newUser(), newUser()].map(add),
+			);
+
+			expectSettled(results, {
+				fulfilled: 1,
+				rejectedWith: proposerLimitResponse.body.error,
+			});
+		});
 	});
 
 	test('a new proposal can be fetched by digest, with the proposer signature', async () => {
@@ -664,20 +701,13 @@ describe('Proposal Business Logic', () => {
 					multisig.address,
 				);
 
-			const limitReached = {
-				status: 400,
-				body: {
-					error:
-						'You have reached the maximum number of proposers for this multisig',
-				},
-			};
 			expect(
 				await changeProposer(session, 'add-proposer', {
 					signer: users[0],
 					multisigAddress: multisig.address,
 					proposer: newUser().address,
 				}),
-			).toEqual(limitReached);
+			).toEqual(proposerLimitResponse);
 			// At the limit, even a proposer that is already there gets the
 			// limit error, not the duplicate one.
 			expect(
@@ -686,7 +716,7 @@ describe('Proposal Business Logic', () => {
 					multisigAddress: multisig.address,
 					proposer: proposers[0],
 				}),
-			).toEqual(limitReached);
+			).toEqual(proposerLimitResponse);
 		});
 
 		test('remove-proposer checks the expiry, then the address, then membership', async () => {
