@@ -1,10 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { SuiClientTypes } from '@mysten/sui/client';
+import {
+	ObjectError,
+	type SuiClientTypes,
+} from '@mysten/sui/client';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 
 import { SUI_RPC_URL } from '../db/env';
+import { ValidationError } from '../errors';
 import {
 	rpcRequestDuration,
 	rpcRequestErrors,
@@ -106,6 +110,15 @@ export const queryAllOwnedObjects = async (
 			});
 
 			for (const object of objects.objects) {
+				// A missing object is the caller's mistake, not a failed lookup.
+				if (
+					object instanceof ObjectError &&
+					object.reason === 'notFound'
+				) {
+					throw new ValidationError(
+						`Object ${object.objectId} does not exist or has been deleted.`,
+					);
+				}
 				if (object instanceof Error) {
 					throw new Error(
 						`Failed to get object: ${object.message}`,

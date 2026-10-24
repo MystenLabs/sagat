@@ -55,6 +55,7 @@ import {
 	jwtHasSignerSetMemberAccess,
 } from './membership.service';
 import {
+	getExclusiveObjects,
 	getSignerSet,
 	validateProposedTransaction,
 } from './multisig.service';
@@ -320,6 +321,13 @@ export const createProposal = async ({
 			'The transaction is not fully resolved.',
 		);
 
+	if (
+		proposedTransaction.getData().sender !== multisigAddress
+	)
+		throw new ValidationError(
+			'The transaction sender does not match the multisig address.',
+		);
+
 	// Verify the supplied user signature before doing any RPC work for the
 	// request. A fully resolved transaction builds without a client.
 	const built = await proposedTransaction.build();
@@ -329,17 +337,26 @@ export const createProposal = async ({
 		signature,
 	);
 
-	// Validate the proposed transaction for:
-	// 1. No other pending proposal with the same owned objects in them.
-	// 2. The transaction is not already in a pending proposal.
-	await validateProposedTransaction(
+	// Look up the objects only this proposal may use before opening the
+	// database transaction, so it is not held open during RPC calls.
+	const exclusiveObjects = await getExclusiveObjects(
 		proposedTransaction,
-		multisigAddress,
 		network,
 	);
 
-	// Insert the proposal and the first sig!
 	const proposal = await db.transaction(async (tx) => {
+		// Validate the proposed transaction for:
+		// 1. No other pending proposal with the same owned objects in them.
+		// 2. The transaction is not already in a pending proposal.
+		await validateProposedTransaction(
+			tx,
+			proposedTransaction,
+			exclusiveObjects,
+			multisigAddress,
+			network,
+		);
+
+		// Insert the proposal and the first sig!
 		const proposal = await tx
 			.insert(SchemaProposals)
 			.values({
