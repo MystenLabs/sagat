@@ -24,37 +24,10 @@ interface AssetBodyProps {
 	showCopyButton?: boolean;
 }
 
-interface AssetWrapperProps extends AssetBodyProps {
-	selected?: boolean;
-	bare?: boolean;
-	className?: string;
-}
-
-const containerClasses = (
-	bare: boolean,
-	selected: boolean,
-	className?: string,
-) =>
-	cn(
-		'rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover',
-		!bare && 'bg-card border',
-		selected && 'bg-row-selected',
-		className,
-	);
-
-export function AssetRow({
-	selected = false,
-	bare = false,
-	className,
-	...body
-}: AssetWrapperProps) {
+export function AssetRow(body: AssetBodyProps) {
 	return (
 		<li
-			className={containerClasses(
-				bare,
-				selected,
-				className,
-			)}
+			className="rounded-lg border bg-card px-3 py-2.5"
 			data-testid="asset-row"
 			data-coin-type={body.balance.coinType}
 			data-balance={body.balance.balance}
