@@ -319,6 +319,57 @@ describe('Multisig API', () => {
 		});
 	});
 
+	test('an invitation accepted and rejected at once ends up accepted', async () => {
+		const session = framework.createSession();
+		const creator = newUser();
+		await session.connectUser(creator);
+		// Created together, which also opens enough database connections
+		// for the requests below to overlap.
+		const multisigs = await Promise.all(
+			Array.from({ length: 10 }, async () => {
+				const invitee = newUser();
+				const { address } = await session.createMultisig(
+					[creator, invitee],
+					2,
+				);
+				return { address, invitee };
+			}),
+		);
+
+		// Each accept starts a millisecond later than the one before, so
+		// that some reject reads the member while its accept is in flight.
+		await Promise.all(
+			multisigs.map(async ({ address, invitee }, i) => {
+				const [rejected, accepted] =
+					await Promise.allSettled([
+						session.rejectMultisig(invitee, address),
+						Bun.sleep(i).then(() =>
+							session.acceptMultisig(invitee, address),
+						),
+					]);
+				// A reject that came first is undone by the accept.
+				expect(accepted.status).toBe('fulfilled');
+				if (rejected.status === 'rejected')
+					expect(
+						(rejected.reason as Error).message,
+					).toMatch(
+						/Cannot reject after accepting|Multisig is already verified/,
+					);
+
+				const { members } =
+					await session.client.getMultisig(address);
+				expect(
+					members.find(
+						(m) => m.publicKey === invitee.publicKey,
+					),
+				).toMatchObject({
+					isAccepted: true,
+					isRejected: false,
+				});
+			}),
+		);
+	});
+
 	test('accept checks membership before the signature, reject the reverse', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);

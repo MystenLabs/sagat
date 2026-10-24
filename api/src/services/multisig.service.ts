@@ -851,7 +851,8 @@ export const rejectInvitation = async ({
 			'This invitation has already been rejected',
 		);
 
-	await db
+	// Re-checked by the update, in case an accept landed since the read.
+	const rejected = await db
 		.update(SchemaSignerSetMembers)
 		.set({ isRejected: true })
 		.where(
@@ -864,7 +865,15 @@ export const rejectInvitation = async ({
 					SchemaSignerSetMembers.publicKey,
 					pubKey.toSuiPublicKey(),
 				),
+				eq(SchemaSignerSetMembers.isAccepted, false),
 			),
+		)
+		.returning({
+			publicKey: SchemaSignerSetMembers.publicKey,
+		});
+	if (rejected.length === 0)
+		throw new ValidationError(
+			'Cannot reject after accepting',
 		);
 };
 
