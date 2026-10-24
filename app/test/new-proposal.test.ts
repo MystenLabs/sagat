@@ -11,6 +11,8 @@ import {
 } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
+import { buildTransferTransaction } from '../src/components/assets/buildTransferTransaction';
+import { formatInputAmount } from '../src/lib/coins';
 import {
 	bytesStatusText,
 	checkBytes,
@@ -537,5 +539,327 @@ describe('proposalTypeFromQuery', () => {
 		expect(proposalTypeFromQuery('')).toBeNull();
 		expect(proposalTypeFromQuery('Transfer')).toBeNull();
 		expect(proposalTypeFromQuery('swap')).toBeNull();
+	});
+});
+
+// Coins seen on Sui: 0, 6 (USDC), 8 (wrapped BTC), 9 (SUI), 18, and a
+// couple in between.
+const COIN_DECIMALS = [0, 1, 2, 6, 8, 9, 18] as const;
+/** The largest balance a coin can hold on chain. */
+const U64_MAX = 2n ** 64n - 1n;
+/** u64 max in whole units, grouped, for each decimals value. */
+const U64_MAX_SHOWN: Record<
+	(typeof COIN_DECIMALS)[number],
+	string
+> = {
+	0: '18,446,744,073,709,551,615',
+	1: '1,844,674,407,370,955,161.5',
+	2: '184,467,440,737,095,516.15',
+	6: '18,446,744,073,709.551615',
+	8: '184,467,440,737.09551615',
+	9: '18,446,744,073.709551615',
+	18: '18.446744073709551615',
+};
+const TOKEN = `${normalizeSuiAddress('0xabc')}::token::TOKEN`;
+
+function tokenTransfer(
+	amount: string,
+	balance: bigint,
+	decimals: number,
+) {
+	return checkTransfer({
+		draft: {
+			coinType: TOKEN,
+			amount,
+			recipient: RECIPIENT,
+		},
+		balance: balance.toString(),
+		decimals,
+		symbol: 'TOKEN',
+	});
+}
+
+describe('maxAmount across coin decimals', () => {
+	describe.each(COIN_DECIMALS)(
+		'%i decimals',
+		(decimals) => {
+			const unit = 10n ** BigInt(decimals);
+
+			test('parses back to exactly the raw balance and passes the checks', () => {
+				for (const balance of [
+					1n,
+					unit,
+					unit - 1n,
+					U64_MAX,
+				].filter((b) => b > 0n)) {
+					const max = maxAmount({
+						balance: balance.toString(),
+						decimals,
+					});
+					expect(max).not.toBeNull();
+					expect(max).not.toContain(',');
+					const check = tokenTransfer(
+						max!,
+						balance,
+						decimals,
+					);
+					expect(check.rawAmount).toBe(balance);
+					expect(check.amountError).toBeNull();
+					expect(check.canReview).toBe(true);
+				}
+			});
+
+			test('is null for a balance of 0', () => {
+				expect(
+					maxAmount({ balance: '0', decimals }),
+				).toBeNull();
+			});
+		},
+	);
+});
+
+describe('checkTransfer across coin decimals', () => {
+	describe.each(COIN_DECIMALS)(
+		'%i decimals',
+		(decimals) => {
+			const unit = 10n ** BigInt(decimals);
+
+			test('allows exactly the balance, without the SUI gas-coin path', () => {
+				for (const balance of [unit, U64_MAX]) {
+					const check = tokenTransfer(
+						formatInputAmount(balance.toString(), decimals),
+						balance,
+						decimals,
+					);
+					expect(check.amountError).toBeNull();
+					expect(check.canReview).toBe(true);
+					expect(check.transferAllSui).toBe(false);
+				}
+			});
+
+			test('refuses one raw unit over the balance, showing the balance', () => {
+				const check = tokenTransfer(
+					formatInputAmount(
+						(unit + 1n).toString(),
+						decimals,
+					),
+					unit,
+					decimals,
+				);
+				expect(check.amountError).toBe(
+					COPY.overBalance('TOKEN', '1'),
+				);
+				expect(check.canReview).toBe(false);
+			});
+
+			test('shows a u64 max balance in full when the amount is over it', () => {
+				const check = tokenTransfer(
+					formatInputAmount(
+						(U64_MAX + 1n).toString(),
+						decimals,
+					),
+					U64_MAX,
+					decimals,
+				);
+				expect(check.amountError).toBe(
+					COPY.overBalance(
+						'TOKEN',
+						U64_MAX_SHOWN[decimals],
+					),
+				);
+			});
+
+			test('refuses an amount past u64 max through the balance check', () => {
+				const check = tokenTransfer(
+					'1234567890123456789012345',
+					U64_MAX,
+					decimals,
+				);
+				expect(check.amountError).toBe(
+					COPY.overBalance(
+						'TOKEN',
+						U64_MAX_SHOWN[decimals],
+					),
+				);
+				expect(check.canReview).toBe(false);
+			});
+		},
+	);
+
+	test('a 0-decimal coin refuses "1.5" with the invalid-amount copy', () => {
+		const check = tokenTransfer('1.5', 10n, 0);
+		expect(check.amountError).toBe(COPY.invalidAmount(0));
+		expect(check.rawAmount).toBeNull();
+		expect(check.canReview).toBe(false);
+	});
+
+	test('an 18-decimal coin takes one raw unit, and refuses a 19th digit', () => {
+		const tiny = tokenTransfer(
+			'0.000000000000000001',
+			10n,
+			18,
+		);
+		expect(tiny.rawAmount).toBe(1n);
+		expect(tiny.canReview).toBe(true);
+		expect(
+			tokenTransfer('0.0000000000000000001', 10n, 18)
+				.amountError,
+		).toBe(COPY.invalidAmount(18));
+	});
+
+	test('the gas-coin path is for SUI only, whatever the decimals', () => {
+		const sui = checkTransfer({
+			draft: {
+				coinType: SUI_TYPE_ARG,
+				amount: '18446744073.709551615',
+				recipient: RECIPIENT,
+			},
+			balance: U64_MAX.toString(),
+			decimals: 9,
+			symbol: 'SUI',
+		});
+		expect(sui.transferAllSui).toBe(true);
+		expect(sui.canReview).toBe(true);
+		expect(
+			tokenTransfer('18446744073.709551615', U64_MAX, 9)
+				.transferAllSui,
+		).toBe(false);
+	});
+
+	test('a zero SUI balance cannot be reviewed even with 0 typed', () => {
+		const check = checkTransfer({
+			draft: {
+				coinType: SUI_TYPE_ARG,
+				amount: '0',
+				recipient: RECIPIENT,
+			},
+			balance: '0',
+			decimals: 9,
+			symbol: 'SUI',
+		});
+		expect(check.amountError).toBe(COPY.zeroAmount);
+		expect(check.canReview).toBe(false);
+	});
+});
+
+describe('transferTitle across coin decimals', () => {
+	const title = (rawAmount: bigint, decimals: number) =>
+		transferTitle({
+			rawAmount,
+			decimals,
+			symbol: 'TOKEN',
+			recipient: RECIPIENT,
+		});
+
+	test.each(COIN_DECIMALS)(
+		'groups u64 max to the last raw unit at %i decimals',
+		(decimals) => {
+			expect(title(U64_MAX, decimals)).toBe(
+				`Send ${U64_MAX_SHOWN[decimals]} TOKEN to 0x8d4a…3f10`,
+			);
+		},
+	);
+
+	test.each(COIN_DECIMALS)(
+		'shows one whole token as 1 at %i decimals',
+		(decimals) => {
+			expect(title(10n ** BigInt(decimals), decimals)).toBe(
+				'Send 1 TOKEN to 0x8d4a…3f10',
+			);
+		},
+	);
+
+	test('drops trailing zeros and keeps leading ones in the fraction', () => {
+		expect(title(1_500_000n, 6)).toBe(
+			'Send 1.5 TOKEN to 0x8d4a…3f10',
+		);
+		expect(title(999_999n, 6)).toBe(
+			'Send 0.999999 TOKEN to 0x8d4a…3f10',
+		);
+		expect(title(1n, 18)).toBe(
+			'Send 0.000000000000000001 TOKEN to 0x8d4a…3f10',
+		);
+	});
+
+	test('groups a 0-decimal amount with no fraction', () => {
+		expect(title(1_234_567n, 0)).toBe(
+			'Send 1,234,567 TOKEN to 0x8d4a…3f10',
+		);
+	});
+});
+
+describe('buildTransferTransaction amounts', () => {
+	const SENDER = normalizeSuiAddress('0x5d2e');
+	const COIN_ID = normalizeSuiAddress('0xc0');
+
+	// A client that holds `held` of TOKEN in one coin and stops at gas
+	// resolution, which runs after the coin is split.
+	function fakeClient(held: bigint) {
+		const core = {
+			getBalance: async () => ({
+				balance: {
+					coinType: TOKEN,
+					balance: held.toString(),
+					coinBalance: held.toString(),
+					addressBalance: '0',
+				},
+			}),
+			listCoins: async () => ({
+				objects: [
+					{
+						objectId: COIN_ID,
+						version: '1',
+						digest: toBase58(new Uint8Array(32).fill(1)),
+						balance: held.toString(),
+						coinType: TOKEN,
+						owner: SENDER,
+					},
+				],
+				hasNextPage: false,
+				cursor: null,
+			}),
+			resolveTransactionPlugin: () => async () => {
+				throw new Error('reached gas resolution');
+			},
+		};
+		return { core } as unknown as Parameters<
+			typeof buildTransferTransaction
+		>[0]['client'];
+	}
+	const build = (amount: bigint, held: bigint) =>
+		buildTransferTransaction({
+			sender: SENDER,
+			recipient: RECIPIENT,
+			coinType: TOKEN,
+			amount,
+			client: fakeClient(held),
+		});
+
+	test('splits u64 max', async () => {
+		await expect(build(U64_MAX, U64_MAX)).rejects.toThrow(
+			'reached gas resolution',
+		);
+	});
+
+	test('cannot split one raw unit past u64 max', async () => {
+		await expect(
+			build(U64_MAX + 1n, U64_MAX + 1n),
+		).rejects.toThrow(
+			/Invalid u64 value: 18446744073709551616/,
+		);
+	});
+
+	test('keeps every digit of the amount when checking the balance', async () => {
+		await expect(
+			build(U64_MAX, U64_MAX - 1n),
+		).rejects.toThrow(
+			'Required: 18446744073709551615, Available: 18446744073709551614',
+		);
+	});
+
+	test('refuses zero before touching the client', async () => {
+		await expect(build(0n, 10n)).rejects.toThrow(
+			'Amount must be greater than zero.',
+		);
 	});
 });
