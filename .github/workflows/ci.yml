@@ -216,7 +216,8 @@ jobs:
 
   ui-e2e:
     name: UI E2E Tests
-    runs-on: ubuntu-latest
+    # Larger runner: Playwright runs 6 workers alongside the local network, API and app.
+    runs-on: ubuntu-ghcloud
     services:
       postgres:
         image: postgres:16
