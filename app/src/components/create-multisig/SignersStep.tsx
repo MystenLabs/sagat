@@ -29,6 +29,11 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+	Notice,
+	SectionHeading,
+	StepFooter,
+} from '@/components/wizard/parts';
 import { CONFIG } from '@/lib/constants';
 import {
 	COPY,
@@ -38,12 +43,7 @@ import {
 } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
 
-import {
-	Notice,
-	NumberStepper,
-	SectionHeading,
-	StepFooter,
-} from './parts';
+import { NumberStepper } from './parts';
 import { SignerRow } from './SignerRow';
 
 /** Step 2: who signs, with what weight, and how much it takes. */
@@ -254,6 +254,7 @@ export function SignersStep({
 			<Separator />
 
 			<StepFooter
+				cancelTestId="create-cancel-footer"
 				onCancel={onCancel}
 				back={
 					<Button
