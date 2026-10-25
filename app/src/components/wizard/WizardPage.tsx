@@ -37,6 +37,7 @@ export function WizardPage({
 	cardRef,
 	beforeContent,
 	sideKey,
+	sideClassName = '@4xl:w-80',
 	side,
 	children,
 }: {
@@ -57,6 +58,8 @@ export function WizardPage({
 	beforeContent?: ReactNode;
 	/** The side column fades in again when this changes. */
 	sideKey: string;
+	/** The side column's width from two columns on. */
+	sideClassName?: string;
 	side: ReactNode;
 	/** The step's card. */
 	children: ReactNode;
@@ -114,7 +117,10 @@ export function WizardPage({
 
 					<div
 						key={sideKey}
-						className="flex w-full flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @4xl:w-80 @4xl:shrink-0"
+						className={cn(
+							'flex w-full flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @4xl:shrink-0',
+							sideClassName,
+						)}
 					>
 						{side}
 					</div>

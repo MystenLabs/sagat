@@ -15,4 +15,7 @@ export interface E2EWalletConfig {
 	// with, the way a wallet whose restore throws does. Connecting from the
 	// app still works.
 	failRestore?: boolean;
+	// Rejects every transaction signing request, the way a wallet does when
+	// the user declines. Connecting and signing messages still work.
+	rejectSigning?: boolean;
 }

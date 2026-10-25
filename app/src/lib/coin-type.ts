@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { normalizeSuiAddress } from '@mysten/sui/utils';
+import {
+	normalizeStructTag,
+	normalizeSuiAddress,
+} from '@mysten/sui/utils';
 
 /** `0x1234...abcdefgh`: this module's own short form, not the SDK's. */
 const shortenAddress = (address: string) =>
@@ -47,4 +50,18 @@ export function formatCoinType(coinType: string): string {
 	if (!pkg.startsWith('0x') || pkg.length <= 12)
 		return pretty;
 	return `${shortenAddress(pkg)}::${rest.join('::')}`;
+}
+
+/**
+ * A coin type in the long form the chain uses (`0x2::sui::SUI` becomes
+ * `0x000…0002::sui::SUI`), or '' when it isn't a valid type.
+ */
+export function normalizeCoinType(
+	coinType: string,
+): string {
+	try {
+		return normalizeStructTag(coinType.trim());
+	} catch {
+		return '';
+	}
 }

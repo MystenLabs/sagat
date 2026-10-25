@@ -3,6 +3,15 @@
 
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
+import {
+	chooseAsset,
+	chooseType,
+	clickNewProposal,
+	expectSimulation,
+	fillTransfer,
+	proposeAndSign,
+	reviewTransfer,
+} from '../support/new-proposal';
 import { setupMultisig } from '../support/scenarios';
 import { mintTestCoin } from '../support/test-coin';
 
@@ -20,6 +29,11 @@ test.describe('transfer form', () => {
 			threshold: 2,
 		});
 		await chain.fund(multisig.address);
+		const coinType = await mintTestCoin(
+			chain,
+			multisig.address,
+			[10_000_000n],
+		);
 
 		await alice.signIn();
 		await alice.page
@@ -29,27 +43,38 @@ test.describe('transfer form', () => {
 			.suiBalanceRow()
 			.getByTestId('asset-send-button')
 			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
-			.getByTestId('transfer-recipient-input')
-			.fill(randomAddress());
 		// The faucet sent 1,000 SUI.
-		await sheet
-			.getByTestId('transfer-amount-input')
-			.fill('5000');
-		await sheet
-			.getByTestId('transfer-preview-button')
-			.click();
+		await fillTransfer(alice.page, {
+			amount: '5000',
+			recipient: randomAddress(),
+		});
 
+		const error = alice.page.getByTestId(
+			'transfer-amount-error',
+		);
+		await expect(error).toBeVisible();
+		await expect(error).toHaveText(
+			'More than the account holds. The SUI balance is 1,000.',
+		);
 		await expect(
-			sheet.getByTestId('transfer-amount-error'),
-		).toBeVisible();
+			alice.page.getByTestId('transfer-review'),
+		).toBeDisabled();
 		await expect(
-			sheet.getByTestId('transaction-preview-result'),
+			alice.page.getByTestId('transaction-preview-result'),
 		).toHaveCount(0);
+
+		// Any other coin names its balance.
+		await fillTransfer(alice.page, {
+			coinType,
+			amount: '50',
+			recipient: randomAddress(),
+		});
+		await expect(error).toHaveText(
+			'More than the account holds. The TEST balance is 10.',
+		);
 		await expect(
-			sheet.getByTestId('create-proposal-submit'),
-		).toHaveCount(0);
+			alice.page.getByTestId('transfer-review'),
+		).toBeDisabled();
 	});
 
 	test('Max sends the whole SUI balance', async ({
@@ -77,25 +102,16 @@ test.describe('transfer form', () => {
 			.suiBalanceRow()
 			.getByTestId('asset-send-button')
 			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
+		await alice.page
 			.getByTestId('transfer-recipient-input')
 			.fill(recipient);
-		await sheet.getByTestId('transfer-max-button').click();
-		await sheet
-			.getByTestId('transfer-preview-button')
-			.click();
-		await expect(
-			sheet.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'success');
-		await sheet
-			.getByTestId('create-proposal-submit')
-			.click();
-		await expect(sheet).toBeHidden();
-
 		await alice.page
-			.getByTestId('multisig-tab-proposals')
+			.getByTestId('transfer-max-button')
 			.click();
+		await reviewTransfer(alice.page);
+		await expectSimulation(alice.page, 'success');
+		await proposeAndSign(alice.page);
+
 		const card = alice.page.getByTestId('proposal-card');
 		await expect(card).toHaveAttribute(
 			'data-status',
@@ -139,39 +155,17 @@ test.describe('transfer form', () => {
 		const recipient = randomAddress();
 
 		await alice.signIn();
-		await alice.page
-			.getByTestId('new-proposal-button')
-			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
-			.getByTestId('proposal-mode-transfer')
-			.click();
-		await sheet.getByTestId('asset-picker-button').click();
-		await sheet
-			.locator(
-				`[data-testid="asset-picker-option"][data-coin-type="${coinType}"]`,
-			)
-			.click();
-		await sheet
-			.getByTestId('transfer-recipient-input')
-			.fill(recipient);
-		await sheet
-			.getByTestId('transfer-amount-input')
-			.fill('12.5');
-		await sheet
-			.getByTestId('transfer-preview-button')
-			.click();
-		await expect(
-			sheet.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'success');
-		await sheet
-			.getByTestId('create-proposal-submit')
-			.click();
-		await expect(sheet).toBeHidden();
+		await clickNewProposal(alice.page);
+		await chooseType(alice.page, 'transfer');
+		await chooseAsset(alice.page, coinType);
+		await fillTransfer(alice.page, {
+			amount: '12.5',
+			recipient,
+		});
+		await reviewTransfer(alice.page);
+		await expectSimulation(alice.page, 'success');
+		await proposeAndSign(alice.page);
 
-		await alice.page
-			.getByTestId('multisig-tab-proposals')
-			.click();
 		const card = alice.page.getByTestId('proposal-card');
 		await card
 			.getByTestId('execute-proposal-button')

@@ -235,8 +235,28 @@ describe('parseAmount', () => {
 		expect(parseAmount('1,2,3', 0)).toBeNull();
 	});
 
-	test('rejects too many fractional digits', () => {
+	test('rejects a non-zero digit past the decimals', () => {
 		expect(parseAmount('1.234', 2)).toBeNull();
+	});
+
+	test('reads zeros past the decimals as the same amount', () => {
+		expect(parseAmount('1.50', 1)).toBe(15n);
+		expect(parseAmount('1.000', 2)).toBe(100n);
+		expect(parseAmount('0.1234560000', 6)).toBe(123_456n);
+	});
+
+	test('rejects a non-zero digit past the decimals, even after zeros', () => {
+		expect(parseAmount('1.501', 1)).toBeNull();
+		expect(parseAmount('1.0001', 2)).toBeNull();
+		expect(parseAmount('1.0000001', 6)).toBeNull();
+	});
+
+	test('takes no fraction but zeros on a 0-decimal coin', () => {
+		for (const input of ['0.5', '.5', '1.5', '1.01'])
+			expect(parseAmount(input, 0)).toBeNull();
+		expect(parseAmount('1.0', 0)).toBe(1n);
+		expect(parseAmount('1.000', 0)).toBe(1n);
+		expect(parseAmount('0.0', 0)).toBe(0n);
 	});
 
 	test('rejects empty and invalid input', () => {

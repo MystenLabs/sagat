@@ -13,6 +13,11 @@ import { toast } from '@/lib/toast';
 export type SuiNetwork =
 	'mainnet' | 'testnet' | 'devnet' | 'localnet';
 
+/** The network's name in copy: "Mainnet", "Testnet". */
+export function networkLabel(network: SuiNetwork) {
+	return network.charAt(0).toUpperCase() + network.slice(1);
+}
+
 /**
  * Whether the wallet advertises the network. dapp-kit drops the account
  * when the current network is one the wallet does not list.

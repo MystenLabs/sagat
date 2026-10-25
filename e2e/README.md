@@ -88,7 +88,9 @@ through the UI.
 **A second coin.** Global setup publishes `move/test_coin`, a 6-decimal TEST
 coin anyone can mint from a shared faucet. `mintTestCoin(chain, address,
 amounts)` in `support/test-coin.ts` sends it, for flows that need a coin other
-than SUI.
+than SUI. For other decimals, symbols or names, `publishTestCoin(chain,
+{ decimals, symbol, name })` publishes a coin of its own in a few seconds, and
+`mintCoin(chain, coin, address, amounts)` sends it.
 
 Fresh keys mean fresh multisig addresses, so tests never share state and run in
 parallel against one database and chain.
