@@ -13,6 +13,7 @@ import { describe, expect, test } from 'vitest';
 
 import { buildTransferTransaction } from '../src/components/assets/buildTransferTransaction';
 import { normalizeCoinType } from '../src/lib/coin-type';
+import { formatInputAmount } from '../src/lib/coins';
 import {
 	bytesStatusText,
 	checkBytes,
@@ -27,6 +28,7 @@ import {
 	transferTitle,
 	type TransferDraft,
 } from '../src/lib/new-proposal';
+import { COIN_DECIMALS, U64_MAX } from './coin-decimals';
 
 const ACCOUNT = normalizeSuiAddress(
 	'0x5d2e00000000000000000000000000000000000000000000000000000000a1b7',
@@ -722,5 +724,120 @@ describe('buildTransferTransaction Max on SUI', () => {
 		expect(
 			data.commands[0].TransferObjects?.objects,
 		).toEqual([{ $kind: 'GasCoin', GasCoin: true }]);
+	});
+});
+
+const TOKEN = `${normalizeSuiAddress('0xabc')}::token::TOKEN`;
+
+function tokenTransfer(
+	amount: string,
+	balance: bigint,
+	decimals: number,
+) {
+	return checkTransfer({
+		draft: {
+			coinType: TOKEN,
+			amount,
+			recipient: RECIPIENT,
+		},
+		balance: balance.toString(),
+		decimals,
+		symbol: 'TOKEN',
+	});
+}
+
+describe.each(COIN_DECIMALS)(
+	'a token transfer at %i decimals',
+	(decimals) => {
+		test('Max is exactly the balance and passes the checks, off the SUI gas-coin path', () => {
+			for (const balance of [1n, U64_MAX]) {
+				const max = maxTransfer({
+					balance: balance.toString(),
+					addressBalance: '0',
+					gasCoins: null,
+					decimals,
+				});
+				const check = tokenTransfer(
+					max!.amount,
+					balance,
+					decimals,
+				);
+				expect(check.rawAmount).toBe(balance);
+				expect(check.canReview).toBe(true);
+				expect(check.transferAllSui).toBe(false);
+			}
+		});
+
+		test('refuses one raw unit over a u64 max balance', () => {
+			const check = tokenTransfer(
+				formatInputAmount(
+					(U64_MAX + 1n).toString(),
+					decimals,
+				),
+				U64_MAX,
+				decimals,
+			);
+			expect(check.amountError).not.toBeNull();
+			expect(check.canReview).toBe(false);
+		});
+	},
+);
+
+describe('buildTransferTransaction amounts', () => {
+	const SENDER = normalizeSuiAddress('0x5d2e');
+
+	// A client that holds `held` of TOKEN in one coin and stops at gas
+	// resolution, which runs after the coin is split.
+	function build(amount: bigint, held: bigint) {
+		const core = {
+			getBalance: async () => ({
+				balance: {
+					coinType: TOKEN,
+					balance: held.toString(),
+					coinBalance: held.toString(),
+					addressBalance: '0',
+				},
+			}),
+			listCoins: async () => ({
+				objects: [
+					{
+						objectId: normalizeSuiAddress('0xc0'),
+						version: '1',
+						digest: toBase58(new Uint8Array(32).fill(1)),
+						balance: held.toString(),
+						coinType: TOKEN,
+						owner: SENDER,
+					},
+				],
+				hasNextPage: false,
+				cursor: null,
+			}),
+			resolveTransactionPlugin: () => async () => {
+				throw new Error('reached gas resolution');
+			},
+		};
+		return buildTransferTransaction({
+			sender: SENDER,
+			recipient: RECIPIENT,
+			coinType: TOKEN,
+			amount,
+			client: { core } as unknown as Parameters<
+				typeof buildTransferTransaction
+			>[0]['client'],
+		});
+	}
+
+	test('splits u64 max', async () => {
+		await expect(build(U64_MAX, U64_MAX)).rejects.toThrow(
+			'reached gas resolution',
+		);
+	});
+
+	test('refuses an amount one raw unit over what is held, at u64 scale', async () => {
+		await expect(
+			build(U64_MAX, U64_MAX - 1n),
+		).rejects.toThrow(
+			'Required: 18446744073709551615, Available: 18446744073709551614',
+		);
 	});
 });

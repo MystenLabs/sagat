@@ -25,6 +25,7 @@ import {
 	type SortableBalance,
 } from '../src/lib/coins';
 import { maxTransfer } from '../src/lib/new-proposal';
+import { COIN_DECIMALS, U64_MAX } from './coin-decimals';
 
 describe('isSuiCoinType', () => {
 	test('matches the short canonical form', () => {
@@ -621,5 +622,56 @@ describe('accountAssetsState', () => {
 				pricesAvailable: false,
 			}),
 		).toEqual(settled);
+	});
+});
+
+describe.each(COIN_DECIMALS)(
+	'amounts at %i decimals',
+	(decimals) => {
+		test('takes exactly its decimals, down to one raw unit, and refuses a digit past them', () => {
+			const oneUnit =
+				decimals === 0
+					? '1'
+					: `0.${'0'.repeat(decimals - 1)}1`;
+			expect(parseAmount(oneUnit, decimals)).toBe(1n);
+			expect(
+				parseAmount(
+					`1.${'1'.repeat(decimals + 1)}`,
+					decimals,
+				),
+			).toBeNull();
+		});
+
+		test('parses u64 max back from its input and display forms without losing a raw unit', () => {
+			const max = U64_MAX.toString();
+			expect(
+				parseAmount(
+					formatInputAmount(max, decimals),
+					decimals,
+				),
+			).toBe(U64_MAX);
+			expect(
+				parseAmount(
+					formatCoinAmount(max, decimals),
+					decimals,
+				),
+			).toBe(U64_MAX);
+		});
+	},
+);
+
+describe('amount edges', () => {
+	test('a comma is always grouping: "1,500" is fifteen hundred and "0,5" is refused', () => {
+		expect(parseAmount('1,500', 6)).toBe(1_500_000_000n);
+		expect(parseAmount('0,5', 6)).toBeNull();
+	});
+
+	test('the USD value of u64 max of an 18-decimal coin is within float precision', () => {
+		expect(
+			coinUsdValue(U64_MAX.toString(), {
+				decimals: 18,
+				priceUsd: 3000,
+			}),
+		).toBeCloseTo(55_340.232221, 5);
 	});
 });
