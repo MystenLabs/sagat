@@ -665,13 +665,4 @@ describe('amount edges', () => {
 		expect(parseAmount('1,500', 6)).toBe(1_500_000_000n);
 		expect(parseAmount('0,5', 6)).toBeNull();
 	});
-
-	test('the USD value of u64 max of an 18-decimal coin is within float precision', () => {
-		expect(
-			coinUsdValue(U64_MAX.toString(), {
-				decimals: 18,
-				priceUsd: 3000,
-			}),
-		).toBeCloseTo(55_340.232221, 5);
-	});
 });

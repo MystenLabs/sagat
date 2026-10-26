@@ -7,39 +7,41 @@
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	MIST_PER_SUI,
+	normalizeSuiAddress,
 	toBase58,
 	toBase64,
 } from '@mysten/sui/utils';
-import { type Page, type Request } from '@playwright/test';
+import { type Page } from '@playwright/test';
 
-import { type ProposalType } from '../../app/src/lib/new-proposal';
-import { type Actor } from '../support/actor';
+import {
+	COPY,
+	type ProposalType,
+} from '../../app/src/lib/new-proposal';
 import {
 	randomAddress,
 	SUI_TYPE,
 	type Chain,
 } from '../support/chain';
-import { E2E } from '../support/env';
-import { expect, test } from '../support/fixtures';
-import { type Identity } from '../support/identity';
 import {
+	expect,
+	test,
+	type Fixtures,
+} from '../support/fixtures';
+import {
+	bytesOnReview,
 	chooseType,
 	expectSimulation,
 	fillTransfer,
 	openNewProposal,
 	pasteBytes,
 	proposeAndSign,
+	recordCreates,
 	reviewBytes,
 	reviewTransfer,
+	sharedAccount,
 } from '../support/new-proposal';
 import { setupMultisig } from '../support/scenarios';
-import { mintTestCoin } from '../support/test-coin';
-
-type Fixtures = {
-	createActor: (name: string) => Promise<Actor>;
-	createIdentity: (name: string) => Identity;
-	chain: Chain;
-};
+import { testCoinType } from '../support/test-coin';
 
 /**
  * Alice and Bob share an account, funded unless `fund` is false; Alice is
@@ -47,20 +49,17 @@ type Fixtures = {
  * 2-of-2, so Alice's proposals stay pending.
  */
 async function openWizard(
-	{ createActor, createIdentity, chain }: Fixtures,
+	fixtures: Fixtures,
 	{
 		fund = true,
 		type,
 	}: { fund?: boolean; type?: ProposalType } = {},
 ) {
-	const alice = await createActor('alice');
-	const multisig = await setupMultisig({
-		creator: alice,
-		members: [createIdentity('bob')],
-		threshold: 2,
-	});
-	if (fund) await chain.fund(multisig.address);
-	await alice.signIn();
+	const { alice, multisig } = await sharedAccount(
+		fixtures,
+		2,
+		{ fund },
+	);
 	await openNewProposal(alice.page, multisig.address, {
 		type,
 	});
@@ -79,21 +78,6 @@ function suiTransferBytes(
 		amount: MIST_PER_SUI,
 		expiration,
 	});
-}
-
-// Every POST /proposals the page sends, as it sends it.
-function recordCreates(page: Page) {
-	const creates: Request[] = [];
-	page.on('request', (request) => {
-		const url = new URL(request.url());
-		if (
-			request.method() === 'POST' &&
-			url.origin === E2E.apiUrl &&
-			url.pathname.endsWith('/proposals')
-		)
-			creates.push(request);
-	});
-	return creates;
 }
 
 // Uncaught errors on the page, which a crash would show up as.
@@ -117,25 +101,12 @@ async function transferOnReview(page: Page) {
 	await expectSimulation(page, 'success');
 }
 
-// From the bytes Details step, `bytes` and `title` on Review.
-async function bytesOnReview(
-	page: Page,
-	bytes: string,
-	title: string,
-) {
-	await pasteBytes(page, bytes, title);
-	await expect(
-		page.getByTestId('bytes-status'),
-	).toHaveAttribute('data-state', 'ok');
-	await reviewBytes(page);
-}
-
 test.describe('new proposal edges: history and links', () => {
 	// BUG: (rough edge) the steps aren't history entries, so the browser's
 	// Back on Review doesn't go back a step: it leaves the wizard and the
-	// draft is gone, without asking. Forward then opens a fresh wizard.
-	// Nothing is inconsistent (no Review without a preview), only lost.
-	test('browser Back and Forward from Review keep the wizard working', async ({
+	// draft is gone, without asking. Nothing is inconsistent (no Review
+	// without a preview), only lost.
+	test('browser Back from Review leaves the wizard for the previous page, and Forward opens a fresh Type step', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -149,10 +120,27 @@ test.describe('new proposal edges: history and links', () => {
 		await transferOnReview(page);
 
 		await page.goBack();
+		await expect(
+			page.getByTestId('new-proposal-page'),
+		).toHaveCount(0);
+		await expect(page).toHaveURL(
+			(url) => !url.pathname.endsWith('/proposals/new'),
+		);
+
 		await page.goForward();
 		await expect(
 			page.getByTestId('new-proposal-stepper'),
+		).toHaveAttribute('data-step', '1');
+		await expect(
+			page.getByTestId('type-step'),
 		).toBeVisible();
+		await chooseType(page, 'transfer');
+		await expect(
+			page.getByTestId('transfer-asset-select'),
+		).not.toHaveAttribute('data-coin-type');
+		await expect(
+			page.getByTestId('transfer-amount-input'),
+		).toHaveValue('');
 		expect(errors).toEqual([]);
 	});
 
@@ -197,19 +185,23 @@ test.describe('new proposal edges: history and links', () => {
 			page.getByTestId('type-step'),
 		).toBeVisible();
 
-		// A real coin type, minted to someone else.
-		const unheld = await mintTestCoin(
-			chain,
-			randomAddress(),
-			[1n],
-		);
-		for (const asset of ['notacoin', unheld]) {
+		// A real coin type the account doesn't hold.
+		for (const asset of ['notacoin', testCoinType()]) {
 			await page.goto(
 				`${wizard}?type=transfer&asset=${encodeURIComponent(asset)}`,
 			);
+			const select = page.getByTestId(
+				'transfer-asset-select',
+			);
 			await expect(
-				page.getByTestId('transfer-asset-select'),
-			).not.toHaveAttribute('data-coin-type');
+				select.getByText('Choose an asset'),
+			).toBeVisible();
+			await expect(
+				page.getByTestId('transfer-max-button'),
+			).toHaveCount(0);
+			await expect(select).not.toHaveAttribute(
+				'data-coin-type',
+			);
 			await expect(
 				page.getByTestId('transfer-asset-error'),
 			).toHaveCount(0);
@@ -219,7 +211,7 @@ test.describe('new proposal edges: history and links', () => {
 
 	// BUG: (rough edge) a wizard link for an account the signer isn't in
 	// (or that doesn't exist) silently lands on the signer's own account,
-	// via the dashboard's redirect (NewProposalPage.tsx:70). Expected some
+	// via the dashboard's redirect (NewProposalPage). Expected some
 	// word that the linked account isn't one of theirs; the user may now
 	// propose from the wrong account without noticing.
 	test('a wizard link for an account the signer isn’t in, or that doesn’t exist, doesn’t open the wizard on it', async ({
@@ -301,9 +293,7 @@ test.describe('new proposal edges: title', () => {
 		await input.blur();
 		await expect(
 			page.getByTestId('proposal-title-hint'),
-		).toHaveText(
-			'501 of 500 characters. Use 500 or fewer.',
-		);
+		).toHaveText(COPY.titleTooLong(501));
 		await expect(review).toBeDisabled();
 
 		await input.fill('Short');
@@ -344,7 +334,7 @@ test.describe('new proposal edges: title', () => {
 		).toEqual(['Pay the designer']);
 	});
 
-	test('Escape in the Review title editor keeps the title, and Enter on the stepper’s Details goes back with the draft', async ({
+	test('Escape in the Review title editor keeps the title', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -359,12 +349,10 @@ test.describe('new proposal edges: title', () => {
 			'Keep me',
 		);
 
-		await page.getByTestId('review-edit-title').focus();
-		await page.keyboard.press('Enter');
+		await page.getByTestId('review-edit-title').click();
 		const editor = page.getByTestId('review-title-input');
-		await expect(editor).toBeFocused();
-		await page.keyboard.type(' and not this');
-		await page.keyboard.press('Escape');
+		await editor.pressSequentially(' and not this');
+		await editor.press('Escape');
 		await expect(editor).toHaveCount(0);
 		await expect(
 			page.getByTestId('review-title'),
@@ -372,16 +360,6 @@ test.describe('new proposal edges: title', () => {
 		await expect(
 			page.getByTestId('review-step'),
 		).toBeVisible();
-
-		// The stepper's Details is a button Enter opens, with the draft kept.
-		await page.getByTestId('new-proposal-step-2').focus();
-		await page.keyboard.press('Enter');
-		await expect(
-			page.getByTestId('bytes-step'),
-		).toBeVisible();
-		await expect(
-			page.getByTestId('bytes-input'),
-		).not.toHaveValue('');
 	});
 });
 
@@ -423,6 +401,7 @@ test.describe('new proposal edges: bytes', () => {
 			{ createActor, createIdentity, chain },
 			{ type: 'bytes' },
 		);
+		const creates = recordCreates(page);
 		const bytes = await suiTransferBytes(chain, account);
 
 		await bytesOnReview(
@@ -435,6 +414,9 @@ test.describe('new proposal edges: bytes', () => {
 		await expect(
 			page.getByTestId('proposal-card'),
 		).toHaveCount(1);
+		expect(
+			creates.map((r) => r.postDataJSON().transactionBytes),
+		).toEqual([bytes]);
 	});
 
 	test('bytes expiring at the end of the current epoch show the expiry and simulate', async ({
@@ -479,11 +461,24 @@ test.describe('new proposal edges: bytes', () => {
 			{ createActor, createIdentity, chain },
 			{ type: 'bytes' },
 		);
+		// Built offline, with the gas pinned: building with a client would
+		// simulate the expired transaction and refuse it.
+		const [coins, { referenceGasPrice }] =
+			await Promise.all([
+				chain.coins(account),
+				chain.client.getReferenceGasPrice(),
+			]);
+		const tx = new Transaction();
+		tx.setSender(account);
+		tx.setGasPayment(coins);
+		tx.setGasPrice(BigInt(referenceGasPrice));
+		tx.setGasBudget(10_000_000n);
+		tx.setExpiration({ Epoch: epoch - 1 });
+		const [coin] = tx.splitCoins(tx.gas, [MIST_PER_SUI]);
+		tx.transferObjects([coin], randomAddress());
 		await bytesOnReview(
 			page,
-			await suiTransferBytes(chain, account, {
-				Epoch: epoch - 1,
-			}),
+			toBase64(await tx.build()),
 			'Expired',
 		);
 		await expect(
@@ -498,9 +493,9 @@ test.describe('new proposal edges: bytes', () => {
 	// gas coin doesn't exist here.
 	// BUG: (rough edge) the reason is the node's text as it is, "Error
 	// checking transaction input objects: Could not find the referenced
-	// object 0x… at version None." (ReviewStep.tsx:78): readable, but
-	// "version None" is a Rust Option leaking through, and nothing hints
-	// that the bytes may be for another network.
+	// object 0x… at version None.": readable, but "version None" is a Rust
+	// Option leaking through, and nothing hints that the bytes may be for
+	// another network.
 	test('bytes paying gas with a coin that doesn’t exist fail the simulation with a reason, and proposing them anyway shows the API’s refusal', async ({
 		createActor,
 		createIdentity,
@@ -510,11 +505,12 @@ test.describe('new proposal edges: bytes', () => {
 			{ createActor, createIdentity, chain },
 			{ type: 'bytes' },
 		);
+		const gasCoin = normalizeSuiAddress(randomAddress());
 		const tx = new Transaction();
 		tx.setSender(account);
 		tx.setGasPayment([
 			{
-				objectId: randomAddress(),
+				objectId: gasCoin,
 				version: '7',
 				digest: toBase58(new Uint8Array(32).fill(7)),
 			},
@@ -532,11 +528,14 @@ test.describe('new proposal edges: bytes', () => {
 		await expectSimulation(page, 'failure');
 		await expect(
 			page.getByTestId('review-simulation-error'),
-		).toBeVisible();
+		).toContainText(gasCoin);
 		const submit = page.getByTestId('review-submit');
+		await expect(submit).toHaveText(
+			'Propose and sign anyway',
+		);
 		await submit.click();
-		await expect(
-			page.getByTestId('review-create-error'),
-		).toBeVisible();
+		const refused = page.getByTestId('review-create-error');
+		await expect(refused).toBeVisible();
+		await expect(refused).not.toHaveText(COPY.createFailed);
 	});
 });

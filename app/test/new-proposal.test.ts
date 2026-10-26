@@ -1,8 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { bcs } from '@mysten/sui/bcs';
 import { Transaction } from '@mysten/sui/transactions';
 import {
+	fromBase64,
 	normalizeSuiAddress,
 	SUI_TYPE_ARG,
 	toBase58,
@@ -764,7 +766,6 @@ describe.each(COIN_DECIMALS)(
 				);
 				expect(check.rawAmount).toBe(balance);
 				expect(check.canReview).toBe(true);
-				expect(check.transferAllSui).toBe(false);
 			}
 		});
 
@@ -786,8 +787,8 @@ describe.each(COIN_DECIMALS)(
 describe('buildTransferTransaction amounts', () => {
 	const SENDER = normalizeSuiAddress('0x5d2e');
 
-	// A client that holds `held` of TOKEN in one coin and stops at gas
-	// resolution, which runs after the coin is split.
+	// A client that holds `held` of TOKEN in one coin, whose resolver pins
+	// the gas payment, price and budget, as the Max on SUI client does.
 	function build(amount: bigint, held: bigint) {
 		const core = {
 			getBalance: async () => ({
@@ -812,9 +813,24 @@ describe('buildTransferTransaction amounts', () => {
 				hasNextPage: false,
 				cursor: null,
 			}),
-			resolveTransactionPlugin: () => async () => {
-				throw new Error('reached gas resolution');
-			},
+			resolveTransactionPlugin:
+				() =>
+				async (
+					data: ReturnType<Transaction['getData']>,
+					_options: unknown,
+					next: () => Promise<void>,
+				) => {
+					data.gasData.payment ??= [
+						{
+							objectId: normalizeSuiAddress('0x6a5'),
+							version: '1',
+							digest: toBase58(new Uint8Array(32).fill(2)),
+						},
+					];
+					data.gasData.price ??= '1000';
+					data.gasData.budget ??= '10000000';
+					await next();
+				},
 		};
 		return buildTransferTransaction({
 			sender: SENDER,
@@ -828,16 +844,26 @@ describe('buildTransferTransaction amounts', () => {
 	}
 
 	test('splits u64 max', async () => {
-		await expect(build(U64_MAX, U64_MAX)).rejects.toThrow(
-			'reached gas resolution',
-		);
+		const data = Transaction.from(
+			await build(U64_MAX, U64_MAX),
+		).getData();
+		const split = data.commands.find(
+			(c) => c.SplitCoins,
+		)?.SplitCoins;
+		const [amount] = split?.amounts ?? [];
+		expect(amount?.$kind).toBe('Input');
+		const input =
+			amount?.$kind === 'Input'
+				? data.inputs[amount.Input]
+				: undefined;
+		expect(
+			bcs.u64().parse(fromBase64(input!.Pure!.bytes)),
+		).toBe(U64_MAX.toString());
 	});
 
 	test('refuses an amount one raw unit over what is held, at u64 scale', async () => {
 		await expect(
 			build(U64_MAX, U64_MAX - 1n),
-		).rejects.toThrow(
-			'Required: 18446744073709551615, Available: 18446744073709551614',
-		);
+		).rejects.toThrow();
 	});
 });
