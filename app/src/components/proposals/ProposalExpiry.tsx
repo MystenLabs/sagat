@@ -23,7 +23,8 @@ import {
 
 // How long a proposal's transaction can still execute, if it expires at
 // all: a badge, or with `variant="inline"` plain text for a meta line,
-// after a separator, coloured once less than an hour is left.
+// after a separator that wraps with it, coloured once less than an hour
+// is left.
 export function ProposalExpiry({
 	transactionBytes,
 	variant = 'chip',
@@ -53,7 +54,7 @@ export function ProposalExpiry({
 
 	if (variant === 'inline') {
 		return (
-			<>
+			<span className="inline-flex items-center gap-1.5">
 				<span aria-hidden>·</span>
 				<TooltipProvider delay={150}>
 					<Tooltip>
@@ -76,7 +77,7 @@ export function ProposalExpiry({
 						{tooltip}
 					</Tooltip>
 				</TooltipProvider>
-			</>
+			</span>
 		);
 	}
 
