@@ -60,6 +60,7 @@ export function BytesDetailsStep({
 	);
 	const bytesInvalid =
 		check.kind === 'unreadable' ||
+		check.kind === 'unresolved' ||
 		check.kind === 'wrong-sender';
 
 	const value = title ?? '';
@@ -100,7 +101,7 @@ export function BytesDetailsStep({
 					id="proposal-bytes"
 					value={draft}
 					onChange={(e) => onDraftChange(e.target.value)}
-					placeholder="Paste the base64 transaction bytes"
+					placeholder={COPY.bytesPlaceholder}
 					autoComplete="off"
 					spellCheck={false}
 					aria-invalid={bytesInvalid || undefined}

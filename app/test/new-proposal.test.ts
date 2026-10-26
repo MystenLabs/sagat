@@ -40,9 +40,9 @@ const RECIPIENT = normalizeSuiAddress(
 const USDC =
 	'0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
 
-// A SUI transfer from `sender`, built offline: the gas coin, price and
-// budget are pinned so no client is needed.
-async function transferBytes(sender: string) {
+// A SUI transfer from `sender` that builds offline: the gas coin, price
+// and budget are pinned so no client is needed.
+function transferTransaction(sender: string) {
 	const tx = new Transaction();
 	tx.setSender(sender);
 	tx.setGasPayment([
@@ -56,7 +56,13 @@ async function transferBytes(sender: string) {
 	tx.setGasBudget(10_000_000n);
 	const [coin] = tx.splitCoins(tx.gas, [1_000n]);
 	tx.transferObjects([coin], RECIPIENT);
-	return toBase64(await tx.build());
+	return tx;
+}
+
+async function transferBytes(sender: string) {
+	return toBase64(
+		await transferTransaction(sender).build(),
+	);
 }
 
 describe('transferTitle', () => {
@@ -415,7 +421,7 @@ describe('checkBytes', () => {
 			'not base64 at all!!',
 			toHex(new TextEncoder().encode('transaction')),
 			JSON.stringify({ sender: ACCOUNT }),
-			Transaction.from(bytes).serialize(),
+			(await Transaction.from(bytes).toJSON()).slice(0, 40),
 			bytes.slice(0, 40),
 		])
 			expect(checkBytes(input, ACCOUNT)).toEqual({
@@ -451,6 +457,36 @@ describe('checkBytes', () => {
 		});
 	});
 
+	test('reads fully built JSON from the account as the bytes it builds to', async () => {
+		const json =
+			await transferTransaction(ACCOUNT).toJSON();
+		expect(checkBytes(json, ACCOUNT)).toEqual({
+			kind: 'ok',
+			bytes: await transferBytes(ACCOUNT),
+			commands: 2,
+		});
+	});
+
+	test('refuses JSON that still needs a client to build', async () => {
+		const tx = transferTransaction(ACCOUNT);
+		// An object without its version and digest.
+		tx.transferObjects(
+			[tx.object(normalizeSuiAddress('0x99'))],
+			RECIPIENT,
+		);
+		expect(checkBytes(await tx.toJSON(), ACCOUNT)).toEqual({
+			kind: 'unresolved',
+		});
+	});
+
+	test('names the sender of another account’s JSON', async () => {
+		const json = await transferTransaction(OTHER).toJSON();
+		expect(checkBytes(json, ACCOUNT)).toEqual({
+			kind: 'wrong-sender',
+			sender: OTHER,
+		});
+	});
+
 	test('names the sender of another account’s bytes', async () => {
 		const bytes = await transferBytes(OTHER);
 		expect(checkBytes(bytes, ACCOUNT)).toEqual({
@@ -471,6 +507,12 @@ describe('bytesStatusText', () => {
 		expect(
 			bytesStatusText({ kind: 'unreadable' }, 'Treasury'),
 		).toBe(COPY.unreadableBytes);
+	});
+
+	test('explains JSON that isn’t fully built', () => {
+		expect(
+			bytesStatusText({ kind: 'unresolved' }, 'Treasury'),
+		).toBe(COPY.bytesUnresolved);
 	});
 
 	test('names the other sender and the account', () => {

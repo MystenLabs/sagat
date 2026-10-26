@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Transaction } from '@mysten/sui/transactions';
 import {
 	formatAddress,
 	MIST_PER_SUI,
@@ -26,6 +27,7 @@ import {
 	pasteBytes,
 	proposeAndSign,
 	recordCreates,
+	reviewBytes,
 	reviewTransfer,
 	sharedAccount,
 	toast,
@@ -660,6 +662,43 @@ test.describe('new proposal: transaction bytes', () => {
 		await expect(
 			page.getByTestId('bytes-review'),
 		).toBeDisabled();
+	});
+
+	test('a fully built transaction pasted as JSON is simulated and proposed as its bytes', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			2,
+		);
+		const { page } = alice;
+		const creates = recordCreates(page);
+		const bytes = await chain.buildSuiTransfer({
+			sender: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		await openNewProposal(page, multisig.address, {
+			type: 'bytes',
+		});
+		await pasteBytes(
+			page,
+			await Transaction.from(bytes).toJSON(),
+			'Pasted as JSON',
+		);
+		await expect(
+			page.getByTestId('bytes-status'),
+		).toHaveAttribute('data-state', 'ok');
+		await reviewBytes(page);
+		await expectSimulation(page, 'success');
+		await proposeAndSign(page);
+		expect(
+			creates.map((r) => r.postDataJSON().transactionBytes),
+		).toEqual([bytes]);
 	});
 });
 

@@ -4,11 +4,15 @@
 // The rules of the new-proposal wizard, kept free of React so the copy
 // and the limits are in one place: the proposal types, what blocks Review
 // on a transfer, the generated title, and how pasted bytes are read.
-import { Transaction } from '@mysten/sui/transactions';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
 import {
 	formatAddress,
 	isValidSuiAddress,
 	normalizeSuiAddress,
+	toBase64,
 } from '@mysten/sui/utils';
 
 import {
@@ -242,34 +246,34 @@ export function titleError(title: string): string | null {
 export type BytesCheck =
 	| { kind: 'empty' }
 	| { kind: 'unreadable' }
+	/** JSON that still needs a client to build. */
+	| { kind: 'unresolved' }
 	| { kind: 'wrong-sender'; sender: string }
-	/** `bytes` is the input without its whitespace, proposed as it is. */
+	/**
+	 * `bytes` is the base64 to propose: the input without its whitespace,
+	 * or the BCS a JSON transaction builds to.
+	 */
 	| { kind: 'ok'; bytes: string; commands: number };
 
 /**
- * Reads pasted transaction bytes: drops all whitespace (a paste wrapped
- * across lines is one transaction), parses them as base64 BCS with
- * Transaction.from, and compares the normalized sender with `account`.
- * Only base64 is read: a serialized JSON transaction counts as
- * unreadable.
+ * Reads a pasted transaction and compares its normalized sender with
+ * `account`. Base64 BCS is read with all whitespace dropped (a paste
+ * wrapped across lines is one transaction). JSON, as
+ * Transaction#toJSON writes it, is read only when it is fully resolved
+ * (the SDK's isFullyResolved: sender, gas and concrete inputs), so it
+ * builds to bytes offline.
  */
 export function checkBytes(
 	input: string,
 	account: string,
 ): BytesCheck {
-	const bytes = input.replace(/\s/g, '');
-	if (!bytes) return { kind: 'empty' };
-	if (bytes.startsWith('{')) return { kind: 'unreadable' };
-
-	let sender: string | null | undefined;
-	let commands: number;
-	try {
-		const data = Transaction.from(bytes).getData();
-		sender = data.sender;
-		commands = data.commands.length;
-	} catch {
-		return { kind: 'unreadable' };
-	}
+	const trimmed = input.trim();
+	if (!trimmed) return { kind: 'empty' };
+	const read = trimmed.startsWith('{')
+		? readJson(trimmed)
+		: readBase64(trimmed.replace(/\s/g, ''));
+	if (read.kind !== 'read') return read;
+	const { bytes, sender, commands } = read;
 	if (!sender || !isValidSuiAddress(sender))
 		return { kind: 'unreadable' };
 
@@ -283,6 +287,54 @@ export function checkBytes(
 	};
 }
 
+type ReadTransaction =
+	| { kind: 'unreadable' | 'unresolved' }
+	| {
+			kind: 'read';
+			bytes: string;
+			sender: string | null | undefined;
+			commands: number;
+	  };
+
+function readBase64(bytes: string): ReadTransaction {
+	try {
+		const data = Transaction.from(bytes).getData();
+		return {
+			kind: 'read',
+			bytes,
+			sender: data.sender,
+			commands: data.commands.length,
+		};
+	} catch {
+		return { kind: 'unreadable' };
+	}
+}
+
+function readJson(json: string): ReadTransaction {
+	let tx: Transaction;
+	try {
+		tx = Transaction.from(json);
+	} catch {
+		return { kind: 'unreadable' };
+	}
+	if (!tx.isFullyResolved()) return { kind: 'unresolved' };
+	const data = tx.getData();
+	try {
+		// Once fully resolved, Transaction#build skips the resolver and
+		// serializes these data, so this is its result without the await.
+		const bytes =
+			TransactionDataBuilder.restore(data).build();
+		return {
+			kind: 'read',
+			bytes: toBase64(bytes),
+			sender: data.sender,
+			commands: data.commands.length,
+		};
+	} catch {
+		return { kind: 'unreadable' };
+	}
+}
+
 /** The status line under the bytes field; null while it is empty. */
 export function bytesStatusText(
 	check: BytesCheck,
@@ -293,6 +345,8 @@ export function bytesStatusText(
 			return null;
 		case 'unreadable':
 			return COPY.unreadableBytes;
+		case 'unresolved':
+			return COPY.bytesUnresolved;
 		case 'wrong-sender':
 			return `These bytes are sent from ${formatAddress(check.sender)}, not ${accountName}. Build the transaction with this account as the sender.`;
 		case 'ok':
@@ -323,7 +377,11 @@ export const COPY = {
 	titleTooLong: (length: number) =>
 		`${length} of ${TITLE_MAX} characters. Use ${TITLE_MAX} or fewer.`,
 	unreadableBytes:
-		'Couldn’t read this as a transaction. Paste the full bytes in base64, the way your tool exported them.',
+		'Couldn’t read this as a transaction. Paste the full base64 bytes or JSON, the way your tool exported them.',
+	bytesUnresolved:
+		'This JSON transaction isn’t fully built. Set its sender, gas and inputs before pasting it.',
+	bytesPlaceholder:
+		'Paste the transaction as base64 bytes or JSON',
 	typeNote:
 		'You can review everything before anyone signs.',
 	transferNote:
