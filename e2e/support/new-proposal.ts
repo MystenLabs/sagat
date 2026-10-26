@@ -3,10 +3,131 @@
 
 // Drives the new-proposal wizard: Type, Details (a transfer or pasted
 // bytes), Review, then propose. Proposing signs with the signed-in wallet.
-import { normalizeStructTag } from '@mysten/sui/utils';
-import { expect, type Page } from '@playwright/test';
+import {
+	MIST_PER_SUI,
+	normalizeStructTag,
+} from '@mysten/sui/utils';
+import {
+	expect,
+	type Page,
+	type Request,
+} from '@playwright/test';
 
-export type ProposalType = 'transfer' | 'bytes';
+import {
+	newProposalPath,
+	type ProposalType,
+} from '../../app/src/lib/new-proposal';
+import { randomAddress, type Chain } from './chain';
+import { E2E } from './env';
+import { type Fixtures } from './fixtures';
+import { setupMultisig } from './scenarios';
+
+/**
+ * Alice and Bob share an account; Alice is signed in on it. With
+ * threshold 1, Alice's proposal is ready to execute as soon as she makes
+ * it. `fund: false` leaves the account without SUI; `rejectSigning` has
+ * Alice's wallet decline every transaction.
+ */
+export async function sharedAccount(
+	{ createActor, createIdentity, chain }: Fixtures,
+	threshold: 1 | 2,
+	{
+		fund = true,
+		rejectSigning,
+	}: { fund?: boolean; rejectSigning?: boolean } = {},
+) {
+	const alice = await createActor('alice', {
+		rejectSigning,
+	});
+	const bob = createIdentity('bob');
+	const multisig = await setupMultisig({
+		creator: alice,
+		members: [bob],
+		threshold,
+	});
+	if (fund) await chain.fund(multisig.address);
+	await alice.signIn();
+	return { alice, bob, multisig };
+}
+
+/** Every POST /proposals the page sends, as it sends it. */
+export function recordCreates(page: Page) {
+	const creates: Request[] = [];
+	page.on('request', (request) => {
+		if (isCreateRequest(request)) creates.push(request);
+	});
+	return creates;
+}
+
+export function isCreateRequest(request: Request) {
+	const url = new URL(request.url());
+	return (
+		request.method() === 'POST' &&
+		url.origin === E2E.apiUrl &&
+		url.pathname.endsWith('/proposals')
+	);
+}
+
+/** The toasts of `type` on the page. */
+export function toast(
+	page: Page,
+	type: 'success' | 'error',
+) {
+	return page.locator(
+		`[data-sonner-toast][data-type="${type}"]`,
+	);
+}
+
+/**
+ * Pastes a 1 SUI transfer from `address` with `title`, and waits on
+ * Review for its simulation.
+ */
+export async function bytesToReview(
+	page: Page,
+	chain: Chain,
+	address: string,
+	title: string,
+) {
+	await openNewProposal(page, address, { type: 'bytes' });
+	await pasteBytes(
+		page,
+		await chain.buildSuiTransfer({
+			sender: address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		}),
+		title,
+	);
+	await reviewBytes(page);
+	await expectSimulation(page, 'success');
+}
+
+/** The simulated balance change of `address` on Review. */
+export function balanceChange(page: Page, address: string) {
+	return page.locator(
+		`[data-testid="balance-change"][data-address="${address}"]`,
+	);
+}
+
+/** The amount's error on the transfer's Details. */
+export function amountError(page: Page) {
+	return page.getByTestId('transfer-amount-error');
+}
+
+/** Executes the one proposal on the page and returns its digest. */
+export async function executeProposal(page: Page) {
+	const card = page.getByTestId('proposal-card');
+	await expect(card).toHaveAttribute(
+		'data-status',
+		'ready',
+	);
+	await card.getByTestId('execute-proposal-button').click();
+	await expect(card).toHaveAttribute(
+		'data-status',
+		'executed',
+	);
+	return (await card.getAttribute('data-digest'))!;
+}
 
 /**
  * Opens the wizard on its own route. With `type` it lands on Details for
@@ -17,13 +138,7 @@ export async function openNewProposal(
 	address: string,
 	params: { type?: ProposalType; coinType?: string } = {},
 ) {
-	const query = new URLSearchParams();
-	if (params.type) query.set('type', params.type);
-	if (params.coinType) query.set('asset', params.coinType);
-	const search = query.toString();
-	await page.goto(
-		`/multisig/${address}/proposals/new${search ? `?${search}` : ''}`,
-	);
+	await page.goto(newProposalPath(address, params));
 	await expect(
 		page.getByTestId(
 			params.type ? `${params.type}-step` : 'type-step',
@@ -156,22 +271,29 @@ export async function expectSimulation(
  * account's proposals with the "Proposal created" toast.
  */
 export async function proposeAndSign(page: Page) {
+	// The wizard's route: /multisig/<address>/proposals/new.
+	const address = new URL(page.url()).pathname.split(
+		'/',
+	)[2];
 	await page.getByTestId('review-submit').click();
-	await expectOnProposals(page);
+	await expectOnProposals(page, address);
 	await expect(
-		page.locator(
-			'[data-sonner-toast][data-type="success"]',
-			{
-				hasText: 'Proposal created',
-			},
-		),
+		toast(page, 'success').filter({
+			hasText: 'Proposal created',
+		}),
 	).toBeVisible();
 }
 
-/** On the account's proposals page, with its tab active in the sidebar. */
-export async function expectOnProposals(page: Page) {
+/**
+ * On `address`'s proposals page, with its tab active in the sidebar.
+ */
+export async function expectOnProposals(
+	page: Page,
+	address: string,
+) {
 	await expect(page).toHaveURL(
-		/\/multisig\/0x[0-9a-f]+\/proposals$/,
+		(url) =>
+			url.pathname === `/multisig/${address}/proposals`,
 	);
 	await expect(
 		page.getByTestId('multisig-tab-proposals'),

@@ -13,7 +13,6 @@ import {
 
 import {
 	formatCoinAmount,
-	getMaxInputAmount,
 	isSuiCoinType,
 	parseAmount,
 } from './coins';
@@ -109,22 +108,6 @@ export function transferTitle({
 	)
 		return null;
 	return `Send ${formatCoinAmount(rawAmount.toString(), decimals)} ${symbol} to ${formatAddress(normalizeSuiAddress(to))}`;
-}
-
-/**
- * What Max puts in the field, as an input string (no grouping): the
- * whole balance, SUI included, since a SUI transfer of the whole balance
- * sends the gas coin itself (see `TransferCheck.transferAllSui`). Null
- * when nothing can be sent.
- */
-export function maxAmount({
-	balance,
-	decimals,
-}: {
-	balance: string;
-	decimals: number;
-}): string | null {
-	return getMaxInputAmount(balance, decimals);
 }
 
 export interface TransferCheck {
@@ -260,28 +243,28 @@ export type BytesCheck =
 	| { kind: 'empty' }
 	| { kind: 'unreadable' }
 	| { kind: 'wrong-sender'; sender: string }
-	/** `bytes` is the trimmed input, proposed as it is. */
+	/** `bytes` is the input without its whitespace, proposed as it is. */
 	| { kind: 'ok'; bytes: string; commands: number };
 
 /**
- * Reads pasted transaction bytes: trims them, parses them as base64 BCS
- * with Transaction.from, and compares the normalized sender with
- * `account`. A serialized JSON transaction isn't bytes, so it counts as
+ * Reads pasted transaction bytes: drops all whitespace (a paste wrapped
+ * across lines is one transaction), parses them as base64 BCS with
+ * Transaction.from, and compares the normalized sender with `account`.
+ * Only base64 is read: a serialized JSON transaction counts as
  * unreadable.
  */
 export function checkBytes(
 	input: string,
 	account: string,
 ): BytesCheck {
-	const trimmed = input.trim();
-	if (!trimmed) return { kind: 'empty' };
-	if (trimmed.startsWith('{'))
-		return { kind: 'unreadable' };
+	const bytes = input.replace(/\s/g, '');
+	if (!bytes) return { kind: 'empty' };
+	if (bytes.startsWith('{')) return { kind: 'unreadable' };
 
 	let sender: string | null | undefined;
 	let commands: number;
 	try {
-		const data = Transaction.from(trimmed).getData();
+		const data = Transaction.from(bytes).getData();
 		sender = data.sender;
 		commands = data.commands.length;
 	} catch {
@@ -295,7 +278,7 @@ export function checkBytes(
 		return { kind: 'wrong-sender', sender: normalized };
 	return {
 		kind: 'ok',
-		bytes: trimmed,
+		bytes,
 		commands,
 	};
 }
@@ -355,6 +338,10 @@ export const COPY = {
 		'This account has no SUI to pay gas. Send it some SUI before proposing a transfer.',
 	simulationFailed: (reason: string) =>
 		`Simulation failed: ${reason}. If executed, it would fail and the account would still pay gas.`,
+	simulationUnreachable:
+		'Couldn’t simulate the transaction. Check your connection and try again.',
+	coinDataFailed:
+		'Couldn’t load this coin’s details. Try again in a moment.',
 	createFailed:
 		'Couldn’t create the proposal. Nothing was sent to the other signers. Check your connection and try again.',
 	signatureDeclined:

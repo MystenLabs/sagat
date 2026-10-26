@@ -125,6 +125,8 @@ export function useAccountAssets(
 		coinData: coinData.map,
 		/** Whether the display data of `coinType` is still loading. */
 		isCoinDataLoadingFor: coinData.isLoadingFor,
+		/** Whether the display data of `coinType` failed to load. */
+		isCoinDataErrorFor: coinData.isErrorFor,
 		usdValue,
 		value,
 		pricesAvailable,

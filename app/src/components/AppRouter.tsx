@@ -75,7 +75,8 @@ const routes: RouteConfig[] = [
 		element: <InvitationsPage />,
 		authLevel: 'full',
 	},
-	// Before the account's own routes, so the wizard wins over them.
+	// Its own page, not one of the account's tabs. React Router ranks
+	// routes by how specific they are, so the order here doesn't matter.
 	{
 		path: '/multisig/:address/proposals/new',
 		element: <NewProposalPage />,

@@ -34,14 +34,16 @@ import {
 import { useTouched } from '@/components/wizard/use-touched';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
 import { accountName } from '@/lib/account-name';
-import { normalizeCoinType } from '@/lib/coin-type';
 import { coinLabels } from '@/lib/coinDisplay';
-import { coinUsdValue, formatUsdValue } from '@/lib/coins';
+import {
+	coinUsdValue,
+	formatUsdValue,
+	getMaxInputAmount,
+} from '@/lib/coins';
 import {
 	checkTransfer,
 	COPY,
 	lacksGas,
-	maxAmount,
 	titleError,
 	transferTitle,
 	type ReadyProposal,
@@ -85,11 +87,8 @@ export function TransferDetailsStep({
 		!assets.query.isError &&
 		!assets.query.hasNextPage;
 
-	// The balances carry the long form; a preselected short one
-	// (`0x2::sui::SUI`) is read as the same coin.
-	const coinType = draft.coinType
-		? normalizeCoinType(draft.coinType)
-		: '';
+	// In the long form the balances carry: the page normalizes `?asset=`.
+	const coinType = draft.coinType;
 	const balance =
 		assets.balances.find((b) => b.coinType === coinType) ??
 		null;
@@ -97,6 +96,12 @@ export function TransferDetailsStep({
 		? assets.coinData.get(coinType)
 		: undefined;
 	const decimals = coin?.decimals ?? null;
+	// Without its details the coin's decimals are unknown, so its amount
+	// can't be read.
+	const coinDataFailed =
+		!!balance &&
+		decimals === null &&
+		assets.isCoinDataErrorFor(coinType);
 	const symbol = coinType
 		? coinLabels(coinType, coin).symbol
 		: null;
@@ -105,7 +110,7 @@ export function TransferDetailsStep({
 		balancesComplete && lacksGas(assets.balances);
 
 	const check = checkTransfer({
-		draft: { ...draft, coinType },
+		draft,
 		balance: balance?.balance ?? null,
 		decimals,
 		symbol,
@@ -123,10 +128,7 @@ export function TransferDetailsStep({
 
 	const max =
 		balance && decimals != null
-			? maxAmount({
-					balance: balance.balance,
-					decimals,
-				})
+			? getMaxInputAmount(balance.balance, decimals)
 			: null;
 	const priceUsd = coin?.priceUsd ?? null;
 	const usd =
@@ -138,8 +140,9 @@ export function TransferDetailsStep({
 			: null;
 
 	// A field shows its error once it has been used (`useTouched`). The
-	// asset counts as used once its list has closed.
-	const { touched, touch } = useTouched({
+	// asset counts as used once its list has closed, or once the amount
+	// or the recipient has been used without one.
+	const { touched, touch, change } = useTouched({
 		asset: false,
 		amount: draft.amount !== '',
 		recipient: draft.recipient !== '',
@@ -160,6 +163,15 @@ export function TransferDetailsStep({
 			}),
 	});
 
+	// The fields hold still while building; `latestDraft` also drops a
+	// build whose draft changed meanwhile, so Review never gets bytes
+	// for an older draft.
+	const building = build.isPending;
+	const latestDraft = useRef(draft);
+	useEffect(() => {
+		latestDraft.current = draft;
+	}, [draft]);
+
 	const changeDraft = (next: TransferDraft) => {
 		if (build.isError) build.reset();
 		onDraftChange(next);
@@ -175,22 +187,25 @@ export function TransferDetailsStep({
 		if (
 			balancesComplete &&
 			draft.coinType &&
-			!assets.balances.some((b) => b.coinType === coinType)
+			!assets.balances.some(
+				(b) => b.coinType === draft.coinType,
+			)
 		) {
 			onDraftChange({ ...draft, coinType: '' });
 		}
 	}, [
 		balancesComplete,
 		assets.balances,
-		coinType,
 		draft,
 		onDraftChange,
 	]);
 
 	const recipientRef = useRef<HTMLInputElement>(null);
 
+	const assetTouched =
+		touched.asset || touched.amount || touched.recipient;
 	const assetError =
-		touched.asset && !balancesLoading
+		assetTouched && !balancesLoading
 			? check.assetError
 			: null;
 	const amountError = touched.amount
@@ -207,11 +222,12 @@ export function TransferDetailsStep({
 		check.canReview &&
 		!noGas &&
 		!currentTitleError &&
-		!build.isPending;
+		!building;
 
 	const submit = () => {
 		if (!canReview || check.rawAmount === null) return;
 		const finalTitle = shownTitle.trim();
+		const built = draft;
 		build.mutate(
 			{
 				coinType,
@@ -222,8 +238,10 @@ export function TransferDetailsStep({
 				transferAllSui: check.transferAllSui,
 			},
 			{
-				onSuccess: (bytes) =>
-					onReady({ bytes, title: finalTitle }),
+				onSuccess: (bytes) => {
+					if (latestDraft.current !== built) return;
+					onReady({ bytes, title: finalTitle });
+				},
 			},
 		);
 	};
@@ -251,16 +269,25 @@ export function TransferDetailsStep({
 					coinData={assets.coinData}
 					value={coinType}
 					onValueChange={(coinType) => {
-						if (draft.coinType !== '') touch('asset');
+						change('asset', draft.coinType);
 						changeDraft({ ...draft, coinType });
 					}}
 					onClose={() => touch('asset')}
 					isLoading={balancesLoading}
+					disabled={building}
 					invalid={!!assetError}
 					describedBy={
 						assetError ? 'transfer-asset-error' : undefined
 					}
 				/>
+				{coinDataFailed && (
+					<Notice
+						tone="error"
+						testId="transfer-coin-data-error"
+					>
+						{COPY.coinDataFailed}
+					</Notice>
+				)}
 				{assetError && (
 					<p
 						id="transfer-asset-error"
@@ -279,13 +306,14 @@ export function TransferDetailsStep({
 						id="transfer-amount"
 						value={draft.amount}
 						onChange={(e) => {
-							if (draft.amount !== '') touch('amount');
+							change('amount', draft.amount);
 							changeDraft({
 								...draft,
 								amount: e.target.value,
 							});
 						}}
 						onBlur={() => touch('amount')}
+						disabled={building}
 						placeholder="0.00"
 						inputMode="decimal"
 						autoComplete="off"
@@ -308,7 +336,7 @@ export function TransferDetailsStep({
 									touch('amount');
 									changeDraft({ ...draft, amount: max });
 								}}
-								disabled={max === null}
+								disabled={max === null || building}
 								className="cursor-pointer font-medium"
 								data-testid="transfer-max-button"
 							>
@@ -344,14 +372,14 @@ export function TransferDetailsStep({
 						id="transfer-recipient"
 						value={draft.recipient}
 						onChange={(e) => {
-							if (draft.recipient !== '')
-								touch('recipient');
+							change('recipient', draft.recipient);
 							changeDraft({
 								...draft,
 								recipient: e.target.value,
 							});
 						}}
 						onBlur={() => touch('recipient')}
+						disabled={building}
 						placeholder={COPY.addressPlaceholder}
 						autoComplete="off"
 						spellCheck={false}
@@ -364,6 +392,7 @@ export function TransferDetailsStep({
 						<InputGroupAddon align="inline-end">
 							<Tooltip>
 								<TooltipTrigger
+									disabled={building}
 									render={
 										<InputGroupButton
 											size="icon-xs"
@@ -406,10 +435,11 @@ export function TransferDetailsStep({
 				hint={COPY.titleHintTransfer}
 				error={shownTitleError}
 				onChange={(next) => {
-					if (shownTitle !== '') touch('title');
+					change('title', shownTitle);
 					changeTitle(next);
 				}}
 				onBlur={() => touch('title')}
+				disabled={building}
 			/>
 
 			{noGas && (
@@ -428,7 +458,7 @@ export function TransferDetailsStep({
 
 			<StepFooter
 				onCancel={onCancel}
-				cancelTestId="new-proposal-cancel-footer"
+				testId="new-proposal"
 				back={
 					<Button
 						type="button"
@@ -452,7 +482,7 @@ export function TransferDetailsStep({
 						)}
 						data-testid="transfer-review"
 					>
-						{build.isPending ? 'Building…' : 'Review'}
+						{building ? 'Building…' : 'Review'}
 					</Button>
 				}
 			/>

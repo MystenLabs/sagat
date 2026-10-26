@@ -3,9 +3,9 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
-import type { SuiNetwork } from '../contexts/NetworkContext';
 import { formatCoinType, prettifyType } from './coin-type';
 import { pricingOnNetwork } from './coins';
+import type { SuiNetwork } from './network';
 
 export type CoinMetadata = SuiClientTypes.CoinMetadata;
 

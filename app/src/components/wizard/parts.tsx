@@ -1,7 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertTriangle, Check, Copy } from 'lucide-react';
+import {
+	AlertTriangle,
+	Check,
+	Copy,
+	Info,
+} from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import {
@@ -292,6 +297,20 @@ export function StepFooter({
 				Cancel
 			</Button>
 		</div>
+	);
+}
+
+/** A footer note with an info icon, for `StepFooter`'s `note`. */
+export function FooterNote({
+	children,
+}: {
+	children: ReactNode;
+}) {
+	return (
+		<span className="inline-flex items-center gap-1.5">
+			<Info className="size-3 shrink-0" />
+			{children}
+		</span>
 	);
 }
 

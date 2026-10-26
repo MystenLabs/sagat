@@ -6,8 +6,8 @@ import {
 	SUI_TYPE_ARG,
 } from '@mysten/sui/utils';
 
-import type { SuiNetwork } from '../contexts/NetworkContext';
 import type { CoinPricing } from './coinDisplay';
+import type { SuiNetwork } from './network';
 
 const NORMALIZED_SUI_COIN_TYPE =
 	normalizeStructTag(SUI_TYPE_ARG);

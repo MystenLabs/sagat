@@ -20,9 +20,13 @@ import { QueryKeys } from '../lib/queryKeys';
 
 /** The wallet didn't sign: declined, closed or failed. Nothing was created. */
 export class SignatureDeclinedError extends Error {
-	constructor(readonly reason: unknown) {
+	/** What the wallet threw. */
+	readonly cause: unknown;
+
+	constructor(cause: unknown) {
 		super('The wallet didn’t sign the proposal.');
 		this.name = 'SignatureDeclinedError';
+		this.cause = cause;
 	}
 }
 
@@ -59,8 +63,8 @@ export function useCreateProposal() {
 				signatureResult = await dappKit.signTransaction({
 					transaction,
 				});
-			} catch (reason) {
-				throw new SignatureDeclinedError(reason);
+			} catch (cause) {
+				throw new SignatureDeclinedError(cause);
 			}
 
 			// Create proposal via API

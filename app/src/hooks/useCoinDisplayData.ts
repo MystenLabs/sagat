@@ -115,6 +115,8 @@ export function useCoinDisplayDataMap(coinTypes: string[]) {
 			fallbackMetadata.isLoading,
 		/** The registry or `coinType`'s metadata is still loading. */
 		isLoadingFor,
+		/** `coinType`'s metadata, its only source, failed to load. */
+		isErrorFor: fallbackMetadata.isErrorFor,
 		isError: fallbackMetadata.isError,
 		error: fallbackMetadata.error,
 	};

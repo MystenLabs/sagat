@@ -5,142 +5,36 @@ import {
 	formatAddress,
 	MIST_PER_SUI,
 } from '@mysten/sui/utils';
-import { type Page, type Request } from '@playwright/test';
 
-import { type Actor } from '../support/actor';
-import {
-	randomAddress,
-	SUI_TYPE,
-	type Chain,
-} from '../support/chain';
+import { formatCoinType } from '../../app/src/lib/coin-type';
+import { randomAddress, SUI_TYPE } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
-import { type Identity } from '../support/identity';
 import {
+	amountError,
+	balanceChange,
+	bytesToReview,
 	chooseAsset,
 	chooseType,
 	clickNewProposal,
+	executeProposal,
 	expectOnProposals,
 	expectSimulation,
 	fillTransfer,
+	isCreateRequest,
 	openNewProposal,
 	pasteBytes,
 	proposeAndSign,
-	reviewBytes,
+	recordCreates,
 	reviewTransfer,
+	sharedAccount,
+	toast,
 } from '../support/new-proposal';
-import { setupMultisig } from '../support/scenarios';
 import {
 	mintCoin,
 	mintTestCoin,
 	publishTestCoin,
 } from '../support/test-coin';
-
-type Fixtures = {
-	createActor: (
-		name: string,
-		options?: { rejectSigning?: boolean },
-	) => Promise<Actor>;
-	createIdentity: (name: string) => Identity;
-	chain: Chain;
-};
-
-// Alice and Bob share an account; Alice is signed in on it. With
-// threshold 1, Alice's proposal is ready to execute as soon as she makes it.
-// `fund: false` leaves the account without SUI; `rejectSigning` has
-// Alice's wallet decline every transaction.
-async function sharedAccount(
-	{ createActor, createIdentity, chain }: Fixtures,
-	threshold: 1 | 2,
-	{
-		fund = true,
-		rejectSigning,
-	}: { fund?: boolean; rejectSigning?: boolean } = {},
-) {
-	const alice = await createActor('alice', {
-		rejectSigning,
-	});
-	const bob = createIdentity('bob');
-	const multisig = await setupMultisig({
-		creator: alice,
-		members: [bob],
-		threshold,
-	});
-	if (fund) await chain.fund(multisig.address);
-	await alice.signIn();
-	return { alice, bob, multisig };
-}
-
-// Every POST /proposals the page sends, as it sends it.
-function recordCreates(page: Page) {
-	const creates: Request[] = [];
-	page.on('request', (request) => {
-		if (isCreateRequest(request)) creates.push(request);
-	});
-	return creates;
-}
-
-function isCreateRequest(request: Request) {
-	const url = new URL(request.url());
-	return (
-		request.method() === 'POST' &&
-		url.origin === E2E.apiUrl &&
-		url.pathname.endsWith('/proposals')
-	);
-}
-
-function toast(page: Page, type: 'success' | 'error') {
-	return page.locator(
-		`[data-sonner-toast][data-type="${type}"]`,
-	);
-}
-
-// Pastes a 1 SUI transfer from `address` with `title`, and waits on Review
-// for its simulation.
-async function bytesToReview(
-	page: Page,
-	chain: Chain,
-	address: string,
-	title: string,
-) {
-	await openNewProposal(page, address, { type: 'bytes' });
-	await pasteBytes(
-		page,
-		await chain.buildSuiTransfer({
-			sender: address,
-			recipient: randomAddress(),
-			amount: MIST_PER_SUI,
-		}),
-		title,
-	);
-	await reviewBytes(page);
-	await expectSimulation(page, 'success');
-}
-
-function balanceChange(page: Page, address: string) {
-	return page.locator(
-		`[data-testid="balance-change"][data-address="${address}"]`,
-	);
-}
-
-function amountError(page: Page) {
-	return page.getByTestId('transfer-amount-error');
-}
-
-// Executes the one proposal on the page and returns its digest.
-async function executeProposal(page: Page) {
-	const card = page.getByTestId('proposal-card');
-	await expect(card).toHaveAttribute(
-		'data-status',
-		'ready',
-	);
-	await card.getByTestId('execute-proposal-button').click();
-	await expect(card).toHaveAttribute(
-		'data-status',
-		'executed',
-	);
-	return (await card.getAttribute('data-digest'))!;
-}
 
 test.describe('new proposal: type', () => {
 	// As Enter would on a native radio in a form.
@@ -416,9 +310,6 @@ test.describe('new proposal: transfer details', () => {
 		await expect(
 			page.getByTestId('transfer-amount-input'),
 		).toHaveValue('1000');
-		await expect(
-			page.getByTestId('transfer-gas-note'),
-		).toHaveCount(0);
 		await expect(
 			page.getByTestId('transfer-amount-error'),
 		).toHaveCount(0);
@@ -707,9 +598,7 @@ test.describe('new proposal: transfer details', () => {
 		);
 		const { page } = alice;
 		const recipient = randomAddress();
-		// `formatCoinType` in app/src/lib/coin-type.ts.
-		const [pkg, ...path] = coinType.split('::');
-		const label = `${pkg.slice(0, 6)}...${pkg.slice(-8)}::${path.join('::')}`;
+		const label = formatCoinType(coinType);
 
 		await openNewProposal(page, multisig.address, {
 			type: 'transfer',
@@ -847,13 +736,16 @@ test.describe('new proposal: review', () => {
 		chain,
 	}) => {
 		const fixtures = { createActor, createIdentity, chain };
-		const { alice } = await sharedAccount(fixtures, 2);
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			2,
+		);
 		const { page } = alice;
 
 		await clickNewProposal(page);
 		await chooseType(page, 'transfer');
 		await page.getByTestId('new-proposal-cancel').click();
-		await expectOnProposals(page);
+		await expectOnProposals(page, multisig.address);
 	});
 
 	test('Back from Review keeps the filled details', async ({
@@ -928,7 +820,7 @@ test.describe('new proposal: review', () => {
 				button.click();
 				button.click();
 			});
-		await expectOnProposals(page);
+		await expectOnProposals(page, multisig.address);
 		// Let a second create, if any, reach the network.
 		await page.waitForTimeout(2_000);
 		expect(creates).toHaveLength(1);
@@ -982,7 +874,7 @@ test.describe('new proposal: review', () => {
 			await expect(page.getByTestId(id)).toBeDisabled();
 
 		release();
-		await expectOnProposals(page);
+		await expectOnProposals(page, multisig.address);
 		await expect(
 			toast(page, 'success').filter({
 				hasText: 'Proposal created',

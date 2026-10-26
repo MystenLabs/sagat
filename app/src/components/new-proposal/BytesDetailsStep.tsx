@@ -65,7 +65,7 @@ export function BytesDetailsStep({
 	const value = title ?? '';
 	const currentTitleError = titleError(value);
 	// Like the transfer: the title's error waits until the field is used.
-	const { touched, touch } = useTouched({
+	const { touched, touch, change } = useTouched({
 		title: value !== '',
 	});
 	const shownTitleError = touched.title
@@ -139,7 +139,7 @@ export function BytesDetailsStep({
 				hint={COPY.titleHintBytes}
 				error={shownTitleError}
 				onChange={(next) => {
-					if (value !== '') touch('title');
+					change('title', value);
 					onTitleChange(next);
 				}}
 				onBlur={() => touch('title')}
@@ -149,7 +149,7 @@ export function BytesDetailsStep({
 
 			<StepFooter
 				onCancel={onCancel}
-				cancelTestId="new-proposal-cancel-footer"
+				testId="new-proposal"
 				back={
 					<Button
 						type="button"

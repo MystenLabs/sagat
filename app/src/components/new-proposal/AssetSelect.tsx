@@ -30,20 +30,22 @@ export function AssetSelect({
 	onValueChange,
 	onClose,
 	isLoading,
+	disabled = false,
 	invalid = false,
 	describedBy,
 }: {
-	id?: string;
+	id: string;
 	balances: Balance[];
 	coinData: ReadonlyMap<string, CoinDisplayData>;
 	/** The chosen coin type, or '' for none. */
 	value: string;
 	onValueChange: (coinType: string) => void;
 	/** The list closed, chosen or not. */
-	onClose?: () => void;
+	onClose: () => void;
 	isLoading: boolean;
+	disabled?: boolean;
 	invalid?: boolean;
-	describedBy?: string;
+	describedBy: string | undefined;
 }) {
 	if (isLoading && balances.length === 0) {
 		return (
@@ -71,9 +73,9 @@ export function AssetSelect({
 				if (typeof next === 'string') onValueChange(next);
 			}}
 			onOpenChange={(open) => {
-				if (!open) onClose?.();
+				if (!open) onClose();
 			}}
-			disabled={empty}
+			disabled={empty || disabled}
 		>
 			<SelectTrigger
 				id={id}

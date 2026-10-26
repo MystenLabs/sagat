@@ -30,13 +30,14 @@ import {
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
+import { useNetwork } from '@/contexts/NetworkContext';
 import {
-	networkLabel,
-	useNetwork,
-} from '@/contexts/NetworkContext';
-import { type useDryRun } from '@/hooks/useDryRun';
+	simulationRan,
+	type useDryRun,
+} from '@/hooks/useDryRun';
 import { useExpiry } from '@/hooks/useExpiry';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
+import { networkLabel } from '@/lib/network';
 import { COPY, titleError } from '@/lib/new-proposal';
 import { cn, safeDecode } from '@/lib/utils';
 
@@ -49,6 +50,7 @@ export function ReviewStep({
 	analysis,
 	creating,
 	createError,
+	onRetrySimulation,
 	onSubmit,
 	onBack,
 	onCancel,
@@ -61,6 +63,8 @@ export function ReviewStep({
 	creating: boolean;
 	/** Why the last attempt failed, or null. */
 	createError: string | null;
+	/** Runs the simulation again after it couldn't run. */
+	onRetrySimulation: () => void;
 	onSubmit: () => void;
 	onBack: () => void;
 	onCancel: () => void;
@@ -68,9 +72,14 @@ export function ReviewStep({
 	const { network } = useNetwork();
 	const [showRaw, setShowRaw] = useState(false);
 
+	// The simulation couldn't run (offline, say): no verdict to show, and
+	// nothing to propose on until it runs.
+	const unreachable =
+		dryRun.isError && !simulationRan(dryRun.error);
 	// Not started counts as simulating, so the first frame doesn't flash
 	// an empty result.
-	const settled = dryRun.isSuccess || dryRun.isError;
+	const settled =
+		dryRun.isSuccess || (dryRun.isError && !unreachable);
 	const simulationPassed =
 		dryRun.isSuccess &&
 		!!dryRun.data?.Transaction?.effects.status.success;
@@ -114,7 +123,25 @@ export function ReviewStep({
 				</Notice>
 			)}
 
-			{settled ? (
+			{unreachable ? (
+				<div
+					className="flex flex-col items-start gap-2"
+					data-testid="review-simulation-unreachable"
+				>
+					<Notice tone="error" className="w-full">
+						{COPY.simulationUnreachable}
+					</Notice>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onClick={onRetrySimulation}
+						data-testid="review-simulation-retry"
+					>
+						Try again
+					</Button>
+				</div>
+			) : settled ? (
 				<div
 					data-testid="transaction-preview-result"
 					data-result={
@@ -190,7 +217,7 @@ export function ReviewStep({
 			<StepFooter
 				onCancel={onCancel}
 				cancelDisabled={creating}
-				cancelTestId="new-proposal-cancel-footer"
+				testId="new-proposal"
 				back={
 					<Button
 						type="button"
@@ -268,7 +295,7 @@ function TitleCard({
 	};
 
 	return (
-		<div className="flex flex-col gap-1 rounded-lg bg-muted p-4">
+		<div className="flex flex-col gap-1 rounded-xl bg-muted p-4">
 			<span className="text-12 text-muted-foreground">
 				Title
 			</span>
@@ -305,11 +332,7 @@ function TitleCard({
 						{title.trim() || 'No title'}
 					</span>
 					<Tooltip>
-						{/* The trigger's `disabled` only mutes the tooltip. */}
 						<TooltipTrigger
-							render={
-								<button type="button" disabled={disabled} />
-							}
 							aria-label="Edit title"
 							onClick={() => {
 								cancelled.current = false;

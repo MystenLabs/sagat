@@ -11,11 +11,11 @@ import {
 	NumberedSteps,
 	SummaryRow,
 } from '@/components/wizard/parts';
+import { accountName } from '@/lib/account-name';
 import {
 	networkLabel,
 	type SuiNetwork,
-} from '@/contexts/NetworkContext';
-import { accountName } from '@/lib/account-name';
+} from '@/lib/network';
 import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';

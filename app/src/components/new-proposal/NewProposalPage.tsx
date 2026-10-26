@@ -18,6 +18,7 @@ import {
 	SignatureDeclinedError,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
+import { simulationRan } from '@/hooks/useDryRun';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
@@ -54,6 +55,7 @@ const STEPS = ['Type', 'Details', 'Review'] as const;
  */
 export function NewProposalPage() {
 	const { address } = useParams<{ address: string }>();
+	const { network } = useNetwork();
 	const {
 		data: multisigs,
 		isLoading,
@@ -70,9 +72,11 @@ export function NewProposalPage() {
 	}
 	if (!multisig) return <Navigate to="/" replace />;
 
+	// A new account or network starts a new draft: balances, coins and
+	// the built transaction are per network.
 	return (
 		<NewProposalWizard
-			key={multisig.address}
+			key={`${network}:${multisig.address}`}
 			multisig={multisig}
 		/>
 	);
@@ -176,7 +180,8 @@ function NewProposalWizard({
 	}, [step]);
 
 	// Simulate each transaction once, when Review first shows it. Back
-	// and forward again keeps the result.
+	// and forward again keeps the result, unless the simulation couldn't
+	// run.
 	const previewed = useRef<string | null>(null);
 	// The type or the draft changed: the transaction and its simulation
 	// are stale.
@@ -191,6 +196,16 @@ function NewProposalWizard({
 		previewed.current = ready.bytes;
 		preview(ready.bytes);
 	}, [step, ready, preview]);
+	const simulationUnreachable =
+		dryRun.isError && !simulationRan(dryRun.error);
+	useEffect(() => {
+		if (simulationUnreachable) previewed.current = null;
+	}, [simulationUnreachable]);
+	const retrySimulation = () => {
+		if (!ready) return;
+		previewed.current = ready.bytes;
+		preview(ready.bytes);
+	};
 
 	const reviewTitle = title ?? ready?.title ?? '';
 
@@ -323,6 +338,7 @@ function NewProposalWizard({
 					analysis={analysis}
 					creating={creating}
 					createError={createError}
+					onRetrySimulation={retrySimulation}
 					onSubmit={submit}
 					onBack={() => goTo(2)}
 					onCancel={cancel}

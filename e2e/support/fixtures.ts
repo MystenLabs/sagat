@@ -8,7 +8,7 @@ import { Actor } from './actor';
 import { Chain } from './chain';
 import { Identity } from './identity';
 
-type Fixtures = {
+export type Fixtures = {
 	chain: Chain;
 	// A user with a browser, wallet and page, for people driving the UI.
 	// `otherAccounts` names further accounts in the same wallet;

@@ -13,13 +13,13 @@ import { describe, expect, test } from 'vitest';
 
 import { buildTransferTransaction } from '../src/components/assets/buildTransferTransaction';
 import { normalizeCoinType } from '../src/lib/coin-type';
+import { getMaxInputAmount } from '../src/lib/coins';
 import {
 	bytesStatusText,
 	checkBytes,
 	checkTransfer,
 	COPY,
 	lacksGas,
-	maxAmount,
 	newProposalPath,
 	proposalTypeFromQuery,
 	TITLE_MAX,
@@ -110,89 +110,6 @@ describe('transferTitle', () => {
 		expect(
 			transferTitle({ ...complete, recipient: '0x8d4a' }),
 		).toBeNull();
-	});
-});
-
-describe('maxAmount', () => {
-	test('is the full balance for a coin other than SUI', () => {
-		expect(
-			maxAmount({
-				balance: '1234567890000',
-				decimals: 6,
-			}),
-		).toBe('1234567.89');
-	});
-
-	test('is the full balance on SUI too', () => {
-		expect(
-			maxAmount({
-				balance: '2000000000',
-				decimals: 9,
-			}),
-		).toBe('2');
-	});
-
-	test('sends the gas coin on the long form of the SUI type', () => {
-		const max = maxAmount({
-			balance: '2000000000',
-			decimals: 9,
-		});
-		const check = checkTransfer({
-			draft: {
-				coinType: `${normalizeSuiAddress('0x2')}::sui::SUI`,
-				amount: max!,
-				recipient: RECIPIENT,
-			},
-			balance: '2000000000',
-			decimals: 9,
-			symbol: 'SUI',
-		});
-		expect(check.transferAllSui).toBe(true);
-		expect(check.canReview).toBe(true);
-	});
-
-	test('keeps nothing back on SUI, down to one MIST', () => {
-		expect(
-			maxAmount({
-				balance: '1',
-				decimals: 9,
-			}),
-		).toBe('0.000000001');
-		expect(
-			maxAmount({
-				balance: '0',
-				decimals: 9,
-			}),
-		).toBeNull();
-	});
-
-	test('is null for an empty balance', () => {
-		expect(
-			maxAmount({
-				balance: '0',
-				decimals: 6,
-			}),
-		).toBeNull();
-	});
-
-	test('has no grouping, so the amount parser reads it back', () => {
-		const max = maxAmount({
-			balance: '1234567890000000',
-			decimals: 6,
-		});
-		expect(max).toBe('1234567890');
-		const check = checkTransfer({
-			draft: {
-				coinType: USDC,
-				amount: max!,
-				recipient: RECIPIENT,
-			},
-			balance: '1234567890000000',
-			decimals: 6,
-			symbol: 'USDC',
-		});
-		expect(check.amountError).toBeNull();
-		expect(check.rawAmount).toBe(1234567890000000n);
 	});
 });
 
@@ -316,6 +233,33 @@ describe('checkTransfer', () => {
 		expect(sui('2').amountError).toBe(
 			COPY.overBalance('SUI', '1'),
 		);
+	});
+
+	test('Max sends the gas coin on the long form of the SUI type', () => {
+		const max = getMaxInputAmount('2000000000', 9);
+		const check = checkTransfer({
+			draft: {
+				coinType: `${normalizeSuiAddress('0x2')}::sui::SUI`,
+				amount: max!,
+				recipient: RECIPIENT,
+			},
+			balance: '2000000000',
+			decimals: 9,
+			symbol: 'SUI',
+		});
+		expect(check.transferAllSui).toBe(true);
+		expect(check.canReview).toBe(true);
+	});
+
+	test('Max has no grouping, so the amount parser reads it back', () => {
+		const max = getMaxInputAmount('1234567890000000', 6);
+		expect(max).toBe('1234567890');
+		const check = usdc(
+			{ amount: max!, recipient: RECIPIENT },
+			'1234567890000000',
+		);
+		expect(check.amountError).toBeNull();
+		expect(check.rawAmount).toBe(1234567890000000n);
 	});
 
 	test('keeps nothing back on a small SUI balance', () => {
@@ -482,6 +426,16 @@ describe('checkBytes', () => {
 	test('reads bytes sent from the account', async () => {
 		const bytes = await transferBytes(ACCOUNT);
 		expect(checkBytes(`  ${bytes}\n`, ACCOUNT)).toEqual({
+			kind: 'ok',
+			bytes,
+			commands: 2,
+		});
+	});
+
+	test('reads bytes wrapped across lines as one, without the whitespace', async () => {
+		const bytes = await transferBytes(ACCOUNT);
+		const wrapped = bytes.match(/.{1,20}/g)!.join('\n  ');
+		expect(checkBytes(` ${wrapped}\r\n`, ACCOUNT)).toEqual({
 			kind: 'ok',
 			bytes,
 			commands: 2,

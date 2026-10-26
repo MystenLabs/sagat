@@ -95,12 +95,24 @@ export function useCoinMetadataMap(coinTypes: string[]) {
 		},
 		[coinTypes, loadingSignature],
 	);
+	const errorSignature = results
+		.map((r) => (r.isError ? 1 : 0))
+		.join('');
+	const isErrorFor = useCallback(
+		(coinType: string) => {
+			const idx = coinTypes.indexOf(coinType);
+			return idx >= 0 && errorSignature[idx] === '1';
+		},
+		[coinTypes, errorSignature],
+	);
 
 	return {
 		map,
 		isLoading: results.some((r) => r.isLoading),
 		/** Whether the metadata of `coinType` is still loading. */
 		isLoadingFor,
+		/** Whether the metadata of `coinType` failed to load. */
+		isErrorFor,
 		isError: results.some((r) => r.isError),
 		error: results.find((r) => r.error)?.error ?? undefined,
 	};

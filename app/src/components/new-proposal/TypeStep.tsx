@@ -75,7 +75,7 @@ export function TypeStep({
 							value={option.id}
 							aria-labelledby={`proposal-type-${option.id}-title`}
 							aria-describedby={`proposal-type-${option.id}-description`}
-							className="flex cursor-pointer items-center gap-3 rounded-lg border border-foreground/15 p-4 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring data-checked:border-foreground data-checked:ring-1 data-checked:ring-foreground data-checked:focus-visible:ring-2"
+							className="flex cursor-pointer items-center gap-3 rounded-xl border border-foreground/15 p-4 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring data-checked:border-foreground data-checked:ring-1 data-checked:ring-foreground data-checked:focus-visible:ring-2"
 							data-testid={`proposal-type-${option.id}`}
 						>
 							<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
@@ -108,7 +108,7 @@ export function TypeStep({
 			</RadioGroup>
 			<Separator />
 			<StepFooter
-				cancelTestId="new-proposal-cancel-footer"
+				testId="new-proposal"
 				onCancel={onCancel}
 				note={<FooterNote>{COPY.typeNote}</FooterNote>}
 				primary={
