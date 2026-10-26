@@ -678,8 +678,87 @@ describe('proposalTypeFromQuery', () => {
 	});
 });
 
+const SENDER = normalizeSuiAddress('0x5d2e');
+const DIGEST = toBase58(new Uint8Array(32).fill(1));
+
+/**
+ * A client that holds `coins` of one type (none when left out), listed
+ * 100 per page, whose resolver pins the gas price and budget, and the
+ * gas payment when `gasPayment` is given.
+ */
+function fakeClient({
+	coins = [],
+	gasPayment,
+}: {
+	coins?: {
+		objectId: string;
+		balance: string;
+		coinType: string;
+	}[];
+	gasPayment?: {
+		objectId: string;
+		version: string;
+		digest: string;
+	}[];
+}) {
+	const core = {
+		getBalance: async ({
+			coinType,
+		}: {
+			coinType: string;
+		}) => {
+			const held = coins
+				.reduce(
+					(sum, coin) => sum + BigInt(coin.balance),
+					0n,
+				)
+				.toString();
+			return {
+				balance: {
+					coinType,
+					balance: held,
+					coinBalance: held,
+					addressBalance: '0',
+				},
+			};
+		},
+		listCoins: async ({
+			cursor,
+		}: {
+			cursor?: string | null;
+		}) => {
+			const start = Number(cursor ?? 0);
+			const end = Math.min(start + 100, coins.length);
+			return {
+				objects: coins.slice(start, end).map((coin) => ({
+					...coin,
+					version: '1',
+					digest: DIGEST,
+					owner: SENDER,
+				})),
+				hasNextPage: end < coins.length,
+				cursor: end < coins.length ? String(end) : null,
+			};
+		},
+		resolveTransactionPlugin:
+			() =>
+			async (
+				data: ReturnType<Transaction['getData']>,
+				_options: unknown,
+				next: () => Promise<void>,
+			) => {
+				if (gasPayment) data.gasData.payment ??= gasPayment;
+				data.gasData.price ??= '1000';
+				data.gasData.budget ??= '10000000';
+				await next();
+			},
+	};
+	return { core } as unknown as Parameters<
+		typeof buildTransferTransaction
+	>[0]['client'];
+}
+
 describe('buildTransferTransaction Max on SUI', () => {
-	const SENDER = normalizeSuiAddress('0x5d2e');
 	// What the node picks when the transaction leaves gas to it.
 	const NODE_GAS = [
 		{
@@ -689,28 +768,6 @@ describe('buildTransferTransaction Max on SUI', () => {
 		},
 	];
 
-	// A client whose resolver pins the gas price, budget and payment the
-	// node would pick.
-	function fakeClient() {
-		const core = {
-			resolveTransactionPlugin:
-				() =>
-				async (
-					data: ReturnType<Transaction['getData']>,
-					_options: unknown,
-					next: () => Promise<void>,
-				) => {
-					data.gasData.payment ??= NODE_GAS;
-					data.gasData.price ??= '1000';
-					data.gasData.budget ??= '10000000';
-					await next();
-				},
-		};
-		return { core } as unknown as Parameters<
-			typeof buildTransferTransaction
-		>[0]['client'];
-	}
-
 	test('leaves the gas payment to the node', async () => {
 		const bytes = await buildTransferTransaction({
 			sender: SENDER,
@@ -718,7 +775,7 @@ describe('buildTransferTransaction Max on SUI', () => {
 			coinType: SUI_TYPE_ARG,
 			amount: 128n * 1_000_000_000n,
 			transferAllSui: true,
-			client: fakeClient(),
+			client: fakeClient({ gasPayment: NODE_GAS }),
 		});
 		const data = Transaction.from(bytes).getData();
 		expect(data.gasData.payment).toEqual(NODE_GAS);
@@ -785,61 +842,30 @@ describe.each(COIN_DECIMALS)(
 );
 
 describe('buildTransferTransaction amounts', () => {
-	const SENDER = normalizeSuiAddress('0x5d2e');
-
-	// A client that holds `held` of TOKEN in one coin, whose resolver pins
-	// the gas payment, price and budget, as the Max on SUI client does.
+	// The account holds `held` of TOKEN in one coin and pays gas with a
+	// SUI coin of its own.
 	function build(amount: bigint, held: bigint) {
-		const core = {
-			getBalance: async () => ({
-				balance: {
-					coinType: TOKEN,
-					balance: held.toString(),
-					coinBalance: held.toString(),
-					addressBalance: '0',
-				},
-			}),
-			listCoins: async () => ({
-				objects: [
-					{
-						objectId: normalizeSuiAddress('0xc0'),
-						version: '1',
-						digest: toBase58(new Uint8Array(32).fill(1)),
-						balance: held.toString(),
-						coinType: TOKEN,
-						owner: SENDER,
-					},
-				],
-				hasNextPage: false,
-				cursor: null,
-			}),
-			resolveTransactionPlugin:
-				() =>
-				async (
-					data: ReturnType<Transaction['getData']>,
-					_options: unknown,
-					next: () => Promise<void>,
-				) => {
-					data.gasData.payment ??= [
-						{
-							objectId: normalizeSuiAddress('0x6a5'),
-							version: '1',
-							digest: toBase58(new Uint8Array(32).fill(2)),
-						},
-					];
-					data.gasData.price ??= '1000';
-					data.gasData.budget ??= '10000000';
-					await next();
-				},
-		};
 		return buildTransferTransaction({
 			sender: SENDER,
 			recipient: RECIPIENT,
 			coinType: TOKEN,
 			amount,
-			client: { core } as unknown as Parameters<
-				typeof buildTransferTransaction
-			>[0]['client'],
+			client: fakeClient({
+				coins: [
+					{
+						objectId: normalizeSuiAddress('0xc0'),
+						balance: held.toString(),
+						coinType: TOKEN,
+					},
+				],
+				gasPayment: [
+					{
+						objectId: normalizeSuiAddress('0x6a5'),
+						version: '1',
+						digest: toBase58(new Uint8Array(32).fill(2)),
+					},
+				],
+			}),
 		});
 	}
 
