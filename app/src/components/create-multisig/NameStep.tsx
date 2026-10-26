@@ -34,7 +34,7 @@ export function NameStep({
 }) {
 	// "Give it a name" waits until the field has been used
 	// (`useTouched`); too long shows at once.
-	const { touched, touch } = useTouched({
+	const { touched, touch, change } = useTouched({
 		name: name !== '',
 	});
 	const error = nameError(name);
@@ -63,7 +63,7 @@ export function NameStep({
 					id="create-name"
 					value={name}
 					onChange={(e) => {
-						if (name !== '') touch('name');
+						change('name', name);
 						onNameChange(e.target.value);
 					}}
 					onBlur={() => touch('name')}
@@ -89,7 +89,7 @@ export function NameStep({
 			</div>
 			<Separator />
 			<StepFooter
-				cancelTestId="create-cancel-footer"
+				testId="create"
 				onCancel={onCancel}
 				primary={
 					<Button

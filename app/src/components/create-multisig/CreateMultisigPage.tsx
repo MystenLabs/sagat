@@ -189,8 +189,6 @@ export function CreateMultisigPage() {
 		window.scrollTo({ top: 0 });
 	};
 
-	// A 400, 409 or 422 means the API refused the setup and says why;
-	// anything else (offline, 5xx, auth) gets the general message.
 	const createError = create.error
 		? shownApiError(create.error, COPY.createFailed)
 		: null;

@@ -11,7 +11,11 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
-import { WizardStepper, type WizardStep } from './parts';
+import {
+	WizardStepper,
+	type WizardStep,
+	type WizardSteps,
+} from './parts';
 
 /**
  * The frame both wizards share: the header with Cancel, the stepper, and
@@ -33,14 +37,13 @@ export function WizardPage({
 	cardRef,
 	beforeContent,
 	sideKey,
-	sideClassName = '@4xl:w-80',
 	side,
 	children,
 }: {
 	title: string;
 	breadcrumb: Crumb[];
 	testId: string;
-	steps: readonly [string, string, string];
+	steps: WizardSteps;
 	step: WizardStep;
 	reach: WizardStep;
 	onStep: (step: WizardStep) => void;
@@ -54,8 +57,6 @@ export function WizardPage({
 	beforeContent?: ReactNode;
 	/** The side column fades in again when this changes. */
 	sideKey: string;
-	/** The side column's width from two columns on. */
-	sideClassName?: string;
 	side: ReactNode;
 	/** The step's card. */
 	children: ReactNode;
@@ -113,10 +114,7 @@ export function WizardPage({
 
 					<div
 						key={sideKey}
-						className={cn(
-							'flex w-full flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @4xl:shrink-0',
-							sideClassName,
-						)}
+						className="flex w-full flex-col gap-5 animate-in fade-in duration-200 motion-reduce:animate-none @4xl:w-80 @4xl:shrink-0"
 					>
 						{side}
 					</div>

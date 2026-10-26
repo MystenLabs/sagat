@@ -254,7 +254,7 @@ export function SignersStep({
 			<Separator />
 
 			<StepFooter
-				cancelTestId="create-cancel-footer"
+				testId="create"
 				onCancel={onCancel}
 				back={
 					<Button

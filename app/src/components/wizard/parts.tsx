@@ -1,12 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	AlertTriangle,
-	Check,
-	Copy,
-	Info,
-} from 'lucide-react';
+import { AlertTriangle, Check, Copy } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import {
@@ -106,6 +101,9 @@ export function CopyText({
 
 export type WizardStep = 1 | 2 | 3;
 
+/** One label per step, to match `WizardStep`. */
+export type WizardSteps = readonly [string, string, string];
+
 /**
  * Where the wizard is. Every step up to `reach` (the furthest one whose
  * earlier steps are all valid) is a button, so a visitor can move around
@@ -122,8 +120,7 @@ export function WizardStepper({
 	onStep,
 	testId,
 }: {
-	/** One label per step, to match `WizardStep`. */
-	steps: readonly [string, string, string];
+	steps: WizardSteps;
 	step: WizardStep;
 	reach: WizardStep;
 	disabled?: boolean;
@@ -246,7 +243,9 @@ export function WizardStepper({
 /**
  * Back on the left, a note and the primary action on the right. On phones
  * the primary spans the card with Back and Cancel under it; Cancel lives
- * here because the page header hides its own Cancel on phones.
+ * here because the page header hides its own Cancel on phones. `testId`
+ * is the wizard's prefix, as `WizardPage`'s: Cancel is
+ * `<testId>-cancel-footer`.
  */
 export function StepFooter({
 	back,
@@ -255,7 +254,7 @@ export function StepFooter({
 	primary,
 	onCancel,
 	cancelDisabled = false,
-	cancelTestId,
+	testId,
 }: {
 	back?: ReactNode;
 	note?: ReactNode;
@@ -264,7 +263,7 @@ export function StepFooter({
 	primary: ReactNode;
 	onCancel: () => void;
 	cancelDisabled?: boolean;
-	cancelTestId: string;
+	testId: string;
 }) {
 	return (
 		<div className="flex flex-wrap items-center gap-3">
@@ -288,25 +287,11 @@ export function StepFooter({
 				onClick={onCancel}
 				disabled={cancelDisabled}
 				className="order-4 sm:hidden"
-				data-testid={cancelTestId}
+				data-testid={`${testId}-cancel-footer`}
 			>
 				Cancel
 			</Button>
 		</div>
-	);
-}
-
-/** A footer note with an info icon, for `StepFooter`'s `note`. */
-export function FooterNote({
-	children,
-}: {
-	children: ReactNode;
-}) {
-	return (
-		<span className="inline-flex items-center gap-1.5">
-			<Info className="size-3 shrink-0" />
-			{children}
-		</span>
 	);
 }
 
