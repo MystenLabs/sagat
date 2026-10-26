@@ -4,9 +4,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { formatDateTime } from '@/lib/dates';
+import { cn } from '@/lib/utils';
 
 import { useEpochInfo } from '../../hooks/useEpochInfo';
 import {
+	expiresSoon,
 	formatTimeLeft,
 	getExpiry,
 	type Expiry,
@@ -19,12 +21,15 @@ import {
 	TooltipTrigger,
 } from '../ui/tooltip';
 
-// A badge with how long a proposal's transaction can still execute, if it
-// expires at all.
+// How long a proposal's transaction can still execute, if it expires at
+// all: a badge, or with `variant="inline"` plain text for a meta line,
+// after a separator, coloured once less than an hour is left.
 export function ProposalExpiry({
 	transactionBytes,
+	variant = 'chip',
 }: {
 	transactionBytes: string;
+	variant?: 'chip' | 'inline';
 }) {
 	const { data: epochInfo } = useEpochInfo();
 	const now = useNow();
@@ -36,6 +41,44 @@ export function ProposalExpiry({
 		[transactionBytes, epochInfo],
 	);
 	if (!expiry) return null;
+
+	const label = expiry.expired
+		? 'Expired'
+		: `Expires in ${formatTimeLeft(expiry.endsAt, now)}`;
+	const tooltip = (
+		<TooltipContent className="max-w-xs">
+			{explain(expiry)}
+		</TooltipContent>
+	);
+
+	if (variant === 'inline') {
+		return (
+			<>
+				<span aria-hidden>·</span>
+				<TooltipProvider delay={150}>
+					<Tooltip>
+						<TooltipTrigger
+							render={
+								<span
+									className={cn(
+										expiry.expired
+											? 'text-error-foreground'
+											: expiresSoon(expiry.endsAt, now) &&
+													'text-warning-foreground',
+									)}
+									data-testid="proposal-expiry"
+									tabIndex={0}
+								/>
+							}
+						>
+							{label}
+						</TooltipTrigger>
+						{tooltip}
+					</Tooltip>
+				</TooltipProvider>
+			</>
+		);
+	}
 
 	return (
 		<TooltipProvider delay={150}>
@@ -49,13 +92,9 @@ export function ProposalExpiry({
 						/>
 					}
 				>
-					{expiry.expired
-						? 'Expired'
-						: `Expires in ${formatTimeLeft(expiry.endsAt, now)}`}
+					{label}
 				</TooltipTrigger>
-				<TooltipContent className="max-w-xs">
-					{explain(expiry)}
-				</TooltipContent>
+				{tooltip}
 			</Tooltip>
 		</TooltipProvider>
 	);

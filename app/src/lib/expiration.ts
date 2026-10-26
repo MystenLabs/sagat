@@ -67,3 +67,12 @@ export function formatTimeLeft(time: Date, now: Date) {
 	if (hours > 0) return `${hours}h ${minutes % 60}m`;
 	return `${minutes}m`;
 }
+
+// Under this much time left, an expiry is called out.
+const EXPIRES_SOON_MS = 60 * 60_000;
+
+// Whether `endsAt` is less than an hour after `now`. One that has already
+// passed counts too; callers show "Expired" for those first.
+export function expiresSoon(endsAt: Date, now: Date) {
+	return endsAt.getTime() - now.getTime() < EXPIRES_SOON_MS;
+}

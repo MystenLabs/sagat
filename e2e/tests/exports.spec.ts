@@ -57,6 +57,7 @@ test('a proposal export is enough to execute it without the app', async ({
 	await signProposal(alice, proposal);
 
 	await alice.signIn();
+	await alice.openProposalsTab();
 	const exported = await downloadJson<ProposalExport>(
 		alice
 			.proposalCard(proposal.digest)

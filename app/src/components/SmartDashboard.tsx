@@ -22,7 +22,7 @@ export function SmartDashboard() {
 			<SkeletonPage rows={3} message="Loading accounts" />
 		);
 
-	// Case 1: User has active multisigs - smart redirect
+	// Case 1: User has active multisigs - land on an account's overview
 	if (multisigs?.length && multisigs.length > 0) {
 		// Check if there's a last viewed multisig for this wallet address
 		const walletAddress = currentAccount?.address;
@@ -41,17 +41,17 @@ export function SmartDashboard() {
 			if (isValidMultisig) {
 				return (
 					<Navigate
-						to={`/multisig/${lastViewedMultisig}/proposals`}
+						to={`/multisig/${lastViewedMultisig}/overview`}
 						replace
 					/>
 				);
 			}
 		}
 
-		// Default: redirect to first available multisig
+		// Default: the first available multisig's overview
 		return (
 			<Navigate
-				to={`/multisig/${multisigs?.[0].address}/proposals`}
+				to={`/multisig/${multisigs?.[0].address}/overview`}
 				replace
 			/>
 		);

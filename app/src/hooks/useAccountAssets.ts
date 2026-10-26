@@ -118,6 +118,13 @@ export function useAccountAssets(
 		[isFetchNextPageError, fetchNextPage, refetch],
 	);
 
+	// Fetches the price list and the balances again, for a fresh value.
+	const refetchPrices = recognized.refetch;
+	const refreshPrices = useCallback(
+		() => void Promise.all([refetchPrices(), refetch()]),
+		[refetchPrices, refetch],
+	);
+
 	return {
 		query,
 		balances,
@@ -131,5 +138,12 @@ export function useAccountAssets(
 		...state,
 		/** Loads what failed again: the first page or a later one. */
 		retry,
+		/** When the price list was last fetched, or null before it loads. */
+		pricesUpdatedAt: recognized.data
+			? recognized.dataUpdatedAt
+			: null,
+		refreshPrices,
+		/** Whether the price list or the balances are being fetched. */
+		refreshingPrices: recognized.isFetching || isFetching,
 	};
 }

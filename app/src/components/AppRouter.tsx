@@ -80,8 +80,9 @@ const routes: RouteConfig[] = [
 		authLevel: 'full',
 		children: [
 			{
+				// An account opens on its overview.
 				path: '',
-				element: <Navigate to="proposals" replace />,
+				element: <Navigate to="overview" replace />,
 				authLevel: 'full',
 			},
 			{

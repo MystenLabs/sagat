@@ -29,7 +29,7 @@ export type MultisigPageId =
 
 /**
  * The account page a path is on, for the title and the sidebar. The
- * account's bare path redirects to its proposals.
+ * account's bare path redirects to its overview.
  */
 export function currentMultisigPage(
 	pathname: string,
@@ -40,6 +40,6 @@ export function currentMultisigPage(
 	)?.params.page;
 	return (
 		MULTISIG_PAGES.find((p) => p.id === page)?.id ??
-		'proposals'
+		'overview'
 	);
 }

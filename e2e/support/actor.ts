@@ -173,6 +173,14 @@ export class Actor extends Identity {
 		);
 	}
 
+	// Opens the current account's proposals tab. Accounts open on their
+	// overview.
+	async openProposalsTab() {
+		await this.page
+			.getByTestId('multisig-tab-proposals')
+			.click();
+	}
+
 	proposalCard(digest: string) {
 		return this.page.locator(
 			`[data-testid="proposal-card"][data-digest="${digest}"]`,

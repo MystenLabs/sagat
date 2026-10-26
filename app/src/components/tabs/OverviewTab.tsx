@@ -22,7 +22,7 @@ interface OverviewTabContext {
 
 /**
  * The account at a glance: what it holds in USD with Receive and Send,
- * then the proposals still open beside its largest holdings.
+ * its largest holdings, then the proposals still open.
  */
 export function OverviewTab() {
 	const { multisig, openProposalSheet } =
@@ -33,7 +33,7 @@ export function OverviewTab() {
 	});
 
 	return (
-		<div className="@container flex flex-col gap-7">
+		<div className="@container flex flex-col gap-6">
 			<AccountValue
 				address={multisig.address}
 				name={accountName(multisig)}
@@ -46,13 +46,14 @@ export function OverviewTab() {
 					openProposalSheet({ kind: 'transfer' })
 				}
 			/>
-			<div className="grid min-w-0 gap-6 @4xl:grid-cols-[minmax(0,1fr)_400px]">
-				<OpenProposals multisig={multisig} />
-				<TokensCard
-					address={multisig.address}
-					assets={assets}
-				/>
-			</div>
+			<TokensCard
+				address={multisig.address}
+				assets={assets}
+				onSend={(coinType) =>
+					openProposalSheet({ kind: 'transfer', coinType })
+				}
+			/>
+			<OpenProposals multisig={multisig} />
 		</div>
 	);
 }

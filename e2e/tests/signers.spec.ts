@@ -428,6 +428,32 @@ test.describe('overview and signers', () => {
 			await expect(rows).toHaveCount(2);
 		});
 
+		await test.step("a token's Send proposes a transfer of that coin", async () => {
+			const testCoin = page.locator(
+				'[data-testid="token-row"][data-coin-type$="::test_coin::TEST_COIN"]',
+			);
+			await testCoin
+				.getByTestId('token-send-button')
+				.click();
+			const sheet = page.getByTestId('proposal-sheet');
+			await sheet
+				.getByTestId('asset-picker-button')
+				.click();
+			await expect(
+				sheet.locator(
+					'[data-testid="asset-picker-option"][aria-selected="true"]',
+				),
+			).toHaveAttribute(
+				'data-coin-type',
+				/::test_coin::TEST_COIN$/,
+			);
+			await sheet
+				.getByTestId('asset-picker-button')
+				.click();
+			await page.keyboard.press('Escape');
+			await expect(sheet).toBeHidden();
+		});
+
 		await test.step('each open proposal shows its title, proposer, status and weight', async () => {
 			const row = alice.openProposal(pending.digest);
 			await expect(row).toHaveAttribute(
@@ -443,6 +469,10 @@ test.describe('overview and signers', () => {
 			await expect(
 				row.getByTestId('open-proposal-proposer'),
 			).toHaveText('Proposed by Bob');
+			// The open proposal tells when it expires, in its meta line.
+			await expect(
+				row.getByTestId('proposal-expiry'),
+			).toHaveText(/^Expires in /);
 			const weight = row.getByTestId('proposal-weight');
 			await expect(weight).toHaveAttribute(
 				'data-current-weight',

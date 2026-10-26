@@ -46,6 +46,7 @@ test.describe('errors', () => {
 		});
 
 		await alice.signIn();
+		await alice.openProposalsTab();
 		const card = alice.proposalCard(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',
