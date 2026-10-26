@@ -12,6 +12,10 @@ import type { SuiNetwork } from './network';
 const NORMALIZED_SUI_COIN_TYPE =
 	normalizeStructTag(SUI_TYPE_ARG);
 
+// The SDK pays gas with at most this many coins (MAX_GAS_PAYMENT_OBJECTS in
+// @mysten/sui's core resolver, the protocol's max_gas_payment_objects).
+export const MAX_GAS_PAYMENT_OBJECTS = 256;
+
 export function isSuiCoinType(
 	coinType: string | null | undefined,
 ): boolean {

@@ -4,8 +4,13 @@
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, Check, X } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { ArrowLeft, X } from 'lucide-react';
+import {
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
 
 import { buildTransferTransaction } from '@/components/assets/buildTransferTransaction';
 import {
@@ -26,6 +31,7 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+	FieldStatus,
 	FooterNote,
 	Notice,
 	SectionHeading,
@@ -33,17 +39,20 @@ import {
 } from '@/components/wizard/parts';
 import { useTouched } from '@/components/wizard/use-touched';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
+import { useSuiCoinCount } from '@/hooks/useSuiCoinCount';
 import { accountName } from '@/lib/account-name';
 import { coinLabels } from '@/lib/coinDisplay';
 import {
 	coinUsdValue,
+	formatCoinAmount,
 	formatUsdValue,
-	getMaxInputAmount,
+	isSuiCoinType,
 } from '@/lib/coins';
 import {
 	checkTransfer,
 	COPY,
 	lacksGas,
+	maxTransfer,
 	titleError,
 	transferTitle,
 	type ReadyProposal,
@@ -77,9 +86,19 @@ export function TransferDetailsStep({
 	onCancel: () => void;
 }) {
 	const client = useDAppKit().getClient();
+	// In the long form the balances carry: the page normalizes `?asset=`.
+	const coinType = draft.coinType;
+	// Every balance, but the details of every coin only once the list has
+	// been opened; until then, the chosen coin's.
+	const [listOpened, setListOpened] = useState(false);
+	const shownCoinTypes = useMemo(
+		() => (coinType ? [coinType] : []),
+		[coinType],
+	);
 	const assets = useAccountAssets(multisig.address, {
 		allPages: true,
-		displayCount: Number.MAX_SAFE_INTEGER,
+		displayCount: listOpened ? Number.MAX_SAFE_INTEGER : 0,
+		coinTypes: shownCoinTypes,
 	});
 	const balancesLoading = assets.query.isLoading;
 	const balancesComplete =
@@ -87,8 +106,6 @@ export function TransferDetailsStep({
 		!assets.query.isError &&
 		!assets.query.hasNextPage;
 
-	// In the long form the balances carry: the page normalizes `?asset=`.
-	const coinType = draft.coinType;
 	const balance =
 		assets.balances.find((b) => b.coinType === coinType) ??
 		null;
@@ -109,11 +126,32 @@ export function TransferDetailsStep({
 	const noGas =
 		balancesComplete && lacksGas(assets.balances);
 
+	// From 256 SUI coins with an address balance, Max leaves that balance
+	// (`maxTransfer`); the coins are only counted when it could.
+	const addressBalance = balance?.addressBalance ?? '0';
+	const coinsMatter =
+		isSuiCoinType(coinType) && BigInt(addressBalance) > 0n;
+	const coinCount = useSuiCoinCount(multisig.address, {
+		enabled: coinsMatter,
+	});
+	const max =
+		balance && decimals != null && !coinCount.isLoading
+			? maxTransfer({
+					balance: balance.balance,
+					addressBalance,
+					coinCount: coinsMatter
+						? (coinCount.data ?? null)
+						: null,
+					decimals,
+				})
+			: null;
+
 	const check = checkTransfer({
 		draft,
 		balance: balance?.balance ?? null,
 		decimals,
 		symbol,
+		maxAmount: max?.rawAmount ?? null,
 	});
 	const shownTitle =
 		title ??
@@ -126,10 +164,6 @@ export function TransferDetailsStep({
 		'';
 	const currentTitleError = titleError(shownTitle);
 
-	const max =
-		balance && decimals != null
-			? getMaxInputAmount(balance.balance, decimals)
-			: null;
 	const priceUsd = coin?.priceUsd ?? null;
 	const usd =
 		priceUsd != null && decimals != null
@@ -272,6 +306,7 @@ export function TransferDetailsStep({
 						change('asset', draft.coinType);
 						changeDraft({ ...draft, coinType });
 					}}
+					onOpen={() => setListOpened(true)}
 					onClose={() => touch('asset')}
 					isLoading={balancesLoading}
 					disabled={building}
@@ -334,7 +369,10 @@ export function TransferDetailsStep({
 								onClick={() => {
 									if (max === null) return;
 									touch('amount');
-									changeDraft({ ...draft, amount: max });
+									changeDraft({
+										...draft,
+										amount: max.amount,
+									});
 								}}
 								disabled={max === null || building}
 								className="cursor-pointer font-medium"
@@ -362,6 +400,19 @@ export function TransferDetailsStep({
 						</p>
 					) : null}
 				</div>
+				{max?.leavesAddressBalance &&
+					check.transferAllSui &&
+					decimals != null && (
+						<Notice
+							tone="warning"
+							testId="transfer-max-address-balance"
+						>
+							{COPY.maxLeavesAddressBalance(
+								formatCoinAmount(addressBalance, decimals),
+								symbol ?? 'SUI',
+							)}
+						</Notice>
+					)}
 			</div>
 
 			<div className="flex flex-col gap-1.5">
@@ -502,24 +553,13 @@ function RecipientStatus({
 		return <span id="transfer-recipient-status" hidden />;
 	}
 	return (
-		<p
+		<FieldStatus
 			id="transfer-recipient-status"
-			className={cn(
-				'flex items-start gap-1 text-12',
-				valid
-					? 'text-success-foreground'
-					: 'text-error-foreground',
-			)}
-			data-state={valid ? 'valid' : 'invalid'}
-			data-testid="transfer-recipient-status"
+			valid={valid}
+			state={valid ? 'valid' : 'invalid'}
+			testId="transfer-recipient-status"
 		>
-			{valid && (
-				<Check
-					className="mt-0.5 size-3 shrink-0"
-					strokeWidth={2.5}
-				/>
-			)}
 			{valid ? COPY.validAddress : error}
-		</p>
+		</FieldStatus>
 	);
 }

@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useMemo } from 'react';
 
 import {
@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import {
+	FieldStatus,
 	FooterNote,
 	SectionHeading,
 	StepFooter,
@@ -112,25 +113,14 @@ export function BytesDetailsStep({
 					data-testid="bytes-input"
 				/>
 				{status && (
-					<p
+					<FieldStatus
 						id="bytes-status"
-						className={cn(
-							'flex items-start gap-1 text-12',
-							bytesInvalid
-								? 'text-error-foreground'
-								: 'text-success-foreground',
-						)}
-						data-state={check.kind}
-						data-testid="bytes-status"
+						valid={check.kind === 'ok'}
+						state={check.kind}
+						testId="bytes-status"
 					>
-						{check.kind === 'ok' && (
-							<Check
-								className="mt-0.5 size-3 shrink-0"
-								strokeWidth={2.5}
-							/>
-						)}
 						{status}
-					</p>
+					</FieldStatus>
 				)}
 			</div>
 

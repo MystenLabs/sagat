@@ -11,11 +11,11 @@ import {
 } from '@mysten/sui/transactions';
 import { SUI_TYPE_ARG, toBase64 } from '@mysten/sui/utils';
 
-import { isSuiCoinType } from '../../lib/coins';
+import {
+	isSuiCoinType,
+	MAX_GAS_PAYMENT_OBJECTS,
+} from '../../lib/coins';
 
-// The SDK pays gas with at most this many coins (MAX_GAS_PAYMENT_OBJECTS in
-// @mysten/sui's core resolver, the protocol's max_gas_payment_objects).
-const MAX_GAS_PAYMENT_OBJECTS = 256;
 // A MergeCoins command takes fewer than max_arguments (512) sources.
 const MAX_MERGE_SOURCES = 511;
 // Coins merged into the gas coin on top of the gas payment. A PTB takes up
@@ -66,12 +66,14 @@ export async function buildTransferTransaction({
 			sender,
 			MAX_GAS_PAYMENT_OBJECTS + MAX_MERGED_COINS,
 		);
-		// Up to 256 coins the client picks gas itself, which is also how an
+		// Below 256 coins the client picks gas itself, which is also how an
 		// address balance joins the gas coin (it adds a reservation for it).
-		// Past that, pay with the first 256 and merge the rest in, since the
-		// client would leave them behind. An address balance stays put on
-		// this path: the SDK does not export the reservation ref it uses.
-		if (coins.length > MAX_GAS_PAYMENT_OBJECTS) {
+		// From 256, pay with the first 256 and merge the rest in, since the
+		// client would leave coins behind: at 256 its reservation takes the
+		// place of one. An address balance stays put on this path: the SDK
+		// does not export the reservation ref it uses, so Max leaves it out
+		// of the amount here (`maxTransfer`).
+		if (coins.length >= MAX_GAS_PAYMENT_OBJECTS) {
 			tx.setGasPayment(
 				coins
 					.slice(0, MAX_GAS_PAYMENT_OBJECTS)
@@ -115,7 +117,7 @@ export async function buildTransferTransaction({
 }
 
 /** The owner's SUI coins, paging until the end or `max` coins. */
-async function listSuiCoins(
+export async function listSuiCoins(
 	client: ClientWithCoreApi,
 	owner: string,
 	max: number,

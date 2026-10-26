@@ -63,7 +63,10 @@ uploads it as the `playwright-report` artifact.
 **The wallet.** `wallet/inject.ts` is bundled by `global-setup.ts` and injected
 into every page before the app loads. It is
 [`@mysten-incubation/dev-wallet`](https://ts-sdks-incubation.vercel.app/dev-wallet/guides/e2e-testing)
-holding keys the test controls, with every request auto-approved. It registers
+holding keys the test controls, with every request auto-approved unless a test
+opts out: `rejectSigning` has it decline every transaction to sign, the way a
+user declines rather than a wallet failing, and `failRestore` has its silent
+session restore throw. It registers
 through the wallet-standard window events, the same way extension wallets do,
 so the app runs unmodified and no test code ships in it. One difference from
 the stock wallet: `E2EWallet` executes a signed transaction itself and returns

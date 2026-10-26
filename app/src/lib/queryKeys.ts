@@ -6,6 +6,7 @@ export const QueryKeys = {
 	Multisigs: 'multisigs',
 	User: 'user',
 	Balances: 'balances',
+	SuiCoinCount: 'sui-coin-count',
 	CoinMetadata: 'coin-metadata',
 	SuinsDefaultName: 'suins-default-name',
 	RecognizedCoins: 'recognized-coins',

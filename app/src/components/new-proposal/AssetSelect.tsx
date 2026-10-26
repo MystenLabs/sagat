@@ -3,6 +3,10 @@
 
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import {
+	fieldFrame,
+	inputSizes,
+} from '@/components/ui/input';
+import {
 	Select,
 	SelectContent,
 	SelectItem,
@@ -16,6 +20,7 @@ import {
 	sameCoinLabel,
 } from '@/lib/coinDisplay';
 import { formatCoinAmount } from '@/lib/coins';
+import { cn } from '@/lib/utils';
 
 /**
  * The asset to send: each balance the account holds, with its icon,
@@ -28,6 +33,7 @@ export function AssetSelect({
 	coinData,
 	value,
 	onValueChange,
+	onOpen,
 	onClose,
 	isLoading,
 	disabled = false,
@@ -40,6 +46,8 @@ export function AssetSelect({
 	/** The chosen coin type, or '' for none. */
 	value: string;
 	onValueChange: (coinType: string) => void;
+	/** The list opened. */
+	onOpen: () => void;
 	/** The list closed, chosen or not. */
 	onClose: () => void;
 	isLoading: boolean;
@@ -52,7 +60,11 @@ export function AssetSelect({
 			<div
 				aria-busy
 				aria-label="Loading assets"
-				className="flex h-10.5 items-center gap-2 rounded-md border border-foreground/12 bg-card px-3"
+				className={cn(
+					fieldFrame,
+					inputSizes.md,
+					'flex items-center gap-2 px-3',
+				)}
 			>
 				<Skeleton className="size-5 rounded-full" />
 				<Skeleton className="h-2.5 w-12" />
@@ -73,7 +85,8 @@ export function AssetSelect({
 				if (typeof next === 'string') onValueChange(next);
 			}}
 			onOpenChange={(open) => {
-				if (!open) onClose();
+				if (open) onOpen();
+				else onClose();
 			}}
 			disabled={empty || disabled}
 		>

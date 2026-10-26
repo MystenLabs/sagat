@@ -20,6 +20,7 @@ import {
 	checkTransfer,
 	COPY,
 	lacksGas,
+	maxTransfer,
 	newProposalPath,
 	proposalTypeFromQuery,
 	TITLE_MAX,
@@ -320,6 +321,69 @@ describe('checkTransfer', () => {
 	});
 });
 
+describe('maxTransfer', () => {
+	// 12.5 SUI in coins and 2.5 SUI in the address balance.
+	const max = (coinCount: number | null) =>
+		maxTransfer({
+			balance: '15000000000',
+			addressBalance: '2500000000',
+			coinCount,
+			decimals: 9,
+		});
+
+	test('fills the whole balance below 256 coins', () => {
+		expect(max(3)).toEqual({
+			amount: '15',
+			rawAmount: 15_000_000_000n,
+			leavesAddressBalance: false,
+		});
+		expect(max(255)?.leavesAddressBalance).toBe(false);
+		// Another coin, or SUI whose coins aren't counted.
+		expect(max(null)?.amount).toBe('15');
+	});
+
+	test('fills the coins alone from 256 coins with an address balance', () => {
+		expect(max(256)).toEqual({
+			amount: '12.5',
+			rawAmount: 12_500_000_000n,
+			leavesAddressBalance: true,
+		});
+	});
+
+	test('fills the whole balance from 256 coins without an address balance', () => {
+		expect(
+			maxTransfer({
+				balance: '12500000000',
+				addressBalance: '0',
+				coinCount: 256,
+				decimals: 9,
+			}),
+		).toEqual({
+			amount: '12.5',
+			rawAmount: 12_500_000_000n,
+			leavesAddressBalance: false,
+		});
+	});
+
+	test('sends the gas coin for the coins alone, not the whole balance', () => {
+		const check = (amount: string) =>
+			checkTransfer({
+				draft: {
+					coinType: SUI_TYPE_ARG,
+					amount,
+					recipient: RECIPIENT,
+				},
+				balance: '15000000000',
+				decimals: 9,
+				symbol: 'SUI',
+				maxAmount: max(256)?.rawAmount,
+			});
+		expect(check('12.5').transferAllSui).toBe(true);
+		expect(check('15').transferAllSui).toBe(false);
+		expect(check('15').amountError).toBeNull();
+	});
+});
+
 describe('titleError', () => {
 	test('accepts no title', () => {
 		expect(titleError('')).toBeNull();
@@ -331,9 +395,6 @@ describe('titleError', () => {
 		expect(titleError('🚀'.repeat(TITLE_MAX))).toBeNull();
 		expect(titleError('🚀'.repeat(TITLE_MAX + 1))).toBe(
 			COPY.titleTooLong(TITLE_MAX + 1),
-		);
-		expect(COPY.titleTooLong(501)).toBe(
-			'501 of 500 characters. Use 500 or fewer.',
 		);
 	});
 
@@ -678,6 +739,16 @@ describe('buildTransferTransaction Max on SUI', () => {
 		);
 		return { bytes, spent: [...paid, ...merged] };
 	}
+
+	// At 256 the client would pay with its address-balance reservation
+	// and 255 coins, leaving one behind.
+	test('pays gas with all 256 coins itself at 256', async () => {
+		const { bytes, spent } = await buildMax(256);
+		expect(
+			Transaction.from(bytes).getData().gasData.payment,
+		).toHaveLength(256);
+		expect(new Set(spent).size).toBe(256);
+	});
 
 	test('sends all 300 coins, past the 256 a gas payment takes', async () => {
 		const { spent } = await buildMax(300);

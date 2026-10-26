@@ -5,7 +5,10 @@
 // `context.addInitScript`, before any app code runs.
 //
 // It registers a dev wallet holding keys the test controls, and auto-approves
-// every connect and signing request. Registration goes through the
+// every connect and signing request, unless the test asks otherwise:
+// `rejectSigning` has it decline every transaction to sign, the way a user
+// declines (not a wallet failing), and `failRestore` has its silent session
+// restore throw. Registration goes through the
 // wallet-standard window events rather than `wallet.register()`: this bundle
 // has its own copy of the wallet registry, so only the event protocol reaches
 // the app's registry (the same way browser-extension wallets register).

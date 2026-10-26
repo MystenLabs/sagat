@@ -32,7 +32,7 @@ import {
 } from '@/components/wizard/parts';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
-	simulationRan,
+	couldNotSimulate,
 	type useDryRun,
 } from '@/hooks/useDryRun';
 import { useExpiry } from '@/hooks/useExpiry';
@@ -75,7 +75,7 @@ export function ReviewStep({
 	// The simulation couldn't run (offline, say): no verdict to show, and
 	// nothing to propose on until it runs.
 	const unreachable =
-		dryRun.isError && !simulationRan(dryRun.error);
+		dryRun.isError && couldNotSimulate(dryRun.error);
 	// Not started counts as simulating, so the first frame doesn't flash
 	// an empty result.
 	const settled =

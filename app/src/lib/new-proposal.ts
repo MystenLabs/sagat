@@ -17,7 +17,9 @@ import {
 
 import {
 	formatCoinAmount,
+	formatInputAmount,
 	isSuiCoinType,
+	MAX_GAS_PAYMENT_OBJECTS,
 	parseAmount,
 } from './coins';
 import { VALIDATION } from './constants';
@@ -124,9 +126,9 @@ export interface TransferCheck {
 	/** The amount in on-chain units once it parses. */
 	rawAmount: bigint | null;
 	/**
-	 * True when the amount is the whole SUI balance. The transfer then
-	 * sends the gas coin itself, so the recipient gets the balance minus
-	 * the gas fee and the account ends at zero.
+	 * True when the amount is what Max fills on SUI, usually the whole
+	 * balance (see `maxTransfer`). The transfer then sends the gas coin
+	 * itself, so the recipient gets that amount minus the gas fee.
 	 */
 	transferAllSui: boolean;
 	canReview: boolean;
@@ -135,18 +137,21 @@ export interface TransferCheck {
 /**
  * The Details checks for a transfer. `balance` (raw units) and
  * `decimals` are the chosen asset's, null while unknown; amounts are
- * only checked once both are known.
+ * only checked once both are known. `maxAmount` is the raw amount Max
+ * fills (`maxTransfer`), the balance when left out.
  */
 export function checkTransfer({
 	draft,
 	balance,
 	decimals,
 	symbol,
+	maxAmount,
 }: {
 	draft: TransferDraft;
 	balance: string | null;
 	decimals: number | null;
 	symbol: string | null;
+	maxAmount?: bigint | null;
 }): TransferCheck {
 	const assetError = draft.coinType
 		? null
@@ -173,11 +178,12 @@ export function checkTransfer({
 				);
 		}
 	}
+	const sendsGasCoinAt = maxAmount ?? held;
 	const transferAllSui =
 		isSuiCoinType(draft.coinType) &&
-		held !== null &&
+		sendsGasCoinAt !== null &&
 		rawAmount !== null &&
-		rawAmount === held;
+		rawAmount === sendsGasCoinAt;
 
 	const recipient = draft.recipient.trim();
 	const recipientValid =
@@ -223,6 +229,56 @@ export function lacksGas(
 	);
 }
 
+export interface MaxTransfer {
+	/** What Max fills in, as the amount field reads it. */
+	amount: string;
+	rawAmount: bigint;
+	/** Max leaves the address balance in the account. */
+	leavesAddressBalance: boolean;
+}
+
+/**
+ * What Max fills in for the chosen coin, or null when there is nothing
+ * to send. Below MAX_GAS_PAYMENT_OBJECTS SUI coins the SDK picks the gas
+ * payment and adds the address balance to the gas coin, so Max is the
+ * whole balance. From there the transfer lists the coins as the gas
+ * payment itself, which leaves the address balance out: Max is then the
+ * coins alone. `balance` is the coin's total (coins and address
+ * balance) and `coinCount` the account's SUI coins: null for another
+ * coin or while unknown.
+ */
+export function maxTransfer({
+	balance,
+	addressBalance,
+	coinCount,
+	decimals,
+}: {
+	balance: string;
+	addressBalance: string;
+	coinCount: number | null;
+	decimals: number;
+}): MaxTransfer | null {
+	const total = toBigInt(balance);
+	const inAddress = toBigInt(addressBalance) ?? 0n;
+	if (total === null) return null;
+	const leavesAddressBalance =
+		coinCount !== null &&
+		coinCount >= MAX_GAS_PAYMENT_OBJECTS &&
+		inAddress > 0n;
+	const rawAmount = leavesAddressBalance
+		? total - inAddress
+		: total;
+	if (rawAmount <= 0n) return null;
+	return {
+		amount: formatInputAmount(
+			rawAmount.toString(),
+			decimals,
+		),
+		rawAmount,
+		leavesAddressBalance,
+	};
+}
+
 function toBigInt(value: string | null): bigint | null {
 	if (value === null) return null;
 	try {
@@ -235,7 +291,8 @@ function toBigInt(value: string | null): bigint | null {
 /**
  * The error for a proposal title, or null when it is fine. The title is
  * optional, so only a long one is refused. Counts code points after
- * trimming, as the API does.
+ * trimming. The limit is the app's own: the API stores the title as
+ * sent, and only the database column's 1,000 characters bind there.
  */
 export function titleError(title: string): string | null {
 	const length = textLength(title);
@@ -394,6 +451,11 @@ export const COPY = {
 			: 'Couldn’t build the transfer. Check your connection and try again.',
 	noGas:
 		'This account has no SUI to pay gas. Send it some SUI before proposing a transfer.',
+	maxLeavesAddressBalance: (
+		amount: string,
+		symbol: string,
+	) =>
+		`Max sends the ${symbol} held in coins. The ${amount} ${symbol} in the address balance stays and goes with the next transfer.`,
 	simulationFailed: (reason: string) =>
 		`Simulation failed: ${reason}. If executed, it would fail and the account would still pay gas.`,
 	simulationUnreachable:

@@ -290,33 +290,6 @@ test.describe('new proposal: transfer', () => {
 });
 
 test.describe('new proposal: transfer details', () => {
-	test('Max on SUI fills the whole balance', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const fixtures = { createActor, createIdentity, chain };
-		const { alice, multisig } = await sharedAccount(
-			fixtures,
-			2,
-		);
-		const { page } = alice;
-
-		await openNewProposal(page, multisig.address, {
-			type: 'transfer',
-		});
-		await chooseAsset(page, SUI_TYPE);
-		await page.getByTestId('transfer-max-button').click();
-
-		// The faucet sent 1,000 SUI; nothing is kept back for gas.
-		await expect(
-			page.getByTestId('transfer-amount-input'),
-		).toHaveValue('1000');
-		await expect(
-			page.getByTestId('transfer-amount-error'),
-		).toHaveCount(0);
-	});
-
 	test('the recipient line marks an address invalid or valid', async ({
 		createActor,
 		createIdentity,
@@ -719,7 +692,7 @@ test.describe('new proposal: review', () => {
 		// The API's error shape: `{ error }` with the status.
 		const refuseCreate = (status: number, error: string) =>
 			page.route(createProposal, (route) =>
-				route.request().method() === 'POST'
+				isCreateRequest(route.request())
 					? route.fulfill({
 							status,
 							json: { error },

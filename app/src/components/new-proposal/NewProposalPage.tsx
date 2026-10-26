@@ -18,7 +18,7 @@ import {
 	SignatureDeclinedError,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
-import { simulationRan } from '@/hooks/useDryRun';
+import { couldNotSimulate } from '@/hooks/useDryRun';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
@@ -197,7 +197,7 @@ function NewProposalWizard({
 		preview(ready.bytes);
 	}, [step, ready, preview]);
 	const simulationUnreachable =
-		dryRun.isError && !simulationRan(dryRun.error);
+		dryRun.isError && couldNotSimulate(dryRun.error);
 	useEffect(() => {
 		if (simulationUnreachable) previewed.current = null;
 	}, [simulationUnreachable]);

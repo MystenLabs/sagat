@@ -24,12 +24,12 @@ const REFUSED_CODES = [
 ];
 
 /**
- * Whether a failed dry run is a verdict on the transaction: it ran and
- * failed, or the node refused it. False when the simulation couldn't be
- * run at all (offline, a timeout, a 5xx), where trying again may help.
+ * Whether a failed dry run couldn't be run at all (offline, a timeout, a
+ * 5xx), where trying again may help. False when the error is a verdict
+ * on the transaction: it ran and failed, or the node refused it.
  */
-export function simulationRan(error: unknown): boolean {
-	return (
+export function couldNotSimulate(error: unknown): boolean {
+	return !(
 		error instanceof SimulationFailedError ||
 		(error instanceof RpcError &&
 			REFUSED_CODES.includes(error.code))
