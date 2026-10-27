@@ -222,6 +222,8 @@ function WalletMenu({
 					<DropdownMenuItem
 						className={menuRowClass}
 						onClick={() => void copy(account.address)}
+						// Copying is not a navigation: keep the menu open for a second action; the "Address copied" toast confirms it.
+						closeOnClick={false}
 						data-testid="copy-address"
 					>
 						<Copy />

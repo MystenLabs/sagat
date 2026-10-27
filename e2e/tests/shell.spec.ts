@@ -136,6 +136,11 @@ test.describe('app shell', () => {
 				navigator.clipboard.readText(),
 			),
 		).toBe(alice.address);
+		// Copying keeps the menu open for a second action.
+		await expect(alice.walletMenuButton()).toHaveAttribute(
+			'aria-expanded',
+			'true',
+		);
 		await page.keyboard.press('Escape');
 
 		// Collapsing hides the labels but keeps the invitations count on the
