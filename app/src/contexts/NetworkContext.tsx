@@ -8,10 +8,10 @@ import {
 } from '@mysten/dapp-kit-react';
 
 import { LocalStorageKeys } from '@/lib/localStorageKeys';
+import { type SuiNetwork } from '@/lib/network';
 import { toast } from '@/lib/toast';
 
-export type SuiNetwork =
-	'mainnet' | 'testnet' | 'devnet' | 'localnet';
+export type { SuiNetwork } from '@/lib/network';
 
 /**
  * Whether the wallet advertises the network. dapp-kit drops the account

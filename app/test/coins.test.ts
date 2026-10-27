@@ -14,7 +14,6 @@ import {
 	formatCoinAmount,
 	formatInputAmount,
 	formatUsdValue,
-	getMaxInputAmount,
 	isSuiCoinType,
 	parseAmount,
 	pricesAvailableOn,
@@ -25,6 +24,7 @@ import {
 	totalUsdValue,
 	type SortableBalance,
 } from '../src/lib/coins';
+import { maxTransfer } from '../src/lib/new-proposal';
 
 describe('isSuiCoinType', () => {
 	test('matches the short canonical form', () => {
@@ -235,8 +235,28 @@ describe('parseAmount', () => {
 		expect(parseAmount('1,2,3', 0)).toBeNull();
 	});
 
-	test('rejects too many fractional digits', () => {
+	test('rejects a non-zero digit past the decimals', () => {
 		expect(parseAmount('1.234', 2)).toBeNull();
+	});
+
+	test('reads zeros past the decimals as the same amount', () => {
+		expect(parseAmount('1.50', 1)).toBe(15n);
+		expect(parseAmount('1.000', 2)).toBe(100n);
+		expect(parseAmount('0.1234560000', 6)).toBe(123_456n);
+	});
+
+	test('rejects a non-zero digit past the decimals, even after zeros', () => {
+		expect(parseAmount('1.501', 1)).toBeNull();
+		expect(parseAmount('1.0001', 2)).toBeNull();
+		expect(parseAmount('1.0000001', 6)).toBeNull();
+	});
+
+	test('takes no fraction but zeros on a 0-decimal coin', () => {
+		for (const input of ['0.5', '.5', '1.5', '1.01'])
+			expect(parseAmount(input, 0)).toBeNull();
+		expect(parseAmount('1.0', 0)).toBe(1n);
+		expect(parseAmount('1.000', 0)).toBe(1n);
+		expect(parseAmount('0.0', 0)).toBe(0n);
 	});
 
 	test('rejects empty and invalid input', () => {
@@ -254,18 +274,33 @@ describe('input helpers', () => {
 		);
 	});
 
-	test('computes max amount after reserving raw units', () => {
+	test('computes max amount from the coins one transfer can spend', () => {
 		expect(
-			getMaxInputAmount('200000000', 9, '50000000'),
+			maxTransfer({
+				balance: '200000000',
+				addressBalance: '0',
+				gasCoins: { value: 150_000_000n, hasMore: true },
+				decimals: 9,
+			})?.amount,
 		).toBe('0.15');
 	});
 
-	test('returns null when reservation leaves no spendable amount', () => {
+	test('returns null when there is nothing to send', () => {
 		expect(
-			getMaxInputAmount('50000000', 9, '50000000'),
+			maxTransfer({
+				balance: '0',
+				addressBalance: '0',
+				gasCoins: null,
+				decimals: 9,
+			}),
 		).toBeNull();
 		expect(
-			getMaxInputAmount('49999999', 9, '50000000'),
+			maxTransfer({
+				balance: '50000000',
+				addressBalance: '0',
+				gasCoins: { value: 0n, hasMore: true },
+				decimals: 9,
+			}),
 		).toBeNull();
 	});
 });

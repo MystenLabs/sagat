@@ -4,8 +4,12 @@
 import { type ProposalWithSignatures } from '@mysten/sagat';
 import { FileText, Plus, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import {
+	useNavigate,
+	useOutletContext,
+} from 'react-router-dom';
 
+import { newProposalPath } from '@/lib/new-proposal';
 import { toProposalCardInput } from '@/lib/proposalUtils';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
@@ -19,7 +23,6 @@ import { Tabs } from '../ui/tabs';
 
 interface ProposalsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: () => void;
 }
 
 type FilterType =
@@ -131,8 +134,9 @@ function LoadMoreButton({
 
 // Main Component
 export function ProposalsTab() {
-	const { multisig, openProposalSheet } =
+	const { multisig } =
 		useOutletContext<ProposalsTabContext>();
+	const navigate = useNavigate();
 	const { network } = useNetwork();
 	const [activeFilter, setActiveFilter] =
 		useState<FilterType>('all');
@@ -232,7 +236,11 @@ export function ProposalsTab() {
 						action={
 							activeFilter === 'all' && (
 								<Button
-									onClick={openProposalSheet}
+									onClick={() =>
+										navigate(
+											newProposalPath(multisig.address),
+										)
+									}
 									size="sm"
 								>
 									<Plus />

@@ -23,6 +23,7 @@ import { CreateMultisigPage } from './create-multisig/CreateMultisigPage';
 import { DevnetNotSupported } from './DevnetNotSupported';
 import { InvitationsPage } from './InvitationsPage';
 import { MultisigDetailPage } from './MultisigDetailPage';
+import { NewProposalPage } from './new-proposal/NewProposalPage';
 import { ProposalDetailPage } from './ProposalDetailPage';
 import { SmartDashboard } from './SmartDashboard';
 import { AssetsTab } from './tabs/AssetsTab';
@@ -71,6 +72,13 @@ const routes: RouteConfig[] = [
 	{
 		path: '/invitations',
 		element: <InvitationsPage />,
+		authLevel: 'full',
+	},
+	// Its own page, not one of the account's tabs. React Router ranks
+	// routes by how specific they are, so the order here doesn't matter.
+	{
+		path: '/multisig/:address/proposals/new',
+		element: <NewProposalPage />,
 		authLevel: 'full',
 	},
 	{

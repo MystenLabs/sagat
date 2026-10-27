@@ -54,10 +54,17 @@ export class Actor extends Identity {
 		name: string,
 		keypair: Ed25519Keypair,
 		otherAccounts: Identity[] = [],
-		wallet: Pick<
-			E2EWalletConfig,
-			'chains' | 'failRestore' | 'declineSign'
-		> = {},
+		{
+			walletChains,
+			failRestore,
+			rejectSigning,
+			declineSign,
+		}: {
+			walletChains?: E2EWalletConfig['chains'];
+			failRestore?: boolean;
+			rejectSigning?: boolean;
+			declineSign?: boolean;
+		} = {},
 	) {
 		const context = await browser.newContext();
 		await isolateFromInternet(context);
@@ -72,7 +79,10 @@ export class Actor extends Identity {
 					secretKey: account.keypair.getSecretKey(),
 				})),
 			],
-			...wallet,
+			chains: walletChains,
+			failRestore,
+			rejectSigning,
+			declineSign,
 		};
 		await context.addInitScript((config) => {
 			// Start on localnet, but keep a network the app saved, so a

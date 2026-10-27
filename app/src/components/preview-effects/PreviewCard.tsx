@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { SuiClientTypes } from '@mysten/sui/client';
-import { type ReactNode } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 
 import { cn } from '../../lib/utils';
 import { ObjectLink } from './ObjectLink';
@@ -10,10 +10,7 @@ import { ObjectLink } from './ObjectLink';
 type HeaderProps = {
 	children?: ReactNode;
 };
-type RootProps = {
-	children: ReactNode;
-	className?: string;
-};
+type RootProps = ComponentProps<'div'>;
 
 type BodyProps = {
 	children: ReactNode;
@@ -24,9 +21,14 @@ type FooterProps = {
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
-function Root({ children, className }: RootProps) {
+function Root({
+	children,
+	className,
+	...props
+}: RootProps) {
 	return (
 		<div
+			{...props}
 			className={cn(
 				'bg-card border flex flex-col rounded-lg overflow-hidden',
 				className,

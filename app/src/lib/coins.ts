@@ -1,16 +1,55 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type {
+	ClientWithCoreApi,
+	SuiClientTypes,
+} from '@mysten/sui/client';
 import {
 	normalizeStructTag,
 	SUI_TYPE_ARG,
 } from '@mysten/sui/utils';
 
-import type { SuiNetwork } from '../contexts/NetworkContext';
 import type { CoinPricing } from './coinDisplay';
+import type { SuiNetwork } from './network';
 
 const NORMALIZED_SUI_COIN_TYPE =
 	normalizeStructTag(SUI_TYPE_ARG);
+
+// The most coins one transaction pays gas with: the protocol's
+// max_gas_payment_objects, the cap the node selects gas within.
+export const MAX_GAS_PAYMENT_OBJECTS = 256;
+
+/** The owner's SUI coins, paging until the end or `max` coins. */
+export async function listSuiCoins(
+	client: ClientWithCoreApi,
+	owner: string,
+	max: number,
+): Promise<SuiClientTypes.Coin[]> {
+	const coins: SuiClientTypes.Coin[] = [];
+	let cursor: string | null = null;
+	do {
+		const page: SuiClientTypes.ListCoinsResponse =
+			await client.core.listCoins({
+				owner,
+				coinType: SUI_TYPE_ARG,
+				cursor,
+				// The node's page maximum.
+				limit: Math.min(max, 1000),
+			});
+		coins.push(...page.objects);
+		cursor = page.hasNextPage ? page.cursor : null;
+	} while (cursor && coins.length < max);
+	return coins.slice(0, max);
+}
+
+/** The SUI coins one transfer of the gas coin can spend. */
+export interface SuiGasCoins {
+	/** The balance of the first MAX_GAS_PAYMENT_OBJECTS coins. */
+	value: bigint;
+	/** True when `owner` holds more coins than that. */
+	hasMore: boolean;
+}
 
 export function isSuiCoinType(
 	coinType: string | null | undefined,
@@ -49,7 +88,8 @@ export function formatInputAmount(
 
 /**
  * Parse a human-entered decimal amount into on-chain integer units.
- * Accepts plain decimals and grouped strings (e.g. "1,234.56").
+ * Accepts plain decimals and grouped strings (e.g. "1,234.56"), and
+ * trailing zeros past `decimals`.
  */
 export function parseAmount(
 	input: string,
@@ -66,7 +106,10 @@ export function parseAmount(
 	const wholePart = match.groups.whole ?? '';
 	const fractionPart = match.groups.fraction ?? '';
 	if (!wholePart && fractionPart === '') return null;
-	if (fractionPart.length > decimals) return null;
+	// Zeros past the coin's decimals change nothing ("1.50" of a
+	// 1-decimal coin is 1.5); any other digit there can't be sent.
+	if (/[^0]/.test(fractionPart.slice(decimals)))
+		return null;
 
 	const paddedFraction = fractionPart
 		.padEnd(decimals, '0')
@@ -83,25 +126,6 @@ export function parseAmount(
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Maximum transferable input amount after subtracting a raw-unit reserve.
- * Useful for SUI where we reserve gas.
- */
-export function getMaxInputAmount(
-	rawBalance: string,
-	decimals: number,
-	reservedRawBalance: string = '0',
-): string | null {
-	let big: bigint;
-	try {
-		big = BigInt(rawBalance) - BigInt(reservedRawBalance);
-	} catch {
-		return null;
-	}
-	if (big <= 0n) return null;
-	return formatInputAmount(big.toString(), decimals);
 }
 
 function formatUnits(

@@ -18,4 +18,7 @@ export interface E2EWalletConfig {
 	// Rejects every personal message signature, the way a user declining
 	// the sign-in request does.
 	declineSign?: boolean;
+	// Rejects every transaction signing request, the way a wallet does when
+	// the user declines. Connecting and signing messages still work.
+	rejectSigning?: boolean;
 }

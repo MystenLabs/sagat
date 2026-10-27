@@ -1,14 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { formatDateTime } from '@/lib/dates';
 
-import { useEpochInfo } from '../../hooks/useEpochInfo';
+import { useExpiry } from '../../hooks/useExpiry';
 import {
 	formatTimeLeft,
-	getExpiry,
 	type Expiry,
 } from '../../lib/expiration';
 import { Chip } from '../ui/chip';
@@ -26,17 +25,13 @@ export function ProposalExpiry({
 }: {
 	transactionBytes: string;
 }) {
-	const { data: epochInfo } = useEpochInfo();
-	const now = useNow();
-	const expiry = useMemo(
-		() =>
-			epochInfo
-				? getExpiry(transactionBytes, epochInfo)
-				: null,
-		[transactionBytes, epochInfo],
-	);
-	if (!expiry) return null;
+	const expiry = useExpiry(transactionBytes);
+	return expiry ? <ExpiryChip expiry={expiry} /> : null;
+}
 
+// The badge for an expiry from `useExpiry`.
+export function ExpiryChip({ expiry }: { expiry: Expiry }) {
+	const now = useNow();
 	return (
 		<TooltipProvider delay={150}>
 			<Tooltip>
