@@ -56,7 +56,7 @@ test.describe('wallet sign-in', () => {
 		const alice = await createActor('alice');
 		await alice.signIn();
 
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await alice.page
 			.getByTestId('disconnect-button')
 			.click();
@@ -141,7 +141,7 @@ test.describe('wallet sign-in', () => {
 		});
 
 		await test.step('a declined connection is reported the same way', async () => {
-			await alice.walletMenuButton().click();
+			await alice.openWalletMenu();
 			await page.getByTestId('disconnect-button').click();
 			await expect(prompt).toBeVisible();
 			await page.evaluate(() => {
@@ -226,7 +226,7 @@ test.describe('wallet sign-in', () => {
 		).toHaveCount(0);
 
 		// The wallet menu doesn't offer a signature that would only fail.
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(
 			alice.page.getByTestId('disconnect-button'),
 		).toBeVisible();
@@ -326,7 +326,7 @@ test.describe('wallet sign-in', () => {
 		await expect.poll(() => failedChecks).toBe(2);
 
 		// Opening the menu waits for a render after the failure settled.
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(alice.walletMenuButton()).toHaveAttribute(
 			'data-auth-state',
 			'authenticated',
@@ -360,7 +360,7 @@ test.describe('wallet sign-in', () => {
 		await expect(
 			alice.page.getByTestId('auth-prompt'),
 		).toHaveCount(0);
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(
 			alice.page.getByTestId('wallet-account-sign'),
 		).toHaveCount(0);
@@ -385,7 +385,7 @@ test.describe('wallet sign-in', () => {
 			.poll(() => heldChecks.length)
 			.toBeGreaterThan(held);
 		await alice.page.clock.fastForward('06:00');
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(
 			alice
 				.walletAccount(savings.address)

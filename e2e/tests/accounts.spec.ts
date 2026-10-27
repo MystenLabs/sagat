@@ -90,7 +90,7 @@ test.describe('several accounts in one wallet', () => {
 
 		await test.step('both accounts stay signed in after a reload', async () => {
 			await page.reload();
-			await alice.walletMenuButton().click();
+			await alice.openWalletMenu();
 			for (const account of [alice, savings])
 				await expect(
 					alice.walletAccount(account.address),

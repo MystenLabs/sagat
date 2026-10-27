@@ -125,7 +125,7 @@ export class Actor extends Identity {
 	// Opens the wallet menu unless it is open already: a second trigger
 	// click would close it. Base UI keeps a closing popup in the DOM for
 	// its exit animation, so wait for the open one.
-	private async openWalletMenu() {
+	async openWalletMenu() {
 		const trigger = this.walletMenuButton();
 		if (
 			(await trigger.getAttribute('aria-expanded')) !==
@@ -142,10 +142,28 @@ export class Actor extends Identity {
 	}
 
 	// Closes the wallet menu with Escape, which can't reopen it the way a
-	// trigger click can while it is still animating out.
+	// trigger click can while it is still animating out. Base UI under a
+	// fake clock or on a slow CI runner can miss the first Escape, so press
+	// it again while the menu stays open, then fall back to a press outside
+	// the menu, on the page content clear of the sidebar.
 	async closeWalletMenu() {
+		const trigger = this.walletMenuButton();
 		await this.page.keyboard.press('Escape');
-		await expect(this.walletMenuButton()).toHaveAttribute(
+		for (let attempt = 0; attempt < 3; attempt++) {
+			await this.page.waitForTimeout(300);
+			if (
+				(await trigger.getAttribute('aria-expanded')) !==
+				'true'
+			)
+				break;
+			await this.page.keyboard.press('Escape');
+		}
+		if (
+			(await trigger.getAttribute('aria-expanded')) ===
+			'true'
+		)
+			await this.page.mouse.click(900, 600);
+		await expect(trigger).toHaveAttribute(
 			'aria-expanded',
 			'false',
 		);

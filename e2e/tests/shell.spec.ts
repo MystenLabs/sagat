@@ -123,7 +123,7 @@ test.describe('app shell', () => {
 			'clipboard-read',
 			'clipboard-write',
 		]);
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(
 			page.getByTestId('disconnect-button'),
 		).toBeVisible();
