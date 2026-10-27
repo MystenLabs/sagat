@@ -6,22 +6,21 @@ import { Check } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import {
-	Accordion,
-	AccordionContent,
-	AccordionItem,
-	AccordionTrigger,
-} from '@/components/ui/accordion';
-import {
 	cardClass,
 	CardHeading,
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import {
+	CopyText,
+	HelpAccordion,
+	NumberedSteps,
+	SummaryRow,
+} from '@/components/wizard/parts';
 import { COPY, joinList } from '@/lib/create-multisig';
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 
 import { HELP } from './help';
-import { CopyText } from './parts';
 
 /** "3", or "3 (+1 incomplete)". */
 function signersLabel(signers: number, incomplete: number) {
@@ -126,7 +125,7 @@ export function PreviewCard({
 			/>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<PreviewRow label="Name">
+				<SummaryRow label="Name">
 					<span
 						className={cn(
 							'text-13 break-all',
@@ -136,21 +135,21 @@ export function PreviewCard({
 					>
 						{name.trim() || 'Not set'}
 					</span>
-				</PreviewRow>
-				<PreviewRow label="Signers">
+				</SummaryRow>
+				<SummaryRow label="Signers">
 					<span
 						className={cn('text-12', !setUp && muted)}
 						data-testid="create-preview-signers"
 					>
 						{setUp ? signersLabel(signers, incomplete) : 0}
 					</span>
-				</PreviewRow>
-				<PreviewRow label="Total weight">
+				</SummaryRow>
+				<SummaryRow label="Total weight">
 					<span className={cn('text-12', !setUp && muted)}>
 						{setUp ? totalWeight : 0}
 					</span>
-				</PreviewRow>
-				<PreviewRow label="Threshold">
+				</SummaryRow>
+				<SummaryRow label="Threshold">
 					{setUp ? (
 						<span
 							className="text-12"
@@ -163,7 +162,7 @@ export function PreviewCard({
 							Not set
 						</span>
 					)}
-				</PreviewRow>
+				</SummaryRow>
 			</dl>
 			<Separator />
 			<div className="flex flex-col gap-1.5 pt-1">
@@ -202,41 +201,10 @@ export function PreviewCard({
 	);
 }
 
-function PreviewRow({
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactNode;
-}) {
-	return (
-		<div className="flex min-h-5.5 items-center justify-between gap-4 py-0.5">
-			<dt className="shrink-0 text-13 text-muted-foreground">
-				{label}
-			</dt>
-			<dd className="min-w-0 text-right">{children}</dd>
-		</div>
-	);
-}
-
 /** Steps 1 and 2: four short answers, one open at a time. */
 export function HelpCard() {
 	return (
-		<Accordion
-			className="rounded-xl border bg-card"
-			data-testid="create-help"
-		>
-			{HELP.map((item) => (
-				<AccordionItem key={item.id} value={item.id}>
-					<AccordionTrigger className="items-center gap-3 rounded-none px-5 py-3 text-13 font-normal hover:no-underline focus-visible:ring-inset **:data-[slot=accordion-trigger-icon]:size-3.5">
-						{item.question}
-					</AccordionTrigger>
-					<AccordionContent className="px-5 pb-3 text-13 leading-normal text-muted-foreground">
-						{item.answer}
-					</AccordionContent>
-				</AccordionItem>
-			))}
-		</Accordion>
+		<HelpAccordion items={HELP} testId="create-help" />
 	);
 }
 
@@ -281,23 +249,7 @@ export function NextStepsCard({
 				title="What happens next"
 			/>
 			<Separator />
-			<ol className="flex flex-col gap-3">
-				{items.map((item, i) => (
-					<li key={item.title} className="flex gap-3">
-						<span className="flex size-5.5 shrink-0 items-center justify-center rounded-full border border-foreground/15 text-11 leading-none text-foreground-secondary">
-							{i + 1}
-						</span>
-						<div className="flex min-w-0 flex-col gap-0.5">
-							<span className="text-14 font-medium">
-								{item.title}
-							</span>
-							<p className="text-13 leading-normal text-muted-foreground">
-								{item.body}
-							</p>
-						</div>
-					</li>
-				))}
-			</ol>
+			<NumberedSteps items={items} />
 		</section>
 	);
 }

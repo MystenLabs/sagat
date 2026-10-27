@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
+import { cloneElement, type ReactElement } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -27,12 +28,32 @@ function Tooltip({
 }
 
 function TooltipTrigger({
+	disabled,
+	render = <button type="button" />,
 	...props
 }: TooltipPrimitive.Trigger.Props) {
 	return (
 		<TooltipPrimitive.Trigger
 			data-slot="tooltip-trigger"
-			{...(!props.render && { type: 'button' as const })}
+			disabled={disabled}
+			// Base UI's `disabled` only mutes the tooltip; the element gets it
+			// too, so a disabled trigger is a disabled button.
+			render={
+				disabled === undefined
+					? render
+					: typeof render === 'function'
+						? (renderProps, state) =>
+								cloneElement(
+									render(
+										renderProps,
+										state,
+									) as ReactElement,
+									{
+										disabled,
+									},
+								)
+						: cloneElement(render, { disabled })
+			}
 			{...props}
 		/>
 	);
