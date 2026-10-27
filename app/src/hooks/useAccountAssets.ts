@@ -28,14 +28,19 @@ import { useRecognizedCoins } from './useRecognizedCoins';
  * Prices come from the registry alone, so valuing and sorting never wait
  * on coin metadata. Display data (with the metadata fallback for coins
  * outside the registry) is fetched only for the first `displayCount`
- * balances; without it `coinData` stays empty.
+ * balances and for `coinTypes`; without either `coinData` stays empty.
  */
 export function useAccountAssets(
 	address: string,
 	{
 		allPages = false,
 		displayCount,
-	}: { allPages?: boolean; displayCount?: number } = {},
+		coinTypes,
+	}: {
+		allPages?: boolean;
+		displayCount?: number;
+		coinTypes?: readonly string[];
+	} = {},
 ) {
 	const { network } = useNetwork();
 	const query = useMultisigBalances(address);
@@ -87,11 +92,13 @@ export function useAccountAssets(
 	);
 
 	const shownCoinTypes = useMemo(
-		() =>
-			balances
+		() => [
+			...balances
 				.slice(0, displayCount ?? 0)
 				.map((b) => b.coinType),
-		[balances, displayCount],
+			...(coinTypes ?? []),
+		],
+		[balances, displayCount, coinTypes],
 	);
 	const coinData = useCoinDisplayDataMap(shownCoinTypes);
 
@@ -121,10 +128,12 @@ export function useAccountAssets(
 	return {
 		query,
 		balances,
-		/** Display data for the first `displayCount` balances. */
+		/** Display data for the first `displayCount` balances and `coinTypes`. */
 		coinData: coinData.map,
 		/** Whether the display data of `coinType` is still loading. */
 		isCoinDataLoadingFor: coinData.isLoadingFor,
+		/** Whether the display data of `coinType` failed to load. */
+		isCoinDataErrorFor: coinData.isErrorFor,
 		usdValue,
 		value,
 		pricesAvailable,

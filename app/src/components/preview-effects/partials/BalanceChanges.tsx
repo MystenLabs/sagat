@@ -87,7 +87,12 @@ function ChangedBalance({
 			: '-';
 
 	return (
-		<PreviewCard.Root>
+		<PreviewCard.Root
+			data-testid="balance-change"
+			data-address={change.address}
+			data-coin-type={change.coinType}
+			data-amount={rawAmount}
+		>
 			<PreviewCard.Body>
 				<div className="flex items-center gap-3">
 					<CoinIcon

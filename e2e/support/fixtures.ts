@@ -8,18 +8,20 @@ import { Actor } from './actor';
 import { Chain } from './chain';
 import { Identity } from './identity';
 
-type Fixtures = {
+export type Fixtures = {
 	chain: Chain;
 	// A user with a browser, wallet and page, for people driving the UI.
 	// `otherAccounts` names further accounts in the same wallet;
 	// `walletChains` narrows the chains the wallet advertises;
-	// `failRestore` makes the wallet's silent session restore throw.
+	// `failRestore` makes the wallet's silent session restore throw;
+	// `rejectSigning` makes it decline every transaction to sign.
 	createActor: (
 		name: string,
 		options?: {
 			otherAccounts?: string[];
 			walletChains?: `sui:${string}`[];
 			failRestore?: boolean;
+			rejectSigning?: boolean;
 		},
 	) => Promise<Actor>;
 	// A user without a browser, for people who only act through the API.
@@ -41,8 +43,7 @@ export const test = base.extend<Fixtures>({
 					(other) =>
 						new Identity(other, new Ed25519Keypair()),
 				),
-				options?.walletChains,
-				options?.failRestore,
+				options,
 			);
 			actors.push(actor);
 			return actor;

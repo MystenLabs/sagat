@@ -1,7 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertTriangle, Check, Copy } from 'lucide-react';
+import {
+	AlertTriangle,
+	Check,
+	Copy,
+	Info,
+} from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import {
@@ -68,6 +73,92 @@ export function Notice({
 			<AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
 			<p className="leading-normal">{children}</p>
 		</div>
+	);
+}
+
+/**
+ * A red note with Try again under it, for something the wizard could
+ * not load. `retrying` holds the button; `testId` is the wrapper's.
+ */
+export function RetryNotice({
+	children,
+	onRetry,
+	retrying = false,
+	testId,
+	noticeTestId,
+	retryTestId,
+}: {
+	children: ReactNode;
+	onRetry: () => void;
+	retrying?: boolean;
+	testId?: string;
+	noticeTestId?: string;
+	retryTestId: string;
+}) {
+	return (
+		<div
+			className="flex flex-col items-start gap-2"
+			data-testid={testId}
+		>
+			<Notice
+				tone="error"
+				className="w-full"
+				testId={noticeTestId}
+			>
+				{children}
+			</Notice>
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				onClick={onRetry}
+				disabled={retrying}
+				data-testid={retryTestId}
+			>
+				Try again
+			</Button>
+		</div>
+	);
+}
+
+/**
+ * The line under a field: green with a check when the value is fine,
+ * red when it isn't, saying why.
+ */
+export function FieldStatus({
+	id,
+	valid,
+	state,
+	testId,
+	children,
+}: {
+	id: string;
+	valid: boolean;
+	/** Its `data-state`. */
+	state: string;
+	testId: string;
+	children: ReactNode;
+}) {
+	return (
+		<p
+			id={id}
+			className={cn(
+				'flex items-start gap-1 text-12',
+				valid
+					? 'text-success-foreground'
+					: 'text-error-foreground',
+			)}
+			data-state={state}
+			data-testid={testId}
+		>
+			{valid && (
+				<Check
+					className="mt-0.5 size-3 shrink-0"
+					strokeWidth={2.5}
+				/>
+			)}
+			{children}
+		</p>
 	);
 }
 
@@ -292,6 +383,20 @@ export function StepFooter({
 				Cancel
 			</Button>
 		</div>
+	);
+}
+
+/** A footer note with an info icon, for `StepFooter`'s `note`. */
+export function FooterNote({
+	children,
+}: {
+	children: ReactNode;
+}) {
+	return (
+		<span className="inline-flex items-center gap-1.5">
+			<Info className="size-3 shrink-0" />
+			{children}
+		</span>
 	);
 }
 

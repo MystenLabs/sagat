@@ -3,11 +3,12 @@
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { Plus } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
 	Navigate,
 	Outlet,
 	useLocation,
+	useNavigate,
 	useParams,
 } from 'react-router-dom';
 
@@ -19,13 +20,10 @@ import {
 	currentMultisigPage,
 	MULTISIG_PAGES,
 } from '@/lib/multisig-pages';
+import { newProposalPath } from '@/lib/new-proposal';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { SuccessBanner } from './multisig/SuccessBanner';
-import {
-	ProposalSheet,
-	type ProposalIntent,
-} from './ProposalSheet';
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
@@ -34,11 +32,8 @@ export function MultisigDetailPage() {
 	const { address } = useParams<{ address: string }>();
 	const location = useLocation();
 	const page = currentMultisigPage(location.pathname);
+	const navigate = useNavigate();
 	const currentAccount = useCurrentAccount();
-	const [showProposalSheet, setShowProposalSheet] =
-		useState(false);
-	const [proposalIntent, setProposalIntent] =
-		useState<ProposalIntent | null>(null);
 	const {
 		data: multisigs,
 		isLoading,
@@ -133,10 +128,9 @@ export function MultisigDetailPage() {
 				address={multisig.address}
 				actions={
 					<Button
-						onClick={() => {
-							setProposalIntent({ kind: 'custom' });
-							setShowProposalSheet(true);
-						}}
+						onClick={() =>
+							navigate(newProposalPath(multisig.address))
+						}
 						data-testid="new-proposal-button"
 					>
 						<Plus />
@@ -171,31 +165,8 @@ export function MultisigDetailPage() {
 
 			{/* Tab Content */}
 			<div>
-				<Outlet
-					context={{
-						multisig,
-						openProposalSheet: (
-							intent?: ProposalIntent,
-						) => {
-							setProposalIntent(
-								intent ?? { kind: 'custom' },
-							);
-							setShowProposalSheet(true);
-						},
-					}}
-				/>
+				<Outlet context={{ multisig }} />
 			</div>
-
-			{/* Proposal Creation Sheet */}
-			<ProposalSheet
-				open={showProposalSheet}
-				onOpenChange={(open) => {
-					setShowProposalSheet(open);
-					if (!open) setProposalIntent(null);
-				}}
-				multisigAddress={address!}
-				intent={proposalIntent}
-			/>
 		</div>
 	);
 }

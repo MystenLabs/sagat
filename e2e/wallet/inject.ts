@@ -5,7 +5,10 @@
 // `context.addInitScript`, before any app code runs.
 //
 // It registers a dev wallet holding keys the test controls, and auto-approves
-// every connect and signing request. Registration goes through the
+// every connect and signing request, unless the test asks otherwise:
+// `rejectSigning` has it decline every transaction to sign, the way a user
+// declines (not a wallet failing), and `failRestore` has its silent session
+// restore throw. Registration goes through the
 // wallet-standard window events rather than `wallet.register()`: this bundle
 // has its own copy of the wallet registry, so only the event protocol reaches
 // the app's registry (the same way browser-extension wallets register).
@@ -24,6 +27,8 @@ declare global {
 	}
 }
 
+type SignTransaction =
+	DevWallet['features']['sui:signTransaction']['signTransaction'];
 type SignAndExecute =
 	DevWallet['features']['sui:signAndExecuteTransaction']['signAndExecuteTransaction'];
 type Connect =
@@ -35,6 +40,8 @@ type Connect =
 class E2EWallet extends DevWallet {
 	// See `E2EWalletConfig.failRestore`.
 	failRestore = false;
+	// See `E2EWalletConfig.rejectSigning`.
+	rejectSigning = false;
 
 	get features() {
 		const features = super.features;
@@ -43,12 +50,19 @@ class E2EWallet extends DevWallet {
 			this.failRestore && input?.silent
 				? Promise.reject(new Error('restore failed'))
 				: connect(input);
+		const signTransaction: SignTransaction = (input) =>
+			this.rejectSigning
+				? // The dev wallet's own words when its user rejects.
+					Promise.reject(
+						new Error('Request rejected by user.'),
+					)
+				: features['sui:signTransaction'].signTransaction(
+						input,
+					);
 		const signAndExecuteTransaction: SignAndExecute =
 			async (input) => {
 				const { bytes, signature } =
-					await features[
-						'sui:signTransaction'
-					].signTransaction(input);
+					await signTransaction(input);
 				const network = input.chain.replace(/^sui:/, '');
 				const result = await this.getClient(
 					network,
@@ -71,6 +85,10 @@ class E2EWallet extends DevWallet {
 			'standard:connect': {
 				version: '1.0.0' as const,
 				connect: restoreOrConnect,
+			},
+			'sui:signTransaction': {
+				...features['sui:signTransaction'],
+				signTransaction,
 			},
 			'sui:signAndExecuteTransaction': {
 				version: '2.0.0' as const,
@@ -113,6 +131,7 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 		});
 	}
 	wallet.failRestore = !!config.failRestore;
+	wallet.rejectSigning = !!config.rejectSigning;
 	window.__e2eWallet = wallet;
 
 	const register = ({ register }: RegisterApi) =>

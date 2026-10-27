@@ -3,9 +3,9 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
-import type { SuiNetwork } from '../contexts/NetworkContext';
 import { formatCoinType, prettifyType } from './coin-type';
 import { pricingOnNetwork } from './coins';
+import type { SuiNetwork } from './network';
 
 export type CoinMetadata = SuiClientTypes.CoinMetadata;
 
@@ -99,15 +99,25 @@ export function buildCoinDisplayMap(
 
 /**
  * A coin's symbol and name for display, falling back to its compact and
- * full type when its details are unknown.
+ * full type when its details are unknown or blank.
  */
 export function coinLabels(
 	coinType: string,
 	coinData:
 		Pick<CoinDisplayBase, 'symbol' | 'name'> | undefined,
 ): { symbol: string; name: string } {
+	const symbol = coinData?.symbol?.trim();
+	const name = coinData?.name?.trim();
 	return {
-		symbol: coinData?.symbol ?? formatCoinType(coinType),
-		name: coinData?.name ?? prettifyType(coinType),
+		symbol: symbol || formatCoinType(coinType),
+		name: name || prettifyType(coinType),
 	};
+}
+
+/** Whether two coin labels, such as a symbol and a name, read the same. */
+export function sameCoinLabel(
+	a: string,
+	b: string,
+): boolean {
+	return a.toLowerCase() === b.toLowerCase();
 }

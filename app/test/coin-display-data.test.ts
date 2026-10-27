@@ -238,6 +238,16 @@ describe('coinLabels', () => {
 		});
 	});
 
+	test('falls back on a blank symbol or name as on a missing one', () => {
+		const coinType = `0x${'ab'.repeat(32)}::foo::FOO`;
+		expect(
+			coinLabels(coinType, { symbol: '', name: '  ' }),
+		).toEqual({
+			symbol: `0xabab...abababab::foo::FOO`,
+			name: coinType,
+		});
+	});
+
 	test('truncates a long package in the fallback symbol only', () => {
 		const coinType = `0x${'ab'.repeat(32)}::foo::FOO`;
 		expect(coinLabels(coinType, { name: null })).toEqual({
