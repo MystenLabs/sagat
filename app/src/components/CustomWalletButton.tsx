@@ -37,7 +37,6 @@ import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-	menuRowClass,
 } from './ui/dropdown-menu';
 import { SidebarRailTooltip } from './ui/sidebar';
 import { WalletPicker } from './WalletPicker';
@@ -110,19 +109,27 @@ const RailAvatar = ({
  */
 export function CustomWalletButton({
 	variant = 'header',
+	signIn = true,
 }: {
 	variant?: WalletVariant;
+	// Whether picking a wallet also signs in (see WalletPicker).
+	signIn?: boolean;
 }) {
 	const currentAccount = useCurrentAccount();
 
 	if (!currentAccount) {
 		return variant === 'rail' ? (
-			<WalletPicker variant="rail" side="top" />
+			<WalletPicker
+				variant="rail"
+				side="top"
+				signIn={signIn}
+			/>
 		) : (
 			<WalletPicker
 				variant="outline"
 				size="sm"
 				align="end"
+				signIn={signIn}
 			/>
 		);
 	}
@@ -246,7 +253,6 @@ function WalletMenu({
 				)}
 				<DropdownMenuGroup>
 					<DropdownMenuItem
-						className={menuRowClass}
 						onClick={() => void copy(account.address)}
 						// Copying is not a navigation: keep the menu open for a second action; the "Address copied" toast confirms it.
 						closeOnClick={false}
@@ -260,7 +266,6 @@ function WalletMenu({
 				<DropdownMenuGroup>
 					<DropdownMenuItem
 						variant="destructive"
-						className={menuRowClass}
 						onClick={() => void disconnectWallet()}
 						data-testid="disconnect-button"
 					>
@@ -313,7 +318,6 @@ function AccountItem({
 	return (
 		<DropdownMenuItem
 			className={cn(
-				menuRowClass,
 				// Taller when the account has a name or label line.
 				'h-auto min-h-9 py-1.5',
 			)}

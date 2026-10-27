@@ -21,9 +21,15 @@ import {
  * The signed-out page: connect a wallet, or, with one connected, sign the
  * message that proves the address. Connecting goes straight on to the
  * signature, so the second state is mostly what a restored session with an
- * expired cookie, or a switched account, sees.
+ * expired cookie, or a switched account, sees. Pages that only need a
+ * wallet pass `signIn={false}`, so picking one just connects it. The
+ * router passes it in: this card can't import the router's route table.
  */
-export function ConnectWalletCard() {
+export function ConnectWalletCard({
+	signIn,
+}: {
+	signIn: boolean;
+}) {
 	const currentAccount = useCurrentAccount();
 	const currentWallet = useCurrentWallet();
 	const {
@@ -81,10 +87,13 @@ export function ConnectWalletCard() {
 								>
 									Try again
 								</Button>
-								<WalletPicker variant="outline" />
+								<WalletPicker
+									variant="outline"
+									signIn={signIn}
+								/>
 							</>
 						) : (
-							<WalletPicker />
+							<WalletPicker signIn={signIn} />
 						)
 					}
 				/>

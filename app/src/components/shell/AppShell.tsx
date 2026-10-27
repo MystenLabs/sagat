@@ -7,7 +7,9 @@ import {
 	useState,
 	type ReactNode,
 } from 'react';
+import { useLocation } from 'react-router-dom';
 
+import { getAuthLevel } from '@/components/AppRouter';
 import { CustomWalletButton } from '@/components/CustomWalletButton';
 import {
 	SidebarInset,
@@ -83,6 +85,9 @@ export function AppShell({
 	// toaster (mounted outside the shell) how much the sidebar takes.
 	const isMobile = useIsMobile();
 	const { holdWalletControls } = useSessionBoot();
+	// Picking a wallet signs in only where the page needs an API session.
+	const { pathname } = useLocation();
+	const signIn = getAuthLevel(pathname) === 'full';
 	useEffect(() => {
 		const left = isMobile
 			? '0px'
@@ -120,7 +125,7 @@ export function AppShell({
 						{holdWalletControls ? (
 							<Skeleton className="h-7 w-36 rounded-md" />
 						) : (
-							<CustomWalletButton />
+							<CustomWalletButton signIn={signIn} />
 						)}
 					</div>
 				</header>

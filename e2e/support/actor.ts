@@ -56,10 +56,7 @@ export class Actor extends Identity {
 		otherAccounts: Identity[] = [],
 		wallet: Pick<
 			E2EWalletConfig,
-			| 'chains'
-			| 'failRestore'
-			| 'declineConnect'
-			| 'declineSign'
+			'chains' | 'failRestore' | 'declineSign'
 		> = {},
 	) {
 		const context = await browser.newContext();
@@ -106,10 +103,12 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the test wallet from the header's wallet menu. Connecting
-	// also signs in, so wait for that: a later wallet request would
-	// otherwise race the sign-in signature.
-	async connectWallet() {
+	// Connects the test wallet from the header's wallet menu. On pages
+	// that need an API session connecting also signs in, so wait for that:
+	// a later wallet request would otherwise race the sign-in signature.
+	// Pass `signIn: false` on pages that only connect (tools, proposal
+	// links).
+	async connectWallet({ signIn = true } = {}) {
 		await this.page
 			.getByTestId('app-header')
 			.getByTestId('connect-wallet-button')
@@ -118,7 +117,7 @@ export class Actor extends Identity {
 		await this.walletOption().click();
 		await expect(this.walletMenuButton()).toHaveAttribute(
 			'data-auth-state',
-			'authenticated',
+			signIn ? 'authenticated' : 'unauthenticated',
 		);
 	}
 

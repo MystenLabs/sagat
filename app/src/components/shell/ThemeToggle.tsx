@@ -21,7 +21,6 @@ import {
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuTrigger,
-	menuRowClass,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
@@ -88,7 +87,6 @@ export function ThemeToggle({
 						<DropdownMenuItem
 							key={value}
 							onClick={() => setTheme(value)}
-							className={menuRowClass}
 							data-testid="theme-option"
 							data-theme={value}
 							data-current={theme === value}

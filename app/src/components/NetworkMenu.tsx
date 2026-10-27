@@ -7,7 +7,6 @@ import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
-	menuRowClass,
 } from '@/components/ui/dropdown-menu';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
@@ -56,7 +55,7 @@ export function NetworkMenuItems({
 				<DropdownMenuItem
 					key={value}
 					disabled={!enabled}
-					className={cn(menuRowClass, 'capitalize')}
+					className="capitalize"
 					onClick={() => setNetwork(value)}
 					data-testid="network-option"
 					data-network={value}

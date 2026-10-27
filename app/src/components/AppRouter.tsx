@@ -32,7 +32,7 @@ import { SignersTab } from './tabs/SignersTab';
 import { ToolsPage } from './ToolsPage';
 import { SkeletonPage } from './ui/skeleton';
 
-type AuthLevel = 'public' | 'wallet' | 'full';
+export type AuthLevel = 'public' | 'wallet' | 'full';
 
 interface RouteConfig {
 	path: string;
@@ -107,7 +107,10 @@ const routes: RouteConfig[] = [
 	},
 ];
 
-function getAuthLevel(pathname: string): AuthLevel {
+// The shell reads it too: picking a wallet signs in only where the page
+// needs an API session.
+// eslint-disable-next-line react-refresh/only-export-components
+export function getAuthLevel(pathname: string): AuthLevel {
 	for (const route of routes) {
 		if (matchPath(route.path, pathname)) {
 			return route.authLevel;
@@ -203,8 +206,12 @@ export function AppRouter() {
 		);
 	}
 
-	// Full auth routes - require wallet + API auth
-	if (!currentAccount) return <ConnectWalletCard />;
+	// Full auth routes - require wallet + API auth. Wallet-only routes
+	// connect without asking for the sign-in signature.
+	if (!currentAccount)
+		return (
+			<ConnectWalletCard signIn={authLevel === 'full'} />
+		);
 
 	// Wallet-only routes - require wallet but not API auth
 	if (authLevel === 'wallet') return renderRoutes;
@@ -221,7 +228,7 @@ export function AppRouter() {
 	if (isApiUnreachable) return <ApiUnreachable />;
 
 	if (!isCurrentAddressAuthenticated) {
-		return <ConnectWalletCard />;
+		return <ConnectWalletCard signIn />;
 	}
 
 	return renderRoutes;

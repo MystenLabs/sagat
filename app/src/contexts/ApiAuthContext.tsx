@@ -22,11 +22,11 @@ import React, {
 	createContext,
 	useContext,
 	useEffect,
+	useRef,
 	useState,
 } from 'react';
 
 import { toast } from '@/lib/toast';
-import { errorMessage } from '@/lib/utils';
 import {
 	declinedMessage,
 	UNNAMED_WALLET,
@@ -61,13 +61,28 @@ interface ApiAuthContextType {
 	isConnecting: boolean;
 
 	// The wallet turned the last connect or signature request down.
-	declined: { wallet: string } | null;
-	// Connects the wallet, then asks for the sign-in signature.
-	connectWallet: (wallet: UiWallet) => Promise<void>;
-	// Connects the wallet that declined again.
+	declined: Declined | null;
+	// Connects the wallet, then (unless `signIn` is false) asks for the
+	// sign-in signature.
+	connectWallet: (
+		wallet: UiWallet,
+		options?: ConnectOptions,
+	) => Promise<void>;
+	// Connects the wallet that declined again, with the same options.
 	retryConnect: () => void;
 	// Signs out of the API, then disconnects the wallet.
 	disconnectWallet: () => Promise<void>;
+}
+
+interface ConnectOptions {
+	// False on pages that only need a wallet, not an API session.
+	signIn?: boolean;
+}
+
+interface Declined {
+	wallet: string;
+	// How the declined connect was asked for, so a retry repeats it.
+	signIn: boolean;
 }
 
 const ApiAuthContext = createContext<
@@ -138,9 +153,9 @@ export function ApiAuthProvider({
 		refetchOnWindowFocus: true,
 	});
 
-	const [declined, setDeclined] = useState<{
-		wallet: string;
-	} | null>(null);
+	const [declined, setDeclined] = useState<Declined | null>(
+		null,
+	);
 
 	// Re-check auth when wallet account changes. A decline was another
 	// account's, so its note goes on a switch, but stays on the connect
@@ -191,6 +206,15 @@ export function ApiAuthProvider({
 		},
 		onMutate: () => setDeclined(null),
 		onSuccess: async () => {
+			// Logged out while `/auth/connect` was in flight: the wallet is
+			// gone, but this response has just set a session cookie. Drop it
+			// so the session doesn't outlive the logout. (The kit only has a
+			// wallet while connected or reconnecting.)
+			if (!dappKit.stores.$connection.get().wallet) {
+				await apiClient.disconnect().catch(() => {});
+				await refetchAuth();
+				return;
+			}
 			await refetchAuth();
 			await queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
@@ -206,7 +230,10 @@ export function ApiAuthProvider({
 				);
 				return;
 			}
-			setDeclined({ wallet: error.wallet });
+			// A sign-in only follows a connect, so the retry signs in too.
+			setDeclined({ wallet: error.wallet, signIn: true });
+			// The user said no: drop a sign-in queued behind this one.
+			setSignAfterConnect(false);
 			const signedIn =
 				queryClient.getQueryData<AuthCheckResponse>(
 					AUTH_QUERY_KEY,
@@ -234,32 +261,46 @@ export function ApiAuthProvider({
 		},
 	});
 
-	const connectWallet = async (wallet: UiWallet) => {
+	// One connect at a time: a second pick while the wallet's prompt is
+	// open would race the first for the connection.
+	const connectInFlight = useRef(false);
+
+	const connectWallet = async (
+		wallet: UiWallet,
+		{ signIn = true }: ConnectOptions = {},
+	) => {
+		if (connectInFlight.current) return;
+		connectInFlight.current = true;
 		setDeclined(null);
 		setSignAfterConnect(false);
 		try {
 			await dappKit.connectWallet({ wallet });
 		} catch {
-			setDeclined({ wallet: wallet.name });
+			setDeclined({ wallet: wallet.name, signIn });
 			return;
+		} finally {
+			connectInFlight.current = false;
 		}
-		setSignAfterConnect(true);
+		if (signIn) setSignAfterConnect(true);
 	};
 
 	const retryConnect = () => {
-		const name = declined?.wallet;
-		if (!name) return;
+		if (!declined) return;
 		const wallet = dappKit.stores.$wallets
 			.get()
-			.find((w) => w.name === name);
+			.find((w) => w.name === declined.wallet);
 		if (!wallet) {
 			setDeclined(null);
 			return;
 		}
-		void connectWallet(wallet);
+		void connectWallet(wallet, { signIn: declined.signIn });
 	};
 
 	const disconnectWallet = async () => {
+		// Cancel a queued sign-in first, so nothing asks for a signature
+		// while the session goes.
+		setSignAfterConnect(false);
+		setDeclined(null);
 		// Sign out of the API first; the wallet disconnects even if that
 		// fails (the mutation toasts the failure).
 		let signedOut = true;
@@ -268,19 +309,10 @@ export function ApiAuthProvider({
 		} catch {
 			signedOut = false;
 		}
-		try {
-			await dappKit.disconnectWallet();
-		} catch (error) {
-			// Menu items call this without awaiting, so report it here.
-			toast.error(
-				`Disconnect failed: ${errorMessage(error, 'the wallet refused')}`,
-			);
-			return;
-		} finally {
-			setDeclined(null);
-			setSignAfterConnect(false);
-		}
-		// Only when both steps worked, so it never sits beside a failure.
+		// The kit never rejects a wallet's refusal to disconnect: it logs
+		// it and disconnects locally regardless.
+		await dappKit.disconnectWallet();
+		// Only when the sign-out worked, so it never sits beside a failure.
 		if (signedOut) toast.success('Wallet disconnected');
 	};
 
@@ -305,9 +337,13 @@ export function ApiAuthProvider({
 	// After an explicit connect, ask for the signature once the session's
 	// answer is in. The handler can't do it: its `currentAccount` is stale
 	// right after the connect resolves.
-	const { mutate: signIn } = connectMutation;
+	const { mutate: signIn, isPending: isSigningIn } =
+		connectMutation;
 	useEffect(() => {
 		if (!signAfterConnect || !currentAccount) return;
+		// A signature is already out: keep the flag, so this runs once it
+		// settles (and skips if that one signed this address in).
+		if (isSigningIn) return;
 		// The account change has just started a re-check: wait for it.
 		if (
 			isCheckingAuth ||
@@ -330,6 +366,7 @@ export function ApiAuthProvider({
 		isFetchingAuth,
 		isAuthCheckFailing,
 		isCurrentAddressAuthenticated,
+		isSigningIn,
 		queryClient,
 		signIn,
 	]);

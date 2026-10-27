@@ -257,7 +257,8 @@ export function MultisigSwitcher({
 										go(`/multisig/${m.address}/${page}`)
 									}
 									className={cn(
-										'items-center gap-2.5',
+										// Taller than a plain row: name and subtitle lines.
+										'h-auto min-h-9 py-1.5',
 										isSelected && 'bg-accent',
 									)}
 								>

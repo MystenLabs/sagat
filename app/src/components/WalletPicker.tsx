@@ -11,7 +11,6 @@ import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
-	menuRowClass,
 } from '@/components/ui/dropdown-menu';
 import { SidebarRailTooltip } from '@/components/ui/sidebar';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
@@ -23,7 +22,8 @@ type WalletPickerVariant = 'default' | 'outline' | 'rail';
 
 /**
  * "Connect wallet": a menu of the installed wallets. Picking one connects
- * it and asks for the sign-in signature straight after. The `rail` variant
+ * it and, with `signIn`, asks for the sign-in signature straight after.
+ * Pages that only need a wallet pass `signIn={false}`. The `rail` variant
  * is the sidebar footer's, a square icon on the collapsed rail.
  */
 export function WalletPicker({
@@ -31,11 +31,13 @@ export function WalletPicker({
 	size = 'default',
 	side = 'bottom',
 	align = 'start',
+	signIn = true,
 }: {
 	variant?: WalletPickerVariant;
 	size?: 'default' | 'sm';
 	side?: 'top' | 'bottom';
 	align?: 'start' | 'center' | 'end';
+	signIn?: boolean;
 }) {
 	const wallets = useWallets();
 	const { connectWallet } = useApiAuth();
@@ -85,8 +87,9 @@ export function WalletPicker({
 					{wallets.map((wallet) => (
 						<DropdownMenuItem
 							key={wallet.name}
-							className={menuRowClass}
-							onClick={() => void connectWallet(wallet)}
+							onClick={() =>
+								void connectWallet(wallet, { signIn })
+							}
 							data-testid="wallet-option"
 							data-wallet-name={wallet.name}
 						>
@@ -101,7 +104,8 @@ export function WalletPicker({
 					{wallets.length === 0 && (
 						<DropdownMenuItem
 							disabled
-							className="max-w-60 px-2.5 py-2 text-13 text-muted-foreground"
+							// Wraps onto several lines, so it outgrows the fixed row height.
+							className="h-auto max-w-60 py-2 text-muted-foreground"
 							data-testid="wallet-option-empty"
 						>
 							No wallets found. Install a wallet (e.g. Slush

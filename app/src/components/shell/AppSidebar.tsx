@@ -16,6 +16,7 @@ import {
 	useLocation,
 } from 'react-router-dom';
 
+import { getAuthLevel } from '@/components/AppRouter';
 import { CustomWalletButton } from '@/components/CustomWalletButton';
 import { PodsMark, PodsWordmark } from '@/components/Logo';
 import {
@@ -391,7 +392,12 @@ function SidebarNav() {
 					{holdWalletControls ? (
 						<WalletRowSkeleton />
 					) : (
-						<CustomWalletButton variant="rail" />
+						<CustomWalletButton
+							variant="rail"
+							signIn={
+								getAuthLevel(location.pathname) === 'full'
+							}
+						/>
 					)}
 				</SidebarFooter>
 			</div>
