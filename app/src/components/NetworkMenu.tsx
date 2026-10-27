@@ -6,6 +6,7 @@ import { Check } from 'lucide-react';
 import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
+	DropdownMenuLabel,
 	menuRowClass,
 } from '@/components/ui/dropdown-menu';
 import { useNetwork } from '@/contexts/NetworkContext';
@@ -50,6 +51,7 @@ export function NetworkMenuItems({
 
 	return (
 		<DropdownMenuGroup>
+			<DropdownMenuLabel>Network</DropdownMenuLabel>
 			{options.map(({ value, enabled, hint }) => (
 				<DropdownMenuItem
 					key={value}
@@ -60,17 +62,16 @@ export function NetworkMenuItems({
 					data-network={value}
 					data-current={value === network}
 				>
-					{/* A fixed slot, so the labels line up with or without the check. */}
-					<span className="flex size-4 shrink-0 items-center justify-center">
-						{value === network && (
-							<Check className="size-4" />
-						)}
-					</span>
 					{value}
-					{hint && (
-						<span className="ml-auto text-11 normal-case text-muted-foreground">
-							{hint}
-						</span>
+					{/* One trailing slot: the check on the current row, the hint on disabled ones. */}
+					{value === network ? (
+						<Check className="ml-auto size-4" />
+					) : (
+						hint && (
+							<span className="ml-auto text-11 normal-case text-muted-foreground">
+								{hint}
+							</span>
+						)
 					)}
 				</DropdownMenuItem>
 			))}
