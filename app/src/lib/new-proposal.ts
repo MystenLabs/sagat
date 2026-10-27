@@ -138,7 +138,8 @@ export interface TransferCheck {
  * `decimals` are the chosen asset's, null while unknown; amounts are
  * only checked once both are known. `maxAmount` is the raw amount Max
  * fills (`maxTransfer`), the balance when left out. Below the balance,
- * it is also the most the transfer can send.
+ * it is also the most the transfer can send. Null means Max is not
+ * known yet (SUI before its coins are listed): Review waits for it.
  */
 export function checkTransfer({
 	draft,
@@ -187,7 +188,8 @@ export function checkTransfer({
 				);
 		}
 	}
-	const sendsGasCoinAt = maxAmount ?? held;
+	const sendsGasCoinAt =
+		maxAmount === undefined ? held : maxAmount;
 	const transferAllSui =
 		isSuiCoinType(draft.coinType) &&
 		sendsGasCoinAt !== null &&
@@ -216,6 +218,7 @@ export function checkTransfer({
 			recipientValid &&
 			decimals !== null &&
 			held !== null &&
+			maxAmount !== null &&
 			rawAmount !== null &&
 			rawAmount > 0n,
 	};
@@ -468,6 +471,8 @@ export const COPY = {
 		'Couldn’t simulate the transaction. Check your connection and try again.',
 	coinDataFailed:
 		'Couldn’t load this coin’s details. Try again in a moment.',
+	gasCoinsFailed:
+		'Couldn’t load this account’s coins, which Max and the amount check need. Try again.',
 	createFailed:
 		'Couldn’t create the proposal. Nothing was sent to the other signers. Check your connection and try again.',
 	signatureDeclined:

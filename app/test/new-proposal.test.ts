@@ -241,6 +241,25 @@ describe('checkTransfer', () => {
 		);
 	});
 
+	test('waits for Max on SUI before Review, even at the whole balance', () => {
+		const check = (maxAmount: bigint | null) =>
+			checkTransfer({
+				draft: {
+					coinType: SUI_TYPE_ARG,
+					amount: '1',
+					recipient: RECIPIENT,
+				},
+				balance: '1000000000',
+				decimals: 9,
+				symbol: 'SUI',
+				maxAmount,
+			});
+		expect(check(null).canReview).toBe(false);
+		expect(check(null).transferAllSui).toBe(false);
+		expect(check(1_000_000_000n).canReview).toBe(true);
+		expect(check(1_000_000_000n).transferAllSui).toBe(true);
+	});
+
 	test('Max sends the gas coin on the long form of the SUI type', () => {
 		const max = maxTransfer({
 			balance: '2000000000',
@@ -657,8 +676,6 @@ describe('proposalTypeFromQuery', () => {
 
 describe('buildTransferTransaction Max on SUI', () => {
 	const SENDER = normalizeSuiAddress('0x5d2e');
-	const coinId = (i: number) =>
-		normalizeSuiAddress(`0xc0${i.toString(16)}`);
 	// What the node picks when the transaction leaves gas to it.
 	const NODE_GAS = [
 		{
@@ -668,34 +685,10 @@ describe('buildTransferTransaction Max on SUI', () => {
 		},
 	];
 
-	// A client that holds `count` SUI coins of 0.5, listed 100 per page,
-	// whose resolver pins the gas price and budget and, when the
-	// transaction sets none, the gas payment.
-	function fakeClient(count: number) {
+	// A client whose resolver pins the gas price, budget and payment the
+	// node would pick.
+	function fakeClient() {
 		const core = {
-			listCoins: async ({
-				cursor,
-			}: {
-				cursor?: string | null;
-			}) => {
-				const start = Number(cursor ?? 0);
-				const end = Math.min(start + 100, count);
-				return {
-					objects: Array.from(
-						{ length: end - start },
-						(_, i) => ({
-							objectId: coinId(start + i),
-							version: '1',
-							digest: toBase58(new Uint8Array(32).fill(1)),
-							balance: '500000000',
-							coinType: SUI_TYPE_ARG,
-							owner: SENDER,
-						}),
-					),
-					hasNextPage: end < count,
-					cursor: end < count ? String(end) : null,
-				};
-			},
 			resolveTransactionPlugin:
 				() =>
 				async (
@@ -714,14 +707,14 @@ describe('buildTransferTransaction Max on SUI', () => {
 		>[0]['client'];
 	}
 
-	test('leaves the gas payment to the node past 256 coins', async () => {
+	test('leaves the gas payment to the node', async () => {
 		const bytes = await buildTransferTransaction({
 			sender: SENDER,
 			recipient: RECIPIENT,
 			coinType: SUI_TYPE_ARG,
 			amount: 128n * 1_000_000_000n,
 			transferAllSui: true,
-			client: fakeClient(300),
+			client: fakeClient(),
 		});
 		const data = Transaction.from(bytes).getData();
 		expect(data.gasData.payment).toEqual(NODE_GAS);

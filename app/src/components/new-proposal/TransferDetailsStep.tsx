@@ -127,13 +127,15 @@ export function TransferDetailsStep({
 		balancesComplete && lacksGas(assets.balances);
 
 	// Max on SUI is what one transfer can spend (`maxTransfer`), which
-	// needs the account's coins: Max waits for them.
+	// needs the account's coins: Max and Review wait for them.
 	const sendsSui = isSuiCoinType(coinType);
 	const gasCoins = useSuiGasCoins(multisig.address, {
 		enabled: sendsSui,
 	});
+	const maxUnknown =
+		sendsSui && (gasCoins.isPending || gasCoins.isError);
 	const max =
-		balance && decimals != null && !gasCoins.isLoading
+		balance && decimals != null && !maxUnknown
 			? maxTransfer({
 					balance: balance.balance,
 					addressBalance: balance.addressBalance ?? '0',
@@ -149,7 +151,7 @@ export function TransferDetailsStep({
 		balance: balance?.balance ?? null,
 		decimals,
 		symbol,
-		maxAmount: max?.rawAmount ?? null,
+		maxAmount: maxUnknown ? null : max?.rawAmount,
 	});
 	const shownTitle =
 		title ??
@@ -398,6 +400,27 @@ export function TransferDetailsStep({
 						</p>
 					) : null}
 				</div>
+				{sendsSui && gasCoins.isError && (
+					<div className="flex flex-col items-start gap-2">
+						<Notice
+							tone="error"
+							className="w-full"
+							testId="transfer-gas-coins-error"
+						>
+							{COPY.gasCoinsFailed}
+						</Notice>
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={() => void gasCoins.refetch()}
+							disabled={gasCoins.isFetching}
+							data-testid="transfer-gas-coins-retry"
+						>
+							Try again
+						</Button>
+					</div>
+				)}
 				{sendsSui && max?.partial && decimals != null && (
 					<Notice
 						tone="warning"
