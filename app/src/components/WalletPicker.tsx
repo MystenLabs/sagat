@@ -11,6 +11,7 @@ import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
+	menuRowClass,
 } from '@/components/ui/dropdown-menu';
 import { SidebarRailTooltip } from '@/components/ui/sidebar';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
@@ -30,13 +31,11 @@ export function WalletPicker({
 	size = 'default',
 	side = 'bottom',
 	align = 'start',
-	className,
 }: {
 	variant?: WalletPickerVariant;
 	size?: 'default' | 'sm';
 	side?: 'top' | 'bottom';
 	align?: 'start' | 'center' | 'end';
-	className?: string;
 }) {
 	const wallets = useWallets();
 	const { connectWallet } = useApiAuth();
@@ -60,7 +59,6 @@ export function WalletPicker({
 					}),
 					rail &&
 						'w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0',
-					className,
 				)}
 			>
 				<Wallet className={cn(rail && 'size-3.5')} />
@@ -87,7 +85,7 @@ export function WalletPicker({
 					{wallets.map((wallet) => (
 						<DropdownMenuItem
 							key={wallet.name}
-							className="h-9 gap-2.5 px-2.5 text-13"
+							className={menuRowClass}
 							onClick={() => void connectWallet(wallet)}
 							data-testid="wallet-option"
 							data-wallet-name={wallet.name}

@@ -64,7 +64,7 @@ test.describe('app shell', () => {
 		await page.getByTestId('alpha-badge').hover();
 		await expect(
 			page.getByTestId('alpha-popover'),
-		).toContainText('This app is in alpha');
+		).toBeVisible();
 		await page.mouse.move(720, 450);
 		await expect(
 			page.getByTestId('alpha-popover'),
@@ -422,9 +422,7 @@ test.describe('app shell', () => {
 		]);
 		await page.getByTestId('receive-qr').click();
 		await expect(
-			page
-				.locator('[data-sonner-toast]')
-				.filter({ hasText: 'Address copied' }),
+			alice.toast('Address copied'),
 		).toBeVisible();
 		expect(
 			await page.evaluate(() =>

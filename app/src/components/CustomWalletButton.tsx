@@ -36,14 +36,12 @@ import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
+	menuRowClass,
 } from './ui/dropdown-menu';
 import { SidebarRailTooltip } from './ui/sidebar';
 import { WalletPicker } from './WalletPicker';
 
 type WalletVariant = 'header' | 'rail';
-
-/** Menu rows from the designs: 36px, 10px gap and padding, 13px text. */
-const itemClass = 'h-9 gap-2.5 px-2.5 text-13';
 
 const getCompactWalletLabel = (
 	address: string,
@@ -101,7 +99,6 @@ export function CustomWalletButton({
 			<WalletPicker
 				variant="outline"
 				size="sm"
-				side="bottom"
 				align="end"
 			/>
 		);
@@ -223,7 +220,7 @@ function WalletMenu({
 				)}
 				<DropdownMenuGroup>
 					<DropdownMenuItem
-						className={itemClass}
+						className={menuRowClass}
 						onClick={() => void copy(account.address)}
 						data-testid="copy-address"
 					>
@@ -235,7 +232,7 @@ function WalletMenu({
 				<DropdownMenuGroup>
 					<DropdownMenuItem
 						variant="destructive"
-						className={itemClass}
+						className={menuRowClass}
 						onClick={() => void disconnectWallet()}
 						data-testid="disconnect-button"
 					>
@@ -287,7 +284,11 @@ function AccountItem({
 
 	return (
 		<DropdownMenuItem
-			className="min-h-9 gap-2.5 px-2.5 py-1.5 text-13"
+			className={cn(
+				menuRowClass,
+				// Taller when the account has a name or label line.
+				'h-auto min-h-9 py-1.5',
+			)}
 			onClick={switchTo}
 			data-testid="wallet-account"
 			data-address={account.address}

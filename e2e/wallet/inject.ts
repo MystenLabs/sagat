@@ -93,7 +93,7 @@ class E2EWallet extends DevWallet {
 				connect: restoreOrConnect,
 			},
 			'sui:signPersonalMessage': {
-				version: '1.1.0' as const,
+				...features['sui:signPersonalMessage'],
 				signPersonalMessage: signOrDecline,
 			},
 			'sui:signAndExecuteTransaction': {

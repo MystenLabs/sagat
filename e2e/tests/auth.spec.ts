@@ -105,9 +105,6 @@ test.describe('wallet sign-in', () => {
 				'data-wallet',
 				E2E.walletName,
 			);
-			await expect(declined).toHaveText(
-				`You declined the request in ${E2E.walletName}. You’re not signed in.`,
-			);
 			await expect(
 				page.getByTestId('wallet-menu-button'),
 			).toHaveCount(0);

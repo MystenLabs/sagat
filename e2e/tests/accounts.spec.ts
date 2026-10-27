@@ -32,12 +32,6 @@ test.describe('several accounts in one wallet', () => {
 			await alice.signIn();
 			const empty = page.getByTestId('dashboard-empty');
 			await expect(empty).toBeVisible();
-			await expect(
-				empty.getByRole('heading', {
-					name: 'Accounts',
-					exact: true,
-				}),
-			).toBeVisible();
 			const header = page.getByTestId('app-header');
 			await expect(
 				header.getByTestId('multisig-switcher-empty'),

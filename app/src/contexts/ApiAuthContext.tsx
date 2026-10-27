@@ -22,13 +22,14 @@ import React, {
 	createContext,
 	useContext,
 	useEffect,
-	useRef,
 	useState,
 } from 'react';
 
 import { toast } from '@/lib/toast';
+import { errorMessage } from '@/lib/utils';
 import {
 	declinedMessage,
+	UNNAMED_WALLET,
 	WalletDeclinedError,
 } from '@/lib/wallet-session';
 
@@ -56,9 +57,8 @@ interface ApiAuthContextType {
 
 	// Actions
 	signAndConnect: () => void;
-	disconnect: () => Promise<void>;
+	// From an explicit connect until the signature settles.
 	isConnecting: boolean;
-	isDisconnecting: boolean;
 
 	// The wallet turned the last connect or signature request down.
 	declined: { wallet: string } | null;
@@ -75,9 +75,6 @@ const ApiAuthContext = createContext<
 >(undefined);
 
 const AUTH_QUERY_KEY = ['auth', 'check'] as const;
-
-/** What a wallet with no name is called in the copy. */
-const UNNAMED_WALLET = 'your wallet';
 
 const SIGNED_OUT: AuthCheckResponse = {
 	authenticated: false,
@@ -154,8 +151,6 @@ export function ApiAuthProvider({
 	// silent reconnect on load never sets it.
 	const [signAfterConnect, setSignAfterConnect] =
 		useState(false);
-	// The wallet last picked, for "Try again".
-	const lastWalletName = useRef<string | null>(null);
 
 	// Connect mutation - signs message and sends to API
 	const connectMutation = useMutation({
@@ -192,7 +187,6 @@ export function ApiAuthProvider({
 		},
 		onMutate: () => setDeclined(null),
 		onSuccess: async () => {
-			setDeclined(null);
 			await refetchAuth();
 			await queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
@@ -239,7 +233,6 @@ export function ApiAuthProvider({
 	const connectWallet = async (wallet: UiWallet) => {
 		setDeclined(null);
 		setSignAfterConnect(false);
-		lastWalletName.current = wallet.name;
 		try {
 			await dappKit.connectWallet({ wallet });
 		} catch {
@@ -250,7 +243,8 @@ export function ApiAuthProvider({
 	};
 
 	const retryConnect = () => {
-		const name = declined?.wallet ?? lastWalletName.current;
+		const name = declined?.wallet;
+		if (!name) return;
 		const wallet = dappKit.stores.$wallets
 			.get()
 			.find((w) => w.name === name);
@@ -264,18 +258,26 @@ export function ApiAuthProvider({
 	const disconnectWallet = async () => {
 		// Sign out of the API first; the wallet disconnects even if that
 		// fails (the mutation toasts the failure).
+		let signedOut = true;
 		try {
 			await disconnectMutation.mutateAsync();
 		} catch {
-			// Already reported.
+			signedOut = false;
 		}
 		try {
 			await dappKit.disconnectWallet();
+		} catch (error) {
+			// Menu items call this without awaiting, so report it here.
+			toast.error(
+				`Disconnect failed: ${errorMessage(error, 'the wallet refused')}`,
+			);
+			return;
 		} finally {
 			setDeclined(null);
 			setSignAfterConnect(false);
 		}
-		toast.success('Wallet disconnected');
+		// Only when both steps worked, so it never sits beside a failure.
+		if (signedOut) toast.success('Wallet disconnected');
 	};
 
 	const currentAddress =
@@ -348,11 +350,10 @@ export function ApiAuthProvider({
 		// Actions
 		// `mutate` leaves failures to onError, so callers needn't catch.
 		signAndConnect: () => connectMutation.mutate(),
-		disconnect: async () => {
-			await disconnectMutation.mutateAsync();
-		},
-		isConnecting: connectMutation.isPending,
-		isDisconnecting: disconnectMutation.isPending,
+		// The effect clears `signAfterConnect` as it calls `signIn()`, so
+		// there's no gap for a second click to start another signature.
+		isConnecting:
+			connectMutation.isPending || signAfterConnect,
 
 		declined,
 		connectWallet,

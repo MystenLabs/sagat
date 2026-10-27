@@ -12,7 +12,10 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { WalletPicker } from '@/components/WalletPicker';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { declinedMessage } from '@/lib/wallet-session';
+import {
+	declinedMessage,
+	UNNAMED_WALLET,
+} from '@/lib/wallet-session';
 
 /**
  * The signed-out page: connect a wallet, or, with one connected, sign the
@@ -50,7 +53,7 @@ export function ConnectWalletCard() {
 					testId="auth-prompt"
 					icon={Wallet}
 					title="Sign in to continue"
-					description={`Sign a message in ${currentWallet?.name ?? 'your wallet'} to prove you own ${formatAddress(currentAccount.address)}. No transaction is sent.`}
+					description={`Sign a message in ${currentWallet?.name ?? UNNAMED_WALLET} to prove you own ${formatAddress(currentAccount.address)}. No transaction is sent.`}
 					note={note}
 					action={
 						<Button

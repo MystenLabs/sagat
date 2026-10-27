@@ -6,6 +6,7 @@ import { Check } from 'lucide-react';
 import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
+	menuRowClass,
 } from '@/components/ui/dropdown-menu';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
@@ -53,7 +54,7 @@ export function NetworkMenuItems({
 				<DropdownMenuItem
 					key={value}
 					disabled={!enabled}
-					className="h-9 gap-2.5 px-2.5 text-13 capitalize"
+					className={cn(menuRowClass, 'capitalize')}
 					onClick={() => setNetwork(value)}
 					data-testid="network-option"
 					data-network={value}

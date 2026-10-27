@@ -291,6 +291,9 @@ function DropdownMenuShortcut({
 	);
 }
 
+/** The designs' menu rows: 36px, 10px gap and padding, 13px text. */
+export const menuRowClass = 'h-9 gap-2.5 px-2.5 text-13';
+
 export {
 	DropdownMenu,
 	DropdownMenuPortal,
