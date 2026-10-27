@@ -218,15 +218,15 @@ function SidebarNav() {
 						<SwitcherSkeleton />
 					) : (
 						signedIn &&
-						(accepted.length === 0 ? (
-							<NoAccountsSwitcher
-								onNavigate={closeMobile}
-							/>
-						) : (
+						(selected ? (
 							<MultisigSwitcher
 								multisigs={accepted}
 								selected={selected}
 								page={routePage}
+								onNavigate={closeMobile}
+							/>
+						) : (
+							<NoAccountsSwitcher
 								onNavigate={closeMobile}
 							/>
 						))

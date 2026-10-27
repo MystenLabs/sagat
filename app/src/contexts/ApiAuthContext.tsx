@@ -138,15 +138,19 @@ export function ApiAuthProvider({
 		refetchOnWindowFocus: true,
 	});
 
-	// Re-check auth when wallet account changes
-	useEffect(() => {
-		refetchAuth();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [currentAccount?.address]);
-
 	const [declined, setDeclined] = useState<{
 		wallet: string;
 	} | null>(null);
+
+	// Re-check auth when wallet account changes. A decline was another
+	// account's, so its note goes on a switch, but stays on the connect
+	// card when the decline itself disconnected the wallet.
+	useEffect(() => {
+		refetchAuth();
+		if (currentAccount) setDeclined(null);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [currentAccount?.address]);
+
 	// Set by an explicit connect, so the signature follows it. The kit's
 	// silent reconnect on load never sets it.
 	const [signAfterConnect, setSignAfterConnect] =

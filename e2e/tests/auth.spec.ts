@@ -48,6 +48,18 @@ test.describe('wallet sign-in', () => {
 				() => (window as { sawPrompt?: boolean }).sawPrompt,
 			),
 		).toBeUndefined();
+
+		// Without the cookie the wallet comes back, and the card signs in.
+		await alice.context.clearCookies();
+		await alice.page.reload();
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toBeVisible();
+		await alice.page.getByTestId('sign-in-button').click();
+		await expect(alice.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
 	});
 
 	test('disconnecting ends the API session', async ({
@@ -79,6 +91,60 @@ test.describe('wallet sign-in', () => {
 			'data-auth-state',
 			'authenticated',
 		);
+	});
+
+	test('a failed API sign-out still disconnects the wallet, without the success toast', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		await alice.signIn();
+
+		await alice.page.route(
+			`${E2E.apiUrl}/auth/disconnect`,
+			(route) => route.abort('connectionrefused'),
+		);
+		await alice.openWalletMenu();
+		await alice.page
+			.getByTestId('disconnect-button')
+			.click();
+		await expect(
+			alice.toast('Disconnect failed'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('connect-wallet-prompt'),
+		).toBeVisible();
+		await expect(
+			alice.toast('Wallet disconnected'),
+		).toHaveCount(0);
+	});
+
+	test('a valid session cookie signs the wallet in without a new signature', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		const { page } = alice;
+		await alice.signIn();
+
+		// Only the cookie is left: the wallet has to be connected again.
+		await page.evaluate(
+			(key) => localStorage.removeItem(key),
+			LocalStorageKeys.WalletSession,
+		);
+		await page.reload();
+		await expect(
+			page.getByTestId('connect-wallet-prompt'),
+		).toBeVisible();
+
+		let connectRequests = 0;
+		page.on('request', (request) => {
+			if (
+				request.url() === `${E2E.apiUrl}/auth/connect` &&
+				request.method() === 'POST'
+			)
+				connectRequests++;
+		});
+		await alice.connectWallet();
+		expect(connectRequests).toBe(0);
 	});
 
 	test('a declined signature or connection leaves the app signed out', async ({
