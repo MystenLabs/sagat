@@ -92,6 +92,13 @@ test.describe('app shell', () => {
 			'data-multisig-address',
 			multisig.address,
 		);
+		// The footer avatar shows the account label's initial
+		// (the e2e wallet labels the account with its actor's name).
+		await expect(
+			page
+				.getByTestId('app-header')
+				.getByTestId('wallet-avatar'),
+		).toHaveText('A');
 
 		// The multisig switcher shows the account over its short address (never
 		// the threshold), lists the multisig and offers to create one.

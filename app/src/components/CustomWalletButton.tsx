@@ -15,6 +15,7 @@ import {
 	Copy,
 	LogOut,
 	Shield,
+	Wallet,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -74,11 +75,33 @@ const AccountIdentity = ({
 	</span>
 );
 
-const RailAvatar = ({ address }: { address: string }) => (
-	<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-11 font-medium text-sidebar-foreground uppercase">
-		{address.slice(2, 3)}
-	</span>
-);
+// The frame draws the account's initial: its wallet label, else its SuiNS name.
+const avatarInitial = (
+	label?: string,
+	suinsName?: string | null,
+): string | null => {
+	const name = label?.trim() || suinsName?.trim();
+	return name ? name.charAt(0).toUpperCase() : null;
+};
+
+const RailAvatar = ({
+	account,
+	suinsName,
+}: {
+	account: UiWalletAccount;
+	suinsName?: string | null;
+}) => {
+	const initial = avatarInitial(account.label, suinsName);
+	return (
+		<span
+			data-testid="wallet-avatar"
+			aria-hidden
+			className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-11 font-medium text-sidebar-foreground uppercase"
+		>
+			{initial ?? <Wallet className="size-3" />}
+		</span>
+	);
+};
 
 /**
  * The wallet control: the sidebar footer row (`rail`) or the phone header
@@ -160,7 +183,10 @@ function WalletMenu({
 						railSquareClass,
 					)}
 				>
-					<RailAvatar address={account.address} />
+					<RailAvatar
+						account={account}
+						suinsName={suinsName}
+					/>
 					<span className="min-w-0 flex-1 truncate font-mono text-12 group-data-[collapsible=icon]:hidden">
 						{label}
 					</span>
