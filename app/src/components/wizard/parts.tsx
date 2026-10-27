@@ -77,6 +77,51 @@ export function Notice({
 }
 
 /**
+ * A red note with Try again under it, for something the wizard could
+ * not load. `retrying` holds the button; `testId` is the wrapper's.
+ */
+export function RetryNotice({
+	children,
+	onRetry,
+	retrying = false,
+	testId,
+	noticeTestId,
+	retryTestId,
+}: {
+	children: ReactNode;
+	onRetry: () => void;
+	retrying?: boolean;
+	testId?: string;
+	noticeTestId?: string;
+	retryTestId: string;
+}) {
+	return (
+		<div
+			className="flex flex-col items-start gap-2"
+			data-testid={testId}
+		>
+			<Notice
+				tone="error"
+				className="w-full"
+				testId={noticeTestId}
+			>
+				{children}
+			</Notice>
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				onClick={onRetry}
+				disabled={retrying}
+				data-testid={retryTestId}
+			>
+				Try again
+			</Button>
+		</div>
+	);
+}
+
+/**
  * The line under a field: green with a check when the value is fine,
  * red when it isn't, saying why.
  */

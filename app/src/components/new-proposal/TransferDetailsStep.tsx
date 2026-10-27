@@ -34,6 +34,7 @@ import {
 	FieldStatus,
 	FooterNote,
 	Notice,
+	RetryNotice,
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
@@ -401,25 +402,14 @@ export function TransferDetailsStep({
 					) : null}
 				</div>
 				{sendsSui && gasCoins.isError && (
-					<div className="flex flex-col items-start gap-2">
-						<Notice
-							tone="error"
-							className="w-full"
-							testId="transfer-gas-coins-error"
-						>
-							{COPY.gasCoinsFailed}
-						</Notice>
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							onClick={() => void gasCoins.refetch()}
-							disabled={gasCoins.isFetching}
-							data-testid="transfer-gas-coins-retry"
-						>
-							Try again
-						</Button>
-					</div>
+					<RetryNotice
+						onRetry={() => void gasCoins.refetch()}
+						retrying={gasCoins.isFetching}
+						noticeTestId="transfer-gas-coins-error"
+						retryTestId="transfer-gas-coins-retry"
+					>
+						{COPY.gasCoinsFailed}
+					</RetryNotice>
 				)}
 				{sendsSui && max?.partial && decimals != null && (
 					<Notice

@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/tooltip';
 import {
 	Notice,
+	RetryNotice,
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
@@ -124,23 +125,13 @@ export function ReviewStep({
 			)}
 
 			{unreachable ? (
-				<div
-					className="flex flex-col items-start gap-2"
-					data-testid="review-simulation-unreachable"
+				<RetryNotice
+					onRetry={onRetrySimulation}
+					testId="review-simulation-unreachable"
+					retryTestId="review-simulation-retry"
 				>
-					<Notice tone="error" className="w-full">
-						{COPY.simulationUnreachable}
-					</Notice>
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						onClick={onRetrySimulation}
-						data-testid="review-simulation-retry"
-					>
-						Try again
-					</Button>
-				</div>
+					{COPY.simulationUnreachable}
+				</RetryNotice>
 			) : settled ? (
 				<div
 					data-testid="transaction-preview-result"

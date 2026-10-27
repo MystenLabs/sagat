@@ -20,6 +20,7 @@ import {
 	formatInputAmount,
 	isSuiCoinType,
 	parseAmount,
+	type SuiGasCoins,
 } from './coins';
 import { VALIDATION } from './constants';
 import { textLength } from './create-multisig';
@@ -268,7 +269,7 @@ export function maxTransfer({
 }: {
 	balance: string;
 	addressBalance: string;
-	gasCoins: { value: bigint; hasMore: boolean } | null;
+	gasCoins: SuiGasCoins | null;
 	decimals: number;
 }): MaxTransfer | null {
 	const total = toBigInt(balance);

@@ -4,18 +4,13 @@
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
 
-import { listSuiCoins } from '../components/assets/buildTransferTransaction';
 import { useNetwork } from '../contexts/NetworkContext';
-import { MAX_GAS_PAYMENT_OBJECTS } from '../lib/coins';
+import {
+	listSuiCoins,
+	MAX_GAS_PAYMENT_OBJECTS,
+	type SuiGasCoins,
+} from '../lib/coins';
 import { QueryKeys } from '../lib/queryKeys';
-
-/** The SUI coins one transfer of the gas coin can spend. */
-export interface SuiGasCoins {
-	/** The balance of the first MAX_GAS_PAYMENT_OBJECTS coins. */
-	value: bigint;
-	/** True when `owner` holds more coins than that. */
-	hasMore: boolean;
-}
 
 /**
  * The SUI coins of `owner` that a transfer of the gas coin spends. The

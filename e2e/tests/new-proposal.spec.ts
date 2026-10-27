@@ -8,6 +8,7 @@ import {
 } from '@mysten/sui/utils';
 
 import { formatCoinType } from '../../app/src/lib/coin-type';
+import { COPY } from '../../app/src/lib/new-proposal';
 import { randomAddress, SUI_TYPE } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
@@ -274,7 +275,7 @@ test.describe('new proposal: transfer', () => {
 		await amount.fill('150');
 		await amount.blur();
 		await expect(amountError(page)).toHaveText(
-			'One transfer can send up to 128 SUI from this account. Use Max for the most it can send.',
+			COPY.overMax('128', 'SUI'),
 		);
 		await page.getByTestId('transfer-max-button').click();
 		await expect(amount).toHaveValue('128');

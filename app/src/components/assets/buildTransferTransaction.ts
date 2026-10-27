@@ -1,15 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type {
-	ClientWithCoreApi,
-	SuiClientTypes,
-} from '@mysten/sui/client';
+import type { ClientWithCoreApi } from '@mysten/sui/client';
 import {
 	coinWithBalance,
 	Transaction,
 } from '@mysten/sui/transactions';
-import { SUI_TYPE_ARG, toBase64 } from '@mysten/sui/utils';
+import { toBase64 } from '@mysten/sui/utils';
 
 import { isSuiCoinType } from '../../lib/coins';
 
@@ -62,27 +59,4 @@ export async function buildTransferTransaction({
 	tx.transferObjects([coin], recipient);
 
 	return toBase64(await tx.build({ client }));
-}
-
-/** The owner's SUI coins, paging until the end or `max` coins. */
-export async function listSuiCoins(
-	client: ClientWithCoreApi,
-	owner: string,
-	max: number,
-): Promise<SuiClientTypes.Coin[]> {
-	const coins: SuiClientTypes.Coin[] = [];
-	let cursor: string | null = null;
-	do {
-		const page: SuiClientTypes.ListCoinsResponse =
-			await client.core.listCoins({
-				owner,
-				coinType: SUI_TYPE_ARG,
-				cursor,
-				// The node's page maximum.
-				limit: Math.min(max, 1000),
-			});
-		coins.push(...page.objects);
-		cursor = page.hasNextPage ? page.cursor : null;
-	} while (cursor && coins.length < max);
-	return coins.slice(0, max);
 }
