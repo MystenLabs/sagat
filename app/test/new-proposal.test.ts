@@ -680,11 +680,15 @@ describe('proposalTypeFromQuery', () => {
 
 const SENDER = normalizeSuiAddress('0x5d2e');
 const DIGEST = toBase58(new Uint8Array(32).fill(1));
+const GAS = {
+	objectId: normalizeSuiAddress('0x6a5'),
+	version: '1',
+	digest: toBase58(new Uint8Array(32).fill(2)),
+};
 
 /**
  * A client that holds `coins` of one type (none when left out), listed
- * 100 per page, whose resolver pins the gas price and budget, and the
- * gas payment when `gasPayment` is given.
+ * on one page, whose resolver pins the gas price, budget and payment.
  */
 function fakeClient({
 	coins = [],
@@ -695,7 +699,7 @@ function fakeClient({
 		balance: string;
 		coinType: string;
 	}[];
-	gasPayment?: {
+	gasPayment: {
 		objectId: string;
 		version: string;
 		digest: string;
@@ -722,24 +726,16 @@ function fakeClient({
 				},
 			};
 		},
-		listCoins: async ({
-			cursor,
-		}: {
-			cursor?: string | null;
-		}) => {
-			const start = Number(cursor ?? 0);
-			const end = Math.min(start + 100, coins.length);
-			return {
-				objects: coins.slice(start, end).map((coin) => ({
-					...coin,
-					version: '1',
-					digest: DIGEST,
-					owner: SENDER,
-				})),
-				hasNextPage: end < coins.length,
-				cursor: end < coins.length ? String(end) : null,
-			};
-		},
+		listCoins: async () => ({
+			objects: coins.map((coin) => ({
+				...coin,
+				version: '1',
+				digest: DIGEST,
+				owner: SENDER,
+			})),
+			hasNextPage: false,
+			cursor: null,
+		}),
 		resolveTransactionPlugin:
 			() =>
 			async (
@@ -747,7 +743,7 @@ function fakeClient({
 				_options: unknown,
 				next: () => Promise<void>,
 			) => {
-				if (gasPayment) data.gasData.payment ??= gasPayment;
+				data.gasData.payment ??= gasPayment;
 				data.gasData.price ??= '1000';
 				data.gasData.budget ??= '10000000';
 				await next();
@@ -760,13 +756,7 @@ function fakeClient({
 
 describe('buildTransferTransaction Max on SUI', () => {
 	// What the node picks when the transaction leaves gas to it.
-	const NODE_GAS = [
-		{
-			objectId: normalizeSuiAddress('0x6a5'),
-			version: '1',
-			digest: toBase58(new Uint8Array(32).fill(2)),
-		},
-	];
+	const NODE_GAS = [GAS];
 
 	test('leaves the gas payment to the node', async () => {
 		const bytes = await buildTransferTransaction({
@@ -858,13 +848,7 @@ describe('buildTransferTransaction amounts', () => {
 						coinType: TOKEN,
 					},
 				],
-				gasPayment: [
-					{
-						objectId: normalizeSuiAddress('0x6a5'),
-						version: '1',
-						digest: toBase58(new Uint8Array(32).fill(2)),
-					},
-				],
+				gasPayment: [GAS],
 			}),
 		});
 	}
