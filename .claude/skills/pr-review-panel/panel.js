@@ -13,9 +13,13 @@ export const meta = {
 
 const A = args || {}
 if (!A.base || !A.head) throw new Error('pr-review-panel needs args.base and args.head')
+// Refs are interpolated into shell commands the agents run, so only plain ref syntax is accepted.
+const SAFE_REF = /^[A-Za-z0-9._\/~^@-]+$/
+for (const ref of [A.base, A.head]) {
+  if (typeof ref !== 'string' || !SAFE_REF.test(ref) || ref.startsWith('-')) throw new Error(`Unsafe git ref: ${ref}`)
+}
 const BASE = A.base
 const HEAD = A.head
-const DIFF = `git diff ${BASE}...${HEAD}`
 const THOROUGH = A.depth === 'thorough'
 const PR_LABEL = A.pr ? `PR #${A.pr}` : `${HEAD} against ${BASE}`
 
@@ -30,7 +34,6 @@ function withModel(opts) {
 
 const SEVERITIES = ['critical', 'high', 'medium', 'low']
 const SEVERITY_GUIDE = 'Severity: critical = exploitable, or loses funds or data, as merged; high = wrong behaviour real users will hit; medium = a real defect with limited reach; low = real but minor.'
-const READ_AT_HEAD = `Read code as it is at ${HEAD}; when ${HEAD} is not the checked-out commit, use \`git show ${HEAD}:<path>\`.`
 
 // ---------- lenses: the single source of truth for what each reviewer raises ----------
 
@@ -115,10 +118,12 @@ for (const l of LENSES) LENS_BY_KEY[l.key] = l
 const FILES_SCHEMA = {
   type: 'object',
   properties: {
+    baseSha: { type: 'string', description: 'Full 40-character commit SHA the base ref resolved to' },
+    headSha: { type: 'string', description: 'Full 40-character commit SHA the head ref resolved to' },
     files: { type: 'array', items: { type: 'string' } },
     error: { type: 'string', description: 'Empty when the command succeeded; otherwise the error text' },
   },
-  required: ['files', 'error'],
+  required: ['baseSha', 'headSha', 'files', 'error'],
 }
 
 const FINDINGS_SCHEMA = {
@@ -181,7 +186,9 @@ const ANGLES = {
   reachable: 'Test reachability: can inputs a real user or attacker produce, through the entry points the product actually exposes, reach the failure? Trace the path from the entry point to the line.',
   block: 'Weigh it as a senior reviewer on a security product: would you request changes on this, or approve with it unchanged and at most mention it?',
 }
-const SINGLE = 'Do three things: refute the claim against the code (read it and its callers, grep for handling elsewhere that already prevents it); check that inputs a real user or attacker can produce reach the failure; and decide whether a senior reviewer would request changes on it or approve with it unchanged.'
+const SINGLE = `Do all three of these:\n${Object.values(ANGLES).map(a => `- ${a}`).join('\n')}`
+// Three challengers per security finding on a thorough run, one otherwise.
+const anglesFor = f => (f.lens === 'security' && THOROUGH ? Object.values(ANGLES) : [SINGLE])
 
 const CALIBRATION = 'A finding earns its place when fixing it changes what a user or attacker can do or see, or stops a maintainer trap (dead code that reads as live, a name or comment that lies, duplicated logic that will drift). Set nitpick=true for everything else: style, a constant that could be reused, a helper that could be extracted, a test that could be tidier, repetition under about ten lines, or a missing test for a path with no user-visible regression behind it. Set would_block=false whenever you would approve the PR with this unchanged. On a typical PR most low-severity findings fall at this step; confirming every finding you are given means you are not challenging.'
 
@@ -221,10 +228,10 @@ const finderView = f => ({
 
 function mergePair(a, b) {
   // A security finding is never folded under another lens; otherwise the higher severity leads.
-  let primary = a
-  let other = b
-  if (b.lens === 'security' && a.lens !== 'security') { primary = b; other = a }
-  else if (!(a.lens === 'security' && b.lens !== 'security') && sevRank(b.severity) < sevRank(a.severity)) { primary = b; other = a }
+  const aIsSecurity = a.lens === 'security'
+  const bIsSecurity = b.lens === 'security'
+  const bLeads = aIsSecurity !== bIsSecurity ? bIsSecurity : sevRank(b.severity) < sevRank(a.severity)
+  const [primary, other] = bLeads ? [b, a] : [a, b]
   return {
     ...primary,
     severity: SEVERITIES[Math.min(sevRank(a.severity), sevRank(b.severity))] || primary.severity,
@@ -238,21 +245,15 @@ function mergePair(a, b) {
 }
 
 function dedupe(findings) {
-  const exact = new Map()
+  // Only findings at the same file, line and title merge; nearby findings stay separate.
+  const merged = new Map()
   for (const raw of findings) {
     const f = { ...raw, lenses: [raw.lens], also: [] }
     const k = `${f.file}|${f.line}|${normTitle(f.title)}`
-    const prev = exact.get(k)
-    exact.set(k, prev ? mergePair(prev, f) : f)
+    const prev = merged.get(k)
+    merged.set(k, prev ? mergePair(prev, f) : f)
   }
-  const out = []
-  for (const f of exact.values()) {
-    const i = out.findIndex(o =>
-      o.file === f.file && Math.abs(o.line - f.line) <= 3 && !o.lenses.some(l => f.lenses.indexOf(l) >= 0))
-    if (i >= 0) out[i] = mergePair(out[i], f)
-    else out.push(f)
-  }
-  return out
+  return [...merged.values()]
 }
 
 // ---------- survival rules ----------
@@ -271,10 +272,19 @@ function decide(f, verdicts) {
       : { ...f, status: 'dismissed', reason: 'No challenger returned a verdict.', verdicts }
   }
   if (f.lens === 'security') {
-    if (passes.length * 2 > verdicts.length) {
-      return { ...f, status: 'confirmed', severity: medianSeverity(passes), reason: reasons(passes), verdicts }
+    const expected = anglesFor(f).length
+    if (verdicts.length < expected) {
+      const reason = `Only ${verdicts.length} of ${expected} challengers returned a verdict. ${reasons(verdicts)}`
+      return { ...f, status: 'unconfirmed', reason, verdicts }
     }
-    if (!holds.length) return { ...f, status: 'dismissed', reason: reasons(verdicts), verdicts }
+    if (passes.length * 2 > verdicts.length) {
+      const severity = medianSeverity(passes)
+      // Policy: a low or medium security finding most passing challengers would approve unchanged is polish; high and critical always confirm.
+      const approving = passes.filter(v => v.would_block === false).length
+      const status = approving * 2 > passes.length && (severity === 'low' || severity === 'medium') ? 'polish' : 'confirmed'
+      return { ...f, status, severity, reason: reasons(passes), verdicts }
+    }
+    if (!holds.length || verdicts.every(v => v.nitpick)) return { ...f, status: 'dismissed', reason: reasons(verdicts), verdicts }
     return { ...f, status: 'unconfirmed', reason: reasons(verdicts), verdicts }
   }
   const v = verdicts[0]
@@ -303,14 +313,27 @@ const reportView = f => ({
 phase('Review')
 
 const listed = await agent(
-  `Run \`git diff --name-only ${BASE}...${HEAD}\` in the repository and return every path it prints, in order. If a ref is missing, run \`git fetch origin\` once and retry. Put the error text in error if it still fails, otherwise an empty string.`,
+  [
+    `In the repository, run \`git rev-parse --verify ${BASE}^{commit}\` and \`git rev-parse --verify ${HEAD}^{commit}\`, and return the two full SHAs they print as baseSha and headSha.`,
+    'Then run `git diff --name-only <baseSha>...<headSha>` with those SHAs and return every path it prints, in order, as files.',
+    'If a ref is missing, run `git fetch origin` once and retry. Put the error text in error if it still fails (with empty strings for any SHA you could not resolve), otherwise an empty string.',
+  ].join(' '),
   withModel({ label: 'List diff files', phase: 'Review', schema: FILES_SCHEMA, effort: 'low' }))
 if (!listed) throw new Error('The diff listing agent returned nothing')
 if (listed.error) throw new Error(`Could not list the diff: ${listed.error}`)
+const SHA = /^[0-9a-f]{40}$/
+if (!SHA.test(listed.baseSha) || !SHA.test(listed.headSha)) {
+  throw new Error(`The diff listing agent returned invalid SHAs: base ${listed.baseSha}, head ${listed.headSha}`)
+}
+const BASE_SHA = listed.baseSha
+const HEAD_SHA = listed.headSha
+// Every prompt from here on names the SHAs, so all agents see the same commits and a resume keys on them.
+const DIFF = `git diff ${BASE_SHA}...${HEAD_SHA}`
+const READ_AT_HEAD = `Read code as it is at ${HEAD_SHA}; when ${HEAD_SHA} is not the checked-out commit, use \`git show ${HEAD_SHA}:<path>\`.`
 const files = listed.files
 
 if (!files.length) {
-  log(`Empty diff between ${BASE} and ${HEAD}; nothing to review`)
+  log(`Empty diff for ${PR_LABEL}; nothing to review`)
   return {
     confirmed: [], unconfirmed: [], polish: [], dismissed: [],
     coverage: { lenses: [], lensesFailed: [], findingsPerLens: {}, filesInDiff: [], depth: THOROUGH ? 'thorough' : 'quick' },
@@ -343,7 +366,7 @@ if (findings.length) {
   judged = (await pipeline(
     findings,
     f => {
-      const angles = f.lens === 'security' && THOROUGH ? Object.values(ANGLES) : [SINGLE]
+      const angles = anglesFor(f)
       return parallel(angles.map((angle, j) => () =>
         agent(challengePrompt(f, angle), withModel({
           label: `Challenge ${j + 1}/${angles.length}: ${f.title}`.slice(0, 80),

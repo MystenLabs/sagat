@@ -11,7 +11,7 @@ The lenses are security, consistency, duplication and code quality, efficiency, 
 
 ## 1. Scope
 
-- **Base and head**: for a PR, `gh pr view <n> --json baseRefName,headRefName`; otherwise the refs the user named. Base defaults to the PR's base, head to `HEAD`. Both must resolve locally: `git fetch origin` and use `origin/<base>` when the local base is behind.
+- **Base and head**: for a PR, `gh pr view <n> --json baseRefName,headRefOid`, then `git fetch origin <baseRefName> pull/<n>/head`; base is `origin/<baseRefName>` and head is the `headRefOid` SHA, so the review covers the PR whatever is checked out (fork PRs too). Otherwise the refs the user named, with head defaulting to `HEAD`. Both must resolve locally.
 - **Diff**: `git diff <base>...<head> --stat`. An empty diff ends the review here.
 - **Spec**: the issue the PR closes or the branch names (`gh pr view <n> --json body`), plus any brief the user gave, plus deviations the user approved. Pass the text, not a link.
 - **Threat model**: the contents of `SECURITY.md` or `docs/threat-model.md` when the repository has one; otherwise an empty string. The security lens carries its own checklist either way.
@@ -21,7 +21,7 @@ Done when base, head, pr, spec, depth and threatModel each hold a value (an empt
 
 ## 2. Run the panel
 
-Invoking this skill is the user's opt-in to run the Workflow tool. Call it with `scriptPath` set to this skill's base directory (announced when the skill loads) joined with `panel.js`, and `args: { base, head, pr, spec, depth, threatModel }` as a JSON object. `model` and `effort` name the reviewer model and reasoning effort your environment offers for review work; omit them to inherit the session's.
+Invoking this skill is the user's opt-in to run the Workflow tool. Call it with `scriptPath` set to this skill's base directory (announced when the skill loads) joined with `panel.js`, and `args: { base, head, pr, spec, depth, threatModel }` as a JSON object. To pick the reviewer model and reasoning effort your environment offers for review work, add `model` and `effort` inside `args`. Omitted, `model` inherits the session's; `effort` inherits it for the lens reviewers, while challengers default to `high` and the diff-listing agent always runs at `low`.
 
 Done when the workflow returns `{ confirmed, unconfirmed, polish, dismissed, coverage }`. If it stops partway, relaunch with `resumeFromRunId` so finished agents are not paid for twice.
 
@@ -33,7 +33,7 @@ Read the code at each confirmed finding before agreeing with it; the challenge p
 - **Decline**: a deliberate trade-off or a wrong claim, with the reason in one line.
 - **Follow-up**: real, but outside this PR's scope.
 
-Unconfirmed findings are security questions for a human: carry each one into the report with what would settle it. Polish findings are real and above the lens bar, but the challenger would approve with them unchanged; they never block.
+Unconfirmed findings are security questions for a human: carry each one into the report with what would settle it. Polish findings are real and above the lens bar, but the challenger would approve with them unchanged (for security, most passing challengers would and the severity is low or medium); they never block.
 
 Report in this order:
 
