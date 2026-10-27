@@ -32,3 +32,6 @@ api/test/golden/*.json
 # Environment files
 .env
 .env.*
+
+# Workflow scripts, kept in their own style
+.claude/skills/pr-review-panel/panel.js
