@@ -38,7 +38,8 @@ type SignPersonalMessage =
 class E2EWallet extends DevWallet {
 	// See `E2EWalletConfig.failRestore`.
 	failRestore = false;
-	// See `E2EWalletConfig.declineConnect` and `declineSign`. Read on every
+	// `declineConnect` rejects a connect from the app (the silent restore
+	// still works); see `E2EWalletConfig.declineSign`. Read on every
 	// request, so a test can flip them on `window.__e2eWallet`.
 	declineConnect = false;
 	declineSign = false;
@@ -137,7 +138,6 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 		});
 	}
 	wallet.failRestore = !!config.failRestore;
-	wallet.declineConnect = !!config.declineConnect;
 	wallet.declineSign = !!config.declineSign;
 	window.__e2eWallet = wallet;
 

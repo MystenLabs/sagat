@@ -12,12 +12,19 @@ export function declinedMessage(wallet: string) {
 /** Thrown when the wallet step (connect or signature) fails: the user declined or the wallet refused. */
 export class WalletDeclinedError extends Error {
 	readonly wallet: string;
+	// The account the request was for, so a late rejection can be told apart.
+	readonly address: string;
 	readonly cause: unknown;
 
-	constructor(wallet: string, cause?: unknown) {
+	constructor(
+		wallet: string,
+		address: string,
+		cause?: unknown,
+	) {
 		super(declinedMessage(wallet));
 		this.name = 'WalletDeclinedError';
 		this.wallet = wallet;
+		this.address = address;
 		this.cause = cause;
 	}
 }

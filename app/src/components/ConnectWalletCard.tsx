@@ -4,6 +4,7 @@
 import {
 	useCurrentAccount,
 	useCurrentWallet,
+	useWallets,
 } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
 import { TriangleAlert, Wallet } from 'lucide-react';
@@ -32,13 +33,18 @@ export function ConnectWalletCard({
 }) {
 	const currentAccount = useCurrentAccount();
 	const currentWallet = useCurrentWallet();
+	const wallets = useWallets();
 	const {
 		declined,
-		retryConnect,
+		connectWallet,
 		signAndConnect,
 		isConnecting,
 		isAuthCheckFailing,
 	} = useApiAuth();
+	// Gone when the wallet was uninstalled since: then only the picker.
+	const declinedWallet =
+		declined &&
+		wallets.find((w) => w.name === declined.wallet);
 
 	const note = declined && (
 		<p
@@ -79,10 +85,15 @@ export function ConnectWalletCard({
 					description="Connect your wallet to see your accounts, proposals and invitations."
 					note={note}
 					action={
-						declined ? (
+						declinedWallet ? (
 							<>
 								<Button
-									onClick={retryConnect}
+									// This route's policy, not the declined pick's.
+									onClick={() =>
+										void connectWallet(declinedWallet, {
+											signIn,
+										})
+									}
 									data-testid="connect-retry"
 								>
 									Try again
