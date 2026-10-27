@@ -1,10 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Check } from 'lucide-react';
+
 import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
-	DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
@@ -48,17 +49,22 @@ export function NetworkMenuItems({
 
 	return (
 		<DropdownMenuGroup>
-			<DropdownMenuLabel>Network</DropdownMenuLabel>
 			{options.map(({ value, enabled, hint }) => (
 				<DropdownMenuItem
 					key={value}
 					disabled={!enabled}
-					className={cn(
-						'capitalize',
-						value === network && 'bg-accent',
-					)}
+					className="h-9 gap-2.5 px-2.5 text-13 capitalize"
 					onClick={() => setNetwork(value)}
+					data-testid="network-option"
+					data-network={value}
+					data-current={value === network}
 				>
+					{/* A fixed slot, so the labels line up with or without the check. */}
+					<span className="flex size-4 shrink-0 items-center justify-center">
+						{value === network && (
+							<Check className="size-4" />
+						)}
+					</span>
 					{value}
 					{hint && (
 						<span className="ml-auto text-11 normal-case text-muted-foreground">

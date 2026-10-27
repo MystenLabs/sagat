@@ -1,0 +1,117 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { useWallets } from '@mysten/dapp-kit-react';
+import { ChevronDown, Wallet } from 'lucide-react';
+
+import { buttonVariants } from '@/components/ui/button';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { SidebarRailTooltip } from '@/components/ui/sidebar';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { cn } from '@/lib/utils';
+
+const LABEL = 'Connect wallet';
+
+type WalletPickerVariant = 'default' | 'outline' | 'rail';
+
+/**
+ * "Connect wallet": a menu of the installed wallets. Picking one connects
+ * it and asks for the sign-in signature straight after. The `rail` variant
+ * is the sidebar footer's, a square icon on the collapsed rail.
+ */
+export function WalletPicker({
+	variant = 'default',
+	size = 'default',
+	side = 'bottom',
+	align = 'start',
+	className,
+}: {
+	variant?: WalletPickerVariant;
+	size?: 'default' | 'sm';
+	side?: 'top' | 'bottom';
+	align?: 'start' | 'center' | 'end';
+	className?: string;
+}) {
+	const wallets = useWallets();
+	const { connectWallet } = useApiAuth();
+	const rail = variant === 'rail';
+
+	return (
+		<DropdownMenu>
+			{/* The trigger is the button itself: Base UI anchors the menu to its ref. */}
+			<DropdownMenuTrigger
+				data-testid="connect-wallet-button"
+				aria-label={LABEL}
+				render={
+					rail ? (
+						<SidebarRailTooltip tooltip={LABEL} />
+					) : undefined
+				}
+				className={cn(
+					buttonVariants({
+						variant: rail ? 'secondary' : variant,
+						size: rail ? 'sm' : size,
+					}),
+					rail &&
+						'w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0',
+					className,
+				)}
+			>
+				<Wallet className={cn(rail && 'size-3.5')} />
+				<span
+					className={cn(
+						rail && 'group-data-[collapsible=icon]:hidden',
+					)}
+				>
+					{LABEL}
+				</span>
+				<ChevronDown
+					className={cn(
+						rail &&
+							'size-3.5 group-data-[collapsible=icon]:hidden',
+					)}
+				/>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent
+				side={side}
+				align={align}
+				className="w-auto min-w-50"
+			>
+				<DropdownMenuGroup>
+					{wallets.map((wallet) => (
+						<DropdownMenuItem
+							key={wallet.name}
+							className="h-9 gap-2.5 px-2.5 text-13"
+							onClick={() => void connectWallet(wallet)}
+							data-testid="wallet-option"
+							data-wallet-name={wallet.name}
+						>
+							<img
+								src={wallet.icon}
+								alt=""
+								className="size-4 rounded-sm"
+							/>
+							{wallet.name}
+						</DropdownMenuItem>
+					))}
+					{wallets.length === 0 && (
+						<DropdownMenuItem
+							disabled
+							className="max-w-60 px-2.5 py-2 text-13 text-muted-foreground"
+							data-testid="wallet-option-empty"
+						>
+							No wallets found. Install a wallet (e.g. Slush
+							Wallet) to continue.
+						</DropdownMenuItem>
+					)}
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}

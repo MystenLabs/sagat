@@ -15,4 +15,10 @@ export interface E2EWalletConfig {
 	// with, the way a wallet whose restore throws does. Connecting from the
 	// app still works.
 	failRestore?: boolean;
+	// Rejects a connect from the app, the way a user declining the
+	// connection does. The silent restore still works.
+	declineConnect?: boolean;
+	// Rejects every personal message signature, the way a user declining
+	// the sign-in request does.
+	declineSign?: boolean;
 }

@@ -54,8 +54,13 @@ export class Actor extends Identity {
 		name: string,
 		keypair: Ed25519Keypair,
 		otherAccounts: Identity[] = [],
-		walletChains?: E2EWalletConfig['chains'],
-		failRestore?: boolean,
+		wallet: Pick<
+			E2EWalletConfig,
+			| 'chains'
+			| 'failRestore'
+			| 'declineConnect'
+			| 'declineSign'
+		> = {},
 	) {
 		const context = await browser.newContext();
 		await isolateFromInternet(context);
@@ -70,8 +75,7 @@ export class Actor extends Identity {
 					secretKey: account.keypair.getSecretKey(),
 				})),
 			],
-			chains: walletChains,
-			failRestore,
+			...wallet,
 		};
 		await context.addInitScript((config) => {
 			// Start on localnet, but keep a network the app saved, so a
@@ -102,25 +106,73 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the test wallet from the header's wallet menu.
+	// Connects the test wallet from the header's wallet menu. Connecting
+	// also signs in, so wait for that: a later wallet request would
+	// otherwise race the sign-in signature.
 	async connectWallet() {
 		await this.page
 			.getByTestId('app-header')
 			.getByTestId('connect-wallet-button')
 			.filter({ visible: true })
 			.click();
-		await this.page
-			.locator(
-				`[data-testid="wallet-option"][data-wallet-name="${E2E.walletName}"]`,
-			)
-			.click();
-		await expect(this.walletMenuButton()).toBeVisible();
+		await this.walletOption().click();
+		await expect(this.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+	}
+
+	// Opens the wallet menu unless it is open already: a second trigger
+	// click would close it. Base UI keeps a closing popup in the DOM for
+	// its exit animation, so wait for the open one.
+	private async openWalletMenu() {
+		const trigger = this.walletMenuButton();
+		if (
+			(await trigger.getAttribute('aria-expanded')) !==
+			'true'
+		)
+			await trigger.click();
+		await expect(
+			this.page
+				.locator(
+					'[data-slot="dropdown-menu-content"][data-open]',
+				)
+				.last(),
+		).toBeVisible();
+	}
+
+	// Closes the wallet menu with Escape, which can't reopen it the way a
+	// trigger click can while it is still animating out.
+	async closeWalletMenu() {
+		await this.page.keyboard.press('Escape');
+		await expect(this.walletMenuButton()).toHaveAttribute(
+			'aria-expanded',
+			'false',
+		);
+	}
+
+	// The test wallet's entry in an open wallet picker.
+	walletOption() {
+		return this.page.locator(
+			`[data-testid="wallet-option"][data-wallet-name="${E2E.walletName}"]`,
+		);
+	}
+
+	// The connect prompt's line saying the wallet declined a request.
+	declinedLine() {
+		return this.page.getByTestId('connect-declined');
+	}
+
+	toast(text: string) {
+		return this.page
+			.locator('[data-sonner-toast]')
+			.filter({ hasText: text });
 	}
 
 	// Signs in `account` from the wallet menu's account list, switching to it
 	// first when it isn't the current one.
 	async signInAccount(account: Identity) {
-		await this.walletMenuButton().click();
+		await this.openWalletMenu();
 		await this.walletAccount(account.address)
 			.getByTestId('wallet-account-sign')
 			.click();
@@ -136,7 +188,7 @@ export class Actor extends Identity {
 
 	// Makes `account` the current wallet account, without signing.
 	async switchAccount(account: Identity) {
-		await this.walletMenuButton().click();
+		await this.openWalletMenu();
 		await this.walletAccount(account.address)
 			.getByTestId('wallet-account-switch')
 			.click();
@@ -154,15 +206,10 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the wallet and signs the auth message, like a user would.
+	// Connects the wallet, which signs the auth message, like a user would.
 	async signIn() {
 		await this.page.goto('/');
 		await this.connectWallet();
-		await this.page.getByTestId('sign-in-button').click();
-		await expect(this.walletMenuButton()).toHaveAttribute(
-			'data-auth-state',
-			'authenticated',
-		);
 	}
 
 	// Answers the price list with `coins` instead of an empty one. Call it

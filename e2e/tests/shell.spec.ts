@@ -59,14 +59,27 @@ test.describe('app shell', () => {
 			height: 900,
 		});
 
-		// The network menu works before signing in and picking the current
-		// network keeps the app alive.
+		// The alpha pill explains itself on hover.
 		await page.goto('/');
+		await page.getByTestId('alpha-badge').hover();
+		await expect(
+			page.getByTestId('alpha-popover'),
+		).toContainText('This app is in alpha');
+		await page.mouse.move(720, 450);
+		await expect(
+			page.getByTestId('alpha-popover'),
+		).toBeHidden();
+
+		// The network menu works before signing in, marks the current network
+		// and picking it keeps the app alive.
 		await page.getByTestId('network-menu-button').click();
-		const localnet = page.getByRole('menuitem', {
-			name: 'localnet',
-		});
-		await expect(localnet).toBeVisible();
+		const localnet = page.locator(
+			'[data-testid="network-option"][data-network="localnet"]',
+		);
+		await expect(localnet).toHaveAttribute(
+			'data-current',
+			'true',
+		);
 		await localnet.click();
 		await expect(
 			page.getByTestId('connect-wallet-prompt'),
@@ -105,13 +118,24 @@ test.describe('app shell', () => {
 			page.getByTestId('create-page'),
 		).toBeVisible();
 
-		// The wallet menu opens from the footer.
+		// The wallet menu opens from the footer and copies the address.
+		await alice.context.grantPermissions([
+			'clipboard-read',
+			'clipboard-write',
+		]);
 		await alice.walletMenuButton().click();
 		await expect(
-			page
-				.getByTestId('app-header')
-				.getByTestId('disconnect-button'),
+			page.getByTestId('disconnect-button'),
 		).toBeVisible();
+		await page.getByTestId('copy-address').click();
+		await expect(
+			alice.toast('Address copied'),
+		).toBeVisible();
+		expect(
+			await page.evaluate(() =>
+				navigator.clipboard.readText(),
+			),
+		).toBe(alice.address);
 		await page.keyboard.press('Escape');
 
 		// Collapsing hides the labels but keeps the invitations count on the
@@ -309,8 +333,7 @@ test.describe('app shell', () => {
 		).toBeEnabled();
 
 		// A wallet that only advertises localnet stays connected there, but
-		// can't leave it from the network menu, the Test Mode switch or the
-		// banner.
+		// can't leave it from the network menu or the banner.
 		const alice = await createActor('alice', {
 			walletChains: ['sui:localnet'],
 		});
@@ -330,16 +353,6 @@ test.describe('app shell', () => {
 		await expect(
 			page.getByRole('menuitem', { name: 'localnet' }),
 		).toBeEnabled();
-		await page.keyboard.press('Escape');
-
-		await alice.walletMenuButton().click();
-		const header = page.getByTestId('app-header');
-		await expect(
-			header.getByRole('switch').filter({ visible: true }),
-		).toBeDisabled();
-		await expect(
-			header.getByText(hint).filter({ visible: true }),
-		).toBeVisible();
 		await page.keyboard.press('Escape');
 
 		const banner = page.getByRole('region', {

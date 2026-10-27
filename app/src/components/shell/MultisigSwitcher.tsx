@@ -11,7 +11,7 @@ import {
 	Users,
 } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import {
 	railSquareClass,
@@ -284,6 +284,47 @@ export function MultisigSwitcher({
 					name={accountName(selected)}
 				/>
 			)}
+		</div>
+	);
+}
+
+/**
+ * The switcher's slot for someone in no accounts yet: the same tile, not a
+ * menu, and a button to create the first one.
+ */
+export function NoAccountsSwitcher({
+	onNavigate,
+}: {
+	onNavigate: () => void;
+}) {
+	return (
+		<div className="flex flex-col gap-2.5">
+			<div
+				className="flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-sidebar-foreground group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:bg-transparent group-data-[collapsible=icon]:p-0"
+				data-testid="multisig-switcher-empty"
+			>
+				<SidebarRailTooltip
+					tooltip="No accounts yet"
+					render={<span tabIndex={-1} />}
+					className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground"
+				>
+					<Users className="size-4" />
+				</SidebarRailTooltip>
+				<span className="truncate text-13 font-medium group-data-[collapsible=icon]:sr-only">
+					No accounts yet
+				</span>
+			</div>
+			<Button
+				variant="secondary"
+				size="sm"
+				className="w-full group-data-[collapsible=icon]:hidden"
+				render={<Link to="/create" onClick={onNavigate} />}
+				nativeButton={false}
+				data-testid="create-account-button"
+			>
+				<Plus />
+				Create an account
+			</Button>
 		</div>
 	);
 }

@@ -22,8 +22,10 @@ import {
 	NetworkMenuItems,
 	NetworkStatusDot,
 } from '@/components/NetworkMenu';
+import { AlphaBadge } from '@/components/shell/AlphaBadge';
 import {
 	MultisigSwitcher,
+	NoAccountsSwitcher,
 	SwitcherSkeleton,
 } from '@/components/shell/MultisigSwitcher';
 import {
@@ -175,24 +177,27 @@ function SidebarNav() {
 			>
 				<SidebarHeader className="gap-4 px-2 pt-4.5 group-data-[collapsible=icon]:gap-2">
 					<div className="flex items-center justify-between gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
-						<SidebarRailTooltip
-							tooltip="Home"
-							render={
-								<Link
-									to="/"
-									onClick={closeMobile}
-									aria-label="Home"
-									className="flex items-center group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:justify-center"
-								/>
-							}
-						>
-							<span className="group-data-[collapsible=icon]:hidden">
-								<PodsWordmark />
-							</span>
-							<span className="hidden group-data-[collapsible=icon]:block">
-								<PodsMark />
-							</span>
-						</SidebarRailTooltip>
+						<div className="flex items-center gap-2">
+							<SidebarRailTooltip
+								tooltip="Home"
+								render={
+									<Link
+										to="/"
+										onClick={closeMobile}
+										aria-label="Home"
+										className="flex items-center group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:justify-center"
+									/>
+								}
+							>
+								<span className="group-data-[collapsible=icon]:hidden">
+									<PodsWordmark />
+								</span>
+								<span className="hidden group-data-[collapsible=icon]:block">
+									<PodsMark />
+								</span>
+							</SidebarRailTooltip>
+							<AlphaBadge />
+						</div>
 						<Tooltip>
 							<TooltipTrigger
 								render={
@@ -212,14 +217,19 @@ function SidebarNav() {
 					{booting ? (
 						<SwitcherSkeleton />
 					) : (
-						signedIn && (
+						signedIn &&
+						(accepted.length === 0 ? (
+							<NoAccountsSwitcher
+								onNavigate={closeMobile}
+							/>
+						) : (
 							<MultisigSwitcher
 								multisigs={accepted}
 								selected={selected}
 								page={routePage}
 								onNavigate={closeMobile}
 							/>
-						)
+						))
 					)}
 				</SidebarHeader>
 
@@ -442,7 +452,7 @@ function NetworkRow() {
 				)}
 			>
 				<NetworkStatusDot />
-				<span className="flex-1 capitalize group-data-[collapsible=icon]:hidden">
+				<span className="flex-1 font-mono text-12 capitalize group-data-[collapsible=icon]:hidden">
 					{network}
 				</span>
 				<ChevronRight className="size-3 opacity-60 group-data-[collapsible=icon]:hidden" />

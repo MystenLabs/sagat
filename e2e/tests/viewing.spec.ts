@@ -33,10 +33,18 @@ test.describe('shared proposal links', () => {
 		});
 
 		// The link only needs a connected wallet, not an API session.
+		// Connecting signs in, so drop the session cookie and reload: the
+		// wallet reconnects on its own and the auth check answers 401.
 		await bob.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
 		await bob.connectWallet();
+		await bob.context.clearCookies();
+		await bob.page.reload();
+		await expect(bob.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'unauthenticated',
+		);
 		const card = bob.proposalCard(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',

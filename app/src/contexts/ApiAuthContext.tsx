@@ -4,6 +4,7 @@
 import {
 	useCurrentAccount,
 	useDAppKit,
+	type UiWallet,
 } from '@mysten/dapp-kit-react';
 import {
 	defaultExpiry,
@@ -21,9 +22,15 @@ import React, {
 	createContext,
 	useContext,
 	useEffect,
+	useRef,
+	useState,
 } from 'react';
 
 import { toast } from '@/lib/toast';
+import {
+	declinedMessage,
+	WalletDeclinedError,
+} from '@/lib/wallet-session';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
@@ -52,6 +59,15 @@ interface ApiAuthContextType {
 	disconnect: () => Promise<void>;
 	isConnecting: boolean;
 	isDisconnecting: boolean;
+
+	// The wallet turned the last connect or signature request down.
+	declined: { wallet: string } | null;
+	// Connects the wallet, then asks for the sign-in signature.
+	connectWallet: (wallet: UiWallet) => Promise<void>;
+	// Connects the wallet that declined again.
+	retryConnect: () => void;
+	// Signs out of the API, then disconnects the wallet.
+	disconnectWallet: () => Promise<void>;
 }
 
 const ApiAuthContext = createContext<
@@ -59,6 +75,9 @@ const ApiAuthContext = createContext<
 >(undefined);
 
 const AUTH_QUERY_KEY = ['auth', 'check'] as const;
+
+/** What a wallet with no name is called in the copy. */
+const UNNAMED_WALLET = 'your wallet';
 
 const SIGNED_OUT: AuthCheckResponse = {
 	authenticated: false,
@@ -128,6 +147,16 @@ export function ApiAuthProvider({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentAccount?.address]);
 
+	const [declined, setDeclined] = useState<{
+		wallet: string;
+	} | null>(null);
+	// Set by an explicit connect, so the signature follows it. The kit's
+	// silent reconnect on load never sets it.
+	const [signAfterConnect, setSignAfterConnect] =
+		useState(false);
+	// The wallet last picked, for "Try again".
+	const lastWalletName = useRef<string | null>(null);
+
 	// Connect mutation - signs message and sends to API
 	const connectMutation = useMutation({
 		mutationFn: async () => {
@@ -138,12 +167,22 @@ export function ApiAuthProvider({
 				throw new Error("Can't reach the service");
 			const expiry = defaultExpiry();
 
-			// Sign with current account
-			const signResult = await dappKit.signPersonalMessage({
-				message: new TextEncoder().encode(
-					PersonalMessages.connect(expiry),
-				),
-			});
+			// Sign with current account. Any failure here is the wallet's:
+			// the user declined, or the wallet refused.
+			let signResult;
+			try {
+				signResult = await dappKit.signPersonalMessage({
+					message: new TextEncoder().encode(
+						PersonalMessages.connect(expiry),
+					),
+				});
+			} catch (error) {
+				throw new WalletDeclinedError(
+					dappKit.stores.$connection.get().wallet?.name ??
+						UNNAMED_WALLET,
+					error,
+				);
+			}
 
 			// Send to API
 			return apiClient.connect(
@@ -151,7 +190,9 @@ export function ApiAuthProvider({
 				expiry,
 			);
 		},
+		onMutate: () => setDeclined(null),
 		onSuccess: async () => {
+			setDeclined(null);
 			await refetchAuth();
 			await queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
@@ -159,12 +200,27 @@ export function ApiAuthProvider({
 			await queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			toast.success('Successfully authenticated');
 		},
-		onError: (error: Error) => {
-			toast.error(
-				`Authentication failed: ${error.message}`,
-			);
+		onError: async (error: Error) => {
+			if (!(error instanceof WalletDeclinedError)) {
+				toast.error(
+					`Authentication failed: ${error.message}`,
+				);
+				return;
+			}
+			setDeclined({ wallet: error.wallet });
+			const signedIn =
+				queryClient.getQueryData<AuthCheckResponse>(
+					AUTH_QUERY_KEY,
+				)?.addresses ?? [];
+			if (signedIn.length === 0) {
+				// Nobody is signed in: back to the connect card, with no
+				// wallet session saved (the kit clears its storage entry).
+				await dappKit.disconnectWallet().catch(() => {});
+			} else {
+				// Another account is still signed in, so keep the wallet.
+				toast.error(declinedMessage(error.wallet));
+			}
 		},
 	});
 
@@ -174,12 +230,53 @@ export function ApiAuthProvider({
 		onSuccess: async () => {
 			queryClient.clear();
 			await refetchAuth();
-			toast.success('Disconnected');
 		},
 		onError: (error: Error) => {
 			toast.error(`Disconnect failed: ${error.message}`);
 		},
 	});
+
+	const connectWallet = async (wallet: UiWallet) => {
+		setDeclined(null);
+		setSignAfterConnect(false);
+		lastWalletName.current = wallet.name;
+		try {
+			await dappKit.connectWallet({ wallet });
+		} catch {
+			setDeclined({ wallet: wallet.name });
+			return;
+		}
+		setSignAfterConnect(true);
+	};
+
+	const retryConnect = () => {
+		const name = declined?.wallet ?? lastWalletName.current;
+		const wallet = dappKit.stores.$wallets
+			.get()
+			.find((w) => w.name === name);
+		if (!wallet) {
+			setDeclined(null);
+			return;
+		}
+		void connectWallet(wallet);
+	};
+
+	const disconnectWallet = async () => {
+		// Sign out of the API first; the wallet disconnects even if that
+		// fails (the mutation toasts the failure).
+		try {
+			await disconnectMutation.mutateAsync();
+		} catch {
+			// Already reported.
+		}
+		try {
+			await dappKit.disconnectWallet();
+		} finally {
+			setDeclined(null);
+			setSignAfterConnect(false);
+		}
+		toast.success('Wallet disconnected');
+	};
 
 	const currentAddress =
 		authData?.addresses?.find(
@@ -198,6 +295,38 @@ export function ApiAuthProvider({
 	// means we can't tell, and asking for a signature would only fail.
 	const isApiUnreachable =
 		isAuthCheckFailing && !isCurrentAddressAuthenticated;
+
+	// After an explicit connect, ask for the signature once the session's
+	// answer is in. The handler can't do it: its `currentAccount` is stale
+	// right after the connect resolves.
+	const { mutate: signIn } = connectMutation;
+	useEffect(() => {
+		if (!signAfterConnect || !currentAccount) return;
+		// The account change has just started a re-check: wait for it.
+		if (
+			isCheckingAuth ||
+			isFetchingAuth ||
+			queryClient.isFetching({ queryKey: AUTH_QUERY_KEY }) >
+				0
+		)
+			return;
+		setSignAfterConnect(false);
+		// Can't tell whether the user is signed in; the unreachable state
+		// shows instead of a signature that would only fail.
+		if (isAuthCheckFailing) return;
+		// The session cookie still covers this address.
+		if (isCurrentAddressAuthenticated) return;
+		signIn();
+	}, [
+		signAfterConnect,
+		currentAccount,
+		isCheckingAuth,
+		isFetchingAuth,
+		isAuthCheckFailing,
+		isCurrentAddressAuthenticated,
+		queryClient,
+		signIn,
+	]);
 
 	const value: ApiAuthContextType = {
 		// Auth state
@@ -224,6 +353,11 @@ export function ApiAuthProvider({
 		},
 		isConnecting: connectMutation.isPending,
 		isDisconnecting: disconnectMutation.isPending,
+
+		declined,
+		connectWallet,
+		retryConnect,
+		disconnectWallet,
 	};
 
 	return (

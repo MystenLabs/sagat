@@ -30,9 +30,35 @@ test.describe('several accounts in one wallet', () => {
 
 		await test.step('the first account has no multisigs', async () => {
 			await alice.signIn();
+			const empty = page.getByTestId('dashboard-empty');
+			await expect(empty).toBeVisible();
 			await expect(
-				page.getByTestId('dashboard-empty'),
+				empty.getByRole('heading', {
+					name: 'Accounts',
+					exact: true,
+				}),
 			).toBeVisible();
+			const header = page.getByTestId('app-header');
+			await expect(
+				header.getByTestId('multisig-switcher-empty'),
+			).toBeVisible();
+			await expect(
+				header.getByTestId('create-account-button'),
+			).toBeVisible();
+
+			// The empty state leads to invitations and to creating one.
+			await page.getByTestId('view-invitations').click();
+			await expect(
+				page.getByTestId('invitations-page'),
+			).toBeVisible();
+			await page.goto('/');
+			await page
+				.getByTestId('create-first-multisig')
+				.click();
+			await expect(
+				page.getByTestId('create-page'),
+			).toBeVisible();
+			await page.goto('/');
 		});
 
 		await test.step('signing in the savings account opens its multisig', async () => {

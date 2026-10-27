@@ -13,13 +13,17 @@ type Fixtures = {
 	// A user with a browser, wallet and page, for people driving the UI.
 	// `otherAccounts` names further accounts in the same wallet;
 	// `walletChains` narrows the chains the wallet advertises;
-	// `failRestore` makes the wallet's silent session restore throw.
+	// `failRestore` makes the wallet's silent session restore throw;
+	// `declineConnect` / `declineSign` make it reject a connect from the
+	// app / a sign-in signature.
 	createActor: (
 		name: string,
 		options?: {
 			otherAccounts?: string[];
 			walletChains?: `sui:${string}`[];
 			failRestore?: boolean;
+			declineConnect?: boolean;
+			declineSign?: boolean;
 		},
 	) => Promise<Actor>;
 	// A user without a browser, for people who only act through the API.
@@ -41,8 +45,12 @@ export const test = base.extend<Fixtures>({
 					(other) =>
 						new Identity(other, new Ed25519Keypair()),
 				),
-				options?.walletChains,
-				options?.failRestore,
+				{
+					chains: options?.walletChains,
+					failRestore: options?.failRestore,
+					declineConnect: options?.declineConnect,
+					declineSign: options?.declineSign,
+				},
 			);
 			actors.push(actor);
 			return actor;
