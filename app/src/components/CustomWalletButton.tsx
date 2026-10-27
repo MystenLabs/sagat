@@ -305,20 +305,20 @@ function AccountItem({
 					label={account.label}
 				/>
 			</span>
-			{canSign && !isAccountAuthenticated && (
-				<Button
-					size="xs"
-					variant="outline"
-					onClick={handleSignClick}
-					disabled={isConnecting}
-					data-testid="wallet-account-sign"
-				>
-					{isConnecting && isCurrent
-						? 'Signing in…'
-						: 'Sign in'}
-				</Button>
-			)}
-			<span className="flex size-4 shrink-0 items-center justify-center">
+			<span className="ml-auto flex shrink-0 items-center gap-2.5">
+				{canSign && !isAccountAuthenticated && (
+					<Button
+						size="xs"
+						variant="outline"
+						onClick={handleSignClick}
+						disabled={isConnecting}
+						data-testid="wallet-account-sign"
+					>
+						{isConnecting && isCurrent
+							? 'Signing in…'
+							: 'Sign in'}
+					</Button>
+				)}
 				{isCurrent && <Check className="size-4" />}
 			</span>
 		</DropdownMenuItem>
