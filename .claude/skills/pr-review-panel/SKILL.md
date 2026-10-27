@@ -11,8 +11,8 @@ The lenses are security, consistency, duplication and code quality, efficiency, 
 
 ## 1. Scope
 
-- **Base and head**: for a PR, `gh pr view <n> --json baseRefName,headRefOid`, then `git fetch origin <baseRefName> pull/<n>/head`; base is `origin/<baseRefName>` and head is the `headRefOid` SHA, so the review covers the PR whatever is checked out (fork PRs too). Otherwise the refs the user named, with head defaulting to `HEAD`. Both must resolve locally.
-- **Diff**: `git diff <base>...<head> --stat`. An empty diff ends the review here.
+- **Base and head**: before any command uses a ref or branch name (`baseRefName` from `gh` too), check it is plain ref syntax (letters, digits and `. _ / ~ ^ @ -`, not starting with `-`) and stop on anything else. For a PR, stop unless `<n>` is digits only, then run `gh pr view <n> --json baseRefName,headRefOid`, `git fetch origin` and `git fetch origin pull/<n>/head`. Head is the `headRefOid` SHA, never the branch name, so the review covers the PR whatever is checked out (fork PRs too); base is `origin/<baseRefName>`. Otherwise the refs the user named, with head defaulting to `HEAD`. Resolve every ref that is not already a SHA with `git rev-parse --verify --end-of-options '<ref>^{commit}'` and use only the printed SHA from then on, in the diff below and as `base` and `head` in `args`.
+- **Diff**: `git diff <baseSha>...<headSha> --stat`. An empty diff ends the review here.
 - **Spec**: the issue the PR closes or the branch names (`gh pr view <n> --json body`), plus any brief the user gave, plus deviations the user approved. Pass the text, not a link.
 - **Threat model**: the contents of `SECURITY.md` or `docs/threat-model.md` when the repository has one; otherwise an empty string. The security lens carries its own checklist either way.
 - **Depth**: `thorough` (three challengers per security finding) when the diff touches authentication, sessions, signatures, transaction building, API routes or anything that moves value; `quick` (one challenger per finding) otherwise. The user's word overrides.
@@ -23,7 +23,7 @@ Done when base, head, pr, spec, depth and threatModel each hold a value (an empt
 
 Invoking this skill is the user's opt-in to run the Workflow tool. Call it with `scriptPath` set to this skill's base directory (announced when the skill loads) joined with `panel.js`, and `args: { base, head, pr, spec, depth, threatModel }` as a JSON object. To pick the reviewer model and reasoning effort your environment offers for review work, add `model` and `effort` inside `args`. Omitted, `model` inherits the session's; `effort` inherits it for the lens reviewers, while challengers default to `high` and the diff-listing agent always runs at `low`.
 
-Done when the workflow returns `{ confirmed, unconfirmed, polish, dismissed, coverage }`. If it stops partway, relaunch with `resumeFromRunId` so finished agents are not paid for twice.
+Done when the workflow returns `{ confirmed, unconfirmed, polish, dismissed, coverage }`. If it stops partway, or the security lens returns nothing (a run without security coverage stops instead of reporting), relaunch with `resumeFromRunId` so finished agents are not paid for twice.
 
 ## 3. Triage and report
 

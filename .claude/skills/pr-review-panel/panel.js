@@ -15,6 +15,7 @@ const A = args || {}
 if (!A.base || !A.head) throw new Error('pr-review-panel needs args.base and args.head')
 // Refs are interpolated into shell commands the agents run, so only plain ref syntax is accepted.
 const SAFE_REF = /^[A-Za-z0-9._\/~^@-]+$/
+const SAFE_PATH = /^[A-Za-z0-9._\/@+-]+$/
 for (const ref of [A.base, A.head]) {
   if (typeof ref !== 'string' || !SAFE_REF.test(ref) || ref.startsWith('-')) throw new Error(`Unsafe git ref: ${ref}`)
 }
@@ -195,8 +196,13 @@ const CALIBRATION = 'A finding earns its place when fixing it changes what a use
 function challengePrompt(f, angle) {
   const lens = LENS_BY_KEY[f.lens]
   const isSecurity = f.lens === 'security'
+  // The path comes from a lens agent's output, so it enters the shell command only when it is plain path syntax.
+  const fileDiff = SAFE_PATH.test(f.file) && !f.file.startsWith('-')
+  const context = fileDiff
+    ? `Run \`${DIFF} -- ${f.file}\` for context, and the full \`${DIFF}\` only if the finding depends on other files.`
+    : `Run \`${DIFF}\` for context.`
   return [
-    `You are challenging one finding from a review of ${PR_LABEL}. Run \`${DIFF}\` for context. ${READ_AT_HEAD}`,
+    `You are challenging one finding from a review of ${PR_LABEL}. ${context} ${READ_AT_HEAD}`,
     `Finding:\n${JSON.stringify(finderView(f), null, 2)}`,
     f.also.length ? `The same spot was also flagged as:\n${f.also.map(o => `- [${o.lens}] line ${o.line}: ${o.title}: ${o.claim}`).join('\n')}\nJudge the main finding; mention in reason whether these change the picture.` : '',
     `The ${lens.title.toLowerCase()} lens bar: ${lens.bar}`,
@@ -329,7 +335,7 @@ const BASE_SHA = listed.baseSha
 const HEAD_SHA = listed.headSha
 // Every prompt from here on names the SHAs, so all agents see the same commits and a resume keys on them.
 const DIFF = `git diff ${BASE_SHA}...${HEAD_SHA}`
-const READ_AT_HEAD = `Read code as it is at ${HEAD_SHA}; when ${HEAD_SHA} is not the checked-out commit, use \`git show ${HEAD_SHA}:<path>\`.`
+const READ_AT_HEAD = `Read and search code as it is at ${HEAD_SHA}; when ${HEAD_SHA} is not the checked-out commit, read files with \`git show ${HEAD_SHA}:<path>\` and search with \`git grep <pattern> ${HEAD_SHA}\` rather than the working tree.`
 const files = listed.files
 
 if (!files.length) {
@@ -348,6 +354,7 @@ const ran = lensResults.filter(Boolean)
 const lensesRun = ran.map(r => r.lens)
 const lensesFailed = LENS_KEYS.filter(k => lensesRun.indexOf(k) < 0)
 if (lensesFailed.length) log(`Lenses that returned nothing (not covered): ${lensesFailed.join(', ')}`)
+if (lensesFailed.indexOf('security') >= 0) throw new Error('The security lens returned nothing; relaunch with resumeFromRunId instead of reporting without security coverage')
 
 const findingsPerLens = {}
 for (const r of ran) findingsPerLens[r.lens] = r.findings.length
