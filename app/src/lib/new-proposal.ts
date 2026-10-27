@@ -19,7 +19,6 @@ import {
 	formatCoinAmount,
 	formatInputAmount,
 	isSuiCoinType,
-	MAX_GAS_PAYMENT_OBJECTS,
 	parseAmount,
 } from './coins';
 import { VALIDATION } from './constants';
@@ -138,7 +137,8 @@ export interface TransferCheck {
  * The Details checks for a transfer. `balance` (raw units) and
  * `decimals` are the chosen asset's, null while unknown; amounts are
  * only checked once both are known. `maxAmount` is the raw amount Max
- * fills (`maxTransfer`), the balance when left out.
+ * fills (`maxTransfer`), the balance when left out. Below the balance,
+ * it is also the most the transfer can send.
  */
 export function checkTransfer({
 	draft,
@@ -175,6 +175,15 @@ export function checkTransfer({
 				amountError = COPY.overBalance(
 					symbol ?? 'asset',
 					shown,
+				);
+			else if (
+				maxAmount != null &&
+				maxAmount < held &&
+				rawAmount > maxAmount
+			)
+				amountError = COPY.overMax(
+					formatCoinAmount(maxAmount.toString(), decimals),
+					symbol ?? 'asset',
 				);
 		}
 	}
@@ -233,41 +242,39 @@ export interface MaxTransfer {
 	/** What Max fills in, as the amount field reads it. */
 	amount: string;
 	rawAmount: bigint;
-	/** Max leaves the address balance in the account. */
-	leavesAddressBalance: boolean;
+	/** Max is less than the balance: the rest needs another transfer. */
+	partial: boolean;
 }
 
 /**
  * What Max fills in for the chosen coin, or null when there is nothing
- * to send. Below MAX_GAS_PAYMENT_OBJECTS SUI coins the SDK picks the gas
- * payment and adds the address balance to the gas coin, so Max is the
- * whole balance. From there the transfer lists the coins as the gas
- * payment itself, which leaves the address balance out: Max is then the
- * coins alone. `balance` is the coin's total (coins and address
- * balance) and `coinCount` the account's SUI coins: null for another
- * coin or while unknown.
+ * to send. Max on SUI sends the gas coin, and one transfer pays gas with
+ * at most MAX_GAS_PAYMENT_OBJECTS coins: the node takes the first of
+ * them and the whole address balance. So when the account holds more
+ * SUI coins than that, Max is the address balance plus those coins'
+ * value, and the rest goes with the next transfer. `balance` is the
+ * coin's total (coins and address balance); `gasCoins` the SUI coins a
+ * transfer can spend (`useSuiGasCoins`), null for another coin or while
+ * unknown.
  */
 export function maxTransfer({
 	balance,
 	addressBalance,
-	coinCount,
+	gasCoins,
 	decimals,
 }: {
 	balance: string;
 	addressBalance: string;
-	coinCount: number | null;
+	gasCoins: { value: bigint; hasMore: boolean } | null;
 	decimals: number;
 }): MaxTransfer | null {
 	const total = toBigInt(balance);
-	const inAddress = toBigInt(addressBalance) ?? 0n;
 	if (total === null) return null;
-	const leavesAddressBalance =
-		coinCount !== null &&
-		coinCount >= MAX_GAS_PAYMENT_OBJECTS &&
-		inAddress > 0n;
-	const rawAmount = leavesAddressBalance
-		? total - inAddress
-		: total;
+	const spendable = gasCoins?.hasMore
+		? (toBigInt(addressBalance) ?? 0n) + gasCoins.value
+		: null;
+	const partial = spendable !== null && spendable < total;
+	const rawAmount = partial ? spendable : total;
 	if (rawAmount <= 0n) return null;
 	return {
 		amount: formatInputAmount(
@@ -275,7 +282,7 @@ export function maxTransfer({
 			decimals,
 		),
 		rawAmount,
-		leavesAddressBalance,
+		partial,
 	};
 }
 
@@ -451,11 +458,10 @@ export const COPY = {
 			: 'Couldn’t build the transfer. Check your connection and try again.',
 	noGas:
 		'This account has no SUI to pay gas. Send it some SUI before proposing a transfer.',
-	maxLeavesAddressBalance: (
-		amount: string,
-		symbol: string,
-	) =>
-		`Max sends the ${symbol} held in coins. The ${amount} ${symbol} in the address balance stays and goes with the next transfer.`,
+	maxPartial: (amount: string, symbol: string) =>
+		`One transfer sends up to ${amount} ${symbol} from this account: it holds its ${symbol} in more coins than one transfer can spend. Max fills that amount; the rest goes with the next transfer.`,
+	overMax: (amount: string, symbol: string) =>
+		`One transfer can send up to ${amount} ${symbol} from this account. Use Max for the most it can send.`,
 	simulationFailed: (reason: string) =>
 		`Simulation failed: ${reason}. If executed, it would fail and the account would still pay gas.`,
 	simulationUnreachable:

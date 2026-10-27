@@ -12,8 +12,8 @@ import type { SuiNetwork } from './network';
 const NORMALIZED_SUI_COIN_TYPE =
 	normalizeStructTag(SUI_TYPE_ARG);
 
-// The SDK pays gas with at most this many coins (MAX_GAS_PAYMENT_OBJECTS in
-// @mysten/sui's core resolver, the protocol's max_gas_payment_objects).
+// The most coins one transaction pays gas with: the protocol's
+// max_gas_payment_objects, the cap the node selects gas within.
 export const MAX_GAS_PAYMENT_OBJECTS = 256;
 
 export function isSuiCoinType(
@@ -91,25 +91,6 @@ export function parseAmount(
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Maximum transferable input amount after subtracting a raw-unit reserve.
- * Useful for SUI where we reserve gas.
- */
-export function getMaxInputAmount(
-	rawBalance: string,
-	decimals: number,
-	reservedRawBalance: string = '0',
-): string | null {
-	let big: bigint;
-	try {
-		big = BigInt(rawBalance) - BigInt(reservedRawBalance);
-	} catch {
-		return null;
-	}
-	if (big <= 0n) return null;
-	return formatInputAmount(big.toString(), decimals);
 }
 
 function formatUnits(

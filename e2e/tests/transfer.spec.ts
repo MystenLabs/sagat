@@ -4,6 +4,7 @@
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
+	amountError,
 	chooseAsset,
 	chooseType,
 	clickNewProposal,
@@ -49,9 +50,7 @@ test.describe('transfer form', () => {
 			recipient: randomAddress(),
 		});
 
-		const error = alice.page.getByTestId(
-			'transfer-amount-error',
-		);
+		const error = amountError(alice.page);
 		await expect(error).toBeVisible();
 		await expect(error).toHaveText(
 			'More than the account holds. The SUI balance is 1,000.',

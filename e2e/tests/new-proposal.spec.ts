@@ -242,9 +242,9 @@ test.describe('new proposal: transfer', () => {
 		).toHaveAttribute('data-coin-type', /::sui::SUI$/);
 	});
 
-	// Past 256 coins, more than a gas payment takes, Max merges the rest
-	// into the gas coin.
-	test('Max on SUI held in 300 coins sends all of it and leaves the account at 0', async ({
+	// One transfer pays gas with at most 256 coins: the node takes the
+	// first 256, so Max fills their value and the rest stays.
+	test('Max on SUI held in 300 coins fills what one transfer can send and warns about the rest', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -260,7 +260,7 @@ test.describe('new proposal: transfer', () => {
 			count: 300,
 			amount: MIST_PER_SUI / 2n,
 		});
-		const total = 150n * MIST_PER_SUI;
+		const sent = 128n * MIST_PER_SUI;
 		const { page } = alice;
 		const recipient = randomAddress();
 
@@ -268,10 +268,20 @@ test.describe('new proposal: transfer', () => {
 			type: 'transfer',
 		});
 		await chooseAsset(page, SUI_TYPE);
+		const amount = page.getByTestId(
+			'transfer-amount-input',
+		);
+		await amount.fill('150');
+		await amount.blur();
+		await expect(amountError(page)).toHaveText(
+			'One transfer can send up to 128 SUI from this account. Use Max for the most it can send.',
+		);
 		await page.getByTestId('transfer-max-button').click();
+		await expect(amount).toHaveValue('128');
+		await expect(amountError(page)).toHaveCount(0);
 		await expect(
-			page.getByTestId('transfer-amount-input'),
-		).toHaveValue('150');
+			page.getByTestId('transfer-max-partial'),
+		).toContainText('128');
 		const recipientInput = page.getByTestId(
 			'transfer-recipient-input',
 		);
@@ -282,9 +292,12 @@ test.describe('new proposal: transfer', () => {
 		await proposeAndSign(page);
 
 		const digest = await executeProposal(page);
-		expect(await chain.balance(multisig.address)).toBe(0n);
 		expect(await chain.balance(recipient)).toBe(
-			total - (await chain.gasCost(digest)),
+			sent - (await chain.gasCost(digest)),
+		);
+		// The 44 coins past the first 256.
+		expect(await chain.balance(multisig.address)).toBe(
+			22n * MIST_PER_SUI,
 		);
 	});
 });
@@ -368,9 +381,9 @@ test.describe('new proposal: transfer details', () => {
 			amount: '0',
 			recipient: randomAddress(),
 		});
-		await expect(
-			page.getByTestId('transfer-amount-error'),
-		).toHaveText('Enter an amount above 0.');
+		await expect(amountError(page)).toHaveText(
+			'Enter an amount above 0.',
+		);
 		await expect(
 			page.getByTestId('transfer-review'),
 		).toBeDisabled();

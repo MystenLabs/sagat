@@ -14,7 +14,6 @@ import {
 	formatCoinAmount,
 	formatInputAmount,
 	formatUsdValue,
-	getMaxInputAmount,
 	isSuiCoinType,
 	parseAmount,
 	pricesAvailableOn,
@@ -25,6 +24,7 @@ import {
 	totalUsdValue,
 	type SortableBalance,
 } from '../src/lib/coins';
+import { maxTransfer } from '../src/lib/new-proposal';
 
 describe('isSuiCoinType', () => {
 	test('matches the short canonical form', () => {
@@ -274,18 +274,33 @@ describe('input helpers', () => {
 		);
 	});
 
-	test('computes max amount after reserving raw units', () => {
+	test('computes max amount from the coins one transfer can spend', () => {
 		expect(
-			getMaxInputAmount('200000000', 9, '50000000'),
+			maxTransfer({
+				balance: '200000000',
+				addressBalance: '0',
+				gasCoins: { value: 150_000_000n, hasMore: true },
+				decimals: 9,
+			})?.amount,
 		).toBe('0.15');
 	});
 
-	test('returns null when reservation leaves no spendable amount', () => {
+	test('returns null when there is nothing to send', () => {
 		expect(
-			getMaxInputAmount('50000000', 9, '50000000'),
+			maxTransfer({
+				balance: '0',
+				addressBalance: '0',
+				gasCoins: null,
+				decimals: 9,
+			}),
 		).toBeNull();
 		expect(
-			getMaxInputAmount('49999999', 9, '50000000'),
+			maxTransfer({
+				balance: '50000000',
+				addressBalance: '0',
+				gasCoins: { value: 0n, hasMore: true },
+				decimals: 9,
+			}),
 		).toBeNull();
 	});
 });

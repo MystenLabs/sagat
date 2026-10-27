@@ -39,7 +39,7 @@ import {
 } from '@/components/wizard/parts';
 import { useTouched } from '@/components/wizard/use-touched';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
-import { useSuiCoinCount } from '@/hooks/useSuiCoinCount';
+import { useSuiGasCoins } from '@/hooks/useSuiGasCoins';
 import { accountName } from '@/lib/account-name';
 import { coinLabels } from '@/lib/coinDisplay';
 import {
@@ -126,21 +126,19 @@ export function TransferDetailsStep({
 	const noGas =
 		balancesComplete && lacksGas(assets.balances);
 
-	// From 256 SUI coins with an address balance, Max leaves that balance
-	// (`maxTransfer`); the coins are only counted when it could.
-	const addressBalance = balance?.addressBalance ?? '0';
-	const coinsMatter =
-		isSuiCoinType(coinType) && BigInt(addressBalance) > 0n;
-	const coinCount = useSuiCoinCount(multisig.address, {
-		enabled: coinsMatter,
+	// Max on SUI is what one transfer can spend (`maxTransfer`), which
+	// needs the account's coins: Max waits for them.
+	const sendsSui = isSuiCoinType(coinType);
+	const gasCoins = useSuiGasCoins(multisig.address, {
+		enabled: sendsSui,
 	});
 	const max =
-		balance && decimals != null && !coinCount.isLoading
+		balance && decimals != null && !gasCoins.isLoading
 			? maxTransfer({
 					balance: balance.balance,
-					addressBalance,
-					coinCount: coinsMatter
-						? (coinCount.data ?? null)
+					addressBalance: balance.addressBalance ?? '0',
+					gasCoins: sendsSui
+						? (gasCoins.data ?? null)
 						: null,
 					decimals,
 				})
@@ -400,19 +398,20 @@ export function TransferDetailsStep({
 						</p>
 					) : null}
 				</div>
-				{max?.leavesAddressBalance &&
-					check.transferAllSui &&
-					decimals != null && (
-						<Notice
-							tone="warning"
-							testId="transfer-max-address-balance"
-						>
-							{COPY.maxLeavesAddressBalance(
-								formatCoinAmount(addressBalance, decimals),
-								symbol ?? 'SUI',
-							)}
-						</Notice>
-					)}
+				{sendsSui && max?.partial && decimals != null && (
+					<Notice
+						tone="warning"
+						testId="transfer-max-partial"
+					>
+						{COPY.maxPartial(
+							formatCoinAmount(
+								max.rawAmount.toString(),
+								decimals,
+							),
+							symbol ?? 'SUI',
+						)}
+					</Notice>
+				)}
 			</div>
 
 			<div className="flex flex-col gap-1.5">

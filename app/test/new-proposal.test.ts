@@ -13,7 +13,6 @@ import { describe, expect, test } from 'vitest';
 
 import { buildTransferTransaction } from '../src/components/assets/buildTransferTransaction';
 import { normalizeCoinType } from '../src/lib/coin-type';
-import { getMaxInputAmount } from '../src/lib/coins';
 import {
 	bytesStatusText,
 	checkBytes,
@@ -243,11 +242,16 @@ describe('checkTransfer', () => {
 	});
 
 	test('Max sends the gas coin on the long form of the SUI type', () => {
-		const max = getMaxInputAmount('2000000000', 9);
+		const max = maxTransfer({
+			balance: '2000000000',
+			addressBalance: '0',
+			gasCoins: null,
+			decimals: 9,
+		});
 		const check = checkTransfer({
 			draft: {
 				coinType: `${normalizeSuiAddress('0x2')}::sui::SUI`,
-				amount: max!,
+				amount: max!.amount,
 				recipient: RECIPIENT,
 			},
 			balance: '2000000000',
@@ -259,7 +263,12 @@ describe('checkTransfer', () => {
 	});
 
 	test('Max has no grouping, so the amount parser reads it back', () => {
-		const max = getMaxInputAmount('1234567890000000', 6);
+		const max = maxTransfer({
+			balance: '1234567890000000',
+			addressBalance: '0',
+			gasCoins: null,
+			decimals: 6,
+		})?.amount;
 		expect(max).toBe('1234567890');
 		const check = usdc(
 			{ amount: max!, recipient: RECIPIENT },
@@ -322,50 +331,33 @@ describe('checkTransfer', () => {
 });
 
 describe('maxTransfer', () => {
-	// 12.5 SUI in coins and 2.5 SUI in the address balance.
-	const max = (coinCount: number | null) =>
+	// 150 SUI in coins and 2.5 SUI in the address balance; the first 256
+	// coins hold 128 SUI.
+	const max = (hasMore: boolean) =>
 		maxTransfer({
-			balance: '15000000000',
+			balance: '152500000000',
 			addressBalance: '2500000000',
-			coinCount,
+			gasCoins: { value: 128_000_000_000n, hasMore },
 			decimals: 9,
 		});
 
-	test('fills the whole balance below 256 coins', () => {
-		expect(max(3)).toEqual({
-			amount: '15',
-			rawAmount: 15_000_000_000n,
-			leavesAddressBalance: false,
-		});
-		expect(max(255)?.leavesAddressBalance).toBe(false);
-		// Another coin, or SUI whose coins aren't counted.
-		expect(max(null)?.amount).toBe('15');
-	});
-
-	test('fills the coins alone from 256 coins with an address balance', () => {
-		expect(max(256)).toEqual({
-			amount: '12.5',
-			rawAmount: 12_500_000_000n,
-			leavesAddressBalance: true,
+	test('fills the whole balance when all coins fit one gas payment', () => {
+		expect(max(false)).toEqual({
+			amount: '152.5',
+			rawAmount: 152_500_000_000n,
+			partial: false,
 		});
 	});
 
-	test('fills the whole balance from 256 coins without an address balance', () => {
-		expect(
-			maxTransfer({
-				balance: '12500000000',
-				addressBalance: '0',
-				coinCount: 256,
-				decimals: 9,
-			}),
-		).toEqual({
-			amount: '12.5',
-			rawAmount: 12_500_000_000n,
-			leavesAddressBalance: false,
+	test('fills the address balance and the first 256 coins when more coins exist', () => {
+		expect(max(true)).toEqual({
+			amount: '130.5',
+			rawAmount: 130_500_000_000n,
+			partial: true,
 		});
 	});
 
-	test('sends the gas coin for the coins alone, not the whole balance', () => {
+	test('refuses more than that max and sends the gas coin at it', () => {
 		const check = (amount: string) =>
 			checkTransfer({
 				draft: {
@@ -373,14 +365,17 @@ describe('maxTransfer', () => {
 					amount,
 					recipient: RECIPIENT,
 				},
-				balance: '15000000000',
+				balance: '152500000000',
 				decimals: 9,
 				symbol: 'SUI',
-				maxAmount: max(256)?.rawAmount,
+				maxAmount: max(true)?.rawAmount,
 			});
-		expect(check('12.5').transferAllSui).toBe(true);
-		expect(check('15').transferAllSui).toBe(false);
-		expect(check('15').amountError).toBeNull();
+		expect(check('130.5').transferAllSui).toBe(true);
+		expect(check('130.5').amountError).toBeNull();
+		expect(check('130.500000001').amountError).toBe(
+			COPY.overMax('130.5', 'SUI'),
+		);
+		expect(check('130.500000001').canReview).toBe(false);
 	});
 });
 
@@ -664,9 +659,18 @@ describe('buildTransferTransaction Max on SUI', () => {
 	const SENDER = normalizeSuiAddress('0x5d2e');
 	const coinId = (i: number) =>
 		normalizeSuiAddress(`0xc0${i.toString(16)}`);
+	// What the node picks when the transaction leaves gas to it.
+	const NODE_GAS = [
+		{
+			objectId: normalizeSuiAddress('0x6a5'),
+			version: '1',
+			digest: toBase58(new Uint8Array(32).fill(2)),
+		},
+	];
 
 	// A client that holds `count` SUI coins of 0.5, listed 100 per page,
-	// whose resolver pins the gas price and budget.
+	// whose resolver pins the gas price and budget and, when the
+	// transaction sets none, the gas payment.
 	function fakeClient(count: number) {
 		const core = {
 			listCoins: async ({
@@ -699,6 +703,7 @@ describe('buildTransferTransaction Max on SUI', () => {
 					_options: unknown,
 					next: () => Promise<void>,
 				) => {
+					data.gasData.payment ??= NODE_GAS;
 					data.gasData.price ??= '1000';
 					data.gasData.budget ??= '10000000';
 					await next();
@@ -709,61 +714,20 @@ describe('buildTransferTransaction Max on SUI', () => {
 		>[0]['client'];
 	}
 
-	// Builds Max for `count` coins and returns the coins it spends: the
-	// gas payment and the coins merged into the gas coin, which is sent.
-	async function buildMax(count: number) {
+	test('leaves the gas payment to the node past 256 coins', async () => {
 		const bytes = await buildTransferTransaction({
 			sender: SENDER,
 			recipient: RECIPIENT,
 			coinType: SUI_TYPE_ARG,
-			amount: BigInt(count) * 500_000_000n,
+			amount: 128n * 1_000_000_000n,
 			transferAllSui: true,
-			client: fakeClient(count),
+			client: fakeClient(300),
 		});
 		const data = Transaction.from(bytes).getData();
+		expect(data.gasData.payment).toEqual(NODE_GAS);
+		expect(data.commands).toHaveLength(1);
 		expect(
-			data.commands.at(-1)?.TransferObjects?.objects,
+			data.commands[0].TransferObjects?.objects,
 		).toEqual([{ $kind: 'GasCoin', GasCoin: true }]);
-		const merged = data.commands.flatMap((c) =>
-			c.MergeCoins?.destination.$kind === 'GasCoin'
-				? c.MergeCoins.sources.map((arg) =>
-						arg.$kind === 'Input'
-							? data.inputs[arg.Input].Object
-									?.ImmOrOwnedObject?.objectId
-							: undefined,
-					)
-				: [],
-		);
-		const paid = (data.gasData.payment ?? []).map(
-			(c) => c.objectId,
-		);
-		return { bytes, spent: [...paid, ...merged] };
-	}
-
-	// At 256 the client would pay with its address-balance reservation
-	// and 255 coins, leaving one behind.
-	test('pays gas with all 256 coins itself at 256', async () => {
-		const { bytes, spent } = await buildMax(256);
-		expect(
-			Transaction.from(bytes).getData().gasData.payment,
-		).toHaveLength(256);
-		expect(new Set(spent).size).toBe(256);
-	});
-
-	test('sends all 300 coins, past the 256 a gas payment takes', async () => {
-		const { spent } = await buildMax(300);
-		expect(spent.sort()).toEqual(
-			Array.from({ length: 300 }, (_, i) =>
-				coinId(i),
-			).sort(),
-		);
-	});
-
-	test('spends at most 1456 coins, within the transaction size limit', async () => {
-		const { bytes, spent } = await buildMax(3000);
-		expect(new Set(spent).size).toBe(256 + 1200);
-		expect(
-			Buffer.from(bytes, 'base64').length,
-		).toBeLessThan(128 * 1024 - 16 * 1024);
 	});
 });
