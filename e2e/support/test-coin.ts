@@ -155,6 +155,11 @@ export async function mintTestCoin(
 	return mintCoin(chain, testCoin(), address, amounts);
 }
 
+/** The type of the TEST coin global setup published. */
+export function testCoinType() {
+	return testCoin().type;
+}
+
 function testCoin(): TestCoin {
 	const type = process.env.E2E_TEST_COIN_TYPE;
 	const faucetId = process.env.E2E_TEST_COIN_FAUCET;

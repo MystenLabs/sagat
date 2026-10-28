@@ -79,6 +79,22 @@ export function toast(
 }
 
 /**
+ * From the bytes Details step, `bytes` (read as a transaction) and
+ * `title` on Review.
+ */
+export async function bytesOnReview(
+	page: Page,
+	bytes: string,
+	title: string,
+) {
+	await pasteBytes(page, bytes, title);
+	await expect(
+		page.getByTestId('bytes-status'),
+	).toHaveAttribute('data-state', 'ok');
+	await reviewBytes(page);
+}
+
+/**
  * Pastes a 1 SUI transfer from `address` with `title`, and waits on
  * Review for its simulation.
  */
@@ -89,7 +105,7 @@ export async function bytesToReview(
 	title: string,
 ) {
 	await openNewProposal(page, address, { type: 'bytes' });
-	await pasteBytes(
+	await bytesOnReview(
 		page,
 		await chain.buildSuiTransfer({
 			sender: address,
@@ -98,7 +114,6 @@ export async function bytesToReview(
 		}),
 		title,
 	);
-	await reviewBytes(page);
 	await expectSimulation(page, 'success');
 }
 

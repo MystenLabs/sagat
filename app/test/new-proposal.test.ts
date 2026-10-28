@@ -1,8 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { bcs } from '@mysten/sui/bcs';
 import { Transaction } from '@mysten/sui/transactions';
 import {
+	fromBase64,
 	normalizeSuiAddress,
 	SUI_TYPE_ARG,
 	toBase58,
@@ -13,6 +15,7 @@ import { describe, expect, test } from 'vitest';
 
 import { buildTransferTransaction } from '../src/components/assets/buildTransferTransaction';
 import { normalizeCoinType } from '../src/lib/coin-type';
+import { formatInputAmount } from '../src/lib/coins';
 import {
 	bytesStatusText,
 	checkBytes,
@@ -27,6 +30,7 @@ import {
 	transferTitle,
 	type TransferDraft,
 } from '../src/lib/new-proposal';
+import { COIN_DECIMALS, U64_MAX } from './coin-decimals';
 
 const ACCOUNT = normalizeSuiAddress(
 	'0x5d2e00000000000000000000000000000000000000000000000000000000a1b7',
@@ -674,38 +678,85 @@ describe('proposalTypeFromQuery', () => {
 	});
 });
 
-describe('buildTransferTransaction Max on SUI', () => {
-	const SENDER = normalizeSuiAddress('0x5d2e');
-	// What the node picks when the transaction leaves gas to it.
-	const NODE_GAS = [
-		{
-			objectId: normalizeSuiAddress('0x6a5'),
-			version: '1',
-			digest: toBase58(new Uint8Array(32).fill(2)),
-		},
-	];
+const SENDER = normalizeSuiAddress('0x5d2e');
+const DIGEST = toBase58(new Uint8Array(32).fill(1));
+const GAS = {
+	objectId: normalizeSuiAddress('0x6a5'),
+	version: '1',
+	digest: toBase58(new Uint8Array(32).fill(2)),
+};
 
-	// A client whose resolver pins the gas price, budget and payment the
-	// node would pick.
-	function fakeClient() {
-		const core = {
-			resolveTransactionPlugin:
-				() =>
-				async (
-					data: ReturnType<Transaction['getData']>,
-					_options: unknown,
-					next: () => Promise<void>,
-				) => {
-					data.gasData.payment ??= NODE_GAS;
-					data.gasData.price ??= '1000';
-					data.gasData.budget ??= '10000000';
-					await next();
+/**
+ * A client that holds `coins` of one type (none when left out), listed
+ * on one page, whose resolver pins the gas price, budget and payment.
+ */
+function fakeClient({
+	coins = [],
+	gasPayment,
+}: {
+	coins?: {
+		objectId: string;
+		balance: string;
+		coinType: string;
+	}[];
+	gasPayment: {
+		objectId: string;
+		version: string;
+		digest: string;
+	}[];
+}) {
+	const core = {
+		getBalance: async ({
+			coinType,
+		}: {
+			coinType: string;
+		}) => {
+			const held = coins
+				.reduce(
+					(sum, coin) => sum + BigInt(coin.balance),
+					0n,
+				)
+				.toString();
+			return {
+				balance: {
+					coinType,
+					balance: held,
+					coinBalance: held,
+					addressBalance: '0',
 				},
-		};
-		return { core } as unknown as Parameters<
-			typeof buildTransferTransaction
-		>[0]['client'];
-	}
+			};
+		},
+		listCoins: async () => ({
+			objects: coins.map((coin) => ({
+				...coin,
+				version: '1',
+				digest: DIGEST,
+				owner: SENDER,
+			})),
+			hasNextPage: false,
+			cursor: null,
+		}),
+		resolveTransactionPlugin:
+			() =>
+			async (
+				data: ReturnType<Transaction['getData']>,
+				_options: unknown,
+				next: () => Promise<void>,
+			) => {
+				data.gasData.payment ??= gasPayment;
+				data.gasData.price ??= '1000';
+				data.gasData.budget ??= '10000000';
+				await next();
+			},
+	};
+	return { core } as unknown as Parameters<
+		typeof buildTransferTransaction
+	>[0]['client'];
+}
+
+describe('buildTransferTransaction Max on SUI', () => {
+	// What the node picks when the transaction leaves gas to it.
+	const NODE_GAS = [GAS];
 
 	test('leaves the gas payment to the node', async () => {
 		const bytes = await buildTransferTransaction({
@@ -714,7 +765,7 @@ describe('buildTransferTransaction Max on SUI', () => {
 			coinType: SUI_TYPE_ARG,
 			amount: 128n * 1_000_000_000n,
 			transferAllSui: true,
-			client: fakeClient(),
+			client: fakeClient({ gasPayment: NODE_GAS }),
 		});
 		const data = Transaction.from(bytes).getData();
 		expect(data.gasData.payment).toEqual(NODE_GAS);
@@ -722,5 +773,107 @@ describe('buildTransferTransaction Max on SUI', () => {
 		expect(
 			data.commands[0].TransferObjects?.objects,
 		).toEqual([{ $kind: 'GasCoin', GasCoin: true }]);
+	});
+});
+
+const TOKEN = `${normalizeSuiAddress('0xabc')}::token::TOKEN`;
+
+function tokenTransfer(
+	amount: string,
+	balance: bigint,
+	decimals: number,
+) {
+	return checkTransfer({
+		draft: {
+			coinType: TOKEN,
+			amount,
+			recipient: RECIPIENT,
+		},
+		balance: balance.toString(),
+		decimals,
+		symbol: 'TOKEN',
+	});
+}
+
+describe.each(COIN_DECIMALS)(
+	'a token transfer at %i decimals',
+	(decimals) => {
+		test('Max is exactly the balance and passes the checks, off the SUI gas-coin path', () => {
+			for (const balance of [1n, U64_MAX]) {
+				const max = maxTransfer({
+					balance: balance.toString(),
+					addressBalance: '0',
+					gasCoins: null,
+					decimals,
+				});
+				const check = tokenTransfer(
+					max!.amount,
+					balance,
+					decimals,
+				);
+				expect(check.rawAmount).toBe(balance);
+				expect(check.canReview).toBe(true);
+			}
+		});
+
+		test('refuses one raw unit over a u64 max balance', () => {
+			const check = tokenTransfer(
+				formatInputAmount(
+					(U64_MAX + 1n).toString(),
+					decimals,
+				),
+				U64_MAX,
+				decimals,
+			);
+			expect(check.amountError).not.toBeNull();
+			expect(check.canReview).toBe(false);
+		});
+	},
+);
+
+describe('buildTransferTransaction amounts', () => {
+	// The account holds `held` of TOKEN in one coin and pays gas with a
+	// SUI coin of its own.
+	function build(amount: bigint, held: bigint) {
+		return buildTransferTransaction({
+			sender: SENDER,
+			recipient: RECIPIENT,
+			coinType: TOKEN,
+			amount,
+			client: fakeClient({
+				coins: [
+					{
+						objectId: normalizeSuiAddress('0xc0'),
+						balance: held.toString(),
+						coinType: TOKEN,
+					},
+				],
+				gasPayment: [GAS],
+			}),
+		});
+	}
+
+	test('splits u64 max', async () => {
+		const data = Transaction.from(
+			await build(U64_MAX, U64_MAX),
+		).getData();
+		const split = data.commands.find(
+			(c) => c.SplitCoins,
+		)?.SplitCoins;
+		const [amount] = split?.amounts ?? [];
+		expect(amount?.$kind).toBe('Input');
+		const input =
+			amount?.$kind === 'Input'
+				? data.inputs[amount.Input]
+				: undefined;
+		expect(
+			bcs.u64().parse(fromBase64(input!.Pure!.bytes)),
+		).toBe(U64_MAX.toString());
+	});
+
+	test('refuses an amount one raw unit over what is held, at u64 scale', async () => {
+		await expect(
+			build(U64_MAX, U64_MAX - 1n),
+		).rejects.toThrow();
 	});
 });
