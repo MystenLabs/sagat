@@ -9,7 +9,7 @@ export function declinedMessage(wallet: string) {
 	return `You declined the request in ${wallet}. You’re not signed in.`;
 }
 
-/** Thrown when the wallet step (connect or signature) fails: the user declined or the wallet refused. */
+/** Thrown when the wallet's sign-in signature fails: the user declined or the wallet refused. */
 export class WalletDeclinedError extends Error {
 	readonly wallet: string;
 	// The account the request was for, so a late rejection can be told apart.
@@ -26,5 +26,13 @@ export class WalletDeclinedError extends Error {
 		this.wallet = wallet;
 		this.address = address;
 		this.cause = cause;
+	}
+}
+
+/** Thrown when a logout happens while a sign-in is in flight; handled silently. */
+export class SignInCancelledError extends Error {
+	constructor() {
+		super('Signed out while signing in');
+		this.name = 'SignInCancelledError';
 	}
 }

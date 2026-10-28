@@ -5,6 +5,10 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import type { Route } from '@playwright/test';
 
 import { LocalStorageKeys } from '../../app/src/lib/localStorageKeys';
+import {
+	isSignInRequest,
+	recordSignIns,
+} from '../support/actor';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 
@@ -80,11 +84,8 @@ test.describe('wallet sign-in', () => {
 		).toBeVisible();
 
 		// Reconnecting signs in again: the session cookie is gone.
-		const connectRequest = alice.page.waitForRequest(
-			(request) =>
-				request.url() === `${E2E.apiUrl}/auth/connect` &&
-				request.method() === 'POST',
-		);
+		const connectRequest =
+			alice.page.waitForRequest(isSignInRequest);
 		await alice.connectWallet();
 		await connectRequest;
 		await expect(alice.walletMenuButton()).toHaveAttribute(
@@ -135,16 +136,9 @@ test.describe('wallet sign-in', () => {
 			page.getByTestId('connect-wallet-prompt'),
 		).toBeVisible();
 
-		let connectRequests = 0;
-		page.on('request', (request) => {
-			if (
-				request.url() === `${E2E.apiUrl}/auth/connect` &&
-				request.method() === 'POST'
-			)
-				connectRequests++;
-		});
+		const signIns = recordSignIns(page);
 		await alice.connectWallet();
-		expect(connectRequests).toBe(0);
+		expect(signIns).toHaveLength(0);
 	});
 
 	test('a declined signature or connection leaves the app signed out', async ({

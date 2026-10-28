@@ -7,6 +7,7 @@ import {
 	type Browser,
 	type BrowserContext,
 	type Page,
+	type Request,
 	type Route,
 } from '@playwright/test';
 
@@ -22,6 +23,23 @@ const LOCAL_HOSTS = new Set([
 ]);
 const RECOGNIZED_COINS_URL =
 	'https://apps-backend.sui.io/v2/recognized-coins';
+
+// A sign-in: the POST that trades a signature for a session.
+export function isSignInRequest(request: Request) {
+	return (
+		request.method() === 'POST' &&
+		request.url() === `${E2E.apiUrl}/auth/connect`
+	);
+}
+
+// The sign-ins `page` sends from now on.
+export function recordSignIns(page: Page) {
+	const signIns: Request[] = [];
+	page.on('request', (request) => {
+		if (isSignInRequest(request)) signIns.push(request);
+	});
+	return signIns;
+}
 
 // An entry of the price list, as the endpoint returns it.
 export interface RecognizedCoin {

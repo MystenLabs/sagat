@@ -3,8 +3,8 @@
 
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 
+import { recordSignIns } from '../support/actor';
 import { randomAddress } from '../support/chain';
-import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 import {
 	proposeTransfer,
@@ -34,14 +34,7 @@ test.describe('shared proposal links', () => {
 		});
 
 		// The link only needs a connected wallet, not an API session.
-		let connectRequests = 0;
-		bob.page.on('request', (request) => {
-			if (
-				request.url() === `${E2E.apiUrl}/auth/connect` &&
-				request.method() === 'POST'
-			)
-				connectRequests++;
-		});
+		const signIns = recordSignIns(bob.page);
 		await bob.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
@@ -67,7 +60,7 @@ test.describe('shared proposal links', () => {
 		expect(await chain.balance(recipient)).toBe(
 			2n * MIST_PER_SUI,
 		);
-		expect(connectRequests).toBe(0);
+		expect(signIns).toHaveLength(0);
 		await expect(bob.walletMenuButton()).toHaveAttribute(
 			'data-auth-state',
 			'unauthenticated',

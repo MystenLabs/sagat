@@ -14,9 +14,10 @@ export type Fixtures = {
 	// `otherAccounts` names further accounts in the same wallet;
 	// `walletChains` narrows the chains the wallet advertises;
 	// `failRestore` makes the wallet's silent session restore throw;
-	// `declineSign` makes it reject sign-in signatures from the start (a
-	// test flips `window.__e2eWallet.declineConnect` / `.declineSign` to
-	// decline mid-flow);
+	// `declineSign` makes it reject every personal-message signature
+	// (sign-in included) from the start (a test flips
+	// `window.__e2eWallet.declineConnect` / `.declineSign` to decline
+	// mid-flow);
 	// `rejectSigning` makes it decline every transaction to sign.
 	createActor: (
 		name: string,

@@ -5,7 +5,11 @@ import {
 	useCurrentAccount,
 	useCurrentNetwork,
 } from '@mysten/dapp-kit-react';
-import { useMemo, type ReactElement } from 'react';
+import {
+	useEffect,
+	useMemo,
+	type ReactElement,
+} from 'react';
 import {
 	Navigate,
 	Route,
@@ -14,6 +18,8 @@ import {
 } from 'react-router-dom';
 
 import { getAuthLevel } from '@/lib/auth-level';
+import { toast } from '@/lib/toast';
+import { declinedMessage } from '@/lib/wallet-session';
 
 import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
@@ -107,6 +113,8 @@ export function AppRouter() {
 	const {
 		isApiUnreachable,
 		isCurrentAddressAuthenticated,
+		declined,
+		clearDeclined,
 	} = useApiAuth();
 	const location = useLocation();
 	const network = useCurrentNetwork();
@@ -115,6 +123,19 @@ export function AppRouter() {
 		() => getAuthLevel(location.pathname),
 		[location.pathname],
 	);
+
+	// The declined line belongs to the page it happened on.
+	useEffect(() => {
+		clearDeclined();
+	}, [location.pathname, clearDeclined]);
+
+	// No card on a public page, so the decline is a toast.
+	useEffect(() => {
+		if (declined && authLevel === 'public') {
+			toast.error(declinedMessage(declined.wallet));
+			clearDeclined();
+		}
+	}, [declined, authLevel, clearDeclined]);
 
 	const renderRoutes = useMemo(() => {
 		const renderRoute = (

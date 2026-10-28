@@ -20,6 +20,7 @@ import {
 } from '@tanstack/react-query';
 import React, {
 	createContext,
+	useCallback,
 	useContext,
 	useEffect,
 	useRef,
@@ -29,6 +30,7 @@ import React, {
 import { toast } from '@/lib/toast';
 import {
 	declinedMessage,
+	SignInCancelledError,
 	UNNAMED_WALLET,
 	WalletDeclinedError,
 } from '@/lib/wallet-session';
@@ -64,6 +66,7 @@ interface ApiAuthContextType {
 
 	// The wallet turned the last connect or signature request down.
 	declined: Declined | null;
+	clearDeclined: () => void;
 	// Connects the wallet, then (unless `signIn` is false) asks for the
 	// sign-in signature.
 	connectWallet: (
@@ -92,9 +95,6 @@ const ApiAuthContext = createContext<
 >(undefined);
 
 const AUTH_QUERY_KEY = ['auth', 'check'] as const;
-
-const SIGNED_OUT_MID_SIGN_IN =
-	'Signed out while signing in';
 
 const SIGNED_OUT: AuthCheckResponse = {
 	authenticated: false,
@@ -203,6 +203,10 @@ export function ApiAuthProvider({
 					),
 				});
 			} catch (error) {
+				// A rejection that lands after a logout must not touch
+				// whatever is connected now.
+				if (sessionGeneration.current !== generation)
+					throw new SignInCancelledError();
 				throw new WalletDeclinedError(
 					wallet?.name ?? UNNAMED_WALLET,
 					account.address,
@@ -217,10 +221,17 @@ export function ApiAuthProvider({
 			);
 			if (sessionGeneration.current !== generation) {
 				// The user logged out meanwhile, but this answer has just set a
-				// session cookie: it must not outlive the logout.
-				await apiClient.disconnect().catch(() => {});
+				// session cookie: it must not outlive the logout. The toast is
+				// there because "Wallet disconnected" has already shown.
+				try {
+					await apiClient.disconnect();
+				} catch {
+					toast.error(
+						"Sign-out didn't finish: a late sign-in kept the session.",
+					);
+				}
 				await refetchAuth();
-				throw new Error(SIGNED_OUT_MID_SIGN_IN);
+				throw new SignInCancelledError();
 			}
 			return result;
 		},
@@ -239,7 +250,7 @@ export function ApiAuthProvider({
 			options?: SignInOptions,
 		) => {
 			// The logout already said so; a failure toast would contradict it.
-			if (error.message === SIGNED_OUT_MID_SIGN_IN) return;
+			if (error instanceof SignInCancelledError) return;
 			if (!(error instanceof WalletDeclinedError)) {
 				toast.error(
 					`Authentication failed: ${error.message}`,
@@ -344,6 +355,12 @@ export function ApiAuthProvider({
 		if (signedOut) toast.success('Wallet disconnected');
 	};
 
+	// Stable, so effects can depend on it.
+	const clearDeclined = useCallback(
+		() => setDeclined(null),
+		[],
+	);
+
 	const currentAddress =
 		authData?.addresses?.find(
 			(x) => x.address === currentAccount?.address,
@@ -386,6 +403,7 @@ export function ApiAuthProvider({
 		isConnecting: connectMutation.isPending || connecting,
 
 		declined,
+		clearDeclined,
 		connectWallet,
 		disconnectWallet,
 	};
