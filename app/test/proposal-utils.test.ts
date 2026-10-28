@@ -2,12 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ProposalStatus } from '@mysten/sagat';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { formatDigest } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
 import {
+	isExternalProposer,
 	proposalStatusKey,
 	proposalTitle,
+	shortDigest,
 	weightDots,
 } from '../src/lib/proposalUtils';
 
@@ -118,5 +121,48 @@ describe('weightDots', () => {
 		expect(
 			weightDots({ currentWeight: 0, totalWeight: 100 }),
 		).toEqual({ dots: 10, filled: 0 });
+	});
+});
+
+describe('shortDigest', () => {
+	it('keeps the first ten and last four characters', () => {
+		expect(shortDigest(DIGEST)).toBe('HkV4y3pGsy…E7ac');
+	});
+
+	it('leaves a digest that short whole', () => {
+		expect(shortDigest('HkV4y3pGsyPvGy')).toBe(
+			'HkV4y3pGsyPvGy',
+		);
+	});
+});
+
+describe('isExternalProposer', () => {
+	const signer = new Ed25519Keypair();
+	const multisig = {
+		address: '0x1',
+		threshold: 1,
+		members: [
+			{
+				publicKey: signer.getPublicKey().toSuiPublicKey(),
+				weight: 1,
+				order: 0,
+			},
+		],
+	};
+
+	it('tells a signer from an address outside the account', () => {
+		expect(
+			isExternalProposer({
+				multisig,
+				proposerAddress: signer.toSuiAddress(),
+			}),
+		).toBe(false);
+		expect(
+			isExternalProposer({
+				multisig,
+				proposerAddress:
+					new Ed25519Keypair().toSuiAddress(),
+			}),
+		).toBe(true);
 	});
 });

@@ -83,6 +83,7 @@ test('proposal filters show each proposal where it belongs', async ({
 		ready: [ready],
 		executed: [executed],
 		cancelled: [cancelled],
+		expired: [],
 	};
 	for (const [filter, proposals] of Object.entries(
 		expected,
@@ -100,10 +101,10 @@ test('proposal filters show each proposal where it belongs', async ({
 
 function shownDigests(page: Page) {
 	return page
-		.getByTestId('proposal-card')
-		.evaluateAll((cards) =>
-			cards
-				.map((card) => card.getAttribute('data-digest'))
+		.getByTestId('proposal-row')
+		.evaluateAll((rows) =>
+			rows
+				.map((row) => row.getAttribute('data-digest'))
 				.sort(),
 		);
 }

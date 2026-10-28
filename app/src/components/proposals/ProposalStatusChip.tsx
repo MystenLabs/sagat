@@ -11,6 +11,7 @@ const STATUS_CHIP = {
 	failed: { variant: 'error', label: 'Failed' },
 	ready: { variant: 'info', label: 'Ready' },
 	pending: { variant: 'warning', label: 'Pending' },
+	expired: { variant: 'neutral', label: 'Expired' },
 } as const satisfies Record<
 	ProposalStatusKey,
 	{ variant: ChipProps['variant']; label: string }

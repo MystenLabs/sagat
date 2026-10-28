@@ -412,7 +412,7 @@ test.describe('new proposal edges: bytes', () => {
 		await expectSimulation(page, 'success');
 		await proposeAndSign(page);
 		await expect(
-			page.getByTestId('proposal-card'),
+			page.getByTestId('proposal-row'),
 		).toHaveCount(1);
 		expect(
 			creates.map((r) => r.postDataJSON().transactionBytes),

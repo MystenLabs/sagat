@@ -46,7 +46,7 @@ test.describe('errors', () => {
 		});
 
 		await alice.signIn();
-		const card = alice.proposalCard(proposal.digest);
+		const card = alice.proposalRow(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',
 			'ready',

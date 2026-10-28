@@ -9,6 +9,8 @@ import {
 } from '@mysten/sagat';
 import { formatDigest } from '@mysten/sui/utils';
 
+import { getExpiry, type EpochInfo } from './expiration';
+import { validatePublicKey } from './sui-utils';
 import { type ProposalCardInput } from './types';
 
 // Helper to calculate current weight of a proposal based on signatures
@@ -67,8 +69,19 @@ export function toProposalCardInput(
 	};
 }
 
+/**
+ * Where a proposal stands. `expired` is a pending proposal whose
+ * transaction can no longer execute; that takes the chain's current epoch,
+ * so `proposalStatusKey` never returns it and callers that know the epoch
+ * use `isProposalExpired` on top.
+ */
 export type ProposalStatusKey =
-	'executed' | 'cancelled' | 'failed' | 'ready' | 'pending';
+	| 'executed'
+	| 'cancelled'
+	| 'failed'
+	| 'ready'
+	| 'pending'
+	| 'expired';
 
 /**
  * Where a proposal stands: its terminal status, else `ready` once the
@@ -102,6 +115,50 @@ export function proposalTitle(
 			: description;
 	}
 	return `Transaction ${formatDigest(proposal.digest)}`;
+}
+
+/**
+ * Whether a proposal is still pending but its transaction is past its
+ * last epoch, so it can never execute. Until the epoch is known, nothing
+ * counts as expired.
+ */
+export function isProposalExpired(
+	proposal: Pick<Proposal, 'status' | 'transactionBytes'>,
+	epochInfo: EpochInfo | undefined,
+) {
+	return (
+		proposal.status === ProposalStatus.PENDING &&
+		!!epochInfo &&
+		!!getExpiry(proposal.transactionBytes, epochInfo)
+			?.expired
+	);
+}
+
+/**
+ * A digest cut to its first ten and last four characters, e.g.
+ * "HkV4y3pGsy…E7ac". `formatDigest` keeps only the head; the list shows
+ * both ends.
+ */
+export function shortDigest(digest: string) {
+	if (digest.length <= 14) return digest;
+	return `${digest.slice(0, 10)}…${digest.slice(-4)}`;
+}
+
+/**
+ * Whether the proposer is not one of the account's signers: an address
+ * the account allowed to propose without being able to sign.
+ */
+export function isExternalProposer(
+	proposal: Pick<
+		ProposalCardInput,
+		'multisig' | 'proposerAddress'
+	>,
+) {
+	return !proposal.multisig.members.some(
+		(member) =>
+			validatePublicKey(member.publicKey).address ===
+			proposal.proposerAddress,
+	);
 }
 
 /** At most this many dots stand for a proposal's weight. */

@@ -22,6 +22,7 @@ import {
 import { useState } from 'react';
 
 import {
+	isExternalProposer,
 	proposalStatusKey,
 	proposalTitle,
 } from '@/lib/proposalUtils';
@@ -38,7 +39,6 @@ import {
 	downloadJson,
 	getProposalExportFilename,
 } from '../../lib/exportUtils';
-import { validatePublicKey } from '../../lib/sui-utils';
 import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { Button, buttonVariants } from '../ui/button';
 import { Chip } from '../ui/chip';
@@ -106,31 +106,6 @@ export function ProposalCard({
 
 	const statusKey = proposalStatusKey(proposal);
 
-	const isExternalProposer = () => {
-		if (!proposal.multisig) return false;
-
-		// Check if proposer address is NOT a member by comparing addresses
-		// Members are stored as public keys, need to derive addresses
-		const memberAddresses = proposal.multisig.members
-			.map((member) => {
-				try {
-					// Derive address from public key
-					const { address } = validatePublicKey(
-						member.publicKey,
-					);
-					return address;
-				} catch {
-					return null;
-				}
-			})
-			.filter(Boolean);
-
-		// Proposer is external if their address is NOT in member addresses
-		return !memberAddresses.includes(
-			proposal.proposerAddress,
-		);
-	};
-
 	const getSignatureStatus = () => {
 		if (proposal.status !== ProposalStatus.PENDING)
 			return null;
@@ -172,7 +147,7 @@ export function ProposalCard({
 								/>
 							)}
 						{getSignatureStatus()}
-						{isExternalProposer() && (
+						{isExternalProposer(proposal) && (
 							<Chip variant="purple">
 								External Proposer
 							</Chip>

@@ -6,6 +6,7 @@ import { toBase58, toBase64 } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
 import {
+	expiresSoon,
 	formatTimeLeft,
 	getExpiry,
 } from '../src/lib/expiration';
@@ -119,5 +120,19 @@ describe('formatTimeLeft', () => {
 		expect(
 			formatTimeLeft(new Date(left), new Date(0)),
 		).toBe(text);
+	});
+});
+
+describe('expiresSoon', () => {
+	const minute = 60_000;
+
+	test.each([
+		[59 * minute, true],
+		[60 * minute, false],
+		[61 * minute, false],
+	])('%i ms left is soon: %s', (left, soon) => {
+		expect(expiresSoon(new Date(left), new Date(0))).toBe(
+			soon,
+		);
 	});
 });

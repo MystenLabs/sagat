@@ -4,9 +4,11 @@
 import { useEffect, useState } from 'react';
 
 import { formatDateTime } from '@/lib/dates';
+import { cn } from '@/lib/utils';
 
 import { useExpiry } from '../../hooks/useExpiry';
 import {
+	expiresSoon,
 	formatTimeLeft,
 	type Expiry,
 } from '../../lib/expiration';
@@ -18,15 +20,24 @@ import {
 	TooltipTrigger,
 } from '../ui/tooltip';
 
-// A badge with how long a proposal's transaction can still execute, if it
-// expires at all.
+// How long a proposal's transaction can still execute, if it expires at
+// all: a badge, or with `variant="inline"` plain text for a meta line,
+// after a separator that wraps with it, coloured once less than an hour
+// is left.
 export function ProposalExpiry({
 	transactionBytes,
+	variant = 'chip',
 }: {
 	transactionBytes: string;
+	variant?: 'chip' | 'inline';
 }) {
 	const expiry = useExpiry(transactionBytes);
-	return expiry ? <ExpiryChip expiry={expiry} /> : null;
+	if (!expiry) return null;
+	return variant === 'inline' ? (
+		<InlineExpiry expiry={expiry} />
+	) : (
+		<ExpiryChip expiry={expiry} />
+	);
 }
 
 // The badge for an expiry from `useExpiry`.
@@ -44,9 +55,7 @@ export function ExpiryChip({ expiry }: { expiry: Expiry }) {
 						/>
 					}
 				>
-					{expiry.expired
-						? 'Expired'
-						: `Expires in ${formatTimeLeft(expiry.endsAt, now)}`}
+					{label(expiry, now)}
 				</TooltipTrigger>
 				<TooltipContent className="max-w-xs">
 					{explain(expiry)}
@@ -54,6 +63,44 @@ export function ExpiryChip({ expiry }: { expiry: Expiry }) {
 			</Tooltip>
 		</TooltipProvider>
 	);
+}
+
+function InlineExpiry({ expiry }: { expiry: Expiry }) {
+	const now = useNow();
+	return (
+		<span className="inline-flex items-center gap-1.5">
+			<span aria-hidden>·</span>
+			<TooltipProvider delay={150}>
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<span
+								className={cn(
+									expiry.expired
+										? 'text-error-foreground'
+										: expiresSoon(expiry.endsAt, now) &&
+												'text-warning-foreground',
+								)}
+								data-testid="proposal-expiry"
+								tabIndex={0}
+							/>
+						}
+					>
+						{label(expiry, now)}
+					</TooltipTrigger>
+					<TooltipContent className="max-w-xs">
+						{explain(expiry)}
+					</TooltipContent>
+				</Tooltip>
+			</TooltipProvider>
+		</span>
+	);
+}
+
+function label({ expired, endsAt }: Expiry, now: Date) {
+	return expired
+		? 'Expired'
+		: `Expires in ${formatTimeLeft(endsAt, now)}`;
 }
 
 function explain({ lastEpoch, expired, endsAt }: Expiry) {
