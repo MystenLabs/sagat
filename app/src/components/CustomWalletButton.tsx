@@ -24,6 +24,7 @@ import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useDefaultSuinsName } from '../hooks/useDefaultSuinsName';
+import { useSignInPolicy } from '../hooks/useSignInPolicy';
 import {
 	railSquareClass,
 	railTriggerClass,
@@ -109,27 +110,19 @@ const RailAvatar = ({
  */
 export function CustomWalletButton({
 	variant = 'header',
-	signIn = true,
 }: {
 	variant?: WalletVariant;
-	// Whether picking a wallet also signs in (see WalletPicker).
-	signIn?: boolean;
 }) {
 	const currentAccount = useCurrentAccount();
 
 	if (!currentAccount) {
 		return variant === 'rail' ? (
-			<WalletPicker
-				variant="rail"
-				side="top"
-				signIn={signIn}
-			/>
+			<WalletPicker variant="rail" side="top" />
 		) : (
 			<WalletPicker
 				variant="outline"
 				size="sm"
 				align="end"
-				signIn={signIn}
 			/>
 		);
 	}
@@ -291,6 +284,8 @@ function AccountItem({
 	canSign: boolean;
 }) {
 	const dappKit = useDAppKit();
+	// Where the route needs no sign-in, declining keeps the wallet connected.
+	const signIn = useSignInPolicy();
 	const { data: suinsName } = useDefaultSuinsName(
 		account.address,
 	);
@@ -312,7 +307,7 @@ function AccountItem({
 		// the row, which re-selects the same account (a no-op) and closes
 		// the menu like every other item.
 		switchTo();
-		signAndConnect();
+		signAndConnect({ keepWallet: !signIn });
 	};
 
 	return (

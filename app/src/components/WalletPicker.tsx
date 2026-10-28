@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SidebarRailTooltip } from '@/components/ui/sidebar';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { useSignInPolicy } from '@/hooks/useSignInPolicy';
 import { cn } from '@/lib/utils';
 
 const LABEL = 'Connect wallet';
@@ -22,25 +23,25 @@ type WalletPickerVariant = 'default' | 'outline' | 'rail';
 
 /**
  * "Connect wallet": a menu of the installed wallets. Picking one connects
- * it and, with `signIn`, asks for the sign-in signature straight after.
- * Pages that only need a wallet pass `signIn={false}`. The `rail` variant
- * is the sidebar footer's, a square icon on the collapsed rail.
+ * it and, where the route needs an API session, asks for the sign-in
+ * signature straight after; the picker reads the route's policy itself.
+ * The `rail` variant is the sidebar footer's, a square icon on the
+ * collapsed rail.
  */
 export function WalletPicker({
 	variant = 'default',
 	size = 'default',
 	side = 'bottom',
 	align = 'start',
-	signIn = true,
 }: {
 	variant?: WalletPickerVariant;
 	size?: 'default' | 'sm';
 	side?: 'top' | 'bottom';
 	align?: 'start' | 'center' | 'end';
-	signIn?: boolean;
 }) {
 	const wallets = useWallets();
 	const { connectWallet } = useApiAuth();
+	const signIn = useSignInPolicy();
 	const rail = variant === 'rail';
 
 	return (

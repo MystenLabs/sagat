@@ -56,7 +56,9 @@ interface ApiAuthContextType {
 	isCurrentAddressAuthenticated: boolean;
 
 	// Actions
-	signAndConnect: () => void;
+	// `keepWallet` keeps the wallet connected when the user declines,
+	// for routes where signing in is optional.
+	signAndConnect: (options?: SignInOptions) => void;
 	// From a wallet pick, or a Sign in click, until the sign-in settles.
 	isConnecting: boolean;
 
@@ -70,6 +72,10 @@ interface ApiAuthContextType {
 	) => Promise<void>;
 	// Signs out of the API, then disconnects the wallet.
 	disconnectWallet: () => Promise<void>;
+}
+
+interface SignInOptions {
+	keepWallet?: boolean;
 }
 
 interface ConnectOptions {
@@ -171,7 +177,8 @@ export function ApiAuthProvider({
 
 	// Connect mutation - signs message and sends to API
 	const connectMutation = useMutation({
-		mutationFn: async () => {
+		// The variable only steers onError; the sign-in ignores it.
+		mutationFn: async (_options?: SignInOptions) => {
 			// The kit's store, not the render's: right after a connect or an
 			// account switch the render hasn't caught up yet.
 			const { account, wallet } =
@@ -227,7 +234,10 @@ export function ApiAuthProvider({
 				queryKey: [QueryKeys.Proposals],
 			});
 		},
-		onError: async (error: Error) => {
+		onError: async (
+			error: Error,
+			options?: SignInOptions,
+		) => {
 			// The logout already said so; a failure toast would contradict it.
 			if (error.message === SIGNED_OUT_MID_SIGN_IN) return;
 			if (!(error instanceof WalletDeclinedError)) {
@@ -248,12 +258,13 @@ export function ApiAuthProvider({
 				queryClient.getQueryData<AuthCheckResponse>(
 					AUTH_QUERY_KEY,
 				)?.addresses ?? [];
-			if (signedIn.length === 0) {
+			if (signedIn.length === 0 && !options?.keepWallet) {
 				// Nobody is signed in: back to the connect card, with no
 				// wallet session saved (the kit clears its storage entry).
 				await dappKit.disconnectWallet().catch(() => {});
 			} else {
-				// Another account is still signed in, so keep the wallet.
+				// Another account is still signed in, or the sign-in was
+				// optional on this route, so the wallet stays.
 				toast.error(declinedMessage(error.wallet));
 			}
 		},
@@ -370,7 +381,8 @@ export function ApiAuthProvider({
 
 		// Actions
 		// `mutate` leaves failures to onError, so callers needn't catch.
-		signAndConnect: () => connectMutation.mutate(),
+		signAndConnect: (options) =>
+			connectMutation.mutate(options),
 		isConnecting: connectMutation.isPending || connecting,
 
 		declined,

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { WalletPicker } from '@/components/WalletPicker';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { useSignInPolicy } from '@/hooks/useSignInPolicy';
 import {
 	declinedMessage,
 	UNNAMED_WALLET,
@@ -22,15 +23,11 @@ import {
  * The signed-out page: connect a wallet, or, with one connected, sign the
  * message that proves the address. Connecting goes straight on to the
  * signature, so the second state is mostly what a restored session with an
- * expired cookie, or a switched account, sees. Pages that only need a
- * wallet pass `signIn={false}`, so picking one just connects it. The
- * router passes it in: this card can't import the router's route table.
+ * expired cookie, or a switched account, sees. On pages that only need a
+ * wallet, picking one just connects it: the picker and Try again read the
+ * route's policy themselves.
  */
-export function ConnectWalletCard({
-	signIn,
-}: {
-	signIn: boolean;
-}) {
+export function ConnectWalletCard() {
 	const currentAccount = useCurrentAccount();
 	const currentWallet = useCurrentWallet();
 	const wallets = useWallets();
@@ -41,6 +38,7 @@ export function ConnectWalletCard({
 		isConnecting,
 		isAuthCheckFailing,
 	} = useApiAuth();
+	const signIn = useSignInPolicy();
 	// Gone when the wallet was uninstalled since: then only the picker.
 	const declinedWallet =
 		declined &&
@@ -69,7 +67,7 @@ export function ConnectWalletCard({
 					note={note}
 					action={
 						<Button
-							onClick={signAndConnect}
+							onClick={() => signAndConnect()}
 							disabled={isConnecting || isAuthCheckFailing}
 							data-testid="sign-in-button"
 						>
@@ -98,13 +96,10 @@ export function ConnectWalletCard({
 								>
 									Try again
 								</Button>
-								<WalletPicker
-									variant="outline"
-									signIn={signIn}
-								/>
+								<WalletPicker variant="outline" />
 							</>
 						) : (
-							<WalletPicker signIn={signIn} />
+							<WalletPicker />
 						)
 					}
 				/>

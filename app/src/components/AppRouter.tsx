@@ -7,12 +7,13 @@ import {
 } from '@mysten/dapp-kit-react';
 import { useMemo, type ReactElement } from 'react';
 import {
-	matchPath,
 	Navigate,
 	Route,
 	Routes,
 	useLocation,
 } from 'react-router-dom';
+
+import { getAuthLevel } from '@/lib/auth-level';
 
 import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
@@ -33,12 +34,10 @@ import { SignersTab } from './tabs/SignersTab';
 import { ToolsPage } from './ToolsPage';
 import { SkeletonPage } from './ui/skeleton';
 
-export type AuthLevel = 'public' | 'wallet' | 'full';
-
+// Which of these need a wallet or a sign-in is `getAuthLevel`'s table.
 interface RouteConfig {
 	path: string;
 	element: ReactElement;
-	authLevel: AuthLevel;
 	children?: RouteConfig[];
 }
 
@@ -46,87 +45,61 @@ const routes: RouteConfig[] = [
 	{
 		path: '/tools',
 		element: <ToolsPage />,
-		authLevel: 'public',
 	},
 	// Dynamically generate routes for all tools
 	...TOOLS.map((tool) => ({
 		path: tool.path,
 		element: <ToolsPage />,
-		authLevel: 'public' as AuthLevel,
 	})),
 	{
 		path: '/proposals',
 		element: <ProposalDetailPage />,
-		authLevel: 'wallet',
 	},
 	{
 		path: '/',
 		element: <SmartDashboard />,
-		authLevel: 'full',
 	},
 	{
 		path: '/create',
 		element: <CreateMultisigPage />,
-		authLevel: 'full',
 	},
 	{
 		path: '/invitations',
 		element: <InvitationsPage />,
-		authLevel: 'full',
 	},
 	// Its own page, not one of the account's tabs. React Router ranks
 	// routes by how specific they are, so the order here doesn't matter.
 	{
 		path: '/multisig/:address/proposals/new',
 		element: <NewProposalPage />,
-		authLevel: 'full',
 	},
 	{
 		path: '/multisig/:address',
 		element: <MultisigDetailPage />,
-		authLevel: 'full',
 		children: [
 			{
 				path: '',
 				element: <Navigate to="proposals" replace />,
-				authLevel: 'full',
 			},
 			{
 				path: 'proposals',
 				element: <ProposalsTab />,
-				authLevel: 'full',
 			},
 			{
 				path: 'overview',
 				element: <OverviewTab />,
-				authLevel: 'full',
 			},
 			{
 				path: 'assets',
 				element: <AssetsTab />,
-				authLevel: 'full',
 			},
 			{
 				path: 'signers',
 				element: <SignersTab />,
-				authLevel: 'full',
 			},
 		],
 	},
 ];
-
-// The shell reads it too: picking a wallet signs in only where the page
-// needs an API session.
-// eslint-disable-next-line react-refresh/only-export-components
-export function getAuthLevel(pathname: string): AuthLevel {
-	for (const route of routes) {
-		if (matchPath(route.path, pathname)) {
-			return route.authLevel;
-		}
-	}
-	// Default to full auth for unknown routes
-	return 'full';
-}
 
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
@@ -216,10 +189,7 @@ export function AppRouter() {
 
 	// Full auth routes - require wallet + API auth. Wallet-only routes
 	// connect without asking for the sign-in signature.
-	if (!currentAccount)
-		return (
-			<ConnectWalletCard signIn={authLevel === 'full'} />
-		);
+	if (!currentAccount) return <ConnectWalletCard />;
 
 	// Wallet-only routes - require wallet but not API auth
 	if (authLevel === 'wallet') return renderRoutes;
@@ -236,7 +206,7 @@ export function AppRouter() {
 	if (isApiUnreachable) return <ApiUnreachable />;
 
 	if (!isCurrentAddressAuthenticated) {
-		return <ConnectWalletCard signIn />;
+		return <ConnectWalletCard />;
 	}
 
 	return renderRoutes;
