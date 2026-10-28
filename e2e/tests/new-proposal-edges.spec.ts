@@ -489,7 +489,7 @@ test.describe('new proposal edges: bytes', () => {
 		await expectSimulation(page, 'failure');
 		await expect(
 			page.getByTestId('review-simulation-error'),
-		).toContainText('expired');
+		).toContainText(/expired/i);
 	});
 
 	// Bytes built for another network: the sender is the account, but the

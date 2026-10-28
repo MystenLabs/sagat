@@ -2,13 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
-import type { SuiClientTypes } from '@mysten/sui/client';
 import { RpcError } from '@mysten/sui/grpc';
 import { Transaction } from '@mysten/sui/transactions';
 import { useMutation } from '@tanstack/react-query';
-
-import { getExpiry } from '../lib/expiration';
-import { fetchEpochInfo } from './useEpochInfo';
 
 /** The simulation ran and the transaction failed; the message says why. */
 export class SimulationFailedError extends Error {
@@ -27,6 +23,11 @@ const REFUSED_CODES = [
 	'OUT_OF_RANGE',
 ];
 
+// The node refuses an expired transaction with INTERNAL, the code the SDK
+// also uses for a node it can't reach, so this one is told by the node's
+// message.
+const EXPIRED_MESSAGE = 'Transaction Expired';
+
 /**
  * Whether a failed dry run couldn't be run at all (offline, a timeout, a
  * 5xx), where trying again may help. False when the error is a verdict
@@ -36,17 +37,10 @@ export function couldNotSimulate(error: unknown): boolean {
 	return !(
 		error instanceof SimulationFailedError ||
 		(error instanceof RpcError &&
-			REFUSED_CODES.includes(error.code))
+			(REFUSED_CODES.includes(error.code) ||
+				error.message === EXPIRED_MESSAGE))
 	);
 }
-
-const SIMULATION_INCLUDE = {
-	effects: true,
-	balanceChanges: true,
-	events: true,
-	transaction: true,
-	objectTypes: true,
-} as const;
 
 export function useDryRun() {
 	const client = useDAppKit().getClient();
@@ -55,31 +49,16 @@ export function useDryRun() {
 		mutationFn: async (transactionData: string) => {
 			const tx = Transaction.from(transactionData);
 
-			let result: SuiClientTypes.SimulateTransactionResult<
-				typeof SIMULATION_INCLUDE
-			>;
-			try {
-				result = await client.simulateTransaction({
-					transaction: await tx.build({ client }),
-					include: SIMULATION_INCLUDE,
-				});
-			} catch (error) {
-				// The node refuses an expired transaction with INTERNAL, the
-				// code the SDK also uses for a node it can't reach, so the
-				// transaction's own expiry tells the two apart.
-				const epochInfo = await fetchEpochInfo(
-					client,
-				).catch(() => null);
-				const expiry =
-					epochInfo &&
-					getExpiry(transactionData, epochInfo);
-				if (expiry?.expired) {
-					throw new SimulationFailedError(
-						`the transaction expired after epoch ${expiry.lastEpoch}`,
-					);
-				}
-				throw error;
-			}
+			const result = await client.simulateTransaction({
+				transaction: await tx.build({ client }),
+				include: {
+					effects: true,
+					balanceChanges: true,
+					events: true,
+					transaction: true,
+					objectTypes: true,
+				},
+			});
 
 			if (result.FailedTransaction) {
 				throw new SimulationFailedError(
