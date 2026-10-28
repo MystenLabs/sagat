@@ -2,9 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
+import type { SuiClientTypes } from '@mysten/sui/client';
 import { RpcError } from '@mysten/sui/grpc';
 import { Transaction } from '@mysten/sui/transactions';
 import { useMutation } from '@tanstack/react-query';
+
+import { getExpiry } from '../lib/expiration';
+import { fetchEpochInfo } from './useEpochInfo';
 
 /** The simulation ran and the transaction failed; the message says why. */
 export class SimulationFailedError extends Error {
@@ -36,6 +40,14 @@ export function couldNotSimulate(error: unknown): boolean {
 	);
 }
 
+const SIMULATION_INCLUDE = {
+	effects: true,
+	balanceChanges: true,
+	events: true,
+	transaction: true,
+	objectTypes: true,
+} as const;
+
 export function useDryRun() {
 	const client = useDAppKit().getClient();
 
@@ -43,16 +55,31 @@ export function useDryRun() {
 		mutationFn: async (transactionData: string) => {
 			const tx = Transaction.from(transactionData);
 
-			const result = await client.simulateTransaction({
-				transaction: await tx.build({ client }),
-				include: {
-					effects: true,
-					balanceChanges: true,
-					events: true,
-					transaction: true,
-					objectTypes: true,
-				},
-			});
+			let result: SuiClientTypes.SimulateTransactionResult<
+				typeof SIMULATION_INCLUDE
+			>;
+			try {
+				result = await client.simulateTransaction({
+					transaction: await tx.build({ client }),
+					include: SIMULATION_INCLUDE,
+				});
+			} catch (error) {
+				// The node refuses an expired transaction with INTERNAL, the
+				// code the SDK also uses for a node it can't reach, so the
+				// transaction's own expiry tells the two apart.
+				const epochInfo = await fetchEpochInfo(
+					client,
+				).catch(() => null);
+				const expiry =
+					epochInfo &&
+					getExpiry(transactionData, epochInfo);
+				if (expiry?.expired) {
+					throw new SimulationFailedError(
+						`the transaction expired after epoch ${expiry.lastEpoch}`,
+					);
+				}
+				throw error;
+			}
 
 			if (result.FailedTransaction) {
 				throw new SimulationFailedError(
