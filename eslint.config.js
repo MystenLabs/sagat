@@ -15,6 +15,7 @@ export default [
 			'**/storybook-static',
 			'**/vite-env.d.ts',
 			'app/**', // App has its own config with React rules
+			'.claude/skills/**/*.js', // Workflow scripts run inside a function wrapper
 		],
 	},
 	{
