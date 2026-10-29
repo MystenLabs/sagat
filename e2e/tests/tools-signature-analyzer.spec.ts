@@ -88,16 +88,22 @@ test.describe('signature analyzer tool', () => {
 		await expect(
 			details.getByTestId('multisig-participant'),
 		).toHaveCount(3);
-		for (const [member, weight] of [
-			[alice, '2'],
-			[bob, '1'],
-			[carol, '1'],
+		for (const [member, weight, signed] of [
+			[alice, '2', 'true'],
+			[bob, '1', 'true'],
+			[carol, '1', 'false'],
 		] as const) {
-			await expect(
-				details.locator(
-					`[data-testid="multisig-participant"][data-address="${member.address}"]`,
-				),
-			).toHaveAttribute('data-weight', weight);
+			const participant = details.locator(
+				`[data-testid="multisig-participant"][data-address="${member.address}"]`,
+			);
+			await expect(participant).toHaveAttribute(
+				'data-weight',
+				weight,
+			);
+			await expect(participant).toHaveAttribute(
+				'data-signed',
+				signed,
+			);
 		}
 
 		const cards = alice.page.getByTestId('signature-card');
@@ -128,5 +134,33 @@ test.describe('signature analyzer tool', () => {
 		await expect(
 			alice.page.getByTestId('signature-card'),
 		).toHaveCount(0);
+	});
+
+	// The tools have no tab strip; the sidebar's Developer group links them.
+	test('opens the tools from the sidebar', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		const { page } = alice;
+
+		await page.goto('/tools');
+		await expect(
+			page.getByTestId('tools-page'),
+		).toBeVisible();
+		await expect(page).toHaveURL(
+			/\/tools\/signature-analyzer$/,
+		);
+		await expect(
+			page.getByRole('heading', { level: 1 }),
+		).toHaveText('Signature Analyzer');
+
+		await page
+			.locator('[data-slot="sidebar"]')
+			.getByRole('link', { name: 'Broadcasts' })
+			.click();
+		await expect(page).toHaveURL(/\/tools\/broadcast$/);
+		await expect(
+			page.getByRole('heading', { level: 1 }),
+		).toHaveText('Broadcasts');
 	});
 });
