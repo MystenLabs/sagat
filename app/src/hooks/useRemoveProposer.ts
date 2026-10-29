@@ -60,7 +60,7 @@ export function useRemoveProposer(
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisig, multisigAddress],
 			});
-			toast.success('Proposer removed successfully');
+			toast.success('External proposer removed');
 			options?.onSuccess?.();
 		},
 		onError: (error) => {

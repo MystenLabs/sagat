@@ -15,6 +15,7 @@ import {
 	proposalStatusKey,
 	proposalTitle,
 	shortDigest,
+	signatureAddedMessage,
 	weightDots,
 } from '../src/lib/proposalUtils';
 import { transfer } from './transactions';
@@ -66,7 +67,7 @@ describe('proposalStatusKey', () => {
 });
 
 describe('proposalTitle', () => {
-	it('uses the description, cut at 50 characters', () => {
+	it('uses the trimmed description in full', () => {
 		expect(
 			proposalTitle({
 				description: '  Pay the grants wallet ',
@@ -78,7 +79,7 @@ describe('proposalTitle', () => {
 				description: 'x'.repeat(60),
 				digest: DIGEST,
 			}),
-		).toBe(`${'x'.repeat(50)}…`);
+		).toBe('x'.repeat(60));
 	});
 
 	it('falls back to the short digest', () => {
@@ -88,6 +89,23 @@ describe('proposalTitle', () => {
 		expect(
 			proposalTitle({ description: '  ', digest: DIGEST }),
 		).toBe(`Transaction ${formatDigest(DIGEST)}`);
+	});
+});
+
+describe('signatureAddedMessage', () => {
+	it('reports the weight still needed after the vote', () => {
+		expect(
+			signatureAddedMessage(
+				{ hasReachedThreshold: false, currentWeight: 2 },
+				4,
+			),
+		).toBe('Signature added. Needs 2 more weight.');
+		expect(
+			signatureAddedMessage(
+				{ hasReachedThreshold: true, currentWeight: 3 },
+				3,
+			),
+		).toBe('Signature added');
 	});
 });
 

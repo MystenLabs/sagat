@@ -11,15 +11,17 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { signatureAddedMessage } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
+import { type ProposalCardInput } from '@/lib/types';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
-interface SignProposalParams {
-	proposalId: number;
-	transactionBytes: string;
-}
+type SignProposalParams = Pick<
+	ProposalCardInput,
+	'id' | 'transactionBytes' | 'totalWeight'
+>;
 
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
@@ -28,7 +30,7 @@ export function useSignProposal() {
 
 	return useMutation({
 		mutationFn: async ({
-			proposalId,
+			id: proposalId,
 			transactionBytes,
 		}: SignProposalParams) => {
 			if (!currentAccount)
@@ -49,7 +51,7 @@ export function useSignProposal() {
 				signature: result.signature as string,
 			});
 		},
-		onSuccess: () => {
+		onSuccess: (vote, proposal) => {
 			// Invalidate all proposal-related queries
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
@@ -57,7 +59,9 @@ export function useSignProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			toast.success('Proposal signed successfully!');
+			toast.success(
+				signatureAddedMessage(vote, proposal.totalWeight),
+			);
 		},
 	});
 }

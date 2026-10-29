@@ -6,6 +6,7 @@ import {
 	type MultisigWithMembers,
 	type Proposal,
 	type ProposalWithSignatures,
+	type VoteProposalResponse,
 } from '@mysten/sagat';
 import { formatDigest } from '@mysten/sui/utils';
 
@@ -115,17 +116,26 @@ export function proposalStatusKey(
 	return 'pending';
 }
 
-/** The proposal's description, cut short, or its digest when it has none. */
+/** The proposal's description, or its digest when it has none. */
 export function proposalTitle(
 	proposal: Pick<Proposal, 'description' | 'digest'>,
 ) {
 	const description = proposal.description?.trim();
-	if (description) {
-		return description.length > 50
-			? `${description.slice(0, 50)}…`
-			: description;
-	}
+	if (description) return description;
 	return `Transaction ${formatDigest(proposal.digest)}`;
+}
+
+/**
+ * The toast once a signature lands: the weight the proposal still needs
+ * after the vote's tally, or just the confirmation once the vote reached
+ * the proposal's threshold.
+ */
+export function signatureAddedMessage(
+	vote: VoteProposalResponse,
+	totalWeight: number,
+) {
+	if (vote.hasReachedThreshold) return 'Signature added';
+	return `Signature added. Needs ${totalWeight - vote.currentWeight} more weight.`;
 }
 
 /**

@@ -111,7 +111,8 @@ export function useAccountAssets(
 		// React Compiler treat `displayCount` as mutable.
 		pagesLeft: allPages ? hasNextPage : false,
 		pricesLoading: recognized.isLoading,
-		pricesError: recognized.isError,
+		// A failed refetch keeps the loaded price list, the way balances do.
+		pricesError: recognized.isError && !recognized.data,
 		pricesAvailable,
 	});
 
@@ -123,6 +124,13 @@ export function useAccountAssets(
 				? fetchNextPage()
 				: refetch()),
 		[isFetchNextPageError, fetchNextPage, refetch],
+	);
+
+	// Fetches the price list and the balances again, for a fresh value.
+	const refetchPrices = recognized.refetch;
+	const refreshPrices = useCallback(
+		() => void Promise.all([refetchPrices(), refetch()]),
+		[refetchPrices, refetch],
 	);
 
 	return {
@@ -140,5 +148,12 @@ export function useAccountAssets(
 		...state,
 		/** Loads what failed again: the first page or a later one. */
 		retry,
+		/** When the price list was last fetched, or null before it loads. */
+		pricesUpdatedAt: recognized.data
+			? recognized.dataUpdatedAt
+			: null,
+		refreshPrices,
+		/** Whether the price list or the balances are being fetched. */
+		refreshingPrices: recognized.isFetching || isFetching,
 	};
 }

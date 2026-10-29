@@ -75,9 +75,11 @@ export function ProposalsTable({
 		);
 
 	return (
-		<div className={tableShellClass}>
-			<table className={tableClass}>
-				<thead>
+		// A container, so a narrow shell (a phone, or a narrow column) stacks
+		// each row into a block instead of squeezing the columns.
+		<div className={cn(tableShellClass, '@container')}>
+			<table className={cn(tableClass, '@max-md:block')}>
+				<thead className="@max-md:hidden">
 					<tr className={tableShellHeadRowClass}>
 						<th className="px-3">Proposal</th>
 						<th className="w-20 px-3 sm:w-26">Status</th>
@@ -100,7 +102,7 @@ export function ProposalsTable({
 					</tr>
 				</thead>
 				{!loading && !error && (
-					<tbody>
+					<tbody className="@max-md:block">
 						{proposals.map((proposal) => (
 							<ProposalRow
 								key={proposal.id}

@@ -39,14 +39,12 @@ const getOwnerDisplay = (
 
 export function ObjectLink({
 	owner,
-	type,
 	object,
 	inputObject,
 	senderAddress,
 	...tags
 }: {
 	inputObject?: string;
-	type?: string;
 	owner?: SuiClientTypes.ObjectOwner;
 	object?: SuiClientTypes.ChangedObject;
 	senderAddress?: string;
@@ -73,10 +71,6 @@ export function ObjectLink({
 		} else {
 			display = ownerDisplay;
 		}
-	}
-
-	if (type) {
-		display = type;
 	}
 
 	if (inputObject) {

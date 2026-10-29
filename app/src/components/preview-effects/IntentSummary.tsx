@@ -5,7 +5,7 @@ import type {
 	BalanceFlowsResult,
 	TransactionAnalysisIssue,
 } from '@mysten/wallet-sdk';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
 import { useCoinDisplayDataMap } from '../../hooks/useCoinDisplayData';
 import type { TransactionAnalysis } from '../../hooks/useTransactionAnalysis';
@@ -16,10 +16,10 @@ import {
 	formatUsdValue,
 } from '../../lib/coins';
 import { cn } from '../../lib/utils';
+import { ObjectLink } from '../transaction-preview/ObjectLink';
 import { Alert } from '../ui/Alert';
 import { Chip } from '../ui/chip';
 import { CoinIcon } from '../ui/CoinIcon';
-import { ObjectLink } from './ObjectLink';
 import { PreviewCard } from './PreviewCard';
 
 type Flow = BalanceFlowsResult['sender'][number];
@@ -74,6 +74,31 @@ function collectIssues(
 	}
 
 	return Array.from(issues.values());
+}
+
+/**
+ * The Transaction preview's analyzer view from an analysis: the summary,
+ * and the tab's badge (the issues the summary shows, plus a failed
+ * analysis).
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function analyzerTab(analysis: {
+	data?: TransactionAnalysis;
+	isPending: boolean;
+	error: Error | null;
+}): { analyzer: ReactNode; analyzerCount: number } {
+	return {
+		analyzer: (
+			<IntentSummary
+				analysis={analysis.data}
+				isLoading={analysis.isPending}
+				error={analysis.error}
+			/>
+		),
+		analyzerCount:
+			collectIssues(analysis.data).length +
+			(analysis.error ? 1 : 0),
+	};
 }
 
 function FlowRow({
@@ -253,7 +278,10 @@ export function IntentSummary({
 	if (!isLoading && !analysis && !error) return null;
 
 	return (
-		<PreviewCard.Root className={className}>
+		<PreviewCard.Root
+			className={className}
+			data-testid="intent-summary"
+		>
 			<PreviewCard.Header>
 				<div className="flex items-center justify-between gap-3">
 					<div className="font-medium">Static Analyzer</div>

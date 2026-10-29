@@ -5,6 +5,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import {
 	formatAddress,
 	MIST_PER_SUI,
+	normalizeSuiAddress,
 } from '@mysten/sui/utils';
 
 import { formatCoinType } from '../../app/src/lib/coin-type';
@@ -124,6 +125,114 @@ test.describe('new proposal: transfer', () => {
 		);
 	});
 
+	test('Review splits the account’s gas out of its SUI change and counts the tabs', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			1,
+		);
+		const { page } = alice;
+		const account = normalizeSuiAddress(multisig.address);
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		await fillTransfer(page, {
+			coinType: SUI_TYPE,
+			amount: '1.5',
+			recipient: randomAddress(),
+		});
+		await reviewTransfer(page);
+		await expectSimulation(page, 'success');
+
+		// The account's SUI row is the transfer alone; its net gas, a cost
+		// or a rebate, is a row of its own.
+		const sent = page.locator(
+			`[data-testid="balance-change"][data-address="${account}"]:not([data-gas])`,
+		);
+		await expect(sent).toHaveAttribute(
+			'data-amount',
+			String(-(3n * MIST_PER_SUI) / 2n),
+		);
+		const gas = page.locator(
+			`[data-testid="balance-change"][data-address="${account}"][data-gas]`,
+		);
+		const gasAmount = BigInt(
+			(await gas.getAttribute('data-amount')) ?? '0',
+		);
+		expect(gasAmount).not.toBe(0n);
+		const abs = gasAmount < 0n ? -gasAmount : gasAmount;
+		expect(abs).toBeLessThan(MIST_PER_SUI / 100n);
+
+		const rows = page.getByTestId('balance-change');
+		await expect(
+			page.getByTestId(
+				'transaction-preview-tab-balance-changes',
+			),
+		).toHaveAttribute(
+			'data-count',
+			String(await rows.count()),
+		);
+		// SplitCoins and TransferObjects.
+		await expect(
+			page.getByTestId('transaction-preview-tab-commands'),
+		).toHaveAttribute('data-count', '2');
+		const objectChanges = Number(
+			await page
+				.getByTestId(
+					'transaction-preview-tab-object-changes',
+				)
+				.getAttribute('data-count'),
+		);
+		expect(objectChanges).toBeGreaterThan(0);
+	});
+
+	test('the Static analyzer tab shows the analyzer and comes back to the simulation', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			1,
+		);
+		const { page } = alice;
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		await fillTransfer(page, {
+			coinType: SUI_TYPE,
+			amount: '1',
+			recipient: randomAddress(),
+		});
+		await reviewTransfer(page);
+		await expectSimulation(page, 'success');
+
+		const status = page.getByTestId(
+			'transaction-preview-status',
+		);
+		await expect(status).toBeVisible();
+
+		await page
+			.getByTestId('transaction-preview-view-analyzer')
+			.click();
+		await expect(status).toBeHidden();
+		await expect(
+			page.getByTestId('intent-summary'),
+		).toBeVisible();
+
+		await page
+			.getByTestId('transaction-preview-view-simulation')
+			.click();
+		await expect(status).toBeVisible();
+	});
+
 	test('Send on the SUI asset row opens Details with SUI chosen', async ({
 		createActor,
 		createIdentity,
@@ -175,6 +284,8 @@ test.describe('new proposal: transfer', () => {
 			await chain.addressBalance(multisig.address),
 		).toBe(300n * MIST_PER_SUI);
 		const { page } = alice;
+		// Signing in lands on the overview, which read the balance before the address balance was added.
+		await page.reload();
 		const recipient = randomAddress();
 
 		await page.getByTestId('multisig-tab-assets').click();

@@ -79,7 +79,7 @@ const routes: RouteConfig[] = [
 		children: [
 			{
 				path: '',
-				element: <Navigate to="proposals" replace />,
+				element: <Navigate to="overview" replace />,
 			},
 			{
 				path: 'proposals',

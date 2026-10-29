@@ -107,6 +107,15 @@ test.describe('several accounts in one wallet', () => {
 				'data-multisig-address',
 				multisig.address,
 			);
+			// On its overview.
+			await expect(page).toHaveURL(
+				new RegExp(
+					`/multisig/${multisig.address}/overview$`,
+				),
+			);
+			await expect(
+				page.getByTestId('account-value'),
+			).toBeVisible();
 		});
 
 		await test.step('switching back needs no new signature', async () => {

@@ -381,9 +381,11 @@ test.describe('new proposal edges: bytes', () => {
 			`\n\n  \t${bytes} \n\n`,
 			'Trimmed',
 		);
-		await page.getByTestId('review-raw-toggle').click();
+		await page
+			.getByTestId('transaction-preview-raw-toggle')
+			.click();
 		await expect(
-			page.getByTestId('review-raw-transaction'),
+			page.getByTestId('transaction-preview-raw'),
 		).toHaveValue(bytes);
 		await expectSimulation(page, 'success');
 		await proposeAndSign(page);
