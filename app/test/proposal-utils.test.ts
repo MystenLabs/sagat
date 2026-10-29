@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	isExternalProposer,
 	isProposalExpired,
+	listsAtCutoff,
 	mergeNewestFirst,
 	pendingFilter,
 	proposalStatusKey,
@@ -222,10 +223,11 @@ describe('pendingFilter', () => {
 	});
 });
 
-describe('mergeNewestFirst', () => {
-	const ids = (...list: number[]) =>
-		list.map((id) => ({ id }));
+// Rows with just these ids, for the merge helpers.
+const ids = (...list: number[]) =>
+	list.map((id) => ({ id }));
 
+describe('mergeNewestFirst', () => {
 	it('holds back rows a list with more to load could still go above', () => {
 		// Executed has loaded 100–98 with more to come; failed 50–48.
 		const executed = ids(100, 99, 98);
@@ -242,5 +244,36 @@ describe('mergeNewestFirst', () => {
 				{ rows: executed, hasNextPage: false },
 			]).map((row) => row.id),
 		).toEqual([100, 99, 98, 50, 49, 48]);
+	});
+
+	it('cuts interleaved lists at the oldest row a list with more could precede', () => {
+		expect(
+			mergeNewestFirst([
+				{ rows: ids(100, 60, 40), hasNextPage: true },
+				{ rows: ids(70, 50, 30), hasNextPage: false },
+			]).map((row) => row.id),
+		).toEqual([100, 70, 60, 50, 40]);
+	});
+
+	it('shows nothing while a list with more to load has no rows yet', () => {
+		expect(
+			mergeNewestFirst([
+				{ rows: [], hasNextPage: true },
+				{ rows: ids(50, 49), hasNextPage: false },
+			]),
+		).toEqual([]);
+	});
+});
+
+describe('listsAtCutoff', () => {
+	it('loads more only from the list that sets the cutoff', () => {
+		// Executed's next page can show more; failed's rows below 98 stay
+		// hidden whatever its next page holds.
+		expect(
+			listsAtCutoff([
+				{ rows: ids(100, 99, 98), hasNextPage: true },
+				{ rows: ids(50, 49, 48), hasNextPage: true },
+			]),
+		).toEqual([0]);
 	});
 });

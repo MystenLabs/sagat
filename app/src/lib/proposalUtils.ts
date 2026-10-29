@@ -212,29 +212,62 @@ export function isExternalProposer(
 	);
 }
 
+/** One of several lists of rows, each newest first, loaded by page. */
+type PagedList<T extends { id: number }> = {
+	rows: T[];
+	hasNextPage: boolean;
+};
+
+// The oldest loaded id of a list with more to load; one with no rows yet
+// could still hold anything.
+const oldestLoaded = (list: PagedList<{ id: number }>) =>
+	list.rows[list.rows.length - 1]?.id ?? Infinity;
+
 /**
- * Lists that each come newest first, merged into one. Until a list is
+ * The oldest id a merge of `lists` can show for sure. Until a list is
  * fully loaded, its next page can still hold rows newer than another
- * list's loaded ones, so rows stop at the newest of the oldest loaded
- * rows among the lists with more to load; the rest show once those
- * pages arrive and nothing can slot in above them.
+ * list's loaded ones, so the cutoff is the newest of the oldest loaded
+ * rows among the lists with more to load.
  */
-export function mergeNewestFirst<T extends { id: number }>(
-	lists: { rows: T[]; hasNextPage: boolean }[],
-): T[] {
-	const floor = Math.max(
+export function mergeCutoff(
+	lists: PagedList<{ id: number }>[],
+) {
+	return Math.max(
 		-Infinity,
 		...lists
 			.filter((list) => list.hasNextPage)
-			.map(
-				(list) =>
-					list.rows[list.rows.length - 1]?.id ?? Infinity,
-			),
+			.map(oldestLoaded),
 	);
+}
+
+/**
+ * Lists that each come newest first, merged into one, down to
+ * `mergeCutoff`; the rest show once the pages above them arrive.
+ */
+export function mergeNewestFirst<T extends { id: number }>(
+	lists: PagedList<T>[],
+): T[] {
+	const cutoff = mergeCutoff(lists);
 	return lists
 		.flatMap((list) => list.rows)
-		.filter((row) => row.id >= floor)
+		.filter((row) => row.id >= cutoff)
 		.sort((a, b) => b.id - a.id);
+}
+
+/**
+ * Which lists' next page moves the merge on: those with more to load whose
+ * oldest loaded row sets the cutoff. Another list's next page would only
+ * add rows the cutoff still hides.
+ */
+export function listsAtCutoff(
+	lists: PagedList<{ id: number }>[],
+) {
+	const cutoff = mergeCutoff(lists);
+	return lists.flatMap((list, index) =>
+		list.hasNextPage && oldestLoaded(list) === cutoff
+			? [index]
+			: [],
+	);
 }
 
 /** At most this many dots stand for a proposal's weight. */

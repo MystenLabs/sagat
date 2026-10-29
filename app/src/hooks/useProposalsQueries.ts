@@ -11,6 +11,7 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import {
+	listsAtCutoff,
 	mergeNewestFirst,
 	pendingFilter,
 } from '../lib/proposalUtils';
@@ -110,6 +111,27 @@ export function useProposalsQueries({
 	const failedPages = failedQuery.data?.pages;
 	const executedHasNext = proposalsQuery.hasNextPage;
 	const failedHasNext = failedQuery.hasNextPage;
+	// On Executed, the executed and failed lists, in `shownQueries` order.
+	const executedLists = useMemo(
+		() => [
+			{
+				rows:
+					proposalPages?.flatMap((page) => page.data) ?? [],
+				hasNextPage: executedHasNext,
+			},
+			{
+				rows:
+					failedPages?.flatMap((page) => page.data) ?? [],
+				hasNextPage: failedHasNext,
+			},
+		],
+		[
+			proposalPages,
+			failedPages,
+			executedHasNext,
+			failedHasNext,
+		],
+	);
 	const filteredProposals = useMemo(() => {
 		const loaded = proposalPages?.flatMap(
 			(page) => page.data,
@@ -125,23 +147,13 @@ export function useProposalsQueries({
 						classifyPending(proposal) === activeFilter,
 				);
 			case 'executed':
-				return mergeNewestFirst([
-					{ rows: loaded, hasNextPage: executedHasNext },
-					{
-						rows:
-							failedPages?.flatMap((page) => page.data) ??
-							[],
-						hasNextPage: failedHasNext,
-					},
-				]);
+				return mergeNewestFirst(executedLists);
 			default:
 				return loaded;
 		}
 	}, [
 		proposalPages,
-		failedPages,
-		executedHasNext,
-		failedHasNext,
+		executedLists,
 		activeFilter,
 		classifyPending,
 	]);
@@ -189,10 +201,13 @@ export function useProposalsQueries({
 			hasNextPage: shownQueries.some(
 				(query) => query.hasNextPage,
 			),
-			// Executed moves both of its lists on a page.
+			// On Executed, only the lists whose next page can show more.
 			fetchNextPage: () => {
-				for (const query of shownQueries)
-					if (query.hasNextPage) query.fetchNextPage();
+				if (activeFilter === 'executed')
+					for (const index of listsAtCutoff(executedLists))
+						shownQueries[index].fetchNextPage();
+				else if (proposalsQuery.hasNextPage)
+					proposalsQuery.fetchNextPage();
 			},
 			isFetchingNextPage: shownQueries.some(
 				(query) => query.isFetchingNextPage,
