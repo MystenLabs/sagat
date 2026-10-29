@@ -229,8 +229,10 @@ function NewProposalWizard({
 			},
 			{
 				onSuccess: (proposal) =>
+					// Replaced, so Back leaves for where the wizard opened from.
 					navigate(
 						proposalPagePath(address, proposal.digest),
+						{ replace: true },
 					),
 				onError: (error) => {
 					if (error instanceof SignatureDeclinedError)

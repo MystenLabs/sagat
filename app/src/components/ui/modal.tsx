@@ -70,7 +70,10 @@ export function ModalHeader({
 	);
 }
 
-/** The body, read out with the title. */
+/**
+ * The body, read out with the title. A long unbroken string (an error,
+ * an address) wraps rather than widening the dialog.
+ */
 export function ModalContent({
 	children,
 }: {
@@ -79,7 +82,7 @@ export function ModalContent({
 	return (
 		<DialogDescription
 			render={<div />}
-			className="mt-2 flex flex-col gap-2 text-14 text-muted-foreground"
+			className="mt-2 flex min-w-0 flex-col gap-2 text-14 wrap-anywhere text-muted-foreground"
 		>
 			{children}
 		</DialogDescription>
@@ -93,7 +96,7 @@ export function ModalActions({
 	children: ReactNode;
 }) {
 	return (
-		<div className="mt-5 grid auto-cols-fr grid-flow-col gap-2">
+		<div className="mt-5 grid min-w-0 auto-cols-fr grid-flow-col gap-2 *:min-w-0">
 			{children}
 		</div>
 	);

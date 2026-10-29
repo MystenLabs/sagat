@@ -71,5 +71,18 @@ export function useSignProposal() {
 				signatureAddedMessage(vote, proposal.totalWeight),
 			);
 		},
+		onError: (error: Error) => {
+			// The wallet declined, or the API refused the vote because the
+			// proposal changed meanwhile: refetch, so the page catches up.
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposal],
+			});
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposals],
+			});
+			toast.error("Couldn't sign the proposal", {
+				description: error.message,
+			});
+		},
 	});
 }

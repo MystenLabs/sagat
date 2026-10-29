@@ -78,8 +78,11 @@ export function SharedProposalPage() {
 			/>
 		);
 
+	// Keyed, so per-proposal state (the execute settling flag, the
+	// checkbox, dialogs) doesn't carry over to another proposal.
 	return (
 		<ProposalView
+			key={proposal.digest}
 			proposal={proposal}
 			labels={NO_LABELS}
 			proposalsPath={null}

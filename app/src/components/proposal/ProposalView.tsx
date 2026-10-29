@@ -96,8 +96,13 @@ export function ProposalView({
 	const { dryRun, analysis, preview } =
 		useTransactionPreview();
 
-	const status = proposalPageStatus(proposal, epochInfo);
 	const mismatch = proposal.network !== network;
+	// The epoch is the current network's: on another network there is no
+	// expiry verdict.
+	const status = proposalPageStatus(
+		proposal,
+		mismatch ? undefined : epochInfo,
+	);
 	const onChain =
 		proposal.status === ProposalStatus.SUCCESS ||
 		proposal.status === ProposalStatus.FAILURE;
@@ -293,11 +298,14 @@ export function ProposalView({
 							className="mr-0.5"
 							data-testid="proposal-status"
 						/>
+						{/* Inline text, so the name and address wrap as words. */}
 						<span
-							className="inline-flex min-w-0 items-center gap-1"
+							className="min-w-0"
 							data-testid="proposal-proposer"
 						>
-							Proposed by{' '}
+							<span className="whitespace-nowrap">
+								Proposed by
+							</span>{' '}
 							<SignerName
 								label={proposerLabel}
 								address={
@@ -310,10 +318,13 @@ export function ProposalView({
 								size="inline"
 							/>
 							{proposerLabel && (
-								<ShortAddress
-									address={proposal.proposerAddress}
-									className="ml-0.5 font-mono text-12"
-								/>
+								<>
+									{' '}
+									<ShortAddress
+										address={proposal.proposerAddress}
+										className="font-mono text-12 whitespace-nowrap"
+									/>
+								</>
 							)}
 						</span>
 						{createdAt && (
@@ -322,12 +333,15 @@ export function ProposalView({
 								{createdAt}
 							</span>
 						)}
-						{proposal.status === ProposalStatus.PENDING && (
-							<ProposalExpiry
-								transactionBytes={proposal.transactionBytes}
-								variant="inline"
-							/>
-						)}
+						{proposal.status === ProposalStatus.PENDING &&
+							!mismatch && (
+								<ProposalExpiry
+									transactionBytes={
+										proposal.transactionBytes
+									}
+									variant="inline"
+								/>
+							)}
 					</span>
 				}
 				actions={<HeaderActions proposal={proposal} />}

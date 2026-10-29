@@ -10,6 +10,7 @@ import { formatAddress } from '@mysten/sui/utils';
 import { joinList } from './create-multisig';
 import { type EpochInfo } from './expiration';
 import {
+	isExternalProposer,
 	isProposalExpired,
 	proposalStatusKey,
 	type ProposalStatusKey,
@@ -316,9 +317,13 @@ export function trimPeriod(message: string) {
 	return message.trim().replace(/\.$/, '');
 }
 
+// More signers than this go unnamed in the waiting note.
+const MAX_NAMED_SIGNERS = 3;
+
 /**
  * Once the viewer signed: who can still approve it, by name when any one
- * of the others is enough, else the weight still missing.
+ * of the others is enough (up to three of them), else the weight still
+ * missing.
  */
 function waitingNote(
 	proposal: Pick<PageProposal, 'multisig' | 'signatures'>,
@@ -337,6 +342,8 @@ function waitingNote(
 		others.length > 0 &&
 		others.every((member) => member.weight >= missing)
 	) {
+		if (others.length > MAX_NAMED_SIGNERS)
+			return 'You signed. Any other signer can approve it.';
 		const names = others.map((member) =>
 			nameOf(addressOf(member.publicKey), labels),
 		);
@@ -383,6 +390,12 @@ export function activityRows({
 			? `${base} (you)`
 			: base;
 	};
+	// Marked like the header: "(you)" first, else "(external)".
+	const proposer =
+		proposal.proposerAddress !== currentAddress &&
+		isExternalProposer(proposal)
+			? `${name(proposal.proposerAddress)} (external)`
+			: name(proposal.proposerAddress);
 
 	const proposerSignature = proposal.signatures.find(
 		(sig) =>
@@ -391,7 +404,7 @@ export function activityRows({
 	const rows: Omit<ActivityRow, 'tone'>[] = [
 		{
 			key: 'proposed',
-			text: `${proposerSignature ? 'Proposed and signed' : 'Proposed'} by ${name(proposal.proposerAddress)}`,
+			text: `${proposerSignature ? 'Proposed and signed' : 'Proposed'} by ${proposer}`,
 			at: proposal.createdAt,
 		},
 	];

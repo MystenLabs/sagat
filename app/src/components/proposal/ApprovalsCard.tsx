@@ -101,6 +101,10 @@ export function ApprovalsCard({
 	const [executeAfterSigning, setExecuteAfterSigning] =
 		useState(true);
 	const [cancelling, setCancelling] = useState(false);
+	// Set when an execution starts and cleared only when it fails, so
+	// the button stays on Executing… until the proposal refetches as
+	// closed instead of flashing back to Execute in between.
+	const [settling, setSettling] = useState(false);
 	// The second simulation's error, while its dialog is open.
 	const [stillFails, setStillFails] = useState<
 		string | null
@@ -112,7 +116,16 @@ export function ApprovalsCard({
 		viewerPublicKey,
 	);
 	const gas = gasEstimate(simulation?.result);
-	const isExecuting = executing.isPending;
+	const isExecuting =
+		executing.isPending ||
+		(settling &&
+			(status === 'pending' || status === 'ready'));
+	const execute = (target: ProposalCardInput) => {
+		setSettling(true);
+		executing.execute(target, {
+			onError: () => setSettling(false),
+		});
+	};
 	const rechecking = dryRun.isPending && status === 'ready';
 	const canAct = viewer === 'member';
 	// Cancelling signs a message for the API session.
@@ -171,7 +184,7 @@ export function ApprovalsCard({
 				)
 					return;
 				// With the new signature, so it needn't wait for the refetch.
-				executing.execute({
+				execute({
 					...proposal,
 					signatures: [
 						...proposal.signatures,
@@ -189,14 +202,13 @@ export function ApprovalsCard({
 	// proposal executes; when it still fails, the viewer is asked.
 	const onExecute = () => {
 		if (!failing) {
-			executing.execute(proposal);
+			execute(proposal);
 			return;
 		}
 		dryRun.mutate(proposal.transactionBytes, {
-			onSuccess: () => executing.execute(proposal),
+			onSuccess: () => execute(proposal),
 			onError: (error) => {
-				if (couldNotSimulate(error))
-					executing.execute(proposal);
+				if (couldNotSimulate(error)) execute(proposal);
 				else setStillFails(safeDecode(error.message));
 			},
 		});
@@ -462,7 +474,7 @@ export function ApprovalsCard({
 						variant="destructive"
 						onClick={() => {
 							setStillFails(null);
-							executing.execute(proposal);
+							execute(proposal);
 						}}
 						data-testid="execute-anyway-button"
 					>

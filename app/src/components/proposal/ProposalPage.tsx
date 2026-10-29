@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type PublicProposal } from '@mysten/sagat';
+import {
+	SagatApiError,
+	type PublicProposal,
+} from '@mysten/sagat';
 import { useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 
@@ -48,7 +51,10 @@ export function ProposalPage() {
 	const proposal = proposalQuery.data;
 	if (!proposal || !digest)
 		return (
-			<ProposalLoadError error={proposalQuery.error} />
+			<ProposalLoadError
+				error={proposalQuery.error}
+				proposalsPath={proposalsPath(multisig.address)}
+			/>
 		);
 
 	if (proposal.multisigAddress !== multisig.address) {
@@ -63,7 +69,9 @@ export function ProposalPage() {
 				replace
 			/>
 		) : (
-			<ProposalLoadError />
+			<ProposalLoadError
+				proposalsPath={proposalsPath(multisig.address)}
+			/>
 		);
 	}
 
@@ -87,28 +95,46 @@ function AccountProposal({
 		() => memberLabels(multisig.members),
 		[multisig.members],
 	);
+	// Keyed, so per-proposal state (the execute settling flag, the
+	// checkbox, dialogs) doesn't carry over to another proposal.
 	return (
 		<ProposalView
+			key={proposal.digest}
 			proposal={proposal}
 			labels={labels}
-			proposalsPath={`/multisig/${multisig.address}/proposals`}
+			proposalsPath={proposalsPath(multisig.address)}
 			canCancel
 		/>
 	);
 }
 
-/** The digest is unknown, or the proposal couldn't be loaded. */
+const proposalsPath = (address: string) =>
+	`/multisig/${address}/proposals`;
+
+/**
+ * The digest is unknown, or the proposal couldn't be loaded. An unknown
+ * digest reads the same everywhere; `proposalsPath` links back under the
+ * account.
+ */
 export function ProposalLoadError({
 	error,
+	proposalsPath,
 }: {
 	error?: unknown;
+	proposalsPath?: string;
 }) {
+	const notFound =
+		error instanceof SagatApiError && error.status === 404;
 	return (
 		<div className="page-shell">
-			<PageHeader title="Proposal" />
+			<PageHeader
+				title="Proposal"
+				backLink={proposalsPath}
+				backLabel="Proposals"
+			/>
 			<ErrorState
 				title="Failed to load proposal"
-				error={error}
+				error={notFound ? undefined : error}
 				fallback="This proposal doesn't exist."
 				hint="Check that the link is correct."
 				testId="proposal-detail-error"

@@ -83,6 +83,7 @@ describe('export utils', () => {
 			transactionBytes: 'transaction-bytes',
 			proposerAddress: '0xproposer',
 			description: 'Pay supplier',
+			createdAt: '2026-10-13T08:55:00.000Z',
 			totalWeight: 3,
 			currentWeight: 3,
 			network: 'testnet',
@@ -130,6 +131,7 @@ describe('export utils', () => {
 				transactionBytes: 'transaction-bytes',
 				proposerAddress: '0xproposer',
 				description: 'Pay supplier',
+				createdAt: '2026-10-13T08:55:00.000Z',
 				currentWeight: 3,
 				threshold: 3,
 				signatures: [

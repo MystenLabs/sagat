@@ -156,7 +156,7 @@ describe('activityRows', () => {
 			currentAddress: maya.address,
 		});
 		expect(external.map((row) => row.text)).toEqual([
-			`Proposed by ${formatAddress(outsider)}`,
+			`Proposed by ${formatAddress(outsider)} (external)`,
 			'Signed by Daniel',
 		]);
 	});
@@ -206,6 +206,26 @@ describe('approvalsNote', () => {
 		).toBe(
 			'You signed. Needs 3 more weight from the other signers.',
 		);
+	});
+
+	it('stops naming who can approve it past three signers', () => {
+		const pending = proposal({
+			threshold: 2,
+			signedBy: [maya],
+		});
+		const extra = [1, 2].map((i) =>
+			signer(`Extra ${i}`, 1),
+		);
+		pending.multisig.members.push(
+			...extra.map((s, i) => ({
+				publicKey: s.publicKey,
+				weight: s.weight,
+				order: SIGNERS.length + i,
+			})),
+		);
+		expect(
+			approvalsNote({ ...base, proposal: pending }),
+		).toBe('You signed. Any other signer can approve it.');
 	});
 
 	it('asks an unsigned member to check the wallet when the dry run couldn’t run', () => {

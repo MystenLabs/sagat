@@ -14,7 +14,7 @@ import {
 } from '@tanstack/react-query';
 
 import { toast } from '@/lib/toast';
-import { getExplorerUrl } from '@/lib/utils';
+import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiClient } from '../lib/api';
@@ -134,11 +134,23 @@ export function useExecuteProposal() {
 				digest,
 				variables.proposal.network,
 			);
+			const link = explorerUrl
+				? { label: 'View on explorer', href: explorerUrl }
+				: undefined;
+			// The node can land the transaction and still fail it.
+			const { status } = data.executionResult;
+			if (!status.success) {
+				toast.error("Couldn't execute the proposal", {
+					description:
+						safeDecode(status.error.message) ||
+						'The transaction failed on chain.',
+					link,
+				});
+				return;
+			}
 			toast.success('Proposal executed', {
 				description: digest,
-				link: explorerUrl
-					? { label: 'View on explorer', href: explorerUrl }
-					: undefined,
+				link,
 			});
 		},
 		onError: (error: Error) => {
@@ -157,11 +169,17 @@ export function useExecuteOrVerify() {
 	const execute = useExecuteProposal();
 	const verify = useVerifyProposal();
 	return {
-		execute: (proposal: PublicProposal) =>
+		execute: (
+			proposal: PublicProposal,
+			options?: { onError?: () => void },
+		) =>
 			execute.mutate(
 				{ proposal },
 				{
-					onError: () => verify.mutate(proposal.digest),
+					onError: () => {
+						verify.mutate(proposal.digest);
+						options?.onError?.();
+					},
 				},
 			),
 		isPending: execute.isPending,
