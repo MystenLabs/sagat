@@ -19,6 +19,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { Chip } from '@/components/ui/chip';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { sumWeight, thresholdLabel } from '@/lib/threshold';
 
 import {
 	BytesField,
@@ -115,10 +116,7 @@ function MultiSigDetails({
 	const address = multisigInfo.publicKey.toSuiAddress();
 	const combinedKey =
 		multisigInfo.publicKey.toSuiPublicKey();
-	const totalWeight = multisigInfo.participants.reduce(
-		(sum, participant) => sum + participant.weight,
-		0,
-	);
+	const totalWeight = sumWeight(multisigInfo.participants);
 	const signedKeys = new Set(
 		signatures.map((sig) => sig.publicKey.toSuiPublicKey()),
 	);
@@ -140,7 +138,10 @@ function MultiSigDetails({
 					<Copyable value={address} />
 				</DetailRow>
 				<DetailRow label="Threshold">
-					{multisigInfo.threshold} of {totalWeight}
+					{thresholdLabel({
+						threshold: multisigInfo.threshold,
+						totalWeight,
+					})}
 				</DetailRow>
 				<DetailRow label="Combined public key">
 					<Copyable value={combinedKey} />

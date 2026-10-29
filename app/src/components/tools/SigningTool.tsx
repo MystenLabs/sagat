@@ -8,10 +8,7 @@ import {
 } from '@mysten/dapp-kit-react';
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
-import {
-	formatAddress,
-	normalizeSuiAddress,
-} from '@mysten/sui/utils';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { PenLine, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -30,6 +27,8 @@ import {
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
+import { accountName } from '@/lib/account-name';
+import { thresholdLabel } from '@/lib/threshold';
 import { toast } from '@/lib/toast';
 import {
 	errorMessage,
@@ -361,7 +360,7 @@ export default function SigningTool() {
 	if (!currentAccount) {
 		signNote = 'Connect a wallet to sign this transaction.';
 	} else if (senderMultisig) {
-		signNote = `${senderMultisig.name || formatAddress(senderMultisig.address)}’s threshold is ${senderMultisig.threshold} of ${senderMultisig.totalWeight}, so it can’t run on your signature alone. Sign to add yours.`;
+		signNote = `${accountName(senderMultisig)}’s threshold is ${thresholdLabel(senderMultisig)}, so it can’t run on your signature alone. Sign to add yours.`;
 	} else if (foreignSender) {
 		signNote =
 			'The sender isn’t your connected wallet, so this can’t run on your signature alone. Sign to add yours.';

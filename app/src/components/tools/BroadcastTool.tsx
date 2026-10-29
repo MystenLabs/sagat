@@ -35,6 +35,11 @@ interface BroadcastResult {
 	network: string;
 }
 
+const CANT_READ_BYTES =
+	'Can’t read this as transaction bytes. Paste the full bytes in base64.';
+const CANT_READ_SIGNATURE =
+	'Can’t read this as a signature. Paste the combined signature in base64.';
+
 /** Whether the value decodes as base64. */
 function isBase64(value: string) {
 	try {
@@ -161,11 +166,17 @@ export default function BroadcastTool() {
 		setError(null);
 	};
 
+	const bytesInput = transactionBytes.trim();
+	const signatureInput = signature.trim();
+	const bytesUnreadable =
+		!!bytesInput && !isBase64(bytesInput);
+	const signatureUnreadable =
+		!!signatureInput && !isBase64(signatureInput);
 	const canBroadcast =
-		!!transactionBytes.trim() &&
-		!!signature.trim() &&
-		isBase64(transactionBytes.trim()) &&
-		isBase64(signature.trim()) &&
+		!!bytesInput &&
+		!!signatureInput &&
+		!bytesUnreadable &&
+		!signatureUnreadable &&
 		!broadcasting;
 
 	return (
@@ -192,6 +203,10 @@ export default function BroadcastTool() {
 					value={transactionBytes}
 					onChange={edit(setTransactionBytes)}
 					readOnly={!!result || broadcasting}
+					error={
+						bytesUnreadable ? CANT_READ_BYTES : undefined
+					}
+					errorTestId="broadcast-bytes-error"
 				/>
 				<BytesField
 					id="signature"
@@ -202,6 +217,12 @@ export default function BroadcastTool() {
 					value={signature}
 					onChange={edit(setSignature)}
 					readOnly={!!result || broadcasting}
+					error={
+						signatureUnreadable
+							? CANT_READ_SIGNATURE
+							: undefined
+					}
+					errorTestId="broadcast-signature-error"
 				/>
 
 				{result ? (
