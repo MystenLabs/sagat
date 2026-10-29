@@ -237,7 +237,7 @@ test.describe('transaction signer tool', () => {
 		});
 
 		await alice.page.goto('/tools/sign');
-		await alice.connectWallet();
+		await alice.connectWallet({ signIn: false });
 		await alice.page
 			.getByTestId('transaction-data-input')
 			.fill(bytes);
