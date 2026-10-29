@@ -234,6 +234,7 @@ test.describe('proposals', () => {
 		});
 
 		await bob.signIn();
+		await bob.openProposalsTab();
 		await bob.page.setViewportSize({
 			width: 375,
 			height: 812,
