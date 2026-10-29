@@ -104,6 +104,24 @@ export function proposalTitle(
 	return `Transaction ${formatDigest(proposal.digest)}`;
 }
 
+/**
+ * The toast once a signature lands: the weight the proposal still needs
+ * with the new signer's weight counted, or just the confirmation once
+ * nothing more is needed.
+ */
+export function signatureAddedMessage(
+	proposal: Pick<Proposal, 'currentWeight' | 'totalWeight'>,
+	signerWeight: number,
+) {
+	const needed =
+		proposal.totalWeight -
+		proposal.currentWeight -
+		signerWeight;
+	return needed > 0
+		? `Signature added. Needs ${needed} more weight.`
+		: 'Signature added';
+}
+
 /** At most this many dots stand for a proposal's weight. */
 const MAX_WEIGHT_DOTS = 10;
 

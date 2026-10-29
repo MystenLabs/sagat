@@ -11,15 +11,22 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { signatureAddedMessage } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
+import { type ProposalCardInput } from '@/lib/types';
+import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
-interface SignProposalParams {
-	proposalId: number;
-	transactionBytes: string;
-}
+type SignProposalParams = Pick<
+	ProposalCardInput,
+	| 'id'
+	| 'transactionBytes'
+	| 'currentWeight'
+	| 'totalWeight'
+	| 'multisig'
+>;
 
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
@@ -28,7 +35,7 @@ export function useSignProposal() {
 
 	return useMutation({
 		mutationFn: async ({
-			proposalId,
+			id: proposalId,
 			transactionBytes,
 		}: SignProposalParams) => {
 			if (!currentAccount)
@@ -49,7 +56,7 @@ export function useSignProposal() {
 				signature: result.signature as string,
 			});
 		},
-		onSuccess: () => {
+		onSuccess: ({ hasReachedThreshold }, proposal) => {
 			// Invalidate all proposal-related queries
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
@@ -57,7 +64,18 @@ export function useSignProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			toast.success('Proposal signed successfully!');
+			const signerWeight =
+				proposal.multisig.members.find(
+					(member) =>
+						extractPublicKeyFromBase64(
+							member.publicKey,
+						).toSuiAddress() === currentAccount?.address,
+				)?.weight ?? 0;
+			toast.success(
+				hasReachedThreshold
+					? 'Signature added'
+					: signatureAddedMessage(proposal, signerWeight),
+			);
 		},
 	});
 }

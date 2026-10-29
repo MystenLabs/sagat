@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	proposalStatusKey,
 	proposalTitle,
+	signatureAddedMessage,
 	weightDots,
 } from '../src/lib/proposalUtils';
 
@@ -80,6 +81,23 @@ describe('proposalTitle', () => {
 		expect(
 			proposalTitle({ description: '  ', digest: DIGEST }),
 		).toBe(`Transaction ${formatDigest(DIGEST)}`);
+	});
+});
+
+describe('signatureAddedMessage', () => {
+	it('counts the new signature toward the threshold', () => {
+		expect(
+			signatureAddedMessage(
+				{ currentWeight: 1, totalWeight: 4 },
+				1,
+			),
+		).toBe('Signature added. Needs 2 more weight.');
+		expect(
+			signatureAddedMessage(
+				{ currentWeight: 1, totalWeight: 3 },
+				2,
+			),
+		).toBe('Signature added');
 	});
 });
 

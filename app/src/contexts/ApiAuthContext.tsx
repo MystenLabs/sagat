@@ -174,7 +174,7 @@ export function ApiAuthProvider({
 		onSuccess: async () => {
 			queryClient.clear();
 			await refetchAuth();
-			toast.success('Disconnected');
+			toast.success('Wallet disconnected');
 		},
 		onError: (error: Error) => {
 			toast.error(`Disconnect failed: ${error.message}`);
