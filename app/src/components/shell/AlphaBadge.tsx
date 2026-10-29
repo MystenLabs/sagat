@@ -48,8 +48,10 @@ export function AlphaBadge() {
 					This app is in alpha
 				</p>
 				<p className="mt-2 text-13 text-foreground-secondary">
-					It’s still being built, so features may change and
-					some things may not work yet.
+					It’s still evolving, so some features may change
+					and new ones will roll out along the way. Your
+					funds stay secure on Sui, and nothing moves
+					without the signatures your account requires.
 				</p>
 			</PopoverContent>
 		</Popover>
