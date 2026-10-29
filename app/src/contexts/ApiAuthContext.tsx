@@ -177,10 +177,11 @@ export function ApiAuthProvider({
 	// too late.
 	const sessionGeneration = useRef(0);
 
-	// A disconnect from the wallet's side ends the session like a
-	// logout, so a signature answer from before it is dropped. A switch
-	// between accounts does not: a late answer for another account is
-	// still checked by address in onError.
+	// A disconnect from the wallet's side drops a sign-in still in
+	// flight, as a logout does (a cookie its answer sets is cleared), but
+	// doesn't otherwise sign out of the API. A switch between accounts
+	// does not: a late answer for another account is still checked by
+	// address in onError.
 	useEffect(
 		() =>
 			dappKit.stores.$connection.listen((next, prev) => {
