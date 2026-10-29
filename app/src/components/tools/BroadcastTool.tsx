@@ -3,50 +3,52 @@
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { fromBase64 } from '@mysten/sui/utils';
-import { AlertCircle, Check } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { useState } from 'react';
 
-import { NetworkSelector } from '@/components/NetworkSelector';
-import { Button } from '@/components/ui/button';
-import { FieldDisplay } from '@/components/ui/FieldDisplay';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Alert } from '@/components/ui/Alert';
+import {
+	Button,
+	disabledButton,
+} from '@/components/ui/button';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { type SuiNetwork } from '@/lib/network';
+import { getExplorerUrl, safeDecode } from '@/lib/utils';
+
+import {
+	BytesField,
+	NetworkField,
+	ReadOnlyField,
+	ResultActions,
+	ToolActions,
+	ToolCard,
+} from './parts';
+
+interface BroadcastError {
+	message: string;
+	/** The network it was broadcast on, named when it isn't the current one. */
+	network: SuiNetwork;
+}
 
 interface BroadcastResult {
 	digest: string;
+	/** The network it was broadcast on, for the explorer link. */
+	network: string;
 }
 
-function BytesField({
-	id,
-	label,
-	testId,
-	placeholder,
-	rows,
-	value,
-	onChange,
-}: {
-	id: string;
-	label: string;
-	testId: string;
-	placeholder: string;
-	rows: number;
-	value: string;
-	onChange: (value: string) => void;
-}) {
-	return (
-		<div className="flex flex-col gap-2">
-			<Label htmlFor={id}>{label}</Label>
-			<Textarea
-				id={id}
-				data-testid={testId}
-				placeholder={placeholder}
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				rows={rows}
-				className="font-mono text-12"
-			/>
-		</div>
-	);
+const CANT_READ_BYTES =
+	'Can’t read this as transaction bytes. Paste the full bytes in base64.';
+const CANT_READ_SIGNATURE =
+	'Can’t read this as a signature. Paste the combined signature in base64.';
+
+/** Whether the value decodes as base64. */
+function isBase64(value: string) {
+	try {
+		fromBase64(value);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function BroadcastResultDisplay({
@@ -56,109 +58,88 @@ function BroadcastResultDisplay({
 	result: BroadcastResult;
 	onReset: () => void;
 }) {
+	const explorerUrl = getExplorerUrl(
+		result.digest,
+		result.network,
+	);
+
 	return (
 		<div
-			className="flex flex-col gap-4 rounded-lg border border-success-border bg-surface p-4"
+			className="flex flex-col gap-5"
 			data-testid="broadcast-result"
 			data-digest={result.digest}
 		>
-			<div className="flex items-center justify-between gap-3">
-				<div className="flex items-center gap-2 text-14 font-medium">
-					<Check
-						strokeWidth={3}
-						className="size-4 text-success-foreground"
-					/>
-					Transaction broadcast
-				</div>
-				<Button
-					type="button"
-					onClick={onReset}
-					variant="outline"
-					size="sm"
-					data-testid="broadcast-reset-button"
-				>
-					Broadcast another
-				</Button>
-			</div>
-			<FieldDisplay
+			<Alert variant="success">
+				Sent. The network accepted this transaction.
+			</Alert>
+			<ReadOnlyField
 				label="Transaction digest"
 				value={result.digest}
 			/>
-		</div>
-	);
-}
-
-function BroadcastError({
-	error,
-	onReset,
-}: {
-	error: string;
-	onReset: () => void;
-}) {
-	return (
-		<div
-			role="alert"
-			className="flex flex-col gap-3 rounded-lg border border-error-border bg-error p-4"
-			data-testid="broadcast-error"
-		>
-			<div className="flex items-center justify-between gap-3">
-				<div className="flex items-center gap-2 text-14 font-medium text-error-foreground">
-					<AlertCircle className="size-4" />
-					Broadcast failed
-				</div>
-				<Button
-					type="button"
-					onClick={onReset}
-					variant="outline"
-					size="sm"
-					data-testid="broadcast-reset-button"
-				>
-					Try again
-				</Button>
-			</div>
-			<p className="text-13 whitespace-pre-wrap text-error-foreground">
-				{error}
-			</p>
+			<ResultActions
+				onReset={onReset}
+				resetLabel="Broadcast another"
+				resetTestId="broadcast-reset-button"
+				explorerUrl={explorerUrl}
+				copyValue={result.digest}
+				copyLabel="Copy digest"
+				copyMessage="Digest copied"
+			/>
 		</div>
 	);
 }
 
 export default function BroadcastTool() {
 	const client = useDAppKit().getClient();
+	const { network } = useNetwork();
 	const [transactionBytes, setTransactionBytes] =
 		useState('');
 	const [signature, setSignature] = useState('');
 	const [broadcasting, setBroadcasting] = useState(false);
 	const [result, setResult] =
 		useState<BroadcastResult | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<BroadcastError | null>(
+		null,
+	);
+
+	const bytesInput = transactionBytes.trim();
+	const signatureInput = signature.trim();
+	const bytesUnreadable =
+		!!bytesInput && !isBase64(bytesInput);
+	const signatureUnreadable =
+		!!signatureInput && !isBase64(signatureInput);
+	const canBroadcast =
+		!!bytesInput &&
+		!!signatureInput &&
+		!bytesUnreadable &&
+		!signatureUnreadable &&
+		!broadcasting;
 
 	const handleBroadcast = async () => {
-		if (!transactionBytes || !signature) {
-			setError(
-				'Both transaction bytes and signature are required',
-			);
-			return;
-		}
+		if (!canBroadcast) return;
 
+		const broadcastNetwork = network;
 		setBroadcasting(true);
 		setError(null);
 		setResult(null);
 
 		try {
 			const result = await client.executeTransaction({
-				transaction: fromBase64(transactionBytes),
-				signatures: [signature],
+				transaction: fromBase64(bytesInput),
+				signatures: [signatureInput],
 				include: {
 					effects: true,
 				},
 			});
 
 			if (result.FailedTransaction) {
-				setError(
-					result.FailedTransaction.effects.status.error
-						?.message || 'Failed to broadcast transaction',
-				);
+				setError({
+					message:
+						result.FailedTransaction.effects.status.error
+							?.message ||
+						'Failed to broadcast transaction',
+					network: broadcastNetwork,
+				});
 				return;
 			}
 
@@ -168,77 +149,107 @@ export default function BroadcastTool() {
 
 			setResult({
 				digest: result.Transaction!.digest,
+				network: broadcastNetwork,
 			});
 		} catch (err) {
-			setError(
-				err instanceof Error
-					? err.message
-					: 'Failed to broadcast transaction',
-			);
+			setError({
+				message:
+					err instanceof Error
+						? err.message
+						: 'Failed to broadcast transaction',
+				network: broadcastNetwork,
+			});
 		} finally {
 			setBroadcasting(false);
 		}
 	};
 
+	// An edit makes the last failure stale.
+	const edit =
+		(setValue: (value: string) => void) =>
+		(value: string) => {
+			setValue(value);
+			setError(null);
+		};
+
 	const handleReset = () => {
+		setTransactionBytes('');
+		setSignature('');
 		setResult(null);
 		setError(null);
 	};
 
-	const canBroadcast =
-		transactionBytes.trim() &&
-		signature.trim() &&
-		!broadcasting;
-
 	return (
-		<div className="flex flex-col gap-6">
-			{!result && !error && (
-				<>
-					<BytesField
-						id="transaction-bytes"
-						label="Transaction bytes (base64)"
-						testId="broadcast-bytes-input"
-						placeholder="Paste the transaction bytes…"
-						rows={4}
-						value={transactionBytes}
-						onChange={setTransactionBytes}
+		<>
+			{error && (
+				<Alert
+					variant="error"
+					className="mb-5"
+					data-testid="broadcast-error"
+				>
+					<span className="whitespace-pre-wrap">
+						{error.network === network
+							? 'Broadcast failed'
+							: `Broadcast on ${error.network} failed`}
+						: {safeDecode(error.message)}
+					</span>
+				</Alert>
+			)}
+			<ToolCard>
+				<NetworkField />
+				<BytesField
+					id="transaction-bytes"
+					label="Transaction bytes"
+					testId="broadcast-bytes-input"
+					placeholder="Paste the transaction bytes (base64)"
+					minHeight="min-h-30"
+					value={transactionBytes}
+					onChange={edit(setTransactionBytes)}
+					readOnly={!!result || broadcasting}
+					error={
+						bytesUnreadable ? CANT_READ_BYTES : undefined
+					}
+					errorTestId="broadcast-bytes-error"
+				/>
+				<BytesField
+					id="signature"
+					label="Combined signature"
+					testId="broadcast-signature-input"
+					placeholder="Paste the combined signature (base64)"
+					minHeight="min-h-24"
+					value={signature}
+					onChange={edit(setSignature)}
+					readOnly={!!result || broadcasting}
+					error={
+						signatureUnreadable
+							? CANT_READ_SIGNATURE
+							: undefined
+					}
+					errorTestId="broadcast-signature-error"
+				/>
+
+				{result ? (
+					<BroadcastResultDisplay
+						result={result}
+						onReset={handleReset}
 					/>
-					<BytesField
-						id="signature"
-						label="Combined signature (base64)"
-						testId="broadcast-signature-input"
-						placeholder="Paste the combined signature…"
-						rows={3}
-						value={signature}
-						onChange={setSignature}
-					/>
-					<div className="flex items-center justify-between gap-3 border-t pt-4">
-						<NetworkSelector />
+				) : (
+					<ToolActions>
 						<Button
 							type="button"
 							onClick={handleBroadcast}
 							disabled={!canBroadcast}
+							className={disabledButton}
 							data-testid="broadcast-button"
 						>
-							{broadcasting ? 'Broadcasting…' : 'Broadcast'}
+							<Radio />
+							{broadcasting
+								? 'Broadcasting…'
+								: 'Broadcast transaction'}
 						</Button>
-					</div>
-				</>
-			)}
-
-			{result && (
-				<BroadcastResultDisplay
-					result={result}
-					onReset={handleReset}
-				/>
-			)}
-
-			{error && (
-				<BroadcastError
-					error={error}
-					onReset={handleReset}
-				/>
-			)}
-		</div>
+					</ToolActions>
+				)}
+			</ToolCard>
+		</>
 	);
 }

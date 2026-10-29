@@ -21,7 +21,7 @@ export const TOOLS: Tool[] = [
 		id: 'signature-analyzer',
 		name: 'Signature Analyzer',
 		description:
-			'Decode a Sui signature, single or multisig, into its keys, addresses and weights.',
+			'Decode a Sui signature. Works for multisig and single signatures.',
 		icon: <FileText className="size-4" />,
 		component: SignatureAnalyzer,
 		path: '/tools/signature-analyzer',
@@ -30,16 +30,16 @@ export const TOOLS: Tool[] = [
 		id: 'sign',
 		name: 'Transaction Signer',
 		description:
-			'Preview a transaction, then sign or execute it with your connected wallet.',
+			'Preview a Sui transaction and sign it with your connected wallet.',
 		icon: <PenLine className="size-4" />,
 		component: SigningTool,
 		path: '/tools/sign',
 	},
 	{
 		id: 'broadcast',
-		name: 'Broadcast Transaction',
+		name: 'Broadcasts',
 		description:
-			'Execute an already signed transaction on the Sui network.',
+			'Send a signed transaction to the Sui network.',
 		icon: <Radio className="size-4" />,
 		component: BroadcastTool,
 		path: '/tools/broadcast',

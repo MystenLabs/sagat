@@ -11,15 +11,13 @@ import {
 	Transaction,
 	TransactionDataBuilder,
 } from '@mysten/sui/transactions';
-import { toBase64 } from '@mysten/sui/utils';
 import {
-	AlertCircle,
-	Check,
-	ExternalLink,
-} from 'lucide-react';
+	normalizeSuiAddress,
+	toBase64,
+} from '@mysten/sui/utils';
+import { PenLine, Send } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { NetworkSelector } from '@/components/NetworkSelector';
 import { analyzerTab } from '@/components/preview-effects/IntentSummary';
 import {
 	pendingSimulation,
@@ -30,56 +28,49 @@ import { TransactionPreview } from '@/components/transaction-preview/Transaction
 import { Alert } from '@/components/ui/Alert';
 import {
 	Button,
-	buttonVariants,
+	disabledButton,
 } from '@/components/ui/button';
-import { FieldDisplay } from '@/components/ui/FieldDisplay';
-import { Label } from '@/components/ui/label';
+import { CardHeading } from '@/components/ui/card';
 import { SkeletonLine } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
+import { useUserMultisigs } from '@/hooks/useUserMultisigs';
+import { accountName } from '@/lib/account-name';
+import { thresholdLabel } from '@/lib/threshold';
 import { toast } from '@/lib/toast';
 import {
-	cn,
 	errorMessage,
 	getExplorerUrl,
 	safeDecode,
 } from '@/lib/utils';
 
+import {
+	BytesField,
+	NetworkField,
+	ReadOnlyField,
+	ResultActions,
+	ToolActions,
+	ToolCard,
+} from './parts';
+
 interface SignedResult {
 	digest?: string;
 	signature: string;
 	bytes: string;
+	/** The network it was signed on, for the explorer link. */
+	network: string;
 	/** Set when the transaction executed but failed on chain. */
 	failure?: { message: string };
 }
 
-function TransactionInput({
-	value,
-	onChange,
-}: {
-	value: string;
-	onChange: (value: string) => void;
-}) {
-	return (
-		<div className="flex flex-col gap-2">
-			<div className="flex items-center justify-between gap-3">
-				<Label htmlFor="transaction-data">
-					Transaction data (JSON or base64)
-				</Label>
-				<NetworkSelector />
-			</div>
-			<Textarea
-				id="transaction-data"
-				data-testid="transaction-data-input"
-				placeholder="Paste transaction JSON or base64 bytes…"
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				rows={6}
-				className="font-mono text-12"
-			/>
-		</div>
-	);
+const CANT_READ =
+	'Can’t read this as a transaction. Paste the full data as JSON or base64, and check the network above.';
+
+/** The transaction's sender, normalised, or null when it names none. */
+function senderOf(transactionData: string): string | null {
+	const sender =
+		Transaction.from(transactionData).getData().sender;
+	return sender ? normalizeSuiAddress(sender) : null;
 }
 
 /**
@@ -119,8 +110,7 @@ function previewBytes(
 
 const networkWarning = (
 	<Alert variant="warning">
-		Make sure the network next to the input matches the
-		transaction.
+		Make sure the network above matches the transaction.
 	</Alert>
 );
 
@@ -142,17 +132,21 @@ function PreviewResult({
 
 	const pending = simulation?.status === 'pending';
 	const passed = simulation?.status === 'passed';
-	// The block marks its own result; without it, this wrapper does.
+	// The block marks its own result and carries its own heading; without
+	// it, this wrapper does.
 	const withBlock = !!(simulation && bytes);
 	const settledWithoutBlock = !pending && !withBlock;
 	// One tree for pending and settled, so the preview keeps its tab when
 	// the simulation lands.
 	return (
-		<div className="flex flex-col gap-4">
+		<section className="flex flex-col gap-3">
+			{!withBlock && (
+				<CardHeading title="Transaction preview" />
+			)}
 			{/* Without the preview block, the analyzer shows on its own. */}
 			{settledWithoutBlock && analyzer}
 			<div
-				className="flex flex-col gap-4"
+				className="flex flex-col gap-3"
 				data-testid={
 					settledWithoutBlock
 						? 'transaction-preview-result'
@@ -194,129 +188,72 @@ function PreviewResult({
 				)}
 				{!pending && !passed && networkWarning}
 			</div>
-		</div>
+		</section>
 	);
 }
 
 function SignedResultDisplay({
 	result,
 	onStartOver,
-	network,
 }: {
 	result: SignedResult;
 	onStartOver: () => void;
-	network: string;
 }) {
-	const failed = !!result.failure;
-	const explorerUrl = result.digest
-		? getExplorerUrl(result.digest, network)
+	const { digest, failure, signature, network } = result;
+	const explorerUrl = digest
+		? getExplorerUrl(digest, network)
 		: null;
 
 	return (
 		<div
-			className={cn(
-				'flex flex-col gap-4 rounded-lg border bg-surface p-4',
-				failed
-					? 'border-error-border'
-					: 'border-success-border',
-			)}
+			className="flex flex-col gap-5"
 			data-testid="signed-result"
-			data-result={failed ? 'failure' : 'success'}
-			data-digest={result.digest}
-			data-signature={result.signature}
+			data-result={failure ? 'failure' : 'success'}
+			data-signature={signature}
+			data-digest={digest || undefined}
 		>
-			<div className="flex items-center justify-between gap-3">
-				<div className="flex items-center gap-2 text-14 font-medium">
-					{failed ? (
-						<>
-							<AlertCircle className="size-4 text-error-foreground" />
-							Transaction failed
-						</>
-					) : (
-						<>
-							<Check
-								strokeWidth={3}
-								className="size-4 text-success-foreground"
-							/>
-							{result.digest
-								? 'Transaction signed and executed'
-								: 'Transaction signed'}
-						</>
-					)}
-				</div>
-				<Button
-					type="button"
-					onClick={onStartOver}
-					variant="outline"
-					size="sm"
-					data-testid="start-over-button"
-				>
-					Start over
-				</Button>
-			</div>
-			<FieldDisplay
-				label={
-					result.digest ? 'Transaction digest' : 'Signature'
-				}
-				value={result.digest || result.signature}
-			/>
-			{result.failure && (
-				<p
-					className="text-13 whitespace-pre-wrap text-error-foreground"
-					data-testid="signed-result-error"
-				>
-					{safeDecode(result.failure.message)}
-				</p>
-			)}
-			{explorerUrl && (
-				<div>
-					<a
-						href={explorerUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						className={buttonVariants({
-							variant: 'outline',
-							size: 'sm',
-						})}
+			{failure ? (
+				<Alert variant="error">
+					Transaction failed:{' '}
+					<span
+						className="whitespace-pre-wrap"
+						data-testid="signed-result-error"
 					>
-						<ExternalLink />
-						View on explorer
-					</a>
-				</div>
+						{safeDecode(failure.message)}
+					</span>
+				</Alert>
+			) : (
+				<Alert variant="success">
+					{digest
+						? 'Executed. The network accepted this transaction.'
+						: 'Signed. Copy the signature and share it with the other signers.'}
+				</Alert>
 			)}
+			{digest ? (
+				<ReadOnlyField
+					label="Transaction digest"
+					value={digest}
+				/>
+			) : (
+				<ReadOnlyField
+					label="Signature"
+					value={signature}
+				/>
+			)}
+			<ResultActions
+				onReset={onStartOver}
+				resetLabel="Start over"
+				resetTestId="start-over-button"
+				explorerUrl={explorerUrl}
+				copyValue={digest ?? signature}
+				copyLabel={
+					digest ? 'Copy digest' : 'Copy signature'
+				}
+				copyMessage={
+					digest ? 'Digest copied' : 'Signature copied'
+				}
+			/>
 		</div>
-	);
-}
-
-function SignButton({
-	onSign,
-	isSigning,
-	shouldExecute,
-	disabled,
-}: {
-	onSign: (shouldExecute: boolean) => void;
-	isSigning: boolean;
-	shouldExecute: boolean;
-	disabled?: boolean;
-}) {
-	return (
-		<Button
-			type="button"
-			onClick={() => onSign(shouldExecute)}
-			disabled={isSigning || disabled}
-			variant={shouldExecute ? 'default' : 'outline'}
-			data-testid={
-				shouldExecute
-					? 'sign-and-execute-button'
-					: 'sign-button'
-			}
-		>
-			{isSigning
-				? 'Signing…'
-				: shouldExecute
-					? 'Sign and execute'
-					: 'Sign only'}
-		</Button>
 	);
 }
 
@@ -325,6 +262,8 @@ export default function SigningTool() {
 		useState<SignedResult | null>(null);
 	const [transactionData, setTransactionData] =
 		useState('');
+	const [unreadable, setUnreadable] = useState(false);
+	const [sender, setSender] = useState<string | null>(null);
 	const [isSigning, setIsSigning] = useState(false);
 	const [isSigningAndExecuting, setIsSigningAndExecuting] =
 		useState(false);
@@ -333,6 +272,7 @@ export default function SigningTool() {
 	const network = useCurrentNetwork();
 	const dappKit = useDAppKit();
 	const currentAccount = useCurrentAccount();
+	const { data: multisigs } = useUserMultisigs();
 
 	const {
 		dryRun,
@@ -366,9 +306,15 @@ export default function SigningTool() {
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
-			if (transactionData.trim()) {
-				preview(transactionData);
+			if (!transactionData.trim()) return;
+			// Data the SDK can't read never reaches the dry run.
+			try {
+				setSender(senderOf(transactionData));
+			} catch {
+				setUnreadable(true);
+				return;
 			}
+			preview(transactionData);
 		}, 250);
 
 		return () => clearTimeout(timer);
@@ -377,15 +323,17 @@ export default function SigningTool() {
 
 	const handleTransactionDataChange = (value: string) => {
 		setTransactionData(value);
+		setUnreadable(false);
+		setSender(null);
+		// Drops a run still in flight too, so its result can't land on the
+		// edited data.
 		resetPreview();
-		if (signedResult) {
-			setSignedResult(null);
-		}
 	};
 
 	const handleSign = async (shouldExecute: boolean) => {
 		if (!bytes || isSignPending) return;
 
+		const signedOn = network;
 		try {
 			const tx = Transaction.from(bytes);
 
@@ -403,6 +351,7 @@ export default function SigningTool() {
 					digest: txResult?.digest,
 					signature: txResult?.signatures[0] ?? '',
 					bytes,
+					network: signedOn,
 					failure: failed
 						? {
 								message:
@@ -421,6 +370,7 @@ export default function SigningTool() {
 					digest: undefined,
 					signature: result.signature,
 					bytes: result.bytes,
+					network: signedOn,
 				});
 			}
 		} catch (error) {
@@ -440,63 +390,109 @@ export default function SigningTool() {
 	const handleStartOver = () => {
 		setSignedResult(null);
 		setTransactionData('');
+		setUnreadable(false);
+		setSender(null);
 		resetPreview();
 	};
 
+	// A sender other than the wallet needs more signatures than this one,
+	// so the transaction can only be signed here, not executed.
+	const foreignSender =
+		!!currentAccount &&
+		!!sender &&
+		sender !== normalizeSuiAddress(currentAccount.address);
+	const senderMultisig = foreignSender
+		? multisigs?.find(
+				(multisig) =>
+					normalizeSuiAddress(multisig.address) === sender,
+			)
+		: undefined;
+
+	let signNote: string | undefined;
+	if (!currentAccount) {
+		signNote = 'Connect a wallet to sign this transaction.';
+	} else if (senderMultisig) {
+		signNote = `${accountName(senderMultisig)}’s threshold is ${thresholdLabel(senderMultisig)}, so it can’t run on your signature alone. Sign to add yours.`;
+	} else if (foreignSender) {
+		signNote =
+			'The sender isn’t your connected wallet, so this can’t run on your signature alone. Sign to add yours.';
+	}
+
+	const showPreview =
+		!signedResult &&
+		!unreadable &&
+		(dryRun.isPending || dryRun.data || dryRun.error);
+
 	return (
-		<div className="flex flex-col gap-6">
-			{!signedResult && (
-				<TransactionInput
-					value={transactionData}
-					onChange={handleTransactionDataChange}
+		<ToolCard>
+			<NetworkField />
+			<BytesField
+				id="transaction-data"
+				label="Transaction data"
+				testId="transaction-data-input"
+				placeholder="Paste the transaction data (JSON or base64)"
+				minHeight="min-h-40"
+				value={transactionData}
+				onChange={handleTransactionDataChange}
+				readOnly={!!signedResult || isSignPending}
+				error={unreadable ? CANT_READ : undefined}
+				errorTestId="transaction-data-error"
+			/>
+
+			{showPreview && (
+				<PreviewResult
+					simulation={simulation}
+					dryRunError={
+						current ? dryRun.error?.message : undefined
+					}
+					bytes={bytes}
+					analysis={analysis}
 				/>
 			)}
-
-			{!signedResult &&
-				(dryRun.isPending ||
-					dryRun.data ||
-					dryRun.error) && (
-					<PreviewResult
-						simulation={simulation}
-						dryRunError={
-							current ? dryRun.error?.message : undefined
-						}
-						bytes={bytes}
-						analysis={analysis}
-					/>
-				)}
 
 			{signedResult && (
 				<SignedResultDisplay
 					result={signedResult}
 					onStartOver={handleStartOver}
-					network={network}
 				/>
 			)}
 
-			{isDryRunSuccessful && !signedResult && (
-				<div className="flex flex-col gap-3 border-t pt-4">
-					{!currentAccount && (
-						<Alert>
-							Connect a wallet to sign this transaction.
-						</Alert>
-					)}
-					<div className="flex justify-end gap-2">
-						<SignButton
-							onSign={handleSign}
-							shouldExecute={false}
-							isSigning={isSigning}
+			{isDryRunSuccessful &&
+				!signedResult &&
+				!unreadable && (
+					<ToolActions
+						note={signNote}
+						noteTestId="sign-note"
+					>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => handleSign(true)}
+							disabled={
+								!currentAccount ||
+								foreignSender ||
+								isSignPending
+							}
+							className={disabledButton}
+							data-testid="sign-and-execute-button"
+						>
+							<Send />
+							{isSigningAndExecuting
+								? 'Signing…'
+								: 'Sign and execute'}
+						</Button>
+						<Button
+							type="button"
+							onClick={() => handleSign(false)}
 							disabled={!currentAccount || isSignPending}
-						/>
-						<SignButton
-							onSign={handleSign}
-							shouldExecute={true}
-							isSigning={isSigningAndExecuting}
-							disabled={!currentAccount || isSignPending}
-						/>
-					</div>
-				</div>
-			)}
-		</div>
+							className={disabledButton}
+							data-testid="sign-button"
+						>
+							<PenLine />
+							{isSigning ? 'Signing…' : 'Sign'}
+						</Button>
+					</ToolActions>
+				)}
+		</ToolCard>
 	);
 }

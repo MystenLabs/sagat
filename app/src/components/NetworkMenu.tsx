@@ -9,10 +9,7 @@ import {
 	DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useNetwork } from '@/contexts/NetworkContext';
-import {
-	useNetworkOptions,
-	type NetworkScope,
-} from '@/hooks/useNetworkOptions';
+import { useNetworkOptions } from '@/hooks/useNetworkOptions';
 import { cn } from '@/lib/utils';
 
 /** Green on mainnet, amber on any test network. */
@@ -36,17 +33,13 @@ export function NetworkStatusDot({
 }
 
 /**
- * The body of every network menu: one item per network the scope can
+ * The body of the app's network menu: one item per network the app can
  * offer, switching the wallet kit's network. Wrap it in a DropdownMenu
  * with the trigger of your choice.
  */
-export function NetworkMenuItems({
-	scope = 'app',
-}: {
-	scope?: NetworkScope;
-}) {
+export function NetworkMenuItems() {
 	const { network, setNetwork } = useNetwork();
-	const options = useNetworkOptions(scope);
+	const options = useNetworkOptions('app');
 
 	return (
 		<DropdownMenuGroup>

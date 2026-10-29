@@ -442,4 +442,31 @@ test.describe('app shell', () => {
 			),
 		).toBe(multisig.address);
 	});
+
+	test('opens the tools from the sidebar', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		const { page } = alice;
+
+		await page.goto('/tools');
+		await expect(
+			page.getByTestId('tools-page'),
+		).toBeVisible();
+		await expect(page).toHaveURL(
+			/\/tools\/signature-analyzer$/,
+		);
+		await expect(
+			page.getByRole('heading', { level: 1 }),
+		).toHaveText('Signature Analyzer');
+
+		await page
+			.locator('[data-slot="sidebar"]')
+			.getByRole('link', { name: 'Broadcasts' })
+			.click();
+		await expect(page).toHaveURL(/\/tools\/broadcast$/);
+		await expect(
+			page.getByRole('heading', { level: 1 }),
+		).toHaveText('Broadcasts');
+	});
 });

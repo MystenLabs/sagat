@@ -256,11 +256,11 @@ test.describe('transaction signer tool', () => {
 		const { page } = alice;
 
 		// No wallet is connected: the test wallet only has localnet, so the
-		// menu disables devnet once it is.
+		// picker disables devnet once it is.
 		await page.goto('/tools/sign');
 		await page.getByTestId('tool-network-button').click();
 		await page
-			.getByRole('menuitem', { name: 'devnet' })
+			.getByRole('option', { name: 'Devnet' })
 			.click();
 		await expect(
 			page.getByTestId('tool-network-button'),
@@ -314,6 +314,58 @@ test.describe('transaction signer tool', () => {
 		).toHaveCount(0);
 		await expect(
 			alice.page.getByTestId('sign-and-execute-button'),
+		).toHaveCount(0);
+	});
+
+	test("offers Sign but not Sign and execute for another sender's transaction", async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		await chain.fund(bob.address);
+		const bytes = await chain.buildSuiTransfer({
+			sender: bob.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		await alice.page.goto('/tools/sign');
+		await alice.connectWallet({ signIn: false });
+		await alice.page
+			.getByTestId('transaction-data-input')
+			.fill(bytes);
+		await expect(
+			alice.page.getByTestId('transaction-preview-result'),
+		).toHaveAttribute('data-result', 'success');
+		// Alice's signature can't execute Bob's transaction on its own.
+		await expect(
+			alice.page.getByTestId('sign-and-execute-button'),
+		).toBeDisabled();
+		await expect(
+			alice.page.getByTestId('sign-button'),
+		).toBeEnabled();
+		await expect(
+			alice.page.getByTestId('sign-note'),
+		).toBeVisible();
+	});
+
+	test('shows an error for input that is not a transaction', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+
+		await alice.page.goto('/tools/sign');
+		await alice.page
+			.getByTestId('transaction-data-input')
+			.fill('hello');
+
+		await expect(
+			alice.page.getByTestId('transaction-data-error'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('transaction-preview-result'),
 		).toHaveCount(0);
 	});
 
@@ -438,16 +490,16 @@ test.describe('transaction signer tool', () => {
 		await page
 			.getByTestId('transaction-data-input')
 			.fill('not a transaction');
-		const result = page.getByTestId(
-			'transaction-preview-result',
-		);
-		await expect(result).toHaveCount(1);
-		await expect(result).toHaveAttribute(
-			'data-result',
-			'failure',
-		);
+		// Input the SDK can't read never reaches the dry run: the input says
+		// so, and no preview block or sign buttons show.
 		await expect(
-			result.getByTestId('transaction-preview-status'),
+			page.getByTestId('transaction-data-error'),
+		).toBeVisible();
+		await expect(
+			page.getByTestId('transaction-preview-result'),
+		).toHaveCount(0);
+		await expect(
+			page.getByTestId('transaction-preview-status'),
 		).toHaveCount(0);
 		await expect(
 			page.getByTestId('sign-button'),
