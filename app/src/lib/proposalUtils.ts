@@ -195,6 +195,14 @@ export function proposalLinkUrl(digest: string) {
 	return `${window.location.origin}/proposals?digest=${digest}`;
 }
 
+/** A proposal's page under its account. */
+export function proposalPagePath(
+	address: string,
+	digest: string,
+) {
+	return `/multisig/${address}/proposals/${digest}`;
+}
+
 /**
  * A digest cut to its first ten and last four characters, e.g.
  * "HkV4y3pGsy…E7ac". `formatDigest` keeps only the head; the list shows

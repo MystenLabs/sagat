@@ -35,6 +35,12 @@ export type SimulatedTransaction =
 export type SimulationStatus =
 	'pending' | 'passed' | 'failed';
 
+/**
+ * Where the result comes from: a dry run, or the executed transaction
+ * read back from the chain.
+ */
+export type PreviewSource = 'simulation' | 'chain';
+
 export interface NamedAccount {
 	address: string;
 	name: string | null;
@@ -49,10 +55,12 @@ export interface TransactionPreviewInput {
 	/** Why the simulation failed, when known; the payload's status error is the fallback. */
 	error?: string | null;
 	network: SuiNetwork;
-	/** When the simulation ran; null while pending. */
+	/** When the simulation ran, or on chain when the transaction was confirmed; null while pending or unknown. */
 	simulatedAt?: Date | null;
 	/** Accounts to show by name, such as the multisig the proposal is for. */
 	accounts?: NamedAccount[];
+	/** A dry run (the default) or the executed transaction. */
+	source?: PreviewSource;
 }
 
 export interface BalanceChangeRow {
@@ -74,7 +82,9 @@ export interface TransactionPreviewModel {
 	ledgerHash: string;
 	/** From the bytes; null when the bytes set no sender. */
 	sender: NamedAccount | null;
-	/** "Mainnet · Oct 13, 2026, 8:54 AM" once simulated, "Mainnet" while pending. */
+	/** The status chip: "Simulation passed", or "Succeeded" for a transaction read from the chain. */
+	statusLabel: string;
+	/** "Mainnet · Oct 13, 2026, 8:54 AM" once simulated, "Mainnet" while pending; from the chain, "Confirmed Oct 13, 2026, 8:54 AM", or empty without a time. */
 	statusMeta: string;
 	/** The failure, when `status` is 'failed'. */
 	error: string | null;
@@ -101,7 +111,7 @@ function ledgerHashOf(bytes: Uint8Array): string {
 }
 
 /** Net gas: computation plus storage, less the storage rebate; negative when the rebate exceeds the rest. */
-function gasCost(
+export function gasCost(
 	gas: SuiClientTypes.GasCostSummary,
 ): bigint {
 	return (
@@ -173,10 +183,26 @@ function balanceChangeRows(
 }
 
 /** "0.0041 SUI" for a cost, "0.0019 SUI rebate" for a rebate. */
-function gasLabel(cost: bigint): string {
+export function gasLabel(cost: bigint): string {
 	const amount = `${formatCoinAmount((cost < 0n ? -cost : cost).toString(), 9)} SUI`;
 	return cost < 0n ? `${amount} rebate` : amount;
 }
+
+const STATUS_LABELS: Record<
+	PreviewSource,
+	Record<SimulationStatus, string>
+> = {
+	simulation: {
+		passed: 'Simulation passed',
+		failed: 'Simulation failed',
+		pending: 'Simulating…',
+	},
+	chain: {
+		passed: 'Succeeded',
+		failed: 'Failed',
+		pending: 'Loading…',
+	},
+};
 
 /** Everything the Transaction preview block shows, from the bytes and the dry run. */
 export function buildTransactionPreview(
@@ -189,6 +215,7 @@ export function buildTransactionPreview(
 		network,
 		simulatedAt = null,
 		accounts = [],
+		source = 'simulation',
 	} = input;
 
 	const decoded = fromBase64(bytes);
@@ -232,9 +259,15 @@ export function buildTransactionPreview(
 			TransactionDataBuilder.getDigestFromBytes(decoded),
 		ledgerHash: ledgerHashOf(decoded),
 		sender,
-		statusMeta: simulatedAt
-			? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`
-			: networkLabel(network),
+		statusLabel: STATUS_LABELS[source][status],
+		statusMeta:
+			source === 'chain'
+				? simulatedAt
+					? `Confirmed ${formatDateTime(simulatedAt)}`
+					: ''
+				: simulatedAt
+					? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`
+					: networkLabel(network),
 		error:
 			status === 'failed'
 				? input.error ||

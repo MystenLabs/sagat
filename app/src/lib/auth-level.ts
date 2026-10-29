@@ -13,8 +13,9 @@ const RELAXED_ROUTES: {
 }[] = [
 	// The tools index and every tool page.
 	{ path: '/tools/*', authLevel: 'public' },
-	// Shared proposal links: a wallet, but no API session.
-	{ path: '/proposals', authLevel: 'wallet' },
+	// Shared proposal links: anyone can read them, and a signer who
+	// connects gets the actions.
+	{ path: '/proposals', authLevel: 'public' },
 ];
 
 export function getAuthLevel(pathname: string): AuthLevel {

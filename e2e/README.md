@@ -109,7 +109,7 @@ the mainnet coin list is answered with an empty list.
 
 - Select elements with `data-testid`, not text or labels. Add a test ID to the
   component when one is missing. For state, prefer data attributes such as
-  `data-status` on proposal cards over reading badge text.
+  `data-status` on proposal rows and pages over reading badge text.
 - Assert outcomes beyond the UI when it matters, e.g. `chain.balance(address)`
   after executing a transfer.
 - Another user's page doesn't update by itself: reload it or use the refresh

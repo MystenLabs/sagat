@@ -103,6 +103,8 @@ export interface Proposal {
 	totalWeight: number;
 	currentWeight: number;
 	network: string;
+	/** When the proposal was created, as an ISO timestamp. */
+	createdAt: string;
 }
 
 /** A proposal with its signatures */

@@ -12,19 +12,13 @@ import type {
 } from '@/lib/transaction-preview';
 import { safeDecode } from '@/lib/utils';
 
-const STATUS_CHIPS: Record<
+const CHIP_VARIANTS: Record<
 	SimulationStatus,
-	{
-		label: string;
-		variant: NonNullable<ChipProps['variant']>;
-	}
+	NonNullable<ChipProps['variant']>
 > = {
-	passed: {
-		label: 'Simulation passed',
-		variant: 'success',
-	},
-	failed: { label: 'Simulation failed', variant: 'error' },
-	pending: { label: 'Simulating…', variant: 'neutral' },
+	passed: 'success',
+	failed: 'error',
+	pending: 'neutral',
 };
 
 function Row({
@@ -70,7 +64,6 @@ export function DetailsTable({
 }: {
 	model: TransactionPreviewModel;
 }) {
-	const chip = STATUS_CHIPS[model.status];
 	const pending = model.status === 'pending';
 	const { sender } = model;
 
@@ -94,15 +87,17 @@ export function DetailsTable({
 				<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
 					<Chip
 						size="md"
-						variant={chip.variant}
+						variant={CHIP_VARIANTS[model.status]}
 						data-testid="transaction-preview-status"
 						data-status={model.status}
 					>
-						{chip.label}
+						{model.statusLabel}
 					</Chip>
-					<span className="text-12 text-muted-foreground">
-						{model.statusMeta}
-					</span>
+					{model.statusMeta && (
+						<span className="text-12 text-muted-foreground">
+							{model.statusMeta}
+						</span>
+					)}
 				</span>
 			</Row>
 			{model.status === 'failed' && model.error && (

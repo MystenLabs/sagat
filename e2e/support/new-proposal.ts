@@ -129,19 +129,23 @@ export function amountError(page: Page) {
 	return page.getByTestId('transfer-amount-error');
 }
 
-/** Executes the one proposal on the page and returns its digest. */
+/**
+ * Executes the proposal from its page and returns its digest.
+ */
 export async function executeProposal(page: Page) {
-	const card = page.getByTestId('proposal-row');
-	await expect(card).toHaveAttribute(
+	const proposal = page.getByTestId('proposal-page');
+	await expect(proposal).toHaveAttribute(
 		'data-status',
 		'ready',
 	);
-	await card.getByTestId('execute-proposal-button').click();
-	await expect(card).toHaveAttribute(
+	await proposal
+		.getByTestId('execute-proposal-button')
+		.click();
+	await expect(proposal).toHaveAttribute(
 		'data-status',
 		'executed',
 	);
-	return (await card.getAttribute('data-digest'))!;
+	return (await proposal.getAttribute('data-digest'))!;
 }
 
 /**
@@ -282,8 +286,8 @@ export async function expectSimulation(
 }
 
 /**
- * Proposes from Review, which signs with the wallet, and lands on the
- * account's proposals with the "Proposal created" toast.
+ * Proposes from Review, which signs with the wallet, and lands on the new
+ * proposal's page with the "Proposal created" toast. Returns its digest.
  */
 export async function proposeAndSign(page: Page) {
 	// The wizard's route: /multisig/<address>/proposals/new.
@@ -291,12 +295,13 @@ export async function proposeAndSign(page: Page) {
 		'/',
 	)[2];
 	await page.getByTestId('review-submit').click();
-	await expectOnProposals(page, address);
+	const digest = await expectOnProposal(page, address);
 	await expect(
 		toast(page, 'success').filter({
 			hasText: 'Proposal created',
 		}),
 	).toBeVisible();
+	return digest;
 }
 
 /**
@@ -313,4 +318,36 @@ export async function expectOnProposals(
 	await expect(
 		page.getByTestId('multisig-tab-proposals'),
 	).toHaveAttribute('data-active');
+}
+
+/**
+ * On a proposal's page under `address` (`digest`'s, when given), with the
+ * proposals tab active in the sidebar. Returns the proposal's digest.
+ */
+export async function expectOnProposal(
+	page: Page,
+	address: string,
+	digest?: string,
+) {
+	const prefix = `/multisig/${address}/proposals/`;
+	await expect(page).toHaveURL((url) => {
+		const rest = url.pathname.slice(prefix.length);
+		return (
+			url.pathname.startsWith(prefix) &&
+			rest !== 'new' &&
+			(digest ? rest === digest : rest.length > 0)
+		);
+	});
+	const shown = new URL(page.url()).pathname.slice(
+		prefix.length,
+	);
+	await expect(
+		page.locator(
+			`[data-testid="proposal-page"][data-digest="${shown}"]`,
+		),
+	).toBeVisible();
+	await expect(
+		page.getByTestId('multisig-tab-proposals'),
+	).toHaveAttribute('data-active');
+	return shown;
 }

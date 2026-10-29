@@ -6,6 +6,7 @@ import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { recordSignIns } from '../support/actor';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
+import { expectOnProposal } from '../support/new-proposal';
 import {
 	proposeTransfer,
 	setupMultisig,
@@ -33,30 +34,29 @@ test.describe('shared proposal links', () => {
 			description: 'Shared by link',
 		});
 
-		// The link only needs a connected wallet, not an API session.
+		// The link only needs a connected wallet, not an API session. Not
+		// signed in, Bob reads it at the link, outside the account.
 		const signIns = recordSignIns(bob.page);
 		await bob.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
 		await bob.connectWallet({ signIn: false });
-		const card = bob.proposalCard(proposal.digest);
-		await expect(card).toHaveAttribute(
+		const page = bob.proposalPage(proposal.digest);
+		await expect(page).toHaveAttribute(
 			'data-status',
 			'pending',
 		);
+		await expect(bob.page).toHaveURL(
+			(url) => url.pathname === '/proposals',
+		);
 
-		await card.getByTestId('sign-proposal-button').click();
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'ready',
-		);
-		await card
-			.getByTestId('execute-proposal-button')
-			.click();
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'executed',
-		);
+		// His signature reaches the threshold, so signing executes it too.
+		const sign = page.getByTestId('sign-proposal-button');
+		await expect(sign).toHaveText('Sign and execute');
+		await sign.click();
+		await expect
+			.poll(() => page.getAttribute('data-status'))
+			.toBe('executed');
 		expect(await chain.balance(recipient)).toBe(
 			2n * MIST_PER_SUI,
 		);
@@ -87,21 +87,63 @@ test.describe('shared proposal links', () => {
 			amount: MIST_PER_SUI,
 		});
 
+		// Signed out, anyone can read the link.
 		await mallory.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
+		const page = mallory.proposalPage(proposal.digest);
+		const expectReadOnly = async () => {
+			await expect(page).toHaveAttribute(
+				'data-status',
+				'pending',
+			);
+			await expect(
+				page.getByTestId('preview-cannot-sign'),
+			).toBeVisible();
+			await expect(
+				page.getByTestId('sign-proposal-button'),
+			).toHaveCount(0);
+		};
+		await expectReadOnly();
+
+		// A connected wallet that isn't a signer can't sign either.
 		await mallory.connectWallet({ signIn: false });
-		const card = mallory.proposalCard(proposal.digest);
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'pending',
+		await expectReadOnly();
+	});
+
+	test('a signed-in member opening the link moves to the proposal under the account', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const proposal = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		await bob.signIn();
+		await bob.page.goto(
+			`/proposals?digest=${proposal.digest}`,
+		);
+		await expectOnProposal(
+			bob.page,
+			multisig.address,
+			proposal.digest,
 		);
 		await expect(
-			card.getByTestId('preview-cannot-sign'),
+			bob
+				.proposalPage(proposal.digest)
+				.getByTestId('sign-proposal-button'),
 		).toBeVisible();
-		await expect(
-			card.getByTestId('sign-proposal-button'),
-		).toHaveCount(0);
 	});
 });
 

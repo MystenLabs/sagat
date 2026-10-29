@@ -25,7 +25,8 @@ import { DevnetNotSupported } from './DevnetNotSupported';
 import { InvitationsPage } from './InvitationsPage';
 import { MultisigDetailPage } from './MultisigDetailPage';
 import { NewProposalPage } from './new-proposal/NewProposalPage';
-import { ProposalDetailPage } from './ProposalDetailPage';
+import { ProposalPage } from './proposal/ProposalPage';
+import { SharedProposalPage } from './proposal/SharedProposalPage';
 import { SmartDashboard } from './SmartDashboard';
 import { AssetsTab } from './tabs/AssetsTab';
 import { OverviewTab } from './tabs/OverviewTab';
@@ -53,7 +54,7 @@ const routes: RouteConfig[] = [
 	})),
 	{
 		path: '/proposals',
-		element: <ProposalDetailPage />,
+		element: <SharedProposalPage />,
 	},
 	{
 		path: '/',
@@ -72,6 +73,12 @@ const routes: RouteConfig[] = [
 	{
 		path: '/multisig/:address/proposals/new',
 		element: <NewProposalPage />,
+	},
+	// The account shell renders its own header, so a proposal's page is
+	// not one of its children either.
+	{
+		path: '/multisig/:address/proposals/:digest',
+		element: <ProposalPage />,
 	},
 	{
 		path: '/multisig/:address',

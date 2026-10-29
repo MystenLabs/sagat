@@ -32,6 +32,7 @@ import {
 	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
+import { proposalPagePath } from '@/lib/proposalUtils';
 import { signerRows } from '@/lib/signers';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -227,7 +228,10 @@ function NewProposalWizard({
 					reviewTitle.normalize('NFC').trim() || undefined,
 			},
 			{
-				onSuccess: () => navigate(proposalsPath),
+				onSuccess: (proposal) =>
+					navigate(
+						proposalPagePath(address, proposal.digest),
+					),
 				onError: (error) => {
 					if (error instanceof SignatureDeclinedError)
 						toast.error(COPY.signatureDeclined);

@@ -21,6 +21,7 @@ import {
 	chooseType,
 	clickNewProposal,
 	executeProposal,
+	expectOnProposal,
 	expectOnProposals,
 	expectSimulation,
 	fillTransfer,
@@ -111,7 +112,7 @@ test.describe('new proposal: transfer', () => {
 		await expect(change).toContainText('+1.5');
 
 		await proposeAndSign(page);
-		const card = page.getByTestId('proposal-row');
+		const card = page.getByTestId('proposal-page');
 		// 1-of-2: Alice's signature already meets the threshold.
 		await expect(card).toHaveAttribute(
 			'data-status',
@@ -863,7 +864,7 @@ test.describe('new proposal: review', () => {
 		await page.unroute(createProposal);
 		await proposeAndSign(page);
 		await expect(
-			page.getByTestId('proposal-row'),
+			page.getByTestId('proposal-page'),
 		).toHaveAttribute('data-status', 'pending');
 	});
 
@@ -957,7 +958,7 @@ test.describe('new proposal: review', () => {
 				button.click();
 				button.click();
 			});
-		await expectOnProposals(page, multisig.address);
+		await expectOnProposal(page, multisig.address);
 		// Let a second create, if any, reach the network.
 		await page.waitForTimeout(2_000);
 		expect(creates).toHaveLength(1);
@@ -1011,7 +1012,7 @@ test.describe('new proposal: review', () => {
 			await expect(page.getByTestId(id)).toBeDisabled();
 
 		release();
-		await expectOnProposals(page, multisig.address);
+		await expectOnProposal(page, multisig.address);
 		await expect(
 			toast(page, 'success').filter({
 				hasText: 'Proposal created',

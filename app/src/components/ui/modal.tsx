@@ -1,23 +1,27 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ReactNode } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogHeader,
 	DialogTitle,
 } from './dialog';
 
-interface ModalProps {
+type ModalProps = {
 	open: boolean;
 	onClose: () => void;
 	children: ReactNode;
 	size?: 'sm' | 'md' | 'lg';
-}
+} & Omit<
+	ComponentProps<typeof DialogContent>,
+	'children' | 'showCloseButton'
+>;
 
 const sizeClasses = {
 	sm: 'sm:max-w-sm',
@@ -25,12 +29,17 @@ const sizeClasses = {
 	lg: 'sm:max-w-lg',
 };
 
-/** Thin wrapper over Dialog that keeps the older Modal API. */
+/**
+ * A dialog with a title, a body and its buttons. Anything else (a test
+ * id, `initialFocus`) goes to the dialog's popup.
+ */
 export function Modal({
 	open,
 	onClose,
 	children,
 	size = 'md',
+	className,
+	...props
 }: ModalProps) {
 	return (
 		<Dialog
@@ -41,7 +50,12 @@ export function Modal({
 		>
 			<DialogContent
 				showCloseButton={false}
-				className={cn('p-6', sizeClasses[size])}
+				className={cn(
+					'gap-0 p-6',
+					sizeClasses[size],
+					className,
+				)}
+				{...props}
 			>
 				{children}
 			</DialogContent>
@@ -61,41 +75,38 @@ export function ModalHeader({
 	return (
 		<DialogHeader className="flex-row items-center gap-3">
 			{icon}
-			<DialogTitle className="text-lg font-semibold">
+			<DialogTitle className="text-20 font-bold">
 				{title}
 			</DialogTitle>
 		</DialogHeader>
 	);
 }
 
+/** The body, read out with the title. */
 export function ModalContent({
 	children,
 }: {
 	children: ReactNode;
 }) {
-	return <div className="space-y-3">{children}</div>;
+	return (
+		<DialogDescription
+			render={<div />}
+			className="mt-2 flex flex-col gap-2 text-14 text-muted-foreground"
+		>
+			{children}
+		</DialogDescription>
+	);
 }
 
+/** The buttons, side by side at equal width. */
 export function ModalActions({
 	children,
 }: {
 	children: ReactNode;
 }) {
 	return (
-		<div className="flex justify-end gap-3">{children}</div>
-	);
-}
-
-export function ModalWarning({
-	children,
-}: {
-	children: ReactNode;
-}) {
-	return (
-		<div className="bg-warning border border-warning-border rounded-lg p-3">
-			<p className="text-sm text-warning-foreground">
-				{children}
-			</p>
+		<div className="mt-5 grid auto-cols-fr grid-flow-col gap-2">
+			{children}
 		</div>
 	);
 }

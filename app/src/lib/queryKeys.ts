@@ -17,5 +17,6 @@ export const QueryKeys = {
 	Executed: 'executed',
 	Invitations: 'invitations',
 	EpochInfo: 'epoch-info',
+	OnChainTransaction: 'on-chain-transaction',
 	ApiHealth: 'api-health',
 } as const;
