@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	isExternalProposer,
 	isProposalExpired,
+	mergeNewestFirst,
 	pendingFilter,
 	proposalStatusKey,
 	proposalTitle,
@@ -218,5 +219,28 @@ describe('pendingFilter', () => {
 				epochInfo,
 			),
 		).toBe(false);
+	});
+});
+
+describe('mergeNewestFirst', () => {
+	const ids = (...list: number[]) =>
+		list.map((id) => ({ id }));
+
+	it('holds back rows a list with more to load could still go above', () => {
+		// Executed has loaded 100–98 with more to come; failed 50–48.
+		const executed = ids(100, 99, 98);
+		const failed = ids(50, 49, 48);
+		expect(
+			mergeNewestFirst([
+				{ rows: executed, hasNextPage: true },
+				{ rows: failed, hasNextPage: false },
+			]).map((row) => row.id),
+		).toEqual([100, 99, 98]);
+		expect(
+			mergeNewestFirst([
+				{ rows: failed, hasNextPage: false },
+				{ rows: executed, hasNextPage: false },
+			]).map((row) => row.id),
+		).toEqual([100, 99, 98, 50, 49, 48]);
 	});
 });

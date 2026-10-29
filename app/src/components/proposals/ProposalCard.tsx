@@ -23,6 +23,7 @@ import { useState } from 'react';
 
 import {
 	isExternalProposer,
+	proposalLinkUrl,
 	proposalStatusKey,
 	proposalTitle,
 } from '@/lib/proposalUtils';
@@ -274,7 +275,7 @@ export function ProposalCard({
 					{proposal.status === ProposalStatus.PENDING && (
 						<CopyButton
 							size="md"
-							value={`${window.location.origin}/proposals?digest=${proposal.digest}`}
+							value={proposalLinkUrl(proposal.digest)}
 							successMessage="Copied proposal link to clipboard"
 						/>
 					)}

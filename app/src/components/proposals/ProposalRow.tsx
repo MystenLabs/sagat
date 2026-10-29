@@ -12,7 +12,11 @@ import {
 	MoreHorizontal,
 	X,
 } from 'lucide-react';
-import { useState } from 'react';
+import {
+	useState,
+	type ReactElement,
+	type ReactNode,
+} from 'react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useCancelProposal } from '@/hooks/useCancelProposal';
@@ -25,6 +29,7 @@ import {
 } from '@/lib/exportUtils';
 import {
 	isExternalProposer,
+	proposalLinkUrl,
 	proposalStatusKey,
 	proposalTitle,
 	shortDigest,
@@ -39,10 +44,17 @@ import { CopyButton } from '../ui/CopyButton';
 import {
 	DropdownMenu,
 	DropdownMenuContent,
+	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { tableRowClass } from '../ui/table';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '../ui/tooltip';
 import { ProposalExpiry } from './ProposalExpiry';
 import { ProposalPreview } from './ProposalPreview';
 import { ProposalStatusChip } from './ProposalStatusChip';
@@ -243,45 +255,55 @@ export function ProposalRow({
 							</Button>
 						)}
 						{explorerIsPrimary && (
-							<a
-								href={explorerUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								// An icon alone on phones, where the column is narrow.
-								className={cn(
-									buttonVariants({
-										variant: 'outline',
-										size: 'sm',
-									}),
-									'max-sm:size-7 max-sm:px-0',
-								)}
-								aria-label="View on explorer"
-								data-testid="view-on-explorer"
+							<IconTooltip
+								label="View on explorer"
+								// Only phones show the icon alone.
+								contentClassName="sm:hidden"
+								trigger={
+									<a
+										href={explorerUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										className={cn(
+											buttonVariants({
+												variant: 'outline',
+												size: 'sm',
+											}),
+											'max-sm:size-7 max-sm:px-0',
+										)}
+										aria-label="View on explorer"
+										data-testid="view-on-explorer"
+									/>
+								}
 							>
 								<ExternalLink />
 								<span className="hidden sm:inline">
 									View on explorer
 								</span>
-							</a>
+							</IconTooltip>
 						)}
 						{list && open && (
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								onClick={() => setExpanded(!expanded)}
-								aria-label={
+							<IconTooltip
+								label={
 									expanded ? 'Hide preview' : 'Show preview'
 								}
-								aria-expanded={expanded}
-								// On phones a ready row has room for Execute and
-								// the menu only; its preview has nothing to sign.
-								className={cn(
-									status === 'ready' && 'max-sm:hidden',
-								)}
-								data-testid="proposal-toggle-details"
+								trigger={
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										onClick={() => setExpanded(!expanded)}
+										aria-label={
+											expanded
+												? 'Hide preview'
+												: 'Show preview'
+										}
+										aria-expanded={expanded}
+										data-testid="proposal-toggle-details"
+									/>
+								}
 							>
 								{expanded ? <ChevronUp /> : <ChevronDown />}
-							</Button>
+							</IconTooltip>
 						)}
 						{list && (
 							<RowMenu
@@ -353,66 +375,98 @@ function RowMenu({
 	const { copy } = useCopyToClipboard('Link copied');
 	return (
 		<DropdownMenu>
-			<DropdownMenuTrigger
-				render={
-					<Button
-						variant="ghost"
-						size="icon-sm"
+			<IconTooltip
+				label="More actions"
+				trigger={
+					<DropdownMenuTrigger
+						className={buttonVariants({
+							variant: 'ghost',
+							size: 'icon-sm',
+						})}
 						aria-label="More actions"
 						data-testid="proposal-actions"
 					/>
 				}
 			>
 				<MoreHorizontal />
-			</DropdownMenuTrigger>
+			</IconTooltip>
 			<DropdownMenuContent
 				align="end"
 				className="w-auto min-w-40"
 			>
-				{canShare && (
+				<DropdownMenuGroup>
+					{canShare && (
+						<DropdownMenuItem
+							onClick={() => copy(proposalLinkUrl(digest))}
+							data-testid="copy-proposal-link"
+						>
+							<Link2 />
+							Copy link
+						</DropdownMenuItem>
+					)}
 					<DropdownMenuItem
-						onClick={() =>
-							copy(
-								`${window.location.origin}/proposals?digest=${digest}`,
-							)
-						}
+						onClick={onDownload}
+						data-testid="export-proposal-button"
 					>
-						<Link2 />
-						Copy link
+						<Download />
+						Download
 					</DropdownMenuItem>
-				)}
-				<DropdownMenuItem
-					onClick={onDownload}
-					data-testid="export-proposal-button"
-				>
-					<Download />
-					Download
-				</DropdownMenuItem>
-				{explorerUrl && (
-					<DropdownMenuItem
-						render={
-							<a
-								href={explorerUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-							/>
-						}
-					>
-						<ExternalLink />
-						View on explorer
-					</DropdownMenuItem>
-				)}
-				{canCancel && (
-					<DropdownMenuItem
-						variant="destructive"
-						onClick={onCancel}
-						data-testid="cancel-proposal-button"
-					>
-						<X />
-						Cancel proposal
-					</DropdownMenuItem>
-				)}
+					{explorerUrl && (
+						<DropdownMenuItem
+							render={
+								<a
+									href={explorerUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+								/>
+							}
+							data-testid="view-on-explorer"
+						>
+							<ExternalLink />
+							View on explorer
+						</DropdownMenuItem>
+					)}
+					{canCancel && (
+						<DropdownMenuItem
+							variant="destructive"
+							onClick={onCancel}
+							data-testid="cancel-proposal-button"
+						>
+							<X />
+							Cancel proposal
+						</DropdownMenuItem>
+					)}
+				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
+	);
+}
+
+/**
+ * A tooltip naming an icon-only control. `trigger` is the control's own
+ * element, which keeps its ref, so a menu trigger can be one.
+ */
+function IconTooltip({
+	label,
+	trigger,
+	contentClassName,
+	children,
+}: {
+	label: string;
+	trigger: ReactElement;
+	contentClassName?: string;
+	children: ReactNode;
+}) {
+	return (
+		<TooltipProvider delay={150}>
+			<Tooltip>
+				<TooltipTrigger render={trigger}>
+					{children}
+				</TooltipTrigger>
+				<TooltipContent className={contentClassName}>
+					{label}
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }

@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useState } from 'react';
+import {
+	useEffect,
+	useState,
+	type ReactElement,
+} from 'react';
 
 import { formatDateTime } from '@/lib/dates';
 import { cn } from '@/lib/utils';
@@ -42,17 +46,62 @@ export function ProposalExpiry({
 
 // The badge for an expiry from `useExpiry`.
 export function ExpiryChip({ expiry }: { expiry: Expiry }) {
+	return (
+		<ExpiryTooltip
+			expiry={expiry}
+			trigger={
+				<Chip
+					variant={expiry.expired ? 'error' : 'neutral'}
+					data-testid="proposal-expiry"
+					tabIndex={0}
+				/>
+			}
+		/>
+	);
+}
+
+function InlineExpiry({ expiry }: { expiry: Expiry }) {
+	return (
+		<span className="inline-flex items-center gap-1.5">
+			<span aria-hidden>·</span>
+			<ExpiryTooltip
+				expiry={expiry}
+				trigger={(now) => (
+					<span
+						className={cn(
+							'whitespace-nowrap',
+							expiry.expired
+								? 'text-error-foreground'
+								: expiresSoon(expiry.endsAt, now) &&
+										'text-warning-foreground',
+						)}
+						data-testid="proposal-expiry"
+						tabIndex={0}
+					/>
+				)}
+			/>
+		</span>
+	);
+}
+
+// The expiry's label on `trigger`, with the explanation in a tooltip.
+// `trigger` can take the current time, to style itself by it.
+function ExpiryTooltip({
+	expiry,
+	trigger,
+}: {
+	expiry: Expiry;
+	trigger: ReactElement | ((now: Date) => ReactElement);
+}) {
 	const now = useNow();
 	return (
 		<TooltipProvider delay={150}>
 			<Tooltip>
 				<TooltipTrigger
 					render={
-						<Chip
-							variant={expiry.expired ? 'error' : 'neutral'}
-							data-testid="proposal-expiry"
-							tabIndex={0}
-						/>
+						typeof trigger === 'function'
+							? trigger(now)
+							: trigger
 					}
 				>
 					{label(expiry, now)}
@@ -62,38 +111,6 @@ export function ExpiryChip({ expiry }: { expiry: Expiry }) {
 				</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
-	);
-}
-
-function InlineExpiry({ expiry }: { expiry: Expiry }) {
-	const now = useNow();
-	return (
-		<span className="inline-flex items-center gap-1.5">
-			<span aria-hidden>·</span>
-			<TooltipProvider delay={150}>
-				<Tooltip>
-					<TooltipTrigger
-						render={
-							<span
-								className={cn(
-									expiry.expired
-										? 'text-error-foreground'
-										: expiresSoon(expiry.endsAt, now) &&
-												'text-warning-foreground',
-								)}
-								data-testid="proposal-expiry"
-								tabIndex={0}
-							/>
-						}
-					>
-						{label(expiry, now)}
-					</TooltipTrigger>
-					<TooltipContent className="max-w-xs">
-						{explain(expiry)}
-					</TooltipContent>
-				</Tooltip>
-			</TooltipProvider>
-		</span>
 	);
 }
 

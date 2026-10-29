@@ -10,7 +10,10 @@ import { useMemo } from 'react';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
-import { pendingFilter } from '../lib/proposalUtils';
+import {
+	mergeNewestFirst,
+	pendingFilter,
+} from '../lib/proposalUtils';
 import { useEpochInfo } from './useEpochInfo';
 import { useGetMultisig } from './useGetMultisig';
 import {
@@ -55,7 +58,8 @@ export function useProposalsQueries({
 	activeFilter,
 }: UseProposalsQueriesParams) {
 	const { currentAddress } = useApiAuth();
-	const { data: epochInfo } = useEpochInfo();
+	const epochQuery = useEpochInfo();
+	const epochInfo = epochQuery.data;
 	const multisigDetailsQuery = useGetMultisig(
 		multisig.address,
 	);
@@ -164,9 +168,12 @@ export function useProposalsQueries({
 			: [...shownQueries, pendingQuery];
 
 	return {
+		// Until the epoch is known nothing can be filed as expired, so the
+		// first load waits for it. If it fails, nothing counts as expired.
 		isLoading:
 			shownQueries.some((query) => query.isLoading) ||
-			multisigDetailsQuery.isLoading,
+			multisigDetailsQuery.isLoading ||
+			epochQuery.isLoading,
 		// A failed background refetch keeps the loaded rows; only a
 		// query with nothing to show blocks the list.
 		error:
@@ -204,32 +211,4 @@ export function useProposalsQueries({
 			multisigDetailsQuery.refetch();
 		},
 	};
-}
-
-/**
- * Lists that each come newest first, merged into one. Until a list is
- * fully loaded, its next page can still hold rows newer than another
- * list's loaded ones, so rows stop at the newest of the oldest loaded
- * rows among the lists with more to load; the rest show once those
- * pages arrive and nothing can slot in above them.
- */
-function mergeNewestFirst(
-	lists: {
-		rows: ProposalWithSignatures[];
-		hasNextPage: boolean;
-	}[],
-) {
-	const floor = Math.max(
-		-Infinity,
-		...lists
-			.filter((list) => list.hasNextPage)
-			.map(
-				(list) =>
-					list.rows[list.rows.length - 1]?.id ?? Infinity,
-			),
-	);
-	return lists
-		.flatMap((list) => list.rows)
-		.filter((row) => row.id >= floor)
-		.sort((a, b) => b.id - a.id);
 }

@@ -92,7 +92,7 @@ export function ProposalsTable({
 						<th
 							className={cn(
 								'px-3 text-right max-sm:pl-0',
-								list ? 'w-28 sm:w-40' : 'w-22 sm:w-28',
+								list ? 'w-36 sm:w-40' : 'w-22 sm:w-28',
 							)}
 						>
 							<span className="sr-only">Actions</span>

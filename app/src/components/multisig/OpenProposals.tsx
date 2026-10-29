@@ -37,7 +37,8 @@ export function OpenProposals({
 	multisig: MultisigWithMembersForPublicKey;
 }) {
 	const { network } = useNetwork();
-	const { data: epochInfo } = useEpochInfo();
+	const epochQuery = useEpochInfo();
+	const epochInfo = epochQuery.data;
 	const query = usePaginatedProposals({
 		multisigAddress: multisig.address,
 		network,
@@ -90,7 +91,9 @@ export function OpenProposals({
 				multisig={multisig}
 				proposals={proposals}
 				variant="overview"
-				loading={query.isLoading}
+				// Expired proposals aren't open, which takes the epoch to
+				// tell; if it fails to load, none count as expired.
+				loading={query.isLoading || epochQuery.isLoading}
 				// A failed background refetch keeps the loaded rows.
 				error={query.data ? null : query.error}
 				onRetry={() => query.refetch()}

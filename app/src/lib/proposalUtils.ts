@@ -180,6 +180,11 @@ export function pendingFilter(
 		: 'pending';
 }
 
+/** The link to a proposal's public page. */
+export function proposalLinkUrl(digest: string) {
+	return `${window.location.origin}/proposals?digest=${digest}`;
+}
+
 /**
  * A digest cut to its first ten and last four characters, e.g.
  * "HkV4y3pGsy…E7ac". `formatDigest` keeps only the head; the list shows
@@ -205,6 +210,31 @@ export function isExternalProposer(
 			validatePublicKey(member.publicKey).address ===
 			proposal.proposerAddress,
 	);
+}
+
+/**
+ * Lists that each come newest first, merged into one. Until a list is
+ * fully loaded, its next page can still hold rows newer than another
+ * list's loaded ones, so rows stop at the newest of the oldest loaded
+ * rows among the lists with more to load; the rest show once those
+ * pages arrive and nothing can slot in above them.
+ */
+export function mergeNewestFirst<T extends { id: number }>(
+	lists: { rows: T[]; hasNextPage: boolean }[],
+): T[] {
+	const floor = Math.max(
+		-Infinity,
+		...lists
+			.filter((list) => list.hasNextPage)
+			.map(
+				(list) =>
+					list.rows[list.rows.length - 1]?.id ?? Infinity,
+			),
+	);
+	return lists
+		.flatMap((list) => list.rows)
+		.filter((row) => row.id >= floor)
+		.sort((a, b) => b.id - a.id);
 }
 
 /** At most this many dots stand for a proposal's weight. */
