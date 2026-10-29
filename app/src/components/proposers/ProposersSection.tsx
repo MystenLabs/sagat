@@ -1,10 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigProposer } from '@mysten/sagat';
+import type { MultisigWithMembers } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
-import { Plus } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,10 @@ import {
 	tableHeadRowClass,
 	tableRowClass,
 } from '@/components/ui/table';
+import { accountName } from '@/lib/account-name';
 import { formatDate } from '@/lib/dates';
+import { addedByName } from '@/lib/proposers';
+import { memberLabels } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
 import { AddProposerDialog } from './AddProposerDialog';
@@ -29,17 +32,27 @@ const EXPLANATION =
 
 /**
  * The account's external proposers as a card: each address with the day it
- * was added and a way to remove it, plus a button to add one.
+ * was added and by whom, and a way to remove it, plus a button to add one.
  */
 export function ProposersSection({
-	proposers,
-	multisigAddress,
+	multisig,
+	currentAddress,
 	className,
 }: {
-	proposers: Omit<MultisigProposer, 'multisigAddress'>[];
-	multisigAddress: string;
+	multisig: Pick<
+		MultisigWithMembers,
+		'address' | 'name' | 'members' | 'proposers'
+	>;
+	/** The signed-in address, marked "(you)" when it added a proposer. */
+	currentAddress: string | undefined;
 	className?: string;
 }) {
+	const { proposers } = multisig;
+	const name = accountName(multisig);
+	const labels = useMemo(
+		() => memberLabels(multisig.members),
+		[multisig.members],
+	);
 	const [adding, setAdding] = useState(false);
 	// The address outlives the dialog's open state, so the dialog keeps its
 	// content while it animates out.
@@ -86,8 +99,8 @@ export function ProposersSection({
 								<th className="px-3 whitespace-nowrap">
 									External proposer
 								</th>
-								<th className="w-22 px-3 sm:w-27">Added</th>
-								<th className="w-18 px-3 sm:w-22">
+								<th className="w-28 px-3 sm:w-32">Added</th>
+								<th className="w-12 px-1.5 sm:w-30 sm:px-3">
 									<span className="sr-only">Actions</span>
 								</th>
 							</tr>
@@ -113,9 +126,26 @@ export function ProposersSection({
 										</span>
 									</td>
 									<td className="px-3 py-2.5 whitespace-nowrap">
-										{formatDate(proposer.addedAt) ?? '—'}
+										<span
+											className="block truncate text-13 text-foreground"
+											data-testid="proposer-added"
+											data-added-at={proposer.addedAt}
+										>
+											{formatDate(proposer.addedAt) ?? '—'}
+										</span>
+										<span
+											className="block truncate text-12 text-muted-foreground"
+											data-testid="proposer-added-by"
+										>
+											by{' '}
+											{addedByName(
+												proposer.addedBy,
+												labels,
+												currentAddress,
+											)}
+										</span>
 									</td>
-									<td className="px-3 py-1.5 text-right">
+									<td className="px-1.5 py-1.5 text-right sm:px-3">
 										<Button
 											variant="ghost"
 											size="sm"
@@ -128,7 +158,12 @@ export function ProposersSection({
 											aria-label={`Remove ${formatAddress(proposer.address)}`}
 											data-testid="remove-proposer-button"
 										>
-											Remove
+											<Trash2 />
+											{/* Icon only on phones, where the
+											    address needs the room. */}
+											<span className="max-sm:sr-only">
+												Remove
+											</span>
 										</Button>
 									</td>
 								</tr>
@@ -144,12 +179,14 @@ export function ProposersSection({
 			<AddProposerDialog
 				open={adding}
 				onOpenChange={setAdding}
-				multisigAddress={multisigAddress}
+				multisigAddress={multisig.address}
+				accountName={name}
 			/>
 			<RemoveProposerDialog
 				open={removing}
 				onOpenChange={setRemoving}
-				multisigAddress={multisigAddress}
+				multisigAddress={multisig.address}
+				accountName={name}
 				proposerAddress={removingAddress}
 			/>
 		</section>

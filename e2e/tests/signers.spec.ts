@@ -84,7 +84,10 @@ test.describe('overview and signers', () => {
 				.click();
 			await expect(
 				page.getByRole('heading', { level: 1 }),
-			).toHaveText('Signers');
+			).toHaveText('Members');
+			await expect(
+				page.getByTestId('multisig-tab-signers'),
+			).toHaveText('Members');
 			await expect(
 				page.getByTestId('signers-summary'),
 			).toHaveText('2 of 3 accepted');
@@ -235,6 +238,7 @@ test.describe('overview and signers', () => {
 			creator: alice,
 			members: [bob],
 			threshold: 1,
+			labels: ['Alice', 'Bob'],
 		});
 
 		await alice.signIn();
@@ -255,17 +259,52 @@ test.describe('overview and signers', () => {
 		// Adding signs a message with the wallet.
 		await card.getByTestId('add-proposer-button').click();
 		const add = page.getByRole('dialog', {
-			name: 'Add Proposer',
+			name: 'Add external proposer',
 		});
-		await add
-			.getByLabel('Proposer Address')
-			.fill(payments.address);
-		await add
-			.getByRole('button', {
-				name: 'Add Proposer',
-				exact: true,
-			})
-			.click();
+		const input = add.getByLabel('Address', {
+			exact: true,
+		});
+		const status = add.getByTestId(
+			'add-proposer-address-status',
+		);
+		const submit = add.getByRole('button', {
+			name: 'Add proposer',
+			exact: true,
+		});
+
+		await test.step('an incomplete address shows why once left', async () => {
+			await input.fill(payments.address.slice(0, -8));
+			await input.blur();
+			await expect(status).toHaveAttribute(
+				'data-state',
+				'invalid',
+			);
+			await expect(status).toHaveText(
+				'This isn’t a valid Sui address. Check you pasted all of it: 0x and 64 characters.',
+			);
+			await expect(submit).toBeDisabled();
+		});
+
+		await test.step('clearing empties the field and its status', async () => {
+			const clear = add.getByTestId(
+				'add-proposer-address-clear',
+			);
+			await clear.click();
+			await expect(input).toHaveValue('');
+			await expect(clear).toHaveCount(0);
+			await expect(status).toHaveCount(0);
+		});
+
+		await test.step('a whole address reads as valid', async () => {
+			await input.fill(payments.address);
+			await expect(status).toHaveAttribute(
+				'data-state',
+				'valid',
+			);
+			await expect(status).toHaveText('Valid Sui address');
+		});
+
+		await submit.click();
 		const item = card.getByTestId('proposer-item');
 		await expect(item).toHaveCount(1);
 		await expect(item).toHaveAttribute(
@@ -275,6 +314,12 @@ test.describe('overview and signers', () => {
 		await expect(item).toContainText(
 			formatAddress(payments.address),
 		);
+		await expect(
+			item.getByTestId('proposer-added'),
+		).toHaveAttribute('data-added-at', /.+/);
+		await expect(
+			item.getByTestId('proposer-added-by'),
+		).toHaveText('by Alice (you)');
 		await expect(
 			card.getByTestId('proposers-empty'),
 		).toHaveCount(0);
@@ -288,12 +333,18 @@ test.describe('overview and signers', () => {
 		);
 		await remove.click();
 		const confirm = page.getByRole('dialog', {
-			name: 'Remove Proposer',
+			name: 'Remove external proposer?',
 		});
-		await expect(confirm).toContainText(payments.address);
+		await expect(confirm).toHaveAttribute(
+			'data-address',
+			payments.address,
+		);
+		await expect(confirm).toContainText(
+			formatAddress(payments.address),
+		);
 		await confirm
 			.getByRole('button', {
-				name: 'Remove Proposer',
+				name: 'Remove',
 				exact: true,
 			})
 			.click();

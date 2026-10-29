@@ -31,10 +31,10 @@ interface SignersTabContext {
 }
 
 /**
- * The signer set and who else may propose. The account list already
- * carries everything shown; the account query on top keeps the proposers
- * and weights fresh after a change on this page. When it fails, the
- * list's copy stays up under a notice with a way to try again.
+ * The Members page: the signer set and who else may propose. The account
+ * list already carries everything shown; the account query on top keeps
+ * the proposers and weights fresh after a change on this page. When it
+ * fails, the list's copy stays up under a notice with a way to try again.
  */
 export function SignersTab() {
 	const { multisig } =
@@ -93,8 +93,8 @@ export function SignersTab() {
 				<div className="flex min-w-0 flex-1 flex-col gap-5">
 					<SignersCard rows={rows} status={status} />
 					<ProposersSection
-						proposers={account.proposers}
-						multisigAddress={multisig.address}
+						multisig={account}
+						currentAddress={currentAddress?.address}
 					/>
 				</div>
 				<SetupCard
