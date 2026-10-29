@@ -178,14 +178,14 @@ export function ApiAuthProvider({
 	// its answer came too late.
 	const sessionGeneration = useRef(0);
 
-	// A disconnect or switch from the wallet's side ends the session like
-	// a logout, so a signature answer from before it is dropped.
+	// A disconnect from the wallet's side ends the session like a
+	// logout, so a signature answer from before it is dropped. A switch
+	// between accounts does not: a late answer for another account is
+	// still checked by address in onError.
 	useEffect(
 		() =>
 			dappKit.stores.$connection.listen((next, prev) => {
-				if (
-					next.account?.address !== prev?.account?.address
-				)
+				if (prev?.account && !next.account)
 					sessionGeneration.current++;
 			}),
 		[dappKit],
@@ -280,7 +280,10 @@ export function ApiAuthProvider({
 					?.address !== error.address
 			)
 				return;
-			setDeclined({ wallet: error.wallet });
+			// No connect card on a route where signing in is optional: the
+			// toast below is the whole notice.
+			if (!options?.keepWallet)
+				setDeclined({ wallet: error.wallet });
 			const signedIn =
 				queryClient.getQueryData<AuthCheckResponse>(
 					AUTH_QUERY_KEY,
@@ -315,19 +318,30 @@ export function ApiAuthProvider({
 	// while a signature is out and its late answer can't undo a newer
 	// session.
 	const connectInFlight = useRef(false);
-	// Covers the whole pick, so the card reads "Signing in…" until the
-	// answer, not just while the signature is out.
+	// Covers every connect and sign-in, so the card reads "Signing in…"
+	// until the answer, not just while the signature is out.
 	const [connecting, setConnecting] = useState(false);
 
-	const connectWallet = async (
-		wallet: UiWallet,
-		{ signIn = true, notice = 'card' }: ConnectOptions = {},
+	const withConnectLock = async (
+		run: () => Promise<unknown>,
 	) => {
 		if (connectInFlight.current) return;
 		connectInFlight.current = true;
 		setConnecting(true);
-		setDeclined(null);
 		try {
+			await run();
+		} finally {
+			connectInFlight.current = false;
+			setConnecting(false);
+		}
+	};
+
+	const connectWallet = (
+		wallet: UiWallet,
+		{ signIn = true, notice = 'card' }: ConnectOptions = {},
+	) =>
+		withConnectLock(async () => {
+			setDeclined(null);
 			try {
 				await dappKit.connectWallet({ wallet });
 			} catch {
@@ -336,8 +350,8 @@ export function ApiAuthProvider({
 				else setDeclined({ wallet: wallet.name });
 				return;
 			}
-			// After the connect, which the listener above counts as a new
-			// session.
+			// After the connect, so only a logout from here on drops the
+			// answer.
 			const generation = sessionGeneration.current;
 			if (!signIn) return;
 			const { data, isError } = await refetchAuth();
@@ -353,26 +367,13 @@ export function ApiAuthProvider({
 				return;
 			// onError handles the failures.
 			await connectMutation.mutateAsync().catch(() => {});
-		} finally {
-			connectInFlight.current = false;
-			setConnecting(false);
-		}
-	};
+		});
 
-	const runSignIn = async (options?: SignInOptions) => {
-		if (connectInFlight.current) return;
-		connectInFlight.current = true;
-		setConnecting(true);
-		try {
+	const runSignIn = (options?: SignInOptions) =>
+		withConnectLock(() =>
 			// onError handles the failures.
-			await connectMutation
-				.mutateAsync(options)
-				.catch(() => {});
-		} finally {
-			connectInFlight.current = false;
-			setConnecting(false);
-		}
-	};
+			connectMutation.mutateAsync(options).catch(() => {}),
+		);
 
 	const disconnectWallet = async () => {
 		// First, so a sign-in already in flight knows it lost.
@@ -437,7 +438,7 @@ export function ApiAuthProvider({
 		// Actions
 		// Failures go to onError, so callers needn't catch.
 		signAndConnect: (options) => void runSignIn(options),
-		isConnecting: connectMutation.isPending || connecting,
+		isConnecting: connecting,
 
 		declined,
 		clearDeclined,
