@@ -4,6 +4,7 @@
 import { X } from 'lucide-react';
 import { useRef } from 'react';
 
+import { FieldStatus } from '@/components/ui/field-status';
 import {
 	InputGroup,
 	InputGroupAddon,
@@ -15,7 +16,6 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { FieldStatus } from '@/components/wizard/parts';
 import { ADDRESS_COPY } from '@/lib/address-field';
 
 /**

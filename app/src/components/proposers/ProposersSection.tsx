@@ -10,7 +10,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
-import { SignerName } from '@/components/multisig/SignerName';
+import { MemberName } from '@/components/multisig/MemberName';
 import { Button } from '@/components/ui/button';
 import {
 	cardClass,
@@ -154,17 +154,10 @@ export function ProposersSection({
 												data-testid="proposer-added-by"
 											>
 												by{' '}
-												{/* The name alone; the address only when unnamed. */}
-												<SignerName
+												<MemberName
+													address={proposer.addedBy}
 													label={label}
-													address={
-														label
-															? undefined
-															: proposer.addedBy
-													}
-													marker={isYou ? 'you' : null}
-													markerStyle="parens"
-													size="inline"
+													isYou={isYou}
 												/>
 											</span>
 										</td>
