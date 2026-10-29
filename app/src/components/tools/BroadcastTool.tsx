@@ -12,6 +12,7 @@ import {
 	disabledButton,
 } from '@/components/ui/button';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { type SuiNetwork } from '@/lib/network';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 
 import {
@@ -25,8 +26,8 @@ import {
 
 interface BroadcastError {
 	message: string;
-	/** The network it was broadcast on; the banner shows only there. */
-	network: string;
+	/** The network it was broadcast on, named when it isn't the current one. */
+	network: SuiNetwork;
 }
 
 interface BroadcastResult {
@@ -101,9 +102,21 @@ export default function BroadcastTool() {
 		null,
 	);
 
+	const bytesInput = transactionBytes.trim();
+	const signatureInput = signature.trim();
+	const bytesUnreadable =
+		!!bytesInput && !isBase64(bytesInput);
+	const signatureUnreadable =
+		!!signatureInput && !isBase64(signatureInput);
+	const canBroadcast =
+		!!bytesInput &&
+		!!signatureInput &&
+		!bytesUnreadable &&
+		!signatureUnreadable &&
+		!broadcasting;
+
 	const handleBroadcast = async () => {
-		if (!transactionBytes.trim() || !signature.trim())
-			return;
+		if (!canBroadcast) return;
 
 		const broadcastNetwork = network;
 		setBroadcasting(true);
@@ -166,29 +179,19 @@ export default function BroadcastTool() {
 		setError(null);
 	};
 
-	const bytesInput = transactionBytes.trim();
-	const signatureInput = signature.trim();
-	const bytesUnreadable =
-		!!bytesInput && !isBase64(bytesInput);
-	const signatureUnreadable =
-		!!signatureInput && !isBase64(signatureInput);
-	const canBroadcast =
-		!!bytesInput &&
-		!!signatureInput &&
-		!bytesUnreadable &&
-		!signatureUnreadable &&
-		!broadcasting;
-
 	return (
 		<>
-			{error?.network === network && (
+			{error && (
 				<Alert
 					variant="error"
 					className="mb-5"
 					data-testid="broadcast-error"
 				>
 					<span className="whitespace-pre-wrap">
-						Broadcast failed: {safeDecode(error.message)}
+						{error.network === network
+							? 'Broadcast failed'
+							: `Broadcast on ${error.network} failed`}
+						: {safeDecode(error.message)}
 					</span>
 				</Alert>
 			)}
