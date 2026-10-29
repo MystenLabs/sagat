@@ -66,7 +66,7 @@ describe('proposalStatusKey', () => {
 });
 
 describe('proposalTitle', () => {
-	it('uses the description, cut at 50 characters', () => {
+	it('uses the trimmed description in full', () => {
 		expect(
 			proposalTitle({
 				description: '  Pay the grants wallet ',
@@ -78,7 +78,7 @@ describe('proposalTitle', () => {
 				description: 'x'.repeat(60),
 				digest: DIGEST,
 			}),
-		).toBe(`${'x'.repeat(50)}…`);
+		).toBe('x'.repeat(60));
 	});
 
 	it('falls back to the short digest', () => {

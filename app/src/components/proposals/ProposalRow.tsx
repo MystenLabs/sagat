@@ -111,10 +111,10 @@ export function ProposalRow({
 		(status === 'executed' || status === 'failed') &&
 		!!explorerUrl;
 	const list = variant === 'list';
-	// The list shows the digest under the title, unless the title already
-	// is the digest (no description). The overview's column is too narrow.
-	const showDigest =
-		variant === 'list' && !!proposal.description?.trim();
+	// The digest goes under the title, unless the title already is the
+	// digest (no description). The overview's column is too narrow for it,
+	// but its stacked rows have room.
+	const showDigest = !!proposal.description?.trim();
 	// A signer goes by their key's label. An outside proposer has none, so
 	// goes by address, marked as such.
 	const proposerMarker =
@@ -123,10 +123,6 @@ export function ProposalRow({
 			: isExternalProposer(proposal)
 				? 'external'
 				: null;
-	// The overview's actions cell is empty unless there is something to do;
-	// stacked, it would only leave an empty grid column, but hide it anyway.
-	const hasActions =
-		list || status === 'ready' || explorerIsPrimary;
 
 	return (
 		<>
@@ -154,13 +150,13 @@ export function ProposalRow({
 							>
 								{proposalTitle(proposal)}
 							</span>
-							{/* Each item but the proposer brings its own "·"; the
-							    first item's is hidden, whichever item that is. The
-							    list's proposer is display:none in the table layout,
-							    so there the item after it is the first one shown. */}
+							{/* The proposer leads the meta line and each item
+							    after it brings its own "·". In the list's table
+							    layout the proposer is display:none, so the item
+							    after it drops its dot. */}
 							<span
 								className={cn(
-									'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-12 text-muted-foreground [&>:first-child>[aria-hidden]:first-child]:hidden',
+									'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-12 text-muted-foreground',
 									list &&
 										'@md:[&>:nth-child(2)>[aria-hidden]:first-child]:hidden',
 								)}
@@ -193,7 +189,12 @@ export function ProposalRow({
 									/>
 								</span>
 								{showDigest && (
-									<span className="inline-flex items-center gap-1 whitespace-nowrap">
+									<span
+										className={cn(
+											'inline-flex items-center gap-1 whitespace-nowrap',
+											!list && '@md:hidden',
+										)}
+									>
 										<span aria-hidden className="mr-0.5">
 											·
 										</span>
@@ -262,12 +263,7 @@ export function ProposalRow({
 						</div>
 					</td>
 				)}
-				<td
-					className={cn(
-						'px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0',
-						!hasActions && '@max-md:hidden',
-					)}
-				>
+				<td className="px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0">
 					<div className="flex items-center justify-end gap-1 @max-md:flex-wrap">
 						{status === 'ready' && (
 							<Button
@@ -285,8 +281,8 @@ export function ProposalRow({
 						{explorerIsPrimary && (
 							<IconTooltip
 								label="View on explorer"
-								// Only phones show the icon alone.
-								contentClassName="sm:hidden @max-md:hidden"
+								// A narrow viewport's table shows the icon alone; stacked rows have room for the label.
+								contentClassName="sm:hidden"
 								trigger={
 									<a
 										href={explorerUrl}

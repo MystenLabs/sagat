@@ -221,11 +221,13 @@ test.describe('proposals', () => {
 			threshold: 2,
 		});
 		await chain.fund(multisig.address);
+		const title =
+			'Fund the payroll account for October and the contractor retainers';
 		const proposal = await proposeTransfer(chain, alice, {
 			multisigAddress: multisig.address,
 			recipient: randomAddress(),
 			amount: MIST_PER_SUI,
-			description: 'Fund the payroll account for October',
+			description: title,
 		});
 
 		await bob.signIn();
@@ -238,6 +240,18 @@ test.describe('proposals', () => {
 			'data-status',
 			'pending',
 		);
+
+		// Stacked, the row keeps its whole title, and shows the weight and the
+		// proposer the table hid.
+		await expect(
+			card.getByTestId('proposal-title'),
+		).toHaveText(title);
+		await expect(
+			card.getByTestId('proposal-weight'),
+		).toBeVisible();
+		await expect(
+			card.getByText(/^Proposed by/),
+		).toBeVisible();
 
 		// The chevron still opens the preview, where Sign lives.
 		await card
