@@ -22,6 +22,7 @@ import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
+import { CardHeading } from '@/components/ui/card';
 import {
 	Skeleton,
 	SkeletonLine,
@@ -273,14 +274,9 @@ export default function SigningTool() {
 		setTransactionData(value);
 		setUnreadable(false);
 		setSender(null);
-		if (
-			analysis.data ||
-			analysis.error ||
-			dryRun.data ||
-			dryRun.error
-		) {
-			resetPreview();
-		}
+		// Drops a run still in flight too, so its result can't land on the
+		// edited data.
+		resetPreview();
 	};
 
 	const handleSign = async (shouldExecute: boolean) => {
@@ -394,9 +390,7 @@ export default function SigningTool() {
 
 			{showPreview && (
 				<section className="flex flex-col gap-3">
-					<h2 className="text-16 font-medium">
-						Transaction preview
-					</h2>
+					<CardHeading title="Transaction preview" />
 					<PreviewResult
 						isSuccess={isDryRunSuccessful}
 						data={dryRun.data}

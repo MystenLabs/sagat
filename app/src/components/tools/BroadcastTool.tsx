@@ -23,6 +23,12 @@ import {
 	ToolCard,
 } from './parts';
 
+interface BroadcastError {
+	message: string;
+	/** The network it was broadcast on; the banner shows only there. */
+	network: string;
+}
+
 interface BroadcastResult {
 	digest: string;
 	/** The network it was broadcast on, for the explorer link. */
@@ -86,7 +92,9 @@ export default function BroadcastTool() {
 	const [broadcasting, setBroadcasting] = useState(false);
 	const [result, setResult] =
 		useState<BroadcastResult | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<BroadcastError | null>(
+		null,
+	);
 
 	const handleBroadcast = async () => {
 		if (!transactionBytes.trim() || !signature.trim())
@@ -107,10 +115,13 @@ export default function BroadcastTool() {
 			});
 
 			if (result.FailedTransaction) {
-				setError(
-					result.FailedTransaction.effects.status.error
-						?.message || 'Failed to broadcast transaction',
-				);
+				setError({
+					message:
+						result.FailedTransaction.effects.status.error
+							?.message ||
+						'Failed to broadcast transaction',
+					network: broadcastNetwork,
+				});
 				return;
 			}
 
@@ -123,11 +134,13 @@ export default function BroadcastTool() {
 				network: broadcastNetwork,
 			});
 		} catch (err) {
-			setError(
-				err instanceof Error
-					? err.message
-					: 'Failed to broadcast transaction',
-			);
+			setError({
+				message:
+					err instanceof Error
+						? err.message
+						: 'Failed to broadcast transaction',
+				network: broadcastNetwork,
+			});
 		} finally {
 			setBroadcasting(false);
 		}
@@ -157,19 +170,19 @@ export default function BroadcastTool() {
 
 	return (
 		<>
-			{error && (
+			{error?.network === network && (
 				<Alert
 					variant="error"
 					className="mb-5"
 					data-testid="broadcast-error"
 				>
 					<span className="whitespace-pre-wrap">
-						Broadcast failed: {safeDecode(error)}
+						Broadcast failed: {safeDecode(error.message)}
 					</span>
 				</Alert>
 			)}
 			<ToolCard>
-				<NetworkField onChange={() => setError(null)} />
+				<NetworkField />
 				<BytesField
 					id="transaction-bytes"
 					label="Transaction bytes"

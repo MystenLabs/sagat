@@ -49,12 +49,7 @@ export function ToolCard({
  * sidebar shows, with devnet on offer too since the tools work straight
  * against the chain.
  */
-export function NetworkField({
-	onChange,
-}: {
-	/** Called after the network changes. */
-	onChange?: (network: SuiNetwork) => void;
-}) {
+export function NetworkField() {
 	const { network, setNetwork } = useNetwork();
 	const options = useNetworkOptions('tools');
 
@@ -68,7 +63,6 @@ export function NetworkField({
 				onValueChange={(next) => {
 					if (typeof next !== 'string') return;
 					setNetwork(next as SuiNetwork);
-					onChange?.(next as SuiNetwork);
 				}}
 			>
 				<SelectTrigger
