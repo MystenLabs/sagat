@@ -242,7 +242,6 @@ test.describe('proposals', () => {
 		await expectSimulation(alice.page, 'success');
 		await proposeAndSign(alice.page);
 
-		await alice.openProposalsTab();
 		const card = alice.page.getByTestId('proposal-row');
 		await expect(card).toHaveAttribute(
 			'data-status',

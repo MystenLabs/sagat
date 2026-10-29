@@ -111,7 +111,8 @@ export function useAccountAssets(
 		// React Compiler treat `displayCount` as mutable.
 		pagesLeft: allPages ? hasNextPage : false,
 		pricesLoading: recognized.isLoading,
-		pricesError: recognized.isError,
+		// A failed refetch keeps the loaded price list, the way balances do.
+		pricesError: recognized.isError && !recognized.data,
 		pricesAvailable,
 	});
 

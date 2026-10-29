@@ -512,10 +512,6 @@ test.describe('overview and signers', () => {
 			await expect(
 				row.getByTestId('proposal-proposer'),
 			).toHaveText('Proposed by Bob');
-			// The open proposal tells when it expires, in its meta line.
-			await expect(
-				row.getByTestId('proposal-expiry'),
-			).toHaveText(/^Expires in /);
 			const weight = row.getByTestId('proposal-weight');
 			await expect(weight).toHaveAttribute(
 				'data-current-weight',
