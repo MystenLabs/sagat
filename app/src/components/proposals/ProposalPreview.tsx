@@ -14,7 +14,10 @@ import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { useTransactionPreview } from '../../hooks/useTransactionPreview';
-import { IntentSummary } from '../preview-effects/IntentSummary';
+import {
+	analyzerIssueCount,
+	IntentSummary,
+} from '../preview-effects/IntentSummary';
 import { Button } from '../ui/button';
 
 interface ProposalPreviewProps {
@@ -129,9 +132,10 @@ export function ProposalPreview({
 			error={analysis.error}
 		/>
 	);
-	const analyzerCount =
-		(analysis.data?.issues.length ?? 0) +
-		(analysis.error ? 1 : 0);
+	const analyzerCount = analyzerIssueCount(
+		analysis.data,
+		analysis.error,
+	);
 
 	return (
 		<div className="flex flex-col gap-3">

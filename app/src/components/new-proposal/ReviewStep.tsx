@@ -4,7 +4,10 @@
 import { ArrowLeft, Pen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 
-import { IntentSummary } from '@/components/preview-effects/IntentSummary';
+import {
+	analyzerIssueCount,
+	IntentSummary,
+} from '@/components/preview-effects/IntentSummary';
 import { ExpiryChip } from '@/components/proposals/ProposalExpiry';
 import { simulationProps } from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
@@ -91,9 +94,10 @@ export function ReviewStep({
 			error={analysis.error}
 		/>
 	);
-	const analyzerCount =
-		(analysis.data?.issues.length ?? 0) +
-		(analysis.error ? 1 : 0);
+	const analyzerCount = analyzerIssueCount(
+		analysis.data,
+		analysis.error,
+	);
 
 	return (
 		<div
@@ -142,7 +146,7 @@ export function ReviewStep({
 					data-testid={
 						settled
 							? 'transaction-preview-result'
-							: 'review-simulating'
+							: undefined
 					}
 					data-result={
 						settled

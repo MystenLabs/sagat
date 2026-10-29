@@ -76,6 +76,15 @@ function collectIssues(
 	return Array.from(issues.values());
 }
 
+/** The analyzer tab's badge: the issues the summary shows, plus a failed analysis. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function analyzerIssueCount(
+	analysis: TransactionAnalysis | undefined,
+	error: Error | null | undefined,
+): number {
+	return collectIssues(analysis).length + (error ? 1 : 0);
+}
+
 function FlowRow({
 	flow,
 	isCoinDataLoading,

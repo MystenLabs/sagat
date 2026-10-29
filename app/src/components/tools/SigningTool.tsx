@@ -20,7 +20,10 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import { NetworkSelector } from '@/components/NetworkSelector';
-import { IntentSummary } from '@/components/preview-effects/IntentSummary';
+import {
+	analyzerIssueCount,
+	IntentSummary,
+} from '@/components/preview-effects/IntentSummary';
 import {
 	pendingSimulation,
 	simulationProps,
@@ -88,12 +91,12 @@ function TransactionInput({
  * it is fully resolved, since then the dry run builds it without the
  * resolver and so to the same bytes; otherwise the resolver may still set
  * fields (gas, or the expiration an address-balance gas payment needs),
- * so once the dry run of this input settles these are the bytes of the
- * transaction it simulated. Null until then, or when none of these work.
+ * so these are the bytes of the transaction the dry run of this input
+ * simulated, which is only there once it settled. Null until then, or
+ * when none of these work.
  */
 function previewBytes(
 	input: string,
-	settled: boolean,
 	simulated?: SuiClientTypes.TransactionData,
 ): string | null {
 	const trimmed = input.trim();
@@ -102,7 +105,7 @@ function previewBytes(
 			Transaction.from(trimmed);
 			return trimmed;
 		}
-		if (settled && simulated) {
+		if (simulated) {
 			return toBase64(
 				TransactionDataBuilder.restore(simulated).build(),
 			);
@@ -149,9 +152,10 @@ function PreviewResult({
 			error={analysisError}
 		/>
 	);
-	const analyzerCount =
-		(analysis?.issues.length ?? 0) +
-		(analysisError ? 1 : 0);
+	const analyzerCount = analyzerIssueCount(
+		analysis,
+		analysisError,
+	);
 
 	const pending = simulation?.status === 'pending';
 	const passed = simulation?.status === 'passed';
@@ -164,9 +168,7 @@ function PreviewResult({
 			<div
 				className="flex flex-col gap-4"
 				data-testid={
-					pending
-						? 'transaction-preview-loading'
-						: 'transaction-preview-result'
+					pending ? undefined : 'transaction-preview-result'
 				}
 				data-result={
 					pending
@@ -357,15 +359,13 @@ export default function SigningTool() {
 	const simulation = current
 		? simulationProps(dryRun)
 		: pendingSimulation;
-	const settled =
-		!!simulation && simulation.status !== 'pending';
 	const simulated = simulation?.result?.transaction;
 
 	// What the preview shows and what is signed, so the digest and Ledger
 	// hash the user checked are those of the signed bytes.
 	const bytes = useMemo(
-		() => previewBytes(transactionData, settled, simulated),
-		[transactionData, settled, simulated],
+		() => previewBytes(transactionData, simulated),
+		[transactionData, simulated],
 	);
 
 	const isDryRunSuccessful =

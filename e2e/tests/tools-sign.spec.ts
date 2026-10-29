@@ -4,8 +4,49 @@
 import { Transaction } from '@mysten/sui/transactions';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 
-import { randomAddress } from '../support/chain';
+import type { Actor } from '../support/actor';
+import {
+	randomAddress,
+	type Chain,
+} from '../support/chain';
 import { expect, test } from '../support/fixtures';
+
+// Pastes the JSON, signs the bytes the preview shows once the dry run
+// passes, and executes those bytes with the signature on chain.
+async function signPreviewedJson(
+	alice: Actor,
+	chain: Chain,
+	{
+		json,
+		recipient,
+		amount,
+	}: { json: string; recipient: string; amount: bigint },
+) {
+	await alice.page.goto('/tools/sign');
+	await alice.connectWallet({ signIn: false });
+	await alice.page
+		.getByTestId('transaction-data-input')
+		.fill(json);
+	await expect(
+		alice.page.getByTestId('transaction-preview-result'),
+	).toHaveAttribute('data-result', 'success');
+	await alice.page
+		.getByTestId('transaction-preview-raw-toggle')
+		.click();
+	const previewedBytes = await alice.page
+		.getByTestId('transaction-preview-raw')
+		.inputValue();
+	expect(previewedBytes).toBeTruthy();
+
+	await alice.page.getByTestId('sign-button').click();
+	const signature = await alice.page
+		.getByTestId('signed-result')
+		.getAttribute('data-signature');
+	expect(signature).toBeTruthy();
+
+	await chain.execute(previewedBytes, signature!);
+	expect(await chain.balance(recipient)).toBe(amount);
+}
 
 // The Transaction Signer tool at /tools/sign: paste transaction bytes, see
 // the dry run, then sign (and optionally execute) with the connected wallet.
@@ -80,32 +121,11 @@ test.describe('transaction signer tool', () => {
 		const [coin] = tx.splitCoins(tx.gas, [MIST_PER_SUI]);
 		tx.transferObjects([coin], recipient);
 
-		await alice.page.goto('/tools/sign');
-		await alice.connectWallet({ signIn: false });
-		await alice.page
-			.getByTestId('transaction-data-input')
-			.fill(await tx.toJSON());
-		await expect(
-			alice.page.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'success');
-		await alice.page
-			.getByTestId('transaction-preview-raw-toggle')
-			.click();
-		const previewedBytes = await alice.page
-			.getByTestId('transaction-preview-raw')
-			.inputValue();
-		expect(previewedBytes).toBeTruthy();
-
-		await alice.page.getByTestId('sign-button').click();
-		const signature = await alice.page
-			.getByTestId('signed-result')
-			.getAttribute('data-signature');
-		expect(signature).toBeTruthy();
-
-		await chain.execute(previewedBytes, signature!);
-		expect(await chain.balance(recipient)).toBe(
-			MIST_PER_SUI,
-		);
+		await signPreviewedJson(alice, chain, {
+			json: await tx.toJSON(),
+			recipient,
+			amount: MIST_PER_SUI,
+		});
 	});
 
 	// An address-balance gas payment gets its expiration from the resolver,
@@ -132,32 +152,11 @@ test.describe('transaction signer tool', () => {
 		const [coin] = tx.splitCoins(tx.gas, [MIST_PER_SUI]);
 		tx.transferObjects([coin], recipient);
 
-		await alice.page.goto('/tools/sign');
-		await alice.connectWallet({ signIn: false });
-		await alice.page
-			.getByTestId('transaction-data-input')
-			.fill(await tx.toJSON());
-		await expect(
-			alice.page.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'success');
-		await alice.page
-			.getByTestId('transaction-preview-raw-toggle')
-			.click();
-		const previewedBytes = await alice.page
-			.getByTestId('transaction-preview-raw')
-			.inputValue();
-		expect(previewedBytes).toBeTruthy();
-
-		await alice.page.getByTestId('sign-button').click();
-		const signature = await alice.page
-			.getByTestId('signed-result')
-			.getAttribute('data-signature');
-		expect(signature).toBeTruthy();
-
-		await chain.execute(previewedBytes, signature!);
-		expect(await chain.balance(recipient)).toBe(
-			MIST_PER_SUI,
-		);
+		await signPreviewedJson(alice, chain, {
+			json: await tx.toJSON(),
+			recipient,
+			amount: MIST_PER_SUI,
+		});
 	});
 
 	test('signs and executes a transaction', async ({
