@@ -64,9 +64,6 @@ test.describe('several accounts in one wallet', () => {
 				.walletAccount(savings.address)
 				.getByTestId('wallet-account-sign')
 				.click();
-			await expect(
-				alice.toast('You declined the request in'),
-			).toBeVisible();
 			// The sign switched to the savings account first.
 			await expect(
 				alice.walletMenuButton(),
@@ -80,7 +77,11 @@ test.describe('several accounts in one wallet', () => {
 			await expect(
 				page.getByTestId('auth-prompt'),
 			).toBeVisible();
+			// On a full route the card shows the decline, not a toast.
 			await expect(alice.declinedLine()).toBeVisible();
+			await expect(
+				alice.toast('You declined the request in'),
+			).toHaveCount(0);
 
 			// The note was that account's: a switch takes it away.
 			await alice.switchAccount(alice);

@@ -14,19 +14,15 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { WalletPicker } from '@/components/WalletPicker';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { useAuthLevel } from '@/hooks/useAuthLevel';
 import {
 	declinedMessage,
 	UNNAMED_WALLET,
 } from '@/lib/wallet-session';
 
 /**
- * The signed-out page: connect a wallet, or, with one connected, sign the
- * message that proves the address. Connecting goes straight on to the
- * signature, so the second state is mostly what a restored session with an
- * expired cookie, or a switched account, sees. On pages that only need a
- * wallet, picking one just connects it: the picker and Try again read the
- * route's policy themselves.
+ * The signed-out page: connect a wallet, then, with one connected, sign
+ * the message that proves the address. Connecting only connects, so Sign
+ * in is always its own click, and the retry after a declined signature.
  */
 export function ConnectWalletCard() {
 	const currentAccount = useCurrentAccount();
@@ -40,7 +36,6 @@ export function ConnectWalletCard() {
 		isConnecting,
 		isAuthCheckFailing,
 	} = useApiAuth();
-	const level = useAuthLevel();
 	// The declined line belongs to the card that showed it.
 	useEffect(() => () => clearDeclined(), [clearDeclined]);
 	// Gone when the wallet was uninstalled since: then only the picker.
@@ -90,11 +85,8 @@ export function ConnectWalletCard() {
 						declinedWallet ? (
 							<>
 								<Button
-									// This route's policy, not the declined pick's.
 									onClick={() =>
-										void connectWallet(declinedWallet, {
-											signIn: level === 'full',
-										})
+										void connectWallet(declinedWallet)
 									}
 									data-testid="connect-retry"
 								>

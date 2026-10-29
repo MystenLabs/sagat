@@ -284,7 +284,6 @@ function AccountItem({
 	canSign: boolean;
 }) {
 	const dappKit = useDAppKit();
-	// Where the route needs no sign-in, declining keeps the wallet connected.
 	const level = useAuthLevel();
 	const { data: suinsName } = useDefaultSuinsName(
 		account.address,
@@ -307,7 +306,11 @@ function AccountItem({
 		// the row, which re-selects the same account (a no-op) and closes
 		// the menu like every other item.
 		switchTo();
-		signAndConnect({ keepWallet: level !== 'full' });
+		// The connect card shows the declined line on full routes;
+		// elsewhere there is no card, so it toasts.
+		signAndConnect({
+			notice: level === 'full' ? 'card' : 'toast',
+		});
 	};
 
 	return (

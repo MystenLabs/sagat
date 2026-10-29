@@ -131,11 +131,11 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the test wallet from the header's wallet menu. On pages
-	// that need an API session connecting also signs in, so wait for that:
-	// a later wallet request would otherwise race the sign-in signature.
-	// Pass `signIn: false` on pages that only connect (tools, proposal
-	// links).
+	// Connects the test wallet from the header's wallet menu. Connecting
+	// only connects, so unless `signIn` is false this then clicks the
+	// connect card's Sign in (on `/` or any full route) and waits for the
+	// session. A valid session cookie needs no click. Pass `signIn: false`
+	// on pages that only connect (tools, proposal links).
 	async connectWallet({ signIn = true } = {}) {
 		await this.page
 			.getByTestId('app-header')
@@ -143,9 +143,35 @@ export class Actor extends Identity {
 			.filter({ visible: true })
 			.click();
 		await this.walletOption().click();
-		await expect(this.walletMenuButton()).toHaveAttribute(
+		const menu = this.walletMenuButton();
+		if (!signIn) {
+			await expect(menu).toHaveAttribute(
+				'data-auth-state',
+				'unauthenticated',
+			);
+			return;
+		}
+		// Either the cookie already covers the address, or the card asks.
+		const signInButton = this.page.getByTestId(
+			'sign-in-button',
+		);
+		await expect(
+			menu
+				.and(
+					this.page.locator(
+						'[data-auth-state="authenticated"]',
+					),
+				)
+				.or(signInButton),
+		).toBeVisible();
+		if (
+			(await menu.getAttribute('data-auth-state')) !==
+			'authenticated'
+		)
+			await signInButton.click();
+		await expect(menu).toHaveAttribute(
 			'data-auth-state',
-			signIn ? 'authenticated' : 'unauthenticated',
+			'authenticated',
 		);
 	}
 
@@ -237,7 +263,7 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the wallet, which signs the auth message, like a user would.
+	// Connects the wallet and signs in from the card, like a user would.
 	async signIn() {
 		await this.page.goto('/');
 		await this.connectWallet();

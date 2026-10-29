@@ -58,17 +58,15 @@ interface ApiAuthContextType {
 	isCurrentAddressAuthenticated: boolean;
 
 	// Actions
-	// `keepWallet` keeps the wallet connected when the user declines,
-	// for routes where signing in is optional.
+	// Asks the connected wallet for the sign-in signature.
 	signAndConnect: (options?: SignInOptions) => void;
-	// From a wallet pick, or a Sign in click, until the sign-in settles.
+	// From a wallet pick, or a Sign in click, until it settles.
 	isConnecting: boolean;
 
 	// The wallet turned the last connect or signature request down.
 	declined: Declined | null;
 	clearDeclined: () => void;
-	// Connects the wallet, then (unless `signIn` is false) asks for the
-	// sign-in signature.
+	// Connects the wallet only; signing in is a separate click.
 	connectWallet: (
 		wallet: UiWallet,
 		options?: ConnectOptions,
@@ -78,12 +76,12 @@ interface ApiAuthContextType {
 }
 
 interface SignInOptions {
-	keepWallet?: boolean;
+	// Where a declined signature shows: only full routes have a
+	// connect card, so the wallet menu asks for a toast elsewhere.
+	notice?: 'card' | 'toast';
 }
 
 interface ConnectOptions {
-	// False on pages that only need a wallet, not an API session.
-	signIn?: boolean;
 	// Where a declined connect shows: a public page has no connect
 	// card, so the sidebar's picker asks for a toast there.
 	notice?: 'card' | 'toast';
@@ -167,7 +165,7 @@ export function ApiAuthProvider({
 
 	// Re-check auth when wallet account changes. A decline was another
 	// account's, so its note goes on a switch, but stays on the connect
-	// card when the decline itself disconnected the wallet.
+	// card after a declined connect, which leaves no account.
 	useEffect(() => {
 		refetchAuth();
 		if (currentAccount) setDeclined(null);
@@ -261,10 +259,7 @@ export function ApiAuthProvider({
 				queryKey: [QueryKeys.Proposals],
 			});
 		},
-		onError: async (
-			error: Error,
-			options?: SignInOptions,
-		) => {
+		onError: (error: Error, options?: SignInOptions) => {
 			// The logout already said so; a failure toast would contradict it.
 			if (error instanceof SignInCancelledError) return;
 			if (!(error instanceof WalletDeclinedError)) {
@@ -280,23 +275,10 @@ export function ApiAuthProvider({
 					?.address !== error.address
 			)
 				return;
-			// No connect card on a route where signing in is optional: the
-			// toast below is the whole notice.
-			if (!options?.keepWallet)
-				setDeclined({ wallet: error.wallet });
-			const signedIn =
-				queryClient.getQueryData<AuthCheckResponse>(
-					AUTH_QUERY_KEY,
-				)?.addresses ?? [];
-			if (signedIn.length === 0 && !options?.keepWallet) {
-				// Nobody is signed in: back to the connect card, with no
-				// wallet session saved (the kit clears its storage entry).
-				await dappKit.disconnectWallet().catch(() => {});
-			} else {
-				// Another account is still signed in, or the sign-in was
-				// optional on this route, so the wallet stays.
+			// The wallet stays connected, so Sign in is the retry.
+			if (options?.notice === 'toast')
 				toast.error(declinedMessage(error.wallet));
-			}
+			else setDeclined({ wallet: error.wallet });
 		},
 	});
 
@@ -338,7 +320,7 @@ export function ApiAuthProvider({
 
 	const connectWallet = (
 		wallet: UiWallet,
-		{ signIn = true, notice = 'card' }: ConnectOptions = {},
+		{ notice = 'card' }: ConnectOptions = {},
 	) =>
 		withConnectLock(async () => {
 			setDeclined(null);
@@ -348,25 +330,7 @@ export function ApiAuthProvider({
 				if (notice === 'toast')
 					toast.error(declinedMessage(wallet.name));
 				else setDeclined({ wallet: wallet.name });
-				return;
 			}
-			// After the connect, so only a logout from here on drops the
-			// answer.
-			const generation = sessionGeneration.current;
-			if (!signIn) return;
-			const { data, isError } = await refetchAuth();
-			// Logged out while the check ran.
-			if (sessionGeneration.current !== generation) return;
-			// Can't tell whether the user is signed in: the unreachable state
-			// shows instead of a signature that would only fail.
-			if (isError || !data) return;
-			const address =
-				dappKit.stores.$connection.get().account?.address;
-			// The session cookie still covers this address.
-			if (data.addresses.some((x) => x.address === address))
-				return;
-			// onError handles the failures.
-			await connectMutation.mutateAsync().catch(() => {});
 		});
 
 	const runSignIn = (options?: SignInOptions) =>

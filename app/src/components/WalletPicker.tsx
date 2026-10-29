@@ -23,9 +23,8 @@ type WalletPickerVariant = 'default' | 'outline' | 'rail';
 
 /**
  * "Connect wallet": a menu of the installed wallets. Picking one connects
- * it and, where the route needs an API session, asks for the sign-in
- * signature straight after; the picker reads the route's policy itself.
- * The `rail` variant is the sidebar footer's, a square icon on the
+ * it; where the route needs an API session, the connect card then offers
+ * Sign in. The `rail` variant is the sidebar footer's, a square icon on the
  * collapsed rail.
  */
 export function WalletPicker({
@@ -90,7 +89,6 @@ export function WalletPicker({
 							key={wallet.name}
 							onClick={() =>
 								void connectWallet(wallet, {
-									signIn: level === 'full',
 									notice:
 										level === 'public' ? 'toast' : 'card',
 								})
