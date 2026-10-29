@@ -62,18 +62,19 @@ New routes for rotation are listed at the end. You do not need them unless you r
 
 ## Fields
 
-| Where                | Before                         | After                                                                  |
-| -------------------- | ------------------------------ | ---------------------------------------------------------------------- |
-| Create proposal body | `multisigAddress`              | `accountAddress`                                                       |
-| Proposal             | `multisigAddress`              | `accountAddress`                                                       |
-| Public proposal      | `currentWeight`, `totalWeight` | Removed, see the note below the table.                                 |
-| Proposal             |                                | `executedVia`: address of the signer set used at execution, or null.   |
-| Public proposal      | `multisig`                     | Removed. Use `signerSets`.                                             |
-| Public proposal      | `signatures`                   | Still every signature collected, by public key.                        |
-| Vote response        | `hasReachedThreshold`          | Still present. True when **any** signer set has reached its threshold. |
-| Vote response        |                                | `readySignerSets`: addresses of the sets that reached threshold.       |
-| Member               | `multisigAddress`              | `signerSetAddress`                                                     |
-| Proposer             | `multisigAddress`              | `accountAddress`                                                       |
+| Where                | Before                         | After                                                                          |
+| -------------------- | ------------------------------ | ------------------------------------------------------------------------------ |
+| Create proposal body | `multisigAddress`              | `accountAddress`                                                               |
+| Proposal             | `multisigAddress`              | `accountAddress`                                                               |
+| Public proposal      | `currentWeight`, `totalWeight` | Removed, see the note below the table.                                         |
+| Proposal             |                                | `executedVia`: address of the signer set used at execution, or null.           |
+| Public proposal      | `multisig`                     | Removed. Use `signerSets`.                                                     |
+| Public proposal      | `signatures`                   | Still every signature collected, by public key.                                |
+| Vote response        | `hasReachedThreshold`          | Still present. True when **any** signer set has reached its threshold.         |
+| Vote response        |                                | `readySignerSets`: addresses of the sets that reached threshold.               |
+| Vote response        | `currentWeight`                | Removed. Read `signerSets[].currentWeight` on the proposal; one tally per set. |
+| Member               | `multisigAddress`              | `signerSetAddress`                                                             |
+| Proposer             | `multisigAddress`              | `accountAddress`                                                               |
 
 The legacy `totalWeight` on `GET /proposals/digest/:digest` is the multisig's threshold, not the sum of member weights; the name was misleading. To check progress, compare `signerSets[].currentWeight` with `signerSets[].threshold`, or use `signerSets[].hasReachedThreshold`. `signerSets[].totalWeight` is the sum of member weights.
 
