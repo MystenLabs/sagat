@@ -222,7 +222,7 @@ test.describe('transaction signer tool', () => {
 		).toHaveCount(0);
 	});
 
-	test('signs but does not execute a transaction from another sender', async ({
+	test("offers Sign but not Sign and execute for another sender's transaction", async ({
 		createActor,
 		createIdentity,
 		chain,

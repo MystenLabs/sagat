@@ -32,6 +32,10 @@ test.describe('broadcasts tool', () => {
 		await expect(button).toBeDisabled();
 		await alice.page
 			.getByTestId('broadcast-signature-input')
+			.fill('not base64!');
+		await expect(button).toBeDisabled();
+		await alice.page
+			.getByTestId('broadcast-signature-input')
 			.fill(await alice.signTransaction(bytes));
 		await button.click();
 

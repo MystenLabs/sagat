@@ -65,6 +65,8 @@ interface SignedResult {
 	digest?: string;
 	signature: string;
 	bytes: string;
+	/** The network it was signed on, for the explorer link. */
+	network: string;
 	/** Set when the transaction executed but failed on chain. */
 	failure?: { message: string };
 }
@@ -162,13 +164,11 @@ function PreviewResult({
 function SignedResultDisplay({
 	result,
 	onStartOver,
-	network,
 }: {
 	result: SignedResult;
 	onStartOver: () => void;
-	network: string;
 }) {
-	const { digest, failure, signature } = result;
+	const { digest, failure, signature, network } = result;
 	const explorerUrl = digest
 		? getExplorerUrl(digest, network)
 		: null;
@@ -314,6 +314,7 @@ export default function SigningTool() {
 	const handleSign = async (shouldExecute: boolean) => {
 		if (!transactionData || isSignPending) return;
 
+		const signedOn = network;
 		try {
 			const tx = Transaction.from(transactionData);
 
@@ -331,6 +332,7 @@ export default function SigningTool() {
 					digest: txResult?.digest,
 					signature: txResult?.signatures[0] ?? '',
 					bytes: transactionData,
+					network: signedOn,
 					failure: failed
 						? {
 								message:
@@ -349,6 +351,7 @@ export default function SigningTool() {
 					digest: undefined,
 					signature: result.signature,
 					bytes: result.bytes,
+					network: signedOn,
 				});
 			}
 		} catch (error) {
@@ -439,7 +442,6 @@ export default function SigningTool() {
 				<SignedResultDisplay
 					result={signedResult}
 					onStartOver={handleStartOver}
-					network={network}
 				/>
 			)}
 

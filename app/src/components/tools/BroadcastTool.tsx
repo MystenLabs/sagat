@@ -31,6 +31,18 @@ import {
 
 interface BroadcastResult {
 	digest: string;
+	/** The network it was broadcast on, for the explorer link. */
+	network: string;
+}
+
+/** Whether the value decodes as base64. */
+function isBase64(value: string) {
+	try {
+		fromBase64(value);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function BroadcastResultDisplay({
@@ -40,10 +52,9 @@ function BroadcastResultDisplay({
 	result: BroadcastResult;
 	onReset: () => void;
 }) {
-	const { network } = useNetwork();
 	const explorerUrl = getExplorerUrl(
 		result.digest,
-		network,
+		result.network,
 	);
 	const { copy } = useCopyToClipboard('Digest copied');
 
@@ -97,6 +108,7 @@ function BroadcastResultDisplay({
 
 export default function BroadcastTool() {
 	const client = useDAppKit().getClient();
+	const { network } = useNetwork();
 	const [transactionBytes, setTransactionBytes] =
 		useState('');
 	const [signature, setSignature] = useState('');
@@ -109,6 +121,7 @@ export default function BroadcastTool() {
 		if (!transactionBytes.trim() || !signature.trim())
 			return;
 
+		const broadcastNetwork = network;
 		setBroadcasting(true);
 		setError(null);
 		setResult(null);
@@ -136,6 +149,7 @@ export default function BroadcastTool() {
 
 			setResult({
 				digest: result.Transaction!.digest,
+				network: broadcastNetwork,
 			});
 		} catch (err) {
 			setError(
@@ -166,6 +180,8 @@ export default function BroadcastTool() {
 	const canBroadcast =
 		!!transactionBytes.trim() &&
 		!!signature.trim() &&
+		isBase64(transactionBytes.trim()) &&
+		isBase64(signature.trim()) &&
 		!broadcasting;
 
 	return (

@@ -3,8 +3,10 @@
 
 import {
 	parseSerializedSignature,
+	SIGNATURE_FLAG_TO_SCHEME,
 	toSerializedSignature,
 	type PublicKey,
+	type SignatureFlag,
 	type SignatureScheme,
 } from '@mysten/sui/cryptography';
 import {
@@ -39,27 +41,10 @@ interface MultiSigInfo {
 		publicKey: PublicKey;
 		weight: number;
 		suiAddress: string;
-		keyType: string;
+		keyType: SignatureScheme;
 	}[];
 }
 
-// Helper function to determine key type from flag
-function getKeyTypeFromFlag(flag: number): string {
-	switch (flag) {
-		case 0:
-			return 'Ed25519';
-		case 1:
-			return 'Secp256k1';
-		case 2:
-			return 'Secp256r1';
-		case 3:
-			return 'MultiSig';
-		case 5:
-			return 'ZkLogin';
-		default:
-			return `Unknown (${flag})`;
-	}
-}
 /** A value in full, mono, with a copy button beside it, for a list row. */
 function Copyable({ value }: { value: string }) {
 	return (
@@ -253,11 +238,7 @@ function SingleSignature({
 			data-scheme={signature.signatureScheme.toString()}
 		>
 			<DetailRow label="Scheme">
-				<SchemeChip
-					scheme={getKeyTypeFromFlag(
-						signature.publicKey.flag(),
-					)}
-				/>
+				<SchemeChip scheme={signature.signatureScheme} />
 			</DetailRow>
 			<DetailRow label="Signer">
 				<Copyable value={suiAddress} />
@@ -317,9 +298,9 @@ export default function SignatureAnalyzer() {
 							weight,
 							suiAddress: publicKey.toSuiAddress(),
 							keyType:
-								(publicKey as { keyType?: string })
-									.keyType ||
-								getKeyTypeFromFlag(publicKey.flag()),
+								SIGNATURE_FLAG_TO_SCHEME[
+									publicKey.flag() as SignatureFlag
+								],
 						}));
 
 					// Store multisig information

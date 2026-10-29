@@ -16,10 +16,8 @@ import {
 	type SuiNetwork,
 } from '@/contexts/NetworkContext';
 import { useNetworkOptions } from '@/hooks/useNetworkOptions';
+import { networkLabel } from '@/lib/network';
 import { cn } from '@/lib/utils';
-
-const capitalize = (value: string) =>
-	value.charAt(0).toUpperCase() + value.slice(1);
 
 /** The card a tool's form sits in: fields stacked 20px apart. */
 export function ToolCard({
@@ -65,7 +63,7 @@ export function NetworkField() {
 					data-network={network}
 				>
 					<span className="flex-1 text-left">
-						{capitalize(network)}
+						{networkLabel(network)}
 					</span>
 				</SelectTrigger>
 				<SelectContent alignItemWithTrigger={false}>
@@ -75,7 +73,7 @@ export function NetworkField() {
 							value={value}
 							disabled={!enabled}
 						>
-							{capitalize(value)}
+							{networkLabel(value)}
 							{hint && (
 								<span className="ml-auto text-11 text-muted-foreground">
 									{hint}
