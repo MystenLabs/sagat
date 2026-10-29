@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { FileSearch } from 'lucide-react';
-import { useMemo } from 'react';
 import {
 	Navigate,
 	useSearchParams,
@@ -16,7 +15,6 @@ import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { type Labels } from '@/lib/proposal-page';
 import { proposalPagePath } from '@/lib/proposalUtils';
-import { type ProposalCardInput } from '@/lib/types';
 
 import { ProposalLoadError } from './ProposalPage';
 import { ProposalPageSkeleton } from './ProposalPageSkeleton';
@@ -40,14 +38,6 @@ export function SharedProposalPage() {
 	const proposalQuery = useGetProposal(digest);
 	const proposal = proposalQuery.data;
 
-	const input: ProposalCardInput | null = useMemo(
-		() =>
-			proposal
-				? { ...proposal, isPublic: true, proposers: [] }
-				: null,
-		[proposal],
-	);
-
 	if (!digest) {
 		return (
 			<div className="page-shell">
@@ -70,28 +60,30 @@ export function SharedProposalPage() {
 	)
 		return <ProposalPageSkeleton />;
 
-	if (!input)
+	if (!proposal)
 		return (
 			<ProposalLoadError error={proposalQuery.error} />
 		);
 
 	const own = multisigs?.find(
 		(m) =>
-			m.address === input.multisigAddress && m.isAccepted,
+			m.address === proposal.multisigAddress &&
+			m.isAccepted,
 	);
 	if (own)
 		return (
 			<Navigate
-				to={proposalPagePath(own.address, input.digest)}
+				to={proposalPagePath(own.address, proposal.digest)}
 				replace
 			/>
 		);
 
 	return (
 		<ProposalView
-			proposal={input}
+			proposal={proposal}
 			labels={NO_LABELS}
 			proposalsPath={null}
+			canCancel={false}
 		/>
 	);
 }

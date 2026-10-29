@@ -56,6 +56,8 @@ export function CancelProposalModal({
 						Nobody else has signed “{title}” yet. It moves
 						to the Cancelled tab, and no one can sign or
 						execute it in the app after this.
+						{ready &&
+							' Your signature already meets the threshold and stays valid on chain, so anyone holding it can still execute the transaction.'}
 					</p>
 				) : (
 					<p>

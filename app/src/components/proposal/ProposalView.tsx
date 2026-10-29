@@ -49,6 +49,7 @@ import { networkLabel } from '@/lib/network';
 import {
 	hasSigned,
 	proposalPageStatus,
+	trimPeriod,
 	type Labels,
 	type SimulationVerdict,
 } from '@/lib/proposal-page';
@@ -77,10 +78,16 @@ export function ProposalView({
 	proposal,
 	labels,
 	proposalsPath,
+	canCancel,
 }: {
 	proposal: ProposalCardInput;
 	labels: Labels;
 	proposalsPath: string | null;
+	/**
+	 * Whether the viewer may cancel: only under the account, where the
+	 * API knows them as an accepted member.
+	 */
+	canCancel: boolean;
 }) {
 	const { network, setNetwork } = useNetwork();
 	const { data: epochInfo } = useEpochInfo();
@@ -400,6 +407,7 @@ export function ProposalView({
 						simulation={simulation}
 						verdict={verdict}
 						chainResult={chainResult}
+						canCancel={canCancel}
 					/>
 					<ActivityCard
 						proposal={proposal}
@@ -412,11 +420,6 @@ export function ProposalView({
 			</div>
 		</div>
 	);
-}
-
-/** "Not enough gas." → "Not enough gas", so a sentence can follow. */
-function trimPeriod(message: string) {
-	return message.trim().replace(/\.$/, '');
 }
 
 /** Export and Copy link, as icon buttons. */

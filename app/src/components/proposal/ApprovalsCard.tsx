@@ -40,6 +40,7 @@ import {
 	gasEstimate,
 	hasSigned,
 	thresholdLabel,
+	trimPeriod,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
 	type Labels,
@@ -73,6 +74,7 @@ export function ApprovalsCard({
 	simulation,
 	verdict,
 	chainResult,
+	canCancel: cancelAllowed,
 }: {
 	proposal: ProposalCardInput;
 	status: ProposalStatusKey;
@@ -86,6 +88,11 @@ export function ApprovalsCard({
 	verdict: SimulationVerdict;
 	/** The executed transaction, for an executed or failed proposal. */
 	chainResult: SimulatedTransaction | null;
+	/**
+	 * Whether the viewer may cancel: only under the account, where the
+	 * API knows them as an accepted member.
+	 */
+	canCancel: boolean;
 }) {
 	const { currentAddress } = useApiAuth();
 	const sign = useSignProposal();
@@ -109,17 +116,19 @@ export function ApprovalsCard({
 	const rechecking = dryRun.isPending && status === 'ready';
 	const canAct = viewer === 'member';
 	// Cancelling signs a message for the API session.
-	const canCancel = canAct && !!currentAddress;
+	const canCancel =
+		cancelAllowed && canAct && !!currentAddress;
 	const settled =
 		verdict === 'passed' ||
 		verdict === 'failed' ||
 		verdict === 'unknown';
 	const failing = verdict === 'failed';
+	// Only after a dry run that passed: signing blind (`unknown`) never
+	// executes in the same step.
 	const offerExecuteAfterSigning =
 		status === 'pending' &&
 		!signed &&
-		settled &&
-		!failing &&
+		verdict === 'passed' &&
 		reaches;
 	const signAndExecute =
 		offerExecuteAfterSigning && executeAfterSigning;
@@ -435,7 +444,7 @@ export function ApprovalsCard({
 					<p>
 						It still fails after a second simulation
 						{stillFails
-							? `: ${stillFails.replace(/\.$/, '')}`
+							? `: ${trimPeriod(stillFails)}`
 							: ''}
 						. If you execute, the proposal closes and can't
 						be retried, and the account still pays gas

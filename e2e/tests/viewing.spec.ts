@@ -50,10 +50,18 @@ test.describe('shared proposal links', () => {
 			(url) => url.pathname === '/proposals',
 		);
 
-		// His signature reaches the threshold, so signing executes it too.
+		// His signature reaches the threshold; sign alone, then execute.
+		await page.getByTestId('execute-after-signing').click();
 		const sign = page.getByTestId('sign-proposal-button');
-		await expect(sign).toHaveText('Sign and execute');
+		await expect(sign).toHaveText('Sign proposal');
 		await sign.click();
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'ready',
+		);
+		await page
+			.getByTestId('execute-proposal-button')
+			.click();
 		await expect
 			.poll(() => page.getAttribute('data-status'))
 			.toBe('executed');

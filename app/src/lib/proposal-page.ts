@@ -299,6 +299,8 @@ export function approvalsNote({
 	if (simulation === 'pending') return null;
 	if (simulation === 'failed')
 		return 'Signing adds your approval to a transaction that would fail as things stand.';
+	if (simulation === 'unknown')
+		return "The transaction couldn't be simulated. Check it in your wallet before you sign.";
 	if (wouldReachThreshold(proposal, publicKey))
 		return executeAfterSigning
 			? 'Your signature reaches the threshold. Gas is paid from the account.'
@@ -307,6 +309,11 @@ export function approvalsNote({
 	return after > 0
 		? `Needs ${after} more weight after yours.`
 		: null;
+}
+
+/** "Not enough gas." → "Not enough gas", so a sentence can follow. */
+export function trimPeriod(message: string) {
+	return message.trim().replace(/\.$/, '');
 }
 
 /**

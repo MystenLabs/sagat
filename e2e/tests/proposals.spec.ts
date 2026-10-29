@@ -108,12 +108,17 @@ test.describe('proposals', () => {
 			(3n * MIST_PER_SUI) / 2n,
 		);
 
-		// Alice sees the outcome too.
+		// Alice sees the outcome too, with the chain's result.
 		await alice.page.reload();
 		await expect(alicePage).toHaveAttribute(
 			'data-status',
 			'executed',
 		);
+		await expect(
+			alice
+				.proposalPage(digest!)
+				.getByTestId('transaction-preview-status'),
+		).toHaveAttribute('data-status', 'passed');
 	});
 
 	test('a signature that reaches the threshold signs and executes in one click', async ({

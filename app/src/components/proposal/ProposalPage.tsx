@@ -11,10 +11,7 @@ import { useGetProposal } from '@/hooks/useGetProposal';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { proposalPagePath } from '@/lib/proposalUtils';
 import { memberLabels } from '@/lib/signers';
-import {
-	type MultisigWithMembersForPublicKey,
-	type ProposalCardInput,
-} from '@/lib/types';
+import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { ProposalPageSkeleton } from './ProposalPageSkeleton';
 import { ProposalView } from './ProposalView';
@@ -90,19 +87,12 @@ function AccountProposal({
 		() => memberLabels(multisig.members),
 		[multisig.members],
 	);
-	const input: ProposalCardInput = useMemo(
-		() => ({
-			...proposal,
-			isPublic: false,
-			proposers: multisig.proposers.map((p) => p.address),
-		}),
-		[proposal, multisig.proposers],
-	);
 	return (
 		<ProposalView
-			proposal={input}
+			proposal={proposal}
 			labels={labels}
 			proposalsPath={`/multisig/${multisig.address}/proposals`}
+			canCancel
 		/>
 	);
 }

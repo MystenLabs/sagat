@@ -17,17 +17,10 @@ type ModalProps = {
 	open: boolean;
 	onClose: () => void;
 	children: ReactNode;
-	size?: 'sm' | 'md' | 'lg';
 } & Omit<
 	ComponentProps<typeof DialogContent>,
 	'children' | 'showCloseButton'
 >;
-
-const sizeClasses = {
-	sm: 'sm:max-w-sm',
-	md: 'sm:max-w-md',
-	lg: 'sm:max-w-lg',
-};
 
 /**
  * A dialog with a title, a body and its buttons. Anything else (a test
@@ -37,7 +30,6 @@ export function Modal({
 	open,
 	onClose,
 	children,
-	size = 'md',
 	className,
 	...props
 }: ModalProps) {
@@ -50,11 +42,7 @@ export function Modal({
 		>
 			<DialogContent
 				showCloseButton={false}
-				className={cn(
-					'gap-0 p-6',
-					sizeClasses[size],
-					className,
-				)}
+				className={cn('gap-0 p-6', className)}
 				{...props}
 			>
 				{children}

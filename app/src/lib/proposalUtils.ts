@@ -62,14 +62,10 @@ export function toProposalCardInput(
 ): ProposalCardInput {
 	return {
 		...proposal,
-		isPublic: false,
 		totalWeight: multisig.threshold,
 		currentWeight: calculateCurrentWeight(
 			proposal,
 			multisig,
-		),
-		proposers: multisig.proposers.map(
-			(proposer) => proposer.address,
 		),
 		multisig: {
 			address: multisig.address,

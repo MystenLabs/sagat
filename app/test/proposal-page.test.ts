@@ -207,4 +207,16 @@ describe('approvalsNote', () => {
 			'You signed. Needs 3 more weight from the other signers.',
 		);
 	});
+
+	it('asks an unsigned member to check the wallet when the dry run couldn’t run', () => {
+		expect(
+			approvalsNote({
+				...base,
+				proposal: proposal(),
+				simulation: 'unknown',
+			}),
+		).toBe(
+			"The transaction couldn't be simulated. Check it in your wallet before you sign.",
+		);
+	});
 });
