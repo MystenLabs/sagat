@@ -52,12 +52,13 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 	const { signature } = await c.req.json();
 	const { proposalId } = c.req.param();
 
-	const { hasReachedThreshold } = await voteOnProposal({
-		proposalId: parseInt(proposalId),
-		signature,
-	});
+	const { hasReachedThreshold, currentWeight } =
+		await voteOnProposal({
+			proposalId: parseInt(proposalId),
+			signature,
+		});
 
-	return c.json({ hasReachedThreshold });
+	return c.json({ hasReachedThreshold, currentWeight });
 });
 
 // Cancel a transaction as a valid member of the commitee.
