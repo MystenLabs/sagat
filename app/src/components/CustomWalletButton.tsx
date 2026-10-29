@@ -22,9 +22,9 @@ import { cn } from '@/lib/utils';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
+import { useAuthLevel } from '../hooks/useAuthLevel';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useDefaultSuinsName } from '../hooks/useDefaultSuinsName';
-import { useSignInPolicy } from '../hooks/useSignInPolicy';
 import {
 	railSquareClass,
 	railTriggerClass,
@@ -285,7 +285,7 @@ function AccountItem({
 }) {
 	const dappKit = useDAppKit();
 	// Where the route needs no sign-in, declining keeps the wallet connected.
-	const signIn = useSignInPolicy();
+	const level = useAuthLevel();
 	const { data: suinsName } = useDefaultSuinsName(
 		account.address,
 	);
@@ -307,15 +307,13 @@ function AccountItem({
 		// the row, which re-selects the same account (a no-op) and closes
 		// the menu like every other item.
 		switchTo();
-		signAndConnect({ keepWallet: !signIn });
+		signAndConnect({ keepWallet: level !== 'full' });
 	};
 
 	return (
 		<DropdownMenuItem
-			className={cn(
-				// Taller when the account has a name or label line.
-				'h-auto min-h-9 py-1.5',
-			)}
+			// Taller when the account has a name or label line.
+			className="h-auto min-h-9 py-1.5"
 			onClick={switchTo}
 			data-testid="wallet-account"
 			data-address={account.address}

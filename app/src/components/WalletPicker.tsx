@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SidebarRailTooltip } from '@/components/ui/sidebar';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { useSignInPolicy } from '@/hooks/useSignInPolicy';
+import { useAuthLevel } from '@/hooks/useAuthLevel';
 import { cn } from '@/lib/utils';
 
 const LABEL = 'Connect wallet';
@@ -41,7 +41,7 @@ export function WalletPicker({
 }) {
 	const wallets = useWallets();
 	const { connectWallet } = useApiAuth();
-	const signIn = useSignInPolicy();
+	const level = useAuthLevel();
 	const rail = variant === 'rail';
 
 	return (
@@ -89,7 +89,11 @@ export function WalletPicker({
 						<DropdownMenuItem
 							key={wallet.name}
 							onClick={() =>
-								void connectWallet(wallet, { signIn })
+								void connectWallet(wallet, {
+									signIn: level === 'full',
+									notice:
+										level === 'public' ? 'toast' : 'card',
+								})
 							}
 							data-testid="wallet-option"
 							data-wallet-name={wallet.name}

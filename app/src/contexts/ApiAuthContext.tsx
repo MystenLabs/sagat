@@ -84,6 +84,9 @@ interface SignInOptions {
 interface ConnectOptions {
 	// False on pages that only need a wallet, not an API session.
 	signIn?: boolean;
+	// Where a declined connect shows: a public page has no connect
+	// card, so the sidebar's picker asks for a toast there.
+	notice?: 'card' | 'toast';
 }
 
 interface Declined {
@@ -174,6 +177,19 @@ export function ApiAuthProvider({
 	// Bumped by every logout, so a sign-in that started before it can tell
 	// its answer came too late.
 	const sessionGeneration = useRef(0);
+
+	// A disconnect or switch from the wallet's side ends the session like
+	// a logout, so a signature answer from before it is dropped.
+	useEffect(
+		() =>
+			dappKit.stores.$connection.listen((next, prev) => {
+				if (
+					next.account?.address !== prev?.account?.address
+				)
+					sessionGeneration.current++;
+			}),
+		[dappKit],
+	);
 
 	// Connect mutation - signs message and sends to API
 	const connectMutation = useMutation({
@@ -294,7 +310,10 @@ export function ApiAuthProvider({
 	});
 
 	// One connect at a time: a second pick while the wallet's prompt is
-	// open would race the first for the connection.
+	// open would race the first for the connection. A sign-in started
+	// from the menu or the card holds it too, so a reconnect can't start
+	// while a signature is out and its late answer can't undo a newer
+	// session.
 	const connectInFlight = useRef(false);
 	// Covers the whole pick, so the card reads "Signing in…" until the
 	// answer, not just while the signature is out.
@@ -302,20 +321,24 @@ export function ApiAuthProvider({
 
 	const connectWallet = async (
 		wallet: UiWallet,
-		{ signIn = true }: ConnectOptions = {},
+		{ signIn = true, notice = 'card' }: ConnectOptions = {},
 	) => {
 		if (connectInFlight.current) return;
 		connectInFlight.current = true;
 		setConnecting(true);
 		setDeclined(null);
-		const generation = sessionGeneration.current;
 		try {
 			try {
 				await dappKit.connectWallet({ wallet });
 			} catch {
-				setDeclined({ wallet: wallet.name });
+				if (notice === 'toast')
+					toast.error(declinedMessage(wallet.name));
+				else setDeclined({ wallet: wallet.name });
 				return;
 			}
+			// After the connect, which the listener above counts as a new
+			// session.
+			const generation = sessionGeneration.current;
 			if (!signIn) return;
 			const { data, isError } = await refetchAuth();
 			// Logged out while the check ran.
@@ -330,6 +353,21 @@ export function ApiAuthProvider({
 				return;
 			// onError handles the failures.
 			await connectMutation.mutateAsync().catch(() => {});
+		} finally {
+			connectInFlight.current = false;
+			setConnecting(false);
+		}
+	};
+
+	const runSignIn = async (options?: SignInOptions) => {
+		if (connectInFlight.current) return;
+		connectInFlight.current = true;
+		setConnecting(true);
+		try {
+			// onError handles the failures.
+			await connectMutation
+				.mutateAsync(options)
+				.catch(() => {});
 		} finally {
 			connectInFlight.current = false;
 			setConnecting(false);
@@ -397,9 +435,8 @@ export function ApiAuthProvider({
 		isCurrentAddressAuthenticated,
 
 		// Actions
-		// `mutate` leaves failures to onError, so callers needn't catch.
-		signAndConnect: (options) =>
-			connectMutation.mutate(options),
+		// Failures go to onError, so callers needn't catch.
+		signAndConnect: (options) => void runSignIn(options),
 		isConnecting: connectMutation.isPending || connecting,
 
 		declined,

@@ -8,12 +8,13 @@ import {
 } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
 import { TriangleAlert, Wallet } from 'lucide-react';
+import { useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { WalletPicker } from '@/components/WalletPicker';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { useSignInPolicy } from '@/hooks/useSignInPolicy';
+import { useAuthLevel } from '@/hooks/useAuthLevel';
 import {
 	declinedMessage,
 	UNNAMED_WALLET,
@@ -33,12 +34,15 @@ export function ConnectWalletCard() {
 	const wallets = useWallets();
 	const {
 		declined,
+		clearDeclined,
 		connectWallet,
 		signAndConnect,
 		isConnecting,
 		isAuthCheckFailing,
 	} = useApiAuth();
-	const signIn = useSignInPolicy();
+	const level = useAuthLevel();
+	// The declined line belongs to the card that showed it.
+	useEffect(() => () => clearDeclined(), [clearDeclined]);
 	// Gone when the wallet was uninstalled since: then only the picker.
 	const declinedWallet =
 		declined &&
@@ -89,7 +93,7 @@ export function ConnectWalletCard() {
 									// This route's policy, not the declined pick's.
 									onClick={() =>
 										void connectWallet(declinedWallet, {
-											signIn,
+											signIn: level === 'full',
 										})
 									}
 									data-testid="connect-retry"
