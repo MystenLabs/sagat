@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { MultisigWithMembers } from '@mysten/sagat';
-import { formatAddress } from '@mysten/sui/utils';
+import {
+	formatAddress,
+	normalizeSuiAddress,
+} from '@mysten/sui/utils';
 import { Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
+import { SignerName } from '@/components/multisig/SignerName';
 import { Button } from '@/components/ui/button';
 import {
 	cardClass,
@@ -20,7 +24,6 @@ import {
 } from '@/components/ui/table';
 import { accountName } from '@/lib/account-name';
 import { formatDate } from '@/lib/dates';
-import { addedByName } from '@/lib/proposers';
 import { memberLabels } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
@@ -102,75 +105,93 @@ export function ProposersSection({
 								<th className="px-3 whitespace-nowrap">
 									External proposer
 								</th>
-								<th className="w-28 px-3 sm:w-32">Added</th>
+								<th className="w-30 px-3 sm:w-40">Added</th>
 								<th className="w-12 px-1.5 sm:w-30 sm:px-3">
 									<span className="sr-only">Actions</span>
 								</th>
 							</tr>
 						</thead>
 						<tbody>
-							{proposers.map((proposer) => (
-								<tr
-									key={proposer.address}
-									className={tableRowClass}
-									data-testid="proposer-item"
-									data-address={proposer.address}
-								>
-									<td className="px-3 py-2.5">
-										<span className="flex items-center gap-1 font-mono text-13">
-											<ShortAddress
-												address={proposer.address}
-											/>
-											<CopyButton
-												value={proposer.address}
-												size="inline"
-												successMessage="Address copied"
-											/>
-										</span>
-									</td>
-									<td className="px-3 py-2.5 whitespace-nowrap">
-										<span
-											className="block truncate text-13 text-foreground"
-											data-testid="proposer-added"
-											data-added-at={proposer.addedAt}
-										>
-											{formatDate(proposer.addedAt) ?? '—'}
-										</span>
-										<span
-											className="block truncate text-12 text-muted-foreground"
-											data-testid="proposer-added-by"
-										>
-											by{' '}
-											{addedByName(
-												proposer.addedBy,
-												labels,
-												currentAddress,
-											)}
-										</span>
-									</td>
-									<td className="px-1.5 py-1.5 text-right sm:px-3">
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={() => {
-												setRemovingAddress(
-													proposer.address,
-												);
-												setRemoving(true);
-											}}
-											aria-label={`Remove ${formatAddress(proposer.address)}`}
-											data-testid="remove-proposer-button"
-										>
-											<Trash2 />
-											{/* Icon only on phones, where the
-											    address needs the room. */}
-											<span className="max-sm:sr-only">
-												Remove
+							{proposers.map((proposer) => {
+								const addedBy = normalizeSuiAddress(
+									proposer.addedBy,
+								);
+								const label = labels.get(addedBy) ?? null;
+								const isYou =
+									!!currentAddress &&
+									normalizeSuiAddress(currentAddress) ===
+										addedBy;
+								return (
+									<tr
+										key={proposer.address}
+										className={tableRowClass}
+										data-testid="proposer-item"
+										data-address={proposer.address}
+									>
+										<td className="px-3 py-2.5">
+											<span className="flex items-center gap-1 font-mono text-13">
+												<ShortAddress
+													address={proposer.address}
+												/>
+												<CopyButton
+													value={proposer.address}
+													size="inline"
+													successMessage="Address copied"
+												/>
 											</span>
-										</Button>
-									</td>
-								</tr>
-							))}
+										</td>
+										<td className="px-3 py-2.5">
+											<span
+												className="block truncate text-13 text-foreground"
+												data-testid="proposer-added"
+												data-added-at={proposer.addedAt}
+											>
+												{formatDate(proposer.addedAt) ??
+													'—'}
+											</span>
+											<span
+												className="block text-12 break-words text-muted-foreground"
+												data-testid="proposer-added-by"
+											>
+												by{' '}
+												{/* The name alone; the address only when unnamed. */}
+												<SignerName
+													label={label}
+													address={
+														label
+															? undefined
+															: proposer.addedBy
+													}
+													marker={isYou ? 'you' : null}
+													markerStyle="parens"
+													size="inline"
+												/>
+											</span>
+										</td>
+										<td className="px-1.5 py-1.5 text-right sm:px-3">
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => {
+													setRemovingAddress(
+														proposer.address,
+													);
+													setRemoving(true);
+												}}
+												aria-label={`Remove ${formatAddress(proposer.address)}`}
+												data-testid="remove-proposer-button"
+											>
+												<Trash2 />
+												{/* Icon only on phones, where the
+											    address needs the room. */}
+												<span className="max-sm:sr-only">
+													Remove
+												</span>
+											</Button>
+										</td>
+									</tr>
+								);
+							})}
 						</tbody>
 					</table>
 					<p className="text-13 leading-normal text-foreground-secondary">

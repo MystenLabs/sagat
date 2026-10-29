@@ -2,15 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { normalizeSuiAddress } from '@mysten/sui/utils';
-import { X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
-import { FieldStatus } from '@/components/wizard/parts';
+import { AddressField } from '@/components/ui/address-field';
 import { useTouched } from '@/components/wizard/use-touched';
-import {
-	ADDRESS_COPY,
-	addressStatus,
-} from '@/lib/address-field';
+import { addressStatus } from '@/lib/address-field';
 
 import { useAddProposer } from '../../hooks/useAddProposer';
 import { Button, disabledButton } from '../ui/button';
@@ -20,20 +16,7 @@ import {
 	DialogDescription,
 	DialogTitle,
 } from '../ui/dialog';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupButton,
-	InputGroupInput,
-} from '../ui/input-group';
 import { Label } from '../ui/label';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '../ui/tooltip';
-
-const STATUS_ID = 'add-proposer-address-status';
 
 /**
  * Asks for the address to add, checks it as it's typed, then signs the
@@ -109,7 +92,6 @@ function AddressForm({
 	const { touched, touch, change } = useTouched({
 		address: false,
 	});
-	const inputRef = useRef<HTMLInputElement>(null);
 	const status = addressStatus(value);
 	const error = touched.address ? status.error : null;
 
@@ -120,70 +102,35 @@ function AddressForm({
 				if (status.valid && !pending)
 					onSubmit(normalizeSuiAddress(value.trim()));
 			}}
+			// The disabled submit button blocks Enter from submitting, so
+			// Enter on an invalid address shows why here instead.
+			onKeyDown={(e) => {
+				if (
+					e.key === 'Enter' &&
+					e.target instanceof HTMLInputElement &&
+					!status.valid
+				)
+					touch('address');
+			}}
 			className="mt-5 flex flex-col"
 		>
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="add-proposer-address">
 					Address
 				</Label>
-				<InputGroup>
-					<InputGroupInput
-						ref={inputRef}
-						id="add-proposer-address"
-						value={value}
-						onChange={(e) => {
-							change('address', value);
-							setValue(e.target.value);
-						}}
-						onBlur={() => touch('address')}
-						disabled={pending}
-						placeholder="0x…"
-						autoComplete="off"
-						spellCheck={false}
-						aria-invalid={!!error}
-						aria-describedby={STATUS_ID}
-						className="font-mono md:text-12"
-						data-testid="add-proposer-address-input"
-					/>
-					{value !== '' && (
-						<InputGroupAddon align="inline-end">
-							<Tooltip>
-								<TooltipTrigger
-									disabled={pending}
-									render={
-										<InputGroupButton
-											size="icon-xs"
-											aria-label="Clear address"
-											onClick={() => {
-												setValue('');
-												inputRef.current?.focus();
-											}}
-											className="cursor-pointer text-muted-foreground hover:text-foreground"
-											data-testid="add-proposer-address-clear"
-										/>
-									}
-								>
-									<X className="size-3.5" />
-								</TooltipTrigger>
-								<TooltipContent>
-									Clear address
-								</TooltipContent>
-							</Tooltip>
-						</InputGroupAddon>
-					)}
-				</InputGroup>
-				{status.valid || error ? (
-					<FieldStatus
-						id={STATUS_ID}
-						valid={status.valid}
-						state={status.valid ? 'valid' : 'invalid'}
-						testId={STATUS_ID}
-					>
-						{status.valid ? ADDRESS_COPY.valid : error}
-					</FieldStatus>
-				) : (
-					<span id={STATUS_ID} hidden />
-				)}
+				<AddressField
+					id="add-proposer-address"
+					value={value}
+					onChange={(next) => {
+						change('address', value);
+						setValue(next);
+					}}
+					onBlur={() => touch('address')}
+					disabled={pending}
+					placeholder="0x…"
+					valid={status.valid}
+					error={error}
+				/>
 			</div>
 			<div className="mt-5 grid grid-cols-2 gap-2">
 				<Button

@@ -431,7 +431,6 @@ export const COPY = {
 	overBalance: (symbol: string, balance: string) =>
 		`More than the account holds. The ${symbol} balance is ${balance}.`,
 	invalidAddress: ADDRESS_COPY.invalid,
-	validAddress: ADDRESS_COPY.valid,
 	addressPlaceholder:
 		'Paste the full Sui address, starting with 0x',
 	titlePlaceholderTransfer: 'Filled in from the transfer',

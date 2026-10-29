@@ -324,7 +324,8 @@ test.describe('overview and signers', () => {
 			card.getByTestId('proposers-empty'),
 		).toHaveCount(0);
 
-		// Removing asks first, naming the whole address.
+		// Removing asks first, showing the short address and carrying
+		// the whole one in `data-address`.
 		const remove = item.getByTestId(
 			'remove-proposer-button',
 		);

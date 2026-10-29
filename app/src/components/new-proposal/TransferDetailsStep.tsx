@@ -4,7 +4,7 @@
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import {
 	useEffect,
 	useMemo,
@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { buildTransferTransaction } from '@/components/assets/buildTransferTransaction';
+import { AddressField } from '@/components/ui/address-field';
 import {
 	Button,
 	disabledButton,
@@ -26,12 +27,6 @@ import {
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
-	FieldStatus,
 	FooterNote,
 	Notice,
 	RetryNotice,
@@ -235,8 +230,6 @@ export function TransferDetailsStep({
 		onDraftChange,
 	]);
 
-	const recipientRef = useRef<HTMLInputElement>(null);
-
 	const assetTouched =
 		touched.asset || touched.amount || touched.recipient;
 	const assetError =
@@ -429,59 +422,16 @@ export function TransferDetailsStep({
 
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="transfer-recipient">To</Label>
-				<InputGroup>
-					<InputGroupInput
-						ref={recipientRef}
-						id="transfer-recipient"
-						value={draft.recipient}
-						onChange={(e) => {
-							change('recipient', draft.recipient);
-							changeDraft({
-								...draft,
-								recipient: e.target.value,
-							});
-						}}
-						onBlur={() => touch('recipient')}
-						disabled={building}
-						placeholder={COPY.addressPlaceholder}
-						autoComplete="off"
-						spellCheck={false}
-						aria-invalid={!!recipientError}
-						aria-describedby="transfer-recipient-status"
-						className="font-mono md:text-12"
-						data-testid="transfer-recipient-input"
-					/>
-					{draft.recipient !== '' && (
-						<InputGroupAddon align="inline-end">
-							<Tooltip>
-								<TooltipTrigger
-									disabled={building}
-									render={
-										<InputGroupButton
-											size="icon-xs"
-											aria-label="Clear address"
-											onClick={() => {
-												changeDraft({
-													...draft,
-													recipient: '',
-												});
-												recipientRef.current?.focus();
-											}}
-											className="cursor-pointer text-muted-foreground hover:text-foreground"
-											data-testid="transfer-recipient-clear"
-										/>
-									}
-								>
-									<X className="size-3.5" />
-								</TooltipTrigger>
-								<TooltipContent>
-									Clear address
-								</TooltipContent>
-							</Tooltip>
-						</InputGroupAddon>
-					)}
-				</InputGroup>
-				<RecipientStatus
+				<AddressField
+					id="transfer-recipient"
+					value={draft.recipient}
+					onChange={(recipient) => {
+						change('recipient', draft.recipient);
+						changeDraft({ ...draft, recipient });
+					}}
+					onBlur={() => touch('recipient')}
+					disabled={building}
+					placeholder={COPY.addressPlaceholder}
 					valid={check.recipientValid}
 					error={recipientError}
 				/>
@@ -550,28 +500,5 @@ export function TransferDetailsStep({
 				}
 			/>
 		</form>
-	);
-}
-
-/** "Valid Sui address" in green, or why the address isn't one. */
-function RecipientStatus({
-	valid,
-	error,
-}: {
-	valid: boolean;
-	error: string | null;
-}) {
-	if (!valid && !error) {
-		return <span id="transfer-recipient-status" hidden />;
-	}
-	return (
-		<FieldStatus
-			id="transfer-recipient-status"
-			valid={valid}
-			state={valid ? 'valid' : 'invalid'}
-			testId="transfer-recipient-status"
-		>
-			{valid ? COPY.validAddress : error}
-		</FieldStatus>
 	);
 }
