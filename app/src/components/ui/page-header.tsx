@@ -7,8 +7,6 @@ import { Link } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
 
-import { CopyButton } from './CopyButton';
-
 export interface Crumb {
 	label: string;
 	to?: string;
@@ -20,8 +18,6 @@ interface PageHeaderProps {
 	title: ReactNode;
 	/** Small uppercase trail above the title. */
 	breadcrumb?: Crumb[];
-	/** Shown in mono under the title, with a copy button. */
-	address?: string;
 	description?: ReactNode;
 	/** Older pages: a back link instead of a breadcrumb. */
 	backLink?: string;
@@ -31,13 +27,12 @@ interface PageHeaderProps {
 }
 
 /**
- * Page header from the designs: breadcrumb, 30px title, optional mono
- * address and description on the left, actions on the right.
+ * Page header from the designs: breadcrumb, 30px title and optional
+ * description on the left, actions on the right.
  */
 export function PageHeader({
 	title,
 	breadcrumb,
-	address,
 	description,
 	backLink,
 	backLabel = 'Back',
@@ -104,17 +99,6 @@ export function PageHeader({
 				<h1 className="text-24 font-bold text-foreground sm:text-30">
 					{title}
 				</h1>
-				{address && (
-					<div className="flex min-w-0 items-center gap-1 font-mono text-13 text-foreground-secondary">
-						<span
-							className="truncate"
-							data-testid="page-header-address"
-						>
-							{address}
-						</span>
-						<CopyButton value={address} size="sm" />
-					</div>
-				)}
 				{description && (
 					<p className="text-13 text-muted-foreground">
 						{description}

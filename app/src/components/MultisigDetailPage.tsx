@@ -125,7 +125,6 @@ export function MultisigDetailPage() {
 					{ label: name, mono: !multisig.name },
 				]}
 				title={title}
-				address={multisig.address}
 				actions={
 					<Button
 						onClick={() =>
