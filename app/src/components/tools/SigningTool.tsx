@@ -121,24 +121,19 @@ const networkWarning = (
 
 function PreviewResult({
 	dryRun,
-	input,
+	bytes,
 	analysis,
 	isAnalysisLoading,
 	analysisError,
 }: {
 	dryRun: ReturnType<typeof useDryRun>;
-	/** The pasted transaction, JSON or base64. */
-	input: string;
+	/** The bytes the preview shows (see `previewBytes`), also what is signed. */
+	bytes: string | null;
 	analysis?: TransactionAnalysis;
 	isAnalysisLoading?: boolean;
 	analysisError?: Error | null;
 }) {
 	const simulation = simulationProps(dryRun);
-	const simulated = simulation?.result?.transaction;
-	const bytes = useMemo(
-		() => previewBytes(input, simulated),
-		[input, simulated],
-	);
 	const intentSummary = (
 		<IntentSummary
 			analysis={analysis}
@@ -340,6 +335,15 @@ export default function SigningTool() {
 		reset: resetPreview,
 	} = useTransactionPreview();
 
+	// What the preview shows and what is signed, so the digest and Ledger
+	// hash the user checked are those of the signed bytes.
+	const simulated =
+		simulationProps(dryRun)?.result?.transaction;
+	const bytes = useMemo(
+		() => previewBytes(transactionData, simulated),
+		[transactionData, simulated],
+	);
+
 	const isDryRunSuccessful =
 		dryRun.isSuccess &&
 		dryRun.data?.Transaction?.effects.status.success;
@@ -379,7 +383,7 @@ export default function SigningTool() {
 		if (!transactionData || isSignPending) return;
 
 		try {
-			const tx = Transaction.from(transactionData);
+			const tx = Transaction.from(bytes ?? transactionData);
 
 			if (shouldExecute) {
 				setIsSigningAndExecuting(true);
@@ -394,7 +398,7 @@ export default function SigningTool() {
 				setSignedResult({
 					digest: txResult?.digest,
 					signature: txResult?.signatures[0] ?? '',
-					bytes: transactionData,
+					bytes: bytes ?? transactionData,
 					failure: failed
 						? {
 								message:
@@ -450,7 +454,7 @@ export default function SigningTool() {
 					dryRun.error) && (
 					<PreviewResult
 						dryRun={dryRun}
-						input={transactionData}
+						bytes={bytes}
 						analysis={analysis.data}
 						isAnalysisLoading={analysis.isPending}
 						analysisError={analysis.error}

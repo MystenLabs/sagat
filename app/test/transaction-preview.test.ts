@@ -28,6 +28,9 @@ const SENDER = normalizeSuiAddress(
 const RECIPIENT = normalizeSuiAddress(
 	'0x8d4a000000000000000000000000000000000000000000000000000000003f10',
 );
+const SPONSOR = normalizeSuiAddress(
+	'0x7c1f00000000000000000000000000000000000000000000000000000000e2d9',
+);
 const USDC =
 	'0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC';
 
@@ -41,10 +44,12 @@ const COST = 4_100_000n;
 const SENT = 1_000n;
 
 // A SUI transfer from SENDER to RECIPIENT that builds offline: the gas
-// coin, price and budget are pinned so no client is needed.
-async function transferBytes() {
+// coin, price and budget are pinned so no client is needed. Pass
+// `gasOwner` to have that address sponsor the gas.
+async function transferBytes(gasOwner?: string) {
 	const tx = new Transaction();
 	tx.setSender(SENDER);
+	if (gasOwner) tx.setGasOwner(gasOwner);
 	tx.setGasPayment([
 		{
 			objectId: normalizeSuiAddress('0x1234'),
@@ -279,7 +284,65 @@ describe('buildTransactionPreview', () => {
 		]);
 	});
 
-	test('adds no gas row without a sender SUI change', () => {
+	test('a sponsored transaction splits the gas out of the sponsor’s SUI change and leaves the sender’s alone', async () => {
+		const sponsored = await transferBytes(SPONSOR);
+		expect(
+			Transaction.from(sponsored).getData().gasData.owner,
+		).toBe(SPONSOR);
+
+		const model = preview({
+			bytes: sponsored,
+			result: simulated({
+				balanceChanges: [
+					{
+						address: SENDER,
+						coinType: SUI_TYPE_ARG,
+						amount: (-SENT).toString(),
+					},
+					{
+						address: RECIPIENT,
+						coinType: SUI_TYPE_ARG,
+						amount: SENT.toString(),
+					},
+					{
+						address: SPONSOR,
+						coinType: SUI_TYPE_ARG,
+						amount: (-COST).toString(),
+					},
+				],
+			}),
+		});
+		expect(model.balanceChanges).toEqual([
+			{
+				address: SENDER,
+				label: null,
+				gas: false,
+				coinType: SUI_TYPE_ARG,
+				amount: (-SENT).toString(),
+			},
+			{
+				address: RECIPIENT,
+				label: 'Recipient',
+				gas: false,
+				coinType: SUI_TYPE_ARG,
+				amount: SENT.toString(),
+			},
+			{
+				address: SPONSOR,
+				label: null,
+				gas: true,
+				coinType: SUI_TYPE_ARG,
+				amount: (-COST).toString(),
+			},
+		]);
+		expect(
+			model.balanceChanges.some(
+				(row) => row.gas && row.address === SENDER,
+			),
+		).toBe(false);
+	});
+
+	test('adds no gas row without a gas payer SUI change', () => {
 		const model = preview({
 			result: simulated({
 				balanceChanges: [

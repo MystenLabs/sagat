@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Transaction } from '@mysten/sui/transactions';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 
 import { randomAddress } from '../support/chain';
@@ -63,6 +64,48 @@ test.describe('transaction signer tool', () => {
 		await expect(
 			alice.page.getByTestId('transaction-data-input'),
 		).toHaveValue('');
+	});
+
+	// JSON without gas does not build offline, so the tool previews the
+	// dry run's resolved bytes; it must sign those, not re-resolve the JSON.
+	test('signs the bytes it previewed when the input is JSON', async ({
+		createActor,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		await chain.fund(alice.address);
+		const recipient = randomAddress();
+		const tx = new Transaction();
+		tx.setSender(alice.address);
+		const [coin] = tx.splitCoins(tx.gas, [MIST_PER_SUI]);
+		tx.transferObjects([coin], recipient);
+
+		await alice.page.goto('/tools/sign');
+		await alice.connectWallet();
+		await alice.page
+			.getByTestId('transaction-data-input')
+			.fill(await tx.toJSON());
+		await expect(
+			alice.page.getByTestId('transaction-preview-result'),
+		).toHaveAttribute('data-result', 'success');
+		await alice.page
+			.getByTestId('transaction-preview-raw-toggle')
+			.click();
+		const previewedBytes = await alice.page
+			.getByTestId('transaction-preview-raw')
+			.inputValue();
+		expect(previewedBytes).toBeTruthy();
+
+		await alice.page.getByTestId('sign-button').click();
+		const signature = await alice.page
+			.getByTestId('signed-result')
+			.getAttribute('data-signature');
+		expect(signature).toBeTruthy();
+
+		await chain.execute(previewedBytes, signature!);
+		expect(await chain.balance(recipient)).toBe(
+			MIST_PER_SUI,
+		);
 	});
 
 	test('signs and executes a transaction', async ({

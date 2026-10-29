@@ -3,8 +3,8 @@
 
 // What the Transaction preview block shows, kept free of React: the
 // digest, Ledger hash and sender read from the bytes, and the gas, epoch
-// and changes read from the dry run, with the sender's net gas (a cost or
-// a rebate) split out of its SUI balance change.
+// and changes read from the dry run, with the gas payer's net gas (a cost
+// or a rebate) split out of its SUI balance change.
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { messageWithIntent } from '@mysten/sui/cryptography';
 import {
@@ -46,7 +46,7 @@ export interface TransactionPreviewInput {
 	status: SimulationStatus;
 	/** The dry run's payload: the `Transaction` on success, the `FailedTransaction` when it ran and failed; absent while pending or when the node refused the transaction. */
 	result?: SimulatedTransaction | null;
-	/** Why the simulation failed, when the dry run gave no payload (the node refused it). */
+	/** Why the simulation failed, when known; the payload's status error is the fallback. */
 	error?: string | null;
 	network: SuiNetwork;
 	/** When the simulation ran; null while pending. */
@@ -59,7 +59,7 @@ export interface BalanceChangeRow {
 	address: string;
 	/** The account's name, "Recipient" for an address that only gains, or null for a bare address. */
 	label: string | null;
-	/** True on the sender's net gas, split out of its SUI change: negative for a cost, positive for a rebate. */
+	/** True on the gas payer's net gas (the sponsor's, else the sender's), split out of its SUI change: negative for a cost, positive for a rebate. */
 	gas: boolean;
 	coinType: string;
 	/** Raw units, signed. */
@@ -112,25 +112,28 @@ function gasCost(
 }
 
 /**
- * The balance changes as rows, with the sender's net gas split out of its
- * SUI change into a row of its own at the end, so the sender's SUI row
- * shows the transfer alone (dropped when that is 0). The gas row is
- * `-cost`: negative for a cost, positive for a rebate. Without a sender
- * SUI change (gas mocked or sponsored) or with a zero cost there is no
- * gas row.
+ * The balance changes as rows, with the gas payer's net gas split out of
+ * its SUI change into a row of its own at the end, so the payer's SUI row
+ * shows the transfer alone (dropped when that is 0). The payer is the
+ * sponsor on a sponsored transaction, else the sender; every other row is
+ * left as it is. The gas row is `-cost`: negative for a cost, positive for
+ * a rebate. Without a SUI change at the payer (gas mocked) or with a zero
+ * cost there is no gas row.
  */
 function balanceChangeRows(
 	changes: SuiClientTypes.BalanceChange[],
 	cost: bigint,
 	sender: NamedAccount | null,
+	payer: NamedAccount | null,
 	nameOf: (address: string) => string | null,
 ): BalanceChangeRow[] {
-	const senderAddress = sender
-		? normalizeSuiAddress(sender.address)
-		: null;
-	const isSender = (address: string) =>
-		senderAddress !== null &&
-		normalizeSuiAddress(address) === senderAddress;
+	const isAt =
+		(account: NamedAccount | null) => (address: string) =>
+			account !== null &&
+			normalizeSuiAddress(address) ===
+				normalizeSuiAddress(account.address);
+	const isSender = isAt(sender);
+	const isPayer = isAt(payer);
 
 	const rows: BalanceChangeRow[] = [];
 	let gasRow: BalanceChangeRow | null = null;
@@ -139,13 +142,13 @@ function balanceChangeRows(
 		if (
 			!gasRow &&
 			cost !== 0n &&
-			sender &&
-			isSender(change.address) &&
+			payer &&
+			isPayer(change.address) &&
 			isSuiCoinType(change.coinType)
 		) {
 			gasRow = {
-				address: sender.address,
-				label: sender.name,
+				address: payer.address,
+				label: payer.name,
 				gas: true,
 				coinType: change.coinType,
 				amount: (-cost).toString(),
@@ -209,6 +212,16 @@ export function buildTransactionPreview(
 			}
 		: null;
 
+	// The sponsor pays the gas on a sponsored transaction, else the sender.
+	const payerAddress =
+		transaction.gasData.owner ?? transaction.sender;
+	const payer = payerAddress
+		? {
+				address: normalizeSuiAddress(payerAddress),
+				name: nameOf(payerAddress),
+			}
+		: null;
+
 	const cost = result
 		? gasCost(result.effects.gasUsed)
 		: null;
@@ -235,6 +248,7 @@ export function buildTransactionPreview(
 					result.balanceChanges,
 					cost ?? 0n,
 					sender,
+					payer,
 					nameOf,
 				)
 			: [],
