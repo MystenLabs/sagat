@@ -172,8 +172,9 @@ export function ApiAuthProvider({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentAccount?.address]);
 
-	// Bumped by every logout, and by a disconnect from the wallet's side,
-	// so a sign-in that started before it can tell its answer came too late.
+	// Bumped by every logout and by a disconnect from the wallet's side,
+	// so a sign-in that started before either can tell its answer came
+	// too late.
 	const sessionGeneration = useRef(0);
 
 	// A disconnect from the wallet's side ends the session like a
@@ -234,9 +235,10 @@ export function ApiAuthProvider({
 				expiry,
 			);
 			if (sessionGeneration.current !== generation) {
-				// The session ended meanwhile (a logout, or a disconnect in the
-				// wallet), but this answer has just set a session cookie: it must
-				// not outlive that. The user already sees themselves signed out.
+				// The session ended meanwhile (a logout, or a disconnect in
+				// the wallet), but this answer has just set a session cookie:
+				// it must not outlive that. Only a failed sign-out is
+				// reported: the app already shows the wallet signed out.
 				try {
 					await apiClient.disconnect();
 				} catch {
@@ -260,7 +262,8 @@ export function ApiAuthProvider({
 			});
 		},
 		onError: (error: Error, options?: SignInOptions) => {
-			// The session ended meanwhile; a failure toast would contradict it.
+			// The session ended (a logout, or a disconnect in the wallet) and
+			// the app already shows signed out; a failure toast would contradict it.
 			if (error instanceof SignInCancelledError) return;
 			if (!(error instanceof WalletDeclinedError)) {
 				toast.error(

@@ -29,7 +29,7 @@ export class WalletDeclinedError extends Error {
 	}
 }
 
-/** Thrown when a logout happens while a sign-in is in flight; handled silently. */
+/** Thrown when the session ends (a logout, or a disconnect in the wallet) while a sign-in is in flight; handled silently. */
 export class SignInCancelledError extends Error {
 	constructor() {
 		super('Signed out while signing in');

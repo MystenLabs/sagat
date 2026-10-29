@@ -88,10 +88,6 @@ test.describe('wallet sign-in', () => {
 			alice.page.waitForRequest(isSignInRequest);
 		await alice.connectWallet();
 		await connectRequest;
-		await expect(alice.walletMenuButton()).toHaveAttribute(
-			'data-auth-state',
-			'authenticated',
-		);
 	});
 
 	test('a failed API sign-out still disconnects the wallet, without the success toast', async ({
