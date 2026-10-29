@@ -545,7 +545,8 @@
 		"route": "POST /proposals/<id:0>/vote",
 		"status": 200,
 		"body": {
-			"hasReachedThreshold": true
+			"hasReachedThreshold": true,
+			"currentWeight": 2
 		}
 	},
 	{
