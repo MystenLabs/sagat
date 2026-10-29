@@ -205,24 +205,26 @@ describe('Proposal Business Logic', () => {
 
 		// 1 + 1 out of 3.
 		expect(
-			(
-				await session.voteOnProposal(
-					users[2],
-					proposal.id,
-					proposal.transactionBytes,
-				)
-			).hasReachedThreshold,
-		).toBe(false);
+			await session.voteOnProposal(
+				users[2],
+				proposal.id,
+				proposal.transactionBytes,
+			),
+		).toEqual({
+			hasReachedThreshold: false,
+			currentWeight: 2,
+		});
 		// 1 + 1 + 2 out of 3.
 		expect(
-			(
-				await session.voteOnProposal(
-					users[1],
-					proposal.id,
-					proposal.transactionBytes,
-				)
-			).hasReachedThreshold,
-		).toBe(true);
+			await session.voteOnProposal(
+				users[1],
+				proposal.id,
+				proposal.transactionBytes,
+			),
+		).toEqual({
+			hasReachedThreshold: true,
+			currentWeight: 4,
+		});
 	});
 
 	describe('Vote Validation', () => {
