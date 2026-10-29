@@ -85,17 +85,17 @@ describe('proposalTitle', () => {
 });
 
 describe('signatureAddedMessage', () => {
-	it('counts the new signature toward the threshold', () => {
+	it('reports the weight still needed after the vote', () => {
 		expect(
 			signatureAddedMessage(
-				{ currentWeight: 1, totalWeight: 4 },
-				1,
+				{ hasReachedThreshold: false, currentWeight: 2 },
+				4,
 			),
 		).toBe('Signature added. Needs 2 more weight.');
 		expect(
 			signatureAddedMessage(
-				{ currentWeight: 1, totalWeight: 3 },
-				2,
+				{ hasReachedThreshold: true, currentWeight: 3 },
+				3,
 			),
 		).toBe('Signature added');
 	});

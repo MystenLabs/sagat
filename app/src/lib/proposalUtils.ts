@@ -6,6 +6,7 @@ import {
 	type MultisigWithMembers,
 	type Proposal,
 	type ProposalWithSignatures,
+	type VoteProposalResponse,
 } from '@mysten/sagat';
 import { formatDigest } from '@mysten/sui/utils';
 
@@ -106,20 +107,15 @@ export function proposalTitle(
 
 /**
  * The toast once a signature lands: the weight the proposal still needs
- * with the new signer's weight counted, or just the confirmation once
- * nothing more is needed.
+ * after the vote's tally, or just the confirmation once the vote reached
+ * the proposal's threshold.
  */
 export function signatureAddedMessage(
-	proposal: Pick<Proposal, 'currentWeight' | 'totalWeight'>,
-	signerWeight: number,
+	vote: VoteProposalResponse,
+	totalWeight: number,
 ) {
-	const needed =
-		proposal.totalWeight -
-		proposal.currentWeight -
-		signerWeight;
-	return needed > 0
-		? `Signature added. Needs ${needed} more weight.`
-		: 'Signature added';
+	if (vote.hasReachedThreshold) return 'Signature added';
+	return `Signature added. Needs ${totalWeight - vote.currentWeight} more weight.`;
 }
 
 /** At most this many dots stand for a proposal's weight. */

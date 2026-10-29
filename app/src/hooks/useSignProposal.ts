@@ -14,18 +14,13 @@ import {
 import { signatureAddedMessage } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 import { type ProposalCardInput } from '@/lib/types';
-import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 type SignProposalParams = Pick<
 	ProposalCardInput,
-	| 'id'
-	| 'transactionBytes'
-	| 'currentWeight'
-	| 'totalWeight'
-	| 'multisig'
+	'id' | 'transactionBytes' | 'totalWeight'
 >;
 
 export function useSignProposal() {
@@ -56,7 +51,7 @@ export function useSignProposal() {
 				signature: result.signature as string,
 			});
 		},
-		onSuccess: ({ hasReachedThreshold }, proposal) => {
+		onSuccess: (vote, proposal) => {
 			// Invalidate all proposal-related queries
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
@@ -64,17 +59,8 @@ export function useSignProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			const signerWeight =
-				proposal.multisig.members.find(
-					(member) =>
-						extractPublicKeyFromBase64(
-							member.publicKey,
-						).toSuiAddress() === currentAccount?.address,
-				)?.weight ?? 0;
 			toast.success(
-				hasReachedThreshold
-					? 'Signature added'
-					: signatureAddedMessage(proposal, signerWeight),
+				signatureAddedMessage(vote, proposal.totalWeight),
 			);
 		},
 	});

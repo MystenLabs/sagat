@@ -155,6 +155,8 @@ export interface VoteProposalRequest {
 
 export interface VoteProposalResponse {
 	hasReachedThreshold: boolean;
+	/** The weight collected so far, the new signature included. */
+	currentWeight: number;
 }
 
 export interface CancelProposalRequest {
