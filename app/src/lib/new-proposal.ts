@@ -15,6 +15,7 @@ import {
 	toBase64,
 } from '@mysten/sui/utils';
 
+import { addressStatus } from './address-field';
 import {
 	formatCoinAmount,
 	formatInputAmount,
@@ -197,13 +198,8 @@ export function checkTransfer({
 		rawAmount !== null &&
 		rawAmount === sendsGasCoinAt;
 
-	const recipient = draft.recipient.trim();
-	const recipientValid =
-		!!recipient && isValidSuiAddress(recipient);
-	const recipientError =
-		recipient && !recipientValid
-			? COPY.invalidAddress
-			: null;
+	const { valid: recipientValid, error: recipientError } =
+		addressStatus(draft.recipient);
 
 	return {
 		assetError,
@@ -431,9 +427,6 @@ export const COPY = {
 	zeroAmount: 'Enter an amount above 0.',
 	overBalance: (symbol: string, balance: string) =>
 		`More than the account holds. The ${symbol} balance is ${balance}.`,
-	invalidAddress:
-		'This isn’t a valid Sui address. Check you pasted all of it: 0x and 64 characters.',
-	validAddress: 'Valid Sui address',
 	addressPlaceholder:
 		'Paste the full Sui address, starting with 0x',
 	titlePlaceholderTransfer: 'Filled in from the transfer',

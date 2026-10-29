@@ -5,6 +5,10 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import type { Route } from '@playwright/test';
 
 import { LocalStorageKeys } from '../../app/src/lib/localStorageKeys';
+import {
+	isSignInRequest,
+	recordSignIns,
+} from '../support/actor';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 
@@ -48,6 +52,18 @@ test.describe('wallet sign-in', () => {
 				() => (window as { sawPrompt?: boolean }).sawPrompt,
 			),
 		).toBeUndefined();
+
+		// Without the cookie the wallet comes back, and the card signs in.
+		await alice.context.clearCookies();
+		await alice.page.reload();
+		await expect(
+			alice.page.getByTestId('auth-prompt'),
+		).toBeVisible();
+		await alice.page.getByTestId('sign-in-button').click();
+		await expect(alice.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
 	});
 
 	test('disconnecting ends the API session', async ({
@@ -56,19 +72,171 @@ test.describe('wallet sign-in', () => {
 		const alice = await createActor('alice');
 		await alice.signIn();
 
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await alice.page
 			.getByTestId('disconnect-button')
 			.click();
 		await expect(
 			alice.page.getByTestId('connect-wallet-prompt'),
 		).toBeVisible();
-
-		// Reconnecting asks for a new signature: the session cookie is gone.
-		await alice.connectWallet();
 		await expect(
-			alice.page.getByTestId('auth-prompt'),
+			alice.toast('Wallet disconnected'),
 		).toBeVisible();
+
+		// Reconnecting signs in again: the session cookie is gone.
+		const connectRequest =
+			alice.page.waitForRequest(isSignInRequest);
+		await alice.connectWallet();
+		await connectRequest;
+	});
+
+	test('a failed API sign-out still disconnects the wallet, without the success toast', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		await alice.signIn();
+
+		await alice.page.route(
+			`${E2E.apiUrl}/auth/disconnect`,
+			(route) => route.abort('connectionrefused'),
+		);
+		await alice.openWalletMenu();
+		await alice.page
+			.getByTestId('disconnect-button')
+			.click();
+		await expect(
+			alice.toast('Disconnect failed'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('connect-wallet-prompt'),
+		).toBeVisible();
+		await expect(
+			alice.toast('Wallet disconnected'),
+		).toHaveCount(0);
+	});
+
+	test('a valid session cookie signs the wallet in without a new signature', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		const { page } = alice;
+		await alice.signIn();
+
+		// Only the cookie is left: the wallet has to be connected again.
+		await page.evaluate(
+			(key) => localStorage.removeItem(key),
+			LocalStorageKeys.WalletSession,
+		);
+		await page.reload();
+		await expect(
+			page.getByTestId('connect-wallet-prompt'),
+		).toBeVisible();
+
+		const signIns = recordSignIns(page);
+		await alice.connectWallet();
+		expect(signIns).toHaveLength(0);
+	});
+
+	test('a declined signature or connection leaves the app signed out', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice', {
+			declineSign: true,
+		});
+		const { page } = alice;
+		const prompt = page.getByTestId(
+			'connect-wallet-prompt',
+		);
+		const declined = alice.declinedLine();
+
+		await test.step('a declined signature keeps the wallet, signed out', async () => {
+			await page.goto('/');
+			await prompt
+				.getByTestId('connect-wallet-button')
+				.click();
+			await alice.walletOption().click();
+
+			// Connecting only connects: the card now asks to sign in.
+			const signInButton = page.getByTestId(
+				'sign-in-button',
+			);
+			await expect(
+				page.getByTestId('auth-prompt'),
+			).toBeVisible();
+			await signInButton.click();
+			await expect(declined).toBeVisible();
+			await expect(declined).toHaveAttribute(
+				'data-wallet',
+				E2E.walletName,
+			);
+			await expect(
+				alice.walletMenuButton(),
+			).toHaveAttribute(
+				'data-auth-state',
+				'unauthenticated',
+			);
+
+			// The wallet comes back on reload, still without a session.
+			await page.reload();
+			await expect(
+				page.getByTestId('auth-prompt'),
+			).toBeVisible();
+			await expect(
+				alice.walletMenuButton(),
+			).toHaveAttribute(
+				'data-auth-state',
+				'unauthenticated',
+			);
+		});
+
+		await test.step('Sign in is the retry after a decline', async () => {
+			await page.evaluate(() => {
+				window.__e2eWallet!.declineSign = false;
+			});
+			await page.getByTestId('sign-in-button').click();
+			await expect(
+				alice.walletMenuButton(),
+			).toHaveAttribute('data-auth-state', 'authenticated');
+		});
+
+		await test.step('a declined connection is reported the same way', async () => {
+			await alice.openWalletMenu();
+			await page.getByTestId('disconnect-button').click();
+			await expect(prompt).toBeVisible();
+			await page.evaluate(() => {
+				window.__e2eWallet!.declineConnect = true;
+			});
+
+			await page
+				.getByTestId('app-header')
+				.getByTestId('connect-wallet-button')
+				.filter({ visible: true })
+				.click();
+			await alice.walletOption().click();
+			await expect(declined).toHaveAttribute(
+				'data-wallet',
+				E2E.walletName,
+			);
+			await expect(
+				page.getByTestId('connect-retry'),
+			).toBeVisible();
+			await expect(
+				page.getByTestId('wallet-menu-button'),
+			).toHaveCount(0);
+			expect(
+				await page.evaluate(
+					(key) => localStorage.getItem(key),
+					LocalStorageKeys.WalletSession,
+				),
+			).toBeNull();
+
+			// Nothing is left to restore.
+			await page.reload();
+			await expect(prompt).toBeVisible();
+			await expect(
+				page.getByTestId('wallet-reconnecting'),
+			).toHaveCount(0);
+		});
 	});
 
 	test("a saved session that can't be restored falls back to the connect prompt", async ({
@@ -133,20 +301,14 @@ test.describe('wallet sign-in', () => {
 		).toHaveCount(0);
 
 		// The wallet menu doesn't offer a signature that would only fail.
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(
 			alice.page.getByTestId('disconnect-button'),
 		).toBeVisible();
 		await expect(
-			alice.page.getByTestId('wallet-menu-sign'),
-		).toHaveCount(0);
-		await expect(
 			alice.page.getByTestId('wallet-account-sign'),
 		).toHaveCount(0);
-		await expect(
-			alice.page.getByText('Authentication Required'),
-		).toHaveCount(0);
-		await alice.walletMenuButton().click();
+		await alice.closeWalletMenu();
 
 		await alice.page.unroute(apiRoutes);
 		await alice.page
@@ -239,7 +401,7 @@ test.describe('wallet sign-in', () => {
 		await expect.poll(() => failedChecks).toBe(2);
 
 		// Opening the menu waits for a render after the failure settled.
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(alice.walletMenuButton()).toHaveAttribute(
 			'data-auth-state',
 			'authenticated',
@@ -258,7 +420,7 @@ test.describe('wallet sign-in', () => {
 		await expect(
 			alice.page.getByTestId('wallet-account-sign'),
 		).toHaveCount(0);
-		await alice.walletMenuButton().click();
+		await alice.closeWalletMenu();
 
 		// The outage holds for another account too, while its re-check
 		// hangs.
@@ -273,11 +435,11 @@ test.describe('wallet sign-in', () => {
 		await expect(
 			alice.page.getByTestId('auth-prompt'),
 		).toHaveCount(0);
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(
 			alice.page.getByTestId('wallet-account-sign'),
 		).toHaveCount(0);
-		await alice.walletMenuButton().click();
+		await alice.closeWalletMenu();
 
 		// Once a check gets through, signing is back.
 		await Promise.all(
@@ -298,7 +460,7 @@ test.describe('wallet sign-in', () => {
 			.poll(() => heldChecks.length)
 			.toBeGreaterThan(held);
 		await alice.page.clock.fastForward('06:00');
-		await alice.walletMenuButton().click();
+		await alice.openWalletMenu();
 		await expect(
 			alice
 				.walletAccount(savings.address)

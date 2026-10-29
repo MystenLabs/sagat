@@ -78,7 +78,7 @@ test.describe('errors', () => {
 		await alice.page.goto(
 			`/proposals?digest=${unknownDigest}`,
 		);
-		await alice.connectWallet();
+		await alice.connectWallet({ signIn: false });
 
 		await expect(
 			alice.page.getByTestId('proposal-detail-error'),
