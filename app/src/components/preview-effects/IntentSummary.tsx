@@ -5,7 +5,7 @@ import type {
 	BalanceFlowsResult,
 	TransactionAnalysisIssue,
 } from '@mysten/wallet-sdk';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
 import { useCoinDisplayDataMap } from '../../hooks/useCoinDisplayData';
 import type { TransactionAnalysis } from '../../hooks/useTransactionAnalysis';
@@ -76,13 +76,29 @@ function collectIssues(
 	return Array.from(issues.values());
 }
 
-/** The analyzer tab's badge: the issues the summary shows, plus a failed analysis. */
+/**
+ * The Transaction preview's analyzer view from an analysis: the summary,
+ * and the tab's badge (the issues the summary shows, plus a failed
+ * analysis).
+ */
 // eslint-disable-next-line react-refresh/only-export-components
-export function analyzerIssueCount(
-	analysis: TransactionAnalysis | undefined,
-	error: Error | null | undefined,
-): number {
-	return collectIssues(analysis).length + (error ? 1 : 0);
+export function analyzerTab(analysis: {
+	data?: TransactionAnalysis;
+	isPending: boolean;
+	error: Error | null;
+}): { analyzer: ReactNode; analyzerCount: number } {
+	return {
+		analyzer: (
+			<IntentSummary
+				analysis={analysis.data}
+				isLoading={analysis.isPending}
+				error={analysis.error}
+			/>
+		),
+		analyzerCount:
+			collectIssues(analysis.data).length +
+			(analysis.error ? 1 : 0),
+	};
 }
 
 function FlowRow({

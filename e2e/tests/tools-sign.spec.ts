@@ -3,6 +3,7 @@
 
 import { Transaction } from '@mysten/sui/transactions';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
+import type { Route } from '@playwright/test';
 
 import type { Actor } from '../support/actor';
 import {
@@ -313,6 +314,146 @@ test.describe('transaction signer tool', () => {
 		).toHaveCount(0);
 		await expect(
 			alice.page.getByTestId('sign-and-execute-button'),
+		).toHaveCount(0);
+	});
+
+	// A dry run of an earlier input can land after the input changed; it
+	// must not stand in for the new input's, nor make its bytes signable.
+	test('a simulation that lands after the input changed neither enables Sign nor is signed', async ({
+		createActor,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		await chain.fund(alice.address);
+		const recipientB = randomAddress();
+		const bytesA = await chain.buildSuiTransfer({
+			sender: alice.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+		const bytesB = await chain.buildSuiTransfer({
+			sender: alice.address,
+			recipient: recipientB,
+			amount: MIST_PER_SUI,
+		});
+		const digestA =
+			await Transaction.from(bytesA).getDigest();
+		const digestB =
+			await Transaction.from(bytesB).getDigest();
+		expect(digestB).not.toBe(digestA);
+		const { page } = alice;
+
+		// Hold each input's dry run, sorted by the input showing when it
+		// was sent.
+		const held: Record<'A' | 'B', Route[]> = {
+			A: [],
+			B: [],
+		};
+		let phase: 'A' | 'B' = 'A';
+		await page.route('**/SimulateTransaction', (route) => {
+			if (route.request().method() !== 'POST') {
+				return route.continue();
+			}
+			held[phase].push(route);
+		});
+
+		await page.goto('/tools/sign');
+		await alice.connectWallet({ signIn: false });
+		const input = page.getByTestId(
+			'transaction-data-input',
+		);
+		await input.fill(bytesA);
+		await expect.poll(() => held.A.length).toBe(1);
+		phase = 'B';
+		await input.fill(bytesB);
+
+		// A's dry run lands after the input changed, before B's is sent;
+		// record whether a passed result or an enabled Sign ever shows.
+		const passed =
+			'[data-testid="transaction-preview-result"][data-result="success"]';
+		const enabledSign =
+			'[data-testid="sign-button"]:enabled, [data-testid="sign-and-execute-button"]:enabled';
+		await page.evaluate((selector) => {
+			const seen = window as { sawStale?: boolean };
+			seen.sawStale = false;
+			new MutationObserver(() => {
+				if (document.querySelector(selector))
+					seen.sawStale = true;
+			}).observe(document.body, {
+				subtree: true,
+				childList: true,
+				attributes: true,
+			});
+		}, `${passed}, ${enabledSign}`);
+		await Promise.all(
+			held.A.map(async (route) => {
+				await route.continue();
+				await route.request().response();
+			}),
+		);
+		await expect.poll(() => held.B.length).toBe(1);
+		expect(
+			await page.evaluate(
+				() => (window as { sawStale?: boolean }).sawStale,
+			),
+		).toBe(false);
+		await expect(
+			page.getByTestId('transaction-preview-digest'),
+		).toHaveAttribute('data-digest', digestB);
+		await expect(page.locator(enabledSign)).toHaveCount(0);
+
+		await Promise.all(
+			held.B.map((route) => route.continue()),
+		);
+		await expect(page.locator(passed)).toHaveCount(1);
+		await expect(
+			page.getByTestId('transaction-preview-digest'),
+		).toHaveAttribute('data-digest', digestB);
+		await page
+			.getByTestId('transaction-preview-raw-toggle')
+			.click();
+		await expect(
+			page.getByTestId('transaction-preview-raw'),
+		).toHaveValue(bytesB);
+
+		await page.getByTestId('sign-button').click();
+		const signature = await page
+			.getByTestId('signed-result')
+			.getAttribute('data-signature');
+		expect(signature).toBeTruthy();
+		await chain.execute(bytesB, signature!);
+		expect(await chain.balance(recipientB)).toBe(
+			MIST_PER_SUI,
+		);
+	});
+
+	test('shows input that is neither bytes nor JSON as failed, with no preview and no signing', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		const { page } = alice;
+
+		await page.goto('/tools/sign');
+		await alice.connectWallet({ signIn: false });
+		await page
+			.getByTestId('transaction-data-input')
+			.fill('not a transaction');
+		const result = page.getByTestId(
+			'transaction-preview-result',
+		);
+		await expect(result).toHaveCount(1);
+		await expect(result).toHaveAttribute(
+			'data-result',
+			'failure',
+		);
+		await expect(
+			result.getByTestId('transaction-preview-status'),
+		).toHaveCount(0);
+		await expect(
+			page.getByTestId('sign-button'),
+		).toHaveCount(0);
+		await expect(
+			page.getByTestId('sign-and-execute-button'),
 		).toHaveCount(0);
 	});
 });

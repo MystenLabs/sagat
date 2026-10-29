@@ -66,7 +66,8 @@ export function TransactionPreview({
 	status: SimulationStatus;
 	result?: SimulatedTransaction | null;
 	error?: string | null;
-	simulatedAt?: Date | null;
+	/** When the simulation ran, in milliseconds. */
+	simulatedAt?: number | null;
 	accounts?: NamedAccount[];
 	/** Rendered right of the heading. */
 	actions?: ReactNode;
@@ -76,8 +77,6 @@ export function TransactionPreview({
 	analyzerCount?: number;
 }) {
 	const { network } = useNetwork();
-	// By value, since callers make a new Date each render.
-	const simulatedTime = simulatedAt?.getTime() ?? null;
 	const model = useMemo(
 		() =>
 			buildTransactionPreview({
@@ -87,9 +86,9 @@ export function TransactionPreview({
 				error,
 				network,
 				simulatedAt:
-					simulatedTime === null
+					simulatedAt == null
 						? null
-						: new Date(simulatedTime),
+						: new Date(simulatedAt),
 				accounts,
 			}),
 		[
@@ -98,7 +97,7 @@ export function TransactionPreview({
 			result,
 			error,
 			network,
-			simulatedTime,
+			simulatedAt,
 			accounts,
 		],
 	);

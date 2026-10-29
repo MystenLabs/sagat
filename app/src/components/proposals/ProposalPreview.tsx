@@ -15,10 +15,7 @@ import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { useSignProposal } from '../../hooks/useSignProposal';
 import { useTransactionPreview } from '../../hooks/useTransactionPreview';
-import {
-	analyzerIssueCount,
-	IntentSummary,
-} from '../preview-effects/IntentSummary';
+import { analyzerTab } from '../preview-effects/IntentSummary';
 import { Button } from '../ui/button';
 
 interface ProposalPreviewProps {
@@ -123,17 +120,7 @@ export function ProposalPreview({
 		</>
 	);
 
-	const analyzer = (
-		<IntentSummary
-			analysis={analysis.data}
-			isLoading={analysis.isPending}
-			error={analysis.error}
-		/>
-	);
-	const analyzerCount = analyzerIssueCount(
-		analysis.data,
-		analysis.error,
-	);
+	const { analyzer, analyzerCount } = analyzerTab(analysis);
 
 	return (
 		<div className="flex flex-col gap-3">

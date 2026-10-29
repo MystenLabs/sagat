@@ -4,10 +4,7 @@
 import { ArrowLeft, Pen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 
-import {
-	analyzerIssueCount,
-	IntentSummary,
-} from '@/components/preview-effects/IntentSummary';
+import { analyzerTab } from '@/components/preview-effects/IntentSummary';
 import { ExpiryChip } from '@/components/proposals/ProposalExpiry';
 import { simulationProps } from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
@@ -87,17 +84,7 @@ export function ReviewStep({
 	);
 	const currentTitleError = titleError(title);
 	const expiry = useExpiry(bytes);
-	const analyzer = (
-		<IntentSummary
-			analysis={analysis.data}
-			isLoading={analysis.isPending}
-			error={analysis.error}
-		/>
-	);
-	const analyzerCount = analyzerIssueCount(
-		analysis.data,
-		analysis.error,
-	);
+	const { analyzer, analyzerCount } = analyzerTab(analysis);
 
 	return (
 		<div

@@ -15,7 +15,8 @@ export interface SimulationProps {
 	status: SimulationStatus;
 	result: SimulatedTransaction | null;
 	error: string | null;
-	simulatedAt: Date | null;
+	/** When the dry run was submitted, in milliseconds. */
+	simulatedAt: number | null;
 }
 
 /** A simulation that hasn't settled yet. */
@@ -44,7 +45,7 @@ export function simulationProps(
 				: 'failed',
 			result: transaction,
 			error: null,
-			simulatedAt: new Date(dryRun.submittedAt),
+			simulatedAt: dryRun.submittedAt,
 		};
 	}
 	if (dryRun.isError) {
@@ -57,7 +58,7 @@ export function simulationProps(
 					? error.transaction
 					: null,
 			error: error.message || null,
-			simulatedAt: new Date(dryRun.submittedAt),
+			simulatedAt: dryRun.submittedAt,
 		};
 	}
 	return pendingSimulation;

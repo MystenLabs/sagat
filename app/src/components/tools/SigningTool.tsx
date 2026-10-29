@@ -20,10 +20,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 
 import { NetworkSelector } from '@/components/NetworkSelector';
-import {
-	analyzerIssueCount,
-	IntentSummary,
-} from '@/components/preview-effects/IntentSummary';
+import { analyzerTab } from '@/components/preview-effects/IntentSummary';
 import {
 	pendingSimulation,
 	simulationProps,
@@ -39,7 +36,7 @@ import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Label } from '@/components/ui/label';
 import { SkeletonLine } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
+import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { toast } from '@/lib/toast';
 import {
@@ -132,8 +129,6 @@ function PreviewResult({
 	dryRunError,
 	bytes,
 	analysis,
-	isAnalysisLoading,
-	analysisError,
 }: {
 	/** The current input's simulation (see `simulationProps`). */
 	simulation: SimulationProps | null;
@@ -141,21 +136,9 @@ function PreviewResult({
 	dryRunError?: string;
 	/** The bytes the preview shows (see `previewBytes`), also what is signed. */
 	bytes: string | null;
-	analysis?: TransactionAnalysis;
-	isAnalysisLoading?: boolean;
-	analysisError?: Error | null;
+	analysis: ReturnType<typeof useTransactionAnalysis>;
 }) {
-	const intentSummary = (
-		<IntentSummary
-			analysis={analysis}
-			isLoading={isAnalysisLoading}
-			error={analysisError}
-		/>
-	);
-	const analyzerCount = analyzerIssueCount(
-		analysis,
-		analysisError,
-	);
+	const { analyzer, analyzerCount } = analyzerTab(analysis);
 
 	const pending = simulation?.status === 'pending';
 	const passed = simulation?.status === 'passed';
@@ -167,7 +150,7 @@ function PreviewResult({
 	return (
 		<div className="flex flex-col gap-4">
 			{/* Without the preview block, the analyzer shows on its own. */}
-			{settledWithoutBlock && intentSummary}
+			{settledWithoutBlock && analyzer}
 			<div
 				className="flex flex-col gap-4"
 				data-testid={
@@ -191,7 +174,7 @@ function PreviewResult({
 				{withBlock ? (
 					<TransactionPreview
 						bytes={bytes}
-						analyzer={intentSummary}
+						analyzer={analyzer}
 						analyzerCount={analyzerCount}
 						{...simulation}
 					/>
@@ -479,9 +462,7 @@ export default function SigningTool() {
 							current ? dryRun.error?.message : undefined
 						}
 						bytes={bytes}
-						analysis={analysis.data}
-						isAnalysisLoading={analysis.isPending}
-						analysisError={analysis.error}
+						analysis={analysis}
 					/>
 				)}
 
