@@ -51,8 +51,9 @@ import { ProposalWeight } from './ProposalWeight';
 export type ProposalsTableVariant = 'overview' | 'list';
 
 /**
- * One proposal in the proposals table. The overview shows what it is,
- * where it stands and Execute; the list adds who proposed it, a preview
+ * One proposal in the proposals table: what it is, who proposed it,
+ * where it stands and Execute. The overview names the proposer in the
+ * meta line; the list gives them a column, and adds the digest, a preview
  * that expands under the row (where signing happens) and a menu with the
  * rest of what can be done with it.
  */
@@ -102,18 +103,14 @@ export function ProposalRow({
 	// is the digest (no description). The overview's column is too narrow.
 	const showDigest =
 		variant === 'list' && !!proposal.description?.trim();
-	// A signer goes by their key's label; an outside proposer by address
-	// alone, marked as such.
-	const external = isExternalProposer(proposal);
-	const proposer = {
-		label: external ? null : proposerLabel,
-		marker:
-			proposal.proposerAddress === currentAddress?.address
-				? ('you' as const)
-				: external
-					? ('external' as const)
-					: null,
-	};
+	// A signer goes by their key's label. An outside proposer has none, so
+	// goes by address, marked as such.
+	const proposerMarker =
+		proposal.proposerAddress === currentAddress?.address
+			? 'you'
+			: isExternalProposer(proposal)
+				? 'external'
+				: null;
 
 	return (
 		<>
@@ -149,13 +146,13 @@ export function ProposalRow({
 										Proposed by{' '}
 										{/* The name alone; the address only when unnamed. */}
 										<SignerName
-											label={proposer.label}
+											label={proposerLabel}
 											address={
-												proposer.label
+												proposerLabel
 													? undefined
 													: proposal.proposerAddress
 											}
-											marker={proposer.marker}
+											marker={proposerMarker}
 											markerStyle="parens"
 											size="inline"
 										/>
@@ -222,9 +219,9 @@ export function ProposalRow({
 							data-testid="proposal-proposer"
 						>
 							<SignerName
-								label={proposer.label}
+								label={proposerLabel}
 								address={proposal.proposerAddress}
-								marker={proposer.marker}
+								marker={proposerMarker}
 								markerStyle="parens"
 								size="md"
 							/>

@@ -8,11 +8,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
 	isExternalProposer,
+	isProposalExpired,
+	pendingFilter,
 	proposalStatusKey,
 	proposalTitle,
 	shortDigest,
 	weightDots,
 } from '../src/lib/proposalUtils';
+import { transfer } from './transactions';
 
 const DIGEST =
 	'HkV4y3pGsyPvGyX7tfm9MGKvjEsPKDpr5DW2KzuaE7ac';
@@ -164,5 +167,56 @@ describe('isExternalProposer', () => {
 					new Ed25519Keypair().toSuiAddress(),
 			}),
 		).toBe(true);
+	});
+});
+
+describe('pendingFilter', () => {
+	// Epoch 10 started at time 1000, and epochs last 100.
+	const epochInfo = {
+		epoch: '10',
+		epochStartTimestampMs: '1000',
+		epochDurationMs: '100',
+	};
+	const multisig = {
+		threshold: 1,
+		members: [{ publicKey: 'signer', weight: 1 }],
+	};
+	const signatures = [
+		{
+			proposalId: 1,
+			publicKey: 'signer',
+			signature: 'sig',
+		},
+	];
+
+	it('files a proposal past its last epoch as expired, even at the threshold', async () => {
+		const proposal = (lastEpoch: number) =>
+			transfer({ Epoch: lastEpoch }).then(
+				(transactionBytes) => ({
+					status: ProposalStatus.PENDING,
+					transactionBytes,
+					signatures,
+				}),
+			);
+		const context = {
+			multisig,
+			publicKey: undefined,
+			epochInfo,
+		};
+		expect(pendingFilter(await proposal(9), context)).toBe(
+			'expired',
+		);
+		expect(pendingFilter(await proposal(10), context)).toBe(
+			'ready',
+		);
+		expect(
+			isProposalExpired(
+				{
+					...(await proposal(9)),
+					status: ProposalStatus.SUCCESS,
+				},
+				epochInfo,
+			),
+		).toBe(false);
 	});
 });

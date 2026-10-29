@@ -10,11 +10,7 @@ import { useMemo } from 'react';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
-import {
-	calculateCurrentWeight,
-	getTotalWeight,
-	isProposalExpired,
-} from '../lib/proposalUtils';
+import { pendingFilter } from '../lib/proposalUtils';
 import { useEpochInfo } from './useEpochInfo';
 import { useGetMultisig } from './useGetMultisig';
 import {
@@ -30,12 +26,6 @@ export type ProposalFilter =
 	| 'executed'
 	| 'cancelled'
 	| 'expired';
-
-// Where a pending proposal sits among the tabs that split them.
-type PendingFilter = Extract<
-	ProposalFilter,
-	'pending' | 'waiting' | 'ready' | 'expired'
->;
 
 // The status each tab asks the API for. The pending tabs all load the
 // pending proposals and split them here; Executed adds failed executions
@@ -103,28 +93,19 @@ export function useProposalsQueries({
 	const multisigDetails = multisigDetailsQuery.data;
 	const publicKey = currentAddress?.publicKey;
 	const classifyPending = useMemo(
-		() =>
-			(proposal: ProposalWithSignatures): PendingFilter => {
-				if (isProposalExpired(proposal, epochInfo))
-					return 'expired';
-				if (
-					calculateCurrentWeight(
-						proposal,
-						multisigDetails,
-					) >= getTotalWeight(multisigDetails)
-				)
-					return 'ready';
-				return proposal.signatures.some(
-					(sig) => sig.publicKey === publicKey,
-				)
-					? 'waiting'
-					: 'pending';
-			},
+		() => (proposal: ProposalWithSignatures) =>
+			pendingFilter(proposal, {
+				multisig: multisigDetails,
+				publicKey,
+				epochInfo,
+			}),
 		[epochInfo, multisigDetails, publicKey],
 	);
 
 	const proposalPages = proposalsQuery.data?.pages;
 	const failedPages = failedQuery.data?.pages;
+	const executedHasNext = proposalsQuery.hasNextPage;
+	const failedHasNext = failedQuery.hasNextPage;
 	const filteredProposals = useMemo(() => {
 		const loaded = proposalPages?.flatMap(
 			(page) => page.data,
@@ -140,32 +121,39 @@ export function useProposalsQueries({
 						classifyPending(proposal) === activeFilter,
 				);
 			case 'executed':
-				// Executed and failed come as two lists, both newest
-				// first; merged, the loaded rows keep that order.
-				return [
-					...loaded,
-					...(failedPages?.flatMap((page) => page.data) ??
-						[]),
-				].sort((a, b) => b.id - a.id);
+				return mergeNewestFirst([
+					{ rows: loaded, hasNextPage: executedHasNext },
+					{
+						rows:
+							failedPages?.flatMap((page) => page.data) ??
+							[],
+						hasNextPage: failedHasNext,
+					},
+				]);
 			default:
 				return loaded;
 		}
 	}, [
 		proposalPages,
 		failedPages,
+		executedHasNext,
+		failedHasNext,
 		activeFilter,
 		classifyPending,
 	]);
 
 	const pendingPages = pendingQuery.data?.pages;
 	const pendingTabCounts = useMemo(() => {
-		const counts = { pending: 0, waiting: 0, ready: 0 };
+		const counts = {
+			pending: 0,
+			waiting: 0,
+			ready: 0,
+			expired: 0,
+		};
 		if (!multisigDetails?.members) return counts;
 		for (const page of pendingPages ?? [])
-			for (const proposal of page.data) {
-				const filter = classifyPending(proposal);
-				if (filter !== 'expired') counts[filter]++;
-			}
+			for (const proposal of page.data)
+				counts[classifyPending(proposal)]++;
 		return counts;
 	}, [pendingPages, multisigDetails, classifyPending]);
 
@@ -216,4 +204,32 @@ export function useProposalsQueries({
 			multisigDetailsQuery.refetch();
 		},
 	};
+}
+
+/**
+ * Lists that each come newest first, merged into one. Until a list is
+ * fully loaded, its next page can still hold rows newer than another
+ * list's loaded ones, so rows stop at the newest of the oldest loaded
+ * rows among the lists with more to load; the rest show once those
+ * pages arrive and nothing can slot in above them.
+ */
+function mergeNewestFirst(
+	lists: {
+		rows: ProposalWithSignatures[];
+		hasNextPage: boolean;
+	}[],
+) {
+	const floor = Math.max(
+		-Infinity,
+		...lists
+			.filter((list) => list.hasNextPage)
+			.map(
+				(list) =>
+					list.rows[list.rows.length - 1]?.id ?? Infinity,
+			),
+	);
+	return lists
+		.flatMap((list) => list.rows)
+		.filter((row) => row.id >= floor)
+		.sort((a, b) => b.id - a.id);
 }

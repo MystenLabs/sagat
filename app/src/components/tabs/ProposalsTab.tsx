@@ -110,7 +110,13 @@ export function ProposalsTab() {
 		},
 		{ id: 'executed', label: 'Executed' },
 		{ id: 'cancelled', label: 'Cancelled' },
-		{ id: 'expired', label: 'Expired' },
+		{
+			id: 'expired',
+			label: 'Expired',
+			// Expired proposals still count against the account's open
+			// proposals until cancelled, so the tab says how many wait there.
+			count: pendingTabCounts.expired,
+		},
 	];
 
 	return (

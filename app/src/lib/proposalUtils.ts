@@ -13,10 +13,21 @@ import { getExpiry, type EpochInfo } from './expiration';
 import { validatePublicKey } from './sui-utils';
 import { type ProposalCardInput } from './types';
 
+/** The parts of an account that weigh a proposal's signatures. */
+type Composition = Pick<
+	MultisigWithMembers,
+	'threshold'
+> & {
+	members: Pick<
+		MultisigWithMembers['members'][number],
+		'publicKey' | 'weight'
+	>[];
+};
+
 // Helper to calculate current weight of a proposal based on signatures
 export const calculateCurrentWeight = (
-	proposal: ProposalWithSignatures,
-	multisigDetails: MultisigWithMembers | undefined,
+	proposal: Pick<ProposalWithSignatures, 'signatures'>,
+	multisigDetails: Composition | undefined,
 ) => {
 	if (!multisigDetails?.members) return 0;
 
@@ -34,7 +45,7 @@ export const calculateCurrentWeight = (
 
 // Helper to get total weight (threshold) for the multisig
 export const getTotalWeight = (
-	multisigDetails: MultisigWithMembers | undefined,
+	multisigDetails: Composition | undefined,
 ) => {
 	return multisigDetails?.threshold || 0;
 };
@@ -132,6 +143,41 @@ export function isProposalExpired(
 		!!getExpiry(proposal.transactionBytes, epochInfo)
 			?.expired
 	);
+}
+
+/**
+ * Which of the proposals page's pending tabs a pending proposal belongs
+ * on: Expired once its transaction can't execute, whatever its
+ * signatures; else Ready at the threshold; else Awaiting others when
+ * `publicKey` signed it, To sign when not.
+ */
+export function pendingFilter(
+	proposal: Pick<
+		ProposalWithSignatures,
+		'status' | 'transactionBytes' | 'signatures'
+	>,
+	{
+		multisig,
+		publicKey,
+		epochInfo,
+	}: {
+		multisig: Composition | undefined;
+		publicKey: string | undefined;
+		epochInfo: EpochInfo | undefined;
+	},
+): 'expired' | 'ready' | 'waiting' | 'pending' {
+	if (isProposalExpired(proposal, epochInfo))
+		return 'expired';
+	if (
+		calculateCurrentWeight(proposal, multisig) >=
+		getTotalWeight(multisig)
+	)
+		return 'ready';
+	return proposal.signatures.some(
+		(sig) => sig.publicKey === publicKey,
+	)
+		? 'waiting'
+		: 'pending';
 }
 
 /**
