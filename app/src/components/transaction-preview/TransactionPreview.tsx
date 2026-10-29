@@ -27,7 +27,6 @@ import {
 	type SimulatedTransaction,
 	type SimulationStatus,
 } from '@/lib/transaction-preview';
-import { cn } from '@/lib/utils';
 
 import { BalanceChangesTable } from './BalanceChangesTable';
 import { CommandsList } from './CommandsList';
@@ -62,8 +61,6 @@ export function TransactionPreview({
 	actions,
 	analyzer,
 	analyzerCount,
-	className,
-	testId,
 }: {
 	bytes: string;
 	status: SimulationStatus;
@@ -77,9 +74,6 @@ export function TransactionPreview({
 	analyzer: ReactNode;
 	/** The analyzer's issues, badged on its tab. */
 	analyzerCount?: number;
-	className?: string;
-	/** The root's test id; it also carries `data-status`. */
-	testId?: string;
 }) {
 	const { network } = useNetwork();
 	// By value, since callers make a new Date each render.
@@ -216,11 +210,7 @@ export function TransactionPreview({
 
 	return (
 		<section
-			className={cn(
-				'flex min-w-0 flex-col gap-4',
-				className,
-			)}
-			data-testid={testId}
+			className="flex min-w-0 flex-col gap-4"
 			data-status={model.status}
 			aria-busy={pending || undefined}
 		>

@@ -71,11 +71,12 @@ export function ReviewStep({
 		!!simulation && simulation.status !== 'pending';
 	const simulationPassed = simulation?.status === 'passed';
 	const simulationFailed = settled && !simulationPassed;
+	// The sender by value, since the page rebuilds it each render.
+	const { address: senderAddress, name: senderName } =
+		sender;
 	const accounts = useMemo(
-		() => [sender],
-		// The sender by value, since the page rebuilds it each render.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-		[sender.address, sender.name],
+		() => [{ address: senderAddress, name: senderName }],
+		[senderAddress, senderName],
 	);
 	const failureReason = safeDecode(
 		dryRun.error?.message ||
@@ -134,23 +135,23 @@ export function ReviewStep({
 				>
 					{COPY.simulationUnreachable}
 				</RetryNotice>
-			) : settled ? (
+			) : (
+				// One wrapper for pending and settled, so the preview keeps
+				// its tab when the simulation lands.
 				<div
-					data-testid="transaction-preview-result"
+					data-testid={
+						settled
+							? 'transaction-preview-result'
+							: 'review-simulating'
+					}
 					data-result={
-						simulationPassed ? 'success' : 'failure'
+						settled
+							? simulationPassed
+								? 'success'
+								: 'failure'
+							: undefined
 					}
 				>
-					<TransactionPreview
-						bytes={bytes}
-						accounts={accounts}
-						analyzer={analyzer}
-						analyzerCount={analyzerCount}
-						{...simulation}
-					/>
-				</div>
-			) : (
-				<div data-testid="review-simulating">
 					<TransactionPreview
 						bytes={bytes}
 						accounts={accounts}

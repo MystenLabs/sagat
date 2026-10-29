@@ -108,6 +108,58 @@ test.describe('transaction signer tool', () => {
 		);
 	});
 
+	// An address-balance gas payment gets its expiration from the resolver,
+	// so JSON without one must not build offline: the bytes signed are the
+	// dry run's, expiration included, or the chain refuses them.
+	test('signs an address-balance JSON transaction with the expiration the dry run resolved', async ({
+		createActor,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		await chain.fundAddressBalance(
+			alice.address,
+			10n * MIST_PER_SUI,
+		);
+		expect(await chain.coins(alice.address)).toEqual([]);
+		const recipient = randomAddress();
+		const { systemState } =
+			await chain.client.getCurrentSystemState();
+		const tx = new Transaction();
+		tx.setSender(alice.address);
+		tx.setGasPrice(BigInt(systemState.referenceGasPrice));
+		tx.setGasBudget(MIST_PER_SUI / 10n);
+		tx.setGasPayment([]);
+		const [coin] = tx.splitCoins(tx.gas, [MIST_PER_SUI]);
+		tx.transferObjects([coin], recipient);
+
+		await alice.page.goto('/tools/sign');
+		await alice.connectWallet({ signIn: false });
+		await alice.page
+			.getByTestId('transaction-data-input')
+			.fill(await tx.toJSON());
+		await expect(
+			alice.page.getByTestId('transaction-preview-result'),
+		).toHaveAttribute('data-result', 'success');
+		await alice.page
+			.getByTestId('transaction-preview-raw-toggle')
+			.click();
+		const previewedBytes = await alice.page
+			.getByTestId('transaction-preview-raw')
+			.inputValue();
+		expect(previewedBytes).toBeTruthy();
+
+		await alice.page.getByTestId('sign-button').click();
+		const signature = await alice.page
+			.getByTestId('signed-result')
+			.getAttribute('data-signature');
+		expect(signature).toBeTruthy();
+
+		await chain.execute(previewedBytes, signature!);
+		expect(await chain.balance(recipient)).toBe(
+			MIST_PER_SUI,
+		);
+	});
+
 	test('signs and executes a transaction', async ({
 		createActor,
 		chain,

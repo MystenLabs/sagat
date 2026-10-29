@@ -18,6 +18,14 @@ export interface SimulationProps {
 	simulatedAt: Date | null;
 }
 
+/** A simulation that hasn't settled yet. */
+export const pendingSimulation: SimulationProps = {
+	status: 'pending',
+	result: null,
+	error: null,
+	simulatedAt: null,
+};
+
 /**
  * The Transaction preview's simulation props from a dry run: pending
  * until it settles (not started counts as pending, so the first frame
@@ -52,10 +60,5 @@ export function simulationProps(
 			simulatedAt: new Date(dryRun.submittedAt),
 		};
 	}
-	return {
-		status: 'pending',
-		result: null,
-		error: null,
-		simulatedAt: null,
-	};
+	return pendingSimulation;
 }

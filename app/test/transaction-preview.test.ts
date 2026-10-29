@@ -335,11 +335,6 @@ describe('buildTransactionPreview', () => {
 				amount: (-COST).toString(),
 			},
 		]);
-		expect(
-			model.balanceChanges.some(
-				(row) => row.gas && row.address === SENDER,
-			),
-		).toBe(false);
 	});
 
 	test('adds no gas row without a gas payer SUI change', () => {

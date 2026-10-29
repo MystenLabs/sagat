@@ -136,23 +136,22 @@ export function ProposalPreview({
 	return (
 		<div className="flex flex-col gap-3">
 			{simulation ? (
-				settled ? (
-					<div
-						data-testid="transaction-preview-result"
-						data-result={
-							isDryRunSuccessful ? 'success' : 'failure'
-						}
-					>
-						<TransactionPreview
-							bytes={proposal.transactionBytes}
-							accounts={accounts}
-							actions={actions}
-							analyzer={analyzer}
-							analyzerCount={analyzerCount}
-							{...simulation}
-						/>
-					</div>
-				) : (
+				// One wrapper for pending and settled, so the preview keeps
+				// its tab when the simulation lands.
+				<div
+					data-testid={
+						settled
+							? 'transaction-preview-result'
+							: undefined
+					}
+					data-result={
+						settled
+							? isDryRunSuccessful
+								? 'success'
+								: 'failure'
+							: undefined
+					}
+				>
 					<TransactionPreview
 						bytes={proposal.transactionBytes}
 						accounts={accounts}
@@ -161,7 +160,7 @@ export function ProposalPreview({
 						analyzerCount={analyzerCount}
 						{...simulation}
 					/>
-				)
+				</div>
 			) : (
 				<>
 					{analyzer}

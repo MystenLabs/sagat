@@ -8,6 +8,7 @@ import { CoinIcon } from '@/components/ui/CoinIcon';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { SkeletonLine } from '@/components/ui/skeleton';
 import {
+	tableClass,
 	tableRowClass,
 	tableShellHeadRowClass,
 } from '@/components/ui/table';
@@ -26,7 +27,7 @@ import { cn } from '@/lib/utils';
 
 const cellClass = 'px-2 py-1.75 sm:px-3';
 
-/** Owner, asset and signed change per row, the sender's gas last. */
+/** Owner, asset and signed change per row, the gas payer's net gas last. */
 export function BalanceChangesTable({
 	rows,
 	status,
@@ -40,7 +41,7 @@ export function BalanceChangesTable({
 }) {
 	return (
 		<div className="overflow-hidden rounded-lg border bg-card">
-			<table className="w-full table-fixed text-13">
+			<table className={tableClass}>
 				<thead>
 					<tr
 						className={cn(

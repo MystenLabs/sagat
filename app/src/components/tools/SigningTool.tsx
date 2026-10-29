@@ -21,7 +21,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { NetworkSelector } from '@/components/NetworkSelector';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
-import { simulationProps } from '@/components/transaction-preview/simulation';
+import {
+	pendingSimulation,
+	simulationProps,
+	type SimulationProps,
+} from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
 import { Alert } from '@/components/ui/Alert';
 import {
@@ -32,7 +36,6 @@ import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Label } from '@/components/ui/label';
 import { SkeletonLine } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { type useDryRun } from '@/hooks/useDryRun';
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { toast } from '@/lib/toast';
@@ -80,13 +83,17 @@ function TransactionInput({
 }
 
 /**
- * The input as base64 transaction bytes for the preview: as pasted when
- * it is bytes, built offline when it is JSON with every input resolved,
- * else built from the dry run's resolved transaction once there is one.
- * Null when none of these work.
+ * The input as base64 transaction bytes for the preview, which are also
+ * the bytes signed. Bytes stay as pasted. JSON is built offline only when
+ * it is fully resolved, since then the dry run builds it without the
+ * resolver and so to the same bytes; otherwise the resolver may still set
+ * fields (gas, or the expiration an address-balance gas payment needs),
+ * so once the dry run of this input settles these are the bytes of the
+ * transaction it simulated. Null until then, or when none of these work.
  */
 function previewBytes(
 	input: string,
+	settled: boolean,
 	simulated?: SuiClientTypes.TransactionData,
 ): string | null {
 	const trimmed = input.trim();
@@ -95,20 +102,18 @@ function previewBytes(
 			Transaction.from(trimmed);
 			return trimmed;
 		}
-		return toBase64(
-			TransactionDataBuilder.restore(
-				Transaction.from(trimmed).getData(),
-			).build(),
-		);
-	} catch {
-		if (!simulated) return null;
-		try {
+		if (settled && simulated) {
 			return toBase64(
 				TransactionDataBuilder.restore(simulated).build(),
 			);
-		} catch {
-			return null;
 		}
+		const tx = Transaction.from(trimmed);
+		if (!tx.isFullyResolved()) return null;
+		return toBase64(
+			TransactionDataBuilder.restore(tx.getData()).build(),
+		);
+	} catch {
+		return null;
 	}
 }
 
@@ -120,20 +125,23 @@ const networkWarning = (
 );
 
 function PreviewResult({
-	dryRun,
+	simulation,
+	dryRunError,
 	bytes,
 	analysis,
 	isAnalysisLoading,
 	analysisError,
 }: {
-	dryRun: ReturnType<typeof useDryRun>;
+	/** The current input's simulation (see `simulationProps`). */
+	simulation: SimulationProps | null;
+	/** Why the current input's dry run failed, if it did. */
+	dryRunError?: string;
 	/** The bytes the preview shows (see `previewBytes`), also what is signed. */
 	bytes: string | null;
 	analysis?: TransactionAnalysis;
 	isAnalysisLoading?: boolean;
 	analysisError?: Error | null;
 }) {
-	const simulation = simulationProps(dryRun);
 	const intentSummary = (
 		<IntentSummary
 			analysis={analysis}
@@ -145,40 +153,34 @@ function PreviewResult({
 		(analysis?.issues.length ?? 0) +
 		(analysisError ? 1 : 0);
 
-	if (simulation?.status === 'pending') {
-		return (
-			<div data-testid="transaction-preview-loading">
-				<span className="sr-only" role="status">
-					Previewing transaction…
-				</span>
-				{bytes ? (
-					<TransactionPreview
-						bytes={bytes}
-						analyzer={intentSummary}
-						analyzerCount={analyzerCount}
-						{...simulation}
-					/>
-				) : (
-					<div className="flex flex-col gap-3 rounded-lg border p-4">
-						<SkeletonLine className="w-48" />
-						<SkeletonLine className="w-3/4" />
-						<SkeletonLine className="w-1/4" />
-					</div>
-				)}
-			</div>
-		);
-	}
-
+	const pending = simulation?.status === 'pending';
 	const passed = simulation?.status === 'passed';
+	// One tree for pending and settled, so the preview keeps its tab when
+	// the simulation lands.
 	return (
 		<div className="flex flex-col gap-4">
 			{/* Without the preview block, the analyzer shows on its own. */}
-			{!(simulation && bytes) && intentSummary}
+			{!pending && !(simulation && bytes) && intentSummary}
 			<div
 				className="flex flex-col gap-4"
-				data-testid="transaction-preview-result"
-				data-result={passed ? 'success' : 'failure'}
+				data-testid={
+					pending
+						? 'transaction-preview-loading'
+						: 'transaction-preview-result'
+				}
+				data-result={
+					pending
+						? undefined
+						: passed
+							? 'success'
+							: 'failure'
+				}
 			>
+				{pending && (
+					<span className="sr-only" role="status">
+						Previewing transaction…
+					</span>
+				)}
 				{simulation && bytes ? (
 					<TransactionPreview
 						bytes={bytes}
@@ -186,15 +188,21 @@ function PreviewResult({
 						analyzerCount={analyzerCount}
 						{...simulation}
 					/>
+				) : pending ? (
+					<div className="flex flex-col gap-3 rounded-lg border p-4">
+						<SkeletonLine className="w-48" />
+						<SkeletonLine className="w-3/4" />
+						<SkeletonLine className="w-1/4" />
+					</div>
 				) : (
 					<p className="text-13 whitespace-pre-wrap text-error-foreground">
 						{safeDecode(
-							dryRun.error?.message ||
+							dryRunError ||
 								'Transaction would fail on-chain',
 						)}
 					</p>
 				)}
-				{!passed && networkWarning}
+				{!pending && !passed && networkWarning}
 			</div>
 		</div>
 	);
@@ -343,18 +351,25 @@ export default function SigningTool() {
 		reset: resetPreview,
 	} = useTransactionPreview();
 
+	// A dry run of an earlier input counts as pending, so its result never
+	// stands in for this input's.
+	const current = dryRun.variables === transactionData;
+	const simulation = current
+		? simulationProps(dryRun)
+		: pendingSimulation;
+	const settled =
+		!!simulation && simulation.status !== 'pending';
+	const simulated = simulation?.result?.transaction;
+
 	// What the preview shows and what is signed, so the digest and Ledger
 	// hash the user checked are those of the signed bytes.
-	const simulated =
-		simulationProps(dryRun)?.result?.transaction;
 	const bytes = useMemo(
-		() => previewBytes(transactionData, simulated),
-		[transactionData, simulated],
+		() => previewBytes(transactionData, settled, simulated),
+		[transactionData, settled, simulated],
 	);
 
 	const isDryRunSuccessful =
-		dryRun.isSuccess &&
-		dryRun.data?.Transaction?.effects.status.success;
+		simulation?.status === 'passed';
 
 	useEffect(() => {
 		resetPreview();
@@ -374,24 +389,17 @@ export default function SigningTool() {
 
 	const handleTransactionDataChange = (value: string) => {
 		setTransactionData(value);
-		if (
-			analysis.data ||
-			analysis.error ||
-			dryRun.data ||
-			dryRun.error
-		) {
-			resetPreview();
-		}
+		resetPreview();
 		if (signedResult) {
 			setSignedResult(null);
 		}
 	};
 
 	const handleSign = async (shouldExecute: boolean) => {
-		if (!transactionData || isSignPending) return;
+		if (!bytes || isSignPending) return;
 
 		try {
-			const tx = Transaction.from(bytes ?? transactionData);
+			const tx = Transaction.from(bytes);
 
 			if (shouldExecute) {
 				setIsSigningAndExecuting(true);
@@ -406,7 +414,7 @@ export default function SigningTool() {
 				setSignedResult({
 					digest: txResult?.digest,
 					signature: txResult?.signatures[0] ?? '',
-					bytes: bytes ?? transactionData,
+					bytes,
 					failure: failed
 						? {
 								message:
@@ -461,7 +469,10 @@ export default function SigningTool() {
 					dryRun.data ||
 					dryRun.error) && (
 					<PreviewResult
-						dryRun={dryRun}
+						simulation={simulation}
+						dryRunError={
+							current ? dryRun.error?.message : undefined
+						}
 						bytes={bytes}
 						analysis={analysis.data}
 						isAnalysisLoading={analysis.isPending}
