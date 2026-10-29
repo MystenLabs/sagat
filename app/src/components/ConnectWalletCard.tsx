@@ -36,8 +36,12 @@ export function ConnectWalletCard() {
 		isConnecting,
 		isAuthCheckFailing,
 	} = useApiAuth();
-	// The declined line belongs to the card that showed it.
-	useEffect(() => () => clearDeclined(), [clearDeclined]);
+	// The declined line belongs to the card that showed it. A decline
+	// that lands while no card is shown is dropped too.
+	useEffect(() => {
+		clearDeclined();
+		return () => clearDeclined();
+	}, [clearDeclined]);
 	// Gone when the wallet was uninstalled since: then only the picker.
 	const declinedWallet =
 		declined &&
