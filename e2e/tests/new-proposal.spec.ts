@@ -284,6 +284,8 @@ test.describe('new proposal: transfer', () => {
 			await chain.addressBalance(multisig.address),
 		).toBe(300n * MIST_PER_SUI);
 		const { page } = alice;
+		// Signing in lands on the overview, which read the balance before the address balance was added.
+		await page.reload();
 		const recipient = randomAddress();
 
 		await page.getByTestId('multisig-tab-assets').click();

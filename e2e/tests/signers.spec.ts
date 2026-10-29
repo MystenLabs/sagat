@@ -478,6 +478,25 @@ test.describe('overview and signers', () => {
 			await expect(rows).toHaveCount(2);
 		});
 
+		await test.step("a token's Send proposes a transfer of that coin", async () => {
+			const testCoin = page.locator(
+				'[data-testid="token-row"][data-coin-type$="::test_coin::TEST_COIN"]',
+			);
+			await testCoin
+				.getByTestId('token-send-button')
+				.click();
+			await expect(
+				page.getByTestId('transfer-step'),
+			).toBeVisible();
+			await expect(
+				page.getByTestId('transfer-asset-select'),
+			).toHaveAttribute(
+				'data-coin-type',
+				/::test_coin::TEST_COIN$/,
+			);
+			await page.goBack();
+		});
+
 		await test.step('each open proposal shows its title, proposer, status and weight', async () => {
 			const row = alice.proposalRow(pending.digest);
 			await expect(row).toHaveAttribute(

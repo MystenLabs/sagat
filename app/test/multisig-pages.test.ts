@@ -17,15 +17,15 @@ describe('current multisig page', () => {
 		).toBe('overview');
 	});
 
-	test('falls back to the proposals page', () => {
+	test('falls back to the overview page', () => {
 		expect(
 			currentMultisigPage(`/multisig/${ACCOUNT}`),
-		).toBe('proposals');
+		).toBe('overview');
 		expect(
 			currentMultisigPage(`/multisig/${ACCOUNT}/unknown`),
-		).toBe('proposals');
+		).toBe('overview');
 		expect(currentMultisigPage('/invitations')).toBe(
-			'proposals',
+			'overview',
 		);
 	});
 });
