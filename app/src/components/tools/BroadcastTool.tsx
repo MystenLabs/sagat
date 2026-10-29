@@ -3,28 +3,22 @@
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { fromBase64 } from '@mysten/sui/utils';
-import {
-	Copy,
-	ExternalLink,
-	Radio,
-	RefreshCw,
-} from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { useState } from 'react';
 
 import { Alert } from '@/components/ui/Alert';
 import {
 	Button,
-	buttonVariants,
 	disabledButton,
 } from '@/components/ui/button';
 import { useNetwork } from '@/contexts/NetworkContext';
-import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 
 import {
 	BytesField,
 	NetworkField,
 	ReadOnlyField,
+	ResultActions,
 	ToolActions,
 	ToolCard,
 } from './parts';
@@ -56,7 +50,6 @@ function BroadcastResultDisplay({
 		result.digest,
 		result.network,
 	);
-	const { copy } = useCopyToClipboard('Digest copied');
 
 	return (
 		<div
@@ -71,37 +64,15 @@ function BroadcastResultDisplay({
 				label="Transaction digest"
 				value={result.digest}
 			/>
-			<ToolActions>
-				<Button
-					type="button"
-					variant="outline"
-					onClick={onReset}
-					data-testid="broadcast-reset-button"
-				>
-					<RefreshCw />
-					Broadcast another
-				</Button>
-				{explorerUrl && (
-					<a
-						href={explorerUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						className={buttonVariants({
-							variant: 'outline',
-						})}
-					>
-						<ExternalLink />
-						View on explorer
-					</a>
-				)}
-				<Button
-					type="button"
-					onClick={() => copy(result.digest)}
-				>
-					<Copy />
-					Copy digest
-				</Button>
-			</ToolActions>
+			<ResultActions
+				onReset={onReset}
+				resetLabel="Broadcast another"
+				resetTestId="broadcast-reset-button"
+				explorerUrl={explorerUrl}
+				copyValue={result.digest}
+				copyLabel="Copy digest"
+				copyMessage="Digest copied"
+			/>
 		</div>
 	);
 }
@@ -198,7 +169,7 @@ export default function BroadcastTool() {
 				</Alert>
 			)}
 			<ToolCard>
-				<NetworkField />
+				<NetworkField onChange={() => setError(null)} />
 				<BytesField
 					id="transaction-bytes"
 					label="Transaction bytes"
@@ -207,7 +178,7 @@ export default function BroadcastTool() {
 					minHeight="min-h-30"
 					value={transactionBytes}
 					onChange={edit(setTransactionBytes)}
-					readOnly={!!result}
+					readOnly={!!result || broadcasting}
 				/>
 				<BytesField
 					id="signature"
@@ -217,7 +188,7 @@ export default function BroadcastTool() {
 					minHeight="min-h-24"
 					value={signature}
 					onChange={edit(setSignature)}
-					readOnly={!!result}
+					readOnly={!!result || broadcasting}
 				/>
 
 				{result ? (

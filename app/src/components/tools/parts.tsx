@@ -1,8 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+	Copy,
+	ExternalLink,
+	RefreshCw,
+} from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import {
+	Button,
+	buttonVariants,
+} from '@/components/ui/button';
+import { cardClass } from '@/components/ui/card';
+import { FieldStatus } from '@/components/ui/field-status';
 import { Label } from '@/components/ui/label';
 import {
 	Select,
@@ -15,6 +26,7 @@ import {
 	useNetwork,
 	type SuiNetwork,
 } from '@/contexts/NetworkContext';
+import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useNetworkOptions } from '@/hooks/useNetworkOptions';
 import { networkLabel } from '@/lib/network';
 import { cn } from '@/lib/utils';
@@ -26,10 +38,7 @@ export function ToolCard({
 }: React.ComponentProps<'div'>) {
 	return (
 		<div
-			className={cn(
-				'flex flex-col gap-5 rounded-xl border bg-card p-6',
-				className,
-			)}
+			className={cn(cardClass, 'gap-5 p-6', className)}
 			{...props}
 		/>
 	);
@@ -40,7 +49,12 @@ export function ToolCard({
  * sidebar shows, with devnet on offer too since the tools work straight
  * against the chain.
  */
-export function NetworkField() {
+export function NetworkField({
+	onChange,
+}: {
+	/** Called after the network changes. */
+	onChange?: (network: SuiNetwork) => void;
+}) {
 	const { network, setNetwork } = useNetwork();
 	const options = useNetworkOptions('tools');
 
@@ -52,8 +66,9 @@ export function NetworkField() {
 			<Select
 				value={network}
 				onValueChange={(next) => {
-					if (typeof next === 'string')
-						setNetwork(next as SuiNetwork);
+					if (typeof next !== 'string') return;
+					setNetwork(next as SuiNetwork);
+					onChange?.(next as SuiNetwork);
 				}}
 			>
 				<SelectTrigger
@@ -130,13 +145,14 @@ export function BytesField({
 				className={cn('font-mono md:text-12', minHeight)}
 			/>
 			{error && (
-				<p
+				<FieldStatus
 					id={errorId}
-					className="text-13 text-error-foreground"
-					data-testid={errorTestId}
+					valid={false}
+					state="error"
+					testId={errorTestId ?? errorId}
 				>
 					{error}
-				</p>
+				</FieldStatus>
 			)}
 		</div>
 	);
@@ -184,5 +200,61 @@ export function ToolActions({
 				{children}
 			</div>
 		</div>
+	);
+}
+
+/**
+ * A result's buttons: start again, view it on the explorer when there is
+ * a link, and copy the value.
+ */
+export function ResultActions({
+	onReset,
+	resetLabel,
+	resetTestId,
+	explorerUrl,
+	copyValue,
+	copyLabel,
+	copyMessage,
+}: {
+	onReset: () => void;
+	resetLabel: string;
+	resetTestId: string;
+	explorerUrl?: string | null;
+	copyValue: string;
+	copyLabel: string;
+	/** The toast shown once copied. */
+	copyMessage: string;
+}) {
+	const { copy } = useCopyToClipboard(copyMessage);
+
+	return (
+		<ToolActions>
+			<Button
+				type="button"
+				variant="outline"
+				onClick={onReset}
+				data-testid={resetTestId}
+			>
+				<RefreshCw />
+				{resetLabel}
+			</Button>
+			{explorerUrl && (
+				<a
+					href={explorerUrl}
+					target="_blank"
+					rel="noopener noreferrer"
+					className={buttonVariants({
+						variant: 'outline',
+					})}
+				>
+					<ExternalLink />
+					View on explorer
+				</a>
+			)}
+			<Button type="button" onClick={() => copy(copyValue)}>
+				<Copy />
+				{copyLabel}
+			</Button>
+		</ToolActions>
 	);
 }

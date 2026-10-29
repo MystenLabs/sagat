@@ -12,13 +12,7 @@ import {
 	formatAddress,
 	normalizeSuiAddress,
 } from '@mysten/sui/utils';
-import {
-	Copy,
-	ExternalLink,
-	PenLine,
-	RefreshCw,
-	Send,
-} from 'lucide-react';
+import { PenLine, Send } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
@@ -26,14 +20,12 @@ import { IntentSummary } from '@/components/preview-effects/IntentSummary';
 import { Alert } from '@/components/ui/Alert';
 import {
 	Button,
-	buttonVariants,
 	disabledButton,
 } from '@/components/ui/button';
 import {
 	Skeleton,
 	SkeletonLine,
 } from '@/components/ui/skeleton';
-import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
@@ -48,6 +40,7 @@ import {
 	BytesField,
 	NetworkField,
 	ReadOnlyField,
+	ResultActions,
 	ToolActions,
 	ToolCard,
 } from './parts';
@@ -172,9 +165,6 @@ function SignedResultDisplay({
 	const explorerUrl = digest
 		? getExplorerUrl(digest, network)
 		: null;
-	const { copy } = useCopyToClipboard(
-		digest ? 'Digest copied' : 'Signature copied',
-	);
 
 	return (
 		<div
@@ -212,37 +202,19 @@ function SignedResultDisplay({
 					value={signature}
 				/>
 			)}
-			<ToolActions>
-				<Button
-					type="button"
-					variant="outline"
-					onClick={onStartOver}
-					data-testid="start-over-button"
-				>
-					<RefreshCw />
-					Start over
-				</Button>
-				{explorerUrl && (
-					<a
-						href={explorerUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						className={buttonVariants({
-							variant: 'outline',
-						})}
-					>
-						<ExternalLink />
-						View on explorer
-					</a>
-				)}
-				<Button
-					type="button"
-					onClick={() => copy(digest ?? signature)}
-				>
-					<Copy />
-					{digest ? 'Copy digest' : 'Copy signature'}
-				</Button>
-			</ToolActions>
+			<ResultActions
+				onReset={onStartOver}
+				resetLabel="Start over"
+				resetTestId="start-over-button"
+				explorerUrl={explorerUrl}
+				copyValue={digest ?? signature}
+				copyLabel={
+					digest ? 'Copy digest' : 'Copy signature'
+				}
+				copyMessage={
+					digest ? 'Digest copied' : 'Signature copied'
+				}
+			/>
 		</div>
 	);
 }
@@ -415,7 +387,7 @@ export default function SigningTool() {
 				minHeight="min-h-40"
 				value={transactionData}
 				onChange={handleTransactionDataChange}
-				readOnly={!!signedResult}
+				readOnly={!!signedResult || isSignPending}
 				error={unreadable ? CANT_READ : undefined}
 				errorTestId="transaction-data-error"
 			/>
@@ -445,37 +417,42 @@ export default function SigningTool() {
 				/>
 			)}
 
-			{isDryRunSuccessful && !signedResult && (
-				<ToolActions note={signNote} noteTestId="sign-note">
-					<Button
-						type="button"
-						variant="outline"
-						onClick={() => handleSign(true)}
-						disabled={
-							!currentAccount ||
-							foreignSender ||
-							isSignPending
-						}
-						className={disabledButton}
-						data-testid="sign-and-execute-button"
+			{isDryRunSuccessful &&
+				!signedResult &&
+				!unreadable && (
+					<ToolActions
+						note={signNote}
+						noteTestId="sign-note"
 					>
-						<Send />
-						{isSigningAndExecuting
-							? 'Signing…'
-							: 'Sign and execute'}
-					</Button>
-					<Button
-						type="button"
-						onClick={() => handleSign(false)}
-						disabled={!currentAccount || isSignPending}
-						className={disabledButton}
-						data-testid="sign-button"
-					>
-						<PenLine />
-						{isSigning ? 'Signing…' : 'Sign'}
-					</Button>
-				</ToolActions>
-			)}
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => handleSign(true)}
+							disabled={
+								!currentAccount ||
+								foreignSender ||
+								isSignPending
+							}
+							className={disabledButton}
+							data-testid="sign-and-execute-button"
+						>
+							<Send />
+							{isSigningAndExecuting
+								? 'Signing…'
+								: 'Sign and execute'}
+						</Button>
+						<Button
+							type="button"
+							onClick={() => handleSign(false)}
+							disabled={!currentAccount || isSignPending}
+							className={disabledButton}
+							data-testid="sign-button"
+						>
+							<PenLine />
+							{isSigning ? 'Signing…' : 'Sign'}
+						</Button>
+					</ToolActions>
+				)}
 		</ToolCard>
 	);
 }
