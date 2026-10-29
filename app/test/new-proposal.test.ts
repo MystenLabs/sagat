@@ -14,6 +14,7 @@ import {
 import { describe, expect, test } from 'vitest';
 
 import { buildTransferTransaction } from '../src/components/assets/buildTransferTransaction';
+import { ADDRESS_COPY } from '../src/lib/address-field';
 import { normalizeCoinType } from '../src/lib/coin-type';
 import { formatInputAmount } from '../src/lib/coins';
 import {
@@ -326,7 +327,7 @@ describe('checkTransfer', () => {
 		]) {
 			const check = usdc({ amount: '1', recipient });
 			expect(check.recipientError).toBe(
-				COPY.invalidAddress,
+				ADDRESS_COPY.invalid,
 			);
 			expect(check.recipientValid).toBe(false);
 			expect(check.canReview).toBe(false);
