@@ -3,6 +3,7 @@
 
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 
+import { recordSignIns } from '../support/actor';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
@@ -33,10 +34,11 @@ test.describe('shared proposal links', () => {
 		});
 
 		// The link only needs a connected wallet, not an API session.
+		const signIns = recordSignIns(bob.page);
 		await bob.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
-		await bob.connectWallet();
+		await bob.connectWallet({ signIn: false });
 		const card = bob.proposalCard(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',
@@ -57,6 +59,11 @@ test.describe('shared proposal links', () => {
 		);
 		expect(await chain.balance(recipient)).toBe(
 			2n * MIST_PER_SUI,
+		);
+		expect(signIns).toHaveLength(0);
+		await expect(bob.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'unauthenticated',
 		);
 	});
 
@@ -83,7 +90,7 @@ test.describe('shared proposal links', () => {
 		await mallory.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
-		await mallory.connectWallet();
+		await mallory.connectWallet({ signIn: false });
 		const card = mallory.proposalCard(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',

@@ -17,6 +17,8 @@ interface EmptyStateProps {
 	iconClassName?: string;
 	title: string;
 	description?: string;
+	/** A line between the description and the action, e.g. an error. */
+	note?: ReactNode;
 	action?: ReactNode;
 	className?: string;
 	testId?: string;
@@ -31,6 +33,7 @@ export function EmptyState({
 	iconClassName,
 	title,
 	description,
+	note,
 	action,
 	className,
 	testId,
@@ -52,6 +55,7 @@ export function EmptyState({
 					{description}
 				</p>
 			)}
+			{note && <div className="mt-3">{note}</div>}
 			{action && (
 				<div className="mt-5 flex items-center gap-2">
 					{action}

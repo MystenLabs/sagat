@@ -56,13 +56,13 @@ test.describe('proposals', () => {
 
 		// Proposing counts as Alice's signature.
 		const aliceCard =
-			alice.page.getByTestId('proposal-card');
+			alice.page.getByTestId('proposal-row');
 		await expect(aliceCard).toHaveAttribute(
 			'data-status',
 			'pending',
 		);
 		await expect(
-			aliceCard.getByTestId('proposal-signature-weight'),
+			aliceCard.getByTestId('proposal-weight'),
 		).toHaveAttribute('data-current-weight', '1');
 		await expect(
 			aliceCard.getByTestId('proposal-already-signed'),
@@ -73,11 +73,12 @@ test.describe('proposals', () => {
 
 		// Bob co-signs, which makes it executable, then executes it.
 		await bob.signIn();
-		const bobCard = bob.proposalCard(digest!);
+		const bobCard = bob.proposalRow(digest!);
 		await bobCard
 			.getByTestId('proposal-toggle-details')
 			.click();
-		await bobCard
+		// The preview opens in its own row under the proposal's.
+		await bob.page
 			.getByTestId('sign-proposal-button')
 			.click();
 		await expect(bobCard).toHaveAttribute(
@@ -110,7 +111,7 @@ test.describe('proposals', () => {
 		// Alice sees the outcome too.
 		await alice.page.reload();
 		await expect(
-			alice.proposalCard(digest!),
+			alice.proposalRow(digest!),
 		).toHaveAttribute('data-status', 'executed');
 	});
 
@@ -149,14 +150,14 @@ test.describe('proposals', () => {
 
 		await bob.signIn();
 		const expiry = bob
-			.proposalCard(expiring.digest)
+			.proposalRow(expiring.digest)
 			.getByTestId('proposal-expiry');
 		await expect(expiry).toHaveText(/^Expires in /);
 		await expiry.hover();
 		await expect(
 			bob.page.getByRole('tooltip'),
 		).toContainText('it has to be proposed again');
-		const lastingCard = bob.proposalCard(lasting.digest);
+		const lastingCard = bob.proposalRow(lasting.digest);
 		await expect(lastingCard).toBeVisible();
 		await expect(
 			lastingCard.getByTestId('proposal-expiry'),
@@ -184,12 +185,14 @@ test.describe('proposals', () => {
 		});
 
 		await bob.signIn();
-		const card = bob.proposalCard(proposal.digest);
+		const card = bob.proposalRow(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',
 			'pending',
 		);
-		await card
+		// Cancel is in the row's menu, which opens over the page.
+		await card.getByTestId('proposal-actions').click();
+		await bob.page
 			.getByTestId('cancel-proposal-button')
 			.click();
 		await bob.page
@@ -236,7 +239,7 @@ test.describe('proposals', () => {
 		await expectSimulation(alice.page, 'success');
 		await proposeAndSign(alice.page);
 
-		const card = alice.page.getByTestId('proposal-card');
+		const card = alice.page.getByTestId('proposal-row');
 		await expect(card).toHaveAttribute(
 			'data-status',
 			'pending',

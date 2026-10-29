@@ -128,7 +128,7 @@ async function proposeAndExecute(
 
 	await proposeAndSign(page);
 	const ready = page.locator(
-		'[data-testid="proposal-card"][data-status="ready"]',
+		'[data-testid="proposal-row"][data-status="ready"]',
 	);
 	const digest = await ready.getAttribute('data-digest');
 	await ready
@@ -136,7 +136,7 @@ async function proposeAndExecute(
 		.click();
 	await expect(
 		page.locator(
-			`[data-testid="proposal-card"][data-digest="${digest}"]`,
+			`[data-testid="proposal-row"][data-digest="${digest}"]`,
 		),
 	).toHaveAttribute('data-status', 'executed');
 

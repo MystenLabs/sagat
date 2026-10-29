@@ -84,7 +84,10 @@ test.describe('overview and signers', () => {
 				.click();
 			await expect(
 				page.getByRole('heading', { level: 1 }),
-			).toHaveText('Signers');
+			).toHaveText('Members');
+			await expect(
+				page.getByTestId('multisig-tab-signers'),
+			).toHaveText('Members');
 			await expect(
 				page.getByTestId('signers-summary'),
 			).toHaveText('2 of 3 accepted');
@@ -235,6 +238,7 @@ test.describe('overview and signers', () => {
 			creator: alice,
 			members: [bob],
 			threshold: 1,
+			labels: ['Alice', 'Bob'],
 		});
 
 		await alice.signIn();
@@ -255,17 +259,52 @@ test.describe('overview and signers', () => {
 		// Adding signs a message with the wallet.
 		await card.getByTestId('add-proposer-button').click();
 		const add = page.getByRole('dialog', {
-			name: 'Add Proposer',
+			name: 'Add external proposer',
 		});
-		await add
-			.getByLabel('Proposer Address')
-			.fill(payments.address);
-		await add
-			.getByRole('button', {
-				name: 'Add Proposer',
-				exact: true,
-			})
-			.click();
+		const input = add.getByLabel('Address', {
+			exact: true,
+		});
+		const status = add.getByTestId(
+			'add-proposer-address-status',
+		);
+		const submit = add.getByRole('button', {
+			name: 'Add proposer',
+			exact: true,
+		});
+
+		await test.step('an incomplete address shows why once left', async () => {
+			await input.fill(payments.address.slice(0, -8));
+			await input.blur();
+			await expect(status).toHaveAttribute(
+				'data-state',
+				'invalid',
+			);
+			await expect(status).toHaveText(
+				'This isn’t a valid Sui address. Check you pasted all of it: 0x and 64 characters.',
+			);
+			await expect(submit).toBeDisabled();
+		});
+
+		await test.step('clearing empties the field and its status', async () => {
+			const clear = add.getByTestId(
+				'add-proposer-address-clear',
+			);
+			await clear.click();
+			await expect(input).toHaveValue('');
+			await expect(clear).toHaveCount(0);
+			await expect(status).toHaveCount(0);
+		});
+
+		await test.step('a whole address reads as valid', async () => {
+			await input.fill(payments.address);
+			await expect(status).toHaveAttribute(
+				'data-state',
+				'valid',
+			);
+			await expect(status).toHaveText('Valid Sui address');
+		});
+
+		await submit.click();
 		const item = card.getByTestId('proposer-item');
 		await expect(item).toHaveCount(1);
 		await expect(item).toHaveAttribute(
@@ -276,10 +315,17 @@ test.describe('overview and signers', () => {
 			formatAddress(payments.address),
 		);
 		await expect(
+			item.getByTestId('proposer-added'),
+		).toHaveAttribute('data-added-at', /.+/);
+		await expect(
+			item.getByTestId('proposer-added-by'),
+		).toHaveText('by Alice (you)');
+		await expect(
 			card.getByTestId('proposers-empty'),
 		).toHaveCount(0);
 
-		// Removing asks first, naming the whole address.
+		// Removing asks first, showing the short address and carrying
+		// the whole one in `data-address`.
 		const remove = item.getByTestId(
 			'remove-proposer-button',
 		);
@@ -288,12 +334,18 @@ test.describe('overview and signers', () => {
 		);
 		await remove.click();
 		const confirm = page.getByRole('dialog', {
-			name: 'Remove Proposer',
+			name: 'Remove external proposer?',
 		});
-		await expect(confirm).toContainText(payments.address);
+		await expect(confirm).toHaveAttribute(
+			'data-address',
+			payments.address,
+		);
+		await expect(confirm).toContainText(
+			formatAddress(payments.address),
+		);
 		await confirm
 			.getByRole('button', {
-				name: 'Remove Proposer',
+				name: 'Remove',
 				exact: true,
 			})
 			.click();
@@ -357,7 +409,7 @@ test.describe('overview and signers', () => {
 		await alice.signIn();
 		const { page } = alice;
 		await page.getByTestId('multisig-tab-overview').click();
-		const rows = page.getByTestId('open-proposal');
+		const rows = page.getByTestId('proposal-row');
 		await expect(rows).toHaveCount(2);
 
 		await test.step('the value, the tokens, receive and send', async () => {
@@ -427,7 +479,7 @@ test.describe('overview and signers', () => {
 		});
 
 		await test.step('each open proposal shows its title, proposer, status and weight', async () => {
-			const row = alice.openProposal(pending.digest);
+			const row = alice.proposalRow(pending.digest);
 			await expect(row).toHaveAttribute(
 				'data-status',
 				'pending',
@@ -436,10 +488,10 @@ test.describe('overview and signers', () => {
 				row.getByTestId('proposal-status'),
 			).toHaveText('Pending');
 			await expect(
-				row.getByTestId('open-proposal-title'),
+				row.getByTestId('proposal-title'),
 			).toHaveText('Pay the grants wallet');
 			await expect(
-				row.getByTestId('open-proposal-proposer'),
+				row.getByTestId('proposal-proposer'),
 			).toHaveText('Proposed by Bob');
 			const weight = row.getByTestId('proposal-weight');
 			await expect(weight).toHaveAttribute(
@@ -458,7 +510,7 @@ test.describe('overview and signers', () => {
 				row.getByTestId('execute-proposal-button'),
 			).toHaveCount(0);
 
-			const other = alice.openProposal(ready.digest);
+			const other = alice.proposalRow(ready.digest);
 			await expect(other).toHaveAttribute(
 				'data-status',
 				'ready',
@@ -468,12 +520,12 @@ test.describe('overview and signers', () => {
 			).toHaveText('Ready');
 			// Without a description, the proposal goes by its digest.
 			await expect(
-				other.getByTestId('open-proposal-title'),
+				other.getByTestId('proposal-title'),
 			).toHaveText(
 				`Transaction ${formatDigest(ready.digest)}`,
 			);
 			await expect(
-				other.getByTestId('open-proposal-proposer'),
+				other.getByTestId('proposal-proposer'),
 			).toHaveText('Proposed by Alice (you)');
 			await expect(
 				other.getByTestId('proposal-weight'),
@@ -482,7 +534,7 @@ test.describe('overview and signers', () => {
 
 		await test.step('executing a ready proposal takes it off the list', async () => {
 			await alice
-				.openProposal(ready.digest)
+				.proposalRow(ready.digest)
 				.getByTestId('execute-proposal-button')
 				.click();
 			await expect(
@@ -492,7 +544,7 @@ test.describe('overview and signers', () => {
 				),
 			).toBeVisible();
 			await expect(
-				alice.openProposal(ready.digest),
+				alice.proposalRow(ready.digest),
 			).toHaveCount(0);
 			await expect(rows).toHaveCount(1);
 		});
@@ -503,7 +555,7 @@ test.describe('overview and signers', () => {
 				page.getByRole('heading', { level: 1 }),
 			).toHaveText('Proposals');
 			await expect(
-				alice.proposalCard(pending.digest),
+				alice.proposalRow(pending.digest),
 			).toBeVisible();
 		});
 	});

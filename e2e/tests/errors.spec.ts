@@ -46,7 +46,7 @@ test.describe('errors', () => {
 		});
 
 		await alice.signIn();
-		const card = alice.proposalCard(proposal.digest);
+		const card = alice.proposalRow(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',
 			'ready',
@@ -78,7 +78,7 @@ test.describe('errors', () => {
 		await alice.page.goto(
 			`/proposals?digest=${unknownDigest}`,
 		);
-		await alice.connectWallet();
+		await alice.connectWallet({ signIn: false });
 
 		await expect(
 			alice.page.getByTestId('proposal-detail-error'),

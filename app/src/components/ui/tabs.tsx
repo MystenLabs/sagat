@@ -25,7 +25,8 @@ interface TabsProps {
 
 /**
  * Filter tabs. `pills` is the redesign's segmented filter: the active pill
- * is black with white text, the others white. `underline` is the quieter
+ * is black with white text, the others white, and a count above zero sits
+ * in a round badge of the opposite colours. `underline` is the quieter
  * in-page variant, neutral as well.
  */
 export function Tabs({
@@ -68,10 +69,10 @@ export function Tabs({
 							{tab.count !== undefined && tab.count > 0 && (
 								<span
 									className={cn(
-										'text-12',
+										'inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full px-0.5 text-11 font-medium tabular-nums',
 										isActive
-											? 'text-primary-foreground/60'
-											: 'text-muted-foreground',
+											? 'bg-primary-foreground text-primary'
+											: 'bg-primary text-primary-foreground',
 									)}
 								>
 									{tab.count}
