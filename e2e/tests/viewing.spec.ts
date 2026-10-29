@@ -123,12 +123,9 @@ test('the overview and balances match the multisig on-chain', async ({
 	);
 
 	await page.getByTestId('multisig-tab-overview').click();
-	// The account is the last crumb.
 	await expect(
-		page
-			.getByRole('navigation', { name: 'Breadcrumb' })
-			.locator('[aria-current="page"]'),
-	).toHaveText('Ops');
+		page.getByTestId('page-header-address'),
+	).toHaveText(multisig.address);
 	await page.getByTestId('multisig-tab-signers').click();
 	const threshold = page.getByTestId('setup-threshold');
 	await expect(threshold).toHaveAttribute(

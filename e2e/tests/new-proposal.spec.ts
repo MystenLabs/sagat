@@ -110,7 +110,7 @@ test.describe('new proposal: transfer', () => {
 		await expect(change).toContainText('+1.5');
 
 		await proposeAndSign(page);
-		const card = page.getByTestId('proposal-card');
+		const card = page.getByTestId('proposal-row');
 		// 1-of-2: Alice's signature already meets the threshold.
 		await expect(card).toHaveAttribute(
 			'data-status',
@@ -752,7 +752,7 @@ test.describe('new proposal: review', () => {
 		await page.unroute(createProposal);
 		await proposeAndSign(page);
 		await expect(
-			page.getByTestId('proposal-card'),
+			page.getByTestId('proposal-row'),
 		).toHaveAttribute('data-status', 'pending');
 	});
 

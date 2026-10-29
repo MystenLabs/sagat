@@ -412,7 +412,7 @@ test.describe('new proposal edges: bytes', () => {
 		await expectSimulation(page, 'success');
 		await proposeAndSign(page);
 		await expect(
-			page.getByTestId('proposal-card'),
+			page.getByTestId('proposal-row'),
 		).toHaveCount(1);
 		expect(
 			creates.map((r) => r.postDataJSON().transactionBytes),
@@ -487,6 +487,9 @@ test.describe('new proposal edges: bytes', () => {
 				.getByTestId('proposal-expiry'),
 		).toHaveText('Expired');
 		await expectSimulation(page, 'failure');
+		await expect(
+			page.getByTestId('review-simulation-error'),
+		).toContainText(/expired/i);
 	});
 
 	// Bytes built for another network: the sender is the account, but the

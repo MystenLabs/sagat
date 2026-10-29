@@ -23,6 +23,11 @@ const REFUSED_CODES = [
 	'OUT_OF_RANGE',
 ];
 
+// The node refuses an expired transaction with INTERNAL, the code the SDK
+// also uses for a node it can't reach, so this one is told by the node's
+// message.
+const EXPIRED_MESSAGE = 'Transaction Expired';
+
 /**
  * Whether a failed dry run couldn't be run at all (offline, a timeout, a
  * 5xx), where trying again may help. False when the error is a verdict
@@ -32,7 +37,8 @@ export function couldNotSimulate(error: unknown): boolean {
 	return !(
 		error instanceof SimulationFailedError ||
 		(error instanceof RpcError &&
-			REFUSED_CODES.includes(error.code))
+			(REFUSED_CODES.includes(error.code) ||
+				error.message === EXPIRED_MESSAGE))
 	);
 }
 
