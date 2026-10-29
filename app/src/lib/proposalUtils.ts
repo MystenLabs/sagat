@@ -116,16 +116,12 @@ export function proposalStatusKey(
 	return 'pending';
 }
 
-/** The proposal's description, cut short, or its digest when it has none. */
+/** The proposal's description, or its digest when it has none. */
 export function proposalTitle(
 	proposal: Pick<Proposal, 'description' | 'digest'>,
 ) {
 	const description = proposal.description?.trim();
-	if (description) {
-		return description.length > 50
-			? `${description.slice(0, 50)}…`
-			: description;
-	}
+	if (description) return description;
 	return `Transaction ${formatDigest(proposal.digest)}`;
 }
 

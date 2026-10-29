@@ -138,9 +138,10 @@ Rules:
   never assume a fixed width beyond that.
 - Light and dark both ship. Check every change in both; the theme
   picker is in the sidebar footer.
-- Designs come at 1440 wide only. Decide the mobile layout yourself,
-  stacking the header actions under the title and letting tables scroll
-  horizontally.
+- Designs come at 1440 wide only; mobile is ours. Header actions stack
+  under the title and wide tables scroll sideways, but rows that read as
+  cards (`ProposalsTable`, `ProposalRow`) get a `@container` shell and
+  stack under `@max-md:` (28rem), desktop classes untouched.
 
 ## Before you finish
 
