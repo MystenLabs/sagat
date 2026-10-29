@@ -7,6 +7,7 @@ import {
 	type Browser,
 	type BrowserContext,
 	type Page,
+	type Request,
 	type Route,
 } from '@playwright/test';
 
@@ -22,6 +23,23 @@ const LOCAL_HOSTS = new Set([
 ]);
 const RECOGNIZED_COINS_URL =
 	'https://apps-backend.sui.io/v2/recognized-coins';
+
+// A sign-in: the POST that trades a signature for a session.
+export function isSignInRequest(request: Request) {
+	return (
+		request.method() === 'POST' &&
+		request.url() === `${E2E.apiUrl}/auth/connect`
+	);
+}
+
+// The sign-ins `page` sends from now on.
+export function recordSignIns(page: Page) {
+	const signIns: Request[] = [];
+	page.on('request', (request) => {
+		if (isSignInRequest(request)) signIns.push(request);
+	});
+	return signIns;
+}
 
 // An entry of the price list, as the endpoint returns it.
 export interface RecognizedCoin {
@@ -58,10 +76,12 @@ export class Actor extends Identity {
 			walletChains,
 			failRestore,
 			rejectSigning,
+			declineSign,
 		}: {
 			walletChains?: E2EWalletConfig['chains'];
 			failRestore?: boolean;
 			rejectSigning?: boolean;
+			declineSign?: boolean;
 		} = {},
 	) {
 		const context = await browser.newContext();
@@ -80,6 +100,7 @@ export class Actor extends Identity {
 			chains: walletChains,
 			failRestore,
 			rejectSigning,
+			declineSign,
 		};
 		await context.addInitScript((config) => {
 			// Start on localnet, but keep a network the app saved, so a
@@ -110,25 +131,105 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the test wallet from the header's wallet menu.
-	async connectWallet() {
+	// Connects the test wallet from the header's wallet menu. Connecting
+	// only connects, so unless `signIn` is false this then clicks the
+	// connect card's Sign in (on `/` or any full route) and waits for the
+	// session. A valid session cookie needs no click. Pass `signIn: false`
+	// on pages that only connect (tools, proposal links).
+	async connectWallet({ signIn = true } = {}) {
 		await this.page
 			.getByTestId('app-header')
 			.getByTestId('connect-wallet-button')
 			.filter({ visible: true })
 			.click();
-		await this.page
-			.locator(
-				`[data-testid="wallet-option"][data-wallet-name="${E2E.walletName}"]`,
-			)
-			.click();
-		await expect(this.walletMenuButton()).toBeVisible();
+		await this.walletOption().click();
+		const menu = this.walletMenuButton();
+		if (!signIn) {
+			await expect(menu).toHaveAttribute(
+				'data-auth-state',
+				'unauthenticated',
+			);
+			return;
+		}
+		// Either the cookie already covers the address, or the card asks.
+		const signInButton = this.page.getByTestId(
+			'sign-in-button',
+		);
+		await expect(
+			menu
+				.and(
+					this.page.locator(
+						'[data-auth-state="authenticated"]',
+					),
+				)
+				.or(signInButton),
+		).toBeVisible();
+		if (
+			(await menu.getAttribute('data-auth-state')) !==
+			'authenticated'
+		)
+			await signInButton.click();
+		await expect(menu).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+	}
+
+	// Opens the wallet menu unless it is open already: a second trigger
+	// click would close it. Base UI keeps a closing popup in the DOM for
+	// its exit animation, so wait for the open one.
+	async openWalletMenu() {
+		const trigger = this.walletMenuButton();
+		if (
+			(await trigger.getAttribute('aria-expanded')) !==
+			'true'
+		)
+			await trigger.click();
+		await expect(
+			this.page
+				.locator(
+					'[data-slot="dropdown-menu-content"][data-open]',
+				)
+				.last(),
+		).toBeVisible();
+	}
+
+	// Closes the wallet menu with Escape, which can't reopen it the way a
+	// trigger click can while it is still animating out. One Escape can be
+	// missed while the popup is animating, so press until it closes.
+	async closeWalletMenu() {
+		await expect(async () => {
+			await this.page.keyboard.press('Escape');
+			await expect(this.walletMenuButton()).toHaveAttribute(
+				'aria-expanded',
+				'false',
+				{ timeout: 500 },
+			);
+		}).toPass();
+	}
+
+	// The test wallet's entry in an open wallet picker.
+	walletOption() {
+		return this.page.locator(
+			`[data-testid="wallet-option"][data-wallet-name="${E2E.walletName}"]`,
+		);
+	}
+
+	// The connect prompt's line saying the wallet declined a request.
+	declinedLine() {
+		return this.page.getByTestId('connect-declined');
+	}
+
+	toast(text: string) {
+		return this.page
+			.locator('[data-sonner-toast]')
+			.filter({ hasText: text });
 	}
 
 	// Signs in `account` from the wallet menu's account list, switching to it
 	// first when it isn't the current one.
 	async signInAccount(account: Identity) {
-		await this.walletMenuButton().click();
+		await this.openWalletMenu();
 		await this.walletAccount(account.address)
 			.getByTestId('wallet-account-sign')
 			.click();
@@ -144,7 +245,7 @@ export class Actor extends Identity {
 
 	// Makes `account` the current wallet account, without signing.
 	async switchAccount(account: Identity) {
-		await this.walletMenuButton().click();
+		await this.openWalletMenu();
 		await this.walletAccount(account.address)
 			.getByTestId('wallet-account-switch')
 			.click();
@@ -162,15 +263,10 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the wallet and signs the auth message, like a user would.
+	// Connects the wallet and signs in from the card, like a user would.
 	async signIn() {
 		await this.page.goto('/');
 		await this.connectWallet();
-		await this.page.getByTestId('sign-in-button').click();
-		await expect(this.walletMenuButton()).toHaveAttribute(
-			'data-auth-state',
-			'authenticated',
-		);
 	}
 
 	// Answers the price list with `coins` instead of an empty one. Call it

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	Check,
 	ChevronRight,
 	Monitor,
 	Moon,
@@ -86,10 +87,15 @@ export function ThemeToggle({
 						<DropdownMenuItem
 							key={value}
 							onClick={() => setTheme(value)}
-							className={cn(theme === value && 'bg-accent')}
+							data-testid="theme-option"
+							data-theme={value}
+							data-current={theme === value}
 						>
 							<Icon />
 							{label}
+							{theme === value && (
+								<Check className="ml-auto size-4" />
+							)}
 						</DropdownMenuItem>
 					))}
 				</DropdownMenuGroup>

@@ -75,7 +75,7 @@ export function SignersCard({
 									<span
 										aria-hidden
 										className={cn(
-											'flex size-6 shrink-0 items-center justify-center rounded-full text-11 font-medium',
+											'flex size-6 shrink-0 items-center justify-center rounded-full text-11 font-medium max-sm:hidden',
 											row.isYou
 												? 'bg-primary text-primary-foreground'
 												: 'bg-secondary text-secondary-foreground',

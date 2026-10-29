@@ -55,10 +55,7 @@ export function ProposalPreview({
 	}, [proposal.transactionBytes]);
 
 	const handleSignProposal = () => {
-		signProposalMutation.mutate({
-			proposalId: proposal.id,
-			transactionBytes: proposal.transactionBytes,
-		});
+		signProposalMutation.mutate(proposal);
 	};
 
 	const simulation = simulationProps(dryRun);

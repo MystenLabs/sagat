@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { mergeProps } from '@base-ui/react/merge-props';
+import { useRender } from '@base-ui/react/use-render';
 import { formatAddress } from '@mysten/sui/utils';
 import {
 	ArrowDownToLine,
@@ -10,8 +12,8 @@ import {
 	TriangleAlert,
 	Users,
 } from 'lucide-react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, type ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 import {
 	railSquareClass,
@@ -129,6 +131,47 @@ function AccountSubtitle({
 	);
 }
 
+/**
+ * The switcher's tile: the account square, the text beside it and an
+ * optional trailing mark. `render` swaps the row element, as the menu
+ * trigger does.
+ */
+function SwitcherTile({
+	icon,
+	trailing,
+	children,
+	className,
+	render,
+	...props
+}: useRender.ComponentProps<'div'> & {
+	icon: ReactNode;
+	trailing?: ReactNode;
+}) {
+	return useRender({
+		defaultTagName: 'div',
+		render,
+		props: mergeProps<'div'>(
+			{
+				className: cn(
+					'flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-sidebar-foreground',
+					railSquareClass,
+					className,
+				),
+				children: (
+					<>
+						<span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+							{icon}
+						</span>
+						{children}
+						{trailing}
+					</>
+				),
+			},
+			props,
+		),
+	});
+}
+
 export function MultisigSwitcher({
 	multisigs,
 	selected,
@@ -136,7 +179,7 @@ export function MultisigSwitcher({
 	onNavigate,
 }: {
 	multisigs: MultisigWithMembersForPublicKey[];
-	selected?: MultisigWithMembersForPublicKey;
+	selected: MultisigWithMembersForPublicKey;
 	page: string;
 	onNavigate: () => void;
 }) {
@@ -146,144 +189,168 @@ export function MultisigSwitcher({
 		navigate(to);
 		onNavigate();
 	};
-	const selectedStatus: AccountStatus = selected
-		? accountStatus(selected)
-		: { tone: 'ok' };
+	const selectedStatus = accountStatus(selected);
 	// On the icon rail only the tile shows, so the tooltip carries the status.
-	const tooltip = !selected
-		? 'New multisig'
-		: selectedStatus.tone === 'ok'
+	const tooltip =
+		selectedStatus.tone === 'ok'
 			? accountName(selected)
 			: `${accountName(selected)} · ${selectedStatus.message}`;
 
 	return (
 		<div className="flex flex-col gap-2.5">
 			<DropdownMenu>
-				<DropdownMenuTrigger
-					data-testid="multisig-switcher"
-					data-tone={selectedStatus.tone}
-					render={<SidebarRailTooltip tooltip={tooltip} />}
+				<SwitcherTile
+					render={
+						<DropdownMenuTrigger
+							data-testid="multisig-switcher"
+							data-tone={selectedStatus.tone}
+							render={
+								<SidebarRailTooltip tooltip={tooltip} />
+							}
+						/>
+					}
 					className={cn(
-						'flex w-full items-center gap-2.5 rounded-lg bg-sidebar-accent/60 p-2.5 text-left text-sidebar-foreground data-open:bg-sidebar-accent',
+						'text-left data-open:bg-sidebar-accent',
 						railTriggerClass,
-						railSquareClass,
 					)}
+					icon={
+						<AccountIcon
+							status={selectedStatus}
+							surface="sidebar"
+							className="size-4"
+						/>
+					}
+					trailing={
+						<ChevronsUpDown className="size-3.5 shrink-0 opacity-60 group-data-[collapsible=icon]:hidden" />
+					}
 				>
-					<span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-						{selected ? (
-							<AccountIcon
-								status={selectedStatus}
-								surface="sidebar"
-								className="size-4"
-							/>
-						) : (
-							<Plus className="size-4" />
-						)}
-					</span>
 					<span className="flex min-w-0 flex-1 flex-col gap-0.5 group-data-[collapsible=icon]:sr-only">
 						<span className="truncate text-13 font-medium">
-							{selected
-								? accountName(selected)
-								: 'New multisig'}
+							{accountName(selected)}
 						</span>
-						{selected ? (
-							<AccountSubtitle
-								status={selectedStatus}
-								address={selected.address}
-								surface="sidebar"
-								addressClassName="tracking-[0.04em] text-sidebar-foreground/60"
-								testId="multisig-switcher-subtitle"
-							/>
-						) : (
-							<span className="truncate text-11 tracking-[0.04em] text-sidebar-foreground/60">
-								Not created yet
-							</span>
-						)}
+						<AccountSubtitle
+							status={selectedStatus}
+							address={selected.address}
+							surface="sidebar"
+							addressClassName="tracking-[0.04em] text-sidebar-foreground/60"
+							testId="multisig-switcher-subtitle"
+						/>
 					</span>
-					<ChevronsUpDown className="size-3.5 shrink-0 opacity-60 group-data-[collapsible=icon]:hidden" />
-				</DropdownMenuTrigger>
+				</SwitcherTile>
 				<DropdownMenuContent
 					align="start"
 					className="w-(--anchor-width) min-w-56"
 				>
-					{multisigs.length > 0 && (
-						<DropdownMenuGroup>
-							<DropdownMenuLabel>
-								Multisigs
-							</DropdownMenuLabel>
-							{multisigs.map((m) => {
-								const status = accountStatus(m);
-								const isSelected =
-									m.address === selected?.address;
-								return (
-									<DropdownMenuItem
-										key={m.address}
-										data-testid="multisig-switcher-option"
-										data-address={m.address}
-										data-tone={status.tone}
-										onClick={() =>
-											go(`/multisig/${m.address}/${page}`)
-										}
-										className={cn(
-											'items-center gap-2.5',
-											isSelected && 'bg-accent',
-										)}
-									>
-										<span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-											<AccountIcon
-												status={status}
-												surface="menu"
-												className="size-3.5"
-											/>
+					<DropdownMenuGroup>
+						<DropdownMenuLabel>Multisigs</DropdownMenuLabel>
+						{multisigs.map((m) => {
+							const status = accountStatus(m);
+							const isSelected =
+								m.address === selected.address;
+							return (
+								<DropdownMenuItem
+									key={m.address}
+									data-testid="multisig-switcher-option"
+									data-address={m.address}
+									data-tone={status.tone}
+									onClick={() =>
+										go(`/multisig/${m.address}/${page}`)
+									}
+									className={cn(
+										// Taller than a plain row: name and subtitle lines.
+										'h-auto min-h-9 py-1.5',
+										isSelected && 'bg-accent',
+									)}
+								>
+									<span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+										<AccountIcon
+											status={status}
+											surface="menu"
+											className="size-3.5"
+										/>
+									</span>
+									<span className="flex min-w-0 flex-1 flex-col gap-px">
+										<span className="truncate text-13 font-medium">
+											{accountName(m)}
 										</span>
-										<span className="flex min-w-0 flex-1 flex-col gap-px">
-											<span className="truncate text-13 font-medium">
-												{accountName(m)}
-											</span>
-											<AccountSubtitle
-												status={status}
-												address={m.address}
-												surface="menu"
-												addressClassName="font-mono text-muted-foreground"
-											/>
-										</span>
-										{isSelected && (
-											<Check className="size-4 shrink-0 opacity-60" />
-										)}
-									</DropdownMenuItem>
-								);
-							})}
-						</DropdownMenuGroup>
-					)}
-					{multisigs.length > 0 && (
-						<DropdownMenuSeparator />
-					)}
+										<AccountSubtitle
+											status={status}
+											address={m.address}
+											surface="menu"
+											addressClassName="font-mono text-muted-foreground"
+										/>
+									</span>
+									{isSelected && (
+										<Check className="size-4 shrink-0 opacity-60" />
+									)}
+								</DropdownMenuItem>
+							);
+						})}
+					</DropdownMenuGroup>
+					<DropdownMenuSeparator />
 					<DropdownMenuItem onClick={() => go('/create')}>
 						<Plus />
 						New multisig
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
-			{selected && (
-				<Button
-					variant="secondary"
-					size="sm"
-					className="w-full group-data-[collapsible=icon]:hidden"
-					onClick={() => setReceiveOpen(true)}
-					data-testid="receive-button"
-				>
-					<ArrowDownToLine />
-					Receive
-				</Button>
-			)}
-			{selected && (
-				<ReceiveDialog
-					open={receiveOpen}
-					onClose={() => setReceiveOpen(false)}
-					address={selected.address}
-					name={accountName(selected)}
-				/>
-			)}
+			<Button
+				variant="secondary"
+				size="sm"
+				className="w-full group-data-[collapsible=icon]:hidden"
+				onClick={() => setReceiveOpen(true)}
+				data-testid="receive-button"
+			>
+				<ArrowDownToLine />
+				Receive
+			</Button>
+			<ReceiveDialog
+				open={receiveOpen}
+				onClose={() => setReceiveOpen(false)}
+				address={selected.address}
+				name={accountName(selected)}
+			/>
+		</div>
+	);
+}
+
+/**
+ * The switcher's slot for someone in no accounts yet: the same tile, not a
+ * menu, and a button to create the first one.
+ */
+export function NoAccountsSwitcher({
+	onNavigate,
+}: {
+	onNavigate: () => void;
+}) {
+	return (
+		<div className="flex flex-col gap-2.5">
+			<SwitcherTile
+				render={
+					<SidebarRailTooltip
+						tooltip="No accounts yet"
+						render={<div tabIndex={-1} />}
+					/>
+				}
+				className="group-data-[collapsible=icon]:bg-transparent"
+				data-testid="multisig-switcher-empty"
+				icon={<Users className="size-4" />}
+			>
+				<span className="truncate text-13 font-medium group-data-[collapsible=icon]:sr-only">
+					No accounts yet
+				</span>
+			</SwitcherTile>
+			<Button
+				variant="secondary"
+				size="sm"
+				className="w-full group-data-[collapsible=icon]:hidden"
+				render={<Link to="/create" onClick={onNavigate} />}
+				nativeButton={false}
+				data-testid="create-account-button"
+			>
+				<Plus />
+				Create an account
+			</Button>
 		</div>
 	);
 }

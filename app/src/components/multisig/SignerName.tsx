@@ -98,20 +98,27 @@ export function SignerName({
 		return (
 			<span
 				className={cn(
-					'min-w-0 items-center',
+					'min-w-0 flex-wrap items-center',
 					s.display,
 					s.gap,
 					s.bare,
 				)}
 			>
 				{address ? (
-					<ShortAddress
-						address={address}
+					// The address and its copy button never split; only the
+					// marker may wrap under them.
+					<span
 						className={cn(
-							'truncate font-mono',
-							s.bareAddress,
+							'inline-flex items-center whitespace-nowrap',
+							s.gap,
 						)}
-					/>
+					>
+						<ShortAddress
+							address={address}
+							className={cn('font-mono', s.bareAddress)}
+						/>
+						{copyButton}
+					</span>
 				) : (
 					<span
 						className={cn(
@@ -122,7 +129,6 @@ export function SignerName({
 						Unknown key
 					</span>
 				)}
-				{copyButton}
 				{markerText}
 			</span>
 		);

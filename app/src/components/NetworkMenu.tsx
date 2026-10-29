@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { Check } from 'lucide-react';
+
 import {
 	DropdownMenuGroup,
 	DropdownMenuItem,
@@ -53,17 +55,22 @@ export function NetworkMenuItems({
 				<DropdownMenuItem
 					key={value}
 					disabled={!enabled}
-					className={cn(
-						'capitalize',
-						value === network && 'bg-accent',
-					)}
+					className="capitalize"
 					onClick={() => setNetwork(value)}
+					data-testid="network-option"
+					data-network={value}
+					data-current={value === network}
 				>
 					{value}
-					{hint && (
-						<span className="ml-auto text-11 normal-case text-muted-foreground">
-							{hint}
-						</span>
+					{/* One trailing slot: the check on the current row, the hint on disabled ones. */}
+					{value === network ? (
+						<Check className="ml-auto size-4" />
+					) : (
+						hint && (
+							<span className="ml-auto text-11 normal-case text-muted-foreground">
+								{hint}
+							</span>
+						)
 					)}
 				</DropdownMenuItem>
 			))}

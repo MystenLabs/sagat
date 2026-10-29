@@ -8,11 +8,11 @@ import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
+import { FieldStatus } from '@/components/ui/field-status';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import {
-	FieldStatus,
 	FooterNote,
 	SectionHeading,
 	StepFooter,
