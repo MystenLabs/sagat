@@ -14,6 +14,10 @@ export type Fixtures = {
 	// `otherAccounts` names further accounts in the same wallet;
 	// `walletChains` narrows the chains the wallet advertises;
 	// `failRestore` makes the wallet's silent session restore throw;
+	// `declineSign` makes it reject every personal-message signature
+	// (sign-in included) from the start (a test flips
+	// `window.__e2eWallet.declineConnect` / `.declineSign` to decline
+	// mid-flow);
 	// `rejectSigning` makes it decline every transaction to sign.
 	createActor: (
 		name: string,
@@ -21,6 +25,7 @@ export type Fixtures = {
 			otherAccounts?: string[];
 			walletChains?: `sui:${string}`[];
 			failRestore?: boolean;
+			declineSign?: boolean;
 			rejectSigning?: boolean;
 		},
 	) => Promise<Actor>;

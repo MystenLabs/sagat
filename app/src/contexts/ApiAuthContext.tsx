@@ -4,6 +4,7 @@
 import {
 	useCurrentAccount,
 	useDAppKit,
+	type UiWallet,
 } from '@mysten/dapp-kit-react';
 import {
 	defaultExpiry,
@@ -19,11 +20,20 @@ import {
 } from '@tanstack/react-query';
 import React, {
 	createContext,
+	useCallback,
 	useContext,
 	useEffect,
+	useRef,
+	useState,
 } from 'react';
 
 import { toast } from '@/lib/toast';
+import {
+	declinedMessage,
+	SignInCancelledError,
+	UNNAMED_WALLET,
+	WalletDeclinedError,
+} from '@/lib/wallet-session';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
@@ -48,10 +58,37 @@ interface ApiAuthContextType {
 	isCurrentAddressAuthenticated: boolean;
 
 	// Actions
-	signAndConnect: () => void;
-	disconnect: () => Promise<void>;
+	// Asks the connected wallet for the sign-in signature.
+	signAndConnect: (options?: SignInOptions) => void;
+	// From a wallet pick, or a Sign in click, until it settles.
 	isConnecting: boolean;
-	isDisconnecting: boolean;
+
+	// The wallet turned the last connect or signature request down.
+	declined: Declined | null;
+	clearDeclined: () => void;
+	// Connects the wallet only; signing in is a separate click.
+	connectWallet: (
+		wallet: UiWallet,
+		options?: ConnectOptions,
+	) => Promise<void>;
+	// Signs out of the API, then disconnects the wallet.
+	disconnectWallet: () => Promise<void>;
+}
+
+interface SignInOptions {
+	// Where a declined signature shows: only full routes have a
+	// connect card, so the wallet menu asks for a toast elsewhere.
+	notice?: 'card' | 'toast';
+}
+
+interface ConnectOptions {
+	// Where a declined connect shows: a public page has no connect
+	// card, so the sidebar's picker asks for a toast there.
+	notice?: 'card' | 'toast';
+}
+
+interface Declined {
+	wallet: string;
 }
 
 const ApiAuthContext = createContext<
@@ -122,35 +159,100 @@ export function ApiAuthProvider({
 		refetchOnWindowFocus: true,
 	});
 
-	// Re-check auth when wallet account changes
+	const [declined, setDeclined] = useState<Declined | null>(
+		null,
+	);
+
+	// Re-check auth when wallet account changes. A decline was another
+	// account's, so its note goes on a switch, but stays on the connect
+	// card after a declined connect, which leaves no account.
 	useEffect(() => {
 		refetchAuth();
+		if (currentAccount) setDeclined(null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentAccount?.address]);
 
+	// Bumped by every logout and by a disconnect from the wallet's side,
+	// so a sign-in that started before either can tell its answer came
+	// too late.
+	const sessionGeneration = useRef(0);
+
+	// A disconnect from the wallet's side drops a sign-in still in
+	// flight, as a logout does (a cookie its answer sets is cleared), but
+	// doesn't otherwise sign out of the API. A switch between accounts
+	// does not: a late answer for another account is still checked by
+	// address in onError.
+	useEffect(
+		() =>
+			dappKit.stores.$connection.listen((next, prev) => {
+				if (prev?.account && !next.account)
+					sessionGeneration.current++;
+			}),
+		[dappKit],
+	);
+
 	// Connect mutation - signs message and sends to API
 	const connectMutation = useMutation({
-		mutationFn: async () => {
-			if (!currentAccount)
-				throw new Error('No wallet connected');
+		// The variable only steers onError; the sign-in ignores it.
+		mutationFn: async (_options?: SignInOptions) => {
+			// The kit's store, not the render's: right after a connect or an
+			// account switch the render hasn't caught up yet.
+			const { account, wallet } =
+				dappKit.stores.$connection.get();
+			if (!account) throw new Error('No wallet connected');
 			// Rejecting here (not returning) lets onError toast it.
-			if (isAuthCheckFailing)
+			if (
+				queryClient.getQueryState(AUTH_QUERY_KEY)
+					?.status === 'error'
+			)
 				throw new Error("Can't reach the service");
+			const generation = sessionGeneration.current;
 			const expiry = defaultExpiry();
 
-			// Sign with current account
-			const signResult = await dappKit.signPersonalMessage({
-				message: new TextEncoder().encode(
-					PersonalMessages.connect(expiry),
-				),
-			});
+			// Sign with current account. Any failure here is the wallet's:
+			// the user declined, or the wallet refused.
+			let signResult;
+			try {
+				signResult = await dappKit.signPersonalMessage({
+					message: new TextEncoder().encode(
+						PersonalMessages.connect(expiry),
+					),
+				});
+			} catch (error) {
+				// A rejection that lands after a logout must not touch
+				// whatever is connected now.
+				if (sessionGeneration.current !== generation)
+					throw new SignInCancelledError();
+				throw new WalletDeclinedError(
+					wallet?.name ?? UNNAMED_WALLET,
+					account.address,
+					error,
+				);
+			}
 
 			// Send to API
-			return apiClient.connect(
+			const result = await apiClient.connect(
 				signResult.signature,
 				expiry,
 			);
+			if (sessionGeneration.current !== generation) {
+				// The session ended meanwhile (a logout, or a disconnect in
+				// the wallet), but this answer has just set a session cookie:
+				// it must not outlive that. Only a failed sign-out is
+				// reported: the app already shows the wallet signed out.
+				try {
+					await apiClient.disconnect();
+				} catch {
+					toast.error(
+						"Sign-out didn't finish: a late sign-in kept the session.",
+					);
+				}
+				await refetchAuth();
+				throw new SignInCancelledError();
+			}
+			return result;
 		},
+		onMutate: () => setDeclined(null),
 		onSuccess: async () => {
 			await refetchAuth();
 			await queryClient.invalidateQueries({
@@ -159,12 +261,28 @@ export function ApiAuthProvider({
 			await queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			toast.success('Successfully authenticated');
 		},
-		onError: (error: Error) => {
-			toast.error(
-				`Authentication failed: ${error.message}`,
-			);
+		onError: (error: Error, options?: SignInOptions) => {
+			// The session ended (a logout, or a disconnect in the wallet) and
+			// the app already shows signed out; a failure toast would contradict it.
+			if (error instanceof SignInCancelledError) return;
+			if (!(error instanceof WalletDeclinedError)) {
+				toast.error(
+					`Authentication failed: ${error.message}`,
+				);
+				return;
+			}
+			// A late answer to an earlier wallet or account must not touch
+			// the one connected now.
+			if (
+				dappKit.stores.$connection.get().account
+					?.address !== error.address
+			)
+				return;
+			// The wallet stays connected, so Sign in is the retry.
+			if (options?.notice === 'toast')
+				toast.error(declinedMessage(error.wallet));
+			else setDeclined({ wallet: error.wallet });
 		},
 	});
 
@@ -174,12 +292,81 @@ export function ApiAuthProvider({
 		onSuccess: async () => {
 			queryClient.clear();
 			await refetchAuth();
-			toast.success('Disconnected');
 		},
 		onError: (error: Error) => {
 			toast.error(`Disconnect failed: ${error.message}`);
 		},
 	});
+
+	// One connect at a time: a second pick while the wallet's prompt is
+	// open would race the first for the connection. A sign-in started
+	// from the menu or the card holds it too, so a reconnect can't start
+	// while a signature is out and its late answer can't undo a newer
+	// session.
+	const connectInFlight = useRef(false);
+	// Covers every connect and sign-in, so the card reads "Signing in…"
+	// until the answer, not just while the signature is out.
+	const [connecting, setConnecting] = useState(false);
+
+	const withConnectLock = async (
+		run: () => Promise<unknown>,
+	) => {
+		if (connectInFlight.current) return;
+		connectInFlight.current = true;
+		setConnecting(true);
+		try {
+			await run();
+		} finally {
+			connectInFlight.current = false;
+			setConnecting(false);
+		}
+	};
+
+	const connectWallet = (
+		wallet: UiWallet,
+		{ notice = 'card' }: ConnectOptions = {},
+	) =>
+		withConnectLock(async () => {
+			setDeclined(null);
+			try {
+				await dappKit.connectWallet({ wallet });
+			} catch {
+				if (notice === 'toast')
+					toast.error(declinedMessage(wallet.name));
+				else setDeclined({ wallet: wallet.name });
+			}
+		});
+
+	const runSignIn = (options?: SignInOptions) =>
+		withConnectLock(() =>
+			// onError handles the failures.
+			connectMutation.mutateAsync(options).catch(() => {}),
+		);
+
+	const disconnectWallet = async () => {
+		// First, so a sign-in already in flight knows it lost.
+		sessionGeneration.current++;
+		setDeclined(null);
+		// Sign out of the API first; the wallet disconnects even if that
+		// fails (the mutation toasts the failure).
+		let signedOut = true;
+		try {
+			await disconnectMutation.mutateAsync();
+		} catch {
+			signedOut = false;
+		}
+		// The kit swallows a wallet's refusal to disconnect and disconnects
+		// locally regardless.
+		await dappKit.disconnectWallet();
+		// Only when the sign-out worked, so it never sits beside a failure.
+		if (signedOut) toast.success('Wallet disconnected');
+	};
+
+	// Stable, so effects can depend on it.
+	const clearDeclined = useCallback(
+		() => setDeclined(null),
+		[],
+	);
 
 	const currentAddress =
 		authData?.addresses?.find(
@@ -217,13 +404,14 @@ export function ApiAuthProvider({
 		isCurrentAddressAuthenticated,
 
 		// Actions
-		// `mutate` leaves failures to onError, so callers needn't catch.
-		signAndConnect: () => connectMutation.mutate(),
-		disconnect: async () => {
-			await disconnectMutation.mutateAsync();
-		},
-		isConnecting: connectMutation.isPending,
-		isDisconnecting: disconnectMutation.isPending,
+		// Failures go to onError, so callers needn't catch.
+		signAndConnect: (options) => void runSignIn(options),
+		isConnecting: connecting,
+
+		declined,
+		clearDeclined,
+		connectWallet,
+		disconnectWallet,
 	};
 
 	return (

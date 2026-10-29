@@ -2,19 +2,19 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { Mail, Plus } from 'lucide-react';
+import { Mail, Plus, Users } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 
-import { useInvitations } from '../hooks/useInvitations';
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { Button } from './ui/button';
+import { EmptyState } from './ui/empty-state';
+import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
 
 export function SmartDashboard() {
 	const { data: multisigs, isLoading } = useUserMultisigs(); // Only accepted multisigs
-	const { data: pendingInvites } = useInvitations(); // Pending invitations
 	const currentAccount = useCurrentAccount();
 
 	if (isLoading)
@@ -57,54 +57,39 @@ export function SmartDashboard() {
 		);
 	}
 
-	// Case 2: User has no active multisigs - show welcome screen
+	// Case 2: in no accounts yet - create one or answer an invitation
 	return (
 		<div
-			className="max-w-4xl mx-auto mt-10 px-4"
+			className="page-shell"
 			data-testid="dashboard-empty"
 		>
-			<div className="text-center mb-12">
-				<h1 className="text-4xl font-bold mb-4">
-					Welcome to Sagat
-				</h1>
-				<p className="text-xl text-muted-foreground mb-8">
-					Get started by creating your first multisig
-				</p>
-
-				{/* Primary CTA - Create Multisig */}
-				<Link
-					to="/create"
-					data-testid="create-first-multisig"
-				>
-					<Button size="lg" className="px-8">
-						<Plus className="mr-2 h-5 w-5" />
-						Create Your First Multisig
-					</Button>
-				</Link>
-
-				{/* Secondary CTA - View Invitations */}
-				<div className="mt-4">
-					<Link to="/invitations">
+			<PageHeader title="Accounts" />
+			<EmptyState
+				icon={Users}
+				title="You’re not in any accounts yet"
+				description="Create an account to hold funds with other signers, or accept an invitation when someone adds you to theirs."
+				action={
+					<>
 						<Button
-							variant={
-								(pendingInvites?.length ?? 0) > 0
-									? 'outline'
-									: 'ghost'
-							}
-							className={
-								(pendingInvites?.length ?? 0) > 0
-									? 'border-warning-border'
-									: ''
-							}
+							render={<Link to="/create" />}
+							nativeButton={false}
+							data-testid="create-first-multisig"
 						>
-							<Mail className="mr-2 h-4 w-4" />
-							{(pendingInvites?.length ?? 0) > 0
-								? `View Invitations (${pendingInvites?.length ?? 0})`
-								: 'Check Invitations'}
+							<Plus />
+							Create an account
 						</Button>
-					</Link>
-				</div>
-			</div>
+						<Button
+							variant="outline"
+							render={<Link to="/invitations" />}
+							nativeButton={false}
+							data-testid="view-invitations"
+						>
+							<Mail />
+							View invitations
+						</Button>
+					</>
+				}
+			/>
 		</div>
 	);
 }
