@@ -76,11 +76,14 @@ export function ProposersSection({
 					variant="outline"
 					size="sm"
 					onClick={() => setAdding(true)}
-					className="ml-auto"
+					className="ml-auto max-sm:size-7 max-sm:px-0"
 					data-testid="add-proposer-button"
 				>
 					<Plus />
-					Add external proposer
+					{/* Icon only on phones, so the heading row does not wrap. */}
+					<span className="max-sm:sr-only">
+						Add external proposer
+					</span>
 				</Button>
 			</CardHeading>
 
