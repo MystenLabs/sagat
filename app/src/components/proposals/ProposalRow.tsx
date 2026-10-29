@@ -123,16 +123,23 @@ export function ProposalRow({
 			: isExternalProposer(proposal)
 				? 'external'
 				: null;
+	// The overview's actions cell is empty unless there is something to do;
+	// stacked, an empty cell would leave a blank line.
+	const hasActions =
+		list || status === 'ready' || explorerIsPrimary;
 
 	return (
 		<>
 			<tr
-				className={tableRowClass}
+				className={cn(
+					tableRowClass,
+					'@max-md:grid @max-md:grid-cols-[auto_1fr] @max-md:gap-x-3 @max-md:gap-y-2 @max-md:px-3 @max-md:py-3',
+				)}
 				data-testid="proposal-row"
 				data-digest={proposal.digest}
 				data-status={status}
 			>
-				<td className="px-3 py-2.75">
+				<td className="px-3 py-2.75 @max-md:col-span-2 @max-md:block @max-md:p-0">
 					<div className="flex min-w-0 items-center gap-3">
 						{variant === 'overview' && (
 							// The kind of proposal isn't decoded yet, so one icon for all.
@@ -142,34 +149,49 @@ export function ProposalRow({
 						)}
 						<div className="flex min-w-0 flex-col gap-0.75">
 							<span
-								className="truncate text-14 font-medium"
+								className="truncate text-14 font-medium @max-md:line-clamp-2 @max-md:whitespace-normal"
 								data-testid="proposal-title"
 							>
 								{proposalTitle(proposal)}
 							</span>
 							{/* Each item but the proposer brings its own "·"; the
-							    first item's is hidden, whichever item that is. */}
-							<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-12 text-muted-foreground [&>:first-child>[aria-hidden]:first-child]:hidden">
-								{variant === 'overview' && (
-									<span
-										className="inline-flex min-w-0 items-center gap-1"
-										data-testid="proposal-proposer"
-									>
-										Proposed by{' '}
-										{/* The name alone; the address only when unnamed. */}
-										<SignerName
-											label={proposerLabel}
-											address={
-												proposerLabel
-													? undefined
-													: proposal.proposerAddress
-											}
-											marker={proposerMarker}
-											markerStyle="parens"
-											size="inline"
-										/>
-									</span>
+							    first item's is hidden, whichever item that is. The
+							    list's proposer is display:none in the table layout,
+							    so there the item after it is the first one shown. */}
+							<span
+								className={cn(
+									'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-12 text-muted-foreground [&>:first-child>[aria-hidden]:first-child]:hidden',
+									list &&
+										'@md:[&>:nth-child(2)>[aria-hidden]:first-child]:hidden',
 								)}
+							>
+								{/* The list renders the proposer twice: here for the
+								    stacked layout and in its own column for the table.
+								    One is always display:none, and only the column
+								    carries the test id, so each row has one. */}
+								<span
+									className={cn(
+										'inline-flex min-w-0 items-center gap-1',
+										list && '@md:hidden',
+									)}
+									data-testid={
+										list ? undefined : 'proposal-proposer'
+									}
+								>
+									Proposed by{' '}
+									{/* The name alone; the address only when unnamed. */}
+									<SignerName
+										label={proposerLabel}
+										address={
+											proposerLabel
+												? undefined
+												: proposal.proposerAddress
+										}
+										marker={proposerMarker}
+										markerStyle="parens"
+										size="inline"
+									/>
+								</span>
 								{showDigest && (
 									<span className="inline-flex items-center gap-1 whitespace-nowrap">
 										<span aria-hidden className="mr-0.5">
@@ -215,17 +237,17 @@ export function ProposalRow({
 						</div>
 					</div>
 				</td>
-				<td className="px-3 py-2.75">
+				<td className="px-3 py-2.75 @max-md:block @max-md:self-center @max-md:p-0">
 					<ProposalStatusChip
 						status={status}
 						data-testid="proposal-status"
 					/>
 				</td>
-				<td className="hidden px-3 py-2.75 sm:table-cell">
+				<td className="hidden px-3 py-2.75 sm:table-cell @max-md:block @max-md:self-center @max-md:p-0">
 					<ProposalWeight proposal={proposal} />
 				</td>
 				{list && (
-					<td className="hidden px-3 py-2.75 md:table-cell">
+					<td className="hidden px-3 py-2.75 md:table-cell @max-md:hidden">
 						<div
 							className="flex min-w-0"
 							data-testid="proposal-proposer"
@@ -240,11 +262,17 @@ export function ProposalRow({
 						</div>
 					</td>
 				)}
-				<td className="px-3 py-2.75 max-sm:pl-0">
+				<td
+					className={cn(
+						'px-3 py-2.75 max-sm:pl-0 @max-md:col-span-2 @max-md:block @max-md:p-0',
+						!hasActions && '@max-md:hidden',
+					)}
+				>
 					<div className="flex items-center justify-end gap-1">
 						{status === 'ready' && (
 							<Button
 								size="sm"
+								className="@max-md:h-9 @max-md:px-3.5"
 								onClick={() => executing.execute(proposal)}
 								disabled={executing.isPending}
 								data-testid="execute-proposal-button"
@@ -258,7 +286,7 @@ export function ProposalRow({
 							<IconTooltip
 								label="View on explorer"
 								// Only phones show the icon alone.
-								contentClassName="sm:hidden"
+								contentClassName="sm:hidden @max-md:hidden"
 								trigger={
 									<a
 										href={explorerUrl}
@@ -269,7 +297,7 @@ export function ProposalRow({
 												variant: 'outline',
 												size: 'sm',
 											}),
-											'max-sm:size-7 max-sm:px-0',
+											'max-sm:size-7 max-sm:px-0 @max-md:h-9 @max-md:w-auto @max-md:px-3.5',
 										)}
 										aria-label="View on explorer"
 										data-testid="view-on-explorer"
@@ -277,7 +305,7 @@ export function ProposalRow({
 								}
 							>
 								<ExternalLink />
-								<span className="hidden sm:inline">
+								<span className="hidden sm:inline @max-md:inline">
 									View on explorer
 								</span>
 							</IconTooltip>
@@ -291,6 +319,7 @@ export function ProposalRow({
 									<Button
 										variant="ghost"
 										size="icon-sm"
+										className="@max-md:size-9"
 										onClick={() => setExpanded(!expanded)}
 										aria-label={
 											expanded
@@ -341,8 +370,11 @@ export function ProposalRow({
 				</td>
 			</tr>
 			{expanded && open && (
-				<tr className={tableRowClass}>
-					<td colSpan={columns} className="bg-muted/30 p-4">
+				<tr className={cn(tableRowClass, '@max-md:block')}>
+					<td
+						colSpan={columns}
+						className="bg-muted/30 p-4 @max-md:block"
+					>
 						<ProposalPreview
 							proposal={proposal}
 							userHasSigned={signed}
@@ -379,10 +411,13 @@ function RowMenu({
 				label="More actions"
 				trigger={
 					<DropdownMenuTrigger
-						className={buttonVariants({
-							variant: 'ghost',
-							size: 'icon-sm',
-						})}
+						className={cn(
+							buttonVariants({
+								variant: 'ghost',
+								size: 'icon-sm',
+							}),
+							'@max-md:size-9',
+						)}
 						aria-label="More actions"
 						data-testid="proposal-actions"
 					/>

@@ -208,6 +208,55 @@ test.describe('proposals', () => {
 		).toHaveCount(0);
 	});
 
+	test('a pending row opens its preview and menu on a phone', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const proposal = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+			description: 'Fund the payroll account for October',
+		});
+
+		await bob.signIn();
+		await bob.page.setViewportSize({
+			width: 375,
+			height: 812,
+		});
+		const card = bob.proposalRow(proposal.digest);
+		await expect(card).toHaveAttribute(
+			'data-status',
+			'pending',
+		);
+
+		// The chevron still opens the preview, where Sign lives.
+		await card
+			.getByTestId('proposal-toggle-details')
+			.click();
+		await expect(
+			bob.page.getByTestId('sign-proposal-button'),
+		).toBeVisible();
+
+		// The row's menu opens over the page and closes on Escape.
+		await card.getByTestId('proposal-actions').click();
+		const cancel = bob.page.getByTestId(
+			'cancel-proposal-button',
+		);
+		await expect(cancel).toBeVisible();
+		await bob.page.keyboard.press('Escape');
+		await expect(cancel).toBeHidden();
+	});
+
 	test('proposes a custom transaction from raw bytes', async ({
 		createActor,
 		createIdentity,
