@@ -83,6 +83,16 @@ export function ReviewStep({
 	);
 	const currentTitleError = titleError(title);
 	const expiry = useExpiry(bytes);
+	const analyzer = (
+		<IntentSummary
+			analysis={analysis.data}
+			isLoading={analysis.isPending}
+			error={analysis.error}
+		/>
+	);
+	const analyzerCount =
+		(analysis.data?.issues.length ?? 0) +
+		(analysis.error ? 1 : 0);
 
 	return (
 		<div
@@ -116,14 +126,6 @@ export function ReviewStep({
 				</Notice>
 			)}
 
-			{settled && (
-				<IntentSummary
-					analysis={analysis.data}
-					isLoading={analysis.isPending}
-					error={analysis.error}
-				/>
-			)}
-
 			{!simulation ? (
 				<RetryNotice
 					onRetry={onRetrySimulation}
@@ -142,6 +144,8 @@ export function ReviewStep({
 					<TransactionPreview
 						bytes={bytes}
 						accounts={accounts}
+						analyzer={analyzer}
+						analyzerCount={analyzerCount}
 						{...simulation}
 					/>
 				</div>
@@ -150,6 +154,8 @@ export function ReviewStep({
 					<TransactionPreview
 						bytes={bytes}
 						accounts={accounts}
+						analyzer={analyzer}
+						analyzerCount={analyzerCount}
 						{...simulation}
 					/>
 				</div>

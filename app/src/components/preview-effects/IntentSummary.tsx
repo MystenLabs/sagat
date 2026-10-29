@@ -253,7 +253,10 @@ export function IntentSummary({
 	if (!isLoading && !analysis && !error) return null;
 
 	return (
-		<PreviewCard.Root className={className}>
+		<PreviewCard.Root
+			className={className}
+			data-testid="intent-summary"
+		>
 			<PreviewCard.Header>
 				<div className="flex items-center justify-between gap-3">
 					<div className="font-medium">Static Analyzer</div>

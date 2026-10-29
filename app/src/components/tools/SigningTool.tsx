@@ -141,6 +141,9 @@ function PreviewResult({
 			error={analysisError}
 		/>
 	);
+	const analyzerCount =
+		(analysis?.issues.length ?? 0) +
+		(analysisError ? 1 : 0);
 
 	if (simulation?.status === 'pending') {
 		return (
@@ -151,6 +154,8 @@ function PreviewResult({
 				{bytes ? (
 					<TransactionPreview
 						bytes={bytes}
+						analyzer={intentSummary}
+						analyzerCount={analyzerCount}
 						{...simulation}
 					/>
 				) : (
@@ -167,7 +172,8 @@ function PreviewResult({
 	const passed = simulation?.status === 'passed';
 	return (
 		<div className="flex flex-col gap-4">
-			{intentSummary}
+			{/* Without the preview block, the analyzer shows on its own. */}
+			{!(simulation && bytes) && intentSummary}
 			<div
 				className="flex flex-col gap-4"
 				data-testid="transaction-preview-result"
@@ -176,6 +182,8 @@ function PreviewResult({
 				{simulation && bytes ? (
 					<TransactionPreview
 						bytes={bytes}
+						analyzer={intentSummary}
+						analyzerCount={analyzerCount}
 						{...simulation}
 					/>
 				) : (

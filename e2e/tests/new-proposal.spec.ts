@@ -191,6 +191,48 @@ test.describe('new proposal: transfer', () => {
 		expect(objectChanges).toBeGreaterThan(0);
 	});
 
+	test('the Static analyzer tab shows the analyzer and comes back to the simulation', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			1,
+		);
+		const { page } = alice;
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		await fillTransfer(page, {
+			coinType: SUI_TYPE,
+			amount: '1',
+			recipient: randomAddress(),
+		});
+		await reviewTransfer(page);
+		await expectSimulation(page, 'success');
+
+		const status = page.getByTestId(
+			'transaction-preview-status',
+		);
+		await expect(status).toBeVisible();
+
+		await page
+			.getByTestId('transaction-preview-view-analyzer')
+			.click();
+		await expect(status).toBeHidden();
+		await expect(
+			page.getByTestId('intent-summary'),
+		).toBeVisible();
+
+		await page
+			.getByTestId('transaction-preview-view-simulation')
+			.click();
+		await expect(status).toBeVisible();
+	});
+
 	test('Send on the SUI asset row opens Details with SUI chosen', async ({
 		createActor,
 		createIdentity,

@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
 import {
@@ -12,6 +12,12 @@ import {
 import { CopyButton } from '@/components/ui/CopyButton';
 import { Tabs } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Notice } from '@/components/wizard/parts';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCoinDisplayDataMap } from '@/hooks/useCoinDisplayData';
@@ -37,12 +43,14 @@ type TabId =
 	| 'commands'
 	| 'raw-json';
 
+type ViewId = 'simulation' | 'analyzer';
+
 /**
  * The simulation result wherever a transaction is reviewed: digest,
  * status, sender, epoch and gas, the Ledger hash, then tabs for the
  * balance and object changes, events, commands and the raw dry run, and
  * the raw bytes on demand. Everything read from the bytes shows while the
- * simulation runs.
+ * simulation runs. A second view shows the static analyzer instead.
  */
 export function TransactionPreview({
 	bytes,
@@ -52,6 +60,8 @@ export function TransactionPreview({
 	simulatedAt,
 	accounts,
 	actions,
+	analyzer,
+	analyzerCount,
 	className,
 	testId,
 }: {
@@ -63,6 +73,10 @@ export function TransactionPreview({
 	accounts?: NamedAccount[];
 	/** Rendered right of the heading. */
 	actions?: ReactNode;
+	/** What the Static analyzer view shows. */
+	analyzer: ReactNode;
+	/** The analyzer's issues, badged on its tab. */
+	analyzerCount?: number;
 	className?: string;
 	/** The root's test id; it also carries `data-status`. */
 	testId?: string;
@@ -107,6 +121,7 @@ export function TransactionPreview({
 	);
 	const coinData = useCoinDisplayDataMap(coinTypes);
 
+	const [view, setView] = useState<ViewId>('simulation');
 	const [activeTab, setActiveTab] = useState<TabId>(
 		'balance-changes',
 	);
@@ -220,45 +235,74 @@ export function TransactionPreview({
 				)}
 			</div>
 
-			<DetailsTable model={model} />
-
-			<div
-				className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted px-3.5 py-2.5"
-				data-testid="transaction-preview-ledger-hash"
-			>
-				<span className="text-13 text-muted-foreground">
-					Ledger hash
-				</span>
-				<span className="ml-auto flex min-w-0 items-center gap-1.5">
-					<span className="min-w-0 font-mono text-12 break-all">
-						{model.ledgerHash}
-					</span>
-					<CopyButton
-						value={model.ledgerHash}
-						size="inline"
-						successMessage="Ledger hash copied"
-					/>
-				</span>
-			</div>
-
-			<Notice tone="warning">
-				Always check the transaction in your wallet before
-				you sign. Your wallet is the final word on what you
-				approve.
-			</Notice>
-
-			<div className="flex min-w-0 flex-col gap-3">
+			<div className="flex items-center gap-2">
 				<Tabs
-					tabs={tabs}
-					activeTab={activeTab}
-					onTabChange={(id) => setActiveTab(id as TabId)}
+					tabs={[
+						{
+							id: 'simulation',
+							label: 'Simulation result',
+						},
+						{
+							id: 'analyzer',
+							label: 'Static analyzer',
+							count: analyzerCount,
+						},
+					]}
+					activeTab={view}
+					onTabChange={(id) => setView(id as ViewId)}
 					variant="pills"
-					testId="transaction-preview-tab"
+					testId="transaction-preview-view"
 				/>
-				<div data-testid="transaction-preview-panel">
-					{panel}
-				</div>
+				<ViewHelp />
 			</div>
+
+			{view === 'analyzer' ? (
+				analyzer
+			) : (
+				<>
+					<DetailsTable model={model} />
+
+					<div
+						className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted px-3.5 py-2.5"
+						data-testid="transaction-preview-ledger-hash"
+					>
+						<span className="text-13 text-muted-foreground">
+							Ledger hash
+						</span>
+						<span className="ml-auto flex min-w-0 items-center gap-1.5">
+							<span className="min-w-0 font-mono text-12 break-all">
+								{model.ledgerHash}
+							</span>
+							<CopyButton
+								value={model.ledgerHash}
+								size="inline"
+								successMessage="Ledger hash copied"
+							/>
+						</span>
+					</div>
+
+					<Notice tone="warning">
+						Always check the transaction in your wallet
+						before you sign. Your wallet is the final word
+						on what you approve.
+					</Notice>
+
+					<div className="flex min-w-0 flex-col gap-3">
+						<Tabs
+							tabs={tabs}
+							activeTab={activeTab}
+							onTabChange={(id) =>
+								setActiveTab(id as TabId)
+							}
+							variant="pills"
+							testId="transaction-preview-tab"
+						/>
+						<div data-testid="transaction-preview-panel">
+							{panel}
+						</div>
+					</div>
+				</>
+			)}
 
 			<Collapsible
 				open={showRaw}
@@ -289,5 +333,49 @@ export function TransactionPreview({
 				</CollapsibleContent>
 			</Collapsible>
 		</section>
+	);
+}
+
+/** What the two views are, on hover. */
+function ViewHelp() {
+	return (
+		<TooltipProvider delay={150}>
+			<Tooltip>
+				<TooltipTrigger
+					aria-label="About the simulation and the static analyzer"
+					data-testid="transaction-preview-help"
+					className="flex shrink-0 cursor-pointer items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+				>
+					<Info className="size-4" />
+				</TooltipTrigger>
+				<TooltipContent
+					side="bottom"
+					align="start"
+					className="max-w-sm border bg-card text-card-foreground"
+				>
+					<div className="flex flex-col gap-2 text-12 leading-relaxed">
+						<p>
+							<span className="block font-medium">
+								Simulation result
+							</span>
+							One dry run against the current on-chain
+							state. It shows the expected effects, but it
+							can miss some of what could leave the account,
+							because on-chain state can change before the
+							transaction runs.
+						</p>
+						<p>
+							<span className="block font-medium">
+								Static analyzer
+							</span>
+							Reads the transaction itself and estimates the
+							most that can leave the account, not counting
+							gas. It helps protect against on-chain state
+							attacks.
+						</p>
+					</div>
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }

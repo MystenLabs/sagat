@@ -125,16 +125,19 @@ export function ProposalPreview({
 	const settled =
 		!!simulation && simulation.status !== 'pending';
 
+	const analyzer = (
+		<IntentSummary
+			analysis={analysis.data}
+			isLoading={analysis.isPending}
+			error={analysis.error}
+		/>
+	);
+	const analyzerCount =
+		(analysis.data?.issues.length ?? 0) +
+		(analysis.error ? 1 : 0);
+
 	return (
 		<div className="flex flex-col gap-3">
-			{simulation?.status !== 'pending' && (
-				<IntentSummary
-					analysis={analysis.data}
-					isLoading={analysis.isPending}
-					error={analysis.error}
-				/>
-			)}
-
 			{simulation ? (
 				settled ? (
 					<div
@@ -147,6 +150,8 @@ export function ProposalPreview({
 							bytes={proposal.transactionBytes}
 							accounts={accounts}
 							actions={actions}
+							analyzer={analyzer}
+							analyzerCount={analyzerCount}
 							{...simulation}
 						/>
 					</div>
@@ -155,11 +160,14 @@ export function ProposalPreview({
 						bytes={proposal.transactionBytes}
 						accounts={accounts}
 						actions={actions}
+						analyzer={analyzer}
+						analyzerCount={analyzerCount}
 						{...simulation}
 					/>
 				)
 			) : (
 				<>
+					{analyzer}
 					<div className="flex items-center justify-between gap-3">
 						<h3 className="text-15 font-medium">
 							Transaction preview
