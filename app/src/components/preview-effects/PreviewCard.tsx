@@ -5,7 +5,7 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { type ComponentProps, type ReactNode } from 'react';
 
 import { cn } from '../../lib/utils';
-import { ObjectLink } from './ObjectLink';
+import { ObjectLink } from '../transaction-preview/ObjectLink';
 
 type HeaderProps = {
 	children?: ReactNode;

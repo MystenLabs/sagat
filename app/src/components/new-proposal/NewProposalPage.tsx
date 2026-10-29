@@ -332,6 +332,10 @@ function NewProposalWizard({
 			{step === 3 && ready && (
 				<ReviewStep
 					bytes={ready.bytes}
+					sender={{
+						address: multisig.address,
+						name: multisig.name ?? null,
+					}}
 					title={reviewTitle}
 					onTitleChange={setTitle}
 					dryRun={dryRun}

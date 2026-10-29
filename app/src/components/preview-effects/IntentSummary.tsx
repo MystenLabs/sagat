@@ -16,10 +16,10 @@ import {
 	formatUsdValue,
 } from '../../lib/coins';
 import { cn } from '../../lib/utils';
+import { ObjectLink } from '../transaction-preview/ObjectLink';
 import { Alert } from '../ui/Alert';
 import { Chip } from '../ui/chip';
 import { CoinIcon } from '../ui/CoinIcon';
-import { ObjectLink } from './ObjectLink';
 import { PreviewCard } from './PreviewCard';
 
 type Flow = BalanceFlowsResult['sender'][number];

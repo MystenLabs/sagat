@@ -7,17 +7,22 @@ import {
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
 import type { SuiClientTypes } from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
 import {
 	AlertCircle,
 	Check,
 	ExternalLink,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { NetworkSelector } from '@/components/NetworkSelector';
-import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
+import { simulationProps } from '@/components/transaction-preview/simulation';
+import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
 import { Alert } from '@/components/ui/Alert';
 import {
 	Button,
@@ -25,11 +30,9 @@ import {
 } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Label } from '@/components/ui/label';
-import {
-	Skeleton,
-	SkeletonLine,
-} from '@/components/ui/skeleton';
+import { SkeletonLine } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { type useDryRun } from '@/hooks/useDryRun';
 import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { toast } from '@/lib/toast';
@@ -39,15 +42,6 @@ import {
 	getExplorerUrl,
 	safeDecode,
 } from '@/lib/utils';
-
-type SimulateResult =
-	SuiClientTypes.SimulateTransactionResult<{
-		effects: true;
-		balanceChanges: true;
-		events: true;
-		transaction: true;
-		objectTypes: true;
-	}>;
 
 interface SignedResult {
 	digest?: string;
@@ -85,99 +79,120 @@ function TransactionInput({
 	);
 }
 
+/**
+ * The input as base64 transaction bytes for the preview: as pasted when
+ * it is bytes, built offline when it is JSON with every input resolved,
+ * else built from the dry run's resolved transaction once there is one.
+ * Null when none of these work.
+ */
+function previewBytes(
+	input: string,
+	simulated?: SuiClientTypes.TransactionData,
+): string | null {
+	const trimmed = input.trim();
+	try {
+		if (!trimmed.startsWith('{')) {
+			Transaction.from(trimmed);
+			return trimmed;
+		}
+		return toBase64(
+			TransactionDataBuilder.restore(
+				Transaction.from(trimmed).getData(),
+			).build(),
+		);
+	} catch {
+		if (!simulated) return null;
+		try {
+			return toBase64(
+				TransactionDataBuilder.restore(simulated).build(),
+			);
+		} catch {
+			return null;
+		}
+	}
+}
+
+const networkWarning = (
+	<Alert variant="warning">
+		Make sure the network next to the input matches the
+		transaction.
+	</Alert>
+);
+
 function PreviewResult({
-	isSuccess,
-	data,
-	error,
-	isLoading,
-	bytes,
+	dryRun,
+	input,
 	analysis,
 	isAnalysisLoading,
 	analysisError,
 }: {
-	isSuccess: boolean;
-	data: SimulateResult | undefined;
-	error: Error | null;
-	isLoading: boolean;
-	bytes?: string;
+	dryRun: ReturnType<typeof useDryRun>;
+	/** The pasted transaction, JSON or base64. */
+	input: string;
 	analysis?: TransactionAnalysis;
 	isAnalysisLoading?: boolean;
 	analysisError?: Error | null;
 }) {
-	if (isLoading) {
+	const simulation = simulationProps(dryRun);
+	const simulated = simulation?.result?.transaction;
+	const bytes = useMemo(
+		() => previewBytes(input, simulated),
+		[input, simulated],
+	);
+	const intentSummary = (
+		<IntentSummary
+			analysis={analysis}
+			isLoading={isAnalysisLoading}
+			error={analysisError}
+		/>
+	);
+
+	if (simulation?.status === 'pending') {
 		return (
-			<div
-				role="status"
-				aria-busy
-				className="flex flex-col gap-3"
-				data-testid="transaction-preview-loading"
-			>
-				<span className="sr-only">
+			<div data-testid="transaction-preview-loading">
+				<span className="sr-only" role="status">
 					Previewing transaction…
 				</span>
-				<SkeletonLine className="h-3 w-36" />
-				<div className="flex flex-col gap-3 rounded-lg border bg-surface p-4">
-					<SkeletonLine className="w-48" />
-					<div className="flex flex-col gap-2">
-						<SkeletonLine className="w-3/4" />
+				{bytes ? (
+					<TransactionPreview
+						bytes={bytes}
+						{...simulation}
+					/>
+				) : (
+					<div className="flex flex-col gap-3 rounded-lg border p-4">
+						<SkeletonLine className="w-48" />
 						<SkeletonLine className="w-3/4" />
 						<SkeletonLine className="w-1/4" />
 					</div>
-					<Skeleton className="h-8 w-full rounded-md" />
-				</div>
+				)}
 			</div>
 		);
 	}
 
+	const passed = simulation?.status === 'passed';
 	return (
-		<div
-			className="flex flex-col gap-3"
-			data-testid="transaction-preview-result"
-			data-result={isSuccess ? 'success' : 'failure'}
-		>
-			<div className="flex items-center gap-2 text-14 font-medium">
-				{isSuccess ? (
-					<>
-						<Check
-							strokeWidth={3}
-							className="size-4 text-success-foreground"
-						/>
-						Preview succeeded
-					</>
-				) : (
-					<>
-						<AlertCircle className="size-4 text-error-foreground" />
-						Preview failed
-					</>
-				)}
-			</div>
-			{isSuccess && data ? (
-				<EffectsPreview
-					output={data}
-					bytes={bytes}
-					analysis={analysis}
-					isAnalysisLoading={isAnalysisLoading}
-					analysisError={analysisError}
-				/>
-			) : (
-				<div className="flex flex-col gap-3">
-					<IntentSummary
-						analysis={analysis}
-						isLoading={isAnalysisLoading}
-						error={analysisError}
+		<div className="flex flex-col gap-4">
+			{intentSummary}
+			<div
+				className="flex flex-col gap-4"
+				data-testid="transaction-preview-result"
+				data-result={passed ? 'success' : 'failure'}
+			>
+				{simulation && bytes ? (
+					<TransactionPreview
+						bytes={bytes}
+						{...simulation}
 					/>
+				) : (
 					<p className="text-13 whitespace-pre-wrap text-error-foreground">
 						{safeDecode(
-							error?.message ||
+							dryRun.error?.message ||
 								'Transaction would fail on-chain',
 						)}
 					</p>
-					<Alert variant="warning">
-						Make sure the network next to the input matches
-						the transaction.
-					</Alert>
-				</div>
-			)}
+				)}
+				{!passed && networkWarning}
+			</div>
 		</div>
 	);
 }
@@ -434,11 +449,8 @@ export default function SigningTool() {
 					dryRun.data ||
 					dryRun.error) && (
 					<PreviewResult
-						isSuccess={isDryRunSuccessful}
-						data={dryRun.data}
-						error={dryRun.error}
-						isLoading={dryRun.isPending}
-						bytes={transactionData}
+						dryRun={dryRun}
+						input={transactionData}
 						analysis={analysis.data}
 						isAnalysisLoading={analysis.isPending}
 						analysisError={analysis.error}

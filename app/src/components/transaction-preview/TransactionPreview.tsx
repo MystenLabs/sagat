@@ -1,0 +1,293 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { CopyButton } from '@/components/ui/CopyButton';
+import { Tabs } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Notice } from '@/components/wizard/parts';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { useCoinDisplayDataMap } from '@/hooks/useCoinDisplayData';
+import {
+	buildTransactionPreview,
+	type NamedAccount,
+	type SimulatedTransaction,
+	type SimulationStatus,
+} from '@/lib/transaction-preview';
+import { cn } from '@/lib/utils';
+
+import { BalanceChangesTable } from './BalanceChangesTable';
+import { CommandsList } from './CommandsList';
+import { DetailsTable } from './DetailsTable';
+import { EventsList } from './EventsList';
+import { ObjectChangesList } from './ObjectChangesList';
+import { EmptyPanel } from './parts';
+
+type TabId =
+	| 'balance-changes'
+	| 'object-changes'
+	| 'events'
+	| 'commands'
+	| 'raw-json';
+
+/**
+ * The simulation result wherever a transaction is reviewed: digest,
+ * status, sender, epoch and gas, the Ledger hash, then tabs for the
+ * balance and object changes, events, commands and the raw dry run, and
+ * the raw bytes on demand. Everything read from the bytes shows while the
+ * simulation runs.
+ */
+export function TransactionPreview({
+	bytes,
+	status,
+	result,
+	error,
+	simulatedAt,
+	accounts,
+	actions,
+	className,
+	testId,
+}: {
+	bytes: string;
+	status: SimulationStatus;
+	result?: SimulatedTransaction | null;
+	error?: string | null;
+	simulatedAt?: Date | null;
+	accounts?: NamedAccount[];
+	/** Rendered right of the heading. */
+	actions?: ReactNode;
+	className?: string;
+	/** The root's test id; it also carries `data-status`. */
+	testId?: string;
+}) {
+	const { network } = useNetwork();
+	// By value, since callers make a new Date each render.
+	const simulatedTime = simulatedAt?.getTime() ?? null;
+	const model = useMemo(
+		() =>
+			buildTransactionPreview({
+				bytes,
+				status,
+				result,
+				error,
+				network,
+				simulatedAt:
+					simulatedTime === null
+						? null
+						: new Date(simulatedTime),
+				accounts,
+			}),
+		[
+			bytes,
+			status,
+			result,
+			error,
+			network,
+			simulatedTime,
+			accounts,
+		],
+	);
+
+	// Keyed by value, so a new model with the same coins keeps the lookup.
+	const coinTypesKey = [
+		...new Set(
+			model.balanceChanges.map((row) => row.coinType),
+		),
+	].join('\n');
+	const coinTypes = useMemo(
+		() => (coinTypesKey ? coinTypesKey.split('\n') : []),
+		[coinTypesKey],
+	);
+	const coinData = useCoinDisplayDataMap(coinTypes);
+
+	const [activeTab, setActiveTab] = useState<TabId>(
+		'balance-changes',
+	);
+	const [showRaw, setShowRaw] = useState(false);
+
+	const pending = model.status === 'pending';
+	const tabs: {
+		id: TabId;
+		label: string;
+		count?: number;
+	}[] = [
+		{
+			id: 'balance-changes',
+			label: 'Balance changes',
+			count: model.balanceChanges.length,
+		},
+		{
+			id: 'object-changes',
+			label: 'Object changes',
+			count: model.objectChanges.length,
+		},
+		{
+			id: 'events',
+			label: 'Events',
+			count: model.events.length,
+		},
+		{
+			id: 'commands',
+			label: 'Commands',
+			count: model.transaction.commands.length,
+		},
+		{ id: 'raw-json', label: 'Raw JSON' },
+	];
+
+	const senderAddress = model.sender?.address;
+	const waiting = <EmptyPanel>Simulating…</EmptyPanel>;
+
+	let panel: ReactNode;
+	switch (activeTab) {
+		case 'balance-changes':
+			panel = (
+				<BalanceChangesTable
+					rows={model.balanceChanges}
+					status={model.status}
+					coinData={coinData.map}
+					isCoinDataLoading={coinData.isLoadingFor}
+				/>
+			);
+			break;
+		case 'object-changes':
+			panel = pending ? (
+				waiting
+			) : (
+				<ObjectChangesList
+					objects={model.objectChanges}
+					objectTypes={model.objectTypes}
+					senderAddress={senderAddress}
+				/>
+			);
+			break;
+		case 'events':
+			panel = pending ? (
+				waiting
+			) : (
+				<EventsList
+					events={model.events}
+					senderAddress={senderAddress}
+				/>
+			);
+			break;
+		case 'commands':
+			panel = (
+				<CommandsList transaction={model.transaction} />
+			);
+			break;
+		case 'raw-json':
+			panel = model.raw ? (
+				<Textarea
+					value={JSON.stringify(model.raw, null, 2)}
+					rows={20}
+					readOnly
+					aria-label="Simulation result as JSON"
+					className="font-mono md:text-12"
+				/>
+			) : (
+				<EmptyPanel>
+					Nothing to show until the simulation runs.
+				</EmptyPanel>
+			);
+			break;
+	}
+
+	return (
+		<section
+			className={cn(
+				'flex min-w-0 flex-col gap-4',
+				className,
+			)}
+			data-testid={testId}
+			data-status={model.status}
+			aria-busy={pending || undefined}
+		>
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<h3 className="text-15 font-medium">
+					Transaction preview
+				</h3>
+				{actions && (
+					<div className="flex flex-wrap items-center gap-2">
+						{actions}
+					</div>
+				)}
+			</div>
+
+			<DetailsTable model={model} />
+
+			<div
+				className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted px-3.5 py-2.5"
+				data-testid="transaction-preview-ledger-hash"
+			>
+				<span className="text-13 text-muted-foreground">
+					Ledger hash
+				</span>
+				<span className="ml-auto flex min-w-0 items-center gap-1.5">
+					<span className="min-w-0 font-mono text-12 break-all">
+						{model.ledgerHash}
+					</span>
+					<CopyButton
+						value={model.ledgerHash}
+						size="inline"
+						successMessage="Ledger hash copied"
+					/>
+				</span>
+			</div>
+
+			<Notice tone="warning">
+				Always check the transaction in your wallet before
+				you sign. Your wallet is the final word on what you
+				approve.
+			</Notice>
+
+			<div className="flex min-w-0 flex-col gap-3">
+				<Tabs
+					tabs={tabs}
+					activeTab={activeTab}
+					onTabChange={(id) => setActiveTab(id as TabId)}
+					variant="pills"
+					testId="transaction-preview-tab"
+				/>
+				<div data-testid="transaction-preview-panel">
+					{panel}
+				</div>
+			</div>
+
+			<Collapsible
+				open={showRaw}
+				onOpenChange={setShowRaw}
+				className="flex flex-col gap-2"
+			>
+				<CollapsibleTrigger
+					className="flex w-fit cursor-pointer items-center gap-1 rounded-sm text-12 text-foreground-secondary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+					data-testid="transaction-preview-raw-toggle"
+				>
+					{showRaw
+						? 'Hide raw transaction'
+						: 'Show raw transaction'}
+					{showRaw ? (
+						<ChevronUp className="size-3" />
+					) : (
+						<ChevronDown className="size-3" />
+					)}
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<Textarea
+						readOnly
+						value={bytes}
+						aria-label="Raw transaction bytes"
+						className="h-30 resize-none font-mono break-all md:text-12"
+						data-testid="transaction-preview-raw"
+					/>
+				</CollapsibleContent>
+			</Collapsible>
+		</section>
+	);
+}

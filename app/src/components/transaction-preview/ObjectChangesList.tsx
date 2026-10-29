@@ -8,12 +8,14 @@ import { Chip, type ChipProps } from '@/components/ui/chip';
 import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
-import { ObjectLink } from '../ObjectLink';
-import { PreviewCard } from '../PreviewCard';
+import { ObjectLink } from './ObjectLink';
+import { EmptyPanel, Field } from './parts';
+
+type ChipVariant = NonNullable<ChipProps['variant']>;
 
 type ChangeKind = {
 	title: string;
-	variant: NonNullable<ChipProps['variant']>;
+	variant: ChipVariant;
 };
 
 function deriveChangeKind(
@@ -58,16 +60,6 @@ function deriveChangeKind(
 	return { title: 'Mutated', variant: 'warning' };
 }
 
-type AnnotatedObject = {
-	object: SuiClientTypes.ChangedObject;
-	kind: ChangeKind;
-};
-
-type KindGroup = {
-	variant: NonNullable<ChipProps['variant']>;
-	count: number;
-};
-
 function FilterPill({
 	label,
 	count,
@@ -77,7 +69,7 @@ function FilterPill({
 }: {
 	label: string;
 	count: number;
-	variant: NonNullable<ChipProps['variant']>;
+	variant: ChipVariant;
 	active: boolean;
 	onClick: () => void;
 }) {
@@ -85,14 +77,14 @@ function FilterPill({
 		<button
 			type="button"
 			onClick={onClick}
-			className="cursor-pointer"
+			aria-pressed={active}
+			className="cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
 		>
 			<Chip
 				variant={variant}
-				size="sm"
+				size="md"
 				className={cn(
-					'rounded cursor-pointer',
-					active && 'ring-2 ring-offset-1 ring-current',
+					active && 'ring-1 ring-current ring-inset',
 				)}
 			>
 				{label} ({count})
@@ -101,49 +93,53 @@ function FilterPill({
 	);
 }
 
-export function ObjectChanges({
+/** Every object the transaction touches, filterable by kind of change. */
+export function ObjectChangesList({
 	objects,
 	objectTypes,
 	senderAddress,
 }: {
 	objects: SuiClientTypes.ChangedObject[];
-	objectTypes?: Record<string, string>;
+	objectTypes: Record<string, string>;
 	senderAddress?: string;
 }) {
 	const { annotated, groups } = useMemo(() => {
-		const annotated: AnnotatedObject[] = [];
-		const groups = new Map<string, KindGroup>();
-
-		for (const object of objects) {
-			const kind = deriveChangeKind(object);
-			annotated.push({ object, kind });
-
-			const existing = groups.get(kind.title);
-			if (existing) {
-				existing.count++;
-			} else {
+		const annotated = objects.map((object) => ({
+			object,
+			kind: deriveChangeKind(object),
+		}));
+		const groups = new Map<
+			string,
+			{ variant: ChipVariant; count: number }
+		>();
+		for (const { kind } of annotated) {
+			const group = groups.get(kind.title);
+			if (group) group.count++;
+			else
 				groups.set(kind.title, {
 					variant: kind.variant,
 					count: 1,
 				});
-			}
 		}
-
 		return { annotated, groups };
 	}, [objects]);
 
 	const [activeFilter, setActiveFilter] = useState('All');
 
+	if (objects.length === 0) {
+		return <EmptyPanel>No object changes.</EmptyPanel>;
+	}
+
 	const filtered =
 		activeFilter === 'All'
 			? annotated
 			: annotated.filter(
-					(a) => a.kind.title === activeFilter,
+					({ kind }) => kind.title === activeFilter,
 				);
 
 	return (
-		<div className="space-y-4">
-			<div className="flex flex-wrap gap-2">
+		<div className="flex flex-col gap-3">
+			<div className="flex flex-wrap gap-1.5">
 				<FilterPill
 					label="All"
 					count={objects.length}
@@ -151,74 +147,57 @@ export function ObjectChanges({
 					active={activeFilter === 'All'}
 					onClick={() => setActiveFilter('All')}
 				/>
-				{[...groups.entries()].map(([kind, group]) => (
+				{[...groups.entries()].map(([title, group]) => (
 					<FilterPill
-						key={kind}
-						label={kind}
+						key={title}
+						label={title}
 						count={group.count}
 						variant={group.variant}
-						active={activeFilter === kind}
-						onClick={() => setActiveFilter(kind)}
+						active={activeFilter === title}
+						onClick={() => setActiveFilter(title)}
 					/>
 				))}
 			</div>
 
-			<div className="grid grid-cols-1 gap-5">
-				{filtered.map(({ object, kind }, i) => (
-					<ChangedObject
+			{filtered.map(({ object, kind }, i) => {
+				const type = objectTypes[object.objectId];
+				return (
+					<div
 						key={object.objectId ?? i}
-						object={object}
-						kind={kind}
-						objectType={objectTypes?.[object.objectId]}
-						senderAddress={senderAddress}
-					/>
-				))}
-			</div>
-		</div>
-	);
-}
-
-function ChangedObject({
-	object,
-	kind,
-	objectType,
-	senderAddress,
-}: {
-	object: SuiClientTypes.ChangedObject;
-	kind: ChangeKind;
-	objectType?: string;
-	senderAddress?: string;
-}) {
-	return (
-		<PreviewCard.Root>
-			<PreviewCard.Body>
-				<Chip
-					variant={kind.variant}
-					size="sm"
-					className="rounded"
-				>
-					{kind.title}
-				</Chip>
-
-				{objectType && (
-					<div className="flex gap-3 items-center wrap-break-word my-2">
-						Type:{' '}
-						<ObjectLink
-							type={prettifyType(objectType)}
-							className="wrap-break-word"
-						/>
+						className="flex flex-col gap-2 rounded-lg border p-3 text-13"
+						data-testid="object-change"
+						data-kind={kind.title}
+					>
+						<div>
+							<Chip variant={kind.variant} size="sm">
+								{kind.title}
+							</Chip>
+						</div>
+						{type && (
+							<Field label="Type">
+								<span className="min-w-0 font-mono text-12 break-all">
+									{prettifyType(type)}
+								</span>
+							</Field>
+						)}
+						<Field label="Object ID">
+							<span className="flex min-w-0 items-center font-mono text-12 break-all">
+								<ObjectLink object={object} />
+							</span>
+						</Field>
+						{object.outputOwner && (
+							<Field label="Owner">
+								<span className="flex min-w-0 items-center font-mono text-12 break-all">
+									<ObjectLink
+										owner={object.outputOwner}
+										senderAddress={senderAddress}
+									/>
+								</span>
+							</Field>
+						)}
 					</div>
-				)}
-
-				<label className="flex gap-3 items-center flex-wrap wrap-break-word my-2">
-					Object ID: <ObjectLink object={object} />
-				</label>
-			</PreviewCard.Body>
-
-			<PreviewCard.Footer
-				owner={object.outputOwner ?? undefined}
-				senderAddress={senderAddress}
-			/>
-		</PreviewCard.Root>
+				);
+			})}
+		</div>
 	);
 }

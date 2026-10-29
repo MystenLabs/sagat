@@ -1,25 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	ArrowLeft,
-	ChevronDown,
-	ChevronUp,
-	Pen,
-} from 'lucide-react';
-import { useRef, useState } from 'react';
+import { ArrowLeft, Pen } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 
-import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
 import { IntentSummary } from '@/components/preview-effects/IntentSummary';
 import { ExpiryChip } from '@/components/proposals/ProposalExpiry';
+import { simulationProps } from '@/components/transaction-preview/simulation';
+import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
 import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { SkeletonRows } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import {
 	Tooltip,
 	TooltipContent,
@@ -31,20 +25,17 @@ import {
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
-import { useNetwork } from '@/contexts/NetworkContext';
-import {
-	couldNotSimulate,
-	type useDryRun,
-} from '@/hooks/useDryRun';
+import { type useDryRun } from '@/hooks/useDryRun';
 import { useExpiry } from '@/hooks/useExpiry';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
-import { networkLabel } from '@/lib/network';
 import { COPY, titleError } from '@/lib/new-proposal';
+import { type NamedAccount } from '@/lib/transaction-preview';
 import { cn, safeDecode } from '@/lib/utils';
 
 /** Step 3: the title, the simulated effects and the raw bytes, then propose. */
 export function ReviewStep({
 	bytes,
+	sender,
 	title,
 	onTitleChange,
 	dryRun,
@@ -57,6 +48,8 @@ export function ReviewStep({
 	onCancel,
 }: {
 	bytes: string;
+	/** The account the proposal is for, named in the preview. */
+	sender: NamedAccount;
 	title: string;
 	onTitleChange: (title: string) => void;
 	dryRun: ReturnType<typeof useDryRun>;
@@ -70,21 +63,20 @@ export function ReviewStep({
 	onBack: () => void;
 	onCancel: () => void;
 }) {
-	const { network } = useNetwork();
-	const [showRaw, setShowRaw] = useState(false);
-
-	// The simulation couldn't run (offline, say): no verdict to show, and
-	// nothing to propose on until it runs.
-	const unreachable =
-		dryRun.isError && couldNotSimulate(dryRun.error);
-	// Not started counts as simulating, so the first frame doesn't flash
-	// an empty result.
+	// Null when the simulation couldn't run (offline, say): no verdict to
+	// show, and nothing to propose on until it runs. Not started counts
+	// as simulating, so the first frame doesn't flash an empty result.
+	const simulation = simulationProps(dryRun);
 	const settled =
-		dryRun.isSuccess || (dryRun.isError && !unreachable);
-	const simulationPassed =
-		dryRun.isSuccess &&
-		!!dryRun.data?.Transaction?.effects.status.success;
+		!!simulation && simulation.status !== 'pending';
+	const simulationPassed = simulation?.status === 'passed';
 	const simulationFailed = settled && !simulationPassed;
+	const accounts = useMemo(
+		() => [sender],
+		// The sender by value, since the page rebuilds it each render.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+		[sender.address, sender.name],
+	);
 	const failureReason = safeDecode(
 		dryRun.error?.message ||
 			'the transaction would fail on-chain',
@@ -124,7 +116,15 @@ export function ReviewStep({
 				</Notice>
 			)}
 
-			{unreachable ? (
+			{settled && (
+				<IntentSummary
+					analysis={analysis.data}
+					isLoading={analysis.isPending}
+					error={analysis.error}
+				/>
+			)}
+
+			{!simulation ? (
 				<RetryNotice
 					onRetry={onRetrySimulation}
 					testId="review-simulation-unreachable"
@@ -139,63 +139,21 @@ export function ReviewStep({
 						simulationPassed ? 'success' : 'failure'
 					}
 				>
-					{simulationPassed && dryRun.data ? (
-						<EffectsPreview
-							output={dryRun.data}
-							bytes={bytes}
-							analysis={analysis.data}
-							isAnalysisLoading={analysis.isPending}
-							analysisError={analysis.error}
-						/>
-					) : (
-						<IntentSummary
-							analysis={analysis.data}
-							isLoading={analysis.isPending}
-							error={analysis.error}
-						/>
-					)}
+					<TransactionPreview
+						bytes={bytes}
+						accounts={accounts}
+						{...simulation}
+					/>
 				</div>
 			) : (
-				<div
-					className="flex flex-col gap-2"
-					data-testid="review-simulating"
-				>
-					<p className="text-12 text-muted-foreground">
-						Simulating on {networkLabel(network)}…
-					</p>
-					<SkeletonRows rows={3} header />
+				<div data-testid="review-simulating">
+					<TransactionPreview
+						bytes={bytes}
+						accounts={accounts}
+						{...simulation}
+					/>
 				</div>
 			)}
-
-			<div className="flex flex-col gap-2">
-				<button
-					type="button"
-					onClick={() => setShowRaw((v) => !v)}
-					aria-expanded={showRaw}
-					aria-controls="review-raw-transaction"
-					className="flex w-fit cursor-pointer items-center gap-1 rounded-sm text-12 text-foreground-secondary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-					data-testid="review-raw-toggle"
-				>
-					{showRaw
-						? 'Hide raw transaction'
-						: 'Show raw transaction'}
-					{showRaw ? (
-						<ChevronUp className="size-3" />
-					) : (
-						<ChevronDown className="size-3" />
-					)}
-				</button>
-				{showRaw && (
-					<Textarea
-						id="review-raw-transaction"
-						readOnly
-						value={bytes}
-						aria-label="Raw transaction bytes"
-						className="h-30 resize-none font-mono break-all md:text-12"
-						data-testid="review-raw-transaction"
-					/>
-				)}
-			</div>
 
 			<Separator />
 
