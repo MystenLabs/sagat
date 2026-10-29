@@ -78,7 +78,6 @@ const routes: RouteConfig[] = [
 		element: <MultisigDetailPage />,
 		children: [
 			{
-				// An account opens on its overview.
 				path: '',
 				element: <Navigate to="overview" replace />,
 			},

@@ -257,10 +257,12 @@ function TokenRow({
 				)}
 			</td>
 			<td className="px-3 py-1.5 text-right">
+				{/* Without the coin's decimals the wizard can't take an amount. */}
 				<Button
 					variant="outline"
 					size="sm"
 					onClick={onSend}
+					disabled={decimals == null}
 					data-testid="token-send-button"
 				>
 					<Send />
