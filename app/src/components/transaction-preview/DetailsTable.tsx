@@ -3,7 +3,6 @@
 
 import { type ReactNode } from 'react';
 
-import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Chip, type ChipProps } from '@/components/ui/chip';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { SkeletonLine } from '@/components/ui/skeleton';
@@ -123,29 +122,24 @@ export function DetailsTable({
 				{!sender ? (
 					<span className="text-muted-foreground">—</span>
 				) : (
-					<>
-						{/* The name wraps, and the address drops under it when there is no room. */}
-						<span className="flex min-w-0 flex-wrap items-center gap-x-1.5">
-							{sender.name && (
-								<span className="min-w-0 break-words">
-									{sender.name}
-								</span>
-							)}
-							<ShortAddress
-								address={sender.address}
-								className={
-									sender.name
-										? 'shrink-0 font-mono text-11 text-muted-foreground'
-										: 'shrink-0 font-mono text-13'
-								}
+					// The name wraps, and the address drops under it when there is no room.
+					<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+						{sender.name && (
+							<span className="min-w-0 text-13 break-words">
+								{sender.name}
+							</span>
+						)}
+						<span className="flex min-w-0 items-center gap-1.5">
+							<span className="min-w-0 font-mono text-12 break-all text-muted-foreground">
+								{sender.address}
+							</span>
+							<CopyButton
+								value={sender.address}
+								size="inline"
+								successMessage="Address copied"
 							/>
 						</span>
-						<CopyButton
-							value={sender.address}
-							size="inline"
-							successMessage="Address copied"
-						/>
-					</>
+					</span>
 				)}
 			</Row>
 			<Row label="Epoch">
