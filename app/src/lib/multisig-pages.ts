@@ -21,7 +21,9 @@ export const MULTISIG_PAGES = [
 	},
 	{ id: 'proposals', label: 'Proposals', icon: FileText },
 	{ id: 'assets', label: 'Assets', icon: Coins },
-	{ id: 'signers', label: 'Signers', icon: Users },
+	// "Members" covers the signers and the external proposers; the id
+	// and the path stay `signers`.
+	{ id: 'signers', label: 'Members', icon: Users },
 ] as const;
 
 export type MultisigPageId =

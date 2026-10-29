@@ -5,62 +5,44 @@ import {
 	useCurrentAccount,
 	useCurrentWallet,
 	useDAppKit,
-	useWallets,
 	type UiWalletAccount,
 } from '@mysten/dapp-kit-react';
 import { formatAddress } from '@mysten/sui/utils';
 import {
-	AlertTriangle,
-	ArrowRight,
 	Check,
 	ChevronDown,
 	ChevronRight,
 	Copy,
-	Globe,
 	LogOut,
 	Shield,
 	Wallet,
 } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
 
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
+import { useAuthLevel } from '../hooks/useAuthLevel';
 import { useCopyToClipboard } from '../hooks/useCopyToClipboard';
 import { useDefaultSuinsName } from '../hooks/useDefaultSuinsName';
-import { useNetworkOption } from '../hooks/useNetworkOptions';
-import { useOnClickOutside } from '../hooks/useOnClickOutside';
 import {
 	railSquareClass,
 	railTriggerClass,
 } from './shell/rail-classes';
-import { Button } from './ui/button';
+import { Button, buttonVariants } from './ui/button';
 import { Chip } from './ui/chip';
-import { Separator } from './ui/separator';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { SidebarRailTooltip } from './ui/sidebar';
-import { Switch } from './ui/switch';
+import { WalletPicker } from './WalletPicker';
 
-type WalletVariant = 'header' | 'sidebar' | 'rail';
-
-interface CustomWalletButtonProps {
-	variant?: WalletVariant;
-	disableAccountSwitching?: boolean;
-}
-
-// Helper component for account list items
-interface AccountItemProps {
-	account: UiWalletAccount;
-	currentAccount: UiWalletAccount | null;
-	authenticatedAddresses: string[];
-	onSwitchAccount: (
-		account: UiWalletAccount,
-	) => Promise<void>;
-	onSignAndConnect: () => void;
-	isConnecting: boolean;
-	canSign: boolean;
-}
+type WalletVariant = 'header' | 'rail';
 
 const getCompactWalletLabel = (
 	address: string,
@@ -76,430 +58,273 @@ const AccountIdentity = ({
 	suinsName?: string | null;
 	label?: string;
 }) => (
-	<div className="flex-1 min-w-0">
-		<p className="font-mono text-xs truncate">
+	<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+		<span className="truncate font-mono text-12">
 			{getCompactWalletLabel(address, suinsName)}
-		</p>
+		</span>
 		{suinsName && (
-			<p className="text-xs text-muted-foreground mt-1 truncate">
+			<span className="truncate font-mono text-11 text-muted-foreground">
 				{formatAddress(address)}
-			</p>
+			</span>
 		)}
 		{label && (
-			<p className="text-xs text-muted-foreground mt-1 truncate">
+			<span className="truncate text-11 text-muted-foreground">
 				{label}
-			</p>
+			</span>
 		)}
-	</div>
-);
-
-// The menu opens below the trigger in the header and above it in the
-// sidebar rail, where the trigger sits at the bottom of the screen.
-const menuClass = (variant: WalletVariant) =>
-	cn(
-		'absolute z-50 min-w-64 rounded-lg border bg-popover py-1 text-13 text-popover-foreground',
-		variant === 'rail'
-			? 'bottom-full left-0 mb-1 w-full'
-			: 'top-full right-0 mt-1',
-	);
-
-// Full-width row used as the trigger in the sidebar rail.
-const RailTrigger = ({
-	children,
-	label,
-	...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-	children: ReactNode;
-	label: string;
-}) => (
-	<SidebarRailTooltip
-		tooltip={label}
-		aria-label={label}
-		{...props}
-		className={cn(
-			'flex w-full items-center gap-2.5 rounded-md p-2 text-left text-13 text-sidebar-foreground/70 hover:text-sidebar-foreground',
-			railTriggerClass,
-			railSquareClass,
-		)}
-	>
-		{children}
-	</SidebarRailTooltip>
-);
-
-const RailAvatar = ({ address }: { address: string }) => (
-	<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-11 font-medium text-sidebar-foreground uppercase">
-		{address.slice(2, 3)}
 	</span>
 );
 
+// The frame draws the account's initial: its wallet label, else its SuiNS name.
+const avatarInitial = (
+	label?: string,
+	suinsName?: string | null,
+): string | null => {
+	const name = label?.trim() || suinsName?.trim();
+	return name ? name.charAt(0).toUpperCase() : null;
+};
+
+const RailAvatar = ({
+	account,
+	suinsName,
+}: {
+	account: UiWalletAccount;
+	suinsName?: string | null;
+}) => {
+	const initial = avatarInitial(account.label, suinsName);
+	return (
+		<span
+			data-testid="wallet-avatar"
+			aria-hidden
+			className="flex size-6 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-11 font-medium text-sidebar-foreground uppercase"
+		>
+			{initial ?? <Wallet className="size-3" />}
+		</span>
+	);
+};
+
+/**
+ * The wallet control: the sidebar footer row (`rail`) or the phone header
+ * button (`header`). Without a wallet it is the wallet picker; with one, a
+ * menu to switch accounts, copy the address and disconnect.
+ */
 export function CustomWalletButton({
 	variant = 'header',
-}: CustomWalletButtonProps) {
+}: {
+	variant?: WalletVariant;
+}) {
 	const currentAccount = useCurrentAccount();
-	const dappKit = useDAppKit();
-	const { data: currentSuinsName } = useDefaultSuinsName(
-		currentAccount?.address,
-	);
 
-	const currentWallet = useCurrentWallet();
-	const accounts = currentWallet?.accounts ?? [];
-
-	const wallets = useWallets();
-	const {
-		isCurrentAddressAuthenticated,
-		isAuthCheckFailing,
-		signAndConnect,
-		isConnecting,
-		disconnect: apiDisconnect,
-	} = useApiAuth();
-	const { network, isTestMode } = useNetwork();
-	const [showWallets, setShowWallets] = useState(false);
-	const dropdownRef = useRef<HTMLDivElement>(null);
-	const { copied, copy: copyAddress } =
-		useCopyToClipboard();
-
-	useOnClickOutside(dropdownRef, () =>
-		setShowWallets(false),
-	);
-
-	const handleSwitchAccount = async (
-		account: UiWalletAccount,
-	) => {
-		if (account.address !== currentAccount?.address) {
-			await dappKit.switchAccount({ account });
-		}
-		setShowWallets(false);
-	};
-
-	const handleWalletConnect = async (
-		walletName: string,
-	) => {
-		try {
-			await dappKit.connectWallet({
-				wallet: wallets.find((w) => w.name === walletName)!,
-			});
-			setShowWallets(false);
-		} catch (error) {
-			toast.error((error as Error).message);
-		}
-	};
-
-	const handleFullDisconnect = async () => {
-		try {
-			await apiDisconnect();
-			await dappKit.disconnectWallet();
-			setShowWallets(false);
-		} catch {
-			await dappKit.disconnectWallet();
-			setShowWallets(false);
-		}
-	};
-
-	// No wallet connected
 	if (!currentAccount) {
-		return (
-			<NotConnectedWalletVariant
-				variant={variant}
-				showWallets={showWallets}
-				setShowWallets={setShowWallets}
-				handleWalletConnect={handleWalletConnect}
-				dropdownRef={dropdownRef}
+		return variant === 'rail' ? (
+			<WalletPicker variant="rail" side="top" />
+		) : (
+			<WalletPicker
+				variant="outline"
+				size="sm"
+				align="end"
 			/>
 		);
 	}
 
-	// Wallet connected but not authenticated
-	if (!isCurrentAddressAuthenticated) {
-		// For header variant, still show the dropdown but with auth prompt
-		return (
-			<div className="relative" ref={dropdownRef}>
-				{variant === 'rail' ? (
-					<RailTrigger
-						label={`Wallet ${getCompactWalletLabel(currentAccount.address, currentSuinsName)}`}
-						onClick={() => setShowWallets(!showWallets)}
-						data-testid="wallet-menu-button"
-						data-auth-state="unauthenticated"
-						data-address={currentAccount.address}
-					>
-						<RailAvatar address={currentAccount.address} />
-						<span className="min-w-0 flex-1 truncate font-mono text-12 group-data-[collapsible=icon]:hidden">
-							{getCompactWalletLabel(
-								currentAccount.address,
-								currentSuinsName,
-							)}
-						</span>
-						<Shield className="size-3 shrink-0 text-warning-foreground group-data-[collapsible=icon]:hidden" />
-					</RailTrigger>
-				) : (
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => setShowWallets(!showWallets)}
-						className="flex items-center gap-2"
-						data-testid="wallet-menu-button"
-						data-auth-state="unauthenticated"
-						data-address={currentAccount.address}
-					>
-						<Shield className="w-3 h-3 text-muted-foreground" />
-						<span>
-							{getCompactWalletLabel(
-								currentAccount.address,
-								currentSuinsName,
-							)}
-						</span>
-						<Chip
-							variant={isTestMode ? 'warning' : 'info'}
-							size="sm"
-						>
-							{network}
-						</Chip>
-						<ChevronDown className="w-3 h-3" />
-					</Button>
-				)}
-
-				{showWallets && (
-					<div className={menuClass(variant)}>
-						{!isAuthCheckFailing && (
-							<div className="px-3 pb-2 border-b text-center">
-								<p className="text-13 font-medium text-foreground">
-									Authentication Required
-								</p>
-							</div>
-						)}
-
-						{accounts.length > 1 ? (
-							<>
-								<AccountSwitchingSection
-									showTitle={false}
-									handleSwitchAccount={handleSwitchAccount}
-									handleSignAndConnect={signAndConnect}
-									isConnecting={isConnecting}
-									canSign={!isAuthCheckFailing}
-								/>
-								<Separator className="my-1" />
-							</>
-						) : (
-							!isAuthCheckFailing && (
-								<>
-									<div className="px-3 pt-3">
-										<Button
-											onClick={signAndConnect}
-											disabled={isConnecting}
-											size="sm"
-											className="w-full mb-2"
-											data-testid="wallet-menu-sign"
-										>
-											{isConnecting ? (
-												<>
-													<div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-2" />
-													Signing...
-												</>
-											) : (
-												<>
-													Sign Message
-													<ArrowRight className="ml-2 h-3 w-3" />
-												</>
-											)}
-										</Button>
-									</div>
-									<Separator className="my-1" />
-								</>
-							)
-						)}
-						<CopyAddressButton />
-						<Separator className="my-1" />
-						<NetworkSwitchingSection />
-						<Separator className="my-1" />
-						<DisconnectButton
-							onDisconnect={handleFullDisconnect}
-						/>
-					</div>
-				)}
-			</div>
-		);
-	}
-
-	// Wallet connected and authenticated
-	if (variant === 'sidebar') {
-		return (
-			<div className="mt-8 p-4 bg-card rounded-lg border border-border">
-				<div className="text-center">
-					<div className="w-6 h-6 bg-success-soft rounded-full mx-auto mb-3 flex items-center justify-center">
-						<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
-					</div>
-					<h3 className="font-medium text-foreground mb-2">
-						{currentSuinsName ?? 'Wallet Connected'}
-					</h3>
-					<p className="text-sm text-muted-foreground mb-3 break-all">
-						{currentSuinsName
-							? currentAccount.address
-							: formatAddress(currentAccount.address)}
-					</p>
-					<div className="flex gap-2">
-						<Button
-							onClick={() =>
-								currentAccount?.address &&
-								copyAddress(currentAccount.address)
-							}
-							variant="outline"
-							size="sm"
-							className="flex-1 text-xs"
-						>
-							{copied ? (
-								<Check className="w-3 h-3 mr-1" />
-							) : (
-								<Copy className="w-3 h-3 mr-1" />
-							)}
-							{copied ? 'Copied!' : 'Copy'}
-						</Button>
-						<Button
-							onClick={handleFullDisconnect}
-							variant="outline"
-							size="sm"
-							className="flex-1 text-xs hover:text-error-foreground hover:border-error-border"
-							data-testid="disconnect-button"
-						>
-							<LogOut className="w-3 h-3 mr-1" />
-							Disconnect
-						</Button>
-					</div>
-				</div>
-			</div>
-		);
-	}
-
-	// Header and rail variants - authenticated
 	return (
-		<div className="relative" ref={dropdownRef}>
+		<WalletMenu
+			variant={variant}
+			account={currentAccount}
+		/>
+	);
+}
+
+function WalletMenu({
+	variant,
+	account,
+}: {
+	variant: WalletVariant;
+	account: UiWalletAccount;
+}) {
+	const { data: suinsName } = useDefaultSuinsName(
+		account.address,
+	);
+	const accounts = useCurrentWallet()?.accounts ?? [];
+	const {
+		isCurrentAddressAuthenticated,
+		isAuthCheckFailing,
+		disconnectWallet,
+	} = useApiAuth();
+	const { network, isTestMode } = useNetwork();
+	const { copy } = useCopyToClipboard('Address copied');
+
+	const label = getCompactWalletLabel(
+		account.address,
+		suinsName,
+	);
+	const triggerProps = {
+		'data-testid': 'wallet-menu-button',
+		'data-auth-state': isCurrentAddressAuthenticated
+			? 'authenticated'
+			: 'unauthenticated',
+		'data-address': account.address,
+	};
+
+	return (
+		<DropdownMenu>
 			{variant === 'rail' ? (
-				<RailTrigger
-					label={`Wallet ${getCompactWalletLabel(currentAccount.address, currentSuinsName)}`}
-					onClick={() => setShowWallets(!showWallets)}
-					data-testid="wallet-menu-button"
-					data-auth-state="authenticated"
-					data-address={currentAccount.address}
+				<DropdownMenuTrigger
+					{...triggerProps}
+					aria-label={`Wallet ${label}`}
+					render={
+						<SidebarRailTooltip
+							tooltip={`Wallet ${label}`}
+						/>
+					}
+					className={cn(
+						'flex w-full items-center gap-2.5 rounded-md p-2 text-left text-13 text-sidebar-foreground/70 hover:text-sidebar-foreground data-open:bg-sidebar-accent data-open:text-sidebar-foreground',
+						railTriggerClass,
+						railSquareClass,
+					)}
 				>
-					<RailAvatar address={currentAccount.address} />
+					<RailAvatar
+						account={account}
+						suinsName={suinsName}
+					/>
 					<span className="min-w-0 flex-1 truncate font-mono text-12 group-data-[collapsible=icon]:hidden">
-						{getCompactWalletLabel(
-							currentAccount.address,
-							currentSuinsName,
-						)}
+						{label}
 					</span>
-					<ChevronRight className="size-3 shrink-0 opacity-60 group-data-[collapsible=icon]:hidden" />
-				</RailTrigger>
+					{isCurrentAddressAuthenticated ? (
+						<ChevronRight className="size-3 shrink-0 opacity-60 group-data-[collapsible=icon]:hidden" />
+					) : (
+						<Shield className="size-3 shrink-0 text-sidebar-warning group-data-[collapsible=icon]:hidden" />
+					)}
+				</DropdownMenuTrigger>
 			) : (
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => setShowWallets(!showWallets)}
-					className="flex items-center gap-2"
-					data-testid="wallet-menu-button"
-					data-auth-state="authenticated"
-					data-address={currentAccount.address}
+				<DropdownMenuTrigger
+					{...triggerProps}
+					className={cn(
+						buttonVariants({
+							variant: 'outline',
+							size: 'sm',
+						}),
+						'gap-2',
+					)}
 				>
-					<div className="w-2 h-2 bg-success-foreground rounded-full"></div>
-					<span>
-						{getCompactWalletLabel(
-							currentAccount.address,
-							currentSuinsName,
-						)}
-					</span>
+					{isCurrentAddressAuthenticated ? (
+						<span className="size-2 rounded-full bg-success-foreground" />
+					) : (
+						<Shield className="size-3 text-muted-foreground" />
+					)}
+					<span>{label}</span>
 					<Chip
 						variant={isTestMode ? 'warning' : 'info'}
 						size="sm"
 					>
 						{network}
 					</Chip>
-					<ChevronDown className="w-3 h-3" />
-				</Button>
+					<ChevronDown className="size-3" />
+				</DropdownMenuTrigger>
 			)}
-
-			{showWallets && (
-				<div className={menuClass(variant)}>
-					{accounts.length > 1 && (
-						<AccountSwitchingSection
-							handleSwitchAccount={handleSwitchAccount}
-							handleSignAndConnect={signAndConnect}
-							isConnecting={isConnecting}
-							canSign={!isAuthCheckFailing}
-						/>
-					)}
-					<CopyAddressButton />
-					<Separator className="my-1" />
-					<NetworkSwitchingSection />
-					<Separator className="my-1" />
-					<DisconnectButton
-						onDisconnect={handleFullDisconnect}
-					/>
-				</div>
-			)}
-		</div>
+			<DropdownMenuContent
+				side={variant === 'rail' ? 'top' : 'bottom'}
+				align={variant === 'rail' ? 'start' : 'end'}
+				className="w-auto min-w-50"
+			>
+				{accounts.length > 1 && (
+					<>
+						<DropdownMenuGroup>
+							{accounts.map((item) => (
+								<AccountItem
+									key={item.address}
+									account={item}
+									isCurrent={
+										item.address === account.address
+									}
+									canSign={!isAuthCheckFailing}
+								/>
+							))}
+						</DropdownMenuGroup>
+						<DropdownMenuSeparator />
+					</>
+				)}
+				<DropdownMenuGroup>
+					<DropdownMenuItem
+						onClick={() => void copy(account.address)}
+						// Copying is not a navigation: keep the menu open for a second action; the "Address copied" toast confirms it.
+						closeOnClick={false}
+						data-testid="copy-address"
+					>
+						<Copy />
+						Copy address
+					</DropdownMenuItem>
+				</DropdownMenuGroup>
+				<DropdownMenuSeparator />
+				<DropdownMenuGroup>
+					<DropdownMenuItem
+						variant="destructive"
+						onClick={() => void disconnectWallet()}
+						data-testid="disconnect-button"
+					>
+						<LogOut />
+						Disconnect
+					</DropdownMenuItem>
+				</DropdownMenuGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
 
-const CopyAddressButton = () => {
-	const currentAccount = useCurrentAccount();
-	const { copied, copy: copyAddress } =
-		useCopyToClipboard();
-
-	return (
-		<Button
-			size="sm"
-			variant="ghost"
-			onClick={() =>
-				currentAccount?.address &&
-				copyAddress(currentAccount.address)
-			}
-			className="h-9 w-full justify-start rounded-none px-3 text-13"
-		>
-			{copied ? (
-				<Check className="w-4 h-4" />
-			) : (
-				<Copy className="w-4 h-4" />
-			)}
-			{copied ? 'Copied!' : 'Copy Address'}
-		</Button>
-	);
-};
-
-const AccountItem = ({
+/** One of the wallet's accounts: pick it to switch, or sign it in. */
+function AccountItem({
 	account,
-	currentAccount,
-	authenticatedAddresses,
-	onSwitchAccount,
-	onSignAndConnect,
-	isConnecting,
+	isCurrent,
 	canSign,
-}: AccountItemProps) => {
+}: {
+	account: UiWalletAccount;
+	isCurrent: boolean;
+	// False while the auth check is failing: switching still works,
+	// signing would only fail.
+	canSign: boolean;
+}) {
+	const dappKit = useDAppKit();
+	const level = useAuthLevel();
 	const { data: suinsName } = useDefaultSuinsName(
 		account.address,
 	);
-	const isCurrent =
-		account.address === currentAccount?.address;
+	const {
+		authenticatedAddresses,
+		signAndConnect,
+		isConnecting,
+	} = useApiAuth();
 	const isAccountAuthenticated =
 		authenticatedAddresses.includes(account.address);
 
-	const handleSignClick = async () => {
+	const switchTo = () => {
+		if (!isCurrent) dappKit.switchAccount({ account });
+	};
+
+	const handleSignClick = () => {
 		// Switching is synchronous in dApp Kit, so once it returns the
-		// signature request goes to this account.
-		if (!isCurrent) await onSwitchAccount(account);
-		onSignAndConnect();
+		// signature request goes to this account. The click then reaches
+		// the row, which re-selects the same account (a no-op) and closes
+		// the menu like every other item.
+		switchTo();
+		// The connect card shows the declined line on full routes;
+		// elsewhere there is no card, so it toasts.
+		signAndConnect({
+			notice: level === 'full' ? 'card' : 'toast',
+		});
 	};
 
 	return (
-		<div
-			className={`flex items-center justify-between px-3 py-2 text-13 hover:bg-accent w-full ${
-				isCurrent ? 'bg-accent text-foreground' : ''
-			}`}
+		<DropdownMenuItem
+			// Taller when the account has a name or label line.
+			className="h-auto min-h-9 py-1.5"
+			onClick={switchTo}
 			data-testid="wallet-account"
 			data-address={account.address}
 			data-current={isCurrent}
 			data-authenticated={isAccountAuthenticated}
 		>
-			<button
-				onClick={() => onSwitchAccount(account)}
-				className="flex-1 text-left min-w-0 cursor-pointer"
+			<span
+				className="flex min-w-0 flex-1"
 				data-testid="wallet-account-switch"
 			>
 				<AccountIdentity
@@ -507,210 +332,23 @@ const AccountItem = ({
 					suinsName={suinsName}
 					label={account.label}
 				/>
-			</button>
-
-			<div className="flex items-center ml-2 space-x-1">
-				{isCurrent && (
-					<div className="w-2 h-2 bg-foreground rounded-full"></div>
-				)}
+			</span>
+			<span className="ml-auto flex shrink-0 items-center gap-2.5">
 				{canSign && !isAccountAuthenticated && (
 					<Button
-						size="sm"
+						size="xs"
 						variant="outline"
 						onClick={handleSignClick}
 						disabled={isConnecting}
-						className="text-xs px-1.5 py-1 h-6 flex items-center gap-1"
 						data-testid="wallet-account-sign"
 					>
-						<Shield className="w-2.5 h-2.5" />
 						{isConnecting && isCurrent
-							? 'Signing...'
-							: 'Sign'}
+							? 'Signing in…'
+							: 'Sign in'}
 					</Button>
 				)}
-			</div>
-		</div>
+				{isCurrent && <Check className="size-4" />}
+			</span>
+		</DropdownMenuItem>
 	);
-};
-
-const DisconnectButton = ({
-	onDisconnect,
-}: {
-	onDisconnect: () => Promise<void>;
-}) => {
-	return (
-		<Button
-			onClick={onDisconnect}
-			variant="ghost"
-			size="sm"
-			className="h-9 w-full justify-start rounded-none px-3 text-13 text-error-foreground"
-			data-testid="disconnect-button"
-		>
-			<LogOut className="w-4 h-4" />
-			Disconnect
-		</Button>
-	);
-};
-
-// A network switcher for the test mode.
-const NetworkSwitchingSection = () => {
-	const { isTestMode, setNetwork } = useNetwork();
-	const target = useNetworkOption(
-		isTestMode ? 'mainnet' : 'testnet',
-	);
-	return (
-		<>
-			<div className="flex h-9 items-center justify-between px-3 text-13">
-				<div className="flex items-center gap-2">
-					<Globe className="w-4 h-4" />
-					<span className="font-medium">Test Mode</span>
-					{target.hint && (
-						<span className="text-11 text-muted-foreground">
-							{target.hint}
-						</span>
-					)}
-				</div>
-				<Switch
-					checked={isTestMode}
-					disabled={!target.enabled}
-					onCheckedChange={(checked) =>
-						setNetwork(checked ? 'testnet' : 'mainnet')
-					}
-				/>
-			</div>
-		</>
-	);
-};
-
-const NotConnectedWalletVariant = ({
-	variant,
-	showWallets,
-	setShowWallets,
-	handleWalletConnect,
-	dropdownRef,
-}: {
-	variant: WalletVariant;
-	showWallets: boolean;
-	setShowWallets: (show: boolean) => void;
-	handleWalletConnect: (walletName: string) => void;
-	dropdownRef: React.RefObject<HTMLDivElement>;
-}) => {
-	const wallets = useWallets();
-	return (
-		<div className="relative" ref={dropdownRef}>
-			<Button
-				variant={
-					variant === 'rail' ? 'secondary' : 'default'
-				}
-				size="sm"
-				onClick={() => setShowWallets(!showWallets)}
-				aria-label="Connect Wallet"
-				render={
-					variant === 'rail' ? (
-						<SidebarRailTooltip tooltip="Connect Wallet" />
-					) : undefined
-				}
-				className={cn(
-					'flex items-center gap-2',
-					variant === 'rail' &&
-						'w-full group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-0',
-				)}
-				data-testid="connect-wallet-button"
-			>
-				<Wallet className="w-4 h-4" />
-				<span className="group-data-[collapsible=icon]:hidden">
-					Connect Wallet
-				</span>
-				<ChevronDown className="w-3 h-3 group-data-[collapsible=icon]:hidden" />
-			</Button>
-
-			{showWallets && (
-				<div className={cn(menuClass(variant), 'min-w-48')}>
-					<div className="px-3 pb-2 border-b">
-						<p className="text-13 font-medium">
-							Choose Wallet
-						</p>
-					</div>
-					{wallets.map((wallet) => (
-						<button
-							key={wallet.name}
-							onClick={() =>
-								handleWalletConnect(wallet.name)
-							}
-							className="flex h-9 w-full cursor-pointer items-center gap-3 px-3 text-13 text-left hover:bg-accent"
-							data-testid="wallet-option"
-							data-wallet-name={wallet.name}
-						>
-							<img
-								src={wallet.icon}
-								alt={wallet.name}
-								className="w-5 h-5 rounded"
-							/>
-							{wallet.name}
-						</button>
-					))}
-					{wallets.length === 0 && (
-						<div className="px-3 py-3 text-center">
-							<AlertTriangle className="w-6 h-6 text-muted-foreground mx-auto mb-3" />
-							<p className="text-13 text-muted-foreground">
-								No wallets found.
-								<br /> Install a wallet (e.g. Slush Wallet)
-								to continue.
-							</p>
-						</div>
-					)}
-				</div>
-			)}
-		</div>
-	);
-};
-
-// Helper component for account switching section
-const AccountSwitchingSection = ({
-	showTitle = true,
-	handleSwitchAccount,
-	handleSignAndConnect,
-	isConnecting,
-	canSign,
-}: {
-	showTitle?: boolean;
-	handleSwitchAccount: (
-		account: UiWalletAccount,
-	) => Promise<void>;
-	handleSignAndConnect: () => void;
-	isConnecting: boolean;
-	// False while the auth check is failing: switching still works,
-	// signing would only fail.
-	canSign: boolean;
-}) => {
-	const currentWallet = useCurrentWallet();
-	const accounts = currentWallet?.accounts ?? [];
-	const currentAccount = useCurrentAccount();
-
-	const { authenticatedAddresses } = useApiAuth();
-
-	return (
-		<>
-			{showTitle && (
-				<div className="px-3 pb-2 border-b">
-					<p className="text-13 font-medium">
-						Switch Account
-					</p>
-				</div>
-			)}
-			{accounts.map((account) => (
-				<AccountItem
-					key={account.address}
-					account={account}
-					currentAccount={currentAccount}
-					authenticatedAddresses={authenticatedAddresses}
-					onSwitchAccount={handleSwitchAccount}
-					onSignAndConnect={handleSignAndConnect}
-					isConnecting={isConnecting}
-					canSign={canSign}
-				/>
-			))}
-			{showTitle && <Separator className="my-1" />}
-		</>
-	);
-};
+}

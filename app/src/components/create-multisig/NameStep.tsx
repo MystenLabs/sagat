@@ -1,8 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useState } from 'react';
-
 import {
 	Button,
 	disabledButton,
@@ -11,13 +9,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
+	SectionHeading,
+	StepFooter,
+} from '@/components/wizard/parts';
+import { useTouched } from '@/components/wizard/use-touched';
+import {
 	NAME_MAX,
 	nameError,
 	textLength,
 } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
-
-import { SectionHeading, StepFooter } from './parts';
 
 /** Step 1: the name every signer sees in their invitation. */
 export function NameStep({
@@ -31,13 +32,17 @@ export function NameStep({
 	onContinue: () => void;
 	onCancel: () => void;
 }) {
-	// "Give it a name" waits until the field has been used; too long
-	// shows at once.
-	const [touched, setTouched] = useState(name !== '');
+	// "Give it a name" waits until the field has been used
+	// (`useTouched`); too long shows at once.
+	const { touched, touch, change } = useTouched({
+		name: name !== '',
+	});
 	const error = nameError(name);
 	const length = textLength(name);
 	const shownError =
-		error && (touched || length > NAME_MAX) ? error : null;
+		error && (touched.name || length > NAME_MAX)
+			? error
+			: null;
 
 	return (
 		<form
@@ -58,10 +63,10 @@ export function NameStep({
 					id="create-name"
 					value={name}
 					onChange={(e) => {
+						change('name', name);
 						onNameChange(e.target.value);
-						setTouched(true);
 					}}
-					onBlur={() => setTouched(true)}
+					onBlur={() => touch('name')}
 					placeholder="e.g. Treasury Operations"
 					autoFocus
 					aria-invalid={!!shownError}
@@ -84,6 +89,7 @@ export function NameStep({
 			</div>
 			<Separator />
 			<StepFooter
+				testId="create"
 				onCancel={onCancel}
 				primary={
 					<Button

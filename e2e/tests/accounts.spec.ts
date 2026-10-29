@@ -30,9 +30,73 @@ test.describe('several accounts in one wallet', () => {
 
 		await test.step('the first account has no multisigs', async () => {
 			await alice.signIn();
+			const empty = page.getByTestId('dashboard-empty');
+			await expect(empty).toBeVisible();
+			const header = page.getByTestId('app-header');
 			await expect(
-				page.getByTestId('dashboard-empty'),
+				header.getByTestId('multisig-switcher-empty'),
 			).toBeVisible();
+			await expect(
+				header.getByTestId('create-account-button'),
+			).toBeVisible();
+
+			// The empty state leads to invitations and to creating one.
+			await page.getByTestId('view-invitations').click();
+			await expect(
+				page.getByTestId('invitations-page'),
+			).toBeVisible();
+			await page.goto('/');
+			await page
+				.getByTestId('create-first-multisig')
+				.click();
+			await expect(
+				page.getByTestId('create-page'),
+			).toBeVisible();
+			await page.goto('/');
+		});
+
+		await test.step('a declined signature keeps the wallet while another account is signed in', async () => {
+			await page.evaluate(() => {
+				window.__e2eWallet!.declineSign = true;
+			});
+			await alice.openWalletMenu();
+			await alice
+				.walletAccount(savings.address)
+				.getByTestId('wallet-account-sign')
+				.click();
+			// The sign switched to the savings account first.
+			await expect(
+				alice.walletMenuButton(),
+			).toHaveAttribute('data-address', savings.address);
+			await expect(
+				alice.walletMenuButton(),
+			).toHaveAttribute(
+				'data-auth-state',
+				'unauthenticated',
+			);
+			await expect(
+				page.getByTestId('auth-prompt'),
+			).toBeVisible();
+			// On a full route the card shows the decline, not a toast.
+			await expect(alice.declinedLine()).toBeVisible();
+			await expect(
+				alice.toast('You declined the request in'),
+			).toHaveCount(0);
+
+			// The note was that account's: a switch takes it away.
+			await alice.switchAccount(alice);
+			await expect(
+				alice.walletMenuButton(),
+			).toHaveAttribute('data-auth-state', 'authenticated');
+			await alice.switchAccount(savings);
+			await expect(
+				page.getByTestId('auth-prompt'),
+			).toBeVisible();
+			await expect(alice.declinedLine()).toHaveCount(0);
+
+			await page.evaluate(() => {
+				window.__e2eWallet!.declineSign = false;
+			});
 		});
 
 		await test.step('signing in the savings account opens its multisig', async () => {
@@ -79,7 +143,7 @@ test.describe('several accounts in one wallet', () => {
 
 		await test.step('both accounts stay signed in after a reload', async () => {
 			await page.reload();
-			await alice.walletMenuButton().click();
+			await alice.openWalletMenu();
 			for (const account of [alice, savings])
 				await expect(
 					alice.walletAccount(account.address),

@@ -38,7 +38,7 @@ test.describe('transaction signer tool', () => {
 			alice.page.getByTestId('sign-and-execute-button'),
 		).toBeDisabled();
 
-		await alice.connectWallet();
+		await alice.connectWallet({ signIn: false });
 		await alice.page.getByTestId('sign-button').click();
 
 		const result = alice.page.getByTestId('signed-result');
@@ -79,7 +79,7 @@ test.describe('transaction signer tool', () => {
 		});
 
 		await alice.page.goto('/tools/sign');
-		await alice.connectWallet();
+		await alice.connectWallet({ signIn: false });
 		await alice.page
 			.getByTestId('transaction-data-input')
 			.fill(bytes);
@@ -113,7 +113,7 @@ test.describe('transaction signer tool', () => {
 		const recipient = randomAddress();
 
 		await alice.page.goto('/tools/sign');
-		await alice.connectWallet();
+		await alice.connectWallet({ signIn: false });
 		const bytes = await chain.buildSuiTransferFailingAfter({
 			sender: alice.address,
 			recipient,
@@ -207,7 +207,7 @@ test.describe('transaction signer tool', () => {
 		});
 
 		await alice.page.goto('/tools/sign');
-		await alice.connectWallet();
+		await alice.connectWallet({ signIn: false });
 		await alice.page
 			.getByTestId('transaction-data-input')
 			.fill(bytes);

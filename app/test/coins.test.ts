@@ -14,7 +14,6 @@ import {
 	formatCoinAmount,
 	formatInputAmount,
 	formatUsdValue,
-	getMaxInputAmount,
 	isSuiCoinType,
 	parseAmount,
 	pricesAvailableOn,
@@ -25,6 +24,8 @@ import {
 	totalUsdValue,
 	type SortableBalance,
 } from '../src/lib/coins';
+import { maxTransfer } from '../src/lib/new-proposal';
+import { COIN_DECIMALS, U64_MAX } from './coin-decimals';
 
 describe('isSuiCoinType', () => {
 	test('matches the short canonical form', () => {
@@ -235,8 +236,28 @@ describe('parseAmount', () => {
 		expect(parseAmount('1,2,3', 0)).toBeNull();
 	});
 
-	test('rejects too many fractional digits', () => {
+	test('rejects a non-zero digit past the decimals', () => {
 		expect(parseAmount('1.234', 2)).toBeNull();
+	});
+
+	test('reads zeros past the decimals as the same amount', () => {
+		expect(parseAmount('1.50', 1)).toBe(15n);
+		expect(parseAmount('1.000', 2)).toBe(100n);
+		expect(parseAmount('0.1234560000', 6)).toBe(123_456n);
+	});
+
+	test('rejects a non-zero digit past the decimals, even after zeros', () => {
+		expect(parseAmount('1.501', 1)).toBeNull();
+		expect(parseAmount('1.0001', 2)).toBeNull();
+		expect(parseAmount('1.0000001', 6)).toBeNull();
+	});
+
+	test('takes no fraction but zeros on a 0-decimal coin', () => {
+		for (const input of ['0.5', '.5', '1.5', '1.01'])
+			expect(parseAmount(input, 0)).toBeNull();
+		expect(parseAmount('1.0', 0)).toBe(1n);
+		expect(parseAmount('1.000', 0)).toBe(1n);
+		expect(parseAmount('0.0', 0)).toBe(0n);
 	});
 
 	test('rejects empty and invalid input', () => {
@@ -254,18 +275,33 @@ describe('input helpers', () => {
 		);
 	});
 
-	test('computes max amount after reserving raw units', () => {
+	test('computes max amount from the coins one transfer can spend', () => {
 		expect(
-			getMaxInputAmount('200000000', 9, '50000000'),
+			maxTransfer({
+				balance: '200000000',
+				addressBalance: '0',
+				gasCoins: { value: 150_000_000n, hasMore: true },
+				decimals: 9,
+			})?.amount,
 		).toBe('0.15');
 	});
 
-	test('returns null when reservation leaves no spendable amount', () => {
+	test('returns null when there is nothing to send', () => {
 		expect(
-			getMaxInputAmount('50000000', 9, '50000000'),
+			maxTransfer({
+				balance: '0',
+				addressBalance: '0',
+				gasCoins: null,
+				decimals: 9,
+			}),
 		).toBeNull();
 		expect(
-			getMaxInputAmount('49999999', 9, '50000000'),
+			maxTransfer({
+				balance: '50000000',
+				addressBalance: '0',
+				gasCoins: { value: 0n, hasMore: true },
+				decimals: 9,
+			}),
 		).toBeNull();
 	});
 });
@@ -586,5 +622,47 @@ describe('accountAssetsState', () => {
 				pricesAvailable: false,
 			}),
 		).toEqual(settled);
+	});
+});
+
+describe.each(COIN_DECIMALS)(
+	'amounts at %i decimals',
+	(decimals) => {
+		test('takes exactly its decimals, down to one raw unit, and refuses a digit past them', () => {
+			const oneUnit =
+				decimals === 0
+					? '1'
+					: `0.${'0'.repeat(decimals - 1)}1`;
+			expect(parseAmount(oneUnit, decimals)).toBe(1n);
+			expect(
+				parseAmount(
+					`1.${'1'.repeat(decimals + 1)}`,
+					decimals,
+				),
+			).toBeNull();
+		});
+
+		test('parses u64 max back from its input and display forms without losing a raw unit', () => {
+			const max = U64_MAX.toString();
+			expect(
+				parseAmount(
+					formatInputAmount(max, decimals),
+					decimals,
+				),
+			).toBe(U64_MAX);
+			expect(
+				parseAmount(
+					formatCoinAmount(max, decimals),
+					decimals,
+				),
+			).toBe(U64_MAX);
+		});
+	},
+);
+
+describe('amount edges', () => {
+	test('a comma is always grouping: "1,500" is fifteen hundred and "0,5" is refused', () => {
+		expect(parseAmount('1,500', 6)).toBe(1_500_000_000n);
+		expect(parseAmount('0,5', 6)).toBeNull();
 	});
 });

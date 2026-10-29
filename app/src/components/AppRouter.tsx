@@ -7,23 +7,24 @@ import {
 } from '@mysten/dapp-kit-react';
 import { useMemo, type ReactElement } from 'react';
 import {
-	matchPath,
 	Navigate,
 	Route,
 	Routes,
 	useLocation,
 } from 'react-router-dom';
 
+import { getAuthLevel } from '@/lib/auth-level';
+
 import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useSessionBoot } from '../hooks/useSessionBoot';
 import { ApiUnreachable } from './ApiUnreachable';
-import { AuthPrompt } from './AuthPrompt';
+import { ConnectWalletCard } from './ConnectWalletCard';
 import { CreateMultisigPage } from './create-multisig/CreateMultisigPage';
-import { CustomWalletButton } from './CustomWalletButton';
 import { DevnetNotSupported } from './DevnetNotSupported';
 import { InvitationsPage } from './InvitationsPage';
 import { MultisigDetailPage } from './MultisigDetailPage';
+import { NewProposalPage } from './new-proposal/NewProposalPage';
 import { ProposalDetailPage } from './ProposalDetailPage';
 import { SmartDashboard } from './SmartDashboard';
 import { AssetsTab } from './tabs/AssetsTab';
@@ -33,12 +34,10 @@ import { SignersTab } from './tabs/SignersTab';
 import { ToolsPage } from './ToolsPage';
 import { SkeletonPage } from './ui/skeleton';
 
-type AuthLevel = 'public' | 'wallet' | 'full';
-
+// Which of these need a wallet or a sign-in is `getAuthLevel`'s table.
 interface RouteConfig {
 	path: string;
 	element: ReactElement;
-	authLevel: AuthLevel;
 	children?: RouteConfig[];
 }
 
@@ -46,78 +45,62 @@ const routes: RouteConfig[] = [
 	{
 		path: '/tools',
 		element: <ToolsPage />,
-		authLevel: 'public',
 	},
 	// Dynamically generate routes for all tools
 	...TOOLS.map((tool) => ({
 		path: tool.path,
 		element: <ToolsPage />,
-		authLevel: 'public' as AuthLevel,
 	})),
 	{
 		path: '/proposals',
 		element: <ProposalDetailPage />,
-		authLevel: 'wallet',
 	},
 	{
 		path: '/',
 		element: <SmartDashboard />,
-		authLevel: 'full',
 	},
 	{
 		path: '/create',
 		element: <CreateMultisigPage />,
-		authLevel: 'full',
 	},
 	{
 		path: '/invitations',
 		element: <InvitationsPage />,
-		authLevel: 'full',
+	},
+	// Its own page, not one of the account's tabs. React Router ranks
+	// routes by how specific they are, so the order here doesn't matter.
+	{
+		path: '/multisig/:address/proposals/new',
+		element: <NewProposalPage />,
 	},
 	{
 		path: '/multisig/:address',
 		element: <MultisigDetailPage />,
-		authLevel: 'full',
 		children: [
 			{
 				// An account opens on its overview.
 				path: '',
 				element: <Navigate to="overview" replace />,
-				authLevel: 'full',
 			},
 			{
 				path: 'proposals',
 				element: <ProposalsTab />,
-				authLevel: 'full',
 			},
 			{
 				path: 'overview',
 				element: <OverviewTab />,
-				authLevel: 'full',
 			},
 			{
 				path: 'assets',
 				element: <AssetsTab />,
-				authLevel: 'full',
 			},
 			{
 				path: 'signers',
 				element: <SignersTab />,
-				authLevel: 'full',
 			},
 		],
 	},
 ];
-
-function getAuthLevel(pathname: string): AuthLevel {
-	for (const route of routes) {
-		if (matchPath(route.path, pathname)) {
-			return route.authLevel;
-		}
-	}
-	// Default to full auth for unknown routes
-	return 'full';
-}
 
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
@@ -205,23 +188,9 @@ export function AppRouter() {
 		);
 	}
 
-	// Full auth routes - require wallet + API auth
-	if (!currentAccount) {
-		return (
-			<div
-				className="flex flex-col items-center justify-center min-h-[60vh]"
-				data-testid="connect-wallet-prompt"
-			>
-				<h1 className="text-3xl font-bold mb-4">
-					Welcome to Sagat
-				</h1>
-				<p className="text-muted-foreground mb-8">
-					Connect your wallet to manage multisig accounts
-				</p>
-				<CustomWalletButton variant="sidebar" />
-			</div>
-		);
-	}
+	// Full auth routes - require wallet + API auth. Wallet-only routes
+	// connect without asking for the sign-in signature.
+	if (!currentAccount) return <ConnectWalletCard />;
 
 	// Wallet-only routes - require wallet but not API auth
 	if (authLevel === 'wallet') return renderRoutes;
@@ -238,7 +207,7 @@ export function AppRouter() {
 	if (isApiUnreachable) return <ApiUnreachable />;
 
 	if (!isCurrentAddressAuthenticated) {
-		return <AuthPrompt />;
+		return <ConnectWalletCard />;
 	}
 
 	return renderRoutes;

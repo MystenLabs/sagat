@@ -58,10 +58,13 @@ test('a proposal export is enough to execute it without the app', async ({
 
 	await alice.signIn();
 	await alice.openProposalsTab();
+	// Download is in the row's menu, which opens over the page.
+	await alice
+		.proposalRow(proposal.digest)
+		.getByTestId('proposal-actions')
+		.click();
 	const exported = await downloadJson<ProposalExport>(
-		alice
-			.proposalCard(proposal.digest)
-			.getByTestId('export-proposal-button'),
+		alice.page.getByTestId('export-proposal-button'),
 	);
 	expect(exported.type).toBe('sagat.proposal');
 	expect(exported.proposal.digest).toBe(proposal.digest);

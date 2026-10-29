@@ -6,6 +6,16 @@ import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
+	chooseType,
+	clickNewProposal,
+	expectSimulation,
+	fillTransfer,
+	pasteBytes,
+	proposeAndSign,
+	reviewBytes,
+	reviewTransfer,
+} from '../support/new-proposal';
+import {
 	proposeTransfer,
 	setupMultisig,
 	signProposal,
@@ -26,7 +36,7 @@ test.describe('proposals', () => {
 		await chain.fund(multisig.address);
 		const recipient = randomAddress();
 
-		// Alice proposes a transfer from the Balances tab.
+		// Alice proposes a transfer from the SUI row on the Assets page.
 		await alice.signIn();
 		await alice.page
 			.getByTestId('multisig-tab-assets')
@@ -35,53 +45,24 @@ test.describe('proposals', () => {
 			.suiBalanceRow()
 			.getByTestId('asset-send-button')
 			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
-			.getByTestId('transfer-recipient-input')
-			.fill(recipient);
-		await sheet
-			.getByTestId('transfer-amount-input')
-			.fill('1.5');
-		await sheet
-			.getByTestId('transfer-preview-button')
-			.click();
-		await expect(
-			sheet.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'success');
-		await sheet
-			.getByTestId('proposal-description-input')
-			.fill('Pay 1.5 SUI');
-		// The preview's help icon sits inside the form and must not submit it.
-		let proposalsCreated = 0;
-		alice.page.on('request', (request) => {
-			if (
-				request.method() === 'POST' &&
-				new URL(request.url()).pathname.endsWith(
-					'/proposals',
-				)
-			)
-				proposalsCreated++;
+		await fillTransfer(alice.page, {
+			amount: '1.5',
+			recipient,
+			title: 'Pay 1.5 SUI',
 		});
-		await sheet.getByTestId('preview-help').click();
-		await expect(sheet).toBeVisible();
-		await sheet
-			.getByTestId('create-proposal-submit')
-			.click();
-		await expect(sheet).toBeHidden();
-		expect(proposalsCreated).toBe(1);
+		await reviewTransfer(alice.page);
+		await expectSimulation(alice.page, 'success');
+		await proposeAndSign(alice.page);
 
 		// Proposing counts as Alice's signature.
-		await alice.page
-			.getByTestId('multisig-tab-proposals')
-			.click();
 		const aliceCard =
-			alice.page.getByTestId('proposal-card');
+			alice.page.getByTestId('proposal-row');
 		await expect(aliceCard).toHaveAttribute(
 			'data-status',
 			'pending',
 		);
 		await expect(
-			aliceCard.getByTestId('proposal-signature-weight'),
+			aliceCard.getByTestId('proposal-weight'),
 		).toHaveAttribute('data-current-weight', '1');
 		await expect(
 			aliceCard.getByTestId('proposal-already-signed'),
@@ -93,11 +74,12 @@ test.describe('proposals', () => {
 		// Bob co-signs, which makes it executable, then executes it.
 		await bob.signIn();
 		await bob.openProposalsTab();
-		const bobCard = bob.proposalCard(digest!);
+		const bobCard = bob.proposalRow(digest!);
 		await bobCard
 			.getByTestId('proposal-toggle-details')
 			.click();
-		await bobCard
+		// The preview opens in its own row under the proposal's.
+		await bob.page
 			.getByTestId('sign-proposal-button')
 			.click();
 		await expect(bobCard).toHaveAttribute(
@@ -130,7 +112,7 @@ test.describe('proposals', () => {
 		// Alice sees the outcome too.
 		await alice.page.reload();
 		await expect(
-			alice.proposalCard(digest!),
+			alice.proposalRow(digest!),
 		).toHaveAttribute('data-status', 'executed');
 	});
 
@@ -170,14 +152,14 @@ test.describe('proposals', () => {
 		await bob.signIn();
 		await bob.openProposalsTab();
 		const expiry = bob
-			.proposalCard(expiring.digest)
+			.proposalRow(expiring.digest)
 			.getByTestId('proposal-expiry');
 		await expect(expiry).toHaveText(/^Expires in /);
 		await expiry.hover();
 		await expect(
 			bob.page.getByRole('tooltip'),
 		).toContainText('it has to be proposed again');
-		const lastingCard = bob.proposalCard(lasting.digest);
+		const lastingCard = bob.proposalRow(lasting.digest);
 		await expect(lastingCard).toBeVisible();
 		await expect(
 			lastingCard.getByTestId('proposal-expiry'),
@@ -206,12 +188,14 @@ test.describe('proposals', () => {
 
 		await bob.signIn();
 		await bob.openProposalsTab();
-		const card = bob.proposalCard(proposal.digest);
+		const card = bob.proposalRow(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',
 			'pending',
 		);
-		await card
+		// Cancel is in the row's menu, which opens over the page.
+		await card.getByTestId('proposal-actions').click();
+		await bob.page
 			.getByTestId('cancel-proposal-button')
 			.click();
 		await bob.page
@@ -247,26 +231,19 @@ test.describe('proposals', () => {
 		});
 
 		await alice.signIn();
-		await alice.page
-			.getByTestId('new-proposal-button')
-			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
-			.getByTestId('custom-transaction-input')
-			.fill(bytes);
-		await sheet
-			.getByTestId('custom-preview-button')
-			.click();
-		await expect(
-			sheet.getByTestId('transaction-preview-result'),
-		).toHaveAttribute('data-result', 'success');
-		await sheet
-			.getByTestId('create-proposal-submit')
-			.click();
-		await expect(sheet).toBeHidden();
+		await clickNewProposal(alice.page);
+		await chooseType(alice.page, 'bytes');
+		await pasteBytes(
+			alice.page,
+			bytes,
+			'Pay a quarter SUI',
+		);
+		await reviewBytes(alice.page);
+		await expectSimulation(alice.page, 'success');
+		await proposeAndSign(alice.page);
 
 		await alice.openProposalsTab();
-		const card = alice.page.getByTestId('proposal-card');
+		const card = alice.page.getByTestId('proposal-row');
 		await expect(card).toHaveAttribute(
 			'data-status',
 			'pending',
@@ -287,7 +264,7 @@ test.describe('proposals', () => {
 		);
 	});
 
-	test('refuses to propose a transaction that would fail on-chain', async ({
+	test('warns that a transaction would fail on-chain before proposing', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -302,27 +279,26 @@ test.describe('proposals', () => {
 		await chain.fund(multisig.address);
 
 		await alice.signIn();
-		await alice.page
-			.getByTestId('new-proposal-button')
-			.click();
-		const sheet = alice.page.getByTestId('proposal-sheet');
-		await sheet
-			.getByTestId('custom-transaction-input')
-			.fill(
-				await chain.buildOverdrawnSuiTransfer({
-					sender: multisig.address,
-					recipient: randomAddress(),
-				}),
-			);
-		await sheet
-			.getByTestId('custom-preview-button')
-			.click();
+		await clickNewProposal(alice.page);
+		await chooseType(alice.page, 'bytes');
+		await pasteBytes(
+			alice.page,
+			await chain.buildOverdrawnSuiTransfer({
+				sender: multisig.address,
+				recipient: randomAddress(),
+			}),
+			'Overdraw the account',
+		);
+		await reviewBytes(alice.page);
 
 		await expect(
-			sheet.getByTestId('transaction-preview-result'),
+			alice.page.getByTestId('transaction-preview-result'),
 		).toHaveAttribute('data-result', 'failure');
 		await expect(
-			sheet.getByTestId('create-proposal-submit'),
-		).toHaveCount(0);
+			alice.page.getByTestId('review-simulation-error'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('review-submit'),
+		).toHaveText('Propose and sign anyway');
 	});
 });

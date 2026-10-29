@@ -1,145 +1,61 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type ProposalWithSignatures } from '@mysten/sagat';
-import { FileText, Plus, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { Plus, RefreshCw } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+	useNavigate,
+	useOutletContext,
+} from 'react-router-dom';
 
+import { newProposalPath } from '@/lib/new-proposal';
 import { toProposalCardInput } from '@/lib/proposalUtils';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 import { useNetwork } from '../../contexts/NetworkContext';
-import { useProposalsQueries } from '../../hooks/useProposalsQueries';
-import { ProposalCard } from '../proposals/ProposalCard';
+import {
+	useProposalsQueries,
+	type ProposalFilter,
+} from '../../hooks/useProposalsQueries';
+import { ProposalsTable } from '../proposals/ProposalsTable';
 import { Button } from '../ui/button';
-import { EmptyState, ErrorState } from '../ui/empty-state';
-import { SkeletonRows } from '../ui/skeleton';
 import { Tabs } from '../ui/tabs';
 
 interface ProposalsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: () => void;
 }
 
-type FilterType =
-	| 'all'
-	| 'pending'
-	| 'waiting'
-	| 'ready'
-	| 'executed'
-	| 'cancelled';
+/** After a manual refresh, the button rests this long. */
+const REFRESH_COOLDOWN_MS = 5000;
 
-// Filter Tabs Component
-function FilterTabs({
-	filters,
-	activeFilter,
-	onFilterChange,
-	onRefresh,
-	isRefreshCooldown,
-	isRefetching,
-}: {
-	filters: Array<{
-		id: string;
-		label: string;
-		count?: number;
-	}>;
-	activeFilter: FilterType;
-	onFilterChange: (filter: FilterType) => void;
-	onRefresh: () => void;
-	isRefreshCooldown: boolean;
-	isRefetching: boolean;
-}) {
-	return (
-		<div className="flex items-center justify-between gap-2 py-3">
-			<Tabs
-				tabs={filters}
-				activeTab={activeFilter}
-				onTabChange={(id) =>
-					onFilterChange(id as FilterType)
-				}
-				variant="pills"
-				testId="proposal-filter"
-			/>
-			{/* Refresh button for all tabs */}
-			<Button
-				variant="ghost"
-				size="sm"
-				onClick={onRefresh}
-				disabled={isRefreshCooldown || isRefetching}
-				className="shrink-0"
-				title="Refresh proposals (5s cooldown)"
-				data-testid="refresh-proposals-button"
-			>
-				<RefreshCw
-					className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`}
-				/>
-			</Button>
-		</div>
-	);
-}
+// What an empty tab says. All, the first visit's tab, also offers to
+// start one.
+const EMPTY_TITLE: Record<ProposalFilter, string> = {
+	all: 'No proposals yet',
+	pending: 'Nothing to sign',
+	waiting: 'Nothing awaiting others',
+	ready: 'Nothing ready to execute',
+	executed: 'No executed proposals',
+	cancelled: 'No cancelled proposals',
+	expired: 'No expired proposals',
+};
 
-// Proposals List Component
-function ProposalsList({
-	proposals,
-	multisig,
-}: {
-	proposals: ProposalWithSignatures[];
-	multisig: MultisigWithMembersForPublicKey;
-}) {
-	return (
-		<div className="space-y-4">
-			{proposals.map((proposal) => (
-				<ProposalCard
-					key={proposal.id}
-					proposal={toProposalCardInput(proposal, multisig)}
-				/>
-			))}
-		</div>
-	);
-}
-
-// Load More Button Component
-function LoadMoreButton({
-	pagination,
-}: {
-	pagination?: {
-		hasNextPage: boolean;
-		fetchNextPage: () => void;
-		isFetchingNextPage: boolean;
-	};
-}) {
-	if (!pagination || !pagination.hasNextPage) {
-		return null;
-	}
-
-	return (
-		<div className="flex items-center justify-center py-4 border-t">
-			<Button
-				variant="outline"
-				size="sm"
-				onClick={() => pagination.fetchNextPage()}
-				disabled={pagination.isFetchingNextPage}
-			>
-				{pagination.isFetchingNextPage
-					? 'Loading...'
-					: 'Load More'}
-			</Button>
-		</div>
-	);
-}
-
-// Main Component
+/**
+ * The account's proposals, filtered by where they stand: all of them, the
+ * open ones split by who has to act next, and the finished ones by how
+ * they ended.
+ */
 export function ProposalsTab() {
-	const { multisig, openProposalSheet } =
+	const { multisig } =
 		useOutletContext<ProposalsTabContext>();
+	const navigate = useNavigate();
 	const { network } = useNetwork();
 	const [activeFilter, setActiveFilter] =
-		useState<FilterType>('all');
+		useState<ProposalFilter>('all');
 	const [isRefreshCooldown, setIsRefreshCooldown] =
 		useState(false);
 
-	// Use the new hook to manage all queries and filtering
 	const {
 		filteredProposals,
 		pendingTabCounts,
@@ -153,32 +69,38 @@ export function ProposalsTab() {
 		network,
 		activeFilter,
 	});
+	const proposals = useMemo(
+		() =>
+			filteredProposals.map((proposal) =>
+				toProposalCardInput(proposal, multisig),
+			),
+		[filteredProposals, multisig],
+	);
 
-	// Handle refresh with cooldown (5 seconds)
 	const handleRefresh = () => {
-		if (isRefreshCooldown || isRefetching) {
-			return;
-		}
-
+		if (isRefreshCooldown || isRefetching) return;
 		setIsRefreshCooldown(true);
 		pagination.refetch();
-
-		// Reset cooldown after 5 seconds
-		setTimeout(() => {
-			setIsRefreshCooldown(false);
-		}, 5000);
+		setTimeout(
+			() => setIsRefreshCooldown(false),
+			REFRESH_COOLDOWN_MS,
+		);
 	};
 
-	const filters = [
+	const filters: {
+		id: ProposalFilter;
+		label: string;
+		count?: number;
+	}[] = [
 		{ id: 'all', label: 'All' },
 		{
 			id: 'pending',
-			label: 'Pending Signature',
+			label: 'To sign',
 			count: pendingTabCounts.pending,
 		},
 		{
 			id: 'waiting',
-			label: 'Waiting for Others',
+			label: 'Awaiting others',
 			count: pendingTabCounts.waiting,
 		},
 		{
@@ -188,70 +110,84 @@ export function ProposalsTab() {
 		},
 		{ id: 'executed', label: 'Executed' },
 		{ id: 'cancelled', label: 'Cancelled' },
+		{
+			id: 'expired',
+			label: 'Expired',
+			// Expired proposals still count against the account's open
+			// proposals until cancelled, so the tab says how many wait there.
+			count: pendingTabCounts.expired,
+		},
 	];
 
 	return (
-		<div className="h-full flex flex-col px-3">
-			<div>
-				<FilterTabs
-					filters={filters}
-					activeFilter={activeFilter}
-					onFilterChange={setActiveFilter}
-					onRefresh={handleRefresh}
-					isRefreshCooldown={isRefreshCooldown}
-					isRefetching={isRefetching}
+		<div className="flex flex-col gap-4">
+			<div className="flex items-center justify-between gap-2">
+				<Tabs
+					tabs={filters}
+					activeTab={activeFilter}
+					onTabChange={(id) =>
+						setActiveFilter(id as ProposalFilter)
+					}
+					variant="pills"
+					testId="proposal-filter"
 				/>
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					onClick={handleRefresh}
+					disabled={isRefreshCooldown || isRefetching}
+					aria-label="Refresh proposals"
+					title="Refresh proposals"
+					data-testid="refresh-proposals-button"
+				>
+					<RefreshCw
+						className={cn(isRefetching && 'animate-spin')}
+					/>
+				</Button>
 			</div>
 
-			<div className="flex-1 overflow-y-auto mt-6">
-				{isLoading ? (
-					<SkeletonRows
-						rows={5}
-						testId="proposals-loading"
-					/>
-				) : error ? (
-					<ErrorState
-						title="Failed to load proposals"
-						error={error}
-						onRetry={retry}
-						testId="proposals-error"
-					/>
-				) : filteredProposals.length === 0 ? (
-					<EmptyState
-						icon={FileText}
-						title={
-							activeFilter === 'all'
-								? 'No proposals yet'
-								: 'No matching proposals'
-						}
-						description={
-							activeFilter === 'all'
-								? 'Create the first proposal for this account.'
-								: `No proposals are in “${filters.find((f) => f.id === activeFilter)?.label ?? activeFilter}”.`
-						}
-						action={
-							activeFilter === 'all' && (
-								<Button
-									onClick={openProposalSheet}
-									size="sm"
-								>
-									<Plus />
-									New proposal
-								</Button>
-							)
-						}
-						testId="proposals-empty"
-					/>
-				) : (
-					<ProposalsList
-						proposals={filteredProposals}
-						multisig={multisig}
-					/>
-				)}
-			</div>
+			<ProposalsTable
+				multisig={multisig}
+				proposals={proposals}
+				variant="list"
+				loading={isLoading}
+				error={error}
+				onRetry={retry}
+				empty={{
+					title: EMPTY_TITLE[activeFilter],
+					description:
+						activeFilter === 'all'
+							? 'Proposals show up here when a signer or external proposer creates one.'
+							: 'Proposals in this state show up here.',
+					action: activeFilter === 'all' && (
+						<Button
+							size="sm"
+							onClick={() =>
+								navigate(newProposalPath(multisig.address))
+							}
+						>
+							<Plus />
+							New proposal
+						</Button>
+					),
+				}}
+				testId="proposals"
+			/>
 
-			{!isLoading && filteredProposals.length > 0 && (
-				<LoadMoreButton pagination={pagination} />
+			{!isLoading && !error && pagination.hasNextPage && (
+				<div className="flex justify-center">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={pagination.fetchNextPage}
+						disabled={pagination.isFetchingNextPage}
+						data-testid="load-more-proposals"
+					>
+						{pagination.isFetchingNextPage
+							? 'Loading…'
+							: 'Load more'}
+					</Button>
+				</div>
 			)}
 		</div>
 	);

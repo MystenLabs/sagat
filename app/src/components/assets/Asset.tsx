@@ -6,7 +6,10 @@ import { type ReactNode } from 'react';
 import { type CoinDisplayData } from '../../hooks/useCoinDisplayData';
 import { type Balance } from '../../hooks/useMultisigBalances';
 import { formatCoinType } from '../../lib/coin-type';
-import { coinLabels } from '../../lib/coinDisplay';
+import {
+	coinLabels,
+	sameCoinLabel,
+} from '../../lib/coinDisplay';
 import {
 	coinUsdValue,
 	formatCoinAmount,
@@ -24,62 +27,16 @@ interface AssetBodyProps {
 	showCopyButton?: boolean;
 }
 
-interface AssetWrapperProps extends AssetBodyProps {
-	selected?: boolean;
-	bare?: boolean;
-	className?: string;
-}
-
-const containerClasses = (
-	bare: boolean,
-	selected: boolean,
-	className?: string,
-) =>
-	cn(
-		'rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover',
-		!bare && 'bg-card border',
-		selected && 'bg-row-selected',
-		className,
-	);
-
-export function AssetRow({
-	selected = false,
-	bare = false,
-	className,
-	...body
-}: AssetWrapperProps) {
+export function AssetRow(body: AssetBodyProps) {
 	return (
 		<li
-			className={containerClasses(
-				bare,
-				selected,
-				className,
-			)}
+			className="rounded-lg border bg-card px-3 py-2.5"
 			data-testid="asset-row"
 			data-coin-type={body.balance.coinType}
 			data-balance={body.balance.balance}
 		>
 			<AssetBody {...body} />
 		</li>
-	);
-}
-
-export function AssetCard({
-	selected = false,
-	bare = false,
-	className,
-	...body
-}: AssetWrapperProps) {
-	return (
-		<div
-			className={containerClasses(
-				bare,
-				selected,
-				className,
-			)}
-		>
-			<AssetBody {...body} />
-		</div>
 	);
 }
 
@@ -108,8 +65,7 @@ function AssetBody({
 	const compactType = formatCoinType(balance.coinType);
 	const showTypeLine = displayName !== compactType;
 	const showSymbolBadge =
-		!!symbol &&
-		symbol.toLowerCase() !== displayName.toLowerCase();
+		!!symbol && !sameCoinLabel(symbol, displayName);
 
 	return (
 		<div className="flex items-center gap-3">

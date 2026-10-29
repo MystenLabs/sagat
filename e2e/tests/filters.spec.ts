@@ -35,7 +35,7 @@ test('proposal filters show each proposal where it belongs', async ({
 	const coins = await chain.fundWithCoins(
 		multisig.address,
 		{
-			count: 5,
+			count: 6,
 			amount: 10n * MIST_PER_SUI,
 		},
 	);
@@ -70,6 +70,38 @@ test('proposal filters show each proposal where it belongs', async ({
 	await bob.api.verifyProposalByDigest(executed.digest);
 	const cancelled = await propose(bob, coins[4]);
 	await cancelProposal(bob, cancelled);
+	// Signed by Bob and Carol, executed on-chain where it fails (it spends
+	// more than the account holds), then verified with the API.
+	const failedBytes = await chain.buildOverdrawnSuiTransfer(
+		{
+			sender: multisig.address,
+			recipient: randomAddress(),
+			gasCoin: coins[5],
+		},
+	);
+	const failed = await bob.api.createProposal({
+		multisigAddress: multisig.address,
+		transactionBytes: failedBytes,
+		signature: await bob.signTransaction(failedBytes),
+		network: 'localnet',
+	});
+	await signProposal(carol, failed);
+	await expect(
+		executeOutsideApp(chain, {
+			members: [
+				{ identity: alice },
+				{ identity: bob },
+				{ identity: carol },
+			],
+			threshold: 2,
+			signers: [bob, carol],
+			transactionBytes: failedBytes,
+		}),
+	).rejects.toThrow('Transaction failed');
+	await chain.client.waitForTransaction({
+		digest: failed.digest,
+	});
+	await bob.api.verifyProposalByDigest(failed.digest);
 
 	await alice.signIn();
 	await alice.page
@@ -77,12 +109,20 @@ test('proposal filters show each proposal where it belongs', async ({
 		.click();
 
 	const expected = {
-		all: [needsAlice, waiting, ready, executed, cancelled],
+		all: [
+			needsAlice,
+			waiting,
+			ready,
+			executed,
+			cancelled,
+			failed,
+		],
 		pending: [needsAlice],
 		waiting: [waiting],
 		ready: [ready],
-		executed: [executed],
+		executed: [executed, failed],
 		cancelled: [cancelled],
+		expired: [],
 	};
 	for (const [filter, proposals] of Object.entries(
 		expected,
@@ -100,10 +140,10 @@ test('proposal filters show each proposal where it belongs', async ({
 
 function shownDigests(page: Page) {
 	return page
-		.getByTestId('proposal-card')
-		.evaluateAll((cards) =>
-			cards
-				.map((card) => card.getAttribute('data-digest'))
+		.getByTestId('proposal-row')
+		.evaluateAll((rows) =>
+			rows
+				.map((row) => row.getAttribute('data-digest'))
 				.sort(),
 		);
 }

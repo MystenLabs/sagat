@@ -3,8 +3,12 @@
 
 import { Send } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import {
+	useNavigate,
+	useOutletContext,
+} from 'react-router-dom';
 
+import { newProposalPath } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useNetwork } from '../../contexts/NetworkContext';
@@ -12,19 +16,17 @@ import { useAccountAssets } from '../../hooks/useAccountAssets';
 import { getExplorerUrl } from '../../lib/utils';
 import { AssetsHeader } from '../assets/AssetsHeader';
 import { AssetsList } from '../assets/AssetsList';
-import { type ProposalIntent } from '../ProposalSheet';
 import { Button } from '../ui/button';
 
 interface AssetsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: (intent?: ProposalIntent) => void;
 }
 
 const REFRESH_COOLDOWN_MS = 5_000;
 
 export function AssetsTab() {
-	const { multisig, openProposalSheet } =
-		useOutletContext<AssetsTabContext>();
+	const { multisig } = useOutletContext<AssetsTabContext>();
+	const navigate = useNavigate();
 	const { network } = useNetwork();
 	const [isRefreshCooldown, setIsRefreshCooldown] =
 		useState(false);
@@ -84,10 +86,12 @@ export function AssetsTab() {
 						disabled={coinData?.decimals == null}
 						data-testid="asset-send-button"
 						onClick={() =>
-							openProposalSheet({
-								kind: 'transfer',
-								coinType: balance.coinType,
-							})
+							navigate(
+								newProposalPath(multisig.address, {
+									type: 'transfer',
+									coinType: balance.coinType,
+								}),
+							)
 						}
 					>
 						<Send className="w-3.5 h-3.5 mr-1" />

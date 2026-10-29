@@ -70,6 +70,28 @@ export class Chain {
 		return this.coins(address);
 	}
 
+	// Moves `amount` of a fresh funder's SUI into `address`'s address balance.
+	async fundAddressBalance(
+		address: string,
+		amount: bigint,
+	) {
+		const tx = new Transaction();
+		const [coin] = tx.splitCoins(tx.gas, [amount]);
+		tx.moveCall({
+			target: '0x2::coin::send_funds',
+			typeArguments: [SUI_TYPE],
+			arguments: [coin, tx.pure.address(address)],
+		});
+		const before = await this.addressBalance(address);
+		await this.executeAsFunder(tx);
+		// Address balances settle a little after the transaction.
+		await expect
+			.poll(() => this.addressBalance(address), {
+				message: `address balance reaches ${address}`,
+			})
+			.toBe(before + amount);
+	}
+
 	// Executes `tx` from a fresh account the faucet funds, and returns the
 	// objects it created, with their types.
 	async executeAsFunder(tx: Transaction) {
@@ -123,6 +145,15 @@ export class Chain {
 		return BigInt(balance.balance);
 	}
 
+	// The part of `address`'s SUI held as an address balance, not in coins.
+	async addressBalance(address: string) {
+		const { balance } = await this.client.getBalance({
+			owner: address,
+			coinType: SUI_TYPE,
+		});
+		return BigInt(balance.addressBalance);
+	}
+
 	// Returns base64 bytes of a fully built SUI transfer, as the API expects.
 	// Pass `gasCoin` to pay gas with that coin only.
 	async buildSuiTransfer({
@@ -152,13 +183,16 @@ export class Chain {
 	// Returns base64 bytes of a SUI transfer of more than `sender` holds, so
 	// executing (or simulating) it fails. Building with a client would
 	// simulate the transaction and reject it, so pin the gas coins, price and
-	// budget and build it offline instead.
+	// budget and build it offline instead. Pass `gasCoin` to pay gas with
+	// that coin only, leaving the others free for other transactions.
 	async buildOverdrawnSuiTransfer({
 		sender,
 		recipient,
+		gasCoin,
 	}: {
 		sender: string;
 		recipient: string;
+		gasCoin?: GasCoin;
 	}) {
 		const [coins, { referenceGasPrice }] =
 			await Promise.all([
@@ -167,7 +201,7 @@ export class Chain {
 			]);
 		const tx = new Transaction();
 		tx.setSender(sender);
-		tx.setGasPayment(coins);
+		tx.setGasPayment(gasCoin ? [gasCoin] : coins);
 		tx.setGasPrice(BigInt(referenceGasPrice));
 		tx.setGasBudget(10_000_000n);
 		const [coin] = tx.splitCoins(tx.gas, [

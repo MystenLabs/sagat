@@ -1,10 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useOutletContext } from 'react-router-dom';
+import {
+	useNavigate,
+	useOutletContext,
+} from 'react-router-dom';
 
 import { useAccountAssets } from '@/hooks/useAccountAssets';
 import { accountName } from '@/lib/account-name';
+import { newProposalPath } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { AccountValue } from '../multisig/AccountValue';
@@ -13,11 +17,9 @@ import {
 	TOKENS_SHOWN,
 	TokensCard,
 } from '../multisig/TokensCard';
-import { type ProposalIntent } from '../ProposalSheet';
 
 interface OverviewTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: (intent?: ProposalIntent) => void;
 }
 
 /**
@@ -25,8 +27,9 @@ interface OverviewTabContext {
  * its largest holdings, then the proposals still open.
  */
 export function OverviewTab() {
-	const { multisig, openProposalSheet } =
+	const { multisig } =
 		useOutletContext<OverviewTabContext>();
+	const navigate = useNavigate();
 	const assets = useAccountAssets(multisig.address, {
 		allPages: true,
 		displayCount: TOKENS_SHOWN,
@@ -43,14 +46,23 @@ export function OverviewTab() {
 				isLoading={assets.isLoading}
 				isError={assets.isError}
 				onSend={() =>
-					openProposalSheet({ kind: 'transfer' })
+					navigate(
+						newProposalPath(multisig.address, {
+							type: 'transfer',
+						}),
+					)
 				}
 			/>
 			<TokensCard
 				address={multisig.address}
 				assets={assets}
 				onSend={(coinType) =>
-					openProposalSheet({ kind: 'transfer', coinType })
+					navigate(
+						newProposalPath(multisig.address, {
+							type: 'transfer',
+							coinType,
+						}),
+					)
 				}
 			/>
 			<OpenProposals multisig={multisig} />
