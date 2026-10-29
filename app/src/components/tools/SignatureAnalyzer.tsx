@@ -11,17 +11,16 @@ import {
 	MultiSigPublicKey,
 	parsePartialSignatures,
 } from '@mysten/sui/multisig';
+import { formatAddress } from '@mysten/sui/utils';
 import { publicKeyFromRawBytes } from '@mysten/sui/verify';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Chip } from '@/components/ui/chip';
 import { CopyButton } from '@/components/ui/CopyButton';
 
 import {
 	BytesField,
 	NetworkField,
-	ShortValue,
 	ToolCard,
 } from './parts';
 
@@ -61,17 +60,11 @@ function getKeyTypeFromFlag(flag: number): string {
 			return `Unknown (${flag})`;
 	}
 }
-/** A value with a copy button beside it, for a list row. */
-function Copyable({
-	children,
-	value,
-}: {
-	children: ReactNode;
-	value: string;
-}) {
+/** A value in full, mono, with a copy button beside it, for a list row. */
+function Copyable({ value }: { value: string }) {
 	return (
-		<span className="flex items-center gap-1 font-mono text-12">
-			{children}
+		<span className="flex min-w-0 items-center gap-1 font-mono text-12">
+			<span className="min-w-0 break-all">{value}</span>
 			<CopyButton value={value} size="inline" />
 		</span>
 	);
@@ -106,13 +99,13 @@ function DetailRow({
 } & React.ComponentProps<'div'>) {
 	return (
 		<div
-			className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-3 py-2"
+			className="flex items-center justify-between gap-4 px-3 py-2"
 			{...props}
 		>
-			<span className="text-13 text-muted-foreground">
+			<span className="shrink-0 text-13 text-muted-foreground">
 				{label}
 			</span>
-			<div className="flex flex-wrap items-center justify-end gap-2 text-13">
+			<div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 text-right text-13">
 				{children}
 			</div>
 		</div>
@@ -151,25 +144,21 @@ function MultiSigDetails({
 		);
 
 	return (
-		<>
-			<DetailBlock
-				title="Multisig"
-				data-testid="multisig-details"
-				data-address={address}
-				data-threshold={multisigInfo.threshold}
-			>
+		<div
+			className="flex flex-col gap-5"
+			data-testid="multisig-details"
+			data-address={address}
+			data-threshold={multisigInfo.threshold}
+		>
+			<DetailBlock title="Multisig">
 				<DetailRow label="Multisig address">
-					<Copyable value={address}>
-						<ShortAddress address={address} />
-					</Copyable>
+					<Copyable value={address} />
 				</DetailRow>
 				<DetailRow label="Threshold">
 					{multisigInfo.threshold} of {totalWeight}
 				</DetailRow>
 				<DetailRow label="Combined public key">
-					<Copyable value={combinedKey}>
-						<ShortValue value={combinedKey} />
-					</Copyable>
+					<Copyable value={combinedKey} />
 				</DetailRow>
 			</DetailBlock>
 
@@ -190,16 +179,12 @@ function MultiSigDetails({
 								data-weight={participant.weight}
 								data-signed={signed}
 							>
-								<Copyable value={participant.suiAddress}>
-									<ShortAddress
-										address={participant.suiAddress}
-									/>
-								</Copyable>
-								<Copyable value={suiPublicKey}>
-									<ShortValue value={suiPublicKey} />
-								</Copyable>
+								<Copyable value={participant.suiAddress} />
+								<Copyable value={suiPublicKey} />
 								<SchemeChip scheme={participant.keyType} />
-								<span>Weight {participant.weight}</span>
+								<span className="shrink-0 whitespace-nowrap">
+									Weight {participant.weight}
+								</span>
 								{signed ? (
 									<Chip variant="success">Signed</Chip>
 								) : (
@@ -231,7 +216,10 @@ function MultiSigDetails({
 									{signer >= 0
 										? `Signer ${signer + 1}`
 										: 'Signer'}{' '}
-									· <ShortAddress address={suiAddress} />
+									·{' '}
+									<span className="font-mono text-12">
+										{formatAddress(suiAddress)}
+									</span>
 								</>
 							}
 							data-testid="signature-card"
@@ -240,16 +228,12 @@ function MultiSigDetails({
 						>
 							<Copyable
 								value={signature.serializedSignature}
-							>
-								<ShortValue
-									value={signature.serializedSignature}
-								/>
-							</Copyable>
+							/>
 						</DetailRow>
 					);
 				})}
 			</DetailBlock>
-		</>
+		</div>
 	);
 }
 
@@ -276,21 +260,13 @@ function SingleSignature({
 				/>
 			</DetailRow>
 			<DetailRow label="Signer">
-				<Copyable value={suiAddress}>
-					<ShortAddress address={suiAddress} />
-				</Copyable>
+				<Copyable value={suiAddress} />
 			</DetailRow>
 			<DetailRow label="Public key">
-				<Copyable value={suiPublicKey}>
-					<ShortValue value={suiPublicKey} />
-				</Copyable>
+				<Copyable value={suiPublicKey} />
 			</DetailRow>
 			<DetailRow label="Signature">
-				<Copyable value={signature.serializedSignature}>
-					<ShortValue
-						value={signature.serializedSignature}
-					/>
-				</Copyable>
+				<Copyable value={signature.serializedSignature} />
 			</DetailRow>
 		</DetailBlock>
 	);

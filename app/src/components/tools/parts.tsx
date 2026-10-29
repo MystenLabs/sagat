@@ -3,7 +3,6 @@
 
 import { type ReactNode } from 'react';
 
-import { CopyButton } from '@/components/ui/CopyButton';
 import { Label } from '@/components/ui/label';
 import {
 	Select,
@@ -12,12 +11,6 @@ import {
 	SelectTrigger,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@/components/ui/tooltip';
 import {
 	useNetwork,
 	type SuiNetwork,
@@ -193,44 +186,5 @@ export function ToolActions({
 				{children}
 			</div>
 		</div>
-	);
-}
-
-/**
- * Any long value (a key, a signature) cut to `first6…last4`, the full one
- * on hover or focus with a copy button, like `ShortAddress`.
- */
-export function ShortValue({
-	value,
-	className,
-}: {
-	value: string;
-	className?: string;
-}) {
-	const short =
-		value.length > 13
-			? `${value.slice(0, 6)}…${value.slice(-4)}`
-			: value;
-	return (
-		<TooltipProvider delay={150}>
-			<Tooltip>
-				<TooltipTrigger
-					type="button"
-					className={cn(
-						'cursor-help rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
-						className,
-					)}
-				>
-					{short}
-				</TooltipTrigger>
-				<TooltipContent className="max-w-[calc(100vw-2rem)] gap-2 pr-1.5 font-mono text-11 break-all">
-					{value}
-					<CopyButton
-						value={value}
-						className="shrink-0 text-background hover:bg-background/15 hover:text-background"
-					/>
-				</TooltipContent>
-			</Tooltip>
-		</TooltipProvider>
 	);
 }
