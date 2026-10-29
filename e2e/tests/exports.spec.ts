@@ -57,6 +57,7 @@ test('a proposal export is enough to execute it without the app', async ({
 	await signProposal(alice, proposal);
 
 	await alice.signIn();
+	await alice.openProposalsTab();
 	// Download is in the row's menu, which opens over the page.
 	await alice
 		.proposalRow(proposal.digest)

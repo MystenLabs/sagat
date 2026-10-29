@@ -73,6 +73,7 @@ test.describe('proposals', () => {
 
 		// Bob co-signs, which makes it executable, then executes it.
 		await bob.signIn();
+		await bob.openProposalsTab();
 		const bobCard = bob.proposalRow(digest!);
 		await bobCard
 			.getByTestId('proposal-toggle-details')
@@ -149,6 +150,7 @@ test.describe('proposals', () => {
 		});
 
 		await bob.signIn();
+		await bob.openProposalsTab();
 		const expiry = bob
 			.proposalRow(expiring.digest)
 			.getByTestId('proposal-expiry');
@@ -185,6 +187,7 @@ test.describe('proposals', () => {
 		});
 
 		await bob.signIn();
+		await bob.openProposalsTab();
 		const card = bob.proposalRow(proposal.digest);
 		await expect(card).toHaveAttribute(
 			'data-status',
