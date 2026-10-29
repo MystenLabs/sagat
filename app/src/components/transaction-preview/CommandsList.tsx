@@ -22,38 +22,14 @@ type AnyCommand = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyInput = any;
 
-const COMMAND_LABELS: Record<
-	string,
-	{ title: string; description: string }
-> = {
-	MoveCall: {
-		title: 'MoveCall',
-		description: 'Calls a smart contract function',
-	},
-	TransferObjects: {
-		title: 'TransferObjects',
-		description: 'Transfers objects to an address',
-	},
-	SplitCoins: {
-		title: 'SplitCoins',
-		description: 'Splits a coin into several',
-	},
-	MergeCoins: {
-		title: 'MergeCoins',
-		description: 'Merges coins into one',
-	},
-	Publish: {
-		title: 'Publish',
-		description: 'Publishes a new package',
-	},
-	Upgrade: {
-		title: 'Upgrade',
-		description: 'Upgrades a package',
-	},
-	MakeMoveVec: {
-		title: 'MakeMoveVec',
-		description: 'Creates a vector of Move values',
-	},
+const COMMAND_DESCRIPTIONS: Record<string, string> = {
+	MoveCall: 'Calls a smart contract function',
+	TransferObjects: 'Transfers objects to an address',
+	SplitCoins: 'Splits a coin into several',
+	MergeCoins: 'Merges coins into one',
+	Publish: 'Publishes a new package',
+	Upgrade: 'Upgrades a package',
+	MakeMoveVec: 'Creates a vector of Move values',
 };
 
 function Muted({ children }: { children: ReactNode }) {
@@ -339,7 +315,7 @@ export function CommandsList({
 						(command as AnyCommand).$kind ??
 						Object.keys(command)[0] ??
 						'Unknown';
-					const label = COMMAND_LABELS[kind];
+					const description = COMMAND_DESCRIPTIONS[kind];
 					return (
 						<li
 							key={index}
@@ -351,12 +327,10 @@ export function CommandsList({
 								<span className="text-muted-foreground tabular-nums">
 									{index}.
 								</span>
-								<span className="font-medium">
-									{label?.title ?? kind}
-								</span>
-								{label && (
+								<span className="font-medium">{kind}</span>
+								{description && (
 									<span className="text-12 text-muted-foreground">
-										{label.description}
+										{description}
 									</span>
 								)}
 							</div>

@@ -159,23 +159,28 @@ function PreviewResult({
 
 	const pending = simulation?.status === 'pending';
 	const passed = simulation?.status === 'passed';
+	// The block marks its own result; without it, this wrapper does.
+	const withBlock = !!(simulation && bytes);
+	const settledWithoutBlock = !pending && !withBlock;
 	// One tree for pending and settled, so the preview keeps its tab when
 	// the simulation lands.
 	return (
 		<div className="flex flex-col gap-4">
 			{/* Without the preview block, the analyzer shows on its own. */}
-			{!pending && !(simulation && bytes) && intentSummary}
+			{settledWithoutBlock && intentSummary}
 			<div
 				className="flex flex-col gap-4"
 				data-testid={
-					pending ? undefined : 'transaction-preview-result'
+					settledWithoutBlock
+						? 'transaction-preview-result'
+						: undefined
 				}
 				data-result={
-					pending
-						? undefined
-						: passed
+					settledWithoutBlock
+						? passed
 							? 'success'
 							: 'failure'
+						: undefined
 				}
 			>
 				{pending && (
@@ -183,7 +188,7 @@ function PreviewResult({
 						Previewing transaction…
 					</span>
 				)}
-				{simulation && bytes ? (
+				{withBlock ? (
 					<TransactionPreview
 						bytes={bytes}
 						analyzer={intentSummary}

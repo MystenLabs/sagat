@@ -140,30 +140,13 @@ export function ReviewStep({
 					{COPY.simulationUnreachable}
 				</RetryNotice>
 			) : (
-				// One wrapper for pending and settled, so the preview keeps
-				// its tab when the simulation lands.
-				<div
-					data-testid={
-						settled
-							? 'transaction-preview-result'
-							: undefined
-					}
-					data-result={
-						settled
-							? simulationPassed
-								? 'success'
-								: 'failure'
-							: undefined
-					}
-				>
-					<TransactionPreview
-						bytes={bytes}
-						accounts={accounts}
-						analyzer={analyzer}
-						analyzerCount={analyzerCount}
-						{...simulation}
-					/>
-				</div>
+				<TransactionPreview
+					bytes={bytes}
+					accounts={accounts}
+					analyzer={analyzer}
+					analyzerCount={analyzerCount}
+					{...simulation}
+				/>
 			)}
 
 			<Separator />

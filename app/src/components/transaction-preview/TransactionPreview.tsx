@@ -33,7 +33,7 @@ import { CommandsList } from './CommandsList';
 import { DetailsTable } from './DetailsTable';
 import { EventsList } from './EventsList';
 import { ObjectChangesList } from './ObjectChangesList';
-import { EmptyPanel } from './parts';
+import { EmptyPanel, PreviewHeading } from './parts';
 
 type TabId =
 	| 'balance-changes'
@@ -212,18 +212,19 @@ export function TransactionPreview({
 		<section
 			className="flex min-w-0 flex-col gap-4"
 			data-status={model.status}
+			data-testid={
+				pending ? undefined : 'transaction-preview-result'
+			}
+			data-result={
+				pending
+					? undefined
+					: model.status === 'passed'
+						? 'success'
+						: 'failure'
+			}
 			aria-busy={pending || undefined}
 		>
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<h3 className="text-15 font-medium">
-					Transaction preview
-				</h3>
-				{actions && (
-					<div className="flex flex-wrap items-center gap-2">
-						{actions}
-					</div>
-				)}
-			</div>
+			<PreviewHeading actions={actions} />
 
 			<div className="flex items-center gap-2">
 				<Tabs

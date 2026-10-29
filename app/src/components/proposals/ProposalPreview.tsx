@@ -6,6 +6,7 @@ import { formatAddress } from '@mysten/sui/utils';
 import { Check, Clock, X } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 
+import { PreviewHeading } from '@/components/transaction-preview/parts';
 import { simulationProps } from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
 import { type ProposalCardInput } from '@/lib/types';
@@ -122,9 +123,6 @@ export function ProposalPreview({
 		</>
 	);
 
-	const settled =
-		!!simulation && simulation.status !== 'pending';
-
 	const analyzer = (
 		<IntentSummary
 			analysis={analysis.data}
@@ -140,42 +138,18 @@ export function ProposalPreview({
 	return (
 		<div className="flex flex-col gap-3">
 			{simulation ? (
-				// One wrapper for pending and settled, so the preview keeps
-				// its tab when the simulation lands.
-				<div
-					data-testid={
-						settled
-							? 'transaction-preview-result'
-							: undefined
-					}
-					data-result={
-						settled
-							? isDryRunSuccessful
-								? 'success'
-								: 'failure'
-							: undefined
-					}
-				>
-					<TransactionPreview
-						bytes={proposal.transactionBytes}
-						accounts={accounts}
-						actions={actions}
-						analyzer={analyzer}
-						analyzerCount={analyzerCount}
-						{...simulation}
-					/>
-				</div>
+				<TransactionPreview
+					bytes={proposal.transactionBytes}
+					accounts={accounts}
+					actions={actions}
+					analyzer={analyzer}
+					analyzerCount={analyzerCount}
+					{...simulation}
+				/>
 			) : (
 				<>
 					{analyzer}
-					<div className="flex items-center justify-between gap-3">
-						<h3 className="text-15 font-medium">
-							Transaction preview
-						</h3>
-						<div className="flex flex-wrap items-center gap-2">
-							{actions}
-						</div>
-					</div>
+					<PreviewHeading actions={actions} />
 					<p
 						className="rounded-lg border border-error-border bg-card p-3 text-13 text-error-foreground"
 						data-testid="transaction-preview-unreachable"
