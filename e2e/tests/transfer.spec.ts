@@ -111,7 +111,7 @@ test.describe('transfer form', () => {
 		await expectSimulation(alice.page, 'success');
 		await proposeAndSign(alice.page);
 
-		const card = alice.page.getByTestId('proposal-card');
+		const card = alice.page.getByTestId('proposal-row');
 		await expect(card).toHaveAttribute(
 			'data-status',
 			'ready',
@@ -165,7 +165,7 @@ test.describe('transfer form', () => {
 		await expectSimulation(alice.page, 'success');
 		await proposeAndSign(alice.page);
 
-		const card = alice.page.getByTestId('proposal-card');
+		const card = alice.page.getByTestId('proposal-row');
 		await card
 			.getByTestId('execute-proposal-button')
 			.click();

@@ -131,7 +131,7 @@ export function amountError(page: Page) {
 
 /** Executes the one proposal on the page and returns its digest. */
 export async function executeProposal(page: Page) {
-	const card = page.getByTestId('proposal-card');
+	const card = page.getByTestId('proposal-row');
 	await expect(card).toHaveAttribute(
 		'data-status',
 		'ready',

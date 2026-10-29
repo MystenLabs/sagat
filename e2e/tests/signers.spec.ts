@@ -357,7 +357,7 @@ test.describe('overview and signers', () => {
 		await alice.signIn();
 		const { page } = alice;
 		await page.getByTestId('multisig-tab-overview').click();
-		const rows = page.getByTestId('open-proposal');
+		const rows = page.getByTestId('proposal-row');
 		await expect(rows).toHaveCount(2);
 
 		await test.step('the value, the tokens, receive and send', async () => {
@@ -427,7 +427,7 @@ test.describe('overview and signers', () => {
 		});
 
 		await test.step('each open proposal shows its title, proposer, status and weight', async () => {
-			const row = alice.openProposal(pending.digest);
+			const row = alice.proposalRow(pending.digest);
 			await expect(row).toHaveAttribute(
 				'data-status',
 				'pending',
@@ -436,10 +436,10 @@ test.describe('overview and signers', () => {
 				row.getByTestId('proposal-status'),
 			).toHaveText('Pending');
 			await expect(
-				row.getByTestId('open-proposal-title'),
+				row.getByTestId('proposal-title'),
 			).toHaveText('Pay the grants wallet');
 			await expect(
-				row.getByTestId('open-proposal-proposer'),
+				row.getByTestId('proposal-proposer'),
 			).toHaveText('Proposed by Bob');
 			const weight = row.getByTestId('proposal-weight');
 			await expect(weight).toHaveAttribute(
@@ -458,7 +458,7 @@ test.describe('overview and signers', () => {
 				row.getByTestId('execute-proposal-button'),
 			).toHaveCount(0);
 
-			const other = alice.openProposal(ready.digest);
+			const other = alice.proposalRow(ready.digest);
 			await expect(other).toHaveAttribute(
 				'data-status',
 				'ready',
@@ -468,12 +468,12 @@ test.describe('overview and signers', () => {
 			).toHaveText('Ready');
 			// Without a description, the proposal goes by its digest.
 			await expect(
-				other.getByTestId('open-proposal-title'),
+				other.getByTestId('proposal-title'),
 			).toHaveText(
 				`Transaction ${formatDigest(ready.digest)}`,
 			);
 			await expect(
-				other.getByTestId('open-proposal-proposer'),
+				other.getByTestId('proposal-proposer'),
 			).toHaveText('Proposed by Alice (you)');
 			await expect(
 				other.getByTestId('proposal-weight'),
@@ -482,7 +482,7 @@ test.describe('overview and signers', () => {
 
 		await test.step('executing a ready proposal takes it off the list', async () => {
 			await alice
-				.openProposal(ready.digest)
+				.proposalRow(ready.digest)
 				.getByTestId('execute-proposal-button')
 				.click();
 			await expect(
@@ -492,7 +492,7 @@ test.describe('overview and signers', () => {
 				),
 			).toBeVisible();
 			await expect(
-				alice.openProposal(ready.digest),
+				alice.proposalRow(ready.digest),
 			).toHaveCount(0);
 			await expect(rows).toHaveCount(1);
 		});
@@ -503,7 +503,7 @@ test.describe('overview and signers', () => {
 				page.getByRole('heading', { level: 1 }),
 			).toHaveText('Proposals');
 			await expect(
-				alice.proposalCard(pending.digest),
+				alice.proposalRow(pending.digest),
 			).toBeVisible();
 		});
 	});

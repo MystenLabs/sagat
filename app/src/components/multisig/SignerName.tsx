@@ -43,12 +43,13 @@ const SIZES = {
 const MARKERS = {
 	you: { word: 'You', parens: '(you)' },
 	creator: { word: 'Creator', parens: '(creator)' },
+	external: { word: 'External', parens: '(external)' },
 } as const;
 
 /**
  * A signer's name over their short address when the key has a label;
  * the short address alone when it doesn't. A marker ("You", "(you)",
- * "Creator") follows the first line, and `copy` adds a copy button
+ * "Creator", "(external)") follows the first line, and `copy` adds a copy button
  * after the address.
  */
 export function SignerName({
@@ -63,7 +64,7 @@ export function SignerName({
 }: {
 	label: string | null;
 	address?: string;
-	marker?: 'you' | 'creator' | null;
+	marker?: keyof typeof MARKERS | null;
 	markerStyle?: 'word' | 'parens';
 	copy?: boolean;
 	size?: keyof typeof SIZES;

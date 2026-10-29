@@ -29,16 +29,19 @@ function DropdownMenuPortal({
 	);
 }
 
-function DropdownMenuTrigger({
-	...props
-}: MenuPrimitive.Trigger.Props) {
+// forwardRef so a Tooltip trigger can render it and anchor to it.
+const DropdownMenuTrigger = React.forwardRef<
+	HTMLButtonElement,
+	MenuPrimitive.Trigger.Props
+>(function DropdownMenuTrigger(props, ref) {
 	return (
 		<MenuPrimitive.Trigger
+			ref={ref}
 			data-slot="dropdown-menu-trigger"
 			{...props}
 		/>
 	);
-}
+});
 
 function DropdownMenuContent({
 	align = 'start',

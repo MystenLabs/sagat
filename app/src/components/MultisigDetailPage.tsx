@@ -125,7 +125,10 @@ export function MultisigDetailPage() {
 					{ label: name, mono: !multisig.name },
 				]}
 				title={title}
-				address={multisig.address}
+				// The other account pages show no address under the title.
+				address={
+					page === 'overview' ? multisig.address : undefined
+				}
 				actions={
 					<Button
 						onClick={() =>

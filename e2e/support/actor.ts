@@ -187,9 +187,10 @@ export class Actor extends Identity {
 		);
 	}
 
-	openProposal(digest: string) {
+	// A proposal's row in the overview's or the proposals page's table.
+	proposalRow(digest: string) {
 		return this.page.locator(
-			`[data-testid="open-proposal"][data-digest="${digest}"]`,
+			`[data-testid="proposal-row"][data-digest="${digest}"]`,
 		);
 	}
 
