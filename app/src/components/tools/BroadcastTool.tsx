@@ -125,8 +125,8 @@ export default function BroadcastTool() {
 
 		try {
 			const result = await client.executeTransaction({
-				transaction: fromBase64(transactionBytes.trim()),
-				signatures: [signature.trim()],
+				transaction: fromBase64(bytesInput),
+				signatures: [signatureInput],
 				include: {
 					effects: true,
 				},
