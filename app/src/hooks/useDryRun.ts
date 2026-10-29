@@ -6,9 +6,18 @@ import { RpcError } from '@mysten/sui/grpc';
 import { Transaction } from '@mysten/sui/transactions';
 import { useMutation } from '@tanstack/react-query';
 
-/** The simulation ran and the transaction failed; the message says why. */
+import type { SimulatedTransaction } from '@/lib/transaction-preview';
+
+/**
+ * The simulation ran and the transaction failed; the message says why,
+ * and `transaction` is the failed run's payload (digest, epoch, gas,
+ * effects).
+ */
 export class SimulationFailedError extends Error {
-	constructor(message: string) {
+	constructor(
+		message: string,
+		readonly transaction: SimulatedTransaction,
+	) {
 		super(message);
 		this.name = 'SimulationFailedError';
 	}
@@ -64,6 +73,7 @@ export function useDryRun() {
 				throw new SimulationFailedError(
 					result.FailedTransaction.effects.status.error
 						?.message ?? '',
+					result.FailedTransaction,
 				);
 			}
 

@@ -3,15 +3,6 @@
 
 import { fromBase64, toHex } from '@mysten/sui/utils';
 
-export const onChainAmountToFloat = (
-	amount: string,
-	decimals: number,
-) => {
-	const total = parseFloat(amount);
-
-	return total / Math.pow(10, decimals);
-};
-
 function readUleb128(bytes: Uint8Array): {
 	count: number | null;
 	offset: number;

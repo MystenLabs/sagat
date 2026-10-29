@@ -8,7 +8,7 @@ import { describe, expect, test } from 'vitest';
 import {
 	tryDecodePure,
 	type DecodedPure,
-} from '../src/components/preview-effects/utils';
+} from '../src/lib/decode-pure';
 
 function serialize(
 	type: {

@@ -361,6 +361,12 @@ test.describe('proposals', () => {
 			alice.page.getByTestId('review-simulation-error'),
 		).toBeVisible();
 		await expect(
+			alice.page.getByTestId('transaction-preview-status'),
+		).toHaveAttribute('data-status', 'failed');
+		await expect(
+			alice.page.getByTestId('transaction-preview-error'),
+		).toContainText('InsufficientCoinBalance');
+		await expect(
 			alice.page.getByTestId('review-submit'),
 		).toHaveText('Propose and sign anyway');
 	});

@@ -7,17 +7,26 @@ import {
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
 import type { SuiClientTypes } from '@mysten/sui/client';
-import { Transaction } from '@mysten/sui/transactions';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
 import {
 	AlertCircle,
 	Check,
 	ExternalLink,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { NetworkSelector } from '@/components/NetworkSelector';
-import { EffectsPreview } from '@/components/preview-effects/EffectsPreview';
-import { IntentSummary } from '@/components/preview-effects/IntentSummary';
+import { analyzerTab } from '@/components/preview-effects/IntentSummary';
+import {
+	pendingSimulation,
+	simulationProps,
+	type SimulationProps,
+} from '@/components/transaction-preview/simulation';
+import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
 import { Alert } from '@/components/ui/Alert';
 import {
 	Button,
@@ -25,12 +34,9 @@ import {
 } from '@/components/ui/button';
 import { FieldDisplay } from '@/components/ui/FieldDisplay';
 import { Label } from '@/components/ui/label';
-import {
-	Skeleton,
-	SkeletonLine,
-} from '@/components/ui/skeleton';
+import { SkeletonLine } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
-import { type TransactionAnalysis } from '@/hooks/useTransactionAnalysis';
+import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { toast } from '@/lib/toast';
 import {
@@ -39,15 +45,6 @@ import {
 	getExplorerUrl,
 	safeDecode,
 } from '@/lib/utils';
-
-type SimulateResult =
-	SuiClientTypes.SimulateTransactionResult<{
-		effects: true;
-		balanceChanges: true;
-		events: true;
-		transaction: true;
-		objectTypes: true;
-	}>;
 
 interface SignedResult {
 	digest?: string;
@@ -85,99 +82,118 @@ function TransactionInput({
 	);
 }
 
+/**
+ * The input as base64 transaction bytes for the preview, which are also
+ * the bytes signed. Bytes stay as pasted. JSON is built offline only when
+ * it is fully resolved, since then the dry run builds it without the
+ * resolver and so to the same bytes; otherwise the resolver may still set
+ * fields (gas, or the expiration an address-balance gas payment needs),
+ * so these are the bytes of the transaction the dry run of this input
+ * simulated, which is only there once it settled. Null until then, or
+ * when none of these work.
+ */
+function previewBytes(
+	input: string,
+	simulated?: SuiClientTypes.TransactionData,
+): string | null {
+	const trimmed = input.trim();
+	try {
+		if (!trimmed.startsWith('{')) {
+			Transaction.from(trimmed);
+			return trimmed;
+		}
+		if (simulated) {
+			return toBase64(
+				TransactionDataBuilder.restore(simulated).build(),
+			);
+		}
+		const tx = Transaction.from(trimmed);
+		if (!tx.isFullyResolved()) return null;
+		return toBase64(
+			TransactionDataBuilder.restore(tx.getData()).build(),
+		);
+	} catch {
+		return null;
+	}
+}
+
+const networkWarning = (
+	<Alert variant="warning">
+		Make sure the network next to the input matches the
+		transaction.
+	</Alert>
+);
+
 function PreviewResult({
-	isSuccess,
-	data,
-	error,
-	isLoading,
+	simulation,
+	dryRunError,
 	bytes,
 	analysis,
-	isAnalysisLoading,
-	analysisError,
 }: {
-	isSuccess: boolean;
-	data: SimulateResult | undefined;
-	error: Error | null;
-	isLoading: boolean;
-	bytes?: string;
-	analysis?: TransactionAnalysis;
-	isAnalysisLoading?: boolean;
-	analysisError?: Error | null;
+	/** The current input's simulation (see `simulationProps`). */
+	simulation: SimulationProps | null;
+	/** Why the current input's dry run failed, if it did. */
+	dryRunError?: string;
+	/** The bytes the preview shows (see `previewBytes`), also what is signed. */
+	bytes: string | null;
+	analysis: ReturnType<typeof useTransactionAnalysis>;
 }) {
-	if (isLoading) {
-		return (
+	const { analyzer, analyzerCount } = analyzerTab(analysis);
+
+	const pending = simulation?.status === 'pending';
+	const passed = simulation?.status === 'passed';
+	// The block marks its own result; without it, this wrapper does.
+	const withBlock = !!(simulation && bytes);
+	const settledWithoutBlock = !pending && !withBlock;
+	// One tree for pending and settled, so the preview keeps its tab when
+	// the simulation lands.
+	return (
+		<div className="flex flex-col gap-4">
+			{/* Without the preview block, the analyzer shows on its own. */}
+			{settledWithoutBlock && analyzer}
 			<div
-				role="status"
-				aria-busy
-				className="flex flex-col gap-3"
-				data-testid="transaction-preview-loading"
+				className="flex flex-col gap-4"
+				data-testid={
+					settledWithoutBlock
+						? 'transaction-preview-result'
+						: undefined
+				}
+				data-result={
+					settledWithoutBlock
+						? passed
+							? 'success'
+							: 'failure'
+						: undefined
+				}
 			>
-				<span className="sr-only">
-					Previewing transaction…
-				</span>
-				<SkeletonLine className="h-3 w-36" />
-				<div className="flex flex-col gap-3 rounded-lg border bg-surface p-4">
-					<SkeletonLine className="w-48" />
-					<div className="flex flex-col gap-2">
-						<SkeletonLine className="w-3/4" />
+				{pending && (
+					<span className="sr-only" role="status">
+						Previewing transaction…
+					</span>
+				)}
+				{withBlock ? (
+					<TransactionPreview
+						bytes={bytes}
+						analyzer={analyzer}
+						analyzerCount={analyzerCount}
+						{...simulation}
+					/>
+				) : pending ? (
+					<div className="flex flex-col gap-3 rounded-lg border p-4">
+						<SkeletonLine className="w-48" />
 						<SkeletonLine className="w-3/4" />
 						<SkeletonLine className="w-1/4" />
 					</div>
-					<Skeleton className="h-8 w-full rounded-md" />
-				</div>
-			</div>
-		);
-	}
-
-	return (
-		<div
-			className="flex flex-col gap-3"
-			data-testid="transaction-preview-result"
-			data-result={isSuccess ? 'success' : 'failure'}
-		>
-			<div className="flex items-center gap-2 text-14 font-medium">
-				{isSuccess ? (
-					<>
-						<Check
-							strokeWidth={3}
-							className="size-4 text-success-foreground"
-						/>
-						Preview succeeded
-					</>
 				) : (
-					<>
-						<AlertCircle className="size-4 text-error-foreground" />
-						Preview failed
-					</>
-				)}
-			</div>
-			{isSuccess && data ? (
-				<EffectsPreview
-					output={data}
-					bytes={bytes}
-					analysis={analysis}
-					isAnalysisLoading={isAnalysisLoading}
-					analysisError={analysisError}
-				/>
-			) : (
-				<div className="flex flex-col gap-3">
-					<IntentSummary
-						analysis={analysis}
-						isLoading={isAnalysisLoading}
-						error={analysisError}
-					/>
 					<p className="text-13 whitespace-pre-wrap text-error-foreground">
 						{safeDecode(
-							error?.message ||
+							dryRunError ||
 								'Transaction would fail on-chain',
 						)}
 					</p>
-					<Alert variant="warning">
-						Make sure the network next to the input matches
-						the transaction.
-					</Alert>
-				</div>
-			)}
+				)}
+				{!pending && !passed && networkWarning}
+			</div>
 		</div>
 	);
 }
@@ -325,9 +341,23 @@ export default function SigningTool() {
 		reset: resetPreview,
 	} = useTransactionPreview();
 
+	// A dry run of an earlier input counts as pending, so its result never
+	// stands in for this input's.
+	const current = dryRun.variables === transactionData;
+	const simulation = current
+		? simulationProps(dryRun)
+		: pendingSimulation;
+	const simulated = simulation?.result?.transaction;
+
+	// What the preview shows and what is signed, so the digest and Ledger
+	// hash the user checked are those of the signed bytes.
+	const bytes = useMemo(
+		() => previewBytes(transactionData, simulated),
+		[transactionData, simulated],
+	);
+
 	const isDryRunSuccessful =
-		dryRun.isSuccess &&
-		dryRun.data?.Transaction?.effects.status.success;
+		simulation?.status === 'passed';
 
 	useEffect(() => {
 		resetPreview();
@@ -347,24 +377,17 @@ export default function SigningTool() {
 
 	const handleTransactionDataChange = (value: string) => {
 		setTransactionData(value);
-		if (
-			analysis.data ||
-			analysis.error ||
-			dryRun.data ||
-			dryRun.error
-		) {
-			resetPreview();
-		}
+		resetPreview();
 		if (signedResult) {
 			setSignedResult(null);
 		}
 	};
 
 	const handleSign = async (shouldExecute: boolean) => {
-		if (!transactionData || isSignPending) return;
+		if (!bytes || isSignPending) return;
 
 		try {
-			const tx = Transaction.from(transactionData);
+			const tx = Transaction.from(bytes);
 
 			if (shouldExecute) {
 				setIsSigningAndExecuting(true);
@@ -379,7 +402,7 @@ export default function SigningTool() {
 				setSignedResult({
 					digest: txResult?.digest,
 					signature: txResult?.signatures[0] ?? '',
-					bytes: transactionData,
+					bytes,
 					failure: failed
 						? {
 								message:
@@ -434,14 +457,12 @@ export default function SigningTool() {
 					dryRun.data ||
 					dryRun.error) && (
 					<PreviewResult
-						isSuccess={isDryRunSuccessful}
-						data={dryRun.data}
-						error={dryRun.error}
-						isLoading={dryRun.isPending}
-						bytes={transactionData}
-						analysis={analysis.data}
-						isAnalysisLoading={analysis.isPending}
-						analysisError={analysis.error}
+						simulation={simulation}
+						dryRunError={
+							current ? dryRun.error?.message : undefined
+						}
+						bytes={bytes}
+						analysis={analysis}
 					/>
 				)}
 

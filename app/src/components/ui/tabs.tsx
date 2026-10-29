@@ -56,6 +56,7 @@ export function Tabs({
 							type="button"
 							data-testid={tabTestId(tab.id)}
 							data-active={isActive || undefined}
+							data-count={tab.count}
 							onClick={() => onTabChange(tab.id)}
 							className={cn(
 								'inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1.5 text-13 transition-colors',
@@ -94,6 +95,7 @@ export function Tabs({
 						type="button"
 						data-testid={tabTestId(tab.id)}
 						data-active={activeTab === tab.id || undefined}
+						data-count={tab.count}
 						onClick={() => onTabChange(tab.id)}
 						className={cn(
 							'-mb-px flex cursor-pointer items-center gap-2 border-b-2 px-3 py-3 text-13 font-medium transition-colors',
