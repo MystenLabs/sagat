@@ -124,7 +124,7 @@ export function ProposalRow({
 				? 'external'
 				: null;
 	// The overview's actions cell is empty unless there is something to do;
-	// stacked, an empty cell would leave a blank line.
+	// stacked, it would only leave an empty grid column, but hide it anyway.
 	const hasActions =
 		list || status === 'ready' || explorerIsPrimary;
 
@@ -133,13 +133,13 @@ export function ProposalRow({
 			<tr
 				className={cn(
 					tableRowClass,
-					'@max-md:grid @max-md:grid-cols-[auto_1fr] @max-md:gap-x-3 @max-md:gap-y-2 @max-md:px-3 @max-md:py-3',
+					'@max-md:grid @max-md:grid-cols-[auto_auto_1fr] @max-md:gap-x-3 @max-md:gap-y-2 @max-md:px-3 @max-md:py-3',
 				)}
 				data-testid="proposal-row"
 				data-digest={proposal.digest}
 				data-status={status}
 			>
-				<td className="px-3 py-2.75 @max-md:col-span-2 @max-md:block @max-md:p-0">
+				<td className="px-3 py-2.75 @max-md:col-span-3 @max-md:block @max-md:p-0">
 					<div className="flex min-w-0 items-center gap-3">
 						{variant === 'overview' && (
 							// The kind of proposal isn't decoded yet, so one icon for all.
@@ -264,11 +264,11 @@ export function ProposalRow({
 				)}
 				<td
 					className={cn(
-						'px-3 py-2.75 max-sm:pl-0 @max-md:col-span-2 @max-md:block @max-md:p-0',
+						'px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0',
 						!hasActions && '@max-md:hidden',
 					)}
 				>
-					<div className="flex items-center justify-end gap-1">
+					<div className="flex items-center justify-end gap-1 @max-md:flex-wrap">
 						{status === 'ready' && (
 							<Button
 								size="sm"
