@@ -59,7 +59,7 @@ export function useAddProposer(
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisig, multisigAddress],
 			});
-			toast.success('Proposer added successfully');
+			toast.success('External proposer added');
 			options?.onSuccess?.();
 		},
 		onError: (error) => {

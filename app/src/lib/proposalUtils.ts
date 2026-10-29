@@ -6,6 +6,7 @@ import {
 	type MultisigWithMembers,
 	type Proposal,
 	type ProposalWithSignatures,
+	type VoteProposalResponse,
 } from '@mysten/sagat';
 import { formatDigest } from '@mysten/sui/utils';
 
@@ -126,6 +127,19 @@ export function proposalTitle(
 			: description;
 	}
 	return `Transaction ${formatDigest(proposal.digest)}`;
+}
+
+/**
+ * The toast once a signature lands: the weight the proposal still needs
+ * after the vote's tally, or just the confirmation once the vote reached
+ * the proposal's threshold.
+ */
+export function signatureAddedMessage(
+	vote: VoteProposalResponse,
+	totalWeight: number,
+) {
+	if (vote.hasReachedThreshold) return 'Signature added';
+	return `Signature added. Needs ${totalWeight - vote.currentWeight} more weight.`;
 }
 
 /**

@@ -50,7 +50,7 @@ export function useCancelProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
 			});
-			toast.success('Proposal cancelled successfully');
+			toast.success('Proposal cancelled');
 		},
 		onError: (error: Error) => {
 			toast.error(
