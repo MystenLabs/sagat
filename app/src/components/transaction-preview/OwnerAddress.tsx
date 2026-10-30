@@ -31,47 +31,37 @@ const getOwnerDisplay = (
 };
 
 /**
- * An object id, or an object's owner, in the preview's cells. Addresses
- * and ids show like every other address: short, with the full value and
- * a copy button on hover or focus. The sender shows as "Sender"; owners
- * without an address (immutable, shared) as plain text.
+ * An object's owner in the preview's cells. Address and object owners
+ * show like every other address: short, with the full value and a copy
+ * button on hover or focus. The sender shows as "Sender"; owners without
+ * an address (immutable, shared) as plain text.
  */
-export function ObjectAddress({
+export function OwnerAddress({
 	owner,
-	object,
-	inputObject,
 	senderAddress,
 }: {
-	inputObject?: string;
-	owner?: SuiClientTypes.ObjectOwner;
-	object?: SuiClientTypes.ChangedObject;
+	owner: SuiClientTypes.ObjectOwner;
 	senderAddress?: string;
 }) {
-	const ownerDisplay = owner
-		? getOwnerDisplay(owner)
-		: undefined;
+	const ownerDisplay = getOwnerDisplay(owner);
 
 	if (typeof ownerDisplay === 'string') {
 		return <span>{ownerDisplay}</span>;
 	}
 
 	const ownerAddress =
-		ownerDisplay && 'address' in ownerDisplay
+		'address' in ownerDisplay
 			? ownerDisplay.address
 			: undefined;
 	const id =
-		object?.objectId ??
-		inputObject ??
 		ownerAddress ??
-		(ownerDisplay && 'object' in ownerDisplay
+		('object' in ownerDisplay
 			? ownerDisplay.object
 			: undefined);
 
 	if (!id) return <span>-</span>;
 
 	const isSender =
-		!object &&
-		!inputObject &&
 		!!ownerAddress &&
 		!!senderAddress &&
 		isSameAddress(ownerAddress, senderAddress);

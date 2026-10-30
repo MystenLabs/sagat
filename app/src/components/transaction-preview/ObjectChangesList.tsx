@@ -4,11 +4,12 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { useMemo, useState } from 'react';
 
+import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Chip, type ChipProps } from '@/components/ui/chip';
 import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
-import { ObjectAddress } from './ObjectAddress';
+import { OwnerAddress } from './OwnerAddress';
 import { EmptyPanel, Field } from './parts';
 
 type ChipVariant = NonNullable<ChipProps['variant']>;
@@ -182,13 +183,13 @@ export function ObjectChangesList({
 						)}
 						<Field label="Object ID">
 							<span className="flex min-w-0 items-center font-mono text-12 break-all">
-								<ObjectAddress object={object} />
+								<ShortAddress address={object.objectId} />
 							</span>
 						</Field>
 						{object.outputOwner && (
 							<Field label="Owner">
 								<span className="flex min-w-0 items-center font-mono text-12 break-all">
-									<ObjectAddress
+									<OwnerAddress
 										owner={object.outputOwner}
 										senderAddress={senderAddress}
 									/>
