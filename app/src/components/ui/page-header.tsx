@@ -10,8 +10,6 @@ import { cn } from '@/lib/utils';
 export interface Crumb {
 	label: string;
 	to?: string;
-	/** Addresses and digests: mono, not uppercased. */
-	mono?: boolean;
 }
 
 interface PageHeaderProps {
@@ -71,19 +69,13 @@ export function PageHeader({
 								{crumb.to ? (
 									<Link
 										to={crumb.to}
-										className={cn(
-											'truncate hover:text-foreground',
-											crumb.mono && 'font-mono normal-case',
-										)}
+										className="truncate hover:text-foreground"
 									>
 										{crumb.label}
 									</Link>
 								) : (
 									<span
-										className={cn(
-											'truncate',
-											crumb.mono && 'font-mono normal-case',
-										)}
+										className="truncate"
 										aria-current="page"
 									>
 										{crumb.label}

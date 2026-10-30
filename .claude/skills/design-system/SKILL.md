@@ -116,10 +116,11 @@ Rules:
   items, select items, tabs, switches, rows that navigate. Never add a
   global or `@layer base` cursor rule. Generated shadcn items ship with
   `cursor-default`; replace it.
-- Page chrome: `PageHeader` (title, breadcrumb, address with copy,
-  description, actions) on every page. Status pills are `Chip`.
-  Tabs are the custom `Tabs` (`underline` or `pills`). Dialogs go
-  through `Modal` / `ModalHeader` / `ModalContent` / `ModalActions`.
+- Page chrome: `PageHeader` (title, with a breadcrumb, back link or
+  eyebrow above it, description, actions) on every page. Status pills
+  are `Chip`. Tabs are the custom `Tabs` (`underline` or `pills`).
+  Dialogs go through `Modal` / `ModalHeader` / `ModalContent` /
+  `ModalActions`.
 - Tooltips on every icon-only control, including the collapsed sidebar
   rail.
 - Feedback states are shared: `toast` from `@/lib/toast` (never `sonner`
