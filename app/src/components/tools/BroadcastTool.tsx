@@ -11,6 +11,7 @@ import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { type SuiNetwork } from '@/lib/network';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
@@ -35,11 +36,6 @@ interface BroadcastResult {
 	/** The network it was broadcast on, for the explorer link. */
 	network: string;
 }
-
-const CANT_READ_BYTES =
-	'Can’t read this as transaction bytes. Paste the full bytes in base64.';
-const CANT_READ_SIGNATURE =
-	'Can’t read this as a signature. Paste the combined signature in base64.';
 
 /** Whether the value decodes as base64. */
 function isBase64(value: string) {
@@ -70,20 +66,20 @@ function BroadcastResultDisplay({
 			data-digest={result.digest}
 		>
 			<Alert variant="success">
-				Sent. The network accepted this transaction.
+				{content.tools.broadcast.sent}
 			</Alert>
 			<ReadOnlyField
-				label="Transaction digest"
+				label={content.tools.transactionDigest}
 				value={result.digest}
 			/>
 			<ResultActions
 				onReset={onReset}
-				resetLabel="Broadcast another"
+				resetLabel={content.tools.broadcast.another}
 				resetTestId="broadcast-reset-button"
 				explorerUrl={explorerUrl}
 				copyValue={result.digest}
-				copyLabel="Copy digest"
-				copyMessage="Digest copied"
+				copyLabel={content.tools.copyDigest}
+				copyMessage={content.toasts.digestCopied}
 			/>
 		</div>
 	);
@@ -136,8 +132,7 @@ export default function BroadcastTool() {
 				setError({
 					message:
 						result.FailedTransaction.effects.status.error
-							?.message ||
-						'Failed to broadcast transaction',
+							?.message || content.tools.broadcast.failed,
 					network: broadcastNetwork,
 				});
 				return;
@@ -156,7 +151,7 @@ export default function BroadcastTool() {
 				message:
 					err instanceof Error
 						? err.message
-						: 'Failed to broadcast transaction',
+						: content.tools.broadcast.failed,
 				network: broadcastNetwork,
 			});
 		} finally {
@@ -189,8 +184,10 @@ export default function BroadcastTool() {
 				>
 					<span className="whitespace-pre-wrap">
 						{error.network === network
-							? 'Broadcast failed'
-							: `Broadcast on ${error.network} failed`}
+							? content.tools.broadcast.errorTitle
+							: content.tools.broadcast.errorTitleOn(
+									error.network,
+								)}
 						: {safeDecode(error.message)}
 					</span>
 				</Alert>
@@ -199,30 +196,36 @@ export default function BroadcastTool() {
 				<NetworkField />
 				<BytesField
 					id="transaction-bytes"
-					label="Transaction bytes"
+					label={content.tools.broadcast.bytesLabel}
 					testId="broadcast-bytes-input"
-					placeholder="Paste the transaction bytes (base64)"
+					placeholder={
+						content.tools.broadcast.bytesPlaceholder
+					}
 					minHeight="min-h-30"
 					value={transactionBytes}
 					onChange={edit(setTransactionBytes)}
 					readOnly={!!result || broadcasting}
 					error={
-						bytesUnreadable ? CANT_READ_BYTES : undefined
+						bytesUnreadable
+							? content.tools.broadcast.bytesUnreadable
+							: undefined
 					}
 					errorTestId="broadcast-bytes-error"
 				/>
 				<BytesField
 					id="signature"
-					label="Combined signature"
+					label={content.tools.broadcast.signatureLabel}
 					testId="broadcast-signature-input"
-					placeholder="Paste the combined signature (base64)"
+					placeholder={
+						content.tools.broadcast.signaturePlaceholder
+					}
 					minHeight="min-h-24"
 					value={signature}
 					onChange={edit(setSignature)}
 					readOnly={!!result || broadcasting}
 					error={
 						signatureUnreadable
-							? CANT_READ_SIGNATURE
+							? content.tools.broadcast.signatureUnreadable
 							: undefined
 					}
 					errorTestId="broadcast-signature-error"
@@ -244,8 +247,8 @@ export default function BroadcastTool() {
 						>
 							<Radio />
 							{broadcasting
-								? 'Broadcasting…'
-								: 'Broadcast transaction'}
+								? content.tools.broadcast.broadcasting
+								: content.tools.broadcast.submit}
 						</Button>
 					</ToolActions>
 				)}

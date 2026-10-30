@@ -8,6 +8,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from '@/components/ui/popover';
+import { content } from '@/content';
 
 /**
  * The ALPHA pill beside the wordmark. Hovering, focusing or clicking it
@@ -21,7 +22,7 @@ export function AlphaBadge() {
 			<PopoverTrigger
 				openOnHover
 				delay={150}
-				aria-label="This app is in alpha"
+				aria-label={content.shell.alpha.title}
 				data-testid="alpha-badge"
 				// Base UI opens on hover and click; keyboard focus opens it too.
 				// A mouse press focuses without :focus-visible, so a click
@@ -32,7 +33,7 @@ export function AlphaBadge() {
 				}}
 				className="cursor-pointer rounded-full border border-sidebar-foreground/20 bg-sidebar-foreground/12 px-1.5 py-0.75 font-mono text-10 leading-none tracking-[0.04em] text-sidebar-foreground uppercase outline-none hover:border-sidebar-foreground/24 hover:bg-sidebar-foreground/16 focus-visible:ring-2 focus-visible:ring-sidebar-ring data-popup-open:border-sidebar-foreground/24 data-popup-open:bg-sidebar-foreground/16 group-data-[collapsible=icon]:hidden"
 			>
-				ALPHA
+				{content.shell.alpha.badge}
 			</PopoverTrigger>
 			<PopoverContent
 				side="bottom"
@@ -45,13 +46,10 @@ export function AlphaBadge() {
 				data-testid="alpha-popover"
 			>
 				<p className="text-16 font-medium">
-					This app is in alpha
+					{content.shell.alpha.title}
 				</p>
 				<p className="mt-2 text-13 text-foreground-secondary">
-					It’s still evolving, so some features may change
-					and new ones will roll out along the way. Your
-					funds stay secure on Sui, and nothing moves
-					without the signatures your account requires.
+					{content.shell.alpha.body}
 				</p>
 			</PopoverContent>
 		</Popover>

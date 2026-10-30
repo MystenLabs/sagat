@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { SidebarRailTooltip } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { content } from '@/content';
 import { accountName } from '@/lib/account-name';
 import {
 	accountStatus,
@@ -242,7 +243,9 @@ export function MultisigSwitcher({
 					className="w-(--anchor-width) min-w-56"
 				>
 					<DropdownMenuGroup>
-						<DropdownMenuLabel>Multisigs</DropdownMenuLabel>
+						<DropdownMenuLabel>
+							{content.switcher.menuLabel}
+						</DropdownMenuLabel>
 						{multisigs.map((m) => {
 							const status = accountStatus(m);
 							const isSelected =
@@ -290,7 +293,7 @@ export function MultisigSwitcher({
 					<DropdownMenuSeparator />
 					<DropdownMenuItem onClick={() => go('/create')}>
 						<Plus />
-						New multisig
+						{content.switcher.newMultisig}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
@@ -302,7 +305,7 @@ export function MultisigSwitcher({
 				data-testid="receive-button"
 			>
 				<ArrowDownToLine />
-				Receive
+				{content.switcher.receive}
 			</Button>
 			<ReceiveDialog
 				open={receiveOpen}
@@ -328,7 +331,7 @@ export function NoAccountsSwitcher({
 			<SwitcherTile
 				render={
 					<SidebarRailTooltip
-						tooltip="No accounts yet"
+						tooltip={content.switcher.noAccounts}
 						render={<div tabIndex={-1} />}
 					/>
 				}
@@ -337,7 +340,7 @@ export function NoAccountsSwitcher({
 				icon={<Users className="size-4" />}
 			>
 				<span className="truncate text-13 font-medium group-data-[collapsible=icon]:sr-only">
-					No accounts yet
+					{content.switcher.noAccounts}
 				</span>
 			</SwitcherTile>
 			<Button
@@ -349,7 +352,7 @@ export function NoAccountsSwitcher({
 				data-testid="create-account-button"
 			>
 				<Plus />
-				Create an account
+				{content.switcher.createAccount}
 			</Button>
 		</div>
 	);

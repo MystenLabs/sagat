@@ -13,11 +13,8 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { WalletPicker } from '@/components/WalletPicker';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import {
-	declinedMessage,
-	UNNAMED_WALLET,
-} from '@/lib/wallet-session';
 
 /**
  * The signed-out page: connect a wallet, then, with one connected, sign
@@ -55,7 +52,7 @@ export function ConnectWalletCard() {
 			data-wallet={declined.wallet}
 		>
 			<TriangleAlert className="size-3.5 shrink-0" />
-			{declinedMessage(declined.wallet)}
+			{content.signedOut.declined(declined.wallet)}
 		</p>
 	);
 
@@ -65,8 +62,12 @@ export function ConnectWalletCard() {
 				<EmptyState
 					testId="auth-prompt"
 					icon={Wallet}
-					title="Sign in to continue"
-					description={`Sign a message in ${currentWallet?.name ?? UNNAMED_WALLET} to prove you own ${formatAddress(currentAccount.address)}. No transaction is sent.`}
+					title={content.signedOut.signIn.title}
+					description={content.signedOut.signIn.description(
+						currentWallet?.name ??
+							content.signedOut.unnamedWallet,
+						formatAddress(currentAccount.address),
+					)}
 					note={note}
 					action={
 						<Button
@@ -74,7 +75,9 @@ export function ConnectWalletCard() {
 							disabled={isConnecting || isAuthCheckFailing}
 							data-testid="sign-in-button"
 						>
-							{isConnecting ? 'Signing in…' : 'Sign in'}
+							{isConnecting
+								? content.signedOut.signIn.signingIn
+								: content.signedOut.signIn.button}
 						</Button>
 					}
 				/>
@@ -82,8 +85,10 @@ export function ConnectWalletCard() {
 				<EmptyState
 					testId="connect-wallet-prompt"
 					icon={Wallet}
-					title="Connect a wallet to get started"
-					description="Connect your wallet to see your accounts, proposals and invitations."
+					title={content.signedOut.connect.title}
+					description={
+						content.signedOut.connect.description
+					}
 					note={note}
 					action={
 						declinedWallet ? (
@@ -94,7 +99,7 @@ export function ConnectWalletCard() {
 									}
 									data-testid="connect-retry"
 								>
-									Try again
+									{content.common.tryAgain}
 								</Button>
 								<WalletPicker variant="outline" />
 							</>

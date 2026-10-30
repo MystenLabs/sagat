@@ -4,6 +4,7 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { type ReactNode } from 'react';
 
+import { content } from '@/content';
 import { prettifyType } from '@/lib/coin-type';
 import { tryDecodePure } from '@/lib/decode-pure';
 
@@ -22,15 +23,8 @@ type AnyCommand = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyInput = any;
 
-const COMMAND_DESCRIPTIONS: Record<string, string> = {
-	MoveCall: 'Calls a smart contract function',
-	TransferObjects: 'Transfers objects to an address',
-	SplitCoins: 'Splits a coin into several',
-	MergeCoins: 'Merges coins into one',
-	Publish: 'Publishes a new package',
-	Upgrade: 'Upgrades a package',
-	MakeMoveVec: 'Creates a vector of Move values',
-};
+const COMMAND_DESCRIPTIONS: Record<string, string> =
+	content.transactionPreview.commands.descriptions;
 
 function Muted({ children }: { children: ReactNode }) {
 	return (
@@ -41,9 +35,15 @@ function Muted({ children }: { children: ReactNode }) {
 }
 
 function objectKindLabel(input: AnyInput): string | null {
-	if (input.SharedObject) return 'Shared';
-	if (input.Receiving) return 'Receiving';
-	if (input.ImmOrOwnedObject) return 'Owned';
+	if (input.SharedObject)
+		return content.transactionPreview.commands.objectKinds
+			.shared;
+	if (input.Receiving)
+		return content.transactionPreview.commands.objectKinds
+			.receiving;
+	if (input.ImmOrOwnedObject)
+		return content.transactionPreview.commands.objectKinds
+			.owned;
 	return null;
 }
 
@@ -53,7 +53,12 @@ function InputArg({
 }: {
 	input: TxInput | undefined;
 }) {
-	if (!input) return <ArgBox>Missing input</ArgBox>;
+	if (!input)
+		return (
+			<ArgBox>
+				{content.transactionPreview.commands.missingInput}
+			</ArgBox>
+		);
 	const arg = input as AnyInput;
 
 	if (arg.$kind === 'Pure' && arg.Pure?.bytes) {
@@ -61,7 +66,9 @@ function InputArg({
 		if (candidates.length === 0) {
 			return (
 				<ArgBox>
-					<Muted>Pure (BCS)</Muted>
+					<Muted>
+						{content.transactionPreview.commands.pureBcs}
+					</Muted>
 					<span className="text-muted-foreground">
 						{arg.Pure.bytes}
 					</span>
@@ -75,7 +82,7 @@ function InputArg({
 				<span>{primary.value}</span>
 				{rest.length > 0 && (
 					<Muted>
-						or{' '}
+						{content.transactionPreview.commands.or}{' '}
 						{rest
 							.map((c) => `${c.label}: ${c.value}`)
 							.join(', ')}
@@ -96,7 +103,13 @@ function InputArg({
 		const kind = objectKindLabel(arg.Object);
 		return (
 			<ArgBox>
-				{kind && <Muted>{kind} object</Muted>}
+				{kind && (
+					<Muted>
+						{content.transactionPreview.commands.objectKind(
+							kind,
+						)}
+					</Muted>
+				)}
 				<span className="flex items-center">
 					<ObjectLink inputObject={object.objectId} />
 				</span>
@@ -194,13 +207,20 @@ function CommandBody({
 		const call = command.MoveCall;
 		return (
 			<>
-				<Field label="Target">
+				<Field
+					label={content.transactionPreview.commands.target}
+				>
 					<span className="min-w-0 font-mono text-12 break-all">
 						{`${prettifyType(call.package)}::${call.module}::${call.function}`}
 					</span>
 				</Field>
 				{call.typeArguments?.length > 0 && (
-					<Field label="Type arguments">
+					<Field
+						label={
+							content.transactionPreview.commands
+								.typeArguments
+						}
+					>
 						{call.typeArguments.map(
 							(type: string, i: number) => (
 								<ArgBox key={i}>
@@ -211,7 +231,9 @@ function CommandBody({
 					</Field>
 				)}
 				<Args
-					label="Arguments"
+					label={
+						content.transactionPreview.commands.arguments
+					}
 					args={call.arguments}
 					inputs={inputs}
 				/>
@@ -222,12 +244,14 @@ function CommandBody({
 		return (
 			<>
 				<Args
-					label="Objects"
+					label={
+						content.transactionPreview.commands.objects
+					}
 					args={command.TransferObjects.objects}
 					inputs={inputs}
 				/>
 				<Args
-					label="To"
+					label={content.transactionPreview.commands.to}
 					args={[command.TransferObjects.address]}
 					inputs={inputs}
 				/>
@@ -238,12 +262,16 @@ function CommandBody({
 		return (
 			<>
 				<Args
-					label="From coin"
+					label={
+						content.transactionPreview.commands.fromCoin
+					}
 					args={[command.SplitCoins.coin]}
 					inputs={inputs}
 				/>
 				<Args
-					label="Amounts"
+					label={
+						content.transactionPreview.commands.amounts
+					}
 					args={command.SplitCoins.amounts}
 					inputs={inputs}
 				/>
@@ -254,12 +282,16 @@ function CommandBody({
 		return (
 			<>
 				<Args
-					label="Into coin"
+					label={
+						content.transactionPreview.commands.intoCoin
+					}
 					args={[command.MergeCoins.destination]}
 					inputs={inputs}
 				/>
 				<Args
-					label="From coins"
+					label={
+						content.transactionPreview.commands.fromCoins
+					}
 					args={command.MergeCoins.sources}
 					inputs={inputs}
 				/>
@@ -270,14 +302,18 @@ function CommandBody({
 		return (
 			<>
 				{command.MakeMoveVec.type && (
-					<Field label="Type">
+					<Field
+						label={content.transactionPreview.commands.type}
+					>
 						<span className="min-w-0 font-mono text-12 break-all">
 							{prettifyType(command.MakeMoveVec.type)}
 						</span>
 					</Field>
 				)}
 				<Args
-					label="Elements"
+					label={
+						content.transactionPreview.commands.elements
+					}
 					args={command.MakeMoveVec.elements}
 					inputs={inputs}
 				/>
@@ -304,7 +340,11 @@ export function CommandsList({
 	transaction: TxData;
 }) {
 	if (transaction.commands.length === 0) {
-		return <EmptyPanel>No commands.</EmptyPanel>;
+		return (
+			<EmptyPanel>
+				{content.transactionPreview.commands.empty}
+			</EmptyPanel>
+		);
 	}
 
 	return (

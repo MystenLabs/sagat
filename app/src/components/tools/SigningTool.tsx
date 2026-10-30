@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/button';
 import { CardHeading } from '@/components/ui/card';
 import { SkeletonLine } from '@/components/ui/skeleton';
+import { content } from '@/content';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
@@ -62,9 +63,6 @@ interface SignedResult {
 	/** Set when the transaction executed but failed on chain. */
 	failure?: { message: string };
 }
-
-const CANT_READ =
-	'Can’t read this as a transaction. Paste the full data as JSON or base64, and check the network above.';
 
 /** The transaction's sender, normalised, or null when it names none. */
 function senderOf(transactionData: string): string | null {
@@ -110,7 +108,7 @@ function previewBytes(
 
 const networkWarning = (
 	<Alert variant="warning">
-		Make sure the network above matches the transaction.
+		{content.tools.sign.networkWarning}
 	</Alert>
 );
 
@@ -141,7 +139,9 @@ function PreviewResult({
 	return (
 		<section className="flex flex-col gap-3">
 			{!withBlock && (
-				<CardHeading title="Transaction preview" />
+				<CardHeading
+					title={content.tools.sign.previewTitle}
+				/>
 			)}
 			{/* Without the preview block, the analyzer shows on its own. */}
 			{settledWithoutBlock && analyzer}
@@ -162,7 +162,7 @@ function PreviewResult({
 			>
 				{pending && (
 					<span className="sr-only" role="status">
-						Previewing transaction…
+						{content.tools.sign.previewing}
 					</span>
 				)}
 				{withBlock ? (
@@ -181,8 +181,7 @@ function PreviewResult({
 				) : (
 					<p className="text-13 whitespace-pre-wrap text-error-foreground">
 						{safeDecode(
-							dryRunError ||
-								'Transaction would fail on-chain',
+							dryRunError || content.tools.sign.wouldFail,
 						)}
 					</p>
 				)}
@@ -214,7 +213,7 @@ function SignedResultDisplay({
 		>
 			{failure ? (
 				<Alert variant="error">
-					Transaction failed:{' '}
+					{content.tools.sign.failedPrefix}{' '}
 					<span
 						className="whitespace-pre-wrap"
 						data-testid="signed-result-error"
@@ -225,32 +224,36 @@ function SignedResultDisplay({
 			) : (
 				<Alert variant="success">
 					{digest
-						? 'Executed. The network accepted this transaction.'
-						: 'Signed. Copy the signature and share it with the other signers.'}
+						? content.tools.sign.executed
+						: content.tools.sign.signed}
 				</Alert>
 			)}
 			{digest ? (
 				<ReadOnlyField
-					label="Transaction digest"
+					label={content.tools.transactionDigest}
 					value={digest}
 				/>
 			) : (
 				<ReadOnlyField
-					label="Signature"
+					label={content.tools.sign.signatureLabel}
 					value={signature}
 				/>
 			)}
 			<ResultActions
 				onReset={onStartOver}
-				resetLabel="Start over"
+				resetLabel={content.tools.sign.startOver}
 				resetTestId="start-over-button"
 				explorerUrl={explorerUrl}
 				copyValue={digest ?? signature}
 				copyLabel={
-					digest ? 'Copy digest' : 'Copy signature'
+					digest
+						? content.tools.copyDigest
+						: content.tools.sign.copySignature
 				}
 				copyMessage={
-					digest ? 'Digest copied' : 'Signature copied'
+					digest
+						? content.toasts.digestCopied
+						: content.toasts.signatureCopied
 				}
 			/>
 		</div>
@@ -356,7 +359,7 @@ export default function SigningTool() {
 						? {
 								message:
 									failed.effects?.status.error?.message ||
-									'The transaction failed on chain.',
+									content.tools.sign.failedOnChain,
 							}
 						: undefined,
 				});
@@ -376,10 +379,7 @@ export default function SigningTool() {
 		} catch (error) {
 			// The input stays, so the user can retry.
 			toast.error(
-				errorMessage(
-					error,
-					'Failed to sign the transaction',
-				),
+				errorMessage(error, content.toasts.signFailed),
 			);
 		} finally {
 			setIsSigning(false);
@@ -410,12 +410,14 @@ export default function SigningTool() {
 
 	let signNote: string | undefined;
 	if (!currentAccount) {
-		signNote = 'Connect a wallet to sign this transaction.';
+		signNote = content.tools.sign.connectWallet;
 	} else if (senderMultisig) {
-		signNote = `${accountName(senderMultisig)}’s threshold is ${thresholdLabel(senderMultisig)}, so it can’t run on your signature alone. Sign to add yours.`;
+		signNote = content.tools.sign.thresholdNote(
+			accountName(senderMultisig),
+			thresholdLabel(senderMultisig),
+		);
 	} else if (foreignSender) {
-		signNote =
-			'The sender isn’t your connected wallet, so this can’t run on your signature alone. Sign to add yours.';
+		signNote = content.tools.sign.foreignSender;
 	}
 
 	const showPreview =
@@ -428,14 +430,18 @@ export default function SigningTool() {
 			<NetworkField />
 			<BytesField
 				id="transaction-data"
-				label="Transaction data"
+				label={content.tools.sign.dataLabel}
 				testId="transaction-data-input"
-				placeholder="Paste the transaction data (JSON or base64)"
+				placeholder={content.tools.sign.dataPlaceholder}
 				minHeight="min-h-40"
 				value={transactionData}
 				onChange={handleTransactionDataChange}
 				readOnly={!!signedResult || isSignPending}
-				error={unreadable ? CANT_READ : undefined}
+				error={
+					unreadable
+						? content.tools.sign.unreadable
+						: undefined
+				}
 				errorTestId="transaction-data-error"
 			/>
 
@@ -478,8 +484,8 @@ export default function SigningTool() {
 						>
 							<Send />
 							{isSigningAndExecuting
-								? 'Signing…'
-								: 'Sign and execute'}
+								? content.tools.sign.signing
+								: content.tools.sign.signAndExecute}
 						</Button>
 						<Button
 							type="button"
@@ -489,7 +495,9 @@ export default function SigningTool() {
 							data-testid="sign-button"
 						>
 							<PenLine />
-							{isSigning ? 'Signing…' : 'Sign'}
+							{isSigning
+								? content.tools.sign.signing
+								: content.tools.sign.sign}
 						</Button>
 					</ToolActions>
 				)}

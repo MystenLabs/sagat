@@ -10,6 +10,7 @@ import { Navigate, useParams } from 'react-router-dom';
 
 import { ErrorState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { content } from '@/content';
 import { useGetProposal } from '@/hooks/useGetProposal';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import {
@@ -135,15 +136,15 @@ export function ProposalLoadError({
 	return (
 		<div className="page-shell">
 			<PageHeader
-				title="Proposal"
+				title={content.proposal.shared.heading}
 				backLink={proposalsPath}
-				backLabel="Proposals"
+				backLabel={content.proposal.shared.backLabel}
 			/>
 			<ErrorState
-				title="Failed to load proposal"
+				title={content.proposal.load.failed}
 				error={notFound ? undefined : error}
-				fallback="This proposal doesn't exist."
-				hint="Check that the link is correct."
+				fallback={content.proposal.load.notFound}
+				hint={content.proposal.load.hint}
 				testId="proposal-detail-error"
 			/>
 		</div>

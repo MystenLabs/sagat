@@ -13,6 +13,7 @@ import {
 	StepFooter,
 } from '@/components/wizard/parts';
 import { useTouched } from '@/components/wizard/use-touched';
+import { content } from '@/content';
 import {
 	NAME_MAX,
 	nameError,
@@ -54,11 +55,15 @@ export function NameStep({
 			data-testid="create-name-step"
 		>
 			<SectionHeading
-				title="Name your multisig"
-				description="Signers see this name in their invitation."
+				title={content.createMultisig.nameStep.title}
+				description={
+					content.createMultisig.nameStep.description
+				}
 			/>
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="create-name">Multisig name</Label>
+				<Label htmlFor="create-name">
+					{content.createMultisig.nameStep.label}
+				</Label>
 				<Input
 					id="create-name"
 					value={name}
@@ -67,7 +72,9 @@ export function NameStep({
 						onNameChange(e.target.value);
 					}}
 					onBlur={() => touch('name')}
-					placeholder="e.g. Treasury Operations"
+					placeholder={
+						content.createMultisig.nameStep.placeholder
+					}
 					autoFocus
 					aria-invalid={!!shownError}
 					aria-describedby="create-name-hint"
@@ -84,7 +91,10 @@ export function NameStep({
 					data-testid="create-name-hint"
 				>
 					{shownError ??
-						`${length} of ${NAME_MAX} characters`}
+						content.createMultisig.nameStep.count(
+							length,
+							NAME_MAX,
+						)}
 				</p>
 			</div>
 			<Separator />
@@ -101,7 +111,7 @@ export function NameStep({
 						)}
 						data-testid="create-continue"
 					>
-						Continue
+						{content.common.continue}
 					</Button>
 				}
 			/>

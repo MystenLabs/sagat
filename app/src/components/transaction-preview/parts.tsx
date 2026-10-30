@@ -3,6 +3,7 @@
 
 import { type ReactNode } from 'react';
 
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 // Small pieces the preview and its tab panels share.
@@ -16,7 +17,7 @@ export function PreviewHeading({
 	return (
 		<div className="flex flex-wrap items-center justify-between gap-3">
 			<h3 className="text-15 font-medium">
-				Transaction preview
+				{content.transactionPreview.heading}
 			</h3>
 			{actions && (
 				<div className="flex flex-wrap items-center gap-2">

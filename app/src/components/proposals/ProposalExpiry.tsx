@@ -7,6 +7,7 @@ import {
 	type ReactElement,
 } from 'react';
 
+import { content } from '@/content';
 import { formatDateTime } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
@@ -116,15 +117,22 @@ function ExpiryTooltip({
 
 function label({ expired, endsAt }: Expiry, now: Date) {
 	return expired
-		? 'Expired'
-		: `Expires in ${formatTimeLeft(endsAt, now)}`;
+		? content.proposals.expiry.expired
+		: content.proposals.expiry.expiresIn(
+				formatTimeLeft(endsAt, now),
+			);
 }
 
 function explain({ lastEpoch, expired, endsAt }: Expiry) {
 	if (expired)
-		return `This transaction could only execute until the end of epoch ${lastEpoch}, so it can't run anymore. Cancel it and propose it again.`;
+		return content.proposals.expiry.expiredExplain(
+			lastEpoch,
+		);
 
-	return `This transaction can only execute until the end of epoch ${lastEpoch}, around ${formatDateTime(endsAt)}. After that, it has to be proposed again.`;
+	return content.proposals.expiry.explain(
+		lastEpoch,
+		formatDateTime(endsAt),
+	);
 }
 
 // The current time, updated every minute.

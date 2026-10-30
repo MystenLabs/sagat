@@ -34,6 +34,7 @@ import {
 	StepFooter,
 } from '@/components/wizard/parts';
 import { useTouched } from '@/components/wizard/use-touched';
+import { content } from '@/content';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
 import { useSuiGasCoins } from '@/hooks/useSuiGasCoins';
 import { accountName } from '@/lib/account-name';
@@ -46,7 +47,6 @@ import {
 } from '@/lib/coins';
 import {
 	checkTransfer,
-	COPY,
 	lacksGas,
 	maxTransfer,
 	titleError,
@@ -285,12 +285,16 @@ export function TransferDetailsStep({
 			data-testid="transfer-step"
 		>
 			<SectionHeading
-				title="Transfer"
-				description={`Send tokens from ${accountName(multisig)} to one address.`}
+				title={content.newProposal.types.transfer.title}
+				description={content.newProposal.transferStep.description(
+					accountName(multisig),
+				)}
 			/>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="transfer-asset">Asset</Label>
+				<Label htmlFor="transfer-asset">
+					{content.newProposal.transferStep.assetLabel}
+				</Label>
 				<AssetSelect
 					id="transfer-asset"
 					balances={assets.balances}
@@ -314,7 +318,7 @@ export function TransferDetailsStep({
 						tone="error"
 						testId="transfer-coin-data-error"
 					>
-						{COPY.coinDataFailed}
+						{content.newProposal.coinDataFailed}
 					</Notice>
 				)}
 				{assetError && (
@@ -329,7 +333,9 @@ export function TransferDetailsStep({
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="transfer-amount">Amount</Label>
+				<Label htmlFor="transfer-amount">
+					{content.newProposal.transferStep.amountLabel}
+				</Label>
 				<InputGroup>
 					<InputGroupInput
 						id="transfer-amount"
@@ -343,7 +349,10 @@ export function TransferDetailsStep({
 						}}
 						onBlur={() => touch('amount')}
 						disabled={building}
-						placeholder="0.00"
+						placeholder={
+							content.newProposal.transferStep
+								.amountPlaceholder
+						}
 						inputMode="decimal"
 						autoComplete="off"
 						spellCheck={false}
@@ -372,7 +381,7 @@ export function TransferDetailsStep({
 								className="cursor-pointer font-medium"
 								data-testid="transfer-max-button"
 							>
-								Max
+								{content.newProposal.transferStep.max}
 							</InputGroupButton>
 						</InputGroupAddon>
 					)}
@@ -401,7 +410,7 @@ export function TransferDetailsStep({
 						noticeTestId="transfer-gas-coins-error"
 						retryTestId="transfer-gas-coins-retry"
 					>
-						{COPY.gasCoinsFailed}
+						{content.newProposal.gasCoinsFailed}
 					</RetryNotice>
 				)}
 				{sendsSui && max?.partial && decimals != null && (
@@ -409,7 +418,7 @@ export function TransferDetailsStep({
 						tone="warning"
 						testId="transfer-max-partial"
 					>
-						{COPY.maxPartial(
+						{content.newProposal.maxPartial(
 							formatCoinAmount(
 								max.rawAmount.toString(),
 								decimals,
@@ -421,7 +430,9 @@ export function TransferDetailsStep({
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="transfer-recipient">To</Label>
+				<Label htmlFor="transfer-recipient">
+					{content.newProposal.transferStep.recipientLabel}
+				</Label>
 				<AddressField
 					id="transfer-recipient"
 					value={draft.recipient}
@@ -431,7 +442,9 @@ export function TransferDetailsStep({
 					}}
 					onBlur={() => touch('recipient')}
 					disabled={building}
-					placeholder={COPY.addressPlaceholder}
+					placeholder={
+						content.newProposal.addressPlaceholder
+					}
 					valid={check.recipientValid}
 					error={recipientError}
 				/>
@@ -442,10 +455,10 @@ export function TransferDetailsStep({
 				// Once edited, the field no longer fills itself in.
 				placeholder={
 					title === null
-						? COPY.titlePlaceholderTransfer
-						: COPY.titlePlaceholder
+						? content.newProposal.titlePlaceholderTransfer
+						: content.newProposal.titlePlaceholder
 				}
-				hint={COPY.titleHintTransfer}
+				hint={content.newProposal.titleHintTransfer}
 				error={shownTitleError}
 				onChange={(next) => {
 					change('title', shownTitle);
@@ -457,13 +470,15 @@ export function TransferDetailsStep({
 
 			{noGas && (
 				<Notice tone="warning" testId="transfer-no-gas">
-					{COPY.noGas}
+					{content.newProposal.noGas}
 				</Notice>
 			)}
 
 			{build.isError && (
 				<Notice tone="error" testId="transfer-error">
-					{COPY.buildFailed(build.error.message)}
+					{content.newProposal.buildFailed(
+						build.error.message,
+					)}
 				</Notice>
 			)}
 
@@ -481,10 +496,14 @@ export function TransferDetailsStep({
 						data-testid="details-back"
 					>
 						<ArrowLeft />
-						Back
+						{content.common.back}
 					</Button>
 				}
-				note={<FooterNote>{COPY.transferNote}</FooterNote>}
+				note={
+					<FooterNote>
+						{content.newProposal.transferNote}
+					</FooterNote>
+				}
 				primary={
 					<Button
 						type="submit"
@@ -495,7 +514,9 @@ export function TransferDetailsStep({
 						)}
 						data-testid="transfer-review"
 					>
-						{building ? 'Building…' : 'Review'}
+						{building
+							? content.newProposal.transferStep.building
+							: content.newProposal.transferStep.review}
 					</Button>
 				}
 			/>

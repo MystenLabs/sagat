@@ -4,6 +4,7 @@
 import type { MultisigMember } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
+import { content } from '../content';
 import { memberStatus } from './member-status';
 import { validatePublicKey } from './sui-utils';
 
@@ -55,7 +56,7 @@ export function signerRows(
 					member.label ||
 					(address
 						? formatAddress(address)
-						: 'Unknown key'),
+						: content.signers.unknownKey),
 				status: memberStatus(member),
 				isYou: !!address && address === currentAddress,
 				isCreator: !!address && address === creatorAddress,
@@ -118,14 +119,19 @@ export function signerSummary(
 		status;
 	if (accepted === total)
 		return total === 2
-			? 'Both accepted'
-			: `All ${total} accepted`;
-	const head = `${accepted} of ${total} accepted`;
+			? content.signers.summary.bothAccepted
+			: content.signers.summary.allAccepted(total);
+	const head = content.signers.summary.accepted(
+		accepted,
+		total,
+	);
 	if (rejected === 0) return head;
 	const tail =
 		rejected === 1
-			? `${rejectedNames[0]} rejected`
-			: `${rejected} rejected`;
+			? content.signers.summary.oneRejected(
+					rejectedNames[0],
+				)
+			: content.signers.summary.manyRejected(rejected);
 	return `${head} · ${tail}`;
 }
 
@@ -141,15 +147,17 @@ export function rejectionNotice(
 	if (rejected === 0) return null;
 	const who =
 		rejected === 1
-			? `${rejectedNames[0]} rejected the invitation to join this account.`
-			: `${rejected} signers rejected their invitations to join this account.`;
+			? content.signers.notice.oneRejected(rejectedNames[0])
+			: content.signers.notice.manyRejected(rejected);
 	return canReachThreshold
 		? {
 				tone: 'warning',
-				message: `${who} The other signers can still reach the threshold.`,
+				message:
+					content.signers.notice.canReachThreshold(who),
 			}
 		: {
 				tone: 'error',
-				message: `${who} The rest can’t reach the threshold, so this account can’t move funds.`,
+				message:
+					content.signers.notice.cantReachThreshold(who),
 			};
 }

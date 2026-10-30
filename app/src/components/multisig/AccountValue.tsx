@@ -4,6 +4,7 @@
 import { ArrowDownToLine, Send } from 'lucide-react';
 import { useState } from 'react';
 
+import { content } from '@/content';
 import {
 	formatUsdValue,
 	shownUsdTotal,
@@ -65,7 +66,7 @@ export function AccountValue({
 				data-prices-error={pricesFailed ? '1' : undefined}
 			>
 				<span className="text-13 text-muted-foreground">
-					Total value
+					{content.overview.value.total}
 				</span>
 				{isLoading ? (
 					<Skeleton className="my-1 h-9 w-48 @3xl:h-10" />
@@ -80,10 +81,12 @@ export function AccountValue({
 				{settled && value.unpriced > 0 && (
 					<span className="text-12 text-muted-foreground">
 						{pricesFailed
-							? 'Prices are unavailable right now.'
+							? content.overview.value.pricesUnavailable
 							: total != null
-								? `Excludes ${value.unpriced} ${value.unpriced === 1 ? 'token' : 'tokens'} without a price.`
-								: 'No prices for the tokens this account holds.'}
+								? content.overview.value.excludesUnpriced(
+										value.unpriced,
+									)
+								: content.overview.value.noPrices}
 					</span>
 				)}
 			</div>
@@ -93,14 +96,14 @@ export function AccountValue({
 					data-testid="overview-receive-button"
 				>
 					<ArrowDownToLine />
-					Receive
+					{content.overview.value.receive}
 				</Button>
 				<Button
 					onClick={onSend}
 					data-testid="overview-send-button"
 				>
 					<Send />
-					Send
+					{content.overview.value.send}
 				</Button>
 			</div>
 			<ReceiveDialog

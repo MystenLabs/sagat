@@ -3,6 +3,7 @@
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 /** The proposal's title on Details, with its hint or its error below. */
@@ -26,7 +27,9 @@ export function TitleField({
 }) {
 	return (
 		<div className="flex flex-col gap-1.5">
-			<Label htmlFor="proposal-title">Title</Label>
+			<Label htmlFor="proposal-title">
+				{content.newProposal.titleLabel}
+			</Label>
 			<Input
 				id="proposal-title"
 				value={value}

@@ -1,15 +1,16 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// The rules of the create-multisig wizard, kept free of React so the copy
-// and the limits are in one place: which signer rows are complete, what
-// blocks Continue, which warnings show, and the address preview.
+// The rules of the create-multisig wizard, kept free of React so the
+// limits are in one place: which signer rows are complete, what blocks
+// Continue, which warnings show, and the address preview.
 import {
 	formatAddress,
 	isValidSuiAddress,
 	normalizeSuiAddress,
 } from '@mysten/sui/utils';
 
+import { content } from '../content';
 import { CONFIG, VALIDATION } from './constants';
 import {
 	computeMultisigAddress,
@@ -20,6 +21,9 @@ import {
 	weightBarLayout,
 	type WeightBarLayout,
 } from './weight-bar';
+
+/** The wizard's messages; the unit tests read them from here. */
+export const COPY = content.createMultisig;
 
 /** A row in the signers table, as the creator typed it. */
 export interface SignerDraft {
@@ -99,7 +103,8 @@ export function joinList(
 	conjunction: 'and' | 'or',
 ) {
 	if (items.length <= 1) return items.join('');
-	return `${items.slice(0, -1).join(', ')} ${conjunction} ${items[items.length - 1]}`;
+	const word = COPY[conjunction];
+	return `${items.slice(0, -1).join(', ')} ${word} ${items[items.length - 1]}`;
 }
 
 /** What copy calls a signer: its label, "You" or "Signer N". */
@@ -109,7 +114,7 @@ export function signerName(
 ) {
 	return (
 		signer.label.trim() ||
-		(signer.isCreator ? 'You' : `Signer ${index + 1}`)
+		(signer.isCreator ? COPY.you : COPY.signerN(index + 1))
 	);
 }
 
@@ -118,38 +123,11 @@ export const NAME_MAX = VALIDATION.MAX_MULTISIG_NAME_LENGTH;
 /** The step 1 error for a name, or null when it is fine. */
 export function nameError(name: string): string | null {
 	const length = textLength(name);
-	if (length === 0) return 'Give the multisig a name.';
+	if (length === 0) return COPY.nameRequired;
 	if (length > NAME_MAX)
-		return `${length} of ${NAME_MAX} characters. Use ${NAME_MAX} or fewer.`;
+		return COPY.nameTooLong(length, NAME_MAX);
 	return null;
 }
-
-export const COPY = {
-	invalidKey:
-		'This isn’t a valid Sui public key. Check that you copied the whole key.',
-	duplicateKey: (other: string) =>
-		`${other} already uses this key. Each signer needs their own key.`,
-	duplicateKeyYours: (position: number) =>
-		`You already use this key (signer ${position}). Each signer needs their own key.`,
-	noKey: (label: string) =>
-		`No public key found for this address. It hasn’t signed a transaction yet. ${
-			label
-				? `Ask ${label} for their public key.`
-				: 'Ask them for their public key.'
-		}`,
-	tooFewSigners:
-		'Add at least one more signer. A multisig needs 2 or more.',
-	everyoneMustSign:
-		'Every signer must sign every proposal. If one signer loses their key, the multisig can’t move funds.',
-	emptyAddress:
-		'Appears once you add signers and set a threshold.',
-	lookupFailed:
-		'Couldn’t look up this address. Check your connection and try again.',
-	createFailed:
-		'Couldn’t create the multisig. Your setup is still here. Check your connection and try again.',
-	labelInvalid:
-		'This name has hidden characters (such as a zero-width joiner) that can’t be saved. Remove them to continue.',
-};
 
 export interface SignersCheck {
 	signers: SignerCheck[];
@@ -212,7 +190,7 @@ export function checkSigners({
 				// "Daniel (signer 2)", "Signer 2" when unnamed, or a sentence of
 				// its own when the key is the unnamed creator's.
 				const ownerName = names[owner];
-				const position = `Signer ${owner + 1}`;
+				const position = COPY.signerN(owner + 1);
 				const owned = signers[owner];
 				finalStatus = {
 					kind: 'error',
@@ -222,7 +200,10 @@ export function checkSigners({
 							: COPY.duplicateKey(
 									ownerName === position
 										? position
-										: `${ownerName} (signer ${owner + 1})`,
+										: COPY.signerWithPosition(
+												ownerName,
+												owner + 1,
+											),
 								),
 				};
 			}
@@ -261,12 +242,15 @@ export function checkSigners({
 			blocked.length === 1 &&
 			only.status.kind === 'no-key'
 		) {
-			blockedMessage = `Add a public key for signer ${blocked[0]}, or remove the row, to continue.`;
-			addressMessage = `Add a public key for signer ${blocked[0]}, or remove the row to see the address.`;
+			blockedMessage = COPY.blockedNoKey(blocked[0]);
+			addressMessage = COPY.addressNoKey(blocked[0]);
 		} else {
-			const which = `${blocked.length === 1 ? 'signer' : 'signers'} ${joinList(blocked.map(String), 'and')}`;
-			blockedMessage = `Finish or remove ${which} to continue.`;
-			addressMessage = `Finish or remove ${which} to see the address.`;
+			const which = COPY.blockedSigners(
+				blocked.length,
+				joinList(blocked.map(String), 'and'),
+			);
+			blockedMessage = COPY.blockedFinish(which);
+			addressMessage = COPY.addressFinish(which);
 		}
 	}
 
@@ -360,15 +344,19 @@ export function thresholdWarning({
 	if (alone.length === 1) {
 		const [{ name, weight, you }] = alone;
 		return you
-			? `You can approve proposals alone. Your weight (${weight}) is at or above the threshold (${threshold}). Lower your weight below ${threshold}, or raise the threshold above ${weight}.`
-			: `${name} can approve proposals alone. ${name}’s weight (${weight}) is at or above the threshold (${threshold}). Lower ${name}’s weight below ${threshold}, or raise the threshold above ${weight}.`;
+			? COPY.aloneYou(weight, threshold)
+			: COPY.aloneNamed(name, weight, threshold);
 	}
 	if (alone.length > 1) {
 		const highest = Math.max(...alone.map((s) => s.weight));
 		const names = alone.map((s, i) =>
-			s.you ? (i === 0 ? 'You' : 'you') : s.name,
+			s.you
+				? i === 0
+					? COPY.you
+					: COPY.youInline
+				: s.name,
 		);
-		return `${joinList(names, 'or')} can approve proposals alone. Raise the threshold to ${highest + 1} or more so every proposal needs at least two signers.`;
+		return COPY.aloneMany(joinList(names, 'or'), highest);
 	}
 	// Everyone is needed when leaving any one signer out drops the rest
 	// below the threshold: weights 2 and 2 with a threshold of 3, not only
@@ -416,5 +404,5 @@ export function invitedName(signer: SignerDraft) {
 	const label = signer.label.trim();
 	if (label) return label;
 	const { address } = validatePublicKey(signer.key.trim());
-	return address ? formatAddress(address) : 'a signer';
+	return address ? formatAddress(address) : COPY.aSigner;
 }

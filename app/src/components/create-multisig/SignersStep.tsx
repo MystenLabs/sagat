@@ -34,9 +34,9 @@ import {
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
+import { content } from '@/content';
 import { CONFIG } from '@/lib/constants';
 import {
-	COPY,
 	thresholdBar,
 	type SignerDraft,
 	type SignersCheck,
@@ -104,7 +104,7 @@ export function SignersStep({
 			data-testid="create-add-signer"
 		>
 			<Plus />
-			Add signer
+			{content.createMultisig.signersStep.addSigner}
 		</Button>
 	);
 
@@ -116,14 +116,19 @@ export function SignersStep({
 			<section className="flex flex-col gap-3.5">
 				<div className="flex items-start justify-between gap-4">
 					<SectionHeading
-						title="Signers"
-						description="Paste each signer’s public key, or search by their address."
+						title={content.createMultisig.signersStep.title}
+						description={
+							content.createMultisig.signersStep.description
+						}
 					/>
 					<span
 						className="shrink-0 text-12 text-muted-foreground"
 						data-testid="create-signer-count"
 					>
-						{signers.length} of {CONFIG.MAX_MEMBERS}
+						{content.createMultisig.signersStep.count(
+							signers.length,
+							CONFIG.MAX_MEMBERS,
+						)}
 					</span>
 				</div>
 
@@ -133,9 +138,15 @@ export function SignersStep({
 						className="hidden rounded-md bg-muted py-1.75 text-12 text-muted-foreground @xl/card:flex"
 					>
 						<span className="w-15 pl-4.25">#</span>
-						<span className="w-25">Signer</span>
-						<span className="flex-1 px-3">Public key</span>
-						<span className="w-33.75">Weight</span>
+						<span className="w-25">
+							{content.createMultisig.fields.signer}
+						</span>
+						<span className="flex-1 px-3">
+							{content.createMultisig.fields.publicKey}
+						</span>
+						<span className="w-33.75">
+							{content.createMultisig.fields.weight}
+						</span>
 					</div>
 					<DndContext
 						sensors={sensors}
@@ -184,7 +195,9 @@ export function SignersStep({
 								{addSigner}
 							</TooltipTrigger>
 							<TooltipContent>
-								Up to {CONFIG.MAX_MEMBERS} signers
+								{content.createMultisig.signersStep.maxSigners(
+									CONFIG.MAX_MEMBERS,
+								)}
 							</TooltipContent>
 						</Tooltip>
 					) : (
@@ -193,8 +206,7 @@ export function SignersStep({
 					{signers.length > 1 && (
 						<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
 							<Info className="mt-0.5 size-3 shrink-0" />
-							Signer order affects the address. Drag to
-							reorder before you create the multisig.
+							{content.createMultisig.signersStep.orderNote}
 						</p>
 					)}
 				</div>
@@ -204,8 +216,14 @@ export function SignersStep({
 
 			<section className="flex flex-col gap-3.5">
 				<SectionHeading
-					title="Approval threshold"
-					description="How much signer weight a proposal needs before it can be executed."
+					title={
+						content.createMultisig.signersStep
+							.thresholdTitle
+					}
+					description={
+						content.createMultisig.signersStep
+							.thresholdDescription
+					}
 				/>
 				<div className="flex items-center gap-4">
 					<NumberStepper
@@ -213,7 +231,7 @@ export function SignersStep({
 						min={1}
 						max={maxThreshold}
 						onChange={onThresholdChange}
-						label="Threshold"
+						label={content.createMultisig.fields.threshold}
 						size="lg"
 						testId="create-threshold"
 					/>
@@ -221,7 +239,9 @@ export function SignersStep({
 						className="text-16 text-foreground-secondary"
 						data-testid="create-total-weight"
 					>
-						of {check.totalWeight} total weight
+						{content.createMultisig.signersStep.ofTotalWeight(
+							check.totalWeight,
+						)}
 					</span>
 				</div>
 				<div className="flex flex-col gap-1.5">
@@ -235,7 +255,7 @@ export function SignersStep({
 							className="mt-2"
 							testId="create-too-few"
 						>
-							{COPY.tooFewSigners}
+							{content.createMultisig.tooFewSigners}
 						</Notice>
 					) : (
 						check.warning && (
@@ -264,7 +284,7 @@ export function SignersStep({
 						data-testid="create-back"
 					>
 						<ArrowLeft />
-						Back
+						{content.common.back}
 					</Button>
 				}
 				note={check.blockedMessage}
@@ -280,7 +300,7 @@ export function SignersStep({
 						)}
 						data-testid="create-continue"
 					>
-						Continue
+						{content.common.continue}
 					</Button>
 				}
 			/>

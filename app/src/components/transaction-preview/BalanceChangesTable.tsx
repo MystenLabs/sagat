@@ -12,6 +12,7 @@ import {
 	tableRowClass,
 	tableShellHeadRowClass,
 } from '@/components/ui/table';
+import { content } from '@/content';
 import type { CoinDisplayData } from '@/hooks/useCoinDisplayData';
 import { formatCoinType } from '@/lib/coin-type';
 import {
@@ -49,12 +50,14 @@ export function BalanceChangesTable({
 							'text-12',
 						)}
 					>
-						<th className="px-2 sm:px-3">Owner</th>
+						<th className="px-2 sm:px-3">
+							{content.transactionPreview.balances.owner}
+						</th>
 						<th className="w-24 px-2 sm:w-50 sm:px-3">
-							Asset
+							{content.transactionPreview.balances.asset}
 						</th>
 						<th className="w-24 px-2 text-right sm:w-40 sm:px-3">
-							Change
+							{content.transactionPreview.balances.change}
 						</th>
 					</tr>
 				</thead>
@@ -84,8 +87,10 @@ export function BalanceChangesTable({
 								data-testid="transaction-preview-empty"
 							>
 								{status === 'failed'
-									? 'No balance changes to show. The simulation stopped before the transaction finished.'
-									: 'No balance changes.'}
+									? content.transactionPreview.balances
+											.emptyFailed
+									: content.transactionPreview.balances
+											.empty}
 							</td>
 						</tr>
 					) : (
@@ -119,7 +124,9 @@ function BalanceRow({
 		decimals: coin?.decimals,
 	});
 	const ownerName = row.gas
-		? `${row.label ?? formatAddress(row.address)} (gas)`
+		? content.transactionPreview.balances.gasOwner(
+				row.label ?? formatAddress(row.address),
+			)
 		: row.label;
 	const showAddressLine = !row.gas || !!row.label;
 
@@ -181,7 +188,9 @@ function BalanceRow({
 							<CopyButton
 								value={row.coinType}
 								size="inline"
-								successMessage="Coin type copied"
+								successMessage={
+									content.toasts.coinTypeCopied
+								}
 							/>
 						</span>
 					</div>

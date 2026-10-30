@@ -18,6 +18,7 @@ import {
 } from '@mysten/sui/utils';
 import { blake2b } from '@noble/hashes/blake2.js';
 
+import { content } from '../content';
 import { formatCoinAmount, isSuiCoinType } from './coins';
 import { formatDateTime } from './dates';
 import { networkLabel, type SuiNetwork } from './network';
@@ -171,7 +172,7 @@ function balanceChangeRows(
 			label:
 				nameOf(change.address) ??
 				(amount > 0n && !isSender(change.address)
-					? 'Recipient'
+					? content.transactionPreview.recipient
 					: null),
 			gas: false,
 			coinType: change.coinType,
@@ -185,24 +186,15 @@ function balanceChangeRows(
 /** "0.0041 SUI" for a cost, "0.0019 SUI rebate" for a rebate. */
 export function gasLabel(cost: bigint): string {
 	const amount = `${formatCoinAmount((cost < 0n ? -cost : cost).toString(), 9)} SUI`;
-	return cost < 0n ? `${amount} rebate` : amount;
+	return cost < 0n
+		? content.transactionPreview.gasRebate(amount)
+		: amount;
 }
 
 const STATUS_LABELS: Record<
 	PreviewSource,
 	Record<SimulationStatus, string>
-> = {
-	simulation: {
-		passed: 'Simulation passed',
-		failed: 'Simulation failed',
-		pending: 'Simulating…',
-	},
-	chain: {
-		passed: 'Succeeded',
-		failed: 'Failed',
-		pending: 'Loading…',
-	},
-};
+> = content.transactionPreview.status;
 
 /** Everything the Transaction preview block shows, from the bytes and the dry run. */
 export function buildTransactionPreview(
@@ -263,7 +255,9 @@ export function buildTransactionPreview(
 		statusMeta:
 			source === 'chain'
 				? simulatedAt
-					? `Confirmed ${formatDateTime(simulatedAt)}`
+					? content.transactionPreview.confirmedAt(
+							formatDateTime(simulatedAt),
+						)
 					: ''
 				: simulatedAt
 					? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`

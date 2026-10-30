@@ -11,6 +11,7 @@ import {
 	NumberedSteps,
 	SummaryRow,
 } from '@/components/wizard/parts';
+import { content } from '@/content';
 import { accountName } from '@/lib/account-name';
 import {
 	networkLabel,
@@ -19,8 +20,6 @@ import {
 import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
-
-import { HELP } from './help';
 
 /** Steps 1 and 2: the account the proposal comes from. */
 export function FromCard({
@@ -32,19 +31,20 @@ export function FromCard({
 	network: SuiNetwork;
 	yourWeight: number | null;
 }) {
+	const copy = content.newProposal.from;
 	const rows: [string, string][] = [
-		['Account', accountName(multisig)],
-		['Network', networkLabel(network)],
-		['Threshold', thresholdLabel(multisig)],
+		[copy.account, accountName(multisig)],
+		[copy.network, networkLabel(network)],
+		[copy.threshold, thresholdLabel(multisig)],
 		...(yourWeight != null
 			? [
-					['Your weight', String(yourWeight)] as [
+					[copy.yourWeight, String(yourWeight)] as [
 						string,
 						string,
 					],
 				]
 			: []),
-		['Gas', 'Paid by the account'],
+		[copy.gas, copy.gasPaidBy],
 	];
 	return (
 		<section
@@ -52,7 +52,10 @@ export function FromCard({
 			aria-labelledby="proposal-from-title"
 			data-testid="proposal-from-card"
 		>
-			<CardHeading id="proposal-from-title" title="From" />
+			<CardHeading
+				id="proposal-from-title"
+				title={copy.title}
+			/>
 			<Separator />
 			<dl className="flex flex-col gap-1">
 				{rows.map(([label, value]) => (
@@ -70,7 +73,10 @@ export function FromCard({
 /** Steps 1 and 2: four short answers, one open at a time. */
 export function HelpCard() {
 	return (
-		<HelpAccordion items={HELP} testId="proposal-help" />
+		<HelpAccordion
+			items={content.newProposal.help}
+			testId="proposal-help"
+		/>
 	);
 }
 
@@ -82,21 +88,25 @@ export function NextStepsCard({
 	threshold: number;
 	yourWeight: number | null;
 }) {
+	const copy = content.newProposal.nextSteps;
 	const items = [
 		{
-			title: 'Your wallet asks you to approve',
-			body: 'Approve the request in your wallet. Nothing is created until you do.',
+			title: copy.approveTitle,
+			body: copy.approveBody,
 		},
 		{
-			title: 'The proposal is created',
+			title: copy.createdTitle,
 			body:
 				yourWeight != null
-					? `It shows in Proposals with your signature, ${yourWeight} of the ${threshold} weight it needs.`
-					: 'It shows in Proposals with your signature.',
+					? copy.createdBodyWithWeight(
+							yourWeight,
+							threshold,
+						)
+					: copy.createdBody,
 		},
 		{
-			title: 'The other signers sign',
-			body: `Once signatures reach ${threshold}, anyone can execute it.`,
+			title: copy.signTitle,
+			body: copy.signBody(threshold),
 		},
 	];
 	return (
@@ -107,7 +117,7 @@ export function NextStepsCard({
 		>
 			<CardHeading
 				id="proposal-next-steps-title"
-				title="What happens next"
+				title={copy.title}
 			/>
 			<Separator />
 			<NumberedSteps items={items} />

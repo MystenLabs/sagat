@@ -3,6 +3,8 @@
 
 import { useRef } from 'react';
 
+import { content } from '@/content';
+
 import { Button } from '../ui/button';
 import {
 	Modal,
@@ -10,6 +12,8 @@ import {
 	ModalContent,
 	ModalHeader,
 } from '../ui/modal';
+
+const COPY = content.proposal.cancel;
 
 interface CancelProposalModalProps {
 	open: boolean;
@@ -49,23 +53,17 @@ export function CancelProposalModal({
 			data-testid="cancel-proposal-dialog"
 			data-variant={variant}
 		>
-			<ModalHeader title="Cancel this proposal?" />
+			<ModalHeader title={COPY.title} />
 			<ModalContent>
 				{variant === 'alone' ? (
 					<p>
-						Nobody else has signed “{title}” yet. It moves
-						to the Cancelled tab, and no one can sign or
-						execute it in the app after this.
-						{ready &&
-							' Your signature already meets the threshold and stays valid on chain, so anyone holding it can still execute the transaction.'}
+						{COPY.alone(title)}
+						{ready && COPY.aloneReady}
 					</p>
 				) : (
 					<p>
-						“{title}” ends for every signer and moves to the
-						Cancelled tab. No one can sign or execute it in
-						the app after this.
-						{ready &&
-							' The signatures already collected stay valid on chain.'}
+						{COPY.others(title)}
+						{ready && COPY.othersReady}
 					</p>
 				)}
 			</ModalContent>
@@ -76,7 +74,7 @@ export function CancelProposalModal({
 					onClick={onClose}
 					disabled={isLoading}
 				>
-					Go back
+					{content.proposal.shared.goBack}
 				</Button>
 				<Button
 					variant="destructive"
@@ -84,7 +82,9 @@ export function CancelProposalModal({
 					disabled={isLoading}
 					data-testid="confirm-cancel-proposal-button"
 				>
-					{isLoading ? 'Cancelling…' : 'Cancel proposal'}
+					{isLoading
+						? COPY.cancelling
+						: content.proposal.shared.cancelProposal}
 				</Button>
 			</ModalActions>
 		</Modal>

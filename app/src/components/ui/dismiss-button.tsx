@@ -4,6 +4,7 @@
 import { X } from 'lucide-react';
 import { type ComponentProps } from 'react';
 
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 import {
@@ -32,7 +33,7 @@ export function DismissButton({
 			<Tooltip>
 				<TooltipTrigger
 					type="button"
-					aria-label="Dismiss"
+					aria-label={content.dialogs.dismiss}
 					onClick={onClick}
 					className={cn(
 						'cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -42,7 +43,9 @@ export function DismissButton({
 				>
 					<X className={iconClassName} />
 				</TooltipTrigger>
-				<TooltipContent>Dismiss</TooltipContent>
+				<TooltipContent>
+					{content.dialogs.dismiss}
+				</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
 	);

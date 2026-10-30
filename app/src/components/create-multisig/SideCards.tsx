@@ -16,16 +16,18 @@ import {
 	NumberedSteps,
 	SummaryRow,
 } from '@/components/wizard/parts';
-import { COPY, joinList } from '@/lib/create-multisig';
+import { content } from '@/content';
+import { joinList } from '@/lib/create-multisig';
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
-
-import { HELP } from './help';
 
 /** "3", or "3 (+1 incomplete)". */
 function signersLabel(signers: number, incomplete: number) {
 	return incomplete
-		? `${signers} (+${incomplete} incomplete)`
+		? content.createMultisig.preview.signersIncomplete(
+				signers,
+				incomplete,
+			)
 		: signers;
 }
 
@@ -56,17 +58,25 @@ export function PreviewStrip({
 			)}
 			data-testid="create-preview-strip"
 		>
-			<StripStat label="Signers">
+			<StripStat
+				label={content.createMultisig.fields.signers}
+			>
 				{signersLabel(signers, incomplete)}
 			</StripStat>
-			<StripStat label="Total weight">
+			<StripStat
+				label={content.createMultisig.fields.totalWeight}
+			>
 				{totalWeight}
 			</StripStat>
-			<StripStat label="Threshold">
+			<StripStat
+				label={content.createMultisig.fields.threshold}
+			>
 				{thresholdLabel({ threshold, totalWeight })}
 			</StripStat>
 			{address && (
-				<StripStat label="Address">
+				<StripStat
+					label={content.createMultisig.fields.address}
+				>
 					<span className="font-mono">
 						{formatAddress(address)}
 					</span>
@@ -121,11 +131,13 @@ export function PreviewCard({
 		>
 			<CardHeading
 				id="create-preview-title"
-				title="Multisig preview"
+				title={content.createMultisig.preview.title}
 			/>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<SummaryRow label="Name">
+				<SummaryRow
+					label={content.createMultisig.fields.name}
+				>
 					<span
 						className={cn(
 							'text-13 break-all',
@@ -133,10 +145,13 @@ export function PreviewCard({
 						)}
 						data-testid="create-preview-name"
 					>
-						{name.trim() || 'Not set'}
+						{name.trim() ||
+							content.createMultisig.preview.notSet}
 					</span>
 				</SummaryRow>
-				<SummaryRow label="Signers">
+				<SummaryRow
+					label={content.createMultisig.fields.signers}
+				>
 					<span
 						className={cn('text-12', !setUp && muted)}
 						data-testid="create-preview-signers"
@@ -144,12 +159,16 @@ export function PreviewCard({
 						{setUp ? signersLabel(signers, incomplete) : 0}
 					</span>
 				</SummaryRow>
-				<SummaryRow label="Total weight">
+				<SummaryRow
+					label={content.createMultisig.fields.totalWeight}
+				>
 					<span className={cn('text-12', !setUp && muted)}>
 						{setUp ? totalWeight : 0}
 					</span>
 				</SummaryRow>
-				<SummaryRow label="Threshold">
+				<SummaryRow
+					label={content.createMultisig.fields.threshold}
+				>
 					{setUp ? (
 						<span
 							className="text-12"
@@ -159,7 +178,7 @@ export function PreviewCard({
 						</span>
 					) : (
 						<span className={cn('text-13', muted)}>
-							Not set
+							{content.createMultisig.preview.notSet}
 						</span>
 					)}
 				</SummaryRow>
@@ -167,7 +186,7 @@ export function PreviewCard({
 			<Separator />
 			<div className="flex flex-col gap-1.5 pt-1">
 				<span className="text-13 text-muted-foreground">
-					Sui address
+					{content.createMultisig.fields.suiAddress}
 				</span>
 				{setUp && address ? (
 					<>
@@ -180,12 +199,14 @@ export function PreviewCard({
 							</span>
 							<CopyText
 								value={address}
-								label="Copy address"
+								label={
+									content.createMultisig.preview.copyAddress
+								}
 							/>
 						</div>
 						<span className="flex items-center gap-1.5 text-12 text-success-foreground">
 							<Check className="size-3" />
-							Live preview of the current setup
+							{content.createMultisig.preview.live}
 						</span>
 					</>
 				) : (
@@ -193,7 +214,8 @@ export function PreviewCard({
 						className="rounded-md border border-dashed border-foreground/15 p-3 text-12 leading-normal text-muted-foreground"
 						data-testid="create-preview-address-message"
 					>
-						{(setUp && addressMessage) || COPY.emptyAddress}
+						{(setUp && addressMessage) ||
+							content.createMultisig.emptyAddress}
 					</p>
 				)}
 			</div>
@@ -204,7 +226,10 @@ export function PreviewCard({
 /** Steps 1 and 2: four short answers, one open at a time. */
 export function HelpCard() {
 	return (
-		<HelpAccordion items={HELP} testId="create-help" />
+		<HelpAccordion
+			items={content.createMultisig.help}
+			testId="create-help"
+		/>
 	);
 }
 
@@ -224,18 +249,25 @@ export function NextStepsCard({
 }) {
 	const items = [
 		{
-			title: 'The multisig is created',
-			body: `${name} appears in your sidebar.`,
+			title: content.createMultisig.nextSteps.createdTitle,
+			body: content.createMultisig.nextSteps.createdBody(
+				name,
+			),
 		},
 		{
-			title: 'Signers accept',
-			body: `${joinList(invited, 'and')} will each get an invitation. They’ll see the multisig once they accept.`,
+			title: content.createMultisig.nextSteps.acceptTitle,
+			body: content.createMultisig.nextSteps.acceptBody(
+				joinList(invited, 'and'),
+			),
 		},
 		{
-			title: 'Fund the multisig',
+			title: content.createMultisig.nextSteps.fundTitle,
 			body: isTestMode
-				? 'Get test SUI from the Sui faucet and send it to the multisig’s Sui address. Test funds have no value, so it’s a safe way to try a proposal.'
-				: `Send SUI and tokens to the multisig’s Sui address. Wait until every signer has accepted before you move real funds, so a wrong key is caught first. Moving them out needs approvals worth ${threshold} of the multisig’s ${totalWeight} weight.`,
+				? content.createMultisig.nextSteps.fundBodyTest
+				: content.createMultisig.nextSteps.fundBody(
+						threshold,
+						totalWeight,
+					),
 		},
 	];
 	return (
@@ -246,7 +278,7 @@ export function NextStepsCard({
 		>
 			<CardHeading
 				id="create-next-steps-title"
-				title="What happens next"
+				title={content.createMultisig.nextSteps.title}
 			/>
 			<Separator />
 			<NumberedSteps items={items} />

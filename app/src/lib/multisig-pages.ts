@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import { matchPath } from 'react-router-dom';
 
+import { content } from '../content';
+
 /**
  * An account's pages, in sidebar order. The label names the sidebar item
  * and the page's title.
@@ -16,14 +18,26 @@ import { matchPath } from 'react-router-dom';
 export const MULTISIG_PAGES = [
 	{
 		id: 'overview',
-		label: 'Overview',
+		label: content.overview.pages.overview,
 		icon: LayoutDashboard,
 	},
-	{ id: 'proposals', label: 'Proposals', icon: FileText },
-	{ id: 'assets', label: 'Assets', icon: Coins },
+	{
+		id: 'proposals',
+		label: content.overview.pages.proposals,
+		icon: FileText,
+	},
+	{
+		id: 'assets',
+		label: content.overview.pages.assets,
+		icon: Coins,
+	},
 	// "Members" covers the signers and the external proposers; the id
 	// and the path stay `signers`.
-	{ id: 'signers', label: 'Members', icon: Users },
+	{
+		id: 'signers',
+		label: content.overview.pages.signers,
+		icon: Users,
+	},
 ] as const;
 
 export type MultisigPageId =

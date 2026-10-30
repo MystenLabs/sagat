@@ -3,6 +3,8 @@
 
 import { Transaction } from '@mysten/sui/transactions';
 
+import { content } from '../content';
+
 export type EpochInfo = {
 	epoch: string;
 	epochStartTimestampMs: string;
@@ -59,13 +61,15 @@ export function formatTimeLeft(time: Date, now: Date) {
 	const minutes = Math.floor(
 		(time.getTime() - now.getTime()) / 60_000,
 	);
-	if (minutes < 1) return 'less than a minute';
+	const copy = content.proposals.timeLeft;
+	if (minutes < 1) return copy.underAMinute;
 
 	const days = Math.floor(minutes / (24 * 60));
 	const hours = Math.floor(minutes / 60) % 24;
-	if (days > 0) return `${days}d ${hours}h`;
-	if (hours > 0) return `${hours}h ${minutes % 60}m`;
-	return `${minutes}m`;
+	if (days > 0) return copy.daysHours(days, hours);
+	if (hours > 0)
+		return copy.hoursMinutes(hours, minutes % 60);
+	return copy.minutes(minutes);
 }
 
 // Under this much time left, an expiry is called out.

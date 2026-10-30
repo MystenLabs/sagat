@@ -4,6 +4,7 @@
 import { FileText } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 
+import { content } from '@/content';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { isProposalExpired } from '@/lib/proposalUtils';
 import { memberLabels } from '@/lib/signers';
@@ -32,6 +33,8 @@ import {
  * state stands alone. Test ids are `testId` plus `-loading`, `-error`
  * and `-empty`.
  */
+const TABLE = content.proposals.table;
+
 export function ProposalsTable({
 	multisig,
 	proposals,
@@ -81,14 +84,16 @@ export function ProposalsTable({
 			<table className={cn(tableClass, '@max-md:block')}>
 				<thead className="@max-md:hidden">
 					<tr className={tableShellHeadRowClass}>
-						<th className="px-3">Proposal</th>
-						<th className="w-20 px-3 sm:w-26">Status</th>
+						<th className="px-3">{TABLE.proposal}</th>
+						<th className="w-20 px-3 sm:w-26">
+							{TABLE.status}
+						</th>
 						<th className="hidden w-32 px-3 sm:table-cell">
-							Weight
+							{TABLE.weight}
 						</th>
 						{list && (
 							<th className="hidden w-44 px-3 md:table-cell">
-								Proposer
+								{TABLE.proposer}
 							</th>
 						)}
 						<th
@@ -97,7 +102,9 @@ export function ProposalsTable({
 								list ? 'w-36 sm:w-40' : 'w-22 sm:w-28',
 							)}
 						>
-							<span className="sr-only">Actions</span>
+							<span className="sr-only">
+								{TABLE.actions}
+							</span>
 						</th>
 					</tr>
 				</thead>
@@ -131,7 +138,7 @@ export function ProposalsTable({
 			) : (
 				!!error && (
 					<ErrorState
-						title="Failed to load proposals"
+						title={TABLE.loadFailed}
 						error={error}
 						onRetry={onRetry}
 						className="rounded-none border-0"

@@ -27,11 +27,10 @@ import React, {
 	useState,
 } from 'react';
 
+import { content } from '@/content';
 import { toast } from '@/lib/toast';
 import {
-	declinedMessage,
 	SignInCancelledError,
-	UNNAMED_WALLET,
 	WalletDeclinedError,
 } from '@/lib/wallet-session';
 
@@ -199,13 +198,14 @@ export function ApiAuthProvider({
 			// account switch the render hasn't caught up yet.
 			const { account, wallet } =
 				dappKit.stores.$connection.get();
-			if (!account) throw new Error('No wallet connected');
+			if (!account)
+				throw new Error(content.errors.noWalletConnected);
 			// Rejecting here (not returning) lets onError toast it.
 			if (
 				queryClient.getQueryState(AUTH_QUERY_KEY)
 					?.status === 'error'
 			)
-				throw new Error("Can't reach the service");
+				throw new Error(content.errors.serviceUnreachable);
 			const generation = sessionGeneration.current;
 			const expiry = defaultExpiry();
 
@@ -224,7 +224,7 @@ export function ApiAuthProvider({
 				if (sessionGeneration.current !== generation)
 					throw new SignInCancelledError();
 				throw new WalletDeclinedError(
-					wallet?.name ?? UNNAMED_WALLET,
+					wallet?.name ?? content.signedOut.unnamedWallet,
 					account.address,
 					error,
 				);
@@ -243,9 +243,7 @@ export function ApiAuthProvider({
 				try {
 					await apiClient.disconnect();
 				} catch {
-					toast.error(
-						"Sign-out didn't finish: a late sign-in kept the session.",
-					);
+					toast.error(content.toasts.lateSignInKeptSession);
 				}
 				await refetchAuth();
 				throw new SignInCancelledError();
@@ -268,7 +266,9 @@ export function ApiAuthProvider({
 			if (error instanceof SignInCancelledError) return;
 			if (!(error instanceof WalletDeclinedError)) {
 				toast.error(
-					`Authentication failed: ${error.message}`,
+					content.toasts.authenticationFailed(
+						error.message,
+					),
 				);
 				return;
 			}
@@ -281,7 +281,9 @@ export function ApiAuthProvider({
 				return;
 			// The wallet stays connected, so Sign in is the retry.
 			if (options?.notice === 'toast')
-				toast.error(declinedMessage(error.wallet));
+				toast.error(
+					content.signedOut.declined(error.wallet),
+				);
 			else setDeclined({ wallet: error.wallet });
 		},
 	});
@@ -294,7 +296,9 @@ export function ApiAuthProvider({
 			await refetchAuth();
 		},
 		onError: (error: Error) => {
-			toast.error(`Disconnect failed: ${error.message}`);
+			toast.error(
+				content.toasts.disconnectFailed(error.message),
+			);
 		},
 	});
 
@@ -332,7 +336,9 @@ export function ApiAuthProvider({
 				await dappKit.connectWallet({ wallet });
 			} catch {
 				if (notice === 'toast')
-					toast.error(declinedMessage(wallet.name));
+					toast.error(
+						content.signedOut.declined(wallet.name),
+					);
 				else setDeclined({ wallet: wallet.name });
 			}
 		});
@@ -359,7 +365,8 @@ export function ApiAuthProvider({
 		// locally regardless.
 		await dappKit.disconnectWallet();
 		// Only when the sign-out worked, so it never sits beside a failure.
-		if (signedOut) toast.success('Wallet disconnected');
+		if (signedOut)
+			toast.success(content.toasts.walletDisconnected);
 	};
 
 	// Stable, so effects can depend on it.

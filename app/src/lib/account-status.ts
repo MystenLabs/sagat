@@ -3,6 +3,7 @@
 
 import type { MultisigMember } from '@mysten/sagat';
 
+import { content } from '../content';
 import { signerRows, signerSetStatus } from './signers';
 
 export type AccountStatus =
@@ -29,21 +30,25 @@ export function accountStatus({
 	if (!canReachThreshold)
 		return {
 			tone: 'error',
-			message: `Can’t move funds. ${signerCount(rejected)} rejected.`,
+			message:
+				content.signers.accountStatus.cantMoveFunds(
+					rejected,
+				),
 		};
 
 	if (rejected > 1)
 		return {
 			tone: 'warning',
-			message: `${signerCount(rejected)} rejected their invitations.`,
+			message:
+				content.signers.accountStatus.manyRejected(
+					rejected,
+				),
 		};
 
 	return {
 		tone: 'warning',
-		message: `${rejectedNames[0]} rejected the invitation.`,
+		message: content.signers.accountStatus.oneRejected(
+			rejectedNames[0],
+		),
 	};
-}
-
-function signerCount(count: number) {
-	return count === 1 ? '1 signer' : `${count} signers`;
 }

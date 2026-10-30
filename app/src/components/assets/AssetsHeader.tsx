@@ -4,6 +4,8 @@
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { content } from '@/content';
+
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 
@@ -28,15 +30,15 @@ export function AssetsHeader({
 }: AssetsHeaderProps) {
 	const countLabel =
 		count === 0
-			? 'Balances for this multisig'
-			: `${count}${hasMore ? '+' : ''} ${
-					count === 1 && !hasMore ? 'balance' : 'balances'
-				} tracked`;
+			? content.assets.header.countEmpty
+			: content.assets.header.count(count, !!hasMore);
 
 	return (
 		<div className="flex items-center justify-between gap-2">
 			<div>
-				<h2 className="text-lg font-semibold">Balances</h2>
+				<h2 className="text-lg font-semibold">
+					{content.assets.header.title}
+				</h2>
 				<p className="text-sm text-muted-foreground">
 					{countLabel}
 				</p>
@@ -48,7 +50,7 @@ export function AssetsHeader({
 					size="sm"
 					onClick={onRefresh}
 					disabled={isRefreshCooldown || isRefetching}
-					title="Refresh balances (5s cooldown)"
+					title={content.assets.header.refresh}
 				>
 					<RefreshCw
 						className={cn(
@@ -66,7 +68,7 @@ export function AssetsHeader({
 						}
 					>
 						<ExternalLink className="w-4 h-4 mr-2" />
-						Explorer
+						{content.assets.header.explorer}
 					</Button>
 				)}
 			</div>

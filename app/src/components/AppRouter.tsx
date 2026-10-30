@@ -13,6 +13,7 @@ import {
 	useLocation,
 } from 'react-router-dom';
 
+import { content } from '@/content';
 import { getAuthLevel } from '@/lib/auth-level';
 
 import { TOOLS } from '../config/tools';
@@ -188,7 +189,7 @@ export function AppRouter() {
 		return (
 			<SkeletonPage
 				rows={3}
-				message="Reconnecting wallet"
+				message={content.shell.reconnectingWallet}
 				testId="wallet-reconnecting"
 			/>
 		);
@@ -205,7 +206,7 @@ export function AppRouter() {
 		return (
 			<SkeletonPage
 				rows={3}
-				message="Checking authentication"
+				message={content.shell.checkingAuth}
 			/>
 		);
 	}

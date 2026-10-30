@@ -6,6 +6,7 @@ import { type ReactNode } from 'react';
 import { Chip, type ChipProps } from '@/components/ui/chip';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { SkeletonLine } from '@/components/ui/skeleton';
+import { content } from '@/content';
 import type {
 	SimulationStatus,
 	TransactionPreviewModel,
@@ -69,7 +70,9 @@ export function DetailsTable({
 
 	return (
 		<div className="rounded-lg border">
-			<Row label="Digest">
+			<Row
+				label={content.transactionPreview.details.digest}
+			>
 				<span
 					className="min-w-0 font-mono text-12 break-all"
 					data-testid="transaction-preview-digest"
@@ -80,10 +83,12 @@ export function DetailsTable({
 				<CopyButton
 					value={model.digest}
 					size="inline"
-					successMessage="Digest copied"
+					successMessage={content.toasts.digestCopied}
 				/>
 			</Row>
-			<Row label="Status">
+			<Row
+				label={content.transactionPreview.details.status}
+			>
 				<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
 					<Chip
 						size="md"
@@ -101,7 +106,9 @@ export function DetailsTable({
 				</span>
 			</Row>
 			{model.status === 'failed' && model.error && (
-				<Row label="Error">
+				<Row
+					label={content.transactionPreview.details.error}
+				>
 					<span
 						className="min-w-0 text-13 break-words whitespace-pre-wrap text-error-foreground"
 						data-testid="transaction-preview-error"
@@ -111,7 +118,7 @@ export function DetailsTable({
 				</Row>
 			)}
 			<Row
-				label="Sender"
+				label={content.transactionPreview.details.sender}
 				testId="transaction-preview-sender"
 			>
 				{!sender ? (
@@ -131,19 +138,21 @@ export function DetailsTable({
 							<CopyButton
 								value={sender.address}
 								size="inline"
-								successMessage="Address copied"
+								successMessage={
+									content.toasts.addressCopied
+								}
 							/>
 						</span>
 					</span>
 				)}
 			</Row>
-			<Row label="Epoch">
+			<Row label={content.transactionPreview.details.epoch}>
 				<SimulatedValue
 					value={model.epoch}
 					pending={pending}
 				/>
 			</Row>
-			<Row label="Gas">
+			<Row label={content.transactionPreview.details.gas}>
 				<SimulatedValue
 					value={model.gas}
 					pending={pending}

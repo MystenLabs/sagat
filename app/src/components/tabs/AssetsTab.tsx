@@ -8,6 +8,7 @@ import {
 	useOutletContext,
 } from 'react-router-dom';
 
+import { content } from '@/content';
 import { newProposalPath } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
@@ -95,7 +96,7 @@ export function AssetsTab() {
 						}
 					>
 						<Send className="w-3.5 h-3.5 mr-1" />
-						Send
+						{content.assets.send}
 					</Button>
 				)}
 			/>

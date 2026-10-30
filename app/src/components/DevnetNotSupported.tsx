@@ -3,6 +3,7 @@
 
 import { AlertTriangle } from 'lucide-react';
 
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 
 import { Button } from './ui/button';
@@ -22,13 +23,13 @@ export function DevnetNotSupported() {
 					className="text-3xl font-bold mb-3"
 					data-testid="devnet-not-supported"
 				>
-					Devnet Not Supported
+					{content.network.devnet.title}
 				</h1>
 
 				<p className="text-muted-foreground mb-8">
-					The main Sagat app does not support devnet.
+					{content.network.devnet.body}
 					<br />
-					Switch to a supported network to continue.
+					{content.network.devnet.hint}
 				</p>
 
 				<div className="flex gap-3 justify-center">
@@ -37,7 +38,7 @@ export function DevnetNotSupported() {
 						onClick={() => setNetwork('mainnet')}
 						data-testid="switch-to-mainnet-button"
 					>
-						Switch to Mainnet
+						{content.network.switchToMainnet}
 					</Button>
 					<Button
 						size="lg"
@@ -45,7 +46,7 @@ export function DevnetNotSupported() {
 						onClick={() => setNetwork('testnet')}
 						data-testid="switch-to-testnet-button"
 					>
-						Switch to Testnet
+						{content.network.switchToTestnet}
 					</Button>
 				</div>
 			</div>

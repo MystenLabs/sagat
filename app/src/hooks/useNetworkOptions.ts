@@ -4,6 +4,7 @@
 import { useWalletConnection } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import {
 	walletSupportsNetwork,
 	type SuiNetwork,
@@ -79,7 +80,11 @@ export function useNetworkOptions(
 		const enabled = walletSupportsNetwork(wallet, value);
 		return enabled
 			? { value, enabled }
-			: { value, enabled, hint: `Not in ${wallet?.name}` };
+			: {
+					value,
+					enabled,
+					hint: content.network.notInWallet(wallet?.name),
+				};
 	});
 }
 
@@ -97,7 +102,7 @@ export function useNetworkOption(
 		) ?? {
 			value: network,
 			enabled: false,
-			hint: 'Not available',
+			hint: content.network.notAvailable,
 		}
 	);
 }

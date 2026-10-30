@@ -11,6 +11,7 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { toast } from '@/lib/toast';
 
@@ -81,7 +82,7 @@ export function useCreateProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			toast.success('Proposal created');
+			toast.success(content.toasts.proposalCreated);
 		},
 	});
 }

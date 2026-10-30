@@ -4,6 +4,7 @@
 import { ArrowUpRight, Download } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { content } from '@/content';
 import { type AccountSetup } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
@@ -38,10 +39,13 @@ export function SetupCard({
 			aria-labelledby="account-setup-title"
 			data-testid="account-setup"
 		>
-			<CardHeading id="account-setup-title" title="Setup" />
+			<CardHeading
+				id="account-setup-title"
+				title={content.overview.setup.title}
+			/>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<Row label="Threshold">
+				<Row label={content.overview.setup.threshold}>
 					<span
 						data-testid="setup-threshold"
 						data-threshold={setup.threshold}
@@ -50,13 +54,15 @@ export function SetupCard({
 						{setup.thresholdLabel}
 					</span>
 				</Row>
-				<Row label="Signers">
+				<Row label={content.overview.setup.signers}>
 					<span data-testid="setup-signers">
 						{setup.signerCount}
 					</span>
 				</Row>
-				<Row label="Total weight">{setup.totalWeight}</Row>
-				<Row label="Created">
+				<Row label={content.overview.setup.totalWeight}>
+					{setup.totalWeight}
+				</Row>
+				<Row label={content.overview.setup.created}>
 					<span
 						data-testid="setup-created"
 						data-created-at={setup.createdAt ?? undefined}
@@ -65,10 +71,11 @@ export function SetupCard({
 								'text-muted-foreground',
 						)}
 					>
-						{setup.createdLabel ?? 'Unknown'}
+						{setup.createdLabel ??
+							content.overview.setup.createdUnknown}
 					</span>
 				</Row>
-				<Row label="Created by">
+				<Row label={content.overview.setup.createdBy}>
 					<CreatedBy
 						creator={setup.creator}
 						testId="setup-created-by"
@@ -92,7 +99,7 @@ export function SetupCard({
 						)}
 						data-testid="setup-explorer-link"
 					>
-						View on explorer
+						{content.overview.setup.viewOnExplorer}
 						<ArrowUpRight className="size-3" />
 					</a>
 				)}
@@ -103,7 +110,7 @@ export function SetupCard({
 					className={textAction}
 					data-testid="setup-download"
 				>
-					Download setup
+					{content.overview.setup.download}
 					<Download className="size-3" />
 				</Button>
 			</div>

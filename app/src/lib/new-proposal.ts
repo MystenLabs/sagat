@@ -15,6 +15,7 @@ import {
 	toBase64,
 } from '@mysten/sui/utils';
 
+import { content } from '../content';
 import { addressStatus } from './address-field';
 import {
 	formatCoinAmount,
@@ -34,18 +35,8 @@ export const PROPOSAL_TYPES: readonly {
 	title: string;
 	description: string;
 }[] = [
-	{
-		id: 'transfer',
-		title: 'Transfer',
-		description:
-			'Send tokens from the account to one address.',
-	},
-	{
-		id: 'bytes',
-		title: 'Transaction bytes',
-		description:
-			'Paste a transaction built somewhere else, such as the Sui CLI, and propose it as it is.',
-	},
+	{ id: 'transfer', ...content.newProposal.types.transfer },
+	{ id: 'bytes', ...content.newProposal.types.bytes },
 ];
 
 /** What Details hands to Review: the built transaction and its title. */
@@ -114,7 +105,11 @@ export function transferTitle({
 		!isValidSuiAddress(to)
 	)
 		return null;
-	return `Send ${formatCoinAmount(rawAmount.toString(), decimals)} ${symbol} to ${formatAddress(normalizeSuiAddress(to))}`;
+	return COPY.transferTitle(
+		formatCoinAmount(rawAmount.toString(), decimals),
+		symbol,
+		formatAddress(normalizeSuiAddress(to)),
+	);
 }
 
 export interface TransferCheck {
@@ -176,7 +171,7 @@ export function checkTransfer({
 			);
 			if (rawAmount > held)
 				amountError = COPY.overBalance(
-					symbol ?? 'asset',
+					symbol ?? COPY.unknownSymbol,
 					shown,
 				);
 			else if (
@@ -186,7 +181,7 @@ export function checkTransfer({
 			)
 				amountError = COPY.overMax(
 					formatCoinAmount(maxAmount.toString(), decimals),
-					symbol ?? 'asset',
+					symbol ?? COPY.unknownSymbol,
 				);
 		}
 	}
@@ -412,63 +407,13 @@ export function bytesStatusText(
 		case 'unresolved':
 			return COPY.bytesUnresolved;
 		case 'wrong-sender':
-			return `These bytes are sent from ${formatAddress(check.sender)}, not ${accountName}. Build the transaction with this account as the sender.`;
+			return COPY.bytesWrongSender(
+				formatAddress(check.sender),
+				accountName,
+			);
 		case 'ok':
-			return `Read as a transaction with ${check.commands} ${check.commands === 1 ? 'command' : 'commands'}, sent from this account.`;
+			return COPY.bytesRead(check.commands);
 	}
 }
 
-export const COPY = {
-	chooseAsset: 'Choose an asset to send.',
-	invalidAmount: (decimals: number) =>
-		decimals === 0
-			? 'Enter a whole number.'
-			: `Enter a valid amount (up to ${decimals} decimals).`,
-	zeroAmount: 'Enter an amount above 0.',
-	overBalance: (symbol: string, balance: string) =>
-		`More than the account holds. The ${symbol} balance is ${balance}.`,
-	addressPlaceholder:
-		'Paste the full Sui address, starting with 0x',
-	titlePlaceholderTransfer: 'Filled in from the transfer',
-	titlePlaceholder: 'Add a title',
-	titleHintTransfer:
-		'Signers see this title in the proposal list. You can change it.',
-	titleHintBytes:
-		'Bytes don’t include a title. Name it so signers know what it does.',
-	titleTooLong: (length: number) =>
-		`${length} of ${TITLE_MAX} characters. Use ${TITLE_MAX} or fewer.`,
-	unreadableBytes:
-		'Couldn’t read this as a transaction. Paste the full base64 bytes or JSON, the way your tool exported them.',
-	bytesUnresolved:
-		'This JSON transaction isn’t fully built. Set its sender, gas and inputs before pasting it.',
-	bytesPlaceholder:
-		'Paste the transaction as base64 bytes or JSON',
-	typeNote:
-		'You can review everything before anyone signs.',
-	transferNote:
-		'The transfer is simulated before anyone signs. You’ll see the result on the next step.',
-	bytesNote:
-		'The transaction is simulated before anyone signs. You’ll see the result on the next step.',
-	buildFailed: (reason?: string) =>
-		reason
-			? `Couldn’t build the transfer: ${reason}`
-			: 'Couldn’t build the transfer. Check your connection and try again.',
-	noGas:
-		'This account has no SUI to pay gas. Send it some SUI before proposing a transfer.',
-	maxPartial: (amount: string, symbol: string) =>
-		`One transfer sends up to ${amount} ${symbol} from this account: it holds its ${symbol} in more coins than one transfer can spend. Max fills that amount; the rest goes with the next transfer.`,
-	overMax: (amount: string, symbol: string) =>
-		`One transfer can send up to ${amount} ${symbol} from this account. Use Max for the most it can send.`,
-	simulationFailed: (reason: string) =>
-		`Simulation failed: ${reason}. If executed, it would fail and the account would still pay gas.`,
-	simulationUnreachable:
-		'Couldn’t simulate the transaction. Check your connection and try again.',
-	coinDataFailed:
-		'Couldn’t load this coin’s details. Try again in a moment.',
-	gasCoinsFailed:
-		'Couldn’t load this account’s coins, which Max and the amount check need. Try again.',
-	createFailed:
-		'Couldn’t create the proposal. Nothing was sent to the other signers. Check your connection and try again.',
-	signatureDeclined:
-		'The wallet didn’t sign the proposal. Nothing was created.',
-};
+export const COPY = content.newProposal;

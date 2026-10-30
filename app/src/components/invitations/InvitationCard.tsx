@@ -4,6 +4,7 @@
 import { Users } from 'lucide-react';
 import { useState } from 'react';
 
+import { content } from '@/content';
 import {
 	accountCreator,
 	accountName,
@@ -88,20 +89,24 @@ export function InvitationCard({
 					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-13 text-muted-foreground">
 						<span data-testid="invitation-invited-by">
 							{creator?.label
-								? `Invited by ${creator.label}`
-								: 'Invited by'}
+								? content.invitations.card.invitedByName(
+										creator.label,
+									)
+								: content.invitations.card.invitedBy}
 						</span>
 						<span className="flex items-center gap-1 font-mono text-12 text-foreground-secondary">
 							{creator ? (
 								<ShortAddress address={creator.address} />
 							) : (
-								'an unknown key'
+								content.invitations.card.unknownKey
 							)}
 							{creator && (
 								<CopyButton
 									value={creator.address}
 									size="xs"
-									successMessage="Address copied"
+									successMessage={
+										content.toasts.addressCopied
+									}
 								/>
 							)}
 						</span>
@@ -111,7 +116,7 @@ export function InvitationCard({
 
 			{multisig.isRejected ? (
 				<p className="shrink-0 text-13 text-muted-foreground">
-					You rejected this invitation.
+					{content.invitations.card.rejectedNote}
 				</p>
 			) : (
 				<div className="flex shrink-0 gap-2 max-md:justify-end">
@@ -121,14 +126,14 @@ export function InvitationCard({
 						disabled={busy}
 						data-testid="reject-invitation-open"
 					>
-						Reject
+						{content.invitations.card.reject}
 					</Button>
 					<Button
 						onClick={() => setReviewing(true)}
 						disabled={busy}
 						data-testid="invitation-toggle-details"
 					>
-						Review invitation
+						{content.invitations.card.review}
 					</Button>
 				</div>
 			)}

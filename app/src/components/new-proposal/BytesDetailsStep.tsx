@@ -18,11 +18,11 @@ import {
 	StepFooter,
 } from '@/components/wizard/parts';
 import { useTouched } from '@/components/wizard/use-touched';
+import { content } from '@/content';
 import { accountName } from '@/lib/account-name';
 import {
 	bytesStatusText,
 	checkBytes,
-	COPY,
 	titleError,
 	type ReadyProposal,
 } from '@/lib/new-proposal';
@@ -92,17 +92,21 @@ export function BytesDetailsStep({
 			data-testid="bytes-step"
 		>
 			<SectionHeading
-				title="Transaction bytes"
-				description="Paste a transaction built somewhere else. It is read and simulated before anyone signs."
+				title={content.newProposal.types.bytes.title}
+				description={
+					content.newProposal.bytesStep.description
+				}
 			/>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="proposal-bytes">Bytes</Label>
+				<Label htmlFor="proposal-bytes">
+					{content.newProposal.bytesStep.bytesLabel}
+				</Label>
 				<Textarea
 					id="proposal-bytes"
 					value={draft}
 					onChange={(e) => onDraftChange(e.target.value)}
-					placeholder={COPY.bytesPlaceholder}
+					placeholder={content.newProposal.bytesPlaceholder}
 					autoComplete="off"
 					spellCheck={false}
 					aria-invalid={bytesInvalid || undefined}
@@ -126,8 +130,8 @@ export function BytesDetailsStep({
 
 			<TitleField
 				value={value}
-				placeholder={COPY.titlePlaceholder}
-				hint={COPY.titleHintBytes}
+				placeholder={content.newProposal.titlePlaceholder}
+				hint={content.newProposal.titleHintBytes}
 				error={shownTitleError}
 				onChange={(next) => {
 					change('title', value);
@@ -150,10 +154,14 @@ export function BytesDetailsStep({
 						data-testid="details-back"
 					>
 						<ArrowLeft />
-						Back
+						{content.common.back}
 					</Button>
 				}
-				note={<FooterNote>{COPY.bytesNote}</FooterNote>}
+				note={
+					<FooterNote>
+						{content.newProposal.bytesNote}
+					</FooterNote>
+				}
 				primary={
 					<Button
 						type="submit"
@@ -164,7 +172,7 @@ export function BytesDetailsStep({
 						)}
 						data-testid="bytes-review"
 					>
-						Review
+						{content.newProposal.bytesStep.review}
 					</Button>
 				}
 			/>

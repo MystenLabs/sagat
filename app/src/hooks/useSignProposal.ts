@@ -11,6 +11,7 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { signatureAddedMessage } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 import { type ProposalCardInput } from '@/lib/types';
@@ -39,7 +40,7 @@ export function useSignProposal() {
 			transactionBytes,
 		}: SignProposalParams) => {
 			if (!currentAccount)
-				throw new Error('No connected account');
+				throw new Error(content.errors.noConnectedAccount);
 
 			// Create transaction from built bytes for signing
 			const transaction = Transaction.from(
@@ -80,7 +81,7 @@ export function useSignProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			toast.error("Couldn't sign the proposal", {
+			toast.error(content.toasts.proposalSignFailed, {
 				description: error.message,
 			});
 		},

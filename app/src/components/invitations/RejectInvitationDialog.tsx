@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { content } from '@/content';
 import { errorMessage } from '@/lib/utils';
 
 import { Alert } from '../ui/Alert';
@@ -50,11 +51,13 @@ export function RejectInvitationDialog({
 				{error ? (
 					<>
 						<DialogTitle className="text-16 font-semibold">
-							Couldn't reject the invitation
+							{content.invitations.rejectDialog.failedTitle}
 						</DialogTitle>
 						<DialogDescription className="mt-2 text-13 text-muted-foreground">
-							The rejection didn't go through. Try again, or
-							go back to the invitation.
+							{
+								content.invitations.rejectDialog
+									.failedDescription
+							}
 						</DialogDescription>
 						<Alert
 							variant="error"
@@ -63,12 +66,12 @@ export function RejectInvitationDialog({
 						>
 							{errorMessage(
 								error,
-								'The wallet rejected the request.',
+								content.invitations.walletRejected,
 							)}
 						</Alert>
 						<div className="mt-5 grid grid-cols-2 gap-2">
 							<Button variant="outline" onClick={onBack}>
-								Go back
+								{content.invitations.goBack}
 							</Button>
 							<Button
 								variant="outlineDestructive"
@@ -76,18 +79,19 @@ export function RejectInvitationDialog({
 								disabled={rejecting}
 								data-testid="reject-invitation-button"
 							>
-								Try again
+								{content.common.tryAgain}
 							</Button>
 						</div>
 					</>
 				) : (
 					<>
 						<DialogTitle className="text-16 font-semibold">
-							Reject this invitation?
+							{content.invitations.rejectDialog.title}
 						</DialogTitle>
 						<DialogDescription className="mt-2 text-13 text-muted-foreground">
-							You won't join {name}, and its creator will
-							see that you rejected the invitation.
+							{content.invitations.rejectDialog.description(
+								name,
+							)}
 						</DialogDescription>
 						<div className="mt-5 grid grid-cols-2 gap-2">
 							<Button
@@ -95,7 +99,7 @@ export function RejectInvitationDialog({
 								onClick={onClose}
 								disabled={rejecting}
 							>
-								Go back
+								{content.invitations.goBack}
 							</Button>
 							<Button
 								variant="outlineDestructive"
@@ -104,8 +108,9 @@ export function RejectInvitationDialog({
 								data-testid="reject-invitation-button"
 							>
 								{rejecting
-									? 'Confirm in your wallet…'
-									: 'Reject invitation'}
+									? content.invitations.confirmInWallet
+									: content.invitations.rejectDialog
+											.confirm}
 							</Button>
 						</div>
 					</>

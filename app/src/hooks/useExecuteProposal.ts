@@ -13,6 +13,7 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
@@ -34,7 +35,9 @@ export function useExecuteProposal() {
 			proposal,
 		}: ExecuteProposalParams) => {
 			if (proposal.status !== ProposalStatus.PENDING)
-				throw new Error('Proposal is not pending');
+				throw new Error(
+					content.proposal.execute.notPending,
+				);
 
 			try {
 				// Order the members.
@@ -135,26 +138,29 @@ export function useExecuteProposal() {
 				variables.proposal.network,
 			);
 			const link = explorerUrl
-				? { label: 'View on explorer', href: explorerUrl }
+				? {
+						label: content.proposal.shared.viewOnExplorer,
+						href: explorerUrl,
+					}
 				: undefined;
 			// The node can land the transaction and still fail it.
 			const { status } = data.executionResult;
 			if (!status.success) {
-				toast.error("Couldn't execute the proposal", {
+				toast.error(content.toasts.proposalExecuteFailed, {
 					description:
 						safeDecode(status.error.message) ||
-						'The transaction failed on chain.',
+						content.toasts.proposalFailedOnChain,
 					link,
 				});
 				return;
 			}
-			toast.success('Proposal executed', {
+			toast.success(content.toasts.proposalExecuted, {
 				description: digest,
 				link,
 			});
 		},
 		onError: (error: Error) => {
-			toast.error("Couldn't execute the proposal", {
+			toast.error(content.toasts.proposalExecuteFailed, {
 				description: error.message,
 			});
 		},

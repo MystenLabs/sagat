@@ -3,13 +3,14 @@
 
 import { useCallback, useState } from 'react';
 
+import { content } from '@/content';
 import { toast } from '@/lib/toast';
 
 import { CONFIG } from '../lib/constants';
 
 /** Pass a null message to skip the toast when the caller shows "Copied". */
 export function useCopyToClipboard(
-	successMessage: string | null = 'Copied',
+	successMessage: string | null = content.common.copied,
 ) {
 	const [copied, setCopied] = useState(false);
 
@@ -25,7 +26,7 @@ export function useCopyToClipboard(
 				);
 				return true;
 			} catch {
-				toast.error('Failed to copy to clipboard');
+				toast.error(content.toasts.copyFailed);
 				return false;
 			}
 		},

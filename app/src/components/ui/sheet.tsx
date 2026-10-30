@@ -6,6 +6,7 @@ import { XIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
@@ -98,7 +99,9 @@ function SheetContent({
 						}
 					>
 						<XIcon />
-						<span className="sr-only">Close</span>
+						<span className="sr-only">
+							{content.common.close}
+						</span>
 					</SheetPrimitive.Close>
 				)}
 			</SheetPrimitive.Popup>

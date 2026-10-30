@@ -4,6 +4,7 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 
 import { Textarea } from '@/components/ui/textarea';
+import { content } from '@/content';
 import { prettifyType } from '@/lib/coin-type';
 
 import { ObjectLink } from './ObjectLink';
@@ -18,7 +19,11 @@ export function EventsList({
 	senderAddress?: string;
 }) {
 	if (events.length === 0) {
-		return <EmptyPanel>No events were emitted.</EmptyPanel>;
+		return (
+			<EmptyPanel>
+				{content.transactionPreview.events.empty}
+			</EmptyPanel>
+		);
 	}
 
 	return (
@@ -29,22 +34,32 @@ export function EventsList({
 					className="flex flex-col gap-2 rounded-lg border p-3 text-13"
 					data-testid="transaction-preview-event"
 				>
-					<Field label="Type">
+					<Field
+						label={content.transactionPreview.events.type}
+					>
 						<span className="min-w-0 font-mono text-12 font-medium break-all">
 							{prettifyType(event.eventType)}
 						</span>
 					</Field>
-					<Field label="Package">
+					<Field
+						label={
+							content.transactionPreview.events.package
+						}
+					>
 						<span className="flex min-w-0 items-center font-mono text-12 break-all">
 							<ObjectLink inputObject={event.packageId} />
 						</span>
 					</Field>
-					<Field label="Module">
+					<Field
+						label={content.transactionPreview.events.module}
+					>
 						<span className="font-mono text-12">
 							{event.module}
 						</span>
 					</Field>
-					<Field label="Sender">
+					<Field
+						label={content.transactionPreview.events.sender}
+					>
 						<span className="flex min-w-0 items-center font-mono text-12 break-all">
 							<ObjectLink
 								owner={{
@@ -55,13 +70,18 @@ export function EventsList({
 							/>
 						</span>
 					</Field>
-					<Field label="Data">
+					<Field
+						label={content.transactionPreview.events.data}
+					>
 						{event.json ? (
 							<Textarea
 								value={JSON.stringify(event.json, null, 2)}
 								rows={6}
 								readOnly
-								aria-label="Event data"
+								aria-label={
+									content.transactionPreview.events
+										.dataAriaLabel
+								}
 								className="resize-y font-mono md:text-12"
 							/>
 						) : (

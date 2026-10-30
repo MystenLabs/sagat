@@ -10,6 +10,7 @@ import {
 } from '@mysten/sagat';
 import { formatDigest } from '@mysten/sui/utils';
 
+import { content } from '../content';
 import { getExpiry, type EpochInfo } from './expiration';
 import { validatePublicKey } from './sui-utils';
 import { type ProposalCardInput } from './types';
@@ -118,7 +119,9 @@ export function proposalTitle(
 ) {
 	const description = proposal.description?.trim();
 	if (description) return description;
-	return `Transaction ${formatDigest(proposal.digest)}`;
+	return content.proposals.untitled(
+		formatDigest(proposal.digest),
+	);
 }
 
 /**
@@ -130,8 +133,11 @@ export function signatureAddedMessage(
 	vote: VoteProposalResponse,
 	totalWeight: number,
 ) {
-	if (vote.hasReachedThreshold) return 'Signature added';
-	return `Signature added. Needs ${totalWeight - vote.currentWeight} more weight.`;
+	if (vote.hasReachedThreshold)
+		return content.toasts.signatureAdded;
+	return content.toasts.signatureAddedNeeds(
+		totalWeight - vote.currentWeight,
+	);
 }
 
 /**

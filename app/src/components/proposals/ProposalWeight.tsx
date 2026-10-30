@@ -3,6 +3,7 @@
 
 import { type Proposal } from '@mysten/sagat';
 
+import { content } from '@/content';
 import { weightDots } from '@/lib/proposalUtils';
 import { cn } from '@/lib/utils';
 
@@ -26,13 +27,18 @@ export function ProposalWeight({
 	className?: string;
 }) {
 	const { dots, filled } = weightDots(proposal);
-	const label = `${proposal.currentWeight} of ${proposal.totalWeight}`;
+	const label = content.proposals.weight.label(
+		proposal.currentWeight,
+		proposal.totalWeight,
+	);
 	return (
 		<TooltipProvider delay={150}>
 			<Tooltip>
 				<TooltipTrigger
 					type="button"
-					aria-label={`Weight ${label}`}
+					aria-label={content.proposals.weight.ariaLabel(
+						label,
+					)}
 					className={cn(
 						'flex w-10 cursor-help gap-0.75 rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring',
 						className,

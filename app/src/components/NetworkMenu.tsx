@@ -8,6 +8,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useNetworkOptions } from '@/hooks/useNetworkOptions';
 import { cn } from '@/lib/utils';
@@ -43,7 +44,9 @@ export function NetworkMenuItems() {
 
 	return (
 		<DropdownMenuGroup>
-			<DropdownMenuLabel>Network</DropdownMenuLabel>
+			<DropdownMenuLabel>
+				{content.network.menuLabel}
+			</DropdownMenuLabel>
 			{options.map(({ value, enabled, hint }) => (
 				<DropdownMenuItem
 					key={value}

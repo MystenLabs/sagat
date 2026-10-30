@@ -19,6 +19,7 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Notice } from '@/components/wizard/parts';
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCoinDisplayDataMap } from '@/hooks/useCoinDisplayData';
 import {
@@ -137,31 +138,34 @@ export function TransactionPreview({
 	}[] = [
 		{
 			id: 'balance-changes',
-			label: 'Balance changes',
+			label: content.transactionPreview.tabs.balanceChanges,
 			count: model.balanceChanges.length,
 		},
 		{
 			id: 'object-changes',
-			label: 'Object changes',
+			label: content.transactionPreview.tabs.objectChanges,
 			count: model.objectChanges.length,
 		},
 		{
 			id: 'events',
-			label: 'Events',
+			label: content.transactionPreview.tabs.events,
 			count: model.events.length,
 		},
 		{
 			id: 'commands',
-			label: 'Commands',
+			label: content.transactionPreview.tabs.commands,
 			count: model.transaction.commands.length,
 		},
-		{ id: 'raw-json', label: 'Raw JSON' },
+		{
+			id: 'raw-json',
+			label: content.transactionPreview.tabs.rawJson,
+		},
 	];
 
 	const senderAddress = model.sender?.address;
 	const waiting = (
 		<EmptyPanel>
-			{source === 'chain' ? 'Loading…' : 'Simulating…'}
+			{content.transactionPreview.status[source].pending}
 		</EmptyPanel>
 	);
 
@@ -209,12 +213,14 @@ export function TransactionPreview({
 					value={JSON.stringify(model.raw, null, 2)}
 					rows={20}
 					readOnly
-					aria-label="Simulation result as JSON"
+					aria-label={
+						content.transactionPreview.rawJsonAriaLabel
+					}
 					className="font-mono md:text-12"
 				/>
 			) : (
 				<EmptyPanel>
-					Nothing to show until the simulation runs.
+					{content.transactionPreview.rawJsonEmpty}
 				</EmptyPanel>
 			);
 			break;
@@ -245,12 +251,14 @@ export function TransactionPreview({
 							id: 'simulation',
 							label:
 								source === 'chain'
-									? 'On-chain result'
-									: 'Simulation result',
+									? content.transactionPreview.views.chain
+									: content.transactionPreview.views
+											.simulation,
 						},
 						{
 							id: 'analyzer',
-							label: 'Static analyzer',
+							label:
+								content.transactionPreview.views.analyzer,
 							count: analyzerCount,
 						},
 					]}
@@ -273,7 +281,7 @@ export function TransactionPreview({
 						data-testid="transaction-preview-ledger-hash"
 					>
 						<span className="text-13 text-muted-foreground">
-							Ledger hash
+							{content.transactionPreview.ledgerHash}
 						</span>
 						<span className="ml-auto flex min-w-0 items-center gap-1.5">
 							<span className="min-w-0 font-mono text-12 break-all">
@@ -282,16 +290,16 @@ export function TransactionPreview({
 							<CopyButton
 								value={model.ledgerHash}
 								size="inline"
-								successMessage="Ledger hash copied"
+								successMessage={
+									content.toasts.ledgerHashCopied
+								}
 							/>
 						</span>
 					</div>
 
 					{source === 'simulation' && signingNotice && (
 						<Notice tone="warning">
-							Always check the transaction in your wallet
-							before you sign. Your wallet is the final word
-							on what you approve.
+							{content.transactionPreview.signingNotice}
 						</Notice>
 					)}
 
@@ -322,8 +330,8 @@ export function TransactionPreview({
 					data-testid="transaction-preview-raw-toggle"
 				>
 					{showRaw
-						? 'Hide raw transaction'
-						: 'Show raw transaction'}
+						? content.transactionPreview.hideRaw
+						: content.transactionPreview.showRaw}
 					{showRaw ? (
 						<ChevronUp className="size-3" />
 					) : (
@@ -334,7 +342,9 @@ export function TransactionPreview({
 					<Textarea
 						readOnly
 						value={bytes}
-						aria-label="Raw transaction bytes"
+						aria-label={
+							content.transactionPreview.rawBytesAriaLabel
+						}
 						className="h-30 resize-none font-mono break-all md:text-12"
 						data-testid="transaction-preview-raw"
 					/>
@@ -350,7 +360,9 @@ function ViewHelp({ source }: { source: PreviewSource }) {
 		<TooltipProvider delay={150}>
 			<Tooltip>
 				<TooltipTrigger
-					aria-label="About the simulation and the static analyzer"
+					aria-label={
+						content.transactionPreview.help.ariaLabel
+					}
 					data-testid="transaction-preview-help"
 					className="flex shrink-0 cursor-pointer items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 				>
@@ -365,31 +377,26 @@ function ViewHelp({ source }: { source: PreviewSource }) {
 						{source === 'chain' ? (
 							<p>
 								<span className="block font-medium">
-									On-chain result
+									{content.transactionPreview.views.chain}
 								</span>
-								What the transaction did when it ran, read
-								from the chain.
+								{content.transactionPreview.help.chain}
 							</p>
 						) : (
 							<p>
 								<span className="block font-medium">
-									Simulation result
+									{
+										content.transactionPreview.views
+											.simulation
+									}
 								</span>
-								One dry run against the current on-chain
-								state. It shows the expected effects, but it
-								can miss some of what could leave the
-								account, because on-chain state can change
-								before the transaction runs.
+								{content.transactionPreview.help.simulation}
 							</p>
 						)}
 						<p>
 							<span className="block font-medium">
-								Static analyzer
+								{content.transactionPreview.views.analyzer}
 							</span>
-							Reads the transaction itself and estimates the
-							most that can leave the account, not counting
-							gas. It helps protect against on-chain state
-							attacks.
+							{content.transactionPreview.help.analyzer}
 						</p>
 					</div>
 				</TooltipContent>

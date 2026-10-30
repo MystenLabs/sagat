@@ -9,6 +9,7 @@ import {
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useGetProposal } from '@/hooks/useGetProposal';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
@@ -41,11 +42,15 @@ export function SharedProposalPage() {
 	if (!digest) {
 		return (
 			<div className="page-shell">
-				<PageHeader title="Proposal" />
+				<PageHeader
+					title={content.proposal.shared.heading}
+				/>
 				<EmptyState
 					icon={FileSearch}
-					title="Missing digest"
-					description="Add the proposal digest to the URL as ?digest=… to open it."
+					title={content.proposal.load.missingDigestTitle}
+					description={
+						content.proposal.load.missingDigestDescription
+					}
 				/>
 			</div>
 		);

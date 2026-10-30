@@ -22,6 +22,7 @@ import {
 	SelectTrigger,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { content } from '@/content';
 import {
 	useNetwork,
 	type SuiNetwork,
@@ -56,7 +57,7 @@ export function NetworkField() {
 	return (
 		<div className="flex flex-col gap-2">
 			<Label htmlFor="tool-network" className="text-14">
-				Network
+				{content.tools.network}
 			</Label>
 			<Select
 				value={network}
@@ -242,7 +243,7 @@ export function ResultActions({
 					})}
 				>
 					<ExternalLink />
-					View on explorer
+					{content.tools.viewOnExplorer}
 				</a>
 			)}
 			<Button type="button" onClick={() => copy(copyValue)}>

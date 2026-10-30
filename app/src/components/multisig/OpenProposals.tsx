@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import {
@@ -71,7 +72,7 @@ export function OpenProposals({
 		>
 			<CardHeading
 				id="open-proposals-title"
-				title="Open proposals"
+				title={content.overview.openProposals.title}
 			>
 				<Link
 					to={proposalsPath(multisig.address)}
@@ -84,7 +85,7 @@ export function OpenProposals({
 					)}
 					data-testid="view-all-proposals"
 				>
-					View all proposals
+					{content.overview.openProposals.viewAll}
 					<ChevronRight className="size-3" />
 				</Link>
 			</CardHeading>
@@ -99,9 +100,9 @@ export function OpenProposals({
 				error={query.data ? null : query.error}
 				onRetry={() => query.refetch()}
 				empty={{
-					title: 'No open proposals',
+					title: content.overview.openProposals.emptyTitle,
 					description:
-						'Proposals waiting for signatures show up here.',
+						content.overview.openProposals.emptyDescription,
 				}}
 				testId="open-proposals"
 			/>

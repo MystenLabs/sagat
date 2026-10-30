@@ -14,6 +14,7 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
@@ -32,7 +33,7 @@ export function useAddProposer(
 	return useMutation({
 		mutationFn: async (proposerAddress: string) => {
 			if (!currentAccount?.address) {
-				throw new Error('No wallet connected');
+				throw new Error(content.errors.noWalletConnected);
 			}
 
 			const expiry = defaultExpiry();
@@ -59,14 +60,14 @@ export function useAddProposer(
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisig, multisigAddress],
 			});
-			toast.success('External proposer added');
+			toast.success(content.toasts.proposerAdded);
 			options?.onSuccess?.();
 		},
 		onError: (error) => {
 			toast.error(
 				error instanceof Error
 					? error.message
-					: 'Failed to add proposer',
+					: content.toasts.proposerAddFailed,
 			);
 		},
 	});

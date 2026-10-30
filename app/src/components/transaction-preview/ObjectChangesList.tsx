@@ -5,6 +5,7 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { useMemo, useState } from 'react';
 
 import { Chip, type ChipProps } from '@/components/ui/chip';
+import { content } from '@/content';
 import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
@@ -33,19 +34,35 @@ function deriveChangeKind(
 		idOperation === 'Created' &&
 		outputState === 'PackageWrite'
 	) {
-		return { title: 'Published', variant: 'success' };
+		return {
+			title:
+				content.transactionPreview.objects.kinds.published,
+			variant: 'success',
+		};
 	}
 	if (idOperation === 'Created') {
-		return { title: 'Created', variant: 'success' };
+		return {
+			title:
+				content.transactionPreview.objects.kinds.created,
+			variant: 'success',
+		};
 	}
 	if (idOperation === 'Deleted') {
-		return { title: 'Deleted', variant: 'error' };
+		return {
+			title:
+				content.transactionPreview.objects.kinds.deleted,
+			variant: 'error',
+		};
 	}
 	if (
 		inputState === 'Exists' &&
 		outputState === 'DoesNotExist'
 	) {
-		return { title: 'Wrapped', variant: 'neutral' };
+		return {
+			title:
+				content.transactionPreview.objects.kinds.wrapped,
+			variant: 'neutral',
+		};
 	}
 	if (
 		inputState === 'Exists' &&
@@ -55,9 +72,17 @@ function deriveChangeKind(
 		JSON.stringify(inputOwner) !==
 			JSON.stringify(outputOwner)
 	) {
-		return { title: 'Transferred', variant: 'info' };
+		return {
+			title:
+				content.transactionPreview.objects.kinds
+					.transferred,
+			variant: 'info',
+		};
 	}
-	return { title: 'Mutated', variant: 'warning' };
+	return {
+		title: content.transactionPreview.objects.kinds.mutated,
+		variant: 'warning',
+	};
 }
 
 function FilterPill({
@@ -124,14 +149,20 @@ export function ObjectChangesList({
 		return { annotated, groups };
 	}, [objects]);
 
-	const [activeFilter, setActiveFilter] = useState('All');
+	const [activeFilter, setActiveFilter] = useState<string>(
+		content.transactionPreview.objects.all,
+	);
 
 	if (objects.length === 0) {
-		return <EmptyPanel>No object changes.</EmptyPanel>;
+		return (
+			<EmptyPanel>
+				{content.transactionPreview.objects.empty}
+			</EmptyPanel>
+		);
 	}
 
 	const filtered =
-		activeFilter === 'All'
+		activeFilter === content.transactionPreview.objects.all
 			? annotated
 			: annotated.filter(
 					({ kind }) => kind.title === activeFilter,
@@ -141,11 +172,18 @@ export function ObjectChangesList({
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-wrap gap-1.5">
 				<FilterPill
-					label="All"
+					label={content.transactionPreview.objects.all}
 					count={objects.length}
 					variant="neutral"
-					active={activeFilter === 'All'}
-					onClick={() => setActiveFilter('All')}
+					active={
+						activeFilter ===
+						content.transactionPreview.objects.all
+					}
+					onClick={() =>
+						setActiveFilter(
+							content.transactionPreview.objects.all,
+						)
+					}
 				/>
 				{[...groups.entries()].map(([title, group]) => (
 					<FilterPill
@@ -174,19 +212,31 @@ export function ObjectChangesList({
 							</Chip>
 						</div>
 						{type && (
-							<Field label="Type">
+							<Field
+								label={
+									content.transactionPreview.objects.type
+								}
+							>
 								<span className="min-w-0 font-mono text-12 break-all">
 									{prettifyType(type)}
 								</span>
 							</Field>
 						)}
-						<Field label="Object ID">
+						<Field
+							label={
+								content.transactionPreview.objects.objectId
+							}
+						>
 							<span className="flex min-w-0 items-center font-mono text-12 break-all">
 								<ObjectLink object={object} />
 							</span>
 						</Field>
 						{object.outputOwner && (
-							<Field label="Owner">
+							<Field
+								label={
+									content.transactionPreview.objects.owner
+								}
+							>
 								<span className="flex min-w-0 items-center font-mono text-12 break-all">
 									<ObjectLink
 										owner={object.outputOwner}

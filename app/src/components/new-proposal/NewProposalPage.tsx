@@ -12,6 +12,7 @@ import {
 import { SkeletonPage } from '@/components/ui/skeleton';
 import { type WizardStep } from '@/components/wizard/parts';
 import { WizardPage } from '@/components/wizard/WizardPage';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
@@ -26,7 +27,6 @@ import { accountSetup } from '@/lib/account-setup';
 import { shownApiError } from '@/lib/api-errors';
 import { normalizeCoinType } from '@/lib/coin-type';
 import {
-	COPY,
 	proposalTypeFromQuery,
 	type ProposalType,
 	type ReadyProposal,
@@ -50,7 +50,7 @@ import {
 import { TransferDetailsStep } from './TransferDetailsStep';
 import { TypeStep } from './TypeStep';
 
-const STEPS = ['Type', 'Details', 'Review'] as const;
+const STEPS = content.newProposal.steps;
 
 /**
  * The new-proposal wizard: type, details, review. Waits for the account
@@ -72,7 +72,9 @@ export function NewProposalPage() {
 	// Also wait while the list refreshes without this account (just
 	// joined), rather than redirecting on the stale list.
 	if (isLoading || (isFetching && !multisig)) {
-		return <SkeletonPage message="Loading account" />;
+		return (
+			<SkeletonPage message={content.newProposal.loading} />
+		);
 	}
 	if (!multisig) return <Navigate to="/" replace />;
 
@@ -239,7 +241,9 @@ function NewProposalWizard({
 					),
 				onError: (error) => {
 					if (error instanceof SignatureDeclinedError)
-						toast.error(COPY.signatureDeclined);
+						toast.error(
+							content.newProposal.signatureDeclined,
+						);
 				},
 				onSettled: () => {
 					submitting.current = false;
@@ -253,7 +257,10 @@ function NewProposalWizard({
 	const createError =
 		create.error &&
 		!(create.error instanceof SignatureDeclinedError)
-			? shownApiError(create.error, COPY.createFailed)
+			? shownApiError(
+					create.error,
+					content.newProposal.createFailed,
+				)
 			: null;
 
 	const detailsProps = {
@@ -270,10 +277,13 @@ function NewProposalWizard({
 
 	return (
 		<WizardPage
-			title="New proposal"
+			title={content.newProposal.title}
 			breadcrumb={[
-				{ label: 'Proposals', to: proposalsLink },
-				{ label: 'New proposal' },
+				{
+					label: content.newProposal.breadcrumbProposals,
+					to: proposalsLink,
+				},
+				{ label: content.newProposal.title },
 			]}
 			testId="new-proposal"
 			steps={STEPS}

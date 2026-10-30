@@ -10,6 +10,7 @@ import {
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { useState } from 'react';
 
+import { content } from '@/content';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl } from '@/lib/utils';
 
@@ -21,9 +22,9 @@ const getOwnerDisplay = (
 ): OwnerDisplay => {
 	switch (owner.$kind) {
 		case 'Immutable':
-			return 'Immutable';
+			return content.transactionPreview.owner.immutable;
 		case 'Shared':
-			return 'Shared';
+			return content.transactionPreview.owner.shared;
 		case 'AddressOwner':
 			return { address: owner.AddressOwner };
 		case 'ObjectOwner':
@@ -31,9 +32,9 @@ const getOwnerDisplay = (
 		case 'ConsensusAddressOwner':
 			return { object: owner.ConsensusAddressOwner?.owner };
 		case 'Unknown':
-			return 'Unknown Owner';
+			return content.transactionPreview.owner.unknown;
 		default:
-			return 'Failed to find or parse owner.';
+			return content.transactionPreview.owner.parseFailed;
 	}
 };
 
@@ -91,7 +92,7 @@ export function ObjectLink({
 		'address' in ownerDisplay &&
 		isSameAddress(objectId, senderAddress)
 	) {
-		display = 'Sender';
+		display = content.transactionPreview.owner.sender;
 	}
 
 	const link = objectId

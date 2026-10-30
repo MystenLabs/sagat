@@ -6,6 +6,8 @@ import {
 	type ExternalToast,
 } from 'sonner';
 
+import { content } from '../content';
+
 /** An underlined link at the end of the toast: a URL opens in a new tab. */
 export type ToastLink = {
 	label: string;
@@ -48,6 +50,8 @@ export const toast = {
 			...withLink(options),
 		}),
 	/** "Address copied" and friends. */
-	copied: (what = 'Copied', options?: Options) =>
-		toast.success(what, options),
+	copied: (
+		what: string = content.common.copied,
+		options?: Options,
+	) => toast.success(what, options),
 };

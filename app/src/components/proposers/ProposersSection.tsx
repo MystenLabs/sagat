@@ -22,6 +22,7 @@ import {
 	tableHeadRowClass,
 	tableRowClass,
 } from '@/components/ui/table';
+import { content } from '@/content';
 import { accountName } from '@/lib/account-name';
 import { formatDate } from '@/lib/dates';
 import { memberLabels } from '@/lib/signers';
@@ -29,9 +30,6 @@ import { cn } from '@/lib/utils';
 
 import { AddProposerDialog } from './AddProposerDialog';
 import { RemoveProposerDialog } from './RemoveProposerDialog';
-
-const EXPLANATION =
-	'External proposers are outside addresses, like a payments service, that can create proposals but can’t sign or execute them.';
 
 /**
  * The account's external proposers as a card: each address with the day it
@@ -72,7 +70,7 @@ export function ProposersSection({
 		>
 			<CardHeading
 				id="proposers-title"
-				title="External proposers"
+				title={content.proposers.title}
 				count={proposers.length}
 			>
 				<Button
@@ -85,7 +83,7 @@ export function ProposersSection({
 					<Plus />
 					{/* Icon only on phones, so the heading row does not wrap. */}
 					<span className="max-sm:sr-only">
-						Add external proposer
+						{content.proposers.addButton}
 					</span>
 				</Button>
 			</CardHeading>
@@ -95,7 +93,8 @@ export function ProposersSection({
 					className="text-13 text-muted-foreground"
 					data-testid="proposers-empty"
 				>
-					No external proposers yet. {EXPLANATION}
+					{content.proposers.empty}{' '}
+					{content.proposers.explanation}
 				</p>
 			) : (
 				<>
@@ -103,11 +102,15 @@ export function ProposersSection({
 						<thead>
 							<tr className={tableHeadRowClass}>
 								<th className="px-3 whitespace-nowrap">
-									External proposer
+									{content.proposers.columns.proposer}
 								</th>
-								<th className="w-30 px-3 sm:w-40">Added</th>
+								<th className="w-30 px-3 sm:w-40">
+									{content.proposers.columns.added}
+								</th>
 								<th className="w-12 px-1.5 sm:w-30 sm:px-3">
-									<span className="sr-only">Actions</span>
+									<span className="sr-only">
+										{content.proposers.columns.actions}
+									</span>
 								</th>
 							</tr>
 						</thead>
@@ -136,7 +139,9 @@ export function ProposersSection({
 												<CopyButton
 													value={proposer.address}
 													size="inline"
-													successMessage="Address copied"
+													successMessage={
+														content.toasts.addressCopied
+													}
 												/>
 											</span>
 										</td>
@@ -153,7 +158,7 @@ export function ProposersSection({
 												className="block text-12 break-words text-muted-foreground"
 												data-testid="proposer-added-by"
 											>
-												by{' '}
+												{content.proposers.addedBy}{' '}
 												<MemberName
 													address={proposer.addedBy}
 													label={label}
@@ -171,14 +176,16 @@ export function ProposersSection({
 													);
 													setRemoving(true);
 												}}
-												aria-label={`Remove ${formatAddress(proposer.address)}`}
+												aria-label={content.proposers.removeLabel(
+													formatAddress(proposer.address),
+												)}
 												data-testid="remove-proposer-button"
 											>
 												<Trash2 />
 												{/* Icon only on phones, where the
 											    address needs the room. */}
 												<span className="max-sm:sr-only">
-													Remove
+													{content.proposers.removeButton}
 												</span>
 											</Button>
 										</td>
@@ -188,7 +195,7 @@ export function ProposersSection({
 						</tbody>
 					</table>
 					<p className="text-13 leading-normal text-foreground-secondary">
-						{EXPLANATION}
+						{content.proposers.explanation}
 					</p>
 				</>
 			)}

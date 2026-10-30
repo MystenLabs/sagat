@@ -12,6 +12,7 @@ import {
 	useParams,
 } from 'react-router-dom';
 
+import { content } from '@/content';
 import { useArrivalBanner } from '@/hooks/useArrivalBanner';
 import { accountName } from '@/lib/account-name';
 import { joinList } from '@/lib/create-multisig';
@@ -77,7 +78,9 @@ export function MultisigDetailPage() {
 	// Also wait while the list refreshes without this account (just
 	// joined), rather than redirecting on the stale list.
 	if (isLoading || (isFetching && !multisigDetails)) {
-		return <SkeletonPage message="Loading account" />;
+		return (
+			<SkeletonPage message={content.overview.loading} />
+		);
 	}
 
 	// If we're trying to access a specific multisig but it's not verified, redirect to dashboard
@@ -132,7 +135,7 @@ export function MultisigDetailPage() {
 						data-testid="new-proposal-button"
 					>
 						<Plus />
-						New proposal
+						{content.overview.newProposal}
 					</Button>
 				}
 			/>
@@ -142,13 +145,10 @@ export function MultisigDetailPage() {
 					onDismiss={dismissArrival}
 					testId="joined-banner"
 				>
-					You joined {name}.
-					{multisig.pendingMembers > 0 &&
-						` ${multisig.pendingMembers} ${
-							multisig.pendingMembers === 1
-								? 'signer hasn’t'
-								: 'signers haven’t'
-						} accepted yet.`}
+					{content.overview.joined(
+						name,
+						multisig.pendingMembers,
+					)}
 				</SuccessBanner>
 			)}
 			{arrival?.kind === 'created' && (
@@ -156,8 +156,9 @@ export function MultisigDetailPage() {
 					onDismiss={dismissArrival}
 					testId="created-banner"
 				>
-					Multisig created. Invitations sent to{' '}
-					{joinList(arrival.invited, 'and')}.
+					{content.overview.created(
+						joinList(arrival.invited, 'and'),
+					)}
 				</SuccessBanner>
 			)}
 

@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { AddressField } from '@/components/ui/address-field';
 import { useTouched } from '@/components/wizard/use-touched';
+import { content } from '@/content';
 import { addressStatus } from '@/lib/address-field';
 
 import { useAddProposer } from '../../hooks/useAddProposer';
@@ -60,11 +61,12 @@ export function AddProposerDialog({
 				data-testid="add-proposer-dialog"
 			>
 				<DialogTitle className="text-24 font-bold">
-					Add external proposer
+					{content.proposers.addDialog.title}
 				</DialogTitle>
 				<DialogDescription className="mt-2 text-14 text-muted-foreground">
-					This address can create proposals for{' '}
-					{accountName}. It can’t sign or execute them.
+					{content.proposers.addDialog.description(
+						accountName,
+					)}
 				</DialogDescription>
 				<AddressForm
 					key={opening}
@@ -116,7 +118,7 @@ function AddressForm({
 		>
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="add-proposer-address">
-					Address
+					{content.proposers.addDialog.addressLabel}
 				</Label>
 				<AddressField
 					id="add-proposer-address"
@@ -127,7 +129,9 @@ function AddressForm({
 					}}
 					onBlur={() => touch('address')}
 					disabled={pending}
-					placeholder="0x…"
+					placeholder={
+						content.proposers.addDialog.addressPlaceholder
+					}
 					valid={status.valid}
 					error={error}
 				/>
@@ -139,7 +143,7 @@ function AddressForm({
 					onClick={onCancel}
 					disabled={pending}
 				>
-					Cancel
+					{content.common.cancel}
 				</Button>
 				<Button
 					type="submit"
@@ -147,8 +151,8 @@ function AddressForm({
 					className={disabledButton}
 				>
 					{pending
-						? 'Confirm in your wallet…'
-						: 'Add proposer'}
+						? content.proposers.confirming
+						: content.proposers.addDialog.submit}
 				</Button>
 			</div>
 		</form>
