@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatAddress } from '@mysten/sui/utils';
+
 import { expect, test } from '../support/fixtures';
 import {
 	acceptInvitation,
@@ -129,6 +131,10 @@ test.describe('invitations', () => {
 		await expect(
 			bob.page.getByTestId('joined-banner'),
 		).toContainText('You joined');
+		// An unnamed account goes by its short address.
+		await expect(
+			bob.page.getByTestId('page-header-eyebrow'),
+		).toHaveText(formatAddress(multisig.address));
 		// The greeting shows once, not again on reload.
 		await bob.page.reload();
 		await expect(

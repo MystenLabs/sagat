@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { X } from 'lucide-react';
 import { type ReactNode, type Ref } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -81,6 +82,7 @@ export function WizardPage({
 							className="max-sm:hidden"
 							data-testid={`${testId}-cancel`}
 						>
+							<X />
 							Cancel
 						</Button>
 					}

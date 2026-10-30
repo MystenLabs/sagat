@@ -108,7 +108,8 @@ export function MultisigDetailPage() {
 	}
 
 	const name = accountName(multisig);
-	// The page is the title, as in the designs; the account is the crumb.
+	// The page is the title, as in the designs; the account is the eyebrow
+	// above it. The address lives in the switcher and the Receive dialog.
 	const title =
 		MULTISIG_PAGES.find((p) => p.id === page)?.label ??
 		name;
@@ -120,17 +121,11 @@ export function MultisigDetailPage() {
 			data-multisig-address={multisig.address}
 		>
 			<PageHeader
-				breadcrumb={[
-					{ label: 'Multisigs', to: '/' },
-					{ label: name, mono: !multisig.name },
-				]}
+				eyebrow={{ label: name, mono: !multisig.name }}
 				title={title}
-				// The other account pages show no address under the title.
-				address={
-					page === 'overview' ? multisig.address : undefined
-				}
 				actions={
 					<Button
+						variant="secondary"
 						onClick={() =>
 							navigate(newProposalPath(multisig.address))
 						}

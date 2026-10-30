@@ -292,7 +292,7 @@ export function ProposalView({
 				backLabel="Proposals"
 				className="mb-6"
 				description={
-					<span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 max-sm:flex-col max-sm:items-start max-sm:[&>span>[aria-hidden]]:hidden">
+					<span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-13 max-sm:flex-col max-sm:items-start max-sm:[&>span>[aria-hidden]]:hidden">
 						<ProposalStatusChip
 							status={status}
 							className="mr-0.5"
