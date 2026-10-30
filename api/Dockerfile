@@ -19,7 +19,7 @@ RUN bun run build:api
 # Runtime: the bundle has its dependencies inlined, so no node_modules
 FROM oven/bun:1.4.4-slim AS production
 
-# Same path as before; migrate.ts finds drizzle/ by walking up from dist/
+# migrate.ts finds drizzle/ by walking up from dist/, so keep them siblings
 WORKDIR /monorepo/api
 
 # Create non-root user

@@ -2,7 +2,7 @@
 	"name": "sagat-api",
 	"scripts": {
 		"dev": "bun run --hot src/index.ts",
-		"build": "bun build src/index.ts --outdir dist --target bun",
+		"build": "bun build src/index.ts src/db/migrate-cli.ts --outdir dist --target bun",
 		"test:e2e": "bun test --parallel=4 --timeout 30000 ./test/*.test.ts",
 		"test:migrations": "bun test ./test/migrations",
 		"test:watch": "bun test --watch",
