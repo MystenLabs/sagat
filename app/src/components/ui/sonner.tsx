@@ -54,7 +54,7 @@ const Toaster = (props: ToasterProps) => (
 				icon: 'flex size-4 shrink-0 items-center justify-center select-none [&>svg]:size-4',
 				content:
 					'flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1',
-				title: 'shrink-0 font-medium leading-[1.4]',
+				title: 'font-medium leading-[1.4] wrap-anywhere',
 				description:
 					'min-w-0 text-13 wrap-anywhere text-toast-foreground/60',
 				actionButton:
