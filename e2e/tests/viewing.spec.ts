@@ -117,6 +117,21 @@ test.describe('shared proposal links', () => {
 		// A connected wallet that isn't a signer can't sign either.
 		await mallory.connectWallet({ signIn: false });
 		await expectReadOnly();
+
+		// Signed in, the proposal's address under the account moves to the
+		// shared link, keeping the proposal.
+		await mallory.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		await mallory.page
+			.getByTestId('sign-in-button')
+			.click();
+		await expect(mallory.page).toHaveURL(
+			(url) =>
+				url.pathname === '/proposals' &&
+				url.searchParams.get('digest') === proposal.digest,
+		);
+		await expectReadOnly();
 	});
 
 	test('a signed-in member opening the link moves to the proposal under the account', async ({

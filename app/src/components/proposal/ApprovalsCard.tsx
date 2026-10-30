@@ -27,7 +27,7 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useCancelProposal } from '@/hooks/useCancelProposal';
 import {
 	couldNotSimulate,
-	type useDryRun,
+	useDryRun,
 } from '@/hooks/useDryRun';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
 import { useSignProposal } from '@/hooks/useSignProposal';
@@ -36,10 +36,10 @@ import {
 	approvalRows,
 	approvalsNote,
 	approvalsStatus,
+	approvalsThresholdLabel,
 	cancelVariant,
 	gasEstimate,
 	hasSigned,
-	thresholdLabel,
 	trimPeriod,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
@@ -70,7 +70,6 @@ export function ApprovalsCard({
 	labels,
 	viewer,
 	viewerPublicKey,
-	dryRun,
 	simulation,
 	verdict,
 	chainResult,
@@ -82,8 +81,6 @@ export function ApprovalsCard({
 	viewer: ApprovalsNoteInput['viewer'];
 	/** The viewer's key, when they are a signer. */
 	viewerPublicKey: string | null;
-	/** The page's dry run, run again before executing a failing one. */
-	dryRun: ReturnType<typeof useDryRun>;
 	simulation: SimulationProps | null;
 	verdict: SimulationVerdict;
 	/** The executed transaction, for an executed or failed proposal. */
@@ -98,6 +95,10 @@ export function ApprovalsCard({
 	const sign = useSignProposal();
 	const executing = useExecuteOrVerify();
 	const cancel = useCancelProposal();
+	// Execute's second simulation of a failing proposal, apart from the
+	// page's, so a run that can't happen doesn't wipe the failure the page
+	// shows.
+	const recheck = useDryRun();
 	const [executeAfterSigning, setExecuteAfterSigning] =
 		useState(true);
 	const [cancelling, setCancelling] = useState(false);
@@ -105,10 +106,15 @@ export function ApprovalsCard({
 	// the button stays on Executing… until the proposal refetches as
 	// closed instead of flashing back to Execute in between.
 	const [settling, setSettling] = useState(false);
-	// The second simulation's error, while its dialog is open.
-	const [stillFails, setStillFails] = useState<
-		string | null
-	>(null);
+	// Why the second simulation didn't clear it: the execute-anyway
+	// dialog's title and first sentence. Kept after the dialog closes, so
+	// it doesn't empty while it animates out.
+	const [stillFails, setStillFails] = useState<{
+		title: string;
+		message: string;
+	} | null>(null);
+	const [askingToExecute, setAskingToExecute] =
+		useState(false);
 
 	const signed = hasSigned(proposal, viewerPublicKey);
 	const reaches = wouldReachThreshold(
@@ -126,7 +132,7 @@ export function ApprovalsCard({
 			onError: () => setSettling(false),
 		});
 	};
-	const rechecking = dryRun.isPending && status === 'ready';
+	const rechecking = recheck.isPending;
 	const canAct = viewer === 'member';
 	// Cancelling signs a message for the API session.
 	const canCancel =
@@ -199,17 +205,31 @@ export function ApprovalsCard({
 		});
 
 	// A failing simulation is run again first: when it passes now, the
-	// proposal executes; when it still fails, the viewer is asked.
+	// proposal executes; when it still fails, or can't run this time, the
+	// viewer is asked.
 	const onExecute = () => {
 		if (!failing) {
 			execute(proposal);
 			return;
 		}
-		dryRun.mutate(proposal.transactionBytes, {
+		recheck.mutate(proposal.transactionBytes, {
 			onSuccess: () => execute(proposal),
 			onError: (error) => {
-				if (couldNotSimulate(error)) execute(proposal);
-				else setStillFails(safeDecode(error.message));
+				const reason = withReason(
+					safeDecode(error.message),
+				);
+				setAskingToExecute(true);
+				setStillFails(
+					couldNotSimulate(error)
+						? {
+								title: "Simulation couldn't run",
+								message: `The last simulation failed, and it couldn't be simulated again${reason}.`,
+							}
+						: {
+								title: 'Simulation still fails',
+								message: `It still fails after a second simulation${reason}.`,
+							},
+				);
 			},
 		});
 	};
@@ -322,7 +342,7 @@ export function ApprovalsCard({
 					className="ml-auto text-12 text-muted-foreground"
 					data-testid="approvals-threshold"
 				>
-					{thresholdLabel(proposal.multisig)}
+					{approvalsThresholdLabel(proposal.multisig)}
 				</span>
 			</CardHeading>
 			{statusLine && (
@@ -446,34 +466,36 @@ export function ApprovalsCard({
 				ready={status === 'ready'}
 			/>
 			<Modal
-				open={stillFails !== null}
-				onClose={() => setStillFails(null)}
+				open={askingToExecute}
+				onClose={() => setAskingToExecute(false)}
 				className="sm:max-w-105"
 				data-testid="execute-anyway-dialog"
 			>
-				<ModalHeader title="Simulation still fails" />
+				<ModalHeader
+					title={
+						stillFails?.title ?? 'Simulation still fails'
+					}
+				/>
 				<ModalContent>
 					<p>
-						It still fails after a second simulation
-						{stillFails
-							? `: ${trimPeriod(stillFails)}`
-							: ''}
-						. If you execute, the proposal closes and can't
-						be retried, and the account still pays gas
+						{stillFails?.message} If you execute, the
+						proposal closes and can't be retried, and the
+						account still pays gas
 						{gas ? ` (about ${gas})` : ''}.
 					</p>
 				</ModalContent>
 				<ModalActions>
 					<Button
 						variant="outline"
-						onClick={() => setStillFails(null)}
+						onClick={() => setAskingToExecute(false)}
+						data-testid="execute-anyway-back"
 					>
 						Go back
 					</Button>
 					<Button
 						variant="destructive"
 						onClick={() => {
-							setStillFails(null);
+							setAskingToExecute(false);
 							execute(proposal);
 						}}
 						data-testid="execute-anyway-button"
@@ -493,4 +515,9 @@ function ButtonRow({ children }: { children: ReactNode }) {
 			{children}
 		</div>
 	);
+}
+
+/** ": Not enough gas" to follow a clause, or nothing without a message. */
+function withReason(message: string) {
+	return message ? `: ${trimPeriod(message)}` : '';
 }

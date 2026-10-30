@@ -210,13 +210,13 @@ export function ProposalView({
 		previewBlock = chain.isError ? (
 			<>
 				<PreviewHeading />
-				<p
-					className="rounded-lg border border-error-border bg-card p-3 text-13 text-error-foreground"
-					data-testid="transaction-preview-unreachable"
+				<Notice
+					tone="error"
+					testId="transaction-preview-unreachable"
 				>
 					Couldn't load the transaction from the chain:{' '}
 					{chain.error.message}
-				</p>
+				</Notice>
 			</>
 		) : (
 			<TransactionPreview
@@ -256,15 +256,15 @@ export function ProposalView({
 			<>
 				{analyzer}
 				<PreviewHeading />
-				<p
-					className="rounded-lg border border-error-border bg-card p-3 text-13 text-error-foreground"
-					data-testid="transaction-preview-unreachable"
+				<Notice
+					tone="error"
+					testId="transaction-preview-unreachable"
 				>
 					{safeDecode(
 						dryRun.error?.message ||
 							'The transaction could not be simulated.',
 					)}
-				</p>
+				</Notice>
 			</>
 		);
 	}
@@ -417,7 +417,6 @@ export function ProposalView({
 						labels={labels}
 						viewer={viewer}
 						viewerPublicKey={member?.publicKey ?? null}
-						dryRun={dryRun}
 						simulation={simulation}
 						verdict={verdict}
 						chainResult={chainResult}

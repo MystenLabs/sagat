@@ -191,6 +191,11 @@ export function proposalLinkUrl(digest: string) {
 	return `${window.location.origin}/proposals?digest=${digest}`;
 }
 
+/** The account's proposals list. */
+export function proposalsPath(address: string) {
+	return `/multisig/${address}/proposals`;
+}
+
 /** A proposal's page under its account. */
 export function proposalPagePath(
 	address: string,

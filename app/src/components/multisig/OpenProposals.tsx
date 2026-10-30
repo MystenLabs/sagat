@@ -14,6 +14,7 @@ import {
 } from '@/hooks/usePaginatedProposals';
 import {
 	isProposalExpired,
+	proposalsPath,
 	toProposalCardInput,
 } from '@/lib/proposalUtils';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -73,7 +74,7 @@ export function OpenProposals({
 				title="Open proposals"
 			>
 				<Link
-					to={`/multisig/${multisig.address}/proposals`}
+					to={proposalsPath(multisig.address)}
 					className={cn(
 						buttonVariants({
 							variant: 'ghost',

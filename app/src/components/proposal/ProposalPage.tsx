@@ -12,7 +12,10 @@ import { ErrorState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { useGetProposal } from '@/hooks/useGetProposal';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
-import { proposalPagePath } from '@/lib/proposalUtils';
+import {
+	proposalPagePath,
+	proposalsPath,
+} from '@/lib/proposalUtils';
 import { memberLabels } from '@/lib/signers';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
@@ -21,9 +24,9 @@ import { ProposalView } from './ProposalView';
 
 /**
  * A proposal's page under its account. Waits for the account list like
- * the account pages and leaves for the dashboard when the account isn't
- * one of the viewer's accepted accounts. A proposal of another of their
- * accounts moves to that account's page.
+ * the account pages and, when the account isn't one of the viewer's
+ * accepted accounts, moves to the proposal's shared page. A proposal of
+ * another of their accounts moves to that account's page.
  */
 export function ProposalPage() {
 	const { address, digest } = useParams<{
@@ -44,7 +47,17 @@ export function ProposalPage() {
 	// joined), rather than redirecting on the stale list.
 	if (isLoading || (isFetching && !multisig))
 		return <ProposalPageSkeleton />;
-	if (!multisig) return <Navigate to="/" replace />;
+	if (!multisig)
+		return (
+			<Navigate
+				to={
+					digest
+						? `/proposals?digest=${encodeURIComponent(digest)}`
+						: '/'
+				}
+				replace
+			/>
+		);
 	if (proposalQuery.isLoading)
 		return <ProposalPageSkeleton />;
 
@@ -107,9 +120,6 @@ function AccountProposal({
 		/>
 	);
 }
-
-const proposalsPath = (address: string) =>
-	`/multisig/${address}/proposals`;
 
 /**
  * The digest is unknown, or the proposal couldn't be loaded. An unknown
