@@ -99,14 +99,9 @@ test.describe('errors', () => {
 			.getByTestId('execute-anyway-dialog')
 			.getByTestId('execute-anyway-button')
 			.click();
-		await expect(
-			alice.page.locator(
-				'[data-sonner-toast][data-type="error"]',
-				{ hasText: "Couldn't execute the proposal" },
-			),
-		).toBeVisible();
-		const toast = alice.toast(
-			"Couldn't execute the proposal",
+		const toast = alice.page.locator(
+			'[data-sonner-toast][data-type="error"]',
+			{ hasText: "Couldn't execute the proposal" },
 		);
 		await expect(toast).toBeVisible();
 		// A long description must not squeeze the title into a few letters per line.
