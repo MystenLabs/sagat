@@ -22,6 +22,8 @@ FROM oven/bun:1.4.4-slim AS production
 # migrate.ts finds drizzle/ by walking up from dist/, so keep them siblings
 WORKDIR /monorepo/api
 
+ENV NODE_ENV=production
+
 # Create non-root user
 RUN groupadd -g 1001 sagat && \
     useradd -r -u 1001 -g sagat sagat
