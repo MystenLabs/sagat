@@ -39,16 +39,3 @@ export const VALIDATION = {
 	// Transaction limits
 	MAX_TRANSACTION_SIZE: 1024 * 1024, // 1MB
 } as const;
-
-// Error messages
-export const ERROR_MESSAGES = {
-	NETWORK_ERROR:
-		'Network connection failed. Please check your internet connection.',
-	INVALID_ADDRESS: 'Please enter a valid Sui address.',
-	INSUFFICIENT_SIGNATURES:
-		'Not enough signatures to execute this proposal.',
-	TRANSACTION_FAILED:
-		'Transaction failed. Please try again.',
-	WALLET_NOT_CONNECTED:
-		'Please connect your wallet to continue.',
-} as const;

@@ -163,7 +163,7 @@ function EmptyAssetsState({
 						}
 					>
 						<ExternalLink />
-						{content.assets.list.viewOnExplorer}
+						{content.common.viewOnExplorer}
 					</Button>
 				)
 			}

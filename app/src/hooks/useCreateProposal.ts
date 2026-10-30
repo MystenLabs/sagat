@@ -51,7 +51,7 @@ export function useCreateProposal() {
 			description,
 		}: CreateProposalParams) => {
 			if (!currentAddress || !currentAccount) {
-				throw new Error('No connected account');
+				throw new Error(content.errors.noConnectedAccount);
 			}
 
 			// Parse transaction data

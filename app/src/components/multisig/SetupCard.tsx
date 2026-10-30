@@ -99,7 +99,7 @@ export function SetupCard({
 						)}
 						data-testid="setup-explorer-link"
 					>
-						{content.overview.setup.viewOnExplorer}
+						{content.common.viewOnExplorer}
 						<ArrowUpRight className="size-3" />
 					</a>
 				)}

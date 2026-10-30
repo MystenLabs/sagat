@@ -24,6 +24,15 @@ export const content = {
 		tryAgain: 'Try again',
 		back: 'Back',
 		continue: 'Continue',
+		viewOnExplorer: 'View on explorer',
+		/** "4 of 7": a threshold against the total weight. */
+		thresholdLabel: (
+			threshold: number,
+			totalWeight: number,
+		) => `${threshold} of ${totalWeight}`,
+		/** The words `joinList` puts before the last item. */
+		and: 'and',
+		or: 'or',
 	},
 	shell: {
 		reconnectingWallet: 'Reconnecting wallet',
@@ -247,15 +256,6 @@ export const content = {
 		title: 'Create a pod',
 		breadcrumbParent: 'Pods',
 		steps: ['Name', 'Signers and threshold', 'Review'],
-
-		/** "4 of 7": a threshold against the total weight. */
-		thresholdLabel: (
-			threshold: number,
-			totalWeight: number,
-		) => `${threshold} of ${totalWeight}`,
-		/** The words `joinList` puts before the last item. */
-		and: 'and',
-		or: 'or',
 
 		/** What copy calls a signer without a label. */
 		you: 'You',
@@ -668,8 +668,7 @@ export const content = {
 			loadMore: 'Load more',
 			emptyTitle: 'No assets yet',
 			emptyDescription:
-				'This pod doesn’t hold any coins or objects yet.',
-			viewOnExplorer: 'View on explorer',
+				'This pod doesn’t hold any coins yet.',
 		},
 		row: {
 			/** The raw on-chain amount, as a tooltip on the balance. */
@@ -751,7 +750,6 @@ export const content = {
 			created: 'Created',
 			createdUnknown: 'Unknown',
 			createdBy: 'Created by',
-			viewOnExplorer: 'View on explorer',
 			download: 'Download setup',
 		},
 
@@ -847,7 +845,6 @@ export const content = {
 			heading: 'Proposal',
 			backLabel: 'Proposals',
 			proposedBy: 'Proposed by',
-			viewOnExplorer: 'View on explorer',
 			copyLink: 'Copy link',
 			execute: 'Execute',
 			executing: 'Executing…',
@@ -1035,7 +1032,7 @@ export const content = {
 			canReachThreshold: (who: string) =>
 				`${who} The other signers can still reach the threshold.`,
 			cantReachThreshold: (who: string) =>
-				`${who} The rest can’t reach the threshold, so this pod can’t move funds.`,
+				`${who} The rest can’t reach the threshold without them.`,
 		},
 		accountStatus: {
 			cantMoveFunds: (rejected: number) =>
@@ -1096,7 +1093,6 @@ export const content = {
 			},
 		},
 		network: 'Network',
-		viewOnExplorer: 'View on explorer',
 		transactionDigest: 'Transaction digest',
 		copyDigest: 'Copy digest',
 		signatureAnalyzer: {
@@ -1168,12 +1164,18 @@ export const content = {
 				'Pods can’t read this as a signature. Paste the combined signature in base64.',
 			sent: 'Sent. The network accepted this transaction.',
 			another: 'Broadcast another',
-			failed: 'Failed to broadcast transaction',
-			/** The failure line, on the picked network or on another one. */
-			error: (message: string) =>
-				`Broadcast failed: ${message}`,
-			errorOn: (network: string, message: string) =>
-				`Broadcast on ${network} failed: ${message}`,
+			/**
+			 * The failure line, on the picked network or on another one,
+			 * with the node's message when it sent one.
+			 */
+			error: (message?: string) =>
+				message
+					? `Broadcast failed: ${message}`
+					: 'Broadcast failed.',
+			errorOn: (network: string, message?: string) =>
+				message
+					? `Broadcast on ${network} failed: ${message}`
+					: `Broadcast on ${network} failed.`,
 			broadcasting: 'Broadcasting…',
 			submit: 'Broadcast transaction',
 		},

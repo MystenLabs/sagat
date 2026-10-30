@@ -154,7 +154,7 @@ export function useExecuteProposal() {
 			}
 			toast.success(content.toasts.proposalExecuted, {
 				description: digest,
-				link: link(content.proposal.shared.viewOnExplorer),
+				link: link(content.common.viewOnExplorer),
 			});
 		},
 		onError: (error: Error) => {

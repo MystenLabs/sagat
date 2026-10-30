@@ -14,7 +14,7 @@ export function thresholdLabel({
 	threshold: number;
 	totalWeight: number;
 }) {
-	return content.createMultisig.thresholdLabel(
+	return content.common.thresholdLabel(
 		threshold,
 		totalWeight,
 	);

@@ -26,6 +26,8 @@ import {
 	type ProposalsTableVariant,
 } from './ProposalRow';
 
+const TABLE = content.proposals.table;
+
 /**
  * Proposals as a table, for the overview's open proposals and the full
  * list on the proposals page. Loading and errors keep the table's shell
@@ -33,8 +35,6 @@ import {
  * state stands alone. Test ids are `testId` plus `-loading`, `-error`
  * and `-empty`.
  */
-const TABLE = content.proposals.table;
-
 export function ProposalsTable({
 	multisig,
 	proposals,

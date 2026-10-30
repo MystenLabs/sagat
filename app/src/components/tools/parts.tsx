@@ -243,7 +243,7 @@ export function ResultActions({
 					})}
 				>
 					<ExternalLink />
-					{content.tools.viewOnExplorer}
+					{content.common.viewOnExplorer}
 				</a>
 			)}
 			<Button type="button" onClick={() => copy(copyValue)}>

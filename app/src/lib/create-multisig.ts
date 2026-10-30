@@ -103,7 +103,7 @@ export function joinList(
 	conjunction: 'and' | 'or',
 ) {
 	if (items.length <= 1) return items.join('');
-	const word = COPY[conjunction];
+	const word = content.common[conjunction];
 	return `${items.slice(0, -1).join(', ')} ${word} ${items[items.length - 1]}`;
 }
 

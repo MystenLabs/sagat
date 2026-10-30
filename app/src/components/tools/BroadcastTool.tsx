@@ -26,7 +26,8 @@ import {
 } from './parts';
 
 interface BroadcastError {
-	message: string;
+	/** The node's message, when it sent one. */
+	message?: string;
 	/** The network it was broadcast on, named when it isn't the current one. */
 	network: SuiNetwork;
 }
@@ -132,7 +133,7 @@ export default function BroadcastTool() {
 				setError({
 					message:
 						result.FailedTransaction.effects.status.error
-							?.message || content.tools.broadcast.failed,
+							?.message,
 					network: broadcastNetwork,
 				});
 				return;
@@ -149,9 +150,7 @@ export default function BroadcastTool() {
 		} catch (err) {
 			setError({
 				message:
-					err instanceof Error
-						? err.message
-						: content.tools.broadcast.failed,
+					err instanceof Error ? err.message : undefined,
 				network: broadcastNetwork,
 			});
 		} finally {
@@ -185,11 +184,13 @@ export default function BroadcastTool() {
 					<span className="whitespace-pre-wrap">
 						{error.network === network
 							? content.tools.broadcast.error(
-									safeDecode(error.message),
+									error.message &&
+										safeDecode(error.message),
 								)
 							: content.tools.broadcast.errorOn(
 									error.network,
-									safeDecode(error.message),
+									error.message &&
+										safeDecode(error.message),
 								)}
 					</span>
 				</Alert>

@@ -442,7 +442,7 @@ export function ApprovalsCard({
 					data-testid="view-on-explorer"
 				>
 					<ExternalLink />
-					{SHARED.viewOnExplorer}
+					{content.common.viewOnExplorer}
 				</a>
 			)}
 

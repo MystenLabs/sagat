@@ -273,7 +273,7 @@ export function ProposalRow({
 					)}
 					{explorerIsPrimary && (
 						<IconTooltip
-							label={content.proposal.shared.viewOnExplorer}
+							label={content.common.viewOnExplorer}
 							// A narrow viewport's table shows the icon alone; stacked rows have room for the label.
 							contentClassName="sm:hidden"
 							trigger={
@@ -288,16 +288,14 @@ export function ProposalRow({
 										}),
 										'max-sm:size-7 max-sm:px-0 @max-md:h-9 @max-md:w-auto @max-md:px-3.5',
 									)}
-									aria-label={
-										content.proposal.shared.viewOnExplorer
-									}
+									aria-label={content.common.viewOnExplorer}
 									data-testid="view-on-explorer"
 								/>
 							}
 						>
 							<ExternalLink />
 							<span className="hidden sm:inline @max-md:inline">
-								{content.proposal.shared.viewOnExplorer}
+								{content.common.viewOnExplorer}
 							</span>
 						</IconTooltip>
 					)}
@@ -392,7 +390,7 @@ function RowMenu({
 							data-testid="view-on-explorer"
 						>
 							<ExternalLink />
-							{content.proposal.shared.viewOnExplorer}
+							{content.common.viewOnExplorer}
 						</DropdownMenuItem>
 					)}
 				</DropdownMenuGroup>
