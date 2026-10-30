@@ -208,7 +208,7 @@ test.describe('overview and signers', () => {
 			'warning',
 		);
 		await expect(notice).toContainText(
-			`${formatAddress(carol.address)} rejected the invitation to join this account. The other signers can still reach the threshold.`,
+			`${formatAddress(carol.address)} rejected the invitation to join this pod, but can still sign a proposal you share. The other signers can still reach the threshold.`,
 		);
 		await expect(
 			page.getByTestId('signers-summary'),
@@ -421,7 +421,7 @@ test.describe('overview and signers', () => {
 				value.getByTestId('account-value-amount'),
 			).toHaveText('—');
 			await expect(value).toContainText(
-				'No prices for the tokens this account holds.',
+				'No prices for the tokens this pod holds.',
 			);
 			await expect(value).not.toContainText('Excludes');
 			const sui = page.locator(
@@ -538,9 +538,7 @@ test.describe('overview and signers', () => {
 			// Without a description, the proposal goes by its digest.
 			await expect(
 				other.getByTestId('proposal-title'),
-			).toHaveText(
-				`Transaction ${formatDigest(ready.digest)}`,
-			);
+			).toHaveText(formatDigest(ready.digest));
 			await expect(
 				other.getByTestId('proposal-proposer'),
 			).toHaveText('Proposed by Alice (you)');

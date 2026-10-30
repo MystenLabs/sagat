@@ -3,10 +3,8 @@
 
 import {
 	useCurrentAccount,
-	useCurrentWallet,
 	useWallets,
 } from '@mysten/dapp-kit-react';
-import { formatAddress } from '@mysten/sui/utils';
 import { TriangleAlert, Wallet } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -23,7 +21,6 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
  */
 export function ConnectWalletCard() {
 	const currentAccount = useCurrentAccount();
-	const currentWallet = useCurrentWallet();
 	const wallets = useWallets();
 	const {
 		declined,
@@ -63,11 +60,7 @@ export function ConnectWalletCard() {
 					testId="auth-prompt"
 					icon={Wallet}
 					title={content.signedOut.signIn.title}
-					description={content.signedOut.signIn.description(
-						currentWallet?.name ??
-							content.signedOut.unnamedWallet,
-						formatAddress(currentAccount.address),
-					)}
+					description={content.signedOut.signIn.description}
 					note={note}
 					action={
 						<Button

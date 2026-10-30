@@ -177,7 +177,7 @@ describe('rejection notice', () => {
 		).toEqual({
 			tone: 'warning',
 			message:
-				'Hana rejected the invitation to join this account. The other signers can still reach the threshold.',
+				'Hana rejected the invitation to join this pod, but can still sign a proposal you share. The other signers can still reach the threshold.',
 		});
 	});
 
@@ -198,7 +198,7 @@ describe('rejection notice', () => {
 		).toEqual({
 			tone: 'error',
 			message:
-				'3 signers rejected their invitations to join this account. The rest can’t reach the threshold, so this account can’t move funds.',
+				'3 signers rejected their invitations to join this pod, but can still sign a proposal you share. The rest can’t reach the threshold, so this pod can’t move funds.',
 		});
 	});
 });

@@ -119,7 +119,7 @@ test.describe('app shell', () => {
 				.filter({ hasText: 'Shell test' }),
 		).toBeVisible();
 		await page
-			.getByRole('menuitem', { name: 'New multisig' })
+			.getByRole('menuitem', { name: 'Create a pod' })
 			.click();
 		await expect(
 			page.getByTestId('create-page'),

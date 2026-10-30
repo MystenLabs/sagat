@@ -6,7 +6,7 @@ import { isValidSuiAddress } from '@mysten/sui/utils';
 import { content } from '../content';
 
 /** The status line under a Sui address field. */
-export const ADDRESS_COPY = content.addressField;
+const ADDRESS_COPY = content.addressField;
 
 /**
  * Whether a typed or pasted address (spaces around it ignored) is a Sui

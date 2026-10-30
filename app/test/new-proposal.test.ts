@@ -14,14 +14,13 @@ import {
 import { describe, expect, test } from 'vitest';
 
 import { buildTransferTransaction } from '../src/components/assets/buildTransferTransaction';
-import { ADDRESS_COPY } from '../src/lib/address-field';
+import { content } from '../src/content';
 import { normalizeCoinType } from '../src/lib/coin-type';
 import { formatInputAmount } from '../src/lib/coins';
 import {
 	bytesStatusText,
 	checkBytes,
 	checkTransfer,
-	COPY,
 	lacksGas,
 	maxTransfer,
 	newProposalPath,
@@ -179,7 +178,9 @@ describe('checkTransfer', () => {
 			decimals: null,
 			symbol: null,
 		});
-		expect(check.assetError).toBe(COPY.chooseAsset);
+		expect(check.assetError).toBe(
+			content.newProposal.chooseAsset,
+		);
 		expect(check.amountError).toBeNull();
 		expect(check.canReview).toBe(false);
 	});
@@ -200,7 +201,7 @@ describe('checkTransfer', () => {
 		])
 			expect(
 				usdc({ amount, recipient: RECIPIENT }).amountError,
-			).toBe(COPY.invalidAmount(6));
+			).toBe(content.newProposal.invalidAmount(6));
 	});
 
 	test('refuses zero', () => {
@@ -208,7 +209,9 @@ describe('checkTransfer', () => {
 			amount: '0.000',
 			recipient: RECIPIENT,
 		});
-		expect(check.amountError).toBe(COPY.zeroAmount);
+		expect(check.amountError).toBe(
+			content.newProposal.zeroAmount,
+		);
 		expect(check.canReview).toBe(false);
 	});
 
@@ -218,7 +221,7 @@ describe('checkTransfer', () => {
 			'5000000000',
 		);
 		expect(check.amountError).toBe(
-			COPY.overBalance('USDC', '5,000'),
+			content.newProposal.overBalance('USDC', '5,000'),
 		);
 		expect(check.canReview).toBe(false);
 	});
@@ -238,11 +241,11 @@ describe('checkTransfer', () => {
 		expect(sui('1').canReview).toBe(true);
 		expect(sui('1').transferAllSui).toBe(true);
 		expect(sui('1.000000001').amountError).toBe(
-			COPY.overBalance('SUI', '1'),
+			content.newProposal.overBalance('SUI', '1'),
 		);
 		expect(sui('1.000000001').transferAllSui).toBe(false);
 		expect(sui('2').amountError).toBe(
-			COPY.overBalance('SUI', '1'),
+			content.newProposal.overBalance('SUI', '1'),
 		);
 	});
 
@@ -327,7 +330,7 @@ describe('checkTransfer', () => {
 		]) {
 			const check = usdc({ amount: '1', recipient });
 			expect(check.recipientError).toBe(
-				ADDRESS_COPY.invalid,
+				content.addressField.invalid,
 			);
 			expect(check.recipientValid).toBe(false);
 			expect(check.canReview).toBe(false);
@@ -397,7 +400,7 @@ describe('maxTransfer', () => {
 		expect(check('130.5').transferAllSui).toBe(true);
 		expect(check('130.5').amountError).toBeNull();
 		expect(check('130.500000001').amountError).toBe(
-			COPY.overMax('130.5', 'SUI'),
+			content.newProposal.overMax('130.5', 'SUI'),
 		);
 		expect(check('130.500000001').canReview).toBe(false);
 	});
@@ -413,7 +416,7 @@ describe('titleError', () => {
 		// Each emoji is two UTF-16 units but one character.
 		expect(titleError('🚀'.repeat(TITLE_MAX))).toBeNull();
 		expect(titleError('🚀'.repeat(TITLE_MAX + 1))).toBe(
-			COPY.titleTooLong(TITLE_MAX + 1),
+			content.newProposal.titleTooLong(TITLE_MAX + 1),
 		);
 	});
 
@@ -427,7 +430,7 @@ describe('titleError', () => {
 		const jamo = '\u1100\u1161\u11a8';
 		expect(titleError(jamo.repeat(TITLE_MAX))).toBeNull();
 		expect(titleError(jamo.repeat(TITLE_MAX + 1))).toBe(
-			COPY.titleTooLong(TITLE_MAX + 1),
+			content.newProposal.titleTooLong(TITLE_MAX + 1),
 		);
 	});
 });
@@ -461,9 +464,13 @@ describe('lacksGas', () => {
 describe('COPY', () => {
 	test('a failed build gives the reason when there is one', () => {
 		expect(
-			COPY.buildFailed('No valid gas coins found'),
+			content.newProposal.buildFailed(
+				'No valid gas coins found',
+			),
 		).toContain('No valid gas coins found');
-		expect(COPY.buildFailed('')).not.toContain(':');
+		expect(
+			content.newProposal.buildFailed(''),
+		).not.toContain(':');
 	});
 });
 
@@ -586,13 +593,13 @@ describe('bytesStatusText', () => {
 	test('explains unreadable bytes', () => {
 		expect(
 			bytesStatusText({ kind: 'unreadable' }, 'Treasury'),
-		).toBe(COPY.unreadableBytes);
+		).toBe(content.newProposal.unreadableBytes);
 	});
 
 	test('explains JSON that isn’t fully built', () => {
 		expect(
 			bytesStatusText({ kind: 'unresolved' }, 'Treasury'),
-		).toBe(COPY.bytesUnresolved);
+		).toBe(content.newProposal.bytesUnresolved);
 	});
 
 	test('names the other sender and the account', () => {
@@ -602,7 +609,7 @@ describe('bytesStatusText', () => {
 				'Treasury',
 			),
 		).toBe(
-			'These bytes are sent from 0x5d2e…41b7, not Treasury. Build the transaction with this account as the sender.',
+			'These bytes are sent from 0x5d2e…41b7, not Treasury. Build the transaction with this pod as the sender.',
 		);
 	});
 
@@ -614,12 +621,12 @@ describe('bytesStatusText', () => {
 		expect(
 			bytesStatusText({ ...ok, commands: 3 }, 'Treasury'),
 		).toBe(
-			'Read as a transaction with 3 commands, sent from this account.',
+			'Read as a transaction with 3 commands, sent from this pod.',
 		);
 		expect(
 			bytesStatusText({ ...ok, commands: 1 }, 'Treasury'),
 		).toBe(
-			'Read as a transaction with 1 command, sent from this account.',
+			'Read as a transaction with 1 command, sent from this pod.',
 		);
 	});
 });

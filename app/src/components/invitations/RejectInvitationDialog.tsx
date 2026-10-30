@@ -21,6 +21,7 @@ export function RejectInvitationDialog({
 	open,
 	onClose,
 	name,
+	creatorName,
 	onConfirm,
 	rejecting,
 	error,
@@ -29,6 +30,8 @@ export function RejectInvitationDialog({
 	open: boolean;
 	onClose: () => void;
 	name: string;
+	/** The creator's name, when the invitation has one. */
+	creatorName: string | null;
 	onConfirm: () => void;
 	rejecting: boolean;
 	error: unknown;
@@ -91,6 +94,7 @@ export function RejectInvitationDialog({
 						<DialogDescription className="mt-2 text-13 text-muted-foreground">
 							{content.invitations.rejectDialog.description(
 								name,
+								creatorName,
 							)}
 						</DialogDescription>
 						<div className="mt-5 grid grid-cols-2 gap-2">

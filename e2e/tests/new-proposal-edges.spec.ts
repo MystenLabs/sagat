@@ -13,10 +13,8 @@ import {
 } from '@mysten/sui/utils';
 import { type Page } from '@playwright/test';
 
-import {
-	COPY,
-	type ProposalType,
-} from '../../app/src/lib/new-proposal';
+import { content } from '../../app/src/content';
+import { type ProposalType } from '../../app/src/lib/new-proposal';
 import {
 	randomAddress,
 	SUI_TYPE,
@@ -293,7 +291,7 @@ test.describe('new proposal edges: title', () => {
 		await input.blur();
 		await expect(
 			page.getByTestId('proposal-title-hint'),
-		).toHaveText(COPY.titleTooLong(501));
+		).toHaveText(content.newProposal.titleTooLong(501));
 		await expect(review).toBeDisabled();
 
 		await input.fill('Short');
@@ -541,6 +539,8 @@ test.describe('new proposal edges: bytes', () => {
 		await submit.click();
 		const refused = page.getByTestId('review-create-error');
 		await expect(refused).toBeVisible();
-		await expect(refused).not.toHaveText(COPY.createFailed);
+		await expect(refused).not.toHaveText(
+			content.newProposal.createFailed,
+		);
 	});
 });

@@ -28,7 +28,7 @@ export function TitleField({
 	return (
 		<div className="flex flex-col gap-1.5">
 			<Label htmlFor="proposal-title">
-				{content.newProposal.titleLabel}
+				{content.newProposal.titleFieldLabel}
 			</Label>
 			<Input
 				id="proposal-title"

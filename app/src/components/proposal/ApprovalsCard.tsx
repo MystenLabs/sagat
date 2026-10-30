@@ -166,6 +166,7 @@ export function ApprovalsCard({
 		proposal,
 		status,
 		isExecuting,
+		verdict,
 	);
 	const note = approvalsNote({
 		proposal,

@@ -5,10 +5,10 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
+import { content } from '../src/content';
 import {
 	addressInput,
 	checkSigners,
-	COPY,
 	invitedName,
 	nameError,
 	signerName,
@@ -346,7 +346,7 @@ describe('signer checks', () => {
 			statusWith({ [address]: { kind: 'unreachable' } }),
 		).toEqual({
 			kind: 'error',
-			message: COPY.lookupFailed,
+			message: content.createMultisig.lookupFailed,
 		});
 	});
 
@@ -408,10 +408,8 @@ describe('signer checks', () => {
 
 describe('name', () => {
 	test('is required, ignoring surrounding spaces', () => {
-		expect(nameError('')).toBe('Give the multisig a name.');
-		expect(nameError('   ')).toBe(
-			'Give the multisig a name.',
-		);
+		expect(nameError('')).toBe('Give the pod a name.');
+		expect(nameError('   ')).toBe('Give the pod a name.');
 		expect(nameError('  Treasury  ')).toBeNull();
 	});
 

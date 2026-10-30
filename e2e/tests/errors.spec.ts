@@ -101,7 +101,7 @@ test.describe('errors', () => {
 			.click();
 		const toast = alice.page.locator(
 			'[data-sonner-toast][data-type="error"]',
-			{ hasText: "Couldn't execute the proposal" },
+			{ hasText: 'Couldn’t execute the proposal' },
 		);
 		await expect(toast).toBeVisible();
 		// A long description must not squeeze the title into a few letters per line.
@@ -145,7 +145,7 @@ test.describe('errors', () => {
 		);
 		await expect(dialog).toBeVisible();
 		await expect(dialog).toContainText(
-			"Simulation couldn't run",
+			'Simulation couldn’t run',
 		);
 
 		// Going back executes nothing, and the page still knows it fails:

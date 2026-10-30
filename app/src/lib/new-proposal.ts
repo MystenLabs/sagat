@@ -416,4 +416,4 @@ export function bytesStatusText(
 	}
 }
 
-export const COPY = content.newProposal;
+const COPY = content.newProposal;

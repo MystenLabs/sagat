@@ -137,12 +137,10 @@ export function useExecuteProposal() {
 				digest,
 				variables.proposal.network,
 			);
-			const link = explorerUrl
-				? {
-						label: content.proposal.shared.viewOnExplorer,
-						href: explorerUrl,
-					}
-				: undefined;
+			const link = (label: string) =>
+				explorerUrl
+					? { label, href: explorerUrl }
+					: undefined;
 			// The node can land the transaction and still fail it.
 			const { status } = data.executionResult;
 			if (!status.success) {
@@ -150,13 +148,13 @@ export function useExecuteProposal() {
 					description:
 						safeDecode(status.error.message) ||
 						content.toasts.proposalFailedOnChain,
-					link,
+					link: link(content.toasts.seeDetails),
 				});
 				return;
 			}
 			toast.success(content.toasts.proposalExecuted, {
 				description: digest,
-				link,
+				link: link(content.proposal.shared.viewOnExplorer),
 			});
 		},
 		onError: (error: Error) => {

@@ -101,8 +101,6 @@ export function OpenProposals({
 				onRetry={() => query.refetch()}
 				empty={{
 					title: content.overview.openProposals.emptyTitle,
-					description:
-						content.overview.openProposals.emptyDescription,
 				}}
 				testId="open-proposals"
 			/>

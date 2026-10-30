@@ -184,11 +184,13 @@ export default function BroadcastTool() {
 				>
 					<span className="whitespace-pre-wrap">
 						{error.network === network
-							? content.tools.broadcast.errorTitle
-							: content.tools.broadcast.errorTitleOn(
+							? content.tools.broadcast.error(
+									safeDecode(error.message),
+								)
+							: content.tools.broadcast.errorOn(
 									error.network,
+									safeDecode(error.message),
 								)}
-						: {safeDecode(error.message)}
 					</span>
 				</Alert>
 			)}

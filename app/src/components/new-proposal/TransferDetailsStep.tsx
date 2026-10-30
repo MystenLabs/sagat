@@ -458,7 +458,11 @@ export function TransferDetailsStep({
 						? content.newProposal.titlePlaceholderTransfer
 						: content.newProposal.titlePlaceholder
 				}
-				hint={content.newProposal.titleHintTransfer}
+				hint={
+					shownTitle.trim()
+						? content.newProposal.titleHintTransfer
+						: content.newProposal.titleHintEmpty
+				}
 				error={shownTitleError}
 				onChange={(next) => {
 					change('title', shownTitle);

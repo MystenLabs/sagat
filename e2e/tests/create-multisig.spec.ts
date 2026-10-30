@@ -121,7 +121,7 @@ test('creates a labelled multisig through the three steps', async ({
 	await expect(
 		page.getByTestId('created-banner'),
 	).toHaveText(
-		`Multisig created. Invitations sent to Bob and ${formatAddress(carol.address)}.`,
+		`Pod created. Invitations sent to Bob and ${formatAddress(carol.address)}.`,
 	);
 
 	// The API saved the labels, aligned with the keys.

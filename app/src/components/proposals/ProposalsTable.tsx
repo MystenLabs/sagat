@@ -53,7 +53,7 @@ export function ProposalsTable({
 	onRetry: () => void;
 	empty: {
 		title: string;
-		description: string;
+		description?: string;
 		action?: ReactNode;
 	};
 	testId: string;
@@ -137,9 +137,10 @@ export function ProposalsTable({
 				/>
 			) : (
 				!!error && (
+					// The copy's own body, not the request's error message.
 					<ErrorState
 						title={TABLE.loadFailed}
-						error={error}
+						fallback={TABLE.loadFailedBody}
 						onRetry={onRetry}
 						className="rounded-none border-0"
 						testId={`${testId}-error`}

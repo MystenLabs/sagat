@@ -22,8 +22,8 @@ import {
 	type WeightBarLayout,
 } from './weight-bar';
 
-/** The wizard's messages; the unit tests read them from here. */
-export const COPY = content.createMultisig;
+/** The wizard's messages. */
+const COPY = content.createMultisig;
 
 /** A row in the signers table, as the creator typed it. */
 export interface SignerDraft {

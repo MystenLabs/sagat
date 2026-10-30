@@ -8,8 +8,8 @@ import {
 	normalizeSuiAddress,
 } from '@mysten/sui/utils';
 
+import { content } from '../../app/src/content';
 import { formatCoinType } from '../../app/src/lib/coin-type';
-import { COPY } from '../../app/src/lib/new-proposal';
 import { randomAddress, SUI_TYPE } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
@@ -387,7 +387,7 @@ test.describe('new proposal: transfer', () => {
 		await amount.fill('150');
 		await amount.blur();
 		await expect(amountError(page)).toHaveText(
-			COPY.overMax('128', 'SUI'),
+			content.newProposal.overMax('128', 'SUI'),
 		);
 		await page.getByTestId('transfer-max-button').click();
 		await expect(amount).toHaveValue('128');
@@ -599,7 +599,7 @@ test.describe('new proposal: transfer details', () => {
 		await expect(
 			page.getByTestId('transfer-no-gas'),
 		).toHaveText(
-			'This account has no SUI to pay gas. Send it some SUI before proposing a transfer.',
+			'This pod has no SUI to pay gas. Send it some SUI before proposing a transfer.',
 		);
 		const review = page.getByTestId('transfer-review');
 		await expect(review).toBeDisabled();
@@ -857,7 +857,7 @@ test.describe('new proposal: review', () => {
 		await refuseCreate(500, 'Internal server error');
 		await submit.click();
 		await expect(createError).toHaveText(
-			'Couldn’t create the proposal. Nothing was sent to the other signers. Check your connection and try again.',
+			'Pods couldn’t create the proposal. Nothing was sent to the other signers. Check your connection and try again.',
 		);
 		await expect(submit).toHaveText('Try again');
 

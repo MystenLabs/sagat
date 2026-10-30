@@ -188,6 +188,7 @@ export function approvalsStatus(
 	>,
 	status: ProposalStatusKey,
 	executing: boolean,
+	simulation: SimulationVerdict,
 ) {
 	const copy = content.proposal.approvals.status;
 	if (
@@ -199,7 +200,10 @@ export function approvalsStatus(
 		return copy.needs(
 			proposal.totalWeight - proposal.currentWeight,
 		);
-	if (status === 'ready') return copy.ready;
+	if (status === 'ready')
+		return simulation === 'failed'
+			? copy.readyFailing
+			: copy.ready;
 	return null;
 }
 

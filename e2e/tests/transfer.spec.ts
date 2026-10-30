@@ -53,7 +53,7 @@ test.describe('transfer form', () => {
 		const error = amountError(alice.page);
 		await expect(error).toBeVisible();
 		await expect(error).toHaveText(
-			'More than the account holds. The SUI balance is 1,000.',
+			'More than the pod holds. The SUI balance is 1,000.',
 		);
 		await expect(
 			alice.page.getByTestId('transfer-review'),
@@ -69,7 +69,7 @@ test.describe('transfer form', () => {
 			recipient: randomAddress(),
 		});
 		await expect(error).toHaveText(
-			'More than the account holds. The TEST balance is 10.',
+			'More than the pod holds. The TEST balance is 10.',
 		);
 		await expect(
 			alice.page.getByTestId('transfer-review'),

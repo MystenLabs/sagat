@@ -156,6 +156,7 @@ export function InvitationCard({
 				open={rejecting}
 				onClose={closeReject}
 				name={name}
+				creatorName={creator?.label ?? null}
 				onConfirm={handleReject}
 				rejecting={reject.isPending}
 				error={reject.error}

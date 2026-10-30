@@ -236,7 +236,7 @@ describe('approvalsNote', () => {
 				simulation: 'unknown',
 			}),
 		).toBe(
-			"The transaction couldn't be simulated. Check it in your wallet before you sign.",
+			'The transaction couldn’t be simulated. Check it in your wallet before you sign.',
 		);
 	});
 });

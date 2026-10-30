@@ -142,9 +142,6 @@ export function TokensCard({
 					icon={SuiLogo}
 					iconClassName="bg-sui/10"
 					title={content.overview.tokens.emptyTitle}
-					description={
-						content.overview.tokens.emptyDescription
-					}
 					testId="tokens-empty"
 				/>
 			) : (
