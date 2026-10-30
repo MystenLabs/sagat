@@ -144,6 +144,9 @@ test.describe('errors', () => {
 			'execute-anyway-dialog',
 		);
 		await expect(dialog).toBeVisible();
+		await expect(dialog).toContainText(
+			"Simulation couldn't run",
+		);
 
 		// Going back executes nothing, and the page still knows it fails:
 		// Execute asks again.

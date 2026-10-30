@@ -40,7 +40,7 @@ import {
 	cancelVariant,
 	gasEstimate,
 	hasSigned,
-	trimPeriod,
+	withReason,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
 	type Labels,
@@ -239,7 +239,12 @@ export function ApprovalsCard({
 			<Button
 				variant={variant}
 				onClick={() => setCancelling(true)}
-				disabled={!settled || sign.isPending}
+				disabled={
+					!settled ||
+					sign.isPending ||
+					rechecking ||
+					isExecuting
+				}
 				data-testid="cancel-proposal-button"
 			>
 				{signed && status === 'pending' && <X />}
@@ -515,9 +520,4 @@ function ButtonRow({ children }: { children: ReactNode }) {
 			{children}
 		</div>
 	);
-}
-
-/** ": Not enough gas" to follow a clause, or nothing without a message. */
-function withReason(message: string) {
-	return message ? `: ${trimPeriod(message)}` : '';
 }

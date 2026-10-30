@@ -317,6 +317,11 @@ export function trimPeriod(message: string) {
 	return message.trim().replace(/\.$/, '');
 }
 
+/** ": Not enough gas" to follow a clause, or nothing without a message. */
+export function withReason(message: string): string {
+	return message ? `: ${trimPeriod(message)}` : '';
+}
+
 // More signers than this go unnamed in the waiting note.
 const MAX_NAMED_SIGNERS = 3;
 

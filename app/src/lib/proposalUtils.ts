@@ -186,9 +186,14 @@ export function pendingFilter(
 		: 'pending';
 }
 
+/** A proposal's public page, as a path. */
+export function sharedProposalPath(digest: string) {
+	return `/proposals?digest=${encodeURIComponent(digest)}`;
+}
+
 /** The link to a proposal's public page. */
 export function proposalLinkUrl(digest: string) {
-	return `${window.location.origin}/proposals?digest=${digest}`;
+	return `${window.location.origin}${sharedProposalPath(digest)}`;
 }
 
 /** The account's proposals list. */

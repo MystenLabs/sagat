@@ -15,6 +15,7 @@ import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import {
 	proposalPagePath,
 	proposalsPath,
+	sharedProposalPath,
 } from '@/lib/proposalUtils';
 import { memberLabels } from '@/lib/signers';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -50,11 +51,7 @@ export function ProposalPage() {
 	if (!multisig)
 		return (
 			<Navigate
-				to={
-					digest
-						? `/proposals?digest=${encodeURIComponent(digest)}`
-						: '/'
-				}
+				to={digest ? sharedProposalPath(digest) : '/'}
 				replace
 			/>
 		);

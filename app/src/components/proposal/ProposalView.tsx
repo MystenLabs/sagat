@@ -49,7 +49,7 @@ import { networkLabel } from '@/lib/network';
 import {
 	hasSigned,
 	proposalPageStatus,
-	trimPeriod,
+	withReason,
 	type Labels,
 	type SimulationVerdict,
 } from '@/lib/proposal-page';
@@ -381,11 +381,9 @@ export function ProposalView({
 							testId="proposal-simulation-failed"
 						>
 							Simulation failed
-							{simulationError
-								? `: ${trimPeriod(simulationError)}`
-								: ''}
-							. If executed, it would fail and the account
-							would still pay gas.
+							{withReason(simulationError)}. If executed, it
+							would fail and the account would still pay
+							gas.
 						</Notice>
 					)}
 					{status === 'failed' && (
@@ -394,9 +392,7 @@ export function ProposalView({
 							testId="proposal-execution-failed"
 						>
 							Execution failed
-							{executionError
-								? `: ${trimPeriod(safeDecode(executionError))}`
-								: ''}
+							{withReason(safeDecode(executionError ?? ''))}
 							. No funds moved, but the account paid gas.
 						</Notice>
 					)}
