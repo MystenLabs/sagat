@@ -8,7 +8,7 @@ import { Chip, type ChipProps } from '@/components/ui/chip';
 import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
-import { ObjectLink } from './ObjectLink';
+import { ObjectAddress } from './ObjectAddress';
 import { EmptyPanel, Field } from './parts';
 
 type ChipVariant = NonNullable<ChipProps['variant']>;
@@ -182,13 +182,13 @@ export function ObjectChangesList({
 						)}
 						<Field label="Object ID">
 							<span className="flex min-w-0 items-center font-mono text-12 break-all">
-								<ObjectLink object={object} />
+								<ObjectAddress object={object} />
 							</span>
 						</Field>
 						{object.outputOwner && (
 							<Field label="Owner">
 								<span className="flex min-w-0 items-center font-mono text-12 break-all">
-									<ObjectLink
+									<ObjectAddress
 										owner={object.outputOwner}
 										senderAddress={senderAddress}
 									/>

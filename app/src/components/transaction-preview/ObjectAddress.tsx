@@ -36,7 +36,7 @@ const getOwnerDisplay = (
  * a copy button on hover or focus. The sender shows as "Sender"; owners
  * without an address (immutable, shared) as plain text.
  */
-export function ObjectLink({
+export function ObjectAddress({
 	owner,
 	object,
 	inputObject,

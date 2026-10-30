@@ -47,16 +47,13 @@ import {
 	type SimulationVerdict,
 } from '@/lib/proposal-page';
 import {
+	proposalExplorerUrl,
 	proposalTitle,
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import type { SimulatedTransaction } from '@/lib/transaction-preview';
 import { type ProposalCardInput } from '@/lib/types';
-import {
-	cn,
-	getExplorerUrl,
-	safeDecode,
-} from '@/lib/utils';
+import { cn, safeDecode } from '@/lib/utils';
 
 /**
  * Who signed, what the threshold needs, and what the viewer can do
@@ -174,10 +171,7 @@ export function ApprovalsCard({
 		executing: isExecuting,
 		gas,
 	});
-	const explorerUrl = getExplorerUrl(
-		proposal.digest,
-		proposal.network,
-	);
+	const explorerUrl = proposalExplorerUrl(status, proposal);
 
 	const onSign = () =>
 		sign.mutate(proposal, {
@@ -329,8 +323,6 @@ export function ApprovalsCard({
 		}
 	}
 
-	const closedOnChain =
-		status === 'executed' || status === 'failed';
 	const gasUsed = gasEstimate(chainResult);
 	const confirmedAt = formatDateTime(
 		chainResult?.timestampMs ?? null,
@@ -420,7 +412,7 @@ export function ApprovalsCard({
 					)}
 				</div>
 			)}
-			{closedOnChain && explorerUrl && (
+			{explorerUrl && (
 				<a
 					href={explorerUrl}
 					target="_blank"

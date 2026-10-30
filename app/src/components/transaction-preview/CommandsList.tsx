@@ -7,7 +7,7 @@ import { type ReactNode } from 'react';
 import { prettifyType } from '@/lib/coin-type';
 import { tryDecodePure } from '@/lib/decode-pure';
 
-import { ObjectLink } from './ObjectLink';
+import { ObjectAddress } from './ObjectAddress';
 import { ArgBox, EmptyPanel, Field } from './parts';
 
 type TxData = SuiClientTypes.TransactionData;
@@ -98,7 +98,7 @@ function InputArg({
 			<ArgBox>
 				{kind && <Muted>{kind} object</Muted>}
 				<span className="flex items-center">
-					<ObjectLink inputObject={object.objectId} />
+					<ObjectAddress inputObject={object.objectId} />
 				</span>
 			</ArgBox>
 		);
@@ -118,7 +118,9 @@ function InputArg({
 					>
 						<Muted>{key}</Muted>
 						{key === 'objectId' ? (
-							<ObjectLink inputObject={value as string} />
+							<ObjectAddress
+								inputObject={value as string}
+							/>
 						) : typeof value === 'object' ? (
 							JSON.stringify(value)
 						) : (
