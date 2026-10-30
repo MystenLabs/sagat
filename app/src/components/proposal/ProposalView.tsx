@@ -60,17 +60,18 @@ import {
 } from '@/lib/proposalUtils';
 import { QueryKeys } from '@/lib/queryKeys';
 import { validatePublicKey } from '@/lib/sui-utils';
-import type { SimulatedTransaction } from '@/lib/transaction-preview';
 import { type ProposalCardInput } from '@/lib/types';
 import { safeDecode } from '@/lib/utils';
 
 import { ActivityCard } from './ActivityCard';
 import { ApprovalsCard } from './ApprovalsCard';
+import { OnChainCard } from './OnChainCard';
 
 /**
  * A proposal's page: the header, the transaction preview on the left
- * (the dry run while it is open, the chain's result once executed) and
- * the approvals and activity on the right, stacked below `lg`.
+ * (the dry run; once executed, the transaction's outcome and digest,
+ * pointing to the explorer) and the approvals and activity on the
+ * right, stacked below `lg`.
  * `proposalsPath` links back to the account's proposals, when the page
  * is under the account.
  */
@@ -124,18 +125,16 @@ export function ProposalView({
 			: 'member';
 
 	// Open, cancelled and expired proposals show a dry run; executed and
-	// failed ones the chain's result. Nothing runs on another network.
-	const { mutate: analyze } = analysis;
+	// failed ones read the transaction from the chain instead. Nothing
+	// runs on another network.
 	useEffect(() => {
-		if (mismatch) return;
-		if (onChain) analyze(proposal.transactionBytes);
-		else preview(proposal.transactionBytes);
+		if (mismatch || onChain) return;
+		preview(proposal.transactionBytes);
 	}, [
 		mismatch,
 		onChain,
 		proposal.transactionBytes,
 		preview,
-		analyze,
 	]);
 
 	const chain = useQuery({
@@ -147,16 +146,9 @@ export function ProposalView({
 		queryFn: async () => {
 			const result = await client.getTransaction({
 				digest: proposal.digest,
-				include: {
-					effects: true,
-					balanceChanges: true,
-					events: true,
-					transaction: true,
-					objectTypes: true,
-				},
+				include: { effects: true },
 			});
-			return (result.Transaction ??
-				result.FailedTransaction) as SimulatedTransaction;
+			return result.Transaction ?? result.FailedTransaction;
 		},
 		enabled: onChain && !mismatch,
 		staleTime: Infinity,
@@ -192,7 +184,20 @@ export function ProposalView({
 	const { analyzer, analyzerCount } = analyzerTab(analysis);
 
 	let previewBlock: ReactElement;
-	if (mismatch) {
+	if (onChain) {
+		previewBlock = (
+			<OnChainCard
+				proposal={proposal}
+				status={
+					proposal.status === ProposalStatus.SUCCESS
+						? 'executed'
+						: 'failed'
+				}
+				result={chainResult}
+				error={chain.error?.message ?? null}
+			/>
+		);
+	} else if (mismatch) {
 		previewBlock = (
 			<>
 				<PreviewHeading />
@@ -205,36 +210,6 @@ export function ProposalView({
 					see the transaction preview.
 				</p>
 			</>
-		);
-	} else if (onChain) {
-		previewBlock = chain.isError ? (
-			<>
-				<PreviewHeading />
-				<Notice
-					tone="error"
-					testId="transaction-preview-unreachable"
-				>
-					Couldn't load the transaction from the chain:{' '}
-					{chain.error.message}
-				</Notice>
-			</>
-		) : (
-			<TransactionPreview
-				bytes={proposal.transactionBytes}
-				accounts={accounts}
-				analyzer={analyzer}
-				analyzerCount={analyzerCount}
-				source="chain"
-				status={
-					!chainResult
-						? 'pending'
-						: chainResult.effects.status.success
-							? 'passed'
-							: 'failed'
-				}
-				result={chainResult}
-				simulatedAt={chainResult?.timestampMs ?? null}
-			/>
 		);
 	} else if (simulation) {
 		previewBlock = (
@@ -400,12 +375,16 @@ export function ProposalView({
 			)}
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-				<section
-					className={cardClass}
-					aria-label="Transaction preview"
-				>
-					{previewBlock}
-				</section>
+				{onChain ? (
+					previewBlock
+				) : (
+					<section
+						className={cardClass}
+						aria-label="Transaction preview"
+					>
+						{previewBlock}
+					</section>
+				)}
 				<div className="flex min-w-0 flex-col gap-4">
 					<ApprovalsCard
 						proposal={proposal}
@@ -415,7 +394,6 @@ export function ProposalView({
 						viewerPublicKey={member?.publicKey ?? null}
 						simulation={simulation}
 						verdict={verdict}
-						chainResult={chainResult}
 						canCancel={canCancel}
 					/>
 					<ActivityCard

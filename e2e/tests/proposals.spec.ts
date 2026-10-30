@@ -108,17 +108,27 @@ test.describe('proposals', () => {
 			(3n * MIST_PER_SUI) / 2n,
 		);
 
-		// Alice sees the outcome too, with the chain's result.
+		// Alice sees the outcome too: the transaction card with its digest
+		// in place of the preview. Suiscan doesn't index localnet, so the
+		// card has no explorer button.
 		await alice.page.reload();
 		await expect(alicePage).toHaveAttribute(
 			'data-status',
 			'executed',
 		);
+		const onChain = alicePage.getByTestId(
+			'proposal-on-chain',
+		);
+		await expect(onChain).toHaveAttribute(
+			'data-status',
+			'executed',
+		);
 		await expect(
-			alice
-				.proposalPage(digest!)
-				.getByTestId('transaction-preview-status'),
-		).toHaveAttribute('data-status', 'passed');
+			onChain.getByTestId('proposal-on-chain-digest'),
+		).toHaveText(digest);
+		await expect(
+			onChain.getByTestId('view-on-explorer'),
+		).toHaveCount(0);
 	});
 
 	test('the page shows a co-signer’s signature without a reload', async ({

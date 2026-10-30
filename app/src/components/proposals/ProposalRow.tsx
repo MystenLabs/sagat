@@ -55,17 +55,12 @@ import { ProposalWeight } from './ProposalWeight';
 
 export type ProposalsTableVariant = 'overview' | 'list';
 
-const titleClass =
-	'truncate text-14 font-medium text-foreground hover:underline @max-md:line-clamp-2 @max-md:whitespace-normal';
-
 /**
  * One proposal in the proposals table: what it is, who proposed it,
  * where it stands and Execute. The title links to the proposal's page,
- * where signing and cancelling happen; once the transaction ran on chain
- * it opens the explorer instead, when the network has one. The overview
- * names the proposer in the meta line; the list gives them a column, and
- * adds the digest and a menu to share, download or look it up on the
- * explorer.
+ * where signing and cancelling happen. The overview names the proposer
+ * in the meta line; the list gives them a column, and adds the digest
+ * and a menu to share, download or look it up on the explorer.
  */
 export function ProposalRow({
 	proposal,
@@ -129,28 +124,16 @@ export function ProposalRow({
 						</span>
 					)}
 					<div className="flex min-w-0 flex-col gap-0.75">
-						{explorerUrl ? (
-							<a
-								href={explorerUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								className={titleClass}
-								data-testid="proposal-title"
-							>
-								{proposalTitle(proposal)}
-							</a>
-						) : (
-							<Link
-								to={proposalPagePath(
-									proposal.multisigAddress,
-									proposal.digest,
-								)}
-								className={titleClass}
-								data-testid="proposal-title"
-							>
-								{proposalTitle(proposal)}
-							</Link>
-						)}
+						<Link
+							to={proposalPagePath(
+								proposal.multisigAddress,
+								proposal.digest,
+							)}
+							className="truncate text-14 font-medium text-foreground hover:underline @max-md:line-clamp-2 @max-md:whitespace-normal"
+							data-testid="proposal-title"
+						>
+							{proposalTitle(proposal)}
+						</Link>
 						{/* The proposer leads the meta line and each item
 							    after it brings its own "·". In the list's table
 							    layout the proposer is display:none, so the item
