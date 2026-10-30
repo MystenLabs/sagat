@@ -52,9 +52,11 @@ const Toaster = (props: ToasterProps) => (
 				toast:
 					'right-0 left-0 mx-auto flex w-fit max-w-full items-center gap-2.5 rounded-xl bg-toast px-4 py-3 font-sans text-14 text-toast-foreground shadow-toast outline-none',
 				icon: 'flex size-4 shrink-0 items-center justify-center select-none [&>svg]:size-4',
-				content: 'flex min-w-0 items-baseline gap-2.5',
-				title: 'font-medium leading-[1.4]',
-				description: 'text-13 text-toast-foreground/60',
+				content:
+					'flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1',
+				title: 'shrink-0 font-medium leading-[1.4]',
+				description:
+					'min-w-0 text-13 wrap-anywhere text-toast-foreground/60',
 				actionButton:
 					'shrink-0 cursor-pointer text-14 text-toast-foreground/60 underline underline-offset-4 hover:text-toast-foreground',
 				cancelButton:
