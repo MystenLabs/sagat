@@ -1,0 +1,7 @@
+**/node_modules
+**/dist
+.git
+.claude
+e2e/playwright-report
+e2e/test-results
+e2e/move/**/build

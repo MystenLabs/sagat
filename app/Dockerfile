@@ -1,9 +1,6 @@
 # Sagat Frontend
 FROM oven/bun:1.2.23 AS base
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /monorepo
 
 # Copy entire monorepo
@@ -14,8 +11,7 @@ RUN bun install --frozen-lockfile
 
 # Make sure env is production when doing any builds.
 ENV NODE_ENV=production
-# Build SDK only (app will be built in build stage with env vars)
-RUN bun run build:sdk
+# No SDK build: vite and tsc alias @mysten/sagat to sdk/src
 
 # Move to App directory for runtime
 WORKDIR /monorepo/app
@@ -48,10 +44,7 @@ RUN addgroup -g 1001 -S sagat && \
     adduser -S sagat -u 1001
 
 # Copy built app to nginx
-COPY --from=build /monorepo/app/dist /usr/share/nginx/html
-
-# Change ownership of nginx html directory
-RUN chown -R sagat:sagat /usr/share/nginx/html
+COPY --from=build --chown=1001:1001 /monorepo/app/dist /usr/share/nginx/html
 
 # Expose port
 EXPOSE 80
