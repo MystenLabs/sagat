@@ -23,6 +23,11 @@ type SignProposalParams = Pick<
 	'id' | 'transactionBytes' | 'totalWeight'
 >;
 
+/**
+ * Signs a proposal's transaction with the wallet and adds the signature.
+ * Resolves with the vote's tally and the signature itself, so a caller
+ * can execute at once without waiting for the proposal to refetch.
+ */
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
 	const queryClient = useQueryClient();
@@ -45,13 +50,16 @@ export function useSignProposal() {
 			const result = await dappKit.signTransaction({
 				transaction,
 			});
+			const signature = result.signature as string;
 
 			// Call API to vote on the proposal
-			return apiClient.voteForProposal(proposalId, {
-				signature: result.signature as string,
-			});
+			const vote = await apiClient.voteForProposal(
+				proposalId,
+				{ signature },
+			);
+			return { vote, signature };
 		},
-		onSuccess: (vote, proposal) => {
+		onSuccess: ({ vote }, proposal) => {
 			// Invalidate all proposal-related queries
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
@@ -62,6 +70,19 @@ export function useSignProposal() {
 			toast.success(
 				signatureAddedMessage(vote, proposal.totalWeight),
 			);
+		},
+		onError: (error: Error) => {
+			// The wallet declined, or the API refused the vote because the
+			// proposal changed meanwhile: refetch, so the page catches up.
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposal],
+			});
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposals],
+			});
+			toast.error("Couldn't sign the proposal", {
+				description: error.message,
+			});
 		},
 	});
 }

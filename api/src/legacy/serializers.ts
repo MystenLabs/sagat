@@ -161,6 +161,8 @@ export const toLegacyPublicProposal = (
 	currentWeight: number,
 ): PublicProposal => ({
 	...toLegacyProposalWithSignatures(proposal),
+	// What JSON makes of the Date anyway; the SDK types it as the string.
+	createdAt: proposal.createdAt.toISOString(),
 	currentWeight,
 	totalWeight: signerSet.threshold,
 	multisig: {

@@ -285,9 +285,10 @@ export class Actor extends Identity {
 			.click();
 	}
 
-	proposalCard(digest: string) {
+	// A proposal's own page, under its account or at a shared link.
+	proposalPage(digest: string) {
 		return this.page.locator(
-			`[data-testid="proposal-card"][data-digest="${digest}"]`,
+			`[data-testid="proposal-page"][data-digest="${digest}"]`,
 		);
 	}
 

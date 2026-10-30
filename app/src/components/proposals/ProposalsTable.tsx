@@ -116,7 +116,6 @@ export function ProposalsTable({
 									labels.get(proposal.proposerAddress) ??
 									null
 								}
-								columns={list ? 5 : 4}
 							/>
 						))}
 					</tbody>

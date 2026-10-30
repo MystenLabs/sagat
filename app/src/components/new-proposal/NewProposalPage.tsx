@@ -32,6 +32,10 @@ import {
 	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
+import {
+	proposalPagePath,
+	proposalsPath,
+} from '@/lib/proposalUtils';
 import { signerRows } from '@/lib/signers';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -149,8 +153,8 @@ function NewProposalWizard({
 
 	const creating = create.isPending;
 	const address = multisig.address;
-	const proposalsPath = `/multisig/${address}/proposals`;
-	const cancel = () => navigate(proposalsPath);
+	const proposalsLink = proposalsPath(address);
+	const cancel = () => navigate(proposalsLink);
 
 	// The furthest step the stepper goes to: Review once there is a
 	// transaction to review.
@@ -227,7 +231,12 @@ function NewProposalWizard({
 					reviewTitle.normalize('NFC').trim() || undefined,
 			},
 			{
-				onSuccess: () => navigate(proposalsPath),
+				onSuccess: (proposal) =>
+					// Replaced, so Back leaves for where the wizard opened from.
+					navigate(
+						proposalPagePath(address, proposal.digest),
+						{ replace: true },
+					),
 				onError: (error) => {
 					if (error instanceof SignatureDeclinedError)
 						toast.error(COPY.signatureDeclined);
@@ -263,7 +272,7 @@ function NewProposalWizard({
 		<WizardPage
 			title="New proposal"
 			breadcrumb={[
-				{ label: 'Proposals', to: proposalsPath },
+				{ label: 'Proposals', to: proposalsLink },
 				{ label: 'New proposal' },
 			]}
 			testId="new-proposal"

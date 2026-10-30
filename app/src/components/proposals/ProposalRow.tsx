@@ -3,23 +3,16 @@
 
 import { ProposalStatus } from '@mysten/sagat';
 import {
-	ChevronDown,
-	ChevronUp,
 	Download,
 	ExternalLink,
 	FileText,
 	Link2,
 	MoreHorizontal,
-	X,
 } from 'lucide-react';
-import {
-	useState,
-	type ReactElement,
-	type ReactNode,
-} from 'react';
+import { type ReactElement, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { useCancelProposal } from '@/hooks/useCancelProposal';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
 import {
@@ -30,6 +23,7 @@ import {
 import {
 	isExternalProposer,
 	proposalLinkUrl,
+	proposalPagePath,
 	proposalStatusKey,
 	proposalTitle,
 	shortDigest,
@@ -37,7 +31,6 @@ import {
 import { type ProposalCardInput } from '@/lib/types';
 import { cn, getExplorerUrl } from '@/lib/utils';
 
-import { CancelProposalModal } from '../modals/CancelProposalModal';
 import { SignerName } from '../multisig/SignerName';
 import { Button, buttonVariants } from '../ui/button';
 import { CopyButton } from '../ui/CopyButton';
@@ -56,7 +49,6 @@ import {
 	TooltipTrigger,
 } from '../ui/tooltip';
 import { ProposalExpiry } from './ProposalExpiry';
-import { ProposalPreview } from './ProposalPreview';
 import { ProposalStatusChip } from './ProposalStatusChip';
 import { ProposalWeight } from './ProposalWeight';
 
@@ -64,17 +56,16 @@ export type ProposalsTableVariant = 'overview' | 'list';
 
 /**
  * One proposal in the proposals table: what it is, who proposed it,
- * where it stands and Execute. The overview names the proposer in the
- * meta line; the list gives them a column, and adds the digest, a preview
- * that expands under the row (where signing happens) and a menu with the
- * rest of what can be done with it.
+ * where it stands and Execute. The title links to the proposal's page,
+ * where signing and cancelling happen. The overview names the proposer
+ * in the meta line; the list gives them a column, and adds the digest
+ * and a menu to share, download or look it up on the explorer.
  */
 export function ProposalRow({
 	proposal,
 	variant,
 	expired,
 	proposerLabel,
-	columns,
 }: {
 	proposal: ProposalCardInput;
 	variant: ProposalsTableVariant;
@@ -82,14 +73,9 @@ export function ProposalRow({
 	expired: boolean;
 	/** The proposer's key label, when they are a labelled signer. */
 	proposerLabel: string | null;
-	/** How many columns the table has, for the preview row to span. */
-	columns: number;
 }) {
 	const { currentAddress } = useApiAuth();
 	const executing = useExecuteOrVerify();
-	const [expanded, setExpanded] = useState(false);
-	const [cancelling, setCancelling] = useState(false);
-	const cancel = useCancelProposal();
 
 	const status = expired
 		? 'expired'
@@ -125,278 +111,221 @@ export function ProposalRow({
 				: null;
 
 	return (
-		<>
-			<tr
-				className={cn(
-					tableRowClass,
-					'@max-md:grid @max-md:grid-cols-[auto_auto_1fr] @max-md:gap-x-3 @max-md:gap-y-2 @max-md:px-3 @max-md:py-3',
-				)}
-				data-testid="proposal-row"
-				data-digest={proposal.digest}
-				data-status={status}
-			>
-				<td className="px-3 py-2.75 @max-md:col-span-3 @max-md:block @max-md:p-0">
-					<div className="flex min-w-0 items-center gap-3">
-						{variant === 'overview' && (
-							// The kind of proposal isn't decoded yet, so one icon for all.
-							<span className="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground-secondary sm:flex">
-								<FileText className="size-4" />
-							</span>
-						)}
-						<div className="flex min-w-0 flex-col gap-0.75">
-							<span
-								className="truncate text-14 font-medium @max-md:line-clamp-2 @max-md:whitespace-normal"
-								data-testid="proposal-title"
-							>
-								{proposalTitle(proposal)}
-							</span>
-							{/* The proposer leads the meta line and each item
+		<tr
+			className={cn(
+				tableRowClass,
+				'@max-md:grid @max-md:grid-cols-[auto_auto_1fr] @max-md:gap-x-3 @max-md:gap-y-2 @max-md:px-3 @max-md:py-3',
+			)}
+			data-testid="proposal-row"
+			data-digest={proposal.digest}
+			data-status={status}
+		>
+			<td className="px-3 py-2.75 @max-md:col-span-3 @max-md:block @max-md:p-0">
+				<div className="flex min-w-0 items-center gap-3">
+					{variant === 'overview' && (
+						// The kind of proposal isn't decoded yet, so one icon for all.
+						<span className="hidden size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-foreground-secondary sm:flex">
+							<FileText className="size-4" />
+						</span>
+					)}
+					<div className="flex min-w-0 flex-col gap-0.75">
+						<Link
+							to={proposalPagePath(
+								proposal.multisigAddress,
+								proposal.digest,
+							)}
+							className="truncate text-14 font-medium text-foreground hover:underline @max-md:line-clamp-2 @max-md:whitespace-normal"
+							data-testid="proposal-title"
+						>
+							{proposalTitle(proposal)}
+						</Link>
+						{/* The proposer leads the meta line and each item
 							    after it brings its own "·". In the list's table
 							    layout the proposer is display:none, so the item
 							    after it drops its dot. */}
-							<span
-								className={cn(
-									'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-12 text-muted-foreground',
-									list &&
-										'@md:[&>:nth-child(2)>[aria-hidden]:first-child]:hidden',
-								)}
-							>
-								{/* The list renders the proposer twice: here for the
+						<span
+							className={cn(
+								'flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-12 text-muted-foreground',
+								list &&
+									'@md:[&>:nth-child(2)>[aria-hidden]:first-child]:hidden',
+							)}
+						>
+							{/* The list renders the proposer twice: here for the
 								    stacked layout and in its own column for the table.
 								    One is always display:none, and only the column
 								    carries the test id, so each row has one. */}
+							<span
+								className={cn(
+									'inline-flex min-w-0 items-center gap-1',
+									list && '@md:hidden',
+								)}
+								data-testid={
+									list ? undefined : 'proposal-proposer'
+								}
+							>
+								Proposed by{' '}
+								{/* The name alone; the address only when unnamed. */}
+								<SignerName
+									label={proposerLabel}
+									address={
+										proposerLabel
+											? undefined
+											: proposal.proposerAddress
+									}
+									marker={proposerMarker}
+									markerStyle="parens"
+									size="inline"
+								/>
+							</span>
+							{showDigest && (
 								<span
 									className={cn(
-										'inline-flex min-w-0 items-center gap-1',
-										list && '@md:hidden',
+										'inline-flex items-center gap-1 whitespace-nowrap',
+										!list && '@md:hidden',
 									)}
-									data-testid={
-										list ? undefined : 'proposal-proposer'
-									}
 								>
-									Proposed by{' '}
-									{/* The name alone; the address only when unnamed. */}
-									<SignerName
-										label={proposerLabel}
-										address={
-											proposerLabel
-												? undefined
-												: proposal.proposerAddress
-										}
-										marker={proposerMarker}
-										markerStyle="parens"
+									<span aria-hidden className="mr-0.5">
+										·
+									</span>
+									<span className="font-mono">
+										{shortDigest(proposal.digest)}
+									</span>
+									<CopyButton
+										value={proposal.digest}
 										size="inline"
+										successMessage="Digest copied"
 									/>
-								</span>
-								{showDigest && (
-									<span
-										className={cn(
-											'inline-flex items-center gap-1 whitespace-nowrap',
-											!list && '@md:hidden',
-										)}
-									>
-										<span aria-hidden className="mr-0.5">
-											·
-										</span>
-										<span className="font-mono">
-											{shortDigest(proposal.digest)}
-										</span>
-										<CopyButton
-											value={proposal.digest}
-											size="inline"
-											successMessage="Digest copied"
-										/>
-									</span>
-								)}
-								{pending && (
-									<ProposalExpiry
-										transactionBytes={
-											proposal.transactionBytes
-										}
-										variant="inline"
-									/>
-								)}
-								{signed && (
-									<span
-										className="inline-flex items-center gap-1.5 whitespace-nowrap"
-										data-testid="proposal-already-signed"
-									>
-										<span aria-hidden>·</span>
-										You signed
-									</span>
-								)}
-							</span>
-							{executing.error && (
-								<span
-									className="text-12 break-words text-error-foreground"
-									data-testid="proposal-execute-error"
-								>
-									Couldn't execute:{' '}
-									{executing.error.message}
 								</span>
 							)}
-						</div>
-					</div>
-				</td>
-				<td className="px-3 py-2.75 @max-md:block @max-md:self-center @max-md:p-0">
-					<ProposalStatusChip
-						status={status}
-						data-testid="proposal-status"
-					/>
-				</td>
-				<td className="hidden px-3 py-2.75 sm:table-cell @max-md:block @max-md:self-center @max-md:p-0">
-					<ProposalWeight proposal={proposal} />
-				</td>
-				{list && (
-					<td className="hidden px-3 py-2.75 md:table-cell @max-md:hidden">
-						<div
-							className="flex min-w-0"
-							data-testid="proposal-proposer"
-						>
-							<SignerName
-								label={proposerLabel}
-								address={proposal.proposerAddress}
-								marker={proposerMarker}
-								markerStyle="parens"
-								size="md"
-							/>
-						</div>
-					</td>
-				)}
-				<td className="px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0">
-					<div className="flex items-center justify-end gap-1 @max-md:flex-wrap">
-						{status === 'ready' && (
-							<Button
-								size="sm"
-								className="@max-md:h-9 @max-md:px-3.5"
-								onClick={() => executing.execute(proposal)}
-								disabled={executing.isPending}
-								data-testid="execute-proposal-button"
-							>
-								{executing.isPending
-									? 'Executing…'
-									: 'Execute'}
-							</Button>
-						)}
-						{explorerIsPrimary && (
-							<IconTooltip
-								label="View on explorer"
-								// A narrow viewport's table shows the icon alone; stacked rows have room for the label.
-								contentClassName="sm:hidden"
-								trigger={
-									<a
-										href={explorerUrl}
-										target="_blank"
-										rel="noopener noreferrer"
-										className={cn(
-											buttonVariants({
-												variant: 'outline',
-												size: 'sm',
-											}),
-											'max-sm:size-7 max-sm:px-0 @max-md:h-9 @max-md:w-auto @max-md:px-3.5',
-										)}
-										aria-label="View on explorer"
-										data-testid="view-on-explorer"
-									/>
-								}
-							>
-								<ExternalLink />
-								<span className="hidden sm:inline @max-md:inline">
-									View on explorer
+							{pending && (
+								<ProposalExpiry
+									transactionBytes={
+										proposal.transactionBytes
+									}
+									variant="inline"
+								/>
+							)}
+							{signed && (
+								<span
+									className="inline-flex items-center gap-1.5 whitespace-nowrap"
+									data-testid="proposal-already-signed"
+								>
+									<span aria-hidden>·</span>
+									You signed
 								</span>
-							</IconTooltip>
-						)}
-						{list && open && (
-							<IconTooltip
-								label={
-									expanded ? 'Hide preview' : 'Show preview'
-								}
-								trigger={
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										className="@max-md:size-9"
-										onClick={() => setExpanded(!expanded)}
-										aria-label={
-											expanded
-												? 'Hide preview'
-												: 'Show preview'
-										}
-										aria-expanded={expanded}
-										data-testid="proposal-toggle-details"
-									/>
-								}
+							)}
+						</span>
+						{executing.error && (
+							<span
+								className="text-12 break-words text-error-foreground"
+								data-testid="proposal-execute-error"
 							>
-								{expanded ? <ChevronUp /> : <ChevronDown />}
-							</IconTooltip>
-						)}
-						{list && (
-							<RowMenu
-								canCancel={pending}
-								canShare={open}
-								explorerUrl={
-									explorerIsPrimary ? null : explorerUrl
-								}
-								onCancel={() => setCancelling(true)}
-								onDownload={() =>
-									downloadJson(
-										getProposalExportFilename(
-											proposal.digest,
-										),
-										buildProposalExport(proposal),
-									)
-								}
-								digest={proposal.digest}
-							/>
+								Couldn't execute: {executing.error.message}
+							</span>
 						)}
 					</div>
-					{list && (
-						<CancelProposalModal
-							open={cancelling}
-							onClose={() => setCancelling(false)}
-							onConfirm={() =>
-								cancel.mutate(proposal.id, {
-									onSuccess: () => setCancelling(false),
-								})
+				</div>
+			</td>
+			<td className="px-3 py-2.75 @max-md:block @max-md:self-center @max-md:p-0">
+				<ProposalStatusChip
+					status={status}
+					data-testid="proposal-status"
+				/>
+			</td>
+			<td className="hidden px-3 py-2.75 sm:table-cell @max-md:block @max-md:self-center @max-md:p-0">
+				<ProposalWeight proposal={proposal} />
+			</td>
+			{list && (
+				<td className="hidden px-3 py-2.75 md:table-cell @max-md:hidden">
+					<div
+						className="flex min-w-0"
+						data-testid="proposal-proposer"
+					>
+						<SignerName
+							label={proposerLabel}
+							address={proposal.proposerAddress}
+							marker={proposerMarker}
+							markerStyle="parens"
+							size="md"
+						/>
+					</div>
+				</td>
+			)}
+			<td className="px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0">
+				<div className="flex items-center justify-end gap-1 @max-md:flex-wrap">
+					{status === 'ready' && (
+						<Button
+							size="sm"
+							className="@max-md:h-9 @max-md:px-3.5"
+							onClick={() => executing.execute(proposal)}
+							disabled={executing.isPending}
+							data-testid="execute-proposal-button"
+						>
+							{executing.isPending
+								? 'Executing…'
+								: 'Execute'}
+						</Button>
+					)}
+					{explorerIsPrimary && (
+						<IconTooltip
+							label="View on explorer"
+							// A narrow viewport's table shows the icon alone; stacked rows have room for the label.
+							contentClassName="sm:hidden"
+							trigger={
+								<a
+									href={explorerUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									className={cn(
+										buttonVariants({
+											variant: 'outline',
+											size: 'sm',
+										}),
+										'max-sm:size-7 max-sm:px-0 @max-md:h-9 @max-md:w-auto @max-md:px-3.5',
+									)}
+									aria-label="View on explorer"
+									data-testid="view-on-explorer"
+								/>
 							}
-							isLoading={cancel.isPending}
-							proposalId={proposal.id}
+						>
+							<ExternalLink />
+							<span className="hidden sm:inline @max-md:inline">
+								View on explorer
+							</span>
+						</IconTooltip>
+					)}
+					{list && (
+						<RowMenu
+							canShare={open}
+							explorerUrl={
+								explorerIsPrimary ? null : explorerUrl
+							}
+							onDownload={() =>
+								downloadJson(
+									getProposalExportFilename(
+										proposal.digest,
+									),
+									buildProposalExport(proposal),
+								)
+							}
+							digest={proposal.digest}
 						/>
 					)}
-				</td>
-			</tr>
-			{expanded && open && (
-				<tr className={cn(tableRowClass, '@max-md:block')}>
-					<td
-						colSpan={columns}
-						className="bg-muted/30 p-4 @max-md:block"
-					>
-						<ProposalPreview
-							proposal={proposal}
-							userHasSigned={signed}
-							onCancel={() => setCancelling(true)}
-							isCancelling={cancel.isPending}
-						/>
-					</td>
-				</tr>
-			)}
-		</>
+				</div>
+			</td>
+		</tr>
 	);
 }
 
 function RowMenu({
-	canCancel,
 	canShare,
 	explorerUrl,
-	onCancel,
 	onDownload,
 	digest,
 }: {
-	canCancel: boolean;
 	canShare: boolean;
 	/** The explorer link, unless the row already shows it. */
 	explorerUrl: string | null;
-	onCancel: () => void;
 	onDownload: () => void;
 	digest: string;
 }) {
@@ -455,16 +384,6 @@ function RowMenu({
 						>
 							<ExternalLink />
 							View on explorer
-						</DropdownMenuItem>
-					)}
-					{canCancel && (
-						<DropdownMenuItem
-							variant="destructive"
-							onClick={onCancel}
-							data-testid="cancel-proposal-button"
-						>
-							<X />
-							Cancel proposal
 						</DropdownMenuItem>
 					)}
 				</DropdownMenuGroup>

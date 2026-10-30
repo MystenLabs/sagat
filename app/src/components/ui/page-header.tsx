@@ -23,7 +23,7 @@ interface PageHeaderProps {
 	/** Shown in mono under the title, with a copy button. */
 	address?: string;
 	description?: ReactNode;
-	/** Older pages: a back link instead of a breadcrumb. */
+	/** A back link in the breadcrumb's place: "← Proposals". */
 	backLink?: string;
 	backLabel?: string;
 	actions?: ReactNode;
@@ -94,9 +94,10 @@ export function PageHeader({
 					backLink && (
 						<Link
 							to={backLink}
-							className="mb-2 inline-flex items-center gap-1 text-13 text-muted-foreground hover:text-foreground"
+							className="inline-flex w-fit items-center gap-1 text-11 tracking-[0.02em] text-muted-foreground uppercase hover:text-foreground"
+							data-testid="page-header-back"
 						>
-							<ArrowLeft className="size-4" />
+							<ArrowLeft className="size-3" />
 							{backLabel}
 						</Link>
 					)

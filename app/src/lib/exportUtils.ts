@@ -63,6 +63,7 @@ interface ExportedProposal extends ExportEnvelope {
 		transactionBytes: string;
 		proposerAddress: string;
 		description: string | null;
+		createdAt: string;
 		currentWeight: number;
 		threshold: number;
 		signatures: ExportedProposalSignature[];
@@ -109,6 +110,7 @@ export function buildProposalExport(
 			transactionBytes: proposal.transactionBytes,
 			proposerAddress: proposal.proposerAddress,
 			description: proposal.description,
+			createdAt: proposal.createdAt,
 			currentWeight: proposal.currentWeight,
 			threshold: proposal.multisig.threshold,
 			signatures: proposal.signatures

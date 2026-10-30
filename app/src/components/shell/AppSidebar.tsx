@@ -147,8 +147,9 @@ function SidebarNav() {
 	const { data: invitations } = useInvitations();
 	const pendingInvites = invitations?.length ?? 0;
 
+	// `end: false`, so a proposal's page selects its account too.
 	const routeAddress = matchPath(
-		'/multisig/:address/:page?',
+		{ path: '/multisig/:address', end: false },
 		location.pathname,
 	)?.params.address;
 	const routePage = currentMultisigPage(location.pathname);

@@ -62,14 +62,10 @@ export function toProposalCardInput(
 ): ProposalCardInput {
 	return {
 		...proposal,
-		isPublic: false,
 		totalWeight: multisig.threshold,
 		currentWeight: calculateCurrentWeight(
 			proposal,
 			multisig,
-		),
-		proposers: multisig.proposers.map(
-			(proposer) => proposer.address,
 		),
 		multisig: {
 			address: multisig.address,
@@ -190,9 +186,27 @@ export function pendingFilter(
 		: 'pending';
 }
 
+/** A proposal's public page, as a path. */
+export function sharedProposalPath(digest: string) {
+	return `/proposals?digest=${encodeURIComponent(digest)}`;
+}
+
 /** The link to a proposal's public page. */
 export function proposalLinkUrl(digest: string) {
-	return `${window.location.origin}/proposals?digest=${digest}`;
+	return `${window.location.origin}${sharedProposalPath(digest)}`;
+}
+
+/** The account's proposals list. */
+export function proposalsPath(address: string) {
+	return `/multisig/${address}/proposals`;
+}
+
+/** A proposal's page under its account. */
+export function proposalPagePath(
+	address: string,
+	digest: string,
+) {
+	return `/multisig/${address}/proposals/${digest}`;
 }
 
 /**

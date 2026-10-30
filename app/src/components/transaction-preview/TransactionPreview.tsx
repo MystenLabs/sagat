@@ -24,6 +24,7 @@ import { useCoinDisplayDataMap } from '@/hooks/useCoinDisplayData';
 import {
 	buildTransactionPreview,
 	type NamedAccount,
+	type PreviewSource,
 	type SimulatedTransaction,
 	type SimulationStatus,
 } from '@/lib/transaction-preview';
@@ -61,6 +62,8 @@ export function TransactionPreview({
 	actions,
 	analyzer,
 	analyzerCount,
+	source = 'simulation',
+	signingNotice = true,
 }: {
 	bytes: string;
 	status: SimulationStatus;
@@ -75,6 +78,10 @@ export function TransactionPreview({
 	analyzer: ReactNode;
 	/** The analyzer's issues, badged on its tab. */
 	analyzerCount?: number;
+	/** 'chain' shows an executed transaction: "Succeeded" on the chip, the confirmation time beside it, and no note about signing. */
+	source?: PreviewSource;
+	/** Whether the viewer is about to sign; hides the wallet notice when not. */
+	signingNotice?: boolean;
 }) {
 	const { network } = useNetwork();
 	const model = useMemo(
@@ -90,6 +97,7 @@ export function TransactionPreview({
 						? null
 						: new Date(simulatedAt),
 				accounts,
+				source,
 			}),
 		[
 			bytes,
@@ -99,6 +107,7 @@ export function TransactionPreview({
 			network,
 			simulatedAt,
 			accounts,
+			source,
 		],
 	);
 
@@ -150,7 +159,11 @@ export function TransactionPreview({
 	];
 
 	const senderAddress = model.sender?.address;
-	const waiting = <EmptyPanel>Simulating…</EmptyPanel>;
+	const waiting = (
+		<EmptyPanel>
+			{source === 'chain' ? 'Loading…' : 'Simulating…'}
+		</EmptyPanel>
+	);
 
 	let panel: ReactNode;
 	switch (activeTab) {
@@ -230,7 +243,10 @@ export function TransactionPreview({
 					tabs={[
 						{
 							id: 'simulation',
-							label: 'Simulation result',
+							label:
+								source === 'chain'
+									? 'On-chain result'
+									: 'Simulation result',
 						},
 						{
 							id: 'analyzer',
@@ -243,7 +259,7 @@ export function TransactionPreview({
 					variant="pills"
 					testId="transaction-preview-view"
 				/>
-				<ViewHelp />
+				<ViewHelp source={source} />
 			</div>
 
 			{view === 'analyzer' ? (
@@ -271,11 +287,13 @@ export function TransactionPreview({
 						</span>
 					</div>
 
-					<Notice tone="warning">
-						Always check the transaction in your wallet
-						before you sign. Your wallet is the final word
-						on what you approve.
-					</Notice>
+					{source === 'simulation' && signingNotice && (
+						<Notice tone="warning">
+							Always check the transaction in your wallet
+							before you sign. Your wallet is the final word
+							on what you approve.
+						</Notice>
+					)}
 
 					<div className="flex min-w-0 flex-col gap-3">
 						<Tabs
@@ -327,7 +345,7 @@ export function TransactionPreview({
 }
 
 /** What the two views are, on hover. */
-function ViewHelp() {
+function ViewHelp({ source }: { source: PreviewSource }) {
 	return (
 		<TooltipProvider delay={150}>
 			<Tooltip>
@@ -344,16 +362,26 @@ function ViewHelp() {
 					className="max-w-sm border bg-card text-card-foreground"
 				>
 					<div className="flex flex-col gap-2 text-12 leading-relaxed">
-						<p>
-							<span className="block font-medium">
-								Simulation result
-							</span>
-							One dry run against the current on-chain
-							state. It shows the expected effects, but it
-							can miss some of what could leave the account,
-							because on-chain state can change before the
-							transaction runs.
-						</p>
+						{source === 'chain' ? (
+							<p>
+								<span className="block font-medium">
+									On-chain result
+								</span>
+								What the transaction did when it ran, read
+								from the chain.
+							</p>
+						) : (
+							<p>
+								<span className="block font-medium">
+									Simulation result
+								</span>
+								One dry run against the current on-chain
+								state. It shows the expected effects, but it
+								can miss some of what could leave the
+								account, because on-chain state can change
+								before the transaction runs.
+							</p>
+						)}
 						<p>
 							<span className="block font-medium">
 								Static analyzer
