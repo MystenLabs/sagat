@@ -48,10 +48,11 @@ export interface RunMigrationsOptions {
 }
 
 /**
- * The api package's `drizzle/` folder. `import.meta.dir` is `src/db` when
- * running from source and `dist` after `bun build`, so walk up to the first
- * directory that has `drizzle/meta/_journal.json` instead of hard-coding the
- * depth. `MIGRATIONS_FOLDER` overrides it.
+ * The api package's `drizzle/` folder. `import.meta.dir` is `src/db` from
+ * source, `dist` in the server bundle and `dist/db` in the migration CLI
+ * bundle, so walk up to the first directory that has
+ * `drizzle/meta/_journal.json` instead of using a fixed depth.
+ * `MIGRATIONS_FOLDER` overrides it.
  */
 export function defaultMigrationsFolder(): string {
 	if (process.env.MIGRATIONS_FOLDER)
