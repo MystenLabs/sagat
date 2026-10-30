@@ -1,5 +1,6 @@
 # Sagat API Backend
-FROM oven/bun:1.2.23 AS build
+# Keep in step with packageManager in the root package.json.
+FROM oven/bun:1.4.4 AS build
 
 WORKDIR /monorepo
 
@@ -16,7 +17,7 @@ RUN bun run build:sdk
 RUN bun run build:api
 
 # Runtime: the bundle has its dependencies inlined, so no node_modules
-FROM oven/bun:1.2.23-slim AS production
+FROM oven/bun:1.4.4-slim AS production
 
 # Same path as before; migrate.ts finds drizzle/ by walking up from dist/
 WORKDIR /monorepo/api

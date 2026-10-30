@@ -1,5 +1,6 @@
 # Sagat Frontend
-FROM oven/bun:1.2.23 AS base
+# Keep in step with packageManager in the root package.json.
+FROM oven/bun:1.4.4 AS base
 
 WORKDIR /monorepo
 
