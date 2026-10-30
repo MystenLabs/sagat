@@ -105,6 +105,15 @@ test.describe('errors', () => {
 				{ hasText: "Couldn't execute the proposal" },
 			),
 		).toBeVisible();
+		const toast = alice.toast(
+			"Couldn't execute the proposal",
+		);
+		await expect(toast).toBeVisible();
+		// A long description must not squeeze the title into a few letters per line.
+		const title = await toast
+			.locator('[data-title]')
+			.boundingBox();
+		expect(title?.width).toBeGreaterThan(160);
 		// TODO: it can never execute now, so it should move to a new terminal
 		// status (see lookupAndVerifyProposal in the API) instead of staying
 		// ready.
