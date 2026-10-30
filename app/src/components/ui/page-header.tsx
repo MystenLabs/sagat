@@ -7,21 +7,20 @@ import { Link } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
 
-import { CopyButton } from './CopyButton';
-
 export interface Crumb {
 	label: string;
 	to?: string;
-	/** Addresses and digests: mono, not uppercased. */
-	mono?: boolean;
 }
 
 interface PageHeaderProps {
 	title: ReactNode;
 	/** Small uppercase trail above the title. */
 	breadcrumb?: Crumb[];
-	/** Shown in mono under the title, with a copy button. */
-	address?: string;
+	/**
+	 * A small uppercase line above the title, as plain text: the account
+	 * on its pages. `mono` for an address: mono, not uppercased.
+	 */
+	eyebrow?: { label: string; mono?: boolean };
 	description?: ReactNode;
 	/** A back link in the breadcrumb's place: "← Proposals". */
 	backLink?: string;
@@ -31,13 +30,14 @@ interface PageHeaderProps {
 }
 
 /**
- * Page header from the designs: breadcrumb, 30px title, optional mono
- * address and description on the left, actions on the right.
+ * Page header from the designs: a breadcrumb, back link or eyebrow, the
+ * 30px title and an optional description on the left, actions on the
+ * right.
  */
 export function PageHeader({
 	title,
 	breadcrumb,
-	address,
+	eyebrow,
 	description,
 	backLink,
 	backLabel = 'Back',
@@ -69,19 +69,13 @@ export function PageHeader({
 								{crumb.to ? (
 									<Link
 										to={crumb.to}
-										className={cn(
-											'truncate hover:text-foreground',
-											crumb.mono && 'font-mono normal-case',
-										)}
+										className="truncate hover:text-foreground"
 									>
 										{crumb.label}
 									</Link>
 								) : (
 									<span
-										className={cn(
-											'truncate',
-											crumb.mono && 'font-mono normal-case',
-										)}
+										className="truncate"
 										aria-current="page"
 									>
 										{crumb.label}
@@ -90,34 +84,33 @@ export function PageHeader({
 							</Fragment>
 						))}
 					</nav>
+				) : backLink ? (
+					<Link
+						to={backLink}
+						className="inline-flex w-fit items-center gap-1 text-11 tracking-[0.02em] text-muted-foreground uppercase hover:text-foreground"
+						data-testid="page-header-back"
+					>
+						<ArrowLeft className="size-3" />
+						{backLabel}
+					</Link>
 				) : (
-					backLink && (
-						<Link
-							to={backLink}
-							className="inline-flex w-fit items-center gap-1 text-11 tracking-[0.02em] text-muted-foreground uppercase hover:text-foreground"
-							data-testid="page-header-back"
+					eyebrow && (
+						<p
+							className={cn(
+								'truncate text-11 tracking-[0.02em] text-muted-foreground uppercase',
+								eyebrow.mono && 'font-mono normal-case',
+							)}
+							data-testid="page-header-eyebrow"
 						>
-							<ArrowLeft className="size-3" />
-							{backLabel}
-						</Link>
+							{eyebrow.label}
+						</p>
 					)
 				)}
 				<h1 className="text-24 font-bold text-foreground sm:text-30">
 					{title}
 				</h1>
-				{address && (
-					<div className="flex min-w-0 items-center gap-1 font-mono text-13 text-foreground-secondary">
-						<span
-							className="truncate"
-							data-testid="page-header-address"
-						>
-							{address}
-						</span>
-						<CopyButton value={address} size="sm" />
-					</div>
-				)}
 				{description && (
-					<p className="text-13 text-muted-foreground">
+					<p className="text-14 text-muted-foreground">
 						{description}
 					</p>
 				)}

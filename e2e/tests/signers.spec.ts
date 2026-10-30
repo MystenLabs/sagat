@@ -67,11 +67,9 @@ test.describe('overview and signers', () => {
 			await expect(
 				page.getByRole('heading', { level: 1 }),
 			).toHaveText('Overview');
-			// The account is the last crumb.
+			// The account is the eyebrow over the title.
 			await expect(
-				page
-					.getByRole('navigation', { name: 'Breadcrumb' })
-					.locator('[aria-current="page"]'),
+				page.getByTestId('page-header-eyebrow'),
 			).toHaveText('Treasury');
 			await expect(
 				page.getByTestId('open-proposals-empty'),

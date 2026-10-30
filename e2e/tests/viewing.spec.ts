@@ -195,9 +195,13 @@ test('the overview and balances match the multisig on-chain', async ({
 	);
 
 	await page.getByTestId('multisig-tab-overview').click();
+	await page.getByTestId('receive-button').click();
+	const receive = page.getByTestId('receive-dialog');
 	await expect(
-		page.getByTestId('page-header-address'),
+		receive.getByTestId('receive-address'),
 	).toHaveText(multisig.address);
+	await page.keyboard.press('Escape');
+	await expect(receive).toBeHidden();
 	await page.getByTestId('multisig-tab-signers').click();
 	const threshold = page.getByTestId('setup-threshold');
 	await expect(threshold).toHaveAttribute(

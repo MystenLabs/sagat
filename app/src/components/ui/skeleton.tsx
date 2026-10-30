@@ -128,10 +128,9 @@ export function SkeletonRows({
 /** The page header while its title is still loading. */
 function SkeletonPageHeader() {
 	return (
-		<div className="mb-7 flex flex-col gap-3" aria-hidden>
-			<SkeletonLine className="w-40" />
-			<Skeleton className="h-7 w-56 rounded-md" />
+		<div className="mb-7 flex flex-col gap-1" aria-hidden>
 			<SkeletonLine className="w-28" />
+			<Skeleton className="h-7 w-56 rounded-md" />
 		</div>
 	);
 }
