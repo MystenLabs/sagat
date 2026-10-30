@@ -6,35 +6,12 @@ import { normalizeSuiAddress } from '@mysten/sui/utils';
 
 import { ShortAddress } from '../invitations/ShortAddress';
 
-type OwnerDisplay =
-	string | { address: string } | { object: string };
-
-const getOwnerDisplay = (
-	owner: SuiClientTypes.ObjectOwner,
-): OwnerDisplay => {
-	switch (owner.$kind) {
-		case 'Immutable':
-			return 'Immutable';
-		case 'Shared':
-			return 'Shared';
-		case 'AddressOwner':
-			return { address: owner.AddressOwner };
-		case 'ObjectOwner':
-			return { object: owner.ObjectOwner };
-		case 'ConsensusAddressOwner':
-			return { object: owner.ConsensusAddressOwner?.owner };
-		case 'Unknown':
-			return 'Unknown Owner';
-		default:
-			return 'Failed to find or parse owner.';
-	}
-};
-
 /**
- * An object's owner in the preview's cells. Address and object owners
- * show like every other address: short, with the full value and a copy
- * button on hover or focus. The sender shows as "Sender"; owners without
- * an address (immutable, shared) as plain text.
+ * An object's owner in the preview's cells. Address, object and
+ * consensus owners show like every other address: short, with the full
+ * value and a copy button on hover or focus. An address owner that is
+ * the sender shows as "Sender"; owners without an address (immutable,
+ * shared) as plain text.
  */
 export function OwnerAddress({
 	owner,
@@ -43,34 +20,36 @@ export function OwnerAddress({
 	owner: SuiClientTypes.ObjectOwner;
 	senderAddress?: string;
 }) {
-	const ownerDisplay = getOwnerDisplay(owner);
-
-	if (typeof ownerDisplay === 'string') {
-		return <span>{ownerDisplay}</span>;
+	switch (owner.$kind) {
+		case 'AddressOwner': {
+			const isSender =
+				!!senderAddress &&
+				isSameAddress(owner.AddressOwner, senderAddress);
+			return (
+				<ShortAddress address={owner.AddressOwner}>
+					{isSender ? 'Sender' : undefined}
+				</ShortAddress>
+			);
+		}
+		case 'ObjectOwner':
+			return <ShortAddress address={owner.ObjectOwner} />;
+		case 'ConsensusAddressOwner': {
+			const address = owner.ConsensusAddressOwner?.owner;
+			return address ? (
+				<ShortAddress address={address} />
+			) : (
+				<span>-</span>
+			);
+		}
+		case 'Immutable':
+			return <span>Immutable</span>;
+		case 'Shared':
+			return <span>Shared</span>;
+		case 'Unknown':
+			return <span>Unknown Owner</span>;
+		default:
+			return <span>Failed to find or parse owner.</span>;
 	}
-
-	const ownerAddress =
-		'address' in ownerDisplay
-			? ownerDisplay.address
-			: undefined;
-	const id =
-		ownerAddress ??
-		('object' in ownerDisplay
-			? ownerDisplay.object
-			: undefined);
-
-	if (!id) return <span>-</span>;
-
-	const isSender =
-		!!ownerAddress &&
-		!!senderAddress &&
-		isSameAddress(ownerAddress, senderAddress);
-
-	return (
-		<ShortAddress address={id}>
-			{isSender ? 'Sender' : undefined}
-		</ShortAddress>
-	);
 }
 
 function isSameAddress(a: string, b: string): boolean {

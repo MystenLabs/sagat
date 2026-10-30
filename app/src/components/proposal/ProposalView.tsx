@@ -105,8 +105,7 @@ export function ProposalView({
 		mismatch ? undefined : epochInfo,
 	);
 	const onChain =
-		proposal.status === ProposalStatus.SUCCESS ||
-		proposal.status === ProposalStatus.FAILURE;
+		status === 'executed' || status === 'failed';
 	const open = status === 'pending' || status === 'ready';
 
 	// The connected wallet is one of the signers. Signing needs only the
@@ -188,11 +187,7 @@ export function ProposalView({
 		previewBlock = (
 			<OnChainCard
 				proposal={proposal}
-				status={
-					proposal.status === ProposalStatus.SUCCESS
-						? 'executed'
-						: 'failed'
-				}
+				status={status}
 				result={chainResult}
 				error={chain.error?.message ?? null}
 			/>

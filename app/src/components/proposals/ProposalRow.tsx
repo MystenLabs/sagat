@@ -340,29 +340,22 @@ function RowMenu({
 					    until the transaction ran on chain, and on networks
 					    the explorer doesn't index. The disabled item has no
 					    anchor, so it can't navigate. */}
-					{explorerUrl ? (
-						<DropdownMenuItem
-							render={
+					<DropdownMenuItem
+						disabled={!explorerUrl}
+						render={
+							explorerUrl ? (
 								<a
 									href={explorerUrl}
 									target="_blank"
 									rel="noopener noreferrer"
 								/>
-							}
-							data-testid="view-on-explorer"
-						>
-							<ExternalLink />
-							View on explorer
-						</DropdownMenuItem>
-					) : (
-						<DropdownMenuItem
-							disabled
-							data-testid="view-on-explorer"
-						>
-							<ExternalLink />
-							View on explorer
-						</DropdownMenuItem>
-					)}
+							) : undefined
+						}
+						data-testid="view-on-explorer"
+					>
+						<ExternalLink />
+						View on explorer
+					</DropdownMenuItem>
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
