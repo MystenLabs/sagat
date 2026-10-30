@@ -1,17 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCurrentNetwork } from '@mysten/dapp-kit-react';
 import type { SuiClientTypes } from '@mysten/sui/client';
-import {
-	formatAddress,
-	normalizeSuiAddress,
-} from '@mysten/sui/utils';
-import { CheckIcon, CopyIcon } from 'lucide-react';
-import { useState } from 'react';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 
-import { toast } from '@/lib/toast';
-import { getExplorerUrl } from '@/lib/utils';
+import { ShortAddress } from '../invitations/ShortAddress';
 
 type OwnerDisplay =
 	string | { address: string } | { object: string };
@@ -37,114 +30,56 @@ const getOwnerDisplay = (
 	}
 };
 
+/**
+ * An object id, or an object's owner, in the preview's cells. Addresses
+ * and ids show like every other address: short, with the full value and
+ * a copy button on hover or focus. The sender shows as "Sender"; owners
+ * without an address (immutable, shared) as plain text.
+ */
 export function ObjectLink({
 	owner,
 	object,
 	inputObject,
 	senderAddress,
-	...tags
 }: {
 	inputObject?: string;
 	owner?: SuiClientTypes.ObjectOwner;
 	object?: SuiClientTypes.ChangedObject;
 	senderAddress?: string;
-} & React.HTMLAttributes<HTMLAnchorElement> &
-	React.ComponentPropsWithoutRef<'a'>) {
-	const [copied, setCopied] = useState(false);
-
-	const network = useCurrentNetwork();
-
-	let objectId: string | undefined;
-	let display: string | undefined;
-
+}) {
 	const ownerDisplay = owner
 		? getOwnerDisplay(owner)
 		: undefined;
 
-	if (ownerDisplay) {
-		if (typeof ownerDisplay !== 'string') {
-			objectId =
-				'address' in ownerDisplay
-					? ownerDisplay.address
-					: ownerDisplay.object;
-			display = formatAddress(objectId);
-		} else {
-			display = ownerDisplay;
-		}
+	if (typeof ownerDisplay === 'string') {
+		return <span>{ownerDisplay}</span>;
 	}
 
-	if (inputObject) {
-		objectId = inputObject;
-		display = formatAddress(inputObject);
-	}
+	const ownerAddress =
+		ownerDisplay && 'address' in ownerDisplay
+			? ownerDisplay.address
+			: undefined;
+	const id =
+		object?.objectId ??
+		inputObject ??
+		ownerAddress ??
+		(ownerDisplay && 'object' in ownerDisplay
+			? ownerDisplay.object
+			: undefined);
 
-	if (object) {
-		objectId = object.objectId;
-		display = formatAddress(objectId);
-	}
+	if (!id) return <span>-</span>;
 
-	if (
-		objectId &&
-		senderAddress &&
-		ownerDisplay &&
-		typeof ownerDisplay !== 'string' &&
-		'address' in ownerDisplay &&
-		isSameAddress(objectId, senderAddress)
-	) {
-		display = 'Sender';
-	}
-
-	const link = objectId
-		? getExplorerUrl(
-				objectId,
-				network,
-				ownerDisplay ? 'account' : 'object',
-			)
-		: null;
-
-	const copy = () => {
-		if (!objectId && !display) return;
-
-		navigator.clipboard.writeText(
-			objectId || display || '',
-		);
-		setCopied(true);
-		toast.copied();
-
-		setTimeout(() => {
-			setCopied(false);
-		}, 1_000);
-	};
+	const isSender =
+		!object &&
+		!inputObject &&
+		!!ownerAddress &&
+		!!senderAddress &&
+		isSameAddress(ownerAddress, senderAddress);
 
 	return (
-		<>
-			{copied ? (
-				<CheckIcon width={10} height={10} className="" />
-			) : display ? (
-				<CopyIcon
-					width={10}
-					height={10}
-					className="cursor-pointer"
-					onClick={copy}
-				/>
-			) : null}
-
-			{link ? (
-				<>
-					<a
-						href={link}
-						target="_blank"
-						className="underline wrap-break-word pl-2"
-						{...tags}
-						rel="noreferrer"
-					>
-						{display}
-					</a>
-				</>
-			) : (
-				<span>{display || '-'}</span>
-			)}
-		</>
+		<ShortAddress address={id}>
+			{isSender ? 'Sender' : undefined}
+		</ShortAddress>
 	);
 }
 

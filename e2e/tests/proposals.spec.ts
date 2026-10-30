@@ -395,12 +395,16 @@ test.describe('proposals', () => {
 			card.getByText(/^Proposed by/),
 		).toBeVisible();
 
-		// The row's menu opens over the page and closes on Escape.
+		// The row's menu opens over the page and closes on Escape. Nothing
+		// is on chain yet, so there is nothing to view on the explorer.
 		await card.getByTestId('proposal-actions').click();
 		const copyLink = bob.page.getByTestId(
 			'copy-proposal-link',
 		);
 		await expect(copyLink).toBeVisible();
+		await expect(
+			bob.page.getByTestId('view-on-explorer'),
+		).toBeDisabled();
 		await bob.page.keyboard.press('Escape');
 		await expect(copyLink).toBeHidden();
 

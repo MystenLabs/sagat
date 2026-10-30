@@ -22,6 +22,7 @@ import {
 } from '@/lib/exportUtils';
 import {
 	isExternalProposer,
+	proposalExplorerUrl,
 	proposalLinkUrl,
 	proposalPagePath,
 	proposalStatusKey,
@@ -29,7 +30,7 @@ import {
 	shortDigest,
 } from '@/lib/proposalUtils';
 import { type ProposalCardInput } from '@/lib/types';
-import { cn, getExplorerUrl } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 import { SignerName } from '../multisig/SignerName';
 import { Button, buttonVariants } from '../ui/button';
@@ -54,12 +55,17 @@ import { ProposalWeight } from './ProposalWeight';
 
 export type ProposalsTableVariant = 'overview' | 'list';
 
+const titleClass =
+	'truncate text-14 font-medium text-foreground hover:underline @max-md:line-clamp-2 @max-md:whitespace-normal';
+
 /**
  * One proposal in the proposals table: what it is, who proposed it,
  * where it stands and Execute. The title links to the proposal's page,
- * where signing and cancelling happen. The overview names the proposer
- * in the meta line; the list gives them a column, and adds the digest
- * and a menu to share, download or look it up on the explorer.
+ * where signing and cancelling happen; once the transaction ran on chain
+ * it opens the explorer instead, when the network has one. The overview
+ * names the proposer in the meta line; the list gives them a column, and
+ * adds the digest and a menu to share, download or look it up on the
+ * explorer.
  */
 export function ProposalRow({
 	proposal,
@@ -89,13 +95,7 @@ export function ProposalRow({
 		proposal.signatures.some(
 			(sig) => sig.publicKey === currentAddress.publicKey,
 		);
-	const explorerUrl = getExplorerUrl(
-		proposal.digest,
-		proposal.network,
-	);
-	const explorerIsPrimary =
-		(status === 'executed' || status === 'failed') &&
-		!!explorerUrl;
+	const explorerUrl = proposalExplorerUrl(status, proposal);
 	const list = variant === 'list';
 	// The digest goes under the title, unless the title already is the
 	// digest (no description). The overview's column is too narrow for it,
@@ -129,16 +129,28 @@ export function ProposalRow({
 						</span>
 					)}
 					<div className="flex min-w-0 flex-col gap-0.75">
-						<Link
-							to={proposalPagePath(
-								proposal.multisigAddress,
-								proposal.digest,
-							)}
-							className="truncate text-14 font-medium text-foreground hover:underline @max-md:line-clamp-2 @max-md:whitespace-normal"
-							data-testid="proposal-title"
-						>
-							{proposalTitle(proposal)}
-						</Link>
+						{explorerUrl ? (
+							<a
+								href={explorerUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								className={titleClass}
+								data-testid="proposal-title"
+							>
+								{proposalTitle(proposal)}
+							</a>
+						) : (
+							<Link
+								to={proposalPagePath(
+									proposal.multisigAddress,
+									proposal.digest,
+								)}
+								className={titleClass}
+								data-testid="proposal-title"
+							>
+								{proposalTitle(proposal)}
+							</Link>
+						)}
 						{/* The proposer leads the meta line and each item
 							    after it brings its own "·". In the list's table
 							    layout the proposer is display:none, so the item
@@ -266,40 +278,10 @@ export function ProposalRow({
 								: 'Execute'}
 						</Button>
 					)}
-					{explorerIsPrimary && (
-						<IconTooltip
-							label="View on explorer"
-							// A narrow viewport's table shows the icon alone; stacked rows have room for the label.
-							contentClassName="sm:hidden"
-							trigger={
-								<a
-									href={explorerUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className={cn(
-										buttonVariants({
-											variant: 'outline',
-											size: 'sm',
-										}),
-										'max-sm:size-7 max-sm:px-0 @max-md:h-9 @max-md:w-auto @max-md:px-3.5',
-									)}
-									aria-label="View on explorer"
-									data-testid="view-on-explorer"
-								/>
-							}
-						>
-							<ExternalLink />
-							<span className="hidden sm:inline @max-md:inline">
-								View on explorer
-							</span>
-						</IconTooltip>
-					)}
 					{list && (
 						<RowMenu
 							canShare={open}
-							explorerUrl={
-								explorerIsPrimary ? null : explorerUrl
-							}
+							explorerUrl={explorerUrl}
 							onDownload={() =>
 								downloadJson(
 									getProposalExportFilename(
@@ -324,7 +306,7 @@ function RowMenu({
 	digest,
 }: {
 	canShare: boolean;
-	/** The explorer link, unless the row already shows it. */
+	/** The transaction on the explorer, once it ran on chain. */
 	explorerUrl: string | null;
 	onDownload: () => void;
 	digest: string;
@@ -371,7 +353,11 @@ function RowMenu({
 						<Download />
 						Download
 					</DropdownMenuItem>
-					{explorerUrl && (
+					{/* Always listed, so the menu keeps its shape; disabled
+					    until the transaction ran on chain, and on networks
+					    the explorer doesn't index. The disabled item has no
+					    anchor, so it can't navigate. */}
+					{explorerUrl ? (
 						<DropdownMenuItem
 							render={
 								<a
@@ -380,6 +366,14 @@ function RowMenu({
 									rel="noopener noreferrer"
 								/>
 							}
+							data-testid="view-on-explorer"
+						>
+							<ExternalLink />
+							View on explorer
+						</DropdownMenuItem>
+					) : (
+						<DropdownMenuItem
+							disabled
 							data-testid="view-on-explorer"
 						>
 							<ExternalLink />
@@ -399,12 +393,10 @@ function RowMenu({
 function IconTooltip({
 	label,
 	trigger,
-	contentClassName,
 	children,
 }: {
 	label: string;
 	trigger: ReactElement;
-	contentClassName?: string;
 	children: ReactNode;
 }) {
 	return (
@@ -413,9 +405,7 @@ function IconTooltip({
 				<TooltipTrigger render={trigger}>
 					{children}
 				</TooltipTrigger>
-				<TooltipContent className={contentClassName}>
-					{label}
-				</TooltipContent>
+				<TooltipContent>{label}</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
 	);

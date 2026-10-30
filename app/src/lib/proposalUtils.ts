@@ -13,6 +13,7 @@ import { formatDigest } from '@mysten/sui/utils';
 import { getExpiry, type EpochInfo } from './expiration';
 import { validatePublicKey } from './sui-utils';
 import { type ProposalCardInput } from './types';
+import { getExplorerUrl } from './utils';
 
 /** The parts of an account that weigh a proposal's signatures. */
 type Composition = Pick<
@@ -110,6 +111,20 @@ export function proposalStatusKey(
 	if (proposal.currentWeight >= proposal.totalWeight)
 		return 'ready';
 	return 'pending';
+}
+
+/**
+ * A proposal's transaction on the explorer, once it ran on chain
+ * (executed or failed). Null before then, and on networks the explorer
+ * doesn't index.
+ */
+export function proposalExplorerUrl(
+	status: ProposalStatusKey,
+	proposal: Pick<Proposal, 'digest' | 'network'>,
+) {
+	if (status !== 'executed' && status !== 'failed')
+		return null;
+	return getExplorerUrl(proposal.digest, proposal.network);
 }
 
 /** The proposal's description, or its digest when it has none. */
