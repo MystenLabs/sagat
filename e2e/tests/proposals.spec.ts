@@ -121,6 +121,48 @@ test.describe('proposals', () => {
 		).toHaveAttribute('data-status', 'passed');
 	});
 
+	test('the page shows a co-signer’s signature without a reload', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const proposal = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		await alice.signIn();
+		await alice.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		const bobRow = alice
+			.proposalPage(proposal.digest)
+			.locator(
+				`[data-testid="approval-row"][data-address="${bob.address}"]`,
+			);
+		await expect(bobRow).toHaveAttribute(
+			'data-signed',
+			'false',
+		);
+
+		// Bob signs from the API while Alice keeps the page open.
+		await signProposal(bob, proposal);
+		await expect(bobRow).toHaveAttribute(
+			'data-signed',
+			'true',
+			{ timeout: 20_000 },
+		);
+	});
+
 	test('a signature that reaches the threshold signs and executes in one click', async ({
 		createActor,
 		createIdentity,
