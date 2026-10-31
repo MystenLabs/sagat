@@ -672,7 +672,6 @@ export const content = {
 			},
 		],
 	},
-	/** The assets tab: its header, the balance list and each asset row. */
 	/** The assets page: its header, the tokens table (on the overview too) and the objects. */
 	assets: {
 		explorer: 'Explorer',
@@ -716,11 +715,22 @@ export const content = {
 			emptyDescription:
 				'Objects this pod owns, other than coins, show here.',
 			emptyFilteredTitle: 'No objects of this type',
+			/** A page without objects that still has more after it. */
+			emptyPage: 'No objects on this page.',
 			loadFailed: 'Failed to load objects',
 			page: (page: number) => `Page ${page}`,
 			previousPage: 'Previous page',
 			nextPage: 'Next page',
 			version: (version: string) => `version ${version}`,
+			/**
+			 * An object's subtitle: its parts (a package, `version 1`, a
+			 * policy) with a comma between each. The space is non-breaking,
+			 * so the subtitle's flex row keeps it.
+			 */
+			subtitle: <T>(parts: readonly T[]): (T | string)[] =>
+				parts.flatMap((part, i) =>
+					i === 0 ? [part] : [',\u00a0', part],
+				),
 			/** `UpgradeCap.policy`: which upgrades the package still allows. */
 			policy: {
 				compatible: 'Compatible',

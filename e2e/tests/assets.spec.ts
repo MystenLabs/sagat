@@ -126,7 +126,7 @@ test.describe('assets', () => {
 		).toBeDisabled();
 	});
 
-	test('the UpgradeCap filter lists the UpgradeCap with its package, version and policy', async ({
+	test('the UpgradeCap filter lists only the UpgradeCap', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -137,13 +137,11 @@ test.describe('assets', () => {
 			members: [createIdentity('bob')],
 			threshold: 1,
 		});
+		// Something besides the UpgradeCap, for the filter to leave out.
 		await giveKioskOwnerCaps(chain, multisig.address, 1);
-		const coin = await publishTestCoin(chain, undefined, {
+		await publishTestCoin(chain, undefined, {
 			upgradeCapTo: multisig.address,
 		});
-		const packageId = normalizeSuiAddress(
-			coin.type.split('::')[0],
-		);
 
 		await alice.signIn();
 		const { page } = alice;
@@ -162,10 +160,36 @@ test.describe('assets', () => {
 			'data-kind',
 			'upgradeCap',
 		);
+	});
+
+	test('an UpgradeCap shows its package, version and policy', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 1,
+		});
+		const coin = await publishTestCoin(chain, undefined, {
+			upgradeCapTo: multisig.address,
+		});
+		const packageId = normalizeSuiAddress(
+			coin.type.split('::')[0],
+		);
+
+		await alice.signIn();
+		const { page } = alice;
+		await openObjects(page);
+		const cap = page.locator(
+			'[data-testid="object-row"][data-kind="upgradeCap"]',
+		);
 		await expect(
-			rows.getByTestId('object-subtitle-id'),
+			cap.getByTestId('object-subtitle-id'),
 		).toHaveAttribute('data-id', packageId);
-		const subtitle = rows.getByTestId('object-subtitle');
+		const subtitle = cap.getByTestId('object-subtitle');
 		await expect(subtitle).toContainText('version 1');
 		await expect(subtitle).toContainText('Compatible');
 	});

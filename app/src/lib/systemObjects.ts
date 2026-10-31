@@ -9,6 +9,7 @@ import {
 } from '@mysten/sui/utils';
 
 import { content } from '../content';
+import { formatTypeParam } from './coin-type';
 
 const COPY = content.assets.objects;
 
@@ -133,7 +134,7 @@ export interface OwnedObjectInput {
  * package, version and policy, a Publisher by its module and package, a
  * KioskOwnerCap by its kiosk, and the caps, metadata and Display of a
  * type by that type (a recognised coin's symbol from `coinSymbol`, else
- * the struct's name). Any other object is named by its Display name, if
+ * the type in short form). Any other object is named by its Display name, if
  * it has one, or its struct, over its module. Display images are never
  * used: their URLs are the issuer's.
  */
@@ -247,14 +248,19 @@ function required(
 	return bytes;
 }
 
-/** The type a cap or metadata is for: a coin's symbol, else its struct name. */
+/**
+ * The type a cap or metadata is for: a recognised coin's symbol, else the
+ * type in short form, with its package unless it is the framework's, so a
+ * look-alike coin reads differently from the real one.
+ */
 function typeParamLabel(
 	param: TypeParam | undefined,
 	coinSymbol: (coinType: string) => string | undefined,
 ): string {
 	if (param === undefined) throw new Error('No type');
-	if (typeof param === 'string') return param;
-	return (
-		coinSymbol(normalizeStructTag(param)) ?? param.name
-	);
+	const symbol =
+		typeof param === 'string'
+			? undefined
+			: coinSymbol(normalizeStructTag(param));
+	return symbol ?? formatTypeParam(param);
 }

@@ -126,14 +126,16 @@ export function useExecuteProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
 			});
-			// Execution changes on-chain balances; refresh the multisig asset view.
-			queryClient.invalidateQueries({
-				queryKey: [
-					QueryKeys.Balances,
-					variables.proposal.network,
-					variables.proposal.multisig.address,
-				],
-			});
+			// Execution changes on-chain balances and objects; refresh the
+			// multisig's assets, every objects page and filter included.
+			const { network, multisig } = variables.proposal;
+			for (const key of [
+				QueryKeys.Balances,
+				QueryKeys.OwnedObjects,
+			])
+				queryClient.invalidateQueries({
+					queryKey: [key, network, multisig.address],
+				});
 			const digest = data.executionResult.digest;
 			const explorerUrl = getExplorerUrl(
 				digest,

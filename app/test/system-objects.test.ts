@@ -141,7 +141,7 @@ describe('objectView', () => {
 		});
 	});
 
-	test("a TreasuryCap shows its coin by the struct's name outside the registry", () => {
+	test('a TreasuryCap shows a coin outside the registry with its package', () => {
 		const content = TreasuryCap.serialize({
 			id: OBJECT,
 			total_supply: { value: 5n },
@@ -151,7 +151,9 @@ describe('objectView', () => {
 		).toEqual({
 			kind: 'treasuryCap',
 			name: 'TreasuryCap',
-			subtitle: [{ kind: 'text', text: 'PUSD' }],
+			subtitle: [
+				{ kind: 'text', text: '0xc0c0…c0c0::pusd::PUSD' },
+			],
 		});
 	});
 
@@ -186,8 +188,17 @@ describe('objectView', () => {
 		).toEqual({
 			kind: 'display',
 			name: 'Display',
-			subtitle: [{ kind: 'text', text: 'Hero' }],
+			subtitle: [
+				{ kind: 'text', text: '0x9e9e…9e9e::nft::Hero' },
+			],
 		});
+		// A framework type goes by its name alone.
+		expect(
+			view(
+				'0x2::display::Display<0x2::kiosk::Kiosk>',
+				content,
+			).subtitle,
+		).toEqual([{ kind: 'text', text: 'Kiosk' }]);
 	});
 
 	test('a TransferPolicyCap shows the type it is for', () => {
@@ -203,7 +214,9 @@ describe('objectView', () => {
 		).toEqual({
 			kind: 'transferPolicyCap',
 			name: 'TransferPolicyCap',
-			subtitle: [{ kind: 'text', text: 'Hero' }],
+			subtitle: [
+				{ kind: 'text', text: '0x9e9e…9e9e::nft::Hero' },
+			],
 		});
 	});
 

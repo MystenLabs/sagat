@@ -150,10 +150,18 @@ export function useAccountAssets(
 		/** Whether the display data of `coinType` failed to load. */
 		isCoinDataErrorFor: coinData.isErrorFor,
 		usdValue,
-		/** Whether `coinType` is SUI or a coin the registry recognises. */
+		/**
+		 * Whether `coinType` is SUI or a coin the registry recognises. Only
+		 * meaningful once `verifiedKnown`.
+		 */
 		isVerified,
 		/** The registry, which says which coins are verified, is loading. */
 		verifiedLoading: recognized.isLoading,
+		/**
+		 * Whether the registry has loaded, so coins can be told verified or
+		 * not. False while it loads and when it failed without data.
+		 */
+		verifiedKnown: !!recognized.data,
 		value,
 		pricesAvailable,
 		...state,

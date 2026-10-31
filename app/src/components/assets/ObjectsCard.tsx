@@ -131,10 +131,13 @@ export function ObjectsCard({
 		setChoice('all');
 	};
 
-	const empty =
+	const noRows =
 		!query.isLoading &&
 		!query.isError &&
 		views.length === 0;
+	// A page can come back without rows and still have more after it, when
+	// its node calls ran out on coins; only one with nothing left is empty.
+	const empty = noRows && page === 1 && !next;
 
 	return (
 		<section
@@ -243,7 +246,7 @@ export function ObjectsCard({
 					retrying={query.isFetching}
 					testId="objects-error"
 				/>
-			) : empty && page === 1 ? (
+			) : empty ? (
 				<EmptyState
 					icon={Box}
 					title={
@@ -288,6 +291,16 @@ export function ObjectsCard({
 									<ObjectSkeletonRows
 										rows={SKELETON_ROWS}
 									/>
+								) : noRows ? (
+									<tr>
+										<td
+											colSpan={4}
+											className="px-3 py-6 text-center text-13 text-muted-foreground"
+											data-testid="objects-page-empty"
+										>
+											{COPY.emptyPage}
+										</td>
+									</tr>
 								) : (
 									views.map((view) => (
 										<ObjectRow

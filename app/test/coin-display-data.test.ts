@@ -253,7 +253,7 @@ describe('coinLabels', () => {
 		expect(
 			coinLabels(coinType, { symbol: '', name: '  ' }),
 		).toEqual({
-			symbol: `0xabab...abababab::foo::FOO`,
+			symbol: `0xabab…abab::foo::FOO`,
 			name: coinType,
 		});
 	});
@@ -261,7 +261,7 @@ describe('coinLabels', () => {
 	test('truncates a long package in the fallback symbol only', () => {
 		const coinType = `0x${'ab'.repeat(32)}::foo::FOO`;
 		expect(coinLabels(coinType, { name: null })).toEqual({
-			symbol: `0xabab...abababab::foo::FOO`,
+			symbol: `0xabab…abab::foo::FOO`,
 			name: coinType,
 		});
 	});

@@ -8,10 +8,6 @@ import {
 	parseStructTag,
 } from '@mysten/sui/utils';
 
-/** `0x1234...abcdefgh`: this module's own short form, not the SDK's. */
-const shortenAddress = (address: string) =>
-	`${address.slice(0, 6)}...${address.slice(-8)}`;
-
 const SYSTEM_PACKAGES = [
 	'0x1',
 	'0x2',
@@ -32,64 +28,62 @@ export function prettifyType(type: string): string {
 	return type;
 }
 
-type TypeTag = ReturnType<
-	typeof parseStructTag
->['typeParams'][number];
+type StructTag = ReturnType<typeof parseStructTag>;
+type TypeTag = StructTag['typeParams'][number];
 
 /**
- * A Move type in the asset tables' short form: a system package as `0x2`,
- * any other as `0xdba3…00e7`, and each type parameter by its struct name
- * alone (`0x2::coin::TreasuryCap<PUSD>`). The full type sits beside it in
- * a title or a copy button. Anything that isn't a type comes back as is.
+ * A Move type in the app's short form: a system package as `0x2`, any
+ * other as `0xdba3…00e7`, and type parameters likewise, except that a
+ * framework type parameter goes by its struct name alone
+ * (`0x2::coin::TreasuryCap<0x5f1c…9a2e::usdc::USDC>`,
+ * `0x2::display::Display<Kiosk>`). The full type sits beside it in a
+ * title or a copy button. Anything that isn't a type comes back as is.
  */
 export function formatType(type: string): string {
 	try {
-		const { address, module, name, typeParams } =
-			parseStructTag(type);
-		return `${shortPackage(address)}::${module}::${name}${typeParamsLabel(typeParams)}`;
+		return formatTag(parseStructTag(type));
 	} catch {
 		return type;
 	}
 }
 
-function shortPackage(address: string): string {
-	const system = SYSTEM_PACKAGE_MAP.find(
+/**
+ * A type parameter in `formatType`'s short form: a framework type by its
+ * struct name, any other with its package, so that a look-alike reads
+ * differently from the real one.
+ */
+export function formatTypeParam(param: TypeTag): string {
+	if (typeof param === 'string') return param;
+	return systemPackage(param.address)
+		? `${param.name}${typeParamsLabel(param.typeParams)}`
+		: formatTag(param);
+}
+
+function formatTag({
+	address,
+	module,
+	name,
+	typeParams,
+}: StructTag): string {
+	return `${shortPackage(address)}::${module}::${name}${typeParamsLabel(typeParams)}`;
+}
+
+/** A system package's short form (`0x2`), or undefined for any other. */
+function systemPackage(
+	address: string,
+): string | undefined {
+	return SYSTEM_PACKAGE_MAP.find(
 		([padded]) => padded === address,
-	);
-	return system ? system[1] : formatAddress(address);
+	)?.[1];
+}
+
+function shortPackage(address: string): string {
+	return systemPackage(address) ?? formatAddress(address);
 }
 
 function typeParamsLabel(params: TypeTag[]): string {
 	if (params.length === 0) return '';
-	return `<${params
-		.map((param) =>
-			typeof param === 'string'
-				? param
-				: `${param.name}${typeParamsLabel(param.typeParams)}`,
-		)
-		.join(', ')}>`;
-}
-
-/**
- * Render a coin type compactly for display in dense lists.
- *
- * - Collapses well-known system addresses via `prettifyType`
- *   (e.g. `0x000...0002::sui::SUI` -> `0x2::sui::SUI`).
- * - Truncates any remaining long package address with
- *   `0x1234...abcd` formatting.
- *
- * TODO: Apply shortening recursively for nested generic type args.
- * The current implementation only shortens the outer package segment.
- * A follow-up should parse via `TypeTagSerializer`/`parseStructTag`
- * from `@mysten/sui` and re-render all nested addresses compactly.
- */
-export function formatCoinType(coinType: string): string {
-	const pretty = prettifyType(coinType);
-	const [pkg, ...rest] = pretty.split('::');
-	if (!pkg || rest.length === 0) return pretty;
-	if (!pkg.startsWith('0x') || pkg.length <= 12)
-		return pretty;
-	return `${shortenAddress(pkg)}::${rest.join('::')}`;
+	return `<${params.map(formatTypeParam).join(', ')}>`;
 }
 
 /**

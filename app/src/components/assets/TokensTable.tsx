@@ -64,7 +64,8 @@ export type TokensTableVariant = 'overview' | 'assets';
 /**
  * The account's coins as a table: each with its balance, its USD value as
  * far as a price is known, and Send. Verified coins (SUI and the
- * registry's) carry a check, the rest an Unverified chip. Test ids are
+ * registry's) carry a check, the rest an Unverified chip, once the
+ * registry is known; without it neither shows. Test ids are
  * `testId` plus `-table`, `-loading`, `-error` and `-empty`.
  */
 export function TokensTable({
@@ -82,11 +83,11 @@ export function TokensTable({
 	const [unverifiedOpen, setUnverifiedOpen] =
 		useState(false);
 
-	// The assets page waits for every page and for the registry, so the
-	// split into verified and unverified is final.
-	const loading = full
-		? assets.isLoading || assets.verifiedLoading
-		: assets.query.isLoading;
+	// Both wait for the registry, so no coin is marked before it is known;
+	// the assets page waits for every page too, so its split is final.
+	const loading =
+		(full ? assets.isLoading : assets.query.isLoading) ||
+		assets.verifiedLoading;
 	if (loading)
 		return (
 			<SkeletonRows
@@ -117,15 +118,19 @@ export function TokensTable({
 			/>
 		);
 
-	const rows = full
-		? assets.balances.filter((b) =>
-				assets.isVerified(b.coinType),
-			)
+	// Without the registry no coin is marked or grouped: all in one list.
+	const known = assets.verifiedKnown;
+	const verified = (coinType: string) =>
+		known ? assets.isVerified(coinType) : undefined;
+	const listed = full
+		? assets.balances
 		: assets.balances.slice(0, TOKENS_SHOWN);
-	const unverified = full
-		? assets.balances.filter(
-				(b) => !assets.isVerified(b.coinType),
-			)
+	const split = full && known;
+	const rows = split
+		? listed.filter((b) => assets.isVerified(b.coinType))
+		: listed;
+	const unverified = split
+		? listed.filter((b) => !assets.isVerified(b.coinType))
 		: [];
 	const columns = full ? 5 : 4;
 
@@ -134,7 +139,7 @@ export function TokensTable({
 			key={balance.coinType}
 			balance={balance}
 			coinData={assets.coinData.get(balance.coinType)}
-			verified={assets.isVerified(balance.coinType)}
+			verified={verified(balance.coinType)}
 			usd={assets.usdValue(balance)}
 			isLoading={assets.isCoinDataLoadingFor(
 				balance.coinType,
@@ -276,7 +281,8 @@ function TokenRow({
 }: {
 	balance: Balance;
 	coinData: CoinDisplayData | undefined;
-	verified: boolean;
+	/** Undefined while the registry isn't known: neither mark shows. */
+	verified: boolean | undefined;
 	usd: number | null;
 	isLoading: boolean;
 	showPrice: boolean;
@@ -312,14 +318,15 @@ function TokenRow({
 							<span className="truncate text-14 font-medium">
 								{symbol}
 							</span>
-							{verified ? (
+							{verified === true && (
 								<CircleCheck
 									className="size-3.5 shrink-0 fill-foreground text-background"
 									role="img"
 									aria-label={COPY.verified}
 									data-testid="token-verified"
 								/>
-							) : (
+							)}
+							{verified === false && (
 								<Chip
 									variant="warning"
 									size="sm"
@@ -376,7 +383,7 @@ function TokenRow({
 					className="px-3 py-2 text-right text-muted-foreground tabular-nums"
 					data-testid="token-price"
 				>
-					{!verified
+					{verified === false
 						? COPY.noPrice
 						: priceUsd != null
 							? formatUsdValue(priceUsd)

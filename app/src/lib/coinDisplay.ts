@@ -3,7 +3,7 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
-import { formatCoinType, prettifyType } from './coin-type';
+import { formatType, prettifyType } from './coin-type';
 import { isSuiCoinType, pricingOnNetwork } from './coins';
 import type { SuiNetwork } from './network';
 
@@ -126,7 +126,7 @@ export function coinLabels(
 	const symbol = coinData?.symbol?.trim();
 	const name = coinData?.name?.trim();
 	return {
-		symbol: symbol || formatCoinType(coinType),
+		symbol: symbol || formatType(coinType),
 		name: name || prettifyType(coinType),
 	};
 }

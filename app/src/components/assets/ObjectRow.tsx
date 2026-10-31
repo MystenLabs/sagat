@@ -56,21 +56,30 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 								className="flex min-w-0 flex-wrap items-center text-12 text-muted-foreground"
 								data-testid="object-subtitle"
 							>
-								{view.subtitle.map((part, i) => (
-									<Fragment key={i}>
-										{i > 0 && <span>,&nbsp;</span>}
-										{part.kind === 'id' ? (
-											<ShortId
-												id={part.id}
-												testId="object-subtitle-id"
-											/>
-										) : (
-											<span className="truncate">
-												{part.text}
-											</span>
-										)}
-									</Fragment>
-								))}
+								{content.assets.objects
+									.subtitle(
+										view.subtitle.map((part) =>
+											part.kind === 'id' ? (
+												<ShortId
+													id={part.id}
+													testId="object-subtitle-id"
+												/>
+											) : (
+												<span className="truncate">
+													{part.text}
+												</span>
+											),
+										),
+									)
+									.map((node, i) => (
+										<Fragment key={i}>
+											{typeof node === 'string' ? (
+												<span>{node}</span>
+											) : (
+												node
+											)}
+										</Fragment>
+									))}
 							</span>
 						)}
 					</div>

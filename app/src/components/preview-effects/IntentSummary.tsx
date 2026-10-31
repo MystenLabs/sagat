@@ -11,7 +11,7 @@ import { content } from '@/content';
 
 import { useCoinDisplayDataMap } from '../../hooks/useCoinDisplayData';
 import type { TransactionAnalysis } from '../../hooks/useTransactionAnalysis';
-import { formatCoinType } from '../../lib/coin-type';
+import { formatType } from '../../lib/coin-type';
 import {
 	coinUsdValue,
 	formatCoinAmount,
@@ -160,7 +160,7 @@ function FlowRow({
 					<div className="text-xs text-muted-foreground truncate">
 						{isCoinDataLoading && !coinData
 							? COPY.loadingCoin
-							: formatCoinType(flow.coinType)}
+							: formatType(flow.coinType)}
 					</div>
 				</div>
 			</div>

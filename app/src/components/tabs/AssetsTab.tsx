@@ -66,7 +66,8 @@ export function AssetsTab() {
 		displayCount: Infinity,
 	});
 	// The objects' first page, shared with the objects tab, says whether
-	// the account holds anything at all.
+	// the account holds anything at all. A first page without rows can
+	// still have more after it, so only one with nothing left counts.
 	const firstObjects = useOwnedObjects(
 		address,
 		{ kind: 'all' },
@@ -76,13 +77,14 @@ export function AssetsTab() {
 		!assets.isLoading &&
 		!assets.isError &&
 		assets.balances.length === 0 &&
-		firstObjects.data?.rows.length === 0;
+		firstObjects.data?.rows.length === 0 &&
+		firstObjects.data.next === null;
 
 	// The heading counts verified tokens once the split is final.
 	const verifiedCount =
 		assets.isLoading ||
-		assets.verifiedLoading ||
-		assets.isError
+		assets.isError ||
+		!assets.verifiedKnown
 			? undefined
 			: assets.balances.filter((b) =>
 					assets.isVerified(b.coinType),
