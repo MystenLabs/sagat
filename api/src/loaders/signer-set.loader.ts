@@ -26,8 +26,7 @@ export const BATCH_SIZE = 100;
 async function batchLoadSignerSets(
 	addresses: readonly string[],
 ) {
-	// Invalid addresses are left out of the query and resolve to null: one that
-	// Postgres rejects (e.g. a NUL byte) would fail every key in the batch.
+	// Invalid addresses are left out of the query and resolve to null.
 	const uniqueAddresses = [...new Set(addresses)].filter(
 		isValidSuiAddress,
 	);

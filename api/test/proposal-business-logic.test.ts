@@ -435,7 +435,6 @@ describe('Proposal Business Logic', () => {
 			multisig.address,
 		);
 
-		// Postgres rejects a NUL byte in a text parameter.
 		const [byDigest, badDigest, signerSet, badAddress] =
 			await Promise.all([
 				ProposalByDigestLoader.load(proposal.digest),

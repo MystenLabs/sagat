@@ -68,9 +68,7 @@ app.use(
 		credentials: true,
 	}),
 );
-// `c.req.json()` ignores the content type, so a cross-site form or a
-// `text/plain` fetch (neither needs a preflight) could post JSON with the
-// session cookie. Refuse those unless they come from an allowed origin.
+// Form-like posts must come from an allowed origin. The app and the SDK send JSON.
 app.use('*', csrf({ origin: isAllowedOrigin }));
 app.use(
 	'*',

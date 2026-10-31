@@ -21,8 +21,7 @@ const Settings = {
 async function batchLoadProposalsByDigest(
 	digests: readonly string[],
 ) {
-	// Invalid digests are left out of the query and resolve to null: one that
-	// Postgres rejects (e.g. a NUL byte) would fail every key in the batch.
+	// Invalid digests are left out of the query and resolve to null.
 	const uniqueDigests = [...new Set(digests)].filter(
 		isValidTransactionDigest,
 	);
