@@ -15,6 +15,7 @@ import {
 	type Proposal,
 	type ProposalWithSignatures,
 	type PublicProposal,
+	type ScriptConnectResponse,
 	type SignedMessageRequest,
 	type VoteProposalRequest,
 	type VoteProposalResponse,
@@ -42,22 +43,41 @@ export class SagatClient {
 			fetchOverride || ((url, init) => fetch(url, init));
 	}
 
-	async connect(signature: string, expiry: string) {
-		const response = await this.#request<AuthResponse>(
-			'/auth/connect',
-			{
-				method: 'POST',
-				body: JSON.stringify({ signature, expiry }),
-			},
-		);
+	/**
+	 * In cookie mode the API sets a session cookie. In script mode it returns
+	 * a short-lived token, which the client keeps and sends as a bearer token.
+	 */
+	async connect(
+		signature: string,
+		expiry: string,
+	): Promise<AuthResponse> {
+		const body = JSON.stringify({ signature, expiry });
 
-		return response;
+		if (this.#mode === 'script') {
+			const { token } =
+				await this.#request<ScriptConnectResponse>(
+					'/auth/script-connect',
+					{ method: 'POST', body },
+				);
+			this.#jwt = token;
+			return { success: true };
+		}
+
+		return this.#request<AuthResponse>('/auth/connect', {
+			method: 'POST',
+			body,
+		});
 	}
 
 	async disconnect() {
-		return this.#request<AuthResponse>('/auth/disconnect', {
-			method: 'POST',
-		});
+		try {
+			return await this.#request<AuthResponse>(
+				'/auth/disconnect',
+				{ method: 'POST' },
+			);
+		} finally {
+			this.#jwt = null;
+		}
 	}
 
 	/**
@@ -356,7 +376,7 @@ export class SagatClient {
 				headers: {
 					'Content-Type': 'application/json',
 					...options.headers,
-					...(this.#mode === 'script' && !this.#jwt
+					...(this.#mode === 'script' && this.#jwt
 						? { Authorization: `Bearer ${this.#jwt}` }
 						: {}),
 				},
