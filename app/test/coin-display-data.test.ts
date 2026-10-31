@@ -133,6 +133,16 @@ describe('buildCoinDisplayMap', () => {
 		expect(entry?.priceUsd).toBeUndefined();
 	});
 
+	test("leaves out an unrecognized coin's icon, which its issuer chose", () => {
+		const result = buildCoinDisplayMap(
+			[USDC],
+			new Map(),
+			new Map([[USDC, metadata()]]),
+			'mainnet',
+		);
+		expect(result.get(USDC)?.iconUrl).toBeUndefined();
+	});
+
 	test('still resolves all coins via metadata when the recognized map is empty (registry down or errored)', () => {
 		const metaMap = new Map([
 			[SUI, metadata({ symbol: 'SUI' })],
