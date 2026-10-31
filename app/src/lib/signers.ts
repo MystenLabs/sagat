@@ -152,8 +152,7 @@ export function rejectionNotice(
 	return canReachThreshold
 		? {
 				tone: 'warning',
-				message:
-					content.signers.notice.canReachThreshold(who),
+				message: who,
 			}
 		: {
 				tone: 'error',

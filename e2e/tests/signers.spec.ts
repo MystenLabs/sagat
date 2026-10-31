@@ -208,7 +208,7 @@ test.describe('overview and signers', () => {
 			'warning',
 		);
 		await expect(notice).toContainText(
-			`${formatAddress(carol.address)} rejected the invitation to join this pod, but can still sign a proposal you share. The other signers can still reach the threshold.`,
+			`${formatAddress(carol.address)} rejected the invitation to join this pod, but can still sign a proposal you share.`,
 		);
 		await expect(
 			page.getByTestId('signers-summary'),

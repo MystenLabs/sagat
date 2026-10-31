@@ -56,7 +56,8 @@ function getLastEpoch(transactionBytes: string) {
 	}
 }
 
-// How long until `time`, e.g. "2d 3h", "5h 12m" or "12m".
+// How long until `time` in its largest whole unit, e.g. "2 days", "5 hours"
+// or "12 minutes".
 export function formatTimeLeft(time: Date, now: Date) {
 	const minutes = Math.floor(
 		(time.getTime() - now.getTime()) / 60_000,
@@ -64,11 +65,10 @@ export function formatTimeLeft(time: Date, now: Date) {
 	const copy = content.proposals.timeLeft;
 	if (minutes < 1) return copy.underAMinute;
 
-	const days = Math.floor(minutes / (24 * 60));
-	const hours = Math.floor(minutes / 60) % 24;
-	if (days > 0) return copy.daysHours(days, hours);
-	if (hours > 0)
-		return copy.hoursMinutes(hours, minutes % 60);
+	const hours = Math.floor(minutes / 60);
+	const days = Math.floor(hours / 24);
+	if (days > 0) return copy.days(days);
+	if (hours > 0) return copy.hours(hours);
 	return copy.minutes(minutes);
 }
 

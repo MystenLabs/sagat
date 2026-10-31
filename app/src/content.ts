@@ -63,7 +63,7 @@ export const content = {
 		invitations: 'Invitations',
 		developer: 'Developer',
 		resources: 'Resources',
-		viewDocs: 'View docs',
+		viewDocs: 'View Docs',
 		github: 'GitHub',
 		collapse: 'Collapse sidebar',
 		expand: 'Expand sidebar',
@@ -821,14 +821,15 @@ export const content = {
 			explain: (lastEpoch: bigint, endsAt: string | null) =>
 				`This transaction can only execute until the end of epoch ${lastEpoch}, around ${endsAt}. After that, it has to be proposed again.`,
 		},
-		/** How long until a time, e.g. "2d 3h", "5h 12m" or "12m". */
+		/** How long until a time, e.g. "2 days", "5 hours" or "12 minutes". */
 		timeLeft: {
 			underAMinute: 'less than a minute',
-			daysHours: (days: number, hours: number) =>
-				`${days}d ${hours}h`,
-			hoursMinutes: (hours: number, minutes: number) =>
-				`${hours}h ${minutes}m`,
-			minutes: (minutes: number) => `${minutes}m`,
+			days: (days: number) =>
+				days === 1 ? '1 day' : `${days} days`,
+			hours: (hours: number) =>
+				hours === 1 ? '1 hour' : `${hours} hours`,
+			minutes: (minutes: number) =>
+				minutes === 1 ? '1 minute' : `${minutes} minutes`,
 		},
 		weight: {
 			/** "2 of 4", the weight tooltip. */
@@ -1029,8 +1030,6 @@ export const content = {
 				`${name} rejected the invitation to join this pod, but can still sign a proposal you share.`,
 			manyRejected: (count: number) =>
 				`${count} signers rejected their invitations to join this pod, but can still sign a proposal you share.`,
-			canReachThreshold: (who: string) =>
-				`${who} The other signers can still reach the threshold.`,
 			cantReachThreshold: (who: string) =>
 				`${who} The rest can’t reach the threshold without them.`,
 		},

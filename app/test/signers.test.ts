@@ -177,7 +177,7 @@ describe('rejection notice', () => {
 		).toEqual({
 			tone: 'warning',
 			message:
-				'Hana rejected the invitation to join this pod, but can still sign a proposal you share. The other signers can still reach the threshold.',
+				'Hana rejected the invitation to join this pod, but can still sign a proposal you share.',
 		});
 	});
 
