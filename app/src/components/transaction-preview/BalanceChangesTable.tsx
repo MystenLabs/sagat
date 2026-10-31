@@ -118,7 +118,9 @@ function BalanceRow({
 	coin: CoinDisplayData | undefined;
 	loading: boolean;
 }) {
-	const positive = BigInt(row.amount) > 0n;
+	const amount = BigInt(row.amount);
+	const positive = amount > 0n;
+	const negative = amount < 0n;
 	const usd = coinUsdValue(row.amount, {
 		priceUsd: coin?.priceUsd,
 		decimals: coin?.decimals,
@@ -206,6 +208,7 @@ function BalanceRow({
 							className={cn(
 								'text-13 break-all tabular-nums',
 								positive && 'text-success-foreground',
+								negative && 'text-error-foreground',
 							)}
 						>
 							{coin?.decimals != null
