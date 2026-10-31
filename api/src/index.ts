@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { csrf } from 'hono/csrf';
 
+import { LIMITS } from './constants/limits';
 import {
 	CORS_ALLOWED_ORIGINS,
 	SUI_RPC_URL,
@@ -70,6 +72,10 @@ app.use(
 // `text/plain` fetch (neither needs a preflight) could post JSON with the
 // session cookie. Refuse those unless they come from an allowed origin.
 app.use('*', csrf({ origin: isAllowedOrigin }));
+app.use(
+	'*',
+	bodyLimit({ maxSize: LIMITS.maxRequestBodyBytes }),
+);
 
 // Health check endpoint
 app.get('/health', (c) => {

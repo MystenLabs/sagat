@@ -18,6 +18,7 @@ import {
 } from '@mysten/sui/utils';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
+import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import { validateNetwork } from '../db/env';
 import {
@@ -269,6 +270,10 @@ const lookupAndVerifyProposal = async (
 	return status;
 };
 
+// The base64 length of the largest transaction we accept.
+const MAX_TRANSACTION_BYTES_LENGTH =
+	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
+
 export type CreateProposalInput = {
 	multisigAddress: string;
 	transactionBytes: string;
@@ -293,6 +298,13 @@ export const createProposal = async ({
 
 	if (!isValidSuiAddress(multisigAddress))
 		throw new CommonError('InvalidAddress');
+
+	if (
+		transactionBytes.length > MAX_TRANSACTION_BYTES_LENGTH
+	)
+		throw new ValidationError(
+			'The transaction is too large.',
+		);
 
 	// Get the public key out of the sui signature.
 	const pubKey =

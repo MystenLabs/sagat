@@ -7,7 +7,7 @@ import {
 	ProposalStatus,
 } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
-import { fromBase64 } from '@mysten/sui/utils';
+import { fromBase64, toBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -798,6 +798,42 @@ describe('Proposal Business Logic', () => {
 				status: 400,
 				body: { error: CommonErrors.InvalidDigest },
 			});
+		});
+
+		test('a transaction over the size cap is refused before it is parsed', async () => {
+			const session = framework.createSession();
+
+			expect(
+				await errorOf(
+					await session.post('/proposals', {
+						multisigAddress: newUser().address,
+						// One base64 group (3 bytes) over the limit.
+						transactionBytes: toBase64(
+							new Uint8Array(
+								LIMITS.maxTransactionBytes + 3,
+							),
+						),
+						signature: 'not-a-signature',
+						network: 'localnet',
+					}),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error: 'The transaction is too large.',
+				},
+			});
+		});
+
+		test('a request body over the size cap is refused with a 413', async () => {
+			const session = framework.createSession();
+
+			const response = await session.post('/proposals', {
+				transactionBytes: 'a'.repeat(
+					LIMITS.maxRequestBodyBytes,
+				),
+			});
+			expect(response.status).toBe(413);
 		});
 
 		test('an unsupported network is checked before anything else', async () => {
