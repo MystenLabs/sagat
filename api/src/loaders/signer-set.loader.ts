@@ -8,6 +8,7 @@
  * It is batching requests 100 at a time, or 5ms (whichever is faster!).
  */
 
+import { isValidSuiAddress } from '@mysten/sui/utils';
 import DataLoader from 'dataloader';
 import { asc, inArray } from 'drizzle-orm';
 
@@ -25,7 +26,11 @@ export const BATCH_SIZE = 100;
 async function batchLoadSignerSets(
 	addresses: readonly string[],
 ) {
-	const uniqueAddresses = [...new Set(addresses)];
+	// Invalid addresses are left out of the query and resolve to null: one that
+	// Postgres rejects (e.g. a NUL byte) would fail every key in the batch.
+	const uniqueAddresses = [...new Set(addresses)].filter(
+		isValidSuiAddress,
+	);
 	// Query all the signer sets, with their members.
 	// We split the query in 2 calls, but we know that we only do it once per batch.
 	const [signerSets, members] = await Promise.all([

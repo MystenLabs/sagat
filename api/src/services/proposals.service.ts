@@ -13,6 +13,7 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
+	isValidSuiAddress,
 	isValidTransactionDigest,
 } from '@mysten/sui/utils';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
@@ -290,6 +291,9 @@ export const createProposal = async ({
 }: CreateProposalInput): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
 
+	if (!isValidSuiAddress(multisigAddress))
+		throw new CommonError('InvalidAddress');
+
 	// Get the public key out of the sui signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
@@ -518,6 +522,9 @@ export const verifyProposal = async ({
 export const verifyProposalByDigest = async (
 	digest: string,
 ) => {
+	if (!isValidTransactionDigest(digest))
+		throw new CommonError('InvalidDigest');
+
 	const proposal =
 		await ProposalByDigestLoader.load(digest);
 

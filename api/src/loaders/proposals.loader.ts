@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { isValidTransactionDigest } from '@mysten/sui/utils';
 import DataLoader from 'dataloader';
 import { inArray } from 'drizzle-orm';
 
@@ -16,13 +17,15 @@ const Settings = {
 	SCHEDULER_INTERVAL: 100,
 };
 
-// Data loader to query multiple multisigs at the same time.
-// TODO: Should always pass valid digests as we cannot be erroring out
-// in the bulk loader.
+// Data loader to query multiple proposals at the same time.
 async function batchLoadProposalsByDigest(
 	digests: readonly string[],
 ) {
-	const uniqueDigests = [...new Set(digests)];
+	// Invalid digests are left out of the query and resolve to null: one that
+	// Postgres rejects (e.g. a NUL byte) would fail every key in the batch.
+	const uniqueDigests = [...new Set(digests)].filter(
+		isValidTransactionDigest,
+	);
 
 	const proposals = await db.query.SchemaProposals.findMany(
 		{
