@@ -57,6 +57,7 @@ export const content = {
 			type: 'Type',
 			sender: 'Sender',
 			gas: 'Gas',
+			digest: 'Digest',
 			signature: 'Signature',
 			actions: 'Actions',
 		},
@@ -975,6 +976,15 @@ export const content = {
 		execute: {
 			notPending: 'Proposal is not pending',
 		},
+		/** The Transaction card of an executed or failed proposal. */
+		onChain: {
+			heading: 'Transaction',
+			gas: (gas: string) => `Gas ${gas}`,
+			loadFailed: (message: string) =>
+				`Couldn’t load the transaction from the chain: ${message}`,
+			noExplorer: (network: string) =>
+				`${network} has no explorer.`,
+		},
 	},
 	signers: {
 		title: 'Signers',
@@ -1178,7 +1188,6 @@ export const content = {
 		hideRaw: 'Hide raw transaction',
 		rawBytesAriaLabel: 'Raw transaction bytes',
 		details: {
-			digest: 'Digest',
 			error: 'Error',
 			epoch: 'Epoch',
 		},

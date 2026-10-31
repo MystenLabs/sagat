@@ -11,6 +11,7 @@ import {
 	CardHeading,
 } from '@/components/ui/card';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { content } from '@/content';
 import { formatDateTime } from '@/lib/dates';
 import {
 	networkLabel,
@@ -20,6 +21,8 @@ import { gasEstimate } from '@/lib/proposal-page';
 import { proposalExplorerUrl } from '@/lib/proposalUtils';
 import { type ProposalCardInput } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+const COPY = content.proposal.onChain;
 
 /** The executed transaction as read back from the chain. */
 export type OnChainTransaction =
@@ -59,13 +62,13 @@ export function OnChainCard({
 		>
 			<CardHeading
 				id="on-chain-heading"
-				title="Transaction"
+				title={COPY.heading}
 			/>
 			<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 				<ProposalStatusChip status={status} />
 				{(confirmedAt || gasUsed) && (
 					<span className="text-12 text-muted-foreground">
-						{[confirmedAt, gasUsed && `Gas ${gasUsed}`]
+						{[confirmedAt, gasUsed && COPY.gas(gasUsed)]
 							.filter(Boolean)
 							.join(' · ')}
 					</span>
@@ -73,7 +76,7 @@ export function OnChainCard({
 			</div>
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted px-3.5 py-2.5">
 				<span className="text-13 text-muted-foreground">
-					Digest
+					{content.common.fields.digest}
 				</span>
 				<span className="ml-auto flex min-w-0 items-center gap-1.5">
 					<span
@@ -85,14 +88,13 @@ export function OnChainCard({
 					<CopyButton
 						value={proposal.digest}
 						size="inline"
-						successMessage="Digest copied"
+						successMessage={content.toasts.digestCopied}
 					/>
 				</span>
 			</div>
 			{error !== null && (
 				<p className="text-12 text-muted-foreground">
-					Couldn't load the transaction from the chain:{' '}
-					{error}
+					{COPY.loadFailed(error)}
 				</p>
 			)}
 			{explorerUrl ? (
@@ -107,12 +109,13 @@ export function OnChainCard({
 					data-testid="view-on-explorer"
 				>
 					<ExternalLink />
-					View on explorer
+					{content.common.actions.viewOnExplorer}
 				</a>
 			) : (
 				<p className="text-12 text-muted-foreground">
-					{networkLabel(proposal.network as SuiNetwork)} has
-					no explorer.
+					{COPY.noExplorer(
+						networkLabel(proposal.network as SuiNetwork),
+					)}
 				</p>
 			)}
 		</section>

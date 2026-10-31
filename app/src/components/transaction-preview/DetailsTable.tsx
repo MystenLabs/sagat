@@ -78,7 +78,7 @@ export function DetailsTable({
 
 	return (
 		<div className="rounded-lg border">
-			<Row label={COPY.digest}>
+			<Row label={FIELDS.digest}>
 				<span
 					className="min-w-0 font-mono text-12 break-all"
 					data-testid="transaction-preview-digest"
