@@ -144,7 +144,7 @@ export function SignersStep({
 						<span className="min-w-25 flex-1">
 							{FIELDS.signer}
 						</span>
-						<span className="min-w-0 flex-2">
+						<span className="min-w-0 flex-2 indent-3">
 							{FIELDS.publicKey}
 						</span>
 						{/* The small stepper's width, then the remove button's. */}
