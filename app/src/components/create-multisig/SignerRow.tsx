@@ -115,27 +115,30 @@ export function SignerRow({
 					{index + 1}
 				</div>
 
-				<Input
-					value={signer.label}
-					onChange={(e) =>
-						onChange({ label: e.target.value })
-					}
-					placeholder={
-						creator
-							? COPY.signerRow.yourNamePlaceholder
-							: COPY.signerRow.namePlaceholder
-					}
-					aria-label={COPY.signerRow.nameLabel(index + 1)}
-					aria-invalid={
-						check.labelTooLong ||
-						check.labelInvalid ||
-						undefined
-					}
-					autoFocus={autoFocus}
-					size="sm"
-					className="min-w-0 flex-1 @xl/card:w-25 @xl/card:flex-none"
-					data-testid="create-signer-label"
-				/>
+				{/* The column sizing sits on a wrapper so the input's padding
+				    does not count towards its share of the row. */}
+				<div className="min-w-0 flex-1 @xl/card:min-w-25">
+					<Input
+						value={signer.label}
+						onChange={(e) =>
+							onChange({ label: e.target.value })
+						}
+						placeholder={
+							creator
+								? COPY.signerRow.yourNamePlaceholder
+								: COPY.signerRow.namePlaceholder
+						}
+						aria-label={COPY.signerRow.nameLabel(index + 1)}
+						aria-invalid={
+							check.labelTooLong ||
+							check.labelInvalid ||
+							undefined
+						}
+						autoFocus={autoFocus}
+						size="sm"
+						data-testid="create-signer-label"
+					/>
+				</div>
 
 				<KeyField
 					signer={signer}
@@ -218,7 +221,7 @@ function KeyField({
 				status.kind === 'no-key' ? 'warning' : undefined
 			}
 			className={cn(
-				'order-last w-full @xl/card:order-none @xl/card:w-auto @xl/card:flex-1',
+				'order-last w-full @xl/card:order-none @xl/card:w-auto @xl/card:flex-2',
 				creator && 'bg-muted',
 			)}
 		>
