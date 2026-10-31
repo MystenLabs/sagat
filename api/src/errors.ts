@@ -4,6 +4,7 @@
 import { SuiHTTPTransportError } from '@mysten/sui/jsonRpc';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { type ErrorHandler } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 
 export class NotFoundError extends Error {}
 
@@ -43,6 +44,10 @@ export const CommonErrors = {
 
 // The error handler for the app.
 export const appErrorHandler: ErrorHandler = (err, c) => {
+	// Responses Hono's own middleware throws, like a 403 or 413.
+	if (err instanceof HTTPException)
+		return err.getResponse();
+
 	if (err instanceof ValidationError)
 		return c.json({ error: err.message }, 400);
 
