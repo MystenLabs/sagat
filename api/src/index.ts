@@ -3,6 +3,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { csrf } from 'hono/csrf';
 
 import {
 	CORS_ALLOWED_ORIGINS,
@@ -41,18 +42,18 @@ console.log(
 	`Using RPC URLs: ${SUPPORTED_NETWORKS.map((n) => SUI_RPC_URL[n]).join(', ')}`,
 );
 
+// Allow localhost for development, and the origins from environment.
+const isAllowedOrigin = (origin: string) =>
+	origin.startsWith('http://localhost:') ||
+	CORS_ALLOWED_ORIGINS.includes(origin);
+
 app.use(
 	'*',
 	cors({
-		origin: (origin) => {
-			// Allow localhost for development
-			if (origin.startsWith('http://localhost:'))
-				return origin;
-			// Check against allowed origins from environment
-			return CORS_ALLOWED_ORIGINS.includes(origin)
+		origin: (origin) =>
+			isAllowedOrigin(origin)
 				? origin
-				: CORS_ALLOWED_ORIGINS[0];
-		},
+				: CORS_ALLOWED_ORIGINS[0],
 		allowMethods: [
 			'GET',
 			'POST',
@@ -65,6 +66,11 @@ app.use(
 		credentials: true,
 	}),
 );
+// `c.req.json()` ignores the content type, so a cross-site form or a
+// `text/plain` fetch (neither needs a preflight) could post JSON with the
+// session cookie. Refuse those unless they come from an allowed origin.
+app.use('*', csrf({ origin: isAllowedOrigin }));
+
 // Health check endpoint
 app.get('/health', (c) => {
 	return c.json({

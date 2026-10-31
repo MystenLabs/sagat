@@ -61,4 +61,25 @@ describe('Auth API', () => {
 			user.address,
 		]);
 	});
+
+	test('a cross-site form post is refused', async () => {
+		const session = framework.createSession();
+		const user = newUser();
+		await session.connectUser(user);
+
+		const response = await session.request(
+			'/auth/disconnect',
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'text/plain',
+					Origin: 'https://other.example',
+				},
+			},
+		);
+		expect(response.status).toBe(403);
+		expect(await connectedAddresses(session)).toEqual([
+			user.address,
+		]);
+	});
 });
