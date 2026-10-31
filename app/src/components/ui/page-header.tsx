@@ -41,7 +41,7 @@ export function PageHeader({
 	eyebrow,
 	description,
 	backLink,
-	backLabel = content.common.back,
+	backLabel = content.common.actions.back,
 	actions,
 	className,
 }: PageHeaderProps) {

@@ -23,6 +23,8 @@ import { ProposalsTable } from '../proposals/ProposalsTable';
 import { Button } from '../ui/button';
 import { Tabs } from '../ui/tabs';
 
+const COPY = content.proposals;
+
 interface ProposalsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
 }
@@ -131,8 +133,8 @@ export function ProposalsTab() {
 					size="icon-sm"
 					onClick={handleRefresh}
 					disabled={isRefreshCooldown || isRefetching}
-					aria-label={content.proposals.refresh}
-					title={content.proposals.refresh}
+					aria-label={COPY.refresh}
+					title={COPY.refresh}
 					data-testid="refresh-proposals-button"
 				>
 					<RefreshCw
@@ -152,8 +154,8 @@ export function ProposalsTab() {
 					title: EMPTY_TITLE[activeFilter],
 					description:
 						activeFilter === 'all'
-							? content.proposals.empty.allDescription
-							: content.proposals.empty.description,
+							? COPY.empty.allDescription
+							: COPY.empty.description,
 					action: activeFilter === 'all' && (
 						<Button
 							size="sm"
@@ -162,7 +164,7 @@ export function ProposalsTab() {
 							}
 						>
 							<Plus />
-							{content.proposals.empty.newProposal}
+							{content.common.actions.newProposal}
 						</Button>
 					),
 				}}
@@ -179,8 +181,8 @@ export function ProposalsTab() {
 						data-testid="load-more-proposals"
 					>
 						{pagination.isFetchingNextPage
-							? content.proposals.loadingMore
-							: content.proposals.loadMore}
+							? content.common.states.loadingMore
+							: content.common.actions.loadMore}
 					</Button>
 				</div>
 			)}

@@ -25,21 +25,23 @@ import {
 import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
+const COPY = content.shell.theme;
+
 const OPTIONS = [
 	{
 		value: 'light',
 		icon: Sun,
-		label: content.shell.theme.light,
+		label: COPY.light,
 	},
 	{
 		value: 'dark',
 		icon: Moon,
-		label: content.shell.theme.dark,
+		label: COPY.dark,
 	},
 	{
 		value: 'system',
 		icon: Monitor,
-		label: content.shell.theme.system,
+		label: COPY.system,
 	},
 ] as const;
 
@@ -64,9 +66,7 @@ export function ThemeToggle({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
-				aria-label={content.shell.theme.ariaLabel(
-					active.label,
-				)}
+				aria-label={COPY.ariaLabel(active.label)}
 				data-testid="theme-toggle"
 				className={cn(
 					'items-center rounded-md data-open:bg-sidebar-accent',
@@ -82,7 +82,7 @@ export function ThemeToggle({
 				{row && (
 					<>
 						<span className="flex-1 group-data-[collapsible=icon]:hidden">
-							{content.shell.theme.label}
+							{COPY.label}
 						</span>
 						<span className="text-11 opacity-60 group-data-[collapsible=icon]:hidden">
 							{active.label}
@@ -98,7 +98,7 @@ export function ThemeToggle({
 			>
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>
-						{content.shell.theme.label}
+						{COPY.label}
 					</DropdownMenuLabel>
 					{OPTIONS.map(({ value, icon: Icon, label }) => (
 						<DropdownMenuItem

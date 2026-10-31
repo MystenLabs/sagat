@@ -28,6 +28,9 @@ import {
 	ToolCard,
 } from './parts';
 
+const FIELDS = content.common.fields;
+const COPY = content.tools.signatureAnalyzer;
+
 interface SignaturePubkeyPair {
 	serializedSignature: string;
 	signatureScheme: SignatureScheme;
@@ -134,38 +137,23 @@ function MultiSigDetails({
 			data-address={address}
 			data-threshold={multisigInfo.threshold}
 		>
-			<DetailBlock
-				title={
-					content.tools.signatureAnalyzer.multisigTitle
-				}
-			>
-				<DetailRow
-					label={
-						content.tools.signatureAnalyzer.multisigAddress
-					}
-				>
+			<DetailBlock title={COPY.multisigTitle}>
+				<DetailRow label={COPY.multisigAddress}>
 					<Copyable value={address} />
 				</DetailRow>
-				<DetailRow
-					label={content.tools.signatureAnalyzer.threshold}
-				>
+				<DetailRow label={FIELDS.threshold}>
 					{thresholdLabel({
 						threshold: multisigInfo.threshold,
 						totalWeight,
 					})}
 				</DetailRow>
-				<DetailRow
-					label={
-						content.tools.signatureAnalyzer
-							.combinedPublicKey
-					}
-				>
+				<DetailRow label={COPY.combinedPublicKey}>
 					<Copyable value={combinedKey} />
 				</DetailRow>
 			</DetailBlock>
 
 			<DetailBlock
-				title={content.tools.signatureAnalyzer.signersTitle(
+				title={COPY.signersTitle(
 					multisigInfo.participants.length,
 				)}
 			>
@@ -177,9 +165,7 @@ function MultiSigDetails({
 						return (
 							<DetailRow
 								key={index}
-								label={content.tools.signatureAnalyzer.signerNumber(
-									index + 1,
-								)}
+								label={COPY.signerNumber(index + 1)}
 								data-testid="multisig-participant"
 								data-address={participant.suiAddress}
 								data-weight={participant.weight}
@@ -189,23 +175,18 @@ function MultiSigDetails({
 								<Copyable value={suiPublicKey} />
 								<SchemeChip scheme={participant.keyType} />
 								<span className="shrink-0 whitespace-nowrap">
-									{content.tools.signatureAnalyzer.weight(
-										participant.weight,
-									)}
+									{COPY.weight(participant.weight)}
 								</span>
 								{signed ? (
 									<Chip variant="success">
-										{content.tools.signatureAnalyzer.signed}
+										{content.common.states.signed}
 									</Chip>
 								) : (
 									<Chip
 										variant="tag"
 										className="font-mono text-muted-foreground"
 									>
-										{
-											content.tools.signatureAnalyzer
-												.notSigned
-										}
+										{content.common.states.notSigned}
 									</Chip>
 								)}
 							</DetailRow>
@@ -215,9 +196,7 @@ function MultiSigDetails({
 			</DetailBlock>
 
 			<DetailBlock
-				title={content.tools.signatureAnalyzer.signaturesTitle(
-					signatures.length,
-				)}
+				title={COPY.signaturesTitle(signatures.length)}
 			>
 				{signatures.map((signature, index) => {
 					const suiAddress =
@@ -229,11 +208,8 @@ function MultiSigDetails({
 							label={
 								<>
 									{signer >= 0
-										? content.tools.signatureAnalyzer.signerNumber(
-												signer + 1,
-											)
-										: content.tools.signatureAnalyzer
-												.signer}{' '}
+										? COPY.signerNumber(signer + 1)
+										: FIELDS.signer}{' '}
 									·{' '}
 									<span className="font-mono text-12">
 										{formatAddress(suiAddress)}
@@ -265,29 +241,21 @@ function SingleSignature({
 
 	return (
 		<DetailBlock
-			title={content.tools.signatureAnalyzer.signatureTitle}
+			title={COPY.signatureTitle}
 			data-testid="signature-card"
 			data-address={suiAddress}
 			data-scheme={signature.signatureScheme.toString()}
 		>
-			<DetailRow
-				label={content.tools.signatureAnalyzer.scheme}
-			>
+			<DetailRow label={COPY.scheme}>
 				<SchemeChip scheme={signature.signatureScheme} />
 			</DetailRow>
-			<DetailRow
-				label={content.tools.signatureAnalyzer.signer}
-			>
+			<DetailRow label={FIELDS.signer}>
 				<Copyable value={suiAddress} />
 			</DetailRow>
-			<DetailRow
-				label={content.tools.signatureAnalyzer.publicKey}
-			>
+			<DetailRow label={FIELDS.publicKey}>
 				<Copyable value={suiPublicKey} />
 			</DetailRow>
-			<DetailRow
-				label={content.tools.signatureAnalyzer.signature}
-			>
+			<DetailRow label={FIELDS.signature}>
 				<Copyable value={signature.serializedSignature} />
 			</DetailRow>
 		</DetailBlock>
@@ -402,19 +370,13 @@ export default function SignatureAnalyzer() {
 			<NetworkField />
 			<BytesField
 				id="signature-bytes"
-				label={content.tools.signatureAnalyzer.bytesLabel}
+				label={COPY.bytesLabel}
 				testId="signature-input"
-				placeholder={
-					content.tools.signatureAnalyzer.bytesPlaceholder
-				}
+				placeholder={COPY.bytesPlaceholder}
 				minHeight="min-h-30"
 				value={signature}
 				onChange={handleSignatureChange}
-				error={
-					error
-						? content.tools.signatureAnalyzer.unreadable
-						: undefined
-				}
+				error={error ? COPY.unreadable : undefined}
 				errorTestId="signature-error"
 			/>
 

@@ -14,6 +14,8 @@ import { WalletPicker } from '@/components/WalletPicker';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 
+const COPY = content.signedOut;
+
 /**
  * The signed-out page: connect a wallet, then, with one connected, sign
  * the message that proves the address. Connecting only connects, so Sign
@@ -49,7 +51,7 @@ export function ConnectWalletCard() {
 			data-wallet={declined.wallet}
 		>
 			<TriangleAlert className="size-3.5 shrink-0" />
-			{content.signedOut.declined(declined.wallet)}
+			{COPY.declined(declined.wallet)}
 		</p>
 	);
 
@@ -59,8 +61,8 @@ export function ConnectWalletCard() {
 				<EmptyState
 					testId="auth-prompt"
 					icon={Wallet}
-					title={content.signedOut.signIn.title}
-					description={content.signedOut.signIn.description}
+					title={COPY.signIn.title}
+					description={COPY.signIn.description}
 					note={note}
 					action={
 						<Button
@@ -69,8 +71,8 @@ export function ConnectWalletCard() {
 							data-testid="sign-in-button"
 						>
 							{isConnecting
-								? content.signedOut.signIn.signingIn
-								: content.signedOut.signIn.button}
+								? COPY.signIn.signingIn
+								: COPY.signIn.button}
 						</Button>
 					}
 				/>
@@ -78,10 +80,8 @@ export function ConnectWalletCard() {
 				<EmptyState
 					testId="connect-wallet-prompt"
 					icon={Wallet}
-					title={content.signedOut.connect.title}
-					description={
-						content.signedOut.connect.description
-					}
+					title={COPY.connect.title}
+					description={COPY.connect.description}
 					note={note}
 					action={
 						declinedWallet ? (
@@ -92,7 +92,7 @@ export function ConnectWalletCard() {
 									}
 									data-testid="connect-retry"
 								>
-									{content.common.tryAgain}
+									{content.common.actions.tryAgain}
 								</Button>
 								<WalletPicker variant="outline" />
 							</>

@@ -48,7 +48,7 @@ export function WeightBar({
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-12">
 				<div className="flex flex-wrap gap-x-4 gap-y-1">
 					<Legend
-						label={content.invitations.weightBar.yourWeight}
+						label={content.common.fields.yourWeight}
 						value={
 							yourWeight === null ? '—' : String(yourWeight)
 						}
@@ -65,7 +65,7 @@ export function WeightBar({
 					</Legend>
 				</div>
 				<Legend
-					label={content.invitations.weightBar.threshold}
+					label={content.common.fields.threshold}
 					value={thresholdLabel({ threshold, totalWeight })}
 					testId="weight-legend-threshold"
 				>

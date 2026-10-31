@@ -11,6 +11,8 @@ import { matchPath } from 'react-router-dom';
 
 import { content } from '../content';
 
+const COPY = content.overview.pages;
+
 /**
  * An account's pages, in sidebar order. The label names the sidebar item
  * and the page's title.
@@ -18,24 +20,24 @@ import { content } from '../content';
 export const MULTISIG_PAGES = [
 	{
 		id: 'overview',
-		label: content.overview.pages.overview,
+		label: COPY.overview,
 		icon: LayoutDashboard,
 	},
 	{
 		id: 'proposals',
-		label: content.overview.pages.proposals,
+		label: COPY.proposals,
 		icon: FileText,
 	},
 	{
 		id: 'assets',
-		label: content.overview.pages.assets,
+		label: COPY.assets,
 		icon: Coins,
 	},
 	// "Members" covers the signers and the external proposers; the id
 	// and the path stay `signers`.
 	{
 		id: 'signers',
-		label: content.overview.pages.signers,
+		label: COPY.signers,
 		icon: Users,
 	},
 ] as const;

@@ -21,13 +21,13 @@ import { joinList } from '@/lib/create-multisig';
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 
+const FIELDS = content.common.fields;
+const COPY = content.createMultisig;
+
 /** "3", or "3 (+1 incomplete)". */
 function signersLabel(signers: number, incomplete: number) {
 	return incomplete
-		? content.createMultisig.preview.signersIncomplete(
-				signers,
-				incomplete,
-			)
+		? COPY.preview.signersIncomplete(signers, incomplete)
 		: signers;
 }
 
@@ -58,25 +58,17 @@ export function PreviewStrip({
 			)}
 			data-testid="create-preview-strip"
 		>
-			<StripStat
-				label={content.createMultisig.fields.signers}
-			>
+			<StripStat label={FIELDS.signers}>
 				{signersLabel(signers, incomplete)}
 			</StripStat>
-			<StripStat
-				label={content.createMultisig.fields.totalWeight}
-			>
+			<StripStat label={FIELDS.totalWeight}>
 				{totalWeight}
 			</StripStat>
-			<StripStat
-				label={content.createMultisig.fields.threshold}
-			>
+			<StripStat label={FIELDS.threshold}>
 				{thresholdLabel({ threshold, totalWeight })}
 			</StripStat>
 			{address && (
-				<StripStat
-					label={content.createMultisig.fields.address}
-				>
+				<StripStat label={FIELDS.address}>
 					<span className="font-mono">
 						{formatAddress(address)}
 					</span>
@@ -131,13 +123,11 @@ export function PreviewCard({
 		>
 			<CardHeading
 				id="create-preview-title"
-				title={content.createMultisig.preview.title}
+				title={COPY.preview.title}
 			/>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<SummaryRow
-					label={content.createMultisig.fields.name}
-				>
+				<SummaryRow label={COPY.fields.name}>
 					<span
 						className={cn(
 							'text-13 break-all',
@@ -145,13 +135,10 @@ export function PreviewCard({
 						)}
 						data-testid="create-preview-name"
 					>
-						{name.trim() ||
-							content.createMultisig.preview.notSet}
+						{name.trim() || COPY.preview.notSet}
 					</span>
 				</SummaryRow>
-				<SummaryRow
-					label={content.createMultisig.fields.signers}
-				>
+				<SummaryRow label={FIELDS.signers}>
 					<span
 						className={cn('text-12', !setUp && muted)}
 						data-testid="create-preview-signers"
@@ -159,16 +146,12 @@ export function PreviewCard({
 						{setUp ? signersLabel(signers, incomplete) : 0}
 					</span>
 				</SummaryRow>
-				<SummaryRow
-					label={content.createMultisig.fields.totalWeight}
-				>
+				<SummaryRow label={FIELDS.totalWeight}>
 					<span className={cn('text-12', !setUp && muted)}>
 						{setUp ? totalWeight : 0}
 					</span>
 				</SummaryRow>
-				<SummaryRow
-					label={content.createMultisig.fields.threshold}
-				>
+				<SummaryRow label={FIELDS.threshold}>
 					{setUp ? (
 						<span
 							className="text-12"
@@ -178,7 +161,7 @@ export function PreviewCard({
 						</span>
 					) : (
 						<span className={cn('text-13', muted)}>
-							{content.createMultisig.preview.notSet}
+							{COPY.preview.notSet}
 						</span>
 					)}
 				</SummaryRow>
@@ -186,7 +169,7 @@ export function PreviewCard({
 			<Separator />
 			<div className="flex flex-col gap-1.5 pt-1">
 				<span className="text-13 text-muted-foreground">
-					{content.createMultisig.fields.suiAddress}
+					{FIELDS.suiAddress}
 				</span>
 				{setUp && address ? (
 					<>
@@ -199,14 +182,12 @@ export function PreviewCard({
 							</span>
 							<CopyText
 								value={address}
-								label={
-									content.createMultisig.preview.copyAddress
-								}
+								label={content.common.actions.copyAddress}
 							/>
 						</div>
 						<span className="flex items-center gap-1.5 text-12 text-success-foreground">
 							<Check className="size-3" />
-							{content.createMultisig.preview.live}
+							{COPY.preview.live}
 						</span>
 					</>
 				) : (
@@ -214,8 +195,7 @@ export function PreviewCard({
 						className="rounded-md border border-dashed border-foreground/15 p-3 text-12 leading-normal text-muted-foreground"
 						data-testid="create-preview-address-message"
 					>
-						{(setUp && addressMessage) ||
-							content.createMultisig.emptyAddress}
+						{(setUp && addressMessage) || COPY.emptyAddress}
 					</p>
 				)}
 			</div>
@@ -226,10 +206,7 @@ export function PreviewCard({
 /** Steps 1 and 2: four short answers, one open at a time. */
 export function HelpCard() {
 	return (
-		<HelpAccordion
-			items={content.createMultisig.help}
-			testId="create-help"
-		/>
+		<HelpAccordion items={COPY.help} testId="create-help" />
 	);
 }
 
@@ -249,25 +226,20 @@ export function NextStepsCard({
 }) {
 	const items = [
 		{
-			title: content.createMultisig.nextSteps.createdTitle,
-			body: content.createMultisig.nextSteps.createdBody(
-				name,
-			),
+			title: COPY.nextSteps.createdTitle,
+			body: COPY.nextSteps.createdBody(name),
 		},
 		{
-			title: content.createMultisig.nextSteps.acceptTitle,
-			body: content.createMultisig.nextSteps.acceptBody(
+			title: COPY.nextSteps.acceptTitle,
+			body: COPY.nextSteps.acceptBody(
 				joinList(invited, 'and'),
 			),
 		},
 		{
-			title: content.createMultisig.nextSteps.fundTitle,
+			title: COPY.nextSteps.fundTitle,
 			body: isTestMode
-				? content.createMultisig.nextSteps.fundBodyTest
-				: content.createMultisig.nextSteps.fundBody(
-						threshold,
-						totalWeight,
-					),
+				? COPY.nextSteps.fundBodyTest
+				: COPY.nextSteps.fundBody(threshold, totalWeight),
 		},
 	];
 	return (
@@ -278,7 +250,7 @@ export function NextStepsCard({
 		>
 			<CardHeading
 				id="create-next-steps-title"
-				title={content.createMultisig.nextSteps.title}
+				title={content.common.whatHappensNext}
 			/>
 			<Separator />
 			<NumberedSteps items={items} />

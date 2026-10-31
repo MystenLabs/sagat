@@ -78,15 +78,17 @@ import {
 } from '@/lib/multisig-pages';
 import { cn } from '@/lib/utils';
 
+const COPY = content.sidebar;
+
 const RESOURCE_LINKS = [
 	{
 		href: 'https://docs.sui.io/standards/sagat',
-		label: content.sidebar.viewDocs,
+		label: COPY.viewDocs,
 		icon: BookOpen,
 	},
 	{
 		href: 'https://github.com/mystenlabs/sagat',
-		label: content.sidebar.github,
+		label: COPY.github,
 		icon: Github,
 	},
 ] as const;
@@ -181,12 +183,12 @@ function SidebarNav() {
 					<div className="flex items-center justify-between gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
 						<div className="flex items-center gap-2">
 							<SidebarRailTooltip
-								tooltip={content.sidebar.home}
+								tooltip={COPY.home}
 								render={
 									<Link
 										to="/"
 										onClick={closeMobile}
-										aria-label={content.sidebar.home}
+										aria-label={COPY.home}
 										className="flex items-center group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:justify-center"
 									/>
 								}
@@ -283,7 +285,7 @@ function SidebarNav() {
 											isActive={
 												location.pathname === '/invitations'
 											}
-											tooltip={content.sidebar.invitations}
+											tooltip={COPY.invitations}
 											className={navItemClass}
 											data-testid="nav-invitations"
 											render={
@@ -294,9 +296,7 @@ function SidebarNav() {
 											}
 										>
 											<Mail />
-											<span>
-												{content.sidebar.invitations}
-											</span>
+											<span>{COPY.invitations}</span>
 										</SidebarMenuButton>
 										{pendingInvites > 0 && (
 											<SidebarMenuBadge
@@ -317,7 +317,7 @@ function SidebarNav() {
 					<SidebarSeparator className={separatorClass} />
 					<SidebarGroup className="p-0 pb-5 group-data-[collapsible=icon]:pb-0">
 						<SidebarGroupLabel className={groupLabelClass}>
-							{content.sidebar.developer}
+							{COPY.developer}
 						</SidebarGroupLabel>
 						<SidebarGroupContent>
 							<SidebarMenu className="gap-0.5">
@@ -348,7 +348,7 @@ function SidebarNav() {
 					<SidebarSeparator className={separatorClass} />
 					<SidebarGroup className="p-0">
 						<SidebarGroupLabel className={groupLabelClass}>
-							{content.sidebar.resources}
+							{COPY.resources}
 						</SidebarGroupLabel>
 						<SidebarGroupContent>
 							<SidebarMenu className="gap-0.5">

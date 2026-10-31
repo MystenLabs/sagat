@@ -96,7 +96,7 @@ export function AssetsTab() {
 						}
 					>
 						<Send className="w-3.5 h-3.5 mr-1" />
-						{content.assets.send}
+						{content.common.actions.send}
 					</Button>
 				)}
 			/>

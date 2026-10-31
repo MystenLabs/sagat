@@ -43,6 +43,8 @@ import {
 import { SidebarRailTooltip } from './ui/sidebar';
 import { WalletPicker } from './WalletPicker';
 
+const COPY = content.signedOut;
+
 type WalletVariant = 'header' | 'rail';
 
 const getCompactWalletLabel = (
@@ -174,14 +176,10 @@ function WalletMenu({
 			{variant === 'rail' ? (
 				<DropdownMenuTrigger
 					{...triggerProps}
-					aria-label={content.signedOut.walletMenu.triggerLabel(
-						label,
-					)}
+					aria-label={COPY.walletMenu.triggerLabel(label)}
 					render={
 						<SidebarRailTooltip
-							tooltip={content.signedOut.walletMenu.triggerLabel(
-								label,
-							)}
+							tooltip={COPY.walletMenu.triggerLabel(label)}
 						/>
 					}
 					className={cn(
@@ -259,7 +257,7 @@ function WalletMenu({
 						data-testid="copy-address"
 					>
 						<Copy />
-						{content.signedOut.walletMenu.copyAddress}
+						{content.common.actions.copyAddress}
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
@@ -270,7 +268,7 @@ function WalletMenu({
 						data-testid="disconnect-button"
 					>
 						<LogOut />
-						{content.signedOut.walletMenu.disconnect}
+						{COPY.walletMenu.disconnect}
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
@@ -350,8 +348,8 @@ function AccountItem({
 						data-testid="wallet-account-sign"
 					>
 						{isConnecting && isCurrent
-							? content.signedOut.signIn.signingIn
-							: content.signedOut.signIn.button}
+							? COPY.signIn.signingIn
+							: COPY.signIn.button}
 					</Button>
 				)}
 				{isCurrent && <Check className="size-4" />}

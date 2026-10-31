@@ -31,6 +31,8 @@ import { cn } from '@/lib/utils';
 
 import { TitleField } from './TitleField';
 
+const COPY = content.newProposal;
+
 /** Step 2 for pasted bytes: the bytes, read at once, and a title. */
 export function BytesDetailsStep({
 	multisig,
@@ -92,21 +94,19 @@ export function BytesDetailsStep({
 			data-testid="bytes-step"
 		>
 			<SectionHeading
-				title={content.newProposal.types.bytes.title}
-				description={
-					content.newProposal.bytesStep.description
-				}
+				title={COPY.types.bytes.title}
+				description={COPY.bytesStep.description}
 			/>
 
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="proposal-bytes">
-					{content.newProposal.bytesStep.bytesLabel}
+					{COPY.bytesStep.bytesLabel}
 				</Label>
 				<Textarea
 					id="proposal-bytes"
 					value={draft}
 					onChange={(e) => onDraftChange(e.target.value)}
-					placeholder={content.newProposal.bytesPlaceholder}
+					placeholder={COPY.bytesPlaceholder}
 					autoComplete="off"
 					spellCheck={false}
 					aria-invalid={bytesInvalid || undefined}
@@ -130,8 +130,8 @@ export function BytesDetailsStep({
 
 			<TitleField
 				value={value}
-				placeholder={content.newProposal.titlePlaceholder}
-				hint={content.newProposal.titleHintBytes}
+				placeholder={COPY.titlePlaceholder}
+				hint={COPY.titleHintBytes}
 				error={shownTitleError}
 				onChange={(next) => {
 					change('title', value);
@@ -154,14 +154,10 @@ export function BytesDetailsStep({
 						data-testid="details-back"
 					>
 						<ArrowLeft />
-						{content.common.back}
+						{content.common.actions.back}
 					</Button>
 				}
-				note={
-					<FooterNote>
-						{content.newProposal.bytesNote}
-					</FooterNote>
-				}
+				note={<FooterNote>{COPY.bytesNote}</FooterNote>}
 				primary={
 					<Button
 						type="submit"
@@ -172,7 +168,7 @@ export function BytesDetailsStep({
 						)}
 						data-testid="bytes-review"
 					>
-						{content.newProposal.bytesStep.review}
+						{content.common.actions.review}
 					</Button>
 				}
 			/>

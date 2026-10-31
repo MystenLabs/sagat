@@ -37,6 +37,8 @@ import { EventsList } from './EventsList';
 import { ObjectChangesList } from './ObjectChangesList';
 import { EmptyPanel, PreviewHeading } from './parts';
 
+const COPY = content.transactionPreview;
+
 type TabId =
 	| 'balance-changes'
 	| 'object-changes'
@@ -138,35 +140,33 @@ export function TransactionPreview({
 	}[] = [
 		{
 			id: 'balance-changes',
-			label: content.transactionPreview.tabs.balanceChanges,
+			label: COPY.tabs.balanceChanges,
 			count: model.balanceChanges.length,
 		},
 		{
 			id: 'object-changes',
-			label: content.transactionPreview.tabs.objectChanges,
+			label: COPY.tabs.objectChanges,
 			count: model.objectChanges.length,
 		},
 		{
 			id: 'events',
-			label: content.transactionPreview.tabs.events,
+			label: COPY.tabs.events,
 			count: model.events.length,
 		},
 		{
 			id: 'commands',
-			label: content.transactionPreview.tabs.commands,
+			label: COPY.tabs.commands,
 			count: model.transaction.commands.length,
 		},
 		{
 			id: 'raw-json',
-			label: content.transactionPreview.tabs.rawJson,
+			label: COPY.tabs.rawJson,
 		},
 	];
 
 	const senderAddress = model.sender?.address;
 	const waiting = (
-		<EmptyPanel>
-			{content.transactionPreview.status[source].pending}
-		</EmptyPanel>
+		<EmptyPanel>{COPY.status[source].pending}</EmptyPanel>
 	);
 
 	let panel: ReactNode;
@@ -213,15 +213,11 @@ export function TransactionPreview({
 					value={JSON.stringify(model.raw, null, 2)}
 					rows={20}
 					readOnly
-					aria-label={
-						content.transactionPreview.rawJsonAriaLabel
-					}
+					aria-label={COPY.rawJsonAriaLabel}
 					className="font-mono md:text-12"
 				/>
 			) : (
-				<EmptyPanel>
-					{content.transactionPreview.rawJsonEmpty}
-				</EmptyPanel>
+				<EmptyPanel>{COPY.rawJsonEmpty}</EmptyPanel>
 			);
 			break;
 	}
@@ -251,14 +247,12 @@ export function TransactionPreview({
 							id: 'simulation',
 							label:
 								source === 'chain'
-									? content.transactionPreview.views.chain
-									: content.transactionPreview.views
-											.simulation,
+									? COPY.views.chain
+									: COPY.views.simulation,
 						},
 						{
 							id: 'analyzer',
-							label:
-								content.transactionPreview.views.analyzer,
+							label: COPY.views.analyzer,
 							count: analyzerCount,
 						},
 					]}
@@ -281,7 +275,7 @@ export function TransactionPreview({
 						data-testid="transaction-preview-ledger-hash"
 					>
 						<span className="text-13 text-muted-foreground">
-							{content.transactionPreview.ledgerHash}
+							{COPY.ledgerHash}
 						</span>
 						<span className="ml-auto flex min-w-0 items-center gap-1.5">
 							<span className="min-w-0 font-mono text-12 break-all">
@@ -299,7 +293,7 @@ export function TransactionPreview({
 
 					{source === 'simulation' && signingNotice && (
 						<Notice tone="warning">
-							{content.transactionPreview.signingNotice}
+							{COPY.signingNotice}
 						</Notice>
 					)}
 
@@ -329,9 +323,7 @@ export function TransactionPreview({
 					className="flex w-fit cursor-pointer items-center gap-1 rounded-sm text-12 text-foreground-secondary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 					data-testid="transaction-preview-raw-toggle"
 				>
-					{showRaw
-						? content.transactionPreview.hideRaw
-						: content.transactionPreview.showRaw}
+					{showRaw ? COPY.hideRaw : COPY.showRaw}
 					{showRaw ? (
 						<ChevronUp className="size-3" />
 					) : (
@@ -342,9 +334,7 @@ export function TransactionPreview({
 					<Textarea
 						readOnly
 						value={bytes}
-						aria-label={
-							content.transactionPreview.rawBytesAriaLabel
-						}
+						aria-label={COPY.rawBytesAriaLabel}
 						className="h-30 resize-none font-mono break-all md:text-12"
 						data-testid="transaction-preview-raw"
 					/>
@@ -360,9 +350,7 @@ function ViewHelp({ source }: { source: PreviewSource }) {
 		<TooltipProvider delay={150}>
 			<Tooltip>
 				<TooltipTrigger
-					aria-label={
-						content.transactionPreview.help.ariaLabel
-					}
+					aria-label={COPY.help.ariaLabel}
 					data-testid="transaction-preview-help"
 					className="flex shrink-0 cursor-pointer items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 				>
@@ -377,26 +365,23 @@ function ViewHelp({ source }: { source: PreviewSource }) {
 						{source === 'chain' ? (
 							<p>
 								<span className="block font-medium">
-									{content.transactionPreview.views.chain}
+									{COPY.views.chain}
 								</span>
-								{content.transactionPreview.help.chain}
+								{COPY.help.chain}
 							</p>
 						) : (
 							<p>
 								<span className="block font-medium">
-									{
-										content.transactionPreview.views
-											.simulation
-									}
+									{COPY.views.simulation}
 								</span>
-								{content.transactionPreview.help.simulation}
+								{COPY.help.simulation}
 							</p>
 						)}
 						<p>
 							<span className="block font-medium">
-								{content.transactionPreview.views.analyzer}
+								{COPY.views.analyzer}
 							</span>
-							{content.transactionPreview.help.analyzer}
+							{COPY.help.analyzer}
 						</p>
 					</div>
 				</TooltipContent>

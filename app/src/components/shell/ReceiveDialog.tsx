@@ -15,6 +15,9 @@ import {
 import { content } from '@/content';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 
+const ACTIONS = content.common.actions;
+const COPY = content.receive;
+
 /** The account's address as a QR code and in full, to share for deposits. */
 export function ReceiveDialog({
 	open,
@@ -46,10 +49,10 @@ export function ReceiveDialog({
 				<div className="flex items-start justify-between gap-4">
 					<div className="flex flex-col gap-1">
 						<DialogTitle className="text-24 font-bold">
-							{content.receive.title}
+							{COPY.title}
 						</DialogTitle>
 						<DialogDescription className="text-14 text-muted-foreground">
-							{content.receive.description(name)}
+							{COPY.description(name)}
 						</DialogDescription>
 					</div>
 					<DialogClose
@@ -62,16 +65,14 @@ export function ReceiveDialog({
 						}
 					>
 						<XIcon className="size-4" />
-						<span className="sr-only">
-							{content.common.close}
-						</span>
+						<span className="sr-only">{ACTIONS.close}</span>
 					</DialogClose>
 				</div>
 
 				<button
 					type="button"
 					onClick={() => copy(address)}
-					aria-label={content.receive.copyAddress}
+					aria-label={ACTIONS.copyAddress}
 					className="cursor-pointer justify-self-center rounded-lg border bg-qr p-4 text-qr-foreground outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
 					data-testid="receive-qr"
 				>
@@ -83,13 +84,13 @@ export function ReceiveDialog({
 						marginSize={4}
 						bgColor="transparent"
 						fgColor="currentColor"
-						title={content.receive.qrTitle(address)}
+						title={COPY.qrTitle(address)}
 					/>
 				</button>
 
 				<div className="flex flex-col gap-1">
 					<div className="text-12 text-muted-foreground">
-						{content.receive.addressLabel}
+						{content.common.fields.suiAddress}
 					</div>
 					<div
 						className="font-mono text-14 break-all"
@@ -100,7 +101,7 @@ export function ReceiveDialog({
 				</div>
 
 				<p className="text-12 text-muted-foreground">
-					{content.receive.note}
+					{COPY.note}
 				</p>
 
 				<Button
@@ -109,7 +110,7 @@ export function ReceiveDialog({
 					data-testid="receive-copy"
 				>
 					{copied ? <Check /> : <Copy />}
-					{content.receive.copyAddress}
+					{ACTIONS.copyAddress}
 				</Button>
 			</DialogContent>
 		</Dialog>

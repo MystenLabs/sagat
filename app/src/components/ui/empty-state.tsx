@@ -125,8 +125,8 @@ export function ErrorState({
 					data-testid={retryTestId}
 				>
 					{retrying
-						? content.states.error.retrying
-						: content.common.tryAgain}
+						? content.common.states.retrying
+						: content.common.actions.tryAgain}
 				</Button>
 			)}
 		</div>

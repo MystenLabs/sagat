@@ -20,6 +20,8 @@ import { RejectInvitationDialog } from './RejectInvitationDialog';
 import { ReviewInvitationDialog } from './ReviewInvitationDialog';
 import { ShortAddress } from './ShortAddress';
 
+const COPY = content.invitations.card;
+
 /**
  * One invitation in the inbox: the account, who sent it, and the way in.
  * Reviewing opens the signer set; rejecting asks first. Both sign with
@@ -89,16 +91,14 @@ export function InvitationCard({
 					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-13 text-muted-foreground">
 						<span data-testid="invitation-invited-by">
 							{creator?.label
-								? content.invitations.card.invitedByName(
-										creator.label,
-									)
-								: content.invitations.card.invitedBy}
+								? COPY.invitedByName(creator.label)
+								: COPY.invitedBy}
 						</span>
 						<span className="flex items-center gap-1 font-mono text-12 text-foreground-secondary">
 							{creator ? (
 								<ShortAddress address={creator.address} />
 							) : (
-								content.invitations.card.unknownKey
+								COPY.unknownKey
 							)}
 							{creator && (
 								<CopyButton
@@ -116,7 +116,7 @@ export function InvitationCard({
 
 			{multisig.isRejected ? (
 				<p className="shrink-0 text-13 text-muted-foreground">
-					{content.invitations.card.rejectedNote}
+					{COPY.rejectedNote}
 				</p>
 			) : (
 				<div className="flex shrink-0 gap-2 max-md:justify-end">
@@ -126,14 +126,14 @@ export function InvitationCard({
 						disabled={busy}
 						data-testid="reject-invitation-open"
 					>
-						{content.invitations.card.reject}
+						{content.common.actions.reject}
 					</Button>
 					<Button
 						onClick={() => setReviewing(true)}
 						disabled={busy}
 						data-testid="invitation-toggle-details"
 					>
-						{content.invitations.card.review}
+						{COPY.review}
 					</Button>
 				</div>
 			)}

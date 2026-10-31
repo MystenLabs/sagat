@@ -11,6 +11,8 @@ import { useNetworkOption } from '../hooks/useNetworkOptions';
 import { Button, disabledButton } from './ui/button';
 import { DismissButton } from './ui/dismiss-button';
 
+const COPY = content.network;
+
 /**
  * A strip across the top of the content column while the app points at a
  * test network. It sits in the flow and pushes the page down, on an opaque
@@ -28,7 +30,7 @@ export function TestModeBanner() {
 	return (
 		<div
 			role="region"
-			aria-label={content.network.testMode.region}
+			aria-label={COPY.testMode.region}
 			className="flex items-center gap-3 border-b border-warning-border bg-warning-solid px-4 py-2.5 text-warning-foreground md:px-6"
 			data-testid="test-mode-banner"
 		>
@@ -37,11 +39,11 @@ export function TestModeBanner() {
 			<div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
 				<p className="min-w-0 text-13 sm:flex-1">
 					<span className="font-medium">
-						{content.network.testMode.title}
+						{COPY.testMode.title}
 					</span>{' '}
-					{content.network.testMode.connectedTo(network)}{' '}
+					{COPY.testMode.connectedTo(network)}{' '}
 					<span className="hidden sm:inline">
-						{content.network.testMode.noRealFunds}
+						{COPY.testMode.noRealFunds}
 					</span>
 				</p>
 				{mainnet.hint && (
@@ -54,7 +56,7 @@ export function TestModeBanner() {
 				disabled={!mainnet.enabled}
 				className={disabledButton}
 			>
-				{content.network.switchToMainnet}
+				{COPY.switchToMainnet}
 			</Button>
 			<DismissButton
 				onClick={() => setIsDismissed(true)}

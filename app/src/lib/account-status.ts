@@ -6,6 +6,8 @@ import type { MultisigMember } from '@mysten/sagat';
 import { content } from '../content';
 import { signerRows, signerSetStatus } from './signers';
 
+const COPY = content.signers.accountStatus;
+
 export type AccountStatus =
 	| { tone: 'ok' }
 	| { tone: 'warning' | 'error'; message: string };
@@ -30,25 +32,17 @@ export function accountStatus({
 	if (!canReachThreshold)
 		return {
 			tone: 'error',
-			message:
-				content.signers.accountStatus.cantMoveFunds(
-					rejected,
-				),
+			message: COPY.cantMoveFunds(rejected),
 		};
 
 	if (rejected > 1)
 		return {
 			tone: 'warning',
-			message:
-				content.signers.accountStatus.manyRejected(
-					rejected,
-				),
+			message: COPY.manyRejected(rejected),
 		};
 
 	return {
 		tone: 'warning',
-		message: content.signers.accountStatus.oneRejected(
-			rejectedNames[0],
-		),
+		message: COPY.oneRejected(rejectedNames[0]),
 	};
 }

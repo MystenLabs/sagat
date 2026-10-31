@@ -51,7 +51,7 @@ export const toast = {
 		}),
 	/** "Address copied" and friends. */
 	copied: (
-		what: string = content.common.copied,
+		what: string = content.common.states.copied,
 		options?: Options,
 	) => toast.success(what, options),
 };

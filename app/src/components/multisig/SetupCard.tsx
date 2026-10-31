@@ -13,6 +13,9 @@ import { cardClass, CardHeading } from '../ui/card';
 import { Separator } from '../ui/separator';
 import { CreatedBy } from './CreatedBy';
 
+const FIELDS = content.common.fields;
+const COPY = content.overview.setup;
+
 /** The explorer link and the download button: quiet text actions. */
 const textAction =
 	'h-auto gap-1 border-0 px-0 text-12 font-normal text-foreground-secondary hover:text-foreground hover:no-underline';
@@ -41,11 +44,11 @@ export function SetupCard({
 		>
 			<CardHeading
 				id="account-setup-title"
-				title={content.overview.setup.title}
+				title={COPY.title}
 			/>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<Row label={content.overview.setup.threshold}>
+				<Row label={FIELDS.threshold}>
 					<span
 						data-testid="setup-threshold"
 						data-threshold={setup.threshold}
@@ -54,15 +57,15 @@ export function SetupCard({
 						{setup.thresholdLabel}
 					</span>
 				</Row>
-				<Row label={content.overview.setup.signers}>
+				<Row label={FIELDS.signers}>
 					<span data-testid="setup-signers">
 						{setup.signerCount}
 					</span>
 				</Row>
-				<Row label={content.overview.setup.totalWeight}>
+				<Row label={FIELDS.totalWeight}>
 					{setup.totalWeight}
 				</Row>
-				<Row label={content.overview.setup.created}>
+				<Row label={COPY.created}>
 					<span
 						data-testid="setup-created"
 						data-created-at={setup.createdAt ?? undefined}
@@ -71,11 +74,10 @@ export function SetupCard({
 								'text-muted-foreground',
 						)}
 					>
-						{setup.createdLabel ??
-							content.overview.setup.createdUnknown}
+						{setup.createdLabel ?? COPY.createdUnknown}
 					</span>
 				</Row>
-				<Row label={content.overview.setup.createdBy}>
+				<Row label={COPY.createdBy}>
 					<CreatedBy
 						creator={setup.creator}
 						testId="setup-created-by"
@@ -99,7 +101,7 @@ export function SetupCard({
 						)}
 						data-testid="setup-explorer-link"
 					>
-						{content.common.viewOnExplorer}
+						{content.common.actions.viewOnExplorer}
 						<ArrowUpRight className="size-3" />
 					</a>
 				)}
@@ -110,7 +112,7 @@ export function SetupCard({
 					className={textAction}
 					data-testid="setup-download"
 				>
-					{content.overview.setup.download}
+					{COPY.download}
 					<Download className="size-3" />
 				</Button>
 			</div>

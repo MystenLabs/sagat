@@ -24,6 +24,8 @@ import { Chip } from '../ui/chip';
 import { CoinIcon } from '../ui/CoinIcon';
 import { PreviewCard } from './PreviewCard';
 
+const COPY = content.transactionPreview.intent;
+
 type Flow = BalanceFlowsResult['sender'][number];
 type AccessLevel = 'read' | 'mutate' | 'transfer';
 
@@ -157,8 +159,7 @@ function FlowRow({
 					</div>
 					<div className="text-xs text-muted-foreground truncate">
 						{isCoinDataLoading && !coinData
-							? content.transactionPreview.intent
-									.loadingCoin
+							? COPY.loadingCoin
 							: formatCoinType(flow.coinType)}
 					</div>
 				</div>
@@ -287,24 +288,20 @@ export function IntentSummary({
 		>
 			<PreviewCard.Header>
 				<div className="flex items-center justify-between gap-3">
-					<div className="font-medium">
-						{content.transactionPreview.intent.title}
-					</div>
+					<div className="font-medium">{COPY.title}</div>
 					<Chip variant="neutral" size="sm">
-						{content.transactionPreview.intent.advisory}
+						{COPY.advisory}
 					</Chip>
 				</div>
 			</PreviewCard.Header>
 			<PreviewCard.Body>
 				{isLoading ? (
 					<p className="text-sm text-muted-foreground">
-						{content.transactionPreview.intent.analyzing}
+						{COPY.analyzing}
 					</p>
 				) : error ? (
 					<Alert variant="warning">
-						{content.transactionPreview.intent.unavailable(
-							error.message,
-						)}
+						{COPY.unavailable(error.message)}
 					</Alert>
 				) : (
 					<div className="space-y-4">
@@ -312,19 +309,13 @@ export function IntentSummary({
 						sponsorFlows.length > 0 ? (
 							<div className="space-y-4">
 								<FlowGroup
-									title={
-										content.transactionPreview.intent
-											.senderFlows
-									}
+									title={COPY.senderFlows}
 									flows={senderFlows}
 									isCoinDataLoading={isCoinDataLoading}
 									coinDataMap={coinDataMap}
 								/>
 								<FlowGroup
-									title={
-										content.transactionPreview.intent
-											.sponsorFlows
-									}
+									title={COPY.sponsorFlows}
 									flows={sponsorFlows}
 									isCoinDataLoading={isCoinDataLoading}
 									coinDataMap={coinDataMap}
@@ -332,7 +323,7 @@ export function IntentSummary({
 							</div>
 						) : (
 							<p className="text-sm text-muted-foreground">
-								{content.transactionPreview.intent.noFlows}
+								{COPY.noFlows}
 							</p>
 						)}
 
@@ -343,10 +334,7 @@ export function IntentSummary({
 							>
 								<div className="space-y-1">
 									<div className="font-medium">
-										{
-											content.transactionPreview.intent
-												.findings
-										}
+										{COPY.findings}
 									</div>
 									{issues.slice(0, 4).map((issue) => (
 										<div key={issue.message}>
@@ -355,9 +343,7 @@ export function IntentSummary({
 									))}
 									{issues.length > 4 && (
 										<div>
-											{content.transactionPreview.intent.moreFindings(
-												issues.length - 4,
-											)}
+											{COPY.moreFindings(issues.length - 4)}
 										</div>
 									)}
 								</div>
@@ -367,10 +353,7 @@ export function IntentSummary({
 						<div className="grid gap-3 md:grid-cols-2">
 							<div className="rounded-md bg-surface border p-3 space-y-2">
 								<div className="text-sm font-medium">
-									{
-										content.transactionPreview.intent
-											.commands
-									}
+									{COPY.commands}
 								</div>
 								{commandCounts.length > 0 ? (
 									<div className="flex flex-wrap gap-2">
@@ -386,36 +369,24 @@ export function IntentSummary({
 									</div>
 								) : (
 									<p className="text-sm text-muted-foreground">
-										{
-											content.transactionPreview.intent
-												.noCommands
-										}
+										{COPY.noCommands}
 									</p>
 								)}
 							</div>
 
 							<div className="rounded-md bg-surface border p-3 space-y-2">
 								<div className="text-sm font-medium">
-									{
-										content.transactionPreview.intent
-											.objectAccess
-									}
+									{COPY.objectAccess}
 								</div>
 								<div className="flex flex-wrap gap-2">
 									<Chip variant="neutral" size="sm">
-										{content.transactionPreview.intent.read(
-											accessCounts.read,
-										)}
+										{COPY.read(accessCounts.read)}
 									</Chip>
 									<Chip variant="warning" size="sm">
-										{content.transactionPreview.intent.mutate(
-											accessCounts.mutate,
-										)}
+										{COPY.mutate(accessCounts.mutate)}
 									</Chip>
 									<Chip variant="error" size="sm">
-										{content.transactionPreview.intent.transfer(
-											accessCounts.transfer,
-										)}
+										{COPY.transfer(accessCounts.transfer)}
 									</Chip>
 								</div>
 								{elevatedAccess.length > 0 && (
@@ -442,7 +413,7 @@ export function IntentSummary({
 											))}
 										{elevatedAccess.length > 3 && (
 											<div className="text-xs text-muted-foreground">
-												{content.transactionPreview.intent.moreObjects(
+												{COPY.moreObjects(
 													elevatedAccess.length - 3,
 												)}
 											</div>
@@ -453,7 +424,7 @@ export function IntentSummary({
 						</div>
 
 						<p className="text-xs text-muted-foreground">
-							{content.transactionPreview.intent.footnote}
+							{COPY.footnote}
 						</p>
 					</div>
 				)}

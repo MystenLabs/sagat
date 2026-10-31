@@ -5,18 +5,20 @@ import { Chip } from '@/components/ui/chip';
 import { content } from '@/content';
 import { type SignerEntry } from '@/lib/signers';
 
+const COPY = content.signers.status;
+
 const STATUS_CHIP = {
 	accepted: {
 		variant: 'success',
-		label: content.signers.status.accepted,
+		label: COPY.accepted,
 	},
 	rejected: {
 		variant: 'error',
-		label: content.signers.status.rejected,
+		label: COPY.rejected,
 	},
 	pending: {
 		variant: 'warning',
-		label: content.signers.status.pending,
+		label: COPY.pending,
 	},
 } as const;
 

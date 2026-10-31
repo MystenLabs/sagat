@@ -46,6 +46,9 @@ import { cn } from '@/lib/utils';
 import { NumberStepper } from './parts';
 import { SignerRow } from './SignerRow';
 
+const FIELDS = content.common.fields;
+const COPY = content.createMultisig;
+
 /** Step 2: who signs, with what weight, and how much it takes. */
 export function SignersStep({
 	signers,
@@ -104,7 +107,7 @@ export function SignersStep({
 			data-testid="create-add-signer"
 		>
 			<Plus />
-			{content.createMultisig.signersStep.addSigner}
+			{COPY.signersStep.addSigner}
 		</Button>
 	);
 
@@ -116,16 +119,14 @@ export function SignersStep({
 			<section className="flex flex-col gap-3.5">
 				<div className="flex items-start justify-between gap-4">
 					<SectionHeading
-						title={content.createMultisig.signersStep.title}
-						description={
-							content.createMultisig.signersStep.description
-						}
+						title={COPY.signersStep.title}
+						description={COPY.signersStep.description}
 					/>
 					<span
 						className="shrink-0 text-12 text-muted-foreground"
 						data-testid="create-signer-count"
 					>
-						{content.createMultisig.signersStep.count(
+						{COPY.signersStep.count(
 							signers.length,
 							CONFIG.MAX_MEMBERS,
 						)}
@@ -138,15 +139,11 @@ export function SignersStep({
 						className="hidden rounded-md bg-muted py-1.75 text-12 text-muted-foreground @xl/card:flex"
 					>
 						<span className="w-15 pl-4.25">#</span>
-						<span className="w-25">
-							{content.createMultisig.fields.signer}
-						</span>
+						<span className="w-25">{FIELDS.signer}</span>
 						<span className="flex-1 px-3">
-							{content.createMultisig.fields.publicKey}
+							{FIELDS.publicKey}
 						</span>
-						<span className="w-33.75">
-							{content.createMultisig.fields.weight}
-						</span>
+						<span className="w-33.75">{FIELDS.weight}</span>
 					</div>
 					<DndContext
 						sensors={sensors}
@@ -195,7 +192,7 @@ export function SignersStep({
 								{addSigner}
 							</TooltipTrigger>
 							<TooltipContent>
-								{content.createMultisig.signersStep.maxSigners(
+								{COPY.signersStep.maxSigners(
 									CONFIG.MAX_MEMBERS,
 								)}
 							</TooltipContent>
@@ -206,7 +203,7 @@ export function SignersStep({
 					{signers.length > 1 && (
 						<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
 							<Info className="mt-0.5 size-3 shrink-0" />
-							{content.createMultisig.signersStep.orderNote}
+							{COPY.signersStep.orderNote}
 						</p>
 					)}
 				</div>
@@ -216,13 +213,9 @@ export function SignersStep({
 
 			<section className="flex flex-col gap-3.5">
 				<SectionHeading
-					title={
-						content.createMultisig.signersStep
-							.thresholdTitle
-					}
+					title={COPY.signersStep.thresholdTitle}
 					description={
-						content.createMultisig.signersStep
-							.thresholdDescription
+						COPY.signersStep.thresholdDescription
 					}
 				/>
 				<div className="flex items-center gap-4">
@@ -231,7 +224,7 @@ export function SignersStep({
 						min={1}
 						max={maxThreshold}
 						onChange={onThresholdChange}
-						label={content.createMultisig.fields.threshold}
+						label={FIELDS.threshold}
 						size="lg"
 						testId="create-threshold"
 					/>
@@ -239,7 +232,7 @@ export function SignersStep({
 						className="text-16 text-foreground-secondary"
 						data-testid="create-total-weight"
 					>
-						{content.createMultisig.signersStep.ofTotalWeight(
+						{COPY.signersStep.ofTotalWeight(
 							check.totalWeight,
 						)}
 					</span>
@@ -255,7 +248,7 @@ export function SignersStep({
 							className="mt-2"
 							testId="create-too-few"
 						>
-							{content.createMultisig.tooFewSigners}
+							{COPY.tooFewSigners}
 						</Notice>
 					) : (
 						check.warning && (
@@ -284,7 +277,7 @@ export function SignersStep({
 						data-testid="create-back"
 					>
 						<ArrowLeft />
-						{content.common.back}
+						{content.common.actions.back}
 					</Button>
 				}
 				note={check.blockedMessage}
@@ -300,7 +293,7 @@ export function SignersStep({
 						)}
 						data-testid="create-continue"
 					>
-						{content.common.continue}
+						{content.common.actions.continue}
 					</Button>
 				}
 			/>

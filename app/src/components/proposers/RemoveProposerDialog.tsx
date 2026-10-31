@@ -81,7 +81,7 @@ export function RemoveProposerDialog({
 						onClick={() => onOpenChange(false)}
 						disabled={pending}
 					>
-						{content.common.cancel}
+						{content.common.actions.cancel}
 					</Button>
 					<Button
 						variant="outlineDestructive"
@@ -92,8 +92,8 @@ export function RemoveProposerDialog({
 						disabled={pending}
 					>
 						{pending
-							? content.proposers.confirming
-							: content.proposers.removeDialog.confirm}
+							? content.common.states.confirmInWallet
+							: content.common.actions.remove}
 					</Button>
 				</div>
 			</DialogContent>

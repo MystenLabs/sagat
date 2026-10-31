@@ -75,8 +75,8 @@ export function SignersTab() {
 						data-testid="signers-retry"
 					>
 						{isFetching
-							? content.signers.retrying
-							: content.common.tryAgain}
+							? content.common.states.retrying
+							: content.common.actions.tryAgain}
 					</Button>
 				</Alert>
 			)}

@@ -61,6 +61,8 @@ import {
 
 const COPY = content.proposal.approvals;
 const SHARED = content.proposal.shared;
+const ACTIONS = content.common.actions;
+const STATES = content.common.states;
 
 /**
  * Who signed, what the threshold needs, and what the viewer can do
@@ -299,11 +301,11 @@ export function ApprovalsCard({
 						>
 							{(failing || signAndExecute) && <Pen />}
 							{sign.isPending
-								? COPY.signing
+								? STATES.signing
 								: failing
 									? COPY.signAnyway
 									: signAndExecute
-										? COPY.signAndExecute
+										? ACTIONS.signAndExecute
 										: COPY.signProposal}
 						</Button>
 					</ButtonRow>
@@ -400,13 +402,13 @@ export function ApprovalsCard({
 										: undefined
 								}
 							>
-								{COPY.signed}
+								{STATES.signed}
 							</Chip>
 						) : (
 							<span className="shrink-0 text-12 text-muted-foreground">
 								{row.state === 'not-needed'
 									? COPY.notNeeded
-									: COPY.notSigned}
+									: STATES.notSigned}
 							</span>
 						)}
 					</li>
@@ -442,7 +444,7 @@ export function ApprovalsCard({
 					data-testid="view-on-explorer"
 				>
 					<ExternalLink />
-					{content.common.viewOnExplorer}
+					{ACTIONS.viewOnExplorer}
 				</a>
 			)}
 
@@ -504,7 +506,7 @@ export function ApprovalsCard({
 						onClick={() => setAskingToExecute(false)}
 						data-testid="execute-anyway-back"
 					>
-						{SHARED.goBack}
+						{ACTIONS.goBack}
 					</Button>
 					<Button
 						variant="destructive"

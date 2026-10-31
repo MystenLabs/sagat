@@ -13,6 +13,9 @@ import type {
 } from '@/lib/transaction-preview';
 import { safeDecode } from '@/lib/utils';
 
+const FIELDS = content.common.fields;
+const COPY = content.transactionPreview.details;
+
 const CHIP_VARIANTS: Record<
 	SimulationStatus,
 	NonNullable<ChipProps['variant']>
@@ -70,9 +73,7 @@ export function DetailsTable({
 
 	return (
 		<div className="rounded-lg border">
-			<Row
-				label={content.transactionPreview.details.digest}
-			>
+			<Row label={COPY.digest}>
 				<span
 					className="min-w-0 font-mono text-12 break-all"
 					data-testid="transaction-preview-digest"
@@ -86,9 +87,7 @@ export function DetailsTable({
 					successMessage={content.toasts.digestCopied}
 				/>
 			</Row>
-			<Row
-				label={content.transactionPreview.details.status}
-			>
+			<Row label={FIELDS.status}>
 				<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
 					<Chip
 						size="md"
@@ -106,9 +105,7 @@ export function DetailsTable({
 				</span>
 			</Row>
 			{model.status === 'failed' && model.error && (
-				<Row
-					label={content.transactionPreview.details.error}
-				>
+				<Row label={COPY.error}>
 					<span
 						className="min-w-0 text-13 break-words whitespace-pre-wrap text-error-foreground"
 						data-testid="transaction-preview-error"
@@ -118,7 +115,7 @@ export function DetailsTable({
 				</Row>
 			)}
 			<Row
-				label={content.transactionPreview.details.sender}
+				label={FIELDS.sender}
 				testId="transaction-preview-sender"
 			>
 				{!sender ? (
@@ -146,13 +143,13 @@ export function DetailsTable({
 					</span>
 				)}
 			</Row>
-			<Row label={content.transactionPreview.details.epoch}>
+			<Row label={COPY.epoch}>
 				<SimulatedValue
 					value={model.epoch}
 					pending={pending}
 				/>
 			</Row>
-			<Row label={content.transactionPreview.details.gas}>
+			<Row label={FIELDS.gas}>
 				<SimulatedValue
 					value={model.gas}
 					pending={pending}

@@ -23,6 +23,8 @@ import { formatCoinAmount, isSuiCoinType } from './coins';
 import { formatDateTime } from './dates';
 import { networkLabel, type SuiNetwork } from './network';
 
+const COPY = content.transactionPreview;
+
 /** The dry run's transaction payload, with everything the preview shows included. */
 export type SimulatedTransaction =
 	SuiClientTypes.Transaction<{
@@ -172,7 +174,7 @@ function balanceChangeRows(
 			label:
 				nameOf(change.address) ??
 				(amount > 0n && !isSender(change.address)
-					? content.transactionPreview.recipient
+					? COPY.recipient
 					: null),
 			gas: false,
 			coinType: change.coinType,
@@ -186,9 +188,7 @@ function balanceChangeRows(
 /** "0.0041 SUI" for a cost, "0.0019 SUI rebate" for a rebate. */
 export function gasLabel(cost: bigint): string {
 	const amount = `${formatCoinAmount((cost < 0n ? -cost : cost).toString(), 9)} SUI`;
-	return cost < 0n
-		? content.transactionPreview.gasRebate(amount)
-		: amount;
+	return cost < 0n ? COPY.gasRebate(amount) : amount;
 }
 
 const STATUS_LABELS: Record<
@@ -255,9 +255,7 @@ export function buildTransactionPreview(
 		statusMeta:
 			source === 'chain'
 				? simulatedAt
-					? content.transactionPreview.confirmedAt(
-							formatDateTime(simulatedAt),
-						)
+					? COPY.confirmedAt(formatDateTime(simulatedAt))
 					: ''
 				: simulatedAt
 					? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`

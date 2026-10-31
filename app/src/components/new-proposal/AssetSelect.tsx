@@ -23,6 +23,8 @@ import {
 import { formatCoinAmount } from '@/lib/coins';
 import { cn } from '@/lib/utils';
 
+const COPY = content.newProposal.assetSelect;
+
 /**
  * The asset to send: each balance the account holds, with its icon,
  * symbol, name (when it differs from the symbol) and balance. A
@@ -60,7 +62,7 @@ export function AssetSelect({
 		return (
 			<div
 				aria-busy
-				aria-label={content.newProposal.assetSelect.loading}
+				aria-label={COPY.loading}
 				className={cn(
 					fieldFrame,
 					inputSizes.md,
@@ -106,9 +108,7 @@ export function AssetSelect({
 					/>
 				) : (
 					<span className="flex-1 text-left text-muted-foreground/70">
-						{empty
-							? content.newProposal.assetSelect.noAssets
-							: content.newProposal.assetSelect.choose}
+						{empty ? COPY.noAssets : COPY.choose}
 					</span>
 				)}
 			</SelectTrigger>
@@ -155,7 +155,7 @@ function TriggerValue({
 			)}
 			<span className="ml-auto shrink-0 pl-3 text-13 text-muted-foreground tabular-nums">
 				{decimals != null ? (
-					content.newProposal.assetSelect.balance(
+					COPY.balance(
 						formatCoinAmount(balance.balance, decimals),
 					)
 				) : (
@@ -212,7 +212,7 @@ function AssetOption({
 						)}
 					</span>
 					<span className="text-12 leading-tight text-muted-foreground">
-						{content.newProposal.assetSelect.balanceLabel}
+						{content.common.fields.balance}
 					</span>
 				</span>
 			</span>

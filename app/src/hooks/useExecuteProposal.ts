@@ -22,6 +22,8 @@ import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 import { useVerifyProposal } from './useVerifyProposal';
 
+const TOASTS = content.toasts;
+
 interface ExecuteProposalParams {
 	proposal: PublicProposal;
 }
@@ -144,21 +146,21 @@ export function useExecuteProposal() {
 			// The node can land the transaction and still fail it.
 			const { status } = data.executionResult;
 			if (!status.success) {
-				toast.error(content.toasts.proposalExecuteFailed, {
+				toast.error(TOASTS.proposalExecuteFailed, {
 					description:
 						safeDecode(status.error.message) ||
-						content.toasts.proposalFailedOnChain,
-					link: link(content.toasts.seeDetails),
+						TOASTS.proposalFailedOnChain,
+					link: link(TOASTS.seeDetails),
 				});
 				return;
 			}
-			toast.success(content.toasts.proposalExecuted, {
+			toast.success(TOASTS.proposalExecuted, {
 				description: digest,
-				link: link(content.common.viewOnExplorer),
+				link: link(content.common.actions.viewOnExplorer),
 			});
 		},
 		onError: (error: Error) => {
-			toast.error(content.toasts.proposalExecuteFailed, {
+			toast.error(TOASTS.proposalExecuteFailed, {
 				description: error.message,
 			});
 		},

@@ -409,7 +409,7 @@ export function ProposalView({
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
 				<section
 					className={cardClass}
-					aria-label={COPY.transactionPreview}
+					aria-label={content.common.transactionPreview}
 				>
 					{previewBlock}
 				</section>

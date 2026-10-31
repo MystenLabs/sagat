@@ -8,6 +8,8 @@ import { content } from '../content';
 import { memberStatus } from './member-status';
 import { validatePublicKey } from './sui-utils';
 
+const COPY = content.signers;
+
 export interface SignerSetStatus {
 	total: number;
 	accepted: number;
@@ -56,7 +58,7 @@ export function signerRows(
 					member.label ||
 					(address
 						? formatAddress(address)
-						: content.signers.unknownKey),
+						: content.common.unknownKey),
 				status: memberStatus(member),
 				isYou: !!address && address === currentAddress,
 				isCreator: !!address && address === creatorAddress,
@@ -119,19 +121,14 @@ export function signerSummary(
 		status;
 	if (accepted === total)
 		return total === 2
-			? content.signers.summary.bothAccepted
-			: content.signers.summary.allAccepted(total);
-	const head = content.signers.summary.accepted(
-		accepted,
-		total,
-	);
+			? COPY.summary.bothAccepted
+			: COPY.summary.allAccepted(total);
+	const head = COPY.summary.accepted(accepted, total);
 	if (rejected === 0) return head;
 	const tail =
 		rejected === 1
-			? content.signers.summary.oneRejected(
-					rejectedNames[0],
-				)
-			: content.signers.summary.manyRejected(rejected);
+			? COPY.summary.oneRejected(rejectedNames[0])
+			: COPY.summary.manyRejected(rejected);
 	return `${head} · ${tail}`;
 }
 
@@ -147,8 +144,8 @@ export function rejectionNotice(
 	if (rejected === 0) return null;
 	const who =
 		rejected === 1
-			? content.signers.notice.oneRejected(rejectedNames[0])
-			: content.signers.notice.manyRejected(rejected);
+			? COPY.notice.oneRejected(rejectedNames[0])
+			: COPY.notice.manyRejected(rejected);
 	return canReachThreshold
 		? {
 				tone: 'warning',
@@ -156,7 +153,6 @@ export function rejectionNotice(
 			}
 		: {
 				tone: 'error',
-				message:
-					content.signers.notice.cantReachThreshold(who),
+				message: COPY.notice.cantReachThreshold(who),
 			};
 }

@@ -10,7 +10,8 @@ import { CONFIG } from '../lib/constants';
 
 /** Pass a null message to skip the toast when the caller shows "Copied". */
 export function useCopyToClipboard(
-	successMessage: string | null = content.common.copied,
+	successMessage: string | null = content.common.states
+		.copied,
 ) {
 	const [copied, setCopied] = useState(false);
 

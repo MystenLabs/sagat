@@ -74,7 +74,7 @@ export function CancelProposalModal({
 					onClick={onClose}
 					disabled={isLoading}
 				>
-					{content.proposal.shared.goBack}
+					{content.common.actions.goBack}
 				</Button>
 				<Button
 					variant="destructive"

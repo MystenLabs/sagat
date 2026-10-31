@@ -86,7 +86,7 @@ const addressOf = (publicKey: string) =>
 
 /** A key's label, else its short address. */
 function nameOf(address: string | null, labels: Labels) {
-	if (!address) return content.proposal.shared.unknownKey;
+	if (!address) return content.common.unknownKey;
 	return labels.get(address) || formatAddress(address);
 }
 

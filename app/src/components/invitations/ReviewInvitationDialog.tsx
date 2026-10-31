@@ -30,6 +30,10 @@ import {
 } from '../ui/table';
 import { WeightBar } from './WeightBar';
 
+const ACTIONS = content.common.actions;
+const FIELDS = content.common.fields;
+const COPY = content.invitations;
+
 /**
  * The invitation in full before accepting: the account's setup, its
  * address and every signer with their weight and status. Accepting signs
@@ -84,15 +88,10 @@ export function ReviewInvitationDialog({
 					<>
 						<div className="flex flex-col gap-1 pr-8">
 							<DialogTitle className="text-24 font-bold">
-								{content.invitations.reviewDialog.failedTitle(
-									name,
-								)}
+								{COPY.reviewDialog.failedTitle(name)}
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
-								{
-									content.invitations.reviewDialog
-										.failedDescription
-								}
+								{COPY.reviewDialog.failedDescription}
 							</DialogDescription>
 						</div>
 						<Alert
@@ -100,21 +99,18 @@ export function ReviewInvitationDialog({
 							className="mt-5"
 							data-testid="accept-invitation-error"
 						>
-							{errorMessage(
-								error,
-								content.invitations.walletRejected,
-							)}
+							{errorMessage(error, COPY.walletRejected)}
 						</Alert>
 						<div className="mt-5 flex justify-end gap-2 border-t pt-5">
 							<Button variant="outline" onClick={onBack}>
-								{content.invitations.goBack}
+								{ACTIONS.goBack}
 							</Button>
 							<Button
 								onClick={onAccept}
 								disabled={accepting}
 								data-testid="accept-invitation-button"
 							>
-								{content.common.tryAgain}
+								{ACTIONS.tryAgain}
 							</Button>
 						</div>
 					</>
@@ -122,9 +118,7 @@ export function ReviewInvitationDialog({
 					<>
 						<div className="flex flex-col gap-1 pr-8">
 							<DialogTitle className="text-24 font-bold">
-								{content.invitations.reviewDialog.title(
-									name,
-								)}
+								{COPY.reviewDialog.title(name)}
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
 								{creator ? (
@@ -138,12 +132,9 @@ export function ReviewInvitationDialog({
 										size="inline"
 									/>
 								) : (
-									content.invitations.reviewDialog.someone
+									COPY.reviewDialog.someone
 								)}{' '}
-								{
-									content.invitations.reviewDialog
-										.invitedYou
-								}
+								{COPY.reviewDialog.invitedYou}
 							</DialogDescription>
 						</div>
 
@@ -163,10 +154,7 @@ export function ReviewInvitationDialog({
 
 						<div className="mt-5 flex flex-col gap-1">
 							<div className="text-12 text-muted-foreground">
-								{
-									content.invitations.reviewDialog
-										.suiAddress
-								}
+								{FIELDS.suiAddress}
 							</div>
 							<div className="flex items-center gap-2">
 								<span className="min-w-0 flex-1 font-mono text-12 break-all">
@@ -191,22 +179,13 @@ export function ReviewInvitationDialog({
 											#
 										</th>
 										<th className="px-3">
-											{
-												content.invitations.reviewDialog
-													.signerColumn
-											}
+											{FIELDS.signer}
 										</th>
 										<th className="w-15 px-3 text-right">
-											{
-												content.invitations.reviewDialog
-													.weightColumn
-											}
+											{FIELDS.weight}
 										</th>
 										<th className="w-24 px-3">
-											{
-												content.invitations.reviewDialog
-													.statusColumn
-											}
+											{FIELDS.status}
 										</th>
 									</tr>
 								</thead>
@@ -256,9 +235,7 @@ export function ReviewInvitationDialog({
 
 						<p className="mt-4 flex items-start gap-2.5 text-13 text-foreground-secondary">
 							<Info className="mt-0.5 size-4 shrink-0" />
-							<span>
-								{content.invitations.reviewDialog.note}
-							</span>
+							<span>{COPY.reviewDialog.note}</span>
 						</p>
 
 						<div className="mt-5 flex justify-end gap-2 border-t pt-5">
@@ -268,7 +245,7 @@ export function ReviewInvitationDialog({
 								disabled={accepting}
 								data-testid="reject-invitation-open"
 							>
-								{content.invitations.reviewDialog.reject}
+								{ACTIONS.reject}
 							</Button>
 							<Button
 								onClick={onAccept}
@@ -277,8 +254,8 @@ export function ReviewInvitationDialog({
 							>
 								<Check strokeWidth={3} />
 								{accepting
-									? content.invitations.confirmInWallet
-									: content.invitations.reviewDialog.accept}
+									? content.common.states.confirmInWallet
+									: COPY.reviewDialog.accept}
 							</Button>
 						</div>
 					</>

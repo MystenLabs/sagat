@@ -100,7 +100,7 @@ function DialogContent({
 					>
 						<XIcon />
 						<span className="sr-only">
-							{content.common.close}
+							{content.common.actions.close}
 						</span>
 					</DialogPrimitive.Close>
 				)}
@@ -144,7 +144,7 @@ function DialogFooter({
 				<DialogPrimitive.Close
 					render={<Button variant="outline" />}
 				>
-					{content.common.close}
+					{content.common.actions.close}
 				</DialogPrimitive.Close>
 			)}
 		</div>

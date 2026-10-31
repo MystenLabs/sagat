@@ -25,6 +25,8 @@ import {
 	ToolCard,
 } from './parts';
 
+const COPY = content.tools;
+
 interface BroadcastError {
 	/** The node's message, when it sent one. */
 	message?: string;
@@ -66,20 +68,18 @@ function BroadcastResultDisplay({
 			data-testid="broadcast-result"
 			data-digest={result.digest}
 		>
-			<Alert variant="success">
-				{content.tools.broadcast.sent}
-			</Alert>
+			<Alert variant="success">{COPY.broadcast.sent}</Alert>
 			<ReadOnlyField
-				label={content.tools.transactionDigest}
+				label={COPY.transactionDigest}
 				value={result.digest}
 			/>
 			<ResultActions
 				onReset={onReset}
-				resetLabel={content.tools.broadcast.another}
+				resetLabel={COPY.broadcast.another}
 				resetTestId="broadcast-reset-button"
 				explorerUrl={explorerUrl}
 				copyValue={result.digest}
-				copyLabel={content.tools.copyDigest}
+				copyLabel={COPY.copyDigest}
 				copyMessage={content.toasts.digestCopied}
 			/>
 		</div>
@@ -183,11 +183,11 @@ export default function BroadcastTool() {
 				>
 					<span className="whitespace-pre-wrap">
 						{error.network === network
-							? content.tools.broadcast.error(
+							? COPY.broadcast.error(
 									error.message &&
 										safeDecode(error.message),
 								)
-							: content.tools.broadcast.errorOn(
+							: COPY.broadcast.errorOn(
 									error.network,
 									error.message &&
 										safeDecode(error.message),
@@ -199,36 +199,32 @@ export default function BroadcastTool() {
 				<NetworkField />
 				<BytesField
 					id="transaction-bytes"
-					label={content.tools.broadcast.bytesLabel}
+					label={COPY.broadcast.bytesLabel}
 					testId="broadcast-bytes-input"
-					placeholder={
-						content.tools.broadcast.bytesPlaceholder
-					}
+					placeholder={COPY.broadcast.bytesPlaceholder}
 					minHeight="min-h-30"
 					value={transactionBytes}
 					onChange={edit(setTransactionBytes)}
 					readOnly={!!result || broadcasting}
 					error={
 						bytesUnreadable
-							? content.tools.broadcast.bytesUnreadable
+							? COPY.broadcast.bytesUnreadable
 							: undefined
 					}
 					errorTestId="broadcast-bytes-error"
 				/>
 				<BytesField
 					id="signature"
-					label={content.tools.broadcast.signatureLabel}
+					label={COPY.broadcast.signatureLabel}
 					testId="broadcast-signature-input"
-					placeholder={
-						content.tools.broadcast.signaturePlaceholder
-					}
+					placeholder={COPY.broadcast.signaturePlaceholder}
 					minHeight="min-h-24"
 					value={signature}
 					onChange={edit(setSignature)}
 					readOnly={!!result || broadcasting}
 					error={
 						signatureUnreadable
-							? content.tools.broadcast.signatureUnreadable
+							? COPY.broadcast.signatureUnreadable
 							: undefined
 					}
 					errorTestId="broadcast-signature-error"
@@ -250,8 +246,8 @@ export default function BroadcastTool() {
 						>
 							<Radio />
 							{broadcasting
-								? content.tools.broadcast.broadcasting
-								: content.tools.broadcast.submit}
+								? COPY.broadcast.broadcasting
+								: COPY.broadcast.submit}
 						</Button>
 					</ToolActions>
 				)}

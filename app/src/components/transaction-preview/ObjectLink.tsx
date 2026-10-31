@@ -14,6 +14,8 @@ import { content } from '@/content';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl } from '@/lib/utils';
 
+const COPY = content.transactionPreview.owner;
+
 type OwnerDisplay =
 	string | { address: string } | { object: string };
 
@@ -22,9 +24,9 @@ const getOwnerDisplay = (
 ): OwnerDisplay => {
 	switch (owner.$kind) {
 		case 'Immutable':
-			return content.transactionPreview.owner.immutable;
+			return COPY.immutable;
 		case 'Shared':
-			return content.transactionPreview.owner.shared;
+			return COPY.shared;
 		case 'AddressOwner':
 			return { address: owner.AddressOwner };
 		case 'ObjectOwner':
@@ -32,9 +34,9 @@ const getOwnerDisplay = (
 		case 'ConsensusAddressOwner':
 			return { object: owner.ConsensusAddressOwner?.owner };
 		case 'Unknown':
-			return content.transactionPreview.owner.unknown;
+			return COPY.unknown;
 		default:
-			return content.transactionPreview.owner.parseFailed;
+			return COPY.parseFailed;
 	}
 };
 
@@ -92,7 +94,7 @@ export function ObjectLink({
 		'address' in ownerDisplay &&
 		isSameAddress(objectId, senderAddress)
 	) {
-		display = content.transactionPreview.owner.sender;
+		display = COPY.sender;
 	}
 
 	const link = objectId

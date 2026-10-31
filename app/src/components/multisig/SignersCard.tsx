@@ -56,10 +56,10 @@ export function SignersCard({
 				<thead>
 					<tr className={tableHeadRowClass}>
 						<th className="px-3">
-							{content.signers.columns.signer}
+							{content.common.fields.signer}
 						</th>
 						<th className="w-12 px-3 sm:w-16">
-							{content.signers.columns.weight}
+							{content.common.fields.weight}
 						</th>
 						<th className="w-24 px-3 sm:w-26">
 							{content.signers.columns.invitation}

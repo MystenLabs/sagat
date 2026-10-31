@@ -36,6 +36,8 @@ import { cn } from '@/lib/utils';
 
 import { NumberStepper } from './parts';
 
+const COPY = content.createMultisig;
+
 const LABEL_MAX = CONFIG.MAX_KEY_LABEL_LENGTH;
 // The label counter shows from here on.
 const LABEL_NEAR = LABEL_MAX - 8;
@@ -98,7 +100,7 @@ export function SignerRow({
 									{...listeners}
 								/>
 							}
-							aria-label={content.createMultisig.signerRow.dragLabel(
+							aria-label={COPY.signerRow.dragLabel(
 								index + 1,
 							)}
 							className="-ml-1 flex cursor-grab touch-none items-center rounded-sm p-0.5 text-muted-foreground/70 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
@@ -107,7 +109,7 @@ export function SignerRow({
 							<GripVertical className="size-4" />
 						</TooltipTrigger>
 						<TooltipContent>
-							{content.createMultisig.signerRow.drag}
+							{COPY.signerRow.drag}
 						</TooltipContent>
 					</Tooltip>
 					{index + 1}
@@ -120,14 +122,10 @@ export function SignerRow({
 					}
 					placeholder={
 						creator
-							? content.createMultisig.signerRow
-									.yourNamePlaceholder
-							: content.createMultisig.signerRow
-									.namePlaceholder
+							? COPY.signerRow.yourNamePlaceholder
+							: COPY.signerRow.namePlaceholder
 					}
-					aria-label={content.createMultisig.signerRow.nameLabel(
-						index + 1,
-					)}
+					aria-label={COPY.signerRow.nameLabel(index + 1)}
 					aria-invalid={
 						check.labelTooLong ||
 						check.labelInvalid ||
@@ -151,16 +149,14 @@ export function SignerRow({
 				    third line of their own, under a "Weight" label. */}
 				<div className="order-last flex w-full items-center gap-2.5 @xl/card:contents">
 					<span className="mr-auto text-12 text-muted-foreground @xl/card:hidden">
-						{content.createMultisig.fields.weight}
+						{content.common.fields.weight}
 					</span>
 					<NumberStepper
 						value={signer.weight}
 						min={1}
 						max={CONFIG.MAX_WEIGHT}
 						onChange={(weight) => onChange({ weight })}
-						label={content.createMultisig.signerRow.weightLabel(
-							index + 1,
-						)}
+						label={COPY.signerRow.weightLabel(index + 1)}
 						size="sm"
 						testId="create-signer-weight"
 					/>
@@ -173,7 +169,7 @@ export function SignerRow({
 					) : (
 						<Tooltip>
 							<TooltipTrigger
-								aria-label={content.createMultisig.signerRow.removeLabel(
+								aria-label={COPY.signerRow.removeLabel(
 									index + 1,
 								)}
 								onClick={onRemove}
@@ -183,7 +179,7 @@ export function SignerRow({
 								<Trash2 className="size-3.5" />
 							</TooltipTrigger>
 							<TooltipContent>
-								{content.createMultisig.signerRow.remove}
+								{COPY.signerRow.remove}
 							</TooltipContent>
 						</Tooltip>
 					)}
@@ -231,12 +227,8 @@ function KeyField({
 				value={signer.key}
 				readOnly={creator}
 				onChange={(e) => onChange(e.target.value)}
-				placeholder={
-					content.createMultisig.signerRow.keyPlaceholder
-				}
-				aria-label={content.createMultisig.signerRow.keyLabel(
-					index + 1,
-				)}
+				placeholder={COPY.signerRow.keyPlaceholder}
+				aria-label={COPY.signerRow.keyLabel(index + 1)}
 				aria-invalid={
 					status.kind === 'error' ||
 					status.kind === 'no-key'
@@ -258,9 +250,7 @@ function KeyField({
 				) : signer.key ? (
 					<Tooltip>
 						<TooltipTrigger
-							aria-label={
-								content.createMultisig.signerRow.clear
-							}
+							aria-label={COPY.signerRow.clear}
 							onClick={() => {
 								onChange('');
 								// The button goes with the key, so focus stays in the row.
@@ -272,7 +262,7 @@ function KeyField({
 							<X className="size-3.5" />
 						</TooltipTrigger>
 						<TooltipContent>
-							{content.createMultisig.signerRow.clear}
+							{COPY.signerRow.clear}
 						</TooltipContent>
 					</Tooltip>
 				) : (
@@ -300,7 +290,7 @@ function StatusLine({
 			className="text-12 text-error-foreground"
 			data-testid="create-signer-label-hint"
 		>
-			{content.createMultisig.labelInvalid}
+			{COPY.labelInvalid}
 		</p>
 	) : check.labelLength >= LABEL_NEAR ? (
 		<p
@@ -312,14 +302,12 @@ function StatusLine({
 			)}
 			data-testid="create-signer-label-hint"
 		>
-			{content.createMultisig.signerRow.labelCount(
+			{COPY.signerRow.labelCount(
 				check.labelLength,
 				LABEL_MAX,
 			)}
 			{check.labelTooLong &&
-				content.createMultisig.signerRow.labelTooLong(
-					LABEL_MAX,
-				)}
+				COPY.signerRow.labelTooLong(LABEL_MAX)}
 		</p>
 	) : null;
 
@@ -330,8 +318,8 @@ function StatusLine({
 				<Check className="size-3 shrink-0 text-success-foreground" />
 				<span className="text-success-foreground">
 					{creator
-						? content.createMultisig.signerRow.yourWallet
-						: content.createMultisig.signerRow.validKey}
+						? COPY.signerRow.yourWallet
+						: COPY.signerRow.validKey}
 				</span>
 				<span
 					aria-hidden
@@ -348,7 +336,7 @@ function StatusLine({
 	else if (status.kind === 'looking-up')
 		line = (
 			<p className="text-12 text-muted-foreground">
-				{content.createMultisig.signerRow.lookingUp}
+				{COPY.signerRow.lookingUp}
 			</p>
 		);
 	else if (

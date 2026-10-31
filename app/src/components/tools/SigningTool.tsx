@@ -54,6 +54,9 @@ import {
 	ToolCard,
 } from './parts';
 
+const COPY = content.tools;
+const TOASTS = content.toasts;
+
 interface SignedResult {
 	digest?: string;
 	signature: string;
@@ -108,7 +111,7 @@ function previewBytes(
 
 const networkWarning = (
 	<Alert variant="warning">
-		{content.tools.sign.networkWarning}
+		{COPY.sign.networkWarning}
 	</Alert>
 );
 
@@ -140,7 +143,7 @@ function PreviewResult({
 		<section className="flex flex-col gap-3">
 			{!withBlock && (
 				<CardHeading
-					title={content.tools.sign.previewTitle}
+					title={content.common.transactionPreview}
 				/>
 			)}
 			{/* Without the preview block, the analyzer shows on its own. */}
@@ -162,7 +165,7 @@ function PreviewResult({
 			>
 				{pending && (
 					<span className="sr-only" role="status">
-						{content.tools.sign.previewing}
+						{COPY.sign.previewing}
 					</span>
 				)}
 				{withBlock ? (
@@ -180,9 +183,7 @@ function PreviewResult({
 					</div>
 				) : (
 					<p className="text-13 whitespace-pre-wrap text-error-foreground">
-						{safeDecode(
-							dryRunError || content.tools.sign.wouldFail,
-						)}
+						{safeDecode(dryRunError || COPY.sign.wouldFail)}
 					</p>
 				)}
 				{!pending && !passed && networkWarning}
@@ -213,7 +214,7 @@ function SignedResultDisplay({
 		>
 			{failure ? (
 				<Alert variant="error">
-					{content.tools.sign.failedPrefix}{' '}
+					{COPY.sign.failedPrefix}{' '}
 					<span
 						className="whitespace-pre-wrap"
 						data-testid="signed-result-error"
@@ -223,37 +224,33 @@ function SignedResultDisplay({
 				</Alert>
 			) : (
 				<Alert variant="success">
-					{digest
-						? content.tools.sign.executed
-						: content.tools.sign.signed}
+					{digest ? COPY.sign.executed : COPY.sign.signed}
 				</Alert>
 			)}
 			{digest ? (
 				<ReadOnlyField
-					label={content.tools.transactionDigest}
+					label={COPY.transactionDigest}
 					value={digest}
 				/>
 			) : (
 				<ReadOnlyField
-					label={content.tools.sign.signatureLabel}
+					label={content.common.fields.signature}
 					value={signature}
 				/>
 			)}
 			<ResultActions
 				onReset={onStartOver}
-				resetLabel={content.tools.sign.startOver}
+				resetLabel={COPY.sign.startOver}
 				resetTestId="start-over-button"
 				explorerUrl={explorerUrl}
 				copyValue={digest ?? signature}
 				copyLabel={
-					digest
-						? content.tools.copyDigest
-						: content.tools.sign.copySignature
+					digest ? COPY.copyDigest : COPY.sign.copySignature
 				}
 				copyMessage={
 					digest
-						? content.toasts.digestCopied
-						: content.toasts.signatureCopied
+						? TOASTS.digestCopied
+						: TOASTS.signatureCopied
 				}
 			/>
 		</div>
@@ -359,7 +356,7 @@ export default function SigningTool() {
 						? {
 								message:
 									failed.effects?.status.error?.message ||
-									content.tools.sign.failedOnChain,
+									COPY.sign.failedOnChain,
 							}
 						: undefined,
 				});
@@ -378,9 +375,7 @@ export default function SigningTool() {
 			}
 		} catch (error) {
 			// The input stays, so the user can retry.
-			toast.error(
-				errorMessage(error, content.toasts.signFailed),
-			);
+			toast.error(errorMessage(error, TOASTS.signFailed));
 		} finally {
 			setIsSigning(false);
 			setIsSigningAndExecuting(false);
@@ -410,14 +405,14 @@ export default function SigningTool() {
 
 	let signNote: string | undefined;
 	if (!currentAccount) {
-		signNote = content.tools.sign.connectWallet;
+		signNote = COPY.sign.connectWallet;
 	} else if (senderMultisig) {
-		signNote = content.tools.sign.thresholdNote(
+		signNote = COPY.sign.thresholdNote(
 			accountName(senderMultisig),
 			thresholdLabel(senderMultisig),
 		);
 	} else if (foreignSender) {
-		signNote = content.tools.sign.foreignSender;
+		signNote = COPY.sign.foreignSender;
 	}
 
 	const showPreview =
@@ -430,17 +425,15 @@ export default function SigningTool() {
 			<NetworkField />
 			<BytesField
 				id="transaction-data"
-				label={content.tools.sign.dataLabel}
+				label={COPY.sign.dataLabel}
 				testId="transaction-data-input"
-				placeholder={content.tools.sign.dataPlaceholder}
+				placeholder={COPY.sign.dataPlaceholder}
 				minHeight="min-h-40"
 				value={transactionData}
 				onChange={handleTransactionDataChange}
 				readOnly={!!signedResult || isSignPending}
 				error={
-					unreadable
-						? content.tools.sign.unreadable
-						: undefined
+					unreadable ? COPY.sign.unreadable : undefined
 				}
 				errorTestId="transaction-data-error"
 			/>
@@ -484,8 +477,8 @@ export default function SigningTool() {
 						>
 							<Send />
 							{isSigningAndExecuting
-								? content.tools.sign.signing
-								: content.tools.sign.signAndExecute}
+								? content.common.states.signing
+								: content.common.actions.signAndExecute}
 						</Button>
 						<Button
 							type="button"
@@ -496,8 +489,8 @@ export default function SigningTool() {
 						>
 							<PenLine />
 							{isSigning
-								? content.tools.sign.signing
-								: content.tools.sign.sign}
+								? content.common.states.signing
+								: COPY.sign.sign}
 						</Button>
 					</ToolActions>
 				)}

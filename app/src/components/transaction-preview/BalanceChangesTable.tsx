@@ -26,6 +26,8 @@ import type {
 } from '@/lib/transaction-preview';
 import { cn } from '@/lib/utils';
 
+const COPY = content.transactionPreview.balances;
+
 const cellClass = 'px-2 py-1.75 sm:px-3';
 
 /** Owner, asset and signed change per row, the gas payer's net gas last. */
@@ -51,13 +53,13 @@ export function BalanceChangesTable({
 						)}
 					>
 						<th className="px-2 sm:px-3">
-							{content.transactionPreview.balances.owner}
+							{content.common.fields.owner}
 						</th>
 						<th className="w-24 px-2 sm:w-50 sm:px-3">
-							{content.transactionPreview.balances.asset}
+							{content.common.fields.asset}
 						</th>
 						<th className="w-24 px-2 text-right sm:w-40 sm:px-3">
-							{content.transactionPreview.balances.change}
+							{COPY.change}
 						</th>
 					</tr>
 				</thead>
@@ -87,10 +89,8 @@ export function BalanceChangesTable({
 								data-testid="transaction-preview-empty"
 							>
 								{status === 'failed'
-									? content.transactionPreview.balances
-											.emptyFailed
-									: content.transactionPreview.balances
-											.empty}
+									? COPY.emptyFailed
+									: COPY.empty}
 							</td>
 						</tr>
 					) : (
@@ -124,9 +124,7 @@ function BalanceRow({
 		decimals: coin?.decimals,
 	});
 	const ownerName = row.gas
-		? content.transactionPreview.balances.gasOwner(
-				row.label ?? formatAddress(row.address),
-			)
+		? COPY.gasOwner(row.label ?? formatAddress(row.address))
 		: row.label;
 	const showAddressLine = !row.gas || !!row.label;
 

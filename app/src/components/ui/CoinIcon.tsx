@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 
 import { SuiLogo } from './SuiLogo';
 
+const COPY = content.shell.controls;
+
 interface CoinIconProps {
 	iconUrl: string | null | undefined;
 	symbol?: string | null;
@@ -79,8 +81,8 @@ function RecognizedBadge({
 				'absolute rounded-full bg-success-foreground text-primary-foreground ring-1 ring-background border border-success-border flex items-center justify-center',
 				badgeClassName,
 			)}
-			title={content.shell.controls.recognizedCoin}
-			aria-label={content.shell.controls.recognizedCoin}
+			title={COPY.recognizedCoin}
+			aria-label={COPY.recognizedCoin}
 		>
 			<Check strokeWidth={3} className={iconClassName} />
 		</span>
@@ -119,7 +121,7 @@ export function CoinIcon({
 					'rounded-full flex items-center justify-center shrink-0 bg-sui/10',
 					className,
 				)}
-				aria-label={content.shell.controls.coinIcon(symbol)}
+				aria-label={COPY.coinIcon(symbol)}
 			>
 				<SuiLogo className={cn(sui, 'w-auto')} />
 				{recognized && (
@@ -163,7 +165,7 @@ export function CoinIcon({
 				'bg-muted',
 				className,
 			)}
-			aria-label={content.shell.controls.coinIcon(symbol)}
+			aria-label={COPY.coinIcon(symbol)}
 		>
 			<Coins
 				className={cn(icon, 'text-muted-foreground')}

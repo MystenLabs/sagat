@@ -41,6 +41,9 @@ import {
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
+const ACTIONS = content.common.actions;
+const COPY = content.switcher;
+
 // The status colours per surface. The sidebar is black in both themes and
 // has its own tokens; the menu is a popover and takes the theme's, with `!`
 // to beat the item's focus rule, which otherwise recolours every descendant.
@@ -244,7 +247,7 @@ export function MultisigSwitcher({
 				>
 					<DropdownMenuGroup>
 						<DropdownMenuLabel>
-							{content.switcher.menuLabel}
+							{COPY.menuLabel}
 						</DropdownMenuLabel>
 						{multisigs.map((m) => {
 							const status = accountStatus(m);
@@ -293,7 +296,7 @@ export function MultisigSwitcher({
 					<DropdownMenuSeparator />
 					<DropdownMenuItem onClick={() => go('/create')}>
 						<Plus />
-						{content.switcher.newMultisig}
+						{ACTIONS.createPod}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
@@ -305,7 +308,7 @@ export function MultisigSwitcher({
 				data-testid="receive-button"
 			>
 				<ArrowDownToLine />
-				{content.switcher.receive}
+				{ACTIONS.receive}
 			</Button>
 			<ReceiveDialog
 				open={receiveOpen}
@@ -331,7 +334,7 @@ export function NoAccountsSwitcher({
 			<SwitcherTile
 				render={
 					<SidebarRailTooltip
-						tooltip={content.switcher.noAccounts}
+						tooltip={COPY.noAccounts}
 						render={<div tabIndex={-1} />}
 					/>
 				}
@@ -340,7 +343,7 @@ export function NoAccountsSwitcher({
 				icon={<Users className="size-4" />}
 			>
 				<span className="truncate text-13 font-medium group-data-[collapsible=icon]:sr-only">
-					{content.switcher.noAccounts}
+					{COPY.noAccounts}
 				</span>
 			</SwitcherTile>
 			<Button
@@ -352,7 +355,7 @@ export function NoAccountsSwitcher({
 				data-testid="create-account-button"
 			>
 				<Plus />
-				{content.switcher.createAccount}
+				{ACTIONS.createPod}
 			</Button>
 		</div>
 	);

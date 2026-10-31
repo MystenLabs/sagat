@@ -24,6 +24,8 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { ProposalPageSkeleton } from './ProposalPageSkeleton';
 import { ProposalView } from './ProposalView';
 
+const COPY = content.proposal;
+
 /**
  * A proposal's page under its account. Waits for the account list like
  * the account pages and, when the account isn't one of the viewer's
@@ -136,15 +138,15 @@ export function ProposalLoadError({
 	return (
 		<div className="page-shell">
 			<PageHeader
-				title={content.proposal.shared.heading}
+				title={COPY.shared.heading}
 				backLink={proposalsPath}
-				backLabel={content.proposal.shared.backLabel}
+				backLabel={COPY.shared.backLabel}
 			/>
 			<ErrorState
-				title={content.proposal.load.failed}
+				title={COPY.load.failed}
 				error={notFound ? undefined : error}
-				fallback={content.proposal.load.notFound}
-				hint={content.proposal.load.hint}
+				fallback={COPY.load.notFound}
+				hint={COPY.load.hint}
 				testId="proposal-detail-error"
 			/>
 		</div>

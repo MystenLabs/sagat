@@ -13,6 +13,9 @@ import {
 	DialogTitle,
 } from '../ui/dialog';
 
+const ACTIONS = content.common.actions;
+const COPY = content.invitations;
+
 /**
  * Rejecting is a signed action, so it asks first, then signs with the
  * wallet right away. A failure stays in the dialog with a way back.
@@ -54,27 +57,21 @@ export function RejectInvitationDialog({
 				{error ? (
 					<>
 						<DialogTitle className="text-16 font-semibold">
-							{content.invitations.rejectDialog.failedTitle}
+							{COPY.rejectDialog.failedTitle}
 						</DialogTitle>
 						<DialogDescription className="mt-2 text-13 text-muted-foreground">
-							{
-								content.invitations.rejectDialog
-									.failedDescription
-							}
+							{COPY.rejectDialog.failedDescription}
 						</DialogDescription>
 						<Alert
 							variant="error"
 							className="mt-4"
 							data-testid="reject-invitation-error"
 						>
-							{errorMessage(
-								error,
-								content.invitations.walletRejected,
-							)}
+							{errorMessage(error, COPY.walletRejected)}
 						</Alert>
 						<div className="mt-5 grid grid-cols-2 gap-2">
 							<Button variant="outline" onClick={onBack}>
-								{content.invitations.goBack}
+								{ACTIONS.goBack}
 							</Button>
 							<Button
 								variant="outlineDestructive"
@@ -82,17 +79,17 @@ export function RejectInvitationDialog({
 								disabled={rejecting}
 								data-testid="reject-invitation-button"
 							>
-								{content.common.tryAgain}
+								{ACTIONS.tryAgain}
 							</Button>
 						</div>
 					</>
 				) : (
 					<>
 						<DialogTitle className="text-16 font-semibold">
-							{content.invitations.rejectDialog.title}
+							{COPY.rejectDialog.title}
 						</DialogTitle>
 						<DialogDescription className="mt-2 text-13 text-muted-foreground">
-							{content.invitations.rejectDialog.description(
+							{COPY.rejectDialog.description(
 								name,
 								creatorName,
 							)}
@@ -103,7 +100,7 @@ export function RejectInvitationDialog({
 								onClick={onClose}
 								disabled={rejecting}
 							>
-								{content.invitations.goBack}
+								{ACTIONS.goBack}
 							</Button>
 							<Button
 								variant="outlineDestructive"
@@ -112,9 +109,8 @@ export function RejectInvitationDialog({
 								data-testid="reject-invitation-button"
 							>
 								{rejecting
-									? content.invitations.confirmInWallet
-									: content.invitations.rejectDialog
-											.confirm}
+									? content.common.states.confirmInWallet
+									: COPY.rejectDialog.confirm}
 							</Button>
 						</div>
 					</>

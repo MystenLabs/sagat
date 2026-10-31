@@ -41,6 +41,7 @@ import {
 import { SignersStep } from './SignersStep';
 
 const STEPS = content.createMultisig.steps;
+const COPY = content.createMultisig;
 
 const newSigner = (id: number): SignerDraft => ({
 	id: `signer-${id}`,
@@ -186,10 +187,7 @@ export function CreateMultisigPage() {
 	};
 
 	const createError = create.error
-		? shownApiError(
-				create.error,
-				content.createMultisig.createFailed,
-			)
+		? shownApiError(create.error, COPY.createFailed)
 		: null;
 
 	// A new step's heading takes focus, so a screen reader starts there.
@@ -204,13 +202,13 @@ export function CreateMultisigPage() {
 
 	return (
 		<WizardPage
-			title={content.createMultisig.title}
+			title={COPY.title}
 			breadcrumb={[
 				{
-					label: content.createMultisig.breadcrumbParent,
+					label: COPY.breadcrumbParent,
 					to: '/',
 				},
-				{ label: content.createMultisig.title },
+				{ label: COPY.title },
 			]}
 			testId="create"
 			steps={STEPS}

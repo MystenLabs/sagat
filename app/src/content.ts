@@ -17,20 +17,72 @@ function signerCount(count: number) {
  */
 export const content = {
 	common: {
-		cancel: 'Cancel',
-		close: 'Close',
-		copy: 'Copy',
-		copied: 'Copied',
-		tryAgain: 'Try again',
-		back: 'Back',
-		continue: 'Continue',
-		viewOnExplorer: 'View on explorer',
+		/** Buttons, links and menu items. */
+		actions: {
+			cancel: 'Cancel',
+			close: 'Close',
+			back: 'Back',
+			continue: 'Continue',
+			goBack: 'Go back',
+			tryAgain: 'Try again',
+			copy: 'Copy',
+			copyAddress: 'Copy address',
+			viewOnExplorer: 'View on explorer',
+			review: 'Review',
+			createPod: 'Create a pod',
+			newProposal: 'New proposal',
+			receive: 'Receive',
+			send: 'Send',
+			remove: 'Remove',
+			reject: 'Reject',
+			loadMore: 'Load more',
+			signAndExecute: 'Sign and execute',
+		},
+		/** Field, row and column labels. */
+		fields: {
+			signer: 'Signer',
+			signers: 'Signers',
+			weight: 'Weight',
+			totalWeight: 'Total weight',
+			yourWeight: 'Your weight',
+			threshold: 'Threshold',
+			suiAddress: 'Sui address',
+			address: 'Address',
+			publicKey: 'Public key',
+			network: 'Network',
+			status: 'Status',
+			owner: 'Owner',
+			asset: 'Asset',
+			balance: 'Balance',
+			type: 'Type',
+			sender: 'Sender',
+			gas: 'Gas',
+			signature: 'Signature',
+			actions: 'Actions',
+		},
+		/** Progress, status and loading lines. */
+		states: {
+			copied: 'Copied',
+			loadingPod: 'Loading pod',
+			loadingMore: 'Loading…',
+			retrying: 'Trying again…',
+			balancesLoadFailed: 'Failed to load balances',
+			confirmInWallet: 'Confirm in your wallet…',
+			signing: 'Signing…',
+			signed: 'Signed',
+			notSigned: 'Not signed',
+		},
+		unknownKey: 'Unknown key',
+		/** The heading of the wizards' next-steps card. */
+		whatHappensNext: 'What happens next',
+		/** The transaction preview block's name, as heading or region label. */
+		transactionPreview: 'Transaction preview',
 		/** "4 of 7": a threshold against the total weight. */
 		thresholdLabel: (
 			threshold: number,
 			totalWeight: number,
 		) => `${threshold} of ${totalWeight}`,
-		/** The words `joinList` puts before the last item. */
+		/** Conjunctions, such as the word `joinList` puts before the last item. */
 		and: 'and',
 		or: 'or',
 	},
@@ -73,18 +125,13 @@ export const content = {
 	},
 	switcher: {
 		menuLabel: 'Your pods',
-		newMultisig: 'Create a pod',
-		receive: 'Receive',
 		noAccounts: 'No pods yet',
-		createAccount: 'Create a pod',
 	},
 	receive: {
 		title: 'Receive',
 		description: (name: string) =>
 			`Send SUI and tokens to ${name}.`,
-		copyAddress: 'Copy address',
 		qrTitle: (address: string) => `QR code for ${address}`,
-		addressLabel: 'Sui address',
 		note: 'Anyone can send to this address, no approval needed.',
 	},
 	signedOut: {
@@ -112,7 +159,6 @@ export const content = {
 		},
 		walletMenu: {
 			triggerLabel: (label: string) => `Wallet ${label}`,
-			copyAddress: 'Copy address',
 			disconnect: 'Disconnect',
 		},
 	},
@@ -122,7 +168,6 @@ export const content = {
 		emptyTitle: 'You’re not in any pods yet',
 		emptyDescription:
 			'Create a pod to hold funds with other signers, or accept an invitation when someone adds you to theirs.',
-		createAccount: 'Create a pod',
 		viewInvitations: 'View invitations',
 	},
 	network: {
@@ -152,7 +197,6 @@ export const content = {
 		error: {
 			title: 'Something went wrong',
 			fallback: 'Try again in a moment.',
-			retrying: 'Trying again…',
 		},
 		apiUnreachable: {
 			title: 'Can’t reach the service',
@@ -183,13 +227,10 @@ export const content = {
 			invitedBy: 'Invited by',
 			unknownKey: 'an unknown key',
 			rejectedNote: 'You rejected this invitation.',
-			reject: 'Reject',
 			review: 'Review invitation',
 		},
 		/** The error line when the wallet gives no reason. */
 		walletRejected: 'The wallet rejected the request.',
-		goBack: 'Go back',
-		confirmInWallet: 'Confirm in your wallet…',
 		rejectDialog: {
 			failedTitle: 'Couldn’t reject the invitation',
 			failedDescription:
@@ -212,18 +253,11 @@ export const content = {
 			/** Stands in for an unknown creator, before "invited you as a signer." */
 			someone: 'Someone',
 			invitedYou: 'invited you as a signer.',
-			suiAddress: 'Sui address',
-			signerColumn: 'Signer',
-			weightColumn: 'Weight',
-			statusColumn: 'Status',
 			note: 'Check each address before you accept. Accepting doesn’t move funds or cost gas.',
-			reject: 'Reject',
 			accept: 'Accept invitation',
 		},
 		weightBar: {
-			yourWeight: 'Your weight',
 			accepted: 'Accepted weight',
-			threshold: 'Threshold',
 		},
 	},
 	createMultisig: {
@@ -297,14 +331,6 @@ export const content = {
 		/** Labels shared by the steps and the side cards. */
 		fields: {
 			name: 'Name',
-			signer: 'Signer',
-			signers: 'Signers',
-			publicKey: 'Public key',
-			weight: 'Weight',
-			totalWeight: 'Total weight',
-			threshold: 'Threshold',
-			address: 'Address',
-			suiAddress: 'Sui address',
 		},
 
 		nameStep: {
@@ -382,7 +408,6 @@ export const content = {
 		preview: {
 			title: 'Pod preview',
 			notSet: 'Not set',
-			copyAddress: 'Copy address',
 			live: 'Live preview of the current setup',
 			/** "3 (+1 incomplete)". */
 			signersIncomplete: (
@@ -392,7 +417,6 @@ export const content = {
 		},
 
 		nextSteps: {
-			title: 'What happens next',
 			createdTitle: 'The pod is created',
 			createdBody: (name: string) =>
 				`${name} appears in your sidebar.`,
@@ -525,7 +549,6 @@ export const content = {
 			recipient: string,
 		) => `Send ${amount} ${symbol} to ${recipient}`,
 
-		loading: 'Loading pod',
 		title: 'New proposal',
 		breadcrumbProposals: 'Proposals',
 		steps: ['Type', 'Details', 'Review'],
@@ -554,13 +577,11 @@ export const content = {
 		transferStep: {
 			description: (account: string) =>
 				`Send tokens from ${account} to one address.`,
-			assetLabel: 'Asset',
 			amountLabel: 'Amount',
 			amountPlaceholder: '0.00',
 			max: 'Max',
 			recipientLabel: 'To',
 			building: 'Building…',
-			review: 'Review',
 		},
 
 		assetSelect: {
@@ -568,14 +589,12 @@ export const content = {
 			noAssets: 'No assets to send',
 			choose: 'Choose an asset',
 			balance: (amount: string) => `Balance ${amount}`,
-			balanceLabel: 'Balance',
 		},
 
 		bytesStep: {
 			description:
 				'Paste a transaction built somewhere else. Pods reads it and simulates it before anyone signs.',
 			bytesLabel: 'Bytes',
-			review: 'Review',
 		},
 
 		/** The title on the review step. */
@@ -597,15 +616,10 @@ export const content = {
 		from: {
 			title: 'From',
 			account: 'Pod',
-			network: 'Network',
-			threshold: 'Threshold',
-			yourWeight: 'Your weight',
-			gas: 'Gas',
 			gasPaidBy: 'Paid from the pod',
 		},
 
 		nextSteps: {
-			title: 'What happens next',
 			approveTitle: 'Your wallet asks you to approve',
 			approveBody:
 				'Approve the request in your wallet. Nothing is created until you do.',
@@ -663,9 +677,6 @@ export const content = {
 			explorer: 'Explorer',
 		},
 		list: {
-			loadFailed: 'Failed to load balances',
-			loadingMore: 'Loading…',
-			loadMore: 'Load more',
 			emptyTitle: 'No assets yet',
 			emptyDescription:
 				'This pod doesn’t hold any coins yet.',
@@ -677,7 +688,6 @@ export const content = {
 			priceChange24h: (signedPercent: string) =>
 				`(${signedPercent}% 24h)`,
 		},
-		send: 'Send',
 		/** Shown through `newProposal.buildFailed` when a transfer can't build. */
 		transferErrors: {
 			amountNotPositive:
@@ -688,7 +698,6 @@ export const content = {
 	},
 	/** The account pages' shell and the overview tab. */
 	overview: {
-		loading: 'Loading pod',
 		/** The account's pages, by `MULTISIG_PAGES` id: the sidebar items and page titles. */
 		pages: {
 			overview: 'Overview',
@@ -696,7 +705,6 @@ export const content = {
 			assets: 'Assets',
 			signers: 'Members',
 		},
-		newProposal: 'New proposal',
 		joined: (name: string, pendingMembers: number) =>
 			`You joined ${name}.${
 				pendingMembers > 0
@@ -717,8 +725,6 @@ export const content = {
 			excludesUnpriced: (unpriced: number) =>
 				`Excludes ${unpriced} ${unpriced === 1 ? 'token' : 'tokens'} without a price.`,
 			noPrices: 'No prices for the tokens this pod holds.',
-			receive: 'Receive',
-			send: 'Send',
 		},
 
 		tokens: {
@@ -727,13 +733,8 @@ export const content = {
 			pricesUpdated: (when: string) =>
 				`Prices updated ${when}`,
 			viewAll: 'View all assets',
-			loadFailed: 'Failed to load balances',
 			emptyTitle: 'No tokens yet.',
-			asset: 'Asset',
-			balance: 'Balance',
 			value: 'Value',
-			actions: 'Actions',
-			send: 'Send',
 		},
 
 		openProposals: {
@@ -744,9 +745,6 @@ export const content = {
 
 		setup: {
 			title: 'Setup',
-			threshold: 'Threshold',
-			signers: 'Signers',
-			totalWeight: 'Total weight',
 			created: 'Created',
 			createdUnknown: 'Unknown',
 			createdBy: 'Created by',
@@ -781,17 +779,11 @@ export const content = {
 			allDescription:
 				'Proposals show up here when a signer or external proposer creates one.',
 			description: 'Proposals in this state show up here.',
-			newProposal: 'New proposal',
 		},
 		refresh: 'Refresh proposals',
-		loadMore: 'Load more',
-		loadingMore: 'Loading…',
 		table: {
 			proposal: 'Proposal',
-			status: 'Status',
-			weight: 'Weight',
 			proposer: 'Proposer',
-			actions: 'Actions',
 			loadFailed: 'Proposals didn’t load',
 			loadFailedBody:
 				'Pods couldn’t load your proposals. Check your connection and try again.',
@@ -850,8 +842,6 @@ export const content = {
 			execute: 'Execute',
 			executing: 'Executing…',
 			cancelProposal: 'Cancel proposal',
-			goBack: 'Go back',
-			unknownKey: 'Unknown key',
 		},
 		load: {
 			failed: 'Failed to load proposal',
@@ -865,7 +855,6 @@ export const content = {
 		},
 		detail: {
 			export: 'Export',
-			transactionPreview: 'Transaction preview',
 			switchToSeePreview: (network: string) =>
 				`Switch to ${network} to see the transaction preview.`,
 			chainLoadFailed: (message: string) =>
@@ -888,15 +877,11 @@ export const content = {
 			heading: 'Approvals',
 			/** "Threshold 4 of 7". */
 			threshold: (label: string) => `Threshold ${label}`,
-			signed: 'Signed',
-			notSigned: 'Not signed',
 			notNeeded: 'Not needed',
 			executed: 'Executed',
 			gas: (gas: string) => `Gas ${gas}`,
 			executeAfterSigning: 'Execute after signing',
-			signing: 'Signing…',
 			signAnyway: 'Sign anyway',
-			signAndExecute: 'Sign and execute',
 			signProposal: 'Sign proposal',
 			simulating: 'Simulating…',
 			/** The line under the heading. */
@@ -998,11 +983,8 @@ export const content = {
 	signers: {
 		title: 'Signers',
 		columns: {
-			signer: 'Signer',
-			weight: 'Weight',
 			invitation: 'Invitation',
 		},
-		unknownKey: 'Unknown key',
 		markers: {
 			you: { word: 'You', parens: '(you)' },
 			creator: { word: 'Creator', parens: '(creator)' },
@@ -1015,7 +997,6 @@ export const content = {
 		},
 		loadError:
 			'The latest pod details couldn’t be loaded, so this may be out of date.',
-		retrying: 'Trying again…',
 		summary: {
 			bothAccepted: 'Both accepted',
 			allAccepted: (total: number) =>
@@ -1051,17 +1032,13 @@ export const content = {
 		columns: {
 			proposer: 'External proposer',
 			added: 'Added',
-			actions: 'Actions',
 		},
 		addedBy: 'by',
-		removeButton: 'Remove',
 		removeLabel: (address: string) => `Remove ${address}`,
-		confirming: 'Confirm in your wallet…',
 		addDialog: {
 			title: 'Add external proposer',
 			description: (accountName: string) =>
 				`This address can create proposals for ${accountName}. It can’t sign or execute them.`,
-			addressLabel: 'Address',
 			addressPlaceholder: '0x…',
 			submit: 'Add proposer',
 		},
@@ -1070,7 +1047,6 @@ export const content = {
 			/** Follows the proposer's address and a space. */
 			description: (accountName: string) =>
 				`won’t be able to create proposals for ${accountName} anymore.`,
-			confirm: 'Remove',
 		},
 	},
 	tools: {
@@ -1091,7 +1067,6 @@ export const content = {
 					'Send a signed transaction to the Sui network.',
 			},
 		},
-		network: 'Network',
 		transactionDigest: 'Transaction digest',
 		copyDigest: 'Copy digest',
 		signatureAnalyzer: {
@@ -1102,20 +1077,14 @@ export const content = {
 				'Pods can’t read this as a signature. Paste the full signature in base64, the way your wallet or tool exported it.',
 			multisigTitle: 'Pod',
 			multisigAddress: 'Pod address',
-			threshold: 'Threshold',
 			combinedPublicKey: 'Combined public key',
 			signersTitle: (count: number) => `Signers (${count})`,
 			signaturesTitle: (count: number) =>
 				`Signatures (${count})`,
 			signerNumber: (number: number) => `Signer ${number}`,
-			signer: 'Signer',
 			weight: (weight: number) => `Weight ${weight}`,
-			signed: 'Signed',
-			notSigned: 'Not signed',
 			signatureTitle: 'Signature',
 			scheme: 'Scheme',
-			publicKey: 'Public key',
-			signature: 'Signature',
 		},
 		sign: {
 			dataLabel: 'Transaction data',
@@ -1125,7 +1094,6 @@ export const content = {
 				'Pods can’t read this as a transaction. Paste the full data as JSON or base64, and check the network above.',
 			networkWarning:
 				'Make sure the network above matches the transaction.',
-			previewTitle: 'Transaction preview',
 			previewing: 'Previewing transaction…',
 			wouldFail: 'Transaction would fail on-chain',
 			failedPrefix: 'Transaction failed:',
@@ -1134,7 +1102,6 @@ export const content = {
 				'Executed. The network accepted this transaction.',
 			signed:
 				'Signed. Copy the signature and share it with the other signers.',
-			signatureLabel: 'Signature',
 			startOver: 'Start over',
 			copySignature: 'Copy signature',
 			connectWallet:
@@ -1146,8 +1113,6 @@ export const content = {
 				`${accountName}’s threshold is ${threshold}, so it can’t run on your signature alone. Sign to add yours.`,
 			foreignSender:
 				'The sender isn’t your connected wallet, so this can’t run on your signature alone. Sign to add yours.',
-			signing: 'Signing…',
-			signAndExecute: 'Sign and execute',
 			sign: 'Sign',
 		},
 		broadcast: {
@@ -1180,7 +1145,6 @@ export const content = {
 		},
 	},
 	transactionPreview: {
-		heading: 'Transaction preview',
 		views: {
 			simulation: 'Simulation result',
 			chain: 'On-chain result',
@@ -1230,15 +1194,10 @@ export const content = {
 		rawBytesAriaLabel: 'Raw transaction bytes',
 		details: {
 			digest: 'Digest',
-			status: 'Status',
 			error: 'Error',
-			sender: 'Sender',
 			epoch: 'Epoch',
-			gas: 'Gas',
 		},
 		balances: {
-			owner: 'Owner',
-			asset: 'Asset',
 			change: 'Change',
 			emptyFailed:
 				'No balance changes to show. The simulation stopped before the transaction finished.',
@@ -1247,10 +1206,8 @@ export const content = {
 		},
 		events: {
 			empty: 'No events were emitted.',
-			type: 'Type',
 			package: 'Package',
 			module: 'Module',
-			sender: 'Sender',
 			data: 'Data',
 			dataAriaLabel: 'Event data',
 		},
@@ -1265,9 +1222,7 @@ export const content = {
 				transferred: 'Transferred',
 				mutated: 'Mutated',
 			},
-			type: 'Type',
 			objectId: 'Object ID',
-			owner: 'Owner',
 		},
 		owner: {
 			immutable: 'Immutable',
@@ -1289,7 +1244,6 @@ export const content = {
 			} as Record<string, string>,
 			missingInput: 'Missing input',
 			pureBcs: 'Pure (BCS)',
-			or: 'or',
 			objectKinds: {
 				shared: 'Shared',
 				receiving: 'Receiving',
@@ -1305,7 +1259,6 @@ export const content = {
 			amounts: 'Amounts',
 			intoCoin: 'Into coin',
 			fromCoins: 'From coins',
-			type: 'Type',
 			elements: 'Elements',
 		},
 		intent: {

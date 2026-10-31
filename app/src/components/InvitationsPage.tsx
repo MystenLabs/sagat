@@ -13,6 +13,8 @@ import { PageHeader } from './ui/page-header';
 import { SkeletonRows } from './ui/skeleton';
 import { Tabs } from './ui/tabs';
 
+const COPY = content.invitations.page;
+
 type TabType = 'pending' | 'rejected';
 
 /** The invitations inbox: accounts asking the signed-in key to join. */
@@ -36,21 +38,21 @@ export function InvitationsPage() {
 			data-testid="invitations-page"
 		>
 			<PageHeader
-				title={content.invitations.page.title}
-				description={content.invitations.page.description}
+				title={COPY.title}
+				description={COPY.description}
 			/>
 
 			<Tabs
 				tabs={[
 					{
 						id: 'pending',
-						label: content.invitations.page.pendingTab,
+						label: COPY.pendingTab,
 						count: pending.data?.length,
 						countColor: 'gray',
 					},
 					{
 						id: 'rejected',
-						label: content.invitations.page.rejectedTab,
+						label: COPY.rejectedTab,
 					},
 				]}
 				activeTab={activeTab}
@@ -67,7 +69,7 @@ export function InvitationsPage() {
 				/>
 			) : current.isError && !current.data ? (
 				<ErrorState
-					title={content.invitations.page.loadFailed}
+					title={COPY.loadFailed}
 					error={current.error}
 					onRetry={() => current.refetch()}
 					testId="invitations-error"
@@ -78,15 +80,13 @@ export function InvitationsPage() {
 					testId="invitations-empty"
 					title={
 						activeTab === 'pending'
-							? content.invitations.page.emptyPendingTitle
-							: content.invitations.page.emptyRejectedTitle
+							? COPY.emptyPendingTitle
+							: COPY.emptyRejectedTitle
 					}
 					description={
 						activeTab === 'pending'
-							? content.invitations.page
-									.emptyPendingDescription
-							: content.invitations.page
-									.emptyRejectedDescription
+							? COPY.emptyPendingDescription
+							: COPY.emptyRejectedDescription
 					}
 				/>
 			) : (

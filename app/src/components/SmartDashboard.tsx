@@ -14,17 +14,14 @@ import { EmptyState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
 
+const COPY = content.firstUse;
+
 export function SmartDashboard() {
 	const { data: multisigs, isLoading } = useUserMultisigs(); // Only accepted multisigs
 	const currentAccount = useCurrentAccount();
 
 	if (isLoading)
-		return (
-			<SkeletonPage
-				rows={3}
-				message={content.firstUse.loading}
-			/>
-		);
+		return <SkeletonPage rows={3} message={COPY.loading} />;
 
 	// Case 1: User has active multisigs - land on an account's overview
 	if (multisigs?.length && multisigs.length > 0) {
@@ -67,11 +64,11 @@ export function SmartDashboard() {
 			className="page-shell"
 			data-testid="dashboard-empty"
 		>
-			<PageHeader title={content.firstUse.title} />
+			<PageHeader title={COPY.title} />
 			<EmptyState
 				icon={Users}
-				title={content.firstUse.emptyTitle}
-				description={content.firstUse.emptyDescription}
+				title={COPY.emptyTitle}
+				description={COPY.emptyDescription}
 				action={
 					<>
 						<Button
@@ -80,7 +77,7 @@ export function SmartDashboard() {
 							data-testid="create-first-multisig"
 						>
 							<Plus />
-							{content.firstUse.createAccount}
+							{content.common.actions.createPod}
 						</Button>
 						<Button
 							variant="outline"
@@ -89,7 +86,7 @@ export function SmartDashboard() {
 							data-testid="view-invitations"
 						>
 							<Mail />
-							{content.firstUse.viewInvitations}
+							{COPY.viewInvitations}
 						</Button>
 					</>
 				}

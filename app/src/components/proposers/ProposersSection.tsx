@@ -31,6 +31,8 @@ import { cn } from '@/lib/utils';
 import { AddProposerDialog } from './AddProposerDialog';
 import { RemoveProposerDialog } from './RemoveProposerDialog';
 
+const COPY = content.proposers;
+
 /**
  * The account's external proposers as a card: each address with the day it
  * was added and by whom, and a way to remove it, plus a button to add one.
@@ -70,7 +72,7 @@ export function ProposersSection({
 		>
 			<CardHeading
 				id="proposers-title"
-				title={content.proposers.title}
+				title={COPY.title}
 				count={proposers.length}
 			>
 				<Button
@@ -83,7 +85,7 @@ export function ProposersSection({
 					<Plus />
 					{/* Icon only on phones, so the heading row does not wrap. */}
 					<span className="max-sm:sr-only">
-						{content.proposers.addButton}
+						{COPY.addButton}
 					</span>
 				</Button>
 			</CardHeading>
@@ -93,8 +95,7 @@ export function ProposersSection({
 					className="text-13 text-muted-foreground"
 					data-testid="proposers-empty"
 				>
-					{content.proposers.empty}{' '}
-					{content.proposers.explanation}
+					{COPY.empty} {COPY.explanation}
 				</p>
 			) : (
 				<>
@@ -102,14 +103,14 @@ export function ProposersSection({
 						<thead>
 							<tr className={tableHeadRowClass}>
 								<th className="px-3 whitespace-nowrap">
-									{content.proposers.columns.proposer}
+									{COPY.columns.proposer}
 								</th>
 								<th className="w-30 px-3 sm:w-40">
-									{content.proposers.columns.added}
+									{COPY.columns.added}
 								</th>
 								<th className="w-12 px-1.5 sm:w-30 sm:px-3">
 									<span className="sr-only">
-										{content.proposers.columns.actions}
+										{content.common.fields.actions}
 									</span>
 								</th>
 							</tr>
@@ -158,7 +159,7 @@ export function ProposersSection({
 												className="block text-12 break-words text-muted-foreground"
 												data-testid="proposer-added-by"
 											>
-												{content.proposers.addedBy}{' '}
+												{COPY.addedBy}{' '}
 												<MemberName
 													address={proposer.addedBy}
 													label={label}
@@ -176,7 +177,7 @@ export function ProposersSection({
 													);
 													setRemoving(true);
 												}}
-												aria-label={content.proposers.removeLabel(
+												aria-label={COPY.removeLabel(
 													formatAddress(proposer.address),
 												)}
 												data-testid="remove-proposer-button"
@@ -185,7 +186,7 @@ export function ProposersSection({
 												{/* Icon only on phones, where the
 											    address needs the room. */}
 												<span className="max-sm:sr-only">
-													{content.proposers.removeButton}
+													{content.common.actions.remove}
 												</span>
 											</Button>
 										</td>
@@ -195,7 +196,7 @@ export function ProposersSection({
 						</tbody>
 					</table>
 					<p className="text-13 leading-normal text-foreground-secondary">
-						{content.proposers.explanation}
+						{COPY.explanation}
 					</p>
 				</>
 			)}

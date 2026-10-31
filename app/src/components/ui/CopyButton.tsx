@@ -58,7 +58,7 @@ export function CopyButton({
 			className={cn(sizeClasses[size], className)}
 			title={
 				copied
-					? content.common.copied
+					? content.common.states.copied
 					: content.shell.controls.copyToClipboard
 			}
 			{...rest}

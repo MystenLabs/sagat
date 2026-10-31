@@ -51,6 +51,7 @@ import { TransferDetailsStep } from './TransferDetailsStep';
 import { TypeStep } from './TypeStep';
 
 const STEPS = content.newProposal.steps;
+const COPY = content.newProposal;
 
 /**
  * The new-proposal wizard: type, details, review. Waits for the account
@@ -73,7 +74,9 @@ export function NewProposalPage() {
 	// joined), rather than redirecting on the stale list.
 	if (isLoading || (isFetching && !multisig)) {
 		return (
-			<SkeletonPage message={content.newProposal.loading} />
+			<SkeletonPage
+				message={content.common.states.loadingPod}
+			/>
 		);
 	}
 	if (!multisig) return <Navigate to="/" replace />;
@@ -241,9 +244,7 @@ function NewProposalWizard({
 					),
 				onError: (error) => {
 					if (error instanceof SignatureDeclinedError)
-						toast.error(
-							content.newProposal.signatureDeclined,
-						);
+						toast.error(COPY.signatureDeclined);
 				},
 				onSettled: () => {
 					submitting.current = false;
@@ -257,10 +258,7 @@ function NewProposalWizard({
 	const createError =
 		create.error &&
 		!(create.error instanceof SignatureDeclinedError)
-			? shownApiError(
-					create.error,
-					content.newProposal.createFailed,
-				)
+			? shownApiError(create.error, COPY.createFailed)
 			: null;
 
 	const detailsProps = {
@@ -277,13 +275,13 @@ function NewProposalWizard({
 
 	return (
 		<WizardPage
-			title={content.newProposal.title}
+			title={COPY.title}
 			breadcrumb={[
 				{
-					label: content.newProposal.breadcrumbProposals,
+					label: COPY.breadcrumbProposals,
 					to: proposalsLink,
 				},
-				{ label: content.newProposal.title },
+				{ label: COPY.title },
 			]}
 			testId="new-proposal"
 			steps={STEPS}

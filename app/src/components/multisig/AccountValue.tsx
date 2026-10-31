@@ -15,6 +15,8 @@ import { ReceiveDialog } from '../shell/ReceiveDialog';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 
+const COPY = content.overview.value;
+
 /**
  * What the account holds, in USD, with Receive and Send beside it. Only
  * coins with a known price count; the line under the amount says when
@@ -66,7 +68,7 @@ export function AccountValue({
 				data-prices-error={pricesFailed ? '1' : undefined}
 			>
 				<span className="text-13 text-muted-foreground">
-					{content.overview.value.total}
+					{COPY.total}
 				</span>
 				{isLoading ? (
 					<Skeleton className="my-1 h-9 w-48 @3xl:h-10" />
@@ -81,12 +83,10 @@ export function AccountValue({
 				{settled && value.unpriced > 0 && (
 					<span className="text-12 text-muted-foreground">
 						{pricesFailed
-							? content.overview.value.pricesUnavailable
+							? COPY.pricesUnavailable
 							: total != null
-								? content.overview.value.excludesUnpriced(
-										value.unpriced,
-									)
-								: content.overview.value.noPrices}
+								? COPY.excludesUnpriced(value.unpriced)
+								: COPY.noPrices}
 					</span>
 				)}
 			</div>
@@ -96,14 +96,14 @@ export function AccountValue({
 					data-testid="overview-receive-button"
 				>
 					<ArrowDownToLine />
-					{content.overview.value.receive}
+					{content.common.actions.receive}
 				</Button>
 				<Button
 					onClick={onSend}
 					data-testid="overview-send-button"
 				>
 					<Send />
-					{content.overview.value.send}
+					{content.common.actions.send}
 				</Button>
 			</div>
 			<ReceiveDialog

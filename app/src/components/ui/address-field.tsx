@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/tooltip';
 import { content } from '@/content';
 
+const COPY = content.addressField;
+
 /**
  * A Sui address input with a clear button, and under it "Valid Sui
  * address" in green or the caller's error. The caller decides when the
@@ -72,7 +74,7 @@ export function AddressField({
 								render={
 									<InputGroupButton
 										size="icon-xs"
-										aria-label={content.addressField.clear}
+										aria-label={COPY.clear}
 										onClick={() => {
 											onChange('');
 											inputRef.current?.focus();
@@ -84,9 +86,7 @@ export function AddressField({
 							>
 								<X className="size-3.5" />
 							</TooltipTrigger>
-							<TooltipContent>
-								{content.addressField.clear}
-							</TooltipContent>
+							<TooltipContent>{COPY.clear}</TooltipContent>
 						</Tooltip>
 					</InputGroupAddon>
 				)}
@@ -98,7 +98,7 @@ export function AddressField({
 					state={valid ? 'valid' : 'invalid'}
 					testId={statusId}
 				>
-					{valid ? content.addressField.valid : error}
+					{valid ? COPY.valid : error}
 				</FieldStatus>
 			) : (
 				<span id={statusId} hidden />

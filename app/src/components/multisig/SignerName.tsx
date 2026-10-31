@@ -123,7 +123,7 @@ export function SignerName({
 							s.bareAddress,
 						)}
 					>
-						{content.signers.unknownKey}
+						{content.common.unknownKey}
 					</span>
 				)}
 				{markerText}

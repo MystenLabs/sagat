@@ -37,6 +37,9 @@ import {
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
+const TOASTS = content.toasts;
+const COPY = content.signedOut;
+
 interface ApiAuthContextType {
 	// Auth state from API
 	isAuthenticated: boolean;
@@ -224,7 +227,7 @@ export function ApiAuthProvider({
 				if (sessionGeneration.current !== generation)
 					throw new SignInCancelledError();
 				throw new WalletDeclinedError(
-					wallet?.name ?? content.signedOut.unnamedWallet,
+					wallet?.name ?? COPY.unnamedWallet,
 					account.address,
 					error,
 				);
@@ -243,7 +246,7 @@ export function ApiAuthProvider({
 				try {
 					await apiClient.disconnect();
 				} catch {
-					toast.error(content.toasts.lateSignInKeptSession);
+					toast.error(TOASTS.lateSignInKeptSession);
 				}
 				await refetchAuth();
 				throw new SignInCancelledError();
@@ -266,9 +269,7 @@ export function ApiAuthProvider({
 			if (error instanceof SignInCancelledError) return;
 			if (!(error instanceof WalletDeclinedError)) {
 				toast.error(
-					content.toasts.authenticationFailed(
-						error.message,
-					),
+					TOASTS.authenticationFailed(error.message),
 				);
 				return;
 			}
@@ -281,9 +282,7 @@ export function ApiAuthProvider({
 				return;
 			// The wallet stays connected, so Sign in is the retry.
 			if (options?.notice === 'toast')
-				toast.error(
-					content.signedOut.declined(error.wallet),
-				);
+				toast.error(COPY.declined(error.wallet));
 			else setDeclined({ wallet: error.wallet });
 		},
 	});
@@ -296,9 +295,7 @@ export function ApiAuthProvider({
 			await refetchAuth();
 		},
 		onError: (error: Error) => {
-			toast.error(
-				content.toasts.disconnectFailed(error.message),
-			);
+			toast.error(TOASTS.disconnectFailed(error.message));
 		},
 	});
 
@@ -336,9 +333,7 @@ export function ApiAuthProvider({
 				await dappKit.connectWallet({ wallet });
 			} catch {
 				if (notice === 'toast')
-					toast.error(
-						content.signedOut.declined(wallet.name),
-					);
+					toast.error(COPY.declined(wallet.name));
 				else setDeclined({ wallet: wallet.name });
 			}
 		});
@@ -365,8 +360,7 @@ export function ApiAuthProvider({
 		// locally regardless.
 		await dappKit.disconnectWallet();
 		// Only when the sign-out worked, so it never sits beside a failure.
-		if (signedOut)
-			toast.success(content.toasts.walletDisconnected);
+		if (signedOut) toast.success(TOASTS.walletDisconnected);
 	};
 
 	// Stable, so effects can depend on it.

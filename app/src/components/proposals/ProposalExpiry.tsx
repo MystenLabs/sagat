@@ -25,6 +25,8 @@ import {
 	TooltipTrigger,
 } from '../ui/tooltip';
 
+const COPY = content.proposals.expiry;
+
 // How long a proposal's transaction can still execute, if it expires at
 // all: a badge, or with `variant="inline"` plain text for a meta line,
 // after a separator that wraps with it, coloured once less than an hour
@@ -117,22 +119,14 @@ function ExpiryTooltip({
 
 function label({ expired, endsAt }: Expiry, now: Date) {
 	return expired
-		? content.proposals.expiry.expired
-		: content.proposals.expiry.expiresIn(
-				formatTimeLeft(endsAt, now),
-			);
+		? COPY.expired
+		: COPY.expiresIn(formatTimeLeft(endsAt, now));
 }
 
 function explain({ lastEpoch, expired, endsAt }: Expiry) {
-	if (expired)
-		return content.proposals.expiry.expiredExplain(
-			lastEpoch,
-		);
+	if (expired) return COPY.expiredExplain(lastEpoch);
 
-	return content.proposals.expiry.explain(
-		lastEpoch,
-		formatDateTime(endsAt),
-	);
+	return COPY.explain(lastEpoch, formatDateTime(endsAt));
 }
 
 // The current time, updated every minute.

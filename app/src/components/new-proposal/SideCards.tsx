@@ -21,6 +21,8 @@ import { thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
+const FIELDS = content.common.fields;
+
 /** Steps 1 and 2: the account the proposal comes from. */
 export function FromCard({
 	multisig,
@@ -34,17 +36,17 @@ export function FromCard({
 	const copy = content.newProposal.from;
 	const rows: [string, string][] = [
 		[copy.account, accountName(multisig)],
-		[copy.network, networkLabel(network)],
-		[copy.threshold, thresholdLabel(multisig)],
+		[FIELDS.network, networkLabel(network)],
+		[FIELDS.threshold, thresholdLabel(multisig)],
 		...(yourWeight != null
 			? [
-					[copy.yourWeight, String(yourWeight)] as [
+					[FIELDS.yourWeight, String(yourWeight)] as [
 						string,
 						string,
 					],
 				]
 			: []),
-		[copy.gas, copy.gasPaidBy],
+		[FIELDS.gas, copy.gasPaidBy],
 	];
 	return (
 		<section
@@ -117,7 +119,7 @@ export function NextStepsCard({
 		>
 			<CardHeading
 				id="proposal-next-steps-title"
-				title={copy.title}
+				title={content.common.whatHappensNext}
 			/>
 			<Separator />
 			<NumberedSteps items={items} />

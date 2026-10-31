@@ -100,7 +100,7 @@ function SheetContent({
 					>
 						<XIcon />
 						<span className="sr-only">
-							{content.common.close}
+							{content.common.actions.close}
 						</span>
 					</SheetPrimitive.Close>
 				)}

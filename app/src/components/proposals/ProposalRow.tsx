@@ -53,6 +53,10 @@ import { ProposalExpiry } from './ProposalExpiry';
 import { ProposalStatusChip } from './ProposalStatusChip';
 import { ProposalWeight } from './ProposalWeight';
 
+const ACTIONS = content.common.actions;
+const COPY = content.proposals.row;
+const SHARED = content.proposal.shared;
+
 export type ProposalsTableVariant = 'overview' | 'list';
 
 /**
@@ -164,7 +168,7 @@ export function ProposalRow({
 									list ? undefined : 'proposal-proposer'
 								}
 							>
-								{content.proposal.shared.proposedBy}{' '}
+								{SHARED.proposedBy}{' '}
 								{/* The name alone; the address only when unnamed. */}
 								<SignerName
 									label={proposerLabel}
@@ -214,7 +218,7 @@ export function ProposalRow({
 									data-testid="proposal-already-signed"
 								>
 									<span aria-hidden>·</span>
-									{content.proposals.row.youSigned}
+									{COPY.youSigned}
 								</span>
 							)}
 						</span>
@@ -223,7 +227,7 @@ export function ProposalRow({
 								className="text-12 break-words text-error-foreground"
 								data-testid="proposal-execute-error"
 							>
-								{content.proposals.row.executeFailed(
+								{COPY.executeFailed(
 									executing.error.message,
 								)}
 							</span>
@@ -267,13 +271,13 @@ export function ProposalRow({
 							data-testid="execute-proposal-button"
 						>
 							{executing.isPending
-								? content.proposal.shared.executing
-								: content.proposal.shared.execute}
+								? SHARED.executing
+								: SHARED.execute}
 						</Button>
 					)}
 					{explorerIsPrimary && (
 						<IconTooltip
-							label={content.common.viewOnExplorer}
+							label={ACTIONS.viewOnExplorer}
 							// A narrow viewport's table shows the icon alone; stacked rows have room for the label.
 							contentClassName="sm:hidden"
 							trigger={
@@ -288,14 +292,14 @@ export function ProposalRow({
 										}),
 										'max-sm:size-7 max-sm:px-0 @max-md:h-9 @max-md:w-auto @max-md:px-3.5',
 									)}
-									aria-label={content.common.viewOnExplorer}
+									aria-label={ACTIONS.viewOnExplorer}
 									data-testid="view-on-explorer"
 								/>
 							}
 						>
 							<ExternalLink />
 							<span className="hidden sm:inline @max-md:inline">
-								{content.common.viewOnExplorer}
+								{ACTIONS.viewOnExplorer}
 							</span>
 						</IconTooltip>
 					)}
@@ -340,7 +344,7 @@ function RowMenu({
 	return (
 		<DropdownMenu>
 			<IconTooltip
-				label={content.proposals.row.moreActions}
+				label={COPY.moreActions}
 				trigger={
 					<DropdownMenuTrigger
 						className={cn(
@@ -350,7 +354,7 @@ function RowMenu({
 							}),
 							'@max-md:size-9',
 						)}
-						aria-label={content.proposals.row.moreActions}
+						aria-label={COPY.moreActions}
 						data-testid="proposal-actions"
 					/>
 				}
@@ -368,7 +372,7 @@ function RowMenu({
 							data-testid="copy-proposal-link"
 						>
 							<Link2 />
-							{content.proposal.shared.copyLink}
+							{SHARED.copyLink}
 						</DropdownMenuItem>
 					)}
 					<DropdownMenuItem
@@ -376,7 +380,7 @@ function RowMenu({
 						data-testid="export-proposal-button"
 					>
 						<Download />
-						{content.proposals.row.download}
+						{COPY.download}
 					</DropdownMenuItem>
 					{explorerUrl && (
 						<DropdownMenuItem
@@ -390,7 +394,7 @@ function RowMenu({
 							data-testid="view-on-explorer"
 						>
 							<ExternalLink />
-							{content.common.viewOnExplorer}
+							{ACTIONS.viewOnExplorer}
 						</DropdownMenuItem>
 					)}
 				</DropdownMenuGroup>

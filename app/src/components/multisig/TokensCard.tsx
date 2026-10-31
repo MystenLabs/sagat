@@ -41,6 +41,9 @@ import {
 	TooltipTrigger,
 } from '../ui/tooltip';
 
+const FIELDS = content.common.fields;
+const COPY = content.overview.tokens;
+
 /** The overview lists this many tokens; the rest are on the assets tab. */
 export const TOKENS_SHOWN = 5;
 
@@ -71,10 +74,7 @@ export function TokensCard({
 			aria-labelledby="tokens-title"
 			data-testid="tokens"
 		>
-			<CardHeading
-				id="tokens-title"
-				title={content.overview.tokens.title}
-			>
+			<CardHeading id="tokens-title" title={COPY.title}>
 				<div className="ml-auto flex items-center gap-4">
 					{pricesUpdated && (
 						<span className="flex items-center text-12 text-muted-foreground">
@@ -87,10 +87,7 @@ export function TokensCard({
 												size="icon-xs"
 												onClick={assets.refreshPrices}
 												disabled={assets.refreshingPrices}
-												aria-label={
-													content.overview.tokens
-														.refreshPrices
-												}
+												aria-label={COPY.refreshPrices}
 												data-testid="refresh-prices"
 											/>
 										}
@@ -98,14 +95,12 @@ export function TokensCard({
 										<RefreshCw />
 									</TooltipTrigger>
 									<TooltipContent>
-										{content.overview.tokens.refreshPrices}
+										{COPY.refreshPrices}
 									</TooltipContent>
 								</Tooltip>
 							</TooltipProvider>
 							<span data-testid="prices-updated">
-								{content.overview.tokens.pricesUpdated(
-									pricesUpdated,
-								)}
+								{COPY.pricesUpdated(pricesUpdated)}
 							</span>
 						</span>
 					)}
@@ -120,7 +115,7 @@ export function TokensCard({
 						)}
 						data-testid="view-all-assets"
 					>
-						{content.overview.tokens.viewAll}
+						{COPY.viewAll}
 						<ChevronRight className="size-3" />
 					</Link>
 				</div>
@@ -131,7 +126,7 @@ export function TokensCard({
 				// A failed background refetch keeps the loaded rows; a
 				// failed later page would leave them partial.
 				<ErrorState
-					title={content.overview.tokens.loadFailed}
+					title={content.common.states.balancesLoadFailed}
 					error={assets.query.error}
 					onRetry={assets.retry}
 					retrying={assets.query.isFetching}
@@ -141,7 +136,7 @@ export function TokensCard({
 				<EmptyState
 					icon={SuiLogo}
 					iconClassName="bg-sui/10"
-					title={content.overview.tokens.emptyTitle}
+					title={COPY.emptyTitle}
 					testId="tokens-empty"
 				/>
 			) : (
@@ -151,18 +146,16 @@ export function TokensCard({
 						<table className={cn(tableClass, 'min-w-140')}>
 							<thead>
 								<tr className={tableShellHeadRowClass}>
-									<th className="px-3">
-										{content.overview.tokens.asset}
+									<th className="px-3">{FIELDS.asset}</th>
+									<th className="w-36 px-3 text-right">
+										{FIELDS.balance}
 									</th>
 									<th className="w-36 px-3 text-right">
-										{content.overview.tokens.balance}
-									</th>
-									<th className="w-36 px-3 text-right">
-										{content.overview.tokens.value}
+										{COPY.value}
 									</th>
 									<th className="w-28 px-3">
 										<span className="sr-only">
-											{content.overview.tokens.actions}
+											{FIELDS.actions}
 										</span>
 									</th>
 								</tr>
@@ -280,7 +273,7 @@ function TokenRow({
 					data-testid="token-send-button"
 				>
 					<Send />
-					{content.overview.tokens.send}
+					{content.common.actions.send}
 				</Button>
 			</td>
 		</tr>

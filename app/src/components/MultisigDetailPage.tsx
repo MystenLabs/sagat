@@ -79,7 +79,9 @@ export function MultisigDetailPage() {
 	// joined), rather than redirecting on the stale list.
 	if (isLoading || (isFetching && !multisigDetails)) {
 		return (
-			<SkeletonPage message={content.overview.loading} />
+			<SkeletonPage
+				message={content.common.states.loadingPod}
+			/>
 		);
 	}
 
@@ -135,7 +137,7 @@ export function MultisigDetailPage() {
 						data-testid="new-proposal-button"
 					>
 						<Plus />
-						{content.overview.newProposal}
+						{content.common.actions.newProposal}
 					</Button>
 				}
 			/>

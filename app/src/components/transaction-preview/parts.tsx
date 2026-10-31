@@ -17,7 +17,7 @@ export function PreviewHeading({
 	return (
 		<div className="flex flex-wrap items-center justify-between gap-3">
 			<h3 className="text-15 font-medium">
-				{content.transactionPreview.heading}
+				{content.common.transactionPreview}
 			</h3>
 			{actions && (
 				<div className="flex flex-wrap items-center gap-2">

@@ -21,6 +21,8 @@ import {
 } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
 
+const COPY = content.createMultisig.nameStep;
+
 /** Step 1: the name every signer sees in their invitation. */
 export function NameStep({
 	name,
@@ -55,15 +57,11 @@ export function NameStep({
 			data-testid="create-name-step"
 		>
 			<SectionHeading
-				title={content.createMultisig.nameStep.title}
-				description={
-					content.createMultisig.nameStep.description
-				}
+				title={COPY.title}
+				description={COPY.description}
 			/>
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="create-name">
-					{content.createMultisig.nameStep.label}
-				</Label>
+				<Label htmlFor="create-name">{COPY.label}</Label>
 				<Input
 					id="create-name"
 					value={name}
@@ -72,9 +70,7 @@ export function NameStep({
 						onNameChange(e.target.value);
 					}}
 					onBlur={() => touch('name')}
-					placeholder={
-						content.createMultisig.nameStep.placeholder
-					}
+					placeholder={COPY.placeholder}
 					autoFocus
 					aria-invalid={!!shownError}
 					aria-describedby="create-name-hint"
@@ -90,11 +86,7 @@ export function NameStep({
 					)}
 					data-testid="create-name-hint"
 				>
-					{shownError ??
-						content.createMultisig.nameStep.count(
-							length,
-							NAME_MAX,
-						)}
+					{shownError ?? COPY.count(length, NAME_MAX)}
 				</p>
 			</div>
 			<Separator />
@@ -111,7 +103,7 @@ export function NameStep({
 						)}
 						data-testid="create-continue"
 					>
-						{content.common.continue}
+						{content.common.actions.continue}
 					</Button>
 				}
 			/>

@@ -8,6 +8,8 @@ import SignatureAnalyzer from '@/components/tools/SignatureAnalyzer';
 import SigningTool from '@/components/tools/SigningTool';
 import { content } from '@/content';
 
+const COPY = content.tools.pages;
+
 export type Tool = {
 	id: string;
 	name: string;
@@ -20,25 +22,24 @@ export type Tool = {
 export const TOOLS: Tool[] = [
 	{
 		id: 'signature-analyzer',
-		name: content.tools.pages.signatureAnalyzer.name,
-		description:
-			content.tools.pages.signatureAnalyzer.description,
+		name: COPY.signatureAnalyzer.name,
+		description: COPY.signatureAnalyzer.description,
 		icon: <FileText className="size-4" />,
 		component: SignatureAnalyzer,
 		path: '/tools/signature-analyzer',
 	},
 	{
 		id: 'sign',
-		name: content.tools.pages.sign.name,
-		description: content.tools.pages.sign.description,
+		name: COPY.sign.name,
+		description: COPY.sign.description,
 		icon: <PenLine className="size-4" />,
 		component: SigningTool,
 		path: '/tools/sign',
 	},
 	{
 		id: 'broadcast',
-		name: content.tools.pages.broadcast.name,
-		description: content.tools.pages.broadcast.description,
+		name: COPY.broadcast.name,
+		description: COPY.broadcast.description,
 		icon: <Radio className="size-4" />,
 		component: BroadcastTool,
 		path: '/tools/broadcast',

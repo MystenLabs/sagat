@@ -60,6 +60,8 @@ import { cn } from '@/lib/utils';
 import { AssetSelect } from './AssetSelect';
 import { TitleField } from './TitleField';
 
+const COPY = content.newProposal;
+
 /** Step 2 for a transfer: the asset, amount, recipient and title. */
 export function TransferDetailsStep({
 	multisig,
@@ -285,15 +287,15 @@ export function TransferDetailsStep({
 			data-testid="transfer-step"
 		>
 			<SectionHeading
-				title={content.newProposal.types.transfer.title}
-				description={content.newProposal.transferStep.description(
+				title={COPY.types.transfer.title}
+				description={COPY.transferStep.description(
 					accountName(multisig),
 				)}
 			/>
 
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="transfer-asset">
-					{content.newProposal.transferStep.assetLabel}
+					{content.common.fields.asset}
 				</Label>
 				<AssetSelect
 					id="transfer-asset"
@@ -318,7 +320,7 @@ export function TransferDetailsStep({
 						tone="error"
 						testId="transfer-coin-data-error"
 					>
-						{content.newProposal.coinDataFailed}
+						{COPY.coinDataFailed}
 					</Notice>
 				)}
 				{assetError && (
@@ -334,7 +336,7 @@ export function TransferDetailsStep({
 
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="transfer-amount">
-					{content.newProposal.transferStep.amountLabel}
+					{COPY.transferStep.amountLabel}
 				</Label>
 				<InputGroup>
 					<InputGroupInput
@@ -350,8 +352,7 @@ export function TransferDetailsStep({
 						onBlur={() => touch('amount')}
 						disabled={building}
 						placeholder={
-							content.newProposal.transferStep
-								.amountPlaceholder
+							COPY.transferStep.amountPlaceholder
 						}
 						inputMode="decimal"
 						autoComplete="off"
@@ -381,7 +382,7 @@ export function TransferDetailsStep({
 								className="cursor-pointer font-medium"
 								data-testid="transfer-max-button"
 							>
-								{content.newProposal.transferStep.max}
+								{COPY.transferStep.max}
 							</InputGroupButton>
 						</InputGroupAddon>
 					)}
@@ -410,7 +411,7 @@ export function TransferDetailsStep({
 						noticeTestId="transfer-gas-coins-error"
 						retryTestId="transfer-gas-coins-retry"
 					>
-						{content.newProposal.gasCoinsFailed}
+						{COPY.gasCoinsFailed}
 					</RetryNotice>
 				)}
 				{sendsSui && max?.partial && decimals != null && (
@@ -418,7 +419,7 @@ export function TransferDetailsStep({
 						tone="warning"
 						testId="transfer-max-partial"
 					>
-						{content.newProposal.maxPartial(
+						{COPY.maxPartial(
 							formatCoinAmount(
 								max.rawAmount.toString(),
 								decimals,
@@ -431,7 +432,7 @@ export function TransferDetailsStep({
 
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="transfer-recipient">
-					{content.newProposal.transferStep.recipientLabel}
+					{COPY.transferStep.recipientLabel}
 				</Label>
 				<AddressField
 					id="transfer-recipient"
@@ -442,9 +443,7 @@ export function TransferDetailsStep({
 					}}
 					onBlur={() => touch('recipient')}
 					disabled={building}
-					placeholder={
-						content.newProposal.addressPlaceholder
-					}
+					placeholder={COPY.addressPlaceholder}
 					valid={check.recipientValid}
 					error={recipientError}
 				/>
@@ -455,13 +454,13 @@ export function TransferDetailsStep({
 				// Once edited, the field no longer fills itself in.
 				placeholder={
 					title === null
-						? content.newProposal.titlePlaceholderTransfer
-						: content.newProposal.titlePlaceholder
+						? COPY.titlePlaceholderTransfer
+						: COPY.titlePlaceholder
 				}
 				hint={
 					shownTitle.trim()
-						? content.newProposal.titleHintTransfer
-						: content.newProposal.titleHintEmpty
+						? COPY.titleHintTransfer
+						: COPY.titleHintEmpty
 				}
 				error={shownTitleError}
 				onChange={(next) => {
@@ -474,15 +473,13 @@ export function TransferDetailsStep({
 
 			{noGas && (
 				<Notice tone="warning" testId="transfer-no-gas">
-					{content.newProposal.noGas}
+					{COPY.noGas}
 				</Notice>
 			)}
 
 			{build.isError && (
 				<Notice tone="error" testId="transfer-error">
-					{content.newProposal.buildFailed(
-						build.error.message,
-					)}
+					{COPY.buildFailed(build.error.message)}
 				</Notice>
 			)}
 
@@ -500,14 +497,10 @@ export function TransferDetailsStep({
 						data-testid="details-back"
 					>
 						<ArrowLeft />
-						{content.common.back}
+						{content.common.actions.back}
 					</Button>
 				}
-				note={
-					<FooterNote>
-						{content.newProposal.transferNote}
-					</FooterNote>
-				}
+				note={<FooterNote>{COPY.transferNote}</FooterNote>}
 				primary={
 					<Button
 						type="submit"
@@ -519,8 +512,8 @@ export function TransferDetailsStep({
 						data-testid="transfer-review"
 					>
 						{building
-							? content.newProposal.transferStep.building
-							: content.newProposal.transferStep.review}
+							? COPY.transferStep.building
+							: content.common.actions.review}
 					</Button>
 				}
 			/>

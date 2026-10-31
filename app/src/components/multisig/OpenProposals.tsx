@@ -25,6 +25,8 @@ import { ProposalsTable } from '../proposals/ProposalsTable';
 import { buttonVariants } from '../ui/button';
 import { CardHeading } from '../ui/card';
 
+const COPY = content.overview.openProposals;
+
 /** The overview lists this many open proposals; the rest are on the proposals tab. */
 const OPEN_PROPOSALS_SHOWN = 5;
 
@@ -72,7 +74,7 @@ export function OpenProposals({
 		>
 			<CardHeading
 				id="open-proposals-title"
-				title={content.overview.openProposals.title}
+				title={COPY.title}
 			>
 				<Link
 					to={proposalsPath(multisig.address)}
@@ -85,7 +87,7 @@ export function OpenProposals({
 					)}
 					data-testid="view-all-proposals"
 				>
-					{content.overview.openProposals.viewAll}
+					{COPY.viewAll}
 					<ChevronRight className="size-3" />
 				</Link>
 			</CardHeading>
@@ -100,7 +102,7 @@ export function OpenProposals({
 				error={query.data ? null : query.error}
 				onRetry={() => query.refetch()}
 				empty={{
-					title: content.overview.openProposals.emptyTitle,
+					title: COPY.emptyTitle,
 				}}
 				testId="open-proposals"
 			/>

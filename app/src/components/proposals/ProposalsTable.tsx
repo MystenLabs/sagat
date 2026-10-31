@@ -27,6 +27,7 @@ import {
 } from './ProposalRow';
 
 const TABLE = content.proposals.table;
+const FIELDS = content.common.fields;
 
 /**
  * Proposals as a table, for the overview's open proposals and the full
@@ -86,10 +87,10 @@ export function ProposalsTable({
 					<tr className={tableShellHeadRowClass}>
 						<th className="px-3">{TABLE.proposal}</th>
 						<th className="w-20 px-3 sm:w-26">
-							{TABLE.status}
+							{FIELDS.status}
 						</th>
 						<th className="hidden w-32 px-3 sm:table-cell">
-							{TABLE.weight}
+							{FIELDS.weight}
 						</th>
 						{list && (
 							<th className="hidden w-44 px-3 md:table-cell">
@@ -103,7 +104,7 @@ export function ProposalsTable({
 							)}
 						>
 							<span className="sr-only">
-								{TABLE.actions}
+								{FIELDS.actions}
 							</span>
 						</th>
 					</tr>

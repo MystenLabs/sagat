@@ -49,7 +49,7 @@ export function AssetsList({
 	if (query.isError) {
 		return (
 			<ErrorState
-				title={content.assets.list.loadFailed}
+				title={content.common.states.balancesLoadFailed}
 				error={query.error}
 				onRetry={() => query.refetch()}
 				testId="assets-error"
@@ -83,8 +83,8 @@ export function AssetsList({
 						disabled={query.isFetchingNextPage}
 					>
 						{query.isFetchingNextPage
-							? content.assets.list.loadingMore
-							: content.assets.list.loadMore}
+							? content.common.states.loadingMore
+							: content.common.actions.loadMore}
 					</Button>
 				</div>
 			)}
@@ -163,7 +163,7 @@ function EmptyAssetsState({
 						}
 					>
 						<ExternalLink />
-						{content.common.viewOnExplorer}
+						{content.common.actions.viewOnExplorer}
 					</Button>
 				)
 			}

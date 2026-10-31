@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { ObjectLink } from './ObjectLink';
 import { EmptyPanel, Field } from './parts';
 
+const COPY = content.transactionPreview.objects;
+
 type ChipVariant = NonNullable<ChipProps['variant']>;
 
 type ChangeKind = {
@@ -35,22 +37,19 @@ function deriveChangeKind(
 		outputState === 'PackageWrite'
 	) {
 		return {
-			title:
-				content.transactionPreview.objects.kinds.published,
+			title: COPY.kinds.published,
 			variant: 'success',
 		};
 	}
 	if (idOperation === 'Created') {
 		return {
-			title:
-				content.transactionPreview.objects.kinds.created,
+			title: COPY.kinds.created,
 			variant: 'success',
 		};
 	}
 	if (idOperation === 'Deleted') {
 		return {
-			title:
-				content.transactionPreview.objects.kinds.deleted,
+			title: COPY.kinds.deleted,
 			variant: 'error',
 		};
 	}
@@ -59,8 +58,7 @@ function deriveChangeKind(
 		outputState === 'DoesNotExist'
 	) {
 		return {
-			title:
-				content.transactionPreview.objects.kinds.wrapped,
+			title: COPY.kinds.wrapped,
 			variant: 'neutral',
 		};
 	}
@@ -73,14 +71,12 @@ function deriveChangeKind(
 			JSON.stringify(outputOwner)
 	) {
 		return {
-			title:
-				content.transactionPreview.objects.kinds
-					.transferred,
+			title: COPY.kinds.transferred,
 			variant: 'info',
 		};
 	}
 	return {
-		title: content.transactionPreview.objects.kinds.mutated,
+		title: COPY.kinds.mutated,
 		variant: 'warning',
 	};
 }
@@ -150,19 +146,15 @@ export function ObjectChangesList({
 	}, [objects]);
 
 	const [activeFilter, setActiveFilter] = useState<string>(
-		content.transactionPreview.objects.all,
+		COPY.all,
 	);
 
 	if (objects.length === 0) {
-		return (
-			<EmptyPanel>
-				{content.transactionPreview.objects.empty}
-			</EmptyPanel>
-		);
+		return <EmptyPanel>{COPY.empty}</EmptyPanel>;
 	}
 
 	const filtered =
-		activeFilter === content.transactionPreview.objects.all
+		activeFilter === COPY.all
 			? annotated
 			: annotated.filter(
 					({ kind }) => kind.title === activeFilter,
@@ -172,18 +164,11 @@ export function ObjectChangesList({
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-wrap gap-1.5">
 				<FilterPill
-					label={content.transactionPreview.objects.all}
+					label={COPY.all}
 					count={objects.length}
 					variant="neutral"
-					active={
-						activeFilter ===
-						content.transactionPreview.objects.all
-					}
-					onClick={() =>
-						setActiveFilter(
-							content.transactionPreview.objects.all,
-						)
-					}
+					active={activeFilter === COPY.all}
+					onClick={() => setActiveFilter(COPY.all)}
 				/>
 				{[...groups.entries()].map(([title, group]) => (
 					<FilterPill
@@ -212,31 +197,19 @@ export function ObjectChangesList({
 							</Chip>
 						</div>
 						{type && (
-							<Field
-								label={
-									content.transactionPreview.objects.type
-								}
-							>
+							<Field label={content.common.fields.type}>
 								<span className="min-w-0 font-mono text-12 break-all">
 									{prettifyType(type)}
 								</span>
 							</Field>
 						)}
-						<Field
-							label={
-								content.transactionPreview.objects.objectId
-							}
-						>
+						<Field label={COPY.objectId}>
 							<span className="flex min-w-0 items-center font-mono text-12 break-all">
 								<ObjectLink object={object} />
 							</span>
 						</Field>
 						{object.outputOwner && (
-							<Field
-								label={
-									content.transactionPreview.objects.owner
-								}
-							>
+							<Field label={content.common.fields.owner}>
 								<span className="flex min-w-0 items-center font-mono text-12 break-all">
 									<ObjectLink
 										owner={object.outputOwner}

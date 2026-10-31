@@ -19,6 +19,8 @@ import {
 } from '../ui/dialog';
 import { Label } from '../ui/label';
 
+const COPY = content.proposers.addDialog;
+
 /**
  * Asks for the address to add, checks it as it's typed, then signs the
  * addition with the wallet. The field clears whenever the dialog closes;
@@ -61,12 +63,10 @@ export function AddProposerDialog({
 				data-testid="add-proposer-dialog"
 			>
 				<DialogTitle className="text-24 font-bold">
-					{content.proposers.addDialog.title}
+					{COPY.title}
 				</DialogTitle>
 				<DialogDescription className="mt-2 text-14 text-muted-foreground">
-					{content.proposers.addDialog.description(
-						accountName,
-					)}
+					{COPY.description(accountName)}
 				</DialogDescription>
 				<AddressForm
 					key={opening}
@@ -118,7 +118,7 @@ function AddressForm({
 		>
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="add-proposer-address">
-					{content.proposers.addDialog.addressLabel}
+					{content.common.fields.address}
 				</Label>
 				<AddressField
 					id="add-proposer-address"
@@ -129,9 +129,7 @@ function AddressForm({
 					}}
 					onBlur={() => touch('address')}
 					disabled={pending}
-					placeholder={
-						content.proposers.addDialog.addressPlaceholder
-					}
+					placeholder={COPY.addressPlaceholder}
 					valid={status.valid}
 					error={error}
 				/>
@@ -143,7 +141,7 @@ function AddressForm({
 					onClick={onCancel}
 					disabled={pending}
 				>
-					{content.common.cancel}
+					{content.common.actions.cancel}
 				</Button>
 				<Button
 					type="submit"
@@ -151,8 +149,8 @@ function AddressForm({
 					className={disabledButton}
 				>
 					{pending
-						? content.proposers.confirming
-						: content.proposers.addDialog.submit}
+						? content.common.states.confirmInWallet
+						: COPY.submit}
 				</Button>
 			</div>
 		</form>

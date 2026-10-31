@@ -84,7 +84,7 @@ export function WizardPage({
 							data-testid={`${testId}-cancel`}
 						>
 							<X />
-							{content.common.cancel}
+							{content.common.actions.cancel}
 						</Button>
 					}
 				/>

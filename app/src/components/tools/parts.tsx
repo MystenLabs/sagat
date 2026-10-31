@@ -57,7 +57,7 @@ export function NetworkField() {
 	return (
 		<div className="flex flex-col gap-2">
 			<Label htmlFor="tool-network" className="text-14">
-				{content.tools.network}
+				{content.common.fields.network}
 			</Label>
 			<Select
 				value={network}
@@ -243,7 +243,7 @@ export function ResultActions({
 					})}
 				>
 					<ExternalLink />
-					{content.common.viewOnExplorer}
+					{content.common.actions.viewOnExplorer}
 				</a>
 			)}
 			<Button type="button" onClick={() => copy(copyValue)}>

@@ -22,6 +22,8 @@ import {
 	type ProposalType,
 } from '@/lib/new-proposal';
 
+const COPY = content.newProposal;
+
 const ICONS: Record<ProposalType, LucideIcon> = {
 	transfer: Send,
 	bytes: FileCode2,
@@ -49,17 +51,15 @@ export function TypeStep({
 			data-testid="type-step"
 		>
 			<SectionHeading
-				title={content.newProposal.typeStep.title}
-				description={
-					content.newProposal.typeStep.description
-				}
+				title={COPY.typeStep.title}
+				description={COPY.typeStep.description}
 			/>
 			<RadioGroup
 				value={type}
 				onValueChange={(value) =>
 					onTypeChange(value as ProposalType)
 				}
-				aria-label={content.newProposal.typeStep.groupLabel}
+				aria-label={COPY.typeStep.groupLabel}
 				// The cards are buttons, so Enter doesn't submit the form
 				// the way it does on a native radio.
 				onKeyDown={(e) => {
@@ -112,18 +112,14 @@ export function TypeStep({
 			<StepFooter
 				testId="new-proposal"
 				onCancel={onCancel}
-				note={
-					<FooterNote>
-						{content.newProposal.typeNote}
-					</FooterNote>
-				}
+				note={<FooterNote>{COPY.typeNote}</FooterNote>}
 				primary={
 					<Button
 						type="submit"
 						className="w-full sm:w-auto"
 						data-testid="type-continue"
 					>
-						{content.common.continue}
+						{content.common.actions.continue}
 					</Button>
 				}
 			/>

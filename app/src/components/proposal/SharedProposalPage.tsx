@@ -21,6 +21,8 @@ import { ProposalLoadError } from './ProposalPage';
 import { ProposalPageSkeleton } from './ProposalPageSkeleton';
 import { ProposalView } from './ProposalView';
 
+const COPY = content.proposal;
+
 // The public response carries no key labels, so signers go by address.
 const NO_LABELS: Labels = new Map();
 
@@ -42,15 +44,11 @@ export function SharedProposalPage() {
 	if (!digest) {
 		return (
 			<div className="page-shell">
-				<PageHeader
-					title={content.proposal.shared.heading}
-				/>
+				<PageHeader title={COPY.shared.heading} />
 				<EmptyState
 					icon={FileSearch}
-					title={content.proposal.load.missingDigestTitle}
-					description={
-						content.proposal.load.missingDigestDescription
-					}
+					title={COPY.load.missingDigestTitle}
+					description={COPY.load.missingDigestDescription}
 				/>
 			</div>
 		);
