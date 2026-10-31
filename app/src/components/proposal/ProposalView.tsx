@@ -183,16 +183,7 @@ export function ProposalView({
 	const { analyzer, analyzerCount } = analyzerTab(analysis);
 
 	let previewBlock: ReactElement;
-	if (onChain) {
-		previewBlock = (
-			<OnChainCard
-				proposal={proposal}
-				status={status}
-				result={chainResult}
-				error={chain.error?.message ?? null}
-			/>
-		);
-	} else if (mismatch) {
+	if (mismatch) {
 		previewBlock = (
 			<>
 				<PreviewHeading />
@@ -371,7 +362,12 @@ export function ProposalView({
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
 				{onChain ? (
-					previewBlock
+					<OnChainCard
+						proposal={proposal}
+						status={status}
+						result={chainResult}
+						error={chain.error?.message ?? null}
+					/>
 				) : (
 					<section
 						className={cardClass}
