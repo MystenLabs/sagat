@@ -696,6 +696,21 @@ export const content = {
 			priceChange24h: (signedPercent: string) =>
 				`(${signedPercent}% 24h)`,
 		},
+		tokens: {
+			title: 'Tokens',
+			refreshPrices: 'Refresh prices',
+			pricesUpdated: (when: string) =>
+				`Prices updated ${when}`,
+			emptyTitle: 'No tokens yet.',
+			price: 'Price',
+			value: 'Value',
+			noPrice: 'No price',
+			verified: 'Verified',
+			unverified: 'Unverified',
+			unverifiedTokens: 'Unverified tokens',
+			/** The raw on-chain amount, as a tooltip on a balance shown without decimals. */
+			rawAmount: (raw: string) => `${raw} (raw)`,
+		},
 		/** Shown through `newProposal.buildFailed` when a transfer can't build. */
 		transferErrors: {
 			amountNotPositive:
@@ -736,13 +751,7 @@ export const content = {
 		},
 
 		tokens: {
-			title: 'Tokens',
-			refreshPrices: 'Refresh prices',
-			pricesUpdated: (when: string) =>
-				`Prices updated ${when}`,
 			viewAll: 'View all assets',
-			emptyTitle: 'No tokens yet.',
-			value: 'Value',
 		},
 
 		openProposals: {

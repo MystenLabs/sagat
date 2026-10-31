@@ -11,12 +11,10 @@ import { accountName } from '@/lib/account-name';
 import { newProposalPath } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
+import { TOKENS_SHOWN } from '../assets/TokensTable';
 import { AccountValue } from '../multisig/AccountValue';
 import { OpenProposals } from '../multisig/OpenProposals';
-import {
-	TOKENS_SHOWN,
-	TokensCard,
-} from '../multisig/TokensCard';
+import { TokensCard } from '../multisig/TokensCard';
 
 interface OverviewTabContext {
 	multisig: MultisigWithMembersForPublicKey;

@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	formatAddress,
 	normalizeStructTag,
 	normalizeSuiAddress,
+	parseStructTag,
 } from '@mysten/sui/utils';
 
 /** `0x1234...abcdefgh`: this module's own short form, not the SDK's. */
@@ -28,6 +30,44 @@ export function prettifyType(type: string): string {
 		type = type.split(padded).join(short);
 	}
 	return type;
+}
+
+type TypeTag = ReturnType<
+	typeof parseStructTag
+>['typeParams'][number];
+
+/**
+ * A Move type in the asset tables' short form: a system package as `0x2`,
+ * any other as `0xdba3…00e7`, and each type parameter by its struct name
+ * alone (`0x2::coin::TreasuryCap<PUSD>`). The full type sits beside it in
+ * a title or a copy button. Anything that isn't a type comes back as is.
+ */
+export function formatType(type: string): string {
+	try {
+		const { address, module, name, typeParams } =
+			parseStructTag(type);
+		return `${shortPackage(address)}::${module}::${name}${typeParamsLabel(typeParams)}`;
+	} catch {
+		return type;
+	}
+}
+
+function shortPackage(address: string): string {
+	const system = SYSTEM_PACKAGE_MAP.find(
+		([padded]) => padded === address,
+	);
+	return system ? system[1] : formatAddress(address);
+}
+
+function typeParamsLabel(params: TypeTag[]): string {
+	if (params.length === 0) return '';
+	return `<${params
+		.map((param) =>
+			typeof param === 'string'
+				? param
+				: `${param.name}${typeParamsLabel(param.typeParams)}`,
+		)
+		.join(', ')}>`;
 }
 
 /**

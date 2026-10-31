@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
+import { isVerifiedCoin } from '../lib/coinDisplay';
 import {
 	accountAssetsState,
 	coinUsdValue,
@@ -29,6 +30,7 @@ import { useRecognizedCoins } from './useRecognizedCoins';
  * on coin metadata. Display data (with the metadata fallback for coins
  * outside the registry) is fetched only for the first `displayCount`
  * balances and for `coinTypes`; without either `coinData` stays empty.
+ * Pass `Infinity` as `displayCount` for every balance.
  */
 export function useAccountAssets(
 	address: string,
@@ -81,6 +83,11 @@ export function useAccountAssets(
 			});
 		},
 		[recognized.map, network],
+	);
+	const isVerified = useCallback(
+		(coinType: string) =>
+			isVerifiedCoin(coinType, recognized.map),
+		[recognized.map],
 	);
 	const balances = useMemo(
 		() => sortBalances(query.balances, usdValue),
@@ -143,6 +150,10 @@ export function useAccountAssets(
 		/** Whether the display data of `coinType` failed to load. */
 		isCoinDataErrorFor: coinData.isErrorFor,
 		usdValue,
+		/** Whether `coinType` is SUI or a coin the registry recognises. */
+		isVerified,
+		/** The registry, which says which coins are verified, is loading. */
+		verifiedLoading: recognized.isLoading,
 		value,
 		pricesAvailable,
 		...state,
