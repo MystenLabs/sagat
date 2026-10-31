@@ -16,6 +16,8 @@ import { CopyButton } from '../ui/CopyButton';
 import { Skeleton, SkeletonLine } from '../ui/skeleton';
 import { tableRowClass } from '../ui/table';
 
+const COPY = content.assets.objects;
+
 /**
  * One owned object in the objects table, from its view model: an icon
  * tile with its name and subtitle, its type, its id, and a link to it on
@@ -38,9 +40,10 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 		>
 			<td className="px-3 py-2">
 				<div className="flex min-w-0 items-center gap-2.5">
+					{/* Phones leave the tile out, so the subtitle's ids fit. */}
 					<span
 						aria-hidden
-						className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted"
+						className="hidden size-8 shrink-0 items-center justify-center rounded-md bg-muted sm:flex"
 					>
 						<Box className="size-4" />
 					</span>
@@ -56,36 +59,44 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 								className="flex min-w-0 flex-wrap items-center text-12 text-muted-foreground"
 								data-testid="object-subtitle"
 							>
-								{content.assets.objects
-									.subtitle(
-										view.subtitle.map((part) =>
-											part.kind === 'id' ? (
-												<ShortId
-													id={part.id}
-													testId="object-subtitle-id"
-												/>
-											) : (
-												<span className="truncate">
-													{part.text}
-												</span>
-											),
+								{COPY.subtitle(
+									view.subtitle.map((part) =>
+										part.kind === 'id' ? (
+											<span className="inline-flex shrink-0 items-center whitespace-nowrap">
+												{COPY.labelledId(
+													part.label,
+													<ShortId
+														id={part.id}
+														testId="object-subtitle-id"
+													/>,
+												).map((node, i) => (
+													<Fragment key={i}>
+														{node}
+													</Fragment>
+												))}
+											</span>
+										) : (
+											<span className="truncate">
+												{part.text}
+											</span>
 										),
-									)
-									.map((node, i) => (
-										<Fragment key={i}>
-											{typeof node === 'string' ? (
-												<span>{node}</span>
-											) : (
-												node
-											)}
-										</Fragment>
-									))}
+									),
+								).map((node, i) => (
+									<Fragment key={i}>
+										{typeof node === 'string' ? (
+											<span>{node}</span>
+										) : (
+											node
+										)}
+									</Fragment>
+								))}
 							</span>
 						)}
 					</div>
 				</div>
 			</td>
-			<td className="px-3 py-2">
+			{/* Phones leave the type out: the name and subtitle say what it is. */}
+			<td className="hidden px-3 py-2 sm:table-cell">
 				<span
 					className="block truncate font-mono text-12"
 					title={view.type}
@@ -96,7 +107,7 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 			<td className="px-3 py-2">
 				<ShortId id={view.objectId} testId="object-id" />
 			</td>
-			<td className="px-3 py-2 text-right">
+			<td className="hidden px-3 py-2 text-right sm:table-cell">
 				{explorerUrl && (
 					<a
 						href={explorerUrl}
@@ -169,7 +180,7 @@ export function ObjectSkeletonRows({
 		>
 			<td className="px-3 py-2">
 				<div className="flex items-center gap-2.5">
-					<Skeleton className="size-8 shrink-0 rounded-md" />
+					<Skeleton className="hidden size-8 shrink-0 rounded-md sm:block" />
 					<div className="flex flex-col gap-1.5">
 						<SkeletonLine
 							className={i % 2 ? 'w-14' : 'w-18'}
@@ -180,13 +191,13 @@ export function ObjectSkeletonRows({
 					</div>
 				</div>
 			</td>
-			<td className="px-3 py-2">
+			<td className="hidden px-3 py-2 sm:table-cell">
 				<SkeletonLine className={i % 2 ? 'w-36' : 'w-40'} />
 			</td>
 			<td className="px-3 py-2">
 				<SkeletonLine className="w-22" />
 			</td>
-			<td />
+			<td className="hidden sm:table-cell" />
 		</tr>
 	));
 }

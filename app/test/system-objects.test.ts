@@ -101,9 +101,9 @@ describe('objectView', () => {
 			kind: 'upgradeCap',
 			name: 'UpgradeCap',
 			subtitle: [
-				{ kind: 'id', id: PACKAGE },
 				{ kind: 'text', text: 'version 1' },
 				{ kind: 'text', text: 'Compatible' },
+				{ kind: 'id', label: 'package', id: PACKAGE },
 			],
 		});
 	});
@@ -121,7 +121,7 @@ describe('objectView', () => {
 			name: 'Publisher',
 			subtitle: [
 				{ kind: 'text', text: 'vault' },
-				{ kind: 'id', id: PACKAGE },
+				{ kind: 'id', label: 'package', id: PACKAGE },
 			],
 		});
 	});
@@ -137,7 +137,7 @@ describe('objectView', () => {
 		).toEqual({
 			kind: 'kioskOwnerCap',
 			name: 'KioskOwnerCap',
-			subtitle: [{ kind: 'id', id: kiosk }],
+			subtitle: [{ kind: 'id', label: 'kiosk', id: kiosk }],
 		});
 	});
 

@@ -722,10 +722,23 @@ export const content = {
 			previousPage: 'Previous page',
 			nextPage: 'Next page',
 			version: (version: string) => `version ${version}`,
+			/** What an id in a subtitle is, shown before it. */
+			idLabels: {
+				package: 'package',
+				kiosk: 'kiosk',
+			},
 			/**
-			 * An object's subtitle: its parts (a package, `version 1`, a
-			 * policy) with a comma between each. The space is non-breaking,
-			 * so the subtitle's flex row keeps it.
+			 * An id in a subtitle after its label: `package 0x2ad5…4108`.
+			 * The space is non-breaking, so the label stays with its id.
+			 */
+			labelledId: <T>(
+				label: string,
+				id: T,
+			): (T | string)[] => [`${label}\u00a0`, id],
+			/**
+			 * An object's subtitle: its parts (`version 1`, a policy, a
+			 * labelled package) with a comma between each. The space is
+			 * non-breaking, so the subtitle's flex row keeps it.
 			 */
 			subtitle: <T>(parts: readonly T[]): (T | string)[] =>
 				parts.flatMap((part, i) =>

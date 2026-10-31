@@ -154,12 +154,15 @@ export function TokensTable({
 			className={cn(!full && tableShellClass)}
 			data-testid={`${testId}-table`}
 		>
-			{/* Phones scroll the table rather than squeeze the asset. */}
+			{/* Phones show the asset and its balance and scroll to the rest.
+			    They lay the table out by content: a fixed layout leaves the
+			    hidden price column's share empty. */}
 			<div className="relative overflow-x-auto">
 				<table
 					className={cn(
 						tableClass,
-						full ? 'min-w-160' : 'min-w-140',
+						'max-sm:w-max max-sm:table-auto',
+						full ? 'sm:min-w-160' : 'sm:min-w-140',
 					)}
 				>
 					<thead>
@@ -170,12 +173,15 @@ export function TokensTable({
 									: tableShellHeadRowClass
 							}
 						>
-							<th className="px-3">{FIELDS.asset}</th>
-							<th className="w-36 px-3 text-right">
+							<th className="px-3 max-sm:w-48">
+								{FIELDS.asset}
+							</th>
+							<th className="w-36 px-3 text-right max-sm:w-29">
 								{FIELDS.balance}
 							</th>
+							{/* Phones leave the price out, so less scrolls. */}
 							{full && (
-								<th className="w-28 px-3 text-right">
+								<th className="hidden w-28 px-3 text-right sm:table-cell">
 									{COPY.price}
 								</th>
 							)}
@@ -313,9 +319,11 @@ function TokenRow({
 						size="md"
 						className="shrink-0"
 					/>
-					<div className="flex min-w-0 flex-col gap-0.5">
+					{/* The name and type take what the symbol leaves and
+					    truncate: they add nothing to the column's width. */}
+					<div className="flex min-w-0 grow flex-col gap-0.5">
 						<div className="flex min-w-0 items-center gap-1.5">
-							<span className="truncate text-14 font-medium">
+							<span className="shrink-0 text-14 font-medium whitespace-nowrap">
 								{symbol}
 							</span>
 							{verified === true && (
@@ -336,12 +344,12 @@ function TokenRow({
 								</Chip>
 							)}
 							{!sameCoinLabel(symbol, name) && (
-								<span className="truncate text-12 text-muted-foreground">
+								<span className="grow truncate text-12 text-muted-foreground contain-inline-size">
 									{name}
 								</span>
 							)}
 						</div>
-						<span className="flex min-w-0 items-center gap-1">
+						<span className="flex min-w-0 items-center gap-1 contain-inline-size">
 							<span
 								className="truncate font-mono text-11 text-muted-foreground"
 								title={balance.coinType}
@@ -380,7 +388,7 @@ function TokenRow({
 			</td>
 			{showPrice && (
 				<td
-					className="px-3 py-2 text-right text-muted-foreground tabular-nums"
+					className="hidden px-3 py-2 text-right text-muted-foreground tabular-nums sm:table-cell"
 					data-testid="token-price"
 				>
 					{verified === false

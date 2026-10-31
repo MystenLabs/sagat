@@ -104,10 +104,14 @@ const UPGRADE_POLICIES: Record<number, string> = {
 	255: COPY.policy.immutable,
 };
 
-/** A piece of an object's subtitle: text, or an object id to show short. */
+/**
+ * A piece of an object's subtitle: text, or an object id to show short
+ * after its label (`package`, `kiosk`). Ids come last, so their copy
+ * button ends the line.
+ */
 export type SubtitlePart =
 	| { kind: 'text'; text: string }
-	| { kind: 'id'; id: string };
+	| { kind: 'id'; label: string; id: string };
 
 /** An owned object as the objects list shows it. */
 export interface ObjectView {
@@ -131,7 +135,7 @@ export interface OwnedObjectInput {
 /**
  * How the objects list shows `object`. A system object is named by its
  * struct and described from its own content: an UpgradeCap by its
- * package, version and policy, a Publisher by its module and package, a
+ * version, policy and package, a Publisher by its module and package, a
  * KioskOwnerCap by its kiosk, and the caps, metadata and Display of a
  * type by that type (a recognised coin's symbol from `coinSymbol`, else
  * the type in short form). Any other object is named by its Display name, if
@@ -201,13 +205,17 @@ function systemSubtitle(
 		case 'upgradeCap': {
 			const cap = UpgradeCap.parse(required(bytes));
 			return [
-				{ kind: 'id', id: cap.package },
 				{ kind: 'text', text: COPY.version(cap.version) },
 				{
 					kind: 'text',
 					text:
 						UPGRADE_POLICIES[cap.policy] ??
 						COPY.policy.unknown(cap.policy),
+				},
+				{
+					kind: 'id',
+					label: COPY.idLabels.package,
+					id: cap.package,
 				},
 			];
 		}
@@ -217,6 +225,7 @@ function systemSubtitle(
 				{ kind: 'text', text: publisher.module_name },
 				{
 					kind: 'id',
+					label: COPY.idLabels.package,
 					id: normalizeSuiAddress(publisher.package),
 				},
 			];
@@ -225,6 +234,7 @@ function systemSubtitle(
 			return [
 				{
 					kind: 'id',
+					label: COPY.idLabels.kiosk,
 					id: KioskOwnerCap.parse(required(bytes)).for,
 				},
 			];

@@ -193,7 +193,7 @@ export function ObjectsCard({
 								))}
 							</SelectContent>
 						</Select>
-						<InputGroup className="min-w-0 flex-1 sm:w-80">
+						<InputGroup className="min-w-0 sm:w-80 sm:flex-1">
 							<InputGroupAddon>
 								<Search />
 							</InputGroupAddon>
@@ -209,7 +209,7 @@ export function ObjectsCard({
 										: undefined
 								}
 								spellCheck={false}
-								className="font-mono text-12 placeholder:font-sans placeholder:text-13"
+								className="font-mono placeholder:font-sans md:text-12 md:placeholder:text-13"
 								data-testid="objects-filter-input"
 							/>
 							{text && (
@@ -266,20 +266,21 @@ export function ObjectsCard({
 				<>
 					<div className="relative overflow-x-auto">
 						<table
-							className={cn(tableClass, 'min-w-160')}
+							className={cn(tableClass, 'sm:min-w-160')}
 							aria-busy={query.isLoading || undefined}
 							data-testid="objects-table"
 						>
 							<thead>
 								<tr className={tableHeadRowClass}>
 									<th className="px-3">{COPY.object}</th>
-									<th className="w-[30%] px-3">
+									<th className="hidden w-[30%] px-3 sm:table-cell">
 										{content.common.fields.type}
 									</th>
-									<th className="w-40 px-3">
+									<th className="w-32 px-3 sm:w-40">
 										{COPY.objectId}
 									</th>
-									<th className="w-14 px-3">
+									{/* Phones leave the link out: the object id links there too. */}
+									<th className="hidden w-14 px-3 sm:table-cell">
 										<span className="sr-only">
 											{content.common.fields.actions}
 										</span>
