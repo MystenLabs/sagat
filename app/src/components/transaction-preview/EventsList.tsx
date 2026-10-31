@@ -3,10 +3,11 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
+import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Textarea } from '@/components/ui/textarea';
 import { prettifyType } from '@/lib/coin-type';
 
-import { ObjectLink } from './ObjectLink';
+import { OwnerAddress } from './OwnerAddress';
 import { EmptyPanel, Field } from './parts';
 
 /** The events the transaction emits: type, origin and data. */
@@ -36,7 +37,7 @@ export function EventsList({
 					</Field>
 					<Field label="Package">
 						<span className="flex min-w-0 items-center font-mono text-12 break-all">
-							<ObjectLink inputObject={event.packageId} />
+							<ShortAddress address={event.packageId} />
 						</span>
 					</Field>
 					<Field label="Module">
@@ -46,7 +47,7 @@ export function EventsList({
 					</Field>
 					<Field label="Sender">
 						<span className="flex min-w-0 items-center font-mono text-12 break-all">
-							<ObjectLink
+							<OwnerAddress
 								owner={{
 									$kind: 'AddressOwner',
 									AddressOwner: event.sender,

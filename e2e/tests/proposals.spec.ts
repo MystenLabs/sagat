@@ -108,17 +108,27 @@ test.describe('proposals', () => {
 			(3n * MIST_PER_SUI) / 2n,
 		);
 
-		// Alice sees the outcome too, with the chain's result.
+		// Alice sees the outcome too: the transaction card with its digest
+		// in place of the preview. Suiscan doesn't index localnet, so the
+		// card has no explorer button.
 		await alice.page.reload();
 		await expect(alicePage).toHaveAttribute(
 			'data-status',
 			'executed',
 		);
+		const onChain = alicePage.getByTestId(
+			'proposal-on-chain',
+		);
+		await expect(onChain).toHaveAttribute(
+			'data-status',
+			'executed',
+		);
 		await expect(
-			alice
-				.proposalPage(digest!)
-				.getByTestId('transaction-preview-status'),
-		).toHaveAttribute('data-status', 'passed');
+			onChain.getByTestId('proposal-on-chain-digest'),
+		).toHaveText(digest);
+		await expect(
+			onChain.getByTestId('view-on-explorer'),
+		).toHaveCount(0);
 	});
 
 	test('the page shows a co-signer’s signature without a reload', async ({
@@ -395,12 +405,16 @@ test.describe('proposals', () => {
 			card.getByText(/^Proposed by/),
 		).toBeVisible();
 
-		// The row's menu opens over the page and closes on Escape.
+		// The row's menu opens over the page and closes on Escape. Nothing
+		// is on chain yet, so there is nothing to view on the explorer.
 		await card.getByTestId('proposal-actions').click();
 		const copyLink = bob.page.getByTestId(
 			'copy-proposal-link',
 		);
 		await expect(copyLink).toBeVisible();
+		await expect(
+			bob.page.getByTestId('view-on-explorer'),
+		).toBeDisabled();
 		await bob.page.keyboard.press('Escape');
 		await expect(copyLink).toBeHidden();
 

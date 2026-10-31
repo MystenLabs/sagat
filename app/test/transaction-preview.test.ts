@@ -377,19 +377,6 @@ describe('buildTransactionPreview', () => {
 		).toBe(`Mainnet · ${formatDateTime(simulatedAt)}`);
 	});
 
-	test('a result read from the chain says it succeeded and when it was confirmed', () => {
-		const confirmedAt = new Date('2026-10-13T11:24:00Z');
-		const model = preview({
-			source: 'chain',
-			simulatedAt: confirmedAt,
-			result: simulated({ balanceChanges: [] }),
-		});
-		expect(model.statusLabel).toBe('Succeeded');
-		expect(model.statusMeta).toBe(
-			`Confirmed ${formatDateTime(confirmedAt)}`,
-		);
-	});
-
 	test('a refused transaction shows the given error and no run', () => {
 		const model = preview({
 			status: 'failed',

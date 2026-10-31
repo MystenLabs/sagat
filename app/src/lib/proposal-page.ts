@@ -177,7 +177,7 @@ export function approvalRows(
 		});
 }
 
-/** The line under the Approvals heading; null once the proposal closed. */
+/** The line under the Approvals heading; null once cancelled or expired. */
 export function approvalsStatus(
 	proposal: Pick<
 		PageProposal,
@@ -195,6 +195,10 @@ export function approvalsStatus(
 		return `Needs ${proposal.totalWeight - proposal.currentWeight} more weight.`;
 	if (status === 'ready')
 		return 'Threshold reached. Ready to execute.';
+	if (status === 'executed')
+		return 'Threshold reached. Executed.';
+	if (status === 'failed')
+		return 'Threshold reached. Execution failed.';
 	return null;
 }
 
@@ -213,9 +217,12 @@ export function cancelVariant(
 		: 'alone';
 }
 
-/** The dry run's gas as a cost, "0.0041 SUI"; null without a run or for a rebate. */
+/** The gas a dry run or the executed transaction used, as a cost, "0.0041 SUI"; null without one or for a rebate. */
 export function gasEstimate(
-	result: SimulatedTransaction | null | undefined,
+	result:
+		| Pick<SimulatedTransaction, 'effects'>
+		| null
+		| undefined,
 ) {
 	if (!result) return null;
 	const cost = gasCost(result.effects.gasUsed);

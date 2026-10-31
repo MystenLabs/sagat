@@ -16,7 +16,7 @@ import {
 	formatUsdValue,
 } from '../../lib/coins';
 import { cn } from '../../lib/utils';
-import { ObjectLink } from '../transaction-preview/ObjectLink';
+import { ShortAddress } from '../invitations/ShortAddress';
 import { Alert } from '../ui/Alert';
 import { Chip } from '../ui/chip';
 import { CoinIcon } from '../ui/CoinIcon';
@@ -398,8 +398,8 @@ export function IntentSummary({
 													className="flex items-center justify-between gap-2 text-xs"
 												>
 													<span className="flex min-w-0 items-center">
-														<ObjectLink
-															inputObject={objectId}
+														<ShortAddress
+															address={objectId}
 														/>
 													</span>
 													<Chip
