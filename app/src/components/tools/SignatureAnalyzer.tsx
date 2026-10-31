@@ -3,20 +3,33 @@
 
 import {
 	parseSerializedSignature,
+	SIGNATURE_FLAG_TO_SCHEME,
 	toSerializedSignature,
 	type PublicKey,
+	type SignatureFlag,
 	type SignatureScheme,
 } from '@mysten/sui/cryptography';
 import {
 	MultiSigPublicKey,
 	parsePartialSignatures,
 } from '@mysten/sui/multisig';
+import { formatAddress } from '@mysten/sui/utils';
 import { publicKeyFromRawBytes } from '@mysten/sui/verify';
-import { AlertCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
-import { FieldDisplay } from '@/components/ui/FieldDisplay';
-import { Textarea } from '@/components/ui/textarea';
+import { Chip } from '@/components/ui/chip';
+import { CopyButton } from '@/components/ui/CopyButton';
+import { content } from '@/content';
+import { sumWeight, thresholdLabel } from '@/lib/threshold';
+
+import {
+	BytesField,
+	NetworkField,
+	ToolCard,
+} from './parts';
+
+const FIELDS = content.common.fields;
+const COPY = content.tools.signatureAnalyzer;
 
 interface SignaturePubkeyPair {
 	serializedSignature: string;
@@ -33,200 +46,240 @@ interface MultiSigInfo {
 		publicKey: PublicKey;
 		weight: number;
 		suiAddress: string;
-		keyType: string;
+		keyType: SignatureScheme;
 	}[];
 }
 
-// Helper function to determine key type from flag
-function getKeyTypeFromFlag(flag: number): string {
-	switch (flag) {
-		case 0:
-			return 'Ed25519';
-		case 1:
-			return 'Secp256k1';
-		case 2:
-			return 'Secp256r1';
-		case 3:
-			return 'MultiSig';
-		case 5:
-			return 'ZkLogin';
-		default:
-			return `Unknown (${flag})`;
-	}
+/** A value in full, mono, with a copy button beside it, for a list row. */
+function Copyable({ value }: { value: string }) {
+	return (
+		<span className="flex min-w-0 items-center gap-1 font-mono text-12">
+			<span className="min-w-0 break-all">{value}</span>
+			<CopyButton value={value} size="inline" />
+		</span>
+	);
 }
-/*
-MultiSig (v2)
-AwIAvlJnUP0iJFZL+QTxkKC9FHZGwCa5I4TITHS/QDQ12q1sYW6SMt2Yp3PSNzsAay0Fp2MPVohqyyA02UtdQ2RNAQGH0eLk4ifl9h1I8Uc+4QlRYfJC21dUbP8aFaaRqiM/f32TKKg/4PSsGf9lFTGwKsHJYIMkDoqKwI8Xqr+3apQzAwADAFriILSy9l6XfBLt5hV5/1FwtsIsAGFow3tefGGvAYCDAQECHRUjB8a3Kw7QQYsOcM2A5/UpW42G9XItP1IT+9I5TzYCADtqJ7zOtqQtYqOo0CpvDXNlMhV3HeJDpjrASKGLWdopAwMA
-*/
 
-/*
-Single Sig
-AIYbCXAhPmILpWq6xsEY/Nu310Kednlb60Qcd/nD+u2WCXE/FvSXNRUQW9OQKGqt2CeskPyv2SEhaKMZ8gLkdQ8mmO01tDJz7vn6/2dqh+WEcmx7I/NKn8H6ornbk+HM4g==
-*/
-
-function Signature({
-	signature,
-	index,
+/** A titled list of label/value rows. */
+function DetailBlock({
+	title,
+	children,
+	...props
 }: {
-	signature: SignaturePubkeyPair;
-	index: number;
-}) {
-	const suiAddress = signature.publicKey.toSuiAddress();
-	const scheme = signature.signatureScheme.toString();
+	title: string;
+	children: ReactNode;
+} & React.ComponentProps<'section'>) {
+	return (
+		<section className="flex flex-col gap-2" {...props}>
+			<h3 className="text-14 font-medium">{title}</h3>
+			<div className="flex flex-col divide-y rounded-lg border">
+				{children}
+			</div>
+		</section>
+	);
+}
 
+function DetailRow({
+	label,
+	children,
+	...props
+}: {
+	label: ReactNode;
+	children: ReactNode;
+} & React.ComponentProps<'div'>) {
 	return (
 		<div
-			className="bg-card border rounded-lg"
-			data-testid="signature-card"
-			data-address={suiAddress}
-			data-scheme={scheme}
+			className="flex items-center justify-between gap-4 px-3 py-2"
+			{...props}
 		>
-			<div className="p-4 border-b">
-				<h3 className="text-lg font-semibold">
-					Signature #{index}
-				</h3>
-				<p className="text-sm text-muted-foreground">
-					{scheme}
-				</p>
-			</div>
-			<div className="p-4">
-				<div className="space-y-3">
-					<FieldDisplay
-						label="Sui Address"
-						value={suiAddress}
-					/>
-					<FieldDisplay
-						label="Sui Format Public Key ( flag | pk )"
-						value={signature.publicKey.toSuiPublicKey()}
-					/>
-					<FieldDisplay
-						label="Serialized Signature"
-						value={signature.serializedSignature}
-					/>
-					<FieldDisplay
-						label="Public Key"
-						value={signature.publicKey.toBase64()}
-					/>
-				</div>
+			<span className="shrink-0 text-13 text-muted-foreground">
+				{label}
+			</span>
+			<div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 text-right text-13">
+				{children}
 			</div>
 		</div>
+	);
+}
+
+function SchemeChip({ scheme }: { scheme: string }) {
+	return (
+		<Chip variant="tag" className="font-mono">
+			{scheme}
+		</Chip>
 	);
 }
 
 function MultiSigDetails({
 	multisigInfo,
+	signatures,
 }: {
 	multisigInfo: MultiSigInfo;
+	signatures: SignaturePubkeyPair[];
 }) {
+	const address = multisigInfo.publicKey.toSuiAddress();
+	const combinedKey =
+		multisigInfo.publicKey.toSuiPublicKey();
+	const totalWeight = sumWeight(multisigInfo.participants);
+	const signedKeys = new Set(
+		signatures.map((sig) => sig.publicKey.toSuiPublicKey()),
+	);
+	const signerIndex = (suiAddress: string) =>
+		multisigInfo.participants.findIndex(
+			(participant) =>
+				participant.suiAddress === suiAddress,
+		);
+
 	return (
 		<div
-			className="bg-card border border-info-border rounded-lg"
+			className="flex flex-col gap-5"
 			data-testid="multisig-details"
-			data-address={multisigInfo.publicKey.toSuiAddress()}
+			data-address={address}
 			data-threshold={multisigInfo.threshold}
 		>
-			<div className="p-4 border-b border-info-border">
-				<h3 className="text-lg font-semibold">
-					MultiSig Configuration
-				</h3>
-				<p className="text-sm text-muted-foreground">
-					Combined MultiSig Public Key Information
-				</p>
-			</div>
-			<div className="p-4">
-				<div className="space-y-4">
-					<FieldDisplay
-						label="MultiSig Address"
-						value={multisigInfo.publicKey.toSuiAddress()}
-						copyMessage="Copied multisig address to clipboard"
-					/>
-					<FieldDisplay
-						label="MultiSig Public Key"
-						value={multisigInfo.publicKey.toSuiPublicKey()}
-						copyMessage="Copied multisig public key to clipboard"
-					/>
-					<FieldDisplay
-						label="Threshold"
-						value={multisigInfo.threshold}
-						copyable={false}
-					/>
+			<DetailBlock title={COPY.multisigTitle}>
+				<DetailRow label={COPY.multisigAddress}>
+					<Copyable value={address} />
+				</DetailRow>
+				<DetailRow label={FIELDS.threshold}>
+					{thresholdLabel({
+						threshold: multisigInfo.threshold,
+						totalWeight,
+					})}
+				</DetailRow>
+				<DetailRow label={COPY.combinedPublicKey}>
+					<Copyable value={combinedKey} />
+				</DetailRow>
+			</DetailBlock>
 
-					<div className="space-y-1">
-						<div className="text-sm font-medium text-muted-foreground">
-							Participants (
-							{multisigInfo.participants.length})
-						</div>
-						<div className="space-y-3">
-							{multisigInfo.participants.map(
-								(participant, index) => (
-									<div
-										key={index}
-										className="bg-surface rounded-md p-3 border"
-										data-testid="multisig-participant"
-										data-address={participant.suiAddress}
-										data-weight={participant.weight}
+			<DetailBlock
+				title={COPY.signersTitle(
+					multisigInfo.participants.length,
+				)}
+			>
+				{multisigInfo.participants.map(
+					(participant, index) => {
+						const suiPublicKey =
+							participant.publicKey.toSuiPublicKey();
+						const signed = signedKeys.has(suiPublicKey);
+						return (
+							<DetailRow
+								key={index}
+								label={COPY.signerNumber(index + 1)}
+								data-testid="multisig-participant"
+								data-address={participant.suiAddress}
+								data-weight={participant.weight}
+								data-signed={signed}
+							>
+								<Copyable value={participant.suiAddress} />
+								<Copyable value={suiPublicKey} />
+								<SchemeChip scheme={participant.keyType} />
+								<span className="shrink-0 whitespace-nowrap">
+									{COPY.weight(participant.weight)}
+								</span>
+								{signed ? (
+									<Chip variant="success">
+										{content.common.states.signed}
+									</Chip>
+								) : (
+									<Chip
+										variant="tag"
+										className="font-mono text-muted-foreground"
 									>
-										<div className="flex justify-between items-start mb-2">
-											<span className="font-medium text-foreground">
-												Participant #{index + 1}
-											</span>
-											<div className="flex gap-2">
-												<span className="bg-muted text-muted-foreground px-2 py-1 rounded text-xs font-medium">
-													{participant.keyType}
-												</span>
-												<span className="bg-info-soft text-info-foreground px-2 py-1 rounded text-xs font-medium">
-													Weight: {participant.weight}
-												</span>
-											</div>
-										</div>
-										<div className="space-y-2 text-sm">
-											<div className="flex items-center justify-between">
-												<div className="flex-1 min-w-0">
-													<span className="text-muted-foreground">
-														Address:
-													</span>{' '}
-													<span className="font-mono">
-														{participant.suiAddress}
-													</span>
-												</div>
-											</div>
-											<div className="flex items-center justify-between">
-												<div className="flex-1 min-w-0">
-													<span className="text-muted-foreground">
-														Public Key:
-													</span>{' '}
-													<span className="font-mono break-all">
-														{participant.publicKey.toBase64()}
-													</span>
-												</div>
-											</div>
-										</div>
-									</div>
-								),
-							)}
-						</div>
-					</div>
-				</div>
-			</div>
+										{content.common.states.notSigned}
+									</Chip>
+								)}
+							</DetailRow>
+						);
+					},
+				)}
+			</DetailBlock>
+
+			<DetailBlock
+				title={COPY.signaturesTitle(signatures.length)}
+			>
+				{signatures.map((signature, index) => {
+					const suiAddress =
+						signature.publicKey.toSuiAddress();
+					const signer = signerIndex(suiAddress);
+					return (
+						<DetailRow
+							key={index}
+							label={
+								<>
+									{signer >= 0
+										? COPY.signerNumber(signer + 1)
+										: FIELDS.signer}{' '}
+									·{' '}
+									<span className="font-mono text-12">
+										{formatAddress(suiAddress)}
+									</span>
+								</>
+							}
+							data-testid="signature-card"
+							data-address={suiAddress}
+							data-scheme={signature.signatureScheme.toString()}
+						>
+							<Copyable
+								value={signature.serializedSignature}
+							/>
+						</DetailRow>
+					);
+				})}
+			</DetailBlock>
 		</div>
+	);
+}
+
+function SingleSignature({
+	signature,
+}: {
+	signature: SignaturePubkeyPair;
+}) {
+	const suiAddress = signature.publicKey.toSuiAddress();
+	const suiPublicKey = signature.publicKey.toSuiPublicKey();
+
+	return (
+		<DetailBlock
+			title={COPY.signatureTitle}
+			data-testid="signature-card"
+			data-address={suiAddress}
+			data-scheme={signature.signatureScheme.toString()}
+		>
+			<DetailRow label={COPY.scheme}>
+				<SchemeChip scheme={signature.signatureScheme} />
+			</DetailRow>
+			<DetailRow label={FIELDS.signer}>
+				<Copyable value={suiAddress} />
+			</DetailRow>
+			<DetailRow label={FIELDS.publicKey}>
+				<Copyable value={suiPublicKey} />
+			</DetailRow>
+			<DetailRow label={FIELDS.signature}>
+				<Copyable value={signature.serializedSignature} />
+			</DetailRow>
+		</DetailBlock>
 	);
 }
 
 export default function SignatureAnalyzer() {
 	const [signature, setSignature] = useState('');
-	const [error, setError] = useState<Error | null>(null);
+	const [error, setError] = useState(false);
 	const [listSignaturePubKeys, setListSignaturePubkeys] =
 		useState<SignaturePubkeyPair[] | null>(null);
 	const [multisigInfo, setMultisigInfo] =
 		useState<MultiSigInfo | null>(null);
 
-	// Auto-analyze on input change with debounce
-	useEffect(() => {
-		// Clear everything first
-		setError(null);
+	// Every edit clears the last reading; the effect reads the new one.
+	const handleSignatureChange = (value: string) => {
+		setSignature(value);
+		setError(false);
 		setMultisigInfo(null);
 		setListSignaturePubkeys(null);
+	};
 
+	// Auto-analyze on input change with debounce
+	useEffect(() => {
 		// Don't analyze empty input
 		if (!signature.trim()) return;
 
@@ -251,9 +304,9 @@ export default function SignatureAnalyzer() {
 							weight,
 							suiAddress: publicKey.toSuiAddress(),
 							keyType:
-								(publicKey as { keyType?: string })
-									.keyType ||
-								getKeyTypeFromFlag(publicKey.flag()),
+								SIGNATURE_FLAG_TO_SCHEME[
+									publicKey.flag() as SignatureFlag
+								],
 						}));
 
 					// Store multisig information
@@ -283,103 +336,64 @@ export default function SignatureAnalyzer() {
 						}),
 					);
 				} else {
-					// Handle single signatures
-					try {
-						const publicKey = publicKeyFromRawBytes(
-							parsedSignature.signatureScheme,
-							parsedSignature.publicKey,
-						);
+					const publicKey = publicKeyFromRawBytes(
+						parsedSignature.signatureScheme,
+						parsedSignature.publicKey,
+					);
 
-						setListSignaturePubkeys([
-							{
+					setListSignaturePubkeys([
+						{
+							signatureScheme:
+								parsedSignature.signatureScheme,
+							publicKey,
+							signature: parsedSignature.signature,
+							weight: 1,
+							serializedSignature: toSerializedSignature({
 								signatureScheme:
 									parsedSignature.signatureScheme,
-								publicKey,
 								signature: parsedSignature.signature,
-								weight: 1,
-								serializedSignature: toSerializedSignature({
-									signatureScheme:
-										parsedSignature.signatureScheme,
-									signature: parsedSignature.signature,
-									publicKey: publicKey,
-								}),
-							},
-						]);
-					} catch (keyError) {
-						throw new Error(
-							`Failed to parse public key for ${parsedSignature.signatureScheme}: ${keyError instanceof Error ? keyError.message : 'Unknown error'}`,
-						);
-					}
+								publicKey,
+							}),
+						},
+					]);
 				}
-			} catch (e) {
-				setError(
-					e instanceof Error
-						? e
-						: new Error(
-								'Failed to parse signature. Please check the format.',
-							),
-				);
+			} catch {
+				setError(true);
 			}
-		}, 350); // 500ms debounce
+		}, 350);
 
 		return () => clearTimeout(timer);
 	}, [signature]);
 
 	return (
-		<div className="flex flex-col gap-4">
-			<div className="grid w-full gap-1.5">
-				<label className="text-sm font-medium text-muted-foreground">
-					Signature Bytes (base64 encoded)
-				</label>
-				<Textarea
-					rows={4}
-					data-testid="signature-input"
-					value={signature}
-					onChange={(e) => setSignature(e.target.value)}
-					placeholder="Paste your signature bytes here (base64 encoded)..."
-				/>
-			</div>
+		<ToolCard>
+			<NetworkField />
+			<BytesField
+				id="signature-bytes"
+				label={COPY.bytesLabel}
+				testId="signature-input"
+				placeholder={COPY.bytesPlaceholder}
+				minHeight="min-h-30"
+				value={signature}
+				onChange={handleSignatureChange}
+				error={error ? COPY.unreadable : undefined}
+				errorTestId="signature-error"
+			/>
 
-			{error && (
-				<div
-					className="border border-error-border bg-error rounded-lg p-4"
-					data-testid="signature-error"
-				>
-					<div className="flex items-center gap-2 mb-2">
-						<AlertCircle className="w-5 h-5 text-error-foreground" />
-						<h3 className="font-medium text-error-foreground">
-							Error
-						</h3>
-					</div>
-					<p className="text-sm text-error-foreground">
-						{error.message}
-					</p>
-				</div>
+			{multisigInfo && listSignaturePubKeys && (
+				<MultiSigDetails
+					multisigInfo={multisigInfo}
+					signatures={listSignaturePubKeys}
+				/>
 			)}
 
-			<div className="flex flex-col gap-6 mt-6">
-				{multisigInfo && (
-					<MultiSigDetails multisigInfo={multisigInfo} />
+			{!multisigInfo &&
+				listSignaturePubKeys &&
+				listSignaturePubKeys.length > 0 && (
+					<SingleSignature
+						signature={listSignaturePubKeys[0]}
+					/>
 				)}
-
-				{listSignaturePubKeys &&
-					listSignaturePubKeys.length > 0 && (
-						<div className="flex flex-col gap-4">
-							<h3 className="text-2xl font-bold">
-								Signatures
-							</h3>
-							{listSignaturePubKeys.map(
-								(signature, index) => (
-									<Signature
-										key={index}
-										index={index}
-										signature={signature}
-									/>
-								),
-							)}
-						</div>
-					)}
-			</div>
-		</div>
+		</ToolCard>
 	);
 }

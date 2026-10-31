@@ -1,32 +1,28 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { SuiClientTypes } from '@mysten/sui/client';
-import { type ReactNode } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 
 import { cn } from '../../lib/utils';
-import { ObjectLink } from './ObjectLink';
 
 type HeaderProps = {
 	children?: ReactNode;
 };
-type RootProps = {
-	children: ReactNode;
-	className?: string;
-};
+type RootProps = ComponentProps<'div'>;
 
 type BodyProps = {
 	children: ReactNode;
 };
 
-type FooterProps = {
-	children?: ReactNode;
-};
-
 // eslint-disable-next-line react-refresh/only-export-components
-function Root({ children, className }: RootProps) {
+function Root({
+	children,
+	className,
+	...props
+}: RootProps) {
 	return (
 		<div
+			{...props}
 			className={cn(
 				'bg-card border flex flex-col rounded-lg overflow-hidden',
 				className,
@@ -50,46 +46,9 @@ function Header({ children }: HeaderProps) {
 		</div>
 	);
 }
-// eslint-disable-next-line react-refresh/only-export-components
-function Footer({
-	children,
-	owner,
-	senderAddress,
-}: FooterProps & {
-	owner?: SuiClientTypes.ObjectOwner | string;
-	senderAddress?: string;
-}) {
-	return (
-		<div className="mt-auto bg-surface px-3 py-2 text-xs text-muted-foreground border-t">
-			{children}
-			{owner && (
-				<div className="flex items-center justify-between gap-2">
-					<span>Owner</span>
-					<div className="flex items-center gap-1 min-w-0">
-						{typeof owner === 'string' ? (
-							<ObjectLink
-								owner={{
-									$kind: 'AddressOwner',
-									AddressOwner: owner,
-								}}
-								senderAddress={senderAddress}
-							/>
-						) : (
-							<ObjectLink
-								owner={owner}
-								senderAddress={senderAddress}
-							/>
-						)}
-					</div>
-				</div>
-			)}
-		</div>
-	);
-}
 
 export const PreviewCard = {
 	Root,
 	Header,
 	Body,
-	Footer,
 };

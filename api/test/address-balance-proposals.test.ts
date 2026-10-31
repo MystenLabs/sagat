@@ -302,7 +302,7 @@ describe('Address Balance Proposals', () => {
 					'Conflicting address balance proposal',
 				),
 			).rejects.toThrow(
-				`The used objects are: ${sharedCoin.objectId}`,
+				`These owned/receiving objects are already used by pending proposals: ${sharedCoin.objectId}`,
 			);
 		});
 	});

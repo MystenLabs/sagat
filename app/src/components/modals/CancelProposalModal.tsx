@@ -1,7 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { AlertTriangle } from 'lucide-react';
+import { useRef } from 'react';
+
+import { content } from '@/content';
 
 import { Button } from '../ui/button';
 import {
@@ -9,63 +11,74 @@ import {
 	ModalActions,
 	ModalContent,
 	ModalHeader,
-	ModalWarning,
 } from '../ui/modal';
+
+const COPY = content.proposal.cancel;
 
 interface CancelProposalModalProps {
 	open: boolean;
 	onClose: () => void;
 	onConfirm: () => void;
 	isLoading: boolean;
-	proposalId: number;
+	/** The proposal's title, quoted in the body. */
+	title: string;
+	/** `alone` when nobody but the viewer signed it. */
+	variant: 'alone' | 'others';
+	/** The signatures reached the threshold. */
+	ready: boolean;
 }
 
+/**
+ * Asks before cancelling a proposal. It can't close while the wallet is
+ * asked to sign the cancellation.
+ */
 export function CancelProposalModal({
 	open,
 	onClose,
 	onConfirm,
 	isLoading,
-	proposalId,
+	title,
+	variant,
+	ready,
 }: CancelProposalModalProps) {
+	const backRef = useRef<HTMLButtonElement>(null);
 	return (
-		<Modal open={open} onClose={onClose}>
-			<ModalHeader
-				icon={
-					<AlertTriangle className="w-6 h-6 text-warning-foreground" />
-				}
-				title="Cancel Proposal"
-			/>
-
+		<Modal
+			open={open}
+			onClose={() => {
+				if (!isLoading) onClose();
+			}}
+			className="sm:max-w-105"
+			initialFocus={backRef}
+			data-testid="cancel-proposal-dialog"
+			data-variant={variant}
+		>
+			<ModalHeader title={COPY.title} />
 			<ModalContent>
-				<p className="text-muted-foreground">
-					Are you sure you want to cancel proposal #
-					{proposalId}?
+				<p>
+					{variant === 'alone'
+						? COPY.alone(title, ready)
+						: COPY.others(title, ready)}
 				</p>
-
-				<ModalWarning>
-					<strong>Important:</strong> Cancelling this
-					proposal will mark it as cancelled in the system.
-					However, if enough signatures have been collected
-					offline, the transaction could still be executed
-					directly on-chain by anyone with the signatures.
-				</ModalWarning>
 			</ModalContent>
-
 			<ModalActions>
 				<Button
+					ref={backRef}
 					variant="outline"
 					onClick={onClose}
 					disabled={isLoading}
 				>
-					Keep Proposal
+					{content.common.actions.goBack}
 				</Button>
 				<Button
+					variant="destructive"
 					onClick={onConfirm}
 					disabled={isLoading}
-					variant="destructive"
 					data-testid="confirm-cancel-proposal-button"
 				>
-					{isLoading ? 'Cancelling...' : 'Cancel Proposal'}
+					{isLoading
+						? COPY.cancelling
+						: content.proposal.shared.cancelProposal}
 				</Button>
 			</ModalActions>
 		</Modal>

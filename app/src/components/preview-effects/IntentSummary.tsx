@@ -5,22 +5,26 @@ import type {
 	BalanceFlowsResult,
 	TransactionAnalysisIssue,
 } from '@mysten/wallet-sdk';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
+
+import { content } from '@/content';
 
 import { useCoinDisplayDataMap } from '../../hooks/useCoinDisplayData';
 import type { TransactionAnalysis } from '../../hooks/useTransactionAnalysis';
+import { formatCoinType } from '../../lib/coin-type';
 import {
 	coinUsdValue,
 	formatCoinAmount,
 	formatUsdValue,
 } from '../../lib/coins';
 import { cn } from '../../lib/utils';
+import { ShortAddress } from '../invitations/ShortAddress';
 import { Alert } from '../ui/Alert';
+import { Chip } from '../ui/chip';
 import { CoinIcon } from '../ui/CoinIcon';
-import { Label } from '../ui/label';
-import { ObjectLink } from './ObjectLink';
 import { PreviewCard } from './PreviewCard';
-import { formatCoinType } from './utils';
+
+const COPY = content.transactionPreview.intent;
 
 type Flow = BalanceFlowsResult['sender'][number];
 type AccessLevel = 'read' | 'mutate' | 'transfer';
@@ -74,6 +78,31 @@ function collectIssues(
 	}
 
 	return Array.from(issues.values());
+}
+
+/**
+ * The Transaction preview's analyzer view from an analysis: the summary,
+ * and the tab's badge (the issues the summary shows, plus a failed
+ * analysis).
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function analyzerTab(analysis: {
+	data?: TransactionAnalysis;
+	isPending: boolean;
+	error: Error | null;
+}): { analyzer: ReactNode; analyzerCount: number } {
+	return {
+		analyzer: (
+			<IntentSummary
+				analysis={analysis.data}
+				isLoading={analysis.isPending}
+				error={analysis.error}
+			/>
+		),
+		analyzerCount:
+			collectIssues(analysis.data).length +
+			(analysis.error ? 1 : 0),
+	};
 }
 
 function FlowRow({
@@ -130,7 +159,7 @@ function FlowRow({
 					</div>
 					<div className="text-xs text-muted-foreground truncate">
 						{isCoinDataLoading && !coinData
-							? 'Loading coin metadata...'
+							? COPY.loadingCoin
 							: formatCoinType(flow.coinType)}
 					</div>
 				</div>
@@ -253,24 +282,26 @@ export function IntentSummary({
 	if (!isLoading && !analysis && !error) return null;
 
 	return (
-		<PreviewCard.Root className={className}>
+		<PreviewCard.Root
+			className={className}
+			data-testid="intent-summary"
+		>
 			<PreviewCard.Header>
 				<div className="flex items-center justify-between gap-3">
-					<div className="font-medium">Static Analyzer</div>
-					<Label variant="neutral" size="sm">
-						Advisory
-					</Label>
+					<div className="font-medium">{COPY.title}</div>
+					<Chip variant="neutral" size="sm">
+						{COPY.advisory}
+					</Chip>
 				</div>
 			</PreviewCard.Header>
 			<PreviewCard.Body>
 				{isLoading ? (
 					<p className="text-sm text-muted-foreground">
-						Analyzing transaction intent...
+						{COPY.analyzing}
 					</p>
 				) : error ? (
 					<Alert variant="warning">
-						Transaction analyzer unavailable:{' '}
-						{error.message}
+						{COPY.unavailable(error.message)}
 					</Alert>
 				) : (
 					<div className="space-y-4">
@@ -278,13 +309,13 @@ export function IntentSummary({
 						sponsorFlows.length > 0 ? (
 							<div className="space-y-4">
 								<FlowGroup
-									title="Potential sender asset movement"
+									title={COPY.senderFlows}
 									flows={senderFlows}
 									isCoinDataLoading={isCoinDataLoading}
 									coinDataMap={coinDataMap}
 								/>
 								<FlowGroup
-									title="Sponsor asset movement"
+									title={COPY.sponsorFlows}
 									flows={sponsorFlows}
 									isCoinDataLoading={isCoinDataLoading}
 									coinDataMap={coinDataMap}
@@ -292,8 +323,7 @@ export function IntentSummary({
 							</div>
 						) : (
 							<p className="text-sm text-muted-foreground">
-								No non-zero sender or sponsor balance
-								outflows detected.
+								{COPY.noFlows}
 							</p>
 						)}
 
@@ -304,7 +334,7 @@ export function IntentSummary({
 							>
 								<div className="space-y-1">
 									<div className="font-medium">
-										Analyzer findings
+										{COPY.findings}
 									</div>
 									{issues.slice(0, 4).map((issue) => (
 										<div key={issue.message}>
@@ -313,8 +343,7 @@ export function IntentSummary({
 									))}
 									{issues.length > 4 && (
 										<div>
-											+{issues.length - 4} more finding
-											{issues.length - 4 === 1 ? '' : 's'}
+											{COPY.moreFindings(issues.length - 4)}
 										</div>
 									)}
 								</div>
@@ -324,41 +353,41 @@ export function IntentSummary({
 						<div className="grid gap-3 md:grid-cols-2">
 							<div className="rounded-md bg-surface border p-3 space-y-2">
 								<div className="text-sm font-medium">
-									Commands
+									{COPY.commands}
 								</div>
 								{commandCounts.length > 0 ? (
 									<div className="flex flex-wrap gap-2">
 										{commandCounts.map(([kind, count]) => (
-											<Label
+											<Chip
 												key={kind}
 												variant="neutral"
 												size="sm"
 											>
 												{kind}: {count}
-											</Label>
+											</Chip>
 										))}
 									</div>
 								) : (
 									<p className="text-sm text-muted-foreground">
-										No command details available.
+										{COPY.noCommands}
 									</p>
 								)}
 							</div>
 
 							<div className="rounded-md bg-surface border p-3 space-y-2">
 								<div className="text-sm font-medium">
-									Object Access
+									{COPY.objectAccess}
 								</div>
 								<div className="flex flex-wrap gap-2">
-									<Label variant="neutral" size="sm">
-										Read: {accessCounts.read}
-									</Label>
-									<Label variant="warning" size="sm">
-										Mutate: {accessCounts.mutate}
-									</Label>
-									<Label variant="error" size="sm">
-										Transfer: {accessCounts.transfer}
-									</Label>
+									<Chip variant="neutral" size="sm">
+										{COPY.read(accessCounts.read)}
+									</Chip>
+									<Chip variant="warning" size="sm">
+										{COPY.mutate(accessCounts.mutate)}
+									</Chip>
+									<Chip variant="error" size="sm">
+										{COPY.transfer(accessCounts.transfer)}
+									</Chip>
 								</div>
 								{elevatedAccess.length > 0 && (
 									<div className="space-y-1 pt-1">
@@ -370,25 +399,23 @@ export function IntentSummary({
 													className="flex items-center justify-between gap-2 text-xs"
 												>
 													<span className="flex min-w-0 items-center">
-														<ObjectLink
-															inputObject={objectId}
+														<ShortAddress
+															address={objectId}
 														/>
 													</span>
-													<Label
+													<Chip
 														variant={accessVariant(level)}
 														size="sm"
 													>
 														{level}
-													</Label>
+													</Chip>
 												</div>
 											))}
 										{elevatedAccess.length > 3 && (
 											<div className="text-xs text-muted-foreground">
-												+{elevatedAccess.length - 3} more
-												object
-												{elevatedAccess.length - 3 === 1
-													? ''
-													: 's'}
+												{COPY.moreObjects(
+													elevatedAccess.length - 3,
+												)}
 											</div>
 										)}
 									</div>
@@ -397,11 +424,7 @@ export function IntentSummary({
 						</div>
 
 						<p className="text-xs text-muted-foreground">
-							This summary estimates the maximum statically
-							allowed balance outflows, excluding gas
-							payment, and object access for the
-							transaction. Compare it with the simulation
-							result and wallet review before signing.
+							{COPY.footnote}
 						</p>
 					</div>
 				)}

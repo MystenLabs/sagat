@@ -30,7 +30,9 @@ clash with `bun dev`. Don't reuse a plain `sui start`: an hour after it starts,
 its fullnode prunes aggressively, so transactions stop being readable seconds
 after they land. Global setup refuses one that is already pruning, but not one
 that starts pruning mid-run. Stop it, or keep one from
-`./start-localnet.sh 9000 9123` running.
+`./start-localnet.sh 9000 9123` running. The script wipes its data directory
+on startup, so give a second network (say, one for manual testing) its own:
+`LOCALNET_DIR=/tmp/my-localnet ./start-localnet.sh 9200 9223`.
 
 Configuration (all optional):
 
@@ -61,9 +63,18 @@ uploads it as the `playwright-report` artifact.
 **The wallet.** `wallet/inject.ts` is bundled by `global-setup.ts` and injected
 into every page before the app loads. It is
 [`@mysten-incubation/dev-wallet`](https://ts-sdks-incubation.vercel.app/dev-wallet/guides/e2e-testing)
-holding keys the test controls, with every request auto-approved. It registers
-through the wallet-standard window events, the same way extension wallets do,
-so the app runs unmodified and no test code ships in it.
+holding keys the test controls, with every request auto-approved unless a test
+opts out: `createActor(name, { declineSign: true })` rejects every
+personal-message signature (sign-in included) from the start, and
+`window.__e2eWallet.declineConnect` / `.declineSign` can be flipped at runtime
+from `page.evaluate`; `rejectSigning` has it decline every transaction to sign,
+the way a user declines rather than a wallet failing; and `failRestore` has its
+silent session restore throw. It registers through the wallet-standard window
+events, the same way extension wallets do, so the app runs unmodified and no
+test code ships in it. One difference from the stock wallet: `E2EWallet`
+executes a signed transaction itself and returns the chain's effects, so a
+transaction that fails on chain comes back as a failure the way real wallets
+report it, where the stock wallet would throw.
 
 **People.** Each test creates its own users with fresh keys:
 
@@ -83,7 +94,9 @@ through the UI.
 **A second coin.** Global setup publishes `move/test_coin`, a 6-decimal TEST
 coin anyone can mint from a shared faucet. `mintTestCoin(chain, address,
 amounts)` in `support/test-coin.ts` sends it, for flows that need a coin other
-than SUI.
+than SUI. For other decimals, symbols or names, `publishTestCoin(chain,
+{ decimals, symbol, name })` publishes a coin of its own in a few seconds, and
+`mintCoin(chain, coin, address, amounts)` sends it.
 
 Fresh keys mean fresh multisig addresses, so tests never share state and run in
 parallel against one database and chain.
@@ -96,7 +109,7 @@ the mainnet coin list is answered with an empty list.
 
 - Select elements with `data-testid`, not text or labels. Add a test ID to the
   component when one is missing. For state, prefer data attributes such as
-  `data-status` on proposal cards over reading badge text.
+  `data-status` on proposal rows and pages over reading badge text.
 - Assert outcomes beyond the UI when it matters, e.g. `chain.balance(address)`
   after executing a transfer.
 - Another user's page doesn't update by itself: reload it or use the refresh

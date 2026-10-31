@@ -1,0 +1,75 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { Check } from 'lucide-react';
+
+import {
+	DropdownMenuGroup,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
+import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { useNetworkOptions } from '@/hooks/useNetworkOptions';
+import { cn } from '@/lib/utils';
+
+/** Green on mainnet, amber on any test network. */
+export function NetworkStatusDot({
+	className,
+}: {
+	className?: string;
+}) {
+	const { isTestMode } = useNetwork();
+	return (
+		<span
+			className={cn(
+				'size-2 shrink-0 rounded-full',
+				isTestMode
+					? 'bg-warning-foreground'
+					: 'bg-success-foreground',
+				className,
+			)}
+		/>
+	);
+}
+
+/**
+ * The body of the app's network menu: one item per network the app can
+ * offer, switching the wallet kit's network. Wrap it in a DropdownMenu
+ * with the trigger of your choice.
+ */
+export function NetworkMenuItems() {
+	const { network, setNetwork } = useNetwork();
+	const options = useNetworkOptions('app');
+
+	return (
+		<DropdownMenuGroup>
+			<DropdownMenuLabel>
+				{content.network.menuLabel}
+			</DropdownMenuLabel>
+			{options.map(({ value, enabled, hint }) => (
+				<DropdownMenuItem
+					key={value}
+					disabled={!enabled}
+					className="capitalize"
+					onClick={() => setNetwork(value)}
+					data-testid="network-option"
+					data-network={value}
+					data-current={value === network}
+				>
+					{value}
+					{/* One trailing slot: the check on the current row, the hint on disabled ones. */}
+					{value === network ? (
+						<Check className="ml-auto size-4" />
+					) : (
+						hint && (
+							<span className="ml-auto text-11 normal-case text-muted-foreground">
+								{hint}
+							</span>
+						)
+					)}
+				</DropdownMenuItem>
+			))}
+		</DropdownMenuGroup>
+	);
+}

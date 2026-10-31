@@ -6,9 +6,9 @@ import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 
-// The Broadcast Transaction tool at /tools/broadcast: paste transaction bytes
+// The Broadcasts tool at /tools/broadcast: paste transaction bytes
 // and a signature, and execute them. No wallet is involved.
-test.describe('broadcast transaction tool', () => {
+test.describe('broadcasts tool', () => {
 	test('executes signed transaction bytes', async ({
 		createActor,
 		chain,
@@ -32,7 +32,16 @@ test.describe('broadcast transaction tool', () => {
 		await expect(button).toBeDisabled();
 		await alice.page
 			.getByTestId('broadcast-signature-input')
+			.fill('not base64!');
+		await expect(button).toBeDisabled();
+		const signatureError = alice.page.getByTestId(
+			'broadcast-signature-error',
+		);
+		await expect(signatureError).toBeVisible();
+		await alice.page
+			.getByTestId('broadcast-signature-input')
 			.fill(await alice.signTransaction(bytes));
+		await expect(signatureError).toHaveCount(0);
 		await button.click();
 
 		const result = alice.page.getByTestId(
@@ -56,7 +65,7 @@ test.describe('broadcast transaction tool', () => {
 		await expect(result).toHaveCount(0);
 		await expect(
 			alice.page.getByTestId('broadcast-bytes-input'),
-		).toBeVisible();
+		).toHaveValue('');
 	});
 
 	test('reports a signature by someone other than the sender', async ({
@@ -85,22 +94,21 @@ test.describe('broadcast transaction tool', () => {
 			.getByTestId('broadcast-button')
 			.click();
 
-		await expect(
-			alice.page.getByTestId('broadcast-error'),
-		).toBeVisible();
+		const error = alice.page.getByTestId('broadcast-error');
+		await expect(error).toBeVisible();
+		await expect(error).toContainText('Broadcast failed:');
 		await expect(
 			alice.page.getByTestId('broadcast-result'),
 		).toHaveCount(0);
 		expect(await chain.balance(recipient)).toBe(0n);
 
-		await alice.page
-			.getByTestId('broadcast-reset-button')
-			.click();
-		await expect(
-			alice.page.getByTestId('broadcast-error'),
-		).toHaveCount(0);
+		// The form stays filled for another go; editing it clears the error.
 		await expect(
 			alice.page.getByTestId('broadcast-button'),
-		).toBeVisible();
+		).toBeEnabled();
+		await alice.page
+			.getByTestId('broadcast-signature-input')
+			.fill(await alice.signTransaction(bytes));
+		await expect(error).toHaveCount(0);
 	});
 });

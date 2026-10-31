@@ -10,13 +10,26 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { toast } from '@/lib/toast';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
+
+/** The wallet didn't sign: declined, closed or failed. Nothing was created. */
+export class SignatureDeclinedError extends Error {
+	/** What the wallet threw. */
+	readonly cause: unknown;
+
+	constructor(cause: unknown) {
+		super('The wallet didn’t sign the proposal.');
+		this.name = 'SignatureDeclinedError';
+		this.cause = cause;
+	}
+}
 
 interface CreateProposalParams {
 	multisigAddress: string;
@@ -38,18 +51,22 @@ export function useCreateProposal() {
 			description,
 		}: CreateProposalParams) => {
 			if (!currentAddress || !currentAccount) {
-				throw new Error('No connected account');
+				throw new Error(content.errors.noConnectedAccount);
 			}
 
 			// Parse transaction data
 			const transaction = Transaction.from(transactionData);
 
-			// Sign the transaction (it will build and sign automatically)
-			const signatureResult = await dappKit.signTransaction(
-				{
+			// The wallet builds and signs it. Anything thrown here comes from
+			// the wallet, so nothing has been sent yet.
+			let signatureResult;
+			try {
+				signatureResult = await dappKit.signTransaction({
 					transaction,
-				},
-			);
+				});
+			} catch (cause) {
+				throw new SignatureDeclinedError(cause);
+			}
 
 			// Create proposal via API
 			return apiClient.createProposal({
@@ -65,7 +82,7 @@ export function useCreateProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			toast.success('Proposal created successfully!');
+			toast.success(content.toasts.proposalCreated);
 		},
 	});
 }

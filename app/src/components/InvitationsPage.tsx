@@ -1,113 +1,96 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Mail } from 'lucide-react';
+import { useState } from 'react';
+
+import { content } from '@/content';
 
 import { useInvitations } from '../hooks/useInvitations';
 import { InvitationCard } from './invitations/InvitationCard';
-import { Button } from './ui/button';
-import { EmptyState } from './ui/empty-state';
-import { Loading } from './ui/loading';
+import { EmptyState, ErrorState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
+import { SkeletonRows } from './ui/skeleton';
 import { Tabs } from './ui/tabs';
+
+const COPY = content.invitations.page;
 
 type TabType = 'pending' | 'rejected';
 
+/** The invitations inbox: accounts asking the signed-in key to join. */
 export function InvitationsPage() {
 	const [activeTab, setActiveTab] =
 		useState<TabType>('pending');
-	const {
-		data: pendingInvites,
-		isLoading: isPendingLoading,
-		isFetching: isPendingFetching,
-	} = useInvitations(false);
+	const pending = useInvitations(false);
+	// Nothing shows the rejected list until its tab opens.
+	const rejected = useInvitations(true, {
+		enabled: activeTab === 'rejected',
+	});
 
-	// Only fetch rejected invitations when the user switches to that tab
-	const shouldFetchRejected = activeTab === 'rejected';
-	const {
-		data: rejectedInvites,
-		isLoading: isRejectedLoading,
-		isFetching: isRejectedFetching,
-	} = useInvitations(true, shouldFetchRejected);
-
-	const isLoading =
-		activeTab === 'pending'
-			? isPendingLoading && isPendingFetching
-			: isRejectedLoading && isRejectedFetching;
-
-	const invitations =
-		activeTab === 'pending'
-			? pendingInvites
-			: rejectedInvites;
-
-	const tabs = useMemo(
-		() => [
-			{
-				id: 'pending',
-				label: 'Pending',
-				count: pendingInvites?.length,
-				countColor: 'blue' as const,
-			},
-			{
-				id: 'rejected',
-				label: 'Rejected',
-				// Don't show count - will load when tab is clicked
-				countColor: 'gray' as const,
-			},
-		],
-		[pendingInvites?.length],
-	);
-
-	if (isLoading)
-		return <Loading message="Loading invitations..." />;
+	const current =
+		activeTab === 'pending' ? pending : rejected;
+	const invitations = current.data ?? [];
+	const isLoading = current.isLoading;
 
 	return (
-		<div className="max-w-4xl mx-auto mt-8 px-4">
+		<div
+			className="page-shell"
+			data-testid="invitations-page"
+		>
 			<PageHeader
-				title="Invitations"
-				description={
-					activeTab === 'pending'
-						? `You have ${pendingInvites?.length ?? 0} pending invitation${(pendingInvites?.length ?? 0) !== 1 ? 's' : ''}`
-						: `You have ${rejectedInvites?.length ?? 0} rejected invitation${(rejectedInvites?.length ?? 0) !== 1 ? 's' : ''}`
-				}
-				backLink="/"
-				backLabel="Back to Dashboard"
+				title={COPY.title}
+				description={COPY.description}
 			/>
 
-			<div className="mb-6">
-				<Tabs
-					tabs={tabs}
-					activeTab={activeTab}
-					onTabChange={(id) => setActiveTab(id as TabType)}
-					testId="invitations-tab"
-				/>
-			</div>
+			<Tabs
+				tabs={[
+					{
+						id: 'pending',
+						label: COPY.pendingTab,
+						count: pending.data?.length,
+						countColor: 'gray',
+					},
+					{
+						id: 'rejected',
+						label: COPY.rejectedTab,
+					},
+				]}
+				activeTab={activeTab}
+				onTabChange={(id) => setActiveTab(id as TabType)}
+				testId="invitations-tab"
+				className="mb-6"
+			/>
 
-			{/* Content */}
-			{!invitations || invitations.length === 0 ? (
+			{isLoading ? (
+				<SkeletonRows
+					rows={2}
+					header={false}
+					testId="invitations-loading"
+				/>
+			) : current.isError && !current.data ? (
+				<ErrorState
+					title={COPY.loadFailed}
+					error={current.error}
+					onRetry={() => current.refetch()}
+					testId="invitations-error"
+				/>
+			) : invitations.length === 0 ? (
 				<EmptyState
+					icon={Mail}
 					testId="invitations-empty"
 					title={
 						activeTab === 'pending'
-							? 'No pending invitations'
-							: 'No rejected invitations'
+							? COPY.emptyPendingTitle
+							: COPY.emptyRejectedTitle
 					}
 					description={
 						activeTab === 'pending'
-							? "You don't have any pending multisig invitations at the moment"
-							: "You haven't rejected any multisig invitations"
-					}
-					action={
-						<Link to="/">
-							<Button variant="outline">
-								Back to Dashboard
-							</Button>
-						</Link>
+							? COPY.emptyPendingDescription
+							: COPY.emptyRejectedDescription
 					}
 				/>
 			) : (
-				<div className="space-y-3">
+				<div className="flex flex-col gap-3">
 					{invitations.map((multisig) => (
 						<InvitationCard
 							key={multisig.address}

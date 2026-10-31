@@ -3,72 +3,51 @@
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
 import { fromBase64 } from '@mysten/sui/utils';
-import { AlertCircle, Check } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { useState } from 'react';
 
-import { NetworkSelector } from '@/components/LocalNetworkSelector';
-import { Button } from '@/components/ui/button';
-import { FieldDisplay } from '@/components/ui/FieldDisplay';
-import { Textarea } from '@/components/ui/textarea';
+import { Alert } from '@/components/ui/Alert';
+import {
+	Button,
+	disabledButton,
+} from '@/components/ui/button';
+import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { type SuiNetwork } from '@/lib/network';
+import { getExplorerUrl, safeDecode } from '@/lib/utils';
+
+import {
+	BytesField,
+	NetworkField,
+	ReadOnlyField,
+	ResultActions,
+	ToolActions,
+	ToolCard,
+} from './parts';
+
+const COPY = content.tools;
+
+interface BroadcastError {
+	/** The node's message, when it sent one. */
+	message?: string;
+	/** The network it was broadcast on, named when it isn't the current one. */
+	network: SuiNetwork;
+}
 
 interface BroadcastResult {
 	digest: string;
+	/** The network it was broadcast on, for the explorer link. */
+	network: string;
 }
 
-function TransactionBytesInput({
-	value,
-	onChange,
-}: {
-	value: string;
-	onChange: (value: string) => void;
-}) {
-	return (
-		<div className="space-y-2">
-			<label
-				htmlFor="transaction-bytes"
-				className="text-sm font-medium text-muted-foreground"
-			>
-				Transaction Bytes (base64)
-			</label>
-			<Textarea
-				id="transaction-bytes"
-				data-testid="broadcast-bytes-input"
-				placeholder="Enter transaction bytes in base64 format..."
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				rows={4}
-				className="font-mono text-sm"
-			/>
-		</div>
-	);
-}
-
-function SignatureInput({
-	value,
-	onChange,
-}: {
-	value: string;
-	onChange: (value: string) => void;
-}) {
-	return (
-		<div className="space-y-2">
-			<label
-				htmlFor="signature"
-				className="text-sm font-medium text-muted-foreground"
-			>
-				Combined Signature (base64)
-			</label>
-			<Textarea
-				id="signature"
-				data-testid="broadcast-signature-input"
-				placeholder="Enter combined signature in base64 format..."
-				value={value}
-				onChange={(e) => onChange(e.target.value)}
-				rows={3}
-				className="font-mono text-sm"
-			/>
-		</div>
-	);
+/** Whether the value decodes as base64. */
+function isBase64(value: string) {
+	try {
+		fromBase64(value);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function BroadcastResultDisplay({
@@ -78,114 +57,85 @@ function BroadcastResultDisplay({
 	result: BroadcastResult;
 	onReset: () => void;
 }) {
+	const explorerUrl = getExplorerUrl(
+		result.digest,
+		result.network,
+	);
+
 	return (
 		<div
-			className="border border-success-border bg-card rounded-lg p-4"
+			className="flex flex-col gap-5"
 			data-testid="broadcast-result"
 			data-digest={result.digest}
 		>
-			<div className="flex items-center justify-between mb-3">
-				<div className="flex items-center gap-2">
-					<Check
-						strokeWidth={3}
-						className="w-5 h-5 text-success-foreground"
-					/>
-					<h3 className="font-medium text-foreground">
-						Transaction Broadcast Successfully
-					</h3>
-				</div>
-				<Button
-					type="button"
-					onClick={onReset}
-					variant="outline"
-					size="sm"
-					data-testid="broadcast-reset-button"
-				>
-					Broadcast Another
-				</Button>
-			</div>
-			<div className="space-y-3">
-				<FieldDisplay
-					label="Transaction Digest"
-					value={result.digest}
-				/>
-			</div>
-		</div>
-	);
-}
-
-function BroadcastError({
-	error,
-	onReset,
-}: {
-	error: string;
-	onReset: () => void;
-}) {
-	return (
-		<div
-			className="border border-error-border bg-card rounded-lg p-4"
-			data-testid="broadcast-error"
-		>
-			<div className="flex items-center justify-between mb-3">
-				<div className="flex items-center gap-2">
-					<AlertCircle className="w-5 h-5 text-error-foreground" />
-					<h3 className="font-medium text-foreground">
-						Broadcast Failed
-					</h3>
-				</div>
-				<Button
-					type="button"
-					onClick={onReset}
-					variant="outline"
-					size="sm"
-					data-testid="broadcast-reset-button"
-				>
-					Try Again
-				</Button>
-			</div>
-			<p className="text-sm text-error-foreground whitespace-pre-wrap">
-				{error}
-			</p>
+			<Alert variant="success">{COPY.broadcast.sent}</Alert>
+			<ReadOnlyField
+				label={COPY.transactionDigest}
+				value={result.digest}
+			/>
+			<ResultActions
+				onReset={onReset}
+				resetLabel={COPY.broadcast.another}
+				resetTestId="broadcast-reset-button"
+				explorerUrl={explorerUrl}
+				copyValue={result.digest}
+				copyLabel={COPY.copyDigest}
+				copyMessage={content.toasts.digestCopied}
+			/>
 		</div>
 	);
 }
 
 export default function BroadcastTool() {
 	const client = useDAppKit().getClient();
+	const { network } = useNetwork();
 	const [transactionBytes, setTransactionBytes] =
 		useState('');
 	const [signature, setSignature] = useState('');
 	const [broadcasting, setBroadcasting] = useState(false);
 	const [result, setResult] =
 		useState<BroadcastResult | null>(null);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<BroadcastError | null>(
+		null,
+	);
+
+	const bytesInput = transactionBytes.trim();
+	const signatureInput = signature.trim();
+	const bytesUnreadable =
+		!!bytesInput && !isBase64(bytesInput);
+	const signatureUnreadable =
+		!!signatureInput && !isBase64(signatureInput);
+	const canBroadcast =
+		!!bytesInput &&
+		!!signatureInput &&
+		!bytesUnreadable &&
+		!signatureUnreadable &&
+		!broadcasting;
 
 	const handleBroadcast = async () => {
-		if (!transactionBytes || !signature) {
-			setError(
-				'Both transaction bytes and signature are required',
-			);
-			return;
-		}
+		if (!canBroadcast) return;
 
+		const broadcastNetwork = network;
 		setBroadcasting(true);
 		setError(null);
 		setResult(null);
 
 		try {
 			const result = await client.executeTransaction({
-				transaction: fromBase64(transactionBytes),
-				signatures: [signature],
+				transaction: fromBase64(bytesInput),
+				signatures: [signatureInput],
 				include: {
 					effects: true,
 				},
 			});
 
 			if (result.FailedTransaction) {
-				setError(
-					result.FailedTransaction.effects.status.error
-						?.message || 'Failed to broadcast transaction',
-				);
+				setError({
+					message:
+						result.FailedTransaction.effects.status.error
+							?.message,
+					network: broadcastNetwork,
+				});
 				return;
 			}
 
@@ -195,82 +145,113 @@ export default function BroadcastTool() {
 
 			setResult({
 				digest: result.Transaction!.digest,
+				network: broadcastNetwork,
 			});
 		} catch (err) {
-			setError(
-				err instanceof Error
-					? err.message
-					: 'Failed to broadcast transaction',
-			);
+			setError({
+				message:
+					err instanceof Error ? err.message : undefined,
+				network: broadcastNetwork,
+			});
 		} finally {
 			setBroadcasting(false);
 		}
 	};
 
+	// An edit makes the last failure stale.
+	const edit =
+		(setValue: (value: string) => void) =>
+		(value: string) => {
+			setValue(value);
+			setError(null);
+		};
+
 	const handleReset = () => {
+		setTransactionBytes('');
+		setSignature('');
 		setResult(null);
 		setError(null);
 	};
 
-	const canBroadcast =
-		transactionBytes.trim() &&
-		signature.trim() &&
-		!broadcasting;
-
 	return (
-		<div className="space-y-6">
-			<div className="flex items-center justify-between gap-4">
-				<div>
-					<p className="text-sm text-muted-foreground">
-						Broadcast a signed transaction to the Sui
-						network.
-					</p>
-				</div>
-				<NetworkSelector />
-			</div>
+		<>
+			{error && (
+				<Alert
+					variant="error"
+					className="mb-5"
+					data-testid="broadcast-error"
+				>
+					<span className="whitespace-pre-wrap">
+						{error.network === network
+							? COPY.broadcast.error(
+									error.message &&
+										safeDecode(error.message),
+								)
+							: COPY.broadcast.errorOn(
+									error.network,
+									error.message &&
+										safeDecode(error.message),
+								)}
+					</span>
+				</Alert>
+			)}
+			<ToolCard>
+				<NetworkField />
+				<BytesField
+					id="transaction-bytes"
+					label={COPY.broadcast.bytesLabel}
+					testId="broadcast-bytes-input"
+					placeholder={COPY.broadcast.bytesPlaceholder}
+					minHeight="min-h-30"
+					value={transactionBytes}
+					onChange={edit(setTransactionBytes)}
+					readOnly={!!result || broadcasting}
+					error={
+						bytesUnreadable
+							? COPY.broadcast.bytesUnreadable
+							: undefined
+					}
+					errorTestId="broadcast-bytes-error"
+				/>
+				<BytesField
+					id="signature"
+					label={COPY.broadcast.signatureLabel}
+					testId="broadcast-signature-input"
+					placeholder={COPY.broadcast.signaturePlaceholder}
+					minHeight="min-h-24"
+					value={signature}
+					onChange={edit(setSignature)}
+					readOnly={!!result || broadcasting}
+					error={
+						signatureUnreadable
+							? COPY.broadcast.signatureUnreadable
+							: undefined
+					}
+					errorTestId="broadcast-signature-error"
+				/>
 
-			<div className="space-y-6">
-				{!result && !error && (
-					<>
-						<TransactionBytesInput
-							value={transactionBytes}
-							onChange={setTransactionBytes}
-						/>
-
-						<SignatureInput
-							value={signature}
-							onChange={setSignature}
-						/>
-
-						<div className="flex justify-end pt-4 border-t">
-							<Button
-								type="button"
-								onClick={handleBroadcast}
-								disabled={!canBroadcast}
-								data-testid="broadcast-button"
-							>
-								{broadcasting
-									? 'Broadcasting...'
-									: 'Broadcast Transaction'}
-							</Button>
-						</div>
-					</>
-				)}
-
-				{result && (
+				{result ? (
 					<BroadcastResultDisplay
 						result={result}
 						onReset={handleReset}
 					/>
+				) : (
+					<ToolActions>
+						<Button
+							type="button"
+							onClick={handleBroadcast}
+							disabled={!canBroadcast}
+							className={disabledButton}
+							data-testid="broadcast-button"
+						>
+							<Radio />
+							{broadcasting
+								? COPY.broadcast.broadcasting
+								: COPY.broadcast.submit}
+						</Button>
+					</ToolActions>
 				)}
-
-				{error && (
-					<BroadcastError
-						error={error}
-						onReset={handleReset}
-					/>
-				)}
-			</div>
-		</div>
+			</ToolCard>
+		</>
 	);
 }

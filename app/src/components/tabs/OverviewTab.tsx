@@ -2,182 +2,70 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	Check,
-	Copy,
-	Download,
-	ExternalLink,
-	Users,
-} from 'lucide-react';
-import { useOutletContext } from 'react-router-dom';
+	useNavigate,
+	useOutletContext,
+} from 'react-router-dom';
 
-import { useGetMultisig } from '@/hooks/useGetMultisig';
+import { useAccountAssets } from '@/hooks/useAccountAssets';
+import { accountName } from '@/lib/account-name';
+import { newProposalPath } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
-import { useNetwork } from '../../contexts/NetworkContext';
-import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
-import { CONFIG } from '../../lib/constants';
+import { AccountValue } from '../multisig/AccountValue';
+import { OpenProposals } from '../multisig/OpenProposals';
 import {
-	buildMultisigCompositionExport,
-	downloadJson,
-	getMultisigExportFilename,
-} from '../../lib/exportUtils';
-import { MembersList } from '../invitations/MembersList';
-import { ProposersSection } from '../proposers/ProposersSection';
-import { Button } from '../ui/button';
+	TOKENS_SHOWN,
+	TokensCard,
+} from '../multisig/TokensCard';
 
 interface OverviewTabContext {
 	multisig: MultisigWithMembersForPublicKey;
-	openProposalSheet: () => void;
 }
 
+/**
+ * The account at a glance: what it holds in USD with Receive and Send,
+ * its largest holdings, then the proposals still open.
+ */
 export function OverviewTab() {
 	const { multisig } =
 		useOutletContext<OverviewTabContext>();
-	const { copied, copy } = useCopyToClipboard();
-	const { network } = useNetwork();
-
-	const getExplorerUrl = (address: string) => {
-		const baseUrl = CONFIG.EXPLORER_URLS[network];
-		return `${baseUrl}/account/${address}`;
-	};
-
-	const {
-		data: multisigDetails,
-		isLoading,
-		error,
-		refetch,
-	} = useGetMultisig(multisig.address);
-
-	const totalWeight = multisigDetails?.members
-		.map((m) => m.weight)
-		.reduce((a, b) => a + b, 0);
-
-	const handleExportComposition = () => {
-		downloadJson(
-			getMultisigExportFilename(multisig.address),
-			buildMultisigCompositionExport(
-				multisigDetails ?? multisig,
-			),
-		);
-	};
+	const navigate = useNavigate();
+	const assets = useAccountAssets(multisig.address, {
+		allPages: true,
+		displayCount: TOKENS_SHOWN,
+	});
 
 	return (
-		<div className="space-y-6">
-			{/* Multisig Info Card */}
-			<div className="bg-card border rounded-lg p-6">
-				<h2 className="text-lg font-semibold mb-4">
-					Multisig Information
-				</h2>
-
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<div className="flex flex-col">
-						<label className="block text-sm font-medium text-muted-foreground mb-2">
-							Address
-						</label>
-						<div className="flex items-center gap-2 p-3 bg-surface rounded-lg flex-1">
-							<code
-								className="text-sm font-mono text-foreground flex-1 break-all"
-								data-testid="multisig-address"
-							>
-								{multisig.address}
-							</code>
-							<Button
-								variant="ghost"
-								size="sm"
-								onClick={() => copy(multisig.address)}
-								className="h-8 px-2 shrink-0"
-							>
-								{copied ? (
-									<Check className="w-4 h-4" />
-								) : (
-									<Copy className="w-4 h-4" />
-								)}
-							</Button>
-						</div>
-					</div>
-
-					<div className="flex flex-col">
-						<label className="block text-sm font-medium text-muted-foreground mb-2">
-							Signature Threshold
-						</label>
-						<div className="flex items-center p-3 bg-surface rounded-lg flex-1">
-							<span
-								className="text-sm text-foreground"
-								data-testid="multisig-threshold"
-								data-threshold={multisig.threshold}
-								data-total-weight={totalWeight}
-							>
-								{multisig.threshold} of {totalWeight} weight
-								required
-							</span>
-						</div>
-					</div>
-				</div>
-
-				<div className="mt-6 pt-6 border-t flex flex-col sm:flex-row gap-2">
-					<Button
-						variant="outline"
-						onClick={() =>
-							window.open(
-								getExplorerUrl(multisig.address),
-								'_blank',
-							)
-						}
-						className="w-full sm:w-auto"
-					>
-						<ExternalLink className="w-4 h-4 mr-2" />
-						View on Sui Explorer
-					</Button>
-					<Button
-						variant="outline"
-						onClick={handleExportComposition}
-						className="w-full sm:w-auto"
-					>
-						<Download className="w-4 h-4 mr-2" />
-						Download
-					</Button>
-				</div>
-			</div>
-
-			{/* Members Section */}
-			<div className="bg-card border rounded-lg p-6">
-				<h2 className="text-lg font-semibold mb-4 flex items-center">
-					<Users className="w-5 h-5 mr-2" />
-					Members ({multisig.totalMembers})
-				</h2>
-
-				{isLoading ? (
-					<div className="flex items-center justify-center py-8">
-						<div className="text-sm text-muted-foreground">
-							Loading member details...
-						</div>
-					</div>
-				) : error ? (
-					<div className="text-sm text-muted-foreground text-center py-8">
-						<p className="mb-4">
-							Failed to load member details
-						</p>
-						<Button
-							variant="outline"
-							onClick={() => refetch()}
-						>
-							Retry
-						</Button>
-					</div>
-				) : multisigDetails ? (
-					<MembersList members={multisigDetails.members} />
-				) : null}
-			</div>
-
-			{/* Proposers Section */}
-			{multisigDetails ? (
-				<ProposersSection
-					proposers={multisigDetails.proposers}
-					multisigAddress={multisig.address}
-					isLoading={isLoading}
-					error={error}
-				/>
-			) : null}
+		<div className="@container flex flex-col gap-6">
+			<AccountValue
+				address={multisig.address}
+				name={accountName(multisig)}
+				value={assets.value}
+				pricesAvailable={assets.pricesAvailable}
+				pricesError={assets.pricesError}
+				isLoading={assets.isLoading}
+				isError={assets.isError}
+				onSend={() =>
+					navigate(
+						newProposalPath(multisig.address, {
+							type: 'transfer',
+						}),
+					)
+				}
+			/>
+			<TokensCard
+				address={multisig.address}
+				assets={assets}
+				onSend={(coinType) =>
+					navigate(
+						newProposalPath(multisig.address, {
+							type: 'transfer',
+							coinType,
+						}),
+					)
+				}
+			/>
+			<OpenProposals multisig={multisig} />
 		</div>
 	);
 }

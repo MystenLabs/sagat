@@ -1,15 +1,23 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, useMemo, useState } from 'react';
-
-import { useEpochInfo } from '../../hooks/useEpochInfo';
 import {
+	useEffect,
+	useState,
+	type ReactElement,
+} from 'react';
+
+import { content } from '@/content';
+import { formatDateTime } from '@/lib/dates';
+import { cn } from '@/lib/utils';
+
+import { useExpiry } from '../../hooks/useExpiry';
+import {
+	expiresSoon,
 	formatTimeLeft,
-	getExpiry,
 	type Expiry,
 } from '../../lib/expiration';
-import { Label } from '../ui/label';
+import { Chip } from '../ui/chip';
 import {
 	Tooltip,
 	TooltipContent,
@@ -17,37 +25,89 @@ import {
 	TooltipTrigger,
 } from '../ui/tooltip';
 
-// A badge with how long a proposal's transaction can still execute, if it
-// expires at all.
+const COPY = content.proposals.expiry;
+
+// How long a proposal's transaction can still execute, if it expires at
+// all: a badge, or with `variant="inline"` plain text for a meta line,
+// after a separator that wraps with it, coloured once less than an hour
+// is left.
 export function ProposalExpiry({
 	transactionBytes,
+	variant = 'chip',
 }: {
 	transactionBytes: string;
+	variant?: 'chip' | 'inline';
 }) {
-	const { data: epochInfo } = useEpochInfo();
-	const now = useNow();
-	const expiry = useMemo(
-		() =>
-			epochInfo
-				? getExpiry(transactionBytes, epochInfo)
-				: null,
-		[transactionBytes, epochInfo],
-	);
+	const expiry = useExpiry(transactionBytes);
 	if (!expiry) return null;
+	return variant === 'inline' ? (
+		<InlineExpiry expiry={expiry} />
+	) : (
+		<ExpiryChip expiry={expiry} />
+	);
+}
 
+// The badge for an expiry from `useExpiry`.
+export function ExpiryChip({ expiry }: { expiry: Expiry }) {
 	return (
-		<TooltipProvider delayDuration={150}>
-			<Tooltip>
-				<TooltipTrigger asChild>
-					<Label
-						variant={expiry.expired ? 'error' : 'neutral'}
+		<ExpiryTooltip
+			expiry={expiry}
+			trigger={
+				<Chip
+					variant={expiry.expired ? 'error' : 'neutral'}
+					data-testid="proposal-expiry"
+					tabIndex={0}
+				/>
+			}
+		/>
+	);
+}
+
+function InlineExpiry({ expiry }: { expiry: Expiry }) {
+	return (
+		<span className="inline-flex items-center gap-1.5">
+			<span aria-hidden>·</span>
+			<ExpiryTooltip
+				expiry={expiry}
+				trigger={(now) => (
+					<span
+						className={cn(
+							'whitespace-nowrap',
+							expiry.expired
+								? 'text-error-foreground'
+								: expiresSoon(expiry.endsAt, now) &&
+										'text-warning-foreground',
+						)}
 						data-testid="proposal-expiry"
 						tabIndex={0}
-					>
-						{expiry.expired
-							? 'Expired'
-							: `Expires in ${formatTimeLeft(expiry.endsAt, now)}`}
-					</Label>
+					/>
+				)}
+			/>
+		</span>
+	);
+}
+
+// The expiry's label on `trigger`, with the explanation in a tooltip.
+// `trigger` can take the current time, to style itself by it.
+function ExpiryTooltip({
+	expiry,
+	trigger,
+}: {
+	expiry: Expiry;
+	trigger: ReactElement | ((now: Date) => ReactElement);
+}) {
+	const now = useNow();
+	return (
+		<TooltipProvider delay={150}>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						typeof trigger === 'function'
+							? trigger(now)
+							: trigger
+					}
+				>
+					{label(expiry, now)}
 				</TooltipTrigger>
 				<TooltipContent className="max-w-xs">
 					{explain(expiry)}
@@ -57,15 +117,16 @@ export function ProposalExpiry({
 	);
 }
 
-function explain({ lastEpoch, expired, endsAt }: Expiry) {
-	if (expired)
-		return `This transaction could only execute until the end of epoch ${lastEpoch}, so it can't run anymore. Cancel it and propose it again.`;
+function label({ expired, endsAt }: Expiry, now: Date) {
+	return expired
+		? COPY.expired
+		: COPY.expiresIn(formatTimeLeft(endsAt, now));
+}
 
-	const time = endsAt.toLocaleString(undefined, {
-		dateStyle: 'medium',
-		timeStyle: 'short',
-	});
-	return `This transaction can only execute until the end of epoch ${lastEpoch}, around ${time}. After that, it has to be proposed again.`;
+function explain({ lastEpoch, expired, endsAt }: Expiry) {
+	if (expired) return COPY.expiredExplain(lastEpoch);
+
+	return COPY.explain(lastEpoch, formatDateTime(endsAt));
 }
 
 // The current time, updated every minute.

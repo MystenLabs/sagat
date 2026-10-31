@@ -7,35 +7,39 @@ import {
 } from '@mysten/dapp-kit-react';
 import { useMemo, type ReactElement } from 'react';
 import {
-	matchPath,
 	Navigate,
 	Route,
 	Routes,
 	useLocation,
 } from 'react-router-dom';
 
+import { content } from '@/content';
+import { getAuthLevel } from '@/lib/auth-level';
+
 import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
-import { AuthPrompt } from './AuthPrompt';
-import { CreateMultisigPage } from './CreateMultisigPage';
-import { CustomWalletButton } from './CustomWalletButton';
+import { useSessionBoot } from '../hooks/useSessionBoot';
+import { ApiUnreachable } from './ApiUnreachable';
+import { ConnectWalletCard } from './ConnectWalletCard';
+import { CreateMultisigPage } from './create-multisig/CreateMultisigPage';
 import { DevnetNotSupported } from './DevnetNotSupported';
 import { InvitationsPage } from './InvitationsPage';
 import { MultisigDetailPage } from './MultisigDetailPage';
-import { ProposalDetailPage } from './ProposalDetailPage';
+import { NewProposalPage } from './new-proposal/NewProposalPage';
+import { ProposalPage } from './proposal/ProposalPage';
+import { SharedProposalPage } from './proposal/SharedProposalPage';
 import { SmartDashboard } from './SmartDashboard';
 import { AssetsTab } from './tabs/AssetsTab';
 import { OverviewTab } from './tabs/OverviewTab';
 import { ProposalsTab } from './tabs/ProposalsTab';
+import { SignersTab } from './tabs/SignersTab';
 import { ToolsPage } from './ToolsPage';
-import { Loading } from './ui/loading';
+import { SkeletonPage } from './ui/skeleton';
 
-type AuthLevel = 'public' | 'wallet' | 'full';
-
+// Which of these need a wallet or a sign-in is `getAuthLevel`'s table.
 interface RouteConfig {
 	path: string;
 	element: ReactElement;
-	authLevel: AuthLevel;
 	children?: RouteConfig[];
 }
 
@@ -43,77 +47,75 @@ const routes: RouteConfig[] = [
 	{
 		path: '/tools',
 		element: <ToolsPage />,
-		authLevel: 'public',
 	},
 	// Dynamically generate routes for all tools
 	...TOOLS.map((tool) => ({
 		path: tool.path,
 		element: <ToolsPage />,
-		authLevel: 'public' as AuthLevel,
 	})),
 	{
 		path: '/proposals',
-		element: <ProposalDetailPage />,
-		authLevel: 'wallet',
+		element: <SharedProposalPage />,
 	},
 	{
 		path: '/',
 		element: <SmartDashboard />,
-		authLevel: 'full',
 	},
 	{
 		path: '/create',
 		element: <CreateMultisigPage />,
-		authLevel: 'full',
 	},
 	{
 		path: '/invitations',
 		element: <InvitationsPage />,
-		authLevel: 'full',
+	},
+	// Its own page, not one of the account's tabs. React Router ranks
+	// routes by how specific they are, so the order here doesn't matter.
+	{
+		path: '/multisig/:address/proposals/new',
+		element: <NewProposalPage />,
+	},
+	// The account shell renders its own header, so a proposal's page is
+	// not one of its children either.
+	{
+		path: '/multisig/:address/proposals/:digest',
+		element: <ProposalPage />,
 	},
 	{
 		path: '/multisig/:address',
 		element: <MultisigDetailPage />,
-		authLevel: 'full',
 		children: [
 			{
 				path: '',
-				element: <Navigate to="proposals" replace />,
-				authLevel: 'full',
+				element: <Navigate to="overview" replace />,
 			},
 			{
 				path: 'proposals',
 				element: <ProposalsTab />,
-				authLevel: 'full',
 			},
 			{
 				path: 'overview',
 				element: <OverviewTab />,
-				authLevel: 'full',
 			},
 			{
 				path: 'assets',
 				element: <AssetsTab />,
-				authLevel: 'full',
+			},
+			{
+				path: 'signers',
+				element: <SignersTab />,
 			},
 		],
 	},
 ];
 
-function getAuthLevel(pathname: string): AuthLevel {
-	for (const route of routes) {
-		if (matchPath(route.path, pathname)) {
-			return route.authLevel;
-		}
-	}
-	// Default to full auth for unknown routes
-	return 'full';
-}
-
 export function AppRouter() {
 	const currentAccount = useCurrentAccount();
-	const { isCheckingAuth, isCurrentAddressAuthenticated } =
-		useApiAuth();
+	const { reconnecting, checkingAuth } = useSessionBoot();
+	const {
+		isApiUnreachable,
+		isCurrentAddressAuthenticated,
+	} = useApiAuth();
 	const location = useLocation();
 	const network = useCurrentNetwork();
 
@@ -181,33 +183,38 @@ export function AppRouter() {
 		return <DevnetNotSupported />;
 	}
 
-	// Full auth routes - require wallet + API auth
-	if (!currentAccount) {
+	// The wallet kit is still restoring the previous session: hold the
+	// layout instead of flashing the connect prompt.
+	if (reconnecting) {
 		return (
-			<div
-				className="flex flex-col items-center justify-center min-h-[60vh]"
-				data-testid="connect-wallet-prompt"
-			>
-				<h1 className="text-3xl font-bold mb-4">
-					Welcome to Sagat
-				</h1>
-				<p className="text-muted-foreground mb-8">
-					Connect your wallet to manage multisig accounts
-				</p>
-				<CustomWalletButton variant="sidebar" />
-			</div>
+			<SkeletonPage
+				rows={3}
+				message={content.shell.reconnectingWallet}
+				testId="wallet-reconnecting"
+			/>
 		);
 	}
+
+	// Full auth routes - require wallet + API auth. Wallet-only routes
+	// connect without asking for the sign-in signature.
+	if (!currentAccount) return <ConnectWalletCard />;
 
 	// Wallet-only routes - require wallet but not API auth
 	if (authLevel === 'wallet') return renderRoutes;
 
-	if (isCheckingAuth) {
-		return <Loading message="Checking authentication..." />;
+	if (checkingAuth) {
+		return (
+			<SkeletonPage
+				rows={3}
+				message={content.shell.checkingAuth}
+			/>
+		);
 	}
 
+	if (isApiUnreachable) return <ApiUnreachable />;
+
 	if (!isCurrentAddressAuthenticated) {
-		return <AuthPrompt />;
+		return <ConnectWalletCard />;
 	}
 
 	return renderRoutes;

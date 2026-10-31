@@ -4,17 +4,20 @@
 import { Check, Coins } from 'lucide-react';
 import { useState } from 'react';
 
+import { content } from '@/content';
 import { isSuiCoinType } from '@/lib/coins';
 import { cn } from '@/lib/utils';
 
 import { SuiLogo } from './SuiLogo';
+
+const COPY = content.shell.controls;
 
 interface CoinIconProps {
 	iconUrl: string | null | undefined;
 	symbol?: string | null;
 	coinType?: string | null;
 	recognized?: boolean;
-	size?: 'sm' | 'md' | 'lg' | 'xl';
+	size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 	className?: string;
 }
 
@@ -28,6 +31,13 @@ const sizeClasses: Record<
 		badgeIcon: string;
 	}
 > = {
+	xs: {
+		wrapper: 'w-5 h-5',
+		icon: 'w-2.5 h-2.5',
+		sui: 'h-3',
+		badge: 'w-2.5 h-2.5 -right-0.5 -top-0.5',
+		badgeIcon: 'w-1.5 h-1.5',
+	},
 	sm: {
 		wrapper: 'w-6 h-6',
 		icon: 'w-3 h-3',
@@ -68,11 +78,11 @@ function RecognizedBadge({
 	return (
 		<span
 			className={cn(
-				'absolute rounded-full bg-emerald-600 text-white ring-1 ring-background border border-emerald-300/80 flex items-center justify-center shadow-sm',
+				'absolute rounded-full bg-success-foreground text-primary-foreground ring-1 ring-background border border-success-border flex items-center justify-center',
 				badgeClassName,
 			)}
-			title="Recognized coin"
-			aria-label="Recognized coin"
+			title={COPY.recognizedCoin}
+			aria-label={COPY.recognizedCoin}
 		>
 			<Check strokeWidth={3} className={iconClassName} />
 		</span>
@@ -108,10 +118,10 @@ export function CoinIcon({
 				className={cn(
 					'relative',
 					wrapper,
-					'rounded-full flex items-center justify-center shrink-0 bg-[#4DA2FF]/10',
+					'rounded-full flex items-center justify-center shrink-0 bg-sui/10',
 					className,
 				)}
-				aria-label={symbol ? `${symbol} icon` : 'coin icon'}
+				aria-label={COPY.coinIcon(symbol)}
 			>
 				<SuiLogo className={cn(sui, 'w-auto')} />
 				{recognized && (
@@ -155,7 +165,7 @@ export function CoinIcon({
 				'bg-muted',
 				className,
 			)}
-			aria-label={symbol ? `${symbol} icon` : 'coin icon'}
+			aria-label={COPY.coinIcon(symbol)}
 		>
 			<Coins
 				className={cn(icon, 'text-muted-foreground')}

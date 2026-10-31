@@ -8,6 +8,7 @@ import {
 } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
 
+import { content } from '../../content';
 import { isSuiCoinType } from '../../lib/coins';
 
 export interface BuildTransferTransactionParams {
@@ -32,7 +33,9 @@ export async function buildTransferTransaction({
 	client,
 }: BuildTransferTransactionParams): Promise<string> {
 	if (amount <= 0n) {
-		throw new Error('Amount must be greater than zero.');
+		throw new Error(
+			content.assets.transferErrors.amountNotPositive,
+		);
 	}
 
 	const tx = new Transaction();
@@ -41,7 +44,7 @@ export async function buildTransferTransaction({
 	if (transferAllSui) {
 		if (!isSuiCoinType(coinType)) {
 			throw new Error(
-				'MAX gas-coin transfer is only supported for SUI.',
+				content.assets.transferErrors.maxOnlySui,
 			);
 		}
 

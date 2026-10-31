@@ -3,18 +3,21 @@
 
 import { type ReactNode } from 'react';
 
+import { content } from '@/content';
+
 import { type CoinDisplayData } from '../../hooks/useCoinDisplayData';
 import { type Balance } from '../../hooks/useMultisigBalances';
+import { formatCoinType } from '../../lib/coin-type';
+import {
+	coinLabels,
+	sameCoinLabel,
+} from '../../lib/coinDisplay';
 import {
 	coinUsdValue,
 	formatCoinAmount,
 	formatUsdValue,
 } from '../../lib/coins';
 import { cn } from '../../lib/utils';
-import {
-	formatCoinType,
-	prettifyType,
-} from '../preview-effects/utils';
 import { CoinIcon } from '../ui/CoinIcon';
 import { CopyButton } from '../ui/CopyButton';
 import { Skeleton } from '../ui/skeleton';
@@ -26,62 +29,16 @@ interface AssetBodyProps {
 	showCopyButton?: boolean;
 }
 
-interface AssetWrapperProps extends AssetBodyProps {
-	selected?: boolean;
-	bare?: boolean;
-	className?: string;
-}
-
-const containerClasses = (
-	bare: boolean,
-	selected: boolean,
-	className?: string,
-) =>
-	cn(
-		'rounded-lg px-3 py-2.5 transition-colors hover:bg-surface-hover',
-		!bare && 'bg-card border',
-		selected && 'bg-row-selected',
-		className,
-	);
-
-export function AssetRow({
-	selected = false,
-	bare = false,
-	className,
-	...body
-}: AssetWrapperProps) {
+export function AssetRow(body: AssetBodyProps) {
 	return (
 		<li
-			className={containerClasses(
-				bare,
-				selected,
-				className,
-			)}
+			className="rounded-lg border bg-card px-3 py-2.5"
 			data-testid="asset-row"
 			data-coin-type={body.balance.coinType}
 			data-balance={body.balance.balance}
 		>
 			<AssetBody {...body} />
 		</li>
-	);
-}
-
-export function AssetCard({
-	selected = false,
-	bare = false,
-	className,
-	...body
-}: AssetWrapperProps) {
-	return (
-		<div
-			className={containerClasses(
-				bare,
-				selected,
-				className,
-			)}
-		>
-			<AssetBody {...body} />
-		</div>
 	);
 }
 
@@ -92,7 +49,6 @@ function AssetBody({
 	showCopyButton = true,
 }: AssetBodyProps) {
 	const symbol = coinData?.symbol;
-	const name = coinData?.name;
 	const decimals = coinData?.decimals;
 	const formatted =
 		decimals != null
@@ -104,13 +60,14 @@ function AssetBody({
 	});
 	const priceChangePct =
 		coinData?.priceChange24hPercentage ?? null;
-	const displayName =
-		name ?? prettifyType(balance.coinType);
+	const { name: displayName } = coinLabels(
+		balance.coinType,
+		coinData,
+	);
 	const compactType = formatCoinType(balance.coinType);
 	const showTypeLine = displayName !== compactType;
 	const showSymbolBadge =
-		!!symbol &&
-		symbol.toLowerCase() !== displayName.toLowerCase();
+		!!symbol && !sameCoinLabel(symbol, displayName);
 
 	return (
 		<div className="flex items-center gap-3">
@@ -146,7 +103,9 @@ function AssetBody({
 								value={balance.coinType}
 								size="xs"
 								className="size-3 p-0 text-muted-foreground [&_svg]:size-2.5 hover:bg-transparent hover:text-foreground"
-								successMessage="Coin type copied"
+								successMessage={
+									content.toasts.coinTypeCopied
+								}
 							/>
 						)}
 					</div>
@@ -158,7 +117,9 @@ function AssetBody({
 					<div>
 						<span
 							className="font-medium tabular-nums text-foreground"
-							title={`${balance.balance} (raw)`}
+							title={content.assets.row.rawAmount(
+								balance.balance,
+							)}
 						>
 							{formatted}
 							{symbol && (
@@ -179,8 +140,9 @@ function AssetBody({
 												: 'text-error-foreground',
 										)}
 									>
-										({priceChangePct >= 0 ? '+' : ''}
-										{priceChangePct.toFixed(2)}% 24h)
+										{content.assets.row.priceChange24h(
+											`${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(2)}`,
+										)}
 									</span>
 								)}
 							</div>

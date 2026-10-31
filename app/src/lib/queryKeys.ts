@@ -6,6 +6,7 @@ export const QueryKeys = {
 	Multisigs: 'multisigs',
 	User: 'user',
 	Balances: 'balances',
+	SuiGasCoins: 'sui-gas-coins',
 	CoinMetadata: 'coin-metadata',
 	SuinsDefaultName: 'suins-default-name',
 	RecognizedCoins: 'recognized-coins',
@@ -16,4 +17,6 @@ export const QueryKeys = {
 	Executed: 'executed',
 	Invitations: 'invitations',
 	EpochInfo: 'epoch-info',
+	OnChainTransaction: 'on-chain-transaction',
+	ApiHealth: 'api-health',
 } as const;

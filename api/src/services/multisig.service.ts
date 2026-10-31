@@ -522,7 +522,7 @@ export const validateProposedTransaction = async (
 
 	if (usedObjects.length > 0) {
 		throw new ValidationError(
-			'You cannot have re-use any owned or receiving objects that are already in pending proposals. The used objects are: ' +
+			'These owned/receiving objects are already used by pending proposals: ' +
 				usedObjects.join(', '),
 		);
 	}

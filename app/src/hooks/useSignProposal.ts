@@ -10,16 +10,25 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
-import { toast } from 'sonner';
+
+import { content } from '@/content';
+import { signatureAddedMessage } from '@/lib/proposalUtils';
+import { toast } from '@/lib/toast';
+import { type ProposalCardInput } from '@/lib/types';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
-interface SignProposalParams {
-	proposalId: number;
-	transactionBytes: string;
-}
+type SignProposalParams = Pick<
+	ProposalCardInput,
+	'id' | 'transactionBytes' | 'totalWeight'
+>;
 
+/**
+ * Signs a proposal's transaction with the wallet and adds the signature.
+ * Resolves with the vote's tally and the signature itself, so a caller
+ * can execute at once without waiting for the proposal to refetch.
+ */
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
 	const queryClient = useQueryClient();
@@ -27,11 +36,11 @@ export function useSignProposal() {
 
 	return useMutation({
 		mutationFn: async ({
-			proposalId,
+			id: proposalId,
 			transactionBytes,
 		}: SignProposalParams) => {
 			if (!currentAccount)
-				throw new Error('No connected account');
+				throw new Error(content.errors.noConnectedAccount);
 
 			// Create transaction from built bytes for signing
 			const transaction = Transaction.from(
@@ -42,13 +51,16 @@ export function useSignProposal() {
 			const result = await dappKit.signTransaction({
 				transaction,
 			});
+			const signature = result.signature as string;
 
 			// Call API to vote on the proposal
-			return apiClient.voteForProposal(proposalId, {
-				signature: result.signature as string,
-			});
+			const vote = await apiClient.voteForProposal(
+				proposalId,
+				{ signature },
+			);
+			return { vote, signature };
 		},
-		onSuccess: () => {
+		onSuccess: ({ vote }, proposal) => {
 			// Invalidate all proposal-related queries
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
@@ -56,7 +68,22 @@ export function useSignProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposals],
 			});
-			toast.success('Proposal signed successfully!');
+			toast.success(
+				signatureAddedMessage(vote, proposal.totalWeight),
+			);
+		},
+		onError: (error: Error) => {
+			// The wallet declined, or the API refused the vote because the
+			// proposal changed meanwhile: refetch, so the page catches up.
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposal],
+			});
+			queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Proposals],
+			});
+			toast.error(content.toasts.proposalSignFailed, {
+				description: error.message,
+			});
 		},
 	});
 }

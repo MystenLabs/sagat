@@ -3,6 +3,10 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
+import { formatCoinType, prettifyType } from './coin-type';
+import { pricingOnNetwork } from './coins';
+import type { SuiNetwork } from './network';
+
 export type CoinMetadata = SuiClientTypes.CoinMetadata;
 
 export interface CoinPricing {
@@ -39,11 +43,17 @@ export function fromMetadata(
 	};
 }
 
+/** A registry entry for display on `network`, priced only on mainnet. */
 export function fromRecognized(
 	coin: RecognizedCoin,
+	network: SuiNetwork,
 ): CoinDisplayData {
 	const { coinType: _coinType, ...rest } = coin;
-	return { ...rest, recognized: true };
+	return {
+		...rest,
+		...pricingOnNetwork(network, coin),
+		recognized: true,
+	};
 }
 
 /**
@@ -67,12 +77,16 @@ export function buildCoinDisplayMap(
 	coinTypes: readonly string[],
 	recognizedMap: ReadonlyMap<string, RecognizedCoin>,
 	metadataMap: ReadonlyMap<string, CoinMetadata | null>,
+	network: SuiNetwork,
 ): Map<string, CoinDisplayData> {
 	const out = new Map<string, CoinDisplayData>();
 	for (const coinType of coinTypes) {
 		const recognizedCoin = recognizedMap.get(coinType);
 		if (recognizedCoin) {
-			out.set(coinType, fromRecognized(recognizedCoin));
+			out.set(
+				coinType,
+				fromRecognized(recognizedCoin, network),
+			);
 			continue;
 		}
 		const metadata = metadataMap.get(coinType);
@@ -81,4 +95,29 @@ export function buildCoinDisplayMap(
 		}
 	}
 	return out;
+}
+
+/**
+ * A coin's symbol and name for display, falling back to its compact and
+ * full type when its details are unknown or blank.
+ */
+export function coinLabels(
+	coinType: string,
+	coinData:
+		Pick<CoinDisplayBase, 'symbol' | 'name'> | undefined,
+): { symbol: string; name: string } {
+	const symbol = coinData?.symbol?.trim();
+	const name = coinData?.name?.trim();
+	return {
+		symbol: symbol || formatCoinType(coinType),
+		name: name || prettifyType(coinType),
+	};
+}
+
+/** Whether two coin labels, such as a symbol and a name, read the same. */
+export function sameCoinLabel(
+	a: string,
+	b: string,
+): boolean {
+	return a.toLowerCase() === b.toLowerCase();
 }

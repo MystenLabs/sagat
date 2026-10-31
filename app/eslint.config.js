@@ -91,6 +91,11 @@ export default [
 			],
 		},
 	},
+	// Repo scripts talk through the console.
+	{
+		files: ['scripts/**/*.ts'],
+		rules: { 'no-console': 'off' },
+	},
 	// Test files can use any and have relaxed rules
 	{
 		files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}'],

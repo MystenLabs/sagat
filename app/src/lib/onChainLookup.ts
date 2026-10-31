@@ -1,9 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { SagatApiError } from '@mysten/sagat';
 import { parseSerializedSignature } from '@mysten/sui/cryptography';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { publicKeyFromRawBytes } from '@mysten/sui/verify';
+
+import { content } from '../content';
+import { apiClient } from './api';
 
 const GRAPHQL_URLS = {
 	mainnet: 'https://graphql.mainnet.sui.io/graphql',
@@ -11,7 +15,7 @@ const GRAPHQL_URLS = {
 	devnet: 'https://graphql.devnet.sui.io/graphql',
 } as const;
 
-export type NetworkName = keyof typeof GRAPHQL_URLS;
+type NetworkName = keyof typeof GRAPHQL_URLS;
 
 const gqlClients = Object.fromEntries(
 	Object.entries(GRAPHQL_URLS).map(([network, url]) => [
@@ -40,43 +44,42 @@ interface TransactionsQueryResult {
 	};
 }
 
-export interface OnChainPublicKeyResult {
-	publicKey: string;
-	network: NetworkName;
-}
-
 export class MultisigAddressError extends Error {
 	network: NetworkName;
 	constructor(network: NetworkName) {
-		super(
-			'This address is a multisig wallet. A multisig cannot be added as a member of another multisig.',
-		);
+		super(content.errors.multisigAsMember);
 		this.network = network;
 	}
 }
 
+// A source that answered, without a key for the address.
+class NotFound extends Error {}
+
+const GRAPHQL_TIMEOUT_MS = 10_000;
+
 /**
- * Queries a single network's GraphQL endpoint for a transaction sent by `address`,
- * then extracts the public key from the first signature.
+ * A key from one network's GraphQL endpoint: the first transaction the
+ * address sent carries its signature.
  *
- * Throws `MultisigAddressError` if the signature belongs to a multisig.
+ * Rejects with `NotFound` when there is none, and with
+ * `MultisigAddressError` when the signature belongs to a multisig.
  */
 async function lookupOnNetwork(
 	address: string,
 	network: NetworkName,
 	client: SuiGraphQLClient,
-): Promise<OnChainPublicKeyResult | null> {
+): Promise<string> {
 	const { data } =
 		await client.query<TransactionsQueryResult>({
 			query: SENDER_TX_QUERY,
 			variables: { address },
+			signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
 		});
 
 	const signatures =
 		data?.transactions?.nodes?.[0]?.signatures?.map(
 			(x) => x.signatureBytes,
-		);
-	if (!signatures || signatures.length === 0) return null;
+		) ?? [];
 
 	for (const signature of signatures) {
 		if (!signature) continue;
@@ -90,26 +93,54 @@ async function lookupOnNetwork(
 		);
 
 		if (pubKey.toSuiAddress() === address)
-			return {
-				publicKey: pubKey.toSuiPublicKey(),
-				network,
-			};
+			return pubKey.toSuiPublicKey();
 	}
 
-	return null;
+	throw new NotFound();
 }
 
-/**
- * Best-effort lookup across mainnet, testnet, and devnet in parallel.
- * Returns the first successful result, or `null` if no transaction is found.
- *
- * Throws `MultisigAddressError` if any network detects a multisig signature.
- */
-export async function findPublicKeyOnChain(
+/** A key from the API, which knows every address that signed in here. */
+async function lookupOnApi(
 	address: string,
-): Promise<OnChainPublicKeyResult | null> {
-	const results = await Promise.allSettled(
-		(
+): Promise<string> {
+	let info;
+	try {
+		info = await apiClient.getAddressInfo(address);
+	} catch (error) {
+		// A 4xx is the API's answer for an address it doesn't know.
+		if (
+			error instanceof SagatApiError &&
+			error.status >= 400 &&
+			error.status < 500
+		)
+			throw new NotFound();
+		throw error;
+	}
+	if (!info?.publicKey) throw new NotFound();
+	return info.publicKey;
+}
+
+export type PublicKeyLookup =
+	| { kind: 'found'; publicKey: string }
+	/** Every source answered, and none knows a key. */
+	| { kind: 'missing' }
+	/** No source answered (offline, 5xx, timeouts). */
+	| { kind: 'unreachable' };
+
+/**
+ * The public key behind an address, from the API or from a transaction it
+ * sent on mainnet, testnet or devnet. Resolves as soon as any of them has
+ * the key.
+ *
+ * Throws `MultisigAddressError` when no source has a key and a network
+ * shows the address is a multisig.
+ */
+export async function lookupPublicKey(
+	address: string,
+): Promise<PublicKeyLookup> {
+	const sources = [
+		lookupOnApi(address),
+		...(
 			Object.entries(gqlClients) as [
 				NetworkName,
 				SuiGraphQLClient,
@@ -117,24 +148,24 @@ export async function findPublicKeyOnChain(
 		).map(([network, client]) =>
 			lookupOnNetwork(address, network, client),
 		),
-	);
+	];
 
-	// Prioritise multisig detection — surface it even if another network succeeded.
-	for (const r of results) {
-		if (
-			r.status === 'rejected' &&
-			r.reason instanceof MultisigAddressError
-		) {
-			throw r.reason;
-		}
+	try {
+		return {
+			kind: 'found',
+			publicKey: await Promise.any(sources),
+		};
+	} catch (error) {
+		const reasons: unknown[] =
+			error instanceof AggregateError
+				? error.errors
+				: [error];
+		const multisig = reasons.find(
+			(r) => r instanceof MultisigAddressError,
+		);
+		if (multisig) throw multisig;
+		return reasons.some((r) => r instanceof NotFound)
+			? { kind: 'missing' }
+			: { kind: 'unreachable' };
 	}
-
-	return (
-		results.find(
-			(
-				r,
-			): r is PromiseFulfilledResult<OnChainPublicKeyResult> =>
-				r.status === 'fulfilled' && r.value !== null,
-		)?.value ?? null
-	);
 }

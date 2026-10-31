@@ -5,11 +5,15 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
+/**
+ * Asks the API to check a proposal's digest on chain. Silent: its only
+ * caller runs it after a failed execute, which has already told the
+ * viewer; a refetched proposal shows the outcome.
+ */
 export function useVerifyProposal() {
 	const queryClient = useQueryClient();
 
@@ -25,12 +29,6 @@ export function useVerifyProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
 			});
-			toast.success('Proposal verified successfully!');
-		},
-		onError: (error: Error) => {
-			toast.error(
-				`Failed to verify proposal: ${error.message}`,
-			);
 		},
 	});
 }
