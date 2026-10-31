@@ -246,7 +246,7 @@ test.describe('new proposal: transfer', () => {
 		await page.getByTestId('multisig-tab-assets').click();
 		await alice
 			.suiBalanceRow()
-			.getByTestId('asset-send-button')
+			.getByTestId('token-send-button')
 			.click();
 
 		await expect(
@@ -292,7 +292,7 @@ test.describe('new proposal: transfer', () => {
 		await page.getByTestId('multisig-tab-assets').click();
 		await alice
 			.suiBalanceRow()
-			.getByTestId('asset-send-button')
+			.getByTestId('token-send-button')
 			.click();
 		const recipientInput = page.getByTestId(
 			'transfer-recipient-input',

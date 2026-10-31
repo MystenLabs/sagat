@@ -673,28 +673,14 @@ export const content = {
 		],
 	},
 	/** The assets tab: its header, the balance list and each asset row. */
+	/** The assets page: its header, the tokens table (on the overview too) and the objects. */
 	assets: {
-		header: {
-			title: 'Balances',
-			countEmpty: 'Balances for this pod',
-			count: (count: number, hasMore: boolean) =>
-				`${count}${hasMore ? '+' : ''} ${
-					count === 1 && !hasMore ? 'balance' : 'balances'
-				} tracked`,
-			refresh: 'Refresh balances (5s cooldown)',
-			explorer: 'Explorer',
-		},
-		list: {
-			emptyTitle: 'No assets yet',
-			emptyDescription:
-				'This pod doesn’t hold any coins yet.',
-		},
-		row: {
-			/** The raw on-chain amount, as a tooltip on the balance. */
-			rawAmount: (raw: string) => `${raw} (raw)`,
-			/** `signedPercent` is "+1.25" or "-0.40". */
-			priceChange24h: (signedPercent: string) =>
-				`(${signedPercent}% 24h)`,
+		explorer: 'Explorer',
+		tabs: { tokens: 'Tokens', objects: 'Objects' },
+		empty: {
+			title: 'No assets yet',
+			description:
+				'This pod doesn’t hold any coins or objects yet.',
 		},
 		tokens: {
 			title: 'Tokens',
@@ -710,6 +696,39 @@ export const content = {
 			unverifiedTokens: 'Unverified tokens',
 			/** The raw on-chain amount, as a tooltip on a balance shown without decimals. */
 			rawAmount: (raw: string) => `${raw} (raw)`,
+		},
+		objects: {
+			title: 'Objects',
+			description:
+				'Capabilities and other objects this pod owns. Using one always goes through a proposal.',
+			filterPlaceholder:
+				'Filter by type, e.g. 0x2::package::UpgradeCap',
+			filterLabel: 'Filter by type',
+			clearFilter: 'Clear filter',
+			invalidType:
+				'Enter a full type, e.g. 0x2::package::UpgradeCap',
+			typeSelectLabel: 'Object type',
+			allTypes: 'All types',
+			otherTypes: 'Other',
+			object: 'Object',
+			objectId: 'Object ID',
+			emptyTitle: 'No objects yet',
+			emptyDescription:
+				'Objects this pod owns, other than coins, show here.',
+			emptyFilteredTitle: 'No objects of this type',
+			loadFailed: 'Failed to load objects',
+			page: (page: number) => `Page ${page}`,
+			previousPage: 'Previous page',
+			nextPage: 'Next page',
+			version: (version: string) => `version ${version}`,
+			/** `UpgradeCap.policy`: which upgrades the package still allows. */
+			policy: {
+				compatible: 'Compatible',
+				additive: 'Additive',
+				dependencyOnly: 'Dependency-only',
+				immutable: 'Immutable',
+				unknown: (policy: number) => `Policy ${policy}`,
+			},
 		},
 		/** Shown through `newProposal.buildFailed` when a transfer can't build. */
 		transferErrors: {
