@@ -306,8 +306,6 @@ function StatusLine({
 				check.labelLength,
 				LABEL_MAX,
 			)}
-			{check.labelTooLong &&
-				COPY.signerRow.labelTooLong(LABEL_MAX)}
 		</p>
 	) : null;
 

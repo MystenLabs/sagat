@@ -149,7 +149,7 @@ export function useExecuteProposal() {
 				toast.error(TOASTS.proposalExecuteFailed, {
 					description:
 						safeDecode(status.error.message) ||
-						TOASTS.proposalFailedOnChain,
+						content.common.states.failedOnChain,
 					link: link(TOASTS.seeDetails),
 				});
 				return;

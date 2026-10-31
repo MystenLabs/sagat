@@ -356,7 +356,7 @@ export default function SigningTool() {
 						? {
 								message:
 									failed.effects?.status.error?.message ||
-									COPY.sign.failedOnChain,
+									content.common.states.failedOnChain,
 							}
 						: undefined,
 				});

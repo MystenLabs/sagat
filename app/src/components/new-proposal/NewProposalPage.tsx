@@ -50,8 +50,8 @@ import {
 import { TransferDetailsStep } from './TransferDetailsStep';
 import { TypeStep } from './TypeStep';
 
-const STEPS = content.newProposal.steps;
 const COPY = content.newProposal;
+const STEPS = COPY.steps;
 
 /**
  * The new-proposal wizard: type, details, review. Waits for the account

@@ -35,7 +35,7 @@ const REFRESH_COOLDOWN_MS = 5000;
 // What an empty tab says. All, the first visit's tab, also offers to
 // start one.
 const EMPTY_TITLE: Record<ProposalFilter, string> =
-	content.proposals.empty.title;
+	COPY.empty.title;
 
 /**
  * The account's proposals, filtered by where they stand: all of them, the
@@ -83,7 +83,7 @@ export function ProposalsTab() {
 		);
 	};
 
-	const tabs = content.proposals.tabs;
+	const tabs = COPY.tabs;
 	const filters: {
 		id: ProposalFilter;
 		label: string;

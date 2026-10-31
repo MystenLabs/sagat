@@ -55,17 +55,11 @@ export function CancelProposalModal({
 		>
 			<ModalHeader title={COPY.title} />
 			<ModalContent>
-				{variant === 'alone' ? (
-					<p>
-						{COPY.alone(title)}
-						{ready && COPY.aloneReady}
-					</p>
-				) : (
-					<p>
-						{COPY.others(title)}
-						{ready && COPY.othersReady}
-					</p>
-				)}
+				<p>
+					{variant === 'alone'
+						? COPY.alone(title, ready)
+						: COPY.others(title, ready)}
+				</p>
 			</ModalContent>
 			<ModalActions>
 				<Button

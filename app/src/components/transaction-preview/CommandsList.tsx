@@ -26,7 +26,7 @@ type AnyCommand = any;
 type AnyInput = any;
 
 const COMMAND_DESCRIPTIONS: Record<string, string> =
-	content.transactionPreview.commands.descriptions;
+	COPY.descriptions;
 
 function Muted({ children }: { children: ReactNode }) {
 	return (

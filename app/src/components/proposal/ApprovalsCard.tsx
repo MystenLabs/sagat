@@ -440,8 +440,11 @@ export function ApprovalsCard({
 				/>
 				<ModalContent>
 					<p>
-						{stillFails?.message}
-						{COPY.executeAnyway.body(gas)}
+						{stillFails &&
+							COPY.executeAnyway.body(
+								stillFails.message,
+								gas,
+							)}
 					</p>
 				</ModalContent>
 				<ModalActions>

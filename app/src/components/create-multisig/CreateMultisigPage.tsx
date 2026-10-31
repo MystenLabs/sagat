@@ -40,8 +40,8 @@ import {
 } from './SideCards';
 import { SignersStep } from './SignersStep';
 
-const STEPS = content.createMultisig.steps;
 const COPY = content.createMultisig;
+const STEPS = COPY.steps;
 
 const newSigner = (id: number): SignerDraft => ({
 	id: `signer-${id}`,

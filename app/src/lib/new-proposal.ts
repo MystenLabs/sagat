@@ -27,6 +27,8 @@ import {
 import { VALIDATION } from './constants';
 import { textLength } from './create-multisig';
 
+const COPY = content.newProposal;
+
 export type ProposalType = 'transfer' | 'bytes';
 
 /** The radio cards on the Type step, in order. */
@@ -35,8 +37,8 @@ export const PROPOSAL_TYPES: readonly {
 	title: string;
 	description: string;
 }[] = [
-	{ id: 'transfer', ...content.newProposal.types.transfer },
-	{ id: 'bytes', ...content.newProposal.types.bytes },
+	{ id: 'transfer', ...COPY.types.transfer },
+	{ id: 'bytes', ...COPY.types.bytes },
 ];
 
 /** What Details hands to Review: the built transaction and its title. */
@@ -415,5 +417,3 @@ export function bytesStatusText(
 			return COPY.bytesRead(check.commands);
 	}
 }
-
-const COPY = content.newProposal;

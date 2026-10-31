@@ -6,6 +6,13 @@ import { VALIDATION } from './lib/constants';
 const TITLE_MAX =
 	VALIDATION.MAX_PROPOSAL_DESCRIPTION_LENGTH;
 
+/** The markers after a signer's name: a word, or in parentheses inline. */
+const MARKERS = {
+	you: { word: 'You', parens: '(you)' },
+	creator: { word: 'Creator', parens: '(creator)' },
+	external: { word: 'External', parens: '(external)' },
+} as const;
+
 function signerCount(count: number) {
 	return count === 1 ? '1 signer' : `${count} signers`;
 }
@@ -72,6 +79,8 @@ export const content = {
 			signing: 'Signing…',
 			signed: 'Signed',
 			notSigned: 'Not signed',
+			/** A failed transaction's fallback when the chain gives no reason. */
+			failedOnChain: 'The transaction failed on chain.',
 		},
 		unknownKey: 'Unknown key',
 		/** The heading of the wizards' next-steps card. */
@@ -380,9 +389,7 @@ export const content = {
 				`Signer ${position} public key or address`,
 			clear: 'Clear',
 			labelCount: (length: number, max: number) =>
-				`Name: ${length} of ${max} characters`,
-			labelTooLong: (max: number) =>
-				`. Use ${max} or fewer.`,
+				`Name: ${length} of ${max} characters${length > max ? `. Use ${max} or fewer.` : ''}`,
 			yourWallet: 'Your connected wallet',
 			validKey: 'Valid public key',
 			lookingUp: 'Looking up the public key…',
@@ -649,7 +656,7 @@ export const content = {
 				id: 'who-can-see',
 				question: 'Who can see and sign it?',
 				answer:
-					'Every signer of the pod sees it, and only signers can sign. An external proposer can propose but not sign.',
+					'Every signer of the pod, and anyone with the link, can see it. Only signers can sign. An external proposer can propose but not sign.',
 			},
 			{
 				id: 'expiry',
@@ -940,16 +947,18 @@ export const content = {
 					`It still fails after a second simulation${reason}.`,
 			},
 			executeAnyway: {
-				/** Follows the recheck's message, so it starts with a space. */
-				body: (gas: string | null) =>
-					` If you execute, the proposal closes and can’t be retried, and the pod still pays gas${gas ? ` (about ${gas})` : ''}.`,
+				/** `recheck`: the recheck's message, which leads the body. */
+				body: (recheck: string, gas: string | null) =>
+					`${recheck} If you execute, the proposal closes and can’t be retried, and the pod still pays gas${gas ? ` (about ${gas})` : ''}.`,
 				confirm: 'Execute anyway',
 			},
 		},
 		activity: {
 			heading: 'Activity',
-			you: (name: string) => `${name} (you)`,
-			external: (name: string) => `${name} (external)`,
+			you: (name: string) =>
+				`${name} ${MARKERS.you.parens}`,
+			external: (name: string) =>
+				`${name} ${MARKERS.external.parens}`,
 			proposedAndSigned: (proposer: string) =>
 				`Proposed and signed by ${proposer}`,
 			proposed: (proposer: string) =>
@@ -963,14 +972,11 @@ export const content = {
 		},
 		cancel: {
 			title: 'Cancel this proposal?',
-			alone: (title: string) =>
-				`Nobody else has signed “${title}” yet. It moves to the Cancelled tab, and no one can sign or execute it in Pods after this.`,
-			aloneReady:
-				' Your signature already meets the threshold and stays valid on chain, so anyone holding it can still execute the transaction.',
-			others: (title: string) =>
-				`“${title}” ends for every signer and moves to the Cancelled tab. No one can sign or execute it in Pods after this.`,
-			othersReady:
-				' The signatures already collected stay valid on chain.',
+			/** `ready`: the signatures already meet the threshold. */
+			alone: (title: string, ready: boolean) =>
+				`Nobody else has signed “${title}” yet. It moves to the Cancelled tab, and no one can sign or execute it in Pods after this.${ready ? ' Your signature already meets the threshold and stays valid on chain, so anyone holding it can still execute the transaction.' : ''}`,
+			others: (title: string, ready: boolean) =>
+				`“${title}” ends for every signer and moves to the Cancelled tab. No one can sign or execute it in Pods after this.${ready ? ' The signatures already collected stay valid on chain.' : ''}`,
 			cancelling: 'Cancelling…',
 		},
 		execute: {
@@ -991,11 +997,7 @@ export const content = {
 		columns: {
 			invitation: 'Invitation',
 		},
-		markers: {
-			you: { word: 'You', parens: '(you)' },
-			creator: { word: 'Creator', parens: '(creator)' },
-			external: { word: 'External', parens: '(external)' },
-		},
+		markers: MARKERS,
 		status: {
 			accepted: 'Accepted',
 			rejected: 'Rejected',
@@ -1103,7 +1105,6 @@ export const content = {
 			previewing: 'Previewing transaction…',
 			wouldFail: 'Transaction would fail on-chain',
 			failedPrefix: 'Transaction failed:',
-			failedOnChain: 'The transaction failed on chain.',
 			executed:
 				'Executed. The network accepted this transaction.',
 			signed:
@@ -1304,8 +1305,6 @@ export const content = {
 		proposalExecuteFailed: 'Couldn’t execute the proposal',
 		/** The link on a failed execution toast. */
 		seeDetails: 'See details',
-		proposalFailedOnChain:
-			'The transaction failed on chain.',
 		proposalSignFailed: 'Couldn’t sign the proposal',
 		signatureAdded: 'Signature added',
 		signatureAddedNeeds: (missing: number) =>
