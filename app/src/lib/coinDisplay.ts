@@ -3,8 +3,8 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
-import { formatCoinType, prettifyType } from './coin-type';
-import { pricingOnNetwork } from './coins';
+import { formatType, prettifyType } from './coin-type';
+import { isSuiCoinType, pricingOnNetwork } from './coins';
 import type { SuiNetwork } from './network';
 
 export type CoinMetadata = SuiClientTypes.CoinMetadata;
@@ -31,13 +31,17 @@ export interface CoinDisplayData extends CoinDisplayBase {
 	recognized: boolean;
 }
 
+/**
+ * A coin outside the registry, from its on-chain metadata. Its icon URL is
+ * left out: the issuer picks it, so loading it would tell the issuer's
+ * server who looks at the pod. Only registry icons are shown.
+ */
 export function fromMetadata(
 	metadata: CoinMetadata,
 ): CoinDisplayData {
 	return {
 		name: metadata.name,
 		symbol: metadata.symbol,
-		iconUrl: metadata.iconUrl,
 		decimals: metadata.decimals,
 		recognized: false,
 	};
@@ -54,6 +58,19 @@ export function fromRecognized(
 		...pricingOnNetwork(network, coin),
 		recognized: true,
 	};
+}
+
+/**
+ * Whether a coin is verified: SUI, or a coin the registry recognises.
+ * Anyone can publish a coin called USDC, so its metadata proves nothing.
+ */
+export function isVerifiedCoin(
+	coinType: string,
+	recognizedMap: ReadonlyMap<string, unknown>,
+): boolean {
+	return (
+		isSuiCoinType(coinType) || recognizedMap.has(coinType)
+	);
 }
 
 /**
@@ -109,7 +126,7 @@ export function coinLabels(
 	const symbol = coinData?.symbol?.trim();
 	const name = coinData?.name?.trim();
 	return {
-		symbol: symbol || formatCoinType(coinType),
+		symbol: symbol || formatType(coinType),
 		name: name || prettifyType(coinType),
 	};
 }

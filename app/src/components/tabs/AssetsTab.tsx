@@ -1,104 +1,193 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Send } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { ArrowDownToLine, Coins } from 'lucide-react';
+import { useState } from 'react';
 import {
 	useNavigate,
 	useOutletContext,
+	useSearchParams,
 } from 'react-router-dom';
 
 import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { useAccountAssets } from '@/hooks/useAccountAssets';
+import { useOwnedObjects } from '@/hooks/useOwnedObjects';
+import { accountName } from '@/lib/account-name';
 import { newProposalPath } from '@/lib/new-proposal';
+import { FIRST_PAGE } from '@/lib/owned-objects';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { getExplorerUrl } from '@/lib/utils';
 
-import { useNetwork } from '../../contexts/NetworkContext';
-import { useAccountAssets } from '../../hooks/useAccountAssets';
-import { getExplorerUrl } from '../../lib/utils';
-import { AssetsHeader } from '../assets/AssetsHeader';
-import { AssetsList } from '../assets/AssetsList';
+import { ObjectsCard } from '../assets/ObjectsCard';
+import {
+	PricesUpdated,
+	TokensTable,
+} from '../assets/TokensTable';
+import { AccountValue } from '../multisig/AccountValue';
+import { ReceiveDialog } from '../shell/ReceiveDialog';
 import { Button } from '../ui/button';
+import { cardClass, CardHeading } from '../ui/card';
+import { EmptyState } from '../ui/empty-state';
+import { Tabs } from '../ui/tabs';
+
+const COPY = content.assets;
 
 interface AssetsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
 }
 
-const REFRESH_COOLDOWN_MS = 5_000;
+type AssetsView = 'tokens' | 'objects';
 
+/** The search param that opens the objects, `?view=objects`. */
+const VIEW_PARAM = 'view';
+
+/**
+ * What the account holds: its value with Explorer, Receive and Send, then
+ * its tokens or its other objects. An account with neither shows one
+ * empty card that offers Receive.
+ */
 export function AssetsTab() {
 	const { multisig } = useOutletContext<AssetsTabContext>();
+	const { address } = multisig;
 	const navigate = useNavigate();
 	const { network } = useNetwork();
-	const [isRefreshCooldown, setIsRefreshCooldown] =
-		useState(false);
-	const cooldownTimerRef = useRef<ReturnType<
-		typeof setTimeout
-	> | null>(null);
+	const [searchParams, setSearchParams] = useSearchParams();
+	const view: AssetsView =
+		searchParams.get(VIEW_PARAM) === 'objects'
+			? 'objects'
+			: 'tokens';
+	const [receiveOpen, setReceiveOpen] = useState(false);
 
-	const { query: balancesQuery, balances: sortedBalances } =
-		useAccountAssets(multisig.address);
-
-	useEffect(() => {
-		return () => {
-			if (cooldownTimerRef.current != null) {
-				clearTimeout(cooldownTimerRef.current);
-			}
-		};
-	}, []);
-
-	const handleRefresh = () => {
-		if (isRefreshCooldown || balancesQuery.isFetching) {
-			return;
-		}
-		setIsRefreshCooldown(true);
-		balancesQuery.refetch();
-		cooldownTimerRef.current = setTimeout(() => {
-			setIsRefreshCooldown(false);
-			cooldownTimerRef.current = null;
-		}, REFRESH_COOLDOWN_MS);
-	};
-
-	const explorerUrl = getExplorerUrl(
-		multisig.address,
-		network,
-		'account',
+	// Every page and every row's display data, so the total and the split
+	// into verified and unverified tokens are complete.
+	const assets = useAccountAssets(address, {
+		allPages: true,
+		displayCount: Infinity,
+	});
+	// The objects' first page, shared with the objects tab, says whether
+	// the account holds anything at all. A first page without rows can
+	// still have more after it, so only one with nothing left counts.
+	const firstObjects = useOwnedObjects(
+		address,
+		{ kind: 'all' },
+		FIRST_PAGE,
 	);
+	const empty =
+		!assets.isLoading &&
+		!assets.isError &&
+		assets.balances.length === 0 &&
+		firstObjects.data?.rows.length === 0 &&
+		firstObjects.data.next === null;
+
+	// The heading counts verified tokens once the split is final.
+	const verifiedCount =
+		assets.isLoading ||
+		assets.isError ||
+		!assets.verifiedKnown
+			? undefined
+			: assets.balances.filter((b) =>
+					assets.isVerified(b.coinType),
+				).length;
+
+	const name = accountName(multisig);
+	const send = (coinType?: string) =>
+		navigate(
+			newProposalPath(address, {
+				type: 'transfer',
+				coinType,
+			}),
+		);
 
 	return (
-		<div className="space-y-4 px-3">
-			<AssetsHeader
-				count={balancesQuery.balances.length}
-				hasMore={balancesQuery.hasNextPage ?? false}
-				isRefetching={balancesQuery.isFetching}
-				isRefreshCooldown={isRefreshCooldown}
-				onRefresh={handleRefresh}
-				explorerUrl={explorerUrl}
+		<div className="@container flex flex-col gap-6">
+			<AccountValue
+				address={address}
+				name={name}
+				value={assets.value}
+				pricesAvailable={assets.pricesAvailable}
+				pricesError={assets.pricesError}
+				isLoading={assets.isLoading}
+				isError={assets.isError}
+				onSend={() => send()}
+				explorerUrl={getExplorerUrl(
+					address,
+					network,
+					'account',
+				)}
+				showActions={!empty}
+				testIdPrefix="assets"
 			/>
 
-			<AssetsList
-				query={balancesQuery}
-				balances={sortedBalances}
-				multisigAddress={multisig.address}
-				renderRowActions={(balance, coinData) => (
-					<Button
-						variant="outline"
-						size="sm"
-						className="h-7 px-2.5 text-xs"
-						disabled={coinData?.decimals == null}
-						data-testid="asset-send-button"
-						onClick={() =>
-							navigate(
-								newProposalPath(multisig.address, {
-									type: 'transfer',
-									coinType: balance.coinType,
-								}),
+			{empty ? (
+				<EmptyState
+					icon={Coins}
+					title={COPY.empty.title}
+					description={COPY.empty.description}
+					action={
+						<Button
+							onClick={() => setReceiveOpen(true)}
+							data-testid="assets-empty-receive-button"
+						>
+							<ArrowDownToLine />
+							{content.common.actions.receive}
+						</Button>
+					}
+					className="min-h-120 justify-center"
+					testId="assets-empty"
+				/>
+			) : (
+				<>
+					<Tabs
+						tabs={[
+							{ id: 'tokens', label: COPY.tabs.tokens },
+							{ id: 'objects', label: COPY.tabs.objects },
+						]}
+						activeTab={view}
+						onTabChange={(id) =>
+							setSearchParams(
+								id === 'objects'
+									? { [VIEW_PARAM]: 'objects' }
+									: {},
+								{ replace: true },
 							)
 						}
-					>
-						<Send className="w-3.5 h-3.5 mr-1" />
-						{content.common.actions.send}
-					</Button>
-				)}
+						variant="pills"
+						testId="assets-tab"
+					/>
+					{view === 'tokens' ? (
+						<section
+							className={cardClass}
+							aria-labelledby="assets-tokens-title"
+							data-testid="assets-tokens"
+						>
+							<CardHeading
+								id="assets-tokens-title"
+								title={COPY.tokens.title}
+								count={verifiedCount}
+							>
+								<div className="ml-auto">
+									<PricesUpdated assets={assets} />
+								</div>
+							</CardHeading>
+							<TokensTable
+								assets={assets}
+								variant="assets"
+								onSend={send}
+								testId="assets-tokens"
+							/>
+						</section>
+					) : (
+						<ObjectsCard address={address} />
+					)}
+				</>
+			)}
+
+			<ReceiveDialog
+				open={receiveOpen}
+				onClose={() => setReceiveOpen(false)}
+				address={address}
+				name={name}
 			/>
 		</div>
 	);

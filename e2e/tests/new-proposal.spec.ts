@@ -9,7 +9,7 @@ import {
 } from '@mysten/sui/utils';
 
 import { content } from '../../app/src/content';
-import { formatCoinType } from '../../app/src/lib/coin-type';
+import { formatType } from '../../app/src/lib/coin-type';
 import { randomAddress, SUI_TYPE } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
@@ -246,7 +246,7 @@ test.describe('new proposal: transfer', () => {
 		await page.getByTestId('multisig-tab-assets').click();
 		await alice
 			.suiBalanceRow()
-			.getByTestId('asset-send-button')
+			.getByTestId('token-send-button')
 			.click();
 
 		await expect(
@@ -292,7 +292,7 @@ test.describe('new proposal: transfer', () => {
 		await page.getByTestId('multisig-tab-assets').click();
 		await alice
 			.suiBalanceRow()
-			.getByTestId('asset-send-button')
+			.getByTestId('token-send-button')
 			.click();
 		const recipientInput = page.getByTestId(
 			'transfer-recipient-input',
@@ -699,7 +699,7 @@ test.describe('new proposal: transfer details', () => {
 		);
 		const { page } = alice;
 		const recipient = randomAddress();
-		const label = formatCoinType(coinType);
+		const label = formatType(coinType);
 
 		await openNewProposal(page, multisig.address, {
 			type: 'transfer',

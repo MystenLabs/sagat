@@ -36,19 +36,25 @@ const TEST: CoinMetadata = {
  * Builds and publishes `move/test_coin` with `metadata` in place of its
  * constants, so each call is a new coin type with its own faucet. Global
  * setup publishes TEST this way; a test can publish its own in a few
- * seconds.
+ * seconds. The package is made immutable, unless `upgradeCapTo` names an
+ * address to send its UpgradeCap to.
  */
 export async function publishTestCoin(
 	chain: Chain,
 	metadata: CoinMetadata = TEST,
+	{ upgradeCapTo }: { upgradeCapTo?: string } = {},
 ): Promise<TestCoin> {
 	const { modules, dependencies } = build(metadata);
 
 	const tx = new Transaction();
-	tx.moveCall({
-		target: '0x2::package::make_immutable',
-		arguments: [tx.publish({ modules, dependencies })],
-	});
+	const upgradeCap = tx.publish({ modules, dependencies });
+	if (upgradeCapTo)
+		tx.transferObjects([upgradeCap], upgradeCapTo);
+	else
+		tx.moveCall({
+			target: '0x2::package::make_immutable',
+			arguments: [upgradeCap],
+		});
 	const created = await chain.executeAsFunder(tx);
 	const faucet = created.find((o) =>
 		o.type?.endsWith('::test_coin::Faucet'),

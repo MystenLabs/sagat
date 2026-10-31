@@ -672,29 +672,86 @@ export const content = {
 			},
 		],
 	},
-	/** The assets tab: its header, the balance list and each asset row. */
+	/** The assets page: its header, the tokens table (on the overview too) and the objects. */
 	assets: {
-		header: {
-			title: 'Balances',
-			countEmpty: 'Balances for this pod',
-			count: (count: number, hasMore: boolean) =>
-				`${count}${hasMore ? '+' : ''} ${
-					count === 1 && !hasMore ? 'balance' : 'balances'
-				} tracked`,
-			refresh: 'Refresh balances (5s cooldown)',
-			explorer: 'Explorer',
+		explorer: 'Explorer',
+		tabs: { tokens: 'Tokens', objects: 'Objects' },
+		empty: {
+			title: 'No assets yet',
+			description:
+				'This pod doesn’t hold any coins or objects yet.',
 		},
-		list: {
-			emptyTitle: 'No assets yet',
-			emptyDescription:
-				'This pod doesn’t hold any coins yet.',
-		},
-		row: {
-			/** The raw on-chain amount, as a tooltip on the balance. */
+		tokens: {
+			title: 'Tokens',
+			refreshPrices: 'Refresh prices',
+			pricesUpdated: (when: string) =>
+				`Prices updated ${when}`,
+			emptyTitle: 'No tokens yet.',
+			price: 'Price',
+			value: 'Value',
+			noPrice: 'No price',
+			verified: 'Verified',
+			unverified: 'Unverified',
+			unverifiedTokens: 'Unverified tokens',
+			/** The raw on-chain amount, as a tooltip on a balance shown without decimals. */
 			rawAmount: (raw: string) => `${raw} (raw)`,
-			/** `signedPercent` is "+1.25" or "-0.40". */
-			priceChange24h: (signedPercent: string) =>
-				`(${signedPercent}% 24h)`,
+		},
+		objects: {
+			title: 'Objects',
+			description:
+				'Capabilities and other objects this pod owns. Using one always goes through a proposal.',
+			filterPlaceholder:
+				'Filter by type, e.g. 0x2::package::UpgradeCap',
+			filterLabel: 'Filter by type',
+			clearFilter: 'Clear filter',
+			invalidType:
+				'Enter a full type, e.g. 0x2::package::UpgradeCap',
+			typeSelectLabel: 'Object type',
+			allTypes: 'All types',
+			otherTypes: 'Other',
+			object: 'Object',
+			objectId: 'Object ID',
+			emptyTitle: 'No objects yet',
+			emptyDescription:
+				'Objects this pod owns, other than coins, show here.',
+			emptyFilteredTitle: 'No objects of this type',
+			/** A page without objects that still has more after it. */
+			emptyPage: 'No objects on this page.',
+			loadFailed: 'Failed to load objects',
+			page: (page: number) => `Page ${page}`,
+			previousPage: 'Previous page',
+			nextPage: 'Next page',
+			version: (version: string) => `version ${version}`,
+			/** What an id in a subtitle is, shown before it. */
+			idLabels: {
+				package: 'package',
+				kiosk: 'kiosk',
+			},
+			/**
+			 * An id in a subtitle after its label: `package 0x2ad5…4108`.
+			 * The space is non-breaking, so the label stays with its id.
+			 */
+			labelledId: <T>(
+				label: string,
+				id: T,
+			): (T | string)[] => [`${label}\u00a0`, id],
+			/**
+			 * An object's subtitle: its parts (`version 1`, a policy, a
+			 * labelled package) with a comma between each. The space is
+			 * non-breaking, so the subtitle's flex row keeps it.
+			 */
+			subtitle: <T>(parts: readonly T[]): (T | string)[] =>
+				parts.flatMap((part, i) =>
+					i === 0 ? [part] : [',\u00a0', part],
+				),
+			/** `UpgradeCap.policy`: which upgrades the package still allows. */
+			policy: {
+				compatible: 'Compatible',
+				additive: 'Additive',
+				dependencyOnly: 'Dependency-only',
+				immutable: 'Immutable',
+				unknown: (policy: number) => `Policy ${policy}`,
+			},
 		},
 		/** Shown through `newProposal.buildFailed` when a transfer can't build. */
 		transferErrors: {
@@ -736,13 +793,7 @@ export const content = {
 		},
 
 		tokens: {
-			title: 'Tokens',
-			refreshPrices: 'Refresh prices',
-			pricesUpdated: (when: string) =>
-				`Prices updated ${when}`,
 			viewAll: 'View all assets',
-			emptyTitle: 'No tokens yet.',
-			value: 'Value',
 		},
 
 		openProposals: {

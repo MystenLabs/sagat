@@ -313,7 +313,7 @@ export class Actor extends Identity {
 
 	suiBalanceRow() {
 		return this.page.locator(
-			'[data-testid="asset-row"][data-coin-type$="::sui::SUI"]',
+			'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
 		);
 	}
 }
