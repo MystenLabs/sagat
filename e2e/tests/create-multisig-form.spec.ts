@@ -174,7 +174,7 @@ test.describe('create multisig wizard', () => {
 		await submit.click();
 
 		// While it is pending, nothing can leave the step or the page.
-		await expect(submit).toHaveText('Creating multisig…');
+		await expect(submit).toHaveText('Creating pod…');
 		await expect(
 			page.getByTestId('create-cancel'),
 		).toBeDisabled();
@@ -184,7 +184,7 @@ test.describe('create multisig wizard', () => {
 		release();
 
 		await expect(error).toHaveText(
-			'Couldn’t create the multisig. Your setup is still here. Check your connection and try again.',
+			'Couldn’t create the pod. Nothing was sent to the signers and your setup is still here. Check your connection and try again.',
 		);
 		await expect(submit).toHaveText('Try again');
 		await expect(page).toHaveURL(/\/create$/);
@@ -406,7 +406,7 @@ test.describe('create multisig wizard', () => {
 		]);
 		await setThreshold(page, 3);
 		await expect(warning).toHaveText(
-			'Every signer must sign every proposal. If one signer loses their key, the multisig can’t move funds.',
+			'Every signer must sign every proposal. If one signer loses their key, the pod can’t move funds.',
 		);
 		// A third signer of weight 1 can be spared, so the warning goes.
 		await addSigners(page, [{ key: carol.publicKey }]);

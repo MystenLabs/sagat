@@ -11,6 +11,7 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { QueryKeys } from '@/lib/queryKeys';
 import { toast } from '@/lib/toast';
@@ -30,7 +31,7 @@ export function useRejectInvitation() {
 			address: string;
 		}) => {
 			if (!currentAccount || !currentAddress) {
-				throw new Error('No wallet connected');
+				throw new Error(content.errors.noWalletConnected);
 			}
 
 			// Sign rejection message
@@ -51,7 +52,7 @@ export function useRejectInvitation() {
 			);
 		},
 		onSuccess: () => {
-			toast.success('Invitation rejected');
+			toast.success(content.toasts.invitationRejected);
 			// Invalidate the multisig queries to refresh the list
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],

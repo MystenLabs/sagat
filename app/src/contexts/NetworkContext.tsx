@@ -7,6 +7,7 @@ import {
 	useWalletConnection,
 } from '@mysten/dapp-kit-react';
 
+import { content } from '@/content';
 import { LocalStorageKeys } from '@/lib/localStorageKeys';
 import { type SuiNetwork } from '@/lib/network';
 import { toast } from '@/lib/toast';
@@ -35,7 +36,9 @@ export function useNetwork() {
 		network: network as SuiNetwork,
 		setNetwork: (network: SuiNetwork) => {
 			if (!walletSupportsNetwork(wallet, network)) {
-				toast.error(`Not available in ${wallet?.name}`);
+				toast.error(
+					content.toasts.notAvailableInWallet(wallet?.name),
+				);
 				return;
 			}
 			dappKit.switchNetwork(network);

@@ -3,6 +3,7 @@
 
 import { Check, Info } from 'lucide-react';
 
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { accountName } from '@/lib/account-name';
 import { weightTone } from '@/lib/member-status';
@@ -28,6 +29,10 @@ import {
 	tableShellHeadRowClass,
 } from '../ui/table';
 import { WeightBar } from './WeightBar';
+
+const ACTIONS = content.common.actions;
+const FIELDS = content.common.fields;
+const COPY = content.invitations;
 
 /**
  * The invitation in full before accepting: the account's setup, its
@@ -83,12 +88,10 @@ export function ReviewInvitationDialog({
 					<>
 						<div className="flex flex-col gap-1 pr-8">
 							<DialogTitle className="text-24 font-bold">
-								Couldn't join {name}
+								{COPY.reviewDialog.failedTitle(name)}
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
-								Accepting didn't complete. Try again, or
-								check your account list in case it went
-								through.
+								{COPY.reviewDialog.failedDescription}
 							</DialogDescription>
 						</div>
 						<Alert
@@ -96,21 +99,18 @@ export function ReviewInvitationDialog({
 							className="mt-5"
 							data-testid="accept-invitation-error"
 						>
-							{errorMessage(
-								error,
-								'The wallet rejected the request.',
-							)}
+							{errorMessage(error, COPY.walletRejected)}
 						</Alert>
 						<div className="mt-5 flex justify-end gap-2 border-t pt-5">
 							<Button variant="outline" onClick={onBack}>
-								Go back
+								{ACTIONS.goBack}
 							</Button>
 							<Button
 								onClick={onAccept}
 								disabled={accepting}
 								data-testid="accept-invitation-button"
 							>
-								Try again
+								{ACTIONS.tryAgain}
 							</Button>
 						</div>
 					</>
@@ -118,7 +118,7 @@ export function ReviewInvitationDialog({
 					<>
 						<div className="flex flex-col gap-1 pr-8">
 							<DialogTitle className="text-24 font-bold">
-								Join {name}?
+								{COPY.reviewDialog.title(name)}
 							</DialogTitle>
 							<DialogDescription className="text-14 text-muted-foreground">
 								{creator ? (
@@ -132,9 +132,9 @@ export function ReviewInvitationDialog({
 										size="inline"
 									/>
 								) : (
-									'Someone'
+									COPY.reviewDialog.someone
 								)}{' '}
-								invited you as a signer.
+								{COPY.reviewDialog.invitedYou}
 							</DialogDescription>
 						</div>
 
@@ -154,7 +154,7 @@ export function ReviewInvitationDialog({
 
 						<div className="mt-5 flex flex-col gap-1">
 							<div className="text-12 text-muted-foreground">
-								Sui address
+								{FIELDS.suiAddress}
 							</div>
 							<div className="flex items-center gap-2">
 								<span className="min-w-0 flex-1 font-mono text-12 break-all">
@@ -163,7 +163,9 @@ export function ReviewInvitationDialog({
 								<CopyButton
 									value={multisig.address}
 									size="xs"
-									successMessage="Address copied"
+									successMessage={
+										content.toasts.addressCopied
+									}
 								/>
 							</div>
 						</div>
@@ -176,11 +178,15 @@ export function ReviewInvitationDialog({
 										<th className="hidden w-9 px-3 sm:table-cell">
 											#
 										</th>
-										<th className="px-3">Signer</th>
-										<th className="w-15 px-3 text-right">
-											Weight
+										<th className="px-3">
+											{FIELDS.signer}
 										</th>
-										<th className="w-24 px-3">Status</th>
+										<th className="w-15 px-3 text-right">
+											{FIELDS.weight}
+										</th>
+										<th className="w-24 px-3">
+											{FIELDS.status}
+										</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -229,10 +235,7 @@ export function ReviewInvitationDialog({
 
 						<p className="mt-4 flex items-start gap-2.5 text-13 text-foreground-secondary">
 							<Info className="mt-0.5 size-4 shrink-0" />
-							<span>
-								Check each address before you accept.
-								Accepting doesn't move funds or cost gas.
-							</span>
+							<span>{COPY.reviewDialog.note}</span>
 						</p>
 
 						<div className="mt-5 flex justify-end gap-2 border-t pt-5">
@@ -242,7 +245,7 @@ export function ReviewInvitationDialog({
 								disabled={accepting}
 								data-testid="reject-invitation-open"
 							>
-								Reject
+								{ACTIONS.reject}
 							</Button>
 							<Button
 								onClick={onAccept}
@@ -251,8 +254,8 @@ export function ReviewInvitationDialog({
 							>
 								<Check strokeWidth={3} />
 								{accepting
-									? 'Confirm in your wallet…'
-									: 'Accept invitation'}
+									? content.common.states.confirmInWallet
+									: COPY.reviewDialog.accept}
 							</Button>
 						</div>
 					</>

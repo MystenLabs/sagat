@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/button';
 import { CardHeading } from '@/components/ui/card';
 import { SkeletonLine } from '@/components/ui/skeleton';
+import { content } from '@/content';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
@@ -53,6 +54,9 @@ import {
 	ToolCard,
 } from './parts';
 
+const COPY = content.tools;
+const TOASTS = content.toasts;
+
 interface SignedResult {
 	digest?: string;
 	signature: string;
@@ -62,9 +66,6 @@ interface SignedResult {
 	/** Set when the transaction executed but failed on chain. */
 	failure?: { message: string };
 }
-
-const CANT_READ =
-	'Can’t read this as a transaction. Paste the full data as JSON or base64, and check the network above.';
 
 /** The transaction's sender, normalised, or null when it names none. */
 function senderOf(transactionData: string): string | null {
@@ -110,7 +111,7 @@ function previewBytes(
 
 const networkWarning = (
 	<Alert variant="warning">
-		Make sure the network above matches the transaction.
+		{COPY.sign.networkWarning}
 	</Alert>
 );
 
@@ -141,7 +142,9 @@ function PreviewResult({
 	return (
 		<section className="flex flex-col gap-3">
 			{!withBlock && (
-				<CardHeading title="Transaction preview" />
+				<CardHeading
+					title={content.common.transactionPreview}
+				/>
 			)}
 			{/* Without the preview block, the analyzer shows on its own. */}
 			{settledWithoutBlock && analyzer}
@@ -162,7 +165,7 @@ function PreviewResult({
 			>
 				{pending && (
 					<span className="sr-only" role="status">
-						Previewing transaction…
+						{COPY.sign.previewing}
 					</span>
 				)}
 				{withBlock ? (
@@ -180,10 +183,7 @@ function PreviewResult({
 					</div>
 				) : (
 					<p className="text-13 whitespace-pre-wrap text-error-foreground">
-						{safeDecode(
-							dryRunError ||
-								'Transaction would fail on-chain',
-						)}
+						{safeDecode(dryRunError || COPY.sign.wouldFail)}
 					</p>
 				)}
 				{!pending && !passed && networkWarning}
@@ -214,7 +214,7 @@ function SignedResultDisplay({
 		>
 			{failure ? (
 				<Alert variant="error">
-					Transaction failed:{' '}
+					{COPY.sign.failedPrefix}{' '}
 					<span
 						className="whitespace-pre-wrap"
 						data-testid="signed-result-error"
@@ -224,33 +224,33 @@ function SignedResultDisplay({
 				</Alert>
 			) : (
 				<Alert variant="success">
-					{digest
-						? 'Executed. The network accepted this transaction.'
-						: 'Signed. Copy the signature and share it with the other signers.'}
+					{digest ? COPY.sign.executed : COPY.sign.signed}
 				</Alert>
 			)}
 			{digest ? (
 				<ReadOnlyField
-					label="Transaction digest"
+					label={COPY.transactionDigest}
 					value={digest}
 				/>
 			) : (
 				<ReadOnlyField
-					label="Signature"
+					label={content.common.fields.signature}
 					value={signature}
 				/>
 			)}
 			<ResultActions
 				onReset={onStartOver}
-				resetLabel="Start over"
+				resetLabel={COPY.sign.startOver}
 				resetTestId="start-over-button"
 				explorerUrl={explorerUrl}
 				copyValue={digest ?? signature}
 				copyLabel={
-					digest ? 'Copy digest' : 'Copy signature'
+					digest ? COPY.copyDigest : COPY.sign.copySignature
 				}
 				copyMessage={
-					digest ? 'Digest copied' : 'Signature copied'
+					digest
+						? TOASTS.digestCopied
+						: TOASTS.signatureCopied
 				}
 			/>
 		</div>
@@ -356,7 +356,7 @@ export default function SigningTool() {
 						? {
 								message:
 									failed.effects?.status.error?.message ||
-									'The transaction failed on chain.',
+									content.common.states.failedOnChain,
 							}
 						: undefined,
 				});
@@ -375,12 +375,7 @@ export default function SigningTool() {
 			}
 		} catch (error) {
 			// The input stays, so the user can retry.
-			toast.error(
-				errorMessage(
-					error,
-					'Failed to sign the transaction',
-				),
-			);
+			toast.error(errorMessage(error, TOASTS.signFailed));
 		} finally {
 			setIsSigning(false);
 			setIsSigningAndExecuting(false);
@@ -410,12 +405,14 @@ export default function SigningTool() {
 
 	let signNote: string | undefined;
 	if (!currentAccount) {
-		signNote = 'Connect a wallet to sign this transaction.';
+		signNote = COPY.sign.connectWallet;
 	} else if (senderMultisig) {
-		signNote = `${accountName(senderMultisig)}’s threshold is ${thresholdLabel(senderMultisig)}, so it can’t run on your signature alone. Sign to add yours.`;
+		signNote = COPY.sign.thresholdNote(
+			accountName(senderMultisig),
+			thresholdLabel(senderMultisig),
+		);
 	} else if (foreignSender) {
-		signNote =
-			'The sender isn’t your connected wallet, so this can’t run on your signature alone. Sign to add yours.';
+		signNote = COPY.sign.foreignSender;
 	}
 
 	const showPreview =
@@ -428,14 +425,16 @@ export default function SigningTool() {
 			<NetworkField />
 			<BytesField
 				id="transaction-data"
-				label="Transaction data"
+				label={COPY.sign.dataLabel}
 				testId="transaction-data-input"
-				placeholder="Paste the transaction data (JSON or base64)"
+				placeholder={COPY.sign.dataPlaceholder}
 				minHeight="min-h-40"
 				value={transactionData}
 				onChange={handleTransactionDataChange}
 				readOnly={!!signedResult || isSignPending}
-				error={unreadable ? CANT_READ : undefined}
+				error={
+					unreadable ? COPY.sign.unreadable : undefined
+				}
 				errorTestId="transaction-data-error"
 			/>
 
@@ -478,8 +477,8 @@ export default function SigningTool() {
 						>
 							<Send />
 							{isSigningAndExecuting
-								? 'Signing…'
-								: 'Sign and execute'}
+								? content.common.states.signing
+								: content.common.actions.signAndExecute}
 						</Button>
 						<Button
 							type="button"
@@ -489,7 +488,9 @@ export default function SigningTool() {
 							data-testid="sign-button"
 						>
 							<PenLine />
-							{isSigning ? 'Signing…' : 'Sign'}
+							{isSigning
+								? content.common.states.signing
+								: COPY.sign.sign}
 						</Button>
 					</ToolActions>
 				)}

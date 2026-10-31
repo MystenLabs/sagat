@@ -6,6 +6,7 @@ import { XIcon } from 'lucide-react';
 import * as React from 'react';
 
 import { Button } from '@/components/ui/button';
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
@@ -98,7 +99,9 @@ function DialogContent({
 						}
 					>
 						<XIcon />
-						<span className="sr-only">Close</span>
+						<span className="sr-only">
+							{content.common.actions.close}
+						</span>
 					</DialogPrimitive.Close>
 				)}
 			</DialogPrimitive.Popup>
@@ -141,7 +144,7 @@ function DialogFooter({
 				<DialogPrimitive.Close
 					render={<Button variant="outline" />}
 				>
-					Close
+					{content.common.actions.close}
 				</DialogPrimitive.Close>
 			)}
 		</div>

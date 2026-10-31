@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { content } from '@/content';
 import {
 	signerSummary,
 	type SignerEntry,
@@ -41,7 +42,7 @@ export function SignersCard({
 		>
 			<CardHeading
 				id="signers-title"
-				title="Signers"
+				title={content.signers.title}
 				count={rows.length}
 			>
 				<span
@@ -54,10 +55,14 @@ export function SignersCard({
 			<table className={tableClass}>
 				<thead>
 					<tr className={tableHeadRowClass}>
-						<th className="px-3">Signer</th>
-						<th className="w-12 px-3 sm:w-16">Weight</th>
+						<th className="px-3">
+							{content.common.fields.signer}
+						</th>
+						<th className="w-12 px-3 sm:w-16">
+							{content.common.fields.weight}
+						</th>
 						<th className="w-24 px-3 sm:w-26">
-							Invitation
+							{content.signers.columns.invitation}
 						</th>
 					</tr>
 				</thead>

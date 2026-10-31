@@ -11,6 +11,7 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { toast } from '@/lib/toast';
 
@@ -26,7 +27,7 @@ export function useCancelProposal() {
 	return useMutation({
 		mutationFn: async (proposalId: number) => {
 			if (!currentAccount || !currentAddress)
-				throw new Error('No wallet connected');
+				throw new Error(content.errors.noWalletConnected);
 
 			// Create a message to sign for cancellation
 			const message =
@@ -50,11 +51,11 @@ export function useCancelProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
 			});
-			toast.success('Proposal cancelled');
+			toast.success(content.toasts.proposalCancelled);
 		},
 		onError: (error: Error) => {
 			toast.error(
-				`Failed to cancel proposal: ${error.message}`,
+				content.toasts.proposalCancelFailed(error.message),
 			);
 		},
 	});

@@ -4,6 +4,7 @@
 import { Users } from 'lucide-react';
 import { useState } from 'react';
 
+import { content } from '@/content';
 import {
 	accountCreator,
 	accountName,
@@ -18,6 +19,8 @@ import { CopyButton } from '../ui/CopyButton';
 import { RejectInvitationDialog } from './RejectInvitationDialog';
 import { ReviewInvitationDialog } from './ReviewInvitationDialog';
 import { ShortAddress } from './ShortAddress';
+
+const COPY = content.invitations.card;
 
 /**
  * One invitation in the inbox: the account, who sent it, and the way in.
@@ -88,20 +91,22 @@ export function InvitationCard({
 					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-13 text-muted-foreground">
 						<span data-testid="invitation-invited-by">
 							{creator?.label
-								? `Invited by ${creator.label}`
-								: 'Invited by'}
+								? COPY.invitedByName(creator.label)
+								: COPY.invitedBy}
 						</span>
 						<span className="flex items-center gap-1 font-mono text-12 text-foreground-secondary">
 							{creator ? (
 								<ShortAddress address={creator.address} />
 							) : (
-								'an unknown key'
+								COPY.unknownKey
 							)}
 							{creator && (
 								<CopyButton
 									value={creator.address}
 									size="xs"
-									successMessage="Address copied"
+									successMessage={
+										content.toasts.addressCopied
+									}
 								/>
 							)}
 						</span>
@@ -111,7 +116,7 @@ export function InvitationCard({
 
 			{multisig.isRejected ? (
 				<p className="shrink-0 text-13 text-muted-foreground">
-					You rejected this invitation.
+					{COPY.rejectedNote}
 				</p>
 			) : (
 				<div className="flex shrink-0 gap-2 max-md:justify-end">
@@ -121,14 +126,14 @@ export function InvitationCard({
 						disabled={busy}
 						data-testid="reject-invitation-open"
 					>
-						Reject
+						{content.common.actions.reject}
 					</Button>
 					<Button
 						onClick={() => setReviewing(true)}
 						disabled={busy}
 						data-testid="invitation-toggle-details"
 					>
-						Review invitation
+						{COPY.review}
 					</Button>
 				</div>
 			)}
@@ -151,6 +156,7 @@ export function InvitationCard({
 				open={rejecting}
 				onClose={closeReject}
 				name={name}
+				creatorName={creator?.label ?? null}
 				onConfirm={handleReject}
 				rejecting={reject.isPending}
 				error={reject.error}

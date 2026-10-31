@@ -6,11 +6,14 @@ import { useMemo, useState } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Chip, type ChipProps } from '@/components/ui/chip';
+import { content } from '@/content';
 import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
 import { OwnerAddress } from './OwnerAddress';
 import { EmptyPanel, Field } from './parts';
+
+const COPY = content.transactionPreview.objects;
 
 type ChipVariant = NonNullable<ChipProps['variant']>;
 
@@ -34,19 +37,31 @@ function deriveChangeKind(
 		idOperation === 'Created' &&
 		outputState === 'PackageWrite'
 	) {
-		return { title: 'Published', variant: 'success' };
+		return {
+			title: COPY.kinds.published,
+			variant: 'success',
+		};
 	}
 	if (idOperation === 'Created') {
-		return { title: 'Created', variant: 'success' };
+		return {
+			title: COPY.kinds.created,
+			variant: 'success',
+		};
 	}
 	if (idOperation === 'Deleted') {
-		return { title: 'Deleted', variant: 'error' };
+		return {
+			title: COPY.kinds.deleted,
+			variant: 'error',
+		};
 	}
 	if (
 		inputState === 'Exists' &&
 		outputState === 'DoesNotExist'
 	) {
-		return { title: 'Wrapped', variant: 'neutral' };
+		return {
+			title: COPY.kinds.wrapped,
+			variant: 'neutral',
+		};
 	}
 	if (
 		inputState === 'Exists' &&
@@ -56,9 +71,15 @@ function deriveChangeKind(
 		JSON.stringify(inputOwner) !==
 			JSON.stringify(outputOwner)
 	) {
-		return { title: 'Transferred', variant: 'info' };
+		return {
+			title: COPY.kinds.transferred,
+			variant: 'info',
+		};
 	}
-	return { title: 'Mutated', variant: 'warning' };
+	return {
+		title: COPY.kinds.mutated,
+		variant: 'warning',
+	};
 }
 
 function FilterPill({
@@ -125,14 +146,16 @@ export function ObjectChangesList({
 		return { annotated, groups };
 	}, [objects]);
 
-	const [activeFilter, setActiveFilter] = useState('All');
+	const [activeFilter, setActiveFilter] = useState<string>(
+		COPY.all,
+	);
 
 	if (objects.length === 0) {
-		return <EmptyPanel>No object changes.</EmptyPanel>;
+		return <EmptyPanel>{COPY.empty}</EmptyPanel>;
 	}
 
 	const filtered =
-		activeFilter === 'All'
+		activeFilter === COPY.all
 			? annotated
 			: annotated.filter(
 					({ kind }) => kind.title === activeFilter,
@@ -142,11 +165,11 @@ export function ObjectChangesList({
 		<div className="flex flex-col gap-3">
 			<div className="flex flex-wrap gap-1.5">
 				<FilterPill
-					label="All"
+					label={COPY.all}
 					count={objects.length}
 					variant="neutral"
-					active={activeFilter === 'All'}
-					onClick={() => setActiveFilter('All')}
+					active={activeFilter === COPY.all}
+					onClick={() => setActiveFilter(COPY.all)}
 				/>
 				{[...groups.entries()].map(([title, group]) => (
 					<FilterPill
@@ -175,19 +198,19 @@ export function ObjectChangesList({
 							</Chip>
 						</div>
 						{type && (
-							<Field label="Type">
+							<Field label={content.common.fields.type}>
 								<span className="min-w-0 font-mono text-12 break-all">
 									{prettifyType(type)}
 								</span>
 							</Field>
 						)}
-						<Field label="Object ID">
+						<Field label={COPY.objectId}>
 							<span className="flex min-w-0 items-center font-mono text-12 break-all">
 								<ShortAddress address={object.objectId} />
 							</span>
 						</Field>
 						{object.outputOwner && (
-							<Field label="Owner">
+							<Field label={content.common.fields.owner}>
 								<span className="flex min-w-0 items-center font-mono text-12 break-all">
 									<OwnerAddress
 										owner={object.outputOwner}

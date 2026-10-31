@@ -5,6 +5,7 @@ import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { Mail, Plus, Users } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 
+import { content } from '@/content';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
@@ -13,14 +14,14 @@ import { EmptyState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
 
+const COPY = content.firstUse;
+
 export function SmartDashboard() {
 	const { data: multisigs, isLoading } = useUserMultisigs(); // Only accepted multisigs
 	const currentAccount = useCurrentAccount();
 
 	if (isLoading)
-		return (
-			<SkeletonPage rows={3} message="Loading accounts" />
-		);
+		return <SkeletonPage rows={3} message={COPY.loading} />;
 
 	// Case 1: User has active multisigs - land on an account's overview
 	if (multisigs?.length && multisigs.length > 0) {
@@ -63,11 +64,11 @@ export function SmartDashboard() {
 			className="page-shell"
 			data-testid="dashboard-empty"
 		>
-			<PageHeader title="Accounts" />
+			<PageHeader title={COPY.title} />
 			<EmptyState
 				icon={Users}
-				title="You’re not in any accounts yet"
-				description="Create an account to hold funds with other signers, or accept an invitation when someone adds you to theirs."
+				title={COPY.emptyTitle}
+				description={COPY.emptyDescription}
 				action={
 					<>
 						<Button
@@ -76,7 +77,7 @@ export function SmartDashboard() {
 							data-testid="create-first-multisig"
 						>
 							<Plus />
-							Create an account
+							{content.common.actions.createPod}
 						</Button>
 						<Button
 							variant="outline"
@@ -85,7 +86,7 @@ export function SmartDashboard() {
 							data-testid="view-invitations"
 						>
 							<Mail />
-							View invitations
+							{COPY.viewInvitations}
 						</Button>
 					</>
 				}

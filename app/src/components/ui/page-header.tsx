@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Fragment, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 export interface Crumb {
@@ -40,7 +41,7 @@ export function PageHeader({
 	eyebrow,
 	description,
 	backLink,
-	backLabel = 'Back',
+	backLabel = content.common.actions.back,
 	actions,
 	className,
 }: PageHeaderProps) {
@@ -56,7 +57,7 @@ export function PageHeader({
 			<div className="flex min-w-0 flex-1 basis-48 flex-col gap-1">
 				{breadcrumb && breadcrumb.length > 0 ? (
 					<nav
-						aria-label="Breadcrumb"
+						aria-label={content.shell.controls.breadcrumb}
 						className="flex items-center gap-1.5 text-11 tracking-[0.02em] text-muted-foreground uppercase"
 					>
 						{breadcrumb.map((crumb, i) => (

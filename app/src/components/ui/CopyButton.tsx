@@ -3,6 +3,8 @@
 
 import { Check, Copy } from 'lucide-react';
 
+import { content } from '@/content';
+
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard';
 import { cn } from '../../lib/utils';
 import { Button } from './button';
@@ -54,7 +56,11 @@ export function CopyButton({
 				copy(value);
 			}}
 			className={cn(sizeClasses[size], className)}
-			title={copied ? 'Copied' : 'Copy to clipboard'}
+			title={
+				copied
+					? content.common.states.copied
+					: content.shell.controls.copyToClipboard
+			}
 			{...rest}
 		>
 			{copied ? (

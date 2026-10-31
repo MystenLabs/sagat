@@ -16,7 +16,9 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ADDRESS_COPY } from '@/lib/address-field';
+import { content } from '@/content';
+
+const COPY = content.addressField;
 
 /**
  * A Sui address input with a clear button, and under it "Valid Sui
@@ -72,7 +74,7 @@ export function AddressField({
 								render={
 									<InputGroupButton
 										size="icon-xs"
-										aria-label="Clear address"
+										aria-label={COPY.clear}
 										onClick={() => {
 											onChange('');
 											inputRef.current?.focus();
@@ -84,7 +86,7 @@ export function AddressField({
 							>
 								<X className="size-3.5" />
 							</TooltipTrigger>
-							<TooltipContent>Clear address</TooltipContent>
+							<TooltipContent>{COPY.clear}</TooltipContent>
 						</Tooltip>
 					</InputGroupAddon>
 				)}
@@ -96,7 +98,7 @@ export function AddressField({
 					state={valid ? 'valid' : 'invalid'}
 					testId={statusId}
 				>
-					{valid ? ADDRESS_COPY.valid : error}
+					{valid ? COPY.valid : error}
 				</FieldStatus>
 			) : (
 				<span id={statusId} hidden />

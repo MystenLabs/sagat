@@ -102,10 +102,10 @@ describe('proposalTitle', () => {
 	it('falls back to the short digest', () => {
 		expect(
 			proposalTitle({ description: null, digest: DIGEST }),
-		).toBe(`Transaction ${formatDigest(DIGEST)}`);
+		).toBe(formatDigest(DIGEST));
 		expect(
 			proposalTitle({ description: '  ', digest: DIGEST }),
-		).toBe(`Transaction ${formatDigest(DIGEST)}`);
+		).toBe(formatDigest(DIGEST));
 	});
 });
 

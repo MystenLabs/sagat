@@ -4,10 +4,13 @@
 import { Check, Coins } from 'lucide-react';
 import { useState } from 'react';
 
+import { content } from '@/content';
 import { isSuiCoinType } from '@/lib/coins';
 import { cn } from '@/lib/utils';
 
 import { SuiLogo } from './SuiLogo';
+
+const COPY = content.shell.controls;
 
 interface CoinIconProps {
 	iconUrl: string | null | undefined;
@@ -78,8 +81,8 @@ function RecognizedBadge({
 				'absolute rounded-full bg-success-foreground text-primary-foreground ring-1 ring-background border border-success-border flex items-center justify-center',
 				badgeClassName,
 			)}
-			title="Recognized coin"
-			aria-label="Recognized coin"
+			title={COPY.recognizedCoin}
+			aria-label={COPY.recognizedCoin}
 		>
 			<Check strokeWidth={3} className={iconClassName} />
 		</span>
@@ -118,7 +121,7 @@ export function CoinIcon({
 					'rounded-full flex items-center justify-center shrink-0 bg-sui/10',
 					className,
 				)}
-				aria-label={symbol ? `${symbol} icon` : 'coin icon'}
+				aria-label={COPY.coinIcon(symbol)}
 			>
 				<SuiLogo className={cn(sui, 'w-auto')} />
 				{recognized && (
@@ -162,7 +165,7 @@ export function CoinIcon({
 				'bg-muted',
 				className,
 			)}
-			aria-label={symbol ? `${symbol} icon` : 'coin icon'}
+			aria-label={COPY.coinIcon(symbol)}
 		>
 			<Coins
 				className={cn(icon, 'text-muted-foreground')}

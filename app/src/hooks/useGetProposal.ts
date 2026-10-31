@@ -5,6 +5,7 @@ import { ProposalStatus } from '@mysten/sagat';
 import { isValidTransactionDigest } from '@mysten/sui/utils';
 import { useQuery } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { apiClient } from '@/lib/api';
 import { QueryKeys } from '@/lib/queryKeys';
 
@@ -18,7 +19,9 @@ export function useGetProposal(digest: string | null) {
 		queryFn: async () => {
 			if (!digest) throw new Error('No digest provided');
 			if (!isValidTransactionDigest(digest))
-				throw new Error('Invalid digest');
+				throw new Error(
+					content.proposal.load.invalidDigest,
+				);
 			return apiClient.getProposalByDigest(digest);
 		},
 		enabled: !!digest,

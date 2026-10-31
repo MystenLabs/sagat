@@ -3,12 +3,10 @@
 
 import { isValidSuiAddress } from '@mysten/sui/utils';
 
+import { content } from '../content';
+
 /** The status line under a Sui address field. */
-export const ADDRESS_COPY = {
-	valid: 'Valid Sui address',
-	invalid:
-		'This isn’t a valid Sui address. Check you pasted all of it: 0x and 64 characters.',
-} as const;
+const ADDRESS_COPY = content.addressField;
 
 /**
  * Whether a typed or pasted address (spaces around it ignored) is a Sui

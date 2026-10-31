@@ -7,6 +7,7 @@ import {
 	type ReactElement,
 } from 'react';
 
+import { content } from '@/content';
 import { formatDateTime } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,8 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from '../ui/tooltip';
+
+const COPY = content.proposals.expiry;
 
 // How long a proposal's transaction can still execute, if it expires at
 // all: a badge, or with `variant="inline"` plain text for a meta line,
@@ -116,15 +119,14 @@ function ExpiryTooltip({
 
 function label({ expired, endsAt }: Expiry, now: Date) {
 	return expired
-		? 'Expired'
-		: `Expires in ${formatTimeLeft(endsAt, now)}`;
+		? COPY.expired
+		: COPY.expiresIn(formatTimeLeft(endsAt, now));
 }
 
 function explain({ lastEpoch, expired, endsAt }: Expiry) {
-	if (expired)
-		return `This transaction could only execute until the end of epoch ${lastEpoch}, so it can't run anymore. Cancel it and propose it again.`;
+	if (expired) return COPY.expiredExplain(lastEpoch);
 
-	return `This transaction can only execute until the end of epoch ${lastEpoch}, around ${formatDateTime(endsAt)}. After that, it has to be proposed again.`;
+	return COPY.explain(lastEpoch, formatDateTime(endsAt));
 }
 
 // The current time, updated every minute.

@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 import { AddressField } from '@/components/ui/address-field';
 import { useTouched } from '@/components/wizard/use-touched';
+import { content } from '@/content';
 import { addressStatus } from '@/lib/address-field';
 
 import { useAddProposer } from '../../hooks/useAddProposer';
@@ -17,6 +18,8 @@ import {
 	DialogTitle,
 } from '../ui/dialog';
 import { Label } from '../ui/label';
+
+const COPY = content.proposers.addDialog;
 
 /**
  * Asks for the address to add, checks it as it's typed, then signs the
@@ -60,11 +63,10 @@ export function AddProposerDialog({
 				data-testid="add-proposer-dialog"
 			>
 				<DialogTitle className="text-24 font-bold">
-					Add external proposer
+					{COPY.title}
 				</DialogTitle>
 				<DialogDescription className="mt-2 text-14 text-muted-foreground">
-					This address can create proposals for{' '}
-					{accountName}. It can’t sign or execute them.
+					{COPY.description(accountName)}
 				</DialogDescription>
 				<AddressForm
 					key={opening}
@@ -116,7 +118,7 @@ function AddressForm({
 		>
 			<div className="flex flex-col gap-1.5">
 				<Label htmlFor="add-proposer-address">
-					Address
+					{content.common.fields.address}
 				</Label>
 				<AddressField
 					id="add-proposer-address"
@@ -127,7 +129,7 @@ function AddressForm({
 					}}
 					onBlur={() => touch('address')}
 					disabled={pending}
-					placeholder="0x…"
+					placeholder={COPY.addressPlaceholder}
 					valid={status.valid}
 					error={error}
 				/>
@@ -139,7 +141,7 @@ function AddressForm({
 					onClick={onCancel}
 					disabled={pending}
 				>
-					Cancel
+					{content.common.actions.cancel}
 				</Button>
 				<Button
 					type="submit"
@@ -147,8 +149,8 @@ function AddressForm({
 					className={disabledButton}
 				>
 					{pending
-						? 'Confirm in your wallet…'
-						: 'Add proposer'}
+						? content.common.states.confirmInWallet
+						: COPY.submit}
 				</Button>
 			</div>
 		</form>

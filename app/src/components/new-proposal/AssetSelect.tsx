@@ -13,6 +13,7 @@ import {
 	SelectTrigger,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { content } from '@/content';
 import { type CoinDisplayData } from '@/hooks/useCoinDisplayData';
 import { type Balance } from '@/hooks/useMultisigBalances';
 import {
@@ -21,6 +22,8 @@ import {
 } from '@/lib/coinDisplay';
 import { formatCoinAmount } from '@/lib/coins';
 import { cn } from '@/lib/utils';
+
+const COPY = content.newProposal.assetSelect;
 
 /**
  * The asset to send: each balance the account holds, with its icon,
@@ -59,7 +62,7 @@ export function AssetSelect({
 		return (
 			<div
 				aria-busy
-				aria-label="Loading assets"
+				aria-label={COPY.loading}
 				className={cn(
 					fieldFrame,
 					inputSizes.md,
@@ -105,9 +108,7 @@ export function AssetSelect({
 					/>
 				) : (
 					<span className="flex-1 text-left text-muted-foreground/70">
-						{empty
-							? 'No assets to send'
-							: 'Choose an asset'}
+						{empty ? COPY.noAssets : COPY.choose}
 					</span>
 				)}
 			</SelectTrigger>
@@ -154,7 +155,9 @@ function TriggerValue({
 			)}
 			<span className="ml-auto shrink-0 pl-3 text-13 text-muted-foreground tabular-nums">
 				{decimals != null ? (
-					`Balance ${formatCoinAmount(balance.balance, decimals)}`
+					COPY.balance(
+						formatCoinAmount(balance.balance, decimals),
+					)
 				) : (
 					<Skeleton className="h-2.5 w-24" />
 				)}
@@ -209,7 +212,7 @@ function AssetOption({
 						)}
 					</span>
 					<span className="text-12 leading-tight text-muted-foreground">
-						Balance
+						{content.common.fields.balance}
 					</span>
 				</span>
 			</span>

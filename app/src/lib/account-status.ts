@@ -3,7 +3,10 @@
 
 import type { MultisigMember } from '@mysten/sagat';
 
+import { content } from '../content';
 import { signerRows, signerSetStatus } from './signers';
+
+const COPY = content.signers.accountStatus;
 
 export type AccountStatus =
 	| { tone: 'ok' }
@@ -29,21 +32,17 @@ export function accountStatus({
 	if (!canReachThreshold)
 		return {
 			tone: 'error',
-			message: `Can’t move funds. ${signerCount(rejected)} rejected.`,
+			message: COPY.needsRejected(rejected),
 		};
 
 	if (rejected > 1)
 		return {
 			tone: 'warning',
-			message: `${signerCount(rejected)} rejected their invitations.`,
+			message: COPY.manyRejected(rejected),
 		};
 
 	return {
 		tone: 'warning',
-		message: `${rejectedNames[0]} rejected the invitation.`,
+		message: COPY.oneRejected(rejectedNames[0]),
 	};
-}
-
-function signerCount(count: number) {
-	return count === 1 ? '1 signer' : `${count} signers`;
 }

@@ -1,13 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/** What a wallet with no name is called in the copy. */
-export const UNNAMED_WALLET = 'your wallet';
-
-/** The line shown when the user turns the wallet's request down. */
-export function declinedMessage(wallet: string) {
-	return `You declined the request in ${wallet}. You’re not signed in.`;
-}
+import { content } from '../content';
 
 /** Thrown when the wallet's sign-in signature fails: the user declined or the wallet refused. */
 export class WalletDeclinedError extends Error {
@@ -21,7 +15,7 @@ export class WalletDeclinedError extends Error {
 		address: string,
 		cause?: unknown,
 	) {
-		super(declinedMessage(wallet));
+		super(content.signedOut.declined(wallet));
 		this.name = 'WalletDeclinedError';
 		this.wallet = wallet;
 		this.address = address;

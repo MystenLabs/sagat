@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { type WizardStep } from '@/components/wizard/parts';
 import { WizardPage } from '@/components/wizard/WizardPage';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCreateMultisig } from '@/hooks/useCreateMultisig';
@@ -22,7 +23,6 @@ import { CONFIG } from '@/lib/constants';
 import {
 	addressInput,
 	checkSigners,
-	COPY,
 	invitedName,
 	nameError,
 	stripHiddenCharacters,
@@ -40,11 +40,8 @@ import {
 } from './SideCards';
 import { SignersStep } from './SignersStep';
 
-const STEPS = [
-	'Name',
-	'Signers and threshold',
-	'Review',
-] as const;
+const COPY = content.createMultisig;
+const STEPS = COPY.steps;
 
 const newSigner = (id: number): SignerDraft => ({
 	id: `signer-${id}`,
@@ -205,10 +202,13 @@ export function CreateMultisigPage() {
 
 	return (
 		<WizardPage
-			title="Create a multisig"
+			title={COPY.title}
 			breadcrumb={[
-				{ label: 'Multisigs', to: '/' },
-				{ label: 'Create a multisig' },
+				{
+					label: COPY.breadcrumbParent,
+					to: '/',
+				},
+				{ label: COPY.title },
 			]}
 			testId="create"
 			steps={STEPS}

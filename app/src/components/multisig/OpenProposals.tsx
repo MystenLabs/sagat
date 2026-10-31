@@ -6,6 +6,7 @@ import { ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import {
@@ -23,6 +24,8 @@ import { cn } from '@/lib/utils';
 import { ProposalsTable } from '../proposals/ProposalsTable';
 import { buttonVariants } from '../ui/button';
 import { CardHeading } from '../ui/card';
+
+const COPY = content.overview.openProposals;
 
 /** The overview lists this many open proposals; the rest are on the proposals tab. */
 const OPEN_PROPOSALS_SHOWN = 5;
@@ -71,7 +74,7 @@ export function OpenProposals({
 		>
 			<CardHeading
 				id="open-proposals-title"
-				title="Open proposals"
+				title={COPY.title}
 			>
 				<Link
 					to={proposalsPath(multisig.address)}
@@ -84,7 +87,7 @@ export function OpenProposals({
 					)}
 					data-testid="view-all-proposals"
 				>
-					View all proposals
+					{COPY.viewAll}
 					<ChevronRight className="size-3" />
 				</Link>
 			</CardHeading>
@@ -99,9 +102,7 @@ export function OpenProposals({
 				error={query.data ? null : query.error}
 				onRetry={() => query.refetch()}
 				empty={{
-					title: 'No open proposals',
-					description:
-						'Proposals waiting for signatures show up here.',
+					title: COPY.emptyTitle,
 				}}
 				testId="open-proposals"
 			/>

@@ -7,6 +7,7 @@
 import type { PublicProposal } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
+import { content } from '../content';
 import { joinList } from './create-multisig';
 import { type EpochInfo } from './expiration';
 import {
@@ -72,10 +73,12 @@ export function approvalsThresholdLabel(
 		'threshold' | 'members'
 	>,
 ) {
-	return `Threshold ${thresholdLabel({
-		threshold: multisig.threshold,
-		totalWeight: sumWeight(multisig.members),
-	})}`;
+	return content.proposal.approvals.threshold(
+		thresholdLabel({
+			threshold: multisig.threshold,
+			totalWeight: sumWeight(multisig.members),
+		}),
+	);
 }
 
 const addressOf = (publicKey: string) =>
@@ -83,7 +86,7 @@ const addressOf = (publicKey: string) =>
 
 /** A key's label, else its short address. */
 function nameOf(address: string | null, labels: Labels) {
-	if (!address) return 'Unknown key';
+	if (!address) return content.common.unknownKey;
 	return labels.get(address) || formatAddress(address);
 }
 
@@ -185,20 +188,24 @@ export function approvalsStatus(
 	>,
 	status: ProposalStatusKey,
 	executing: boolean,
+	simulation: SimulationVerdict,
 ) {
+	const copy = content.proposal.approvals.status;
 	if (
 		executing &&
 		(status === 'pending' || status === 'ready')
 	)
-		return 'Threshold reached. Executing…';
+		return copy.executing;
 	if (status === 'pending')
-		return `Needs ${proposal.totalWeight - proposal.currentWeight} more weight.`;
+		return copy.needs(
+			proposal.totalWeight - proposal.currentWeight,
+		);
 	if (status === 'ready')
-		return 'Threshold reached. Ready to execute.';
-	if (status === 'executed')
-		return 'Threshold reached. Executed.';
-	if (status === 'failed')
-		return 'Threshold reached. Execution failed.';
+		return simulation === 'failed'
+			? copy.readyFailing
+			: copy.ready;
+	if (status === 'executed') return copy.executed;
+	if (status === 'failed') return copy.failed;
 	return null;
 }
 
@@ -273,25 +280,18 @@ export function approvalsNote({
 	executing,
 	gas,
 }: ApprovalsNoteInput): string | null {
-	if (executing)
-		return 'Submitted to the network. Waiting for it to confirm, this usually takes a few seconds. You can leave this page.';
+	const copy = content.proposal.approvals.notes;
+	if (executing) return copy.executing;
 	if (status === 'executed') return null;
-	if (status === 'failed')
-		return "This proposal can't be retried. Propose it again to collect new signatures.";
-	if (status === 'cancelled')
-		return "Cancelled, so it can't be signed or executed.";
-	if (viewer === 'outsider')
-		return "Only this account's signers can sign or execute it.";
+	if (status === 'failed') return copy.failed;
+	if (status === 'cancelled') return copy.cancelled;
+	if (viewer === 'outsider') return copy.outsider;
 	if (viewer === 'elsewhere') return null;
-	if (status === 'expired')
-		return "Expired, so it can't be signed or executed. Cancel it to take it off the open proposals.";
+	if (status === 'expired') return copy.expired;
 
 	if (status === 'ready') {
-		if (simulation === 'failed')
-			return "Execute simulates it again first, in case something has changed, like the account's balance.";
-		return gas
-			? `Gas is paid from the account, about ${gas}.`
-			: 'Gas is paid from the account.';
+		if (simulation === 'failed') return copy.readyFailing;
+		return gas ? copy.gasPaidAbout(gas) : copy.gasPaid;
 	}
 
 	// Pending.
@@ -305,18 +305,14 @@ export function approvalsNote({
 			missing,
 		);
 	if (simulation === 'pending') return null;
-	if (simulation === 'failed')
-		return 'Signing adds your approval to a transaction that would fail as things stand.';
-	if (simulation === 'unknown')
-		return "The transaction couldn't be simulated. Check it in your wallet before you sign.";
+	if (simulation === 'failed') return copy.signingFailing;
+	if (simulation === 'unknown') return copy.notSimulated;
 	if (wouldReachThreshold(proposal, publicKey))
 		return executeAfterSigning
-			? 'Your signature reaches the threshold. Gas is paid from the account.'
-			: 'Your signature reaches the threshold.';
+			? copy.reachesThresholdGas
+			: copy.reachesThreshold;
 	const after = missing - yourWeight(proposal, publicKey);
-	return after > 0
-		? `Needs ${after} more weight after yours.`
-		: null;
+	return after > 0 ? copy.needsAfterYours(after) : null;
 }
 
 /** "Not enough gas." → "Not enough gas", so a sentence can follow. */
@@ -343,6 +339,7 @@ function waitingNote(
 	publicKey: string | null | undefined,
 	missing: number,
 ) {
+	const copy = content.proposal.approvals.notes.waiting;
 	const others = [...proposal.multisig.members]
 		.sort((a, b) => a.order - b.order)
 		.filter(
@@ -355,15 +352,15 @@ function waitingNote(
 		others.every((member) => member.weight >= missing)
 	) {
 		if (others.length > MAX_NAMED_SIGNERS)
-			return 'You signed. Any other signer can approve it.';
+			return copy.anyOther;
 		const names = others.map((member) =>
 			nameOf(addressOf(member.publicKey), labels),
 		);
 		return names.length === 1
-			? `You signed. ${names[0]} can approve it.`
-			: `You signed. Any one of ${joinList(names, 'or')} can approve it.`;
+			? copy.one(names[0])
+			: copy.anyOneOf(joinList(names, 'or'));
 	}
-	return `You signed. Needs ${missing} more weight from the other signers.`;
+	return copy.needs(missing);
 }
 
 export interface ActivityRow {
@@ -396,17 +393,18 @@ export function activityRows({
 	/** When the transaction landed, for an executed or failed proposal. */
 	confirmedAt?: number | null;
 }): ActivityRow[] {
+	const copy = content.proposal.activity;
 	const name = (address: string | null) => {
 		const base = nameOf(address, labels);
 		return address && address === currentAddress
-			? `${base} (you)`
+			? copy.you(base)
 			: base;
 	};
 	// Marked like the header: "(you)" first, else "(external)".
 	const proposer =
 		proposal.proposerAddress !== currentAddress &&
 		isExternalProposer(proposal)
-			? `${name(proposal.proposerAddress)} (external)`
+			? copy.external(name(proposal.proposerAddress))
 			: name(proposal.proposerAddress);
 
 	const proposerSignature = proposal.signatures.find(
@@ -416,7 +414,9 @@ export function activityRows({
 	const rows: Omit<ActivityRow, 'tone'>[] = [
 		{
 			key: 'proposed',
-			text: `${proposerSignature ? 'Proposed and signed' : 'Proposed'} by ${proposer}`,
+			text: proposerSignature
+				? copy.proposedAndSigned(proposer)
+				: copy.proposed(proposer),
 			at: proposal.createdAt,
 		},
 	];
@@ -424,22 +424,22 @@ export function activityRows({
 		if (sig === proposerSignature) continue;
 		rows.push({
 			key: `signed-${sig.publicKey}`,
-			text: `Signed by ${name(addressOf(sig.publicKey))}`,
+			text: copy.signedBy(name(addressOf(sig.publicKey))),
 			at: null,
 		});
 	}
 	if (proposal.currentWeight >= proposal.totalWeight)
 		rows.push({
 			key: 'threshold',
-			text: 'Threshold reached',
+			text: copy.thresholdReached,
 			at: null,
 		});
 
 	const end = {
-		executed: { text: 'Executed', at: confirmedAt },
-		failed: { text: 'Execution failed', at: confirmedAt },
-		cancelled: { text: 'Cancelled', at: null },
-		expired: { text: 'Expired', at: null },
+		executed: { text: copy.executed, at: confirmedAt },
+		failed: { text: copy.failed, at: confirmedAt },
+		cancelled: { text: copy.cancelled, at: null },
+		expired: { text: copy.expired, at: null },
 	} as const;
 	if (status in end)
 		rows.push({

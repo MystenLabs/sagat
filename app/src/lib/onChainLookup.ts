@@ -6,6 +6,7 @@ import { parseSerializedSignature } from '@mysten/sui/cryptography';
 import { SuiGraphQLClient } from '@mysten/sui/graphql';
 import { publicKeyFromRawBytes } from '@mysten/sui/verify';
 
+import { content } from '../content';
 import { apiClient } from './api';
 
 const GRAPHQL_URLS = {
@@ -46,9 +47,7 @@ interface TransactionsQueryResult {
 export class MultisigAddressError extends Error {
 	network: NetworkName;
 	constructor(network: NetworkName) {
-		super(
-			'This address is a multisig wallet. A multisig cannot be added as a member of another multisig.',
-		);
+		super(content.errors.multisigAsMember);
 		this.network = network;
 	}
 }

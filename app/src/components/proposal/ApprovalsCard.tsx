@@ -20,6 +20,7 @@ import {
 	ModalContent,
 	ModalHeader,
 } from '@/components/ui/modal';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useCancelProposal } from '@/hooks/useCancelProposal';
 import {
@@ -48,6 +49,11 @@ import {
 } from '@/lib/proposalUtils';
 import { type ProposalCardInput } from '@/lib/types';
 import { safeDecode } from '@/lib/utils';
+
+const COPY = content.proposal.approvals;
+const SHARED = content.proposal.shared;
+const ACTIONS = content.common.actions;
+const STATES = content.common.states;
 
 /**
  * Who signed, what the threshold needs, and what the viewer can do
@@ -150,6 +156,7 @@ export function ApprovalsCard({
 		proposal,
 		status,
 		isExecuting,
+		verdict,
 	);
 	const note = approvalsNote({
 		proposal,
@@ -206,12 +213,12 @@ export function ApprovalsCard({
 				setStillFails(
 					couldNotSimulate(error)
 						? {
-								title: "Simulation couldn't run",
-								message: `The last simulation failed, and it couldn't be simulated again${reason}.`,
+								title: COPY.recheck.couldNotRunTitle,
+								message: COPY.recheck.couldNotRun(reason),
 							}
 						: {
-								title: 'Simulation still fails',
-								message: `It still fails after a second simulation${reason}.`,
+								title: COPY.recheck.stillFailsTitle,
+								message: COPY.recheck.stillFails(reason),
 							},
 				);
 			},
@@ -232,7 +239,7 @@ export function ApprovalsCard({
 				data-testid="cancel-proposal-button"
 			>
 				{signed && status === 'pending' && <X />}
-				Cancel proposal
+				{SHARED.cancelProposal}
 			</Button>
 		);
 
@@ -250,7 +257,7 @@ export function ApprovalsCard({
 						data-testid="execute-proposal-button"
 					>
 						<Play />
-						Executing…
+						{SHARED.executing}
 					</Button>
 				</ButtonRow>
 			);
@@ -265,7 +272,7 @@ export function ApprovalsCard({
 								disabled={sign.isPending}
 								data-testid="execute-after-signing"
 							/>
-							Execute after signing
+							{COPY.executeAfterSigning}
 						</label>
 					)}
 					<ButtonRow>
@@ -278,12 +285,12 @@ export function ApprovalsCard({
 						>
 							{(failing || signAndExecute) && <Pen />}
 							{sign.isPending
-								? 'Signing…'
+								? STATES.signing
 								: failing
-									? 'Sign anyway'
+									? COPY.signAnyway
 									: signAndExecute
-										? 'Sign and execute'
-										: 'Sign proposal'}
+										? ACTIONS.signAndExecute
+										: COPY.signProposal}
 						</Button>
 					</ButtonRow>
 				</>
@@ -302,7 +309,7 @@ export function ApprovalsCard({
 						data-testid="execute-proposal-button"
 					>
 						<Play />
-						{rechecking ? 'Simulating…' : 'Execute'}
+						{rechecking ? COPY.simulating : SHARED.execute}
 					</Button>
 				</ButtonRow>
 			);
@@ -319,7 +326,10 @@ export function ApprovalsCard({
 			aria-labelledby="approvals-heading"
 			data-testid="approvals-card"
 		>
-			<CardHeading id="approvals-heading" title="Approvals">
+			<CardHeading
+				id="approvals-heading"
+				title={COPY.heading}
+			>
 				<span
 					className="ml-auto text-12 text-muted-foreground"
 					data-testid="approvals-threshold"
@@ -369,13 +379,13 @@ export function ApprovalsCard({
 										: undefined
 								}
 							>
-								Signed
+								{STATES.signed}
 							</Chip>
 						) : (
 							<span className="shrink-0 text-12 text-muted-foreground">
 								{row.state === 'not-needed'
-									? 'Not needed'
-									: 'Not signed'}
+									? COPY.notNeeded
+									: STATES.notSigned}
 							</span>
 						)}
 					</li>
@@ -424,15 +434,17 @@ export function ApprovalsCard({
 			>
 				<ModalHeader
 					title={
-						stillFails?.title ?? 'Simulation still fails'
+						stillFails?.title ??
+						COPY.recheck.stillFailsTitle
 					}
 				/>
 				<ModalContent>
 					<p>
-						{stillFails?.message} If you execute, the
-						proposal closes and can't be retried, and the
-						account still pays gas
-						{gas ? ` (about ${gas})` : ''}.
+						{stillFails &&
+							COPY.executeAnyway.body(
+								stillFails.message,
+								gas,
+							)}
 					</p>
 				</ModalContent>
 				<ModalActions>
@@ -441,7 +453,7 @@ export function ApprovalsCard({
 						onClick={() => setAskingToExecute(false)}
 						data-testid="execute-anyway-back"
 					>
-						Go back
+						{ACTIONS.goBack}
 					</Button>
 					<Button
 						variant="destructive"
@@ -451,7 +463,7 @@ export function ApprovalsCard({
 						}}
 						data-testid="execute-anyway-button"
 					>
-						Execute anyway
+						{COPY.executeAnyway.confirm}
 					</Button>
 				</ModalActions>
 			</Modal>

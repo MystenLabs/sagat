@@ -32,6 +32,7 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Notice } from '@/components/wizard/parts';
+import { content } from '@/content';
 import {
 	useNetwork,
 	type SuiNetwork,
@@ -66,6 +67,9 @@ import { safeDecode } from '@/lib/utils';
 import { ActivityCard } from './ActivityCard';
 import { ApprovalsCard } from './ApprovalsCard';
 import { OnChainCard } from './OnChainCard';
+
+const COPY = content.proposal.detail;
+const SHARED = content.proposal.shared;
 
 /**
  * A proposal's page: the header, the transaction preview on the left
@@ -191,9 +195,9 @@ export function ProposalView({
 					className="text-13 text-muted-foreground"
 					data-testid="transaction-preview-unreachable"
 				>
-					Switch to{' '}
-					{networkLabel(proposal.network as SuiNetwork)} to
-					see the transaction preview.
+					{COPY.switchToSeePreview(
+						networkLabel(proposal.network as SuiNetwork),
+					)}
 				</p>
 			</>
 		);
@@ -222,8 +226,7 @@ export function ProposalView({
 					testId="transaction-preview-unreachable"
 				>
 					{safeDecode(
-						dryRun.error?.message ||
-							'The transaction could not be simulated.',
+						dryRun.error?.message || COPY.notSimulated,
 					)}
 				</Notice>
 			</>
@@ -250,7 +253,7 @@ export function ProposalView({
 			<PageHeader
 				title={proposalTitle(proposal)}
 				backLink={proposalsPath ?? undefined}
-				backLabel="Proposals"
+				backLabel={SHARED.backLabel}
 				className="mb-6"
 				description={
 					<span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-13 max-sm:flex-col max-sm:items-start max-sm:[&>span>[aria-hidden]]:hidden">
@@ -265,7 +268,7 @@ export function ProposalView({
 							data-testid="proposal-proposer"
 						>
 							<span className="whitespace-nowrap">
-								Proposed by
+								{SHARED.proposedBy}
 							</span>{' '}
 							<SignerName
 								label={proposerLabel}
@@ -317,9 +320,12 @@ export function ProposalView({
 							tone="warning"
 							testId="proposal-network-mismatch"
 						>
-							This proposal is on{' '}
-							{networkLabel(proposal.network as SuiNetwork)}
-							, but you’re on {networkLabel(network)}.{' '}
+							{COPY.networkMismatch(
+								networkLabel(
+									proposal.network as SuiNetwork,
+								),
+								networkLabel(network),
+							)}{' '}
 							<Button
 								variant="outline"
 								size="sm"
@@ -329,9 +335,10 @@ export function ProposalView({
 								}
 								data-testid="switch-network-button"
 							>
-								Switch to{' '}
-								{networkLabel(
-									proposal.network as SuiNetwork,
+								{COPY.switchTo(
+									networkLabel(
+										proposal.network as SuiNetwork,
+									),
 								)}
 							</Button>
 						</Notice>
@@ -341,10 +348,9 @@ export function ProposalView({
 							tone="error"
 							testId="proposal-simulation-failed"
 						>
-							Simulation failed
-							{withReason(simulationError)}. If executed, it
-							would fail and the account would still pay
-							gas.
+							{COPY.simulationFailed(
+								withReason(simulationError),
+							)}
 						</Notice>
 					)}
 					{status === 'failed' && (
@@ -352,9 +358,11 @@ export function ProposalView({
 							tone="error"
 							testId="proposal-execution-failed"
 						>
-							Execution failed
-							{withReason(safeDecode(executionError ?? ''))}
-							. No funds moved, but the account paid gas.
+							{COPY.executionFailed(
+								withReason(
+									safeDecode(executionError ?? ''),
+								),
+							)}
 						</Notice>
 					)}
 				</div>
@@ -371,7 +379,7 @@ export function ProposalView({
 				) : (
 					<section
 						className={cardClass}
-						aria-label="Transaction preview"
+						aria-label={content.common.transactionPreview}
 					>
 						{previewBlock}
 					</section>
@@ -406,7 +414,9 @@ function HeaderActions({
 }: {
 	proposal: ProposalCardInput;
 }) {
-	const { copy } = useCopyToClipboard('Link copied');
+	const { copy } = useCopyToClipboard(
+		content.toasts.proposalLinkCopied,
+	);
 	return (
 		<TooltipProvider delay={150}>
 			<Tooltip>
@@ -415,7 +425,7 @@ function HeaderActions({
 						<Button
 							variant="outline"
 							size="icon"
-							aria-label="Export"
+							aria-label={COPY.export}
 							onClick={() =>
 								downloadJson(
 									getProposalExportFilename(
@@ -430,7 +440,7 @@ function HeaderActions({
 				>
 					<Download />
 				</TooltipTrigger>
-				<TooltipContent>Export</TooltipContent>
+				<TooltipContent>{COPY.export}</TooltipContent>
 			</Tooltip>
 			<Tooltip>
 				<TooltipTrigger
@@ -438,7 +448,7 @@ function HeaderActions({
 						<Button
 							variant="outline"
 							size="icon"
-							aria-label="Copy link"
+							aria-label={SHARED.copyLink}
 							onClick={() =>
 								copy(proposalLinkUrl(proposal.digest))
 							}
@@ -448,7 +458,7 @@ function HeaderActions({
 				>
 					<Link2 />
 				</TooltipTrigger>
-				<TooltipContent>Copy link</TooltipContent>
+				<TooltipContent>{SHARED.copyLink}</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
 	);

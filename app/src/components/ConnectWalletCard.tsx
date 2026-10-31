@@ -3,21 +3,18 @@
 
 import {
 	useCurrentAccount,
-	useCurrentWallet,
 	useWallets,
 } from '@mysten/dapp-kit-react';
-import { formatAddress } from '@mysten/sui/utils';
 import { TriangleAlert, Wallet } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { WalletPicker } from '@/components/WalletPicker';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import {
-	declinedMessage,
-	UNNAMED_WALLET,
-} from '@/lib/wallet-session';
+
+const COPY = content.signedOut;
 
 /**
  * The signed-out page: connect a wallet, then, with one connected, sign
@@ -26,7 +23,6 @@ import {
  */
 export function ConnectWalletCard() {
 	const currentAccount = useCurrentAccount();
-	const currentWallet = useCurrentWallet();
 	const wallets = useWallets();
 	const {
 		declined,
@@ -55,7 +51,7 @@ export function ConnectWalletCard() {
 			data-wallet={declined.wallet}
 		>
 			<TriangleAlert className="size-3.5 shrink-0" />
-			{declinedMessage(declined.wallet)}
+			{COPY.declined(declined.wallet)}
 		</p>
 	);
 
@@ -65,8 +61,8 @@ export function ConnectWalletCard() {
 				<EmptyState
 					testId="auth-prompt"
 					icon={Wallet}
-					title="Sign in to continue"
-					description={`Sign a message in ${currentWallet?.name ?? UNNAMED_WALLET} to prove you own ${formatAddress(currentAccount.address)}. No transaction is sent.`}
+					title={COPY.signIn.title}
+					description={COPY.signIn.description}
 					note={note}
 					action={
 						<Button
@@ -74,7 +70,9 @@ export function ConnectWalletCard() {
 							disabled={isConnecting || isAuthCheckFailing}
 							data-testid="sign-in-button"
 						>
-							{isConnecting ? 'Signing in…' : 'Sign in'}
+							{isConnecting
+								? COPY.signIn.signingIn
+								: COPY.signIn.button}
 						</Button>
 					}
 				/>
@@ -82,8 +80,8 @@ export function ConnectWalletCard() {
 				<EmptyState
 					testId="connect-wallet-prompt"
 					icon={Wallet}
-					title="Connect a wallet to get started"
-					description="Connect your wallet to see your accounts, proposals and invitations."
+					title={COPY.connect.title}
+					description={COPY.connect.description}
 					note={note}
 					action={
 						declinedWallet ? (
@@ -94,7 +92,7 @@ export function ConnectWalletCard() {
 									}
 									data-testid="connect-retry"
 								>
-									Try again
+									{content.common.actions.tryAgain}
 								</Button>
 								<WalletPicker variant="outline" />
 							</>

@@ -93,9 +93,9 @@ describe('formatTimeLeft', () => {
 	test.each([
 		[-minute, 'less than a minute'],
 		[30_000, 'less than a minute'],
-		[12 * minute, '12m'],
-		[5 * hour + 12 * minute, '5h 12m'],
-		[51 * hour, '2d 3h'],
+		[12 * minute, '12 minutes'],
+		[5 * hour + 12 * minute, '5 hours'],
+		[51 * hour, '2 days'],
 	])('%i ms left is %s', (left, text) => {
 		expect(
 			formatTimeLeft(new Date(left), new Date(0)),

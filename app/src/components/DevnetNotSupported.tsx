@@ -3,9 +3,12 @@
 
 import { AlertTriangle } from 'lucide-react';
 
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 
 import { Button } from './ui/button';
+
+const COPY = content.network;
 
 export function DevnetNotSupported() {
 	// setNetwork also saves the choice, so a reload does not land on devnet.
@@ -22,13 +25,13 @@ export function DevnetNotSupported() {
 					className="text-3xl font-bold mb-3"
 					data-testid="devnet-not-supported"
 				>
-					Devnet Not Supported
+					{COPY.devnet.title}
 				</h1>
 
 				<p className="text-muted-foreground mb-8">
-					The main Sagat app does not support devnet.
+					{COPY.devnet.body}
 					<br />
-					Switch to a supported network to continue.
+					{COPY.devnet.hint}
 				</p>
 
 				<div className="flex gap-3 justify-center">
@@ -37,7 +40,7 @@ export function DevnetNotSupported() {
 						onClick={() => setNetwork('mainnet')}
 						data-testid="switch-to-mainnet-button"
 					>
-						Switch to Mainnet
+						{COPY.switchToMainnet}
 					</Button>
 					<Button
 						size="lg"
@@ -45,7 +48,7 @@ export function DevnetNotSupported() {
 						onClick={() => setNetwork('testnet')}
 						data-testid="switch-to-testnet-button"
 					>
-						Switch to Testnet
+						{COPY.switchToTestnet}
 					</Button>
 				</div>
 			</div>

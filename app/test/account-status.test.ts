@@ -113,7 +113,8 @@ describe('account status', () => {
 			}),
 		).toEqual({
 			tone: 'error',
-			message: 'Can’t move funds. 3 signers rejected.',
+			message:
+				'3 signers rejected, and the threshold needs them.',
 		});
 		expect(
 			accountStatus({
@@ -122,7 +123,8 @@ describe('account status', () => {
 			}),
 		).toEqual({
 			tone: 'error',
-			message: 'Can’t move funds. 1 signer rejected.',
+			message:
+				'1 signer rejected, and the threshold needs them.',
 		});
 	});
 
@@ -138,7 +140,8 @@ describe('account status', () => {
 			}),
 		).toEqual({
 			tone: 'error',
-			message: 'Can’t move funds. 1 signer rejected.',
+			message:
+				'1 signer rejected, and the threshold needs them.',
 		});
 	});
 

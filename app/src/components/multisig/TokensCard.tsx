@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import { content } from '@/content';
 import { type useAccountAssets } from '@/hooks/useAccountAssets';
 import { type Balance } from '@/hooks/useMultisigBalances';
 import {
@@ -40,6 +41,9 @@ import {
 	TooltipTrigger,
 } from '../ui/tooltip';
 
+const FIELDS = content.common.fields;
+const COPY = content.overview.tokens;
+
 /** The overview lists this many tokens; the rest are on the assets tab. */
 export const TOKENS_SHOWN = 5;
 
@@ -70,7 +74,7 @@ export function TokensCard({
 			aria-labelledby="tokens-title"
 			data-testid="tokens"
 		>
-			<CardHeading id="tokens-title" title="Tokens">
+			<CardHeading id="tokens-title" title={COPY.title}>
 				<div className="ml-auto flex items-center gap-4">
 					{pricesUpdated && (
 						<span className="flex items-center text-12 text-muted-foreground">
@@ -83,7 +87,7 @@ export function TokensCard({
 												size="icon-xs"
 												onClick={assets.refreshPrices}
 												disabled={assets.refreshingPrices}
-												aria-label="Refresh prices"
+												aria-label={COPY.refreshPrices}
 												data-testid="refresh-prices"
 											/>
 										}
@@ -91,12 +95,12 @@ export function TokensCard({
 										<RefreshCw />
 									</TooltipTrigger>
 									<TooltipContent>
-										Refresh prices
+										{COPY.refreshPrices}
 									</TooltipContent>
 								</Tooltip>
 							</TooltipProvider>
 							<span data-testid="prices-updated">
-								Prices updated {pricesUpdated}
+								{COPY.pricesUpdated(pricesUpdated)}
 							</span>
 						</span>
 					)}
@@ -111,7 +115,7 @@ export function TokensCard({
 						)}
 						data-testid="view-all-assets"
 					>
-						View all assets
+						{COPY.viewAll}
 						<ChevronRight className="size-3" />
 					</Link>
 				</div>
@@ -122,7 +126,7 @@ export function TokensCard({
 				// A failed background refetch keeps the loaded rows; a
 				// failed later page would leave them partial.
 				<ErrorState
-					title="Failed to load balances"
+					title={content.common.states.balancesLoadFailed}
 					error={assets.query.error}
 					onRetry={assets.retry}
 					retrying={assets.query.isFetching}
@@ -132,8 +136,7 @@ export function TokensCard({
 				<EmptyState
 					icon={SuiLogo}
 					iconClassName="bg-sui/10"
-					title="No balances yet"
-					description="Once the account receives funds they show up here."
+					title={COPY.emptyTitle}
 					testId="tokens-empty"
 				/>
 			) : (
@@ -143,15 +146,17 @@ export function TokensCard({
 						<table className={cn(tableClass, 'min-w-140')}>
 							<thead>
 								<tr className={tableShellHeadRowClass}>
-									<th className="px-3">Asset</th>
+									<th className="px-3">{FIELDS.asset}</th>
 									<th className="w-36 px-3 text-right">
-										Balance
+										{FIELDS.balance}
 									</th>
 									<th className="w-36 px-3 text-right">
-										Value
+										{COPY.value}
 									</th>
 									<th className="w-28 px-3">
-										<span className="sr-only">Actions</span>
+										<span className="sr-only">
+											{FIELDS.actions}
+										</span>
 									</th>
 								</tr>
 							</thead>
@@ -238,7 +243,9 @@ function TokenRow({
 					// Without its decimals the raw amount would mislead.
 					<span
 						className="text-muted-foreground"
-						title={`${balance.balance} (raw)`}
+						title={content.assets.row.rawAmount(
+							balance.balance,
+						)}
 					>
 						—
 					</span>
@@ -266,7 +273,7 @@ function TokenRow({
 					data-testid="token-send-button"
 				>
 					<Send />
-					Send
+					{content.common.actions.send}
 				</Button>
 			</td>
 		</tr>

@@ -6,11 +6,16 @@ import { type ReactNode } from 'react';
 import { Chip, type ChipProps } from '@/components/ui/chip';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { SkeletonLine } from '@/components/ui/skeleton';
+import { content } from '@/content';
 import type {
 	SimulationStatus,
 	TransactionPreviewModel,
 } from '@/lib/transaction-preview';
 import { safeDecode } from '@/lib/utils';
+
+const FIELDS = content.common.fields;
+const COPY = content.transactionPreview.details;
+const STATUS = content.transactionPreview.status;
 
 const STATUS_CHIPS: Record<
 	SimulationStatus,
@@ -19,12 +24,9 @@ const STATUS_CHIPS: Record<
 		variant: NonNullable<ChipProps['variant']>;
 	}
 > = {
-	passed: {
-		label: 'Simulation passed',
-		variant: 'success',
-	},
-	failed: { label: 'Simulation failed', variant: 'error' },
-	pending: { label: 'Simulating…', variant: 'neutral' },
+	passed: { label: STATUS.passed, variant: 'success' },
+	failed: { label: STATUS.failed, variant: 'error' },
+	pending: { label: STATUS.pending, variant: 'neutral' },
 };
 
 function Row({
@@ -76,7 +78,7 @@ export function DetailsTable({
 
 	return (
 		<div className="rounded-lg border">
-			<Row label="Digest">
+			<Row label={FIELDS.digest}>
 				<span
 					className="min-w-0 font-mono text-12 break-all"
 					data-testid="transaction-preview-digest"
@@ -87,10 +89,10 @@ export function DetailsTable({
 				<CopyButton
 					value={model.digest}
 					size="inline"
-					successMessage="Digest copied"
+					successMessage={content.toasts.digestCopied}
 				/>
 			</Row>
-			<Row label="Status">
+			<Row label={FIELDS.status}>
 				<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
 					<Chip
 						size="md"
@@ -106,7 +108,7 @@ export function DetailsTable({
 				</span>
 			</Row>
 			{model.status === 'failed' && model.error && (
-				<Row label="Error">
+				<Row label={COPY.error}>
 					<span
 						className="min-w-0 text-13 break-words whitespace-pre-wrap text-error-foreground"
 						data-testid="transaction-preview-error"
@@ -116,7 +118,7 @@ export function DetailsTable({
 				</Row>
 			)}
 			<Row
-				label="Sender"
+				label={FIELDS.sender}
 				testId="transaction-preview-sender"
 			>
 				{!sender ? (
@@ -136,19 +138,21 @@ export function DetailsTable({
 							<CopyButton
 								value={sender.address}
 								size="inline"
-								successMessage="Address copied"
+								successMessage={
+									content.toasts.addressCopied
+								}
 							/>
 						</span>
 					</span>
 				)}
 			</Row>
-			<Row label="Epoch">
+			<Row label={COPY.epoch}>
 				<SimulatedValue
 					value={model.epoch}
 					pending={pending}
 				/>
 			</Row>
-			<Row label="Gas">
+			<Row label={FIELDS.gas}>
 				<SimulatedValue
 					value={model.gas}
 					pending={pending}

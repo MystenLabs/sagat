@@ -7,6 +7,7 @@ import {
 	SkeletonChip,
 	SkeletonLine,
 } from '@/components/ui/skeleton';
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 /**
@@ -95,7 +96,7 @@ export function ProposalPageSkeleton() {
 				</div>
 			</div>
 			<span className="sr-only" role="status">
-				Loading proposal
+				{content.proposal.load.loading}
 			</span>
 		</div>
 	);

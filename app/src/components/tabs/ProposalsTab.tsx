@@ -8,6 +8,7 @@ import {
 	useOutletContext,
 } from 'react-router-dom';
 
+import { content } from '@/content';
 import { newProposalPath } from '@/lib/new-proposal';
 import { toProposalCardInput } from '@/lib/proposalUtils';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -22,6 +23,8 @@ import { ProposalsTable } from '../proposals/ProposalsTable';
 import { Button } from '../ui/button';
 import { Tabs } from '../ui/tabs';
 
+const COPY = content.proposals;
+
 interface ProposalsTabContext {
 	multisig: MultisigWithMembersForPublicKey;
 }
@@ -31,15 +34,8 @@ const REFRESH_COOLDOWN_MS = 5000;
 
 // What an empty tab says. All, the first visit's tab, also offers to
 // start one.
-const EMPTY_TITLE: Record<ProposalFilter, string> = {
-	all: 'No proposals yet',
-	pending: 'Nothing to sign',
-	waiting: 'Nothing awaiting others',
-	ready: 'Nothing ready to execute',
-	executed: 'No executed proposals',
-	cancelled: 'No cancelled proposals',
-	expired: 'No expired proposals',
-};
+const EMPTY_TITLE: Record<ProposalFilter, string> =
+	COPY.empty.title;
 
 /**
  * The account's proposals, filtered by where they stand: all of them, the
@@ -87,32 +83,33 @@ export function ProposalsTab() {
 		);
 	};
 
+	const tabs = COPY.tabs;
 	const filters: {
 		id: ProposalFilter;
 		label: string;
 		count?: number;
 	}[] = [
-		{ id: 'all', label: 'All' },
+		{ id: 'all', label: tabs.all },
 		{
 			id: 'pending',
-			label: 'To sign',
+			label: tabs.pending,
 			count: pendingTabCounts.pending,
 		},
 		{
 			id: 'waiting',
-			label: 'Awaiting others',
+			label: tabs.waiting,
 			count: pendingTabCounts.waiting,
 		},
 		{
 			id: 'ready',
-			label: 'Ready',
+			label: tabs.ready,
 			count: pendingTabCounts.ready,
 		},
-		{ id: 'executed', label: 'Executed' },
-		{ id: 'cancelled', label: 'Cancelled' },
+		{ id: 'executed', label: tabs.executed },
+		{ id: 'cancelled', label: tabs.cancelled },
 		{
 			id: 'expired',
-			label: 'Expired',
+			label: tabs.expired,
 			// Expired proposals still count against the account's open
 			// proposals until cancelled, so the tab says how many wait there.
 			count: pendingTabCounts.expired,
@@ -136,8 +133,8 @@ export function ProposalsTab() {
 					size="icon-sm"
 					onClick={handleRefresh}
 					disabled={isRefreshCooldown || isRefetching}
-					aria-label="Refresh proposals"
-					title="Refresh proposals"
+					aria-label={COPY.refresh}
+					title={COPY.refresh}
 					data-testid="refresh-proposals-button"
 				>
 					<RefreshCw
@@ -157,8 +154,8 @@ export function ProposalsTab() {
 					title: EMPTY_TITLE[activeFilter],
 					description:
 						activeFilter === 'all'
-							? 'Proposals show up here when a signer or external proposer creates one.'
-							: 'Proposals in this state show up here.',
+							? COPY.empty.allDescription
+							: COPY.empty.description,
 					action: activeFilter === 'all' && (
 						<Button
 							size="sm"
@@ -167,7 +164,7 @@ export function ProposalsTab() {
 							}
 						>
 							<Plus />
-							New proposal
+							{content.common.actions.newProposal}
 						</Button>
 					),
 				}}
@@ -184,8 +181,8 @@ export function ProposalsTab() {
 						data-testid="load-more-proposals"
 					>
 						{pagination.isFetchingNextPage
-							? 'Loading…'
-							: 'Load more'}
+							? content.common.states.loadingMore
+							: content.common.actions.loadMore}
 					</Button>
 				</div>
 			)}

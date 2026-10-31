@@ -3,6 +3,8 @@
 
 import { type ReactNode } from 'react';
 
+import { content } from '@/content';
+
 import { type CoinDisplayData } from '../../hooks/useCoinDisplayData';
 import { type Balance } from '../../hooks/useMultisigBalances';
 import { formatCoinType } from '../../lib/coin-type';
@@ -101,7 +103,9 @@ function AssetBody({
 								value={balance.coinType}
 								size="xs"
 								className="size-3 p-0 text-muted-foreground [&_svg]:size-2.5 hover:bg-transparent hover:text-foreground"
-								successMessage="Coin type copied"
+								successMessage={
+									content.toasts.coinTypeCopied
+								}
 							/>
 						)}
 					</div>
@@ -113,7 +117,9 @@ function AssetBody({
 					<div>
 						<span
 							className="font-medium tabular-nums text-foreground"
-							title={`${balance.balance} (raw)`}
+							title={content.assets.row.rawAmount(
+								balance.balance,
+							)}
 						>
 							{formatted}
 							{symbol && (
@@ -134,8 +140,9 @@ function AssetBody({
 												: 'text-error-foreground',
 										)}
 									>
-										({priceChangePct >= 0 ? '+' : ''}
-										{priceChangePct.toFixed(2)}% 24h)
+										{content.assets.row.priceChange24h(
+											`${priceChangePct >= 0 ? '+' : ''}${priceChangePct.toFixed(2)}`,
+										)}
 									</span>
 								)}
 							</div>

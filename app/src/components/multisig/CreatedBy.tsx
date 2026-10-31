@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { content } from '@/content';
 import { type AccountCreator } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +27,7 @@ export function CreatedBy({
 				className={cn('text-muted-foreground', className)}
 				data-testid={testId}
 			>
-				Unknown
+				{content.overview.creatorUnknown}
 			</span>
 		);
 	return (

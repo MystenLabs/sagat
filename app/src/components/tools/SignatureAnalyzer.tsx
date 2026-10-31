@@ -19,6 +19,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { Chip } from '@/components/ui/chip';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { content } from '@/content';
 import { sumWeight, thresholdLabel } from '@/lib/threshold';
 
 import {
@@ -26,6 +27,9 @@ import {
 	NetworkField,
 	ToolCard,
 } from './parts';
+
+const FIELDS = content.common.fields;
+const COPY = content.tools.signatureAnalyzer;
 
 interface SignaturePubkeyPair {
 	serializedSignature: string;
@@ -133,23 +137,25 @@ function MultiSigDetails({
 			data-address={address}
 			data-threshold={multisigInfo.threshold}
 		>
-			<DetailBlock title="Multisig">
-				<DetailRow label="Multisig address">
+			<DetailBlock title={COPY.multisigTitle}>
+				<DetailRow label={COPY.multisigAddress}>
 					<Copyable value={address} />
 				</DetailRow>
-				<DetailRow label="Threshold">
+				<DetailRow label={FIELDS.threshold}>
 					{thresholdLabel({
 						threshold: multisigInfo.threshold,
 						totalWeight,
 					})}
 				</DetailRow>
-				<DetailRow label="Combined public key">
+				<DetailRow label={COPY.combinedPublicKey}>
 					<Copyable value={combinedKey} />
 				</DetailRow>
 			</DetailBlock>
 
 			<DetailBlock
-				title={`Signers (${multisigInfo.participants.length})`}
+				title={COPY.signersTitle(
+					multisigInfo.participants.length,
+				)}
 			>
 				{multisigInfo.participants.map(
 					(participant, index) => {
@@ -159,7 +165,7 @@ function MultiSigDetails({
 						return (
 							<DetailRow
 								key={index}
-								label={`Signer ${index + 1}`}
+								label={COPY.signerNumber(index + 1)}
 								data-testid="multisig-participant"
 								data-address={participant.suiAddress}
 								data-weight={participant.weight}
@@ -169,16 +175,18 @@ function MultiSigDetails({
 								<Copyable value={suiPublicKey} />
 								<SchemeChip scheme={participant.keyType} />
 								<span className="shrink-0 whitespace-nowrap">
-									Weight {participant.weight}
+									{COPY.weight(participant.weight)}
 								</span>
 								{signed ? (
-									<Chip variant="success">Signed</Chip>
+									<Chip variant="success">
+										{content.common.states.signed}
+									</Chip>
 								) : (
 									<Chip
 										variant="tag"
 										className="font-mono text-muted-foreground"
 									>
-										Not signed
+										{content.common.states.notSigned}
 									</Chip>
 								)}
 							</DetailRow>
@@ -188,7 +196,7 @@ function MultiSigDetails({
 			</DetailBlock>
 
 			<DetailBlock
-				title={`Signatures (${signatures.length})`}
+				title={COPY.signaturesTitle(signatures.length)}
 			>
 				{signatures.map((signature, index) => {
 					const suiAddress =
@@ -200,8 +208,8 @@ function MultiSigDetails({
 							label={
 								<>
 									{signer >= 0
-										? `Signer ${signer + 1}`
-										: 'Signer'}{' '}
+										? COPY.signerNumber(signer + 1)
+										: FIELDS.signer}{' '}
 									·{' '}
 									<span className="font-mono text-12">
 										{formatAddress(suiAddress)}
@@ -233,29 +241,26 @@ function SingleSignature({
 
 	return (
 		<DetailBlock
-			title="Signature"
+			title={COPY.signatureTitle}
 			data-testid="signature-card"
 			data-address={suiAddress}
 			data-scheme={signature.signatureScheme.toString()}
 		>
-			<DetailRow label="Scheme">
+			<DetailRow label={COPY.scheme}>
 				<SchemeChip scheme={signature.signatureScheme} />
 			</DetailRow>
-			<DetailRow label="Signer">
+			<DetailRow label={FIELDS.signer}>
 				<Copyable value={suiAddress} />
 			</DetailRow>
-			<DetailRow label="Public key">
+			<DetailRow label={FIELDS.publicKey}>
 				<Copyable value={suiPublicKey} />
 			</DetailRow>
-			<DetailRow label="Signature">
+			<DetailRow label={FIELDS.signature}>
 				<Copyable value={signature.serializedSignature} />
 			</DetailRow>
 		</DetailBlock>
 	);
 }
-
-const CANT_READ =
-	'Can’t read this as a signature. Paste the full signature in base64, the way your wallet or tool exported it.';
 
 export default function SignatureAnalyzer() {
 	const [signature, setSignature] = useState('');
@@ -365,13 +370,13 @@ export default function SignatureAnalyzer() {
 			<NetworkField />
 			<BytesField
 				id="signature-bytes"
-				label="Signature bytes"
+				label={COPY.bytesLabel}
 				testId="signature-input"
-				placeholder="Paste the signature bytes (base64)"
+				placeholder={COPY.bytesPlaceholder}
 				minHeight="min-h-30"
 				value={signature}
 				onChange={handleSignatureChange}
-				error={error ? CANT_READ : undefined}
+				error={error ? COPY.unreadable : undefined}
 				errorTestId="signature-error"
 			/>
 

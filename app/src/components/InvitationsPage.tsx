@@ -4,12 +4,16 @@
 import { Mail } from 'lucide-react';
 import { useState } from 'react';
 
+import { content } from '@/content';
+
 import { useInvitations } from '../hooks/useInvitations';
 import { InvitationCard } from './invitations/InvitationCard';
 import { EmptyState, ErrorState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
 import { SkeletonRows } from './ui/skeleton';
 import { Tabs } from './ui/tabs';
+
+const COPY = content.invitations.page;
 
 type TabType = 'pending' | 'rejected';
 
@@ -34,21 +38,21 @@ export function InvitationsPage() {
 			data-testid="invitations-page"
 		>
 			<PageHeader
-				title="Invitations"
-				description="Accounts you've been asked to join as a signer."
+				title={COPY.title}
+				description={COPY.description}
 			/>
 
 			<Tabs
 				tabs={[
 					{
 						id: 'pending',
-						label: 'Pending',
+						label: COPY.pendingTab,
 						count: pending.data?.length,
 						countColor: 'gray',
 					},
 					{
 						id: 'rejected',
-						label: 'Rejected',
+						label: COPY.rejectedTab,
 					},
 				]}
 				activeTab={activeTab}
@@ -65,7 +69,7 @@ export function InvitationsPage() {
 				/>
 			) : current.isError && !current.data ? (
 				<ErrorState
-					title="Failed to load invitations"
+					title={COPY.loadFailed}
 					error={current.error}
 					onRetry={() => current.refetch()}
 					testId="invitations-error"
@@ -76,13 +80,13 @@ export function InvitationsPage() {
 					testId="invitations-empty"
 					title={
 						activeTab === 'pending'
-							? 'No invitations yet'
-							: 'No rejected invitations'
+							? COPY.emptyPendingTitle
+							: COPY.emptyRejectedTitle
 					}
 					description={
 						activeTab === 'pending'
-							? 'When someone adds you as a signer on an account, the invitation shows up here.'
-							: 'Invitations you turn down stay here for your records.'
+							? COPY.emptyPendingDescription
+							: COPY.emptyRejectedDescription
 					}
 				/>
 			) : (

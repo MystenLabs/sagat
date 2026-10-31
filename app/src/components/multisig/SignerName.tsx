@@ -3,6 +3,7 @@
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 /**
@@ -40,11 +41,7 @@ const SIZES = {
 	},
 } as const;
 
-const MARKERS = {
-	you: { word: 'You', parens: '(you)' },
-	creator: { word: 'Creator', parens: '(creator)' },
-	external: { word: 'External', parens: '(external)' },
-} as const;
+const MARKERS = content.signers.markers;
 
 /**
  * A signer's name over their short address when the key has a label;
@@ -90,7 +87,7 @@ export function SignerName({
 		<CopyButton
 			value={address}
 			size="inline"
-			successMessage="Address copied"
+			successMessage={content.toasts.addressCopied}
 		/>
 	);
 
@@ -126,7 +123,7 @@ export function SignerName({
 							s.bareAddress,
 						)}
 					>
-						Unknown key
+						{content.common.unknownKey}
 					</span>
 				)}
 				{markerText}

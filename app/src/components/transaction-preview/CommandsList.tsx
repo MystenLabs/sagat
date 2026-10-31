@@ -5,10 +5,13 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { type ReactNode } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
+import { content } from '@/content';
 import { prettifyType } from '@/lib/coin-type';
 import { tryDecodePure } from '@/lib/decode-pure';
 
 import { ArgBox, EmptyPanel, Field } from './parts';
+
+const COPY = content.transactionPreview.commands;
 
 type TxData = SuiClientTypes.TransactionData;
 type TxInput = TxData['inputs'][number];
@@ -22,15 +25,8 @@ type AnyCommand = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyInput = any;
 
-const COMMAND_DESCRIPTIONS: Record<string, string> = {
-	MoveCall: 'Calls a smart contract function',
-	TransferObjects: 'Transfers objects to an address',
-	SplitCoins: 'Splits a coin into several',
-	MergeCoins: 'Merges coins into one',
-	Publish: 'Publishes a new package',
-	Upgrade: 'Upgrades a package',
-	MakeMoveVec: 'Creates a vector of Move values',
-};
+const COMMAND_DESCRIPTIONS: Record<string, string> =
+	COPY.descriptions;
 
 function Muted({ children }: { children: ReactNode }) {
 	return (
@@ -41,9 +37,9 @@ function Muted({ children }: { children: ReactNode }) {
 }
 
 function objectKindLabel(input: AnyInput): string | null {
-	if (input.SharedObject) return 'Shared';
-	if (input.Receiving) return 'Receiving';
-	if (input.ImmOrOwnedObject) return 'Owned';
+	if (input.SharedObject) return COPY.objectKinds.shared;
+	if (input.Receiving) return COPY.objectKinds.receiving;
+	if (input.ImmOrOwnedObject) return COPY.objectKinds.owned;
 	return null;
 }
 
@@ -53,7 +49,7 @@ function InputArg({
 }: {
 	input: TxInput | undefined;
 }) {
-	if (!input) return <ArgBox>Missing input</ArgBox>;
+	if (!input) return <ArgBox>{COPY.missingInput}</ArgBox>;
 	const arg = input as AnyInput;
 
 	if (arg.$kind === 'Pure' && arg.Pure?.bytes) {
@@ -61,7 +57,7 @@ function InputArg({
 		if (candidates.length === 0) {
 			return (
 				<ArgBox>
-					<Muted>Pure (BCS)</Muted>
+					<Muted>{COPY.pureBcs}</Muted>
 					<span className="text-muted-foreground">
 						{arg.Pure.bytes}
 					</span>
@@ -75,7 +71,7 @@ function InputArg({
 				<span>{primary.value}</span>
 				{rest.length > 0 && (
 					<Muted>
-						or{' '}
+						{content.common.or}{' '}
 						{rest
 							.map((c) => `${c.label}: ${c.value}`)
 							.join(', ')}
@@ -96,7 +92,7 @@ function InputArg({
 		const kind = objectKindLabel(arg.Object);
 		return (
 			<ArgBox>
-				{kind && <Muted>{kind} object</Muted>}
+				{kind && <Muted>{COPY.objectKind(kind)}</Muted>}
 				<span className="flex items-center">
 					<ShortAddress address={object.objectId} />
 				</span>
@@ -194,13 +190,13 @@ function CommandBody({
 		const call = command.MoveCall;
 		return (
 			<>
-				<Field label="Target">
+				<Field label={COPY.target}>
 					<span className="min-w-0 font-mono text-12 break-all">
 						{`${prettifyType(call.package)}::${call.module}::${call.function}`}
 					</span>
 				</Field>
 				{call.typeArguments?.length > 0 && (
-					<Field label="Type arguments">
+					<Field label={COPY.typeArguments}>
 						{call.typeArguments.map(
 							(type: string, i: number) => (
 								<ArgBox key={i}>
@@ -211,7 +207,7 @@ function CommandBody({
 					</Field>
 				)}
 				<Args
-					label="Arguments"
+					label={COPY.arguments}
 					args={call.arguments}
 					inputs={inputs}
 				/>
@@ -222,12 +218,12 @@ function CommandBody({
 		return (
 			<>
 				<Args
-					label="Objects"
+					label={COPY.objects}
 					args={command.TransferObjects.objects}
 					inputs={inputs}
 				/>
 				<Args
-					label="To"
+					label={COPY.to}
 					args={[command.TransferObjects.address]}
 					inputs={inputs}
 				/>
@@ -238,12 +234,12 @@ function CommandBody({
 		return (
 			<>
 				<Args
-					label="From coin"
+					label={COPY.fromCoin}
 					args={[command.SplitCoins.coin]}
 					inputs={inputs}
 				/>
 				<Args
-					label="Amounts"
+					label={COPY.amounts}
 					args={command.SplitCoins.amounts}
 					inputs={inputs}
 				/>
@@ -254,12 +250,12 @@ function CommandBody({
 		return (
 			<>
 				<Args
-					label="Into coin"
+					label={COPY.intoCoin}
 					args={[command.MergeCoins.destination]}
 					inputs={inputs}
 				/>
 				<Args
-					label="From coins"
+					label={COPY.fromCoins}
 					args={command.MergeCoins.sources}
 					inputs={inputs}
 				/>
@@ -270,14 +266,14 @@ function CommandBody({
 		return (
 			<>
 				{command.MakeMoveVec.type && (
-					<Field label="Type">
+					<Field label={content.common.fields.type}>
 						<span className="min-w-0 font-mono text-12 break-all">
 							{prettifyType(command.MakeMoveVec.type)}
 						</span>
 					</Field>
 				)}
 				<Args
-					label="Elements"
+					label={COPY.elements}
 					args={command.MakeMoveVec.elements}
 					inputs={inputs}
 				/>
@@ -304,7 +300,7 @@ export function CommandsList({
 	transaction: TxData;
 }) {
 	if (transaction.commands.length === 0) {
-		return <EmptyPanel>No commands.</EmptyPanel>;
+		return <EmptyPanel>{COPY.empty}</EmptyPanel>;
 	}
 
 	return (

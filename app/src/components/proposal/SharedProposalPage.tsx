@@ -9,6 +9,7 @@ import {
 
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useGetProposal } from '@/hooks/useGetProposal';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
@@ -19,6 +20,8 @@ import { proposalPagePath } from '@/lib/proposalUtils';
 import { ProposalLoadError } from './ProposalPage';
 import { ProposalPageSkeleton } from './ProposalPageSkeleton';
 import { ProposalView } from './ProposalView';
+
+const COPY = content.proposal;
 
 // The public response carries no key labels, so signers go by address.
 const NO_LABELS: Labels = new Map();
@@ -41,11 +44,11 @@ export function SharedProposalPage() {
 	if (!digest) {
 		return (
 			<div className="page-shell">
-				<PageHeader title="Proposal" />
+				<PageHeader title={COPY.shared.heading} />
 				<EmptyState
 					icon={FileSearch}
-					title="Missing digest"
-					description="Add the proposal digest to the URL as ?digest=… to open it."
+					title={COPY.load.missingDigestTitle}
+					description={COPY.load.missingDigestDescription}
 				/>
 			</div>
 		);

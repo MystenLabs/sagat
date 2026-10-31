@@ -18,11 +18,11 @@ import {
 	StepFooter,
 } from '@/components/wizard/parts';
 import { useTouched } from '@/components/wizard/use-touched';
+import { content } from '@/content';
 import { accountName } from '@/lib/account-name';
 import {
 	bytesStatusText,
 	checkBytes,
-	COPY,
 	titleError,
 	type ReadyProposal,
 } from '@/lib/new-proposal';
@@ -30,6 +30,8 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 import { TitleField } from './TitleField';
+
+const COPY = content.newProposal;
 
 /** Step 2 for pasted bytes: the bytes, read at once, and a title. */
 export function BytesDetailsStep({
@@ -92,12 +94,14 @@ export function BytesDetailsStep({
 			data-testid="bytes-step"
 		>
 			<SectionHeading
-				title="Transaction bytes"
-				description="Paste a transaction built somewhere else. It is read and simulated before anyone signs."
+				title={COPY.types.bytes.title}
+				description={COPY.bytesStep.description}
 			/>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="proposal-bytes">Bytes</Label>
+				<Label htmlFor="proposal-bytes">
+					{COPY.bytesStep.bytesLabel}
+				</Label>
 				<Textarea
 					id="proposal-bytes"
 					value={draft}
@@ -150,7 +154,7 @@ export function BytesDetailsStep({
 						data-testid="details-back"
 					>
 						<ArrowLeft />
-						Back
+						{content.common.actions.back}
 					</Button>
 				}
 				note={<FooterNote>{COPY.bytesNote}</FooterNote>}
@@ -164,7 +168,7 @@ export function BytesDetailsStep({
 						)}
 						data-testid="bytes-review"
 					>
-						Review
+						{content.common.actions.review}
 					</Button>
 				}
 			/>

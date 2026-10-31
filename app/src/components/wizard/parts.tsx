@@ -16,8 +16,11 @@ import {
 	AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
+import { content } from '@/content';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { cn } from '@/lib/utils';
+
+const COPY = content.wizard;
 
 // The pieces both wizards (create a multisig, new proposal) share.
 
@@ -115,7 +118,7 @@ export function RetryNotice({
 				disabled={retrying}
 				data-testid={retryTestId}
 			>
-				Try again
+				{content.common.actions.tryAgain}
 			</Button>
 		</div>
 	);
@@ -144,7 +147,7 @@ export function CopyText({
 			) : (
 				<Copy className="size-3 opacity-50" />
 			)}
-			{copied ? 'Copied' : label}
+			{copied ? content.common.states.copied : label}
 		</button>
 	);
 }
@@ -186,7 +189,7 @@ export function WizardStepper({
 			>
 				<p className="text-13">
 					<span className="text-muted-foreground">
-						Step {step} of {steps.length}
+						{COPY.stepOf(step, steps.length)}
 					</span>
 					<span className="font-medium">
 						{' '}
@@ -208,7 +211,7 @@ export function WizardStepper({
 				</div>
 			</div>
 			<ol
-				aria-label="Steps"
+				aria-label={COPY.stepsLabel}
 				className="flex items-center gap-3 max-sm:hidden"
 			>
 				{steps.map((label, i) => {
@@ -267,7 +270,9 @@ export function WizardStepper({
 								>
 									{label}
 									{state === 'done' && (
-										<span className="sr-only"> (done)</span>
+										<span className="sr-only">
+											{COPY.done}
+										</span>
 									)}
 								</span>
 							</button>
@@ -339,7 +344,7 @@ export function StepFooter({
 				className="order-4 sm:hidden"
 				data-testid={`${testId}-cancel-footer`}
 			>
-				Cancel
+				{content.common.actions.cancel}
 			</Button>
 		</div>
 	);

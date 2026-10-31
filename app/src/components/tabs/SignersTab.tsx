@@ -3,6 +3,7 @@
 
 import { useOutletContext } from 'react-router-dom';
 
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
@@ -64,8 +65,7 @@ export function SignersTab() {
 		<div className="@container flex flex-col gap-5">
 			{isError && (
 				<Alert variant="error" data-testid="signers-error">
-					The latest account details couldn’t be loaded, so
-					this may be out of date.{' '}
+					{content.signers.loadError}{' '}
 					<Button
 						variant="link"
 						size="xs"
@@ -74,7 +74,9 @@ export function SignersTab() {
 						className="h-auto border-0 px-0 text-13 text-inherit underline hover:no-underline"
 						data-testid="signers-retry"
 					>
-						{isFetching ? 'Trying again...' : 'Try again'}
+						{isFetching
+							? content.common.states.retrying
+							: content.common.actions.tryAgain}
 					</Button>
 				</Alert>
 			)}

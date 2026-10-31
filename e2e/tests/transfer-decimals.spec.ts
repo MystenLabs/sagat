@@ -6,7 +6,7 @@
 // land on chain.
 import { type Page } from '@playwright/test';
 
-import { COPY } from '../../app/src/lib/new-proposal';
+import { content } from '../../app/src/content';
 import {
 	randomAddress,
 	type Chain,
@@ -212,7 +212,7 @@ test.describe('transfer: coins with other decimals', () => {
 				});
 				await expectAmount(
 					page,
-					COPY.invalidAmount(decimals),
+					content.newProposal.invalidAmount(decimals),
 				);
 				await fillTransfer(page, { amount, recipient });
 				await expectAmount(page, null);
@@ -272,7 +272,10 @@ test.describe('transfer: coins with other decimals', () => {
 		});
 		await expectAmount(
 			page,
-			COPY.overBalance('WEI', '1.23456789123456789'),
+			content.newProposal.overBalance(
+				'WEI',
+				'1.23456789123456789',
+			),
 		);
 		await page.getByTestId('transfer-max-button').click();
 		await expect(

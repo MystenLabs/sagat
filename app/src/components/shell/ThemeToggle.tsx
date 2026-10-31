@@ -22,12 +22,27 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
+const COPY = content.shell.theme;
+
 const OPTIONS = [
-	{ value: 'light', icon: Sun, label: 'Light' },
-	{ value: 'dark', icon: Moon, label: 'Dark' },
-	{ value: 'system', icon: Monitor, label: 'System' },
+	{
+		value: 'light',
+		icon: Sun,
+		label: COPY.light,
+	},
+	{
+		value: 'dark',
+		icon: Moon,
+		label: COPY.dark,
+	},
+	{
+		value: 'system',
+		icon: Monitor,
+		label: COPY.system,
+	},
 ] as const;
 
 /**
@@ -51,7 +66,7 @@ export function ThemeToggle({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
-				aria-label={`Theme: ${active.label}`}
+				aria-label={COPY.ariaLabel(active.label)}
 				data-testid="theme-toggle"
 				className={cn(
 					'items-center rounded-md data-open:bg-sidebar-accent',
@@ -67,7 +82,7 @@ export function ThemeToggle({
 				{row && (
 					<>
 						<span className="flex-1 group-data-[collapsible=icon]:hidden">
-							Theme
+							{COPY.label}
 						</span>
 						<span className="text-11 opacity-60 group-data-[collapsible=icon]:hidden">
 							{active.label}
@@ -82,7 +97,9 @@ export function ThemeToggle({
 				className="min-w-36"
 			>
 				<DropdownMenuGroup>
-					<DropdownMenuLabel>Theme</DropdownMenuLabel>
+					<DropdownMenuLabel>
+						{COPY.label}
+					</DropdownMenuLabel>
 					{OPTIONS.map(({ value, icon: Icon, label }) => (
 						<DropdownMenuItem
 							key={value}

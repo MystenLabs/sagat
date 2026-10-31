@@ -4,6 +4,8 @@
 import { ExternalLink } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { content } from '@/content';
+
 import { useNetwork } from '../../contexts/NetworkContext';
 import {
 	useCoinDisplayData,
@@ -47,7 +49,7 @@ export function AssetsList({
 	if (query.isError) {
 		return (
 			<ErrorState
-				title="Failed to load balances"
+				title={content.common.states.balancesLoadFailed}
 				error={query.error}
 				onRetry={() => query.refetch()}
 				testId="assets-error"
@@ -81,8 +83,8 @@ export function AssetsList({
 						disabled={query.isFetchingNextPage}
 					>
 						{query.isFetchingNextPage
-							? 'Loading...'
-							: 'Load more'}
+							? content.common.states.loadingMore
+							: content.common.actions.loadMore}
 					</Button>
 				</div>
 			)}
@@ -149,8 +151,8 @@ function EmptyAssetsState({
 		<EmptyState
 			icon={SuiLogo}
 			iconClassName="bg-sui/10"
-			title="No balances yet"
-			description="This account holds no coins yet. Once it receives funds they show up here."
+			title={content.assets.list.emptyTitle}
+			description={content.assets.list.emptyDescription}
 			testId="assets-empty"
 			action={
 				explorerUrl && (
@@ -161,7 +163,7 @@ function EmptyAssetsState({
 						}
 					>
 						<ExternalLink />
-						View on explorer
+						{content.common.actions.viewOnExplorer}
 					</Button>
 				)
 			}

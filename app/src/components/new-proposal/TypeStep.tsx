@@ -16,11 +16,13 @@ import {
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
+import { content } from '@/content';
 import {
-	COPY,
 	PROPOSAL_TYPES,
 	type ProposalType,
 } from '@/lib/new-proposal';
+
+const COPY = content.newProposal;
 
 const ICONS: Record<ProposalType, LucideIcon> = {
 	transfer: Send,
@@ -49,15 +51,15 @@ export function TypeStep({
 			data-testid="type-step"
 		>
 			<SectionHeading
-				title="Choose a type"
-				description="What should this proposal do? Signers see the type in the proposal list."
+				title={COPY.typeStep.title}
+				description={COPY.typeStep.description}
 			/>
 			<RadioGroup
 				value={type}
 				onValueChange={(value) =>
 					onTypeChange(value as ProposalType)
 				}
-				aria-label="Proposal type"
+				aria-label={COPY.typeStep.groupLabel}
 				// The cards are buttons, so Enter doesn't submit the form
 				// the way it does on a native radio.
 				onKeyDown={(e) => {
@@ -117,7 +119,7 @@ export function TypeStep({
 						className="w-full sm:w-auto"
 						data-testid="type-continue"
 					>
-						Continue
+						{content.common.actions.continue}
 					</Button>
 				}
 			/>

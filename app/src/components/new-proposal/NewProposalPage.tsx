@@ -12,6 +12,7 @@ import {
 import { SkeletonPage } from '@/components/ui/skeleton';
 import { type WizardStep } from '@/components/wizard/parts';
 import { WizardPage } from '@/components/wizard/WizardPage';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
@@ -26,7 +27,6 @@ import { accountSetup } from '@/lib/account-setup';
 import { shownApiError } from '@/lib/api-errors';
 import { normalizeCoinType } from '@/lib/coin-type';
 import {
-	COPY,
 	proposalTypeFromQuery,
 	type ProposalType,
 	type ReadyProposal,
@@ -50,7 +50,8 @@ import {
 import { TransferDetailsStep } from './TransferDetailsStep';
 import { TypeStep } from './TypeStep';
 
-const STEPS = ['Type', 'Details', 'Review'] as const;
+const COPY = content.newProposal;
+const STEPS = COPY.steps;
 
 /**
  * The new-proposal wizard: type, details, review. Waits for the account
@@ -72,7 +73,11 @@ export function NewProposalPage() {
 	// Also wait while the list refreshes without this account (just
 	// joined), rather than redirecting on the stale list.
 	if (isLoading || (isFetching && !multisig)) {
-		return <SkeletonPage message="Loading account" />;
+		return (
+			<SkeletonPage
+				message={content.common.states.loadingPod}
+			/>
+		);
 	}
 	if (!multisig) return <Navigate to="/" replace />;
 
@@ -270,10 +275,13 @@ function NewProposalWizard({
 
 	return (
 		<WizardPage
-			title="New proposal"
+			title={COPY.title}
 			breadcrumb={[
-				{ label: 'Proposals', to: proposalsLink },
-				{ label: 'New proposal' },
+				{
+					label: COPY.breadcrumbProposals,
+					to: proposalsLink,
+				},
+				{ label: COPY.title },
 			]}
 			testId="new-proposal"
 			steps={STEPS}

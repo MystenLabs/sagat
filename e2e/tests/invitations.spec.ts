@@ -74,7 +74,7 @@ test.describe('invitations', () => {
 		).toHaveText('Your weight 1');
 		await expect(
 			weightBar.getByTestId('weight-legend-accepted'),
-		).toHaveText('Accepted 1');
+		).toHaveText('Accepted weight 1');
 		await expect(
 			weightBar.getByTestId('weight-legend-threshold'),
 		).toHaveText('Threshold 2 of 2');
@@ -254,7 +254,7 @@ test.describe('invitations', () => {
 		).toHaveText('Your weight 2');
 		await expect(
 			weightBar.getByTestId('weight-legend-accepted'),
-		).toHaveText('Accepted 7');
+		).toHaveText('Accepted weight 7');
 		await expect(
 			weightBar.getByTestId('weight-legend-threshold'),
 		).toHaveText('Threshold 8 of 12');

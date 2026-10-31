@@ -4,8 +4,11 @@
 import type { MultisigMember } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
+import { content } from '../content';
 import { memberStatus } from './member-status';
 import { validatePublicKey } from './sui-utils';
+
+const COPY = content.signers;
 
 export interface SignerSetStatus {
 	total: number;
@@ -55,7 +58,7 @@ export function signerRows(
 					member.label ||
 					(address
 						? formatAddress(address)
-						: 'Unknown key'),
+						: content.common.unknownKey),
 				status: memberStatus(member),
 				isYou: !!address && address === currentAddress,
 				isCreator: !!address && address === creatorAddress,
@@ -118,14 +121,14 @@ export function signerSummary(
 		status;
 	if (accepted === total)
 		return total === 2
-			? 'Both accepted'
-			: `All ${total} accepted`;
-	const head = `${accepted} of ${total} accepted`;
+			? COPY.summary.bothAccepted
+			: COPY.summary.allAccepted(total);
+	const head = COPY.summary.accepted(accepted, total);
 	if (rejected === 0) return head;
 	const tail =
 		rejected === 1
-			? `${rejectedNames[0]} rejected`
-			: `${rejected} rejected`;
+			? COPY.summary.oneRejected(rejectedNames[0])
+			: COPY.summary.manyRejected(rejected);
 	return `${head} · ${tail}`;
 }
 
@@ -141,15 +144,15 @@ export function rejectionNotice(
 	if (rejected === 0) return null;
 	const who =
 		rejected === 1
-			? `${rejectedNames[0]} rejected the invitation to join this account.`
-			: `${rejected} signers rejected their invitations to join this account.`;
+			? COPY.notice.oneRejected(rejectedNames[0])
+			: COPY.notice.manyRejected(rejected);
 	return canReachThreshold
 		? {
 				tone: 'warning',
-				message: `${who} The other signers can still reach the threshold.`,
+				message: who,
 			}
 		: {
 				tone: 'error',
-				message: `${who} The rest can’t reach the threshold, so this account can’t move funds.`,
+				message: COPY.notice.cantReachThreshold(who),
 			};
 }

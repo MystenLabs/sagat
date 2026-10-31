@@ -25,12 +25,15 @@ import {
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
+import { content } from '@/content';
 import { type useDryRun } from '@/hooks/useDryRun';
 import { useExpiry } from '@/hooks/useExpiry';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
-import { COPY, titleError } from '@/lib/new-proposal';
+import { titleError } from '@/lib/new-proposal';
 import { type NamedAccount } from '@/lib/transaction-preview';
 import { cn, safeDecode } from '@/lib/utils';
+
+const COPY = content.newProposal;
 
 /** Step 3: the title, the simulated effects and the raw bytes, then propose. */
 export function ReviewStep({
@@ -79,8 +82,7 @@ export function ReviewStep({
 		[senderAddress, senderName],
 	);
 	const failureReason = safeDecode(
-		dryRun.error?.message ||
-			'the transaction would fail on-chain',
+		dryRun.error?.message || COPY.simulationFailedFallback,
 	);
 	const currentTitleError = titleError(title);
 	const expiry = useExpiry(bytes);
@@ -92,8 +94,8 @@ export function ReviewStep({
 			data-testid="review-step"
 		>
 			<SectionHeading
-				title="Review and propose"
-				description="Check the proposal before you sign and send it to the other signers."
+				title={COPY.review.title}
+				description={COPY.review.description}
 			/>
 
 			<TitleCard
@@ -158,7 +160,7 @@ export function ReviewStep({
 						data-testid="review-back"
 					>
 						<ArrowLeft />
-						Back
+						{content.common.actions.back}
 					</Button>
 				}
 				primary={
@@ -175,15 +177,15 @@ export function ReviewStep({
 						data-testid="review-submit"
 					>
 						{creating ? (
-							'Creating proposal…'
+							COPY.review.creating
 						) : createError ? (
-							'Try again'
+							content.common.actions.tryAgain
 						) : (
 							<>
 								<Pen />
 								{simulationFailed
-									? 'Propose and sign anyway'
-									: 'Propose and sign'}
+									? COPY.review.proposeAnyway
+									: COPY.review.propose}
 							</>
 						)}
 					</Button>
@@ -227,7 +229,7 @@ function TitleCard({
 	return (
 		<div className="flex flex-col gap-1 rounded-xl bg-muted p-4">
 			<span className="text-12 text-muted-foreground">
-				Title
+				{COPY.titleLabel}
 			</span>
 			{editing !== null ? (
 				<Input
@@ -246,7 +248,7 @@ function TitleCard({
 						}
 					}}
 					autoFocus
-					aria-label="Title"
+					aria-label={COPY.titleLabel}
 					aria-invalid={!!titleError(editing)}
 					data-testid="review-title-input"
 				/>
@@ -259,11 +261,11 @@ function TitleCard({
 						)}
 						data-testid="review-title"
 					>
-						{title.trim() || 'No title'}
+						{title.trim() || COPY.review.noTitle}
 					</span>
 					<Tooltip>
 						<TooltipTrigger
-							aria-label="Edit title"
+							aria-label={COPY.review.editTitle}
 							onClick={() => {
 								cancelled.current = false;
 								setEditing(title);
@@ -274,7 +276,9 @@ function TitleCard({
 						>
 							<Pen className="size-3" />
 						</TooltipTrigger>
-						<TooltipContent>Edit title</TooltipContent>
+						<TooltipContent>
+							{COPY.review.editTitle}
+						</TooltipContent>
 					</Tooltip>
 				</span>
 			)}

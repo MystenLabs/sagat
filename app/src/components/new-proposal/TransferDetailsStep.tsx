@@ -34,6 +34,7 @@ import {
 	StepFooter,
 } from '@/components/wizard/parts';
 import { useTouched } from '@/components/wizard/use-touched';
+import { content } from '@/content';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
 import { useSuiGasCoins } from '@/hooks/useSuiGasCoins';
 import { accountName } from '@/lib/account-name';
@@ -46,7 +47,6 @@ import {
 } from '@/lib/coins';
 import {
 	checkTransfer,
-	COPY,
 	lacksGas,
 	maxTransfer,
 	titleError,
@@ -59,6 +59,8 @@ import { cn } from '@/lib/utils';
 
 import { AssetSelect } from './AssetSelect';
 import { TitleField } from './TitleField';
+
+const COPY = content.newProposal;
 
 /** Step 2 for a transfer: the asset, amount, recipient and title. */
 export function TransferDetailsStep({
@@ -285,12 +287,16 @@ export function TransferDetailsStep({
 			data-testid="transfer-step"
 		>
 			<SectionHeading
-				title="Transfer"
-				description={`Send tokens from ${accountName(multisig)} to one address.`}
+				title={COPY.types.transfer.title}
+				description={COPY.transferStep.description(
+					accountName(multisig),
+				)}
 			/>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="transfer-asset">Asset</Label>
+				<Label htmlFor="transfer-asset">
+					{content.common.fields.asset}
+				</Label>
 				<AssetSelect
 					id="transfer-asset"
 					balances={assets.balances}
@@ -329,7 +335,9 @@ export function TransferDetailsStep({
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="transfer-amount">Amount</Label>
+				<Label htmlFor="transfer-amount">
+					{COPY.transferStep.amountLabel}
+				</Label>
 				<InputGroup>
 					<InputGroupInput
 						id="transfer-amount"
@@ -343,7 +351,9 @@ export function TransferDetailsStep({
 						}}
 						onBlur={() => touch('amount')}
 						disabled={building}
-						placeholder="0.00"
+						placeholder={
+							COPY.transferStep.amountPlaceholder
+						}
 						inputMode="decimal"
 						autoComplete="off"
 						spellCheck={false}
@@ -372,7 +382,7 @@ export function TransferDetailsStep({
 								className="cursor-pointer font-medium"
 								data-testid="transfer-max-button"
 							>
-								Max
+								{COPY.transferStep.max}
 							</InputGroupButton>
 						</InputGroupAddon>
 					)}
@@ -421,7 +431,9 @@ export function TransferDetailsStep({
 			</div>
 
 			<div className="flex flex-col gap-1.5">
-				<Label htmlFor="transfer-recipient">To</Label>
+				<Label htmlFor="transfer-recipient">
+					{COPY.transferStep.recipientLabel}
+				</Label>
 				<AddressField
 					id="transfer-recipient"
 					value={draft.recipient}
@@ -445,7 +457,11 @@ export function TransferDetailsStep({
 						? COPY.titlePlaceholderTransfer
 						: COPY.titlePlaceholder
 				}
-				hint={COPY.titleHintTransfer}
+				hint={
+					shownTitle.trim()
+						? COPY.titleHintTransfer
+						: COPY.titleHintEmpty
+				}
 				error={shownTitleError}
 				onChange={(next) => {
 					change('title', shownTitle);
@@ -481,7 +497,7 @@ export function TransferDetailsStep({
 						data-testid="details-back"
 					>
 						<ArrowLeft />
-						Back
+						{content.common.actions.back}
 					</Button>
 				}
 				note={<FooterNote>{COPY.transferNote}</FooterNote>}
@@ -495,7 +511,9 @@ export function TransferDetailsStep({
 						)}
 						data-testid="transfer-review"
 					>
-						{building ? 'Building…' : 'Review'}
+						{building
+							? COPY.transferStep.building
+							: content.common.actions.review}
 					</Button>
 				}
 			/>

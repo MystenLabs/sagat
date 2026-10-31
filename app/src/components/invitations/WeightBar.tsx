@@ -7,6 +7,7 @@ import {
 	SegmentBar,
 	ToneSwatch,
 } from '@/components/multisig/SegmentBar';
+import { content } from '@/content';
 import { sumWeight, thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
 import {
@@ -47,7 +48,7 @@ export function WeightBar({
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-12">
 				<div className="flex flex-wrap gap-x-4 gap-y-1">
 					<Legend
-						label="Your weight"
+						label={content.common.fields.yourWeight}
 						value={
 							yourWeight === null ? '—' : String(yourWeight)
 						}
@@ -56,7 +57,7 @@ export function WeightBar({
 						<ToneSwatch tone="you" />
 					</Legend>
 					<Legend
-						label="Accepted"
+						label={content.invitations.weightBar.accepted}
 						value={String(accepted)}
 						testId="weight-legend-accepted"
 					>
@@ -64,7 +65,7 @@ export function WeightBar({
 					</Legend>
 				</div>
 				<Legend
-					label="Threshold"
+					label={content.common.fields.threshold}
 					value={thresholdLabel({ threshold, totalWeight })}
 					testId="weight-legend-threshold"
 				>

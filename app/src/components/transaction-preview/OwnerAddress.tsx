@@ -4,7 +4,11 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 
+import { content } from '@/content';
+
 import { ShortAddress } from '../invitations/ShortAddress';
+
+const COPY = content.transactionPreview.owner;
 
 /**
  * An object's owner in the preview's cells. Address, object and
@@ -27,7 +31,7 @@ export function OwnerAddress({
 				isSameAddress(owner.AddressOwner, senderAddress);
 			return (
 				<ShortAddress address={owner.AddressOwner}>
-					{isSender ? 'Sender' : undefined}
+					{isSender ? COPY.sender : undefined}
 				</ShortAddress>
 			);
 		}
@@ -42,13 +46,13 @@ export function OwnerAddress({
 			);
 		}
 		case 'Immutable':
-			return <span>Immutable</span>;
+			return <span>{COPY.immutable}</span>;
 		case 'Shared':
-			return <span>Shared</span>;
+			return <span>{COPY.shared}</span>;
 		case 'Unknown':
-			return <span>Unknown Owner</span>;
+			return <span>{COPY.unknown}</span>;
 		default:
-			return <span>Failed to find or parse owner.</span>;
+			return <span>{COPY.parseFailed}</span>;
 	}
 }
 

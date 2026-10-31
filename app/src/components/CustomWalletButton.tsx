@@ -18,6 +18,7 @@ import {
 	Wallet,
 } from 'lucide-react';
 
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
@@ -41,6 +42,8 @@ import {
 } from './ui/dropdown-menu';
 import { SidebarRailTooltip } from './ui/sidebar';
 import { WalletPicker } from './WalletPicker';
+
+const COPY = content.signedOut;
 
 type WalletVariant = 'header' | 'rail';
 
@@ -152,7 +155,9 @@ function WalletMenu({
 		disconnectWallet,
 	} = useApiAuth();
 	const { network, isTestMode } = useNetwork();
-	const { copy } = useCopyToClipboard('Address copied');
+	const { copy } = useCopyToClipboard(
+		content.toasts.addressCopied,
+	);
 
 	const label = getCompactWalletLabel(
 		account.address,
@@ -171,10 +176,10 @@ function WalletMenu({
 			{variant === 'rail' ? (
 				<DropdownMenuTrigger
 					{...triggerProps}
-					aria-label={`Wallet ${label}`}
+					aria-label={COPY.walletMenu.triggerLabel(label)}
 					render={
 						<SidebarRailTooltip
-							tooltip={`Wallet ${label}`}
+							tooltip={COPY.walletMenu.triggerLabel(label)}
 						/>
 					}
 					className={cn(
@@ -252,7 +257,7 @@ function WalletMenu({
 						data-testid="copy-address"
 					>
 						<Copy />
-						Copy address
+						{content.common.actions.copyAddress}
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 				<DropdownMenuSeparator />
@@ -263,7 +268,7 @@ function WalletMenu({
 						data-testid="disconnect-button"
 					>
 						<LogOut />
-						Disconnect
+						{COPY.walletMenu.disconnect}
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
@@ -343,8 +348,8 @@ function AccountItem({
 						data-testid="wallet-account-sign"
 					>
 						{isConnecting && isCurrent
-							? 'Signing in…'
-							: 'Sign in'}
+							? COPY.signIn.signingIn
+							: COPY.signIn.button}
 					</Button>
 				)}
 				{isCurrent && <Check className="size-4" />}

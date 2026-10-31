@@ -5,6 +5,7 @@ import {
 	cardClass,
 	CardHeading,
 } from '@/components/ui/card';
+import { content } from '@/content';
 import { formatShortDateTime } from '@/lib/dates';
 import {
 	activityRows,
@@ -48,7 +49,10 @@ export function ActivityCard({
 			aria-labelledby="activity-heading"
 			data-testid="activity-card"
 		>
-			<CardHeading id="activity-heading" title="Activity" />
+			<CardHeading
+				id="activity-heading"
+				title={content.proposal.activity.heading}
+			/>
 			<ol className="flex flex-col gap-2.5">
 				{rows.map((row) => {
 					const at = formatShortDateTime(row.at);

@@ -13,11 +13,12 @@ import {
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarRailTooltip } from '@/components/ui/sidebar';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useAuthLevel } from '@/hooks/useAuthLevel';
 import { cn } from '@/lib/utils';
 
-const LABEL = 'Connect wallet';
+const LABEL = content.signedOut.walletPicker.label;
 
 type WalletPickerVariant = 'default' | 'outline' | 'rail';
 
@@ -111,8 +112,7 @@ export function WalletPicker({
 							className="h-auto max-w-60 py-2 text-muted-foreground"
 							data-testid="wallet-option-empty"
 						>
-							No wallets found. Install a wallet (e.g. Slush
-							Wallet) to continue.
+							{content.signedOut.walletPicker.noWallets}
 						</DropdownMenuItem>
 					)}
 				</DropdownMenuGroup>

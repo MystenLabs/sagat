@@ -12,6 +12,7 @@ import {
 import { type ReactElement, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
@@ -52,6 +53,10 @@ import {
 import { ProposalExpiry } from './ProposalExpiry';
 import { ProposalStatusChip } from './ProposalStatusChip';
 import { ProposalWeight } from './ProposalWeight';
+
+const ACTIONS = content.common.actions;
+const COPY = content.proposals.row;
+const SHARED = content.proposal.shared;
 
 export type ProposalsTableVariant = 'overview' | 'list';
 
@@ -158,7 +163,7 @@ export function ProposalRow({
 									list ? undefined : 'proposal-proposer'
 								}
 							>
-								Proposed by{' '}
+								{SHARED.proposedBy}{' '}
 								{/* The name alone; the address only when unnamed. */}
 								<SignerName
 									label={proposerLabel}
@@ -188,7 +193,9 @@ export function ProposalRow({
 									<CopyButton
 										value={proposal.digest}
 										size="inline"
-										successMessage="Digest copied"
+										successMessage={
+											content.toasts.digestCopied
+										}
 									/>
 								</span>
 							)}
@@ -206,7 +213,7 @@ export function ProposalRow({
 									data-testid="proposal-already-signed"
 								>
 									<span aria-hidden>·</span>
-									You signed
+									{COPY.youSigned}
 								</span>
 							)}
 						</span>
@@ -215,7 +222,9 @@ export function ProposalRow({
 								className="text-12 break-words text-error-foreground"
 								data-testid="proposal-execute-error"
 							>
-								Couldn't execute: {executing.error.message}
+								{COPY.executeFailed(
+									executing.error.message,
+								)}
 							</span>
 						)}
 					</div>
@@ -257,8 +266,8 @@ export function ProposalRow({
 							data-testid="execute-proposal-button"
 						>
 							{executing.isPending
-								? 'Executing…'
-								: 'Execute'}
+								? SHARED.executing
+								: SHARED.execute}
 						</Button>
 					)}
 					{list && (
@@ -294,11 +303,13 @@ function RowMenu({
 	onDownload: () => void;
 	digest: string;
 }) {
-	const { copy } = useCopyToClipboard('Link copied');
+	const { copy } = useCopyToClipboard(
+		content.toasts.proposalLinkCopied,
+	);
 	return (
 		<DropdownMenu>
 			<IconTooltip
-				label="More actions"
+				label={COPY.moreActions}
 				trigger={
 					<DropdownMenuTrigger
 						className={cn(
@@ -308,7 +319,7 @@ function RowMenu({
 							}),
 							'@max-md:size-9',
 						)}
-						aria-label="More actions"
+						aria-label={COPY.moreActions}
 						data-testid="proposal-actions"
 					/>
 				}
@@ -326,7 +337,7 @@ function RowMenu({
 							data-testid="copy-proposal-link"
 						>
 							<Link2 />
-							Copy link
+							{SHARED.copyLink}
 						</DropdownMenuItem>
 					)}
 					<DropdownMenuItem
@@ -334,7 +345,7 @@ function RowMenu({
 						data-testid="export-proposal-button"
 					>
 						<Download />
-						Download
+						{COPY.download}
 					</DropdownMenuItem>
 					{/* Always listed, so the menu keeps its shape; disabled
 					    until the transaction ran on chain, and on networks
@@ -354,7 +365,7 @@ function RowMenu({
 						data-testid="view-on-explorer"
 					>
 						<ExternalLink />
-						View on explorer
+						{ACTIONS.viewOnExplorer}
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 			</DropdownMenuContent>

@@ -7,6 +7,7 @@ import {
 } from 'class-variance-authority';
 import { Check, Copy } from 'lucide-react';
 
+import { content } from '@/content';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { cn } from '@/lib/utils';
 
@@ -28,7 +29,7 @@ const copyButtonVariants = cva(
 
 export function CopyButton({
 	value,
-	successMessage = 'Copied!',
+	successMessage = content.toasts.copiedWithExclamation,
 	size,
 	className,
 }: {
@@ -47,7 +48,7 @@ export function CopyButton({
 				copyButtonVariants({ size }),
 				className,
 			)}
-			title="Copy full digest"
+			title={content.shell.controls.copyFullDigest}
 		>
 			{copied ? (
 				<Check className="text-success-foreground" />

@@ -4,6 +4,7 @@
 import { ArrowDownToLine, Send } from 'lucide-react';
 import { useState } from 'react';
 
+import { content } from '@/content';
 import {
 	formatUsdValue,
 	shownUsdTotal,
@@ -13,6 +14,8 @@ import {
 import { ReceiveDialog } from '../shell/ReceiveDialog';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
+
+const COPY = content.overview.value;
 
 /**
  * What the account holds, in USD, with Receive and Send beside it. Only
@@ -65,7 +68,7 @@ export function AccountValue({
 				data-prices-error={pricesFailed ? '1' : undefined}
 			>
 				<span className="text-13 text-muted-foreground">
-					Total value
+					{COPY.total}
 				</span>
 				{isLoading ? (
 					<Skeleton className="my-1 h-9 w-48 @3xl:h-10" />
@@ -80,10 +83,10 @@ export function AccountValue({
 				{settled && value.unpriced > 0 && (
 					<span className="text-12 text-muted-foreground">
 						{pricesFailed
-							? 'Prices are unavailable right now.'
+							? COPY.pricesUnavailable
 							: total != null
-								? `Excludes ${value.unpriced} ${value.unpriced === 1 ? 'token' : 'tokens'} without a price.`
-								: 'No prices for the tokens this account holds.'}
+								? COPY.excludesUnpriced(value.unpriced)
+								: COPY.noPrices}
 					</span>
 				)}
 			</div>
@@ -93,14 +96,14 @@ export function AccountValue({
 					data-testid="overview-receive-button"
 				>
 					<ArrowDownToLine />
-					Receive
+					{content.common.actions.receive}
 				</Button>
 				<Button
 					onClick={onSend}
 					data-testid="overview-send-button"
 				>
 					<Send />
-					Send
+					{content.common.actions.send}
 				</Button>
 			</div>
 			<ReceiveDialog

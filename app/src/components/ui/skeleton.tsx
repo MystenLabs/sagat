@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 import { tableShellClass } from './table';
@@ -77,7 +78,9 @@ export function SkeletonRows({
 	return (
 		<div
 			role={status ? 'status' : undefined}
-			aria-label={status ? 'Loading' : undefined}
+			aria-label={
+				status ? content.states.loading : undefined
+			}
 			aria-busy={status || undefined}
 			data-testid={testId}
 			className={cn(tableShellClass, className)}
@@ -138,7 +141,7 @@ function SkeletonPageHeader() {
 /** A whole page: header placeholder over a table of rows. */
 export function SkeletonPage({
 	rows = 5,
-	message = 'Loading',
+	message = content.states.loading,
 	className,
 	testId = 'skeleton-page',
 }: {

@@ -10,6 +10,7 @@ import { Navigate, useParams } from 'react-router-dom';
 
 import { ErrorState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
+import { content } from '@/content';
 import { useGetProposal } from '@/hooks/useGetProposal';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import {
@@ -22,6 +23,8 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { ProposalPageSkeleton } from './ProposalPageSkeleton';
 import { ProposalView } from './ProposalView';
+
+const COPY = content.proposal;
 
 /**
  * A proposal's page under its account. Waits for the account list like
@@ -135,15 +138,15 @@ export function ProposalLoadError({
 	return (
 		<div className="page-shell">
 			<PageHeader
-				title="Proposal"
+				title={COPY.shared.heading}
 				backLink={proposalsPath}
-				backLabel="Proposals"
+				backLabel={COPY.shared.backLabel}
 			/>
 			<ErrorState
-				title="Failed to load proposal"
+				title={COPY.load.failed}
 				error={notFound ? undefined : error}
-				fallback="This proposal doesn't exist."
-				hint="Check that the link is correct."
+				fallback={COPY.load.notFound}
+				hint={COPY.load.hint}
 				testId="proposal-detail-error"
 			/>
 		</div>

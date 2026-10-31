@@ -5,6 +5,7 @@ import { Minus, Plus } from 'lucide-react';
 import { useState } from 'react';
 
 import { inputSizes } from '@/components/ui/input';
+import { content } from '@/content';
 import { clamp } from '@/lib/create-multisig';
 import { cn } from '@/lib/utils';
 
@@ -55,7 +56,9 @@ export function NumberStepper({
 		>
 			<button
 				type="button"
-				aria-label={`Decrease ${label.toLowerCase()}`}
+				aria-label={content.createMultisig.stepper.decrease(
+					label,
+				)}
 				disabled={value <= min}
 				onClick={() => onChange(clamp(value - 1, min, max))}
 				className={button}
@@ -88,7 +91,9 @@ export function NumberStepper({
 			/>
 			<button
 				type="button"
-				aria-label={`Increase ${label.toLowerCase()}`}
+				aria-label={content.createMultisig.stepper.increase(
+					label,
+				)}
 				disabled={value >= max}
 				onClick={() => onChange(clamp(value + 1, min, max))}
 				className={button}

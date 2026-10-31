@@ -3,6 +3,8 @@
 
 import { useRef } from 'react';
 
+import { content } from '@/content';
+
 import { useRemoveProposer } from '../../hooks/useRemoveProposer';
 import { ShortAddress } from '../invitations/ShortAddress';
 import { Button } from '../ui/button';
@@ -59,7 +61,7 @@ export function RemoveProposerDialog({
 				initialFocus={cancelRef}
 			>
 				<DialogTitle className="text-20 font-bold">
-					Remove external proposer?
+					{content.proposers.removeDialog.title}
 				</DialogTitle>
 				<DialogDescription className="mt-2 text-14 text-muted-foreground">
 					{proposerAddress && (
@@ -68,8 +70,9 @@ export function RemoveProposerDialog({
 							className="font-mono text-foreground"
 						/>
 					)}{' '}
-					won’t be able to create proposals for{' '}
-					{accountName} anymore.
+					{content.proposers.removeDialog.description(
+						accountName,
+					)}
 				</DialogDescription>
 				<div className="mt-5 grid grid-cols-2 gap-2">
 					<Button
@@ -78,7 +81,7 @@ export function RemoveProposerDialog({
 						onClick={() => onOpenChange(false)}
 						disabled={pending}
 					>
-						Cancel
+						{content.common.actions.cancel}
 					</Button>
 					<Button
 						variant="outlineDestructive"
@@ -88,7 +91,9 @@ export function RemoveProposerDialog({
 						}}
 						disabled={pending}
 					>
-						{pending ? 'Confirm in your wallet…' : 'Remove'}
+						{pending
+							? content.common.states.confirmInWallet
+							: content.common.actions.remove}
 					</Button>
 				</div>
 			</DialogContent>

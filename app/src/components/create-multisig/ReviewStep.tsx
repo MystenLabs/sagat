@@ -25,6 +25,7 @@ import {
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
+import { content } from '@/content';
 import {
 	signerName,
 	type SignerDraft,
@@ -32,6 +33,10 @@ import {
 import { validatePublicKey } from '@/lib/sui-utils';
 import { thresholdLabel } from '@/lib/threshold';
 import { cn } from '@/lib/utils';
+
+const FIELDS = content.common.fields;
+const ACTIONS = content.common.actions;
+const COPY = content.createMultisig;
 
 /** Step 3: everything at a glance, then create. */
 export function ReviewStep({
@@ -84,13 +89,13 @@ export function ReviewStep({
 			data-testid="create-review-step"
 		>
 			<SectionHeading
-				title="Review and create"
-				description="Check the setup before you create the multisig."
+				title={COPY.reviewStep.title}
+				description={COPY.reviewStep.description}
 			/>
 
 			<dl className="grid grid-cols-3 gap-3 rounded-lg bg-muted p-4 @xl/card:grid-cols-[minmax(0,1fr)_60px_80px_80px]">
 				<Stat
-					label="Name"
+					label={COPY.fields.name}
 					className="col-span-3 @xl/card:col-span-1"
 				>
 					<span className="flex min-w-0 items-center gap-1.5">
@@ -102,7 +107,7 @@ export function ReviewStep({
 						</span>
 						<Tooltip>
 							<TooltipTrigger
-								aria-label="Edit name"
+								aria-label={COPY.reviewStep.editName}
 								onClick={onEditName}
 								disabled={creating}
 								className="flex shrink-0 cursor-pointer items-center rounded-sm p-0.5 outline-none hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-30"
@@ -110,13 +115,17 @@ export function ReviewStep({
 							>
 								<Pen className="size-3" />
 							</TooltipTrigger>
-							<TooltipContent>Edit name</TooltipContent>
+							<TooltipContent>
+								{COPY.reviewStep.editName}
+							</TooltipContent>
 						</Tooltip>
 					</span>
 				</Stat>
-				<Stat label="Signers">{signers.length}</Stat>
-				<Stat label="Total weight">{totalWeight}</Stat>
-				<Stat label="Threshold">
+				<Stat label={FIELDS.signers}>{signers.length}</Stat>
+				<Stat label={FIELDS.totalWeight}>
+					{totalWeight}
+				</Stat>
+				<Stat label={FIELDS.threshold}>
 					{thresholdLabel({ threshold, totalWeight })}
 				</Stat>
 			</dl>
@@ -124,7 +133,7 @@ export function ReviewStep({
 			<section className="flex flex-col gap-3">
 				<div className="flex items-center justify-between">
 					<h3 className="text-14 font-medium">
-						Signers and threshold
+						{COPY.reviewStep.signersAndThreshold}
 					</h3>
 					<button
 						type="button"
@@ -134,7 +143,7 @@ export function ReviewStep({
 						data-testid="create-edit-signers"
 					>
 						<Pen className="size-3" />
-						Edit
+						{COPY.reviewStep.edit}
 					</button>
 				</div>
 				{/* A table in a wide card; a list of signers in a narrow one. */}
@@ -143,10 +152,10 @@ export function ReviewStep({
 						<thead>
 							<tr className={tableShellHeadRowClass}>
 								<th className="w-10 pl-3">#</th>
-								<th className="w-30">Signer</th>
-								<th>Public key</th>
+								<th className="w-30">{FIELDS.signer}</th>
+								<th>{FIELDS.publicKey}</th>
 								<th className="w-16 pr-3 text-right">
-									Weight
+									{FIELDS.weight}
 								</th>
 							</tr>
 						</thead>
@@ -217,9 +226,9 @@ export function ReviewStep({
 			<div className="flex flex-col gap-1.5 rounded-lg border border-foreground/12 p-3.5">
 				<div className="flex items-center justify-between">
 					<span className="text-12 text-muted-foreground">
-						Sui address
+						{FIELDS.suiAddress}
 					</span>
-					<CopyText value={address} label="Copy" />
+					<CopyText value={address} label={ACTIONS.copy} />
 				</div>
 				<span
 					className="font-mono text-13 break-all"
@@ -251,7 +260,7 @@ export function ReviewStep({
 						data-testid="create-back"
 					>
 						<ArrowLeft />
-						Back
+						{ACTIONS.back}
 					</Button>
 				}
 				primary={
@@ -266,10 +275,10 @@ export function ReviewStep({
 						data-testid="create-submit"
 					>
 						{creating
-							? 'Creating multisig…'
+							? COPY.reviewStep.creating
 							: error
-								? 'Try again'
-								: 'Create multisig'}
+								? ACTIONS.tryAgain
+								: COPY.reviewStep.create}
 					</Button>
 				}
 			/>

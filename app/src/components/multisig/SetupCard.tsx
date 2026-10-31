@@ -4,6 +4,7 @@
 import { ArrowUpRight, Download } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { content } from '@/content';
 import { type AccountSetup } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +12,9 @@ import { Button, buttonVariants } from '../ui/button';
 import { cardClass, CardHeading } from '../ui/card';
 import { Separator } from '../ui/separator';
 import { CreatedBy } from './CreatedBy';
+
+const FIELDS = content.common.fields;
+const COPY = content.overview.setup;
 
 /** The explorer link and the download button: quiet text actions. */
 const textAction =
@@ -38,10 +42,13 @@ export function SetupCard({
 			aria-labelledby="account-setup-title"
 			data-testid="account-setup"
 		>
-			<CardHeading id="account-setup-title" title="Setup" />
+			<CardHeading
+				id="account-setup-title"
+				title={COPY.title}
+			/>
 			<Separator />
 			<dl className="flex flex-col gap-1">
-				<Row label="Threshold">
+				<Row label={FIELDS.threshold}>
 					<span
 						data-testid="setup-threshold"
 						data-threshold={setup.threshold}
@@ -50,13 +57,15 @@ export function SetupCard({
 						{setup.thresholdLabel}
 					</span>
 				</Row>
-				<Row label="Signers">
+				<Row label={FIELDS.signers}>
 					<span data-testid="setup-signers">
 						{setup.signerCount}
 					</span>
 				</Row>
-				<Row label="Total weight">{setup.totalWeight}</Row>
-				<Row label="Created">
+				<Row label={FIELDS.totalWeight}>
+					{setup.totalWeight}
+				</Row>
+				<Row label={COPY.created}>
 					<span
 						data-testid="setup-created"
 						data-created-at={setup.createdAt ?? undefined}
@@ -65,10 +74,10 @@ export function SetupCard({
 								'text-muted-foreground',
 						)}
 					>
-						{setup.createdLabel ?? 'Unknown'}
+						{setup.createdLabel ?? COPY.createdUnknown}
 					</span>
 				</Row>
-				<Row label="Created by">
+				<Row label={COPY.createdBy}>
 					<CreatedBy
 						creator={setup.creator}
 						testId="setup-created-by"
@@ -92,7 +101,7 @@ export function SetupCard({
 						)}
 						data-testid="setup-explorer-link"
 					>
-						View on explorer
+						{content.common.actions.viewOnExplorer}
 						<ArrowUpRight className="size-3" />
 					</a>
 				)}
@@ -103,7 +112,7 @@ export function SetupCard({
 					className={textAction}
 					data-testid="setup-download"
 				>
-					Download setup
+					{COPY.download}
 					<Download className="size-3" />
 				</Button>
 			</div>

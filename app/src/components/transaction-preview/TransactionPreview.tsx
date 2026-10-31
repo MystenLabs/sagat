@@ -19,6 +19,7 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Notice } from '@/components/wizard/parts';
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCoinDisplayDataMap } from '@/hooks/useCoinDisplayData';
 import {
@@ -34,6 +35,8 @@ import { DetailsTable } from './DetailsTable';
 import { EventsList } from './EventsList';
 import { ObjectChangesList } from './ObjectChangesList';
 import { EmptyPanel, PreviewHeading } from './parts';
+
+const COPY = content.transactionPreview;
 
 type TabId =
 	| 'balance-changes'
@@ -131,29 +134,34 @@ export function TransactionPreview({
 	}[] = [
 		{
 			id: 'balance-changes',
-			label: 'Balance changes',
+			label: COPY.tabs.balanceChanges,
 			count: model.balanceChanges.length,
 		},
 		{
 			id: 'object-changes',
-			label: 'Object changes',
+			label: COPY.tabs.objectChanges,
 			count: model.objectChanges.length,
 		},
 		{
 			id: 'events',
-			label: 'Events',
+			label: COPY.tabs.events,
 			count: model.events.length,
 		},
 		{
 			id: 'commands',
-			label: 'Commands',
+			label: COPY.tabs.commands,
 			count: model.transaction.commands.length,
 		},
-		{ id: 'raw-json', label: 'Raw JSON' },
+		{
+			id: 'raw-json',
+			label: COPY.tabs.rawJson,
+		},
 	];
 
 	const senderAddress = model.sender?.address;
-	const waiting = <EmptyPanel>Simulating…</EmptyPanel>;
+	const waiting = (
+		<EmptyPanel>{COPY.status.pending}</EmptyPanel>
+	);
 
 	let panel: ReactNode;
 	switch (activeTab) {
@@ -199,13 +207,11 @@ export function TransactionPreview({
 					value={JSON.stringify(model.raw, null, 2)}
 					rows={20}
 					readOnly
-					aria-label="Simulation result as JSON"
+					aria-label={COPY.rawJsonAriaLabel}
 					className="font-mono md:text-12"
 				/>
 			) : (
-				<EmptyPanel>
-					Nothing to show until the simulation runs.
-				</EmptyPanel>
+				<EmptyPanel>{COPY.rawJsonEmpty}</EmptyPanel>
 			);
 			break;
 	}
@@ -233,11 +239,11 @@ export function TransactionPreview({
 					tabs={[
 						{
 							id: 'simulation',
-							label: 'Simulation result',
+							label: COPY.views.simulation,
 						},
 						{
 							id: 'analyzer',
-							label: 'Static analyzer',
+							label: COPY.views.analyzer,
 							count: analyzerCount,
 						},
 					]}
@@ -260,7 +266,7 @@ export function TransactionPreview({
 						data-testid="transaction-preview-ledger-hash"
 					>
 						<span className="text-13 text-muted-foreground">
-							Ledger hash
+							{COPY.ledgerHash}
 						</span>
 						<span className="ml-auto flex min-w-0 items-center gap-1.5">
 							<span className="min-w-0 font-mono text-12 break-all">
@@ -269,16 +275,16 @@ export function TransactionPreview({
 							<CopyButton
 								value={model.ledgerHash}
 								size="inline"
-								successMessage="Ledger hash copied"
+								successMessage={
+									content.toasts.ledgerHashCopied
+								}
 							/>
 						</span>
 					</div>
 
 					{signingNotice && (
 						<Notice tone="warning">
-							Always check the transaction in your wallet
-							before you sign. Your wallet is the final word
-							on what you approve.
+							{COPY.signingNotice}
 						</Notice>
 					)}
 
@@ -308,9 +314,7 @@ export function TransactionPreview({
 					className="flex w-fit cursor-pointer items-center gap-1 rounded-sm text-12 text-foreground-secondary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 					data-testid="transaction-preview-raw-toggle"
 				>
-					{showRaw
-						? 'Hide raw transaction'
-						: 'Show raw transaction'}
+					{showRaw ? COPY.hideRaw : COPY.showRaw}
 					{showRaw ? (
 						<ChevronUp className="size-3" />
 					) : (
@@ -321,7 +325,7 @@ export function TransactionPreview({
 					<Textarea
 						readOnly
 						value={bytes}
-						aria-label="Raw transaction bytes"
+						aria-label={COPY.rawBytesAriaLabel}
 						className="h-30 resize-none font-mono break-all md:text-12"
 						data-testid="transaction-preview-raw"
 					/>
@@ -337,7 +341,7 @@ function ViewHelp() {
 		<TooltipProvider delay={150}>
 			<Tooltip>
 				<TooltipTrigger
-					aria-label="About the simulation and the static analyzer"
+					aria-label={COPY.help.ariaLabel}
 					data-testid="transaction-preview-help"
 					className="flex shrink-0 cursor-pointer items-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
 				>
@@ -351,22 +355,15 @@ function ViewHelp() {
 					<div className="flex flex-col gap-2 text-12 leading-relaxed">
 						<p>
 							<span className="block font-medium">
-								Simulation result
+								{COPY.views.simulation}
 							</span>
-							One dry run against the current on-chain
-							state. It shows the expected effects, but it
-							can miss some of what could leave the account,
-							because on-chain state can change before the
-							transaction runs.
+							{COPY.help.simulation}
 						</p>
 						<p>
 							<span className="block font-medium">
-								Static analyzer
+								{COPY.views.analyzer}
 							</span>
-							Reads the transaction itself and estimates the
-							most that can leave the account, not counting
-							gas. It helps protect against on-chain state
-							attacks.
+							{COPY.help.analyzer}
 						</p>
 					</div>
 				</TooltipContent>

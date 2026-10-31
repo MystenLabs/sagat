@@ -4,6 +4,7 @@
 import { AlertCircle } from 'lucide-react';
 import { type ComponentType, type ReactNode } from 'react';
 
+import { content } from '@/content';
 import { cn, errorMessage } from '@/lib/utils';
 
 import { Button } from './button';
@@ -84,9 +85,9 @@ interface ErrorStateProps {
 /** Something failed to load: the same shell on the error tint. */
 export function ErrorState({
 	icon = AlertCircle,
-	title = 'Something went wrong',
+	title = content.states.error.title,
 	error,
-	fallback = 'Try again in a moment.',
+	fallback = content.states.error.fallback,
 	hint,
 	onRetry,
 	retrying = false,
@@ -123,7 +124,9 @@ export function ErrorState({
 					disabled={retrying}
 					data-testid={retryTestId}
 				>
-					{retrying ? 'Trying again...' : 'Try again'}
+					{retrying
+						? content.common.states.retrying
+						: content.common.actions.tryAgain}
 				</Button>
 			)}
 		</div>

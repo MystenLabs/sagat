@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type ArrivalState } from '@/hooks/useArrivalBanner';
 
@@ -40,7 +41,7 @@ export function useAcceptInvitation() {
 			address: string;
 		}) => {
 			if (!currentAddress)
-				throw new Error('No wallet connected');
+				throw new Error(content.errors.noWalletConnected);
 
 			// Create and sign the message
 			const result = await dappKit.signPersonalMessage({

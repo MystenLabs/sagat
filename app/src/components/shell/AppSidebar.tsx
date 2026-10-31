@@ -65,6 +65,7 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { TOOLS } from '@/config/tools';
+import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useInvitations } from '@/hooks/useInvitations';
@@ -77,15 +78,17 @@ import {
 } from '@/lib/multisig-pages';
 import { cn } from '@/lib/utils';
 
+const COPY = content.sidebar;
+
 const RESOURCE_LINKS = [
 	{
 		href: 'https://docs.sui.io/standards/sagat',
-		label: 'View docs',
+		label: COPY.viewDocs,
 		icon: BookOpen,
 	},
 	{
 		href: 'https://github.com/mystenlabs/sagat',
-		label: 'GitHub',
+		label: COPY.github,
 		icon: Github,
 	},
 ] as const;
@@ -180,12 +183,12 @@ function SidebarNav() {
 					<div className="flex items-center justify-between gap-2 px-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:px-0">
 						<div className="flex items-center gap-2">
 							<SidebarRailTooltip
-								tooltip="Home"
+								tooltip={COPY.home}
 								render={
 									<Link
 										to="/"
 										onClick={closeMobile}
-										aria-label="Home"
+										aria-label={COPY.home}
 										className="flex items-center group-data-[collapsible=icon]:size-7 group-data-[collapsible=icon]:justify-center"
 									/>
 								}
@@ -282,7 +285,7 @@ function SidebarNav() {
 											isActive={
 												location.pathname === '/invitations'
 											}
-											tooltip="Invitations"
+											tooltip={COPY.invitations}
 											className={navItemClass}
 											data-testid="nav-invitations"
 											render={
@@ -293,7 +296,7 @@ function SidebarNav() {
 											}
 										>
 											<Mail />
-											<span>Invitations</span>
+											<span>{COPY.invitations}</span>
 										</SidebarMenuButton>
 										{pendingInvites > 0 && (
 											<SidebarMenuBadge
@@ -314,7 +317,7 @@ function SidebarNav() {
 					<SidebarSeparator className={separatorClass} />
 					<SidebarGroup className="p-0 pb-5 group-data-[collapsible=icon]:pb-0">
 						<SidebarGroupLabel className={groupLabelClass}>
-							Developer
+							{COPY.developer}
 						</SidebarGroupLabel>
 						<SidebarGroupContent>
 							<SidebarMenu className="gap-0.5">
@@ -345,7 +348,7 @@ function SidebarNav() {
 					<SidebarSeparator className={separatorClass} />
 					<SidebarGroup className="p-0">
 						<SidebarGroupLabel className={groupLabelClass}>
-							Resources
+							{COPY.resources}
 						</SidebarGroupLabel>
 						<SidebarGroupContent>
 							<SidebarMenu className="gap-0.5">
@@ -439,10 +442,10 @@ function NetworkRow() {
 			{/* A plain button: Base UI anchors the menu to the trigger's ref. */}
 			<DropdownMenuTrigger
 				data-testid="network-menu-button"
-				aria-label={`Network: ${network}`}
+				aria-label={content.network.triggerLabel(network)}
 				render={
 					<SidebarRailTooltip
-						tooltip={`Network: ${network}`}
+						tooltip={content.network.triggerLabel(network)}
 					/>
 				}
 				className={cn(

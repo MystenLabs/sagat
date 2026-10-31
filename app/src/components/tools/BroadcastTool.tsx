@@ -11,6 +11,7 @@ import {
 	Button,
 	disabledButton,
 } from '@/components/ui/button';
+import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { type SuiNetwork } from '@/lib/network';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
@@ -24,8 +25,11 @@ import {
 	ToolCard,
 } from './parts';
 
+const COPY = content.tools;
+
 interface BroadcastError {
-	message: string;
+	/** The node's message, when it sent one. */
+	message?: string;
 	/** The network it was broadcast on, named when it isn't the current one. */
 	network: SuiNetwork;
 }
@@ -35,11 +39,6 @@ interface BroadcastResult {
 	/** The network it was broadcast on, for the explorer link. */
 	network: string;
 }
-
-const CANT_READ_BYTES =
-	'Can’t read this as transaction bytes. Paste the full bytes in base64.';
-const CANT_READ_SIGNATURE =
-	'Can’t read this as a signature. Paste the combined signature in base64.';
 
 /** Whether the value decodes as base64. */
 function isBase64(value: string) {
@@ -69,21 +68,19 @@ function BroadcastResultDisplay({
 			data-testid="broadcast-result"
 			data-digest={result.digest}
 		>
-			<Alert variant="success">
-				Sent. The network accepted this transaction.
-			</Alert>
+			<Alert variant="success">{COPY.broadcast.sent}</Alert>
 			<ReadOnlyField
-				label="Transaction digest"
+				label={COPY.transactionDigest}
 				value={result.digest}
 			/>
 			<ResultActions
 				onReset={onReset}
-				resetLabel="Broadcast another"
+				resetLabel={COPY.broadcast.another}
 				resetTestId="broadcast-reset-button"
 				explorerUrl={explorerUrl}
 				copyValue={result.digest}
-				copyLabel="Copy digest"
-				copyMessage="Digest copied"
+				copyLabel={COPY.copyDigest}
+				copyMessage={content.toasts.digestCopied}
 			/>
 		</div>
 	);
@@ -136,8 +133,7 @@ export default function BroadcastTool() {
 				setError({
 					message:
 						result.FailedTransaction.effects.status.error
-							?.message ||
-						'Failed to broadcast transaction',
+							?.message,
 					network: broadcastNetwork,
 				});
 				return;
@@ -154,9 +150,7 @@ export default function BroadcastTool() {
 		} catch (err) {
 			setError({
 				message:
-					err instanceof Error
-						? err.message
-						: 'Failed to broadcast transaction',
+					err instanceof Error ? err.message : undefined,
 				network: broadcastNetwork,
 			});
 		} finally {
@@ -189,9 +183,15 @@ export default function BroadcastTool() {
 				>
 					<span className="whitespace-pre-wrap">
 						{error.network === network
-							? 'Broadcast failed'
-							: `Broadcast on ${error.network} failed`}
-						: {safeDecode(error.message)}
+							? COPY.broadcast.error(
+									error.message &&
+										safeDecode(error.message),
+								)
+							: COPY.broadcast.errorOn(
+									error.network,
+									error.message &&
+										safeDecode(error.message),
+								)}
 					</span>
 				</Alert>
 			)}
@@ -199,30 +199,32 @@ export default function BroadcastTool() {
 				<NetworkField />
 				<BytesField
 					id="transaction-bytes"
-					label="Transaction bytes"
+					label={COPY.broadcast.bytesLabel}
 					testId="broadcast-bytes-input"
-					placeholder="Paste the transaction bytes (base64)"
+					placeholder={COPY.broadcast.bytesPlaceholder}
 					minHeight="min-h-30"
 					value={transactionBytes}
 					onChange={edit(setTransactionBytes)}
 					readOnly={!!result || broadcasting}
 					error={
-						bytesUnreadable ? CANT_READ_BYTES : undefined
+						bytesUnreadable
+							? COPY.broadcast.bytesUnreadable
+							: undefined
 					}
 					errorTestId="broadcast-bytes-error"
 				/>
 				<BytesField
 					id="signature"
-					label="Combined signature"
+					label={COPY.broadcast.signatureLabel}
 					testId="broadcast-signature-input"
-					placeholder="Paste the combined signature (base64)"
+					placeholder={COPY.broadcast.signaturePlaceholder}
 					minHeight="min-h-24"
 					value={signature}
 					onChange={edit(setSignature)}
 					readOnly={!!result || broadcasting}
 					error={
 						signatureUnreadable
-							? CANT_READ_SIGNATURE
+							? COPY.broadcast.signatureUnreadable
 							: undefined
 					}
 					errorTestId="broadcast-signature-error"
@@ -244,8 +246,8 @@ export default function BroadcastTool() {
 						>
 							<Radio />
 							{broadcasting
-								? 'Broadcasting…'
-								: 'Broadcast transaction'}
+								? COPY.broadcast.broadcasting
+								: COPY.broadcast.submit}
 						</Button>
 					</ToolActions>
 				)}

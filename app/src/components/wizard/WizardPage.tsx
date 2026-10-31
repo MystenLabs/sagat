@@ -10,6 +10,7 @@ import {
 	type Crumb,
 } from '@/components/ui/page-header';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
 import {
@@ -83,7 +84,7 @@ export function WizardPage({
 							data-testid={`${testId}-cancel`}
 						>
 							<X />
-							Cancel
+							{content.common.actions.cancel}
 						</Button>
 					}
 				/>

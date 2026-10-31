@@ -13,6 +13,7 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
@@ -20,6 +21,8 @@ import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 import { useVerifyProposal } from './useVerifyProposal';
+
+const TOASTS = content.toasts;
 
 interface ExecuteProposalParams {
 	proposal: PublicProposal;
@@ -34,7 +37,9 @@ export function useExecuteProposal() {
 			proposal,
 		}: ExecuteProposalParams) => {
 			if (proposal.status !== ProposalStatus.PENDING)
-				throw new Error('Proposal is not pending');
+				throw new Error(
+					content.proposal.execute.notPending,
+				);
 
 			try {
 				// Order the members.
@@ -134,27 +139,28 @@ export function useExecuteProposal() {
 				digest,
 				variables.proposal.network,
 			);
-			const link = explorerUrl
-				? { label: 'View on explorer', href: explorerUrl }
-				: undefined;
+			const link = (label: string) =>
+				explorerUrl
+					? { label, href: explorerUrl }
+					: undefined;
 			// The node can land the transaction and still fail it.
 			const { status } = data.executionResult;
 			if (!status.success) {
-				toast.error("Couldn't execute the proposal", {
+				toast.error(TOASTS.proposalExecuteFailed, {
 					description:
 						safeDecode(status.error.message) ||
-						'The transaction failed on chain.',
-					link,
+						content.common.states.failedOnChain,
+					link: link(TOASTS.seeDetails),
 				});
 				return;
 			}
-			toast.success('Proposal executed', {
+			toast.success(TOASTS.proposalExecuted, {
 				description: digest,
-				link,
+				link: link(content.common.actions.viewOnExplorer),
 			});
 		},
 		onError: (error: Error) => {
-			toast.error("Couldn't execute the proposal", {
+			toast.error(TOASTS.proposalExecuteFailed, {
 				description: error.message,
 			});
 		},

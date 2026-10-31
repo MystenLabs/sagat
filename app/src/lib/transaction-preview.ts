@@ -18,9 +18,12 @@ import {
 } from '@mysten/sui/utils';
 import { blake2b } from '@noble/hashes/blake2.js';
 
+import { content } from '../content';
 import { formatCoinAmount, isSuiCoinType } from './coins';
 import { formatDateTime } from './dates';
 import { networkLabel, type SuiNetwork } from './network';
+
+const COPY = content.transactionPreview;
 
 /** The dry run's transaction payload, with everything the preview shows included. */
 export type SimulatedTransaction =
@@ -161,7 +164,7 @@ function balanceChangeRows(
 			label:
 				nameOf(change.address) ??
 				(amount > 0n && !isSender(change.address)
-					? 'Recipient'
+					? COPY.recipient
 					: null),
 			gas: false,
 			coinType: change.coinType,
@@ -175,7 +178,7 @@ function balanceChangeRows(
 /** "0.0041 SUI" for a cost, "0.0019 SUI rebate" for a rebate. */
 export function gasLabel(cost: bigint): string {
 	const amount = `${formatCoinAmount((cost < 0n ? -cost : cost).toString(), 9)} SUI`;
-	return cost < 0n ? `${amount} rebate` : amount;
+	return cost < 0n ? COPY.gasRebate(amount) : amount;
 }
 
 /** Everything the Transaction preview block shows, from the bytes and the dry run. */
