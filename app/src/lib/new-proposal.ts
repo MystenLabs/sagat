@@ -1,9 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// The rules of the new-proposal wizard, kept free of React so the copy
-// and the limits are in one place: the proposal types, what blocks Review
-// on a transfer, the generated title, and how pasted bytes are read.
+// The rules of the new-proposal wizard, kept free of React: the proposal
+// types, what blocks Review on a transfer, the generated title, and how
+// pasted bytes are read. Its messages come from content.ts.
 import {
 	Transaction,
 	TransactionDataBuilder,

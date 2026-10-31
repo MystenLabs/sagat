@@ -829,8 +829,6 @@ export const content = {
 				`${current} of ${total}`,
 			ariaLabel: (label: string) => `Weight ${label}`,
 		},
-		/** The title of a proposal without a description: its short digest. */
-		untitled: (digest: string) => digest,
 	},
 	/** The proposal page and its cards and dialogs. */
 	proposal: {
@@ -1015,8 +1013,8 @@ export const content = {
 				`${who} The rest can’t reach the threshold without them.`,
 		},
 		accountStatus: {
-			cantMoveFunds: (rejected: number) =>
-				`Can’t move funds. ${signerCount(rejected)} rejected.`,
+			needsRejected: (rejected: number) =>
+				`${signerCount(rejected)} rejected, and the threshold needs them.`,
 			manyRejected: (rejected: number) =>
 				`${signerCount(rejected)} rejected their invitations.`,
 			oneRejected: (name: string) =>

@@ -32,7 +32,7 @@ export function accountStatus({
 	if (!canReachThreshold)
 		return {
 			tone: 'error',
-			message: COPY.cantMoveFunds(rejected),
+			message: COPY.needsRejected(rejected),
 		};
 
 	if (rejected > 1)

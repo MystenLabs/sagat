@@ -461,7 +461,7 @@ describe('lacksGas', () => {
 	});
 });
 
-describe('COPY', () => {
+describe('buildFailed', () => {
 	test('a failed build gives the reason when there is one', () => {
 		expect(
 			content.newProposal.buildFailed(

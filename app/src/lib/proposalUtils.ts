@@ -119,9 +119,7 @@ export function proposalTitle(
 ) {
 	const description = proposal.description?.trim();
 	if (description) return description;
-	return content.proposals.untitled(
-		formatDigest(proposal.digest),
-	);
+	return formatDigest(proposal.digest);
 }
 
 /**

@@ -292,7 +292,7 @@ test.describe('app shell', () => {
 				option(treasury.address),
 			).toHaveAttribute('data-tone', 'error');
 			await expect(option(treasury.address)).toContainText(
-				'Can’t move funds. 2 signers rejected.',
+				'2 signers rejected, and the threshold needs them.',
 			);
 		});
 
@@ -309,7 +309,7 @@ test.describe('app shell', () => {
 				'error',
 			);
 			await expect(subtitle).toHaveText(
-				'Can’t move funds. 2 signers rejected.',
+				'2 signers rejected, and the threshold needs them.',
 			);
 		});
 
@@ -321,7 +321,7 @@ test.describe('app shell', () => {
 			await trigger.hover();
 			await expect(
 				page.getByRole('tooltip', {
-					name: 'Treasury · Can’t move funds. 2 signers rejected.',
+					name: 'Treasury · 2 signers rejected, and the threshold needs them.',
 				}),
 			).toBeVisible();
 		});
