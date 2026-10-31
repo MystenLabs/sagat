@@ -1,15 +1,8 @@
 # Sagat API Backend
-FROM oven/bun:1.2.23 AS base
+# Keep in step with packageManager in the root package.json.
+ARG BUN_VERSION=1.4.4
 
-# Install system dependencies including postgres drivers
-RUN apt-get update && apt-get install -y \
-    postgresql-client \
-    libpq-dev \
-    python3 \
-    python3-pip \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+FROM oven/bun:${BUN_VERSION} AS build
 
 WORKDIR /monorepo
 
@@ -19,26 +12,26 @@ COPY . .
 # Install all dependencies (including workspace links)
 RUN bun install --frozen-lockfile
 
-# Explicitly install pg driver and postgres package to ensure native modules are properly linked
-RUN bun add pg postgres
-
-# Build SDK and API using top-level commands
-
 # Set production environment
 ENV NODE_ENV=production
 
 RUN bun run build:sdk
 RUN bun run build:api
 
-# Move to API directory for runtime
+# Runtime: the bundle has its dependencies inlined, so no node_modules
+FROM oven/bun:${BUN_VERSION}-slim AS production
+
+# migrate.ts finds drizzle/ by walking up from dist/, so keep them siblings
 WORKDIR /monorepo/api
+
+ENV NODE_ENV=production
 
 # Create non-root user
 RUN groupadd -g 1001 sagat && \
     useradd -r -u 1001 -g sagat sagat
 
-# Change ownership
-RUN chown -R sagat:sagat /monorepo
+COPY --from=build --chown=1001:1001 /monorepo/api/dist dist
+COPY --from=build --chown=1001:1001 /monorepo/api/drizzle drizzle
 
 # Switch to non-root user
 USER sagat

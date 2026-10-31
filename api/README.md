@@ -30,8 +30,10 @@ The API applies pending migrations from `drizzle/` when it starts, before it ser
 To run migrations as a separate step instead, for example in a Kubernetes Job or init container with the production image, set `MIGRATE_ON_START=false` on the API and run:
 
 ```sh
-DATABASE_URL=... bun run db:migrate:prod
+DATABASE_URL=... bun dist/db/migrate-cli.js
 ```
+
+From a source checkout, `bun run db:migrate:prod` does the same.
 
 `MIGRATIONS_FOLDER` overrides where the migrations are read from. `bun db:migrate` (drizzle-kit) still works for local development.
 
