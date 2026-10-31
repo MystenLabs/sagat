@@ -23,6 +23,7 @@ import {
 } from '@/lib/exportUtils';
 import {
 	isExternalProposer,
+	proposalExplorerUrl,
 	proposalLinkUrl,
 	proposalPagePath,
 	proposalStatusKey,
@@ -30,7 +31,7 @@ import {
 	shortDigest,
 } from '@/lib/proposalUtils';
 import { type ProposalCardInput } from '@/lib/types';
-import { cn, getExplorerUrl } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 import { SignerName } from '../multisig/SignerName';
 import { Button, buttonVariants } from '../ui/button';
@@ -94,13 +95,7 @@ export function ProposalRow({
 		proposal.signatures.some(
 			(sig) => sig.publicKey === currentAddress.publicKey,
 		);
-	const explorerUrl = getExplorerUrl(
-		proposal.digest,
-		proposal.network,
-	);
-	const explorerIsPrimary =
-		(status === 'executed' || status === 'failed') &&
-		!!explorerUrl;
+	const explorerUrl = proposalExplorerUrl(status, proposal);
 	const list = variant === 'list';
 	// The digest goes under the title, unless the title already is the
 	// digest (no description). The overview's column is too narrow for it,
@@ -275,40 +270,10 @@ export function ProposalRow({
 								: SHARED.execute}
 						</Button>
 					)}
-					{explorerIsPrimary && (
-						<IconTooltip
-							label={ACTIONS.viewOnExplorer}
-							// A narrow viewport's table shows the icon alone; stacked rows have room for the label.
-							contentClassName="sm:hidden"
-							trigger={
-								<a
-									href={explorerUrl}
-									target="_blank"
-									rel="noopener noreferrer"
-									className={cn(
-										buttonVariants({
-											variant: 'outline',
-											size: 'sm',
-										}),
-										'max-sm:size-7 max-sm:px-0 @max-md:h-9 @max-md:w-auto @max-md:px-3.5',
-									)}
-									aria-label={ACTIONS.viewOnExplorer}
-									data-testid="view-on-explorer"
-								/>
-							}
-						>
-							<ExternalLink />
-							<span className="hidden sm:inline @max-md:inline">
-								{ACTIONS.viewOnExplorer}
-							</span>
-						</IconTooltip>
-					)}
 					{list && (
 						<RowMenu
 							canShare={open}
-							explorerUrl={
-								explorerIsPrimary ? null : explorerUrl
-							}
+							explorerUrl={explorerUrl}
 							onDownload={() =>
 								downloadJson(
 									getProposalExportFilename(
@@ -333,7 +298,7 @@ function RowMenu({
 	digest,
 }: {
 	canShare: boolean;
-	/** The explorer link, unless the row already shows it. */
+	/** The transaction on the explorer, once it ran on chain. */
 	explorerUrl: string | null;
 	onDownload: () => void;
 	digest: string;
@@ -382,21 +347,26 @@ function RowMenu({
 						<Download />
 						{COPY.download}
 					</DropdownMenuItem>
-					{explorerUrl && (
-						<DropdownMenuItem
-							render={
+					{/* Always listed, so the menu keeps its shape; disabled
+					    until the transaction ran on chain, and on networks
+					    the explorer doesn't index. The disabled item has no
+					    anchor, so it can't navigate. */}
+					<DropdownMenuItem
+						disabled={!explorerUrl}
+						render={
+							explorerUrl ? (
 								<a
 									href={explorerUrl}
 									target="_blank"
 									rel="noopener noreferrer"
 								/>
-							}
-							data-testid="view-on-explorer"
-						>
-							<ExternalLink />
-							{ACTIONS.viewOnExplorer}
-						</DropdownMenuItem>
-					)}
+							) : undefined
+						}
+						data-testid="view-on-explorer"
+					>
+						<ExternalLink />
+						{ACTIONS.viewOnExplorer}
+					</DropdownMenuItem>
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -410,12 +380,10 @@ function RowMenu({
 function IconTooltip({
 	label,
 	trigger,
-	contentClassName,
 	children,
 }: {
 	label: string;
 	trigger: ReactElement;
-	contentClassName?: string;
 	children: ReactNode;
 }) {
 	return (
@@ -424,9 +392,7 @@ function IconTooltip({
 				<TooltipTrigger render={trigger}>
 					{children}
 				</TooltipTrigger>
-				<TooltipContent className={contentClassName}>
-					{label}
-				</TooltipContent>
+				<TooltipContent>{label}</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
 	);

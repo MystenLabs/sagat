@@ -4,12 +4,13 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { useMemo, useState } from 'react';
 
+import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Chip, type ChipProps } from '@/components/ui/chip';
 import { content } from '@/content';
 import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
-import { ObjectLink } from './ObjectLink';
+import { OwnerAddress } from './OwnerAddress';
 import { EmptyPanel, Field } from './parts';
 
 const COPY = content.transactionPreview.objects;
@@ -205,13 +206,13 @@ export function ObjectChangesList({
 						)}
 						<Field label={COPY.objectId}>
 							<span className="flex min-w-0 items-center font-mono text-12 break-all">
-								<ObjectLink object={object} />
+								<ShortAddress address={object.objectId} />
 							</span>
 						</Field>
 						{object.outputOwner && (
 							<Field label={content.common.fields.owner}>
 								<span className="flex min-w-0 items-center font-mono text-12 break-all">
-									<ObjectLink
+									<OwnerAddress
 										owner={object.outputOwner}
 										senderAddress={senderAddress}
 									/>

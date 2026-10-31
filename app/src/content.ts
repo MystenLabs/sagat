@@ -855,8 +855,6 @@ export const content = {
 			export: 'Export',
 			switchToSeePreview: (network: string) =>
 				`Switch to ${network} to see the transaction preview.`,
-			chainLoadFailed: (message: string) =>
-				`Couldn’t load the transaction from the chain: ${message}`,
 			notSimulated:
 				'The transaction could not be simulated.',
 			networkMismatch: (
@@ -876,8 +874,6 @@ export const content = {
 			/** "Threshold 4 of 7". */
 			threshold: (label: string) => `Threshold ${label}`,
 			notNeeded: 'Not needed',
-			executed: 'Executed',
-			gas: (gas: string) => `Gas ${gas}`,
 			executeAfterSigning: 'Execute after signing',
 			signAnyway: 'Sign anyway',
 			signProposal: 'Sign proposal',
@@ -890,6 +886,8 @@ export const content = {
 				ready: 'Threshold reached. Ready to execute.',
 				/** Ready, but the simulation fails. */
 				readyFailing: 'Threshold reached.',
+				executed: 'Threshold reached. Executed.',
+				failed: 'Threshold reached. Execution failed.',
 			},
 			/** The note under the actions. */
 			notes: {
@@ -1145,14 +1143,11 @@ export const content = {
 	transactionPreview: {
 		views: {
 			simulation: 'Simulation result',
-			chain: 'On-chain result',
 			analyzer: 'Static analyzer',
 		},
 		help: {
 			ariaLabel:
 				'About the simulation and the static analyzer',
-			chain:
-				'What the transaction did when it ran, read from the chain.',
 			simulation:
 				'One dry run against the current on-chain state. It shows the expected effects, but it can miss some of what could leave the pod, because on-chain state can change before the transaction runs.',
 			analyzer:
@@ -1165,20 +1160,12 @@ export const content = {
 			commands: 'Commands',
 			rawJson: 'Raw JSON',
 		},
+		/** The status chip. */
 		status: {
-			simulation: {
-				passed: 'Simulation passed',
-				failed: 'Simulation failed',
-				pending: 'Simulating…',
-			},
-			chain: {
-				passed: 'Succeeded',
-				failed: 'Failed',
-				pending: 'Loading…',
-			},
+			passed: 'Simulation passed',
+			failed: 'Simulation failed',
+			pending: 'Simulating…',
 		},
-		confirmedAt: (time: string | null) =>
-			`Confirmed ${time}`,
 		recipient: 'Recipient',
 		gasRebate: (amount: string) => `${amount} rebate`,
 		rawJsonAriaLabel: 'Simulation result as JSON',

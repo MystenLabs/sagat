@@ -180,7 +180,7 @@ export function approvalRows(
 		});
 }
 
-/** The line under the Approvals heading; null once the proposal closed. */
+/** The line under the Approvals heading; null once cancelled or expired. */
 export function approvalsStatus(
 	proposal: Pick<
 		PageProposal,
@@ -204,6 +204,8 @@ export function approvalsStatus(
 		return simulation === 'failed'
 			? copy.readyFailing
 			: copy.ready;
+	if (status === 'executed') return copy.executed;
+	if (status === 'failed') return copy.failed;
 	return null;
 }
 
@@ -222,9 +224,12 @@ export function cancelVariant(
 		: 'alone';
 }
 
-/** The dry run's gas as a cost, "0.0041 SUI"; null without a run or for a rebate. */
+/** The gas a dry run or the executed transaction used, as a cost, "0.0041 SUI"; null without one or for a rebate. */
 export function gasEstimate(
-	result: SimulatedTransaction | null | undefined,
+	result:
+		| Pick<SimulatedTransaction, 'effects'>
+		| null
+		| undefined,
 ) {
 	if (!result) return null;
 	const cost = gasCost(result.effects.gasUsed);

@@ -1,16 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ExternalLink, Pen, Play, X } from 'lucide-react';
+import { Pen, Play, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 
 import { CancelProposalModal } from '@/components/modals/CancelProposalModal';
 import { SignerName } from '@/components/multisig/SignerName';
 import type { SimulationProps } from '@/components/transaction-preview/simulation';
-import {
-	Button,
-	buttonVariants,
-} from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
 	cardClass,
 	CardHeading,
@@ -32,7 +29,6 @@ import {
 } from '@/hooks/useDryRun';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
 import { useSignProposal } from '@/hooks/useSignProposal';
-import { formatDateTime } from '@/lib/dates';
 import {
 	approvalRows,
 	approvalsNote,
@@ -51,13 +47,8 @@ import {
 	proposalTitle,
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
-import type { SimulatedTransaction } from '@/lib/transaction-preview';
 import { type ProposalCardInput } from '@/lib/types';
-import {
-	cn,
-	getExplorerUrl,
-	safeDecode,
-} from '@/lib/utils';
+import { safeDecode } from '@/lib/utils';
 
 const COPY = content.proposal.approvals;
 const SHARED = content.proposal.shared;
@@ -78,7 +69,6 @@ export function ApprovalsCard({
 	viewerPublicKey,
 	simulation,
 	verdict,
-	chainResult,
 	canCancel: cancelAllowed,
 }: {
 	proposal: ProposalCardInput;
@@ -89,8 +79,6 @@ export function ApprovalsCard({
 	viewerPublicKey: string | null;
 	simulation: SimulationProps | null;
 	verdict: SimulationVerdict;
-	/** The executed transaction, for an executed or failed proposal. */
-	chainResult: SimulatedTransaction | null;
 	/**
 	 * Whether the viewer may cancel: only under the account, where the
 	 * API knows them as an accepted member.
@@ -181,10 +169,6 @@ export function ApprovalsCard({
 		executing: isExecuting,
 		gas,
 	});
-	const explorerUrl = getExplorerUrl(
-		proposal.digest,
-		proposal.network,
-	);
 
 	const onSign = () =>
 		sign.mutate(proposal, {
@@ -336,13 +320,6 @@ export function ApprovalsCard({
 		}
 	}
 
-	const closedOnChain =
-		status === 'executed' || status === 'failed';
-	const gasUsed = gasEstimate(chainResult);
-	const confirmedAt = formatDateTime(
-		chainResult?.timestampMs ?? null,
-	);
-
 	return (
 		<section
 			className={cardClass}
@@ -414,39 +391,6 @@ export function ApprovalsCard({
 					</li>
 				))}
 			</ul>
-
-			{status === 'executed' && (
-				<div
-					className="mt-1 flex flex-col gap-0.5 rounded-lg bg-muted/40 p-3 text-13"
-					data-testid="proposal-executed"
-				>
-					<span className="font-medium">
-						{COPY.executed}
-					</span>
-					{(confirmedAt || gasUsed) && (
-						<span className="text-12 text-muted-foreground">
-							{[confirmedAt, gasUsed && COPY.gas(gasUsed)]
-								.filter(Boolean)
-								.join(' · ')}
-						</span>
-					)}
-				</div>
-			)}
-			{closedOnChain && explorerUrl && (
-				<a
-					href={explorerUrl}
-					target="_blank"
-					rel="noopener noreferrer"
-					className={cn(
-						buttonVariants({ variant: 'outline' }),
-						'w-full',
-					)}
-					data-testid="view-on-explorer"
-				>
-					<ExternalLink />
-					{ACTIONS.viewOnExplorer}
-				</a>
-			)}
 
 			{actions && (
 				<div className="mt-1 flex flex-col gap-3">

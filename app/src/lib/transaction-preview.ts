@@ -38,12 +38,6 @@ export type SimulatedTransaction =
 export type SimulationStatus =
 	'pending' | 'passed' | 'failed';
 
-/**
- * Where the result comes from: a dry run, or the executed transaction
- * read back from the chain.
- */
-export type PreviewSource = 'simulation' | 'chain';
-
 export interface NamedAccount {
 	address: string;
 	name: string | null;
@@ -58,12 +52,10 @@ export interface TransactionPreviewInput {
 	/** Why the simulation failed, when known; the payload's status error is the fallback. */
 	error?: string | null;
 	network: SuiNetwork;
-	/** When the simulation ran, or on chain when the transaction was confirmed; null while pending or unknown. */
+	/** When the simulation ran; null while pending. */
 	simulatedAt?: Date | null;
 	/** Accounts to show by name, such as the multisig the proposal is for. */
 	accounts?: NamedAccount[];
-	/** A dry run (the default) or the executed transaction. */
-	source?: PreviewSource;
 }
 
 export interface BalanceChangeRow {
@@ -85,9 +77,7 @@ export interface TransactionPreviewModel {
 	ledgerHash: string;
 	/** From the bytes; null when the bytes set no sender. */
 	sender: NamedAccount | null;
-	/** The status chip: "Simulation passed", or "Succeeded" for a transaction read from the chain. */
-	statusLabel: string;
-	/** "Mainnet · Oct 13, 2026, 8:54 AM" once simulated, "Mainnet" while pending; from the chain, "Confirmed Oct 13, 2026, 8:54 AM", or empty without a time. */
+	/** "Mainnet · Oct 13, 2026, 8:54 AM" once simulated, "Mainnet" while pending. */
 	statusMeta: string;
 	/** The failure, when `status` is 'failed'. */
 	error: string | null;
@@ -191,11 +181,6 @@ export function gasLabel(cost: bigint): string {
 	return cost < 0n ? COPY.gasRebate(amount) : amount;
 }
 
-const STATUS_LABELS: Record<
-	PreviewSource,
-	Record<SimulationStatus, string>
-> = content.transactionPreview.status;
-
 /** Everything the Transaction preview block shows, from the bytes and the dry run. */
 export function buildTransactionPreview(
 	input: TransactionPreviewInput,
@@ -207,7 +192,6 @@ export function buildTransactionPreview(
 		network,
 		simulatedAt = null,
 		accounts = [],
-		source = 'simulation',
 	} = input;
 
 	const decoded = fromBase64(bytes);
@@ -251,15 +235,9 @@ export function buildTransactionPreview(
 			TransactionDataBuilder.getDigestFromBytes(decoded),
 		ledgerHash: ledgerHashOf(decoded),
 		sender,
-		statusLabel: STATUS_LABELS[source][status],
-		statusMeta:
-			source === 'chain'
-				? simulatedAt
-					? COPY.confirmedAt(formatDateTime(simulatedAt))
-					: ''
-				: simulatedAt
-					? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`
-					: networkLabel(network),
+		statusMeta: simulatedAt
+			? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`
+			: networkLabel(network),
 		error:
 			status === 'failed'
 				? input.error ||

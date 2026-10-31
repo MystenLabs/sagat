@@ -25,7 +25,6 @@ import { useCoinDisplayDataMap } from '@/hooks/useCoinDisplayData';
 import {
 	buildTransactionPreview,
 	type NamedAccount,
-	type PreviewSource,
 	type SimulatedTransaction,
 	type SimulationStatus,
 } from '@/lib/transaction-preview';
@@ -65,7 +64,6 @@ export function TransactionPreview({
 	actions,
 	analyzer,
 	analyzerCount,
-	source = 'simulation',
 	signingNotice = true,
 }: {
 	bytes: string;
@@ -81,8 +79,6 @@ export function TransactionPreview({
 	analyzer: ReactNode;
 	/** The analyzer's issues, badged on its tab. */
 	analyzerCount?: number;
-	/** 'chain' shows an executed transaction: "Succeeded" on the chip, the confirmation time beside it, and no note about signing. */
-	source?: PreviewSource;
 	/** Whether the viewer is about to sign; hides the wallet notice when not. */
 	signingNotice?: boolean;
 }) {
@@ -100,7 +96,6 @@ export function TransactionPreview({
 						? null
 						: new Date(simulatedAt),
 				accounts,
-				source,
 			}),
 		[
 			bytes,
@@ -110,7 +105,6 @@ export function TransactionPreview({
 			network,
 			simulatedAt,
 			accounts,
-			source,
 		],
 	);
 
@@ -166,7 +160,7 @@ export function TransactionPreview({
 
 	const senderAddress = model.sender?.address;
 	const waiting = (
-		<EmptyPanel>{COPY.status[source].pending}</EmptyPanel>
+		<EmptyPanel>{COPY.status.pending}</EmptyPanel>
 	);
 
 	let panel: ReactNode;
@@ -245,10 +239,7 @@ export function TransactionPreview({
 					tabs={[
 						{
 							id: 'simulation',
-							label:
-								source === 'chain'
-									? COPY.views.chain
-									: COPY.views.simulation,
+							label: COPY.views.simulation,
 						},
 						{
 							id: 'analyzer',
@@ -261,7 +252,7 @@ export function TransactionPreview({
 					variant="pills"
 					testId="transaction-preview-view"
 				/>
-				<ViewHelp source={source} />
+				<ViewHelp />
 			</div>
 
 			{view === 'analyzer' ? (
@@ -291,7 +282,7 @@ export function TransactionPreview({
 						</span>
 					</div>
 
-					{source === 'simulation' && signingNotice && (
+					{signingNotice && (
 						<Notice tone="warning">
 							{COPY.signingNotice}
 						</Notice>
@@ -345,7 +336,7 @@ export function TransactionPreview({
 }
 
 /** What the two views are, on hover. */
-function ViewHelp({ source }: { source: PreviewSource }) {
+function ViewHelp() {
 	return (
 		<TooltipProvider delay={150}>
 			<Tooltip>
@@ -362,21 +353,12 @@ function ViewHelp({ source }: { source: PreviewSource }) {
 					className="max-w-sm border bg-card text-card-foreground"
 				>
 					<div className="flex flex-col gap-2 text-12 leading-relaxed">
-						{source === 'chain' ? (
-							<p>
-								<span className="block font-medium">
-									{COPY.views.chain}
-								</span>
-								{COPY.help.chain}
-							</p>
-						) : (
-							<p>
-								<span className="block font-medium">
-									{COPY.views.simulation}
-								</span>
-								{COPY.help.simulation}
-							</p>
-						)}
+						<p>
+							<span className="block font-medium">
+								{COPY.views.simulation}
+							</span>
+							{COPY.help.simulation}
+						</p>
 						<p>
 							<span className="block font-medium">
 								{COPY.views.analyzer}

@@ -12,6 +12,7 @@ import {
 	listsAtCutoff,
 	mergeNewestFirst,
 	pendingFilter,
+	proposalExplorerUrl,
 	proposalStatusKey,
 	proposalTitle,
 	shortDigest,
@@ -63,6 +64,22 @@ describe('proposalStatusKey', () => {
 				totalWeight: 2,
 			}),
 		).toBe('ready');
+	});
+});
+
+describe('proposalExplorerUrl', () => {
+	it('links to the explorer only once the transaction ran on chain', () => {
+		const proposal = { digest: DIGEST, network: 'mainnet' };
+		const url = `https://suiscan.xyz/mainnet/tx/${DIGEST}`;
+		expect(proposalExplorerUrl('executed', proposal)).toBe(
+			url,
+		);
+		expect(proposalExplorerUrl('failed', proposal)).toBe(
+			url,
+		);
+		expect(
+			proposalExplorerUrl('pending', proposal),
+		).toBeNull();
 	});
 });
 

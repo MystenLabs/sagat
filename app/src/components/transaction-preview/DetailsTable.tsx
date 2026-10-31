@@ -15,14 +15,18 @@ import { safeDecode } from '@/lib/utils';
 
 const FIELDS = content.common.fields;
 const COPY = content.transactionPreview.details;
+const STATUS = content.transactionPreview.status;
 
-const CHIP_VARIANTS: Record<
+const STATUS_CHIPS: Record<
 	SimulationStatus,
-	NonNullable<ChipProps['variant']>
+	{
+		label: string;
+		variant: NonNullable<ChipProps['variant']>;
+	}
 > = {
-	passed: 'success',
-	failed: 'error',
-	pending: 'neutral',
+	passed: { label: STATUS.passed, variant: 'success' },
+	failed: { label: STATUS.failed, variant: 'error' },
+	pending: { label: STATUS.pending, variant: 'neutral' },
 };
 
 function Row({
@@ -68,6 +72,7 @@ export function DetailsTable({
 }: {
 	model: TransactionPreviewModel;
 }) {
+	const chip = STATUS_CHIPS[model.status];
 	const pending = model.status === 'pending';
 	const { sender } = model;
 
@@ -91,17 +96,15 @@ export function DetailsTable({
 				<span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
 					<Chip
 						size="md"
-						variant={CHIP_VARIANTS[model.status]}
+						variant={chip.variant}
 						data-testid="transaction-preview-status"
 						data-status={model.status}
 					>
-						{model.statusLabel}
+						{chip.label}
 					</Chip>
-					{model.statusMeta && (
-						<span className="text-12 text-muted-foreground">
-							{model.statusMeta}
-						</span>
-					)}
+					<span className="text-12 text-muted-foreground">
+						{model.statusMeta}
+					</span>
 				</span>
 			</Row>
 			{model.status === 'failed' && model.error && (
