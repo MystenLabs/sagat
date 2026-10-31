@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	defaultExpiry,
+	PersonalMessages,
+	SagatClient,
+} from '@mysten/sagat';
+import {
 	beforeEach,
 	describe,
 	expect,
@@ -11,6 +16,7 @@ import {
 import {
 	ApiTestFramework,
 	newUser,
+	sign,
 	type TestSession,
 } from './framework/api-test-framework';
 import {
@@ -26,10 +32,12 @@ const connectedAddresses = async (session: TestSession) =>
 		.sort();
 
 describe('Auth API', () => {
+	let app: Awaited<ReturnType<typeof createTestApp>>;
 	let framework: ApiTestFramework;
 
 	beforeEach(async () => {
-		framework = new ApiTestFramework(await createTestApp());
+		app = await createTestApp();
+		framework = new ApiTestFramework(app);
 	});
 
 	test('connecting adds each user to the session once', async () => {
@@ -58,6 +66,48 @@ describe('Auth API', () => {
 
 		await session.connectUser(user);
 		expect(await connectedAddresses(session)).toEqual([
+			user.address,
+		]);
+	});
+
+	test('a cross-site form post is refused', async () => {
+		const session = framework.createSession();
+		const user = newUser();
+		await session.connectUser(user);
+
+		const response = await session.request(
+			'/auth/disconnect',
+			{
+				method: 'POST',
+				headers: {
+					'Content-Type': 'text/plain',
+					Origin: 'https://other.example',
+				},
+			},
+		);
+		expect(response.status).toBe(403);
+		expect(await connectedAddresses(session)).toEqual([
+			user.address,
+		]);
+	});
+
+	test('a script authenticates with its bearer token', async () => {
+		// No cookie jar: only the bearer token can authenticate.
+		const script = new SagatClient(
+			'',
+			'script',
+			async (url, init) => app.request(url as string, init),
+		);
+		const user = newUser();
+		const expiry = defaultExpiry();
+
+		await script.connect(
+			await sign(user, PersonalMessages.connect(expiry)),
+			expiry,
+		);
+
+		const { addresses } = await script.checkAuth();
+		expect(addresses.map((a) => a.address)).toEqual([
 			user.address,
 		]);
 	});

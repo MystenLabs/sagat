@@ -10,6 +10,10 @@ export interface AuthResponse {
 	success: boolean;
 }
 
+export interface ScriptConnectResponse {
+	token: string;
+}
+
 export interface AuthCheckResponse {
 	authenticated: boolean;
 	addresses: Address[];

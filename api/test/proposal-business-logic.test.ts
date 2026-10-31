@@ -7,7 +7,7 @@ import {
 	ProposalStatus,
 } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
-import { fromBase64 } from '@mysten/sui/utils';
+import { fromBase64, toBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -16,7 +16,9 @@ import {
 } from 'bun:test';
 
 import { LIMITS } from '../src/constants/limits';
-import { AuthErrors } from '../src/errors';
+import { AuthErrors, CommonErrors } from '../src/errors';
+import { ProposalByDigestLoader } from '../src/loaders/proposals.loader';
+import { SignerSetDataLoader } from '../src/loaders/signer-set.loader';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -425,6 +427,27 @@ describe('Proposal Business Logic', () => {
 		]);
 	});
 
+	test('a malformed key does not fail the rest of its loader batch', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposal = await session.proposeTransfer(
+			users[0],
+			multisig.address,
+		);
+
+		const [byDigest, badDigest, signerSet, badAddress] =
+			await Promise.all([
+				ProposalByDigestLoader.load(proposal.digest),
+				ProposalByDigestLoader.load('\0'),
+				SignerSetDataLoader.load(multisig.address),
+				SignerSetDataLoader.load('\0'),
+			]);
+		expect(byDigest?.digest).toBe(proposal.digest);
+		expect(badDigest).toBeNull();
+		expect(signerSet?.address).toBe(multisig.address);
+		expect(badAddress).toBeNull();
+	});
+
 	test('Get paginated proposals', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
@@ -757,6 +780,59 @@ describe('Proposal Business Logic', () => {
 					proposer: newUser().address,
 				}),
 			).toEqual(notAMember);
+		});
+
+		test('verify-by-digest refuses a malformed digest', async () => {
+			const { session } =
+				await framework.createAuthenticatedSession(1);
+
+			expect(
+				await errorOf(
+					await session.post(
+						'/proposals/%00/verify-by-digest',
+						{},
+					),
+				),
+			).toEqual({
+				status: 400,
+				body: { error: CommonErrors.InvalidDigest },
+			});
+		});
+
+		test('a transaction over the size cap is refused before it is parsed', async () => {
+			const session = framework.createSession();
+
+			expect(
+				await errorOf(
+					await session.post('/proposals', {
+						multisigAddress: newUser().address,
+						// One base64 group (3 bytes) over the limit.
+						transactionBytes: toBase64(
+							new Uint8Array(
+								LIMITS.maxTransactionBytes + 3,
+							),
+						),
+						signature: 'not-a-signature',
+						network: 'localnet',
+					}),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error: 'The transaction is too large.',
+				},
+			});
+		});
+
+		test('a request body over the size cap is refused with a 413', async () => {
+			const session = framework.createSession();
+
+			const response = await session.post('/proposals', {
+				transactionBytes: 'a'.repeat(
+					LIMITS.maxRequestBodyBytes,
+				),
+			});
+			expect(response.status).toBe(413);
 		});
 
 		test('an unsupported network is checked before anything else', async () => {

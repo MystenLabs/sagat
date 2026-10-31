@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
+import { csrf } from 'hono/csrf';
 
+import { LIMITS } from './constants/limits';
 import {
 	CORS_ALLOWED_ORIGINS,
 	SUI_RPC_URL,
@@ -41,18 +44,18 @@ console.log(
 	`Using RPC URLs: ${SUPPORTED_NETWORKS.map((n) => SUI_RPC_URL[n]).join(', ')}`,
 );
 
+// Allow localhost for development, and the origins from environment.
+const isAllowedOrigin = (origin: string) =>
+	origin.startsWith('http://localhost:') ||
+	CORS_ALLOWED_ORIGINS.includes(origin);
+
 app.use(
 	'*',
 	cors({
-		origin: (origin) => {
-			// Allow localhost for development
-			if (origin.startsWith('http://localhost:'))
-				return origin;
-			// Check against allowed origins from environment
-			return CORS_ALLOWED_ORIGINS.includes(origin)
+		origin: (origin) =>
+			isAllowedOrigin(origin)
 				? origin
-				: CORS_ALLOWED_ORIGINS[0];
-		},
+				: CORS_ALLOWED_ORIGINS[0],
 		allowMethods: [
 			'GET',
 			'POST',
@@ -65,6 +68,13 @@ app.use(
 		credentials: true,
 	}),
 );
+// Form-like posts must come from an allowed origin. The app and the SDK send JSON.
+app.use('*', csrf({ origin: isAllowedOrigin }));
+app.use(
+	'*',
+	bodyLimit({ maxSize: LIMITS.maxRequestBodyBytes }),
+);
+
 // Health check endpoint
 app.get('/health', (c) => {
 	return c.json({

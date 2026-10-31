@@ -13,10 +13,12 @@ import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
+	isValidSuiAddress,
 	isValidTransactionDigest,
 } from '@mysten/sui/utils';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 
+import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import { validateNetwork } from '../db/env';
 import {
@@ -268,6 +270,10 @@ const lookupAndVerifyProposal = async (
 	return status;
 };
 
+// The base64 length of the largest transaction we accept.
+const MAX_TRANSACTION_BYTES_LENGTH =
+	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
+
 export type CreateProposalInput = {
 	multisigAddress: string;
 	transactionBytes: string;
@@ -289,6 +295,16 @@ export const createProposal = async ({
 	network: rawNetwork,
 }: CreateProposalInput): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
+
+	if (!isValidSuiAddress(multisigAddress))
+		throw new CommonError('InvalidAddress');
+
+	if (
+		transactionBytes.length > MAX_TRANSACTION_BYTES_LENGTH
+	)
+		throw new ValidationError(
+			'The transaction is too large.',
+		);
 
 	// Get the public key out of the sui signature.
 	const pubKey =
@@ -518,6 +534,9 @@ export const verifyProposal = async ({
 export const verifyProposalByDigest = async (
 	digest: string,
 ) => {
+	if (!isValidTransactionDigest(digest))
+		throw new CommonError('InvalidDigest');
+
 	const proposal =
 		await ProposalByDigestLoader.load(digest);
 

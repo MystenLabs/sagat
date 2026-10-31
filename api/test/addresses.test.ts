@@ -8,6 +8,7 @@ import {
 	test,
 } from 'bun:test';
 
+import { LIMITS } from '../src/constants/limits';
 import {
 	ApiTestFramework,
 	errorOf,
@@ -66,6 +67,19 @@ describe('Addresses API', () => {
 			status: 400,
 			body: { error: 'You are not authorized.' },
 		});
+	});
+
+	test('registering refuses more extra public keys than the limit', async () => {
+		const { session } =
+			await framework.createAuthenticatedSession(1);
+
+		const response = await session.post('/addresses', {
+			extraPublicKeys: Array.from(
+				{ length: LIMITS.maxExtraPublicKeys + 1 },
+				() => newUser().publicKey,
+			),
+		});
+		expect(response.status).toBe(400);
 	});
 
 	test('registering requires a session', async () => {
