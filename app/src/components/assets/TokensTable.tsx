@@ -58,6 +58,13 @@ type AccountAssets = ReturnType<typeof useAccountAssets>;
 const TOKENS_SHOWN = 5;
 
 /**
+ * Rows the assets page adds at a time where a pod can hold any number of
+ * coins anyone can send it. Each row looks up its coin's details, so a row
+ * not shown yet costs nothing.
+ */
+const TOKENS_BATCH = 50;
+
+/**
  * Where the tokens table sits. The overview shows the largest holdings in
  * a bordered shell; the assets page shows every token in its card, with
  * the price, and keeps unverified ones in a group of their own.
@@ -90,6 +97,7 @@ export function TokensTable({
 	const full = variant === 'assets';
 	const [unverifiedOpen, setUnverifiedOpen] =
 		useState(false);
+	const [batched, setBatched] = useState(TOKENS_BATCH);
 
 	// Both wait for the registry, so no coin is marked before it is known;
 	// the assets page waits for every page too, so its split is final.
@@ -136,6 +144,17 @@ export function TokensTable({
 		: assets.balances.slice(0, TOKENS_SHOWN);
 	const unverified = full ? assets.unverifiedBalances : [];
 	const columns = full ? 5 : 4;
+	// Without the registry the coins anyone can send are in the main list.
+	const batchMain = full && !known;
+	const mainRows = batchMain
+		? rows.slice(0, batched)
+		: rows;
+	const groupRows = unverifiedOpen
+		? unverified.slice(0, batched)
+		: [];
+	const hasMore = batchMain
+		? rows.length > batched
+		: unverifiedOpen && unverified.length > batched;
 
 	const row = (balance: Balance) => (
 		<TokenRow
@@ -198,7 +217,7 @@ export function TokensTable({
 						</tr>
 					</thead>
 					<tbody>
-						{rows.map(row)}
+						{mainRows.map(row)}
 						{unverified.length > 0 && (
 							<tr className={tableRowClass}>
 								<td
@@ -229,10 +248,24 @@ export function TokensTable({
 								</td>
 							</tr>
 						)}
-						{unverifiedOpen && unverified.map(row)}
+						{groupRows.map(row)}
 					</tbody>
 				</table>
 			</div>
+			{hasMore && (
+				<div className="mt-3 flex justify-center">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() =>
+							setBatched((shown) => shown + TOKENS_BATCH)
+						}
+						data-testid={`${testId}-load-more`}
+					>
+						{content.common.actions.loadMore}
+					</Button>
+				</div>
+			)}
 		</div>
 	);
 }

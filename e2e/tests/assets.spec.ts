@@ -9,6 +9,7 @@ import { type Chain } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import { setupMultisig } from '../support/scenarios';
 import {
+	giveManyCoinTypes,
 	mintTestCoin,
 	publishTestCoin,
 } from '../support/test-coin';
@@ -128,6 +129,56 @@ test.describe('assets', () => {
 		).toBeEnabled();
 		// With coins to show, the tokens never ask for the objects.
 		expect(objectListings).toEqual([]);
+	});
+
+	test('the unverified group shows fifty rows at a time, looking up only those', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 1,
+		});
+		await chain.fund(multisig.address);
+		await giveManyCoinTypes(chain, multisig.address, 51);
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.goto('about:blank');
+		let lookups = 0;
+		page.on('request', (request) => {
+			if (request.url().endsWith('/GetCoinInfo')) lookups++;
+		});
+		await page.goto(`/multisig/${multisig.address}/assets`);
+		await expect(
+			alice
+				.suiBalanceRow()
+				.getByTestId('token-send-button'),
+		).toBeEnabled();
+		expect(lookups).toBe(1);
+
+		const group = page.getByTestId(
+			'unverified-tokens-toggle',
+		);
+		await expect(group).toHaveAttribute('data-count', '51');
+		await group.click();
+		const unverified = page.locator(
+			'[data-testid="token-row"][data-verified="false"]',
+		);
+		await expect(unverified).toHaveCount(50);
+		await expect(group).toHaveAttribute('data-count', '51');
+		await expect.poll(() => lookups).toBe(51);
+
+		const loadMore = page.getByTestId(
+			'assets-tokens-load-more',
+		);
+		await loadMore.click();
+		await expect(unverified).toHaveCount(51);
+		await expect.poll(() => lookups).toBe(52);
+		await expect(loadMore).toHaveCount(0);
 	});
 
 	test('without the price list every coin is listed with its details, unmarked', async ({
