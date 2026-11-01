@@ -58,6 +58,7 @@ export async function teardownTestDatabase({
 export async function clearTestData(
 	db: TestDatabase['db'],
 ) {
+	await db.delete(schema.SchemaAccountEvents);
 	await db.delete(schema.SchemaAccountProposers);
 	await db.delete(schema.SchemaProposalSignatures);
 	await db.delete(schema.SchemaProposals);

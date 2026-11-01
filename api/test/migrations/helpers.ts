@@ -310,7 +310,10 @@ const SNAPSHOT_DATA_TYPES: Record<string, string> = {
 	integer: 'integer',
 	bigint: 'bigint',
 	serial: 'integer',
+	bigserial: 'bigint',
+	jsonb: 'jsonb',
 	timestamp: 'timestamp without time zone',
+	'timestamp with time zone': 'timestamp with time zone',
 	varchar: 'character varying',
 };
 
@@ -415,7 +418,7 @@ export function snapshotStructure(snapshot: Snapshot) {
 		const t = table.name;
 		const pk: string[] = [];
 		for (const c of Object.values(table.columns)) {
-			const type = /^(\w+)(?:\((\d+)\))?$/.exec(c.type);
+			const type = /^([\w ]+?)(?:\((\d+)\))?$/.exec(c.type);
 			const dataType = type && SNAPSHOT_DATA_TYPES[type[1]];
 			if (!dataType)
 				throw new Error(
@@ -429,7 +432,7 @@ export function snapshotStructure(snapshot: Snapshot) {
 					maxLength: type[2] ? Number(type[2]) : null,
 					notNull: c.notNull,
 					default:
-						c.type === 'serial'
+						c.type === 'serial' || c.type === 'bigserial'
 							? `nextval('${t}_${c.name}_seq')`
 							: normalizeDefault(
 									c.default === undefined

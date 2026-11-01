@@ -4,10 +4,12 @@
 import { sql } from 'drizzle-orm';
 import {
 	bigint,
+	bigserial,
 	boolean,
 	check,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	primaryKey,
 	serial,
@@ -362,6 +364,57 @@ const accountKeys = pgTable(
 	],
 );
 
+// The audit log: one row per change to an account, append-only, written in the
+// change's transaction by `recordAccountEvent` in `account-events.service.ts`.
+// That module also decides what each action stores. `before` and `after` hold
+// the changed fields only, never whole rows.
+const accountEvents = pgTable(
+	'account_events',
+	{
+		// Follows commit order within an account, see `recordAccountEvent`.
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		accountAddress: text('account_address')
+			.notNull()
+			.references(() => accounts.address),
+		// Null for a change that is not tied to one network.
+		network: text('network'),
+		// The signer's address, or `SYSTEM_ACTOR` for a change nobody signed.
+		actor: text('actor').notNull(),
+		action: text('action').notNull(),
+		subject: text('subject'),
+		before: jsonb('before'),
+		after: jsonb('after'),
+		proof: jsonb('proof'),
+		createdAt: timestamp('created_at', {
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+	},
+	// NULLS FIRST is what `ORDER BY id DESC` sorts by. Drizzle's default for
+	// `desc()` here is NULLS LAST, which the planner cannot use for that order.
+	(table) => [
+		index('account_events_account_id_idx').on(
+			table.accountAddress,
+			table.id.desc().nullsFirst(),
+		),
+		index('account_events_account_action_id_idx').on(
+			table.accountAddress,
+			table.action,
+			table.id.desc().nullsFirst(),
+		),
+		index('account_events_account_subject_id_idx').on(
+			table.accountAddress,
+			table.subject,
+			table.id.desc().nullsFirst(),
+		),
+		networkCheck(
+			'account_events_network_check',
+			table.network,
+		),
+	],
+);
+
 // Export re-usable types.
 
 export const SchemaAddresses = addresses;
@@ -375,6 +428,7 @@ export const SchemaAccountAliases = accountAliases;
 export const SchemaAccountAliasState = accountAliasState;
 export const SchemaAccountSignerSets = accountSignerSets;
 export const SchemaAccountKeys = accountKeys;
+export const SchemaAccountEvents = accountEvents;
 
 export type Proposal = typeof proposals.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
@@ -398,6 +452,8 @@ export type SignerSetOrigin = Pick<
 	'draftedBy' | 'createdAt'
 >;
 export type AccountKey = typeof accountKeys.$inferSelect;
+export type AccountEventRow =
+	typeof accountEvents.$inferSelect;
 
 export type ProposalWithSignatures = Proposal & {
 	signatures: ProposalSignature[];
