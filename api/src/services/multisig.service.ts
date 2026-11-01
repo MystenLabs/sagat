@@ -40,6 +40,10 @@ import {
 	type SignerSetWithMembers,
 } from '../db/schema';
 import {
+	lockAccount,
+	type DatabaseTransaction,
+} from '../db/transaction';
+import {
 	ApiAuthError,
 	CommonError,
 	NotFoundError,
@@ -359,23 +363,6 @@ export const validateQuorum = async (
 			'Threshold must be greater or equal to 1',
 		);
 	}
-};
-
-type DatabaseTransaction = Parameters<
-	Parameters<(typeof db)['transaction']>[0]
->[0];
-
-// Locks the account until `tx` ends, so writers for it run one at a time.
-// Relies on READ COMMITTED: reads after the lock see the other's writes.
-const lockAccount = async (
-	tx: DatabaseTransaction,
-	address: string,
-) => {
-	await tx
-		.select({ address: SchemaAccounts.address })
-		.from(SchemaAccounts)
-		.where(eq(SchemaAccounts.address, address))
-		.for('no key update');
 };
 
 // Throws if `publicKey` is already in the maximum number of multisigs, not
