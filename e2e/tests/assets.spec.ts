@@ -3,7 +3,7 @@
 
 import { Transaction } from '@mysten/sui/transactions';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
-import { type Page } from '@playwright/test';
+import { type Page, type Request } from '@playwright/test';
 
 import { type Chain } from '../support/chain';
 import { expect, test } from '../support/fixtures';
@@ -13,8 +13,20 @@ import {
 	publishTestCoin,
 } from '../support/test-coin';
 
-const RECOGNIZED_COINS_URL =
-	'https://apps-backend.sui.io/v2/recognized-coins';
+// Whether `request` is a call of the node's `method` that mentions `text`.
+// The body of a gRPC-web request is base64.
+function asksFor(
+	request: Request,
+	method: string,
+	text: string,
+) {
+	return (
+		request.url().endsWith(`/${method}`) &&
+		Buffer.from(request.postData() ?? '', 'base64')
+			.toString('latin1')
+			.includes(text)
+	);
+}
 
 // Sends `owner` `count` KioskOwnerCaps in one transaction, sharing each
 // kiosk: a cheap way to give a pod many objects that aren't coins.
@@ -63,16 +75,35 @@ test.describe('assets', () => {
 
 		await alice.signIn();
 		const { page } = alice;
+		// A fresh load: the overview's rows would have fetched the coin's
+		// metadata already.
+		await page.goto('about:blank');
 		const objectListings: string[] = [];
+		const testCoinLookups: string[] = [];
 		page.on('request', (request) => {
 			if (request.url().endsWith('/ListOwnedObjects'))
 				objectListings.push(request.url());
+			if (
+				asksFor(
+					request,
+					'GetCoinInfo',
+					'::test_coin::TEST_COIN',
+				)
+			)
+				testCoinLookups.push(request.url());
 		});
-		await page.getByTestId('multisig-tab-assets').click();
+		await page.goto(`/multisig/${multisig.address}/assets`);
 		await expect(alice.suiBalanceRow()).toHaveAttribute(
 			'data-verified',
 			'true',
 		);
+		// SUI's details are in, so an eager lookup would have gone out too.
+		await expect(
+			alice
+				.suiBalanceRow()
+				.getByTestId('token-send-button'),
+		).toBeEnabled();
+		expect(testCoinLookups).toEqual([]);
 		const testCoin = page.locator(
 			'[data-testid="token-row"][data-coin-type$="::test_coin::TEST_COIN"]',
 		);
@@ -89,6 +120,12 @@ test.describe('assets', () => {
 		await expect(
 			testCoin.getByTestId('token-price'),
 		).toHaveText('No price');
+		await expect(
+			testCoin.getByTestId('token-balance'),
+		).toHaveText('1');
+		await expect(
+			testCoin.getByTestId('token-send-button'),
+		).toBeEnabled();
 		// With coins to show, the tokens never ask for the objects.
 		expect(objectListings).toEqual([]);
 	});
@@ -111,9 +148,7 @@ test.describe('assets', () => {
 
 		await alice.signIn();
 		const { page } = alice;
-		await page.route(RECOGNIZED_COINS_URL, (route) =>
-			route.abort(),
-		);
+		await alice.failRecognizedCoins();
 		await page.goto(`/multisig/${multisig.address}/assets`);
 		const sends = page.getByTestId('token-send-button');
 		await expect(sends).toHaveCount(2);
@@ -387,8 +422,7 @@ test.describe('assets', () => {
 		const coinListings: string[] = [];
 		page.on('request', (request) => {
 			if (
-				request.url().endsWith('/ListOwnedObjects') &&
-				request.postDataBuffer()?.includes('::coin::Coin')
+				asksFor(request, 'ListOwnedObjects', '::coin::Coin')
 			)
 				coinListings.push(request.url());
 		});

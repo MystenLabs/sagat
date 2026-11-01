@@ -36,7 +36,7 @@ export interface CoinDisplayData extends CoinDisplayBase {
  * left out: the issuer picks it, so loading it would tell the issuer's
  * server who looks at the pod. Only registry icons are shown.
  */
-export function fromMetadata(
+function fromMetadata(
 	metadata: CoinMetadata,
 ): CoinDisplayData {
 	return {
@@ -48,7 +48,7 @@ export function fromMetadata(
 }
 
 /** A registry entry for display on `network`, priced only on mainnet. */
-export function fromRecognized(
+function fromRecognized(
 	coin: RecognizedCoin,
 	network: SuiNetwork,
 ): CoinDisplayData {
@@ -58,6 +58,20 @@ export function fromRecognized(
 		...pricingOnNetwork(network, coin),
 		recognized: true,
 	};
+}
+
+/**
+ * What to show for one coin: the registry's entry if it has one, else its
+ * metadata, else nothing yet.
+ */
+export function coinDisplayData(
+	recognizedCoin: RecognizedCoin | undefined,
+	metadata: CoinMetadata | null | undefined,
+	network: SuiNetwork,
+): CoinDisplayData | undefined {
+	if (recognizedCoin)
+		return fromRecognized(recognizedCoin, network);
+	return metadata ? fromMetadata(metadata) : undefined;
 }
 
 /**
@@ -98,18 +112,12 @@ export function buildCoinDisplayMap(
 ): Map<string, CoinDisplayData> {
 	const out = new Map<string, CoinDisplayData>();
 	for (const coinType of coinTypes) {
-		const recognizedCoin = recognizedMap.get(coinType);
-		if (recognizedCoin) {
-			out.set(
-				coinType,
-				fromRecognized(recognizedCoin, network),
-			);
-			continue;
-		}
-		const metadata = metadataMap.get(coinType);
-		if (metadata) {
-			out.set(coinType, fromMetadata(metadata));
-		}
+		const data = coinDisplayData(
+			recognizedMap.get(coinType),
+			metadataMap.get(coinType),
+			network,
+		);
+		if (data) out.set(coinType, data);
 	}
 	return out;
 }

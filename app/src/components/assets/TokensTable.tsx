@@ -16,9 +16,8 @@ import { useCoinMetadata } from '@/hooks/useCoinMetadata';
 import { type Balance } from '@/hooks/useMultisigBalances';
 import { formatType } from '@/lib/coin-type';
 import {
+	coinDisplayData,
 	coinLabels,
-	fromMetadata,
-	fromRecognized,
 	sameCoinLabel,
 	type RecognizedCoin,
 } from '@/lib/coinDisplay';
@@ -302,11 +301,11 @@ function TokenRow({
 	const metadata = useCoinMetadata(balance.coinType, {
 		enabled: !recognizedCoin,
 	});
-	const coinData = recognizedCoin
-		? fromRecognized(recognizedCoin, network)
-		: metadata.data
-			? fromMetadata(metadata.data)
-			: undefined;
+	const coinData = coinDisplayData(
+		recognizedCoin,
+		metadata.data,
+		network,
+	);
 	const isLoading = !recognizedCoin && metadata.isPending;
 	const decimals = coinData?.decimals;
 	const { symbol, name } = coinLabels(
