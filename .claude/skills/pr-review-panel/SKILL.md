@@ -33,16 +33,18 @@ Read the code at each confirmed finding before agreeing with it; the challenge p
 - **Decline**: a deliberate trade-off or a wrong claim, with the reason in one line.
 - **Follow-up**: real, but outside this PR's scope.
 
-Unconfirmed findings are security questions for a human: carry each one into the report with what would settle it. Polish findings are real and above the lens bar, but the challenger would approve with them unchanged (for security, most passing challengers would and the severity is low or medium); they never block.
+Unconfirmed findings are security questions for a human: carry each one into the report with what would settle it.
 
-Judged-minor findings (`minor`) are true and reachable, but a challenger placed them below the bar. That is one judgement and it can be wrong, so read each against the code and triage it yourself: **Fix** (it then counts as your own finding and can block) or **Decline** with a one-line reason. Do not pass them through as a count. For dismissed findings, read `dismissed_because` on every entry and report it; a dismissal that looks wrong against the code gets reopened.
+Polish findings are real and above the lens bar, but the challenger would approve with them unchanged (for security, most passing challengers would and the severity is low or medium). Judged-minor findings (`minor`) are true and reachable, but a challenger placed them below the bar. Either call can be wrong, so read each against the code and triage it yourself: **Fix** (it then counts as your own finding and can block), otherwise **Decline** with a one-line reason or **Follow-up**. Do not pass them through as a count.
+
+For dismissed findings, read `dismissed_because` on every entry and report it; a dismissal that looks wrong against the code gets reopened.
 
 Report in this order:
 
-1. **Verdict**: safe to merge, or blocked, naming the blocking findings. Only confirmed findings block, plus any judged-minor finding you triage as Fix; unconfirmed ones go to a human, polish never blocks.
+1. **Verdict**: safe to merge, or blocked, naming the blocking findings. Only confirmed findings block, plus any polish or judged-minor finding you triage as Fix; unconfirmed ones go to a human.
 2. **Confirmed**, security first, then by severity: `file:line`, the one-line claim, why it survived the challenge, the suggested fix, and your triage verdict.
 3. **Unconfirmed**: each with the open question.
-4. **Polish**: worth a sentence in the PR, not a blocker; one line each, `file:line` and the claim.
+4. **Polish**: one line each, `file:line`, the claim and your triage verdict.
 5. **Judged minor**: one line each, `file:line`, the claim, `judged_minor_because` and your triage verdict.
 6. **Dismissed**: one line each, the title and `dismissed_because`, every entry, never only a count.
 7. **Coverage**: lenses run (and any that failed), files in the diff, findings per lens, and anything the workflow logged as skipped.

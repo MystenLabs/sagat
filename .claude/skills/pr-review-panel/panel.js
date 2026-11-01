@@ -35,6 +35,7 @@ function withModel(opts) {
 
 const SEVERITIES = ['critical', 'high', 'medium', 'low']
 const SEVERITY_GUIDE = 'Severity: critical = exploitable, or loses funds or data, as merged; high = wrong behaviour real users will hit; medium = a real defect with limited reach; low = real but minor.'
+const REALISTIC_SIZES = 'hundreds of proposals, tens of signers, thousands of coins, a page loaded on every navigation'
 
 // ---------- lenses: the single source of truth for what each reviewer raises ----------
 
@@ -99,7 +100,7 @@ const LENSES = [
       '- Sequential awaits on independent work that could run together.',
       '- O(n^2) passes over user-sized inputs (proposals, signers, coins, transactions).',
     ].join('\n'),
-    bar: 'Raise it when the cost is measurable at realistic sizes for this product (hundreds of proposals, tens of signers, thousands of coins, a page loaded on every navigation), and name the size and the cost: queries per request, RPC calls per render, added latency. Asymptotic purity at sizes the product never reaches is below the bar.',
+    bar: `Raise it when the cost is measurable at realistic sizes for this product (${REALISTIC_SIZES}), and name the size and the cost: queries per request, RPC calls per render, added latency. Asymptotic purity at sizes the product never reaches is below the bar.`,
   },
   {
     key: 'tests',
@@ -195,7 +196,7 @@ const SINGLE = `Do all three of these:\n${Object.values(ANGLES).map(a => `- ${a}
 // Three challengers per security finding on a thorough run, one otherwise.
 const anglesFor = f => (f.lens === 'security' && THOROUGH ? Object.values(ANGLES) : [SINGLE])
 
-const CALIBRATION = 'A finding earns its place when fixing it changes what a user or attacker can do or see, including what a page costs at the realistic sizes in the lens bar (requests per page load, added latency), or stops a maintainer trap (dead code that reads as live, a name or comment that lies, duplicated logic that will drift). Set nitpick=true for everything else: style, a constant that could be reused, a helper that could be extracted, a test that could be tidier, repetition under about ten lines, or a missing test for a path with no user-visible regression behind it. Judge the code as it runs at head; "not a regression" or "the base did this too" is no reason for nitpick when the diff runs that code more often or on more paths, such as a fetch now made on every page load. Set would_block=false whenever you would approve the PR with this unchanged. On a typical PR most low-severity findings fall at this step; confirming every finding you are given means you are not challenging.'
+const CALIBRATION = `A finding earns its place when fixing it changes what a user or attacker can do or see, including what a page costs at realistic sizes for this product (${REALISTIC_SIZES}; requests per page load, added latency), or stops a maintainer trap (dead code that reads as live, a name or comment that lies, duplicated logic that will drift). Set nitpick=true for everything else: style, a constant that could be reused, a helper that could be extracted, a test that could be tidier, repetition under about ten lines, or a missing test for a path with no user-visible regression behind it. Judge the code as it runs at head; "not a regression" or "the base did this too" is no reason for nitpick when the diff runs that code more often or on more paths, such as a fetch now made on every page load. Set would_block=false whenever you would approve the PR with this unchanged. On a typical PR most low-severity findings fall at this step; confirming every finding you are given means you are not challenging.`
 
 function challengePrompt(f, angle) {
   const lens = LENS_BY_KEY[f.lens]
