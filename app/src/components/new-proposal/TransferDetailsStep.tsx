@@ -98,7 +98,7 @@ export function TransferDetailsStep({
 		displayCount: listOpened ? Number.MAX_SAFE_INTEGER : 0,
 		coinTypes: shownCoinTypes,
 	});
-	const balancesLoading = assets.query.isLoading;
+	const balancesLoading = assets.query.isPending;
 	const balancesComplete =
 		!!assets.query.data &&
 		!assets.query.isError &&

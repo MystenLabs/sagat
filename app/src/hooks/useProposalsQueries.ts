@@ -183,9 +183,11 @@ export function useProposalsQueries({
 		// Until the epoch is known nothing can be filed as expired, so the
 		// first load waits for it. If it fails, nothing counts as expired.
 		isLoading:
-			shownQueries.some((query) => query.isLoading) ||
-			multisigDetailsQuery.isLoading ||
-			epochQuery.isLoading,
+			shownQueries.some((query) => query.isPending) ||
+			// Not enabled until signed in, which isn't waiting on it.
+			(multisigDetailsQuery.isPending &&
+				multisigDetailsQuery.fetchStatus !== 'idle') ||
+			epochQuery.isPending,
 		// A failed background refetch keeps the loaded rows; only a
 		// query with nothing to show blocks the list.
 		error:

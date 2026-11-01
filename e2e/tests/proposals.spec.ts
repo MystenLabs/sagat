@@ -43,7 +43,7 @@ test.describe('proposals', () => {
 			.click();
 		await alice
 			.suiBalanceRow()
-			.getByTestId('asset-send-button')
+			.getByTestId('token-send-button')
 			.click();
 		await fillTransfer(alice.page, {
 			amount: '1.5',

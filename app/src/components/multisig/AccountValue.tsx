@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ArrowDownToLine, Send } from 'lucide-react';
+import {
+	ArrowDownToLine,
+	ArrowUpRight,
+	Send,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import { content } from '@/content';
@@ -12,7 +16,7 @@ import {
 } from '@/lib/coins';
 
 import { ReceiveDialog } from '../shell/ReceiveDialog';
-import { Button } from '../ui/button';
+import { Button, buttonVariants } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 
 const COPY = content.overview.value;
@@ -22,7 +26,9 @@ const COPY = content.overview.value;
  * coins with a known price count; the line under the amount says when
  * some were left out, and the amount is withheld when none has a price,
  * prices are unavailable (off mainnet), the price service failed or the
- * balances failed to load.
+ * balances failed to load. The assets page adds Explorer before them,
+ * and drops all three while the account holds nothing. The buttons' test
+ * ids start with `testIdPrefix`.
  */
 export function AccountValue({
 	address,
@@ -33,6 +39,9 @@ export function AccountValue({
 	isLoading,
 	isError,
 	onSend,
+	explorerUrl,
+	showActions = true,
+	testIdPrefix = 'overview',
 }: {
 	address: string;
 	name: string;
@@ -42,6 +51,10 @@ export function AccountValue({
 	isLoading: boolean;
 	isError: boolean;
 	onSend: () => void;
+	/** The account on the explorer, for an Explorer button. */
+	explorerUrl?: string | null;
+	showActions?: boolean;
+	testIdPrefix?: string;
 }) {
 	const [receiveOpen, setReceiveOpen] = useState(false);
 	const settled = !isLoading && !isError;
@@ -90,22 +103,38 @@ export function AccountValue({
 					</span>
 				)}
 			</div>
-			<div className="flex gap-2">
-				<Button
-					onClick={() => setReceiveOpen(true)}
-					data-testid="overview-receive-button"
-				>
-					<ArrowDownToLine />
-					{content.common.actions.receive}
-				</Button>
-				<Button
-					onClick={onSend}
-					data-testid="overview-send-button"
-				>
-					<Send />
-					{content.common.actions.send}
-				</Button>
-			</div>
+			{showActions && (
+				<div className="flex gap-2">
+					{explorerUrl && (
+						<a
+							href={explorerUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+							className={buttonVariants({
+								variant: 'outline',
+							})}
+							data-testid={`${testIdPrefix}-explorer-button`}
+						>
+							<ArrowUpRight />
+							{content.assets.explorer}
+						</a>
+					)}
+					<Button
+						onClick={() => setReceiveOpen(true)}
+						data-testid={`${testIdPrefix}-receive-button`}
+					>
+						<ArrowDownToLine />
+						{content.common.actions.receive}
+					</Button>
+					<Button
+						onClick={onSend}
+						data-testid={`${testIdPrefix}-send-button`}
+					>
+						<Send />
+						{content.common.actions.send}
+					</Button>
+				</div>
+			)}
 			<ReceiveDialog
 				open={receiveOpen}
 				onClose={() => setReceiveOpen(false)}

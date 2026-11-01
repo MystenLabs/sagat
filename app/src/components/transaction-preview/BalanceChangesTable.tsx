@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table';
 import { content } from '@/content';
 import type { CoinDisplayData } from '@/hooks/useCoinDisplayData';
-import { formatCoinType } from '@/lib/coin-type';
+import { formatType } from '@/lib/coin-type';
 import {
 	coinUsdValue,
 	formatCoinAmount,
@@ -183,7 +183,7 @@ function BalanceRow({
 								className="truncate font-mono text-11 text-muted-foreground"
 								title={row.coinType}
 							>
-								{formatCoinType(row.coinType)}
+								{formatType(row.coinType)}
 							</span>
 							<CopyButton
 								value={row.coinType}

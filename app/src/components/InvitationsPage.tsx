@@ -30,7 +30,9 @@ export function InvitationsPage() {
 	const current =
 		activeTab === 'pending' ? pending : rejected;
 	const invitations = current.data ?? [];
-	const isLoading = current.isLoading;
+	// Waiting, or paused offline; a query not enabled yet waits on neither.
+	const isLoading =
+		current.isPending && current.fetchStatus !== 'idle';
 
 	return (
 		<div

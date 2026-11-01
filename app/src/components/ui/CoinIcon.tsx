@@ -17,6 +17,8 @@ interface CoinIconProps {
 	symbol?: string | null;
 	coinType?: string | null;
 	recognized?: boolean;
+	/** The check badge on a recognized coin's icon; off where a row marks it. */
+	badge?: boolean;
 	size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 	className?: string;
 }
@@ -90,21 +92,25 @@ function RecognizedBadge({
 }
 
 /**
- * Renders a coin's icon from its on-chain metadata. Falls back to the
- * brand mark for the native SUI coin (whose metadata frequently has no
- * `iconUrl`), and to a generic `Coins` glyph for everything else, so the
- * slot stays consistent even when the image is missing or fails to load.
+ * Renders a coin's icon. The brand mark stands for SUI; a recognized
+ * coin shows the registry's icon; every other coin, or an icon that fails
+ * to load, gets a generic `Coins` glyph. An unrecognized coin's URL is
+ * never loaded: its issuer chose it, and fetching it would tell the
+ * issuer's server who views the pod.
  */
 export function CoinIcon({
-	iconUrl,
+	iconUrl: givenUrl,
 	symbol,
 	coinType,
 	recognized = false,
+	badge: showBadge = true,
 	size = 'md',
 	className,
 }: CoinIconProps) {
 	const { wrapper, icon, sui, badge, badgeIcon } =
 		sizeClasses[size];
+	const iconUrl = recognized ? givenUrl : null;
+	const withBadge = recognized && showBadge;
 	// Track which url last failed to load so a new url is given a fresh chance.
 	const [failedUrl, setFailedUrl] = useState<string | null>(
 		null,
@@ -124,7 +130,7 @@ export function CoinIcon({
 				aria-label={COPY.coinIcon(symbol)}
 			>
 				<SuiLogo className={cn(sui, 'w-auto')} />
-				{recognized && (
+				{withBadge && (
 					<RecognizedBadge
 						badgeClassName={badge}
 						iconClassName={badgeIcon}
@@ -146,7 +152,7 @@ export function CoinIcon({
 					)}
 					onError={() => setFailedUrl(iconUrl)}
 				/>
-				{recognized && (
+				{withBadge && (
 					<RecognizedBadge
 						badgeClassName={badge}
 						iconClassName={badgeIcon}
@@ -170,7 +176,7 @@ export function CoinIcon({
 			<Coins
 				className={cn(icon, 'text-muted-foreground')}
 			/>
-			{recognized && (
+			{withBadge && (
 				<RecognizedBadge
 					badgeClassName={badge}
 					iconClassName={badgeIcon}

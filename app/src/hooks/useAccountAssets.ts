@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
 import { useNetwork } from '../contexts/NetworkContext';
+import { isVerifiedCoin } from '../lib/coinDisplay';
 import {
 	accountAssetsState,
 	coinUsdValue,
@@ -29,6 +30,8 @@ import { useRecognizedCoins } from './useRecognizedCoins';
  * on coin metadata. Display data (with the metadata fallback for coins
  * outside the registry) is fetched only for the first `displayCount`
  * balances and for `coinTypes`; without either `coinData` stays empty.
+ * Pass `Infinity` as `displayCount` for every balance. The tokens table
+ * asks for neither: each of its rows reads its own.
  */
 export function useAccountAssets(
 	address: string,
@@ -82,6 +85,15 @@ export function useAccountAssets(
 		},
 		[recognized.map, network],
 	);
+	const isVerified = useCallback(
+		(coinType: string) =>
+			isVerifiedCoin(coinType, recognized.map),
+		[recognized.map],
+	);
+	const recognizedCoin = useCallback(
+		(coinType: string) => recognized.map.get(coinType),
+		[recognized.map],
+	);
 	const balances = useMemo(
 		() => sortBalances(query.balances, usdValue),
 		[query.balances, usdValue],
@@ -89,6 +101,21 @@ export function useAccountAssets(
 	const value = useMemo(
 		() => totalUsdValue(balances, usdValue),
 		[balances, usdValue],
+	);
+
+	// Without the registry no coin can be told unverified: all are listed.
+	const verifiedKnown = !!recognized.data;
+	const [listedBalances, unverifiedBalances] = useMemo<
+		[Balance[], Balance[]]
+	>(
+		() =>
+			verifiedKnown
+				? [
+						balances.filter((b) => isVerified(b.coinType)),
+						balances.filter((b) => !isVerified(b.coinType)),
+					]
+				: [balances, []],
+		[balances, isVerified, verifiedKnown],
 	);
 
 	const shownCoinTypes = useMemo(
@@ -104,13 +131,13 @@ export function useAccountAssets(
 
 	const pricesAvailable = pricesAvailableOn(network);
 	const state = accountAssetsState({
-		balancesLoading: query.isLoading,
+		balancesPending: query.isPending,
 		balancesError: isError,
 		hasData: !!query.data,
 		// Not `allPages && …`: passing an option itself would make the
 		// React Compiler treat `displayCount` as mutable.
 		pagesLeft: allPages ? hasNextPage : false,
-		pricesLoading: recognized.isLoading,
+		pricesPending: recognized.isPending,
 		// A failed refetch keeps the loaded price list, the way balances do.
 		pricesError: recognized.isError && !recognized.data,
 		pricesAvailable,
@@ -136,13 +163,29 @@ export function useAccountAssets(
 	return {
 		query,
 		balances,
-		/** Display data for the first `displayCount` balances and `coinTypes`. */
+		/** The balances outside the unverified group, as sorted. */
+		listedBalances,
+		/** The unverified coins' balances, once the registry says which. */
+		unverifiedBalances,
+		/** Display data for what the options ask for. */
 		coinData: coinData.map,
-		/** Whether the display data of `coinType` is still loading. */
-		isCoinDataLoadingFor: coinData.isLoadingFor,
 		/** Whether the display data of `coinType` failed to load. */
 		isCoinDataErrorFor: coinData.isErrorFor,
 		usdValue,
+		/**
+		 * Whether `coinType` is SUI or a coin the registry recognises. Only
+		 * meaningful once `verifiedKnown`.
+		 */
+		isVerified,
+		/** The registry's entry for `coinType`, if it has one. */
+		recognizedCoin,
+		/** The registry, which says which coins are verified, has no answer yet. */
+		verifiedLoading: recognized.isPending,
+		/**
+		 * Whether the registry has loaded, so coins can be told verified or
+		 * not. False while it loads and when it failed without data.
+		 */
+		verifiedKnown,
 		value,
 		pricesAvailable,
 		...state,

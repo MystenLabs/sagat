@@ -143,6 +143,8 @@ function TriggerValue({
 				iconUrl={coinData?.iconUrl}
 				symbol={coinData?.symbol}
 				coinType={balance.coinType}
+				recognized={coinData?.recognized}
+				badge={false}
 				size="xs"
 			/>
 			<span className="shrink-0 text-14 font-medium">
@@ -191,6 +193,8 @@ function AssetOption({
 					iconUrl={coinData?.iconUrl}
 					symbol={coinData?.symbol}
 					coinType={balance.coinType}
+					recognized={coinData?.recognized}
+					badge={false}
 					size="xs"
 				/>
 				<span className="flex min-w-0 flex-col">

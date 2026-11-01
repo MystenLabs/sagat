@@ -86,7 +86,7 @@ export function useCoinMetadataMap(coinTypes: string[]) {
 	}, [coinTypes, dataSignature]);
 
 	const loadingSignature = results
-		.map((r) => (r.isLoading ? 1 : 0))
+		.map((r) => (r.isPending ? 1 : 0))
 		.join('');
 	const isLoadingFor = useCallback(
 		(coinType: string) => {
@@ -108,7 +108,7 @@ export function useCoinMetadataMap(coinTypes: string[]) {
 
 	return {
 		map,
-		isLoading: results.some((r) => r.isLoading),
+		isLoading: results.some((r) => r.isPending),
 		/** Whether the metadata of `coinType` is still loading. */
 		isLoadingFor,
 		/** Whether the metadata of `coinType` failed to load. */

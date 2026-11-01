@@ -56,7 +56,7 @@ export function SharedProposalPage() {
 
 	// Hold until it's known whether the viewer's accounts include it.
 	if (
-		proposalQuery.isLoading ||
+		proposalQuery.isPending ||
 		reconnecting ||
 		checkingAuth ||
 		(isCurrentAddressAuthenticated && loadingAccounts)

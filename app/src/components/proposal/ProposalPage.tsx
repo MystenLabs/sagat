@@ -58,7 +58,7 @@ export function ProposalPage() {
 				replace
 			/>
 		);
-	if (proposalQuery.isLoading)
+	if (digest && proposalQuery.isPending)
 		return <ProposalPageSkeleton />;
 
 	const proposal = proposalQuery.data;

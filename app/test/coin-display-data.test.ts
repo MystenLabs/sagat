@@ -133,6 +133,16 @@ describe('buildCoinDisplayMap', () => {
 		expect(entry?.priceUsd).toBeUndefined();
 	});
 
+	test("leaves out an unrecognized coin's icon, which its issuer chose", () => {
+		const result = buildCoinDisplayMap(
+			[USDC],
+			new Map(),
+			new Map([[USDC, metadata()]]),
+			'mainnet',
+		);
+		expect(result.get(USDC)?.iconUrl).toBeUndefined();
+	});
+
 	test('still resolves all coins via metadata when the recognized map is empty (registry down or errored)', () => {
 		const metaMap = new Map([
 			[SUI, metadata({ symbol: 'SUI' })],
@@ -243,7 +253,7 @@ describe('coinLabels', () => {
 		expect(
 			coinLabels(coinType, { symbol: '', name: '  ' }),
 		).toEqual({
-			symbol: `0xabab...abababab::foo::FOO`,
+			symbol: `0xabab…abab::foo::FOO`,
 			name: coinType,
 		});
 	});
@@ -251,7 +261,7 @@ describe('coinLabels', () => {
 	test('truncates a long package in the fallback symbol only', () => {
 		const coinType = `0x${'ab'.repeat(32)}::foo::FOO`;
 		expect(coinLabels(coinType, { name: null })).toEqual({
-			symbol: `0xabab...abababab::foo::FOO`,
+			symbol: `0xabab…abab::foo::FOO`,
 			name: coinType,
 		});
 	});

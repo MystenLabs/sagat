@@ -277,6 +277,14 @@ export class Actor extends Identity {
 		);
 	}
 
+	// Makes the price list fail to load. Call it before the page loads, as
+	// the app reads the list once.
+	async failRecognizedCoins() {
+		await this.page.route(RECOGNIZED_COINS_URL, (route) =>
+			route.abort(),
+		);
+	}
+
 	// Opens the current account's proposals tab. Accounts open on their
 	// overview.
 	async openProposalsTab() {
@@ -313,7 +321,7 @@ export class Actor extends Identity {
 
 	suiBalanceRow() {
 		return this.page.locator(
-			'[data-testid="asset-row"][data-coin-type$="::sui::SUI"]',
+			'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
 		);
 	}
 }

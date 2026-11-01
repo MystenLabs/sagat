@@ -13,10 +13,7 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { AccountValue } from '../multisig/AccountValue';
 import { OpenProposals } from '../multisig/OpenProposals';
-import {
-	TOKENS_SHOWN,
-	TokensCard,
-} from '../multisig/TokensCard';
+import { TokensCard } from '../multisig/TokensCard';
 
 interface OverviewTabContext {
 	multisig: MultisigWithMembersForPublicKey;
@@ -32,7 +29,6 @@ export function OverviewTab() {
 	const navigate = useNavigate();
 	const assets = useAccountAssets(multisig.address, {
 		allPages: true,
-		displayCount: TOKENS_SHOWN,
 	});
 
 	return (

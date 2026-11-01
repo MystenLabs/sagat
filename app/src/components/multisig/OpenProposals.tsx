@@ -97,7 +97,7 @@ export function OpenProposals({
 				variant="overview"
 				// Expired proposals aren't open, which takes the epoch to
 				// tell; if it fails to load, none count as expired.
-				loading={query.isLoading || epochQuery.isLoading}
+				loading={query.isPending || epochQuery.isPending}
 				// A failed background refetch keeps the loaded rows.
 				error={query.data ? null : query.error}
 				onRetry={() => query.refetch()}

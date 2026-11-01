@@ -3,8 +3,8 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
-import { formatCoinType, prettifyType } from './coin-type';
-import { pricingOnNetwork } from './coins';
+import { formatType, prettifyType } from './coin-type';
+import { isSuiCoinType, pricingOnNetwork } from './coins';
 import type { SuiNetwork } from './network';
 
 export type CoinMetadata = SuiClientTypes.CoinMetadata;
@@ -31,20 +31,24 @@ export interface CoinDisplayData extends CoinDisplayBase {
 	recognized: boolean;
 }
 
-export function fromMetadata(
+/**
+ * A coin outside the registry, from its on-chain metadata. Its icon URL is
+ * left out: the issuer picks it, so loading it would tell the issuer's
+ * server who looks at the pod. Only registry icons are shown.
+ */
+function fromMetadata(
 	metadata: CoinMetadata,
 ): CoinDisplayData {
 	return {
 		name: metadata.name,
 		symbol: metadata.symbol,
-		iconUrl: metadata.iconUrl,
 		decimals: metadata.decimals,
 		recognized: false,
 	};
 }
 
 /** A registry entry for display on `network`, priced only on mainnet. */
-export function fromRecognized(
+function fromRecognized(
 	coin: RecognizedCoin,
 	network: SuiNetwork,
 ): CoinDisplayData {
@@ -54,6 +58,33 @@ export function fromRecognized(
 		...pricingOnNetwork(network, coin),
 		recognized: true,
 	};
+}
+
+/**
+ * What to show for one coin: the registry's entry if it has one, else its
+ * metadata, else nothing yet.
+ */
+export function coinDisplayData(
+	recognizedCoin: RecognizedCoin | undefined,
+	metadata: CoinMetadata | null | undefined,
+	network: SuiNetwork,
+): CoinDisplayData | undefined {
+	if (recognizedCoin)
+		return fromRecognized(recognizedCoin, network);
+	return metadata ? fromMetadata(metadata) : undefined;
+}
+
+/**
+ * Whether a coin is verified: SUI, or a coin the registry recognises.
+ * Anyone can publish a coin called USDC, so its metadata proves nothing.
+ */
+export function isVerifiedCoin(
+	coinType: string,
+	recognizedMap: ReadonlyMap<string, unknown>,
+): boolean {
+	return (
+		isSuiCoinType(coinType) || recognizedMap.has(coinType)
+	);
 }
 
 /**
@@ -81,18 +112,12 @@ export function buildCoinDisplayMap(
 ): Map<string, CoinDisplayData> {
 	const out = new Map<string, CoinDisplayData>();
 	for (const coinType of coinTypes) {
-		const recognizedCoin = recognizedMap.get(coinType);
-		if (recognizedCoin) {
-			out.set(
-				coinType,
-				fromRecognized(recognizedCoin, network),
-			);
-			continue;
-		}
-		const metadata = metadataMap.get(coinType);
-		if (metadata) {
-			out.set(coinType, fromMetadata(metadata));
-		}
+		const data = coinDisplayData(
+			recognizedMap.get(coinType),
+			metadataMap.get(coinType),
+			network,
+		);
+		if (data) out.set(coinType, data);
 	}
 	return out;
 }
@@ -109,7 +134,7 @@ export function coinLabels(
 	const symbol = coinData?.symbol?.trim();
 	const name = coinData?.name?.trim();
 	return {
-		symbol: symbol || formatCoinType(coinType),
+		symbol: symbol || formatType(coinType),
 		name: name || prettifyType(coinType),
 	};
 }

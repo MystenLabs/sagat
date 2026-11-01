@@ -36,19 +36,25 @@ const TEST: CoinMetadata = {
  * Builds and publishes `move/test_coin` with `metadata` in place of its
  * constants, so each call is a new coin type with its own faucet. Global
  * setup publishes TEST this way; a test can publish its own in a few
- * seconds.
+ * seconds. The package is made immutable, unless `upgradeCapTo` names an
+ * address to send its UpgradeCap to.
  */
 export async function publishTestCoin(
 	chain: Chain,
 	metadata: CoinMetadata = TEST,
+	{ upgradeCapTo }: { upgradeCapTo?: string } = {},
 ): Promise<TestCoin> {
 	const { modules, dependencies } = build(metadata);
 
 	const tx = new Transaction();
-	tx.moveCall({
-		target: '0x2::package::make_immutable',
-		arguments: [tx.publish({ modules, dependencies })],
-	});
+	const upgradeCap = tx.publish({ modules, dependencies });
+	if (upgradeCapTo)
+		tx.transferObjects([upgradeCap], upgradeCapTo);
+	else
+		tx.moveCall({
+			target: '0x2::package::make_immutable',
+			arguments: [upgradeCap],
+		});
 	const created = await chain.executeAsFunder(tx);
 	const faucet = created.find((o) =>
 		o.type?.endsWith('::test_coin::Faucet'),
@@ -97,23 +103,90 @@ function build({ decimals, symbol, name }: CoinMetadata) {
 			);
 		}
 		writeFileSync(source, text);
-		return JSON.parse(
-			execFileSync(
-				'sui',
-				[
-					'move',
-					'build',
-					'--dump-bytecode-as-base64',
-					'--path',
-					dir,
-				],
-				// Piped so a failed build's output ends up in the error.
-				{ encoding: 'utf8', stdio: 'pipe' },
-			),
-		) as { modules: string[]; dependencies: string[] };
+		return compile(dir);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
+}
+
+/**
+ * Gives `address` one coin each of `count` new coin types, built as one
+ * package of `count` modules: far quicker than a publish per type.
+ */
+export async function giveManyCoinTypes(
+	chain: Chain,
+	address: string,
+	count: number,
+) {
+	const { modules, dependencies } = buildMany(count);
+	const publish = new Transaction();
+	publish.moveCall({
+		target: '0x2::package::make_immutable',
+		arguments: [publish.publish({ modules, dependencies })],
+	});
+	const created = await chain.executeAsFunder(publish);
+
+	const mint = new Transaction();
+	for (const faucet of created) {
+		if (!faucet.type?.endsWith('::Faucet')) continue;
+		const [packageId, module] = faucet.type.split('::');
+		mint.transferObjects(
+			[
+				mint.moveCall({
+					target: `${packageId}::${module}::mint`,
+					arguments: [
+						mint.object(faucet.objectId),
+						mint.pure.u64(1_000_000n),
+					],
+				}),
+			],
+			address,
+		);
+	}
+	await chain.executeAsFunder(mint);
+}
+
+function buildMany(count: number) {
+	const dir = mkdtempSync(join(tmpdir(), 'test-coins-'));
+	try {
+		cpSync(PATHS.testCoinPackage, dir, {
+			recursive: true,
+			filter: (path) => !/\/(build|Move\.lock)$/.test(path),
+		});
+		const source = `${dir}/sources/test_coin.move`;
+		const text = readFileSync(source, 'utf8');
+		rmSync(source);
+		for (let i = 0; i < count; i++)
+			writeFileSync(
+				`${dir}/sources/coin_${i}.move`,
+				text
+					.replace(
+						'module test_coin::test_coin;',
+						`module test_coin::coin_${i};`,
+					)
+					.replaceAll('TEST_COIN', `COIN_${i}`),
+			);
+		return compile(dir);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+}
+
+function compile(dir: string) {
+	return JSON.parse(
+		execFileSync(
+			'sui',
+			[
+				'move',
+				'build',
+				'--dump-bytecode-as-base64',
+				'--path',
+				dir,
+			],
+			// Piped so a failed build's output ends up in the error.
+			{ encoding: 'utf8', stdio: 'pipe' },
+		),
+	) as { modules: string[]; dependencies: string[] };
 }
 
 // A Move hex byte string, so any UTF-8 text fits.

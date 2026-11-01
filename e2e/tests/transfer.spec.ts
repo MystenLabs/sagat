@@ -42,7 +42,7 @@ test.describe('transfer form', () => {
 			.click();
 		await alice
 			.suiBalanceRow()
-			.getByTestId('asset-send-button')
+			.getByTestId('token-send-button')
 			.click();
 		// The faucet sent 1,000 SUI.
 		await fillTransfer(alice.page, {
@@ -99,7 +99,7 @@ test.describe('transfer form', () => {
 			.click();
 		await alice
 			.suiBalanceRow()
-			.getByTestId('asset-send-button')
+			.getByTestId('token-send-button')
 			.click();
 		await alice.page
 			.getByTestId('transfer-recipient-input')
