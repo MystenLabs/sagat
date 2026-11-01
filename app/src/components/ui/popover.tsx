@@ -58,4 +58,20 @@ function PopoverContent({
 	);
 }
 
-export { Popover, PopoverTrigger, PopoverContent };
+function PopoverArrow({
+	...props
+}: PopoverPrimitive.Arrow.Props) {
+	return (
+		<PopoverPrimitive.Arrow
+			data-slot="popover-arrow"
+			{...props}
+		/>
+	);
+}
+
+export {
+	Popover,
+	PopoverTrigger,
+	PopoverContent,
+	PopoverArrow,
+};

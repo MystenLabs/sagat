@@ -41,10 +41,10 @@ test.describe('invitations', () => {
 			.locator(`[data-address="${alice.address}"]`)
 			.hover();
 		const addressTip = bob.page
-			.getByRole('tooltip')
+			.getByTestId('address-popup')
 			.filter({ hasText: alice.address });
 		await expect(addressTip).toBeVisible();
-		// The tooltip stays open while hovered and can copy the address.
+		// The popup stays open while hovered and can copy the address.
 		await bob.context.grantPermissions([
 			'clipboard-read',
 			'clipboard-write',
@@ -97,7 +97,7 @@ test.describe('invitations', () => {
 				.memberItem(bob.address)
 				.getByTestId('member-label'),
 		).toHaveCount(0);
-		// Signer addresses show the full one when tabbed to.
+		// Signer addresses show the full one when tabbed to and opened.
 		await bob
 			.memberItem(alice.address)
 			.locator(`button[data-address="${alice.address}"]`)
@@ -108,9 +108,10 @@ test.describe('invitations', () => {
 				.memberItem(bob.address)
 				.locator(`button[data-address="${bob.address}"]`),
 		).toBeFocused();
+		await bob.page.keyboard.press('Enter');
 		await expect(
 			bob.page
-				.getByRole('tooltip')
+				.getByTestId('address-popup')
 				.filter({ hasText: bob.address }),
 		).toBeVisible();
 		await expect(

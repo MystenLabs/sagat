@@ -77,14 +77,16 @@ export class Actor extends Identity {
 			failRestore,
 			rejectSigning,
 			declineSign,
+			hasTouch,
 		}: {
 			walletChains?: E2EWalletConfig['chains'];
 			failRestore?: boolean;
 			rejectSigning?: boolean;
 			declineSign?: boolean;
+			hasTouch?: boolean;
 		} = {},
 	) {
-		const context = await browser.newContext();
+		const context = await browser.newContext({ hasTouch });
 		await isolateFromInternet(context);
 
 		const walletConfig: E2EWalletConfig = {

@@ -57,7 +57,7 @@ export function RemoveProposerDialog({
 				className="gap-0 p-6 sm:max-w-[420px]"
 				data-testid="remove-proposer-confirm"
 				data-address={proposerAddress ?? undefined}
-				// Not the address before it, whose tooltip opens on focus.
+				// Not the address before it.
 				initialFocus={cancelRef}
 			>
 				<DialogTitle className="text-20 font-bold">
