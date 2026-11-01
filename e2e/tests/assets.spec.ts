@@ -189,6 +189,13 @@ test.describe('assets', () => {
 		await expect(
 			cap.getByTestId('object-subtitle-id'),
 		).toHaveAttribute('data-id', packageId);
+		// The short package id shows the whole one on hover.
+		await cap.getByTestId('object-subtitle-id').hover();
+		await expect(
+			page
+				.getByRole('tooltip')
+				.filter({ hasText: packageId }),
+		).toBeVisible();
 		const subtitle = cap.getByTestId('object-subtitle');
 		await expect(subtitle).toContainText('version 1');
 		await expect(subtitle).toContainText('Compatible');

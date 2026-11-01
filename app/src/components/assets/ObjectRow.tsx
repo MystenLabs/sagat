@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatAddress } from '@mysten/sui/utils';
 import { ArrowUpRight, Box } from 'lucide-react';
 import { Fragment } from 'react';
 
@@ -11,8 +10,8 @@ import { formatType } from '@/lib/coin-type';
 import { type ObjectView } from '@/lib/systemObjects';
 import { cn, getExplorerUrl } from '@/lib/utils';
 
+import { ShortAddress } from '../invitations/ShortAddress';
 import { buttonVariants } from '../ui/button';
-import { CopyButton } from '../ui/CopyButton';
 import { Skeleton, SkeletonLine } from '../ui/skeleton';
 import { tableRowClass } from '../ui/table';
 
@@ -65,7 +64,7 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 											<span className="inline-flex shrink-0 items-center whitespace-nowrap">
 												{COPY.labelledId(
 													part.label,
-													<ShortId
+													<ObjectId
 														id={part.id}
 														testId="object-subtitle-id"
 													/>,
@@ -105,9 +104,10 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 				</span>
 			</td>
 			<td className="px-3 py-2">
-				<ShortId id={view.objectId} testId="object-id" />
+				<ObjectId id={view.objectId} testId="object-id" />
 			</td>
-			<td className="hidden px-3 py-2 text-right sm:table-cell">
+			{/* A link here too: a tap doesn't open the id's tooltip. */}
+			<td className="py-2 pr-3 text-right sm:pl-3">
 				{explorerUrl && (
 					<a
 						href={explorerUrl}
@@ -131,8 +131,11 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 	);
 }
 
-/** An object id, short, with a copy button and a link to the explorer. */
-function ShortId({
+/**
+ * An object id, short, with the full one, a copy button and a link to
+ * the explorer in its tooltip.
+ */
+function ObjectId({
 	id,
 	testId,
 }: {
@@ -140,28 +143,16 @@ function ShortId({
 	testId: string;
 }) {
 	const { network } = useNetwork();
-	const explorerUrl = getExplorerUrl(id, network, 'object');
-	const short = formatAddress(id);
 	return (
 		<span
-			className="inline-flex shrink-0 items-center gap-1 font-mono text-12"
+			className="inline-flex shrink-0 font-mono text-12"
 			data-testid={testId}
 			data-id={id}
 		>
-			{explorerUrl ? (
-				<a
-					href={explorerUrl}
-					target="_blank"
-					rel="noopener noreferrer"
-					className="hover:underline"
-					title={id}
-				>
-					{short}
-				</a>
-			) : (
-				<span title={id}>{short}</span>
-			)}
-			<CopyButton value={id} size="inline" />
+			<ShortAddress
+				address={id}
+				explorerUrl={getExplorerUrl(id, network, 'object')}
+			/>
 		</span>
 	);
 }
@@ -195,9 +186,9 @@ export function ObjectSkeletonRows({
 				<SkeletonLine className={i % 2 ? 'w-36' : 'w-40'} />
 			</td>
 			<td className="px-3 py-2">
-				<SkeletonLine className="w-22" />
+				<SkeletonLine className="w-20 sm:w-22" />
 			</td>
-			<td className="hidden sm:table-cell" />
+			<td />
 		</tr>
 	));
 }

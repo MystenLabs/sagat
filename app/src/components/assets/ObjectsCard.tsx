@@ -276,11 +276,10 @@ export function ObjectsCard({
 									<th className="hidden w-[30%] px-3 sm:table-cell">
 										{content.common.fields.type}
 									</th>
-									<th className="w-32 px-3 sm:w-40">
+									<th className="w-26 px-3 sm:w-40">
 										{COPY.objectId}
 									</th>
-									{/* Phones leave the link out: the object id links there too. */}
-									<th className="hidden w-14 px-3 sm:table-cell">
+									<th className="w-10 sm:w-14 sm:px-3">
 										<span className="sr-only">
 											{content.common.fields.actions}
 										</span>

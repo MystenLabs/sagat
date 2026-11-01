@@ -106,8 +106,7 @@ const UPGRADE_POLICIES: Record<number, string> = {
 
 /**
  * A piece of an object's subtitle: text, or an object id to show short
- * after its label (`package`, `kiosk`). Ids come last, so their copy
- * button ends the line.
+ * after its label (`package`, `kiosk`).
  */
 export type SubtitlePart =
 	| { kind: 'text'; text: string }
