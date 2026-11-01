@@ -5,6 +5,11 @@ import {
 	normalizeStructTag,
 	SUI_TYPE_ARG,
 } from '@mysten/sui/utils';
+import {
+	onlineManager,
+	QueryClient,
+	QueryObserver,
+} from '@tanstack/react-query';
 import { describe, expect, test } from 'vitest';
 
 import type { SuiNetwork } from '../src/contexts/NetworkContext';
@@ -531,11 +536,11 @@ describe('pricesAvailableOn', () => {
 
 describe('accountAssetsState', () => {
 	const ready = {
-		balancesLoading: false,
+		balancesPending: false,
 		balancesError: false,
 		hasData: true,
 		pagesLeft: false,
-		pricesLoading: false,
+		pricesPending: false,
 		pricesError: false,
 		pricesAvailable: true,
 	};
@@ -550,7 +555,30 @@ describe('accountAssetsState', () => {
 		expect(
 			accountAssetsState({
 				...ready,
-				balancesLoading: true,
+				balancesPending: true,
+				hasData: false,
+			}),
+		).toEqual(loading);
+	});
+
+	test('stays loading while a load is paused offline, with no data', () => {
+		onlineManager.setOnline(false);
+		const observer = new QueryObserver(new QueryClient(), {
+			queryKey: ['balances'],
+			queryFn: async () => [],
+		});
+		const unsubscribe = observer.subscribe(() => {});
+		const paused = observer.getCurrentResult();
+		unsubscribe();
+		onlineManager.setOnline(true);
+
+		// What makes `isLoading` the wrong flag to pass.
+		expect(paused.fetchStatus).toBe('paused');
+		expect(paused.isLoading).toBe(false);
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesPending: paused.isPending,
 				hasData: false,
 			}),
 		).toEqual(loading);
@@ -568,7 +596,7 @@ describe('accountAssetsState', () => {
 
 	test('loads while the prices are pending', () => {
 		expect(
-			accountAssetsState({ ...ready, pricesLoading: true }),
+			accountAssetsState({ ...ready, pricesPending: true }),
 		).toEqual(loading);
 	});
 
@@ -576,7 +604,7 @@ describe('accountAssetsState', () => {
 		expect(
 			accountAssetsState({
 				...ready,
-				pricesLoading: true,
+				pricesPending: true,
 				pricesAvailable: false,
 			}),
 		).toEqual(settled);

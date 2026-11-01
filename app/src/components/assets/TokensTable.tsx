@@ -96,7 +96,7 @@ export function TokensTable({
 	// the assets page waits for every page too, so its split is final.
 	const loading =
 		waiting ||
-		(full ? assets.isLoading : assets.query.isLoading) ||
+		(full ? assets.isLoading : assets.query.isPending) ||
 		assets.verifiedLoading;
 	if (loading)
 		return (
@@ -307,7 +307,7 @@ function TokenRow({
 		: metadata.data
 			? fromMetadata(metadata.data)
 			: undefined;
-	const isLoading = metadata.isLoading;
+	const isLoading = !recognizedCoin && metadata.isPending;
 	const decimals = coinData?.decimals;
 	const { symbol, name } = coinLabels(
 		balance.coinType,

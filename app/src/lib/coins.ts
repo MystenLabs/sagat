@@ -345,15 +345,19 @@ export function shownUsdTotal(
 }
 
 export interface AccountAssetsInput {
-	balancesLoading: boolean;
+	/**
+	 * No balances and no error yet, loading or paused offline. Not
+	 * `isLoading`: paused, that is false, and no balances would read as $0.
+	 */
+	balancesPending: boolean;
 	/** The balances query is in an error state. */
 	balancesError: boolean;
 	/** Some balances are loaded (kept through a failed refetch). */
 	hasData: boolean;
 	/** Balances pages are still to be fetched for the total. */
 	pagesLeft: boolean;
-	/** The registry, the only source of prices, is loading. */
-	pricesLoading: boolean;
+	/** The registry, the only source of prices, has no answer yet. */
+	pricesPending: boolean;
 	/** The registry failed to load. */
 	pricesError: boolean;
 	pricesAvailable: boolean;
@@ -376,11 +380,11 @@ export interface AccountAssetsState {
  * prices are unavailable.
  */
 export function accountAssetsState({
-	balancesLoading,
+	balancesPending,
 	balancesError,
 	hasData,
 	pagesLeft,
-	pricesLoading,
+	pricesPending,
 	pricesError,
 	pricesAvailable,
 }: AccountAssetsInput): AccountAssetsState {
@@ -388,9 +392,9 @@ export function accountAssetsState({
 	return {
 		isLoading:
 			!isError &&
-			(balancesLoading ||
+			(balancesPending ||
 				pagesLeft ||
-				(pricesAvailable && pricesLoading)),
+				(pricesAvailable && pricesPending)),
 		isError,
 		pricesError: pricesAvailable && pricesError,
 	};

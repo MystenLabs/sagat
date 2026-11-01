@@ -57,9 +57,9 @@ export function useCoinDisplayDataMap(coinTypes: string[]) {
 	const metadataLoadingFor = fallbackMetadata.isLoadingFor;
 	const isLoadingFor = useCallback(
 		(coinType: string) =>
-			recognizedQuery.isLoading ||
+			recognizedQuery.isPending ||
 			metadataLoadingFor(coinType),
-		[recognizedQuery.isLoading, metadataLoadingFor],
+		[recognizedQuery.isPending, metadataLoadingFor],
 	);
 
 	// Recognized errors stay silent — the metadata fallback covers them.
@@ -67,7 +67,7 @@ export function useCoinDisplayDataMap(coinTypes: string[]) {
 		map,
 		/** The registry or some coin's metadata is still loading. */
 		isLoading:
-			recognizedQuery.isLoading ||
+			recognizedQuery.isPending ||
 			fallbackMetadata.isLoading,
 		/** The registry or `coinType`'s metadata is still loading. */
 		isLoadingFor,

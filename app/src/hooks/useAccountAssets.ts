@@ -131,13 +131,13 @@ export function useAccountAssets(
 
 	const pricesAvailable = pricesAvailableOn(network);
 	const state = accountAssetsState({
-		balancesLoading: query.isLoading,
+		balancesPending: query.isPending,
 		balancesError: isError,
 		hasData: !!query.data,
 		// Not `allPages && …`: passing an option itself would make the
 		// React Compiler treat `displayCount` as mutable.
 		pagesLeft: allPages ? hasNextPage : false,
-		pricesLoading: recognized.isLoading,
+		pricesPending: recognized.isPending,
 		// A failed refetch keeps the loaded price list, the way balances do.
 		pricesError: recognized.isError && !recognized.data,
 		pricesAvailable,
@@ -179,8 +179,8 @@ export function useAccountAssets(
 		isVerified,
 		/** The registry's entry for `coinType`, if it has one. */
 		recognizedCoin,
-		/** The registry, which says which coins are verified, is loading. */
-		verifiedLoading: recognized.isLoading,
+		/** The registry, which says which coins are verified, has no answer yet. */
+		verifiedLoading: recognized.isPending,
 		/**
 		 * Whether the registry has loaded, so coins can be told verified or
 		 * not. False while it loads and when it failed without data.

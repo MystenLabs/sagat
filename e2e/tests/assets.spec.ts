@@ -127,6 +127,61 @@ test.describe('assets', () => {
 		).toHaveCount(0);
 	});
 
+	test('without a connection a pod not loaded yet stays loading, not empty', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const first = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 1,
+		});
+		const second = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('carol')],
+			threshold: 1,
+		});
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.goto(`/multisig/${first.address}/assets`);
+		const noAssets = page.getByTestId('assets-empty');
+		await expect(noAssets).toBeVisible();
+
+		await page.evaluate(() =>
+			window.dispatchEvent(new Event('offline')),
+		);
+		await page.getByTestId('multisig-switcher').click();
+		await page
+			.locator(
+				`[data-testid="multisig-switcher-option"][data-address="${second.address}"]`,
+			)
+			.click();
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			second.address,
+		);
+		await expect(
+			page.getByTestId('assets-tokens-loading'),
+		).toBeVisible();
+		await expect(noAssets).toHaveCount(0);
+		await expect(
+			page.getByTestId('assets-tokens-empty'),
+		).toHaveCount(0);
+		await expect(
+			page.getByTestId('account-value-amount'),
+		).toHaveCount(0);
+
+		// Back online it finds out, and this one really holds nothing.
+		await page.evaluate(() =>
+			window.dispatchEvent(new Event('online')),
+		);
+		await expect(noAssets).toBeVisible();
+	});
+
 	test('objects come a page at a time, without coins', async ({
 		createActor,
 		createIdentity,
