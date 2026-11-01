@@ -171,12 +171,12 @@ function formatUnits(
 	return negative ? `-${display}` : display;
 }
 
-/** Under this, a value above 0 would round to $0.0000. */
+/** Under this in size, a value other than 0 would round to $0.0000. */
 const SMALLEST_SHOWN_USD = 0.00005;
 
 export function formatUsdValue(value: number): string {
-	if (value > 0 && value < SMALLEST_SHOWN_USD)
-		return content.common.belowSmallestUsd;
+	if (value !== 0 && Math.abs(value) < SMALLEST_SHOWN_USD)
+		return content.common.belowSmallestUsd(value < 0);
 	const fractionDigits =
 		value !== 0 && Math.abs(value) < 1 ? 4 : 2;
 	return new Intl.NumberFormat('en-US', {

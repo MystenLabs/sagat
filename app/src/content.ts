@@ -24,8 +24,9 @@ function signerCount(count: number) {
  */
 export const content = {
 	common: {
-		/** A USD value above 0 too small to show at four decimals. */
-		belowSmallestUsd: '<$0.0001',
+		/** A USD value other than 0 too small to show at four decimals. */
+		belowSmallestUsd: (negative: boolean) =>
+			`${negative ? '-' : ''}<$0.0001`,
 		/** Buttons, links and menu items. */
 		actions: {
 			cancel: 'Cancel',
