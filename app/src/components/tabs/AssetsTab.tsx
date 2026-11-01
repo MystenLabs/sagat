@@ -85,7 +85,7 @@ export function AssetsTab() {
 		address,
 		{ kind: 'all' },
 		FIRST_PAGE,
-		{ enabled: noBalances || view === 'objects' },
+		{ enabled: noBalances },
 	);
 	const empty =
 		noBalances &&

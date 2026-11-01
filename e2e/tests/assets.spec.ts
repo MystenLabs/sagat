@@ -133,7 +133,7 @@ test.describe('assets', () => {
 		).toBeDisabled();
 	});
 
-	test('a later page that fails to load keeps the way back', async ({
+	test('a later page keeps the way back while it waits and when it fails', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -151,22 +151,38 @@ test.describe('assets', () => {
 		await openObjects(page);
 		const rows = page.getByTestId('object-row');
 		await expect(rows).toHaveCount(20);
+		const next = page.getByTestId('objects-next-page');
+		const back = page.getByTestId('objects-previous-page');
+
+		// Offline a page waits, rather than saying it holds nothing.
+		const dispatch = (event: 'offline' | 'online') =>
+			page.evaluate(
+				(name) => window.dispatchEvent(new Event(name)),
+				event,
+			);
+		await dispatch('offline');
+		await next.click();
+		await expect(
+			page.getByTestId('objects-table'),
+		).toHaveAttribute('aria-busy', 'true');
+		await expect(next).toBeDisabled();
+		await back.click();
+		await expect(rows).toHaveCount(20);
+		await dispatch('online');
 
 		const listing = '**/ListOwnedObjects';
 		await page.route(listing, (route) => route.abort());
-		await page.getByTestId('objects-next-page').click();
+		await next.click();
 		await expect(
 			page.getByTestId('objects-error'),
 		).toBeVisible();
 		await expect(
 			page.getByTestId('objects-page'),
 		).toHaveAttribute('data-page', '2');
-		await expect(
-			page.getByTestId('objects-next-page'),
-		).toBeDisabled();
+		await expect(next).toBeDisabled();
 
 		await page.unroute(listing);
-		await page.getByTestId('objects-previous-page').click();
+		await back.click();
 		await expect(rows).toHaveCount(20);
 	});
 

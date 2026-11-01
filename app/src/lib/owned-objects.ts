@@ -14,18 +14,21 @@ import {
 } from './systemObjects';
 import type { SystemObjectKind } from './systemObjects';
 
-/**
- * Rows on one page of the assets page's objects. It stays within the
- * node's cap of 50 a call, as no call asks for more than a page.
- */
+/** Rows on one page of the assets page's objects. */
 export const OBJECTS_PAGE_SIZE = 20;
 /**
- * Node calls one page may take: enough to scan about 500 objects at the
- * full page size. A pod with hundreds of coin objects can fill whole node
- * pages with coins, which the list leaves out; past this many calls the
- * page shows what it found and the next one carries on. A page that is
- * nearly full when it reaches a run of coins asks for few objects a call,
- * so it can run out sooner and come back short.
+ * Objects a call asks for after one that kept nothing, to get through a
+ * run of coins. The node would take up to 1000, but each object comes back
+ * with its content and Display.
+ */
+export const SCAN_LIMIT = 50;
+/**
+ * Node calls one page may take, re-reads included: enough to scan about
+ * 1,200 objects when they are coins. The node orders objects by type, so
+ * `0x2::coin::Coin` comes ahead of nearly everything, and the list leaves
+ * coins out. Past this many calls the page shows what it found and the
+ * next one carries on, so a pod with more coins than that can still open
+ * on a blank page with Next.
  */
 export const MAX_NODE_CALLS = 25;
 
@@ -48,11 +51,13 @@ export interface FilledPage<T> {
 
 /**
  * Fills one page with up to `size` objects that `keep` accepts, reading
- * node pages from `start` on. Each call asks only for the rows still
- * missing, so a page never reads past its last row and the next one
- * starts at the node's cursor. A cursor is a place in the node's order,
- * not a count, so going forward shows every object the pod keeps once,
- * even when earlier ones leave between two pages.
+ * node pages from `start` on. A call asks for the rows still missing, or
+ * for `SCAN_LIMIT` after a call that kept nothing. When that brings more
+ * rows than fit, the same place is read again up to the last row that
+ * fits, so the next page starts at a cursor from the node and not at an
+ * offset. A cursor is a place in the node's order, not a count, so going
+ * forward shows every object the pod keeps once, even when earlier ones
+ * leave between two pages.
  *
  * A page isn't always full, and a next page isn't always worth opening. It
  * takes at most `maxCalls` node calls, and when they run out it may be
@@ -78,15 +83,21 @@ export async function fillPage<T>({
 }): Promise<FilledPage<T>> {
 	const rows: T[] = [];
 	let cursor = start;
+	let limit = size;
 	for (let call = 0; call < maxCalls; call++) {
-		const page = await fetchNodePage(
-			cursor,
-			size - rows.length,
-		);
-		rows.push(...page.objects.filter(keep));
+		const page = await fetchNodePage(cursor, limit);
+		const kept = page.objects.filter(keep);
+		const room = size - rows.length;
+		if (kept.length > room) {
+			limit = page.objects.indexOf(kept[room - 1]) + 1;
+			continue;
+		}
+		rows.push(...kept);
 		if (!page.hasNextPage) return { rows, next: null };
 		cursor = page.cursor;
-		if (rows.length >= size) break;
+		if (rows.length === size) break;
+		limit =
+			kept.length === 0 ? SCAN_LIMIT : size - rows.length;
 	}
 	return { rows, next: cursor };
 }

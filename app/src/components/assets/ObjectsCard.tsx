@@ -140,10 +140,10 @@ export function ObjectsCard({
 			starts: starts.slice(0, -1),
 		});
 
+	// A failed refetch keeps the rows already loaded.
+	const failed = query.isError && !query.data;
 	const noRows =
-		!query.isLoading &&
-		!query.isError &&
-		views.length === 0;
+		!query.isPending && !failed && views.length === 0;
 	// A page can come back without rows and still have more after it, when
 	// its node calls ran out on coins; only one with nothing left is empty.
 	const empty = noRows && page === 1 && !next;
@@ -247,7 +247,7 @@ export function ObjectsCard({
 				</div>
 			</div>
 
-			{query.isError ? (
+			{failed ? (
 				<>
 					<ErrorState
 						title={COPY.loadFailed}
@@ -260,7 +260,7 @@ export function ObjectsCard({
 					{page > 1 && (
 						<Pager
 							page={page}
-							loading={query.isLoading}
+							loading={query.isPending}
 							onBack={goBack}
 						/>
 					)}
@@ -286,7 +286,7 @@ export function ObjectsCard({
 					<div className="relative overflow-x-auto">
 						<table
 							className={cn(tableClass, 'sm:min-w-160')}
-							aria-busy={query.isLoading || undefined}
+							aria-busy={query.isPending || undefined}
 							data-testid="objects-table"
 						>
 							<thead>
@@ -306,7 +306,7 @@ export function ObjectsCard({
 								</tr>
 							</thead>
 							<tbody>
-								{query.isLoading ? (
+								{query.isPending ? (
 									<ObjectSkeletonRows
 										rows={SKELETON_ROWS}
 									/>
@@ -334,7 +334,7 @@ export function ObjectsCard({
 					{(page > 1 || next) && (
 						<Pager
 							page={page}
-							loading={query.isLoading}
+							loading={query.isPending}
 							onBack={goBack}
 							onNext={
 								next
@@ -373,7 +373,7 @@ function Pager({
 				variant="outline"
 				size="icon-sm"
 				onClick={onBack}
-				disabled={loading || page === 1}
+				disabled={page === 1}
 				aria-label={COPY.previousPage}
 				data-testid="objects-previous-page"
 			>

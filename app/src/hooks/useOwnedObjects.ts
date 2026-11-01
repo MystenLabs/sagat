@@ -64,6 +64,8 @@ export function useOwnedObjects(
 			});
 		},
 		staleTime: STALE_TIME_MS,
+		// Each retry runs the page's whole scan again.
+		retry: 1,
 		enabled,
 	});
 }
