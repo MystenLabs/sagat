@@ -11,7 +11,6 @@ import { accountName } from '@/lib/account-name';
 import { newProposalPath } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
-import { TOKENS_SHOWN } from '../assets/TokensTable';
 import { AccountValue } from '../multisig/AccountValue';
 import { OpenProposals } from '../multisig/OpenProposals';
 import { TokensCard } from '../multisig/TokensCard';
@@ -30,7 +29,6 @@ export function OverviewTab() {
 	const navigate = useNavigate();
 	const assets = useAccountAssets(multisig.address, {
 		allPages: true,
-		displayCount: TOKENS_SHOWN,
 	});
 
 	return (

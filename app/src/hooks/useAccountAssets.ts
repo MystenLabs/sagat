@@ -29,21 +29,19 @@ import { useRecognizedCoins } from './useRecognizedCoins';
  * Prices come from the registry alone, so valuing and sorting never wait
  * on coin metadata. Display data (with the metadata fallback for coins
  * outside the registry) is fetched only for the first `displayCount`
- * balances, for `coinTypes` and, with `displayListed`, for the balances
- * outside the unverified group; without any of them `coinData` stays
- * empty. Pass `Infinity` as `displayCount` for every balance.
+ * balances and for `coinTypes`; without either `coinData` stays empty.
+ * Pass `Infinity` as `displayCount` for every balance. The tokens table
+ * asks for neither: each of its rows reads its own.
  */
 export function useAccountAssets(
 	address: string,
 	{
 		allPages = false,
 		displayCount,
-		displayListed = false,
 		coinTypes,
 	}: {
 		allPages?: boolean;
 		displayCount?: number;
-		displayListed?: boolean;
 		coinTypes?: readonly string[];
 	} = {},
 ) {
@@ -92,6 +90,10 @@ export function useAccountAssets(
 			isVerifiedCoin(coinType, recognized.map),
 		[recognized.map],
 	);
+	const recognizedCoin = useCallback(
+		(coinType: string) => recognized.map.get(coinType),
+		[recognized.map],
+	);
 	const balances = useMemo(
 		() => sortBalances(query.balances, usdValue),
 		[query.balances, usdValue],
@@ -121,18 +123,9 @@ export function useAccountAssets(
 			...balances
 				.slice(0, displayCount ?? 0)
 				.map((b) => b.coinType),
-			...(displayListed ? listedBalances : []).map(
-				(b) => b.coinType,
-			),
 			...(coinTypes ?? []),
 		],
-		[
-			balances,
-			displayCount,
-			displayListed,
-			listedBalances,
-			coinTypes,
-		],
+		[balances, displayCount, coinTypes],
 	);
 	const coinData = useCoinDisplayDataMap(shownCoinTypes);
 
@@ -176,8 +169,6 @@ export function useAccountAssets(
 		unverifiedBalances,
 		/** Display data for what the options ask for. */
 		coinData: coinData.map,
-		/** Whether the display data of `coinType` is still loading. */
-		isCoinDataLoadingFor: coinData.isLoadingFor,
 		/** Whether the display data of `coinType` failed to load. */
 		isCoinDataErrorFor: coinData.isErrorFor,
 		usdValue,
@@ -186,6 +177,8 @@ export function useAccountAssets(
 		 * meaningful once `verifiedKnown`.
 		 */
 		isVerified,
+		/** The registry's entry for `coinType`, if it has one. */
+		recognizedCoin,
 		/** The registry, which says which coins are verified, is loading. */
 		verifiedLoading: recognized.isLoading,
 		/**

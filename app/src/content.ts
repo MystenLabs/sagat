@@ -706,6 +706,7 @@ export const content = {
 			clearFilter: 'Clear filter',
 			invalidType:
 				'Enter a full type, e.g. 0x2::package::UpgradeCap',
+			coinTypeFilter: 'Coins are on the Tokens tab.',
 			typeSelectLabel: 'Object type',
 			allTypes: 'All types',
 			otherTypes: 'Other',

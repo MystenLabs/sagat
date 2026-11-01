@@ -7,15 +7,20 @@ import {
 	RefreshCw,
 	Send,
 } from 'lucide-react';
+import { useState } from 'react';
 
 import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { type useAccountAssets } from '@/hooks/useAccountAssets';
+import { useCoinMetadata } from '@/hooks/useCoinMetadata';
 import { type Balance } from '@/hooks/useMultisigBalances';
 import { formatType } from '@/lib/coin-type';
 import {
 	coinLabels,
+	fromMetadata,
+	fromRecognized,
 	sameCoinLabel,
-	type CoinDisplayData,
+	type RecognizedCoin,
 } from '@/lib/coinDisplay';
 import {
 	formatCoinAmount,
@@ -51,7 +56,7 @@ const COPY = content.assets.tokens;
 type AccountAssets = ReturnType<typeof useAccountAssets>;
 
 /** The overview lists this many tokens; the rest are on the assets page. */
-export const TOKENS_SHOWN = 5;
+const TOKENS_SHOWN = 5;
 
 /**
  * Where the tokens table sits. The overview shows the largest holdings in
@@ -64,8 +69,10 @@ export type TokensTableVariant = 'overview' | 'assets';
  * The account's coins as a table: each with its balance, its USD value as
  * far as a price is known, and Send. Verified coins (SUI and the
  * registry's) carry a check, the rest an Unverified chip, once the
- * registry is known; without it neither shows. Test ids are
- * `testId` plus `-table`, `-loading`, `-error` and `-empty`.
+ * registry is known; without it neither shows. Each row reads its own
+ * display data, so a closed group fetches none and a response rerenders one
+ * row. Test ids are `testId` plus `-table`, `-loading`, `-error` and
+ * `-empty`.
  */
 export function TokensTable({
 	assets,
@@ -73,8 +80,6 @@ export function TokensTable({
 	onSend,
 	testId,
 	waiting = false,
-	unverifiedOpen = false,
-	onUnverifiedOpenChange,
 }: {
 	assets: AccountAssets;
 	variant: TokensTableVariant;
@@ -82,11 +87,10 @@ export function TokensTable({
 	testId: string;
 	/** Stays in the loading state: the page doesn't know yet what to show. */
 	waiting?: boolean;
-	/** Whether the assets variant's unverified group is open. */
-	unverifiedOpen?: boolean;
-	onUnverifiedOpenChange?: (open: boolean) => void;
 }) {
 	const full = variant === 'assets';
+	const [unverifiedOpen, setUnverifiedOpen] =
+		useState(false);
 
 	// Both wait for the registry, so no coin is marked before it is known;
 	// the assets page waits for every page too, so its split is final.
@@ -138,12 +142,11 @@ export function TokensTable({
 		<TokenRow
 			key={balance.coinType}
 			balance={balance}
-			coinData={assets.coinData.get(balance.coinType)}
-			verified={verified(balance.coinType)}
-			usd={assets.usdValue(balance)}
-			isLoading={assets.isCoinDataLoadingFor(
+			recognizedCoin={assets.recognizedCoin(
 				balance.coinType,
 			)}
+			verified={verified(balance.coinType)}
+			usd={assets.usdValue(balance)}
 			showPrice={full}
 			onSend={() => onSend(balance.coinType)}
 		/>
@@ -208,9 +211,7 @@ export function TokensTable({
 										className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-14 text-foreground-secondary outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
 										aria-expanded={unverifiedOpen}
 										onClick={() =>
-											onUnverifiedOpenChange?.(
-												!unverifiedOpen,
-											)
+											setUnverifiedOpen((open) => !open)
 										}
 										data-testid="unverified-tokens-toggle"
 										data-count={unverified.length}
@@ -280,22 +281,33 @@ export function PricesUpdated({
 
 function TokenRow({
 	balance,
-	coinData,
+	recognizedCoin,
 	verified,
 	usd,
-	isLoading,
 	showPrice,
 	onSend,
 }: {
 	balance: Balance;
-	coinData: CoinDisplayData | undefined;
+	recognizedCoin: RecognizedCoin | undefined;
 	/** Undefined while the registry isn't known: neither mark shows. */
 	verified: boolean | undefined;
 	usd: number | null;
-	isLoading: boolean;
 	showPrice: boolean;
 	onSend: () => void;
 }) {
+	// The registry comes from the table, not from a query of the row's own:
+	// a new observer refetches a failed registry, which puts the table back
+	// in its loading state, which unmounts the rows, and so on for ever.
+	const { network } = useNetwork();
+	const metadata = useCoinMetadata(balance.coinType, {
+		enabled: !recognizedCoin,
+	});
+	const coinData = recognizedCoin
+		? fromRecognized(recognizedCoin, network)
+		: metadata.data
+			? fromMetadata(metadata.data)
+			: undefined;
+	const isLoading = metadata.isLoading;
 	const decimals = coinData?.decimals;
 	const { symbol, name } = coinLabels(
 		balance.coinType,

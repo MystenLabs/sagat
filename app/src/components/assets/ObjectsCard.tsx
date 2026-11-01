@@ -15,6 +15,7 @@ import { useOwnedObjects } from '@/hooks/useOwnedObjects';
 import { useRecognizedCoins } from '@/hooks/useRecognizedCoins';
 import {
 	FIRST_PAGE,
+	isCoinObjectType,
 	objectsFilterKey,
 	parseTypeFilter,
 	type ObjectsFilter,
@@ -83,8 +84,16 @@ export function ObjectsCard({
 		return () => clearTimeout(timer);
 	}, [text]);
 
-	const typedType = typed ? parseTypeFilter(typed) : null;
-	const invalidType = !!typed && !typedType;
+	const parsedType = typed ? parseTypeFilter(typed) : null;
+	// A coin type isn't put to the node: the list would leave out all it finds.
+	const coinType =
+		!!parsedType && isCoinObjectType(parsedType);
+	const typedType = coinType ? null : parsedType;
+	const filterProblem = coinType
+		? COPY.coinTypeFilter
+		: typed && !parsedType
+			? COPY.invalidType
+			: null;
 	const filter: ObjectsFilter = typedType
 		? { kind: 'type', type: typedType }
 		: choice === 'all' || choice === 'other'
@@ -211,9 +220,9 @@ export function ObjectsCard({
 								onChange={(e) => typeText(e.target.value)}
 								placeholder={COPY.filterPlaceholder}
 								aria-label={COPY.filterLabel}
-								aria-invalid={invalidType || undefined}
+								aria-invalid={!!filterProblem || undefined}
 								aria-describedby={
-									invalidType
+									filterProblem
 										? 'objects-filter-error'
 										: undefined
 								}
@@ -235,13 +244,16 @@ export function ObjectsCard({
 							)}
 						</InputGroup>
 					</div>
-					{invalidType && (
+					{filterProblem && (
 						<p
 							id="objects-filter-error"
 							className="text-12 text-error-foreground"
 							data-testid="objects-filter-error"
+							data-reason={
+								coinType ? 'coin-type' : 'invalid'
+							}
 						>
-							{COPY.invalidType}
+							{filterProblem}
 						</p>
 					)}
 				</div>

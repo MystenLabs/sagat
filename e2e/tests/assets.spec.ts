@@ -13,6 +13,9 @@ import {
 	publishTestCoin,
 } from '../support/test-coin';
 
+const RECOGNIZED_COINS_URL =
+	'https://apps-backend.sui.io/v2/recognized-coins';
+
 // Sends `owner` `count` KioskOwnerCaps in one transaction, sharing each
 // kiosk: a cheap way to give a pod many objects that aren't coins.
 async function giveKioskOwnerCaps(
@@ -88,6 +91,40 @@ test.describe('assets', () => {
 		).toHaveText('No price');
 		// With coins to show, the tokens never ask for the objects.
 		expect(objectListings).toEqual([]);
+	});
+
+	test('without the price list every coin is listed with its details, unmarked', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 1,
+		});
+		await chain.fund(multisig.address);
+		await mintTestCoin(chain, multisig.address, [
+			1_000_000n,
+		]);
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.route(RECOGNIZED_COINS_URL, (route) =>
+			route.abort(),
+		);
+		await page.goto(`/multisig/${multisig.address}/assets`);
+		const sends = page.getByTestId('token-send-button');
+		await expect(sends).toHaveCount(2);
+		await expect(sends.nth(0)).toBeEnabled();
+		await expect(sends.nth(1)).toBeEnabled();
+		await expect(
+			page.getByTestId('unverified-tokens-toggle'),
+		).toHaveCount(0);
+		await expect(
+			page.getByTestId('token-unverified'),
+		).toHaveCount(0);
 	});
 
 	test('objects come a page at a time, without coins', async ({
@@ -271,6 +308,43 @@ test.describe('assets', () => {
 		await expect(
 			page.getByTestId('object-row'),
 		).toHaveCount(20);
+	});
+
+	test('a coin type in the filter points to the tokens, without asking for it', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 1,
+		});
+		await giveKioskOwnerCaps(chain, multisig.address, 1);
+
+		await alice.signIn();
+		const { page } = alice;
+		await openObjects(page);
+		const rows = page.getByTestId('object-row');
+		await expect(rows).toHaveCount(1);
+
+		const coinListings: string[] = [];
+		page.on('request', (request) => {
+			if (
+				request.url().endsWith('/ListOwnedObjects') &&
+				request.postDataBuffer()?.includes('::coin::Coin')
+			)
+				coinListings.push(request.url());
+		});
+		await page
+			.getByTestId('objects-filter-input')
+			.fill('0x2::coin::Coin<0x2::sui::SUI>');
+		await expect(
+			page.getByTestId('objects-filter-error'),
+		).toHaveAttribute('data-reason', 'coin-type');
+		await expect(rows).toHaveCount(1);
+		expect(coinListings).toEqual([]);
 	});
 
 	test('the UpgradeCap filter lists only the UpgradeCap', async ({

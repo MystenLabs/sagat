@@ -120,7 +120,8 @@ export type ObjectsFilter =
  * instantiation of it (`0x2::coin::TreasuryCap` lists each
  * `TreasuryCap<T>`), and one with parameters exactly. So a system type is
  * asked for bare, and a typed filter as written. Coins never show, as the
- * tokens tab has them. "Other" can't be put to the node, so it reads all
+ * tokens tab has them: the filter field doesn't take a coin type, and "all"
+ * leaves them out. "Other" can't be put to the node, so it reads all
  * objects and keeps those that are neither coins nor a system type.
  */
 export function objectsQuery(filter: ObjectsFilter): {
@@ -144,7 +145,7 @@ export function objectsQuery(filter: ObjectsFilter): {
 		case 'type':
 			return {
 				type: filter.type,
-				keep: (type) => !isCoinObjectType(type),
+				keep: () => true,
 			};
 	}
 }

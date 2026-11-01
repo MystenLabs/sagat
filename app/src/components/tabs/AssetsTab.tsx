@@ -60,18 +60,11 @@ export function AssetsTab() {
 	const [receiveOpen, setReceiveOpen] = useState(false);
 	// What belongs to this pod on this network, and starts over on another.
 	const podKey = `${network}:${address}`;
-	// The pod whose unverified group is open, so another's stays closed.
-	const [unverifiedOpenFor, setUnverifiedOpenFor] =
-		useState<string | null>(null);
-	const unverifiedOpen = unverifiedOpenFor === podKey;
 
 	// Every page, so the total and the split into verified and unverified
-	// tokens are complete. Display data waits for its row to show; metadata
-	// stays cached when the group closes again.
+	// tokens are complete.
 	const assets = useAccountAssets(address, {
 		allPages: true,
-		displayListed: true,
-		displayCount: unverifiedOpen ? Infinity : 0,
 	});
 	const noBalances =
 		!assets.isLoading &&
@@ -187,15 +180,12 @@ export function AssetsTab() {
 								</div>
 							</CardHeading>
 							<TokensTable
+								key={podKey}
 								assets={assets}
 								variant="assets"
 								onSend={send}
 								testId="assets-tokens"
 								waiting={probing}
-								unverifiedOpen={unverifiedOpen}
-								onUnverifiedOpenChange={(open) =>
-									setUnverifiedOpenFor(open ? podKey : null)
-								}
 							/>
 						</section>
 					) : (
