@@ -5,9 +5,9 @@ description: Multi-agent review of a PR or branch through five lenses, with ever
 
 # PR review panel
 
-Five reviewers read the diff in parallel, then challengers try to knock down every finding, so what reaches the report is real, reachable and worth blocking a merge on. Security leads: this is a security product, and a missed issue is the worst outcome of a review; a nitpick dressed as a finding is the second worst. The deliverable is a verdict backed by confirmed findings, the dismissed list and a coverage line.
+Five reviewers read the diff in parallel, then challengers try to knock down every finding, so what reaches the report is real, reachable and worth blocking a merge on. Security leads: this is a security product, and a missed issue is the worst outcome of a review; a nitpick dressed as a finding is the second worst. The deliverable is a verdict backed by confirmed findings, the judged-minor list, the dismissed list and a coverage line.
 
-The lenses are security, consistency, duplication and code quality, efficiency, and tests. What each one raises, and its bar, lives in `panel.js` beside this file; change a lens there.
+The lenses are security, consistency and state over time, duplication and code quality, efficiency, and tests. What each one raises, and its bar, lives in `panel.js` beside this file; change a lens there.
 
 ## 1. Scope
 
@@ -23,7 +23,7 @@ Done when base, head, pr, spec, depth and threatModel each hold a value (an empt
 
 Invoking this skill is the user's opt-in to run the Workflow tool. Call it with `scriptPath` set to this skill's base directory (announced when the skill loads) joined with `panel.js`, and `args: { base, head, pr, spec, depth, threatModel }` as a JSON object. To pick the reviewer model and reasoning effort your environment offers for review work, add `model` and `effort` inside `args`. Omitted, `model` inherits the session's; `effort` inherits it for the lens reviewers, while challengers default to `high` and the diff-listing agent always runs at `low`.
 
-Done when the workflow returns `{ confirmed, unconfirmed, polish, dismissed, coverage }`. If it stops partway, or the security lens returns nothing (a run without security coverage stops instead of reporting), relaunch with `resumeFromRunId` so finished agents are not paid for twice.
+Done when the workflow returns `{ confirmed, unconfirmed, polish, minor, dismissed, coverage }`. If it stops partway, or the security lens returns nothing (a run without security coverage stops instead of reporting), relaunch with `resumeFromRunId` so finished agents are not paid for twice.
 
 ## 3. Triage and report
 
@@ -33,15 +33,20 @@ Read the code at each confirmed finding before agreeing with it; the challenge p
 - **Decline**: a deliberate trade-off or a wrong claim, with the reason in one line.
 - **Follow-up**: real, but outside this PR's scope.
 
-Unconfirmed findings are security questions for a human: carry each one into the report with what would settle it. Polish findings are real and above the lens bar, but the challenger would approve with them unchanged (for security, most passing challengers would and the severity is low or medium); they never block.
+Unconfirmed findings are security questions for a human: carry each one into the report with what would settle it.
+
+Polish findings are real and above the lens bar, but the challenger would approve with them unchanged (for security, most passing challengers would and the severity is low or medium). Judged-minor findings (`minor`) are true and reachable, but a challenger placed them below the bar. Either call can be wrong, so read each against the code and triage it yourself: **Fix** (it then counts as your own finding and can block), otherwise **Decline** with a one-line reason or **Follow-up**. Do not pass them through as a count.
+
+For dismissed findings, read `dismissed_because` on every entry and report it; a dismissal that looks wrong against the code gets reopened.
 
 Report in this order:
 
-1. **Verdict**: safe to merge, or blocked, naming the blocking findings. Only confirmed findings block; unconfirmed ones go to a human, polish never blocks.
+1. **Verdict**: safe to merge, or blocked, naming the blocking findings. Only confirmed findings block, plus any polish or judged-minor finding you triage as Fix; unconfirmed ones go to a human.
 2. **Confirmed**, security first, then by severity: `file:line`, the one-line claim, why it survived the challenge, the suggested fix, and your triage verdict.
 3. **Unconfirmed**: each with the open question.
-4. **Polish**: worth a sentence in the PR, not a blocker; one line each, `file:line` and the claim.
-5. **Dismissed**: one line each, the title and why it fell.
-6. **Coverage**: lenses run (and any that failed), files in the diff, findings per lens, and anything the workflow logged as skipped.
+4. **Polish**: one line each, `file:line`, the claim and your triage verdict.
+5. **Judged minor**: one line each, `file:line`, the claim, `judged_minor_because` and your triage verdict.
+6. **Dismissed**: one line each, the title and `dismissed_because`, every entry, never only a count.
+7. **Coverage**: lenses run (and any that failed), files in the diff, findings per lens, and anything the workflow logged as skipped.
 
-Done when every confirmed, unconfirmed and polish finding has its line in the report and the coverage line names the files reviewed. This skill ends at the report; applying fixes, committing and commenting on the PR are the caller's next steps.
+Done when every confirmed, unconfirmed, polish, judged-minor and dismissed finding has its line in the report, with its reason for the last two, and the coverage line names the files reviewed. This skill ends at the report; applying fixes, committing and commenting on the PR are the caller's next steps.
