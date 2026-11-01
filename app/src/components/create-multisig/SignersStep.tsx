@@ -134,16 +134,24 @@ export function SignersStep({
 				</div>
 
 				<div className="flex flex-col gap-2">
+					{/* Mirrors a signer row (its border, padding, gaps and
+					    columns) so the labels line up with the fields. */}
 					<div
 						aria-hidden
-						className="hidden rounded-md bg-muted py-1.75 text-12 text-muted-foreground @xl/card:flex"
+						className="hidden gap-2.5 rounded-md border border-transparent bg-muted px-3 py-1.5 text-12 text-muted-foreground @xl/card:flex"
 					>
-						<span className="w-15 pl-4.25">#</span>
-						<span className="w-25">{FIELDS.signer}</span>
-						<span className="flex-1 px-3">
+						<span className="w-9 shrink-0 pl-1">#</span>
+						<span className="min-w-25 flex-1">
+							{FIELDS.signer}
+						</span>
+						<span className="min-w-0 flex-2 indent-3">
 							{FIELDS.publicKey}
 						</span>
-						<span className="w-33.75">{FIELDS.weight}</span>
+						{/* The small stepper's width, then the remove button's. */}
+						<span className="w-24 shrink-0">
+							{FIELDS.weight}
+						</span>
+						<span className="w-4.5 shrink-0" />
 					</div>
 					<DndContext
 						sensors={sensors}
