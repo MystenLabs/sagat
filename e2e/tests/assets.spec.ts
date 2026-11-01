@@ -590,19 +590,11 @@ test.describe('assets', () => {
 		chain,
 	}) => {
 		const alice = await createActor('alice');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [createIdentity('bob')],
-			threshold: 1,
-		});
-		const coin = await publishTestCoin(chain, undefined, {
-			upgradeCapTo: multisig.address,
-		});
-		const packageId = normalizeSuiAddress(
-			coin.type.split('::')[0],
+		const { packageId } = await signInWithUpgradeCap(
+			alice,
+			createIdentity('bob'),
+			chain,
 		);
-
-		await alice.signIn();
 		const { page } = alice;
 		await openObjects(page);
 		const cap = page.locator(
@@ -653,7 +645,7 @@ test.describe('assets', () => {
 		).toBeVisible();
 	});
 
-	test('the keyboard reaches the copy button of a package id', async ({
+	test('the keyboard reaches the copy button and link of a package id', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -666,6 +658,7 @@ test.describe('assets', () => {
 				chain,
 			);
 		const { page } = alice;
+		await callLocalnetTestnet(page);
 		await page.goto(objectsUrl);
 
 		const trigger = packageIdTrigger(page);
@@ -675,6 +668,10 @@ test.describe('assets', () => {
 		await expect(popup).toContainText(packageId);
 		await expect(
 			popup.getByTestId('address-copy'),
+		).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(
+			popup.getByTestId('address-explorer-link'),
 		).toBeFocused();
 		await page.keyboard.press('Escape');
 		await expect(popup).toBeHidden();
