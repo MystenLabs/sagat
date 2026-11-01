@@ -137,6 +137,12 @@ describe('formatUsdValue', () => {
 		expect(formatUsdValue(0.00005)).toBe('$0.0001');
 	});
 
+	test('shows a value that would round to zero as under the smallest unit', () => {
+		expect(formatUsdValue(0)).toBe('$0.00');
+		expect(formatUsdValue(0.00004999)).toBe('<$0.0001');
+		expect(formatUsdValue(0.00005)).toBe('$0.0001');
+	});
+
 	test('formats negative values', () => {
 		expect(formatUsdValue(-2.5)).toBe('-$2.50');
 		expect(formatUsdValue(-0.5)).toBe('-$0.5000');

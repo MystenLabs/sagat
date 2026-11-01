@@ -10,6 +10,7 @@ import {
 	SUI_TYPE_ARG,
 } from '@mysten/sui/utils';
 
+import { content } from '../content';
 import type { CoinPricing } from './coinDisplay';
 import type { SuiNetwork } from './network';
 
@@ -170,7 +171,12 @@ function formatUnits(
 	return negative ? `-${display}` : display;
 }
 
+/** Under this, a value above 0 would round to $0.0000. */
+const SMALLEST_SHOWN_USD = 0.00005;
+
 export function formatUsdValue(value: number): string {
+	if (value > 0 && value < SMALLEST_SHOWN_USD)
+		return content.common.belowSmallestUsd;
 	const fractionDigits =
 		value !== 0 && Math.abs(value) < 1 ? 4 : 2;
 	return new Intl.NumberFormat('en-US', {
