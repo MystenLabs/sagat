@@ -271,7 +271,7 @@ const lookupAndVerifyProposal = async (
 };
 
 // The base64 length of the largest transaction we accept.
-const MAX_TRANSACTION_BYTES_LENGTH =
+const MAX_TRANSACTION_BASE64_LENGTH =
 	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
 
 export type CreateProposalInput = {
@@ -300,7 +300,7 @@ export const createProposal = async ({
 		throw new CommonError('InvalidAddress');
 
 	if (
-		transactionBytes.length > MAX_TRANSACTION_BYTES_LENGTH
+		transactionBytes.length > MAX_TRANSACTION_BASE64_LENGTH
 	)
 		throw new ValidationError(
 			'The transaction is too large.',

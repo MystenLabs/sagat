@@ -68,8 +68,14 @@ app.use(
 		credentials: true,
 	}),
 );
-// Form-like posts must come from an allowed origin. The app and the SDK send JSON.
-app.use('*', csrf({ origin: isAllowedOrigin }));
+// Form-like posts from a browser must come from an allowed origin. Requests
+// with neither Origin nor Sec-Fetch-Site aren't from a page and skip the check.
+const checkOrigin = csrf({ origin: isAllowedOrigin });
+app.use('*', (c, next) =>
+	c.req.header('origin') || c.req.header('sec-fetch-site')
+		? checkOrigin(c, next)
+		: next(),
+);
 app.use(
 	'*',
 	bodyLimit({ maxSize: LIMITS.maxRequestBodyBytes }),

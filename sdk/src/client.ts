@@ -70,14 +70,10 @@ export class SagatClient {
 	}
 
 	async disconnect() {
-		try {
-			return await this.#request<AuthResponse>(
-				'/auth/disconnect',
-				{ method: 'POST' },
-			);
-		} finally {
-			this.#jwt = null;
-		}
+		this.#jwt = null;
+		return this.#request<AuthResponse>('/auth/disconnect', {
+			method: 'POST',
+		});
 	}
 
 	/**

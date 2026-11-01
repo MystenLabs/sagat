@@ -91,6 +91,17 @@ describe('Auth API', () => {
 		]);
 	});
 
+	test('a post without a body or an origin is not refused', async () => {
+		const session = framework.createSession();
+		await session.connectUser(newUser());
+
+		const response = await session.request(
+			'/auth/disconnect',
+			{ method: 'POST' },
+		);
+		expect(response.status).toBe(200);
+	});
+
 	test('a script authenticates with its bearer token', async () => {
 		// No cookie jar: only the bearer token can authenticate.
 		const script = new SagatClient(
