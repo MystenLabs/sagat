@@ -1,0 +1,534 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { PersonalMessages } from '@mysten/sagat';
+import {
+	beforeEach,
+	describe,
+	expect,
+	test,
+} from 'bun:test';
+import { eq, sql } from 'drizzle-orm';
+
+import { LIMITS } from '../src/constants/limits';
+import { db } from '../src/db';
+import {
+	ProposalStatus,
+	SchemaAccountProposers,
+} from '../src/db/schema';
+import { AuthErrors, CommonErrors } from '../src/errors';
+import {
+	listAccountEvents,
+	recordAccountEvent,
+	type AccountEvent,
+	type StoredAccountEvent,
+} from '../src/services/account-events.service';
+import { verifySignedMessage } from '../src/services/signatures.service';
+import {
+	ApiTestFramework,
+	expectSettled,
+	newUser,
+	type TestUser,
+} from './framework/api-test-framework';
+import {
+	createTestApp,
+	setupSharedTestEnvironment,
+} from './setup/shared-test-setup';
+
+setupSharedTestEnvironment();
+
+let framework: ApiTestFramework;
+
+beforeEach(async () => {
+	framework = new ApiTestFramework(await createTestApp());
+});
+
+const eventsOf = (
+	accountAddress: string,
+	member: TestUser,
+) =>
+	listAccountEvents({
+		accountAddress,
+		callerKeys: [member.keypair.getPublicKey()],
+		includeProof: true,
+	});
+
+const proposersOf = async (accountAddress: string) =>
+	(
+		await db
+			.select({ address: SchemaAccountProposers.address })
+			.from(SchemaAccountProposers)
+			.where(
+				eq(
+					SchemaAccountProposers.accountAddress,
+					accountAddress,
+				),
+			)
+	).map((row) => row.address);
+
+// Rebuilds the signed message from the event's stored fields, with the same
+// SDK builders a client uses.
+const rebuildMessage = (
+	{ proof, accountAddress }: StoredAccountEvent,
+	subject: string,
+) => {
+	if (proof?.kind === 'proposer.add')
+		return PersonalMessages.addMultisigProposer(
+			subject,
+			accountAddress,
+			proof.expiry,
+		);
+	if (proof?.kind === 'proposer.remove')
+		return PersonalMessages.removeMultisigProposer(
+			subject,
+			accountAddress,
+			proof.expiry,
+		);
+	throw new Error(`No message for proof ${proof?.kind}`);
+};
+
+const signatureOf = ({ proof }: StoredAccountEvent) => {
+	if (!proof || !('signature' in proof))
+		throw new Error('The event has no signature');
+	return proof.signature;
+};
+
+// Fails every insert into `account_events` while `fn` runs.
+const withEventInsertsFailing = async (
+	fn: () => Promise<void>,
+) => {
+	await db.execute(sql`
+		CREATE FUNCTION refuse_account_event() RETURNS trigger AS $$
+		BEGIN RAISE EXCEPTION 'account event refused'; END
+		$$ LANGUAGE plpgsql`);
+	await db.execute(sql`
+		CREATE TRIGGER refuse_account_event BEFORE INSERT ON account_events
+		FOR EACH ROW EXECUTE FUNCTION refuse_account_event()`);
+	try {
+		await fn();
+	} finally {
+		await db.execute(sql`
+			DROP TRIGGER refuse_account_event ON account_events`);
+		await db.execute(
+			sql`DROP FUNCTION refuse_account_event`,
+		);
+	}
+};
+
+describe('the stored proof', () => {
+	test('rebuilds the signed message and recovers the actor, after the proposer is gone too', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		// Valid, but not the normalised form of the address.
+		const proposer = newUser().address.toUpperCase();
+
+		await session.addProposer(
+			users[0],
+			proposer,
+			multisig.address,
+		);
+		await session.removeProposer(
+			users[1],
+			proposer,
+			multisig.address,
+		);
+
+		expect(await proposersOf(multisig.address)).toEqual([]);
+
+		const [removed, added] = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+		expect(removed).toMatchObject({
+			action: 'proposer.removed',
+			actor: users[1].address,
+			subject: proposer,
+			network: null,
+			before: null,
+			after: null,
+		});
+		expect(added).toMatchObject({
+			action: 'proposer.added',
+			actor: users[0].address,
+			subject: proposer,
+			network: null,
+			before: null,
+			after: null,
+		});
+
+		for (const event of [added, removed]) {
+			const signer = await verifySignedMessage(
+				signatureOf(event),
+				rebuildMessage(event, event.subject as string),
+			);
+			expect(signer.toSuiAddress()).toBe(event.actor);
+
+			// The subject is what was signed: normalising it breaks the proof.
+			await expect(
+				verifySignedMessage(
+					signatureOf(event),
+					rebuildMessage(event, proposer.toLowerCase()),
+				),
+			).rejects.toThrow(CommonErrors.InvalidSignature);
+		}
+	});
+});
+
+describe('recording in the change transaction', () => {
+	test('a failing event insert leaves no proposer behind', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const proposer = newUser().address;
+
+		await withEventInsertsFailing(async () => {
+			await expect(
+				session.addProposer(
+					users[0],
+					proposer,
+					multisig.address,
+				),
+			).rejects.toThrow();
+		});
+
+		expect(await proposersOf(multisig.address)).toEqual([]);
+
+		await session.addProposer(
+			users[0],
+			proposer,
+			multisig.address,
+		);
+		expect(await proposersOf(multisig.address)).toEqual([
+			proposer,
+		]);
+	});
+
+	test('a failing event insert keeps the proposer and its pending proposal', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposer = newUser();
+
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		await session.proposeTransfer(
+			proposer,
+			multisig.address,
+		);
+
+		await withEventInsertsFailing(async () => {
+			await expect(
+				session.removeProposer(
+					users[0],
+					proposer.address,
+					multisig.address,
+				),
+			).rejects.toThrow();
+		});
+
+		expect(await proposersOf(multisig.address)).toEqual([
+			proposer.address,
+		]);
+		const { data } = await session.client.getProposals(
+			multisig.address,
+			'localnet',
+			{},
+		);
+		expect(data.map((p) => p.status)).toEqual([
+			ProposalStatus.PENDING,
+		]);
+	});
+
+	test('a refused add writes no event', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const proposer = newUser().address;
+
+		await session.addProposer(
+			users[0],
+			proposer,
+			multisig.address,
+		);
+		await expect(
+			session.addProposer(
+				users[0],
+				proposer,
+				multisig.address,
+			),
+		).rejects.toThrow('is already a proposer');
+
+		expect(
+			await eventsOf(multisig.address, users[0]),
+		).toHaveLength(1);
+	});
+
+	test('removing someone who is not a proposer succeeds and writes no event', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+
+		await session.removeProposer(
+			users[0],
+			newUser().address,
+			multisig.address,
+		);
+
+		expect(
+			await eventsOf(multisig.address, users[0]),
+		).toEqual([]);
+	});
+
+	test('simultaneous adds at the limit write one event per proposer added', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+
+		const results = await Promise.allSettled(
+			Array.from(
+				{ length: LIMITS.maxProposersPerMultisig + 2 },
+				() =>
+					session.addProposer(
+						users[0],
+						newUser().address,
+						multisig.address,
+					),
+			),
+		);
+
+		expectSettled(results, {
+			fulfilled: LIMITS.maxProposersPerMultisig,
+			rejectedWith:
+				'You have reached the maximum number of proposers for this multisig',
+		});
+		const events = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+		expect(events.map((e) => e.subject).sort()).toEqual(
+			(await proposersOf(multisig.address)).sort(),
+		);
+	});
+});
+
+describe('listAccountEvents', () => {
+	const proposerAdded = (
+		accountAddress: string,
+		actor: TestUser,
+		subject: string,
+	): AccountEvent => ({
+		action: 'proposer.added',
+		accountAddress,
+		actor: actor.address,
+		subject,
+		proof: {
+			kind: 'proposer.add',
+			version: 1,
+			signature: 'signature',
+			expiry: 'expiry',
+		},
+	});
+
+	const seed = (events: AccountEvent[]) =>
+		db.transaction(async (tx) => {
+			const ids: number[] = [];
+			for (const event of events)
+				ids.push(await recordAccountEvent(tx, event));
+			return ids;
+		});
+
+	test('pages newest first, with `before` exclusive and an empty page after the last', async () => {
+		const { users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const ids = await seed(
+			['a', 'b', 'c'].map((subject) =>
+				proposerAdded(multisig.address, users[0], subject),
+			),
+		);
+		const page = async (before?: number) =>
+			(
+				await listAccountEvents({
+					accountAddress: multisig.address,
+					callerKeys: [users[0].keypair.getPublicKey()],
+					limit: 2,
+					before,
+				})
+			).map((e) => e.id);
+
+		expect(await page()).toEqual([ids[2], ids[1]]);
+		expect(await page(ids[1])).toEqual([ids[0]]);
+		expect(await page(ids[0])).toEqual([]);
+	});
+
+	test('an out-of-range limit means the maximum, and no limit means 50', async () => {
+		const { users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		await seed(
+			Array.from(
+				{ length: LIMITS.maxAccountEventsPerPage + 1 },
+				() =>
+					proposerAdded(multisig.address, users[0], 'a'),
+			),
+		);
+		const count = async (limit?: number) =>
+			(
+				await listAccountEvents({
+					accountAddress: multisig.address,
+					callerKeys: [users[0].keypair.getPublicKey()],
+					limit,
+				})
+			).length;
+
+		expect(await count()).toBe(50);
+		expect(
+			await count(LIMITS.maxAccountEventsPerPage),
+		).toBe(LIMITS.maxAccountEventsPerPage);
+		expect(
+			await count(LIMITS.maxAccountEventsPerPage + 1),
+		).toBe(LIMITS.maxAccountEventsPerPage);
+		expect(await count(0)).toBe(
+			LIMITS.maxAccountEventsPerPage,
+		);
+	});
+
+	test('filters by action and by subject', async () => {
+		const { users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const [addedA, removedA, addedB] = await seed([
+			proposerAdded(multisig.address, users[0], 'a'),
+			{
+				action: 'proposer.removed',
+				accountAddress: multisig.address,
+				actor: users[0].address,
+				subject: 'a',
+				proof: {
+					kind: 'proposer.remove',
+					version: 1,
+					signature: 'signature',
+					expiry: 'expiry',
+				},
+			},
+			proposerAdded(multisig.address, users[0], 'b'),
+		]);
+		const ids = async (
+			filter: Pick<
+				Parameters<typeof listAccountEvents>[0],
+				'action' | 'subject'
+			>,
+		) =>
+			(
+				await listAccountEvents({
+					accountAddress: multisig.address,
+					callerKeys: [users[0].keypair.getPublicKey()],
+					...filter,
+				})
+			).map((e) => e.id);
+
+		expect(await ids({ action: 'proposer.added' })).toEqual(
+			[addedB, addedA],
+		);
+		expect(await ids({ subject: 'a' })).toEqual([
+			removedA,
+			addedA,
+		]);
+	});
+
+	test('only returns the proof when asked', async () => {
+		const { users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const event = proposerAdded(
+			multisig.address,
+			users[0],
+			'a',
+		);
+		await seed([event]);
+		const list = (includeProof?: boolean) =>
+			listAccountEvents({
+				accountAddress: multisig.address,
+				callerKeys: [users[0].keypair.getPublicKey()],
+				includeProof,
+			});
+
+		const [withoutProof] = await list();
+		expect(withoutProof.subject).toBe('a');
+		expect(withoutProof).not.toHaveProperty('proof');
+
+		const [withProof] = await list(true);
+		expect(withProof.proof).toEqual(event.proof);
+	});
+
+	test('refuses anyone but an accepted member', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(1);
+		const invited = newUser();
+		const multisig = await session.createMultisig(
+			[users[0], invited],
+			1,
+		);
+
+		await expect(
+			eventsOf(multisig.address, newUser()),
+		).rejects.toThrow(AuthErrors.AccessDenied);
+		await expect(
+			eventsOf(multisig.address, invited),
+		).rejects.toThrow(AuthErrors.AccessDenied);
+		expect(
+			await eventsOf(multisig.address, users[0]),
+		).toEqual([]);
+	});
+});
+
+// The checks that matter are the `@ts-expect-error` lines, enforced by `tsc`.
+test('the compiler rejects an event of the wrong shape', () => {
+	const accept = (event: AccountEvent) => event;
+	const fields = {
+		accountAddress: '0xaccount',
+		actor: '0xactor',
+		subject: '0xproposer',
+	};
+	const proof = {
+		kind: 'proposer.add',
+		version: 1,
+		signature: 'signature',
+		expiry: 'expiry',
+	} as const;
+
+	const valid = {
+		action: 'proposer.added',
+		...fields,
+		proof,
+	} as const;
+	const proofOfAnotherKind = {
+		action: 'proposer.removed',
+		...fields,
+		proof,
+	} as const;
+	const noProof = {
+		action: 'proposer.added',
+		...fields,
+	} as const;
+	const noSubject = {
+		action: 'proposer.added',
+		accountAddress: fields.accountAddress,
+		actor: fields.actor,
+		proof,
+	} as const;
+	const unexpectedBefore = {
+		...valid,
+		before: { name: 'old' },
+	} as const;
+	const unknownAction = {
+		...valid,
+		action: 'proposer.renamed',
+	} as const;
+
+	accept(valid);
+	// @ts-expect-error a removal takes the removal proof.
+	accept(proofOfAnotherKind);
+	// @ts-expect-error the proof is required.
+	accept(noProof);
+	// @ts-expect-error the subject is required.
+	accept(noSubject);
+	// @ts-expect-error this action stores no `before`.
+	accept(unexpectedBefore);
+	// @ts-expect-error not in the registry.
+	accept(unknownAction);
+});
