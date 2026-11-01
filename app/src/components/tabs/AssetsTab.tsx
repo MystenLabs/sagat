@@ -58,37 +58,53 @@ export function AssetsTab() {
 			? 'objects'
 			: 'tokens';
 	const [receiveOpen, setReceiveOpen] = useState(false);
+	// What belongs to this pod on this network, and starts over on another.
+	const podKey = `${network}:${address}`;
+	// The pod whose unverified group is open, so another's stays closed.
+	const [unverifiedOpenFor, setUnverifiedOpenFor] =
+		useState<string | null>(null);
+	const unverifiedOpen = unverifiedOpenFor === podKey;
 
-	// Every page and every row's display data, so the total and the split
-	// into verified and unverified tokens are complete.
+	// Every page, so the total and the split into verified and unverified
+	// tokens are complete. Display data waits for its row to show; metadata
+	// stays cached when the group closes again.
 	const assets = useAccountAssets(address, {
 		allPages: true,
-		displayCount: Infinity,
+		displayListed: true,
+		displayCount: unverifiedOpen ? Infinity : 0,
 	});
+	const noBalances =
+		!assets.isLoading &&
+		!assets.isError &&
+		assets.balances.length === 0;
 	// The objects' first page, shared with the objects tab, says whether
-	// the account holds anything at all. A first page without rows can
-	// still have more after it, so only one with nothing left counts.
+	// an account without coins holds anything at all. A first page without
+	// rows can still have more after it, so only one with nothing left
+	// counts.
 	const firstObjects = useOwnedObjects(
 		address,
 		{ kind: 'all' },
 		FIRST_PAGE,
+		{ enabled: noBalances || view === 'objects' },
 	);
 	const empty =
-		!assets.isLoading &&
-		!assets.isError &&
-		assets.balances.length === 0 &&
+		noBalances &&
 		firstObjects.data?.rows.length === 0 &&
 		firstObjects.data.next === null;
+	// Until that page answers, "no tokens" may yet become "no assets".
+	const probing =
+		noBalances &&
+		!firstObjects.data &&
+		!firstObjects.isError;
 
 	// The heading counts verified tokens once the split is final.
 	const verifiedCount =
 		assets.isLoading ||
 		assets.isError ||
+		probing ||
 		!assets.verifiedKnown
 			? undefined
-			: assets.balances.filter((b) =>
-					assets.isVerified(b.coinType),
-				).length;
+			: assets.listedBalances.length;
 
 	const name = accountName(multisig);
 	const send = (coinType?: string) =>
@@ -175,10 +191,15 @@ export function AssetsTab() {
 								variant="assets"
 								onSend={send}
 								testId="assets-tokens"
+								waiting={probing}
+								unverifiedOpen={unverifiedOpen}
+								onUnverifiedOpenChange={(open) =>
+									setUnverifiedOpenFor(open ? podKey : null)
+								}
 							/>
 						</section>
 					) : (
-						<ObjectsCard address={address} />
+						<ObjectsCard key={podKey} address={address} />
 					)}
 				</>
 			)}

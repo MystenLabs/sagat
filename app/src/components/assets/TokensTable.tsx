@@ -7,7 +7,6 @@ import {
 	RefreshCw,
 	Send,
 } from 'lucide-react';
-import { useState } from 'react';
 
 import { content } from '@/content';
 import { type useAccountAssets } from '@/hooks/useAccountAssets';
@@ -73,19 +72,26 @@ export function TokensTable({
 	variant,
 	onSend,
 	testId,
+	waiting = false,
+	unverifiedOpen = false,
+	onUnverifiedOpenChange,
 }: {
 	assets: AccountAssets;
 	variant: TokensTableVariant;
 	onSend: (coinType: string) => void;
 	testId: string;
+	/** Stays in the loading state: the page doesn't know yet what to show. */
+	waiting?: boolean;
+	/** Whether the assets variant's unverified group is open. */
+	unverifiedOpen?: boolean;
+	onUnverifiedOpenChange?: (open: boolean) => void;
 }) {
 	const full = variant === 'assets';
-	const [unverifiedOpen, setUnverifiedOpen] =
-		useState(false);
 
 	// Both wait for the registry, so no coin is marked before it is known;
 	// the assets page waits for every page too, so its split is final.
 	const loading =
+		waiting ||
 		(full ? assets.isLoading : assets.query.isLoading) ||
 		assets.verifiedLoading;
 	if (loading)
@@ -122,16 +128,10 @@ export function TokensTable({
 	const known = assets.verifiedKnown;
 	const verified = (coinType: string) =>
 		known ? assets.isVerified(coinType) : undefined;
-	const listed = full
-		? assets.balances
+	const rows = full
+		? assets.listedBalances
 		: assets.balances.slice(0, TOKENS_SHOWN);
-	const split = full && known;
-	const rows = split
-		? listed.filter((b) => assets.isVerified(b.coinType))
-		: listed;
-	const unverified = split
-		? listed.filter((b) => !assets.isVerified(b.coinType))
-		: [];
+	const unverified = full ? assets.unverifiedBalances : [];
 	const columns = full ? 5 : 4;
 
 	const row = (balance: Balance) => (
@@ -208,7 +208,9 @@ export function TokensTable({
 										className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-14 text-foreground-secondary outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
 										aria-expanded={unverifiedOpen}
 										onClick={() =>
-											setUnverifiedOpen((open) => !open)
+											onUnverifiedOpenChange?.(
+												!unverifiedOpen,
+											)
 										}
 										data-testid="unverified-tokens-toggle"
 										data-count={unverified.length}

@@ -29,18 +29,21 @@ import { useRecognizedCoins } from './useRecognizedCoins';
  * Prices come from the registry alone, so valuing and sorting never wait
  * on coin metadata. Display data (with the metadata fallback for coins
  * outside the registry) is fetched only for the first `displayCount`
- * balances and for `coinTypes`; without either `coinData` stays empty.
- * Pass `Infinity` as `displayCount` for every balance.
+ * balances, for `coinTypes` and, with `displayListed`, for the balances
+ * outside the unverified group; without any of them `coinData` stays
+ * empty. Pass `Infinity` as `displayCount` for every balance.
  */
 export function useAccountAssets(
 	address: string,
 	{
 		allPages = false,
 		displayCount,
+		displayListed = false,
 		coinTypes,
 	}: {
 		allPages?: boolean;
 		displayCount?: number;
+		displayListed?: boolean;
 		coinTypes?: readonly string[];
 	} = {},
 ) {
@@ -98,14 +101,38 @@ export function useAccountAssets(
 		[balances, usdValue],
 	);
 
+	// Without the registry no coin can be told unverified: all are listed.
+	const verifiedKnown = !!recognized.data;
+	const [listedBalances, unverifiedBalances] = useMemo<
+		[Balance[], Balance[]]
+	>(
+		() =>
+			verifiedKnown
+				? [
+						balances.filter((b) => isVerified(b.coinType)),
+						balances.filter((b) => !isVerified(b.coinType)),
+					]
+				: [balances, []],
+		[balances, isVerified, verifiedKnown],
+	);
+
 	const shownCoinTypes = useMemo(
 		() => [
 			...balances
 				.slice(0, displayCount ?? 0)
 				.map((b) => b.coinType),
+			...(displayListed ? listedBalances : []).map(
+				(b) => b.coinType,
+			),
 			...(coinTypes ?? []),
 		],
-		[balances, displayCount, coinTypes],
+		[
+			balances,
+			displayCount,
+			displayListed,
+			listedBalances,
+			coinTypes,
+		],
 	);
 	const coinData = useCoinDisplayDataMap(shownCoinTypes);
 
@@ -143,7 +170,11 @@ export function useAccountAssets(
 	return {
 		query,
 		balances,
-		/** Display data for the first `displayCount` balances and `coinTypes`. */
+		/** The balances outside the unverified group, as sorted. */
+		listedBalances,
+		/** The unverified coins' balances, once the registry says which. */
+		unverifiedBalances,
+		/** Display data for what the options ask for. */
 		coinData: coinData.map,
 		/** Whether the display data of `coinType` is still loading. */
 		isCoinDataLoadingFor: coinData.isLoadingFor,
@@ -161,7 +192,7 @@ export function useAccountAssets(
 		 * Whether the registry has loaded, so coins can be told verified or
 		 * not. False while it loads and when it failed without data.
 		 */
-		verifiedKnown: !!recognized.data,
+		verifiedKnown,
 		value,
 		pricesAvailable,
 		...state,

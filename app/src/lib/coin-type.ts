@@ -29,7 +29,7 @@ export function prettifyType(type: string): string {
 }
 
 type StructTag = ReturnType<typeof parseStructTag>;
-type TypeTag = StructTag['typeParams'][number];
+export type TypeTag = StructTag['typeParams'][number];
 
 /**
  * A Move type in the app's short form: a system package as `0x2`, any

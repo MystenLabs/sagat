@@ -14,31 +14,25 @@ import {
 } from './systemObjects';
 import type { SystemObjectKind } from './systemObjects';
 
-/** Rows on one page of the assets page's objects. */
+/**
+ * Rows on one page of the assets page's objects. It stays within the
+ * node's cap of 50 a call, as no call asks for more than a page.
+ */
 export const OBJECTS_PAGE_SIZE = 20;
-/** Objects asked of the node per call: its own cap. */
-export const NODE_PAGE_SIZE = 50;
 /**
- * Node calls one page may take. A pod with hundreds of coin objects can
- * fill whole node pages with coins, which the list leaves out; past this
- * many calls the page shows what it found and the next one carries on.
+ * Node calls one page may take: enough to scan about 500 objects at the
+ * full page size. A pod with hundreds of coin objects can fill whole node
+ * pages with coins, which the list leaves out; past this many calls the
+ * page shows what it found and the next one carries on. A page that is
+ * nearly full when it reaches a run of coins asks for few objects a call,
+ * so it can run out sooner and come back short.
  */
-export const MAX_NODE_CALLS = 10;
+export const MAX_NODE_CALLS = 25;
 
-/**
- * Where a page of objects starts: the node page it begins in, by the
- * cursor that fetches it (`null` for the first), and how many of that
- * node page's objects earlier pages already went through.
- */
-export interface PageStart {
-	cursor: string | null;
-	skip: number;
-}
+/** Where a page of objects starts: the node's cursor, `null` for the first. */
+export type PageStart = string | null;
 
-export const FIRST_PAGE: PageStart = {
-	cursor: null,
-	skip: 0,
-};
+export const FIRST_PAGE: PageStart = null;
 
 export interface NodePage<T> {
 	objects: T[];
@@ -49,15 +43,22 @@ export interface NodePage<T> {
 export interface FilledPage<T> {
 	rows: T[];
 	/** Where the next page starts, or null when nothing is left. */
-	next: PageStart | null;
+	next: string | null;
 }
 
 /**
  * Fills one page with up to `size` objects that `keep` accepts, reading
- * node pages from `start` on. Pages are exact: the next one starts at the
- * first object this one didn't take, so none is lost or repeated. It
- * takes at most `maxCalls` node calls; when they run out the page may be
- * short, and the next one starts at the node page after the last read.
+ * node pages from `start` on. Each call asks only for the rows still
+ * missing, so a page never reads past its last row and the next one
+ * starts at the node's cursor. A cursor is a place in the node's order,
+ * not a count, so going forward shows every object the pod keeps once,
+ * even when earlier ones leave between two pages.
+ *
+ * A page isn't always full, and a next page isn't always worth opening. It
+ * takes at most `maxCalls` node calls, and when they run out it may be
+ * short, even empty, with more after it. A full page whose remaining node
+ * pages hold only objects `keep` turns down still has a next page, which
+ * comes back empty.
  */
 export async function fillPage<T>({
 	start,
@@ -71,26 +72,23 @@ export async function fillPage<T>({
 	keep: (object: T) => boolean;
 	fetchNodePage: (
 		cursor: string | null,
+		limit: number,
 	) => Promise<NodePage<T>>;
 	maxCalls?: number;
 }): Promise<FilledPage<T>> {
 	const rows: T[] = [];
-	let { cursor, skip } = start;
+	let cursor = start;
 	for (let call = 0; call < maxCalls; call++) {
-		const page = await fetchNodePage(cursor);
-		for (let i = skip; i < page.objects.length; i++) {
-			const object = page.objects[i];
-			if (!keep(object)) continue;
-			// A row beyond this page: the next one starts with it.
-			if (rows.length === size)
-				return { rows, next: { cursor, skip: i } };
-			rows.push(object);
-		}
+		const page = await fetchNodePage(
+			cursor,
+			size - rows.length,
+		);
+		rows.push(...page.objects.filter(keep));
 		if (!page.hasNextPage) return { rows, next: null };
 		cursor = page.cursor;
-		skip = 0;
+		if (rows.length >= size) break;
 	}
-	return { rows, next: { cursor, skip: 0 } };
+	return { rows, next: cursor };
 }
 
 /**

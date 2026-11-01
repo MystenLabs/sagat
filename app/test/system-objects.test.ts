@@ -7,9 +7,10 @@ import { describe, expect, test } from 'vitest';
 
 import { objectView } from '../src/lib/systemObjects';
 
-// The framework's layouts (sui-framework `package.move`, `kiosk.move`,
-// `transfer_policy.move`, `coin.move`, `display.move`), written out here
-// so the bytes are built independently of the module under test.
+// The framework's layouts (sui-framework `package.move`, `kiosk.move`),
+// written out here so the bytes are built independently of the module
+// under test. The other system types are described by their type alone,
+// so their content can be empty.
 const UID = bcs.Address;
 const UpgradeCap = bcs.struct('UpgradeCap', {
 	id: UID,
@@ -26,43 +27,13 @@ const KioskOwnerCap = bcs.struct('KioskOwnerCap', {
 	id: UID,
 	for: bcs.Address,
 });
-const TransferPolicyCap = bcs.struct('TransferPolicyCap', {
-	id: UID,
-	policy_id: bcs.Address,
-});
-const TreasuryCap = bcs.struct('TreasuryCap', {
-	id: UID,
-	total_supply: bcs.struct('Supply', { value: bcs.u64() }),
-});
-const Display = bcs.struct('Display', {
-	id: UID,
-	fields: bcs.struct('VecMap', {
-		contents: bcs.vector(
-			bcs.struct('Entry', {
-				key: bcs.string(),
-				value: bcs.string(),
-			}),
-		),
-	}),
-	version: bcs.u16(),
-});
-const CoinMetadata = bcs.struct('CoinMetadata', {
-	id: UID,
-	decimals: bcs.u8(),
-	name: bcs.string(),
-	symbol: bcs.string(),
-	description: bcs.string(),
-	icon_url: bcs.option(
-		bcs.struct('Url', { url: bcs.string() }),
-	),
-});
-
 const id = (byte: string) => `0x${byte.repeat(32)}`;
 const OBJECT = id('01');
 const PACKAGE = id('a4');
 const PUSD = `${id('c0')}::pusd::PUSD`;
 const USDC = `${id('db')}::usdc::USDC`;
 const HERO = `${id('9e')}::nft::Hero`;
+const NO_CONTENT = new Uint8Array();
 
 // The registry knows USDC alone.
 const coinSymbol = (coinType: string) =>
@@ -142,12 +113,8 @@ describe('objectView', () => {
 	});
 
 	test('a TreasuryCap shows a coin outside the registry with its package', () => {
-		const content = TreasuryCap.serialize({
-			id: OBJECT,
-			total_supply: { value: 5n },
-		}).toBytes();
 		expect(
-			view(`0x2::coin::TreasuryCap<${PUSD}>`, content),
+			view(`0x2::coin::TreasuryCap<${PUSD}>`, NO_CONTENT),
 		).toEqual({
 			kind: 'treasuryCap',
 			name: 'TreasuryCap',
@@ -158,16 +125,8 @@ describe('objectView', () => {
 	});
 
 	test("a CoinMetadata shows a recognised coin's symbol", () => {
-		const content = CoinMetadata.serialize({
-			id: OBJECT,
-			decimals: 6,
-			name: 'Fake USD',
-			symbol: 'FUSD',
-			description: '',
-			icon_url: null,
-		}).toBytes();
 		expect(
-			view(`0x2::coin::CoinMetadata<${USDC}>`, content),
+			view(`0x2::coin::CoinMetadata<${USDC}>`, NO_CONTENT),
 		).toEqual({
 			kind: 'coinMetadata',
 			name: 'CoinMetadata',
@@ -176,15 +135,8 @@ describe('objectView', () => {
 	});
 
 	test('a Display shows the type it is for', () => {
-		const content = Display.serialize({
-			id: OBJECT,
-			fields: {
-				contents: [{ key: 'name', value: '{name}' }],
-			},
-			version: 1,
-		}).toBytes();
 		expect(
-			view(`0x2::display::Display<${HERO}>`, content),
+			view(`0x2::display::Display<${HERO}>`, NO_CONTENT),
 		).toEqual({
 			kind: 'display',
 			name: 'Display',
@@ -196,20 +148,16 @@ describe('objectView', () => {
 		expect(
 			view(
 				'0x2::display::Display<0x2::kiosk::Kiosk>',
-				content,
+				NO_CONTENT,
 			).subtitle,
 		).toEqual([{ kind: 'text', text: 'Kiosk' }]);
 	});
 
 	test('a TransferPolicyCap shows the type it is for', () => {
-		const content = TransferPolicyCap.serialize({
-			id: OBJECT,
-			policy_id: id('7d'),
-		}).toBytes();
 		expect(
 			view(
 				`0x2::transfer_policy::TransferPolicyCap<${HERO}>`,
-				content,
+				NO_CONTENT,
 			),
 		).toEqual({
 			kind: 'transferPolicyCap',

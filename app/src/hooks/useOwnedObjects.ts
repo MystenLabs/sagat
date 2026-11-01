@@ -8,7 +8,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useNetwork } from '../contexts/NetworkContext';
 import {
 	fillPage,
-	NODE_PAGE_SIZE,
 	OBJECTS_PAGE_SIZE,
 	objectsFilterKey,
 	objectsQuery,
@@ -27,12 +26,14 @@ export type OwnedObject = SuiClientTypes.Object<
 /**
  * One page of the objects `owner` owns that `filter` lets through, coins
  * left out, with each object's content and Display for describing it, and
- * where the next page starts.
+ * where the next page starts. Without `enabled` it reads nothing and gives
+ * what is cached.
  */
 export function useOwnedObjects(
 	owner: string,
 	filter: ObjectsFilter,
 	start: PageStart,
+	{ enabled = true }: { enabled?: boolean } = {},
 ) {
 	const client = useDAppKit().getClient();
 	const { network } = useNetwork();
@@ -43,8 +44,7 @@ export function useOwnedObjects(
 			network,
 			owner,
 			objectsFilterKey(filter),
-			start.cursor,
-			start.skip,
+			start,
 		],
 		queryFn: ({ signal }) => {
 			const { type, keep } = objectsQuery(filter);
@@ -52,17 +52,18 @@ export function useOwnedObjects(
 				start,
 				size: OBJECTS_PAGE_SIZE,
 				keep: (object) => keep(object.type),
-				fetchNodePage: (cursor) =>
+				fetchNodePage: (cursor, limit) =>
 					client.listOwnedObjects({
 						owner,
 						type,
 						cursor,
-						limit: NODE_PAGE_SIZE,
+						limit,
 						include: INCLUDE,
 						signal,
 					}),
 			});
 		},
 		staleTime: STALE_TIME_MS,
+		enabled,
 	});
 }

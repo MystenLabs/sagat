@@ -60,6 +60,11 @@ test.describe('assets', () => {
 
 		await alice.signIn();
 		const { page } = alice;
+		const objectListings: string[] = [];
+		page.on('request', (request) => {
+			if (request.url().endsWith('/ListOwnedObjects'))
+				objectListings.push(request.url());
+		});
 		await page.getByTestId('multisig-tab-assets').click();
 		await expect(alice.suiBalanceRow()).toHaveAttribute(
 			'data-verified',
@@ -81,6 +86,8 @@ test.describe('assets', () => {
 		await expect(
 			testCoin.getByTestId('token-price'),
 		).toHaveText('No price');
+		// With coins to show, the tokens never ask for the objects.
+		expect(objectListings).toEqual([]);
 	});
 
 	test('objects come a page at a time, without coins', async ({
@@ -124,6 +131,130 @@ test.describe('assets', () => {
 		await expect(
 			page.getByTestId('objects-previous-page'),
 		).toBeDisabled();
+	});
+
+	test('a later page that fails to load keeps the way back', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 1,
+		});
+		await giveKioskOwnerCaps(chain, multisig.address, 21);
+
+		await alice.signIn();
+		const { page } = alice;
+		await openObjects(page);
+		const rows = page.getByTestId('object-row');
+		await expect(rows).toHaveCount(20);
+
+		const listing = '**/ListOwnedObjects';
+		await page.route(listing, (route) => route.abort());
+		await page.getByTestId('objects-next-page').click();
+		await expect(
+			page.getByTestId('objects-error'),
+		).toBeVisible();
+		await expect(
+			page.getByTestId('objects-page'),
+		).toHaveAttribute('data-page', '2');
+		await expect(
+			page.getByTestId('objects-next-page'),
+		).toBeDisabled();
+
+		await page.unroute(listing);
+		await page.getByTestId('objects-previous-page').click();
+		await expect(rows).toHaveCount(20);
+	});
+
+	test('the objects list starts over on a filter it returns to and on another pod', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const first = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 1,
+		});
+		const second = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('carol')],
+			threshold: 1,
+		});
+		await giveKioskOwnerCaps(chain, first.address, 21);
+		await giveKioskOwnerCaps(chain, second.address, 21);
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.goto(
+			`/multisig/${first.address}/assets?view=objects`,
+		);
+		await expect(
+			page.getByTestId('object-row'),
+		).toHaveCount(20);
+		// The switcher lands on the tokens: open the second pod's objects,
+		// so going back to the first keeps the same objects card.
+		await page.getByTestId('multisig-switcher').click();
+		await page
+			.locator(
+				`[data-testid="multisig-switcher-option"][data-address="${second.address}"]`,
+			)
+			.click();
+		await page.getByTestId('assets-tab-objects').click();
+
+		const pageNumber = page.getByTestId('objects-page');
+		const next = page.getByTestId('objects-next-page');
+		await next.click();
+		await expect(pageNumber).toHaveAttribute(
+			'data-page',
+			'2',
+		);
+
+		// To another filter and back.
+		const pickType = async (type: string) => {
+			await page.getByTestId('objects-type-select').click();
+			await page
+				.locator(
+					`[data-testid="objects-type-option"][data-value="${type}"]`,
+				)
+				.click();
+		};
+		await pickType('kioskOwnerCap');
+		await expect(pageNumber).toHaveAttribute(
+			'data-page',
+			'1',
+		);
+		await pickType('all');
+		await expect(pageNumber).toHaveAttribute(
+			'data-page',
+			'1',
+		);
+
+		// To the first pod, from the second's page 2.
+		await next.click();
+		await expect(pageNumber).toHaveAttribute(
+			'data-page',
+			'2',
+		);
+		await page.goBack();
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			first.address,
+		);
+		await expect(pageNumber).toHaveAttribute(
+			'data-page',
+			'1',
+		);
+		await expect(
+			page.getByTestId('object-row'),
+		).toHaveCount(20);
 	});
 
 	test('the UpgradeCap filter lists only the UpgradeCap', async ({

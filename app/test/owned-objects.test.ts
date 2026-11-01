@@ -6,45 +6,60 @@ import { describe, expect, test } from 'vitest';
 import {
 	fillPage,
 	FIRST_PAGE,
+	type FilledPage,
 	type NodePage,
 	type PageStart,
 } from '../src/lib/owned-objects';
 
-// A node that serves `pages` in order: cursor `null` is the first, `p<i>`
-// the i-th.
-function node(pages: string[][]) {
-	let calls = 0;
+// A node holding `objects` in order. A cursor is a place in that order, as
+// on a real node, so it stays put when an earlier object leaves.
+function node(objects: string[]) {
+	const removed = new Set<string>();
+	const limits: number[] = [];
 	const fetchNodePage = async (
 		cursor: string | null,
+		limit: number,
 	): Promise<NodePage<string>> => {
-		calls++;
-		const index =
-			cursor === null ? 0 : Number(cursor.slice(1));
-		const hasNextPage = index + 1 < pages.length;
+		limits.push(limit);
+		const page: string[] = [];
+		let at = cursor === null ? 0 : Number(cursor);
+		for (; at < objects.length; at++) {
+			if (removed.has(objects[at])) continue;
+			if (page.length === limit) break;
+			page.push(objects[at]);
+		}
+		const hasNextPage = at < objects.length;
 		return {
-			objects: pages[index],
-			cursor: hasNextPage ? `p${index + 1}` : null,
+			objects: page,
+			cursor: hasNextPage ? String(at) : null,
 			hasNextPage,
 		};
 	};
-	return { fetchNodePage, calls: () => calls };
+	return {
+		fetchNodePage,
+		limits,
+		remove: (object: string) => removed.add(object),
+	};
 }
 
 const notCoin = (object: string) =>
 	!object.startsWith('coin');
 
 describe('fillPage', () => {
-	test('pages through every kept object once, a page resuming inside a node page', async () => {
-		const { fetchNodePage } = node([
-			['a', 'coin1', 'b', 'c'],
-			['coin2', 'd', 'e'],
+	test('pages through every kept object once, each call asking only for the rows still needed', async () => {
+		const { fetchNodePage, limits } = node([
+			'a',
+			'coin1',
+			'b',
+			'c',
+			'coin2',
+			'd',
+			'e',
 		]);
 		const pages: string[][] = [];
-		const starts: PageStart[] = [];
-		let start: PageStart | null = FIRST_PAGE;
-		while (start) {
-			starts.push(start);
-			const page = await fillPage({
+		let start: PageStart = FIRST_PAGE;
+		do {
+			const page: FilledPage<string> = await fillPage({
 				start,
 				size: 2,
 				keep: notCoin,
@@ -52,21 +67,18 @@ describe('fillPage', () => {
 			});
 			pages.push(page.rows);
 			start = page.next;
-		}
+		} while (start);
 		expect(pages).toEqual([['a', 'b'], ['c', 'd'], ['e']]);
-		// The second page starts at `c`, the fourth object of the first
-		// node page.
-		expect(starts[1]).toEqual({ cursor: null, skip: 3 });
+		// A coin in a call leaves one row to ask for in the next.
+		expect(limits).toEqual([2, 1, 2, 1, 2]);
 	});
 
 	test('stops after the call cap, and the next page carries on', async () => {
 		const coins = Array.from(
-			{ length: 50 },
+			{ length: 500 },
 			(_, i) => `coin${i}`,
 		);
-		const { fetchNodePage, calls } = node(
-			Array.from({ length: 30 }, () => coins),
-		);
+		const { fetchNodePage, limits } = node(coins);
 		const page = await fillPage({
 			start: FIRST_PAGE,
 			size: 20,
@@ -74,10 +86,33 @@ describe('fillPage', () => {
 			fetchNodePage,
 			maxCalls: 10,
 		});
-		expect(calls()).toBe(10);
-		expect(page).toEqual({
-			rows: [],
-			next: { cursor: 'p10', skip: 0 },
+		expect(limits).toHaveLength(10);
+		expect(page).toEqual({ rows: [], next: '200' });
+	});
+
+	test('an object leaving between two pages drops no later one', async () => {
+		const { fetchNodePage, remove } = node([
+			'a',
+			'b',
+			'c',
+			'd',
+		]);
+		const first = await fillPage({
+			start: FIRST_PAGE,
+			size: 2,
+			keep: notCoin,
+			fetchNodePage,
 		});
+		expect(first.rows).toEqual(['a', 'b']);
+
+		remove('a');
+
+		const second = await fillPage({
+			start: first.next,
+			size: 2,
+			keep: notCoin,
+			fetchNodePage,
+		});
+		expect(second.rows).toEqual(['c', 'd']);
 	});
 });

@@ -9,7 +9,7 @@ import {
 } from '@mysten/sui/utils';
 
 import { content } from '../content';
-import { formatTypeParam } from './coin-type';
+import { formatTypeParam, type TypeTag } from './coin-type';
 
 const COPY = content.assets.objects;
 
@@ -190,14 +190,10 @@ export function objectView(
 	};
 }
 
-type TypeParam = ReturnType<
-	typeof parseStructTag
->['typeParams'][number];
-
 function systemSubtitle(
 	kind: SystemObjectKind,
 	bytes: Uint8Array | null | undefined,
-	param: TypeParam | undefined,
+	param: TypeTag | undefined,
 	coinSymbol: (coinType: string) => string | undefined,
 ): SubtitlePart[] {
 	switch (kind) {
@@ -263,7 +259,7 @@ function required(
  * look-alike coin reads differently from the real one.
  */
 function typeParamLabel(
-	param: TypeParam | undefined,
+	param: TypeTag | undefined,
 	coinSymbol: (coinType: string) => string | undefined,
 ): string {
 	if (param === undefined) throw new Error('No type');

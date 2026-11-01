@@ -58,37 +58,14 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 								className="flex min-w-0 flex-wrap items-center text-12 text-muted-foreground"
 								data-testid="object-subtitle"
 							>
-								{COPY.subtitle(
-									view.subtitle.map((part) =>
-										part.kind === 'id' ? (
-											<span className="inline-flex shrink-0 items-center whitespace-nowrap">
-												{COPY.labelledId(
-													part.label,
-													<ObjectId
-														id={part.id}
-														testId="object-subtitle-id"
-													/>,
-												).map((node, i) => (
-													<Fragment key={i}>
-														{node}
-													</Fragment>
-												))}
-											</span>
+								{COPY.subtitle(view.subtitle).map(
+									(part, i) =>
+										typeof part === 'string' ? (
+											<span key={i}>{part}</span>
 										) : (
-											<span className="truncate">
-												{part.text}
-											</span>
+											<SubtitlePart key={i} part={part} />
 										),
-									),
-								).map((node, i) => (
-									<Fragment key={i}>
-										{typeof node === 'string' ? (
-											<span>{node}</span>
-										) : (
-											node
-										)}
-									</Fragment>
-								))}
+								)}
 							</span>
 						)}
 					</div>
@@ -128,6 +105,29 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 				)}
 			</td>
 		</tr>
+	);
+}
+
+/** One part of an object's subtitle: some text, or a labelled id. */
+function SubtitlePart({
+	part,
+}: {
+	part: ObjectView['subtitle'][number];
+}) {
+	if (part.kind === 'text')
+		return <span className="truncate">{part.text}</span>;
+	return (
+		<span className="inline-flex shrink-0 items-center whitespace-nowrap">
+			{COPY.labelledId(
+				part.label,
+				<ObjectId
+					id={part.id}
+					testId="object-subtitle-id"
+				/>,
+			).map((node, i) => (
+				<Fragment key={i}>{node}</Fragment>
+			))}
+		</span>
 	);
 }
 

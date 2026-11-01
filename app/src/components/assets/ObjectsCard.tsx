@@ -92,11 +92,14 @@ export function ObjectsCard({
 			: { kind: 'system', system: choice };
 	const filterKey = objectsFilterKey(filter);
 
-	// The starts of the pages so far, for Back. A new filter starts over.
+	// The starts of the pages so far, for Back. A new filter starts over,
+	// and so does coming back to an earlier one.
 	const [pager, setPager] = useState<{
 		key: string;
 		starts: PageStart[];
 	}>({ key: filterKey, starts: [FIRST_PAGE] });
+	if (pager.key !== filterKey)
+		setPager({ key: filterKey, starts: [FIRST_PAGE] });
 	const starts =
 		pager.key === filterKey ? pager.starts : [FIRST_PAGE];
 	const page = starts.length;
@@ -130,6 +133,12 @@ export function ObjectsCard({
 		setText(value);
 		setChoice('all');
 	};
+
+	const goBack = () =>
+		setPager({
+			key: filterKey,
+			starts: starts.slice(0, -1),
+		});
 
 	const noRows =
 		!query.isLoading &&
@@ -239,13 +248,23 @@ export function ObjectsCard({
 			</div>
 
 			{query.isError ? (
-				<ErrorState
-					title={COPY.loadFailed}
-					error={query.error}
-					onRetry={() => void query.refetch()}
-					retrying={query.isFetching}
-					testId="objects-error"
-				/>
+				<>
+					<ErrorState
+						title={COPY.loadFailed}
+						error={query.error}
+						onRetry={() => void query.refetch()}
+						retrying={query.isFetching}
+						testId="objects-error"
+					/>
+					{/* Past the first page, the way back stays. */}
+					{page > 1 && (
+						<Pager
+							page={page}
+							loading={query.isLoading}
+							onBack={goBack}
+						/>
+					)}
+				</>
 			) : empty ? (
 				<EmptyState
 					icon={Box}
@@ -316,12 +335,7 @@ export function ObjectsCard({
 						<Pager
 							page={page}
 							loading={query.isLoading}
-							onBack={() =>
-								setPager({
-									key: filterKey,
-									starts: starts.slice(0, -1),
-								})
-							}
+							onBack={goBack}
 							onNext={
 								next
 									? () =>
