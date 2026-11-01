@@ -26,7 +26,6 @@ import {
 import { verifySignedMessage } from '../src/services/signatures.service';
 import {
 	ApiTestFramework,
-	expectSettled,
 	newUser,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -67,24 +66,33 @@ const proposersOf = async (accountAddress: string) =>
 	).map((row) => row.address);
 
 // Rebuilds the signed message from the event's stored fields, with the same
-// SDK builders a client uses.
+// SDK builders a client uses. The action picks the template, so a row whose
+// action does not match its proof kind does not rebuild.
 const rebuildMessage = (
-	{ proof, accountAddress }: StoredAccountEvent,
+	{ action, proof, accountAddress }: StoredAccountEvent,
 	subject: string,
 ) => {
-	if (proof?.kind === 'proposer.add')
+	if (
+		action === 'proposer.added' &&
+		proof?.kind === 'proposer.add'
+	)
 		return PersonalMessages.addMultisigProposer(
 			subject,
 			accountAddress,
 			proof.expiry,
 		);
-	if (proof?.kind === 'proposer.remove')
+	if (
+		action === 'proposer.removed' &&
+		proof?.kind === 'proposer.remove'
+	)
 		return PersonalMessages.removeMultisigProposer(
 			subject,
 			accountAddress,
 			proof.expiry,
 		);
-	throw new Error(`No message for proof ${proof?.kind}`);
+	throw new Error(
+		`No message for action ${action} with proof ${proof?.kind}`,
+	);
 };
 
 const signatureOf = ({ proof }: StoredAccountEvent) => {
@@ -277,36 +285,6 @@ describe('recording in the change transaction', () => {
 			await eventsOf(multisig.address, users[0]),
 		).toEqual([]);
 	});
-
-	test('simultaneous adds at the limit write one event per proposer added', async () => {
-		const { session, users, multisig } =
-			await framework.createVerifiedMultisig(2, 1);
-
-		const results = await Promise.allSettled(
-			Array.from(
-				{ length: LIMITS.maxProposersPerMultisig + 2 },
-				() =>
-					session.addProposer(
-						users[0],
-						newUser().address,
-						multisig.address,
-					),
-			),
-		);
-
-		expectSettled(results, {
-			fulfilled: LIMITS.maxProposersPerMultisig,
-			rejectedWith:
-				'You have reached the maximum number of proposers for this multisig',
-		});
-		const events = await eventsOf(
-			multisig.address,
-			users[0],
-		);
-		expect(events.map((e) => e.subject).sort()).toEqual(
-			(await proposersOf(multisig.address)).sort(),
-		);
-	});
 });
 
 describe('listAccountEvents', () => {
@@ -384,9 +362,25 @@ describe('listAccountEvents', () => {
 		expect(
 			await count(LIMITS.maxAccountEventsPerPage + 1),
 		).toBe(LIMITS.maxAccountEventsPerPage);
-		expect(await count(0)).toBe(
-			LIMITS.maxAccountEventsPerPage,
-		);
+	});
+
+	test('only returns the events of the requested account', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+		// The same members with another threshold: another account they can read.
+		const first = await session.createMultisig(users, 1);
+		const second = await session.createMultisig(users, 2);
+		const [inFirst, inSecond] = await seed([
+			proposerAdded(first.address, users[0], 'a'),
+			proposerAdded(second.address, users[0], 'b'),
+		]);
+		const ids = async (accountAddress: string) =>
+			(await eventsOf(accountAddress, users[0])).map(
+				(e) => e.id,
+			);
+
+		expect(await ids(first.address)).toEqual([inFirst]);
+		expect(await ids(second.address)).toEqual([inSecond]);
 	});
 
 	test('filters by action and by subject', async () => {

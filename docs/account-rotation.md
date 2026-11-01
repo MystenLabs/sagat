@@ -96,7 +96,7 @@ Before deploying 0009:
 
 - As a role that owns the tables, `SELECT count(*), max(created_at) FROM drizzle.__drizzle_migrations;` returns 9 rows (the journal through 0008). If not, the database was not built with drizzle migrations: baseline it as described below, deploy with `MIGRATE_ON_START=false` and, as the owner, run `DATABASE_URL=... bun dist/db/migrate-cli.js` in the API image (working directory `/monorepo/api`); from a source checkout, `bun run db:migrate:prod` does the same. Both are added in #101 of this stack: `MIGRATE_ON_START` (on unless set to `false`) makes the API apply pending migrations at startup, and `bun run db:migrate:prod` applies them as a separate step.
 - `SELECT DISTINCT tableowner FROM pg_tables WHERE schemaname = 'public';` returns the role the API connects with. Otherwise startup migrations fail on the renames.
-- Grant the read-only roles access to `accounts`, `account_signer_sets`, `account_aliases`, `account_alias_state` after 0010, `account_keys` and, after 0011, `account_events`, or set default privileges. Otherwise the new tables are invisible to them.
+- Grant the read-only roles access to `accounts`, `account_signer_sets`, `account_aliases`, `account_alias_state`, after 0010 `account_keys` and, after 0011, `account_events`, or set default privileges. Otherwise the new tables are invisible to them.
 - Anything outside the API that queries `multisigs`, `multisig_members` or `multisig_proposers` by name breaks at the rename. Check dashboards and scripts.
 - Deploy with recreate, not a rolling update (see below).
 
@@ -301,7 +301,7 @@ Decisions (2026-10-19):
 
 ### Audit log (0011)
 
-Every member-authorized change stores its proof: the signature plus the semantic fields needed to rebuild the signed message. The server verifies at write time. A client re-verifies at read time with the same SDK builders, rebuilding the message from the fields and never trusting stored text. This covers a hostile or impersonated API inventing history. It does not cover withholding rows; a hash chain is a possible later step.
+Every member-authorized change stores its proof: the signature plus the semantic fields needed to rebuild the signed message. The server verifies at write time. A client re-verifies at read time with the same SDK builders, rebuilding the message from the fields and never trusting stored text. This covers a hostile or impersonated API forging a signed change. It does not cover withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
 
 ```text
 account_events (id, account_address, network, actor, action, subject,
@@ -309,9 +309,15 @@ account_events (id, account_address, network, actor, action, subject,
 ```
 
 - `actor` is the signer's address, or `system` for a later row nobody signed. `before` and `after` hold the changed fields only, never whole rows.
-- A proof's `kind` and `version` name the SDK message template. Version 1 is the legacy text; `/v1` writers will use version 2. `expiry` is stored because it is part of the message, not as a validity window for readers. Message text is never stored.
+- A proof's `kind` and `version` name the SDK message template. Version 1 is the legacy text; `/v1` writers will use version 2. `expiry` is part of the message, and a reader does not reject a row because it has passed. Message text is never stored.
 - Append-only, written in the same transaction as the change. Read newest first with a keyset on `id`, never an offset. No retention. There is no route yet: the read route lands with `/v1`.
 - Rows from before this table have no event and stay unverified, as does a change made by a replica still on the old code during a rolling deploy. No backfill.
+
+To verify a row:
+
+- Choose the template from the row's `action`, not from `proof.kind`, so a proof cannot be relabelled as another action.
+- The key recovered from the signature must match `actor` and must be a key of a signer set of the account, checked against the account's address or the on-chain alias set rather than API data alone. `actor` by itself proves nothing: anyone can sign a message.
+- A signed change can be replayed until its expiry, so the same signature can honestly appear on two rows. A reader can flag that but cannot treat it as forgery. An old proof shown again as a new row cannot be told apart from history by the signature alone; a `created_at` later than the expiry is a sign of it.
 
 To add an audited operation: one entry in the registry in `api/src/services/account-events.service.ts`, and one `recordAccountEvent(tx, ...)` call at the write site, in the change's transaction, after `lockAccount`. No migration: actions and proof kinds are checked by TypeScript, not by a database constraint. To find the proof of a current row, take the newest event for its account, action and subject.
 

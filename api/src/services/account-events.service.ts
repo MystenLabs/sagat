@@ -33,28 +33,18 @@ const DEFAULT_EVENTS_PER_PAGE = 50;
 
 // `kind` and `version` name a message template in the SDK's `PersonalMessages`,
 // and a reader rebuilds the signed message from them and the event's fields, so
-// message text is never stored. Version 1 is the legacy text. `expiry` is here
-// because it is part of the message, not as a validity window for readers.
-type ProposerAddProof = {
-	kind: 'proposer.add';
+// message text is never stored. Version 1 is the legacy text; a `/v1` writer
+// widens `version` here.
+type SignedProof<Kind extends string, Fields = unknown> = {
+	kind: Kind;
 	version: 1;
 	signature: string;
-	expiry: string;
-};
-type ProposerRemoveProof = {
-	kind: 'proposer.remove';
-	version: 1;
-	signature: string;
-	expiry: string;
-};
+} & Fields;
 
 // Room for rows nobody signed, such as a change seen on chain. Nothing writes
 // them yet: a system writer adds a registry entry with this actor and proof.
 export const SYSTEM_ACTOR = 'system';
 type ChainProof = { kind: 'chain'; digest: string };
-
-export type AccountEventProof =
-	ProposerAddProof | ProposerRemoveProof | ChainProof;
 
 // The address of the member who signed the proof.
 type MemberActor = string;
@@ -62,19 +52,36 @@ type MemberActor = string;
 // What each action stores. A field an entry leaves out must stay unset and is
 // stored as NULL. A proof that is not required is written `proof?: X | null`.
 // The subject of a proposer event is the address exactly as signed, not
-// normalised, because the proof's message has it verbatim.
+// normalised, because the proof's message has it verbatim. A proof's `expiry` is
+// part of the message: a reader does not reject a row because its expiry has
+// passed, since every historical proof has expired.
 type AccountEventRegistry = {
 	'proposer.added': {
 		actor: MemberActor;
 		subject: string;
-		proof: ProposerAddProof;
+		proof: SignedProof<'proposer.add', { expiry: string }>;
 	};
 	'proposer.removed': {
 		actor: MemberActor;
 		subject: string;
-		proof: ProposerRemoveProof;
+		proof: SignedProof<
+			'proposer.remove',
+			{ expiry: string }
+		>;
 	};
 };
+
+// Every proof in the registry, so a new kind is picked up here. An entry may
+// leave `proof` out or allow it to be null. `ChainProof` has no entry yet.
+export type AccountEventProof =
+	| {
+			[A in keyof AccountEventRegistry]: Required<
+				AccountEventRegistry[A]
+			> extends { proof: infer Proof }
+				? NonNullable<Proof>
+				: never;
+	  }[keyof AccountEventRegistry]
+	| ChainProof;
 
 type UnsetFields = {
 	network?: null;
