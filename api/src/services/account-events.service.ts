@@ -77,8 +77,10 @@ type AccountEventRegistry = {
 			{ expiry: string }
 		>;
 	};
+	// `actor` is a member, or the external proposer cancelling their own
+	// proposal. `subject` is the proposal id.
 	'proposal.cancelled': {
-		actor: MemberActor;
+		actor: string;
 		subject: string;
 		network: string;
 		proof: SignedProof<'proposal.cancel'> | CausedByProof;

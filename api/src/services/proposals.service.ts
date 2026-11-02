@@ -16,7 +16,14 @@ import {
 	isValidSuiAddress,
 	isValidTransactionDigest,
 } from '@mysten/sui/utils';
-import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import {
+	and,
+	desc,
+	eq,
+	inArray,
+	lt,
+	notExists,
+} from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -24,13 +31,17 @@ import { validateNetwork } from '../db/env';
 import {
 	ProposalStatus,
 	proposalStatusFromString,
+	SchemaAccountProposers,
 	SchemaProposals,
 	SchemaProposalSignatures,
 	type Proposal,
 	type ProposalWithSignatures,
 	type SignerSetWithMembers,
 } from '../db/schema';
-import { lockAccount } from '../db/transaction';
+import {
+	lockAccount,
+	type DatabaseReader,
+} from '../db/transaction';
 import {
 	ApiAuthError,
 	CommonError,
@@ -64,7 +75,7 @@ import {
 	validateProposedTransaction,
 } from './multisig.service';
 import {
-	verifyMemberSignedMessage,
+	verifySignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
 
@@ -272,6 +283,15 @@ const lookupAndVerifyProposal = async (
 	return status;
 };
 
+// Whether the address is in the account's proposers list.
+const isAccountProposer = async (
+	accountAddress: string,
+	address: string,
+) =>
+	(
+		await AccountProposersDataLoader.load(accountAddress)
+	).some((proposer) => proposer.address === address);
+
 // The base64 length of the largest transaction we accept.
 const MAX_TRANSACTION_BASE64_LENGTH =
 	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
@@ -318,11 +338,9 @@ export const createProposal = async ({
 			member.publicKey === pubKey.toSuiPublicKey() &&
 			member.isAccepted,
 	);
-	const proposers =
-		await AccountProposersDataLoader.load(multisigAddress);
-	const isProposer = proposers.some(
-		(proposer) =>
-			proposer.address === pubKey.toSuiAddress(),
+	const isProposer = await isAccountProposer(
+		multisigAddress,
+		pubKey.toSuiAddress(),
 	);
 
 	if (!isMember && !isProposer)
@@ -490,8 +508,46 @@ export const voteOnProposal = async ({
 	return tallyProposal(proposal, multisig);
 };
 
-// Cancels a pending proposal, signed by an accepted member.
-// TODO: this is pretty powerful (but probably safe to do).
+// Refuses anyone but an accepted member or the proposal's own external proposer,
+// and returns whether the signer is a member. Reads through `reader` rather than
+// a loader, whose cache could be stale.
+const authorizeCancel = async (
+	reader: DatabaseReader,
+	proposal: Proposal,
+	signer: PublicKey,
+) => {
+	if (
+		await isSignerSetMember(
+			proposal.accountAddress,
+			signer,
+			true,
+			reader,
+		)
+	)
+		return true;
+
+	const address = signer.toSuiAddress();
+	const isOwnProposer =
+		address === proposal.proposerAddress &&
+		!!(await reader.query.SchemaAccountProposers.findFirst({
+			where: and(
+				eq(
+					SchemaAccountProposers.accountAddress,
+					proposal.accountAddress,
+				),
+				eq(SchemaAccountProposers.address, address),
+			),
+		}));
+
+	if (!isOwnProposer)
+		throw new ValidationError(
+			'Not a member of the multisig',
+		);
+	return false;
+};
+
+// Cancels a pending proposal. An accepted member can cancel any proposal; an
+// external proposer can cancel only their own, and only while nobody has signed.
 export const cancelProposal = async ({
 	proposalId,
 	signature,
@@ -504,20 +560,32 @@ export const cancelProposal = async ({
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
 
-	const publicKey = await verifyMemberSignedMessage({
-		signerSetAddress: proposal.accountAddress,
+	const signer =
+		getPublicKeyFromSerializedSignature(signature);
+
+	// Refuses outsiders before they can take the lock, and before the signature
+	// is checked. The route is open, and this is the order callers rely on.
+	await authorizeCancel(db, proposal, signer);
+
+	await verifySignedMessage(
 		signature,
-		message: PersonalMessages.cancelProposal(proposalId),
-		acceptedOnly: true,
-		notMemberError: () =>
-			new ValidationError('Not a member of the multisig'),
-	});
+		PersonalMessages.cancelProposal(proposalId),
+	);
 
 	await db.transaction(async (tx) => {
 		// First, as this touches the proposal before recording takes the lock.
 		await lockAccount(tx, proposal.accountAddress);
 
-		// The check above ran without the lock, so the status may have moved.
+		// Again under the lock, so a removal cannot race the check.
+		const isMember = await authorizeCancel(
+			tx,
+			proposal,
+			signer,
+		);
+
+		// The first status check ran without the lock, so it may have moved. A
+		// proposer's cancel is guarded in the same statement, so a signature
+		// committed before it runs is never lost.
 		const cancelled = await tx
 			.update(SchemaProposals)
 			.set({ status: ProposalStatus.CANCELLED })
@@ -528,18 +596,41 @@ export const cancelProposal = async ({
 						SchemaProposals.status,
 						ProposalStatus.PENDING,
 					),
+					isMember
+						? undefined
+						: notExists(
+								tx
+									.select()
+									.from(SchemaProposalSignatures)
+									.where(
+										eq(
+											SchemaProposalSignatures.proposalId,
+											proposal.id,
+										),
+									),
+							),
 				),
 			)
 			.returning({ id: SchemaProposals.id });
 
-		if (cancelled.length === 0)
-			throw new ValidationError('Proposal is not pending');
+		if (cancelled.length === 0) {
+			// No row matched: the proposal has a signature or is no longer pending.
+			const [{ status }] = await tx
+				.select({ status: SchemaProposals.status })
+				.from(SchemaProposals)
+				.where(eq(SchemaProposals.id, proposal.id));
+			throw new ValidationError(
+				status === ProposalStatus.PENDING
+					? 'A signer has already signed this proposal'
+					: 'Proposal is not pending',
+			);
+		}
 
 		await recordAccountEvent(tx, {
 			action: 'proposal.cancelled',
 			accountAddress: proposal.accountAddress,
 			network: proposal.network,
-			actor: publicKey.toSuiAddress(),
+			actor: signer.toSuiAddress(),
 			subject: String(proposal.id),
 			proof: {
 				kind: 'proposal.cancel',

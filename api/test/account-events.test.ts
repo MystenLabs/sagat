@@ -10,7 +10,7 @@ import {
 	expect,
 	test,
 } from 'bun:test';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { LIMITS } from '../src/constants/limits';
 import { db } from '../src/db';
@@ -450,6 +450,114 @@ describe('cancelling a proposal', () => {
 		});
 		expect(await statusOf(proposal.id)).toBe(
 			ProposalStatus.SUCCESS,
+		);
+		expect(
+			await eventsOf(
+				multisig.address,
+				users[0],
+				'proposal.cancelled',
+			),
+		).toEqual([]);
+	});
+
+	const proposedByExternal = async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposer = newUser();
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		const proposal = await session.proposeTransfer(
+			proposer,
+			multisig.address,
+		);
+		return { session, users, multisig, proposer, proposal };
+	};
+
+	test("records a proposer's cancel with the proposer as actor", async () => {
+		const { session, users, multisig, proposer, proposal } =
+			await proposedByExternal();
+
+		await session.cancelProposal(proposer, proposal.id);
+
+		const [event, ...others] = await eventsOf(
+			multisig.address,
+			users[0],
+			'proposal.cancelled',
+		);
+		expect(others).toEqual([]);
+		expect(event).toMatchObject({
+			actor: proposer.address,
+			subject: String(proposal.id),
+			network: 'localnet',
+		});
+		await expectSignedByActor(event);
+	});
+
+	test("a proposer's cancel refused for a signed proposal writes no event", async () => {
+		const { session, users, multisig, proposer, proposal } =
+			await proposedByExternal();
+		await session.voteOnProposal(
+			users[0],
+			proposal.id,
+			proposal.transactionBytes,
+		);
+
+		await expect(
+			session.cancelProposal(proposer, proposal.id),
+		).rejects.toThrow(
+			'A signer has already signed this proposal',
+		);
+
+		expect(
+			await eventsOf(
+				multisig.address,
+				users[0],
+				'proposal.cancelled',
+			),
+		).toEqual([]);
+	});
+
+	test('a proposer removed while their cancel waits for the lock is refused', async () => {
+		const { session, users, multisig, proposer, proposal } =
+			await proposedByExternal();
+
+		// Wrapped, as returning it bare would make the transaction wait for it.
+		const { cancel } = await db.transaction(async (tx) => {
+			await lockAccount(tx, multisig.address);
+
+			// Not `expect().rejects`: bun blocks on it right here.
+			const cancel = Promise.allSettled([
+				session.cancelProposal(proposer, proposal.id),
+			]);
+			await untilABackendWaitsOnALock();
+
+			await tx
+				.delete(SchemaAccountProposers)
+				.where(
+					and(
+						eq(
+							SchemaAccountProposers.accountAddress,
+							multisig.address,
+						),
+						eq(
+							SchemaAccountProposers.address,
+							proposer.address,
+						),
+					),
+				);
+
+			return { cancel };
+		});
+
+		expectSettled(await cancel, {
+			fulfilled: 0,
+			rejectedWith: 'Not a member of the multisig',
+		});
+		expect(await statusOf(proposal.id)).toBe(
+			ProposalStatus.PENDING,
 		);
 		expect(
 			await eventsOf(
