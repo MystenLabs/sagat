@@ -31,6 +31,7 @@ import { validateNetwork } from '../db/env';
 import {
 	ProposalStatus,
 	proposalStatusFromString,
+	SchemaAccountProposers,
 	SchemaProposals,
 	SchemaProposalSignatures,
 	type Proposal,
@@ -386,6 +387,28 @@ export const createProposal = async ({
 			multisigAddress,
 			network,
 		);
+
+		// The proposer check above ran before the account lock, so a removal
+		// may have committed since, without cancelling this proposal.
+		if (!isMember) {
+			const [proposer] = await tx
+				.select({ address: SchemaAccountProposers.address })
+				.from(SchemaAccountProposers)
+				.where(
+					and(
+						eq(
+							SchemaAccountProposers.accountAddress,
+							multisigAddress,
+						),
+						eq(
+							SchemaAccountProposers.address,
+							pubKey.toSuiAddress(),
+						),
+					),
+				);
+			if (!proposer)
+				throw new ApiAuthError('NotAMultisigMember');
+		}
 
 		// Insert the proposal and the first sig!
 		const proposal = await tx

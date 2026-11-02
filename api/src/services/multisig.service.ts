@@ -983,7 +983,8 @@ export const removeProposer = async ({
 
 	// Remove the proposer from the multisig, removing all pending transactions from the proposer.
 	await db.transaction(async (tx) => {
-		// First, as this touches proposals before recording takes the lock.
+		// First, as this touches proposals before recording takes the lock. Also
+		// serializes with proposal creation, which re-checks the proposer under it.
 		await lockAccount(tx, address);
 
 		// Cancel all pending transactions from the proposer.
