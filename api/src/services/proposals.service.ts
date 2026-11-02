@@ -16,7 +16,15 @@ import {
 	isValidSuiAddress,
 	isValidTransactionDigest,
 } from '@mysten/sui/utils';
-import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import {
+	and,
+	desc,
+	eq,
+	inArray,
+	lt,
+	notExists,
+	sql,
+} from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -62,7 +70,7 @@ import {
 	validateProposedTransaction,
 } from './multisig.service';
 import {
-	verifyMemberSignedMessage,
+	verifySignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
 
@@ -474,8 +482,8 @@ export const voteOnProposal = async ({
 	return tallyProposal(proposal, multisig);
 };
 
-// Cancels a pending proposal, signed by an accepted member.
-// TODO: this is pretty powerful (but probably safe to do).
+// Cancels a pending proposal. An accepted member can cancel any proposal; an
+// external proposer can cancel only their own, and only while nobody has signed.
 export const cancelProposal = async ({
 	proposalId,
 	signature,
@@ -488,19 +496,74 @@ export const cancelProposal = async ({
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
 
-	await verifyMemberSignedMessage({
-		signerSetAddress: proposal.accountAddress,
-		signature,
-		message: PersonalMessages.cancelProposal(proposalId),
-		acceptedOnly: true,
-		notMemberError: () =>
-			new ValidationError('Not a member of the multisig'),
-	});
+	const pubKey =
+		getPublicKeyFromSerializedSignature(signature);
+	const signerAddress = pubKey.toSuiAddress();
+	const isMember = await isSignerSetMember(
+		proposal.accountAddress,
+		pubKey,
+		true,
+	);
 
-	await db
-		.update(SchemaProposals)
-		.set({ status: ProposalStatus.CANCELLED })
-		.where(eq(SchemaProposals.id, proposal.id));
+	if (!isMember) {
+		const isOwnProposer =
+			signerAddress === proposal.proposerAddress &&
+			(
+				await AccountProposersDataLoader.load(
+					proposal.accountAddress,
+				)
+			).some(
+				(proposer) => proposer.address === signerAddress,
+			);
+
+		if (!isOwnProposer)
+			throw new ValidationError(
+				'Not a member of the multisig',
+			);
+	}
+
+	await verifySignedMessage(
+		signature,
+		PersonalMessages.cancelProposal(proposalId),
+	);
+
+	if (isMember) {
+		await db
+			.update(SchemaProposals)
+			.set({ status: ProposalStatus.CANCELLED })
+			.where(eq(SchemaProposals.id, proposal.id));
+	} else {
+		// One statement, so a member signing concurrently is never lost.
+		const cancelled = await db
+			.update(SchemaProposals)
+			.set({ status: ProposalStatus.CANCELLED })
+			.where(
+				and(
+					eq(SchemaProposals.id, proposal.id),
+					eq(
+						SchemaProposals.status,
+						ProposalStatus.PENDING,
+					),
+					notExists(
+						db
+							.select({ one: sql`1` })
+							.from(SchemaProposalSignatures)
+							.where(
+								eq(
+									SchemaProposalSignatures.proposalId,
+									proposal.id,
+								),
+							),
+					),
+				),
+			)
+			.returning({ id: SchemaProposals.id });
+
+		if (cancelled.length === 0)
+			throw new ValidationError(
+				'A signer has already signed this proposal',
+			);
+	}
 
 	multisigProposalEvents.inc({
 		network: proposal.network,

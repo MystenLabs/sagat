@@ -378,6 +378,113 @@ describe('Proposal Business Logic', () => {
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
 		});
 
+		test('an external proposer cancels their own unsigned proposal', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const proposer = newUser();
+
+			await session.addProposer(
+				users[0],
+				proposer.address,
+				multisig.address,
+			);
+			const proposal = await session.proposeTransfer(
+				proposer,
+				multisig.address,
+			);
+
+			await session.cancelProposal(proposer, proposal.id);
+
+			const { data } = await session.client.getProposals(
+				multisig.address,
+				'localnet',
+				{},
+			);
+			expect(data.map((p) => p.status)).toEqual([
+				ProposalStatus.CANCELLED,
+			]);
+		});
+
+		test('an external proposer cannot cancel once a member has signed', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const proposer = newUser();
+
+			await session.addProposer(
+				users[0],
+				proposer.address,
+				multisig.address,
+			);
+			const proposal = await session.proposeTransfer(
+				proposer,
+				multisig.address,
+			);
+			await session.voteOnProposal(
+				users[0],
+				proposal.id,
+				proposal.transactionBytes,
+			);
+
+			await expect(
+				session.cancelProposal(proposer, proposal.id),
+			).rejects.toThrow(
+				'A signer has already signed this proposal',
+			);
+
+			const { data } = await session.client.getProposals(
+				multisig.address,
+				'localnet',
+				{},
+			);
+			expect(data.map((p) => p.status)).toEqual([
+				ProposalStatus.PENDING,
+			]);
+		});
+
+		test("an external proposer cannot cancel someone else's proposal", async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const proposerA = newUser();
+			const proposerB = newUser();
+
+			await session.addProposer(
+				users[0],
+				proposerA.address,
+				multisig.address,
+			);
+			await session.addProposer(
+				users[0],
+				proposerB.address,
+				multisig.address,
+			);
+
+			const proposalByA = await session.proposeTransfer(
+				proposerA,
+				multisig.address,
+			);
+			await expect(
+				session.cancelProposal(proposerB, proposalByA.id),
+			).rejects.toThrow('Not a member of the multisig');
+
+			// Frees the coins for the next proposal.
+			await session.cancelProposal(
+				users[0],
+				proposalByA.id,
+			);
+
+			const proposalByMember =
+				await session.proposeTransfer(
+					users[0],
+					multisig.address,
+				);
+			await expect(
+				session.cancelProposal(
+					proposerA,
+					proposalByMember.id,
+				),
+			).rejects.toThrow('Not a member of the multisig');
+		});
+
 		test('keeps the proposer limit for simultaneous adds', async () => {
 			const { session, users, multisig } =
 				await framework.createVerifiedMultisig(2, 2);
