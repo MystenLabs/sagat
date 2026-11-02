@@ -116,30 +116,16 @@ export type AccountEvent = {
 
 // Takes the lock so an account's ids follow commit order. A writer touching
 // other rows must call `lockAccount` first, or it can deadlock.
-//
-// `events` must all belong to one account: only the first one's is locked. One
-// statement, however many rows, because callers run holding the lock. Returns
-// the ids in input order.
-export const recordAccountEvents = async (
-	tx: DatabaseTransaction,
-	events: AccountEvent[],
-): Promise<number[]> => {
-	if (events.length === 0) return [];
-
-	await lockAccount(tx, events[0].accountAddress);
-
-	const rows = await tx
-		.insert(SchemaAccountEvents)
-		.values(events)
-		.returning({ id: SchemaAccountEvents.id });
-	return rows.map((row) => row.id);
-};
-
 export const recordAccountEvent = async (
 	tx: DatabaseTransaction,
 	event: AccountEvent,
 ): Promise<number> => {
-	const [id] = await recordAccountEvents(tx, [event]);
+	await lockAccount(tx, event.accountAddress);
+
+	const [{ id }] = await tx
+		.insert(SchemaAccountEvents)
+		.values(event)
+		.returning({ id: SchemaAccountEvents.id });
 	return id;
 };
 

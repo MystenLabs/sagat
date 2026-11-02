@@ -25,8 +25,8 @@ import { AuthErrors, CommonErrors } from '../src/errors';
 import {
 	listAccountEvents,
 	recordAccountEvent,
-	recordAccountEvents,
 	type AccountEvent,
+	type AccountEventAction,
 	type StoredAccountEvent,
 } from '../src/services/account-events.service';
 import { verifySignedMessage } from '../src/services/signatures.service';
@@ -57,22 +57,13 @@ beforeEach(async () => {
 const eventsOf = (
 	accountAddress: string,
 	member: TestUser,
+	action?: AccountEventAction,
 ) =>
 	listAccountEvents({
 		accountAddress,
 		callerKeys: [member.keypair.getPublicKey()],
 		includeProof: true,
-	});
-
-const cancellationsOf = (
-	accountAddress: string,
-	member: TestUser,
-) =>
-	listAccountEvents({
-		accountAddress,
-		callerKeys: [member.keypair.getPublicKey()],
-		includeProof: true,
-		action: 'proposal.cancelled',
+		action,
 	});
 
 const proposersOf = async (accountAddress: string) =>
@@ -352,44 +343,6 @@ describe('recording in the change transaction', () => {
 			await eventsOf(multisig.address, users[0]),
 		).toEqual([]);
 	});
-
-	test('a batch returns its ids in input order, and an empty one writes nothing', async () => {
-		const { users, multisig } =
-			await framework.createVerifiedMultisig(2, 1);
-		const subjects = Array.from({ length: 20 }, (_, i) =>
-			String(i),
-		);
-
-		expect(
-			await db.transaction((tx) =>
-				recordAccountEvents(tx, []),
-			),
-		).toEqual([]);
-
-		const ids = await db.transaction((tx) =>
-			recordAccountEvents(
-				tx,
-				subjects.map((subject) => ({
-					action: 'proposal.cancelled',
-					accountAddress: multisig.address,
-					actor: users[0].address,
-					subject,
-					network: 'localnet',
-					proof: { kind: 'caused_by', eventId: 1 },
-				})),
-			),
-		);
-
-		const stored = await eventsOf(
-			multisig.address,
-			users[0],
-		);
-		expect(
-			ids.map(
-				(id) => stored.find((e) => e.id === id)?.subject,
-			),
-		).toEqual(subjects);
-	});
 });
 
 describe('cancelling a proposal', () => {
@@ -423,9 +376,10 @@ describe('cancelling a proposal', () => {
 
 		await session.cancelProposal(users[1], proposal.id);
 
-		const events = await cancellationsOf(
+		const events = await eventsOf(
 			multisig.address,
 			users[0],
+			'proposal.cancelled',
 		);
 		expect(events).toHaveLength(1);
 		expect(events[0]).toMatchObject({
@@ -442,7 +396,11 @@ describe('cancelling a proposal', () => {
 			session.cancelProposal(users[1], proposal.id),
 		).rejects.toThrow('Proposal is not pending');
 		expect(
-			await cancellationsOf(multisig.address, users[0]),
+			await eventsOf(
+				multisig.address,
+				users[0],
+				'proposal.cancelled',
+			),
 		).toHaveLength(1);
 	});
 
@@ -455,7 +413,11 @@ describe('cancelling a proposal', () => {
 		).rejects.toThrow('Not a member of the multisig');
 
 		expect(
-			await cancellationsOf(multisig.address, users[0]),
+			await eventsOf(
+				multisig.address,
+				users[0],
+				'proposal.cancelled',
+			),
 		).toEqual([]);
 	});
 
@@ -490,7 +452,11 @@ describe('cancelling a proposal', () => {
 			ProposalStatus.SUCCESS,
 		);
 		expect(
-			await cancellationsOf(multisig.address, users[0]),
+			await eventsOf(
+				multisig.address,
+				users[0],
+				'proposal.cancelled',
+			),
 		).toEqual([]);
 	});
 
@@ -508,7 +474,11 @@ describe('cancelling a proposal', () => {
 			ProposalStatus.PENDING,
 		);
 		expect(
-			await cancellationsOf(multisig.address, users[0]),
+			await eventsOf(
+				multisig.address,
+				users[0],
+				'proposal.cancelled',
+			),
 		).toEqual([]);
 	});
 });
@@ -584,11 +554,13 @@ describe('cancelling through a proposer removal', () => {
 			[proposer, proposer],
 			multisig.address,
 		);
-		const latest = Math.max(...proposals.map((p) => p.id));
 		const eventsBefore = await eventsOf(
 			multisig.address,
 			users[0],
 		);
+		// Each insert takes the next id: the removal, a first child, then this
+		// one, whichever proposal the removal's UPDATE returned second.
+		const secondChild = eventsBefore[0].id + 3;
 
 		await withEventInsertsFailing(async () => {
 			await expect(
@@ -598,7 +570,7 @@ describe('cancelling through a proposer removal', () => {
 					multisig.address,
 				),
 			).rejects.toThrow();
-		}, `NEW.action = 'proposal.cancelled' AND NEW.subject = '${latest}'`);
+		}, `NEW.action = 'proposal.cancelled' AND NEW.id = ${secondChild}`);
 
 		expect(await proposersOf(multisig.address)).toEqual([
 			proposer.address,

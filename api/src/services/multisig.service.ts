@@ -63,10 +63,7 @@ import {
 	type SuiNetwork,
 } from '../utils/client';
 import { parsePublicKey } from '../utils/pubKey';
-import {
-	recordAccountEvent,
-	recordAccountEvents,
-} from './account-events.service';
+import { recordAccountEvent } from './account-events.service';
 import { normalizeKeyLabels } from './account-keys.service';
 import {
 	expandSignerSetsWithMembers,
@@ -1043,16 +1040,15 @@ export const removeProposer = async ({
 			},
 		});
 
-		await recordAccountEvents(
-			tx,
-			cancelled.map(({ id, network }) => ({
+		// Bounded: `validateProposedTransaction` caps pending proposals.
+		for (const { id, network } of cancelled)
+			await recordAccountEvent(tx, {
 				action: 'proposal.cancelled',
 				accountAddress: address,
 				actor,
 				subject: String(id),
 				network,
 				proof: { kind: 'caused_by', eventId: parentId },
-			})),
-		);
+			});
 	});
 };
