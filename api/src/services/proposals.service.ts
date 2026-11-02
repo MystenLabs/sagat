@@ -23,7 +23,6 @@ import {
 	inArray,
 	lt,
 	notExists,
-	sql,
 } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
@@ -278,6 +277,15 @@ const lookupAndVerifyProposal = async (
 	return status;
 };
 
+// Whether the address is in the account's proposers list.
+const isAccountProposer = async (
+	accountAddress: string,
+	address: string,
+) =>
+	(
+		await AccountProposersDataLoader.load(accountAddress)
+	).some((proposer) => proposer.address === address);
+
 // The base64 length of the largest transaction we accept.
 const MAX_TRANSACTION_BASE64_LENGTH =
 	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
@@ -324,11 +332,9 @@ export const createProposal = async ({
 			member.publicKey === pubKey.toSuiPublicKey() &&
 			member.isAccepted,
 	);
-	const proposers =
-		await AccountProposersDataLoader.load(multisigAddress);
-	const isProposer = proposers.some(
-		(proposer) =>
-			proposer.address === pubKey.toSuiAddress(),
+	const isProposer = await isAccountProposer(
+		multisigAddress,
+		pubKey.toSuiAddress(),
 	);
 
 	if (!isMember && !isProposer)
@@ -505,70 +511,61 @@ export const cancelProposal = async ({
 		true,
 	);
 
-	if (!isMember) {
-		const isOwnProposer =
-			signerAddress === proposal.proposerAddress &&
-			(
-				await AccountProposersDataLoader.load(
-					proposal.accountAddress,
-				)
-			).some(
-				(proposer) => proposer.address === signerAddress,
-			);
+	const isOwnProposer =
+		!isMember &&
+		signerAddress === proposal.proposerAddress &&
+		(await isAccountProposer(
+			proposal.accountAddress,
+			signerAddress,
+		));
 
-		if (!isOwnProposer)
-			throw new ValidationError(
-				'Not a member of the multisig',
-			);
-	}
+	if (!isMember && !isOwnProposer)
+		throw new ValidationError(
+			'Not a member of the multisig',
+		);
 
 	await verifySignedMessage(
 		signature,
 		PersonalMessages.cancelProposal(proposalId),
 	);
 
-	if (isMember) {
-		await db
-			.update(SchemaProposals)
-			.set({ status: ProposalStatus.CANCELLED })
-			.where(eq(SchemaProposals.id, proposal.id));
-	} else {
-		// One statement, so a signature committed before it runs is never lost.
-		const cancelled = await db
-			.update(SchemaProposals)
-			.set({ status: ProposalStatus.CANCELLED })
-			.where(
-				and(
-					eq(SchemaProposals.id, proposal.id),
-					eq(
-						SchemaProposals.status,
-						ProposalStatus.PENDING,
-					),
-					notExists(
-						db
-							.select({ one: sql`1` })
-							.from(SchemaProposalSignatures)
-							.where(
-								eq(
-									SchemaProposalSignatures.proposalId,
-									proposal.id,
+	// A proposer's cancel is guarded in the same statement, so a signature
+	// committed before it runs is never lost.
+	const cancelled = await db
+		.update(SchemaProposals)
+		.set({ status: ProposalStatus.CANCELLED })
+		.where(
+			isMember
+				? eq(SchemaProposals.id, proposal.id)
+				: and(
+						eq(SchemaProposals.id, proposal.id),
+						eq(
+							SchemaProposals.status,
+							ProposalStatus.PENDING,
+						),
+						notExists(
+							db
+								.select()
+								.from(SchemaProposalSignatures)
+								.where(
+									eq(
+										SchemaProposalSignatures.proposalId,
+										proposal.id,
+									),
 								),
-							),
+						),
 					),
-				),
-			)
-			.returning({ id: SchemaProposals.id });
+		)
+		.returning({ id: SchemaProposals.id });
 
-		if (cancelled.length === 0) {
-			const current = await getProposalById(proposalId);
-			if (current.status !== ProposalStatus.PENDING)
-				throw new ValidationError(
-					'Proposal is not pending',
-				);
-			throw new ValidationError(
-				'A signer has already signed this proposal',
-			);
-		}
+	if (cancelled.length === 0) {
+		// Lost a race: a signature or another cancel landed since the read.
+		const { status } = await getProposalById(proposalId);
+		throw new ValidationError(
+			status === ProposalStatus.PENDING
+				? 'A signer has already signed this proposal'
+				: 'Proposal is not pending',
+		);
 	}
 
 	multisigProposalEvents.inc({

@@ -314,6 +314,21 @@ describe('Proposal Business Logic', () => {
 	});
 
 	describe('Proposer Access Control', () => {
+		// A new user, added as an external proposer of the multisig by a member.
+		const addNewProposer = async (
+			session: TestSession,
+			member: TestUser,
+			multisig: { address: string },
+		) => {
+			const proposer = newUser();
+			await session.addProposer(
+				member,
+				proposer.address,
+				multisig.address,
+			);
+			return proposer;
+		};
+
 		test('Only members can add proposers', async () => {
 			const { session, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
@@ -345,12 +360,10 @@ describe('Proposal Business Logic', () => {
 		test('Add proposer, propose, remove proposer, try to propose and fail', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-			const proposer = newUser();
-
-			await session.addProposer(
+			const proposer = await addNewProposer(
+				session,
 				users[0],
-				proposer.address,
-				multisig.address,
+				multisig,
 			);
 			await session.proposeTransfer(
 				proposer,
@@ -381,12 +394,10 @@ describe('Proposal Business Logic', () => {
 		test('an external proposer cancels their own unsigned proposal', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-			const proposer = newUser();
-
-			await session.addProposer(
+			const proposer = await addNewProposer(
+				session,
 				users[0],
-				proposer.address,
-				multisig.address,
+				multisig,
 			);
 			const proposal = await session.proposeTransfer(
 				proposer,
@@ -408,12 +419,10 @@ describe('Proposal Business Logic', () => {
 		test('an external proposer cannot cancel once a member has signed', async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-			const proposer = newUser();
-
-			await session.addProposer(
+			const proposer = await addNewProposer(
+				session,
 				users[0],
-				proposer.address,
-				multisig.address,
+				multisig,
 			);
 			const proposal = await session.proposeTransfer(
 				proposer,
@@ -444,18 +453,15 @@ describe('Proposal Business Logic', () => {
 		test("an external proposer cannot cancel someone else's proposal", async () => {
 			const { session, users, multisig } =
 				await framework.createFundedVerifiedMultisig(2, 2);
-			const proposerA = newUser();
-			const proposerB = newUser();
-
-			await session.addProposer(
+			const proposerA = await addNewProposer(
+				session,
 				users[0],
-				proposerA.address,
-				multisig.address,
+				multisig,
 			);
-			await session.addProposer(
+			const proposerB = await addNewProposer(
+				session,
 				users[0],
-				proposerB.address,
-				multisig.address,
+				multisig,
 			);
 
 			const proposalByA = await session.proposeTransfer(
