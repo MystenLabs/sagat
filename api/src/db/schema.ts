@@ -364,21 +364,15 @@ const accountKeys = pgTable(
 	],
 );
 
-// The audit log: one row per change to an account, append-only, written in the
-// change's transaction by `recordAccountEvent` in `account-events.service.ts`.
-// That module also decides what each action stores. `before` and `after` hold
-// the changed fields only, never whole rows.
+// The audit log. Only `account-events.service.ts` writes it.
 const accountEvents = pgTable(
 	'account_events',
 	{
-		// Follows commit order within an account, see `recordAccountEvent`.
 		id: bigserial('id', { mode: 'number' }).primaryKey(),
 		accountAddress: text('account_address')
 			.notNull()
 			.references(() => accounts.address),
-		// Null for a change that is not tied to one network.
 		network: text('network'),
-		// The signer's address, or `SYSTEM_ACTOR` for a change nobody signed.
 		actor: text('actor').notNull(),
 		action: text('action').notNull(),
 		subject: text('subject'),
@@ -391,8 +385,7 @@ const accountEvents = pgTable(
 			.notNull()
 			.defaultNow(),
 	},
-	// NULLS FIRST is what `ORDER BY id DESC` sorts by. Drizzle's default for
-	// `desc()` here is NULLS LAST, which the planner cannot use for that order.
+	// NULLS FIRST: `ORDER BY id DESC` cannot use drizzle's default NULLS LAST.
 	(table) => [
 		index('account_events_account_id_idx').on(
 			table.accountAddress,

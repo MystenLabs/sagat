@@ -65,9 +65,6 @@ const proposersOf = async (accountAddress: string) =>
 			)
 	).map((row) => row.address);
 
-// Rebuilds the signed message from the event's stored fields, with the same
-// SDK builders a client uses. The action picks the template, so a row whose
-// action does not match its proof kind does not rebuild.
 const rebuildMessage = (
 	{ action, proof, accountAddress }: StoredAccountEvent,
 	subject: string,
@@ -101,7 +98,6 @@ const signatureOf = ({ proof }: StoredAccountEvent) => {
 	return proof.signature;
 };
 
-// Fails every insert into `account_events` while `fn` runs.
 const withEventInsertsFailing = async (
 	fn: () => Promise<void>,
 ) => {
@@ -127,7 +123,7 @@ describe('the stored proof', () => {
 	test('rebuilds the signed message and recovers the actor, after the proposer is gone too', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 1);
-		// Valid, but not the normalised form of the address.
+		// Valid, but not normalised.
 		const proposer = newUser().address.toUpperCase();
 
 		await session.addProposer(
@@ -171,7 +167,6 @@ describe('the stored proof', () => {
 			);
 			expect(signer.toSuiAddress()).toBe(event.actor);
 
-			// The subject is what was signed: normalising it breaks the proof.
 			await expect(
 				verifySignedMessage(
 					signatureOf(event),
@@ -367,7 +362,6 @@ describe('listAccountEvents', () => {
 	test('only returns the events of the requested account', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(2);
-		// The same members with another threshold: another account they can read.
 		const first = await session.createMultisig(users, 1);
 		const second = await session.createMultisig(users, 2);
 		const [inFirst, inSecond] = await seed([

@@ -1016,9 +1016,7 @@ export const removeProposer = async ({
 				address: SchemaAccountProposers.address,
 			});
 
-		// Removing someone who is not a proposer succeeds and changes no
-		// proposer, so there is no `proposer.removed` to record. Proposals it
-		// cancelled are not recorded yet.
+		// Cancelled proposals are not recorded yet.
 		if (removed.length > 0)
 			await recordAccountEvent(tx, {
 				action: 'proposer.removed',

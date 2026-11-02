@@ -336,7 +336,7 @@ const accountEvents: MigrationCase = {
 		},
 	],
 	verify: async (db) => {
-		// No backfill: an existing proposer simply has no event.
+		// No backfill.
 		expect(
 			Number(
 				await db.value(
