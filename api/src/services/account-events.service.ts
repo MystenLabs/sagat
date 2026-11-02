@@ -5,8 +5,8 @@
  * The account audit log. See "Audit log" in `docs/account-rotation.md`.
  *
  * Actions and proof kinds are checked by TypeScript, not a DB CHECK, so a new
- * action needs no migration. The database accepts anything, so this module
- * must stay the only writer.
+ * action needs no migration. The database accepts any action or proof, so this
+ * module must stay the only writer.
  */
 
 import { type PublicKey } from '@mysten/sui/cryptography';
