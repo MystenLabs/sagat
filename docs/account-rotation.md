@@ -301,7 +301,7 @@ Decisions (2026-10-19):
 
 ### Audit log (0011)
 
-Signed changes store their proof: the signature plus any semantic fields needed to rebuild the signed message. So far that covers adding and removing a proposer, and creating a proposal. Other changes, including proposal cancellations, are not recorded yet, so a missing event for one is not a sign of a withheld row. The server verifies at write time. A client re-verifies at read time with the same SDK builders, rebuilding the message from the fields and never trusting stored text. This covers a hostile or impersonated API forging a signed change. It does not cover withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
+Signed changes store their proof: the signature plus any semantic fields needed to rebuild the signed message. So far that covers adding and removing a proposer, and creating a proposal. Other changes, including proposal cancellations, are not recorded yet, so a missing event for one is not a sign of a withheld row. The server verifies at write time. A client re-verifies at read time, rebuilding any message from the fields with the same SDK builders and never trusting stored text. This covers a hostile or impersonated API forging a signed change. It does not cover withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
 
 ```text
 account_events (id, account_address, network, actor, action, subject,
@@ -309,16 +309,16 @@ account_events (id, account_address, network, actor, action, subject,
 ```
 
 - `actor` is the signer's address, or `system` for a later row nobody signed. `before` and `after` hold the changed fields only, never whole rows.
-- The `kind` and `version` of a proof over a personal message name the SDK message template; `proposal.create` has no message. Version 1 is the legacy text; `/v1` writers will use version 2. `expiry` is part of the message, and a reader does not reject a row because it has passed. Message text is never stored.
+- The `kind` and `version` of a proof over a personal message name the SDK message template: version 1 is the legacy text, and `/v1` writers will use version 2. `proposal.create` signs transaction bytes and has no template. `expiry` is part of the message, and a reader does not reject a row because it has passed. Message text is never stored.
 - Append-only, written in the same transaction as the change. Read newest first with a keyset on `id`, never an offset. `recordAccountEvent` takes the account lock because ids are assigned at insert, not commit: without it, a lower id could become visible after a reader has paged past it. With it, an account's ids follow commit order, which the keyset and a later hash chain rely on. No retention. There is no route yet: the read route lands with `/v1`.
-- Rows from before this table have no event and stay unverified, as does a change made by a replica still on the old code during a rolling deploy. No backfill.
+- Rows from before their action was first recorded have no event and stay unverified, as does a change made by a replica still on the old code during a rolling deploy. No backfill.
 
 To verify a row:
 
-- Choose the template from the row's `action`, not from `proof.kind`, so a proof cannot be relabelled as another action.
-- A `proposal.create` proof is checked with `verifyTransaction` over the transaction bytes of the proposal in `subject` (`proposals.transaction_bytes`). It has no expiry, and proposing the same bytes again can repeat its signature.
-- The key recovered from the signature must match `actor` and must be a key of a signer set of the account, checked against the account's address or the on-chain alias set rather than API data alone. An external proposer's address must instead be the `subject` of a verified `proposer.added` event. `actor` by itself proves nothing: anyone can sign a message.
-- A signed change can be replayed until its expiry, so the same signature can honestly appear on two rows. A reader can flag that but cannot treat it as forgery. An old proof shown again as a new row cannot be told apart from history by the signature alone; a `created_at` later than the expiry is a sign of it.
+- Choose the template or transaction check from the row's `action`, not from `proof.kind`, so a proof cannot be relabelled as another action.
+- A `proposal.create` proof is checked with `verifyTransaction` over the transaction bytes of the proposal in `subject` (`proposals.transaction_bytes`), and the sender in those bytes must be the row's account, the only thing binding the signature to it. It proves the key signed these bytes, as a vote also does, and `subject` and `network` are the server's word. It has no expiry. Digests are unique across all proposals, so one signature never honestly appears on two such rows.
+- The key recovered from the signature must match `actor` and must be a key of a signer set of the account, checked against the account's address or the on-chain alias set rather than API data alone. An external proposer's address must instead be the `subject` of a verified `proposer.added` event, or the row stays unverified, as for a proposer added before this table. That proves a member once added it, not that it was still a proposer. `actor` by itself proves nothing: anyone can sign a message.
+- A signed change with an expiry can be replayed until then, so the same signature can honestly appear on two rows. A reader can flag that but cannot treat it as forgery. An old proof shown again as a new row cannot be told apart from history by the signature alone; a `created_at` later than the expiry is a sign of it.
 
 To add an audited operation: one entry in the registry in `api/src/services/account-events.service.ts`, and one `recordAccountEvent(tx, ...)` call at the write site, in the change's transaction, after `lockAccount`. No migration: actions and proof kinds are checked by TypeScript, not by a database constraint. To find the proof of a current row, take the newest event for its account, action and subject.
 

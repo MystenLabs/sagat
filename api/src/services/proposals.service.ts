@@ -386,6 +386,19 @@ export const createProposal = async ({
 			})
 			.returning();
 
+		// We only save the signature as a vote if the proposer is a member.
+		if (isMember) {
+			await tx.insert(SchemaProposalSignatures).values({
+				proposalId: proposal[0].id,
+				publicKey: pubKey.toSuiPublicKey(),
+				signature,
+			});
+			multisigProposalEvents.inc({
+				network,
+				event_type: MultisigEventType.SIGNATURE_ADDED,
+			});
+		}
+
 		// The only copy of an external proposer's signature.
 		await recordAccountEvent(tx, {
 			action: 'proposal.created',
@@ -399,19 +412,6 @@ export const createProposal = async ({
 				signature,
 			},
 		});
-
-		// We only save the signature as a vote if the proposer is a member.
-		if (isMember) {
-			await tx.insert(SchemaProposalSignatures).values({
-				proposalId: proposal[0].id,
-				publicKey: pubKey.toSuiPublicKey(),
-				signature,
-			});
-			multisigProposalEvents.inc({
-				network,
-				event_type: MultisigEventType.SIGNATURE_ADDED,
-			});
-		}
 
 		return proposal[0];
 	});

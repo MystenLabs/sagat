@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { PersonalMessages } from '@mysten/sagat';
+import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
@@ -366,6 +367,9 @@ describe('proposal.created', () => {
 		expect(
 			await signer.verifyTransaction(otherBytes, signature),
 		).toBe(false);
+		expect(Transaction.from(bytes).getData().sender).toBe(
+			multisig.address,
+		);
 
 		expect(added.action).toBe('proposer.added');
 		expect(added.subject).toBe(created.actor);
