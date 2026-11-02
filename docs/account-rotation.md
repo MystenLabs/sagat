@@ -272,14 +272,14 @@ Out of scope: notifications, channels, persons, a background chain watcher, and 
 
 Each of these is a property of the rotation design, not extra work. Together they mean the out of scope items can be added without reshaping anything.
 
-| Later feature        | What the rotation design already provides                                                                                           |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Notifications        | The resolver returns the leaf public keys for an account and network. That list is the recipient list.                              |
-| Chain watcher        | The refresh function takes an account and network, updates the mirror, and returns a diff. A scheduler can call the same function.  |
-| Alias changed alerts | The diff from the refresh function is the event. The state row keeps the observed version and time.                                 |
-| Event outbox         | Rotation state changes go through one recording function. Today it only updates metrics. Later it also writes a row.                |
-| Persons              | Audit fields stay as addresses. Nothing is keyed on the group of keys in a browser session. No contact details are stored anywhere. |
-| Per-network anything | Every alias row, proposal, and recorded change carries the network.                                                                 |
+| Later feature        | What the rotation design already provides                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Notifications        | The resolver returns the leaf public keys for an account and network. That list is the recipient list.                                                 |
+| Chain watcher        | The refresh function takes an account and network, updates the mirror, and returns a diff. A scheduler can call the same function.                     |
+| Alias changed alerts | The diff from the refresh function is the event. The state row keeps the observed version and time.                                                    |
+| Event outbox         | Rotation state changes go through one recording function. Today it only updates metrics. Later it also writes a row.                                   |
+| Persons              | Audit fields stay as addresses. Nothing is keyed on the group of keys in a browser session. No contact details are stored anywhere.                    |
+| Per-network anything | Every alias row and proposal carries the network. A recorded change carries it only when the change is per-network, so proposer events leave it empty. |
 
 Rules that keep this true while building:
 
@@ -316,7 +316,8 @@ account_events (id, account_address, network, actor, action, subject,
 To verify a row:
 
 - Choose the template from the row's `action`, not from `proof.kind`, so a proof cannot be relabelled as another action.
-- The key recovered from the signature must match `actor` and must be a key of a signer set of the account, checked against the account's address or the on-chain alias set rather than API data alone. `actor` by itself proves nothing: anyone can sign a message.
+- The key recovered from the signature must match `actor` and must be a key of a currently valid signer set, checked against the account's address or the on-chain alias set rather than API data alone. `actor` by itself proves nothing: anyone can sign a message.
+- A signature from a key that has since been rotated out does not count. It cannot be told apart from one signed after the rotation, because a signature does not prove when it was made, so an old or leaked key could otherwise vouch for anyone. History can still show the row, but before signing a proposal a current member must confirm that proposer again.
 - A signed change can be replayed until its expiry, so the same signature can honestly appear on two rows. A reader can flag that but cannot treat it as forgery. An old proof shown again as a new row cannot be told apart from history by the signature alone; a `created_at` later than the expiry is a sign of it.
 
 To add an audited operation: one entry in the registry in `api/src/services/account-events.service.ts`, and one `recordAccountEvent(tx, ...)` call at the write site, in the change's transaction, after `lockAccount`. No migration: actions and proof kinds are checked by TypeScript, not by a database constraint. To find the proof of a current row, take the newest event for its account, action and subject.
