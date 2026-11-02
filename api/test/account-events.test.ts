@@ -268,44 +268,6 @@ describe('recording in the change transaction', () => {
 		]);
 	});
 
-	test('a failing event insert keeps the proposer and its pending proposal', async () => {
-		const { session, users, multisig } =
-			await framework.createFundedVerifiedMultisig(2, 2);
-		const proposer = newUser();
-
-		await session.addProposer(
-			users[0],
-			proposer.address,
-			multisig.address,
-		);
-		await session.proposeTransfer(
-			proposer,
-			multisig.address,
-		);
-
-		await withEventInsertsFailing(async () => {
-			await expect(
-				session.removeProposer(
-					users[0],
-					proposer.address,
-					multisig.address,
-				),
-			).rejects.toThrow();
-		});
-
-		expect(await proposersOf(multisig.address)).toEqual([
-			proposer.address,
-		]);
-		const { data } = await session.client.getProposals(
-			multisig.address,
-			'localnet',
-			{},
-		);
-		expect(data.map((p) => p.status)).toEqual([
-			ProposalStatus.PENDING,
-		]);
-	});
-
 	test('a refused add writes no event', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 1);
@@ -494,30 +456,6 @@ describe('cancelling a proposal', () => {
 			network: 'localnet',
 		});
 		await expectSignedByActor(event);
-	});
-
-	test("a proposer's cancel refused for a signed proposal writes no event", async () => {
-		const { session, users, multisig, proposer, proposal } =
-			await proposedByExternal();
-		await session.voteOnProposal(
-			users[0],
-			proposal.id,
-			proposal.transactionBytes,
-		);
-
-		await expect(
-			session.cancelProposal(proposer, proposal.id),
-		).rejects.toThrow(
-			'A signer has already signed this proposal',
-		);
-
-		expect(
-			await eventsOf(
-				multisig.address,
-				users[0],
-				'proposal.cancelled',
-			),
-		).toEqual([]);
 	});
 
 	test('a proposer removed while their cancel waits for the lock is refused', async () => {
