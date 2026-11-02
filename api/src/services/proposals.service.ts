@@ -52,6 +52,7 @@ import {
 	type PaginationCursor,
 } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
+import { recordAccountEvent } from './account-events.service';
 import {
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -385,7 +386,21 @@ export const createProposal = async ({
 			})
 			.returning();
 
-		// We only save the signature if the proposer is a member.
+		// The only copy of an external proposer's signature.
+		await recordAccountEvent(tx, {
+			action: 'proposal.created',
+			accountAddress: multisigAddress,
+			network,
+			actor: proposal[0].proposerAddress,
+			subject: String(proposal[0].id),
+			proof: {
+				kind: 'proposal.create',
+				version: 1,
+				signature,
+			},
+		});
+
+		// We only save the signature as a vote if the proposer is a member.
 		if (isMember) {
 			await tx.insert(SchemaProposalSignatures).values({
 				proposalId: proposal[0].id,

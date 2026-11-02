@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { PersonalMessages } from '@mysten/sagat';
+import { fromBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -15,6 +16,8 @@ import { db } from '../src/db';
 import {
 	ProposalStatus,
 	SchemaAccountProposers,
+	SchemaProposals,
+	SchemaProposalSignatures,
 } from '../src/db/schema';
 import { AuthErrors, CommonErrors } from '../src/errors';
 import {
@@ -24,8 +27,10 @@ import {
 	type StoredAccountEvent,
 } from '../src/services/account-events.service';
 import { verifySignedMessage } from '../src/services/signatures.service';
+import { getPublicKeyFromSerializedSignature } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
+	buildTransfer,
 	newUser,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -282,6 +287,167 @@ describe('recording in the change transaction', () => {
 	});
 });
 
+describe('proposal.created', () => {
+	const votesOn = (proposalId: number) =>
+		db
+			.select()
+			.from(SchemaProposalSignatures)
+			.where(
+				eq(SchemaProposalSignatures.proposalId, proposalId),
+			);
+
+	// Builds the bytes up front, so only the route call can refuse `propose`.
+	const repeatableProposal = async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const transactionBytes = await buildTransfer(
+			multisig.address,
+		);
+		return {
+			users,
+			multisig,
+			propose: () =>
+				session.createProposal(
+					users[0],
+					multisig.address,
+					'localnet',
+					transactionBytes,
+				),
+		};
+	};
+
+	test('proves an external proposer signed these bytes and a member added that proposer, with no vote', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposer = newUser();
+
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		const { id } = await session.proposeTransfer(
+			proposer,
+			multisig.address,
+		);
+
+		const [created, added] = await eventsOf(
+			multisig.address,
+			users[1],
+		);
+		expect(created).toMatchObject({
+			action: 'proposal.created',
+			actor: proposer.address,
+			subject: String(id),
+			before: null,
+			after: null,
+			proof: { kind: 'proposal.create', version: 1 },
+		});
+		const [proposal] = await db
+			.select()
+			.from(SchemaProposals)
+			.where(
+				eq(SchemaProposals.id, Number(created.subject)),
+			);
+		expect(created.network).toBe(proposal.network);
+		expect(created.actor).toBe(proposal.proposerAddress);
+
+		const signature = signatureOf(created);
+		const signer =
+			getPublicKeyFromSerializedSignature(signature);
+		const bytes = fromBase64(proposal.transactionBytes);
+		expect(signer.toSuiAddress()).toBe(created.actor);
+		expect(
+			await signer.verifyTransaction(bytes, signature),
+		).toBe(true);
+
+		const otherBytes = bytes.slice();
+		otherBytes[otherBytes.length - 1] ^= 1;
+		expect(
+			await signer.verifyTransaction(otherBytes, signature),
+		).toBe(false);
+
+		expect(added.action).toBe('proposer.added');
+		expect(added.subject).toBe(created.actor);
+		const adder = await verifySignedMessage(
+			signatureOf(added),
+			rebuildMessage(added, added.subject as string),
+		);
+		expect(adder.toSuiAddress()).toBe(users[0].address);
+
+		expect(await votesOn(id)).toEqual([]);
+	});
+
+	test("records a member's proposal, whose signature is still its first vote", async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+
+		const { id } = await session.proposeTransfer(
+			users[0],
+			multisig.address,
+		);
+
+		const [created] = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+		expect(created).toMatchObject({
+			action: 'proposal.created',
+			actor: users[0].address,
+			subject: String(id),
+			network: 'localnet',
+		});
+		expect(await votesOn(id)).toEqual([
+			{
+				proposalId: id,
+				publicKey: users[0].publicKey,
+				signature: signatureOf(created),
+			},
+		]);
+	});
+
+	test('a failing event insert leaves no proposal and no vote behind', async () => {
+		const { multisig, propose } =
+			await repeatableProposal();
+
+		await withEventInsertsFailing(async () => {
+			await expect(propose()).rejects.toThrow();
+		});
+
+		expect(
+			await db
+				.select()
+				.from(SchemaProposals)
+				.where(
+					eq(
+						SchemaProposals.accountAddress,
+						multisig.address,
+					),
+				),
+		).toEqual([]);
+		expect(
+			await db.select().from(SchemaProposalSignatures),
+		).toEqual([]);
+
+		const { id } = await propose();
+		expect(await votesOn(id)).toHaveLength(1);
+	});
+
+	test('a proposal refused past authorization writes no event', async () => {
+		const { users, multisig, propose } =
+			await repeatableProposal();
+
+		await propose();
+		await expect(propose()).rejects.toThrow(
+			'A proposal with the same digest already exists.',
+		);
+
+		expect(
+			await eventsOf(multisig.address, users[0]),
+		).toHaveLength(1);
+	});
+});
+
 describe('listAccountEvents', () => {
 	const proposerAdded = (
 		accountAddress: string,
@@ -507,6 +673,15 @@ test('the compiler rejects an event of the wrong shape', () => {
 		...valid,
 		action: 'proposer.renamed',
 	} as const;
+	const proposalWithoutNetwork = {
+		action: 'proposal.created',
+		...fields,
+		proof: {
+			kind: 'proposal.create',
+			version: 1,
+			signature: 'signature',
+		},
+	} as const;
 
 	accept(valid);
 	// @ts-expect-error a removal takes the removal proof.
@@ -519,4 +694,10 @@ test('the compiler rejects an event of the wrong shape', () => {
 	accept(unexpectedBefore);
 	// @ts-expect-error not in the registry.
 	accept(unknownAction);
+	accept({
+		...proposalWithoutNetwork,
+		network: 'localnet',
+	});
+	// @ts-expect-error a proposal's network is required.
+	accept(proposalWithoutNetwork);
 });

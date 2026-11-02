@@ -27,7 +27,8 @@ import { jwtHasSignerSetMemberAccess } from './membership.service';
 
 const DEFAULT_EVENTS_PER_PAGE = 50;
 
-// The message is rebuilt from fields, so its text is never stored.
+// A personal message is rebuilt from fields, so its text is never stored.
+// `proposal.create` signs the proposal's transaction bytes instead.
 type SignedProof<Kind extends string, Fields = unknown> = {
 	kind: Kind;
 	version: 1;
@@ -54,6 +55,13 @@ type AccountEventRegistry = {
 			'proposer.remove',
 			{ expiry: string }
 		>;
+	};
+	// `actor` is the proposer, member or not. `subject` is the proposal id.
+	'proposal.created': {
+		actor: string;
+		subject: string;
+		network: string;
+		proof: SignedProof<'proposal.create'>;
 	};
 };
 
