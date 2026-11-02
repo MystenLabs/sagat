@@ -533,7 +533,7 @@ export const cancelProposal = async ({
 			.set({ status: ProposalStatus.CANCELLED })
 			.where(eq(SchemaProposals.id, proposal.id));
 	} else {
-		// One statement, so a member signing concurrently is never lost.
+		// One statement, so a signature committed before it runs is never lost.
 		const cancelled = await db
 			.update(SchemaProposals)
 			.set({ status: ProposalStatus.CANCELLED })
@@ -559,10 +559,16 @@ export const cancelProposal = async ({
 			)
 			.returning({ id: SchemaProposals.id });
 
-		if (cancelled.length === 0)
+		if (cancelled.length === 0) {
+			const current = await getProposalById(proposalId);
+			if (current.status !== ProposalStatus.PENDING)
+				throw new ValidationError(
+					'Proposal is not pending',
+				);
 			throw new ValidationError(
 				'A signer has already signed this proposal',
 			);
+		}
 	}
 
 	multisigProposalEvents.inc({
