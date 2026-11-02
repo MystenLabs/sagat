@@ -30,6 +30,7 @@ import {
 	type ProposalWithSignatures,
 	type SignerSetWithMembers,
 } from '../db/schema';
+import { lockAccount } from '../db/transaction';
 import {
 	ApiAuthError,
 	CommonError,
@@ -503,7 +504,7 @@ export const cancelProposal = async ({
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
 
-	await verifyMemberSignedMessage({
+	const publicKey = await verifyMemberSignedMessage({
 		signerSetAddress: proposal.accountAddress,
 		signature,
 		message: PersonalMessages.cancelProposal(proposalId),
@@ -512,10 +513,41 @@ export const cancelProposal = async ({
 			new ValidationError('Not a member of the multisig'),
 	});
 
-	await db
-		.update(SchemaProposals)
-		.set({ status: ProposalStatus.CANCELLED })
-		.where(eq(SchemaProposals.id, proposal.id));
+	await db.transaction(async (tx) => {
+		// First, as this touches the proposal before recording takes the lock.
+		await lockAccount(tx, proposal.accountAddress);
+
+		// The check above ran without the lock, so the status may have moved.
+		const cancelled = await tx
+			.update(SchemaProposals)
+			.set({ status: ProposalStatus.CANCELLED })
+			.where(
+				and(
+					eq(SchemaProposals.id, proposal.id),
+					eq(
+						SchemaProposals.status,
+						ProposalStatus.PENDING,
+					),
+				),
+			)
+			.returning({ id: SchemaProposals.id });
+
+		if (cancelled.length === 0)
+			throw new ValidationError('Proposal is not pending');
+
+		await recordAccountEvent(tx, {
+			action: 'proposal.cancelled',
+			accountAddress: proposal.accountAddress,
+			network: proposal.network,
+			actor: publicKey.toSuiAddress(),
+			subject: String(proposal.id),
+			proof: {
+				kind: 'proposal.cancel',
+				version: 1,
+				signature,
+			},
+		});
+	});
 
 	multisigProposalEvents.inc({
 		network: proposal.network,

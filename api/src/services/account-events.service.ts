@@ -41,6 +41,9 @@ type ChainProof = { kind: 'chain'; digest: string };
 
 type MemberActor = string;
 
+// A row nobody signed directly. Its authority is the row it points at.
+type CausedByProof = { kind: 'caused_by'; eventId: number };
+
 // A proposer event's `subject` is stored exactly as signed, not normalised.
 type AccountEventRegistry = {
 	'proposer.added': {
@@ -62,6 +65,23 @@ type AccountEventRegistry = {
 		subject: string;
 		network: string;
 		proof: SignedProof<'proposal.create'>;
+	};
+	// A signed removal of an address that is no proposer but had pending
+	// proposals, which it cancelled. Apart from `proposer.removed` so that one
+	// only ever means a row was deleted.
+	'proposer.removal_unmatched': {
+		actor: MemberActor;
+		subject: string;
+		proof: SignedProof<
+			'proposer.remove',
+			{ expiry: string }
+		>;
+	};
+	'proposal.cancelled': {
+		actor: MemberActor;
+		subject: string;
+		network: string;
+		proof: SignedProof<'proposal.cancel'> | CausedByProof;
 	};
 };
 
@@ -96,16 +116,30 @@ export type AccountEvent = {
 
 // Takes the lock so an account's ids follow commit order. A writer touching
 // other rows must call `lockAccount` first, or it can deadlock.
+//
+// `events` must all belong to one account: only the first one's is locked. One
+// statement, however many rows, because callers run holding the lock. Returns
+// the ids in input order.
+export const recordAccountEvents = async (
+	tx: DatabaseTransaction,
+	events: AccountEvent[],
+): Promise<number[]> => {
+	if (events.length === 0) return [];
+
+	await lockAccount(tx, events[0].accountAddress);
+
+	const rows = await tx
+		.insert(SchemaAccountEvents)
+		.values(events)
+		.returning({ id: SchemaAccountEvents.id });
+	return rows.map((row) => row.id);
+};
+
 export const recordAccountEvent = async (
 	tx: DatabaseTransaction,
 	event: AccountEvent,
 ): Promise<number> => {
-	await lockAccount(tx, event.accountAddress);
-
-	const [{ id }] = await tx
-		.insert(SchemaAccountEvents)
-		.values(event)
-		.returning({ id: SchemaAccountEvents.id });
+	const [id] = await recordAccountEvents(tx, [event]);
 	return id;
 };
 

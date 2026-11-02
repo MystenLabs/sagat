@@ -20,10 +20,12 @@ import {
 	SchemaProposals,
 	SchemaProposalSignatures,
 } from '../src/db/schema';
+import { lockAccount } from '../src/db/transaction';
 import { AuthErrors, CommonErrors } from '../src/errors';
 import {
 	listAccountEvents,
 	recordAccountEvent,
+	recordAccountEvents,
 	type AccountEvent,
 	type StoredAccountEvent,
 } from '../src/services/account-events.service';
@@ -32,13 +34,17 @@ import { getPublicKeyFromSerializedSignature } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
 	buildTransfer,
+	expectSettled,
 	newUser,
+	sendCoins,
+	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
+import { getLocalClient } from './setup/sui-network';
 
 setupSharedTestEnvironment();
 
@@ -56,6 +62,17 @@ const eventsOf = (
 		accountAddress,
 		callerKeys: [member.keypair.getPublicKey()],
 		includeProof: true,
+	});
+
+const cancellationsOf = (
+	accountAddress: string,
+	member: TestUser,
+) =>
+	listAccountEvents({
+		accountAddress,
+		callerKeys: [member.keypair.getPublicKey()],
+		includeProof: true,
+		action: 'proposal.cancelled',
 	});
 
 const proposersOf = async (accountAddress: string) =>
@@ -85,7 +102,8 @@ const rebuildMessage = (
 			proof.expiry,
 		);
 	if (
-		action === 'proposer.removed' &&
+		(action === 'proposer.removed' ||
+			action === 'proposer.removal_unmatched') &&
 		proof?.kind === 'proposer.remove'
 	)
 		return PersonalMessages.removeMultisigProposer(
@@ -93,6 +111,11 @@ const rebuildMessage = (
 			accountAddress,
 			proof.expiry,
 		);
+	if (
+		action === 'proposal.cancelled' &&
+		proof?.kind === 'proposal.cancel'
+	)
+		return PersonalMessages.cancelProposal(Number(subject));
 	throw new Error(
 		`No message for action ${action} with proof ${proof?.kind}`,
 	);
@@ -104,8 +127,54 @@ const signatureOf = ({ proof }: StoredAccountEvent) => {
 	return proof.signature;
 };
 
+const expectSignedByActor = async (
+	event: StoredAccountEvent,
+) => {
+	const signer = await verifySignedMessage(
+		signatureOf(event),
+		rebuildMessage(event, event.subject as string),
+	);
+	expect(signer.toSuiAddress()).toBe(event.actor);
+};
+
+const statusOf = async (proposalId: number) => {
+	const [{ status }] = await db
+		.select({ status: SchemaProposals.status })
+		.from(SchemaProposals)
+		.where(eq(SchemaProposals.id, proposalId));
+	return status;
+};
+
+// One transfer per entry of `proposers`, each paying with its own coin so the
+// proposals don't collide. `multisigAddress` must hold no other coins.
+const proposeOnOwnCoins = async (
+	session: TestSession,
+	proposers: TestUser[],
+	multisigAddress: string,
+) => {
+	await sendCoins(multisigAddress, proposers.length);
+	const { objects: coins } =
+		await getLocalClient().listCoins({
+			owner: multisigAddress,
+		});
+	return Promise.all(
+		proposers.map(async (proposer, i) =>
+			session.createProposal(
+				proposer,
+				multisigAddress,
+				'localnet',
+				await buildTransfer(multisigAddress, {
+					gasCoin: coins[i],
+				}),
+			),
+		),
+	);
+};
+
+// `when` is a trigger condition; by default every insert fails.
 const withEventInsertsFailing = async (
 	fn: () => Promise<void>,
+	when = 'TRUE',
 ) => {
 	await db.execute(sql`
 		CREATE FUNCTION refuse_account_event() RETURNS trigger AS $$
@@ -113,7 +182,8 @@ const withEventInsertsFailing = async (
 		$$ LANGUAGE plpgsql`);
 	await db.execute(sql`
 		CREATE TRIGGER refuse_account_event BEFORE INSERT ON account_events
-		FOR EACH ROW EXECUTE FUNCTION refuse_account_event()`);
+		FOR EACH ROW WHEN (${sql.raw(when)})
+		EXECUTE FUNCTION refuse_account_event()`);
 	try {
 		await fn();
 	} finally {
@@ -167,11 +237,7 @@ describe('the stored proof', () => {
 		});
 
 		for (const event of [added, removed]) {
-			const signer = await verifySignedMessage(
-				signatureOf(event),
-				rebuildMessage(event, event.subject as string),
-			);
-			expect(signer.toSuiAddress()).toBe(event.actor);
+			await expectSignedByActor(event);
 
 			await expect(
 				verifySignedMessage(
@@ -285,6 +351,307 @@ describe('recording in the change transaction', () => {
 		expect(
 			await eventsOf(multisig.address, users[0]),
 		).toEqual([]);
+	});
+
+	test('a batch returns its ids in input order, and an empty one writes nothing', async () => {
+		const { users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const subjects = Array.from({ length: 20 }, (_, i) =>
+			String(i),
+		);
+
+		expect(
+			await db.transaction((tx) =>
+				recordAccountEvents(tx, []),
+			),
+		).toEqual([]);
+
+		const ids = await db.transaction((tx) =>
+			recordAccountEvents(
+				tx,
+				subjects.map((subject) => ({
+					action: 'proposal.cancelled',
+					accountAddress: multisig.address,
+					actor: users[0].address,
+					subject,
+					network: 'localnet',
+					proof: { kind: 'caused_by', eventId: 1 },
+				})),
+			),
+		);
+
+		const stored = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+		expect(
+			ids.map(
+				(id) => stored.find((e) => e.id === id)?.subject,
+			),
+		).toEqual(subjects);
+	});
+});
+
+describe('cancelling a proposal', () => {
+	const proposed = async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposal = await session.proposeTransfer(
+			users[0],
+			multisig.address,
+		);
+		return { session, users, multisig, proposal };
+	};
+
+	// `pg_stat_activity` is cached per transaction, so this must not run in
+	// the one holding the lock.
+	const untilABackendWaitsOnALock = async () => {
+		for (let attempt = 0; attempt < 400; attempt++) {
+			const { rows } = await db.execute(sql`
+				SELECT 1 FROM pg_stat_activity
+				WHERE datname = current_database()
+					AND wait_event_type = 'Lock'`);
+			if (rows.length > 0) return;
+			await Bun.sleep(25);
+		}
+		throw new Error('No backend is waiting on a lock');
+	};
+
+	test('records the signed cancel, once', async () => {
+		const { session, users, multisig, proposal } =
+			await proposed();
+
+		await session.cancelProposal(users[1], proposal.id);
+
+		const events = await cancellationsOf(
+			multisig.address,
+			users[0],
+		);
+		expect(events).toHaveLength(1);
+		expect(events[0]).toMatchObject({
+			action: 'proposal.cancelled',
+			actor: users[1].address,
+			subject: String(proposal.id),
+			network: 'localnet',
+			before: null,
+			after: null,
+		});
+		await expectSignedByActor(events[0]);
+
+		await expect(
+			session.cancelProposal(users[1], proposal.id),
+		).rejects.toThrow('Proposal is not pending');
+		expect(
+			await cancellationsOf(multisig.address, users[0]),
+		).toHaveLength(1);
+	});
+
+	test('a refused cancel writes no event', async () => {
+		const { session, users, multisig, proposal } =
+			await proposed();
+
+		await expect(
+			session.cancelProposal(newUser(), proposal.id),
+		).rejects.toThrow('Not a member of the multisig');
+
+		expect(
+			await cancellationsOf(multisig.address, users[0]),
+		).toEqual([]);
+	});
+
+	test('a cancel that lost the race for the lock changes nothing and writes no event', async () => {
+		const { session, users, multisig, proposal } =
+			await proposed();
+
+		// Wrapped, as returning it bare would make the transaction wait for it.
+		const { cancel } = await db.transaction(async (tx) => {
+			await lockAccount(tx, multisig.address);
+
+			// Passes the pre-check, then blocks until this transaction commits.
+			// Not `expect().rejects`: bun blocks on it right here.
+			const cancel = Promise.allSettled([
+				session.cancelProposal(users[0], proposal.id),
+			]);
+			await untilABackendWaitsOnALock();
+
+			await tx
+				.update(SchemaProposals)
+				.set({ status: ProposalStatus.SUCCESS })
+				.where(eq(SchemaProposals.id, proposal.id));
+
+			return { cancel };
+		});
+
+		expectSettled(await cancel, {
+			fulfilled: 0,
+			rejectedWith: 'Proposal is not pending',
+		});
+		expect(await statusOf(proposal.id)).toBe(
+			ProposalStatus.SUCCESS,
+		);
+		expect(
+			await cancellationsOf(multisig.address, users[0]),
+		).toEqual([]);
+	});
+
+	test('a failing event insert leaves the proposal pending', async () => {
+		const { session, users, multisig, proposal } =
+			await proposed();
+
+		await withEventInsertsFailing(async () => {
+			await expect(
+				session.cancelProposal(users[0], proposal.id),
+			).rejects.toThrow();
+		});
+
+		expect(await statusOf(proposal.id)).toBe(
+			ProposalStatus.PENDING,
+		);
+		expect(
+			await cancellationsOf(multisig.address, users[0]),
+		).toEqual([]);
+	});
+});
+
+describe('cancelling through a proposer removal', () => {
+	test('records each cancelled proposal, caused by the signed removal', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 2);
+		const proposer = newUser();
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		const [first, second, unrelated] =
+			await proposeOnOwnCoins(
+				session,
+				[proposer, proposer, users[0]],
+				multisig.address,
+			);
+
+		await session.removeProposer(
+			users[1],
+			proposer.address,
+			multisig.address,
+		);
+
+		const events = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+		const [removed] = events.filter(
+			(e) => e.action === 'proposer.removed',
+		);
+		const children = events.filter(
+			(e) => e.action === 'proposal.cancelled',
+		);
+
+		expect(removed).toMatchObject({
+			actor: users[1].address,
+			subject: proposer.address,
+		});
+		await expectSignedByActor(removed);
+
+		expect(children.map((e) => e.subject).sort()).toEqual(
+			[first, second].map((p) => String(p.id)).sort(),
+		);
+		for (const child of children) {
+			expect(child).toMatchObject({
+				actor: users[1].address,
+				network: 'localnet',
+				proof: { kind: 'caused_by', eventId: removed.id },
+			});
+			expect(child.id).toBeGreaterThan(removed.id);
+		}
+
+		expect(await statusOf(unrelated.id)).toBe(
+			ProposalStatus.PENDING,
+		);
+	});
+
+	test('a refused event for one proposal rolls the whole removal back', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 2);
+		const proposer = newUser();
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		const proposals = await proposeOnOwnCoins(
+			session,
+			[proposer, proposer],
+			multisig.address,
+		);
+		const latest = Math.max(...proposals.map((p) => p.id));
+		const eventsBefore = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+
+		await withEventInsertsFailing(async () => {
+			await expect(
+				session.removeProposer(
+					users[0],
+					proposer.address,
+					multisig.address,
+				),
+			).rejects.toThrow();
+		}, `NEW.action = 'proposal.cancelled' AND NEW.subject = '${latest}'`);
+
+		expect(await proposersOf(multisig.address)).toEqual([
+			proposer.address,
+		]);
+		for (const { id } of proposals)
+			expect(await statusOf(id)).toBe(
+				ProposalStatus.PENDING,
+			);
+		expect(
+			await eventsOf(multisig.address, users[0]),
+		).toEqual(eventsBefore);
+	});
+
+	test('removing a member who proposed cancels it under an unmatched removal, not a removed proposer', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const [remover, member] = users;
+		const proposal = await session.proposeTransfer(
+			member,
+			multisig.address,
+		);
+
+		await session.removeProposer(
+			remover,
+			member.address,
+			multisig.address,
+		);
+
+		expect(await statusOf(proposal.id)).toBe(
+			ProposalStatus.CANCELLED,
+		);
+		const events = await eventsOf(
+			multisig.address,
+			remover,
+		);
+		expect(events.map((e) => e.action)).toEqual([
+			'proposal.cancelled',
+			'proposer.removal_unmatched',
+			'proposal.created',
+		]);
+		const [child, parent] = events;
+		expect(parent).toMatchObject({
+			action: 'proposer.removal_unmatched',
+			actor: remover.address,
+			subject: member.address,
+		});
+		await expectSignedByActor(parent);
+		expect(child).toMatchObject({
+			action: 'proposal.cancelled',
+			actor: remover.address,
+			subject: String(proposal.id),
+			proof: { kind: 'caused_by', eventId: parent.id },
+		});
 	});
 });
 
@@ -686,10 +1053,18 @@ test('the compiler rejects an event of the wrong shape', () => {
 			signature: 'signature',
 		},
 	} as const;
+	const cancelWithAnotherKind = {
+		action: 'proposal.cancelled',
+		...fields,
+		network: 'localnet',
+		proof,
+	} as const;
 
 	accept(valid);
 	// @ts-expect-error a removal takes the removal proof.
 	accept(proofOfAnotherKind);
+	// @ts-expect-error a cancel takes its own proof or a `caused_by` one.
+	accept(cancelWithAnotherKind);
 	// @ts-expect-error the proof is required.
 	accept(noProof);
 	// @ts-expect-error the subject is required.

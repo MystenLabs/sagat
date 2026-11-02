@@ -301,7 +301,7 @@ Decisions (2026-10-19):
 
 ### Audit log (0011)
 
-Signed changes store their proof: the signature plus any semantic fields needed to rebuild the signed message. So far that covers adding and removing a proposer, and creating a proposal. Other changes, including proposal cancellations, are not recorded yet, so a missing event for one is not a sign of a withheld row. The server verifies at write time. A client re-verifies at read time, rebuilding any message from the fields with the same SDK builders and never trusting stored text. This covers a hostile or impersonated API forging a signed change. It does not cover withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
+Signed changes store their proof: the signature plus any semantic fields needed to rebuild the signed message. So far that covers adding and removing a proposer, and creating and cancelling a proposal, directly or by removing its proposer. Other changes are not recorded yet, so a missing event for one is not a sign of a withheld row. The server verifies at write time. A client re-verifies at read time, rebuilding any message from the fields with the same SDK builders and never trusting stored text. This covers a hostile or impersonated API forging a signed change. It does not cover withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
 
 ```text
 account_events (id, account_address, network, actor, action, subject,
@@ -310,13 +310,16 @@ account_events (id, account_address, network, actor, action, subject,
 
 - `actor` is the signer's address, or `system` for a later row nobody signed. `before` and `after` hold the changed fields only, never whole rows.
 - The `kind` and `version` of a proof over a personal message name the SDK message template: version 1 is the legacy text, and `/v1` writers will use version 2. `proposal.create` signs transaction bytes and has no template. `expiry` is part of the message, and a reader does not reject a row because it has passed. Message text is never stored.
+- A version 1 `proposal.cancel` proof proves only that the key signed `Cancel proposal <id>`. Nothing binds that number to an account or transaction, because the id is the server's, so it only becomes meaningful with a later message version that names the digest and the account. It is stored now so the signature is not lost. The message has no expiry, but PENDING to CANCELLED only happens once, so it cannot produce a second row.
+- `proposer.removal_unmatched` is a signed removal of an address that is not in the proposers list but has pending proposals, which it cancelled. The route takes any address, so a member can pass another member's address and cancel that member's pending proposals. It is separate from `proposer.removed` so that action stays true, written only when a proposer was really deleted, while every `caused_by` row still points at a row holding the member's signature. It has the same proof and template. A removal matching no proposer and no pending proposal records nothing.
 - Append-only, written in the same transaction as the change. Read newest first with a keyset on `id`, never an offset. `recordAccountEvent` takes the account lock because ids are assigned at insert, not commit: without it, a lower id could become visible after a reader has paged past it. With it, an account's ids follow commit order, which the keyset and a later hash chain rely on. No retention. There is no route yet: the read route lands with `/v1`.
 - Rows from before their action was first recorded have no event and stay unverified, as does a change made by a replica still on the old code during a rolling deploy. No backfill.
 
 To verify a row:
 
-- Choose the template or transaction check from the row's `action`, not from `proof.kind`, so a proof cannot be relabelled as another action.
+- The row's `action`, not `proof.kind`, decides which proof kinds are allowed, and each allowed kind has one template or transaction check, so a proof cannot be relabelled as another action.
 - A `proposal.create` proof is checked with `verifyTransaction` over the transaction bytes of the proposal in `subject` (`proposals.transaction_bytes`), and the sender in those bytes must be the row's account, the only thing binding the signature to it. It proves the key signed these bytes, as a vote also does, and `subject` and `network` are the server's word. It has no expiry. Digests are unique across all proposals, so one signature never honestly appears on two such rows.
+- A `caused_by` row holds no signature. Verify the row its `eventId` points at, which must be a `proposer.removed` or `proposer.removal_unmatched` of the same account, whose subject is the address that proposed the cancelled proposal (the `actor` of its `proposal.created` row, where it has one). Its `id` is lower than the child's.
 - The key recovered from the signature must match `actor` and must be a key of a signer set of the account, checked against the account's address or the on-chain alias set rather than API data alone. An external proposer's address must instead be the `subject` of a verified `proposer.added` event, or the row stays unverified, as for a proposer added before this table. That proves a member once added it, not that it was still a proposer. `actor` by itself proves nothing: anyone can sign a message.
 - A signed change with an expiry can be replayed until then, so the same signature can honestly appear on two rows. A reader can flag that but cannot treat it as forgery. An old proof shown again as a new row cannot be told apart from history by the signature alone; a `created_at` later than the expiry is a sign of it.
 
@@ -327,7 +330,7 @@ Rules for writers:
 - Only signed fields are proven. `before` never is.
 - A message builder takes explicit fields and never serialises the JSON column, because `jsonb` reorders keys.
 - Large values such as icons are stored as a URL or hash.
-- A change caused by another (removing a proposer cancels its proposals) can later use a `caused_by` proof kind.
+- A change caused by another (removing a proposer cancels its proposals) stores a `caused_by` proof naming the signed row, written first in the same transaction.
 
 ## Edge cases
 

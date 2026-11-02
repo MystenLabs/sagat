@@ -63,7 +63,10 @@ import {
 	type SuiNetwork,
 } from '../utils/client';
 import { parsePublicKey } from '../utils/pubKey';
-import { recordAccountEvent } from './account-events.service';
+import {
+	recordAccountEvent,
+	recordAccountEvents,
+} from './account-events.service';
 import { normalizeKeyLabels } from './account-keys.service';
 import {
 	expandSignerSetsWithMembers,
@@ -987,7 +990,7 @@ export const removeProposer = async ({
 		await lockAccount(tx, address);
 
 		// Cancel all pending transactions from the proposer.
-		await tx
+		const cancelled = await tx
 			.update(SchemaProposals)
 			.set({ status: ProposalStatus.CANCELLED })
 			.where(
@@ -999,7 +1002,11 @@ export const removeProposer = async ({
 						ProposalStatus.PENDING,
 					),
 				),
-			);
+			)
+			.returning({
+				id: SchemaProposals.id,
+				network: SchemaProposals.network,
+			});
 
 		const removed = await tx
 			.delete(SchemaAccountProposers)
@@ -1016,19 +1023,36 @@ export const removeProposer = async ({
 				address: SchemaAccountProposers.address,
 			});
 
-		// Cancelled proposals are not recorded yet.
-		if (removed.length > 0)
-			await recordAccountEvent(tx, {
-				action: 'proposer.removed',
+		if (removed.length === 0 && cancelled.length === 0)
+			return;
+
+		const actor = publicKey.toSuiAddress();
+		const parentId = await recordAccountEvent(tx, {
+			action:
+				removed.length > 0
+					? 'proposer.removed'
+					: 'proposer.removal_unmatched',
+			accountAddress: address,
+			actor,
+			subject: proposer,
+			proof: {
+				kind: 'proposer.remove',
+				version: 1,
+				signature,
+				expiry,
+			},
+		});
+
+		await recordAccountEvents(
+			tx,
+			cancelled.map(({ id, network }) => ({
+				action: 'proposal.cancelled',
 				accountAddress: address,
-				actor: publicKey.toSuiAddress(),
-				subject: proposer,
-				proof: {
-					kind: 'proposer.remove',
-					version: 1,
-					signature,
-					expiry,
-				},
-			});
+				actor,
+				subject: String(id),
+				network,
+				proof: { kind: 'caused_by', eventId: parentId },
+			})),
+		);
 	});
 };
