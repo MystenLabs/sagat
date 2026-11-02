@@ -559,7 +559,7 @@ export const cancelProposal = async ({
 		.returning({ id: SchemaProposals.id });
 
 	if (cancelled.length === 0) {
-		// Lost a race: a signature or another cancel landed since the read.
+		// No row matched: the proposal has a signature or is no longer pending.
 		const { status } = await getProposalById(proposalId);
 		throw new ValidationError(
 			status === ProposalStatus.PENDING
