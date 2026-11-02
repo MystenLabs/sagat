@@ -960,8 +960,7 @@ export const content = {
 					'This proposal can’t be retried. Propose it again to collect new signatures.',
 				cancelled:
 					'Cancelled, so it can’t be signed or executed in Pods.',
-				outsider:
-					'Only this pod’s signers can sign or execute it.',
+				outsider: 'Only this pod’s signers can sign it.',
 				expired:
 					'This proposal can’t be signed or executed. Cancel it to take it off the open proposals.',
 				readyFailing:
