@@ -16,7 +16,14 @@ import {
 	isValidSuiAddress,
 	isValidTransactionDigest,
 } from '@mysten/sui/utils';
-import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import {
+	and,
+	desc,
+	eq,
+	inArray,
+	lt,
+	notExists,
+} from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -63,7 +70,7 @@ import {
 	validateProposedTransaction,
 } from './multisig.service';
 import {
-	verifyMemberSignedMessage,
+	verifySignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
 
@@ -271,6 +278,15 @@ const lookupAndVerifyProposal = async (
 	return status;
 };
 
+// Whether the address is in the account's proposers list.
+const isAccountProposer = async (
+	accountAddress: string,
+	address: string,
+) =>
+	(
+		await AccountProposersDataLoader.load(accountAddress)
+	).some((proposer) => proposer.address === address);
+
 // The base64 length of the largest transaction we accept.
 const MAX_TRANSACTION_BASE64_LENGTH =
 	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
@@ -317,11 +333,9 @@ export const createProposal = async ({
 			member.publicKey === pubKey.toSuiPublicKey() &&
 			member.isAccepted,
 	);
-	const proposers =
-		await AccountProposersDataLoader.load(multisigAddress);
-	const isProposer = proposers.some(
-		(proposer) =>
-			proposer.address === pubKey.toSuiAddress(),
+	const isProposer = await isAccountProposer(
+		multisigAddress,
+		pubKey.toSuiAddress(),
 	);
 
 	if (!isMember && !isProposer)
@@ -497,8 +511,8 @@ export const voteOnProposal = async ({
 	return tallyProposal(proposal, multisig);
 };
 
-// Cancels a pending proposal, signed by an accepted member.
-// TODO: this is pretty powerful (but probably safe to do).
+// Cancels a pending proposal. An accepted member can cancel any proposal; an
+// external proposer can cancel only their own, and only while nobody has signed.
 export const cancelProposal = async ({
 	proposalId,
 	signature,
@@ -511,19 +525,71 @@ export const cancelProposal = async ({
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
 
-	await verifyMemberSignedMessage({
-		signerSetAddress: proposal.accountAddress,
-		signature,
-		message: PersonalMessages.cancelProposal(proposalId),
-		acceptedOnly: true,
-		notMemberError: () =>
-			new ValidationError('Not a member of the multisig'),
-	});
+	const pubKey =
+		getPublicKeyFromSerializedSignature(signature);
+	const signerAddress = pubKey.toSuiAddress();
+	const isMember = await isSignerSetMember(
+		proposal.accountAddress,
+		pubKey,
+		true,
+	);
 
-	await db
+	const isOwnProposer =
+		!isMember &&
+		signerAddress === proposal.proposerAddress &&
+		(await isAccountProposer(
+			proposal.accountAddress,
+			signerAddress,
+		));
+
+	if (!isMember && !isOwnProposer)
+		throw new ValidationError(
+			'Not a member of the multisig',
+		);
+
+	await verifySignedMessage(
+		signature,
+		PersonalMessages.cancelProposal(proposalId),
+	);
+
+	// A proposer's cancel is guarded in the same statement, so a signature
+	// committed before it runs is never lost.
+	const cancelled = await db
 		.update(SchemaProposals)
 		.set({ status: ProposalStatus.CANCELLED })
-		.where(eq(SchemaProposals.id, proposal.id));
+		.where(
+			isMember
+				? eq(SchemaProposals.id, proposal.id)
+				: and(
+						eq(SchemaProposals.id, proposal.id),
+						eq(
+							SchemaProposals.status,
+							ProposalStatus.PENDING,
+						),
+						notExists(
+							db
+								.select()
+								.from(SchemaProposalSignatures)
+								.where(
+									eq(
+										SchemaProposalSignatures.proposalId,
+										proposal.id,
+									),
+								),
+						),
+					),
+		)
+		.returning({ id: SchemaProposals.id });
+
+	if (cancelled.length === 0) {
+		// No row matched: the proposal has a signature or is no longer pending.
+		const { status } = await getProposalById(proposalId);
+		throw new ValidationError(
+			status === ProposalStatus.PENDING
+				? 'A signer has already signed this proposal'
+				: 'Proposal is not pending',
+		);
+	}
 
 	multisigProposalEvents.inc({
 		network: proposal.network,
