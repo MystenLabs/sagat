@@ -14,8 +14,14 @@ import {
 	expect,
 	test,
 } from 'bun:test';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { LIMITS } from '../src/constants/limits';
+import { db } from '../src/db';
+import {
+	SchemaAccounts,
+	SchemaProposals,
+} from '../src/db/schema';
 import { AuthErrors, CommonErrors } from '../src/errors';
 import { ProposalByDigestLoader } from '../src/loaders/proposals.loader';
 import { SignerSetDataLoader } from '../src/loaders/signer-set.loader';
@@ -376,6 +382,92 @@ describe('Proposal Business Logic', () => {
 			await expect(
 				session.proposeTransfer(proposer, multisig.address),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
+		});
+
+		test('rejects a proposal from a proposer removed while it waited on the account lock', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const proposer = newUser();
+			await session.addProposer(
+				users[0],
+				proposer.address,
+				multisig.address,
+			);
+
+			// `pg_stat_activity` is cached per transaction, so this must not run
+			// in the one holding the lock.
+			const untilBackendsWaitOnALock = async (
+				count: number,
+			) => {
+				for (let attempt = 0; attempt < 400; attempt++) {
+					const { rows } = await db.execute(sql`
+						SELECT 1 FROM pg_stat_activity
+						WHERE datname = current_database()
+							AND wait_event_type = 'Lock'`);
+					if (rows.length >= count) return;
+					await Bun.sleep(25);
+				}
+				throw new Error(
+					`Fewer than ${count} backends are waiting on a lock`,
+				);
+			};
+
+			// Wrapped, as returning them bare would make the transaction wait for
+			// them. Not `expect().rejects`: bun blocks on it right here.
+			const { removal, creation } = await db.transaction(
+				async (tx) => {
+					await tx
+						.select({ address: SchemaAccounts.address })
+						.from(SchemaAccounts)
+						.where(
+							eq(SchemaAccounts.address, multisig.address),
+						)
+						.for('no key update');
+
+					// Row lock waiters are served in order, so the removal commits
+					// first, after the create has passed its check before the lock.
+					const removal = Promise.allSettled([
+						session.removeProposer(
+							users[0],
+							proposer.address,
+							multisig.address,
+						),
+					]);
+					await untilBackendsWaitOnALock(1);
+					const creation = Promise.allSettled([
+						session.proposeTransfer(
+							proposer,
+							multisig.address,
+						),
+					]);
+					await untilBackendsWaitOnALock(2);
+
+					return { removal, creation };
+				},
+			);
+
+			expect((await removal)[0].status).toBe('fulfilled');
+			expectSettled(await creation, {
+				fulfilled: 0,
+				rejectedWith: AuthErrors.NotAMultisigMember,
+			});
+			expect(
+				await db
+					.select({ id: SchemaProposals.id })
+					.from(SchemaProposals)
+					.where(
+						and(
+							eq(
+								SchemaProposals.accountAddress,
+								multisig.address,
+							),
+							eq(
+								SchemaProposals.proposerAddress,
+								proposer.address,
+							),
+						),
+					),
+			).toEqual([]);
 		});
 
 		test('keeps the proposer limit for simultaneous adds', async () => {
