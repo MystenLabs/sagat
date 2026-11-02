@@ -1089,7 +1089,7 @@ export const content = {
 		title: 'External proposers',
 		addButton: 'Add external proposer',
 		explanation:
-			'External proposers are outside addresses, like a payments service, that can create proposals but can’t sign or execute them.',
+			'External proposers are outside addresses, like a payments service, that can create proposals but can’t sign them.',
 		empty: 'No external proposers yet.',
 		columns: {
 			proposer: 'External proposer',
@@ -1100,7 +1100,7 @@ export const content = {
 		addDialog: {
 			title: 'Add external proposer',
 			description: (accountName: string) =>
-				`This address can create proposals for ${accountName}. It can’t sign or execute them.`,
+				`This address can create proposals for ${accountName}. It can’t sign them.`,
 			addressPlaceholder: '0x…',
 			submit: 'Add proposer',
 		},
