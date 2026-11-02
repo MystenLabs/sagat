@@ -61,7 +61,7 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 	return c.json({ hasReachedThreshold, currentWeight });
 });
 
-// Cancel a transaction as a valid member of the commitee.
+// Cancel a proposal as a member, or as its external proposer while unsigned.
 proposalsRouter.post('/:proposalId/cancel', async (c) => {
 	const { proposalId } = c.req.param();
 	const { signature } = await c.req.json();
