@@ -5,7 +5,7 @@ export const meta = {
   phases: [
     { title: 'Review', detail: 'list the diff, run the five lenses in parallel, dedup' },
     { title: 'Challenge', detail: 'challengers try to refute every finding' },
-    { title: 'Report', detail: 'rank survivors, list dismissals and coverage' },
+    { title: 'Report', detail: 'rank survivors, list judged-minor findings, dismissals and coverage' },
   ],
 }
 
@@ -35,6 +35,7 @@ function withModel(opts) {
 
 const SEVERITIES = ['critical', 'high', 'medium', 'low']
 const SEVERITY_GUIDE = 'Severity: critical = exploitable, or loses funds or data, as merged; high = wrong behaviour real users will hit; medium = a real defect with limited reach; low = real but minor.'
+const REALISTIC_SIZES = 'hundreds of proposals, tens of signers, thousands of coins, a page loaded on every navigation'
 
 // ---------- lenses: the single source of truth for what each reviewer raises ----------
 
@@ -59,7 +60,7 @@ const LENSES = [
   },
   {
     key: 'consistency',
-    title: 'Consistency',
+    title: 'Consistency and state over time',
     prompt: [
       'Look for logic this diff introduces that disagrees with existing logic for the same concept:',
       '- Two definitions of one concept ("expired", "ready", "member", a threshold met), or a status derived two different ways.',
@@ -68,8 +69,12 @@ const LENSES = [
       '- State that can become contradictory (two fields or tables that can disagree, a cache that outlives its source).',
       '- Behaviour the diff removes or changes that callers still rely on; grep for every caller.',
       '- Error handling that differs between twin paths (one throws, one returns null; different status codes for the same failure).',
+      'Then follow each piece of state the diff adds or touches through time, naming the transition and what happens next:',
+      '- Data that changes between two requests of one flow: a position, offset or cursor kept across a refetch while items are added, removed or transferred in between. Which item is skipped or shown twice?',
+      '- Component state that survives a change of route param, network or account: React keeps state when the same element re-renders with a new `:address`, so check useState, refs, reducers and query keys. What from the old selection applies to the new one?',
+      '- Stale state restored on returning to an earlier selection (a filter, tab or account): what comes back unreset?',
     ].join('\n'),
-    bar: 'Raise it when two parts of the system would give different answers to the same question, or a caller would now break, and you can quote both sides. Two styles that reach the same outcome are below the bar.',
+    bar: 'Raise it when two parts of the system would give different answers to the same question, or a caller would now break, and you can quote both sides. Also raise it when you can name the transition (what changes, between which two steps) and the wrong result the user then sees; on a shared account on a live chain, data changing between two requests is ordinary, not an edge case. A transition with no wrong result you can name is below the bar. Two styles that reach the same outcome are below the bar.',
   },
   {
     key: 'quality',
@@ -95,7 +100,7 @@ const LENSES = [
       '- Sequential awaits on independent work that could run together.',
       '- O(n^2) passes over user-sized inputs (proposals, signers, coins, transactions).',
     ].join('\n'),
-    bar: 'Raise it when the cost is measurable at realistic sizes for this product (hundreds of proposals, tens of signers, thousands of coins, a page loaded on every navigation), and name the size and the cost: queries per request, RPC calls per render, added latency. Asymptotic purity at sizes the product never reaches is below the bar.',
+    bar: `Raise it when the cost is measurable at realistic sizes for this product (${REALISTIC_SIZES}), and name the size and the cost: queries per request, RPC calls per render, added latency. Asymptotic purity at sizes the product never reaches is below the bar.`,
   },
   {
     key: 'tests',
@@ -191,7 +196,7 @@ const SINGLE = `Do all three of these:\n${Object.values(ANGLES).map(a => `- ${a}
 // Three challengers per security finding on a thorough run, one otherwise.
 const anglesFor = f => (f.lens === 'security' && THOROUGH ? Object.values(ANGLES) : [SINGLE])
 
-const CALIBRATION = 'A finding earns its place when fixing it changes what a user or attacker can do or see, or stops a maintainer trap (dead code that reads as live, a name or comment that lies, duplicated logic that will drift). Set nitpick=true for everything else: style, a constant that could be reused, a helper that could be extracted, a test that could be tidier, repetition under about ten lines, or a missing test for a path with no user-visible regression behind it. Set would_block=false whenever you would approve the PR with this unchanged. On a typical PR most low-severity findings fall at this step; confirming every finding you are given means you are not challenging.'
+const CALIBRATION = `A finding earns its place when fixing it changes what a user or attacker can do or see, including what a page costs at realistic sizes for this product (${REALISTIC_SIZES}; requests per page load, added latency), or stops a maintainer trap (dead code that reads as live, a name or comment that lies, duplicated logic that will drift). Set nitpick=true for everything else: style, a constant that could be reused, a helper that could be extracted, a test that could be tidier, repetition under about ten lines, or a missing test for a path with no user-visible regression behind it. Judge the code as it runs at head; "not a regression" or "the base did this too" is no reason for nitpick when the diff runs that code more often or on more paths, such as a fetch now made on every page load. Set would_block=false whenever you would approve the PR with this unchanged. On a typical PR most low-severity findings fall at this step; confirming every finding you are given means you are not challenging.`
 
 function challengePrompt(f, angle) {
   const lens = LENS_BY_KEY[f.lens]
@@ -267,7 +272,9 @@ function dedupe(findings) {
 function decide(f, verdicts) {
   const passes = verdicts.filter(v => v.holds && v.realistic && !v.nitpick)
   const holds = verdicts.filter(v => v.holds)
+  const belowBar = verdicts.filter(v => v.holds && v.realistic && v.nitpick)
   const reasons = vs => vs.map(v => v.reason).join(' | ')
+  const fell = v => (!v.holds ? 'does not hold' : !v.realistic ? 'not realistic' : 'nitpick')
   const medianSeverity = vs => {
     const sorted = vs.map(v => v.severity).sort((x, y) => sevRank(x) - sevRank(y))
     return sorted[Math.floor(sorted.length / 2)] || f.severity
@@ -290,7 +297,10 @@ function decide(f, verdicts) {
       const status = approving * 2 > passes.length && (severity === 'low' || severity === 'medium') ? 'polish' : 'confirmed'
       return { ...f, status, severity, reason: reasons(passes), verdicts }
     }
-    if (!holds.length || verdicts.every(v => v.nitpick)) return { ...f, status: 'dismissed', reason: reasons(verdicts), verdicts }
+    if (!holds.length || verdicts.every(v => v.nitpick)) {
+      if (belowBar.length * 2 > verdicts.length) return { ...f, status: 'minor', reason: reasons(belowBar), verdicts }
+      return { ...f, status: 'dismissed', reason: verdicts.map(v => `${fell(v)}: ${v.reason}`).join(' | '), verdicts }
+    }
     return { ...f, status: 'unconfirmed', reason: reasons(verdicts), verdicts }
   }
   const v = verdicts[0]
@@ -299,20 +309,22 @@ function decide(f, verdicts) {
     const status = v.would_block ? 'confirmed' : 'polish'
     return { ...f, status, severity: v.severity || f.severity, reason: v.reason, verdicts }
   }
-  const why = !v.holds ? 'does not hold' : !v.realistic ? 'not realistic' : 'nitpick'
-  return { ...f, status: 'dismissed', reason: `${why}: ${v.reason}`, verdicts }
+  // True and reachable, but judged below the bar: one judgement, so the caller triages it rather than losing it among refuted claims.
+  if (v.holds && v.realistic && v.nitpick) return { ...f, status: 'minor', reason: v.reason, verdicts }
+  return { ...f, status: 'dismissed', reason: `${fell(v)}: ${v.reason}`, verdicts }
 }
 
-const reportView = f => ({
+const judgedView = f => ({
   ...finderView(f),
   lenses: f.lenses,
   also: f.also,
-  survived_because: f.reason,
   challengers: f.verdicts.map(v => ({
     holds: v.holds, realistic: v.realistic, nitpick: v.nitpick, would_block: v.would_block, severity: v.severity,
     user_impact: v.user_impact, reason: v.reason, counterexample_or_repro: v.counterexample_or_repro,
   })),
 })
+const reportView = f => ({ ...judgedView(f), survived_because: f.reason })
+const minorView = f => ({ ...judgedView(f), judged_minor_because: f.reason })
 
 // ---------- Review ----------
 
@@ -341,7 +353,7 @@ const files = listed.files
 if (!files.length) {
   log(`Empty diff for ${PR_LABEL}; nothing to review`)
   return {
-    confirmed: [], unconfirmed: [], polish: [], dismissed: [],
+    confirmed: [], unconfirmed: [], polish: [], minor: [], dismissed: [],
     coverage: { lenses: [], lensesFailed: [], findingsPerLens: {}, filesInDiff: [], depth: THOROUGH ? 'thorough' : 'quick' },
   }
 }
@@ -402,14 +414,16 @@ const rankOrder = (x, y) =>
 const confirmed = judged.filter(f => f.status === 'confirmed').sort(rankOrder).map(reportView)
 const unconfirmed = judged.filter(f => f.status === 'unconfirmed').sort(rankOrder).map(reportView)
 const polish = judged.filter(f => f.status === 'polish').sort(rankOrder).map(reportView)
+const minor = judged.filter(f => f.status === 'minor').sort(rankOrder).map(minorView)
 const dismissed = judged.filter(f => f.status === 'dismissed').sort(rankOrder)
-  .map(f => ({ title: f.title, file: f.file, line: f.line, lens: f.lens, reason: f.reason }))
-log(`${confirmed.length} confirmed, ${unconfirmed.length} unconfirmed, ${polish.length} polish, ${dismissed.length} dismissed`)
+  .map(f => ({ title: f.title, file: f.file, line: f.line, lens: f.lens, claim: f.claim, dismissed_because: f.reason }))
+log(`${confirmed.length} confirmed, ${unconfirmed.length} unconfirmed, ${polish.length} polish, ${minor.length} judged minor, ${dismissed.length} dismissed`)
 
 return {
   confirmed,
   unconfirmed,
   polish,
+  minor,
   dismissed,
   coverage: {
     lenses: lensesRun,

@@ -820,6 +820,9 @@ export const rejectInvitation = async ({
 	address: string;
 	signature: string;
 }) => {
+	if (!isValidSuiAddress(address))
+		throw new CommonError('InvalidAddress');
+
 	// Validate signature with rejection-specific message
 	const pubKey = await verifySignedMessage(
 		signature,

@@ -10,6 +10,7 @@
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { eq } from 'drizzle-orm';
 
+import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
 	SchemaAddresses,
@@ -59,27 +60,36 @@ export async function registerPublicKeyStrings(
  */
 export async function registerCallerKeys({
 	callerKeys,
-	extraPublicKeys,
+	extraPublicKeys = [],
 }: {
 	callerKeys: PublicKey[];
-	extraPublicKeys: string[];
+	extraPublicKeys?: unknown;
 }): Promise<void> {
-	// Parse extra public keys using the existing utility
+	if (
+		!Array.isArray(extraPublicKeys) ||
+		extraPublicKeys.length > LIMITS.maxExtraPublicKeys
+	)
+		throw new ValidationError(
+			`extraPublicKeys must be a list of at most ${LIMITS.maxExtraPublicKeys} public keys.`,
+		);
+
+	let skipped = 0;
 	const parsedExtraKeys = extraPublicKeys
 		.map((keyStr) => {
 			try {
 				return parsePublicKey(keyStr);
-			} catch (error) {
-				// eslint-disable-next-line no-console
-				console.warn(
-					'Failed to parse public key:',
-					keyStr,
-					error,
-				);
+			} catch {
+				skipped++;
 				return null;
 			}
 		})
 		.filter((key) => key !== null);
+
+	if (skipped > 0)
+		// eslint-disable-next-line no-console
+		console.warn(
+			`Skipped ${skipped} extra public keys that failed to parse`,
+		);
 
 	await registerPublicKeys([
 		...callerKeys,
