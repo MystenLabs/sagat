@@ -34,6 +34,10 @@ type SignedProof<Kind extends string, Fields = unknown> = {
 	signature: string;
 } & Fields;
 
+// For rows nobody signed, such as a chain change. Nothing writes them yet.
+export const SYSTEM_ACTOR = 'system';
+type ChainProof = { kind: 'chain'; digest: string };
+
 type MemberActor = string;
 
 // A proposer event's `subject` is stored exactly as signed, not normalised.
@@ -53,14 +57,16 @@ type AccountEventRegistry = {
 	};
 };
 
-// Every proof in the registry.
-export type AccountEventProof = {
-	[A in keyof AccountEventRegistry]: Required<
-		AccountEventRegistry[A]
-	> extends { proof: infer Proof }
-		? NonNullable<Proof>
-		: never;
-}[keyof AccountEventRegistry];
+// Every proof in the registry, plus `ChainProof`, which has no entry yet.
+export type AccountEventProof =
+	| {
+			[A in keyof AccountEventRegistry]: Required<
+				AccountEventRegistry[A]
+			> extends { proof: infer Proof }
+				? NonNullable<Proof>
+				: never;
+	  }[keyof AccountEventRegistry]
+	| ChainProof;
 
 type UnsetFields = {
 	network?: null;
