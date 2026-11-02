@@ -310,7 +310,7 @@ account_events (id, account_address, network, actor, action, subject,
 
 - `actor` is the signer's address, or `system` for a later row nobody signed. `before` and `after` hold the changed fields only, never whole rows.
 - A proof's `kind` and `version` name the SDK message template. Version 1 is the legacy text; `/v1` writers will use version 2. `expiry` is part of the message, and a reader does not reject a row because it has passed. Message text is never stored.
-- Append-only, written in the same transaction as the change. Read newest first with a keyset on `id`, never an offset. No retention. There is no route yet: the read route lands with `/v1`.
+- Append-only, written in the same transaction as the change. Read newest first with a keyset on `id`, never an offset. `recordAccountEvent` takes the account lock because ids are assigned at insert, not commit: without it, a lower id could become visible after a reader has paged past it. With it, an account's ids follow commit order, which the keyset and a later hash chain rely on. No retention. There is no route yet: the read route lands with `/v1`.
 - Rows from before this table have no event and stay unverified, as does a change made by a replica still on the old code during a rolling deploy. No backfill.
 
 To verify a row:
