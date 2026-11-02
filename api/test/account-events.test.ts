@@ -93,8 +93,7 @@ const rebuildMessage = (
 };
 
 const signatureOf = ({ proof }: StoredAccountEvent) => {
-	if (!proof || !('signature' in proof))
-		throw new Error('The event has no signature');
+	if (!proof) throw new Error('The event has no signature');
 	return proof.signature;
 };
 

@@ -301,7 +301,7 @@ Decisions (2026-10-19):
 
 ### Audit log (0011)
 
-Every member-authorized change stores its proof: the signature plus the semantic fields needed to rebuild the signed message. The server verifies at write time. A client re-verifies at read time with the same SDK builders, rebuilding the message from the fields and never trusting stored text. This covers a hostile or impersonated API forging a signed change. It does not cover withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
+Member-authorized changes store their proof: the signature plus the semantic fields needed to rebuild the signed message. So far that covers adding and removing a proposer. Other changes, including proposal cancellations, are not recorded yet, so a missing event for one is not a sign of a withheld row. The server verifies at write time. A client re-verifies at read time with the same SDK builders, rebuilding the message from the fields and never trusting stored text. This covers a hostile or impersonated API forging a signed change. It does not cover withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
 
 ```text
 account_events (id, account_address, network, actor, action, subject,
