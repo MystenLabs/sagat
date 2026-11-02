@@ -18,7 +18,8 @@ export type Fixtures = {
 	// (sign-in included) from the start (a test flips
 	// `window.__e2eWallet.declineConnect` / `.declineSign` to decline
 	// mid-flow);
-	// `rejectSigning` makes it decline every transaction to sign.
+	// `rejectSigning` makes it decline every transaction to sign;
+	// `hasTouch` gives the browser a touchscreen, for `.tap()`.
 	createActor: (
 		name: string,
 		options?: {
@@ -27,6 +28,7 @@ export type Fixtures = {
 			failRestore?: boolean;
 			declineSign?: boolean;
 			rejectSigning?: boolean;
+			hasTouch?: boolean;
 		},
 	) => Promise<Actor>;
 	// A user without a browser, for people who only act through the API.

@@ -83,7 +83,7 @@ export function ObjectRow({ view }: { view: ObjectView }) {
 			<td className="px-3 py-2">
 				<ObjectId id={view.objectId} testId="object-id" />
 			</td>
-			{/* A link here too: a tap doesn't open the id's tooltip. */}
+			{/* A link here too, one tap away rather than two. */}
 			<td className="py-2 pr-3 text-right sm:pl-3">
 				{explorerUrl && (
 					<a
@@ -133,7 +133,7 @@ function SubtitlePart({
 
 /**
  * An object id, short, with the full one, a copy button and a link to
- * the explorer in its tooltip.
+ * the explorer in its popup.
  */
 function ObjectId({
 	id,

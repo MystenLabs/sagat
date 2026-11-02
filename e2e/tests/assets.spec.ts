@@ -5,8 +5,11 @@ import { Transaction } from '@mysten/sui/transactions';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { type Page, type Request } from '@playwright/test';
 
+import { type Actor } from '../support/actor';
 import { type Chain } from '../support/chain';
+import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
+import { type Identity } from '../support/identity';
 import { setupMultisig } from '../support/scenarios';
 import {
 	giveManyCoinTypes,
@@ -54,6 +57,64 @@ async function giveKioskOwnerCaps(
 async function openObjects(page: Page) {
 	await page.getByTestId('multisig-tab-assets').click();
 	await page.getByTestId('assets-tab-objects').click();
+}
+
+// Signs `creator` in to a pod holding an UpgradeCap, and returns the pod's
+// Objects tab and the id of the package the cap upgrades.
+async function signInWithUpgradeCap(
+	creator: Actor,
+	member: Identity,
+	chain: Chain,
+) {
+	const multisig = await setupMultisig({
+		creator,
+		members: [member],
+		threshold: 1,
+	});
+	const coin = await publishTestCoin(chain, undefined, {
+		upgradeCapTo: multisig.address,
+	});
+	await creator.signIn();
+	return {
+		objectsUrl: `/multisig/${multisig.address}/assets?view=objects`,
+		packageId: normalizeSuiAddress(
+			coin.type.split('::')[0],
+		),
+	};
+}
+
+// The short package id on the UpgradeCap's row.
+function packageIdTrigger(page: Page) {
+	return page
+		.locator(
+			'[data-testid="object-row"][data-kind="upgradeCap"]',
+		)
+		.getByTestId('object-subtitle-id')
+		.getByRole('button');
+}
+
+// Has the app call localnet testnet, so its explorer links show: Suiscan
+// doesn't index localnet.
+async function callLocalnetTestnet(page: Page) {
+	await page.route(
+		/fullnode\.testnet\.sui\.io/,
+		async (route) => {
+			const { pathname } = new URL(route.request().url());
+			const response = await route.fetch({
+				url: E2E.rpcUrl + pathname,
+			});
+			await route.fulfill({
+				response,
+				headers: {
+					...response.headers(),
+					'access-control-allow-origin': '*',
+				},
+			});
+		},
+	);
+	await page.evaluate(() =>
+		localStorage.setItem('SuiNetwork', 'testnet'),
+	);
 }
 
 test.describe('assets', () => {
@@ -529,19 +590,11 @@ test.describe('assets', () => {
 		chain,
 	}) => {
 		const alice = await createActor('alice');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [createIdentity('bob')],
-			threshold: 1,
-		});
-		const coin = await publishTestCoin(chain, undefined, {
-			upgradeCapTo: multisig.address,
-		});
-		const packageId = normalizeSuiAddress(
-			coin.type.split('::')[0],
+		const { packageId } = await signInWithUpgradeCap(
+			alice,
+			createIdentity('bob'),
+			chain,
 		);
-
-		await alice.signIn();
 		const { page } = alice;
 		await openObjects(page);
 		const cap = page.locator(
@@ -554,11 +607,74 @@ test.describe('assets', () => {
 		await cap.getByTestId('object-subtitle-id').hover();
 		await expect(
 			page
-				.getByRole('tooltip')
+				.getByTestId('address-popup')
 				.filter({ hasText: packageId }),
 		).toBeVisible();
 		const subtitle = cap.getByTestId('object-subtitle');
 		await expect(subtitle).toContainText('version 1');
 		await expect(subtitle).toContainText('Compatible');
+	});
+
+	test('a tap on a package id shows the whole id, copy and link', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice', {
+			hasTouch: true,
+		});
+		const { objectsUrl, packageId } =
+			await signInWithUpgradeCap(
+				alice,
+				createIdentity('bob'),
+				chain,
+			);
+		const { page } = alice;
+		await callLocalnetTestnet(page);
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.goto(objectsUrl);
+
+		await packageIdTrigger(page).tap();
+		const popup = page.getByTestId('address-popup');
+		await expect(popup).toContainText(packageId);
+		await expect(
+			popup.getByTestId('address-copy'),
+		).toBeVisible();
+		await expect(
+			popup.getByTestId('address-explorer-link'),
+		).toBeVisible();
+	});
+
+	test('the keyboard reaches the copy button and link of a package id', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const { objectsUrl, packageId } =
+			await signInWithUpgradeCap(
+				alice,
+				createIdentity('bob'),
+				chain,
+			);
+		const { page } = alice;
+		await callLocalnetTestnet(page);
+		await page.goto(objectsUrl);
+
+		const trigger = packageIdTrigger(page);
+		await trigger.focus();
+		await page.keyboard.press('Enter');
+		const popup = page.getByTestId('address-popup');
+		await expect(popup).toContainText(packageId);
+		await expect(
+			popup.getByTestId('address-copy'),
+		).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(
+			popup.getByTestId('address-explorer-link'),
+		).toBeFocused();
+		await page.keyboard.press('Escape');
+		await expect(popup).toBeHidden();
+		await expect(trigger).toBeFocused();
 	});
 });

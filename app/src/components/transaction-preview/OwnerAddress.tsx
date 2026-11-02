@@ -13,9 +13,9 @@ const COPY = content.transactionPreview.owner;
 /**
  * An object's owner in the preview's cells. Address, object and
  * consensus owners show like every other address: short, with the full
- * value and a copy button on hover or focus. An address owner that is
- * the sender shows as "Sender"; owners without an address (immutable,
- * shared) as plain text.
+ * value and a copy button on hover, tap or Enter. An address owner
+ * that is the sender shows as "Sender"; owners without an address
+ * (immutable, shared) as plain text.
  */
 export function OwnerAddress({
 	owner,
