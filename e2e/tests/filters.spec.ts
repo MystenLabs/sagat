@@ -73,7 +73,7 @@ test('proposal filters show each proposal where it belongs', async ({
 	await bob.api.verifyProposalByDigest(executed.digest);
 	const cancelled = await propose(bob, coins[4]);
 	await cancelProposal(bob, cancelled);
-	// Dave proposes, then cancels it himself before anyone signs.
+	// Dave proposes, then cancels it before anyone signs.
 	await addProposer(alice, dave, multisig.address);
 	const withdrawn = await propose(dave, coins[5]);
 	await cancelProposal(dave, withdrawn);

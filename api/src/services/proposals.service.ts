@@ -552,9 +552,10 @@ export const cancelProposal = async ({
 		PersonalMessages.cancelProposal(proposalId),
 	);
 
-	// A member's cancel ends in CANCELLED, a proposer's in WITHDRAWN. The
-	// proposer's is guarded in the same statement, so a signature committed
-	// before it runs is never lost.
+	// A member's cancel ends in CANCELLED, a proposer's in WITHDRAWN. Either
+	// lands only on a proposal still pending, and a proposer's also needs no
+	// signatures. The guard is in the statement, so a status or signature
+	// committed before it runs is never overwritten.
 	const cancelled = await db
 		.update(SchemaProposals)
 		.set({
@@ -563,15 +564,12 @@ export const cancelProposal = async ({
 				: ProposalStatus.WITHDRAWN,
 		})
 		.where(
-			isMember
-				? eq(SchemaProposals.id, proposal.id)
-				: and(
-						eq(SchemaProposals.id, proposal.id),
-						eq(
-							SchemaProposals.status,
-							ProposalStatus.PENDING,
-						),
-						notExists(
+			and(
+				eq(SchemaProposals.id, proposal.id),
+				eq(SchemaProposals.status, ProposalStatus.PENDING),
+				isMember
+					? undefined
+					: notExists(
 							db
 								.select()
 								.from(SchemaProposalSignatures)
@@ -582,12 +580,13 @@ export const cancelProposal = async ({
 									),
 								),
 						),
-					),
+			),
 		)
 		.returning({ id: SchemaProposals.id });
 
 	if (cancelled.length === 0) {
-		// No row matched: the proposal has a signature or is no longer pending.
+		// No row matched: the proposal left PENDING in between, or (for a
+		// proposer) a signer signed it first.
 		const { status } = await getProposalById(proposalId);
 		throw new ValidationError(
 			status === ProposalStatus.PENDING
