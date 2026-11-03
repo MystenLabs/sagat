@@ -164,7 +164,8 @@ export function ObjectsCard({
 			data-testid="objects"
 		>
 			<div className="flex flex-wrap items-start gap-x-6 gap-y-3">
-				<div className="flex min-w-0 flex-1 basis-80 flex-col gap-1 @3xl:flex-row @3xl:items-center @3xl:gap-6">
+				{/* Not items-center: the filter error must not move the title. */}
+				<div className="flex min-w-0 flex-1 basis-80 flex-col gap-1 @3xl:flex-row @3xl:items-center @3xl:gap-6 @4xl:min-h-10.5">
 					<CardHeading
 						id="objects-title"
 						title={COPY.title}
