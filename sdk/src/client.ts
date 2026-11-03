@@ -149,11 +149,15 @@ export class SagatClient {
 		});
 	}
 
+	/**
+	 * Lists an account's proposals on a network, newest first.
+	 * @param params.status One status, or several to list proposals in any of them.
+	 */
 	async getProposals(
 		multisigAddress: string,
 		network: string,
 		params: {
-			status?: ProposalStatus;
+			status?: ProposalStatus | ProposalStatus[];
 			nextCursor?: number;
 			perPage?: number;
 		},
@@ -176,8 +180,11 @@ export class SagatClient {
 		}
 
 		if (params.status !== undefined) {
-			const statusString = ProposalStatus[params.status];
-			searchParams.append('status', statusString);
+			const statuses = [params.status].flat();
+			searchParams.append(
+				'status',
+				statuses.map((s) => ProposalStatus[s]).join(','),
+			);
 		}
 
 		const query = searchParams.toString();
@@ -206,7 +213,9 @@ export class SagatClient {
 	}
 
 	/**
-	 * Call this to cancel a proposal.
+	 * Call this to cancel a proposal. A member's cancel ends in `CANCELLED`;
+	 * an external proposer cancelling their own unsigned proposal ends in
+	 * `WITHDRAWN`.
 	 * @param proposalId
 	 * @param data Expects a signed `PersonalMessages.cancelProposal()` message.
 	 */

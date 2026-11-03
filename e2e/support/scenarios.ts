@@ -112,6 +112,28 @@ export async function proposeTransfer(
 	});
 }
 
+// Adds `proposer` as an external proposer: they can propose from the
+// multisig without being a member.
+export async function addProposer(
+	member: Identity,
+	proposer: Identity,
+	multisigAddress: string,
+) {
+	const expiry = defaultExpiry();
+	return member.api.addMultisigProposer(
+		multisigAddress,
+		proposer.address,
+		await member.signMessage(
+			PersonalMessages.addMultisigProposer(
+				proposer.address,
+				multisigAddress,
+				expiry,
+			),
+		),
+		expiry,
+	);
+}
+
 export async function signProposal(
 	member: Identity,
 	proposal: Proposal,
@@ -123,12 +145,14 @@ export async function signProposal(
 	});
 }
 
+// Cancels as a member, or as the external proposer of a proposal nobody has
+// signed, which withdraws it.
 export async function cancelProposal(
-	member: Identity,
+	signer: Identity,
 	proposal: Proposal,
 ) {
-	return member.api.cancelProposal(proposal.id, {
-		signature: await member.signMessage(
+	return signer.api.cancelProposal(proposal.id, {
+		signature: await signer.signMessage(
 			PersonalMessages.cancelProposal(proposal.id),
 		),
 	});

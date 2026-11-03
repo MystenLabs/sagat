@@ -57,10 +57,28 @@ interface ProposalCardProps {
 const STATUS_BADGES = {
 	executed: { variant: 'success', text: 'Executed' },
 	cancelled: { variant: 'neutral', text: 'Cancelled' },
+	withdrawn: { variant: 'neutral', text: 'Withdrawn' },
 	failed: { variant: 'error', text: 'Failed' },
 	ready: { variant: 'info', text: 'Ready to Execute' },
 	pending: { variant: 'warning', text: 'Pending' },
 } as const;
+
+const CLOSED_DETAILS: Partial<
+	Record<ProposalStatus, { title: string; body: string }>
+> = {
+	[ProposalStatus.FAILURE]: {
+		title: 'Transaction Failed',
+		body: 'This proposal failed during execution.',
+	},
+	[ProposalStatus.CANCELLED]: {
+		title: 'Proposal Cancelled',
+		body: 'This proposal was cancelled and will not be executed.',
+	},
+	[ProposalStatus.WITHDRAWN]: {
+		title: 'Proposal Withdrawn',
+		body: 'This proposal was withdrawn by its proposer and will not be executed.',
+	},
+};
 
 export function ProposalCard({
 	proposal,
@@ -141,6 +159,8 @@ export function ProposalCard({
 			return 'executed';
 		if (proposal.status === ProposalStatus.CANCELLED)
 			return 'cancelled';
+		if (proposal.status === ProposalStatus.WITHDRAWN)
+			return 'withdrawn';
 		if (proposal.status === ProposalStatus.FAILURE)
 			return 'failed';
 		if (proposal.currentWeight >= proposal.totalWeight)
@@ -148,6 +168,7 @@ export function ProposalCard({
 		return 'pending';
 	};
 	const statusKey = getStatusKey();
+	const closedDetails = CLOSED_DETAILS[proposal.status];
 
 	const getStatusBadge = () => {
 		const { variant, text } = STATUS_BADGES[statusKey];
@@ -455,19 +476,13 @@ export function ProposalCard({
 							/>
 						))}
 
-					{(proposal.status === ProposalStatus.FAILURE ||
-						proposal.status ===
-							ProposalStatus.CANCELLED) && (
+					{closedDetails && (
 						<div className="space-y-3">
 							<h5 className="font-medium text-foreground">
-								{proposal.status === ProposalStatus.FAILURE
-									? 'Transaction Failed'
-									: 'Proposal Cancelled'}
+								{closedDetails.title}
 							</h5>
 							<p className="text-sm text-muted-foreground">
-								{proposal.status === ProposalStatus.FAILURE
-									? 'This proposal failed during execution.'
-									: 'This proposal was cancelled and will not be executed.'}
+								{closedDetails.body}
 							</p>
 						</div>
 					)}

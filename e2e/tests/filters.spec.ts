@@ -11,6 +11,7 @@ import {
 import { expect, test } from '../support/fixtures';
 import { type Identity } from '../support/identity';
 import {
+	addProposer,
 	cancelProposal,
 	executeOutsideApp,
 	proposeTransfer,
@@ -26,6 +27,8 @@ test('proposal filters show each proposal where it belongs', async ({
 	const alice = await createActor('alice');
 	const bob = createIdentity('bob');
 	const carol = createIdentity('carol');
+	// An external proposer, not a member.
+	const dave = createIdentity('dave');
 	const multisig = await setupMultisig({
 		creator: alice,
 		members: [bob, carol],
@@ -35,7 +38,7 @@ test('proposal filters show each proposal where it belongs', async ({
 	const coins = await chain.fundWithCoins(
 		multisig.address,
 		{
-			count: 5,
+			count: 6,
 			amount: 10n * MIST_PER_SUI,
 		},
 	);
@@ -70,6 +73,10 @@ test('proposal filters show each proposal where it belongs', async ({
 	await bob.api.verifyProposalByDigest(executed.digest);
 	const cancelled = await propose(bob, coins[4]);
 	await cancelProposal(bob, cancelled);
+	// Dave proposes, then cancels it himself before anyone signs.
+	await addProposer(alice, dave, multisig.address);
+	const withdrawn = await propose(dave, coins[5]);
+	await cancelProposal(dave, withdrawn);
 
 	await alice.signIn();
 	await alice.page
@@ -77,12 +84,19 @@ test('proposal filters show each proposal where it belongs', async ({
 		.click();
 
 	const expected = {
-		all: [needsAlice, waiting, ready, executed, cancelled],
+		all: [
+			needsAlice,
+			waiting,
+			ready,
+			executed,
+			cancelled,
+			withdrawn,
+		],
 		pending: [needsAlice],
 		waiting: [waiting],
 		ready: [ready],
 		executed: [executed],
-		cancelled: [cancelled],
+		cancelled: [cancelled, withdrawn],
 	};
 	for (const [filter, proposals] of Object.entries(
 		expected,
@@ -96,6 +110,9 @@ test('proposal filters show each proposal where it belongs', async ({
 				.toEqual(proposals.map((p) => p.digest).sort());
 		});
 	}
+	await expect(
+		alice.proposalCard(withdrawn.digest),
+	).toHaveAttribute('data-status', 'withdrawn');
 });
 
 function shownDigests(page: Page) {

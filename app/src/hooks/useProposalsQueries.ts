@@ -63,7 +63,10 @@ export function useProposalsQueries({
 			case 'executed':
 				return ProposalStatus.SUCCESS;
 			case 'cancelled':
-				return ProposalStatus.CANCELLED;
+				return [
+					ProposalStatus.CANCELLED,
+					ProposalStatus.WITHDRAWN,
+				];
 			case 'pending':
 				return ProposalStatus.PENDING;
 			default:

@@ -144,7 +144,7 @@ const getProposalsByAccountAddress = async (
 	multisigAddress: string,
 	network: string,
 	cursor: PaginationCursor,
-	status?: ProposalStatus,
+	statuses?: ProposalStatus[],
 ) => {
 	// the next cursor.
 	const nextCursor =
@@ -157,8 +157,8 @@ const getProposalsByAccountAddress = async (
 		{
 			where: and(
 				eq(SchemaProposals.accountAddress, multisigAddress),
-				status !== undefined
-					? eq(SchemaProposals.status, status)
+				statuses
+					? inArray(SchemaProposals.status, statuses)
 					: undefined,
 				eq(SchemaProposals.network, network),
 				nextCursor
@@ -552,11 +552,16 @@ export const cancelProposal = async ({
 		PersonalMessages.cancelProposal(proposalId),
 	);
 
-	// A proposer's cancel is guarded in the same statement, so a signature
-	// committed before it runs is never lost.
+	// A member's cancel ends in CANCELLED, a proposer's in WITHDRAWN. The
+	// proposer's is guarded in the same statement, so a signature committed
+	// before it runs is never lost.
 	const cancelled = await db
 		.update(SchemaProposals)
-		.set({ status: ProposalStatus.CANCELLED })
+		.set({
+			status: isMember
+				? ProposalStatus.CANCELLED
+				: ProposalStatus.WITHDRAWN,
+		})
 		.where(
 			isMember
 				? eq(SchemaProposals.id, proposal.id)
@@ -644,7 +649,7 @@ export const listProposals = async ({
 }: {
 	multisigAddress: string;
 	network: string;
-	// One of the `ProposalStatus` names. Parsed after the access check.
+	// `ProposalStatus` names, comma-separated. Parsed after the access check.
 	status?: string;
 	cursor: PaginationCursor;
 	callerKeys: PublicKey[];
@@ -663,7 +668,9 @@ export const listProposals = async ({
 		multisigAddress,
 		network,
 		cursor,
-		status ? proposalStatusFromString(status) : undefined,
+		status
+			? status.split(',').map(proposalStatusFromString)
+			: undefined,
 	);
 };
 

@@ -10,7 +10,7 @@ import { QueryKeys } from '@/lib/queryKeys';
 interface UsePaginatedProposalsParams {
 	multisigAddress: string;
 	network: string;
-	status?: ProposalStatus;
+	status?: ProposalStatus | ProposalStatus[];
 	perPage?: number;
 	enabled?: boolean;
 }
@@ -25,7 +25,12 @@ export function usePaginatedProposals({
 	return useInfiniteQuery({
 		queryKey: [
 			QueryKeys.Proposals,
-			status !== undefined ? ProposalStatus[status] : 'all',
+			status !== undefined
+				? [status]
+						.flat()
+						.map((s) => ProposalStatus[s])
+						.join(',')
+				: 'all',
 			multisigAddress,
 			network,
 			perPage,

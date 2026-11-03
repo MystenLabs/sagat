@@ -26,6 +26,8 @@ export enum ProposalStatus {
 	CANCELLED = 1,
 	SUCCESS = 2,
 	FAILURE = 3,
+	// A proposer's own cancel of a proposal nobody has signed.
+	WITHDRAWN = 4,
 }
 
 export const proposalStatusFromString = (
@@ -40,6 +42,8 @@ export const proposalStatusFromString = (
 			return ProposalStatus.FAILURE;
 		case 'CANCELLED':
 			return ProposalStatus.CANCELLED;
+		case 'WITHDRAWN':
+			return ProposalStatus.WITHDRAWN;
 	}
 	throw new ValidationError('Invalid status');
 };

@@ -503,7 +503,7 @@ describe('Proposal Business Logic', () => {
 				{},
 			);
 			expect(data.map((p) => p.status)).toEqual([
-				ProposalStatus.CANCELLED,
+				ProposalStatus.WITHDRAWN,
 			]);
 		});
 
@@ -698,6 +698,21 @@ describe('Proposal Business Logic', () => {
 			multisig.address,
 		);
 		await session.cancelProposal(users[0], cancelled.id);
+		const proposer = newUser();
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		const withdrawn = await session.createProposal(
+			proposer,
+			multisig.address,
+			'localnet',
+			await buildTransfer(multisig.address, {
+				amount: 3_000_000,
+			}),
+		);
+		await session.cancelProposal(proposer, withdrawn.id);
 		const pending = await session.createProposal(
 			users[0],
 			multisig.address,
@@ -707,7 +722,9 @@ describe('Proposal Business Logic', () => {
 			}),
 		);
 
-		const listByStatus = async (status: ProposalStatus) =>
+		const listByStatus = async (
+			status: ProposalStatus | ProposalStatus[],
+		) =>
 			(
 				await session.client.getProposals(
 					multisig.address,
@@ -724,6 +741,29 @@ describe('Proposal Business Logic', () => {
 		expect(
 			await listByStatus(ProposalStatus.CANCELLED),
 		).toEqual([
+			{
+				id: cancelled.id,
+				status: ProposalStatus.CANCELLED,
+			},
+		]);
+		expect(
+			await listByStatus(ProposalStatus.WITHDRAWN),
+		).toEqual([
+			{
+				id: withdrawn.id,
+				status: ProposalStatus.WITHDRAWN,
+			},
+		]);
+		expect(
+			await listByStatus([
+				ProposalStatus.CANCELLED,
+				ProposalStatus.WITHDRAWN,
+			]),
+		).toEqual([
+			{
+				id: withdrawn.id,
+				status: ProposalStatus.WITHDRAWN,
+			},
 			{
 				id: cancelled.id,
 				status: ProposalStatus.CANCELLED,
