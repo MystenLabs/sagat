@@ -41,7 +41,10 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'chromium',
-			use: { ...devices['Desktop Chrome'] },
+			use: {
+				...devices['Desktop Chrome'],
+				channel: E2E.browserChannel,
+			},
 		},
 	],
 	// Started in order, before global setup. Locally, anything already

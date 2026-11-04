@@ -238,7 +238,7 @@ jobs:
     # The Playwright image ships Chromium, its system libraries and Node. Bump
     # the tag together with the @playwright/test pin in e2e/package.json.
     container:
-      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
     # Inside a container job, services are reached by name, not on localhost.
     services:
       postgres:
