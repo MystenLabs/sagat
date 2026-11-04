@@ -12,14 +12,12 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '../db';
 import { SchemaSignerSetMembers } from '../db/schema';
-import { type DatabaseReader } from '../db/transaction';
 
 // Returns true if the public key is a member of the signer set and has accepted the invitation.
 export const isSignerSetMember = async (
 	signerSetAddress: string,
 	publicKey: PublicKey,
 	checkAcceptance: boolean = true,
-	reader: DatabaseReader = db,
 ) => {
 	const whereConditions = [
 		eq(
@@ -39,7 +37,7 @@ export const isSignerSetMember = async (
 	}
 
 	const member =
-		await reader.query.SchemaSignerSetMembers.findFirst({
+		await db.query.SchemaSignerSetMembers.findFirst({
 			where: and(...whereConditions),
 		});
 	return !!member;

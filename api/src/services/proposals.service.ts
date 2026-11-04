@@ -40,7 +40,7 @@ import {
 } from '../db/schema';
 import {
 	lockAccount,
-	type DatabaseReader,
+	type DatabaseTransaction,
 } from '../db/transaction';
 import {
 	ApiAuthError,
@@ -292,6 +292,28 @@ const isAccountProposer = async (
 		await AccountProposersDataLoader.load(accountAddress)
 	).some((proposer) => proposer.address === address);
 
+// The same question as of the account lock `tx` holds, so a removal that
+// committed while waiting for it is seen.
+const isAccountProposerUnderLock = async (
+	tx: DatabaseTransaction,
+	accountAddress: string,
+	address: string,
+) => {
+	const [proposer] = await tx
+		.select({ address: SchemaAccountProposers.address })
+		.from(SchemaAccountProposers)
+		.where(
+			and(
+				eq(
+					SchemaAccountProposers.accountAddress,
+					accountAddress,
+				),
+				eq(SchemaAccountProposers.address, address),
+			),
+		);
+	return !!proposer;
+};
+
 // The base64 length of the largest transaction we accept.
 const MAX_TRANSACTION_BASE64_LENGTH =
 	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
@@ -394,25 +416,15 @@ export const createProposal = async ({
 
 		// The proposer check above ran before the account lock, so a removal
 		// may have committed since, without cancelling this proposal.
-		if (!isMember) {
-			const [proposer] = await tx
-				.select({ address: SchemaAccountProposers.address })
-				.from(SchemaAccountProposers)
-				.where(
-					and(
-						eq(
-							SchemaAccountProposers.accountAddress,
-							multisigAddress,
-						),
-						eq(
-							SchemaAccountProposers.address,
-							pubKey.toSuiAddress(),
-						),
-					),
-				);
-			if (!proposer)
-				throw new ApiAuthError('NotAMultisigMember');
-		}
+		if (
+			!isMember &&
+			!(await isAccountProposerUnderLock(
+				tx,
+				multisigAddress,
+				pubKey.toSuiAddress(),
+			))
+		)
+			throw new ApiAuthError('NotAMultisigMember');
 
 		// Insert the proposal and the first sig!
 		const proposal = await tx
@@ -530,44 +542,6 @@ export const voteOnProposal = async ({
 	return tallyProposal(proposal, multisig);
 };
 
-// Refuses anyone but an accepted member or the proposal's own external proposer,
-// and returns whether the signer is a member. Reads through `reader` rather than
-// a loader, whose cache could be stale.
-const authorizeCancel = async (
-	reader: DatabaseReader,
-	proposal: Proposal,
-	signer: PublicKey,
-) => {
-	if (
-		await isSignerSetMember(
-			proposal.accountAddress,
-			signer,
-			true,
-			reader,
-		)
-	)
-		return true;
-
-	const address = signer.toSuiAddress();
-	const isOwnProposer =
-		address === proposal.proposerAddress &&
-		!!(await reader.query.SchemaAccountProposers.findFirst({
-			where: and(
-				eq(
-					SchemaAccountProposers.accountAddress,
-					proposal.accountAddress,
-				),
-				eq(SchemaAccountProposers.address, address),
-			),
-		}));
-
-	if (!isOwnProposer)
-		throw new ValidationError(
-			'Not a member of the multisig',
-		);
-	return false;
-};
-
 // Cancels a pending proposal. An accepted member can cancel any proposal; an
 // external proposer can cancel only their own, and only while nobody has signed.
 export const cancelProposal = async ({
@@ -582,12 +556,30 @@ export const cancelProposal = async ({
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
 
-	const signer =
+	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
+	const signerAddress = pubKey.toSuiAddress();
 
 	// Refuses outsiders before they can take the lock, and before the signature
 	// is checked. The route is open, and this is the order callers rely on.
-	await authorizeCancel(db, proposal, signer);
+	const isMember = await isSignerSetMember(
+		proposal.accountAddress,
+		pubKey,
+		true,
+	);
+
+	const isOwnProposer =
+		!isMember &&
+		signerAddress === proposal.proposerAddress &&
+		(await isAccountProposer(
+			proposal.accountAddress,
+			signerAddress,
+		));
+
+	if (!isMember && !isOwnProposer)
+		throw new ValidationError(
+			'Not a member of the multisig',
+		);
 
 	await verifySignedMessage(
 		signature,
@@ -598,12 +590,20 @@ export const cancelProposal = async ({
 		// First, as this touches the proposal before recording takes the lock.
 		await lockAccount(tx, proposal.accountAddress);
 
-		// Again under the lock, so a removal cannot race the check.
-		const isMember = await authorizeCancel(
-			tx,
-			proposal,
-			signer,
-		);
+		// A removal may have committed since the check above. A member needs no
+		// second look: acceptance cannot be undone, and a cancel only touches the
+		// database.
+		if (
+			!isMember &&
+			!(await isAccountProposerUnderLock(
+				tx,
+				proposal.accountAddress,
+				signerAddress,
+			))
+		)
+			throw new ValidationError(
+				'Not a member of the multisig',
+			);
 
 		// The first status check ran without the lock, so it may have moved. A
 		// proposer's cancel is guarded in the same statement, so a signature
@@ -652,7 +652,7 @@ export const cancelProposal = async ({
 			action: 'proposal.cancelled',
 			accountAddress: proposal.accountAddress,
 			network: proposal.network,
-			actor: signer.toSuiAddress(),
+			actor: signerAddress,
 			subject: proposal.digest,
 			proof: {
 				kind: 'proposal.cancel',
