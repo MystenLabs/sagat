@@ -446,7 +446,7 @@ export const createProposal = async ({
 			accountAddress: multisigAddress,
 			network,
 			actor: proposal[0].proposerAddress,
-			subject: String(proposal[0].id),
+			subject: proposal[0].digest,
 			proof: {
 				kind: 'proposal.create',
 				version: 1,
