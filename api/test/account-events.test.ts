@@ -327,7 +327,7 @@ describe('proposal.created', () => {
 			proposer.address,
 			multisig.address,
 		);
-		const { id } = await session.proposeTransfer(
+		const { id, digest } = await session.proposeTransfer(
 			proposer,
 			multisig.address,
 		);
@@ -339,7 +339,7 @@ describe('proposal.created', () => {
 		expect(created).toMatchObject({
 			action: 'proposal.created',
 			actor: proposer.address,
-			subject: String(id),
+			subject: digest,
 			before: null,
 			after: null,
 			proof: { kind: 'proposal.create', version: 1 },
@@ -348,7 +348,10 @@ describe('proposal.created', () => {
 			.select()
 			.from(SchemaProposals)
 			.where(
-				eq(SchemaProposals.id, Number(created.subject)),
+				eq(
+					SchemaProposals.digest,
+					created.subject as string,
+				),
 			);
 		expect(created.network).toBe(proposal.network);
 		expect(created.actor).toBe(proposal.proposerAddress);
@@ -357,6 +360,9 @@ describe('proposal.created', () => {
 		const signer =
 			getPublicKeyFromSerializedSignature(signature);
 		const bytes = fromBase64(proposal.transactionBytes);
+		expect(await Transaction.from(bytes).getDigest()).toBe(
+			created.subject as string,
+		);
 		expect(signer.toSuiAddress()).toBe(created.actor);
 		expect(
 			await signer.verifyTransaction(bytes, signature),
@@ -378,7 +384,7 @@ describe('proposal.created', () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
 
-		const { id } = await session.proposeTransfer(
+		const { id, digest } = await session.proposeTransfer(
 			users[0],
 			multisig.address,
 		);
@@ -390,7 +396,7 @@ describe('proposal.created', () => {
 		expect(created).toMatchObject({
 			action: 'proposal.created',
 			actor: users[0].address,
-			subject: String(id),
+			subject: digest,
 			network: 'localnet',
 		});
 		expect(await votesOn(id)).toEqual([

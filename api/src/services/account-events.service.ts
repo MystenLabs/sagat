@@ -56,7 +56,7 @@ type AccountEventRegistry = {
 			{ expiry: string }
 		>;
 	};
-	// `actor` is the proposer, member or not. `subject` is the proposal id.
+	// `actor` is the proposer, member or not. `subject` is the proposal's digest.
 	'proposal.created': {
 		actor: string;
 		subject: string;
