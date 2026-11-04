@@ -1002,7 +1002,7 @@ export const removeProposer = async ({
 				),
 			)
 			.returning({
-				id: SchemaProposals.id,
+				digest: SchemaProposals.digest,
 				network: SchemaProposals.network,
 			});
 
@@ -1042,12 +1042,12 @@ export const removeProposer = async ({
 		});
 
 		// Bounded: `validateProposedTransaction` caps pending proposals.
-		for (const { id, network } of cancelled)
+		for (const { digest, network } of cancelled)
 			await recordAccountEvent(tx, {
 				action: 'proposal.cancelled',
 				accountAddress: address,
 				actor,
-				subject: String(id),
+				subject: digest,
 				network,
 				proof: { kind: 'caused_by', eventId: parentId },
 			});

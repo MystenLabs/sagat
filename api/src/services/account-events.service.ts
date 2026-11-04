@@ -78,12 +78,18 @@ type AccountEventRegistry = {
 		>;
 	};
 	// `actor` is a member, or the external proposer cancelling their own
-	// proposal. `subject` is the proposal id.
+	// proposal. `subject` is the proposal's digest. The signed text names the
+	// id, so the signed proof carries it to rebuild that text.
 	'proposal.cancelled': {
 		actor: string;
 		subject: string;
 		network: string;
-		proof: SignedProof<'proposal.cancel'> | CausedByProof;
+		proof:
+			| SignedProof<
+					'proposal.cancel',
+					{ proposalId: number }
+			  >
+			| CausedByProof;
 	};
 };
 

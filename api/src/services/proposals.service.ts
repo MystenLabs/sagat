@@ -653,11 +653,12 @@ export const cancelProposal = async ({
 			accountAddress: proposal.accountAddress,
 			network: proposal.network,
 			actor: signer.toSuiAddress(),
-			subject: String(proposal.id),
+			subject: proposal.digest,
 			proof: {
 				kind: 'proposal.cancel',
 				version: 1,
 				signature,
+				proposalId: proposal.id,
 			},
 		});
 	});

@@ -106,7 +106,9 @@ const rebuildMessage = (
 		action === 'proposal.cancelled' &&
 		proof?.kind === 'proposal.cancel'
 	)
-		return PersonalMessages.cancelProposal(Number(subject));
+		return PersonalMessages.cancelProposal(
+			proof.proposalId,
+		);
 	throw new Error(
 		`No message for action ${action} with proof ${proof?.kind}`,
 	);
@@ -347,7 +349,7 @@ describe('cancelling a proposal', () => {
 		expect(events[0]).toMatchObject({
 			action: 'proposal.cancelled',
 			actor: users[1].address,
-			subject: String(proposal.id),
+			subject: proposal.digest,
 			network: 'localnet',
 			before: null,
 			after: null,
@@ -452,7 +454,7 @@ describe('cancelling a proposal', () => {
 		expect(others).toEqual([]);
 		expect(event).toMatchObject({
 			actor: proposer.address,
-			subject: String(proposal.id),
+			subject: proposal.digest,
 			network: 'localnet',
 		});
 		await expectSignedByActor(event);
@@ -570,7 +572,7 @@ describe('cancelling through a proposer removal', () => {
 		await expectSignedByActor(removed);
 
 		expect(children.map((e) => e.subject).sort()).toEqual(
-			[first, second].map((p) => String(p.id)).sort(),
+			[first, second].map((p) => p.digest).sort(),
 		);
 		for (const child of children) {
 			expect(child).toMatchObject({
@@ -667,7 +669,7 @@ describe('cancelling through a proposer removal', () => {
 		expect(child).toMatchObject({
 			action: 'proposal.cancelled',
 			actor: remover.address,
-			subject: String(proposal.id),
+			subject: proposal.digest,
 			proof: { kind: 'caused_by', eventId: parent.id },
 		});
 	});
