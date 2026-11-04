@@ -14,11 +14,11 @@
 	},
 	"dependencies": {
 		"@mysten/sagat": "workspace:*",
-		"@mysten/sui": "^2.37.0",
+		"@mysten/sui": "^2.38.0",
 		"dataloader": "^2.2.3",
 		"drizzle-orm": "^0.45.4",
-		"hono": "^4.13.11",
-		"jose": "^6.2.12",
+		"hono": "^4.13.16",
+		"jose": "^6.2.14",
 		"pg": "^8.23.0",
 		"prom-client": "^15.1.3"
 	},
