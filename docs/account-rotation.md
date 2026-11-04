@@ -301,7 +301,7 @@ Decisions (2026-10-19):
 
 ### Audit log (0011)
 
-Member-authorized changes store their proof: the signature plus the semantic fields needed to rebuild the signed message. So far that covers adding and removing a proposer. Other changes, including proposal cancellations, are not recorded yet, so a missing event for one is not a sign of a withheld row. The server verifies at write time. A client re-verifies at read time with the same SDK builders, rebuilding the message from the fields and never trusting stored text. This covers a hostile or impersonated API forging a signed change. It does not cover withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
+Member-authorized changes store their proof: the signature plus the semantic fields needed to rebuild the signed message. So far that covers adding and removing a proposer. Other changes, including proposal cancellations, are not recorded yet, so a missing event for one is not a sign of a withheld row. The server verifies at write time. A client will re-verify at read time, rebuilding the message from the fields with the same SDK builders and never trusting stored text. Nothing verifies these rows yet: the SDK verifier and the read route land with `/v1`. Once built, this covers a hostile or impersonated API forging a signed change. It does not cover a hostile frontend, which can show any result and ask the wallet to sign other bytes, or withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
 
 ```text
 account_events (id, account_address, network, actor, action, subject,
@@ -318,6 +318,7 @@ To verify a row:
 - Choose the template from the row's `action`, not from `proof.kind`, so a proof cannot be relabelled as another action.
 - The key recovered from the signature must match `actor` and must be a key of a currently valid signer set, checked against the account's address or the on-chain alias set rather than API data alone. `actor` by itself proves nothing: anyone can sign a message.
 - A signature from a key that has since been rotated out does not count. It cannot be told apart from one signed after the rotation, because a signature does not prove when it was made, so an old or leaked key could otherwise vouch for anyone. History can still show the row, but before signing a proposal a current member must confirm that proposer again.
+- A proposer event has no network, while signer sets are per network. When it backs a proposal, its key must be valid on that proposal's network, so a set valid only on testnet cannot vouch for a mainnet proposal.
 - A signed change can be replayed until its expiry, so the same signature can honestly appear on two rows. A reader can flag that but cannot treat it as forgery. An old proof shown again as a new row cannot be told apart from history by the signature alone; a `created_at` later than the expiry is a sign of it.
 
 To add an audited operation: one entry in the registry in `api/src/services/account-events.service.ts`, and one `recordAccountEvent(tx, ...)` call at the write site, in the change's transaction, after `lockAccount`. No migration: actions and proof kinds are checked by TypeScript, not by a database constraint. To find the proof of a current row, take the newest event for its account, action and subject.
@@ -325,6 +326,7 @@ To add an audited operation: one entry in the registry in `api/src/services/acco
 Rules for writers:
 
 - Only signed fields are proven. `before` never is.
+- A verifier rebuilds the message from the fields the UI displays, so a row cannot verify one value and show another.
 - A message builder takes explicit fields and never serialises the JSON column, because `jsonb` reorders keys.
 - Large values such as icons are stored as a URL or hash.
 - A change caused by another (removing a proposer cancels its proposals) can later use a `caused_by` proof kind.
