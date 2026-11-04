@@ -4,9 +4,6 @@ updates:
     directory: '/'
     schedule:
       interval: weekly
-    # Bumped by hand with the Playwright image tag in ci.yml.
-    ignore:
-      - dependency-name: '@playwright/test'
     groups:
       bun-dependencies:
         patterns:
