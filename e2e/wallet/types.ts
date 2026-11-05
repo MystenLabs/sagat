@@ -6,8 +6,13 @@
 export interface E2EWalletConfig {
 	name: string;
 	rpcUrl: string;
-	// Bech32 `suiprivkey1…` Ed25519 secret keys, in account order.
-	accounts: { label: string; secretKey: string }[];
+	// Bech32 `suiprivkey1…` Ed25519 secret keys, in account order. `zkLogin`
+	// presents the account with a zkLogin key instead of that one.
+	accounts: {
+		label: string;
+		secretKey: string;
+		zkLogin?: boolean;
+	}[];
 	// The chains the wallet advertises. Defaults to the dev wallet's own list
 	// (every standard Sui chain plus `sui:localnet`).
 	chains?: `sui:${string}`[];

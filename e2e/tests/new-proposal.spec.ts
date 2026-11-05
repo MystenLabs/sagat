@@ -1020,6 +1020,54 @@ test.describe('new proposal: review', () => {
 		).toBeVisible();
 	});
 
+	test('Propose asks to confirm in the wallet while it signs, then says the proposal is being created', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			2,
+		);
+		const { page } = alice;
+		await bytesToReview(
+			page,
+			chain,
+			multisig.address,
+			'Held in the wallet',
+		);
+
+		let release!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await page.route(
+			(url) => url.pathname.endsWith('/proposals'),
+			async (route) => {
+				if (isCreateRequest(route.request())) await held;
+				await route.fallback();
+			},
+		);
+		await page.evaluate(() =>
+			window.__e2eWallet!.holdSigning(),
+		);
+
+		const submit = page.getByTestId('review-submit');
+		await submit.click();
+		await expect(submit).toHaveText(
+			'Confirm in your wallet…',
+		);
+
+		await page.evaluate(() =>
+			window.__e2eWallet!.releaseSigning(),
+		);
+		await expect(submit).toHaveText('Creating proposal…');
+
+		release();
+		await expectOnProposal(page, multisig.address);
+	});
+
 	test('a declined signature shows the toast and stays on Review, ready to retry, without sending anything', async ({
 		createActor,
 		createIdentity,

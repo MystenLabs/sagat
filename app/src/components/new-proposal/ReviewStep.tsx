@@ -44,6 +44,7 @@ export function ReviewStep({
 	dryRun,
 	analysis,
 	creating,
+	awaitingWallet,
 	createError,
 	onRetrySimulation,
 	onSubmit,
@@ -58,6 +59,8 @@ export function ReviewStep({
 	dryRun: ReturnType<typeof useDryRun>;
 	analysis: ReturnType<typeof useTransactionAnalysis>;
 	creating: boolean;
+	/** Part of `creating`: the wallet is still signing. */
+	awaitingWallet: boolean;
 	/** Why the last attempt failed, or null. */
 	createError: string | null;
 	/** Runs the simulation again after it couldn't run. */
@@ -176,7 +179,9 @@ export function ReviewStep({
 						)}
 						data-testid="review-submit"
 					>
-						{creating ? (
+						{awaitingWallet ? (
+							content.common.states.confirmInWallet
+						) : creating ? (
 							COPY.review.creating
 						) : createError ? (
 							content.common.actions.tryAgain

@@ -284,13 +284,15 @@ export function ApprovalsCard({
 							data-testid="sign-proposal-button"
 						>
 							{(failing || signAndExecute) && <Pen />}
-							{sign.isPending
-								? STATES.signing
-								: failing
-									? COPY.signAnyway
-									: signAndExecute
-										? ACTIONS.signAndExecute
-										: COPY.signProposal}
+							{sign.awaitingWallet
+								? STATES.confirmInWallet
+								: sign.isPending
+									? STATES.signing
+									: failing
+										? COPY.signAnyway
+										: signAndExecute
+											? ACTIONS.signAndExecute
+											: COPY.signProposal}
 						</Button>
 					</ButtonRow>
 				</>

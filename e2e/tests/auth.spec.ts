@@ -13,6 +13,39 @@ import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 
 test.describe('wallet sign-in', () => {
+	test('a zkLogin account is refused before the wallet is asked to sign, and can disconnect', async ({
+		createActor,
+	}) => {
+		const zoe = await createActor('zoe', { zkLogin: true });
+		const signIns = recordSignIns(zoe.page);
+
+		await zoe.page.goto('/');
+		await zoe.connectWallet({ signIn: false });
+
+		const refusal = zoe.page.getByTestId(
+			'zklogin-no-other-account',
+		);
+		await expect(refusal).toContainText(
+			'zkLogin accounts can’t be signers',
+		);
+		await expect(
+			zoe.page.getByTestId('sign-in-button'),
+		).toHaveCount(0);
+		expect(signIns).toHaveLength(0);
+		expect(
+			await zoe.page.evaluate(
+				() => window.__e2eWallet!.signRequests,
+			),
+		).toBe(0);
+
+		await zoe.page
+			.getByTestId('zklogin-disconnect')
+			.click();
+		await expect(
+			zoe.page.getByTestId('connect-wallet-prompt'),
+		).toBeVisible();
+	});
+
 	test('signs in with a wallet signature and keeps the session across reloads', async ({
 		createActor,
 	}) => {

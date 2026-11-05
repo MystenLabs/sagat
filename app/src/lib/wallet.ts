@@ -10,6 +10,7 @@ import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
 import { Secp256k1PublicKey } from '@mysten/sui/keypairs/secp256k1';
 import { Secp256r1PublicKey } from '@mysten/sui/keypairs/secp256r1';
 import { fromBase64 } from '@mysten/sui/utils';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 
 // Format the expiry time for the signature message
 export function getExpiryTime(): string {
@@ -59,6 +60,29 @@ export const extractPublicKeyFromBase64 = (
 	}
 
 	throw new Error(
-		'Only ED25519, Secp256k1, and Secp256r1 are supported. Also, public keys must have a sui flag. You can export them using `toSuiPublicKey()` instead of `toBase64()`.',
+		'Only Ed25519, Secp256k1, and Secp256r1 are supported. Also, public keys must have a sui flag. You can export them using `toSuiPublicKey()` instead of `toBase64()`.',
 	);
 };
+
+/**
+ * Whether a wallet account is certainly zkLogin: its key parses, matches
+ * its address and carries the zkLogin flag. Anything else, an unknown key
+ * included, signs in as usual and the API has the last word.
+ */
+export function isZkLoginAccount({
+	address,
+	publicKey,
+}: {
+	address: string;
+	publicKey: ArrayLike<number>;
+}): boolean {
+	try {
+		return (
+			publicKeyFromSuiBytes(new Uint8Array(publicKey), {
+				address,
+			}).flag() === SIGNATURE_SCHEME_TO_FLAG.ZkLogin
+		);
+	} catch {
+		return false;
+	}
+}
