@@ -620,12 +620,14 @@ export const createSignerSet = async ({
 				.returning()
 		)[0];
 
-		if (!msig)
+		if (!msig) {
+			const whereToFindIt = callerIsMember
+				? 'You’ll find it in your accounts or invitations. '
+				: '';
 			throw new ValidationError(
-				callerIsMember
-					? 'A pod with these signers, weights and threshold already exists. You’ll find it in your pods or invitations. To make a different pod, change the signers, weights or threshold.'
-					: 'A pod with these signers, weights and threshold already exists. To make a different pod, change the signers, weights or threshold.',
+				`An account with these signers, weights and threshold already exists. ${whereToFindIt}To make a different account, change the signers, weights or threshold.`,
 			);
+		}
 
 		// Checked after the insert so a duplicate still fails as one. Keys are
 		// locked in sorted order so creations sharing keys can't deadlock.
