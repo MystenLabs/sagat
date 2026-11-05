@@ -21,12 +21,24 @@ const validatePersonalMessage = async (
 	signature: string,
 	message: string,
 ) => {
-	const isValid = await publicKey.verifyPersonalMessage(
-		new TextEncoder().encode(message),
-		signature,
+	const isValid = await verifies(() =>
+		publicKey.verifyPersonalMessage(
+			new TextEncoder().encode(message),
+			signature,
+		),
 	);
 
 	if (!isValid) throw new CommonError('InvalidSignature');
+};
+
+// The verifiers throw on a signature of the wrong length. That signature does
+// not verify, like any other that fails the check.
+const verifies = async (check: () => Promise<boolean>) => {
+	try {
+		return await check();
+	} catch {
+		return false;
+	}
 };
 
 // Recovers the signer of a personal message and checks the signature.
@@ -81,7 +93,11 @@ export const verifyTransactionSignature = async (
 	bytes: Uint8Array,
 	signature: string,
 ) => {
-	if (!(await signer.verifyTransaction(bytes, signature)))
+	if (
+		!(await verifies(() =>
+			signer.verifyTransaction(bytes, signature),
+		))
+	)
 		throw new ValidationError(
 			'Invalid Sui signature for the proposed transaction.',
 		);

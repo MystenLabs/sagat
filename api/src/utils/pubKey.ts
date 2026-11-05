@@ -12,7 +12,7 @@ import { Secp256k1PublicKey } from '@mysten/sui/keypairs/secp256k1';
 import { Secp256r1PublicKey } from '@mysten/sui/keypairs/secp256r1';
 import { fromBase64 } from '@mysten/sui/utils';
 
-import { ValidationError } from '../errors';
+import { CommonError, ValidationError } from '../errors';
 
 export const parsePublicKey = (
 	publicKey: string,
@@ -54,18 +54,38 @@ export const parsePublicKey = (
 	);
 };
 
+// Reads the signer's key, or null for a scheme without one we support.
+// Throws `InvalidSignature` if the signature cannot be read.
+const readSignerKey = (
+	signature: string,
+): PublicKey | null => {
+	try {
+		const signatureData =
+			parseSerializedSignature(signature);
+
+		if (signatureData.signatureScheme === 'ED25519')
+			return new Ed25519PublicKey(signatureData.publicKey);
+		if (signatureData.signatureScheme === 'Secp256k1')
+			return new Secp256k1PublicKey(
+				signatureData.publicKey,
+			);
+		if (signatureData.signatureScheme === 'Secp256r1')
+			return new Secp256r1PublicKey(
+				signatureData.publicKey,
+			);
+
+		return null;
+	} catch {
+		throw new CommonError('InvalidSignature');
+	}
+};
+
 // Gets a public key from a serialized signature.
 export const getPublicKeyFromSerializedSignature = (
 	signature: string,
 ): PublicKey => {
-	const signatureData = parseSerializedSignature(signature);
-
-	if (signatureData.signatureScheme === 'ED25519')
-		return new Ed25519PublicKey(signatureData.publicKey);
-	if (signatureData.signatureScheme === 'Secp256k1')
-		return new Secp256k1PublicKey(signatureData.publicKey);
-	if (signatureData.signatureScheme === 'Secp256r1')
-		return new Secp256r1PublicKey(signatureData.publicKey);
+	const publicKey = readSignerKey(signature);
+	if (publicKey) return publicKey;
 
 	throw new ValidationError(
 		'Invalid signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported. zkLogin wallets are not supported.',
