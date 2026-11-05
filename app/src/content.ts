@@ -174,6 +174,14 @@ export const content = {
 			triggerLabel: (label: string) => `Wallet ${label}`,
 			disconnect: 'Disconnect',
 		},
+		zkLogin: {
+			title: 'zkLogin accounts aren’t supported yet',
+			switchAccount:
+				'Switch to another account in this wallet from the account menu.',
+			noOtherAccount:
+				'Share another account from your wallet, or disconnect and connect a different wallet.',
+			menuNote: 'zkLogin isn’t supported yet',
+		},
 	},
 	firstUse: {
 		loading: 'Loading pods',

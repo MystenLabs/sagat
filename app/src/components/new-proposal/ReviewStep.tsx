@@ -44,6 +44,7 @@ export function ReviewStep({
 	dryRun,
 	analysis,
 	creating,
+	awaitingWallet,
 	createError,
 	onRetrySimulation,
 	onSubmit,
@@ -58,6 +59,8 @@ export function ReviewStep({
 	dryRun: ReturnType<typeof useDryRun>;
 	analysis: ReturnType<typeof useTransactionAnalysis>;
 	creating: boolean;
+	/** Part of `creating`: the wallet is still signing. */
+	awaitingWallet: boolean;
 	/** Why the last attempt failed, or null. */
 	createError: string | null;
 	/** Runs the simulation again after it couldn't run. */
@@ -87,6 +90,20 @@ export function ReviewStep({
 	const currentTitleError = titleError(title);
 	const expiry = useExpiry(bytes);
 	const { analyzer, analyzerCount } = analyzerTab(analysis);
+	const submitLabel = () => {
+		if (awaitingWallet)
+			return content.common.states.confirmInWallet;
+		if (creating) return COPY.review.creating;
+		if (createError) return content.common.actions.tryAgain;
+		return (
+			<>
+				<Pen />
+				{simulationFailed
+					? COPY.review.proposeAnyway
+					: COPY.review.propose}
+			</>
+		);
+	};
 
 	return (
 		<div
@@ -176,18 +193,7 @@ export function ReviewStep({
 						)}
 						data-testid="review-submit"
 					>
-						{creating ? (
-							COPY.review.creating
-						) : createError ? (
-							content.common.actions.tryAgain
-						) : (
-							<>
-								<Pen />
-								{simulationFailed
-									? COPY.review.proposeAnyway
-									: COPY.review.propose}
-							</>
-						)}
+						{submitLabel()}
 					</Button>
 				}
 			/>

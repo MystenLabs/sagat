@@ -68,8 +68,11 @@ opts out: `createActor(name, { declineSign: true })` rejects every
 personal-message signature (sign-in included) from the start, and
 `window.__e2eWallet.declineConnect` / `.declineSign` can be flipped at runtime
 from `page.evaluate`; `rejectSigning` has it decline every transaction to sign,
-the way a user declines rather than a wallet failing; and `failRestore` has its
-silent session restore throw. It registers through the wallet-standard window
+the way a user declines rather than a wallet failing; `failRestore` has its
+silent session restore throw; `zkLogin` presents the actor's account with a
+zkLogin key; and `window.__e2eWallet.signRequests` counts the signatures asked
+for, while `.holdSigning()` / `.releaseSigning()` keep a transaction's signature
+open. It registers through the wallet-standard window
 events, the same way extension wallets do, so the app runs unmodified and no
 test code ships in it. One difference from the stock wallet: `E2EWallet`
 executes a signed transaction itself and returns the chain's effects, so a

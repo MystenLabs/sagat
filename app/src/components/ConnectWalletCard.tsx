@@ -3,6 +3,7 @@
 
 import {
 	useCurrentAccount,
+	useCurrentWallet,
 	useWallets,
 } from '@mysten/dapp-kit-react';
 import { TriangleAlert, Wallet } from 'lucide-react';
@@ -13,6 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { WalletPicker } from '@/components/WalletPicker';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { isZkLoginAccount } from '@/lib/wallet';
 
 const COPY = content.signedOut;
 
@@ -57,7 +59,10 @@ export function ConnectWalletCard() {
 
 	return (
 		<div className="page-shell flex-1 justify-center">
-			{currentAccount ? (
+			{currentAccount &&
+			isZkLoginAccount(currentAccount) ? (
+				<ZkLoginPrompt />
+			) : currentAccount ? (
 				<EmptyState
 					testId="auth-prompt"
 					icon={Wallet}
@@ -103,5 +108,40 @@ export function ConnectWalletCard() {
 				/>
 			)}
 		</div>
+	);
+}
+
+/**
+ * A zkLogin account can't sign in, so no Sign in: point to another account
+ * in the wallet, or, with none, offer the way out.
+ */
+function ZkLoginPrompt() {
+	const accounts = useCurrentWallet()?.accounts ?? [];
+	const { disconnectWallet } = useApiAuth();
+
+	return accounts.some(
+		(account) => !isZkLoginAccount(account),
+	) ? (
+		<EmptyState
+			testId="zklogin-switch-account"
+			icon={Wallet}
+			title={COPY.zkLogin.title}
+			description={COPY.zkLogin.switchAccount}
+		/>
+	) : (
+		<EmptyState
+			testId="zklogin-no-other-account"
+			icon={Wallet}
+			title={COPY.zkLogin.title}
+			description={COPY.zkLogin.noOtherAccount}
+			action={
+				<Button
+					onClick={() => void disconnectWallet()}
+					data-testid="zklogin-disconnect"
+				>
+					{COPY.walletMenu.disconnect}
+				</Button>
+			}
+		/>
 	);
 }

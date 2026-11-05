@@ -77,12 +77,14 @@ export class Actor extends Identity {
 			failRestore,
 			rejectSigning,
 			declineSign,
+			zkLogin,
 			hasTouch,
 		}: {
 			walletChains?: E2EWalletConfig['chains'];
 			failRestore?: boolean;
 			rejectSigning?: boolean;
 			declineSign?: boolean;
+			zkLogin?: boolean;
 			hasTouch?: boolean;
 		} = {},
 	) {
@@ -93,7 +95,11 @@ export class Actor extends Identity {
 			name: E2E.walletName,
 			rpcUrl: E2E.rpcUrl,
 			accounts: [
-				{ label: name, secretKey: keypair.getSecretKey() },
+				{
+					label: name,
+					secretKey: keypair.getSecretKey(),
+					zkLogin,
+				},
 				...otherAccounts.map((account) => ({
 					label: account.name,
 					secretKey: account.keypair.getSecretKey(),

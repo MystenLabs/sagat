@@ -10,6 +10,7 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import { content } from '@/content';
 import { signatureAddedMessage } from '@/lib/proposalUtils';
@@ -33,8 +34,11 @@ export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
 	const queryClient = useQueryClient();
 	const dappKit = useDAppKit();
+	// Only while the wallet is signing; the mutation goes on to save.
+	const [awaitingWallet, setAwaitingWallet] =
+		useState(false);
 
-	return useMutation({
+	const mutation = useMutation({
 		mutationFn: async ({
 			id: proposalId,
 			transactionBytes,
@@ -48,9 +52,15 @@ export function useSignProposal() {
 			);
 
 			// Sign the transaction
-			const result = await dappKit.signTransaction({
-				transaction,
-			});
+			let result;
+			setAwaitingWallet(true);
+			try {
+				result = await dappKit.signTransaction({
+					transaction,
+				});
+			} finally {
+				setAwaitingWallet(false);
+			}
 			const signature = result.signature as string;
 
 			// Call API to vote on the proposal
@@ -86,4 +96,6 @@ export function useSignProposal() {
 			});
 		},
 	});
+
+	return { ...mutation, awaitingWallet };
 }
