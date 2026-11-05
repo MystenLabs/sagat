@@ -243,6 +243,45 @@ test.describe('create multisig wizard', () => {
 		await expect(submit).toBeEnabled();
 	});
 
+	test('a refusal doesn’t outlive a switch of account', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice', {
+			otherAccounts: ['alice-savings'],
+		});
+		const [savings] = alice.otherAccounts;
+		const bob = createIdentity('bob');
+		await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+		const { page } = alice;
+		const submit = page.getByTestId('create-submit');
+		const error = page.getByTestId('create-error');
+
+		await alice.signIn();
+		await alice.signInAccount(savings);
+		await alice.switchAccount(alice);
+		await reviewMultisig(page, {
+			name: 'Twice',
+			signers: [{ key: bob.publicKey }],
+			threshold: 2,
+		});
+		await submit.click();
+		await expect(error).toBeVisible();
+		await expect(submit).toBeDisabled();
+
+		await alice.switchAccount(savings);
+		await expect(error).toHaveCount(0);
+		await expect(submit).toHaveText(
+			content.createMultisig.reviewStep.create,
+		);
+		await expect(submit).toBeEnabled();
+	});
+
 	test('the steps are links once the ones before them are valid', async ({
 		createActor,
 		createIdentity,
