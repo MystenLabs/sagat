@@ -175,12 +175,12 @@ export const content = {
 			disconnect: 'Disconnect',
 		},
 		zkLogin: {
-			title: 'zkLogin accounts can’t be signers',
+			title: 'zkLogin accounts aren’t supported yet',
 			switchAccount:
 				'Switch to another account in this wallet from the account menu.',
 			noOtherAccount:
 				'Share another account from your wallet, or disconnect and connect a different wallet.',
-			menuNote: 'zkLogin can’t be a signer',
+			menuNote: 'zkLogin isn’t supported yet',
 		},
 	},
 	firstUse: {

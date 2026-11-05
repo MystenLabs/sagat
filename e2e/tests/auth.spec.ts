@@ -25,7 +25,7 @@ test.describe('wallet sign-in', () => {
 			'zklogin-no-other-account',
 		);
 		await expect(refusal).toContainText(
-			'zkLogin accounts can’t be signers',
+			'zkLogin accounts aren’t supported yet',
 		);
 		await expect(
 			zoe.page.getByTestId('sign-in-button'),
