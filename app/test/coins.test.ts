@@ -27,6 +27,8 @@ import {
 import { maxTransfer } from '../src/lib/new-proposal';
 import { COIN_DECIMALS, U64_MAX } from './coin-decimals';
 
+const OTHER_COIN = '0xdeadbeef::usdc::USDC';
+
 describe('isSuiCoinType', () => {
 	test('matches the short canonical form', () => {
 		expect(isSuiCoinType('0x2::sui::SUI')).toBe(true);
@@ -456,14 +458,17 @@ describe('totalUsdValue', () => {
 
 describe('shownUsdTotal', () => {
 	const total = (...usd: (number | null)[]) =>
-		shownUsdTotal(
-			totalUsdValue(usd, (value) => value),
-			true,
-		);
-	const offMainnet = (...usd: (number | null)[]) =>
-		shownUsdTotal(
-			totalUsdValue(usd, (value) => value),
-			false,
+		shownUsdTotal(totalUsdValue(usd, (value) => value));
+	// Whole coins valued the way the app does, on a network other than
+	// mainnet, each with the registry's price of 1.5.
+	const offMainnet = (...coinTypes: string[]) =>
+		totalUsdValue(coinTypes, (coinType) =>
+			coinUsdValue('1000000000', {
+				priceUsd: pricingOnNetwork('testnet', coinType, {
+					priceUsd: 1.5,
+				}).priceUsd,
+				decimals: 9,
+			}),
 		);
 
 	test('shows the sum when every coin is priced', () => {
@@ -482,12 +487,20 @@ describe('shownUsdTotal', () => {
 		expect(total()).toBe(0);
 	});
 
-	test('withholds the total of an empty account without prices', () => {
-		expect(offMainnet()).toBeNull();
+	test('is zero for an empty account off mainnet', () => {
+		expect(shownUsdTotal(offMainnet())).toBe(0);
 	});
 
 	test('withholds the total of coins without prices', () => {
-		expect(offMainnet(null, null)).toBeNull();
+		expect(
+			shownUsdTotal(offMainnet(OTHER_COIN, OTHER_COIN)),
+		).toBeNull();
+	});
+
+	test('shows SUI’s value off mainnet and counts a test coin as unpriced', () => {
+		const value = offMainnet(SUI_TYPE_ARG, OTHER_COIN);
+		expect(shownUsdTotal(value)).toBe(1.5);
+		expect(value.unpriced).toBe(1);
 	});
 });
 
@@ -499,13 +512,15 @@ describe('pricingOnNetwork', () => {
 	};
 
 	test('keeps the prices on mainnet', () => {
-		expect(pricingOnNetwork('mainnet', pricing)).toEqual(
-			pricing,
-		);
+		expect(
+			pricingOnNetwork('mainnet', OTHER_COIN, pricing),
+		).toEqual(pricing);
 	});
 
 	test('fills missing mainnet prices with null', () => {
-		expect(pricingOnNetwork('mainnet', {})).toEqual({
+		expect(
+			pricingOnNetwork('mainnet', OTHER_COIN, {}),
+		).toEqual({
 			priceUsd: null,
 			priceChange24hUsd: null,
 			priceChange24hPercentage: null,
@@ -513,26 +528,50 @@ describe('pricingOnNetwork', () => {
 	});
 
 	test.each<SuiNetwork>(['testnet', 'devnet', 'localnet'])(
-		'drops every price on %s',
+		'drops another coin’s prices on %s',
 		(network) => {
-			expect(pricingOnNetwork(network, pricing)).toEqual({
+			expect(
+				pricingOnNetwork(network, OTHER_COIN, pricing),
+			).toEqual({
 				priceUsd: null,
 				priceChange24hUsd: null,
 				priceChange24hPercentage: null,
 			});
 		},
 	);
+
+	test.each<SuiNetwork>(['testnet', 'devnet', 'localnet'])(
+		'keeps SUI’s prices on %s',
+		(network) => {
+			expect(
+				pricingOnNetwork(network, SUI_TYPE_ARG, pricing),
+			).toEqual(pricing);
+		},
+	);
 });
 
 describe('pricesAvailableOn', () => {
-	test('has prices on mainnet only', () => {
-		expect(pricesAvailableOn('mainnet')).toBe(true);
+	test('has prices for any coin on mainnet', () => {
+		expect(pricesAvailableOn('mainnet', OTHER_COIN)).toBe(
+			true,
+		);
+		expect(pricesAvailableOn('mainnet', SUI_TYPE_ARG)).toBe(
+			true,
+		);
+	});
+
+	test('has prices for SUI alone off mainnet', () => {
 		for (const network of [
 			'testnet',
 			'devnet',
 			'localnet',
 		] as const) {
-			expect(pricesAvailableOn(network)).toBe(false);
+			expect(pricesAvailableOn(network, SUI_TYPE_ARG)).toBe(
+				true,
+			);
+			expect(pricesAvailableOn(network, OTHER_COIN)).toBe(
+				false,
+			);
 		}
 	});
 });
@@ -545,7 +584,6 @@ describe('accountAssetsState', () => {
 		pagesLeft: false,
 		pricesPending: false,
 		pricesError: false,
-		pricesAvailable: true,
 	};
 	const settled = {
 		isLoading: false,
@@ -580,14 +618,15 @@ describe('accountAssetsState', () => {
 		).toEqual(loading);
 	});
 
-	test('does not wait on prices where there are none', () => {
+	test('does not wait on prices once the balances failed', () => {
 		expect(
 			accountAssetsState({
 				...ready,
+				balancesError: true,
+				hasData: false,
 				pricesPending: true,
-				pricesAvailable: false,
 			}),
-		).toEqual(settled);
+		).toEqual({ ...settled, isError: true });
 	});
 
 	test('fails when the first load fails', () => {
@@ -622,14 +661,19 @@ describe('accountAssetsState', () => {
 		).toEqual({ ...settled, pricesError: true });
 	});
 
-	test('ignores a failed registry where there are no prices', () => {
+	test('reports a failed registry beside failed balances', () => {
 		expect(
 			accountAssetsState({
 				...ready,
+				balancesError: true,
+				hasData: false,
 				pricesError: true,
-				pricesAvailable: false,
 			}),
-		).toEqual(settled);
+		).toEqual({
+			...settled,
+			isError: true,
+			pricesError: true,
+		});
 	});
 });
 

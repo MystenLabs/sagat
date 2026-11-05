@@ -37,10 +37,10 @@ export function OverviewTab() {
 				address={multisig.address}
 				name={accountName(multisig)}
 				value={assets.value}
-				pricesAvailable={assets.pricesAvailable}
 				pricesError={assets.pricesError}
 				isLoading={assets.isLoading}
 				isError={assets.isError}
+				showSend={!assets.noBalances}
 				onSend={() =>
 					navigate(
 						newProposalPath(multisig.address, {

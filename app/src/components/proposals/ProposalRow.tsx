@@ -16,12 +16,14 @@ import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
+import { formatShortDate } from '@/lib/dates';
 import {
 	buildProposalExport,
 	downloadJson,
 	getProposalExportFilename,
 } from '@/lib/exportUtils';
 import {
+	canExportProposal,
 	isExternalProposer,
 	proposalExplorerUrl,
 	proposalLinkUrl,
@@ -65,7 +67,8 @@ export type ProposalsTableVariant = 'overview' | 'list';
  * where it stands and Execute. The title links to the proposal's page,
  * where signing and cancelling happen. The overview names the proposer
  * in the meta line; the list gives them a column, and adds the digest
- * and a menu to share, download or look it up on the explorer.
+ * and a menu to copy its link, download it, unless cancelled or expired,
+ * or look it up on the explorer.
  */
 export function ProposalRow({
 	proposal,
@@ -86,7 +89,6 @@ export function ProposalRow({
 	const status = expired
 		? 'expired'
 		: proposalStatusKey(proposal);
-	const open = status === 'pending' || status === 'ready';
 	const pending =
 		proposal.status === ProposalStatus.PENDING;
 	const signed =
@@ -97,6 +99,7 @@ export function ProposalRow({
 		);
 	const explorerUrl = proposalExplorerUrl(status, proposal);
 	const list = variant === 'list';
+	const createdOn = formatShortDate(proposal.createdAt);
 	// The digest goes under the title, unless the title already is the
 	// digest (no description). The overview's column is too narrow for it,
 	// but its stacked rows have room.
@@ -199,6 +202,15 @@ export function ProposalRow({
 									/>
 								</span>
 							)}
+							{createdOn && (
+								<span
+									className="inline-flex items-center gap-1.5 whitespace-nowrap"
+									data-testid="proposal-date"
+								>
+									<span aria-hidden>·</span>
+									{createdOn}
+								</span>
+							)}
 							{pending && (
 								<ProposalExpiry
 									transactionBytes={
@@ -272,8 +284,8 @@ export function ProposalRow({
 					)}
 					{list && (
 						<RowMenu
-							canShare={open}
 							explorerUrl={explorerUrl}
+							canExport={canExportProposal(status)}
 							onDownload={() =>
 								downloadJson(
 									getProposalExportFilename(
@@ -292,14 +304,14 @@ export function ProposalRow({
 }
 
 function RowMenu({
-	canShare,
 	explorerUrl,
+	canExport,
 	onDownload,
 	digest,
 }: {
-	canShare: boolean;
 	/** The transaction on the explorer, once it ran on chain. */
 	explorerUrl: string | null;
+	canExport: boolean;
 	onDownload: () => void;
 	digest: string;
 }) {
@@ -331,22 +343,22 @@ function RowMenu({
 				className="w-auto min-w-40"
 			>
 				<DropdownMenuGroup>
-					{canShare && (
+					<DropdownMenuItem
+						onClick={() => copy(proposalLinkUrl(digest))}
+						data-testid="copy-proposal-link"
+					>
+						<Link2 />
+						{SHARED.copyLink}
+					</DropdownMenuItem>
+					{canExport && (
 						<DropdownMenuItem
-							onClick={() => copy(proposalLinkUrl(digest))}
-							data-testid="copy-proposal-link"
+							onClick={onDownload}
+							data-testid="export-proposal-button"
 						>
-							<Link2 />
-							{SHARED.copyLink}
+							<Download />
+							{COPY.download}
 						</DropdownMenuItem>
 					)}
-					<DropdownMenuItem
-						onClick={onDownload}
-						data-testid="export-proposal-button"
-					>
-						<Download />
-						{COPY.download}
-					</DropdownMenuItem>
 					{/* Always listed, so the menu keeps its shape; disabled
 					    until the transaction ran on chain, and on networks
 					    the explorer doesn't index. The disabled item has no

@@ -48,16 +48,17 @@ import {
 } from '@/lib/exportUtils';
 import { networkLabel } from '@/lib/network';
 import {
-	hasSigned,
 	proposalPageStatus,
 	withReason,
 	type Labels,
 	type SimulationVerdict,
 } from '@/lib/proposal-page';
 import {
+	canExportProposal,
 	isExternalProposer,
 	proposalLinkUrl,
 	proposalTitle,
+	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import { QueryKeys } from '@/lib/queryKeys';
 import { validatePublicKey } from '@/lib/sui-utils';
@@ -208,11 +209,7 @@ export function ProposalView({
 				accounts={accounts}
 				analyzer={analyzer}
 				analyzerCount={analyzerCount}
-				signingNotice={
-					status === 'pending' &&
-					viewer === 'member' &&
-					!hasSigned(proposal, member?.publicKey)
-				}
+				signingNotice={open}
 				{...simulation}
 			/>
 		);
@@ -308,7 +305,12 @@ export function ProposalView({
 							)}
 					</span>
 				}
-				actions={<HeaderActions proposal={proposal} />}
+				actions={
+					<HeaderActions
+						proposal={proposal}
+						status={status}
+					/>
+				}
 			/>
 
 			{(mismatch ||
@@ -408,40 +410,47 @@ export function ProposalView({
 	);
 }
 
-/** Export and Copy link, as icon buttons. */
+/**
+ * Export, where `canExportProposal` allows it, and Copy link on every
+ * status, as icon buttons.
+ */
 function HeaderActions({
 	proposal,
+	status,
 }: {
 	proposal: ProposalCardInput;
+	status: ProposalStatusKey;
 }) {
 	const { copy } = useCopyToClipboard(
 		content.toasts.proposalLinkCopied,
 	);
 	return (
 		<TooltipProvider delay={150}>
-			<Tooltip>
-				<TooltipTrigger
-					render={
-						<Button
-							variant="outline"
-							size="icon"
-							aria-label={COPY.export}
-							onClick={() =>
-								downloadJson(
-									getProposalExportFilename(
-										proposal.digest,
-									),
-									buildProposalExport(proposal),
-								)
-							}
-							data-testid="export-proposal-button"
-						/>
-					}
-				>
-					<Download />
-				</TooltipTrigger>
-				<TooltipContent>{COPY.export}</TooltipContent>
-			</Tooltip>
+			{canExportProposal(status) && (
+				<Tooltip>
+					<TooltipTrigger
+						render={
+							<Button
+								variant="outline"
+								size="icon"
+								aria-label={COPY.export}
+								onClick={() =>
+									downloadJson(
+										getProposalExportFilename(
+											proposal.digest,
+										),
+										buildProposalExport(proposal),
+									)
+								}
+								data-testid="export-proposal-button"
+							/>
+						}
+					>
+						<Download />
+					</TooltipTrigger>
+					<TooltipContent>{COPY.export}</TooltipContent>
+				</Tooltip>
+			)}
 			<Tooltip>
 				<TooltipTrigger
 					render={

@@ -47,7 +47,7 @@ function fromMetadata(
 	};
 }
 
-/** A registry entry for display on `network`, priced only on mainnet. */
+/** A registry entry for display on `network`; see `pricesAvailableOn`. */
 function fromRecognized(
 	coin: RecognizedCoin,
 	network: SuiNetwork,
@@ -55,7 +55,7 @@ function fromRecognized(
 	const { coinType: _coinType, ...rest } = coin;
 	return {
 		...rest,
-		...pricingOnNetwork(network, coin),
+		...pricingOnNetwork(network, coin.coinType, coin),
 		recognized: true,
 	};
 }

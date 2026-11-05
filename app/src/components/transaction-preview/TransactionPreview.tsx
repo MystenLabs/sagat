@@ -283,7 +283,7 @@ export function TransactionPreview({
 					</div>
 
 					{signingNotice && (
-						<Notice tone="warning">
+						<Notice tone="warning" testId="signing-notice">
 							{COPY.signingNotice}
 						</Notice>
 					)}

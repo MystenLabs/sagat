@@ -66,10 +66,7 @@ export function AssetsTab() {
 	const assets = useAccountAssets(address, {
 		allPages: true,
 	});
-	const noBalances =
-		!assets.isLoading &&
-		!assets.isError &&
-		assets.balances.length === 0;
+	const { noBalances } = assets;
 	// The objects' first page, shared with the objects tab, says whether
 	// an account without coins holds anything at all. A first page without
 	// rows can still have more after it, so only one with nothing left
@@ -114,7 +111,6 @@ export function AssetsTab() {
 				address={address}
 				name={name}
 				value={assets.value}
-				pricesAvailable={assets.pricesAvailable}
 				pricesError={assets.pricesError}
 				isLoading={assets.isLoading}
 				isError={assets.isError}

@@ -265,6 +265,9 @@ test.describe('proposals', () => {
 		const lastingCard = bob.proposalRow(lasting.digest);
 		await expect(lastingCard).toBeVisible();
 		await expect(
+			lastingCard.getByTestId('proposal-date'),
+		).toBeVisible();
+		await expect(
 			lastingCard.getByTestId('proposal-expiry'),
 		).toHaveCount(0);
 	});
@@ -344,6 +347,10 @@ test.describe('proposals', () => {
 			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
 		);
 		const page = alice.proposalPage(proposal.digest);
+		// The proposer signed by proposing; the warning stays while it can still run.
+		await expect(
+			page.getByTestId('signing-notice'),
+		).toBeVisible();
 		await page
 			.getByTestId('cancel-proposal-button')
 			.click();
@@ -357,6 +364,33 @@ test.describe('proposals', () => {
 			'data-status',
 			'cancelled',
 		);
+		await expect(
+			page.getByTestId('signing-notice'),
+		).toHaveCount(0);
+
+		// Nothing left to export, on the page or in its row; the link stays.
+		await expect(
+			page.getByTestId('export-proposal-button'),
+		).toHaveCount(0);
+		await expect(
+			page.getByTestId('copy-proposal-link'),
+		).toBeVisible();
+		await alice.page.goto(
+			`/multisig/${multisig.address}/proposals`,
+		);
+		await alice.page
+			.getByTestId('proposal-filter-cancelled')
+			.click();
+		await alice
+			.proposalRow(proposal.digest)
+			.getByTestId('proposal-actions')
+			.click();
+		await expect(
+			alice.page.getByTestId('copy-proposal-link'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('export-proposal-button'),
+		).toHaveCount(0);
 	});
 
 	test('a stacked row opens the proposal’s page on a phone', async ({

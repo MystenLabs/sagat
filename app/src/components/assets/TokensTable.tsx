@@ -77,8 +77,9 @@ export type TokensTableVariant = 'overview' | 'assets';
  * registry's) carry a check, the rest an Unverified chip, once the
  * registry is known; without it neither shows. Each row reads its own
  * display data, so a closed group fetches none and a response rerenders one
- * row. Test ids are `testId` plus `-table`, `-loading`, `-error` and
- * `-empty`.
+ * row. With no coins the assets page shows an empty card, and the overview
+ * keeps the table with one line for a body. Test ids are `testId` plus
+ * `-table`, `-loading`, `-error` and `-empty`.
  */
 export function TokensTable({
 	assets,
@@ -125,7 +126,8 @@ export function TokensTable({
 				testId={`${testId}-error`}
 			/>
 		);
-	if (assets.balances.length === 0)
+	const noTokens = assets.balances.length === 0;
+	if (full && noTokens)
 		return (
 			<EmptyState
 				icon={SuiLogo}
@@ -177,13 +179,16 @@ export function TokensTable({
 		>
 			{/* Phones show the asset and its balance and scroll to the rest.
 			    They lay the table out by content: a fixed layout leaves the
-			    hidden price column's share empty. */}
+			    hidden price column's share empty. An empty table has nothing
+			    to scroll to, and stays full width to keep its line on screen. */}
 			<div className="relative overflow-x-auto">
 				<table
 					className={cn(
 						tableClass,
-						'max-sm:w-max max-sm:table-auto',
-						full ? 'sm:min-w-160' : 'sm:min-w-140',
+						'max-sm:table-auto',
+						!noTokens && 'max-sm:w-max',
+						!noTokens &&
+							(full ? 'sm:min-w-160' : 'sm:min-w-140'),
 					)}
 				>
 					<thead>
@@ -218,6 +223,16 @@ export function TokensTable({
 					</thead>
 					<tbody>
 						{mainRows.map(row)}
+						{noTokens && (
+							<tr data-testid={`${testId}-empty`}>
+								<td
+									colSpan={columns}
+									className="py-10 text-center text-14 text-muted-foreground"
+								>
+									{COPY.emptyTitle}
+								</td>
+							</tr>
+						)}
 						{unverified.length > 0 && (
 							<tr className={tableRowClass}>
 								<td
@@ -270,14 +285,17 @@ export function TokensTable({
 	);
 }
 
-/** "Prices updated …" with a refresh, beside a tokens heading. */
+/**
+ * "Prices updated …" with a refresh, beside a tokens heading, once some coin
+ * the account holds has a price for it to speak of.
+ */
 export function PricesUpdated({
 	assets,
 }: {
 	assets: AccountAssets;
 }) {
 	const updated =
-		assets.pricesAvailable && assets.pricesUpdatedAt
+		assets.value.priced > 0 && assets.pricesUpdatedAt
 			? formatDateTime(new Date(assets.pricesUpdatedAt))
 			: null;
 	if (!updated) return null;

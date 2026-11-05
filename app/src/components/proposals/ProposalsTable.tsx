@@ -32,8 +32,9 @@ const FIELDS = content.common.fields;
 /**
  * Proposals as a table, for the overview's open proposals and the full
  * list on the proposals page. Loading and errors keep the table's shell
- * and header so the page doesn't jump; with nothing to show, the empty
- * state stands alone. Test ids are `testId` plus `-loading`, `-error`
+ * and header so the page doesn't jump. With nothing to show, the list's
+ * empty state stands alone and the overview keeps the table with one line
+ * for a body. Test ids are `testId` plus `-loading`, `-error`
  * and `-empty`.
  */
 export function ProposalsTable({
@@ -67,7 +68,9 @@ export function ProposalsTable({
 	);
 	const list = variant === 'list';
 
-	if (!loading && !error && proposals.length === 0)
+	const noProposals =
+		!loading && !error && proposals.length === 0;
+	if (list && noProposals)
 		return (
 			<EmptyState
 				icon={FileText}
@@ -126,6 +129,19 @@ export function ProposalsTable({
 								}
 							/>
 						))}
+						{noProposals && (
+							<tr
+								className="@max-md:block"
+								data-testid={`${testId}-empty`}
+							>
+								<td
+									colSpan={4}
+									className="py-10 text-center text-14 text-muted-foreground @max-md:block"
+								>
+									{empty.title}
+								</td>
+							</tr>
+						)}
 					</tbody>
 				)}
 			</table>
