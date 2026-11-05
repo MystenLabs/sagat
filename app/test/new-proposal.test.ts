@@ -196,7 +196,6 @@ describe('checkTransfer', () => {
 			recipientValid: true,
 			rawAmount: 1_250_500_000n,
 			transferAllSui: false,
-			takesWholeBalance: false,
 			canReview: true,
 		});
 	});
@@ -274,7 +273,6 @@ describe('checkTransfer', () => {
 		expect(sui('0.95').transferAllSui).toBe(false);
 		expect(sui('1').canReview).toBe(true);
 		expect(sui('1').transferAllSui).toBe(true);
-		expect(sui('1').takesWholeBalance).toBe(true);
 		expect(sui('1.000000001').amountError).toBe(
 			content.newProposal.overBalance('SUI', '1'),
 		);
@@ -433,7 +431,6 @@ describe('maxTransfer', () => {
 				maxAmount: max(true)?.rawAmount,
 			});
 		expect(check('130.5').transferAllSui).toBe(true);
-		expect(check('130.5').takesWholeBalance).toBe(false);
 		expect(check('130.5').amountError).toBeNull();
 		expect(check('130.500000001').amountError).toBe(
 			content.newProposal.overMax('130.5', 'SUI'),

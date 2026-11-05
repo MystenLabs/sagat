@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { CircleCheck } from 'lucide-react';
-import { type ReactNode } from 'react';
 
 import { content } from '@/content';
 import { formatType } from '@/lib/coin-type';
@@ -42,24 +41,13 @@ export function VerifiedMark({
 
 /**
  * A coin's short type in mono, the full one on hover, with its copy
- * button. It adds nothing to its container's width. `wrapCopy` puts
- * something around the button alone, for a row that reacts to presses.
+ * button. It adds nothing to its container's width.
  */
 export function CoinTypeLine({
 	coinType,
-	wrapCopy,
 }: {
 	coinType: string;
-	wrapCopy?: (copy: ReactNode) => ReactNode;
 }) {
-	const copy = (
-		<CopyButton
-			value={coinType}
-			size="inline"
-			successMessage={content.toasts.coinTypeCopied}
-			data-testid="token-copy-type"
-		/>
-	);
 	return (
 		<span className="flex min-w-0 items-center gap-1 contain-inline-size">
 			<span
@@ -68,7 +56,12 @@ export function CoinTypeLine({
 			>
 				{formatType(coinType)}
 			</span>
-			{wrapCopy ? wrapCopy(copy) : copy}
+			<CopyButton
+				value={coinType}
+				size="inline"
+				successMessage={content.toasts.coinTypeCopied}
+				data-testid="token-copy-type"
+			/>
 		</span>
 	);
 }

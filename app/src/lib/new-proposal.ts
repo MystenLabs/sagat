@@ -142,11 +142,6 @@ export interface TransferCheck {
 	 * itself, so the recipient gets that amount minus the gas fee.
 	 */
 	transferAllSui: boolean;
-	/**
-	 * True when `transferAllSui` also takes the whole balance. It doesn't
-	 * when Max is partial (`maxTransfer`): some SUI stays behind.
-	 */
-	takesWholeBalance: boolean;
 	canReview: boolean;
 }
 
@@ -223,7 +218,6 @@ export function checkTransfer({
 		recipientValid,
 		rawAmount,
 		transferAllSui,
-		takesWholeBalance: transferAllSui && rawAmount === held,
 		canReview:
 			!assetError &&
 			!amountError &&

@@ -1,8 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type SyntheticEvent } from 'react';
-
 import {
 	CoinTypeLine,
 	VerifiedMark,
@@ -222,20 +220,7 @@ function AssetOption({
 						symbolClassName="text-13"
 						nameClassName="text-12"
 					/>
-					<CoinTypeLine
-						coinType={balance.coinType}
-						wrapCopy={(copy) => (
-							// A press here is the copy button's, not the option's:
-							// the option selects on a press and release it sees.
-							<span
-								className="flex shrink-0"
-								onPointerDown={stopPropagation}
-								onMouseUp={stopPropagation}
-							>
-								{copy}
-							</span>
-						)}
-					/>
+					<CoinTypeLine coinType={balance.coinType} />
 				</span>
 				<span className="flex shrink-0 flex-col items-end pl-3">
 					<span className="font-medium tabular-nums">
@@ -294,8 +279,4 @@ function SymbolLine({
 			)}
 		</span>
 	);
-}
-
-function stopPropagation(event: SyntheticEvent) {
-	event.stopPropagation();
 }

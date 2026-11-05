@@ -159,9 +159,9 @@ export function TransferDetailsStep({
 			symbol,
 			recipient: draft.recipient,
 			max: check.transferAllSui
-				? check.takesWholeBalance
-					? 'whole'
-					: 'partial'
+				? max?.partial
+					? 'partial'
+					: 'whole'
 				: undefined,
 		}) ??
 		'';
@@ -415,15 +415,14 @@ export function TransferDetailsStep({
 									{formatUsdValue(usd)}
 								</p>
 							)}
-							{check.transferAllSui &&
-								!check.amountError && (
-									<p
-										className="ml-auto min-w-0 text-right text-12 text-muted-foreground"
-										data-testid="transfer-max-gas-note"
-									>
-										{COPY.transferStep.maxGasNote}
-									</p>
-								)}
+							{check.transferAllSui && (
+								<p
+									className="ml-auto min-w-0 text-right text-muted-foreground"
+									data-testid="transfer-max-gas-note"
+								>
+									{COPY.transferStep.maxGasNote}
+								</p>
+							)}
 						</div>
 					)}
 				</div>

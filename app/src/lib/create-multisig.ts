@@ -324,8 +324,10 @@ function keyStatus(
 /**
  * Warns when one signer can approve alone, or when every signer has to
  * sign. `signers` are the complete rows. `you` marks the creator, who the
- * copy addresses as "you". A sole complete signer gets its own line: the
- * weight and threshold steppers are no way out until there's another.
+ * copy addresses as "you". A sole complete signer gets its own line, which
+ * only shows beside an unfinished row (one row in all is `tooFewSigners`).
+ * Some warning stays until a second row is complete, because the steppers
+ * only move between warnings.
  */
 export function thresholdWarning({
 	signers,

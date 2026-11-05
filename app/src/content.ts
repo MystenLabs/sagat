@@ -342,9 +342,9 @@ export const content = {
 		aloneMany: (names: string, highest: number) =>
 			`${names} can approve proposals alone. Raise the threshold to ${highest + 1} or more so every proposal needs at least two signers.`,
 		aloneOnlyYou:
-			'You can approve proposals alone because you’re the only signer so far. Add another signer to change that.',
+			'You can approve proposals alone because you’re the only signer so far. Finish adding another signer.',
 		aloneOnlyNamed: (name: string) =>
-			`${name} can approve proposals alone because they’re the only signer so far. Add another signer to change that.`,
+			`${name} can approve proposals alone because they’re the only signer so far. Finish adding another signer.`,
 
 		/** Labels shared by the steps and the side cards. */
 		fields: {

@@ -51,14 +51,18 @@ describe('threshold warnings', () => {
 		);
 	});
 
-	test('the only complete signer can approve alone, at any weight', () => {
-		expect(
-			thresholdWarning({
-				signers: [{ name: 'Maya', weight: 3 }],
-				threshold: 2,
-				totalWeight: 3,
-			}),
-		).toBe(content.createMultisig.aloneOnlyNamed('Maya'));
+	test('the creator beside only an unfinished row is told to finish adding a signer', () => {
+		const check = checkSigners({
+			signers: [
+				signer('1', { isCreator: true, weight: 2 }),
+				signer('2', { key: '' }),
+			],
+			threshold: 2,
+			lookups: {},
+		});
+		expect(check.warning).toBe(
+			content.createMultisig.aloneOnlyYou,
+		);
 	});
 
 	test('several signers, named with "or"', () => {

@@ -463,7 +463,7 @@ test.describe('new proposal: transfer', () => {
 });
 
 test.describe('new proposal: transfer details', () => {
-	test('copying a coin type in the asset list keeps the list open and the choice as it was', async ({
+	test('the asset list marks each coin and copies its type without choosing it, and the trigger leaves the type out', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -1029,6 +1029,16 @@ test.describe('new proposal: review', () => {
 			title: 'Pay the designer',
 		});
 		await reviewTransfer(page);
+		// 2-of-2: Alice's weight of 1 is below the threshold.
+		const nextSteps = page.getByTestId(
+			'proposal-next-steps',
+		);
+		await expect(nextSteps).toContainText(
+			content.newProposal.nextSteps.signTitle,
+		);
+		await expect(nextSteps).not.toContainText(
+			content.newProposal.nextSteps.readyTitle,
+		);
 		await page.getByTestId('review-back').click();
 
 		await expect(
