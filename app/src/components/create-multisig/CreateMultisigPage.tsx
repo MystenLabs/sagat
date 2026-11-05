@@ -18,7 +18,10 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCreateMultisig } from '@/hooks/useCreateMultisig';
 import { usePublicKeyLookups } from '@/hooks/usePublicKeyLookups';
-import { shownApiError } from '@/lib/api-errors';
+import {
+	isApiRefusal,
+	shownApiError,
+} from '@/lib/api-errors';
 import { CONFIG } from '@/lib/constants';
 import {
 	addressInput,
@@ -186,8 +189,15 @@ export function CreateMultisigPage() {
 		window.scrollTo({ top: 0 });
 	};
 
-	const createError = create.error
-		? shownApiError(create.error, COPY.createFailed)
+	// A failure answers the setup that was sent, and the wallet can change
+	// the creator's key after that.
+	const failure =
+		create.variables?.request.publicKeys.join() ===
+		signers.map((s) => s.key.trim()).join()
+			? create.error
+			: null;
+	const createError = failure
+		? shownApiError(failure, COPY.createFailed)
 		: null;
 
 	// A new step's heading takes focus, so a screen reader starts there.
@@ -309,6 +319,7 @@ export function CreateMultisigPage() {
 					address={check.address}
 					creating={creating}
 					error={createError}
+					refused={isApiRefusal(failure)}
 					onEditName={() => goTo(1)}
 					onEditSigners={() => goTo(2)}
 					onBack={() => goTo(2)}

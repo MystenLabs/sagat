@@ -36,7 +36,10 @@ interface BroadcastError {
 
 interface BroadcastResult {
 	digest: string;
-	/** The network it was broadcast on, for the explorer link. */
+	/**
+	 * The network it was broadcast on, for the explorer link, and named when
+	 * it isn't the current one.
+	 */
 	network: string;
 }
 
@@ -52,9 +55,12 @@ function isBase64(value: string) {
 
 function BroadcastResultDisplay({
 	result,
+	network,
 	onReset,
 }: {
 	result: BroadcastResult;
+	/** The current network. */
+	network: string;
 	onReset: () => void;
 }) {
 	const explorerUrl = getExplorerUrl(
@@ -68,7 +74,11 @@ function BroadcastResultDisplay({
 			data-testid="broadcast-result"
 			data-digest={result.digest}
 		>
-			<Alert variant="success">{COPY.broadcast.sent}</Alert>
+			<Alert variant="success">
+				{result.network === network
+					? COPY.broadcast.sent
+					: COPY.broadcast.sentOn(result.network)}
+			</Alert>
 			<ReadOnlyField
 				label={COPY.transactionDigest}
 				value={result.digest}
@@ -98,6 +108,13 @@ export default function BroadcastTool() {
 	const [error, setError] = useState<BroadcastError | null>(
 		null,
 	);
+
+	// A network change makes the last failure stale, as an edit does.
+	const [seenNetwork, setSeenNetwork] = useState(network);
+	if (network !== seenNetwork) {
+		setSeenNetwork(network);
+		setError(null);
+	}
 
 	const bytesInput = transactionBytes.trim();
 	const signatureInput = signature.trim();
@@ -233,6 +250,7 @@ export default function BroadcastTool() {
 				{result ? (
 					<BroadcastResultDisplay
 						result={result}
+						network={network}
 						onReset={handleReset}
 					/>
 				) : (

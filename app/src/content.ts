@@ -1217,6 +1217,8 @@ export const content = {
 			signatureUnreadable:
 				'Pods can’t read this as a signature. Paste the combined signature in base64.',
 			sent: 'Sent. The network accepted this transaction.',
+			sentOn: (network: string) =>
+				`Sent on ${network}. The network accepted this transaction.`,
 			another: 'Broadcast another',
 			/**
 			 * The failure line, on the picked network or on another one,

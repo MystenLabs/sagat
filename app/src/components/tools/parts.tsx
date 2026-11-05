@@ -238,9 +238,11 @@ export function ResultActions({
 					href={explorerUrl}
 					target="_blank"
 					rel="noopener noreferrer"
-					className={buttonVariants({
-						variant: 'outline',
-					})}
+					className={cn(
+						buttonVariants({
+							variant: 'outline',
+						}),
+					)}
 				>
 					<ExternalLink />
 					{content.common.actions.viewOnExplorer}
