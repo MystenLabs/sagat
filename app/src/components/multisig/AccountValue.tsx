@@ -25,28 +25,27 @@ const COPY = content.overview.value;
  * What the account holds, in USD, with Receive and Send beside it. Only
  * coins with a known price count; the line under the amount says when
  * some were left out, and the amount is withheld when none has a price,
- * prices are unavailable (off mainnet), the price service failed or the
- * balances failed to load. The assets page adds Explorer before them,
- * and drops all three while the account holds nothing. The buttons' test
- * ids start with `testIdPrefix`.
+ * the price service failed or the balances failed to load. The assets
+ * page adds Explorer before them, and drops all three while the account
+ * holds nothing; the overview drops Send alone then. The buttons' test ids
+ * start with `testIdPrefix`.
  */
 export function AccountValue({
 	address,
 	name,
 	value,
-	pricesAvailable,
 	pricesError,
 	isLoading,
 	isError,
 	onSend,
 	explorerUrl,
 	showActions = true,
+	showSend = true,
 	testIdPrefix = 'overview',
 }: {
 	address: string;
 	name: string;
 	value: PortfolioValue;
-	pricesAvailable: boolean;
 	pricesError: boolean;
 	isLoading: boolean;
 	isError: boolean;
@@ -54,6 +53,7 @@ export function AccountValue({
 	/** The account on the explorer, for an Explorer button. */
 	explorerUrl?: string | null;
 	showActions?: boolean;
+	showSend?: boolean;
 	testIdPrefix?: string;
 }) {
 	const [receiveOpen, setReceiveOpen] = useState(false);
@@ -63,9 +63,7 @@ export function AccountValue({
 	const pricesFailed =
 		settled && pricesError && value.unpriced > 0;
 	const total =
-		settled && !pricesFailed
-			? shownUsdTotal(value, pricesAvailable)
-			: null;
+		settled && !pricesFailed ? shownUsdTotal(value) : null;
 
 	return (
 		<div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
@@ -126,13 +124,15 @@ export function AccountValue({
 						<ArrowDownToLine />
 						{content.common.actions.receive}
 					</Button>
-					<Button
-						onClick={onSend}
-						data-testid={`${testIdPrefix}-send-button`}
-					>
-						<Send />
-						{content.common.actions.send}
-					</Button>
+					{showSend && (
+						<Button
+							onClick={onSend}
+							data-testid={`${testIdPrefix}-send-button`}
+						>
+							<Send />
+							{content.common.actions.send}
+						</Button>
+					)}
 				</div>
 			)}
 			<ReceiveDialog

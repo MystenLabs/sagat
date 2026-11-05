@@ -8,7 +8,6 @@ import { isVerifiedCoin } from '../lib/coinDisplay';
 import {
 	accountAssetsState,
 	coinUsdValue,
-	pricesAvailableOn,
 	pricingOnNetwork,
 	sortBalances,
 	totalUsdValue,
@@ -79,7 +78,11 @@ export function useAccountAssets(
 			const coin = recognized.map.get(balance.coinType);
 			if (!coin) return null;
 			return coinUsdValue(balance.balance, {
-				priceUsd: pricingOnNetwork(network, coin).priceUsd,
+				priceUsd: pricingOnNetwork(
+					network,
+					balance.coinType,
+					coin,
+				).priceUsd,
 				decimals: coin.decimals,
 			});
 		},
@@ -129,7 +132,6 @@ export function useAccountAssets(
 	);
 	const coinData = useCoinDisplayDataMap(shownCoinTypes);
 
-	const pricesAvailable = pricesAvailableOn(network);
 	const state = accountAssetsState({
 		balancesPending: query.isPending,
 		balancesError: isError,
@@ -140,7 +142,6 @@ export function useAccountAssets(
 		pricesPending: recognized.isPending,
 		// A failed refetch keeps the loaded price list, the way balances do.
 		pricesError: recognized.isError && !recognized.data,
-		pricesAvailable,
 	});
 
 	// A failed later page is fetched again on its own; anything else
@@ -187,8 +188,12 @@ export function useAccountAssets(
 		 */
 		verifiedKnown,
 		value,
-		pricesAvailable,
 		...state,
+		/** Everything loaded and the account holds no coins at all. */
+		noBalances:
+			!state.isLoading &&
+			!state.isError &&
+			balances.length === 0,
 		/** Loads what failed again: the first page or a later one. */
 		retry,
 		/** When the price list was last fetched, or null before it loads. */

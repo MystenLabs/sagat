@@ -128,6 +128,17 @@ export function proposalExplorerUrl(
 	return getExplorerUrl(proposal.digest, proposal.network);
 }
 
+/**
+ * Whether a proposal offers Export: not once it is cancelled or expired,
+ * as the app has nothing further to do with it. A failed one keeps it,
+ * having run on chain.
+ */
+export function canExportProposal(
+	status: ProposalStatusKey,
+) {
+	return status !== 'cancelled' && status !== 'expired';
+}
+
 /** The proposal's description, or its digest when it has none. */
 export function proposalTitle(
 	proposal: Pick<Proposal, 'description' | 'digest'>,

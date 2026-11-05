@@ -33,6 +33,24 @@ export function formatShortDateTime(
 	);
 }
 
+/**
+ * "Sep 4" in the viewer's locale, with the year when it isn't this one, or
+ * null when unknown.
+ */
+export function formatShortDate(
+	value: Date | string | number | null,
+) {
+	const date = parse(value);
+	if (!date) return null;
+	const thisYear =
+		date.getFullYear() === new Date().getFullYear();
+	return date.toLocaleDateString(undefined, {
+		month: 'short',
+		day: 'numeric',
+		...(thisYear ? {} : { year: 'numeric' }),
+	});
+}
+
 /** "Sep 4, 2026" in the viewer's locale, or null when unknown. */
 export function formatDate(value: Date | string | null) {
 	return (

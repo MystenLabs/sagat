@@ -18,7 +18,8 @@ import { CardHeading } from '../ui/card';
 /**
  * The account's largest holdings on the overview: the tokens table's top
  * rows (SUI first whatever its value, as on the assets page), when prices
- * were fetched, with a refresh, and a link to the assets page.
+ * were fetched, with a refresh, and a link to the assets page. An account
+ * with no coins has neither to offer: it gets just the empty table.
  */
 export function TokensCard({
 	address,
@@ -41,20 +42,22 @@ export function TokensCard({
 			>
 				<div className="ml-auto flex items-center gap-4">
 					<PricesUpdated assets={assets} />
-					<Link
-						to={`/multisig/${address}/assets`}
-						className={cn(
-							buttonVariants({
-								variant: 'ghost',
-								size: 'sm',
-							}),
-							'-mr-2.5 gap-1 text-foreground-secondary',
-						)}
-						data-testid="view-all-assets"
-					>
-						{content.overview.tokens.viewAll}
-						<ChevronRight className="size-3" />
-					</Link>
+					{!assets.noBalances && (
+						<Link
+							to={`/multisig/${address}/assets`}
+							className={cn(
+								buttonVariants({
+									variant: 'ghost',
+									size: 'sm',
+								}),
+								'-mr-2.5 gap-1 text-foreground-secondary',
+							)}
+							data-testid="view-all-assets"
+						>
+							{content.overview.tokens.viewAll}
+							<ChevronRight className="size-3" />
+						</Link>
+					)}
 				</div>
 			</CardHeading>
 			<TokensTable

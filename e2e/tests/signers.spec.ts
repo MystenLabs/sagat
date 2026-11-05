@@ -24,7 +24,10 @@ test.describe('overview and signers', () => {
 	test('show the setup, each key by its label and weight, and who created it', async ({
 		createActor,
 		createIdentity,
+		chain,
 	}) => {
+		// Waits out one poll of the empty account's balances.
+		test.slow();
 		const alice = await createActor('alice');
 		const bob = createIdentity('bob');
 		const carol = createIdentity('carol');
@@ -73,6 +76,33 @@ test.describe('overview and signers', () => {
 			).toHaveText('Treasury');
 			await expect(
 				page.getByTestId('open-proposals-empty'),
+			).toBeVisible();
+			// Nothing funded it: worth $0.00, with nothing to send or list.
+			await expect(
+				page.getByTestId('account-value-amount'),
+			).toHaveText('$0.00');
+			await expect(
+				page.getByTestId('tokens-empty'),
+			).toBeVisible();
+			await expect(
+				page.getByTestId('overview-send-button'),
+			).toHaveCount(0);
+			await expect(
+				page.getByTestId('overview-receive-button'),
+			).toBeVisible();
+			await expect(
+				page.getByTestId('view-all-assets'),
+			).toHaveCount(0);
+		});
+
+		await test.step('coins sent while the overview is open show without a reload', async () => {
+			await chain.fund(multisig.address);
+			// Just over the 30 seconds between polls of an empty account.
+			await expect(
+				page.getByTestId('token-row'),
+			).toBeVisible({ timeout: 35_000 });
+			await expect(
+				page.getByTestId('overview-send-button'),
 			).toBeVisible();
 		});
 
@@ -389,8 +419,8 @@ test.describe('overview and signers', () => {
 			gasCoin: coins[1],
 		});
 		await signProposal(bob, ready);
-		// The registry prices SUI, but its prices are mainnet's: on localnet
-		// neither coin gets a value.
+		// The registry's prices are mainnet's, but SUI is the same type on
+		// every network, so on localnet it gets a value. The test coin doesn't.
 		await mintTestCoin(chain, multisig.address, [
 			1_000_000n,
 		]);
@@ -414,16 +444,16 @@ test.describe('overview and signers', () => {
 			const value = page.getByTestId('account-value');
 			await expect(value).toHaveAttribute(
 				'data-unpriced',
-				'2',
+				'1',
 			);
-			await expect(value).not.toHaveAttribute('data-usd');
+			await expect(value).toHaveAttribute('data-usd', '30');
 			await expect(
 				value.getByTestId('account-value-amount'),
-			).toHaveText('—');
+			).toHaveText('$30.00');
 			await expect(value).toContainText(
-				'No prices for the tokens this pod holds.',
+				'Excludes 1 token without a price.',
 			);
-			await expect(value).not.toContainText('Excludes');
+			await expect(value).not.toContainText('No prices');
 			const sui = page.locator(
 				'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
 			);
@@ -437,7 +467,7 @@ test.describe('overview and signers', () => {
 			).toHaveText('20');
 			await expect(
 				sui.getByTestId('token-value'),
-			).toHaveText('—');
+			).toHaveText('$30.00');
 			const testCoin = page.locator(
 				'[data-testid="token-row"][data-coin-type$="::test_coin::TEST_COIN"]',
 			);

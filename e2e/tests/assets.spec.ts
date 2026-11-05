@@ -182,6 +182,12 @@ test.describe('assets', () => {
 		await expect(
 			testCoin.getByTestId('token-price'),
 		).toHaveText('No price');
+		// The default price list is empty, so even SUI has no price here.
+		await expect(
+			page.getByTestId('account-value'),
+		).toContainText(
+			'No prices for the tokens this pod holds.',
+		);
 		await expect(
 			testCoin.getByTestId('token-balance'),
 		).toHaveText('1');
@@ -272,6 +278,9 @@ test.describe('assets', () => {
 		await expect(
 			page.getByTestId('token-unverified'),
 		).toHaveCount(0);
+		await expect(
+			page.getByTestId('account-value'),
+		).toHaveAttribute('data-prices-error', '1');
 	});
 
 	test('without a connection a pod not loaded yet stays loading, not empty', async ({

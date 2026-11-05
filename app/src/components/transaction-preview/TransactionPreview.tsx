@@ -79,7 +79,10 @@ export function TransactionPreview({
 	analyzer: ReactNode;
 	/** The analyzer's issues, badged on its tab. */
 	analyzerCount?: number;
-	/** Whether the viewer is about to sign; hides the wallet notice when not. */
+	/**
+	 * The wallet notice: on by default, off where the transaction can no
+	 * longer be signed.
+	 */
 	signingNotice?: boolean;
 }) {
 	const { network } = useNetwork();
@@ -283,7 +286,7 @@ export function TransactionPreview({
 					</div>
 
 					{signingNotice && (
-						<Notice tone="warning">
+						<Notice tone="warning" testId="signing-notice">
 							{COPY.signingNotice}
 						</Notice>
 					)}

@@ -204,18 +204,18 @@ describe('buildCoinDisplayMap', () => {
 		expect(result.has(FOO)).toBe(false);
 	});
 
-	test('keeps the registry details but drops its prices off mainnet', () => {
+	test('keeps the registry details but drops another coin’s prices off mainnet', () => {
 		for (const network of [
 			'testnet',
 			'devnet',
 			'localnet',
 		] satisfies SuiNetwork[]) {
 			const entry = buildCoinDisplayMap(
-				[SUI],
-				new Map([[SUI, recognized(SUI)]]),
+				[USDC],
+				new Map([[USDC, recognized(USDC)]]),
 				new Map(),
 				network,
-			).get(SUI);
+			).get(USDC);
 			expect(entry).toMatchObject({
 				recognized: true,
 				symbol: 'REC',

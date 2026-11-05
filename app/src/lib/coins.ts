@@ -188,22 +188,27 @@ export function formatUsdValue(value: number): string {
 }
 
 /**
- * Whether coins have prices on `network`. The registry's prices are
- * mainnet's and keyed by coin type, so elsewhere they would value test
- * coins at mainnet prices: off mainnet nothing has a price.
+ * Whether `coinType` has a price on `network`. The registry's prices are
+ * mainnet's and keyed by coin type, so elsewhere they would value a test
+ * coin at a real coin's price, and nothing has a price off mainnet, except
+ * SUI: `0x2::sui::SUI` is the same type on every network, so its entry
+ * names the coin held. That gives test accounts a dollar value to show, at
+ * mainnet's price though test SUI is worth nothing.
  */
 export function pricesAvailableOn(
 	network: SuiNetwork,
+	coinType: string,
 ): boolean {
-	return network === 'mainnet';
+	return network === 'mainnet' || isSuiCoinType(coinType);
 }
 
 /** A coin's prices as shown on `network`; see `pricesAvailableOn`. */
 export function pricingOnNetwork(
 	network: SuiNetwork,
+	coinType: string,
 	pricing: CoinPricing,
 ): Required<CoinPricing> {
-	if (!pricesAvailableOn(network)) {
+	if (!pricesAvailableOn(network, coinType)) {
 		return {
 			priceUsd: null,
 			priceChange24hUsd: null,
@@ -336,15 +341,13 @@ export function totalUsdValue<T>(
 }
 
 /**
- * The total to show for the account, or `null` to withhold it: always
- * without prices (off mainnet), and when it holds coins but none of them
- * has a price, since $0.00 would then be wrong.
+ * The total to show for the account, or `null` to withhold it when it
+ * holds coins but none of them has a price, since $0.00 would then be
+ * wrong.
  */
 export function shownUsdTotal(
 	value: PortfolioValue,
-	pricesAvailable: boolean,
 ): number | null {
-	if (!pricesAvailable) return null;
 	return value.priced > 0 || value.unpriced === 0
 		? value.total
 		: null;
@@ -366,7 +369,6 @@ export interface AccountAssetsInput {
 	pricesPending: boolean;
 	/** The registry failed to load. */
 	pricesError: boolean;
-	pricesAvailable: boolean;
 }
 
 export interface AccountAssetsState {
@@ -374,7 +376,7 @@ export interface AccountAssetsState {
 	isLoading: boolean;
 	/** The balances failed or stopped part-way, so the value means nothing. */
 	isError: boolean;
-	/** Prices should exist but the registry failed to load. */
+	/** The registry failed to load, so no coin has a price. */
 	pricesError: boolean;
 }
 
@@ -382,8 +384,7 @@ export interface AccountAssetsState {
  * Where the account's value stands. A failed refetch keeps the cached
  * balances, but a failed later page would leave the total partial, so
  * that counts as an error. Metadata for coins outside the registry is
- * never waited on, since those have no price; nor is the registry where
- * prices are unavailable.
+ * never waited on, since those have no price.
  */
 export function accountAssetsState({
 	balancesPending,
@@ -392,16 +393,13 @@ export function accountAssetsState({
 	pagesLeft,
 	pricesPending,
 	pricesError,
-	pricesAvailable,
 }: AccountAssetsInput): AccountAssetsState {
 	const isError = balancesError && (!hasData || pagesLeft);
 	return {
 		isLoading:
 			!isError &&
-			(balancesPending ||
-				pagesLeft ||
-				(pricesAvailable && pricesPending)),
+			(balancesPending || pagesLeft || pricesPending),
 		isError,
-		pricesError: pricesAvailable && pricesError,
+		pricesError,
 	};
 }

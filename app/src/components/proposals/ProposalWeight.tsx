@@ -40,7 +40,7 @@ export function ProposalWeight({
 						label,
 					)}
 					className={cn(
-						'flex w-10 cursor-help gap-0.75 rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+						'flex w-fit cursor-help gap-0.75 rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring',
 						className,
 					)}
 					data-testid="proposal-weight"
@@ -52,10 +52,10 @@ export function ProposalWeight({
 							key={i}
 							aria-hidden
 							className={cn(
-								'h-1.25 min-w-px flex-1 rounded-xs',
+								'size-1.25 shrink-0 rounded-full',
 								i < filled
 									? 'bg-foreground'
-									: 'bg-secondary',
+									: 'bg-foreground/20',
 							)}
 						/>
 					))}
