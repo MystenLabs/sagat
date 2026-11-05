@@ -9,10 +9,28 @@
  */
 
 import { type PublicKey } from '@mysten/sui/cryptography';
+import { fromBase64, toBase64 } from '@mysten/sui/utils';
 
 import { CommonError, ValidationError } from '../errors';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import { isSignerSetMember } from './membership.service';
+
+// For a signature that gets stored: throws `InvalidSignature` unless it is
+// canonical base64.
+export const assertCanonicalSignature = (
+	signature: unknown,
+) => {
+	try {
+		if (
+			typeof signature === 'string' &&
+			toBase64(fromBase64(signature)) === signature
+		)
+			return;
+	} catch {
+		// The decoder throws on characters outside the base64 alphabet.
+	}
+	throw new CommonError('InvalidSignature');
+};
 
 // Takes a pub key, a signature, and a message, and validates it.
 // Throws `InvalidSignature` if the signature does not sign the message.
