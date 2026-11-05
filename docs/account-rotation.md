@@ -48,6 +48,8 @@ account_keys        (account_address, public_key, label,
                      updated_by, updated_at)                           0010; what an account calls a key, optional row
 account_rotations   (account_address, network, signer_set_address,
                      status, created_at)                               phase 3; per-network progress
+account_events      (id, account_address, network, actor, action,
+                     subject, before, after, proof, created_at)        0011; audit log, see below
 ```
 
 Alias entries are stored as **addresses**. The resolver classifies each at read time as a known signer set, a single known key, or unknown.
@@ -94,7 +96,7 @@ Before deploying 0009:
 
 - As a role that owns the tables, `SELECT count(*), max(created_at) FROM drizzle.__drizzle_migrations;` returns 9 rows (the journal through 0008). If not, the database was not built with drizzle migrations: baseline it as described below, deploy with `MIGRATE_ON_START=false` and, as the owner, run `DATABASE_URL=... bun dist/db/migrate-cli.js` in the API image (working directory `/monorepo/api`); from a source checkout, `bun run db:migrate:prod` does the same. Both are added in #101 of this stack: `MIGRATE_ON_START` (on unless set to `false`) makes the API apply pending migrations at startup, and `bun run db:migrate:prod` applies them as a separate step.
 - `SELECT DISTINCT tableowner FROM pg_tables WHERE schemaname = 'public';` returns the role the API connects with. Otherwise startup migrations fail on the renames.
-- Grant the read-only roles access to `accounts`, `account_signer_sets`, `account_aliases`, `account_alias_state` and, after 0010, `account_keys`, or set default privileges. Otherwise the new tables are invisible to them.
+- Grant the read-only roles access to `accounts`, `account_signer_sets`, `account_aliases`, `account_alias_state`, after 0010 `account_keys` and, after 0011, `account_events`, or set default privileges. Otherwise the new tables are invisible to them.
 - Anything outside the API that queries `multisigs`, `multisig_members` or `multisig_proposers` by name breaks at the rename. Check dashboards and scripts.
 - Deploy with recreate, not a rolling update (see below).
 
@@ -270,14 +272,14 @@ Out of scope: notifications, channels, persons, a background chain watcher, and 
 
 Each of these is a property of the rotation design, not extra work. Together they mean the out of scope items can be added without reshaping anything.
 
-| Later feature        | What the rotation design already provides                                                                                           |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Notifications        | The resolver returns the leaf public keys for an account and network. That list is the recipient list.                              |
-| Chain watcher        | The refresh function takes an account and network, updates the mirror, and returns a diff. A scheduler can call the same function.  |
-| Alias changed alerts | The diff from the refresh function is the event. The state row keeps the observed version and time.                                 |
-| Event outbox         | Rotation state changes go through one recording function. Today it only updates metrics. Later it also writes a row.                |
-| Persons              | Audit fields stay as addresses. Nothing is keyed on the group of keys in a browser session. No contact details are stored anywhere. |
-| Per-network anything | Every alias row, proposal, and recorded change carries the network.                                                                 |
+| Later feature        | What the rotation design already provides                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Notifications        | The resolver returns the leaf public keys for an account and network. That list is the recipient list.                                                 |
+| Chain watcher        | The refresh function takes an account and network, updates the mirror, and returns a diff. A scheduler can call the same function.                     |
+| Alias changed alerts | The diff from the refresh function is the event. The state row keeps the observed version and time.                                                    |
+| Event outbox         | Rotation state changes go through one recording function. Today it only updates metrics. Later it also writes a row.                                   |
+| Persons              | Audit fields stay as addresses. Nothing is keyed on the group of keys in a browser session. No contact details are stored anywhere.                    |
+| Per-network anything | Every alias row and proposal carries the network. A recorded change carries it only when the change is per-network, so proposer events leave it empty. |
 
 Rules that keep this true while building:
 
@@ -296,6 +298,46 @@ Decisions (2026-10-19):
 - **Set at creation only.** There is no update route. Creating an account labels its keys. When the rotation wizard lands (phase 3), drafting a new signer set is meant to be the second creation step: it labels any new keys, while keys the account already knows keep their row. Whether to add renaming later is an open question; `updated_by` and `updated_at` are what such a route would write.
 - **Legacy routes show them, authenticated only.** Every member object in the legacy multisig responses carries `label: string | null`, joined from the account with the same address. This is the one additive field on the frozen routes. Labels are never returned on an unauthenticated route: the public proposal-by-digest lookup keeps its member shape (key, weight, order), and a test asserts it. Labels reach a response only through the legacy serializer, which is called by the four routes behind `authMiddleware` (get multisig, create, connections, invitations).
 - The label is inside Sagat's control, so the create route refuses a `labels` array that does not line up with the keys, and refuses control and formatting characters (bidi overrides, zero-width characters) that could spoof what sits next to a key. Only a caller who is a member of the composition may label it: anyone holding a key can still set up a multisig for others, but an outsider must not plant labels that nobody can change. It does not try to keep labels unique.
+
+### Audit log (0011)
+
+Signed changes store their proof: the signature plus any semantic fields needed to rebuild the signed message. So far that covers adding and removing a proposer, and creating and cancelling a proposal, directly or by removing its proposer. Other changes are not recorded yet, so a missing event for one is not a sign of a withheld row. The server verifies at write time. A client will re-verify at read time, rebuilding any message from the fields with the same SDK builders and never trusting stored text. Nothing verifies these rows yet: the SDK verifier and the read route land with `/v1`. Once built, this covers a hostile or impersonated API forging a signed change. It does not cover a hostile frontend, which can show any result and ask the wallet to sign other bytes, or withholding rows, and it does not prove when a change happened or in what order, because `created_at` and `id` are the server's word. A hash chain is a possible later step.
+
+```text
+account_events (id, account_address, network, actor, action, subject,
+                before, after, proof, created_at)
+```
+
+- `actor` is the signer's address, or `system` for a later row nobody signed. On a `caused_by` row it is the signer of the row it points at. `before` and `after` hold the changed fields only, never whole rows.
+- The `kind` and `version` of a proof over a personal message name the SDK message template: version 1 is the legacy text, and `/v1` writers will use version 2. New text for the same signed thing is a new `version`; a change in what is signed is a new `kind`. Old templates stay available to verifiers because old rows keep verifying with them. A reader answers "unknown" for a version it does not know, never "forged". After a message moves to a new version, a reader sets a minimum version per action and treats an older row as needing re-confirmation. `proposal.create` signs transaction bytes and has no template, so its `version` names the proof's format. `expiry` is part of the message, and a reader does not reject a row because it has passed. Message text is never stored.
+- A version 1 `proposal.cancel` proof proves only that the key signed `Cancel proposal <id>`, with the id taken from `proof.proposalId`. Nothing binds that number to the digest or the account, because the id is the server's, so `subject` does not make a version 1 cancel any stronger. It is the one row that can verify one value and show another, and it only becomes meaningful with a later message version that names the digest and the account. It is stored now so the signature is not lost. The message has no expiry, but PENDING to CANCELLED only happens once, so it cannot produce a second row. A cancel only changes the database, so it does not prove the transaction never executed.
+- `proposer.removal_unmatched` is a signed removal of an address that is not in the proposers list but has pending proposals, which it cancelled. The route takes any address, so a member can pass another member's address and cancel that member's pending proposals. It is separate from `proposer.removed` so that action stays true, written only when a proposer was really deleted, while every `caused_by` row still points at a row holding the member's signature. It has the same proof and template. A removal matching no proposer and no pending proposal records nothing.
+- Append-only, written in the same transaction as the change. Read newest first with a keyset on `id`, never an offset. `recordAccountEvent` takes the account lock because ids are assigned at insert, not commit: without it, a lower id could become visible after a reader has paged past it. With it, an account's ids follow commit order, which the keyset and a later hash chain rely on. No retention. There is no route yet: the read route lands with `/v1`.
+- Rows from before their action was first recorded have no event and stay unverified, as does a change made by a replica still on the old code during a rolling deploy. No backfill.
+
+To verify a row:
+
+- The row's `action`, not `proof.kind`, decides which proof kinds are allowed, and each allowed kind has one template or transaction check, so a proof cannot be relabelled as another action, except between `proposer.removed` and `proposer.removal_unmatched`, which share a message, and between a member's vote and `proposal.created`, which sign the same bytes, so which of the two it is remains the server's word.
+- A `proposal.create` proof is checked with `verifyTransaction` over the proposal's transaction bytes, which can be fetched by digest. Proposal rows use the digest as `subject`, and the digest recomputed from the bytes must equal it. The sender in those bytes must be the row's account, the only thing binding the signature to it. For a member the row proves the key signed these bytes, not that it proposed them, because a vote signs the same bytes. An external proposer cannot vote, so their signature does prove they proposed. Where the bytes name a chain (`chain` in a `ValidDuring` or `Validity` expiration), the client compares it with the chain id its own node reports for `network`. Without one, `network` is the server's word. The API does not make this comparison at write time. The proof has no expiry. Digests are unique across all proposals, so one signature never honestly appears on two such rows.
+- A `caused_by` row holds no signature, and its `subject` is the cancelled proposal's digest. Verify the row its `eventId` points at, which must be a `proposer.removed` or `proposer.removal_unmatched` of the same account, whose subject is the address that proposed that proposal (the `actor` of the `proposal.created` row with the same digest, where it has one). Its `id` is lower than the child's, and the child's `actor` must equal that row's `actor`. The removal's signature does not name the proposals, so which ones it cancelled is the server's word, and a replay until its expiry can cancel proposals created after it was signed.
+- The key recovered from the signature must match `actor` and must be a key of a currently valid signer set. The composition must hash to the address of a valid signer set, and which sets are valid always comes from a node the client picks: the alias set where the alias object exists, otherwise the account's own address once the node shows no alias object. A retired set still hashes to the address, so the hash alone is not enough. An external proposer's address must instead be the `subject` of a verified `proposer.added` event, or the row stays unverified, as for a proposer added before this table. That proves a member once added it, not that it was still a proposer, and a withheld removal cannot be detected from the rows alone. Compare addresses normalised, because a proposer event's `subject` is stored exactly as signed. A newer verified `proposer.removed` or `proposer.removal_unmatched` for that address means the proposer is not verified until a later add. `actor` by itself proves nothing: anyone can sign a message.
+- A signature from a key that has since been rotated out does not count. It cannot be told apart from one signed after the rotation, because a signature does not prove when it was made, so an old or leaked key could otherwise vouch for anyone. History can still show the row, but before signing a proposal a current member must confirm that proposer again. This needs a `/v1` confirm route, which does not exist yet, because adding an existing proposer is refused today and removing first cancels their pending proposals.
+- A proposer event has no network, while signer sets are per network. When it backs a proposal, its key must be valid on that proposal's network, so a set valid only on testnet cannot vouch for a mainnet proposal.
+- A `proposal.cancelled` signed by an external proposer verifies only if the signer is the `proposerAddress` of the proposal whose digest is the row's `subject`, and the `subject` of a verified `proposer.added`. That the proposal had no signatures at the time is the server's word.
+- A signed change with an expiry can be replayed until then, so the same signature can honestly appear on two rows. A reader can flag that but cannot treat it as forgery. An old proof shown again as a new row cannot be told apart from history by the signature alone; a `created_at` later than the expiry is a sign of it.
+
+To add an audited operation: one entry in the registry in `api/src/services/account-events.service.ts`, and one `recordAccountEvent(tx, ...)` call at the write site, in the change's transaction, after `lockAccount`. This holds when the write site already has a transaction, touches one account and can tell that something changed. Otherwise the writer also needs a transaction with `lockAccount` first, a re-read under the lock of any status it checked before, and a guard so repeating a change writes no row. Writes across several accounts must take locks in sorted order, because `recordAccountEvent` locks in call order. An event with no account cannot be stored, because `account_address` is required. Each action also needs a verifier branch and a display branch. No migration: actions and proof kinds are checked by TypeScript, not by a database constraint. To find the proof of a current row, take the newest event for its account, action and subject.
+
+Rules for writers:
+
+- Only signed fields are proven. `before` never is.
+- A verifier rebuilds the signed text from the row's fields, the ones the UI displays, so a row cannot verify one value and show another. Refuse input that would be normalised after signing, because such a row can never verify.
+- A new message names what it covers: account, action, values, network where one applies, and expiry. Expiry is ISO 8601 only and addresses are canonical.
+- Each action states its own verify rule. "A key of a currently valid signer set" does not fit every action: an invited key is not in one yet.
+- Before storing a person's name or other personal data, decide how it can be erased. The table is append-only, and a kept signature confirms a guessed value even after the value is blanked.
+- A message builder takes explicit fields and never serialises the JSON column, because `jsonb` reorders keys.
+- Large values such as icons are stored as a URL or hash.
+- A change caused by another (removing a proposer cancels its proposals) stores a `caused_by` proof naming the signed row, written first in the same transaction.
 
 ## Edge cases
 

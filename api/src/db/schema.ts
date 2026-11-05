@@ -4,10 +4,12 @@
 import { sql } from 'drizzle-orm';
 import {
 	bigint,
+	bigserial,
 	boolean,
 	check,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	primaryKey,
 	serial,
@@ -362,6 +364,50 @@ const accountKeys = pgTable(
 	],
 );
 
+// The audit log. Only `account-events.service.ts` writes it.
+const accountEvents = pgTable(
+	'account_events',
+	{
+		id: bigserial('id', { mode: 'number' }).primaryKey(),
+		accountAddress: text('account_address')
+			.notNull()
+			.references(() => accounts.address),
+		network: text('network'),
+		actor: text('actor').notNull(),
+		action: text('action').notNull(),
+		subject: text('subject'),
+		before: jsonb('before'),
+		after: jsonb('after'),
+		proof: jsonb('proof'),
+		createdAt: timestamp('created_at', {
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+	},
+	// NULLS FIRST: `ORDER BY id DESC` cannot use drizzle's default NULLS LAST.
+	(table) => [
+		index('account_events_account_id_idx').on(
+			table.accountAddress,
+			table.id.desc().nullsFirst(),
+		),
+		index('account_events_account_action_id_idx').on(
+			table.accountAddress,
+			table.action,
+			table.id.desc().nullsFirst(),
+		),
+		index('account_events_account_subject_id_idx').on(
+			table.accountAddress,
+			table.subject,
+			table.id.desc().nullsFirst(),
+		),
+		networkCheck(
+			'account_events_network_check',
+			table.network,
+		),
+	],
+);
+
 // Export re-usable types.
 
 export const SchemaAddresses = addresses;
@@ -375,6 +421,7 @@ export const SchemaAccountAliases = accountAliases;
 export const SchemaAccountAliasState = accountAliasState;
 export const SchemaAccountSignerSets = accountSignerSets;
 export const SchemaAccountKeys = accountKeys;
+export const SchemaAccountEvents = accountEvents;
 
 export type Proposal = typeof proposals.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
@@ -398,6 +445,8 @@ export type SignerSetOrigin = Pick<
 	'draftedBy' | 'createdAt'
 >;
 export type AccountKey = typeof accountKeys.$inferSelect;
+export type AccountEventRow =
+	typeof accountEvents.$inferSelect;
 
 export type ProposalWithSignatures = Proposal & {
 	signatures: ProposalSignature[];

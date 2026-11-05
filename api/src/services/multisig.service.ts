@@ -40,6 +40,10 @@ import {
 	type SignerSetWithMembers,
 } from '../db/schema';
 import {
+	lockAccount,
+	type DatabaseTransaction,
+} from '../db/transaction';
+import {
 	ApiAuthError,
 	CommonError,
 	NotFoundError,
@@ -59,6 +63,7 @@ import {
 	type SuiNetwork,
 } from '../utils/client';
 import { parsePublicKey } from '../utils/pubKey';
+import { recordAccountEvent } from './account-events.service';
 import { normalizeKeyLabels } from './account-keys.service';
 import {
 	expandSignerSetsWithMembers,
@@ -359,23 +364,6 @@ export const validateQuorum = async (
 			'Threshold must be greater or equal to 1',
 		);
 	}
-};
-
-type DatabaseTransaction = Parameters<
-	Parameters<(typeof db)['transaction']>[0]
->[0];
-
-// Locks the account until `tx` ends, so writers for it run one at a time.
-// Relies on READ COMMITTED: reads after the lock see the other's writes.
-const lockAccount = async (
-	tx: DatabaseTransaction,
-	address: string,
-) => {
-	await tx
-		.select({ address: SchemaAccounts.address })
-		.from(SchemaAccounts)
-		.where(eq(SchemaAccounts.address, address))
-		.for('no key update');
 };
 
 // Throws if `publicKey` is already in the maximum number of multisigs, not
@@ -950,6 +938,19 @@ export const addProposer = async ({
 			address: proposer,
 			addedBy: publicKey.toSuiAddress(),
 		});
+
+		await recordAccountEvent(tx, {
+			action: 'proposer.added',
+			accountAddress: address,
+			actor: publicKey.toSuiAddress(),
+			subject: proposer,
+			proof: {
+				kind: 'proposer.add',
+				version: 1,
+				signature,
+				expiry,
+			},
+		});
 	});
 };
 
@@ -967,7 +968,7 @@ export const removeProposer = async ({
 	if (!isValidSuiAddress(proposer))
 		throw new CommonError('InvalidAddress');
 
-	await verifyMemberSignedMessage({
+	const publicKey = await verifyMemberSignedMessage({
 		signerSetAddress: address,
 		signature,
 		message: PersonalMessages.removeMultisigProposer(
@@ -982,11 +983,12 @@ export const removeProposer = async ({
 
 	// Remove the proposer from the multisig, removing all pending transactions from the proposer.
 	await db.transaction(async (tx) => {
-		// Serializes with proposal creation, which re-checks the proposer under it.
+		// First, as this touches proposals before recording takes the lock. Also
+		// serializes with proposal creation, which re-checks the proposer under it.
 		await lockAccount(tx, address);
 
 		// Cancel all pending transactions from the proposer.
-		await tx
+		const cancelled = await tx
 			.update(SchemaProposals)
 			.set({ status: ProposalStatus.CANCELLED })
 			.where(
@@ -998,9 +1000,13 @@ export const removeProposer = async ({
 						ProposalStatus.PENDING,
 					),
 				),
-			);
+			)
+			.returning({
+				digest: SchemaProposals.digest,
+				network: SchemaProposals.network,
+			});
 
-		await tx
+		const removed = await tx
 			.delete(SchemaAccountProposers)
 			.where(
 				and(
@@ -1010,6 +1016,40 @@ export const removeProposer = async ({
 					),
 					eq(SchemaAccountProposers.address, proposer),
 				),
-			);
+			)
+			.returning({
+				address: SchemaAccountProposers.address,
+			});
+
+		if (removed.length === 0 && cancelled.length === 0)
+			return;
+
+		const actor = publicKey.toSuiAddress();
+		const parentId = await recordAccountEvent(tx, {
+			action:
+				removed.length > 0
+					? 'proposer.removed'
+					: 'proposer.removal_unmatched',
+			accountAddress: address,
+			actor,
+			subject: proposer,
+			proof: {
+				kind: 'proposer.remove',
+				version: 1,
+				signature,
+				expiry,
+			},
+		});
+
+		// Bounded: `validateProposedTransaction` caps pending proposals.
+		for (const { digest, network } of cancelled)
+			await recordAccountEvent(tx, {
+				action: 'proposal.cancelled',
+				accountAddress: address,
+				actor,
+				subject: digest,
+				network,
+				proof: { kind: 'caused_by', eventId: parentId },
+			});
 	});
 };

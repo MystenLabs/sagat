@@ -39,6 +39,10 @@ import {
 	type SignerSetWithMembers,
 } from '../db/schema';
 import {
+	lockAccount,
+	type DatabaseTransaction,
+} from '../db/transaction';
+import {
 	ApiAuthError,
 	CommonError,
 	NotFoundError,
@@ -60,6 +64,7 @@ import {
 	type PaginationCursor,
 } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
+import { recordAccountEvent } from './account-events.service';
 import {
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -287,6 +292,28 @@ const isAccountProposer = async (
 		await AccountProposersDataLoader.load(accountAddress)
 	).some((proposer) => proposer.address === address);
 
+// The same question as of the account lock `tx` holds, so a removal that
+// committed while waiting for it is seen.
+const isAccountProposerUnderLock = async (
+	tx: DatabaseTransaction,
+	accountAddress: string,
+	address: string,
+) => {
+	const [proposer] = await tx
+		.select({ address: SchemaAccountProposers.address })
+		.from(SchemaAccountProposers)
+		.where(
+			and(
+				eq(
+					SchemaAccountProposers.accountAddress,
+					accountAddress,
+				),
+				eq(SchemaAccountProposers.address, address),
+			),
+		);
+	return !!proposer;
+};
+
 // The base64 length of the largest transaction we accept.
 const MAX_TRANSACTION_BASE64_LENGTH =
 	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
@@ -389,25 +416,15 @@ export const createProposal = async ({
 
 		// The proposer check above ran before the account lock, so a removal
 		// may have committed since, without cancelling this proposal.
-		if (!isMember) {
-			const [proposer] = await tx
-				.select({ address: SchemaAccountProposers.address })
-				.from(SchemaAccountProposers)
-				.where(
-					and(
-						eq(
-							SchemaAccountProposers.accountAddress,
-							multisigAddress,
-						),
-						eq(
-							SchemaAccountProposers.address,
-							pubKey.toSuiAddress(),
-						),
-					),
-				);
-			if (!proposer)
-				throw new ApiAuthError('NotAMultisigMember');
-		}
+		if (
+			!isMember &&
+			!(await isAccountProposerUnderLock(
+				tx,
+				multisigAddress,
+				pubKey.toSuiAddress(),
+			))
+		)
+			throw new ApiAuthError('NotAMultisigMember');
 
 		// Insert the proposal and the first sig!
 		const proposal = await tx
@@ -422,7 +439,7 @@ export const createProposal = async ({
 			})
 			.returning();
 
-		// We only save the signature if the proposer is a member.
+		// We only save the signature as a vote if the proposer is a member.
 		if (isMember) {
 			await tx.insert(SchemaProposalSignatures).values({
 				proposalId: proposal[0].id,
@@ -434,6 +451,20 @@ export const createProposal = async ({
 				event_type: MultisigEventType.SIGNATURE_ADDED,
 			});
 		}
+
+		// The only copy of an external proposer's signature.
+		await recordAccountEvent(tx, {
+			action: 'proposal.created',
+			accountAddress: multisigAddress,
+			network,
+			actor: proposal[0].proposerAddress,
+			subject: proposal[0].digest,
+			proof: {
+				kind: 'proposal.create',
+				version: 1,
+				signature,
+			},
+		});
 
 		return proposal[0];
 	});
@@ -528,6 +559,9 @@ export const cancelProposal = async ({
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
 	const signerAddress = pubKey.toSuiAddress();
+
+	// Refuses outsiders before they can take the lock, and before the signature
+	// is checked. The route is open, and this is the order callers rely on.
 	const isMember = await isSignerSetMember(
 		proposal.accountAddress,
 		pubKey,
@@ -552,44 +586,82 @@ export const cancelProposal = async ({
 		PersonalMessages.cancelProposal(proposalId),
 	);
 
-	// A proposer's cancel is guarded in the same statement, so a signature
-	// committed before it runs is never lost.
-	const cancelled = await db
-		.update(SchemaProposals)
-		.set({ status: ProposalStatus.CANCELLED })
-		.where(
-			isMember
-				? eq(SchemaProposals.id, proposal.id)
-				: and(
-						eq(SchemaProposals.id, proposal.id),
-						eq(
-							SchemaProposals.status,
-							ProposalStatus.PENDING,
-						),
-						notExists(
-							db
-								.select()
-								.from(SchemaProposalSignatures)
-								.where(
-									eq(
-										SchemaProposalSignatures.proposalId,
-										proposal.id,
-									),
-								),
-						),
-					),
-		)
-		.returning({ id: SchemaProposals.id });
+	await db.transaction(async (tx) => {
+		// First, as this touches the proposal before recording takes the lock.
+		await lockAccount(tx, proposal.accountAddress);
 
-	if (cancelled.length === 0) {
-		// No row matched: the proposal has a signature or is no longer pending.
-		const { status } = await getProposalById(proposalId);
-		throw new ValidationError(
-			status === ProposalStatus.PENDING
-				? 'A signer has already signed this proposal'
-				: 'Proposal is not pending',
-		);
-	}
+		// A removal may have committed since the check above. A member needs no
+		// second look: acceptance cannot be undone, and a cancel only touches the
+		// database.
+		if (
+			!isMember &&
+			!(await isAccountProposerUnderLock(
+				tx,
+				proposal.accountAddress,
+				signerAddress,
+			))
+		)
+			throw new ValidationError(
+				'Not a member of the multisig',
+			);
+
+		// The first status check ran without the lock, so it may have moved. A
+		// proposer's cancel is guarded in the same statement, so a signature
+		// committed before it runs is never lost.
+		const cancelled = await tx
+			.update(SchemaProposals)
+			.set({ status: ProposalStatus.CANCELLED })
+			.where(
+				and(
+					eq(SchemaProposals.id, proposal.id),
+					eq(
+						SchemaProposals.status,
+						ProposalStatus.PENDING,
+					),
+					isMember
+						? undefined
+						: notExists(
+								tx
+									.select()
+									.from(SchemaProposalSignatures)
+									.where(
+										eq(
+											SchemaProposalSignatures.proposalId,
+											proposal.id,
+										),
+									),
+							),
+				),
+			)
+			.returning({ id: SchemaProposals.id });
+
+		if (cancelled.length === 0) {
+			// No row matched: the proposal has a signature or is no longer pending.
+			const [{ status }] = await tx
+				.select({ status: SchemaProposals.status })
+				.from(SchemaProposals)
+				.where(eq(SchemaProposals.id, proposal.id));
+			throw new ValidationError(
+				status === ProposalStatus.PENDING
+					? 'A signer has already signed this proposal'
+					: 'Proposal is not pending',
+			);
+		}
+
+		await recordAccountEvent(tx, {
+			action: 'proposal.cancelled',
+			accountAddress: proposal.accountAddress,
+			network: proposal.network,
+			actor: signerAddress,
+			subject: proposal.digest,
+			proof: {
+				kind: 'proposal.cancel',
+				version: 1,
+				signature,
+				proposalId: proposal.id,
+			},
+		});
+	});
 
 	multisigProposalEvents.inc({
 		network: proposal.network,
