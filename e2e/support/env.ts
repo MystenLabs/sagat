@@ -26,5 +26,8 @@ export const E2E = {
 	appServer: (process.env.E2E_APP_SERVER ??
 		(process.env.CI ? 'preview' : 'dev')) as
 		'dev' | 'preview',
+	// An installed browser to run on (e.g. `chrome`). Unset, Playwright uses the
+	// Chromium it downloaded.
+	browserChannel: process.env.E2E_BROWSER_CHANNEL,
 	walletName: 'E2E Wallet',
 };

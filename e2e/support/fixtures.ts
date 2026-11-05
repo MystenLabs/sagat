@@ -19,6 +19,7 @@ export type Fixtures = {
 	// `window.__e2eWallet.declineConnect` / `.declineSign` to decline
 	// mid-flow);
 	// `rejectSigning` makes it decline every transaction to sign;
+	// `zkLogin` presents the actor's account with a zkLogin key;
 	// `hasTouch` gives the browser a touchscreen, for `.tap()`.
 	createActor: (
 		name: string,
@@ -28,6 +29,7 @@ export type Fixtures = {
 			failRestore?: boolean;
 			declineSign?: boolean;
 			rejectSigning?: boolean;
+			zkLogin?: boolean;
 			hasTouch?: boolean;
 		},
 	) => Promise<Actor>;

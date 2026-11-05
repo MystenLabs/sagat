@@ -9,7 +9,8 @@
 // `declineConnect` and `declineSign` have it decline connects and
 // personal-message signatures, `rejectSigning` has it decline every
 // transaction to sign, the way a user declines (not a wallet failing), and
-// `failRestore` has its silent session restore throw.
+// `failRestore` has its silent session restore throw. An account marked
+// `zkLogin` presents a zkLogin key and can't sign anything.
 //
 // Registration goes through the wallet-standard window events rather than
 // `wallet.register()`: this bundle has its own copy of the wallet registry,
@@ -17,9 +18,13 @@
 // browser-extension wallets register).
 import { DevWallet } from '@mysten-incubation/dev-wallet';
 import { InMemorySignerAdapter } from '@mysten-incubation/dev-wallet/adapters';
-import { decodeSuiPrivateKey } from '@mysten/sui/cryptography';
+import {
+	decodeSuiPrivateKey,
+	Signer,
+} from '@mysten/sui/cryptography';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { fromBase64, toBase64 } from '@mysten/sui/utils';
+import { toZkLoginPublicIdentifier } from '@mysten/sui/zklogin';
 
 import type { E2EWalletConfig } from './types';
 
@@ -52,6 +57,23 @@ class E2EWallet extends DevWallet {
 	declineConnect = false;
 	declineSign = false;
 	rejectSigning = false;
+	// Every signature the app asked for, granted or not.
+	signRequests = 0;
+	// While set, a transaction to sign waits, the way a wallet's window
+	// stays open until the user answers.
+	private signingHold: Promise<void> | null = null;
+	private releaseHold = () => {};
+
+	holdSigning() {
+		this.signingHold = new Promise((resolve) => {
+			this.releaseHold = resolve;
+		});
+	}
+
+	releaseSigning() {
+		this.signingHold = null;
+		this.releaseHold();
+	}
 
 	get features() {
 		const features = super.features;
@@ -67,21 +89,26 @@ class E2EWallet extends DevWallet {
 		};
 		const { signPersonalMessage } =
 			features['sui:signPersonalMessage'];
-		const signOrDecline: SignPersonalMessage = (input) =>
-			this.declineSign
+		const signOrDecline: SignPersonalMessage = (input) => {
+			this.signRequests++;
+			return this.declineSign
 				? Promise.reject(
 						new Error('Request rejected by user.'),
 					)
 				: signPersonalMessage(input);
-		const signTransaction: SignTransaction = (input) =>
-			this.rejectSigning
-				? // The dev wallet's own words when its user rejects.
-					Promise.reject(
-						new Error('Request rejected by user.'),
-					)
-				: features['sui:signTransaction'].signTransaction(
-						input,
-					);
+		};
+		const signTransaction: SignTransaction = async (
+			input,
+		) => {
+			this.signRequests++;
+			await this.signingHold;
+			// The dev wallet's own words when its user rejects.
+			if (this.rejectSigning)
+				throw new Error('Request rejected by user.');
+			return features[
+				'sui:signTransaction'
+			].signTransaction(input);
+		};
 		const signAndExecuteTransaction: SignAndExecute =
 			async (input) => {
 				const { bytes, signature } =
@@ -125,6 +152,25 @@ class E2EWallet extends DevWallet {
 	}
 }
 
+// A zkLogin account as the app sees one: only its key and address are real.
+class ZkLoginStubSigner extends Signer {
+	getKeyScheme() {
+		return 'ZkLogin' as const;
+	}
+
+	getPublicKey() {
+		return toZkLoginPublicIdentifier(
+			1n,
+			'https://accounts.google.com',
+			{ legacyAddress: false },
+		);
+	}
+
+	async sign(): Promise<Uint8Array<ArrayBuffer>> {
+		throw new Error('The zkLogin stub can’t sign.');
+	}
+}
+
 // The `register` callback the app's wallet registry hands out.
 type RegisterApi = {
 	register: (wallet: DevWallet) => unknown;
@@ -132,11 +178,17 @@ type RegisterApi = {
 
 async function registerE2EWallet(config: E2EWalletConfig) {
 	const adapter = new InMemorySignerAdapter();
-	for (const { label, secretKey } of config.accounts) {
+	for (const {
+		label,
+		secretKey,
+		zkLogin,
+	} of config.accounts) {
 		const { secretKey: bytes } =
 			decodeSuiPrivateKey(secretKey);
 		await adapter.importAccount({
-			signer: Ed25519Keypair.fromSecretKey(bytes),
+			signer: zkLogin
+				? new ZkLoginStubSigner()
+				: Ed25519Keypair.fromSecretKey(bytes),
 			label,
 		});
 	}

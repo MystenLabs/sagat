@@ -14,7 +14,7 @@
 		"@mysten/sagat": "workspace:*",
 		"@mysten/signers": "^1.1.35",
 		"@mysten/sui": "^2.37.0",
-		"@playwright/test": "1.63.0",
+		"@playwright/test": "1.64.1",
 		"@types/node": "^24.5.2",
 		"esbuild": "^0.28.2",
 		"typescript": "^5.8.3"

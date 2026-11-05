@@ -20,6 +20,7 @@ import {
 
 import { content } from '@/content';
 import { cn } from '@/lib/utils';
+import { isZkLoginAccount } from '@/lib/wallet';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -339,19 +340,28 @@ function AccountItem({
 				/>
 			</span>
 			<span className="ml-auto flex shrink-0 items-center gap-2.5">
-				{canSign && !isAccountAuthenticated && (
-					<Button
-						size="xs"
-						variant="outline"
-						onClick={handleSignClick}
-						disabled={isConnecting}
-						data-testid="wallet-account-sign"
-					>
-						{isConnecting && isCurrent
-							? COPY.signIn.signingIn
-							: COPY.signIn.button}
-					</Button>
-				)}
+				{canSign &&
+					!isAccountAuthenticated &&
+					(isZkLoginAccount(account) ? (
+						<span
+							className="text-11 text-muted-foreground"
+							data-testid="wallet-account-zklogin"
+						>
+							{COPY.zkLogin.menuNote}
+						</span>
+					) : (
+						<Button
+							size="xs"
+							variant="outline"
+							onClick={handleSignClick}
+							disabled={isConnecting}
+							data-testid="wallet-account-sign"
+						>
+							{isConnecting && isCurrent
+								? COPY.signIn.signingIn
+								: COPY.signIn.button}
+						</Button>
+					))}
 				{isCurrent && <Check className="size-4" />}
 			</span>
 		</DropdownMenuItem>

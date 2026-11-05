@@ -145,6 +145,13 @@ export function ApprovalsCard({
 		reaches;
 	const signAndExecute =
 		offerExecuteAfterSigning && executeAfterSigning;
+	const signLabel = () => {
+		if (sign.awaitingWallet) return STATES.confirmInWallet;
+		if (sign.isPending) return STATES.signing;
+		if (failing) return COPY.signAnyway;
+		if (signAndExecute) return ACTIONS.signAndExecute;
+		return COPY.signProposal;
+	};
 
 	const rows = approvalRows(
 		proposal,
@@ -276,7 +283,9 @@ export function ApprovalsCard({
 						</label>
 					)}
 					<ButtonRow>
-						{cancelButton(failing ? 'default' : 'outline')}
+						{/* While signing the button has the row to itself, as Executing… does. */}
+						{!sign.isPending &&
+							cancelButton(failing ? 'default' : 'outline')}
 						<Button
 							variant={failing ? 'outline' : 'default'}
 							onClick={onSign}
@@ -284,13 +293,7 @@ export function ApprovalsCard({
 							data-testid="sign-proposal-button"
 						>
 							{(failing || signAndExecute) && <Pen />}
-							{sign.isPending
-								? STATES.signing
-								: failing
-									? COPY.signAnyway
-									: signAndExecute
-										? ACTIONS.signAndExecute
-										: COPY.signProposal}
+							{signLabel()}
 						</Button>
 					</ButtonRow>
 				</>

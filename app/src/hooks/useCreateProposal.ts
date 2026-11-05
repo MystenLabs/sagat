@@ -10,6 +10,7 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
@@ -43,8 +44,11 @@ export function useCreateProposal() {
 	const queryClient = useQueryClient();
 	const dappKit = useDAppKit();
 	const { currentAddress } = useApiAuth();
+	// Only while the wallet is signing; the mutation goes on to save.
+	const [awaitingWallet, setAwaitingWallet] =
+		useState(false);
 
-	return useMutation({
+	const mutation = useMutation({
 		mutationFn: async ({
 			multisigAddress,
 			transactionData,
@@ -60,12 +64,15 @@ export function useCreateProposal() {
 			// The wallet builds and signs it. Anything thrown here comes from
 			// the wallet, so nothing has been sent yet.
 			let signatureResult;
+			setAwaitingWallet(true);
 			try {
 				signatureResult = await dappKit.signTransaction({
 					transaction,
 				});
 			} catch (cause) {
 				throw new SignatureDeclinedError(cause);
+			} finally {
+				setAwaitingWallet(false);
 			}
 
 			// Create proposal via API
@@ -85,4 +92,6 @@ export function useCreateProposal() {
 			toast.success(content.toasts.proposalCreated);
 		},
 	});
+
+	return { ...mutation, awaitingWallet };
 }

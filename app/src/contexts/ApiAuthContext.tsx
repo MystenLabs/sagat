@@ -29,6 +29,7 @@ import React, {
 
 import { content } from '@/content';
 import { toast } from '@/lib/toast';
+import { isZkLoginAccount } from '@/lib/wallet';
 import {
 	SignInCancelledError,
 	WalletDeclinedError,
@@ -203,6 +204,10 @@ export function ApiAuthProvider({
 				dappKit.stores.$connection.get();
 			if (!account)
 				throw new Error(content.errors.noWalletConnected);
+			// The card and the menu don't offer it, but the account can
+			// change in the wallet between the render and the click.
+			if (isZkLoginAccount(account))
+				throw new Error(COPY.zkLogin.title);
 			// Rejecting here (not returning) lets onError toast it.
 			if (
 				queryClient.getQueryState(AUTH_QUERY_KEY)

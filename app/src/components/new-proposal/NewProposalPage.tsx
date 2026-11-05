@@ -358,6 +358,7 @@ function NewProposalWizard({
 					dryRun={dryRun}
 					analysis={analysis}
 					creating={creating}
+					awaitingWallet={create.awaitingWallet}
 					createError={createError}
 					onRetrySimulation={retrySimulation}
 					onSubmit={submit}
