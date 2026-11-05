@@ -55,7 +55,7 @@ export function ProposalWeight({
 								'size-1.25 shrink-0 rounded-full',
 								i < filled
 									? 'bg-foreground'
-									: 'bg-secondary',
+									: 'bg-foreground/20',
 							)}
 						/>
 					))}
