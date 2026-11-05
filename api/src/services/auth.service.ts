@@ -263,6 +263,17 @@ export const validateExpiry = (expiry: string) => {
 		);
 };
 
+// For an expiry that gets stored: only the `toISOString()` form is accepted.
+export const validateIsoExpiry = (expiry: unknown) => {
+	if (typeof expiry !== 'string')
+		throw new ValidationError('Invalid expiry date format');
+
+	validateExpiry(expiry);
+
+	if (new Date(expiry).toISOString() !== expiry)
+		throw new ValidationError('Invalid expiry date format');
+};
+
 export const disconnect: Handler = async (c) => {
 	deleteCookie(c, JWT_COOKIE_NAME, {
 		path: '/',

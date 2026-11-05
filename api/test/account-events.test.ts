@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	defaultExpiry,
+	PersonalMessages,
+} from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
@@ -34,9 +37,11 @@ import { getPublicKeyFromSerializedSignature } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
 	buildTransfer,
+	errorOf,
 	expectSettled,
 	newUser,
 	sendCoins,
+	sign,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -888,6 +893,198 @@ describe('proposal.created', () => {
 		expect(
 			await eventsOf(multisig.address, users[0]),
 		).toHaveLength(1);
+	});
+});
+
+describe('input refused before anything is stored', () => {
+	test('an expiry that is not the exact `toISOString()` text', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const proposer = newUser().address;
+		const newcomer = newUser().address;
+		await session.addProposer(
+			users[0],
+			proposer,
+			multisig.address,
+		);
+		const eventsBefore = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+		const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+		const refused = {
+			status: 400,
+			body: { error: 'Invalid expiry date format' },
+		};
+
+		// Signed over the same text, so only the format can refuse it.
+		const add = async (expiry: string) =>
+			errorOf(
+				await session.post(
+					`/multisig/${multisig.address}/add-proposer`,
+					{
+						signature: await sign(
+							users[0],
+							PersonalMessages.addMultisigProposer(
+								newcomer,
+								multisig.address,
+								expiry,
+							),
+						),
+						proposer: newcomer,
+						expiry,
+					},
+				),
+			);
+
+		expect(
+			await add(`${expiresAt.toUTCString()} (x)`),
+		).toEqual(refused);
+		expect(
+			await add(`${expiresAt.toISOString()}\0`),
+		).toEqual(refused);
+		expect(
+			await errorOf(
+				await session.post(
+					`/multisig/${multisig.address}/remove-proposer`,
+					{
+						signature: await sign(
+							users[0],
+							PersonalMessages.removeMultisigProposer(
+								proposer,
+								multisig.address,
+								String(expiresAt.getTime()),
+							),
+						),
+						proposer,
+						expiry: expiresAt.getTime(),
+					},
+				),
+			),
+		).toEqual(refused);
+
+		expect(await proposersOf(multisig.address)).toEqual([
+			proposer,
+		]);
+		expect(
+			await eventsOf(multisig.address, users[0]),
+		).toEqual(eventsBefore);
+	});
+
+	test('a signature that is not canonical base64, on each route that stores one', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposer = newUser().address;
+		const newcomer = newUser().address;
+		await session.addProposer(
+			users[0],
+			proposer,
+			multisig.address,
+		);
+		const transactionBytes = await buildTransfer(
+			multisig.address,
+		);
+		const stored = async () => ({
+			events: await eventsOf(multisig.address, users[0]),
+			proposers: await proposersOf(multisig.address),
+			proposals: await db.select().from(SchemaProposals),
+			votes: await db
+				.select()
+				.from(SchemaProposalSignatures),
+		});
+
+		// Decodes to the same bytes as the valid signature it is made from.
+		const withSpace = (signature: string) =>
+			`${signature.slice(0, 20)} ${signature.slice(20)}`;
+		const signedTransaction = async (signer: TestUser) =>
+			withSpace(
+				(
+					await signer.keypair.signTransaction(
+						fromBase64(transactionBytes),
+					)
+				).signature,
+			);
+		const signedMessage = async (message: string) =>
+			withSpace(await sign(users[0], message));
+		const expectRefused = async (response: Response) =>
+			expect(await errorOf(response)).toEqual({
+				status: 400,
+				body: { error: CommonErrors.InvalidSignature },
+			});
+
+		const beforeCreate = await stored();
+		await expectRefused(
+			await session.post('/proposals', {
+				multisigAddress: multisig.address,
+				network: 'localnet',
+				transactionBytes,
+				signature: await signedTransaction(users[0]),
+			}),
+		);
+		expect(await stored()).toEqual(beforeCreate);
+
+		const proposal = await session.createProposal(
+			users[0],
+			multisig.address,
+			'localnet',
+			transactionBytes,
+		);
+		const before = await stored();
+
+		await expectRefused(
+			await session.post(`/proposals/${proposal.id}/vote`, {
+				signature: await signedTransaction(users[1]),
+			}),
+		);
+		await expectRefused(
+			await session.post(
+				`/proposals/${proposal.id}/cancel`,
+				{
+					signature: await signedMessage(
+						PersonalMessages.cancelProposal(proposal.id),
+					),
+				},
+			),
+		);
+
+		const expiry = defaultExpiry();
+		await expectRefused(
+			await session.post(
+				`/multisig/${multisig.address}/add-proposer`,
+				{
+					signature: await signedMessage(
+						PersonalMessages.addMultisigProposer(
+							newcomer,
+							multisig.address,
+							expiry,
+						),
+					),
+					proposer: newcomer,
+					expiry,
+				},
+			),
+		);
+		await expectRefused(
+			await session.post(
+				`/multisig/${multisig.address}/remove-proposer`,
+				{
+					signature: await signedMessage(
+						PersonalMessages.removeMultisigProposer(
+							proposer,
+							multisig.address,
+							expiry,
+						),
+					),
+					proposer,
+					expiry,
+				},
+			),
+		);
+
+		expect(await statusOf(proposal.id)).toBe(
+			ProposalStatus.PENDING,
+		);
+		expect(await stored()).toEqual(before);
 	});
 });
 
