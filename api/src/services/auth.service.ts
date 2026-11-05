@@ -13,7 +13,7 @@ import { jwtVerify, SignJWT } from 'jose';
 
 import { LIMITS } from '../constants/limits';
 import { JWT_SECRET } from '../db/env';
-import { ValidationError } from '../errors';
+import { CommonError, ValidationError } from '../errors';
 import { activeJwtTokens, authAttempts } from '../metrics';
 import { parsePublicKey } from '../utils/pubKey';
 import { registerPublicKeys } from './addresses.service';
@@ -169,6 +169,8 @@ export const connectToPublicKey: Handler = async (c) => {
 		return c.json({ success: true });
 	} catch (error) {
 		authAttempts.inc({ status: 'failed' });
+		if (error instanceof CommonError)
+			return c.json({ error: error.message }, 400);
 		return c.json(
 			{
 				error:
