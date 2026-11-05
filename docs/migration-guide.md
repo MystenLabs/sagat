@@ -8,12 +8,13 @@ Anyone calling the Sagat API directly or through the SDK from the repository: sc
 
 The web app needs nothing from you. It updates with the release.
 
-**Nothing breaks on release day.** The routes you use today keep working, frozen, on top of the new schema. The new API lives under `/v1`. The session cookie and script token are shared, so you can move one call at a time.
+**Nothing breaks on release day, apart from the stricter input listed below.** The routes you use today keep working, frozen, on top of the new schema. The new API lives under `/v1`. The session cookie and script token are shared, so you can move one call at a time.
 
-Two things to plan for:
+Three things to plan for:
 
 - **Legacy routes refuse accounts that have rotated signers.** They return an error pointing at `/v1`. Two exceptions: `verify` and `verify-by-digest` still work, so a proposal that rotated the account can be verified, and the connection and invitation listings (`GET /addresses/connections`, `GET /addresses/invitations/:publicKey`) leave rotated accounts out silently rather than failing. A rotated account missing from a listing is not deleted and your membership is not lost; it is only visible under `/v1`. If your team never rotates, you never see any of this.
 - **Legacy routes are removed once their traffic reaches zero.** There is no fixed date. Migrating early keeps you off the last-user list.
+- **Stricter input on some legacy routes.** `add-proposer` and `remove-proposer` accept `expiry` only in the form `YYYY-MM-DDTHH:MM:SS`, with an optional fraction of up to nine digits, followed by `Z` or a `±HH:MM` offset, such as `2026-11-05T13:48:41.000Z`. Create, vote, cancel, `add-proposer` and `remove-proposer` accept a signature only as canonical base64. Other forms get a 400.
 
 ## What changed, in one paragraph
 
@@ -196,7 +197,7 @@ Exported files carry `type` and `version`. Files with `version: 1` keep the old 
 
 ## Things that did not change
 
-- Legacy routes. They keep working until their traffic is zero, except for rotated accounts.
+- Legacy routes. They keep working until their traffic is zero, except for rotated accounts and the stricter input listed at the top of this guide.
 - Authentication, tokens, and cookies. One session works against both route sets.
 - Proposal ids and digests. Existing proposals keep both.
 - Account addresses. Every existing multisig address is now an account with the same address.

@@ -69,9 +69,10 @@ import {
 	expandSignerSetsWithMembers,
 	registerPublicKeyStrings,
 } from './addresses.service';
-import { validateExpiry } from './auth.service';
+import { validateIsoExpiry } from './auth.service';
 import { jwtHasSignerSetMemberAccess } from './membership.service';
 import {
+	assertCanonicalSignature,
 	verifyMemberSignedMessage,
 	verifySignedMessage,
 } from './signatures.service';
@@ -896,10 +897,12 @@ export const addProposer = async ({
 	expiry,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
-	validateExpiry(expiry);
+	validateIsoExpiry(expiry);
 
 	if (!isValidSuiAddress(proposer))
 		throw new CommonError('InvalidAddress');
+
+	assertCanonicalSignature(signature);
 
 	const publicKey = await verifyMemberSignedMessage({
 		signerSetAddress: address,
@@ -975,10 +978,12 @@ export const removeProposer = async ({
 	expiry,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
-	validateExpiry(expiry);
+	validateIsoExpiry(expiry);
 
 	if (!isValidSuiAddress(proposer))
 		throw new CommonError('InvalidAddress');
+
+	assertCanonicalSignature(signature);
 
 	const publicKey = await verifyMemberSignedMessage({
 		signerSetAddress: address,

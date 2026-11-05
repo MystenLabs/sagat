@@ -244,7 +244,7 @@ const getPublicKeysFromJwt = async (
 };
 
 // Validate the expiry time of the signature.
-export const validateExpiry = (expiry: string) => {
+const validateExpiry = (expiry: string) => {
 	const expiryDate = new Date(expiry);
 	const now = Date.now();
 
@@ -261,6 +261,27 @@ export const validateExpiry = (expiry: string) => {
 		throw new ValidationError(
 			'Signature expiry too far in the future (max 1 hour)',
 		);
+};
+
+const ISO_DATE_TIME =
+	/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
+
+// For an expiry that gets stored: only an ISO 8601 date-time with `Z` or an
+// offset, and at most nine fractional digits, is accepted. `Date` rolls an
+// impossible day such as February 31 into the next month, so the date part has
+// to come back unchanged too.
+export const validateIsoExpiry = (expiry: unknown) => {
+	if (typeof expiry !== 'string')
+		throw new ValidationError('Invalid expiry date format');
+
+	validateExpiry(expiry);
+
+	const date = expiry.slice(0, 10);
+	if (
+		!ISO_DATE_TIME.test(expiry) ||
+		new Date(date).toISOString().slice(0, 10) !== date
+	)
+		throw new ValidationError('Invalid expiry date format');
 };
 
 export const disconnect: Handler = async (c) => {

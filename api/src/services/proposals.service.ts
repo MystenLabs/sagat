@@ -75,6 +75,7 @@ import {
 	validateProposedTransaction,
 } from './multisig.service';
 import {
+	assertCanonicalSignature,
 	verifySignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
@@ -350,6 +351,8 @@ export const createProposal = async ({
 			'The transaction is too large.',
 		);
 
+	assertCanonicalSignature(signature);
+
 	// Get the public key out of the sui signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
@@ -488,6 +491,8 @@ export const voteOnProposal = async ({
 }): Promise<ProposalTally> => {
 	const proposal = await getProposalById(proposalId);
 
+	assertCanonicalSignature(signature);
+
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
 
@@ -555,6 +560,8 @@ export const cancelProposal = async ({
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
+
+	assertCanonicalSignature(signature);
 
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
