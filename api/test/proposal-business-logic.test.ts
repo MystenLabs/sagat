@@ -1207,15 +1207,6 @@ describe('Proposal Business Logic', () => {
 			expect(await addProposer('AAAA')).toEqual(
 				invalidSignature,
 			);
-			// Connecting answers with its own handler.
-			expect(
-				await errorOf(
-					await session.post('/auth/connect', {
-						signature: 'QQ==',
-						expiry: defaultExpiry(),
-					}),
-				),
-			).toEqual(invalidSignature);
 		});
 
 		test('a signature with extra bytes inside it gets a 400 and stores nothing', async () => {

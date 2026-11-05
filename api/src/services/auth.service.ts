@@ -169,8 +169,7 @@ export const connectToPublicKey: Handler = async (c) => {
 		return c.json({ success: true });
 	} catch (error) {
 		authAttempts.inc({ status: 'failed' });
-		if (error instanceof CommonError)
-			return c.json({ error: error.message }, 400);
+		if (error instanceof CommonError) throw error;
 		return c.json(
 			{
 				error:
