@@ -332,7 +332,7 @@ Rules for writers:
 
 - Only signed fields are proven. `before` never is.
 - A verifier rebuilds the signed text from the row's fields, the ones the UI displays, so a row cannot verify one value and show another. Refuse input that would be normalised after signing, because such a row can never verify.
-- A new message names what it covers: account, action, values, network where one applies, and expiry. An expiry is the exact `toISOString()` text, a signature is canonical base64, and addresses are canonical. An expiry or signature in any other form is refused before anything is stored.
+- A new message names what it covers: account, action, values, network where one applies, and expiry. An expiry is an ISO 8601 date-time with `Z` or an offset and is stored as signed, a signature is canonical base64, and addresses are canonical. An expiry or signature in any other form is refused before anything is stored.
 - Each action states its own verify rule. "A key of a currently valid signer set" does not fit every action: an invited key is not in one yet.
 - Before storing a person's name or other personal data, decide how it can be erased. The table is append-only, and a kept signature confirms a guessed value even after the value is blanked.
 - A message builder takes explicit fields and never serialises the JSON column, because `jsonb` reorders keys.

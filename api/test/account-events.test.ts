@@ -11,6 +11,7 @@ import {
 	beforeEach,
 	describe,
 	expect,
+	setSystemTime,
 	test,
 } from 'bun:test';
 import { and, eq, sql } from 'drizzle-orm';
@@ -897,7 +898,7 @@ describe('proposal.created', () => {
 });
 
 describe('input refused before anything is stored', () => {
-	test('an expiry that is not the exact `toISOString()` text', async () => {
+	test('an expiry that is not an ISO 8601 date-time', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 1);
 		const proposer = newUser().address;
@@ -943,6 +944,16 @@ describe('input refused before anything is stored', () => {
 		expect(
 			await add(`${expiresAt.toISOString()}\0`),
 		).toEqual(refused);
+		// Without a time zone it parses as server local time, so write it in
+		// local time to land inside the expiry window.
+		const localMs =
+			expiresAt.getTime() -
+			expiresAt.getTimezoneOffset() * 60 * 1000;
+		expect(
+			await add(
+				new Date(localMs).toISOString().slice(0, -1),
+			),
+		).toEqual(refused);
 		expect(
 			await errorOf(
 				await session.post(
@@ -966,6 +977,83 @@ describe('input refused before anything is stored', () => {
 		expect(await proposersOf(multisig.address)).toEqual([
 			proposer,
 		]);
+		expect(
+			await eventsOf(multisig.address, users[0]),
+		).toEqual(eventsBefore);
+	});
+
+	test('an expiry with an offset and a fraction is accepted and stored as signed', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const proposer = newUser().address;
+		const expiry = new Date(Date.now() + 10 * 60 * 1000)
+			.toISOString()
+			.replace('Z', '000+00:00');
+
+		const response = await session.post(
+			`/multisig/${multisig.address}/add-proposer`,
+			{
+				signature: await sign(
+					users[0],
+					PersonalMessages.addMultisigProposer(
+						proposer,
+						multisig.address,
+						expiry,
+					),
+				),
+				proposer,
+				expiry,
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(await proposersOf(multisig.address)).toEqual([
+			proposer,
+		]);
+		const [added] = await eventsOf(
+			multisig.address,
+			users[0],
+			'proposer.added',
+		);
+		expect(added.proof).toMatchObject({ expiry });
+	});
+
+	test('an expiry on a day that does not exist, rolled over into the window', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const proposer = newUser().address;
+		const expiry = '2026-02-31T00:10:00Z';
+		const signature = await sign(
+			users[0],
+			PersonalMessages.addMultisigProposer(
+				proposer,
+				multisig.address,
+				expiry,
+			),
+		);
+		const eventsBefore = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+
+		setSystemTime(new Date('2026-03-03T00:00:00Z'));
+		try {
+			expect(
+				await errorOf(
+					await session.post(
+						`/multisig/${multisig.address}/add-proposer`,
+						{ signature, proposer, expiry },
+					),
+				),
+			).toEqual({
+				status: 400,
+				body: { error: 'Invalid expiry date format' },
+			});
+		} finally {
+			setSystemTime();
+		}
+
+		expect(await proposersOf(multisig.address)).toEqual([]);
 		expect(
 			await eventsOf(multisig.address, users[0]),
 		).toEqual(eventsBefore);
