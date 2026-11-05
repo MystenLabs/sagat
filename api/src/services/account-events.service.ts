@@ -41,6 +41,9 @@ type ChainProof = { kind: 'chain'; digest: string };
 
 type MemberActor = string;
 
+// A row nobody signed directly. Its authority is the row it points at.
+type CausedByProof = { kind: 'caused_by'; eventId: number };
+
 // A proposer event's `subject` is stored exactly as signed, not normalised.
 type AccountEventRegistry = {
 	'proposer.added': {
@@ -62,6 +65,31 @@ type AccountEventRegistry = {
 		subject: string;
 		network: string;
 		proof: SignedProof<'proposal.create'>;
+	};
+	// A signed removal of an address that is no proposer but had pending
+	// proposals, which it cancelled. Apart from `proposer.removed` so that one
+	// only ever means a row was deleted.
+	'proposer.removal_unmatched': {
+		actor: MemberActor;
+		subject: string;
+		proof: SignedProof<
+			'proposer.remove',
+			{ expiry: string }
+		>;
+	};
+	// `actor` is a member, or the external proposer cancelling their own
+	// proposal. `subject` is the proposal's digest. The signed text names the
+	// id, so the signed proof carries it to rebuild that text.
+	'proposal.cancelled': {
+		actor: string;
+		subject: string;
+		network: string;
+		proof:
+			| SignedProof<
+					'proposal.cancel',
+					{ proposalId: number }
+			  >
+			| CausedByProof;
 	};
 };
 
