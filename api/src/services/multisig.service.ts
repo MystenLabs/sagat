@@ -69,9 +69,10 @@ import {
 	expandSignerSetsWithMembers,
 	registerPublicKeyStrings,
 } from './addresses.service';
-import { validateExpiry } from './auth.service';
+import { validateIsoExpiry } from './auth.service';
 import { jwtHasSignerSetMemberAccess } from './membership.service';
 import {
+	assertCanonicalSignature,
 	verifyMemberSignedMessage,
 	verifySignedMessage,
 } from './signatures.service';
@@ -614,8 +615,20 @@ export const createSignerSet = async ({
 					threshold,
 					name,
 				})
+				.onConflictDoNothing({
+					target: SchemaSignerSets.address,
+				})
 				.returning()
 		)[0];
+
+		if (!msig) {
+			const whereToFindIt = callerIsMember
+				? 'You’ll find it in your accounts or invitations. '
+				: '';
+			throw new ValidationError(
+				`An account with these signers, weights and threshold already exists. ${whereToFindIt}To make a different account, change the signers, weights or threshold.`,
+			);
+		}
 
 		// Checked after the insert so a duplicate still fails as one. Keys are
 		// locked in sorted order so creations sharing keys can't deadlock.
@@ -884,10 +897,12 @@ export const addProposer = async ({
 	expiry,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
-	validateExpiry(expiry);
+	validateIsoExpiry(expiry);
 
 	if (!isValidSuiAddress(proposer))
 		throw new CommonError('InvalidAddress');
+
+	assertCanonicalSignature(signature);
 
 	const publicKey = await verifyMemberSignedMessage({
 		signerSetAddress: address,
@@ -963,10 +978,12 @@ export const removeProposer = async ({
 	expiry,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
-	validateExpiry(expiry);
+	validateIsoExpiry(expiry);
 
 	if (!isValidSuiAddress(proposer))
 		throw new CommonError('InvalidAddress');
+
+	assertCanonicalSignature(signature);
 
 	const publicKey = await verifyMemberSignedMessage({
 		signerSetAddress: address,
