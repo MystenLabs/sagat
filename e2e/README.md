@@ -14,6 +14,7 @@ from the repo root:
 bun install
 cd e2e
 bunx playwright install chromium   # once
+# or set E2E_BROWSER_CHANNEL=chrome to run on your installed Chrome, no download needed
 bun run test                       # or: bun run test:ui / bun run test:headed
 ```
 
@@ -36,14 +37,15 @@ on startup, so give a second network (say, one for manual testing) its own:
 
 Configuration (all optional):
 
-| Variable             | Default                                 |
-| -------------------- | --------------------------------------- |
-| `E2E_DATABASE_URL`   | `postgresql://localhost:5432/sagat_e2e` |
-| `E2E_APP_SERVER`     | `dev` locally, `preview` in CI          |
-| `E2E_API_PORT`       | `3100`                                  |
-| `E2E_APP_PORT`       | `4173`                                  |
-| `E2E_SUI_RPC_URL`    | `http://127.0.0.1:9000`                 |
-| `E2E_SUI_FAUCET_URL` | `http://127.0.0.1:9123`                 |
+| Variable              | Default                                 |
+| --------------------- | --------------------------------------- |
+| `E2E_DATABASE_URL`    | `postgresql://localhost:5432/sagat_e2e` |
+| `E2E_APP_SERVER`      | `dev` locally, `preview` in CI          |
+| `E2E_API_PORT`        | `3100`                                  |
+| `E2E_APP_PORT`        | `4173`                                  |
+| `E2E_SUI_RPC_URL`     | `http://127.0.0.1:9000`                 |
+| `E2E_SUI_FAUCET_URL`  | `http://127.0.0.1:9123`                 |
+| `E2E_BROWSER_CHANNEL` | Playwright's Chromium                   |
 
 `E2E_SUI_RPC_URL` reaches the API, the app (as `VITE_LOCALNET_RPC_URL`), the
 test wallet and the test helpers, so they all use the same network.
@@ -68,8 +70,11 @@ opts out: `createActor(name, { declineSign: true })` rejects every
 personal-message signature (sign-in included) from the start, and
 `window.__e2eWallet.declineConnect` / `.declineSign` can be flipped at runtime
 from `page.evaluate`; `rejectSigning` has it decline every transaction to sign,
-the way a user declines rather than a wallet failing; and `failRestore` has its
-silent session restore throw. It registers through the wallet-standard window
+the way a user declines rather than a wallet failing; `failRestore` has its
+silent session restore throw; `zkLogin` presents the actor's account with a
+zkLogin key; and `window.__e2eWallet.signRequests` counts the signatures asked
+for, while `.holdSigning()` / `.releaseSigning()` keep a transaction's signature
+open. It registers through the wallet-standard window
 events, the same way extension wallets do, so the app runs unmodified and no
 test code ships in it. One difference from the stock wallet: `E2EWallet`
 executes a signed transaction itself and returns the chain's effects, so a

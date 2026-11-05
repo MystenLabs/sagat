@@ -20,6 +20,10 @@ import { cn } from '@/lib/utils';
 
 const LABEL = content.signedOut.walletPicker.label;
 
+// The constant lives in a package the app doesn't depend on; matching on
+// its start is what the kit itself does.
+const SLUSH_WALLET_NAME = 'Slush';
+
 type WalletPickerVariant = 'default' | 'outline' | 'rail';
 
 /**
@@ -39,7 +43,13 @@ export function WalletPicker({
 	side?: 'top' | 'bottom';
 	align?: 'start' | 'center' | 'end';
 }) {
-	const wallets = useWallets();
+	// The kit lists wallets as they register, and an extension can arrive
+	// after the ones the app registers. The sort keeps the others' order.
+	const wallets = [...useWallets()].sort(
+		(a, b) =>
+			Number(b.name.startsWith(SLUSH_WALLET_NAME)) -
+			Number(a.name.startsWith(SLUSH_WALLET_NAME)),
+	);
 	const { connectWallet } = useApiAuth();
 	const level = useAuthLevel();
 	const rail = variant === 'rail';
