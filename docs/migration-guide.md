@@ -14,7 +14,7 @@ Three things to plan for:
 
 - **Legacy routes refuse accounts that have rotated signers.** They return an error pointing at `/v1`. Two exceptions: `verify` and `verify-by-digest` still work, so a proposal that rotated the account can be verified, and the connection and invitation listings (`GET /addresses/connections`, `GET /addresses/invitations/:publicKey`) leave rotated accounts out silently rather than failing. A rotated account missing from a listing is not deleted and your membership is not lost; it is only visible under `/v1`. If your team never rotates, you never see any of this.
 - **Legacy routes are removed once their traffic reaches zero.** There is no fixed date. Migrating early keeps you off the last-user list.
-- **Stricter input on some legacy routes.** `add-proposer` and `remove-proposer` accept `expiry` only as an ISO 8601 date-time with `Z` or an offset, such as `2026-11-05T13:48:41.000Z`. Create, vote, cancel, `add-proposer` and `remove-proposer` accept a signature only as canonical base64. Other forms get a 400.
+- **Stricter input on some legacy routes.** `add-proposer` and `remove-proposer` accept `expiry` only in the form `YYYY-MM-DDTHH:MM:SS`, with an optional fraction of up to nine digits, followed by `Z` or a `±HH:MM` offset, such as `2026-11-05T13:48:41.000Z`. Create, vote, cancel, `add-proposer` and `remove-proposer` accept a signature only as canonical base64. Other forms get a 400.
 
 ## What changed, in one paragraph
 
