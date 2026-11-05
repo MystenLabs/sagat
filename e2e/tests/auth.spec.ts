@@ -17,7 +17,6 @@ test.describe('wallet sign-in', () => {
 		createActor,
 	}) => {
 		const zoe = await createActor('zoe', { zkLogin: true });
-		const signIns = recordSignIns(zoe.page);
 
 		await zoe.page.goto('/');
 		await zoe.connectWallet({ signIn: false });
@@ -31,7 +30,6 @@ test.describe('wallet sign-in', () => {
 		await expect(
 			zoe.page.getByTestId('sign-in-button'),
 		).toHaveCount(0);
-		expect(signIns).toHaveLength(0);
 		expect(
 			await zoe.page.evaluate(
 				() => window.__e2eWallet!.signRequests,
@@ -44,6 +42,42 @@ test.describe('wallet sign-in', () => {
 		await expect(
 			zoe.page.getByTestId('connect-wallet-prompt'),
 		).toBeVisible();
+	});
+
+	test('beside a zkLogin account, the card points to the menu, where only the other account can sign in', async ({
+		createActor,
+	}) => {
+		const zoe = await createActor('zoe', {
+			zkLogin: true,
+			otherAccounts: ['zoe-savings'],
+		});
+		const [savings] = zoe.otherAccounts;
+		const { page } = zoe;
+
+		await page.goto('/');
+		await zoe.connectWallet({ signIn: false });
+		await expect(
+			page.getByTestId('zklogin-switch-account'),
+		).toBeVisible();
+
+		await zoe.openWalletMenu();
+		await expect(
+			page
+				.locator(
+					'[data-testid="wallet-account"][data-current="true"]',
+				)
+				.getByTestId('wallet-account-zklogin'),
+		).toBeVisible();
+		await expect(
+			page.getByTestId('wallet-account-sign'),
+		).toHaveCount(1);
+
+		await zoe.signInAccount(savings);
+		expect(
+			await page.evaluate(
+				() => window.__e2eWallet!.signRequests,
+			),
+		).toBe(1);
 	});
 
 	test('signs in with a wallet signature and keeps the session across reloads', async ({

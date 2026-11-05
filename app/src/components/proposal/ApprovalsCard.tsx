@@ -276,7 +276,9 @@ export function ApprovalsCard({
 						</label>
 					)}
 					<ButtonRow>
-						{cancelButton(failing ? 'default' : 'outline')}
+						{/* While signing the button has the row to itself, as Executing… does. */}
+						{!sign.isPending &&
+							cancelButton(failing ? 'default' : 'outline')}
 						<Button
 							variant={failing ? 'outline' : 'default'}
 							onClick={onSign}
