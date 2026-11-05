@@ -91,6 +91,8 @@ export function NextStepsCard({
 	yourWeight: number | null;
 }) {
 	const copy = content.newProposal.nextSteps;
+	const readyOnSigning =
+		yourWeight != null && yourWeight >= threshold;
 	const items = [
 		{
 			title: copy.approveTitle,
@@ -107,8 +109,12 @@ export function NextStepsCard({
 					: copy.createdBody,
 		},
 		{
-			title: copy.signTitle,
-			body: copy.signBody(threshold),
+			title: readyOnSigning
+				? copy.readyTitle
+				: copy.signTitle,
+			body: readyOnSigning
+				? copy.readyBody
+				: copy.signBody(threshold),
 		},
 	];
 	return (

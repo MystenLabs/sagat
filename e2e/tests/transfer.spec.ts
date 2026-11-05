@@ -1,6 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { formatAddress } from '@mysten/sui/utils';
+
+import { content } from '../../app/src/content';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
@@ -107,6 +110,19 @@ test.describe('transfer form', () => {
 		await alice.page
 			.getByTestId('transfer-max-button')
 			.click();
+		await expect(
+			alice.page.getByTestId('proposal-title-input'),
+		).toHaveValue(
+			content.newProposal.transferTitleAll(
+				'SUI',
+				formatAddress(recipient),
+			),
+		);
+		await expect(
+			alice.page.getByTestId('transfer-max-gas-note'),
+		).toHaveText(
+			content.newProposal.transferStep.maxGasNote,
+		);
 		await reviewTransfer(alice.page);
 		await expectSimulation(alice.page, 'success');
 		await proposeAndSign(alice.page);

@@ -298,9 +298,9 @@ export function WizardStepper({
 /**
  * Back on the left, a note and the primary action on the right. On phones
  * the primary spans the card with Back and Cancel under it; Cancel lives
- * here because the page header hides its own Cancel on phones. `testId`
- * is the wizard's prefix, as `WizardPage`'s: Cancel is
- * `<testId>-cancel-footer`.
+ * here because the page header hides its own Cancel on phones, and reads
+ * `cancelLabel` as that one does. `testId` is the wizard's prefix, as
+ * `WizardPage`'s: Cancel is `<testId>-cancel-footer`.
  */
 export function StepFooter({
 	back,
@@ -309,6 +309,7 @@ export function StepFooter({
 	primary,
 	onCancel,
 	cancelDisabled = false,
+	cancelLabel = content.common.actions.cancel,
 	testId,
 }: {
 	back?: ReactNode;
@@ -318,6 +319,7 @@ export function StepFooter({
 	primary: ReactNode;
 	onCancel: () => void;
 	cancelDisabled?: boolean;
+	cancelLabel?: string;
 	testId: string;
 }) {
 	return (
@@ -344,7 +346,7 @@ export function StepFooter({
 				className="order-4 sm:hidden"
 				data-testid={`${testId}-cancel-footer`}
 			>
-				{content.common.actions.cancel}
+				{cancelLabel}
 			</Button>
 		</div>
 	);

@@ -3,7 +3,6 @@
 
 import {
 	ChevronRight,
-	CircleCheck,
 	RefreshCw,
 	Send,
 } from 'lucide-react';
@@ -14,7 +13,6 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { type useAccountAssets } from '@/hooks/useAccountAssets';
 import { useCoinMetadata } from '@/hooks/useCoinMetadata';
 import { type Balance } from '@/hooks/useMultisigBalances';
-import { formatType } from '@/lib/coin-type';
 import {
 	coinDisplayData,
 	coinLabels,
@@ -29,9 +27,7 @@ import { formatDateTime } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 import { Button } from '../ui/button';
-import { Chip } from '../ui/chip';
 import { CoinIcon } from '../ui/CoinIcon';
-import { CopyButton } from '../ui/CopyButton';
 import { EmptyState, ErrorState } from '../ui/empty-state';
 import { Skeleton, SkeletonRows } from '../ui/skeleton';
 import { SuiLogo } from '../ui/SuiLogo';
@@ -48,6 +44,7 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from '../ui/tooltip';
+import { CoinTypeLine, VerifiedMark } from './CoinMarks';
 
 const FIELDS = content.common.fields;
 const COPY = content.assets.tokens;
@@ -372,45 +369,14 @@ function TokenRow({
 							<span className="shrink-0 text-14 font-medium whitespace-nowrap">
 								{symbol}
 							</span>
-							{verified === true && (
-								<CircleCheck
-									className="size-3.5 shrink-0 fill-foreground text-background"
-									role="img"
-									aria-label={COPY.verified}
-									data-testid="token-verified"
-								/>
-							)}
-							{verified === false && (
-								<Chip
-									variant="warning"
-									size="sm"
-									data-testid="token-unverified"
-								>
-									{COPY.unverified}
-								</Chip>
-							)}
+							<VerifiedMark verified={verified} />
 							{!sameCoinLabel(symbol, name) && (
 								<span className="grow truncate text-12 text-muted-foreground contain-inline-size">
 									{name}
 								</span>
 							)}
 						</div>
-						<span className="flex min-w-0 items-center gap-1 contain-inline-size">
-							<span
-								className="truncate font-mono text-11 text-muted-foreground"
-								title={balance.coinType}
-							>
-								{formatType(balance.coinType)}
-							</span>
-							<CopyButton
-								value={balance.coinType}
-								size="inline"
-								successMessage={
-									content.toasts.coinTypeCopied
-								}
-								data-testid="token-copy-type"
-							/>
-						</span>
+						<CoinTypeLine coinType={balance.coinType} />
 					</div>
 				</div>
 			</td>

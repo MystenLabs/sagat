@@ -290,6 +290,7 @@ function NewProposalWizard({
 			onStep={goTo}
 			busy={creating}
 			onCancel={cancel}
+			cancelLabel={content.common.actions.discard}
 			direction={direction}
 			cardRef={cardRef}
 			// The side column only changes at Review, so it fades just then.

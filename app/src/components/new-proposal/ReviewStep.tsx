@@ -149,6 +149,7 @@ export function ReviewStep({
 			<StepFooter
 				onCancel={onCancel}
 				cancelDisabled={creating}
+				cancelLabel={content.common.actions.discard}
 				testId="new-proposal"
 				back={
 					<Button

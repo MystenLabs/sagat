@@ -51,6 +51,16 @@ describe('threshold warnings', () => {
 		);
 	});
 
+	test('the only complete signer can approve alone, at any weight', () => {
+		expect(
+			thresholdWarning({
+				signers: [{ name: 'Maya', weight: 3 }],
+				threshold: 2,
+				totalWeight: 3,
+			}),
+		).toBe(content.createMultisig.aloneOnlyNamed('Maya'));
+	});
+
 	test('several signers, named with "or"', () => {
 		expect(
 			thresholdWarning({

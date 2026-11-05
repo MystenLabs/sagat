@@ -323,7 +323,9 @@ function keyStatus(
 
 /**
  * Warns when one signer can approve alone, or when every signer has to
- * sign. `you` marks the creator, who the copy addresses as "you".
+ * sign. `signers` are the complete rows. `you` marks the creator, who the
+ * copy addresses as "you". A sole complete signer gets its own line: the
+ * weight and threshold steppers are no way out until there's another.
  */
 export function thresholdWarning({
 	signers,
@@ -343,6 +345,10 @@ export function thresholdWarning({
 	);
 	if (alone.length === 1) {
 		const [{ name, weight, you }] = alone;
+		if (signers.length === 1)
+			return you
+				? COPY.aloneOnlyYou
+				: COPY.aloneOnlyNamed(name);
 		return you
 			? COPY.aloneYou(weight, threshold)
 			: COPY.aloneNamed(name, weight, threshold);

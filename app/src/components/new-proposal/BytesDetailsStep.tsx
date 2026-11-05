@@ -144,6 +144,7 @@ export function BytesDetailsStep({
 
 			<StepFooter
 				onCancel={onCancel}
+				cancelLabel={content.common.actions.discard}
 				testId="new-proposal"
 				back={
 					<Button

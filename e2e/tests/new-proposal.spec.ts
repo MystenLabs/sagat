@@ -5,6 +5,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import {
 	formatAddress,
 	MIST_PER_SUI,
+	normalizeStructTag,
 	normalizeSuiAddress,
 } from '@mysten/sui/utils';
 
@@ -234,6 +235,40 @@ test.describe('new proposal: transfer', () => {
 		await expect(status).toBeVisible();
 	});
 
+	test('Review says it’s ready to execute when the proposer’s weight meets the threshold', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		// 1-of-2: Alice's weight of 1 is the threshold.
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			1,
+		);
+		const { page } = alice;
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		await fillTransfer(page, {
+			coinType: SUI_TYPE,
+			amount: '1',
+			recipient: randomAddress(),
+		});
+		await reviewTransfer(page);
+
+		const copy = content.newProposal.nextSteps;
+		const nextSteps = page.getByTestId(
+			'proposal-next-steps',
+		);
+		await expect(nextSteps).toContainText(copy.readyTitle);
+		await expect(nextSteps).toContainText(copy.readyBody);
+		await expect(nextSteps).not.toContainText(
+			copy.signTitle,
+		);
+	});
+
 	test('Send on the SUI asset row opens Details with SUI chosen', async ({
 		createActor,
 		createIdentity,
@@ -400,6 +435,18 @@ test.describe('new proposal: transfer', () => {
 		);
 		await recipientInput.fill(recipient);
 		await recipientInput.blur();
+		await expect(
+			page.getByTestId('proposal-title-input'),
+		).toHaveValue(
+			content.newProposal.transferTitleUpTo(
+				'128',
+				'SUI',
+				formatAddress(recipient),
+			),
+		);
+		await expect(
+			page.getByTestId('transfer-max-gas-note'),
+		).toBeVisible();
 		await reviewTransfer(page);
 		await expectSimulation(page, 'success');
 		await proposeAndSign(page);
@@ -416,6 +463,76 @@ test.describe('new proposal: transfer', () => {
 });
 
 test.describe('new proposal: transfer details', () => {
+	test('copying a coin type in the asset list keeps the list open and the choice as it was', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			2,
+		);
+		await mintTestCoin(chain, multisig.address, [
+			1_000_000n,
+		]);
+		await alice.context.grantPermissions([
+			'clipboard-read',
+			'clipboard-write',
+		]);
+		const { page } = alice;
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		const select = page.getByTestId(
+			'transfer-asset-select',
+		);
+		await select.click();
+		const sui = page.locator(
+			`[data-testid="transfer-asset-option"][data-coin-type="${normalizeStructTag(SUI_TYPE)}"]`,
+		);
+		await expect(
+			sui.getByTestId('token-verified'),
+		).toBeVisible();
+		await expect(sui).toContainText(
+			formatType(normalizeStructTag(SUI_TYPE)),
+		);
+		// TEST is outside the registry, which e2e serves empty.
+		await expect(
+			page
+				.locator(
+					'[data-testid="transfer-asset-option"][data-coin-type$="::test_coin::TEST_COIN"]',
+				)
+				.getByTestId('token-unverified'),
+		).toBeVisible();
+
+		await sui.getByTestId('token-copy-type').click();
+		await expect(
+			alice.toast(content.toasts.coinTypeCopied),
+		).toBeVisible();
+		expect(
+			await page.evaluate(() =>
+				navigator.clipboard.readText(),
+			),
+		).toBe(normalizeStructTag(SUI_TYPE));
+		await expect(sui).toBeVisible();
+		await expect(select).not.toHaveAttribute(
+			'data-coin-type',
+		);
+
+		// The option itself still chooses.
+		await sui.click();
+		await expect(select).toHaveAttribute(
+			'data-coin-type',
+			normalizeStructTag(SUI_TYPE),
+		);
+		// The trigger doesn't repeat the type.
+		await expect(select).not.toContainText(
+			formatType(normalizeStructTag(SUI_TYPE)),
+		);
+	});
+
 	test('the recipient line marks an address invalid or valid', async ({
 		createActor,
 		createIdentity,
@@ -882,6 +999,9 @@ test.describe('new proposal: review', () => {
 
 		await clickNewProposal(page);
 		await chooseType(page, 'transfer');
+		await expect(
+			page.getByTestId('new-proposal-cancel'),
+		).toHaveText(content.common.actions.discard);
 		await page.getByTestId('new-proposal-cancel').click();
 		await expectOnProposals(page, multisig.address);
 	});
