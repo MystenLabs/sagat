@@ -244,7 +244,7 @@ const getPublicKeysFromJwt = async (
 };
 
 // Validate the expiry time of the signature.
-export const validateExpiry = (expiry: string) => {
+const validateExpiry = (expiry: string) => {
 	const expiryDate = new Date(expiry);
 	const now = Date.now();
 
