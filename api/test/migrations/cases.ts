@@ -313,7 +313,75 @@ const accountKeys: MigrationCase = {
 	},
 };
 
+const accountEvents: MigrationCase = {
+	name: '0011 account events (audit log)',
+	baseline: 10,
+	target: 11,
+	seed: `
+		INSERT INTO addresses (public_key, address) VALUES ('AKEY1', '0xa1');
+		INSERT INTO accounts (address, name) VALUES ('0xacc', 'Treasury');
+		INSERT INTO account_proposers (account_address, address, added_by, added_at) VALUES
+			('0xacc', '0xbot', '0xa1', '2025-10-01 12:00:00');
+	`,
+	preserved: [
+		{
+			label: 'accounts',
+			before: `SELECT address, name FROM accounts ORDER BY 1`,
+			after: `SELECT address, name FROM accounts ORDER BY 1`,
+		},
+		{
+			label: 'account_proposers',
+			before: `SELECT account_address, address, added_by, added_at FROM account_proposers ORDER BY 1, 2`,
+			after: `SELECT account_address, address, added_by, added_at FROM account_proposers ORDER BY 1, 2`,
+		},
+	],
+	verify: async (db) => {
+		// No backfill.
+		expect(
+			Number(
+				await db.value(
+					`SELECT count(*) FROM account_events`,
+				),
+			),
+		).toBe(0);
+
+		// Additive: a replica still on the old code keeps writing proposers.
+		await db.value(`
+			INSERT INTO account_proposers (account_address, address, added_by)
+			VALUES ('0xacc', '0xbot2', '0xa1')`);
+
+		await expect(
+			db.value(`
+				INSERT INTO account_events (account_address, network, actor, action)
+				VALUES ('0xacc', 'betanet', '0xa1', 'proposer.added')`),
+		).rejects.toThrow(/account_events_network_check/);
+		await expect(
+			db.value(`
+				INSERT INTO account_events (account_address, actor, action)
+				VALUES ('0xunknown', '0xa1', 'proposer.added')`),
+		).rejects.toThrow(
+			/account_events_account_address_accounts_address_fk/,
+		);
+
+		expect(
+			(
+				await db.rows(
+					`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'account_events' AND indexname <> 'account_events_pkey' ORDER BY 1`,
+				)
+			).map(
+				([indexdef]) =>
+					/\((.*)\)$/.exec(indexdef as string)?.[1],
+			),
+		).toEqual([
+			'account_address, action, id DESC',
+			'account_address, id DESC',
+			'account_address, subject, id DESC',
+		]);
+	},
+};
+
 export const migrationCases: MigrationCase[] = [
 	accountRotation,
 	accountKeys,
+	accountEvents,
 ];

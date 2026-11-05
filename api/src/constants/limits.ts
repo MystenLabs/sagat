@@ -15,6 +15,8 @@ export const LIMITS = {
 	maxSignatureExpiry: 60 * 60 * 1000,
 	/** The maximum number of proposals to return per page. */
 	maxProposalsPerPage: 100,
+	/** The maximum number of account events to return per page. */
+	maxAccountEventsPerPage: 100,
 	/** The largest transaction we accept, twice Sui's current 128 KiB so a
 	 * protocol change doesn't break us. It only stops huge payloads before
 	 * they are parsed; Sui enforces its own limits. */
