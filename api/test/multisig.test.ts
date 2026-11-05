@@ -130,7 +130,22 @@ describe('Multisig API', () => {
 
 		await expect(
 			session.createMultisig(users, 2),
-		).rejects.toThrow('Data already exists');
+		).rejects.toThrow(
+			'A pod with these signers, weights and threshold already exists. You’ll find it in your pods or invitations.',
+		);
+	});
+
+	test('does not point a non-member repeating a multisig at their pods or invitations', async () => {
+		const { session } =
+			await framework.createAuthenticatedSession(1);
+		const others = [newUser(), newUser()];
+		await session.createMultisig(others, 2);
+
+		await expect(
+			session.createMultisig(others, 2),
+		).rejects.toThrow(
+			'already exists. To make a different pod',
+		);
 	});
 
 	test('registers the public keys of members who never connected', async () => {
