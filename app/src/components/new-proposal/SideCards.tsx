@@ -100,8 +100,9 @@ export function NextStepsCard({
 		},
 		{
 			title: copy.createdTitle,
-			body:
-				yourWeight != null
+			body: readyOnSigning
+				? copy.createdBodyReady
+				: yourWeight != null
 					? copy.createdBodyWithWeight(
 							yourWeight,
 							threshold,

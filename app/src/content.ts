@@ -666,6 +666,8 @@ export const content = {
 				threshold: number,
 			) =>
 				`It shows in Proposals with your signature, ${yourWeight} of the ${threshold} weight it needs.`,
+			createdBodyReady:
+				'It shows in Proposals with your signature, which is all the weight it needs.',
 			signTitle: 'The other signers sign',
 			signBody: (threshold: number) =>
 				`Once signatures reach ${threshold}, anyone can execute it.`,
@@ -811,8 +813,8 @@ export const content = {
 						} accepted yet.`
 					: ''
 			}`,
-		created: (invited: string) =>
-			`Pod created. Invitations sent to ${invited}.`,
+		created: (invited: string, count: number) =>
+			`Pod created. ${count === 1 ? 'Invitation' : 'Invitations'} sent to ${invited}.`,
 
 		value: {
 			total: 'Total value',
