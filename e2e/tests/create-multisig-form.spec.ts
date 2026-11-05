@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { content } from '../../app/src/content';
 import { randomAddress } from '../support/chain';
 import {
 	addSigners,
@@ -215,6 +216,10 @@ test.describe('create multisig wizard', () => {
 			accept: false,
 		});
 		const { page } = alice;
+		const submit = page.getByTestId('create-submit');
+		const error = page.getByTestId('create-error');
+		const createLabel =
+			content.createMultisig.reviewStep.create;
 
 		await alice.signIn();
 		await reviewMultisig(page, {
@@ -222,15 +227,20 @@ test.describe('create multisig wizard', () => {
 			signers: [{ key: bob.publicKey }],
 			threshold: 2,
 		});
-		await page.getByTestId('create-submit').click();
+		await submit.click();
 
-		await expect(
-			page.getByTestId('create-error'),
-		).toContainText('already exists');
-		await expect(
-			page.getByTestId('create-submit'),
-		).toHaveText('Try again');
+		await expect(error).toContainText('already exists');
+		// The same setup would be refused again, so there's no retrying it.
+		await expect(submit).toHaveText(createLabel);
+		await expect(submit).toBeDisabled();
 		await expect(page).toHaveURL(/\/create$/);
+
+		// Leaving the step drops the refusal.
+		await page.getByTestId('create-back').click();
+		await page.getByTestId('create-step-3').click();
+		await expect(error).toHaveCount(0);
+		await expect(submit).toHaveText(createLabel);
+		await expect(submit).toBeEnabled();
 	});
 
 	test('the steps are links once the ones before them are valid', async ({

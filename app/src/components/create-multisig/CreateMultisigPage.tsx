@@ -18,7 +18,10 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCreateMultisig } from '@/hooks/useCreateMultisig';
 import { usePublicKeyLookups } from '@/hooks/usePublicKeyLookups';
-import { shownApiError } from '@/lib/api-errors';
+import {
+	isApiRefusal,
+	shownApiError,
+} from '@/lib/api-errors';
 import { CONFIG } from '@/lib/constants';
 import {
 	addressInput,
@@ -309,6 +312,7 @@ export function CreateMultisigPage() {
 					address={check.address}
 					creating={creating}
 					error={createError}
+					refused={isApiRefusal(create.error)}
 					onEditName={() => goTo(1)}
 					onEditSigners={() => goTo(2)}
 					onBack={() => goTo(2)}

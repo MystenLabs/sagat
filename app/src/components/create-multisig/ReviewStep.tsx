@@ -47,6 +47,7 @@ export function ReviewStep({
 	address,
 	creating,
 	error,
+	refused,
 	onEditName,
 	onEditSigners,
 	onBack,
@@ -61,6 +62,8 @@ export function ReviewStep({
 	creating: boolean;
 	/** Why the last attempt failed, or null. */
 	error: string | null;
+	/** The API refused this setup, so the same setup can't succeed. */
+	refused: boolean;
 	onEditName: () => void;
 	onEditSigners: () => void;
 	onBack: () => void;
@@ -267,7 +270,7 @@ export function ReviewStep({
 					<Button
 						type="button"
 						onClick={onCreate}
-						disabled={creating}
+						disabled={creating || refused}
 						className={cn(
 							disabledButton,
 							'w-full sm:w-auto',
@@ -276,7 +279,7 @@ export function ReviewStep({
 					>
 						{creating
 							? COPY.reviewStep.creating
-							: error
+							: error && !refused
 								? ACTIONS.tryAgain
 								: COPY.reviewStep.create}
 					</Button>
