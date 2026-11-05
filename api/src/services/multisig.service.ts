@@ -615,8 +615,20 @@ export const createSignerSet = async ({
 					threshold,
 					name,
 				})
+				.onConflictDoNothing({
+					target: SchemaSignerSets.address,
+				})
 				.returning()
 		)[0];
+
+		if (!msig) {
+			const whereToFindIt = callerIsMember
+				? 'You’ll find it in your accounts or invitations. '
+				: '';
+			throw new ValidationError(
+				`An account with these signers, weights and threshold already exists. ${whereToFindIt}To make a different account, change the signers, weights or threshold.`,
+			);
+		}
 
 		// Checked after the insert so a duplicate still fails as one. Keys are
 		// locked in sorted order so creations sharing keys can't deadlock.
