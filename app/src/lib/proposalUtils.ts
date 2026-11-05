@@ -129,8 +129,9 @@ export function proposalExplorerUrl(
 }
 
 /**
- * Whether a proposal can still be exported: a cancelled or expired one
- * never ran and never will. A failed one keeps it, having run on chain.
+ * Whether a proposal offers Export: not once it is cancelled or expired,
+ * as the app has nothing further to do with it. A failed one keeps it,
+ * having run on chain.
  */
 export function canExportProposal(
 	status: ProposalStatusKey,

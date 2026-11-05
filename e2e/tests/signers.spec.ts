@@ -24,7 +24,10 @@ test.describe('overview and signers', () => {
 	test('show the setup, each key by its label and weight, and who created it', async ({
 		createActor,
 		createIdentity,
+		chain,
 	}) => {
+		// Waits out one poll of the empty account's balances.
+		test.slow();
 		const alice = await createActor('alice');
 		const bob = createIdentity('bob');
 		const carol = createIdentity('carol');
@@ -90,6 +93,17 @@ test.describe('overview and signers', () => {
 			await expect(
 				page.getByTestId('view-all-assets'),
 			).toHaveCount(0);
+		});
+
+		await test.step('coins sent while the overview is open show without a reload', async () => {
+			await chain.fund(multisig.address);
+			// Just over the 30 seconds between polls of an empty account.
+			await expect(
+				page.getByTestId('token-row'),
+			).toBeVisible({ timeout: 35_000 });
+			await expect(
+				page.getByTestId('overview-send-button'),
+			).toBeVisible();
 		});
 
 		await test.step('the signers list each key with its label and weight', async () => {

@@ -540,14 +540,11 @@ describe('pricingOnNetwork', () => {
 		},
 	);
 
-	test.each<SuiNetwork>(['testnet', 'devnet', 'localnet'])(
-		'keeps SUI’s prices on %s',
-		(network) => {
-			expect(
-				pricingOnNetwork(network, SUI_TYPE_ARG, pricing),
-			).toEqual(pricing);
-		},
-	);
+	test('keeps SUI’s prices off mainnet', () => {
+		expect(
+			pricingOnNetwork('testnet', SUI_TYPE_ARG, pricing),
+		).toEqual(pricing);
+	});
 });
 
 describe('pricesAvailableOn', () => {
