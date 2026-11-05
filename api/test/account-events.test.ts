@@ -188,6 +188,37 @@ const withEventInsertsFailing = async (
 	}
 };
 
+// `pg_stat_activity` is cached per transaction, so this must not run in the one
+// holding the lock.
+const untilABackendWaitsOnALock = async () => {
+	for (let attempt = 0; attempt < 400; attempt++) {
+		const { rows } = await db.execute(sql`
+			SELECT 1 FROM pg_stat_activity
+			WHERE datname = current_database()
+				AND wait_event_type = 'Lock'`);
+		if (rows.length > 0) return;
+		await Bun.sleep(25);
+	}
+	throw new Error('No backend is waiting on a lock');
+};
+
+const proposerAdded = (
+	accountAddress: string,
+	actor: TestUser,
+	subject: string,
+): AccountEvent => ({
+	action: 'proposer.added',
+	accountAddress,
+	actor: actor.address,
+	subject,
+	proof: {
+		kind: 'proposer.add',
+		version: 1,
+		signature: 'signature',
+		expiry: 'expiry',
+	},
+});
+
 describe('the stored proof', () => {
 	test('rebuilds the signed message and recovers the actor, after the proposer is gone too', async () => {
 		const { session, users, multisig } =
@@ -243,6 +274,43 @@ describe('the stored proof', () => {
 });
 
 describe('recording in the change transaction', () => {
+	test('recording takes the account lock itself, so ids follow commit order', async () => {
+		const { users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+
+		// Wrapped, as returning it bare would make the transaction wait for it.
+		const { holderId, waiting } = await db.transaction(
+			async (tx) => {
+				await lockAccount(tx, multisig.address);
+
+				// No `lockAccount` of its own, so only recording can make it wait.
+				const waiting = db.transaction((other) =>
+					recordAccountEvent(
+						other,
+						proposerAdded(
+							multisig.address,
+							users[0],
+							'waiting',
+						),
+					),
+				);
+				await untilABackendWaitsOnALock();
+
+				const holderId = await recordAccountEvent(
+					tx,
+					proposerAdded(
+						multisig.address,
+						users[0],
+						'holder',
+					),
+				);
+				return { holderId, waiting };
+			},
+		);
+
+		expect(await waiting).toBeGreaterThan(holderId);
+	});
+
 	test('a failing event insert leaves no proposer behind', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 1);
@@ -318,20 +386,6 @@ describe('cancelling a proposal', () => {
 			multisig.address,
 		);
 		return { session, users, multisig, proposal };
-	};
-
-	// `pg_stat_activity` is cached per transaction, so this must not run in
-	// the one holding the lock.
-	const untilABackendWaitsOnALock = async () => {
-		for (let attempt = 0; attempt < 400; attempt++) {
-			const { rows } = await db.execute(sql`
-				SELECT 1 FROM pg_stat_activity
-				WHERE datname = current_database()
-					AND wait_event_type = 'Lock'`);
-			if (rows.length > 0) return;
-			await Bun.sleep(25);
-		}
-		throw new Error('No backend is waiting on a lock');
 	};
 
 	test('records the signed cancel, once', async () => {
@@ -838,23 +892,6 @@ describe('proposal.created', () => {
 });
 
 describe('listAccountEvents', () => {
-	const proposerAdded = (
-		accountAddress: string,
-		actor: TestUser,
-		subject: string,
-	): AccountEvent => ({
-		action: 'proposer.added',
-		accountAddress,
-		actor: actor.address,
-		subject,
-		proof: {
-			kind: 'proposer.add',
-			version: 1,
-			signature: 'signature',
-			expiry: 'expiry',
-		},
-	});
-
 	const seed = (events: AccountEvent[]) =>
 		db.transaction(async (tx) => {
 			const ids: number[] = [];
