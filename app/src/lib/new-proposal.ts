@@ -86,17 +86,23 @@ export function proposalTypeFromQuery(
 /**
  * The default title of a transfer, "Send 3,850,000 USDC to 0x8d4a…3f10",
  * or null until the amount, the symbol and a valid recipient are there.
+ * `max` is set when the transfer sends the gas coin, so the recipient
+ * gets the amount minus gas: `whole` takes the balance ("Send all SUI to
+ * 0x8d4a…3f10"), `partial` leaves some behind ("Send up to 130.5 SUI to
+ * 0x8d4a…3f10").
  */
 export function transferTitle({
 	rawAmount,
 	decimals,
 	symbol,
 	recipient,
+	max,
 }: {
 	rawAmount: bigint | null;
 	decimals: number | null;
 	symbol: string | null;
 	recipient: string;
+	max?: 'whole' | 'partial';
 }): string | null {
 	const to = recipient.trim();
 	if (
@@ -107,11 +113,18 @@ export function transferTitle({
 		!isValidSuiAddress(to)
 	)
 		return null;
-	return COPY.transferTitle(
-		formatCoinAmount(rawAmount.toString(), decimals),
-		symbol,
-		formatAddress(normalizeSuiAddress(to)),
+	const shortRecipient = formatAddress(
+		normalizeSuiAddress(to),
 	);
+	if (max === 'whole')
+		return COPY.transferTitleAll(symbol, shortRecipient);
+	const amount = formatCoinAmount(
+		rawAmount.toString(),
+		decimals,
+	);
+	return max === 'partial'
+		? COPY.transferTitleUpTo(amount, symbol, shortRecipient)
+		: COPY.transferTitle(amount, symbol, shortRecipient);
 }
 
 export interface TransferCheck {

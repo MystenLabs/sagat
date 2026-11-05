@@ -51,6 +51,20 @@ describe('threshold warnings', () => {
 		);
 	});
 
+	test('the creator beside only an unfinished row is told to finish adding a signer', () => {
+		const check = checkSigners({
+			signers: [
+				signer('1', { isCreator: true, weight: 2 }),
+				signer('2', { key: '' }),
+			],
+			threshold: 2,
+			lookups: {},
+		});
+		expect(check.warning).toBe(
+			content.createMultisig.aloneOnlyYou,
+		);
+	});
+
 	test('several signers, named with "or"', () => {
 		expect(
 			thresholdWarning({

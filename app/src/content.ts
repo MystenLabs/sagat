@@ -30,6 +30,7 @@ export const content = {
 		/** Buttons, links and menu items. */
 		actions: {
 			cancel: 'Cancel',
+			discard: 'Discard',
 			close: 'Close',
 			back: 'Back',
 			continue: 'Continue',
@@ -348,6 +349,10 @@ export const content = {
 			`${name} can approve proposals alone. ${name}’s weight (${weight}) is at or above the threshold (${threshold}). Lower ${name}’s weight below ${threshold}, or raise the threshold above ${weight}.`,
 		aloneMany: (names: string, highest: number) =>
 			`${names} can approve proposals alone. Raise the threshold to ${highest + 1} or more so every proposal needs at least two signers.`,
+		aloneOnlyYou:
+			'You can approve proposals alone. You’re the only signer so far, so finish adding another signer.',
+		aloneOnlyNamed: (name: string) =>
+			`${name} can approve proposals alone. ${name}’s the only signer so far, so finish adding another signer.`,
 
 		/** Labels shared by the steps and the side cards. */
 		fields: {
@@ -440,8 +445,8 @@ export const content = {
 			createdBody: (name: string) =>
 				`${name} appears in your sidebar.`,
 			acceptTitle: 'Signers accept',
-			acceptBody: (invited: string) =>
-				`${invited} will each get an invitation. They’ll see the pod once they accept.`,
+			acceptBody: (invited: string, count: number) =>
+				`${invited} will ${count === 1 ? 'get' : 'each get'} an invitation. They’ll see the pod once they accept.`,
 			fundTitle: 'Fund the pod',
 			fundBodyTest:
 				'Get test SUI from the Sui faucet and send it to the pod’s Sui address. Test funds have no value, so it’s a safe way to try a proposal.',
@@ -567,6 +572,15 @@ export const content = {
 			symbol: string,
 			recipient: string,
 		) => `Send ${amount} ${symbol} to ${recipient}`,
+		/** The default title of a transfer of the whole SUI balance. */
+		transferTitleAll: (symbol: string, recipient: string) =>
+			`Send all ${symbol} to ${recipient}`,
+		/** The default title of Max on SUI when it can't take the whole balance. */
+		transferTitleUpTo: (
+			amount: string,
+			symbol: string,
+			recipient: string,
+		) => `Send up to ${amount} ${symbol} to ${recipient}`,
 
 		title: 'New proposal',
 		breadcrumbProposals: 'Proposals',
@@ -599,6 +613,8 @@ export const content = {
 			amountLabel: 'Amount',
 			amountPlaceholder: '0.00',
 			max: 'Max',
+			maxGasNote:
+				'Gas comes out of this amount, so the recipient gets a little less.',
 			recipientLabel: 'To',
 			building: 'Building…',
 		},
@@ -650,9 +666,14 @@ export const content = {
 				threshold: number,
 			) =>
 				`It shows in Proposals with your signature, ${yourWeight} of the ${threshold} weight it needs.`,
+			createdBodyReady:
+				'It shows in Proposals with your signature, which is all the weight it needs.',
 			signTitle: 'The other signers sign',
 			signBody: (threshold: number) =>
 				`Once signatures reach ${threshold}, anyone can execute it.`,
+			readyTitle: 'It’s ready to execute',
+			readyBody:
+				'Your weight meets the threshold, so it’s ready as soon as your signature is in. Anyone can execute it.',
 		},
 
 		/** The wizard's Help card. */
@@ -792,8 +813,8 @@ export const content = {
 						} accepted yet.`
 					: ''
 			}`,
-		created: (invited: string) =>
-			`Pod created. Invitations sent to ${invited}.`,
+		created: (invited: string, count: number) =>
+			`Pod created. ${count === 1 ? 'Invitation' : 'Invitations'} sent to ${invited}.`,
 
 		value: {
 			total: 'Total value',

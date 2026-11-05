@@ -1,6 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+	CoinTypeLine,
+	VerifiedMark,
+} from '@/components/assets/CoinMarks';
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import {
 	fieldFrame,
@@ -27,13 +31,15 @@ const COPY = content.newProposal.assetSelect;
 
 /**
  * The asset to send: each balance the account holds, with its icon,
- * symbol, name (when it differs from the symbol) and balance. A
- * skeleton while the balances load.
+ * symbol, verified mark, name (when it differs from the symbol) and
+ * balance, and in the list its coin type to copy. A skeleton while the
+ * balances load.
  */
 export function AssetSelect({
 	id,
 	balances,
 	coinData,
+	verified,
 	value,
 	onValueChange,
 	onOpen,
@@ -46,6 +52,8 @@ export function AssetSelect({
 	id: string;
 	balances: Balance[];
 	coinData: ReadonlyMap<string, CoinDisplayData>;
+	/** Undefined while it isn't known, as without the registry. */
+	verified: (coinType: string) => boolean | undefined;
 	/** The chosen coin type, or '' for none. */
 	value: string;
 	onValueChange: (coinType: string) => void;
@@ -105,6 +113,7 @@ export function AssetSelect({
 					<TriggerValue
 						balance={selected}
 						coinData={coinData.get(selected.coinType)}
+						verified={verified(selected.coinType)}
 					/>
 				) : (
 					<span className="flex-1 text-left text-muted-foreground/70">
@@ -118,6 +127,7 @@ export function AssetSelect({
 						key={balance.coinType}
 						balance={balance}
 						coinData={coinData.get(balance.coinType)}
+						verified={verified(balance.coinType)}
 					/>
 				))}
 			</SelectContent>
@@ -128,9 +138,11 @@ export function AssetSelect({
 function TriggerValue({
 	balance,
 	coinData,
+	verified,
 }: {
 	balance: Balance;
 	coinData: CoinDisplayData | undefined;
+	verified: boolean | undefined;
 }) {
 	const { symbol, name } = coinLabels(
 		balance.coinType,
@@ -147,15 +159,14 @@ function TriggerValue({
 				badge={false}
 				size="xs"
 			/>
-			<span className="shrink-0 text-14 font-medium">
-				{symbol}
-			</span>
-			{!sameCoinLabel(symbol, name) && (
-				<span className="min-w-0 truncate text-13 text-muted-foreground">
-					{name}
-				</span>
-			)}
-			<span className="ml-auto shrink-0 pl-3 text-13 text-muted-foreground tabular-nums">
+			<SymbolLine
+				symbol={symbol}
+				name={name}
+				verified={verified}
+				symbolClassName="text-14"
+				nameClassName="text-13"
+			/>
+			<span className="shrink-0 pl-3 text-13 text-muted-foreground tabular-nums">
 				{decimals != null ? (
 					COPY.balance(
 						formatCoinAmount(balance.balance, decimals),
@@ -171,9 +182,11 @@ function TriggerValue({
 function AssetOption({
 	balance,
 	coinData,
+	verified,
 }: {
 	balance: Balance;
 	coinData: CoinDisplayData | undefined;
+	verified: boolean | undefined;
 }) {
 	const { symbol, name } = coinLabels(
 		balance.coinType,
@@ -197,17 +210,19 @@ function AssetOption({
 					badge={false}
 					size="xs"
 				/>
-				<span className="flex min-w-0 flex-col">
-					<span className="truncate font-medium">
-						{symbol}
-					</span>
-					{!sameCoinLabel(symbol, name) && (
-						<span className="truncate text-12 leading-tight text-muted-foreground">
-							{name}
-						</span>
-					)}
+				{/* Takes what the balance leaves: long text truncates rather
+				    than widening the option. */}
+				<span className="flex min-w-0 grow flex-col gap-0.5 contain-inline-size">
+					<SymbolLine
+						symbol={symbol}
+						name={name}
+						verified={verified}
+						symbolClassName="text-13"
+						nameClassName="text-12"
+					/>
+					<CoinTypeLine coinType={balance.coinType} />
 				</span>
-				<span className="ml-auto flex shrink-0 flex-col items-end pl-3">
+				<span className="flex shrink-0 flex-col items-end pl-3">
 					<span className="font-medium tabular-nums">
 						{decimals != null ? (
 							formatCoinAmount(balance.balance, decimals)
@@ -221,5 +236,47 @@ function AssetOption({
 				</span>
 			</span>
 		</SelectItem>
+	);
+}
+
+/**
+ * SYMBOL ✓ Name, the name taking what the symbol leaves. `grow` also fills
+ * the row, which puts what follows at its far end.
+ */
+function SymbolLine({
+	symbol,
+	name,
+	verified,
+	symbolClassName,
+	nameClassName,
+}: {
+	symbol: string;
+	name: string;
+	verified: boolean | undefined;
+	symbolClassName: string;
+	nameClassName: string;
+}) {
+	return (
+		<span className="flex min-w-0 grow items-center gap-1.5 contain-inline-size">
+			<span
+				className={cn(
+					'min-w-0 truncate font-medium',
+					symbolClassName,
+				)}
+			>
+				{symbol}
+			</span>
+			<VerifiedMark verified={verified} />
+			{!sameCoinLabel(symbol, name) && (
+				<span
+					className={cn(
+						'grow truncate text-muted-foreground contain-inline-size',
+						nameClassName,
+					)}
+				>
+					{name}
+				</span>
+			)}
+		</span>
 	);
 }

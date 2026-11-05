@@ -101,6 +101,39 @@ describe('transferTitle', () => {
 		).toBe('Send 3,850,000 USDC to 0x8d4a…3f10');
 	});
 
+	test('says all for Max on the whole balance, without the amount', () => {
+		expect(
+			transferTitle({
+				...complete,
+				symbol: 'SUI',
+				max: 'whole',
+			}),
+		).toBe(
+			content.newProposal.transferTitleAll(
+				'SUI',
+				'0x8d4a…3f10',
+			),
+		);
+	});
+
+	test('says up to for Max short of the balance', () => {
+		expect(
+			transferTitle({
+				rawAmount: 130_500_000_000n,
+				decimals: 9,
+				symbol: 'SUI',
+				recipient: RECIPIENT,
+				max: 'partial',
+			}),
+		).toBe(
+			content.newProposal.transferTitleUpTo(
+				'130.5',
+				'SUI',
+				'0x8d4a…3f10',
+			),
+		);
+	});
+
 	test('is null until the transfer is complete', () => {
 		expect(
 			transferTitle({ ...complete, rawAmount: null }),

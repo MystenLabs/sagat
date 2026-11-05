@@ -112,6 +112,7 @@ export function TypeStep({
 			<StepFooter
 				testId="new-proposal"
 				onCancel={onCancel}
+				cancelLabel={content.common.actions.discard}
 				note={<FooterNote>{COPY.typeNote}</FooterNote>}
 				primary={
 					<Button

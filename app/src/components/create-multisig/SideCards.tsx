@@ -233,6 +233,7 @@ export function NextStepsCard({
 			title: COPY.nextSteps.acceptTitle,
 			body: COPY.nextSteps.acceptBody(
 				joinList(invited, 'and'),
+				invited.length,
 			),
 		},
 		{

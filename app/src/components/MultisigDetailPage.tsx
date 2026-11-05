@@ -160,6 +160,7 @@ export function MultisigDetailPage() {
 				>
 					{content.overview.created(
 						joinList(arrival.invited, 'and'),
+						arrival.invited.length,
 					)}
 				</SuccessBanner>
 			)}

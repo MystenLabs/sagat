@@ -20,10 +20,10 @@ import {
 } from './parts';
 
 /**
- * The frame both wizards share: the header with Cancel, the stepper, and
- * the step's card beside the side column. The page keeps the steps and
- * their state. `testId` is the prefix of the test ids: `<testId>-page`,
- * `<testId>-cancel` and the stepper's.
+ * The frame both wizards share: the header with Cancel (`cancelLabel`
+ * says what it reads), the stepper, and the step's card beside the side
+ * column. The page keeps the steps and their state. `testId` is the prefix
+ * of the test ids: `<testId>-page`, `<testId>-cancel` and the stepper's.
  */
 export function WizardPage({
 	title,
@@ -35,6 +35,7 @@ export function WizardPage({
 	onStep,
 	busy,
 	onCancel,
+	cancelLabel = content.common.actions.cancel,
 	direction,
 	cardRef,
 	beforeContent,
@@ -53,6 +54,7 @@ export function WizardPage({
 	/** Holds Cancel and the stepper, as while creating. */
 	busy: boolean;
 	onCancel: () => void;
+	cancelLabel?: string;
 	/** Which way the last step change went; the card slides in from it. */
 	direction: 'forward' | 'back';
 	cardRef: Ref<HTMLDivElement>;
@@ -84,7 +86,7 @@ export function WizardPage({
 							data-testid={`${testId}-cancel`}
 						>
 							<X />
-							{content.common.actions.cancel}
+							{cancelLabel}
 						</Button>
 					}
 				/>

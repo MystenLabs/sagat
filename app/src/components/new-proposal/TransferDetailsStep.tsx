@@ -158,6 +158,11 @@ export function TransferDetailsStep({
 			decimals,
 			symbol,
 			recipient: draft.recipient,
+			max: check.transferAllSui
+				? max?.partial
+					? 'partial'
+					: 'whole'
+				: undefined,
 		}) ??
 		'';
 	const currentTitleError = titleError(shownTitle);
@@ -301,6 +306,11 @@ export function TransferDetailsStep({
 					id="transfer-asset"
 					balances={assets.balances}
 					coinData={assets.coinData}
+					verified={(type) =>
+						assets.verifiedKnown
+							? assets.isVerified(type)
+							: undefined
+					}
 					value={coinType}
 					onValueChange={(coinType) => {
 						change('asset', draft.coinType);
@@ -395,14 +405,26 @@ export function TransferDetailsStep({
 						>
 							{amountError}
 						</p>
-					) : usd !== null ? (
-						<p
-							className="text-muted-foreground tabular-nums"
-							data-testid="transfer-amount-usd"
-						>
-							{formatUsdValue(usd)}
-						</p>
-					) : null}
+					) : (
+						<div className="flex items-start justify-between gap-3">
+							{usd !== null && (
+								<p
+									className="shrink-0 text-muted-foreground tabular-nums"
+									data-testid="transfer-amount-usd"
+								>
+									{formatUsdValue(usd)}
+								</p>
+							)}
+							{check.transferAllSui && (
+								<p
+									className="ml-auto min-w-0 text-right text-muted-foreground"
+									data-testid="transfer-max-gas-note"
+								>
+									{COPY.transferStep.maxGasNote}
+								</p>
+							)}
+						</div>
+					)}
 				</div>
 				{sendsSui && gasCoins.isError && (
 					<RetryNotice
@@ -487,6 +509,7 @@ export function TransferDetailsStep({
 
 			<StepFooter
 				onCancel={onCancel}
+				cancelLabel={content.common.actions.discard}
 				testId="new-proposal"
 				back={
 					<Button
