@@ -25,7 +25,10 @@ import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 type SignProposalParams = IntegrityProposal &
-	Pick<ProposalCardInput, 'id' | 'totalWeight'>;
+	Pick<ProposalCardInput, 'id' | 'totalWeight'> & {
+		/** The digest the viewer opened, from the page's URL. */
+		openedDigest: string;
+	};
 
 /**
  * Signs a proposal's transaction with the wallet and adds the signature,
@@ -47,10 +50,10 @@ export function useSignProposal() {
 				throw new Error(content.errors.noConnectedAccount);
 			const { id: proposalId, transactionBytes } = proposal;
 
-			const failure = checkProposalIntegrity(
-				proposal,
-				currentAccount.address,
-			);
+			const failure = checkProposalIntegrity(proposal, {
+				openedDigest: proposal.openedDigest,
+				signerAddress: currentAccount.address,
+			});
 			if (failure)
 				throw new Error(
 					content.proposal.approvals.refused[failure],

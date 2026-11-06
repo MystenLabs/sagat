@@ -5,21 +5,25 @@
 // before the wallet is asked to sign them.
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 
-import { computeMultisigAddress } from './sui-utils';
+import {
+	computeMultisigAddress,
+	validatePublicKey,
+} from './sui-utils';
 import { readTransactionBytes } from './transaction-preview';
 import { type ProposalCardInput } from './types';
-import { extractPublicKeyFromBase64 } from './wallet';
 
 /**
  * The first check a proposal failed: `unreadable`, the bytes don't
- * decode; `sender`, the bytes' sender isn't the account; `digest`, the
- * bytes' digest isn't the proposal's; `signers`, the account's signers
- * don't make up its address; `notSigner`, the connected wallet isn't one
- * of them.
+ * decode; `sender`, the bytes' sender isn't the account; `gasOwner`, the
+ * bytes set a gas owner other than the account; `digest`, the bytes'
+ * digest isn't the proposal's or the one the viewer opened; `signers`,
+ * the account's signers don't make up its address; `notSigner`, the
+ * connected wallet isn't one of them.
  */
 export type ProposalIntegrityFailure =
 	| 'unreadable'
 	| 'sender'
+	| 'gasOwner'
 	| 'digest'
 	| 'signers'
 	| 'notSigner';
@@ -35,24 +39,17 @@ export type IntegrityProposal = Pick<
 const sameAddress = (a: string, b: string) =>
 	normalizeSuiAddress(a) === normalizeSuiAddress(b);
 
-/** The key's address, or null for a key that doesn't parse. */
-function keyAddress(publicKey: string): string | null {
-	try {
-		return extractPublicKeyFromBase64(
-			publicKey,
-		).toSuiAddress();
-	} catch {
-		return null;
-	}
-}
-
 /**
  * Whether `signerAddress` may sign the proposal's bytes, or the first
- * check it failed.
+ * check it failed. `openedDigest` is the digest the viewer opened, from
+ * the page's URL, not from the response.
  */
 export function checkProposalIntegrity(
 	proposal: IntegrityProposal,
-	signerAddress: string,
+	{
+		openedDigest,
+		signerAddress,
+	}: { openedDigest: string; signerAddress: string },
 ): ProposalIntegrityFailure | null {
 	let read;
 	try {
@@ -62,7 +59,7 @@ export function checkProposalIntegrity(
 	}
 
 	const account = proposal.multisigAddress;
-	const sender = read.transaction.sender;
+	const { sender, gasData } = read.transaction;
 	if (
 		!sender ||
 		!sameAddress(sender, account) ||
@@ -71,7 +68,16 @@ export function checkProposalIntegrity(
 	)
 		return 'sender';
 
-	if (read.digest !== proposal.digest) return 'digest';
+	// Any other gas owner signs as the sponsor: when that's the signer, one
+	// signature would also give away their gas coins.
+	if (gasData.owner && !sameAddress(gasData.owner, account))
+		return 'gasOwner';
+
+	if (
+		read.digest !== proposal.digest ||
+		read.digest !== openedDigest
+	)
+		return 'digest';
 
 	// A rotated account will instead need the rebuilt address to be in the
 	// account's alias set, read from the app's own fullnode.
@@ -88,9 +94,9 @@ export function checkProposalIntegrity(
 
 	if (
 		!members.some((m) => {
-			const address = keyAddress(m.publicKey);
+			const { address } = validatePublicKey(m.publicKey);
 			return (
-				address !== null &&
+				address !== undefined &&
 				sameAddress(address, signerAddress)
 			);
 		})

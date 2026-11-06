@@ -67,6 +67,7 @@ const STATES = content.common.states;
  */
 export function ApprovalsCard({
 	proposal,
+	openedDigest,
 	status,
 	labels,
 	viewer,
@@ -76,6 +77,8 @@ export function ApprovalsCard({
 	canCancel: cancelAllowed,
 }: {
 	proposal: ProposalCardInput;
+	/** The digest the viewer opened, from the page's URL. */
+	openedDigest: string;
 	status: ProposalStatusKey;
 	labels: Labels;
 	viewer: ApprovalsNoteInput['viewer'];
@@ -137,9 +140,12 @@ export function ApprovalsCard({
 	const refused = useMemo(
 		() =>
 			canAct && walletAddress
-				? checkProposalIntegrity(proposal, walletAddress)
+				? checkProposalIntegrity(proposal, {
+						openedDigest,
+						signerAddress: walletAddress,
+					})
 				: null,
-		[canAct, walletAddress, proposal],
+		[canAct, walletAddress, proposal, openedDigest],
 	);
 	const refusing =
 		refused !== null && status === 'pending' && !signed;
@@ -193,29 +199,32 @@ export function ApprovalsCard({
 	});
 
 	const onSign = () =>
-		sign.mutate(proposal, {
-			onSuccess: ({ vote, signature }) => {
-				if (
-					!vote.hasReachedThreshold ||
-					!offerExecuteAfterSigning ||
-					!executeAfterSigning ||
-					!viewerPublicKey
-				)
-					return;
-				// With the new signature, so it needn't wait for the refetch.
-				execute({
-					...proposal,
-					signatures: [
-						...proposal.signatures,
-						{
-							proposalId: proposal.id,
-							publicKey: viewerPublicKey,
-							signature,
-						},
-					],
-				});
+		sign.mutate(
+			{ ...proposal, openedDigest },
+			{
+				onSuccess: ({ vote, signature }) => {
+					if (
+						!vote.hasReachedThreshold ||
+						!offerExecuteAfterSigning ||
+						!executeAfterSigning ||
+						!viewerPublicKey
+					)
+						return;
+					// With the new signature, so it needn't wait for the refetch.
+					execute({
+						...proposal,
+						signatures: [
+							...proposal.signatures,
+							{
+								proposalId: proposal.id,
+								publicKey: viewerPublicKey,
+								signature,
+							},
+						],
+					});
+				},
 			},
-		});
+		);
 
 	// A failing simulation is run again first: when it passes now, the
 	// proposal executes; when it still fails, or can't run this time, the

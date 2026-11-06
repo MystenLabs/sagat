@@ -76,7 +76,7 @@ export function SharedProposalPage() {
 	if (own)
 		return (
 			<Navigate
-				to={proposalPagePath(own.address, proposal.digest)}
+				to={proposalPagePath(own.address, digest)}
 				replace
 			/>
 		);
@@ -87,6 +87,7 @@ export function SharedProposalPage() {
 		<ProposalView
 			key={proposal.digest}
 			proposal={proposal}
+			openedDigest={digest}
 			labels={NO_LABELS}
 			proposalsPath={null}
 			canCancel={false}

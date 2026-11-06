@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type PublicProposal } from '@mysten/sagat';
-import { TransactionDataBuilder } from '@mysten/sui/transactions';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
 import {
 	fromBase64,
 	MIST_PER_SUI,
-	toBase58,
+	toBase64,
 } from '@mysten/sui/utils';
 
 import { randomAddress } from '../support/chain';
@@ -20,7 +23,21 @@ import {
 	setupMultisig,
 } from '../support/scenarios';
 
-type Rule = 'sender' | 'digest' | 'signers';
+type Rule = 'sender' | 'gasOwner' | 'digest' | 'signers';
+
+/** The proposal with other bytes, and the digest that matches them. */
+function withBytes(
+	proposal: PublicProposal,
+	transactionBytes: string,
+): PublicProposal {
+	return {
+		...proposal,
+		transactionBytes,
+		digest: TransactionDataBuilder.getDigestFromBytes(
+			fromBase64(transactionBytes),
+		),
+	};
+}
 
 /**
  * Alice proposes a transfer from her 2-of-2 account with Bob, and Bob
@@ -112,22 +129,47 @@ test.describe('proposal integrity', () => {
 				// A transfer from Bob's own address, which his signature alone
 				// would execute, with the digest that matches it.
 				await chain.fund(bob.address);
-				const transactionBytes =
+				return withBytes(
+					proposal,
 					await chain.buildSuiTransfer({
 						sender: bob.address,
 						recipient: randomAddress(),
 						amount: MIST_PER_SUI,
-					});
-				return {
-					...proposal,
-					transactionBytes,
-					digest: TransactionDataBuilder.getDigestFromBytes(
-						fromBase64(transactionBytes),
-					),
-				};
+					}),
+				);
 			},
 		);
 		await expectRefused(opened, 'sender');
+	});
+
+	test("refuses to sign bytes whose gas is paid by the signer's own address", async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const opened = await openTamperedProposal(
+			{ createActor, createIdentity, chain },
+			async ({ proposal, bob }) => {
+				// From the account, but with Bob's coins as gas and Bob as the
+				// gas owner, so his signature would also sign as the sponsor.
+				await chain.fund(bob.address);
+				const tx = new Transaction();
+				tx.setSender(proposal.multisigAddress);
+				tx.setGasOwner(bob.address);
+				tx.setGasPayment(await chain.coins(bob.address));
+				const [coin] = tx.splitCoins(tx.gas, [
+					MIST_PER_SUI,
+				]);
+				tx.transferObjects([coin], randomAddress());
+				return withBytes(
+					proposal,
+					toBase64(
+						await tx.build({ client: chain.client }),
+					),
+				);
+			},
+		);
+		await expectRefused(opened, 'gasOwner');
 	});
 
 	test("refuses to sign bytes that don't match the proposal's digest", async ({
@@ -137,12 +179,17 @@ test.describe('proposal integrity', () => {
 	}) => {
 		const opened = await openTamperedProposal(
 			{ createActor, createIdentity, chain },
-			({ proposal }) => ({
-				...proposal,
-				digest: toBase58(
-					crypto.getRandomValues(new Uint8Array(32)),
+			// Another proposal from the account, consistent in itself, in
+			// answer to the digest Bob opened.
+			async ({ proposal }) =>
+				withBytes(
+					proposal,
+					await chain.buildSuiTransfer({
+						sender: proposal.multisigAddress,
+						recipient: randomAddress(),
+						amount: 2n * MIST_PER_SUI,
+					}),
 				),
-			}),
 		);
 		await expectRefused(opened, 'digest');
 	});

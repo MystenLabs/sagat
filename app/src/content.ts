@@ -1034,6 +1034,8 @@ export const content = {
 				title: 'Can’t sign this proposal',
 				unreadable: 'The transaction couldn’t be read.',
 				sender: 'The transaction’s sender isn’t this pod.',
+				gasOwner:
+					'The transaction’s gas is paid by an address other than this pod.',
 				digest:
 					'The transaction doesn’t match the proposal’s digest.',
 				signers:
