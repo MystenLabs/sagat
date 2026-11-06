@@ -181,6 +181,26 @@ export function gasLabel(cost: bigint): string {
 	return cost < 0n ? COPY.gasRebate(amount) : amount;
 }
 
+/**
+ * What the bytes say on their own: the parsed transaction and the digest
+ * computed from them. Throws when they don't decode.
+ */
+export function readTransactionBytes(bytes: string): {
+	decoded: Uint8Array;
+	digest: string;
+	transaction: SuiClientTypes.TransactionData;
+} {
+	const decoded = fromBase64(bytes);
+	return {
+		decoded,
+		digest:
+			TransactionDataBuilder.getDigestFromBytes(decoded),
+		transaction: Transaction.from(
+			bytes,
+		).getData() as SuiClientTypes.TransactionData,
+	};
+}
+
 /** Everything the Transaction preview block shows, from the bytes and the dry run. */
 export function buildTransactionPreview(
 	input: TransactionPreviewInput,
@@ -194,10 +214,8 @@ export function buildTransactionPreview(
 		accounts = [],
 	} = input;
 
-	const decoded = fromBase64(bytes);
-	const transaction = Transaction.from(
-		bytes,
-	).getData() as SuiClientTypes.TransactionData;
+	const { decoded, digest, transaction } =
+		readTransactionBytes(bytes);
 
 	const names = new Map(
 		accounts.map((account) => [
@@ -231,8 +249,7 @@ export function buildTransactionPreview(
 
 	return {
 		status,
-		digest:
-			TransactionDataBuilder.getDigestFromBytes(decoded),
+		digest,
 		ledgerHash: ledgerHashOf(decoded),
 		sender,
 		statusMeta: simulatedAt
