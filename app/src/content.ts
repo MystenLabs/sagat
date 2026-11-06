@@ -1029,6 +1029,20 @@ export const content = {
 				stillFails: (reason: string) =>
 					`It still fails after a second simulation${reason}.`,
 			},
+			/** In place of Sign when the bytes fail a check, by `ProposalIntegrityFailure`. */
+			refused: {
+				title: 'Can’t sign this proposal',
+				unreadable: 'The transaction couldn’t be read.',
+				sender: 'The transaction’s sender isn’t this pod.',
+				gasOwner:
+					'The transaction’s gas is paid by an address other than this pod.',
+				digest:
+					'The transaction doesn’t match the proposal’s digest.',
+				signers:
+					'This pod’s signers and threshold don’t make up its address.',
+				notSigner:
+					'Your wallet isn’t one of this pod’s signers.',
+			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */
 				body: (recheck: string, gas: string | null) =>

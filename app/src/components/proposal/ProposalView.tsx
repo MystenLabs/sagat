@@ -82,11 +82,14 @@ const SHARED = content.proposal.shared;
  */
 export function ProposalView({
 	proposal,
+	openedDigest,
 	labels,
 	proposalsPath,
 	canCancel,
 }: {
 	proposal: ProposalCardInput;
+	/** The digest the viewer opened, from the page's URL. */
+	openedDigest: string;
 	labels: Labels;
 	proposalsPath: string | null;
 	/**
@@ -389,6 +392,7 @@ export function ProposalView({
 				<div className="flex min-w-0 flex-col gap-4">
 					<ApprovalsCard
 						proposal={proposal}
+						openedDigest={openedDigest}
 						status={status}
 						labels={labels}
 						viewer={viewer}

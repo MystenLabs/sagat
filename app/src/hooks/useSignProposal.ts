@@ -13,6 +13,10 @@ import {
 import { useState } from 'react';
 
 import { content } from '@/content';
+import {
+	checkProposalIntegrity,
+	type IntegrityProposal,
+} from '@/lib/proposal-integrity';
 import { signatureAddedMessage } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 import { type ProposalCardInput } from '@/lib/types';
@@ -20,14 +24,16 @@ import { type ProposalCardInput } from '@/lib/types';
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
-type SignProposalParams = Pick<
-	ProposalCardInput,
-	'id' | 'transactionBytes' | 'totalWeight'
->;
+type SignProposalParams = IntegrityProposal &
+	Pick<ProposalCardInput, 'id' | 'totalWeight'> & {
+		/** The digest the viewer opened, from the page's URL. */
+		openedDigest: string;
+	};
 
 /**
- * Signs a proposal's transaction with the wallet and adds the signature.
- * Resolves with the vote's tally and the signature itself, so a caller
+ * Signs a proposal's transaction with the wallet and adds the signature,
+ * refusing bytes that fail `checkProposalIntegrity` before the wallet
+ * sees them. Resolves with the vote's tally and the signature itself, so a caller
  * can execute at once without waiting for the proposal to refetch.
  */
 export function useSignProposal() {
@@ -39,12 +45,19 @@ export function useSignProposal() {
 		useState(false);
 
 	const mutation = useMutation({
-		mutationFn: async ({
-			id: proposalId,
-			transactionBytes,
-		}: SignProposalParams) => {
+		mutationFn: async (proposal: SignProposalParams) => {
 			if (!currentAccount)
 				throw new Error(content.errors.noConnectedAccount);
+			const { id: proposalId, transactionBytes } = proposal;
+
+			const failure = checkProposalIntegrity(proposal, {
+				openedDigest: proposal.openedDigest,
+				signerAddress: currentAccount.address,
+			});
+			if (failure)
+				throw new Error(
+					content.proposal.approvals.refused[failure],
+				);
 
 			// Create transaction from built bytes for signing
 			const transaction = Transaction.from(
@@ -57,6 +70,8 @@ export function useSignProposal() {
 			try {
 				result = await dappKit.signTransaction({
 					transaction,
+					// The account the check passed, so another can't sign.
+					account: currentAccount,
 				});
 			} finally {
 				setAwaitingWallet(false);

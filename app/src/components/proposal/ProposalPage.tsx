@@ -92,6 +92,7 @@ export function ProposalPage() {
 		<AccountProposal
 			multisig={multisig}
 			proposal={proposal}
+			openedDigest={digest}
 		/>
 	);
 }
@@ -99,9 +100,12 @@ export function ProposalPage() {
 function AccountProposal({
 	multisig,
 	proposal,
+	openedDigest,
 }: {
 	multisig: MultisigWithMembersForPublicKey;
 	proposal: PublicProposal;
+	/** The digest the viewer opened, from the page's URL. */
+	openedDigest: string;
 }) {
 	// Signers go by their keys' labels, which only the account has.
 	const labels = useMemo(
@@ -114,6 +118,7 @@ function AccountProposal({
 		<ProposalView
 			key={proposal.digest}
 			proposal={proposal}
+			openedDigest={openedDigest}
 			labels={labels}
 			proposalsPath={proposalsPath(multisig.address)}
 			canCancel

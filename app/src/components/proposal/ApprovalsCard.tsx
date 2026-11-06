@@ -1,12 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { Pen, Play, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 
 import { CancelProposalModal } from '@/components/modals/CancelProposalModal';
 import { SignerName } from '@/components/multisig/SignerName';
 import type { SimulationProps } from '@/components/transaction-preview/simulation';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/button';
 import {
 	cardClass,
@@ -29,6 +31,7 @@ import {
 } from '@/hooks/useDryRun';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
 import { useSignProposal } from '@/hooks/useSignProposal';
+import { checkProposalIntegrity } from '@/lib/proposal-integrity';
 import {
 	approvalRows,
 	approvalsNote,
@@ -59,10 +62,12 @@ const STATES = content.common.states;
  * Who signed, what the threshold needs, and what the viewer can do
  * about it: sign (and execute, when their signature reaches the
  * threshold), execute, or cancel. Only a signer on the proposal's
- * network gets the buttons.
+ * network gets the buttons. Bytes that fail `checkProposalIntegrity`
+ * get a refusal in place of Sign.
  */
 export function ApprovalsCard({
 	proposal,
+	openedDigest,
 	status,
 	labels,
 	viewer,
@@ -72,6 +77,8 @@ export function ApprovalsCard({
 	canCancel: cancelAllowed,
 }: {
 	proposal: ProposalCardInput;
+	/** The digest the viewer opened, from the page's URL. */
+	openedDigest: string;
 	status: ProposalStatusKey;
 	labels: Labels;
 	viewer: ApprovalsNoteInput['viewer'];
@@ -86,6 +93,7 @@ export function ApprovalsCard({
 	canCancel: boolean;
 }) {
 	const { currentAddress } = useApiAuth();
+	const wallet = useCurrentAccount();
 	const sign = useSignProposal();
 	const executing = useExecuteOrVerify();
 	const cancel = useCancelProposal();
@@ -128,6 +136,19 @@ export function ApprovalsCard({
 	};
 	const rechecking = recheck.isPending;
 	const canAct = viewer === 'member';
+	const walletAddress = wallet?.address ?? null;
+	const refused = useMemo(
+		() =>
+			canAct && walletAddress
+				? checkProposalIntegrity(proposal, {
+						openedDigest,
+						signerAddress: walletAddress,
+					})
+				: null,
+		[canAct, walletAddress, proposal, openedDigest],
+	);
+	const refusing =
+		refused !== null && status === 'pending' && !signed;
 	// Cancelling signs a message for the API session.
 	const canCancel =
 		cancelAllowed && canAct && !!currentAddress;
@@ -178,29 +199,32 @@ export function ApprovalsCard({
 	});
 
 	const onSign = () =>
-		sign.mutate(proposal, {
-			onSuccess: ({ vote, signature }) => {
-				if (
-					!vote.hasReachedThreshold ||
-					!offerExecuteAfterSigning ||
-					!executeAfterSigning ||
-					!viewerPublicKey
-				)
-					return;
-				// With the new signature, so it needn't wait for the refetch.
-				execute({
-					...proposal,
-					signatures: [
-						...proposal.signatures,
-						{
-							proposalId: proposal.id,
-							publicKey: viewerPublicKey,
-							signature,
-						},
-					],
-				});
+		sign.mutate(
+			{ ...proposal, openedDigest },
+			{
+				onSuccess: ({ vote, signature }) => {
+					if (
+						!vote.hasReachedThreshold ||
+						!offerExecuteAfterSigning ||
+						!executeAfterSigning ||
+						!viewerPublicKey
+					)
+						return;
+					// With the new signature, so it needn't wait for the refetch.
+					execute({
+						...proposal,
+						signatures: [
+							...proposal.signatures,
+							{
+								proposalId: proposal.id,
+								publicKey: viewerPublicKey,
+								signature,
+							},
+						],
+					});
+				},
 			},
-		});
+		);
 
 	// A failing simulation is run again first: when it passes now, the
 	// proposal executes; when it still fails, or can't run this time, the
@@ -267,6 +291,22 @@ export function ApprovalsCard({
 						{SHARED.executing}
 					</Button>
 				</ButtonRow>
+			);
+		} else if (refusing) {
+			actions = (
+				<>
+					<Alert
+						variant="error"
+						data-testid="sign-refused"
+						data-rule={refused}
+					>
+						<div className="font-medium">
+							{COPY.refused.title}
+						</div>
+						<div>{COPY.refused[refused]}</div>
+					</Alert>
+					<ButtonRow>{cancelButton('outline')}</ButtonRow>
+				</>
 			);
 		} else if (status === 'pending' && !signed) {
 			actions = (
@@ -400,7 +440,7 @@ export function ApprovalsCard({
 					{actions}
 				</div>
 			)}
-			{note && (
+			{note && !refusing && (
 				<p
 					className="text-12 text-muted-foreground"
 					data-testid={
