@@ -1047,6 +1047,36 @@ describe('Proposal Business Logic', () => {
 			});
 		});
 
+		test('a transaction with another gas owner is refused', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+
+			const tx = Transaction.from(
+				await buildTransfer(multisig.address),
+			);
+			tx.setGasOwner(newUser().address);
+			const bytes = await tx.build();
+			const { signature } =
+				await users[0].keypair.signTransaction(bytes);
+
+			expect(
+				await errorOf(
+					await session.post('/proposals', {
+						multisigAddress: multisig.address,
+						transactionBytes: toBase64(bytes),
+						signature,
+						network: 'localnet',
+					}),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'The transaction gas owner does not match the account.',
+				},
+			});
+		});
+
 		test('a request body over the size cap is refused with a 413', async () => {
 			const session = framework.createSession();
 
