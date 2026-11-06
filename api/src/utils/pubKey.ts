@@ -50,7 +50,7 @@ export const parsePublicKey = (
 	}
 
 	throw new ValidationError(
-		'Only ED25519, Secp256k1, and Secp256r1 are supported. Also, public keys must have a sui flag. You can export them using `toSuiPublicKey()` instead of `toBase64()`.',
+		'Only Ed25519, Secp256k1, and Secp256r1 are supported. Also, public keys must have a sui flag. You can export them using `toSuiPublicKey()` instead of `toBase64()`.',
 	);
 };
 
@@ -88,6 +88,6 @@ export const getPublicKeyFromSerializedSignature = (
 	if (publicKey) return publicKey;
 
 	throw new ValidationError(
-		'Invalid signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported. zkLogin wallets are not supported.',
+		'Invalid signature scheme. Only Ed25519, Secp256k1, and Secp256r1 are supported. zkLogin wallets are not supported.',
 	);
 };

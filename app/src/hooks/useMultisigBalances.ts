@@ -55,6 +55,16 @@ export function useMultisigBalances(owner: string) {
 			lastPage.hasNextPage ? lastPage.cursor : undefined,
 		staleTime: STALE_TIME_MS,
 		refetchOnWindowFocus: true,
+		// An empty account has no refresh control and nothing else refetches
+		// it, so coins sent to it while it's open would never show. Keys on
+		// cached data, not status: a failed background refetch sets status to
+		// `error` and would stop the polling for good.
+		refetchInterval: ({ state }) =>
+			state.data?.pages.every(
+				(page) => page.balances.length === 0,
+			)
+				? STALE_TIME_MS
+				: false,
 	});
 
 	const balances = useMemo<Balance[]>(() => {

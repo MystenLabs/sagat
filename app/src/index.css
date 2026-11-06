@@ -1,15 +1,77 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Design tokens for the redesign. Light values are taken from the Figma
+ * file; dark values are derived from them (the designs are light-only) and
+ * still need design sign-off. Components reference the semantic names
+ * below and never raw colours, so a theme change happens here only.
+ */
 @theme inline {
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 2px);
-	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) + 4px);
+	/* Type. The UI face is a stand-in until the licensed sans is picked;
+	   swap it here and nothing else moves. */
+	--font-sans:
+		'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-mono:
+		'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo,
+		monospace;
+	--font-heading: var(--font-sans);
+
+	/* Pixel-named sizes from the designs, with their line-heights and
+	   tracking baked in. Tailwind's default scale stays available. */
+	--text-10: 10px;
+	--text-10--line-height: 1.3;
+	--text-10--letter-spacing: 0.04em;
+	--text-11: 11px;
+	--text-11--line-height: 1.4;
+	--text-12: 12px;
+	--text-12--line-height: 1.4;
+	--text-13: 13px;
+	--text-13--line-height: 1.4;
+	--text-14: 14px;
+	--text-14--line-height: 1.4;
+	--text-15: 15px;
+	--text-15--line-height: 1.4;
+	--text-16: 16px;
+	--text-16--line-height: 1.4;
+	--text-18: 18px;
+	--text-18--line-height: 1.4;
+	--text-20: 20px;
+	--text-20--line-height: 1.3;
+	--text-24: 24px;
+	--text-24--line-height: 1.2;
+	--text-24--letter-spacing: -0.02em;
+	--text-30: 30px;
+	--text-30--line-height: 1.3;
+	--text-30--letter-spacing: -0.03em;
+	--text-32: 32px;
+	--text-32--line-height: 1.1;
+	--text-32--letter-spacing: -0.03em;
+	--text-40: 40px;
+	--text-40--line-height: 1.1;
+	--text-40--letter-spacing: -0.03em;
+
+	/* Radii: 6 on buttons and inputs, 10 on cards and dialogs, 12 on table shells. */
+	--radius-xs: 2px;
+	--radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-lg: 8px;
+	--radius-xl: 10px;
+	--radius-2xl: 12px;
+	--radius-3xl: 16px;
+	--radius-4xl: 20px;
+
+	/* The designs draw no shadows except on toasts. */
+	--shadow-toast: 0 8px 24px rgb(0 0 0 / 0.18);
+
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
+	--color-foreground-secondary: var(--foreground-secondary);
 	--color-card: var(--card);
 	--color-card-foreground: var(--card-foreground);
 	--color-popover: var(--popover);
@@ -26,11 +88,6 @@
 	--color-border: var(--border);
 	--color-input: var(--input);
 	--color-ring: var(--ring);
-	--color-chart-1: var(--chart-1);
-	--color-chart-2: var(--chart-2);
-	--color-chart-3: var(--chart-3);
-	--color-chart-4: var(--chart-4);
-	--color-chart-5: var(--chart-5);
 	--color-sidebar: var(--sidebar);
 	--color-sidebar-foreground: var(--sidebar-foreground);
 	--color-sidebar-primary: var(--sidebar-primary);
@@ -43,7 +100,13 @@
 	);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
+	/* Status text on the sidebar, which is black in both themes. */
+	--color-sidebar-warning: var(--sidebar-warning);
+	--color-sidebar-error: var(--sidebar-error);
 
+	/* Status tints: a coloured foreground over a translucent tint, so the
+	   pair works on any surface in either theme. The tint shares the text
+	   hue, except warning, which puts olive text on a brighter yellow. */
 	--color-success: var(--success);
 	--color-success-soft: var(--success-soft);
 	--color-success-foreground: var(--success-foreground);
@@ -51,6 +114,8 @@
 
 	--color-warning: var(--warning);
 	--color-warning-soft: var(--warning-soft);
+	/* Opaque yellow for the test-mode strip, stronger than the translucent tint. */
+	--color-warning-solid: var(--warning-solid);
 	--color-warning-foreground: var(--warning-foreground);
 	--color-warning-border: var(--warning-border);
 
@@ -60,12 +125,25 @@
 	--color-info-border: var(--info-border);
 
 	--color-error: var(--error);
-	--color-error-soft: var(--error-soft);
 	--color-error-foreground: var(--error-foreground);
 	--color-error-border: var(--error-border);
 
 	--color-purple: var(--purple);
 	--color-purple-foreground: var(--purple-foreground);
+
+	/* Neutral category chip (key type), skeleton bars, toasts. */
+	--color-chip: var(--chip);
+	--color-chip-foreground: var(--chip-foreground);
+	--color-skeleton: var(--skeleton);
+	--color-toast: var(--toast);
+	--color-toast-foreground: var(--toast-foreground);
+
+	/* Sui brand blue, for the coin and the logo only. */
+	--color-sui: var(--sui);
+
+	/* QR codes stay dark on light in both themes so they scan. */
+	--color-qr: var(--qr);
+	--color-qr-foreground: var(--qr-foreground);
 
 	--color-surface: var(--surface);
 	--color-surface-hover: var(--surface-hover);
@@ -73,143 +151,172 @@
 }
 
 :root {
-	--radius: 0.625rem;
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.145 0 0);
+	--radius: 6px;
+
+	/* Surfaces: grey page, white cards, hairline borders. */
+	--background: oklch(0.973 0 0);
+	--foreground: oklch(0 0 0);
+	--foreground-secondary: oklch(0.39 0 0);
 	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.145 0 0);
+	--card-foreground: oklch(0 0 0);
 	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(0.205 0 0);
-	--primary-foreground: oklch(0.985 0 0);
-	--secondary: oklch(0.97 0 0);
-	--secondary-foreground: oklch(0.205 0 0);
-	--muted: oklch(0.97 0 0);
-	--muted-foreground: oklch(0.556 0 0);
-	--accent: oklch(0.97 0 0);
-	--accent-foreground: oklch(0.205 0 0);
-	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.922 0 0);
-	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
-	--chart-1: oklch(0.646 0.222 41.116);
-	--chart-2: oklch(0.6 0.118 184.704);
-	--chart-3: oklch(0.398 0.07 227.392);
-	--chart-4: oklch(0.828 0.189 84.429);
-	--chart-5: oklch(0.769 0.188 70.08);
-	--sidebar: oklch(0.985 0 0);
-	--sidebar-foreground: oklch(0.145 0 0);
-	--sidebar-primary: oklch(0.205 0 0);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.97 0 0);
-	--sidebar-accent-foreground: oklch(0.205 0 0);
-	--sidebar-border: oklch(0.922 0 0);
-	--sidebar-ring: oklch(0.708 0 0);
+	--popover-foreground: oklch(0 0 0);
+	--primary: oklch(0 0 0);
+	--primary-foreground: oklch(1 0 0);
+	--secondary: oklch(0.934 0 0);
+	--secondary-foreground: oklch(0 0 0);
+	--muted: oklch(0.973 0 0);
+	--muted-foreground: oklch(0.54 0 0);
+	--accent: oklch(0.94 0 0);
+	--accent-foreground: oklch(0 0 0);
+	--destructive: oklch(0.575 0.186 30);
+	--border: oklch(0.949 0 0);
+	--input: oklch(0 0 0 / 24%);
+	--ring: oklch(0 0 0 / 40%);
 
-	--success: oklch(0.92 0.04 155);
-	--success-soft: oklch(0.97 0.014 155);
-	--success-foreground: oklch(0.5 0.17 155);
-	--success-border: oklch(0.5 0.17 155);
+	/* The sidebar is black in both themes. */
+	--sidebar: oklch(0 0 0);
+	--sidebar-foreground: oklch(1 0 0);
+	--sidebar-primary: oklch(1 0 0);
+	--sidebar-primary-foreground: oklch(0 0 0);
+	--sidebar-accent: oklch(1 0 0 / 10%);
+	--sidebar-accent-foreground: oklch(1 0 0);
+	--sidebar-border: oklch(1 0 0 / 12%);
+	--sidebar-ring: oklch(1 0 0 / 40%);
+	--sidebar-warning: oklch(0.85 0.139 78);
+	--sidebar-error: oklch(0.742 0.157 27);
 
-	--warning: oklch(0.93 0.1 95);
-	--warning-soft: oklch(0.97 0.05 95);
-	--warning-foreground: oklch(0.45 0.16 80);
-	--warning-border: oklch(0.45 0.16 80);
+	--success-foreground: oklch(0.469 0.104 161);
+	--success: oklch(0.469 0.104 161 / 10%);
+	--success-soft: oklch(0.469 0.104 161 / 6%);
+	--success-border: oklch(0.469 0.104 161 / 40%);
 
-	--info: oklch(0.93 0.035 250);
-	--info-soft: oklch(0.97 0.014 250);
-	--info-foreground: oklch(0.55 0.24 262);
-	--info-border: oklch(0.55 0.24 262);
+	--warning-foreground: oklch(0.443 0.077 96);
+	--warning: oklch(0.926 0.185 102 / 18%);
+	--warning-soft: oklch(0.926 0.185 102 / 10%);
+	--warning-solid: oklch(0.95 0.13 100);
+	--warning-border: oklch(0.443 0.077 96 / 40%);
 
-	--error: oklch(0.93 0.035 25);
-	--error-soft: oklch(0.97 0.014 25);
-	--error-foreground: oklch(0.55 0.22 25);
-	--error-border: oklch(0.55 0.22 25);
+	--info-foreground: oklch(0.451 0.13 251);
+	--info: oklch(0.451 0.13 251 / 10%);
+	--info-soft: oklch(0.451 0.13 251 / 6%);
+	--info-border: oklch(0.451 0.13 251 / 40%);
 
-	--purple: oklch(0.93 0.06 300);
+	--error-foreground: oklch(0.575 0.186 30);
+	--error: oklch(0.575 0.186 30 / 8%);
+	--error-border: oklch(0.575 0.186 30 / 40%);
+
 	--purple-foreground: oklch(0.5 0.2 300);
+	--purple: oklch(0.5 0.2 300 / 10%);
 
-	--surface: oklch(0.98 0 0);
-	/* Hover/selected tints for interactive rows. Tuned to be perceptible
-	   on top of `--card`/`--popover` without overpowering the row's own
-	   contents. */
-	--surface-hover: oklch(0.96 0 0);
-	--row-selected: oklch(0.94 0 0);
+	--chip: oklch(0.961 0 0);
+	--chip-foreground: oklch(0.39 0 0);
+	--skeleton: oklch(0.94 0 0);
+	--toast: oklch(0.182 0 0);
+	--toast-foreground: oklch(1 0 0);
+
+	--sui: #4da2ff;
+
+	--qr: oklch(1 0 0);
+	--qr-foreground: oklch(0 0 0);
+
+	--surface: oklch(0.973 0 0);
+	--surface-hover: oklch(0.95 0 0);
+	--row-selected: oklch(0.93 0 0);
 }
 
 .dark {
 	--background: oklch(0.145 0 0);
 	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.21 0 0);
+	--foreground-secondary: oklch(0.8 0 0);
+	--card: oklch(0.205 0 0);
 	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.21 0 0);
+	--popover: oklch(0.205 0 0);
 	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.922 0 0);
-	--primary-foreground: oklch(0.205 0 0);
-	--secondary: oklch(0.269 0 0);
+	--primary: oklch(0.985 0 0);
+	--primary-foreground: oklch(0.145 0 0);
+	--secondary: oklch(0.285 0 0);
 	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.269 0 0);
-	--muted-foreground: oklch(0.708 0 0);
-	--accent: oklch(0.269 0 0);
+	--muted: oklch(0.24 0 0);
+	--muted-foreground: oklch(0.65 0 0);
+	--accent: oklch(0.285 0 0);
 	--accent-foreground: oklch(0.985 0 0);
-	--destructive: oklch(0.704 0.191 22.216);
-	--border: oklch(1 0 0 / 20%);
-	--input: oklch(1 0 0 / 25%);
-	--ring: oklch(0.556 0 0);
-	--chart-1: oklch(0.488 0.243 264.376);
-	--chart-2: oklch(0.696 0.17 162.48);
-	--chart-3: oklch(0.769 0.188 70.08);
-	--chart-4: oklch(0.627 0.265 303.9);
-	--chart-5: oklch(0.645 0.246 16.439);
-	--sidebar: oklch(0.21 0 0);
-	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.488 0.243 264.376);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.269 0 0);
-	--sidebar-accent-foreground: oklch(0.985 0 0);
-	--sidebar-border: oklch(1 0 0 / 15%);
-	--sidebar-ring: oklch(0.556 0 0);
+	--destructive: oklch(0.72 0.17 30);
+	--border: oklch(1 0 0 / 12%);
+	--input: oklch(1 0 0 / 24%);
+	--ring: oklch(1 0 0 / 40%);
 
-	--success: oklch(0.26 0.06 155);
-	--success-soft: oklch(0.3 0.06 155);
-	--success-foreground: oklch(0.72 0.17 155);
-	--success-border: oklch(0.45 0.12 155);
+	--success-foreground: oklch(0.74 0.12 161);
+	--success: oklch(0.74 0.12 161 / 14%);
+	--success-soft: oklch(0.74 0.12 161 / 8%);
+	--success-border: oklch(0.74 0.12 161 / 40%);
 
-	--warning: oklch(0.26 0.05 95);
-	--warning-soft: oklch(0.3 0.05 95);
-	--warning-foreground: oklch(0.82 0.14 95);
-	--warning-border: oklch(0.48 0.12 80);
+	--warning-foreground: oklch(0.82 0.12 96);
+	--warning: oklch(0.926 0.185 102 / 14%);
+	--warning-soft: oklch(0.926 0.185 102 / 8%);
+	--warning-solid: oklch(0.33 0.07 100);
+	--warning-border: oklch(0.82 0.12 96 / 40%);
 
-	--info: oklch(0.24 0.05 250);
-	--info-soft: oklch(0.28 0.06 250);
-	--info-foreground: oklch(0.7 0.18 250);
-	--info-border: oklch(0.45 0.12 250);
+	--info-foreground: oklch(0.72 0.12 251);
+	--info: oklch(0.72 0.12 251 / 16%);
+	--info-soft: oklch(0.72 0.12 251 / 8%);
+	--info-border: oklch(0.72 0.12 251 / 40%);
 
-	--error: oklch(0.24 0.05 25);
-	--error-soft: oklch(0.28 0.05 25);
-	--error-foreground: oklch(0.72 0.17 25);
-	--error-border: oklch(0.45 0.12 25);
+	--error-foreground: oklch(0.72 0.17 30);
+	--error: oklch(0.72 0.17 30 / 14%);
+	--error-border: oklch(0.72 0.17 30 / 40%);
 
-	--purple: oklch(0.26 0.06 300);
 	--purple-foreground: oklch(0.75 0.15 300);
+	--purple: oklch(0.75 0.15 300 / 14%);
+
+	--chip: oklch(0.27 0 0);
+	--chip-foreground: oklch(0.8 0 0);
+	--skeleton: oklch(0.27 0 0);
+	--toast: oklch(0.26 0 0);
+	--toast-foreground: oklch(0.985 0 0);
+
+	--sui: #4da2ff;
+
+	--qr: oklch(1 0 0);
+	--qr-foreground: oklch(0 0 0);
 
 	--surface: oklch(0.18 0 0);
-	--surface-hover: oklch(0.26 0 0);
-	--row-selected: oklch(0.3 0 0);
+	--surface-hover: oklch(0.24 0 0);
+	--row-selected: oklch(0.28 0 0);
 }
 
 @layer base {
 	* {
 		@apply border-border outline-ring/50;
 	}
+	html {
+		@apply font-sans antialiased;
+	}
 	body {
 		@apply bg-background text-foreground;
 	}
+	/* Amounts line up in columns without switching to the mono face. */
+	table {
+		font-variant-numeric: tabular-nums;
+	}
 }
 
-/* Shared horizontal shell used by the top header and every page so the
-   left/right edges of header content align with body content. Tweak the
-   max-width and gutter here once and the entire app follows. */
+/* Toasts hang off the bottom centre of the content column; the shell sets
+   --content-left to the sidebar's current width. */
+html [data-sonner-toaster][data-x-position='center'] {
+	left: calc(50% + var(--content-left, 0px) / 2);
+	transform: translateX(-50%);
+}
+
+/* Text-field text: 16px on phones, so iOS Safari does not zoom the page
+   when a field takes focus, and the design's 14px from md up. A caller's
+   md:text-12 replaces the desktop size and keeps 16px on phones. */
+@utility text-field {
+	@apply text-16 md:text-14;
+}
+
+/* Main column of every page: the padding from the designs (44px top,
+   56px sides on desktop), no max-width. */
 @utility page-shell {
-	@apply mx-auto w-full max-w-[1600px] px-4;
+	@apply flex w-full flex-col px-5 pt-6 pb-10 md:px-14 md:pt-11 md:pb-14;
 }

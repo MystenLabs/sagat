@@ -2,28 +2,33 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { Mail, Plus } from 'lucide-react';
+import { Mail, Plus, Users } from 'lucide-react';
 import { Link, Navigate } from 'react-router-dom';
 
-import { useInvitations } from '../hooks/useInvitations';
+import { content } from '@/content';
+import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
+
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { Button } from './ui/button';
-import { Loading } from './ui/loading';
+import { EmptyState } from './ui/empty-state';
+import { PageHeader } from './ui/page-header';
+import { SkeletonPage } from './ui/skeleton';
+
+const COPY = content.firstUse;
 
 export function SmartDashboard() {
 	const { data: multisigs, isLoading } = useUserMultisigs(); // Only accepted multisigs
-	const { data: pendingInvites } = useInvitations(); // Pending invitations
 	const currentAccount = useCurrentAccount();
 
 	if (isLoading)
-		return <Loading message="Loading your multisigs..." />;
+		return <SkeletonPage rows={3} message={COPY.loading} />;
 
-	// Case 1: User has active multisigs - smart redirect
+	// Case 1: User has active multisigs - land on an account's overview
 	if (multisigs?.length && multisigs.length > 0) {
 		// Check if there's a last viewed multisig for this wallet address
 		const walletAddress = currentAccount?.address;
 		const lastViewedKey = walletAddress
-			? `lastViewedMultisig_${walletAddress}`
+			? lastViewedMultisigKey(walletAddress)
 			: null;
 		const lastViewedMultisig = lastViewedKey
 			? localStorage.getItem(lastViewedKey)
@@ -37,70 +42,55 @@ export function SmartDashboard() {
 			if (isValidMultisig) {
 				return (
 					<Navigate
-						to={`/multisig/${lastViewedMultisig}/proposals`}
+						to={`/multisig/${lastViewedMultisig}/overview`}
 						replace
 					/>
 				);
 			}
 		}
 
-		// Default: redirect to first available multisig
+		// Default: the first available multisig's overview
 		return (
 			<Navigate
-				to={`/multisig/${multisigs?.[0].address}/proposals`}
+				to={`/multisig/${multisigs?.[0].address}/overview`}
 				replace
 			/>
 		);
 	}
 
-	// Case 2: User has no active multisigs - show welcome screen
+	// Case 2: in no accounts yet - create one or answer an invitation
 	return (
 		<div
-			className="max-w-4xl mx-auto mt-10 px-4"
+			className="page-shell"
 			data-testid="dashboard-empty"
 		>
-			<div className="text-center mb-12">
-				<h1 className="text-4xl font-bold mb-4">
-					Welcome to Sagat
-				</h1>
-				<p className="text-xl text-muted-foreground mb-8">
-					Get started by creating your first multisig
-				</p>
-
-				{/* Primary CTA - Create Multisig */}
-				<Link
-					to="/create"
-					data-testid="create-first-multisig"
-				>
-					<Button size="lg" className="px-8">
-						<Plus className="mr-2 h-5 w-5" />
-						Create Your First Multisig
-					</Button>
-				</Link>
-
-				{/* Secondary CTA - View Invitations */}
-				<div className="mt-4">
-					<Link to="/invitations">
+			<PageHeader title={COPY.title} />
+			<EmptyState
+				icon={Users}
+				title={COPY.emptyTitle}
+				description={COPY.emptyDescription}
+				action={
+					<>
 						<Button
-							variant={
-								(pendingInvites?.length ?? 0) > 0
-									? 'outline'
-									: 'ghost'
-							}
-							className={
-								(pendingInvites?.length ?? 0) > 0
-									? 'border-warning-border'
-									: ''
-							}
+							render={<Link to="/create" />}
+							nativeButton={false}
+							data-testid="create-first-multisig"
 						>
-							<Mail className="mr-2 h-4 w-4" />
-							{(pendingInvites?.length ?? 0) > 0
-								? `View Invitations (${pendingInvites?.length ?? 0})`
-								: 'Check Invitations'}
+							<Plus />
+							{content.common.actions.createPod}
 						</Button>
-					</Link>
-				</div>
-			</div>
+						<Button
+							variant="outline"
+							render={<Link to="/invitations" />}
+							nativeButton={false}
+							data-testid="view-invitations"
+						>
+							<Mail />
+							{COPY.viewInvitations}
+						</Button>
+					</>
+				}
+			/>
 		</div>
 	);
 }

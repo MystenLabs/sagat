@@ -2,8 +2,54 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
+import { RpcError } from '@mysten/sui/grpc';
 import { Transaction } from '@mysten/sui/transactions';
 import { useMutation } from '@tanstack/react-query';
+
+import type { SimulatedTransaction } from '@/lib/transaction-preview';
+
+/**
+ * The simulation ran and the transaction failed; the message says why,
+ * and `transaction` is the failed run's payload (digest, epoch, gas,
+ * effects).
+ */
+export class SimulationFailedError extends Error {
+	constructor(
+		message: string,
+		readonly transaction: SimulatedTransaction,
+	) {
+		super(message);
+		this.name = 'SimulationFailedError';
+	}
+}
+
+// The codes a node refuses the transaction itself with, such as for an
+// input object that doesn't exist.
+const REFUSED_CODES = [
+	'INVALID_ARGUMENT',
+	'FAILED_PRECONDITION',
+	'NOT_FOUND',
+	'OUT_OF_RANGE',
+];
+
+// The node refuses an expired transaction with INTERNAL, the code the SDK
+// also uses for a node it can't reach, so this one is told by the node's
+// message.
+const EXPIRED_MESSAGE = 'Transaction Expired';
+
+/**
+ * Whether a failed dry run couldn't be run at all (offline, a timeout, a
+ * 5xx), where trying again may help. False when the error is a verdict
+ * on the transaction: it ran and failed, or the node refused it.
+ */
+export function couldNotSimulate(error: unknown): boolean {
+	return !(
+		error instanceof SimulationFailedError ||
+		(error instanceof RpcError &&
+			(REFUSED_CODES.includes(error.code) ||
+				error.message === EXPIRED_MESSAGE))
+	);
+}
 
 export function useDryRun() {
 	const client = useDAppKit().getClient();
@@ -24,9 +70,10 @@ export function useDryRun() {
 			});
 
 			if (result.FailedTransaction) {
-				throw new Error(
+				throw new SimulationFailedError(
 					result.FailedTransaction.effects.status.error
-						?.message,
+						?.message ?? '',
+					result.FailedTransaction,
 				);
 			}
 

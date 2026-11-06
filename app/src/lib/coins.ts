@@ -1,15 +1,56 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type {
+	ClientWithCoreApi,
+	SuiClientTypes,
+} from '@mysten/sui/client';
 import {
 	normalizeStructTag,
 	SUI_TYPE_ARG,
 } from '@mysten/sui/utils';
 
+import { content } from '../content';
 import type { CoinPricing } from './coinDisplay';
+import type { SuiNetwork } from './network';
 
 const NORMALIZED_SUI_COIN_TYPE =
 	normalizeStructTag(SUI_TYPE_ARG);
+
+// The most coins one transaction pays gas with: the protocol's
+// max_gas_payment_objects, the cap the node selects gas within.
+export const MAX_GAS_PAYMENT_OBJECTS = 256;
+
+/** The owner's SUI coins, paging until the end or `max` coins. */
+export async function listSuiCoins(
+	client: ClientWithCoreApi,
+	owner: string,
+	max: number,
+): Promise<SuiClientTypes.Coin[]> {
+	const coins: SuiClientTypes.Coin[] = [];
+	let cursor: string | null = null;
+	do {
+		const page: SuiClientTypes.ListCoinsResponse =
+			await client.core.listCoins({
+				owner,
+				coinType: SUI_TYPE_ARG,
+				cursor,
+				// The node's page maximum.
+				limit: Math.min(max, 1000),
+			});
+		coins.push(...page.objects);
+		cursor = page.hasNextPage ? page.cursor : null;
+	} while (cursor && coins.length < max);
+	return coins.slice(0, max);
+}
+
+/** The SUI coins one transfer of the gas coin can spend. */
+export interface SuiGasCoins {
+	/** The balance of the first MAX_GAS_PAYMENT_OBJECTS coins. */
+	value: bigint;
+	/** True when `owner` holds more coins than that. */
+	hasMore: boolean;
+}
 
 export function isSuiCoinType(
 	coinType: string | null | undefined,
@@ -48,7 +89,8 @@ export function formatInputAmount(
 
 /**
  * Parse a human-entered decimal amount into on-chain integer units.
- * Accepts plain decimals and grouped strings (e.g. "1,234.56").
+ * Accepts plain decimals and grouped strings (e.g. "1,234.56"), and
+ * trailing zeros past `decimals`.
  */
 export function parseAmount(
 	input: string,
@@ -65,7 +107,10 @@ export function parseAmount(
 	const wholePart = match.groups.whole ?? '';
 	const fractionPart = match.groups.fraction ?? '';
 	if (!wholePart && fractionPart === '') return null;
-	if (fractionPart.length > decimals) return null;
+	// Zeros past the coin's decimals change nothing ("1.50" of a
+	// 1-decimal coin is 1.5); any other digit there can't be sent.
+	if (/[^0]/.test(fractionPart.slice(decimals)))
+		return null;
 
 	const paddedFraction = fractionPart
 		.padEnd(decimals, '0')
@@ -82,25 +127,6 @@ export function parseAmount(
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Maximum transferable input amount after subtracting a raw-unit reserve.
- * Useful for SUI where we reserve gas.
- */
-export function getMaxInputAmount(
-	rawBalance: string,
-	decimals: number,
-	reservedRawBalance: string = '0',
-): string | null {
-	let big: bigint;
-	try {
-		big = BigInt(rawBalance) - BigInt(reservedRawBalance);
-	} catch {
-		return null;
-	}
-	if (big <= 0n) return null;
-	return formatInputAmount(big.toString(), decimals);
 }
 
 function formatUnits(
@@ -145,7 +171,12 @@ function formatUnits(
 	return negative ? `-${display}` : display;
 }
 
+/** Under this in size, a value other than 0 would round to $0.0000. */
+const SMALLEST_SHOWN_USD = 0.00005;
+
 export function formatUsdValue(value: number): string {
+	if (value !== 0 && Math.abs(value) < SMALLEST_SHOWN_USD)
+		return content.common.belowSmallestUsd(value < 0);
 	const fractionDigits =
 		value !== 0 && Math.abs(value) < 1 ? 4 : 2;
 	return new Intl.NumberFormat('en-US', {
@@ -154,6 +185,42 @@ export function formatUsdValue(value: number): string {
 		minimumFractionDigits: fractionDigits,
 		maximumFractionDigits: fractionDigits,
 	}).format(value);
+}
+
+/**
+ * Whether `coinType` has a price on `network`. The registry's prices are
+ * mainnet's and keyed by coin type, so elsewhere they would value a test
+ * coin at a real coin's price, and nothing has a price off mainnet, except
+ * SUI: `0x2::sui::SUI` is the same type on every network, so its entry
+ * names the coin held. That gives test accounts a dollar value to show, at
+ * mainnet's price though test SUI is worth nothing.
+ */
+export function pricesAvailableOn(
+	network: SuiNetwork,
+	coinType: string,
+): boolean {
+	return network === 'mainnet' || isSuiCoinType(coinType);
+}
+
+/** A coin's prices as shown on `network`; see `pricesAvailableOn`. */
+export function pricingOnNetwork(
+	network: SuiNetwork,
+	coinType: string,
+	pricing: CoinPricing,
+): Required<CoinPricing> {
+	if (!pricesAvailableOn(network, coinType)) {
+		return {
+			priceUsd: null,
+			priceChange24hUsd: null,
+			priceChange24hPercentage: null,
+		};
+	}
+	return {
+		priceUsd: pricing.priceUsd ?? null,
+		priceChange24hUsd: pricing.priceChange24hUsd ?? null,
+		priceChange24hPercentage:
+			pricing.priceChange24hPercentage ?? null,
+	};
 }
 
 /** USD value of a raw on-chain amount, or `null` if any input is missing. */
@@ -240,4 +307,99 @@ function normalizeUsd(value: number | null): number | null {
 	return value != null && Number.isFinite(value)
 		? value
 		: null;
+}
+
+export interface PortfolioValue {
+	/** USD across the balances that have a price. */
+	total: number;
+	/** How many balances went into `total`. */
+	priced: number;
+	/** How many balances have no price and are left out. */
+	unpriced: number;
+}
+
+/** Sums the USD value of the balances that have one and counts the rest. */
+export function totalUsdValue<T>(
+	balances: readonly T[],
+	getUsdValue: (balance: T) => number | null,
+): PortfolioValue {
+	const value: PortfolioValue = {
+		total: 0,
+		priced: 0,
+		unpriced: 0,
+	};
+	for (const balance of balances) {
+		const usd = getUsdValue(balance);
+		if (usd == null || !Number.isFinite(usd)) {
+			value.unpriced++;
+		} else {
+			value.total += usd;
+			value.priced++;
+		}
+	}
+	return value;
+}
+
+/**
+ * The total to show for the account, or `null` to withhold it when it
+ * holds coins but none of them has a price, since $0.00 would then be
+ * wrong.
+ */
+export function shownUsdTotal(
+	value: PortfolioValue,
+): number | null {
+	return value.priced > 0 || value.unpriced === 0
+		? value.total
+		: null;
+}
+
+export interface AccountAssetsInput {
+	/**
+	 * No balances and no error yet, loading or paused offline. Not
+	 * `isLoading`: paused, that is false, and no balances would read as $0.
+	 */
+	balancesPending: boolean;
+	/** The balances query is in an error state. */
+	balancesError: boolean;
+	/** Some balances are loaded (kept through a failed refetch). */
+	hasData: boolean;
+	/** Balances pages are still to be fetched for the total. */
+	pagesLeft: boolean;
+	/** The registry, the only source of prices, has no answer yet. */
+	pricesPending: boolean;
+	/** The registry failed to load. */
+	pricesError: boolean;
+}
+
+export interface AccountAssetsState {
+	/** Balances or prices still loading, so the value may change. */
+	isLoading: boolean;
+	/** The balances failed or stopped part-way, so the value means nothing. */
+	isError: boolean;
+	/** The registry failed to load, so no coin has a price. */
+	pricesError: boolean;
+}
+
+/**
+ * Where the account's value stands. A failed refetch keeps the cached
+ * balances, but a failed later page would leave the total partial, so
+ * that counts as an error. Metadata for coins outside the registry is
+ * never waited on, since those have no price.
+ */
+export function accountAssetsState({
+	balancesPending,
+	balancesError,
+	hasData,
+	pagesLeft,
+	pricesPending,
+	pricesError,
+}: AccountAssetsInput): AccountAssetsState {
+	const isError = balancesError && (!hasData || pagesLeft);
+	return {
+		isLoading:
+			!isError &&
+			(balancesPending || pagesLeft || pricesPending),
+		isError,
+		pricesError,
+	};
 }

@@ -1,55 +1,53 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useEffect, type ReactNode } from 'react';
+import { type ComponentProps, type ReactNode } from 'react';
 
-interface ModalProps {
+import { cn } from '@/lib/utils';
+
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from './dialog';
+
+type ModalProps = {
 	open: boolean;
 	onClose: () => void;
 	children: ReactNode;
-	size?: 'sm' | 'md' | 'lg';
-}
+} & Omit<
+	ComponentProps<typeof DialogContent>,
+	'children' | 'showCloseButton'
+>;
 
-const sizeClasses = {
-	sm: 'max-w-sm',
-	md: 'max-w-md',
-	lg: 'max-w-lg',
-};
-
+/**
+ * A dialog with a title, a body and its buttons. Anything else (a test
+ * id, `initialFocus`) goes to the dialog's popup.
+ */
 export function Modal({
 	open,
 	onClose,
 	children,
-	size = 'md',
+	className,
+	...props
 }: ModalProps) {
-	useEffect(() => {
-		if (!open) return;
-
-		const handleEscape = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') {
-				onClose();
-			}
-		};
-
-		document.addEventListener('keydown', handleEscape);
-		return () =>
-			document.removeEventListener('keydown', handleEscape);
-	}, [open, onClose]);
-
-	if (!open) return null;
-
 	return (
-		<div
-			className="fixed inset-1 bg-black bg-opacity-50 flex items-center justify-center z-[9999]"
-			onClick={onClose}
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				if (!next) onClose();
+			}}
 		>
-			<div
-				className={`bg-card rounded-lg p-6 w-full mx-4 ${sizeClasses[size]}`}
-				onClick={(e) => e.stopPropagation()}
+			<DialogContent
+				showCloseButton={false}
+				className={cn('gap-0 p-6', className)}
+				{...props}
 			>
 				{children}
-			</div>
-		</div>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -63,41 +61,43 @@ export function ModalHeader({
 	title,
 }: ModalHeaderProps) {
 	return (
-		<div className="flex items-center gap-3 mb-4">
+		<DialogHeader className="flex-row items-center gap-3">
 			{icon}
-			<h2 className="text-lg font-semibold">{title}</h2>
-		</div>
+			<DialogTitle className="text-20 font-bold">
+				{title}
+			</DialogTitle>
+		</DialogHeader>
 	);
 }
 
+/**
+ * The body, read out with the title. A long unbroken string (an error,
+ * an address) wraps rather than widening the dialog.
+ */
 export function ModalContent({
 	children,
 }: {
 	children: ReactNode;
 }) {
-	return <div className="space-y-3 mb-6">{children}</div>;
+	return (
+		<DialogDescription
+			render={<div />}
+			className="mt-2 flex min-w-0 flex-col gap-2 text-14 wrap-anywhere text-muted-foreground"
+		>
+			{children}
+		</DialogDescription>
+	);
 }
 
+/** The buttons, side by side at equal width. */
 export function ModalActions({
 	children,
 }: {
 	children: ReactNode;
 }) {
 	return (
-		<div className="flex gap-3 justify-end">{children}</div>
-	);
-}
-
-export function ModalWarning({
-	children,
-}: {
-	children: ReactNode;
-}) {
-	return (
-		<div className="bg-warning border border-warning-border rounded-lg p-3">
-			<p className="text-sm text-warning-foreground">
-				{children}
-			</p>
+		<div className="mt-5 grid min-w-0 auto-cols-fr grid-flow-col gap-2 *:min-w-0">
+			{children}
 		</div>
 	);
 }

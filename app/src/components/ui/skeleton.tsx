@@ -1,18 +1,27 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { content } from '@/content';
 import { cn } from '@/lib/utils';
 
-type SkeletonProps = React.HTMLAttributes<HTMLDivElement>;
+import { tableShellClass } from './table';
 
-export function Skeleton({
+/**
+ * Loading placeholders from the designs: flat bars on the skeleton token,
+ * laid out like the content they stand in for so nothing jumps when the
+ * data arrives. Text lines are 10px tall with a 4px radius, chips 14px and
+ * fully round.
+ */
+function Skeleton({
 	className,
 	...props
-}: SkeletonProps) {
+}: React.ComponentProps<'div'>) {
 	return (
 		<div
+			data-slot="skeleton"
+			aria-hidden
 			className={cn(
-				'animate-pulse rounded bg-muted',
+				'animate-pulse rounded-sm bg-skeleton',
 				className,
 			)}
 			{...props}
@@ -20,52 +29,143 @@ export function Skeleton({
 	);
 }
 
-interface SkeletonListProps {
-	count?: number;
-	className?: string;
-}
-
-export function SkeletonList({
-	count = 2,
+/** A single line of text. */
+function SkeletonLine({
 	className,
-}: SkeletonListProps) {
+	...props
+}: React.ComponentProps<'div'>) {
 	return (
-		<div className={cn('text-center py-12', className)}>
-			<div className="space-y-4">
-				{Array.from({ length: count }).map((_, i) => (
-					<Skeleton
-						key={i}
-						className={cn(
-							'h-8 mx-auto',
-							i === 0 ? 'w-1/4' : 'w-1/2',
-						)}
-					/>
-				))}
-			</div>
-		</div>
+		<Skeleton
+			className={cn('h-2.5 w-32', className)}
+			{...props}
+		/>
 	);
 }
 
-interface SkeletonTextProps {
-	lines?: number;
-	className?: string;
+/** A status chip. */
+function SkeletonChip({
+	className,
+	...props
+}: React.ComponentProps<'div'>) {
+	return (
+		<Skeleton
+			className={cn('h-3.5 w-16 rounded-full', className)}
+			{...props}
+		/>
+	);
 }
 
-export function SkeletonText({
-	lines = 2,
+/**
+ * A table of `rows` rows in a bordered shell: a two-line title cell on the
+ * left, then a chip and a couple of value cells, matching the proposals
+ * and invitations lists. Header bars sit in cells as wide as the row cells
+ * below them. `status={false}` drops the live region when a parent
+ * already announces the loading.
+ */
+export function SkeletonRows({
+	rows = 5,
+	header = true,
+	status = true,
 	className,
-}: SkeletonTextProps) {
+	testId = 'skeleton-rows',
+}: {
+	rows?: number;
+	header?: boolean;
+	status?: boolean;
+	className?: string;
+	testId?: string;
+}) {
 	return (
-		<div className={cn('space-y-2', className)}>
-			{Array.from({ length: lines }).map((_, i) => (
-				<Skeleton
+		<div
+			role={status ? 'status' : undefined}
+			aria-label={
+				status ? content.states.loading : undefined
+			}
+			aria-busy={status || undefined}
+			data-testid={testId}
+			className={cn(tableShellClass, className)}
+		>
+			{header && (
+				<div className="flex h-8 items-center gap-3 bg-muted px-3">
+					<div className="min-w-0 flex-1">
+						<SkeletonLine className="w-12" />
+					</div>
+					<div className="hidden w-16 shrink-0 sm:block">
+						<SkeletonLine className="w-10" />
+					</div>
+					<div className="hidden w-20 shrink-0 md:block">
+						<SkeletonLine className="w-10" />
+					</div>
+					<div className="w-16 shrink-0">
+						<SkeletonLine className="w-10" />
+					</div>
+				</div>
+			)}
+			{Array.from({ length: rows }).map((_, i) => (
+				<div
 					key={i}
-					className={cn(
-						'h-3',
-						i === lines - 1 ? 'w-1/4' : 'w-3/4',
-					)}
-				/>
+					className="flex h-[62px] items-center gap-3 border-b px-3 last:border-b-0"
+				>
+					<div className="flex min-w-0 flex-1 flex-col gap-2">
+						<SkeletonLine
+							className={cn(
+								i % 3 === 0
+									? 'w-72'
+									: i % 3 === 1
+										? 'w-56'
+										: 'w-64',
+								'max-w-full',
+							)}
+						/>
+						<SkeletonLine className="w-24" />
+					</div>
+					<SkeletonChip className="hidden shrink-0 sm:block" />
+					<SkeletonLine className="hidden w-20 shrink-0 md:block" />
+					<SkeletonLine className="w-16 shrink-0" />
+				</div>
 			))}
 		</div>
 	);
 }
+
+/** The page header while its title is still loading. */
+function SkeletonPageHeader() {
+	return (
+		<div className="mb-7 flex flex-col gap-1" aria-hidden>
+			<SkeletonLine className="w-28" />
+			<Skeleton className="h-7 w-56 rounded-md" />
+		</div>
+	);
+}
+
+/** A whole page: header placeholder over a table of rows. */
+export function SkeletonPage({
+	rows = 5,
+	message = content.states.loading,
+	className,
+	testId = 'skeleton-page',
+}: {
+	rows?: number;
+	message?: string;
+	className?: string;
+	testId?: string;
+}) {
+	return (
+		<div
+			className={cn('page-shell', className)}
+			data-testid={testId}
+		>
+			<SkeletonPageHeader />
+			<SkeletonRows
+				rows={rows}
+				status={false}
+				testId={`${testId}-rows`}
+			/>
+			<span className="sr-only" role="status">
+				{message}
+			</span>
+		</div>
+	);
+}
+
+export { Skeleton, SkeletonChip, SkeletonLine };

@@ -8,13 +8,30 @@ import { Actor } from './actor';
 import { Chain } from './chain';
 import { Identity } from './identity';
 
-type Fixtures = {
+export type Fixtures = {
 	chain: Chain;
 	// A user with a browser, wallet and page, for people driving the UI.
-	// `otherAccounts` names further accounts in the same wallet.
+	// `otherAccounts` names further accounts in the same wallet;
+	// `walletChains` narrows the chains the wallet advertises;
+	// `failRestore` makes the wallet's silent session restore throw;
+	// `declineSign` makes it reject every personal-message signature
+	// (sign-in included) from the start (a test flips
+	// `window.__e2eWallet.declineConnect` / `.declineSign` to decline
+	// mid-flow);
+	// `rejectSigning` makes it decline every transaction to sign;
+	// `zkLogin` presents the actor's account with a zkLogin key;
+	// `hasTouch` gives the browser a touchscreen, for `.tap()`.
 	createActor: (
 		name: string,
-		options?: { otherAccounts?: string[] },
+		options?: {
+			otherAccounts?: string[];
+			walletChains?: `sui:${string}`[];
+			failRestore?: boolean;
+			declineSign?: boolean;
+			rejectSigning?: boolean;
+			zkLogin?: boolean;
+			hasTouch?: boolean;
+		},
 	) => Promise<Actor>;
 	// A user without a browser, for people who only act through the API.
 	createIdentity: (name: string) => Identity;
@@ -35,6 +52,7 @@ export const test = base.extend<Fixtures>({
 					(other) =>
 						new Identity(other, new Ed25519Keypair()),
 				),
+				options,
 			);
 			actors.push(actor);
 			return actor;

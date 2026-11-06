@@ -22,7 +22,7 @@
 	"scripts": {
 		"fmt": "prettier --write .",
 		"fmt:check": "prettier --check .",
-		"lint": "eslint . --ext ts,tsx --max-warnings 0 && cd app && eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+		"lint": "eslint . --ext ts,tsx --max-warnings 0 && cd app && eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0 && bun run lint:design",
 		"lint:fix": "eslint . --ext ts,tsx --fix --max-warnings 0 && cd app && eslint . --ext ts,tsx --fix --report-unused-disable-directives --max-warnings 0",
 		"typecheck": "bun run typecheck:sdk && bun run typecheck:api",
 		"typecheck:sdk": "cd sdk && bun run typecheck",

@@ -4,70 +4,23 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { Tabs, type Tab } from '@/components/ui/tabs';
+import { PageHeader } from '@/components/ui/page-header';
 import { TOOLS, type Tool } from '@/config/tools';
 
-function ToolDetail({ tool }: { tool: Tool }) {
-	const ToolComponent = tool.component;
-
-	return (
-		<div className="space-y-6">
-			<div className="flex items-center gap-3">
-				<div className="p-2 bg-info-soft rounded-lg">
-					{tool.icon}
-				</div>
-				<div>
-					<h2 className="text-2xl font-bold">
-						{tool.name}
-					</h2>
-					<p className="text-muted-foreground text-sm">
-						{tool.description}
-					</p>
-				</div>
-			</div>
-
-			<div className="border rounded-lg p-6">
-				<ToolComponent />
-			</div>
-		</div>
-	);
-}
-
-function ToolsNavigation({
-	currentPath,
-	onNavigate,
-}: {
-	currentPath: string;
-	onNavigate: (path: string) => void;
-}) {
-	const tabs: Tab[] = TOOLS.map((tool: Tool) => ({
-		id: tool.path,
-		label: tool.name,
-		icon: tool.icon,
-	}));
-
-	return (
-		<div className="mb-8">
-			<Tabs
-				tabs={tabs}
-				activeTab={currentPath}
-				onTabChange={onNavigate}
-			/>
-		</div>
-	);
-}
-
+/**
+ * Developer tools. One page per tool, reached from the sidebar: a header,
+ * then the tool, which renders its own card with the network at the top.
+ */
 export function ToolsPage() {
 	const location = useLocation();
 	const navigate = useNavigate();
 
-	// Detect active tool from URL path
 	const currentPath = location.pathname;
 	const selectedTool = TOOLS.find(
 		(tool: Tool) => tool.path === currentPath,
 	);
 
-	// Redirect to first tool if on /tools or invalid path
+	// /tools and unknown tool paths land on the first tool.
 	useEffect(() => {
 		if (
 			currentPath === '/tools' ||
@@ -79,23 +32,17 @@ export function ToolsPage() {
 		}
 	}, [currentPath, selectedTool, navigate]);
 
-	// Don't render until we have a valid tool selected
 	if (!selectedTool) return null;
 
+	const ToolComponent = selectedTool.component;
+
 	return (
-		<div className="page-shell py-8">
-			<div className="mb-8">
-				<h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl mb-4">
-					Developer Tools
-				</h1>
-			</div>
-
-			<ToolsNavigation
-				currentPath={currentPath}
-				onNavigate={navigate}
+		<div className="page-shell" data-testid="tools-page">
+			<PageHeader
+				title={selectedTool.name}
+				description={selectedTool.description}
 			/>
-
-			<ToolDetail tool={selectedTool} />
+			<ToolComponent />
 		</div>
 	);
 }

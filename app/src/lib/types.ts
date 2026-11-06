@@ -15,7 +15,8 @@ export interface MultisigWithMembersForPublicKey extends MultisigWithMembers {
 	isRejected: boolean;
 }
 
-export interface ProposalCardInput extends PublicProposal {
-	isPublic: boolean;
-	proposers: string[];
-}
+/**
+ * A proposal as the rows and the page show it: the public shape, with
+ * the composition the execute flow needs.
+ */
+export type ProposalCardInput = PublicProposal;

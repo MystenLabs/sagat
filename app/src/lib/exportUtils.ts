@@ -7,6 +7,8 @@ import {
 	type PublicProposal,
 } from '@mysten/sagat';
 
+import { sumWeight } from './threshold';
+
 type ExportType =
 	'sagat.multisig-composition' | 'sagat.proposal';
 
@@ -61,6 +63,7 @@ interface ExportedProposal extends ExportEnvelope {
 		transactionBytes: string;
 		proposerAddress: string;
 		description: string | null;
+		createdAt: string;
 		currentWeight: number;
 		threshold: number;
 		signatures: ExportedProposalSignature[];
@@ -107,6 +110,7 @@ export function buildProposalExport(
 			transactionBytes: proposal.transactionBytes,
 			proposerAddress: proposal.proposerAddress,
 			description: proposal.description,
+			createdAt: proposal.createdAt,
 			currentWeight: proposal.currentWeight,
 			threshold: proposal.multisig.threshold,
 			signatures: proposal.signatures
@@ -187,10 +191,7 @@ function buildMultisigComposition(
 		address: multisig.address,
 		name: multisig.name,
 		threshold: multisig.threshold,
-		totalWeight: members.reduce(
-			(sum, member) => sum + member.weight,
-			0,
-		),
+		totalWeight: sumWeight(members),
 		totalMembers: members.length,
 		members,
 	};

@@ -6,12 +6,14 @@ import { FileText, PenLine, Radio } from 'lucide-react';
 import BroadcastTool from '@/components/tools/BroadcastTool';
 import SignatureAnalyzer from '@/components/tools/SignatureAnalyzer';
 import SigningTool from '@/components/tools/SigningTool';
+import { content } from '@/content';
+
+const COPY = content.tools.pages;
 
 export type Tool = {
 	id: string;
 	name: string;
 	description: string;
-	headerDescription: string;
 	icon: React.ReactNode;
 	component: React.ComponentType;
 	path: string;
@@ -20,31 +22,25 @@ export type Tool = {
 export const TOOLS: Tool[] = [
 	{
 		id: 'signature-analyzer',
-		name: 'Signature Analyzer',
-		description:
-			'Analyze and decode Sui signatures, both for multisig and single signature schemes.',
-		headerDescription: 'Analyze and decode Sui signatures',
-		icon: <FileText className="w-3.5 h-3.5" />,
+		name: COPY.signatureAnalyzer.name,
+		description: COPY.signatureAnalyzer.description,
+		icon: <FileText className="size-4" />,
 		component: SignatureAnalyzer,
 		path: '/tools/signature-analyzer',
 	},
 	{
 		id: 'sign',
-		name: 'Transaction Signer',
-		description:
-			'Preview and sign Sui transactions with your connected wallet.',
-		headerDescription: 'Preview and sign',
-		icon: <PenLine className="w-3.5 h-3.5" />,
+		name: COPY.sign.name,
+		description: COPY.sign.description,
+		icon: <PenLine className="size-4" />,
 		component: SigningTool,
 		path: '/tools/sign',
 	},
 	{
 		id: 'broadcast',
-		name: 'Broadcast Transaction',
-		description:
-			'Execute a signed transaction on the Sui network.',
-		headerDescription: 'Execute a signed transaction',
-		icon: <Radio className="w-3.5 h-3.5" />,
+		name: COPY.broadcast.name,
+		description: COPY.broadcast.description,
+		icon: <Radio className="size-4" />,
 		component: BroadcastTool,
 		path: '/tools/broadcast',
 	},
