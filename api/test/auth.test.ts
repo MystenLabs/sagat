@@ -13,8 +13,10 @@ import {
 	test,
 } from 'bun:test';
 
+import { CommonErrors } from '../src/errors';
 import {
 	ApiTestFramework,
+	errorOf,
 	newUser,
 	sign,
 	type TestSession,
@@ -121,5 +123,21 @@ describe('Auth API', () => {
 		expect(addresses.map((a) => a.address)).toEqual([
 			user.address,
 		]);
+	});
+
+	test('a signature that cannot be read gets a 400', async () => {
+		const session = framework.createSession();
+
+		expect(
+			await errorOf(
+				await session.post('/auth/connect', {
+					signature: 'QQ==',
+					expiry: defaultExpiry(),
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: CommonErrors.InvalidSignature },
+		});
 	});
 });
