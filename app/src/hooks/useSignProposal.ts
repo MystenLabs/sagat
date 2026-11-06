@@ -70,6 +70,8 @@ export function useSignProposal() {
 			try {
 				result = await dappKit.signTransaction({
 					transaction,
+					// The account the check passed, so another can't sign.
+					account: currentAccount,
 				});
 			} finally {
 				setAwaitingWallet(false);
