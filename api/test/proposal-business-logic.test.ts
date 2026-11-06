@@ -6,6 +6,7 @@ import {
 	PersonalMessages,
 	ProposalStatus,
 } from '@mysten/sagat';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64, toBase64 } from '@mysten/sui/utils';
 import {
@@ -21,6 +22,7 @@ import { db } from '../src/db';
 import {
 	SchemaAccounts,
 	SchemaProposals,
+	SchemaProposalSignatures,
 } from '../src/db/schema';
 import { AuthErrors, CommonErrors } from '../src/errors';
 import { ProposalByDigestLoader } from '../src/loaders/proposals.loader';
@@ -775,6 +777,10 @@ describe('Proposal Business Logic', () => {
 			status: 403,
 			body: { error: AuthErrors.NotAMultisigMember },
 		};
+		const invalidSignature = {
+			status: 400,
+			body: { error: CommonErrors.InvalidSignature },
+		};
 		const unsupportedNetwork = {
 			status: 400,
 			body: {
@@ -782,6 +788,19 @@ describe('Proposal Business Logic', () => {
 					'Unsupported network: mainnet. Only localnet are supported.',
 			},
 		};
+
+		const votesOn = (proposalId: number) =>
+			db
+				.select({
+					publicKey: SchemaProposalSignatures.publicKey,
+				})
+				.from(SchemaProposalSignatures)
+				.where(
+					eq(
+						SchemaProposalSignatures.proposalId,
+						proposalId,
+					),
+				);
 
 		const changeProposer = async (
 			session: TestSession,
@@ -1028,6 +1047,36 @@ describe('Proposal Business Logic', () => {
 			});
 		});
 
+		test('a transaction with another gas owner is refused', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+
+			const tx = Transaction.from(
+				await buildTransfer(multisig.address),
+			);
+			tx.setGasOwner(newUser().address);
+			const bytes = await tx.build();
+			const { signature } =
+				await users[0].keypair.signTransaction(bytes);
+
+			expect(
+				await errorOf(
+					await session.post('/proposals', {
+						multisigAddress: multisig.address,
+						transactionBytes: toBase64(bytes),
+						signature,
+						network: 'localnet',
+					}),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'The transaction gas owner does not match the account.',
+				},
+			});
+		});
+
 		test('a request body over the size cap is refused with a 413', async () => {
 			const session = framework.createSession();
 
@@ -1163,6 +1212,135 @@ describe('Proposal Business Logic', () => {
 					fromBase64(proposal.transactionBytes),
 				),
 			).toEqual(notAMember);
+		});
+
+		test('a signature the parser cannot read gets a 400', async () => {
+			const { session, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const addProposer = async (signature: string) =>
+				errorOf(
+					await session.post(
+						`/multisig/${multisig.address}/add-proposer`,
+						{
+							signature,
+							proposer: newUser().address,
+							expiry: defaultExpiry(),
+						},
+					),
+				);
+
+			// An unknown scheme flag.
+			expect(await addProposer('QQ==')).toEqual(
+				invalidSignature,
+			);
+			// Too short to hold a public key.
+			expect(await addProposer('AAAA')).toEqual(
+				invalidSignature,
+			);
+		});
+
+		test('a signature with extra bytes inside it gets a 400 and stores nothing', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const proposal = await session.proposeTransfer(
+				users[0],
+				multisig.address,
+			);
+			const votesBefore = await votesOn(proposal.id);
+
+			// The key stays readable at the end of the signature.
+			const withExtraBytes = (signature: string) => {
+				const bytes = fromBase64(signature);
+				const keyStart = bytes.length - 32;
+				return toBase64(
+					new Uint8Array([
+						...bytes.slice(0, keyStart),
+						...new Uint8Array(16),
+						...bytes.slice(keyStart),
+					]),
+				);
+			};
+
+			expect(
+				await errorOf(
+					await session.post(
+						`/proposals/${proposal.id}/cancel`,
+						{
+							signature: withExtraBytes(
+								await sign(
+									users[0],
+									PersonalMessages.cancelProposal(
+										proposal.id,
+									),
+								),
+							),
+						},
+					),
+				),
+			).toEqual(invalidSignature);
+
+			const { signature } =
+				await users[1].keypair.signTransaction(
+					fromBase64(proposal.transactionBytes),
+				);
+			expect(
+				await errorOf(
+					await session.post(
+						`/proposals/${proposal.id}/vote`,
+						{ signature: withExtraBytes(signature) },
+					),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'Invalid Sui signature for the proposed transaction.',
+				},
+			});
+
+			const [stored] = await db
+				.select({ status: SchemaProposals.status })
+				.from(SchemaProposals)
+				.where(eq(SchemaProposals.id, proposal.id));
+			expect(stored.status).toBe(ProposalStatus.PENDING);
+			expect(await votesOn(proposal.id)).toEqual(
+				votesBefore,
+			);
+		});
+
+		test('a signature scheme we do not support keeps its own error', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const signature = MultiSigPublicKey.fromPublicKeys({
+				threshold: 1,
+				publicKeys: [
+					{
+						publicKey: users[0].keypair.getPublicKey(),
+						weight: 1,
+					},
+				],
+			}).combinePartialSignatures([
+				await sign(users[0], 'A message'),
+			]);
+
+			expect(
+				await errorOf(
+					await session.post(
+						`/multisig/${multisig.address}/add-proposer`,
+						{
+							signature,
+							proposer: newUser().address,
+							expiry: defaultExpiry(),
+						},
+					),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'Invalid signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported. zkLogin wallets are not supported.',
+				},
+			});
 		});
 	});
 });

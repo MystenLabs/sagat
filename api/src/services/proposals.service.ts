@@ -389,6 +389,14 @@ export const createProposal = async ({
 			'The transaction sender does not match the multisig address.',
 		);
 
+	// A different gas owner would sign as sponsor with the member's signature.
+	const gasOwner =
+		proposedTransaction.getData().gasData.owner;
+	if (gasOwner && gasOwner !== multisigAddress)
+		throw new ValidationError(
+			'The transaction gas owner does not match the account.',
+		);
+
 	// Verify the supplied user signature before doing any RPC work for the
 	// request. A fully resolved transaction builds without a client.
 	const built = await proposedTransaction.build();
