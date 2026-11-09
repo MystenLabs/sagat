@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Transaction } from '@mysten/sui/transactions';
-import { MIST_PER_SUI } from '@mysten/sui/utils';
+import { MIST_PER_SUI, toBase64 } from '@mysten/sui/utils';
 import type { Route } from '@playwright/test';
 
 import type { Actor } from '../support/actor';
@@ -82,6 +82,9 @@ test.describe('transaction signer tool', () => {
 		).toBeDisabled();
 
 		await alice.connectWallet({ signIn: false });
+		await expect(
+			alice.page.getByTestId('gas-owner-notice'),
+		).toHaveCount(0);
 		await alice.page.getByTestId('sign-button').click();
 
 		const result = alice.page.getByTestId('signed-result');
@@ -348,6 +351,42 @@ test.describe('transaction signer tool', () => {
 		).toBeEnabled();
 		await expect(
 			alice.page.getByTestId('sign-note'),
+		).toBeVisible();
+	});
+
+	test("warns when another sender's transaction spends the wallet's gas", async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		await Promise.all([
+			chain.fund(alice.address),
+			chain.fund(bob.address),
+		]);
+		const tx = new Transaction();
+		tx.setSender(bob.address);
+		tx.setGasOwner(alice.address);
+		tx.setGasPayment(
+			(await chain.coins(alice.address)).slice(0, 1),
+		);
+		const [coin] = tx.splitCoins(tx.gas, [MIST_PER_SUI]);
+		tx.transferObjects([coin], randomAddress());
+		const bytes = toBase64(
+			await tx.build({ client: chain.client }),
+		);
+
+		await alice.page.goto('/tools/sign');
+		await alice.connectWallet({ signIn: false });
+		await alice.page
+			.getByTestId('transaction-data-input')
+			.fill(bytes);
+		await expect(
+			alice.page.getByTestId('transaction-preview-result'),
+		).toHaveAttribute('data-result', 'success');
+		await expect(
+			alice.page.getByTestId('gas-owner-notice'),
 		).toBeVisible();
 	});
 

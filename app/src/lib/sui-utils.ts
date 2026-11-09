@@ -2,9 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 
 import { CONFIG } from './constants';
 import { extractPublicKeyFromBase64 } from './wallet';
+
+/** Whether two addresses are the same once normalized. */
+export const sameAddress = (a: string, b: string) =>
+	normalizeSuiAddress(a) === normalizeSuiAddress(b);
 
 /**
  * Validates and parses a public key string

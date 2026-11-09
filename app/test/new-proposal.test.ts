@@ -614,6 +614,16 @@ describe('checkBytes', () => {
 			sender: OTHER,
 		});
 	});
+
+	test('names the gas owner of bytes whose gas another address pays', async () => {
+		const tx = transferTransaction(ACCOUNT);
+		tx.setGasOwner(OTHER);
+		const bytes = toBase64(await tx.build());
+		expect(checkBytes(bytes, ACCOUNT)).toEqual({
+			kind: 'wrong-gas-owner',
+			owner: OTHER,
+		});
+	});
 });
 
 describe('bytesStatusText', () => {

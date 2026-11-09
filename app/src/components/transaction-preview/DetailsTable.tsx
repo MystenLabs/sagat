@@ -8,6 +8,7 @@ import { CopyButton } from '@/components/ui/CopyButton';
 import { SkeletonLine } from '@/components/ui/skeleton';
 import { content } from '@/content';
 import type {
+	NamedAccount,
 	SimulationStatus,
 	TransactionPreviewModel,
 } from '@/lib/transaction-preview';
@@ -66,7 +67,34 @@ function SimulatedValue({
 	return <span className="text-muted-foreground">—</span>;
 }
 
-/** Digest, status, sender, epoch and gas. */
+/** The name wraps, and the address drops under it when there is no room. */
+function AccountValue({
+	account,
+}: {
+	account: NamedAccount;
+}) {
+	return (
+		<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+			{account.name && (
+				<span className="min-w-0 text-13 break-words">
+					{account.name}
+				</span>
+			)}
+			<span className="flex min-w-0 items-center gap-1.5">
+				<span className="min-w-0 font-mono text-12 break-all text-muted-foreground">
+					{account.address}
+				</span>
+				<CopyButton
+					value={account.address}
+					size="inline"
+					successMessage={content.toasts.addressCopied}
+				/>
+			</span>
+		</span>
+	);
+}
+
+/** Digest, status, sender, gas sponsor when there is one, epoch and gas. */
 export function DetailsTable({
 	model,
 }: {
@@ -74,7 +102,7 @@ export function DetailsTable({
 }) {
 	const chip = STATUS_CHIPS[model.status];
 	const pending = model.status === 'pending';
-	const { sender } = model;
+	const { sender, gasOwner } = model;
 
 	return (
 		<div className="rounded-lg border">
@@ -124,28 +152,17 @@ export function DetailsTable({
 				{!sender ? (
 					<span className="text-muted-foreground">—</span>
 				) : (
-					// The name wraps, and the address drops under it when there is no room.
-					<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-						{sender.name && (
-							<span className="min-w-0 text-13 break-words">
-								{sender.name}
-							</span>
-						)}
-						<span className="flex min-w-0 items-center gap-1.5">
-							<span className="min-w-0 font-mono text-12 break-all text-muted-foreground">
-								{sender.address}
-							</span>
-							<CopyButton
-								value={sender.address}
-								size="inline"
-								successMessage={
-									content.toasts.addressCopied
-								}
-							/>
-						</span>
-					</span>
+					<AccountValue account={sender} />
 				)}
 			</Row>
+			{gasOwner && (
+				<Row
+					label={COPY.gasOwner}
+					testId="transaction-preview-gas-owner"
+				>
+					<AccountValue account={gasOwner} />
+				</Row>
+			)}
 			<Row label={COPY.epoch}>
 				<SimulatedValue
 					value={model.epoch}

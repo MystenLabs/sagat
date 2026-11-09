@@ -16,6 +16,7 @@ import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
+	BytesNotFromPodError,
 	SignatureDeclinedError,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
@@ -254,12 +255,15 @@ function NewProposalWizard({
 	};
 	// A declined signature is the toast alone; anything else is the
 	// notice on Review, with the API's reason when it refused the
-	// proposal (a coin another pending proposal uses, say).
+	// proposal (a coin another pending proposal uses, say), or why the
+	// bytes were refused before signing.
 	const createError =
-		create.error &&
-		!(create.error instanceof SignatureDeclinedError)
-			? shownApiError(create.error, COPY.createFailed)
-			: null;
+		create.error instanceof BytesNotFromPodError
+			? create.error.message
+			: create.error &&
+				  !(create.error instanceof SignatureDeclinedError)
+				? shownApiError(create.error, COPY.createFailed)
+				: null;
 
 	const detailsProps = {
 		multisig,
