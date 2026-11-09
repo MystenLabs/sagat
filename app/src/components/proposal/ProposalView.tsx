@@ -5,7 +5,10 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { ProposalStatus } from '@mysten/sagat';
+import {
+	ProposalStatus,
+	type PublicProposal,
+} from '@mysten/sagat';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Link2 } from 'lucide-react';
 import {
@@ -62,7 +65,6 @@ import {
 } from '@/lib/proposalUtils';
 import { QueryKeys } from '@/lib/queryKeys';
 import { validatePublicKey } from '@/lib/sui-utils';
-import { type ProposalCardInput } from '@/lib/types';
 import { safeDecode } from '@/lib/utils';
 
 import { ActivityCard } from './ActivityCard';
@@ -87,7 +89,7 @@ export function ProposalView({
 	proposalsPath,
 	canCancel,
 }: {
-	proposal: ProposalCardInput;
+	proposal: PublicProposal;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 	labels: Labels;
@@ -422,7 +424,7 @@ function HeaderActions({
 	proposal,
 	status,
 }: {
-	proposal: ProposalCardInput;
+	proposal: PublicProposal;
 	status: ProposalStatusKey;
 }) {
 	const { copy } = useCopyToClipboard(

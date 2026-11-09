@@ -5,6 +5,7 @@ import {
 	CoinTypeLine,
 	VerifiedMark,
 } from '@/components/assets/CoinMarks';
+import { Button } from '@/components/ui/button';
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import {
 	fieldFrame,
@@ -32,8 +33,9 @@ const COPY = content.newProposal.assetSelect;
 /**
  * The asset to send: each balance the account holds, with its icon,
  * symbol, verified mark, name (when it differs from the symbol) and
- * balance, and in the list its coin type to copy. A skeleton while the
- * balances load.
+ * balance, and in the list its coin type to copy. The list shows the first
+ * `listed` balances and the chosen one, with Load more for the rest. A
+ * skeleton while the balances load.
  */
 export function AssetSelect({
 	id,
@@ -42,6 +44,8 @@ export function AssetSelect({
 	verified,
 	value,
 	onValueChange,
+	listed,
+	onLoadMore,
 	onOpen,
 	onClose,
 	isLoading,
@@ -57,6 +61,9 @@ export function AssetSelect({
 	/** The chosen coin type, or '' for none. */
 	value: string;
 	onValueChange: (coinType: string) => void;
+	/** How many balances the list shows. */
+	listed: number;
+	onLoadMore: () => void;
 	/** The list opened. */
 	onOpen: () => void;
 	/** The list closed, chosen or not. */
@@ -88,6 +95,10 @@ export function AssetSelect({
 	const selected =
 		balances.find((b) => b.coinType === value) ?? null;
 	const empty = balances.length === 0;
+	const shown = balances.slice(0, listed);
+	// The chosen coin stays in the list even past the loaded ones.
+	if (selected && !shown.includes(selected))
+		shown.push(selected);
 
 	return (
 		<Select
@@ -122,7 +133,7 @@ export function AssetSelect({
 				)}
 			</SelectTrigger>
 			<SelectContent alignItemWithTrigger={false}>
-				{balances.map((balance) => (
+				{shown.map((balance) => (
 					<AssetOption
 						key={balance.coinType}
 						balance={balance}
@@ -130,6 +141,19 @@ export function AssetSelect({
 						verified={verified(balance.coinType)}
 					/>
 				))}
+				{balances.length > listed && (
+					<div className="flex justify-center p-1.5">
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							onClick={onLoadMore}
+							data-testid="transfer-asset-load-more"
+						>
+							{content.common.actions.loadMore}
+						</Button>
+					</div>
+				)}
 			</SelectContent>
 		</Select>
 	);

@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type PublicProposal } from '@mysten/sagat';
 import { FileText } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 
@@ -8,10 +9,7 @@ import { content } from '@/content';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { isProposalExpired } from '@/lib/proposalUtils';
 import { memberLabels } from '@/lib/signers';
-import {
-	type MultisigWithMembersForPublicKey,
-	type ProposalCardInput,
-} from '@/lib/types';
+import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 import { EmptyState, ErrorState } from '../ui/empty-state';
@@ -48,7 +46,7 @@ export function ProposalsTable({
 	testId,
 }: {
 	multisig: MultisigWithMembersForPublicKey;
-	proposals: ProposalCardInput[];
+	proposals: PublicProposal[];
 	variant: ProposalsTableVariant;
 	loading: boolean;
 	error: unknown;

@@ -3,13 +3,14 @@
 
 // Checks a proposal's bytes against what the app can work out for itself
 // before the wallet is asked to sign them.
+import { type PublicProposal } from '@mysten/sagat';
+
 import {
 	computeMultisigAddress,
 	sameAddress,
 	validatePublicKey,
 } from './sui-utils';
 import { readTransactionBytes } from './transaction-preview';
-import { type ProposalCardInput } from './types';
 
 /**
  * The first check a proposal failed: `unreadable`, the bytes don't
@@ -28,7 +29,7 @@ export type ProposalIntegrityFailure =
 	| 'notSigner';
 
 export type IntegrityProposal = Pick<
-	ProposalCardInput,
+	PublicProposal,
 	| 'transactionBytes'
 	| 'digest'
 	| 'multisigAddress'

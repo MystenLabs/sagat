@@ -5,6 +5,7 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
+import { type PublicProposal } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	useMutation,
@@ -19,13 +20,12 @@ import {
 } from '@/lib/proposal-integrity';
 import { signatureAddedMessage } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
-import { type ProposalCardInput } from '@/lib/types';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 
 type SignProposalParams = IntegrityProposal &
-	Pick<ProposalCardInput, 'id' | 'totalWeight'> & {
+	Pick<PublicProposal, 'id' | 'totalWeight'> & {
 		/** The digest the viewer opened, from the page's URL. */
 		openedDigest: string;
 	};

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
+import { type PublicProposal } from '@mysten/sagat';
 import { Pen, Play, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
@@ -50,7 +51,6 @@ import {
 	proposalTitle,
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
-import { type ProposalCardInput } from '@/lib/types';
 import { safeDecode } from '@/lib/utils';
 
 const COPY = content.proposal.approvals;
@@ -76,7 +76,7 @@ export function ApprovalsCard({
 	verdict,
 	canCancel: cancelAllowed,
 }: {
-	proposal: ProposalCardInput;
+	proposal: PublicProposal;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 	status: ProposalStatusKey;
@@ -128,7 +128,7 @@ export function ApprovalsCard({
 		executing.isPending ||
 		(settling &&
 			(status === 'pending' || status === 'ready'));
-	const execute = (target: ProposalCardInput) => {
+	const execute = (target: PublicProposal) => {
 		setSettling(true);
 		executing.execute(target, {
 			onError: () => setSettling(false),

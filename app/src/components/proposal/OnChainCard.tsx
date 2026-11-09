@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type PublicProposal } from '@mysten/sagat';
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { ExternalLink } from 'lucide-react';
 
@@ -19,7 +20,6 @@ import {
 } from '@/lib/network';
 import { gasEstimate } from '@/lib/proposal-page';
 import { proposalExplorerUrl } from '@/lib/proposalUtils';
-import { type ProposalCardInput } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const COPY = content.proposal.onChain;
@@ -42,7 +42,7 @@ export function OnChainCard({
 	result,
 	error,
 }: {
-	proposal: ProposalCardInput;
+	proposal: PublicProposal;
 	status: 'executed' | 'failed';
 	result: OnChainTransaction | null;
 	error: string | null;

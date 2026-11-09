@@ -55,11 +55,11 @@ type AccountAssets = ReturnType<typeof useAccountAssets>;
 const TOKENS_SHOWN = 5;
 
 /**
- * Rows the assets page adds at a time where a pod can hold any number of
- * coins anyone can send it. Each row looks up its coin's details, so a row
- * not shown yet costs nothing.
+ * Rows the assets page (and the transfer's asset list) adds at a time where
+ * a pod can hold any number of coins anyone can send it. Each row looks up
+ * its coin's details, so a row not shown yet costs nothing.
  */
-const TOKENS_BATCH = 50;
+export const TOKENS_BATCH = 50;
 
 /**
  * Where the tokens table sits. The overview shows the largest holdings in

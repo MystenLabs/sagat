@@ -12,7 +12,6 @@ import {
 	sortBalances,
 	totalUsdValue,
 } from '../lib/coins';
-import { useCoinDisplayDataMap } from './useCoinDisplayData';
 import {
 	useMultisigBalances,
 	type Balance,
@@ -26,22 +25,15 @@ import { useRecognizedCoins } from './useRecognizedCoins';
  * fetched, so the total and the largest holdings cover all coins.
  *
  * Prices come from the registry alone, so valuing and sorting never wait
- * on coin metadata. Display data (with the metadata fallback for coins
- * outside the registry) is fetched only for the first `displayCount`
- * balances and for `coinTypes`; without either `coinData` stays empty.
- * Pass `Infinity` as `displayCount` for every balance. The tokens table
- * asks for neither: each of its rows reads its own.
+ * on coin metadata. No display data is fetched here: whoever shows a coin
+ * looks up its own.
  */
 export function useAccountAssets(
 	address: string,
 	{
 		allPages = false,
-		displayCount,
-		coinTypes,
 	}: {
 		allPages?: boolean;
-		displayCount?: number;
-		coinTypes?: readonly string[];
 	} = {},
 ) {
 	const { network } = useNetwork();
@@ -121,23 +113,12 @@ export function useAccountAssets(
 		[balances, isVerified, verifiedKnown],
 	);
 
-	const shownCoinTypes = useMemo(
-		() => [
-			...balances
-				.slice(0, displayCount ?? 0)
-				.map((b) => b.coinType),
-			...(coinTypes ?? []),
-		],
-		[balances, displayCount, coinTypes],
-	);
-	const coinData = useCoinDisplayDataMap(shownCoinTypes);
-
 	const state = accountAssetsState({
 		balancesPending: query.isPending,
 		balancesError: isError,
 		hasData: !!query.data,
-		// Not `allPages && …`: passing an option itself would make the
-		// React Compiler treat `displayCount` as mutable.
+		// Not `allPages && …`: passing the option itself on would make the
+		// React Compiler treat the options as mutable.
 		pagesLeft: allPages ? hasNextPage : false,
 		pricesPending: recognized.isPending,
 		// A failed refetch keeps the loaded price list, the way balances do.
@@ -168,10 +149,6 @@ export function useAccountAssets(
 		listedBalances,
 		/** The unverified coins' balances, once the registry says which. */
 		unverifiedBalances,
-		/** Display data for what the options ask for. */
-		coinData: coinData.map,
-		/** Whether the display data of `coinType` failed to load. */
-		isCoinDataErrorFor: coinData.isErrorFor,
 		usdValue,
 		/**
 		 * Whether `coinType` is SUI or a coin the registry recognises. Only
