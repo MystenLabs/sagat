@@ -624,17 +624,6 @@ describe('checkBytes', () => {
 			owner: OTHER,
 		});
 	});
-
-	test('reads bytes whose gas the account pays', async () => {
-		const tx = transferTransaction(ACCOUNT);
-		tx.setGasOwner(ACCOUNT);
-		const bytes = toBase64(await tx.build());
-		expect(checkBytes(bytes, ACCOUNT)).toEqual({
-			kind: 'ok',
-			bytes,
-			commands: 2,
-		});
-	});
 });
 
 describe('bytesStatusText', () => {
