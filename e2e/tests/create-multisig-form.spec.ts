@@ -282,6 +282,66 @@ test.describe('create multisig wizard', () => {
 		await expect(submit).toBeEnabled();
 	});
 
+	test('a create that lands after switching accounts stays on the wizard', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice', {
+			otherAccounts: ['alice-savings'],
+		});
+		const [savings] = alice.otherAccounts;
+		const bob = createIdentity('bob');
+		const { page } = alice;
+		const submit = page.getByTestId('create-submit');
+		const creatingLabel =
+			content.createMultisig.reviewStep.creating;
+
+		await alice.signIn();
+		await alice.signInAccount(savings);
+		await alice.switchAccount(alice);
+		await reviewMultisig(page, {
+			name: 'Late',
+			signers: [{ key: bob.publicKey }],
+			threshold: 2,
+		});
+
+		const paths: string[] = [];
+		page.on('framenavigated', (frame) => {
+			if (frame === page.mainFrame())
+				paths.push(new URL(frame.url()).pathname);
+		});
+		// Hold the create until alice has moved to her other account.
+		let release = () => {};
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		await page.route('**/multisig', async (route) => {
+			if (route.request().method() !== 'POST')
+				return route.fallback();
+			await held;
+			return route.continue();
+		});
+		await submit.click();
+		await expect(submit).toHaveText(creatingLabel);
+		await alice.switchAccount(savings);
+
+		const created = page.waitForResponse(
+			(response) =>
+				response.request().method() === 'POST' &&
+				new URL(response.url()).pathname.endsWith(
+					'/multisig',
+				),
+		);
+		release();
+		expect((await created).ok()).toBe(true);
+		// The button leaves its pending text once onSuccess has run.
+		await expect(submit).not.toHaveText(creatingLabel);
+		await expect(page).toHaveURL(/\/create$/);
+		expect(
+			paths.some((path) => path.startsWith('/multisig/')),
+		).toBe(false);
+	});
+
 	test('the steps are links once the ones before them are valid', async ({
 		createActor,
 		createIdentity,

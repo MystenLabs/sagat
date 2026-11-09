@@ -37,6 +37,7 @@ import {
 	toast,
 } from '../support/new-proposal';
 import {
+	giveManyCoinTypes,
 	mintCoin,
 	mintTestCoin,
 	publishTestCoin,
@@ -788,6 +789,43 @@ test.describe('new proposal: transfer details', () => {
 		await expect(
 			page.getByTestId('transfer-review'),
 		).toBeEnabled();
+	});
+
+	test('the asset list shows fifty coins at a time, looking up only those', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			2,
+		);
+		await giveManyCoinTypes(chain, multisig.address, 51);
+		const { page } = alice;
+		await page.goto('about:blank');
+		let lookups = 0;
+		page.on('request', (request) => {
+			if (request.url().endsWith('/GetCoinInfo')) lookups++;
+		});
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		await page.getByTestId('transfer-asset-select').click();
+		const options = page.getByTestId(
+			'transfer-asset-option',
+		);
+		await expect(options).toHaveCount(50);
+		await expect.poll(() => lookups).toBe(50);
+
+		const loadMore = page.getByTestId(
+			'transfer-asset-load-more',
+		);
+		await loadMore.click();
+		await expect(options).toHaveCount(52);
+		await expect.poll(() => lookups).toBe(52);
+		await expect(loadMore).toHaveCount(0);
 	});
 
 	// Blank metadata is read like none: the compact type stands in for the

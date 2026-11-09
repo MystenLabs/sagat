@@ -117,7 +117,6 @@ export const content = {
 		},
 		controls: {
 			copyToClipboard: 'Copy to clipboard',
-			copyFullDigest: 'Copy full digest',
 			recognizedCoin: 'Recognized coin',
 			coinIcon: (symbol?: string | null) =>
 				symbol ? `${symbol} icon` : 'coin icon',
@@ -1394,7 +1393,6 @@ export const content = {
 	},
 	toasts: {
 		addressCopied: 'Address copied',
-		copiedWithExclamation: 'Copied!',
 		copyFailed: 'Failed to copy to clipboard',
 		walletDisconnected: 'Wallet disconnected',
 		authenticationFailed: (message: string) =>

@@ -14,6 +14,7 @@ import {
 } from '@tanstack/react-query';
 
 import { content } from '@/content';
+import { type SuiNetwork } from '@/lib/network';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
@@ -30,7 +31,7 @@ interface ExecuteProposalParams {
 
 export function useExecuteProposal() {
 	const queryClient = useQueryClient();
-	const suiClient = useDAppKit().getClient();
+	const dappKit = useDAppKit();
 
 	return useMutation({
 		mutationFn: async ({
@@ -42,6 +43,10 @@ export function useExecuteProposal() {
 				);
 
 			try {
+				// The proposal's network, not whichever one is selected now.
+				const suiClient = dappKit.getClient(
+					proposal.network as SuiNetwork,
+				);
 				// Order the members.
 				const multisigMembers = [
 					...proposal.multisig.members,

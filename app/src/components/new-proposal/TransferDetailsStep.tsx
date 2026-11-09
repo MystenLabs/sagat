@@ -13,6 +13,7 @@ import {
 } from 'react';
 
 import { buildTransferTransaction } from '@/components/assets/buildTransferTransaction';
+import { TOKENS_BATCH } from '@/components/assets/TokensTable';
 import { AddressField } from '@/components/ui/address-field';
 import {
 	Button,
@@ -86,16 +87,17 @@ export function TransferDetailsStep({
 	const client = useDAppKit().getClient();
 	// In the long form the balances carry: the page normalizes `?asset=`.
 	const coinType = draft.coinType;
-	// Every balance, but the details of every coin only once the list has
-	// been opened; until then, the chosen coin's.
+	// Every balance, but the details of the listed coins only once the
+	// list has been opened; until then, the chosen coin's.
 	const [listOpened, setListOpened] = useState(false);
+	const [listed, setListed] = useState(TOKENS_BATCH);
 	const shownCoinTypes = useMemo(
 		() => (coinType ? [coinType] : []),
 		[coinType],
 	);
 	const assets = useAccountAssets(multisig.address, {
 		allPages: true,
-		displayCount: listOpened ? Number.MAX_SAFE_INTEGER : 0,
+		displayCount: listOpened ? listed : 0,
 		coinTypes: shownCoinTypes,
 	});
 	const balancesLoading = assets.query.isPending;
@@ -316,6 +318,10 @@ export function TransferDetailsStep({
 						change('asset', draft.coinType);
 						changeDraft({ ...draft, coinType });
 					}}
+					listed={listed}
+					onLoadMore={() =>
+						setListed((shown) => shown + TOKENS_BATCH)
+					}
 					onOpen={() => setListOpened(true)}
 					onClose={() => touch('asset')}
 					isLoading={balancesLoading}

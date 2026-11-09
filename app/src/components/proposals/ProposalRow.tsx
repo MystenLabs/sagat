@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
+import {
+	ProposalStatus,
+	type PublicProposal,
+} from '@mysten/sagat';
 import {
 	Download,
 	ExternalLink,
@@ -32,7 +35,6 @@ import {
 	proposalTitle,
 	shortDigest,
 } from '@/lib/proposalUtils';
-import { type ProposalCardInput } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 import { SignerName } from '../multisig/SignerName';
@@ -76,7 +78,7 @@ export function ProposalRow({
 	expired,
 	proposerLabel,
 }: {
-	proposal: ProposalCardInput;
+	proposal: PublicProposal;
 	variant: ProposalsTableVariant;
 	/** Still pending, but past its last epoch. */
 	expired: boolean;

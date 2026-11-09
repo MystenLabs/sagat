@@ -6,6 +6,7 @@ import {
 	type MultisigWithMembers,
 	type Proposal,
 	type ProposalWithSignatures,
+	type PublicProposal,
 	type VoteProposalResponse,
 } from '@mysten/sagat';
 import { formatDigest } from '@mysten/sui/utils';
@@ -13,7 +14,6 @@ import { formatDigest } from '@mysten/sui/utils';
 import { content } from '../content';
 import { getExpiry, type EpochInfo } from './expiration';
 import { validatePublicKey } from './sui-utils';
-import { type ProposalCardInput } from './types';
 import { getExplorerUrl } from './utils';
 
 /** The parts of an account that weigh a proposal's signatures. */
@@ -61,7 +61,7 @@ export const getTotalWeight = (
 export function toProposalCardInput(
 	proposal: ProposalWithSignatures,
 	multisig: MultisigWithMembers,
-): ProposalCardInput {
+): PublicProposal {
 	return {
 		...proposal,
 		totalWeight: multisig.threshold,
@@ -255,7 +255,7 @@ export function shortDigest(digest: string) {
  */
 export function isExternalProposer(
 	proposal: Pick<
-		ProposalCardInput,
+		PublicProposal,
 		'multisig' | 'proposerAddress'
 	>,
 ) {

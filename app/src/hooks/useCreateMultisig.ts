@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useDAppKit } from '@mysten/dapp-kit-react';
 import { type CreateMultisigRequest } from '@mysten/sagat';
 import {
 	useMutation,
@@ -20,7 +21,11 @@ import { QueryKeys } from '../lib/queryKeys';
  */
 export function useCreateMultisig() {
 	const queryClient = useQueryClient();
+	const dappKit = useDAppKit();
 	const navigate = useNavigate();
+	// Read live rather than from this render: the wizard may have unmounted.
+	const currentAccountAddress = () =>
+		dappKit.stores.$connection.get().account?.address;
 
 	return useMutation({
 		mutationFn: ({
@@ -30,14 +35,20 @@ export function useCreateMultisig() {
 			/** What the greeting calls the other signers. */
 			invited: string[];
 		}) => apiClient.createMultisig(request),
-		// Note where the create started, so a late response doesn't pull
-		// the user away from a page they moved on to.
-		onMutate: () => ({ path: window.location.pathname }),
+		// Note who is creating, and where, so a late response doesn't pull
+		// the user away after they switched accounts or left the page.
+		onMutate: () => ({
+			account: currentAccountAddress(),
+			path: window.location.pathname,
+		}),
 		onSuccess: (multisig, { invited }, started) => {
 			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
 			});
-			if (window.location.pathname !== started.path) return;
+			const stillHere =
+				currentAccountAddress() === started.account &&
+				window.location.pathname === started.path;
+			if (!stillHere) return;
 			navigate(`/multisig/${multisig.address}/overview`, {
 				state: {
 					created: { invited },

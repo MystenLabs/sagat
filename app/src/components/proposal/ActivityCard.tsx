@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type PublicProposal } from '@mysten/sagat';
+
 import {
 	cardClass,
 	CardHeading,
@@ -13,7 +15,6 @@ import {
 	type Labels,
 } from '@/lib/proposal-page';
 import { type ProposalStatusKey } from '@/lib/proposalUtils';
-import { type ProposalCardInput } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const DOT: Record<ActivityRow['tone'], string> = {
@@ -30,7 +31,7 @@ export function ActivityCard({
 	currentAddress,
 	confirmedAt,
 }: {
-	proposal: ProposalCardInput;
+	proposal: PublicProposal;
 	status: ProposalStatusKey;
 	labels: Labels;
 	currentAddress: string | null;
