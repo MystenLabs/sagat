@@ -572,6 +572,9 @@ export const createSignerSet = async ({
 		publicKeys.length,
 	);
 
+	// Register all public keys first
+	await registerPublicKeyStrings(publicKeys);
+
 	// Parse all public keys and get their addresses
 	const parsedPubKeys: PublicKey[] = [];
 	const addresses: string[] = [];
@@ -597,8 +600,6 @@ export const createSignerSet = async ({
 		throw new ValidationError(
 			'Only a member of the multisig can label its keys.',
 		);
-
-	await registerPublicKeyStrings(publicKeys);
 
 	// The caller's keys in the composition, which accept on creation.
 	const acceptingKeys = parsedPubKeys
