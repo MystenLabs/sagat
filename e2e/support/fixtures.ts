@@ -2,10 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { test as base } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 
 import { Actor } from './actor';
 import { Chain } from './chain';
+import { E2E } from './env';
 import { Identity } from './identity';
 
 export type Fixtures = {
@@ -58,6 +59,12 @@ export const test = base.extend<Fixtures>({
 			return actor;
 		});
 		await Promise.all(actors.map((a) => a.context.close()));
+		// Only the preview server sends the CSP.
+		if (E2E.appServer === 'preview')
+			expect(
+				actors.flatMap((a) => a.cspViolations),
+				'CSP violations',
+			).toEqual([]);
 	},
 	createIdentity: async ({}, use) => {
 		await use(
