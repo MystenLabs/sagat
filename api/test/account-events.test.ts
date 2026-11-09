@@ -112,9 +112,12 @@ const rebuildMessage = (
 		action === 'proposal.cancelled' &&
 		proof?.kind === 'proposal.cancel'
 	)
-		return PersonalMessages.cancelProposal(
-			proof.proposalId,
-		);
+		return proof.version === 1
+			? PersonalMessages.cancelProposalV1(proof.proposalId)
+			: PersonalMessages.cancelProposal(
+					subject,
+					accountAddress,
+				);
 	throw new Error(
 		`No message for action ${action} with proof ${proof?.kind}`,
 	);
@@ -398,7 +401,7 @@ describe('cancelling a proposal', () => {
 		const { session, users, multisig, proposal } =
 			await proposed();
 
-		await session.cancelProposal(users[1], proposal.id);
+		await session.cancelProposal(users[1], proposal);
 
 		const events = await eventsOf(
 			multisig.address,
@@ -413,11 +416,12 @@ describe('cancelling a proposal', () => {
 			network: 'localnet',
 			before: null,
 			after: null,
+			proof: { kind: 'proposal.cancel', version: 2 },
 		});
 		await expectSignedByActor(events[0]);
 
 		await expect(
-			session.cancelProposal(users[1], proposal.id),
+			session.cancelProposal(users[1], proposal),
 		).rejects.toThrow('Proposal is not pending');
 		expect(
 			await eventsOf(
@@ -433,9 +437,44 @@ describe('cancelling a proposal', () => {
 			await proposed();
 
 		await expect(
-			session.cancelProposal(newUser(), proposal.id),
+			session.cancelProposal(newUser(), proposal),
 		).rejects.toThrow('Not a member of the multisig');
 
+		expect(
+			await eventsOf(
+				multisig.address,
+				users[0],
+				'proposal.cancelled',
+			),
+		).toEqual([]);
+	});
+
+	test('a cancel signed with the version 1 text is refused and writes no event', async () => {
+		const { session, users, multisig, proposal } =
+			await proposed();
+
+		expect(
+			await errorOf(
+				await session.post(
+					`/proposals/${proposal.id}/cancel`,
+					{
+						signature: await sign(
+							users[0],
+							PersonalMessages.cancelProposalV1(
+								proposal.id,
+							),
+						),
+					},
+				),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'Invalid signature for message.' },
+		});
+
+		expect(await statusOf(proposal.id)).toBe(
+			ProposalStatus.PENDING,
+		);
 		expect(
 			await eventsOf(
 				multisig.address,
@@ -456,7 +495,7 @@ describe('cancelling a proposal', () => {
 			// Passes the pre-check, then blocks until this transaction commits.
 			// Not `expect().rejects`: bun blocks on it right here.
 			const cancel = Promise.allSettled([
-				session.cancelProposal(users[0], proposal.id),
+				session.cancelProposal(users[0], proposal),
 			]);
 			await untilABackendWaitsOnALock();
 
@@ -504,7 +543,7 @@ describe('cancelling a proposal', () => {
 		const { session, users, multisig, proposer, proposal } =
 			await proposedByExternal();
 
-		await session.cancelProposal(proposer, proposal.id);
+		await session.cancelProposal(proposer, proposal);
 
 		const [event, ...others] = await eventsOf(
 			multisig.address,
@@ -530,7 +569,7 @@ describe('cancelling a proposal', () => {
 
 			// Not `expect().rejects`: bun blocks on it right here.
 			const cancel = Promise.allSettled([
-				session.cancelProposal(proposer, proposal.id),
+				session.cancelProposal(proposer, proposal),
 			]);
 			await untilABackendWaitsOnALock();
 
@@ -574,7 +613,7 @@ describe('cancelling a proposal', () => {
 
 		await withEventInsertsFailing(async () => {
 			await expect(
-				session.cancelProposal(users[0], proposal.id),
+				session.cancelProposal(users[0], proposal),
 			).rejects.toThrow();
 		});
 
@@ -1129,7 +1168,10 @@ describe('input refused before anything is stored', () => {
 				`/proposals/${proposal.id}/cancel`,
 				{
 					signature: await signedMessage(
-						PersonalMessages.cancelProposal(proposal.id),
+						PersonalMessages.cancelProposal(
+							proposal.digest,
+							multisig.address,
+						),
 					),
 				},
 			),
@@ -1396,12 +1438,23 @@ test('the compiler rejects an event of the wrong shape', () => {
 		network: 'localnet',
 		proof,
 	} as const;
+	const cancelOfVersion1 = {
+		...cancelWithAnotherKind,
+		proof: {
+			kind: 'proposal.cancel',
+			version: 1,
+			signature: 'signature',
+			proposalId: 1,
+		},
+	} as const;
 
 	accept(valid);
 	// @ts-expect-error a removal takes the removal proof.
 	accept(proofOfAnotherKind);
 	// @ts-expect-error a cancel takes its own proof or a `caused_by` one.
 	accept(cancelWithAnotherKind);
+	// @ts-expect-error a new cancel is written as version 2.
+	accept(cancelOfVersion1);
 	// @ts-expect-error the proof is required.
 	accept(noProof);
 	// @ts-expect-error the subject is required.

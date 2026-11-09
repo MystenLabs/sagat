@@ -598,7 +598,10 @@ export const cancelProposal = async ({
 
 	await verifySignedMessage(
 		signature,
-		PersonalMessages.cancelProposal(proposalId),
+		PersonalMessages.cancelProposal(
+			proposal.digest,
+			proposal.accountAddress,
+		),
 	);
 
 	await db.transaction(async (tx) => {
@@ -671,9 +674,8 @@ export const cancelProposal = async ({
 			subject: proposal.digest,
 			proof: {
 				kind: 'proposal.cancel',
-				version: 1,
+				version: 2,
 				signature,
-				proposalId: proposal.id,
 			},
 		});
 	});

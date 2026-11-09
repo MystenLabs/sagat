@@ -20,7 +20,13 @@ export const PersonalMessages = {
 		expiry: string,
 	) =>
 		`Removing proposer ${proposer} from multisig ${multisigAddress}. Valid until: ${expiry}`,
-	cancelProposal: (proposalId: number) =>
+	cancelProposal: (
+		digest: string,
+		multisigAddress: string,
+	) =>
+		`Cancelling proposal ${digest} on multisig ${multisigAddress}`,
+	// The earlier cancel text, kept to verify old audit log rows.
+	cancelProposalV1: (proposalId: number) =>
 		`Cancel proposal ${proposalId}`,
 } as const;
 

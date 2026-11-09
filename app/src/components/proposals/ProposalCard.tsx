@@ -101,7 +101,7 @@ export function ProposalCard({
 	};
 
 	const handleConfirmCancel = () => {
-		cancelProposalMutation.mutate(proposal.id, {
+		cancelProposalMutation.mutate(proposal, {
 			onSuccess: () => {
 				setShowCancelModal(false);
 			},

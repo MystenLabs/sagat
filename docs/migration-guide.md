@@ -127,7 +127,7 @@ The package name may change before the first publish. If it does, this guide wil
 
 ## Signed messages
 
-Under `/v1`, messages that name the account changed. Legacy routes keep verifying the old text. If you build these strings yourself instead of using `PersonalMessages` from the SDK, update them when you move the call.
+Under `/v1`, messages that name the account changed. Legacy routes keep verifying the old text, except cancel, which takes only the new text. If you build these strings yourself instead of using `PersonalMessages` from the SDK, update them when you move the call.
 
 | Purpose           | Before                                                                 | After (proposed)                                                      |
 | ----------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |
@@ -136,7 +136,7 @@ Under `/v1`, messages that name the account changed. Legacy routes keep verifyin
 | Reject invitation | `Rejecting multisig invitation <address>`                              | unchanged                                                             |
 | Add proposer      | `Adding proposer <p> to multisig <address>. Valid until: <expiry>`     | `Adding proposer <p> to account <address>. Valid until: <expiry>`     |
 | Remove proposer   | `Removing proposer <p> from multisig <address>. Valid until: <expiry>` | `Removing proposer <p> from account <address>. Valid until: <expiry>` |
-| Cancel proposal   | `Cancel proposal <id>`                                                 | unchanged                                                             |
+| Cancel proposal   | `Cancel proposal <id>`                                                 | `Cancelling proposal <digest> on multisig <address>`                  |
 
 ## Executing a proposal
 

@@ -29,9 +29,13 @@ const DEFAULT_EVENTS_PER_PAGE = 50;
 
 // A personal message is rebuilt from fields, so its text is never stored.
 // `proposal.create` signs the proposal's transaction bytes instead.
-type SignedProof<Kind extends string, Fields = unknown> = {
+type SignedProof<
+	Kind extends string,
+	Fields = unknown,
+	Version extends number = 1,
+> = {
 	kind: Kind;
-	version: 1;
+	version: Version;
 	signature: string;
 } & Fields;
 
@@ -78,22 +82,26 @@ type AccountEventRegistry = {
 		>;
 	};
 	// `actor` is a member, or the external proposer cancelling their own
-	// proposal. `subject` is the proposal's digest. The signed text names the
-	// id, so the signed proof carries it to rebuild that text.
+	// proposal. `subject` is the proposal's digest, which the signed text names
+	// with the row's account.
 	'proposal.cancelled': {
 		actor: string;
 		subject: string;
 		network: string;
 		proof:
-			| SignedProof<
-					'proposal.cancel',
-					{ proposalId: number }
-			  >
+			| SignedProof<'proposal.cancel', unknown, 2>
 			| CausedByProof;
 	};
 };
 
-// Every proof in the registry, plus `ChainProof`, which has no entry yet.
+// Written before cancels named the digest; its signed text names the id.
+type CancelProofV1 = SignedProof<
+	'proposal.cancel',
+	{ proposalId: number }
+>;
+
+// Every proof in the registry, plus `ChainProof`, which has no entry yet, and
+// proofs only older rows hold.
 export type AccountEventProof =
 	| {
 			[A in keyof AccountEventRegistry]: Required<
@@ -102,7 +110,8 @@ export type AccountEventProof =
 				? NonNullable<Proof>
 				: never;
 	  }[keyof AccountEventRegistry]
-	| ChainProof;
+	| ChainProof
+	| CancelProofV1;
 
 type UnsetFields = {
 	network?: null;

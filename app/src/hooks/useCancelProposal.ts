@@ -5,7 +5,10 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	PersonalMessages,
+	type Proposal,
+} from '@mysten/sagat';
 import {
 	useMutation,
 	useQueryClient,
@@ -24,13 +27,20 @@ export function useCancelProposal() {
 	const { currentAddress } = useApiAuth();
 
 	return useMutation({
-		mutationFn: async (proposalId: number) => {
+		mutationFn: async (
+			proposal: Pick<
+				Proposal,
+				'id' | 'digest' | 'multisigAddress'
+			>,
+		) => {
 			if (!currentAccount || !currentAddress)
 				throw new Error('No wallet connected');
 
 			// Create a message to sign for cancellation
-			const message =
-				PersonalMessages.cancelProposal(proposalId);
+			const message = PersonalMessages.cancelProposal(
+				proposal.digest,
+				proposal.multisigAddress,
+			);
 
 			// Sign the message
 			const signResult = await dappKit.signPersonalMessage({
@@ -38,7 +48,7 @@ export function useCancelProposal() {
 			});
 
 			// Call API to cancel the proposal
-			return apiClient.cancelProposal(proposalId, {
+			return apiClient.cancelProposal(proposal.id, {
 				signature: signResult.signature,
 			});
 		},

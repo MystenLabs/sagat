@@ -497,7 +497,7 @@ describe('Proposal Business Logic', () => {
 				multisig.address,
 			);
 
-			await session.cancelProposal(proposer, proposal.id);
+			await session.cancelProposal(proposer, proposal);
 
 			const { data } = await session.client.getProposals(
 				multisig.address,
@@ -528,7 +528,7 @@ describe('Proposal Business Logic', () => {
 			);
 
 			await expect(
-				session.cancelProposal(proposer, proposal.id),
+				session.cancelProposal(proposer, proposal),
 			).rejects.toThrow(
 				'A signer has already signed this proposal',
 			);
@@ -562,14 +562,11 @@ describe('Proposal Business Logic', () => {
 				multisig.address,
 			);
 			await expect(
-				session.cancelProposal(proposerB, proposalByA.id),
+				session.cancelProposal(proposerB, proposalByA),
 			).rejects.toThrow('Not a member of the multisig');
 
 			// Frees the coins for the next proposal.
-			await session.cancelProposal(
-				users[0],
-				proposalByA.id,
-			);
+			await session.cancelProposal(users[0], proposalByA);
 
 			const proposalByMember =
 				await session.proposeTransfer(
@@ -577,10 +574,7 @@ describe('Proposal Business Logic', () => {
 					multisig.address,
 				);
 			await expect(
-				session.cancelProposal(
-					proposerA,
-					proposalByMember.id,
-				),
+				session.cancelProposal(proposerA, proposalByMember),
 			).rejects.toThrow('Not a member of the multisig');
 		});
 
@@ -699,7 +693,7 @@ describe('Proposal Business Logic', () => {
 			users[0],
 			multisig.address,
 		);
-		await session.cancelProposal(users[0], cancelled.id);
+		await session.cancelProposal(users[0], cancelled);
 		const pending = await session.createProposal(
 			users[0],
 			multisig.address,
@@ -742,7 +736,7 @@ describe('Proposal Business Logic', () => {
 				multisig.address,
 			);
 
-			await session.cancelProposal(users[0], proposal.id);
+			await session.cancelProposal(users[0], proposal);
 
 			await expect(
 				session.voteOnProposal(
@@ -752,7 +746,7 @@ describe('Proposal Business Logic', () => {
 				),
 			).rejects.toThrow('Proposal is not pending');
 			await expect(
-				session.cancelProposal(users[0], proposal.id),
+				session.cancelProposal(users[0], proposal),
 			).rejects.toThrow('Proposal is not pending');
 		});
 
@@ -765,7 +759,7 @@ describe('Proposal Business Logic', () => {
 			);
 
 			await expect(
-				session.cancelProposal(newUser(), proposal.id),
+				session.cancelProposal(newUser(), proposal),
 			).rejects.toThrow('Not a member of the multisig');
 		});
 	});
@@ -1146,7 +1140,8 @@ describe('Proposal Business Logic', () => {
 				member: TestUser,
 				proposalId: number,
 				message = PersonalMessages.cancelProposal(
-					proposalId,
+					proposal.digest,
+					multisig.address,
 				),
 			) =>
 				errorOf(
@@ -1200,7 +1195,7 @@ describe('Proposal Business Logic', () => {
 			});
 
 			// Once cancelled, the status is checked before membership.
-			await session.cancelProposal(users[0], proposal.id);
+			await session.cancelProposal(users[0], proposal);
 			expect(await cancel(outsider, proposal.id)).toEqual({
 				status: 400,
 				body: { error: 'Proposal is not pending' },
@@ -1270,7 +1265,8 @@ describe('Proposal Business Logic', () => {
 								await sign(
 									users[0],
 									PersonalMessages.cancelProposal(
-										proposal.id,
+										proposal.digest,
+										multisig.address,
 									),
 								),
 							),
