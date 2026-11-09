@@ -20,15 +20,19 @@ function previewHeaders(env: Record<string, string>) {
 		'utf8',
 	);
 	const headers: Record<string, string> = {};
-	for (const line of template.split('\n')) {
+	for (const raw of template.split('\n')) {
+		const line = raw.trimEnd();
+		if (!line) continue;
 		const match = line.match(
 			/^add_header (\S+) "(.*)" always;$/,
 		);
-		if (match)
-			headers[match[1]] = match[2].replace(
-				'${API_ORIGIN}',
-				origins,
+		if (!match)
+			throw new Error(
+				`Unparsed line in headers.conf.template: ${line}`,
 			);
+		headers[match[1]] = match[2]
+			.split('${API_ORIGIN}')
+			.join(origins);
 	}
 	if (!headers['Content-Security-Policy'])
 		throw new Error(
