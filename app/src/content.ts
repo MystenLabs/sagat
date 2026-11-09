@@ -537,6 +537,8 @@ export const content = {
 		/** Thrown before the wallet opens when the bytes aren't the pod's own. */
 		bytesNotFromPod:
 			'These bytes must be sent from this pod, with this pod paying gas. Nothing was signed.',
+		/** In place of the steps when the pod's signers fail a check; the reason is `proposal.approvals.refused`'s. */
+		refusedTitle: 'Can’t create a proposal for this pod',
 		bytesRead: (commands: number) =>
 			`Read as a transaction with ${commands} ${commands === 1 ? 'command' : 'commands'}, sent from this pod.`,
 		bytesPlaceholder:

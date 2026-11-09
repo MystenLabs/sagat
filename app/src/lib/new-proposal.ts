@@ -26,6 +26,10 @@ import {
 } from './coins';
 import { VALIDATION } from './constants';
 import { textLength } from './create-multisig';
+import {
+	checkSigners,
+	type AccountSigners,
+} from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 
 const COPY = content.newProposal;
@@ -367,6 +371,27 @@ export function checkBytes(
 		bytes,
 		commands,
 	};
+}
+
+/**
+ * Why `walletAddress` mustn't sign `bytes` for `multisig`, or null:
+ * `signers`, the account's signers don't make up its address;
+ * `notSigner`, the wallet isn't one of them; `bytes`, the bytes aren't
+ * sent from the rebuilt address with it paying gas.
+ */
+export function checkNewProposal(
+	multisig: AccountSigners & { address: string },
+	bytes: string,
+	walletAddress: string,
+): 'signers' | 'notSigner' | 'bytes' | null {
+	const signers = checkSigners(multisig, {
+		account: multisig.address,
+		signerAddress: walletAddress,
+	});
+	if (signers.kind !== 'ok') return signers.kind;
+	if (checkBytes(bytes, signers.address).kind !== 'ok')
+		return 'bytes';
+	return null;
 }
 
 type ReadTransaction =

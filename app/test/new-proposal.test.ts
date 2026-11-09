@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { bcs } from '@mysten/sui/bcs';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
@@ -20,6 +22,7 @@ import { formatInputAmount } from '../src/lib/coins';
 import {
 	bytesStatusText,
 	checkBytes,
+	checkNewProposal,
 	checkTransfer,
 	lacksGas,
 	maxTransfer,
@@ -623,6 +626,55 @@ describe('checkBytes', () => {
 			kind: 'wrong-gas-owner',
 			owner: OTHER,
 		});
+	});
+});
+
+describe('checkNewProposal', () => {
+	const wallet = new Ed25519Keypair();
+	const keys = [wallet, new Ed25519Keypair()];
+	const threshold = 1;
+	const members = keys.map((key, order) => ({
+		publicKey: key.getPublicKey().toSuiPublicKey(),
+		weight: 1,
+		order,
+	}));
+	const address = MultiSigPublicKey.fromPublicKeys({
+		threshold,
+		publicKeys: keys.map((key) => ({
+			publicKey: key.getPublicKey(),
+			weight: 1,
+		})),
+	}).toSuiAddress();
+
+	test('passes bytes from an account its signers make up, for a member wallet', async () => {
+		expect(
+			checkNewProposal(
+				{ address, threshold, members },
+				await transferBytes(address),
+				wallet.toSuiAddress(),
+			),
+		).toBeNull();
+	});
+
+	test('refuses an account address its signers don’t make up, such as the wallet’s own', async () => {
+		const own = wallet.toSuiAddress();
+		expect(
+			checkNewProposal(
+				{ address: own, threshold, members },
+				await transferBytes(own),
+				own,
+			),
+		).toBe('signers');
+	});
+
+	test('refuses a wallet that is not one of the signers', async () => {
+		expect(
+			checkNewProposal(
+				{ address, threshold, members },
+				await transferBytes(address),
+				new Ed25519Keypair().toSuiAddress(),
+			),
+		).toBe('notSigner');
 	});
 });
 

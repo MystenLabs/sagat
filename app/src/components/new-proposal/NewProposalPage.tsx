@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { useEffect, useRef, useState } from 'react';
 import {
 	Navigate,
@@ -9,6 +10,8 @@ import {
 	useSearchParams,
 } from 'react-router-dom';
 
+import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/button';
 import { SkeletonPage } from '@/components/ui/skeleton';
 import { type WizardStep } from '@/components/wizard/parts';
 import { WizardPage } from '@/components/wizard/WizardPage';
@@ -18,6 +21,7 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import {
 	BytesNotFromPodError,
 	SignatureDeclinedError,
+	SignersRefusedError,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
 import { couldNotSimulate } from '@/hooks/useDryRun';
@@ -33,6 +37,7 @@ import {
 	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
+import { checkSigners } from '@/lib/proposal-integrity';
 import {
 	proposalPagePath,
 	proposalsPath,
@@ -104,6 +109,7 @@ function NewProposalWizard({
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 	const { currentAddress } = useApiAuth();
+	const wallet = useCurrentAccount();
 	const { network } = useNetwork();
 	const create = useCreateProposal();
 	const { dryRun, analysis, preview, reset } =
@@ -115,6 +121,14 @@ function NewProposalWizard({
 	const multisig: MultisigWithMembersForPublicKey = details
 		? { ...listed, ...details }
 		: listed;
+	const signers = wallet
+		? checkSigners(multisig, {
+				account: multisig.address,
+				signerAddress: wallet.address,
+			})
+		: null;
+	const refused =
+		signers && signers.kind !== 'ok' ? signers.kind : null;
 	const setup = accountSetup({
 		multisig,
 		currentAddress: currentAddress?.address,
@@ -228,7 +242,7 @@ function NewProposalWizard({
 		submitting.current = true;
 		create.mutate(
 			{
-				multisigAddress: address,
+				multisig,
 				transactionData: ready.bytes,
 				// The length check counts the NFC form (`textLength`), and
 				// the API stores what it gets, so send that form: typed as
@@ -258,7 +272,8 @@ function NewProposalWizard({
 	// proposal (a coin another pending proposal uses, say), or why the
 	// bytes were refused before signing.
 	const createError =
-		create.error instanceof BytesNotFromPodError
+		create.error instanceof BytesNotFromPodError ||
+		create.error instanceof SignersRefusedError
 			? create.error.message
 			: create.error &&
 				  !(create.error instanceof SignatureDeclinedError)
@@ -318,7 +333,31 @@ function NewProposalWizard({
 				)
 			}
 		>
-			{step === 1 && (
+			{refused && (
+				<div className="flex flex-col items-start gap-5.5 p-5 md:p-8">
+					<Alert
+						variant="error"
+						className="w-full"
+						data-testid="new-proposal-refused"
+						data-rule={refused}
+					>
+						<div className="font-medium">
+							{COPY.refusedTitle}
+						</div>
+						<div>
+							{content.proposal.approvals.refused[refused]}
+						</div>
+					</Alert>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={cancel}
+					>
+						{content.common.actions.goBack}
+					</Button>
+				</div>
+			)}
+			{!refused && step === 1 && (
 				<TypeStep
 					type={type}
 					onTypeChange={(next) => {
@@ -331,7 +370,8 @@ function NewProposalWizard({
 					onCancel={cancel}
 				/>
 			)}
-			{step === 2 &&
+			{!refused &&
+				step === 2 &&
 				(type === 'transfer' ? (
 					<TransferDetailsStep
 						{...detailsProps}
@@ -351,7 +391,7 @@ function NewProposalWizard({
 						}}
 					/>
 				))}
-			{step === 3 && ready && (
+			{!refused && step === 3 && ready && (
 				<ReviewStep
 					bytes={ready.bytes}
 					sender={{
