@@ -63,6 +63,7 @@ export class Actor extends Identity {
 		readonly otherAccounts: Identity[],
 		readonly context: BrowserContext,
 		readonly page: Page,
+		readonly cspViolations: string[],
 	) {
 		super(name, keypair);
 	}
@@ -89,6 +90,14 @@ export class Actor extends Identity {
 		} = {},
 	) {
 		const context = await browser.newContext({ hasTouch });
+		const cspViolations: string[] = [];
+		context.on('console', (message) => {
+			if (
+				message.type() === 'error' &&
+				message.text().includes('Content Security Policy')
+			)
+				cspViolations.push(message.text());
+		});
 		await isolateFromInternet(context);
 
 		const walletConfig: E2EWalletConfig = {
@@ -127,6 +136,7 @@ export class Actor extends Identity {
 			otherAccounts,
 			context,
 			await context.newPage(),
+			cspViolations,
 		);
 	}
 
