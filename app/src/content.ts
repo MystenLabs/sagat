@@ -13,6 +13,13 @@ const MARKERS = {
 	external: { word: 'External', parens: '(external)' },
 } as const;
 
+/** Why a pod's signers fail a check; shared by `common` and `proposal.approvals.refused`. */
+const SIGNERS_REFUSED = {
+	signers:
+		'This pod’s signers and threshold don’t make up its address.',
+	notSigner: 'Your wallet isn’t one of this pod’s signers.',
+};
+
 function signerCount(count: number) {
 	return count === 1 ? '1 signer' : `${count} signers`;
 }
@@ -99,6 +106,8 @@ export const content = {
 		/** Conjunctions, such as the word `joinList` puts before the last item. */
 		and: 'and',
 		or: 'or',
+		/** Why the pod's signers fail a check, on a proposal or a new one. */
+		signersRefused: SIGNERS_REFUSED,
 	},
 	shell: {
 		reconnectingWallet: 'Reconnecting wallet',
@@ -537,7 +546,7 @@ export const content = {
 		/** Thrown before the wallet opens when the bytes aren't the pod's own. */
 		bytesNotFromPod:
 			'These bytes must be sent from this pod, with this pod paying gas. Nothing was signed.',
-		/** In place of the steps when the pod's signers fail a check; the reason is `proposal.approvals.refused`'s. */
+		/** In place of the steps when the pod's signers fail a check; the reason is `common.signersRefused`'s. */
 		refusedTitle: 'Can’t create a proposal for this pod',
 		bytesRead: (commands: number) =>
 			`Read as a transaction with ${commands} ${commands === 1 ? 'command' : 'commands'}, sent from this pod.`,
@@ -1047,10 +1056,7 @@ export const content = {
 					'The transaction’s gas is paid by an address other than this pod.',
 				digest:
 					'The transaction doesn’t match the proposal’s digest.',
-				signers:
-					'This pod’s signers and threshold don’t make up its address.',
-				notSigner:
-					'Your wallet isn’t one of this pod’s signers.',
+				...SIGNERS_REFUSED,
 			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */

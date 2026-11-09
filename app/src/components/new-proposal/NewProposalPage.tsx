@@ -333,7 +333,7 @@ function NewProposalWizard({
 				)
 			}
 		>
-			{refused && (
+			{refused ? (
 				<div className="flex flex-col items-start gap-5.5 p-5 md:p-8">
 					<Alert
 						variant="error"
@@ -345,7 +345,7 @@ function NewProposalWizard({
 							{COPY.refusedTitle}
 						</div>
 						<div>
-							{content.proposal.approvals.refused[refused]}
+							{content.common.signersRefused[refused]}
 						</div>
 					</Alert>
 					<Button
@@ -356,60 +356,62 @@ function NewProposalWizard({
 						{content.common.actions.goBack}
 					</Button>
 				</div>
-			)}
-			{!refused && step === 1 && (
-				<TypeStep
-					type={type}
-					onTypeChange={(next) => {
-						if (next === type) return;
-						setType(next);
-						setTitle(null);
-						clearReady();
-					}}
-					onContinue={() => goTo(2)}
-					onCancel={cancel}
-				/>
-			)}
-			{!refused &&
-				step === 2 &&
-				(type === 'transfer' ? (
-					<TransferDetailsStep
-						{...detailsProps}
-						draft={transferDraft}
-						onDraftChange={(next) => {
-							setTransferDraft(next);
-							clearReady();
-						}}
-					/>
-				) : (
-					<BytesDetailsStep
-						{...detailsProps}
-						draft={bytesDraft}
-						onDraftChange={(next) => {
-							setBytesDraft(next);
-							clearReady();
-						}}
-					/>
-				))}
-			{!refused && step === 3 && ready && (
-				<ReviewStep
-					bytes={ready.bytes}
-					sender={{
-						address: multisig.address,
-						name: multisig.name ?? null,
-					}}
-					title={reviewTitle}
-					onTitleChange={setTitle}
-					dryRun={dryRun}
-					analysis={analysis}
-					creating={creating}
-					awaitingWallet={create.awaitingWallet}
-					createError={createError}
-					onRetrySimulation={retrySimulation}
-					onSubmit={submit}
-					onBack={() => goTo(2)}
-					onCancel={cancel}
-				/>
+			) : (
+				<>
+					{step === 1 && (
+						<TypeStep
+							type={type}
+							onTypeChange={(next) => {
+								if (next === type) return;
+								setType(next);
+								setTitle(null);
+								clearReady();
+							}}
+							onContinue={() => goTo(2)}
+							onCancel={cancel}
+						/>
+					)}
+					{step === 2 &&
+						(type === 'transfer' ? (
+							<TransferDetailsStep
+								{...detailsProps}
+								draft={transferDraft}
+								onDraftChange={(next) => {
+									setTransferDraft(next);
+									clearReady();
+								}}
+							/>
+						) : (
+							<BytesDetailsStep
+								{...detailsProps}
+								draft={bytesDraft}
+								onDraftChange={(next) => {
+									setBytesDraft(next);
+									clearReady();
+								}}
+							/>
+						))}
+					{step === 3 && ready && (
+						<ReviewStep
+							bytes={ready.bytes}
+							sender={{
+								address: multisig.address,
+								name: multisig.name ?? null,
+							}}
+							title={reviewTitle}
+							onTitleChange={setTitle}
+							dryRun={dryRun}
+							analysis={analysis}
+							creating={creating}
+							awaitingWallet={create.awaitingWallet}
+							createError={createError}
+							onRetrySimulation={retrySimulation}
+							onSubmit={submit}
+							onBack={() => goTo(2)}
+							onCancel={cancel}
+						/>
+					)}
+				</>
 			)}
 		</WizardPage>
 	);

@@ -676,6 +676,16 @@ describe('checkNewProposal', () => {
 			),
 		).toBe('notSigner');
 	});
+
+	test('refuses bytes not sent from the account, even when its signers check out', async () => {
+		expect(
+			checkNewProposal(
+				{ address, threshold, members },
+				await transferBytes(wallet.toSuiAddress()),
+				wallet.toSuiAddress(),
+			),
+		).toBe('bytes');
+	});
 });
 
 describe('bytesStatusText', () => {

@@ -45,7 +45,7 @@ export class BytesNotFromPodError extends Error {
 /** The account's signers don't make up its address, or the wallet isn't one of them. Nothing was signed. */
 export class SignersRefusedError extends Error {
 	constructor(failure: 'signers' | 'notSigner') {
-		super(content.proposal.approvals.refused[failure]);
+		super(content.common.signersRefused[failure]);
 		this.name = 'SignersRefusedError';
 	}
 }
