@@ -826,6 +826,34 @@ test.describe('new proposal: transfer details', () => {
 		await expect(options).toHaveCount(52);
 		await expect.poll(() => lookups).toBe(52);
 		await expect(loadMore).toHaveCount(0);
+
+		// A coin chosen past the first fifty is in the list it opens.
+		const last = (await options
+			.last()
+			.getAttribute('data-coin-type'))!;
+		lookups = 0;
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+			coinType: last,
+		});
+		const select = page.getByTestId(
+			'transfer-asset-select',
+		);
+		await expect(select).toHaveAttribute(
+			'data-coin-type',
+			last,
+		);
+		await select.click();
+		await expect(options).toHaveCount(51);
+		await expect(options.last()).toHaveAttribute(
+			'data-coin-type',
+			last,
+		);
+		await expect(options.last()).toHaveAttribute(
+			'aria-selected',
+			'true',
+		);
+		await expect.poll(() => lookups).toBe(51);
 	});
 
 	// Blank metadata is read like none: the compact type stands in for the

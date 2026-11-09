@@ -37,6 +37,7 @@ import {
 import { useTouched } from '@/components/wizard/use-touched';
 import { content } from '@/content';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
+import { useCoinDisplayDataMap } from '@/hooks/useCoinDisplayData';
 import { useSuiGasCoins } from '@/hooks/useSuiGasCoins';
 import { accountName } from '@/lib/account-name';
 import { coinLabels } from '@/lib/coinDisplay';
@@ -87,19 +88,37 @@ export function TransferDetailsStep({
 	const client = useDAppKit().getClient();
 	// In the long form the balances carry: the page normalizes `?asset=`.
 	const coinType = draft.coinType;
-	// Every balance, but the details of the listed coins only once the
-	// list has been opened; until then, the chosen coin's.
 	const [listOpened, setListOpened] = useState(false);
 	const [listed, setListed] = useState(TOKENS_BATCH);
-	const shownCoinTypes = useMemo(
-		() => (coinType ? [coinType] : []),
-		[coinType],
-	);
 	const assets = useAccountAssets(multisig.address, {
 		allPages: true,
-		displayCount: listOpened ? listed : 0,
-		coinTypes: shownCoinTypes,
 	});
+	// Listed like the assets page: verified coins first, then the rest.
+	const options = useMemo(
+		() => [
+			...assets.listedBalances,
+			...assets.unverifiedBalances,
+		],
+		[assets.listedBalances, assets.unverifiedBalances],
+	);
+	// The chosen coin's details, and the listed coins' once the list has
+	// opened and their order is final.
+	const shownCoinTypes = useMemo(
+		() => [
+			...(coinType ? [coinType] : []),
+			...(listOpened && !assets.verifiedLoading
+				? options.slice(0, listed).map((b) => b.coinType)
+				: []),
+		],
+		[
+			coinType,
+			listOpened,
+			assets.verifiedLoading,
+			options,
+			listed,
+		],
+	);
+	const coinData = useCoinDisplayDataMap(shownCoinTypes);
 	const balancesLoading = assets.query.isPending;
 	const balancesComplete =
 		!!assets.query.data &&
@@ -110,7 +129,7 @@ export function TransferDetailsStep({
 		assets.balances.find((b) => b.coinType === coinType) ??
 		null;
 	const coin = coinType
-		? assets.coinData.get(coinType)
+		? coinData.map.get(coinType)
 		: undefined;
 	const decimals = coin?.decimals ?? null;
 	// Without its details the coin's decimals are unknown, so its amount
@@ -118,7 +137,7 @@ export function TransferDetailsStep({
 	const coinDataFailed =
 		!!balance &&
 		decimals === null &&
-		assets.isCoinDataErrorFor(coinType);
+		coinData.isErrorFor(coinType);
 	const symbol = coinType
 		? coinLabels(coinType, coin).symbol
 		: null;
@@ -306,8 +325,8 @@ export function TransferDetailsStep({
 				</Label>
 				<AssetSelect
 					id="transfer-asset"
-					balances={assets.balances}
-					coinData={assets.coinData}
+					balances={options}
+					coinData={coinData.map}
 					verified={(type) =>
 						assets.verifiedKnown
 							? assets.isVerified(type)

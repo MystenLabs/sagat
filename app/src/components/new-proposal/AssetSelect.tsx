@@ -34,8 +34,8 @@ const COPY = content.newProposal.assetSelect;
  * The asset to send: each balance the account holds, with its icon,
  * symbol, verified mark, name (when it differs from the symbol) and
  * balance, and in the list its coin type to copy. The list shows the first
- * `listed` balances, with Load more for the rest. A skeleton while the
- * balances load.
+ * `listed` balances and the chosen one, with Load more for the rest. A
+ * skeleton while the balances load.
  */
 export function AssetSelect({
 	id,
@@ -95,6 +95,10 @@ export function AssetSelect({
 	const selected =
 		balances.find((b) => b.coinType === value) ?? null;
 	const empty = balances.length === 0;
+	const shown = balances.slice(0, listed);
+	// The chosen coin stays in the list even past the loaded ones.
+	if (selected && !shown.includes(selected))
+		shown.push(selected);
 
 	return (
 		<Select
@@ -129,7 +133,7 @@ export function AssetSelect({
 				)}
 			</SelectTrigger>
 			<SelectContent alignItemWithTrigger={false}>
-				{balances.slice(0, listed).map((balance) => (
+				{shown.map((balance) => (
 					<AssetOption
 						key={balance.coinType}
 						balance={balance}
