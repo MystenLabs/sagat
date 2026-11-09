@@ -14,7 +14,8 @@ import { useState } from 'react';
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { checkBytes } from '@/lib/new-proposal';
+import { checkNewProposal } from '@/lib/new-proposal';
+import { type AccountSigners } from '@/lib/proposal-integrity';
 import { toast } from '@/lib/toast';
 
 import { useNetwork } from '../contexts/NetworkContext';
@@ -41,8 +42,16 @@ export class BytesNotFromPodError extends Error {
 	}
 }
 
+/** The account's signers don't make up its address, or the wallet isn't one of them. Nothing was signed. */
+export class SignersRefusedError extends Error {
+	constructor(failure: 'signers' | 'notSigner') {
+		super(content.common.signersRefused[failure]);
+		this.name = 'SignersRefusedError';
+	}
+}
+
 interface CreateProposalParams {
-	multisigAddress: string;
+	multisig: AccountSigners & { address: string };
 	transactionData: string;
 	description?: string;
 }
@@ -59,7 +68,7 @@ export function useCreateProposal() {
 
 	const mutation = useMutation({
 		mutationFn: async ({
-			multisigAddress,
+			multisig,
 			transactionData,
 			description,
 		}: CreateProposalParams) => {
@@ -68,11 +77,14 @@ export function useCreateProposal() {
 			}
 
 			// Refused before the wallet opens, so no signature leaves it.
-			if (
-				checkBytes(transactionData, multisigAddress)
-					.kind !== 'ok'
-			)
+			const refused = checkNewProposal(
+				multisig,
+				transactionData,
+				currentAccount.address,
+			);
+			if (refused === 'bytes')
 				throw new BytesNotFromPodError();
+			if (refused) throw new SignersRefusedError(refused);
 
 			// Parse transaction data
 			const transaction = Transaction.from(transactionData);
@@ -94,7 +106,7 @@ export function useCreateProposal() {
 
 			// Create proposal via API
 			return apiClient.createProposal({
-				multisigAddress,
+				multisigAddress: multisig.address,
 				transactionBytes: transactionData,
 				signature: signatureResult.signature as string,
 				description,

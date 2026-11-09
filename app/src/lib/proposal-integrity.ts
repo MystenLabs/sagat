@@ -76,18 +76,45 @@ export function checkProposalIntegrity(
 	)
 		return 'digest';
 
+	const signers = checkAccountSigners(proposal.multisig, {
+		account,
+		signerAddress,
+	});
+	return signers.kind === 'ok' ? null : signers.kind;
+}
+
+/** The signers and threshold an account's address is made from. */
+export type AccountSigners = Pick<
+	PublicProposal['multisig'],
+	'threshold' | 'members'
+>;
+
+/**
+ * Rebuilds `account` from its signers and threshold. `signers`, they
+ * don't make up `account`; `notSigner`, `signerAddress` isn't one of
+ * them; otherwise `address` is the rebuilt address.
+ */
+export function checkAccountSigners(
+	multisig: AccountSigners,
+	{
+		account,
+		signerAddress,
+	}: { account: string; signerAddress: string },
+):
+	| { kind: 'ok'; address: string }
+	| { kind: 'signers' | 'notSigner' } {
 	// A rotated account will instead need the rebuilt address to be in the
 	// account's alias set, read from the app's own fullnode.
-	const members = [...proposal.multisig.members].sort(
+	const members = [...multisig.members].sort(
 		(a, b) => a.order - b.order,
 	);
 	const { address: rebuilt } = computeMultisigAddress(
 		members.map((m) => m.publicKey),
 		members.map((m) => m.weight),
-		proposal.multisig.threshold,
+		multisig.threshold,
 	);
 	if (!rebuilt || !sameAddress(rebuilt, account))
-		return 'signers';
+		return { kind: 'signers' };
 
 	if (
 		!members.some((m) => {
@@ -98,7 +125,7 @@ export function checkProposalIntegrity(
 			);
 		})
 	)
-		return 'notSigner';
+		return { kind: 'notSigner' };
 
-	return null;
+	return { kind: 'ok', address: rebuilt };
 }
