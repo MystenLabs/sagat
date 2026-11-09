@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { PersonalMessages } from '@mysten/sagat';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
 	beforeEach,
 	describe,
@@ -10,6 +11,7 @@ import {
 } from 'bun:test';
 
 import { LIMITS } from '../src/constants/limits';
+import { parsePublicKey } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
 	errorOf,
@@ -38,17 +40,31 @@ describe('Multisig API', () => {
 
 		const multisig = await session.createMultisig(
 			users,
-			2,
+			3,
 			{
 				name: 'My Test Multisig',
+				weights: [1, 2, 3],
 			},
 		);
 
 		expect(multisig).toMatchObject({
-			threshold: 2,
+			threshold: 3,
 			name: 'My Test Multisig',
 			totalMembers: 3,
 		});
+
+		const { address, threshold, members } =
+			await session.client.getMultisig(multisig.address);
+		const key = MultiSigPublicKey.fromPublicKeys({
+			threshold,
+			publicKeys: members
+				.sort((a, b) => a.order - b.order)
+				.map((m) => ({
+					publicKey: parsePublicKey(m.publicKey),
+					weight: m.weight,
+				})),
+		});
+		expect(key.toSuiAddress()).toBe(address);
 	});
 
 	test('rejects invalid thresholds', async () => {
@@ -77,6 +93,42 @@ describe('Multisig API', () => {
 				weights: [256, 1],
 			}),
 		).rejects.toThrow('Weights must be less than 256');
+	});
+
+	test('rejects a threshold or weight that is not a whole number', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+		const publicKeys = users.map((u) => u.publicKey);
+
+		expect(
+			await errorOf(
+				await session.post('/multisig', {
+					publicKeys,
+					weights: [1, 1],
+					threshold: '1',
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'Threshold must be a whole number' },
+		});
+		expect(
+			await errorOf(
+				await session.post('/multisig', {
+					publicKeys,
+					weights: [1, '1'],
+					threshold: 1,
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'Weights must be whole numbers' },
+		});
+
+		// Same address as the refused weights, so it would clash had they been stored.
+		expect(
+			await session.createMultisig(users, 1),
+		).toMatchObject({ threshold: 1, totalWeight: 2 });
 	});
 
 	test('rejects fewer than 2 or more than 10 members', async () => {
