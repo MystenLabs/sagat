@@ -6,6 +6,7 @@ import {
 	PersonalMessages,
 	SagatClient,
 	type MultisigWithMembers,
+	type Proposal,
 } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
@@ -385,12 +386,18 @@ export class TestSession {
 
 	async cancelProposal(
 		member: TestUser,
-		proposalId: number,
+		proposal: Pick<
+			Proposal,
+			'id' | 'digest' | 'multisigAddress'
+		>,
 	) {
-		return this.client.cancelProposal(proposalId, {
+		return this.client.cancelProposal(proposal.id, {
 			signature: await sign(
 				member,
-				PersonalMessages.cancelProposal(proposalId),
+				PersonalMessages.cancelProposal(
+					proposal.digest,
+					proposal.multisigAddress,
+				),
 			),
 		});
 	}

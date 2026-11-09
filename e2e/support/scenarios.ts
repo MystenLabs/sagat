@@ -150,7 +150,10 @@ export async function cancelProposal(
 ) {
 	return member.api.cancelProposal(proposal.id, {
 		signature: await member.signMessage(
-			PersonalMessages.cancelProposal(proposal.id),
+			PersonalMessages.cancelProposal(
+				proposal.digest,
+				proposal.multisigAddress,
+			),
 		),
 	});
 }

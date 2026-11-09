@@ -295,7 +295,7 @@ async function driveLegacyRoutes(app: Hono) {
 		{},
 	);
 	await client.getProposalByDigest(first.digest);
-	await session.cancelProposal(users[0], first.id);
+	await session.cancelProposal(users[0], first);
 	await client.verifyProposal(first.id);
 	await client.verifyProposalByDigest(first.digest);
 
