@@ -7,7 +7,7 @@ import tailwindcss from '@tailwindcss/vite';
 
 import { apiOrigin } from './scripts/api-origin';
 
-// The nginx response headers, with the CSP enforced and the local stack allowed.
+// The nginx response headers, with the local stack allowed.
 function previewHeaders(env: Record<string, string>) {
 	const api = apiOrigin(
 		env.VITE_API_URL || 'http://localhost:3000',
@@ -25,8 +25,10 @@ function previewHeaders(env: Record<string, string>) {
 			/^add_header (\S+) "(.*)" always;$/,
 		);
 		if (match)
-			headers[match[1].replace(/-Report-Only$/, '')] =
-				match[2].replace('${API_ORIGIN}', origins);
+			headers[match[1]] = match[2].replace(
+				'${API_ORIGIN}',
+				origins,
+			);
 	}
 	if (!headers['Content-Security-Policy'])
 		throw new Error(
