@@ -8,6 +8,7 @@ import {
 
 import { AppRouter } from './components/AppRouter';
 import { Header } from './components/header';
+import { MigrationBanner } from './components/MigrationBanner';
 import { TestModeBanner } from './components/TestModeBanner';
 import { useNetwork } from './contexts/NetworkContext';
 
@@ -30,6 +31,7 @@ function AppContent() {
 	return (
 		<div className={showBanner ? 'pb-20' : ''}>
 			{!shouldHideHeader && <Header />}
+			<MigrationBanner withoutHeader={shouldHideHeader} />
 			<AppRouter />
 			{!shouldHideBanner && <TestModeBanner />}
 		</div>

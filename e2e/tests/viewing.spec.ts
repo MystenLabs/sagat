@@ -146,3 +146,34 @@ test('the overview and balances match the multisig on-chain', async ({
 		String(await chain.balance(multisig.address)),
 	);
 });
+
+test('the migration banner links to the same page on Pods', async ({
+	createActor,
+}) => {
+	const alice = await createActor('alice');
+	const { page } = alice;
+	await page.goto('/proposals');
+
+	await expect(
+		page.getByTestId('migration-banner'),
+	).toBeVisible();
+	const link = page.getByTestId('migration-banner-link');
+	const href = `https://app.suipods.io${new URL(page.url()).pathname}`;
+	await expect(link).toHaveAttribute('href', href);
+
+	await page
+		.getByRole('button', { name: 'Minimize' })
+		.click();
+	const expand = page.getByRole('button', {
+		name: 'Expand',
+	});
+	await expect(expand).toBeVisible();
+	await expect(link).toHaveAttribute('href', href);
+
+	await page.reload();
+	await expect(link).toBeVisible();
+	await expand.click();
+	await expect(
+		page.getByText('Pods is currently in alpha'),
+	).toBeVisible();
+});
