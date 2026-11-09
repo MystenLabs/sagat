@@ -460,7 +460,7 @@ export function ApprovalsCard({
 				open={cancelling}
 				onClose={() => setCancelling(false)}
 				onConfirm={() =>
-					cancel.mutate(proposal.id, {
+					cancel.mutate(proposal, {
 						onSuccess: () => setCancelling(false),
 					})
 				}
