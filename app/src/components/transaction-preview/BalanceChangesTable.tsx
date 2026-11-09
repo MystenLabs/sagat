@@ -3,6 +3,7 @@
 
 import { formatAddress } from '@mysten/sui/utils';
 
+import { VerifiedMark } from '@/components/assets/CoinMarks';
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import { CopyButton } from '@/components/ui/CopyButton';
@@ -36,11 +37,13 @@ export function BalanceChangesTable({
 	status,
 	coinData,
 	isCoinDataLoading,
+	isVerified,
 }: {
 	rows: BalanceChangeRow[];
 	status: SimulationStatus;
 	coinData: Map<string, CoinDisplayData>;
 	isCoinDataLoading: (coinType: string) => boolean;
+	isVerified: (coinType: string) => boolean | undefined;
 }) {
 	return (
 		<div className="overflow-hidden rounded-lg border bg-card">
@@ -100,6 +103,7 @@ export function BalanceChangesTable({
 								row={row}
 								coin={coinData.get(row.coinType)}
 								loading={isCoinDataLoading(row.coinType)}
+								verified={isVerified(row.coinType)}
 							/>
 						))
 					)}
@@ -113,10 +117,12 @@ function BalanceRow({
 	row,
 	coin,
 	loading,
+	verified,
 }: {
 	row: BalanceChangeRow;
 	coin: CoinDisplayData | undefined;
 	loading: boolean;
+	verified: boolean | undefined;
 }) {
 	const amount = BigInt(row.amount);
 	const positive = amount > 0n;
@@ -162,38 +168,39 @@ function BalanceRow({
 				</div>
 			</td>
 			<td className={cellClass}>
-				<div className="flex min-w-0 items-center gap-2">
+				{/* On a phone the mark takes a line of its own under the icon. */}
+				<div className="grid grid-cols-[auto_minmax(0,max-content)_1fr] items-center gap-x-2">
 					<CoinIcon
 						iconUrl={coin?.iconUrl}
 						symbol={coin?.symbol}
 						coinType={row.coinType}
 						recognized={coin?.recognized}
 						size="sm"
+						className="row-span-2"
 					/>
-					<div className="flex min-w-0 flex-col">
-						{!coin && loading ? (
-							<SkeletonLine className="my-1 w-12" />
-						) : (
-							<span className="truncate text-13">
-								{coin?.symbol ?? '—'}
-							</span>
-						)}
-						<span className="flex min-w-0 items-center gap-1">
-							<span
-								className="truncate font-mono text-11 text-muted-foreground"
-								title={row.coinType}
-							>
-								{formatType(row.coinType)}
-							</span>
-							<CopyButton
-								value={row.coinType}
-								size="inline"
-								successMessage={
-									content.toasts.coinTypeCopied
-								}
-							/>
+					{!coin && loading ? (
+						<SkeletonLine className="my-1 w-12 max-sm:col-span-2" />
+					) : (
+						<span className="truncate text-13 max-sm:col-span-2">
+							{coin?.symbol ?? '—'}
 						</span>
-					</div>
+					)}
+					<span className="flex empty:hidden max-sm:col-span-full max-sm:row-start-3 max-sm:mt-1">
+						<VerifiedMark verified={verified} />
+					</span>
+					<span className="col-span-2 flex min-w-0 items-center gap-1">
+						<span
+							className="truncate font-mono text-11 text-muted-foreground"
+							title={row.coinType}
+						>
+							{formatType(row.coinType)}
+						</span>
+						<CopyButton
+							value={row.coinType}
+							size="inline"
+							successMessage={content.toasts.coinTypeCopied}
+						/>
+					</span>
 				</div>
 			</td>
 			<td className={cn(cellClass, 'text-right')}>

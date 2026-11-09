@@ -18,6 +18,7 @@ import {
 	formatUsdValue,
 } from '../../lib/coins';
 import { cn } from '../../lib/utils';
+import { VerifiedMark } from '../assets/CoinMarks';
 import { ShortAddress } from '../invitations/ShortAddress';
 import { Alert } from '../ui/Alert';
 import { Chip } from '../ui/chip';
@@ -27,6 +28,7 @@ import { PreviewCard } from './PreviewCard';
 const COPY = content.transactionPreview.intent;
 
 type Flow = BalanceFlowsResult['sender'][number];
+type CoinDisplay = ReturnType<typeof useCoinDisplayDataMap>;
 type AccessLevel = 'read' | 'mutate' | 'transfer';
 
 interface IntentSummaryProps {
@@ -109,12 +111,12 @@ function FlowRow({
 	flow,
 	isCoinDataLoading,
 	coinDataMap,
+	isVerified,
 }: {
 	flow: Flow;
 	isCoinDataLoading: boolean;
-	coinDataMap: ReturnType<
-		typeof useCoinDisplayDataMap
-	>['map'];
+	coinDataMap: CoinDisplay['map'];
+	isVerified: CoinDisplay['isVerified'];
 }) {
 	const coinData = coinDataMap.get(flow.coinType);
 	const rawAmount = flow.amount.toString();
@@ -132,7 +134,11 @@ function FlowRow({
 	});
 
 	return (
-		<div className="flex items-center justify-between gap-3 rounded-md bg-surface border p-3">
+		<div
+			className="flex items-center justify-between gap-3 rounded-md bg-surface border p-3"
+			data-testid="balance-flow"
+			data-coin-type={flow.coinType}
+		>
 			<div className="flex items-center gap-3 min-w-0">
 				<CoinIcon
 					iconUrl={coinData?.iconUrl}
@@ -142,20 +148,25 @@ function FlowRow({
 					size="sm"
 				/>
 				<div className="min-w-0">
-					<div
-						className={cn(
-							'font-medium text-sm tabular-nums',
-							isPositive
-								? 'text-success-foreground'
-								: 'text-error-foreground',
-						)}
-					>
-						{formattedAmount}
-						{coinData?.symbol && (
-							<span className="ml-1 text-xs text-muted-foreground uppercase tracking-wide">
-								{coinData.symbol}
-							</span>
-						)}
+					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+						<span
+							className={cn(
+								'font-medium text-sm tabular-nums',
+								isPositive
+									? 'text-success-foreground'
+									: 'text-error-foreground',
+							)}
+						>
+							{formattedAmount}
+							{coinData?.symbol && (
+								<span className="ml-1 text-xs text-muted-foreground uppercase tracking-wide">
+									{coinData.symbol}
+								</span>
+							)}
+						</span>
+						<VerifiedMark
+							verified={isVerified(flow.coinType)}
+						/>
 					</div>
 					<div className="text-xs text-muted-foreground truncate">
 						{isCoinDataLoading && !coinData
@@ -179,13 +190,13 @@ function FlowGroup({
 	flows,
 	isCoinDataLoading,
 	coinDataMap,
+	isVerified,
 }: {
 	title: string;
 	flows: Flow[];
 	isCoinDataLoading: boolean;
-	coinDataMap: ReturnType<
-		typeof useCoinDisplayDataMap
-	>['map'];
+	coinDataMap: CoinDisplay['map'];
+	isVerified: CoinDisplay['isVerified'];
 }) {
 	if (flows.length === 0) return null;
 
@@ -201,6 +212,7 @@ function FlowGroup({
 						flow={flow}
 						isCoinDataLoading={isCoinDataLoading}
 						coinDataMap={coinDataMap}
+						isVerified={isVerified}
 					/>
 				))}
 			</div>
@@ -250,8 +262,11 @@ export function IntentSummary({
 			),
 		[allFlows],
 	);
-	const { map: coinDataMap, isLoading: isCoinDataLoading } =
-		useCoinDisplayDataMap(coinTypes);
+	const {
+		map: coinDataMap,
+		isLoading: isCoinDataLoading,
+		isVerified,
+	} = useCoinDisplayDataMap(coinTypes);
 
 	const commandCounts = useMemo(() => {
 		const counts = new Map<string, number>();
@@ -313,12 +328,14 @@ export function IntentSummary({
 									flows={senderFlows}
 									isCoinDataLoading={isCoinDataLoading}
 									coinDataMap={coinDataMap}
+									isVerified={isVerified}
 								/>
 								<FlowGroup
 									title={COPY.sponsorFlows}
 									flows={sponsorFlows}
 									isCoinDataLoading={isCoinDataLoading}
 									coinDataMap={coinDataMap}
+									isVerified={isVerified}
 								/>
 							</div>
 						) : (
