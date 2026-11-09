@@ -109,14 +109,17 @@ jobs:
 
       # Without CI, Playwright reuses the network and API started above and
       # still builds and serves the old app. The flags restore CI's workers,
-      # retries and forbid-only.
+      # retries, forbid-only and reporters.
       - name: Run legacy UI E2E tests
         working-directory: legacy/e2e
         env:
           E2E_APP_SERVER: preview
+          PLAYWRIGHT_HTML_OPEN: never
         run: |
+          # Leaves Playwright no legacy API to fall back on.
+          rm -rf "$GITHUB_WORKSPACE/legacy/api"
           unset CI
-          bun run test --workers=6 --retries=1 --forbid-only
+          bun run test --workers=6 --retries=1 --forbid-only --reporter=github,list,html
 
       - name: Print API log
         if: ${{ failure() }}
