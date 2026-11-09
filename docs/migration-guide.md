@@ -8,13 +8,14 @@ Anyone calling the Sagat API directly or through the SDK from the repository: sc
 
 The web app needs nothing from you. It updates with the release.
 
-**Nothing breaks on release day, apart from the stricter input listed below.** The routes you use today keep working, frozen, on top of the new schema. The new API lives under `/v1`. The session cookie and script token are shared, so you can move one call at a time.
+**Nothing breaks on release day, apart from the stricter input and the new cancel message listed below.** The routes you use today keep working, frozen, on top of the new schema. The new API lives under `/v1`. The session cookie and script token are shared, so you can move one call at a time.
 
-Three things to plan for:
+Four things to plan for:
 
 - **Legacy routes refuse accounts that have rotated signers.** They return an error pointing at `/v1`. Two exceptions: `verify` and `verify-by-digest` still work, so a proposal that rotated the account can be verified, and the connection and invitation listings (`GET /addresses/connections`, `GET /addresses/invitations/:publicKey`) leave rotated accounts out silently rather than failing. A rotated account missing from a listing is not deleted and your membership is not lost; it is only visible under `/v1`. If your team never rotates, you never see any of this.
 - **Legacy routes are removed once their traffic reaches zero.** There is no fixed date. Migrating early keeps you off the last-user list.
 - **Stricter input on some legacy routes.** `add-proposer` and `remove-proposer` accept `expiry` only in the form `YYYY-MM-DDTHH:MM:SS`, with an optional fraction of up to nine digits, followed by `Z` or a `±HH:MM` offset, such as `2026-11-05T13:48:41.000Z`. Create, vote, cancel, `add-proposer` and `remove-proposer` accept a signature only as canonical base64. Other forms get a 400.
+- **Cancel takes only the new message.** `POST /proposals/:id/cancel` accepts only the signed text `Cancelling proposal <digest> on multisig <address>`. The old `Cancel proposal <id>` gets a 400. See "Signed messages" below.
 
 ## What changed, in one paragraph
 
@@ -127,7 +128,7 @@ The package name may change before the first publish. If it does, this guide wil
 
 ## Signed messages
 
-Under `/v1`, messages that name the account changed. Legacy routes keep verifying the old text, except cancel, which takes only the new text. If you build these strings yourself instead of using `PersonalMessages` from the SDK, update them when you move the call.
+Under `/v1`, messages that name the account changed. Legacy routes keep verifying the old text, except cancel, which already takes only the new text. If you build these strings yourself instead of using `PersonalMessages` from the SDK, update a cancel string now and the others when you move the call.
 
 | Purpose           | Before                                                                 | After (proposed)                                                      |
 | ----------------- | ---------------------------------------------------------------------- | --------------------------------------------------------------------- |
