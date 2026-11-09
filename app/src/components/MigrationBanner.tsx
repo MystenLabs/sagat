@@ -7,7 +7,7 @@ import {
 	ChevronUp,
 	Sparkles,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { cn } from '@/lib/utils';
@@ -41,8 +41,18 @@ export function MigrationBanner({
 }) {
 	const { pathname, search } = useLocation();
 	const [minimized, setMinimized] = useState(readMinimized);
+	const toggleRef = useRef<HTMLButtonElement>(null);
+	const refocusToggle = useRef(false);
+
+	useEffect(() => {
+		if (refocusToggle.current) {
+			refocusToggle.current = false;
+			toggleRef.current?.focus();
+		}
+	}, [minimized]);
 
 	const setAndStore = (next: boolean) => {
+		refocusToggle.current = true;
 		setMinimized(next);
 		writeMinimized(next);
 	};
@@ -65,6 +75,7 @@ export function MigrationBanner({
 				<div
 					className="flex items-center gap-3 rounded-lg border border-info-border bg-info-soft py-1.5 pr-1.5 pl-4 text-sm text-info-foreground"
 					data-testid="migration-banner"
+					data-minimized={minimized}
 				>
 					<Sparkles className="size-4 shrink-0" />
 					<p className="min-w-0 flex-1">
@@ -78,7 +89,9 @@ export function MigrationBanner({
 						</a>
 					</p>
 					<button
+						ref={toggleRef}
 						type="button"
+						data-testid="migration-banner-toggle"
 						aria-label="Expand"
 						aria-expanded="false"
 						onClick={() => setAndStore(false)}
@@ -91,6 +104,7 @@ export function MigrationBanner({
 				<div
 					className="grid grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-3 rounded-lg border border-info-border bg-info-soft py-3 pr-3 pl-4 text-sm text-info-foreground sm:grid-cols-[auto_1fr_auto_auto] sm:items-center"
 					data-testid="migration-banner"
+					data-minimized={minimized}
 				>
 					<Sparkles className="col-start-1 row-start-1 mt-0.5 size-4 self-start" />
 					<div className="col-start-2 row-start-1 min-w-0">
@@ -115,7 +129,9 @@ export function MigrationBanner({
 						<ArrowUpRight className="size-4" />
 					</a>
 					<button
+						ref={toggleRef}
 						type="button"
+						data-testid="migration-banner-toggle"
 						aria-label="Minimize"
 						aria-expanded="true"
 						onClick={() => setAndStore(true)}

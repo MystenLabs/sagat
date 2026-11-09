@@ -156,26 +156,36 @@ test('the migration banner links to the same page on Pods and stays minimized af
 		'GPNbmN8qcDcsaD3gDmM2PBP4jT2AUu6A4XE5mDT1e4M4';
 	await page.goto(`/proposals?digest=${digest}`);
 
-	await expect(
-		page.getByTestId('migration-banner'),
-	).toBeVisible();
+	const banner = page.getByTestId('migration-banner');
+	const toggle = page.getByTestId(
+		'migration-banner-toggle',
+	);
+	await expect(banner).toBeVisible();
+	await expect(banner).toHaveAttribute(
+		'data-minimized',
+		'false',
+	);
 	const link = page.getByTestId('migration-banner-link');
 	const href = `https://app.suipods.io/proposals?digest=${digest}`;
 	await expect(link).toHaveAttribute('href', href);
 
-	await page
-		.getByRole('button', { name: 'Minimize' })
-		.click();
-	const expand = page.getByRole('button', {
-		name: 'Expand',
-	});
-	await expect(expand).toBeVisible();
+	await toggle.click();
+	await expect(banner).toHaveAttribute(
+		'data-minimized',
+		'true',
+	);
+	await expect(toggle).toBeFocused();
 	await expect(link).toHaveAttribute('href', href);
 
 	await page.reload();
-	await expect(link).toBeVisible();
-	await expand.click();
-	await expect(
-		page.getByText('Pods is currently in alpha'),
-	).toBeVisible();
+	await expect(banner).toHaveAttribute(
+		'data-minimized',
+		'true',
+	);
+	await toggle.click();
+	await expect(banner).toHaveAttribute(
+		'data-minimized',
+		'false',
+	);
+	await expect(toggle).toBeFocused();
 });
