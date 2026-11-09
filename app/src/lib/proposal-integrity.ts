@@ -76,7 +76,7 @@ export function checkProposalIntegrity(
 	)
 		return 'digest';
 
-	const signers = checkSigners(proposal.multisig, {
+	const signers = checkAccountSigners(proposal.multisig, {
 		account,
 		signerAddress,
 	});
@@ -94,7 +94,7 @@ export type AccountSigners = Pick<
  * don't make up `account`; `notSigner`, `signerAddress` isn't one of
  * them; otherwise `address` is the rebuilt address.
  */
-export function checkSigners(
+export function checkAccountSigners(
 	multisig: AccountSigners,
 	{
 		account,

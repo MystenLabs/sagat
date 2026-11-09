@@ -27,7 +27,7 @@ import {
 import { VALIDATION } from './constants';
 import { textLength } from './create-multisig';
 import {
-	checkSigners,
+	checkAccountSigners,
 	type AccountSigners,
 } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
@@ -384,7 +384,7 @@ export function checkNewProposal(
 	bytes: string,
 	walletAddress: string,
 ): 'signers' | 'notSigner' | 'bytes' | null {
-	const signers = checkSigners(multisig, {
+	const signers = checkAccountSigners(multisig, {
 		account: multisig.address,
 		signerAddress: walletAddress,
 	});

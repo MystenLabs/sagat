@@ -37,7 +37,7 @@ import {
 	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
-import { checkSigners } from '@/lib/proposal-integrity';
+import { checkAccountSigners } from '@/lib/proposal-integrity';
 import {
 	proposalPagePath,
 	proposalsPath,
@@ -122,7 +122,7 @@ function NewProposalWizard({
 		? { ...listed, ...details }
 		: listed;
 	const signers = wallet
-		? checkSigners(multisig, {
+		? checkAccountSigners(multisig, {
 				account: multisig.address,
 				signerAddress: wallet.address,
 			})
