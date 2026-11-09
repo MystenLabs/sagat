@@ -79,6 +79,42 @@ describe('Multisig API', () => {
 		).rejects.toThrow('Weights must be less than 256');
 	});
 
+	test('rejects a threshold or weight that is not a whole number', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+		const publicKeys = users.map((u) => u.publicKey);
+
+		expect(
+			await errorOf(
+				await session.post('/multisig', {
+					publicKeys,
+					weights: [1, 1],
+					threshold: '1',
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'Threshold must be a whole number' },
+		});
+		expect(
+			await errorOf(
+				await session.post('/multisig', {
+					publicKeys,
+					weights: [1, '1'],
+					threshold: 1,
+				}),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'Weights must be whole numbers' },
+		});
+
+		// Same address as the refused weights, so it would clash had they been stored.
+		expect(
+			await session.createMultisig(users, 1),
+		).toMatchObject({ threshold: 1, totalWeight: 2 });
+	});
+
 	test('rejects fewer than 2 or more than 10 members', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(1);

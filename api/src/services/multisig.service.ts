@@ -323,7 +323,10 @@ export const validateQuorum = async (
 	weights: number[],
 	threshold: number,
 ) => {
-	if (addresses.length !== weights.length) {
+	if (
+		!Array.isArray(weights) ||
+		addresses.length !== weights.length
+	) {
 		throw new ValidationError(
 			'Addresses and weights must be the same length',
 		);
@@ -333,6 +336,11 @@ export const validateQuorum = async (
 
 	// validate weights.
 	weights.forEach((weight) => {
+		if (!Number.isInteger(weight)) {
+			throw new ValidationError(
+				'Weights must be whole numbers',
+			);
+		}
 		if (weight <= 0) {
 			throw new ValidationError(
 				'Weights must be greater than 0',
@@ -349,6 +357,12 @@ export const validateQuorum = async (
 	const uniqueAddresses = Array.from(new Set(addresses));
 	if (uniqueAddresses.length !== addresses.length) {
 		throw new ValidationError('Addresses must be unique');
+	}
+
+	if (!Number.isInteger(threshold)) {
+		throw new ValidationError(
+			'Threshold must be a whole number',
+		);
 	}
 
 	if (
@@ -558,9 +572,6 @@ export const createSignerSet = async ({
 		publicKeys.length,
 	);
 
-	// Register all public keys first
-	await registerPublicKeyStrings(publicKeys);
-
 	// Parse all public keys and get their addresses
 	const parsedPubKeys: PublicKey[] = [];
 	const addresses: string[] = [];
@@ -587,6 +598,8 @@ export const createSignerSet = async ({
 			'Only a member of the multisig can label its keys.',
 		);
 
+	await registerPublicKeyStrings(publicKeys);
+
 	// The caller's keys in the composition, which accept on creation.
 	const acceptingKeys = parsedPubKeys
 		.filter((key) =>
@@ -596,13 +609,17 @@ export const createSignerSet = async ({
 		)
 		.map((key) => key.toSuiPublicKey());
 
-	const multisig = MultiSigPublicKey.fromPublicKeys({
-		threshold,
-		publicKeys: parsedPubKeys.map((key, index) => ({
-			publicKey: key,
-			weight: weights[index],
-		})),
-	});
+	// Read back from the bytes, so the stored values are the hashed ones.
+	const multisig = new MultiSigPublicKey(
+		MultiSigPublicKey.fromPublicKeys({
+			threshold,
+			publicKeys: parsedPubKeys.map((key, index) => ({
+				publicKey: key,
+				weight: weights[index],
+			})),
+		}).toRawBytes(),
+	);
+	const multisigMembers = multisig.getPublicKeys();
 
 	// add the multisig to the database.
 	return await db.transaction(async (tx) => {
@@ -612,7 +629,7 @@ export const createSignerSet = async ({
 				.values({
 					address: multisig.toSuiAddress(),
 					isVerified: false,
-					threshold,
+					threshold: multisig.getThreshold(),
 					name,
 				})
 				.onConflictDoNothing({
@@ -674,12 +691,7 @@ export const createSignerSet = async ({
 				parsedPubKeys.map((key, index) => ({
 					signerSetAddress: msig.address,
 					publicKey: key.toSuiPublicKey(),
-					weight:
-						weights[
-							addresses.findIndex(
-								(addr) => addr === key.toSuiAddress(),
-							)
-						],
+					weight: multisigMembers[index].weight,
 					// If authorization includes the user, we can accept immediately.
 					isAccepted: acceptingKeys.includes(
 						key.toSuiPublicKey(),
