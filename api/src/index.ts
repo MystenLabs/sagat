@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
 import { csrf } from 'hono/csrf';
+import { secureHeaders } from 'hono/secure-headers';
 
 import { LIMITS } from './constants/limits';
 import {
@@ -38,6 +39,17 @@ const app = new Hono();
 
 // Apply metrics middleware to all routes
 app.use('*', metricsMiddleware);
+app.use(
+	'*',
+	secureHeaders({
+		contentSecurityPolicy: {
+			defaultSrc: ["'none'"],
+			frameAncestors: ["'none'"],
+		},
+		strictTransportSecurity: 'max-age=31536000',
+		xFrameOptions: 'DENY',
+	}),
+);
 
 // eslint-disable-next-line no-console
 console.log(
