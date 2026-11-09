@@ -85,7 +85,7 @@ The migration is hand-written (`api/drizzle/0009_account_rotation.sql`, added in
 **Decision (2026-10-14): one schema, two route sets, no breaking change.** This replaces the earlier decision to ship a breaking release.
 
 - The database is renamed and the accounts table is added as described above. Legacy routes keep their JSON contract through explicit serializers in `api/src/legacy/serializers.ts`, because the ORM property names change with the columns and the new columns must not leak into old responses.
-- The existing routes stay mounted and **frozen**: no field is removed, renamed or changes meaning. Additive fields are allowed when the current product needs them, nullable or always set, each a deliberate regeneration of the golden fixture. Two routes change behaviour: the create route also inserts the account row and its `account_signer_sets` row, so the new API sees what it created, and the accept route flips those link rows to `verified` when the composition is finalized. Fields added so far: `label` on every member object (see per-account key labels below); `draftedBy` and `createdAt` on every multisig object, from the account's `account_signer_sets` row for its original composition, so a client can show who sent an invitation without guessing from the member order; and `currentWeight` on the vote response, the weight collected so far, so a client can show how much a proposal still needs without recomputing it from an earlier read.
+- The existing routes stay mounted and **frozen**: no field is removed, renamed or changes meaning. Additive fields are allowed when the current product needs them, nullable or always set, each a deliberate regeneration of the golden fixture. Two routes change behaviour: the create route also inserts the account row and its `account_signer_sets` row, so the new API sees what it created, and the accept route flips those link rows to `verified` when the composition is finalized. Cancel also accepts only the new signed message, see the audit log section. Fields added so far: `label` on every member object (see per-account key labels below); `draftedBy` and `createdAt` on every multisig object, from the account's `account_signer_sets` row for its original composition, so a client can show who sent an invitation without guessing from the member order; and `currentWeight` on the vote response, the weight collected so far, so a client can show how much a proposal still needs without recomputing it from an earlier read.
 - New routes live under a version prefix, `/v1`. Proposals keep their path but change their fields, so the prefix applies to everything new.
 - The new SDK targets `/v1` only. The old SDK stays in the repository, unpublished and frozen.
 - The session cookie and script token are shared, so a script can move one call at a time.
@@ -137,14 +137,14 @@ The API applies pending migrations on startup. Migration 0009 renames tables, so
 
 ### Public vocabulary
 
-| Surface         | Change                                                                                                                     |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| API routes      | `/v1/accounts`, `/v1/signer-sets`, `/v1/proposals`. Legacy routes stay, frozen, until traffic is zero.                     |
-| API fields      | Under `/v1`: `accountAddress` replaces `multisigAddress`, and single-set fields on proposals are replaced by `signerSets`. |
-| SDK             | New package for `/v1`. No deprecated aliases. The old SDK is frozen and never published.                                   |
-| Signed messages | Messages that name the account use the new term under `/v1`. Legacy routes keep verifying the old text.                    |
-| Metrics         | Names unchanged. They are internal, and dashboards read them. New rotation metrics get new names.                          |
-| Exports         | Already carry `type` and `version: 1`. The new app exports version 2. Version 1 stays readable.                            |
+| Surface         | Change                                                                                                                                                |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API routes      | `/v1/accounts`, `/v1/signer-sets`, `/v1/proposals`. Legacy routes stay, frozen, until traffic is zero.                                                |
+| API fields      | Under `/v1`: `accountAddress` replaces `multisigAddress`, and single-set fields on proposals are replaced by `signerSets`.                            |
+| SDK             | New package for `/v1`. No deprecated aliases. The old SDK is frozen and never published.                                                              |
+| Signed messages | Messages that name the account use the new term under `/v1`. Legacy routes keep verifying the old text, except cancel, which takes only the new text. |
+| Metrics         | Names unchanged. They are internal, and dashboards read them. New rotation metrics get new names.                                                     |
+| Exports         | Already carry `type` and `version: 1`. The new app exports version 2. Version 1 stays readable.                                                       |
 
 The full before and after mapping lives in the migration guide, and is updated in the same pull request as the code.
 

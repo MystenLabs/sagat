@@ -198,7 +198,7 @@ Exported files carry `type` and `version`. Files with `version: 1` keep the old 
 
 ## Things that did not change
 
-- Legacy routes. They keep working until their traffic is zero, except for rotated accounts and the stricter input listed at the top of this guide.
+- Legacy routes. They keep working until their traffic is zero, except for rotated accounts, the stricter input and the new cancel message listed at the top of this guide.
 - Authentication, tokens, and cookies. One session works against both route sets.
 - Proposal ids and digests. Existing proposals keep both.
 - Account addresses. Every existing multisig address is now an account with the same address.
@@ -220,6 +220,7 @@ Exported files carry `type` and `version`. Files with `version: 1` keep the old 
 - [ ] `multisigAddress` replaced everywhere
 - [ ] Renamed SDK calls and types
 - [ ] Proposer messages updated, if built by hand
+- [ ] Cancel message updated, if built by hand
 - [ ] Execution code picks one signer set and filters signatures
 - [ ] Any reader of `currentWeight`, `totalWeight`, or `multisig` moved to `signerSets`
 - [ ] Tested against testnet
