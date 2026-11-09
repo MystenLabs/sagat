@@ -147,18 +147,20 @@ test('the overview and balances match the multisig on-chain', async ({
 	);
 });
 
-test('the migration banner links to the same page on Pods', async ({
+test('the migration banner links to the same page on Pods and stays minimized after a reload', async ({
 	createActor,
 }) => {
 	const alice = await createActor('alice');
 	const { page } = alice;
-	await page.goto('/proposals');
+	const digest =
+		'GPNbmN8qcDcsaD3gDmM2PBP4jT2AUu6A4XE5mDT1e4M4';
+	await page.goto(`/proposals?digest=${digest}`);
 
 	await expect(
 		page.getByTestId('migration-banner'),
 	).toBeVisible();
 	const link = page.getByTestId('migration-banner-link');
-	const href = `https://app.suipods.io${new URL(page.url()).pathname}`;
+	const href = `https://app.suipods.io/proposals?digest=${digest}`;
 	await expect(link).toHaveAttribute('href', href);
 
 	await page

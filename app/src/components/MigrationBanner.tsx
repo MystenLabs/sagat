@@ -39,7 +39,7 @@ export function MigrationBanner({
 }: {
 	withoutHeader?: boolean;
 }) {
-	const { pathname } = useLocation();
+	const { pathname, search } = useLocation();
 	const [minimized, setMinimized] = useState(readMinimized);
 
 	const setAndStore = (next: boolean) => {
@@ -48,7 +48,7 @@ export function MigrationBanner({
 	};
 
 	const linkProps = {
-		href: `${PODS_APP_URL}${pathname}`,
+		href: `${PODS_APP_URL}${pathname}${search}`,
 		target: '_blank',
 		rel: 'noopener noreferrer',
 		'data-testid': 'migration-banner-link',
