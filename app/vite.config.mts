@@ -5,14 +5,16 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react-swc';
 import tailwindcss from '@tailwindcss/vite';
 
+import { apiOrigin } from './scripts/api-origin';
+
 // The nginx response headers, with the CSP enforced and the local stack allowed.
 function previewHeaders(env: Record<string, string>) {
-	const apiOrigin = new URL(
+	const api = apiOrigin(
 		env.VITE_API_URL || 'http://localhost:3000',
-	).origin;
+	);
 	const origins = env.VITE_LOCALNET_RPC_URL
-		? `${apiOrigin} ${new URL(env.VITE_LOCALNET_RPC_URL).origin}`
-		: apiOrigin;
+		? `${api} ${new URL(env.VITE_LOCALNET_RPC_URL).origin}`
+		: api;
 	const template = readFileSync(
 		path.resolve(__dirname, 'nginx/headers.conf.template'),
 		'utf8',
@@ -26,11 +28,15 @@ function previewHeaders(env: Record<string, string>) {
 			headers[match[1].replace(/-Report-Only$/, '')] =
 				match[2].replace('${API_ORIGIN}', origins);
 	}
+	if (!headers['Content-Security-Policy'])
+		throw new Error(
+			'No Content-Security-Policy in headers.conf.template',
+		);
 	return headers;
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ mode, isPreview }) => ({
 	plugins: [react(), tailwindcss()],
 	resolve: {
 		alias: {
@@ -41,11 +47,13 @@ export default defineConfig(({ mode }) => ({
 			),
 		},
 	},
-	preview: {
-		headers: previewHeaders(
-			loadEnv(mode, process.cwd(), 'VITE_'),
-		),
-	},
+	preview: isPreview
+		? {
+				headers: previewHeaders(
+					loadEnv(mode, process.cwd(), 'VITE_'),
+				),
+			}
+		: undefined,
 	test: {
 		setupFiles: ['./test/setup.ts'],
 	},

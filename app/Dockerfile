@@ -35,6 +35,7 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SUI_NETWORKS=$VITE_SUI_NETWORKS
 ENV VITE_DEFAULT_NETWORK=$VITE_DEFAULT_NETWORK
 
+RUN bun scripts/api-origin.ts > api-origin
 RUN bun run build
 
 # Production stage with nginx
@@ -47,22 +48,12 @@ RUN addgroup -g 1001 -S sagat && \
 # Copy built app to nginx
 COPY --from=build --chown=1001:1001 /monorepo/app/dist /usr/share/nginx/html
 
-ARG VITE_API_URL
-COPY app/nginx/ /tmp/nginx/
-# Only ${API_ORIGIN} is substituted so nginx's own $variables stay intact.
-RUN set -eu; \
-    API_ORIGIN="$(printf '%s' "$VITE_API_URL" | sed -E 's|^([a-z]+://[^/?#]+).*|\1|')"; \
-    case "$API_ORIGIN" in \
-        *[!A-Za-z0-9.:/-]*) API_ORIGIN= ;; \
-    esac; \
-    if ! printf '%s' "$API_ORIGIN" | grep -Eq '^(https://[A-Za-z0-9.-]+(:[0-9]+)?|http://(localhost|127\.0\.0\.1)(:[0-9]+)?)$'; then \
-        echo "VITE_API_URL must be https://<host>[:port] or http://localhost[:port], got '$VITE_API_URL'" >&2; exit 1; \
-    fi; \
-    export API_ORIGIN; \
-    mkdir -p /etc/nginx/snippets; \
-    envsubst '${API_ORIGIN}' < /tmp/nginx/default.conf.template > /etc/nginx/conf.d/default.conf; \
-    envsubst '${API_ORIGIN}' < /tmp/nginx/headers.conf.template > /etc/nginx/snippets/headers.conf; \
-    rm -rf /tmp/nginx; \
+COPY app/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY app/nginx/headers.conf.template /etc/nginx/snippets/
+COPY --from=build /monorepo/app/api-origin /etc/nginx/snippets/
+RUN API_ORIGIN="$(cat /etc/nginx/snippets/api-origin)" envsubst '$API_ORIGIN' \
+        < /etc/nginx/snippets/headers.conf.template > /etc/nginx/snippets/headers.conf && \
+    rm /etc/nginx/snippets/headers.conf.template /etc/nginx/snippets/api-origin && \
     nginx -t
 
 # Expose port
