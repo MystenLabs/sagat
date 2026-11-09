@@ -64,7 +64,8 @@ export function BytesDetailsStep({
 	const bytesInvalid =
 		check.kind === 'unreadable' ||
 		check.kind === 'unresolved' ||
-		check.kind === 'wrong-sender';
+		check.kind === 'wrong-sender' ||
+		check.kind === 'wrong-gas-owner';
 
 	const value = title ?? '';
 	const currentTitleError = titleError(value);

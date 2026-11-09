@@ -530,6 +530,14 @@ export const content = {
 			accountName: string,
 		) =>
 			`These bytes are sent from ${sender}, not ${accountName}. Build the transaction with this pod as the sender.`,
+		bytesWrongGasOwner: (
+			owner: string,
+			accountName: string,
+		) =>
+			`Gas for these bytes is paid by ${owner}, not ${accountName}. Build the transaction with this pod paying gas.`,
+		/** Thrown before the wallet opens when the bytes aren't the pod's own. */
+		bytesNotFromPod:
+			'These bytes must be sent from this pod, with this pod paying gas. Nothing was signed.',
 		bytesRead: (commands: number) =>
 			`Read as a transaction with ${commands} ${commands === 1 ? 'command' : 'commands'}, sent from this pod.`,
 		bytesPlaceholder:
@@ -1290,7 +1298,10 @@ export const content = {
 		details: {
 			error: 'Error',
 			epoch: 'Epoch',
+			gasOwner: 'Gas sponsor',
 		},
+		gasOwnerIsYou:
+			'Your wallet pays the gas for this transaction, so signing it also lets the transaction spend your gas coins. Don’t sign it.',
 		balances: {
 			change: 'Change',
 			emptyFailed:

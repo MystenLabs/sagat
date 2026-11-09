@@ -337,6 +337,20 @@ describe('buildTransactionPreview', () => {
 		]);
 	});
 
+	test('names the gas sponsor only when it isn’t the sender', async () => {
+		expect(preview().gasOwner).toBeNull();
+		expect(
+			preview({ bytes: await transferBytes(SENDER) })
+				.gasOwner,
+		).toBeNull();
+		expect(
+			preview({
+				bytes: await transferBytes(SPONSOR),
+				accounts: [{ address: SPONSOR, name: 'Ops' }],
+			}).gasOwner,
+		).toEqual({ address: SPONSOR, name: 'Ops' });
+	});
+
 	test('adds no gas row without a gas payer SUI change', () => {
 		const model = preview({
 			result: simulated({

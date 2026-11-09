@@ -14,6 +14,7 @@ import { useState } from 'react';
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { checkBytes } from '@/lib/new-proposal';
 import { toast } from '@/lib/toast';
 
 import { useNetwork } from '../contexts/NetworkContext';
@@ -29,6 +30,14 @@ export class SignatureDeclinedError extends Error {
 		super('The wallet didn’t sign the proposal.');
 		this.name = 'SignatureDeclinedError';
 		this.cause = cause;
+	}
+}
+
+/** The bytes aren't sent from the pod or another address pays their gas. Nothing was signed. */
+export class BytesNotFromPodError extends Error {
+	constructor() {
+		super(content.newProposal.bytesNotFromPod);
+		this.name = 'BytesNotFromPodError';
 	}
 }
 
@@ -58,6 +67,13 @@ export function useCreateProposal() {
 				throw new Error(content.errors.noConnectedAccount);
 			}
 
+			// Refused before the wallet opens, so no signature leaves it.
+			if (
+				checkBytes(transactionData, multisigAddress)
+					.kind !== 'ok'
+			)
+				throw new BytesNotFromPodError();
+
 			// Parse transaction data
 			const transaction = Transaction.from(transactionData);
 
@@ -68,6 +84,7 @@ export function useCreateProposal() {
 			try {
 				signatureResult = await dappKit.signTransaction({
 					transaction,
+					account: currentAccount,
 				});
 			} catch (cause) {
 				throw new SignatureDeclinedError(cause);

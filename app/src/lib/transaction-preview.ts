@@ -22,6 +22,7 @@ import { content } from '../content';
 import { formatCoinAmount, isSuiCoinType } from './coins';
 import { formatDateTime } from './dates';
 import { networkLabel, type SuiNetwork } from './network';
+import { sameAddress } from './sui-utils';
 
 const COPY = content.transactionPreview;
 
@@ -77,6 +78,8 @@ export interface TransactionPreviewModel {
 	ledgerHash: string;
 	/** From the bytes; null when the bytes set no sender. */
 	sender: NamedAccount | null;
+	/** The gas owner when it isn't the sender: a sponsor, who signs too. */
+	gasOwner: NamedAccount | null;
 	/** "Mainnet · Oct 13, 2026, 8:54 AM" once simulated, "Mainnet" while pending. */
 	statusMeta: string;
 	/** The failure, when `status` is 'failed'. */
@@ -243,6 +246,16 @@ export function buildTransactionPreview(
 			}
 		: null;
 
+	const { owner } = transaction.gasData;
+	const gasOwner =
+		owner &&
+		!(
+			transaction.sender &&
+			sameAddress(owner, transaction.sender)
+		)
+			? payer
+			: null;
+
 	const cost = result
 		? gasCost(result.effects.gasUsed)
 		: null;
@@ -252,6 +265,7 @@ export function buildTransactionPreview(
 		digest,
 		ledgerHash: ledgerHashOf(decoded),
 		sender,
+		gasOwner,
 		statusMeta: simulatedAt
 			? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`
 			: networkLabel(network),

@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import { ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
@@ -22,6 +23,7 @@ import { Notice } from '@/components/wizard/parts';
 import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useCoinDisplayDataMap } from '@/hooks/useCoinDisplayData';
+import { sameAddress } from '@/lib/sui-utils';
 import {
 	buildTransactionPreview,
 	type NamedAccount,
@@ -86,6 +88,7 @@ export function TransactionPreview({
 	signingNotice?: boolean;
 }) {
 	const { network } = useNetwork();
+	const currentAccount = useCurrentAccount();
 	const model = useMemo(
 		() =>
 			buildTransactionPreview({
@@ -130,6 +133,13 @@ export function TransactionPreview({
 	const [showRaw, setShowRaw] = useState(false);
 
 	const pending = model.status === 'pending';
+	const walletPaysGas =
+		!!model.gasOwner &&
+		!!currentAccount &&
+		sameAddress(
+			model.gasOwner.address,
+			currentAccount.address,
+		);
 	const tabs: {
 		id: TabId;
 		label: string;
@@ -236,6 +246,12 @@ export function TransactionPreview({
 			aria-busy={pending || undefined}
 		>
 			<PreviewHeading actions={actions} />
+
+			{walletPaysGas && (
+				<Notice tone="error" testId="gas-owner-notice">
+					{COPY.gasOwnerIsYou}
+				</Notice>
+			)}
 
 			<div className="flex items-center gap-2">
 				<Tabs

@@ -26,6 +26,7 @@ import {
 } from './coins';
 import { VALIDATION } from './constants';
 import { textLength } from './create-multisig';
+import { sameAddress } from './sui-utils';
 
 const COPY = content.newProposal;
 
@@ -323,6 +324,8 @@ export type BytesCheck =
 	/** JSON that still needs a client to build. */
 	| { kind: 'unresolved' }
 	| { kind: 'wrong-sender'; sender: string }
+	/** Bytes whose gas another address pays. */
+	| { kind: 'wrong-gas-owner'; owner: string }
 	/**
 	 * `bytes` is the base64 to propose: the input without its whitespace,
 	 * or the BCS a JSON transaction builds to.
@@ -330,12 +333,12 @@ export type BytesCheck =
 	| { kind: 'ok'; bytes: string; commands: number };
 
 /**
- * Reads a pasted transaction and compares its normalized sender with
- * `account`. Base64 BCS is read with all whitespace dropped (a paste
- * wrapped across lines is one transaction). JSON, as
- * Transaction#toJSON writes it, is read only when it is fully resolved
- * (the SDK's isFullyResolved: sender, gas and concrete inputs), so it
- * builds to bytes offline.
+ * Reads a pasted transaction and compares its normalized sender, and
+ * its gas owner when set, with `account`. Base64 BCS is read with all
+ * whitespace dropped (a paste wrapped across lines is one transaction).
+ * JSON, as Transaction#toJSON writes it, is read only when it is fully
+ * resolved (the SDK's isFullyResolved: sender, gas and concrete inputs),
+ * so it builds to bytes offline.
  */
 export function checkBytes(
 	input: string,
@@ -347,13 +350,18 @@ export function checkBytes(
 		? readJson(trimmed)
 		: readBase64(trimmed.replace(/\s/g, ''));
 	if (read.kind !== 'read') return read;
-	const { bytes, sender, commands } = read;
+	const { bytes, sender, gasOwner, commands } = read;
 	if (!sender || !isValidSuiAddress(sender))
 		return { kind: 'unreadable' };
 
 	const normalized = normalizeSuiAddress(sender);
 	if (normalized !== normalizeSuiAddress(account))
 		return { kind: 'wrong-sender', sender: normalized };
+	if (gasOwner && !sameAddress(gasOwner, account))
+		return {
+			kind: 'wrong-gas-owner',
+			owner: normalizeSuiAddress(gasOwner),
+		};
 	return {
 		kind: 'ok',
 		bytes,
@@ -367,6 +375,7 @@ type ReadTransaction =
 			kind: 'read';
 			bytes: string;
 			sender: string | null | undefined;
+			gasOwner: string | null | undefined;
 			commands: number;
 	  };
 
@@ -377,6 +386,7 @@ function readBase64(bytes: string): ReadTransaction {
 			kind: 'read',
 			bytes,
 			sender: data.sender,
+			gasOwner: data.gasData.owner,
 			commands: data.commands.length,
 		};
 	} catch {
@@ -402,6 +412,7 @@ function readJson(json: string): ReadTransaction {
 			kind: 'read',
 			bytes: toBase64(bytes),
 			sender: data.sender,
+			gasOwner: data.gasData.owner,
 			commands: data.commands.length,
 		};
 	} catch {
@@ -424,6 +435,11 @@ export function bytesStatusText(
 		case 'wrong-sender':
 			return COPY.bytesWrongSender(
 				formatAddress(check.sender),
+				accountName,
+			);
+		case 'wrong-gas-owner':
+			return COPY.bytesWrongGasOwner(
+				formatAddress(check.owner),
 				accountName,
 			);
 		case 'ok':

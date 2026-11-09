@@ -3,10 +3,9 @@
 
 // Checks a proposal's bytes against what the app can work out for itself
 // before the wallet is asked to sign them.
-import { normalizeSuiAddress } from '@mysten/sui/utils';
-
 import {
 	computeMultisigAddress,
+	sameAddress,
 	validatePublicKey,
 } from './sui-utils';
 import { readTransactionBytes } from './transaction-preview';
@@ -35,9 +34,6 @@ export type IntegrityProposal = Pick<
 	| 'multisigAddress'
 	| 'multisig'
 >;
-
-const sameAddress = (a: string, b: string) =>
-	normalizeSuiAddress(a) === normalizeSuiAddress(b);
 
 /**
  * Whether `signerAddress` may sign the proposal's bytes, or the first
