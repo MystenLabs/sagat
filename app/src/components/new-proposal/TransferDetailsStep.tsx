@@ -102,18 +102,18 @@ export function TransferDetailsStep({
 		[assets.listedBalances, assets.unverifiedBalances],
 	);
 	// The chosen coin's details, and the listed coins' once the list has
-	// opened and their order is final.
+	// opened and every page is in.
 	const shownCoinTypes = useMemo(
 		() => [
 			...(coinType ? [coinType] : []),
-			...(listOpened && !assets.verifiedLoading
+			...(listOpened && !assets.isLoading
 				? options.slice(0, listed).map((b) => b.coinType)
 				: []),
 		],
 		[
 			coinType,
 			listOpened,
-			assets.verifiedLoading,
+			assets.isLoading,
 			options,
 			listed,
 		],
