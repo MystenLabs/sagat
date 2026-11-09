@@ -1,16 +1,32 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Check, Coins } from 'lucide-react';
-import { useState } from 'react';
+import {
+	Check,
+	CircleAlert,
+	CircleCheck,
+	Coins,
+} from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 
 import { content } from '@/content';
 import { isSuiCoinType } from '@/lib/coins';
 import { cn } from '@/lib/utils';
 
+import {
+	Popover,
+	PopoverArrow,
+	PopoverContent,
+	PopoverTrigger,
+} from './popover';
 import { SuiLogo } from './SuiLogo';
+import {
+	tooltipArrowClass,
+	tooltipPopupClass,
+} from './tooltip';
 
 const COPY = content.shell.controls;
+const MARKS = content.assets.tokens;
 
 interface CoinIconProps {
 	iconUrl: string | null | undefined;
@@ -19,6 +35,8 @@ interface CoinIconProps {
 	recognized?: boolean;
 	/** The check badge on a recognized coin's icon; off where a row marks it. */
 	badge?: boolean;
+	/** In the badge's place: a check when true, a warning when false. */
+	verified?: boolean;
 	size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 	className?: string;
 }
@@ -91,6 +109,60 @@ function RecognizedBadge({
 	);
 }
 
+function VerifiedBadge({
+	verified,
+	badgeClassName,
+}: {
+	verified: boolean;
+	badgeClassName: string;
+}) {
+	if (verified)
+		return (
+			<CircleCheck
+				className={cn(
+					'absolute fill-foreground text-background',
+					badgeClassName,
+				)}
+				role="img"
+				aria-label={MARKS.verified}
+				data-testid="token-verified"
+			/>
+		);
+	// A popover, not a tooltip, so a tap opens it too.
+	return (
+		<Popover>
+			<PopoverTrigger
+				openOnHover
+				delay={150}
+				aria-label={MARKS.unverifiedCoin}
+				data-testid="token-unverified"
+				className={cn(
+					'absolute cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
+					badgeClassName,
+				)}
+			>
+				<CircleAlert
+					className="size-full fill-warning-solid text-warning-foreground"
+					aria-hidden
+				/>
+			</PopoverTrigger>
+			<PopoverContent
+				side="top"
+				initialFocus={false}
+				finalFocus={false}
+				data-testid="token-unverified-popup"
+				className={cn(
+					tooltipPopupClass,
+					'ring-0 duration-150',
+				)}
+			>
+				{MARKS.unverifiedCoin}
+				<PopoverArrow className={tooltipArrowClass} />
+			</PopoverContent>
+		</Popover>
+	);
+}
+
 /**
  * Renders a coin's icon. The brand mark stands for SUI; a recognized
  * coin shows the registry's icon; every other coin, or an icon that fails
@@ -104,13 +176,28 @@ export function CoinIcon({
 	coinType,
 	recognized = false,
 	badge: showBadge = true,
+	verified,
 	size = 'md',
 	className,
 }: CoinIconProps) {
 	const { wrapper, icon, sui, badge, badgeIcon } =
 		sizeClasses[size];
 	const iconUrl = recognized ? givenUrl : null;
-	const withBadge = recognized && showBadge;
+	let badgeNode: ReactNode = null;
+	if (verified !== undefined)
+		badgeNode = (
+			<VerifiedBadge
+				verified={verified}
+				badgeClassName={badge}
+			/>
+		);
+	else if (recognized && showBadge)
+		badgeNode = (
+			<RecognizedBadge
+				badgeClassName={badge}
+				iconClassName={badgeIcon}
+			/>
+		);
 	// Track which url last failed to load so a new url is given a fresh chance.
 	const [failedUrl, setFailedUrl] = useState<string | null>(
 		null,
@@ -130,12 +217,7 @@ export function CoinIcon({
 				aria-label={COPY.coinIcon(symbol)}
 			>
 				<SuiLogo className={cn(sui, 'w-auto')} />
-				{withBadge && (
-					<RecognizedBadge
-						badgeClassName={badge}
-						iconClassName={badgeIcon}
-					/>
-				)}
+				{badgeNode}
 			</div>
 		);
 	}
@@ -152,12 +234,7 @@ export function CoinIcon({
 					)}
 					onError={() => setFailedUrl(iconUrl)}
 				/>
-				{withBadge && (
-					<RecognizedBadge
-						badgeClassName={badge}
-						iconClassName={badgeIcon}
-					/>
-				)}
+				{badgeNode}
 			</div>
 		);
 	}
@@ -176,12 +253,7 @@ export function CoinIcon({
 			<Coins
 				className={cn(icon, 'text-muted-foreground')}
 			/>
-			{withBadge && (
-				<RecognizedBadge
-					badgeClassName={badge}
-					iconClassName={badgeIcon}
-				/>
-			)}
+			{badgeNode}
 		</div>
 	);
 }

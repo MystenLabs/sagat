@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { content } from '@/content';
 import type { CoinDisplayData } from '@/hooks/useCoinDisplayData';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { formatType } from '@/lib/coin-type';
 import {
 	coinUsdValue,
@@ -135,6 +136,10 @@ function BalanceRow({
 		? COPY.gasOwner(row.label ?? formatAddress(row.address))
 		: row.label;
 	const showAddressLine = !row.gas || !!row.label;
+	// From `sm` an unverified coin has the chip, below it the icon's badge.
+	const chip =
+		useMediaQuery('(min-width: 40rem)') &&
+		verified === false;
 
 	return (
 		<tr
@@ -168,39 +173,43 @@ function BalanceRow({
 				</div>
 			</td>
 			<td className={cellClass}>
-				{/* On a phone the mark takes a line of its own under the icon. */}
-				<div className="grid grid-cols-[auto_minmax(0,max-content)_1fr] items-center gap-x-2">
+				<div className="flex min-w-0 items-center gap-2">
 					<CoinIcon
 						iconUrl={coin?.iconUrl}
 						symbol={coin?.symbol}
 						coinType={row.coinType}
 						recognized={coin?.recognized}
+						badge={false}
+						verified={chip ? undefined : verified}
 						size="sm"
-						className="row-span-2"
 					/>
-					{!coin && loading ? (
-						<SkeletonLine className="my-1 w-12 max-sm:col-span-2" />
-					) : (
-						<span className="truncate text-13 max-sm:col-span-2">
-							{coin?.symbol ?? '—'}
+					<div className="flex min-w-0 flex-col">
+						{!coin && loading ? (
+							<SkeletonLine className="my-1 w-12" />
+						) : (
+							<span className="flex min-w-0 items-center gap-1.5">
+								<span className="truncate text-13">
+									{coin?.symbol ?? '—'}
+								</span>
+								{chip && <VerifiedMark verified={false} />}
+							</span>
+						)}
+						<span className="flex min-w-0 items-center gap-1">
+							<span
+								className="truncate font-mono text-11 text-muted-foreground"
+								title={row.coinType}
+							>
+								{formatType(row.coinType)}
+							</span>
+							<CopyButton
+								value={row.coinType}
+								size="inline"
+								successMessage={
+									content.toasts.coinTypeCopied
+								}
+							/>
 						</span>
-					)}
-					<span className="flex empty:hidden max-sm:col-span-full max-sm:row-start-3 max-sm:mt-1">
-						<VerifiedMark verified={verified} />
-					</span>
-					<span className="col-span-2 flex min-w-0 items-center gap-1">
-						<span
-							className="truncate font-mono text-11 text-muted-foreground"
-							title={row.coinType}
-						>
-							{formatType(row.coinType)}
-						</span>
-						<CopyButton
-							value={row.coinType}
-							size="inline"
-							successMessage={content.toasts.coinTypeCopied}
-						/>
-					</span>
+					</div>
 				</div>
 			</td>
 			<td className={cn(cellClass, 'text-right')}>

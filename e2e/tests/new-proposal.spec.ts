@@ -245,6 +245,7 @@ test.describe('new proposal: transfer', () => {
 		const { alice, multisig } = await sharedAccount(
 			fixtures,
 			1,
+			{ hasTouch: true },
 		);
 		const coinType = await mintTestCoin(
 			chain,
@@ -291,6 +292,25 @@ test.describe('new proposal: transfer', () => {
 				)
 				.getByTestId('token-unverified'),
 		).toBeVisible();
+
+		// On a phone the mark is the badge on the coin's icon; a tap explains it.
+		await page.setViewportSize({ width: 375, height: 812 });
+		await page
+			.getByTestId('transaction-preview-view-simulation')
+			.click();
+		const badge = page
+			.locator(
+				`[data-testid="balance-change"][data-address="${account}"][data-coin-type$="::test_coin::TEST_COIN"]`,
+			)
+			.getByTestId('token-unverified');
+		await expect(badge).toHaveAttribute(
+			'aria-label',
+			content.assets.tokens.unverifiedCoin,
+		);
+		await badge.tap();
+		await expect(
+			page.getByTestId('token-unverified-popup'),
+		).toHaveText(content.assets.tokens.unverifiedCoin);
 	});
 
 	test('Review marks every coin but SUI unverified when the registry fails to load', async ({

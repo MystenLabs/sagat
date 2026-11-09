@@ -10,6 +10,7 @@ import { useMemo, type ReactNode } from 'react';
 import { content } from '@/content';
 
 import { useCoinDisplayDataMap } from '../../hooks/useCoinDisplayData';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import type { TransactionAnalysis } from '../../hooks/useTransactionAnalysis';
 import { formatType } from '../../lib/coin-type';
 import {
@@ -132,6 +133,11 @@ function FlowRow({
 		priceUsd: coinData?.priceUsd,
 		decimals: coinData?.decimals,
 	});
+	const verified = isVerified(flow.coinType);
+	// From `sm` an unverified coin has the chip, below it the icon's badge.
+	const chip =
+		useMediaQuery('(min-width: 40rem)') &&
+		verified === false;
 
 	return (
 		<div
@@ -145,10 +151,12 @@ function FlowRow({
 					symbol={coinData?.symbol}
 					coinType={flow.coinType}
 					recognized={coinData?.recognized}
+					badge={false}
+					verified={chip ? undefined : verified}
 					size="sm"
 				/>
 				<div className="min-w-0">
-					<div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+					<div className="flex items-center gap-1.5">
 						<span
 							className={cn(
 								'font-medium text-sm tabular-nums',
@@ -164,9 +172,7 @@ function FlowRow({
 								</span>
 							)}
 						</span>
-						<VerifiedMark
-							verified={isVerified(flow.coinType)}
-						/>
+						{chip && <VerifiedMark verified={false} />}
 					</div>
 					<div className="text-xs text-muted-foreground truncate">
 						{isCoinDataLoading && !coinData
