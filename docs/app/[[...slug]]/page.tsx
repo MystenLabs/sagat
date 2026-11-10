@@ -21,7 +21,7 @@ import {
 	Screenshot,
 	type ScreenshotProps,
 } from '@/components/screenshot';
-import { github } from '@/lib/site';
+import { github, markdownCopyUrl } from '@/lib/site';
 import { source } from '@/lib/source';
 
 type Props = { params: Promise<{ slug?: string[] }> };
@@ -32,8 +32,9 @@ export default async function Page(props: Props) {
 	if (!page) notFound();
 
 	const MDX = page.data.body;
-	const markdownUrl = `/md/${page.slugs.join('/') || 'index'}.md`;
-	const githubUrl = `https://github.com/${github.owner}/${github.repo}/blob/${github.branch}/docs/content/${page.path}`;
+	const markdownUrl = markdownCopyUrl(page.url);
+	const contentPath = `docs/content/${page.path}`;
+	const githubUrl = `https://github.com/${github.owner}/${github.repo}/blob/${github.branch}/${contentPath}`;
 	const hasToc = page.data.toc.length > 0;
 	const pageActions = (
 		<div
@@ -78,7 +79,7 @@ export default async function Page(props: Props) {
 				owner: github.owner,
 				repo: github.repo,
 				sha: github.branch,
-				path: `docs/content/${page.path}`,
+				path: contentPath,
 			}}
 		>
 			<DocsTitle>{page.data.title}</DocsTitle>

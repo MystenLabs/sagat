@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { markdownComponents } from '@/lib/markdown-components';
-import { alphaNoticeMarkdown } from '@/lib/site';
+import {
+	alphaNoticeMarkdown,
+	markdownCopyUrl,
+} from '@/lib/site';
 import { source } from '@/lib/source';
 
 export const dynamic = 'force-static';
@@ -40,10 +43,8 @@ export async function GET(
 }
 
 export function generateStaticParams() {
-	return source.getPages().map((page) => {
-		const slug = page.slugs.length ? page.slugs : ['index'];
-		return {
-			slug: [...slug.slice(0, -1), `${slug.at(-1)}.md`],
-		};
-	});
+	// Drop the leading '' and 'md' segments.
+	return source.getPages().map((page) => ({
+		slug: markdownCopyUrl(page.url).split('/').slice(2),
+	}));
 }
