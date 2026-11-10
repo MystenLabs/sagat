@@ -21,6 +21,13 @@ import { verifySignedMessage } from './signatures.service';
 
 const JWT_COOKIE_NAME = 'connected-wallet';
 
+const COOKIE_OPTIONS = {
+	sameSite: 'Lax',
+	secure: true,
+	httpOnly: true,
+	path: '/',
+} as const;
+
 const getJwtSecret = () =>
 	new TextEncoder().encode(JWT_SECRET);
 
@@ -82,7 +89,7 @@ export const connectForScript: Handler = async (c) => {
 export const connectToPublicKey: Handler = async (c) => {
 	try {
 		// Read cookie from client
-		const cookie = getCookie(c, JWT_COOKIE_NAME);
+		const cookie = getCookie(c, JWT_COOKIE_NAME, 'host');
 
 		const pubKeys: PublicKey[] = [];
 		let isNewToken = false;
@@ -148,10 +155,8 @@ export const connectToPublicKey: Handler = async (c) => {
 			JWT_COOKIE_NAME,
 			await issueJwt(pubKeys, 'cookie'),
 			{
-				sameSite: 'Lax',
-				secure: true,
-				httpOnly: true,
-				path: '/',
+				...COOKIE_OPTIONS,
+				prefix: 'host',
 				maxAge: 60 * 60 * 24 * 365, // 365 days
 			},
 		);
@@ -211,7 +216,10 @@ export const authMiddleware = async (
 		}
 
 		// Read cookie from client
-		const cookie = getCookie(c, JWT_COOKIE_NAME);
+		const cookie =
+			getCookie(c, JWT_COOKIE_NAME, 'host') ??
+			// Sessions issued before the prefix.
+			getCookie(c, JWT_COOKIE_NAME);
 
 		// If we have no cookie, we're unauthorized.
 		if (!cookie) return c.text('Unauthorized', 401);
@@ -287,11 +295,10 @@ export const validateIsoExpiry = (expiry: unknown) => {
 
 export const disconnect: Handler = async (c) => {
 	deleteCookie(c, JWT_COOKIE_NAME, {
-		path: '/',
-		secure: true,
-		httpOnly: true,
-		sameSite: 'Lax', // Match the cookie setting
+		...COOKIE_OPTIONS,
+		prefix: 'host',
 	});
+	deleteCookie(c, JWT_COOKIE_NAME, COOKIE_OPTIONS);
 	activeJwtTokens.dec();
 	return c.json({ success: true });
 };
