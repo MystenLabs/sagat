@@ -1,6 +1,7 @@
 {
 	"$schema": "https://openapi.vercel.sh/vercel.json",
 	"framework": null,
+	"buildCommand": "NEXT_DEPLOYMENT_ID= npm run build",
 	"outputDirectory": "out",
 	"cleanUrls": true,
 	"trailingSlash": false,
