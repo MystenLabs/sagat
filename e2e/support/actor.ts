@@ -152,8 +152,8 @@ export class Actor extends Identity {
 
 	// The header renders separate desktop and mobile menus and hides one with
 	// CSS, so always pick the visible one.
-	walletMenuButton() {
-		return this.page
+	walletMenuButton(page = this.page) {
+		return page
 			.getByTestId('app-header')
 			.getByTestId('wallet-menu-button')
 			.filter({ visible: true });
