@@ -11,9 +11,7 @@ export function sentryOrigin(value: string): string {
 		throw new Error(
 			`VITE_SENTRY_DSN must be https://<key>@<host>/<project>, got '${value}'`,
 		);
-	return new URL(
-		`https://${dsn.host}${dsn.port ? `:${dsn.port}` : ''}`,
-	).origin;
+	return new URL(value).origin;
 }
 
 if (import.meta.main)

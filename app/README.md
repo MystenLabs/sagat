@@ -58,10 +58,13 @@ file.
 
 `VITE_SENTRY_DSN` and `VITE_RELEASE` are optional and read at build time.
 Without a DSN, Sentry is not initialised and nothing is sent. With one,
-uncaught errors and unhandled promise rejections are reported to that DSN,
-with no user or IP data. The image build adds the DSN's origin to the CSP's
-`connect-src`. When `VITE_RELEASE` is set, events are tagged with that release.
-Production builds ship source maps next to the assets.
+uncaught errors and unhandled promise rejections are reported to that DSN.
+Reports carry no user identity and ask Sentry not to record the IP address,
+but they do include the page URL and the URLs of recent requests, which contain
+account addresses and proposal digests. When `VITE_RELEASE` is set, events are
+tagged with that release and the SDK also sends one session ping per page load.
+The image build adds the DSN's origin to the CSP's `connect-src`. Production
+builds ship source maps next to the assets.
 
 ## Building
 
