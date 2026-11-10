@@ -3,7 +3,8 @@
 	"routes": [
 		{
 			"src": "^/_(?:next|vercel)/image/?$",
-			"mitigate": { "action": "deny" }
+			"dest": "/404",
+			"status": 404
 		}
 	]
 }
