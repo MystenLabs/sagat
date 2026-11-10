@@ -1,7 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useQueryClient } from '@tanstack/react-query';
 import { TriangleAlert } from 'lucide-react';
+import { useEffect } from 'react';
 
 import { content } from '@/content';
 
@@ -15,6 +17,11 @@ export function PageCrashed({
 }: {
 	onRetry: () => void;
 }) {
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		// Drop every unobserved query, the crashed page's included; the shell's stay.
+		queryClient.removeQueries({ type: 'inactive' });
+	}, [queryClient]);
 	return (
 		<div className="px-5">
 			<ErrorState
@@ -41,7 +48,7 @@ export function AppCrashed() {
 				title={COPY.error.title}
 				fallback={COPY.appCrashed.body}
 				onRetry={() => window.location.reload()}
-				retryLabel={content.common.actions.reloadPage}
+				retryLabel={COPY.appCrashed.reload}
 				retryTestId="app-crashed-reload"
 			/>
 		</div>

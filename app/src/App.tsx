@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useCurrentAccount } from '@mysten/dapp-kit-react';
 import {
 	BrowserRouter,
 	useLocation,
@@ -19,8 +19,8 @@ import { useNetwork } from './contexts/NetworkContext';
 
 function AppContent() {
 	const location = useLocation();
-	const { isTestMode } = useNetwork();
-	const queryClient = useQueryClient();
+	const { isTestMode, network } = useNetwork();
+	const currentAccount = useCurrentAccount();
 
 	// Hide the banner on the create flow and the public tools pages.
 	const hideBanner =
@@ -31,17 +31,9 @@ function AppContent() {
 	return (
 		<AppShell>
 			<ErrorBoundary
-				resetKey={location.pathname}
+				resetKey={`${network}|${currentAccount?.address ?? ''}|${location.pathname}`}
 				fallback={({ reset }) => (
-					<PageCrashed
-						onRetry={() => {
-							// Drop the crashed page's now-unobserved queries so it refetches.
-							queryClient.removeQueries({
-								type: 'inactive',
-							});
-							reset();
-						}}
-					/>
+					<PageCrashed onRetry={reset} />
 				)}
 			>
 				{showBanner && <TestModeBanner />}

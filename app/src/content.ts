@@ -43,7 +43,6 @@ export const content = {
 			continue: 'Continue',
 			goBack: 'Go back',
 			tryAgain: 'Try again',
-			reloadPage: 'Reload page',
 			copy: 'Copy',
 			copyAddress: 'Copy address',
 			viewOnExplorer: 'View on explorer',
@@ -239,6 +238,7 @@ export const content = {
 		},
 		appCrashed: {
 			body: 'The app ran into an unexpected error. Reload the page to try again.',
+			reload: 'Reload page',
 		},
 	},
 	dialogs: {
