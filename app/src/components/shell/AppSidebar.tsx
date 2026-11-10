@@ -82,7 +82,7 @@ const COPY = content.sidebar;
 
 const RESOURCE_LINKS = [
 	{
-		href: 'https://docs.sui.io/standards/sagat',
+		href: 'https://docs.suipods.io',
 		label: COPY.viewDocs,
 		icon: BookOpen,
 	},
