@@ -29,11 +29,12 @@ jobs:
           POSTGRES_USER: sagat
           POSTGRES_PASSWORD: sagat
           POSTGRES_DB: sagat_e2e
+        # TCP probe: the image's init-time server is socket-only.
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
+          --health-cmd "pg_isready -h 127.0.0.1"
+          --health-interval 2s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 25
     env:
       E2E_DATABASE_URL: postgresql://sagat:sagat@postgres:5432/sagat_e2e
       E2E_SUI_RPC_URL: http://127.0.0.1:9000
@@ -42,11 +43,6 @@ jobs:
       E2E_APP_PORT: 4173
 
     steps:
-      # setup-bun extracts a zip, and the image has no unzip.
-      - name: Install unzip
-        timeout-minutes: 2
-        run: apt-get update && apt-get install -y --no-install-recommends unzip
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # pin@v7.0.1
         with:
           path: current
@@ -58,9 +54,10 @@ jobs:
           path: legacy
           persist-credentials: false
 
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # pin@v2.2.0
-        with:
-          bun-version-file: current/package.json
+      # setup-bun needs unzip, which the image lacks; npm is already there.
+      - name: Install Bun
+        timeout-minutes: 2
+        run: npm install --global "$(node -p 'require("./current/package.json").packageManager')"
 
       # Each checkout installs from its own lockfile.
       - name: Install API dependencies
