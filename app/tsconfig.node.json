@@ -6,5 +6,9 @@
 		"moduleResolution": "bundler",
 		"allowSyntheticDefaultImports": true
 	},
-	"include": ["vite.config.mts", "scripts/api-origin.ts"]
+	"include": [
+		"vite.config.mts",
+		"scripts/api-origin.ts",
+		"scripts/sentry-origin.ts"
+	]
 }
