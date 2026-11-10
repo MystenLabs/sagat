@@ -20,7 +20,7 @@ import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 import { useVerifyProposal } from './useVerifyProposal';
 
 const TOASTS = content.toasts;
@@ -34,6 +34,7 @@ export function useExecuteProposal() {
 	const dappKit = useDAppKit();
 
 	return useMutation({
+		mutationKey: [MutationKeys.ExecuteProposal],
 		mutationFn: async ({
 			proposal,
 		}: ExecuteProposalParams) => {

@@ -8,6 +8,7 @@ import { publicKeyFromRawBytes } from '@mysten/sui/verify';
 
 import { content } from '../content';
 import { apiClient } from './api';
+import { reportUnexpected } from './error-reporting';
 
 const GRAPHQL_URLS = {
 	mainnet: 'https://graphql.mainnet.sui.io/graphql',
@@ -139,14 +140,32 @@ export async function lookupPublicKey(
 	address: string,
 ): Promise<PublicKeyLookup> {
 	const sources = [
-		lookupOnApi(address),
+		lookupOnApi(address).catch((error: unknown) => {
+			if (!(error instanceof NotFound))
+				reportUnexpected(error, {
+					operation: 'public-key-lookup',
+				});
+			throw error;
+		}),
 		...(
 			Object.entries(gqlClients) as [
 				NetworkName,
 				SuiGraphQLClient,
 			][]
 		).map(([network, client]) =>
-			lookupOnNetwork(address, network, client),
+			lookupOnNetwork(address, network, client).catch(
+				(error: unknown) => {
+					if (
+						!(error instanceof NotFound) &&
+						!(error instanceof MultisigAddressError)
+					)
+						reportUnexpected(error, {
+							source: 'rpc',
+							operation: 'public-key-lookup',
+						});
+					throw error;
+				},
+			),
 		),
 	];
 

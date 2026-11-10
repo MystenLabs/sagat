@@ -16,10 +16,7 @@ import {
 } from '@mysten/dapp-kit-react';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
 import { getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
-import {
-	QueryClient,
-	QueryClientProvider,
-} from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
 
 import App from './App.tsx';
@@ -28,7 +25,9 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/ui/sonner';
 import { ApiAuthProvider } from './contexts/ApiAuthContext.tsx';
 import { CONFIG } from './lib/constants.ts';
+import { reportCrash } from './lib/error-reporting.ts';
 import { LocalStorageKeys } from './lib/localStorageKeys.ts';
+import { createQueryClient } from './lib/query-client.ts';
 
 const storedNetwork =
 	(localStorage.getItem(LocalStorageKeys.SuiNetwork) as
@@ -56,7 +55,7 @@ declare module '@mysten/dapp-kit-react' {
 	}
 }
 
-const queryClient = new QueryClient();
+const queryClient = createQueryClient();
 
 // Get stored network or default to configured default
 const newClient = (
@@ -104,7 +103,12 @@ ReactDOM.createRoot(
 			defaultTheme="system"
 			enableSystem
 		>
-			<ErrorBoundary fallback={() => <AppCrashed />}>
+			<ErrorBoundary
+				fallback={() => <AppCrashed />}
+				onError={(error, info) =>
+					reportCrash(error, info, 'app')
+				}
+			>
 				<QueryClientProvider client={queryClient}>
 					<DAppKitProvider dAppKit={dAppKit}>
 						<ApiAuthProvider>

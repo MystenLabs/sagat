@@ -55,8 +55,17 @@ export class ErrorBoundary extends Component<
 		};
 	}
 
+	// React can hand one failed render several errors.
+	private reported = false;
+
 	componentDidCatch(error: unknown, info: ErrorInfo) {
+		if (this.reported) return;
+		this.reported = true;
 		this.props.onError?.(error, info);
+	}
+
+	componentDidUpdate() {
+		if (!this.state.hasError) this.reported = false;
 	}
 
 	reset = () => {

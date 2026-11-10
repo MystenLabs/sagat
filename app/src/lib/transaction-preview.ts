@@ -36,6 +36,21 @@ export type SimulatedTransaction =
 		objectTypes: true;
 	}>;
 
+/**
+ * The simulation ran and the transaction failed; the message says why,
+ * and `transaction` is the failed run's payload (digest, epoch, gas,
+ * effects).
+ */
+export class SimulationFailedError extends Error {
+	constructor(
+		message: string,
+		readonly transaction: SimulatedTransaction,
+	) {
+		super(message);
+		this.name = 'SimulationFailedError';
+	}
+}
+
 export type SimulationStatus =
 	'pending' | 'passed' | 'failed';
 

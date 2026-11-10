@@ -21,3 +21,21 @@ export const QueryKeys = {
 	OnChainTransaction: 'on-chain-transaction',
 	ApiHealth: 'api-health',
 } as const;
+
+export const MutationKeys = {
+	SignIn: 'sign-in',
+	SignOut: 'sign-out',
+	BuildTransfer: 'build-transfer',
+	SignProposal: 'sign-proposal',
+	AddProposer: 'add-proposer',
+	RemoveProposer: 'remove-proposer',
+	RejectInvitation: 'reject-invitation',
+	AcceptInvitation: 'accept-invitation',
+	ExecuteProposal: 'execute-proposal',
+	CreateProposal: 'create-proposal',
+	VerifyProposal: 'verify-proposal',
+	CreateMultisig: 'create-multisig',
+	TransactionAnalysis: 'transaction-analysis',
+	CancelProposal: 'cancel-proposal',
+	DryRun: 'dry-run',
+} as const;

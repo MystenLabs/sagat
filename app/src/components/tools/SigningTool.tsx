@@ -37,6 +37,7 @@ import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountName } from '@/lib/account-name';
+import { reportUnexpected } from '@/lib/error-reporting';
 import { thresholdLabel } from '@/lib/threshold';
 import { toast } from '@/lib/toast';
 import {
@@ -374,6 +375,10 @@ export default function SigningTool() {
 				});
 			}
 		} catch (error) {
+			reportUnexpected(error, {
+				source: 'wallet',
+				operation: 'signing-tool',
+			});
 			// The input stays, so the user can retry.
 			toast.error(errorMessage(error, TOASTS.signFailed));
 		} finally {

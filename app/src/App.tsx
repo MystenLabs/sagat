@@ -13,6 +13,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppShell } from './components/shell/AppShell';
 import { TestModeBanner } from './components/TestModeBanner';
 import { useNetwork } from './contexts/NetworkContext';
+import { reportCrash } from './lib/error-reporting';
 
 function AppContent() {
 	const location = useLocation();
@@ -29,6 +30,9 @@ function AppContent() {
 		<AppShell>
 			<ErrorBoundary
 				resetKey={`${network}|${currentAccount?.address ?? ''}|${location.pathname}`}
+				onError={(error, info) =>
+					reportCrash(error, info, 'page')
+				}
 				fallback={({ reset }) => (
 					<PageCrashed onRetry={reset} />
 				)}

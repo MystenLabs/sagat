@@ -20,7 +20,6 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
 	BytesNotFromPodError,
-	SignatureDeclinedError,
 	SignersRefusedError,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
@@ -45,6 +44,7 @@ import {
 import { signerRows } from '@/lib/signers';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { SignatureDeclinedError } from '@/lib/wallet-session';
 
 import { BytesDetailsStep } from './BytesDetailsStep';
 import { ReviewStep } from './ReviewStep';

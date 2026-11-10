@@ -3,12 +3,12 @@
 
 import {
 	couldNotSimulate,
-	SimulationFailedError,
 	type useDryRun,
 } from '@/hooks/useDryRun';
-import type {
-	SimulatedTransaction,
-	SimulationStatus,
+import {
+	SimulationFailedError,
+	type SimulatedTransaction,
+	type SimulationStatus,
 } from '@/lib/transaction-preview';
 
 export interface SimulationProps {

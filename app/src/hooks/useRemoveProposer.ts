@@ -18,7 +18,7 @@ import { content } from '@/content';
 import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 export function useRemoveProposer(
 	multisigAddress: string,
@@ -31,6 +31,7 @@ export function useRemoveProposer(
 	const currentAccount = useCurrentAccount();
 
 	return useMutation({
+		mutationKey: [MutationKeys.RemoveProposer],
 		mutationFn: async (proposerAddress: string) => {
 			if (!currentAccount?.address) {
 				throw new Error(content.errors.noWalletConnected);
