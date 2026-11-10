@@ -9,7 +9,7 @@
 
 ## Pull requests
 
-- Start the PR title with the area it changes and a colon: `api:`, `app:`, `docs:`, `sdk:`, `e2e:`, `ci:` for workflows, or `repo:` for root config and tooling. Example: `docs: Explain how the app finds a signer’s public key`.
+- Start the PR title with the area it changes and a colon: `api:`, `app:`, `docs:` for `docs/` and `design/`, `sdk:`, `e2e:`, `ci:` for workflows, or `repo:` for root config and tooling. Example: `docs: Explain how the app finds a signer’s public key`.
 - A PR that spans areas takes the prefix of the one that carries most of the change.
 
 ## Copy
