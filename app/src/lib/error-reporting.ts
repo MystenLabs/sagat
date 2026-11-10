@@ -16,7 +16,7 @@ import {
 	WalletDeclinedError,
 } from './wallet-session';
 
-export type ErrorSource = 'rpc' | 'api' | 'wallet' | 'app';
+type ErrorSource = 'rpc' | 'api' | 'wallet' | 'app';
 
 /** Failures that are an answer rather than a fault, and are not reported. */
 export function isExpectedError(error: unknown): boolean {
@@ -34,7 +34,7 @@ export function isExpectedError(error: unknown): boolean {
 	);
 }
 
-export function errorSource(error: unknown): ErrorSource {
+function errorSource(error: unknown): ErrorSource {
 	if (
 		error instanceof SagatApiError ||
 		isApiFetchFailure(error)

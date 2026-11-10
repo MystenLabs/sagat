@@ -178,4 +178,36 @@ describe('a failed query', () => {
 
 		expect(Sentry.captureException).not.toHaveBeenCalled();
 	});
+
+	test('a query that stays broken reports once, and again after it recovers', async () => {
+		const client = createQueryClient();
+		const queryKey = ['multisig', '0x1'];
+		const fetch = (queryFn: () => Promise<unknown>) =>
+			client.fetchQuery({
+				queryKey,
+				queryFn,
+				retry: false,
+				staleTime: 0,
+				gcTime: Infinity,
+			});
+		const fail = () =>
+			Promise.reject(new SagatApiError('boom', 500));
+
+		await expect(fetch(fail)).rejects.toThrow('boom');
+		const query = client.getQueryCache().find({ queryKey });
+		expect(query).toBeDefined();
+		await expect(fetch(fail)).rejects.toThrow('boom');
+		expect(Sentry.captureException).toHaveBeenCalledTimes(
+			1,
+		);
+
+		await fetch(() => Promise.resolve('ok'));
+		await expect(fetch(fail)).rejects.toThrow('boom');
+		expect(Sentry.captureException).toHaveBeenCalledTimes(
+			2,
+		);
+		expect(client.getQueryCache().find({ queryKey })).toBe(
+			query,
+		);
+	});
 });
