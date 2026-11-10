@@ -4,6 +4,9 @@
 	"pages": [
 		"---Start here---",
 		"how-a-multisig-works",
+		"get-started",
+		"create-an-account",
+		"first-proposal",
 		"---Proposals---",
 		"proposals",
 		"external-proposers"

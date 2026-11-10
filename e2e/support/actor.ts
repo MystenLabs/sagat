@@ -64,6 +64,7 @@ export class Actor extends Identity {
 		readonly context: BrowserContext,
 		readonly page: Page,
 		readonly cspViolations: string[],
+		readonly walletName: string,
 	) {
 		super(name, keypair);
 	}
@@ -80,6 +81,8 @@ export class Actor extends Identity {
 			declineSign,
 			zkLogin,
 			hasTouch,
+			network = 'localnet',
+			walletName = E2E.walletName,
 		}: {
 			walletChains?: E2EWalletConfig['chains'];
 			failRestore?: boolean;
@@ -87,6 +90,10 @@ export class Actor extends Identity {
 			declineSign?: boolean;
 			zkLogin?: boolean;
 			hasTouch?: boolean;
+			// The network the app starts on and the wallet signs for; its
+			// RPC is always the local one.
+			network?: string;
+			walletName?: string;
 		} = {},
 	) {
 		const context = await browser.newContext({ hasTouch });
@@ -101,8 +108,9 @@ export class Actor extends Identity {
 		await isolateFromInternet(context);
 
 		const walletConfig: E2EWalletConfig = {
-			name: E2E.walletName,
+			name: walletName,
 			rpcUrl: E2E.rpcUrl,
+			network,
 			accounts: [
 				{
 					label: name,
@@ -120,10 +128,13 @@ export class Actor extends Identity {
 			declineSign,
 		};
 		await context.addInitScript((config) => {
-			// Start on localnet, but keep a network the app saved, so a
-			// reload lands where the user left off.
+			// Start on the wallet's network, but keep a network the app
+			// saved, so a reload lands where the user left off.
 			if (!localStorage.getItem('SuiNetwork'))
-				localStorage.setItem('SuiNetwork', 'localnet');
+				localStorage.setItem(
+					'SuiNetwork',
+					config.network ?? 'localnet',
+				);
 			window.__E2E_WALLET_CONFIG__ = config;
 		}, walletConfig);
 		await context.addInitScript({
@@ -137,6 +148,7 @@ export class Actor extends Identity {
 			context,
 			await context.newPage(),
 			cspViolations,
+			walletName,
 		);
 	}
 
@@ -229,7 +241,7 @@ export class Actor extends Identity {
 	// The test wallet's entry in an open wallet picker.
 	walletOption() {
 		return this.page.locator(
-			`[data-testid="wallet-option"][data-wallet-name="${E2E.walletName}"]`,
+			`[data-testid="wallet-option"][data-wallet-name="${this.walletName}"]`,
 		);
 	}
 

@@ -110,6 +110,7 @@ export async function proposeTransfer(
 		description,
 		gasCoin,
 		expiration,
+		network = 'localnet',
 	}: {
 		multisigAddress: string;
 		recipient: string;
@@ -117,6 +118,9 @@ export async function proposeTransfer(
 		description?: string;
 		gasCoin?: GasCoin;
 		expiration?: Expiration;
+		network?: Parameters<
+			Identity['api']['createProposal']
+		>[0]['network'];
 	},
 ) {
 	const transactionBytes = await chain.buildSuiTransfer({
@@ -133,7 +137,7 @@ export async function proposeTransfer(
 			transactionBytes,
 		),
 		description,
-		network: 'localnet',
+		network,
 	});
 }
 

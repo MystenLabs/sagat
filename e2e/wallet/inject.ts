@@ -193,11 +193,12 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 		});
 	}
 
+	const network = config.network ?? 'localnet';
 	const wallet = new E2EWallet({
 		name: config.name,
 		adapters: [adapter],
-		networks: { localnet: config.rpcUrl },
-		activeNetwork: 'localnet',
+		networks: { [network]: config.rpcUrl },
+		activeNetwork: network,
 		autoApprove: true,
 		autoConnect: true,
 	});

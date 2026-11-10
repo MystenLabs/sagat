@@ -6,6 +6,7 @@
 // Creates the database in `DATABASE_URL` if it does not exist yet, then
 // applies all pending migrations. Used by the UI e2e suite before it boots the
 // API, and safe to run against an existing database.
+// `--fresh` drops it first (local databases only).
 import { Pool } from 'pg';
 
 import { runMigrations } from '../src/db/migrate';
@@ -23,6 +24,18 @@ async function main() {
 			`Refusing to create database with unexpected name "${databaseName}"`,
 		);
 
+	const fresh = process.argv.includes('--fresh');
+	const { hostname } = new URL(databaseUrl);
+	if (
+		fresh &&
+		!['localhost', '127.0.0.1', '::1', '[::1]'].includes(
+			hostname,
+		)
+	)
+		throw new Error(
+			`Refusing --fresh on "${hostname}": it only drops databases on a local server`,
+		);
+
 	// Connect to the server's default database to create the target one.
 	const adminUrl = new URL(databaseUrl);
 	adminUrl.pathname = '/postgres';
@@ -30,6 +43,12 @@ async function main() {
 		connectionString: adminUrl.href,
 	});
 	try {
+		if (fresh) {
+			await admin.query(
+				`DROP DATABASE IF EXISTS "${databaseName}" WITH (FORCE)`,
+			);
+			console.log(`Dropped database ${databaseName}`);
+		}
 		const { rowCount } = await admin.query(
 			'SELECT 1 FROM pg_database WHERE datname = $1',
 			[databaseName],

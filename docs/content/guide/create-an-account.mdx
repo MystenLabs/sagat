@@ -1,0 +1,65 @@
+---
+title: Create an account
+description: Name an account, add its signers and threshold, create it, and accept an invitation to someone else’s account.
+---
+
+You create the account; every other signer joins by accepting an invitation. The app calls an account a “pod” (see [Account](/glossary#account)), so its buttons say “pod”.
+
+Creating an account needs no wallet signature: it uses your signed-in session. It sends nothing to Sui either. The account’s address is derived from its setup, as [Why the address depends on the setup](/guide/how-a-multisig-works#why-the-address-depends-on-the-setup) explains, and multisig is [native to Sui](/security/trust-model#multisig-is-native-to-sui), so the service puts nothing of its own on chain.
+
+## Name
+
+1. Press **Create a pod**, on your first screen or at the bottom of the account switcher at the top of the sidebar.
+2. At the **Name** step, type a **Pod name**. It is required, can be up to 40 characters, and the other signers see it in their invitation.
+3. Continue to the next step.
+
+## Signers and threshold
+
+Your connected wallet is the first row, marked “Your connected wallet”. Add the others:
+
+1. Press **Add signer**.
+2. Paste the signer’s public key, or their address. If the app says no public key was found, see the three ways to add someone in [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
+3. Optionally give each signer a name, up to 64 characters.
+4. Set each signer’s **Weight**, from 1 to 255.
+
+An account has 2 to 10 signers. The order of the rows is part of the address, and you can drag rows to reorder them.
+
+Under **Approval threshold**, set how much weight a proposal needs, from 1 up to the total weight of all signers. The app warns you, without stopping you, when one signer could approve alone or when every signer would have to sign every proposal. For how the two work together, see [Weights and the threshold](/guide/how-a-multisig-works#weights-and-the-threshold).
+
+The **Pod preview** card shows the account’s **Sui address** as you edit. Your browser computes it from the keys, weights and threshold, before anything is created.
+
+![The Signers and threshold step with three signers of weight 1, the Approval threshold set to 2 of 3 total weight, and the Pod preview card showing the Sui address](/screenshots/create-signers.png)
+
+## Review and create
+
+1. At the **Review** step, check the name, every signer’s public key and weight, the threshold and the address. An account’s signers, weights and threshold [cannot be edited](/guide/how-a-multisig-works#why-the-address-depends-on-the-setup) after it is created.
+2. Press **Create pod**.
+
+You land on the account’s **Overview** with the notice “Pod created. Invitations sent to …”. Your own key is accepted automatically. The other signers show as **Invited** on the account’s **Members** page until they answer.
+
+![The account’s Members page: the creator accepted, the two other signers still Invited, and the Setup card with a threshold of 2 of 3](/screenshots/account-created.png)
+
+Invitations appear inside the app. Tell the other signers to sign in and look under **Invitations**.
+
+## Accept an invitation
+
+This part is for a signer someone else has invited.
+
+1. In the sidebar, open **Invitations**. Its count shows how many invitations wait for you. The page has two tabs, **Pending** and **Rejected**.
+2. On the invitation’s card, press **Review invitation**.
+3. Check the dialog, titled “Join” and the account’s name. It shows the account’s Sui address, every signer with their weight and status, and a bar of your weight, the accepted weight and the threshold. As the dialog says, check each address before you accept.
+4. Press **Accept invitation**. Your wallet asks you to sign a message that reads `Participating in multisig <address>`. It moves no funds and costs no gas.
+
+![The “Join Grants Committee?” dialog with the account’s Sui address, three signers with their weight and status, and the Reject and Accept invitation buttons](/screenshots/invitation-review.png)
+
+You land on the account’s Overview, and the account now appears in your sidebar. It does not appear there before you accept. The notice at the top also says how many signers have not accepted yet, if any.
+
+To turn an invitation down, press **Reject** and confirm with **Reject invitation**. This is also a signed message. The invitation moves to the **Rejected** tab, and the account’s creator sees that you rejected it.
+
+## Fund the account
+
+The account’s address can receive funds as soon as it is created. Press **Receive** under the account switcher, or on the Overview, to see the address and a QR code.
+
+On a test network, send it test SUI from the Sui faucet. Before you move real funds to it, wait until every signer has accepted: a signer added with a wrong key is then caught before the account holds anything of value.
+
+Next, [make your first proposal](/guide/first-proposal).

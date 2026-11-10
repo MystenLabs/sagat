@@ -1,0 +1,80 @@
+---
+title: Make your first proposal
+description: Propose a transfer from an account, have the other signers review and sign it, execute it and find the result.
+---
+
+A [proposal](/guide/proposals) is a transaction from the account that waits for the signers’ signatures. The account pays the gas for its own transactions, so it needs some SUI on the network you use. The app calls an account a “pod” (see [Account](/glossary#account)), so some labels below say “pod”.
+
+## Start a proposal
+
+1. Open the account and press **New proposal**, at the top of any of its pages. You can also press **Send** next to a balance on the **Overview** or **Assets** page, which opens a transfer directly.
+2. The proposal has three steps: **Type**, **Details** and **Review**. At **Type**, choose one:
+   - **Transfer** sends tokens from the account to one address.
+   - **Transaction bytes** proposes a transaction built somewhere else, such as the Sui CLI, as it is.
+
+![The Type step of a new proposal, with Transfer selected and Transaction bytes as the other choice](/screenshots/new-proposal-type.png)
+
+## Fill in the details
+
+For a **Transfer**:
+
+1. Choose the asset to send.
+2. Enter the **Amount**, or press **Max** to fill in as much as the account can send.
+3. Paste the recipient’s address under **To**.
+4. Check **Title (optional)**. The app fills it in from the transfer, for example “Send 25 SUI to 0x…”, until you change it.
+
+The title is a note for the signers. It is not part of what anyone signs, so signers should rely on the transaction itself. See [Check what you sign](/security/trust-model#check-what-you-sign).
+
+For **Transaction bytes**, paste the transaction as base64 bytes or as JSON. The account must be the transaction’s sender and must pay its gas, and the app tells you if it is not.
+
+## Review and propose
+
+At **Review**, the app simulates the transaction and shows the **Transaction preview**: what it would do, such as its balance changes, before anyone signs.
+
+If the transaction has an expiry, the app also shows how long it has left, for example “Expires in 1 day”. See [Execution](/guide/proposals#execution).
+
+1. Check the preview.
+2. Press **Propose and sign**. If the simulation failed, the button reads **Propose and sign anyway**.
+3. Your wallet asks you to sign the transaction. Compare your wallet’s own preview with the app’s before you approve. Your wallet only signs here: nothing is sent to the Sui network yet.
+
+![The Review step with a title that sends 25 SUI, an expiry chip, the Transaction preview showing a passed simulation, and the What happens next card](/screenshots/new-proposal-review.png)
+
+The app shows “Proposal created” and opens the proposal’s page. Your signature counts as its first approval. The proposal belongs to the network you have selected.
+
+## Review and sign
+
+This part is for the other signers. They find the proposal on the account’s **Proposals** page, under the **To sign** tab, in the **Open proposals** card on the **Overview**, or through a link that a signer copied with **Copy link** on the proposal’s page.
+
+The proposal’s page shows:
+
+- the **Transaction preview**, with two views: **Simulation result** and **Static analyzer**
+- the **Approvals** card, with the threshold and who has signed so far
+
+To approve, press **Sign proposal**. Your wallet asks you to sign the same transaction that the proposer signed. Check it in both places first, the app’s preview and your wallet’s own preview, and make sure they agree. The app’s **Simulation result** view carries the same reminder.
+
+When the simulation passed and your signature would reach the threshold, the Approvals card also shows **Execute after signing**, ticked by default. With it ticked, the button reads **Sign and execute**: after your one wallet approval, the transaction executes straight away. Untick it to only sign.
+
+![A pending proposal for 40 SUI: the Transaction preview with a passed simulation, and the Approvals card showing that one more weight is needed, with Execute after signing ticked and the Sign and execute button](/screenshots/proposal-sign.png)
+
+## Execute
+
+Once the signed weight meets the threshold, the proposal shows **Ready**. Any signer can then press **Execute**, on the proposal’s page or on its row in the proposals list. Your wallet is not asked to sign again; [Execution](/guide/proposals#execution) explains why.
+
+## Where the result shows
+
+- The app shows “Proposal executed”, with a **View on explorer** link.
+- The proposal’s status becomes **Executed**.
+- The **Activity** card lists who proposed and signed, and when it executed.
+- The **Transaction** card shows when it ran, the gas it paid, its digest and **View on explorer**.
+- The proposal moves to the **Executed** tab of the **Proposals** page.
+- The balances on **Overview** and **Assets** update.
+
+![An executed proposal with the Transaction card and its View on explorer button, the Approvals card with two signatures and “Not needed” for the third signer, and the Activity card](/screenshots/proposal-executed.png)
+
+A proposal marked **Failed** ran on chain and failed. It cannot be retried: propose it again to collect new signatures.
+
+## Next
+
+- [How proposals work](/guide/proposals): statuses, expiry and cancelling.
+- [External proposers](/guide/external-proposers): addresses that can propose without being signers.
+- [Trust model](/security/trust-model): what the service stores and what Sui checks.

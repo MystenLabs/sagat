@@ -30,6 +30,7 @@
 		"typecheck:api": "tsc --noEmit -p api",
 		"test": "cd api && bun test:e2e",
 		"test:ui-e2e": "cd e2e && bun run test",
+		"docs:screenshots": "cd e2e && bun run docs:screenshots",
 		"dev:sdk": "cd sdk && bun run dev",
 		"dev:api": "cd api && bun run dev",
 		"dev:api:delayed": "sleep 2 && cd api && bun run dev",

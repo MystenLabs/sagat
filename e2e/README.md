@@ -121,3 +121,29 @@ the mainnet coin list is answered with an empty list.
   button.
 - A multisig can only have one pending proposal paying gas from the same coin at
   a time; the API rejects the second one.
+
+## Docs screenshots
+
+`docs-screenshots/walkthrough.spec.ts` walks one person through a first use of
+the app and writes the getting-started screenshots to
+`docs/public/screenshots/`. Same prerequisites as the tests (`sui` CLI,
+Postgres, `bunx playwright install chromium` once). From the repo root:
+
+```sh
+bun run docs:screenshots
+```
+
+It runs on a stack of its own and never reuses a running server: a fresh local
+network on `9300`/`9323` with day-long epochs (data in `.cache/localnet-docs`),
+the API on `3199` with the database `sagat_docs_screenshots` dropped and
+recreated, and the app on `4199`. The same `E2E_*` variables and `LOCALNET_DIR`
+override them. The app shows Mainnet: the API serves `mainnet` from the local
+network, and the browser's calls to the mainnet fullnode are answered by it too.
+
+People have fixed keys, the same as the app's dev wallet
+(`sha256("sagat-demo:<name>")`, plus `you` for the reader), so addresses stay
+the same from run to run; digests, object IDs and dates change.
+
+To add a shot, add a step to the spec and call `shoot(page, '<name>')` once the
+content it shows is visible. File names are lowercase kebab-case; every shot
+is 1280x800 at 2x, light theme, with toasts hidden.
