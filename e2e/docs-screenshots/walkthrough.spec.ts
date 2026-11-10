@@ -256,17 +256,19 @@ test('getting started', async ({ browser }) => {
 	await page.setViewportSize(WIDE);
 
 	await test.step('the wallet menu', async () => {
-		await you.walletMenuButton().click();
-		const accounts = page.getByTestId('wallet-account');
-		await expect(accounts).toHaveCount(2);
+		await you.openWalletMenu();
 		await expect(
-			accounts
-				.filter({ hasText: 'Backup' })
+			page
+				.getByTestId('wallet-account')
+				.filter({ visible: true }),
+		).toHaveCount(2);
+		await expect(
+			you
+				.walletAccount(backup.address)
 				.getByTestId('wallet-account-sign'),
 		).toBeVisible();
 		await shoot(page, 'wallet-menu');
-		await page.keyboard.press('Escape');
-		await expect(accounts).toHaveCount(0);
+		await you.closeWalletMenu();
 	});
 
 	const transferBytes = await chain.buildSuiTransfer({
