@@ -1,15 +1,15 @@
 ---
 title: Make your first proposal
-description: Propose a transfer from an account, have the other signers review and sign it, execute it and find the result.
+description: Propose a transfer from a pod, have the other signers review and sign it, execute it and find the result.
 ---
 
-A [proposal](/guide/proposals) is a transaction from the account that waits for the signers’ signatures. The account pays the gas for its own transactions, so it needs some SUI on the network you use. The app calls an account a “pod” (see [Account](/glossary#account)), so some labels below say “pod”.
+A pod is a [multisig account](/glossary#account): one Sui address that several signers control together. A [proposal](/guide/proposals) is a transaction from the pod that waits for the signers’ signatures. The pod pays the gas for its own transactions, so it needs some SUI on the network you use.
 
 ## Start a proposal
 
-1. Open the account and press **New proposal**, at the top of any of its pages. You can also press **Send** next to a balance on the **Overview** or **Assets** page, which opens a transfer directly.
+1. Open the pod and press **New proposal**, at the top of any of its pages. You can also press **Send** next to a balance on the **Overview** or **Assets** page, which opens a transfer directly.
 2. The proposal has three steps: **Type**, **Details** and **Review**. At **Type**, choose one:
-   - **Transfer** sends tokens from the account to one address.
+   - **Transfer** sends tokens from the pod to one address.
    - **Transaction bytes** proposes a transaction built somewhere else, such as the Sui CLI, as it is.
 
 ![The Type step of a new proposal, with Transfer selected and Transaction bytes as the other choice](/screenshots/new-proposal-type.png)
@@ -19,13 +19,13 @@ A [proposal](/guide/proposals) is a transaction from the account that waits for 
 For a **Transfer**:
 
 1. Choose the asset to send.
-2. Enter the **Amount**, or press **Max** to fill in as much as the account can send.
+2. Enter the **Amount**, or press **Max** to fill in as much as the pod can send.
 3. Paste the recipient’s address under **To**.
 4. Check **Title (optional)**. The app fills it in from the transfer, for example “Send 25 SUI to 0x…”, until you change it.
 
 The title is a note for the signers. It is not part of what anyone signs, so signers should rely on the transaction itself. See [Check what you sign](/security/trust-model#check-what-you-sign).
 
-For **Transaction bytes**, paste the transaction as base64 bytes or as JSON. The account must be the transaction’s sender and must pay its gas, and the app tells you if it is not.
+For **Transaction bytes**, paste the transaction as base64 bytes or as JSON. The pod must be the transaction’s sender and must pay its gas, and the app tells you if it is not.
 
 ## Review and propose
 
@@ -43,7 +43,7 @@ The app shows “Proposal created” and opens the proposal’s page. Your signa
 
 ## Review and sign
 
-This part is for the other signers. They find the proposal on the account’s **Proposals** page, under the **To sign** tab, in the **Open proposals** card on the **Overview**, or through a link that a signer copied with **Copy link** on the proposal’s page.
+This part is for the other signers. They find the proposal on the pod’s **Proposals** page, under the **To sign** tab, in the **Open proposals** card on the **Overview**, or through a link that a signer copied with **Copy link** on the proposal’s page.
 
 The proposal’s page shows:
 
