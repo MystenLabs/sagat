@@ -131,10 +131,7 @@ export class Actor extends Identity {
 			// Start on the wallet's network, but keep a network the app
 			// saved, so a reload lands where the user left off.
 			if (!localStorage.getItem('SuiNetwork'))
-				localStorage.setItem(
-					'SuiNetwork',
-					config.network ?? 'localnet',
-				);
+				localStorage.setItem('SuiNetwork', config.network);
 			window.__E2E_WALLET_CONFIG__ = config;
 		}, walletConfig);
 		await context.addInitScript({

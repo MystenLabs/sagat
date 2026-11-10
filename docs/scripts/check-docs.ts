@@ -30,6 +30,9 @@ const parser = unified()
 	.use(remarkMdx)
 	.use(remarkHeading, { generateToc: false });
 
+// Has a scheme (https:, mailto:) or is protocol-relative (//host).
+const EXTERNAL = /^([a-z][a-z\d+.-]*:|\/\/)/i;
+
 type Link = { href: string; line: number; jsx: boolean };
 type Image = { src: string; alt: string; line: number };
 type Page = {
@@ -327,7 +330,7 @@ function checkLink(
 	line: number,
 	jsx = false,
 ) {
-	if (/^([a-z][a-z\d+.-]*:|\/\/)/i.test(href)) return;
+	if (EXTERNAL.test(href)) return;
 	const [target, anchor] = href.split('#', 2);
 	// Fumadocs rewrites file paths only in Markdown links that start with ./ or ../.
 	if (target.endsWith('.mdx')) {
@@ -371,7 +374,7 @@ function checkImage(page: Page, { src, alt, line }: Image) {
 			`image "${src}" needs alt text`,
 		);
 	}
-	if (/^([a-z][a-z\d+.-]*:|\/\/)/i.test(src)) return;
+	if (EXTERNAL.test(src)) return;
 	if (!src.startsWith('/')) {
 		report(
 			page.file,

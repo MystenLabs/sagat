@@ -5,12 +5,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
-import {
-	expect,
-	test,
-	type Locator,
-	type Page,
-} from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { Actor } from '../support/actor';
 import { Chain, SUI_TYPE } from '../support/chain';
@@ -57,25 +52,19 @@ function person(name: string, label: string) {
 }
 
 // Waits for fonts, parks the pointer and focus, and hides toasts.
-async function shoot(
-	page: Page,
-	name: string,
-	{ clip }: { clip?: Locator } = {},
-) {
+async function shoot(page: Page, name: string) {
 	await page.evaluate(async () => {
 		await document.fonts.ready;
 		(document.activeElement as HTMLElement | null)?.blur();
 	});
 	await page.mouse.move(0, 0);
-	const options = {
+	await page.screenshot({
 		path: `${OUT_DIR}${name}.png`,
 		animations: 'disabled',
 		caret: 'hide',
 		style:
 			'[data-sonner-toaster] { display: none !important; }',
-	} as const;
-	if (clip) await clip.screenshot(options);
-	else await page.screenshot(options);
+	});
 }
 
 test('getting started', async ({ browser }) => {
@@ -243,7 +232,7 @@ test('getting started', async ({ browser }) => {
 			multisigAddress: treasury,
 			recipient: tomas.address,
 			amount: 40n * MIST_PER_SUI,
-			description: 'Pay the audit retainer',
+			description: 'Pay the design retainer',
 			network: 'mainnet',
 		});
 		await page.goto(

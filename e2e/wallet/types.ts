@@ -6,8 +6,8 @@
 export interface E2EWalletConfig {
 	name: string;
 	rpcUrl: string;
-	// The network `rpcUrl` serves, as the app names it. Defaults to localnet.
-	network?: string;
+	// The network `rpcUrl` serves, as the app names it.
+	network: string;
 	// Bech32 `suiprivkey1…` Ed25519 secret keys, in account order. `zkLogin`
 	// presents the account with a zkLogin key instead of that one.
 	accounts: {

@@ -193,7 +193,7 @@ async function registerE2EWallet(config: E2EWalletConfig) {
 		});
 	}
 
-	const network = config.network ?? 'localnet';
+	const { network } = config;
 	const wallet = new E2EWallet({
 		name: config.name,
 		adapters: [adapter],
