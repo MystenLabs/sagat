@@ -23,6 +23,8 @@ import {
 import { ThemeProvider } from 'next-themes';
 
 import App from './App.tsx';
+import { AppCrashed } from './components/CrashScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Toaster } from './components/ui/sonner';
 import { ApiAuthProvider } from './contexts/ApiAuthContext.tsx';
 import { CONFIG } from './lib/constants.ts';
@@ -102,13 +104,15 @@ ReactDOM.createRoot(
 			defaultTheme="system"
 			enableSystem
 		>
-			<QueryClientProvider client={queryClient}>
-				<DAppKitProvider dAppKit={dAppKit}>
-					<ApiAuthProvider>
-						<App />
-					</ApiAuthProvider>
-				</DAppKitProvider>
-			</QueryClientProvider>
+			<ErrorBoundary fallback={() => <AppCrashed />}>
+				<QueryClientProvider client={queryClient}>
+					<DAppKitProvider dAppKit={dAppKit}>
+						<ApiAuthProvider>
+							<App />
+						</ApiAuthProvider>
+					</DAppKitProvider>
+				</QueryClientProvider>
+			</ErrorBoundary>
 
 			<Toaster />
 		</ThemeProvider>
