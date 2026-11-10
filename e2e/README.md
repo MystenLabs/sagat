@@ -136,9 +136,12 @@ bun run docs:screenshots
 It runs on a stack of its own and never reuses a running server: a fresh local
 network on `9300`/`9323` with day-long epochs (data in `.cache/localnet-docs`),
 the API on `3199` with the database `sagat_docs_screenshots` dropped and
-recreated, and the app on `4199`. The same `E2E_*` variables and `LOCALNET_DIR`
-override them. The app shows Mainnet: the API serves `mainnet` from the local
-network, and the browser's calls to the mainnet fullnode are answered by it too.
+recreated, and the app on `4199`. The same `E2E_*` variables override the ports
+and URLs. Because every run drops the database and deletes the chain directory,
+`E2E_DATABASE_URL` and `LOCALNET_DIR` are ignored; set
+`DOCS_SCREENSHOTS_DATABASE_URL` and `DOCS_SCREENSHOTS_LOCALNET_DIR` instead.
+The app shows Mainnet: the API serves `mainnet` from the local network, and the
+browser's calls to the mainnet fullnode are answered by it too.
 
 People have fixed keys, the same as the app's dev wallet
 (`sha256("sagat-demo:<name>")`, plus `you` for the reader), so addresses stay

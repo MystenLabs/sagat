@@ -25,15 +25,20 @@ async function main() {
 		);
 
 	const fresh = process.argv.includes('--fresh');
-	const { hostname } = new URL(databaseUrl);
+	const { protocol, hostname, search } = new URL(
+		databaseUrl,
+	);
+	// Query parameters such as ?host= override the hostname in pg.
 	if (
 		fresh &&
-		!['localhost', '127.0.0.1', '::1', '[::1]'].includes(
-			hostname,
-		)
+		(!['postgres:', 'postgresql:'].includes(protocol) ||
+			!['localhost', '127.0.0.1', '::1', '[::1]'].includes(
+				hostname,
+			) ||
+			search !== '')
 	)
 		throw new Error(
-			`Refusing --fresh on "${hostname}": it only drops databases on a local server`,
+			'Refusing --fresh: use a postgres:// or postgresql:// URL with a local hostname and no query parameters',
 		);
 
 	// Connect to the server's default database to create the target one.

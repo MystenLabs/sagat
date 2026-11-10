@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
 import { type Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import {
 	expect,
@@ -357,6 +358,27 @@ export class Actor extends Identity {
 			'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
 		);
 	}
+}
+
+// Answers `network`'s public fullnode from the local chain.
+export async function serveFullnodeLocally(
+	target: Page | BrowserContext,
+	network: 'mainnet' | 'testnet' | 'devnet',
+) {
+	const host = new URL(getJsonRpcFullnodeUrl(network))
+		.hostname;
+	await target.route(
+		(url) => url.hostname === host,
+		async (route) => {
+			const { pathname, search } = new URL(
+				route.request().url(),
+			);
+			const response = await route.fetch({
+				url: `${E2E.rpcUrl}${pathname}${search}`,
+			});
+			await route.fulfill({ response });
+		},
+	);
 }
 
 // Only the local stack is reachable. Outside services (Slush, WalletConnect,

@@ -7,14 +7,16 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { expect, test, type Page } from '@playwright/test';
 
-import { Actor } from '../support/actor';
+import {
+	Actor,
+	serveFullnodeLocally,
+} from '../support/actor';
 import { Chain, SUI_TYPE } from '../support/chain';
 import {
 	addSigners,
 	nameMultisig,
 	setThreshold,
 } from '../support/create-wizard';
-import { E2E } from '../support/env';
 import { Identity } from '../support/identity';
 import {
 	chooseType,
@@ -36,7 +38,6 @@ const OUT_DIR = fileURLToPath(
 		import.meta.url,
 	),
 );
-const MAINNET_HOST = 'fullnode.mainnet.sui.io';
 
 // The same keys as the app's dev wallet: sha256("sagat-demo:<name>").
 function demoKeypair(name: string) {
@@ -86,19 +87,7 @@ test('getting started', async ({ browser }) => {
 			walletName: 'Demo Wallet',
 		},
 	);
-	// The app's mainnet fullnode, answered by the local chain.
-	await you.context.route(
-		(url) => url.hostname === MAINNET_HOST,
-		async (route) => {
-			const { pathname, search } = new URL(
-				route.request().url(),
-			);
-			const response = await route.fetch({
-				url: `${E2E.rpcUrl}${pathname}${search}`,
-			});
-			await route.fulfill({ response });
-		},
-	);
+	await serveFullnodeLocally(you.context, 'mainnet');
 	await you.context.addInitScript(() =>
 		localStorage.setItem('theme', 'light'),
 	);

@@ -5,9 +5,11 @@ import { Transaction } from '@mysten/sui/transactions';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { type Page, type Request } from '@playwright/test';
 
-import { type Actor } from '../support/actor';
+import {
+	serveFullnodeLocally,
+	type Actor,
+} from '../support/actor';
 import { type Chain } from '../support/chain';
-import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 import { type Identity } from '../support/identity';
 import { setupMultisig } from '../support/scenarios';
@@ -96,22 +98,7 @@ function packageIdTrigger(page: Page) {
 // Has the app call localnet testnet, so its explorer links show: Suiscan
 // doesn't index localnet.
 async function callLocalnetTestnet(page: Page) {
-	await page.route(
-		/fullnode\.testnet\.sui\.io/,
-		async (route) => {
-			const { pathname } = new URL(route.request().url());
-			const response = await route.fetch({
-				url: E2E.rpcUrl + pathname,
-			});
-			await route.fulfill({
-				response,
-				headers: {
-					...response.headers(),
-					'access-control-allow-origin': '*',
-				},
-			});
-		},
-	);
+	await serveFullnodeLocally(page, 'testnet');
 	await page.evaluate(() =>
 		localStorage.setItem('SuiNetwork', 'testnet'),
 	);
