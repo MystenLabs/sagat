@@ -225,9 +225,9 @@ export function ApiAuthProvider({
 				sessionGeneration.current++;
 				// End where a reload would: the other tab cleared the wallet.
 				setDeclined(null);
-				await afterSignOut();
 				if (dappKit.stores.$connection.get().account)
 					await dappKit.disconnectWallet();
+				await afterSignOut();
 			}),
 		[afterSignIn, afterSignOut, dappKit],
 	);
