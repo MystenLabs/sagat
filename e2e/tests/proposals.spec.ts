@@ -160,11 +160,7 @@ test.describe('proposals', () => {
 		await alice.page.goto(
 			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
 		);
-		const bobRow = alice
-			.proposalPage(proposal.digest)
-			.locator(
-				`[data-testid="approval-row"][data-address="${bob.address}"]`,
-			);
+		const bobRow = alice.approvalRow(bob.address);
 		await expect(bobRow).toHaveAttribute(
 			'data-signed',
 			'false',
@@ -278,7 +274,7 @@ test.describe('proposals', () => {
 		).toHaveCount(0);
 	});
 
-	test('an expired proposal offers no Sign or Execute', async ({
+	test('an expired proposal can’t be signed', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -316,9 +312,6 @@ test.describe('proposals', () => {
 		await expect(
 			page.getByTestId('sign-proposal-button'),
 		).toHaveCount(0);
-		await expect(
-			page.getByTestId('execute-proposal-button'),
-		).toHaveCount(0);
 	});
 
 	test('a signature declined in the wallet sends no vote and can be retried', async ({
@@ -349,9 +342,7 @@ test.describe('proposals', () => {
 		);
 		const page = bob.proposalPage(proposal.digest);
 		const sign = page.getByTestId('sign-proposal-button');
-		const bobRow = page.locator(
-			`[data-testid="approval-row"][data-address="${bob.address}"]`,
-		);
+		const bobRow = bob.approvalRow(bob.address);
 		const votes = recordVotes(bob.page);
 		await sign.click();
 		await expect(

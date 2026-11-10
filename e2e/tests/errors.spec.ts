@@ -265,9 +265,7 @@ test.describe('errors', () => {
 			'cancelled',
 		);
 		await expect(
-			page.locator(
-				`[data-testid="approval-row"][data-address="${bob.address}"]`,
-			),
+			bob.approvalRow(bob.address),
 		).toHaveAttribute('data-signed', 'false');
 		await expect(
 			toast(bob.page, 'success').filter({

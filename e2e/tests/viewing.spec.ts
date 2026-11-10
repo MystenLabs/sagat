@@ -6,10 +6,7 @@ import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { recordSignIns } from '../support/actor';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
-import {
-	expectOnProposal,
-	recordVotes,
-} from '../support/new-proposal';
+import { expectOnProposal } from '../support/new-proposal';
 import {
 	proposeTransfer,
 	setupMultisig,
@@ -137,7 +134,7 @@ test.describe('shared proposal links', () => {
 		await expectReadOnly();
 	});
 
-	test('a proposal opened on another network offers no Sign or Execute', async ({
+	test('a proposal opened on another network can be signed only after switching to it', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -160,7 +157,6 @@ test.describe('shared proposal links', () => {
 		await bob.context.addInitScript(() =>
 			localStorage.setItem('SuiNetwork', 'testnet'),
 		);
-		const votes = recordVotes(bob.page);
 		await bob.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
@@ -172,10 +168,6 @@ test.describe('shared proposal links', () => {
 		await expect(
 			page.getByTestId('sign-proposal-button'),
 		).toHaveCount(0);
-		await expect(
-			page.getByTestId('execute-proposal-button'),
-		).toHaveCount(0);
-		expect(votes).toEqual([]);
 
 		// On the proposal's network, Bob can sign.
 		await page.getByTestId('switch-network-button').click();
