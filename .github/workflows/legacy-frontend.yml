@@ -56,6 +56,7 @@ jobs:
 
       # setup-bun needs unzip, which the image lacks; npm is already there.
       - name: Install Bun
+        timeout-minutes: 2
         run: npm install --global "$(node -p 'require("./current/package.json").packageManager')"
 
       # Each checkout installs from its own lockfile.
