@@ -34,33 +34,46 @@ export default async function Page(props: Props) {
 	const MDX = page.data.body;
 	const markdownUrl = `/md/${page.slugs.join('/') || 'index'}.md`;
 	const githubUrl = `https://github.com/${github.owner}/${github.repo}/blob/${github.branch}/docs/content/${page.path}`;
-	const actionButtons = (
-		<>
+	const hasToc = page.data.toc.length > 0;
+	const pageActions = (
+		<div
+			data-page-actions=""
+			className={
+				hasToc
+					? 'mt-4 mb-4 flex flex-row flex-wrap items-center gap-2 border-t border-fd-border pt-4'
+					: 'mb-4 flex flex-row flex-wrap items-center gap-2'
+			}
+		>
 			<MarkdownCopyButton markdownUrl={markdownUrl} />
 			<ViewOptionsPopover
 				markdownUrl={markdownUrl}
 				githubUrl={githubUrl}
 			/>
-		</>
+		</div>
 	);
-	// A TOC footer would show the column and dropdown on pages without headings.
-	const tocFooter =
-		page.data.toc.length > 0
-			? {
-					footer: (
-						<div className="mt-4 mb-4 flex flex-row flex-wrap items-center gap-2 border-t border-fd-border pt-4">
-							{actionButtons}
-						</div>
-					),
-				}
-			: undefined;
-
 	return (
 		<DocsPage
 			toc={page.data.toc}
 			full={page.data.full}
-			tableOfContent={tocFooter}
-			tableOfContentPopover={tocFooter}
+			tableOfContent={{
+				footer: pageActions,
+				// Without headings, show only the actions: no title, no "No Headings".
+				container: hasToc
+					? undefined
+					: {
+							className:
+								'[&>:not([data-page-actions])]:hidden',
+						},
+			}}
+			tableOfContentPopover={{
+				footer: pageActions,
+				content: hasToc
+					? undefined
+					: {
+							className:
+								'[&>div]:pt-4 [&>div>:not([data-page-actions])]:hidden',
+						},
+			}}
 			editOnGithub={{
 				owner: github.owner,
 				repo: github.repo,
@@ -72,11 +85,6 @@ export default async function Page(props: Props) {
 			<DocsDescription>
 				{page.data.description}
 			</DocsDescription>
-			{!tocFooter && (
-				<div className="-mt-4 mb-4 flex flex-row flex-wrap items-center gap-2">
-					{actionButtons}
-				</div>
-			)}
 			<DocsBody className="pb-6">
 				<MDX
 					components={{
