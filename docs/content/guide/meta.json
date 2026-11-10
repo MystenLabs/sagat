@@ -9,6 +9,11 @@
 		"first-proposal",
 		"---Proposals---",
 		"proposals",
-		"external-proposers"
+		"external-proposers",
+		"---Wallets and networks---",
+		"wallets",
+		"networks",
+		"---Tools---",
+		"tools"
 	]
 }

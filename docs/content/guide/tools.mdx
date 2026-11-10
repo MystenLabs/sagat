@@ -1,0 +1,47 @@
+---
+title: Tools
+description: Decode a signature, preview and sign any Sui transaction, and broadcast a signed transaction, with or without a pod in the app.
+---
+
+The app has three tools for working with Sui transactions and signatures directly, without a pod in the app.
+
+## Where to find them
+
+The sidebar’s **Developer** group lists **Signature Analyzer**, **Transaction Signer** and **Broadcasts**. The tools open without a wallet and without signing in.
+
+Multisig is [native to Sui](/security/trust-model#multisig-is-native-to-sui), and the service puts nothing of its own on chain. The tools work on ordinary Sui transactions and signatures, so one made with other Sui tooling works here, and one made here works elsewhere. Nothing a tool produces is added to a proposal.
+
+Each tool has a **Network** field at the top, offering Mainnet, Testnet and Devnet. It is the same setting as the sidebar’s network row; see [Networks](/guide/networks).
+
+## Signature Analyzer
+
+Paste a signature in base64 into **Signature bytes**. It is decoded in your browser as you paste, with no wallet, whatever the network.
+
+For a multisig account’s [combined signature](/glossary#combined-signature), it shows the account’s address, the **Threshold** and the **Combined public key**. It lists each signer’s address, public key, key scheme and weight, marked **Signed** or **Not signed**, and each individual signature with the signer who made it.
+
+![The Signature Analyzer decoding a combined signature of a 2-of-3 pod: its address, threshold and combined public key, three signers with two marked Signed and one Not signed, and the two signatures](/screenshots/signature-analyzer.png)
+
+For a single signature, it shows the **Scheme**, the **Signer** address, the **Public key** and the **Signature**.
+
+It reads only the signature, so it shows who signed and with what weight, not what was signed.
+
+## Transaction Signer
+
+Paste a transaction into **Transaction data**, as JSON or base64. The tool previews it on the selected network before anything is signed, in the same **Transaction preview** block as on a proposal, with the simulation result and the static analyzer. This needs no wallet. If the simulation fails, check that the selected network is the transaction’s.
+
+Once the simulation passes, two buttons appear. They need a connected wallet but no sign-in.
+
+- **Sign** asks your wallet to sign the bytes you previewed and gives you the signature to copy and share with the other signers.
+- **Sign and execute** has your wallet sign the transaction and submit it, then shows its [digest](/glossary#digest). It is available only when the transaction’s sender is your connected wallet. When the sender is another address, such as a multisig account, only **Sign** is available.
+
+![The Transaction Signer after a passed simulation of a transfer from Team Treasury, with the note that the pod’s threshold of 2 of 3 means it can’t run on your signature alone, Sign and execute disabled and Sign available](/screenshots/transaction-signer.png)
+
+Check the transaction in this preview and in your wallet’s own preview, and make sure they agree. See [Check what you sign](/security/trust-model#check-what-you-sign).
+
+## Broadcasts
+
+Paste the **Transaction bytes** and the **Combined signature**, both in base64, and press **Broadcast transaction**. Your browser sends them straight to a Sui full node on the selected network, with no wallet and no sign-in.
+
+You get the transaction’s [digest](/glossary#digest) with a **View on explorer** link, or the network’s error message if it fails.
+
+Sui accepts the transaction only if the signature is valid for its sender; for a multisig account, the combined signature has to meet the threshold. See [What Sui enforces](/security/trust-model#what-sui-enforces). When you execute a proposal, the app builds the combined signature itself. To broadcast one here, you can build it with [other Sui tooling](https://sdk.mystenlabs.com/sui/cryptography/signers/multisig).

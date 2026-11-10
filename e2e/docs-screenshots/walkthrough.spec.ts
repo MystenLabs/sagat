@@ -27,6 +27,7 @@ import {
 import {
 	acceptInvitation,
 	multisigAddressOf,
+	multisigPublicKeyOf,
 	proposeTransfer,
 	setupMultisig,
 	signInViaApi,
@@ -52,6 +53,11 @@ function person(name: string, label: string) {
 	return new Identity(label, demoKeypair(name));
 }
 
+// Wider for the wallets and tools shots, so full addresses fit on one line.
+const WIDE = { width: 1600, height: 900 };
+// Tall enough for the whole Transaction Signer card without scrolling.
+const WIDE_TALL = { ...WIDE, height: 1208 };
+
 // Waits for fonts, parks the pointer and focus, and hides toasts.
 async function shoot(page: Page, name: string) {
 	await page.evaluate(async () => {
@@ -74,6 +80,7 @@ test('getting started', async ({ browser }) => {
 	const daniel = person('daniel', 'Daniel');
 	const tomas = person('tomas', 'Tomás');
 	const hana = person('hana', 'Hana');
+	const backup = person('alex-backup', 'Backup');
 	for (const someone of [maya, daniel, tomas, hana])
 		await signInViaApi(someone);
 
@@ -81,7 +88,7 @@ test('getting started', async ({ browser }) => {
 		browser,
 		'Alex',
 		demoKeypair('you'),
-		[],
+		[backup],
 		{
 			network: 'mainnet',
 			walletName: 'Demo Wallet',
@@ -244,6 +251,76 @@ test('getting started', async ({ browser }) => {
 			'executed',
 		);
 		await shoot(page, 'proposal-executed');
+	});
+
+	await page.setViewportSize(WIDE);
+
+	await test.step('the wallet menu', async () => {
+		await you.openWalletMenu();
+		await expect(
+			page
+				.getByTestId('wallet-account')
+				.filter({ visible: true }),
+		).toHaveCount(2);
+		await expect(
+			you
+				.walletAccount(backup.address)
+				.getByTestId('wallet-account-sign'),
+		).toBeVisible();
+		await shoot(page, 'wallet-menu');
+		await you.closeWalletMenu();
+	});
+
+	const transferBytes = await chain.buildSuiTransfer({
+		sender: treasury,
+		recipient: hana.address,
+		amount: 5n * MIST_PER_SUI,
+	});
+
+	await test.step('the signature analyzer', async () => {
+		const signatures = await Promise.all(
+			[you, maya].map((signer) =>
+				signer.signTransaction(transferBytes),
+			),
+		);
+		const combined = multisigPublicKeyOf(
+			treasuryMembers,
+			2,
+		).combinePartialSignatures(signatures);
+
+		await page.goto('/tools/signature-analyzer');
+		await page
+			.getByTestId('signature-input')
+			.fill(combined);
+		const details = page.getByTestId('multisig-details');
+		await expect(details).toHaveAttribute(
+			'data-address',
+			treasury,
+		);
+		await expect(
+			details.locator('[data-signed="true"]'),
+		).toHaveCount(2);
+		await shoot(page, 'signature-analyzer');
+	});
+
+	await test.step('the transaction signer', async () => {
+		await page.setViewportSize(WIDE_TALL);
+		await page.goto('/tools/sign');
+		await expect(you.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+		await page
+			.getByTestId('transaction-data-input')
+			.fill(transferBytes);
+		await expectSimulation(page, 'success');
+		await expect(
+			page.getByTestId('sign-note'),
+		).toContainText('Team Treasury');
+		await expect(
+			page.getByTestId('sign-and-execute-button'),
+		).toBeDisabled();
+		await shoot(page, 'transaction-signer');
 	});
 
 	await you.context.close();

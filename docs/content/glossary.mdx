@@ -9,7 +9,7 @@ A 32-byte identifier on Sui that can own coins and objects. A pod’s address is
 
 ## Combined signature
 
-The single signature that the app builds from the signers’ individual signatures when you execute a proposal. Sui checks it against the pod’s address.
+The single signature that the app builds from the signers’ individual signatures when you execute a proposal. Sui checks it against the pod’s address. The [Signature Analyzer](/guide/tools#signature-analyzer) shows what one contains.
 
 ## Digest
 
@@ -33,7 +33,7 @@ How a signer joins a pod. Each signer accepts or rejects it by signing a message
 
 ## Network
 
-A Sui network, such as mainnet or testnet. A pod and its address are the same on every network, but each proposal belongs to one network, and balances differ between networks. See [Pods and networks](/guide/how-a-multisig-works#pods-and-networks).
+A Sui network, such as mainnet or testnet. A pod and its address are the same on every network, but each proposal belongs to one network, and balances differ between networks. See [Pods and networks](/guide/how-a-multisig-works#pods-and-networks) and [Networks](/guide/networks).
 
 ## Pod
 
@@ -73,7 +73,7 @@ The total weight of signatures a proposal needs before it can execute. It is a w
 
 ## Wallet
 
-The software that holds your private key and makes your signatures. The app asks for signatures through the Sui wallet standard from whichever wallet you connect, and the wallet shows its own view of what you sign. Signing in with a wallet registers its public key with the service, so other people can add your address as a signer. See [Check what you sign](/security/trust-model#check-what-you-sign).
+The software that holds your private key and makes your signatures. The app asks for signatures through the Sui wallet standard from whichever [wallet you connect](/guide/wallets), and the wallet shows its own view of what you sign. Signing in with a wallet registers its public key with the service, so other people can add your address as a signer. See [Check what you sign](/security/trust-model#check-what-you-sign).
 
 ## Weight
 
