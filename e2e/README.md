@@ -144,8 +144,9 @@ The app shows Mainnet: the API serves `mainnet` from the local network, and the
 browser's calls to the mainnet fullnode are answered by it too.
 
 People have fixed keys, the same as the app's dev wallet
-(`sha256("sagat-demo:<name>")`, plus `you` for the reader), so addresses stay
-the same from run to run; digests, object IDs and dates change.
+(`sha256("sagat-demo:<name>")`, plus `you` and `alex-backup` for the reader),
+so addresses stay the same from run to run; digests, object IDs and dates
+change.
 
 To add a shot, add a step to the spec and call `shoot(page, '<name>')` once the
 content it shows is visible. File names are lowercase kebab-case; every shot
