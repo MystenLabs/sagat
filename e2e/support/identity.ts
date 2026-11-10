@@ -38,7 +38,7 @@ export class Identity {
 				});
 				const cookie = response.headers
 					.get('set-cookie')
-					?.match(/connected-wallet=[^;]*/)?.[0];
+					?.match(/__Host-connected-wallet=[^;]*/)?.[0];
 				if (cookie) this.#cookie = cookie;
 				return response;
 			},
