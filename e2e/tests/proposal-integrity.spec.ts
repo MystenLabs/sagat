@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type PublicProposal } from '@mysten/sagat';
+import {
+	type MultisigWithMembers,
+	type PublicProposal,
+} from '@mysten/sagat';
 import {
 	Transaction,
 	TransactionDataBuilder,
@@ -12,12 +15,18 @@ import {
 	toBase64,
 } from '@mysten/sui/utils';
 
+import { newProposalPath } from '../../app/src/lib/new-proposal';
 import { randomAddress } from '../support/chain';
+import { E2E } from '../support/env';
 import {
 	expect,
 	test,
 	type Fixtures,
 } from '../support/fixtures';
+import {
+	recordCreates,
+	sharedAccount,
+} from '../support/new-proposal';
 import {
 	proposeTransfer,
 	setupMultisig,
@@ -41,8 +50,10 @@ function withBytes(
 
 /**
  * Alice proposes a transfer from her 2-of-2 account with Bob, and Bob
- * opens it with the proposal response changed by `tamper`. Returns the
- * vote requests the page sends, which should stay empty.
+ * opens it with the proposal response changed by `tamper`: signed in,
+ * under the account, or with `shared`, at the shared link with his
+ * wallet connected but not signed in. Returns the vote requests the page
+ * sends, which should stay empty.
  */
 async function openTamperedProposal(
 	{ createActor, createIdentity, chain }: Fixtures,
@@ -50,6 +61,7 @@ async function openTamperedProposal(
 		proposal: PublicProposal;
 		bob: { address: string; publicKey: string };
 	}) => Promise<PublicProposal> | PublicProposal,
+	{ shared = false }: { shared?: boolean } = {},
 ) {
 	const alice = createIdentity('alice');
 	const bob = await createActor('bob');
@@ -93,10 +105,17 @@ async function openTamperedProposal(
 			votes.push(request.url());
 	});
 
-	await bob.signIn();
-	await bob.page.goto(
-		`/multisig/${multisig.address}/proposals/${proposed.digest}`,
-	);
+	if (shared) {
+		await bob.page.goto(
+			`/proposals?digest=${proposed.digest}`,
+		);
+		await bob.connectWallet({ signIn: false });
+	} else {
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposed.digest}`,
+		);
+	}
 	return { bob, votes };
 }
 
@@ -194,6 +213,30 @@ test.describe('proposal integrity', () => {
 		await expectRefused(opened, 'digest');
 	});
 
+	test("refuses to sign bytes from the shared link that don't match the link's digest", async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const opened = await openTamperedProposal(
+			{ createActor, createIdentity, chain },
+			async ({ proposal }) =>
+				withBytes(
+					proposal,
+					await chain.buildSuiTransfer({
+						sender: proposal.multisigAddress,
+						recipient: randomAddress(),
+						amount: 2n * MIST_PER_SUI,
+					}),
+				),
+			{ shared: true },
+		);
+		await expectRefused(opened, 'digest');
+		await expect(opened.bob.page).toHaveURL(
+			(url) => url.pathname === '/proposals',
+		);
+	});
+
 	test("refuses to sign when the signers don't make up the account's address", async ({
 		createActor,
 		createIdentity,
@@ -214,5 +257,82 @@ test.describe('proposal integrity', () => {
 			}),
 		);
 		await expectRefused(opened, 'signers');
+	});
+
+	test("refuses to propose when the signers don't make up the account's address", async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { alice, bob, multisig } = await sharedAccount(
+			{ createActor, createIdentity, chain },
+			2,
+		);
+		const tamper = (account: MultisigWithMembers) =>
+			account.address === multisig.address
+				? {
+						...account,
+						members: account.members.map((m) =>
+							m.publicKey === bob.publicKey
+								? { ...m, weight: 2 }
+								: m,
+						),
+					}
+				: account;
+		// The wizard reads the signers from both the account list and the account.
+		await alice.page.route(
+			`${E2E.apiUrl}/addresses/connections`,
+			async (route) => {
+				const response = await route.fetch();
+				const connections =
+					(await response.json()) as Record<
+						string,
+						MultisigWithMembers[]
+					>;
+				await route.fulfill({
+					response,
+					json: Object.fromEntries(
+						Object.entries(connections).map(
+							([publicKey, accounts]) => [
+								publicKey,
+								accounts.map(tamper),
+							],
+						),
+					),
+				});
+			},
+		);
+		await alice.page.route(
+			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			async (route) => {
+				const response = await route.fetch();
+				await route.fulfill({
+					response,
+					json: tamper(
+						(await response.json()) as MultisigWithMembers,
+					),
+				});
+			},
+		);
+		const creates = recordCreates(alice.page);
+
+		await alice.page.goto(
+			newProposalPath(multisig.address),
+		);
+		const refusal = alice.page.getByTestId(
+			'new-proposal-refused',
+		);
+		await expect(refusal).toBeVisible();
+		await expect(refusal).toHaveAttribute(
+			'data-rule',
+			'signers',
+		);
+		await expect(
+			alice.page.getByTestId('type-step'),
+		).toHaveCount(0);
+		await expect(
+			alice.page.getByTestId('review-submit'),
+		).toHaveCount(0);
+		expect(creates).toEqual([]);
 	});
 });

@@ -67,3 +67,41 @@ test('refuses a wallet that is not one of the signers', async () => {
 		),
 	).toBe('notSigner');
 });
+
+test("refuses bytes that don't decode as a transaction", () => {
+	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
+	const threshold = 1;
+	const address = MultiSigPublicKey.fromPublicKeys({
+		threshold,
+		publicKeys: keys.map((key) => ({
+			publicKey: key.getPublicKey(),
+			weight: 1,
+		})),
+	}).toSuiAddress();
+	const transactionBytes = toBase64(
+		new Uint8Array([1, 2, 3]),
+	);
+
+	expect(
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest: toBase58(new Uint8Array(32)),
+				multisigAddress: address,
+				multisig: {
+					address,
+					threshold,
+					members: keys.map((key, order) => ({
+						publicKey: key.getPublicKey().toSuiPublicKey(),
+						weight: 1,
+						order,
+					})),
+				},
+			},
+			{
+				openedDigest: toBase58(new Uint8Array(32)),
+				signerAddress: keys[0].toSuiAddress(),
+			},
+		),
+	).toBe('unreadable');
+});
