@@ -9,8 +9,10 @@ import {
 	type Proposal,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { expect } from '@playwright/test';
 
 import {
+	randomAddress,
 	type Chain,
 	type Expiration,
 	type GasCoin,
@@ -158,6 +160,27 @@ export async function cancelProposal(
 	});
 }
 
+// Adds `proposer` as an external proposer of the account, signed by `member`.
+export async function addProposer(
+	member: Identity,
+	multisigAddress: string,
+	proposer: string,
+) {
+	const expiry = defaultExpiry();
+	return member.api.addMultisigProposer(
+		multisigAddress,
+		proposer,
+		await member.signMessage(
+			PersonalMessages.addMultisigProposer(
+				proposer,
+				multisigAddress,
+				expiry,
+			),
+		),
+		expiry,
+	);
+}
+
 type MultisigMember = {
 	identity: Identity;
 	weight?: number;
@@ -204,6 +227,61 @@ export async function executeOutsideApp(
 			threshold,
 		).combinePartialSignatures(signatures),
 	);
+}
+
+// Proposes a SUI transfer of more than the account holds, signed by
+// `signers` (the first proposes), and executes it on-chain, where it fails.
+// The API then records it as failed. `members` as for `executeOutsideApp`.
+export async function proposeFailedTransfer(
+	chain: Chain,
+	{
+		members,
+		threshold,
+		signers,
+		gasCoin,
+	}: {
+		members: MultisigMember[];
+		threshold: number;
+		signers: Identity[];
+		gasCoin?: GasCoin;
+	},
+) {
+	const multisigAddress = multisigAddressOf(
+		members,
+		threshold,
+	);
+	const transactionBytes =
+		await chain.buildOverdrawnSuiTransfer({
+			sender: multisigAddress,
+			recipient: randomAddress(),
+			gasCoin,
+		});
+	const [proposer, ...others] = signers;
+	const proposal = await proposer.api.createProposal({
+		multisigAddress,
+		transactionBytes,
+		signature: await proposer.signTransaction(
+			transactionBytes,
+		),
+		network: 'localnet',
+	});
+	for (const signer of others)
+		await signProposal(signer, proposal);
+	await expect(
+		executeOutsideApp(chain, {
+			members,
+			threshold,
+			signers,
+			transactionBytes,
+		}),
+	).rejects.toThrow('Transaction failed');
+	await chain.client.waitForTransaction({
+		digest: proposal.digest,
+	});
+	await proposer.api.verifyProposalByDigest(
+		proposal.digest,
+	);
+	return proposal;
 }
 
 function multisigPublicKeyOf(

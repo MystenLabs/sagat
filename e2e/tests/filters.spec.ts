@@ -13,6 +13,7 @@ import { type Identity } from '../support/identity';
 import {
 	cancelProposal,
 	executeOutsideApp,
+	proposeFailedTransfer,
 	proposeTransfer,
 	setupMultisig,
 	signProposal,
@@ -70,38 +71,18 @@ test('proposal filters show each proposal where it belongs', async ({
 	await bob.api.verifyProposalByDigest(executed.digest);
 	const cancelled = await propose(bob, coins[4]);
 	await cancelProposal(bob, cancelled);
-	// Signed by Bob and Carol, executed on-chain where it fails (it spends
-	// more than the account holds), then verified with the API.
-	const failedBytes = await chain.buildOverdrawnSuiTransfer(
-		{
-			sender: multisig.address,
-			recipient: randomAddress(),
-			gasCoin: coins[5],
-		},
-	);
-	const failed = await bob.api.createProposal({
-		multisigAddress: multisig.address,
-		transactionBytes: failedBytes,
-		signature: await bob.signTransaction(failedBytes),
-		network: 'localnet',
+	// Signed by Bob and Carol, executed on-chain where it fails, then
+	// verified with the API.
+	const failed = await proposeFailedTransfer(chain, {
+		members: [
+			{ identity: alice },
+			{ identity: bob },
+			{ identity: carol },
+		],
+		threshold: 2,
+		signers: [bob, carol],
+		gasCoin: coins[5],
 	});
-	await signProposal(carol, failed);
-	await expect(
-		executeOutsideApp(chain, {
-			members: [
-				{ identity: alice },
-				{ identity: bob },
-				{ identity: carol },
-			],
-			threshold: 2,
-			signers: [bob, carol],
-			transactionBytes: failedBytes,
-		}),
-	).rejects.toThrow('Transaction failed');
-	await chain.client.waitForTransaction({
-		digest: failed.digest,
-	});
-	await bob.api.verifyProposalByDigest(failed.digest);
 
 	await alice.signIn();
 	await alice.page

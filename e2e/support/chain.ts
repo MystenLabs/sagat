@@ -3,11 +3,11 @@
 
 import { bcs } from '@mysten/sui/bcs';
 import { requestSuiFromFaucetV2 } from '@mysten/sui/faucet';
-import { SuiGrpcClient } from '@mysten/sui/grpc';
+import { GrpcTypes, SuiGrpcClient } from '@mysten/sui/grpc';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64, toBase64 } from '@mysten/sui/utils';
-import { expect } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 import { E2E } from './env';
 
@@ -322,6 +322,83 @@ export class Chain {
 			digest: result.Transaction.digest,
 		});
 	}
+}
+
+// Has the page's chain report `epoch` as the current one: the local network
+// stays in epoch 0 for its first hour.
+export async function reportEpoch(
+	page: Page,
+	epoch: number,
+) {
+	await page.route(
+		'**/sui.rpc.v2.LedgerService/GetEpoch',
+		async (route) => {
+			const response = await route.fetch();
+			const body = rewriteGrpcWebMessages(
+				fromGrpcWebText(await response.text()),
+				(message) => {
+					const { epoch: info } =
+						GrpcTypes.GetEpochResponse.fromBinary(message);
+					return GrpcTypes.GetEpochResponse.toBinary({
+						epoch: {
+							...info,
+							epoch: BigInt(epoch),
+							systemState: info?.systemState && {
+								...info.systemState,
+								epoch: BigInt(epoch),
+							},
+						},
+					});
+				},
+			);
+			await route.fulfill({
+				response,
+				body: toBase64(body),
+			});
+		},
+	);
+}
+
+// A grpc-web-text body can be several base64 chunks, each padded.
+function fromGrpcWebText(text: string) {
+	return concatBytes(
+		(text.match(/[^=]+=*/g) ?? []).map(fromBase64),
+	);
+}
+
+// Rewrites each message frame of a grpc-web body, keeping the trailers.
+function rewriteGrpcWebMessages(
+	body: Uint8Array,
+	rewrite: (message: Uint8Array) => Uint8Array,
+) {
+	const frames: Uint8Array[] = [];
+	for (let at = 0; at < body.length;) {
+		const flag = body[at];
+		const length = new DataView(
+			body.buffer,
+			body.byteOffset + at + 1,
+		).getUint32(0);
+		const payload = body.subarray(at + 5, at + 5 + length);
+		at += 5 + length;
+		const next = flag === 0 ? rewrite(payload) : payload;
+		const header = new Uint8Array(5);
+		header[0] = flag;
+		new DataView(header.buffer).setUint32(1, next.length);
+		frames.push(header, next);
+	}
+	return concatBytes(frames);
+}
+
+function concatBytes(parts: Uint8Array[]) {
+	const out = new Uint8Array(
+		parts.reduce((sum, part) => sum + part.length, 0),
+	);
+	let at = 0;
+	for (const part of parts) {
+		out.set(part, at);
+		at += part.length;
+	}
+	return out;
 }
 
 export function randomAddress() {

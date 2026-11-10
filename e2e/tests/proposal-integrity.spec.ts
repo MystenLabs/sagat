@@ -25,6 +25,7 @@ import {
 } from '../support/fixtures';
 import {
 	recordCreates,
+	recordVotes,
 	sharedAccount,
 } from '../support/new-proposal';
 import {
@@ -94,16 +95,7 @@ async function openTamperedProposal(
 			});
 		},
 	);
-	const votes: string[] = [];
-	bob.page.on('request', (request) => {
-		if (
-			request.method() === 'POST' &&
-			/\/proposals\/\d+\/vote$/.test(
-				new URL(request.url()).pathname,
-			)
-		)
-			votes.push(request.url());
-	});
+	const votes = recordVotes(bob.page);
 
 	if (shared) {
 		await bob.page.goto(

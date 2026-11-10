@@ -6,7 +6,10 @@ import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { recordSignIns } from '../support/actor';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
-import { expectOnProposal } from '../support/new-proposal';
+import {
+	expectOnProposal,
+	recordVotes,
+} from '../support/new-proposal';
 import {
 	proposeTransfer,
 	setupMultisig,
@@ -132,6 +135,53 @@ test.describe('shared proposal links', () => {
 				url.searchParams.get('digest') === proposal.digest,
 		);
 		await expectReadOnly();
+	});
+
+	test('a proposal opened on another network offers no Sign or Execute', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const proposal = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		// The proposal is on localnet; Bob's app is on testnet.
+		await bob.context.addInitScript(() =>
+			localStorage.setItem('SuiNetwork', 'testnet'),
+		);
+		const votes = recordVotes(bob.page);
+		await bob.page.goto(
+			`/proposals?digest=${proposal.digest}`,
+		);
+		await bob.connectWallet({ signIn: false });
+		const page = bob.proposalPage(proposal.digest);
+		await expect(
+			page.getByTestId('proposal-network-mismatch'),
+		).toBeVisible();
+		await expect(
+			page.getByTestId('sign-proposal-button'),
+		).toHaveCount(0);
+		await expect(
+			page.getByTestId('execute-proposal-button'),
+		).toHaveCount(0);
+		expect(votes).toEqual([]);
+
+		// On the proposal's network, Bob can sign.
+		await page.getByTestId('switch-network-button').click();
+		await expect(
+			page.getByTestId('sign-proposal-button'),
+		).toBeVisible();
 	});
 
 	test('a signed-in member opening the link moves to the proposal under the account', async ({
