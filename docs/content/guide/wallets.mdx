@@ -9,17 +9,13 @@ You use the app with your own Sui wallet. Connecting a wallet and signing in are
 
 The wallet control sits at the bottom of the sidebar, or in the top bar on a phone-width screen. **Connect wallet** opens a list of the wallets your browser has available, with Slush first when you have it. The app talks to them through the Sui wallet standard, and the list also offers Wallet Connect. If the list is empty, it reads “No wallets found. Install a wallet (e.g. Slush Wallet) to continue.”
 
-Picking a wallet only connects it. If you decline the request in your wallet, nothing is connected, and you can connect again whenever you are ready: the signed-out page offers a **Try again** button.
-
-The app remembers the wallet you connected last in your browser and reconnects it when you come back.
+Picking a wallet only connects it. The app remembers the wallet you connected last in your browser and reconnects it when you come back.
 
 ## Sign in
 
 With a wallet connected, the page shows “Sign in to continue” and a **Sign in** button. Signing in is a [signed message](/glossary#signed-message), not a transaction: as the page puts it, “Signing proves you own this wallet. It doesn’t send a transaction or move any funds.” The API checks the signature and starts a session for your address.
 
 Sign-in accepts signatures from Ed25519, Secp256k1 and Secp256r1 keys, the same key types the app accepts for [signers](/guide/how-a-multisig-works#signers-and-public-keys). A zkLogin address cannot sign in: the app shows “zkLogin accounts aren’t supported yet” and asks you to switch to another address in the wallet or connect a different wallet.
-
-If you decline the request in your wallet, the page tells you, ending with “You’re not signed in.” The wallet stays connected, so **Sign in** is the retry.
 
 ## Wallets with several addresses
 
@@ -33,7 +29,7 @@ The wallet menu also has **Copy address**, which copies the selected address.
 
 ## Disconnect
 
-**Disconnect** in the wallet menu signs you out of the service and then disconnects the wallet. The app confirms with “Wallet disconnected”. Signing out ends the session for every address you signed in from that browser.
+**Disconnect** in the wallet menu signs you out of the service and then disconnects the wallet. Signing out ends the session for every address you signed in from that browser.
 
 ## What works without signing in
 
