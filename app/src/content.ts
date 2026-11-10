@@ -232,6 +232,14 @@ export const content = {
 			title: 'Can’t reach the service',
 			body: 'Pods couldn’t connect to its API. Check your connection and try again.',
 		},
+		pageCrashed: {
+			title: 'This page couldn’t be displayed',
+			body: 'Something went wrong on this page. Try again, or open another page.',
+		},
+		appCrashed: {
+			body: 'The app ran into an unexpected error. Reload the page to try again.',
+			reload: 'Reload page',
+		},
 	},
 	dialogs: {
 		dismiss: 'Dismiss',
