@@ -60,11 +60,57 @@ export function recordCreates(page: Page) {
 }
 
 export function isCreateRequest(request: Request) {
+	return isApiPost(request, /\/proposals$/);
+}
+
+/** Every vote the page sends, as it sends it. */
+export function recordVotes(page: Page) {
+	const votes: Request[] = [];
+	page.on('request', (request) => {
+		if (isVoteRequest(request)) votes.push(request);
+	});
+	return votes;
+}
+
+export function isVoteRequest(request: Request) {
+	return isApiPost(request, /\/proposals\/\d+\/vote$/);
+}
+
+export function isCancelRequest(request: Request) {
+	return isApiPost(request, /\/proposals\/\d+\/cancel$/);
+}
+
+function isApiPost(request: Request, path: RegExp) {
 	const url = new URL(request.url());
 	return (
 		request.method() === 'POST' &&
 		url.origin === E2E.apiUrl &&
-		url.pathname.endsWith('/proposals')
+		path.test(url.pathname)
+	);
+}
+
+/**
+ * Runs `meanwhile` when the page sends its first API request that
+ * `matches`, and lets the request through once it is done.
+ */
+export async function beforeSending(
+	page: Page,
+	matches: (request: Request) => boolean,
+	meanwhile: () => Promise<unknown>,
+) {
+	let ran = false;
+	await page.route(
+		(url) => url.origin === E2E.apiUrl,
+		async (route) => {
+			if (ran || !matches(route.request()))
+				return route.fallback();
+			ran = true;
+			try {
+				await meanwhile();
+			} finally {
+				await route.fallback();
+			}
+		},
 	);
 }
 

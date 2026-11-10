@@ -3,7 +3,11 @@
 
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 
-import { randomAddress } from '../support/chain';
+import { content } from '../../app/src/content';
+import {
+	randomAddress,
+	reportEpoch,
+} from '../support/chain';
 import { expect, test } from '../support/fixtures';
 import {
 	chooseType,
@@ -12,12 +16,15 @@ import {
 	fillTransfer,
 	pasteBytes,
 	proposeAndSign,
+	recordVotes,
 	reviewBytes,
 	reviewTransfer,
+	toast,
 } from '../support/new-proposal';
 import {
 	proposeTransfer,
 	setupMultisig,
+	setupProposal,
 	signProposal,
 } from '../support/scenarios';
 
@@ -154,11 +161,7 @@ test.describe('proposals', () => {
 		await alice.page.goto(
 			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
 		);
-		const bobRow = alice
-			.proposalPage(proposal.digest)
-			.locator(
-				`[data-testid="approval-row"][data-address="${bob.address}"]`,
-			);
+		const bobRow = alice.approvalRow(bob.address);
 		await expect(bobRow).toHaveAttribute(
 			'data-signed',
 			'false',
@@ -270,6 +273,86 @@ test.describe('proposals', () => {
 		await expect(
 			lastingCard.getByTestId('proposal-expiry'),
 		).toHaveCount(0);
+	});
+
+	test('an expired proposal can’t be signed', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const epoch = await chain.epoch();
+		const { bob, multisig, proposal } = await setupProposal(
+			{ createActor, createIdentity, chain },
+			{ expiration: { Epoch: epoch } },
+		);
+
+		// Valid only in this epoch, and Bob's page is told the next one began.
+		await reportEpoch(bob.page, epoch + 1);
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		const page = bob.proposalPage(proposal.digest);
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'expired',
+		);
+		await expect(
+			page.getByTestId('cancel-proposal-button'),
+		).toBeVisible();
+		await expect(
+			page.getByTestId('sign-proposal-button'),
+		).toHaveCount(0);
+	});
+
+	test('a signature declined in the wallet sends no vote and can be retried', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		// Bob's signature alone doesn't reach the threshold.
+		const { bob, multisig, proposal } = await setupProposal(
+			{ createActor, createIdentity, chain },
+			{
+				others: [createIdentity('carol')],
+				threshold: 3,
+				bob: { rejectSigning: true },
+			},
+		);
+
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		const page = bob.proposalPage(proposal.digest);
+		const sign = page.getByTestId('sign-proposal-button');
+		const bobRow = bob.approvalRow(bob.address);
+		const votes = recordVotes(bob.page);
+		await sign.click();
+		await expect(
+			toast(bob.page, 'error').filter({
+				hasText: content.toasts.proposalSignFailed,
+			}),
+		).toBeVisible();
+		expect(votes).toEqual([]);
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'pending',
+		);
+		await expect(bobRow).toHaveAttribute(
+			'data-signed',
+			'false',
+		);
+
+		await bob.page.evaluate(() => {
+			window.__e2eWallet!.rejectSigning = false;
+		});
+		await sign.click();
+		await expect(bobRow).toHaveAttribute(
+			'data-signed',
+			'true',
+		);
+		expect(votes).toHaveLength(1);
 	});
 
 	test('a member cancels a pending proposal', async ({

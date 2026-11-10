@@ -16,7 +16,7 @@ import { expect, test } from 'vitest';
 
 import { checkProposalIntegrity } from '../src/lib/proposal-integrity';
 
-test('refuses a wallet that is not one of the signers', async () => {
+function oneOfTwoAccount() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
 	const threshold = 1;
 	const address = MultiSigPublicKey.fromPublicKeys({
@@ -26,6 +26,20 @@ test('refuses a wallet that is not one of the signers', async () => {
 			weight: 1,
 		})),
 	}).toSuiAddress();
+	const multisig = {
+		address,
+		threshold,
+		members: keys.map((key, order) => ({
+			publicKey: key.getPublicKey().toSuiPublicKey(),
+			weight: 1,
+			order,
+		})),
+	};
+	return { keys, address, multisig };
+}
+
+test('refuses a wallet that is not one of the signers', async () => {
+	const { address, multisig } = oneOfTwoAccount();
 
 	const tx = new Transaction();
 	tx.setSender(address);
@@ -50,15 +64,7 @@ test('refuses a wallet that is not one of the signers', async () => {
 				transactionBytes,
 				digest,
 				multisigAddress: address,
-				multisig: {
-					address,
-					threshold,
-					members: keys.map((key, order) => ({
-						publicKey: key.getPublicKey().toSuiPublicKey(),
-						weight: 1,
-						order,
-					})),
-				},
+				multisig,
 			},
 			{
 				openedDigest: digest,
@@ -66,4 +72,26 @@ test('refuses a wallet that is not one of the signers', async () => {
 			},
 		),
 	).toBe('notSigner');
+});
+
+test("refuses bytes that don't decode as a transaction", () => {
+	const { keys, address, multisig } = oneOfTwoAccount();
+	const transactionBytes = toBase64(
+		new Uint8Array([1, 2, 3]),
+	);
+
+	expect(
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest: toBase58(new Uint8Array(32)),
+				multisigAddress: address,
+				multisig,
+			},
+			{
+				openedDigest: toBase58(new Uint8Array(32)),
+				signerAddress: keys[0].toSuiAddress(),
+			},
+		),
+	).toBe('unreadable');
 });
