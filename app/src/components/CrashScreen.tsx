@@ -3,7 +3,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { TriangleAlert } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { content } from '@/content';
 
@@ -19,9 +19,23 @@ export function PageCrashed({
 }) {
 	const queryClient = useQueryClient();
 	useEffect(() => {
-		// Drop every unobserved query, the crashed page's included; the shell's stay.
+		// Drop every unobserved query, the crashed page's included; active ones stay.
 		queryClient.removeQueries({ type: 'inactive' });
 	}, [queryClient]);
+
+	// The shell's queries may hold the data that crashed the page: refetch them first.
+	const [retrying, setRetrying] = useState(false);
+	const retry = async () => {
+		setRetrying(true);
+		try {
+			await queryClient.refetchQueries({ type: 'active' });
+		} finally {
+			// A crash on retry can reuse this instance, so clear the state too.
+			setRetrying(false);
+			onRetry();
+		}
+	};
+
 	return (
 		<div className="px-5">
 			<ErrorState
@@ -30,7 +44,8 @@ export function PageCrashed({
 				icon={TriangleAlert}
 				title={COPY.pageCrashed.title}
 				fallback={COPY.pageCrashed.body}
-				onRetry={onRetry}
+				onRetry={retry}
+				retrying={retrying}
 				retryTestId="page-crashed-retry"
 			/>
 		</div>
