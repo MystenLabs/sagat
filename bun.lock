@@ -96,6 +96,8 @@
     "docs": {
       "name": "docs",
       "dependencies": {
+        "@fontsource-variable/geist": "^5.3.0",
+        "@fontsource-variable/geist-mono": "^5.3.0",
         "fumadocs-core": "^16.18.4",
         "fumadocs-mdx": "^15.5.3",
         "fumadocs-ui": "^16.18.4",

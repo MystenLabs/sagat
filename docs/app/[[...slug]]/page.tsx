@@ -1,10 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { ImageZoomProps } from 'fumadocs-ui/components/image-zoom';
 import {
-	ImageZoom,
-	type ImageZoomProps,
-} from 'fumadocs-ui/components/image-zoom';
+	MarkdownCopyButton,
+	ViewOptionsPopover,
+} from 'fumadocs-ui/layouts/notebook/page';
 import defaultMdxComponents, {
 	createRelativeLink,
 } from 'fumadocs-ui/mdx';
@@ -17,6 +18,7 @@ import {
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+import { Screenshot } from '@/components/screenshot';
 import { github } from '@/lib/site';
 import { source } from '@/lib/source';
 
@@ -28,6 +30,8 @@ export default async function Page(props: Props) {
 	if (!page) notFound();
 
 	const MDX = page.data.body;
+	const markdownUrl = `/md/${page.slugs.join('/') || 'index'}.md`;
+	const githubUrl = `https://github.com/${github.owner}/${github.repo}/blob/${github.branch}/docs/content/${page.path}`;
 
 	return (
 		<DocsPage
@@ -44,13 +48,20 @@ export default async function Page(props: Props) {
 			<DocsDescription>
 				{page.data.description}
 			</DocsDescription>
+			<div className="-mt-4 mb-4 flex flex-row flex-wrap items-center gap-2">
+				<MarkdownCopyButton markdownUrl={markdownUrl} />
+				<ViewOptionsPopover
+					markdownUrl={markdownUrl}
+					githubUrl={githubUrl}
+				/>
+			</div>
 			<DocsBody>
 				<MDX
 					components={{
 						...defaultMdxComponents,
 						a: createRelativeLink(source, page),
 						img: (props) => (
-							<ImageZoom
+							<Screenshot
 								{...(props as ImageZoomProps)}
 								className="rounded-lg"
 							/>

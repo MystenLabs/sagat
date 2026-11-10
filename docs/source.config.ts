@@ -15,4 +15,9 @@ export const docs = defineDocs({
 	},
 });
 
-export default defineConfig();
+export default defineConfig({
+	mdxOptions: {
+		// Keep image src a plain path so Screenshot can find its -dark twin.
+		remarkImageOptions: { useImport: false },
+	},
+});

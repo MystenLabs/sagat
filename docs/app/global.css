@@ -1,6 +1,27 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+/* Same stacks as app/src/index.css. */
+@theme inline {
+	--font-sans:
+		'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+	--font-mono:
+		'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo,
+		monospace;
+}
+
+html {
+	@apply antialiased;
+}
+
+/* Screenshots open zoomed on click. */
+.prose img {
+	border: 1px solid var(--color-fd-border);
+	cursor: zoom-in;
+}
 
 /* Banner height where it sticks: two lines of text from md, one from lg. */
 :root {

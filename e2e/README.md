@@ -126,7 +126,8 @@ the mainnet coin list is answered with an empty list.
 
 `docs-screenshots/walkthrough.spec.ts` walks one person through a first use of
 the app and writes the getting-started screenshots, then those of the wallets
-and tools pages, to `docs/public/screenshots/`. Same prerequisites as the tests (`sui` CLI,
+and tools pages, to `docs/public/screenshots/`, each in light and as a
+`-dark` twin. Same prerequisites as the tests (`sui` CLI,
 Postgres, `bunx playwright install chromium` once). From the repo root:
 
 ```sh
