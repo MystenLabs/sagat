@@ -8,10 +8,7 @@ import {
 } from 'react-router-dom';
 
 import { AppRouter } from './components/AppRouter';
-import {
-	AppCrashed,
-	PageCrashed,
-} from './components/CrashScreen';
+import { PageCrashed } from './components/CrashScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppShell } from './components/shell/AppShell';
 import { TestModeBanner } from './components/TestModeBanner';
@@ -45,11 +42,9 @@ function AppContent() {
 
 function App() {
 	return (
-		<ErrorBoundary fallback={() => <AppCrashed />}>
-			<BrowserRouter>
-				<AppContent />
-			</BrowserRouter>
-		</ErrorBoundary>
+		<BrowserRouter>
+			<AppContent />
+		</BrowserRouter>
 	);
 }
 
