@@ -77,7 +77,7 @@ export default async function Page(props: Props) {
 					{actionButtons}
 				</div>
 			)}
-			<DocsBody>
+			<DocsBody className="pb-6">
 				<MDX
 					components={{
 						...defaultMdxComponents,
