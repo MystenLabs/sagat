@@ -6,6 +6,8 @@ import {
 	defineDocs,
 } from 'fumadocs-mdx/config';
 
+import { remarkDarkImage } from './lib/remark-dark-image';
+
 export const docs = defineDocs({
 	dir: 'content',
 	docs: {
@@ -17,7 +19,6 @@ export const docs = defineDocs({
 
 export default defineConfig({
 	mdxOptions: {
-		// Keep image src a plain path so Screenshot can find its -dark twin.
-		remarkImageOptions: { useImport: false },
+		remarkPlugins: [remarkDarkImage],
 	},
 });

@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ImageZoomProps } from 'fumadocs-ui/components/image-zoom';
 import {
 	MarkdownCopyButton,
 	ViewOptionsPopover,
@@ -18,7 +17,10 @@ import {
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { Screenshot } from '@/components/screenshot';
+import {
+	Screenshot,
+	type ScreenshotProps,
+} from '@/components/screenshot';
 import { github } from '@/lib/site';
 import { source } from '@/lib/source';
 
@@ -62,7 +64,7 @@ export default async function Page(props: Props) {
 						a: createRelativeLink(source, page),
 						img: (props) => (
 							<Screenshot
-								{...(props as ImageZoomProps)}
+								{...(props as ScreenshotProps)}
 								className="rounded-lg"
 							/>
 						),
