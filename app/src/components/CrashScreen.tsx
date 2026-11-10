@@ -1,0 +1,71 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { useQueryClient } from '@tanstack/react-query';
+import { TriangleAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
+
+import { content } from '@/content';
+
+import { ErrorState } from './ui/empty-state';
+
+const COPY = content.states;
+
+/** A routed page failed to render; the shell around it still works. */
+export function PageCrashed({
+	onRetry,
+}: {
+	onRetry: () => void;
+}) {
+	const queryClient = useQueryClient();
+	useEffect(() => {
+		// Drop every unobserved query, the crashed page's included; active ones stay.
+		queryClient.removeQueries({ type: 'inactive' });
+	}, [queryClient]);
+
+	// The shell's queries may hold the data that crashed the page: refetch them first.
+	const [retrying, setRetrying] = useState(false);
+	const retry = async () => {
+		setRetrying(true);
+		try {
+			await queryClient.refetchQueries({ type: 'active' });
+		} finally {
+			// A crash on retry can reuse this instance, so clear the state too.
+			setRetrying(false);
+			onRetry();
+		}
+	};
+
+	return (
+		<div className="px-5">
+			<ErrorState
+				testId="page-crashed"
+				className="mx-auto mt-16 w-full max-w-lg"
+				icon={TriangleAlert}
+				title={COPY.pageCrashed.title}
+				fallback={COPY.pageCrashed.body}
+				onRetry={retry}
+				retrying={retrying}
+				retryTestId="page-crashed-retry"
+			/>
+		</div>
+	);
+}
+
+/** The whole app failed to render: no router, shell or providers to lean on. */
+export function AppCrashed() {
+	return (
+		<div className="flex min-h-svh items-center justify-center bg-background p-5">
+			<ErrorState
+				testId="app-crashed"
+				className="w-full max-w-lg"
+				icon={TriangleAlert}
+				title={COPY.error.title}
+				fallback={COPY.appCrashed.body}
+				onRetry={() => window.location.reload()}
+				retryLabel={COPY.appCrashed.reload}
+				retryTestId="app-crashed-reload"
+			/>
+		</div>
+	);
+}

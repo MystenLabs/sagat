@@ -77,6 +77,8 @@ interface ErrorStateProps {
 	onRetry?: () => void;
 	/** A retry is in flight: the button is disabled and says so. */
 	retrying?: boolean;
+	/** The retry button's label; “Try again” by default. */
+	retryLabel?: string;
 	retryTestId?: string;
 	className?: string;
 	testId?: string;
@@ -91,6 +93,7 @@ export function ErrorState({
 	hint,
 	onRetry,
 	retrying = false,
+	retryLabel = content.common.actions.tryAgain,
 	retryTestId,
 	className,
 	testId,
@@ -126,7 +129,7 @@ export function ErrorState({
 				>
 					{retrying
 						? content.common.states.retrying
-						: content.common.actions.tryAgain}
+						: retryLabel}
 				</Button>
 			)}
 		</div>
