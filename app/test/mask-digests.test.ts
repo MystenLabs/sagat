@@ -74,6 +74,7 @@ describe('maskDigests', () => {
 				],
 			},
 		});
+		expect(report.request.url).toContain(digest);
 	});
 
 	test('leaves addresses and hashed asset names alone', () => {

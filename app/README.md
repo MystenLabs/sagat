@@ -63,9 +63,10 @@ Reports carry no user identity and ask Sentry not to record the IP address,
 but they do include the page URL and the URLs of recent requests, which contain
 account addresses. Proposal digests are replaced with `:digest` before a report
 is sent. When `VITE_RELEASE` is set, events are tagged with that release and the
-SDK also sends one session ping per page load. The image build adds the DSN's
-origin to the CSP's `connect-src`. Production builds ship source maps next to
-the assets.
+SDK also sends a session ping, with the browser user agent, on page load and an
+update when a report changes the session's error status. The image build adds
+the DSN's origin to the CSP's `connect-src`. Production builds ship source maps
+next to the assets.
 
 ## Building
 

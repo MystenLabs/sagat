@@ -19,37 +19,32 @@ export function maskDigestsInText(text: string): string {
 	return text.replace(TOKEN, (token, offset: number) => {
 		if (isDigest(token)) return ':digest';
 		if (text[offset - 1] !== '%') return token;
-		// Percent escapes glue their hex digits to the digest, e.g. %2F or %252F.
-		for (const n of [2, 4, 6]) {
-			const prefix = token.slice(0, n);
-			if (HEX.test(prefix) && isDigest(token.slice(n))) {
-				return prefix + ':digest';
-			}
+		// A percent escape glues its hex digits to the digest, e.g. %2F.
+		const prefix = token.slice(0, 2);
+		if (HEX.test(prefix) && isDigest(token.slice(2))) {
+			return prefix + ':digest';
 		}
 		return token;
 	});
 }
 
 export function maskDigests<T>(value: T): T {
-	walk(value, 0);
-	return value;
+	return copy(value, 0) as T;
 }
 
-function walk(value: unknown, depth: number) {
-	if (depth >= MAX_DEPTH) return;
-	if (Array.isArray(value)) {
-		value.forEach((item, i) => {
-			if (typeof item === 'string')
-				value[i] = maskDigestsInText(item);
-			else walk(item, depth + 1);
-		});
-	} else if (isPlainObject(value)) {
-		for (const [key, item] of Object.entries(value)) {
-			if (typeof item === 'string')
-				value[key] = maskDigestsInText(item);
-			else walk(item, depth + 1);
-		}
+function copy(value: unknown, depth: number): unknown {
+	if (typeof value === 'string')
+		return maskDigestsInText(value);
+	if (depth >= MAX_DEPTH) return value;
+	if (Array.isArray(value))
+		return value.map((item) => copy(item, depth + 1));
+	if (isPlainObject(value)) {
+		const out: Record<string, unknown> = {};
+		for (const [key, item] of Object.entries(value))
+			out[key] = copy(item, depth + 1);
+		return out;
 	}
+	return value;
 }
 
 function isPlainObject(
