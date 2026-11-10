@@ -11,10 +11,10 @@ Sagat is a full-stack application for managing Sui blockchain multisig wallets, 
 
 ## Previous frontend
 
-The earlier frontend lives on the `sagat-legacy` branch and is still served
-during the alpha. Changes to it go as PRs against that branch. The API deploys
-only from `main`, and CI runs that branch's e2e suite against the API of every
-change to `main`, so an API change that breaks it fails CI.
+`main` carries the latest version. The previous frontend lives on the
+`sagat-legacy` branch during the alpha, and changes to it go as PRs against
+that branch. CI runs that branch's e2e suite against the API of every change
+to `main`, so an API change that breaks it fails CI.
 
 ## Starting to work locally
 
