@@ -1,19 +1,15 @@
 ---
 title: Glossary
-description: The terms the app and these docs use for multisig accounts, signers and proposals.
+description: The terms the app and these docs use for pods (multisig accounts), signers and proposals.
 ---
-
-## Account
-
-A multisig account: one Sui address controlled by several signers together. The app calls it a “pod”. See [What a multisig account is](/guide/how-a-multisig-works#what-a-multisig-account-is).
 
 ## Address
 
-A 32-byte identifier on Sui that can own coins and objects. An account’s address is derived from its signers’ public keys, their weights and the threshold, so a different setup gives a different address. See [Why the address depends on the setup](/guide/how-a-multisig-works#why-the-address-depends-on-the-setup).
+A 32-byte identifier on Sui that can own coins and objects. A pod’s address is derived from its signers’ public keys, their weights and the threshold, so a different setup gives a different address. See [Why the address depends on the setup](/guide/how-a-multisig-works#why-the-address-depends-on-the-setup).
 
 ## Combined signature
 
-The single signature that the app builds from the signers’ individual signatures when you execute a proposal. Sui checks it against the account’s address.
+The single signature that the app builds from the signers’ individual signatures when you execute a proposal. Sui checks it against the pod’s address.
 
 ## Digest
 
@@ -29,19 +25,23 @@ Submitting a proposal’s transaction to the network with the combined signature
 
 ## Gas
 
-The fee a Sui transaction pays to run. A proposal’s gas is paid by the account itself, from its balance on that network.
+The fee a Sui transaction pays to run. A proposal’s gas is paid by the pod itself, from its balance on that network.
 
 ## Invitation
 
-How a signer joins an account. Each signer accepts or rejects it by signing a message with their wallet; your own keys accept automatically when you create the account.
+How a signer joins a pod. Each signer accepts or rejects it by signing a message with their wallet; your own keys accept automatically when you create the pod.
 
 ## Network
 
-A Sui network, such as mainnet or testnet. An account and its address are the same on every network, but each proposal belongs to one network, and balances differ between networks. See [Accounts and networks](/guide/how-a-multisig-works#accounts-and-networks).
+A Sui network, such as mainnet or testnet. A pod and its address are the same on every network, but each proposal belongs to one network, and balances differ between networks. See [Pods and networks](/guide/how-a-multisig-works#pods-and-networks).
+
+## Pod
+
+A multisig account: one Sui address controlled by several signers together. See [What a pod is](/guide/how-a-multisig-works#what-a-pod-is).
 
 ## Proposal
 
-A transaction from the account that is waiting for signatures, stored together with the signatures collected for it. See [How proposals work](/guide/proposals).
+A transaction from the pod that is waiting for signatures, stored together with the signatures collected for it. See [How proposals work](/guide/proposals).
 
 ## Proposal status
 
@@ -49,11 +49,11 @@ Where a proposal stands: Pending, Ready, Expired, Executed, Failed or Cancelled.
 
 ## Proposer
 
-Anyone who creates a proposal. Signers can propose, and an account can also have [external proposers](/guide/external-proposers): addresses that can propose but not sign.
+Anyone who creates a proposal. Signers can propose, and a pod can also have [external proposers](/guide/external-proposers): addresses that can propose but not sign.
 
 ## Public key
 
-The public half of a wallet’s key pair. A signer is added to an account by their public key; the app accepts Ed25519, Secp256k1 and Secp256r1 keys. The app can find the key from an address once its wallet has signed in to the app, or once the address has sent a transaction. See [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
+The public half of a wallet’s key pair. A signer is added to a pod by their public key; the app accepts Ed25519, Secp256k1 and Secp256r1 keys. The app can find the key from an address once its wallet has signed in to the app, or once the address has sent a transaction. See [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
 
 ## Signature
 
@@ -65,7 +65,7 @@ A message, not a transaction, that you sign in your wallet. Signing in, answerin
 
 ## Signer
 
-One of the public keys that control an account, each with a weight. See [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
+One of the public keys that control a pod, each with a weight. See [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
 
 ## Threshold
 
