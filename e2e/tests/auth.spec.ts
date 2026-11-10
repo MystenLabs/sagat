@@ -167,10 +167,7 @@ test.describe('wallet sign-in', () => {
 		// The second tab restores the wallet, without a session.
 		const other = await alice.context.newPage();
 		await other.goto('/');
-		const otherMenu = other
-			.getByTestId('app-header')
-			.getByTestId('wallet-menu-button')
-			.filter({ visible: true });
+		const otherMenu = alice.walletMenuButton(other);
 		await expect(
 			other.getByTestId('auth-prompt'),
 		).toBeVisible();
@@ -188,13 +185,10 @@ test.describe('wallet sign-in', () => {
 		await alice.page
 			.getByTestId('disconnect-button')
 			.click();
-		await expect(otherMenu).toHaveAttribute(
-			'data-auth-state',
-			'unauthenticated',
-		);
 		await expect(
-			other.getByTestId('auth-prompt'),
+			other.getByTestId('connect-wallet-prompt'),
 		).toBeVisible();
+		await expect(otherMenu).toHaveCount(0);
 	});
 
 	test('a failed API sign-out still disconnects the wallet, without the success toast', async ({

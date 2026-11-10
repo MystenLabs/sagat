@@ -198,12 +198,18 @@ export function ApiAuthProvider({
 
 	useEffect(
 		() =>
-			onSessionChange((change) => {
-				void (change === 'signed-in'
-					? afterSignIn()
-					: afterSignOut());
+			onSessionChange(async (change) => {
+				if (change === 'signed-in') {
+					void afterSignIn();
+					return;
+				}
+				// End where a reload would: the other tab cleared the wallet.
+				setDeclined(null);
+				await afterSignOut();
+				if (dappKit.stores.$connection.get().account)
+					await dappKit.disconnectWallet();
 			}),
-		[afterSignIn, afterSignOut],
+		[afterSignIn, afterSignOut, dappKit],
 	);
 
 	// Bumped by every logout and by a disconnect from the wallet's side,
