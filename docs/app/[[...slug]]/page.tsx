@@ -34,11 +34,33 @@ export default async function Page(props: Props) {
 	const MDX = page.data.body;
 	const markdownUrl = `/md/${page.slugs.join('/') || 'index'}.md`;
 	const githubUrl = `https://github.com/${github.owner}/${github.repo}/blob/${github.branch}/docs/content/${page.path}`;
+	const actionButtons = (
+		<>
+			<MarkdownCopyButton markdownUrl={markdownUrl} />
+			<ViewOptionsPopover
+				markdownUrl={markdownUrl}
+				githubUrl={githubUrl}
+			/>
+		</>
+	);
+	// A TOC footer would show the column and dropdown on pages without headings.
+	const tocFooter =
+		page.data.toc.length > 0
+			? {
+					footer: (
+						<div className="mt-4 mb-4 flex flex-row flex-wrap items-center gap-2 border-t border-fd-border pt-4">
+							{actionButtons}
+						</div>
+					),
+				}
+			: undefined;
 
 	return (
 		<DocsPage
 			toc={page.data.toc}
 			full={page.data.full}
+			tableOfContent={tocFooter}
+			tableOfContentPopover={tocFooter}
 			editOnGithub={{
 				owner: github.owner,
 				repo: github.repo,
@@ -50,13 +72,11 @@ export default async function Page(props: Props) {
 			<DocsDescription>
 				{page.data.description}
 			</DocsDescription>
-			<div className="-mt-4 mb-4 flex flex-row flex-wrap items-center gap-2">
-				<MarkdownCopyButton markdownUrl={markdownUrl} />
-				<ViewOptionsPopover
-					markdownUrl={markdownUrl}
-					githubUrl={githubUrl}
-				/>
-			</div>
+			{!tocFooter && (
+				<div className="-mt-4 mb-4 flex flex-row flex-wrap items-center gap-2">
+					{actionButtons}
+				</div>
+			)}
 			<DocsBody>
 				<MDX
 					components={{
