@@ -153,9 +153,13 @@ export class TestSession {
 		});
 		const cookie = response.headers
 			.get('set-cookie')
-			?.match(/connected-wallet=([^;]*)/);
+			?.match(/__Host-connected-wallet=([^;]*)/);
 		if (cookie) this.#cookie = cookie[1] ? cookie[0] : '';
 		return response;
+	}
+
+	get cookie() {
+		return this.#cookie;
 	}
 
 	// A raw JSON POST with the session cookie.

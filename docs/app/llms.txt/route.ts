@@ -4,6 +4,7 @@
 import { llms } from 'fumadocs-core/source/llms';
 
 import {
+	alphaNotice,
 	siteDescription,
 	siteName,
 	siteUrl,
@@ -28,6 +29,8 @@ export async function GET() {
 		`# ${siteName}`,
 		'',
 		`> ${siteDescription}`,
+		'',
+		alphaNotice,
 		'',
 		...sections,
 	].join('\n');
