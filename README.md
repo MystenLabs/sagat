@@ -8,6 +8,8 @@ Sagat is a full-stack application for managing Sui blockchain multisig wallets, 
 - **Frontend** (`/app`): React + Vite + TypeScript + Tailwind CSS
 - **Database**: PostgreSQL with Drizzle ORM migrations
 - **Blockchain**: Sui Network integration via @mysten/sui
+- **Docs site** (`/docs`): Fumadocs + Next.js, run with `bun run dev:docs`
+- **Design notes** (`/design`): design documents for upcoming work
 
 ## Previous frontend
 

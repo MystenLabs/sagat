@@ -1,0 +1,80 @@
+---
+title: Glossary
+description: The terms the app and these docs use for multisig accounts, signers and proposals.
+---
+
+## Account
+
+A multisig account: one Sui address controlled by several signers together. The app calls it a "pod". See [What a multisig account is](/guide/how-a-multisig-works#what-a-multisig-account-is).
+
+## Address
+
+A 32-byte identifier on Sui that can own coins and objects. An account's address is derived from its signers' public keys, their weights and the threshold, so a different setup gives a different address. See [Why the address depends on the setup](/guide/how-a-multisig-works#why-the-address-depends-on-the-setup).
+
+## Combined signature
+
+The single signature that the app builds from the signers' individual signatures when you execute a proposal. Sui checks it against the account's address.
+
+## Digest
+
+The unique ID of a transaction, computed from its bytes. Each proposal is identified by the digest of its transaction, and the app's proposal links use it.
+
+## Epoch
+
+A period of time on a Sui network. A transaction can name a last epoch it may run in; after that epoch ends, the proposal shows as expired and cannot execute.
+
+## Execution
+
+Submitting a proposal's transaction to the network with the combined signature, once it has enough weight. See [Execution](/guide/proposals#execution).
+
+## Gas
+
+The fee a Sui transaction pays to run. A proposal's gas is paid by the account itself, from its balance on that network.
+
+## Invitation
+
+How a signer joins an account. Each signer accepts or rejects it by signing a message with their wallet; your own keys accept automatically when you create the account.
+
+## Network
+
+A Sui network, such as mainnet or testnet. An account and its address are the same on every network, but each proposal belongs to one network, and balances differ between networks. See [Accounts and networks](/guide/how-a-multisig-works#accounts-and-networks).
+
+## Proposal
+
+A transaction from the account that is waiting for signatures, stored together with the signatures collected for it. See [How proposals work](/guide/proposals).
+
+## Proposal status
+
+Where a proposal stands: Pending, Ready, Expired, Executed, Failed or Cancelled. See [Statuses](/guide/proposals#statuses).
+
+## Proposer
+
+Anyone who creates a proposal. Signers can propose, and an account can also have [external proposers](/guide/external-proposers): addresses that can propose but not sign.
+
+## Public key
+
+The public half of a wallet's key pair. A signer is added to an account by their public key; the app accepts Ed25519, Secp256k1 and Secp256r1 keys.
+
+## Signature
+
+Proof, made in a wallet, that the holder of a key approved a specific transaction or message. The app never sees your private key, only the signatures your wallet makes.
+
+## Signed message
+
+A message, not a transaction, that you sign in your wallet. Signing in, answering an invitation, adding or removing an external proposer and cancelling a proposal each need one. See [What needs your signature](/security/trust-model#what-needs-your-signature).
+
+## Signer
+
+One of the public keys that control an account, each with a weight. See [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
+
+## Threshold
+
+The total weight of signatures a proposal needs before it can execute. It is a whole number from 1 up to the sum of all signers' weights. See [Weights and the threshold](/guide/how-a-multisig-works#weights-and-the-threshold).
+
+## Wallet
+
+The software that holds your private key and makes your signatures. The app asks for signatures through the Sui wallet standard from whichever wallet you connect, and the wallet shows its own view of what you sign. See [Check what you sign](/security/trust-model#check-what-you-sign).
+
+## Weight
+
+How much a signer's signature counts toward the threshold, a whole number from 1 to 255. See [A worked example](/guide/how-a-multisig-works#a-worked-example).

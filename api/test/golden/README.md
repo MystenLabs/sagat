@@ -4,7 +4,7 @@
 
 Normalization replaces values that change between runs with placeholders numbered in order of first appearance: `<address:n>`, `<publicKey:n>`, `<signature:n>`, `<digest:n>`, `<txBytes:n>`, `<id:n>` (`<id:n:string>` when the id is sent as a string), `<opaque:n>`, and `<timestamp>`. Field names, field order, nulls, status codes and every other value are compared as recorded.
 
-Do not regenerate this file to make the test pass. The legacy routes are frozen (see `docs/account-rotation.md`, "Rollout"); a difference means a legacy response changed, and the fix belongs in the route or in `api/src/legacy/serializers.ts`.
+Do not regenerate this file to make the test pass. The legacy routes are frozen (see `design/account-rotation.md`, "Rollout"); a difference means a legacy response changed, and the fix belongs in the route or in `api/src/legacy/serializers.ts`.
 
 If a change to a legacy response is intended, regenerate and commit the fixture in the same pull request, so the change is reviewed as a diff:
 

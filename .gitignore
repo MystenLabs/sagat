@@ -5,6 +5,12 @@ node_modules
 dist
 *.tsbuildinfo
 
+# docs build output
+docs/.source
+docs/.next
+docs/out
+docs/next-env.d.ts
+
 # e2e output
 e2e/.cache
 e2e/test-results

@@ -7,6 +7,9 @@ coverage
 .output
 .vite
 .turbo
+.source
+docs/out
+next-env.d.ts
 
 # Lock files
 pnpm-lock.yaml

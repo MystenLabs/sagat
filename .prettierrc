@@ -12,7 +12,9 @@
 				"api/**/*.ts",
 				"e2e/**/*.ts",
 				"app/**/*.tsx",
-				"app/**/*.ts"
+				"app/**/*.ts",
+				"docs/**/*.ts",
+				"docs/**/*.tsx"
 			],
 			"options": {
 				"plugins": ["@ianvs/prettier-plugin-sort-imports"],
