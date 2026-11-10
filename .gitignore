@@ -14,3 +14,10 @@ e2e/blob-report
 # e2e Move build output
 e2e/move/*/build
 e2e/move/*/Move.lock
+
+# local Claude Code config (skills are shared)
+.claude/launch.json
+.claude/settings.local.json
+
+# review screenshots taken by the preview script
+app/redesign-preview-*.png

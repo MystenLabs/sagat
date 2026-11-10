@@ -7,18 +7,27 @@ import {
 } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
+import type { SuiNetwork } from '../src/contexts/NetworkContext';
 import {
+	accountAssetsState,
 	coinUsdValue,
 	formatCoinAmount,
 	formatInputAmount,
 	formatUsdValue,
-	getMaxInputAmount,
 	isSuiCoinType,
 	parseAmount,
+	pricesAvailableOn,
+	pricingOnNetwork,
 	rawAmountToFloat,
+	shownUsdTotal,
 	sortBalances,
+	totalUsdValue,
 	type SortableBalance,
 } from '../src/lib/coins';
+import { maxTransfer } from '../src/lib/new-proposal';
+import { COIN_DECIMALS, U64_MAX } from './coin-decimals';
+
+const OTHER_COIN = '0xdeadbeef::usdc::USDC';
 
 describe('isSuiCoinType', () => {
 	test('matches the short canonical form', () => {
@@ -125,6 +134,14 @@ describe('formatUsdValue', () => {
 		expect(formatUsdValue(0.00005)).toBe('$0.0001');
 	});
 
+	test('shows a value that would round to zero as under the smallest unit', () => {
+		expect(formatUsdValue(0)).toBe('$0.00');
+		expect(formatUsdValue(0.00004999)).toBe('<$0.0001');
+		expect(formatUsdValue(0.00005)).toBe('$0.0001');
+		expect(formatUsdValue(-0.00004999)).toBe('-<$0.0001');
+		expect(formatUsdValue(-0.00005)).toBe('-$0.0001');
+	});
+
 	test('formats negative values', () => {
 		expect(formatUsdValue(-2.5)).toBe('-$2.50');
 		expect(formatUsdValue(-0.5)).toBe('-$0.5000');
@@ -229,8 +246,28 @@ describe('parseAmount', () => {
 		expect(parseAmount('1,2,3', 0)).toBeNull();
 	});
 
-	test('rejects too many fractional digits', () => {
+	test('rejects a non-zero digit past the decimals', () => {
 		expect(parseAmount('1.234', 2)).toBeNull();
+	});
+
+	test('reads zeros past the decimals as the same amount', () => {
+		expect(parseAmount('1.50', 1)).toBe(15n);
+		expect(parseAmount('1.000', 2)).toBe(100n);
+		expect(parseAmount('0.1234560000', 6)).toBe(123_456n);
+	});
+
+	test('rejects a non-zero digit past the decimals, even after zeros', () => {
+		expect(parseAmount('1.501', 1)).toBeNull();
+		expect(parseAmount('1.0001', 2)).toBeNull();
+		expect(parseAmount('1.0000001', 6)).toBeNull();
+	});
+
+	test('takes no fraction but zeros on a 0-decimal coin', () => {
+		for (const input of ['0.5', '.5', '1.5', '1.01'])
+			expect(parseAmount(input, 0)).toBeNull();
+		expect(parseAmount('1.0', 0)).toBe(1n);
+		expect(parseAmount('1.000', 0)).toBe(1n);
+		expect(parseAmount('0.0', 0)).toBe(0n);
 	});
 
 	test('rejects empty and invalid input', () => {
@@ -248,18 +285,33 @@ describe('input helpers', () => {
 		);
 	});
 
-	test('computes max amount after reserving raw units', () => {
+	test('computes max amount from the coins one transfer can spend', () => {
 		expect(
-			getMaxInputAmount('200000000', 9, '50000000'),
+			maxTransfer({
+				balance: '200000000',
+				addressBalance: '0',
+				gasCoins: { value: 150_000_000n, hasMore: true },
+				decimals: 9,
+			})?.amount,
 		).toBe('0.15');
 	});
 
-	test('returns null when reservation leaves no spendable amount', () => {
+	test('returns null when there is nothing to send', () => {
 		expect(
-			getMaxInputAmount('50000000', 9, '50000000'),
+			maxTransfer({
+				balance: '0',
+				addressBalance: '0',
+				gasCoins: null,
+				decimals: 9,
+			}),
 		).toBeNull();
 		expect(
-			getMaxInputAmount('49999999', 9, '50000000'),
+			maxTransfer({
+				balance: '50000000',
+				addressBalance: '0',
+				gasCoins: { value: 0n, hasMore: true },
+				decimals: 9,
+			}),
 		).toBeNull();
 	});
 });
@@ -379,5 +431,287 @@ describe('sortBalances', () => {
 			USDC,
 			FOO,
 		]);
+	});
+});
+
+describe('totalUsdValue', () => {
+	test('sums the priced balances and counts the rest', () => {
+		const balances = [
+			{ coinType: 'a', usd: 10.5 },
+			{ coinType: 'b', usd: null },
+			{ coinType: 'c', usd: 2 },
+			{ coinType: 'd', usd: Number.NaN },
+		];
+		expect(
+			totalUsdValue(balances, (balance) => balance.usd),
+		).toEqual({ total: 12.5, priced: 2, unpriced: 2 });
+	});
+
+	test('is zero for no balances', () => {
+		expect(totalUsdValue([], () => null)).toEqual({
+			total: 0,
+			priced: 0,
+			unpriced: 0,
+		});
+	});
+});
+
+describe('shownUsdTotal', () => {
+	const total = (...usd: (number | null)[]) =>
+		shownUsdTotal(totalUsdValue(usd, (value) => value));
+	// Whole coins valued the way the app does, on a network other than
+	// mainnet, each with the registry's price of 1.5.
+	const offMainnet = (...coinTypes: string[]) =>
+		totalUsdValue(coinTypes, (coinType) =>
+			coinUsdValue('1000000000', {
+				priceUsd: pricingOnNetwork('testnet', coinType, {
+					priceUsd: 1.5,
+				}).priceUsd,
+				decimals: 9,
+			}),
+		);
+
+	test('shows the sum when every coin is priced', () => {
+		expect(total(10, 2.5)).toBe(12.5);
+	});
+
+	test('shows the priced coins when some have no price', () => {
+		expect(total(10, null)).toBe(10);
+	});
+
+	test('withholds the total when no coin has a price', () => {
+		expect(total(null, null)).toBeNull();
+	});
+
+	test('is zero without coins', () => {
+		expect(total()).toBe(0);
+	});
+
+	test('is zero for an empty account off mainnet', () => {
+		expect(shownUsdTotal(offMainnet())).toBe(0);
+	});
+
+	test('withholds the total of coins without prices', () => {
+		expect(
+			shownUsdTotal(offMainnet(OTHER_COIN, OTHER_COIN)),
+		).toBeNull();
+	});
+
+	test('shows SUI’s value off mainnet and counts a test coin as unpriced', () => {
+		const value = offMainnet(SUI_TYPE_ARG, OTHER_COIN);
+		expect(shownUsdTotal(value)).toBe(1.5);
+		expect(value.unpriced).toBe(1);
+	});
+});
+
+describe('pricingOnNetwork', () => {
+	const pricing = {
+		priceUsd: 1.5,
+		priceChange24hUsd: 0.05,
+		priceChange24hPercentage: 3,
+	};
+
+	test('keeps the prices on mainnet', () => {
+		expect(
+			pricingOnNetwork('mainnet', OTHER_COIN, pricing),
+		).toEqual(pricing);
+	});
+
+	test('fills missing mainnet prices with null', () => {
+		expect(
+			pricingOnNetwork('mainnet', OTHER_COIN, {}),
+		).toEqual({
+			priceUsd: null,
+			priceChange24hUsd: null,
+			priceChange24hPercentage: null,
+		});
+	});
+
+	test.each<SuiNetwork>(['testnet', 'devnet', 'localnet'])(
+		'drops another coin’s prices on %s',
+		(network) => {
+			expect(
+				pricingOnNetwork(network, OTHER_COIN, pricing),
+			).toEqual({
+				priceUsd: null,
+				priceChange24hUsd: null,
+				priceChange24hPercentage: null,
+			});
+		},
+	);
+
+	test('keeps SUI’s prices off mainnet', () => {
+		expect(
+			pricingOnNetwork('testnet', SUI_TYPE_ARG, pricing),
+		).toEqual(pricing);
+	});
+});
+
+describe('pricesAvailableOn', () => {
+	test('has prices for any coin on mainnet', () => {
+		expect(pricesAvailableOn('mainnet', OTHER_COIN)).toBe(
+			true,
+		);
+		expect(pricesAvailableOn('mainnet', SUI_TYPE_ARG)).toBe(
+			true,
+		);
+	});
+
+	test('has prices for SUI alone off mainnet', () => {
+		for (const network of [
+			'testnet',
+			'devnet',
+			'localnet',
+		] as const) {
+			expect(pricesAvailableOn(network, SUI_TYPE_ARG)).toBe(
+				true,
+			);
+			expect(pricesAvailableOn(network, OTHER_COIN)).toBe(
+				false,
+			);
+		}
+	});
+});
+
+describe('accountAssetsState', () => {
+	const ready = {
+		balancesPending: false,
+		balancesError: false,
+		hasData: true,
+		pagesLeft: false,
+		pricesPending: false,
+		pricesError: false,
+	};
+	const settled = {
+		isLoading: false,
+		isError: false,
+		pricesError: false,
+	};
+	const loading = { ...settled, isLoading: true };
+
+	test('loads until the first page arrives', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesPending: true,
+				hasData: false,
+			}),
+		).toEqual(loading);
+	});
+
+	test('loads while pages are left', () => {
+		expect(
+			accountAssetsState({ ...ready, pagesLeft: true }),
+		).toEqual(loading);
+	});
+
+	test('is ready once every page and the prices are loaded', () => {
+		expect(accountAssetsState(ready)).toEqual(settled);
+	});
+
+	test('loads while the prices are pending', () => {
+		expect(
+			accountAssetsState({ ...ready, pricesPending: true }),
+		).toEqual(loading);
+	});
+
+	test('does not wait on prices once the balances failed', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesError: true,
+				hasData: false,
+				pricesPending: true,
+			}),
+		).toEqual({ ...settled, isError: true });
+	});
+
+	test('fails when the first load fails', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesError: true,
+				hasData: false,
+			}),
+		).toEqual({ ...settled, isError: true });
+	});
+
+	test('keeps the cached balances through a failed refetch', () => {
+		expect(
+			accountAssetsState({ ...ready, balancesError: true }),
+		).toEqual(settled);
+	});
+
+	test('fails when a later page fails', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesError: true,
+				pagesLeft: true,
+			}),
+		).toEqual({ ...settled, isError: true });
+	});
+
+	test('reports a failed registry without loading', () => {
+		expect(
+			accountAssetsState({ ...ready, pricesError: true }),
+		).toEqual({ ...settled, pricesError: true });
+	});
+
+	test('reports a failed registry beside failed balances', () => {
+		expect(
+			accountAssetsState({
+				...ready,
+				balancesError: true,
+				hasData: false,
+				pricesError: true,
+			}),
+		).toEqual({
+			...settled,
+			isError: true,
+			pricesError: true,
+		});
+	});
+});
+
+describe.each(COIN_DECIMALS)(
+	'amounts at %i decimals',
+	(decimals) => {
+		test('takes exactly its decimals, down to one raw unit, and refuses a digit past them', () => {
+			const oneUnit =
+				decimals === 0
+					? '1'
+					: `0.${'0'.repeat(decimals - 1)}1`;
+			expect(parseAmount(oneUnit, decimals)).toBe(1n);
+			expect(
+				parseAmount(
+					`1.${'1'.repeat(decimals + 1)}`,
+					decimals,
+				),
+			).toBeNull();
+		});
+
+		test('parses u64 max back from its input and display forms without losing a raw unit', () => {
+			const max = U64_MAX.toString();
+			expect(
+				parseAmount(
+					formatInputAmount(max, decimals),
+					decimals,
+				),
+			).toBe(U64_MAX);
+			expect(
+				parseAmount(
+					formatCoinAmount(max, decimals),
+					decimals,
+				),
+			).toBe(U64_MAX);
+		});
+	},
+);
+
+describe('amount edges', () => {
+	test('a comma is always grouping: "1,500" is fifteen hundred and "0,5" is refused', () => {
+		expect(parseAmount('1,500', 6)).toBe(1_500_000_000n);
+		expect(parseAmount('0,5', 6)).toBeNull();
 	});
 });

@@ -31,11 +31,11 @@ Production wallets don't connect to a local network, so for manual testing
 against one the app can embed a development wallet. Start the dev server with
 `VITE_DEV_WALLET=1` to add "Dev Wallet" to the connect picker. Its floating
 panel shows balances and an approval prompt for every signature. Switch the
-signing account through the app's own account menu (the address button in the
-header, which lists every connected account): picking an account in the panel
-does not change what the app signs with. With the flag on and
-`VITE_LOCALNET_RPC_URL` set, the app starts on localnet until you choose a
-network.
+signing account through the app's own account menu (the address button at the
+foot of the sidebar, or in the header on phones, which lists every connected
+account): picking an account in the panel does not change what the app signs
+with. With the flag on and `VITE_LOCALNET_RPC_URL` set, the app starts on
+localnet until you choose a network.
 
 The wallet holds five demo signers (maya, daniel, tomas, hana, payments), each
 with the Ed25519 secret key `sha256("sagat-demo:<name>")`, so their addresses

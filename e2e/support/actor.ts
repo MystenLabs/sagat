@@ -7,6 +7,8 @@ import {
 	type Browser,
 	type BrowserContext,
 	type Page,
+	type Request,
+	type Route,
 } from '@playwright/test';
 
 import type { E2EWalletConfig } from '../wallet/types';
@@ -22,6 +24,32 @@ const LOCAL_HOSTS = new Set([
 const RECOGNIZED_COINS_URL =
 	'https://apps-backend.sui.io/v2/recognized-coins';
 
+// A sign-in: the POST that trades a signature for a session.
+export function isSignInRequest(request: Request) {
+	return (
+		request.method() === 'POST' &&
+		request.url() === `${E2E.apiUrl}/auth/connect`
+	);
+}
+
+// The sign-ins `page` sends from now on.
+export function recordSignIns(page: Page) {
+	const signIns: Request[] = [];
+	page.on('request', (request) => {
+		if (isSignInRequest(request)) signIns.push(request);
+	});
+	return signIns;
+}
+
+// An entry of the price list, as the endpoint returns it.
+export interface RecognizedCoin {
+	coinType: string;
+	symbol: string;
+	name: string;
+	decimals: number;
+	priceUsd: number | null;
+}
+
 // A test user with their own browser context (own cookies, own wallet).
 // Every person in a multi-party flow needs one: the API accepts invitations
 // automatically for every key signed in within the same browser.
@@ -35,6 +63,7 @@ export class Actor extends Identity {
 		readonly otherAccounts: Identity[],
 		readonly context: BrowserContext,
 		readonly page: Page,
+		readonly cspViolations: string[],
 	) {
 		super(name, keypair);
 	}
@@ -44,23 +73,57 @@ export class Actor extends Identity {
 		name: string,
 		keypair: Ed25519Keypair,
 		otherAccounts: Identity[] = [],
+		{
+			walletChains,
+			failRestore,
+			rejectSigning,
+			declineSign,
+			zkLogin,
+			hasTouch,
+		}: {
+			walletChains?: E2EWalletConfig['chains'];
+			failRestore?: boolean;
+			rejectSigning?: boolean;
+			declineSign?: boolean;
+			zkLogin?: boolean;
+			hasTouch?: boolean;
+		} = {},
 	) {
-		const context = await browser.newContext();
+		const context = await browser.newContext({ hasTouch });
+		const cspViolations: string[] = [];
+		context.on('console', (message) => {
+			if (
+				message.type() === 'error' &&
+				message.text().includes('Content Security Policy')
+			)
+				cspViolations.push(message.text());
+		});
 		await isolateFromInternet(context);
 
 		const walletConfig: E2EWalletConfig = {
 			name: E2E.walletName,
 			rpcUrl: E2E.rpcUrl,
 			accounts: [
-				{ label: name, secretKey: keypair.getSecretKey() },
+				{
+					label: name,
+					secretKey: keypair.getSecretKey(),
+					zkLogin,
+				},
 				...otherAccounts.map((account) => ({
 					label: account.name,
 					secretKey: account.keypair.getSecretKey(),
 				})),
 			],
+			chains: walletChains,
+			failRestore,
+			rejectSigning,
+			declineSign,
 		};
 		await context.addInitScript((config) => {
-			localStorage.setItem('SuiNetwork', 'localnet');
+			// Start on localnet, but keep a network the app saved, so a
+			// reload lands where the user left off.
+			if (!localStorage.getItem('SuiNetwork'))
+				localStorage.setItem('SuiNetwork', 'localnet');
 			window.__E2E_WALLET_CONFIG__ = config;
 		}, walletConfig);
 		await context.addInitScript({
@@ -73,6 +136,7 @@ export class Actor extends Identity {
 			otherAccounts,
 			context,
 			await context.newPage(),
+			cspViolations,
 		);
 	}
 
@@ -85,25 +149,105 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the test wallet from the header's wallet menu.
-	async connectWallet() {
+	// Connects the test wallet from the header's wallet menu. Connecting
+	// only connects, so unless `signIn` is false this then clicks the
+	// connect card's Sign in (on `/` or any full route) and waits for the
+	// session. A valid session cookie needs no click. Pass `signIn: false`
+	// on pages that only connect (tools, proposal links).
+	async connectWallet({ signIn = true } = {}) {
 		await this.page
 			.getByTestId('app-header')
 			.getByTestId('connect-wallet-button')
 			.filter({ visible: true })
 			.click();
-		await this.page
-			.locator(
-				`[data-testid="wallet-option"][data-wallet-name="${E2E.walletName}"]`,
-			)
-			.click();
-		await expect(this.walletMenuButton()).toBeVisible();
+		await this.walletOption().click();
+		const menu = this.walletMenuButton();
+		if (!signIn) {
+			await expect(menu).toHaveAttribute(
+				'data-auth-state',
+				'unauthenticated',
+			);
+			return;
+		}
+		// Either the cookie already covers the address, or the card asks.
+		const signInButton = this.page.getByTestId(
+			'sign-in-button',
+		);
+		await expect(
+			menu
+				.and(
+					this.page.locator(
+						'[data-auth-state="authenticated"]',
+					),
+				)
+				.or(signInButton),
+		).toBeVisible();
+		if (
+			(await menu.getAttribute('data-auth-state')) !==
+			'authenticated'
+		)
+			await signInButton.click();
+		await expect(menu).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+	}
+
+	// Opens the wallet menu unless it is open already: a second trigger
+	// click would close it. Base UI keeps a closing popup in the DOM for
+	// its exit animation, so wait for the open one.
+	async openWalletMenu() {
+		const trigger = this.walletMenuButton();
+		if (
+			(await trigger.getAttribute('aria-expanded')) !==
+			'true'
+		)
+			await trigger.click();
+		await expect(
+			this.page
+				.locator(
+					'[data-slot="dropdown-menu-content"][data-open]',
+				)
+				.last(),
+		).toBeVisible();
+	}
+
+	// Closes the wallet menu with Escape, which can't reopen it the way a
+	// trigger click can while it is still animating out. One Escape can be
+	// missed while the popup is animating, so press until it closes.
+	async closeWalletMenu() {
+		await expect(async () => {
+			await this.page.keyboard.press('Escape');
+			await expect(this.walletMenuButton()).toHaveAttribute(
+				'aria-expanded',
+				'false',
+				{ timeout: 500 },
+			);
+		}).toPass();
+	}
+
+	// The test wallet's entry in an open wallet picker.
+	walletOption() {
+		return this.page.locator(
+			`[data-testid="wallet-option"][data-wallet-name="${E2E.walletName}"]`,
+		);
+	}
+
+	// The connect prompt's line saying the wallet declined a request.
+	declinedLine() {
+		return this.page.getByTestId('connect-declined');
+	}
+
+	toast(text: string) {
+		return this.page
+			.locator('[data-sonner-toast]')
+			.filter({ hasText: text });
 	}
 
 	// Signs in `account` from the wallet menu's account list, switching to it
 	// first when it isn't the current one.
 	async signInAccount(account: Identity) {
-		await this.walletMenuButton().click();
+		await this.openWalletMenu();
 		await this.walletAccount(account.address)
 			.getByTestId('wallet-account-sign')
 			.click();
@@ -119,7 +263,7 @@ export class Actor extends Identity {
 
 	// Makes `account` the current wallet account, without signing.
 	async switchAccount(account: Identity) {
-		await this.walletMenuButton().click();
+		await this.openWalletMenu();
 		await this.walletAccount(account.address)
 			.getByTestId('wallet-account-switch')
 			.click();
@@ -137,20 +281,47 @@ export class Actor extends Identity {
 			.filter({ visible: true });
 	}
 
-	// Connects the wallet and signs the auth message, like a user would.
+	// Connects the wallet and signs in from the card, like a user would.
 	async signIn() {
 		await this.page.goto('/');
 		await this.connectWallet();
-		await this.page.getByTestId('sign-in-button').click();
-		await expect(this.walletMenuButton()).toHaveAttribute(
-			'data-auth-state',
-			'authenticated',
+	}
+
+	// Answers the price list with `coins` instead of an empty one. Call it
+	// before the page loads, as the app reads the list once.
+	async stubRecognizedCoins(coins: RecognizedCoin[]) {
+		await this.page.route(RECOGNIZED_COINS_URL, (route) =>
+			fulfillRecognizedCoins(route, coins),
 		);
 	}
 
-	proposalCard(digest: string) {
+	// Makes the price list fail to load. Call it before the page loads, as
+	// the app reads the list once.
+	async failRecognizedCoins() {
+		await this.page.route(RECOGNIZED_COINS_URL, (route) =>
+			route.abort(),
+		);
+	}
+
+	// Opens the current account's proposals tab. Accounts open on their
+	// overview.
+	async openProposalsTab() {
+		await this.page
+			.getByTestId('multisig-tab-proposals')
+			.click();
+	}
+
+	// A proposal's own page, under its account or at a shared link.
+	proposalPage(digest: string) {
 		return this.page.locator(
-			`[data-testid="proposal-card"][data-digest="${digest}"]`,
+			`[data-testid="proposal-page"][data-digest="${digest}"]`,
+		);
+	}
+
+	// A proposal's row in the overview's or the proposals page's table.
+	proposalRow(digest: string) {
+		return this.page.locator(
+			`[data-testid="proposal-row"][data-digest="${digest}"]`,
 		);
 	}
 
@@ -168,7 +339,7 @@ export class Actor extends Identity {
 
 	suiBalanceRow() {
 		return this.page.locator(
-			'[data-testid="asset-row"][data-coin-type$="::sui::SUI"]',
+			'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',
 		);
 	}
 }
@@ -189,11 +360,18 @@ async function isolateFromInternet(
 					.url()
 					.startsWith(RECOGNIZED_COINS_URL)
 			)
-				return route.fulfill({
-					json: { coins: [] },
-					headers: { 'access-control-allow-origin': '*' },
-				});
+				return fulfillRecognizedCoins(route, []);
 			return route.abort('blockedbyclient');
 		},
 	);
+}
+
+function fulfillRecognizedCoins(
+	route: Route,
+	coins: RecognizedCoin[],
+) {
+	return route.fulfill({
+		json: { coins },
+		headers: { 'access-control-allow-origin': '*' },
+	});
 }

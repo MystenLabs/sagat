@@ -3,8 +3,10 @@
 
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 
+import { recordSignIns } from '../support/actor';
 import { randomAddress } from '../support/chain';
 import { expect, test } from '../support/fixtures';
+import { expectOnProposal } from '../support/new-proposal';
 import {
 	proposeTransfer,
 	setupMultisig,
@@ -32,31 +34,44 @@ test.describe('shared proposal links', () => {
 			description: 'Shared by link',
 		});
 
-		// The link only needs a connected wallet, not an API session.
+		// The link only needs a connected wallet, not an API session. Not
+		// signed in, Bob reads it at the link, outside the account.
+		const signIns = recordSignIns(bob.page);
 		await bob.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
-		await bob.connectWallet();
-		const card = bob.proposalCard(proposal.digest);
-		await expect(card).toHaveAttribute(
+		await bob.connectWallet({ signIn: false });
+		const page = bob.proposalPage(proposal.digest);
+		await expect(page).toHaveAttribute(
 			'data-status',
 			'pending',
 		);
+		await expect(bob.page).toHaveURL(
+			(url) => url.pathname === '/proposals',
+		);
 
-		await card.getByTestId('sign-proposal-button').click();
-		await expect(card).toHaveAttribute(
+		// His signature reaches the threshold; sign alone, then execute.
+		await page.getByTestId('execute-after-signing').click();
+		const sign = page.getByTestId('sign-proposal-button');
+		await expect(sign).toHaveText('Sign proposal');
+		await sign.click();
+		await expect(page).toHaveAttribute(
 			'data-status',
 			'ready',
 		);
-		await card
+		await page
 			.getByTestId('execute-proposal-button')
 			.click();
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'executed',
-		);
+		await expect
+			.poll(() => page.getAttribute('data-status'))
+			.toBe('executed');
 		expect(await chain.balance(recipient)).toBe(
 			2n * MIST_PER_SUI,
+		);
+		expect(signIns).toHaveLength(0);
+		await expect(bob.walletMenuButton()).toHaveAttribute(
+			'data-auth-state',
+			'unauthenticated',
 		);
 	});
 
@@ -80,21 +95,78 @@ test.describe('shared proposal links', () => {
 			amount: MIST_PER_SUI,
 		});
 
+		// Signed out, anyone can read the link.
 		await mallory.page.goto(
 			`/proposals?digest=${proposal.digest}`,
 		);
-		await mallory.connectWallet();
-		const card = mallory.proposalCard(proposal.digest);
-		await expect(card).toHaveAttribute(
-			'data-status',
-			'pending',
+		const page = mallory.proposalPage(proposal.digest);
+		const expectReadOnly = async () => {
+			await expect(page).toHaveAttribute(
+				'data-status',
+				'pending',
+			);
+			await expect(
+				page.getByTestId('preview-cannot-sign'),
+			).toBeVisible();
+			await expect(
+				page.getByTestId('sign-proposal-button'),
+			).toHaveCount(0);
+		};
+		await expectReadOnly();
+
+		// A connected wallet that isn't a signer can't sign either.
+		await mallory.connectWallet({ signIn: false });
+		await expectReadOnly();
+
+		// Signed in, the proposal's address under the account moves to the
+		// shared link, keeping the proposal.
+		await mallory.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		await mallory.page
+			.getByTestId('sign-in-button')
+			.click();
+		await expect(mallory.page).toHaveURL(
+			(url) =>
+				url.pathname === '/proposals' &&
+				url.searchParams.get('digest') === proposal.digest,
+		);
+		await expectReadOnly();
+	});
+
+	test('a signed-in member opening the link moves to the proposal under the account', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const proposal = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		await bob.signIn();
+		await bob.page.goto(
+			`/proposals?digest=${proposal.digest}`,
+		);
+		await expectOnProposal(
+			bob.page,
+			multisig.address,
+			proposal.digest,
 		);
 		await expect(
-			card.getByTestId('preview-cannot-sign'),
+			bob
+				.proposalPage(proposal.digest)
+				.getByTestId('sign-proposal-button'),
 		).toBeVisible();
-		await expect(
-			card.getByTestId('sign-proposal-button'),
-		).toHaveCount(0);
 	});
 });
 
@@ -123,10 +195,15 @@ test('the overview and balances match the multisig on-chain', async ({
 	);
 
 	await page.getByTestId('multisig-tab-overview').click();
+	await page.getByTestId('receive-button').click();
+	const receive = page.getByTestId('receive-dialog');
 	await expect(
-		page.getByTestId('multisig-address'),
+		receive.getByTestId('receive-address'),
 	).toHaveText(multisig.address);
-	const threshold = page.getByTestId('multisig-threshold');
+	await page.keyboard.press('Escape');
+	await expect(receive).toBeHidden();
+	await page.getByTestId('multisig-tab-signers').click();
+	const threshold = page.getByTestId('setup-threshold');
 	await expect(threshold).toHaveAttribute(
 		'data-threshold',
 		'1',

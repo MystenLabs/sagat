@@ -76,7 +76,7 @@ describe('Object Collision Detection', () => {
 				}),
 			),
 		).rejects.toThrow(
-			`re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${gasCoin.objectId}`,
+			`These owned/receiving objects are already used by pending proposals: ${gasCoin.objectId}`,
 		);
 	});
 
@@ -104,7 +104,7 @@ describe('Object Collision Detection', () => {
 
 		expectSettled(results, {
 			fulfilled: 1,
-			rejectedWith: `re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${gasCoin.objectId}`,
+			rejectedWith: `These owned/receiving objects are already used by pending proposals: ${gasCoin.objectId}`,
 		});
 	});
 
@@ -152,7 +152,7 @@ describe('Object Collision Detection', () => {
 				await receivingTx(gasCoin2),
 			),
 		).rejects.toThrow(
-			`re-use any owned or receiving objects that are already in pending proposals. The used objects are: ${received.objectId}`,
+			`These owned/receiving objects are already used by pending proposals: ${received.objectId}`,
 		);
 	});
 

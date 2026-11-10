@@ -2,38 +2,59 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { execFileSync } from 'node:child_process';
+import {
+	cpSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Transaction } from '@mysten/sui/transactions';
 
 import { type Chain } from './chain';
 import { PATHS } from './paths';
 
-// TEST, a coin other than SUI that anyone can mint (`move/test_coin`).
+// A coin other than SUI that anyone can mint (`move/test_coin`).
 export type TestCoin = { type: string; faucetId: string };
 
-// Builds and publishes the package. Global setup runs this once per run.
+export type CoinMetadata = {
+	decimals: number;
+	symbol: string;
+	name: string;
+};
+
+// The package as checked in: TEST, 6 decimals.
+const TEST: CoinMetadata = {
+	decimals: 6,
+	symbol: 'TEST',
+	name: 'Test Coin',
+};
+
+/**
+ * Builds and publishes `move/test_coin` with `metadata` in place of its
+ * constants, so each call is a new coin type with its own faucet. Global
+ * setup publishes TEST this way; a test can publish its own in a few
+ * seconds. The package is made immutable, unless `upgradeCapTo` names an
+ * address to send its UpgradeCap to.
+ */
 export async function publishTestCoin(
 	chain: Chain,
+	metadata: CoinMetadata = TEST,
+	{ upgradeCapTo }: { upgradeCapTo?: string } = {},
 ): Promise<TestCoin> {
-	const { modules, dependencies } = JSON.parse(
-		execFileSync(
-			'sui',
-			[
-				'move',
-				'build',
-				'--dump-bytecode-as-base64',
-				'--path',
-				PATHS.testCoinPackage,
-			],
-			// Piped so a failed build's output ends up in the error.
-			{ encoding: 'utf8', stdio: 'pipe' },
-		),
-	) as { modules: string[]; dependencies: string[] };
+	const { modules, dependencies } = build(metadata);
 
 	const tx = new Transaction();
-	tx.moveCall({
-		target: '0x2::package::make_immutable',
-		arguments: [tx.publish({ modules, dependencies })],
-	});
+	const upgradeCap = tx.publish({ modules, dependencies });
+	if (upgradeCapTo)
+		tx.transferObjects([upgradeCap], upgradeCapTo);
+	else
+		tx.moveCall({
+			target: '0x2::package::make_immutable',
+			arguments: [upgradeCap],
+		});
 	const created = await chain.executeAsFunder(tx);
 	const faucet = created.find((o) =>
 		o.type?.endsWith('::test_coin::Faucet'),
@@ -47,13 +68,139 @@ export async function publishTestCoin(
 	};
 }
 
-// Mints one TEST coin per amount (in base units) to `address`.
-export async function mintTestCoin(
+// Builds a copy of the package, so builds can run side by side.
+function build({ decimals, symbol, name }: CoinMetadata) {
+	if (
+		!Number.isInteger(decimals) ||
+		decimals < 0 ||
+		decimals > 255
+	)
+		throw new Error(`Decimals must be a u8: ${decimals}`);
+	const dir = mkdtempSync(join(tmpdir(), 'test-coin-'));
+	try {
+		cpSync(PATHS.testCoinPackage, dir, {
+			recursive: true,
+			filter: (path) => !/\/(build|Move\.lock)$/.test(path),
+		});
+		const source = `${dir}/sources/test_coin.move`;
+		let text = readFileSync(source, 'utf8');
+		for (const [constant, value] of [
+			['DECIMALS: u8', String(decimals)],
+			['SYMBOL: vector<u8>', moveBytes(symbol)],
+			['NAME: vector<u8>', moveBytes(name)],
+		]) {
+			const line = new RegExp(
+				`^const ${constant} = .*;$`,
+				'm',
+			);
+			if (!line.test(text))
+				throw new Error(
+					`test_coin.move has no ${constant}`,
+				);
+			text = text.replace(
+				line,
+				`const ${constant} = ${value};`,
+			);
+		}
+		writeFileSync(source, text);
+		return compile(dir);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+}
+
+/**
+ * Gives `address` one coin each of `count` new coin types, built as one
+ * package of `count` modules: far quicker than a publish per type.
+ */
+export async function giveManyCoinTypes(
 	chain: Chain,
+	address: string,
+	count: number,
+) {
+	const { modules, dependencies } = buildMany(count);
+	const publish = new Transaction();
+	publish.moveCall({
+		target: '0x2::package::make_immutable',
+		arguments: [publish.publish({ modules, dependencies })],
+	});
+	const created = await chain.executeAsFunder(publish);
+
+	const mint = new Transaction();
+	for (const faucet of created) {
+		if (!faucet.type?.endsWith('::Faucet')) continue;
+		const [packageId, module] = faucet.type.split('::');
+		mint.transferObjects(
+			[
+				mint.moveCall({
+					target: `${packageId}::${module}::mint`,
+					arguments: [
+						mint.object(faucet.objectId),
+						mint.pure.u64(1_000_000n),
+					],
+				}),
+			],
+			address,
+		);
+	}
+	await chain.executeAsFunder(mint);
+}
+
+function buildMany(count: number) {
+	const dir = mkdtempSync(join(tmpdir(), 'test-coins-'));
+	try {
+		cpSync(PATHS.testCoinPackage, dir, {
+			recursive: true,
+			filter: (path) => !/\/(build|Move\.lock)$/.test(path),
+		});
+		const source = `${dir}/sources/test_coin.move`;
+		const text = readFileSync(source, 'utf8');
+		rmSync(source);
+		for (let i = 0; i < count; i++)
+			writeFileSync(
+				`${dir}/sources/coin_${i}.move`,
+				text
+					.replace(
+						'module test_coin::test_coin;',
+						`module test_coin::coin_${i};`,
+					)
+					.replaceAll('TEST_COIN', `COIN_${i}`),
+			);
+		return compile(dir);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+}
+
+function compile(dir: string) {
+	return JSON.parse(
+		execFileSync(
+			'sui',
+			[
+				'move',
+				'build',
+				'--dump-bytecode-as-base64',
+				'--path',
+				dir,
+			],
+			// Piped so a failed build's output ends up in the error.
+			{ encoding: 'utf8', stdio: 'pipe' },
+		),
+	) as { modules: string[]; dependencies: string[] };
+}
+
+// A Move hex byte string, so any UTF-8 text fits.
+function moveBytes(text: string) {
+	return `x"${Buffer.from(text, 'utf8').toString('hex')}"`;
+}
+
+/** Mints one coin of `coin` per amount (in base units) to `address`. */
+export async function mintCoin(
+	chain: Chain,
+	{ type, faucetId }: TestCoin,
 	address: string,
 	amounts: bigint[],
 ) {
-	const { type, faucetId } = testCoin();
 	const [packageId] = type.split('::');
 	const tx = new Transaction();
 	tx.transferObjects(
@@ -70,6 +217,20 @@ export async function mintTestCoin(
 	);
 	await chain.executeAsFunder(tx);
 	return type;
+}
+
+/** Mints one TEST coin per amount (in base units) to `address`. */
+export async function mintTestCoin(
+	chain: Chain,
+	address: string,
+	amounts: bigint[],
+) {
+	return mintCoin(chain, testCoin(), address, amounts);
+}
+
+/** The type of the TEST coin global setup published. */
+export function testCoinType() {
+	return testCoin().type;
 }
 
 function testCoin(): TestCoin {

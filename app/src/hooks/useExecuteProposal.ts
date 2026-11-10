@@ -12,12 +12,18 @@ import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
-import { toast } from 'sonner';
 
+import { content } from '@/content';
+import { type SuiNetwork } from '@/lib/network';
+import { toast } from '@/lib/toast';
+import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
+import { useVerifyProposal } from './useVerifyProposal';
+
+const TOASTS = content.toasts;
 
 interface ExecuteProposalParams {
 	proposal: PublicProposal;
@@ -25,21 +31,26 @@ interface ExecuteProposalParams {
 
 export function useExecuteProposal() {
 	const queryClient = useQueryClient();
-	const suiClient = useDAppKit().getClient();
+	const dappKit = useDAppKit();
 
 	return useMutation({
 		mutationFn: async ({
 			proposal,
 		}: ExecuteProposalParams) => {
 			if (proposal.status !== ProposalStatus.PENDING)
-				throw new Error('Proposal is not pending');
+				throw new Error(
+					content.proposal.execute.notPending,
+				);
 
 			try {
+				// The proposal's network, not whichever one is selected now.
+				const suiClient = dappKit.getClient(
+					proposal.network as SuiNetwork,
+				);
 				// Order the members.
-				const multisigMembers =
-					proposal.multisig.members.sort(
-						(a, b) => a.order - b.order,
-					);
+				const multisigMembers = [
+					...proposal.multisig.members,
+				].sort((a, b) => a.order - b.order);
 				// Step 1: Reconstruct the MultiSigPublicKey
 				const publicKeys = multisigMembers.map(
 					(member) => ({
@@ -59,7 +70,7 @@ export function useExecuteProposal() {
 				// Step 2: Map signatures to the correct order based on the multisig public key order
 				// The signatures need to be in the same order as the public keys in the multisig
 				const orderedSignatures: string[] = [];
-				for (const member of proposal.multisig.members) {
+				for (const member of multisigMembers) {
 					const signature = proposal.signatures.find(
 						(sig) => sig.publicKey === member.publicKey,
 					);
@@ -120,22 +131,71 @@ export function useExecuteProposal() {
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Proposal],
 			});
-			// Execution changes on-chain balances; refresh the multisig asset view.
-			queryClient.invalidateQueries({
-				queryKey: [
-					QueryKeys.Balances,
-					variables.proposal.network,
-					variables.proposal.multisig.address,
-				],
-			});
-			toast.success(
-				`Transaction executed successfully! Digest: ${data.executionResult.digest}`,
+			// Execution changes on-chain balances and objects; refresh the
+			// multisig's assets, every objects page and filter included.
+			const { network, multisig } = variables.proposal;
+			for (const key of [
+				QueryKeys.Balances,
+				QueryKeys.OwnedObjects,
+			])
+				queryClient.invalidateQueries({
+					queryKey: [key, network, multisig.address],
+				});
+			const digest = data.executionResult.digest;
+			const explorerUrl = getExplorerUrl(
+				digest,
+				variables.proposal.network,
 			);
+			const link = (label: string) =>
+				explorerUrl
+					? { label, href: explorerUrl }
+					: undefined;
+			// The node can land the transaction and still fail it.
+			const { status } = data.executionResult;
+			if (!status.success) {
+				toast.error(TOASTS.proposalExecuteFailed, {
+					description:
+						safeDecode(status.error.message) ||
+						content.common.states.failedOnChain,
+					link: link(TOASTS.seeDetails),
+				});
+				return;
+			}
+			toast.success(TOASTS.proposalExecuted, {
+				description: digest,
+				link: link(content.common.actions.viewOnExplorer),
+			});
 		},
 		onError: (error: Error) => {
-			toast.error(
-				`Failed to execute proposal: ${error.message}`,
-			);
+			toast.error(TOASTS.proposalExecuteFailed, {
+				description: error.message,
+			});
 		},
 	});
+}
+
+/**
+ * Executes a proposal from a button. When execution fails, checks the
+ * proposal with the API in case someone else executed it meanwhile.
+ */
+export function useExecuteOrVerify() {
+	const execute = useExecuteProposal();
+	const verify = useVerifyProposal();
+	return {
+		execute: (
+			proposal: PublicProposal,
+			options?: { onError?: () => void },
+		) =>
+			execute.mutate(
+				{ proposal },
+				{
+					onError: () => {
+						verify.mutate(proposal.digest);
+						options?.onError?.();
+					},
+				},
+			),
+		isPending: execute.isPending,
+		error: execute.error,
+	};
 }

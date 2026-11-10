@@ -88,16 +88,22 @@ test.describe('signature analyzer tool', () => {
 		await expect(
 			details.getByTestId('multisig-participant'),
 		).toHaveCount(3);
-		for (const [member, weight] of [
-			[alice, '2'],
-			[bob, '1'],
-			[carol, '1'],
+		for (const [member, weight, signed] of [
+			[alice, '2', 'true'],
+			[bob, '1', 'true'],
+			[carol, '1', 'false'],
 		] as const) {
-			await expect(
-				details.locator(
-					`[data-testid="multisig-participant"][data-address="${member.address}"]`,
-				),
-			).toHaveAttribute('data-weight', weight);
+			const participant = details.locator(
+				`[data-testid="multisig-participant"][data-address="${member.address}"]`,
+			);
+			await expect(participant).toHaveAttribute(
+				'data-weight',
+				weight,
+			);
+			await expect(participant).toHaveAttribute(
+				'data-signed',
+				signed,
+			);
 		}
 
 		const cards = alice.page.getByTestId('signature-card');

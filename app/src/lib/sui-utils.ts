@@ -2,8 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 
+import { CONFIG } from './constants';
 import { extractPublicKeyFromBase64 } from './wallet';
+
+/** Whether two addresses are the same once normalized. */
+export const sameAddress = (a: string, b: string) =>
+	normalizeSuiAddress(a) === normalizeSuiAddress(b);
 
 /**
  * Validates and parses a public key string
@@ -33,10 +39,11 @@ export function validatePublicKey(
 	}
 }
 
-// A member's weight is a single byte in the multisig public key.
-export function isValidWeight(weight: number) {
+function isValidWeight(weight: number) {
 	return (
-		Number.isInteger(weight) && weight >= 1 && weight <= 255
+		Number.isInteger(weight) &&
+		weight >= 1 &&
+		weight <= CONFIG.MAX_WEIGHT
 	);
 }
 
@@ -71,8 +78,7 @@ export function computeMultisigAddress(
 		if (!weights.every(isValidWeight)) {
 			return {
 				address: null,
-				error:
-					'Cannot compute multisig address. Weights must be between 1 and 255',
+				error: `Cannot compute multisig address. Weights must be between 1 and ${CONFIG.MAX_WEIGHT}`,
 			};
 		}
 

@@ -1,79 +1,47 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { LucideLock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
-interface LogoProps {
-	showSubtitle?: boolean;
-	size?: 'sm' | 'md' | 'lg';
-	asLink?: boolean;
+/** The "pods" wordmark, shown as the logo in the expanded sidebar. */
+export function PodsWordmark({
+	className,
+}: {
+	className?: string;
+}) {
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 47.6056 20.0003"
+			fill="currentColor"
+			className={cn('h-5 w-auto', className)}
+			aria-hidden="true"
+		>
+			<path d="M42.5422 3.88198C45.4197 3.88212 47.4717 5.46576 47.6056 7.83022L44.5275 7.94155C44.3935 6.9602 43.5897 6.2687 42.5636 6.2687C41.7163 6.26885 41.0922 6.715 41.092 7.38393C41.092 7.89699 41.4708 8.18772 42.1623 8.34389L43.3674 8.56655C45.9328 9.03505 47.3605 10.2848 47.3605 12.2033C47.3604 14.5008 45.3081 16.0401 42.3859 16.0402C39.4189 16.0402 37.2991 14.4557 37.1652 12.091L40.3332 12.0021C40.4447 13.006 41.2482 13.6535 42.3859 13.6535C43.3227 13.6534 43.9698 13.2738 43.9699 12.6046C43.9699 12.1138 43.5903 11.779 42.631 11.5783L41.426 11.3556C39.0838 10.9094 37.8127 9.63745 37.8127 7.74135C37.8127 5.42125 39.7313 3.88198 42.5422 3.88198ZM18.3976 3.97085C21.9223 3.97085 24.4658 6.46952 24.466 9.97182C24.466 13.452 21.9224 15.9513 18.3976 15.9513C14.8953 15.9512 12.3517 13.4519 12.3517 9.97182C12.3519 6.4696 14.8954 3.97096 18.3976 3.97085ZM36.7287 15.6164H33.2931V14.3888C32.49 15.3258 31.3294 15.8615 29.924 15.8615C26.9125 15.8613 24.7707 13.4295 24.7707 9.97182C24.7708 6.49195 26.9126 4.06086 29.924 4.06069C31.3294 4.06069 32.49 4.59546 33.2931 5.53237V0.000143052H36.7287V15.6164ZM30.8615 6.8937C29.3446 6.8937 28.2288 8.18728 28.2287 9.97182C28.2287 11.7565 29.3445 13.0285 30.8615 13.0285C32.4007 13.0283 33.4933 11.7564 33.4933 9.97182C33.4932 8.16507 32.4006 6.89382 30.8615 6.8937ZM18.4982 6.32143C18.462 6.2776 18.3939 6.27771 18.3576 6.32143L16.4572 8.62124L16.4504 8.62905C16.1009 9.05836 15.8918 9.6045 15.8918 10.1984C15.8921 11.5817 17.0275 12.7033 18.4279 12.7033C19.8282 12.7031 20.9637 11.5816 20.964 10.1984C20.964 9.60442 20.7541 9.05847 20.4045 8.62905L20.3986 8.62124L18.4982 6.32143Z" />
+			<path d="M0.000233652 20.0003V4.30547H3.46795V5.54394C4.27859 4.5982 5.44951 4.05777 6.86812 4.05777C9.908 4.05777 12.0697 6.5122 12.0697 10.0024C12.0697 13.5152 9.908 15.9696 6.86812 15.9696C5.44951 15.9696 4.27859 15.4292 3.46795 14.4834V20.0003H0.000233652ZM5.92238 6.91752C4.36866 6.91752 3.26529 8.20102 3.26529 10.0024C3.26529 11.8264 4.36866 13.1099 5.92238 13.1099C7.45358 13.1099 8.57946 11.8038 8.57946 10.0024C8.57946 8.20102 7.45358 6.91752 5.92238 6.91752Z" />
+		</svg>
+	);
 }
 
-export function Logo({
-	showSubtitle = true,
-	size = 'md',
-	asLink = true,
-}: LogoProps) {
-	const sizeClasses = {
-		sm: {
-			icon: 'w-4 h-4',
-			iconPadding: 'p-1.5',
-			text: 'text-lg',
-			subtitle: 'text-xs',
-		},
-		md: {
-			icon: 'w-5 h-5',
-			iconPadding: 'p-2',
-			text: 'text-xl',
-			subtitle: 'text-xs',
-		},
-		lg: {
-			icon: 'w-6 h-6',
-			iconPadding: 'p-2.5',
-			text: 'text-2xl',
-			subtitle: 'text-sm',
-		},
-	};
-
-	const classes = sizeClasses[size];
-
-	const logoContent = (
-		<div className="flex items-center gap-2">
-			<div className="relative">
-				<div className="absolute inset-0 bg-linear-to-br from-blue-600 to-purple-600 dark:from-white dark:to-white rounded-lg opacity-90 group-hover:opacity-100 transition-opacity"></div>
-				<div
-					className={`relative bg-linear-to-br from-blue-500 to-purple-500 dark:from-white dark:to-white ${classes.iconPadding} rounded-lg shadow-sm`}
-				>
-					<LucideLock
-						className={`${classes.icon} text-white dark:text-black`}
-					/>
-				</div>
-			</div>
-			<div className="flex flex-col">
-				<span
-					className={`${classes.text} font-bold bg-linear-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent dark:text-white`}
-				>
-					SAGAT
-				</span>
-				{showSubtitle && (
-					<span
-						className={`${classes.subtitle} text-muted-foreground -mt-0.5`}
-					>
-						Sui Multisig Manager
-					</span>
-				)}
-			</div>
-		</div>
+/**
+ * The ring-drop mark: the logo on the collapsed icon rail, and the favicon shape.
+ * The path is the one in `app/public/favicon.svg`, in the 32px icon's coordinates
+ * (hence the `6 6 20 20` viewBox); change both together.
+ */
+export function PodsMark({
+	className,
+}: {
+	className?: string;
+}) {
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="6 6 20 20"
+			fill="currentColor"
+			className={cn('size-5', className)}
+			aria-hidden="true"
+		>
+			<path d="M15.9814 6C21.8011 6.00001 26 10.1713 26 16.0186C25.9999 21.8285 21.801 26 15.9814 26C10.1989 25.9998 6.00007 21.8284 6 16.0186C6 10.1714 10.1988 6.00017 15.9814 6ZM16.1475 9.92383C16.0875 9.8508 15.9759 9.8508 15.916 9.92383L12.7773 13.7627L12.7676 13.7754C12.1904 14.4922 11.8447 15.4038 11.8447 16.3955C11.8449 18.7051 13.7199 20.5781 16.0322 20.5781C18.3444 20.5779 20.2186 18.705 20.2188 16.3955C20.2187 15.4038 19.8732 14.4923 19.2959 13.7754L19.2852 13.7627H19.2861L16.1475 9.92383Z" />
+		</svg>
 	);
-
-	if (asLink) {
-		return (
-			<Link to="/" className="group">
-				{logoContent}
-			</Link>
-		);
-	}
-
-	return <div className="group">{logoContent}</div>;
 }

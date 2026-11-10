@@ -1334,7 +1334,7 @@ describe('Proposal Business Logic', () => {
 				status: 400,
 				body: {
 					error:
-						'Invalid signature scheme. Only ED25519, Secp256k1, and Secp256r1 are supported. zkLogin wallets are not supported.',
+						'Invalid signature scheme. Only Ed25519, Secp256k1, and Secp256r1 are supported. zkLogin wallets are not supported.',
 				},
 			});
 		});

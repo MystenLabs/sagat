@@ -3,6 +3,10 @@
 
 import type { SuiClientTypes } from '@mysten/sui/client';
 
+import { formatType, prettifyType } from './coin-type';
+import { isSuiCoinType, pricingOnNetwork } from './coins';
+import type { SuiNetwork } from './network';
+
 export type CoinMetadata = SuiClientTypes.CoinMetadata;
 
 export interface CoinPricing {
@@ -27,23 +31,60 @@ export interface CoinDisplayData extends CoinDisplayBase {
 	recognized: boolean;
 }
 
-export function fromMetadata(
+/**
+ * A coin outside the registry, from its on-chain metadata. Its icon URL is
+ * left out: the issuer picks it, so loading it would tell the issuer's
+ * server who looks at the pod. Only registry icons are shown.
+ */
+function fromMetadata(
 	metadata: CoinMetadata,
 ): CoinDisplayData {
 	return {
 		name: metadata.name,
 		symbol: metadata.symbol,
-		iconUrl: metadata.iconUrl,
 		decimals: metadata.decimals,
 		recognized: false,
 	};
 }
 
-export function fromRecognized(
+/** A registry entry for display on `network`; see `pricesAvailableOn`. */
+function fromRecognized(
 	coin: RecognizedCoin,
+	network: SuiNetwork,
 ): CoinDisplayData {
 	const { coinType: _coinType, ...rest } = coin;
-	return { ...rest, recognized: true };
+	return {
+		...rest,
+		...pricingOnNetwork(network, coin.coinType, coin),
+		recognized: true,
+	};
+}
+
+/**
+ * What to show for one coin: the registry's entry if it has one, else its
+ * metadata, else nothing yet.
+ */
+export function coinDisplayData(
+	recognizedCoin: RecognizedCoin | undefined,
+	metadata: CoinMetadata | null | undefined,
+	network: SuiNetwork,
+): CoinDisplayData | undefined {
+	if (recognizedCoin)
+		return fromRecognized(recognizedCoin, network);
+	return metadata ? fromMetadata(metadata) : undefined;
+}
+
+/**
+ * Whether a coin is verified: SUI, or a coin the registry recognises.
+ * Anyone can publish a coin called USDC, so its metadata proves nothing.
+ */
+export function isVerifiedCoin(
+	coinType: string,
+	recognizedMap: ReadonlyMap<string, unknown>,
+): boolean {
+	return (
+		isSuiCoinType(coinType) || recognizedMap.has(coinType)
+	);
 }
 
 /**
@@ -67,18 +108,41 @@ export function buildCoinDisplayMap(
 	coinTypes: readonly string[],
 	recognizedMap: ReadonlyMap<string, RecognizedCoin>,
 	metadataMap: ReadonlyMap<string, CoinMetadata | null>,
+	network: SuiNetwork,
 ): Map<string, CoinDisplayData> {
 	const out = new Map<string, CoinDisplayData>();
 	for (const coinType of coinTypes) {
-		const recognizedCoin = recognizedMap.get(coinType);
-		if (recognizedCoin) {
-			out.set(coinType, fromRecognized(recognizedCoin));
-			continue;
-		}
-		const metadata = metadataMap.get(coinType);
-		if (metadata) {
-			out.set(coinType, fromMetadata(metadata));
-		}
+		const data = coinDisplayData(
+			recognizedMap.get(coinType),
+			metadataMap.get(coinType),
+			network,
+		);
+		if (data) out.set(coinType, data);
 	}
 	return out;
+}
+
+/**
+ * A coin's symbol and name for display, falling back to its compact and
+ * full type when its details are unknown or blank.
+ */
+export function coinLabels(
+	coinType: string,
+	coinData:
+		Pick<CoinDisplayBase, 'symbol' | 'name'> | undefined,
+): { symbol: string; name: string } {
+	const symbol = coinData?.symbol?.trim();
+	const name = coinData?.name?.trim();
+	return {
+		symbol: symbol || formatType(coinType),
+		name: name || prettifyType(coinType),
+	};
+}
+
+/** Whether two coin labels, such as a symbol and a name, read the same. */
+export function sameCoinLabel(
+	a: string,
+	b: string,
+): boolean {
+	return a.toLowerCase() === b.toLowerCase();
 }

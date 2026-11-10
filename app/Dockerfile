@@ -35,6 +35,7 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SUI_NETWORKS=$VITE_SUI_NETWORKS
 ENV VITE_DEFAULT_NETWORK=$VITE_DEFAULT_NETWORK
 
+RUN bun scripts/api-origin.ts > api-origin
 RUN bun run build
 
 # Production stage with nginx
@@ -46,6 +47,14 @@ RUN addgroup -g 1001 -S sagat && \
 
 # Copy built app to nginx
 COPY --from=build --chown=1001:1001 /monorepo/app/dist /usr/share/nginx/html
+
+COPY app/nginx/default.conf /etc/nginx/conf.d/default.conf
+COPY app/nginx/headers.conf.template /etc/nginx/snippets/
+COPY --from=build /monorepo/app/api-origin /etc/nginx/snippets/
+RUN API_ORIGIN="$(cat /etc/nginx/snippets/api-origin)" envsubst '$API_ORIGIN' \
+        < /etc/nginx/snippets/headers.conf.template > /etc/nginx/snippets/headers.conf && \
+    rm /etc/nginx/snippets/headers.conf.template /etc/nginx/snippets/api-origin && \
+    nginx -t
 
 # Expose port
 EXPOSE 80

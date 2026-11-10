@@ -15,47 +15,26 @@ import { type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 
-const alertVariants = cva('p-3 rounded border-l-4', {
-	variants: {
-		variant: {
-			info: 'bg-info border-info-border',
-			warning: 'bg-warning border-warning-border',
-			error: 'bg-error border-error-border',
-			success: 'bg-success border-success-border',
+/** Inline notice on a status tint: coloured text over a translucent fill. */
+const alertVariants = cva(
+	'flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-13',
+	{
+		variants: {
+			variant: {
+				info: 'border-info-border bg-info text-info-foreground',
+				warning:
+					'border-warning-border bg-warning text-warning-foreground',
+				error:
+					'border-error-border bg-error text-error-foreground',
+				success:
+					'border-success-border bg-success text-success-foreground',
+			},
+		},
+		defaultVariants: {
+			variant: 'info',
 		},
 	},
-	defaultVariants: {
-		variant: 'info',
-	},
-});
-
-const alertTextVariants = cva('text-sm', {
-	variants: {
-		variant: {
-			info: 'text-info-foreground',
-			warning: 'text-warning-foreground',
-			error: 'text-error-foreground',
-			success: 'text-success-foreground',
-		},
-	},
-	defaultVariants: {
-		variant: 'info',
-	},
-});
-
-const alertIconVariants = cva('w-5 h-5 shrink-0', {
-	variants: {
-		variant: {
-			info: 'text-info-foreground',
-			warning: 'text-warning-foreground',
-			error: 'text-error-foreground',
-			success: 'text-success-foreground',
-		},
-	},
-	defaultVariants: {
-		variant: 'info',
-	},
-});
+);
 
 const variantIcons = {
 	info: Info,
@@ -77,24 +56,23 @@ export function Alert({
 	children,
 	showIcon = true,
 	className,
-}: AlertProps) {
+	...props
+}: AlertProps & React.ComponentProps<'div'>) {
 	const Icon = variantIcons[variant!];
 
 	return (
 		<div
+			role={variant === 'error' ? 'alert' : 'status'}
 			className={cn(alertVariants({ variant }), className)}
+			{...props}
 		>
-			<div className="flex items-center gap-2">
-				{showIcon && (
-					<Icon
-						className={alertIconVariants({ variant })}
-						strokeWidth={variant === 'success' ? 3 : 2}
-					/>
-				)}
-				<div className={alertTextVariants({ variant })}>
-					{children}
-				</div>
-			</div>
+			{showIcon && (
+				<Icon
+					className="mt-0.5 size-4 shrink-0"
+					strokeWidth={variant === 'success' ? 3 : 2}
+				/>
+			)}
+			<div className="min-w-0 flex-1">{children}</div>
 		</div>
 	);
 }

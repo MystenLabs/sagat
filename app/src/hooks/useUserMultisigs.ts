@@ -3,6 +3,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { content } from '@/content';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
@@ -24,7 +25,7 @@ export function useUserMultisigs() {
 			MultisigWithMembersForPublicKey[]
 		> => {
 			if (!currentAddress)
-				throw new Error('No wallet connected');
+				throw new Error(content.errors.noWalletConnected);
 
 			// Get accepted multisig connections grouped by public key
 			const connections =

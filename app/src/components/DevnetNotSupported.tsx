@@ -1,13 +1,18 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useDAppKit } from '@mysten/dapp-kit-react';
 import { AlertTriangle } from 'lucide-react';
+
+import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
 
 import { Button } from './ui/button';
 
+const COPY = content.network;
+
 export function DevnetNotSupported() {
-	const dappKit = useDAppKit();
+	// setNetwork also saves the choice, so a reload does not land on devnet.
+	const { setNetwork } = useNetwork();
 
 	return (
 		<div className="mx-auto mt-20 p-8">
@@ -16,29 +21,34 @@ export function DevnetNotSupported() {
 					<AlertTriangle className="w-10 h-10 text-warning-foreground" />
 				</div>
 
-				<h1 className="text-3xl font-bold mb-3">
-					Devnet Not Supported
+				<h1
+					className="text-3xl font-bold mb-3"
+					data-testid="devnet-not-supported"
+				>
+					{COPY.devnet.title}
 				</h1>
 
 				<p className="text-muted-foreground mb-8">
-					The main Sagat app does not support devnet.
+					{COPY.devnet.body}
 					<br />
-					Switch to a supported network to continue.
+					{COPY.devnet.hint}
 				</p>
 
 				<div className="flex gap-3 justify-center">
 					<Button
 						size="lg"
-						onClick={() => dappKit.switchNetwork('mainnet')}
+						onClick={() => setNetwork('mainnet')}
+						data-testid="switch-to-mainnet-button"
 					>
-						Switch to Mainnet
+						{COPY.switchToMainnet}
 					</Button>
 					<Button
 						size="lg"
 						variant="outline"
-						onClick={() => dappKit.switchNetwork('testnet')}
+						onClick={() => setNetwork('testnet')}
+						data-testid="switch-to-testnet-button"
 					>
-						Switch to Testnet
+						{COPY.switchToTestnet}
 					</Button>
 				</div>
 			</div>

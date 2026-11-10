@@ -3,6 +3,8 @@
 
 import { Transaction } from '@mysten/sui/transactions';
 
+import { content } from '../content';
+
 export type EpochInfo = {
 	epoch: string;
 	epochStartTimestampMs: string;
@@ -54,16 +56,27 @@ function getLastEpoch(transactionBytes: string) {
 	}
 }
 
-// How long until `time`, e.g. "2d 3h", "5h 12m" or "12m".
+// How long until `time` in its largest whole unit, e.g. "2 days", "5 hours"
+// or "12 minutes".
 export function formatTimeLeft(time: Date, now: Date) {
 	const minutes = Math.floor(
 		(time.getTime() - now.getTime()) / 60_000,
 	);
-	if (minutes < 1) return 'less than a minute';
+	const copy = content.proposals.timeLeft;
+	if (minutes < 1) return copy.underAMinute;
 
-	const days = Math.floor(minutes / (24 * 60));
-	const hours = Math.floor(minutes / 60) % 24;
-	if (days > 0) return `${days}d ${hours}h`;
-	if (hours > 0) return `${hours}h ${minutes % 60}m`;
-	return `${minutes}m`;
+	const hours = Math.floor(minutes / 60);
+	const days = Math.floor(hours / 24);
+	if (days > 0) return copy.days(days);
+	if (hours > 0) return copy.hours(hours);
+	return copy.minutes(minutes);
+}
+
+// Under this much time left, an expiry is called out.
+const EXPIRES_SOON_MS = 60 * 60_000;
+
+// Whether `endsAt` is less than an hour after `now`. One that has already
+// passed counts too; callers show "Expired" for those first.
+export function expiresSoon(endsAt: Date, now: Date) {
+	return endsAt.getTime() - now.getTime() < EXPIRES_SOON_MS;
 }
