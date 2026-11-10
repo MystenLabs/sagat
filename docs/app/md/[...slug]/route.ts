@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { alphaNoticeMarkdown } from '@/lib/site';
+import { markdownComponents } from '@/lib/markdown-components';
+import {
+	alphaNoticeMarkdown,
+	markdownCopyUrl,
+} from '@/lib/site';
 import { source } from '@/lib/source';
 
 export const dynamic = 'force-static';
@@ -22,12 +26,14 @@ export async function GET(
 	if (!page)
 		return new Response('Not found', { status: 404 });
 
-	const body = await page.data.getText('processed');
+	const body = await page.data.getText('processed', {
+		components: markdownComponents,
+	});
 	const description = page.data.description
 		? `${page.data.description}\n\n`
 		: '';
 	return new Response(
-		`# ${page.data.title}\n\n> ${alphaNoticeMarkdown}\n\n${description}${body}`,
+		`# ${page.data.title}\n\n> ${alphaNoticeMarkdown}\n\n${description}${body}\n`,
 		{
 			headers: {
 				'Content-Type': 'text/markdown; charset=utf-8',
@@ -37,10 +43,8 @@ export async function GET(
 }
 
 export function generateStaticParams() {
-	return source.getPages().map((page) => {
-		const slug = page.slugs.length ? page.slugs : ['index'];
-		return {
-			slug: [...slug.slice(0, -1), `${slug.at(-1)}.md`],
-		};
-	});
+	// Drop the leading '' and 'md' segments.
+	return source.getPages().map((page) => ({
+		slug: markdownCopyUrl(page.url).split('/').slice(2),
+	}));
 }
