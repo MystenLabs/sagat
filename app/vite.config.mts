@@ -6,6 +6,7 @@ import react from '@vitejs/plugin-react-swc';
 import tailwindcss from '@tailwindcss/vite';
 
 import { apiOrigin } from './scripts/api-origin';
+import { sentryOrigin } from './scripts/sentry-origin';
 
 // The nginx response headers, with the local stack allowed.
 function previewHeaders(env: Record<string, string>) {
@@ -15,6 +16,7 @@ function previewHeaders(env: Record<string, string>) {
 	const origins = env.VITE_LOCALNET_RPC_URL
 		? `${api} ${new URL(env.VITE_LOCALNET_RPC_URL).origin}`
 		: api;
+	const sentry = sentryOrigin(env.VITE_SENTRY_DSN ?? '');
 	const template = readFileSync(
 		path.resolve(__dirname, 'nginx/headers.conf.template'),
 		'utf8',
@@ -32,7 +34,9 @@ function previewHeaders(env: Record<string, string>) {
 			);
 		headers[match[1]] = match[2]
 			.split('${API_ORIGIN}')
-			.join(origins);
+			.join(origins)
+			.split('${SENTRY_ORIGIN}')
+			.join(sentry);
 	}
 	if (!headers['Content-Security-Policy'])
 		throw new Error(
@@ -44,6 +48,7 @@ function previewHeaders(env: Record<string, string>) {
 // https://vitejs.dev/config/
 export default defineConfig(({ mode, isPreview }) => ({
 	plugins: [react(), tailwindcss()],
+	build: { sourcemap: true },
 	resolve: {
 		alias: {
 			'@': path.resolve(__dirname, './src'),
