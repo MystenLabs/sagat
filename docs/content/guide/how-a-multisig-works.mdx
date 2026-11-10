@@ -1,0 +1,56 @@
+---
+title: How a multisig works
+description: What a multisig account is, how weights and the threshold decide who can move funds, and why the address depends on the setup.
+---
+
+## What a multisig account is
+
+A multisig account is a Sui address that several people control together. Instead of one private key, it has a list of [signers](/glossary#signer), a [weight](/glossary#weight) for each, and a [threshold](/glossary#threshold). A transaction from the account goes through only when the signers who signed it have enough weight between them to meet the threshold.
+
+Multisig is [built into Sui](https://docs.sui.io/develop/transactions/transaction-auth/multisig). The account’s address is derived from the signers’ public keys, their weights and the threshold, so there is no smart contract to deploy. The app shows a live preview of the address while you create the account.
+
+The app and the API only coordinate: they store proposals and signatures and show who has signed. The account is a standard Sui multisig address, so anyone who knows its public keys, weights and threshold can derive it and use it with [other Sui tooling](https://sdk.mystenlabs.com/sui/cryptography/signers/multisig), without this service. See the [trust model](/security/trust-model#multisig-is-native-to-sui).
+
+## Signers and public keys
+
+Each signer is one public key, usually the key behind your wallet. To add someone, you paste their public key, or look it up from their address if that address has sent a transaction before. The app accepts Ed25519, Secp256k1 and Secp256r1 keys.
+
+An account has between 2 and 10 signers. When you create one, any of your own keys in the list accept right away. Every other signer gets an [invitation](/glossary#invitation) to accept or reject, by signing a message with their wallet. The account shows up in your list once you have accepted, and the app marks signers who have not answered yet as **Invited**.
+
+## Weights and the threshold
+
+Each signer has a weight, a whole number from 1 to 255. The threshold is a whole number from 1 up to the total weight of all signers. A proposal is ready to execute when the weights of the signers who signed it add up to the threshold or more.
+
+### A worked example
+
+Three signers, threshold 3:
+
+| Signer | Weight |
+| ------ | ------ |
+| Alice  | 2      |
+| Bob    | 1      |
+| Carol  | 1      |
+
+| Who signed      | Total weight | Ready to execute |
+| --------------- | ------------ | ---------------- |
+| Alice           | 2            | No               |
+| Bob and Carol   | 2            | No               |
+| Alice and Bob   | 3            | Yes              |
+| Alice and Carol | 3            | Yes              |
+| All three       | 4            | Yes              |
+
+Alice cannot act alone, and Bob and Carol cannot act without her.
+
+## Why the address depends on the setup
+
+The address is a hash of the threshold and of every signer’s public key and weight, in the order you list them. Change any of these and you get a different address. That is why the address preview changes as you edit the form, and why the app refuses a second account with exactly the same signers, weights and threshold.
+
+An existing account’s signers, weights and threshold cannot be edited. A different setup is a different account, with its own address and its own balances.
+
+## Accounts and networks
+
+An account and its address are the same on every Sui network. Proposals and balances are not: each proposal belongs to the [network](/glossary#network) it was created on, and the app shows the proposals and balances of the network you have selected.
+
+## Next
+
+Read [How proposals work](/guide/proposals) for how a transaction goes from proposed to executed, and the [trust model](/security/trust-model) for what the service stores and what Sui enforces.
