@@ -5,19 +5,19 @@ description: The terms the app and these docs use for multisig accounts, signers
 
 ## Account
 
-A multisig account: one Sui address controlled by several signers together. The app calls it a "pod". See [What a multisig account is](/guide/how-a-multisig-works#what-a-multisig-account-is).
+A multisig account: one Sui address controlled by several signers together. The app calls it a “pod”. See [What a multisig account is](/guide/how-a-multisig-works#what-a-multisig-account-is).
 
 ## Address
 
-A 32-byte identifier on Sui that can own coins and objects. An account's address is derived from its signers' public keys, their weights and the threshold, so a different setup gives a different address. See [Why the address depends on the setup](/guide/how-a-multisig-works#why-the-address-depends-on-the-setup).
+A 32-byte identifier on Sui that can own coins and objects. An account’s address is derived from its signers’ public keys, their weights and the threshold, so a different setup gives a different address. See [Why the address depends on the setup](/guide/how-a-multisig-works#why-the-address-depends-on-the-setup).
 
 ## Combined signature
 
-The single signature that the app builds from the signers' individual signatures when you execute a proposal. Sui checks it against the account's address.
+The single signature that the app builds from the signers’ individual signatures when you execute a proposal. Sui checks it against the account’s address.
 
 ## Digest
 
-The unique ID of a transaction, computed from its bytes. Each proposal is identified by the digest of its transaction, and the app's proposal links use it.
+The unique ID of a transaction, computed from its bytes. Each proposal is identified by the digest of its transaction, and the app’s proposal links use it.
 
 ## Epoch
 
@@ -25,11 +25,11 @@ A period of time on a Sui network. A transaction can name a last epoch it may ru
 
 ## Execution
 
-Submitting a proposal's transaction to the network with the combined signature, once it has enough weight. See [Execution](/guide/proposals#execution).
+Submitting a proposal’s transaction to the network with the combined signature, once it has enough weight. See [Execution](/guide/proposals#execution).
 
 ## Gas
 
-The fee a Sui transaction pays to run. A proposal's gas is paid by the account itself, from its balance on that network.
+The fee a Sui transaction pays to run. A proposal’s gas is paid by the account itself, from its balance on that network.
 
 ## Invitation
 
@@ -53,7 +53,7 @@ Anyone who creates a proposal. Signers can propose, and an account can also have
 
 ## Public key
 
-The public half of a wallet's key pair. A signer is added to an account by their public key; the app accepts Ed25519, Secp256k1 and Secp256r1 keys.
+The public half of a wallet’s key pair. A signer is added to an account by their public key; the app accepts Ed25519, Secp256k1 and Secp256r1 keys.
 
 ## Signature
 
@@ -69,7 +69,7 @@ One of the public keys that control an account, each with a weight. See [Signers
 
 ## Threshold
 
-The total weight of signatures a proposal needs before it can execute. It is a whole number from 1 up to the sum of all signers' weights. See [Weights and the threshold](/guide/how-a-multisig-works#weights-and-the-threshold).
+The total weight of signatures a proposal needs before it can execute. It is a whole number from 1 up to the sum of all signers’ weights. See [Weights and the threshold](/guide/how-a-multisig-works#weights-and-the-threshold).
 
 ## Wallet
 
@@ -77,4 +77,4 @@ The software that holds your private key and makes your signatures. The app asks
 
 ## Weight
 
-How much a signer's signature counts toward the threshold, a whole number from 1 to 255. See [A worked example](/guide/how-a-multisig-works#a-worked-example).
+How much a signer’s signature counts toward the threshold, a whole number from 1 to 255. See [A worked example](/guide/how-a-multisig-works#a-worked-example).

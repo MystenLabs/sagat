@@ -20,21 +20,21 @@ The app asks for signatures through the Sui wallet standard, from whichever wall
 
 ## Check what you sign
 
-Before you sign, the app shows a preview of the proposal's stored transaction: a simulation with its balance changes, object changes and events, plus the transaction's commands. If the simulation fails, the **Sign proposal** button reads **Sign anyway** instead. Your wallet is an independent second check, with its own preview of the same transaction.
+Before you sign, the app shows a preview of the proposal’s stored transaction: a simulation with its balance changes, object changes and events, plus the transaction’s commands. If the simulation fails, the **Sign proposal** button reads **Sign anyway** instead. Your wallet is an independent second check, with its own preview of the same transaction.
 
-We recommend checking every transaction in two places before you sign it, the app's preview and your wallet's own preview, and making sure they agree. Rely on the transaction itself, not on the title: a proposal's title is a note typed by the proposer and is not part of what is signed.
+We recommend checking every transaction in two places before you sign it, the app’s preview and your wallet’s own preview, and making sure they agree. Rely on the transaction itself, not on the title: a proposal’s title is a note typed by the proposer and is not part of what is signed.
 
 ## What the service stores
 
 The API stores:
 
 - the public key and address of each wallet that signs in
-- the signers' public keys and their addresses, weights and order, and the threshold
-- the account's name and labels for its keys
-- each signer's answer to their invitation
-- each proposal's transaction bytes, digest, title, network, proposer and status
+- the signers’ public keys and their addresses, weights and order, and the threshold
+- the account’s name and labels for its keys
+- each signer’s answer to their invitation
+- each proposal’s transaction bytes, digest, title, network, proposer and status
 - the signatures collected for each proposal
-- the account's external proposers, and a log of who added or removed them and who created or cancelled each proposal
+- the account’s external proposers, and a log of who added or removed them and who created or cancelled each proposal
 
 ## What it never holds
 
@@ -42,7 +42,7 @@ The service never holds a private key. The app and the API never ask for, genera
 
 ## What Sui enforces
 
-When a transaction executes, Sui validators check the combined signature against the account's address: each signature must come from one of its public keys, and their weights must meet its threshold. See the [Sui documentation on multisig](https://docs.sui.io/develop/transactions/transaction-auth/multisig) for how the network does this.
+When a transaction executes, Sui validators check the combined signature against the account’s address: each signature must come from one of its public keys, and their weights must meet its threshold. See the [Sui documentation on multisig](https://docs.sui.io/develop/transactions/transaction-auth/multisig) for how the network does this.
 
 ## Cancelled proposals
 

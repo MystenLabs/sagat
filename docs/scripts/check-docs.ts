@@ -29,7 +29,7 @@ const parser = unified()
 	.use(remarkMdx)
 	.use(remarkHeading, { generateToc: false });
 
-type Link = { href: string; line: number };
+type Link = { href: string; line: number; jsx: boolean };
 type Page = {
 	file: string;
 	url: string;
@@ -97,7 +97,7 @@ function readPage(file: string): Page {
 			node.type === 'link' ||
 			node.type === 'definition'
 		) {
-			links.push({ href: node.url, line });
+			links.push({ href: node.url, line, jsx: false });
 		} else if (
 			node.type === 'mdxJsxFlowElement' ||
 			node.type === 'mdxJsxTextElement'
@@ -108,7 +108,7 @@ function readPage(file: string): Page {
 					attr.name === 'href' &&
 					typeof attr.value === 'string'
 				) {
-					links.push({ href: attr.value, line });
+					links.push({ href: attr.value, line, jsx: true });
 				}
 			}
 		}
@@ -290,9 +290,33 @@ function resolve(
 	return byUrl.get(pathname.replace(/(.)\/$/, '$1'));
 }
 
-function checkLink(page: Page, href: string, line: number) {
+function checkLink(
+	page: Page,
+	href: string,
+	line: number,
+	jsx = false,
+) {
 	if (/^([a-z][a-z\d+.-]*:|\/\/)/i.test(href)) return;
 	const [target, anchor] = href.split('#', 2);
+	// Fumadocs rewrites file paths only in Markdown links that start with ./ or ../.
+	if (target.endsWith('.mdx')) {
+		if (jsx) {
+			report(
+				page.file,
+				line,
+				`href "${href}" must be a site URL, not a file path`,
+			);
+			return;
+		}
+		if (!/^\.\.?\//.test(target)) {
+			report(
+				page.file,
+				line,
+				`link "${href}" needs a ./ or ../ prefix`,
+			);
+			return;
+		}
+	}
 	const linked = resolve(page, decodeURI(target));
 	if (!linked) {
 		report(page.file, line, `link "${href}" has no page`);
@@ -309,8 +333,8 @@ function checkLink(page: Page, href: string, line: number) {
 }
 
 for (const page of pages) {
-	for (const { href, line } of page.links) {
-		checkLink(page, href, line);
+	for (const { href, line, jsx } of page.links) {
+		checkLink(page, href, line, jsx);
 	}
 }
 

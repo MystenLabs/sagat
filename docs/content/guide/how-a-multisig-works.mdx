@@ -7,7 +7,7 @@ description: What a multisig account is, how weights and the threshold decide wh
 
 A multisig account is a Sui address that several people control together. Instead of one private key, it has a list of [signers](/glossary#signer), a [weight](/glossary#weight) for each, and a [threshold](/glossary#threshold). A transaction from the account goes through only when the signers who signed it have enough weight between them to meet the threshold.
 
-Multisig is [built into Sui](https://docs.sui.io/develop/transactions/transaction-auth/multisig). The account's address is derived from the signers' public keys, their weights and the threshold, so there is no smart contract to deploy. The app shows a live preview of the address while you create the account.
+Multisig is [built into Sui](https://docs.sui.io/develop/transactions/transaction-auth/multisig). The account’s address is derived from the signers’ public keys, their weights and the threshold, so there is no smart contract to deploy. The app shows a live preview of the address while you create the account.
 
 The app and the API only coordinate: they store proposals and signatures and show who has signed. The account is a standard Sui multisig address, so anyone who knows its public keys, weights and threshold can derive it and use it with [other Sui tooling](https://sdk.mystenlabs.com/sui/cryptography/signers/multisig), without this service. See the [trust model](/security/trust-model#multisig-is-native-to-sui).
 
@@ -43,9 +43,9 @@ Alice cannot act alone, and Bob and Carol cannot act without her.
 
 ## Why the address depends on the setup
 
-The address is a hash of the threshold and of every signer's public key and weight, in the order you list them. Change any of these and you get a different address. That is why the address preview changes as you edit the form, and why the app refuses a second account with exactly the same signers, weights and threshold.
+The address is a hash of the threshold and of every signer’s public key and weight, in the order you list them. Change any of these and you get a different address. That is why the address preview changes as you edit the form, and why the app refuses a second account with exactly the same signers, weights and threshold.
 
-An existing account's signers, weights and threshold cannot be edited. A different setup is a different account, with its own address and its own balances.
+An existing account’s signers, weights and threshold cannot be edited. A different setup is a different account, with its own address and its own balances.
 
 ## Accounts and networks
 

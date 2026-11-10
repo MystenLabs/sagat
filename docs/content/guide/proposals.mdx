@@ -7,15 +7,15 @@ A [proposal](/glossary#proposal) is a transaction from the account that is waiti
 
 ## Who can propose
 
-Any signer who has accepted can propose. An account can also have up to 5 [external proposers](/guide/external-proposers), addresses that a signer adds or removes and whose proposals still need the signers' signatures.
+Any signer who has accepted can propose. An account can also have up to 5 [external proposers](/guide/external-proposers), addresses that a signer adds or removes and whose proposals still need the signers’ signatures.
 
-The transaction's sender must be the account, and its gas must be paid by the account. An account can have up to 10 pending proposals per network, and two pending proposals on the same network cannot use the same owned object.
+The transaction’s sender must be the account, and its gas must be paid by the account. An account can have up to 10 pending proposals per network, and two pending proposals on the same network cannot use the same owned object.
 
 ## Signing
 
 When a signer proposes, they sign the transaction in their wallet, and that signature counts as the first one. Other signers open the proposal, review the preview and sign the exact transaction bytes with their wallet. Each signer signs a proposal once. The API checks every signature against the stored transaction and rejects one that does not match.
 
-Before you sign, check the transaction in two places, the app's preview and your wallet's own preview, and make sure they agree. The title is a note typed by the proposer and is not part of what you sign, so rely on the transaction itself. See [Check what you sign](/security/trust-model#check-what-you-sign).
+Before you sign, check the transaction in two places, the app’s preview and your wallet’s own preview, and make sure they agree. The title is a note typed by the proposer and is not part of what you sign, so rely on the transaction itself. See [Check what you sign](/security/trust-model#check-what-you-sign).
 
 ## Execution
 
@@ -33,7 +33,7 @@ A signer can cancel any pending proposal. An external proposer can cancel only t
 >
 	Signatures already given stay valid on Sui. Anyone who has
 	the transaction and enough signatures, for example through
-	the proposal's link, can still submit it until it expires
+	the proposal’s link, can still submit it until it expires
 	or one of the objects it uses changes. To make sure it
 	cannot run, execute another transaction from the account
 	that uses one of the same owned objects, such as the same
@@ -42,4 +42,4 @@ A signer can cancel any pending proposal. An external proposer can cancel only t
 
 ## Statuses
 
-A proposal is **Pending** until it is executed or cancelled. It shows **Ready** once it has enough weight, and **Expired** once its transaction's expiry has passed. An executed proposal shows **Executed** (succeeded on chain) or **Failed** (ran on chain and failed). A cancelled one shows **Cancelled**, and stays that way even if its transaction is later submitted.
+A proposal is **Pending** until it is executed or cancelled. It shows **Ready** once it has enough weight, and **Expired** once its transaction’s expiry has passed. An executed proposal shows **Executed** (succeeded on chain) or **Failed** (ran on chain and failed). A cancelled one shows **Cancelled**. The app does not check it against the chain again, so the status does not tell you whether its transaction ran later.
