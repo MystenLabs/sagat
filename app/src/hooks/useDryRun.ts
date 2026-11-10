@@ -7,7 +7,22 @@ import { Transaction } from '@mysten/sui/transactions';
 import { useMutation } from '@tanstack/react-query';
 
 import { MutationKeys } from '@/lib/queryKeys';
-import { SimulationFailedError } from '@/lib/transaction-preview';
+import type { SimulatedTransaction } from '@/lib/transaction-preview';
+
+/**
+ * The simulation ran and the transaction failed; the message says why,
+ * and `transaction` is the failed run's payload (digest, epoch, gas,
+ * effects).
+ */
+export class SimulationFailedError extends Error {
+	constructor(
+		message: string,
+		readonly transaction: SimulatedTransaction,
+	) {
+		super(message);
+		this.name = 'SimulationFailedError';
+	}
+}
 
 // The codes a node refuses the transaction itself with, such as for an
 // input object that doesn't exist.
@@ -42,6 +57,7 @@ export function useDryRun() {
 
 	return useMutation({
 		mutationKey: [MutationKeys.DryRun],
+		meta: { expected: (error) => !couldNotSimulate(error) },
 		mutationFn: async (transactionData: string) => {
 			const tx = Transaction.from(transactionData);
 

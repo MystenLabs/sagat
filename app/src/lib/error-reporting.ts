@@ -8,7 +8,6 @@ import type { ErrorInfo } from 'react';
 
 import { isApiFetchFailure } from './api';
 import { reportError } from './sentry';
-import { SimulationFailedError } from './transaction-preview';
 import {
 	isWalletDecline,
 	SignatureDeclinedError,
@@ -29,8 +28,7 @@ export function isExpectedError(error: unknown): boolean {
 		(error instanceof Error &&
 			error.name === 'AbortError') ||
 		isCancelledError(error) ||
-		error instanceof SignInCancelledError ||
-		error instanceof SimulationFailedError
+		error instanceof SignInCancelledError
 	);
 }
 

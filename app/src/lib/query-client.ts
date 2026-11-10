@@ -13,6 +13,15 @@ import {
 	reportUnexpected,
 } from './error-reporting';
 
+declare module '@tanstack/react-query' {
+	interface Register {
+		mutationMeta: {
+			/** Failures that are an answer from this mutation, not reported. */
+			expected?: (error: unknown) => boolean;
+		};
+	}
+}
+
 export function createQueryClient(): QueryClient {
 	// Polled queries report once per outage, not on every poll.
 	const reported = new WeakSet<Query<unknown, unknown>>();
@@ -37,6 +46,7 @@ export function createQueryClient(): QueryClient {
 				_onMutateResult,
 				mutation,
 			) => {
+				if (mutation.meta?.expected?.(error)) return;
 				reportUnexpected(error, {
 					mutation: String(
 						mutation.options.mutationKey?.[0] ?? 'unknown',

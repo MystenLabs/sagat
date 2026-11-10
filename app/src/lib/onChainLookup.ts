@@ -70,12 +70,13 @@ async function lookupOnNetwork(
 	network: NetworkName,
 	client: SuiGraphQLClient,
 ): Promise<string> {
-	const { data } =
+	const { data, errors } =
 		await client.query<TransactionsQueryResult>({
 			query: SENDER_TX_QUERY,
 			variables: { address },
 			signal: AbortSignal.timeout(GRAPHQL_TIMEOUT_MS),
 		});
+	if (errors?.length) throw new Error(errors[0].message);
 
 	const signatures =
 		data?.transactions?.nodes?.[0]?.signatures?.map(

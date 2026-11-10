@@ -4,6 +4,7 @@
 import { SagatApiError } from '@mysten/sagat';
 import { RpcError } from '@mysten/sui/grpc';
 import * as Sentry from '@sentry/react';
+import type { ErrorInfo } from 'react';
 import {
 	afterEach,
 	beforeEach,
@@ -15,14 +16,15 @@ import {
 
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import {
+	couldNotSimulate,
+	SimulationFailedError,
+} from '../src/hooks/useDryRun';
+import {
 	isExpectedError,
 	reportCrash,
 } from '../src/lib/error-reporting';
 import { createQueryClient } from '../src/lib/query-client';
-import {
-	SimulationFailedError,
-	type SimulatedTransaction,
-} from '../src/lib/transaction-preview';
+import type { SimulatedTransaction } from '../src/lib/transaction-preview';
 import {
 	SignatureDeclinedError,
 	SignInCancelledError,
@@ -87,15 +89,7 @@ describe('isExpectedError', () => {
 		).toBe(true);
 	});
 
-	test('a failed simulation is expected, an RPC error is not', () => {
-		expect(
-			isExpectedError(
-				new SimulationFailedError(
-					'MoveAbort',
-					{} as SimulatedTransaction,
-				),
-			),
-		).toBe(true);
+	test('a node error is not expected, even when it reads like a decline', () => {
 		expect(
 			isExpectedError(
 				new RpcError(
@@ -107,21 +101,72 @@ describe('isExpectedError', () => {
 	});
 });
 
-test('a boundary crash is reported once with its component stack', () => {
-	const boundary = new ErrorBoundary({
+test('a dry run reports a node it could not reach, not a verdict on the transaction', async () => {
+	const client = createQueryClient();
+	const dryRun = (error: unknown) =>
+		client
+			.getMutationCache()
+			.build(client, {
+				mutationKey: ['dry-run'],
+				mutationFn: () => Promise.reject(error),
+				meta: {
+					expected: (error) => !couldNotSimulate(error),
+				},
+			})
+			.execute(undefined);
+
+	await expect(
+		dryRun(
+			new SimulationFailedError(
+				'MoveAbort',
+				{} as SimulatedTransaction,
+			),
+		),
+	).rejects.toThrow('MoveAbort');
+	await expect(
+		dryRun(
+			new RpcError('No such object', 'INVALID_ARGUMENT'),
+		),
+	).rejects.toThrow('No such object');
+	expect(Sentry.captureException).not.toHaveBeenCalled();
+
+	await expect(
+		dryRun(new RpcError('Unreachable', 'UNAVAILABLE')),
+	).rejects.toThrow('Unreachable');
+	expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+	expect(Sentry.captureException).toHaveBeenCalledWith(
+		expect.any(RpcError),
+		{
+			tags: {
+				source: 'rpc',
+				mutation: 'dry-run',
+				rpc_code: 'UNAVAILABLE',
+			},
+			fingerprint: ['{{ default }}', 'dry-run'],
+		},
+	);
+});
+
+test('a boundary crash is reported once, and again after it is cleared', () => {
+	const props = {
 		children: null,
 		fallback: () => null,
-		onError: (error, info) =>
+		onError: (error: unknown, info: ErrorInfo) =>
 			reportCrash(error, info, 'page'),
-	});
+		resetKey: '/a',
+	};
+	const boundary = new ErrorBoundary(props);
+	const crash = (error: Error, componentStack: string) => {
+		boundary.state = {
+			...boundary.state,
+			...ErrorBoundary.getDerivedStateFromError(error),
+		};
+		boundary.componentDidCatch(error, { componentStack });
+	};
 	const error = new Error('render failed');
 
-	boundary.componentDidCatch(error, {
-		componentStack: '\n    at Page',
-	});
-	boundary.componentDidCatch(new Error('second cell'), {
-		componentStack: '\n    at Cell',
-	});
+	crash(error, '\n    at Page');
+	crash(new Error('second cell'), '\n    at Cell');
 
 	expect(
 		Sentry.captureReactException,
@@ -133,6 +178,20 @@ test('a boundary crash is reported once with its component stack', () => {
 			tags: { source: 'app', boundary: 'page' },
 		}),
 	);
+
+	// Navigating away clears the crash; the next page crashes too.
+	boundary.state = {
+		...boundary.state,
+		...ErrorBoundary.getDerivedStateFromProps(
+			{ ...props, resetKey: '/b' },
+			boundary.state,
+		),
+	};
+	crash(new Error('next page'), '\n    at Next');
+
+	expect(
+		Sentry.captureReactException,
+	).toHaveBeenCalledTimes(2);
 });
 
 describe('a failed query', () => {
@@ -160,6 +219,7 @@ describe('a failed query', () => {
 					query: 'multisig',
 					status: '500',
 				},
+				fingerprint: ['{{ default }}', 'multisig'],
 			}),
 		);
 	});
@@ -210,4 +270,28 @@ describe('a failed query', () => {
 			query,
 		);
 	});
+});
+
+test('without a DSN nothing is sent', async () => {
+	vi.unstubAllEnvs();
+	const client = createQueryClient();
+
+	await expect(
+		client.fetchQuery({
+			queryKey: ['multisig', '0x1'],
+			queryFn: () =>
+				Promise.reject(new SagatApiError('boom', 500)),
+			retry: false,
+		}),
+	).rejects.toThrow('boom');
+	reportCrash(
+		new Error('render failed'),
+		{ componentStack: '\n    at Page' },
+		'app',
+	);
+
+	expect(Sentry.captureException).not.toHaveBeenCalled();
+	expect(
+		Sentry.captureReactException,
+	).not.toHaveBeenCalled();
 });
