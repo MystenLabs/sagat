@@ -3,11 +3,13 @@
 
 import './global.css';
 
+import { Banner } from 'fumadocs-ui/components/banner';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import { Provider } from '@/components/provider';
 import {
+	alphaNotice,
 	siteDescription,
 	siteName,
 	siteUrl,
@@ -30,6 +32,14 @@ export default function Layout({
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<body className="flex min-h-screen flex-col">
+				{/* Sticky only from md up, where global.css sets its height. */}
+				<Banner
+					height="var(--fd-banner-height, auto)"
+					changeLayout={false}
+					className="bg-[color-mix(in_oklab,var(--color-fd-warning)_12%,var(--color-fd-background))] py-2 text-balance max-md:static"
+				>
+					{alphaNotice}
+				</Banner>
 				<Provider>{children}</Provider>
 			</body>
 		</html>

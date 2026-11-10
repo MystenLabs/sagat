@@ -1,3 +1,18 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+/* Banner height where it sticks: two lines of text from md, one from lg. */
+:root {
+	scroll-padding-top: var(--fd-banner-height, 0px);
+}
+@media (width >= 48rem) {
+	:root {
+		--fd-banner-height: 3.5rem;
+	}
+}
+@media (width >= 64rem) {
+	:root {
+		--fd-banner-height: 2.25rem;
+	}
+}
