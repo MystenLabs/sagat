@@ -1,6 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+// Keep first: error reporting starts before the other modules load.
+import './instrument.ts';
+
 import { registerWalletConnectWallet } from '@mysten/walletconnect-wallet';
 import React from 'react';
 import ReactDOM from 'react-dom/client';

@@ -26,6 +26,8 @@
 		"@mysten/wallet-sdk": "^0.9.6",
 		"@mysten/walletconnect-wallet": "^1.1.35",
 		"@noble/hashes": "^2.4.0",
+		"@sentry/core": "^11.11.0",
+		"@sentry/react": "^11.11.0",
 		"@tailwindcss/vite": "^4.3.3",
 		"@tanstack/react-query": "^5.104.0",
 		"@wallet-standard/base": "^1.1.1",

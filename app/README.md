@@ -54,6 +54,15 @@ with the flag. Use a throwaway localnet-only key that never holds real funds,
 and set it in your shell or in `app/.env` (gitignored), never in a committed
 file.
 
+## Error reporting
+
+`VITE_SENTRY_DSN` and `VITE_RELEASE` are optional and read at build time.
+Without a DSN, Sentry is not initialised and nothing is sent. With one,
+uncaught errors and unhandled promise rejections are reported to that DSN,
+with no user or IP data. The image build adds the DSN's origin to the CSP's
+`connect-src`. When `VITE_RELEASE` is set, events are tagged with that release.
+Production builds ship source maps next to the assets.
+
 ## Building
 
 To build your app for deployment you can run

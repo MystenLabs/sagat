@@ -28,14 +28,19 @@ FROM development AS build
 ARG VITE_API_URL
 ARG VITE_SUI_NETWORKS
 ARG VITE_DEFAULT_NETWORK
+ARG VITE_SENTRY_DSN
+ARG VITE_RELEASE
 
 # Set environment variables for build
 ENV NODE_ENV=production
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_SUI_NETWORKS=$VITE_SUI_NETWORKS
 ENV VITE_DEFAULT_NETWORK=$VITE_DEFAULT_NETWORK
+ENV VITE_SENTRY_DSN=$VITE_SENTRY_DSN
+ENV VITE_RELEASE=$VITE_RELEASE
 
 RUN bun scripts/api-origin.ts > api-origin
+RUN bun scripts/sentry-origin.ts > sentry-origin
 RUN bun run build
 
 # Production stage with nginx
@@ -50,10 +55,12 @@ COPY --from=build --chown=1001:1001 /monorepo/app/dist /usr/share/nginx/html
 
 COPY app/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY app/nginx/headers.conf.template /etc/nginx/snippets/
-COPY --from=build /monorepo/app/api-origin /etc/nginx/snippets/
-RUN API_ORIGIN="$(cat /etc/nginx/snippets/api-origin)" envsubst '$API_ORIGIN' \
+COPY --from=build /monorepo/app/api-origin /monorepo/app/sentry-origin /etc/nginx/snippets/
+RUN API_ORIGIN="$(cat /etc/nginx/snippets/api-origin)" \
+    SENTRY_ORIGIN="$(cat /etc/nginx/snippets/sentry-origin)" \
+    envsubst '$API_ORIGIN $SENTRY_ORIGIN' \
         < /etc/nginx/snippets/headers.conf.template > /etc/nginx/snippets/headers.conf && \
-    rm /etc/nginx/snippets/headers.conf.template /etc/nginx/snippets/api-origin && \
+    rm /etc/nginx/snippets/headers.conf.template /etc/nginx/snippets/api-origin /etc/nginx/snippets/sentry-origin && \
     nginx -t
 
 # Expose port
