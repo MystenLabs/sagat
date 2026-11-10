@@ -7,6 +7,11 @@
 - End the PR body with `Closes <issue-id>`.
 - Linear moves the issue when the PR is opened, marked ready, and merged. Close issues without a PR by hand.
 
+## Pull requests
+
+- Start the PR title with the area it changes and a colon: `api:`, `app:`, `docs:` for `docs/` and `design/`, `sdk:`, `e2e:`, `ci:` for workflows, or `repo:` for root config and tooling. Example: `docs: Explain how the app finds a signer’s public key`.
+- A PR that spans areas takes the prefix of the one that carries most of the change.
+
 ## Copy
 
 - Every user-facing string lives in `app/src/content.ts`: titles, labels, buttons, placeholders, helper and error lines, empty states, dialogs, toasts, tooltips and aria labels. Components read it as `content.<screen>.<key>`; files in `app/src/lib/` import it from `../content`, because e2e loads them without the `@/` alias.
