@@ -3,35 +3,21 @@
 
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import type { Root } from 'mdast';
+import type { Root, RootContent } from 'mdast';
+
+import type {} from 'remark-mdx';
+
 import { visit } from 'unist-util-visit';
 
-type EsmNode = {
-	type: 'mdxjsEsm';
-	data?: {
-		estree?: {
-			body: {
-				type: string;
-				source?: { value: unknown };
-				specifiers?: { local: { name: string } }[];
-			}[];
-		};
-	};
-};
+type EsmNode = Extract<RootContent, { type: 'mdxjsEsm' }>;
+type JsxNode = Extract<
+	RootContent,
+	{ type: 'mdxJsxFlowElement' }
+>;
 
-type JsxAttribute = {
-	type: string;
-	name?: string;
-	value?: unknown;
-};
-
-type JsxNode = {
-	type: 'mdxJsxFlowElement';
-	name: string | null;
-	attributes: JsxAttribute[];
-};
-
-function identifierValue(name: string) {
+function identifierValue(
+	name: string,
+): JsxNode['attributes'][number]['value'] {
 	return {
 		type: 'mdxJsxAttributeValueExpression',
 		value: name,
@@ -50,7 +36,7 @@ function identifierValue(name: string) {
 	};
 }
 
-function esmImport(name: string, source: string) {
+function esmImport(name: string, source: string): EsmNode {
 	return {
 		type: 'mdxjsEsm',
 		value: '',
@@ -72,7 +58,7 @@ function esmImport(name: string, source: string) {
 				],
 			},
 		},
-	};
+	} as EsmNode;
 }
 
 // Runs after remarkImage: gives each imported image with a `-dark` twin a `darkSrc` import.
@@ -81,16 +67,17 @@ export function remarkDarkImage() {
 		if (!file.dirname) return;
 		const dir = file.dirname;
 		const twins = new Map<string, string>();
-		const imports: ReturnType<typeof esmImport>[] = [];
+		const imports: EsmNode[] = [];
 
-		for (const node of tree.children as unknown as EsmNode[]) {
+		for (const node of tree.children) {
 			if (node.type !== 'mdxjsEsm') continue;
 			for (const statement of node.data?.estree?.body ??
 				[]) {
+				if (statement.type !== 'ImportDeclaration')
+					continue;
 				const source = statement.source?.value;
 				const local = statement.specifiers?.[0]?.local.name;
 				if (
-					statement.type !== 'ImportDeclaration' ||
 					typeof source !== 'string' ||
 					!local?.startsWith('__img')
 				)
@@ -108,19 +95,19 @@ export function remarkDarkImage() {
 		}
 		if (twins.size === 0) return;
 
-		visit(tree, (raw) => {
-			const node = raw as unknown as JsxNode;
+		visit(tree, (node) => {
 			if (
 				node.type !== 'mdxJsxFlowElement' ||
 				node.name !== 'img'
 			)
 				return;
 			const src = node.attributes.find(
-				(a) => a.name === 'src',
+				(a) =>
+					a.type === 'mdxJsxAttribute' && a.name === 'src',
 			);
-			const value = src?.value as
-				{ value?: unknown } | undefined;
+			const value = src?.value;
 			const dark =
+				typeof value === 'object' &&
 				typeof value?.value === 'string' &&
 				twins.get(value.value);
 			if (!dark) return;
@@ -130,8 +117,6 @@ export function remarkDarkImage() {
 				value: identifierValue(dark),
 			});
 		});
-		tree.children.unshift(
-			...(imports as unknown as Root['children']),
-		);
+		tree.children.unshift(...imports);
 	};
 }
