@@ -1,23 +1,23 @@
 ---
 title: External proposers
-description: Addresses that can propose transactions for an account without being its signers, and how signers add, remove and review them.
+description: Addresses that can propose transactions for a pod without being its signers, and how signers add, remove and review them.
 ---
 
-An external proposer is an address that can propose transactions for an account without being one of its signers. It has no weight and cannot approve a proposal. It suits, for example, a teammate who prepares payouts for the signers to review, or a service that drafts routine transfers from the account.
+An external proposer is an address that can propose transactions for a pod, a multisig account, without being one of its signers. It has no weight and cannot approve a proposal. It suits, for example, a teammate who prepares payouts for the signers to review, or a service that drafts routine transfers from the pod.
 
 ## Adding and removing
 
-Any signer who has accepted their invitation can add or remove an external proposer, from the **External proposers** section of the account’s **Members** page. Each change is a [signed message](/glossary#signed-message) from your wallet that names the address, the account and an expiry. An account can have up to 5 external proposers.
+Any signer who has accepted their invitation can add or remove an external proposer, from the **External proposers** section of the pod’s **Members** page. Each change is a [signed message](/glossary#signed-message) from your wallet that names the address, the pod and an expiry. A pod can have up to 5 external proposers.
 
-Removing an external proposer cancels all of their pending proposals on the account, including ones that signers have already signed. See [Cancelling](/guide/proposals#cancelling) for what cancelling does and does not do.
+Removing an external proposer cancels all of their pending proposals on the pod, including ones that signers have already signed. See [Cancelling](/guide/proposals#cancelling) for what cancelling does and does not do.
 
 ## How an external proposer proposes
 
-The app has no screen for this: it lists only the accounts where your key is an accepted signer, so an external proposer does not see the account there.
+The app has no screen for this: it lists only the pods where your key is an accepted signer, so an external proposer does not see the pod there.
 
-They propose through the API, for example with the SDK’s `createProposal`. The request carries the account address, the network, the transaction bytes, an optional description, which the app shows as the proposal’s title, and the external proposer’s own signature over the transaction. This call does not need a signed-in session.
+They propose through the API, for example with the SDK’s `createProposal`. The request carries the pod’s address, the network, the transaction bytes, an optional description, which the app shows as the proposal’s title, and the external proposer’s own signature over the transaction. This call does not need a signed-in session.
 
-The transaction follows the same rules as any proposal: the account is the sender and pays the gas, and the limit on pending proposals and the rule on owned objects apply. See [Who can propose](/guide/proposals#who-can-propose).
+The transaction follows the same rules as any proposal: the pod is the sender and pays the gas, and the limit on pending proposals and the rule on owned objects apply. See [Who can propose](/guide/proposals#who-can-propose).
 
 The API checks the external proposer’s signature against the transaction but does not store it as an approval. The proposal starts with no signed weight and needs the signers’ signatures to meet the threshold.
 
@@ -26,8 +26,8 @@ The API checks the external proposer’s signature against the transaction but d
 - Look up a proposal by its digest. The API returns it to anyone, and the app’s proposal link shows it to anyone.
 - Cancel their own proposal with a signed message, only while nobody has signed it. The app’s proposal link has no cancel button, so this goes through the API, for example with the SDK’s `cancelProposal`.
 
-The API returns an account’s list of proposals only to its signers. A proposal opened by its link shows the account’s name, its signers with their weights, the threshold and the signatures collected so far.
+The API returns a pod’s list of proposals only to its signers. A proposal opened by its link shows the pod’s name, its signers with their weights, the threshold and the signatures collected so far.
 
 ## Reviewing an external proposer’s proposal
 
-In the account’s proposal list, a proposal from an address that is not a signer shows its proposer marked **(external)**. Before you sign, check the transaction in the app’s preview and in your wallet’s own preview, and make sure they agree. Rely on the transaction, not the title: the title is typed by the proposer and is not part of what you sign. See [Check what you sign](/security/trust-model#check-what-you-sign).
+In the pod’s proposal list, a proposal from an address that is not a signer shows its proposer marked **(external)**. Before you sign, check the transaction in the app’s preview and in your wallet’s own preview, and make sure they agree. Rely on the transaction, not the title: the title is typed by the proposer and is not part of what you sign. See [Check what you sign](/security/trust-model#check-what-you-sign).

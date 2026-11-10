@@ -25,8 +25,8 @@ dir="${LOCALNET_DIR:-$(dirname "$0")/.cache/localnet}"
 rm -rf "$dir"
 mkdir -p "$dir"
 
-# Long epochs so an epoch change never lands mid-test.
-sui genesis --working-dir "$dir" --with-faucet --epoch-duration-ms 3600000 >/dev/null
+# Long epochs so an epoch change never lands mid-test; LOCALNET_EPOCH_MS overrides.
+sui genesis --working-dir "$dir" --with-faucet --epoch-duration-ms "${LOCALNET_EPOCH_MS:-3600000}" >/dev/null
 
 sed -i.bak 's/^  num-epochs-to-retain: 0$/  num-epochs-to-retain: 2/' "$dir/fullnode.yaml"
 if ! grep -q '^  num-epochs-to-retain: 2$' "$dir/fullnode.yaml"; then

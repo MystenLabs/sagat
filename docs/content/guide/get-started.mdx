@@ -1,0 +1,43 @@
+---
+title: Get started
+description: Connect a wallet, sign in and pick a network before you create your first pod.
+---
+
+A pod is a [multisig account](/glossary#pod): one Sui address that several signers control together. These pages walk you through the app for the first time: signing in, [creating a pod](/guide/create-a-pod) with other signers and [making your first proposal](/guide/first-proposal). For the ideas behind them, read [How a multisig works](/guide/how-a-multisig-works) first.
+
+You need a Sui wallet. The app works through the Sui wallet standard with whichever wallet you connect.
+
+## Connect a wallet
+
+1. Open the app. Signed out, it shows “Connect a wallet to get started”.
+2. Press **Connect wallet** and pick your wallet from the list.
+
+## Sign in
+
+Connecting and signing in are two separate steps. Once your wallet is connected, the app shows the “Sign in to continue” card.
+
+1. Press **Sign in**.
+2. Your wallet asks you to sign a message that reads `Verifying address ownership until: <time>`. Check it and approve.
+
+This is a message, not a transaction. As the card says, it proves you own the wallet and moves no funds.
+
+![The “Sign in to continue” card, which says signing proves you own the wallet and does not send a transaction, with its Sign in button](/screenshots/sign-in.png)
+
+Your session stays in that browser, so the app does not ask you to sign in again on your next visit. To end it, open the wallet menu at the bottom of the sidebar and choose **Disconnect**.
+
+Signing in also registers your public key with the service under your address. That is what lets other people add you as a signer by pasting your address; see [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
+
+## Pick a network
+
+The network row sits in the sidebar footer and shows the network you are on. A first visit starts on Testnet. While you are on a test network, a banner at the top reads “Test mode. You’re connected to testnet. No real funds will be used.”, with a **Switch to Mainnet** button.
+
+A pod and its address are the same on every network, but proposals and balances belong to the network you have selected. See [Pods and networks](/guide/how-a-multisig-works#pods-and-networks).
+
+We suggest trying this walkthrough on Testnet first, with test SUI from the Sui faucet. Test funds have no value, so it is a safe way to try a proposal.
+
+## Your first screen
+
+Signed in and with no pods yet, the app shows “You’re not in any pods yet”, with two buttons:
+
+- **Create a pod** starts a new pod. Continue with [Create a pod](/guide/create-a-pod).
+- **View invitations** lists the pods that other people have asked you to join. See [Accept an invitation](/guide/create-a-pod#accept-an-invitation).

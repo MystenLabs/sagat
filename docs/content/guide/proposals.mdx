@@ -1,15 +1,15 @@
 ---
 title: How proposals work
-description: How a transaction from a multisig account goes from proposed to signed, executed or cancelled.
+description: How a transaction from a pod, a multisig account, goes from proposed to signed, executed or cancelled.
 ---
 
-A [proposal](/glossary#proposal) is a transaction from the account that is waiting for signatures. You build a transfer or paste a custom transaction, preview its effects, add an optional title and submit it.
+A [proposal](/glossary#proposal) is a transaction from a pod, the multisig account the signers share, that is waiting for signatures. You build a transfer or paste a custom transaction, preview its effects, add an optional title and submit it.
 
 ## Who can propose
 
-Any signer who has accepted can propose. An account can also have up to 5 [external proposers](/guide/external-proposers), addresses that a signer adds or removes and whose proposals still need the signers’ signatures.
+Any signer who has accepted can propose. A pod can also have up to 5 [external proposers](/guide/external-proposers), addresses that a signer adds or removes and whose proposals still need the signers’ signatures.
 
-The transaction’s sender must be the account, and its gas must be paid by the account. An account can have up to 10 pending proposals per network, and two pending proposals on the same network cannot use the same owned object.
+The transaction’s sender must be the pod, and its gas must be paid by the pod. A pod can have up to 10 pending proposals per network, and two pending proposals on the same network cannot use the same owned object.
 
 ## Signing
 
@@ -35,9 +35,8 @@ A signer can cancel any pending proposal. An external proposer can cancel only t
 	the transaction and enough signatures, for example through
 	the proposal’s link, can still submit it until it expires
 	or one of the objects it uses changes. To make sure it
-	cannot run, execute another transaction from the account
-	that uses one of the same owned objects, such as the same
-	coin.
+	cannot run, execute another transaction from the pod that
+	uses one of the same owned objects, such as the same coin.
 </Callout>
 
 ## Statuses

@@ -1,9 +1,12 @@
 {
 	"title": "Guide",
-	"description": "Using the app to run a multisig account with other signers.",
+	"description": "Using the app to run a pod, a multisig account, with other signers.",
 	"pages": [
 		"---Start here---",
 		"how-a-multisig-works",
+		"get-started",
+		"create-a-pod",
+		"first-proposal",
 		"---Proposals---",
 		"proposals",
 		"external-proposers"

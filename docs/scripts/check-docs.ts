@@ -22,6 +22,7 @@ const contentDir = path.resolve(
 	process.argv[2] ??
 		path.join(import.meta.dirname, '../content'),
 );
+const publicDir = path.resolve(contentDir, '../public');
 
 const parser = unified()
 	.use(remarkParse)
@@ -29,12 +30,17 @@ const parser = unified()
 	.use(remarkMdx)
 	.use(remarkHeading, { generateToc: false });
 
+// Has a scheme (https:, mailto:) or is protocol-relative (//host).
+const EXTERNAL = /^([a-z][a-z\d+.-]*:|\/\/)/i;
+
 type Link = { href: string; line: number; jsx: boolean };
+type Image = { src: string; alt: string; line: number };
 type Page = {
 	file: string;
 	url: string;
 	slugs: Set<string>;
 	links: Link[];
+	images: Image[];
 };
 
 const errors: string[] = [];
@@ -88,6 +94,7 @@ function readPage(file: string): Page {
 
 	const slugs = new Set<string>();
 	const links: Link[] = [];
+	const images: Image[] = [];
 	visit(tree, (node) => {
 		const line = node.position?.start.line ?? 1;
 		if (node.type === 'heading') {
@@ -98,6 +105,12 @@ function readPage(file: string): Page {
 			node.type === 'definition'
 		) {
 			links.push({ href: node.url, line, jsx: false });
+		} else if (node.type === 'image') {
+			images.push({
+				src: node.url,
+				alt: node.alt ?? '',
+				line,
+			});
 		} else if (
 			node.type === 'mdxJsxFlowElement' ||
 			node.type === 'mdxJsxTextElement'
@@ -111,9 +124,29 @@ function readPage(file: string): Page {
 					links.push({ href: attr.value, line, jsx: true });
 				}
 			}
+			if (
+				node.name === 'img' ||
+				node.name === 'ImageZoom'
+			) {
+				const value = (name: string) =>
+					node.attributes.find(
+						(attr) =>
+							attr.type === 'mdxJsxAttribute' &&
+							attr.name === name,
+					)?.value;
+				const src = value('src');
+				const alt = value('alt');
+				if (typeof src === 'string') {
+					images.push({
+						src,
+						alt: typeof alt === 'string' ? alt : '',
+						line,
+					});
+				}
+			}
 		}
 	});
-	return { file, url: pageUrl(file), slugs, links };
+	return { file, url: pageUrl(file), slugs, links, images };
 }
 
 // A folder has pages if it holds one or lists a subfolder that does.
@@ -172,6 +205,7 @@ function checkMeta(dir: string, entries: string[]) {
 				url: pageUrl(path.join(dir, 'index.mdx')),
 				slugs: new Set(),
 				links: [],
+				images: [],
 			};
 			checkLink(folder, url, lineOf(entry));
 			continue;
@@ -296,7 +330,7 @@ function checkLink(
 	line: number,
 	jsx = false,
 ) {
-	if (/^([a-z][a-z\d+.-]*:|\/\/)/i.test(href)) return;
+	if (EXTERNAL.test(href)) return;
 	const [target, anchor] = href.split('#', 2);
 	// Fumadocs rewrites file paths only in Markdown links that start with ./ or ../.
 	if (target.endsWith('.mdx')) {
@@ -332,10 +366,37 @@ function checkLink(
 	}
 }
 
+function checkImage(page: Page, { src, alt, line }: Image) {
+	if (alt.trim() === '') {
+		report(
+			page.file,
+			line,
+			`image "${src}" needs alt text`,
+		);
+	}
+	if (EXTERNAL.test(src)) return;
+	if (!src.startsWith('/')) {
+		report(
+			page.file,
+			line,
+			`image "${src}" must be a site path starting with /`,
+		);
+	} else if (
+		!existsSync(path.join(publicDir, decodeURI(src)))
+	) {
+		report(
+			page.file,
+			line,
+			`image "${src}" has no file in ${path.relative(process.cwd(), publicDir)}`,
+		);
+	}
+}
+
 for (const page of pages) {
 	for (const { href, line, jsx } of page.links) {
 		checkLink(page, href, line, jsx);
 	}
+	for (const image of page.images) checkImage(page, image);
 }
 
 if (errors.length > 0) {

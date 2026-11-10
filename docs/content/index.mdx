@@ -1,17 +1,22 @@
 ---
 title: Multisig accounts on Sui
-description: Create a multisig account with other signers, propose transactions, collect signatures and execute them on Sui.
+description: Create a pod, a multisig account, with other signers, propose transactions, collect signatures and execute them on Sui.
 ---
 
-Sui Pods is an app, an API and a TypeScript SDK for running multisig accounts on Sui. You and your co-signers share one account address, propose transactions from it, and execute each one once enough of you have signed.
+Sui Pods is an app, an API and a TypeScript SDK for running multisig accounts on Sui. You and your co-signers share one multisig account, called a pod, propose transactions from its address, and execute each one once enough of you have signed.
 
-Multisig is native to Sui, and the service adds nothing of its own on chain: your account is a standard Sui multisig address. Whatever you approve is signed in your own wallet.
+Multisig is native to Sui, and the service adds nothing of its own on chain: your pod is a standard Sui multisig address. Whatever you approve is signed in your own wallet.
 
 <Cards>
 	<Card
+		title="Get started"
+		href="/guide/get-started"
+		description="Connect a wallet, create a pod and make your first proposal."
+	/>
+	<Card
 		title="Use the app"
 		href="/guide/how-a-multisig-works"
-		description="How accounts, signers, thresholds and proposals fit together."
+		description="How pods, signers, thresholds and proposals fit together."
 	/>
 	<Card
 		title="Build with the SDK"

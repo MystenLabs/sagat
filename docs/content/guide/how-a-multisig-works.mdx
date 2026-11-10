@@ -1,19 +1,19 @@
 ---
 title: How a multisig works
-description: What a multisig account is, how weights and the threshold decide who can move funds, and why the address depends on the setup.
+description: What a pod is, how weights and the threshold decide who can move funds, and why the address depends on the setup.
 ---
 
-## What a multisig account is
+## What a pod is
 
-A multisig account is a Sui address that several people control together. Instead of one private key, it has a list of [signers](/glossary#signer), a [weight](/glossary#weight) for each, and a [threshold](/glossary#threshold). A transaction from the account goes through only when the signers who signed it have enough weight between them to meet the threshold.
+A pod is a multisig account: a Sui address that several people control together. Instead of one private key, it has a list of [signers](/glossary#signer), a [weight](/glossary#weight) for each, and a [threshold](/glossary#threshold). A transaction from the pod goes through only when the signers who signed it have enough weight between them to meet the threshold.
 
-Multisig is [built into Sui](https://docs.sui.io/develop/transactions/transaction-auth/multisig). The account’s address is derived from the signers’ public keys, their weights and the threshold, so there is no smart contract to deploy. The app shows a live preview of the address while you create the account.
+Multisig is [built into Sui](https://docs.sui.io/develop/transactions/transaction-auth/multisig). The pod’s address is derived from the signers’ public keys, their weights and the threshold, so there is no smart contract to deploy. The app shows a live preview of the address while you create the pod.
 
-The app and the API only coordinate: they store proposals and signatures and show who has signed. The account is a standard Sui multisig address, so anyone who knows its public keys, weights and threshold can derive it and use it with [other Sui tooling](https://sdk.mystenlabs.com/sui/cryptography/signers/multisig), without this service. See the [trust model](/security/trust-model#multisig-is-native-to-sui).
+The app and the API only coordinate: they store proposals and signatures and show who has signed. The pod is a standard Sui multisig address, so anyone who knows its public keys, weights and threshold can derive it and use it with [other Sui tooling](https://sdk.mystenlabs.com/sui/cryptography/signers/multisig), without this service. See the [trust model](/security/trust-model#multisig-is-native-to-sui).
 
 ## Signers and public keys
 
-Each signer is one public key, usually the key behind your wallet. When you create an account, each signer’s field takes either a public key or an address (**Paste a public key, or search by address**). Paste an address and the app looks for its public key in the service’s records and on chain at the same time, and fills in the key as soon as either has it. That gives three ways to add someone, easiest first:
+Each signer is one public key, usually the key behind your wallet. When you create a pod, each signer’s field takes either a public key or an address (**Paste a public key, or search by address**). Paste an address and the app looks for its public key in the service’s records and on chain at the same time, and fills in the key as soon as either has it. That gives three ways to add someone, easiest first:
 
 1. **They sign in to the app once.** They choose **Connect wallet**, then **Sign in**. Signing in registers the public key of the account they signed in with, so from then on their address is enough.
 2. **Their address has sent a transaction.** The app reads the public key from the signature of a transaction the address has sent on mainnet, testnet or devnet.
@@ -21,7 +21,7 @@ Each signer is one public key, usually the key behind your wallet. When you crea
 
 The app accepts Ed25519, Secp256k1 and Secp256r1 keys.
 
-An account has between 2 and 10 signers. When you create one, any of your own keys in the list accept right away. Every other signer gets an [invitation](/glossary#invitation) to accept or reject, by signing a message with their wallet. The account shows up in your list once you have accepted, and the app marks signers who have not answered yet as **Invited**.
+A pod has between 2 and 10 signers. When you create one, any of your own keys in the list accept right away. Every other signer gets an [invitation](/glossary#invitation) to accept or reject, by signing a message with their wallet. The pod shows up in your list once you have accepted, and the app marks signers who have not answered yet as **Invited**.
 
 ## Weights and the threshold
 
@@ -49,14 +49,14 @@ Alice cannot act alone, and Bob and Carol cannot act without her.
 
 ## Why the address depends on the setup
 
-The address is a hash of the threshold and of every signer’s public key and weight, in the order you list them. Change any of these and you get a different address. That is why the address preview changes as you edit the form, and why the app refuses a second account with exactly the same signers, weights and threshold.
+The address is a hash of the threshold and of every signer’s public key and weight, in the order you list them. Change any of these and you get a different address. That is why the address preview changes as you edit the form, and why the app refuses a second pod with exactly the same signers, weights and threshold.
 
-An existing account’s signers, weights and threshold cannot be edited. A different setup is a different account, with its own address and its own balances.
+An existing pod’s signers, weights and threshold cannot be edited. A different setup is a different pod, with its own address and its own balances.
 
-## Accounts and networks
+## Pods and networks
 
-An account and its address are the same on every Sui network. Proposals and balances are not: each proposal belongs to the [network](/glossary#network) it was created on, and the app shows the proposals and balances of the network you have selected.
+A pod and its address are the same on every Sui network. Proposals and balances are not: each proposal belongs to the [network](/glossary#network) it was created on, and the app shows the proposals and balances of the network you have selected.
 
 ## Next
 
-Read [How proposals work](/guide/proposals) for how a transaction goes from proposed to executed, and the [trust model](/security/trust-model) for what the service stores and what Sui enforces.
+To try it in the app, follow [Get started](/guide/get-started). Read [How proposals work](/guide/proposals) for how a transaction goes from proposed to executed, and the [trust model](/security/trust-model) for what the service stores and what Sui enforces.

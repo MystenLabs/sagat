@@ -1,6 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+	ImageZoom,
+	type ImageZoomProps,
+} from 'fumadocs-ui/components/image-zoom';
 import defaultMdxComponents, {
 	createRelativeLink,
 } from 'fumadocs-ui/mdx';
@@ -45,6 +49,12 @@ export default async function Page(props: Props) {
 					components={{
 						...defaultMdxComponents,
 						a: createRelativeLink(source, page),
+						img: (props) => (
+							<ImageZoom
+								{...(props as ImageZoomProps)}
+								className="rounded-lg"
+							/>
+						),
 					}}
 				/>
 			</DocsBody>
