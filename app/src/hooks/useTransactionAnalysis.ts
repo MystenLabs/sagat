@@ -12,6 +12,8 @@ import {
 } from '@mysten/wallet-sdk';
 import { useMutation } from '@tanstack/react-query';
 
+import { MutationKeys } from '@/lib/queryKeys';
+
 type AccessLevel = 'read' | 'mutate' | 'transfer';
 
 type AnalysisSection<T> =
@@ -58,6 +60,7 @@ export function useTransactionAnalysis() {
 	const client = useDAppKit().getClient();
 
 	return useMutation({
+		mutationKey: [MutationKeys.TransactionAnalysis],
 		mutationFn: (transactionData: string) =>
 			analyzeTransaction(
 				transactionData,

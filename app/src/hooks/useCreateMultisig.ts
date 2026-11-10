@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { type ArrivalState } from '@/hooks/useArrivalBanner';
 
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 /**
  * Creates the multisig and lands on its overview, which greets the
@@ -28,6 +28,7 @@ export function useCreateMultisig() {
 		dappKit.stores.$connection.get().account?.address;
 
 	return useMutation({
+		mutationKey: [MutationKeys.CreateMultisig],
 		mutationFn: ({
 			request,
 		}: {

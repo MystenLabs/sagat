@@ -14,7 +14,7 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type ArrivalState } from '@/hooks/useArrivalBanner';
 
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 export function useAcceptInvitation() {
 	const queryClient = useQueryClient();
@@ -35,6 +35,7 @@ export function useAcceptInvitation() {
 	};
 
 	return useMutation({
+		mutationKey: [MutationKeys.AcceptInvitation],
 		mutationFn: async ({
 			address: multisigAddress,
 		}: {

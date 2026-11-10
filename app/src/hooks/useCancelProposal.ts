@@ -19,7 +19,7 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 export function useCancelProposal() {
 	const queryClient = useQueryClient();
@@ -28,6 +28,7 @@ export function useCancelProposal() {
 	const { currentAddress } = useApiAuth();
 
 	return useMutation({
+		mutationKey: [MutationKeys.CancelProposal],
 		mutationFn: async (
 			proposal: Pick<
 				Proposal,

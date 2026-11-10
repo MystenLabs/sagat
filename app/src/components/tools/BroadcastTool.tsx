@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/button';
 import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { reportUnexpected } from '@/lib/error-reporting';
 import { type SuiNetwork } from '@/lib/network';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 
@@ -165,6 +166,10 @@ export default function BroadcastTool() {
 				network: broadcastNetwork,
 			});
 		} catch (err) {
+			reportUnexpected(err, {
+				source: 'rpc',
+				operation: 'broadcast',
+			});
 			setError({
 				message:
 					err instanceof Error ? err.message : undefined,

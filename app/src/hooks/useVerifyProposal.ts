@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-query';
 
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 /**
  * Asks the API to check a proposal's digest on chain. Silent: its only
@@ -18,6 +18,7 @@ export function useVerifyProposal() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
+		mutationKey: [MutationKeys.VerifyProposal],
 		mutationFn: async (digest: string) => {
 			return apiClient.verifyProposalByDigest(digest);
 		},

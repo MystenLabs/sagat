@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { init } from '@sentry/react';
+import {
+	captureException,
+	captureReactException,
+	init,
+} from '@sentry/react';
 
 import { maskDigests } from './mask-digests';
 
@@ -23,4 +27,23 @@ export function initSentry() {
 		// Breadcrumbs are already on the event here, so this masks them too.
 		beforeSend: (event) => maskDigests(event),
 	});
+}
+
+export function reportError(
+	error: unknown,
+	report: {
+		tags: Record<string, string>;
+		fingerprint?: string[];
+		componentStack?: string | null;
+	},
+) {
+	if (!import.meta.env.VITE_SENTRY_DSN) return;
+	const { tags, fingerprint, componentStack } = report;
+	if (componentStack)
+		captureReactException(
+			error,
+			{ componentStack },
+			{ tags, fingerprint },
+		);
+	else captureException(error, { tags, fingerprint });
 }
