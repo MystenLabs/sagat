@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { alphaNotice } from '@/lib/site';
+import { alphaNoticeMarkdown } from '@/lib/site';
 import { source } from '@/lib/source';
 
 export const dynamic = 'force-static';
@@ -27,7 +27,7 @@ export async function GET(
 		? `${page.data.description}\n\n`
 		: '';
 	return new Response(
-		`# ${page.data.title}\n\n> ${alphaNotice}\n\n${description}${body}`,
+		`# ${page.data.title}\n\n> ${alphaNoticeMarkdown}\n\n${description}${body}`,
 		{
 			headers: {
 				'Content-Type': 'text/markdown; charset=utf-8',

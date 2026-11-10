@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Provider } from '@/components/provider';
 import {
 	alphaNotice,
+	appUrl,
 	siteDescription,
 	siteName,
 	siteUrl,
@@ -38,7 +39,18 @@ export default function Layout({
 					changeLayout={false}
 					className="bg-[color-mix(in_oklab,var(--color-fd-warning)_12%,var(--color-fd-background))] py-2 text-balance max-md:static"
 				>
-					{alphaNotice}
+					<span>
+						{alphaNotice.lead}
+						<a
+							href={appUrl}
+							target="_blank"
+							rel="noreferrer noopener"
+							className="underline underline-offset-4 hover:text-fd-primary"
+						>
+							{alphaNotice.appLabel}
+						</a>
+						.
+					</span>
 				</Banner>
 				<Provider>{children}</Provider>
 			</body>

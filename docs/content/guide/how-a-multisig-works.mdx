@@ -15,7 +15,7 @@ The app and the API only coordinate: they store proposals and signatures and sho
 
 Each signer is one public key, usually the key behind your wallet. When you create a pod, each signer’s field takes either a public key or an address (**Paste a public key, or search by address**). Paste an address and the app looks for its public key in the service’s records and on chain at the same time, and fills in the key as soon as either has it. That gives three ways to add someone, easiest first:
 
-1. **They sign in to the app once.** They choose **Connect wallet**, then **Sign in**. Signing in registers the public key of the account they signed in with, so from then on their address is enough.
+1. **They sign in to [the app](https://app.suipods.io) once.** They choose **Connect wallet**, then **Sign in**. Signing in registers the public key of the account they signed in with, so from then on their address is enough.
 2. **Their address has sent a transaction.** The app reads the public key from the signature of a transaction the address has sent on mainnet, testnet or devnet.
 3. **You paste their public key.** If the app shows “No public key found for this address”, ask the signer for their public key and paste it instead of the address.
 
