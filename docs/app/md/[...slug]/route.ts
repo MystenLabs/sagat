@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { markdownComponents } from '@/lib/markdown-components';
 import { alphaNoticeMarkdown } from '@/lib/site';
 import { source } from '@/lib/source';
 
@@ -22,12 +23,14 @@ export async function GET(
 	if (!page)
 		return new Response('Not found', { status: 404 });
 
-	const body = await page.data.getText('processed');
+	const body = await page.data.getText('processed', {
+		components: markdownComponents,
+	});
 	const description = page.data.description
 		? `${page.data.description}\n\n`
 		: '';
 	return new Response(
-		`# ${page.data.title}\n\n> ${alphaNoticeMarkdown}\n\n${description}${body}`,
+		`# ${page.data.title}\n\n> ${alphaNoticeMarkdown}\n\n${description}${body}\n`,
 		{
 			headers: {
 				'Content-Type': 'text/markdown; charset=utf-8',
