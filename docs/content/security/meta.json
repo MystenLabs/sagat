@@ -1,0 +1,5 @@
+{
+	"title": "Security",
+	"description": "What the service stores and what Sui checks for you.",
+	"pages": ["trust-model"]
+}

@@ -1,0 +1,49 @@
+---
+title: Trust model
+description: How multisig works natively on Sui, what needs your signature, how to check what you sign, what the service stores and what Sui enforces.
+---
+
+## Multisig is native to Sui
+
+The service publishes no smart contract and creates no on-chain object of its own. The account is a standard Sui multisig address, derived from the ordered public keys, their weights and the threshold. Anyone who knows those can derive the same address and use the account with [other Sui tooling](https://sdk.mystenlabs.com/sui/cryptography/signers/multisig), without this service. The transfers the app builds are ordinary Sui transactions sent from the account.
+
+The app and the API coordinate: they store proposals and signatures and show who has signed. The API only reads from the chain and never signs, submits or pays for a transaction. Gas is paid by the account itself, and the API refuses a transaction whose gas is paid by anyone else.
+
+## What needs your signature
+
+The app asks for signatures through the Sui wallet standard, from whichever wallet you connect. Your wallet is separate software from the app and shows its own view of what you sign.
+
+- **A signed transaction:** proposing a transaction and approving a proposal. Your wallet signs the exact transaction bytes, and the API checks every signature against the stored transaction and rejects one that does not match.
+- **A signed message:** signing in, accepting or declining an invitation, adding or removing an external proposer, and cancelling a proposal.
+- **Your signed-in session:** creating an account, with its name and key labels. Your own keys accept automatically, and every other signer still has to accept with a signed message. Creating an account moves no funds.
+- **No new signature:** executing a proposal that has enough signed weight. The app combines the signatures already collected and sends the transaction from your browser straight to a Sui full node. Sui accepts it from whoever submits it, but only if those signatures meet the threshold.
+
+## Check what you sign
+
+Before you sign, the app shows a preview of the proposal’s stored transaction: a simulation with its balance changes, object changes and events, plus the transaction’s commands. If the simulation fails, the **Sign proposal** button reads **Sign anyway** instead. Your wallet is an independent second check, with its own preview of the same transaction.
+
+We recommend checking every transaction in two places before you sign it, the app’s preview and your wallet’s own preview, and making sure they agree. Rely on the transaction itself, not on the title: a proposal’s title is a note typed by the proposer and is not part of what is signed.
+
+## What the service stores
+
+The API stores:
+
+- the public key and address of each wallet that signs in
+- the signers’ public keys and their addresses, weights and order, and the threshold
+- the account’s name and labels for its keys
+- each signer’s answer to their invitation
+- each proposal’s transaction bytes, digest, title, network, proposer and status
+- the signatures collected for each proposal
+- the account’s external proposers, and a log of who added or removed them and who created or cancelled each proposal
+
+## What it never holds
+
+The service never holds a private key. The app and the API never ask for, generate or store one, and the API holds no key that could sign or pay for a transaction. Every signature is made in your own wallet, and the API checks it before storing it.
+
+## What Sui enforces
+
+When a transaction executes, Sui validators check the combined signature against the account’s address: each signature must come from one of its public keys, and their weights must meet its threshold. See the [Sui documentation on multisig](https://docs.sui.io/develop/transactions/transaction-auth/multisig) for how the network does this.
+
+## Cancelled proposals
+
+Cancelling a proposal does not withdraw signatures already given. See [Cancelling](/guide/proposals#cancelling) for what it does and does not do.

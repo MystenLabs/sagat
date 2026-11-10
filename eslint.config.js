@@ -12,6 +12,9 @@ export default [
 			'**/build',
 			'**/coverage',
 			'**/.next',
+			'**/.source',
+			'docs/out',
+			'**/next-env.d.ts',
 			'**/storybook-static',
 			'**/vite-env.d.ts',
 			'app/**', // App has its own config with React rules

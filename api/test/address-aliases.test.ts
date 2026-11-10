@@ -3,7 +3,7 @@
 
 // Address alias behaviour for multisig accounts on a local network.
 // Regression suite for the protocol rules that account rotation relies on
-// (docs/account-rotation.md). The steps share state and run in order.
+// (design/account-rotation.md). The steps share state and run in order.
 
 import {
 	SimulationError,
