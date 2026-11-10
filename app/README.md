@@ -54,6 +54,20 @@ with the flag. Use a throwaway localnet-only key that never holds real funds,
 and set it in your shell or in `app/.env` (gitignored), never in a committed
 file.
 
+## Error reporting
+
+`VITE_SENTRY_DSN` and `VITE_RELEASE` are optional and read at build time.
+Without a DSN, Sentry is not initialised and nothing is sent. With one,
+uncaught errors and unhandled promise rejections are reported to that DSN.
+Reports carry no user identity and ask Sentry not to record the IP address,
+but they do include the page URL and the URLs of recent requests, which contain
+account addresses. Proposal digests are replaced with `:digest` before a report
+is sent. When `VITE_RELEASE` is set, events are tagged with that release and the
+SDK also sends a session ping, with the browser user agent, on page load and an
+update when a report changes the session's error status. The image build adds
+the DSN's origin to the CSP's `connect-src`. Production builds ship source maps
+next to the assets.
+
 ## Building
 
 To build your app for deployment you can run

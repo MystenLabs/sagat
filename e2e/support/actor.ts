@@ -337,6 +337,12 @@ export class Actor extends Identity {
 		);
 	}
 
+	approvalRow(address: string) {
+		return this.page.locator(
+			`[data-testid="approval-row"][data-address="${address}"]`,
+		);
+	}
+
 	suiBalanceRow() {
 		return this.page.locator(
 			'[data-testid="token-row"][data-coin-type$="::sui::SUI"]',

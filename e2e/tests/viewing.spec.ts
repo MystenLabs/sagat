@@ -10,6 +10,7 @@ import { expectOnProposal } from '../support/new-proposal';
 import {
 	proposeTransfer,
 	setupMultisig,
+	setupProposal,
 } from '../support/scenarios';
 
 test.describe('shared proposal links', () => {
@@ -134,24 +135,53 @@ test.describe('shared proposal links', () => {
 		await expectReadOnly();
 	});
 
+	test('a proposal opened on another network can be signed only after switching to it', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { bob, proposal } = await setupProposal({
+			createActor,
+			createIdentity,
+			chain,
+		});
+
+		// The proposal is on localnet; Bob's app is on testnet.
+		await bob.context.addInitScript(() =>
+			localStorage.setItem('SuiNetwork', 'testnet'),
+		);
+		await bob.page.goto(
+			`/proposals?digest=${proposal.digest}`,
+		);
+		await bob.connectWallet({ signIn: false });
+		const page = bob.proposalPage(proposal.digest);
+		await expect(
+			page.getByTestId('proposal-network-mismatch'),
+		).toBeVisible();
+		await expect(
+			page.getByTestId('sign-proposal-button'),
+		).toHaveCount(0);
+
+		// On the proposal's network, Bob can sign.
+		await page.getByTestId('switch-network-button').click();
+		await page.getByTestId('sign-proposal-button').click();
+		await expect(
+			bob.approvalRow(bob.address),
+		).toHaveAttribute('data-signed', 'true');
+	});
+
 	test('a signed-in member opening the link moves to the proposal under the account', async ({
 		createActor,
 		createIdentity,
 		chain,
 	}) => {
-		const alice = createIdentity('alice');
-		const bob = await createActor('bob');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob],
-			threshold: 2,
-		});
-		await chain.fund(multisig.address);
-		const proposal = await proposeTransfer(chain, alice, {
-			multisigAddress: multisig.address,
-			recipient: randomAddress(),
-			amount: MIST_PER_SUI,
-		});
+		const { bob, multisig, proposal } = await setupProposal(
+			{
+				createActor,
+				createIdentity,
+				chain,
+			},
+		);
 
 		await bob.signIn();
 		await bob.page.goto(
