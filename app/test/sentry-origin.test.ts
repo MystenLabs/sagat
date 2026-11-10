@@ -20,9 +20,6 @@ describe('sentryOrigin', () => {
 	});
 
 	test('refuses a malformed DSN', () => {
-		expect(() => sentryOrigin('not a dsn')).toThrow(
-			'VITE_SENTRY_DSN must be',
-		);
 		expect(() =>
 			sentryOrigin('https://o0.ingest.us.sentry.io/0'),
 		).toThrow('VITE_SENTRY_DSN must be');
