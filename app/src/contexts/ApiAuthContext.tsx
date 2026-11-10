@@ -35,6 +35,10 @@ import {
 	SignInCancelledError,
 	WalletDeclinedError,
 } from '@/lib/wallet-session';
+import {
+	isWalletConnect,
+	walletConnect,
+} from '@/lib/walletconnect';
 
 import { apiClient } from '../lib/api';
 import { MutationKeys, QueryKeys } from '../lib/queryKeys';
@@ -334,24 +338,74 @@ export function ApiAuthProvider({
 		}
 	};
 
-	const connectWallet = (
+	// Bumped by every pick that starts, so an older one can tell.
+	const latestPick = useRef(0);
+
+	const declineConnect = (
 		wallet: UiWallet,
-		{ notice = 'card' }: ConnectOptions = {},
+		notice: ConnectOptions['notice'],
+		error: unknown,
+	) => {
+		reportUnexpected(error, {
+			source: 'wallet',
+			operation: 'wallet-connect',
+		});
+		if (notice === 'toast')
+			toast.error(COPY.declined(wallet.name));
+		else setDeclined({ wallet: wallet.name });
+	};
+
+	const connectWithLock = (
+		wallet: UiWallet,
+		notice: ConnectOptions['notice'],
 	) =>
 		withConnectLock(async () => {
+			latestPick.current++;
 			setDeclined(null);
 			try {
 				await dappKit.connectWallet({ wallet });
 			} catch (error) {
-				reportUnexpected(error, {
-					source: 'wallet',
-					operation: 'wallet-connect',
-				});
-				if (notice === 'toast')
-					toast.error(COPY.declined(wallet.name));
-				else setDeclined({ wallet: wallet.name });
+				declineConnect(wallet, notice, error);
 			}
 		});
+
+	// WalletConnect's prompt stays pending after its modal is closed, so
+	// it is answered outside the lock and only then connected through it.
+	const connectWalletConnect = async (
+		wallet: UiWallet,
+		notice: ConnectOptions['notice'],
+	) => {
+		if (!walletConnect || connectInFlight.current) return;
+		const pick = ++latestPick.current;
+		setDeclined(null);
+		const isStale = () =>
+			pick !== latestPick.current ||
+			!!dappKit.stores.$connection.get().account;
+		try {
+			await walletConnect.features[
+				'standard:connect'
+			].connect();
+		} catch (error) {
+			if (!isStale()) declineConnect(wallet, notice, error);
+			return;
+		}
+		if (!isStale()) return connectWithLock(wallet, notice);
+		// Keep the session if WalletConnect is the wallet connected now.
+		const connected =
+			dappKit.stores.$connection.get().wallet;
+		if (!connected || !isWalletConnect(connected))
+			await walletConnect.features['standard:disconnect']
+				.disconnect()
+				.catch(() => {});
+	};
+
+	const connectWallet = (
+		wallet: UiWallet,
+		{ notice = 'card' }: ConnectOptions = {},
+	) =>
+		isWalletConnect(wallet)
+			? connectWalletConnect(wallet, notice)
+			: connectWithLock(wallet, notice);
 
 	const runSignIn = (options?: SignInOptions) =>
 		withConnectLock(() =>
