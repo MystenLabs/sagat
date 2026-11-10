@@ -4,6 +4,7 @@
 export const siteName = 'Sui Pods';
 export const siteDescription =
 	'Guides and reference for managing Sui multisig accounts.';
+export const alphaNotice = `${siteName} is in alpha. Expect breaking changes to the API and SDK for now; we recommend using only the web app.`;
 
 export const github = {
 	owner: 'MystenLabs',
