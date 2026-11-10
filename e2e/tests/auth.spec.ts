@@ -157,6 +157,46 @@ test.describe('wallet sign-in', () => {
 		await connectRequest;
 	});
 
+	test('signing in or out in one tab updates the other open tabs', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		await alice.page.goto('/');
+		await alice.connectWallet({ signIn: false });
+
+		// The second tab restores the wallet, without a session.
+		const other = await alice.context.newPage();
+		await other.goto('/');
+		const otherMenu = other
+			.getByTestId('app-header')
+			.getByTestId('wallet-menu-button')
+			.filter({ visible: true });
+		await expect(
+			other.getByTestId('auth-prompt'),
+		).toBeVisible();
+
+		await alice.page.getByTestId('sign-in-button').click();
+		await expect(otherMenu).toHaveAttribute(
+			'data-auth-state',
+			'authenticated',
+		);
+		await expect(
+			other.getByTestId('dashboard-empty'),
+		).toBeVisible();
+
+		await alice.openWalletMenu();
+		await alice.page
+			.getByTestId('disconnect-button')
+			.click();
+		await expect(otherMenu).toHaveAttribute(
+			'data-auth-state',
+			'unauthenticated',
+		);
+		await expect(
+			other.getByTestId('auth-prompt'),
+		).toBeVisible();
+	});
+
 	test('a failed API sign-out still disconnects the wallet, without the success toast', async ({
 		createActor,
 	}) => {

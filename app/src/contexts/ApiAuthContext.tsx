@@ -29,6 +29,10 @@ import React, {
 
 import { content } from '@/content';
 import { reportUnexpected } from '@/lib/error-reporting';
+import {
+	announceSessionChange,
+	onSessionChange,
+} from '@/lib/session-channel';
 import { toast } from '@/lib/toast';
 import { isZkLoginAccount } from '@/lib/wallet';
 import {
@@ -176,6 +180,32 @@ export function ApiAuthProvider({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [currentAccount?.address]);
 
+	// Run here after a sign-in or sign-out, and in every other tab.
+	const afterSignIn = useCallback(async () => {
+		await refetchAuth();
+		await queryClient.invalidateQueries({
+			queryKey: [QueryKeys.Multisigs],
+		});
+		await queryClient.invalidateQueries({
+			queryKey: [QueryKeys.Proposals],
+		});
+	}, [queryClient, refetchAuth]);
+
+	const afterSignOut = useCallback(async () => {
+		queryClient.clear();
+		await refetchAuth();
+	}, [queryClient, refetchAuth]);
+
+	useEffect(
+		() =>
+			onSessionChange((change) => {
+				void (change === 'signed-in'
+					? afterSignIn()
+					: afterSignOut());
+			}),
+		[afterSignIn, afterSignOut],
+	);
+
 	// Bumped by every logout and by a disconnect from the wallet's side,
 	// so a sign-in that started before either can tell its answer came
 	// too late.
@@ -252,6 +282,7 @@ export function ApiAuthProvider({
 				// reported: the app already shows the wallet signed out.
 				try {
 					await apiClient.disconnect();
+					announceSessionChange('signed-out');
 				} catch (error) {
 					reportUnexpected(error, {
 						operation: 'late-sign-out',
@@ -265,13 +296,8 @@ export function ApiAuthProvider({
 		},
 		onMutate: () => setDeclined(null),
 		onSuccess: async () => {
-			await refetchAuth();
-			await queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Multisigs],
-			});
-			await queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposals],
-			});
+			announceSessionChange('signed-in');
+			await afterSignIn();
 		},
 		onError: (error: Error, options?: SignInOptions) => {
 			// The session ended (a logout, or a disconnect in the wallet) and
@@ -302,8 +328,8 @@ export function ApiAuthProvider({
 		mutationKey: [MutationKeys.SignOut],
 		mutationFn: () => apiClient.disconnect(),
 		onSuccess: async () => {
-			queryClient.clear();
-			await refetchAuth();
+			announceSessionChange('signed-out');
+			await afterSignOut();
 		},
 		onError: (error: Error) => {
 			toast.error(TOASTS.disconnectFailed(error.message));
