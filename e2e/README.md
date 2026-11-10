@@ -125,8 +125,8 @@ the mainnet coin list is answered with an empty list.
 ## Docs screenshots
 
 `docs-screenshots/walkthrough.spec.ts` walks one person through a first use of
-the app and writes the getting-started screenshots to
-`docs/public/screenshots/`. Same prerequisites as the tests (`sui` CLI,
+the app and writes the getting-started screenshots, then those of the wallets
+and tools pages, to `docs/public/screenshots/`. Same prerequisites as the tests (`sui` CLI,
 Postgres, `bunx playwright install chromium` once). From the repo root:
 
 ```sh
@@ -149,4 +149,6 @@ the same from run to run; digests, object IDs and dates change.
 
 To add a shot, add a step to the spec and call `shoot(page, '<name>')` once the
 content it shows is visible. File names are lowercase kebab-case; every shot
-is 1280x800 at 2x, light theme, with toasts hidden.
+is at 2x, light theme, with toasts hidden: 1280x800 for the walkthrough, and
+1600 wide for the wallets and tools shots so full addresses fit on one line, 900
+high except the Transaction Signer shot, which is taller to show the whole tool.

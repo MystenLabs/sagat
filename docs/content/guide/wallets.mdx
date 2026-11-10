@@ -1,0 +1,49 @@
+---
+title: Wallets and signing in
+description: How to connect a Sui wallet to the app, sign in with a signed message, switch between the wallet’s addresses and disconnect.
+---
+
+You use the app with your own Sui wallet. Connecting a wallet and signing in are two separate steps, and neither sends a transaction. For a first run through these steps, see [Get started](/guide/get-started).
+
+## Connect a wallet
+
+The wallet control sits at the bottom of the sidebar, or in the top bar on a phone-width screen. **Connect wallet** opens a list of the wallets your browser has available, with Slush first when you have it. The app talks to them through the Sui wallet standard, and the list also offers Wallet Connect. If the list is empty, it reads “No wallets found. Install a wallet (e.g. Slush Wallet) to continue.”
+
+Picking a wallet only connects it. If you decline the connection in the wallet, the page offers **Try again**.
+
+The app remembers the wallet you connected last in your browser and reconnects it when you come back.
+
+## Sign in
+
+With a wallet connected, the page shows “Sign in to continue” and a **Sign in** button. Signing in is a [signed message](/glossary#signed-message), not a transaction: as the page puts it, “Signing proves you own this wallet. It doesn’t send a transaction or move any funds.” The API checks the signature and starts a session for your address.
+
+Sign-in accepts signatures from Ed25519, Secp256k1 and Secp256r1 keys, the same key types the app accepts for [signers](/guide/how-a-multisig-works#signers-and-public-keys). A zkLogin address cannot sign in: the app shows “zkLogin accounts aren’t supported yet” and asks you to switch to another address in the wallet or connect a different wallet.
+
+If you decline the request in your wallet, the page tells you, ending with “You’re not signed in.” The wallet stays connected, so **Sign in** is the retry.
+
+## Wallets with several addresses
+
+A wallet can share more than one address with the app. When it does, the wallet menu lists them, and you click one to switch to it. An address that has not signed in yet shows its own **Sign in** button in the list.
+
+![The wallet menu open in the sidebar, listing the signed-in address with a check mark and a second address with its own Sign in button, above Copy address and Disconnect](/screenshots/wallet-menu.png)
+
+Each address signs in separately. One session covers every address you have signed in from that browser, up to 10 at a time. The pods and invitations you see are those of the address currently selected, so switching address can show a different list.
+
+The wallet menu also has **Copy address**, which copies the selected address.
+
+## Disconnect
+
+**Disconnect** in the wallet menu signs you out of the service and then disconnects the wallet. The app confirms with “Wallet disconnected”. Signing out ends the session for every address you signed in from that browser.
+
+## What works without signing in
+
+Some pages open with no wallet and no sign-in:
+
+- the [tools](/guide/tools): the Signature Analyzer, the Transaction Signer and Broadcasts
+- a proposal opened by its link, which anyone can read; a signer connects a wallet there to get the actions
+
+Every other page, such as your pods, their proposals, your invitations and creating a pod, needs a connected wallet that has signed in. Without one, the app asks you to connect a wallet to get started.
+
+## Your wallet signs
+
+Everything you approve is signed in your own wallet. The app never sees your private key, only the signatures your wallet makes. Before you sign a transaction, check it in the app’s preview and in your wallet’s own preview, and make sure they agree. See [What needs your signature](/security/trust-model#what-needs-your-signature).

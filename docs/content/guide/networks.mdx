@@ -1,0 +1,40 @@
+---
+title: Networks
+description: How to switch between Mainnet and Testnet, what changes with the network you select, and where Devnet is available.
+---
+
+The app works on Mainnet and Testnet. Pods and their addresses are the same on every [network](/glossary#network); proposals and balances belong to one network.
+
+## Switching networks
+
+The network row at the bottom of the sidebar shows the network you have selected, with a dot that is green on Mainnet and amber on a test network. Click it to open the **Network** menu, which lists each network with a check on the current one.
+
+The first time you open the app, it is on Testnet. The app saves your choice in the browser and uses it the next time you come back.
+
+Your wallet lists the networks it works with. A network the connected wallet does not list is greyed out in the menu, with “Not in” and the wallet’s name beside it. To use that network, connect a wallet that lists it.
+
+## What follows the network
+
+The network you select decides:
+
+- which proposals a pod’s proposal list shows
+- the balances and assets the app shows for a pod
+- the network a new proposal is created on
+
+It does not change your list of pods, a pod’s address, its signers, weights and threshold, or your invitations. These are the same on every network. The same address can hold different balances on Mainnet and on Testnet, and the limit on pending proposals counts each network separately (see [Who can propose](/guide/proposals#who-can-propose)). See also [Pods and networks](/guide/how-a-multisig-works#pods-and-networks).
+
+## Test mode
+
+On any network other than Mainnet, a banner across the top of the page reads “Test mode. You’re connected to testnet.” and, on a wider screen, adds “No real funds will be used.” It has a **Switch to Mainnet** button and a button to dismiss it. The banner does not show while you create a pod or on the [tools](/guide/tools) pages.
+
+## A proposal on another network
+
+Each proposal belongs to the network it was created on. If you open one while a different network is selected, the app says so, for example “This proposal is on Mainnet, but you’re on Testnet.”, with a button such as **Switch to Mainnet**. In place of the transaction preview it shows “Switch to Mainnet to see the transaction preview.”
+
+Until you switch, the app runs no simulation of the transaction and does not offer to sign it.
+
+## Devnet
+
+Pods and proposals work on Mainnet and Testnet only. The sidebar’s **Network** menu does not offer Devnet.
+
+Devnet is available in the [tools](/guide/tools). Each tool has its own **Network** field, which is the same setting as the sidebar’s: changing it there changes the network for the whole app. If you pick Devnet in a tool and then open a page about your pods, the app shows “Devnet Not Supported” with **Switch to Mainnet** and **Switch to Testnet**.

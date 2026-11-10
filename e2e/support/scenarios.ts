@@ -322,7 +322,7 @@ export async function setupProposal(
 	return { alice, bob, multisig, proposal };
 }
 
-function multisigPublicKeyOf(
+export function multisigPublicKeyOf(
 	members: MultisigMember[],
 	threshold: number,
 ) {
