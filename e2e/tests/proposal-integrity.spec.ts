@@ -28,10 +28,7 @@ import {
 	recordVotes,
 	sharedAccount,
 } from '../support/new-proposal';
-import {
-	proposeTransfer,
-	setupMultisig,
-} from '../support/scenarios';
+import { setupProposal } from '../support/scenarios';
 
 type Rule = 'sender' | 'gasOwner' | 'digest' | 'signers';
 
@@ -57,26 +54,18 @@ function withBytes(
  * sends, which should stay empty.
  */
 async function openTamperedProposal(
-	{ createActor, createIdentity, chain }: Fixtures,
+	fixtures: Fixtures,
 	tamper: (context: {
 		proposal: PublicProposal;
 		bob: { address: string; publicKey: string };
 	}) => Promise<PublicProposal> | PublicProposal,
 	{ shared = false }: { shared?: boolean } = {},
 ) {
-	const alice = createIdentity('alice');
-	const bob = await createActor('bob');
-	const multisig = await setupMultisig({
-		creator: alice,
-		members: [bob],
-		threshold: 2,
-	});
-	await chain.fund(multisig.address);
-	const proposed = await proposeTransfer(chain, alice, {
-		multisigAddress: multisig.address,
-		recipient: randomAddress(),
-		amount: MIST_PER_SUI,
-	});
+	const {
+		bob,
+		multisig,
+		proposal: proposed,
+	} = await setupProposal(fixtures);
 
 	// Tampered once, so the page's refetches get the same proposal.
 	let tampered: Promise<PublicProposal> | undefined;

@@ -9,6 +9,7 @@ import {
 	type Proposal,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { expect } from '@playwright/test';
 
 import {
@@ -17,6 +18,7 @@ import {
 	type Expiration,
 	type GasCoin,
 } from './chain';
+import { type Fixtures } from './fixtures';
 import { type Identity } from './identity';
 
 // Creates a multisig with `creator` as its first member. Unless `accept` is
@@ -282,6 +284,38 @@ export async function proposeFailedTransfer(
 		proposal.digest,
 	);
 	return proposal;
+}
+
+// Alice proposes 1 SUI from her funded account; only Bob gets a browser.
+export async function setupProposal(
+	{ createActor, createIdentity, chain }: Fixtures,
+	{
+		others = [],
+		threshold = 2,
+		expiration,
+		bob: bobOptions,
+	}: {
+		others?: Identity[];
+		threshold?: number;
+		expiration?: Expiration;
+		bob?: Parameters<Fixtures['createActor']>[1];
+	} = {},
+) {
+	const alice = createIdentity('alice');
+	const bob = await createActor('bob', bobOptions);
+	const multisig = await setupMultisig({
+		creator: alice,
+		members: [bob, ...others],
+		threshold,
+	});
+	await chain.fund(multisig.address);
+	const proposal = await proposeTransfer(chain, alice, {
+		multisigAddress: multisig.address,
+		recipient: randomAddress(),
+		amount: MIST_PER_SUI,
+		expiration,
+	});
+	return { alice, bob, multisig, proposal };
 }
 
 function multisigPublicKeyOf(

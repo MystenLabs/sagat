@@ -21,8 +21,8 @@ import {
 	cancelProposal,
 	executeOutsideApp,
 	proposeFailedTransfer,
-	proposeTransfer,
 	setupMultisig,
+	setupProposal,
 	signProposal,
 } from '../support/scenarios';
 
@@ -96,22 +96,11 @@ async function openFailingProposal({
  * signed in. With `ready`, Bob has signed it already, through the API.
  */
 async function openProposalAsBob(
-	{ createActor, createIdentity, chain }: Fixtures,
+	fixtures: Fixtures,
 	{ ready = false }: { ready?: boolean } = {},
 ) {
-	const alice = createIdentity('alice');
-	const bob = await createActor('bob');
-	const multisig = await setupMultisig({
-		creator: alice,
-		members: [bob],
-		threshold: 2,
-	});
-	await chain.fund(multisig.address);
-	const proposal = await proposeTransfer(chain, alice, {
-		multisigAddress: multisig.address,
-		recipient: randomAddress(),
-		amount: MIST_PER_SUI,
-	});
+	const { alice, bob, multisig, proposal } =
+		await setupProposal(fixtures);
 	if (ready) await signProposal(bob, proposal);
 	await bob.signIn();
 	await bob.page.goto(

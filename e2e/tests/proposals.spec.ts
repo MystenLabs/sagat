@@ -24,6 +24,7 @@ import {
 import {
 	proposeTransfer,
 	setupMultisig,
+	setupProposal,
 	signProposal,
 } from '../support/scenarios';
 
@@ -279,21 +280,11 @@ test.describe('proposals', () => {
 		createIdentity,
 		chain,
 	}) => {
-		const alice = createIdentity('alice');
-		const bob = await createActor('bob');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob],
-			threshold: 2,
-		});
-		await chain.fund(multisig.address);
 		const epoch = await chain.epoch();
-		const proposal = await proposeTransfer(chain, alice, {
-			multisigAddress: multisig.address,
-			recipient: randomAddress(),
-			amount: MIST_PER_SUI,
-			expiration: { Epoch: epoch },
-		});
+		const { bob, multisig, proposal } = await setupProposal(
+			{ createActor, createIdentity, chain },
+			{ expiration: { Epoch: epoch } },
+		);
 
 		// Valid only in this epoch, and Bob's page is told the next one began.
 		await reportEpoch(bob.page, epoch + 1);
@@ -319,22 +310,15 @@ test.describe('proposals', () => {
 		createIdentity,
 		chain,
 	}) => {
-		const alice = createIdentity('alice');
-		const bob = await createActor('bob', {
-			rejectSigning: true,
-		});
 		// Bob's signature alone doesn't reach the threshold.
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob, createIdentity('carol')],
-			threshold: 3,
-		});
-		await chain.fund(multisig.address);
-		const proposal = await proposeTransfer(chain, alice, {
-			multisigAddress: multisig.address,
-			recipient: randomAddress(),
-			amount: MIST_PER_SUI,
-		});
+		const { bob, multisig, proposal } = await setupProposal(
+			{ createActor, createIdentity, chain },
+			{
+				others: [createIdentity('carol')],
+				threshold: 3,
+				bob: { rejectSigning: true },
+			},
+		);
 
 		await bob.signIn();
 		await bob.page.goto(
