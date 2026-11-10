@@ -311,11 +311,6 @@ test.describe('wallet sign-in', () => {
 	}) => {
 		const alice = await createActor('alice');
 		const { page } = alice;
-		// Requests to the internet are already blocked; block its relay too.
-		await alice.context.routeWebSocket(
-			(url) => url.hostname !== 'localhost',
-			(ws) => ws.close(),
-		);
 		const prompt = page.getByTestId(
 			'connect-wallet-prompt',
 		);

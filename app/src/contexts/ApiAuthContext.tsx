@@ -68,7 +68,8 @@ interface ApiAuthContextType {
 	// Actions
 	// Asks the connected wallet for the sign-in signature.
 	signAndConnect: (options?: SignInOptions) => void;
-	// From a wallet pick, or a Sign in click, until it settles.
+	// From a wallet pick (after WalletConnect's prompt), or a Sign in click,
+	// until it settles.
 	isConnecting: boolean;
 
 	// The wallet turned the last connect or signature request down.
@@ -320,8 +321,8 @@ export function ApiAuthProvider({
 	// while a signature is out and its late answer can't undo a newer
 	// session.
 	const connectInFlight = useRef(false);
-	// Covers every connect and sign-in, so the card reads "Signing in…"
-	// until the answer, not just while the signature is out.
+	// Covers connect and sign-in, not WalletConnect's prompt, so the card reads
+	// "Signing in…" until the answer, not just while the signature is out.
 	const [connecting, setConnecting] = useState(false);
 
 	const withConnectLock = async (
