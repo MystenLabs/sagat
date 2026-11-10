@@ -3,6 +3,8 @@
 
 import { init } from '@sentry/react';
 
+import { maskDigests } from './mask-digests';
+
 export function initSentry() {
 	const dsn = import.meta.env.VITE_SENTRY_DSN;
 	if (!dsn) return;
@@ -18,5 +20,7 @@ export function initSentry() {
 			/^safari-web-extension:\/\//,
 		],
 		ignoreErrors: [/ResizeObserver loop/],
+		// Breadcrumbs are already on the event here, so this masks them too.
+		beforeSend: (event) => maskDigests(event),
 	});
 }
