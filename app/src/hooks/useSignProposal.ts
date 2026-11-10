@@ -22,7 +22,7 @@ import { signatureAddedMessage } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 type SignProposalParams = IntegrityProposal &
 	Pick<PublicProposal, 'id' | 'totalWeight'> & {
@@ -45,6 +45,7 @@ export function useSignProposal() {
 		useState(false);
 
 	const mutation = useMutation({
+		mutationKey: [MutationKeys.SignProposal],
 		mutationFn: async (proposal: SignProposalParams) => {
 			if (!currentAccount)
 				throw new Error(content.errors.noConnectedAccount);

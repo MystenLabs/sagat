@@ -56,6 +56,7 @@ import {
 	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
+import { MutationKeys } from '@/lib/queryKeys';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -208,6 +209,7 @@ export function TransferDetailsStep({
 	});
 
 	const build = useMutation({
+		mutationKey: [MutationKeys.BuildTransfer],
 		mutationFn: (input: {
 			coinType: string;
 			recipient: string;

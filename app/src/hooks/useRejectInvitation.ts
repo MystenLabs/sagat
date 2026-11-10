@@ -13,7 +13,7 @@ import {
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { QueryKeys } from '@/lib/queryKeys';
+import { MutationKeys, QueryKeys } from '@/lib/queryKeys';
 import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
@@ -25,6 +25,7 @@ export function useRejectInvitation() {
 	const dappKit = useDAppKit();
 
 	return useMutation({
+		mutationKey: [MutationKeys.RejectInvitation],
 		mutationFn: async ({
 			address: multisigAddress,
 		}: {

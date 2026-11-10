@@ -28,6 +28,7 @@ import React, {
 } from 'react';
 
 import { content } from '@/content';
+import { reportUnexpected } from '@/lib/error-reporting';
 import { toast } from '@/lib/toast';
 import { isZkLoginAccount } from '@/lib/wallet';
 import {
@@ -36,7 +37,7 @@ import {
 } from '@/lib/wallet-session';
 
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 const TOASTS = content.toasts;
 const COPY = content.signedOut;
@@ -196,6 +197,7 @@ export function ApiAuthProvider({
 
 	// Connect mutation - signs message and sends to API
 	const connectMutation = useMutation({
+		mutationKey: [MutationKeys.SignIn],
 		// The variable only steers onError; the sign-in ignores it.
 		mutationFn: async (_options?: SignInOptions) => {
 			// The kit's store, not the render's: right after a connect or an
@@ -250,7 +252,10 @@ export function ApiAuthProvider({
 				// reported: the app already shows the wallet signed out.
 				try {
 					await apiClient.disconnect();
-				} catch {
+				} catch (error) {
+					reportUnexpected(error, {
+						operation: 'late-sign-out',
+					});
 					toast.error(TOASTS.lateSignInKeptSession);
 				}
 				await refetchAuth();
@@ -294,6 +299,7 @@ export function ApiAuthProvider({
 
 	// Disconnect mutation
 	const disconnectMutation = useMutation({
+		mutationKey: [MutationKeys.SignOut],
 		mutationFn: () => apiClient.disconnect(),
 		onSuccess: async () => {
 			queryClient.clear();
@@ -336,7 +342,11 @@ export function ApiAuthProvider({
 			setDeclined(null);
 			try {
 				await dappKit.connectWallet({ wallet });
-			} catch {
+			} catch (error) {
+				reportUnexpected(error, {
+					source: 'wallet',
+					operation: 'wallet-connect',
+				});
 				if (notice === 'toast')
 					toast.error(COPY.declined(wallet.name));
 				else setDeclined({ wallet: wallet.name });

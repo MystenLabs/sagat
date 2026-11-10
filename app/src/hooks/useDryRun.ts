@@ -6,6 +6,7 @@ import { RpcError } from '@mysten/sui/grpc';
 import { Transaction } from '@mysten/sui/transactions';
 import { useMutation } from '@tanstack/react-query';
 
+import { MutationKeys } from '@/lib/queryKeys';
 import type { SimulatedTransaction } from '@/lib/transaction-preview';
 
 /**
@@ -55,6 +56,8 @@ export function useDryRun() {
 	const client = useDAppKit().getClient();
 
 	return useMutation({
+		mutationKey: [MutationKeys.DryRun],
+		meta: { expected: (error) => !couldNotSimulate(error) },
 		mutationFn: async (transactionData: string) => {
 			const tx = Transaction.from(transactionData);
 

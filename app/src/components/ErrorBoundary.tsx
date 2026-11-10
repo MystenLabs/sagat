@@ -22,6 +22,8 @@ interface ErrorBoundaryState {
 	hasError: boolean;
 	error: unknown;
 	resetKey: unknown;
+	/** Bumped whenever a crash is cleared. */
+	crash: number;
 }
 
 /** Catches render errors below it and shows `fallback` instead. */
@@ -33,6 +35,7 @@ export class ErrorBoundary extends Component<
 		hasError: false,
 		error: undefined,
 		resetKey: this.props.resetKey,
+		crash: 0,
 	};
 
 	static getDerivedStateFromError(
@@ -50,17 +53,30 @@ export class ErrorBoundary extends Component<
 		return {
 			resetKey: props.resetKey,
 			...(state.hasError
-				? { hasError: false, error: undefined }
+				? {
+						hasError: false,
+						error: undefined,
+						crash: state.crash + 1,
+					}
 				: {}),
 		};
 	}
 
+	// React can hand one failed render several errors.
+	private reportedCrash: number | undefined;
+
 	componentDidCatch(error: unknown, info: ErrorInfo) {
+		if (this.reportedCrash === this.state.crash) return;
+		this.reportedCrash = this.state.crash;
 		this.props.onError?.(error, info);
 	}
 
 	reset = () => {
-		this.setState({ hasError: false, error: undefined });
+		this.setState((state) => ({
+			hasError: false,
+			error: undefined,
+			crash: state.crash + 1,
+		}));
 	};
 
 	render() {

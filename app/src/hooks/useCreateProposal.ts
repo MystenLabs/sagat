@@ -17,22 +17,11 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { checkNewProposal } from '@/lib/new-proposal';
 import { type AccountSigners } from '@/lib/proposal-integrity';
 import { toast } from '@/lib/toast';
+import { SignatureDeclinedError } from '@/lib/wallet-session';
 
 import { useNetwork } from '../contexts/NetworkContext';
 import { apiClient } from '../lib/api';
-import { QueryKeys } from '../lib/queryKeys';
-
-/** The wallet didn't sign: declined, closed or failed. Nothing was created. */
-export class SignatureDeclinedError extends Error {
-	/** What the wallet threw. */
-	readonly cause: unknown;
-
-	constructor(cause: unknown) {
-		super('The wallet didn’t sign the proposal.');
-		this.name = 'SignatureDeclinedError';
-		this.cause = cause;
-	}
-}
+import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 /** The bytes aren't sent from the pod or another address pays their gas. Nothing was signed. */
 export class BytesNotFromPodError extends Error {
@@ -67,6 +56,7 @@ export function useCreateProposal() {
 		useState(false);
 
 	const mutation = useMutation({
+		mutationKey: [MutationKeys.CreateProposal],
 		mutationFn: async ({
 			multisig,
 			transactionData,

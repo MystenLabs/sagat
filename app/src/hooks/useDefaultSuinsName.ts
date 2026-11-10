@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
+import { RpcError } from '@mysten/sui/grpc';
 import { normalizeSuiNSName } from '@mysten/sui/utils';
 import { useQuery } from '@tanstack/react-query';
 
@@ -23,9 +24,20 @@ export function useDefaultSuinsName(
 			address,
 		],
 		queryFn: async () => {
-			const result = await client.defaultNameServiceName({
-				address: address!,
-			});
+			let result;
+			try {
+				result = await client.defaultNameServiceName({
+					address: address!,
+				});
+			} catch (error) {
+				// The network has no name service.
+				if (
+					error instanceof RpcError &&
+					error.code === 'UNIMPLEMENTED'
+				)
+					return null;
+				throw error;
+			}
 			return result.data.name
 				? normalizeSuiNSName(result.data.name, 'at')
 				: null;
