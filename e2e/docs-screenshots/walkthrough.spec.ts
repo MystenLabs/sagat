@@ -58,20 +58,53 @@ const WIDE = { width: 1600, height: 900 };
 // Tall enough for the whole Transaction Signer card without scrolling.
 const WIDE_TALL = { ...WIDE, height: 1208 };
 
-// Waits for fonts, parks the pointer and focus, and hides toasts.
+// Switches theme as the picker does from another tab, via next-themes' storage listener.
+async function setTheme(
+	page: Page,
+	theme: 'light' | 'dark',
+) {
+	await page.evaluate(async (theme) => {
+		localStorage.setItem('theme', theme);
+		window.dispatchEvent(
+			new StorageEvent('storage', {
+				key: 'theme',
+				newValue: theme,
+			}),
+		);
+		const root = document.documentElement;
+		while (
+			!root.classList.contains(theme) ||
+			root.style.colorScheme !== theme
+		)
+			await new Promise(requestAnimationFrame);
+		await new Promise(requestAnimationFrame);
+		await new Promise(requestAnimationFrame);
+	}, theme);
+}
+
+// Waits for fonts, parks pointer and focus, hides toasts; writes light and `-dark` shots.
 async function shoot(page: Page, name: string) {
 	await page.evaluate(async () => {
 		await document.fonts.ready;
 		(document.activeElement as HTMLElement | null)?.blur();
 	});
 	await page.mouse.move(0, 0);
-	await page.screenshot({
-		path: `${OUT_DIR}${name}.png`,
+	const options = {
 		animations: 'disabled',
 		caret: 'hide',
 		style:
 			'[data-sonner-toaster] { display: none !important; }',
+	} as const;
+	await page.screenshot({
+		...options,
+		path: `${OUT_DIR}${name}.png`,
 	});
+	await setTheme(page, 'dark');
+	await page.screenshot({
+		...options,
+		path: `${OUT_DIR}${name}-dark.png`,
+	});
+	await setTheme(page, 'light');
 }
 
 test('getting started', async ({ browser }) => {

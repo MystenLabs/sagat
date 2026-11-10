@@ -13,6 +13,11 @@ export const alphaNotice = {
 };
 export const alphaNoticeMarkdown = `${alphaNotice.lead}[${alphaNotice.appLabel}](${appUrl}).`;
 
+// Served by app/md/[...slug]/route.ts; `/` maps to `/md/index.md`.
+export function markdownCopyUrl(pageUrl: string): string {
+	return `/md${pageUrl === '/' ? '/index' : pageUrl}.md`;
+}
+
 export const github = {
 	owner: 'MystenLabs',
 	repo: 'sagat',

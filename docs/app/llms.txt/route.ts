@@ -6,6 +6,7 @@ import { llms } from 'fumadocs-core/source/llms';
 import {
 	alphaNoticeMarkdown,
 	appUrl,
+	markdownCopyUrl,
 	siteDescription,
 	siteName,
 	siteUrl,
@@ -16,10 +17,7 @@ export const dynamic = 'force-static';
 
 const index = llms(source, {
 	renderUrl: (item) =>
-		new URL(
-			`/md${item.url === '/' ? '/index' : item.url}.md`,
-			siteUrl,
-		).toString(),
+		new URL(markdownCopyUrl(item.url), siteUrl).toString(),
 });
 
 export async function GET() {

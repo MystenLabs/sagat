@@ -6,13 +6,19 @@ import {
 	defineDocs,
 } from 'fumadocs-mdx/config';
 
+import { remarkDarkImage } from './lib/remark-dark-image';
+
 export const docs = defineDocs({
 	dir: 'content',
 	docs: {
 		postprocess: {
-			includeProcessedMarkdown: true,
+			includeProcessedMarkdown: { output: 'function' },
 		},
 	},
 });
 
-export default defineConfig();
+export default defineConfig({
+	mdxOptions: {
+		remarkPlugins: [remarkDarkImage],
+	},
+});
