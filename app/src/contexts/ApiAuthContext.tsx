@@ -196,22 +196,6 @@ export function ApiAuthProvider({
 		await refetchAuth();
 	}, [queryClient, refetchAuth]);
 
-	useEffect(
-		() =>
-			onSessionChange(async (change) => {
-				if (change === 'signed-in') {
-					void afterSignIn();
-					return;
-				}
-				// End where a reload would: the other tab cleared the wallet.
-				setDeclined(null);
-				await afterSignOut();
-				if (dappKit.stores.$connection.get().account)
-					await dappKit.disconnectWallet();
-			}),
-		[afterSignIn, afterSignOut, dappKit],
-	);
-
 	// Bumped by every logout and by a disconnect from the wallet's side,
 	// so a sign-in that started before either can tell its answer came
 	// too late.
@@ -229,6 +213,23 @@ export function ApiAuthProvider({
 					sessionGeneration.current++;
 			}),
 		[dappKit],
+	);
+
+	useEffect(
+		() =>
+			onSessionChange(async (change) => {
+				if (change === 'signed-in') {
+					void afterSignIn();
+					return;
+				}
+				sessionGeneration.current++;
+				// End where a reload would: the other tab cleared the wallet.
+				setDeclined(null);
+				await afterSignOut();
+				if (dappKit.stores.$connection.get().account)
+					await dappKit.disconnectWallet();
+			}),
+		[afterSignIn, afterSignOut, dappKit],
 	);
 
 	// Connect mutation - signs message and sends to API
