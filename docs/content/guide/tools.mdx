@@ -27,23 +27,21 @@ It reads only the signature, so it shows who signed and with what weight, not wh
 
 ## Transaction Signer
 
-Paste a transaction into **Transaction data**, as JSON or base64. The tool previews it on the selected network before anything is signed, in the same **Transaction preview** block as on a proposal, with the simulation result and the static analyzer. This needs no wallet. If the simulation fails, the tool shows the error and “Make sure the network above matches the transaction.”
+Paste a transaction into **Transaction data**, as JSON or base64. The tool previews it on the selected network before anything is signed, in the same **Transaction preview** block as on a proposal, with the simulation result and the static analyzer. This needs no wallet. If the simulation fails, check that the selected network is the transaction’s.
 
-Once the simulation passes, two buttons appear. They need a connected wallet but no sign-in; without a wallet they are disabled, with the note “Connect a wallet to sign this transaction.”
+Once the simulation passes, two buttons appear. They need a connected wallet but no sign-in.
 
-- **Sign** asks your wallet to sign the bytes you previewed. You get the signature, **Copy signature** and “Signed. Copy the signature and share it with the other signers.”
-- **Sign and execute** has your wallet sign the transaction and submit it. You get “Executed. The network accepted this transaction.” with the **Transaction digest** and **View on explorer**. It is available only when the transaction’s sender is your connected wallet. When the sender is another address, such as a multisig account, only **Sign** is available, and a note explains that the transaction can’t run on your signature alone.
+- **Sign** asks your wallet to sign the bytes you previewed and gives you the signature to copy and share with the other signers.
+- **Sign and execute** has your wallet sign the transaction and submit it, then shows its [digest](/glossary#digest). It is available only when the transaction’s sender is your connected wallet. When the sender is another address, such as a multisig account, only **Sign** is available.
 
 ![The Transaction Signer after a passed simulation of a transfer from Team Treasury, with the note that the pod’s threshold of 2 of 3 means it can’t run on your signature alone, Sign and execute disabled and Sign available](/screenshots/transaction-signer.png)
 
-**Start over** clears the tool.
-
-The preview carries the reminder “Always check the transaction in your wallet before you sign. Your wallet is the final word on what you approve.” Check the transaction in this preview and in your wallet’s own preview, and make sure they agree. See [Check what you sign](/security/trust-model#check-what-you-sign).
+Check the transaction in this preview and in your wallet’s own preview, and make sure they agree. See [Check what you sign](/security/trust-model#check-what-you-sign).
 
 ## Broadcasts
 
 Paste the **Transaction bytes** and the **Combined signature**, both in base64, and press **Broadcast transaction**. Your browser sends them straight to a Sui full node on the selected network, with no wallet and no sign-in.
 
-On success it shows “Sent. The network accepted this transaction.” with the **Transaction digest**, **View on explorer**, **Copy digest** and **Broadcast another**. On failure it shows “Broadcast failed:” followed by the network’s message.
+You get the transaction’s [digest](/glossary#digest) with a **View on explorer** link, or the network’s error message if it fails.
 
 Sui accepts the transaction only if the signature is valid for its sender; for a multisig account, the combined signature has to meet the threshold. See [What Sui enforces](/security/trust-model#what-sui-enforces). When you execute a proposal, the app builds the combined signature itself. To broadcast one here, you can build it with [other Sui tooling](https://sdk.mystenlabs.com/sui/cryptography/signers/multisig).
