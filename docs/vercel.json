@@ -1,0 +1,9 @@
+{
+	"$schema": "https://openapi.vercel.sh/vercel.json",
+	"routes": [
+		{
+			"src": "^/_(?:next|vercel)/image/?$",
+			"mitigate": { "action": "deny" }
+		}
+	]
+}
