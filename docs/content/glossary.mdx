@@ -53,7 +53,7 @@ Anyone who creates a proposal. Signers can propose, and an account can also have
 
 ## Public key
 
-The public half of a wallet’s key pair. A signer is added to an account by their public key; the app accepts Ed25519, Secp256k1 and Secp256r1 keys.
+The public half of a wallet’s key pair. A signer is added to an account by their public key; the app accepts Ed25519, Secp256k1 and Secp256r1 keys. The app can find the key from an address once its wallet has signed in to the app, or once the address has sent a transaction. See [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
 
 ## Signature
 
@@ -73,7 +73,7 @@ The total weight of signatures a proposal needs before it can execute. It is a w
 
 ## Wallet
 
-The software that holds your private key and makes your signatures. The app asks for signatures through the Sui wallet standard from whichever wallet you connect, and the wallet shows its own view of what you sign. See [Check what you sign](/security/trust-model#check-what-you-sign).
+The software that holds your private key and makes your signatures. The app asks for signatures through the Sui wallet standard from whichever wallet you connect, and the wallet shows its own view of what you sign. Signing in with a wallet registers its public key with the service, so other people can add your address as a signer. See [Check what you sign](/security/trust-model#check-what-you-sign).
 
 ## Weight
 
