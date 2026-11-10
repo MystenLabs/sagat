@@ -101,7 +101,7 @@ export function ErrorState({
 			role="alert"
 			data-testid={testId}
 			className={cn(
-				'flex flex-col items-center rounded-2xl border border-error-border bg-card px-6 py-14 text-center',
+				'flex flex-col items-center rounded-2xl border bg-card px-6 py-14 text-center',
 				className,
 			)}
 		>
