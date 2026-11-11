@@ -999,6 +999,32 @@ describe('Proposal Business Logic', () => {
 			).toEqual(notAMember);
 		});
 
+		test('add-proposer and remove-proposer refuse a proposer address that is not canonical', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const hex = newUser().address.slice(2);
+			const invalidAddress = {
+				status: 400,
+				body: { error: CommonErrors.InvalidAddress },
+			};
+
+			for (const route of [
+				'add-proposer',
+				'remove-proposer',
+			] as const)
+				for (const proposer of [
+					`0x${hex.toUpperCase()}`,
+					hex,
+				])
+					expect(
+						await changeProposer(session, route, {
+							signer: users[0],
+							multisigAddress: multisig.address,
+							proposer,
+						}),
+					).toEqual(invalidAddress);
+		});
+
 		test('verify-by-digest refuses a malformed digest', async () => {
 			const { session } =
 				await framework.createAuthenticatedSession(1);

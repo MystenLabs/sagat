@@ -232,8 +232,7 @@ describe('the stored proof', () => {
 	test('rebuilds the signed message and recovers the actor, after the proposer is gone too', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 1);
-		// Valid, but not normalised.
-		const proposer = newUser().address.toUpperCase();
+		const proposer = newUser().address;
 
 		await session.addProposer(
 			users[0],
@@ -275,7 +274,7 @@ describe('the stored proof', () => {
 			await expect(
 				verifySignedMessage(
 					signatureOf(event),
-					rebuildMessage(event, proposer.toLowerCase()),
+					rebuildMessage(event, newUser().address),
 				),
 			).rejects.toThrow(CommonErrors.InvalidSignature);
 		}

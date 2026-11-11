@@ -48,7 +48,7 @@ type MemberActor = string;
 // A row nobody signed directly. Its authority is the row it points at.
 type CausedByProof = { kind: 'caused_by'; eventId: number };
 
-// A proposer event's `subject` is stored exactly as signed, not normalised.
+// A proposer event's `subject` is the canonical address, as signed.
 type AccountEventRegistry = {
 	'proposer.added': {
 		actor: MemberActor;
