@@ -377,6 +377,19 @@ describe('buildTransactionPreview', () => {
 		expect(model.sender?.address).toBe(SENDER);
 	});
 
+	test('an expired transaction shows what the bytes give and nothing from a run', () => {
+		const model = preview({
+			status: 'expired',
+			result: simulated({ balanceChanges: [] }),
+		});
+		expect(model.statusMeta).toBe('');
+		expect(model.epoch).toBeNull();
+		expect(model.gas).toBeNull();
+		expect(model.raw).toBeNull();
+		expect(model.error).toBeNull();
+		expect(model.sender?.address).toBe(SENDER);
+	});
+
 	test('once simulated, the status line has the time', () => {
 		const simulatedAt = new Date('2026-10-13T08:54:00Z');
 		expect(

@@ -23,7 +23,10 @@ import { analyzerTab } from '@/components/preview-effects/IntentSummary';
 import { ProposalExpiry } from '@/components/proposals/ProposalExpiry';
 import { ProposalStatusChip } from '@/components/proposals/ProposalStatusChip';
 import { PreviewHeading } from '@/components/transaction-preview/parts';
-import { simulationProps } from '@/components/transaction-preview/simulation';
+import {
+	expiredSimulation,
+	simulationProps,
+} from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
 import { Button } from '@/components/ui/button';
 import { cardClass } from '@/components/ui/card';
@@ -44,6 +47,7 @@ import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { formatDateTime } from '@/lib/dates';
+import { getExpiry } from '@/lib/expiration';
 import {
 	buildProposalExport,
 	downloadJson,
@@ -101,7 +105,8 @@ export function ProposalView({
 	canCancel: boolean;
 }) {
 	const { network, setNetwork } = useNetwork();
-	const { data: epochInfo } = useEpochInfo();
+	const { data: epochInfo, isError: epochFailed } =
+		useEpochInfo();
 	const wallet = useCurrentAccount();
 	const client = useDAppKit().getClient();
 	const { dryRun, analysis, preview } =
@@ -133,15 +138,26 @@ export function ProposalView({
 			? 'elsewhere'
 			: 'member';
 
-	// Open, cancelled and expired proposals show a dry run; executed and
-	// failed ones read the transaction from the chain instead. Nothing
-	// runs on another network.
+	const epochSettled = !!epochInfo || epochFailed;
+	const transactionExpired =
+		!mismatch && epochInfo
+			? (getExpiry(proposal.transactionBytes, epochInfo)
+					?.expired ?? false)
+			: false;
+
+	// Proposals not on chain show a dry run unless their transaction has
+	// expired; executed and failed ones read it from the chain instead.
+	// Nothing runs on another network.
 	useEffect(() => {
-		if (mismatch || onChain) return;
-		preview(proposal.transactionBytes);
+		if (mismatch || onChain || !epochSettled) return;
+		preview(proposal.transactionBytes, {
+			simulate: !transactionExpired,
+		});
 	}, [
 		mismatch,
 		onChain,
+		epochSettled,
+		transactionExpired,
 		proposal.transactionBytes,
 		preview,
 	]);
@@ -166,10 +182,13 @@ export function ProposalView({
 
 	const simulation = onChain
 		? null
-		: simulationProps(dryRun);
-	const verdict: SimulationVerdict = simulation
-		? simulation.status
-		: 'unknown';
+		: transactionExpired
+			? expiredSimulation
+			: simulationProps(dryRun);
+	const verdict: SimulationVerdict =
+		!simulation || simulation.status === 'expired'
+			? 'unknown'
+			: simulation.status;
 	const simulationError =
 		simulation?.status === 'failed'
 			? safeDecode(

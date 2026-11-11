@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { MIST_PER_SUI } from '@mysten/sui/utils';
+import { type Locator } from '@playwright/test';
 
 import { content } from '../../app/src/content';
 import {
@@ -22,6 +23,7 @@ import {
 	toast,
 } from '../support/new-proposal';
 import {
+	cancelProposal,
 	proposeTransfer,
 	setupMultisig,
 	setupProposal,
@@ -303,6 +305,7 @@ test.describe('proposals', () => {
 		await expect(
 			page.getByTestId('sign-proposal-button'),
 		).toHaveCount(0);
+		await expectNotSimulated(page);
 	});
 
 	test('a signature declined in the wallet sends no vote and can be retried', async ({
@@ -476,6 +479,32 @@ test.describe('proposals', () => {
 		).toHaveCount(0);
 	});
 
+	test('a cancelled proposal whose transaction expired isn’t simulated', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const epoch = await chain.epoch();
+		const { alice, bob, multisig, proposal } =
+			await setupProposal(
+				{ createActor, createIdentity, chain },
+				{ expiration: { Epoch: epoch } },
+			);
+		await cancelProposal(alice, proposal);
+
+		await reportEpoch(bob.page, epoch + 1);
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		const page = bob.proposalPage(proposal.digest);
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'cancelled',
+		);
+		await expectNotSimulated(page);
+	});
+
 	test('a stacked row opens the proposal’s page on a phone', async ({
 		createActor,
 		createIdentity,
@@ -642,3 +671,16 @@ test.describe('proposals', () => {
 		).toHaveText('Propose and sign anyway');
 	});
 });
+
+// The preview says the expired transaction wasn't simulated, with no failure.
+async function expectNotSimulated(page: Locator) {
+	await expect(
+		page.getByTestId('transaction-preview-status'),
+	).toHaveAttribute('data-status', 'expired');
+	await expect(
+		page.getByTestId('transaction-preview-error'),
+	).toHaveCount(0);
+	await expect(
+		page.getByTestId('proposal-simulation-failed'),
+	).toHaveCount(0);
+}

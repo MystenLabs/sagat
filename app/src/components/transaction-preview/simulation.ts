@@ -27,6 +27,14 @@ export const pendingSimulation: SimulationProps = {
 	simulatedAt: null,
 };
 
+/** A simulation not run because the transaction has expired. */
+export const expiredSimulation: SimulationProps = {
+	status: 'expired',
+	result: null,
+	error: null,
+	simulatedAt: null,
+};
+
 /**
  * The Transaction preview's simulation props from a dry run: pending
  * until it settles (not started counts as pending, so the first frame

@@ -133,6 +133,7 @@ export function TransactionPreview({
 	const [showRaw, setShowRaw] = useState(false);
 
 	const pending = model.status === 'pending';
+	const expired = model.status === 'expired';
 	const walletPaysGas =
 		!!model.gasOwner &&
 		!!currentAccount &&
@@ -175,11 +176,16 @@ export function TransactionPreview({
 	const waiting = (
 		<EmptyPanel>{COPY.status.pending}</EmptyPanel>
 	);
+	const notSimulated = (
+		<EmptyPanel>{COPY.expired}</EmptyPanel>
+	);
 
 	let panel: ReactNode;
 	switch (activeTab) {
 		case 'balance-changes':
-			panel = (
+			panel = expired ? (
+				notSimulated
+			) : (
 				<BalanceChangesTable
 					rows={model.balanceChanges}
 					status={model.status}
@@ -191,6 +197,8 @@ export function TransactionPreview({
 		case 'object-changes':
 			panel = pending ? (
 				waiting
+			) : expired ? (
+				notSimulated
 			) : (
 				<ObjectChangesList
 					objects={model.objectChanges}
@@ -202,6 +210,8 @@ export function TransactionPreview({
 		case 'events':
 			panel = pending ? (
 				waiting
+			) : expired ? (
+				notSimulated
 			) : (
 				<EventsList
 					events={model.events}
@@ -215,7 +225,9 @@ export function TransactionPreview({
 			);
 			break;
 		case 'raw-json':
-			panel = model.raw ? (
+			panel = expired ? (
+				notSimulated
+			) : model.raw ? (
 				<Textarea
 					value={JSON.stringify(model.raw, null, 2)}
 					rows={20}
@@ -237,7 +249,7 @@ export function TransactionPreview({
 				pending ? undefined : 'transaction-preview-result'
 			}
 			data-result={
-				pending
+				pending || expired
 					? undefined
 					: model.status === 'passed'
 						? 'success'
