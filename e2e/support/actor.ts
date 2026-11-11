@@ -236,10 +236,10 @@ export class Actor extends Identity {
 		}).toPass();
 	}
 
-	// The test wallet's entry in an open wallet picker.
-	walletOption() {
+	// A wallet's entry in an open wallet picker, the test wallet by default.
+	walletOption(name = this.walletName) {
 		return this.page.locator(
-			`[data-testid="wallet-option"][data-wallet-name="${this.walletName}"]`,
+			`[data-testid="wallet-option"][data-wallet-name="${name}"]`,
 		);
 	}
 

@@ -356,11 +356,7 @@ test.describe('wallet sign-in', () => {
 		// A second pick reopens the modal the first one left unanswered.
 		for (let pick = 0; pick < 2; pick++) {
 			await openPicker();
-			await page
-				.locator(
-					'[data-testid="wallet-option"][data-wallet-name="Wallet Connect"]',
-				)
-				.click();
+			await alice.walletOption('Wallet Connect').click();
 			await expect(modal).toBeVisible();
 			await page.getByTestId('w3m-header-close').click();
 			await expect(modal).toBeHidden();

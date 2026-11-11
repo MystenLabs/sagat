@@ -372,7 +372,8 @@ export function ApiAuthProvider({
 		}
 	};
 
-	// Bumped by every pick that starts, so an older one can tell.
+	// Bumped by every pick that starts, so a WalletConnect answer that
+	// lands after a newer pick is ignored.
 	const latestPick = useRef(0);
 
 	const declineConnect = (
