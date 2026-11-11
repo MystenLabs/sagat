@@ -340,6 +340,35 @@ test.describe('wallet sign-in', () => {
 		});
 	});
 
+	test('closing the WalletConnect modal leaves the picker free for another wallet', async ({
+		createActor,
+	}) => {
+		const alice = await createActor('alice');
+		const { page } = alice;
+		const prompt = page.getByTestId(
+			'connect-wallet-prompt',
+		);
+		const openPicker = () =>
+			prompt.getByTestId('connect-wallet-button').click();
+		const modal = page.getByTestId('w3m-modal-card');
+
+		await page.goto('/');
+		// A second pick reopens the modal the first one left unanswered.
+		for (let pick = 0; pick < 2; pick++) {
+			await openPicker();
+			await alice.walletOption('Wallet Connect').click();
+			await expect(modal).toBeVisible();
+			await page.getByTestId('w3m-header-close').click();
+			await expect(modal).toBeHidden();
+		}
+
+		await openPicker();
+		await alice.walletOption().click();
+		await expect(
+			page.getByTestId('sign-in-button'),
+		).toBeEnabled();
+	});
+
 	test("a saved session that can't be restored falls back to the connect prompt", async ({
 		createActor,
 	}) => {

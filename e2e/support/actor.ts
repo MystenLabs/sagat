@@ -236,10 +236,10 @@ export class Actor extends Identity {
 		}).toPass();
 	}
 
-	// The test wallet's entry in an open wallet picker.
-	walletOption() {
+	// A wallet's entry in an open wallet picker, the test wallet by default.
+	walletOption(name = this.walletName) {
 		return this.page.locator(
-			`[data-testid="wallet-option"][data-wallet-name="${this.walletName}"]`,
+			`[data-testid="wallet-option"][data-wallet-name="${name}"]`,
 		);
 	}
 
@@ -382,10 +382,15 @@ export async function serveFullnodeLocally(
 }
 
 // Only the local stack is reachable. Outside services (Slush, WalletConnect,
-// public RPCs) are blocked, so tests can't depend on them or flake on them.
+// public RPCs) are blocked, WebSockets included, so tests can't depend on
+// them or flake on them.
 async function isolateFromInternet(
 	context: BrowserContext,
 ) {
+	await context.routeWebSocket(
+		(url) => !LOCAL_HOSTS.has(url.hostname),
+		(ws) => ws.close(),
+	);
 	await context.route(
 		(url) => !LOCAL_HOSTS.has(url.hostname),
 		(route) => {
