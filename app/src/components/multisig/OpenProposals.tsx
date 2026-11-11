@@ -65,6 +65,20 @@ export function OpenProposals({
 				),
 		[query.data, epochInfo, multisig],
 	);
+	const openLoading =
+		query.isPending || epochQuery.isPending;
+	const noneOpen =
+		!openLoading && !!query.data && proposals.length === 0;
+	// Tells a new account from one whose proposals are all closed.
+	// Same key as the proposals tab's All list, so they share it.
+	const anyQuery = usePaginatedProposals({
+		multisigAddress: multisig.address,
+		network,
+		perPage: PROPOSALS_PAGE_SIZE,
+		enabled: noneOpen,
+	});
+	const neverProposed =
+		anyQuery.data?.pages[0]?.data.length === 0;
 
 	return (
 		<section
@@ -97,12 +111,17 @@ export function OpenProposals({
 				variant="overview"
 				// Expired proposals aren't open, which takes the epoch to
 				// tell; if it fails to load, none count as expired.
-				loading={query.isPending || epochQuery.isPending}
+				loading={
+					openLoading || (noneOpen && anyQuery.isPending)
+				}
 				// A failed background refetch keeps the loaded rows.
 				error={query.data ? null : query.error}
 				onRetry={() => query.refetch()}
 				empty={{
-					title: COPY.emptyTitle,
+					// If the check fails, "none open" is still true.
+					title: neverProposed
+						? COPY.noneEver
+						: COPY.noneOpen,
 				}}
 				testId="open-proposals"
 			/>

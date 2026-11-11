@@ -858,7 +858,8 @@ export const content = {
 		openProposals: {
 			title: 'Open proposals',
 			viewAll: 'View all proposals',
-			emptyTitle: 'No proposals yet.',
+			noneEver: 'No proposals yet.',
+			noneOpen: 'No open proposals.',
 		},
 
 		setup: {
