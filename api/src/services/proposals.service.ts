@@ -29,6 +29,7 @@ import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import { validateNetwork } from '../db/env';
 import {
+	MAX_PROPOSAL_DESCRIPTION_LENGTH,
 	ProposalStatus,
 	proposalStatusFromString,
 	SchemaAccountProposers,
@@ -64,6 +65,7 @@ import {
 	type PaginationCursor,
 } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
+import { normalizeText } from '../utils/text';
 import { recordAccountEvent } from './account-events.service';
 import {
 	isSignerSetMember,
@@ -324,7 +326,8 @@ export type CreateProposalInput = {
 	transactionBytes: string;
 	// The proposer's signature over the transaction.
 	signature: string;
-	description?: string | null;
+	// Unvalidated until `normalizeText`.
+	description?: unknown;
 	network: string;
 };
 
@@ -336,7 +339,7 @@ export const createProposal = async ({
 	multisigAddress,
 	transactionBytes,
 	signature,
-	description,
+	description: rawDescription,
 	network: rawNetwork,
 }: CreateProposalInput): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
@@ -350,6 +353,19 @@ export const createProposal = async ({
 		throw new ValidationError(
 			'The transaction is too large.',
 		);
+
+	// Line breaks stay allowed: the old frontend uses a multi-line field.
+	const description = normalizeText(rawDescription, {
+		maxLength: MAX_PROPOSAL_DESCRIPTION_LENGTH,
+		allowLineBreaks: true,
+		errors: {
+			notAString:
+				'The description must be a string or null.',
+			forbiddenCharacters:
+				'The description may not contain control or formatting characters.',
+			tooLong: `The description must be at most ${MAX_PROPOSAL_DESCRIPTION_LENGTH} characters.`,
+		},
+	});
 
 	assertCanonicalSignature(signature);
 

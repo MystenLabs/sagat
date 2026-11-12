@@ -9,8 +9,14 @@ import {
 	expect,
 	test,
 } from 'bun:test';
+import { eq } from 'drizzle-orm';
 
 import { LIMITS } from '../src/constants/limits';
+import { db } from '../src/db';
+import {
+	SchemaAccounts,
+	SchemaAccountSignerSets,
+} from '../src/db/schema';
 import { parsePublicKey } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
@@ -65,6 +71,46 @@ describe('Multisig API', () => {
 				})),
 		});
 		expect(key.toSuiAddress()).toBe(address);
+	});
+
+	test('checks the name and stores it normalized everywhere', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(2);
+
+		await expect(
+			session.createMultisig(users, 2, {
+				name: 'Treasury\u202Eevil',
+			}),
+		).rejects.toThrow(
+			'The name may not contain control or formatting characters.',
+		);
+
+		// A decomposed e + acute becomes one code point.
+		const multisig = await session.createMultisig(
+			users,
+			2,
+			{
+				name: '  Cafe\u0301 ',
+			},
+		);
+		expect(multisig.name).toBe('Café');
+		const [account] = await db
+			.select({ name: SchemaAccounts.name })
+			.from(SchemaAccounts)
+			.where(eq(SchemaAccounts.address, multisig.address));
+		const [origin] = await db
+			.select({ label: SchemaAccountSignerSets.label })
+			.from(SchemaAccountSignerSets)
+			.where(
+				eq(
+					SchemaAccountSignerSets.accountAddress,
+					multisig.address,
+				),
+			);
+		expect([account.name, origin.label]).toEqual([
+			'Café',
+			'Café',
+		]);
 	});
 
 	test('rejects invalid thresholds', async () => {

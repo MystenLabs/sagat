@@ -68,11 +68,16 @@ const networkCheck = (name: string, column: AnyPgColumn) =>
 		sql`${column} IN ('mainnet', 'testnet', 'devnet', 'localnet')`,
 	);
 
+// The name columns' length; `createSignerSet` checks names against it.
+export const MAX_ACCOUNT_NAME_LENGTH = 255;
+
 // Accounts: the on-chain addresses that own assets and are the `sender` of
 // proposals. Network-agnostic identity.
 const accounts = pgTable('accounts', {
 	address: text('address').notNull().primaryKey(),
-	name: varchar('name', { length: 255 }),
+	name: varchar('name', {
+		length: MAX_ACCOUNT_NAME_LENGTH,
+	}),
 	createdAt: timestamp('created_at')
 		.notNull()
 		.default(sql`NOW()`),
@@ -88,7 +93,9 @@ const signerSets = pgTable('signer_sets', {
 		.notNull(),
 	threshold: integer('threshold').notNull(),
 	// Kept for the legacy routes, which return it as the multisig name.
-	name: varchar('name', { length: 255 }),
+	name: varchar('name', {
+		length: MAX_ACCOUNT_NAME_LENGTH,
+	}),
 });
 
 // Store the members of a signer set and their weight.
@@ -144,6 +151,9 @@ const addresses = pgTable(
 	],
 );
 
+// `createProposal` checks descriptions against the same limit.
+export const MAX_PROPOSAL_DESCRIPTION_LENGTH = 1000;
+
 const proposals = pgTable(
 	'proposals',
 	{
@@ -164,7 +174,9 @@ const proposals = pgTable(
 		// The address of the proposer.
 		proposerAddress: text('proposer_address').notNull(),
 		// A description for the proposal.
-		description: varchar('description', { length: 1000 }),
+		description: varchar('description', {
+			length: MAX_PROPOSAL_DESCRIPTION_LENGTH,
+		}),
 		// the network of the proposal
 		network: text('network').notNull(),
 		// The creation time of the proposal.
@@ -298,7 +310,9 @@ const accountSignerSets = pgTable(
 			.notNull()
 			.references(() => signerSets.address),
 		// A label for the signer set within the account (e.g. "Operations").
-		label: varchar('label', { length: 255 }),
+		label: varchar('label', {
+			length: MAX_ACCOUNT_NAME_LENGTH,
+		}),
 		status: text('status', {
 			enum: accountSignerSetStatuses,
 		})
