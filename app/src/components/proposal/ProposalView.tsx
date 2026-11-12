@@ -44,10 +44,11 @@ import {
 	type SuiNetwork,
 } from '@/contexts/NetworkContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { refusedAsExpired } from '@/hooks/useDryRun';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
+import { useExpiry } from '@/hooks/useExpiry';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { formatDateTime } from '@/lib/dates';
-import { getExpiry } from '@/lib/expiration';
 import {
 	buildProposalExport,
 	downloadJson,
@@ -105,8 +106,7 @@ export function ProposalView({
 	canCancel: boolean;
 }) {
 	const { network, setNetwork } = useNetwork();
-	const { data: epochInfo, isError: epochFailed } =
-		useEpochInfo();
+	const { data: epochInfo } = useEpochInfo();
 	const wallet = useCurrentAccount();
 	const client = useDAppKit().getClient();
 	const { dryRun, analysis, preview } =
@@ -138,26 +138,21 @@ export function ProposalView({
 			? 'elsewhere'
 			: 'member';
 
-	const epochSettled = !!epochInfo || epochFailed;
-	const transactionExpired =
-		!mismatch && epochInfo
-			? (getExpiry(proposal.transactionBytes, epochInfo)
-					?.expired ?? false)
-			: false;
+	const expiry = useExpiry(proposal.transactionBytes);
+	const knownExpired = !mismatch && !!expiry?.expired;
 
 	// Proposals not on chain show a dry run unless their transaction has
 	// expired; executed and failed ones read it from the chain instead.
 	// Nothing runs on another network.
 	useEffect(() => {
-		if (mismatch || onChain || !epochSettled) return;
+		if (mismatch || onChain) return;
 		preview(proposal.transactionBytes, {
-			simulate: !transactionExpired,
+			simulate: !knownExpired,
 		});
 	}, [
 		mismatch,
 		onChain,
-		epochSettled,
-		transactionExpired,
+		knownExpired,
 		proposal.transactionBytes,
 		preview,
 	]);
@@ -182,7 +177,7 @@ export function ProposalView({
 
 	const simulation = onChain
 		? null
-		: transactionExpired
+		: knownExpired || refusedAsExpired(dryRun.error)
 			? expiredSimulation
 			: simulationProps(dryRun);
 	const verdict: SimulationVerdict =

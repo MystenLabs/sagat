@@ -176,16 +176,11 @@ export function TransactionPreview({
 	const waiting = (
 		<EmptyPanel>{COPY.status.pending}</EmptyPanel>
 	);
-	const notSimulated = (
-		<EmptyPanel>{COPY.expired}</EmptyPanel>
-	);
 
 	let panel: ReactNode;
 	switch (activeTab) {
 		case 'balance-changes':
-			panel = expired ? (
-				notSimulated
-			) : (
+			panel = (
 				<BalanceChangesTable
 					rows={model.balanceChanges}
 					status={model.status}
@@ -197,8 +192,6 @@ export function TransactionPreview({
 		case 'object-changes':
 			panel = pending ? (
 				waiting
-			) : expired ? (
-				notSimulated
 			) : (
 				<ObjectChangesList
 					objects={model.objectChanges}
@@ -210,8 +203,6 @@ export function TransactionPreview({
 		case 'events':
 			panel = pending ? (
 				waiting
-			) : expired ? (
-				notSimulated
 			) : (
 				<EventsList
 					events={model.events}
@@ -225,9 +216,7 @@ export function TransactionPreview({
 			);
 			break;
 		case 'raw-json':
-			panel = expired ? (
-				notSimulated
-			) : model.raw ? (
+			panel = model.raw ? (
 				<Textarea
 					value={JSON.stringify(model.raw, null, 2)}
 					rows={20}
@@ -240,6 +229,9 @@ export function TransactionPreview({
 			);
 			break;
 	}
+	// Only the commands come from the bytes; the other tabs need a run.
+	if (expired && activeTab !== 'commands')
+		panel = <EmptyPanel>{COPY.expired}</EmptyPanel>;
 
 	return (
 		<section

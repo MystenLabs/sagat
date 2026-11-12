@@ -240,7 +240,7 @@ export type SimulationVerdict =
 	| 'pending'
 	| 'passed'
 	| 'failed'
-	/** The dry run couldn't run (offline, a timeout): no verdict. */
+	/** No dry run result (not run, offline, a timeout): no verdict. */
 	| 'unknown';
 
 export interface ApprovalsNoteInput {

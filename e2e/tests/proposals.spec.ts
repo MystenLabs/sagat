@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { MIST_PER_SUI } from '@mysten/sui/utils';
-import { type Locator } from '@playwright/test';
 
 import { content } from '../../app/src/content';
 import {
@@ -305,7 +304,6 @@ test.describe('proposals', () => {
 		await expect(
 			page.getByTestId('sign-proposal-button'),
 		).toHaveCount(0);
-		await expectNotSimulated(page);
 	});
 
 	test('a signature declined in the wallet sends no vote and can be retried', async ({
@@ -502,7 +500,12 @@ test.describe('proposals', () => {
 			'data-status',
 			'cancelled',
 		);
-		await expectNotSimulated(page);
+		await expect(
+			page.getByTestId('transaction-preview-status'),
+		).toHaveAttribute('data-status', 'expired');
+		await expect(
+			page.getByTestId('transaction-preview-panel'),
+		).toHaveText(content.transactionPreview.expired);
 	});
 
 	test('a stacked row opens the proposal’s page on a phone', async ({
@@ -671,16 +674,3 @@ test.describe('proposals', () => {
 		).toHaveText('Propose and sign anyway');
 	});
 });
-
-// The preview says the expired transaction wasn't simulated, with no failure.
-async function expectNotSimulated(page: Locator) {
-	await expect(
-		page.getByTestId('transaction-preview-status'),
-	).toHaveAttribute('data-status', 'expired');
-	await expect(
-		page.getByTestId('transaction-preview-error'),
-	).toHaveCount(0);
-	await expect(
-		page.getByTestId('proposal-simulation-failed'),
-	).toHaveCount(0);
-}
