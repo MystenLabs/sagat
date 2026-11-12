@@ -236,7 +236,7 @@ test.describe('new proposal: transfer', () => {
 		await expect(status).toBeVisible();
 	});
 
-	test('Review marks each coin verified or unverified in the balance changes and the analyzer', async ({
+	test('Review marks each coin verified or unverified in both views, as a tappable icon badge on a phone', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -311,6 +311,17 @@ test.describe('new proposal: transfer', () => {
 		await expect(
 			page.getByTestId('token-unverified-popup'),
 		).toHaveText(content.assets.tokens.unverifiedCoin);
+
+		await page
+			.getByTestId('transaction-preview-view-analyzer')
+			.click();
+		await expect(
+			page
+				.locator(
+					'[data-testid="balance-flow"][data-coin-type$="::test_coin::TEST_COIN"]',
+				)
+				.getByTestId('token-unverified'),
+		).toBeVisible();
 	});
 
 	test('Review marks every coin but SUI unverified when the registry fails to load', async ({
