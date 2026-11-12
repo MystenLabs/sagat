@@ -29,10 +29,19 @@ export async function registerPublicKeys(
 ): Promise<void> {
 	if (publicKeys.length === 0) return;
 
-	const addressData = publicKeys.map((pubKey) => ({
-		publicKey: pubKey.toSuiPublicKey(),
-		address: pubKey.toSuiAddress(),
-	}));
+	// Sorted so concurrent registrations can't deadlock.
+	const addressData = publicKeys
+		.map((pubKey) => ({
+			publicKey: pubKey.toSuiPublicKey(),
+			address: pubKey.toSuiAddress(),
+		}))
+		.toSorted((a, b) =>
+			a.publicKey < b.publicKey
+				? -1
+				: a.publicKey > b.publicKey
+					? 1
+					: 0,
+		);
 
 	await db
 		.insert(SchemaAddresses)

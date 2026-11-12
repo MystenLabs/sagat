@@ -24,12 +24,24 @@ import {
 	SchemaSignerSets,
 } from './schema';
 
+const IDLE_IN_TRANSACTION_TIMEOUT_MS = 30_000;
+
 // Create a connection pool with configuration
 const pool = new Pool({
 	connectionString: databaseUrl(),
 	max: 20,
 	idleTimeoutMillis: 30000,
 	connectionTimeoutMillis: 2000,
+	idle_in_transaction_session_timeout:
+		IDLE_IN_TRANSACTION_TIMEOUT_MS,
+});
+
+// Without this, a connection lost mid-request crashes the process.
+pool.on('connect', (client) => {
+	client.on('error', (err) => {
+		// eslint-disable-next-line no-console
+		console.error('Database connection lost', err);
+	});
 });
 
 // Update pool metrics

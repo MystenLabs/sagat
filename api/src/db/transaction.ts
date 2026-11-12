@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import { type db } from './index';
 import { SchemaAccounts } from './schema';
@@ -16,6 +16,8 @@ export const lockAccount = async (
 	tx: DatabaseTransaction,
 	address: string,
 ) => {
+	// Waiters give up instead of holding a pooled connection.
+	await tx.execute(sql`SET LOCAL lock_timeout = '1s'`);
 	await tx
 		.select({ address: SchemaAccounts.address })
 		.from(SchemaAccounts)
