@@ -18,10 +18,10 @@ export default defineConfig({
 	expect: { timeout: 30_000 },
 	reporter: 'list',
 	globalSetup: './global-setup.ts',
-	// One desktop frame for every shot.
+	// Wide enough that full addresses and digests fit on one line.
 	use: {
 		baseURL: E2E.appUrl,
-		viewport: { width: 1280, height: 800 },
+		viewport: { width: 1500, height: 800 },
 		deviceScaleFactor: 2,
 		colorScheme: 'light',
 		reducedMotion: 'reduce',
