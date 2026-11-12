@@ -8,6 +8,7 @@ import {
 	dbConnectionPoolSize,
 	dbQueryErrors,
 } from '../metrics';
+import { wholeNumberEnv } from '../utils/env';
 import { databaseUrl } from './database-url';
 import {
 	SchemaAccountAliases,
@@ -26,10 +27,18 @@ import {
 
 const IDLE_IN_TRANSACTION_TIMEOUT_MS = 30_000;
 
+const poolMax = wholeNumberEnv('DATABASE_POOL_MAX', 30, 1);
+const poolMin = wholeNumberEnv('DATABASE_POOL_MIN', 2, 0);
+if (poolMin > poolMax)
+	throw new Error(
+		'DATABASE_POOL_MIN must not be larger than DATABASE_POOL_MAX',
+	);
+
 // Create a connection pool with configuration
 const pool = new Pool({
 	connectionString: databaseUrl(),
-	max: 20,
+	max: poolMax,
+	min: poolMin,
 	idleTimeoutMillis: 30000,
 	connectionTimeoutMillis: 2000,
 	idle_in_transaction_session_timeout:

@@ -9,6 +9,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool, type PoolClient } from 'pg';
 
+import { optionalEnv } from '../utils/env';
 import { databaseUrl } from './database-url';
 
 /**
@@ -55,8 +56,8 @@ export interface RunMigrationsOptions {
  * `MIGRATIONS_FOLDER` overrides it.
  */
 export function defaultMigrationsFolder(): string {
-	if (process.env.MIGRATIONS_FOLDER)
-		return resolve(process.env.MIGRATIONS_FOLDER);
+	const override = optionalEnv('MIGRATIONS_FOLDER');
+	if (override) return resolve(override);
 	for (
 		let dir = import.meta.dir;
 		dir !== dirname(dir);
