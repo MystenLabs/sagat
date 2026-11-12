@@ -69,8 +69,7 @@ export function OpenProposals({
 		query.isPending || epochQuery.isPending;
 	const noneOpen =
 		!openLoading && !!query.data && proposals.length === 0;
-	// Tells a new account from one whose proposals are all closed.
-	// Same key as the proposals tab's All list, so they share it.
+	// Whether the account ever had a proposal; shares the proposals tab's list.
 	const anyQuery = usePaginatedProposals({
 		multisigAddress: multisig.address,
 		network,
