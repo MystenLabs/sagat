@@ -50,7 +50,6 @@ export function InvitationsPage() {
 						id: 'pending',
 						label: COPY.pendingTab,
 						count: pending.data?.length,
-						countColor: 'gray',
 					},
 					{
 						id: 'rejected',
@@ -60,7 +59,7 @@ export function InvitationsPage() {
 				activeTab={activeTab}
 				onTabChange={(id) => setActiveTab(id as TabType)}
 				testId="invitations-tab"
-				className="mb-6"
+				className="mb-7"
 			/>
 
 			{isLoading ? (

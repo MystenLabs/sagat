@@ -118,7 +118,7 @@ Rules:
   `cursor-default`; replace it.
 - Page chrome: `PageHeader` (title, with a breadcrumb, back link or
   eyebrow above it, description, actions) on every page. Status pills
-  are `Chip`. Tabs are the custom `Tabs` (`underline` or `pills`).
+  are `Chip`. Tabs are the custom `Tabs` (pills).
   Dialogs go through `Modal` / `ModalHeader` / `ModalContent` /
   `ModalActions`.
 - Tooltips on every icon-only control, including the collapsed sidebar

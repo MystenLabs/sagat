@@ -157,7 +157,6 @@ export function AssetsTab() {
 								{ replace: true },
 							)
 						}
-						variant="pills"
 						testId="assets-tab"
 					/>
 					{view === 'tokens' ? (

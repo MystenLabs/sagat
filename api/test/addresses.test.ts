@@ -1,14 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type PublicKey } from '@mysten/sui/cryptography';
 import {
 	beforeEach,
 	describe,
 	expect,
 	test,
 } from 'bun:test';
+import { inArray } from 'drizzle-orm';
 
 import { LIMITS } from '../src/constants/limits';
+import { db } from '../src/db';
+import { SchemaAddresses } from '../src/db/schema';
+import { registerPublicKeys } from '../src/services/addresses.service';
 import {
 	ApiTestFramework,
 	errorOf,
@@ -18,6 +23,7 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
+import { untilBackendsWaitOnALock } from './setup/test-db';
 
 setupSharedTestEnvironment();
 
@@ -86,5 +92,54 @@ describe('Addresses API', () => {
 		await expect(
 			framework.createSession().client.registerAddresses(),
 		).rejects.toThrow('Unauthorized');
+	});
+
+	test('registrations of the same new keys in different orders both succeed', async () => {
+		const [low, high] = [newUser(), newUser()]
+			.map((user) => user.keypair.getPublicKey())
+			.toSorted((a, b) =>
+				a.toSuiPublicKey() < b.toSuiPublicKey() ? -1 : 1,
+			);
+		const row = (key: PublicKey) => ({
+			publicKey: key.toSuiPublicKey(),
+			address: key.toSuiAddress(),
+		});
+
+		// Wrapped, as returning it bare would make the transaction wait for it.
+		const { registering } = await db.transaction(
+			async (tx) => {
+				await tx
+					.insert(SchemaAddresses)
+					.values(row(low))
+					.onConflictDoNothing();
+
+				const registering = Promise.allSettled([
+					registerPublicKeys([high, low]),
+				]);
+				await untilBackendsWaitOnALock(db);
+
+				await tx
+					.insert(SchemaAddresses)
+					.values(row(high))
+					.onConflictDoNothing();
+
+				return { registering };
+			},
+		);
+
+		expect(await registering).toEqual([
+			{ status: 'fulfilled', value: undefined },
+		]);
+		expect(
+			await db
+				.select()
+				.from(SchemaAddresses)
+				.where(
+					inArray(SchemaAddresses.publicKey, [
+						row(low).publicKey,
+						row(high).publicKey,
+					]),
+				),
+		).toHaveLength(2);
 	});
 });

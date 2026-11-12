@@ -21,11 +21,12 @@ import addressesRouter from './routes/addresses';
 import authRouter from './routes/auth';
 import multisigRouter from './routes/multisig';
 import proposalsRouter from './routes/proposals';
+import { optionalEnv } from './utils/env';
 
 // Bun serves the default export only once this module has finished
 // evaluating, so no request reaches a database that is behind. Set
 // MIGRATE_ON_START=false when migrations run as a separate step.
-if (process.env.MIGRATE_ON_START !== 'false') {
+if (optionalEnv('MIGRATE_ON_START') !== 'false') {
 	try {
 		await runMigrations();
 	} catch (error) {

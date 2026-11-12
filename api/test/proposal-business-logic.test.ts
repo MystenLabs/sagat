@@ -15,7 +15,7 @@ import {
 	expect,
 	test,
 } from 'bun:test';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { LIMITS } from '../src/constants/limits';
 import { db } from '../src/db';
@@ -44,6 +44,7 @@ import {
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
+import { untilBackendsWaitOnALock } from './setup/test-db';
 
 const client = getLocalClient();
 
@@ -408,23 +409,14 @@ describe('Proposal Business Logic', () => {
 				multisig,
 			);
 
-			// `pg_stat_activity` is cached per transaction, so this must not run
-			// in the one holding the lock.
-			const untilBackendsWaitOnALock = async (
-				count: number,
-			) => {
-				for (let attempt = 0; attempt < 400; attempt++) {
-					const { rows } = await db.execute(sql`
-						SELECT 1 FROM pg_stat_activity
-						WHERE datname = current_database()
-							AND wait_event_type = 'Lock'`);
-					if (rows.length >= count) return;
-					await Bun.sleep(25);
-				}
-				throw new Error(
-					`Fewer than ${count} backends are waiting on a lock`,
+			// Built before the lock, so only the API's own work runs while the removal waits.
+			const transactionBytes = await buildTransfer(
+				multisig.address,
+			);
+			const { signature } =
+				await proposer.keypair.signTransaction(
+					fromBase64(transactionBytes),
 				);
-			};
 
 			// Wrapped, as returning them bare would make the transaction wait for
 			// them. Not `expect().rejects`: bun blocks on it right here.
@@ -447,14 +439,16 @@ describe('Proposal Business Logic', () => {
 							multisig.address,
 						),
 					]);
-					await untilBackendsWaitOnALock(1);
+					await untilBackendsWaitOnALock(db);
 					const creation = Promise.allSettled([
-						session.proposeTransfer(
-							proposer,
-							multisig.address,
-						),
+						session.client.createProposal({
+							multisigAddress: multisig.address,
+							network: 'localnet',
+							transactionBytes,
+							signature,
+						}),
 					]);
-					await untilBackendsWaitOnALock(2);
+					await untilBackendsWaitOnALock(db, 2);
 
 					return { removal, creation };
 				},

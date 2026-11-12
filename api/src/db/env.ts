@@ -1,30 +1,23 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { getJsonRpcFullnodeUrl } from '@mysten/sui/jsonRpc';
-
 import { ValidationError } from '../errors';
 import { type SuiNetwork } from '../utils/client';
+import {
+	optionalEnv,
+	requiredEnv,
+	requiredListEnv,
+} from '../utils/env';
 
-const jwtSecret = process.env.JWT_SECRET;
-const supportedNetworks =
-	process.env.SUPPORTED_NETWORKS?.split(',').map(
-		(network) => network.trim(),
-	);
-const corsAllowedOrigins =
-	process.env.CORS_ALLOWED_ORIGINS?.split(',').map(
-		(origin) => origin.trim(),
-	);
-
-if (!jwtSecret) throw new Error('JWT_SECRET is not set');
-if (!supportedNetworks)
-	throw new Error(
-		'SUPPORTED_NETWORKS is not set. Please set it to a comma-separated list of supported networks.',
-	);
-if (!corsAllowedOrigins)
-	throw new Error(
-		'CORS_ALLOWED_ORIGINS is not set. Please set it to a comma-separated list of allowed origins.',
-	);
+const jwtSecret = requiredEnv('JWT_SECRET');
+const supportedNetworks = requiredListEnv(
+	'SUPPORTED_NETWORKS',
+	'SUPPORTED_NETWORKS is not set. Please set it to a comma-separated list of supported networks.',
+);
+const corsAllowedOrigins = requiredListEnv(
+	'CORS_ALLOWED_ORIGINS',
+	'CORS_ALLOWED_ORIGINS is not set. Please set it to a comma-separated list of allowed origins.',
+);
 
 // We append `forced_v{x}` when we wanna log everyone off for a good reason.
 // V1: We logged people off to make sure we migrate pubkeys to always be with flags.
@@ -45,18 +38,25 @@ export const SUPPORTED_NETWORKS = supportedNetworks.map(
 	},
 );
 
+const DEFAULT_RPC_URLS: Record<SuiNetwork, string> = {
+	mainnet: 'https://fullnode.mainnet.sui.io:443',
+	testnet: 'https://fullnode.testnet.sui.io:443',
+	devnet: 'https://fullnode.devnet.sui.io:443',
+	localnet: 'http://127.0.0.1:9000',
+};
+
 export const SUI_RPC_URL_testnet =
-	process.env.SUI_RPC_URL_testnet ||
-	getJsonRpcFullnodeUrl('testnet');
+	optionalEnv('SUI_RPC_URL_testnet') ??
+	DEFAULT_RPC_URLS.testnet;
 export const SUI_RPC_URL_mainnet =
-	process.env.SUI_RPC_URL_mainnet ||
-	getJsonRpcFullnodeUrl('mainnet');
+	optionalEnv('SUI_RPC_URL_mainnet') ??
+	DEFAULT_RPC_URLS.mainnet;
 export const SUI_RPC_URL_devnet =
-	process.env.SUI_RPC_URL_devnet ||
-	getJsonRpcFullnodeUrl('devnet');
+	optionalEnv('SUI_RPC_URL_devnet') ??
+	DEFAULT_RPC_URLS.devnet;
 export const SUI_RPC_URL_localnet =
-	process.env.SUI_RPC_URL_localnet ||
-	getJsonRpcFullnodeUrl('localnet');
+	optionalEnv('SUI_RPC_URL_localnet') ??
+	DEFAULT_RPC_URLS.localnet;
 
 export const SUI_RPC_URL = {
 	mainnet: SUI_RPC_URL_mainnet,
