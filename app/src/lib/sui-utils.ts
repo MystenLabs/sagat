@@ -11,6 +11,12 @@ import { extractPublicKeyFromBase64 } from './wallet';
 export const sameAddress = (a: string, b: string) =>
 	normalizeSuiAddress(a) === normalizeSuiAddress(b);
 
+/** A longer short form of an address, for places where it must be hard to imitate. */
+export function formatLongAddress(address: string): string {
+	if (address.length <= 23) return address;
+	return `${address.slice(0, 12)}…${address.slice(-10)}`;
+}
+
 /**
  * Validates and parses a public key string
  */
