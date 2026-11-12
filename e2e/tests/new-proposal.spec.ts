@@ -11,6 +11,7 @@ import {
 
 import { content } from '../../app/src/content';
 import { formatType } from '../../app/src/lib/coin-type';
+import { formatLongAddress } from '../../app/src/lib/sui-utils';
 import { randomAddress, SUI_TYPE } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
@@ -160,6 +161,9 @@ test.describe('new proposal: transfer', () => {
 		await expect(sent).toHaveAttribute(
 			'data-amount',
 			String(-(3n * MIST_PER_SUI) / 2n),
+		);
+		await expect(sent).toContainText(
+			formatLongAddress(account),
 		);
 		const gas = page.locator(
 			`[data-testid="balance-change"][data-address="${account}"][data-gas]`,

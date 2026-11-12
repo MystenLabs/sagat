@@ -12,7 +12,7 @@ import type {
 	SimulationStatus,
 	TransactionPreviewModel,
 } from '@/lib/transaction-preview';
-import { safeDecode } from '@/lib/utils';
+import { cn, safeDecode } from '@/lib/utils';
 
 const FIELDS = content.common.fields;
 const COPY = content.transactionPreview.details;
@@ -35,14 +35,19 @@ function Row({
 	label,
 	children,
 	testId,
+	align,
 }: {
 	label: string;
 	children: ReactNode;
 	testId?: string;
+	align?: 'start';
 }) {
 	return (
 		<div
-			className="flex items-center gap-3 border-b px-3.5 py-2 last:border-b-0"
+			className={cn(
+				'flex gap-3 border-b px-3.5 py-2 last:border-b-0',
+				align === 'start' ? 'items-start' : 'items-center',
+			)}
 			data-testid={testId}
 		>
 			<span className="w-30 shrink-0 text-13 text-muted-foreground">
@@ -68,21 +73,26 @@ function SimulatedValue({
 	return <span className="text-muted-foreground">—</span>;
 }
 
-/** The name wraps, and the address drops under it when there is no room. */
+/** The name, with the whole address and a copy button on the line under it. */
 function AccountValue({
 	account,
 }: {
 	account: NamedAccount;
 }) {
 	return (
-		<span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+		<span className="flex min-w-0 flex-col gap-0.5">
 			{account.name && (
 				<span className="min-w-0 text-13 break-words">
 					{account.name}
 				</span>
 			)}
 			<span className="flex min-w-0 items-center gap-1.5">
-				<span className="min-w-0 font-mono text-12 break-all text-muted-foreground">
+				<span
+					className={cn(
+						'min-w-0 font-mono break-all text-muted-foreground',
+						account.name ? 'text-11' : 'text-12',
+					)}
+				>
 					{account.address}
 				</span>
 				<CopyButton
@@ -151,6 +161,7 @@ export function DetailsTable({
 			<Row
 				label={FIELDS.sender}
 				testId="transaction-preview-sender"
+				align="start"
 			>
 				{!sender ? (
 					<span className="text-muted-foreground">—</span>
@@ -162,6 +173,7 @@ export function DetailsTable({
 				<Row
 					label={COPY.gasOwner}
 					testId="transaction-preview-gas-owner"
+					align="start"
 				>
 					<AccountValue account={gasOwner} />
 				</Row>

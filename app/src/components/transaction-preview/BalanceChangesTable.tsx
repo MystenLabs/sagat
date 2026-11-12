@@ -1,8 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { formatAddress } from '@mysten/sui/utils';
-
 import { VerifiedMark } from '@/components/assets/CoinMarks';
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CoinIcon } from '@/components/ui/CoinIcon';
@@ -22,6 +20,7 @@ import {
 	formatCoinAmount,
 	formatUsdValue,
 } from '@/lib/coins';
+import { formatLongAddress } from '@/lib/sui-utils';
 import type {
 	BalanceChangeRow,
 	SimulationStatus,
@@ -133,7 +132,9 @@ function BalanceRow({
 		decimals: coin?.decimals,
 	});
 	const ownerName = row.gas
-		? COPY.gasOwner(row.label ?? formatAddress(row.address))
+		? COPY.gasOwner(
+				row.label ?? formatLongAddress(row.address),
+			)
 		: row.label;
 	const showAddressLine = !row.gas || !!row.label;
 	// From `sm` an unverified coin has the chip, below it the icon's badge.
@@ -160,15 +161,19 @@ function BalanceRow({
 							{showAddressLine && (
 								<ShortAddress
 									address={row.address}
-									className="w-fit max-w-full truncate font-mono text-11 text-muted-foreground"
-								/>
+									className="w-fit max-w-full font-mono text-11 break-all text-left text-muted-foreground"
+								>
+									{formatLongAddress(row.address)}
+								</ShortAddress>
 							)}
 						</>
 					) : (
 						<ShortAddress
 							address={row.address}
-							className="w-fit max-w-full truncate font-mono text-13"
-						/>
+							className="w-fit max-w-full font-mono text-13 break-all text-left"
+						>
+							{formatLongAddress(row.address)}
+						</ShortAddress>
 					)}
 				</div>
 			</td>

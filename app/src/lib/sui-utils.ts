@@ -12,6 +12,16 @@ export const sameAddress = (a: string, b: string) =>
 	normalizeSuiAddress(a) === normalizeSuiAddress(b);
 
 /**
+ * An address cut to 0x and its first and last ten hex characters, e.g.
+ * "0x1234567890…abcdef1234": longer than `formatAddress`, for places
+ * where it must be hard to imitate.
+ */
+export function formatLongAddress(address: string): string {
+	if (address.length <= 23) return address;
+	return `${address.slice(0, 12)}…${address.slice(-10)}`;
+}
+
+/**
  * Validates and parses a public key string
  */
 export function validatePublicKey(
