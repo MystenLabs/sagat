@@ -51,7 +51,7 @@ import {
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
-import { untilABackendWaitsOnALock } from './setup/test-db';
+import { untilBackendsWaitOnALock } from './setup/test-db';
 
 setupSharedTestEnvironment();
 
@@ -289,7 +289,7 @@ describe('recording in the change transaction', () => {
 						),
 					),
 				);
-				await untilABackendWaitsOnALock(db);
+				await untilBackendsWaitOnALock(db);
 
 				const holderId = await recordAccountEvent(
 					tx,
@@ -483,7 +483,7 @@ describe('cancelling a proposal', () => {
 			const cancel = Promise.allSettled([
 				session.cancelProposal(users[0], proposal),
 			]);
-			await untilABackendWaitsOnALock(db);
+			await untilBackendsWaitOnALock(db);
 
 			await tx
 				.update(SchemaProposals)
@@ -531,7 +531,7 @@ describe('cancelling a proposal', () => {
 					`/proposals/${proposal.id}/cancel`,
 					{ signature },
 				);
-				await untilABackendWaitsOnALock(db);
+				await untilBackendsWaitOnALock(db);
 
 				await other.session.cancelProposal(
 					other.users[0],
@@ -621,7 +621,7 @@ describe('cancelling a proposal', () => {
 			const cancel = Promise.allSettled([
 				session.cancelProposal(proposer, proposal),
 			]);
-			await untilABackendWaitsOnALock(db);
+			await untilBackendsWaitOnALock(db);
 
 			await tx
 				.delete(SchemaAccountProposers)

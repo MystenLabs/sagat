@@ -26,12 +26,7 @@ const previousUrl = process.env.DATABASE_URL;
 
 beforeAll(async () => {
 	testDb = await setupTestDatabase();
-	const url = new URL(
-		process.env.TEST_DATABASE_URL ||
-			'postgresql://localhost:5432/postgres',
-	);
-	url.pathname = `/${testDb.dbName}`;
-	process.env.DATABASE_URL = url.toString();
+	process.env.DATABASE_URL = testDb.url;
 	({ db } = await import('../src/db'));
 });
 
@@ -69,6 +64,10 @@ test('a transaction left idle loses the account lock, and the pool keeps serving
 	).resolves.toBeUndefined();
 	await expect(holder).rejects.toThrow();
 
-	const { rows } = await db.execute(sql`SELECT 1 AS ok`);
-	expect(rows).toEqual([{ ok: 1 }]);
+	const { rows } = await db.execute(
+		sql`SHOW idle_in_transaction_session_timeout`,
+	);
+	expect(rows).toEqual([
+		{ idle_in_transaction_session_timeout: '30s' },
+	]);
 });

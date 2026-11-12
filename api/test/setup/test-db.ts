@@ -30,15 +30,14 @@ export async function setupTestDatabase() {
 	const connectionWithoutDb = CONNECTION_STRING.split('/')
 		.slice(0, -1)
 		.join('/');
+	const url = `${connectionWithoutDb}/${dbName}`;
 
 	// Connect and migrate
-	const pool = new Pool({
-		connectionString: `${connectionWithoutDb}/${dbName}`,
-	});
+	const pool = new Pool({ connectionString: url });
 	const db = drizzle(pool, { schema });
 	await migrate(db, { migrationsFolder: './drizzle' });
 
-	return { db, dbName, pool };
+	return { db, dbName, pool, url };
 }
 
 export async function teardownTestDatabase({
@@ -75,16 +74,19 @@ export async function clearTestData(
 
 // `pg_stat_activity` is cached per transaction, so this must not run in the one
 // holding the lock.
-export const untilABackendWaitsOnALock = async (
+export const untilBackendsWaitOnALock = async (
 	db: Pick<TestDatabase['db'], 'execute'>,
+	count = 1,
 ) => {
 	for (let attempt = 0; attempt < 400; attempt++) {
 		const { rows } = await db.execute(sql`
 			SELECT 1 FROM pg_stat_activity
 			WHERE datname = current_database()
 				AND wait_event_type = 'Lock'`);
-		if (rows.length > 0) return;
+		if (rows.length >= count) return;
 		await Bun.sleep(25);
 	}
-	throw new Error('No backend is waiting on a lock');
+	throw new Error(
+		`Fewer than ${count} backends are waiting on a lock`,
+	);
 };

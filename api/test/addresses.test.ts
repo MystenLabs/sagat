@@ -23,7 +23,7 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { untilABackendWaitsOnALock } from './setup/test-db';
+import { untilBackendsWaitOnALock } from './setup/test-db';
 
 setupSharedTestEnvironment();
 
@@ -116,7 +116,7 @@ describe('Addresses API', () => {
 				const registering = Promise.allSettled([
 					registerPublicKeys([high, low]),
 				]);
-				await untilABackendWaitsOnALock(db);
+				await untilBackendsWaitOnALock(db);
 
 				await tx
 					.insert(SchemaAddresses)
