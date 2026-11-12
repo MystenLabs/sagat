@@ -511,4 +511,46 @@ test.describe('invitations', () => {
 			bob.memberItem(bob.address).getByText('Creator'),
 		).toHaveCount(0);
 	});
+
+	test('an invitation sent while the invitee has the app open shows in the sidebar count', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		// A fake clock skips the wait for the next poll. Request timeouts
+		// keep real time.
+		await bob.page.addInitScript(() => {
+			(
+				window as { nativeTimeout?: unknown }
+			).nativeTimeout = AbortSignal.timeout;
+		});
+		await bob.page.clock.install();
+		await bob.page.addInitScript(() => {
+			AbortSignal.timeout = (
+				window as {
+					nativeTimeout?: typeof AbortSignal.timeout;
+				}
+			).nativeTimeout!;
+		});
+		const firstLoad = bob.page.waitForResponse((response) =>
+			response.url().includes('/addresses/invitations/'),
+		);
+		await bob.signIn();
+		await firstLoad;
+		await expect(
+			bob.page.getByTestId('nav-invitations-count'),
+		).toHaveCount(0);
+
+		await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+		await bob.page.clock.fastForward('01:00');
+		await expect(
+			bob.page.getByTestId('nav-invitations-count'),
+		).toHaveText('1');
+	});
 });

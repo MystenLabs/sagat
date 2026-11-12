@@ -65,5 +65,6 @@ export function useInvitations(
 			!!currentAddress,
 		staleTime: 0, // Don't cache - always refetch when needed
 		refetchOnMount: true, // Refetch when component mounts
+		refetchInterval: 1000 * 60, // Others send invitations from their own sessions
 	});
 }
