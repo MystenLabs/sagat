@@ -12,7 +12,10 @@ import { PersonalMessages } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
-import { isValidSuiAddress } from '@mysten/sui/utils';
+import {
+	isValidSuiAddress,
+	normalizeSuiAddress,
+} from '@mysten/sui/utils';
 import {
 	and,
 	eq,
@@ -902,6 +905,11 @@ type ProposerChange = {
 	expiry: string;
 };
 
+// Lower-case `0x` and 64 hex digits.
+const isCanonicalSuiAddress = (address: string) =>
+	isValidSuiAddress(address) &&
+	normalizeSuiAddress(address) === address;
+
 // Adds an external proposer to an account, signed by an accepted member.
 export const addProposer = async ({
 	address,
@@ -912,7 +920,7 @@ export const addProposer = async ({
 	// Validate the expiry time of the signature.
 	validateIsoExpiry(expiry);
 
-	if (!isValidSuiAddress(proposer))
+	if (!isCanonicalSuiAddress(proposer))
 		throw new CommonError('InvalidAddress');
 
 	assertCanonicalSignature(signature);
@@ -993,7 +1001,7 @@ export const removeProposer = async ({
 	// Validate the expiry time of the signature.
 	validateIsoExpiry(expiry);
 
-	if (!isValidSuiAddress(proposer))
+	if (!isCanonicalSuiAddress(proposer))
 		throw new CommonError('InvalidAddress');
 
 	assertCanonicalSignature(signature);
