@@ -6,10 +6,7 @@ import {
 	usePaginatedProposals,
 } from './usePaginatedProposals';
 
-/**
- * Whether the account never had a proposal, for an empty list that wants to
- * say so. Shares the All tab's cached query; asks only while `enabled`.
- */
+/** Whether the account never had a proposal; asks only while `enabled`. */
 export function useNeverProposed({
 	multisigAddress,
 	network,

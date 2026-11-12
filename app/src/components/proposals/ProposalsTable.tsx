@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type PublicProposal } from '@mysten/sagat';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 
 import { content } from '@/content';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
@@ -54,7 +54,6 @@ export function ProposalsTable({
 	empty: {
 		title: string;
 		description?: string;
-		action?: ReactNode;
 	};
 	testId: string;
 }) {
@@ -74,7 +73,6 @@ export function ProposalsTable({
 				icon={ProposalsIcon}
 				title={empty.title}
 				description={empty.description}
-				action={empty.action}
 				size="page"
 				testId={`${testId}-empty`}
 			/>
