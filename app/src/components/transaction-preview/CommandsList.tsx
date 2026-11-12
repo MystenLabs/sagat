@@ -4,11 +4,11 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { type ReactNode } from 'react';
 
-import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { content } from '@/content';
 import { prettifyType } from '@/lib/coin-type';
 import { tryDecodePure } from '@/lib/decode-pure';
 
+import { LongAddress } from './LongAddress';
 import { ArgBox, EmptyPanel, Field } from './parts';
 
 const COPY = content.transactionPreview.commands;
@@ -94,7 +94,7 @@ function InputArg({
 			<ArgBox>
 				{kind && <Muted>{COPY.objectKind(kind)}</Muted>}
 				<span className="flex items-center">
-					<ShortAddress address={object.objectId} />
+					<LongAddress address={object.objectId} />
 				</span>
 			</ArgBox>
 		);
@@ -114,7 +114,7 @@ function InputArg({
 					>
 						<Muted>{key}</Muted>
 						{key === 'objectId' ? (
-							<ShortAddress address={value as string} />
+							<LongAddress address={value as string} />
 						) : typeof value === 'object' ? (
 							JSON.stringify(value)
 						) : (

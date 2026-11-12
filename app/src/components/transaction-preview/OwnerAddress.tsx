@@ -5,14 +5,16 @@ import type { SuiClientTypes } from '@mysten/sui/client';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 
 import { content } from '@/content';
+import { formatLongAddress } from '@/lib/sui-utils';
 
 import { ShortAddress } from '../invitations/ShortAddress';
+import { LongAddress } from './LongAddress';
 
 const COPY = content.transactionPreview.owner;
 
 /**
  * An object's owner in the preview's cells. Address, object and
- * consensus owners show like every other address: short, with the full
+ * consensus owners show ten characters on each side, with the full
  * value and a copy button on hover, tap or Enter. An address owner
  * that is the sender shows as "Sender"; owners without an address
  * (immutable, shared) as plain text.
@@ -31,16 +33,18 @@ export function OwnerAddress({
 				isSameAddress(owner.AddressOwner, senderAddress);
 			return (
 				<ShortAddress address={owner.AddressOwner}>
-					{isSender ? COPY.sender : undefined}
+					{isSender
+						? COPY.sender
+						: formatLongAddress(owner.AddressOwner)}
 				</ShortAddress>
 			);
 		}
 		case 'ObjectOwner':
-			return <ShortAddress address={owner.ObjectOwner} />;
+			return <LongAddress address={owner.ObjectOwner} />;
 		case 'ConsensusAddressOwner': {
 			const address = owner.ConsensusAddressOwner?.owner;
 			return address ? (
-				<ShortAddress address={address} />
+				<LongAddress address={address} />
 			) : (
 				<span>-</span>
 			);

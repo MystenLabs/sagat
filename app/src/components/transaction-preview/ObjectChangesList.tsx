@@ -4,12 +4,12 @@
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { useMemo, useState } from 'react';
 
-import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { Chip, type ChipProps } from '@/components/ui/chip';
 import { content } from '@/content';
 import { prettifyType } from '@/lib/coin-type';
 import { cn } from '@/lib/utils';
 
+import { LongAddress } from './LongAddress';
 import { OwnerAddress } from './OwnerAddress';
 import { EmptyPanel, Field } from './parts';
 
@@ -206,7 +206,7 @@ export function ObjectChangesList({
 						)}
 						<Field label={COPY.objectId}>
 							<span className="flex min-w-0 items-center font-mono text-12 break-all">
-								<ShortAddress address={object.objectId} />
+								<LongAddress address={object.objectId} />
 							</span>
 						</Field>
 						{object.outputOwner && (

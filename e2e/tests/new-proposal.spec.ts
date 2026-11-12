@@ -141,6 +141,7 @@ test.describe('new proposal: transfer', () => {
 		);
 		const { page } = alice;
 		const account = normalizeSuiAddress(multisig.address);
+		const recipient = randomAddress();
 
 		await openNewProposal(page, multisig.address, {
 			type: 'transfer',
@@ -148,7 +149,7 @@ test.describe('new proposal: transfer', () => {
 		await fillTransfer(page, {
 			coinType: SUI_TYPE,
 			amount: '1.5',
-			recipient: randomAddress(),
+			recipient,
 		});
 		await reviewTransfer(page);
 		await expectSimulation(page, 'success');
@@ -196,6 +197,15 @@ test.describe('new proposal: transfer', () => {
 				.getAttribute('data-count'),
 		);
 		expect(objectChanges).toBeGreaterThan(0);
+
+		await page
+			.getByTestId('transaction-preview-tab-object-changes')
+			.click();
+		await expect(
+			page.getByTestId('object-change').filter({
+				hasText: formatLongAddress(recipient),
+			}),
+		).toHaveCount(1);
 	});
 
 	test('the Static analyzer tab shows the analyzer and comes back to the simulation', async ({
