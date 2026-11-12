@@ -177,8 +177,16 @@ export function TransactionPreview({
 		<EmptyPanel>{COPY.status.pending}</EmptyPanel>
 	);
 
+	// Only the commands come from the bytes; the other tabs need a run.
+	const shownPanel =
+		expired && activeTab !== 'commands'
+			? 'not-simulated'
+			: activeTab;
 	let panel: ReactNode;
-	switch (activeTab) {
+	switch (shownPanel) {
+		case 'not-simulated':
+			panel = <EmptyPanel>{COPY.expired}</EmptyPanel>;
+			break;
 		case 'balance-changes':
 			panel = (
 				<BalanceChangesTable
@@ -229,9 +237,6 @@ export function TransactionPreview({
 			);
 			break;
 	}
-	// Only the commands come from the bytes; the other tabs need a run.
-	if (expired && activeTab !== 'commands')
-		panel = <EmptyPanel>{COPY.expired}</EmptyPanel>;
 
 	return (
 		<section
