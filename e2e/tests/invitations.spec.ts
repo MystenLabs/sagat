@@ -548,7 +548,7 @@ test.describe('invitations', () => {
 			threshold: 2,
 			accept: false,
 		});
-		await bob.page.clock.fastForward('01:00');
+		await bob.page.clock.fastForward('00:10');
 		await expect(
 			bob.page.getByTestId('nav-invitations-count'),
 		).toHaveText('1');
