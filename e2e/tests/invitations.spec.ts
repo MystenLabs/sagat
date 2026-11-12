@@ -512,27 +512,14 @@ test.describe('invitations', () => {
 		).toHaveCount(0);
 	});
 
-	test('an invitation sent while the invitee has the app open shows in the sidebar count', async ({
+	test('an invitee in no accounts sees a new invitation in the sidebar count without a reload', async ({
 		createActor,
 		createIdentity,
 	}) => {
 		const alice = createIdentity('alice');
 		const bob = await createActor('bob');
-		// A fake clock skips the wait for the next poll. Request timeouts
-		// keep real time.
-		await bob.page.addInitScript(() => {
-			(
-				window as { nativeTimeout?: unknown }
-			).nativeTimeout = AbortSignal.timeout;
-		});
-		await bob.page.clock.install();
-		await bob.page.addInitScript(() => {
-			AbortSignal.timeout = (
-				window as {
-					nativeTimeout?: typeof AbortSignal.timeout;
-				}
-			).nativeTimeout!;
-		});
+		// A fake clock skips the wait for the next poll.
+		await bob.installFakeClock();
 		const firstLoad = bob.page.waitForResponse((response) =>
 			response.url().includes('/addresses/invitations/'),
 		);

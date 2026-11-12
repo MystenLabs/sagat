@@ -297,6 +297,23 @@ export class Actor extends Identity {
 		await this.connectWallet();
 	}
 
+	// Request timeouts keep real time, so fast-forwarding aborts no request.
+	async installFakeClock() {
+		await this.page.addInitScript(() => {
+			(
+				window as { nativeTimeout?: unknown }
+			).nativeTimeout = AbortSignal.timeout;
+		});
+		await this.page.clock.install();
+		await this.page.addInitScript(() => {
+			AbortSignal.timeout = (
+				window as {
+					nativeTimeout?: typeof AbortSignal.timeout;
+				}
+			).nativeTimeout!;
+		});
+	}
+
 	// Answers the price list with `coins` instead of an empty one. Call it
 	// before the page loads, as the app reads the list once.
 	async stubRecognizedCoins(coins: RecognizedCoin[]) {
