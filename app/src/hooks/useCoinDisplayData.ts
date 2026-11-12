@@ -6,9 +6,11 @@ import { useCallback, useMemo } from 'react';
 import { useNetwork } from '../contexts/NetworkContext';
 import {
 	buildCoinDisplayMap,
+	isVerifiedCoin,
 	selectFallbackCoinTypes,
 	type CoinDisplayData,
 } from '../lib/coinDisplay';
+import { isSuiCoinType } from '../lib/coins';
 import { useCoinMetadataMap } from './useCoinMetadata';
 import { useRecognizedCoins } from './useRecognizedCoins';
 
@@ -62,9 +64,27 @@ export function useCoinDisplayDataMap(coinTypes: string[]) {
 		[recognizedQuery.isPending, metadataLoadingFor],
 	);
 
+	const hasRegistry = !!recognizedQuery.data;
+	const registryFailed = recognizedQuery.isError;
+	const recognizedMap = recognizedQuery.map;
+	const isVerified = useCallback(
+		(coinType: string) => {
+			if (hasRegistry)
+				return isVerifiedCoin(coinType, recognizedMap);
+			if (registryFailed) return isSuiCoinType(coinType);
+			return undefined;
+		},
+		[hasRegistry, registryFailed, recognizedMap],
+	);
+
 	// Recognized errors stay silent — the metadata fallback covers them.
 	return {
 		map,
+		/**
+		 * Whether `coinType` is SUI or in the registry; only SUI when the
+		 * registry failed, `undefined` while it loads.
+		 */
+		isVerified,
 		/** The registry or some coin's metadata is still loading. */
 		isLoading:
 			recognizedQuery.isPending ||

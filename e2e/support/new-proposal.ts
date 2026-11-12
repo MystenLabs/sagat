@@ -34,10 +34,16 @@ export async function sharedAccount(
 	{
 		fund = true,
 		rejectSigning,
-	}: { fund?: boolean; rejectSigning?: boolean } = {},
+		hasTouch,
+	}: {
+		fund?: boolean;
+		rejectSigning?: boolean;
+		hasTouch?: boolean;
+	} = {},
 ) {
 	const alice = await createActor('alice', {
 		rejectSigning,
+		hasTouch,
 	});
 	const bob = createIdentity('bob');
 	const multisig = await setupMultisig({

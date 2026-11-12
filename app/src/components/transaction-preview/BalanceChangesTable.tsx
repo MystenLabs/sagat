@@ -3,6 +3,7 @@
 
 import { formatAddress } from '@mysten/sui/utils';
 
+import { VerifiedMark } from '@/components/assets/CoinMarks';
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import { CopyButton } from '@/components/ui/CopyButton';
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { content } from '@/content';
 import type { CoinDisplayData } from '@/hooks/useCoinDisplayData';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { formatType } from '@/lib/coin-type';
 import {
 	coinUsdValue,
@@ -36,11 +38,13 @@ export function BalanceChangesTable({
 	status,
 	coinData,
 	isCoinDataLoading,
+	isVerified,
 }: {
 	rows: BalanceChangeRow[];
 	status: SimulationStatus;
 	coinData: Map<string, CoinDisplayData>;
 	isCoinDataLoading: (coinType: string) => boolean;
+	isVerified: (coinType: string) => boolean | undefined;
 }) {
 	return (
 		<div className="overflow-hidden rounded-lg border bg-card">
@@ -100,6 +104,7 @@ export function BalanceChangesTable({
 								row={row}
 								coin={coinData.get(row.coinType)}
 								loading={isCoinDataLoading(row.coinType)}
+								verified={isVerified(row.coinType)}
 							/>
 						))
 					)}
@@ -113,10 +118,12 @@ function BalanceRow({
 	row,
 	coin,
 	loading,
+	verified,
 }: {
 	row: BalanceChangeRow;
 	coin: CoinDisplayData | undefined;
 	loading: boolean;
+	verified: boolean | undefined;
 }) {
 	const amount = BigInt(row.amount);
 	const positive = amount > 0n;
@@ -129,6 +136,10 @@ function BalanceRow({
 		? COPY.gasOwner(row.label ?? formatAddress(row.address))
 		: row.label;
 	const showAddressLine = !row.gas || !!row.label;
+	// From `sm` an unverified coin has the chip, below it the icon's badge.
+	const chip =
+		useMediaQuery('(min-width: 40rem)') &&
+		verified === false;
 
 	return (
 		<tr
@@ -168,14 +179,19 @@ function BalanceRow({
 						symbol={coin?.symbol}
 						coinType={row.coinType}
 						recognized={coin?.recognized}
+						badge={false}
+						verified={chip ? undefined : verified}
 						size="sm"
 					/>
 					<div className="flex min-w-0 flex-col">
 						{!coin && loading ? (
 							<SkeletonLine className="my-1 w-12" />
 						) : (
-							<span className="truncate text-13">
-								{coin?.symbol ?? '—'}
+							<span className="flex min-w-0 items-center gap-1.5">
+								<span className="truncate text-13">
+									{coin?.symbol ?? '—'}
+								</span>
+								{chip && <VerifiedMark verified={false} />}
 							</span>
 						)}
 						<span className="flex min-w-0 items-center gap-1">

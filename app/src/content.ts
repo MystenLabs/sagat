@@ -750,6 +750,7 @@ export const content = {
 			noPrice: 'No price',
 			verified: 'Verified',
 			unverified: 'Unverified',
+			unverifiedCoin: 'Unverified coin',
 			unverifiedTokens: 'Unverified tokens',
 			/** The raw on-chain amount, as a tooltip on a balance shown without decimals. */
 			rawAmount: (raw: string) => `${raw} (raw)`,
