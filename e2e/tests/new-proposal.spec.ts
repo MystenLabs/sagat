@@ -161,6 +161,7 @@ test.describe('new proposal: transfer', () => {
 			'data-amount',
 			String(-(3n * MIST_PER_SUI) / 2n),
 		);
+		await expect(sent).toContainText(account);
 		const gas = page.locator(
 			`[data-testid="balance-change"][data-address="${account}"][data-gas]`,
 		);

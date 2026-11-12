@@ -4,7 +4,6 @@
 import { formatAddress } from '@mysten/sui/utils';
 
 import { VerifiedMark } from '@/components/assets/CoinMarks';
-import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { SkeletonLine } from '@/components/ui/skeleton';
@@ -32,7 +31,7 @@ const COPY = content.transactionPreview.balances;
 
 const cellClass = 'px-2 py-1.75 sm:px-3';
 
-/** Owner, asset and signed change per row, the gas payer's net gas last. */
+/** Owner, address and asset beside each signed change, the gas payer's net gas last. */
 export function BalanceChangesTable({
 	rows,
 	status,
@@ -59,9 +58,6 @@ export function BalanceChangesTable({
 						<th className="px-2 sm:px-3">
 							{content.common.fields.owner}
 						</th>
-						<th className="w-24 px-2 sm:w-50 sm:px-3">
-							{content.common.fields.asset}
-						</th>
 						<th className="w-24 px-2 text-right sm:w-40 sm:px-3">
 							{COPY.change}
 						</th>
@@ -75,9 +71,6 @@ export function BalanceChangesTable({
 									<SkeletonLine className="w-28 max-w-full" />
 								</td>
 								<td className={cellClass}>
-									<SkeletonLine className="w-20 max-w-full" />
-								</td>
-								<td className={cellClass}>
 									<SkeletonLine className="ml-auto w-16 max-w-full" />
 								</td>
 							</tr>
@@ -85,7 +78,7 @@ export function BalanceChangesTable({
 					) : rows.length === 0 ? (
 						<tr>
 							<td
-								colSpan={3}
+								colSpan={2}
 								className={cn(
 									cellClass,
 									'py-3 text-13 text-muted-foreground',
@@ -135,7 +128,6 @@ function BalanceRow({
 	const ownerName = row.gas
 		? COPY.gasOwner(row.label ?? formatAddress(row.address))
 		: row.label;
-	const showAddressLine = !row.gas || !!row.label;
 	// From `sm` an unverified coin has the chip, below it the icon's badge.
 	const chip =
 		useMediaQuery('(min-width: 40rem)') &&
@@ -150,30 +142,56 @@ function BalanceRow({
 			data-amount={row.amount}
 			data-gas={row.gas || undefined}
 		>
-			<td className={cellClass}>
-				<div className="flex min-w-0 flex-col">
-					{ownerName ? (
-						<>
+			<td
+				colSpan={2}
+				className="px-2 pt-2.25 pb-2.5 sm:px-3"
+			>
+				<div className="flex items-start">
+					<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+						{ownerName && (
 							<span className="text-13 break-words">
 								{ownerName}
 							</span>
-							{showAddressLine && (
-								<ShortAddress
-									address={row.address}
-									className="w-fit max-w-full truncate font-mono text-11 text-muted-foreground"
-								/>
+						)}
+						<span
+							className={cn(
+								'font-mono text-11 break-all',
+								ownerName && 'text-muted-foreground',
 							)}
-						</>
-					) : (
-						<ShortAddress
-							address={row.address}
-							className="w-fit max-w-full truncate font-mono text-13"
-						/>
-					)}
+						>
+							{row.address}
+						</span>
+					</div>
+					{/* The Change header's width less its padding, so amounts line up under it. */}
+					<div className="w-20 shrink-0 pl-2 text-right sm:w-34 sm:pl-3">
+						{!coin && loading ? (
+							<div className="flex flex-col items-end gap-1.5">
+								<SkeletonLine className="w-16 max-w-full" />
+								<SkeletonLine className="w-10 max-w-full" />
+							</div>
+						) : (
+							<div className="flex flex-col items-end gap-0.5">
+								<span
+									className={cn(
+										'text-13 break-all tabular-nums',
+										positive && 'text-success-foreground',
+										negative && 'text-error-foreground',
+									)}
+								>
+									{coin?.decimals != null
+										? `${positive ? '+' : ''}${formatCoinAmount(row.amount, coin.decimals)}`
+										: '—'}
+								</span>
+								{usd !== null && (
+									<span className="text-12 text-muted-foreground tabular-nums">
+										{formatUsdValue(usd)}
+									</span>
+								)}
+							</div>
+						)}
+					</div>
 				</div>
-			</td>
-			<td className={cellClass}>
-				<div className="flex min-w-0 items-center gap-2">
+				<div className="mt-1.5 flex min-w-0 items-center gap-2">
 					<CoinIcon
 						iconUrl={coin?.iconUrl}
 						symbol={coin?.symbol}
@@ -181,20 +199,20 @@ function BalanceRow({
 						recognized={coin?.recognized}
 						badge={false}
 						verified={chip ? undefined : verified}
-						size="sm"
+						size="xs"
 					/>
-					<div className="flex min-w-0 flex-col">
+					<div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
 						{!coin && loading ? (
 							<SkeletonLine className="my-1 w-12" />
 						) : (
 							<span className="flex min-w-0 items-center gap-1.5">
-								<span className="truncate text-13">
+								<span className="truncate text-13 text-foreground-secondary">
 									{coin?.symbol ?? '—'}
 								</span>
 								{chip && <VerifiedMark verified={false} />}
 							</span>
 						)}
-						<span className="flex min-w-0 items-center gap-1">
+						<span className="flex max-w-full min-w-0 items-center gap-1">
 							<span
 								className="truncate font-mono text-11 text-muted-foreground"
 								title={row.coinType}
@@ -211,33 +229,6 @@ function BalanceRow({
 						</span>
 					</div>
 				</div>
-			</td>
-			<td className={cn(cellClass, 'text-right')}>
-				{!coin && loading ? (
-					<div className="flex flex-col items-end gap-1.5">
-						<SkeletonLine className="w-16 max-w-full" />
-						<SkeletonLine className="w-10 max-w-full" />
-					</div>
-				) : (
-					<div className="flex flex-col items-end">
-						<span
-							className={cn(
-								'text-13 break-all tabular-nums',
-								positive && 'text-success-foreground',
-								negative && 'text-error-foreground',
-							)}
-						>
-							{coin?.decimals != null
-								? `${positive ? '+' : ''}${formatCoinAmount(row.amount, coin.decimals)}`
-								: '—'}
-						</span>
-						{usd !== null && (
-							<span className="text-12 text-muted-foreground tabular-nums">
-								{formatUsdValue(usd)}
-							</span>
-						)}
-					</div>
-				)}
 			</td>
 		</tr>
 	);
