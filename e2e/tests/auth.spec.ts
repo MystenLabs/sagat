@@ -493,19 +493,7 @@ test.describe('wallet sign-in', () => {
 		// A fake clock lets the test run past the 5 minutes after which
 		// React Query evicts unused cache entries. Request timeouts keep
 		// real time, so a held check stays held.
-		await alice.page.addInitScript(() => {
-			(
-				window as { nativeTimeout?: unknown }
-			).nativeTimeout = AbortSignal.timeout;
-		});
-		await alice.page.clock.install();
-		await alice.page.addInitScript(() => {
-			AbortSignal.timeout = (
-				window as {
-					nativeTimeout?: typeof AbortSignal.timeout;
-				}
-			).nativeTimeout!;
-		});
+		await alice.installFakeClock();
 		await alice.signIn();
 
 		let failedChecks = 0;

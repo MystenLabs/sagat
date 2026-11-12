@@ -511,4 +511,33 @@ test.describe('invitations', () => {
 			bob.memberItem(bob.address).getByText('Creator'),
 		).toHaveCount(0);
 	});
+
+	test('an invitee in no accounts sees a new invitation in the sidebar count without a reload', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		// A fake clock skips the wait for the next poll.
+		await bob.installFakeClock();
+		const firstLoad = bob.page.waitForResponse((response) =>
+			response.url().includes('/addresses/invitations/'),
+		);
+		await bob.signIn();
+		await firstLoad;
+		await expect(
+			bob.page.getByTestId('nav-invitations-count'),
+		).toHaveCount(0);
+
+		await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+		await bob.page.clock.fastForward('00:10');
+		await expect(
+			bob.page.getByTestId('nav-invitations-count'),
+		).toHaveText('1');
+	});
 });

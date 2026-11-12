@@ -9,6 +9,11 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
+import { useUserMultisigs } from './useUserMultisigs';
+
+// An address in no accounts is likely waiting on an invitation.
+const NO_ACCOUNTS_REFETCH_INTERVAL = 10_000;
+const INVITATIONS_REFETCH_INTERVAL = 60_000;
 
 // Hook to fetch invitations for the current user's public key
 export function useInvitations(
@@ -17,6 +22,7 @@ export function useInvitations(
 ) {
 	const { isCurrentAddressAuthenticated, currentAddress } =
 		useApiAuth();
+	const { data: multisigs } = useUserMultisigs();
 
 	return useQuery({
 		queryKey: [
@@ -65,5 +71,9 @@ export function useInvitations(
 			!!currentAddress,
 		staleTime: 0, // Don't cache - always refetch when needed
 		refetchOnMount: true, // Refetch when component mounts
+		refetchInterval:
+			multisigs?.length === 0
+				? NO_ACCOUNTS_REFETCH_INTERVAL
+				: INVITATIONS_REFETCH_INTERVAL,
 	});
 }
