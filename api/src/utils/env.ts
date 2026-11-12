@@ -25,14 +25,13 @@ export const requiredListEnv = (
 
 export const wholeNumberEnv = (
 	name: string,
-	fallback: number,
-	least: number,
+	{ fallback, min }: { fallback: number; min: number },
 ) => {
 	const value = optionalEnv(name);
 	if (value === undefined) return fallback;
-	if (!/^\d+$/.test(value) || Number(value) < least)
+	if (!/^\d+$/.test(value) || Number(value) < min)
 		throw new Error(
-			`${name} must be a whole number of ${least} or more, got "${value}"`,
+			`${name} must be a whole number of ${min} or more, got "${value}"`,
 		);
 	return Number(value);
 };

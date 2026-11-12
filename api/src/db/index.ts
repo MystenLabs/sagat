@@ -27,8 +27,14 @@ import {
 
 const IDLE_IN_TRANSACTION_TIMEOUT_MS = 30_000;
 
-const poolMax = wholeNumberEnv('DATABASE_POOL_MAX', 30, 1);
-const poolMin = wholeNumberEnv('DATABASE_POOL_MIN', 2, 0);
+const poolMax = wholeNumberEnv('DATABASE_POOL_MAX', {
+	fallback: 30,
+	min: 1,
+});
+const poolMin = wholeNumberEnv('DATABASE_POOL_MIN', {
+	fallback: 2,
+	min: 0,
+});
 if (poolMin > poolMax)
 	throw new Error(
 		'DATABASE_POOL_MIN must not be larger than DATABASE_POOL_MAX',
@@ -75,15 +81,14 @@ setInterval(updatePoolMetrics, 10000);
 // Initial metrics update
 updatePoolMetrics();
 
-// Handle pool errors
-pool.on('error', (err) => {
+// The pool has already dropped the client; later queries open a new one.
+pool.on('error', () => {
 	// eslint-disable-next-line no-console
-	console.error('Unexpected error on idle client', err);
+	console.error('Idle database connection lost');
 	dbQueryErrors.inc({
 		operation: 'pool',
 		table: 'unknown',
 	});
-	process.exit(-1);
 });
 
 // Create drizzle instance with the pool and schema
