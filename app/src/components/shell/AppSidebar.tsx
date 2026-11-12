@@ -2,13 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import {
-	ArrowUpRight,
-	BookOpen,
-	ChevronRight,
-	Github,
-	Mail,
-} from 'lucide-react';
+import { ArrowUpRight, ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import {
 	Link,
@@ -38,6 +32,11 @@ import {
 	DropdownMenuContent,
 	DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+	DocsIcon,
+	GithubIcon,
+	InvitationsIcon,
+} from '@/components/ui/nav-icons';
 import {
 	Sidebar,
 	SidebarContent,
@@ -84,12 +83,12 @@ const RESOURCE_LINKS = [
 	{
 		href: 'https://docs.suipods.io',
 		label: COPY.viewDocs,
-		icon: BookOpen,
+		icon: DocsIcon,
 	},
 	{
 		href: 'https://github.com/mystenlabs/sagat',
 		label: COPY.github,
-		icon: Github,
+		icon: GithubIcon,
 	},
 ] as const;
 
@@ -295,7 +294,7 @@ function SidebarNav() {
 												/>
 											}
 										>
-											<Mail />
+											<InvitationsIcon />
 											<span>{COPY.invitations}</span>
 										</SidebarMenuButton>
 										{pendingInvites > 0 && (
