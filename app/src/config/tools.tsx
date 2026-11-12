@@ -1,11 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { FileText, PenLine, Radio } from 'lucide-react';
-
 import BroadcastTool from '@/components/tools/BroadcastTool';
 import SignatureAnalyzer from '@/components/tools/SignatureAnalyzer';
 import SigningTool from '@/components/tools/SigningTool';
+import {
+	BroadcastsIcon,
+	SignatureAnalyzerIcon,
+	TransactionSignerIcon,
+} from '@/components/ui/nav-icons';
 import { content } from '@/content';
 
 const COPY = content.tools.pages;
@@ -24,7 +27,7 @@ export const TOOLS: Tool[] = [
 		id: 'signature-analyzer',
 		name: COPY.signatureAnalyzer.name,
 		description: COPY.signatureAnalyzer.description,
-		icon: <FileText className="size-4" />,
+		icon: <SignatureAnalyzerIcon className="size-4" />,
 		component: SignatureAnalyzer,
 		path: '/tools/signature-analyzer',
 	},
@@ -32,7 +35,7 @@ export const TOOLS: Tool[] = [
 		id: 'sign',
 		name: COPY.sign.name,
 		description: COPY.sign.description,
-		icon: <PenLine className="size-4" />,
+		icon: <TransactionSignerIcon className="size-4" />,
 		component: SigningTool,
 		path: '/tools/sign',
 	},
@@ -40,7 +43,7 @@ export const TOOLS: Tool[] = [
 		id: 'broadcast',
 		name: COPY.broadcast.name,
 		description: COPY.broadcast.description,
-		icon: <Radio className="size-4" />,
+		icon: <BroadcastsIcon className="size-4" />,
 		component: BroadcastTool,
 		path: '/tools/broadcast',
 	},

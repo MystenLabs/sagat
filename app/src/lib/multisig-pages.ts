@@ -1,14 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	Coins,
-	FileText,
-	LayoutDashboard,
-	Users,
-} from 'lucide-react';
+import { Users } from 'lucide-react';
 import { matchPath } from 'react-router-dom';
 
+import {
+	AssetsIcon,
+	OverviewIcon,
+	ProposalsIcon,
+} from '../components/ui/nav-icons';
 import { content } from '../content';
 
 const COPY = content.overview.pages;
@@ -21,17 +21,17 @@ export const MULTISIG_PAGES = [
 	{
 		id: 'overview',
 		label: COPY.overview,
-		icon: LayoutDashboard,
+		icon: OverviewIcon,
 	},
 	{
 		id: 'proposals',
 		label: COPY.proposals,
-		icon: FileText,
+		icon: ProposalsIcon,
 	},
 	{
 		id: 'assets',
 		label: COPY.assets,
-		icon: Coins,
+		icon: AssetsIcon,
 	},
 	// "Members" covers the signers and the external proposers; the id
 	// and the path stay `signers`.
