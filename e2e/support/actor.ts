@@ -331,12 +331,16 @@ export class Actor extends Identity {
 		);
 	}
 
-	// Opens the current account's proposals tab. Accounts open on their
-	// overview.
-	async openProposalsTab() {
+	// Opens the current account's proposals tab, then `filter`'s tab if
+	// given. Accounts open on their overview, the proposals on To sign.
+	async openProposalsTab(filter?: string) {
 		await this.page
 			.getByTestId('multisig-tab-proposals')
 			.click();
+		if (filter)
+			await this.page
+				.getByTestId(`proposal-filter-${filter}`)
+				.click();
 	}
 
 	// A proposal's own page, under its account or at a shared link.

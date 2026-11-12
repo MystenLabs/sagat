@@ -75,7 +75,7 @@ async function openFailingProposal({
 	});
 
 	await alice.signIn();
-	await alice.openProposalsTab();
+	await alice.openProposalsTab('ready');
 	await alice
 		.proposalRow(proposal.digest)
 		.getByTestId('proposal-title')

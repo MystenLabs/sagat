@@ -9,10 +9,12 @@ import { Link } from 'react-router-dom';
 import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
+import { useNeverProposed } from '@/hooks/useNeverProposed';
 import {
 	PROPOSALS_PAGE_SIZE,
 	usePaginatedProposals,
 } from '@/hooks/usePaginatedProposals';
+import { type ProposalsPageState } from '@/hooks/useProposalsQueries';
 import {
 	isProposalExpired,
 	proposalsPath,
@@ -69,15 +71,11 @@ export function OpenProposals({
 		query.isPending || epochQuery.isPending;
 	const noneOpen =
 		!openLoading && !!query.data && proposals.length === 0;
-	// Whether the account ever had a proposal; shares the proposals tab's list.
-	const anyQuery = usePaginatedProposals({
+	const never = useNeverProposed({
 		multisigAddress: multisig.address,
 		network,
-		perPage: PROPOSALS_PAGE_SIZE,
 		enabled: noneOpen,
 	});
-	const neverProposed =
-		anyQuery.data?.pages[0]?.data.length === 0;
 
 	return (
 		<section
@@ -91,6 +89,9 @@ export function OpenProposals({
 			>
 				<Link
 					to={proposalsPath(multisig.address)}
+					state={
+						{ filter: 'all' } satisfies ProposalsPageState
+					}
 					className={cn(
 						buttonVariants({
 							variant: 'ghost',
@@ -110,15 +111,13 @@ export function OpenProposals({
 				variant="overview"
 				// Expired proposals aren't open, which takes the epoch to
 				// tell; if it fails to load, none count as expired.
-				loading={
-					openLoading || (noneOpen && anyQuery.isPending)
-				}
+				loading={openLoading || never.isPending}
 				// A failed background refetch keeps the loaded rows.
 				error={query.data ? null : query.error}
 				onRetry={() => query.refetch()}
 				empty={{
 					// If the check fails, "none open" is still true.
-					title: neverProposed
+					title: never.neverProposed
 						? COPY.noneEver
 						: COPY.noneOpen,
 				}}

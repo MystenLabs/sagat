@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type PublicProposal } from '@mysten/sagat';
-import { FileText } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 
 import { content } from '@/content';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
@@ -13,6 +12,7 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 import { EmptyState, ErrorState } from '../ui/empty-state';
+import { ProposalsIcon } from '../ui/nav-icons';
 import { SkeletonRows } from '../ui/skeleton';
 import {
 	tableClass,
@@ -31,8 +31,8 @@ const FIELDS = content.common.fields;
  * Proposals as a table, for the overview's open proposals and the full
  * list on the proposals page. Loading and errors keep the table's shell
  * and header so the page doesn't jump. With nothing to show, the list's
- * empty state stands alone and the overview keeps the table with one line
- * for a body. Test ids are `testId` plus `-loading`, `-error`
+ * page-sized empty state stands alone and the overview keeps the table
+ * with one line for a body. Test ids are `testId` plus `-loading`, `-error`
  * and `-empty`.
  */
 export function ProposalsTable({
@@ -54,7 +54,6 @@ export function ProposalsTable({
 	empty: {
 		title: string;
 		description?: string;
-		action?: ReactNode;
 	};
 	testId: string;
 }) {
@@ -71,10 +70,10 @@ export function ProposalsTable({
 	if (list && noProposals)
 		return (
 			<EmptyState
-				icon={FileText}
+				icon={ProposalsIcon}
 				title={empty.title}
 				description={empty.description}
-				action={empty.action}
+				size="page"
 				testId={`${testId}-empty`}
 			/>
 		);

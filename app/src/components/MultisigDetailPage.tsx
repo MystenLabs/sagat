@@ -121,7 +121,7 @@ export function MultisigDetailPage() {
 
 	return (
 		<div
-			className="page-shell"
+			className="page-shell flex-1"
 			data-testid="multisig-detail"
 			data-multisig-address={multisig.address}
 		>
@@ -165,8 +165,8 @@ export function MultisigDetailPage() {
 				</SuccessBanner>
 			)}
 
-			{/* Tab Content */}
-			<div>
+			{/* Tab Content; grows so a page can fill the height. */}
+			<div className="flex flex-1 flex-col">
 				<Outlet context={{ multisig }} />
 			</div>
 		</div>

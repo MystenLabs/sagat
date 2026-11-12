@@ -21,6 +21,22 @@ interface UsePaginatedProposalsParams {
 	enabled?: boolean;
 }
 
+/** The cache key of one proposals list. */
+export function proposalsQueryKey({
+	multisigAddress,
+	network,
+	status,
+	perPage = PROPOSALS_PAGE_SIZE,
+}: Omit<UsePaginatedProposalsParams, 'enabled'>) {
+	return [
+		QueryKeys.Proposals,
+		status !== undefined ? ProposalStatus[status] : 'all',
+		multisigAddress,
+		network,
+		perPage,
+	];
+}
+
 export function usePaginatedProposals({
 	multisigAddress,
 	network,
@@ -29,13 +45,12 @@ export function usePaginatedProposals({
 	enabled = true,
 }: UsePaginatedProposalsParams) {
 	return useInfiniteQuery({
-		queryKey: [
-			QueryKeys.Proposals,
-			status !== undefined ? ProposalStatus[status] : 'all',
+		queryKey: proposalsQueryKey({
 			multisigAddress,
 			network,
+			status,
 			perPage,
-		],
+		}),
 		queryFn: ({ pageParam }) =>
 			apiClient.getProposals(multisigAddress, network, {
 				status,
