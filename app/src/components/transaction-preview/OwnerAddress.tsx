@@ -8,6 +8,7 @@ import { content } from '@/content';
 import { formatLongAddress } from '@/lib/sui-utils';
 
 import { ShortAddress } from '../invitations/ShortAddress';
+import { LongAddress } from './LongAddress';
 
 const COPY = content.transactionPreview.owner;
 
@@ -39,17 +40,11 @@ export function OwnerAddress({
 			);
 		}
 		case 'ObjectOwner':
-			return (
-				<ShortAddress address={owner.ObjectOwner}>
-					{formatLongAddress(owner.ObjectOwner)}
-				</ShortAddress>
-			);
+			return <LongAddress address={owner.ObjectOwner} />;
 		case 'ConsensusAddressOwner': {
 			const address = owner.ConsensusAddressOwner?.owner;
 			return address ? (
-				<ShortAddress address={address}>
-					{formatLongAddress(address)}
-				</ShortAddress>
+				<LongAddress address={address} />
 			) : (
 				<span>-</span>
 			);

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { VerifiedMark } from '@/components/assets/CoinMarks';
-import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CoinIcon } from '@/components/ui/CoinIcon';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { SkeletonLine } from '@/components/ui/skeleton';
@@ -26,6 +25,8 @@ import type {
 	SimulationStatus,
 } from '@/lib/transaction-preview';
 import { cn } from '@/lib/utils';
+
+import { LongAddress } from './LongAddress';
 
 const COPY = content.transactionPreview.balances;
 
@@ -159,21 +160,17 @@ function BalanceRow({
 								{ownerName}
 							</span>
 							{showAddressLine && (
-								<ShortAddress
+								<LongAddress
 									address={row.address}
 									className="w-fit max-w-full font-mono text-11 break-all text-left text-muted-foreground"
-								>
-									{formatLongAddress(row.address)}
-								</ShortAddress>
+								/>
 							)}
 						</>
 					) : (
-						<ShortAddress
+						<LongAddress
 							address={row.address}
 							className="w-fit max-w-full font-mono text-13 break-all text-left"
-						>
-							{formatLongAddress(row.address)}
-						</ShortAddress>
+						/>
 					)}
 				</div>
 			</td>
