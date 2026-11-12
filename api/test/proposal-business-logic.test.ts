@@ -426,6 +426,15 @@ describe('Proposal Business Logic', () => {
 				);
 			};
 
+			// Built before the lock, so only the API's own work runs while the removal waits.
+			const transactionBytes = await buildTransfer(
+				multisig.address,
+			);
+			const { signature } =
+				await proposer.keypair.signTransaction(
+					fromBase64(transactionBytes),
+				);
+
 			// Wrapped, as returning them bare would make the transaction wait for
 			// them. Not `expect().rejects`: bun blocks on it right here.
 			const { removal, creation } = await db.transaction(
@@ -449,10 +458,12 @@ describe('Proposal Business Logic', () => {
 					]);
 					await untilBackendsWaitOnALock(1);
 					const creation = Promise.allSettled([
-						session.proposeTransfer(
-							proposer,
-							multisig.address,
-						),
+						session.client.createProposal({
+							multisigAddress: multisig.address,
+							network: 'localnet',
+							transactionBytes,
+							signature,
+						}),
 					]);
 					await untilBackendsWaitOnALock(2);
 

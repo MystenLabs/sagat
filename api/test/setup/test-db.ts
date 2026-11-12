@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
@@ -71,3 +72,19 @@ export async function clearTestData(
 	await db.delete(schema.SchemaAccounts);
 	await db.delete(schema.SchemaAddresses);
 }
+
+// `pg_stat_activity` is cached per transaction, so this must not run in the one
+// holding the lock.
+export const untilABackendWaitsOnALock = async (
+	db: Pick<TestDatabase['db'], 'execute'>,
+) => {
+	for (let attempt = 0; attempt < 400; attempt++) {
+		const { rows } = await db.execute(sql`
+			SELECT 1 FROM pg_stat_activity
+			WHERE datname = current_database()
+				AND wait_event_type = 'Lock'`);
+		if (rows.length > 0) return;
+		await Bun.sleep(25);
+	}
+	throw new Error('No backend is waiting on a lock');
+};

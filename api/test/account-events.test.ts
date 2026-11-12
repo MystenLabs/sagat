@@ -51,6 +51,7 @@ import {
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
+import { untilABackendWaitsOnALock } from './setup/test-db';
 
 setupSharedTestEnvironment();
 
@@ -197,20 +198,6 @@ const withEventInsertsFailing = async (
 	}
 };
 
-// `pg_stat_activity` is cached per transaction, so this must not run in the one
-// holding the lock.
-const untilABackendWaitsOnALock = async () => {
-	for (let attempt = 0; attempt < 400; attempt++) {
-		const { rows } = await db.execute(sql`
-			SELECT 1 FROM pg_stat_activity
-			WHERE datname = current_database()
-				AND wait_event_type = 'Lock'`);
-		if (rows.length > 0) return;
-		await Bun.sleep(25);
-	}
-	throw new Error('No backend is waiting on a lock');
-};
-
 const proposerAdded = (
 	accountAddress: string,
 	actor: TestUser,
@@ -302,7 +289,7 @@ describe('recording in the change transaction', () => {
 						),
 					),
 				);
-				await untilABackendWaitsOnALock();
+				await untilABackendWaitsOnALock(db);
 
 				const holderId = await recordAccountEvent(
 					tx,
@@ -496,7 +483,7 @@ describe('cancelling a proposal', () => {
 			const cancel = Promise.allSettled([
 				session.cancelProposal(users[0], proposal),
 			]);
-			await untilABackendWaitsOnALock();
+			await untilABackendWaitsOnALock(db);
 
 			await tx
 				.update(SchemaProposals)
@@ -520,6 +507,70 @@ describe('cancelling a proposal', () => {
 				'proposal.cancelled',
 			),
 		).toEqual([]);
+	});
+
+	test('a cancel gives up waiting for a held lock, and other accounts stay writable', async () => {
+		const { session, users, multisig, proposal } =
+			await proposed();
+		const other = await proposed();
+		const signature = await sign(
+			users[0],
+			PersonalMessages.cancelProposal(
+				proposal.digest,
+				multisig.address,
+			),
+		);
+
+		// Wrapped, as returning it bare would make the transaction wait for it.
+		const { cancel, elapsed } = await db.transaction(
+			async (tx) => {
+				await lockAccount(tx, multisig.address);
+
+				const startedAt = performance.now();
+				const cancel = session.post(
+					`/proposals/${proposal.id}/cancel`,
+					{ signature },
+				);
+				await untilABackendWaitsOnALock(db);
+
+				await other.session.cancelProposal(
+					other.users[0],
+					other.proposal,
+				);
+
+				// Fails here instead of hanging if the cancel never gives up.
+				await Promise.race([cancel, Bun.sleep(3000)]);
+
+				return {
+					cancel,
+					elapsed: performance.now() - startedAt,
+				};
+			},
+		);
+
+		const response = await cancel;
+		expect(await errorOf(response)).toEqual({
+			status: 503,
+			body: {
+				error:
+					'This account is busy. Please try again in a moment.',
+			},
+		});
+		expect(response.headers.get('Retry-After')).toBe('1');
+		expect(elapsed).toBeLessThan(2000);
+		expect(await statusOf(proposal.id)).toBe(
+			ProposalStatus.PENDING,
+		);
+		expect(
+			await eventsOf(
+				multisig.address,
+				users[0],
+				'proposal.cancelled',
+			),
+		).toEqual([]);
+		expect(await statusOf(other.proposal.id)).toBe(
+			ProposalStatus.CANCELLED,
+		);
 	});
 
 	const proposedByExternal = async () => {
@@ -570,7 +621,7 @@ describe('cancelling a proposal', () => {
 			const cancel = Promise.allSettled([
 				session.cancelProposal(proposer, proposal),
 			]);
-			await untilABackendWaitsOnALock();
+			await untilABackendWaitsOnALock(db);
 
 			await tx
 				.delete(SchemaAccountProposers)

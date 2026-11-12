@@ -1,10 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SuiHTTPTransportError } from '@mysten/sui/jsonRpc';
+import { RpcError } from '@mysten/sui/grpc';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { type ErrorHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
+import { DatabaseError } from 'pg';
 
 export class NotFoundError extends Error {}
 
@@ -57,10 +58,35 @@ export const appErrorHandler: ErrorHandler = (err, c) => {
 	if (err instanceof CommonError)
 		return c.json({ error: err.message }, 400);
 
-	if (err instanceof SuiHTTPTransportError)
-		return c.json({ error: err.message }, 400);
+	if (err instanceof RpcError) {
+		// eslint-disable-next-line no-console
+		console.error(
+			`Sui RPC failure (${err.code}): ${err.message}`,
+		);
+		return c.json(
+			{
+				error:
+					'The Sui network could not be reached. Please try again.',
+			},
+			502,
+		);
+	}
 
 	if (err instanceof DrizzleQueryError) {
+		// lock_not_available
+		if (
+			err.cause instanceof DatabaseError &&
+			err.cause.code === '55P03'
+		)
+			return c.json(
+				{
+					error:
+						'This account is busy. Please try again in a moment.',
+				},
+				503,
+				{ 'Retry-After': '1' },
+			);
+
 		const msg = err.cause?.message;
 		if (msg?.includes('violates unique constraint')) {
 			return c.json(
