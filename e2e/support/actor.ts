@@ -297,7 +297,8 @@ export class Actor extends Identity {
 		await this.connectWallet();
 	}
 
-	// Request timeouts keep real time, so fast-forwarding aborts no request.
+	// Call it before the page loads. Request timeouts keep real time, so
+	// fast-forwarding aborts no request.
 	async installFakeClock() {
 		await this.page.addInitScript(() => {
 			(

@@ -117,8 +117,10 @@ the mainnet coin list is answered with an empty list.
   `data-status` on proposal rows and pages over reading badge text.
 - Assert outcomes beyond the UI when it matters, e.g. `chain.balance(address)`
   after executing a transfer.
-- Another user's page doesn't update by itself: reload it or use the refresh
-  button.
+- Another user's page only updates when a poll fires (every 10 to 60
+  seconds): reload it or use the refresh button instead of waiting. To test
+  a poll itself, call `actor.installFakeClock()` before signing in and
+  fast-forward `page.clock`.
 - A multisig can only have one pending proposal paying gas from the same coin at
   a time; the API rejects the second one.
 
