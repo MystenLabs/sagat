@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ArrowDownToLine, Coins } from 'lucide-react';
+import { ArrowDownToLine } from 'lucide-react';
 import { useState } from 'react';
 import {
 	useNavigate,
@@ -29,6 +29,7 @@ import { ReceiveDialog } from '../shell/ReceiveDialog';
 import { Button } from '../ui/button';
 import { cardClass, CardHeading } from '../ui/card';
 import { EmptyState } from '../ui/empty-state';
+import { AssetsIcon } from '../ui/nav-icons';
 import { Tabs } from '../ui/tabs';
 
 const COPY = content.assets;
@@ -106,7 +107,7 @@ export function AssetsTab() {
 		);
 
 	return (
-		<div className="@container flex flex-col gap-6">
+		<div className="@container flex flex-1 flex-col gap-6">
 			<AccountValue
 				address={address}
 				name={name}
@@ -126,7 +127,7 @@ export function AssetsTab() {
 
 			{empty ? (
 				<EmptyState
-					icon={Coins}
+					icon={AssetsIcon}
 					title={COPY.empty.title}
 					description={COPY.empty.description}
 					action={
@@ -138,7 +139,7 @@ export function AssetsTab() {
 							{content.common.actions.receive}
 						</Button>
 					}
-					className="min-h-120 justify-center"
+					size="page"
 					testId="assets-empty"
 				/>
 			) : (
