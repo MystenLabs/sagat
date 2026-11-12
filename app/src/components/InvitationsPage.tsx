@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Mail } from 'lucide-react';
 import { useState } from 'react';
 
 import { content } from '@/content';
@@ -9,6 +8,7 @@ import { content } from '@/content';
 import { useInvitations } from '../hooks/useInvitations';
 import { InvitationCard } from './invitations/InvitationCard';
 import { EmptyState, ErrorState } from './ui/empty-state';
+import { InvitationsIcon } from './ui/nav-icons';
 import { PageHeader } from './ui/page-header';
 import { SkeletonRows } from './ui/skeleton';
 import { Tabs } from './ui/tabs';
@@ -36,7 +36,7 @@ export function InvitationsPage() {
 
 	return (
 		<div
-			className="page-shell"
+			className="page-shell flex-1"
 			data-testid="invitations-page"
 		>
 			<PageHeader
@@ -77,7 +77,8 @@ export function InvitationsPage() {
 				/>
 			) : invitations.length === 0 ? (
 				<EmptyState
-					icon={Mail}
+					icon={InvitationsIcon}
+					size="page"
 					testId="invitations-empty"
 					title={
 						activeTab === 'pending'
