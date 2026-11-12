@@ -45,7 +45,6 @@ export function InvitationsPage() {
 			/>
 
 			<Tabs
-				variant="pills"
 				tabs={[
 					{
 						id: 'pending',

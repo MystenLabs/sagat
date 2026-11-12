@@ -278,7 +278,6 @@ export function TransactionPreview({
 					]}
 					activeTab={view}
 					onTabChange={(id) => setView(id as ViewId)}
-					variant="pills"
 					testId="transaction-preview-view"
 				/>
 				<ViewHelp />
@@ -324,7 +323,6 @@ export function TransactionPreview({
 							onTabChange={(id) =>
 								setActiveTab(id as TabId)
 							}
-							variant="pills"
 							testId="transaction-preview-tab"
 						/>
 						<div data-testid="transaction-preview-panel">
