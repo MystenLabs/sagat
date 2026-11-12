@@ -90,6 +90,12 @@ test('proposal filters show each proposal where it belongs', async ({
 		.click();
 
 	const expected = {
+		pending: [needsAlice],
+		waiting: [waiting],
+		ready: [ready],
+		executed: [executed, failed],
+		cancelled: [cancelled],
+		expired: [],
 		all: [
 			needsAlice,
 			waiting,
@@ -98,12 +104,6 @@ test('proposal filters show each proposal where it belongs', async ({
 			cancelled,
 			failed,
 		],
-		pending: [needsAlice],
-		waiting: [waiting],
-		ready: [ready],
-		executed: [executed, failed],
-		cancelled: [cancelled],
-		expired: [],
 	};
 	for (const [filter, proposals] of Object.entries(
 		expected,
@@ -117,6 +117,74 @@ test('proposal filters show each proposal where it belongs', async ({
 				.toEqual(proposals.map((p) => p.digest).sort());
 		});
 	}
+});
+
+test('the proposals page opens on the ones to sign', async ({
+	createActor,
+	createIdentity,
+	chain,
+}) => {
+	const alice = await createActor('alice');
+	const bob = createIdentity('bob');
+	const multisig = await setupMultisig({
+		creator: alice,
+		members: [bob],
+		threshold: 2,
+	});
+	const coins = await chain.fundWithCoins(
+		multisig.address,
+		{ count: 2, amount: 10n * MIST_PER_SUI },
+	);
+	const propose = (proposer: Identity, gasCoin: GasCoin) =>
+		proposeTransfer(chain, proposer, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+			gasCoin,
+		});
+	const needsAlice = await propose(bob, coins[0]);
+	// Alice signed by proposing; it waits for Bob.
+	await propose(alice, coins[1]);
+
+	await alice.signIn();
+	await alice.openProposalsTab();
+
+	await expect(
+		alice.page.getByTestId('proposal-filter-pending'),
+	).toHaveAttribute('data-active');
+	await expect
+		.poll(() => shownDigests(alice.page))
+		.toEqual([needsAlice.digest]);
+});
+
+test('a pod with no proposals shows only the empty state', async ({
+	createActor,
+	createIdentity,
+}) => {
+	const alice = await createActor('alice');
+	const bob = createIdentity('bob');
+	const multisig = await setupMultisig({
+		creator: alice,
+		members: [bob],
+		threshold: 2,
+	});
+
+	await alice.signIn();
+	await alice.openProposalsTab();
+
+	const empty = alice.page.getByTestId('proposals-empty');
+	await expect(empty).toBeVisible();
+	await expect(
+		alice.page.getByTestId('proposal-filter-pending'),
+	).toHaveCount(0);
+	await empty
+		.getByTestId('proposals-empty-new-proposal')
+		.click();
+	await expect(alice.page).toHaveURL(
+		(url) =>
+			url.pathname ===
+			`/multisig/${multisig.address}/proposals/new`,
+	);
 });
 
 function shownDigests(page: Page) {

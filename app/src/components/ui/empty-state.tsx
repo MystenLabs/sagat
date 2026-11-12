@@ -21,6 +21,8 @@ interface EmptyStateProps {
 	/** A line between the description and the action, e.g. an error. */
 	note?: ReactNode;
 	action?: ReactNode;
+	/** `page`: the larger card that fills the rest of a page. */
+	size?: 'default' | 'page';
 	className?: string;
 	testId?: string;
 }
@@ -30,15 +32,51 @@ interface EmptyStateProps {
  * optional action, centred in a card shell like the lists it replaces.
  */
 export function EmptyState({
-	icon,
+	icon: Icon,
 	iconClassName,
 	title,
 	description,
 	note,
 	action,
+	size = 'default',
 	className,
 	testId,
 }: EmptyStateProps) {
+	if (size === 'page')
+		return (
+			<div
+				data-testid={testId}
+				className={cn(
+					'flex flex-1 flex-col items-center justify-center gap-6 rounded-xl border bg-card px-6 py-14 text-center md:px-12',
+					className,
+				)}
+			>
+				{Icon && (
+					<div
+						className={cn(
+							'flex size-12 items-center justify-center rounded-full bg-muted text-foreground',
+							iconClassName,
+						)}
+					>
+						<Icon className="size-5" />
+					</div>
+				)}
+				<div className="flex flex-col items-center">
+					<h3 className="text-18 font-medium">{title}</h3>
+					{description && (
+						<p className="max-w-130 text-14 text-muted-foreground">
+							{description}
+						</p>
+					)}
+				</div>
+				{note}
+				{action && (
+					<div className="flex items-center gap-2">
+						{action}
+					</div>
+				)}
+			</div>
+		);
 	return (
 		<div
 			data-testid={testId}
@@ -47,8 +85,8 @@ export function EmptyState({
 				className,
 			)}
 		>
-			{icon && (
-				<IconTile icon={icon} className={iconClassName} />
+			{Icon && (
+				<IconTile icon={Icon} className={iconClassName} />
 			)}
 			<h3 className="text-16 font-semibold">{title}</h3>
 			{description && (

@@ -17,19 +17,20 @@ import {
 } from '../lib/proposalUtils';
 import { useEpochInfo } from './useEpochInfo';
 import { useGetMultisig } from './useGetMultisig';
+import { useNeverProposed } from './useNeverProposed';
 import {
 	PROPOSALS_PAGE_SIZE,
 	usePaginatedProposals,
 } from './usePaginatedProposals';
 
 export type ProposalFilter =
-	| 'all'
 	| 'pending'
 	| 'waiting'
 	| 'ready'
 	| 'executed'
 	| 'cancelled'
-	| 'expired';
+	| 'expired'
+	| 'all';
 
 // The status each tab asks the API for. The pending tabs all load the
 // pending proposals and split them here; Executed adds failed executions
@@ -38,13 +39,13 @@ const API_STATUS: Record<
 	ProposalFilter,
 	ProposalStatus | undefined
 > = {
-	all: undefined,
 	pending: ProposalStatus.PENDING,
 	waiting: ProposalStatus.PENDING,
 	ready: ProposalStatus.PENDING,
-	expired: ProposalStatus.PENDING,
 	executed: ProposalStatus.SUCCESS,
 	cancelled: ProposalStatus.CANCELLED,
+	expired: ProposalStatus.PENDING,
+	all: undefined,
 };
 
 interface UseProposalsQueriesParams {
@@ -179,24 +180,46 @@ export function useProposalsQueries({
 			? shownQueries
 			: [...shownQueries, pendingQuery];
 
+	// Until the epoch is known nothing can be filed as expired, so the
+	// first load waits for it. If it fails, nothing counts as expired.
+	const tabLoading =
+		shownQueries.some((query) => query.isPending) ||
+		// Not enabled until signed in, which isn't waiting on it.
+		(multisigDetailsQuery.isPending &&
+			multisigDetailsQuery.fetchStatus !== 'idle') ||
+		epochQuery.isPending;
+	// A failed background refetch keeps the loaded rows; only a
+	// query with nothing to show blocks the list.
+	const error =
+		shownQueries.find((query) => !query.data && query.error)
+			?.error ??
+		(multisigDetailsQuery.data
+			? null
+			: multisigDetailsQuery.error);
+	const pendingHasRows = !!pendingPages?.some(
+		(page) => page.data.length > 0,
+	);
+	// An empty tab asks whether the account has any proposal at all.
+	const mayHaveNone =
+		enabled &&
+		!tabLoading &&
+		!error &&
+		filteredProposals.length === 0 &&
+		!pendingHasRows;
+	const never = useNeverProposed({
+		multisigAddress: multisig.address,
+		network,
+		enabled: mayHaveNone && !pendingQuery.isPending,
+	});
+
 	return {
-		// Until the epoch is known nothing can be filed as expired, so the
-		// first load waits for it. If it fails, nothing counts as expired.
 		isLoading:
-			shownQueries.some((query) => query.isPending) ||
-			// Not enabled until signed in, which isn't waiting on it.
-			(multisigDetailsQuery.isPending &&
-				multisigDetailsQuery.fetchStatus !== 'idle') ||
-			epochQuery.isPending,
-		// A failed background refetch keeps the loaded rows; only a
-		// query with nothing to show blocks the list.
-		error:
-			shownQueries.find(
-				(query) => !query.data && query.error,
-			)?.error ??
-			(multisigDetailsQuery.data
-				? null
-				: multisigDetailsQuery.error),
+			tabLoading ||
+			never.isPending ||
+			(mayHaveNone && pendingQuery.isPending),
+		error,
+		// If the check fails, the tab's own empty state still holds.
+		neverProposed: never.neverProposed,
 		filteredProposals,
 		pendingTabCounts,
 		pagination: {

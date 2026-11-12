@@ -21,6 +21,8 @@ import {
 } from '../../hooks/useProposalsQueries';
 import { ProposalsTable } from '../proposals/ProposalsTable';
 import { Button } from '../ui/button';
+import { EmptyState } from '../ui/empty-state';
+import { ProposalsIcon } from '../ui/nav-icons';
 import { Tabs } from '../ui/tabs';
 
 const COPY = content.proposals;
@@ -32,15 +34,10 @@ interface ProposalsTabContext {
 /** After a manual refresh, the button rests this long. */
 const REFRESH_COOLDOWN_MS = 5000;
 
-// What an empty tab says. All, the first visit's tab, also offers to
-// start one.
-const EMPTY_TITLE: Record<ProposalFilter, string> =
-	COPY.empty.title;
-
 /**
- * The account's proposals, filtered by where they stand: all of them, the
- * open ones split by who has to act next, and the finished ones by how
- * they ended.
+ * The account's proposals, filtered by where they stand: the open ones
+ * split by who has to act next, the finished ones by how they ended, and
+ * all of them. Opens on the ones waiting for the user's signature.
  */
 export function ProposalsTab() {
 	const { multisig } =
@@ -48,13 +45,14 @@ export function ProposalsTab() {
 	const navigate = useNavigate();
 	const { network } = useNetwork();
 	const [activeFilter, setActiveFilter] =
-		useState<ProposalFilter>('all');
+		useState<ProposalFilter>('pending');
 	const [isRefreshCooldown, setIsRefreshCooldown] =
 		useState(false);
 
 	const {
 		filteredProposals,
 		pendingTabCounts,
+		neverProposed,
 		isLoading,
 		error,
 		pagination,
@@ -89,7 +87,6 @@ export function ProposalsTab() {
 		label: string;
 		count?: number;
 	}[] = [
-		{ id: 'all', label: tabs.all },
 		{
 			id: 'pending',
 			label: tabs.pending,
@@ -114,10 +111,38 @@ export function ProposalsTab() {
 			// proposals until cancelled, so the tab says how many wait there.
 			count: pendingTabCounts.expired,
 		},
+		{ id: 'all', label: tabs.all },
 	];
 
+	if (neverProposed)
+		return (
+			<EmptyState
+				icon={ProposalsIcon}
+				title={COPY.empty.none.title}
+				description={COPY.empty.none.description}
+				action={
+					<Button
+						onClick={() =>
+							navigate(newProposalPath(multisig.address))
+						}
+						data-testid="proposals-empty-new-proposal"
+					>
+						<Plus />
+						{content.common.actions.newProposal}
+					</Button>
+				}
+				size="page"
+				testId="proposals-empty"
+			/>
+		);
+	// All shares the check's query, so it is only empty when there are none.
+	const empty =
+		activeFilter === 'all'
+			? COPY.empty.none
+			: COPY.empty.tabs[activeFilter];
+
 	return (
-		<div className="flex flex-col gap-4">
+		<div className="flex flex-1 flex-col gap-4">
 			<div className="flex items-center justify-between gap-2">
 				<Tabs
 					tabs={filters}
@@ -149,24 +174,7 @@ export function ProposalsTab() {
 				loading={isLoading}
 				error={error}
 				onRetry={retry}
-				empty={{
-					title: EMPTY_TITLE[activeFilter],
-					description:
-						activeFilter === 'all'
-							? COPY.empty.allDescription
-							: COPY.empty.description,
-					action: activeFilter === 'all' && (
-						<Button
-							size="sm"
-							onClick={() =>
-								navigate(newProposalPath(multisig.address))
-							}
-						>
-							<Plus />
-							{content.common.actions.newProposal}
-						</Button>
-					),
-				}}
+				empty={empty}
 				testId="proposals"
 			/>
 

@@ -20,6 +20,10 @@ const SIGNERS_REFUSED = {
 	notSigner: 'Your wallet isn’t one of this pod’s signers.',
 };
 
+/** An empty proposals tab, under its title. */
+const IN_THIS_STATE =
+	'Proposals in this state show up here.';
+
 function signerCount(count: number) {
 	return count === 1 ? '1 signer' : `${count} signers`;
 }
@@ -877,28 +881,49 @@ export const content = {
 	/** The proposals list: tabs, table, rows, status chips, expiry, weight. */
 	proposals: {
 		tabs: {
-			all: 'All',
 			pending: 'To sign',
 			waiting: 'Awaiting others',
 			ready: 'Ready',
 			executed: 'Executed',
 			cancelled: 'Cancelled',
 			expired: 'Expired',
+			all: 'All',
 		},
-		// What an empty tab says.
 		empty: {
-			title: {
-				all: 'No proposals yet',
-				pending: 'Nothing to sign',
-				waiting: 'Nothing awaiting others',
-				ready: 'Nothing ready to execute',
-				executed: 'No executed proposals',
-				cancelled: 'No cancelled proposals',
-				expired: 'No expired proposals',
+			/** The account never had a proposal, whichever tab is open. */
+			none: {
+				title: 'No proposals yet',
+				description:
+					'Proposals show up here when a signer or external proposer creates one.',
 			},
-			allDescription:
-				'Proposals show up here when a signer or external proposer creates one.',
-			description: 'Proposals in this state show up here.',
+			/** One tab is empty. All is only empty when the account has none. */
+			tabs: {
+				pending: {
+					title: 'Nothing to sign',
+					description:
+						'No proposals are waiting for your signature.',
+				},
+				waiting: {
+					title: 'Nothing awaiting others',
+					description: IN_THIS_STATE,
+				},
+				ready: {
+					title: 'Nothing ready to execute',
+					description: IN_THIS_STATE,
+				},
+				executed: {
+					title: 'No executed proposals',
+					description: IN_THIS_STATE,
+				},
+				cancelled: {
+					title: 'No cancelled proposals',
+					description: IN_THIS_STATE,
+				},
+				expired: {
+					title: 'No expired proposals',
+					description: IN_THIS_STATE,
+				},
+			},
 		},
 		refresh: 'Refresh proposals',
 		table: {
