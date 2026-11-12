@@ -125,7 +125,6 @@ export function ProposalsTab() {
 					onTabChange={(id) =>
 						setActiveFilter(id as ProposalFilter)
 					}
-					variant="pills"
 					testId="proposal-filter"
 				/>
 				<Button
