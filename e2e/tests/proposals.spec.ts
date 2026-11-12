@@ -404,6 +404,12 @@ test.describe('proposals', () => {
 		await expect(
 			page.getByTestId('execute-proposal-button'),
 		).toHaveCount(0);
+
+		// Nothing is open now, but the account has had a proposal.
+		await bob.page.goto(`/multisig/${multisig.address}`);
+		await expect(
+			bob.page.getByTestId('open-proposals-empty'),
+		).toHaveText(content.overview.openProposals.noneOpen);
 	});
 
 	test('the proposer cancels their own proposal nobody else signed', async ({
