@@ -1300,7 +1300,11 @@ export const content = {
 			passed: 'Simulation passed',
 			failed: 'Simulation failed',
 			pending: 'Simulating…',
+			expired: 'Not simulated',
 		},
+		/** Each result tab, when the transaction has expired and wasn’t simulated. */
+		expired:
+			'The transaction has expired, so it can’t be simulated. See the Static analyzer for what it could move out of the pod.',
 		recipient: 'Recipient',
 		gasRebate: (amount: string) => `${amount} rebate`,
 		rawJsonAriaLabel: 'Simulation result as JSON',

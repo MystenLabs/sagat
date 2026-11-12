@@ -22,10 +22,13 @@ export function useTransactionPreview() {
 	}, [resetAnalysis, resetDryRun]);
 
 	const preview = useCallback(
-		(transactionData: string) => {
+		(
+			transactionData: string,
+			{ simulate = true }: { simulate?: boolean } = {},
+		) => {
 			reset();
 			analyzeTransaction(transactionData);
-			dryRunTransaction(transactionData);
+			if (simulate) dryRunTransaction(transactionData);
 		},
 		[analyzeTransaction, dryRunTransaction, reset],
 	);

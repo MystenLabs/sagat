@@ -23,7 +23,10 @@ import { analyzerTab } from '@/components/preview-effects/IntentSummary';
 import { ProposalExpiry } from '@/components/proposals/ProposalExpiry';
 import { ProposalStatusChip } from '@/components/proposals/ProposalStatusChip';
 import { PreviewHeading } from '@/components/transaction-preview/parts';
-import { simulationProps } from '@/components/transaction-preview/simulation';
+import {
+	expiredSimulation,
+	simulationProps,
+} from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
 import { Button } from '@/components/ui/button';
 import { cardClass } from '@/components/ui/card';
@@ -41,7 +44,9 @@ import {
 	type SuiNetwork,
 } from '@/contexts/NetworkContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { refusedAsExpired } from '@/hooks/useDryRun';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
+import { useExpiry } from '@/hooks/useExpiry';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { formatDateTime } from '@/lib/dates';
 import {
@@ -133,15 +138,21 @@ export function ProposalView({
 			? 'elsewhere'
 			: 'member';
 
-	// Open, cancelled and expired proposals show a dry run; executed and
-	// failed ones read the transaction from the chain instead. Nothing
-	// runs on another network.
+	const expiry = useExpiry(proposal.transactionBytes);
+	const knownExpired = !mismatch && !!expiry?.expired;
+
+	// Proposals not on chain show a dry run unless their transaction has
+	// expired; executed and failed ones read it from the chain instead.
+	// Nothing runs on another network.
 	useEffect(() => {
 		if (mismatch || onChain) return;
-		preview(proposal.transactionBytes);
+		preview(proposal.transactionBytes, {
+			simulate: !knownExpired,
+		});
 	}, [
 		mismatch,
 		onChain,
+		knownExpired,
 		proposal.transactionBytes,
 		preview,
 	]);
@@ -166,10 +177,13 @@ export function ProposalView({
 
 	const simulation = onChain
 		? null
-		: simulationProps(dryRun);
-	const verdict: SimulationVerdict = simulation
-		? simulation.status
-		: 'unknown';
+		: knownExpired || refusedAsExpired(dryRun.error)
+			? expiredSimulation
+			: simulationProps(dryRun);
+	const verdict: SimulationVerdict =
+		!simulation || simulation.status === 'expired'
+			? 'unknown'
+			: simulation.status;
 	const simulationError =
 		simulation?.status === 'failed'
 			? safeDecode(

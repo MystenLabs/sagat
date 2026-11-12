@@ -28,6 +28,7 @@ const STATUS_CHIPS: Record<
 	passed: { label: STATUS.passed, variant: 'success' },
 	failed: { label: STATUS.failed, variant: 'error' },
 	pending: { label: STATUS.pending, variant: 'neutral' },
+	expired: { label: STATUS.expired, variant: 'neutral' },
 };
 
 function Row({
@@ -130,9 +131,11 @@ export function DetailsTable({
 					>
 						{chip.label}
 					</Chip>
-					<span className="text-12 text-muted-foreground">
-						{model.statusMeta}
-					</span>
+					{model.statusMeta && (
+						<span className="text-12 text-muted-foreground">
+							{model.statusMeta}
+						</span>
+					)}
 				</span>
 			</Row>
 			{model.status === 'failed' && model.error && (

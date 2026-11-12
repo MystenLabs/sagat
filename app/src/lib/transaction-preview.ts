@@ -36,8 +36,9 @@ export type SimulatedTransaction =
 		objectTypes: true;
 	}>;
 
+/** `expired`: not run, because the transaction has expired. */
 export type SimulationStatus =
-	'pending' | 'passed' | 'failed';
+	'pending' | 'passed' | 'failed' | 'expired';
 
 export interface NamedAccount {
 	address: string;
@@ -80,7 +81,7 @@ export interface TransactionPreviewModel {
 	sender: NamedAccount | null;
 	/** The gas owner when it isn't the sender: a sponsor, who signs too. */
 	gasOwner: NamedAccount | null;
-	/** "Mainnet · Oct 13, 2026, 8:54 AM" once simulated, "Mainnet" while pending. */
+	/** "Mainnet · Oct 13, 2026, 8:54 AM" once simulated, "Mainnet" while pending, empty when expired. */
 	statusMeta: string;
 	/** The failure, when `status` is 'failed'. */
 	error: string | null;
@@ -211,11 +212,12 @@ export function buildTransactionPreview(
 	const {
 		bytes,
 		status,
-		result = null,
 		network,
 		simulatedAt = null,
 		accounts = [],
 	} = input;
+	const result =
+		status === 'expired' ? null : (input.result ?? null);
 
 	const { decoded, digest, transaction } =
 		readTransactionBytes(bytes);
@@ -266,9 +268,12 @@ export function buildTransactionPreview(
 		ledgerHash: ledgerHashOf(decoded),
 		sender,
 		gasOwner,
-		statusMeta: simulatedAt
-			? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`
-			: networkLabel(network),
+		statusMeta:
+			status === 'expired'
+				? ''
+				: simulatedAt
+					? `${networkLabel(network)} · ${formatDateTime(simulatedAt)}`
+					: networkLabel(network),
 		error:
 			status === 'failed'
 				? input.error ||

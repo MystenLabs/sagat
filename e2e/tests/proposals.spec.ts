@@ -22,6 +22,7 @@ import {
 	toast,
 } from '../support/new-proposal';
 import {
+	cancelProposal,
 	proposeTransfer,
 	setupMultisig,
 	setupProposal,
@@ -480,6 +481,37 @@ test.describe('proposals', () => {
 		await expect(
 			alice.page.getByTestId('export-proposal-button'),
 		).toHaveCount(0);
+	});
+
+	test('a cancelled proposal whose transaction expired isn’t simulated', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const epoch = await chain.epoch();
+		const { alice, bob, multisig, proposal } =
+			await setupProposal(
+				{ createActor, createIdentity, chain },
+				{ expiration: { Epoch: epoch } },
+			);
+		await cancelProposal(alice, proposal);
+
+		await reportEpoch(bob.page, epoch + 1);
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		const page = bob.proposalPage(proposal.digest);
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'cancelled',
+		);
+		await expect(
+			page.getByTestId('transaction-preview-status'),
+		).toHaveAttribute('data-status', 'expired');
+		await expect(
+			page.getByTestId('transaction-preview-panel'),
+		).toHaveText(content.transactionPreview.expired);
 	});
 
 	test('a stacked row opens the proposal’s page on a phone', async ({

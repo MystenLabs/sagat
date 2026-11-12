@@ -38,6 +38,14 @@ const REFUSED_CODES = [
 // message.
 const EXPIRED_MESSAGE = 'Transaction Expired';
 
+/** Whether the node refused the transaction because it has expired. */
+export function refusedAsExpired(error: unknown): boolean {
+	return (
+		error instanceof RpcError &&
+		error.message === EXPIRED_MESSAGE
+	);
+}
+
 /**
  * Whether a failed dry run couldn't be run at all (offline, a timeout, a
  * 5xx), where trying again may help. False when the error is a verdict
@@ -47,8 +55,8 @@ export function couldNotSimulate(error: unknown): boolean {
 	return !(
 		error instanceof SimulationFailedError ||
 		(error instanceof RpcError &&
-			(REFUSED_CODES.includes(error.code) ||
-				error.message === EXPIRED_MESSAGE))
+			REFUSED_CODES.includes(error.code)) ||
+		refusedAsExpired(error)
 	);
 }
 

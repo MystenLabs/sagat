@@ -133,6 +133,7 @@ export function TransactionPreview({
 	const [showRaw, setShowRaw] = useState(false);
 
 	const pending = model.status === 'pending';
+	const expired = model.status === 'expired';
 	const walletPaysGas =
 		!!model.gasOwner &&
 		!!currentAccount &&
@@ -176,8 +177,16 @@ export function TransactionPreview({
 		<EmptyPanel>{COPY.status.pending}</EmptyPanel>
 	);
 
+	// Only the commands come from the bytes; the other tabs need a run.
+	const shownPanel =
+		expired && activeTab !== 'commands'
+			? 'not-simulated'
+			: activeTab;
 	let panel: ReactNode;
-	switch (activeTab) {
+	switch (shownPanel) {
+		case 'not-simulated':
+			panel = <EmptyPanel>{COPY.expired}</EmptyPanel>;
+			break;
 		case 'balance-changes':
 			panel = (
 				<BalanceChangesTable
@@ -238,7 +247,7 @@ export function TransactionPreview({
 				pending ? undefined : 'transaction-preview-result'
 			}
 			data-result={
-				pending
+				pending || expired
 					? undefined
 					: model.status === 'passed'
 						? 'success'
