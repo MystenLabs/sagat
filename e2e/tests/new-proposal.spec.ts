@@ -236,6 +236,141 @@ test.describe('new proposal: transfer', () => {
 		await expect(status).toBeVisible();
 	});
 
+	test('Review marks each coin verified or unverified in both views, as a tappable icon badge on a phone', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			1,
+			{ hasTouch: true },
+		);
+		const coinType = await mintTestCoin(
+			chain,
+			multisig.address,
+			[1_000_000n],
+		);
+		const { page } = alice;
+		const account = normalizeSuiAddress(multisig.address);
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		await fillTransfer(page, {
+			coinType,
+			amount: '1',
+			recipient: randomAddress(),
+		});
+		await reviewTransfer(page);
+		await expectSimulation(page, 'success');
+
+		// TEST is outside the registry, which e2e serves empty.
+		await expect(
+			page
+				.locator(
+					`[data-testid="balance-change"][data-address="${account}"][data-coin-type$="::test_coin::TEST_COIN"]`,
+				)
+				.getByTestId('token-unverified'),
+		).toBeVisible();
+		await expect(
+			page
+				.locator(
+					`[data-testid="balance-change"][data-address="${account}"][data-gas]`,
+				)
+				.getByTestId('token-verified'),
+		).toBeVisible();
+
+		await page
+			.getByTestId('transaction-preview-view-analyzer')
+			.click();
+		await expect(
+			page
+				.locator(
+					'[data-testid="balance-flow"][data-coin-type$="::test_coin::TEST_COIN"]',
+				)
+				.getByTestId('token-unverified'),
+		).toBeVisible();
+
+		// On a phone the mark is the badge on the coin's icon; a tap explains it.
+		await page.setViewportSize({ width: 375, height: 812 });
+		await page
+			.getByTestId('transaction-preview-view-simulation')
+			.click();
+		const badge = page
+			.locator(
+				`[data-testid="balance-change"][data-address="${account}"][data-coin-type$="::test_coin::TEST_COIN"]`,
+			)
+			.getByTestId('token-unverified');
+		await expect(badge).toHaveAttribute(
+			'aria-label',
+			content.assets.tokens.unverifiedCoin,
+		);
+		await badge.tap();
+		await expect(
+			page.getByTestId('token-unverified-popup'),
+		).toHaveText(content.assets.tokens.unverifiedCoin);
+
+		await page
+			.getByTestId('transaction-preview-view-analyzer')
+			.click();
+		await expect(
+			page
+				.locator(
+					'[data-testid="balance-flow"][data-coin-type$="::test_coin::TEST_COIN"]',
+				)
+				.getByTestId('token-unverified'),
+		).toBeVisible();
+	});
+
+	test('Review marks every coin but SUI unverified when the registry fails to load', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, multisig } = await sharedAccount(
+			fixtures,
+			1,
+		);
+		const coinType = await mintTestCoin(
+			chain,
+			multisig.address,
+			[1_000_000n],
+		);
+		const { page } = alice;
+		const account = normalizeSuiAddress(multisig.address);
+		// The wizard's own load reads the list again, and fails.
+		await alice.failRecognizedCoins();
+
+		await openNewProposal(page, multisig.address, {
+			type: 'transfer',
+		});
+		await fillTransfer(page, {
+			coinType,
+			amount: '1',
+			recipient: randomAddress(),
+		});
+		await reviewTransfer(page);
+		await expectSimulation(page, 'success');
+
+		await expect(
+			page
+				.locator(
+					`[data-testid="balance-change"][data-address="${account}"][data-coin-type$="::test_coin::TEST_COIN"]`,
+				)
+				.getByTestId('token-unverified'),
+		).toBeVisible();
+		await expect(
+			page
+				.locator(
+					`[data-testid="balance-change"][data-address="${account}"][data-gas]`,
+				)
+				.getByTestId('token-verified'),
+		).toBeVisible();
+	});
+
 	test('Review says it’s ready to execute when the proposer’s weight meets the threshold', async ({
 		createActor,
 		createIdentity,

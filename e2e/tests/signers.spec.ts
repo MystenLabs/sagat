@@ -76,7 +76,7 @@ test.describe('overview and signers', () => {
 			).toHaveText('Treasury');
 			await expect(
 				page.getByTestId('open-proposals-empty'),
-			).toBeVisible();
+			).toHaveText('No proposals yet.');
 			// Nothing funded it: worth $0.00, with nothing to send or list.
 			await expect(
 				page.getByTestId('account-value-amount'),

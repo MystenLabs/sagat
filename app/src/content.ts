@@ -750,6 +750,7 @@ export const content = {
 			noPrice: 'No price',
 			verified: 'Verified',
 			unverified: 'Unverified',
+			unverifiedCoin: 'Unverified coin',
 			unverifiedTokens: 'Unverified tokens',
 			/** The raw on-chain amount, as a tooltip on a balance shown without decimals. */
 			rawAmount: (raw: string) => `${raw} (raw)`,
@@ -858,7 +859,8 @@ export const content = {
 		openProposals: {
 			title: 'Open proposals',
 			viewAll: 'View all proposals',
-			emptyTitle: 'No proposals yet.',
+			noneEver: 'No proposals yet.',
+			noneOpen: 'No open proposals.',
 		},
 
 		setup: {

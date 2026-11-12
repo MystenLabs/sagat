@@ -194,6 +194,7 @@ export function TransactionPreview({
 					status={model.status}
 					coinData={coinData.map}
 					isCoinDataLoading={coinData.isLoadingFor}
+					isVerified={coinData.isVerified}
 				/>
 			);
 			break;
