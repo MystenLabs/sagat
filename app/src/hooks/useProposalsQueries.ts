@@ -48,6 +48,33 @@ const API_STATUS: Record<
 	all: undefined,
 };
 
+/** Router state that opens the proposals page on a given tab. */
+export interface ProposalsPageState {
+	filter: ProposalFilter;
+}
+
+function isProposalFilter(
+	value: unknown,
+): value is ProposalFilter {
+	return (
+		typeof value === 'string' &&
+		Object.keys(API_STATUS).includes(value)
+	);
+}
+
+/** The tab the page opens on: the one in the router state, else To sign. */
+export function initialProposalFilter(
+	state: unknown,
+): ProposalFilter {
+	const filter =
+		typeof state === 'object' &&
+		state !== null &&
+		'filter' in state
+			? state.filter
+			: undefined;
+	return isProposalFilter(filter) ? filter : 'pending';
+}
+
 interface UseProposalsQueriesParams {
 	multisig: MultisigWithMembersForPublicKey;
 	network: string;

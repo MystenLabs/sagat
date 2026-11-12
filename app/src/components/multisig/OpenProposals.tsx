@@ -14,6 +14,7 @@ import {
 	PROPOSALS_PAGE_SIZE,
 	usePaginatedProposals,
 } from '@/hooks/usePaginatedProposals';
+import { type ProposalsPageState } from '@/hooks/useProposalsQueries';
 import {
 	isProposalExpired,
 	proposalsPath,
@@ -88,6 +89,9 @@ export function OpenProposals({
 			>
 				<Link
 					to={proposalsPath(multisig.address)}
+					state={
+						{ filter: 'all' } satisfies ProposalsPageState
+					}
 					className={cn(
 						buttonVariants({
 							variant: 'ghost',

@@ -600,6 +600,9 @@ test.describe('overview and signers', () => {
 				page.getByRole('heading', { level: 1 }),
 			).toHaveText('Proposals');
 			await expect(
+				page.getByTestId('proposal-filter-all'),
+			).toHaveAttribute('data-active');
+			await expect(
 				alice.proposalRow(pending.digest),
 			).toBeVisible();
 		});

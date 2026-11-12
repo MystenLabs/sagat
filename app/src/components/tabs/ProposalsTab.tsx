@@ -4,6 +4,7 @@
 import { Plus, RefreshCw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
+	useLocation,
 	useNavigate,
 	useOutletContext,
 } from 'react-router-dom';
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils';
 
 import { useNetwork } from '../../contexts/NetworkContext';
 import {
+	initialProposalFilter,
 	useProposalsQueries,
 	type ProposalFilter,
 } from '../../hooks/useProposalsQueries';
@@ -43,9 +45,12 @@ export function ProposalsTab() {
 	const { multisig } =
 		useOutletContext<ProposalsTabContext>();
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { network } = useNetwork();
 	const [activeFilter, setActiveFilter] =
-		useState<ProposalFilter>('pending');
+		useState<ProposalFilter>(() =>
+			initialProposalFilter(location.state),
+		);
 	const [isRefreshCooldown, setIsRefreshCooldown] =
 		useState(false);
 
