@@ -71,3 +71,26 @@ test('a transaction left idle loses the account lock, and the pool keeps serving
 		{ idle_in_transaction_session_timeout: '30s' },
 	]);
 });
+
+test('the pool survives losing an idle connection', async () => {
+	const {
+		rows: [{ pid }],
+	} = await db.execute<{ pid: number }>(
+		sql`SELECT pg_backend_pid() AS pid`,
+	);
+	const before = db.$client.totalCount;
+
+	await testDb.db.execute(
+		sql`SELECT pg_terminate_backend(${pid})`,
+	);
+	for (
+		let i = 0;
+		i < 50 && db.$client.totalCount >= before;
+		i++
+	)
+		await Bun.sleep(20);
+	expect(db.$client.totalCount).toBeLessThan(before);
+
+	const { rows } = await db.execute(sql`SELECT 1 AS ok`);
+	expect(rows).toEqual([{ ok: 1 }]);
+});
