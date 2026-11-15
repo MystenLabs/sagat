@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { content } from '@/content';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { toUserMultisig } from '@/lib/user-multisig';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { apiClient } from '../lib/api';
@@ -32,26 +33,8 @@ export function useUserMultisigs() {
 				await apiClient.getMultisigConnections();
 
 			return (
-				connections[currentAddress?.publicKey] || []
-			).map((m) => {
-				const currentMember = m.members.find(
-					(member) =>
-						member.publicKey === currentAddress?.publicKey,
-				)!;
-
-				return {
-					...m,
-					isAccepted: currentMember.isAccepted,
-					isRejected: currentMember.isRejected,
-					pendingMembers: m.members.filter(
-						(member) =>
-							!member.isAccepted && !member.isRejected,
-					).length,
-					rejectedMembers: m.members.filter(
-						(member) => member.isRejected,
-					).length,
-				};
-			});
+				connections[currentAddress.publicKey] || []
+			).map((m) => toUserMultisig(m, currentAddress));
 		},
 		enabled: isCurrentAddressAuthenticated,
 		staleTime: 1000 * 30, // 30 seconds

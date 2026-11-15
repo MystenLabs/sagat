@@ -10,4 +10,6 @@ export interface MultisigWithMembersForPublicKey extends MultisigWithMembers {
 	pendingMembers: number;
 	isAccepted: boolean;
 	isRejected: boolean;
+	/** Why the address failed the signers check, or null when it passed. */
+	refused: 'signers' | 'notSigner' | null;
 }

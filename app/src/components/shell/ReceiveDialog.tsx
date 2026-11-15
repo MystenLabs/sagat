@@ -4,6 +4,7 @@
 import { Check, Copy, XIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/dialog';
 import { content } from '@/content';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 const ACTIONS = content.common.actions;
 const COPY = content.receive;
@@ -24,11 +26,14 @@ export function ReceiveDialog({
 	onClose,
 	address,
 	name,
+	refused = null,
 }: {
 	open: boolean;
 	onClose: () => void;
 	address: string;
 	name: string;
+	/** Set when the pod failed the signers check: the reason shows instead of the address. */
+	refused?: MultisigWithMembersForPublicKey['refused'];
 }) {
 	const { copied, copy } = useCopyToClipboard(
 		content.toasts.addressCopied,
@@ -51,9 +56,11 @@ export function ReceiveDialog({
 						<DialogTitle className="text-24 font-bold">
 							{COPY.title}
 						</DialogTitle>
-						<DialogDescription className="text-14 text-muted-foreground">
-							{COPY.description(name)}
-						</DialogDescription>
+						{!refused && (
+							<DialogDescription className="text-14 text-muted-foreground">
+								{COPY.description(name)}
+							</DialogDescription>
+						)}
 					</div>
 					<DialogClose
 						render={
@@ -69,49 +76,66 @@ export function ReceiveDialog({
 					</DialogClose>
 				</div>
 
-				<button
-					type="button"
-					onClick={() => copy(address)}
-					aria-label={ACTIONS.copyAddress}
-					className="cursor-pointer justify-self-center rounded-lg border bg-qr p-4 text-qr-foreground outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-					data-testid="receive-qr"
-				>
-					<QRCodeSVG
-						value={address}
-						// 41 modules (33 plus a 4-module quiet zone on each
-						// side) at 5px each keeps the tile about 240px.
-						size={205}
-						marginSize={4}
-						bgColor="transparent"
-						fgColor="currentColor"
-						title={COPY.qrTitle(address)}
-					/>
-				</button>
-
-				<div className="flex flex-col gap-1">
-					<div className="text-12 text-muted-foreground">
-						{content.common.fields.suiAddress}
-					</div>
-					<div
-						className="font-mono text-14 break-all"
-						data-testid="receive-address"
+				{refused ? (
+					<Alert
+						variant="error"
+						data-testid="receive-refused"
+						data-rule={refused}
 					>
-						{address}
-					</div>
-				</div>
+						<div className="font-medium">
+							{content.common.signersRefusedTitle}
+						</div>
+						<div>
+							{content.common.signersRefused[refused]}
+						</div>
+					</Alert>
+				) : (
+					<>
+						<button
+							type="button"
+							onClick={() => copy(address)}
+							aria-label={ACTIONS.copyAddress}
+							className="cursor-pointer justify-self-center rounded-lg border bg-qr p-4 text-qr-foreground outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+							data-testid="receive-qr"
+						>
+							<QRCodeSVG
+								value={address}
+								// 41 modules (33 plus a 4-module quiet zone on each
+								// side) at 5px each keeps the tile about 240px.
+								size={205}
+								marginSize={4}
+								bgColor="transparent"
+								fgColor="currentColor"
+								title={COPY.qrTitle(address)}
+							/>
+						</button>
 
-				<p className="text-12 text-muted-foreground">
-					{COPY.note}
-				</p>
+						<div className="flex flex-col gap-1">
+							<div className="text-12 text-muted-foreground">
+								{content.common.fields.suiAddress}
+							</div>
+							<div
+								className="font-mono text-14 break-all"
+								data-testid="receive-address"
+							>
+								{address}
+							</div>
+						</div>
 
-				<Button
-					className="w-full"
-					onClick={() => copy(address)}
-					data-testid="receive-copy"
-				>
-					{copied ? <Check /> : <Copy />}
-					{ACTIONS.copyAddress}
-				</Button>
+						<p className="text-12 text-muted-foreground">
+							{COPY.note}
+						</p>
+
+						<Button
+							className="w-full"
+							onClick={() => copy(address)}
+							data-testid="receive-copy"
+						>
+							{copied ? <Check /> : <Copy />}
+							{ACTIONS.copyAddress}
+						</Button>
+					</>
+				)}
 			</DialogContent>
 		</Dialog>
 	);

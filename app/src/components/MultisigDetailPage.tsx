@@ -25,6 +25,7 @@ import { newProposalPath } from '@/lib/new-proposal';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { SuccessBanner } from './multisig/SuccessBanner';
+import { Alert } from './ui/Alert';
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
@@ -118,6 +119,34 @@ export function MultisigDetailPage() {
 	const title =
 		MULTISIG_PAGES.find((p) => p.id === page)?.label ??
 		name;
+
+	// The address, Receive and Send stay hidden until the signers check passes.
+	if (multisig.refused) {
+		return (
+			<div className="page-shell flex-1">
+				<PageHeader
+					eyebrow={{ label: name, mono: !multisig.name }}
+					title={title}
+				/>
+				<Alert
+					variant="error"
+					data-testid="pod-refused"
+					data-rule={multisig.refused}
+				>
+					<div className="font-medium">
+						{content.common.signersRefusedTitle}
+					</div>
+					<div>
+						{
+							content.common.signersRefused[
+								multisig.refused
+							]
+						}
+					</div>
+				</Alert>
+			</div>
+		);
+	}
 
 	return (
 		<div

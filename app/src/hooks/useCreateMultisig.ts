@@ -33,6 +33,8 @@ export function useCreateMultisig() {
 			request,
 		}: {
 			request: CreateMultisigRequest;
+			/** The address the wizard rebuilt from the signers; the overview opens on it. */
+			address: string;
 			/** What the greeting calls the other signers. */
 			invited: string[];
 		}) => apiClient.createMultisig(request),
@@ -42,7 +44,7 @@ export function useCreateMultisig() {
 			account: currentAccountAddress(),
 			path: window.location.pathname,
 		}),
-		onSuccess: (multisig, { invited }, started) => {
+		onSuccess: (_data, { address, invited }, started) => {
 			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisigs],
 			});
@@ -50,7 +52,7 @@ export function useCreateMultisig() {
 				currentAccountAddress() === started.account &&
 				window.location.pathname === started.path;
 			if (!stillHere) return;
-			navigate(`/multisig/${multisig.address}/overview`, {
+			navigate(`/multisig/${address}/overview`, {
 				state: {
 					created: { invited },
 				} satisfies ArrivalState,

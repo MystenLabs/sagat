@@ -116,6 +116,8 @@ export const content = {
 		or: 'or',
 		/** Why the pod's signers fail a check, on a proposal or a new one. */
 		signersRefused: SIGNERS_REFUSED,
+		/** Above `signersRefused` on the pod pages, Receive and an invitation. */
+		signersRefusedTitle: 'Can’t verify this pod',
 	},
 	shell: {
 		reconnectingWallet: 'Reconnecting wallet',

@@ -315,6 +315,7 @@ export function MultisigSwitcher({
 				onClose={() => setReceiveOpen(false)}
 				address={selected.address}
 				name={accountName(selected)}
+				refused={selected.refused}
 			/>
 		</div>
 	);
