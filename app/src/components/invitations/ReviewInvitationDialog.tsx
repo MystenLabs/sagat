@@ -105,13 +105,15 @@ export function ReviewInvitationDialog({
 							<Button variant="outline" onClick={onBack}>
 								{ACTIONS.goBack}
 							</Button>
-							<Button
-								onClick={onAccept}
-								disabled={accepting}
-								data-testid="accept-invitation-button"
-							>
-								{ACTIONS.tryAgain}
-							</Button>
+							{!multisig.refused && (
+								<Button
+									onClick={onAccept}
+									disabled={accepting}
+									data-testid="accept-invitation-button"
+								>
+									{ACTIONS.tryAgain}
+								</Button>
+							)}
 						</div>
 					</>
 				) : (
@@ -152,23 +154,43 @@ export function ReviewInvitationDialog({
 							/>
 						</div>
 
-						<div className="mt-5 flex flex-col gap-1">
-							<div className="text-12 text-muted-foreground">
-								{FIELDS.suiAddress}
-							</div>
-							<div className="flex items-center gap-2">
-								<span className="min-w-0 flex-1 font-mono text-12 break-all">
-									{multisig.address}
-								</span>
-								<CopyButton
-									value={multisig.address}
-									size="xs"
-									successMessage={
-										content.toasts.addressCopied
+						{multisig.refused ? (
+							<Alert
+								variant="error"
+								className="mt-5"
+								data-testid="invitation-refused"
+								data-rule={multisig.refused}
+							>
+								<div className="font-medium">
+									{content.common.signersRefusedTitle}
+								</div>
+								<div>
+									{
+										content.common.signersRefused[
+											multisig.refused
+										]
 									}
-								/>
+								</div>
+							</Alert>
+						) : (
+							<div className="mt-5 flex flex-col gap-1">
+								<div className="text-12 text-muted-foreground">
+									{FIELDS.suiAddress}
+								</div>
+								<div className="flex items-center gap-2">
+									<span className="min-w-0 flex-1 font-mono text-12 break-all">
+										{multisig.address}
+									</span>
+									<CopyButton
+										value={multisig.address}
+										size="xs"
+										successMessage={
+											content.toasts.addressCopied
+										}
+									/>
+								</div>
 							</div>
-						</div>
+						)}
 
 						<div className={cn('mt-4', tableShellClass)}>
 							<table className={tableClass}>
@@ -247,16 +269,18 @@ export function ReviewInvitationDialog({
 							>
 								{ACTIONS.reject}
 							</Button>
-							<Button
-								onClick={onAccept}
-								disabled={accepting}
-								data-testid="accept-invitation-button"
-							>
-								<Check strokeWidth={3} />
-								{accepting
-									? content.common.states.confirmInWallet
-									: COPY.reviewDialog.accept}
-							</Button>
+							{!multisig.refused && (
+								<Button
+									onClick={onAccept}
+									disabled={accepting}
+									data-testid="accept-invitation-button"
+								>
+									<Check strokeWidth={3} />
+									{accepting
+										? content.common.states.confirmInWallet
+										: COPY.reviewDialog.accept}
+								</Button>
+							)}
 						</div>
 					</>
 				)}

@@ -162,7 +162,8 @@ export function CreateMultisigPage() {
 		[signers],
 	);
 
-	const submit = () =>
+	const submit = () => {
+		if (!check.address) return;
 		create.mutate({
 			request: {
 				name: name.trim(),
@@ -171,8 +172,10 @@ export function CreateMultisigPage() {
 				threshold,
 				labels: signers.map((s) => s.label.trim() || null),
 			},
+			address: check.address,
 			invited,
 		});
+	};
 
 	const creating = create.isPending;
 	const cancel = () => navigate('/');

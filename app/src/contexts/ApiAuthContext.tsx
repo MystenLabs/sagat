@@ -33,6 +33,10 @@ import {
 	announceSessionChange,
 	onSessionChange,
 } from '@/lib/session-channel';
+import {
+	sameAddress,
+	validatePublicKey,
+} from '@/lib/sui-utils';
 import { toast } from '@/lib/toast';
 import { isZkLoginAccount } from '@/lib/wallet';
 import {
@@ -473,17 +477,19 @@ export function ApiAuthProvider({
 		[],
 	);
 
+	// Only entries whose key makes up their address count as signed in.
+	const signedInAddresses =
+		authData?.addresses?.filter((x) => {
+			const { address } = validatePublicKey(x.publicKey);
+			return !!address && sameAddress(address, x.address);
+		}) ?? [];
+
 	const currentAddress =
-		authData?.addresses?.find(
+		signedInAddresses.find(
 			(x) => x.address === currentAccount?.address,
 		) || null;
 
-	const isCurrentAddressAuthenticated =
-		!!currentAddress &&
-		(authData?.addresses?.some(
-			(x) => x.address === currentAddress.address,
-		) ??
-			false);
+	const isCurrentAddressAuthenticated = !!currentAddress;
 
 	// A failed refetch keeps the last answer, so a blip on refocus doesn't
 	// sign anyone out. Without a session for this address, a failed check
@@ -494,8 +500,9 @@ export function ApiAuthProvider({
 	const value: ApiAuthContextType = {
 		// Auth state
 		isAuthenticated: authData?.authenticated ?? false,
-		authenticatedAddresses:
-			authData?.addresses?.map((x) => x.address) ?? [],
+		authenticatedAddresses: signedInAddresses.map(
+			(x) => x.address,
+		),
 		isCheckingAuth,
 		isApiUnreachable,
 		isAuthCheckFailing,
