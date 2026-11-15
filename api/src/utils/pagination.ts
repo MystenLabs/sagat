@@ -27,7 +27,7 @@ export const paginateResponse = <T>(
 	};
 };
 
-// Create a new cursor with the default limit if not provided.
+// Page size is a positive integer up to the maximum, else the default.
 export const newCursor = ({
 	nextCursor,
 	perPage,
@@ -37,13 +37,14 @@ export const newCursor = ({
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	perPage?: any;
 }): PaginationCursor => {
+	const n = Number(perPage);
 	return {
 		nextCursor,
 		perPage:
-			perPage &&
-			!isNaN(Number(perPage)) &&
-			Number(perPage) <= LIMITS.maxProposalsPerPage
-				? Number(perPage)
+			Number.isInteger(n) &&
+			n > 0 &&
+			n <= LIMITS.maxProposalsPerPage
+				? n
 				: LIMITS.maxProposalsPerPage,
 	};
 };
