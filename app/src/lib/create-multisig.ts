@@ -80,7 +80,7 @@ export const HIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}]/u;
 export const HIDDEN_EXCEPT_LINE_BREAKS =
 	/(?![\t\n\r])[\p{Cc}\p{Cf}]/u;
 
-/** A wallet's account name as a label: hidden characters out, trimmed. */
+/** A wallet name or coin symbol: hidden characters out, trimmed. */
 export function stripHiddenCharacters(value: string) {
 	return value
 		.replace(new RegExp(HIDDEN_CHARACTERS.source, 'gu'), '')
