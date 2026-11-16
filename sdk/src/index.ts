@@ -15,6 +15,16 @@ export {
 	defaultExpiry,
 } from './constants.js';
 
+export {
+	verifyAccountEvent,
+	verifyProposalCreated,
+	verifyProposalProposer,
+	verifyProposer,
+	type ProofResult,
+	type ProofStatus,
+	type TrustedMembers,
+} from './verify.js';
+
 export type {
 	AccountEvent,
 	Address,
