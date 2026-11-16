@@ -21,6 +21,7 @@ import {
 	eq,
 	inArray,
 	ne,
+	sql,
 	type SQL,
 } from 'drizzle-orm';
 
@@ -29,6 +30,7 @@ import { db } from '../db';
 import {
 	AccountSignerSetStatus,
 	ProposalStatus,
+	SchemaAccountEvents,
 	SchemaAccountKeys,
 	SchemaAccountProposers,
 	SchemaAccounts,
@@ -910,7 +912,7 @@ const isCanonicalSuiAddress = (address: string) =>
 	isValidSuiAddress(address) &&
 	normalizeSuiAddress(address) === address;
 
-// Adds an external proposer to an account, signed by an accepted member.
+// Adds or re-confirms an account's external proposer, signed by an accepted member.
 export const addProposer = async ({
 	address,
 	proposer,
@@ -938,6 +940,8 @@ export const addProposer = async ({
 			new ApiAuthError('NotAMultisigMember'),
 	});
 
+	const actor = publicKey.toSuiAddress();
+
 	// Add the proposer to the multisig.
 	await db.transaction(async (tx) => {
 		// Serializes proposer adds for the account.
@@ -955,30 +959,45 @@ export const addProposer = async ({
 			});
 
 		if (
-			existingProposers.length >=
-			LIMITS.maxProposersPerMultisig
-		)
-			throw new ValidationError(
-				'You have reached the maximum number of proposers for this multisig',
-			);
-
-		if (
 			existingProposers.some((p) => p.address === proposer)
-		)
-			throw new ValidationError(
-				`${proposer} is already a proposer for this multisig`,
-			);
+		) {
+			// A resent signature records nothing new.
+			const [resent] = await tx
+				.select({ id: SchemaAccountEvents.id })
+				.from(SchemaAccountEvents)
+				.where(
+					and(
+						eq(SchemaAccountEvents.accountAddress, address),
+						eq(
+							SchemaAccountEvents.action,
+							'proposer.added',
+						),
+						eq(SchemaAccountEvents.subject, proposer),
+						sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
+					),
+				)
+				.limit(1);
+			if (resent) return;
+		} else {
+			if (
+				existingProposers.length >=
+				LIMITS.maxProposersPerMultisig
+			)
+				throw new ValidationError(
+					'You have reached the maximum number of proposers for this multisig',
+				);
 
-		await tx.insert(SchemaAccountProposers).values({
-			accountAddress: address,
-			address: proposer,
-			addedBy: publicKey.toSuiAddress(),
-		});
+			await tx.insert(SchemaAccountProposers).values({
+				accountAddress: address,
+				address: proposer,
+				addedBy: actor,
+			});
+		}
 
 		await recordAccountEvent(tx, {
 			action: 'proposer.added',
 			accountAddress: address,
-			actor: publicKey.toSuiAddress(),
+			actor,
 			subject: proposer,
 			proof: {
 				kind: 'proposer.add',

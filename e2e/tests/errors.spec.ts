@@ -3,6 +3,7 @@
 
 import { MIST_PER_SUI, toBase58 } from '@mysten/sui/utils';
 
+import { LIMITS } from '../../api/src/constants/limits';
 import { content } from '../../app/src/content';
 import { randomAddress } from '../support/chain';
 import {
@@ -356,33 +357,33 @@ test.describe('errors', () => {
 		createIdentity,
 	}) => {
 		const alice = await createActor('alice');
-		const payments = createIdentity('payments');
 		const multisig = await setupMultisig({
 			creator: alice,
 			members: [createIdentity('bob')],
 			threshold: 1,
 		});
-		await addProposer(
-			alice,
-			multisig.address,
-			payments.address,
+		const proposers = Array.from(
+			{ length: LIMITS.maxProposersPerMultisig },
+			() => randomAddress(),
 		);
+		for (const proposer of proposers)
+			await addProposer(alice, multisig.address, proposer);
 
 		await alice.signIn();
 		const { page } = alice;
 		await page.getByTestId('multisig-tab-signers').click();
 		const card = page.getByTestId('proposers-card');
 		const items = card.getByTestId('proposer-item');
-		await expect(items).toHaveCount(1);
+		await expect(items).toHaveCount(proposers.length);
 
-		// Already a proposer, so the API refuses to add it again.
+		// At the limit, so the API refuses a new one.
 		await card.getByTestId('add-proposer-button').click();
 		const dialog = page.getByTestId('add-proposer-dialog');
 		await dialog
 			.getByLabel(content.common.fields.address, {
 				exact: true,
 			})
-			.fill(payments.address);
+			.fill(randomAddress());
 		await dialog
 			.getByRole('button', {
 				name: content.proposers.addDialog.submit,
@@ -391,13 +392,9 @@ test.describe('errors', () => {
 			.click();
 		await expect(
 			toast(page, 'error').filter({
-				hasText: 'already a proposer',
+				hasText: 'maximum number of proposers',
 			}),
 		).toBeVisible();
-		await expect(items).toHaveCount(1);
-		await expect(items).toHaveAttribute(
-			'data-address',
-			payments.address,
-		);
+		await expect(items).toHaveCount(proposers.length);
 	});
 });
