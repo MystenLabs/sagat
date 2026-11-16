@@ -1202,7 +1202,7 @@ export const content = {
 		status: {
 			unverified: 'Unverified',
 			unverifiedTooltip:
-				'No signer’s signature is on record for this proposer.',
+				'This proposer’s confirmation can’t be checked.',
 			invalid: 'Doesn’t check out',
 			invalidTooltip:
 				'This proposer’s signature doesn’t match. Remove it if you don’t recognize it.',
