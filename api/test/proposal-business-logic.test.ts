@@ -960,6 +960,7 @@ describe('Proposal Business Logic', () => {
 				await db
 					.select({
 						address: SchemaAccountProposers.address,
+						addedBy: SchemaAccountProposers.addedBy,
 					})
 					.from(SchemaAccountProposers)
 					.where(
@@ -968,7 +969,9 @@ describe('Proposal Business Logic', () => {
 							multisig.address,
 						),
 					),
-			).toEqual([{ address: proposer }]);
+			).toEqual([
+				{ address: proposer, addedBy: users[0].address },
+			]);
 			const [reconfirmed, added, ...others] =
 				await listAccountEvents({
 					accountAddress: multisig.address,
