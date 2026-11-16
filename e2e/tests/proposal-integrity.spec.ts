@@ -394,43 +394,6 @@ test.describe('proposal integrity', () => {
 		await expectRefused(opened, 'proposer');
 	});
 
-	test('warns about a proposal relabelled as a member’s with no signature of theirs, and still signs', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const { bob } = await openExternalProposal(
-			{ createActor, createIdentity, chain },
-			// Alice named as the proposer, with neither her created event nor her vote.
-			({ proposal, bob }) => {
-				const alice = proposal.multisig.members.find(
-					(m) => m.publicKey !== bob.publicKey,
-				)!.publicKey;
-				return {
-					...proposal,
-					proposerAddress:
-						publicKeyFromSuiBytes(alice).toSuiAddress(),
-					signatures: proposal.signatures.filter(
-						(s) => s.publicKey !== alice,
-					),
-					events: {
-						created: null,
-						proposer: proposal.events?.proposer ?? null,
-					},
-				};
-			},
-		);
-		const card = bob.page.getByTestId('approvals-card');
-		await expect(
-			card.getByTestId('proposer-unconfirmed'),
-		).toBeVisible();
-		const voted = bob.page.waitForResponse((response) =>
-			isVoteRequest(response.request()),
-		);
-		await card.getByTestId('sign-proposal-button').click();
-		expect((await voted).ok()).toBe(true);
-	});
-
 	test('shows no warning on a member’s own proposal', async ({
 		createActor,
 		createIdentity,

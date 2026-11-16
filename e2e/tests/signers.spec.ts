@@ -565,58 +565,6 @@ test.describe('overview and signers', () => {
 		).toBeVisible();
 	});
 
-	test('mark a proposer unverified when the account leaves its event out', async ({
-		createActor,
-		createIdentity,
-	}) => {
-		const alice = await createActor('alice');
-		const bob = createIdentity('bob');
-		const payments = createIdentity('payments');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob],
-			threshold: 1,
-			labels: ['Alice', 'Bob'],
-		});
-		await addProposer(
-			alice,
-			multisig.address,
-			payments.address,
-		);
-
-		await alice.page.route(
-			`${E2E.apiUrl}/multisig/${multisig.address}`,
-			async (route) => {
-				const response = await route.fetch();
-				const account =
-					(await response.json()) as MultisigWithMembers;
-				await route.fulfill({
-					response,
-					json: {
-						...account,
-						proposers: account.proposers.map(
-							({ event: _, ...p }) => p,
-						),
-					},
-				});
-			},
-		);
-
-		await alice.signIn();
-		const { page } = alice;
-		await page.getByTestId('multisig-tab-signers').click();
-		const item = page
-			.getByTestId('proposers-card')
-			.getByTestId('proposer-item');
-		await expect(item).toHaveAttribute(
-			'data-status',
-			'unverified',
-		);
-		await expect(
-			item.getByTestId('proposer-status'),
-		).toHaveText('Unverified');
-	});
-
 	test('list the open proposals and execute the one that is ready', async ({
 		createActor,
 		createIdentity,

@@ -1097,7 +1097,7 @@ export const content = {
 					'The proposer’s confirmation doesn’t check out.',
 				...SIGNERS_REFUSED,
 			},
-			/** Above Sign when no signer has confirmed an external proposer. */
+			/** Above Sign when no signature shows who proposed it: an unconfirmed external proposer, a member without their signature, or signers that don’t make up the account. */
 			proposerNotConfirmed: {
 				title: 'Proposer not confirmed',
 				body: 'There’s no signature on record showing this proposal came from a signer or a confirmed external proposer. Check the transaction before you sign.',

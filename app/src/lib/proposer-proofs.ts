@@ -79,9 +79,8 @@ export async function checkProposalProposer(
 		)
 	)
 		return 'unverified';
-	const { status } = await verifyProposalProposer(
-		proposal,
-		{ members: proposal.multisig.members },
-	);
+	const status = await verifyProposalProposer(proposal, {
+		members: proposal.multisig.members,
+	});
 	return status === 'verified' ? null : status;
 }
