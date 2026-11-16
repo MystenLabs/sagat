@@ -31,6 +31,7 @@ import {
 	useDryRun,
 } from '@/hooks/useDryRun';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
+import { useProposalProposerCheck } from '@/hooks/useProposerProofs';
 import { useSignProposal } from '@/hooks/useSignProposal';
 import { checkProposalIntegrity } from '@/lib/proposal-integrity';
 import {
@@ -62,8 +63,8 @@ const STATES = content.common.states;
  * Who signed, what the threshold needs, and what the viewer can do
  * about it: sign (and execute, when their signature reaches the
  * threshold), execute, or cancel. Only a signer on the proposal's
- * network gets the buttons. Bytes that fail `checkProposalIntegrity`
- * get a refusal in place of Sign.
+ * network gets the buttons. Bytes that fail `checkProposalIntegrity`,
+ * or an invalid proposer, get a refusal in place of Sign.
  */
 export function ApprovalsCard({
 	proposal,
@@ -137,7 +138,10 @@ export function ApprovalsCard({
 	const rechecking = recheck.isPending;
 	const canAct = viewer === 'member';
 	const walletAddress = wallet?.address ?? null;
-	const refused = useMemo(
+	const proposer = useProposalProposerCheck(proposal, {
+		enabled: canAct,
+	});
+	const integrity = useMemo(
 		() =>
 			canAct && walletAddress
 				? checkProposalIntegrity(proposal, {
@@ -147,6 +151,11 @@ export function ApprovalsCard({
 				: null,
 		[canAct, walletAddress, proposal, openedDigest],
 	);
+	const refused =
+		integrity ??
+		(canAct && walletAddress && proposer.check === 'invalid'
+			? 'proposer'
+			: null);
 	const refusing =
 		refused !== null && status === 'pending' && !signed;
 	// Cancelling signs a message for the API session.
@@ -311,6 +320,17 @@ export function ApprovalsCard({
 		} else if (status === 'pending' && !signed) {
 			actions = (
 				<>
+					{proposer.check === 'unverified' && (
+						<Alert
+							variant="warning"
+							data-testid="proposer-unconfirmed"
+						>
+							<div className="font-medium">
+								{COPY.proposerNotConfirmed.title}
+							</div>
+							<div>{COPY.proposerNotConfirmed.body}</div>
+						</Alert>
+					)}
 					{offerExecuteAfterSigning && (
 						<label className="flex w-fit cursor-pointer items-center gap-2 text-13">
 							<Checkbox
@@ -329,7 +349,11 @@ export function ApprovalsCard({
 						<Button
 							variant={failing ? 'outline' : 'default'}
 							onClick={onSign}
-							disabled={!settled || sign.isPending}
+							disabled={
+								!settled ||
+								sign.isPending ||
+								proposer.pending
+							}
 							data-testid="sign-proposal-button"
 						>
 							{(failing || signAndExecute) && <Pen />}

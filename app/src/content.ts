@@ -1084,7 +1084,7 @@ export const content = {
 				stillFails: (reason: string) =>
 					`It still fails after a second simulation${reason}.`,
 			},
-			/** In place of Sign when the bytes fail a check, by `ProposalIntegrityFailure`. */
+			/** In place of Sign when a check fails, by `ProposalIntegrityFailure`, or `proposer` for an invalid proposer proof. */
 			refused: {
 				title: 'Can’t sign this proposal',
 				unreadable: 'The transaction couldn’t be read.',
@@ -1093,7 +1093,14 @@ export const content = {
 					'The transaction’s gas is paid by an address other than this pod.',
 				digest:
 					'The transaction doesn’t match the proposal’s digest.',
+				proposer:
+					'The proposer’s confirmation doesn’t check out.',
 				...SIGNERS_REFUSED,
+			},
+			/** Above Sign when no signature shows who proposed it: an unconfirmed external proposer, a member without their signature, or signers that don’t make up the account. */
+			proposerNotConfirmed: {
+				title: 'Proposer not confirmed',
+				body: 'There’s no signature on record showing this proposal came from a signer or a confirmed external proposer. Check the transaction before you sign.',
 			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */
@@ -1191,6 +1198,18 @@ export const content = {
 			added: 'Added',
 		},
 		addedBy: 'by',
+		confirmedBy: 'Confirmed by',
+		status: {
+			unverified: 'Unverified',
+			unverifiedTooltip:
+				'This proposer’s confirmation can’t be checked.',
+			invalid: 'Doesn’t check out',
+			invalidTooltip:
+				'This proposer’s signature doesn’t match. Remove it if you don’t recognize it.',
+		},
+		reconfirm: 'Re-confirm',
+		reconfirmLabel: (address: string) =>
+			`Re-confirm ${address}`,
 		removeLabel: (address: string) => `Remove ${address}`,
 		addDialog: {
 			title: 'Add external proposer',

@@ -31,12 +31,15 @@ export function AddProposerDialog({
 	onOpenChange,
 	multisigAddress,
 	accountName,
+	initialAddress = '',
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	multisigAddress: string;
 	/** What to call the account in the description. */
 	accountName: string;
+	/** The field's value on opening, as when re-confirming a proposer. */
+	initialAddress?: string;
 }) {
 	// The form is keyed by each opening, so once the dialog has closed
 	// (after it animates out) it forgets the field and whether it was used.
@@ -69,7 +72,8 @@ export function AddProposerDialog({
 					{COPY.description(accountName)}
 				</DialogDescription>
 				<AddressForm
-					key={opening}
+					key={`${opening}:${initialAddress}`}
+					initialAddress={initialAddress}
 					pending={pending}
 					onCancel={() => onOpenChange(false)}
 					onSubmit={(address) =>
@@ -82,15 +86,17 @@ export function AddProposerDialog({
 }
 
 function AddressForm({
+	initialAddress,
 	pending,
 	onCancel,
 	onSubmit,
 }: {
+	initialAddress: string;
 	pending: boolean;
 	onCancel: () => void;
 	onSubmit: (address: string) => void;
 }) {
-	const [value, setValue] = useState('');
+	const [value, setValue] = useState(initialAddress);
 	const { touched, touch, change } = useTouched({
 		address: false,
 	});

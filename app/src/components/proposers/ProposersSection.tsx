@@ -6,7 +6,7 @@ import {
 	formatAddress,
 	normalizeSuiAddress,
 } from '@mysten/sui/utils';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { ShortAddress } from '@/components/invitations/ShortAddress';
@@ -16,13 +16,21 @@ import {
 	cardClass,
 	CardHeading,
 } from '@/components/ui/card';
+import { Chip } from '@/components/ui/chip';
 import { CopyButton } from '@/components/ui/CopyButton';
 import {
 	tableClass,
 	tableHeadRowClass,
 	tableRowClass,
 } from '@/components/ui/table';
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipProvider,
+	TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { content } from '@/content';
+import { useProposerProofs } from '@/hooks/useProposerProofs';
 import { accountName } from '@/lib/account-name';
 import { formatDate } from '@/lib/dates';
 import { memberLabels } from '@/lib/signers';
@@ -33,21 +41,48 @@ import { RemoveProposerDialog } from './RemoveProposerDialog';
 
 const COPY = content.proposers;
 
+const PROOF_CHIP = {
+	unverified: {
+		variant: 'warning',
+		label: COPY.status.unverified,
+		tooltip: COPY.status.unverifiedTooltip,
+	},
+	invalid: {
+		variant: 'error',
+		label: COPY.status.invalid,
+		tooltip: COPY.status.invalidTooltip,
+	},
+} as const;
+
 /**
  * The account's external proposers as a card: each address with the day it
- * was added and by whom, and a way to remove it, plus a button to add one.
+ * was added and the signer who confirmed it, a way to re-confirm one that
+ * isn't confirmed and to remove it, plus a button to add one.
  */
 export function ProposersSection({
 	multisig,
 	currentAddress,
+	checkProofs,
+	openedAddress,
 	className,
 }: {
 	multisig: Pick<
 		MultisigWithMembers,
-		'address' | 'name' | 'members' | 'proposers'
+		| 'address'
+		| 'name'
+		| 'threshold'
+		| 'members'
+		| 'proposers'
 	>;
-	/** The signed-in address, marked "(you)" when it added a proposer. */
+	/**
+	 * The signed-in address, marked "(you)" when it added or confirmed a
+	 * proposer.
+	 */
 	currentAddress: string | undefined;
+	/** Whether `multisig` is the account's own response, the one with proposer events. */
+	checkProofs: boolean;
+	/** The account the viewer opened, from the route. */
+	openedAddress: string;
 	className?: string;
 }) {
 	const { proposers } = multisig;
@@ -56,7 +91,24 @@ export function ProposersSection({
 		() => memberLabels(multisig.members),
 		[multisig.members],
 	);
+	const { proofs, trusted } = useProposerProofs(multisig, {
+		enabled: checkProofs,
+		openedAddress,
+	});
+	// Re-confirming can't help when the signers themselves aren't trusted.
+	const canReconfirm = (address: string) =>
+		trusted &&
+		proofs?.get(address)?.status === 'unverified';
+	const anyReconfirm = proposers.some((p) =>
+		canReconfirm(p.address),
+	);
 	const [adding, setAdding] = useState(false);
+	// Re-confirming opens the add dialog with the proposer's address.
+	const [addingAddress, setAddingAddress] = useState('');
+	const openAdd = (address: string) => {
+		setAddingAddress(address);
+		setAdding(true);
+	};
 	// The address outlives the dialog's open state, so the dialog keeps its
 	// content while it animates out.
 	const [removing, setRemoving] = useState(false);
@@ -78,7 +130,7 @@ export function ProposersSection({
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={() => setAdding(true)}
+					onClick={() => openAdd('')}
 					className="ml-auto max-sm:size-7 max-sm:px-0"
 					data-testid="add-proposer-button"
 				>
@@ -108,7 +160,14 @@ export function ProposersSection({
 								<th className="w-30 px-3 sm:w-40">
 									{COPY.columns.added}
 								</th>
-								<th className="w-12 px-1.5 sm:w-30 sm:px-3">
+								<th
+									className={cn(
+										'px-1.5 sm:px-3',
+										anyReconfirm
+											? 'w-20 sm:w-58'
+											: 'w-12 sm:w-30',
+									)}
+								>
 									<span className="sr-only">
 										{content.common.fields.actions}
 									</span>
@@ -117,23 +176,39 @@ export function ProposersSection({
 						</thead>
 						<tbody>
 							{proposers.map((proposer) => {
-								const addedBy = normalizeSuiAddress(
-									proposer.addedBy,
+								const proof = proofs?.get(proposer.address);
+								// A member proposer is verified without a signer.
+								const signer =
+									proof?.status === 'verified'
+										? proof.signer
+										: null;
+								const by = normalizeSuiAddress(
+									signer ?? proposer.addedBy,
 								);
-								const label = labels.get(addedBy) ?? null;
+								const date =
+									(signer && proof?.createdAt) ||
+									proposer.addedAt;
+								const chip =
+									proof && proof.status !== 'verified'
+										? PROOF_CHIP[proof.status]
+										: null;
 								const isYou =
 									!!currentAddress &&
 									normalizeSuiAddress(currentAddress) ===
-										addedBy;
+										by;
+								const short = formatAddress(
+									proposer.address,
+								);
 								return (
 									<tr
 										key={proposer.address}
 										className={tableRowClass}
 										data-testid="proposer-item"
 										data-address={proposer.address}
+										data-status={proof?.status}
 									>
 										<td className="px-3 py-2.5">
-											<span className="flex items-center gap-1 font-mono text-13">
+											<span className="flex items-center gap-1 font-mono text-13 whitespace-nowrap">
 												<ShortAddress
 													address={proposer.address}
 												/>
@@ -150,24 +225,44 @@ export function ProposersSection({
 											<span
 												className="block truncate text-13 text-foreground"
 												data-testid="proposer-added"
-												data-added-at={proposer.addedAt}
+												data-added-at={date}
 											>
-												{formatDate(proposer.addedAt) ??
-													'—'}
+												{formatDate(date) ?? '—'}
 											</span>
 											<span
 												className="block text-12 break-words text-muted-foreground"
 												data-testid="proposer-added-by"
 											>
-												{COPY.addedBy}{' '}
+												{signer
+													? COPY.confirmedBy
+													: COPY.addedBy}{' '}
 												<MemberName
-													address={proposer.addedBy}
-													label={label}
+													address={by}
+													label={labels.get(by) ?? null}
 													isYou={isYou}
 												/>
 											</span>
+											{chip && <ProofChip chip={chip} />}
 										</td>
-										<td className="px-1.5 py-1.5 text-right sm:px-3">
+										<td className="px-1.5 py-1.5 text-right whitespace-nowrap sm:px-3">
+											{canReconfirm(proposer.address) && (
+												<Button
+													variant="ghost"
+													size="sm"
+													onClick={() =>
+														openAdd(proposer.address)
+													}
+													aria-label={COPY.reconfirmLabel(
+														short,
+													)}
+													data-testid="reconfirm-proposer-button"
+												>
+													<RefreshCw />
+													<span className="max-sm:sr-only">
+														{COPY.reconfirm}
+													</span>
+												</Button>
+											)}
 											<Button
 												variant="ghost"
 												size="sm"
@@ -177,9 +272,7 @@ export function ProposersSection({
 													);
 													setRemoving(true);
 												}}
-												aria-label={COPY.removeLabel(
-													formatAddress(proposer.address),
-												)}
+												aria-label={COPY.removeLabel(short)}
 												data-testid="remove-proposer-button"
 											>
 												<Trash2 />
@@ -206,6 +299,7 @@ export function ProposersSection({
 				onOpenChange={setAdding}
 				multisigAddress={multisig.address}
 				accountName={name}
+				initialAddress={addingAddress}
 			/>
 			<RemoveProposerDialog
 				open={removing}
@@ -215,5 +309,34 @@ export function ProposersSection({
 				proposerAddress={removingAddress}
 			/>
 		</section>
+	);
+}
+
+function ProofChip({
+	chip,
+}: {
+	chip: (typeof PROOF_CHIP)[keyof typeof PROOF_CHIP];
+}) {
+	return (
+		<TooltipProvider delay={150}>
+			<Tooltip>
+				<TooltipTrigger
+					render={
+						<Chip
+							variant={chip.variant}
+							size="sm"
+							className="mt-1"
+							tabIndex={0}
+							data-testid="proposer-status"
+						/>
+					}
+				>
+					{chip.label}
+				</TooltipTrigger>
+				<TooltipContent className="max-w-xs">
+					{chip.tooltip}
+				</TooltipContent>
+			</Tooltip>
+		</TooltipProvider>
 	);
 }

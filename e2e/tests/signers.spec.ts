@@ -1,18 +1,25 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	PersonalMessages,
+	type MultisigWithMembers,
+} from '@mysten/sagat';
 import {
 	formatAddress,
 	formatDigest,
+	fromBase64,
 	MIST_PER_SUI,
 	normalizeStructTag,
 	SUI_TYPE_ARG,
+	toBase64,
 } from '@mysten/sui/utils';
 
 import { randomAddress } from '../support/chain';
+import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 import {
+	addProposer,
 	proposeTransfer,
 	setupMultisig,
 	signInViaApi,
@@ -345,9 +352,17 @@ test.describe('overview and signers', () => {
 		await expect(
 			item.getByTestId('proposer-added'),
 		).toHaveAttribute('data-added-at', /.+/);
+		// Adding signs it, so the row names the signer who confirmed it.
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'verified',
+		);
 		await expect(
 			item.getByTestId('proposer-added-by'),
-		).toHaveText('by Alice (you)');
+		).toHaveText('Confirmed by Alice (you)');
+		await expect(
+			item.getByTestId('reconfirm-proposer-button'),
+		).toHaveCount(0);
 		await expect(
 			card.getByTestId('proposers-empty'),
 		).toHaveCount(0);
@@ -382,6 +397,171 @@ test.describe('overview and signers', () => {
 		).toHaveCount(0);
 		await expect(
 			card.getByTestId('proposers-empty'),
+		).toBeVisible();
+	});
+
+	test('re-confirm a proposer that has no signature on record', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const payments = createIdentity('payments');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 1,
+			labels: ['Alice', 'Bob'],
+		});
+		await addProposer(
+			alice,
+			multisig.address,
+			payments.address,
+		);
+
+		// Hides the first recorded event, as for a proposer added before events were kept.
+		let hidden: number | undefined;
+		await alice.page.route(
+			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			async (route) => {
+				const response = await route.fetch();
+				const account =
+					(await response.json()) as MultisigWithMembers;
+				await route.fulfill({
+					response,
+					json: {
+						...account,
+						proposers: account.proposers.map((p) => {
+							hidden ??= p.event?.id;
+							return p.event?.id === hidden
+								? { ...p, event: null }
+								: p;
+						}),
+					},
+				});
+			},
+		);
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.getByTestId('multisig-tab-signers').click();
+		const item = page
+			.getByTestId('proposers-card')
+			.getByTestId('proposer-item');
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'unverified',
+		);
+		await expect(
+			item.getByTestId('proposer-status'),
+		).toHaveText('Unverified');
+		await expect(
+			item.getByTestId('proposer-added-by'),
+		).toHaveText('by Alice (you)');
+
+		const reconfirm = item.getByTestId(
+			'reconfirm-proposer-button',
+		);
+		await expect(reconfirm).toHaveAccessibleName(
+			`Re-confirm ${formatAddress(payments.address)}`,
+		);
+		await reconfirm.click();
+		// Re-confirming signs only from the add dialog, prefilled.
+		const add = page.getByRole('dialog', {
+			name: 'Add external proposer',
+		});
+		await expect(
+			add.getByLabel('Address', { exact: true }),
+		).toHaveValue(payments.address);
+		await add
+			.getByRole('button', {
+				name: 'Add proposer',
+				exact: true,
+			})
+			.click();
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'verified',
+		);
+		await expect(
+			item.getByTestId('proposer-added-by'),
+		).toHaveText('Confirmed by Alice (you)');
+		await expect(
+			item.getByTestId('proposer-status'),
+		).toHaveCount(0);
+		await expect(reconfirm).toHaveCount(0);
+	});
+
+	test('offer only Remove for a proposer whose signature doesn’t match', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const payments = createIdentity('payments');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 1,
+			labels: ['Alice', 'Bob'],
+		});
+		await addProposer(
+			alice,
+			multisig.address,
+			payments.address,
+		);
+
+		// Flips a byte of the recorded signature, after the scheme flag.
+		await alice.page.route(
+			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			async (route) => {
+				const response = await route.fetch();
+				const account =
+					(await response.json()) as MultisigWithMembers;
+				await route.fulfill({
+					response,
+					json: {
+						...account,
+						proposers: account.proposers.map((p) => {
+							if (!p.event?.proof) return p;
+							const bytes = fromBase64(
+								String(p.event.proof.signature),
+							);
+							bytes[1] ^= 0xff;
+							return {
+								...p,
+								event: {
+									...p.event,
+									proof: {
+										...p.event.proof,
+										signature: toBase64(bytes),
+									},
+								},
+							};
+						}),
+					},
+				});
+			},
+		);
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.getByTestId('multisig-tab-signers').click();
+		const item = page
+			.getByTestId('proposers-card')
+			.getByTestId('proposer-item');
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'invalid',
+		);
+		await expect(
+			item.getByTestId('proposer-status'),
+		).toHaveText('Doesn’t check out');
+		await expect(
+			item.getByTestId('reconfirm-proposer-button'),
+		).toHaveCount(0);
+		await expect(
+			item.getByTestId('remove-proposer-button'),
 		).toBeVisible();
 	});
 

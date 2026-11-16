@@ -14,8 +14,10 @@ import {
 	MIST_PER_SUI,
 	toBase64,
 } from '@mysten/sui/utils';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 
 import { newProposalPath } from '../../app/src/lib/new-proposal';
+import { type Actor } from '../support/actor';
 import { randomAddress } from '../support/chain';
 import { E2E } from '../support/env';
 import {
@@ -24,13 +26,20 @@ import {
 	type Fixtures,
 } from '../support/fixtures';
 import {
+	isVoteRequest,
 	recordCreates,
 	recordVotes,
 	sharedAccount,
 } from '../support/new-proposal';
-import { setupProposal } from '../support/scenarios';
+import {
+	addProposer,
+	proposeTransfer,
+	setupMultisig,
+	setupProposal,
+} from '../support/scenarios';
 
-type Rule = 'sender' | 'gasOwner' | 'digest' | 'signers';
+type Rule =
+	'sender' | 'gasOwner' | 'digest' | 'signers' | 'proposer';
 
 /** The proposal with other bytes, and the digest that matches them. */
 function withBytes(
@@ -46,27 +55,13 @@ function withBytes(
 	};
 }
 
-/**
- * Alice proposes a transfer from her 2-of-2 account with Bob, and Bob
- * opens it with the proposal response changed by `tamper`: signed in,
- * under the account, or with `shared`, at the shared link with his
- * wallet connected but not signed in. Returns the vote requests the page
- * sends, which should stay empty.
- */
-async function openTamperedProposal(
-	fixtures: Fixtures,
-	tamper: (context: {
-		proposal: PublicProposal;
-		bob: { address: string; publicKey: string };
-	}) => Promise<PublicProposal> | PublicProposal,
-	{ shared = false }: { shared?: boolean } = {},
-) {
-	const {
-		bob,
-		multisig,
-		proposal: proposed,
-	} = await setupProposal(fixtures);
+type Tamper = (context: {
+	proposal: PublicProposal;
+	bob: Actor;
+}) => Promise<PublicProposal> | PublicProposal;
 
+/** Serves Bob the proposal response changed by `tamper`. */
+async function routeTampered(bob: Actor, tamper: Tamper) {
 	// Tampered once, so the page's refetches get the same proposal.
 	let tampered: Promise<PublicProposal> | undefined;
 	await bob.page.route(
@@ -84,6 +79,61 @@ async function openTamperedProposal(
 			});
 		},
 	);
+}
+
+/** Bob opens a transfer from an external proposer, with the response changed by `tamper`. */
+async function openExternalProposal(
+	{ createActor, createIdentity, chain }: Fixtures,
+	tamper: Tamper,
+) {
+	const alice = createIdentity('alice');
+	const bob = await createActor('bob');
+	const payments = createIdentity('payments');
+	const multisig = await setupMultisig({
+		creator: alice,
+		members: [bob],
+		threshold: 2,
+	});
+	await addProposer(
+		alice,
+		multisig.address,
+		payments.address,
+	);
+	await chain.fund(multisig.address);
+	const proposal = await proposeTransfer(chain, payments, {
+		multisigAddress: multisig.address,
+		recipient: randomAddress(),
+		amount: MIST_PER_SUI,
+	});
+
+	await routeTampered(bob, tamper);
+	const votes = recordVotes(bob.page);
+	await bob.signIn();
+	await bob.page.goto(
+		`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+	);
+	return { bob, votes };
+}
+
+/**
+ * Alice proposes a transfer from her 2-of-2 account with Bob, and Bob
+ * opens it with the proposal response changed by `tamper`: signed in,
+ * under the account, or with `shared`, at the shared link with his
+ * wallet connected but not signed in. Returns the vote requests the page
+ * sends, which should stay empty.
+ */
+async function openTamperedProposal(
+	fixtures: Fixtures,
+	tamper: Tamper,
+	{ shared = false }: { shared?: boolean } = {},
+) {
+	const {
+		bob,
+		multisig,
+		proposal: proposed,
+	} = await setupProposal(fixtures);
+
+	await routeTampered(bob, tamper);
 	const votes = recordVotes(bob.page);
 
 	if (shared) {
@@ -238,6 +288,131 @@ test.describe('proposal integrity', () => {
 			}),
 		);
 		await expectRefused(opened, 'signers');
+	});
+
+	test('signs a confirmed external proposer’s proposal without a warning', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { bob } = await openExternalProposal(
+			{ createActor, createIdentity, chain },
+			({ proposal }) => proposal,
+		);
+		const card = bob.page.getByTestId('approvals-card');
+		const sign = card.getByTestId('sign-proposal-button');
+		// Enabled once the proposer check has resolved.
+		await expect(sign).toBeEnabled();
+		await expect(
+			card.getByTestId('proposer-unconfirmed'),
+		).toHaveCount(0);
+		await expect(
+			card.getByTestId('sign-refused'),
+		).toHaveCount(0);
+		const voted = bob.page.waitForResponse((response) =>
+			isVoteRequest(response.request()),
+		);
+		await sign.click();
+		expect((await voted).ok()).toBe(true);
+	});
+
+	test('warns about an external proposer no signer has confirmed, and still signs', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		// As for a proposer added before events were kept.
+		const { bob } = await openExternalProposal(
+			{ createActor, createIdentity, chain },
+			({ proposal }) => ({
+				...proposal,
+				events: {
+					created: proposal.events?.created ?? null,
+					proposer: null,
+				},
+			}),
+		);
+		const card = bob.page.getByTestId('approvals-card');
+		await expect(
+			card.getByTestId('proposer-unconfirmed'),
+		).toBeVisible();
+		// Refetches serve the tampered proposal again, so check the vote itself.
+		const voted = bob.page.waitForResponse((response) =>
+			isVoteRequest(response.request()),
+		);
+		await card.getByTestId('sign-proposal-button').click();
+		expect((await voted).ok()).toBe(true);
+	});
+
+	test("refuses to sign when the proposal wasn't signed by its external proposer", async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const opened = await openExternalProposal(
+			{ createActor, createIdentity, chain },
+			// Bob's signature over the bytes in place of the proposer's.
+			async ({ proposal, bob }) => {
+				const created = proposal.events!.created!;
+				return {
+					...proposal,
+					events: {
+						...proposal.events!,
+						created: {
+							...created,
+							proof: {
+								...created.proof,
+								signature: await bob.signTransaction(
+									proposal.transactionBytes,
+								),
+							},
+						},
+					},
+				};
+			},
+		);
+		await expectRefused(opened, 'proposer');
+	});
+
+	test('refuses to sign an external proposal relabelled as a member’s', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const opened = await openExternalProposal(
+			{ createActor, createIdentity, chain },
+			// Alice named as the proposer, with the external proposer's created event.
+			({ proposal, bob }) => ({
+				...proposal,
+				proposerAddress: publicKeyFromSuiBytes(
+					proposal.multisig.members.find(
+						(m) => m.publicKey !== bob.publicKey,
+					)!.publicKey,
+				).toSuiAddress(),
+			}),
+		);
+		await expectRefused(opened, 'proposer');
+	});
+
+	test('shows no warning on a member’s own proposal', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { bob } = await openTamperedProposal(
+			{ createActor, createIdentity, chain },
+			({ proposal }) => proposal,
+		);
+		const card = bob.page.getByTestId('approvals-card');
+		const sign = card.getByTestId('sign-proposal-button');
+		// Enabled once the proposer check has resolved.
+		await expect(sign).toBeEnabled();
+		await expect(
+			card.getByTestId('proposer-unconfirmed'),
+		).toHaveCount(0);
+		await expect(
+			card.getByTestId('sign-refused'),
+		).toHaveCount(0);
 	});
 
 	test("refuses to propose when the signers don't make up the account's address", async ({

@@ -103,21 +103,11 @@ export function checkAccountSigners(
 ):
 	| { kind: 'ok'; address: string }
 	| { kind: 'signers' | 'notSigner' } {
-	// A rotated account will instead need the rebuilt address to be in the
-	// account's alias set, read from the app's own fullnode.
-	const members = [...multisig.members].sort(
-		(a, b) => a.order - b.order,
-	);
-	const { address: rebuilt } = computeMultisigAddress(
-		members.map((m) => m.publicKey),
-		members.map((m) => m.weight),
-		multisig.threshold,
-	);
-	if (!rebuilt || !sameAddress(rebuilt, account))
-		return { kind: 'signers' };
+	const rebuilt = rebuildAccount(multisig, account);
+	if (!rebuilt) return { kind: 'signers' };
 
 	if (
-		!members.some((m) => {
+		!multisig.members.some((m) => {
 			const { address } = validatePublicKey(m.publicKey);
 			return (
 				address !== undefined &&
@@ -128,4 +118,27 @@ export function checkAccountSigners(
 		return { kind: 'notSigner' };
 
 	return { kind: 'ok', address: rebuilt };
+}
+
+/**
+ * The address `multisig`'s signers and threshold make up, or null when
+ * it isn't `account`.
+ */
+export function rebuildAccount(
+	multisig: AccountSigners,
+	account: string,
+): string | null {
+	// A rotated account will instead need the rebuilt address to be in the
+	// account's alias set, read from the app's own fullnode.
+	const members = [...multisig.members].sort(
+		(a, b) => a.order - b.order,
+	);
+	const { address: rebuilt } = computeMultisigAddress(
+		members.map((m) => m.publicKey),
+		members.map((m) => m.weight),
+		multisig.threshold,
+	);
+	return rebuilt && sameAddress(rebuilt, account)
+		? rebuilt
+		: null;
 }
