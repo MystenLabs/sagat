@@ -76,6 +76,9 @@ export function addressInput(key: string): string | null {
  * The same rule as the API's, so a name never fails only at Create.
  */
 export const HIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}]/u;
+/** The same, minus tab, line feed and carriage return. */
+export const HIDDEN_EXCEPT_LINE_BREAKS =
+	/(?![\t\n\r])[\p{Cc}\p{Cf}]/u;
 
 /** A wallet's account name as a label: hidden characters out, trimmed. */
 export function stripHiddenCharacters(value: string) {
@@ -124,6 +127,8 @@ export const NAME_MAX = VALIDATION.MAX_MULTISIG_NAME_LENGTH;
 export function nameError(name: string): string | null {
 	const length = textLength(name);
 	if (length === 0) return COPY.nameRequired;
+	if (HIDDEN_CHARACTERS.test(name.trim()))
+		return COPY.labelInvalid;
 	if (length > NAME_MAX)
 		return COPY.nameTooLong(length, NAME_MAX);
 	return null;

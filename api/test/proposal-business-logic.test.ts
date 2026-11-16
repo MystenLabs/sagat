@@ -1120,12 +1120,29 @@ describe('Proposal Business Logic', () => {
 				},
 			});
 
+			// One code point each, but two UTF-16 units.
+			expect(
+				await errorOf(
+					await propose('\u{1D4B3}'.repeat(1001)),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'The description must be at most 1000 characters.',
+				},
+			});
+
+			// Pads the normalized text to exactly 1000 code points.
+			const padding = '\u{1D4B3}'.repeat(975);
 			const response = await propose(
-				'  Pay vendor\r\n\tInvoice Cafe\u0301\n',
+				`  Pay vendor\r\n\tInvoice Cafe\u0301${padding}\n`,
 			);
 			expect(response.status).toBe(201);
-			expect((await response.json()).description).toBe(
-				'Pay vendor\r\n\tInvoice Café',
+			const { description } = await response.json();
+			expect([...description].length).toBe(1000);
+			expect(description).toBe(
+				`Pay vendor\r\n\tInvoice Café${padding}`,
 			);
 		});
 

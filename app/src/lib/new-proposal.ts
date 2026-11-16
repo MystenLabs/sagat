@@ -25,7 +25,11 @@ import {
 	type SuiGasCoins,
 } from './coins';
 import { VALIDATION } from './constants';
-import { textLength } from './create-multisig';
+import {
+	HIDDEN_EXCEPT_LINE_BREAKS,
+	stripHiddenCharacters,
+	textLength,
+} from './create-multisig';
 import {
 	checkAccountSigners,
 	type AccountSigners,
@@ -110,11 +114,12 @@ export function transferTitle({
 	max?: 'whole' | 'partial';
 }): string | null {
 	const to = recipient.trim();
+	const coin = symbol ? stripHiddenCharacters(symbol) : '';
 	if (
 		rawAmount === null ||
 		rawAmount <= 0n ||
 		decimals === null ||
-		!symbol ||
+		!coin ||
 		!isValidSuiAddress(to)
 	)
 		return null;
@@ -122,14 +127,14 @@ export function transferTitle({
 		normalizeSuiAddress(to),
 	);
 	if (max === 'whole')
-		return COPY.transferTitleAll(symbol, shortRecipient);
+		return COPY.transferTitleAll(coin, shortRecipient);
 	const amount = formatCoinAmount(
 		rawAmount.toString(),
 		decimals,
 	);
 	return max === 'partial'
-		? COPY.transferTitleUpTo(amount, symbol, shortRecipient)
-		: COPY.transferTitle(amount, symbol, shortRecipient);
+		? COPY.transferTitleUpTo(amount, coin, shortRecipient)
+		: COPY.transferTitle(amount, coin, shortRecipient);
 }
 
 export interface TransferCheck {
@@ -312,11 +317,17 @@ function toBigInt(value: string | null): bigint | null {
 
 /**
  * The error for a proposal title, or null when it is fine. The title is
- * optional, so only a long one is refused. Counts code points after
- * trimming. The limit is the app's own: the API stores the title as
- * sent, and only the database column's 1,000 characters bind there.
+ * optional, so only hidden characters or a long one are refused. Counts
+ * code points after trimming. The limit is the app's own: only the
+ * database column's 1,000 characters bind at the API.
  */
 export function titleError(title: string): string | null {
+	if (
+		HIDDEN_EXCEPT_LINE_BREAKS.test(
+			title.normalize('NFC').trim(),
+		)
+	)
+		return COPY.titleInvalid;
 	const length = textLength(title);
 	if (length > TITLE_MAX) return COPY.titleTooLong(length);
 	return null;

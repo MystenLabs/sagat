@@ -85,15 +85,26 @@ describe('Multisig API', () => {
 			'The name may not contain control or formatting characters.',
 		);
 
-		// A decomposed e + acute becomes one code point.
+		// One code point each, but two UTF-16 units.
+		await expect(
+			session.createMultisig(users, 2, {
+				name: '\u{1D4B3}'.repeat(256),
+			}),
+		).rejects.toThrow(
+			'The name must be at most 255 characters.',
+		);
+
+		// Decomposed e + acute is one code point; padded to exactly 255.
+		const padding = '\u{1D4B3}'.repeat(251);
 		const multisig = await session.createMultisig(
 			users,
 			2,
 			{
-				name: '  Cafe\u0301 ',
+				name: `  Cafe\u0301${padding} `,
 			},
 		);
-		expect(multisig.name).toBe('Café');
+		expect([...(multisig.name ?? '')].length).toBe(255);
+		expect(multisig.name).toBe(`Café${padding}`);
 		const [account] = await db
 			.select({ name: SchemaAccounts.name })
 			.from(SchemaAccounts)
@@ -108,8 +119,8 @@ describe('Multisig API', () => {
 				),
 			);
 		expect([account.name, origin.label]).toEqual([
-			'Café',
-			'Café',
+			`Café${padding}`,
+			`Café${padding}`,
 		]);
 	});
 
