@@ -63,6 +63,7 @@ const PROOF_CHIP = {
 export function ProposersSection({
 	multisig,
 	currentAddress,
+	checkProofs,
 	className,
 }: {
 	multisig: Pick<
@@ -78,6 +79,8 @@ export function ProposersSection({
 	 * proposer.
 	 */
 	currentAddress: string | undefined;
+	/** Whether `multisig` is the account's own response, the one with proposer events. */
+	checkProofs: boolean;
 	className?: string;
 }) {
 	const { proposers } = multisig;
@@ -86,7 +89,9 @@ export function ProposersSection({
 		() => memberLabels(multisig.members),
 		[multisig.members],
 	);
-	const { proofs, trusted } = useProposerProofs(multisig);
+	const { proofs, trusted } = useProposerProofs(multisig, {
+		enabled: checkProofs,
+	});
 	const reconfirm = useAddProposer(multisig.address, {
 		successMessage: content.toasts.proposerReconfirmed,
 	});
@@ -231,7 +236,17 @@ export function ProposersSection({
 													isYou={isYou}
 												/>
 											</span>
-											{chip && <ProofChip chip={chip} />}
+											{chip && (
+												<ProofChip
+													chip={chip}
+													tooltip={
+														trusted
+															? chip.tooltip
+															: COPY.status
+																	.unverifiedUntrustedTooltip
+													}
+												/>
+											)}
 										</td>
 										<td className="px-1.5 py-1.5 text-right whitespace-nowrap sm:px-3">
 											{canReconfirm(proposer.address) && (
@@ -305,8 +320,10 @@ export function ProposersSection({
 
 function ProofChip({
 	chip,
+	tooltip,
 }: {
 	chip: (typeof PROOF_CHIP)[keyof typeof PROOF_CHIP];
+	tooltip: string;
 }) {
 	return (
 		<TooltipProvider delay={150}>
@@ -325,7 +342,7 @@ function ProofChip({
 					{chip.label}
 				</TooltipTrigger>
 				<TooltipContent className="max-w-xs">
-					{chip.tooltip}
+					{tooltip}
 				</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>

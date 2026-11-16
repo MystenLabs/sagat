@@ -14,19 +14,16 @@ import {
 import { QueryKeys } from '@/lib/queryKeys';
 
 /**
- * Each proposer's proof by address, undefined while checking or without
- * events; `trusted` is false when the signers don't make up the account.
+ * Each proposer's proof by address, undefined while checking or until
+ * `enabled`; `trusted` is false when the signers don't make up the account.
  */
 export function useProposerProofs(
 	account: ProposerProofAccount,
+	{ enabled }: { enabled: boolean },
 ) {
 	const trusted = useMemo(
 		() => rebuildAccount(account, account.address) !== null,
 		[account],
-	);
-	// The account list leaves `event` out; only the account itself has it.
-	const hasEvents = account.proposers.every(
-		(proposer) => proposer.event !== undefined,
 	);
 	const { data } = useQuery({
 		queryKey: [
@@ -37,10 +34,10 @@ export function useProposerProofs(
 			account.proposers,
 		],
 		queryFn: () => verifyProposers(account),
-		enabled: hasEvents,
+		enabled,
 		staleTime: Infinity,
 	});
-	return { proofs: hasEvents ? data : undefined, trusted };
+	return { proofs: enabled ? data : undefined, trusted };
 }
 
 /** `checkProposalProposer` as a query, shared by the page and Sign. */

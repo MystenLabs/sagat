@@ -97,6 +97,8 @@ export function SignersTab() {
 					<ProposersSection
 						multisig={account}
 						currentAddress={currentAddress?.address}
+						// Only the account's own response has proposer events.
+						checkProofs={details !== undefined}
 					/>
 				</div>
 				<SetupCard
