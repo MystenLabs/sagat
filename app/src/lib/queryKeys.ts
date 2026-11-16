@@ -20,6 +20,7 @@ export const QueryKeys = {
 	EpochInfo: 'epoch-info',
 	OnChainTransaction: 'on-chain-transaction',
 	ApiHealth: 'api-health',
+	ProposerProofs: 'proposer-proofs',
 } as const;
 
 export const MutationKeys = {

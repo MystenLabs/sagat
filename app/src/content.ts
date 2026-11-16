@@ -1191,6 +1191,18 @@ export const content = {
 			added: 'Added',
 		},
 		addedBy: 'by',
+		confirmedBy: 'Confirmed by',
+		status: {
+			unverified: 'Unverified',
+			unverifiedTooltip:
+				'No signer’s signature is on record for this proposer. Any signer can re-confirm it.',
+			invalid: 'Doesn’t check out',
+			invalidTooltip:
+				'This proposer’s signature doesn’t match. Re-confirm or remove it.',
+		},
+		reconfirm: 'Re-confirm',
+		reconfirmLabel: (address: string) =>
+			`Re-confirm ${address}`,
 		removeLabel: (address: string) => `Remove ${address}`,
 		addDialog: {
 			title: 'Add external proposer',
@@ -1470,6 +1482,7 @@ export const content = {
 		digestCopied: 'Digest copied',
 		proposerAdded: 'External proposer added',
 		proposerAddFailed: 'Failed to add proposer',
+		proposerReconfirmed: 'Proposer re-confirmed.',
 		proposerRemoved: 'External proposer removed',
 		proposerRemoveFailed: 'Failed to remove proposer',
 		signatureCopied: 'Signature copied',

@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	PersonalMessages,
+	type MultisigWithMembers,
+} from '@mysten/sagat';
 import {
 	formatAddress,
 	formatDigest,
@@ -11,8 +14,10 @@ import {
 } from '@mysten/sui/utils';
 
 import { randomAddress } from '../support/chain';
+import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 import {
+	addProposer,
 	proposeTransfer,
 	setupMultisig,
 	signInViaApi,
@@ -345,9 +350,17 @@ test.describe('overview and signers', () => {
 		await expect(
 			item.getByTestId('proposer-added'),
 		).toHaveAttribute('data-added-at', /.+/);
+		// Adding signs it, so the row names the signer who confirmed it.
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'verified',
+		);
 		await expect(
 			item.getByTestId('proposer-added-by'),
-		).toHaveText('by Alice (you)');
+		).toHaveText('Confirmed by Alice (you)');
+		await expect(
+			item.getByTestId('reconfirm-proposer-button'),
+		).toHaveCount(0);
 		await expect(
 			card.getByTestId('proposers-empty'),
 		).toHaveCount(0);
@@ -383,6 +396,86 @@ test.describe('overview and signers', () => {
 		await expect(
 			card.getByTestId('proposers-empty'),
 		).toBeVisible();
+	});
+
+	test('re-confirm a proposer that has no signature on record', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const payments = createIdentity('payments');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 1,
+			labels: ['Alice', 'Bob'],
+		});
+		await addProposer(
+			alice,
+			multisig.address,
+			payments.address,
+		);
+
+		// Hides the event the add recorded, as for a proposer added before
+		// events were kept; a later add's event comes through.
+		let hidden: number | undefined;
+		await alice.page.route(
+			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			async (route) => {
+				const response = await route.fetch();
+				const account =
+					(await response.json()) as MultisigWithMembers;
+				await route.fulfill({
+					response,
+					json: {
+						...account,
+						proposers: account.proposers.map((p) => {
+							hidden ??= p.event?.id;
+							return p.event?.id === hidden
+								? { ...p, event: null }
+								: p;
+						}),
+					},
+				});
+			},
+		);
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.getByTestId('multisig-tab-signers').click();
+		const item = page
+			.getByTestId('proposers-card')
+			.getByTestId('proposer-item');
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'unverified',
+		);
+		await expect(
+			item.getByTestId('proposer-status'),
+		).toHaveText('Unverified');
+		await expect(
+			item.getByTestId('proposer-added-by'),
+		).toHaveText('by Alice (you)');
+
+		const reconfirm = item.getByTestId(
+			'reconfirm-proposer-button',
+		);
+		await expect(reconfirm).toHaveAccessibleName(
+			`Re-confirm ${formatAddress(payments.address)}`,
+		);
+		await reconfirm.click();
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'verified',
+		);
+		await expect(
+			item.getByTestId('proposer-added-by'),
+		).toHaveText('Confirmed by Alice (you)');
+		await expect(
+			item.getByTestId('proposer-status'),
+		).toHaveCount(0);
+		await expect(reconfirm).toHaveCount(0);
 	});
 
 	test('list the open proposals and execute the one that is ready', async ({
