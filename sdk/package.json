@@ -23,16 +23,19 @@
 		}
 	},
 	"devDependencies": {
+		"@mysten/sui": "^2.37.0",
 		"@types/bun": "latest",
 		"tsup": "^9.0.0"
 	},
 	"peerDependencies": {
+		"@mysten/sui": "^2.37.0",
 		"typescript": "^5.0.0"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
 		"build": "tsup",
 		"dev": "tsup --watch",
+		"test": "bun test",
 		"fmt": "prettier --write ."
 	}
 }

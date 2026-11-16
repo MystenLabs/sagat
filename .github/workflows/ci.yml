@@ -77,6 +77,10 @@ jobs:
       - name: Typecheck SDK and API
         run: bun typecheck
 
+      - name: Test SDK
+        run: bun run test
+        working-directory: sdk
+
       - name: Build App (typecheck)
         run: bun run build
         working-directory: app
