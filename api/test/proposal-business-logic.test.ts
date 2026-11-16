@@ -679,6 +679,43 @@ describe('Proposal Business Logic', () => {
 		expect(ids.size).toBe(10);
 	});
 
+	test('a page size that is not a positive integer falls back to the default', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		await session.proposeTransfer(
+			users[0],
+			multisig.address,
+		);
+
+		for (const perPage of ['-2', '0', '0.5']) {
+			const response = await session.request(
+				`/proposals?multisigAddress=${multisig.address}&network=localnet&perPage=${perPage}`,
+			);
+			expect(response.status).toBe(200);
+			const page = await response.json();
+			expect(page.perPage).toBe(LIMITS.maxProposalsPerPage);
+			expect(page.data).toHaveLength(1);
+		}
+	});
+
+	test('a cursor that cannot be a proposal id is ignored', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		await session.proposeTransfer(
+			users[0],
+			multisig.address,
+		);
+
+		for (const nextCursor of ['0.5', '2147483648']) {
+			const response = await session.request(
+				`/proposals?multisigAddress=${multisig.address}&network=localnet&nextCursor=${nextCursor}`,
+			);
+			expect(response.status).toBe(200);
+			const page = await response.json();
+			expect(page.data).toHaveLength(1);
+		}
+	});
+
 	test('filters proposals by status, including PENDING', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);

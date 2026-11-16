@@ -60,6 +60,7 @@ import {
 } from '../utils/client';
 import {
 	paginateResponse,
+	wholeNumberUpTo,
 	type PaginatedResponse,
 	type PaginationCursor,
 } from '../utils/pagination';
@@ -146,17 +147,20 @@ export const getProposalById = async (
 	};
 };
 
+// `proposals.id` is a 32-bit serial.
+const MAX_PROPOSAL_ID = 2 ** 31 - 1;
+
 const getProposalsByAccountAddress = async (
 	multisigAddress: string,
 	network: string,
 	cursor: PaginationCursor,
 	status?: ProposalStatus,
 ) => {
-	// the next cursor.
-	const nextCursor =
-		cursor?.nextCursor && !isNaN(Number(cursor.nextCursor))
-			? Number(cursor.nextCursor)
-			: undefined;
+	// Any cursor that is not a valid id means the first page.
+	const nextCursor = wholeNumberUpTo(
+		cursor?.nextCursor,
+		MAX_PROPOSAL_ID,
+	);
 
 	// Get the list of proposals.
 	const proposals = await db.query.SchemaProposals.findMany(

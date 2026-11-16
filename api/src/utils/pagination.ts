@@ -27,7 +27,18 @@ export const paginateResponse = <T>(
 	};
 };
 
-// Create a new cursor with the default limit if not provided.
+// `value` as a whole number from 1 to `max`, or undefined.
+export const wholeNumberUpTo = (
+	value: unknown,
+	max: number,
+): number | undefined => {
+	const n = Number(value);
+	return Number.isInteger(n) && n > 0 && n <= max
+		? n
+		: undefined;
+};
+
+// Page size is a positive integer up to the maximum, else the default.
 export const newCursor = ({
 	nextCursor,
 	perPage,
@@ -40,10 +51,9 @@ export const newCursor = ({
 	return {
 		nextCursor,
 		perPage:
-			perPage &&
-			!isNaN(Number(perPage)) &&
-			Number(perPage) <= LIMITS.maxProposalsPerPage
-				? Number(perPage)
-				: LIMITS.maxProposalsPerPage,
+			wholeNumberUpTo(
+				perPage,
+				LIMITS.maxProposalsPerPage,
+			) ?? LIMITS.maxProposalsPerPage,
 	};
 };
