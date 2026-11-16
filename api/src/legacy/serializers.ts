@@ -29,7 +29,10 @@ import type {
 	AccountEventRecord,
 	ProposalEvents,
 } from '../services/account-events.service';
-import type { MultisigAccount } from '../services/multisig.service';
+import type {
+	MultisigAccount,
+	MultisigAccountWithProposerEvents,
+} from '../services/multisig.service';
 import type { PaginatedResponse } from '../utils/pagination';
 
 export type LegacyMultisig = {
@@ -97,7 +100,7 @@ export type LegacyAccountEvent = {
 };
 
 const toLegacyAccountEvent = (
-	event: AccountEventRecord | null | undefined,
+	event: AccountEventRecord | null,
 ): LegacyAccountEvent | null =>
 	event
 		? {
@@ -151,6 +154,16 @@ export const toLegacyMultisigMember = (
 	label,
 });
 
+const toLegacyProposer = ({
+	address,
+	addedBy,
+	addedAt,
+}: LegacyMultisigProposer): LegacyMultisigProposer => ({
+	address,
+	addedBy,
+	addedAt,
+});
+
 // A legacy multisig is a signer set plus the proposers of the account with
 // the same address, its labels for the keys (by public key), and who
 // created it.
@@ -167,34 +180,22 @@ export const toLegacyMultisigWithMembers = ({
 			labels.get(member.publicKey) ?? null,
 		),
 	),
-	proposers: proposers.map((proposer) => ({
-		address: proposer.address,
-		addedBy: proposer.addedBy,
-		addedAt: proposer.addedAt,
-	})),
+	proposers: proposers.map(toLegacyProposer),
 	totalMembers: signerSet.totalMembers,
 	totalWeight: signerSet.totalWeight,
 });
 
 // `GET /multisig/:address` only: each proposer with its newest add or remove
 // event, null for proposers from before the audit log.
-export const toLegacyMultisigWithProposerEvents = ({
-	proposerEvents,
-	...multisig
-}: MultisigAccount & {
-	proposerEvents: Map<string, AccountEventRecord>;
-}) => {
-	const legacy = toLegacyMultisigWithMembers(multisig);
-	return {
-		...legacy,
-		proposers: legacy.proposers.map((proposer) => ({
-			...proposer,
-			event: toLegacyAccountEvent(
-				proposerEvents.get(proposer.address),
-			),
-		})),
-	};
-};
+export const toLegacyMultisigWithProposerEvents = (
+	multisig: MultisigAccountWithProposerEvents,
+) => ({
+	...toLegacyMultisigWithMembers(multisig),
+	proposers: multisig.proposers.map((proposer) => ({
+		...toLegacyProposer(proposer),
+		event: toLegacyAccountEvent(proposer.event),
+	})),
+});
 
 export const toLegacyProposal = (
 	proposal: Proposal,

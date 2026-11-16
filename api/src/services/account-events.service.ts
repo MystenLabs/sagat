@@ -33,6 +33,7 @@ import {
 	type DatabaseTransaction,
 } from '../db/transaction';
 import { ApiAuthError } from '../errors';
+import { type Proposer } from '../loaders/account-proposers.loader';
 import { wholeNumberUpTo } from '../utils/pagination';
 import { jwtHasSignerSetMemberAccess } from './membership.service';
 
@@ -275,34 +276,38 @@ const latestProposerEvent = (
 		),
 	);
 
+export type ProposerWithLatestEvent = Proposer & {
+	event: AccountEventRecord | null;
+};
+
 /**
- * The newest `proposer.added` or `proposer.removed` event of each current
- * proposer of the account, by proposer address. No access check.
+ * The account's proposers, as the proposers loader returns them, each with
+ * its newest `proposer.added` or `proposer.removed` event (null when none).
+ * One query, so both come from the same snapshot. No access check.
  */
-export const getLatestProposerEvents = async (
+export const getProposersWithLatestEvents = async (
 	accountAddress: string,
-): Promise<Map<string, AccountEventRecord>> => {
+): Promise<ProposerWithLatestEvent[]> => {
 	const latest = latestProposerEvent(
 		SchemaAccountProposers.accountAddress,
 		SchemaAccountProposers.address,
 	).as('latest_event');
 
-	const rows = await db
+	return db
 		.select({
-			proposer: SchemaAccountProposers.address,
+			address: SchemaAccountProposers.address,
+			addedBy: SchemaAccountProposers.addedBy,
+			addedAt: SchemaAccountProposers.addedAt,
 			event: fieldsOf(latest),
 		})
 		.from(SchemaAccountProposers)
-		.innerJoinLateral(latest, sql`true`)
+		.leftJoinLateral(latest, sql`true`)
 		.where(
 			eq(
 				SchemaAccountProposers.accountAddress,
 				accountAddress,
 			),
 		);
-	return new Map(
-		rows.map((row) => [row.proposer, row.event]),
-	);
 };
 
 export type ProposalEvents = {

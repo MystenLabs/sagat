@@ -1565,6 +1565,58 @@ describe('events on the legacy routes', () => {
 		});
 	});
 
+	test('a newer add of the same proposer on another account does not show on this one', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposer = newUser();
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		const { digest } = await session.proposeTransfer(
+			proposer,
+			multisig.address,
+		);
+		const other = await framework.createVerifiedMultisig(
+			2,
+			1,
+		);
+		await other.session.addProposer(
+			other.users[0],
+			proposer.address,
+			other.multisig.address,
+		);
+
+		const [added] = await eventsOf(
+			multisig.address,
+			users[0],
+			'proposer.added',
+		);
+		const [otherAdded] = await eventsOf(
+			other.multisig.address,
+			other.users[0],
+			'proposer.added',
+		);
+		expect(otherAdded.id).toBeGreaterThan(added.id);
+		expect(
+			(
+				await proposerOf(
+					session,
+					multisig.address,
+					proposer.address,
+				)
+			)?.event,
+		).toEqual(asReturned(added));
+		expect(
+			(
+				await framework
+					.createSession()
+					.client.getProposalByDigest(digest)
+			).events?.proposer,
+		).toEqual(asReturned(added));
+	});
+
 	test('an old-style proof is returned as stored', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 1);

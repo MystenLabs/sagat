@@ -1034,47 +1034,28 @@ describe('Proposal Business Logic', () => {
 			const { session, users, multisig } =
 				await framework.createVerifiedMultisig(2, 2);
 			const proposer = newUser().address;
-			const signedChange = async (
-				route: 'add-proposer' | 'remove-proposer',
-				signer: TestUser,
-			) => {
-				const expiry = defaultExpiry();
-				const message =
-					route === 'add-proposer'
-						? PersonalMessages.addMultisigProposer(
-								proposer,
-								multisig.address,
-								expiry,
-							)
-						: PersonalMessages.removeMultisigProposer(
-								proposer,
-								multisig.address,
-								expiry,
-							);
-				const body = {
-					signature: await sign(signer, message),
-					proposer,
-					expiry,
-				};
-				return async () =>
-					errorOf(
-						await session.post(
-							`/multisig/${multisig.address}/${route}`,
-							body,
-						),
-					);
-			};
+			// Ed25519 signs deterministically, so each call resends one signature.
+			const expiry = defaultExpiry();
+			const signedChange =
+				(
+					route: 'add-proposer' | 'remove-proposer',
+					signer: TestUser,
+				) =>
+				() =>
+					changeProposer(session, route, {
+						signer,
+						multisigAddress: multisig.address,
+						proposer,
+						expiry,
+					});
 			const proposers = async () =>
 				(
 					await session.client.getMultisig(multisig.address)
 				).proposers.map((p) => p.address);
 			const ok = { status: 200, body: { success: true } };
 
-			const add = await signedChange(
-				'add-proposer',
-				users[0],
-			);
-			const remove = await signedChange(
+			const add = signedChange('add-proposer', users[0]);
+			const remove = signedChange(
 				'remove-proposer',
 				users[0],
 			);
@@ -1084,10 +1065,7 @@ describe('Proposal Business Logic', () => {
 			expect(await add()).toEqual(ok);
 			expect(await proposers()).toEqual([]);
 
-			const reAdd = await signedChange(
-				'add-proposer',
-				users[1],
-			);
+			const reAdd = signedChange('add-proposer', users[1]);
 			expect(await reAdd()).toEqual(ok);
 			expect(await remove()).toEqual(ok);
 			expect(await proposers()).toEqual([proposer]);

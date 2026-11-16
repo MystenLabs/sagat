@@ -71,10 +71,10 @@ import {
 import { parsePublicKey } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
 import {
-	getLatestProposerEvents,
+	getProposersWithLatestEvents,
 	recordAccountEvent,
 	type AccountEventAction,
-	type AccountEventRecord,
+	type ProposerWithLatestEvent,
 } from './account-events.service';
 import { normalizeKeyLabels } from './account-keys.service';
 import {
@@ -123,6 +123,14 @@ export type MultisigAccount = {
 	origin: SignerSetOrigin;
 };
 
+// A `MultisigAccount` whose proposers carry their newest add or remove event.
+export type MultisigAccountWithProposerEvents = Omit<
+	MultisigAccount,
+	'proposers'
+> & {
+	proposers: ProposerWithLatestEvent[];
+};
+
 // The multisig at `address`, for a caller holding one of its keys (accepted
 // or not), with its proposers' newest add or remove events. A signer set
 // without the account's link row for its original composition (a draft for
@@ -133,11 +141,7 @@ export const getMultisigAccount = async ({
 }: {
 	address: string;
 	callerKeys: PublicKey[];
-}): Promise<
-	MultisigAccount & {
-		proposerEvents: Map<string, AccountEventRecord>;
-	}
-> => {
+}): Promise<MultisigAccountWithProposerEvents> => {
 	if (
 		!(await jwtHasSignerSetMemberAccess(
 			address,
@@ -147,27 +151,15 @@ export const getMultisigAccount = async ({
 	)
 		throw new ApiAuthError('AccessDenied');
 
-	const [
-		signerSet,
-		origin,
-		proposers,
-		labels,
-		proposerEvents,
-	] = await Promise.all([
-		SignerSetDataLoader.load(address),
-		getAccountOrigin(address),
-		AccountProposersDataLoader.load(address),
-		AccountKeyLabelsDataLoader.load(address),
-		getLatestProposerEvents(address),
-	]);
+	const [signerSet, origin, proposers, labels] =
+		await Promise.all([
+			SignerSetDataLoader.load(address),
+			getAccountOrigin(address),
+			getProposersWithLatestEvents(address),
+			AccountKeyLabelsDataLoader.load(address),
+		]);
 	if (!signerSet || !origin) throw new NotFoundError();
-	return {
-		signerSet,
-		proposers,
-		labels,
-		origin,
-		proposerEvents,
-	};
+	return { signerSet, proposers, labels, origin };
 };
 
 type MultisigAccountRow = SignerSetOrigin & {
