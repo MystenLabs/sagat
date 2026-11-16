@@ -7,7 +7,11 @@ import {
 } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { toBase64 } from '@mysten/sui/utils';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
+import { toBase58, toBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
 import {
@@ -102,8 +106,21 @@ async function externalProposal(
 ): Promise<PublicProposal> {
 	const { account, proposer, proposerKey } =
 		await accountWithProposer();
-	const bytes = new Uint8Array([1, 2, 3, 4]);
-	const digest = 'digest';
+	const tx = new Transaction();
+	tx.setSender(account.address);
+	tx.setGasPayment([
+		{
+			objectId: '0x2',
+			version: '1',
+			digest: toBase58(new Uint8Array(32)),
+		},
+	]);
+	tx.setGasPrice(1000);
+	tx.setGasBudget(10_000_000);
+	tx.transferObjects([tx.gas], '0x3');
+	const bytes = await tx.build();
+	const digest =
+		TransactionDataBuilder.getDigestFromBytes(bytes);
 	const { signature } = await (
 		signedBy ?? proposerKey
 	).signTransaction(bytes);
