@@ -131,7 +131,7 @@ proposalsRouter.get(
 proposalsRouter.get('/digest/:digest', async (c) => {
 	const { digest } = c.req.param();
 
-	const { proposal, signerSet, currentWeight } =
+	const { proposal, signerSet, currentWeight, events } =
 		await getProposalByDigest(digest);
 
 	return c.json(
@@ -139,6 +139,7 @@ proposalsRouter.get('/digest/:digest', async (c) => {
 			proposal,
 			signerSet,
 			currentWeight,
+			events,
 		),
 	);
 });

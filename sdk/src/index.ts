@@ -16,6 +16,7 @@ export {
 } from './constants.js';
 
 export type {
+	AccountEvent,
 	Address,
 	AuthCheckResponse,
 	AuthConnectRequest,
@@ -28,6 +29,7 @@ export type {
 	MultisigWithMembers,
 	PaginatedResponse,
 	Proposal,
+	ProposalEvents,
 	ProposalSignature,
 	ProposalWithSignatures,
 	PublicProposal,

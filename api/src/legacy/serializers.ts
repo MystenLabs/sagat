@@ -10,7 +10,10 @@
  * keeping the original field names and order, and leaving out new columns.
  */
 
-import { type PublicProposal } from '@mysten/sagat';
+import {
+	type AccountEvent,
+	type PublicProposal,
+} from '@mysten/sagat';
 
 import type {
 	AccountProposer,
@@ -22,6 +25,10 @@ import type {
 	SignerSetOrigin,
 	SignerSetWithMembers,
 } from '../db/schema';
+import type {
+	AccountEventRecord,
+	ProposalEvents,
+} from '../services/account-events.service';
 import type { MultisigAccount } from '../services/multisig.service';
 import type { PaginatedResponse } from '../utils/pagination';
 
@@ -78,6 +85,45 @@ export type LegacyProposalWithSignatures =
 		signatures: ProposalSignature[];
 	};
 
+// Added after the freeze (additive): an audit log event as stored, proof
+// included.
+export type LegacyAccountEvent = {
+	id: number;
+	action: string;
+	actor: string;
+	subject: string | null;
+	proof: unknown;
+	createdAt: Date;
+};
+
+const toLegacyAccountEvent = (
+	event: AccountEventRecord | null | undefined,
+): LegacyAccountEvent | null =>
+	event
+		? {
+				id: event.id,
+				action: event.action,
+				actor: event.actor,
+				subject: event.subject,
+				proof: event.proof,
+				createdAt: event.createdAt,
+			}
+		: null;
+
+// Typed as JSON sends it, like the SDK.
+const toPublicAccountEvent = (
+	event: AccountEventRecord | null,
+): AccountEvent | null => {
+	const legacy = toLegacyAccountEvent(event);
+	return (
+		legacy && {
+			...legacy,
+			proof: legacy.proof as AccountEvent['proof'],
+			createdAt: legacy.createdAt.toISOString(),
+		}
+	);
+};
+
 export const toLegacyMultisig = (
 	signerSet: SignerSet,
 	// Who created the multisig and when. Required so that every call site
@@ -130,6 +176,26 @@ export const toLegacyMultisigWithMembers = ({
 	totalWeight: signerSet.totalWeight,
 });
 
+// `GET /multisig/:address` only: each proposer with its newest add or remove
+// event, null for proposers from before the audit log.
+export const toLegacyMultisigWithProposerEvents = ({
+	proposerEvents,
+	...multisig
+}: MultisigAccount & {
+	proposerEvents: Map<string, AccountEventRecord>;
+}) => {
+	const legacy = toLegacyMultisigWithMembers(multisig);
+	return {
+		...legacy,
+		proposers: legacy.proposers.map((proposer) => ({
+			...proposer,
+			event: toLegacyAccountEvent(
+				proposerEvents.get(proposer.address),
+			),
+		})),
+	};
+};
+
 export const toLegacyProposal = (
 	proposal: Proposal,
 ): LegacyProposal => ({
@@ -159,6 +225,8 @@ export const toLegacyPublicProposal = (
 	proposal: ProposalWithSignatures,
 	signerSet: SignerSetWithMembers,
 	currentWeight: number,
+	// Added after the freeze (additive), as the last field.
+	events: ProposalEvents,
 ): PublicProposal => ({
 	...toLegacyProposalWithSignatures(proposal),
 	// What JSON makes of the Date anyway; the SDK types it as the string.
@@ -174,6 +242,10 @@ export const toLegacyPublicProposal = (
 			weight: member.weight,
 			order: member.order,
 		})),
+	},
+	events: {
+		created: toPublicAccountEvent(events.created),
+		proposer: toPublicAccountEvent(events.proposer),
 	},
 });
 

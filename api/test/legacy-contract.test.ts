@@ -53,7 +53,9 @@ type Kind =
 	| 'digest'
 	| 'txBytes'
 	| 'id'
-	| 'opaque';
+	| 'opaque'
+	| 'eventId'
+	| 'proofSignature';
 
 // Fields whose value is random by nature, by name.
 const FIELD_KINDS: Record<string, Kind> = {
@@ -71,6 +73,10 @@ const FIELD_KINDS: Record<string, Kind> = {
 	nextCursor: 'id',
 };
 
+// Audit log events added to legacy responses. Their ids and proof signatures
+// are numbered apart, so the placeholders of the older fields do not shift.
+const EVENT_FIELDS = new Set(['event', 'events']);
+
 const ADDRESS = /^0x[0-9a-f]{64}$/;
 const BASE64_PUBLIC_KEY =
 	/^[A-Za-z0-9+/]{43}[A-Za-z0-9+/=]$/;
@@ -86,6 +92,7 @@ const OPAQUE = /^[A-Za-z0-9+/=_-]{32,}$/;
 class Normalizer {
 	#placeholders = new Map<string, string>();
 	#ids = new Map<string, number>();
+	#eventIds = new Map<string, number>();
 	#counters = new Map<Kind, number>();
 
 	#next(kind: Kind) {
@@ -102,14 +109,23 @@ class Normalizer {
 		return placeholder;
 	}
 
-	#id(raw: string | number, asString: boolean) {
+	#id(
+		raw: string | number,
+		asString: boolean,
+		inEvent = false,
+	) {
+		const [ids, kind] = inEvent
+			? [this.#eventIds, 'eventId' as const]
+			: [this.#ids, 'id' as const];
 		const key = String(raw);
-		let n = this.#ids.get(key);
+		let n = ids.get(key);
 		if (n === undefined) {
-			n = this.#next('id');
-			this.#ids.set(key, n);
+			n = this.#next(kind);
+			ids.set(key, n);
 		}
-		return asString ? `<id:${n}:string>` : `<id:${n}>`;
+		return asString
+			? `<${kind}:${n}:string>`
+			: `<${kind}:${n}>`;
 	}
 
 	#classify(value: string): Kind | undefined {
@@ -123,19 +139,27 @@ class Normalizer {
 		return undefined;
 	}
 
-	string(value: string, field?: string): string {
+	string(
+		value: string,
+		field?: string,
+		inEvent = false,
+	): string {
 		if (
 			field &&
-			/At$/.test(field) &&
+			(/At$/.test(field) ||
+				(inEvent && field === 'expiry')) &&
 			!isNaN(Date.parse(value))
 		)
 			return '<timestamp>';
 		const fieldKind = field
 			? FIELD_KINDS[field]
 			: undefined;
-		if (fieldKind === 'id') return this.#id(value, true);
+		if (fieldKind === 'id')
+			return this.#id(value, true, inEvent);
 		if (this.#placeholders.has(value))
 			return this.#placeholders.get(value)!;
+		if (inEvent && fieldKind === 'signature')
+			return this.#token('proofSignature', value);
 		const kind = fieldKind ?? this.#classify(value);
 		if (kind) return this.#token(kind, value);
 		// Free text (messages): keep it, but hide any address it mentions.
@@ -144,24 +168,30 @@ class Normalizer {
 		);
 	}
 
-	value(value: unknown, field?: string): unknown {
+	value(
+		value: unknown,
+		field?: string,
+		inEvent = false,
+	): unknown {
 		if (Array.isArray(value))
-			return value.map((v) => this.value(v, field));
+			return value.map((v) =>
+				this.value(v, field, inEvent),
+			);
 		if (value && typeof value === 'object')
 			return Object.fromEntries(
 				Object.entries(value).map(([k, v]) => [
 					this.string(k),
-					this.value(v, k),
+					this.value(v, k, inEvent || EVENT_FIELDS.has(k)),
 				]),
 			);
 		if (typeof value === 'string')
-			return this.string(value, field);
+			return this.string(value, field, inEvent);
 		if (
 			typeof value === 'number' &&
 			field &&
 			FIELD_KINDS[field] === 'id'
 		)
-			return this.#id(value, false);
+			return this.#id(value, false, inEvent);
 		return value;
 	}
 
