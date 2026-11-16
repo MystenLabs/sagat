@@ -21,6 +21,7 @@ import {
 	eq,
 	inArray,
 	ne,
+	sql,
 	type SQL,
 } from 'drizzle-orm';
 
@@ -29,6 +30,7 @@ import { db } from '../db';
 import {
 	AccountSignerSetStatus,
 	ProposalStatus,
+	SchemaAccountEvents,
 	SchemaAccountKeys,
 	SchemaAccountProposers,
 	SchemaAccounts,
@@ -957,8 +959,26 @@ export const addProposer = async ({
 			});
 
 		if (
-			!existingProposers.some((p) => p.address === proposer)
+			existingProposers.some((p) => p.address === proposer)
 		) {
+			// A resent signature records nothing new.
+			const [resent] = await tx
+				.select({ id: SchemaAccountEvents.id })
+				.from(SchemaAccountEvents)
+				.where(
+					and(
+						eq(SchemaAccountEvents.accountAddress, address),
+						eq(
+							SchemaAccountEvents.action,
+							'proposer.added',
+						),
+						eq(SchemaAccountEvents.subject, proposer),
+						sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
+					),
+				)
+				.limit(1);
+			if (resent) return;
+		} else {
 			if (
 				existingProposers.length >=
 				LIMITS.maxProposersPerMultisig

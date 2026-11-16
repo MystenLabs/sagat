@@ -984,6 +984,52 @@ describe('Proposal Business Logic', () => {
 			expect(reconfirmed.actor).toBe(users[1].address);
 		});
 
+		test('add-proposer records a resent re-confirm once', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const proposer = newUser().address;
+			await session.addProposer(
+				users[0],
+				proposer,
+				multisig.address,
+			);
+			const expiry = defaultExpiry();
+			const body = {
+				signature: await sign(
+					users[1],
+					PersonalMessages.addMultisigProposer(
+						proposer,
+						multisig.address,
+						expiry,
+					),
+				),
+				proposer,
+				expiry,
+			};
+			const url = `/multisig/${multisig.address}/add-proposer`;
+
+			expect(
+				await errorOf(await session.post(url, body)),
+			).toEqual({
+				status: 200,
+				body: { success: true },
+			});
+			expect(
+				await errorOf(await session.post(url, body)),
+			).toEqual({
+				status: 200,
+				body: { success: true },
+			});
+			expect(
+				await listAccountEvents({
+					accountAddress: multisig.address,
+					callerKeys: [users[0].keypair.getPublicKey()],
+					action: 'proposer.added',
+					subject: proposer,
+				}),
+			).toHaveLength(2);
+		});
+
 		test('add-proposer applies the proposer limit only to new proposers', async () => {
 			const { session, users, multisig } =
 				await framework.createVerifiedMultisig(2, 2);
