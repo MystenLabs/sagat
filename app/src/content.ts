@@ -1104,8 +1104,7 @@ export const content = {
 			/** Above Sign when no signer has confirmed an external proposer. */
 			proposerNotConfirmed: {
 				title: 'Proposer not confirmed',
-				body: (proposer: string) =>
-					`No signer has confirmed ${proposer} as an external proposer since signatures were kept. Check the transaction before you sign.`,
+				body: 'There’s no signature on record showing this proposal came from a signer or a confirmed external proposer. Check the transaction before you sign.',
 			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */

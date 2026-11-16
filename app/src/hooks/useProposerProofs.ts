@@ -52,6 +52,7 @@ export function proposalProposerQuery(
 			proposal.proposerAddress,
 			proposal.multisigAddress,
 			proposal.multisig,
+			proposal.signatures,
 			proposal.events,
 		],
 		queryFn: () => checkProposalProposer(proposal),

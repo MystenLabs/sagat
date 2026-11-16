@@ -394,6 +394,64 @@ test.describe('proposal integrity', () => {
 		await expectRefused(opened, 'proposer');
 	});
 
+	test('warns about a proposal relabelled as a member’s with no signature of theirs, and still signs', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { bob } = await openExternalProposal(
+			{ createActor, createIdentity, chain },
+			// Alice named as the proposer, with neither her created event nor her vote.
+			({ proposal, bob }) => {
+				const alice = proposal.multisig.members.find(
+					(m) => m.publicKey !== bob.publicKey,
+				)!.publicKey;
+				return {
+					...proposal,
+					proposerAddress:
+						publicKeyFromSuiBytes(alice).toSuiAddress(),
+					signatures: proposal.signatures.filter(
+						(s) => s.publicKey !== alice,
+					),
+					events: {
+						created: null,
+						proposer: proposal.events?.proposer ?? null,
+					},
+				};
+			},
+		);
+		const card = bob.page.getByTestId('approvals-card');
+		await expect(
+			card.getByTestId('proposer-unconfirmed'),
+		).toBeVisible();
+		const voted = bob.page.waitForResponse((response) =>
+			isVoteRequest(response.request()),
+		);
+		await card.getByTestId('sign-proposal-button').click();
+		expect((await voted).ok()).toBe(true);
+	});
+
+	test('shows no warning on a member’s own proposal', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { bob } = await openTamperedProposal(
+			{ createActor, createIdentity, chain },
+			({ proposal }) => proposal,
+		);
+		const card = bob.page.getByTestId('approvals-card');
+		const sign = card.getByTestId('sign-proposal-button');
+		// Enabled once the proposer check has resolved.
+		await expect(sign).toBeEnabled();
+		await expect(
+			card.getByTestId('proposer-unconfirmed'),
+		).toHaveCount(0);
+		await expect(
+			card.getByTestId('sign-refused'),
+		).toHaveCount(0);
+	});
+
 	test("refuses to propose when the signers don't make up the account's address", async ({
 		createActor,
 		createIdentity,

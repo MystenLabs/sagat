@@ -42,7 +42,6 @@ import {
 	cancelVariant,
 	gasEstimate,
 	hasSigned,
-	nameOf,
 	withReason,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
@@ -321,7 +320,7 @@ export function ApprovalsCard({
 		} else if (status === 'pending' && !signed) {
 			actions = (
 				<>
-					{proposer.check === 'unconfirmed' && (
+					{proposer.check === 'unverified' && (
 						<Alert
 							variant="warning"
 							data-testid="proposer-unconfirmed"
@@ -329,11 +328,7 @@ export function ApprovalsCard({
 							<div className="font-medium">
 								{COPY.proposerNotConfirmed.title}
 							</div>
-							<div>
-								{COPY.proposerNotConfirmed.body(
-									nameOf(proposal.proposerAddress, labels),
-								)}
-							</div>
+							<div>{COPY.proposerNotConfirmed.body}</div>
 						</Alert>
 					)}
 					{offerExecuteAfterSigning && (

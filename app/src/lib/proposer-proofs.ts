@@ -50,11 +50,10 @@ export async function verifyProposers(
 	return new Map(results);
 }
 
-/** `invalid`: the proof doesn't check out; `unconfirmed`: no signer confirmed them. */
-export type ProposerCheck =
-	'invalid' | 'unconfirmed' | null;
+/** `invalid`: a proof doesn't check out; `unverified`: no proof shows who proposed it. */
+export type ProposerCheck = 'invalid' | 'unverified' | null;
 
-/** Checks a proposal's proposer, with the same member rule as `verifyProposers`. */
+/** Checks a proposal's proposer, trusting members only when they make up the account. */
 export async function checkProposalProposer(
 	proposal: PublicProposal,
 ): Promise<ProposerCheck> {
@@ -64,14 +63,10 @@ export async function checkProposalProposer(
 			proposal.multisigAddress,
 		)
 	)
-		return 'unconfirmed';
-	const { status, proposer } = await verifyProposalProposer(
+		return 'unverified';
+	const { status } = await verifyProposalProposer(
 		proposal,
 		{ members: proposal.multisig.members },
 	);
-	if (status === 'invalid') return 'invalid';
-	// A missing `created` event alone, from before the audit log, isn't flagged.
-	return proposer.status === 'unverified'
-		? 'unconfirmed'
-		: null;
+	return status === 'verified' ? null : status;
 }

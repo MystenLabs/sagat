@@ -101,14 +101,10 @@ test('signers that do not make up the account confirm no one', async () => {
 	expect(proof?.status).toBe('unverified');
 });
 
-/** A proposal from the account's external proposer, with both events. */
-async function externalProposal(
-	signedBy?: Ed25519Keypair,
-): Promise<PublicProposal> {
-	const { account, proposer, proposerKey } =
-		await accountWithProposer();
+/** A transfer's bytes from `sender`, with their digest. */
+async function transfer(sender: string) {
 	const tx = new Transaction();
-	tx.setSender(account.address);
+	tx.setSender(sender);
 	tx.setGasPayment([
 		{
 			objectId: '0x2',
@@ -120,8 +116,20 @@ async function externalProposal(
 	tx.setGasBudget(10_000_000);
 	tx.transferObjects([tx.gas], '0x3');
 	const bytes = await tx.build();
-	const digest =
-		TransactionDataBuilder.getDigestFromBytes(bytes);
+	return {
+		bytes,
+		digest:
+			TransactionDataBuilder.getDigestFromBytes(bytes),
+	};
+}
+
+/** A proposal from the account's external proposer, with both events. */
+async function externalProposal(
+	signedBy?: Ed25519Keypair,
+): Promise<PublicProposal> {
+	const { account, proposer, proposerKey } =
+		await accountWithProposer();
+	const { bytes, digest } = await transfer(account.address);
 	const { signature } = await (
 		signedBy ?? proposerKey
 	).signTransaction(bytes);
@@ -190,7 +198,7 @@ test('a proposal whose signers do not make up its account is not confirmed', asy
 			...proposal,
 			multisig: { ...proposal.multisig, threshold: 2 },
 		}),
-	).toBe('unconfirmed');
+	).toBe('unverified');
 });
 
 test('an external proposer without a confirmation is unconfirmed', async () => {
@@ -204,10 +212,10 @@ test('an external proposer without a confirmation is unconfirmed', async () => {
 				proposer: null,
 			},
 		}),
-	).toBe('unconfirmed');
+	).toBe('unverified');
 });
 
-test('a proposal from before the audit log with a confirmed proposer is not flagged', async () => {
+test('a proposal from before the audit log with a confirmed proposer is flagged', async () => {
 	const proposal = await externalProposal();
 
 	expect(
@@ -218,10 +226,10 @@ test('a proposal from before the audit log with a confirmed proposer is not flag
 				proposer: proposal.events!.proposer,
 			},
 		}),
-	).toBeNull();
+	).toBe('unverified');
 });
 
-test('a member proposer is not flagged', async () => {
+test('a member proposer without their signature is flagged', async () => {
 	const { account, keys } = await accountWithProposer();
 
 	expect(
@@ -235,6 +243,37 @@ test('a member proposer is not flagged', async () => {
 				threshold: account.threshold,
 				members: account.members,
 			},
+			events: { created: null, proposer: null },
+		} as PublicProposal),
+	).toBe('unverified');
+});
+
+test('a member proposer who signed the proposal is not flagged', async () => {
+	const { account, keys } = await accountWithProposer();
+	const { bytes, digest } = await transfer(account.address);
+	const { signature } =
+		await keys[1].signTransaction(bytes);
+
+	expect(
+		await checkProposalProposer({
+			digest,
+			transactionBytes: toBase64(bytes),
+			proposerAddress: keys[1].toSuiAddress(),
+			multisigAddress: account.address,
+			multisig: {
+				address: account.address,
+				threshold: account.threshold,
+				members: account.members,
+			},
+			signatures: [
+				{
+					proposalId: 1,
+					publicKey: keys[1]
+						.getPublicKey()
+						.toSuiPublicKey(),
+					signature,
+				},
+			],
 			events: { created: null, proposer: null },
 		} as PublicProposal),
 	).toBeNull();
