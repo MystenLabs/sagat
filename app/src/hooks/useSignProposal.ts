@@ -32,9 +32,10 @@ type SignProposalParams = PublicProposal & {
 
 /**
  * Signs a proposal's transaction with the wallet and adds the signature,
- * refusing bytes that fail `checkProposalIntegrity`, or an external
- * proposer whose proof is invalid, before the wallet sees them. Resolves with the vote's tally and the signature itself, so a caller
- * can execute at once without waiting for the proposal to refetch.
+ * refusing bytes that fail `checkProposalIntegrity`, or an invalid external
+ * proposer, before the wallet sees them. Resolves with the vote's tally and
+ * the signature itself, so a caller can execute at once without waiting for
+ * the proposal to refetch.
  */
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();

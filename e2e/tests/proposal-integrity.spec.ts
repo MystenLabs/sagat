@@ -80,11 +80,7 @@ async function routeTampered(bob: Actor, tamper: Tamper) {
 	);
 }
 
-/**
- * Payments, an external proposer of Alice and Bob's 2-of-2 account,
- * proposes a transfer, and Bob opens it signed in with the proposal
- * response changed by `tamper`.
- */
+/** Bob opens a transfer from an external proposer, with the response changed by `tamper`. */
 async function openExternalProposal(
 	{ createActor, createIdentity, chain }: Fixtures,
 	tamper: Tamper,
@@ -293,6 +289,32 @@ test.describe('proposal integrity', () => {
 		await expectRefused(opened, 'signers');
 	});
 
+	test('signs a confirmed external proposer’s proposal without a warning', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { bob } = await openExternalProposal(
+			{ createActor, createIdentity, chain },
+			({ proposal }) => proposal,
+		);
+		const card = bob.page.getByTestId('approvals-card');
+		const sign = card.getByTestId('sign-proposal-button');
+		// Enabled once the proposer check has resolved.
+		await expect(sign).toBeEnabled();
+		await expect(
+			card.getByTestId('proposer-unconfirmed'),
+		).toHaveCount(0);
+		await expect(
+			card.getByTestId('sign-refused'),
+		).toHaveCount(0);
+		const voted = bob.page.waitForResponse((response) =>
+			isVoteRequest(response.request()),
+		);
+		await sign.click();
+		expect((await voted).ok()).toBe(true);
+	});
+
 	test('warns about an external proposer no signer has confirmed, and still signs', async ({
 		createActor,
 		createIdentity,
@@ -313,8 +335,7 @@ test.describe('proposal integrity', () => {
 		await expect(
 			card.getByTestId('proposer-unconfirmed'),
 		).toBeVisible();
-		// The tampered response is served again after the vote, so the vote
-		// itself shows the signature went through.
+		// Refetches serve the tampered proposal again, so check the vote itself.
 		const voted = bob.page.waitForResponse((response) =>
 			isVoteRequest(response.request()),
 		);

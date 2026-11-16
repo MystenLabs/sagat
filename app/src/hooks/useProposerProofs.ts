@@ -12,10 +12,7 @@ import {
 } from '@/lib/proposer-proofs';
 import { QueryKeys } from '@/lib/queryKeys';
 
-/**
- * Each proposer's proof, keyed by address; undefined while checking, or
- * when the account came without its proposers' events.
- */
+/** Each proposer's proof by address; undefined while checking or without events. */
 export function useProposerProofs(
 	account: ProposerProofAccount,
 ) {
@@ -57,10 +54,7 @@ export function proposalProposerQuery(
 	};
 }
 
-/**
- * The proposal's `ProposerCheck`, null for a member proposer; `pending`
- * until an external proposer's check has resolved.
- */
+/** The proposal's `ProposerCheck`; `pending` until an external proposer's resolves. */
 export function useProposalProposerCheck(
 	proposal: PublicProposal,
 	{ enabled }: { enabled: boolean },

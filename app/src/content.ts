@@ -1206,7 +1206,7 @@ export const content = {
 				'No signer’s signature is on record for this proposer. Any signer can re-confirm it.',
 			invalid: 'Doesn’t check out',
 			invalidTooltip:
-				'This proposer’s signature doesn’t match. Re-confirm or remove it.',
+				'This proposer’s signature doesn’t match. Remove it if you don’t recognize it.',
 		},
 		reconfirm: 'Re-confirm',
 		reconfirmLabel: (address: string) =>

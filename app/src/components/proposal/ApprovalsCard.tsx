@@ -65,8 +65,7 @@ const STATES = content.common.states;
  * about it: sign (and execute, when their signature reaches the
  * threshold), execute, or cancel. Only a signer on the proposal's
  * network gets the buttons. Bytes that fail `checkProposalIntegrity`,
- * or an external proposer whose proof is invalid, get a refusal in place
- * of Sign; an unconfirmed one gets a warning above it.
+ * or an invalid proposer, get a refusal in place of Sign.
  */
 export function ApprovalsCard({
 	proposal,

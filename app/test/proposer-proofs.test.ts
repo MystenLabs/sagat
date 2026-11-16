@@ -93,7 +93,7 @@ test('signers that do not make up the account confirm no one', async () => {
 		await verifyProposers({ ...account, threshold: 2 })
 	).get(proposer);
 
-	expect(proof?.status).not.toBe('verified');
+	expect(proof?.status).toBe('unverified');
 });
 
 /** A proposal from the account's external proposer, with both events. */

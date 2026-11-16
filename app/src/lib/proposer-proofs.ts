@@ -17,17 +17,22 @@ import {
 export type ProposerProofAccount = AccountSigners &
 	Pick<MultisigWithMembers, 'address' | 'proposers'>;
 
-/**
- * Checks each proposer's newest add or remove, keyed by proposer address.
- * The members vouch only when they make up the account's address, so
- * otherwise no proposer comes out verified.
- */
+/** Each proposer's proof from their newest add or remove, keyed by address. */
 export async function verifyProposers(
 	account: ProposerProofAccount,
 ): Promise<Map<string, ProofResult>> {
-	const members = rebuildAccount(account, account.address)
-		? account.members
-		: [];
+	// Members vouch only when they make up the account's address.
+	if (!rebuildAccount(account, account.address))
+		return new Map(
+			account.proposers.map((proposer) => [
+				proposer.address,
+				{
+					status: 'unverified',
+					signer: null,
+					createdAt: proposer.event?.createdAt ?? null,
+				},
+			]),
+		);
 	const results = await Promise.all(
 		account.proposers.map(
 			async (proposer) =>
@@ -37,7 +42,7 @@ export async function verifyProposers(
 						proposer: proposer.address,
 						event: proposer.event,
 						accountAddress: account.address,
-						members,
+						members: account.members,
 					}),
 				] as const,
 		),
@@ -45,11 +50,7 @@ export async function verifyProposers(
 	return new Map(results);
 }
 
-/**
- * What a proposal's external proposer means for signing it: `invalid`,
- * their proof doesn't check out; `unconfirmed`, no signer has confirmed
- * them; null, nothing to flag.
- */
+/** `invalid`: the proof doesn't check out; `unconfirmed`: no signer confirmed them. */
 export type ProposerCheck =
 	'invalid' | 'unconfirmed' | null;
 
@@ -57,15 +58,16 @@ export type ProposerCheck =
 export async function checkProposalProposer(
 	proposal: PublicProposal,
 ): Promise<ProposerCheck> {
-	const members = rebuildAccount(
-		proposal.multisig,
-		proposal.multisigAddress,
+	if (
+		!rebuildAccount(
+			proposal.multisig,
+			proposal.multisigAddress,
+		)
 	)
-		? proposal.multisig.members
-		: [];
+		return 'unconfirmed';
 	const { status, proposer } = await verifyProposalProposer(
 		proposal,
-		{ members },
+		{ members: proposal.multisig.members },
 	);
 	if (status === 'invalid') return 'invalid';
 	// A missing `created` event alone, from before the audit log, isn't flagged.

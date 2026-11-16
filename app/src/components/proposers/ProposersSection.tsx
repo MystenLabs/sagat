@@ -90,10 +90,8 @@ export function ProposersSection({
 	const reconfirm = useAddProposer(multisig.address, {
 		successMessage: content.toasts.proposerReconfirmed,
 	});
-	const canReconfirm = (address: string) => {
-		const status = proofs?.get(address)?.status;
-		return status === 'unverified' || status === 'invalid';
-	};
+	const canReconfirm = (address: string) =>
+		proofs?.get(address)?.status === 'unverified';
 	const anyReconfirm = proposers.some((p) =>
 		canReconfirm(p.address),
 	);
