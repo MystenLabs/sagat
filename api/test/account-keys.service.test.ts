@@ -106,4 +106,12 @@ describe('normalizeText', () => {
 				}),
 			).toThrow('forbidden');
 	});
+
+	test('accepts fully decomposed text at the cap', () => {
+		const decomposed = 'ᾂ'.normalize('NFD').repeat(3);
+		expect([...decomposed].length).toBe(12);
+		expect(normalizeText(decomposed, rules)).toBe(
+			'ᾂ'.repeat(3),
+		);
+	});
 });

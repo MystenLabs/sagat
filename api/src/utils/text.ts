@@ -8,6 +8,8 @@ import { ValidationError } from '../errors';
 const FORBIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}]/u;
 const FORBIDDEN_EXCEPT_LINE_BREAKS =
 	/(?![\t\n\r])[\p{Cc}\p{Cf}]/u;
+// NFC shrinks text at most 4x, so longer input can never fit.
+const NFC_MAX_SHRINK = 4;
 
 export type TextRules = {
 	maxLength: number;
@@ -38,7 +40,13 @@ export const normalizeText = (
 		: FORBIDDEN_CHARACTERS;
 	if (forbidden.test(value))
 		throw new ValidationError(errors.forbiddenCharacters);
-	const trimmed = value.normalize('NFC').trim();
+	const raw = value.trim();
+	const bound = NFC_MAX_SHRINK * maxLength;
+	let count = 0;
+	for (const _ of raw)
+		if (++count > bound)
+			throw new ValidationError(errors.tooLong);
+	const trimmed = raw.normalize('NFC').trim();
 	if (trimmed.length === 0) return null;
 	if ([...trimmed].length > maxLength)
 		throw new ValidationError(errors.tooLong);
