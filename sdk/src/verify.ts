@@ -37,7 +37,7 @@ export interface ProofResult {
 }
 
 export interface ProposalProofResult {
-	/** The worst of `created` and `proposer`; for a member, `invalid` only when `created` is. */
+	/** `verified` for a member who signed the proposal or a confirmed external proposer; `invalid` when a proof doesn't check out. */
 	status: ProofStatus;
 	created: ProofResult;
 	proposer: ProofResult;
@@ -294,7 +294,41 @@ export async function verifyProposalCreated(
 	return result('verified', event, address);
 }
 
-/** Vouches for a member unless its created proof is invalid, anyone else by its created and proposer events. */
+// Whether `proposal.signatures` holds one by `address` over the proposal's bytes.
+const hasSignatureBy = async (
+	proposal: PublicProposal,
+	address: string,
+) => {
+	const transaction = readTransaction(
+		proposal.transactionBytes,
+	);
+	if (
+		!transaction ||
+		transaction.digest !== proposal.digest ||
+		!sameAddress(
+			transaction.sender,
+			proposal.multisigAddress,
+		)
+	)
+		return false;
+	for (const { signature } of proposal.signatures ?? []) {
+		const signer = await recoverSigner(signature, () =>
+			verifyTransactionSignature(
+				transaction.bytes,
+				signature,
+			),
+		);
+		if (
+			signer !== null &&
+			signer !== 'invalid' &&
+			sameAddress(signer.toSuiAddress(), address)
+		)
+			return true;
+	}
+	return false;
+};
+
+/** Verifies a member by their own signature on the proposal, anyone else by their created and add events. */
 export async function verifyProposalProposer(
 	proposal: PublicProposal,
 	{ members }: { members: TrustedMembers },
@@ -311,10 +345,19 @@ export async function verifyProposalProposer(
 			members,
 		}),
 	]);
-	const status = isMember(proposal.proposerAddress, members)
-		? created.status === 'invalid'
-			? 'invalid'
-			: 'verified'
-		: worst(created.status, proposer.status);
-	return { status, created, proposer };
+	// A member's vote signs the same bytes as their created proof.
+	const signed =
+		created.status === 'unverified' &&
+		isMember(proposal.proposerAddress, members) &&
+		(await hasSignatureBy(
+			proposal,
+			proposal.proposerAddress,
+		))
+			? 'verified'
+			: created.status;
+	return {
+		status: worst(signed, proposer.status),
+		created,
+		proposer,
+	};
 }

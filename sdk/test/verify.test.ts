@@ -13,6 +13,7 @@ import {
 	type PasskeyProvider,
 } from '@mysten/sui/keypairs/passkey';
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
 	Transaction,
 	TransactionDataBuilder,
@@ -301,6 +302,27 @@ describe('verifyAccountEvent', () => {
 		).toBe('unverified');
 	});
 
+	test('is unverified for a signature scheme it can’t check offline', async () => {
+		const multisig = MultiSigPublicKey.fromPublicKeys({
+			threshold: 1,
+			publicKeys: [
+				{ publicKey: member.getPublicKey(), weight: 1 },
+			],
+		});
+		const event = await signProposerChange(
+			member,
+			'proposer.added',
+		);
+		event.actor = multisig.toSuiAddress();
+		event.proof!.signature =
+			multisig.combinePartialSignatures([
+				String(event.proof?.signature),
+			]);
+		expect(
+			(await verifyAccountEvent(event, context)).status,
+		).toBe('unverified');
+	});
+
 	test('rebuilds a numeric or non-ISO expiry as it was signed', async () => {
 		const numeric = await signProposerChange(
 			member,
@@ -357,6 +379,23 @@ describe('verifyProposer', () => {
 		expect(result.status).toBe('unverified');
 	});
 
+	test('is invalid when a removal’s signature doesn’t check out', async () => {
+		// Signed for another subject, served as this proposer's.
+		const event = await signProposerChange(
+			member,
+			'proposer.removed',
+			expiry,
+			outsider.toSuiAddress(),
+		);
+		event.subject = proposer;
+		const result = await verifyProposer({
+			proposer,
+			event,
+			...context,
+		});
+		expect(result.status).toBe('invalid');
+	});
+
 	test('is invalid when the event names another proposer', async () => {
 		const event = await signProposerChange(
 			member,
@@ -394,9 +433,27 @@ describe('verifyProposalCreated', () => {
 		).toBe('invalid');
 	});
 
+	test('is invalid when the actor is not the proposal’s proposer', async () => {
+		const { event, proposal } = await signCreated(
+			outsider,
+			proposer,
+		);
+		expect(
+			(await verifyProposalCreated(event, proposal)).status,
+		).toBe('invalid');
+	});
+
 	test('is invalid when the event names another digest', async () => {
 		const { event, proposal } = await signCreated(outsider);
 		event.subject = 'AnotherDigest';
+		expect(
+			(await verifyProposalCreated(event, proposal)).status,
+		).toBe('invalid');
+	});
+
+	test('is invalid when the proposal names another digest', async () => {
+		const { event, proposal } = await signCreated(outsider);
+		proposal.digest = 'AnotherDigest';
 		expect(
 			(await verifyProposalCreated(event, proposal)).status,
 		).toBe('invalid');
@@ -427,6 +484,7 @@ describe('verifyProposalProposer', () => {
 	const proposalOf = (
 		proposerAddress: string,
 		events: PublicProposal['events'],
+		signatures: PublicProposal['signatures'] = [],
 	) =>
 		({
 			digest,
@@ -434,7 +492,78 @@ describe('verifyProposalProposer', () => {
 			proposerAddress,
 			multisigAddress: accountAddress,
 			events,
+			signatures,
 		}) as PublicProposal;
+
+	const voteBy = async (signer: Signer) => ({
+		proposalId: 1,
+		publicKey: signer.getPublicKey().toSuiPublicKey(),
+		signature: (
+			await signer.signTransaction(
+				fromBase64(transactionBytes),
+			)
+		).signature,
+	});
+
+	test('verifies a confirmed external proposer', async () => {
+		const { event: created } = await signCreated(outsider);
+		const proposerEvent = await signProposerChange(
+			member,
+			'proposer.added',
+			expiry,
+			outsider.toSuiAddress(),
+		);
+		const result = await verifyProposalProposer(
+			proposalOf(outsider.toSuiAddress(), {
+				created,
+				proposer: proposerEvent,
+			}),
+			{ members },
+		);
+		expect(result.status).toBe('verified');
+	});
+
+	test('is unverified for an external proposal with no creation event', async () => {
+		const proposerEvent = await signProposerChange(
+			member,
+			'proposer.added',
+			expiry,
+			outsider.toSuiAddress(),
+		);
+		const result = await verifyProposalProposer(
+			proposalOf(outsider.toSuiAddress(), {
+				created: null,
+				proposer: proposerEvent,
+			}),
+			{ members },
+		);
+		expect(result.proposer.status).toBe('verified');
+		expect(result.status).toBe('unverified');
+	});
+
+	test('verifies a member by their own vote', async () => {
+		const result = await verifyProposalProposer(
+			proposalOf(
+				member.toSuiAddress(),
+				{ created: null, proposer: null },
+				[await voteBy(member)],
+			),
+			{ members },
+		);
+		expect(result.status).toBe('verified');
+	});
+
+	test('is unverified for a member whose own signature isn’t on the proposal', async () => {
+		const result = await verifyProposalProposer(
+			proposalOf(
+				member.toSuiAddress(),
+				{ created: null, proposer: null },
+				[await voteBy(otherMember)],
+			),
+			{ members },
+		);
+		expect(result.status).toBe('unverified');
+	});
 
 	test('takes the worse of the created and proposer results', async () => {
 		const { event: created } = await signCreated(outsider);
