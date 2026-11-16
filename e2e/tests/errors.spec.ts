@@ -3,6 +3,7 @@
 
 import { MIST_PER_SUI, toBase58 } from '@mysten/sui/utils';
 
+import { LIMITS } from '../../api/src/constants/limits';
 import { content } from '../../app/src/content';
 import { randomAddress } from '../support/chain';
 import {
@@ -361,9 +362,9 @@ test.describe('errors', () => {
 			members: [createIdentity('bob')],
 			threshold: 1,
 		});
-		// The API's proposer limit.
-		const proposers = Array.from({ length: 5 }, () =>
-			randomAddress(),
+		const proposers = Array.from(
+			{ length: LIMITS.maxProposersPerMultisig },
+			() => randomAddress(),
 		);
 		for (const proposer of proposers)
 			await addProposer(alice, multisig.address, proposer);
