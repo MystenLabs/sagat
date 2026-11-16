@@ -189,7 +189,12 @@ export async function verifyAccountEvent(
 
 	const signature = v1Signature(event.proof, spec.kind);
 	const expiry = expiryText(event.proof?.expiry);
-	if (!signature || expiry === null || !event.subject)
+	if (
+		!signature ||
+		expiry === null ||
+		typeof event.subject !== 'string' ||
+		!event.subject
+	)
 		return result('unverified', event);
 
 	const message = new TextEncoder().encode(
@@ -285,7 +290,7 @@ export async function verifyProposalCreated(
 }
 
 // Verified by a signature from `address` in `proposal.signatures`, invalid if an entry under its key doesn't check out.
-const hasSignatureBy = async (
+const proposerVoteStatus = async (
 	proposal: PublicProposal,
 	address: string,
 ): Promise<ProofStatus> => {
@@ -339,13 +344,13 @@ export async function verifyProposalProposer(
 		}),
 	]);
 	// A member's vote signs the same bytes as their created proof.
-	const signed =
+	const signatureStatus =
 		created.status === 'unverified' &&
 		isMember(proposal.proposerAddress, members)
-			? await hasSignatureBy(
+			? await proposerVoteStatus(
 					proposal,
 					proposal.proposerAddress,
 				)
 			: created.status;
-	return worst(signed, proposer.status);
+	return worst(signatureStatus, proposer.status);
 }

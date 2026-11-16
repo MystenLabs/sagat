@@ -247,6 +247,17 @@ describe('verifyAccountEvent', () => {
 			(await verifyAccountEvent(event, context)).status,
 		).toBe('unverified');
 	});
+
+	test('is unverified when the subject isn’t a string', async () => {
+		const event = await signProposerChange(
+			member,
+			'proposer.added',
+		);
+		event.subject = { toString: null } as unknown as string;
+		expect(
+			(await verifyAccountEvent(event, context)).status,
+		).toBe('unverified');
+	});
 });
 
 describe('verifyProposer', () => {
@@ -577,5 +588,81 @@ describe('verifyProposalProposer', () => {
 			{ members },
 		);
 		expect(status).toBe('verified');
+	});
+
+	test('ignores a member’s vote when the bytes don’t bind to the proposal', async () => {
+		const base = proposalOf(
+			member.toSuiAddress(),
+			{ created: null, proposer: null },
+			[await voteBy(member)],
+		);
+		const other = await buildTransaction(
+			outsider.toSuiAddress(),
+		);
+		for (const proposal of [
+			{ ...base, digest: 'AnotherDigest' },
+			{ ...base, transactionBytes: 'AAAA' },
+			{
+				...base,
+				...other,
+				signatures: [
+					await voteBy(member, other.transactionBytes),
+				],
+			},
+		])
+			expect(
+				await verifyProposalProposer(proposal, { members }),
+			).toBe('unverified');
+	});
+
+	test('ignores the vote of a proposer who isn’t a member', async () => {
+		const proposerEvent = await signProposerChange(
+			member,
+			'proposer.added',
+			expiry,
+			outsider.toSuiAddress(),
+		);
+		const status = await verifyProposalProposer(
+			proposalOf(
+				outsider.toSuiAddress(),
+				{ created: null, proposer: proposerEvent },
+				[await voteBy(outsider)],
+			),
+			{ members },
+		);
+		expect(status).toBe('unverified');
+	});
+
+	test('is invalid when the proposer’s key carries a non-string signature', async () => {
+		const status = await verifyProposalProposer(
+			proposalOf(
+				member.toSuiAddress(),
+				{ created: null, proposer: null },
+				[
+					{ ...(await voteBy(member)), signature: 42 },
+				] as unknown as PublicProposal['signatures'],
+			),
+			{ members },
+		);
+		expect(status).toBe('invalid');
+	});
+
+	test('an invalid created proof outranks an unverified proposer', async () => {
+		const { event: created } = await signCreated(outsider);
+		created.subject = 'AnotherDigest';
+		const proposerEvent = await signProposerChange(
+			member,
+			'proposer.removed',
+			expiry,
+			outsider.toSuiAddress(),
+		);
+		const status = await verifyProposalProposer(
+			proposalOf(outsider.toSuiAddress(), {
+				created,
+				proposer: proposerEvent,
+			}),
+			{ members },
+		);
+		expect(status).toBe('invalid');
 	});
 });
