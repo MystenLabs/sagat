@@ -27,6 +27,17 @@ export const paginateResponse = <T>(
 	};
 };
 
+// `value` as a whole number from 1 to `max`, or undefined.
+export const wholeNumberUpTo = (
+	value: unknown,
+	max: number,
+): number | undefined => {
+	const n = Number(value);
+	return Number.isInteger(n) && n > 0 && n <= max
+		? n
+		: undefined;
+};
+
 // Page size is a positive integer up to the maximum, else the default.
 export const newCursor = ({
 	nextCursor,
@@ -37,14 +48,12 @@ export const newCursor = ({
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	perPage?: any;
 }): PaginationCursor => {
-	const n = Number(perPage);
 	return {
 		nextCursor,
 		perPage:
-			Number.isInteger(n) &&
-			n > 0 &&
-			n <= LIMITS.maxProposalsPerPage
-				? n
-				: LIMITS.maxProposalsPerPage,
+			wholeNumberUpTo(
+				perPage,
+				LIMITS.maxProposalsPerPage,
+			) ?? LIMITS.maxProposalsPerPage,
 	};
 };

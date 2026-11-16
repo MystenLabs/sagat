@@ -23,6 +23,7 @@ import {
 	type DatabaseTransaction,
 } from '../db/transaction';
 import { ApiAuthError } from '../errors';
+import { wholeNumberUpTo } from '../utils/pagination';
 import { jwtHasSignerSetMemberAccess } from './membership.service';
 
 const DEFAULT_EVENTS_PER_PAGE = 50;
@@ -198,11 +199,10 @@ export const listAccountEvents = async ({
 			),
 			orderBy: [desc(SchemaAccountEvents.id)],
 			limit:
-				Number.isInteger(limit) &&
-				limit > 0 &&
-				limit <= LIMITS.maxAccountEventsPerPage
-					? limit
-					: LIMITS.maxAccountEventsPerPage,
+				wholeNumberUpTo(
+					limit,
+					LIMITS.maxAccountEventsPerPage,
+				) ?? LIMITS.maxAccountEventsPerPage,
 		});
 	return events as StoredAccountEvent[];
 };

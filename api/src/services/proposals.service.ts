@@ -60,6 +60,7 @@ import {
 } from '../utils/client';
 import {
 	paginateResponse,
+	wholeNumberUpTo,
 	type PaginatedResponse,
 	type PaginationCursor,
 } from '../utils/pagination';
@@ -156,11 +157,10 @@ const getProposalsByAccountAddress = async (
 	status?: ProposalStatus,
 ) => {
 	// Any cursor that is not a valid id means the first page.
-	const n = Number(cursor?.nextCursor);
-	const nextCursor =
-		Number.isInteger(n) && n > 0 && n <= MAX_PROPOSAL_ID
-			? n
-			: undefined;
+	const nextCursor = wholeNumberUpTo(
+		cursor?.nextCursor,
+		MAX_PROPOSAL_ID,
+	);
 
 	// Get the list of proposals.
 	const proposals = await db.query.SchemaProposals.findMany(
