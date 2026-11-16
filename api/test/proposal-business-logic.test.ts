@@ -1030,6 +1030,94 @@ describe('Proposal Business Logic', () => {
 			).toHaveLength(2);
 		});
 
+		test('a proposer add or removal signature changes nothing when resent', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const proposer = newUser().address;
+			const signedChange = async (
+				route: 'add-proposer' | 'remove-proposer',
+				signer: TestUser,
+			) => {
+				const expiry = defaultExpiry();
+				const message =
+					route === 'add-proposer'
+						? PersonalMessages.addMultisigProposer(
+								proposer,
+								multisig.address,
+								expiry,
+							)
+						: PersonalMessages.removeMultisigProposer(
+								proposer,
+								multisig.address,
+								expiry,
+							);
+				const body = {
+					signature: await sign(signer, message),
+					proposer,
+					expiry,
+				};
+				return async () =>
+					errorOf(
+						await session.post(
+							`/multisig/${multisig.address}/${route}`,
+							body,
+						),
+					);
+			};
+			const proposers = async () =>
+				(
+					await session.client.getMultisig(multisig.address)
+				).proposers.map((p) => p.address);
+			const ok = { status: 200, body: { success: true } };
+
+			const add = await signedChange(
+				'add-proposer',
+				users[0],
+			);
+			const remove = await signedChange(
+				'remove-proposer',
+				users[0],
+			);
+			expect(await add()).toEqual(ok);
+			expect(await remove()).toEqual(ok);
+
+			expect(await add()).toEqual(ok);
+			expect(await proposers()).toEqual([]);
+
+			const reAdd = await signedChange(
+				'add-proposer',
+				users[1],
+			);
+			expect(await reAdd()).toEqual(ok);
+			expect(await remove()).toEqual(ok);
+			expect(await proposers()).toEqual([proposer]);
+
+			const events = await listAccountEvents({
+				accountAddress: multisig.address,
+				callerKeys: [users[0].keypair.getPublicKey()],
+				subject: proposer,
+			});
+			expect(
+				events.map(({ action, actor }) => ({
+					action,
+					actor,
+				})),
+			).toEqual([
+				{
+					action: 'proposer.added',
+					actor: users[1].address,
+				},
+				{
+					action: 'proposer.removed',
+					actor: users[0].address,
+				},
+				{
+					action: 'proposer.added',
+					actor: users[0].address,
+				},
+			]);
+		});
+
 		test('add-proposer applies the proposer limit only to new proposers', async () => {
 			const { session, users, multisig } =
 				await framework.createVerifiedMultisig(2, 2);

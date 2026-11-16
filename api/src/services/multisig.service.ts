@@ -73,6 +73,7 @@ import { normalizeText } from '../utils/text';
 import {
 	getLatestProposerEvents,
 	recordAccountEvent,
+	type AccountEventAction,
 	type AccountEventRecord,
 } from './account-events.service';
 import { normalizeKeyLabels } from './account-keys.service';
@@ -944,6 +945,36 @@ const isCanonicalSuiAddress = (address: string) =>
 	isValidSuiAddress(address) &&
 	normalizeSuiAddress(address) === address;
 
+// Whether this signature is already in the log for `proposer` under `actions`.
+const isRecordedProposerSignature = async (
+	tx: DatabaseTransaction,
+	{
+		address,
+		proposer,
+		signature,
+		actions,
+	}: Pick<
+		ProposerChange,
+		'address' | 'proposer' | 'signature'
+	> & {
+		actions: AccountEventAction[];
+	},
+) => {
+	const [recorded] = await tx
+		.select({ id: SchemaAccountEvents.id })
+		.from(SchemaAccountEvents)
+		.where(
+			and(
+				eq(SchemaAccountEvents.accountAddress, address),
+				eq(SchemaAccountEvents.subject, proposer),
+				inArray(SchemaAccountEvents.action, actions),
+				sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
+			),
+		)
+		.limit(1);
+	return recorded !== undefined;
+};
+
 // Adds or re-confirms an account's external proposer, signed by an accepted member.
 export const addProposer = async ({
 	address,
@@ -979,6 +1010,17 @@ export const addProposer = async ({
 		// Serializes proposer adds for the account.
 		await lockAccount(tx, address);
 
+		// A signature already in the log changes nothing.
+		if (
+			await isRecordedProposerSignature(tx, {
+				address,
+				proposer,
+				signature,
+				actions: ['proposer.added'],
+			})
+		)
+			return;
+
 		const existingProposers =
 			await tx.query.SchemaAccountProposers.findMany({
 				columns: { address: true },
@@ -991,26 +1033,8 @@ export const addProposer = async ({
 			});
 
 		if (
-			existingProposers.some((p) => p.address === proposer)
+			!existingProposers.some((p) => p.address === proposer)
 		) {
-			// A resent signature records nothing new.
-			const [resent] = await tx
-				.select({ id: SchemaAccountEvents.id })
-				.from(SchemaAccountEvents)
-				.where(
-					and(
-						eq(SchemaAccountEvents.accountAddress, address),
-						eq(
-							SchemaAccountEvents.action,
-							'proposer.added',
-						),
-						eq(SchemaAccountEvents.subject, proposer),
-						sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
-					),
-				)
-				.limit(1);
-			if (resent) return;
-		} else {
 			if (
 				existingProposers.length >=
 				LIMITS.maxProposersPerMultisig
@@ -1075,6 +1099,19 @@ export const removeProposer = async ({
 		// First, as this touches proposals before recording takes the lock. Also
 		// serializes with proposal creation, which re-checks the proposer under it.
 		await lockAccount(tx, address);
+
+		if (
+			await isRecordedProposerSignature(tx, {
+				address,
+				proposer,
+				signature,
+				actions: [
+					'proposer.removed',
+					'proposer.removal_unmatched',
+				],
+			})
+		)
+			return;
 
 		// Cancel all pending transactions from the proposer.
 		const cancelled = await tx
