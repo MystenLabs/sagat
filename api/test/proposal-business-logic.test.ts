@@ -1198,6 +1198,61 @@ describe('Proposal Business Logic', () => {
 			});
 		});
 
+		test('a description is checked, and stored normalized with its line breaks', async () => {
+			const { session, users, multisig } =
+				await framework.createFundedVerifiedMultisig(2, 2);
+			const transactionBytes = await buildTransfer(
+				multisig.address,
+			);
+			const { signature } =
+				await users[0].keypair.signTransaction(
+					fromBase64(transactionBytes),
+				);
+			const propose = (description: string) =>
+				session.post('/proposals', {
+					multisigAddress: multisig.address,
+					transactionBytes,
+					signature,
+					description,
+					network: 'localnet',
+				});
+
+			expect(
+				await errorOf(await propose('Pay\u202Evendor')),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'The description may not contain control or formatting characters.',
+				},
+			});
+
+			// One code point each, but two UTF-16 units.
+			expect(
+				await errorOf(
+					await propose('\u{1D4B3}'.repeat(1001)),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'The description must be at most 1000 characters.',
+				},
+			});
+
+			// Pads the normalized text to exactly 1000 code points.
+			const padding = '\u{1D4B3}'.repeat(975);
+			const response = await propose(
+				`  Pay vendor\r\n\tInvoice Cafe\u0301${padding}\n`,
+			);
+			expect(response.status).toBe(201);
+			const { description } = await response.json();
+			expect([...description].length).toBe(1000);
+			expect(description).toBe(
+				`Pay vendor\r\n\tInvoice Café${padding}`,
+			);
+		});
+
 		test('a request body over the size cap is refused with a 413', async () => {
 			const session = framework.createSession();
 

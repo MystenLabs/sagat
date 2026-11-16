@@ -104,6 +104,17 @@ describe('transferTitle', () => {
 		).toBe('Send 3,850,000 USDC to 0x8d4a…3f10');
 	});
 
+	test('drops hidden characters from the symbol', () => {
+		const title = transferTitle({
+			...complete,
+			symbol: 'US\u200dD\u202eC',
+		});
+		expect(title).toBe(
+			'Send 3,850,000 USDC to 0x8d4a…3f10',
+		);
+		expect(titleError(title!)).toBeNull();
+	});
+
 	test('says all for Max on the whole balance, without the amount', () => {
 		expect(
 			transferTitle({
@@ -468,6 +479,19 @@ describe('titleError', () => {
 		expect(titleError(jamo.repeat(TITLE_MAX + 1))).toBe(
 			content.newProposal.titleTooLong(TITLE_MAX + 1),
 		);
+	});
+
+	test('refuses hidden characters but not line breaks', () => {
+		expect(titleError('Pay\u200Dthe auditors')).toBe(
+			content.newProposal.titleInvalid,
+		);
+		expect(titleError('Pay\u202Ethe auditors')).toBe(
+			content.newProposal.titleInvalid,
+		);
+		expect(titleError('Pay\tthe\r\nauditors')).toBeNull();
+		expect(
+			titleError('Pay the auditors\n\uFEFF'),
+		).toBeNull();
 	});
 });
 

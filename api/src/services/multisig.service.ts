@@ -29,6 +29,7 @@ import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
 	AccountSignerSetStatus,
+	MAX_ACCOUNT_NAME_LENGTH,
 	ProposalStatus,
 	SchemaAccountEvents,
 	SchemaAccountKeys,
@@ -68,6 +69,7 @@ import {
 	type SuiNetwork,
 } from '../utils/client';
 import { parsePublicKey } from '../utils/pubKey';
+import { normalizeText } from '../utils/text';
 import { recordAccountEvent } from './account-events.service';
 import { normalizeKeyLabels } from './account-keys.service';
 import {
@@ -540,7 +542,8 @@ export type CreateSignerSetInput = {
 	publicKeys: string[];
 	weights: number[];
 	threshold: number;
-	name?: string;
+	// Unvalidated until `normalizeText`.
+	name?: unknown;
 	// Optional, aligned with `publicKeys`: what this account calls each
 	// key. Unvalidated until `normalizeKeyLabels`.
 	labels?: unknown;
@@ -563,7 +566,7 @@ export const createSignerSet = async ({
 	publicKeys,
 	weights,
 	threshold,
-	name,
+	name: rawName,
 	labels: rawLabels,
 	callerKeys,
 }: CreateSignerSetInput & {
@@ -576,6 +579,15 @@ export const createSignerSet = async ({
 		rawLabels,
 		publicKeys.length,
 	);
+	const name = normalizeText(rawName, {
+		maxLength: MAX_ACCOUNT_NAME_LENGTH,
+		errors: {
+			notAString: 'The name must be a string or null.',
+			forbiddenCharacters:
+				'The name may not contain control or formatting characters.',
+			tooLong: `The name must be at most ${MAX_ACCOUNT_NAME_LENGTH} characters.`,
+		},
+	});
 
 	// Register all public keys first
 	await registerPublicKeyStrings(publicKeys);

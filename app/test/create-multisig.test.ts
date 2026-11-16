@@ -437,6 +437,16 @@ describe('name', () => {
 		// "e" plus a combining accent composes into one character.
 		expect(nameError('e\u0301'.repeat(40))).toBeNull();
 	});
+
+	test('refuses hidden characters that survive trimming', () => {
+		expect(nameError('Team\u200DFund')).toBe(
+			content.createMultisig.labelInvalid,
+		);
+		expect(nameError('Team\u202EFund')).toBe(
+			content.createMultisig.labelInvalid,
+		);
+		expect(nameError('Treasury\n\uFEFF')).toBeNull();
+	});
 });
 
 describe('address input', () => {

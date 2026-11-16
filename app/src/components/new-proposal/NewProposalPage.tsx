@@ -244,9 +244,9 @@ function NewProposalWizard({
 			{
 				multisig,
 				transactionData: ready.bytes,
-				// The length check counts the NFC form (`textLength`), and
-				// the API stores what it gets, so send that form: typed as
-				// conjoining jamo, a title is up to three times longer.
+				// `textLength` and `titleError` check the NFC form, so send
+				// what was checked: as conjoining jamo, a title is up to
+				// three times longer.
 				description:
 					reviewTitle.normalize('NFC').trim() || undefined,
 			},

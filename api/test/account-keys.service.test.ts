@@ -1,13 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/** Pure checks on key labels. No database or localnet needed. */
+/** Pure checks on user-written text. No database or localnet needed. */
 import { describe, expect, test } from 'bun:test';
 
 import {
 	MAX_KEY_LABEL_LENGTH,
 	normalizeKeyLabels,
 } from '../src/services/account-keys.service';
+import { normalizeText } from '../src/utils/text';
 
 describe('normalizeKeyLabels', () => {
 	test('a missing array means no labels', () => {
@@ -72,5 +73,45 @@ describe('normalizeKeyLabels', () => {
 			expect(() => normalizeKeyLabels([bad], 1)).toThrow(
 				'control or formatting characters',
 			);
+	});
+});
+
+describe('normalizeText', () => {
+	const rules = {
+		maxLength: 3,
+		errors: {
+			notAString: 'not a string',
+			forbiddenCharacters: 'forbidden',
+			tooLong: 'too long',
+		},
+	};
+
+	test('keeps line breaks and tabs only when allowed', () => {
+		expect(() => normalizeText('a\r\n\tb', rules)).toThrow(
+			'forbidden',
+		);
+		expect(
+			normalizeText(' a\r\n\tb ', {
+				...rules,
+				maxLength: 10,
+				allowLineBreaks: true,
+			}),
+		).toBe('a\r\n\tb');
+		// Other control and format characters stay refused.
+		for (const bad of ['a\u202Eb', 'a\u0000b'])
+			expect(() =>
+				normalizeText(bad, {
+					...rules,
+					allowLineBreaks: true,
+				}),
+			).toThrow('forbidden');
+	});
+
+	test('accepts fully decomposed text at the cap', () => {
+		const decomposed = 'ᾂ'.normalize('NFD').repeat(3);
+		expect([...decomposed].length).toBe(12);
+		expect(normalizeText(decomposed, rules)).toBe(
+			'ᾂ'.repeat(3),
+		);
 	});
 });

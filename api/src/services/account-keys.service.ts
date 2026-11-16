@@ -4,13 +4,9 @@
 import { LIMITS } from '../constants/limits';
 import { MAX_KEY_LABEL_LENGTH } from '../db/schema';
 import { ValidationError } from '../errors';
+import { normalizeText } from '../utils/text';
 
 export { MAX_KEY_LABEL_LENGTH };
-
-// Control characters (C0, DEL, C1) and format characters: bidi overrides,
-// zero-width joiners and the like. A label is shown next to a key, so
-// nothing that can reorder or hide text is allowed in it.
-const FORBIDDEN_CHARACTERS = /[\p{Cc}\p{Cf}]/u;
 
 /**
  * Normalizes the optional `labels` of a create request: one entry per public
@@ -47,22 +43,15 @@ export const normalizeKeyLabels = (
 			'labels must be an array with one entry per public key.',
 		);
 
-	return labels.map((label) => {
-		if (label === null || label === undefined) return null;
-		if (typeof label !== 'string')
-			throw new ValidationError(
-				'Each label must be a string or null.',
-			);
-		if (FORBIDDEN_CHARACTERS.test(label))
-			throw new ValidationError(
-				'Labels may not contain control or formatting characters.',
-			);
-		const trimmed = label.normalize('NFC').trim();
-		if (trimmed.length === 0) return null;
-		if ([...trimmed].length > MAX_KEY_LABEL_LENGTH)
-			throw new ValidationError(
-				`Labels must be at most ${MAX_KEY_LABEL_LENGTH} characters.`,
-			);
-		return trimmed;
-	});
+	return labels.map((label) =>
+		normalizeText(label, {
+			maxLength: MAX_KEY_LABEL_LENGTH,
+			errors: {
+				notAString: 'Each label must be a string or null.',
+				forbiddenCharacters:
+					'Labels may not contain control or formatting characters.',
+				tooLong: `Labels must be at most ${MAX_KEY_LABEL_LENGTH} characters.`,
+			},
+		}),
+	);
 };

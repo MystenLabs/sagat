@@ -36,16 +36,14 @@ export function NameStep({
 	onCancel: () => void;
 }) {
 	// "Give it a name" waits until the field has been used
-	// (`useTouched`); too long shows at once.
+	// (`useTouched`); any other error shows at once.
 	const { touched, touch, change } = useTouched({
 		name: name !== '',
 	});
 	const error = nameError(name);
 	const length = textLength(name);
 	const shownError =
-		error && (touched.name || length > NAME_MAX)
-			? error
-			: null;
+		error && (touched.name || length > 0) ? error : null;
 
 	return (
 		<form

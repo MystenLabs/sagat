@@ -541,6 +541,8 @@ export const content = {
 			'Bytes don’t include a title. Name it so signers know what it does.',
 		titleTooLong: (length: number) =>
 			`${length} of ${TITLE_MAX} characters. Use ${TITLE_MAX} or fewer.`,
+		titleInvalid:
+			'This title has hidden characters (such as a zero-width joiner) that can’t be saved. Remove them to continue.',
 		unreadableBytes:
 			'Pods can’t read this as a transaction. Paste the full base64 bytes or JSON, the way your tool exported them.',
 		bytesUnresolved:
