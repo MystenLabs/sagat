@@ -33,6 +33,7 @@ developing.
 ## Testing
 
 - `app/test`: unit tests (`cd app && bun run test`).
+- `sdk/test`: unit tests for the SDK (`cd sdk && bun run test`).
 - `api/test`: API tests against a local Sui network (see `api/README.md`).
 - `e2e`: Playwright tests that drive the app in a browser against the API and
   a local Sui network (see `e2e/README.md`, or run `bun run test:ui-e2e`).

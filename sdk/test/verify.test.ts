@@ -13,7 +13,15 @@ import {
 	type PasskeyProvider,
 } from '@mysten/sui/keypairs/passkey';
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1';
-import { toBase64 } from '@mysten/sui/utils';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
+import {
+	fromBase64,
+	toBase58,
+	toBase64,
+} from '@mysten/sui/utils';
 import { describe, expect, test } from 'bun:test';
 
 import {
@@ -110,23 +118,44 @@ const fakePasskeyProvider = (): PasskeyProvider => {
 	} as unknown as PasskeyProvider;
 };
 
-const transactionBytes = toBase64(
-	new Uint8Array([1, 2, 3, 4]),
-);
-const digest = 'DigestOfTheProposal';
+// A transfer's bytes and digest, sent by the given address.
+const buildTransaction = async (sender: string) => {
+	const tx = new Transaction();
+	tx.setSender(sender);
+	tx.setGasPayment([
+		{
+			objectId: '0x2',
+			version: '1',
+			digest: toBase58(new Uint8Array(32)),
+		},
+	]);
+	tx.setGasPrice(1000);
+	tx.setGasBudget(10_000_000);
+	tx.transferObjects([tx.gas], '0x3');
+	const bytes = await tx.build();
+	return {
+		transactionBytes: toBase64(bytes),
+		digest:
+			TransactionDataBuilder.getDigestFromBytes(bytes),
+	};
+};
+
+const { transactionBytes, digest } =
+	await buildTransaction(accountAddress);
 
 const signCreated = async (
 	signer: Signer,
 	proposerAddress = signer.toSuiAddress(),
+	transaction = { transactionBytes, digest },
 ) => {
 	const { signature } = await signer.signTransaction(
-		new Uint8Array([1, 2, 3, 4]),
+		fromBase64(transaction.transactionBytes),
 	);
 	const event: AccountEvent = {
 		id: 2,
 		action: 'proposal.created',
 		actor: signer.toSuiAddress(),
-		subject: digest,
+		subject: transaction.digest,
 		proof: {
 			kind: 'proposal.create',
 			version: 1,
@@ -136,7 +165,11 @@ const signCreated = async (
 	};
 	return {
 		event,
-		proposal: { digest, proposerAddress, transactionBytes },
+		proposal: {
+			...transaction,
+			proposerAddress,
+			multisigAddress: accountAddress,
+		},
 	};
 };
 
@@ -355,6 +388,7 @@ describe('verifyProposalCreated', () => {
 			outsider,
 			proposer,
 		);
+		event.actor = proposer;
 		expect(
 			(await verifyProposalCreated(event, proposal)).status,
 		).toBe('invalid');
@@ -363,6 +397,26 @@ describe('verifyProposalCreated', () => {
 	test('is invalid when the event names another digest', async () => {
 		const { event, proposal } = await signCreated(outsider);
 		event.subject = 'AnotherDigest';
+		expect(
+			(await verifyProposalCreated(event, proposal)).status,
+		).toBe('invalid');
+	});
+
+	test('is invalid when the digest does not match the bytes', async () => {
+		const { event, proposal } = await signCreated(outsider);
+		event.subject = 'AnotherDigest';
+		proposal.digest = 'AnotherDigest';
+		expect(
+			(await verifyProposalCreated(event, proposal)).status,
+		).toBe('invalid');
+	});
+
+	test('is invalid when the bytes are sent by another account', async () => {
+		const { event, proposal } = await signCreated(
+			outsider,
+			undefined,
+			await buildTransaction(outsider.toSuiAddress()),
+		);
 		expect(
 			(await verifyProposalCreated(event, proposal)).status,
 		).toBe('invalid');
@@ -399,5 +453,18 @@ describe('verifyProposalProposer', () => {
 		);
 		expect(result.created.status).toBe('verified');
 		expect(result.status).toBe('unverified');
+	});
+
+	test('is invalid for a member whose created proof is invalid', async () => {
+		const { event: created } = await signCreated(member);
+		created.subject = 'AnotherDigest';
+		const result = await verifyProposalProposer(
+			proposalOf(member.toSuiAddress(), {
+				created,
+				proposer: null,
+			}),
+			{ members },
+		);
+		expect(result.status).toBe('invalid');
 	});
 });

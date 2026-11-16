@@ -5,6 +5,7 @@ import {
 	parseSerializedSignature,
 	type PublicKey,
 } from '@mysten/sui/cryptography';
+import { TransactionDataBuilder } from '@mysten/sui/transactions';
 import {
 	fromBase64,
 	isValidSuiAddress,
@@ -36,7 +37,7 @@ export interface ProofResult {
 }
 
 export interface ProposalProofResult {
-	/** The worst of `created` and `proposer`, or `verified` for a member. */
+	/** The worst of `created` and `proposer`; for a member, `invalid` only when `created` is. */
 	status: ProofStatus;
 	created: ProofResult;
 	proposer: ProofResult;
@@ -143,6 +144,22 @@ const expiryText = (expiry: unknown): string | null => {
 	return null;
 };
 
+// Null when the bytes don't decode.
+const readTransaction = (transactionBytes: string) => {
+	try {
+		const bytes = fromBase64(transactionBytes);
+		return {
+			bytes,
+			digest:
+				TransactionDataBuilder.getDigestFromBytes(bytes),
+			sender:
+				TransactionDataBuilder.fromBytes(bytes).sender,
+		};
+	} catch {
+		return null;
+	}
+};
+
 // Null for a scheme that can't be checked offline.
 const recoverSigner = async (
 	signature: string,
@@ -229,12 +246,15 @@ export async function verifyProposer({
 		: result('unverified', event);
 }
 
-/** Checks a `proposal.created` proof against the proposal's bytes and proposer. */
+/** Checks a `proposal.created` proof against the proposal's bytes, account and proposer. */
 export async function verifyProposalCreated(
 	event: AccountEvent | null | undefined,
 	proposal: Pick<
 		Proposal,
-		'digest' | 'proposerAddress' | 'transactionBytes'
+		| 'digest'
+		| 'multisigAddress'
+		| 'proposerAddress'
+		| 'transactionBytes'
 	>,
 ): Promise<ProofResult> {
 	const signature =
@@ -244,15 +264,24 @@ export async function verifyProposalCreated(
 	if (!event || !signature)
 		return result('unverified', event);
 
+	const transaction = readTransaction(
+		proposal.transactionBytes,
+	);
 	if (
-		event.subject !== proposal.digest ||
+		!transaction ||
+		transaction.digest !== event.subject ||
+		transaction.digest !== proposal.digest ||
+		!sameAddress(
+			transaction.sender,
+			proposal.multisigAddress,
+		) ||
 		!sameAddress(event.actor, proposal.proposerAddress)
 	)
 		return result('invalid', event);
 
 	const signer = await recoverSigner(signature, () =>
 		verifyTransactionSignature(
-			fromBase64(proposal.transactionBytes),
+			transaction.bytes,
 			signature,
 		),
 	);
@@ -265,7 +294,7 @@ export async function verifyProposalCreated(
 	return result('verified', event, address);
 }
 
-/** Vouches for a member by membership, anyone else by its created and proposer events. */
+/** Vouches for a member unless its created proof is invalid, anyone else by its created and proposer events. */
 export async function verifyProposalProposer(
 	proposal: PublicProposal,
 	{ members }: { members: TrustedMembers },
@@ -283,7 +312,9 @@ export async function verifyProposalProposer(
 		}),
 	]);
 	const status = isMember(proposal.proposerAddress, members)
-		? 'verified'
+		? created.status === 'invalid'
+			? 'invalid'
+			: 'verified'
 		: worst(created.status, proposer.status);
 	return { status, created, proposer };
 }
