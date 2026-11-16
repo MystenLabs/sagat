@@ -23,10 +23,7 @@ import type {
 	PublicProposal,
 } from './types.js';
 
-/**
- * `verified`: the proof checks out. `unverified`: there is no proof, or one
- * this SDK can't check. `invalid`: the proof doesn't match what it claims.
- */
+/** `unverified`: no proof, or one this SDK can't check; `invalid`: it doesn't match. */
 export type ProofStatus =
 	'verified' | 'unverified' | 'invalid';
 
@@ -66,6 +63,7 @@ const OFFLINE_SCHEMES = new Set([
 	'ED25519',
 	'Secp256k1',
 	'Secp256r1',
+	'Passkey',
 ]);
 
 const RANK: Record<ProofStatus, number> = {
@@ -126,7 +124,6 @@ const isMember = (
 	);
 };
 
-// A v1 proof's signature, or null when the proof isn't one.
 const v1Signature = (
 	proof: AccountEvent['proof'],
 	kind: string,
@@ -146,8 +143,7 @@ const expiryText = (expiry: unknown): string | null => {
 	return null;
 };
 
-// Null for a scheme that can't be checked offline; `invalid` when the
-// signature is unreadable or doesn't verify.
+// Null for a scheme that can't be checked offline.
 const recoverSigner = async (
 	signature: string,
 	verify: () => Promise<PublicKey>,
@@ -162,11 +158,7 @@ const recoverSigner = async (
 	}
 };
 
-/**
- * Checks the signed proof of a `proposer.added` or `proposer.removed`
- * event against `accountAddress` and the `members` the caller trusts.
- * Never throws.
- */
+/** Checks a proposer add or remove event's signed proof. Never throws. */
 export async function verifyAccountEvent(
 	event: AccountEvent | null | undefined,
 	{
@@ -204,11 +196,7 @@ export async function verifyAccountEvent(
 	return result('verified', event, address);
 }
 
-/**
- * Whether an account's proposer is vouched for: a member's address by
- * membership, anyone else by a `proposer.added` event for them that
- * verifies. Never throws.
- */
+/** Vouches for a member by membership, anyone else by a verified add event. */
 export async function verifyProposer({
 	proposer,
 	event,
@@ -241,10 +229,7 @@ export async function verifyProposer({
 		: result('unverified', event);
 }
 
-/**
- * Checks a `proposal.created` event: the proposer's signature over the
- * proposal's transaction bytes, its signer and digest. Never throws.
- */
+/** Checks a `proposal.created` proof against the proposal's bytes and proposer. */
 export async function verifyProposalCreated(
 	event: AccountEvent | null | undefined,
 	proposal: Pick<
@@ -280,10 +265,7 @@ export async function verifyProposalCreated(
 	return result('verified', event, address);
 }
 
-/**
- * Checks a proposal's proposer: a member by membership, anyone else by
- * both the proposal's `created` and newest `proposer` event. Never throws.
- */
+/** Vouches for a member by membership, anyone else by its created and proposer events. */
 export async function verifyProposalProposer(
 	proposal: PublicProposal,
 	{ members }: { members: TrustedMembers },

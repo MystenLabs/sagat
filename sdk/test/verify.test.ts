@@ -1,8 +1,17 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type Keypair } from '@mysten/sui/cryptography';
+import {
+	createHash,
+	generateKeyPairSync,
+	sign,
+} from 'node:crypto';
+import { type Signer } from '@mysten/sui/cryptography';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import {
+	PasskeyKeypair,
+	type PasskeyProvider,
+} from '@mysten/sui/keypairs/passkey';
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1';
 import { toBase64 } from '@mysten/sui/utils';
 import { describe, expect, test } from 'bun:test';
@@ -30,7 +39,7 @@ const expiry = '2026-11-16T10:00:00.000Z';
 const createdAt = '2026-11-16T09:55:00.000Z';
 
 const signProposerChange = async (
-	signer: Keypair,
+	signer: Signer,
 	action: 'proposer.added' | 'proposer.removed',
 	signedExpiry: string | number = expiry,
 	subject = proposer,
@@ -59,13 +68,55 @@ const signProposerChange = async (
 	};
 };
 
+// Stands in for WebAuthn with a local P-256 key.
+const fakePasskeyProvider = (): PasskeyProvider => {
+	const { privateKey, publicKey } = generateKeyPairSync(
+		'ec',
+		{
+			namedCurve: 'P-256',
+		},
+	);
+	const authenticatorData = new Uint8Array(37);
+	return {
+		create: async () => ({
+			rawId: new ArrayBuffer(1),
+			response: {
+				getPublicKey: () =>
+					publicKey.export({ format: 'der', type: 'spki' }),
+			},
+		}),
+		get: async (challenge: Uint8Array) => {
+			const clientDataJSON = new TextEncoder().encode(
+				JSON.stringify({
+					type: 'webauthn.get',
+					challenge:
+						Buffer.from(challenge).toString('base64url'),
+				}),
+			);
+			const signed = Buffer.concat([
+				authenticatorData,
+				createHash('sha256')
+					.update(clientDataJSON)
+					.digest(),
+			]);
+			return {
+				response: {
+					authenticatorData,
+					clientDataJSON,
+					signature: sign('sha256', signed, privateKey),
+				},
+			};
+		},
+	} as unknown as PasskeyProvider;
+};
+
 const transactionBytes = toBase64(
 	new Uint8Array([1, 2, 3, 4]),
 );
 const digest = 'DigestOfTheProposal';
 
 const signCreated = async (
-	signer: Keypair,
+	signer: Signer,
 	proposerAddress = signer.toSuiAddress(),
 ) => {
 	const { signature } = await signer.signTransaction(
@@ -114,15 +165,39 @@ describe('verifyAccountEvent', () => {
 		expect(result.signer).toBe(otherMember.toSuiAddress());
 	});
 
-	test('accepts a padded base64 signature', async () => {
+	test('accepts an unpadded base64 signature', async () => {
 		const event = await signProposerChange(
 			member,
 			'proposer.added',
 		);
-		expect(event.proof?.signature).toEndWith('=');
+		event.proof!.signature = String(
+			event.proof?.signature,
+		).replace(/=+$/, '');
 		expect(
 			(await verifyAccountEvent(event, context)).status,
 		).toBe('verified');
+	});
+
+	test('verifies a proposer add signed by a passkey member', async () => {
+		const passkey = await PasskeyKeypair.getPasskeyInstance(
+			fakePasskeyProvider(),
+		);
+		const event = await signProposerChange(
+			passkey,
+			'proposer.added',
+		);
+		const result = await verifyAccountEvent(event, {
+			accountAddress,
+			members: [
+				{
+					publicKey: passkey
+						.getPublicKey()
+						.toSuiPublicKey(),
+				},
+			],
+		});
+		expect(result.status).toBe('verified');
+		expect(result.signer).toBe(passkey.toSuiAddress());
 	});
 
 	test('is invalid when the signature is not over the rebuilt message', async () => {
