@@ -75,6 +75,20 @@ const result = (
 	createdAt: event?.createdAt ?? null,
 });
 
+// A verifier that throws reports the proof as invalid.
+const failClosed = async <R>(
+	check: () => Promise<R>,
+	onThrow: () => R,
+): Promise<R> => {
+	try {
+		return await check();
+	} catch {
+		return onThrow();
+	}
+};
+
+const invalid = () => result('invalid', null);
+
 const worst = (a: ProofStatus, b: ProofStatus) =>
 	RANK[a] >= RANK[b] ? a : b;
 
@@ -172,8 +186,7 @@ const recoverSigner = async (
 	}
 };
 
-/** Checks a proposer add or remove event's signed proof. Never throws. */
-export async function verifyAccountEvent(
+async function checkAccountEvent(
 	event: AccountEvent | null | undefined,
 	{
 		accountAddress,
@@ -215,8 +228,21 @@ export async function verifyAccountEvent(
 	return result('verified', event, address);
 }
 
-/** Vouches for a member by membership, anyone else by a verified add event. */
-export async function verifyProposer({
+/** Checks a proposer add or remove event's signed proof; `invalid` if it can't be read. */
+export function verifyAccountEvent(
+	event: AccountEvent | null | undefined,
+	options: {
+		accountAddress: string;
+		members: TrustedMembers;
+	},
+): Promise<ProofResult> {
+	return failClosed(
+		() => checkAccountEvent(event, options),
+		invalid,
+	);
+}
+
+async function checkProposer({
 	proposer,
 	event,
 	accountAddress,
@@ -248,8 +274,17 @@ export async function verifyProposer({
 		: result('unverified', event);
 }
 
-/** Checks a `proposal.created` proof against the proposal's bytes, account and proposer. */
-export async function verifyProposalCreated(
+/** Vouches for a member by membership, anyone else by a verified add event. */
+export function verifyProposer(options: {
+	proposer: string;
+	event: AccountEvent | null | undefined;
+	accountAddress: string;
+	members: TrustedMembers;
+}): Promise<ProofResult> {
+	return failClosed(() => checkProposer(options), invalid);
+}
+
+async function checkProposalCreated(
 	event: AccountEvent | null | undefined,
 	proposal: Pick<
 		Proposal,
@@ -289,6 +324,23 @@ export async function verifyProposalCreated(
 	return result('verified', event, address);
 }
 
+/** Checks a `proposal.created` proof against the proposal's bytes, account and proposer. */
+export function verifyProposalCreated(
+	event: AccountEvent | null | undefined,
+	proposal: Pick<
+		Proposal,
+		| 'digest'
+		| 'multisigAddress'
+		| 'proposerAddress'
+		| 'transactionBytes'
+	>,
+): Promise<ProofResult> {
+	return failClosed(
+		() => checkProposalCreated(event, proposal),
+		invalid,
+	);
+}
+
 // Verified by a signature from `address` in `proposal.signatures`, invalid if an entry under its key doesn't check out.
 const proposerVoteStatus = async (
 	proposal: PublicProposal,
@@ -326,8 +378,7 @@ const proposerVoteStatus = async (
 	return status;
 };
 
-/** Verifies a member by their signature on the bytes (through a vote, that they signed them, not that they submitted the proposal), anyone else by their created and add events. */
-export async function verifyProposalProposer(
+async function checkProposalProposer(
 	proposal: PublicProposal,
 	{ members }: { members: TrustedMembers },
 ): Promise<ProofStatus> {
@@ -353,4 +404,15 @@ export async function verifyProposalProposer(
 				)
 			: created.status;
 	return worst(signatureStatus, proposer.status);
+}
+
+/** Verifies a member by their signature on the bytes (through a vote, that they signed them, not that they submitted the proposal), anyone else by their created and add events. */
+export function verifyProposalProposer(
+	proposal: PublicProposal,
+	options: { members: TrustedMembers },
+): Promise<ProofStatus> {
+	return failClosed(
+		() => checkProposalProposer(proposal, options),
+		() => 'invalid',
+	);
 }

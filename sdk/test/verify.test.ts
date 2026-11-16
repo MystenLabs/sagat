@@ -258,6 +258,28 @@ describe('verifyAccountEvent', () => {
 			(await verifyAccountEvent(event, context)).status,
 		).toBe('unverified');
 	});
+
+	test('is invalid when the proposal’s account isn’t a string', async () => {
+		const { event: created } = await signCreated(outsider);
+		const proposerEvent = await signProposerChange(
+			member,
+			'proposer.added',
+			expiry,
+			outsider.toSuiAddress(),
+		);
+		const status = await verifyProposalProposer(
+			{
+				digest,
+				transactionBytes,
+				proposerAddress: outsider.toSuiAddress(),
+				multisigAddress: { toString: null },
+				events: { created, proposer: proposerEvent },
+				signatures: [],
+			} as unknown as PublicProposal,
+			{ members },
+		);
+		expect(status).toBe('invalid');
+	});
 });
 
 describe('verifyProposer', () => {
