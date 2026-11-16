@@ -363,15 +363,16 @@ test('getting started', async ({ browser }) => {
 });
 
 test('external proposers', async ({ browser }) => {
-	const maya = person('maya', 'Maya');
-	const tomas = person('tomas', 'Tomás');
+	// Keys of its own, so the shot doesn't depend on the other tests.
+	const maya = person('proposers-maya', 'Maya');
+	const tomas = person('proposers-tomas', 'Tomás');
 	const payments = person('payments-service', 'Payments');
 	const payroll = person('payroll-service', 'Payroll');
 
 	const you = await Actor.create(
 		browser,
 		'Alex',
-		demoKeypair('you'),
+		demoKeypair('proposers-you'),
 		[],
 		{
 			network: 'mainnet',
