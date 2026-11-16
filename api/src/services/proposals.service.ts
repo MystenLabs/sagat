@@ -146,16 +146,20 @@ export const getProposalById = async (
 	};
 };
 
+// `proposals.id` is a 32-bit serial.
+const MAX_PROPOSAL_ID = 2 ** 31 - 1;
+
 const getProposalsByAccountAddress = async (
 	multisigAddress: string,
 	network: string,
 	cursor: PaginationCursor,
 	status?: ProposalStatus,
 ) => {
-	// the next cursor.
+	// Any cursor that is not a valid id means the first page.
+	const n = Number(cursor?.nextCursor);
 	const nextCursor =
-		cursor?.nextCursor && !isNaN(Number(cursor.nextCursor))
-			? Number(cursor.nextCursor)
+		Number.isInteger(n) && n > 0 && n <= MAX_PROPOSAL_ID
+			? n
 			: undefined;
 
 	// Get the list of proposals.

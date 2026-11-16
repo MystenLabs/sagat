@@ -698,6 +698,24 @@ describe('Proposal Business Logic', () => {
 		}
 	});
 
+	test('a cursor that cannot be a proposal id is ignored', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		await session.proposeTransfer(
+			users[0],
+			multisig.address,
+		);
+
+		for (const nextCursor of ['0.5', '2147483648']) {
+			const response = await session.request(
+				`/proposals?multisigAddress=${multisig.address}&network=localnet&nextCursor=${nextCursor}`,
+			);
+			expect(response.status).toBe(200);
+			const page = await response.json();
+			expect(page.data).toHaveLength(1);
+		}
+	});
+
 	test('filters proposals by status, including PENDING', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
