@@ -6,7 +6,7 @@ import {
 	PersonalMessages,
 } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
-import { fromBase64 } from '@mysten/sui/utils';
+import { fromBase64, toBase58 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -20,6 +20,7 @@ import { LIMITS } from '../src/constants/limits';
 import { db } from '../src/db';
 import {
 	ProposalStatus,
+	SchemaAccountEvents,
 	SchemaAccountProposers,
 	SchemaProposals,
 	SchemaProposalSignatures,
@@ -1427,6 +1428,273 @@ describe('listAccountEvents', () => {
 		expect(
 			await eventsOf(multisig.address, users[0]),
 		).toEqual([]);
+	});
+});
+
+describe('events on the legacy routes', () => {
+	const proposerOf = async (
+		session: TestSession,
+		multisigAddress: string,
+		address: string,
+	) =>
+		(
+			await session.client.getMultisig(multisigAddress)
+		).proposers.find((p) => p.address === address);
+
+	const asReturned = ({
+		id,
+		action,
+		actor,
+		subject,
+		proof,
+		createdAt,
+	}: StoredAccountEvent) => ({
+		id,
+		action,
+		actor,
+		subject,
+		proof: proof ?? null,
+		createdAt: createdAt.toISOString(),
+	});
+
+	test('a proposer carries its newest add or remove, and one from before the log carries null', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const proposer = newUser().address;
+		const legacy = newUser().address;
+
+		await session.addProposer(
+			users[0],
+			proposer,
+			multisig.address,
+		);
+		await session.removeProposer(
+			users[1],
+			proposer,
+			multisig.address,
+		);
+		await session.addProposer(
+			users[1],
+			proposer,
+			multisig.address,
+		);
+		await db.insert(SchemaAccountProposers).values({
+			accountAddress: multisig.address,
+			address: legacy,
+			addedBy: users[0].address,
+		});
+
+		const [readded] = await eventsOf(
+			multisig.address,
+			users[0],
+		);
+		expect(readded.action).toBe('proposer.added');
+		expect(
+			(
+				await proposerOf(
+					session,
+					multisig.address,
+					proposer,
+				)
+			)?.event,
+		).toEqual(asReturned(readded));
+		expect(
+			(await proposerOf(session, multisig.address, legacy))
+				?.event,
+		).toBeNull();
+	});
+
+	test('the public proposal carries its created event and its proposer’s newest add or remove, and one from before the log carries nulls', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposer = newUser();
+
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		const { digest } = await session.proposeTransfer(
+			proposer,
+			multisig.address,
+		);
+		// A re-confirmation after the proposal.
+		await session.addProposer(
+			users[1],
+			proposer.address,
+			multisig.address,
+		);
+		// A proposal from before the log, by a proposer with no events.
+		const legacyDigest = toBase58(
+			new Uint8Array(32).fill(1),
+		);
+		await db.insert(SchemaProposals).values({
+			accountAddress: multisig.address,
+			digest: legacyDigest,
+			transactionBytes: 'AA==',
+			proposerAddress: newUser().address,
+			network: 'localnet',
+		});
+
+		const [created] = await eventsOf(
+			multisig.address,
+			users[0],
+			'proposal.created',
+		);
+		const [reconfirmed] = await eventsOf(
+			multisig.address,
+			users[0],
+			'proposer.added',
+		);
+		expect(reconfirmed.actor).toBe(users[1].address);
+		const { client } = framework.createSession();
+		const proposal =
+			await client.getProposalByDigest(digest);
+		expect(proposal.events?.created).toEqual(
+			asReturned(created),
+		);
+		expect(proposal.events?.proposer).toEqual(
+			asReturned(reconfirmed),
+		);
+
+		const legacyProposal =
+			await client.getProposalByDigest(legacyDigest);
+		expect(legacyProposal.events).toEqual({
+			created: null,
+			proposer: null,
+		});
+	});
+
+	test('a proposal by a member whose address was removed as a proposer carries no proposer event', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const [remover, member] = users;
+		await session.proposeTransfer(member, multisig.address);
+		await session.removeProposer(
+			remover,
+			member.address,
+			multisig.address,
+		);
+		const { digest } = await session.proposeTransfer(
+			member,
+			multisig.address,
+		);
+
+		const [unmatched] = await eventsOf(
+			multisig.address,
+			remover,
+			'proposer.removal_unmatched',
+		);
+		expect(unmatched.subject).toBe(member.address);
+		const [created] = await eventsOf(
+			multisig.address,
+			remover,
+			'proposal.created',
+		);
+		expect(created.subject).toBe(digest);
+		const { events } = await framework
+			.createSession()
+			.client.getProposalByDigest(digest);
+		expect(events).toEqual({
+			created: asReturned(created),
+			proposer: null,
+		});
+	});
+
+	test('a newer add of the same proposer on another account does not show on this one', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const proposer = newUser();
+		await session.addProposer(
+			users[0],
+			proposer.address,
+			multisig.address,
+		);
+		const { digest } = await session.proposeTransfer(
+			proposer,
+			multisig.address,
+		);
+		const other = await framework.createVerifiedMultisig(
+			2,
+			1,
+		);
+		await other.session.addProposer(
+			other.users[0],
+			proposer.address,
+			other.multisig.address,
+		);
+
+		const [added] = await eventsOf(
+			multisig.address,
+			users[0],
+			'proposer.added',
+		);
+		const [otherAdded] = await eventsOf(
+			other.multisig.address,
+			other.users[0],
+			'proposer.added',
+		);
+		expect(otherAdded.id).toBeGreaterThan(added.id);
+		expect(
+			(
+				await proposerOf(
+					session,
+					multisig.address,
+					proposer.address,
+				)
+			)?.event,
+		).toEqual(asReturned(added));
+		expect(
+			(
+				await framework
+					.createSession()
+					.client.getProposalByDigest(digest)
+			).events?.proposer,
+		).toEqual(asReturned(added));
+	});
+
+	test('an old-style proof is returned as stored', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 1);
+		const oldProof = {
+			kind: 'proposer.add',
+			version: 1,
+			signature: 'cGFkZGVk==',
+			expiry: 1700000000000,
+		};
+		const proofs = new Map<
+			string,
+			Record<string, unknown> | null
+		>([
+			[newUser().address, oldProof],
+			[newUser().address, null],
+		]);
+
+		for (const [proposer, proof] of proofs) {
+			await db.insert(SchemaAccountProposers).values({
+				accountAddress: multisig.address,
+				address: proposer,
+				addedBy: users[0].address,
+			});
+			await db.insert(SchemaAccountEvents).values({
+				accountAddress: multisig.address,
+				actor: users[0].address,
+				action: 'proposer.added',
+				subject: proposer,
+				proof,
+			});
+		}
+
+		for (const [proposer, proof] of proofs)
+			expect(
+				(
+					await proposerOf(
+						session,
+						multisig.address,
+						proposer,
+					)
+				)?.event?.proof,
+			).toEqual(proof);
 	});
 });
 

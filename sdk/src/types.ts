@@ -132,6 +132,15 @@ export interface PublicProposal extends Proposal {
 			order: number;
 		}[];
 	};
+	events?: ProposalEvents;
+}
+
+/** Audit log events of a proposal, null where none exists. */
+export interface ProposalEvents {
+	/** The proposal's `proposal.created` event. */
+	created: AccountEvent | null;
+	/** The proposer's newest add or remove. */
+	proposer: AccountEvent | null;
 }
 /** A signature for a given proposal  */
 export interface ProposalSignature {
@@ -146,6 +155,20 @@ export interface MultisigProposer {
 	address: string;
 	addedBy: string;
 	addedAt: string;
+	/** The proposer's newest add or remove, null before the audit log. */
+	event?: AccountEvent | null;
+}
+
+/** An account audit log event, as stored. */
+export interface AccountEvent {
+	id: number;
+	action: string;
+	actor: string;
+	subject: string | null;
+	/** The signed proof as stored; older rows can hold older shapes. */
+	proof: Record<string, unknown> | null;
+	/** An ISO timestamp. */
+	createdAt: string;
 }
 
 /** The default layout for a paginated response */

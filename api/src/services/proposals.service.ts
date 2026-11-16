@@ -67,7 +67,11 @@ import {
 } from '../utils/pagination';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
-import { recordAccountEvent } from './account-events.service';
+import {
+	getProposalEvents,
+	recordAccountEvent,
+	type ProposalEvents,
+} from './account-events.service';
 import {
 	isSignerSetMember,
 	jwtHasSignerSetMemberAccess,
@@ -776,10 +780,10 @@ export const listProposals = async ({
 	);
 };
 
-// A proposal by its transaction digest, with its signer set. Public.
+// A proposal by digest, with its signer set and events. Public.
 export const getProposalByDigest = async (
 	digest: string,
-): Promise<ProposalTally> => {
+): Promise<ProposalTally & { events: ProposalEvents }> => {
 	if (!isValidTransactionDigest(digest))
 		throw new CommonError('InvalidDigest');
 
@@ -788,9 +792,10 @@ export const getProposalByDigest = async (
 
 	if (!proposal) throw new NotFoundError();
 
-	const multisig = await getSignerSet(
-		proposal.accountAddress,
-	);
+	const [multisig, events] = await Promise.all([
+		getSignerSet(proposal.accountAddress),
+		getProposalEvents(proposal.id),
+	]);
 
-	return tallyProposal(proposal, multisig);
+	return { ...tallyProposal(proposal, multisig), events };
 };

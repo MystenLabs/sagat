@@ -144,7 +144,20 @@
 				{
 					"address": "<address:2>",
 					"addedBy": "<address:1>",
-					"addedAt": "<timestamp>"
+					"addedAt": "<timestamp>",
+					"event": {
+						"id": "<eventId:0>",
+						"action": "proposer.added",
+						"actor": "<address:1>",
+						"subject": "<address:2>",
+						"proof": {
+							"kind": "proposer.add",
+							"expiry": "<timestamp>",
+							"version": 1,
+							"signature": "<proofSignature:0>"
+						},
+						"createdAt": "<timestamp>"
+					}
 				}
 			],
 			"totalMembers": 3,
@@ -631,6 +644,21 @@
 						"order": 2
 					}
 				]
+			},
+			"events": {
+				"created": {
+					"id": "<eventId:1>",
+					"action": "proposal.created",
+					"actor": "<address:1>",
+					"subject": "<digest:0>",
+					"proof": {
+						"kind": "proposal.create",
+						"version": 1,
+						"signature": "<signature:0>"
+					},
+					"createdAt": "<timestamp>"
+				},
+				"proposer": null
 			}
 		}
 	},
@@ -730,6 +758,33 @@
 						"order": 2
 					}
 				]
+			},
+			"events": {
+				"created": {
+					"id": "<eventId:2>",
+					"action": "proposal.created",
+					"actor": "<address:2>",
+					"subject": "<digest:1>",
+					"proof": {
+						"kind": "proposal.create",
+						"version": 1,
+						"signature": "<proofSignature:1>"
+					},
+					"createdAt": "<timestamp>"
+				},
+				"proposer": {
+					"id": "<eventId:0>",
+					"action": "proposer.added",
+					"actor": "<address:1>",
+					"subject": "<address:2>",
+					"proof": {
+						"kind": "proposer.add",
+						"expiry": "<timestamp>",
+						"version": 1,
+						"signature": "<proofSignature:0>"
+					},
+					"createdAt": "<timestamp>"
+				}
 			}
 		}
 	},

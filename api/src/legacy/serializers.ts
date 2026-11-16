@@ -10,7 +10,10 @@
  * keeping the original field names and order, and leaving out new columns.
  */
 
-import { type PublicProposal } from '@mysten/sagat';
+import {
+	type AccountEvent,
+	type PublicProposal,
+} from '@mysten/sagat';
 
 import type {
 	AccountProposer,
@@ -22,7 +25,14 @@ import type {
 	SignerSetOrigin,
 	SignerSetWithMembers,
 } from '../db/schema';
-import type { MultisigAccount } from '../services/multisig.service';
+import type {
+	AccountEventRecord,
+	ProposalEvents,
+} from '../services/account-events.service';
+import type {
+	MultisigAccount,
+	MultisigAccountWithProposerEvents,
+} from '../services/multisig.service';
 import type { PaginatedResponse } from '../utils/pagination';
 
 export type LegacyMultisig = {
@@ -78,6 +88,45 @@ export type LegacyProposalWithSignatures =
 		signatures: ProposalSignature[];
 	};
 
+// Added after the freeze (additive): an audit log event as stored, proof
+// included.
+export type LegacyAccountEvent = {
+	id: number;
+	action: string;
+	actor: string;
+	subject: string | null;
+	proof: unknown;
+	createdAt: Date;
+};
+
+const toLegacyAccountEvent = (
+	event: AccountEventRecord | null,
+): LegacyAccountEvent | null =>
+	event
+		? {
+				id: event.id,
+				action: event.action,
+				actor: event.actor,
+				subject: event.subject,
+				proof: event.proof,
+				createdAt: event.createdAt,
+			}
+		: null;
+
+// Typed as JSON sends it, like the SDK.
+const toPublicAccountEvent = (
+	event: AccountEventRecord | null,
+): AccountEvent | null => {
+	const legacy = toLegacyAccountEvent(event);
+	return (
+		legacy && {
+			...legacy,
+			proof: legacy.proof as AccountEvent['proof'],
+			createdAt: legacy.createdAt.toISOString(),
+		}
+	);
+};
+
 export const toLegacyMultisig = (
 	signerSet: SignerSet,
 	// Who created the multisig and when. Required so that every call site
@@ -105,6 +154,16 @@ export const toLegacyMultisigMember = (
 	label,
 });
 
+const toLegacyProposer = ({
+	address,
+	addedBy,
+	addedAt,
+}: LegacyMultisigProposer): LegacyMultisigProposer => ({
+	address,
+	addedBy,
+	addedAt,
+});
+
 // A legacy multisig is a signer set plus the proposers of the account with
 // the same address, its labels for the keys (by public key), and who
 // created it.
@@ -121,13 +180,21 @@ export const toLegacyMultisigWithMembers = ({
 			labels.get(member.publicKey) ?? null,
 		),
 	),
-	proposers: proposers.map((proposer) => ({
-		address: proposer.address,
-		addedBy: proposer.addedBy,
-		addedAt: proposer.addedAt,
-	})),
+	proposers: proposers.map(toLegacyProposer),
 	totalMembers: signerSet.totalMembers,
 	totalWeight: signerSet.totalWeight,
+});
+
+// `GET /multisig/:address` only: each proposer with its newest add or remove
+// event, null for proposers from before the audit log.
+export const toLegacyMultisigWithProposerEvents = (
+	multisig: MultisigAccountWithProposerEvents,
+) => ({
+	...toLegacyMultisigWithMembers(multisig),
+	proposers: multisig.proposers.map((proposer) => ({
+		...toLegacyProposer(proposer),
+		event: toLegacyAccountEvent(proposer.event),
+	})),
 });
 
 export const toLegacyProposal = (
@@ -151,14 +218,17 @@ export const toLegacyProposalWithSignatures = (
 	signatures: proposal.signatures,
 });
 
-// The public view of a proposal, by digest. The proposers are hidden on
-// purpose, as this is not public information worth sharing. The same goes
+// The public view of a proposal, by digest. The account's proposer list is
+// hidden on purpose, as this is not public information worth sharing; the
+// proposal carries only its own proposer's newest add or remove. The same goes
 // for key labels (`account_keys`): they are only ever returned on
 // authenticated routes. The multisig composition is public, so that is fine.
 export const toLegacyPublicProposal = (
 	proposal: ProposalWithSignatures,
 	signerSet: SignerSetWithMembers,
 	currentWeight: number,
+	// Added after the freeze (additive), as the last field.
+	events: ProposalEvents,
 ): PublicProposal => ({
 	...toLegacyProposalWithSignatures(proposal),
 	// What JSON makes of the Date anyway; the SDK types it as the string.
@@ -174,6 +244,10 @@ export const toLegacyPublicProposal = (
 			weight: member.weight,
 			order: member.order,
 		})),
+	},
+	events: {
+		created: toPublicAccountEvent(events.created),
+		proposer: toPublicAccountEvent(events.proposer),
 	},
 });
 

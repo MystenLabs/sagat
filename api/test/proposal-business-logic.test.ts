@@ -1030,6 +1030,72 @@ describe('Proposal Business Logic', () => {
 			).toHaveLength(2);
 		});
 
+		test('a proposer add or removal signature changes nothing when resent', async () => {
+			const { session, users, multisig } =
+				await framework.createVerifiedMultisig(2, 2);
+			const proposer = newUser().address;
+			// Ed25519 signs deterministically, so each call resends one signature.
+			const expiry = defaultExpiry();
+			const signedChange =
+				(
+					route: 'add-proposer' | 'remove-proposer',
+					signer: TestUser,
+				) =>
+				() =>
+					changeProposer(session, route, {
+						signer,
+						multisigAddress: multisig.address,
+						proposer,
+						expiry,
+					});
+			const proposers = async () =>
+				(
+					await session.client.getMultisig(multisig.address)
+				).proposers.map((p) => p.address);
+			const ok = { status: 200, body: { success: true } };
+
+			const add = signedChange('add-proposer', users[0]);
+			const remove = signedChange(
+				'remove-proposer',
+				users[0],
+			);
+			expect(await add()).toEqual(ok);
+			expect(await remove()).toEqual(ok);
+
+			expect(await add()).toEqual(ok);
+			expect(await proposers()).toEqual([]);
+
+			const reAdd = signedChange('add-proposer', users[1]);
+			expect(await reAdd()).toEqual(ok);
+			expect(await remove()).toEqual(ok);
+			expect(await proposers()).toEqual([proposer]);
+
+			const events = await listAccountEvents({
+				accountAddress: multisig.address,
+				callerKeys: [users[0].keypair.getPublicKey()],
+				subject: proposer,
+			});
+			expect(
+				events.map(({ action, actor }) => ({
+					action,
+					actor,
+				})),
+			).toEqual([
+				{
+					action: 'proposer.added',
+					actor: users[1].address,
+				},
+				{
+					action: 'proposer.removed',
+					actor: users[0].address,
+				},
+				{
+					action: 'proposer.added',
+					actor: users[0].address,
+				},
+			]);
+		});
+
 		test('add-proposer applies the proposer limit only to new proposers', async () => {
 			const { session, users, multisig } =
 				await framework.createVerifiedMultisig(2, 2);

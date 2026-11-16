@@ -70,7 +70,12 @@ import {
 } from '../utils/client';
 import { parsePublicKey } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
-import { recordAccountEvent } from './account-events.service';
+import {
+	getProposersWithLatestEvents,
+	recordAccountEvent,
+	type AccountEventAction,
+	type ProposerWithLatestEvent,
+} from './account-events.service';
 import { normalizeKeyLabels } from './account-keys.service';
 import {
 	expandSignerSetsWithMembers,
@@ -118,17 +123,25 @@ export type MultisigAccount = {
 	origin: SignerSetOrigin;
 };
 
+// A `MultisigAccount` whose proposers carry their newest add or remove event.
+export type MultisigAccountWithProposerEvents = Omit<
+	MultisigAccount,
+	'proposers'
+> & {
+	proposers: ProposerWithLatestEvent[];
+};
+
 // The multisig at `address`, for a caller holding one of its keys (accepted
-// or not). A signer set without the account's link row for its original
-// composition (a draft for another account) is not a multisig to legacy
-// clients.
+// or not), with its proposers' newest add or remove events. A signer set
+// without the account's link row for its original composition (a draft for
+// another account) is not a multisig to legacy clients.
 export const getMultisigAccount = async ({
 	address,
 	callerKeys,
 }: {
 	address: string;
 	callerKeys: PublicKey[];
-}): Promise<MultisigAccount> => {
+}): Promise<MultisigAccountWithProposerEvents> => {
 	if (
 		!(await jwtHasSignerSetMemberAccess(
 			address,
@@ -142,7 +155,7 @@ export const getMultisigAccount = async ({
 		await Promise.all([
 			SignerSetDataLoader.load(address),
 			getAccountOrigin(address),
-			AccountProposersDataLoader.load(address),
+			getProposersWithLatestEvents(address),
 			AccountKeyLabelsDataLoader.load(address),
 		]);
 	if (!signerSet || !origin) throw new NotFoundError();
@@ -924,6 +937,36 @@ const isCanonicalSuiAddress = (address: string) =>
 	isValidSuiAddress(address) &&
 	normalizeSuiAddress(address) === address;
 
+// Whether this signature is already in the log for `proposer` under `actions`.
+const isRecordedProposerSignature = async (
+	tx: DatabaseTransaction,
+	{
+		address,
+		proposer,
+		signature,
+		actions,
+	}: Pick<
+		ProposerChange,
+		'address' | 'proposer' | 'signature'
+	> & {
+		actions: AccountEventAction[];
+	},
+) => {
+	const [recorded] = await tx
+		.select({ id: SchemaAccountEvents.id })
+		.from(SchemaAccountEvents)
+		.where(
+			and(
+				eq(SchemaAccountEvents.accountAddress, address),
+				eq(SchemaAccountEvents.subject, proposer),
+				inArray(SchemaAccountEvents.action, actions),
+				sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
+			),
+		)
+		.limit(1);
+	return recorded !== undefined;
+};
+
 // Adds or re-confirms an account's external proposer, signed by an accepted member.
 export const addProposer = async ({
 	address,
@@ -959,6 +1002,17 @@ export const addProposer = async ({
 		// Serializes proposer adds for the account.
 		await lockAccount(tx, address);
 
+		// A signature already in the log changes nothing.
+		if (
+			await isRecordedProposerSignature(tx, {
+				address,
+				proposer,
+				signature,
+				actions: ['proposer.added'],
+			})
+		)
+			return;
+
 		const existingProposers =
 			await tx.query.SchemaAccountProposers.findMany({
 				columns: { address: true },
@@ -971,26 +1025,8 @@ export const addProposer = async ({
 			});
 
 		if (
-			existingProposers.some((p) => p.address === proposer)
+			!existingProposers.some((p) => p.address === proposer)
 		) {
-			// A resent signature records nothing new.
-			const [resent] = await tx
-				.select({ id: SchemaAccountEvents.id })
-				.from(SchemaAccountEvents)
-				.where(
-					and(
-						eq(SchemaAccountEvents.accountAddress, address),
-						eq(
-							SchemaAccountEvents.action,
-							'proposer.added',
-						),
-						eq(SchemaAccountEvents.subject, proposer),
-						sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
-					),
-				)
-				.limit(1);
-			if (resent) return;
-		} else {
 			if (
 				existingProposers.length >=
 				LIMITS.maxProposersPerMultisig
@@ -1055,6 +1091,19 @@ export const removeProposer = async ({
 		// First, as this touches proposals before recording takes the lock. Also
 		// serializes with proposal creation, which re-checks the proposer under it.
 		await lockAccount(tx, address);
+
+		if (
+			await isRecordedProposerSignature(tx, {
+				address,
+				proposer,
+				signature,
+				actions: [
+					'proposer.removed',
+					'proposer.removal_unmatched',
+				],
+			})
+		)
+			return;
 
 		// Cancel all pending transactions from the proposer.
 		const cancelled = await tx
