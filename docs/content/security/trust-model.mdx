@@ -7,7 +7,7 @@ description: How multisig works natively on Sui, what needs your signature, how 
 
 The service publishes no smart contract and creates no on-chain object of its own. The pod is a standard Sui multisig address, derived from the ordered public keys, their weights and the threshold. Anyone who knows those can derive the same address and use the pod with [other Sui tooling](https://sdk.mystenlabs.com/sui/cryptography/signers/multisig), without this service. The transfers the app builds are ordinary Sui transactions sent from the pod.
 
-The app and the API coordinate: they store proposals and signatures and show who has signed. The API only reads from the chain and never signs, submits or pays for a transaction. Gas is paid by the pod itself, and the API refuses a transaction whose gas is paid by anyone else.
+The app and the API coordinate: they store proposals and signatures and show who has signed. The API only reads from the chain and never signs, submits or pays for a transaction. Gas is paid by the pod itself, and the API refuses a transaction whose gas is paid by anyone else. Before you sign, the app also checks the parts of what the API returns that it can work out for itself, see [What the app checks](#what-the-app-checks).
 
 ## What needs your signature
 
@@ -23,6 +23,20 @@ The app asks for signatures through the Sui wallet standard, from whichever [wal
 Before you sign, the app shows a preview of the proposal’s stored transaction: a simulation with its balance changes, object changes and events, plus the transaction’s commands. If the simulation fails, the **Sign proposal** button reads **Sign anyway** instead. Your wallet is an independent second check, with its own preview of the same transaction.
 
 We recommend checking every transaction in two places before you sign it, the app’s preview and your wallet’s own preview, and making sure they agree. Rely on the transaction itself, not on the title: a proposal’s title is a note typed by the proposer and is not part of what is signed.
+
+### What the app checks
+
+The app checks a proposal against what it can work out for itself from the transaction bytes, the pod’s address and its signers’ public keys, so you rely less on the API’s word. It refuses to sign when:
+
+- the transaction bytes can’t be read
+- the transaction’s sender isn’t the pod
+- its gas is paid by an address other than the pod
+- the bytes’ digest isn’t the proposal’s, or isn’t the one in the link you opened
+- the pod’s signers and threshold don’t make up its address
+- your wallet isn’t one of the pod’s signers
+- a signature showing who proposed it doesn’t check out, see [Proposer confirmations](/security/proposer-confirmations)
+
+These checks run in your browser. They cover only what the API returns, not what it leaves out, and they don’t replace checking the transaction itself in the app’s preview and your wallet’s.
 
 ## What the service stores
 

@@ -15,6 +15,7 @@ import {
 	toBase64,
 } from '@mysten/sui/utils';
 
+import { docsUrl } from '../../app/src/lib/docs';
 import { randomAddress } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
@@ -290,6 +291,12 @@ test.describe('overview and signers', () => {
 		await expect(
 			card.getByTestId('proposers-empty'),
 		).toBeVisible();
+		await expect(
+			card.getByTestId('learn-more-link'),
+		).toHaveAttribute(
+			'href',
+			docsUrl('/guide/external-proposers#confirmations'),
+		);
 
 		// Adding signs a message with the wallet.
 		await card.getByTestId('add-proposer-button').click();

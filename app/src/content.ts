@@ -59,6 +59,7 @@ export const content = {
 			reject: 'Reject',
 			loadMore: 'Load more',
 			signAndExecute: 'Sign and execute',
+			learnMore: 'Learn more',
 		},
 		/** Field, row and column labels. */
 		fields: {

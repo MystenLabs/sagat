@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/card';
 import { Chip } from '@/components/ui/chip';
 import { CopyButton } from '@/components/ui/CopyButton';
+import { LearnMoreLink } from '@/components/ui/learn-more-link';
 import {
 	tableClass,
 	tableHeadRowClass,
@@ -40,6 +41,8 @@ import { AddProposerDialog } from './AddProposerDialog';
 import { RemoveProposerDialog } from './RemoveProposerDialog';
 
 const COPY = content.proposers;
+const CONFIRMATIONS_DOCS =
+	'/guide/external-proposers#confirmations';
 
 const PROOF_CHIP = {
 	unverified: {
@@ -147,7 +150,8 @@ export function ProposersSection({
 					className="text-13 text-muted-foreground"
 					data-testid="proposers-empty"
 				>
-					{COPY.empty} {COPY.explanation}
+					{COPY.empty} {COPY.explanation}{' '}
+					<LearnMoreLink path={CONFIRMATIONS_DOCS} />
 				</p>
 			) : (
 				<>
@@ -289,7 +293,8 @@ export function ProposersSection({
 						</tbody>
 					</table>
 					<p className="text-13 leading-normal text-foreground-secondary">
-						{COPY.explanation}
+						{COPY.explanation}{' '}
+						<LearnMoreLink path={CONFIRMATIONS_DOCS} />
 					</p>
 				</>
 			)}
