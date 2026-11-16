@@ -20,6 +20,7 @@ import { and, eq } from 'drizzle-orm';
 import { LIMITS } from '../src/constants/limits';
 import { db } from '../src/db';
 import {
+	SchemaAccountProposers,
 	SchemaAccounts,
 	SchemaProposals,
 	SchemaProposalSignatures,
@@ -27,6 +28,7 @@ import {
 import { AuthErrors, CommonErrors } from '../src/errors';
 import { ProposalByDigestLoader } from '../src/loaders/proposals.loader';
 import { SignerSetDataLoader } from '../src/loaders/signer-set.loader';
+import { listAccountEvents } from '../src/services/account-events.service';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -936,7 +938,7 @@ describe('Proposal Business Logic', () => {
 			});
 		});
 
-		test('add-proposer refuses a proposer that is already there', async () => {
+		test('add-proposer re-confirms a proposer that is already there', async () => {
 			const { session, users, multisig } =
 				await framework.createVerifiedMultisig(2, 2);
 			const proposer = newUser().address;
@@ -952,15 +954,34 @@ describe('Proposal Business Logic', () => {
 					multisigAddress: multisig.address,
 					proposer,
 				}),
-			).toEqual({
-				status: 400,
-				body: {
-					error: `${proposer} is already a proposer for this multisig`,
-				},
-			});
+			).toEqual({ status: 200, body: { success: true } });
+
+			expect(
+				await db
+					.select({
+						address: SchemaAccountProposers.address,
+					})
+					.from(SchemaAccountProposers)
+					.where(
+						eq(
+							SchemaAccountProposers.accountAddress,
+							multisig.address,
+						),
+					),
+			).toEqual([{ address: proposer }]);
+			const [reconfirmed, added, ...others] =
+				await listAccountEvents({
+					accountAddress: multisig.address,
+					callerKeys: [users[0].keypair.getPublicKey()],
+					action: 'proposer.added',
+					subject: proposer,
+				});
+			expect(others).toEqual([]);
+			expect(added.actor).toBe(users[0].address);
+			expect(reconfirmed.actor).toBe(users[1].address);
 		});
 
-		test('add-proposer checks the proposer limit before duplicates', async () => {
+		test('add-proposer applies the proposer limit only to new proposers', async () => {
 			const { session, users, multisig } =
 				await framework.createVerifiedMultisig(2, 2);
 			const proposers = Array.from(
@@ -981,15 +1002,15 @@ describe('Proposal Business Logic', () => {
 					proposer: newUser().address,
 				}),
 			).toEqual(proposerLimitResponse);
-			// At the limit, even a proposer that is already there gets the
-			// limit error, not the duplicate one.
+			// At the limit, a proposer that is already there can still be
+			// re-confirmed.
 			expect(
 				await changeProposer(session, 'add-proposer', {
 					signer: users[0],
 					multisigAddress: multisig.address,
 					proposer: proposers[0],
 				}),
-			).toEqual(proposerLimitResponse);
+			).toEqual({ status: 200, body: { success: true } });
 		});
 
 		test('remove-proposer checks the expiry, then the address, then membership', async () => {

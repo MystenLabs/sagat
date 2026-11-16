@@ -345,11 +345,11 @@ describe('recording in the change transaction', () => {
 		);
 		await expect(
 			session.addProposer(
-				users[0],
+				newUser(),
 				proposer,
 				multisig.address,
 			),
-		).rejects.toThrow('is already a proposer');
+		).rejects.toThrow(AuthErrors.NotAMultisigMember);
 
 		expect(
 			await eventsOf(multisig.address, users[0]),
