@@ -1084,7 +1084,7 @@ export const content = {
 				stillFails: (reason: string) =>
 					`It still fails after a second simulation${reason}.`,
 			},
-			/** In place of Sign when the bytes fail a check, by `ProposalIntegrityFailure`. */
+			/** In place of Sign when a check fails, by `ProposalIntegrityFailure`, or `proposer` for an invalid proposer proof. */
 			refused: {
 				title: 'Can’t sign this proposal',
 				unreadable: 'The transaction couldn’t be read.',
@@ -1093,7 +1093,15 @@ export const content = {
 					'The transaction’s gas is paid by an address other than this pod.',
 				digest:
 					'The transaction doesn’t match the proposal’s digest.',
+				proposer:
+					'The proposer’s confirmation doesn’t check out.',
 				...SIGNERS_REFUSED,
+			},
+			/** Above Sign when no signer has confirmed an external proposer. */
+			proposerNotConfirmed: {
+				title: 'Proposer not confirmed',
+				body: (proposer: string) =>
+					`No signer has confirmed ${proposer} as an external proposer since signatures were kept. Check the transaction before you sign.`,
 			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */
@@ -1482,7 +1490,7 @@ export const content = {
 		digestCopied: 'Digest copied',
 		proposerAdded: 'External proposer added',
 		proposerAddFailed: 'Failed to add proposer',
-		proposerReconfirmed: 'Proposer re-confirmed.',
+		proposerReconfirmed: 'Proposer re-confirmed',
 		proposerRemoved: 'External proposer removed',
 		proposerRemoveFailed: 'Failed to remove proposer',
 		signatureCopied: 'Signature copied',

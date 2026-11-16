@@ -1,12 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	PersonalMessages,
+	type PublicProposal,
+} from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { toBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
-import { verifyProposers } from '../src/lib/proposer-proofs';
+import {
+	checkProposalProposer,
+	verifyProposers,
+} from '../src/lib/proposer-proofs';
 
 async function accountWithProposer() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
@@ -18,7 +25,8 @@ async function accountWithProposer() {
 			weight: 1,
 		})),
 	}).toSuiAddress();
-	const proposer = new Ed25519Keypair().toSuiAddress();
+	const proposerKey = new Ed25519Keypair();
+	const proposer = proposerKey.toSuiAddress();
 	const expiry = '2026-11-16T10:00:00.000Z';
 	const { signature } = await keys[0].signPersonalMessage(
 		new TextEncoder().encode(
@@ -30,8 +38,10 @@ async function accountWithProposer() {
 		),
 	);
 	return {
+		keys,
 		signer: keys[0].toSuiAddress(),
 		proposer,
+		proposerKey,
 		account: {
 			address,
 			threshold,
@@ -84,4 +94,100 @@ test('signers that do not make up the account confirm no one', async () => {
 	).get(proposer);
 
 	expect(proof?.status).not.toBe('verified');
+});
+
+/** A proposal from the account's external proposer, with both events. */
+async function externalProposal(
+	signedBy?: Ed25519Keypair,
+): Promise<PublicProposal> {
+	const { account, proposer, proposerKey } =
+		await accountWithProposer();
+	const bytes = new Uint8Array([1, 2, 3, 4]);
+	const digest = 'digest';
+	const { signature } = await (
+		signedBy ?? proposerKey
+	).signTransaction(bytes);
+	return {
+		digest,
+		transactionBytes: toBase64(bytes),
+		proposerAddress: proposer,
+		multisigAddress: account.address,
+		multisig: {
+			address: account.address,
+			threshold: account.threshold,
+			members: account.members,
+		},
+		events: {
+			created: {
+				id: 2,
+				action: 'proposal.created',
+				actor: proposer,
+				subject: digest,
+				proof: {
+					kind: 'proposal.create',
+					version: 1,
+					signature,
+				},
+				createdAt: '2026-11-16T10:00:00.000Z',
+			},
+			proposer: account.proposers[0].event,
+		},
+	} as PublicProposal;
+}
+
+test('a proposal signed by a key other than its proposer is invalid', async () => {
+	const proposal = await externalProposal(
+		new Ed25519Keypair(),
+	);
+
+	expect(await checkProposalProposer(proposal)).toBe(
+		'invalid',
+	);
+});
+
+test('an external proposer without a confirmation is unconfirmed', async () => {
+	const proposal = await externalProposal();
+
+	expect(
+		await checkProposalProposer({
+			...proposal,
+			events: {
+				created: proposal.events!.created,
+				proposer: null,
+			},
+		}),
+	).toBe('unconfirmed');
+});
+
+test('a proposal from before the audit log with a confirmed proposer is not flagged', async () => {
+	const proposal = await externalProposal();
+
+	expect(
+		await checkProposalProposer({
+			...proposal,
+			events: {
+				created: null,
+				proposer: proposal.events!.proposer,
+			},
+		}),
+	).toBeNull();
+});
+
+test('a member proposer is not flagged', async () => {
+	const { account, keys } = await accountWithProposer();
+
+	expect(
+		await checkProposalProposer({
+			digest: 'digest',
+			transactionBytes: toBase64(new Uint8Array([1])),
+			proposerAddress: keys[1].toSuiAddress(),
+			multisigAddress: account.address,
+			multisig: {
+				address: account.address,
+				threshold: account.threshold,
+				members: account.members,
+			},
+			events: { created: null, proposer: null },
+		} as PublicProposal),
+	).toBeNull();
 });

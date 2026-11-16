@@ -14,26 +14,26 @@ import {
 import { useState } from 'react';
 
 import { content } from '@/content';
+import { proposalProposerQuery } from '@/hooks/useProposerProofs';
+import { checkProposalIntegrity } from '@/lib/proposal-integrity';
 import {
-	checkProposalIntegrity,
-	type IntegrityProposal,
-} from '@/lib/proposal-integrity';
-import { signatureAddedMessage } from '@/lib/proposalUtils';
+	isExternalProposer,
+	signatureAddedMessage,
+} from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
 import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
-type SignProposalParams = IntegrityProposal &
-	Pick<PublicProposal, 'id' | 'totalWeight'> & {
-		/** The digest the viewer opened, from the page's URL. */
-		openedDigest: string;
-	};
+type SignProposalParams = PublicProposal & {
+	/** The digest the viewer opened, from the page's URL. */
+	openedDigest: string;
+};
 
 /**
  * Signs a proposal's transaction with the wallet and adds the signature,
- * refusing bytes that fail `checkProposalIntegrity` before the wallet
- * sees them. Resolves with the vote's tally and the signature itself, so a caller
+ * refusing bytes that fail `checkProposalIntegrity`, or an external
+ * proposer whose proof is invalid, before the wallet sees them. Resolves with the vote's tally and the signature itself, so a caller
  * can execute at once without waiting for the proposal to refetch.
  */
 export function useSignProposal() {
@@ -58,6 +58,15 @@ export function useSignProposal() {
 			if (failure)
 				throw new Error(
 					content.proposal.approvals.refused[failure],
+				);
+			if (
+				isExternalProposer(proposal) &&
+				(await queryClient.fetchQuery(
+					proposalProposerQuery(proposal),
+				)) === 'invalid'
+			)
+				throw new Error(
+					content.proposal.approvals.refused.proposer,
 				);
 
 			// Create transaction from built bytes for signing

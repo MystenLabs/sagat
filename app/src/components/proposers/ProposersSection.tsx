@@ -197,7 +197,7 @@ export function ProposersSection({
 										data-status={proof?.status}
 									>
 										<td className="px-3 py-2.5">
-											<span className="flex items-center gap-1 font-mono text-13">
+											<span className="flex items-center gap-1 font-mono text-13 whitespace-nowrap">
 												<ShortAddress
 													address={proposer.address}
 												/>
