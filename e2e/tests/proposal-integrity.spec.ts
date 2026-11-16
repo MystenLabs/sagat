@@ -14,6 +14,7 @@ import {
 	MIST_PER_SUI,
 	toBase64,
 } from '@mysten/sui/utils';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 
 import { newProposalPath } from '../../app/src/lib/new-proposal';
 import { type Actor } from '../support/actor';
@@ -369,6 +370,26 @@ test.describe('proposal integrity', () => {
 					},
 				};
 			},
+		);
+		await expectRefused(opened, 'proposer');
+	});
+
+	test('refuses to sign an external proposal relabelled as a member’s', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const opened = await openExternalProposal(
+			{ createActor, createIdentity, chain },
+			// Alice named as the proposer, with the external proposer's created event.
+			({ proposal, bob }) => ({
+				...proposal,
+				proposerAddress: publicKeyFromSuiBytes(
+					proposal.multisig.members.find(
+						(m) => m.publicKey !== bob.publicKey,
+					)!.publicKey,
+				).toSuiAddress(),
+			}),
 		);
 		await expectRefused(opened, 'proposer');
 	});

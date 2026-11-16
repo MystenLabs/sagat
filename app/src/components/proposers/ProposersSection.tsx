@@ -86,11 +86,13 @@ export function ProposersSection({
 		() => memberLabels(multisig.members),
 		[multisig.members],
 	);
-	const proofs = useProposerProofs(multisig);
+	const { proofs, trusted } = useProposerProofs(multisig);
 	const reconfirm = useAddProposer(multisig.address, {
 		successMessage: content.toasts.proposerReconfirmed,
 	});
+	// Re-confirming can't help when the signers themselves aren't trusted.
 	const canReconfirm = (address: string) =>
+		trusted &&
 		proofs?.get(address)?.status === 'unverified';
 	const anyReconfirm = proposers.some((p) =>
 		canReconfirm(p.address),

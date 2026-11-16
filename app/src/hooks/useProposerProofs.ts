@@ -3,8 +3,9 @@
 
 import { type PublicProposal } from '@mysten/sagat';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
-import { isExternalProposer } from '@/lib/proposalUtils';
+import { rebuildAccount } from '@/lib/proposal-integrity';
 import {
 	checkProposalProposer,
 	verifyProposers,
@@ -12,10 +13,17 @@ import {
 } from '@/lib/proposer-proofs';
 import { QueryKeys } from '@/lib/queryKeys';
 
-/** Each proposer's proof by address; undefined while checking or without events. */
+/**
+ * Each proposer's proof by address, undefined while checking or without
+ * events; `trusted` is false when the signers don't make up the account.
+ */
 export function useProposerProofs(
 	account: ProposerProofAccount,
 ) {
+	const trusted = useMemo(
+		() => rebuildAccount(account, account.address) !== null,
+		[account],
+	);
 	// The account list leaves `event` out; only the account itself has it.
 	const hasEvents = account.proposers.every(
 		(proposer) => proposer.event !== undefined,
@@ -32,7 +40,7 @@ export function useProposerProofs(
 		enabled: hasEvents,
 		staleTime: Infinity,
 	});
-	return hasEvents ? data : undefined;
+	return { proofs: hasEvents ? data : undefined, trusted };
 }
 
 /** `checkProposalProposer` as a query, shared by the page and Sign. */
@@ -54,17 +62,15 @@ export function proposalProposerQuery(
 	};
 }
 
-/** The proposal's `ProposerCheck`; `pending` until an external proposer's resolves. */
+/** The proposal's `ProposerCheck`; `pending` until it resolves. */
 export function useProposalProposerCheck(
 	proposal: PublicProposal,
 	{ enabled }: { enabled: boolean },
 ) {
-	const external = isExternalProposer(proposal);
 	const { data } = useQuery({
 		...proposalProposerQuery(proposal),
-		enabled: enabled && external,
+		enabled,
 	});
-	if (!external) return { check: null, pending: false };
 	return {
 		check: data ?? null,
 		pending: data === undefined,

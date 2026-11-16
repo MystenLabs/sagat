@@ -16,10 +16,7 @@ import { useState } from 'react';
 import { content } from '@/content';
 import { proposalProposerQuery } from '@/hooks/useProposerProofs';
 import { checkProposalIntegrity } from '@/lib/proposal-integrity';
-import {
-	isExternalProposer,
-	signatureAddedMessage,
-} from '@/lib/proposalUtils';
+import { signatureAddedMessage } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 
 import { apiClient } from '../lib/api';
@@ -32,7 +29,7 @@ type SignProposalParams = PublicProposal & {
 
 /**
  * Signs a proposal's transaction with the wallet and adds the signature,
- * refusing bytes that fail `checkProposalIntegrity`, or an invalid external
+ * refusing bytes that fail `checkProposalIntegrity`, or an invalid
  * proposer, before the wallet sees them. Resolves with the vote's tally and
  * the signature itself, so a caller can execute at once without waiting for
  * the proposal to refetch.
@@ -61,7 +58,6 @@ export function useSignProposal() {
 					content.proposal.approvals.refused[failure],
 				);
 			if (
-				isExternalProposer(proposal) &&
 				(await queryClient.fetchQuery(
 					proposalProposerQuery(proposal),
 				)) === 'invalid'

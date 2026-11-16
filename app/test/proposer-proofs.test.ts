@@ -12,6 +12,7 @@ import {
 	TransactionDataBuilder,
 } from '@mysten/sui/transactions';
 import { toBase58, toBase64 } from '@mysten/sui/utils';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 import { expect, test } from 'vitest';
 
 import {
@@ -160,6 +161,36 @@ test('a proposal signed by a key other than its proposer is invalid', async () =
 	expect(await checkProposalProposer(proposal)).toBe(
 		'invalid',
 	);
+});
+
+test('a proposal claiming a member as proposer, signed by someone else, is invalid', async () => {
+	const proposal = await externalProposal();
+	const member = publicKeyFromSuiBytes(
+		proposal.multisig.members[0].publicKey,
+	).toSuiAddress();
+	const created = proposal.events!.created!;
+
+	expect(
+		await checkProposalProposer({
+			...proposal,
+			proposerAddress: member,
+			events: {
+				...proposal.events!,
+				created: { ...created, actor: member },
+			},
+		}),
+	).toBe('invalid');
+});
+
+test('a proposal whose signers do not make up its account is not confirmed', async () => {
+	const proposal = await externalProposal();
+
+	expect(
+		await checkProposalProposer({
+			...proposal,
+			multisig: { ...proposal.multisig, threshold: 2 },
+		}),
+	).toBe('unconfirmed');
 });
 
 test('an external proposer without a confirmation is unconfirmed', async () => {
