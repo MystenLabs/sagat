@@ -466,6 +466,19 @@ test.describe('overview and signers', () => {
 			`Re-confirm ${formatAddress(payments.address)}`,
 		);
 		await reconfirm.click();
+		// Re-confirming signs only from the add dialog, prefilled.
+		const add = page.getByRole('dialog', {
+			name: 'Add external proposer',
+		});
+		await expect(
+			add.getByLabel('Address', { exact: true }),
+		).toHaveValue(payments.address);
+		await add
+			.getByRole('button', {
+				name: 'Add proposer',
+				exact: true,
+			})
+			.click();
 		await expect(item).toHaveAttribute(
 			'data-status',
 			'verified',

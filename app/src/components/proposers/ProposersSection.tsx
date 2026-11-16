@@ -30,7 +30,6 @@ import {
 	TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { content } from '@/content';
-import { useAddProposer } from '@/hooks/useAddProposer';
 import { useProposerProofs } from '@/hooks/useProposerProofs';
 import { accountName } from '@/lib/account-name';
 import { formatDate } from '@/lib/dates';
@@ -64,6 +63,7 @@ export function ProposersSection({
 	multisig,
 	currentAddress,
 	checkProofs,
+	openedAddress,
 	className,
 }: {
 	multisig: Pick<
@@ -81,6 +81,8 @@ export function ProposersSection({
 	currentAddress: string | undefined;
 	/** Whether `multisig` is the account's own response, the one with proposer events. */
 	checkProofs: boolean;
+	/** The account the viewer opened, from the route. */
+	openedAddress: string;
 	className?: string;
 }) {
 	const { proposers } = multisig;
@@ -91,9 +93,7 @@ export function ProposersSection({
 	);
 	const { proofs, trusted } = useProposerProofs(multisig, {
 		enabled: checkProofs,
-	});
-	const reconfirm = useAddProposer(multisig.address, {
-		successMessage: content.toasts.proposerReconfirmed,
+		openedAddress,
 	});
 	// Re-confirming can't help when the signers themselves aren't trusted.
 	const canReconfirm = (address: string) =>
@@ -103,6 +103,12 @@ export function ProposersSection({
 		canReconfirm(p.address),
 	);
 	const [adding, setAdding] = useState(false);
+	// Re-confirming opens the add dialog with the proposer's address.
+	const [addingAddress, setAddingAddress] = useState('');
+	const openAdd = (address: string) => {
+		setAddingAddress(address);
+		setAdding(true);
+	};
 	// The address outlives the dialog's open state, so the dialog keeps its
 	// content while it animates out.
 	const [removing, setRemoving] = useState(false);
@@ -124,7 +130,7 @@ export function ProposersSection({
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={() => setAdding(true)}
+					onClick={() => openAdd('')}
 					className="ml-auto max-sm:size-7 max-sm:px-0"
 					data-testid="add-proposer-button"
 				>
@@ -236,17 +242,7 @@ export function ProposersSection({
 													isYou={isYou}
 												/>
 											</span>
-											{chip && (
-												<ProofChip
-													chip={chip}
-													tooltip={
-														trusted
-															? chip.tooltip
-															: COPY.status
-																	.unverifiedUntrustedTooltip
-													}
-												/>
-											)}
+											{chip && <ProofChip chip={chip} />}
 										</td>
 										<td className="px-1.5 py-1.5 text-right whitespace-nowrap sm:px-3">
 											{canReconfirm(proposer.address) && (
@@ -254,11 +250,8 @@ export function ProposersSection({
 													variant="ghost"
 													size="sm"
 													onClick={() =>
-														reconfirm.mutate(
-															proposer.address,
-														)
+														openAdd(proposer.address)
 													}
-													disabled={reconfirm.isPending}
 													aria-label={COPY.reconfirmLabel(
 														short,
 													)}
@@ -306,6 +299,7 @@ export function ProposersSection({
 				onOpenChange={setAdding}
 				multisigAddress={multisig.address}
 				accountName={name}
+				initialAddress={addingAddress}
 			/>
 			<RemoveProposerDialog
 				open={removing}
@@ -320,10 +314,8 @@ export function ProposersSection({
 
 function ProofChip({
 	chip,
-	tooltip,
 }: {
 	chip: (typeof PROOF_CHIP)[keyof typeof PROOF_CHIP];
-	tooltip: string;
 }) {
 	return (
 		<TooltipProvider delay={150}>
@@ -342,7 +334,7 @@ function ProofChip({
 					{chip.label}
 				</TooltipTrigger>
 				<TooltipContent className="max-w-xs">
-					{tooltip}
+					{chip.tooltip}
 				</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>

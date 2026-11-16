@@ -20,10 +20,6 @@ const SIGNERS_REFUSED = {
 	notSigner: 'Your wallet isn’t one of this pod’s signers.',
 };
 
-/** An unverified proposer's tooltip, before how to fix it. */
-const NO_PROPOSER_SIGNATURE =
-	'No signer’s signature is on record for this proposer.';
-
 /** An empty proposals tab, under its title. */
 const IN_THIS_STATE =
 	'Proposals in this state show up here.';
@@ -1205,9 +1201,8 @@ export const content = {
 		confirmedBy: 'Confirmed by',
 		status: {
 			unverified: 'Unverified',
-			unverifiedTooltip: `${NO_PROPOSER_SIGNATURE} Any signer can re-confirm it.`,
-			/** When the signers don't make up the pod, so re-confirming can't help. */
-			unverifiedUntrustedTooltip: NO_PROPOSER_SIGNATURE,
+			unverifiedTooltip:
+				'No signer’s signature is on record for this proposer.',
 			invalid: 'Doesn’t check out',
 			invalidTooltip:
 				'This proposer’s signature doesn’t match. Remove it if you don’t recognize it.',
@@ -1494,7 +1489,6 @@ export const content = {
 		digestCopied: 'Digest copied',
 		proposerAdded: 'External proposer added',
 		proposerAddFailed: 'Failed to add proposer',
-		proposerReconfirmed: 'Proposer re-confirmed',
 		proposerRemoved: 'External proposer removed',
 		proposerRemoveFailed: 'Failed to remove proposer',
 		signatureCopied: 'Signature copied',

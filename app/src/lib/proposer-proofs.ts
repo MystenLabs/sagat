@@ -13,16 +13,31 @@ import {
 	rebuildAccount,
 	type AccountSigners,
 } from './proposal-integrity';
+import { sameAddress } from './sui-utils';
 
 export type ProposerProofAccount = AccountSigners &
 	Pick<MultisigWithMembers, 'address' | 'proposers'>;
 
-/** Each proposer's proof from their newest add or remove, keyed by address. */
+/** Whether `account` is `openedAddress` and its signers make up that address. */
+export function trustsSigners(
+	account: ProposerProofAccount,
+	openedAddress: string,
+) {
+	return (
+		sameAddress(account.address, openedAddress) &&
+		rebuildAccount(account, account.address) !== null
+	);
+}
+
+/**
+ * Each proposer's proof from their newest add or remove, keyed by address.
+ * `openedAddress` is the account the viewer opened, from the route.
+ */
 export async function verifyProposers(
 	account: ProposerProofAccount,
+	openedAddress: string,
 ): Promise<Map<string, ProofResult>> {
-	// Members vouch only when they make up the account's address.
-	if (!rebuildAccount(account, account.address))
+	if (!trustsSigners(account, openedAddress))
 		return new Map(
 			account.proposers.map((proposer) => [
 				proposer.address,

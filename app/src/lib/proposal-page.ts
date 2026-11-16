@@ -85,10 +85,7 @@ const addressOf = (publicKey: string) =>
 	validatePublicKey(publicKey).address ?? null;
 
 /** A key's label, else its short address. */
-export function nameOf(
-	address: string | null,
-	labels: Labels,
-) {
+function nameOf(address: string | null, labels: Labels) {
 	if (!address) return content.common.unknownKey;
 	return labels.get(address) || formatAddress(address);
 }

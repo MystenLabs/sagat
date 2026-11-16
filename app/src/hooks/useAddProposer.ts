@@ -24,7 +24,6 @@ export function useAddProposer(
 	multisigAddress: string,
 	options?: {
 		onSuccess?: () => void;
-		successMessage?: string;
 	},
 ) {
 	const queryClient = useQueryClient();
@@ -62,10 +61,7 @@ export function useAddProposer(
 			queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisig, multisigAddress],
 			});
-			toast.success(
-				options?.successMessage ??
-					content.toasts.proposerAdded,
-			);
+			toast.success(content.toasts.proposerAdded);
 			options?.onSuccess?.();
 		},
 		onError: (error) => {

@@ -83,9 +83,9 @@ test('a signer of the account confirms a proposer', async () => {
 	const { account, proposer, signer } =
 		await accountWithProposer();
 
-	const proof = (await verifyProposers(account)).get(
-		proposer,
-	);
+	const proof = (
+		await verifyProposers(account, account.address)
+	).get(proposer);
 
 	expect(proof?.status).toBe('verified');
 	expect(proof?.signer).toBe(signer);
@@ -95,7 +95,21 @@ test('signers that do not make up the account confirm no one', async () => {
 	const { account, proposer } = await accountWithProposer();
 
 	const proof = (
-		await verifyProposers({ ...account, threshold: 2 })
+		await verifyProposers(
+			{ ...account, threshold: 2 },
+			account.address,
+		)
+	).get(proposer);
+
+	expect(proof?.status).toBe('unverified');
+});
+
+test('signers of an account other than the one opened confirm no one', async () => {
+	const { account, proposer } = await accountWithProposer();
+	const opened = (await accountWithProposer()).account;
+
+	const proof = (
+		await verifyProposers(account, opened.address)
 	).get(proposer);
 
 	expect(proof?.status).toBe('unverified');
