@@ -234,22 +234,7 @@ const PROPOSER_ACTIONS: AccountEventAction[] = [
 	'proposer.removed',
 ];
 
-const latestEventWhere = (where: ReturnType<typeof and>) =>
-	db
-		.select({
-			id: SchemaAccountEvents.id,
-			action: SchemaAccountEvents.action,
-			actor: SchemaAccountEvents.actor,
-			subject: SchemaAccountEvents.subject,
-			proof: SchemaAccountEvents.proof,
-			createdAt: SchemaAccountEvents.createdAt,
-		})
-		.from(SchemaAccountEvents)
-		.where(where)
-		.orderBy(desc(SchemaAccountEvents.id))
-		.limit(1);
-
-// A lateral subquery's columns, to select them as one nullable object.
+// An event's columns, from the table or a lateral subquery (as one nullable object).
 const fieldsOf = <
 	Fields extends Record<keyof AccountEventRecord, unknown>,
 >(
@@ -262,6 +247,14 @@ const fieldsOf = <
 	proof: event.proof,
 	createdAt: event.createdAt,
 });
+
+const latestEventWhere = (where: ReturnType<typeof and>) =>
+	db
+		.select(fieldsOf(SchemaAccountEvents))
+		.from(SchemaAccountEvents)
+		.where(where)
+		.orderBy(desc(SchemaAccountEvents.id))
+		.limit(1);
 
 // The newest add or remove of `proposer` on `account`, as a lateral subquery.
 const latestProposerEvent = (

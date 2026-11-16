@@ -1565,6 +1565,42 @@ describe('events on the legacy routes', () => {
 		});
 	});
 
+	test('a proposal by a member whose address was removed as a proposer carries no proposer event', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		const [remover, member] = users;
+		await session.proposeTransfer(member, multisig.address);
+		await session.removeProposer(
+			remover,
+			member.address,
+			multisig.address,
+		);
+		const { digest } = await session.proposeTransfer(
+			member,
+			multisig.address,
+		);
+
+		const [unmatched] = await eventsOf(
+			multisig.address,
+			remover,
+			'proposer.removal_unmatched',
+		);
+		expect(unmatched.subject).toBe(member.address);
+		const [created] = await eventsOf(
+			multisig.address,
+			remover,
+			'proposal.created',
+		);
+		expect(created.subject).toBe(digest);
+		const { events } = await framework
+			.createSession()
+			.client.getProposalByDigest(digest);
+		expect(events).toEqual({
+			created: asReturned(created),
+			proposer: null,
+		});
+	});
+
 	test('a newer add of the same proposer on another account does not show on this one', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
