@@ -22,7 +22,6 @@ export {
 	verifyProposer,
 	type ProofResult,
 	type ProofStatus,
-	type ProposalProofResult,
 	type TrustedMembers,
 } from './verify.js';
 

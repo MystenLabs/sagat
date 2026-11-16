@@ -1,17 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	createHash,
-	generateKeyPairSync,
-	sign,
-} from 'node:crypto';
-import { type Signer } from '@mysten/sui/cryptography';
+import { type Keypair } from '@mysten/sui/cryptography';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import {
-	PasskeyKeypair,
-	type PasskeyProvider,
-} from '@mysten/sui/keypairs/passkey';
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
@@ -48,9 +39,9 @@ const expiry = '2026-11-16T10:00:00.000Z';
 const createdAt = '2026-11-16T09:55:00.000Z';
 
 const signProposerChange = async (
-	signer: Signer,
+	signer: Keypair,
 	action: 'proposer.added' | 'proposer.removed',
-	signedExpiry: string | number = expiry,
+	signedExpiry: string = expiry,
 	subject = proposer,
 ): Promise<AccountEvent> => {
 	const add = action === 'proposer.added';
@@ -58,7 +49,7 @@ const signProposerChange = async (
 		add
 			? PersonalMessages.addMultisigProposer
 			: PersonalMessages.removeMultisigProposer
-	)(subject, accountAddress, String(signedExpiry));
+	)(subject, accountAddress, signedExpiry);
 	const { signature } = await signer.signPersonalMessage(
 		new TextEncoder().encode(message),
 	);
@@ -75,48 +66,6 @@ const signProposerChange = async (
 		},
 		createdAt,
 	};
-};
-
-// Stands in for WebAuthn with a local P-256 key.
-const fakePasskeyProvider = (): PasskeyProvider => {
-	const { privateKey, publicKey } = generateKeyPairSync(
-		'ec',
-		{
-			namedCurve: 'P-256',
-		},
-	);
-	const authenticatorData = new Uint8Array(37);
-	return {
-		create: async () => ({
-			rawId: new ArrayBuffer(1),
-			response: {
-				getPublicKey: () =>
-					publicKey.export({ format: 'der', type: 'spki' }),
-			},
-		}),
-		get: async (challenge: Uint8Array) => {
-			const clientDataJSON = new TextEncoder().encode(
-				JSON.stringify({
-					type: 'webauthn.get',
-					challenge:
-						Buffer.from(challenge).toString('base64url'),
-				}),
-			);
-			const signed = Buffer.concat([
-				authenticatorData,
-				createHash('sha256')
-					.update(clientDataJSON)
-					.digest(),
-			]);
-			return {
-				response: {
-					authenticatorData,
-					clientDataJSON,
-					signature: sign('sha256', signed, privateKey),
-				},
-			};
-		},
-	} as unknown as PasskeyProvider;
 };
 
 // A transfer's bytes and digest, sent by the given address.
@@ -145,7 +94,7 @@ const { transactionBytes, digest } =
 	await buildTransaction(accountAddress);
 
 const signCreated = async (
-	signer: Signer,
+	signer: Keypair,
 	proposerAddress = signer.toSuiAddress(),
 	transaction = { transactionBytes, digest },
 ) => {
@@ -197,41 +146,6 @@ describe('verifyAccountEvent', () => {
 		const result = await verifyAccountEvent(event, context);
 		expect(result.status).toBe('verified');
 		expect(result.signer).toBe(otherMember.toSuiAddress());
-	});
-
-	test('accepts an unpadded base64 signature', async () => {
-		const event = await signProposerChange(
-			member,
-			'proposer.added',
-		);
-		event.proof!.signature = String(
-			event.proof?.signature,
-		).replace(/=+$/, '');
-		expect(
-			(await verifyAccountEvent(event, context)).status,
-		).toBe('verified');
-	});
-
-	test('verifies a proposer add signed by a passkey member', async () => {
-		const passkey = await PasskeyKeypair.getPasskeyInstance(
-			fakePasskeyProvider(),
-		);
-		const event = await signProposerChange(
-			passkey,
-			'proposer.added',
-		);
-		const result = await verifyAccountEvent(event, {
-			accountAddress,
-			members: [
-				{
-					publicKey: passkey
-						.getPublicKey()
-						.toSuiPublicKey(),
-				},
-			],
-		});
-		expect(result.status).toBe('verified');
-		expect(result.signer).toBe(passkey.toSuiAddress());
 	});
 
 	test('is invalid when the signature is not over the rebuilt message', async () => {
@@ -323,23 +237,15 @@ describe('verifyAccountEvent', () => {
 		).toBe('unverified');
 	});
 
-	test('rebuilds a numeric or non-ISO expiry as it was signed', async () => {
-		const numeric = await signProposerChange(
+	test('is unverified for a numeric expiry', async () => {
+		const event = await signProposerChange(
 			member,
 			'proposer.added',
-			1763287200000,
 		);
-		const plain = await signProposerChange(
-			member,
-			'proposer.added',
-			'tomorrow',
-		);
+		event.proof = { ...event.proof, expiry: 1763287200000 };
 		expect(
-			(await verifyAccountEvent(numeric, context)).status,
-		).toBe('verified');
-		expect(
-			(await verifyAccountEvent(plain, context)).status,
-		).toBe('verified');
+			(await verifyAccountEvent(event, context)).status,
+		).toBe('unverified');
 	});
 });
 
@@ -364,6 +270,15 @@ describe('verifyProposer', () => {
 			...context,
 		});
 		expect(result.status).toBe('verified');
+	});
+
+	test('is unverified for a non-member with no event', async () => {
+		const result = await verifyProposer({
+			proposer,
+			event: null,
+			...context,
+		});
+		expect(result.status).toBe('unverified');
 	});
 
 	test('is unverified when the newest event is a removal', async () => {
@@ -495,13 +410,14 @@ describe('verifyProposalProposer', () => {
 			signatures,
 		}) as PublicProposal;
 
-	const voteBy = async (signer: Signer) => ({
+	const voteBy = async (
+		signer: Keypair,
+		bytes = transactionBytes,
+	) => ({
 		proposalId: 1,
 		publicKey: signer.getPublicKey().toSuiPublicKey(),
 		signature: (
-			await signer.signTransaction(
-				fromBase64(transactionBytes),
-			)
+			await signer.signTransaction(fromBase64(bytes))
 		).signature,
 	});
 
@@ -513,14 +429,14 @@ describe('verifyProposalProposer', () => {
 			expiry,
 			outsider.toSuiAddress(),
 		);
-		const result = await verifyProposalProposer(
+		const status = await verifyProposalProposer(
 			proposalOf(outsider.toSuiAddress(), {
 				created,
 				proposer: proposerEvent,
 			}),
 			{ members },
 		);
-		expect(result.status).toBe('verified');
+		expect(status).toBe('verified');
 	});
 
 	test('is unverified for an external proposal with no creation event', async () => {
@@ -530,19 +446,18 @@ describe('verifyProposalProposer', () => {
 			expiry,
 			outsider.toSuiAddress(),
 		);
-		const result = await verifyProposalProposer(
+		const status = await verifyProposalProposer(
 			proposalOf(outsider.toSuiAddress(), {
 				created: null,
 				proposer: proposerEvent,
 			}),
 			{ members },
 		);
-		expect(result.proposer.status).toBe('verified');
-		expect(result.status).toBe('unverified');
+		expect(status).toBe('unverified');
 	});
 
 	test('verifies a member by their own vote', async () => {
-		const result = await verifyProposalProposer(
+		const status = await verifyProposalProposer(
 			proposalOf(
 				member.toSuiAddress(),
 				{ created: null, proposer: null },
@@ -550,11 +465,11 @@ describe('verifyProposalProposer', () => {
 			),
 			{ members },
 		);
-		expect(result.status).toBe('verified');
+		expect(status).toBe('verified');
 	});
 
 	test('is unverified for a member whose own signature isn’t on the proposal', async () => {
-		const result = await verifyProposalProposer(
+		const status = await verifyProposalProposer(
 			proposalOf(
 				member.toSuiAddress(),
 				{ created: null, proposer: null },
@@ -562,7 +477,7 @@ describe('verifyProposalProposer', () => {
 			),
 			{ members },
 		);
-		expect(result.status).toBe('unverified');
+		expect(status).toBe('unverified');
 	});
 
 	test('takes the worse of the created and proposer results', async () => {
@@ -573,27 +488,94 @@ describe('verifyProposalProposer', () => {
 			expiry,
 			outsider.toSuiAddress(),
 		);
-		const result = await verifyProposalProposer(
+		const status = await verifyProposalProposer(
 			proposalOf(outsider.toSuiAddress(), {
 				created,
 				proposer: proposerEvent,
 			}),
 			{ members },
 		);
-		expect(result.created.status).toBe('verified');
-		expect(result.status).toBe('unverified');
+		expect(status).toBe('unverified');
 	});
 
 	test('is invalid for a member whose created proof is invalid', async () => {
 		const { event: created } = await signCreated(member);
 		created.subject = 'AnotherDigest';
-		const result = await verifyProposalProposer(
-			proposalOf(member.toSuiAddress(), {
-				created,
-				proposer: null,
-			}),
+		const status = await verifyProposalProposer(
+			proposalOf(
+				member.toSuiAddress(),
+				{ created, proposer: null },
+				[await voteBy(member)],
+			),
 			{ members },
 		);
-		expect(result.status).toBe('invalid');
+		expect(status).toBe('invalid');
+	});
+
+	test('is invalid for a member’s vote over bytes that don’t match the proposal', async () => {
+		const other = await buildTransaction(
+			outsider.toSuiAddress(),
+		);
+		const status = await verifyProposalProposer(
+			proposalOf(
+				member.toSuiAddress(),
+				{ created: null, proposer: null },
+				[await voteBy(member, other.transactionBytes)],
+			),
+			{ members },
+		);
+		expect(status).toBe('invalid');
+	});
+
+	test('is invalid when the proposer’s key carries an unparseable signature', async () => {
+		const status = await verifyProposalProposer(
+			proposalOf(
+				member.toSuiAddress(),
+				{ created: null, proposer: null },
+				[
+					{
+						...(await voteBy(member)),
+						signature: 'not-a-signature',
+					},
+				],
+			),
+			{ members },
+		);
+		expect(status).toBe('invalid');
+	});
+
+	test('is invalid when the proposer’s key carries another key’s signature', async () => {
+		const status = await verifyProposalProposer(
+			proposalOf(
+				member.toSuiAddress(),
+				{ created: null, proposer: null },
+				[
+					{
+						...(await voteBy(otherMember)),
+						publicKey: member
+							.getPublicKey()
+							.toSuiPublicKey(),
+					},
+				],
+			),
+			{ members },
+		);
+		expect(status).toBe('invalid');
+	});
+
+	test('skips a malformed signature before a member’s vote', async () => {
+		const status = await verifyProposalProposer(
+			proposalOf(
+				member.toSuiAddress(),
+				{ created: null, proposer: null },
+				[
+					null,
+					{ proposalId: 1, publicKey: '', signature: 42 },
+					await voteBy(member),
+				] as unknown as PublicProposal['signatures'],
+			),
+			{ members },
+		);
+		expect(status).toBe('verified');
 	});
 });

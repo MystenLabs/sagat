@@ -36,13 +36,6 @@ export interface ProofResult {
 	createdAt: string | null;
 }
 
-export interface ProposalProofResult {
-	/** `verified` for a member who signed the proposal or a confirmed external proposer; `invalid` when a proof doesn't check out. */
-	status: ProofStatus;
-	created: ProofResult;
-	proposer: ProofResult;
-}
-
 /** Keys the caller trusts as the account's members, Sui-flagged base64. */
 export type TrustedMembers = readonly {
 	publicKey: string;
@@ -64,7 +57,6 @@ const OFFLINE_SCHEMES = new Set([
 	'ED25519',
 	'Secp256k1',
 	'Secp256r1',
-	'Passkey',
 ]);
 
 const RANK: Record<ProofStatus, number> = {
@@ -101,17 +93,20 @@ const sameAddress = (a: unknown, b: unknown) => {
 	return left !== null && left === toAddress(b);
 };
 
+const keyAddress = (publicKey: unknown): string | null => {
+	if (typeof publicKey !== 'string') return null;
+	try {
+		return publicKeyFromSuiBytes(publicKey).toSuiAddress();
+	} catch {
+		return null;
+	}
+};
+
 const memberAddresses = (members: TrustedMembers) =>
 	new Set(
-		members.flatMap(({ publicKey }) => {
-			try {
-				return [
-					publicKeyFromSuiBytes(publicKey).toSuiAddress(),
-				];
-			} catch {
-				return [];
-			}
-		}),
+		members.flatMap(
+			({ publicKey }) => keyAddress(publicKey) ?? [],
+		),
 	);
 
 const isMember = (
@@ -137,24 +132,26 @@ const v1Signature = (
 		: null;
 
 // The expiry as it was put into the signed text.
-const expiryText = (expiry: unknown): string | null => {
-	if (typeof expiry === 'string') return expiry;
-	if (typeof expiry === 'number' && Number.isFinite(expiry))
-		return String(expiry);
-	return null;
-};
+const expiryText = (expiry: unknown): string | null =>
+	typeof expiry === 'string' ? expiry : null;
 
-// Null when the bytes don't decode.
-const readTransaction = (transactionBytes: string) => {
+// The proposal's bytes, or null unless they decode to its digest, sent by its account.
+const readTransaction = (
+	proposal: Pick<
+		Proposal,
+		'digest' | 'multisigAddress' | 'transactionBytes'
+	>,
+) => {
 	try {
-		const bytes = fromBase64(transactionBytes);
-		return {
-			bytes,
-			digest:
-				TransactionDataBuilder.getDigestFromBytes(bytes),
-			sender:
-				TransactionDataBuilder.fromBytes(bytes).sender,
-		};
+		const bytes = fromBase64(proposal.transactionBytes);
+		const digest =
+			TransactionDataBuilder.getDigestFromBytes(bytes);
+		const { sender } =
+			TransactionDataBuilder.fromBytes(bytes);
+		return digest === proposal.digest &&
+			sameAddress(sender, proposal.multisigAddress)
+			? { bytes, digest }
+			: null;
 	} catch {
 		return null;
 	}
@@ -264,17 +261,10 @@ export async function verifyProposalCreated(
 	if (!event || !signature)
 		return result('unverified', event);
 
-	const transaction = readTransaction(
-		proposal.transactionBytes,
-	);
+	const transaction = readTransaction(proposal);
 	if (
 		!transaction ||
 		transaction.digest !== event.subject ||
-		transaction.digest !== proposal.digest ||
-		!sameAddress(
-			transaction.sender,
-			proposal.multisigAddress,
-		) ||
 		!sameAddress(event.actor, proposal.proposerAddress)
 	)
 		return result('invalid', event);
@@ -294,45 +284,48 @@ export async function verifyProposalCreated(
 	return result('verified', event, address);
 }
 
-// Whether `proposal.signatures` holds one by `address` over the proposal's bytes.
+// Verified by a signature from `address` in `proposal.signatures`, invalid if an entry under its key doesn't check out.
 const hasSignatureBy = async (
 	proposal: PublicProposal,
 	address: string,
-) => {
-	const transaction = readTransaction(
-		proposal.transactionBytes,
-	);
-	if (
-		!transaction ||
-		transaction.digest !== proposal.digest ||
-		!sameAddress(
-			transaction.sender,
-			proposal.multisigAddress,
-		)
-	)
-		return false;
-	for (const { signature } of proposal.signatures ?? []) {
+): Promise<ProofStatus> => {
+	const transaction = readTransaction(proposal);
+	if (!transaction) return 'unverified';
+	const entries = Array.isArray(proposal.signatures)
+		? proposal.signatures
+		: [];
+	let status: ProofStatus = 'unverified';
+	for (const entry of entries) {
+		const claimed = sameAddress(
+			keyAddress(entry?.publicKey),
+			address,
+		);
+		const signature: unknown = entry?.signature;
+		if (typeof signature !== 'string') {
+			if (claimed) return 'invalid';
+			continue;
+		}
 		const signer = await recoverSigner(signature, () =>
 			verifyTransactionSignature(
 				transaction.bytes,
 				signature,
 			),
 		);
-		if (
-			signer !== null &&
+		if (signer === null) continue;
+		const signed =
 			signer !== 'invalid' &&
-			sameAddress(signer.toSuiAddress(), address)
-		)
-			return true;
+			sameAddress(signer.toSuiAddress(), address);
+		if (signed) status = 'verified';
+		else if (claimed) return 'invalid';
 	}
-	return false;
+	return status;
 };
 
-/** Verifies a member by their own signature on the proposal, anyone else by their created and add events. */
+/** Verifies a member by their signature on the bytes (through a vote, that they signed them, not that they submitted the proposal), anyone else by their created and add events. */
 export async function verifyProposalProposer(
 	proposal: PublicProposal,
 	{ members }: { members: TrustedMembers },
-): Promise<ProposalProofResult> {
+): Promise<ProofStatus> {
 	const [created, proposer] = await Promise.all([
 		verifyProposalCreated(
 			proposal.events?.created,
@@ -348,16 +341,11 @@ export async function verifyProposalProposer(
 	// A member's vote signs the same bytes as their created proof.
 	const signed =
 		created.status === 'unverified' &&
-		isMember(proposal.proposerAddress, members) &&
-		(await hasSignatureBy(
-			proposal,
-			proposal.proposerAddress,
-		))
-			? 'verified'
+		isMember(proposal.proposerAddress, members)
+			? await hasSignatureBy(
+					proposal,
+					proposal.proposerAddress,
+				)
 			: created.status;
-	return {
-		status: worst(signed, proposer.status),
-		created,
-		proposer,
-	};
+	return worst(signed, proposer.status);
 }
