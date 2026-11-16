@@ -217,8 +217,9 @@ export const toLegacyProposalWithSignatures = (
 	signatures: proposal.signatures,
 });
 
-// The public view of a proposal, by digest. The proposers are hidden on
-// purpose, as this is not public information worth sharing. The same goes
+// The public view of a proposal, by digest. The account's proposer list is
+// hidden on purpose, as this is not public information worth sharing; the
+// proposal carries only its own proposer's newest add or remove. The same goes
 // for key labels (`account_keys`): they are only ever returned on
 // authenticated routes. The multisig composition is public, so that is fine.
 export const toLegacyPublicProposal = (

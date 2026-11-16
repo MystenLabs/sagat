@@ -1504,7 +1504,7 @@ describe('events on the legacy routes', () => {
 		).toBeNull();
 	});
 
-	test('the public proposal carries its created event and its proposer’s newest add or remove', async () => {
+	test('the public proposal carries its created event and its proposer’s newest add or remove, and one from before the log carries nulls', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
 		const proposer = newUser();
