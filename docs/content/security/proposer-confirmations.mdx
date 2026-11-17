@@ -1,6 +1,6 @@
 ---
 title: Proposer confirmations
-description: How the app checks who proposed a proposal and whether the pod’s signers confirmed its external proposers.
+description: How the app checks that signatures back the proposer a proposal names, and whether the pod’s signers confirmed its external proposers.
 ---
 
 The API records who proposed each proposal and which signer added each external proposer. The app doesn’t rely on that record alone: it checks the wallet signatures stored with it. The service holds none of the signers’ or proposers’ keys, so it can’t make those signatures itself.
