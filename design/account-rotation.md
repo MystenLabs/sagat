@@ -30,7 +30,7 @@ This uses Sui address aliases: the account adds the address of a new composition
 | `/v1`                                                                                                   | Not built. Nothing is mounted under it.                                                                                                |
 | Changing signers                                                                                        | Not built.                                                                                                                             |
 
-No migration is needed for what follows: every table and column already exists.
+What follows needs one additive migration: a nullable column on `account_alias_state` for the acting signer set. Every other table and column already exists.
 
 ## Vocabulary
 
@@ -69,7 +69,8 @@ proposals           (account_address, network, executed_via, ...)      executed_
 proposal_signatures (proposal_id, public_key, signature)
 account_aliases     (account_address, network, alias_address)          mirror of chain, no writer yet
 account_alias_state (account_address, network, exists,
-                     observed_version, observed_at)                    one row per refreshed network
+                     observed_version, observed_at,
+                     acting_signer_set)                                one row per refreshed network; last column to add
 account_signer_sets (account_address, signer_set_address, label,
                      status, drafted_by, created_at)                   account to signer set link
 account_keys        (account_address, public_key, label,
@@ -80,9 +81,9 @@ account_events      (id, account_address, network, actor, action,
 
 Alias entries are stored as **addresses**. The resolver classifies each at read time.
 
-**`account_signer_sets` is the link between an account and a signer set** (decided 2026-10-15), one row per pair. A composition is content-addressed and can be shared by several accounts, so anything said about it on behalf of one account lives on the pair. Every account has a row for its original composition, `(A, A)`, written by the create route. A signer change writes the row for its new composition when the change is proposed, with the proposer in `drafted_by`. Whether a set is valid on a network is **not** stored here: it comes from the mirror. The status is `verified` once every member has accepted and `inviting` until then; `draft` and `abandoned` are not written by this design.
+**`account_signer_sets` is the link between an account and a signer set** (decided 2026-10-15), one row per pair. A composition is content-addressed and can be shared by several accounts, so anything said about it on behalf of one account lives on the pair. Every account has a row for its original composition, `(A, A)`, written by the create route. A signer change writes the row for its new composition when the change is proposed, with the proposer in `drafted_by`. Whether a set is valid on a network is **not** stored here: it comes from the mirror. Nor does a link decide who acts: it only says the account has used or proposed that composition. The status is `verified` once every member has accepted and `inviting` until then; `draft` and `abandoned` are not written by this design.
 
-`account_alias_state` records what the last refresh saw on a network: whether the alias object exists, its version, and when it was read. It separates "never checked" (no state row) from "not changed" (`exists` is false). An account whose state row says the object does not exist has the alias set `{account}`. It has no `account_aliases` rows.
+`account_alias_state` records what the last refresh saw on a network: whether the alias object exists, its version, and when it was read. It separates "never checked" (no state row) from "not changed" (`exists` is false). An account whose state row says the object does not exist has the alias set `{account}`. It has no `account_aliases` rows. `acting_signer_set` is empty until a signer change executes, which means the original set.
 
 Nothing stores where a signer change stands. A pending change is a pending proposal, an executed one is in the mirror, and both are read when needed.
 
@@ -90,10 +91,10 @@ Nothing stores where a signer change stands. A pending change is a pending propo
 
 Aliases cannot be scoped: every address in the alias set has full control of the account. Sagat lets exactly one of them act, per network, and shows the rest.
 
-- **The acting signer set** on a network is the signer set in the alias set that Sagat linked to the account most recently. An account that never changed has its original set. After a signer change it is the set that change put in place.
+- **The acting signer set** is recorded per account and network, next to the mirror's state. It starts as the original set. It moves only when a signer change of that account is seen to have executed on that network: the refresh, or verifying the proposal, finds the change's transaction on chain and its new set in the alias set. Proposing a change never moves it, cancelling one never moves it back, and nothing that happens on another network moves it.
 - **Proposals are checked and tallied against the acting set** of their network, and executed with it. `executed_via` records the address that actually signed for the sender, as it is, when the proposal is verified.
 - **Other signer sets** are every other alias on that network: a composition Sagat knows, a single known key, or an address it cannot resolve. They are listed on the members page with the warning that each can approve transactions from the address alone. Their members get no access to the account through Sagat. A set that is itself an account shows its name and a link only to a viewer who is one of its signers.
-- **No acting set.** If the alias set on a network holds no signer set Sagat linked to the account, nobody can act for it through Sagat on that network. The members page says the address is controlled by other signer sets and lists them.
+- **No acting set.** If the recorded acting set is no longer in the alias set on a network, nobody can act for the account through Sagat on that network. The members page says the address is controlled by other signer sets and lists them.
 
 The data model does not limit an account to one acting set. Letting several sets act, with progress per set, can be added later without a migration.
 
@@ -138,7 +139,7 @@ There is no background job and no dependency on a chain indexer. The API reads t
 **Write.** The chain is read before any transaction opens.
 
 - Unchanged: when the read shows the same existence and version as the state row, one statement moves `observed_at` forward, conditional on that version. No lock, no transaction.
-- Changed, or no state row: one transaction per account. It takes the account lock (`lockAccount`), reads the state row again, applies the guard below, replaces the state row and alias rows, and records the difference in the audit log. The account lock is the one `recordAccountEvent` takes. A request that writes several accounts in one transaction takes their locks in sorted order, and a flow that also locks a `signer_sets` row takes that one first.
+- Changed, or no state row: one transaction per account. It takes the account lock (`lockAccount`), reads the state row again, applies the guard below, replaces the state row and alias rows, records the difference in the audit log, and moves the acting set when the transaction that changed the alias object is a signer change of that account. The account lock is the one `recordAccountEvent` takes. A request that writes several accounts in one transaction takes their locks in sorted order, and a flow that also locks a `signer_sets` row takes that one first.
 
 The difference is between effective sets: no alias rows counts as `{account}`, so the first refresh after `enable` reports no change.
 
@@ -199,13 +200,13 @@ One transaction with `sender = account`:
 
 The alias object is party-owned, so consensus orders the transactions that touch it and its version never goes stale in a pending proposal. The gas coin is an owned object, so the existing gas-coin collision check applies as for any proposal.
 
-When the proposal is created, in one transaction under the account lock, the API:
+When the proposal is created, the API refreshes the mirror before it opens a transaction, and then, in one transaction under the account lock:
 
-- refreshes the mirror and requires the old set in the transaction to be the acting set;
+- requires the old set in the transaction to be the acting set, read from the mirror under the lock;
 - checks the note and the editor's rules above, again;
 - requires the proposer to be an accepted signer who stays;
 - refuses the proposal while another pending proposal of that account and network calls the alias module: **one change at a time per account and network**;
-- writes the new signer set, its members and its link to the account. Signers who stay keep their acceptance. New keys are members who have not accepted.
+- writes the new signer set, its members and its link to the account. In a new composition, signers who stay are accepted and new keys are not. A composition that already exists is linked as it is: nobody's acceptance in it is changed, because other accounts may use it, so a signer who stays but never accepted that composition is invited like a new one.
 
 ### 3. Sign
 
@@ -215,7 +216,7 @@ The current signers sign at the current threshold. That is all the chain asks. S
 
 Signatures are otherwise public: anyone could combine them and execute as soon as the current threshold is met. So for a change, the API returns who has signed but **withholds the signatures themselves until the change is ready**, on every route, the proposer's signature in the proposal's creation event included. A staying signer whose key is lost then blocks the change instead of locking the account. This covers what Sagat holds: a threshold of the current signers who exchange signatures outside Sagat can execute anything, a change included.
 
-Only a signer who stays can cancel a change. A cancel is recorded in Sagat only, as for any proposal.
+Only a signer who stays can cancel a change, and removing a proposer never cancels one: that route cancels the pending proposals of any address it is given, which would let a signer being removed cancel the change by naming its proposer. A cancel is recorded in Sagat only, as for any proposal.
 
 ### 4. Execute
 
@@ -223,7 +224,7 @@ Anyone with the released signatures combines them with the old set and executes.
 
 - the new set is the acting set and the old one cannot sign;
 - the next refresh records the change, and verifying the proposal triggers one;
-- new signers find an invitation and are shown as invited. They can sign proposals at once, as an invited member of a new account can today, and get the rest of a member's rights when they accept;
+- members of the new set who have not accepted it find an invitation and are shown as invited. They can sign proposals at once, as an invited member of a new account can today, and get the rest of a member's rights when they accept;
 - a new signer who rejects stays in the composition on chain. The account shows the rejection, and the team removes them with another change. The threshold never depends on them, because of step 1.
 
 ### Composition note in the transaction
@@ -265,7 +266,7 @@ If someone executes a proposal with a set the chain no longer accepts, the node 
 - A signer change is a transaction on one network and changes the signers there only.
 - Everything in the app follows the selected network: the list of accounts, the signers shown, and what a key may do. A signer removed on mainnet no longer sees the account there, and still does on a network where the change was never made.
 - When an account's signers differ on another supported network, the members page says so and names the network. The dangerous case is believing a change happened everywhere when it happened on one network.
-- A removed signer is told once: the list of accounts reports, per network, the accounts one of the caller's keys was removed from, with the transaction that did it.
+- A removed signer is told once: the list of accounts reports, per network, the accounts one of the caller's keys was removed from. It names the transaction only when that is known, see the audit log.
 - Copy that says a signer "can no longer sign" is about the network the change is made on.
 
 ## Safety rails
@@ -447,7 +448,7 @@ To verify them:
 - "A key of a currently valid signer set", wherever the rules above use it, means a key of the acting set on the network in question.
 - None of these rows stores a label or a name.
 
-The notice to a removed signer is read from the `alias.removed` rows: a key of a set that was removed on a network, and is not in the acting set there, was removed by the transaction the row names.
+The notice to a removed signer is read from the `alias.removed` rows: a key of a set that was removed on a network, and is not in the acting set there, was removed. The row's digest is the last change to the alias object, which is not always the one that removed the set. The notice therefore names a transaction only when that digest is a signer change Sagat holds whose note removes the set, and says only that the signer was removed otherwise.
 
 ## Edge cases
 
@@ -460,9 +461,9 @@ The notice to a removed signer is read from the `alias.removed` rows: a key of a
 | Replacing most of the team                            | Refused when the signers who stay cannot meet the new threshold. Done as two changes.                                                         |
 | A staying signer lost their key                       | The change may never become ready. Cancel it and propose one that also replaces that key.                                                     |
 | The new composition is the original one               | Allowed. The transaction adds the account's own address back and removes the current set.                                                     |
-| The new composition already exists in Sagat           | Reused, with the acceptances it has. It is linked to this account as well.                                                                    |
-| The change is cancelled or expires                    | Nothing changed on chain. The new set's rows stay, unused. A new change can start.                                                            |
-| The change was cancelled in Sagat but executed anyway | The chain wins: the next refresh makes the new set the acting set and records it.                                                             |
+| The new composition already exists in Sagat           | Linked to this account as it is. Its members keep the acceptance they have there and nothing is written to them.                              |
+| The change is cancelled or expires                    | Nothing changed on chain. The new set's rows stay, unused. A new change can start, and an account can still be created with that composition. |
+| The change was cancelled in Sagat but executed anyway | The chain wins: a refresh or a verify that sees it makes the new set the acting set, whatever the proposal's status.                          |
 | A new signer rejects the invitation                   | They remain in the composition on chain. The account shows the rejection. Another change removes them.                                        |
 | `enable` executed, nothing changed                    | The alias set is `{account}`. Nothing changes, and the account does not count as changed.                                                     |
 | Changed on testnet only                               | Counts as changed: legacy routes refuse the account. On mainnet the original signers still act, and the members page says the signers differ. |
@@ -482,8 +483,9 @@ The notice to a removed signer is read from the `alias.removed` rows: a key of a
 - **Cancel** of a change needs a signer who stays.
 - **Verify** writes `executed_via`, drops its threshold pre-check under `/v1`, and refreshes the mirror after an alias change.
 - **Accept and reject** record their signatures in the audit log.
+- **Account creation** tells "this composition exists" apart from "this account exists". Today it refuses any composition it already holds, so a composition left by a change that never executed could not become an account.
 - **Limits.** The cap of accounts per public key counts accounts, not signer sets, or a signer would use one slot per change.
-- **Removing a proposer** cancels that proposer's proposals on the request's network only.
+- **Removing a proposer** cancels that proposer's proposals on the request's network only, and never a signer change.
 - **Execution** in the app combines with the acting set.
 - **The app's checks** compare against the alias set from the app's node.
 - **Lists and pages** in the app take the selected network.
@@ -508,15 +510,15 @@ A signer change decides who controls funds, so every rule above is tested where 
 
 The cast, shared by every suite: account `A` with original set `S1` = 2-of-3 of `k1`, `k2`, `k3`, all accepted; changes to `S2` = `k1`, `k2`, `k4` (replace one), `S3` = 3-of-3 of the same keys (threshold only), and `S4` = `k4`, `k5` (nobody stays); `R`, another account's composition added by hand; `K`, a single key; `U`, an address nobody knows; an external proposer; a second network.
 
-| Layer          | Runs on                                     | Covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| -------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pure functions | No database, no chain                       | Building the change transaction in each order; building and checking the note, with every way it can lie (wrong account, a set that does not rebuild, `after` that does not follow, a stale `before`); who stays; the proof weight; the alias-call detector with its arguments; the acting set from an alias list; the app's sign and receive rules for every state.                                                                                                                                                                                                                     |
-| Access         | API routes, mirror rows written directly    | The whole access table per network, for a key that stays, a removed key, a new key before and after accepting, a key of another signer set, a proposer and an outsider. Per-network lists. Lists of 51 accounts costing two reads. Key labels never crossing accounts.                                                                                                                                                                                                                                                                                                                   |
-| Mirror         | API against localnet, with a wrapped client | First refresh, an unchanged refresh takes no lock, a change records its events once, never backwards on an older version and on "not found", a read error leaves the mirror alone, one failed object in a batch, two refreshes of one account at once, the 60 second rule, a list falling back.                                                                                                                                                                                                                                                                                          |
-| Whole changes  | API against localnet                        | Enable, then each change of the cast from proposal to execution, with the old keys refused and the new ones invited afterwards. A change that is not ready is not executable from anything the API returns. `S4` is refused. A second change, a hand-written alias proposal and a proposer's alias proposal are refused while one is pending. A removed signer cannot propose or cancel. Open proposals are recounted. Changes made outside Sagat at every step: another set added, the acting set removed, `replace_all`. The same change on the second network leaves the first alone. |
-| Audit rows     | API and SDK                                 | Every new action is written once, in order, and verifies with the SDK. A forged or relabelled row does not. Every field of the response is treated as hostile.                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Legacy         | API                                         | The golden fixture is unchanged for an account that never changed. Every legacy route refuses a changed account, verify excepted, and the listings leave it out. A pending change is not served. Writes are refused when the node cannot be read. The old frontend's suite stays green.                                                                                                                                                                                                                                                                                                  |
-| The app        | Playwright against localnet                 | The editor and its edge states, the change from review to execution, the lists before and after, the removed signer, other signer sets, the differing-network notice, and the app's checks against a tampered API: a change whose note lies cannot be signed, a set that is no alias cannot be signed with, a hidden alias is still listed, an unreachable node shows "could not check".                                                                                                                                                                                                 |
+| Layer          | Runs on                                     | Covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------- | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pure functions | No database, no chain                       | Building the change transaction in each order; building and checking the note, with every way it can lie (wrong account, a set that does not rebuild, `after` that does not follow, a stale `before`); who stays; the proof weight; the alias-call detector with its arguments; the acting set from an alias list; the app's sign and receive rules for every state.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Access         | API routes, mirror rows written directly    | The whole access table per network, for a key that stays, a removed key, a new key before and after accepting, a key of another signer set, a proposer and an outsider. Per-network lists. Lists of 51 accounts costing two reads. Key labels never crossing accounts.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Mirror         | API against localnet, with a wrapped client | First refresh, an unchanged refresh takes no lock, a change records its events once, never backwards on an older version and on "not found", a read error leaves the mirror alone, one failed object in a batch, two refreshes of one account at once, the 60 second rule, a list falling back.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Whole changes  | API against localnet                        | Enable, then each change of the cast from proposal to execution, with the old keys refused and the new ones invited afterwards. A change that is not ready is not executable from anything the API returns. `S4` is refused. A second change, a hand-written alias proposal and a proposer's alias proposal are refused while one is pending. A removed signer cannot propose or cancel, also not by removing the proposer. Proposing a change to a composition that is already an alias moves nothing until it executes, and nothing on the other network. A reused composition keeps its own acceptances. A composition left by a cancelled change can still become an account. Open proposals are recounted. Changes made outside Sagat at every step: another set added, the acting set removed, `replace_all`. The same change on the second network leaves the first alone. |
+| Audit rows     | API and SDK                                 | Every new action is written once, in order, and verifies with the SDK. A forged or relabelled row does not. Every field of the response is treated as hostile.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Legacy         | API                                         | The golden fixture is unchanged for an account that never changed. Every legacy route refuses a changed account, verify excepted, and the listings leave it out. A pending change is not served. Writes are refused when the node cannot be read. The old frontend's suite stays green.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| The app        | Playwright against localnet                 | The editor and its edge states, the change from review to execution, the lists before and after, the removed signer, other signer sets, the differing-network notice, and the app's checks against a tampered API: a change whose note lies cannot be signed, a set that is no alias cannot be signed with, a hidden alias is still listed, an unreachable node shows "could not check".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 A second network in the API suites is a stub client, since tests run one localnet.
 
@@ -526,7 +528,7 @@ Each step is one pull request and lands on main by itself. Steps 1 to 4 change n
 
 1. **`/v1` foundation.** zod 4 and `@hono/zod-openapi`, the shared schemas in `sdk/`, the `/v1` client, the committed spec with its CI check, and one real route to prove it: `GET /v1/proposals/:digest`.
 2. **Alias mirror.** The batched reader, the refresh with its two write paths and the guard, the alias events, the 503 error, the reset note in the API README. No route calls it yet.
-3. **Resolver.** Classification, the acting set, and every service taking it for a network. Nothing changes for an account that never changed, so the golden fixture does not move.
+3. **Resolver.** The acting set column, classification, and every service taking the acting set for a network. Nothing changes for an account that never changed, so the golden fixture does not move.
 4. **The app's checks per network.** The alias set from the app's node, the sign and receive rules, "could not check", bytes checked against the account address and the chain.
 5. **`/v1` account routes** (list, read, invitations, accept, reject, proposers, with the accept and reject events), then **the app reads through them**: lists and pages take the network, the members page shows other signer sets and the differing-network notice.
 6. **`/v1` proposal routes** with `executed_via`, then **the app proposes, signs, cancels, verifies and executes through them**.
@@ -583,7 +585,7 @@ Still open:
 1. **Proposers per network.** They are account-wide rows, while rights are per network. A signer removed on mainnet who still acts on another network can add or remove a proposer there, and it applies everywhere. Making proposers per network needs a column and a signed message that names the network.
 2. **Whether "could not check" hides the receive address** or shows it with a notice. This doc hides it.
 3. **Weakest link.** Other signer sets are only warned about. Whether the app should help remove one is not decided.
-4. **Acceptance carried between accounts.** Member rows belong to a composition, so an acceptance recorded for one account counts for another account that uses the same composition.
+4. **Acceptance carried between accounts.** Member rows belong to a composition. A composition that a change created holds the acceptances of that account's signers, and another account that later uses the same composition inherits them.
 5. **Alias login.** Not proposed: it conflicts with the sign-in rule that a key derives its own address.
 
 ## Shipped: the schema rename (0009)
