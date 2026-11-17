@@ -7,6 +7,7 @@ import {
 } from '@mysten/dapp-kit-core';
 import { registerWalletConnectWallet } from '@mysten/walletconnect-wallet';
 
+import { content } from '../content';
 import { newClient } from './sui-client';
 
 // Undefined when a WalletConnect wallet was already registered.
@@ -20,6 +21,14 @@ export const walletConnect = registerWalletConnectWallet({
 		icon: 'https://walletconnect.org/walletconnect-logo.png',
 		enabled: true,
 		id: 'walletconnect',
+	},
+	dAppMetadata: {
+		name: content.common.appName,
+		description: content.common.appDescription,
+		url: window.location.origin,
+		icons: [
+			`${window.location.origin}/apple-touch-icon.png`,
+		],
 	},
 })?.wallet;
 
