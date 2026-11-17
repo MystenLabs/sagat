@@ -4,7 +4,7 @@
 import { Check, Copy, XIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
-import { Alert } from '@/components/ui/Alert';
+import { SignersRefused } from '@/components/multisig/SignersRefused';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -77,18 +77,10 @@ export function ReceiveDialog({
 				</div>
 
 				{refused ? (
-					<Alert
-						variant="error"
-						data-testid="receive-refused"
-						data-rule={refused}
-					>
-						<div className="font-medium">
-							{content.common.signersRefusedTitle}
-						</div>
-						<div>
-							{content.common.signersRefused[refused]}
-						</div>
-					</Alert>
+					<SignersRefused
+						rule={refused}
+						testId="receive-refused"
+					/>
 				) : (
 					<>
 						<button
