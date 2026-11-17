@@ -24,8 +24,8 @@ import {
 import { newProposalPath } from '@/lib/new-proposal';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
+import { SignersRefused } from './multisig/SignersRefused';
 import { SuccessBanner } from './multisig/SuccessBanner';
-import { Alert } from './ui/Alert';
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
@@ -120,7 +120,7 @@ export function MultisigDetailPage() {
 		MULTISIG_PAGES.find((p) => p.id === page)?.label ??
 		name;
 
-	// The address, Receive and Send stay hidden until the signers check passes.
+	// A refused pod shows the reason in place of its pages.
 	if (multisig.refused) {
 		return (
 			<div className="page-shell flex-1">
@@ -128,22 +128,10 @@ export function MultisigDetailPage() {
 					eyebrow={{ label: name, mono: !multisig.name }}
 					title={title}
 				/>
-				<Alert
-					variant="error"
-					data-testid="pod-refused"
-					data-rule={multisig.refused}
-				>
-					<div className="font-medium">
-						{content.common.signersRefusedTitle}
-					</div>
-					<div>
-						{
-							content.common.signersRefused[
-								multisig.refused
-							]
-						}
-					</div>
-				</Alert>
+				<SignersRefused
+					rule={multisig.refused}
+					testId="pod-refused"
+				/>
 			</div>
 		);
 	}

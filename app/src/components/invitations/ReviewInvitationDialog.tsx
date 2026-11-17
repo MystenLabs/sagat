@@ -12,6 +12,7 @@ import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, errorMessage } from '@/lib/utils';
 
 import { SignerName } from '../multisig/SignerName';
+import { SignersRefused } from '../multisig/SignersRefused';
 import { SignerStatusChip } from '../multisig/SignerStatusChip';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/button';
@@ -155,23 +156,11 @@ export function ReviewInvitationDialog({
 						</div>
 
 						{multisig.refused ? (
-							<Alert
-								variant="error"
+							<SignersRefused
+								rule={multisig.refused}
+								testId="invitation-refused"
 								className="mt-5"
-								data-testid="invitation-refused"
-								data-rule={multisig.refused}
-							>
-								<div className="font-medium">
-									{content.common.signersRefusedTitle}
-								</div>
-								<div>
-									{
-										content.common.signersRefused[
-											multisig.refused
-										]
-									}
-								</div>
-							</Alert>
+							/>
 						) : (
 							<div className="mt-5 flex flex-col gap-1">
 								<div className="text-12 text-muted-foreground">

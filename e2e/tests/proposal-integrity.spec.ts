@@ -672,4 +672,55 @@ test.describe('proposal integrity', () => {
 			alice.page.getByTestId('sign-in-button'),
 		).toBeVisible();
 	});
+
+	test("hides a pod's signers when its own response doesn't make up its address", async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { alice, bob, multisig } = await sharedAccount(
+			{ createActor, createIdentity, chain },
+			2,
+			{ fund: false },
+		);
+		const carol = createIdentity('carol');
+		// Only the pod's own response changes; the pod list stays honest.
+		await alice.page.route(
+			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			async (route) => {
+				const response = await route.fetch();
+				const account =
+					(await response.json()) as MultisigWithMembers;
+				await route.fulfill({
+					response,
+					json: {
+						...account,
+						members: account.members.map((m) =>
+							m.publicKey === bob.publicKey
+								? { ...m, publicKey: carol.publicKey }
+								: m,
+						),
+					},
+				});
+			},
+		);
+
+		await alice.page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		const refusal = alice.page.getByTestId(
+			'signers-refused',
+		);
+		await expect(refusal).toBeVisible();
+		await expect(refusal).toHaveAttribute(
+			'data-rule',
+			'signers',
+		);
+		await expect(
+			alice.page.getByTestId('member-item'),
+		).toHaveCount(0);
+		await expect(
+			alice.page.getByTestId('setup-download'),
+		).toHaveCount(0);
+	});
 });

@@ -13,6 +13,7 @@ import {
 	downloadJson,
 	getMultisigExportFilename,
 } from '@/lib/exportUtils';
+import { trustsSigners } from '@/lib/proposer-proofs';
 import {
 	rejectionNotice,
 	signerRows,
@@ -23,6 +24,7 @@ import { getExplorerUrl } from '@/lib/utils';
 
 import { SetupCard } from '../multisig/SetupCard';
 import { SignersCard } from '../multisig/SignersCard';
+import { SignersRefused } from '../multisig/SignersRefused';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/button';
@@ -36,6 +38,7 @@ interface SignersTabContext {
  * list already carries everything shown; the account query on top keeps
  * the proposers and weights fresh after a change on this page. When it
  * fails, the list's copy stays up under a notice with a way to try again.
+ * When its signers don't make up the opened address, only the reason shows.
  */
 export function SignersTab() {
 	const { multisig } =
@@ -49,6 +52,14 @@ export function SignersTab() {
 		refetch,
 	} = useGetMultisig(multisig.address);
 	const account = details ?? multisig;
+
+	if (details && !trustsSigners(details, multisig.address))
+		return (
+			<SignersRefused
+				rule="signers"
+				testId="signers-refused"
+			/>
+		);
 
 	const rows = signerRows(
 		account.members,
