@@ -2,6 +2,8 @@
 
 _Draft, 2026-09-28, revised 2026-10-14. Written ahead of the release from the design in [account-rotation.md](account-rotation.md). Names marked **proposed** are final only once the release ships; this guide is updated in the same pull request as the code._
 
+_Direction revised 2026-11-17: `/v1` is built per feature and covers the account-scoped routes only, in one SDK package beside the existing client. The route and SDK tables below predate that. Each is corrected in the pull request that adds its route; until then [account-rotation.md](account-rotation.md) is the reference._
+
 ## Who needs this
 
 Anyone calling the Sagat API directly or through the SDK from the repository: scripts, CI jobs, the Rust client.
