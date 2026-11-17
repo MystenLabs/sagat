@@ -35,6 +35,9 @@ function signerCount(count: number) {
  */
 export const content = {
 	common: {
+		appName: 'Sui Pods',
+		appDescription:
+			'Create and manage multisig accounts on Sui.',
 		/** A USD value other than 0 too small to show at four decimals. */
 		belowSmallestUsd: (negative: boolean) =>
 			`${negative ? '-' : ''}<$0.0001`,

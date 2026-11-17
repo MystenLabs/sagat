@@ -23,12 +23,12 @@
 		}
 	},
 	"devDependencies": {
-		"@mysten/sui": "^2.37.0",
+		"@mysten/sui": "^2.39.1",
 		"@types/bun": "latest",
 		"tsup": "^9.0.0"
 	},
 	"peerDependencies": {
-		"@mysten/sui": "^2.37.0",
+		"@mysten/sui": "^2.39.1",
 		"typescript": "^5.0.0"
 	},
 	"scripts": {
