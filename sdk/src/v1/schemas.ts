@@ -59,6 +59,8 @@ export const SignerSetSchema = z
 	.object({
 		address: SuiAddressSchema,
 		threshold: z.number().int(),
+		currentWeight: z.number().int(),
+		hasReachedThreshold: z.boolean(),
 		members: z.array(SignerSetMemberSchema),
 	})
 	.meta({ id: 'SignerSet' });
@@ -77,9 +79,14 @@ export const ProposalSchema = z
 		description: z.string().nullable(),
 		createdAt: z.iso.datetime(),
 		signatures: z.array(ProposalSignatureSchema),
-		currentWeight: z.number().int(),
-		hasReachedThreshold: z.boolean(),
-		signerSet: SignerSetSchema,
+		hasReachedThreshold: z.boolean().meta({
+			description:
+				'True when one of the signer sets in signerSets has reached its threshold.',
+		}),
+		signerSets: z.array(SignerSetSchema).meta({
+			description:
+				"The signer sets that act for the account on the proposal's network.",
+		}),
 	})
 	.meta({ id: 'Proposal' });
 export type Proposal = z.infer<typeof ProposalSchema>;

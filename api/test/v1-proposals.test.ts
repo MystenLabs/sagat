@@ -94,17 +94,20 @@ describe('GET /v1/proposals/:digest', () => {
 					signature: expect.any(String),
 				},
 			],
-			currentWeight: 1,
 			hasReachedThreshold: false,
-			signerSet: {
-				address: multisig.address,
-				threshold: 2,
-				members: multisig.members.map((member) => ({
-					publicKey: member.publicKey,
-					weight: member.weight,
-					order: member.order,
-				})),
-			},
+			signerSets: [
+				{
+					address: multisig.address,
+					threshold: 2,
+					currentWeight: 1,
+					hasReachedThreshold: false,
+					members: multisig.members.map((member) => ({
+						publicKey: member.publicKey,
+						weight: member.weight,
+						order: member.order,
+					})),
+				},
+			],
 		});
 
 		// The client strips unknown keys, so check the wire.

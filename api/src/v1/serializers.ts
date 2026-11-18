@@ -27,15 +27,18 @@ export const toV1Proposal = ({
 		publicKey: signature.publicKey,
 		signature: signature.signature,
 	})),
-	currentWeight,
 	hasReachedThreshold,
-	signerSet: {
-		address: signerSet.address,
-		threshold: signerSet.threshold,
-		members: signerSet.members.map((member) => ({
-			publicKey: member.publicKey,
-			weight: member.weight,
-			order: member.order,
-		})),
-	},
+	signerSets: [
+		{
+			address: signerSet.address,
+			threshold: signerSet.threshold,
+			currentWeight,
+			hasReachedThreshold,
+			members: signerSet.members.map((member) => ({
+				publicKey: member.publicKey,
+				weight: member.weight,
+				order: member.order,
+			})),
+		},
+	],
 });

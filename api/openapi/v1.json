@@ -37,10 +37,16 @@
 							"$ref": "#/components/schemas/ProposalSignature"
 						}
 					},
-					"currentWeight": { "type": "integer" },
-					"hasReachedThreshold": { "type": "boolean" },
-					"signerSet": {
-						"$ref": "#/components/schemas/SignerSet"
+					"hasReachedThreshold": {
+						"type": "boolean",
+						"description": "True when one of the signer sets in signerSets has reached its threshold."
+					},
+					"signerSets": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SignerSet"
+						},
+						"description": "The signer sets that act for the account on the proposal's network."
 					}
 				},
 				"required": [
@@ -55,9 +61,8 @@
 					"description",
 					"createdAt",
 					"signatures",
-					"currentWeight",
 					"hasReachedThreshold",
-					"signerSet"
+					"signerSets"
 				]
 			},
 			"ProposalSignature": {
@@ -77,6 +82,8 @@
 						"description": "A Sui address."
 					},
 					"threshold": { "type": "integer" },
+					"currentWeight": { "type": "integer" },
+					"hasReachedThreshold": { "type": "boolean" },
 					"members": {
 						"type": "array",
 						"items": {
@@ -84,7 +91,13 @@
 						}
 					}
 				},
-				"required": ["address", "threshold", "members"]
+				"required": [
+					"address",
+					"threshold",
+					"currentWeight",
+					"hasReachedThreshold",
+					"members"
+				]
 			},
 			"SignerSetMember": {
 				"type": "object",

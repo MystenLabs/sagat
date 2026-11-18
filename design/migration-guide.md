@@ -66,41 +66,47 @@ New routes for rotation are listed at the end. You do not need them unless you r
 
 ## Fields
 
-| Where                | Before                        | After                                                                           |
-| -------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
-| Create proposal body | `multisigAddress`             | `accountAddress`                                                                |
-| Proposal             | `multisigAddress`             | `accountAddress`                                                                |
-| Public proposal      | `multisigAddress`             | `accountAddress`                                                                |
-| Public proposal      | `multisig.name`               | `accountName`                                                                   |
-| Public proposal      | `multisig`                    | `signerSet`: `address`, `threshold` and `members`.                              |
-| Public proposal      | `totalWeight`                 | Removed, see the note below the table.                                          |
-| Public proposal      |                               | `hasReachedThreshold`: true when `currentWeight` reaches `signerSet.threshold`. |
-| Public proposal      | `events`                      | Not returned.                                                                   |
-| Proposal             |                               | `executedVia`: address of the signer set used at execution, or null.            |
-| Public proposal      | `signatures`, `currentWeight` | Unchanged.                                                                      |
-| Vote response        | `hasReachedThreshold`         | Still present. True when **any** signer set has reached its threshold.          |
-| Vote response        |                               | `readySignerSets`: addresses of the sets that reached threshold.                |
-| Vote response        | `currentWeight`               | Removed. Read `signerSets[].currentWeight` on the proposal; one tally per set.  |
-| Member               | `multisigAddress`             | `signerSetAddress`                                                              |
-| Proposer             | `multisigAddress`             | `accountAddress`                                                                |
+| Where                | Before                | After                                                                                                                            |
+| -------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Create proposal body | `multisigAddress`     | `accountAddress`                                                                                                                 |
+| Proposal             | `multisigAddress`     | `accountAddress`                                                                                                                 |
+| Public proposal      | `multisigAddress`     | `accountAddress`                                                                                                                 |
+| Public proposal      | `multisig.name`       | `accountName`                                                                                                                    |
+| Public proposal      | `multisig`            | `signerSets`: a list, one element today, each with `address`, `threshold`, `members`, `currentWeight` and `hasReachedThreshold`. |
+| Public proposal      | `currentWeight`       | Moved into each element of `signerSets`.                                                                                         |
+| Public proposal      | `totalWeight`         | Removed, see the note below the table.                                                                                           |
+| Public proposal      | `hasReachedThreshold` | True when a set in `signerSets` has reached its threshold.                                                                       |
+| Public proposal      | `events`              | Not returned.                                                                                                                    |
+| Proposal             |                       | `executedVia`: address of the signer set used at execution, or null.                                                             |
+| Public proposal      | `signatures`          | Unchanged.                                                                                                                       |
+| Vote response        | `hasReachedThreshold` | Still present. True when **any** signer set has reached its threshold.                                                           |
+| Vote response        |                       | `readySignerSets`: addresses of the sets that reached threshold.                                                                 |
+| Vote response        | `currentWeight`       | Removed. Read `signerSets[].currentWeight` on the proposal; one tally per set.                                                   |
+| Member               | `multisigAddress`     | `signerSetAddress`                                                                                                               |
+| Proposer             | `multisigAddress`     | `accountAddress`                                                                                                                 |
 
-The legacy `totalWeight` on `GET /proposals/digest/:digest` is the multisig's threshold, not the sum of member weights; the name was misleading. To check progress, compare `currentWeight` with `signerSet.threshold`, or use `hasReachedThreshold`.
+The legacy `totalWeight` on `GET /proposals/digest/:digest` is the multisig's threshold, not the sum of member weights; the name was misleading. To check progress, compare `signerSets[].currentWeight` with `signerSets[].threshold`, or use `hasReachedThreshold`.
 
-Shape of `signerSet` on a public proposal:
+Shape of `signerSets` on a public proposal:
 
 ```json
 {
-	"signerSet": {
-		"address": "0x...",
-		"threshold": 2,
-		"members": [
-			{
-				"publicKey": "...",
-				"weight": 1,
-				"order": 0
-			}
-		]
-	}
+	"hasReachedThreshold": false,
+	"signerSets": [
+		{
+			"address": "0x...",
+			"threshold": 2,
+			"currentWeight": 1,
+			"hasReachedThreshold": false,
+			"members": [
+				{
+					"publicKey": "...",
+					"weight": 1,
+					"order": 0
+				}
+			]
+		}
+	]
 }
 ```
 
