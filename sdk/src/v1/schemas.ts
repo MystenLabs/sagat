@@ -66,6 +66,49 @@ export const SignerSetSchema = z
 	.meta({ id: 'SignerSet' });
 export type SignerSet = z.infer<typeof SignerSetSchema>;
 
+export const AccountEventSchema = z
+	.object({
+		id: z.number().int(),
+		action: z.string(),
+		actor: z.string(),
+		subject: z.string().nullable(),
+		proof: z
+			.record(z.string(), z.unknown())
+			.nullable()
+			.meta({
+				description:
+					'The signed proof as stored; older rows can hold older shapes.',
+			}),
+		createdAt: z.iso.datetime(),
+	})
+	.meta({
+		id: 'AccountEvent',
+		description: 'An account audit log event, as stored.',
+	});
+export type AccountEvent = z.infer<
+	typeof AccountEventSchema
+>;
+
+export const ProposalEventsSchema = z
+	.object({
+		// Not `.nullable()`, which makes the shared component nullable in the spec.
+		created: AccountEventSchema.or(z.null()).meta({
+			description:
+				"The proposal's `proposal.created` event.",
+		}),
+		proposer: AccountEventSchema.or(z.null()).meta({
+			description: "The proposer's newest add or remove.",
+		}),
+	})
+	.meta({
+		id: 'ProposalEvents',
+		description:
+			"The proposal's audit log events, for checking who proposed it. Each is null where none exists.",
+	});
+export type ProposalEvents = z.infer<
+	typeof ProposalEventsSchema
+>;
+
 export const ProposalSchema = z
 	.object({
 		id: z.number().int(),
@@ -87,6 +130,7 @@ export const ProposalSchema = z
 			description:
 				"The signer sets that act for the account on the proposal's network.",
 		}),
+		events: ProposalEventsSchema,
 	})
 	.meta({ id: 'Proposal' });
 export type Proposal = z.infer<typeof ProposalSchema>;

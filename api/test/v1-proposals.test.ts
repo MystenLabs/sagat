@@ -6,6 +6,7 @@ import {
 	SagatApiError,
 	SagatResponseError,
 	SagatV1Client,
+	verifyProposalCreated,
 } from '@mysten/sagat';
 import { toBase58 } from '@mysten/sui/utils';
 import {
@@ -68,7 +69,7 @@ describe('GET /v1/proposals/:digest', () => {
 		return { users, multisig, created };
 	};
 
-	test('returns the proposal under the account names, with its tally', async () => {
+	test('returns the proposal under the account names, with its signer sets', async () => {
 		const { users, multisig, created } =
 			await proposeRent();
 
@@ -108,15 +109,38 @@ describe('GET /v1/proposals/:digest', () => {
 					})),
 				},
 			],
+			events: {
+				created: expect.any(Object),
+				proposer: null,
+			},
 		});
+	});
 
-		// The client strips unknown keys, so check the wire.
-		const raw = await (
-			await session.request(
-				`/v1/proposals/${created.digest}`,
-			)
-		).json();
-		expect(raw).not.toHaveProperty('events');
+	test("returns a member's proposal with its created event, which the SDK verifier accepts", async () => {
+		const { users, created } = await proposeRent();
+
+		const { events, ...proposal } =
+			await client.getProposal(created.digest);
+
+		expect(events.proposer).toBeNull();
+		expect(events.created).toEqual({
+			id: expect.any(Number),
+			action: 'proposal.created',
+			actor: users[0].address,
+			subject: created.digest,
+			proof: expect.any(Object),
+			createdAt: expect.any(String),
+		});
+		const result = await verifyProposalCreated(
+			events.created,
+			{
+				digest: proposal.digest,
+				multisigAddress: proposal.accountAddress,
+				proposerAddress: proposal.proposerAddress,
+				transactionBytes: proposal.transactionBytes,
+			},
+		);
+		expect(result.status).toBe('verified');
 	});
 
 	test('a well-formed digest with no proposal is a 404', async () => {

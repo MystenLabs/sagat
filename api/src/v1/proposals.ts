@@ -5,7 +5,7 @@ import { createRoute } from '@hono/zod-openapi';
 import { v1 } from '@mysten/sagat';
 import { z } from 'zod';
 
-import { getProposalTallyByDigest } from '../services/proposals.service';
+import { getProposalByDigest } from '../services/proposals.service';
 import { defineRoute, type V1App } from './openapi';
 import { toV1Proposal } from './serializers';
 
@@ -28,7 +28,7 @@ const getProposal = createRoute({
 	responses: {
 		200: {
 			description:
-				'The proposal, with its signatures and tally.',
+				'The proposal, with its signatures, signer sets and audit log events.',
 			content: {
 				'application/json': { schema: v1.ProposalSchema },
 			},
@@ -43,7 +43,7 @@ const getProposal = createRoute({
 export const proposalRoutes = (app: V1App) => {
 	defineRoute(app, getProposal, async (c) =>
 		toV1Proposal(
-			await getProposalTallyByDigest(
+			await getProposalByDigest(
 				c.req.valid('param').digest,
 			),
 		),

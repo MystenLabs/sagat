@@ -47,6 +47,9 @@
 							"$ref": "#/components/schemas/SignerSet"
 						},
 						"description": "The signer sets that act for the account on the proposal's network."
+					},
+					"events": {
+						"$ref": "#/components/schemas/ProposalEvents"
 					}
 				},
 				"required": [
@@ -62,7 +65,8 @@
 					"createdAt",
 					"signatures",
 					"hasReachedThreshold",
-					"signerSets"
+					"signerSets",
+					"events"
 				]
 			},
 			"ProposalSignature": {
@@ -108,6 +112,58 @@
 				},
 				"required": ["publicKey", "weight", "order"]
 			},
+			"ProposalEvents": {
+				"type": "object",
+				"properties": {
+					"created": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/AccountEvent"
+							},
+							{ "type": "null" }
+						],
+						"description": "The proposal's `proposal.created` event."
+					},
+					"proposer": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/AccountEvent"
+							},
+							{ "type": "null" }
+						],
+						"description": "The proposer's newest add or remove."
+					}
+				},
+				"required": ["created", "proposer"],
+				"description": "The proposal's audit log events, for checking who proposed it. Each is null where none exists."
+			},
+			"AccountEvent": {
+				"type": "object",
+				"properties": {
+					"id": { "type": "integer" },
+					"action": { "type": "string" },
+					"actor": { "type": "string" },
+					"subject": { "type": ["string", "null"] },
+					"proof": {
+						"type": ["object", "null"],
+						"additionalProperties": {},
+						"description": "The signed proof as stored; older rows can hold older shapes."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"action",
+					"actor",
+					"subject",
+					"proof",
+					"createdAt"
+				],
+				"description": "An account audit log event, as stored."
+			},
 			"Error": {
 				"type": "object",
 				"properties": { "error": { "type": "string" } },
@@ -135,7 +191,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "The proposal, with its signatures and tally.",
+						"description": "The proposal, with its signatures, signer sets and audit log events.",
 						"content": {
 							"application/json": {
 								"schema": {

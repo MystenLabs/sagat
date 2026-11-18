@@ -76,7 +76,7 @@ New routes for rotation are listed at the end. You do not need them unless you r
 | Public proposal      | `currentWeight`       | Moved into each element of `signerSets`.                                                                                         |
 | Public proposal      | `totalWeight`         | Removed, see the note below the table.                                                                                           |
 | Public proposal      | `hasReachedThreshold` | True when a set in `signerSets` has reached its threshold.                                                                       |
-| Public proposal      | `events`              | Not returned.                                                                                                                    |
+| Public proposal      | `events`              | Unchanged: `created` and `proposer`, each an audit log event or null, as on the legacy route.                                    |
 | Proposal             |                       | `executedVia`: address of the signer set used at execution, or null.                                                             |
 | Public proposal      | `signatures`          | Unchanged.                                                                                                                       |
 | Vote response        | `hasReachedThreshold` | Still present. True when **any** signer set has reached its threshold.                                                           |
