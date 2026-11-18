@@ -27,7 +27,7 @@ This uses Sui address aliases: the account adds the address of a new composition
 | Key labels (0010) and the audit log (0011)                                                              | Shipped. The log has no rotation actions and no system writer yet.                                                                     |
 | The app's own checks before showing or signing                                                          | Shipped, and they require the signer set to rebuild the account address, so they would refuse a changed account. See the app's checks. |
 | Alias mirror and resolver                                                                               | Not built. An earlier draft exists, see earlier work.                                                                                  |
-| `/v1`                                                                                                   | Not built. Nothing is mounted under it.                                                                                                |
+| `/v1`                                                                                                   | Foundation and `GET /v1/proposals/:digest` shipped. No other route.                                                                    |
 | Changing signers                                                                                        | Not built.                                                                                                                             |
 
 What follows needs one additive migration: two nullable columns on `account_alias_state`, for the acting signer set and the alias object version it was recorded at. Every other table and column already exists.

@@ -731,11 +731,7 @@ export const verifyProposal = async ({
 	return await lookupAndVerifyProposal(proposal);
 };
 
-// Verifies the execution of a proposal. Open to anyone: it only reads the
-// chain.
-export const verifyProposalByDigest = async (
-	digest: string,
-) => {
+const loadProposalByDigest = async (digest: string) => {
 	if (!isValidTransactionDigest(digest))
 		throw new CommonError('InvalidDigest');
 
@@ -744,8 +740,17 @@ export const verifyProposalByDigest = async (
 
 	if (!proposal) throw new NotFoundError();
 
-	return await lookupAndVerifyProposal(proposal);
+	return proposal;
 };
+
+// Verifies the execution of a proposal. Open to anyone: it only reads the
+// chain.
+export const verifyProposalByDigest = async (
+	digest: string,
+) =>
+	await lookupAndVerifyProposal(
+		await loadProposalByDigest(digest),
+	);
 
 // Lists an account's proposals on a network, for an accepted member.
 export const listProposals = async ({
@@ -780,17 +785,22 @@ export const listProposals = async ({
 	);
 };
 
+// A proposal by digest, with its signer set and tally. Public.
+export const getProposalTallyByDigest = async (
+	digest: string,
+): Promise<ProposalTally> => {
+	const proposal = await loadProposalByDigest(digest);
+	return tallyProposal(
+		proposal,
+		await getSignerSet(proposal.accountAddress),
+	);
+};
+
 // A proposal by digest, with its signer set and events. Public.
 export const getProposalByDigest = async (
 	digest: string,
 ): Promise<ProposalTally & { events: ProposalEvents }> => {
-	if (!isValidTransactionDigest(digest))
-		throw new CommonError('InvalidDigest');
-
-	const proposal =
-		await ProposalByDigestLoader.load(digest);
-
-	if (!proposal) throw new NotFoundError();
+	const proposal = await loadProposalByDigest(digest);
 
 	const [multisig, events] = await Promise.all([
 		getSignerSet(proposal.accountAddress),

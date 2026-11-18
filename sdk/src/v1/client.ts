@@ -3,7 +3,12 @@
 
 import { type z } from 'zod';
 
-import { SagatApiError, type Fetch } from '../client.js';
+import {
+	DEFAULT_TIMEOUT_MS,
+	SagatApiError,
+	type Fetch,
+	type SagatClientOptions,
+} from '../client.js';
 import {
 	ErrorBodySchema,
 	ProposalSchema,
@@ -22,17 +27,9 @@ export class SagatResponseError extends Error {
 	}
 }
 
-export interface SagatV1ClientOptions {
+export interface SagatV1ClientOptions extends SagatClientOptions {
 	fetch?: Fetch;
-	/**
-	 * Abort a request that hasn't answered after this many milliseconds.
-	 * The call then rejects with a `TimeoutError` DOMException.
-	 * @default 20000
-	 */
-	timeoutMs?: number;
 }
-
-const DEFAULT_TIMEOUT_MS = 20_000;
 
 export class SagatV1Client {
 	#apiUrl: string;

@@ -58,7 +58,7 @@ Authentication does not change. The connect message, the script token, and its o
 | `POST /proposals/:id/cancel`                 | `POST /v1/proposals/:id/cancel`                    |                                                                                                      |
 | `POST /proposals/:id/verify`                 | `POST /v1/proposals/:id/verify`                    |                                                                                                      |
 | `POST /proposals/:digest/verify-by-digest`   | `POST /v1/proposals/:digest/verify-by-digest`      |                                                                                                      |
-| `GET /proposals/digest/:digest`              | `GET /v1/proposals/digest/:digest`                 | Response changed, see below.                                                                         |
+| `GET /proposals/digest/:digest`              | `GET /v1/proposals/:digest`                        | Response changed, see below.                                                                         |
 | `POST /addresses`, `GET /addresses/:address` | `/v1/addresses`, same shape                        |                                                                                                      |
 | `/auth/*`                                    | unchanged, shared by both route sets               |                                                                                                      |
 
@@ -66,48 +66,45 @@ New routes for rotation are listed at the end. You do not need them unless you r
 
 ## Fields
 
-| Where                | Before                         | After                                                                          |
-| -------------------- | ------------------------------ | ------------------------------------------------------------------------------ |
-| Create proposal body | `multisigAddress`              | `accountAddress`                                                               |
-| Proposal             | `multisigAddress`              | `accountAddress`                                                               |
-| Public proposal      | `currentWeight`, `totalWeight` | Removed, see the note below the table.                                         |
-| Proposal             |                                | `executedVia`: address of the signer set used at execution, or null.           |
-| Public proposal      | `multisig`                     | Removed. Use `signerSets`.                                                     |
-| Public proposal      | `signatures`                   | Still every signature collected, by public key.                                |
-| Vote response        | `hasReachedThreshold`          | Still present. True when **any** signer set has reached its threshold.         |
-| Vote response        |                                | `readySignerSets`: addresses of the sets that reached threshold.               |
-| Vote response        | `currentWeight`                | Removed. Read `signerSets[].currentWeight` on the proposal; one tally per set. |
-| Member               | `multisigAddress`              | `signerSetAddress`                                                             |
-| Proposer             | `multisigAddress`              | `accountAddress`                                                               |
+| Where                | Before                        | After                                                                           |
+| -------------------- | ----------------------------- | ------------------------------------------------------------------------------- |
+| Create proposal body | `multisigAddress`             | `accountAddress`                                                                |
+| Proposal             | `multisigAddress`             | `accountAddress`                                                                |
+| Public proposal      | `multisigAddress`             | `accountAddress`                                                                |
+| Public proposal      | `multisig.name`               | `accountName`                                                                   |
+| Public proposal      | `multisig`                    | `signerSet`: `address`, `threshold` and `members`.                              |
+| Public proposal      | `totalWeight`                 | Removed, see the note below the table.                                          |
+| Public proposal      |                               | `hasReachedThreshold`: true when `currentWeight` reaches `signerSet.threshold`. |
+| Public proposal      | `events`                      | Not returned.                                                                   |
+| Proposal             |                               | `executedVia`: address of the signer set used at execution, or null.            |
+| Public proposal      | `signatures`, `currentWeight` | Unchanged.                                                                      |
+| Vote response        | `hasReachedThreshold`         | Still present. True when **any** signer set has reached its threshold.          |
+| Vote response        |                               | `readySignerSets`: addresses of the sets that reached threshold.                |
+| Vote response        | `currentWeight`               | Removed. Read `signerSets[].currentWeight` on the proposal; one tally per set.  |
+| Member               | `multisigAddress`             | `signerSetAddress`                                                              |
+| Proposer             | `multisigAddress`             | `accountAddress`                                                                |
 
-The legacy `totalWeight` on `GET /proposals/digest/:digest` is the multisig's threshold, not the sum of member weights; the name was misleading. To check progress, compare `signerSets[].currentWeight` with `signerSets[].threshold`, or use `signerSets[].hasReachedThreshold`. `signerSets[].totalWeight` is the sum of member weights.
+The legacy `totalWeight` on `GET /proposals/digest/:digest` is the multisig's threshold, not the sum of member weights; the name was misleading. To check progress, compare `currentWeight` with `signerSet.threshold`, or use `hasReachedThreshold`.
 
-Shape of `signerSets` on a proposal:
+Shape of `signerSet` on a public proposal:
 
 ```json
 {
-	"signerSets": [
-		{
-			"address": "0x...",
-			"label": "Operations",
-			"threshold": 2,
-			"totalWeight": 3,
-			"currentWeight": 2,
-			"hasReachedThreshold": true,
-			"members": [
-				{
-					"publicKey": "...",
-					"weight": 1,
-					"order": 0,
-					"hasSigned": true
-				}
-			]
-		}
-	]
+	"signerSet": {
+		"address": "0x...",
+		"threshold": 2,
+		"members": [
+			{
+				"publicKey": "...",
+				"weight": 1,
+				"order": 0
+			}
+		]
+	}
 }
 ```
 
-Only signer sets that are valid for the account on the proposal's network are listed. `label` belongs to the account's entry for that signer set, or is null; the same signer set can have a different label in another account. Members here carry no `label`: key labels (0010) are returned only on authenticated member listings, never on proposal shapes or public lookups.
+Members here carry no `label`: key labels (0010) are returned only on authenticated member listings, never on proposal shapes or public lookups.
 
 ## SDK
 

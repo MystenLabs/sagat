@@ -46,7 +46,7 @@ export interface SagatClientOptions {
 	timeoutMs?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 20_000;
+export const DEFAULT_TIMEOUT_MS = 20_000;
 
 export class SagatClient {
 	#apiUrl: string;
