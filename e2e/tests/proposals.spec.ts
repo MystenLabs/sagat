@@ -538,6 +538,17 @@ test.describe('proposals', () => {
 
 		await bob.signIn();
 		await bob.openProposalsTab();
+
+		// In the table, a click anywhere on the row opens the page.
+		await bob
+			.proposalRow(proposal.digest)
+			.getByTestId('proposal-status')
+			.click();
+		await expect(
+			bob.proposalPage(proposal.digest),
+		).toBeVisible();
+		await bob.page.goBack();
+
 		await bob.page.setViewportSize({
 			width: 375,
 			height: 812,

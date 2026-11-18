@@ -13,7 +13,7 @@ import {
 	MoreHorizontal,
 } from 'lucide-react';
 import { type ReactElement, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
@@ -66,7 +66,7 @@ export type ProposalsTableVariant = 'overview' | 'list';
 
 /**
  * One proposal in the proposals table: what it is, who proposed it,
- * where it stands and Execute. The title links to the proposal's page,
+ * where it stands and Execute. The row opens the proposal's page,
  * where signing and cancelling happen. The overview names the proposer
  * in the meta line; the list gives them a column, and adds the digest
  * and a menu to copy its link, download it, unless cancelled or expired,
@@ -87,6 +87,7 @@ export function ProposalRow({
 }) {
 	const { currentAddress } = useApiAuth();
 	const executing = useExecuteOrVerify();
+	const navigate = useNavigate();
 
 	const status = expired
 		? 'expired'
@@ -114,11 +115,25 @@ export function ProposalRow({
 			: isExternalProposer(proposal)
 				? 'external'
 				: null;
+	const pagePath = proposalPagePath(
+		proposal.multisigAddress,
+		proposal.digest,
+	);
 
 	return (
 		<tr
+			onClick={(e) => {
+				const target = e.target as Element;
+				// Menu items are portalled, so they reach here through React only.
+				if (
+					e.currentTarget.contains(target) &&
+					!target.closest('a, button')
+				)
+					navigate(pagePath);
+			}}
 			className={cn(
 				tableRowClass,
+				'cursor-pointer hover:bg-muted/50',
 				'@max-md:grid @max-md:grid-cols-[auto_auto_1fr] @max-md:gap-x-3 @max-md:gap-y-2 @max-md:px-3 @max-md:py-3',
 			)}
 			data-testid="proposal-row"
@@ -135,10 +150,7 @@ export function ProposalRow({
 					)}
 					<div className="flex min-w-0 flex-col gap-0.75">
 						<Link
-							to={proposalPagePath(
-								proposal.multisigAddress,
-								proposal.digest,
-							)}
+							to={pagePath}
 							className="truncate text-14 font-medium text-foreground hover:underline @max-md:line-clamp-2 @max-md:whitespace-normal"
 							data-testid="proposal-title"
 						>

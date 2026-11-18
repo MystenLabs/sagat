@@ -51,7 +51,7 @@ export function ShortAddress({
 				delay={150}
 				data-address={address}
 				className={cn(
-					'cursor-help rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
+					'cursor-pointer rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring',
 					className,
 				)}
 			>
