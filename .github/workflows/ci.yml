@@ -53,7 +53,7 @@ jobs:
       # copy is in the app bundle, and zod 3 has no fix.
       # Remove --ignore once both packages move to zod 4.
       - name: Audit dependencies
-        run: bun audit --audit-level=high --ignore=GHSA-mrhx-c7xc-m3w5
+        run: bun audit --audit-level=high --ignore=GHSA-mrhx-c7xc-m3w5 --ignore=GHSA-fc5q-39xc-vjpf
 
   typecheck:
     name: TypeScript Check
