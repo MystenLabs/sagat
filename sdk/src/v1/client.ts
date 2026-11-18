@@ -61,20 +61,11 @@ export class SagatV1Client {
 	async #request<T extends z.ZodType>(
 		schema: T,
 		endpoint: string,
-		options: RequestInit = {},
 	): Promise<z.output<T>> {
-		const timeout = AbortSignal.timeout(this.#timeoutMs);
 		const response = await this.#fetch(
 			`${this.#apiUrl}${endpoint}`,
 			{
-				...options,
-				signal: options.signal
-					? AbortSignal.any([options.signal, timeout])
-					: timeout,
-				headers: {
-					'Content-Type': 'application/json',
-					...options.headers,
-				},
+				signal: AbortSignal.timeout(this.#timeoutMs),
 				credentials: 'include',
 			},
 		);

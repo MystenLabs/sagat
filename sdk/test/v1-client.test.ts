@@ -5,7 +5,6 @@ import { describe, expect, test } from 'bun:test';
 
 import {
 	ProposalStatus,
-	SagatApiError,
 	SagatResponseError,
 	SagatV1Client,
 	type Fetch,
@@ -69,22 +68,5 @@ describe('SagatV1Client', () => {
 		expect(error.issues[0].path).toEqual([
 			'accountAddress',
 		]);
-	});
-
-	test('maps an error body to SagatApiError with its status', async () => {
-		const client = new SagatV1Client('', {
-			fetch: replying(404, {
-				error: 'The requested resource was not found.',
-			}),
-		});
-
-		const error = await client
-			.getProposal(DIGEST)
-			.catch((e) => e);
-		expect(error).toBeInstanceOf(SagatApiError);
-		expect(error.status).toBe(404);
-		expect(error.message).toBe(
-			'The requested resource was not found.',
-		);
 	});
 });

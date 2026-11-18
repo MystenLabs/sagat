@@ -51,8 +51,7 @@ type RouteContext<R extends RouteConfig> = Parameters<
 type SuccessSchema<R extends JsonRoute> =
 	R['responses'][200]['content']['application/json']['schema'];
 
-// Registers a route whose handler returns plain data; the data is parsed
-// with the route's 200 schema and only the parsed output is sent.
+// Parses the handler's data with the route's 200 schema before sending it.
 export const defineRoute = <R extends JsonRoute>(
 	app: V1App,
 	route: R,
