@@ -70,6 +70,7 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { useInvitations } from '@/hooks/useInvitations';
 import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
+import { DOCS_URL } from '@/lib/docs';
 import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 import {
 	currentMultisigPage,
@@ -81,7 +82,7 @@ const COPY = content.sidebar;
 
 const RESOURCE_LINKS = [
 	{
-		href: 'https://docs.suipods.io',
+		href: DOCS_URL,
 		label: COPY.viewDocs,
 		icon: DocsIcon,
 	},

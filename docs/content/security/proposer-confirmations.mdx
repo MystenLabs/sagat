@@ -1,0 +1,38 @@
+---
+title: Proposer confirmations
+description: How the app checks that signatures back the proposer a proposal names, and whether the pod’s signers confirmed its external proposers.
+---
+
+The API records who proposed each proposal and which signer added each external proposer. The app doesn’t rely on that record alone: it checks the wallet signatures stored with it. The service holds none of the signers’ or proposers’ keys, so it can’t make those signatures itself.
+
+## Confirmed proposals
+
+A proposal is confirmed when a signature on record backs the proposer it names:
+
+- a signer who signed it when proposing it or, if that signature isn’t on record, who approved it
+- an external proposer who signed it when proposing it, and who is [confirmed](#confirmed-proposers)
+
+If one of these signatures doesn’t check out, the app refuses to sign. A proposal that is otherwise not confirmed, for example one proposed before signatures were kept, gets a warning.
+
+## If you see a warning or a refusal
+
+- **Proposer not confirmed:** no signature on record backs the proposer it names. Check the transaction in the app’s preview and your wallet’s before you sign.
+- **The proposer’s confirmation doesn’t check out:** the app won’t sign the proposal. If it came from an external proposer you don’t recognize, remove them on the pod’s **Members** page. Removing them also cancels their pending proposals.
+
+## Confirmed proposers
+
+When a signer adds an external proposer, their wallet signs a message that names the proposer, the pod and an expiry, and the service keeps that signature. A proposer is confirmed when the message that last added them is signed by a key in the pod’s current signer set. The app counts those keys only when they, their weights and the threshold make up the pod’s address. When they don’t, every proposer shows Unverified, Re-confirm isn’t offered, and the app refuses to sign for that reason.
+
+- **Confirmed:** a current signer’s signed message adding them is on record and checks out.
+- **Unverified:** no signature the app can check is on record, for example for a proposer added before signatures were kept. Any signer can re-confirm the proposer by adding them again.
+- **Doesn’t check out:** the signature on record doesn’t match, or wasn’t made by a current signer. The app refuses to sign that proposer’s proposals. Remove the proposer if you don’t recognize it.
+
+## What a confirmation doesn’t prove
+
+- Confirmations reach the app through the API. One shows that a current signer added the proposer, not that the API returned every addition and removal.
+- Only keys in the current signer set count. A key that leaves the signer set no longer confirms anyone.
+- When a signer’s approval is what confirms a proposal, it shows they signed the transaction, not that they created the proposal.
+- One signer is enough to add or re-confirm a proposer. It doesn’t take the threshold.
+- A confirmation says nothing about a proposal’s transaction. [Check what you sign](/security/trust-model#check-what-you-sign) in the app’s preview and your wallet’s.
+
+Confirmations are a record kept by the service, not part of Sui: when a transaction executes, Sui checks only the signers’ combined signature. Integrators can run the same checks with the SDK’s verify functions, such as `verifyProposer` and `verifyProposalProposer`, after checking that the signers they pass make up the pod’s address.

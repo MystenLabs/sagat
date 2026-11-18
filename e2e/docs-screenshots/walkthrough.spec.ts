@@ -3,6 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import type { MultisigWithMembers } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { expect, test, type Page } from '@playwright/test';
@@ -17,6 +18,7 @@ import {
 	nameMultisig,
 	setThreshold,
 } from '../support/create-wizard';
+import { E2E } from '../support/env';
 import { Identity } from '../support/identity';
 import {
 	chooseType,
@@ -26,6 +28,7 @@ import {
 } from '../support/new-proposal';
 import {
 	acceptInvitation,
+	addProposer,
 	multisigAddressOf,
 	multisigPublicKeyOf,
 	proposeTransfer,
@@ -355,6 +358,88 @@ test('getting started', async ({ browser }) => {
 		).toBeDisabled();
 		await shoot(page, 'transaction-signer');
 	});
+
+	await you.context.close();
+});
+
+test('external proposers', async ({ browser }) => {
+	// Keys of its own, so the shot doesn't depend on the other tests.
+	const maya = person('proposers-maya', 'Maya');
+	const tomas = person('proposers-tomas', 'Tomás');
+	const payments = person('payments-service', 'Payments');
+	const payroll = person('payroll-service', 'Payroll');
+
+	const you = await Actor.create(
+		browser,
+		'Alex',
+		demoKeypair('proposers-you'),
+		[],
+		{
+			network: 'mainnet',
+			walletName: 'Demo Wallet',
+		},
+	);
+	await serveFullnodeLocally(you.context, 'mainnet');
+	await you.context.addInitScript(() =>
+		localStorage.setItem('theme', 'light'),
+	);
+	const { page } = you;
+	await page.setViewportSize(WIDE);
+
+	const pod = await setupMultisig({
+		creator: you,
+		members: [maya, tomas],
+		threshold: 2,
+		name: 'Operations',
+		labels: ['Alex', 'Maya', 'Tomás'],
+	});
+	await addProposer(maya, pod.address, payments.address);
+	await addProposer(you, pod.address, payroll.address);
+
+	// Hides payroll's signed add, as for a proposer added before signatures were kept.
+	await page.route(
+		`${E2E.apiUrl}/multisig/${pod.address}`,
+		async (route) => {
+			const response = await route.fetch();
+			const account =
+				(await response.json()) as MultisigWithMembers;
+			await route.fulfill({
+				response,
+				json: {
+					...account,
+					proposers: account.proposers.map((p) =>
+						p.address === payroll.address
+							? { ...p, event: null }
+							: p,
+					),
+				},
+			});
+		},
+	);
+
+	await you.signIn();
+	await page.goto(`/multisig/${pod.address}`);
+	await page.getByTestId('multisig-tab-signers').click();
+	const card = page.getByTestId('proposers-card');
+	const proposer = (address: string) =>
+		card.locator(
+			`[data-testid="proposer-item"][data-address="${address}"]`,
+		);
+	await expect(proposer(payments.address)).toHaveAttribute(
+		'data-status',
+		'verified',
+	);
+	await expect(proposer(payroll.address)).toHaveAttribute(
+		'data-status',
+		'unverified',
+	);
+	await expect(
+		proposer(payroll.address).getByTestId(
+			'reconfirm-proposer-button',
+		),
+	).toBeVisible();
+	await card.scrollIntoViewIfNeeded();
+	await shoot(page, 'proposers-card');
 
 	await you.context.close();
 });

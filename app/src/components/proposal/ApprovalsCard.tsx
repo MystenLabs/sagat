@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Chip } from '@/components/ui/chip';
+import { LearnMoreLink } from '@/components/ui/learn-more-link';
 import {
 	Modal,
 	ModalActions,
@@ -58,6 +59,8 @@ const COPY = content.proposal.approvals;
 const SHARED = content.proposal.shared;
 const ACTIONS = content.common.actions;
 const STATES = content.common.states;
+const PROPOSER_DOCS =
+	'/security/proposer-confirmations#confirmed-proposals';
 
 /**
  * Who signed, what the threshold needs, and what the viewer can do
@@ -312,7 +315,15 @@ export function ApprovalsCard({
 						<div className="font-medium">
 							{COPY.refused.title}
 						</div>
-						<div>{COPY.refused[refused]}</div>
+						<div>
+							{COPY.refused[refused]}
+							{refused === 'proposer' && (
+								<>
+									{' '}
+									<LearnMoreLink path={PROPOSER_DOCS} />
+								</>
+							)}
+						</div>
 					</Alert>
 					<ButtonRow>{cancelButton('outline')}</ButtonRow>
 				</>
@@ -328,7 +339,10 @@ export function ApprovalsCard({
 							<div className="font-medium">
 								{COPY.proposerNotConfirmed.title}
 							</div>
-							<div>{COPY.proposerNotConfirmed.body}</div>
+							<div>
+								{COPY.proposerNotConfirmed.body}{' '}
+								<LearnMoreLink path={PROPOSER_DOCS} />
+							</div>
 						</Alert>
 					)}
 					{offerExecuteAfterSigning && (

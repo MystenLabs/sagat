@@ -16,6 +16,7 @@ import {
 } from '@mysten/sui/utils';
 import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 
+import { docsUrl } from '../../app/src/lib/docs';
 import { newProposalPath } from '../../app/src/lib/new-proposal';
 import { type Actor } from '../support/actor';
 import { randomAddress } from '../support/chain';
@@ -336,6 +337,16 @@ test.describe('proposal integrity', () => {
 		await expect(
 			card.getByTestId('proposer-unconfirmed'),
 		).toBeVisible();
+		await expect(
+			card
+				.getByTestId('proposer-unconfirmed')
+				.getByTestId('learn-more-link'),
+		).toHaveAttribute(
+			'href',
+			docsUrl(
+				'/security/proposer-confirmations#confirmed-proposals',
+			),
+		);
 		// Refetches serve the tampered proposal again, so check the vote itself.
 		const voted = bob.page.waitForResponse((response) =>
 			isVoteRequest(response.request()),
@@ -372,6 +383,16 @@ test.describe('proposal integrity', () => {
 			},
 		);
 		await expectRefused(opened, 'proposer');
+		await expect(
+			opened.bob.page
+				.getByTestId('sign-refused')
+				.getByTestId('learn-more-link'),
+		).toHaveAttribute(
+			'href',
+			docsUrl(
+				'/security/proposer-confirmations#confirmed-proposals',
+			),
+		);
 	});
 
 	test('refuses to sign an external proposal relabelled as a member’s', async ({

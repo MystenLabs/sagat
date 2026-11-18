@@ -11,6 +11,18 @@ Any signer who has accepted their invitation can add or remove an external propo
 
 Removing an external proposer cancels all of their pending proposals on the pod, including ones that signers have already signed. See [Cancelling](/guide/proposals#cancelling) for what cancelling does and does not do.
 
+## Confirmations
+
+Each external proposer on the **Members** page shows where its confirmation stands:
+
+![The External proposers card on a pod’s Members page: one proposer confirmed by a signer, with the date, and one marked Unverified with Re-confirm and Remove buttons](/screenshots/proposers-card.png)
+
+- **Confirmed by** a signer, with the date: that signer’s signed message adding it is on record and checks out.
+- **Unverified:** no signature the app can check is on record, for example for a proposer added before signatures were kept. Any signer can **Re-confirm** it, which adds it again with a new signed message. Until then, the proposer’s proposals carry a warning but can still be signed.
+- **Doesn’t check out:** the signature on record doesn’t match, or wasn’t made by a current signer, and the app refuses to sign the proposer’s proposals. **Remove** the proposer if you don’t recognize it.
+
+If the pod’s signers don’t make up its address, every proposer shows Unverified, Re-confirm isn’t offered, and the app refuses to sign. See [Proposer confirmations](/security/proposer-confirmations) for what a confirmation shows and what it doesn’t.
+
 ## How an external proposer proposes
 
 The app has no screen for this: it lists only the pods where your key is an accepted signer, so an external proposer does not see the pod there.
