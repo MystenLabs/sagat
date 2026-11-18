@@ -51,7 +51,9 @@ jobs:
       # Ignores GHSA-mrhx-c7xc-m3w5 (zod < 4.6.6). It's only flagged for the zod 3
       # copies that @reown/appkit-wallet and @coinbase/cdp-sdk depend on. Neither
       # copy is in the app bundle, and zod 3 has no fix.
-      # Remove --ignore once both packages move to zod 4.
+      # Remove that --ignore once both packages move to zod 4.
+      # Ignores GHSA-fc5q-39xc-vjpf (picomatch <= 4.0.7), which has no fixed
+      # release yet. Remove that --ignore once one ships and the lockfile has it.
       - name: Audit dependencies
         run: bun audit --audit-level=high --ignore=GHSA-mrhx-c7xc-m3w5 --ignore=GHSA-fc5q-39xc-vjpf
 
