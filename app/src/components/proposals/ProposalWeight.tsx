@@ -35,12 +35,13 @@ export function ProposalWeight({
 		<TooltipProvider delay={150}>
 			<Tooltip>
 				<TooltipTrigger
-					type="button"
+					// Not a button, so a click falls through to the row.
+					render={<span role="img" tabIndex={0} />}
 					aria-label={content.proposals.weight.ariaLabel(
 						label,
 					)}
 					className={cn(
-						'flex w-fit cursor-help gap-0.75 rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring',
+						'flex w-fit gap-0.75 rounded-sm py-1 outline-none focus-visible:ring-2 focus-visible:ring-ring',
 						className,
 					)}
 					data-testid="proposal-weight"

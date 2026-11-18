@@ -514,6 +514,28 @@ test.describe('proposals', () => {
 		).toHaveText(content.transactionPreview.expired);
 	});
 
+	test('a click anywhere on a row opens the proposal’s page', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { bob, proposal } = await setupProposal({
+			createActor,
+			createIdentity,
+			chain,
+		});
+
+		await bob.signIn();
+		await bob.openProposalsTab();
+		await bob
+			.proposalRow(proposal.digest)
+			.getByTestId('proposal-status')
+			.click();
+		await expect(
+			bob.proposalPage(proposal.digest),
+		).toBeVisible();
+	});
+
 	test('a stacked row opens the proposal’s page on a phone', async ({
 		createActor,
 		createIdentity,

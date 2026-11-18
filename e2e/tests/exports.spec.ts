@@ -66,6 +66,10 @@ test('a proposal export is enough to execute it without the app', async ({
 	const exported = await downloadJson<ProposalExport>(
 		alice.page.getByTestId('export-proposal-button'),
 	);
+	// The menu's items are not the row: the list stays.
+	await expect(
+		alice.proposalRow(proposal.digest),
+	).toBeVisible();
 	expect(exported.type).toBe('sagat.proposal');
 	expect(exported.proposal.digest).toBe(proposal.digest);
 

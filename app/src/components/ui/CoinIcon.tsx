@@ -137,7 +137,7 @@ function VerifiedBadge({
 				aria-label={MARKS.unverifiedCoin}
 				data-testid="token-unverified"
 				className={cn(
-					'absolute cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
+					'absolute cursor-pointer rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
 					badgeClassName,
 				)}
 			>
