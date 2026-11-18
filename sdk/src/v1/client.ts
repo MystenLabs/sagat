@@ -48,7 +48,7 @@ export class SagatV1Client {
 	}
 
 	/** A proposal by its transaction digest. */
-	getProposal(digest: string) {
+	getProposalByDigest(digest: string) {
 		return this.#request(
 			ProposalSchema,
 			`/v1/proposals/${encodeURIComponent(digest)}`,
@@ -66,9 +66,14 @@ export class SagatV1Client {
 				credentials: 'include',
 			},
 		);
-		const body: unknown = await response
-			.json()
-			.catch(() => undefined);
+		// Only a body that is not JSON is tolerated; a failed read rejects.
+		const text = await response.text();
+		let body: unknown;
+		try {
+			body = JSON.parse(text);
+		} catch {
+			body = undefined;
+		}
 
 		if (!response.ok) {
 			const error = ErrorBodySchema.safeParse(body);

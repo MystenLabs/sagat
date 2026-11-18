@@ -73,7 +73,7 @@ describe('GET /v1/proposals/:digest', () => {
 		const { users, multisig, created } =
 			await proposeRent();
 
-		const proposal = await client.getProposal(
+		const proposal = await client.getProposalByDigest(
 			created.digest,
 		);
 
@@ -120,7 +120,7 @@ describe('GET /v1/proposals/:digest', () => {
 		const { users, created } = await proposeRent();
 
 		const { events, ...proposal } =
-			await client.getProposal(created.digest);
+			await client.getProposalByDigest(created.digest);
 
 		expect(events.proposer).toBeNull();
 		expect(events.created).toEqual({
@@ -145,7 +145,9 @@ describe('GET /v1/proposals/:digest', () => {
 
 	test('a well-formed digest with no proposal is a 404', async () => {
 		const error = await client
-			.getProposal(toBase58(new Uint8Array(32).fill(7)))
+			.getProposalByDigest(
+				toBase58(new Uint8Array(32).fill(7)),
+			)
 			.catch((e) => e);
 
 		expect(error).toBeInstanceOf(SagatApiError);
@@ -202,7 +204,7 @@ describe('GET /v1/proposals/:digest', () => {
 		});
 
 		const error = await legacy
-			.getProposal(created.digest)
+			.getProposalByDigest(created.digest)
 			.catch((e) => e);
 
 		expect(error).toBeInstanceOf(SagatResponseError);
