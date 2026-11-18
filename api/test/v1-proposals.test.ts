@@ -4,6 +4,7 @@
 import {
 	ProposalStatus,
 	SagatApiError,
+	SagatResponseError,
 	SagatV1Client,
 } from '@mysten/sagat';
 import { toBase58 } from '@mysten/sui/utils';
@@ -13,7 +14,10 @@ import {
 	expect,
 	test,
 } from 'bun:test';
+import { eq } from 'drizzle-orm';
 
+import { db } from '../src/db';
+import { SchemaProposals } from '../src/db/schema';
 import {
 	ApiTestFramework,
 	newUser,
@@ -40,7 +44,7 @@ describe('GET /v1/proposals/:digest', () => {
 		});
 	});
 
-	test('returns the proposal under the account names, with its tally', async () => {
+	const proposeRent = async () => {
 		const users = [newUser(), newUser()];
 		for (const user of users)
 			await session.connectUser(user);
@@ -61,6 +65,12 @@ describe('GET /v1/proposals/:digest', () => {
 			multisig.address,
 			'Pay rent',
 		);
+		return { users, multisig, created };
+	};
+
+	test('returns the proposal under the account names, with its tally', async () => {
+		const { users, multisig, created } =
+			await proposeRent();
 
 		const proposal = await client.getProposal(
 			created.digest,
@@ -128,5 +138,51 @@ describe('GET /v1/proposals/:digest', () => {
 			error:
 				'digest: The transaction digest provided is invalid.',
 		});
+	});
+
+	test('a response that does not match its schema is a 500 and is not sent', async () => {
+		const { created } = await proposeRent();
+		const corrupted = 'not-a-sui-address';
+		await db
+			.update(SchemaProposals)
+			.set({ proposerAddress: corrupted })
+			.where(eq(SchemaProposals.id, created.id));
+
+		const response = await session.request(
+			`/v1/proposals/${created.digest}`,
+		);
+		const text = await response.text();
+
+		expect(response.status).toBe(500);
+		expect(JSON.parse(text)).toEqual({
+			error: 'Internal Server Error',
+		});
+		expect(text).not.toContain(corrupted);
+	});
+
+	test('the client rejects a 2xx body that does not match the schema', async () => {
+		const { created } = await proposeRent();
+		// The legacy route answers with the same proposal in its older shape.
+		const legacy = new SagatV1Client('', {
+			fetch: (url, init) =>
+				session.request(
+					(url as string).replace(
+						'/v1/proposals/',
+						'/proposals/digest/',
+					),
+					init,
+				),
+		});
+
+		const error = await legacy
+			.getProposal(created.digest)
+			.catch((e) => e);
+
+		expect(error).toBeInstanceOf(SagatResponseError);
+		expect(
+			error.issues.map(
+				(issue: { path: PropertyKey[] }) => issue.path,
+			),
+		).toContainEqual(['accountAddress']);
 	});
 });
