@@ -514,6 +514,36 @@ test.describe('proposals', () => {
 		).toHaveText(content.transactionPreview.expired);
 	});
 
+	test('a click anywhere on a row opens the proposal’s page', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const proposal = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		await bob.signIn();
+		await bob.openProposalsTab();
+		await bob
+			.proposalRow(proposal.digest)
+			.getByTestId('proposal-status')
+			.click();
+		await expect(
+			bob.proposalPage(proposal.digest),
+		).toBeVisible();
+	});
+
 	test('a stacked row opens the proposal’s page on a phone', async ({
 		createActor,
 		createIdentity,
@@ -538,17 +568,6 @@ test.describe('proposals', () => {
 
 		await bob.signIn();
 		await bob.openProposalsTab();
-
-		// In the table, a click anywhere on the row opens the page.
-		await bob
-			.proposalRow(proposal.digest)
-			.getByTestId('proposal-status')
-			.click();
-		await expect(
-			bob.proposalPage(proposal.digest),
-		).toBeVisible();
-		await bob.page.goBack();
-
 		await bob.page.setViewportSize({
 			width: 375,
 			height: 812,

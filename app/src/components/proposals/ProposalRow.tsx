@@ -128,7 +128,9 @@ export function ProposalRow({
 				if (
 					e.currentTarget.contains(target) &&
 					!target.closest('a, button') &&
-					!executing.isPending
+					!executing.isPending &&
+					// Releasing a text selection is not a click on the row.
+					!window.getSelection()?.toString()
 				)
 					navigate(pagePath);
 			}}
