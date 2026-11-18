@@ -1,0 +1,159 @@
+{
+	"openapi": "3.1.0",
+	"info": { "title": "Sagat API", "version": "1.0.0" },
+	"components": {
+		"schemas": {
+			"Proposal": {
+				"type": "object",
+				"properties": {
+					"id": { "type": "integer" },
+					"digest": {
+						"type": "string",
+						"description": "A Sui transaction digest."
+					},
+					"accountAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"accountName": { "type": ["string", "null"] },
+					"network": { "type": "string" },
+					"status": {
+						"type": "integer",
+						"enum": [0, 1, 2, 3]
+					},
+					"transactionBytes": { "type": "string" },
+					"proposerAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"description": { "type": ["string", "null"] },
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"signatures": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ProposalSignature"
+						}
+					},
+					"currentWeight": { "type": "integer" },
+					"hasReachedThreshold": { "type": "boolean" },
+					"signerSet": {
+						"$ref": "#/components/schemas/SignerSet"
+					}
+				},
+				"required": [
+					"id",
+					"digest",
+					"accountAddress",
+					"accountName",
+					"network",
+					"status",
+					"transactionBytes",
+					"proposerAddress",
+					"description",
+					"createdAt",
+					"signatures",
+					"currentWeight",
+					"hasReachedThreshold",
+					"signerSet"
+				]
+			},
+			"ProposalSignature": {
+				"type": "object",
+				"properties": {
+					"proposalId": { "type": "integer" },
+					"publicKey": { "type": "string" },
+					"signature": { "type": "string" }
+				},
+				"required": ["proposalId", "publicKey", "signature"]
+			},
+			"SignerSet": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"threshold": { "type": "integer" },
+					"members": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SignerSetMember"
+						}
+					}
+				},
+				"required": ["address", "threshold", "members"]
+			},
+			"SignerSetMember": {
+				"type": "object",
+				"properties": {
+					"publicKey": { "type": "string" },
+					"weight": { "type": "integer" },
+					"order": { "type": "integer" }
+				},
+				"required": ["publicKey", "weight", "order"]
+			},
+			"Error": {
+				"type": "object",
+				"properties": { "error": { "type": "string" } },
+				"required": ["error"],
+				"description": "An error response."
+			}
+		},
+		"parameters": {}
+	},
+	"paths": {
+		"/v1/proposals/{digest}": {
+			"get": {
+				"summary": "Get a proposal by its transaction digest",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"required": true,
+						"description": "A Sui transaction digest.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The proposal, with its signatures and tally.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest is not a valid transaction digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"webhooks": {}
+}

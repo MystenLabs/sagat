@@ -6,6 +6,7 @@ import { DrizzleQueryError } from 'drizzle-orm';
 import { type ErrorHandler } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { DatabaseError } from 'pg';
+import { type z } from 'zod';
 
 export class NotFoundError extends Error {}
 
@@ -27,6 +28,17 @@ export class ApiAuthError extends Error {
 
 // Generic error for unknown errors
 export class ValidationError extends Error {}
+
+// A `/v1` handler's data that does not match its route's response schema.
+export class ResponseSchemaError extends Error {
+	constructor(
+		readonly route: string,
+		readonly issues: z.core.$ZodIssue[],
+	) {
+		super(`Response schema mismatch on ${route}`);
+		this.name = 'ResponseSchemaError';
+	}
+}
 
 export const AuthErrors = {
 	NotAMultisigMember:
@@ -101,6 +113,12 @@ export const appErrorHandler: ErrorHandler = (err, c) => {
 			{ error: 'The requested resource was not found.' },
 			404,
 		);
+
+	if (err instanceof ResponseSchemaError) {
+		// eslint-disable-next-line no-console
+		console.error(err.message, err.issues);
+		return c.json({ error: 'Internal Server Error' }, 500);
+	}
 
 	// eslint-disable-next-line no-console
 	console.error('Unhandled error:', err);

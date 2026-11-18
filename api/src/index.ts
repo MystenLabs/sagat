@@ -22,6 +22,7 @@ import authRouter from './routes/auth';
 import multisigRouter from './routes/multisig';
 import proposalsRouter from './routes/proposals';
 import { optionalEnv } from './utils/env';
+import v1App from './v1';
 
 // Bun serves the default export only once this module has finished
 // evaluating, so no request reaches a database that is behind. Set
@@ -123,6 +124,7 @@ app.route('/auth', authRouter);
 app.route('/addresses', addressesRouter);
 app.route('/multisig', multisigRouter);
 app.route('/proposals', proposalsRouter);
+app.route('/', v1App);
 
 // Map known errors
 app.onError(appErrorHandler);

@@ -41,6 +41,14 @@ UPDATE_GOLDEN=1 bun test ./test/legacy-contract.test.ts
 
 See `golden/README.md` for what is normalized and when not to regenerate.
 
+## OpenAPI spec snapshot (`openapi/`)
+
+`openapi/v1-spec.test.ts` generates the `/v1` spec from the routes and compares it with `api/openapi/v1.json`. It needs neither Postgres nor the Sui network; CI runs it in the `openapi-check` job. A failure means a `/v1` route or schema changed. If the change is intended, regenerate the snapshot and commit the diff with the change:
+
+```bash
+UPDATE_OPENAPI=1 bun test:openapi
+```
+
 ## Writing tests
 
 Each file calls `setupSharedTestEnvironment()`, and each test starts from `createTestApp()`, which empties the database. `ApiTestFramework` (in `framework/`) sets up sessions, users and multisigs; `TestSession.client` is a `SagatClient` that keeps the session cookie like a browser would.
