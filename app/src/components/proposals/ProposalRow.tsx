@@ -127,7 +127,8 @@ export function ProposalRow({
 				// Menu items are portalled, so they reach here through React only.
 				if (
 					e.currentTarget.contains(target) &&
-					!target.closest('a, button')
+					!target.closest('a, button') &&
+					!executing.isPending
 				)
 					navigate(pagePath);
 			}}
