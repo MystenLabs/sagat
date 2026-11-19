@@ -265,6 +265,7 @@ describe('Address aliases on multisig accounts', () => {
 			exists: false,
 			objectId: deriveAliasesObjectId(M.address),
 			version: null,
+			previousTransaction: null,
 			aliases: [M.address],
 		});
 

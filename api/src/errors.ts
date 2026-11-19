@@ -42,6 +42,21 @@ export class ResponseSchemaError extends Error {
 	}
 }
 
+// The alias state an access decision needs could not be read from the chain.
+export class AliasStateUnavailableError extends Error {
+	constructor(
+		readonly accountAddress: string,
+		readonly network: string,
+		options?: ErrorOptions,
+	) {
+		super(
+			`The signers of account ${accountAddress} on ${network} could not be checked. Please try again.`,
+			options,
+		);
+		this.name = 'AliasStateUnavailableError';
+	}
+}
+
 export const AuthErrors = {
 	NotAMultisigMember:
 		'Proposer is either not a member of the multisig, or has not accepted the invitation to the multisig.',
@@ -82,6 +97,12 @@ export const appErrorHandler: ErrorHandler = (err, c) => {
 			},
 			502,
 		);
+	}
+
+	if (err instanceof AliasStateUnavailableError) {
+		// eslint-disable-next-line no-console
+		console.error(err.message, err.cause);
+		return c.json({ error: err.message }, 503);
 	}
 
 	if (err instanceof DrizzleQueryError) {
