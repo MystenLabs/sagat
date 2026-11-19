@@ -17,6 +17,7 @@ import {
 } from '../utils/client';
 
 export const ALIAS_SET_BATCH_SIZE = 50;
+export const ALIAS_SET_BATCH_WINDOW_MS = 50;
 
 export type AliasObjectReader = Pick<
 	SuiGrpcClient,
@@ -36,22 +37,30 @@ const loadAliasSets =
 		const owners = addresses.map((address) =>
 			normalizeSuiAddress(address),
 		);
+		// Several requests can ask for one account in a batch; read it once.
+		const unique = [...new Set(owners)];
 		const { objects } = await client.getObjects({
-			objectIds: owners.map(deriveAliasesObjectId),
+			objectIds: unique.map(deriveAliasesObjectId),
 			include: ALIAS_OBJECT_INCLUDE,
 		});
-		return owners.map((owner, i) => {
-			try {
-				return decodeAliasSet(owner, objects[i]);
-			} catch (error) {
-				return error instanceof Error
-					? error
-					: new Error(String(error));
-			}
-		});
+		const sets = new Map(
+			unique.map((owner, i): [string, AliasSet | Error] => {
+				try {
+					return [owner, decodeAliasSet(owner, objects[i])];
+				} catch (error) {
+					return [
+						owner,
+						error instanceof Error
+							? error
+							: new Error(String(error)),
+					];
+				}
+			}),
+		);
+		return owners.map((owner) => sets.get(owner)!);
 	};
 
-// Create once per request: no cache, so every load reads the chain.
+// Shared across requests: no cache, so every load reads the chain.
 export const createAliasSetLoaders = (
 	clientFor: (
 		network: SuiNetwork,
@@ -69,6 +78,8 @@ export const createAliasSetLoaders = (
 				{
 					maxBatchSize: ALIAS_SET_BATCH_SIZE,
 					cache: false,
+					batchScheduleFn: (callback) =>
+						setTimeout(callback, ALIAS_SET_BATCH_WINDOW_MS),
 				},
 			);
 			loaders.set(network, loader);
@@ -76,3 +87,5 @@ export const createAliasSetLoaders = (
 		return loader;
 	};
 };
+
+export const aliasSetLoaders = createAliasSetLoaders();

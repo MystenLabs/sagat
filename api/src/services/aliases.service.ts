@@ -15,7 +15,10 @@ import {
 	type DatabaseTransaction,
 } from '../db/transaction';
 import { AliasStateUnavailableError } from '../errors';
-import { type AliasSetLoaders } from '../loaders/alias-set.loader';
+import {
+	aliasSetLoaders,
+	type AliasSetLoaders,
+} from '../loaders/alias-set.loader';
 import { type AliasSet } from '../utils/aliases';
 import { type SuiNetwork } from '../utils/client';
 import {
@@ -315,7 +318,7 @@ const refreshOne = async (
 export const refreshAliases = async (
 	accountAddresses: string[],
 	network: SuiNetwork,
-	loaders: AliasSetLoaders,
+	loaders: AliasSetLoaders = aliasSetLoaders,
 ): Promise<AliasRefreshResult[]> => {
 	const inputs = accountAddresses.map((address) =>
 		normalizeSuiAddress(address),
@@ -351,7 +354,7 @@ export const refreshAliases = async (
 export const refreshStaleAliases = async (
 	accountAddresses: string[],
 	network: SuiNetwork,
-	loaders: AliasSetLoaders,
+	loaders: AliasSetLoaders = aliasSetLoaders,
 ): Promise<StaleAliasRefreshResult[]> => {
 	const inputs = accountAddresses.map((address) =>
 		normalizeSuiAddress(address),
@@ -385,7 +388,7 @@ export const refreshStaleAliases = async (
 export const requireFreshAliases = async (
 	accountAddress: string,
 	network: SuiNetwork,
-	loaders: AliasSetLoaders,
+	loaders: AliasSetLoaders = aliasSetLoaders,
 ): Promise<
 	Exclude<StaleAliasRefreshResult, { outcome: 'failed' }>
 > => {

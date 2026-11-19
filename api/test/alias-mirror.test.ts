@@ -77,6 +77,7 @@ const serving = (
 	serve: (objectIds: string[]) => Promise<AliasObjects>,
 ) => {
 	let calls = 0;
+	let lastIds: string[] = [];
 	const reader: AliasObjectReader = {
 		getObjects: async <
 			Include extends SuiClientTypes.ObjectInclude = object,
@@ -84,6 +85,7 @@ const serving = (
 			input: SuiClientTypes.GetObjectsOptions<Include>,
 		) => {
 			calls++;
+			lastIds = input.objectIds;
 			return (await serve(
 				input.objectIds,
 			)) as unknown as SuiClientTypes.GetObjectsResponse<Include>;
@@ -92,6 +94,7 @@ const serving = (
 	return {
 		loaders: createAliasSetLoaders(() => reader),
 		calls: () => calls,
+		lastIds: () => lastIds,
 	};
 };
 
@@ -582,5 +585,19 @@ describe('Alias mirror', () => {
 			outcome: 'failed',
 		});
 		expect((await mirrorOf(B)).state).toBeUndefined();
+	});
+
+	test('13. refreshes of one account at once share one read', async () => {
+		const { loaders, calls, lastIds } =
+			serving(readObjects);
+		const results = await Promise.all([
+			refreshAliases([A], NETWORK, loaders),
+			refreshAliases([A], NETWORK, loaders),
+		]);
+		expect(calls()).toBe(1);
+		expect(lastIds()).toEqual([deriveAliasesObjectId(A)]);
+		expect(
+			results.map(([result]) => result.outcome),
+		).toEqual(['unchanged', 'unchanged']);
 	});
 });
