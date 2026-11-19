@@ -138,7 +138,6 @@ export type AccountEventProof =
 				? NonNullable<Proof>
 				: never;
 	  }[keyof AccountEventRegistry]
-	| ChainProof
 	| CancelProofV1;
 
 type UnsetFields = {

@@ -106,6 +106,11 @@ export function decodeAliasSet(
 		throw entry;
 	}
 
+	if (normalizeSuiAddress(entry.objectId) !== objectId) {
+		throw new Error(
+			`Object ${entry.objectId} came back for ${objectId}`,
+		);
+	}
 	if (
 		normalizeStructTag(entry.type) !== ADDRESS_ALIASES_TYPE
 	) {

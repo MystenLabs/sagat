@@ -33,10 +33,12 @@ export type AliasRefreshResult = {
 	| ({ outcome: 'unchanged' | 'kept' } & Mirrored)
 	| ({
 			outcome: 'updated';
-			digest: string | null;
 			added: string[];
 			removed: string[];
-	  } & Mirrored)
+	  } & (
+			| { exists: true; version: string; digest: string }
+			| { exists: false; version: null; digest: null }
+	  ))
 	| { outcome: 'failed'; error: Error }
 );
 
@@ -82,6 +84,7 @@ export const needsRefresh = (
 	now = Date.now(),
 ) =>
 	!row ||
+	row.observedAt.getTime() > now ||
 	now - row.observedAt.getTime() > ALIAS_STATE_MAX_AGE_MS;
 
 const stateOf = (account: string, network: SuiNetwork) =>

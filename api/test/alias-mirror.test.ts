@@ -466,6 +466,18 @@ describe('Alias mirror', () => {
 		]);
 		expect(reads.calls()).toBe(0);
 
+		await backdate(A, -5_000);
+		expect(
+			await refreshStaleAliases(
+				[A],
+				NETWORK,
+				reads.loaders,
+			),
+		).toMatchObject([
+			{ accountAddress: A, outcome: 'unchanged' },
+		]);
+		expect(reads.calls()).toBe(1);
+
 		await backdate(A, ALIAS_STATE_MAX_AGE_MS + 1_000);
 		await db
 			.delete(SchemaAccountAliasState)
@@ -479,7 +491,7 @@ describe('Alias mirror', () => {
 			'unchanged',
 			'updated',
 		]);
-		expect(reads.calls()).toBe(1);
+		expect(reads.calls()).toBe(2);
 
 		const failing = serving(async () => {
 			throw unreachable;
@@ -513,5 +525,62 @@ describe('Alias mirror', () => {
 		expect(
 			sets.every((set) => !(set instanceof Error)),
 		).toBe(true);
+	});
+
+	test('11. an object returned for the wrong account fails that account', async () => {
+		const before = await mirrorOf(B);
+		const { loaders } = serving(async (objectIds) => {
+			const response = await readObjects(objectIds);
+			return {
+				objects: response.objects.map((entry, i) =>
+					objectIds[i] === deriveAliasesObjectId(B)
+						? enabled.objects[0]
+						: entry,
+				),
+			};
+		});
+
+		const [a, b] = await refreshAliases(
+			[A, B],
+			NETWORK,
+			loaders,
+		);
+		expect(a.outcome).toBe('unchanged');
+		expect(b).toMatchObject({
+			accountAddress: B,
+			outcome: 'failed',
+		});
+		expect(await mirrorOf(B)).toEqual(before);
+	});
+
+	test('12. a write that fails stays with its account', async () => {
+		await db
+			.delete(SchemaAccountAliasState)
+			.where(stateWhere(B));
+
+		// Wrapped, as returning it bare would make the transaction wait for it.
+		const { refresh } = await db.transaction(async (tx) => {
+			await lockAccount(tx, B);
+			const refresh = refreshAliases(
+				[A, B],
+				NETWORK,
+				createAliasSetLoaders(),
+			);
+			await untilBackendsWaitOnALock(db);
+			// Fails here instead of hanging if the write never gives up.
+			await Promise.race([refresh, Bun.sleep(3000)]);
+			return { refresh };
+		});
+
+		const [a, b] = await refresh;
+		expect(a).toMatchObject({
+			accountAddress: A,
+			outcome: 'unchanged',
+		});
+		expect(b).toMatchObject({
+			accountAddress: B,
+			outcome: 'failed',
+		});
+		expect((await mirrorOf(B)).state).toBeUndefined();
 	});
 });
