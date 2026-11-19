@@ -21,7 +21,7 @@ import {
 	type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
-import { ValidationError } from '../errors';
+import { ValidationError } from '../validation-error';
 
 export enum ProposalStatus {
 	PENDING = 0,

@@ -9,6 +9,10 @@ import { HTTPException } from 'hono/http-exception';
 import { DatabaseError } from 'pg';
 import { type z } from 'zod';
 
+import { ValidationError } from './validation-error';
+
+export { ValidationError };
+
 export class NotFoundError extends Error {}
 
 export class CommonError extends Error {
@@ -26,9 +30,6 @@ export class ApiAuthError extends Error {
 		this.name = 'ApiAuthError';
 	}
 }
-
-// Generic error for unknown errors
-export class ValidationError extends Error {}
 
 // A `/v1` handler's data that does not match its route's response schema.
 export class ResponseSchemaError extends Error {
