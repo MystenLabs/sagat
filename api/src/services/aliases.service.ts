@@ -14,7 +14,10 @@ import {
 	lockAccount,
 	type DatabaseTransaction,
 } from '../db/transaction';
-import { AliasStateUnavailableError } from '../errors';
+import {
+	AliasStateUnavailableError,
+	isLockTimeout,
+} from '../errors';
 import {
 	aliasSetLoaders,
 	type AliasSetLoaders,
@@ -392,16 +395,25 @@ export const requireFreshAliases = async (
 ): Promise<
 	Exclude<StaleAliasRefreshResult, { outcome: 'failed' }>
 > => {
-	const [result] = await refreshStaleAliases(
-		[accountAddress],
-		network,
-		loaders,
-	);
-	if (result.outcome === 'failed')
-		throw new AliasStateUnavailableError(
-			result.accountAddress,
+	const account = normalizeSuiAddress(accountAddress);
+	// A lock timeout keeps the API's own "busy" answer.
+	const unavailable = (cause: unknown) =>
+		isLockTimeout(cause)
+			? cause
+			: new AliasStateUnavailableError(account, network, {
+					cause,
+				});
+	let result: StaleAliasRefreshResult;
+	try {
+		[result] = await refreshStaleAliases(
+			[account],
 			network,
-			{ cause: result.error },
+			loaders,
 		);
+	} catch (error) {
+		throw unavailable(error);
+	}
+	if (result.outcome === 'failed')
+		throw unavailable(result.error);
 	return result;
 };

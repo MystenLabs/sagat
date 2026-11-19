@@ -32,6 +32,15 @@ export type AliasSetLoaders = (
 	network: SuiNetwork,
 ) => DataLoader<string, AliasSet>;
 
+const toError = (error: unknown) =>
+	error instanceof Error ? error : new Error(String(error));
+
+const chunk = <T>(items: T[], size: number): T[][] =>
+	Array.from(
+		{ length: Math.ceil(items.length / size) },
+		(_, i) => items.slice(i * size, (i + 1) * size),
+	);
+
 const loadAliasSets =
 	(client: AliasObjectReader) =>
 	async (
@@ -40,33 +49,40 @@ const loadAliasSets =
 		const owners = addresses.map((address) =>
 			normalizeSuiAddress(address),
 		);
-		// Several requests can ask for one account in a batch; read it once.
+		// Several requests can ask for one account in a window; read it once.
 		const unique = [...new Set(owners)];
-		const valid = unique.filter(isValidSuiAddress);
-		const { objects } = valid.length
-			? await client.getObjects({
-					objectIds: valid.map(deriveAliasesObjectId),
-					include: ALIAS_OBJECT_INCLUDE,
-				})
-			: { objects: [] };
 		const sets = new Map<string, AliasSet | Error>(
 			unique.map((owner) => [
 				owner,
 				new Error(`${owner} is not a Sui address`),
 			]),
 		);
-		valid.forEach((owner, i) => {
-			try {
-				sets.set(owner, decodeAliasSet(owner, objects[i]));
-			} catch (error) {
-				sets.set(
-					owner,
-					error instanceof Error
-						? error
-						: new Error(String(error)),
-				);
-			}
-		});
+		const readGroup = async (group: string[]) => {
+			// A failed call fails only the accounts it carried.
+			const objects = await client
+				.getObjects({
+					objectIds: group.map(deriveAliasesObjectId),
+					include: ALIAS_OBJECT_INCLUDE,
+				})
+				.then((response) => response.objects, toError);
+			group.forEach((owner, i) => {
+				try {
+					if (objects instanceof Error) throw objects;
+					sets.set(
+						owner,
+						decodeAliasSet(owner, objects[i]),
+					);
+				} catch (error) {
+					sets.set(owner, toError(error));
+				}
+			});
+		};
+		await Promise.all(
+			chunk(
+				unique.filter(isValidSuiAddress),
+				ALIAS_SET_BATCH_SIZE,
+			).map(readGroup),
+		);
 		return owners.map((owner) => sets.get(owner)!);
 	};
 
@@ -86,7 +102,6 @@ export const createAliasSetLoaders = (
 			loader = new DataLoader(
 				loadAliasSets(clientFor(network)),
 				{
-					maxBatchSize: ALIAS_SET_BATCH_SIZE,
 					cache: false,
 					batchScheduleFn: (callback) =>
 						setTimeout(callback, ALIAS_SET_BATCH_WINDOW_MS),

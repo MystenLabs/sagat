@@ -1,0 +1,116 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import { type SuiClientTypes } from '@mysten/sui/client';
+import { type Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { Transaction } from '@mysten/sui/transactions';
+
+import {
+	getLocalClient,
+	LOCALNET_WAIT,
+} from './sui-network';
+
+const client = getLocalClient();
+
+export interface Signer {
+	label: string;
+	address: string;
+	sign(bytes: Uint8Array): Promise<string>;
+}
+
+export function multisigSigner(
+	label: string,
+	keys: Ed25519Keypair[],
+	threshold: number,
+	signingKeys: Ed25519Keypair[] = keys.slice(0, threshold),
+): Signer & { publicKey: MultiSigPublicKey } {
+	const publicKey = MultiSigPublicKey.fromPublicKeys({
+		threshold,
+		publicKeys: keys.map((k) => ({
+			publicKey: k.getPublicKey(),
+			weight: 1,
+		})),
+	});
+	return {
+		label,
+		publicKey,
+		address: publicKey.toSuiAddress(),
+		async sign(bytes) {
+			const partials = await Promise.all(
+				signingKeys.map(
+					async (k) =>
+						(await k.signTransaction(bytes)).signature,
+				),
+			);
+			return publicKey.combinePartialSignatures(partials);
+		},
+	};
+}
+
+export function keySigner(
+	label: string,
+	key: Ed25519Keypair,
+): Signer {
+	return {
+		label,
+		address: key.toSuiAddress(),
+		async sign(bytes) {
+			return (await key.signTransaction(bytes)).signature;
+		},
+	};
+}
+
+export async function build(
+	sender: string,
+	fill: (tx: Transaction) => void,
+) {
+	const tx = new Transaction();
+	tx.setSender(sender);
+	fill(tx);
+	return tx.build({ client });
+}
+
+export const executeInclude = {
+	effects: true,
+	transaction: true,
+	objectTypes: true,
+} as const;
+
+export type Executed = SuiClientTypes.TransactionResult<
+	typeof executeInclude
+>;
+
+export async function execute(
+	bytes: Uint8Array,
+	signature: string,
+): Promise<Executed> {
+	const result = await client.executeTransaction({
+		transaction: bytes,
+		signatures: [signature],
+		include: executeInclude,
+	});
+	await client.waitForTransaction({
+		result,
+		...LOCALNET_WAIT,
+	});
+	return result;
+}
+
+export async function run(
+	sender: string,
+	signer: Signer,
+	fill: (tx: Transaction) => void,
+) {
+	const bytes = await build(sender, fill);
+	return execute(bytes, await signer.sign(bytes));
+}
+
+export function expectSuccess(result: Executed) {
+	if (result.$kind !== 'Transaction') {
+		throw new Error(
+			`Expected success, got: ${JSON.stringify(result.FailedTransaction.status)}`,
+		);
+	}
+	return result.Transaction;
+}

@@ -5,8 +5,7 @@
 
 import { type SuiClientTypes } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { Transaction } from '@mysten/sui/transactions';
+import { type Transaction } from '@mysten/sui/transactions';
 import {
 	beforeAll,
 	describe,
@@ -23,7 +22,10 @@ import {
 	SchemaAccountEvents,
 } from '../src/db/schema';
 import { lockAccount } from '../src/db/transaction';
-import { AliasStateUnavailableError } from '../src/errors';
+import {
+	AliasStateUnavailableError,
+	isLockTimeout,
+} from '../src/errors';
 import {
 	createAliasSetLoaders,
 	type AliasObjectReader,
@@ -42,18 +44,19 @@ import {
 	deriveAliasesObjectId,
 	fetchAliasSet,
 } from '../src/utils/aliases';
+import { ApiTestFramework } from './framework/api-test-framework';
 import {
-	ApiTestFramework,
-	type TestUser,
-} from './framework/api-test-framework';
+	expectSuccess,
+	keySigner,
+	multisigSigner,
+	run,
+	type Signer,
+} from './setup/localnet-transactions';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import {
-	getLocalClient,
-	LOCALNET_WAIT,
-} from './setup/sui-network';
+import { getLocalClient } from './setup/sui-network';
 import { untilBackendsWaitOnALock } from './setup/test-db';
 
 setupSharedTestEnvironment();
@@ -100,27 +103,11 @@ const serving = (
 
 const unreachable = new Error('node unreachable');
 
-async function run(
+const send = async (
 	sender: string,
-	signTransaction: (bytes: Uint8Array) => Promise<string>,
+	signer: Signer,
 	fill: (tx: Transaction) => void,
-) {
-	const tx = new Transaction();
-	tx.setSender(sender);
-	fill(tx);
-	const bytes = await tx.build({ client });
-	const result = await client.executeTransaction({
-		transaction: bytes,
-		signatures: [await signTransaction(bytes)],
-	});
-	await client.waitForTransaction({
-		result,
-		...LOCALNET_WAIT,
-	});
-	if (result.$kind !== 'Transaction')
-		throw new Error('Transaction failed');
-	return result.Transaction.digest;
-}
+) => expectSuccess(await run(sender, signer, fill)).digest;
 
 const stateWhere = (account: string) =>
 	and(
@@ -164,10 +151,9 @@ const backdate = (account: string, ageMs: number) =>
 describe('Alias mirror', () => {
 	let A: string;
 	let B: string;
-	let signAsA: (bytes: Uint8Array) => Promise<string>;
+	let signerA: Signer;
 	const K = new Ed25519Keypair();
-	const signAsK = async (bytes: Uint8Array) =>
-		(await K.signTransaction(bytes)).signature;
+	const signerK = keySigner('K', K);
 	// Responses captured earlier, served again to play a lagging node.
 	let notFound: AliasObjects;
 	let enabled: AliasObjects;
@@ -181,24 +167,12 @@ describe('Alias mirror', () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
 		A = multisig.address;
-		const publicKey = MultiSigPublicKey.fromPublicKeys({
-			threshold: 2,
-			publicKeys: users.map((u: TestUser) => ({
-				publicKey: u.keypair.getPublicKey(),
-				weight: 1,
-			})),
-		});
-		expect(publicKey.toSuiAddress()).toBe(A);
-		signAsA = async (bytes) =>
-			publicKey.combinePartialSignatures(
-				await Promise.all(
-					users.map(
-						async (u) =>
-							(await u.keypair.signTransaction(bytes))
-								.signature,
-					),
-				),
-			);
+		signerA = multisigSigner(
+			'A',
+			users.map((u) => u.keypair),
+			2,
+		);
+		expect(signerA.address).toBe(A);
 
 		B = (await session.createMultisig(users, 1)).address;
 	});
@@ -247,7 +221,7 @@ describe('Alias mirror', () => {
 	});
 
 	test('3. after enable: the object is mirrored as {account}, with no events', async () => {
-		await run(A, signAsA, buildEnable);
+		await send(A, signerA, buildEnable);
 		enabled = await readObjects([deriveAliasesObjectId(A)]);
 		const onChain = await fetchAliasSet(client, A);
 
@@ -274,13 +248,13 @@ describe('Alias mirror', () => {
 	});
 
 	test('4. a change records its events once', async () => {
-		await run(A, signAsA, (tx) =>
+		await send(A, signerA, (tx) =>
 			buildAdd(tx, {
 				account: A,
 				alias: K.toSuiAddress(),
 			}),
 		);
-		const lastDigest = await run(A, signAsA, (tx) =>
+		const lastDigest = await send(A, signerA, (tx) =>
 			buildRemove(tx, { account: A, alias: A }),
 		);
 		const onChain = await fetchAliasSet(client, A);
@@ -414,7 +388,7 @@ describe('Alias mirror', () => {
 
 	test('8. two refreshes of one account at once record the events once', async () => {
 		const X = new Ed25519Keypair().toSuiAddress();
-		await run(A, signAsK, (tx) =>
+		await send(A, signerK, (tx) =>
 			buildAdd(tx, { account: A, alias: X }),
 		);
 
@@ -560,18 +534,28 @@ describe('Alias mirror', () => {
 			.where(stateWhere(B));
 
 		// Wrapped, as returning it bare would make the transaction wait for it.
-		const { refresh } = await db.transaction(async (tx) => {
-			await lockAccount(tx, B);
-			const refresh = refreshAliases(
-				[A, B],
-				NETWORK,
-				createAliasSetLoaders(),
-			);
-			await untilBackendsWaitOnALock(db);
-			// Fails here instead of hanging if the write never gives up.
-			await Promise.race([refresh, Bun.sleep(3000)]);
-			return { refresh };
-		});
+		const { refresh, required } = await db.transaction(
+			async (tx) => {
+				await lockAccount(tx, B);
+				const refresh = refreshAliases(
+					[A, B],
+					NETWORK,
+					createAliasSetLoaders(),
+				);
+				const required = requireFreshAliases(
+					B,
+					NETWORK,
+					createAliasSetLoaders(),
+				).catch((e: unknown) => e);
+				await untilBackendsWaitOnALock(db, 2);
+				// Fails here instead of hanging if the write never gives up.
+				await Promise.race([
+					Promise.all([refresh, required]),
+					Bun.sleep(3000),
+				]);
+				return { refresh, required };
+			},
+		);
 
 		const [a, b] = await refresh;
 		expect(a).toMatchObject({
@@ -583,6 +567,11 @@ describe('Alias mirror', () => {
 			outcome: 'failed',
 		});
 		expect((await mirrorOf(B)).state).toBeUndefined();
+		const error = await required;
+		expect(error).not.toBeInstanceOf(
+			AliasStateUnavailableError,
+		);
+		expect(isLockTimeout(error)).toBe(true);
 	});
 
 	test('13. refreshes of one account at once share one read', async () => {
@@ -597,6 +586,19 @@ describe('Alias mirror', () => {
 		expect(
 			results.map(([result]) => result.outcome),
 		).toEqual(['unchanged', 'unchanged']);
+	});
+
+	test('13b. many loads of one account at once cost one read of one object', async () => {
+		const { loaders, calls, lastIds } =
+			serving(readObjects);
+		const sets = await Promise.all(
+			Array.from({ length: 120 }, () =>
+				loaders(NETWORK).load(A),
+			),
+		);
+		expect(calls()).toBe(1);
+		expect(lastIds()).toEqual([deriveAliasesObjectId(A)]);
+		expect(sets.every((set) => set.exists)).toBe(true);
 	});
 
 	test('14. a malformed address fails only itself', async () => {
