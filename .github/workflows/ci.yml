@@ -102,6 +102,10 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build SDK
+        run: bun run build
+        working-directory: sdk
+
       - name: Check migration snapshots
         working-directory: api
         run: bun drizzle-kit check < /dev/null
