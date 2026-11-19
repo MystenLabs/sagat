@@ -134,7 +134,7 @@ There is no background job and no dependency on a chain indexer. The API reads t
 
 **When.** Any decision that depends on who signs for an account refreshes first when the state row of that network is missing or older than 60 seconds, and decides on the result. That covers opening an account or a list, creating, signing and cancelling a proposal, and the legacy routes. A refresh also runs right after a proposal that calls `0x2::address_alias` is verified as executed. A key removed from the alias set outside Sagat therefore loses access within a minute.
 
-**Read.** One derived-object read per account and network. Reads go through a loader created per request and keyed by network, with batches of 50 and no cache: a refresh must read the chain now. A list of accounts therefore costs one `getObjects` call per 50 accounts. `getObjects` returns an error per object, so one bad read fails only its own account. A window shared across requests (about 10 ms) is added only if metrics later show many refreshes at once.
+**Read.** One derived-object read per account and network. Reads go through one loader per network, shared across requests, that collects the reads of 50 ms into batches of 50 and sends each account once per batch. It has no cache, so a refresh is never answered from a read made before it was asked for. A list of accounts therefore costs one `getObjects` call per 50 accounts. `getObjects` returns an error per object, so one bad read fails only its own account.
 
 **Write.** The chain is read before any transaction opens.
 

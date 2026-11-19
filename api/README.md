@@ -37,6 +37,19 @@ From a source checkout, `bun run db:migrate:prod` does the same.
 
 `MIGRATIONS_FOLDER` overrides where the migrations are read from. `bun db:migrate` (drizzle-kit) still works for local development.
 
+## Networks that reset
+
+The API mirrors each account's on-chain alias set per network (see "Alias mirror and refresh" in `design/account-rotation.md`). Devnet and localnet start over from genesis, and afterwards the alias object is missing or back at a lower version, so the guard against stale reads keeps the old mirror. This is a development-only limitation. After a reset, stop every API instance, run:
+
+```sql
+BEGIN;
+DELETE FROM account_aliases WHERE network = '<network>';
+DELETE FROM account_alias_state WHERE network = '<network>';
+COMMIT;
+```
+
+and start the API again. Stop first: a refresh in flight can read the old chain and write after the cleanup. Mainnet and testnet never reset.
+
 ## Testing proposals (requires localnet network running)
 
 To run localnet test with sui, it's required that Sui runs in the background (localnet).

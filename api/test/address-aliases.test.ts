@@ -10,8 +10,7 @@ import {
 	type SuiClientTypes,
 } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { Transaction } from '@mysten/sui/transactions';
+import { type Transaction } from '@mysten/sui/transactions';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	afterAll,
@@ -31,10 +30,18 @@ import {
 	MAX_ALIASES,
 } from '../src/utils/aliases';
 import {
+	build,
+	execute,
+	expectSuccess,
+	keySigner,
+	multisigSigner,
+	run,
+	type executeInclude,
+} from './setup/localnet-transactions';
+import {
 	fundAddress,
 	getLocalClient,
 	isNetworkRunning,
-	LOCALNET_WAIT,
 } from './setup/sui-network';
 
 setDefaultTimeout(60_000);
@@ -42,108 +49,6 @@ setDefaultTimeout(60_000);
 const client = getLocalClient();
 
 const RECIPIENT = normalizeSuiAddress('0xa11ce');
-
-interface Signer {
-	label: string;
-	address: string;
-	sign(bytes: Uint8Array): Promise<string>;
-}
-
-function multisigSigner(
-	label: string,
-	keys: Ed25519Keypair[],
-	threshold: number,
-	signingKeys: Ed25519Keypair[] = keys.slice(0, threshold),
-): Signer & { publicKey: MultiSigPublicKey } {
-	const publicKey = MultiSigPublicKey.fromPublicKeys({
-		threshold,
-		publicKeys: keys.map((k) => ({
-			publicKey: k.getPublicKey(),
-			weight: 1,
-		})),
-	});
-	return {
-		label,
-		publicKey,
-		address: publicKey.toSuiAddress(),
-		async sign(bytes) {
-			const partials = await Promise.all(
-				signingKeys.map(
-					async (k) =>
-						(await k.signTransaction(bytes)).signature,
-				),
-			);
-			return publicKey.combinePartialSignatures(partials);
-		},
-	};
-}
-
-function keySigner(
-	label: string,
-	key: Ed25519Keypair,
-): Signer {
-	return {
-		label,
-		address: key.toSuiAddress(),
-		async sign(bytes) {
-			return (await key.signTransaction(bytes)).signature;
-		},
-	};
-}
-
-async function build(
-	sender: string,
-	fill: (tx: Transaction) => void,
-) {
-	const tx = new Transaction();
-	tx.setSender(sender);
-	fill(tx);
-	return tx.build({ client });
-}
-
-const include = {
-	effects: true,
-	transaction: true,
-	objectTypes: true,
-} as const;
-
-type Executed = SuiClientTypes.TransactionResult<
-	typeof include
->;
-
-async function execute(
-	bytes: Uint8Array,
-	signature: string,
-): Promise<Executed> {
-	const result = await client.executeTransaction({
-		transaction: bytes,
-		signatures: [signature],
-		include,
-	});
-	await client.waitForTransaction({
-		result,
-		...LOCALNET_WAIT,
-	});
-	return result;
-}
-
-async function run(
-	sender: string,
-	signer: Signer,
-	fill: (tx: Transaction) => void,
-) {
-	const bytes = await build(sender, fill);
-	return execute(bytes, await signer.sign(bytes));
-}
-
-function expectSuccess(result: Executed) {
-	if (result.$kind !== 'Transaction') {
-		throw new Error(
-			`Expected success, got: ${JSON.stringify(result.FailedTransaction.status)}`,
-		);
-	}
-	return result.Transaction;
-}
 
 // The builder dry-runs every transaction with unresolved inputs, even with
 // an explicit gas budget, so an aborting call fails at build time with the
@@ -189,7 +94,7 @@ async function expectRejected(promise: Promise<unknown>) {
 }
 
 function netGas(
-	tx: SuiClientTypes.Transaction<typeof include>,
+	tx: SuiClientTypes.Transaction<typeof executeInclude>,
 ) {
 	const g = tx.effects.gasUsed;
 	return {
@@ -265,6 +170,7 @@ describe('Address aliases on multisig accounts', () => {
 			exists: false,
 			objectId: deriveAliasesObjectId(M.address),
 			version: null,
+			previousTransaction: null,
 			aliases: [M.address],
 		});
 

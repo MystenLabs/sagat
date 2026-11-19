@@ -5,6 +5,7 @@ import { bcs } from '@mysten/sui/bcs';
 import {
 	ObjectError,
 	type ClientWithCoreApi,
+	type SuiClientTypes,
 } from '@mysten/sui/client';
 import type { Transaction } from '@mysten/sui/transactions';
 import {
@@ -41,14 +42,24 @@ export const AddressAliasesBcs = bcs.struct(
 	},
 );
 
-export interface AliasSet {
-	/** False when the address never called `enable`. The alias set is then `{address}`. */
-	exists: boolean;
+export type AliasSet = {
 	objectId: string;
-	/** Version of the `AddressAliases` object, or null when it does not exist. */
-	version: string | null;
 	aliases: string[];
-}
+} & (
+	| {
+			exists: true;
+			/** Version of the `AddressAliases` object. */
+			version: string;
+			/** Digest of the transaction that last changed the object. */
+			previousTransaction: string;
+	  }
+	| {
+			/** The address never called `enable`. The alias set is then `{address}`. */
+			exists: false;
+			version: null;
+			previousTransaction: null;
+	  }
+);
 
 /**
  * Id of the `AddressAliases` object of `address`: a derived object with parent
@@ -64,52 +75,80 @@ export function deriveAliasesObjectId(
 	);
 }
 
+export const ALIAS_OBJECT_INCLUDE = {
+	content: true,
+	previousTransaction: true,
+} as const;
+
+type AliasObjectEntry =
+	| SuiClientTypes.Object<typeof ALIAS_OBJECT_INCLUDE>
+	| Error;
+
+/** The alias set of `owner` from its entry of a `getObjects` response. Throws on a read error. */
+export function decodeAliasSet(
+	owner: string,
+	entry: AliasObjectEntry,
+): AliasSet {
+	const objectId = deriveAliasesObjectId(owner);
+	if (entry instanceof Error) {
+		if (
+			entry instanceof ObjectError &&
+			entry.reason === 'notFound'
+		) {
+			return {
+				exists: false,
+				objectId,
+				version: null,
+				previousTransaction: null,
+				aliases: [owner],
+			};
+		}
+		throw entry;
+	}
+
+	if (normalizeSuiAddress(entry.objectId) !== objectId) {
+		throw new Error(
+			`Object ${entry.objectId} came back for ${objectId}`,
+		);
+	}
+	if (
+		normalizeStructTag(entry.type) !== ADDRESS_ALIASES_TYPE
+	) {
+		throw new Error(
+			`Object ${objectId} has type ${entry.type}, expected ${ADDRESS_ALIASES_TYPE}`,
+		);
+	}
+	if (!entry.previousTransaction) {
+		throw new Error(
+			`Object ${objectId} came back without its previous transaction`,
+		);
+	}
+
+	const decoded = AddressAliasesBcs.parse(entry.content);
+	return {
+		exists: true,
+		objectId,
+		version: entry.version,
+		previousTransaction: entry.previousTransaction,
+		aliases: decoded.aliases.contents.map((a) =>
+			normalizeSuiAddress(a),
+		),
+	};
+}
+
 /** Read the on-chain alias set of `address`. */
 export async function fetchAliasSet(
 	client: ClientWithCoreApi,
 	address: string,
 ): Promise<AliasSet> {
 	const owner = normalizeSuiAddress(address);
-	const objectId = deriveAliasesObjectId(owner);
 	const {
-		objects: [object],
+		objects: [entry],
 	} = await client.core.getObjects({
-		objectIds: [objectId],
-		include: { content: true },
+		objectIds: [deriveAliasesObjectId(owner)],
+		include: ALIAS_OBJECT_INCLUDE,
 	});
-
-	if (object instanceof Error) {
-		if (
-			object instanceof ObjectError &&
-			object.reason === 'notFound'
-		) {
-			return {
-				exists: false,
-				objectId,
-				version: null,
-				aliases: [owner],
-			};
-		}
-		throw object;
-	}
-
-	if (
-		normalizeStructTag(object.type) !== ADDRESS_ALIASES_TYPE
-	) {
-		throw new Error(
-			`Object ${objectId} has type ${object.type}, expected ${ADDRESS_ALIASES_TYPE}`,
-		);
-	}
-
-	const decoded = AddressAliasesBcs.parse(object.content);
-	return {
-		exists: true,
-		objectId,
-		version: object.version,
-		aliases: decoded.aliases.contents.map((a) =>
-			normalizeSuiAddress(a),
-		),
-	};
+	return decodeAliasSet(owner, entry);
 }
 
 /**

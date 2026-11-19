@@ -42,6 +42,32 @@ export class ResponseSchemaError extends Error {
 	}
 }
 
+// The alias state an access decision needs could not be read or mirrored.
+export class AliasStateUnavailableError extends Error {
+	constructor(
+		readonly accountAddress: string,
+		readonly network: string,
+		options?: ErrorOptions,
+	) {
+		super(
+			`The signers of account ${accountAddress} on ${network} could not be checked. Please try again.`,
+			options,
+		);
+		this.name = 'AliasStateUnavailableError';
+	}
+}
+
+export const toError = (error: unknown) =>
+	error instanceof Error ? error : new Error(String(error));
+
+// Postgres gave up waiting for a lock (`lock_not_available`).
+export const isLockTimeout = (
+	err: unknown,
+): err is DrizzleQueryError =>
+	err instanceof DrizzleQueryError &&
+	err.cause instanceof DatabaseError &&
+	err.cause.code === '55P03';
+
 export const AuthErrors = {
 	NotAMultisigMember:
 		'Proposer is either not a member of the multisig, or has not accepted the invitation to the multisig.',
@@ -84,21 +110,23 @@ export const appErrorHandler: ErrorHandler = (err, c) => {
 		);
 	}
 
-	if (err instanceof DrizzleQueryError) {
-		// lock_not_available
-		if (
-			err.cause instanceof DatabaseError &&
-			err.cause.code === '55P03'
-		)
-			return c.json(
-				{
-					error:
-						'This account is busy. Please try again in a moment.',
-				},
-				503,
-				{ 'Retry-After': '1' },
-			);
+	if (err instanceof AliasStateUnavailableError) {
+		// eslint-disable-next-line no-console
+		console.error(err.message, err.cause);
+		return c.json({ error: err.message }, 503);
+	}
 
+	if (isLockTimeout(err))
+		return c.json(
+			{
+				error:
+					'This account is busy. Please try again in a moment.',
+			},
+			503,
+			{ 'Retry-After': '1' },
+		);
+
+	if (err instanceof DrizzleQueryError) {
 		const msg = err.cause?.message;
 		if (msg?.includes('violates unique constraint')) {
 			return c.json(

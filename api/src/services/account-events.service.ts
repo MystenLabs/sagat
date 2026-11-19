@@ -51,9 +51,14 @@ type SignedProof<
 	signature: string;
 } & Fields;
 
-// For rows nobody signed, such as a chain change. Nothing writes them yet.
+// For rows nobody signed, such as a chain change.
 export const SYSTEM_ACTOR = 'system';
-type ChainProof = { kind: 'chain'; digest: string };
+// The transaction that last changed the object, at the version read.
+type ChainProof = {
+	kind: 'chain';
+	digest: string;
+	objectVersion: string;
+};
 
 type MemberActor = string;
 
@@ -104,6 +109,18 @@ type AccountEventRegistry = {
 			| SignedProof<'proposal.cancel', unknown, 2>
 			| CausedByProof;
 	};
+	'alias.added': {
+		actor: typeof SYSTEM_ACTOR;
+		subject: string;
+		network: string;
+		proof: ChainProof;
+	};
+	'alias.removed': {
+		actor: typeof SYSTEM_ACTOR;
+		subject: string;
+		network: string;
+		proof: ChainProof;
+	};
 };
 
 // Written before cancels named the digest; its signed text names the id.
@@ -112,8 +129,7 @@ type CancelProofV1 = SignedProof<
 	{ proposalId: number }
 >;
 
-// Every proof in the registry, plus `ChainProof`, which has no entry yet, and
-// proofs only older rows hold.
+// Every proof in the registry, plus proofs only older rows hold.
 export type AccountEventProof =
 	| {
 			[A in keyof AccountEventRegistry]: Required<
@@ -122,7 +138,6 @@ export type AccountEventProof =
 				? NonNullable<Proof>
 				: never;
 	  }[keyof AccountEventRegistry]
-	| ChainProof
 	| CancelProofV1;
 
 type UnsetFields = {
