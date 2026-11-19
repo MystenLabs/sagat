@@ -57,6 +57,9 @@ export class AliasStateUnavailableError extends Error {
 	}
 }
 
+export const toError = (error: unknown) =>
+	error instanceof Error ? error : new Error(String(error));
+
 // Postgres gave up waiting for a lock (`lock_not_available`).
 export const isLockTimeout = (
 	err: unknown,

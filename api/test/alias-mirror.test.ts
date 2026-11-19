@@ -488,6 +488,23 @@ describe('Alias mirror', () => {
 		expect((error as Error).message).toContain(A);
 		expect((error as Error).message).toContain(NETWORK);
 		expect((error as Error).cause).toBe(unreachable);
+
+		// A rejection from the refresh itself, not a failed outcome.
+		await backdate(A, ALIAS_STATE_MAX_AGE_MS + 1_000);
+		const broken = new Error('loaders broken');
+		const rejected = await requireFreshAliases(
+			A,
+			NETWORK,
+			() => {
+				throw broken;
+			},
+		).catch((e: unknown) => e);
+		expect(rejected).toBeInstanceOf(
+			AliasStateUnavailableError,
+		);
+		expect((rejected as Error).message).toContain(A);
+		expect((rejected as Error).message).toContain(NETWORK);
+		expect((rejected as Error).cause).toBe(broken);
 	});
 
 	test('10. 51 addresses through one loader cost two reads', async () => {

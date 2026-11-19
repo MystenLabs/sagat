@@ -17,6 +17,7 @@ import {
 import {
 	AliasStateUnavailableError,
 	isLockTimeout,
+	toError,
 } from '../errors';
 import {
 	aliasSetLoaders,
@@ -309,10 +310,7 @@ const refreshOne = async (
 		return {
 			accountAddress: account,
 			outcome: 'failed',
-			error:
-				error instanceof Error
-					? error
-					: new Error(String(error)),
+			error: toError(error),
 		};
 	}
 };

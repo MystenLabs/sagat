@@ -8,6 +8,7 @@ import {
 } from '@mysten/sui/utils';
 import DataLoader from 'dataloader';
 
+import { toError } from '../errors';
 import {
 	ALIAS_OBJECT_INCLUDE,
 	decodeAliasSet,
@@ -31,9 +32,6 @@ export type AliasObjectReader = Pick<
 export type AliasSetLoaders = (
 	network: SuiNetwork,
 ) => DataLoader<string, AliasSet>;
-
-const toError = (error: unknown) =>
-	error instanceof Error ? error : new Error(String(error));
 
 const chunk = <T>(items: T[], size: number): T[][] =>
 	Array.from(
