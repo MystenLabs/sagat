@@ -4,7 +4,7 @@
 /**
  * Proposal flows. Like the signer set flows, they take plain input and the
  * caller's keys, throw the errors in `../errors`, and return domain objects
- * (rows, or composites like `ProposalTally`).
+ * (rows, or composites like `ProposalProgress`).
  */
 
 import { PersonalMessages } from '@mysten/sagat';
@@ -89,7 +89,7 @@ import {
 
 // A proposal with the signer set of its account and how far its signatures
 // get it.
-export type ProposalTally = {
+export type ProposalProgress = {
 	proposal: ProposalWithSignatures;
 	signerSet: SignerSetWithMembers;
 	// Sum of the weights of the members that signed.
@@ -97,10 +97,10 @@ export type ProposalTally = {
 	hasReachedThreshold: boolean;
 };
 
-const tallyProposal = (
+const proposalProgress = (
 	proposal: ProposalWithSignatures,
 	signerSet: SignerSetWithMembers,
-): ProposalTally => {
+): ProposalProgress => {
 	const currentWeight = proposal.signatures.reduce(
 		(acc, sig) =>
 			acc +
@@ -240,7 +240,8 @@ const lookupAndVerifyProposal = async (
 	);
 
 	if (
-		!tallyProposal(proposal, multisig).hasReachedThreshold
+		!proposalProgress(proposal, multisig)
+			.hasReachedThreshold
 	)
 		throw new ValidationError(
 			'Proposal is not ready to execute',
@@ -520,7 +521,7 @@ export const voteOnProposal = async ({
 	proposalId: number;
 	// The member's signature over the proposal's transaction.
 	signature: string;
-}): Promise<ProposalTally> => {
+}): Promise<ProposalProgress> => {
 	const proposal = await getProposalById(proposalId);
 
 	assertCanonicalSignature(signature);
@@ -576,7 +577,7 @@ export const voteOnProposal = async ({
 		proposal.accountAddress,
 	);
 
-	return tallyProposal(proposal, multisig);
+	return proposalProgress(proposal, multisig);
 };
 
 // Cancels a pending proposal. An accepted member can cancel any proposal; an
@@ -783,7 +784,9 @@ export const listProposals = async ({
 // A proposal by digest, with its signer set and events. Public.
 export const getProposalByDigest = async (
 	digest: string,
-): Promise<ProposalTally & { events: ProposalEvents }> => {
+): Promise<
+	ProposalProgress & { events: ProposalEvents }
+> => {
 	if (!isValidTransactionDigest(digest))
 		throw new CommonError('InvalidDigest');
 
@@ -797,5 +800,8 @@ export const getProposalByDigest = async (
 		getProposalEvents(proposal.id),
 	]);
 
-	return { ...tallyProposal(proposal, multisig), events };
+	return {
+		...proposalProgress(proposal, multisig),
+		events,
+	};
 };

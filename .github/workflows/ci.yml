@@ -124,6 +124,34 @@ jobs:
             exit 1
           fi
 
+  openapi-check:
+    name: OpenAPI Spec Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # pin@v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # pin@v2.2.0
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build SDK
+        run: bun run build
+        working-directory: sdk
+
+      # Regenerates the /v1 spec and diffs it with api/openapi/v1.json.
+      - name: Check the OpenAPI snapshot
+        run: bun test:openapi
+        working-directory: api
+        env:
+          JWT_SECRET: a-super-long-jwt-secret-to-use-in-the-service
+          SUPPORTED_NETWORKS: localnet
+          CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+
   migration-test:
     name: Migration Tests
     runs-on: ubuntu-latest

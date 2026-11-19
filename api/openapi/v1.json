@@ -1,0 +1,228 @@
+{
+	"openapi": "3.1.0",
+	"info": { "title": "Sagat API", "version": "1.0.0" },
+	"components": {
+		"schemas": {
+			"Proposal": {
+				"type": "object",
+				"properties": {
+					"id": { "type": "integer" },
+					"digest": {
+						"type": "string",
+						"description": "A Sui transaction digest."
+					},
+					"accountAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"accountName": { "type": ["string", "null"] },
+					"network": { "type": "string" },
+					"status": {
+						"type": "integer",
+						"enum": [0, 1, 2, 3]
+					},
+					"transactionBytes": { "type": "string" },
+					"proposerAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"description": { "type": ["string", "null"] },
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"signatures": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/ProposalSignature"
+						}
+					},
+					"hasReachedThreshold": {
+						"type": "boolean",
+						"description": "True when one of the signer sets in signerSets has reached its threshold."
+					},
+					"signerSets": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SignerSet"
+						},
+						"description": "The signer sets that act for the account on the proposal's network."
+					},
+					"events": {
+						"$ref": "#/components/schemas/ProposalEvents"
+					}
+				},
+				"required": [
+					"id",
+					"digest",
+					"accountAddress",
+					"accountName",
+					"network",
+					"status",
+					"transactionBytes",
+					"proposerAddress",
+					"description",
+					"createdAt",
+					"signatures",
+					"hasReachedThreshold",
+					"signerSets",
+					"events"
+				]
+			},
+			"ProposalSignature": {
+				"type": "object",
+				"properties": {
+					"proposalId": { "type": "integer" },
+					"publicKey": { "type": "string" },
+					"signature": { "type": "string" }
+				},
+				"required": ["proposalId", "publicKey", "signature"]
+			},
+			"SignerSet": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"threshold": { "type": "integer" },
+					"currentWeight": { "type": "integer" },
+					"hasReachedThreshold": { "type": "boolean" },
+					"members": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/SignerSetMember"
+						}
+					}
+				},
+				"required": [
+					"address",
+					"threshold",
+					"currentWeight",
+					"hasReachedThreshold",
+					"members"
+				]
+			},
+			"SignerSetMember": {
+				"type": "object",
+				"properties": {
+					"publicKey": { "type": "string" },
+					"weight": { "type": "integer" },
+					"order": { "type": "integer" }
+				},
+				"required": ["publicKey", "weight", "order"]
+			},
+			"ProposalEvents": {
+				"type": "object",
+				"properties": {
+					"created": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/AccountEvent"
+							},
+							{ "type": "null" }
+						],
+						"description": "The proposal's `proposal.created` event."
+					},
+					"proposer": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/AccountEvent"
+							},
+							{ "type": "null" }
+						],
+						"description": "The proposer's newest add or remove."
+					}
+				},
+				"required": ["created", "proposer"],
+				"description": "The proposal's audit log events, for checking who proposed it. Each is null where none exists."
+			},
+			"AccountEvent": {
+				"type": "object",
+				"properties": {
+					"id": { "type": "integer" },
+					"action": { "type": "string" },
+					"actor": { "type": "string" },
+					"subject": { "type": ["string", "null"] },
+					"proof": {
+						"type": ["object", "null"],
+						"additionalProperties": {},
+						"description": "The signed proof as stored; older rows can hold older shapes."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"id",
+					"action",
+					"actor",
+					"subject",
+					"proof",
+					"createdAt"
+				],
+				"description": "An account audit log event, as stored."
+			},
+			"Error": {
+				"type": "object",
+				"properties": { "error": { "type": "string" } },
+				"required": ["error"],
+				"description": "An error response."
+			}
+		},
+		"parameters": {}
+	},
+	"paths": {
+		"/v1/proposals/{digest}": {
+			"get": {
+				"summary": "Get a proposal by its transaction digest",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"required": true,
+						"description": "A Sui transaction digest.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The proposal, with its signatures, signer sets and audit log events.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest is not a valid transaction digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"webhooks": {}
+}

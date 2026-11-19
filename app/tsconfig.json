@@ -29,6 +29,7 @@
 		"baseUrl": ".",
 		"paths": {
 			"@mysten/sagat": ["../sdk/src/index.ts"],
+			"@mysten/sagat/v1": ["../sdk/src/v1/index.ts"],
 			"@/*": ["./src/*"]
 		}
 	},

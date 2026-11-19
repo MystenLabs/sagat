@@ -20,7 +20,20 @@
 				"types": "./dist/index.d.ts",
 				"default": "./dist/index.js"
 			}
+		},
+		"./v1": {
+			"import": {
+				"types": "./dist/v1/index.d.mts",
+				"default": "./dist/v1/index.mjs"
+			},
+			"require": {
+				"types": "./dist/v1/index.d.ts",
+				"default": "./dist/v1/index.js"
+			}
 		}
+	},
+	"dependencies": {
+		"zod": "^4.6.7"
 	},
 	"devDependencies": {
 		"@mysten/sui": "^2.39.1",

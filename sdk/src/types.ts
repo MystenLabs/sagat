@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type * as v1 from './v1/schemas.js';
+
 export interface AuthConnectRequest {
 	signature: string;
 	expiry: string;
@@ -136,12 +138,7 @@ export interface PublicProposal extends Proposal {
 }
 
 /** Audit log events of a proposal, null where none exists. */
-export interface ProposalEvents {
-	/** The proposal's `proposal.created` event. */
-	created: AccountEvent | null;
-	/** The proposer's newest add or remove. */
-	proposer: AccountEvent | null;
-}
+export type ProposalEvents = v1.ProposalEvents;
 /** A signature for a given proposal  */
 export interface ProposalSignature {
 	proposalId: number;
@@ -160,16 +157,7 @@ export interface MultisigProposer {
 }
 
 /** An account audit log event, as stored. */
-export interface AccountEvent {
-	id: number;
-	action: string;
-	actor: string;
-	subject: string | null;
-	/** The signed proof as stored; older rows can hold older shapes. */
-	proof: Record<string, unknown> | null;
-	/** An ISO timestamp. */
-	createdAt: string;
-}
+export type AccountEvent = v1.AccountEvent;
 
 /** The default layout for a paginated response */
 export interface PaginatedResponse<T> {
