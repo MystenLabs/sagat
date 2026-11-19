@@ -4,10 +4,12 @@
 import {
 	ProposalStatus,
 	SagatApiError,
-	SagatResponseError,
-	SagatV1Client,
 	verifyProposalCreated,
 } from '@mysten/sagat';
+import {
+	SagatResponseError,
+	SagatV1Client,
+} from '@mysten/sagat/v1';
 import { toBase58 } from '@mysten/sui/utils';
 import {
 	beforeEach,

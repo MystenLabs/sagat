@@ -50,13 +50,27 @@ export default defineConfig(({ mode, isPreview }) => ({
 	plugins: [react(), tailwindcss()],
 	build: { sourcemap: true },
 	resolve: {
-		alias: {
-			'@': path.resolve(__dirname, './src'),
-			'@mysten/sagat': path.resolve(
-				__dirname,
-				'../sdk/src/index.ts',
-			),
-		},
+		// Anchored so the bare entry does not also match its subpaths.
+		alias: [
+			{
+				find: '@',
+				replacement: path.resolve(__dirname, './src'),
+			},
+			{
+				find: /^@mysten\/sagat$/,
+				replacement: path.resolve(
+					__dirname,
+					'../sdk/src/index.ts',
+				),
+			},
+			{
+				find: /^@mysten\/sagat\/v1$/,
+				replacement: path.resolve(
+					__dirname,
+					'../sdk/src/v1/index.ts',
+				),
+			},
+		],
 	},
 	preview: isPreview
 		? {

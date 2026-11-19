@@ -10,13 +10,6 @@ export {
 
 export { ProposalStatus } from './types.js';
 
-export * as v1 from './v1/schemas.js';
-export {
-	SagatResponseError,
-	SagatV1Client,
-	type SagatV1ClientOptions,
-} from './v1/client.js';
-
 export {
 	PersonalMessages,
 	defaultExpiry,

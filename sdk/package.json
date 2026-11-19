@@ -10,7 +10,6 @@
 		"src",
 		"README.md"
 	],
-	"sideEffects": false,
 	"exports": {
 		".": {
 			"import": {
@@ -20,6 +19,16 @@
 			"require": {
 				"types": "./dist/index.d.ts",
 				"default": "./dist/index.js"
+			}
+		},
+		"./v1": {
+			"import": {
+				"types": "./dist/v1/index.d.mts",
+				"default": "./dist/v1/index.mjs"
+			},
+			"require": {
+				"types": "./dist/v1/index.d.ts",
+				"default": "./dist/v1/index.js"
 			}
 		}
 	},

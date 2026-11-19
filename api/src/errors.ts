@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { v1 } from '@mysten/sagat';
+import { ValidationMessages } from '@mysten/sagat/v1';
 import { RpcError } from '@mysten/sui/grpc';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { type ErrorHandler } from 'hono';
@@ -49,9 +49,9 @@ export const AuthErrors = {
 };
 
 export const CommonErrors = {
-	InvalidAddress: v1.ValidationMessages.InvalidAddress,
+	InvalidAddress: ValidationMessages.InvalidAddress,
 	InvalidSignature: 'Invalid signature for message.',
-	InvalidDigest: v1.ValidationMessages.InvalidDigest,
+	InvalidDigest: ValidationMessages.InvalidDigest,
 };
 
 // The error handler for the app.

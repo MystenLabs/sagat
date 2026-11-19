@@ -2,7 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createRoute } from '@hono/zod-openapi';
-import { v1 } from '@mysten/sagat';
+import {
+	ErrorBodySchema,
+	ProposalSchema,
+	TransactionDigestSchema,
+} from '@mysten/sagat/v1';
 import { z } from 'zod';
 
 import { getProposalByDigest } from '../services/proposals.service';
@@ -12,7 +16,7 @@ import { toV1Proposal } from './serializers';
 const error = (description: string) => ({
 	description,
 	content: {
-		'application/json': { schema: v1.ErrorBodySchema },
+		'application/json': { schema: ErrorBodySchema },
 	},
 });
 
@@ -22,7 +26,7 @@ const getProposal = createRoute({
 	summary: 'Get a proposal by its transaction digest',
 	request: {
 		params: z.object({
-			digest: v1.TransactionDigestSchema,
+			digest: TransactionDigestSchema,
 		}),
 	},
 	responses: {
@@ -30,7 +34,7 @@ const getProposal = createRoute({
 			description:
 				'The proposal, with its signatures, signer sets and audit log events.',
 			content: {
-				'application/json': { schema: v1.ProposalSchema },
+				'application/json': { schema: ProposalSchema },
 			},
 		},
 		400: error(

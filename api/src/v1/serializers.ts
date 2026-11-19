@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type v1 } from '@mysten/sagat';
+import type * as v1 from '@mysten/sagat/v1';
 import { type z } from 'zod';
 
 import {
