@@ -43,7 +43,7 @@ See `golden/README.md` for what is normalized and when not to regenerate.
 
 ## OpenAPI spec snapshot (`openapi/`)
 
-`openapi/v1-spec.test.ts` generates the `/v1` spec from the routes and compares it with `api/openapi/v1.json`. It needs neither Postgres nor the Sui network; CI runs it in the `openapi-check` job. A failure means a `/v1` route or schema changed. If the change is intended, regenerate the snapshot and commit the diff with the change:
+`openapi/v1-spec.test.ts` generates the `/v1` spec from the routes and compares it with `api/openapi/v1.json`. It needs neither Postgres nor the Sui network, but it reads the schemas from the built SDK, so run `bun run build:sdk` from the root first; CI runs it in the `openapi-check` job. A failure means a `/v1` route or schema changed. If the change is intended, regenerate the snapshot and commit the diff with the change:
 
 ```bash
 UPDATE_OPENAPI=1 bun test:openapi
