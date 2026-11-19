@@ -42,7 +42,7 @@ export class ResponseSchemaError extends Error {
 	}
 }
 
-// The alias state an access decision needs could not be read from the chain.
+// The alias state an access decision needs could not be read or mirrored.
 export class AliasStateUnavailableError extends Error {
 	constructor(
 		readonly accountAddress: string,

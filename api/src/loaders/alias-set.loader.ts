@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type SuiGrpcClient } from '@mysten/sui/grpc';
-import { normalizeSuiAddress } from '@mysten/sui/utils';
+import {
+	isValidSuiAddress,
+	normalizeSuiAddress,
+} from '@mysten/sui/utils';
 import DataLoader from 'dataloader';
 
 import {
@@ -39,24 +42,31 @@ const loadAliasSets =
 		);
 		// Several requests can ask for one account in a batch; read it once.
 		const unique = [...new Set(owners)];
-		const { objects } = await client.getObjects({
-			objectIds: unique.map(deriveAliasesObjectId),
-			include: ALIAS_OBJECT_INCLUDE,
-		});
-		const sets = new Map(
-			unique.map((owner, i): [string, AliasSet | Error] => {
-				try {
-					return [owner, decodeAliasSet(owner, objects[i])];
-				} catch (error) {
-					return [
-						owner,
-						error instanceof Error
-							? error
-							: new Error(String(error)),
-					];
-				}
-			}),
+		const valid = unique.filter(isValidSuiAddress);
+		const { objects } = valid.length
+			? await client.getObjects({
+					objectIds: valid.map(deriveAliasesObjectId),
+					include: ALIAS_OBJECT_INCLUDE,
+				})
+			: { objects: [] };
+		const sets = new Map<string, AliasSet | Error>(
+			unique.map((owner) => [
+				owner,
+				new Error(`${owner} is not a Sui address`),
+			]),
 		);
+		valid.forEach((owner, i) => {
+			try {
+				sets.set(owner, decodeAliasSet(owner, objects[i]));
+			} catch (error) {
+				sets.set(
+					owner,
+					error instanceof Error
+						? error
+						: new Error(String(error)),
+				);
+			}
+		});
 		return owners.map((owner) => sets.get(owner)!);
 	};
 

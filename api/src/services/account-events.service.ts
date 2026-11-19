@@ -57,7 +57,7 @@ export const SYSTEM_ACTOR = 'system';
 type ChainProof = {
 	kind: 'chain';
 	digest: string;
-	version: string;
+	objectVersion: string;
 };
 
 type MemberActor = string;

@@ -245,7 +245,7 @@ const writeMirror = (
 		const proof = {
 			kind: 'chain',
 			digest: read.previousTransaction,
-			version: read.version,
+			objectVersion: read.version,
 		} as const;
 		for (const [action, subjects] of [
 			['alias.added', added],

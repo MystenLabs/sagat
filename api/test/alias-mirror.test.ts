@@ -171,6 +171,8 @@ describe('Alias mirror', () => {
 	// Responses captured earlier, served again to play a lagging node.
 	let notFound: AliasObjects;
 	let enabled: AliasObjects;
+	// One loader for steps 1 to 4: a cached read would fail steps 3 and 4.
+	const chainLoaders = createAliasSetLoaders();
 
 	beforeAll(async () => {
 		const framework = new ApiTestFramework(
@@ -209,7 +211,7 @@ describe('Alias mirror', () => {
 		const [result] = await refreshAliases(
 			[A],
 			NETWORK,
-			createAliasSetLoaders(),
+			chainLoaders,
 		);
 		expect(result).toMatchObject({
 			accountAddress: A,
@@ -235,11 +237,7 @@ describe('Alias mirror', () => {
 
 		const [result] = await db.transaction(async (tx) => {
 			await lockAccount(tx, A);
-			return refreshAliases(
-				[A],
-				NETWORK,
-				createAliasSetLoaders(),
-			);
+			return refreshAliases([A], NETWORK, chainLoaders);
 		});
 
 		expect(result.outcome).toBe('unchanged');
@@ -256,7 +254,7 @@ describe('Alias mirror', () => {
 		const [result] = await refreshAliases(
 			[A],
 			NETWORK,
-			createAliasSetLoaders(),
+			chainLoaders,
 		);
 		expect(result).toMatchObject({
 			outcome: 'updated',
@@ -290,7 +288,7 @@ describe('Alias mirror', () => {
 		const [result] = await refreshAliases(
 			[A],
 			NETWORK,
-			createAliasSetLoaders(),
+			chainLoaders,
 		);
 		expect(result).toEqual({
 			accountAddress: A,
@@ -305,7 +303,7 @@ describe('Alias mirror', () => {
 		const proof = {
 			kind: 'chain',
 			digest: lastDigest,
-			version: onChain.version,
+			objectVersion: onChain.version,
 		};
 		const mirror = await mirrorOf(A);
 		expect(mirror.aliases).toEqual([K.toSuiAddress()]);
@@ -339,7 +337,7 @@ describe('Alias mirror', () => {
 		const [again] = await refreshAliases(
 			[A],
 			NETWORK,
-			createAliasSetLoaders(),
+			chainLoaders,
 		);
 		expect(again.outcome).toBe('unchanged');
 		expect((await mirrorOf(A)).events).toHaveLength(2);
@@ -599,5 +597,18 @@ describe('Alias mirror', () => {
 		expect(
 			results.map(([result]) => result.outcome),
 		).toEqual(['unchanged', 'unchanged']);
+	});
+
+	test('14. a malformed address fails only itself', async () => {
+		const { loaders, calls, lastIds } =
+			serving(readObjects);
+		const [a, bad] = await loaders(NETWORK).loadMany([
+			A,
+			'0xzz',
+		]);
+		expect(a).toMatchObject({ exists: true });
+		expect(bad).toBeInstanceOf(Error);
+		expect(calls()).toBe(1);
+		expect(lastIds()).toEqual([deriveAliasesObjectId(A)]);
 	});
 });
