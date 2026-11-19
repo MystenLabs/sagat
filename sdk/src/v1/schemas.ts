@@ -14,10 +14,17 @@ export const ErrorBodySchema = z
 	.meta({ id: 'Error', description: 'An error response.' });
 export type ErrorBody = z.infer<typeof ErrorBodySchema>;
 
+export const ValidationMessages = {
+	InvalidDigest:
+		'The transaction digest provided is invalid.',
+	InvalidAddress:
+		'Invalid address. Must be a valid Sui address.',
+} as const;
+
 export const TransactionDigestSchema = z
 	.string()
 	.refine(isValidTransactionDigest, {
-		message: 'The transaction digest provided is invalid.',
+		message: ValidationMessages.InvalidDigest,
 	})
 	.meta({ description: 'A Sui transaction digest.' });
 export type TransactionDigest = z.infer<
@@ -27,8 +34,7 @@ export type TransactionDigest = z.infer<
 export const SuiAddressSchema = z
 	.string()
 	.refine(isValidSuiAddress, {
-		message:
-			'Invalid address. Must be a valid Sui address.',
+		message: ValidationMessages.InvalidAddress,
 	})
 	.meta({ description: 'A Sui address.' });
 export type SuiAddress = z.infer<typeof SuiAddressSchema>;

@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { v1 } from '@mysten/sagat';
 import { RpcError } from '@mysten/sui/grpc';
 import { DrizzleQueryError } from 'drizzle-orm';
 import { type ErrorHandler } from 'hono';
@@ -48,11 +49,9 @@ export const AuthErrors = {
 };
 
 export const CommonErrors = {
-	InvalidAddress:
-		'Invalid address. Must be a valid Sui address.',
+	InvalidAddress: v1.ValidationMessages.InvalidAddress,
 	InvalidSignature: 'Invalid signature for message.',
-	InvalidDigest:
-		'The transaction digest provided is invalid.',
+	InvalidDigest: v1.ValidationMessages.InvalidDigest,
 };
 
 // The error handler for the app.
