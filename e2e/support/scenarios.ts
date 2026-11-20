@@ -9,9 +9,16 @@ import {
 	type Proposal,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { MIST_PER_SUI } from '@mysten/sui/utils';
+import { Transaction } from '@mysten/sui/transactions';
+import { MIST_PER_SUI, toBase64 } from '@mysten/sui/utils';
 import { expect } from '@playwright/test';
 
+import {
+	buildAdd,
+	buildEnable,
+	buildRemove,
+	fetchAliasSet,
+} from '../../api/src/utils/aliases';
 import {
 	randomAddress,
 	type Chain,
@@ -232,6 +239,66 @@ export async function executeOutsideApp(
 			members,
 			threshold,
 		).combinePartialSignatures(signatures),
+	);
+}
+
+type MultisigSigning = {
+	members: MultisigMember[];
+	threshold: number;
+	signers: Identity[];
+};
+
+// Builds a transaction from the multisig and executes it outside the app.
+async function runFromMultisig(
+	chain: Chain,
+	signing: MultisigSigning,
+	fill: (tx: Transaction, address: string) => void,
+) {
+	const address = multisigAddressOf(
+		signing.members,
+		signing.threshold,
+	);
+	const tx = new Transaction();
+	tx.setSender(address);
+	fill(tx, address);
+	await executeOutsideApp(chain, {
+		...signing,
+		transactionBytes: toBase64(
+			await tx.build({ client: chain.client }),
+		),
+	});
+}
+
+// Adds `alias` to the multisig's alias set on chain, outside the app,
+// enabling the set first if needed. The multisig must hold SUI for gas.
+// `members` and `signers` as for `executeOutsideApp`.
+export async function addAlias(
+	chain: Chain,
+	signing: MultisigSigning,
+	alias: string,
+) {
+	const account = multisigAddressOf(
+		signing.members,
+		signing.threshold,
+	);
+	// `enable` creates the set, which the same transaction cannot then use.
+	if (!(await fetchAliasSet(chain.client, account)).exists)
+		await runFromMultisig(chain, signing, buildEnable);
+	await runFromMultisig(chain, signing, (tx) =>
+		buildAdd(tx, { account, alias }),
+	);
+}
+
+// Replaces the multisig's own address in its alias set with `alias`, on
+// chain and outside the app. As for `addAlias`.
+export async function replaceOwnAlias(
+	chain: Chain,
+	signing: MultisigSigning,
+	alias: string,
+) {
+	await addAlias(chain, signing, alias);
+	await runFromMultisig(chain, signing, (tx, account) =>
+		buildRemove(tx, { account, alias: account }),
 	);
 }
 

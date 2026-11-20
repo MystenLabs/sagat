@@ -58,6 +58,16 @@ export const test = base.extend<Fixtures>({
 			actors.push(actor);
 			return actor;
 		});
+		// Drop routes first, so a request still in flight can't fail the test.
+		await Promise.all(
+			actors.flatMap((a) =>
+				a.context
+					.pages()
+					.map((p) =>
+						p.unrouteAll({ behavior: 'ignoreErrors' }),
+					),
+			),
+		);
 		await Promise.all(actors.map((a) => a.context.close()));
 		// Only the preview server sends the CSP.
 		if (E2E.appServer === 'preview')
