@@ -3,11 +3,7 @@
 
 // The alias mirror against a local network. The steps share state and run in order.
 
-import {
-	ALIAS_OBJECT_INCLUDE,
-	deriveAliasesObjectId,
-} from '@mysten/sagat';
-import { type SuiClientTypes } from '@mysten/sui/client';
+import { deriveAliasesObjectId } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { type Transaction } from '@mysten/sui/transactions';
 import {
@@ -30,10 +26,7 @@ import {
 	AliasStateUnavailableError,
 	isLockTimeout,
 } from '../src/errors';
-import {
-	createAliasSetLoaders,
-	type AliasObjectReader,
-} from '../src/loaders/alias-set.loader';
+import { createAliasSetLoaders } from '../src/loaders/alias-set.loader';
 import {
 	ALIAS_STATE_MAX_AGE_MS,
 	refreshAliases,
@@ -47,6 +40,11 @@ import {
 	fetchAliasSet,
 } from '../src/utils/aliases';
 import { ApiTestFramework } from './framework/api-test-framework';
+import {
+	readObjects,
+	serving,
+	type AliasObjects,
+} from './setup/alias-reader';
 import {
 	expectSuccess,
 	keySigner,
@@ -66,42 +64,6 @@ setDefaultTimeout(60_000);
 
 const client = getLocalClient();
 const NETWORK = 'localnet';
-
-type AliasObjects = SuiClientTypes.GetObjectsResponse<
-	typeof ALIAS_OBJECT_INCLUDE
->;
-
-const readObjects = (objectIds: string[]) =>
-	client.getObjects({
-		objectIds,
-		include: ALIAS_OBJECT_INCLUDE,
-	});
-
-// Loaders over a reader that answers with `serve` and counts its calls.
-const serving = (
-	serve: (objectIds: string[]) => Promise<AliasObjects>,
-) => {
-	let calls = 0;
-	let lastIds: string[] = [];
-	const reader: AliasObjectReader = {
-		getObjects: async <
-			Include extends SuiClientTypes.ObjectInclude = object,
-		>(
-			input: SuiClientTypes.GetObjectsOptions<Include>,
-		) => {
-			calls++;
-			lastIds = input.objectIds;
-			return (await serve(
-				input.objectIds,
-			)) as unknown as SuiClientTypes.GetObjectsResponse<Include>;
-		},
-	};
-	return {
-		loaders: createAliasSetLoaders(() => reader),
-		calls: () => calls,
-		lastIds: () => lastIds,
-	};
-};
 
 const unreachable = new Error('node unreachable');
 

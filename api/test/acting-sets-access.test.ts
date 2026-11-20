@@ -4,7 +4,9 @@
 import {
 	defaultExpiry,
 	PersonalMessages,
+	type SagatApiError,
 } from '@mysten/sagat';
+import { SagatV1Client } from '@mysten/sagat/v1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
@@ -235,6 +237,43 @@ const statusOf = async (proposal: Proposal) => {
 const keysOf = (user: TestUser) => [
 	user.keypair.getPublicKey(),
 ];
+
+// The `/v1` routes, signed in as `user`.
+const routesAs = async (user: TestUser) => {
+	const session = framework.createSession();
+	await session.connectUser(user);
+	return new SagatV1Client('', {
+		fetch: (url, init) =>
+			session.request(url as string, init),
+	});
+};
+
+const routeRefusal = (call: Promise<unknown>) =>
+	call.then(
+		() => null,
+		(error: SagatApiError) => ({
+			status: error.status,
+			message: error.message,
+		}),
+	);
+
+const ROUTE_ACCESS_DENIED = {
+	status: 403,
+	message: ACCESS_DENIED.message,
+};
+
+const readRoute = async (user: TestUser, account: string) =>
+	(await routesAs(user)).getAccount(account, 'localnet');
+
+const listedRoute = async (user: TestUser) =>
+	(
+		await (await routesAs(user)).getAccounts('localnet')
+	).accounts.map((account) => account.address);
+
+const invitationsRoute = async (user: TestUser) =>
+	(
+		await (await routesAs(user)).getInvitations('localnet')
+	).invitations.map((account) => account.address);
 
 const read = (
 	user: TestUser,
@@ -668,10 +707,9 @@ describe('access under the acting scope', () => {
 			k1.address,
 		);
 
-		await expectRefused(
-			read(outsider, account),
-			ACCESS_DENIED,
-		);
+		expect(
+			await routeRefusal(readRoute(outsider, account)),
+		).toEqual(ROUTE_ACCESS_DENIED);
 		await expectRefused(
 			vote(outsider, proposal),
 			NOT_A_MEMBER,
@@ -684,10 +722,9 @@ describe('access under the acting scope', () => {
 			proposalsOf(outsider, account),
 			NOT_A_MEMBER,
 		);
-		await expectRefused(
-			read(k1, newUser().address),
-			ACCESS_DENIED,
-		);
+		expect(
+			await routeRefusal(readRoute(k1, newUser().address)),
+		).toEqual(ROUTE_ACCESS_DENIED);
 	});
 
 	test('a stranger’s account that lists a known composition invites its keys but is not their account', async () => {
@@ -699,15 +736,18 @@ describe('access under the acting scope', () => {
 			account,
 		]);
 
-		expect(await listed(k1)).toEqual([account]);
-		expect(await invitations(k1)).toEqual([stranger]);
+		expect(await listedRoute(k1)).toEqual([account]);
+		expect(await invitationsRoute(k1)).toEqual([stranger]);
 
-		const { signerSet, signers } = await read(k1, stranger);
-		expect(signerSet.address).toBe(stranger);
+		const { address, originalSignerSet } = await readRoute(
+			k1,
+			stranger,
+		);
+		expect(address).toBe(stranger);
 		expect(
-			signerSet.members.map((m) => m.publicKey),
+			originalSignerSet.members.map((m) => m.publicKey),
 		).toEqual(strangers.map((s) => s.publicKey));
-		expect(signers.originalSet!.address).toBe(stranger);
+		expect(originalSignerSet.address).toBe(stranger);
 		await expectRefused(
 			propose(k1, stranger),
 			NOT_A_MEMBER,
@@ -725,11 +765,12 @@ describe('access under the acting scope', () => {
 			unknown,
 		]);
 
-		const { signers } = await read(key, account);
+		const { signerSets, otherSignerSets } = await readRoute(
+			key,
+			account,
+		);
 		expect(
-			signers.actingSets.find(
-				(s) => s.address === key.address,
-			),
+			signerSets.find((s) => s.address === key.address),
 		).toEqual({
 			kind: 'key',
 			address: key.address,
@@ -740,21 +781,22 @@ describe('access under the acting scope', () => {
 					weight: 1,
 					order: 0,
 					answer: 'invited',
+					label: null,
 				},
 			],
 		});
-		expect(signers.otherSignerSets).toEqual([unknown]);
-		expect(
-			signers.actingSets.map((s) => s.address),
-		).not.toContain(unknown);
+		expect(otherSignerSets).toEqual([unknown]);
+		expect(signerSets.map((s) => s.address)).not.toContain(
+			unknown,
+		);
 
 		await vote(
 			key,
 			await insertProposal(account, 'localnet', k1.address),
 		);
-		expect(await listed(key)).toEqual([]);
+		expect(await listedRoute(key)).toEqual([]);
 		await answerFor(account, key, 'accepted');
-		expect(await listed(key)).toEqual([account]);
+		expect(await listedRoute(key)).toEqual([account]);
 	});
 
 	test('an account with no acting set on a network refuses every key there', async () => {
@@ -890,9 +932,15 @@ describe('access under the acting scope', () => {
 
 	test('the account list does not cost more statements with more accounts', async () => {
 		const key = newUser();
+		const client = await routesAs(key);
+		const listedCount = async () =>
+			(await client.getAccounts('localnet')).accounts
+				.length;
 		const statementsFor = async (count: number) => {
+			// The first list refreshes the new accounts; the second finds them fresh.
+			await listedCount();
 			const before = queryCount();
-			expect(await listed(key)).toHaveLength(count);
+			expect(await listedCount()).toBe(count);
 			return queryCount() - before;
 		};
 

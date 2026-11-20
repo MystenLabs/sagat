@@ -25,12 +25,15 @@ import {
 	type AliasSetLoaders,
 } from '../loaders/alias-set.loader';
 import { type SuiNetwork } from '../utils/client';
+import { chunk } from '../utils/collections';
 import {
 	recordAccountEvent,
 	SYSTEM_ACTOR,
 } from './account-events.service';
 
 export const ALIAS_STATE_MAX_AGE_MS = 60_000;
+// Each changed account writes in its own transaction.
+const WRITE_GROUP_SIZE = 8;
 
 type Mirrored = { exists: boolean; version: string | null };
 
@@ -329,25 +332,25 @@ export const refreshAliases = async (
 
 	const readAt = new Date();
 	const reads = await loaders(network).loadMany(accounts);
+	const readOf = new Map(
+		accounts.map((account, i) => [account, reads[i]]),
+	);
 	const rows = await readStateRows(accounts, network);
 
-	const results = new Map(
-		await Promise.all(
-			accounts.map(
-				async (account, i) =>
-					[
-						account,
-						await refreshOne(
-							account,
-							network,
-							reads[i],
-							rows.get(account),
-							readAt,
-						),
-					] as const,
+	const results = new Map<string, AliasRefreshResult>();
+	for (const group of chunk(accounts, WRITE_GROUP_SIZE))
+		for (const result of await Promise.all(
+			group.map((account) =>
+				refreshOne(
+					account,
+					network,
+					readOf.get(account)!,
+					rows.get(account),
+					readAt,
+				),
 			),
-		),
-	);
+		))
+			results.set(result.accountAddress, result);
 	return inputs.map((account) => results.get(account)!);
 };
 
@@ -384,6 +387,15 @@ export const refreshStaleAliases = async (
 		};
 	});
 };
+
+// Whether the alias object exists on the network, as last mirrored.
+export const aliasObjectExists = async (
+	accountAddress: string,
+	network: SuiNetwork,
+) =>
+	(await readStateRows([accountAddress], network)).get(
+		accountAddress,
+	)?.exists ?? false;
 
 // For writers: throws when the account needed a refresh and it failed.
 export const requireFreshAliases = async (

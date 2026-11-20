@@ -4,11 +4,19 @@
 import type * as v1 from '@mysten/sagat/v1';
 import { type z } from 'zod';
 
+import { type KeyLabels } from '../loaders/account-keys.loader';
 import {
 	type AccountEventRecord,
 	type ProposalEvents,
+	type ProposerWithLatestEvent,
 } from '../services/account-events.service';
+import { type CheckedAccount } from '../services/accounts.service';
 import { type ProposalProgress } from '../services/proposals.service';
+import {
+	memberAnswer,
+	type ActingMember,
+	type RemovedFromAccount,
+} from '../services/signers.service';
 
 const toV1AccountEvent = (
 	event: AccountEventRecord | null,
@@ -63,4 +71,73 @@ export const toV1Proposal = ({
 		created: toV1AccountEvent(events.created),
 		proposer: toV1AccountEvent(events.proposer),
 	},
+});
+
+const toV1Member = (
+	member: Omit<ActingMember, 'answer'>,
+	answer: ActingMember['answer'],
+	labels: KeyLabels,
+): z.input<typeof v1.AccountMemberSchema> => ({
+	publicKey: member.publicKey,
+	weight: member.weight,
+	order: member.order,
+	answer,
+	label: labels.get(member.publicKey) ?? null,
+});
+
+export const toV1Account = ({
+	signerSet,
+	labels,
+	origin,
+	signers,
+	signersChecked,
+}: Pick<
+	CheckedAccount,
+	| 'signerSet'
+	| 'labels'
+	| 'origin'
+	| 'signers'
+	| 'signersChecked'
+>): z.input<typeof v1.AccountSchema> => ({
+	address: signerSet.address,
+	name: signers.accountName,
+	createdBy: origin.draftedBy,
+	createdAt: origin.createdAt.toISOString(),
+	originalSignerSet: {
+		address: signerSet.address,
+		threshold: signerSet.threshold,
+		members: signerSet.members.map((member) =>
+			toV1Member(member, memberAnswer(member), labels),
+		),
+	},
+	signerSets: signers.actingSets.map((set) => ({
+		kind: set.kind,
+		address: set.address,
+		threshold: set.threshold,
+		members: set.members.map((member) =>
+			toV1Member(member, member.answer, labels),
+		),
+	})),
+	otherSignerSets: signers.otherSignerSets,
+	signersChecked,
+});
+
+export const toV1AccountProposer = (
+	proposer: ProposerWithLatestEvent,
+): z.input<typeof v1.AccountProposerSchema> => ({
+	address: proposer.address,
+	addedBy: proposer.addedBy,
+	addedAt: proposer.addedAt.toISOString(),
+	event: toV1AccountEvent(proposer.event),
+});
+
+export const toV1RemovedAccount = (
+	removed: RemovedFromAccount,
+): z.input<typeof v1.RemovedAccountSchema> => ({
+	address: removed.accountAddress,
+	name: removed.accountName,
+	publicKey: removed.publicKey,
+	signerSetAddress: removed.signerSetAddress,
+	eventId: removed.eventId,
+	removedAt: removed.removedAt.toISOString(),
 });

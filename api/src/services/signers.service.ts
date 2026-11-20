@@ -9,6 +9,7 @@
 
 import {
 	and,
+	desc,
 	eq,
 	exists,
 	inArray,
@@ -28,7 +29,9 @@ import { db } from '../db';
 import {
 	SchemaAccountAcceptances,
 	SchemaAccountAliases,
+	SchemaAccountEvents,
 	SchemaAccounts,
+	SchemaAccountSignerSets,
 	SchemaAddresses,
 	SchemaSignerSetMembers,
 	SchemaSignerSets,
@@ -93,7 +96,7 @@ const answerSql = sql<KeyAnswer>`CASE
 	WHEN ${originalMember.isRejected} OR ${SchemaAccountAcceptances.isRejected} THEN 'rejected'
 	ELSE 'invited' END`;
 
-const memberAnswer = (
+export const memberAnswer = (
 	member: SignerSetMember,
 ): KeyAnswer =>
 	member.isAccepted
@@ -451,16 +454,11 @@ export const countSignatures = (
 	};
 };
 
-// The accounts where one of the keys is in an acting set on the network with that answer. One row per (account, key).
-export const listActingAccounts = async (
+// Every set a key is in, and the accounts where such a set acts on the network. One row per (account, key).
+const actingForKeys = (
 	publicKeys: string[],
 	network: SuiNetwork,
-	answer: KeyAnswer,
-): Promise<
-	{ accountAddress: string; publicKey: string }[]
-> => {
-	if (publicKeys.length === 0) return [];
-
+) => {
 	// Every set a key is in: its compositions, and its own address unless a composition has it.
 	const sets = db.$with('key_sets').as(
 		union(
@@ -574,6 +572,22 @@ export const listActingAccounts = async (
 				),
 		),
 	);
+	return { sets, acting };
+};
+
+// The accounts where one of the keys is in an acting set on the network with that answer. One row per (account, key).
+export const listActingAccounts = async (
+	publicKeys: string[],
+	network: SuiNetwork,
+	answer: KeyAnswer,
+): Promise<
+	{ accountAddress: string; publicKey: string }[]
+> => {
+	if (publicKeys.length === 0) return [];
+	const { sets, acting } = actingForKeys(
+		publicKeys,
+		network,
+	);
 
 	return db
 		.with(sets, acting)
@@ -606,4 +620,226 @@ export const listActingAccounts = async (
 			),
 		)
 		.where(sql`${answerSql} = ${answer}`);
+};
+
+// The accounts the keys are tied to on the network: a key's set acts there, a link's composition holds a key, or a key answered.
+export const listTiedAccounts = async (
+	publicKeys: string[],
+	network: SuiNetwork,
+): Promise<string[]> => {
+	if (publicKeys.length === 0) return [];
+	const { sets, acting } = actingForKeys(
+		publicKeys,
+		network,
+	);
+	const rows = await db
+		.with(sets, acting)
+		.select({ accountAddress: acting.accountAddress })
+		.from(acting)
+		.union(
+			db
+				.select({
+					accountAddress:
+						SchemaAccountSignerSets.accountAddress,
+				})
+				.from(SchemaAccountSignerSets)
+				.innerJoin(
+					SchemaSignerSetMembers,
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						SchemaAccountSignerSets.signerSetAddress,
+					),
+				)
+				.where(
+					inArray(
+						SchemaSignerSetMembers.publicKey,
+						publicKeys,
+					),
+				),
+		)
+		.union(
+			db
+				.select({
+					accountAddress:
+						SchemaAccountAcceptances.accountAddress,
+				})
+				.from(SchemaAccountAcceptances)
+				.where(
+					inArray(
+						SchemaAccountAcceptances.publicKey,
+						publicKeys,
+					),
+				),
+		);
+	return rows.map((row) => row.accountAddress).sort();
+};
+
+export type RemovedFromAccount = {
+	accountAddress: string;
+	accountName: string | null;
+	publicKey: string;
+	// The set that was removed and holds the key.
+	signerSetAddress: string;
+	eventId: number;
+	removedAt: Date;
+};
+
+// Accounts a key accepted, is in no acting set of on the network, and whose set holding it was removed there. The newest removal per account and set.
+export const listRemovedAccounts = async (
+	publicKeys: string[],
+	network: SuiNetwork,
+): Promise<RemovedFromAccount[]> => {
+	if (publicKeys.length === 0) return [];
+	const { sets, acting } = actingForKeys(
+		publicKeys,
+		network,
+	);
+	const accepted = db.$with('accepted').as(
+		union(
+			db
+				.select({
+					accountAddress:
+						sql<string>`${SchemaSignerSetMembers.signerSetAddress}`.as(
+							'accepted_account',
+						),
+					publicKey:
+						sql<string>`${SchemaSignerSetMembers.publicKey}`.as(
+							'accepted_key',
+						),
+				})
+				.from(SchemaSignerSetMembers)
+				.where(
+					and(
+						inArray(
+							SchemaSignerSetMembers.publicKey,
+							publicKeys,
+						),
+						eq(SchemaSignerSetMembers.isAccepted, true),
+					),
+				),
+			db
+				.select({
+					accountAddress:
+						sql<string>`${SchemaAccountAcceptances.accountAddress}`.as(
+							'accepted_account',
+						),
+					publicKey:
+						sql<string>`${SchemaAccountAcceptances.publicKey}`.as(
+							'accepted_key',
+						),
+				})
+				.from(SchemaAccountAcceptances)
+				.where(
+					and(
+						inArray(
+							SchemaAccountAcceptances.publicKey,
+							publicKeys,
+						),
+						eq(SchemaAccountAcceptances.isAccepted, true),
+					),
+				),
+		),
+	);
+	const removal = db
+		.select({
+			id: SchemaAccountEvents.id,
+			createdAt: SchemaAccountEvents.createdAt,
+		})
+		.from(SchemaAccountEvents)
+		.where(
+			and(
+				eq(
+					SchemaAccountEvents.accountAddress,
+					accepted.accountAddress,
+				),
+				eq(SchemaAccountEvents.action, 'alias.removed'),
+				eq(SchemaAccountEvents.network, network),
+				eq(SchemaAccountEvents.subject, sets.setAddress),
+			),
+		)
+		.orderBy(desc(SchemaAccountEvents.id))
+		.limit(1)
+		.as('removal');
+
+	const rows = await db
+		.with(sets, acting, accepted)
+		.selectDistinctOn(
+			[accepted.accountAddress, sets.setAddress],
+			{
+				accountAddress: accepted.accountAddress,
+				accountName: SchemaAccounts.name,
+				publicKey: accepted.publicKey,
+				signerSetAddress: sets.setAddress,
+				eventId: removal.id,
+				removedAt: removal.createdAt,
+			},
+		)
+		.from(accepted)
+		.innerJoin(
+			SchemaAccounts,
+			eq(SchemaAccounts.address, accepted.accountAddress),
+		)
+		.innerJoin(sets, eq(sets.publicKey, accepted.publicKey))
+		.innerJoinLateral(removal, sql`true`)
+		.where(
+			notExists(
+				db
+					.select({ one: sql`1` })
+					.from(acting)
+					.where(
+						and(
+							eq(
+								acting.accountAddress,
+								accepted.accountAddress,
+							),
+							eq(acting.publicKey, accepted.publicKey),
+						),
+					),
+			),
+		)
+		.orderBy(
+			accepted.accountAddress,
+			sets.setAddress,
+			accepted.publicKey,
+		);
+	return rows;
+};
+
+// The other networks whose alias set for the account differs from this network's. No alias rows counts as `{account}`.
+export const networksWithDifferentSigners = async (
+	accountAddress: string,
+	network: SuiNetwork,
+	networks: SuiNetwork[],
+): Promise<SuiNetwork[]> => {
+	const rows = await db
+		.select({
+			network: SchemaAccountAliases.network,
+			alias: SchemaAccountAliases.aliasAddress,
+		})
+		.from(SchemaAccountAliases)
+		.where(
+			and(
+				eq(
+					SchemaAccountAliases.accountAddress,
+					accountAddress,
+				),
+				inArray(SchemaAccountAliases.network, [
+					...new Set([network, ...networks]),
+				]),
+			),
+		);
+	const aliasSetOn = (on: SuiNetwork) => {
+		const aliases = rows
+			.filter((row) => row.network === on)
+			.map((row) => row.alias)
+			.sort();
+		return (
+			aliases.length > 0 ? aliases : [accountAddress]
+		).join();
+	};
+	const here = aliasSetOn(network);
+	return networks.filter(
+		(other) =>
+			other !== network && aliasSetOn(other) !== here,
+	);
 };

@@ -73,6 +73,8 @@ export const AuthErrors = {
 		'Proposer is either not a member of the multisig, or has not accepted the invitation to the multisig.',
 	AccessDenied:
 		'Access denied. You are not a member of this multisig.',
+	NotAnAccountSigner:
+		'You are not a signer of this account on this network.',
 };
 
 export const CommonErrors = {

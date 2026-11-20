@@ -88,6 +88,7 @@ import {
 	verifySignedMessage,
 } from './signatures.service';
 import {
+	actingSetsOn,
 	keyAnswer,
 	listActingAccounts,
 	ORIGINAL_SET,
@@ -472,22 +473,12 @@ export const listInvitations = async ({
 	)
 		throw new ValidationError('You are not authorized.');
 
-	if (scope.kind === 'acting') {
-		const answer = showRejected ? 'rejected' : 'invited';
-		const rows = await listActingAccounts(
-			[publicKey],
-			scope.network,
-			answer,
-		);
-		return actingAccountsOf(
-			rows,
-			await loadActingAccounts(
-				rows.map((row) => row.accountAddress),
-				scope,
-			),
-			(signers, key) => keyAnswer(signers, key) === answer,
-		);
-	}
+	if (scope.kind === 'acting')
+		return listActingInvitations({
+			publicKeys: [publicKey],
+			showRejected,
+			network: scope.network,
+		});
 
 	const whereConditions = [
 		eq(SchemaSignerSetMembers.publicKey, publicKey),
@@ -506,6 +497,39 @@ export const listInvitations = async ({
 
 	// Step 2: Expand multisigs to full objects with all members
 	return await loadMultisigAccounts(rows);
+};
+
+// The accounts where one of the keys is in an acting set on the network and
+// has not answered, or with `showRejected`, rejected. Each account once.
+export const listActingInvitations = async ({
+	publicKeys,
+	showRejected,
+	network,
+}: {
+	publicKeys: string[];
+	showRejected: boolean;
+	network: SuiNetwork;
+}): Promise<MultisigAccountWithSigners[]> => {
+	const answer = showRejected ? 'rejected' : 'invited';
+	const rows = await listActingAccounts(
+		publicKeys,
+		network,
+		answer,
+	);
+	const accounts = actingAccountsOf(
+		rows,
+		await loadActingAccounts(
+			[...new Set(rows.map((row) => row.accountAddress))],
+			actingSetsOn(network),
+		),
+		(signers, key) => keyAnswer(signers, key) === answer,
+	);
+	return accounts.filter(
+		(account, i) =>
+			i === 0 ||
+			accounts[i - 1].signerSet.address !==
+				account.signerSet.address,
+	);
 };
 
 /**
@@ -1018,7 +1042,7 @@ type ProposerChange = {
 };
 
 // Lower-case `0x` and 64 hex digits.
-const isCanonicalSuiAddress = (address: string) =>
+export const isCanonicalSuiAddress = (address: string) =>
 	isValidSuiAddress(address) &&
 	normalizeSuiAddress(address) === address;
 
