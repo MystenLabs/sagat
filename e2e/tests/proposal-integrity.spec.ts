@@ -961,6 +961,117 @@ test.describe('proposal integrity', () => {
 		).toHaveCount(0);
 	});
 
+	test('signs an accept only with the account that was checked, even if the wallet switches while the node is read', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob', {
+			otherAccounts: ['bob-savings'],
+		});
+		const [savings] = bob.otherAccounts;
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+
+		await bob.signIn();
+		// Savings signs in too, so its inbox loads once it's selected.
+		await bob.signInAccount(savings);
+		await bob.switchAccount(bob);
+		await bob.page.goto('/invitations');
+		await bob.page
+			.getByTestId('invitation-toggle-details')
+			.click();
+		const review = bob.page.getByTestId(
+			'invitation-review',
+		);
+		await expect(
+			review.getByTestId('accept-invitation-button'),
+		).toBeEnabled();
+
+		const signRequests = () =>
+			bob.page.evaluate(
+				() => window.__e2eWallet!.signRequests,
+			);
+		const signedBefore = await signRequests();
+		const accepts: string[] = [];
+		bob.page.on('request', (request) => {
+			if (
+				request.method() === 'POST' &&
+				request.url().endsWith('/accept')
+			)
+				accepts.push(request.url());
+		});
+		// Hold the pod's alias reads until the wallet has moved to savings.
+		const aliasObject = deriveAliasesObjectId(
+			multisig.address,
+		);
+		let release = () => {};
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		let reads = 0;
+		await bob.page.route(
+			BATCH_GET_OBJECTS,
+			async (route) => {
+				if (
+					!Buffer.from(
+						route.request().postData() ?? '',
+						'base64',
+					)
+						.toString('latin1')
+						.includes(aliasObject)
+				)
+					return route.fallback();
+				reads++;
+				await held;
+				await route.fallback();
+			},
+		);
+		await review
+			.getByTestId('accept-invitation-button')
+			.click();
+		await expect.poll(() => reads).toBeGreaterThan(0);
+
+		const savingsInbox = `/addresses/invitations/${encodeURIComponent(savings.publicKey)}`;
+		const waitForSavingsInbox = () =>
+			bob.page.waitForResponse((response) => {
+				const { pathname, searchParams } = new URL(
+					response.url(),
+				);
+				return (
+					response.request().method() === 'GET' &&
+					pathname.endsWith(savingsInbox) &&
+					!searchParams.has('showRejected')
+				);
+			});
+		const inboxLoaded = waitForSavingsInbox();
+		// From the wallet side, the way an extension's account picker would.
+		await bob.page.evaluate(
+			(address) =>
+				window.__e2eWallet!.setSelectedAccount(address),
+			savings.address,
+		);
+		await expect(bob.walletMenuButton()).toHaveAttribute(
+			'data-address',
+			savings.address,
+		);
+		await inboxLoaded;
+		await expect(
+			bob.page.getByTestId('invitations-empty'),
+		).toBeVisible();
+
+		// The accept refreshes savings' inbox once it has settled.
+		const refreshed = waitForSavingsInbox();
+		release();
+		await refreshed;
+		expect(await signRequests()).toBe(signedBefore);
+		expect(accepts).toEqual([]);
+	});
+
 	test('warns in Receive about another signer set in the alias set, and still shows the address', async ({
 		createActor,
 		createIdentity,

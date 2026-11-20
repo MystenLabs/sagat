@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useDAppKit } from '@mysten/dapp-kit-react';
+import {
+	useCurrentAccount,
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import { PersonalMessages } from '@mysten/sagat';
 import {
 	useMutation,
@@ -32,6 +35,7 @@ export function useAcceptInvitation() {
 	const queryClient = useQueryClient();
 	const dappKit = useDAppKit();
 	const navigate = useNavigate();
+	const currentAccount = useCurrentAccount();
 	const { currentAddress } = useApiAuth();
 	const { network } = useNetwork();
 	// Read live rather than from this render: the card may have unmounted.
@@ -59,14 +63,14 @@ export function useAcceptInvitation() {
 		}: {
 			multisig: MultisigWithMembersForPublicKey;
 		}) => {
-			if (!currentAddress)
+			if (!currentAddress || !currentAccount)
 				throw new Error(content.errors.noWalletConnected);
 			const multisigAddress = multisig.address;
 
 			// Both signers checks pass, on an alias set read now, before the wallet opens.
 			const signers = checkAccountSigners(multisig, {
 				account: multisigAddress,
-				signerAddress: currentAddress.address,
+				signerAddress: currentAccount.address,
 			});
 			if (signers.kind !== 'ok')
 				throw new SignersRefusedError(
@@ -94,6 +98,8 @@ export function useAcceptInvitation() {
 						multisigAddress,
 					),
 				),
+				// The account the check passed, so another can't sign.
+				account: currentAccount,
 			});
 
 			// Call API to accept the invitation
