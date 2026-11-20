@@ -39,6 +39,7 @@ export function signRefusedLine(
 		refusal === 'notActing'
 	)
 		return signersRefusedLine(refusal, network);
+	if (refusal === 'chain') return content.common.wrongChain;
 	return content.proposal.approvals.refused[refusal];
 }
 

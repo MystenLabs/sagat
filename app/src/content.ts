@@ -134,6 +134,9 @@ export const content = {
 			body: (network: string) =>
 				`Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
 		},
+		/** When a transaction's bytes name a chain other than the node's: under the bytes field, and why Sign is refused. */
+		wrongChain:
+			'The transaction was built for another network.',
 	},
 	shell: {
 		reconnectingWallet: 'Reconnecting wallet',
@@ -574,9 +577,6 @@ export const content = {
 			accountName: string,
 		) =>
 			`These bytes are sent from ${sender}, not ${accountName}. Build the transaction with this pod as the sender.`,
-		/** Under the bytes field when they name a chain other than the node's. */
-		bytesWrongChain:
-			'This transaction was built for another network.',
 		bytesWrongGasOwner: (
 			owner: string,
 			accountName: string,
@@ -1120,8 +1120,6 @@ export const content = {
 					'The transaction doesn’t match the proposal’s digest.',
 				proposer:
 					'The proposer’s confirmation doesn’t check out.',
-				chain:
-					'The transaction was built for another network.',
 			},
 			/** Above Sign when no signature shows who proposed it: an unconfirmed external proposer, a member without their signature, or signers that don’t make up the account. */
 			proposerNotConfirmed: {

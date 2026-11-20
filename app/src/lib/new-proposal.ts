@@ -495,7 +495,7 @@ export function bytesStatusText(
 				accountName,
 			);
 		case 'wrong-chain':
-			return COPY.bytesWrongChain;
+			return content.common.wrongChain;
 		case 'ok':
 			return COPY.bytesRead(check.commands);
 	}

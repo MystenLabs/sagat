@@ -17,6 +17,7 @@ import { expect, test } from 'vitest';
 
 import {
 	aliasReadsFromEntries,
+	podsToRead,
 	readAliasSets,
 	readChainIdentifier,
 	withPodRead,
@@ -103,7 +104,20 @@ test('an entry that does not decode fails only its own pod', () => {
 	});
 });
 
-test('an unreachable node fails every pod, and an invalid address too', async () => {
+test('sends each valid pod to the node once, normalized, and no invalid address', () => {
+	const pod = new Ed25519Keypair().toSuiAddress();
+
+	expect(
+		podsToRead([
+			'0xA1',
+			'not an address',
+			normalizeSuiAddress('0xa1'),
+			pod,
+		]),
+	).toEqual([normalizeSuiAddress('0xa1'), pod]);
+});
+
+test('an unreachable node fails every pod, with an entry for an invalid address too', async () => {
 	const pods = [
 		new Ed25519Keypair().toSuiAddress(),
 		new Ed25519Keypair().toSuiAddress(),
@@ -122,7 +136,7 @@ test('an unreachable node fails every pod, and an invalid address too', async ()
 	expect(reads.get(pods[0])).toEqual({ kind: 'failed' });
 });
 
-test('reads a pod asked for twice once, keyed by its normalized address', async () => {
+test('keys a pod asked for twice once, by its normalized address', async () => {
 	const reads = await readAliasSets(unreachable, [
 		'0xA1',
 		normalizeSuiAddress('0xa1'),

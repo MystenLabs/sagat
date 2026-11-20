@@ -27,7 +27,7 @@ import { SignersCard } from '../multisig/SignersCard';
 import { SignersRefused } from '../multisig/SignersRefused';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Alert } from '../ui/Alert';
-import { Button } from '../ui/button';
+import { InlineRetry } from '../ui/inline-retry';
 
 interface SignersTabContext {
 	multisig: MultisigWithMembersForPublicKey;
@@ -77,18 +77,11 @@ export function SignersTab() {
 			{isError && (
 				<Alert variant="error" data-testid="signers-error">
 					{content.signers.loadError}{' '}
-					<Button
-						variant="link"
-						size="xs"
-						onClick={() => refetch()}
-						disabled={isFetching}
-						className="h-auto border-0 px-0 text-13 text-inherit underline hover:no-underline"
-						data-testid="signers-retry"
-					>
-						{isFetching
-							? content.common.states.retrying
-							: content.common.actions.tryAgain}
-					</Button>
+					<InlineRetry
+						onRetry={() => void refetch()}
+						retrying={isFetching}
+						testId="signers-retry"
+					/>
 				</Alert>
 			)}
 			{notice && (

@@ -40,6 +40,15 @@ export function aliasReadsFromEntries(
 	);
 }
 
+/** The pods a read sends to the node: normalized, once each, valid addresses only. */
+export function podsToRead(
+	pods: readonly string[],
+): string[] {
+	return [
+		...new Set(pods.map((pod) => normalizeSuiAddress(pod))),
+	].filter(isValidSuiAddress);
+}
+
 /** `cached` with `pod`'s entry replaced by `read`; `cached` itself when it doesn't hold `pod`. */
 export function withPodRead(
 	cached: Map<string, AliasRead>,
@@ -55,13 +64,10 @@ export async function readAliasSets(
 	client: ClientWithCoreApi,
 	pods: readonly string[],
 ): Promise<Map<string, AliasRead>> {
-	const unique = [
-		...new Set(pods.map((pod) => normalizeSuiAddress(pod))),
-	];
 	const reads = new Map<string, AliasRead>(
-		unique.map((pod) => [pod, FAILED]),
+		pods.map((pod) => [normalizeSuiAddress(pod), FAILED]),
 	);
-	const valid = unique.filter(isValidSuiAddress);
+	const valid = podsToRead(pods);
 	const chunks = Array.from(
 		{
 			length: Math.ceil(

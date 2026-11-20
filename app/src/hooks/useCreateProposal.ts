@@ -47,7 +47,7 @@ export class BytesNotFromPodError extends Error {
 /** The bytes name a chain other than the node's. Nothing was signed. */
 export class ChainMismatchError extends Error {
 	constructor() {
-		super(content.newProposal.bytesWrongChain);
+		super(content.common.wrongChain);
 		this.name = 'ChainMismatchError';
 	}
 }

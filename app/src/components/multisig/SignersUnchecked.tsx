@@ -8,7 +8,7 @@ import { type SuiNetwork } from '@/lib/network';
 import { signersUncheckedLine } from '@/lib/signers-refused';
 
 import { Alert } from '../ui/Alert';
-import { Button } from '../ui/button';
+import { InlineRetry } from '../ui/inline-retry';
 
 /** The pod's alias set couldn't be read on a network, with a way to read it again. */
 export function SignersUnchecked({
@@ -34,18 +34,11 @@ export function SignersUnchecked({
 			</div>
 			<div>
 				{signersUncheckedLine(network ?? selected)}{' '}
-				<Button
-					variant="link"
-					size="xs"
-					onClick={retry}
-					disabled={retrying}
-					className="h-auto border-0 px-0 text-13 text-inherit underline hover:no-underline"
-					data-testid={`${testId}-retry`}
-				>
-					{retrying
-						? content.common.states.retrying
-						: content.common.actions.tryAgain}
-				</Button>
+				<InlineRetry
+					onRetry={retry}
+					retrying={retrying}
+					testId={`${testId}-retry`}
+				/>
 			</div>
 		</Alert>
 	);
