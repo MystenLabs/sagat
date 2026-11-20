@@ -75,7 +75,7 @@ export const ALIAS_OBJECT_INCLUDE = {
 	previousTransaction: true,
 } as const;
 
-type AliasObjectEntry =
+export type AliasObjectEntry =
 	| SuiClientTypes.Object<typeof ALIAS_OBJECT_INCLUDE>
 	| Error;
 

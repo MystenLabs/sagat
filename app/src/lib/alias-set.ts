@@ -6,11 +6,9 @@ import {
 	ALIAS_OBJECT_INCLUDE,
 	decodeAliasSet,
 	deriveAliasesObjectId,
+	type AliasObjectEntry,
 } from '@mysten/sagat';
-import type {
-	ClientWithCoreApi,
-	SuiClientTypes,
-} from '@mysten/sui/client';
+import type { ClientWithCoreApi } from '@mysten/sui/client';
 import {
 	isValidSuiAddress,
 	normalizeSuiAddress,
@@ -20,10 +18,6 @@ import {
 export type AliasRead =
 	// Normalized addresses; `[pod]` when the pod has no alias object.
 	{ kind: 'read'; aliases: string[] } | { kind: 'failed' };
-
-export type AliasObjectEntry =
-	| SuiClientTypes.Object<typeof ALIAS_OBJECT_INCLUDE>
-	| Error;
 
 const ALIAS_READ_BATCH_SIZE = 50;
 

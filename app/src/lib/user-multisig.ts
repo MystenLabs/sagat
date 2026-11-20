@@ -14,12 +14,7 @@ import {
 	type PodChecks,
 } from './types';
 
-/**
- * An account from the API as the signed-in key sees it, with rule 1
- * applied: `refused` is set when the address isn't rebuilt from its
- * signers and threshold, or the wallet isn't one of them. Rule 2 is
- * `checking` until `withActing` merges the alias read.
- */
+/** An account from the API as the signed-in key sees it, with rule 1 applied and rule 2 `checking`. */
 export function toUserMultisig(
 	m: MultisigWithMembers,
 	signer: { publicKey: string; address: string },
@@ -49,10 +44,7 @@ export function toUserMultisig(
 	};
 }
 
-/**
- * The row with rule 2 on one network from its alias read (undefined
- * while reading). A rule 1 refusal stands whatever the node says.
- */
+/** The row with rule 2 from its alias read; a rule 1 refusal stands whatever the node says. */
 export function withActing(
 	row: MultisigWithMembersForPublicKey,
 	aliases: AliasRead | undefined,

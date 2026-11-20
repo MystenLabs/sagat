@@ -206,8 +206,7 @@ export function ApprovalsCard({
 				: null,
 		[canAct, walletAddress, proposal, openedDigest],
 	);
-	// Rule 2 and the bytes' chain on the proposal's network, once the
-	// synchronous checks pass; `checking` until the node answers.
+	// Rule 2 and the bytes' chain, once the synchronous checks pass.
 	const onNetwork =
 		!checkNetwork || !walletAddress || integrity
 			? null

@@ -269,9 +269,7 @@ async function runFromMultisig(
 	});
 }
 
-// Adds `alias` to the multisig's alias set on chain, outside the app,
-// enabling the set first if needed. The multisig must hold SUI for gas.
-// `members` and `signers` as for `executeOutsideApp`.
+// Adds `alias` to the multisig's alias set on chain, enabling it if needed.
 export async function addAlias(
 	chain: Chain,
 	signing: MultisigSigning,
@@ -289,8 +287,7 @@ export async function addAlias(
 	);
 }
 
-// Replaces the multisig's own address in its alias set with `alias`, on
-// chain and outside the app. As for `addAlias`.
+// Replaces the multisig's own address in its alias set with `alias`, on chain.
 export async function replaceOwnAlias(
 	chain: Chain,
 	signing: MultisigSigning,

@@ -120,13 +120,19 @@ export const content = {
 		or: 'or',
 		/** Why the pod's signers fail a check, on a proposal or a new one. */
 		signersRefused: SIGNERS_REFUSED,
-		/** Above `signersRefused` on the pod pages, Receive and an invitation. */
+		/** Above `signersRefused` on the pod pages, Receive and an invitation; a refused pod's subtitle in the switcher. */
 		signersRefusedTitle: 'Can’t verify this pod',
 		/** When the node's alias set for the pod couldn't be read. */
 		signersUnchecked: {
 			title: 'Couldn’t check this pod’s signers',
 			body: (network: string) =>
 				`Pods couldn’t confirm who controls this pod on ${network}. Check your connection and try again.`,
+		},
+		/** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
+		otherSignerSets: {
+			title: 'This address has other signer sets',
+			body: (network: string) =>
+				`Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
 		},
 	},
 	shell: {
@@ -175,12 +181,6 @@ export const content = {
 			`Send SUI and tokens to ${name}.`,
 		qrTitle: (address: string) => `QR code for ${address}`,
 		note: 'Anyone can send to this address, no approval needed.',
-		/** Above the QR code when the alias set holds an address no shown signer set rebuilds. */
-		otherSignerSets: {
-			title: 'This address has other signer sets',
-			body: (network: string) =>
-				`Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
-		},
 	},
 	signedOut: {
 		/** What a wallet with no name is called in the copy. */

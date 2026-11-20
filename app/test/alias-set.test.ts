@@ -4,6 +4,7 @@
 import {
 	AddressAliasesBcs,
 	deriveAliasesObjectId,
+	type AliasObjectEntry,
 } from '@mysten/sagat';
 import { ObjectError } from '@mysten/sui/client';
 import { SuiGrpcClient } from '@mysten/sui/grpc';
@@ -18,7 +19,6 @@ import {
 	aliasReadsFromEntries,
 	readAliasSets,
 	readChainIdentifier,
-	type AliasObjectEntry,
 } from '../src/lib/alias-set';
 
 // Nothing listens on the discard port.

@@ -11,10 +11,9 @@ import { signerRows } from '@/lib/signers';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, errorMessage } from '@/lib/utils';
 
+import { CheckedAddress } from '../multisig/CheckedAddress';
 import { SignerName } from '../multisig/SignerName';
-import { SignersRefused } from '../multisig/SignersRefused';
 import { SignerStatusChip } from '../multisig/SignerStatusChip';
-import { SignersUnchecked } from '../multisig/SignersUnchecked';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/button';
 import { CopyButton } from '../ui/CopyButton';
@@ -71,8 +70,7 @@ export function ReviewInvitationDialog({
 		creator?.address,
 	);
 	const you = rows.find((row) => row.isYou);
-	// Accept needs both signers checks: none when one refuses or the node
-	// couldn't be read, disabled while it is read.
+	// Accept needs both signers checks; disabled while the node is read.
 	const offerAccept =
 		!multisig.refused &&
 		multisig.acting.state !== 'unchecked';
@@ -162,31 +160,33 @@ export function ReviewInvitationDialog({
 							/>
 						</div>
 
-						{multisig.refused ? (
-							<SignersRefused
-								rule={multisig.refused}
-								testId="invitation-refused"
-								className="mt-5"
-							/>
-						) : (
-							<div className="mt-5 flex flex-col gap-1">
-								<div className="text-12 text-muted-foreground">
-									{FIELDS.suiAddress}
+						<div className="mt-5 flex flex-col gap-4">
+							<CheckedAddress
+								pod={multisig}
+								testIdPrefix="invitation"
+							>
+								<div className="flex flex-col gap-1">
+									<div className="text-12 text-muted-foreground">
+										{FIELDS.suiAddress}
+									</div>
+									<div className="flex items-center gap-2">
+										<span
+											className="min-w-0 flex-1 font-mono text-12 break-all"
+											data-testid="invitation-address"
+										>
+											{multisig.address}
+										</span>
+										<CopyButton
+											value={multisig.address}
+											size="xs"
+											successMessage={
+												content.toasts.addressCopied
+											}
+										/>
+									</div>
 								</div>
-								<div className="flex items-center gap-2">
-									<span className="min-w-0 flex-1 font-mono text-12 break-all">
-										{multisig.address}
-									</span>
-									<CopyButton
-										value={multisig.address}
-										size="xs"
-										successMessage={
-											content.toasts.addressCopied
-										}
-									/>
-								</div>
-							</div>
-						)}
+							</CheckedAddress>
+						</div>
 
 						<div className={cn('mt-4', tableShellClass)}>
 							<table className={tableClass}>
@@ -255,13 +255,6 @@ export function ReviewInvitationDialog({
 							<Info className="mt-0.5 size-4 shrink-0" />
 							<span>{COPY.reviewDialog.note}</span>
 						</p>
-
-						{multisig.acting?.state === 'unchecked' && (
-							<SignersUnchecked
-								testId="invitation-unchecked"
-								className="mt-5"
-							/>
-						)}
 
 						<div className="mt-5 flex justify-end gap-2 border-t pt-5">
 							<Button

@@ -4,9 +4,7 @@
 import { Check, Copy, XIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
-import { SignersRefused } from '@/components/multisig/SignersRefused';
-import { SignersUnchecked } from '@/components/multisig/SignersUnchecked';
-import { Alert } from '@/components/ui/Alert';
+import { CheckedAddress } from '@/components/multisig/CheckedAddress';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -16,10 +14,8 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { content } from '@/content';
-import { useNetwork } from '@/contexts/NetworkContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { accountName } from '@/lib/account-name';
-import { networkLabel } from '@/lib/network';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 const ACTIONS = content.common.actions;
@@ -42,8 +38,7 @@ export function ReceiveDialog({
 	const { copied, copy } = useCopyToClipboard(
 		content.toasts.addressCopied,
 	);
-	const { network } = useNetwork();
-	const { address, refused, acting } = multisig;
+	const { address } = multisig;
 	const name = accountName(multisig);
 
 	return (
@@ -63,7 +58,7 @@ export function ReceiveDialog({
 						<DialogTitle className="text-24 font-bold">
 							{COPY.title}
 						</DialogTitle>
-						{!refused && (
+						{multisig.acting?.state === 'ok' && (
 							<DialogDescription className="text-14 text-muted-foreground">
 								{COPY.description(name)}
 							</DialogDescription>
@@ -83,82 +78,54 @@ export function ReceiveDialog({
 					</DialogClose>
 				</div>
 
-				{refused ? (
-					<SignersRefused
-						rule={refused}
-						testId="receive-refused"
-					/>
-				) : acting.state === 'unchecked' ? (
-					<SignersUnchecked testId="receive-unchecked" />
-				) : acting.state === 'checking' ? (
-					<p
-						className="text-13 text-muted-foreground"
-						data-testid="receive-checking"
+				<CheckedAddress
+					pod={multisig}
+					testIdPrefix="receive"
+				>
+					<button
+						type="button"
+						onClick={() => copy(address)}
+						aria-label={ACTIONS.copyAddress}
+						className="cursor-pointer justify-self-center rounded-lg border bg-qr p-4 text-qr-foreground outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+						data-testid="receive-qr"
 					>
-						{content.common.states.checkingSigners}
-					</p>
-				) : (
-					<>
-						{acting.unidentified.length > 0 && (
-							<Alert
-								variant="warning"
-								data-testid="receive-other-signer-sets"
-							>
-								<div className="font-medium">
-									{COPY.otherSignerSets.title}
-								</div>
-								<div>
-									{COPY.otherSignerSets.body(
-										networkLabel(network),
-									)}
-								</div>
-							</Alert>
-						)}
-						<button
-							type="button"
-							onClick={() => copy(address)}
-							aria-label={ACTIONS.copyAddress}
-							className="cursor-pointer justify-self-center rounded-lg border bg-qr p-4 text-qr-foreground outline-none transition-colors hover:border-foreground/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-							data-testid="receive-qr"
-						>
-							<QRCodeSVG
-								value={address}
-								// 41 modules (33 plus a 4-module quiet zone on each
-								// side) at 5px each keeps the tile about 240px.
-								size={205}
-								marginSize={4}
-								bgColor="transparent"
-								fgColor="currentColor"
-								title={COPY.qrTitle(address)}
-							/>
-						</button>
+						<QRCodeSVG
+							value={address}
+							// 41 modules (33 plus a 4-module quiet zone on each
+							// side) at 5px each keeps the tile about 240px.
+							size={205}
+							marginSize={4}
+							bgColor="transparent"
+							fgColor="currentColor"
+							title={COPY.qrTitle(address)}
+						/>
+					</button>
 
-						<div className="flex flex-col gap-1">
-							<div className="text-12 text-muted-foreground">
-								{content.common.fields.suiAddress}
-							</div>
-							<div
-								className="font-mono text-14 break-all"
-								data-testid="receive-address"
-							>
-								{address}
-							</div>
+					<div className="flex flex-col gap-1">
+						<div className="text-12 text-muted-foreground">
+							{content.common.fields.suiAddress}
 						</div>
-
-						<p className="text-12 text-muted-foreground">
-							{COPY.note}
-						</p>
-
-						<Button
-							className="w-full"
-							onClick={() => copy(address)}
-							data-testid="receive-copy"
+						<div
+							className="font-mono text-14 break-all"
+							data-testid="receive-address"
 						>
-							{copied ? <Check /> : <Copy />}
-							{ACTIONS.copyAddress}
-						</Button>
-					</>
-				)}
+							{address}
+						</div>
+					</div>
+
+					<p className="text-12 text-muted-foreground">
+						{COPY.note}
+					</p>
+
+					<Button
+						className="w-full"
+						onClick={() => copy(address)}
+						data-testid="receive-copy"
+					>
+						{copied ? <Check /> : <Copy />}
+						{ACTIONS.copyAddress}
+					</Button>
+				</CheckedAddress>
 			</DialogContent>
 		</Dialog>
 	);

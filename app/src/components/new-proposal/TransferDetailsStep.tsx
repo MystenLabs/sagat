@@ -241,13 +241,14 @@ export function TransferDetailsStep({
 		onTitleChange(next);
 	};
 
-	// A preselected asset the account doesn't hold is dropped once every
-	// balance is in. Not re-run for a new `onDraftChange` alone: a render
-	// that hasn't applied the drop yet would drop it again, in a loop.
+	// A new handler alone must not re-run the drop below.
 	const latestOnDraftChange = useRef(onDraftChange);
 	useEffect(() => {
 		latestOnDraftChange.current = onDraftChange;
 	});
+
+	// A preselected asset the account doesn't hold is dropped once every
+	// balance is in.
 	useEffect(() => {
 		if (
 			balancesComplete &&

@@ -131,8 +131,7 @@ function NewProposalWizard({
 				signerAddress: wallet.address,
 			})
 		: null;
-	// Rule 1 on the fresher copy; rule 2 is the list's, on the selected
-	// network, since a set that passes rule 1 is the list's own.
+	// Rule 1 on the fresher copy; rule 2 from the list's row.
 	const refused =
 		signers && signers.kind !== 'ok'
 			? signers.kind

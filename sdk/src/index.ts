@@ -54,5 +54,6 @@ export {
 	AddressAliasesBcs,
 	decodeAliasSet,
 	deriveAliasesObjectId,
+	type AliasObjectEntry,
 	type AliasSet,
 } from './aliases.js';

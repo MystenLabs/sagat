@@ -58,12 +58,7 @@ export function checkProposalIntegrity(
 
 	const account = proposal.multisigAddress;
 	const { sender, gasData } = read.transaction;
-	if (
-		!sender ||
-		!sameAddress(sender, account) ||
-		(proposal.multisig.address &&
-			!sameAddress(sender, proposal.multisig.address))
-	)
+	if (!sender || !sameAddress(sender, account))
 		return 'sender';
 
 	// Any other gas owner signs as the sponsor: when that's the signer, one
@@ -93,7 +88,7 @@ export type AccountSigners = Pick<
 /**
  * Rebuilds `account` from its signers and threshold. `signers`, they
  * don't make up `account`; `notSigner`, `signerAddress` isn't one of
- * them; otherwise `address` is the rebuilt address.
+ * them.
  */
 export function checkAccountSigners(
 	multisig: AccountSigners,
@@ -101,16 +96,14 @@ export function checkAccountSigners(
 		account,
 		signerAddress,
 	}: { account: string; signerAddress: string },
-):
-	| { kind: 'ok'; address: string }
-	| { kind: 'signers' | 'notSigner' } {
-	const rebuilt = rebuildAccount(multisig, account);
-	if (!rebuilt) return { kind: 'signers' };
+): { kind: 'ok' | 'signers' | 'notSigner' } {
+	if (!rebuildAccount(multisig, account))
+		return { kind: 'signers' };
 
 	if (!isMember(multisig, signerAddress))
 		return { kind: 'notSigner' };
 
-	return { kind: 'ok', address: rebuilt };
+	return { kind: 'ok' };
 }
 
 /** Whether `signerAddress` is one of the set's members. */
@@ -203,17 +196,6 @@ export function checkActingSets<S extends AccountSigners>(
 	return { kind: 'checked', acting, refused, unidentified };
 }
 
-/** `ok`: every shown set is an alias; `refused`: one isn't, or none is shown; `unchecked`: couldn't read. */
-export function actingVerdict(
-	check: ActingSetsCheck,
-): 'ok' | 'refused' | 'unchecked' {
-	if (check.kind === 'unchecked') return 'unchecked';
-	return check.refused.length > 0 ||
-		check.acting.length === 0
-		? 'refused'
-		: 'ok';
-}
-
 /** The signer sets a pod's response shows as acting: today the one composition it carries. */
 export function shownActingSets(
 	multisig: AccountSigners,
@@ -228,6 +210,7 @@ export interface PodActing {
 	unidentified: string[];
 }
 
+/** `ok` when every shown set is an alias; `refused` when one isn't or none is shown. */
 export function podActing(
 	shown: readonly AccountSigners[],
 	aliases: AliasRead | undefined,
@@ -235,14 +218,11 @@ export function podActing(
 	if (!aliases)
 		return { state: 'checking', unidentified: [] };
 	const check = checkActingSets(shown, aliases);
-	const state = actingVerdict(check);
-	return {
-		state,
-		unidentified:
-			state === 'ok' && check.kind === 'checked'
-				? check.unidentified
-				: [],
-	};
+	if (check.kind === 'unchecked')
+		return { state: 'unchecked', unidentified: [] };
+	if (check.refused.length > 0 || check.acting.length === 0)
+		return { state: 'refused', unidentified: [] };
+	return { state: 'ok', unidentified: check.unidentified };
 }
 
 /** What the app's node says about a pod on one network. */

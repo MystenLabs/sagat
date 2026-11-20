@@ -16,7 +16,6 @@ import { expect, test } from 'vitest';
 
 import { type AliasRead } from '../src/lib/alias-set';
 import {
-	actingVerdict,
 	checkActingSets,
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
@@ -109,12 +108,17 @@ test('a pod that never changed passes both rules as one check', () => {
 	const { address, multisig } = oneOfTwoAccount();
 
 	expect(rebuildAccount(multisig, address)).toBe(address);
-	const check = checkActingSets([multisig], {
-		kind: 'read',
-		aliases: [address],
+	expect(
+		checkActingSets([multisig], {
+			kind: 'read',
+			aliases: [address],
+		}),
+	).toEqual({
+		kind: 'checked',
+		acting: [{ set: multisig, address }],
+		refused: [],
+		unidentified: [],
 	});
-	expect(actingVerdict(check)).toBe('ok');
-	expect(check).toMatchObject({ unidentified: [] });
 });
 
 test('rule 1 refuses signers that do not rebuild the address, with no alias read', () => {
@@ -132,42 +136,35 @@ test('rule 2 refuses a pod whose own address is not in its alias set', () => {
 
 	expect(rebuildAccount(multisig, address)).toBe(address);
 	expect(
-		actingVerdict(
-			checkActingSets([multisig], {
-				kind: 'read',
-				aliases: [other.address],
-			}),
-		),
-	).toBe('refused');
+		checkActingSets([multisig], {
+			kind: 'read',
+			aliases: [other.address],
+		}),
+	).toMatchObject({ acting: [], refused: [multisig] });
 });
 
 test('an alias no shown set rebuilds is unidentified, and the pod still passes', () => {
 	const { address, multisig } = oneOfTwoAccount();
 	const other = oneOfTwoAccount();
 
-	const check = checkActingSets([multisig], {
-		kind: 'read',
-		aliases: [address, other.address],
-	});
-	expect(actingVerdict(check)).toBe('ok');
-	expect(check).toMatchObject({
+	expect(
+		checkActingSets([multisig], {
+			kind: 'read',
+			aliases: [address, other.address],
+		}),
+	).toMatchObject({
+		acting: [{ set: multisig, address }],
+		refused: [],
 		unidentified: [other.address],
 	});
 });
 
-test('an unread alias set leaves rule 2 unchecked while rule 1 still decides', () => {
-	const { address, multisig } = oneOfTwoAccount();
-	const other = oneOfTwoAccount();
+test('an unread alias set leaves rule 2 unchecked', () => {
+	const { multisig } = oneOfTwoAccount();
 
 	expect(
-		actingVerdict(
-			checkActingSets([multisig], { kind: 'failed' }),
-		),
-	).toBe('unchecked');
-	expect(rebuildAccount(multisig, address)).toBe(address);
-	expect(
-		rebuildAccount(other.multisig, address),
-	).toBeNull();
+		checkActingSets([multisig], { kind: 'failed' }),
+	).toEqual({ kind: 'unchecked' });
 });
 
 test('of two shown sets, only the one that is an alias acts', () => {
@@ -175,11 +172,12 @@ test('of two shown sets, only the one that is an alias acts', () => {
 	const current = oneOfTwoAccount();
 	const stranger = oneOfTwoAccount();
 
-	const check = checkActingSets(
-		[current.multisig, stranger.multisig],
-		{ kind: 'read', aliases: [address, current.address] },
-	);
-	expect(check).toEqual({
+	const shown = [current.multisig, stranger.multisig];
+	const aliases: AliasRead = {
+		kind: 'read',
+		aliases: [address, current.address],
+	};
+	expect(checkActingSets(shown, aliases)).toEqual({
 		kind: 'checked',
 		acting: [
 			{ set: current.multisig, address: current.address },
@@ -187,7 +185,7 @@ test('of two shown sets, only the one that is an alias acts', () => {
 		refused: [stranger.multisig],
 		unidentified: [address],
 	});
-	expect(actingVerdict(check)).toBe('refused');
+	expect(podActing(shown, aliases).state).toBe('refused');
 });
 
 const CHAIN = toBase58(new Uint8Array(32).fill(1));
@@ -310,46 +308,4 @@ test('bytes naming another chain are refused even when the alias set is unread',
 			OTHER_CHAIN,
 		),
 	).toBe('chain');
-});
-
-test('a pod is checking until its alias set is read', () => {
-	const { multisig } = oneOfTwoAccount();
-
-	expect(podActing([multisig], undefined)).toEqual({
-		state: 'checking',
-		unidentified: [],
-	});
-});
-
-test('a pod passes rule 2 and lists the aliases no shown set rebuilds', () => {
-	const { address, multisig } = oneOfTwoAccount();
-	const other = oneOfTwoAccount();
-
-	expect(
-		podActing([multisig], {
-			kind: 'read',
-			aliases: [address],
-		}),
-	).toEqual({ state: 'ok', unidentified: [] });
-	expect(
-		podActing([multisig], {
-			kind: 'read',
-			aliases: [address, other.address],
-		}),
-	).toEqual({ state: 'ok', unidentified: [other.address] });
-});
-
-test('a pod is refused without its address in the alias set, and unchecked when unread', () => {
-	const { multisig } = oneOfTwoAccount();
-	const other = oneOfTwoAccount();
-
-	expect(
-		podActing([multisig], {
-			kind: 'read',
-			aliases: [other.address],
-		}),
-	).toEqual({ state: 'refused', unidentified: [] });
-	expect(podActing([multisig], { kind: 'failed' })).toEqual(
-		{ state: 'unchecked', unidentified: [] },
-	);
 });

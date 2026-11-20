@@ -61,10 +61,7 @@ type Rule =
 const BATCH_GET_OBJECTS =
 	'**/sui.rpc.v2.LedgerService/BatchGetObjects';
 
-/**
- * Aborts the page's node reads of `pod`'s alias set, leaving its other
- * object reads alone. Returns a function that stops aborting.
- */
+/** Aborts the page's node reads of `pod`'s alias set; returns a function that stops it. */
 async function failAliasReads(page: Page, pod: string) {
 	const aliasObject = deriveAliasesObjectId(pod);
 	const handler = (route: Route) =>
@@ -86,10 +83,7 @@ function bothSign(alice: Identity, bob: Identity) {
 	};
 }
 
-/**
- * Bytes of a SUI transfer from `sender` whose expiration names a chain
- * other than the local one, built offline: the node won't simulate them.
- */
+/** Offline-built bytes of a SUI transfer from `sender` naming another chain. */
 async function buildForAnotherChain(
 	chain: Chain,
 	sender: string,
@@ -638,6 +632,9 @@ test.describe('proposal integrity', () => {
 		await expect(
 			alice.page.getByTestId('multisig-detail'),
 		).toHaveCount(0);
+		await expect(
+			alice.page.getByTestId('multisig-switcher-subtitle'),
+		).toHaveAttribute('data-tone', 'error');
 
 		await alice.page.getByTestId('receive-button').click();
 		const dialog = alice.page.getByTestId('receive-dialog');
@@ -945,6 +942,9 @@ test.describe('proposal integrity', () => {
 		await expect(
 			review.getByTestId('accept-invitation-button'),
 		).toHaveCount(0);
+		await expect(
+			review.getByTestId('invitation-address'),
+		).toHaveCount(0);
 
 		await stopFailing();
 		await review
@@ -953,6 +953,9 @@ test.describe('proposal integrity', () => {
 		await expect(
 			review.getByTestId('accept-invitation-button'),
 		).toBeEnabled();
+		await expect(
+			review.getByTestId('invitation-address'),
+		).toBeVisible();
 		await expect(
 			review.getByTestId('invitation-unchecked'),
 		).toHaveCount(0);

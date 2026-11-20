@@ -66,19 +66,20 @@ export function useAliasSets(
 	const dappKit = useDAppKit();
 	const { network: selected } = useNetwork();
 	const network = requested ?? selected;
-	const { data, isFetching, refetch } = useQuery({
+	const { data } = useQuery({
 		...aliasSetsQuery(
 			dappKit.getClient(network),
 			network,
 			pods,
 		),
 		enabled: enabled && pods.length > 0,
+		// Pods already read keep their state while the list changes.
+		placeholderData: (previous, previousQuery) =>
+			previousQuery?.queryKey[1] === network
+				? previous
+				: undefined,
 	});
-	return {
-		aliases: data,
-		fetching: isFetching,
-		retry: () => void refetch(),
-	};
+	return { aliases: data };
 }
 
 /** Reads every shown alias set again, and every chain identifier that failed; `retrying` while any of them is in flight. */
