@@ -33,6 +33,7 @@ import type {
 	MultisigAccount,
 	MultisigAccountWithProposerEvents,
 } from '../services/multisig.service';
+import type { ProposalProgress } from '../services/proposals.service';
 import type { PaginatedResponse } from '../utils/pagination';
 
 export type LegacyMultisig = {
@@ -250,6 +251,33 @@ export const toLegacyPublicProposal = (
 		proposer: toPublicAccountEvent(events.proposer),
 	},
 });
+
+// The one composition a legacy route shows, from a progress resolved under
+// the original scope: the original set and its own progress.
+export const toOriginalSetProgress = ({
+	signers,
+	sets,
+	hasReachedThreshold,
+}: ProposalProgress): {
+	signerSet: SignerSetWithMembers;
+	currentWeight: number;
+	hasReachedThreshold: boolean;
+} => {
+	const { originalSet } = signers;
+	if (
+		!originalSet ||
+		sets.length !== 1 ||
+		sets[0].signerSet.address !== originalSet.address
+	)
+		throw new Error(
+			`Expected the original signer set alone for ${signers.accountAddress}`,
+		);
+	return {
+		signerSet: originalSet,
+		currentWeight: sets[0].currentWeight,
+		hasReachedThreshold,
+	};
+};
 
 export const toLegacyPaginatedProposals = (
 	page: PaginatedResponse<ProposalWithSignatures>,

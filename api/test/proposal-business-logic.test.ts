@@ -29,6 +29,7 @@ import { AuthErrors, CommonErrors } from '../src/errors';
 import { ProposalByDigestLoader } from '../src/loaders/proposals.loader';
 import { SignerSetDataLoader } from '../src/loaders/signer-set.loader';
 import { listAccountEvents } from '../src/services/account-events.service';
+import { ORIGINAL_SET } from '../src/services/signers.service';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -976,6 +977,7 @@ describe('Proposal Business Logic', () => {
 				await listAccountEvents({
 					accountAddress: multisig.address,
 					callerKeys: [users[0].keypair.getPublicKey()],
+					scope: ORIGINAL_SET,
 					action: 'proposer.added',
 					subject: proposer,
 				});
@@ -1024,6 +1026,7 @@ describe('Proposal Business Logic', () => {
 				await listAccountEvents({
 					accountAddress: multisig.address,
 					callerKeys: [users[0].keypair.getPublicKey()],
+					scope: ORIGINAL_SET,
 					action: 'proposer.added',
 					subject: proposer,
 				}),
@@ -1073,6 +1076,7 @@ describe('Proposal Business Logic', () => {
 			const events = await listAccountEvents({
 				accountAddress: multisig.address,
 				callerKeys: [users[0].keypair.getPublicKey()],
+				scope: ORIGINAL_SET,
 				subject: proposer,
 			});
 			expect(

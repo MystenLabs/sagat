@@ -37,7 +37,6 @@ import {
 	SchemaProposalSignatures,
 	type Proposal,
 	type ProposalWithSignatures,
-	type SignerSetWithMembers,
 } from '../db/schema';
 import {
 	lockAccount,
@@ -72,13 +71,9 @@ import {
 	recordAccountEvent,
 	type ProposalEvents,
 } from './account-events.service';
-import {
-	isSignerSetMember,
-	jwtHasSignerSetMemberAccess,
-} from './membership.service';
+import { isAccountSigner } from './membership.service';
 import {
 	getExclusiveObjects,
-	getSignerSet,
 	validateProposedTransaction,
 } from './multisig.service';
 import {
@@ -86,36 +81,60 @@ import {
 	verifySignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
+import {
+	actingSetsOn,
+	countSignatures,
+	keyAnswer,
+	ORIGINAL_SET,
+	resolveAccountSigners,
+	type AccountSigners,
+	type SignerScope,
+	type SignerSetProgress,
+} from './signers.service';
 
-// A proposal with the signer set of its account and how far its signatures
-// get it.
+// A proposal with its account's signers and how far its signatures get it.
 export type ProposalProgress = {
 	proposal: ProposalWithSignatures;
-	signerSet: SignerSetWithMembers;
-	// Sum of the weights of the members that signed.
-	currentWeight: number;
+	// The account's signers under the scope the caller asked for.
+	signers: AccountSigners;
+	// One per acting set, in the order of `signers.actingSets`.
+	sets: SignerSetProgress[];
+	// True when any one set reached its own threshold.
 	hasReachedThreshold: boolean;
 };
 
 const proposalProgress = (
 	proposal: ProposalWithSignatures,
-	signerSet: SignerSetWithMembers,
-): ProposalProgress => {
-	const currentWeight = proposal.signatures.reduce(
-		(acc, sig) =>
-			acc +
-			(signerSet.members.find(
-				(member) => member.publicKey === sig.publicKey,
-			)?.weight ?? 0),
-		0,
+	signers: AccountSigners,
+): ProposalProgress => ({
+	proposal,
+	signers,
+	...countSignatures(
+		signers.actingSets,
+		proposal.signatures.map((sig) => sig.publicKey),
+	),
+});
+
+// The scope of a request on a network; for a proposal, always its own network.
+const scopeOn = (
+	signers: SignerScope['kind'],
+	network: string,
+): SignerScope =>
+	signers === 'original'
+		? ORIGINAL_SET
+		: actingSetsOn(network as SuiNetwork);
+
+// The account's signers under the scope, or `NotFoundError`.
+const getAccountSigners = async (
+	accountAddress: string,
+	scope: SignerScope,
+) => {
+	const signers = await resolveAccountSigners(
+		accountAddress,
+		scope,
 	);
-	return {
-		proposal,
-		signerSet,
-		currentWeight,
-		hasReachedThreshold:
-			currentWeight >= signerSet.threshold,
-	};
+	if (!signers) throw new NotFoundError();
+	return signers;
 };
 
 // Get a proposal by id, and its signatures.
@@ -231,16 +250,18 @@ const getProposalsByAccountAddress = async (
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
+	signers: SignerScope['kind'],
 ): Promise<ProposalStatus> => {
 	if (proposal.status !== ProposalStatus.PENDING)
 		return proposal.status;
 
-	const multisig = await getSignerSet(
+	const accountSigners = await getAccountSigners(
 		proposal.accountAddress,
+		scopeOn(signers, proposal.network),
 	);
 
 	if (
-		!proposalProgress(proposal, multisig)
+		!proposalProgress(proposal, accountSigners)
 			.hasReachedThreshold
 	)
 		throw new ValidationError(
@@ -350,7 +371,10 @@ export const createProposal = async ({
 	signature,
 	description: rawDescription,
 	network: rawNetwork,
-}: CreateProposalInput): Promise<Proposal> => {
+	signers,
+}: CreateProposalInput & {
+	signers: SignerScope['kind'];
+}): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
 
 	if (!isValidSuiAddress(multisigAddress))
@@ -381,13 +405,14 @@ export const createProposal = async ({
 	// Get the public key out of the sui signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
-	const multisig = await getSignerSet(multisigAddress);
-
-	const isMember = multisig.members.some(
-		(member) =>
-			member.publicKey === pubKey.toSuiPublicKey() &&
-			member.isAccepted,
+	const accountSigners = await getAccountSigners(
+		multisigAddress,
+		scopeOn(signers, network),
 	);
+
+	const isMember =
+		keyAnswer(accountSigners, pubKey.toSuiPublicKey()) ===
+		'accepted';
 	const isProposer = await isAccountProposer(
 		multisigAddress,
 		pubKey.toSuiAddress(),
@@ -517,10 +542,12 @@ export const createProposal = async ({
 export const voteOnProposal = async ({
 	proposalId,
 	signature,
+	signers,
 }: {
 	proposalId: number;
 	// The member's signature over the proposal's transaction.
 	signature: string;
+	signers: SignerScope['kind'];
 }): Promise<ProposalProgress> => {
 	const proposal = await getProposalById(proposalId);
 
@@ -529,12 +556,15 @@ export const voteOnProposal = async ({
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
 
+	// Any answer: a key of an acting set signs whether or not it accepted.
+	const accountSigners = await resolveAccountSigners(
+		proposal.accountAddress,
+		scopeOn(signers, proposal.network),
+	);
 	if (
-		!(await isSignerSetMember(
-			proposal.accountAddress,
-			pubKey,
-			false,
-		))
+		!accountSigners ||
+		keyAnswer(accountSigners, pubKey.toSuiPublicKey()) ===
+			null
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
@@ -573,11 +603,7 @@ export const voteOnProposal = async ({
 		event_type: MultisigEventType.SIGNATURE_ADDED,
 	});
 
-	const multisig = await getSignerSet(
-		proposal.accountAddress,
-	);
-
-	return proposalProgress(proposal, multisig);
+	return proposalProgress(proposal, accountSigners);
 };
 
 // Cancels a pending proposal. An accepted member can cancel any proposal; an
@@ -585,9 +611,11 @@ export const voteOnProposal = async ({
 export const cancelProposal = async ({
 	proposalId,
 	signature,
+	signers,
 }: {
 	proposalId: number;
 	signature: string;
+	signers: SignerScope['kind'];
 }) => {
 	const proposal = await getProposalById(proposalId);
 
@@ -602,10 +630,13 @@ export const cancelProposal = async ({
 
 	// Refuses outsiders before they can take the lock, and before the signature
 	// is checked. The route is open, and this is the order callers rely on.
-	const isMember = await isSignerSetMember(
+	const isMember = await isAccountSigner(
 		proposal.accountAddress,
-		pubKey,
-		true,
+		[pubKey],
+		{
+			acceptedOnly: true,
+			scope: scopeOn(signers, proposal.network),
+		},
 	);
 
 	const isOwnProposer =
@@ -634,8 +665,8 @@ export const cancelProposal = async ({
 		await lockAccount(tx, proposal.accountAddress);
 
 		// A removal may have committed since the check above. A member needs no
-		// second look: acceptance cannot be undone, and a cancel only touches the
-		// database.
+		// second look: a cancel only touches the database, and a set that stopped
+		// acting since is within the window the alias mirror already allows.
 		if (
 			!isMember &&
 			!(await isAccountProposerUnderLock(
@@ -715,27 +746,34 @@ export const cancelProposal = async ({
 export const verifyProposal = async ({
 	proposalId,
 	callerKeys,
+	signers,
 }: {
 	proposalId: number;
 	callerKeys: PublicKey[];
+	signers: SignerScope['kind'];
 }) => {
 	const proposal = await getProposalById(proposalId);
 
 	if (
-		!(await jwtHasSignerSetMemberAccess(
+		!(await isAccountSigner(
 			proposal.accountAddress,
 			callerKeys,
+			{
+				acceptedOnly: true,
+				scope: scopeOn(signers, proposal.network),
+			},
 		))
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
-	return await lookupAndVerifyProposal(proposal);
+	return await lookupAndVerifyProposal(proposal, signers);
 };
 
 // Verifies the execution of a proposal. Open to anyone: it only reads the
 // chain.
 export const verifyProposalByDigest = async (
 	digest: string,
+	signers: SignerScope['kind'],
 ) => {
 	if (!isValidTransactionDigest(digest))
 		throw new CommonError('InvalidDigest');
@@ -745,7 +783,7 @@ export const verifyProposalByDigest = async (
 
 	if (!proposal) throw new NotFoundError();
 
-	return await lookupAndVerifyProposal(proposal);
+	return await lookupAndVerifyProposal(proposal, signers);
 };
 
 // Lists an account's proposals on a network, for an accepted member.
@@ -755,6 +793,7 @@ export const listProposals = async ({
 	status,
 	cursor,
 	callerKeys,
+	signers,
 }: {
 	multisigAddress: string;
 	network: string;
@@ -762,14 +801,15 @@ export const listProposals = async ({
 	status?: string;
 	cursor: PaginationCursor;
 	callerKeys: PublicKey[];
+	signers: SignerScope['kind'];
 }): Promise<PaginatedResponse<ProposalWithSignatures>> => {
 	validateNetwork(network);
 
 	if (
-		!(await jwtHasSignerSetMemberAccess(
-			multisigAddress,
-			callerKeys,
-		))
+		!(await isAccountSigner(multisigAddress, callerKeys, {
+			acceptedOnly: true,
+			scope: scopeOn(signers, network),
+		}))
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
@@ -781,9 +821,10 @@ export const listProposals = async ({
 	);
 };
 
-// A proposal by digest, with its signer set and events. Public.
+// A proposal by digest, with its account's signers and events. Public.
 export const getProposalByDigest = async (
 	digest: string,
+	signers: SignerScope['kind'],
 ): Promise<
 	ProposalProgress & { events: ProposalEvents }
 > => {
@@ -795,13 +836,16 @@ export const getProposalByDigest = async (
 
 	if (!proposal) throw new NotFoundError();
 
-	const [multisig, events] = await Promise.all([
-		getSignerSet(proposal.accountAddress),
+	const [accountSigners, events] = await Promise.all([
+		getAccountSigners(
+			proposal.accountAddress,
+			scopeOn(signers, proposal.network),
+		),
 		getProposalEvents(proposal.id),
 	]);
 
 	return {
-		...proposalProgress(proposal, multisig),
+		...proposalProgress(proposal, accountSigners),
 		events,
 	};
 };

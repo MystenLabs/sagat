@@ -49,6 +49,7 @@ export const proposalRoutes = (app: V1App) => {
 		toV1Proposal(
 			await getProposalByDigest(
 				c.req.valid('param').digest,
+				'acting',
 			),
 		),
 	);

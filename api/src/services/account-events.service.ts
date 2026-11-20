@@ -35,7 +35,8 @@ import {
 import { ApiAuthError } from '../errors';
 import { type Proposer } from '../loaders/account-proposers.loader';
 import { wholeNumberUpTo } from '../utils/pagination';
-import { jwtHasSignerSetMemberAccess } from './membership.service';
+import { isAccountSigner } from './membership.service';
+import { type SignerScope } from './signers.service';
 
 const DEFAULT_EVENTS_PER_PAGE = 50;
 
@@ -188,9 +189,11 @@ export const listAccountEvents = async ({
 	action,
 	subject,
 	includeProof = false,
+	scope,
 }: {
 	accountAddress: string;
 	callerKeys: PublicKey[];
+	scope: SignerScope;
 	before?: number;
 	limit?: number;
 	action?: AccountEventAction;
@@ -198,10 +201,10 @@ export const listAccountEvents = async ({
 	includeProof?: boolean;
 }): Promise<StoredAccountEvent[]> => {
 	if (
-		!(await jwtHasSignerSetMemberAccess(
-			accountAddress,
-			callerKeys,
-		))
+		!(await isAccountSigner(accountAddress, callerKeys, {
+			acceptedOnly: true,
+			scope,
+		}))
 	)
 		throw new ApiAuthError('AccessDenied');
 

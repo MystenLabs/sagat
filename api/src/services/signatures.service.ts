@@ -13,7 +13,8 @@ import { fromBase64, toBase64 } from '@mysten/sui/utils';
 
 import { CommonError, ValidationError } from '../errors';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
-import { isSignerSetMember } from './membership.service';
+import { isAccountSigner } from './membership.service';
+import { type SignerScope } from './signers.service';
 
 // For a signature that gets stored: throws `InvalidSignature` unless it is
 // canonical base64.
@@ -71,21 +72,23 @@ export const verifySignedMessage = async (
 };
 
 /**
- * Recovers the signer of a personal message, checks that it is a member of
- * the signer set, then checks the signature. Membership is checked first,
- * so a non-member gets `notMemberError` whatever it signed.
+ * Recovers the signer of a personal message, checks that it signs for the
+ * account under the scope, then checks the signature. Membership is checked
+ * first, so a non-member gets `notMemberError` whatever it signed.
  */
 export const verifyMemberSignedMessage = async ({
-	signerSetAddress,
+	accountAddress,
+	scope,
 	signature,
 	message,
 	acceptedOnly,
 	notMemberError,
 }: {
-	signerSetAddress: string;
+	accountAddress: string;
+	scope: SignerScope;
 	signature: string;
 	message: string;
-	// Whether the member must have accepted the invitation.
+	// Whether the member must have accepted the account.
 	acceptedOnly: boolean;
 	notMemberError: () => Error;
 }): Promise<PublicKey> => {
@@ -93,11 +96,10 @@ export const verifyMemberSignedMessage = async ({
 		getPublicKeyFromSerializedSignature(signature);
 
 	if (
-		!(await isSignerSetMember(
-			signerSetAddress,
-			signer,
+		!(await isAccountSigner(accountAddress, [signer], {
 			acceptedOnly,
-		))
+			scope,
+		}))
 	)
 		throw notMemberError();
 

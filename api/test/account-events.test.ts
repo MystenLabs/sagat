@@ -35,6 +35,7 @@ import {
 	type StoredAccountEvent,
 } from '../src/services/account-events.service';
 import { verifySignedMessage } from '../src/services/signatures.service';
+import { ORIGINAL_SET } from '../src/services/signers.service';
 import { getPublicKeyFromSerializedSignature } from '../src/utils/pubKey';
 import {
 	ApiTestFramework,
@@ -70,6 +71,7 @@ const eventsOf = (
 	listAccountEvents({
 		accountAddress,
 		callerKeys: [member.keypair.getPublicKey()],
+		scope: ORIGINAL_SET,
 		includeProof: true,
 		action,
 	});
@@ -1291,6 +1293,7 @@ describe('listAccountEvents', () => {
 				await listAccountEvents({
 					accountAddress: multisig.address,
 					callerKeys: [users[0].keypair.getPublicKey()],
+					scope: ORIGINAL_SET,
 					limit: 2,
 					before,
 				})
@@ -1316,6 +1319,7 @@ describe('listAccountEvents', () => {
 				await listAccountEvents({
 					accountAddress: multisig.address,
 					callerKeys: [users[0].keypair.getPublicKey()],
+					scope: ORIGINAL_SET,
 					limit,
 				})
 			).length;
@@ -1373,6 +1377,7 @@ describe('listAccountEvents', () => {
 				await listAccountEvents({
 					accountAddress: multisig.address,
 					callerKeys: [users[0].keypair.getPublicKey()],
+					scope: ORIGINAL_SET,
 					...filter,
 				})
 			).map((e) => e.id);
@@ -1399,6 +1404,7 @@ describe('listAccountEvents', () => {
 			listAccountEvents({
 				accountAddress: multisig.address,
 				callerKeys: [users[0].keypair.getPublicKey()],
+				scope: ORIGINAL_SET,
 				includeProof,
 			});
 
