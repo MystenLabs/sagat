@@ -2,7 +2,7 @@
 
 _Draft, 2026-09-28, revised 2026-10-14. Written ahead of the release from the design in [account-rotation.md](account-rotation.md). Names marked **proposed** are final only once the release ships; this guide is updated in the same pull request as the code._
 
-_Direction revised 2026-11-17: `/v1` is built per feature and covers the account-scoped routes only, in one SDK package beside the existing client, with one acting signer set per network, signed message texts unchanged, and a signer change's signatures withheld until it is ready. Every section below except "Who needs this" predates that: routes, fields, SDK, signed messages, executing a proposal, exports and new routes for rotation. Each is corrected in the pull request that adds its route; until then [account-rotation.md](account-rotation.md) is the reference._
+_Direction revised 2026-11-17: `/v1` is built per feature and covers the account-scoped routes only, in one SDK package beside the existing client, with every signer set in an account's alias set that the API can identify acting on that network, signed message texts unchanged, and a signer change's signatures withheld until it is ready. Every section below except "Who needs this" predates that: routes, fields, SDK, signed messages, executing a proposal, exports and new routes for rotation. Each is corrected in the pull request that adds its route; until then [account-rotation.md](account-rotation.md) is the reference._
 
 ## Who needs this
 

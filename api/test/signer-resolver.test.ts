@@ -297,10 +297,8 @@ describe('signer resolver', () => {
 
 		const key = newUser();
 		await register(key);
-		const withoutOwn = await createAccount([
-			newUser(),
-			newUser(),
-		]);
+		const [d1, d2] = [newUser(), newUser()];
+		const withoutOwn = await createAccount([d1, d2]);
 		await setAliases(withoutOwn, 'localnet', [
 			composition,
 			key.address,
@@ -325,6 +323,8 @@ describe('signer resolver', () => {
 			c2,
 			b1,
 			b2,
+			d1,
+			d2,
 			key,
 		].map((user) => user.publicKey);
 		const pairs = (
