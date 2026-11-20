@@ -8,7 +8,9 @@ import {
 	useIsFetching,
 	useQuery,
 	useQueryClient,
+	type Query,
 	type QueryClient,
+	type QueryFilters,
 } from '@tanstack/react-query';
 
 import { useNetwork } from '../contexts/NetworkContext';
@@ -24,6 +26,36 @@ import { QueryKeys } from '../lib/queryKeys';
 
 const ALIAS_SETS_STALE_TIME_MS = 30_000;
 
+/** The key of a batched read of `pods` (normalized, sorted) on `network`. */
+export function aliasSetsKey(
+	network: SuiNetwork,
+	pods: readonly string[],
+) {
+	return [QueryKeys.AliasSets, network, pods] as const;
+}
+
+/** The key of a fresh read of one pod (normalized) on `network`. */
+function podAliasSetKey(network: SuiNetwork, pod: string) {
+	return [
+		QueryKeys.AliasSets,
+		network,
+		'pod',
+		pod,
+	] as const;
+}
+
+/** The batched reads on `network` whose pod list holds `pod`; never a single-pod read. */
+function batchesHolding(
+	network: SuiNetwork,
+	pod: string,
+): QueryFilters {
+	return {
+		queryKey: [QueryKeys.AliasSets, network],
+		predicate: ({ queryKey: [, , pods] }) =>
+			Array.isArray(pods) && pods.includes(pod),
+	};
+}
+
 /** The alias sets of `pods` on `network`, one batched read for the whole list. */
 export function aliasSetsQuery(
 	client: ClientWithCoreApi,
@@ -34,7 +66,7 @@ export function aliasSetsQuery(
 		...new Set(pods.map((pod) => normalizeSuiAddress(pod))),
 	].sort();
 	return {
-		queryKey: [QueryKeys.AliasSets, network, sorted],
+		queryKey: aliasSetsKey(network, sorted),
 		queryFn: () => readAliasSets(client, sorted),
 		staleTime: ALIAS_SETS_STALE_TIME_MS,
 		retry: false,
@@ -106,43 +138,54 @@ export function useRetryNodeReads() {
 	return { retry, retrying };
 }
 
-/** Writes a fresh read of `pod` into every cached alias read on `network` that holds it. */
+/** Writes a fresh read of `pod` into every batched read on `network` that holds it. */
 function spreadPodRead(
 	queryClient: QueryClient,
 	network: SuiNetwork,
 	pod: string,
 	read: AliasRead,
 ) {
+	const filters = batchesHolding(network, pod);
+	const fetching = new Set<Query>(
+		queryClient
+			.getQueryCache()
+			.findAll(filters)
+			.filter(
+				(query) => query.state.fetchStatus !== 'idle',
+			),
+	);
+	const wasFetching = {
+		predicate: (query: Query) => fetching.has(query),
+	};
+	// Their older responses are dropped; they read again after the write.
+	void queryClient.cancelQueries(wasFetching);
 	queryClient.setQueriesData<Map<string, AliasRead>>(
-		{
-			queryKey: [QueryKeys.AliasSets, network],
-			predicate: (query) =>
-				query.state.data instanceof Map &&
-				query.state.data.has(pod),
-		},
+		filters,
 		(cached) => cached && withPodRead(cached, pod, read),
 	);
+	void queryClient.refetchQueries(wasFetching);
+}
+
+/** Reads one pod's alias set (normalized) from `client`. */
+function podReader(client: ClientWithCoreApi) {
+	return async (pod: string): Promise<AliasRead> =>
+		(await readAliasSets(client, [pod])).get(pod) ?? {
+			kind: 'failed',
+		};
 }
 
 /** One pod's alias set on `network`, never cached as fresh; each read reaches every list that holds the pod. */
-function podAliasSetQuery(
+export function podAliasSetQuery(
 	queryClient: QueryClient,
-	client: ClientWithCoreApi,
 	network: SuiNetwork,
 	pod: string,
+	readPod: (pod: string) => Promise<AliasRead>,
 ) {
 	const normalized = normalizeSuiAddress(pod);
 	return {
-		queryKey: [
-			QueryKeys.AliasSets,
-			network,
-			'pod',
-			normalized,
-		],
+		queryKey: podAliasSetKey(network, normalized),
 		queryFn: async (): Promise<AliasRead> => {
-			const read: AliasRead = (
-				await readAliasSets(client, [normalized])
-			).get(normalized) ?? { kind: 'failed' };
+			const read = await readPod(normalized);
 			spreadPodRead(queryClient, network, normalized, read);
 			return read;
 		},
@@ -160,7 +203,12 @@ export function readPodAliasSet(
 ): Promise<AliasRead> {
 	return queryClient
 		.fetchQuery(
-			podAliasSetQuery(queryClient, client, network, pod),
+			podAliasSetQuery(
+				queryClient,
+				network,
+				pod,
+				podReader(client),
+			),
 		)
 		.catch((): AliasRead => ({ kind: 'failed' }));
 }
@@ -177,9 +225,9 @@ export function useRereadPodAliasSet(
 	useQuery({
 		...podAliasSetQuery(
 			queryClient,
-			dappKit.getClient(network),
 			network,
 			pod,
+			podReader(dappKit.getClient(network)),
 		),
 		enabled,
 		refetchOnMount: 'always',

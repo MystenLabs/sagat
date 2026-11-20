@@ -13,8 +13,16 @@ import {
 	normalizeSuiAddress,
 	toBase58,
 } from '@mysten/sui/utils';
+import {
+	QueryClient,
+	QueryObserver,
+} from '@tanstack/react-query';
 import { expect, test } from 'vitest';
 
+import {
+	aliasSetsKey,
+	podAliasSetQuery,
+} from '../src/hooks/useAliasSets';
 import {
 	aliasReadsFromEntries,
 	podsToRead,
@@ -188,6 +196,118 @@ test('a fresh read of a pod leaves a cached read without it untouched', () => {
 			},
 		),
 	).toBe(cached);
+});
+
+/** A batched read whose responses the test hands out, one per fetch, in order. */
+function heldBatch() {
+	const pending: ((
+		reads: Map<string, AliasRead>,
+	) => void)[] = [];
+	return {
+		queryFn: () =>
+			new Promise<Map<string, AliasRead>>((resolve) => {
+				pending.push(resolve);
+			}),
+		respond: (reads: Map<string, AliasRead>) =>
+			pending.shift()?.(reads),
+	};
+}
+
+const settle = () =>
+	new Promise((resolve) => setTimeout(resolve, 0));
+
+test('an older batched response landing after a fresh read of a pod keeps the fresh read', async () => {
+	const queryClient = new QueryClient();
+	const [pod, other] = [
+		new Ed25519Keypair().toSuiAddress(),
+		new Ed25519Keypair().toSuiAddress(),
+	].sort();
+	const before = new Map<string, AliasRead>([
+		[pod, { kind: 'read', aliases: [pod] }],
+		[other, { kind: 'read', aliases: [other] }],
+	]);
+	const fresh: AliasRead = {
+		kind: 'read',
+		aliases: [new Ed25519Keypair().toSuiAddress()],
+	};
+	const batch = heldBatch();
+	const queryKey = aliasSetsKey('localnet', [pod, other]);
+	const first = queryClient.fetchQuery({
+		queryKey,
+		queryFn: batch.queryFn,
+	});
+	batch.respond(before);
+	await first;
+	void queryClient.refetchQueries({ queryKey });
+	await settle();
+
+	await queryClient.fetchQuery(
+		podAliasSetQuery(
+			queryClient,
+			'localnet',
+			pod,
+			async () => fresh,
+		),
+	);
+	batch.respond(before);
+	await settle();
+
+	const cached =
+		queryClient.getQueryData<Map<string, AliasRead>>(
+			queryKey,
+		);
+	expect(cached?.get(pod)).toEqual(fresh);
+	expect(cached?.get(other)).toEqual(before.get(other));
+});
+
+test('a batched read on its first fetch ends with a fresh read of a pod that lands meanwhile', async () => {
+	const queryClient = new QueryClient();
+	const [pod, other] = [
+		new Ed25519Keypair().toSuiAddress(),
+		new Ed25519Keypair().toSuiAddress(),
+	].sort();
+	const fresh: AliasRead = {
+		kind: 'read',
+		aliases: [new Ed25519Keypair().toSuiAddress()],
+	};
+	const batch = heldBatch();
+	const queryKey = aliasSetsKey('localnet', [pod, other]);
+	// Observed, as every batched read in the app is.
+	const stop = new QueryObserver(queryClient, {
+		queryKey,
+		queryFn: batch.queryFn,
+		retry: false,
+	}).subscribe(() => {});
+	await settle();
+
+	await queryClient.fetchQuery(
+		podAliasSetQuery(
+			queryClient,
+			'localnet',
+			pod,
+			async () => fresh,
+		),
+	);
+	batch.respond(
+		new Map([
+			[pod, { kind: 'read', aliases: [pod] }],
+			[other, { kind: 'read', aliases: [other] }],
+		]),
+	);
+	batch.respond(
+		new Map([
+			[pod, fresh],
+			[other, { kind: 'read', aliases: [other] }],
+		]),
+	);
+	await settle();
+
+	expect(
+		queryClient
+			.getQueryData<Map<string, AliasRead>>(queryKey)
+			?.get(pod),
+	).toEqual(fresh);
+	stop();
 });
 
 test('reads no chain identifier from an unreachable node', async () => {
