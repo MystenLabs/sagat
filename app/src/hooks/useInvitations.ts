@@ -10,6 +10,7 @@ import { toUserMultisig } from '@/lib/user-multisig';
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
+import { useRowsActing } from './useRowsActing';
 import { useUserMultisigs } from './useUserMultisigs';
 
 // An address in no accounts is likely waiting on an invitation.
@@ -25,7 +26,7 @@ export function useInvitations(
 		useApiAuth();
 	const { data: multisigs } = useUserMultisigs();
 
-	return useQuery({
+	const query = useQuery({
 		queryKey: [
 			QueryKeys.Invitations,
 			currentAddress?.address,
@@ -61,4 +62,6 @@ export function useInvitations(
 				? NO_ACCOUNTS_REFETCH_INTERVAL
 				: INVITATIONS_REFETCH_INTERVAL,
 	});
+
+	return { ...query, data: useRowsActing(query.data) };
 }

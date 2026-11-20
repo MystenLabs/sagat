@@ -14,6 +14,7 @@ import { cn, errorMessage } from '@/lib/utils';
 import { SignerName } from '../multisig/SignerName';
 import { SignersRefused } from '../multisig/SignersRefused';
 import { SignerStatusChip } from '../multisig/SignerStatusChip';
+import { SignersUnchecked } from '../multisig/SignersUnchecked';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/button';
 import { CopyButton } from '../ui/CopyButton';
@@ -70,6 +71,12 @@ export function ReviewInvitationDialog({
 		creator?.address,
 	);
 	const you = rows.find((row) => row.isYou);
+	// Accept needs both signers checks: none when one refuses or the node
+	// couldn't be read, disabled while it is read.
+	const offerAccept =
+		!multisig.refused &&
+		multisig.acting.state !== 'unchecked';
+	const checking = multisig.acting?.state === 'checking';
 
 	return (
 		<Dialog
@@ -106,10 +113,10 @@ export function ReviewInvitationDialog({
 							<Button variant="outline" onClick={onBack}>
 								{ACTIONS.goBack}
 							</Button>
-							{!multisig.refused && (
+							{offerAccept && (
 								<Button
 									onClick={onAccept}
-									disabled={accepting}
+									disabled={accepting || checking}
 									data-testid="accept-invitation-button"
 								>
 									{ACTIONS.tryAgain}
@@ -249,6 +256,13 @@ export function ReviewInvitationDialog({
 							<span>{COPY.reviewDialog.note}</span>
 						</p>
 
+						{multisig.acting?.state === 'unchecked' && (
+							<SignersUnchecked
+								testId="invitation-unchecked"
+								className="mt-5"
+							/>
+						)}
+
 						<div className="mt-5 flex justify-end gap-2 border-t pt-5">
 							<Button
 								variant="outline"
@@ -258,10 +272,10 @@ export function ReviewInvitationDialog({
 							>
 								{ACTIONS.reject}
 							</Button>
-							{!multisig.refused && (
+							{offerAccept && (
 								<Button
 									onClick={onAccept}
-									disabled={accepting}
+									disabled={accepting || checking}
 									data-testid="accept-invitation-button"
 								>
 									<Check strokeWidth={3} />

@@ -14,6 +14,7 @@ import {
 	shownUsdTotal,
 	type PortfolioValue,
 } from '@/lib/coins';
+import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { ReceiveDialog } from '../shell/ReceiveDialog';
 import { Button, buttonVariants } from '../ui/button';
@@ -31,8 +32,7 @@ const COPY = content.overview.value;
  * start with `testIdPrefix`.
  */
 export function AccountValue({
-	address,
-	name,
+	multisig,
 	value,
 	pricesError,
 	isLoading,
@@ -43,8 +43,8 @@ export function AccountValue({
 	showSend = true,
 	testIdPrefix = 'overview',
 }: {
-	address: string;
-	name: string;
+	/** The pod whose address Receive shows. */
+	multisig: MultisigWithMembersForPublicKey;
 	value: PortfolioValue;
 	pricesError: boolean;
 	isLoading: boolean;
@@ -138,8 +138,7 @@ export function AccountValue({
 			<ReceiveDialog
 				open={receiveOpen}
 				onClose={() => setReceiveOpen(false)}
-				address={address}
-				name={name}
+				multisig={multisig}
 			/>
 		</div>
 	);

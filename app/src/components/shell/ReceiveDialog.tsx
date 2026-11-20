@@ -5,6 +5,8 @@ import { Check, Copy, XIcon } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 import { SignersRefused } from '@/components/multisig/SignersRefused';
+import { SignersUnchecked } from '@/components/multisig/SignersUnchecked';
+import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/button';
 import {
 	Dialog,
@@ -14,30 +16,35 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
+import { accountName } from '@/lib/account-name';
+import { networkLabel } from '@/lib/network';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 const ACTIONS = content.common.actions;
 const COPY = content.receive;
 
-/** The account's address as a QR code and in full, to share for deposits. */
+/**
+ * The account's address as a QR code and in full, to share for deposits,
+ * once both signers checks pass on the selected network: a refusal, the
+ * could-not-check notice or a checking line shows instead.
+ */
 export function ReceiveDialog({
 	open,
 	onClose,
-	address,
-	name,
-	refused = null,
+	multisig,
 }: {
 	open: boolean;
 	onClose: () => void;
-	address: string;
-	name: string;
-	/** Set when the pod failed the signers check: the reason shows instead of the address. */
-	refused?: MultisigWithMembersForPublicKey['refused'];
+	multisig: MultisigWithMembersForPublicKey;
 }) {
 	const { copied, copy } = useCopyToClipboard(
 		content.toasts.addressCopied,
 	);
+	const { network } = useNetwork();
+	const { address, refused, acting } = multisig;
+	const name = accountName(multisig);
 
 	return (
 		<Dialog
@@ -81,8 +88,32 @@ export function ReceiveDialog({
 						rule={refused}
 						testId="receive-refused"
 					/>
+				) : acting.state === 'unchecked' ? (
+					<SignersUnchecked testId="receive-unchecked" />
+				) : acting.state === 'checking' ? (
+					<p
+						className="text-13 text-muted-foreground"
+						data-testid="receive-checking"
+					>
+						{content.common.states.checkingSigners}
+					</p>
 				) : (
 					<>
+						{acting.unidentified.length > 0 && (
+							<Alert
+								variant="warning"
+								data-testid="receive-other-signer-sets"
+							>
+								<div className="font-medium">
+									{COPY.otherSignerSets.title}
+								</div>
+								<div>
+									{COPY.otherSignerSets.body(
+										networkLabel(network),
+									)}
+								</div>
+							</Alert>
+						)}
 						<button
 							type="button"
 							onClick={() => copy(address)}

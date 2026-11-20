@@ -1,13 +1,19 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useCurrentAccount } from '@mysten/dapp-kit-react';
+import {
+	useCurrentAccount,
+	useDAppKit,
+} from '@mysten/dapp-kit-react';
 import { type PublicProposal } from '@mysten/sagat';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
+import { useQuery } from '@tanstack/react-query';
 import { Pen, Play, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
 import { CancelProposalModal } from '@/components/modals/CancelProposalModal';
 import { SignerName } from '@/components/multisig/SignerName';
+import { SignersUnchecked } from '@/components/multisig/SignersUnchecked';
 import type { SimulationProps } from '@/components/transaction-preview/simulation';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/button';
@@ -26,6 +32,10 @@ import {
 } from '@/components/ui/modal';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import {
+	chainIdentifierQuery,
+	useAliasSets,
+} from '@/hooks/useAliasSets';
 import { useCancelProposal } from '@/hooks/useCancelProposal';
 import {
 	couldNotSimulate,
@@ -34,7 +44,12 @@ import {
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
 import { useProposalProposerCheck } from '@/hooks/useProposerProofs';
 import { useSignProposal } from '@/hooks/useSignProposal';
-import { checkProposalIntegrity } from '@/lib/proposal-integrity';
+import { type SuiNetwork } from '@/lib/network';
+import {
+	checkProposalIntegrity,
+	checkSignerOnNetwork,
+	shownActingSets,
+} from '@/lib/proposal-integrity';
 import {
 	approvalRows,
 	approvalsNote,
@@ -53,6 +68,11 @@ import {
 	proposalTitle,
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
+import { signRefusedLine } from '@/lib/signers-refused';
+import {
+	namedChain,
+	readTransactionBytes,
+} from '@/lib/transaction-preview';
 import { safeDecode } from '@/lib/utils';
 
 const COPY = content.proposal.approvals;
@@ -66,8 +86,10 @@ const PROPOSER_DOCS =
  * Who signed, what the threshold needs, and what the viewer can do
  * about it: sign (and execute, when their signature reaches the
  * threshold), execute, or cancel. Only a signer on the proposal's
- * network gets the buttons. Bytes that fail `checkProposalIntegrity`,
- * or an invalid proposer, get a refusal in place of Sign.
+ * network gets the buttons. Bytes that fail `checkProposalIntegrity`, a
+ * wallet no acting set holds on the proposal's network, bytes naming
+ * another chain, or an invalid proposer, get a refusal in place of Sign;
+ * an alias set that couldn't be read gets a notice there instead.
  */
 export function ApprovalsCard({
 	proposal,
@@ -141,8 +163,38 @@ export function ApprovalsCard({
 	const rechecking = recheck.isPending;
 	const canAct = viewer === 'member';
 	const walletAddress = wallet?.address ?? null;
+	const awaitingSign = status === 'pending' && !signed;
+	// The node is read only where Sign can show.
+	const checkNetwork = canAct && awaitingSign;
+	const network = proposal.network as SuiNetwork;
+	const dappKit = useDAppKit();
+	const { aliases: reads } = useAliasSets(
+		[proposal.multisigAddress],
+		{ network, enabled: checkNetwork },
+	);
+	const aliases = reads?.get(
+		normalizeSuiAddress(proposal.multisigAddress),
+	);
+	const bytesChain = useMemo(() => {
+		try {
+			return namedChain(
+				readTransactionBytes(proposal.transactionBytes)
+					.transaction,
+			);
+		} catch {
+			return null;
+		}
+	}, [proposal.transactionBytes]);
+	const { data: nodeChain } = useQuery({
+		...chainIdentifierQuery(
+			dappKit.getClient(network),
+			network,
+		),
+		enabled: checkNetwork && !!bytesChain,
+	});
 	const proposer = useProposalProposerCheck(proposal, {
-		enabled: canAct,
+		enabled: checkNetwork,
+		aliases,
 	});
 	const integrity = useMemo(
 		() =>
@@ -154,13 +206,32 @@ export function ApprovalsCard({
 				: null,
 		[canAct, walletAddress, proposal, openedDigest],
 	);
+	// Rule 2 and the bytes' chain on the proposal's network, once the
+	// synchronous checks pass; `checking` until the node answers.
+	const onNetwork =
+		!checkNetwork || !walletAddress || integrity
+			? null
+			: aliases === undefined ||
+				  (bytesChain && nodeChain === undefined)
+				? 'checking'
+				: checkSignerOnNetwork({
+						shown: shownActingSets(proposal.multisig),
+						signerAddress: walletAddress,
+						namedChain: bytesChain,
+						node: { aliases, chain: nodeChain ?? null },
+					});
 	const refused =
 		integrity ??
+		(onNetwork === 'chain' || onNetwork === 'notActing'
+			? onNetwork
+			: null) ??
 		(canAct && walletAddress && proposer.check === 'invalid'
 			? 'proposer'
 			: null);
-	const refusing =
-		refused !== null && status === 'pending' && !signed;
+	const refusing = refused !== null && awaitingSign;
+	const unchecked =
+		!refusing && onNetwork === 'unchecked' && awaitingSign;
+	const checkingSigners = onNetwork === 'checking';
 	// Cancelling signs a message for the API session.
 	const canCancel =
 		cancelAllowed && canAct && !!currentAddress;
@@ -181,6 +252,7 @@ export function ApprovalsCard({
 	const signLabel = () => {
 		if (sign.awaitingWallet) return STATES.confirmInWallet;
 		if (sign.isPending) return STATES.signing;
+		if (checkingSigners) return STATES.checkingSigners;
 		if (failing) return COPY.signAnyway;
 		if (signAndExecute) return ACTIONS.signAndExecute;
 		return COPY.signProposal;
@@ -316,7 +388,7 @@ export function ApprovalsCard({
 							{COPY.refused.title}
 						</div>
 						<div>
-							{COPY.refused[refused]}
+							{signRefusedLine(refused, network)}
 							{refused === 'proposer' && (
 								<>
 									{' '}
@@ -325,6 +397,16 @@ export function ApprovalsCard({
 							)}
 						</div>
 					</Alert>
+					<ButtonRow>{cancelButton('outline')}</ButtonRow>
+				</>
+			);
+		} else if (unchecked) {
+			actions = (
+				<>
+					<SignersUnchecked
+						network={network}
+						testId="sign-unchecked"
+					/>
 					<ButtonRow>{cancelButton('outline')}</ButtonRow>
 				</>
 			);
@@ -366,6 +448,7 @@ export function ApprovalsCard({
 							disabled={
 								!settled ||
 								sign.isPending ||
+								checkingSigners ||
 								proposer.pending
 							}
 							data-testid="sign-proposal-button"
@@ -478,7 +561,7 @@ export function ApprovalsCard({
 					{actions}
 				</div>
 			)}
-			{note && !refusing && (
+			{note && !refusing && !unchecked && (
 				<p
 					className="text-12 text-muted-foreground"
 					data-testid={

@@ -25,6 +25,7 @@ import { newProposalPath } from '@/lib/new-proposal';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
 import { SignersRefused } from './multisig/SignersRefused';
+import { SignersUnchecked } from './multisig/SignersUnchecked';
 import { SuccessBanner } from './multisig/SuccessBanner';
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
@@ -158,6 +159,13 @@ export function MultisigDetailPage() {
 					</Button>
 				}
 			/>
+
+			{multisig.acting.state === 'unchecked' && (
+				<SignersUnchecked
+					testId="pod-unchecked"
+					className="mb-6"
+				/>
+			)}
 
 			{arrival?.kind === 'joined' && (
 				<SuccessBanner

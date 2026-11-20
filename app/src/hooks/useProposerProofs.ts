@@ -2,24 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type PublicProposal } from '@mysten/sagat';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	keepPreviousData,
 	useQuery,
 } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
+import { type AliasRead } from '@/lib/alias-set';
 import {
 	checkProposalProposer,
-	trustsSigners,
+	proposerProofMembers,
 	verifyProposers,
 	type ProposerProofAccount,
 } from '@/lib/proposer-proofs';
 import { QueryKeys } from '@/lib/queryKeys';
 
+import { useAliasSets } from './useAliasSets';
+
 /**
  * Each proposer's proof by address, undefined while checking or until
- * `enabled`; `trusted` is false unless `account` is `openedAddress` and its
- * signers make it up.
+ * `enabled`; `trusted` is false unless `account` is `openedAddress`, its
+ * signers make it up, and a shown set acts on the selected network.
  */
 export function useProposerProofs(
 	account: ProposerProofAccount,
@@ -28,9 +32,24 @@ export function useProposerProofs(
 		openedAddress,
 	}: { enabled: boolean; openedAddress: string },
 ) {
+	const { aliases: reads } = useAliasSets(
+		[account.address],
+		{
+			enabled,
+		},
+	);
+	const aliases = reads?.get(
+		normalizeSuiAddress(account.address),
+	);
 	const trusted = useMemo(
-		() => trustsSigners(account, openedAddress),
-		[account, openedAddress],
+		() =>
+			aliases !== undefined &&
+			proposerProofMembers(
+				account,
+				openedAddress,
+				aliases,
+			) !== null,
+		[account, openedAddress, aliases],
 	);
 	const { data } = useQuery({
 		queryKey: [
@@ -40,17 +59,20 @@ export function useProposerProofs(
 			account.threshold,
 			account.members,
 			account.proposers,
+			aliases,
 		],
-		queryFn: () => verifyProposers(account, openedAddress),
-		enabled,
+		queryFn: () =>
+			verifyProposers(account, openedAddress, aliases!),
+		enabled: enabled && aliases !== undefined,
 		staleTime: Infinity,
 	});
 	return { proofs: enabled ? data : undefined, trusted };
 }
 
-/** `checkProposalProposer` as a query, shared by the page and Sign. */
+/** `checkProposalProposer` as a query, shared by the page and Sign; `aliases` is the pod's alias set on the proposal's network. */
 export function proposalProposerQuery(
 	proposal: PublicProposal,
+	aliases: AliasRead,
 ) {
 	return {
 		queryKey: [
@@ -62,23 +84,31 @@ export function proposalProposerQuery(
 			proposal.multisig,
 			proposal.signatures,
 			proposal.events,
+			aliases,
 		],
-		queryFn: () => checkProposalProposer(proposal),
+		queryFn: () => checkProposalProposer(proposal, aliases),
 		staleTime: Infinity,
 	};
 }
 
 /**
  * The proposal's `ProposerCheck`, kept from the previous proposal while a
- * new one is checked; `pending` until the current one resolves.
+ * new one is checked; `pending` until the current one resolves, and
+ * while `aliases` is still being read.
  */
 export function useProposalProposerCheck(
 	proposal: PublicProposal,
-	{ enabled }: { enabled: boolean },
+	{
+		enabled,
+		aliases,
+	}: { enabled: boolean; aliases: AliasRead | undefined },
 ) {
 	const { data, isPlaceholderData } = useQuery({
-		...proposalProposerQuery(proposal),
-		enabled,
+		...proposalProposerQuery(
+			proposal,
+			aliases ?? { kind: 'failed' },
+		),
+		enabled: enabled && aliases !== undefined,
 		placeholderData: keepPreviousData,
 	});
 	return {

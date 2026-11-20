@@ -7,7 +7,6 @@ import {
 } from 'react-router-dom';
 
 import { useAccountAssets } from '@/hooks/useAccountAssets';
-import { accountName } from '@/lib/account-name';
 import { newProposalPath } from '@/lib/new-proposal';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
@@ -34,8 +33,7 @@ export function OverviewTab() {
 	return (
 		<div className="@container flex flex-col gap-6">
 			<AccountValue
-				address={multisig.address}
-				name={accountName(multisig)}
+				multisig={multisig}
 				value={assets.value}
 				pricesError={assets.pricesError}
 				isLoading={assets.isLoading}

@@ -3,13 +3,22 @@
 
 import type { MultisigWithMembers } from '@mysten/sagat';
 
-import { checkAccountSigners } from './proposal-integrity';
-import { type MultisigWithMembersForPublicKey } from './types';
+import { type AliasRead } from './alias-set';
+import {
+	checkAccountSigners,
+	podActing,
+	shownActingSets,
+} from './proposal-integrity';
+import {
+	type MultisigWithMembersForPublicKey,
+	type PodChecks,
+} from './types';
 
 /**
- * An account from the API as the signed-in key sees it. `refused` is set
- * when the address isn't rebuilt from its signers and threshold, or the
- * wallet isn't one of them.
+ * An account from the API as the signed-in key sees it, with rule 1
+ * applied: `refused` is set when the address isn't rebuilt from its
+ * signers and threshold, or the wallet isn't one of them. Rule 2 is
+ * `checking` until `withActing` merges the alias read.
  */
 export function toUserMultisig(
 	m: MultisigWithMembers,
@@ -22,6 +31,10 @@ export function toUserMultisig(
 		account: m.address,
 		signerAddress: signer.address,
 	});
+	const checks: PodChecks =
+		signers.kind === 'ok'
+			? { refused: null, acting: { state: 'checking' } }
+			: { refused: signers.kind, acting: null };
 	return {
 		...m,
 		isAccepted: currentMember?.isAccepted ?? false,
@@ -32,6 +45,41 @@ export function toUserMultisig(
 		rejectedMembers: m.members.filter(
 			(member) => member.isRejected,
 		).length,
-		refused: signers.kind === 'ok' ? null : signers.kind,
+		...checks,
 	};
+}
+
+/**
+ * The row with rule 2 on one network from its alias read (undefined
+ * while reading). A rule 1 refusal stands whatever the node says.
+ */
+export function withActing(
+	row: MultisigWithMembersForPublicKey,
+	aliases: AliasRead | undefined,
+): MultisigWithMembersForPublicKey {
+	if (
+		row.refused === 'signers' ||
+		row.refused === 'notSigner'
+	)
+		return row;
+	const acting = podActing(shownActingSets(row), aliases);
+	switch (acting.state) {
+		case 'refused':
+			return { ...row, refused: 'notActing', acting: null };
+		case 'ok':
+			return {
+				...row,
+				refused: null,
+				acting: {
+					state: 'ok',
+					unidentified: acting.unidentified,
+				},
+			};
+		default:
+			return {
+				...row,
+				refused: null,
+				acting: { state: acting.state },
+			};
+	}
 }

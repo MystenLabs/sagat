@@ -4,6 +4,7 @@
 // The rules of the new-proposal wizard, kept free of React: the proposal
 // types, what blocks Review on a transfer, the generated title, and how
 // pasted bytes are read. Its messages come from content.ts.
+import type { SuiClientTypes } from '@mysten/sui/client';
 import {
 	Transaction,
 	TransactionDataBuilder,
@@ -35,6 +36,7 @@ import {
 	type AccountSigners,
 } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
+import { namedChain } from './transaction-preview';
 
 const COPY = content.newProposal;
 
@@ -341,6 +343,8 @@ export type BytesCheck =
 	| { kind: 'wrong-sender'; sender: string }
 	/** Bytes whose gas another address pays. */
 	| { kind: 'wrong-gas-owner'; owner: string }
+	/** Bytes that name a chain other than the node's. */
+	| { kind: 'wrong-chain' }
 	/**
 	 * `bytes` is the base64 to propose: the input without its whitespace,
 	 * or the BCS a JSON transaction builds to.
@@ -353,11 +357,13 @@ export type BytesCheck =
  * whitespace dropped (a paste wrapped across lines is one transaction).
  * JSON, as Transaction#toJSON writes it, is read only when it is fully
  * resolved (the SDK's isFullyResolved: sender, gas and concrete inputs),
- * so it builds to bytes offline.
+ * so it builds to bytes offline. `chain` is the node's chain identifier,
+ * when known: bytes that name another one are refused.
  */
 export function checkBytes(
 	input: string,
 	account: string,
+	chain?: string | null,
 ): BytesCheck {
 	const trimmed = input.trim();
 	if (!trimmed) return { kind: 'empty' };
@@ -365,7 +371,7 @@ export function checkBytes(
 		? readJson(trimmed)
 		: readBase64(trimmed.replace(/\s/g, ''));
 	if (read.kind !== 'read') return read;
-	const { bytes, sender, gasOwner, commands } = read;
+	const { bytes, sender, gasOwner, commands, named } = read;
 	if (!sender || !isValidSuiAddress(sender))
 		return { kind: 'unreadable' };
 
@@ -377,6 +383,8 @@ export function checkBytes(
 			kind: 'wrong-gas-owner',
 			owner: normalizeSuiAddress(gasOwner),
 		};
+	if (named && chain && named !== chain)
+		return { kind: 'wrong-chain' };
 	return {
 		kind: 'ok',
 		bytes,
@@ -413,6 +421,8 @@ type ReadTransaction =
 			sender: string | null | undefined;
 			gasOwner: string | null | undefined;
 			commands: number;
+			/** The chain the bytes name, null when none. */
+			named: string | null;
 	  };
 
 function readBase64(bytes: string): ReadTransaction {
@@ -424,6 +434,9 @@ function readBase64(bytes: string): ReadTransaction {
 			sender: data.sender,
 			gasOwner: data.gasData.owner,
 			commands: data.commands.length,
+			named: namedChain(
+				data as SuiClientTypes.TransactionData,
+			),
 		};
 	} catch {
 		return { kind: 'unreadable' };
@@ -450,6 +463,9 @@ function readJson(json: string): ReadTransaction {
 			sender: data.sender,
 			gasOwner: data.gasData.owner,
 			commands: data.commands.length,
+			named: namedChain(
+				data as SuiClientTypes.TransactionData,
+			),
 		};
 	} catch {
 		return { kind: 'unreadable' };
@@ -478,6 +494,8 @@ export function bytesStatusText(
 				formatAddress(check.owner),
 				accountName,
 			);
+		case 'wrong-chain':
+			return COPY.bytesWrongChain;
 		case 'ok':
 			return COPY.bytesRead(check.commands);
 	}

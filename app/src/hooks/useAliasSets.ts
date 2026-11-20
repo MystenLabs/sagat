@@ -5,7 +5,9 @@ import { useDAppKit } from '@mysten/dapp-kit-react';
 import type { ClientWithCoreApi } from '@mysten/sui/client';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
+	useIsFetching,
 	useQuery,
+	useQueryClient,
 	type QueryClient,
 } from '@tanstack/react-query';
 
@@ -77,6 +79,29 @@ export function useAliasSets(
 		fetching: isFetching,
 		retry: () => void refetch(),
 	};
+}
+
+/** Reads every shown alias set again, and every chain identifier that failed; `retrying` while any of them is in flight. */
+export function useRetryNodeReads() {
+	const queryClient = useQueryClient();
+	const retrying =
+		useIsFetching({ queryKey: [QueryKeys.AliasSets] }) +
+			useIsFetching({
+				queryKey: [QueryKeys.ChainIdentifier],
+			}) >
+		0;
+	const retry = () => {
+		void queryClient.refetchQueries({
+			queryKey: [QueryKeys.AliasSets],
+			type: 'active',
+		});
+		void queryClient.refetchQueries({
+			queryKey: [QueryKeys.ChainIdentifier],
+			type: 'active',
+			predicate: (query) => !query.state.data,
+		});
+	};
+	return { retry, retrying };
 }
 
 /** The pod's alias set, read now, and the node's chain, for a sign or propose decision. Never throws. */

@@ -13,7 +13,6 @@ import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useAccountAssets } from '@/hooks/useAccountAssets';
 import { useOwnedObjects } from '@/hooks/useOwnedObjects';
-import { accountName } from '@/lib/account-name';
 import { newProposalPath } from '@/lib/new-proposal';
 import { FIRST_PAGE } from '@/lib/owned-objects';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -97,7 +96,6 @@ export function AssetsTab() {
 			? undefined
 			: assets.listedBalances.length;
 
-	const name = accountName(multisig);
 	const send = (coinType?: string) =>
 		navigate(
 			newProposalPath(address, {
@@ -109,8 +107,7 @@ export function AssetsTab() {
 	return (
 		<div className="@container flex flex-1 flex-col gap-6">
 			<AccountValue
-				address={address}
-				name={name}
+				multisig={multisig}
 				value={assets.value}
 				pricesError={assets.pricesError}
 				isLoading={assets.isLoading}
@@ -193,8 +190,7 @@ export function AssetsTab() {
 			<ReceiveDialog
 				open={receiveOpen}
 				onClose={() => setReceiveOpen(false)}
-				address={address}
-				name={name}
+				multisig={multisig}
 			/>
 		</div>
 	);
