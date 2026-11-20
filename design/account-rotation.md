@@ -20,18 +20,18 @@ This uses Sui address aliases: the account adds the address of a new composition
 
 ## Status
 
-| Part                                                                                                    | State                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema: accounts, signer sets, `account_signer_sets`, the alias mirror tables, `proposals.executed_via` | Shipped in 0009. The refresh writes the mirror tables. `executed_via` has no writer yet.                                               |
-| Alias helpers and the localnet spike                                                                    | Shipped: `api/src/utils/aliases.ts`, `api/test/address-aliases.test.ts`.                                                               |
-| Request flows as services                                                                               | Shipped. Every membership check and tally still reads the composition at the account's address.                                        |
-| Key labels (0010) and the audit log (0011)                                                              | Shipped. The refresh writes the alias actions as system rows. Accept and reject are not recorded yet.                                  |
-| The app's own checks before showing or signing                                                          | Shipped, and they require the signer set to rebuild the account address, so they would refuse a changed account. See the app's checks. |
-| Alias mirror and resolver                                                                               | The mirror and its refresh are shipped, and no route calls them yet. The resolver is not built.                                        |
-| `/v1`                                                                                                   | Foundation and `GET /v1/proposals/:digest` shipped. No other route.                                                                    |
-| Changing signers                                                                                        | Not built.                                                                                                                             |
+| Part                                                                                                    | State                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema: accounts, signer sets, `account_signer_sets`, the alias mirror tables, `proposals.executed_via` | Shipped in 0009. The refresh writes the mirror tables. `executed_via` has no writer yet. `account_acceptances` shipped in 0012, and nothing writes it yet.                                                    |
+| Alias helpers and the localnet spike                                                                    | Shipped: `api/src/utils/aliases.ts`, `api/test/address-aliases.test.ts`.                                                                                                                                      |
+| Request flows as services                                                                               | Shipped. Every membership check and tally takes a scope: the original set, or the acting sets of a network. Legacy routes ask for the original set, and `GET /v1/proposals/:digest` asks for the acting sets. |
+| Key labels (0010) and the audit log (0011)                                                              | Shipped. The refresh writes the alias actions as system rows. Accept and reject are not recorded yet.                                                                                                         |
+| The app's own checks before showing or signing                                                          | Shipped, and they require the signer set to rebuild the account address, so they would refuse a changed account. See the app's checks.                                                                        |
+| Alias mirror and resolver                                                                               | The mirror, its refresh and the resolver are shipped. The resolver reads the mirror as it is, and no route calls the refresh yet.                                                                             |
+| `/v1`                                                                                                   | Foundation and `GET /v1/proposals/:digest` shipped. No other route.                                                                                                                                           |
+| Changing signers                                                                                        | Not built.                                                                                                                                                                                                    |
 
-What follows needs one additive migration: a table for a key's answer to an account. Every other table and column already exists.
+What follows needs no new migration. The table for a key's answer to an account shipped in 0012, and nothing writes it yet.
 
 ## Vocabulary
 
@@ -59,7 +59,7 @@ What follows needs one additive migration: a table for a key's answer to an acco
 
 ## Data model
 
-Shipped in 0009 to 0011, with the names of this doc, plus one table to add.
+Shipped in 0009 to 0012, with the names of this doc.
 
 ```text
 accounts            (address, name, created_at)
@@ -73,7 +73,7 @@ account_aliases     (account_address, network, alias_address)          mirror of
 account_alias_state (account_address, network, exists,
                      observed_version, observed_at)                    one row per refreshed network
 account_acceptances (account_address, public_key, is_accepted,
-                     is_rejected, answered_at)                         to add; a key's answer to an account
+                     is_rejected, answered_at)                         0012; a key's answer to an account
 account_signer_sets (account_address, signer_set_address, label,
                      status, drafted_by, created_at)                   account to signer set link
 account_keys        (account_address, public_key, label,
@@ -645,7 +645,7 @@ Before deploying 0009:
 
 - As a role that owns the tables, `SELECT count(*), max(created_at) FROM drizzle.__drizzle_migrations;` returns 9 rows (the journal through 0008). If not, the database was not built with drizzle migrations: baseline it as described below, deploy with `MIGRATE_ON_START=false` and, as the owner, run `DATABASE_URL=... bun dist/db/migrate-cli.js` in the API image (working directory `/monorepo/api`); from a source checkout, `bun run db:migrate:prod` does the same. Both are added in #101 of this stack: `MIGRATE_ON_START` (on unless set to `false`) makes the API apply pending migrations at startup, and `bun run db:migrate:prod` applies them as a separate step.
 - `SELECT DISTINCT tableowner FROM pg_tables WHERE schemaname = 'public';` returns the role the API connects with. Otherwise startup migrations fail on the renames.
-- Grant the read-only roles access to `accounts`, `account_signer_sets`, `account_aliases`, `account_alias_state`, after 0010 `account_keys` and, after 0011, `account_events`, or set default privileges. Otherwise the new tables are invisible to them.
+- Grant the read-only roles access to `accounts`, `account_signer_sets`, `account_aliases`, `account_alias_state`, after 0010 `account_keys`, after 0011 `account_events` and, after 0012, `account_acceptances`, or set default privileges. Otherwise the new tables are invisible to them.
 - Anything outside the API that queries `multisigs`, `multisig_members` or `multisig_proposers` by name breaks at the rename. Check dashboards and scripts.
 - Deploy with recreate, not a rolling update (see below).
 

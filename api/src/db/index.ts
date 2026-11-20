@@ -11,6 +11,7 @@ import {
 import { wholeNumberEnv } from '../utils/env';
 import { databaseUrl } from './database-url';
 import {
+	SchemaAccountAcceptances,
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
 	SchemaAccountEvents,
@@ -106,5 +107,6 @@ export const db = drizzle(pool, {
 		SchemaAccountSignerSets,
 		SchemaAccountKeys,
 		SchemaAccountEvents,
+		SchemaAccountAcceptances,
 	},
 });

@@ -19,6 +19,7 @@ import {
 	listConnections,
 	listInvitations,
 } from '../services/multisig.service';
+import { ORIGINAL_SET } from '../services/signers.service';
 
 const addressesRouter = new Hono();
 
@@ -50,6 +51,7 @@ addressesRouter.get(
 	async (c: Context<AuthEnv>) => {
 		const connections = await listConnections({
 			callerKeys: c.get('publicKeys'),
+			scope: ORIGINAL_SET,
 		});
 
 		const grouped: Record<
@@ -77,6 +79,7 @@ addressesRouter.get(
 			publicKey,
 			showRejected: showRejected === 'true',
 			callerKeys: c.get('publicKeys'),
+			scope: ORIGINAL_SET,
 		});
 
 		return c.json(

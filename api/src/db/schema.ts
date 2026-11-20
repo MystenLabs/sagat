@@ -257,6 +257,10 @@ const accountAliases = pgTable(
 				table.aliasAddress,
 			],
 		}),
+		index('account_aliases_alias_network_idx').on(
+			table.aliasAddress,
+			table.network,
+		),
 		networkCheck(
 			'account_aliases_network_check',
 			table.network,
@@ -378,6 +382,39 @@ const accountKeys = pgTable(
 	],
 );
 
+// A key's answer to an account, for keys outside its original set. No row means no answer.
+const accountAcceptances = pgTable(
+	'account_acceptances',
+	{
+		accountAddress: text('account_address')
+			.notNull()
+			.references(() => accounts.address),
+		publicKey: text('public_key')
+			.notNull()
+			.references(() => addresses.publicKey),
+		isAccepted: boolean('is_accepted')
+			.default(false)
+			.notNull(),
+		isRejected: boolean('is_rejected')
+			.default(false)
+			.notNull(),
+		answeredAt: timestamp('answered_at', {
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.accountAddress, table.publicKey],
+		}),
+		check(
+			'account_acceptances_answer_check',
+			sql`${table.isAccepted} <> ${table.isRejected}`,
+		),
+	],
+);
+
 // The audit log. Only `account-events.service.ts` writes it.
 const accountEvents = pgTable(
 	'account_events',
@@ -436,6 +473,7 @@ export const SchemaAccountAliasState = accountAliasState;
 export const SchemaAccountSignerSets = accountSignerSets;
 export const SchemaAccountKeys = accountKeys;
 export const SchemaAccountEvents = accountEvents;
+export const SchemaAccountAcceptances = accountAcceptances;
 
 export type Proposal = typeof proposals.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
@@ -461,6 +499,8 @@ export type SignerSetOrigin = Pick<
 export type AccountKey = typeof accountKeys.$inferSelect;
 export type AccountEventRow =
 	typeof accountEvents.$inferSelect;
+export type AccountAcceptance =
+	typeof accountAcceptances.$inferSelect;
 
 export type ProposalWithSignatures = Proposal & {
 	signatures: ProposalSignature[];

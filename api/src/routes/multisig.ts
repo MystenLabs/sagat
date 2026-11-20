@@ -21,6 +21,7 @@ import {
 	removeProposer,
 	type CreateSignerSetInput,
 } from '../services/multisig.service';
+import { ORIGINAL_SET } from '../services/signers.service';
 
 const multisigRouter = new Hono();
 
@@ -34,6 +35,7 @@ multisigRouter.get(
 		const multisig = await getMultisigAccount({
 			address,
 			callerKeys: c.get('publicKeys'),
+			scope: ORIGINAL_SET,
 		});
 
 		return c.json(
@@ -115,6 +117,7 @@ multisigRouter.post('/:address/add-proposer', async (c) => {
 		proposer,
 		signature,
 		expiry,
+		scope: ORIGINAL_SET,
 	});
 
 	return c.json({ success: true });
@@ -132,6 +135,7 @@ multisigRouter.post(
 			proposer,
 			signature,
 			expiry,
+			scope: ORIGINAL_SET,
 		});
 
 		return c.json({ success: true });

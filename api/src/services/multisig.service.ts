@@ -68,6 +68,10 @@ import {
 	queryAllOwnedObjects,
 	type SuiNetwork,
 } from '../utils/client';
+import {
+	compareStrings,
+	unwrap,
+} from '../utils/collections';
 import { parsePublicKey } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
 import {
@@ -82,12 +86,23 @@ import {
 	registerPublicKeyStrings,
 } from './addresses.service';
 import { validateIsoExpiry } from './auth.service';
-import { jwtHasSignerSetMemberAccess } from './membership.service';
+import { isAccountSigner } from './membership.service';
 import {
 	assertCanonicalSignature,
 	verifyMemberSignedMessage,
 	verifySignedMessage,
 } from './signatures.service';
+import {
+	keyAnswer,
+	listActingAccounts,
+	ORIGINAL_SET,
+	originalSigners,
+	resolveAccountSigners,
+	resolveSigners,
+	signsFor,
+	type AccountSigners,
+	type SignerScope,
+} from './signers.service';
 
 // Returns the signer set with its members.
 export const getSignerSet = async (address: string) => {
@@ -96,19 +111,38 @@ export const getSignerSet = async (address: string) => {
 	return signerSet;
 };
 
-// Who created the account and when, from its link row for its original
-// composition: `(A, A)` in `account_signer_sets`. Null when the account has
-// no such row. These columns never change after the row is inserted.
+// Who created each account and when: its `(A, A)` row in `account_signer_sets`.
+const getAccountOrigins = async (
+	addresses: string[],
+): Promise<Map<string, SignerSetOrigin>> => {
+	const rows = await db
+		.select({
+			address: SchemaAccountSignerSets.accountAddress,
+			draftedBy: SchemaAccountSignerSets.draftedBy,
+			createdAt: SchemaAccountSignerSets.createdAt,
+		})
+		.from(SchemaAccountSignerSets)
+		.where(
+			and(
+				inArray(
+					SchemaAccountSignerSets.accountAddress,
+					addresses,
+				),
+				eq(
+					SchemaAccountSignerSets.signerSetAddress,
+					SchemaAccountSignerSets.accountAddress,
+				),
+			),
+		);
+	return new Map(
+		rows.map(({ address, ...origin }) => [address, origin]),
+	);
+};
+
 export const getAccountOrigin = async (
 	address: string,
 ): Promise<SignerSetOrigin | null> =>
-	(await db.query.SchemaAccountSignerSets.findFirst({
-		columns: { draftedBy: true, createdAt: true },
-		where: and(
-			eq(SchemaAccountSignerSets.accountAddress, address),
-			eq(SchemaAccountSignerSets.signerSetAddress, address),
-		),
-	})) ?? null;
+	(await getAccountOrigins([address])).get(address) ?? null;
 
 /**
  * What the legacy routes call a multisig: a signer set that is the
@@ -131,6 +165,11 @@ export type MultisigAccountWithProposerEvents = Omit<
 	proposers: ProposerWithLatestEvent[];
 };
 
+// An account with its signers under the scope it was read with.
+export type MultisigAccountWithSigners = MultisigAccount & {
+	signers: AccountSigners;
+};
+
 // The multisig at `address`, for a caller holding one of its keys (accepted
 // or not), with its proposers' newest add or remove events. A signer set
 // without the account's link row for its original composition (a draft for
@@ -138,16 +177,53 @@ export type MultisigAccountWithProposerEvents = Omit<
 export const getMultisigAccount = async ({
 	address,
 	callerKeys,
+	scope,
 }: {
 	address: string;
 	callerKeys: PublicKey[];
-}): Promise<MultisigAccountWithProposerEvents> => {
-	if (
-		!(await jwtHasSignerSetMemberAccess(
+	scope: SignerScope;
+}): Promise<
+	MultisigAccountWithProposerEvents & {
+		signers: AccountSigners;
+	}
+> => {
+	if (scope.kind === 'acting') {
+		const signers = await resolveAccountSigners(
 			address,
-			callerKeys,
-			false,
-		))
+			scope,
+		);
+		// Also for an address that is no account, so the answer reveals nothing.
+		if (
+			!signers ||
+			!signsFor(
+				signers,
+				callerKeys.map((key) => key.toSuiPublicKey()),
+				false,
+			)
+		)
+			throw new ApiAuthError('AccessDenied');
+
+		const [origin, proposers, labels] = await Promise.all([
+			getAccountOrigin(address),
+			getProposersWithLatestEvents(address),
+			AccountKeyLabelsDataLoader.load(address),
+		]);
+		const signerSet = signers.originalSet;
+		if (!signerSet || !origin) throw new NotFoundError();
+		return {
+			signerSet,
+			proposers,
+			labels,
+			origin,
+			signers,
+		};
+	}
+
+	if (
+		!(await isAccountSigner(address, callerKeys, {
+			acceptedOnly: false,
+			scope,
+		}))
 	)
 		throw new ApiAuthError('AccessDenied');
 
@@ -159,7 +235,13 @@ export const getMultisigAccount = async ({
 			AccountKeyLabelsDataLoader.load(address),
 		]);
 	if (!signerSet || !origin) throw new NotFoundError();
-	return { signerSet, proposers, labels, origin };
+	return {
+		signerSet,
+		proposers,
+		labels,
+		origin,
+		signers: originalSigners(signerSet),
+	};
 };
 
 type MultisigAccountRow = SignerSetOrigin & {
@@ -199,7 +281,7 @@ const selectMultisigAccounts = async (
 // Signer sets with their account's proposers, key labels and origin.
 const loadMultisigAccounts = async (
 	rows: MultisigAccountRow[],
-): Promise<MultisigAccount[]> => {
+): Promise<MultisigAccountWithSigners[]> => {
 	const origins = new Map(
 		rows.map(({ address, ...origin }) => [address, origin]),
 	);
@@ -212,11 +294,8 @@ const loadMultisigAccounts = async (
 		AccountKeyLabelsDataLoader.loadMany(accountAddresses),
 	]);
 	return signerSets.map((signerSet, i) => {
-		const accountProposers = proposers[i];
-		if (accountProposers instanceof Error)
-			throw accountProposers;
-		const keyLabels = labels[i];
-		if (keyLabels instanceof Error) throw keyLabels;
+		const accountProposers = unwrap(proposers[i]);
+		const keyLabels = unwrap(labels[i]);
 		// Each signer set was loaded from a row, so it has one.
 		const origin = origins.get(signerSet.address);
 		if (!origin)
@@ -228,9 +307,68 @@ const loadMultisigAccounts = async (
 			proposers: accountProposers,
 			labels: keyLabels,
 			origin,
+			signers: originalSigners(signerSet),
 		};
 	});
 };
+
+// The accounts with their signers under the acting scope, by address. An
+// account with no original set or no origin row is left out.
+const loadActingAccounts = async (
+	addresses: string[],
+	scope: SignerScope,
+): Promise<Map<string, MultisigAccountWithSigners>> => {
+	const result = new Map<
+		string,
+		MultisigAccountWithSigners
+	>();
+	if (addresses.length === 0) return result;
+
+	const [signers, origins, proposers, labels] =
+		await Promise.all([
+			resolveSigners(addresses, scope),
+			getAccountOrigins(addresses),
+			AccountProposersDataLoader.loadMany(addresses),
+			AccountKeyLabelsDataLoader.loadMany(addresses),
+		]);
+
+	addresses.forEach((address, i) => {
+		const accountSigners = signers.get(address);
+		const origin = origins.get(address);
+		if (!accountSigners?.originalSet || !origin) return;
+		result.set(address, {
+			signerSet: accountSigners.originalSet,
+			proposers: unwrap(proposers[i]),
+			labels: unwrap(labels[i]),
+			origin,
+			signers: accountSigners,
+		});
+	});
+	return result;
+};
+
+// The accounts of the rows, in order of address. The rows only propose; the resolver decides.
+const actingAccountsOf = (
+	rows: { accountAddress: string; publicKey: string }[],
+	accounts: Map<string, MultisigAccountWithSigners>,
+	decides: (
+		signers: AccountSigners,
+		publicKey: string,
+	) => boolean,
+) =>
+	rows
+		.flatMap(({ accountAddress, publicKey }) => {
+			const account = accounts.get(accountAddress);
+			return account && decides(account.signers, publicKey)
+				? [account]
+				: [];
+		})
+		.sort((a, b) =>
+			compareStrings(
+				a.signerSet.address,
+				b.signerSet.address,
+			),
+		);
 
 /**
  * The multisigs each of the caller's keys has accepted, by public key, in
@@ -238,9 +376,42 @@ const loadMultisigAccounts = async (
  */
 export const listConnections = async ({
 	callerKeys,
+	scope,
 }: {
 	callerKeys: PublicKey[];
-}): Promise<Map<string, MultisigAccount[]>> => {
+	scope: SignerScope;
+}): Promise<Map<string, MultisigAccountWithSigners[]>> => {
+	if (scope.kind === 'acting') {
+		const keys = callerKeys.map((key) =>
+			key.toSuiPublicKey(),
+		);
+		const rows = await listActingAccounts(
+			keys,
+			scope.network,
+			'accepted',
+		);
+		const accounts = await loadActingAccounts(
+			[...new Set(rows.map((row) => row.accountAddress))],
+			scope,
+		);
+		const grouped = new Map<
+			string,
+			MultisigAccountWithSigners[]
+		>();
+		for (const key of keys)
+			if (!grouped.has(key))
+				grouped.set(
+					key,
+					actingAccountsOf(
+						rows.filter((row) => row.publicKey === key),
+						accounts,
+						(signers, publicKey) =>
+							signsFor(signers, [publicKey], true),
+					),
+				);
+		return grouped;
+	}
+
 	const whereConditions = [
 		inArray(
 			SchemaSignerSetMembers.publicKey,
@@ -258,7 +429,10 @@ export const listConnections = async ({
 	// Step 2: Expand multisigs to full objects with all members
 	const multisigs = await loadMultisigAccounts(rows);
 
-	const grouped = new Map<string, MultisigAccount[]>();
+	const grouped = new Map<
+		string,
+		MultisigAccountWithSigners[]
+	>();
 
 	for (const pubkey of callerKeys) {
 		const pubKeyBase64 = pubkey.toSuiPublicKey();
@@ -289,17 +463,36 @@ export const listInvitations = async ({
 	publicKey,
 	showRejected,
 	callerKeys,
+	scope,
 }: {
 	publicKey: string;
 	showRejected: boolean;
 	callerKeys: PublicKey[];
-}): Promise<MultisigAccount[]> => {
+	scope: SignerScope;
+}): Promise<MultisigAccountWithSigners[]> => {
 	if (
 		!callerKeys.some(
 			(pubKey) => pubKey.toSuiPublicKey() === publicKey,
 		)
 	)
 		throw new ValidationError('You are not authorized.');
+
+	if (scope.kind === 'acting') {
+		const answer = showRejected ? 'rejected' : 'invited';
+		const rows = await listActingAccounts(
+			[publicKey],
+			scope.network,
+			answer,
+		);
+		return actingAccountsOf(
+			rows,
+			await loadActingAccounts(
+				rows.map((row) => row.accountAddress),
+				scope,
+			),
+			(signers, key) => keyAnswer(signers, key) === answer,
+		);
+	}
 
 	const whereConditions = [
 		eq(SchemaSignerSetMembers.publicKey, publicKey),
@@ -774,7 +967,8 @@ export const acceptInvitation = async ({
 	origin: SignerSetOrigin | null;
 }> => {
 	const pubKey = await verifyMemberSignedMessage({
-		signerSetAddress: address,
+		accountAddress: address,
+		scope: ORIGINAL_SET,
 		signature,
 		message:
 			PersonalMessages.acceptMultisigInvitation(address),
@@ -930,6 +1124,7 @@ type ProposerChange = {
 	proposer: string;
 	signature: string;
 	expiry: string;
+	scope: SignerScope;
 };
 
 // Lower-case `0x` and 64 hex digits.
@@ -973,6 +1168,7 @@ export const addProposer = async ({
 	proposer,
 	signature,
 	expiry,
+	scope,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
 	validateIsoExpiry(expiry);
@@ -983,7 +1179,8 @@ export const addProposer = async ({
 	assertCanonicalSignature(signature);
 
 	const publicKey = await verifyMemberSignedMessage({
-		signerSetAddress: address,
+		accountAddress: address,
+		scope,
 		signature,
 		message: PersonalMessages.addMultisigProposer(
 			proposer,
@@ -1058,12 +1255,14 @@ export const addProposer = async ({
 };
 
 // Removes an external proposer from an account, signed by an accepted
-// member. The proposer's pending proposals are cancelled.
+// member. The proposer's pending proposals are cancelled, on the scope's
+// network only under the acting scope.
 export const removeProposer = async ({
 	address,
 	proposer,
 	signature,
 	expiry,
+	scope,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
 	validateIsoExpiry(expiry);
@@ -1074,7 +1273,8 @@ export const removeProposer = async ({
 	assertCanonicalSignature(signature);
 
 	const publicKey = await verifyMemberSignedMessage({
-		signerSetAddress: address,
+		accountAddress: address,
+		scope,
 		signature,
 		message: PersonalMessages.removeMultisigProposer(
 			proposer,
@@ -1117,6 +1317,9 @@ export const removeProposer = async ({
 						SchemaProposals.status,
 						ProposalStatus.PENDING,
 					),
+					scope.kind === 'acting'
+						? eq(SchemaProposals.network, scope.network)
+						: undefined,
 				),
 			)
 			.returning({

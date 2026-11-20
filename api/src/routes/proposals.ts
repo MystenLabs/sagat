@@ -7,6 +7,7 @@ import {
 	toLegacyPaginatedProposals,
 	toLegacyProposal,
 	toLegacyPublicProposal,
+	toOriginalSetProgress,
 } from '../legacy/serializers';
 import {
 	authMiddleware,
@@ -42,6 +43,7 @@ proposalsRouter.post('/', async (c) => {
 		signature,
 		description,
 		network,
+		scopeKind: 'original',
 	});
 
 	return c.json(toLegacyProposal(proposal), 201);
@@ -53,10 +55,13 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 	const { proposalId } = c.req.param();
 
 	const { hasReachedThreshold, currentWeight } =
-		await voteOnProposal({
-			proposalId: parseInt(proposalId),
-			signature,
-		});
+		toOriginalSetProgress(
+			await voteOnProposal({
+				proposalId: parseInt(proposalId),
+				signature,
+				scopeKind: 'original',
+			}),
+		);
 
 	return c.json({ hasReachedThreshold, currentWeight });
 });
@@ -69,6 +74,7 @@ proposalsRouter.post('/:proposalId/cancel', async (c) => {
 	await cancelProposal({
 		proposalId: parseInt(proposalId),
 		signature,
+		scopeKind: 'original',
 	});
 
 	return c.json({
@@ -86,6 +92,7 @@ proposalsRouter.post(
 		await verifyProposal({
 			proposalId: parseInt(proposalId),
 			callerKeys: c.get('publicKeys'),
+			scopeKind: 'original',
 		});
 
 		return c.json({ verified: true });
@@ -98,7 +105,7 @@ proposalsRouter.post(
 	async (c) => {
 		const { digest } = c.req.param();
 
-		await verifyProposalByDigest(digest);
+		await verifyProposalByDigest(digest, 'original');
 
 		return c.json({ verified: true });
 	},
@@ -122,6 +129,7 @@ proposalsRouter.get(
 			status,
 			cursor: newCursor({ nextCursor, perPage }),
 			callerKeys: c.get('publicKeys'),
+			scopeKind: 'original',
 		});
 
 		return c.json(toLegacyPaginatedProposals(proposals));
@@ -131,8 +139,13 @@ proposalsRouter.get(
 proposalsRouter.get('/digest/:digest', async (c) => {
 	const { digest } = c.req.param();
 
-	const { proposal, signerSet, currentWeight, events } =
-		await getProposalByDigest(digest);
+	const progress = await getProposalByDigest(
+		digest,
+		'original',
+	);
+	const { proposal, events } = progress;
+	const { signerSet, currentWeight } =
+		toOriginalSetProgress(progress);
 
 	return c.json(
 		toLegacyPublicProposal(

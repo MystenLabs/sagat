@@ -85,6 +85,13 @@
 			"when": 1793532835524,
 			"tag": "0011_account_events",
 			"breakpoints": true
+		},
+		{
+			"idx": 12,
+			"version": "7",
+			"when": 1795170665814,
+			"tag": "0012_account_acceptances",
+			"breakpoints": true
 		}
 	]
 }

@@ -380,8 +380,107 @@ const accountEvents: MigrationCase = {
 	},
 };
 
+const accountAcceptances: MigrationCase = {
+	name: '0012 account acceptances',
+	baseline: 11,
+	target: 12,
+	seed: `
+		INSERT INTO addresses (public_key, address) VALUES
+			('AKEY1', '0xa1'), ('AKEY2', '0xa2');
+		INSERT INTO accounts (address, name) VALUES ('0xacc', 'Treasury');
+		INSERT INTO signer_sets (address, is_verified, threshold, name) VALUES
+			('0xacc', true, 2, 'Treasury');
+		INSERT INTO signer_set_members (signer_set_address, public_key, weight, is_accepted, is_rejected, "order") VALUES
+			('0xacc', 'AKEY1', 1, true, false, 0),
+			('0xacc', 'AKEY2', 1, false, false, 1);
+		INSERT INTO account_aliases (account_address, network, alias_address) VALUES
+			('0xacc', 'testnet', '0xacc'),
+			('0xacc', 'testnet', '0xother');
+	`,
+	preserved: [
+		{
+			label: 'accounts',
+			before: `SELECT address, name FROM accounts ORDER BY 1`,
+			after: `SELECT address, name FROM accounts ORDER BY 1`,
+		},
+		{
+			label: 'signer_set_members',
+			before: `SELECT signer_set_address, public_key, weight, is_accepted, is_rejected, "order" FROM signer_set_members ORDER BY 1, 2`,
+			after: `SELECT signer_set_address, public_key, weight, is_accepted, is_rejected, "order" FROM signer_set_members ORDER BY 1, 2`,
+		},
+		{
+			label: 'account_aliases',
+			before: `SELECT account_address, network, alias_address FROM account_aliases ORDER BY 1, 2, 3`,
+			after: `SELECT account_address, network, alias_address FROM account_aliases ORDER BY 1, 2, 3`,
+		},
+	],
+	verify: async (db) => {
+		// No backfill.
+		expect(
+			Number(
+				await db.value(
+					`SELECT count(*) FROM account_acceptances`,
+				),
+			),
+		).toBe(0);
+
+		expect(
+			await db.rows(`
+				INSERT INTO account_acceptances (account_address, public_key, is_accepted)
+				VALUES ('0xacc', 'AKEY2', true)
+				RETURNING account_address, public_key, is_accepted, is_rejected, answered_at IS NOT NULL`),
+		).toEqual([['0xacc', 'AKEY2', true, false, true]]);
+		await expect(
+			db.value(`
+				INSERT INTO account_acceptances (account_address, public_key, is_rejected)
+				VALUES ('0xacc', 'AKEY2', true)`),
+		).rejects.toThrow(
+			/account_acceptances_account_address_public_key_pk/,
+		);
+
+		// A row is an answer: exactly one flag.
+		await expect(
+			db.value(`
+				INSERT INTO account_acceptances (account_address, public_key, is_accepted, is_rejected)
+				VALUES ('0xacc', 'AKEY1', true, true)`),
+		).rejects.toThrow(/account_acceptances_answer_check/);
+		await expect(
+			db.value(`
+				INSERT INTO account_acceptances (account_address, public_key)
+				VALUES ('0xacc', 'AKEY1')`),
+		).rejects.toThrow(/account_acceptances_answer_check/);
+
+		await expect(
+			db.value(`
+				INSERT INTO account_acceptances (account_address, public_key, is_accepted)
+				VALUES ('0xunknown', 'AKEY1', true)`),
+		).rejects.toThrow(
+			/account_acceptances_account_address_accounts_address_fk/,
+		);
+		await expect(
+			db.value(`
+				INSERT INTO account_acceptances (account_address, public_key, is_accepted)
+				VALUES ('0xacc', 'UNKNOWN_KEY', true)`),
+		).rejects.toThrow(
+			/account_acceptances_public_key_addresses_public_key_fk/,
+		);
+
+		expect(
+			await db.rows(
+				`SELECT indexname FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'account_aliases' ORDER BY 1`,
+			),
+		).toEqual([
+			[
+				'account_aliases_account_address_network_alias_address_pk',
+			],
+			['account_aliases_alias_network_idx'],
+		]);
+	},
+};
+
 export const migrationCases: MigrationCase[] = [
 	accountRotation,
 	accountKeys,
 	accountEvents,
+	accountAcceptances,
 ];

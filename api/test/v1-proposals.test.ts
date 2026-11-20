@@ -10,7 +10,7 @@ import {
 	SagatResponseError,
 	SagatV1Client,
 } from '@mysten/sagat/v1';
-import { toBase58 } from '@mysten/sui/utils';
+import { fromBase64, toBase58 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -21,11 +21,14 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
 import { SchemaProposals } from '../src/db/schema';
+import { voteOnProposal } from '../src/services/proposals.service';
 import {
 	ApiTestFramework,
 	newUser,
 	type TestSession,
+	type TestUser,
 } from './framework/api-test-framework';
+import { register, setAliases } from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -215,5 +218,225 @@ describe('GET /v1/proposals/:digest', () => {
 				(issue: { path: PropertyKey[] }) => issue.path,
 			),
 		).toContainEqual(['accountAddress']);
+	});
+});
+
+describe('GET /v1/proposals/:digest counts per acting set', () => {
+	let session: TestSession;
+	let client: SagatV1Client;
+
+	beforeEach(async () => {
+		session = new ApiTestFramework(
+			await createTestApp(),
+		).createSession();
+		client = new SagatV1Client('', {
+			fetch: (url, init) =>
+				session.request(url as string, init),
+		});
+	});
+
+	// Account `A`: original set 2 of 2, `k1` proposed.
+	const proposeFromA = async () => {
+		const [k1, k2] = [newUser(), newUser()];
+		for (const user of [k1, k2])
+			await session.connectUser(user);
+		const account = await session.createMultisig(
+			[k1, k2],
+			2,
+			{ name: 'Treasury', fund: true },
+		);
+		await session.acceptMultisig(k2, account.address);
+		const created = await session.proposeTransfer(
+			k1,
+			account.address,
+		);
+		return { k1, k2, account, created };
+	};
+
+	// A signature by a key outside the original set; no `/v1` vote route yet.
+	const signAsActing = async (
+		user: TestUser,
+		created: { id: number; transactionBytes: string },
+	) =>
+		voteOnProposal({
+			proposalId: created.id,
+			signature: (
+				await user.keypair.signTransaction(
+					fromBase64(created.transactionBytes),
+				)
+			).signature,
+			scopeKind: 'acting',
+		});
+
+	const setOf = (
+		multisig: {
+			address: string;
+			threshold: number;
+			members: {
+				publicKey: string;
+				weight: number;
+				order: number;
+			}[];
+		},
+		currentWeight: number,
+	) => ({
+		address: multisig.address,
+		threshold: multisig.threshold,
+		currentWeight,
+		hasReachedThreshold:
+			currentWeight >= multisig.threshold,
+		members: multisig.members.map((member) => ({
+			publicKey: member.publicKey,
+			weight: member.weight,
+			order: member.order,
+		})),
+	});
+
+	const byAddress = (
+		a: { address: string },
+		b: { address: string },
+	) => (a.address < b.address ? -1 : 1);
+
+	test('a key in two acting sets counts in both, and the proposal is ready when either set reaches its threshold', async () => {
+		const { k1, account, created } = await proposeFromA();
+		const k3 = newUser();
+		const composition = await session.createMultisig(
+			[k1, k3],
+			2,
+		);
+		await setAliases(account.address, 'localnet', [
+			account.address,
+			composition.address,
+		]);
+
+		const before = await client.getProposalByDigest(
+			created.digest,
+		);
+		expect(before.signerSets).toEqual(
+			[setOf(account, 1), setOf(composition, 1)].sort(
+				byAddress,
+			),
+		);
+		expect(before.hasReachedThreshold).toBe(false);
+
+		await signAsActing(k3, created);
+
+		const after = await client.getProposalByDigest(
+			created.digest,
+		);
+		expect(after.signerSets).toEqual(
+			[setOf(account, 1), setOf(composition, 2)].sort(
+				byAddress,
+			),
+		);
+		expect(after.hasReachedThreshold).toBe(true);
+	});
+
+	test('a single registered key as an alias is a set of one', async () => {
+		const { account, created } = await proposeFromA();
+		const key = newUser();
+		await register(key);
+		await setAliases(account.address, 'localnet', [
+			account.address,
+			key.address,
+		]);
+		const keySet = (currentWeight: number) => ({
+			address: key.address,
+			threshold: 1,
+			currentWeight,
+			hasReachedThreshold: currentWeight >= 1,
+			members: [
+				{ publicKey: key.publicKey, weight: 1, order: 0 },
+			],
+		});
+
+		const before = await client.getProposalByDigest(
+			created.digest,
+		);
+		expect(before.signerSets).toEqual(
+			[setOf(account, 1), keySet(0)].sort(byAddress),
+		);
+		expect(before.hasReachedThreshold).toBe(false);
+
+		await signAsActing(key, created);
+
+		const after = await client.getProposalByDigest(
+			created.digest,
+		);
+		expect(after.signerSets).toEqual(
+			[setOf(account, 1), keySet(1)].sort(byAddress),
+		);
+		expect(after.hasReachedThreshold).toBe(true);
+	});
+
+	test('an alias nobody can identify is not a signer set', async () => {
+		const { account, created } = await proposeFromA();
+		await setAliases(account.address, 'localnet', [
+			account.address,
+			newUser().address,
+		]);
+
+		const proposal = await client.getProposalByDigest(
+			created.digest,
+		);
+
+		expect(proposal.signerSets).toEqual([
+			setOf(account, 1),
+		]);
+	});
+
+	test('the original set, once removed, is not counted', async () => {
+		const { account, created } = await proposeFromA();
+		const composition = await session.createMultisig(
+			[newUser(), newUser()],
+			2,
+		);
+		await setAliases(account.address, 'localnet', [
+			composition.address,
+		]);
+
+		const proposal = await client.getProposalByDigest(
+			created.digest,
+		);
+
+		expect(proposal.signatures).toHaveLength(1);
+		expect(proposal.signerSets).toEqual([
+			setOf(composition, 0),
+		]);
+		expect(proposal.hasReachedThreshold).toBe(false);
+		expect(proposal.accountName).toBe('Treasury');
+	});
+
+	test('an account with no acting set returns an empty list', async () => {
+		const { account, created } = await proposeFromA();
+		await setAliases(account.address, 'localnet', [
+			newUser().address,
+		]);
+
+		const proposal = await client.getProposalByDigest(
+			created.digest,
+		);
+
+		expect(proposal.signerSets).toEqual([]);
+		expect(proposal.hasReachedThreshold).toBe(false);
+	});
+
+	test('alias rows on another network leave the original set acting', async () => {
+		const { account, created } = await proposeFromA();
+		const composition = await session.createMultisig(
+			[newUser(), newUser()],
+			2,
+		);
+		await setAliases(account.address, 'testnet', [
+			composition.address,
+		]);
+
+		const proposal = await client.getProposalByDigest(
+			created.digest,
+		);
+
+		expect(proposal.signerSets).toEqual([
+			setOf(account, 1),
+		]);
 	});
 });

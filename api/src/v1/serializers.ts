@@ -25,8 +25,8 @@ const toV1AccountEvent = (
 
 export const toV1Proposal = ({
 	proposal,
-	signerSet,
-	currentWeight,
+	signers,
+	sets,
 	hasReachedThreshold,
 	events,
 }: ProposalProgress & { events: ProposalEvents }): z.input<
@@ -35,7 +35,7 @@ export const toV1Proposal = ({
 	id: proposal.id,
 	digest: proposal.digest,
 	accountAddress: proposal.accountAddress,
-	accountName: signerSet.name,
+	accountName: signers.accountName,
 	network: proposal.network,
 	status: proposal.status,
 	transactionBytes: proposal.transactionBytes,
@@ -48,19 +48,17 @@ export const toV1Proposal = ({
 		signature: signature.signature,
 	})),
 	hasReachedThreshold,
-	signerSets: [
-		{
-			address: signerSet.address,
-			threshold: signerSet.threshold,
-			currentWeight,
-			hasReachedThreshold,
-			members: signerSet.members.map((member) => ({
-				publicKey: member.publicKey,
-				weight: member.weight,
-				order: member.order,
-			})),
-		},
-	],
+	signerSets: sets.map((set) => ({
+		address: set.signerSet.address,
+		threshold: set.signerSet.threshold,
+		currentWeight: set.currentWeight,
+		hasReachedThreshold: set.hasReachedThreshold,
+		members: set.signerSet.members.map((member) => ({
+			publicKey: member.publicKey,
+			weight: member.weight,
+			order: member.order,
+		})),
+	})),
 	events: {
 		created: toV1AccountEvent(events.created),
 		proposer: toV1AccountEvent(events.proposer),
