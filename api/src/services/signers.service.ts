@@ -10,12 +10,19 @@
 import {
 	and,
 	eq,
+	exists,
 	inArray,
 	isNull,
+	ne,
 	notExists,
+	or,
 	sql,
 } from 'drizzle-orm';
-import { alias, union } from 'drizzle-orm/pg-core';
+import {
+	alias,
+	union,
+	unionAll,
+} from 'drizzle-orm/pg-core';
 
 import { db } from '../db';
 import {
@@ -131,34 +138,99 @@ const readActingRows = (
 	addresses: string[],
 	network: SuiNetwork,
 ) => {
-	const aliasAddress = sql<string>`COALESCE(${SchemaAccountAliases.aliasAddress}, ${SchemaAccounts.address})`;
+	const ownAliases = alias(
+		SchemaAccountAliases,
+		'own_aliases',
+	);
+	const hasAlias = (own: boolean) =>
+		db
+			.select({ one: sql`1` })
+			.from(ownAliases)
+			.where(
+				and(
+					eq(
+						ownAliases.accountAddress,
+						SchemaAccounts.address,
+					),
+					eq(ownAliases.network, network),
+					own
+						? eq(
+								ownAliases.aliasAddress,
+								SchemaAccounts.address,
+							)
+						: undefined,
+				),
+			);
+	// Each alias row acts; the account's own address is always read, and acts when listed or when nothing is.
+	const candidates = db.$with('candidates').as(
+		unionAll(
+			db
+				.select({
+					accountAddress:
+						sql<string>`${SchemaAccountAliases.accountAddress}`.as(
+							'candidate_account',
+						),
+					address:
+						sql<string>`${SchemaAccountAliases.aliasAddress}`.as(
+							'candidate_address',
+						),
+					acts: sql<boolean>`true`.as('candidate_acts'),
+				})
+				.from(SchemaAccountAliases)
+				.where(
+					and(
+						inArray(
+							SchemaAccountAliases.accountAddress,
+							addresses,
+						),
+						eq(SchemaAccountAliases.network, network),
+						ne(
+							SchemaAccountAliases.aliasAddress,
+							SchemaAccountAliases.accountAddress,
+						),
+					),
+				),
+			db
+				.select({
+					accountAddress:
+						sql<string>`${SchemaAccounts.address}`.as(
+							'candidate_account',
+						),
+					address:
+						sql<string>`${SchemaAccounts.address}`.as(
+							'candidate_address',
+						),
+					acts: sql<boolean>`${or(
+						exists(hasAlias(true)),
+						notExists(hasAlias(false)),
+					)}`.as('candidate_acts'),
+				})
+				.from(SchemaAccounts)
+				.where(inArray(SchemaAccounts.address, addresses)),
+		),
+	);
+
 	const publicKey = sql<string>`COALESCE(${SchemaSignerSetMembers.publicKey}, ${SchemaAddresses.publicKey})`;
 	return db
+		.with(candidates)
 		.select({
 			accountAddress: SchemaAccounts.address,
 			accountName: SchemaAccounts.name,
-			alias: aliasAddress,
-			threshold: SchemaSignerSets.threshold,
+			alias: candidates.address,
+			acts: candidates.acts,
+			set: SchemaSignerSets,
+			member: SchemaSignerSetMembers,
 			aliasKey: SchemaAddresses.publicKey,
-			publicKey: SchemaSignerSetMembers.publicKey,
-			weight: SchemaSignerSetMembers.weight,
-			order: SchemaSignerSetMembers.order,
 			answer: answerSql,
 		})
-		.from(SchemaAccounts)
-		.leftJoin(
-			SchemaAccountAliases,
-			and(
-				eq(
-					SchemaAccountAliases.accountAddress,
-					SchemaAccounts.address,
-				),
-				eq(SchemaAccountAliases.network, network),
-			),
+		.from(candidates)
+		.innerJoin(
+			SchemaAccounts,
+			eq(SchemaAccounts.address, candidates.accountAddress),
 		)
 		.leftJoin(
 			SchemaSignerSets,
-			eq(SchemaSignerSets.address, aliasAddress),
+			eq(SchemaSignerSets.address, candidates.address),
 		)
 		.leftJoin(
 			SchemaSignerSetMembers,
@@ -171,7 +243,7 @@ const readActingRows = (
 			SchemaAddresses,
 			and(
 				isNull(SchemaSignerSets.address),
-				eq(SchemaAddresses.address, aliasAddress),
+				eq(SchemaAddresses.address, candidates.address),
 			),
 		)
 		.leftJoin(
@@ -193,8 +265,7 @@ const readActingRows = (
 				),
 				eq(SchemaAccountAcceptances.publicKey, publicKey),
 			),
-		)
-		.where(inArray(SchemaAccounts.address, addresses));
+		);
 };
 
 const byAddress = (
@@ -211,18 +282,16 @@ const resolveActing = async (
 	addresses: string[],
 	network: SuiNetwork,
 ) => {
-	const [rows, originals] = await Promise.all([
-		readActingRows(addresses, network),
-		loadSignerSets(addresses),
-	]);
-	const originalOf = new Map(
-		addresses.map((address, i) => [address, originals[i]]),
-	);
+	const rows = await readActingRows(addresses, network);
 
 	const result = new Map<string, AccountSigners>();
 	const setsOf = new Map<
 		string,
 		Map<string, ActingSignerSet>
+	>();
+	const originalMembersOf = new Map<
+		string,
+		SignerSetMember[]
 	>();
 	for (const row of rows) {
 		let signers = result.get(row.accountAddress);
@@ -230,32 +299,46 @@ const resolveActing = async (
 			signers = {
 				accountAddress: row.accountAddress,
 				accountName: row.accountName,
-				originalSet:
-					originalOf.get(row.accountAddress) ?? null,
+				originalSet: null,
 				actingSets: [],
 				otherSignerSets: [],
 			};
 			result.set(row.accountAddress, signers);
 			setsOf.set(row.accountAddress, new Map());
+			originalMembersOf.set(row.accountAddress, []);
 		}
 		const sets = setsOf.get(row.accountAddress)!;
 
-		if (row.threshold !== null) {
+		if (row.alias === row.accountAddress && row.set) {
+			signers.originalSet ??= {
+				...row.set,
+				members: [],
+				totalMembers: 0,
+				totalWeight: 0,
+			};
+			if (row.member)
+				originalMembersOf
+					.get(row.accountAddress)!
+					.push(row.member);
+		}
+		if (!row.acts) continue;
+
+		if (row.set) {
 			let set = sets.get(row.alias);
 			if (!set) {
 				set = {
 					kind: 'signer_set',
 					address: row.alias,
-					threshold: row.threshold,
+					threshold: row.set.threshold,
 					members: [],
 				};
 				sets.set(row.alias, set);
 			}
-			if (row.publicKey !== null)
+			if (row.member)
 				set.members.push({
-					publicKey: row.publicKey,
-					weight: row.weight!,
-					order: row.order!,
+					publicKey: row.member.publicKey,
+					weight: row.member.weight,
+					order: row.member.order,
 					answer: row.answer,
 				});
 		} else if (row.aliasKey !== null) {
@@ -284,6 +367,17 @@ const resolveActing = async (
 		for (const set of signers.actingSets)
 			set.members.sort((a, b) => a.order - b.order);
 		signers.otherSignerSets.sort();
+		if (signers.originalSet) {
+			const members = originalMembersOf
+				.get(account)!
+				.sort((a, b) => a.order - b.order);
+			signers.originalSet.members = members;
+			signers.originalSet.totalMembers = members.length;
+			signers.originalSet.totalWeight = members.reduce(
+				(sum, member) => sum + member.weight,
+				0,
+			);
+		}
 	}
 	return result;
 };

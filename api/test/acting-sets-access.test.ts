@@ -702,7 +702,7 @@ describe('access under the acting scope', () => {
 		await propose(proposer, account, third);
 	});
 
-	test('an outsider is refused everywhere, and an address that is no account looks the same', async () => {
+	test('an outsider cannot read, vote, propose or list proposals, and an address that is no account looks the same', async () => {
 		const { account, k1 } = await createCast();
 		const outsider = newUser();
 		const proposal = await insertProposal(
@@ -814,6 +814,13 @@ describe('access under the acting scope', () => {
 		await expectRefused(read(k1, account), ACCESS_DENIED);
 		await expectRefused(vote(k1, proposal), NOT_A_MEMBER);
 		await expectRefused(propose(k1, account), NOT_A_MEMBER);
+		await expectRefused(
+			propose(
+				await addExternalProposer(k1, account),
+				account,
+			),
+			NOT_A_MEMBER,
+		);
 		expect(await listed(k1)).toEqual([]);
 
 		await read(k1, account, TESTNET);

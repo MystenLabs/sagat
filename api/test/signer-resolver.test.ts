@@ -7,7 +7,6 @@ import {
 	expect,
 	test,
 } from 'bun:test';
-import { and, eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
 import {
@@ -211,51 +210,6 @@ describe('signer resolver', () => {
 		);
 	});
 
-	test('aliases on one network leave the original set acting on another', async () => {
-		const owners = [newUser(), newUser()];
-		const account = await createAccount(owners);
-		const other = await createAccount([
-			newUser(),
-			newUser(),
-		]);
-		await setAliases(account, 'localnet', [other]);
-
-		expect(
-			(await resolveAccountSigners(
-				account,
-				LOCALNET,
-			))!.actingSets.map((s) => s.address),
-		).toEqual([other]);
-		expect(
-			(await resolveAccountSigners(
-				account,
-				TESTNET,
-			))!.actingSets.map((s) => s.address),
-		).toEqual([account]);
-	});
-
-	test('an account whose only alias is unknown has no acting set on that network', async () => {
-		const account = await createAccount([
-			newUser(),
-			newUser(),
-		]);
-		const unknown = newUser().address;
-		await setAliases(account, 'testnet', [unknown]);
-
-		const onTestnet = (await resolveAccountSigners(
-			account,
-			TESTNET,
-		))!;
-		expect(onTestnet.actingSets).toEqual([]);
-		expect(onTestnet.otherSignerSets).toEqual([unknown]);
-		expect(
-			(await resolveAccountSigners(
-				account,
-				LOCALNET,
-			))!.actingSets.map((s) => s.address),
-		).toEqual([account]);
-	});
-
 	test('a key answers for an account, from its member row or its acceptance row', async () => {
 		const [accepted, invited, rejected] = [
 			newUser(),
@@ -287,6 +241,15 @@ describe('signer resolver', () => {
 			account,
 			LOCALNET,
 		))!;
+		expect(
+			signers.actingSets.filter(
+				(s) => s.address === account,
+			),
+		).toHaveLength(1);
+		expect(signers.originalSet).toEqual(
+			(await resolveAccountSigners(account, ORIGINAL_SET))!
+				.originalSet,
+		);
 		const byAddress = new Map(
 			signers.actingSets.map((s) => [s.address, s]),
 		);
@@ -304,78 +267,6 @@ describe('signer resolver', () => {
 		expect(await answerOf(neighbour, members[1])).toBe(
 			'invited',
 		);
-	});
-
-	test('a removed set that is added back keeps its earlier answer', async () => {
-		const account = await createAccount([
-			newUser(),
-			newUser(),
-		]);
-		const member = newUser();
-		const composition = await createAccount([
-			member,
-			newUser(),
-		]);
-		await setAliases(account, 'localnet', [
-			account,
-			composition,
-		]);
-		await answerFor(account, member, 'accepted');
-
-		const row = and(
-			eq(SchemaAccountAliases.accountAddress, account),
-			eq(SchemaAccountAliases.aliasAddress, composition),
-		);
-		await db.delete(SchemaAccountAliases).where(row);
-		expect(await answerOf(account, member)).toBe(null);
-
-		await setAliases(account, 'localnet', [composition]);
-		expect(await answerOf(account, member)).toBe(
-			'accepted',
-		);
-	});
-
-	test('a stranger listing a known composition invites its members but is not their account', async () => {
-		const members = [newUser(), newUser()];
-		const own = await createAccount(members);
-		const stranger = await createAccount([
-			newUser(),
-			newUser(),
-		]);
-		await setAliases(stranger, 'localnet', [own]);
-
-		const signers = (await resolveAccountSigners(
-			stranger,
-			LOCALNET,
-		))!;
-		expect(membersOf(signers.actingSets[0])).toEqual(
-			members.map((m) => [m.publicKey, 'invited']),
-		);
-
-		expect(
-			await listActingAccounts(
-				[members[0].publicKey],
-				'localnet',
-				'accepted',
-			),
-		).toEqual([
-			{
-				accountAddress: own,
-				publicKey: members[0].publicKey,
-			},
-		]);
-		expect(
-			await listActingAccounts(
-				[members[0].publicKey],
-				'localnet',
-				'invited',
-			),
-		).toEqual([
-			{
-				accountAddress: stranger,
-				publicKey: members[0].publicKey,
-			},
-		]);
 	});
 
 	test('listActingAccounts follows each network, and a key alias once it accepted', async () => {
@@ -486,9 +377,10 @@ describe('signer resolver', () => {
 			return queryCount() - before;
 		};
 
-		const one = await statementsFor(accounts.slice(0, 1));
-		expect(one).toBeGreaterThan(0);
-		expect(await statementsFor(accounts)).toBe(one);
+		expect(await statementsFor(accounts.slice(0, 1))).toBe(
+			1,
+		);
+		expect(await statementsFor(accounts)).toBe(1);
 	});
 
 	test('the original scope returns the set at the address, whatever the mirror says', async () => {

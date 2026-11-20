@@ -45,11 +45,12 @@ beforeEach(async () => {
 	framework = new ApiTestFramework(await createTestApp());
 });
 
-// `A`: original set 2 of 3 (`k1`, `k2` accepted, `k3` invited), funded. The
+// `A`: original set 2 of 4 (`k1`, `k2` accepted, `k3`, `k4` invited), funded. The
 // mirror says composition `R` acts on localnet and `A` does not, and `r1`
 // of `R` accepted `A`.
 const setup = async () => {
-	const [k1, k2, k3, r1] = [
+	const [k1, k2, k3, k4, r1] = [
+		newUser(),
 		newUser(),
 		newUser(),
 		newUser(),
@@ -59,7 +60,7 @@ const setup = async () => {
 	for (const user of [k1, k2])
 		await session.connectUser(user);
 	const account = (
-		await session.createMultisig([k1, k2, k3], 2, {
+		await session.createMultisig([k1, k2, k3, k4], 2, {
 			fund: true,
 		})
 	).address;
@@ -96,6 +97,7 @@ const setup = async () => {
 		k1,
 		k2,
 		k3,
+		k4,
 		r1,
 		account,
 		session,
@@ -114,7 +116,7 @@ const connectionsOf = async (
 
 describe('legacy routes under alias mirror rows', () => {
 	test("the original set's keys keep every legacy route", async () => {
-		const { k1, k2, k3, account, session, invitee } =
+		const { k1, k2, k3, k4, account, session, invitee } =
 			await setup();
 
 		expect(await connectionsOf(session, k1)).toContain(
@@ -126,6 +128,7 @@ describe('legacy routes under alias mirror rows', () => {
 			).map((multisig) => multisig.address),
 		).toContain(account);
 		await invitee.acceptMultisig(k3, account);
+		await invitee.rejectMultisig(k4, account);
 
 		const multisig =
 			await session.client.getMultisig(account);
@@ -134,11 +137,13 @@ describe('legacy routes under alias mirror rows', () => {
 			multisig.members.map((m) => [
 				m.publicKey,
 				m.isAccepted,
+				m.isRejected,
 			]),
 		).toEqual([
-			[k1.publicKey, true],
-			[k2.publicKey, true],
-			[k3.publicKey, true],
+			[k1.publicKey, true, false],
+			[k2.publicKey, true, false],
+			[k3.publicKey, true, false],
+			[k4.publicKey, false, true],
 		]);
 
 		const bot = newUser();
@@ -198,7 +203,12 @@ describe('legacy routes under alias mirror rows', () => {
 			byDigest.multisig.members.map(
 				(m: { publicKey: string }) => m.publicKey,
 			),
-		).toEqual([k1.publicKey, k2.publicKey, k3.publicKey]);
+		).toEqual([
+			k1.publicKey,
+			k2.publicKey,
+			k3.publicKey,
+			k4.publicKey,
+		]);
 
 		const tx = await session.voteAndExecute(
 			[k1, k2],
@@ -212,6 +222,15 @@ describe('legacy routes under alias mirror rows', () => {
 				)
 			).status,
 		).toBe(ProposalStatus.SUCCESS);
+
+		const verified = await session.post(
+			`/proposals/${proposal.id}/verify`,
+			{},
+		);
+		expect(verified.status).toBe(200);
+		expect(await verified.json()).toEqual({
+			verified: true,
+		});
 	});
 
 	test('a key of another acting set gets nothing from a legacy route', async () => {
@@ -321,6 +340,35 @@ describe('legacy routes under alias mirror rows', () => {
 							),
 						),
 					},
+				),
+			),
+		).toEqual(notAMember);
+
+		expect(
+			await errorOf(
+				await outsider.post(
+					`/multisig/${account}/remove-proposer`,
+					{
+						proposer,
+						expiry,
+						signature: await sign(
+							r1,
+							PersonalMessages.removeMultisigProposer(
+								proposer,
+								account,
+								expiry,
+							),
+						),
+					},
+				),
+			),
+		).toEqual(notAMember);
+
+		expect(
+			await errorOf(
+				await outsider.post(
+					`/proposals/${proposal.id}/verify`,
+					{},
 				),
 			),
 		).toEqual(notAMember);

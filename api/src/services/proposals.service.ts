@@ -413,10 +413,13 @@ export const createProposal = async ({
 	const isMember =
 		keyAnswer(accountSigners, pubKey.toSuiPublicKey()) ===
 		'accepted';
-	const isProposer = await isAccountProposer(
-		multisigAddress,
-		pubKey.toSuiAddress(),
-	);
+	// With no acting set on the network, nobody acts for the account there.
+	const isProposer =
+		accountSigners.actingSets.length > 0 &&
+		(await isAccountProposer(
+			multisigAddress,
+			pubKey.toSuiAddress(),
+		));
 
 	if (!isMember && !isProposer)
 		throw new ApiAuthError('NotAMultisigMember');
