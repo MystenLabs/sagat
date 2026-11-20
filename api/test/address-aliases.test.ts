@@ -5,6 +5,7 @@
 // Regression suite for the protocol rules that account rotation relies on
 // (design/account-rotation.md). The steps share state and run in order.
 
+import { deriveAliasesObjectId } from '@mysten/sagat';
 import {
 	SimulationError,
 	type SuiClientTypes,
@@ -25,7 +26,6 @@ import {
 	buildAdd,
 	buildEnable,
 	buildRemove,
-	deriveAliasesObjectId,
 	fetchAliasSet,
 	MAX_ALIASES,
 } from '../src/utils/aliases';

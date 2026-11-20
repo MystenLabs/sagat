@@ -3,6 +3,10 @@
 
 // The alias mirror against a local network. The steps share state and run in order.
 
+import {
+	ALIAS_OBJECT_INCLUDE,
+	deriveAliasesObjectId,
+} from '@mysten/sagat';
 import { type SuiClientTypes } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { type Transaction } from '@mysten/sui/transactions';
@@ -37,11 +41,9 @@ import {
 	requireFreshAliases,
 } from '../src/services/aliases.service';
 import {
-	ALIAS_OBJECT_INCLUDE,
 	buildAdd,
 	buildEnable,
 	buildRemove,
-	deriveAliasesObjectId,
 	fetchAliasSet,
 } from '../src/utils/aliases';
 import { ApiTestFramework } from './framework/api-test-framework';
