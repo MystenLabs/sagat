@@ -3,22 +3,14 @@
 
 import { createRoute } from '@hono/zod-openapi';
 import {
-	ErrorBodySchema,
 	ProposalSchema,
 	TransactionDigestSchema,
 } from '@mysten/sagat/v1';
 import { z } from 'zod';
 
 import { getProposalByDigest } from '../services/proposals.service';
-import { defineRoute, type V1App } from './openapi';
+import { defineRoute, error, type V1App } from './openapi';
 import { toV1Proposal } from './serializers';
-
-const error = (description: string) => ({
-	description,
-	content: {
-		'application/json': { schema: ErrorBodySchema },
-	},
-});
 
 const getProposal = createRoute({
 	method: 'get',

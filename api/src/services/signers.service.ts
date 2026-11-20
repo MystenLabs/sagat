@@ -622,25 +622,40 @@ export const listActingAccounts = async (
 		.where(sql`${answerSql} = ${answer}`);
 };
 
-// The accounts the keys are tied to on the network: a key's set acts there, a link's composition holds a key, or a key answered.
+// The accounts the keys are tied to on the network (a key's set acts there, a link's composition holds a key, or a key answered) where a tied key accepted, or with `accepted: false` one did not.
 export const listTiedAccounts = async (
 	publicKeys: string[],
 	network: SuiNetwork,
+	accepted: boolean,
 ): Promise<string[]> => {
 	if (publicKeys.length === 0) return [];
 	const { sets, acting } = actingForKeys(
 		publicKeys,
 		network,
 	);
-	const rows = await db
-		.with(sets, acting)
-		.select({ accountAddress: acting.accountAddress })
-		.from(acting)
-		.union(
+	const tied = db.$with('tied').as(
+		union(
 			db
 				.select({
 					accountAddress:
-						SchemaAccountSignerSets.accountAddress,
+						sql<string>`${acting.accountAddress}`.as(
+							'tied_account',
+						),
+					publicKey: sql<string>`${acting.publicKey}`.as(
+						'tied_key',
+					),
+				})
+				.from(acting),
+			db
+				.select({
+					accountAddress:
+						sql<string>`${SchemaAccountSignerSets.accountAddress}`.as(
+							'tied_account',
+						),
+					publicKey:
+						sql<string>`${SchemaSignerSetMembers.publicKey}`.as(
+							'tied_key',
+						),
 				})
 				.from(SchemaAccountSignerSets)
 				.innerJoin(
@@ -656,12 +671,16 @@ export const listTiedAccounts = async (
 						publicKeys,
 					),
 				),
-		)
-		.union(
 			db
 				.select({
 					accountAddress:
-						SchemaAccountAcceptances.accountAddress,
+						sql<string>`${SchemaAccountAcceptances.accountAddress}`.as(
+							'tied_account',
+						),
+					publicKey:
+						sql<string>`${SchemaAccountAcceptances.publicKey}`.as(
+							'tied_key',
+						),
 				})
 				.from(SchemaAccountAcceptances)
 				.where(
@@ -670,6 +689,39 @@ export const listTiedAccounts = async (
 						publicKeys,
 					),
 				),
+		),
+	);
+	const rows = await db
+		.with(sets, acting, tied)
+		.selectDistinct({ accountAddress: tied.accountAddress })
+		.from(tied)
+		.leftJoin(
+			originalMember,
+			and(
+				eq(
+					originalMember.signerSetAddress,
+					tied.accountAddress,
+				),
+				eq(originalMember.publicKey, tied.publicKey),
+			),
+		)
+		.leftJoin(
+			SchemaAccountAcceptances,
+			and(
+				eq(
+					SchemaAccountAcceptances.accountAddress,
+					tied.accountAddress,
+				),
+				eq(
+					SchemaAccountAcceptances.publicKey,
+					tied.publicKey,
+				),
+			),
+		)
+		.where(
+			accepted
+				? sql`${answerSql} = 'accepted'`
+				: sql`${answerSql} <> 'accepted'`,
 		);
 	return rows.map((row) => row.accountAddress).sort();
 };

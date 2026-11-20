@@ -6,6 +6,7 @@ import {
 	type RouteConfig,
 	type RouteHandler,
 } from '@hono/zod-openapi';
+import { ErrorBodySchema } from '@mysten/sagat/v1';
 import { routePath } from 'hono/route';
 import { type z } from 'zod';
 
@@ -71,3 +72,14 @@ export const defineRoute = <R extends JsonRoute>(
 		return c.json(parsed.data, 200);
 	}) as unknown as RouteHandler<R>);
 };
+
+export const json = <T extends z.ZodType>(
+	description: string,
+	schema: T,
+) => ({
+	description,
+	content: { 'application/json': { schema } },
+});
+
+export const error = (description: string) =>
+	json(description, ErrorBodySchema);

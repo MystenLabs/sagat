@@ -44,10 +44,7 @@ describe('GET /v1/proposals/:digest', () => {
 	beforeEach(async () => {
 		framework = new ApiTestFramework(await createTestApp());
 		session = framework.createSession();
-		client = new SagatV1Client('', {
-			fetch: (url, init) =>
-				session.request(url as string, init),
-		});
+		client = session.v1;
 	});
 
 	const proposeRent = async () => {
@@ -229,10 +226,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		session = new ApiTestFramework(
 			await createTestApp(),
 		).createSession();
-		client = new SagatV1Client('', {
-			fetch: (url, init) =>
-				session.request(url as string, init),
-		});
+		client = session.v1;
 	});
 
 	// Account `A`: original set 2 of 2, `k1` proposed.

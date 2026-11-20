@@ -24,6 +24,7 @@ import {
 	SchemaAccountProposers,
 	SchemaProposals,
 	SchemaProposalSignatures,
+	SchemaSignerSetMembers,
 } from '../src/db/schema';
 import { lockAccount } from '../src/db/transaction';
 import { AuthErrors, CommonErrors } from '../src/errors';
@@ -1066,6 +1067,25 @@ describe('input refused before anything is stored', () => {
 			),
 		).toEqual(refused);
 
+		const answerExpiry = `${expiresAt.toUTCString()} (x)`;
+		expect(
+			await errorOf(
+				await session.post(
+					`/v1/accounts/${multisig.address}/accept?network=localnet`,
+					{
+						signature: await sign(
+							users[1],
+							PersonalMessages.acceptAccountInvitation(
+								multisig.address,
+								answerExpiry,
+							),
+						),
+						expiry: answerExpiry,
+					},
+				),
+			),
+		).toEqual(refused);
+
 		expect(await proposersOf(multisig.address)).toEqual([
 			proposer,
 		]);
@@ -1161,6 +1181,10 @@ describe('input refused before anything is stored', () => {
 			proposer,
 			multisig.address,
 		);
+		const invitee = newUser();
+		const pending = (
+			await session.createMultisig([users[0], invitee], 2)
+		).address;
 		const transactionBytes = await buildTransfer(
 			multisig.address,
 		);
@@ -1171,6 +1195,21 @@ describe('input refused before anything is stored', () => {
 			votes: await db
 				.select()
 				.from(SchemaProposalSignatures),
+			answers: await db
+				.select()
+				.from(SchemaAccountEvents)
+				.where(
+					eq(SchemaAccountEvents.accountAddress, pending),
+				),
+			members: await db
+				.select()
+				.from(SchemaSignerSetMembers)
+				.where(
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						pending,
+					),
+				),
 		});
 
 		// Decodes to the same bytes as the valid signature it is made from.
@@ -1259,6 +1298,40 @@ describe('input refused before anything is stored', () => {
 						),
 					),
 					proposer,
+					expiry,
+				},
+			),
+		);
+		const answeredBy = async (message: string) =>
+			withSpace(await sign(invitee, message));
+		await expectRefused(
+			await session.post(`/multisig/${pending}/accept`, {
+				signature: await answeredBy(
+					PersonalMessages.acceptMultisigInvitation(
+						pending,
+					),
+				),
+			}),
+		);
+		await expectRefused(
+			await session.post(`/multisig/${pending}/reject`, {
+				signature: await answeredBy(
+					PersonalMessages.rejectMultisigInvitation(
+						pending,
+					),
+				),
+			}),
+		);
+		await expectRefused(
+			await session.post(
+				`/v1/accounts/${pending}/accept?network=localnet`,
+				{
+					signature: await answeredBy(
+						PersonalMessages.acceptAccountInvitation(
+							pending,
+							expiry,
+						),
+					),
 					expiry,
 				},
 			),

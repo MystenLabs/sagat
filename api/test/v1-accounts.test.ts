@@ -6,9 +6,7 @@ import {
 	deriveAliasesObjectId,
 	PersonalMessages,
 	verifyAccountEvent,
-	type SagatApiError,
 } from '@mysten/sagat';
-import { SagatV1Client } from '@mysten/sagat/v1';
 import {
 	beforeEach,
 	describe,
@@ -21,11 +19,19 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { db } from '../src/db';
 import {
 	SchemaAccountAcceptances,
+	SchemaAccountAliases,
 	SchemaAccountAliasState,
 	SchemaAccountEvents,
 } from '../src/db/schema';
+import {
+	recordAccountEvent,
+	SYSTEM_ACTOR,
+} from '../src/services/account-events.service';
 import { listAccounts } from '../src/services/accounts.service';
-import { networksWithDifferentSigners } from '../src/services/signers.service';
+import {
+	listRemovedAccounts,
+	networksWithDifferentSigners,
+} from '../src/services/signers.service';
 import {
 	buildAdd,
 	buildEnable,
@@ -34,8 +40,8 @@ import {
 import {
 	ApiTestFramework,
 	newUser,
+	refusal,
 	sign,
-	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
 import { setAliases } from './setup/acting-sets';
@@ -60,17 +66,11 @@ beforeEach(async () => {
 	framework = new ApiTestFramework(await createTestApp());
 });
 
-const v1 = (session: TestSession) =>
-	new SagatV1Client('', {
-		fetch: (url, init) =>
-			session.request(url as string, init),
-	});
-
 // A session signed in as `users`, with its `/v1` client.
 const signIn = async (...users: TestUser[]) => {
 	const session = framework.createSession();
 	for (const user of users) await session.connectUser(user);
-	return { session, client: v1(session) };
+	return { session, client: session.v1 };
 };
 
 const answer = async (
@@ -91,7 +91,7 @@ const answer = async (
 					expiry,
 				),
 	);
-	const client = v1(framework.createSession());
+	const client = framework.createSession().v1;
 	return given === 'accept'
 		? client.acceptAccountInvite(account, {
 				network: 'localnet',
@@ -126,7 +126,7 @@ const changeProposer = async (
 					expiry,
 				),
 	);
-	const client = v1(framework.createSession());
+	const client = framework.createSession().v1;
 	const body = {
 		network: 'localnet' as const,
 		proposer,
@@ -137,15 +137,6 @@ const changeProposer = async (
 		? client.addAccountProposer(account, body)
 		: client.removeAccountProposer(account, body);
 };
-
-const refusal = (call: Promise<unknown>) =>
-	call.then(
-		() => null,
-		(error: SagatApiError) => ({
-			status: error.status,
-			message: error.message,
-		}),
-	);
 
 const addresses = (accounts: { address: string }[]) =>
 	accounts.map((account) => account.address);
@@ -254,6 +245,84 @@ describe('GET /v1/accounts', () => {
 		expect(await listed('testnet')).not.toContain(
 			account.address,
 		);
+	});
+
+	test('an account that holds two of the caller’s keys is listed once', async () => {
+		const [k1, k2, stranger] = [
+			newUser(),
+			newUser(),
+			newUser(),
+		];
+		const account = (
+			await (
+				await signIn(stranger)
+			).session.createMultisig([stranger, k1, k2], 3)
+		).address;
+		const { client } = await signIn(k1, k2);
+
+		expect(
+			addresses(
+				(await client.getInvitations('localnet'))
+					.invitations,
+			),
+		).toEqual([account]);
+
+		await answer(k1, account, 'accept');
+		await answer(k2, account, 'accept');
+		expect(
+			addresses(
+				(await client.getAccounts('localnet')).accounts,
+			),
+		).toEqual([account]);
+	});
+
+	test('a removal is not reported while another acting set still holds the key', async () => {
+		const key = newUser();
+		const { session } = await signIn(key);
+		const account = (
+			await session.createMultisig([key, newUser()], 1)
+		).address;
+		const composition = (
+			await session.createMultisig([key, newUser()], 1)
+		).address;
+		await setAliases(account, 'localnet', [composition]);
+		const eventId = await db.transaction((tx) =>
+			recordAccountEvent(tx, {
+				action: 'alias.removed',
+				accountAddress: account,
+				actor: SYSTEM_ACTOR,
+				subject: account,
+				network: 'localnet',
+				proof: {
+					kind: 'chain',
+					digest: 'unread',
+					objectVersion: '2',
+				},
+			}),
+		);
+		const removed = () =>
+			listRemovedAccounts([key.publicKey], 'localnet');
+
+		expect(await removed()).toEqual([]);
+
+		await db
+			.delete(SchemaAccountAliases)
+			.where(
+				eq(SchemaAccountAliases.accountAddress, account),
+			);
+		await setAliases(account, 'localnet', [
+			newUser().address,
+		]);
+		expect(await removed()).toEqual([
+			{
+				accountAddress: account,
+				accountName: null,
+				publicKey: key.publicKey,
+				signerSetAddress: account,
+				eventId,
+				removedAt: expect.any(Date),
+			},
+		]);
 	});
 
 	test('51 accounts cost two chain reads, and a second list right after costs none', async () => {
@@ -365,7 +434,7 @@ describe('GET /v1/accounts', () => {
 });
 
 describe('POST /v1/accounts/:address/accept and /reject', () => {
-	test('write account rows that verify, and an accept does not verify for another account', async () => {
+	test('write account rows that verify', async () => {
 		const [k1, k2, k3] = [newUser(), newUser(), newUser()];
 		const { session } = await signIn(k1);
 		const account = (
@@ -410,24 +479,45 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 			{ action: 'account.rejected', actor: k3.address },
 		]);
 
-		const verify = (
-			event: (typeof events)[number],
-			accountAddress: string,
-		) =>
-			verifyAccountEvent(event, {
-				accountAddress,
-				members: [],
-			});
 		for (const event of events)
-			expect((await verify(event, account)).status).toBe(
-				'verified',
-			);
-		const other = (
-			await session.createMultisig([k1, newUser()], 1)
+			expect(
+				(
+					await verifyAccountEvent(event, {
+						accountAddress: account,
+						members: [],
+					})
+				).status,
+			).toBe('verified');
+	});
+
+	test('a key in no acting set is refused, and nothing is recorded', async () => {
+		const k1 = newUser();
+		const { session } = await signIn(k1);
+		const account = (
+			await session.createMultisig([k1, newUser()], 2)
 		).address;
+
 		expect(
-			(await verify(events[0], other)).status,
-		).not.toBe('verified');
+			await refusal(answer(newUser(), account, 'accept')),
+		).toEqual({
+			status: 403,
+			message:
+				'You are not a signer of this account on this network.',
+		});
+		expect(
+			await db
+				.select()
+				.from(SchemaAccountEvents)
+				.where(
+					and(
+						eq(SchemaAccountEvents.accountAddress, account),
+						eq(
+							SchemaAccountEvents.action,
+							'account.accepted',
+						),
+					),
+				),
+		).toEqual([]);
 	});
 
 	test('an accept by a key of the original set is visible to the legacy routes', async () => {
@@ -615,7 +705,7 @@ describe('POST and DELETE /v1/accounts/:address/proposers', () => {
 	test('add and remove a proposer, with the add event on the read', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 2);
-		const client = v1(session);
+		const client = session.v1;
 		const proposer = newUser().address;
 
 		expect(

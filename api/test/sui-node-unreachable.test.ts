@@ -5,7 +5,6 @@ import {
 	defaultExpiry,
 	PersonalMessages,
 } from '@mysten/sagat';
-import { SagatV1Client } from '@mysten/sagat/v1';
 import { fromBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'bun:test';
 
@@ -66,10 +65,7 @@ test('a /v1 write is refused with a 503, and the list serves the account as not 
 	);
 	const { session, users, multisig } =
 		await framework.createVerifiedMultisig(2, 1);
-	const client = new SagatV1Client('', {
-		fetch: (url, init) =>
-			session.request(url as string, init),
-	});
+	const client = session.v1;
 	const proposer = newUser().address;
 	const expiry = defaultExpiry();
 

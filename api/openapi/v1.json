@@ -649,10 +649,10 @@
 					{
 						"schema": {
 							"type": "string",
-							"description": "A Sui address."
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
 						},
 						"required": true,
-						"description": "A Sui address.",
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
 						"name": "address",
 						"in": "path"
 					},
@@ -777,10 +777,10 @@
 					{
 						"schema": {
 							"type": "string",
-							"description": "A Sui address."
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
 						},
 						"required": true,
-						"description": "A Sui address.",
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
 						"name": "address",
 						"in": "path"
 					},
@@ -856,10 +856,10 @@
 					{
 						"schema": {
 							"type": "string",
-							"description": "A Sui address."
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
 						},
 						"required": true,
-						"description": "A Sui address.",
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
 						"name": "address",
 						"in": "path"
 					},
@@ -935,10 +935,10 @@
 					{
 						"schema": {
 							"type": "string",
-							"description": "A Sui address."
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
 						},
 						"required": true,
-						"description": "A Sui address.",
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
 						"name": "address",
 						"in": "path"
 					},
@@ -974,7 +974,7 @@
 						}
 					},
 					"400": {
-						"description": "The request, proposer, expiry or signature is invalid.",
+						"description": "The request, address, proposer, expiry or signature is invalid.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1012,10 +1012,10 @@
 					{
 						"schema": {
 							"type": "string",
-							"description": "A Sui address."
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
 						},
 						"required": true,
-						"description": "A Sui address.",
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
 						"name": "address",
 						"in": "path"
 					},
@@ -1051,7 +1051,7 @@
 						}
 					},
 					"400": {
-						"description": "The request, proposer, expiry or signature is invalid.",
+						"description": "The request, address, proposer, expiry or signature is invalid.",
 						"content": {
 							"application/json": {
 								"schema": {

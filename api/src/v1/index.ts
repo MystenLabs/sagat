@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { JWT_COOKIE_NAME } from '../services/auth.service';
 import { accountRoutes } from './accounts';
 import { createV1App } from './openapi';
 import { proposalRoutes } from './proposals';
@@ -13,7 +14,7 @@ v1App.openAPIRegistry.registerComponent(
 	{
 		type: 'apiKey',
 		in: 'cookie',
-		name: '__Host-connected-wallet',
+		name: `__Host-${JWT_COOKIE_NAME}`,
 		description:
 			'The session cookie set by `POST /auth/connect`.',
 	},

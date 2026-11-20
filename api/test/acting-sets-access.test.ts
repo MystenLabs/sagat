@@ -4,9 +4,7 @@
 import {
 	defaultExpiry,
 	PersonalMessages,
-	type SagatApiError,
 } from '@mysten/sagat';
-import { SagatV1Client } from '@mysten/sagat/v1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
@@ -61,6 +59,7 @@ import {
 	ApiTestFramework,
 	buildTransfer,
 	newUser,
+	refusal,
 	sendCoins,
 	sign,
 	type TestUser,
@@ -242,20 +241,8 @@ const keysOf = (user: TestUser) => [
 const routesAs = async (user: TestUser) => {
 	const session = framework.createSession();
 	await session.connectUser(user);
-	return new SagatV1Client('', {
-		fetch: (url, init) =>
-			session.request(url as string, init),
-	});
+	return session.v1;
 };
-
-const routeRefusal = (call: Promise<unknown>) =>
-	call.then(
-		() => null,
-		(error: SagatApiError) => ({
-			status: error.status,
-			message: error.message,
-		}),
-	);
 
 const ROUTE_ACCESS_DENIED = {
 	status: 403,
@@ -708,7 +695,7 @@ describe('access under the acting scope', () => {
 		);
 
 		expect(
-			await routeRefusal(readRoute(outsider, account)),
+			await refusal(readRoute(outsider, account)),
 		).toEqual(ROUTE_ACCESS_DENIED);
 		await expectRefused(
 			vote(outsider, proposal),
@@ -723,7 +710,7 @@ describe('access under the acting scope', () => {
 			NOT_A_MEMBER,
 		);
 		expect(
-			await routeRefusal(readRoute(k1, newUser().address)),
+			await refusal(readRoute(k1, newUser().address)),
 		).toEqual(ROUTE_ACCESS_DENIED);
 	});
 

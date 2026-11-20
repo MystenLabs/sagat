@@ -7,7 +7,9 @@ import {
 	SagatClient,
 	type MultisigWithMembers,
 	type Proposal,
+	type SagatApiError,
 } from '@mysten/sagat';
+import { SagatV1Client } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
@@ -127,9 +129,20 @@ export async function sendCoins(
 
 // A client for the API (calling the app directly), that keeps the session
 // cookie between requests like a browser would.
+// A client call's refusal as status and message, or null when it succeeds.
+export const refusal = (call: Promise<unknown>) =>
+	call.then(
+		() => null,
+		(error: SagatApiError) => ({
+			status: error.status,
+			message: error.message,
+		}),
+	);
+
 export class TestSession {
 	#cookie = '';
 	readonly client: SagatClient;
+	readonly v1: SagatV1Client;
 
 	readonly #app: Hono;
 
@@ -140,6 +153,10 @@ export class TestSession {
 			'cookie',
 			(url, init) => this.request(url as string, init),
 		);
+		this.v1 = new SagatV1Client('', {
+			fetch: (url, init) =>
+				this.request(url as string, init),
+		});
 	}
 
 	// A request with the session cookie, returning the raw response (the

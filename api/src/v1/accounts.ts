@@ -8,11 +8,10 @@ import {
 	AccountDetailsSchema,
 	AccountListSchema,
 	AccountProposerRequestSchema,
-	ErrorBodySchema,
 	InvitationListSchema,
 	NetworkSchema,
 	SuccessSchema,
-	SuiAddressSchema,
+	ValidationMessages,
 } from '@mysten/sagat/v1';
 import { type MiddlewareHandler } from 'hono';
 import { z } from 'zod';
@@ -33,27 +32,18 @@ import {
 	authMiddleware,
 	type AuthEnv,
 } from '../services/auth.service';
-import { defineRoute, type V1App } from './openapi';
+import { isCanonicalSuiAddress } from '../services/multisig.service';
+import {
+	defineRoute,
+	error,
+	json,
+	type V1App,
+} from './openapi';
 import {
 	toV1Account,
 	toV1AccountProposer,
 	toV1RemovedAccount,
 } from './serializers';
-
-const error = (description: string) => ({
-	description,
-	content: {
-		'application/json': { schema: ErrorBodySchema },
-	},
-});
-
-const json = <T extends z.ZodType>(
-	description: string,
-	schema: T,
-) => ({
-	description,
-	content: { 'application/json': { schema } },
-});
 
 const auth: MiddlewareHandler<AuthEnv> = authMiddleware;
 
@@ -72,8 +62,17 @@ const unauthorized = {
 };
 
 const networkQuery = z.object({ network: NetworkSchema });
+// Canonical, as the signed messages name it.
 const addressParams = z.object({
-	address: SuiAddressSchema,
+	address: z
+		.string()
+		.refine(isCanonicalSuiAddress, {
+			message: ValidationMessages.InvalidAddress,
+		})
+		.meta({
+			description:
+				'A Sui address in canonical form: `0x` and 64 lower-case hex digits.',
+		}),
 });
 
 const unavailable = error(
@@ -206,7 +205,7 @@ const proposerRoute = (method: 'post' | 'delete') =>
 		responses: {
 			200: json('The change was made.', SuccessSchema),
 			400: error(
-				'The request, proposer, expiry or signature is invalid.',
+				'The request, address, proposer, expiry or signature is invalid.',
 			),
 			403: error(
 				'The signer is no accepted key of an acting signer set of the account on the network.',

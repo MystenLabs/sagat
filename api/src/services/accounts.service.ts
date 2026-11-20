@@ -64,14 +64,15 @@ const isAccount = async (address: string) =>
 			.limit(1)
 	).length > 0;
 
-// Refreshes the accounts the keys are tied to, and returns the ones whose read failed.
+// Refreshes the tied accounts a key accepted, or with `accepted: false` did not, and returns the ones whose read failed.
 const refreshTiedAccounts = async (
 	publicKeys: string[],
 	network: SuiNetwork,
+	accepted: boolean,
 	loaders: AliasSetLoaders,
 ) => {
 	const results = await refreshStaleAliases(
-		await listTiedAccounts(publicKeys, network),
+		await listTiedAccounts(publicKeys, network, accepted),
 		network,
 		loaders,
 	);
@@ -115,6 +116,7 @@ export const listAccounts = async ({
 	const unchecked = await refreshTiedAccounts(
 		keys,
 		network,
+		true,
 		loaders,
 	);
 	const [connections, removed] = await Promise.all([
@@ -165,6 +167,7 @@ export const listAccountInvitations = async ({
 	const unchecked = await refreshTiedAccounts(
 		keys,
 		network,
+		false,
 		loaders,
 	);
 	return checked(

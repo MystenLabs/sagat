@@ -41,27 +41,54 @@ export type TrustedMembers = readonly {
 	publicKey: string;
 }[];
 
-const PROPOSER_MESSAGES = {
+// The signed text from the row, or null when it lacks a subject the text names.
+type ProofMessage = (
+	accountAddress: string,
+	expiry: string,
+	subject: string | null,
+) => string | null;
+
+const proposerMessage =
+	(
+		build: typeof PersonalMessages.addMultisigProposer,
+	): ProofMessage =>
+	(accountAddress, expiry, subject) =>
+		subject ? build(subject, accountAddress, expiry) : null;
+
+// `membersOnly` is false for an answer: an invited key is in no set yet.
+const ACCOUNT_EVENT_PROOFS: Record<
+	string,
+	{
+		kind: string;
+		message: ProofMessage;
+		membersOnly: boolean;
+	}
+> = {
 	'proposer.added': {
 		kind: 'proposer.add',
-		message: PersonalMessages.addMultisigProposer,
+		message: proposerMessage(
+			PersonalMessages.addMultisigProposer,
+		),
+		membersOnly: true,
 	},
 	'proposer.removed': {
 		kind: 'proposer.remove',
-		message: PersonalMessages.removeMultisigProposer,
+		message: proposerMessage(
+			PersonalMessages.removeMultisigProposer,
+		),
+		membersOnly: true,
 	},
-} as const;
-
-const ANSWER_MESSAGES = {
 	'account.accepted': {
 		kind: 'account.accept',
 		message: PersonalMessages.acceptAccountInvitation,
+		membersOnly: false,
 	},
 	'account.rejected': {
 		kind: 'account.reject',
 		message: PersonalMessages.rejectAccountInvitation,
+		membersOnly: false,
 	},
-} as const;
+};
 
 // Schemes whose signatures verify without a network call.
 const OFFLINE_SCHEMES = new Set([
@@ -197,34 +224,6 @@ const recoverSigner = async (
 	}
 };
 
-// An invited key is in no set yet, so only the signer and the account are checked.
-async function checkAccountAnswer(
-	event: AccountEvent & {
-		action: keyof typeof ANSWER_MESSAGES;
-	},
-	accountAddress: string,
-): Promise<ProofResult> {
-	const spec = ANSWER_MESSAGES[event.action];
-	const signature = v1Signature(event.proof, spec.kind);
-	const expiry = expiryText(event.proof?.expiry);
-	if (!signature || expiry === null)
-		return result('unverified', event);
-
-	const message = new TextEncoder().encode(
-		spec.message(accountAddress, expiry),
-	);
-	const signer = await recoverSigner(signature, () =>
-		verifyPersonalMessageSignature(message, signature),
-	);
-	if (signer === null) return result('unverified', event);
-	if (signer === 'invalid') return result('invalid', event);
-
-	const address = signer.toSuiAddress();
-	if (!sameAddress(address, event.actor))
-		return result('invalid', event);
-	return result('verified', event, address);
-}
-
 async function checkAccountEvent(
 	event: AccountEvent | null | undefined,
 	{
@@ -233,33 +232,28 @@ async function checkAccountEvent(
 	}: { accountAddress: string; members: TrustedMembers },
 ): Promise<ProofResult> {
 	if (
-		event?.action === 'account.accepted' ||
-		event?.action === 'account.rejected'
-	)
-		return checkAccountAnswer(
-			{ ...event, action: event.action },
-			accountAddress,
-		);
-	if (
-		event?.action !== 'proposer.added' &&
-		event?.action !== 'proposer.removed'
+		!event ||
+		!Object.hasOwn(ACCOUNT_EVENT_PROOFS, event.action)
 	)
 		return result('unverified', event);
-	const spec = PROPOSER_MESSAGES[event.action];
+	const spec = ACCOUNT_EVENT_PROOFS[event.action];
 
 	const signature = v1Signature(event.proof, spec.kind);
 	const expiry = expiryText(event.proof?.expiry);
-	if (
-		!signature ||
-		expiry === null ||
-		typeof event.subject !== 'string' ||
-		!event.subject
-	)
+	const text =
+		signature && expiry !== null
+			? spec.message(
+					accountAddress,
+					expiry,
+					typeof event.subject === 'string'
+						? event.subject
+						: null,
+				)
+			: null;
+	if (!signature || text === null)
 		return result('unverified', event);
 
-	const message = new TextEncoder().encode(
-		spec.message(event.subject, accountAddress, expiry),
-	);
+	const message = new TextEncoder().encode(text);
 	const signer = await recoverSigner(signature, () =>
 		verifyPersonalMessageSignature(message, signature),
 	);
@@ -269,7 +263,7 @@ async function checkAccountEvent(
 	const address = signer.toSuiAddress();
 	if (
 		!sameAddress(address, event.actor) ||
-		!isMember(address, members)
+		(spec.membersOnly && !isMember(address, members))
 	)
 		return result('invalid', event);
 	return result('verified', event, address);
