@@ -20,6 +20,16 @@ export const PersonalMessages = {
 		expiry: string,
 	) =>
 		`Removing proposer ${proposer} from multisig ${multisigAddress}. Valid until: ${expiry}`,
+	acceptAccountInvitation: (
+		accountAddress: string,
+		expiry: string,
+	) =>
+		`Accepting invitation to account ${accountAddress}. Valid until: ${expiry}`,
+	rejectAccountInvitation: (
+		accountAddress: string,
+		expiry: string,
+	) =>
+		`Rejecting invitation to account ${accountAddress}. Valid until: ${expiry}`,
 	cancelProposal: (
 		digest: string,
 		multisigAddress: string,

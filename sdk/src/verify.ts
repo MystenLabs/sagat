@@ -52,6 +52,17 @@ const PROPOSER_MESSAGES = {
 	},
 } as const;
 
+const ANSWER_MESSAGES = {
+	'account.accepted': {
+		kind: 'account.accept',
+		message: PersonalMessages.acceptAccountInvitation,
+	},
+	'account.rejected': {
+		kind: 'account.reject',
+		message: PersonalMessages.rejectAccountInvitation,
+	},
+} as const;
+
 // Schemes whose signatures verify without a network call.
 const OFFLINE_SCHEMES = new Set([
 	'ED25519',
@@ -186,6 +197,34 @@ const recoverSigner = async (
 	}
 };
 
+// An invited key is in no set yet, so only the signer and the account are checked.
+async function checkAccountAnswer(
+	event: AccountEvent & {
+		action: keyof typeof ANSWER_MESSAGES;
+	},
+	accountAddress: string,
+): Promise<ProofResult> {
+	const spec = ANSWER_MESSAGES[event.action];
+	const signature = v1Signature(event.proof, spec.kind);
+	const expiry = expiryText(event.proof?.expiry);
+	if (!signature || expiry === null)
+		return result('unverified', event);
+
+	const message = new TextEncoder().encode(
+		spec.message(accountAddress, expiry),
+	);
+	const signer = await recoverSigner(signature, () =>
+		verifyPersonalMessageSignature(message, signature),
+	);
+	if (signer === null) return result('unverified', event);
+	if (signer === 'invalid') return result('invalid', event);
+
+	const address = signer.toSuiAddress();
+	if (!sameAddress(address, event.actor))
+		return result('invalid', event);
+	return result('verified', event, address);
+}
+
 async function checkAccountEvent(
 	event: AccountEvent | null | undefined,
 	{
@@ -193,6 +232,14 @@ async function checkAccountEvent(
 		members,
 	}: { accountAddress: string; members: TrustedMembers },
 ): Promise<ProofResult> {
+	if (
+		event?.action === 'account.accepted' ||
+		event?.action === 'account.rejected'
+	)
+		return checkAccountAnswer(
+			{ ...event, action: event.action },
+			accountAddress,
+		);
 	if (
 		event?.action !== 'proposer.added' &&
 		event?.action !== 'proposer.removed'
@@ -228,7 +275,7 @@ async function checkAccountEvent(
 	return result('verified', event, address);
 }
 
-/** Checks a proposer add or remove event's signed proof; `invalid` if it can't be read. */
+/** Checks a proposer add or remove, or an account accept or reject event's signed proof; `invalid` if it can't be read. */
 export function verifyAccountEvent(
 	event: AccountEvent | null | undefined,
 	options: {
