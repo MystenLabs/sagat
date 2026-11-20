@@ -388,7 +388,7 @@ export function checkBytes(
  * Why `walletAddress` mustn't sign `bytes` for `multisig`, or null:
  * `signers`, the account's signers don't make up its address;
  * `notSigner`, the wallet isn't one of them; `bytes`, the bytes aren't
- * sent from the rebuilt address with it paying gas.
+ * sent from the pod's address with it paying gas.
  */
 export function checkNewProposal(
 	multisig: AccountSigners & { address: string },
@@ -400,7 +400,7 @@ export function checkNewProposal(
 		signerAddress: walletAddress,
 	});
 	if (signers.kind !== 'ok') return signers.kind;
-	if (checkBytes(bytes, signers.address).kind !== 'ok')
+	if (checkBytes(bytes, multisig.address).kind !== 'ok')
 		return 'bytes';
 	return null;
 }

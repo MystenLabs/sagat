@@ -107,18 +107,24 @@ export function checkAccountSigners(
 	const rebuilt = rebuildAccount(multisig, account);
 	if (!rebuilt) return { kind: 'signers' };
 
-	if (
-		!multisig.members.some((m) => {
-			const { address } = validatePublicKey(m.publicKey);
-			return (
-				address !== undefined &&
-				sameAddress(address, signerAddress)
-			);
-		})
-	)
+	if (!isMember(multisig, signerAddress))
 		return { kind: 'notSigner' };
 
 	return { kind: 'ok', address: rebuilt };
+}
+
+/** Whether `signerAddress` is one of the set's members. */
+export function isMember(
+	set: AccountSigners,
+	signerAddress: string,
+): boolean {
+	return set.members.some((m) => {
+		const { address } = validatePublicKey(m.publicKey);
+		return (
+			address !== undefined &&
+			sameAddress(address, signerAddress)
+		);
+	});
 }
 
 /** The address a signer set's members and threshold make up, or null when they make none. */
@@ -206,4 +212,72 @@ export function actingVerdict(
 		check.acting.length === 0
 		? 'refused'
 		: 'ok';
+}
+
+/** The signer sets a pod's response shows as acting: today the one composition it carries. */
+export function shownActingSets(
+	multisig: AccountSigners,
+): AccountSigners[] {
+	return [multisig];
+}
+
+/** Rule 2 for a pod on one network; `checking` until its alias set is read. */
+export interface PodActing {
+	state: 'checking' | 'ok' | 'refused' | 'unchecked';
+	/** Aliases no shown set rebuilds. Empty unless `ok`. */
+	unidentified: string[];
+}
+
+export function podActing(
+	shown: readonly AccountSigners[],
+	aliases: AliasRead | undefined,
+): PodActing {
+	if (!aliases)
+		return { state: 'checking', unidentified: [] };
+	const check = checkActingSets(shown, aliases);
+	const state = actingVerdict(check);
+	return {
+		state,
+		unidentified:
+			state === 'ok' && check.kind === 'checked'
+				? check.unidentified
+				: [],
+	};
+}
+
+/** What the app's node says about a pod on one network. */
+export interface NodeFacts {
+	aliases: AliasRead;
+	/** The node's chain identifier, null when it couldn't be read. */
+	chain: string | null;
+}
+
+/** `chain`: the bytes name another chain; `unchecked`: the node couldn't be read; `notActing`: no acting set holds the wallet's key. */
+export type NetworkFailure =
+	'chain' | 'unchecked' | 'notActing';
+
+/** Whether `signerAddress` may sign for the pod on one network, or why not. */
+export function checkSignerOnNetwork({
+	shown,
+	signerAddress,
+	namedChain,
+	node,
+}: {
+	/** The signer sets shown as acting. */
+	shown: readonly AccountSigners[];
+	signerAddress: string;
+	/** The chain the bytes name, null when they name none. */
+	namedChain: string | null;
+	node: NodeFacts;
+}): NetworkFailure | null {
+	if (namedChain && node.chain && namedChain !== node.chain)
+		return 'chain';
+	if (namedChain && !node.chain) return 'unchecked';
+	const check = checkActingSets(shown, node.aliases);
+	if (check.kind === 'unchecked') return 'unchecked';
+	return check.acting.some(({ set }) =>
+		isMember(set, signerAddress),
+	)
+		? null
+		: 'notActing';
 }
