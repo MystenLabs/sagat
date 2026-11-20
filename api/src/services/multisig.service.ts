@@ -66,10 +66,6 @@ import {
 import { parsePublicKey } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
 import {
-	answerAccount,
-	assertKeyBelowMultisigLimit,
-} from './account-answers.service';
-import {
 	getProposersWithLatestEvents,
 	isRecordedSignature,
 	recordAccountEvent,
@@ -81,6 +77,10 @@ import {
 	registerPublicKeyStrings,
 } from './addresses.service';
 import { validateIsoExpiry } from './auth.service';
+import {
+	answerInvitation,
+	assertKeyBelowMultisigLimit,
+} from './invitations.service';
 import { isAccountSigner } from './membership.service';
 import {
 	assertCanonicalSignature,
@@ -954,7 +954,7 @@ export const acceptInvitation = async ({
 	// transaction.
 	const origin = await getAccountOrigin(address);
 
-	const signerSet = await answerAccount({
+	const signerSet = await answerInvitation({
 		accountAddress: address,
 		publicKey: pubKey,
 		answer: 'accepted',
@@ -1016,7 +1016,7 @@ export const rejectInvitation = async ({
 		);
 
 	// Re-checked under the lock, in case an answer landed since the read.
-	await answerAccount({
+	await answerInvitation({
 		accountAddress: address,
 		publicKey: pubKey,
 		answer: 'rejected',

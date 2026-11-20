@@ -294,25 +294,25 @@ export type InvitationList = z.infer<
 	typeof InvitationListSchema
 >;
 
-export const AccountAnswerRequestSchema = z
+export const InvitationAnswerRequestSchema = z
 	.object({
 		signature: z.string(),
 		expiry: z.string(),
 	})
-	.meta({ id: 'AccountAnswerRequest' });
-export type AccountAnswerRequest = z.infer<
-	typeof AccountAnswerRequestSchema
+	.meta({ id: 'InvitationAnswerRequest' });
+export type InvitationAnswerRequest = z.infer<
+	typeof InvitationAnswerRequestSchema
 >;
 
-export const AccountAnswerSchema = z
+export const InvitationAnswerSchema = z
 	.object({
 		accountAddress: SuiAddressSchema,
 		publicKey: z.string(),
 		answer: z.enum(['accepted', 'rejected']),
 	})
-	.meta({ id: 'AccountAnswer' });
-export type AccountAnswer = z.infer<
-	typeof AccountAnswerSchema
+	.meta({ id: 'InvitationAnswer' });
+export type InvitationAnswer = z.infer<
+	typeof InvitationAnswerSchema
 >;
 
 export const AccountProposerRequestSchema = z

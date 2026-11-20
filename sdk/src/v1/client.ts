@@ -10,15 +10,15 @@ import {
 	type SagatClientOptions,
 } from '../client.js';
 import {
-	AccountAnswerSchema,
 	AccountDetailsSchema,
 	AccountListSchema,
 	ErrorBodySchema,
+	InvitationAnswerSchema,
 	InvitationListSchema,
 	ProposalSchema,
 	SuccessSchema,
-	type AccountAnswerRequest,
 	type AccountProposerRequest,
+	type InvitationAnswerRequest,
 	type Network,
 } from './schemas.js';
 
@@ -107,10 +107,10 @@ export class SagatV1Client {
 		{
 			network,
 			...body
-		}: AccountAnswerRequest & { network: Network },
+		}: InvitationAnswerRequest & { network: Network },
 	) {
 		return this.#request(
-			AccountAnswerSchema,
+			InvitationAnswerSchema,
 			`/v1/accounts/${encodeURIComponent(address)}/accept`,
 			{ method: 'POST', query: { network }, body },
 		);
@@ -122,10 +122,10 @@ export class SagatV1Client {
 		{
 			network,
 			...body
-		}: AccountAnswerRequest & { network: Network },
+		}: InvitationAnswerRequest & { network: Network },
 	) {
 		return this.#request(
-			AccountAnswerSchema,
+			InvitationAnswerSchema,
 			`/v1/accounts/${encodeURIComponent(address)}/reject`,
 			{ method: 'POST', query: { network }, body },
 		);

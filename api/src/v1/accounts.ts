@@ -3,11 +3,11 @@
 
 import { createRoute } from '@hono/zod-openapi';
 import {
-	AccountAnswerRequestSchema,
-	AccountAnswerSchema,
 	AccountDetailsSchema,
 	AccountListSchema,
 	AccountProposerRequestSchema,
+	InvitationAnswerRequestSchema,
+	InvitationAnswerSchema,
 	InvitationListSchema,
 	NetworkSchema,
 	SuccessSchema,
@@ -158,7 +158,7 @@ const answerRoute = (answer: 'accept' | 'reject') =>
 				required: true,
 				content: {
 					'application/json': {
-						schema: AccountAnswerRequestSchema,
+						schema: InvitationAnswerRequestSchema,
 					},
 				},
 			},
@@ -166,7 +166,7 @@ const answerRoute = (answer: 'accept' | 'reject') =>
 		responses: {
 			200: json(
 				'The answer, as recorded.',
-				AccountAnswerSchema,
+				InvitationAnswerSchema,
 			),
 			400: error(
 				'The request, address, expiry or signature is invalid, or the answer cannot be given.',

@@ -19,13 +19,13 @@ import {
 } from '../loaders/alias-set.loader';
 import { type SuiNetwork } from '../utils/client';
 import { compareStrings } from '../utils/collections';
-import { answerAccount } from './account-answers.service';
 import {
 	aliasObjectExists,
 	refreshStaleAliases,
 	requireFreshAliases,
 } from './aliases.service';
 import { validateIsoExpiry } from './auth.service';
+import { answerInvitation } from './invitations.service';
 import {
 	addProposer,
 	getMultisigAccount,
@@ -296,7 +296,7 @@ export const answerAccountInvitation = async ({
 		notMemberError: notSigner,
 	});
 
-	await answerAccount({
+	await answerInvitation({
 		accountAddress: address,
 		publicKey,
 		...(answer === 'accepted'

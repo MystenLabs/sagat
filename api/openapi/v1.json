@@ -489,7 +489,7 @@
 				},
 				"required": ["network", "invitations"]
 			},
-			"AccountAnswer": {
+			"InvitationAnswer": {
 				"type": "object",
 				"properties": {
 					"accountAddress": {
@@ -508,7 +508,7 @@
 					"answer"
 				]
 			},
-			"AccountAnswerRequest": {
+			"InvitationAnswerRequest": {
 				"type": "object",
 				"properties": {
 					"signature": { "type": "string" },
@@ -799,7 +799,7 @@
 					"content": {
 						"application/json": {
 							"schema": {
-								"$ref": "#/components/schemas/AccountAnswerRequest"
+								"$ref": "#/components/schemas/InvitationAnswerRequest"
 							}
 						}
 					}
@@ -810,7 +810,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/AccountAnswer"
+									"$ref": "#/components/schemas/InvitationAnswer"
 								}
 							}
 						}
@@ -878,7 +878,7 @@
 					"content": {
 						"application/json": {
 							"schema": {
-								"$ref": "#/components/schemas/AccountAnswerRequest"
+								"$ref": "#/components/schemas/InvitationAnswerRequest"
 							}
 						}
 					}
@@ -889,7 +889,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/AccountAnswer"
+									"$ref": "#/components/schemas/InvitationAnswer"
 								}
 							}
 						}

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * A key's answer to an account. See "Accept and reject" in
+ * A key's answer to an account invitation. See "Accept and reject" in
  * `design/account-rotation.md`.
  */
 
@@ -69,7 +69,7 @@ type EventOf<A extends AccountEvent['action']> =
 			: never
 		: never;
 
-export type AccountAnswer =
+export type InvitationAnswer =
 	| {
 			answer: 'accepted';
 			event: EventOf<
@@ -172,7 +172,7 @@ const recalculateLinks = async (
  * verified by the caller, and recalculates only that account's links.
  * Returns the account's original signer set as it is after the change.
  */
-export const answerAccount = async ({
+export const answerInvitation = async ({
 	accountAddress,
 	publicKey,
 	answer,
@@ -180,7 +180,7 @@ export const answerAccount = async ({
 }: {
 	accountAddress: string;
 	publicKey: PublicKey;
-} & AccountAnswer): Promise<SignerSet> => {
+} & InvitationAnswer): Promise<SignerSet> => {
 	const key = publicKey.toSuiPublicKey();
 	const actor = publicKey.toSuiAddress();
 
