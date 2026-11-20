@@ -18,7 +18,6 @@ import {
 	withPodRead,
 	type AliasRead,
 } from '../lib/alias-set';
-import { CONFIG } from '../lib/constants';
 import { type SuiNetwork } from '../lib/network';
 import { type NodeFacts } from '../lib/proposal-integrity';
 import { QueryKeys } from '../lib/queryKeys';
@@ -75,8 +74,6 @@ export function useAliasSets(
 			pods,
 		),
 		enabled: enabled && pods.length > 0,
-		// Read again while shown; rows keep their state during the refetch.
-		refetchInterval: CONFIG.REFETCH_INTERVAL,
 		// Pods already read keep their state while the list changes.
 		placeholderData: (previous, previousQuery) =>
 			previousQuery?.queryKey[1] === network
@@ -168,15 +165,16 @@ export function readPodAliasSet(
 		.catch((): AliasRead => ({ kind: 'failed' }));
 }
 
-/** The pod's alias set on the selected network, read again on mount; undefined until that read lands. */
-export function useFreshPodAliasSet(
+/** Reads the pod's alias set on the selected network again on mount, behind what the lists already show. */
+export function useRereadPodAliasSet(
 	pod: string,
 	{ enabled = true }: { enabled?: boolean } = {},
-): AliasRead | undefined {
+) {
 	const queryClient = useQueryClient();
 	const dappKit = useDAppKit();
 	const { network } = useNetwork();
-	const { data, isFetchedAfterMount } = useQuery({
+	// The read lands in the lists through spreadPodRead; its data isn't used here.
+	useQuery({
 		...podAliasSetQuery(
 			queryClient,
 			dappKit.getClient(network),
@@ -185,8 +183,8 @@ export function useFreshPodAliasSet(
 		),
 		enabled,
 		refetchOnMount: 'always',
+		notifyOnChangeProps: [],
 	});
-	return isFetchedAfterMount ? data : undefined;
 }
 
 /** The pod's alias set, read now, and the node's chain, for a sign or propose decision. Never throws. */
