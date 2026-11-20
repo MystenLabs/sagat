@@ -35,7 +35,10 @@ import {
 	type SignerSetMember,
 	type SignerSetWithMembers,
 } from '../db/schema';
-import { SignerSetDataLoader } from '../loaders/signer-set.loader';
+import {
+	SignerSetDataLoader,
+	withMembers,
+} from '../loaders/signer-set.loader';
 import { type SuiNetwork } from '../utils/client';
 import {
 	compareStrings,
@@ -293,18 +296,10 @@ const originalSetOf = (
 	const own = rows.filter((row) => row.alias === account);
 	const set = own.find((row) => row.set)?.set;
 	if (!set) return null;
-	const members = own
-		.flatMap((row) => (row.member ? [row.member] : []))
-		.sort(byOrder);
-	return {
-		...set,
-		members,
-		totalMembers: members.length,
-		totalWeight: members.reduce(
-			(sum, member) => sum + member.weight,
-			0,
-		),
-	};
+	return withMembers(
+		set,
+		own.flatMap((row) => (row.member ? [row.member] : [])),
+	);
 };
 
 const actingSetsOf = (

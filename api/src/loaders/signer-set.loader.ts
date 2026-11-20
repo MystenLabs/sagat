@@ -16,11 +16,31 @@ import { db } from '../db';
 import {
 	SchemaSignerSetMembers,
 	SchemaSignerSets,
+	type SignerSet,
+	type SignerSetMember,
 	type SignerSetWithMembers,
 } from '../db/schema';
 
 export const SCHEDULER_INTERVAL = 5; // ms. Requests are grouped by either 5ms or 100 keys.
 export const BATCH_SIZE = 100;
+
+export const withMembers = (
+	signerSet: SignerSet,
+	members: SignerSetMember[],
+): SignerSetWithMembers => {
+	const memberList = [...members].sort(
+		(a, b) => a.order - b.order,
+	);
+	return {
+		...signerSet,
+		members: memberList,
+		totalMembers: memberList.length,
+		totalWeight: memberList.reduce(
+			(acc, member) => acc + member.weight,
+			0,
+		),
+	};
+};
 
 // Data loader to query multiple signer sets at the same time.
 async function batchLoadSignerSets(
@@ -57,22 +77,12 @@ async function batchLoadSignerSets(
 				(result) => result.address === address,
 			);
 			if (!signerSet) return null;
-
-			const memberList = members
-				.filter(
+			return withMembers(
+				signerSet,
+				members.filter(
 					(result) => result.signerSetAddress === address,
-				)
-				.sort((a, b) => a.order - b.order);
-
-			return {
-				...signerSet,
-				members: memberList,
-				totalMembers: memberList.length,
-				totalWeight: memberList.reduce(
-					(acc, member) => acc + member.weight,
-					0,
 				),
-			};
+			);
 		},
 	);
 }

@@ -93,6 +93,7 @@ import {
 	verifySignedMessage,
 } from './signatures.service';
 import {
+	keyAnswer,
 	listActingAccounts,
 	ORIGINAL_SET,
 	originalSigners,
@@ -346,16 +347,22 @@ const loadActingAccounts = async (
 	return result;
 };
 
-// The accounts of the rows, in order of address, skipping those not loaded.
+// The accounts of the rows, in order of address. The rows only propose; the resolver decides.
 const actingAccountsOf = (
-	rows: { accountAddress: string }[],
+	rows: { accountAddress: string; publicKey: string }[],
 	accounts: Map<string, MultisigAccountWithSigners>,
+	decides: (
+		signers: AccountSigners,
+		publicKey: string,
+	) => boolean,
 ) =>
 	rows
-		.map(({ accountAddress }) =>
-			accounts.get(accountAddress),
-		)
-		.filter((account) => account !== undefined)
+		.flatMap(({ accountAddress, publicKey }) => {
+			const account = accounts.get(accountAddress);
+			return account && decides(account.signers, publicKey)
+				? [account]
+				: [];
+		})
 		.sort((a, b) =>
 			compareStrings(
 				a.signerSet.address,
@@ -398,6 +405,8 @@ export const listConnections = async ({
 					actingAccountsOf(
 						rows.filter((row) => row.publicKey === key),
 						accounts,
+						(signers, publicKey) =>
+							signsFor(signers, [publicKey], true),
 					),
 				);
 		return grouped;
@@ -469,10 +478,11 @@ export const listInvitations = async ({
 		throw new ValidationError('You are not authorized.');
 
 	if (scope.kind === 'acting') {
+		const answer = showRejected ? 'rejected' : 'invited';
 		const rows = await listActingAccounts(
 			[publicKey],
 			scope.network,
-			showRejected ? 'rejected' : 'invited',
+			answer,
 		);
 		return actingAccountsOf(
 			rows,
@@ -480,6 +490,7 @@ export const listInvitations = async ({
 				rows.map((row) => row.accountAddress),
 				scope,
 			),
+			(signers, key) => keyAnswer(signers, key) === answer,
 		);
 	}
 

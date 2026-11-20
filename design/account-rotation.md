@@ -20,18 +20,18 @@ This uses Sui address aliases: the account adds the address of a new composition
 
 ## Status
 
-| Part                                                                                                    | State                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Schema: accounts, signer sets, `account_signer_sets`, the alias mirror tables, `proposals.executed_via` | Shipped in 0009. The refresh writes the mirror tables. `executed_via` has no writer yet.                                               |
-| Alias helpers and the localnet spike                                                                    | Shipped: `api/src/utils/aliases.ts`, `api/test/address-aliases.test.ts`.                                                               |
-| Request flows as services                                                                               | Shipped. Every membership check and tally still reads the composition at the account's address.                                        |
-| Key labels (0010) and the audit log (0011)                                                              | Shipped. The refresh writes the alias actions as system rows. Accept and reject are not recorded yet.                                  |
-| The app's own checks before showing or signing                                                          | Shipped, and they require the signer set to rebuild the account address, so they would refuse a changed account. See the app's checks. |
-| Alias mirror and resolver                                                                               | The mirror and its refresh are shipped, and no route calls them yet. The resolver is not built.                                        |
-| `/v1`                                                                                                   | Foundation and `GET /v1/proposals/:digest` shipped. No other route.                                                                    |
-| Changing signers                                                                                        | Not built.                                                                                                                             |
+| Part                                                                                                    | State                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schema: accounts, signer sets, `account_signer_sets`, the alias mirror tables, `proposals.executed_via` | Shipped in 0009. The refresh writes the mirror tables. `executed_via` has no writer yet. `account_acceptances` shipped in 0012, and nothing writes it yet.                                                    |
+| Alias helpers and the localnet spike                                                                    | Shipped: `api/src/utils/aliases.ts`, `api/test/address-aliases.test.ts`.                                                                                                                                      |
+| Request flows as services                                                                               | Shipped. Every membership check and tally takes a scope: the original set, or the acting sets of a network. Legacy routes ask for the original set, and `GET /v1/proposals/:digest` asks for the acting sets. |
+| Key labels (0010) and the audit log (0011)                                                              | Shipped. The refresh writes the alias actions as system rows. Accept and reject are not recorded yet.                                                                                                         |
+| The app's own checks before showing or signing                                                          | Shipped, and they require the signer set to rebuild the account address, so they would refuse a changed account. See the app's checks.                                                                        |
+| Alias mirror and resolver                                                                               | The mirror, its refresh and the resolver are shipped. The resolver reads the mirror as it is, and no route calls the refresh yet.                                                                             |
+| `/v1`                                                                                                   | Foundation and `GET /v1/proposals/:digest` shipped. No other route.                                                                                                                                           |
+| Changing signers                                                                                        | Not built.                                                                                                                                                                                                    |
 
-What follows needs one additive migration: a table for a key's answer to an account. Every other table and column already exists.
+What follows needs no new migration. The table for a key's answer to an account shipped in 0012, and nothing writes it yet.
 
 ## Vocabulary
 
@@ -59,7 +59,7 @@ What follows needs one additive migration: a table for a key's answer to an acco
 
 ## Data model
 
-Shipped in 0009 to 0011, with the names of this doc, plus one table to add.
+Shipped in 0009 to 0012, with the names of this doc.
 
 ```text
 accounts            (address, name, created_at)
@@ -73,7 +73,7 @@ account_aliases     (account_address, network, alias_address)          mirror of
 account_alias_state (account_address, network, exists,
                      observed_version, observed_at)                    one row per refreshed network
 account_acceptances (account_address, public_key, is_accepted,
-                     is_rejected, answered_at)                         to add; a key's answer to an account
+                     is_rejected, answered_at)                         0012; a key's answer to an account
 account_signer_sets (account_address, signer_set_address, label,
                      status, drafted_by, created_at)                   account to signer set link
 account_keys        (account_address, public_key, label,

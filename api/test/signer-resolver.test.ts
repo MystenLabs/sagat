@@ -268,6 +268,121 @@ describe('signer resolver', () => {
 		]);
 	});
 
+	test('listActingAccounts proposes exactly the (account, key) pairs the resolver gives', async () => {
+		const shared = newUser();
+		const [a1, a2, a3] = [newUser(), newUser(), newUser()];
+		const plain = await createAccount(
+			[a1, shared],
+			[a2, a3],
+		);
+		await session.rejectMultisig(a3, plain);
+
+		const [c1, c2] = [newUser(), newUser()];
+		const composition = await createAccount(
+			[c1],
+			[c2, shared],
+			1,
+		);
+		const [b1, b2] = [newUser(), newUser()];
+		const withOwn = await createAccount(
+			[b1],
+			[b2, shared],
+			1,
+		);
+		await setAliases(withOwn, 'localnet', [
+			withOwn,
+			composition,
+		]);
+		await answerFor(withOwn, c2, 'rejected');
+
+		const key = newUser();
+		await register(key);
+		const withoutOwn = await createAccount([
+			newUser(),
+			newUser(),
+		]);
+		await setAliases(withoutOwn, 'localnet', [
+			composition,
+			key.address,
+			newUser().address,
+		]);
+		await setAliases(withoutOwn, 'testnet', [composition]);
+		await answerFor(withoutOwn, key, 'accepted');
+		await answerFor(withoutOwn, c1, 'accepted');
+
+		const accounts = [
+			plain,
+			composition,
+			withOwn,
+			withoutOwn,
+		];
+		const allKeys = [
+			shared,
+			a1,
+			a2,
+			a3,
+			c1,
+			c2,
+			b1,
+			b2,
+			key,
+		].map((user) => user.publicKey);
+		const pairs = (
+			rows: { accountAddress: string; publicKey: string }[],
+		) =>
+			rows
+				.map(
+					(row) => `${row.accountAddress} ${row.publicKey}`,
+				)
+				.sort();
+
+		for (const network of [
+			'localnet',
+			'testnet',
+		] as const) {
+			const resolved = await resolveSigners(
+				accounts,
+				actingSetsOn(network),
+			);
+			for (const answer of [
+				'accepted',
+				'invited',
+				'rejected',
+			] as const) {
+				// A key in two sets of one account is one pair.
+				const expected = [
+					...new Set(
+						pairs(
+							[...resolved.values()].flatMap((signers) =>
+								signers.actingSets.flatMap((set) =>
+									set.members
+										.filter(
+											(member) => member.answer === answer,
+										)
+										.map((member) => ({
+											accountAddress:
+												signers.accountAddress,
+											publicKey: member.publicKey,
+										})),
+								),
+							),
+						),
+					),
+				];
+				expect(expected.length).toBeGreaterThan(0);
+				expect(
+					pairs(
+						await listActingAccounts(
+							allKeys,
+							network,
+							answer,
+						),
+					),
+				).toEqual(expected);
+			}
+		}
+	});
+
 	test('countSignatures counts a key in every set that holds it, ready when any set reaches its threshold', () => {
 		const member = (publicKey: string, order: number) => ({
 			publicKey,
