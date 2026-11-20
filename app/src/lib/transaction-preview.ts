@@ -205,6 +205,19 @@ export function readTransactionBytes(bytes: string): {
 	};
 }
 
+/** The chain a transaction's expiration names, base58 like the node's chain identifier; null when it names none. */
+export function namedChain(
+	transaction: SuiClientTypes.TransactionData,
+): string | null {
+	const { expiration } = transaction;
+	if (!expiration) return null;
+	if ('ValidDuring' in expiration)
+		return expiration.ValidDuring.chain;
+	if ('Validity' in expiration)
+		return expiration.Validity.chain;
+	return null;
+}
+
 /** Everything the Transaction preview block shows, from the bytes and the dry run. */
 export function buildTransactionPreview(
 	input: TransactionPreviewInput,

@@ -5,6 +5,7 @@
 // before the wallet is asked to sign them.
 import { type PublicProposal } from '@mysten/sagat';
 
+import { type AliasRead } from './alias-set';
 import {
 	computeMultisigAddress,
 	sameAddress,
@@ -120,6 +121,22 @@ export function checkAccountSigners(
 	return { kind: 'ok', address: rebuilt };
 }
 
+/** The address a signer set's members and threshold make up, or null when they make none. */
+export function signerSetAddress(
+	set: AccountSigners,
+): string | null {
+	const members = [...set.members].sort(
+		(a, b) => a.order - b.order,
+	);
+	return computeMultisigAddress(
+		members.map((m) => m.publicKey),
+		members.map((m) => m.weight),
+		set.threshold,
+	).address;
+}
+
+// Rule 1: the original signer set rebuilds the pod's address.
+
 /**
  * The address `multisig`'s signers and threshold make up, or null when
  * it isn't `account`.
@@ -128,17 +145,65 @@ export function rebuildAccount(
 	multisig: AccountSigners,
 	account: string,
 ): string | null {
-	// A rotated account will instead need the rebuilt address to be in the
-	// account's alias set, read from the app's own fullnode.
-	const members = [...multisig.members].sort(
-		(a, b) => a.order - b.order,
-	);
-	const { address: rebuilt } = computeMultisigAddress(
-		members.map((m) => m.publicKey),
-		members.map((m) => m.weight),
-		multisig.threshold,
-	);
+	const rebuilt = signerSetAddress(multisig);
 	return rebuilt && sameAddress(rebuilt, account)
 		? rebuilt
 		: null;
+}
+
+// Rule 2: every set shown as acting rebuilds to an alias of the pod.
+
+/** Rule 2 for the signer sets shown as acting, against the pod's alias set on one network. */
+export type ActingSetsCheck<
+	S extends AccountSigners = AccountSigners,
+> =
+	| { kind: 'unchecked' }
+	| {
+			kind: 'checked';
+			/** Shown sets whose rebuilt address is an alias. */
+			acting: { set: S; address: string }[];
+			/** Shown sets that are no alias: they must not be shown as acting. */
+			refused: S[];
+			/** Aliases that no shown set rebuilds. */
+			unidentified: string[];
+	  };
+
+export function checkActingSets<S extends AccountSigners>(
+	shown: readonly S[],
+	aliases: AliasRead,
+): ActingSetsCheck<S> {
+	if (aliases.kind === 'failed')
+		return { kind: 'unchecked' };
+
+	const acting: { set: S; address: string }[] = [];
+	const refused: S[] = [];
+	for (const set of shown) {
+		const address = signerSetAddress(set);
+		if (
+			address &&
+			aliases.aliases.some((alias) =>
+				sameAddress(alias, address),
+			)
+		)
+			acting.push({ set, address });
+		else refused.push(set);
+	}
+	const unidentified = aliases.aliases.filter(
+		(alias) =>
+			!acting.some(({ address }) =>
+				sameAddress(address, alias),
+			),
+	);
+	return { kind: 'checked', acting, refused, unidentified };
+}
+
+/** `ok`: every shown set is an alias; `refused`: one isn't, or none is shown; `unchecked`: couldn't read. */
+export function actingVerdict(
+	check: ActingSetsCheck,
+): 'ok' | 'refused' | 'unchecked' {
+	if (check.kind === 'unchecked') return 'unchecked';
+	return check.refused.length > 0 ||
+		check.acting.length === 0
+		? 'refused'
+		: 'ok';
 }

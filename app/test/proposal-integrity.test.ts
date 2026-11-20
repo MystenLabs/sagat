@@ -14,7 +14,12 @@ import {
 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
-import { checkProposalIntegrity } from '../src/lib/proposal-integrity';
+import {
+	actingVerdict,
+	checkActingSets,
+	checkProposalIntegrity,
+	rebuildAccount,
+} from '../src/lib/proposal-integrity';
 
 function oneOfTwoAccount() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
@@ -94,4 +99,89 @@ test("refuses bytes that don't decode as a transaction", () => {
 			},
 		),
 	).toBe('unreadable');
+});
+
+test('a pod that never changed passes both rules as one check', () => {
+	const { address, multisig } = oneOfTwoAccount();
+
+	expect(rebuildAccount(multisig, address)).toBe(address);
+	const check = checkActingSets([multisig], {
+		kind: 'read',
+		aliases: [address],
+	});
+	expect(actingVerdict(check)).toBe('ok');
+	expect(check).toMatchObject({ unidentified: [] });
+});
+
+test('rule 1 refuses signers that do not rebuild the address, with no alias read', () => {
+	const { address } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+
+	expect(
+		rebuildAccount(other.multisig, address),
+	).toBeNull();
+});
+
+test('rule 2 refuses a pod whose own address is not in its alias set', () => {
+	const { address, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+
+	expect(rebuildAccount(multisig, address)).toBe(address);
+	expect(
+		actingVerdict(
+			checkActingSets([multisig], {
+				kind: 'read',
+				aliases: [other.address],
+			}),
+		),
+	).toBe('refused');
+});
+
+test('an alias no shown set rebuilds is unidentified, and the pod still passes', () => {
+	const { address, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+
+	const check = checkActingSets([multisig], {
+		kind: 'read',
+		aliases: [address, other.address],
+	});
+	expect(actingVerdict(check)).toBe('ok');
+	expect(check).toMatchObject({
+		unidentified: [other.address],
+	});
+});
+
+test('an unread alias set leaves rule 2 unchecked while rule 1 still decides', () => {
+	const { address, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+
+	expect(
+		actingVerdict(
+			checkActingSets([multisig], { kind: 'failed' }),
+		),
+	).toBe('unchecked');
+	expect(rebuildAccount(multisig, address)).toBe(address);
+	expect(
+		rebuildAccount(other.multisig, address),
+	).toBeNull();
+});
+
+test('of two shown sets, only the one that is an alias acts', () => {
+	const { address } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const stranger = oneOfTwoAccount();
+
+	const check = checkActingSets(
+		[current.multisig, stranger.multisig],
+		{ kind: 'read', aliases: [address, current.address] },
+	);
+	expect(check).toEqual({
+		kind: 'checked',
+		acting: [
+			{ set: current.multisig, address: current.address },
+		],
+		refused: [stranger.multisig],
+		unidentified: [address],
+	});
+	expect(actingVerdict(check)).toBe('refused');
 });
