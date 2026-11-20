@@ -9,7 +9,7 @@ import {
 	expect,
 	test,
 } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { LIMITS } from '../src/constants/limits';
 import { db } from '../src/db';
@@ -295,6 +295,52 @@ describe('Multisig API', () => {
 			isVerified: true,
 			totalMembers: 2,
 		});
+	});
+
+	test('an accept counts only for its own account, not another using the same composition', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(1);
+		const [creator] = users;
+		const invitee = newUser();
+		const { address: a } = await session.createMultisig(
+			[creator, invitee],
+			2,
+		);
+		const { address: b } = await session.createMultisig(
+			[creator, newUser()],
+			2,
+		);
+		await db.insert(SchemaAccountSignerSets).values({
+			accountAddress: b,
+			signerSetAddress: a,
+			status: 'inviting',
+			draftedBy: creator.address,
+		});
+
+		await session.acceptMultisig(invitee, a);
+
+		const statusOf = async (account: string) =>
+			(
+				await db
+					.select({
+						status: SchemaAccountSignerSets.status,
+					})
+					.from(SchemaAccountSignerSets)
+					.where(
+						and(
+							eq(
+								SchemaAccountSignerSets.accountAddress,
+								account,
+							),
+							eq(
+								SchemaAccountSignerSets.signerSetAddress,
+								a,
+							),
+						),
+					)
+			)[0]?.status;
+		expect(await statusOf(a)).toBe('verified');
+		expect(await statusOf(b)).toBe('inviting');
 	});
 
 	test('becomes verified when its last members accept at once', async () => {

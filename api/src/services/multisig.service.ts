@@ -16,14 +16,7 @@ import {
 	isValidSuiAddress,
 	normalizeSuiAddress,
 } from '@mysten/sui/utils';
-import {
-	and,
-	eq,
-	inArray,
-	ne,
-	sql,
-	type SQL,
-} from 'drizzle-orm';
+import { and, eq, inArray, type SQL } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -31,12 +24,10 @@ import {
 	AccountSignerSetStatus,
 	MAX_ACCOUNT_NAME_LENGTH,
 	ProposalStatus,
-	SchemaAccountEvents,
 	SchemaAccountKeys,
 	SchemaAccountProposers,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
-	SchemaAddresses,
 	SchemaProposals,
 	SchemaSignerSetMembers,
 	SchemaSignerSets,
@@ -75,9 +66,13 @@ import {
 import { parsePublicKey } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
 import {
+	answerAccount,
+	assertKeyBelowMultisigLimit,
+} from './account-answers.service';
+import {
 	getProposersWithLatestEvents,
+	isRecordedSignature,
 	recordAccountEvent,
-	type AccountEventAction,
 	type ProposerWithLatestEvent,
 } from './account-events.service';
 import { normalizeKeyLabels } from './account-keys.service';
@@ -594,56 +589,6 @@ export const validateQuorum = async (
 	}
 };
 
-// Throws if `publicKey` is already in the maximum number of multisigs, not
-// counting the one it is joining. Locks the key's row until `tx` ends.
-const assertKeyBelowMultisigLimit = async (
-	tx: DatabaseTransaction,
-	publicKey: string,
-	joiningSignerSetAddress: string,
-) => {
-	await tx
-		.select({ publicKey: SchemaAddresses.publicKey })
-		.from(SchemaAddresses)
-		.where(eq(SchemaAddresses.publicKey, publicKey))
-		.for('no key update');
-
-	const accepted = await tx.$count(
-		SchemaSignerSetMembers,
-		and(
-			eq(SchemaSignerSetMembers.publicKey, publicKey),
-			eq(SchemaSignerSetMembers.isAccepted, true),
-			ne(
-				SchemaSignerSetMembers.signerSetAddress,
-				joiningSignerSetAddress,
-			),
-		),
-	);
-	if (accepted >= LIMITS.maxMultisigsPerPublicKey)
-		throw new ValidationError(
-			'You have reached the maximum number of multisigs for this public key',
-		);
-};
-
-// Returns true if the signer set is finalized (all members have accepted the invitation).
-export const isSignerSetFinalized = async (
-	address: string,
-	tx?: DatabaseTransaction,
-) => {
-	const query = tx ? tx.query : db.query;
-	const isFinalized =
-		await query.SchemaSignerSetMembers.findMany({
-			where: and(
-				eq(
-					SchemaSignerSetMembers.signerSetAddress,
-					address,
-				),
-				eq(SchemaSignerSetMembers.isAccepted, false),
-			),
-		});
-
-	return isFinalized.length === 0;
-};
-
 // Get a list of pending proposals for a given multisig address.
 const getPendingProposals = async (
 	multisigAddress: string,
@@ -966,6 +911,8 @@ export const acceptInvitation = async ({
 	signerSet: SignerSet;
 	origin: SignerSetOrigin | null;
 }> => {
+	assertCanonicalSignature(signature);
+
 	const pubKey = await verifyMemberSignedMessage({
 		accountAddress: address,
 		scope: ORIGINAL_SET,
@@ -983,71 +930,21 @@ export const acceptInvitation = async ({
 	// transaction.
 	const origin = await getAccountOrigin(address);
 
-	return await db.transaction(async (tx) => {
-		// Lock the set first, as creation does, so when its last members accept
-		// at once the later one sees the other and verifies the set.
-		const [msig] = await tx
-			.select()
-			.from(SchemaSignerSets)
-			.where(eq(SchemaSignerSets.address, address))
-			.for('no key update');
-
-		if (!msig)
-			throw new ValidationError('Multisig not found');
-
-		await assertKeyBelowMultisigLimit(
-			tx,
-			pubKey.toSuiPublicKey(),
-			address,
-		);
-
-		await tx
-			.update(SchemaSignerSetMembers)
-			.set({ isAccepted: true, isRejected: false })
-			.where(
-				and(
-					eq(
-						SchemaSignerSetMembers.signerSetAddress,
-						address,
-					),
-					eq(
-						SchemaSignerSetMembers.publicKey,
-						pubKey.toSuiPublicKey(),
-					),
-				),
-			);
-
-		const isFinalized = await isSignerSetFinalized(
-			address,
-			tx,
-		);
-		// if all members have accepted, we can finalize the multisig.
-		if (isFinalized) {
-			await tx
-				.update(SchemaSignerSets)
-				.set({ isVerified: true })
-				.where(eq(SchemaSignerSets.address, address));
-			// Verification is a property of the composition, so every
-			// account linked to it sees the set as verified.
-			await tx
-				.update(SchemaAccountSignerSets)
-				.set({ status: AccountSignerSetStatus.VERIFIED })
-				.where(
-					and(
-						eq(
-							SchemaAccountSignerSets.signerSetAddress,
-							address,
-						),
-						inArray(SchemaAccountSignerSets.status, [
-							AccountSignerSetStatus.DRAFT,
-							AccountSignerSetStatus.INVITING,
-						]),
-					),
-				);
-		}
-		msig.isVerified = isFinalized;
-		return { signerSet: msig, origin };
+	const signerSet = await answerAccount({
+		accountAddress: address,
+		publicKey: pubKey,
+		answer: 'accepted',
+		event: {
+			action: 'signer_set.accepted',
+			subject: address,
+			proof: {
+				kind: 'signer_set.accept',
+				version: 1,
+				signature,
+			},
+		},
 	});
+	return { signerSet, origin };
 };
 
 // Rejects an invitation to a signer set, signed by the invited key.
@@ -1060,6 +957,8 @@ export const rejectInvitation = async ({
 }) => {
 	if (!isValidSuiAddress(address))
 		throw new CommonError('InvalidAddress');
+
+	assertCanonicalSignature(signature);
 
 	// Validate signature with rejection-specific message
 	const pubKey = await verifySignedMessage(
@@ -1092,30 +991,21 @@ export const rejectInvitation = async ({
 			'This invitation has already been rejected',
 		);
 
-	// Re-checked by the update, in case an accept landed since the read.
-	const rejected = await db
-		.update(SchemaSignerSetMembers)
-		.set({ isRejected: true })
-		.where(
-			and(
-				eq(
-					SchemaSignerSetMembers.signerSetAddress,
-					address,
-				),
-				eq(
-					SchemaSignerSetMembers.publicKey,
-					pubKey.toSuiPublicKey(),
-				),
-				eq(SchemaSignerSetMembers.isAccepted, false),
-			),
-		)
-		.returning({
-			publicKey: SchemaSignerSetMembers.publicKey,
-		});
-	if (rejected.length === 0)
-		throw new ValidationError(
-			'Cannot reject after accepting',
-		);
+	// Re-checked under the lock, in case an answer landed since the read.
+	await answerAccount({
+		accountAddress: address,
+		publicKey: pubKey,
+		answer: 'rejected',
+		event: {
+			action: 'signer_set.rejected',
+			subject: address,
+			proof: {
+				kind: 'signer_set.reject',
+				version: 1,
+				signature,
+			},
+		},
+	});
 };
 
 type ProposerChange = {
@@ -1131,36 +1021,6 @@ type ProposerChange = {
 const isCanonicalSuiAddress = (address: string) =>
 	isValidSuiAddress(address) &&
 	normalizeSuiAddress(address) === address;
-
-// Whether this signature is already in the log for `proposer` under `actions`.
-const isRecordedProposerSignature = async (
-	tx: DatabaseTransaction,
-	{
-		address,
-		proposer,
-		signature,
-		actions,
-	}: Pick<
-		ProposerChange,
-		'address' | 'proposer' | 'signature'
-	> & {
-		actions: AccountEventAction[];
-	},
-) => {
-	const [recorded] = await tx
-		.select({ id: SchemaAccountEvents.id })
-		.from(SchemaAccountEvents)
-		.where(
-			and(
-				eq(SchemaAccountEvents.accountAddress, address),
-				eq(SchemaAccountEvents.subject, proposer),
-				inArray(SchemaAccountEvents.action, actions),
-				sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
-			),
-		)
-		.limit(1);
-	return recorded !== undefined;
-};
 
 // Adds or re-confirms an account's external proposer, signed by an accepted member.
 export const addProposer = async ({
@@ -1201,9 +1061,9 @@ export const addProposer = async ({
 
 		// A signature already in the log changes nothing.
 		if (
-			await isRecordedProposerSignature(tx, {
-				address,
-				proposer,
+			await isRecordedSignature(tx, {
+				accountAddress: address,
+				subject: proposer,
 				signature,
 				actions: ['proposer.added'],
 			})
@@ -1293,9 +1153,9 @@ export const removeProposer = async ({
 		await lockAccount(tx, address);
 
 		if (
-			await isRecordedProposerSignature(tx, {
-				address,
-				proposer,
+			await isRecordedSignature(tx, {
+				accountAddress: address,
+				subject: proposer,
 				signature,
 				actions: [
 					'proposer.removed',

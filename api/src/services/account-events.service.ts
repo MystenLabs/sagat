@@ -122,6 +122,31 @@ type AccountEventRegistry = {
 		network: string;
 		proof: ChainProof;
 	};
+	// `actor` is the answering key. The legacy message names the set, not the account.
+	'signer_set.accepted': {
+		actor: string;
+		subject: string;
+		proof: SignedProof<'signer_set.accept'>;
+	};
+	'signer_set.rejected': {
+		actor: string;
+		subject: string;
+		proof: SignedProof<'signer_set.reject'>;
+	};
+	'account.accepted': {
+		actor: string;
+		proof: SignedProof<
+			'account.accept',
+			{ expiry: string }
+		>;
+	};
+	'account.rejected': {
+		actor: string;
+		proof: SignedProof<
+			'account.reject',
+			{ expiry: string }
+		>;
+	};
 };
 
 // Written before cancels named the digest; its signed text names the id.
@@ -172,6 +197,42 @@ export const recordAccountEvent = async (
 		.values(event)
 		.returning({ id: SchemaAccountEvents.id });
 	return id;
+};
+
+// Whether this signature is already in the account's log under `actions`,
+// for `subject` when one is given.
+export const isRecordedSignature = async (
+	tx: DatabaseTransaction,
+	{
+		accountAddress,
+		subject,
+		signature,
+		actions,
+	}: {
+		accountAddress: string;
+		subject?: string;
+		signature: string;
+		actions: AccountEventAction[];
+	},
+) => {
+	const [recorded] = await tx
+		.select({ id: SchemaAccountEvents.id })
+		.from(SchemaAccountEvents)
+		.where(
+			and(
+				eq(
+					SchemaAccountEvents.accountAddress,
+					accountAddress,
+				),
+				subject !== undefined
+					? eq(SchemaAccountEvents.subject, subject)
+					: undefined,
+				inArray(SchemaAccountEvents.action, actions),
+				sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
+			),
+		)
+		.limit(1);
+	return recorded !== undefined;
 };
 
 export type StoredAccountEvent = Omit<

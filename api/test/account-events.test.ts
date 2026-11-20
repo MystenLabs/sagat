@@ -1271,6 +1271,101 @@ describe('input refused before anything is stored', () => {
 	});
 });
 
+describe('accepting and rejecting on the legacy routes', () => {
+	const answer = async (
+		session: TestSession,
+		user: TestUser,
+		address: string,
+		route: 'accept' | 'reject',
+	) => {
+		const signature = await sign(
+			user,
+			route === 'accept'
+				? PersonalMessages.acceptMultisigInvitation(address)
+				: PersonalMessages.rejectMultisigInvitation(
+						address,
+					),
+		);
+		const response = await session.post(
+			`/multisig/${address}/${route}`,
+			{ signature },
+		);
+		expect(response.status).toBe(200);
+		return signature;
+	};
+
+	test('records the signed accept and reject with the set as subject', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(1);
+		const [creator] = users;
+		const [early, late] = [newUser(), newUser()];
+		const { address } = await session.createMultisig(
+			[creator, early, late],
+			3,
+		);
+
+		const accepted = await answer(
+			session,
+			early,
+			address,
+			'accept',
+		);
+		const rejected = await answer(
+			session,
+			late,
+			address,
+			'reject',
+		);
+
+		expect(await eventsOf(address, creator)).toMatchObject([
+			{
+				action: 'signer_set.rejected',
+				actor: late.address,
+				subject: address,
+				network: null,
+				proof: {
+					kind: 'signer_set.reject',
+					version: 1,
+					signature: rejected,
+				},
+			},
+			{
+				action: 'signer_set.accepted',
+				actor: early.address,
+				subject: address,
+				network: null,
+				proof: {
+					kind: 'signer_set.accept',
+					version: 1,
+					signature: accepted,
+				},
+			},
+		]);
+	});
+
+	test('the same accept sent again writes no second row', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(1);
+		const [creator] = users;
+		const invitee = newUser();
+		const { address } = await session.createMultisig(
+			[creator, invitee],
+			2,
+		);
+
+		await answer(session, invitee, address, 'accept');
+		await answer(session, invitee, address, 'accept');
+
+		expect(
+			await eventsOf(
+				address,
+				creator,
+				'signer_set.accepted',
+			),
+		).toHaveLength(1);
+	});
+});
+
 describe('listAccountEvents', () => {
 	const seed = (events: AccountEvent[]) =>
 		db.transaction(async (tx) => {
