@@ -40,6 +40,16 @@ export function aliasReadsFromEntries(
 	);
 }
 
+/** `cached` with `pod`'s entry replaced by `read`; `cached` itself when it doesn't hold `pod`. */
+export function withPodRead(
+	cached: Map<string, AliasRead>,
+	pod: string,
+	read: AliasRead,
+): Map<string, AliasRead> {
+	if (!cached.has(pod)) return cached;
+	return new Map(cached).set(pod, read);
+}
+
 /** Reads the alias sets of `pods` in one `getObjects` call per 50 pods. Never throws: a pod whose read failed is `failed`. */
 export async function readAliasSets(
 	client: ClientWithCoreApi,

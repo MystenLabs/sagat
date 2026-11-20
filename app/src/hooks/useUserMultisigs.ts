@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { content } from '@/content';
+import { CONFIG } from '@/lib/constants';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { toUserMultisig } from '@/lib/user-multisig';
 
@@ -39,7 +40,7 @@ export function useUserMultisigs() {
 		},
 		enabled: isCurrentAddressAuthenticated,
 		staleTime: 1000 * 30, // 30 seconds
-		refetchInterval: 1000 * 60, // Refetch every minute
+		refetchInterval: CONFIG.REFETCH_INTERVAL,
 	});
 
 	return { ...query, data: useRowsActing(query.data) };

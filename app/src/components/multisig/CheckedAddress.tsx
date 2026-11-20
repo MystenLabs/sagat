@@ -5,8 +5,10 @@ import { type ReactNode } from 'react';
 
 import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useFreshPodAliasSet } from '@/hooks/useAliasSets';
 import { networkLabel } from '@/lib/network';
-import { type PodChecks } from '@/lib/types';
+import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { withActing } from '@/lib/user-multisig';
 
 import { Alert } from '../ui/Alert';
 import { SignersRefused } from './SignersRefused';
@@ -14,17 +16,24 @@ import { SignersUnchecked } from './SignersUnchecked';
 
 const COPY = content.common;
 
-/** The pod's address (`children`) once both signers checks pass, else the reason. */
+/** The pod's address (`children`) once both signers checks pass, rule 2 on an alias read made as it opens; else the reason. */
 export function CheckedAddress({
-	pod,
+	pod: row,
 	testIdPrefix,
 	children,
 }: {
-	pod: PodChecks;
+	pod: MultisigWithMembersForPublicKey;
 	testIdPrefix: string;
 	children: ReactNode;
 }) {
 	const { network } = useNetwork();
+	const ruleOneRefused =
+		row.refused === 'signers' ||
+		row.refused === 'notSigner';
+	const aliases = useFreshPodAliasSet(row.address, {
+		enabled: !ruleOneRefused,
+	});
+	const pod = withActing(row, aliases);
 	if (pod.refused)
 		return (
 			<SignersRefused

@@ -19,6 +19,8 @@ import {
 	aliasReadsFromEntries,
 	readAliasSets,
 	readChainIdentifier,
+	withPodRead,
+	type AliasRead,
 } from '../src/lib/alias-set';
 
 // Nothing listens on the discard port.
@@ -129,6 +131,49 @@ test('reads a pod asked for twice once, keyed by its normalized address', async 
 	expect([...reads.keys()]).toEqual([
 		normalizeSuiAddress('0xa1'),
 	]);
+});
+
+test('a fresh read of a pod replaces only its own entry in a cached read', () => {
+	const [pod, other] = [
+		new Ed25519Keypair().toSuiAddress(),
+		new Ed25519Keypair().toSuiAddress(),
+	];
+	const otherRead: AliasRead = {
+		kind: 'read',
+		aliases: [other],
+	};
+	const cached = new Map<string, AliasRead>([
+		[pod, { kind: 'read', aliases: [pod] }],
+		[other, otherRead],
+	]);
+
+	const updated = withPodRead(cached, pod, {
+		kind: 'failed',
+	});
+
+	expect(updated.get(pod)).toEqual({ kind: 'failed' });
+	expect(updated.get(other)).toBe(otherRead);
+	expect(cached.get(pod)).toEqual({
+		kind: 'read',
+		aliases: [pod],
+	});
+});
+
+test('a fresh read of a pod leaves a cached read without it untouched', () => {
+	const other = new Ed25519Keypair().toSuiAddress();
+	const cached = new Map<string, AliasRead>([
+		[other, { kind: 'read', aliases: [other] }],
+	]);
+
+	expect(
+		withPodRead(
+			cached,
+			new Ed25519Keypair().toSuiAddress(),
+			{
+				kind: 'failed',
+			},
+		),
+	).toBe(cached);
 });
 
 test('reads no chain identifier from an unreachable node', async () => {

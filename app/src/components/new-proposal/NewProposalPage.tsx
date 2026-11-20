@@ -22,8 +22,6 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import {
 	BytesNotFromPodError,
 	ChainMismatchError,
-	SignersRefusedError,
-	SignersUncheckedError,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
 import { couldNotSimulate } from '@/hooks/useDryRun';
@@ -45,7 +43,11 @@ import {
 	proposalsPath,
 } from '@/lib/proposalUtils';
 import { signerRows } from '@/lib/signers';
-import { signersRefusedLine } from '@/lib/signers-refused';
+import {
+	SignersRefusedError,
+	signersRefusedLine,
+	SignersUncheckedError,
+} from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { SignatureDeclinedError } from '@/lib/wallet-session';

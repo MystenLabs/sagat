@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { content } from '@/content';
+import { CONFIG } from '@/lib/constants';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { toUserMultisig } from '@/lib/user-multisig';
 
@@ -15,7 +16,6 @@ import { useUserMultisigs } from './useUserMultisigs';
 
 // An address in no accounts is likely waiting on an invitation.
 const NO_ACCOUNTS_REFETCH_INTERVAL = 10_000;
-const INVITATIONS_REFETCH_INTERVAL = 60_000;
 
 // Hook to fetch invitations for the current user's public key
 export function useInvitations(
@@ -60,7 +60,7 @@ export function useInvitations(
 		refetchInterval:
 			multisigs?.length === 0
 				? NO_ACCOUNTS_REFETCH_INTERVAL
-				: INVITATIONS_REFETCH_INTERVAL,
+				: CONFIG.REFETCH_INTERVAL,
 	});
 
 	return { ...query, data: useRowsActing(query.data) };

@@ -42,8 +42,7 @@ export function InvitationCard({
 	const creator = accountCreator(multisig);
 
 	// On success the hook moves to the account page itself.
-	const handleAccept = () =>
-		accept.mutate({ address: multisig.address });
+	const handleAccept = () => accept.mutate({ multisig });
 	const handleReject = () =>
 		reject.mutate(
 			{ address: multisig.address },

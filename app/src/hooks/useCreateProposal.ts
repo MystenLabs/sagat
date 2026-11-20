@@ -15,7 +15,6 @@ import { useState } from 'react';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { readNodeFacts } from '@/hooks/useAliasSets';
-import { type SuiNetwork } from '@/lib/network';
 import { checkNewProposal } from '@/lib/new-proposal';
 import {
 	checkSignerOnNetwork,
@@ -23,9 +22,8 @@ import {
 	type AccountSigners,
 } from '@/lib/proposal-integrity';
 import {
-	signersRefusedLine,
-	signersUncheckedLine,
-	type SignersRefusedRule,
+	SignersRefusedError,
+	SignersUncheckedError,
 } from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
 import {
@@ -46,30 +44,11 @@ export class BytesNotFromPodError extends Error {
 	}
 }
 
-/** The account's signers don't make up its address, the wallet isn't one of them, or no acting set on the network holds it. Nothing was signed. */
-export class SignersRefusedError extends Error {
-	constructor(
-		failure: SignersRefusedRule,
-		network: SuiNetwork,
-	) {
-		super(signersRefusedLine(failure, network));
-		this.name = 'SignersRefusedError';
-	}
-}
-
 /** The bytes name a chain other than the node's. Nothing was signed. */
 export class ChainMismatchError extends Error {
 	constructor() {
 		super(content.newProposal.bytesWrongChain);
 		this.name = 'ChainMismatchError';
-	}
-}
-
-/** The pod's alias set or the node's chain couldn't be read. Nothing was signed. */
-export class SignersUncheckedError extends Error {
-	constructor(network: SuiNetwork) {
-		super(signersUncheckedLine(network));
-		this.name = 'SignersUncheckedError';
 	}
 }
 

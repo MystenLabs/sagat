@@ -992,6 +992,50 @@ test.describe('proposal integrity', () => {
 		).toHaveCount(0);
 	});
 
+	test('reads the alias set again when Receive opens, and refuses a pod whose set changed while the app was open', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { alice, bob, multisig } = await sharedAccount(
+			{ createActor, createIdentity, chain },
+			2,
+		);
+		const { page } = alice;
+
+		await page.goto(
+			`/multisig/${multisig.address}/overview`,
+		);
+		await page.getByTestId('receive-button').click();
+		const dialog = page.getByTestId('receive-dialog');
+		await expect(
+			dialog.getByTestId('receive-address'),
+		).toBeVisible();
+		await page.keyboard.press('Escape');
+		await expect(dialog).toHaveCount(0);
+
+		await replaceOwnAlias(
+			chain,
+			bothSign(alice, bob),
+			randomAddress(),
+		);
+
+		await page.getByTestId('receive-button').click();
+		await expect(
+			dialog.getByTestId('receive-refused'),
+		).toBeVisible();
+		await expect(
+			dialog.getByTestId('receive-address'),
+		).toHaveCount(0);
+		await page.keyboard.press('Escape');
+		const refusal = page.getByTestId('pod-refused');
+		await expect(refusal).toBeVisible();
+		await expect(refusal).toHaveAttribute(
+			'data-rule',
+			'notActing',
+		);
+	});
+
 	test('refuses to sign bytes that name another chain', async ({
 		createActor,
 		createIdentity,

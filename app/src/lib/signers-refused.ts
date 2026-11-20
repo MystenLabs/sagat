@@ -48,3 +48,22 @@ export function signersUncheckedLine(network: SuiNetwork) {
 		networkLabel(network),
 	);
 }
+
+/** The pod's signers don't make up its address, the wallet isn't one of them, or no acting set on the network holds it. Nothing was signed. */
+export class SignersRefusedError extends Error {
+	constructor(
+		rule: SignersRefusedRule,
+		network: SuiNetwork,
+	) {
+		super(signersRefusedLine(rule, network));
+		this.name = 'SignersRefusedError';
+	}
+}
+
+/** The pod's alias set or the node's chain couldn't be read. Nothing was signed. */
+export class SignersUncheckedError extends Error {
+	constructor(network: SuiNetwork) {
+		super(signersUncheckedLine(network));
+		this.name = 'SignersUncheckedError';
+	}
+}
