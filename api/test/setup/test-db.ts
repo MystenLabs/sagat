@@ -12,6 +12,15 @@ const CONNECTION_STRING =
 	process.env.TEST_DATABASE_URL ||
 	'postgresql://localhost:5432/postgres';
 
+// Counts the statements run on the test database.
+let statements = 0;
+const counter = {
+	logQuery: () => {
+		statements++;
+	},
+};
+export const queryCount = () => statements;
+
 export type TestDatabase = Awaited<
 	ReturnType<typeof setupTestDatabase>
 >;
@@ -34,7 +43,7 @@ export async function setupTestDatabase() {
 
 	// Connect and migrate
 	const pool = new Pool({ connectionString: url });
-	const db = drizzle(pool, { schema });
+	const db = drizzle(pool, { schema, logger: counter });
 	await migrate(db, { migrationsFolder: './drizzle' });
 
 	return { db, dbName, pool, url };
@@ -64,6 +73,7 @@ export async function clearTestData(
 	await db.delete(schema.SchemaProposals);
 	await db.delete(schema.SchemaAccountSignerSets);
 	await db.delete(schema.SchemaAccountKeys);
+	await db.delete(schema.SchemaAccountAcceptances);
 	await db.delete(schema.SchemaAccountAliases);
 	await db.delete(schema.SchemaAccountAliasState);
 	await db.delete(schema.SchemaSignerSetMembers);

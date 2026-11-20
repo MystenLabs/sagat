@@ -1,0 +1,513 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+/**
+ * Who signs for an account on a network: its acting signer sets, read from
+ * the alias mirror, each key's answer for the account, and the original set.
+ * The only reader of `account_aliases` for that question.
+ */
+
+import {
+	and,
+	eq,
+	inArray,
+	isNull,
+	notExists,
+	sql,
+} from 'drizzle-orm';
+import { alias, union } from 'drizzle-orm/pg-core';
+
+import { db } from '../db';
+import {
+	SchemaAccountAcceptances,
+	SchemaAccountAliases,
+	SchemaAccounts,
+	SchemaAddresses,
+	SchemaSignerSetMembers,
+	SchemaSignerSets,
+	type SignerSetMember,
+	type SignerSetWithMembers,
+} from '../db/schema';
+import { SignerSetDataLoader } from '../loaders/signer-set.loader';
+import { type SuiNetwork } from '../utils/client';
+
+export type SignerScope =
+	| { kind: 'original' }
+	| { kind: 'acting'; network: SuiNetwork };
+export const ORIGINAL_SET: SignerScope = {
+	kind: 'original',
+};
+export const actingSetsOn = (
+	network: SuiNetwork,
+): SignerScope => ({ kind: 'acting', network });
+
+export type KeyAnswer = 'accepted' | 'rejected' | 'invited';
+
+export type ActingMember = {
+	publicKey: string;
+	weight: number;
+	order: number;
+	// The key's answer for the account, not for this composition.
+	answer: KeyAnswer;
+};
+
+export type ActingSignerSet = {
+	kind: 'signer_set' | 'key';
+	address: string;
+	threshold: number;
+	members: ActingMember[];
+};
+
+export type AccountSigners = {
+	accountAddress: string;
+	accountName: string | null;
+	// Always returned. Decides nothing.
+	originalSet: SignerSetWithMembers | null;
+	actingSets: ActingSignerSet[];
+	otherSignerSets: string[];
+};
+
+// The key's member row at the account's own address; with the acceptance row it gives the answer.
+const originalMember = alias(
+	SchemaSignerSetMembers,
+	'original_member',
+);
+
+const answerSql = sql<KeyAnswer>`CASE
+	WHEN ${originalMember.isAccepted} OR ${SchemaAccountAcceptances.isAccepted} THEN 'accepted'
+	WHEN ${originalMember.isRejected} OR ${SchemaAccountAcceptances.isRejected} THEN 'rejected'
+	ELSE 'invited' END`;
+
+const memberAnswer = (
+	member: SignerSetMember,
+): KeyAnswer =>
+	member.isAccepted
+		? 'accepted'
+		: member.isRejected
+			? 'rejected'
+			: 'invited';
+
+const loadSignerSets = async (addresses: string[]) => {
+	const results =
+		await SignerSetDataLoader.loadMany(addresses);
+	return results.map((result) => {
+		if (result instanceof Error) throw result;
+		return result;
+	});
+};
+
+// The account's signers under the original scope, from its original set.
+export const originalSigners = (
+	set: SignerSetWithMembers,
+): AccountSigners => ({
+	accountAddress: set.address,
+	accountName: set.name,
+	originalSet: set,
+	actingSets: [
+		{
+			kind: 'signer_set',
+			address: set.address,
+			threshold: set.threshold,
+			members: set.members.map((member) => ({
+				publicKey: member.publicKey,
+				weight: member.weight,
+				order: member.order,
+				answer: memberAnswer(member),
+			})),
+		},
+	],
+	otherSignerSets: [],
+});
+
+const resolveOriginal = async (addresses: string[]) => {
+	const sets = await loadSignerSets(addresses);
+	const result = new Map<string, AccountSigners>();
+	for (const set of sets)
+		if (set) result.set(set.address, originalSigners(set));
+	return result;
+};
+
+const readActingRows = (
+	addresses: string[],
+	network: SuiNetwork,
+) => {
+	const aliasAddress = sql<string>`COALESCE(${SchemaAccountAliases.aliasAddress}, ${SchemaAccounts.address})`;
+	const publicKey = sql<string>`COALESCE(${SchemaSignerSetMembers.publicKey}, ${SchemaAddresses.publicKey})`;
+	return db
+		.select({
+			accountAddress: SchemaAccounts.address,
+			accountName: SchemaAccounts.name,
+			alias: aliasAddress,
+			threshold: SchemaSignerSets.threshold,
+			aliasKey: SchemaAddresses.publicKey,
+			publicKey: SchemaSignerSetMembers.publicKey,
+			weight: SchemaSignerSetMembers.weight,
+			order: SchemaSignerSetMembers.order,
+			answer: answerSql,
+		})
+		.from(SchemaAccounts)
+		.leftJoin(
+			SchemaAccountAliases,
+			and(
+				eq(
+					SchemaAccountAliases.accountAddress,
+					SchemaAccounts.address,
+				),
+				eq(SchemaAccountAliases.network, network),
+			),
+		)
+		.leftJoin(
+			SchemaSignerSets,
+			eq(SchemaSignerSets.address, aliasAddress),
+		)
+		.leftJoin(
+			SchemaSignerSetMembers,
+			eq(
+				SchemaSignerSetMembers.signerSetAddress,
+				SchemaSignerSets.address,
+			),
+		)
+		.leftJoin(
+			SchemaAddresses,
+			and(
+				isNull(SchemaSignerSets.address),
+				eq(SchemaAddresses.address, aliasAddress),
+			),
+		)
+		.leftJoin(
+			originalMember,
+			and(
+				eq(
+					originalMember.signerSetAddress,
+					SchemaAccounts.address,
+				),
+				eq(originalMember.publicKey, publicKey),
+			),
+		)
+		.leftJoin(
+			SchemaAccountAcceptances,
+			and(
+				eq(
+					SchemaAccountAcceptances.accountAddress,
+					SchemaAccounts.address,
+				),
+				eq(SchemaAccountAcceptances.publicKey, publicKey),
+			),
+		)
+		.where(inArray(SchemaAccounts.address, addresses));
+};
+
+const byAddress = (
+	a: { address: string },
+	b: { address: string },
+) =>
+	a.address < b.address
+		? -1
+		: a.address > b.address
+			? 1
+			: 0;
+
+const resolveActing = async (
+	addresses: string[],
+	network: SuiNetwork,
+) => {
+	const [rows, originals] = await Promise.all([
+		readActingRows(addresses, network),
+		loadSignerSets(addresses),
+	]);
+	const originalOf = new Map(
+		addresses.map((address, i) => [address, originals[i]]),
+	);
+
+	const result = new Map<string, AccountSigners>();
+	const setsOf = new Map<
+		string,
+		Map<string, ActingSignerSet>
+	>();
+	for (const row of rows) {
+		let signers = result.get(row.accountAddress);
+		if (!signers) {
+			signers = {
+				accountAddress: row.accountAddress,
+				accountName: row.accountName,
+				originalSet:
+					originalOf.get(row.accountAddress) ?? null,
+				actingSets: [],
+				otherSignerSets: [],
+			};
+			result.set(row.accountAddress, signers);
+			setsOf.set(row.accountAddress, new Map());
+		}
+		const sets = setsOf.get(row.accountAddress)!;
+
+		if (row.threshold !== null) {
+			let set = sets.get(row.alias);
+			if (!set) {
+				set = {
+					kind: 'signer_set',
+					address: row.alias,
+					threshold: row.threshold,
+					members: [],
+				};
+				sets.set(row.alias, set);
+			}
+			if (row.publicKey !== null)
+				set.members.push({
+					publicKey: row.publicKey,
+					weight: row.weight!,
+					order: row.order!,
+					answer: row.answer,
+				});
+		} else if (row.aliasKey !== null) {
+			sets.set(row.alias, {
+				kind: 'key',
+				address: row.alias,
+				threshold: 1,
+				members: [
+					{
+						publicKey: row.aliasKey,
+						weight: 1,
+						order: 0,
+						answer: row.answer,
+					},
+				],
+			});
+		} else {
+			signers.otherSignerSets.push(row.alias);
+		}
+	}
+
+	for (const [account, signers] of result) {
+		signers.actingSets = [
+			...setsOf.get(account)!.values(),
+		].sort(byAddress);
+		for (const set of signers.actingSets)
+			set.members.sort((a, b) => a.order - b.order);
+		signers.otherSignerSets.sort();
+	}
+	return result;
+};
+
+// One entry per address that resolves. Acting scope: every address that is an account. Original scope: every address that has a signer set.
+export const resolveSigners = async (
+	accountAddresses: string[],
+	scope: SignerScope,
+): Promise<Map<string, AccountSigners>> => {
+	const addresses = [...new Set(accountAddresses)];
+	if (addresses.length === 0) return new Map();
+	return scope.kind === 'original'
+		? resolveOriginal(addresses)
+		: resolveActing(addresses, scope.network);
+};
+
+export const resolveAccountSigners = async (
+	accountAddress: string,
+	scope: SignerScope,
+): Promise<AccountSigners | undefined> =>
+	(await resolveSigners([accountAddress], scope)).get(
+		accountAddress,
+	);
+
+// The key's answer for the account, or null when it is in no acting set.
+export const keyAnswer = (
+	signers: AccountSigners,
+	publicKey: string,
+): KeyAnswer | null => {
+	for (const set of signers.actingSets)
+		for (const member of set.members)
+			if (member.publicKey === publicKey)
+				return member.answer;
+	return null;
+};
+
+export type SignerSetProgress = {
+	signerSet: ActingSignerSet;
+	// Sum of the weights of the members that signed.
+	currentWeight: number;
+	hasReachedThreshold: boolean;
+};
+
+// A key counts in each set that holds it.
+export const countSignatures = (
+	actingSets: ActingSignerSet[],
+	signedKeys: string[],
+): {
+	sets: SignerSetProgress[];
+	hasReachedThreshold: boolean;
+} => {
+	const signed = new Set(signedKeys);
+	const sets = actingSets.map((signerSet) => {
+		const currentWeight = signerSet.members
+			.filter((member) => signed.has(member.publicKey))
+			.reduce((sum, member) => sum + member.weight, 0);
+		return {
+			signerSet,
+			currentWeight,
+			hasReachedThreshold:
+				currentWeight >= signerSet.threshold,
+		};
+	});
+	return {
+		sets,
+		hasReachedThreshold: sets.some(
+			(set) => set.hasReachedThreshold,
+		),
+	};
+};
+
+// The accounts where one of the keys is in an acting set on the network with that answer. One row per (account, key).
+export const listActingAccounts = async (
+	publicKeys: string[],
+	network: SuiNetwork,
+	answer: KeyAnswer,
+): Promise<
+	{ accountAddress: string; publicKey: string }[]
+> => {
+	if (publicKeys.length === 0) return [];
+
+	// Every set a key is in: its compositions, and its own address unless a composition has it.
+	const sets = db.$with('key_sets').as(
+		union(
+			db
+				.select({
+					setAddress:
+						sql<string>`${SchemaSignerSetMembers.signerSetAddress}`.as(
+							'set_address',
+						),
+					publicKey:
+						sql<string>`${SchemaSignerSetMembers.publicKey}`.as(
+							'set_key',
+						),
+				})
+				.from(SchemaSignerSetMembers)
+				.where(
+					inArray(
+						SchemaSignerSetMembers.publicKey,
+						publicKeys,
+					),
+				),
+			db
+				.select({
+					setAddress:
+						sql<string>`${SchemaAddresses.address}`.as(
+							'set_address',
+						),
+					publicKey:
+						sql<string>`${SchemaAddresses.publicKey}`.as(
+							'set_key',
+						),
+				})
+				.from(SchemaAddresses)
+				.where(
+					and(
+						inArray(SchemaAddresses.publicKey, publicKeys),
+						notExists(
+							db
+								.select({ one: sql`1` })
+								.from(SchemaSignerSets)
+								.where(
+									eq(
+										SchemaSignerSets.address,
+										SchemaAddresses.address,
+									),
+								),
+						),
+					),
+				),
+		),
+	);
+
+	const ownAliases = alias(
+		SchemaAccountAliases,
+		'own_aliases',
+	);
+	// The accounts where such a set acts: listed as an alias, or the account itself with no alias rows.
+	const acting = db.$with('acting').as(
+		union(
+			db
+				.select({
+					accountAddress:
+						sql<string>`${SchemaAccountAliases.accountAddress}`.as(
+							'acting_account',
+						),
+					publicKey: sql<string>`${sets.publicKey}`.as(
+						'acting_key',
+					),
+				})
+				.from(sets)
+				.innerJoin(
+					SchemaAccountAliases,
+					and(
+						eq(
+							SchemaAccountAliases.aliasAddress,
+							sets.setAddress,
+						),
+						eq(SchemaAccountAliases.network, network),
+					),
+				),
+			db
+				.select({
+					accountAddress:
+						sql<string>`${SchemaAccounts.address}`.as(
+							'acting_account',
+						),
+					publicKey: sql<string>`${sets.publicKey}`.as(
+						'acting_key',
+					),
+				})
+				.from(sets)
+				.innerJoin(
+					SchemaAccounts,
+					eq(SchemaAccounts.address, sets.setAddress),
+				)
+				.where(
+					notExists(
+						db
+							.select({ one: sql`1` })
+							.from(ownAliases)
+							.where(
+								and(
+									eq(
+										ownAliases.accountAddress,
+										SchemaAccounts.address,
+									),
+									eq(ownAliases.network, network),
+								),
+							),
+					),
+				),
+		),
+	);
+
+	return db
+		.with(sets, acting)
+		.select({
+			accountAddress: acting.accountAddress,
+			publicKey: acting.publicKey,
+		})
+		.from(acting)
+		.leftJoin(
+			originalMember,
+			and(
+				eq(
+					originalMember.signerSetAddress,
+					acting.accountAddress,
+				),
+				eq(originalMember.publicKey, acting.publicKey),
+			),
+		)
+		.leftJoin(
+			SchemaAccountAcceptances,
+			and(
+				eq(
+					SchemaAccountAcceptances.accountAddress,
+					acting.accountAddress,
+				),
+				eq(
+					SchemaAccountAcceptances.publicKey,
+					acting.publicKey,
+				),
+			),
+		)
+		.where(sql`${answerSql} = ${answer}`);
+};
