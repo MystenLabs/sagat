@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	deriveAliasesObjectId,
 	type AuthCheckResponse,
 	type MultisigWithMembers,
 	type PublicProposal,
@@ -13,20 +14,26 @@ import {
 import {
 	fromBase64,
 	MIST_PER_SUI,
+	toBase58,
 	toBase64,
 } from '@mysten/sui/utils';
 import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
+import { type Page, type Route } from '@playwright/test';
 
 import { docsUrl } from '../../app/src/lib/docs';
 import { newProposalPath } from '../../app/src/lib/new-proposal';
 import { type Actor } from '../support/actor';
-import { randomAddress } from '../support/chain';
+import {
+	randomAddress,
+	type Chain,
+} from '../support/chain';
 import { E2E } from '../support/env';
 import {
 	expect,
 	test,
 	type Fixtures,
 } from '../support/fixtures';
+import { type Identity } from '../support/identity';
 import {
 	isVoteRequest,
 	recordCreates,
@@ -34,14 +41,84 @@ import {
 	sharedAccount,
 } from '../support/new-proposal';
 import {
+	addAlias,
 	addProposer,
 	proposeTransfer,
+	replaceOwnAlias,
 	setupMultisig,
 	setupProposal,
 } from '../support/scenarios';
 
 type Rule =
-	'sender' | 'gasOwner' | 'digest' | 'signers' | 'proposer';
+	| 'sender'
+	| 'gasOwner'
+	| 'digest'
+	| 'signers'
+	| 'proposer'
+	| 'notActing'
+	| 'chain';
+
+const BATCH_GET_OBJECTS =
+	'**/sui.rpc.v2.LedgerService/BatchGetObjects';
+
+/**
+ * Aborts the page's node reads of `pod`'s alias set, leaving its other
+ * object reads alone. Returns a function that stops aborting.
+ */
+async function failAliasReads(page: Page, pod: string) {
+	const aliasObject = deriveAliasesObjectId(pod);
+	const handler = (route: Route) =>
+		Buffer.from(route.request().postData() ?? '', 'base64')
+			.toString('latin1')
+			.includes(aliasObject)
+			? route.abort()
+			: route.fallback();
+	await page.route(BATCH_GET_OBJECTS, handler);
+	return () => page.unroute(BATCH_GET_OBJECTS, handler);
+}
+
+/** Alice and Bob sign together for their 2-of-2 pod, outside the app. */
+function bothSign(alice: Identity, bob: Identity) {
+	return {
+		members: [{ identity: alice }, { identity: bob }],
+		threshold: 2,
+		signers: [alice, bob],
+	};
+}
+
+/**
+ * Bytes of a SUI transfer from `sender` whose expiration names a chain
+ * other than the local one, built offline: the node won't simulate them.
+ */
+async function buildForAnotherChain(
+	chain: Chain,
+	sender: string,
+) {
+	const [coins, { referenceGasPrice }] = await Promise.all([
+		chain.coins(sender),
+		chain.client.getReferenceGasPrice(),
+	]);
+	const tx = new Transaction();
+	tx.setSender(sender);
+	tx.setGasPayment(coins);
+	tx.setGasPrice(BigInt(referenceGasPrice));
+	tx.setGasBudget(10_000_000n);
+	tx.setExpiration({
+		ValidDuring: {
+			minEpoch: null,
+			maxEpoch: null,
+			minTimestamp: null,
+			maxTimestamp: null,
+			chain: toBase58(
+				crypto.getRandomValues(new Uint8Array(32)),
+			),
+			nonce: 0,
+		},
+	});
+	const [coin] = tx.splitCoins(tx.gas, [MIST_PER_SUI]);
+	tx.transferObjects([coin], randomAddress());
+	return toBase64(await tx.build());
+}
 
 /** The proposal with other bytes, and the digest that matches them. */
 function withBytes(
@@ -722,5 +799,226 @@ test.describe('proposal integrity', () => {
 		await expect(
 			alice.page.getByTestId('setup-download'),
 		).toHaveCount(0);
+	});
+
+	test('refuses a pod whose alias set on chain no longer holds its own address', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { alice, bob, multisig, proposal } =
+			await setupProposal({
+				createActor,
+				createIdentity,
+				chain,
+			});
+		await replaceOwnAlias(
+			chain,
+			bothSign(alice, bob),
+			randomAddress(),
+		);
+		const votes = recordVotes(bob.page);
+		await bob.signIn();
+
+		await bob.page.goto(
+			`/multisig/${multisig.address}/overview`,
+		);
+		const refusal = bob.page.getByTestId('pod-refused');
+		await expect(refusal).toBeVisible();
+		await expect(refusal).toHaveAttribute(
+			'data-rule',
+			'notActing',
+		);
+		await bob.page.getByTestId('receive-button').click();
+		const dialog = bob.page.getByTestId('receive-dialog');
+		await expect(
+			dialog.getByTestId('receive-refused'),
+		).toBeVisible();
+		await expect(
+			dialog.getByTestId('receive-address'),
+		).toHaveCount(0);
+
+		// Under the pod the refusal hides the proposal; the shared link shows Sign's place.
+		await bob.page.goto(
+			`/proposals?digest=${proposal.digest}`,
+		);
+		await expectRefused({ bob, votes }, 'notActing');
+	});
+
+	test("shows that the pod's signers couldn't be checked while the node can't be read, until a retry reads it", async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { bob, multisig, proposal } = await setupProposal(
+			{ createActor, createIdentity, chain },
+		);
+		const { page } = bob;
+		const stopFailing = await failAliasReads(
+			page,
+			multisig.address,
+		);
+		const votes = recordVotes(page);
+		await bob.signIn();
+
+		await page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		const card = page.getByTestId('approvals-card');
+		await expect(
+			card.getByTestId('sign-unchecked'),
+		).toBeVisible();
+		await expect(
+			card.getByTestId('sign-proposal-button'),
+		).toHaveCount(0);
+		expect(votes).toEqual([]);
+
+		await page.goto(newProposalPath(multisig.address));
+		await expect(
+			page.getByTestId('new-proposal-unchecked'),
+		).toBeVisible();
+		await expect(page.getByTestId('type-step')).toHaveCount(
+			0,
+		);
+
+		await page.goto(
+			`/multisig/${multisig.address}/overview`,
+		);
+		await expect(
+			page.getByTestId('pod-unchecked'),
+		).toBeVisible();
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toBeVisible();
+		await page.getByTestId('receive-button').click();
+		const dialog = page.getByTestId('receive-dialog');
+		await expect(
+			dialog.getByTestId('receive-unchecked'),
+		).toBeVisible();
+		await expect(
+			dialog.getByTestId('receive-address'),
+		).toHaveCount(0);
+
+		await stopFailing();
+		await dialog
+			.getByTestId('receive-unchecked-retry')
+			.click();
+		await expect(
+			dialog.getByTestId('receive-address'),
+		).toBeVisible();
+		await expect(
+			dialog.getByTestId('receive-unchecked'),
+		).toHaveCount(0);
+		await expect(
+			page.getByTestId('pod-unchecked'),
+		).toHaveCount(0);
+	});
+
+	test("offers no accept for an invitation while the node can't be read, and offers it after a retry", async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			accept: false,
+		});
+		const stopFailing = await failAliasReads(
+			bob.page,
+			multisig.address,
+		);
+
+		await bob.signIn();
+		await bob.page.goto('/invitations');
+		await bob.page
+			.getByTestId('invitation-toggle-details')
+			.click();
+		const review = bob.page.getByTestId(
+			'invitation-review',
+		);
+		await expect(
+			review.getByTestId('invitation-unchecked'),
+		).toBeVisible();
+		await expect(
+			review.getByTestId('accept-invitation-button'),
+		).toHaveCount(0);
+
+		await stopFailing();
+		await review
+			.getByTestId('invitation-unchecked-retry')
+			.click();
+		await expect(
+			review.getByTestId('accept-invitation-button'),
+		).toBeEnabled();
+		await expect(
+			review.getByTestId('invitation-unchecked'),
+		).toHaveCount(0);
+	});
+
+	test('warns in Receive about another signer set in the alias set, and still shows the address', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { alice, bob, multisig } = await sharedAccount(
+			{ createActor, createIdentity, chain },
+			2,
+		);
+		await addAlias(
+			chain,
+			bothSign(alice, bob),
+			randomAddress(),
+		);
+
+		await alice.page.goto(
+			`/multisig/${multisig.address}/overview`,
+		);
+		await alice.page.getByTestId('receive-button').click();
+		const dialog = alice.page.getByTestId('receive-dialog');
+		await expect(
+			dialog.getByTestId('receive-other-signer-sets'),
+		).toBeVisible();
+		await expect(
+			dialog.getByTestId('receive-address'),
+		).toBeVisible();
+		await expect(
+			alice.page.getByTestId('pod-refused'),
+		).toHaveCount(0);
+	});
+
+	test('refuses to sign bytes that name another chain', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		const transactionBytes = await buildForAnotherChain(
+			chain,
+			multisig.address,
+		);
+		const proposal = await alice.api.createProposal({
+			multisigAddress: multisig.address,
+			transactionBytes,
+			signature: await alice.signTransaction(
+				transactionBytes,
+			),
+			network: 'localnet',
+		});
+		const votes = recordVotes(bob.page);
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		await expectRefused({ bob, votes }, 'chain');
 	});
 });
