@@ -16,12 +16,6 @@ import {
 	test,
 } from 'bun:test';
 
-import { db } from '../src/db';
-import {
-	SchemaAccountAcceptances,
-	SchemaAccountAliases,
-	SchemaAccountAliasState,
-} from '../src/db/schema';
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
@@ -32,6 +26,7 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
+import { answerFor, setAliases } from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -74,24 +69,8 @@ const setup = async () => {
 		await outsider.createMultisig([r1, newUser()], 1)
 	).address;
 
-	await db.insert(SchemaAccountAliasState).values({
-		accountAddress: account,
-		network: 'localnet',
-		exists: true,
-		observedVersion: 1,
-		observedAt: new Date(),
-	});
-	await db.insert(SchemaAccountAliases).values({
-		accountAddress: account,
-		network: 'localnet',
-		aliasAddress: composition,
-	});
-	await db.insert(SchemaAccountAcceptances).values({
-		accountAddress: account,
-		publicKey: r1.publicKey,
-		isAccepted: true,
-		isRejected: false,
-	});
+	await setAliases(account, 'localnet', [composition]);
+	await answerFor(account, r1, 'accepted');
 
 	return {
 		k1,

@@ -24,10 +24,7 @@ import { and, eq } from 'drizzle-orm';
 import { db } from '../src/db';
 import {
 	ProposalStatus,
-	SchemaAccountAcceptances,
 	SchemaAccountAliases,
-	SchemaAccountAliasState,
-	SchemaAddresses,
 	SchemaProposals,
 	SchemaSignerSetMembers,
 	SchemaSignerSets,
@@ -66,6 +63,11 @@ import {
 	sign,
 	type TestUser,
 } from './framework/api-test-framework';
+import {
+	answerFor,
+	register,
+	setAliases,
+} from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -125,15 +127,6 @@ const createAccount = async (
 	return multisig.address;
 };
 
-const register = (user: TestUser) =>
-	db
-		.insert(SchemaAddresses)
-		.values({
-			publicKey: user.publicKey,
-			address: user.address,
-		})
-		.onConflictDoNothing();
-
 // A composition the API knows that is no account.
 const insertComposition = async (
 	members: TestUser[],
@@ -159,42 +152,6 @@ const insertComposition = async (
 	);
 	return address;
 };
-
-const setAliases = async (
-	account: string,
-	network: SuiNetwork,
-	aliases: string[],
-) => {
-	await db
-		.insert(SchemaAccountAliasState)
-		.values({
-			accountAddress: account,
-			network,
-			exists: true,
-			observedVersion: 1,
-			observedAt: new Date(),
-		})
-		.onConflictDoNothing();
-	await db.insert(SchemaAccountAliases).values(
-		aliases.map((aliasAddress) => ({
-			accountAddress: account,
-			network,
-			aliasAddress,
-		})),
-	);
-};
-
-const answerFor = (
-	account: string,
-	user: TestUser,
-	answer: 'accepted' | 'rejected',
-) =>
-	db.insert(SchemaAccountAcceptances).values({
-		accountAddress: account,
-		publicKey: user.publicKey,
-		isAccepted: answer === 'accepted',
-		isRejected: answer === 'rejected',
-	});
 
 // `A`: 2 of `k1`, `k2`, `k3`, all accepted. `R`: a composition of `r1`, `r2`.
 const createCast = async () => {
@@ -330,7 +287,7 @@ const propose = async (
 			await user.keypair.signTransaction(fromBase64(bytes))
 		).signature,
 		network: 'localnet',
-		signers: 'acting',
+		scopeKind: 'acting',
 	});
 };
 
@@ -342,7 +299,7 @@ const vote = async (user: TestUser, proposal: Proposal) =>
 				fromBase64(proposal.transactionBytes),
 			)
 		).signature,
-		signers: 'acting',
+		scopeKind: 'acting',
 	});
 
 const cancel = async (user: TestUser, proposal: Proposal) =>
@@ -355,14 +312,14 @@ const cancel = async (user: TestUser, proposal: Proposal) =>
 				proposal.accountAddress,
 			),
 		),
-		signers: 'acting',
+		scopeKind: 'acting',
 	});
 
 const verify = (user: TestUser, proposal: Proposal) =>
 	verifyProposal({
 		proposalId: proposal.id,
 		callerKeys: keysOf(user),
-		signers: 'acting',
+		scopeKind: 'acting',
 	});
 
 const proposalsOf = (user: TestUser, account: string) =>
@@ -371,7 +328,7 @@ const proposalsOf = (user: TestUser, account: string) =>
 		network: 'localnet',
 		cursor: { perPage: 20 },
 		callerKeys: keysOf(user),
-		signers: 'acting',
+		scopeKind: 'acting',
 	});
 
 const changeProposer = async (

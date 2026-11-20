@@ -37,10 +37,15 @@ import {
 } from '../db/schema';
 import { SignerSetDataLoader } from '../loaders/signer-set.loader';
 import { type SuiNetwork } from '../utils/client';
+import {
+	compareStrings,
+	unwrap,
+} from '../utils/collections';
 
 export type SignerScope =
 	| { kind: 'original' }
 	| { kind: 'acting'; network: SuiNetwork };
+export type SignerScopeKind = SignerScope['kind'];
 export const ORIGINAL_SET: SignerScope = {
 	kind: 'original',
 };
@@ -94,15 +99,6 @@ const memberAnswer = (
 			? 'rejected'
 			: 'invited';
 
-const loadSignerSets = async (addresses: string[]) => {
-	const results =
-		await SignerSetDataLoader.loadMany(addresses);
-	return results.map((result) => {
-		if (result instanceof Error) throw result;
-		return result;
-	});
-};
-
 // The account's signers under the original scope, from its original set.
 export const originalSigners = (
 	set: SignerSetWithMembers,
@@ -127,7 +123,9 @@ export const originalSigners = (
 });
 
 const resolveOriginal = async (addresses: string[]) => {
-	const sets = await loadSignerSets(addresses);
+	const sets = (
+		await SignerSetDataLoader.loadMany(addresses)
+	).map(unwrap);
 	const result = new Map<string, AccountSigners>();
 	for (const set of sets)
 		if (set) result.set(set.address, originalSigners(set));
@@ -268,72 +266,65 @@ const readActingRows = (
 		);
 };
 
-const byAddress = (
-	a: { address: string },
-	b: { address: string },
-) =>
-	a.address < b.address
-		? -1
-		: a.address > b.address
-			? 1
-			: 0;
+type ActingRow = Awaited<
+	ReturnType<typeof readActingRows>
+>[number];
 
-const resolveActing = async (
-	addresses: string[],
-	network: SuiNetwork,
-) => {
-	const rows = await readActingRows(addresses, network);
+const byOrder = (
+	a: { order: number },
+	b: { order: number },
+) => a.order - b.order;
 
-	const result = new Map<string, AccountSigners>();
-	const setsOf = new Map<
-		string,
-		Map<string, ActingSignerSet>
-	>();
-	const originalMembersOf = new Map<
-		string,
-		SignerSetMember[]
-	>();
+const groupByAccount = (rows: ActingRow[]) => {
+	const groups = new Map<string, ActingRow[]>();
 	for (const row of rows) {
-		let signers = result.get(row.accountAddress);
-		if (!signers) {
-			signers = {
-				accountAddress: row.accountAddress,
-				accountName: row.accountName,
-				originalSet: null,
-				actingSets: [],
-				otherSignerSets: [],
-			};
-			result.set(row.accountAddress, signers);
-			setsOf.set(row.accountAddress, new Map());
-			originalMembersOf.set(row.accountAddress, []);
-		}
-		const sets = setsOf.get(row.accountAddress)!;
+		const group = groups.get(row.accountAddress);
+		if (group) group.push(row);
+		else groups.set(row.accountAddress, [row]);
+	}
+	return groups;
+};
 
-		if (row.alias === row.accountAddress && row.set) {
-			signers.originalSet ??= {
-				...row.set,
-				members: [],
-				totalMembers: 0,
-				totalWeight: 0,
-			};
-			if (row.member)
-				originalMembersOf
-					.get(row.accountAddress)!
-					.push(row.member);
-		}
+// The set at the account's own address, whether or not it acts.
+const originalSetOf = (
+	account: string,
+	rows: ActingRow[],
+): SignerSetWithMembers | null => {
+	const own = rows.filter((row) => row.alias === account);
+	const set = own.find((row) => row.set)?.set;
+	if (!set) return null;
+	const members = own
+		.flatMap((row) => (row.member ? [row.member] : []))
+		.sort(byOrder);
+	return {
+		...set,
+		members,
+		totalMembers: members.length,
+		totalWeight: members.reduce(
+			(sum, member) => sum + member.weight,
+			0,
+		),
+	};
+};
+
+const actingSetsOf = (
+	rows: ActingRow[],
+): Pick<
+	AccountSigners,
+	'actingSets' | 'otherSignerSets'
+> => {
+	const sets = new Map<string, ActingSignerSet>();
+	const otherSignerSets: string[] = [];
+	for (const row of rows) {
 		if (!row.acts) continue;
-
 		if (row.set) {
-			let set = sets.get(row.alias);
-			if (!set) {
-				set = {
-					kind: 'signer_set',
-					address: row.alias,
-					threshold: row.set.threshold,
-					members: [],
-				};
-				sets.set(row.alias, set);
-			}
+			const set: ActingSignerSet = sets.get(row.alias) ?? {
+				kind: 'signer_set',
+				address: row.alias,
+				threshold: row.set.threshold,
+				members: [],
+			};
+			sets.set(row.alias, set);
 			if (row.member)
 				set.members.push({
 					publicKey: row.member.publicKey,
@@ -356,29 +347,32 @@ const resolveActing = async (
 				],
 			});
 		} else {
-			signers.otherSignerSets.push(row.alias);
+			otherSignerSets.push(row.alias);
 		}
 	}
+	const actingSets = [...sets.values()].sort((a, b) =>
+		compareStrings(a.address, b.address),
+	);
+	for (const set of actingSets) set.members.sort(byOrder);
+	return {
+		actingSets,
+		otherSignerSets: otherSignerSets.sort(),
+	};
+};
 
-	for (const [account, signers] of result) {
-		signers.actingSets = [
-			...setsOf.get(account)!.values(),
-		].sort(byAddress);
-		for (const set of signers.actingSets)
-			set.members.sort((a, b) => a.order - b.order);
-		signers.otherSignerSets.sort();
-		if (signers.originalSet) {
-			const members = originalMembersOf
-				.get(account)!
-				.sort((a, b) => a.order - b.order);
-			signers.originalSet.members = members;
-			signers.originalSet.totalMembers = members.length;
-			signers.originalSet.totalWeight = members.reduce(
-				(sum, member) => sum + member.weight,
-				0,
-			);
-		}
-	}
+const resolveActing = async (
+	addresses: string[],
+	network: SuiNetwork,
+) => {
+	const rows = await readActingRows(addresses, network);
+	const result = new Map<string, AccountSigners>();
+	for (const [account, accountRows] of groupByAccount(rows))
+		result.set(account, {
+			accountAddress: account,
+			accountName: accountRows[0].accountName,
+			originalSet: originalSetOf(account, accountRows),
+			...actingSetsOf(accountRows),
+		});
 	return result;
 };
 
@@ -413,6 +407,19 @@ export const keyAnswer = (
 				return member.answer;
 	return null;
 };
+
+// Whether one of the keys is in an acting set, and has accepted when `acceptedOnly`.
+export const signsFor = (
+	signers: AccountSigners,
+	publicKeys: string[],
+	acceptedOnly: boolean,
+): boolean =>
+	publicKeys.some((key) => {
+		const answer = keyAnswer(signers, key);
+		return acceptedOnly
+			? answer === 'accepted'
+			: answer !== null;
+	});
 
 export type SignerSetProgress = {
 	signerSet: ActingSignerSet;

@@ -68,6 +68,10 @@ import {
 	queryAllOwnedObjects,
 	type SuiNetwork,
 } from '../utils/client';
+import {
+	compareStrings,
+	unwrap,
+} from '../utils/collections';
 import { parsePublicKey } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
 import {
@@ -89,12 +93,12 @@ import {
 	verifySignedMessage,
 } from './signatures.service';
 import {
-	keyAnswer,
 	listActingAccounts,
 	ORIGINAL_SET,
 	originalSigners,
 	resolveAccountSigners,
 	resolveSigners,
+	signsFor,
 	type AccountSigners,
 	type SignerScope,
 } from './signers.service';
@@ -106,19 +110,38 @@ export const getSignerSet = async (address: string) => {
 	return signerSet;
 };
 
-// Who created the account and when, from its link row for its original
-// composition: `(A, A)` in `account_signer_sets`. Null when the account has
-// no such row. These columns never change after the row is inserted.
+// Who created each account and when: its `(A, A)` row in `account_signer_sets`.
+const getAccountOrigins = async (
+	addresses: string[],
+): Promise<Map<string, SignerSetOrigin>> => {
+	const rows = await db
+		.select({
+			address: SchemaAccountSignerSets.accountAddress,
+			draftedBy: SchemaAccountSignerSets.draftedBy,
+			createdAt: SchemaAccountSignerSets.createdAt,
+		})
+		.from(SchemaAccountSignerSets)
+		.where(
+			and(
+				inArray(
+					SchemaAccountSignerSets.accountAddress,
+					addresses,
+				),
+				eq(
+					SchemaAccountSignerSets.signerSetAddress,
+					SchemaAccountSignerSets.accountAddress,
+				),
+			),
+		);
+	return new Map(
+		rows.map(({ address, ...origin }) => [address, origin]),
+	);
+};
+
 export const getAccountOrigin = async (
 	address: string,
 ): Promise<SignerSetOrigin | null> =>
-	(await db.query.SchemaAccountSignerSets.findFirst({
-		columns: { draftedBy: true, createdAt: true },
-		where: and(
-			eq(SchemaAccountSignerSets.accountAddress, address),
-			eq(SchemaAccountSignerSets.signerSetAddress, address),
-		),
-	})) ?? null;
+	(await getAccountOrigins([address])).get(address) ?? null;
 
 /**
  * What the legacy routes call a multisig: a signer set that is the
@@ -171,9 +194,10 @@ export const getMultisigAccount = async ({
 		// Also for an address that is no account, so the answer reveals nothing.
 		if (
 			!signers ||
-			!callerKeys.some(
-				(key) =>
-					keyAnswer(signers, key.toSuiPublicKey()) !== null,
+			!signsFor(
+				signers,
+				callerKeys.map((key) => key.toSuiPublicKey()),
+				false,
 			)
 		)
 			throw new ApiAuthError('AccessDenied');
@@ -269,11 +293,8 @@ const loadMultisigAccounts = async (
 		AccountKeyLabelsDataLoader.loadMany(accountAddresses),
 	]);
 	return signerSets.map((signerSet, i) => {
-		const accountProposers = proposers[i];
-		if (accountProposers instanceof Error)
-			throw accountProposers;
-		const keyLabels = labels[i];
-		if (keyLabels instanceof Error) throw keyLabels;
+		const accountProposers = unwrap(proposers[i]);
+		const keyLabels = unwrap(labels[i]);
 		// Each signer set was loaded from a row, so it has one.
 		const origin = origins.get(signerSet.address);
 		if (!origin)
@@ -290,11 +311,6 @@ const loadMultisigAccounts = async (
 	});
 };
 
-const unwrap = <T>(result: T | Error): T => {
-	if (result instanceof Error) throw result;
-	return result;
-};
-
 // The accounts with their signers under the acting scope, by address. An
 // account with no original set or no origin row is left out.
 const loadActingAccounts = async (
@@ -307,37 +323,13 @@ const loadActingAccounts = async (
 	>();
 	if (addresses.length === 0) return result;
 
-	const [signers, originRows, proposers, labels] =
+	const [signers, origins, proposers, labels] =
 		await Promise.all([
 			resolveSigners(addresses, scope),
-			db
-				.select({
-					address: SchemaAccountSignerSets.accountAddress,
-					draftedBy: SchemaAccountSignerSets.draftedBy,
-					createdAt: SchemaAccountSignerSets.createdAt,
-				})
-				.from(SchemaAccountSignerSets)
-				.where(
-					and(
-						inArray(
-							SchemaAccountSignerSets.accountAddress,
-							addresses,
-						),
-						eq(
-							SchemaAccountSignerSets.signerSetAddress,
-							SchemaAccountSignerSets.accountAddress,
-						),
-					),
-				),
+			getAccountOrigins(addresses),
 			AccountProposersDataLoader.loadMany(addresses),
 			AccountKeyLabelsDataLoader.loadMany(addresses),
 		]);
-	const origins = new Map(
-		originRows.map(({ address, ...origin }) => [
-			address,
-			origin,
-		]),
-	);
 
 	addresses.forEach((address, i) => {
 		const accountSigners = signers.get(address);
@@ -365,11 +357,10 @@ const actingAccountsOf = (
 		)
 		.filter((account) => account !== undefined)
 		.sort((a, b) =>
-			a.signerSet.address < b.signerSet.address
-				? -1
-				: a.signerSet.address > b.signerSet.address
-					? 1
-					: 0,
+			compareStrings(
+				a.signerSet.address,
+				b.signerSet.address,
+			),
 		);
 
 /**

@@ -20,20 +20,15 @@ import {
 import { eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
-import {
-	SchemaAccountAliases,
-	SchemaAccountAliasState,
-	SchemaAddresses,
-	SchemaProposals,
-} from '../src/db/schema';
+import { SchemaProposals } from '../src/db/schema';
 import { voteOnProposal } from '../src/services/proposals.service';
-import { type SuiNetwork } from '../src/utils/client';
 import {
 	ApiTestFramework,
 	newUser,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
+import { register, setAliases } from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -258,28 +253,6 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		return { k1, k2, account, created };
 	};
 
-	// What the refresh would write.
-	const setAliases = async (
-		account: string,
-		network: SuiNetwork,
-		aliases: string[],
-	) => {
-		await db.insert(SchemaAccountAliasState).values({
-			accountAddress: account,
-			network,
-			exists: true,
-			observedVersion: 1,
-			observedAt: new Date(),
-		});
-		await db.insert(SchemaAccountAliases).values(
-			aliases.map((aliasAddress) => ({
-				accountAddress: account,
-				network,
-				aliasAddress,
-			})),
-		);
-	};
-
 	// A signature by a key outside the original set; no `/v1` vote route yet.
 	const signAsActing = async (
 		user: TestUser,
@@ -292,7 +265,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 					fromBase64(created.transactionBytes),
 				)
 			).signature,
-			signers: 'acting',
+			scopeKind: 'acting',
 		});
 
 	const setOf = (
@@ -362,10 +335,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 	test('a single registered key as an alias is a set of one', async () => {
 		const { account, created } = await proposeFromA();
 		const key = newUser();
-		await db.insert(SchemaAddresses).values({
-			publicKey: key.publicKey,
-			address: key.address,
-		});
+		await register(key);
 		await setAliases(account.address, 'localnet', [
 			account.address,
 			key.address,

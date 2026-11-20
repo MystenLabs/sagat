@@ -8,13 +8,6 @@ import {
 	test,
 } from 'bun:test';
 
-import { db } from '../src/db';
-import {
-	SchemaAccountAcceptances,
-	SchemaAccountAliases,
-	SchemaAccountAliasState,
-	SchemaAddresses,
-} from '../src/db/schema';
 import {
 	actingSetsOn,
 	countSignatures,
@@ -33,6 +26,11 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
+import {
+	answerFor,
+	register,
+	setAliases,
+} from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -66,51 +64,6 @@ const createAccount = async (
 	);
 	return multisig.address;
 };
-
-const setAliases = async (
-	account: string,
-	network: SuiNetwork,
-	aliases: string[],
-) => {
-	await db
-		.insert(SchemaAccountAliasState)
-		.values({
-			accountAddress: account,
-			network,
-			exists: true,
-			observedVersion: 1,
-			observedAt: new Date(),
-		})
-		.onConflictDoNothing();
-	await db.insert(SchemaAccountAliases).values(
-		aliases.map((aliasAddress) => ({
-			accountAddress: account,
-			network,
-			aliasAddress,
-		})),
-	);
-};
-
-const answerFor = (
-	account: string,
-	user: TestUser,
-	answer: 'accepted' | 'rejected',
-) =>
-	db.insert(SchemaAccountAcceptances).values({
-		accountAddress: account,
-		publicKey: user.publicKey,
-		isAccepted: answer === 'accepted',
-		isRejected: answer === 'rejected',
-	});
-
-const register = (user: TestUser) =>
-	db
-		.insert(SchemaAddresses)
-		.values({
-			publicKey: user.publicKey,
-			address: user.address,
-		})
-		.onConflictDoNothing();
 
 const membersOf = (set: ActingSignerSet) =>
 	set.members.map((m) => [m.publicKey, m.answer]);

@@ -13,8 +13,8 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../db';
 import { SchemaSignerSetMembers } from '../db/schema';
 import {
-	keyAnswer,
 	resolveAccountSigners,
+	signsFor,
 	type SignerScope,
 } from './signers.service';
 
@@ -56,11 +56,5 @@ export const isAccountSigner = async (
 		accountAddress,
 		scope,
 	);
-	if (!signers) return false;
-	return keys.some((key) => {
-		const answer = keyAnswer(signers, key);
-		return acceptedOnly
-			? answer === 'accepted'
-			: answer !== null;
-	});
+	return !!signers && signsFor(signers, keys, acceptedOnly);
 };

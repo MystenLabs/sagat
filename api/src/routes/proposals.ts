@@ -43,7 +43,7 @@ proposalsRouter.post('/', async (c) => {
 		signature,
 		description,
 		network,
-		signers: 'original',
+		scopeKind: 'original',
 	});
 
 	return c.json(toLegacyProposal(proposal), 201);
@@ -59,7 +59,7 @@ proposalsRouter.post('/:proposalId/vote', async (c) => {
 			await voteOnProposal({
 				proposalId: parseInt(proposalId),
 				signature,
-				signers: 'original',
+				scopeKind: 'original',
 			}),
 		);
 
@@ -74,7 +74,7 @@ proposalsRouter.post('/:proposalId/cancel', async (c) => {
 	await cancelProposal({
 		proposalId: parseInt(proposalId),
 		signature,
-		signers: 'original',
+		scopeKind: 'original',
 	});
 
 	return c.json({
@@ -92,7 +92,7 @@ proposalsRouter.post(
 		await verifyProposal({
 			proposalId: parseInt(proposalId),
 			callerKeys: c.get('publicKeys'),
-			signers: 'original',
+			scopeKind: 'original',
 		});
 
 		return c.json({ verified: true });
@@ -129,7 +129,7 @@ proposalsRouter.get(
 			status,
 			cursor: newCursor({ nextCursor, perPage }),
 			callerKeys: c.get('publicKeys'),
-			signers: 'original',
+			scopeKind: 'original',
 		});
 
 		return c.json(toLegacyPaginatedProposals(proposals));
