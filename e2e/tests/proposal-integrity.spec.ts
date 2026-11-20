@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	deriveAliasesObjectId,
 	type AuthCheckResponse,
 	type MultisigWithMembers,
 	type PublicProposal,
@@ -18,7 +17,7 @@ import {
 	toBase64,
 } from '@mysten/sui/utils';
 import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
-import { type Page, type Route } from '@playwright/test';
+import { type Page } from '@playwright/test';
 
 import { docsUrl } from '../../app/src/lib/docs';
 import { newProposalPath } from '../../app/src/lib/new-proposal';
@@ -41,6 +40,10 @@ import {
 	sharedAccount,
 } from '../support/new-proposal';
 import {
+	isInboxRead,
+	routeAliasReads,
+} from '../support/requests';
+import {
 	addAlias,
 	addProposer,
 	proposeTransfer,
@@ -58,20 +61,11 @@ type Rule =
 	| 'notActing'
 	| 'chain';
 
-const BATCH_GET_OBJECTS =
-	'**/sui.rpc.v2.LedgerService/BatchGetObjects';
-
 /** Aborts the page's node reads of `pod`'s alias set; returns a function that stops it. */
-async function failAliasReads(page: Page, pod: string) {
-	const aliasObject = deriveAliasesObjectId(pod);
-	const handler = (route: Route) =>
-		Buffer.from(route.request().postData() ?? '', 'base64')
-			.toString('latin1')
-			.includes(aliasObject)
-			? route.abort()
-			: route.fallback();
-	await page.route(BATCH_GET_OBJECTS, handler);
-	return () => page.unroute(BATCH_GET_OBJECTS, handler);
+function failAliasReads(page: Page, pod: string) {
+	return routeAliasReads(page, pod, (route) =>
+		route.abort(),
+	);
 }
 
 /** Alice and Bob sign together for their 2-of-2 pod, outside the app. */
@@ -1006,26 +1000,15 @@ test.describe('proposal integrity', () => {
 				accepts.push(request.url());
 		});
 		// Hold the pod's alias reads until the wallet has moved to savings.
-		const aliasObject = deriveAliasesObjectId(
-			multisig.address,
-		);
 		let release = () => {};
 		const held = new Promise<void>((resolve) => {
 			release = resolve;
 		});
 		let reads = 0;
-		await bob.page.route(
-			BATCH_GET_OBJECTS,
+		await routeAliasReads(
+			bob.page,
+			multisig.address,
 			async (route) => {
-				if (
-					!Buffer.from(
-						route.request().postData() ?? '',
-						'base64',
-					)
-						.toString('latin1')
-						.includes(aliasObject)
-				)
-					return route.fallback();
 				reads++;
 				await held;
 				await route.fallback();
@@ -1036,18 +1019,10 @@ test.describe('proposal integrity', () => {
 			.click();
 		await expect.poll(() => reads).toBeGreaterThan(0);
 
-		const savingsInbox = `/addresses/invitations/${encodeURIComponent(savings.publicKey)}`;
 		const waitForSavingsInbox = () =>
-			bob.page.waitForResponse((response) => {
-				const { pathname, searchParams } = new URL(
-					response.url(),
-				);
-				return (
-					response.request().method() === 'GET' &&
-					pathname.endsWith(savingsInbox) &&
-					!searchParams.has('showRejected')
-				);
-			});
+			bob.page.waitForResponse((response) =>
+				isInboxRead(response, savings.publicKey),
+			);
 		const inboxLoaded = waitForSavingsInbox();
 		// From the wallet side, the way an extension's account picker would.
 		await bob.page.evaluate(

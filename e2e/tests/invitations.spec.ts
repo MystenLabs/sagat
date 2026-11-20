@@ -4,6 +4,7 @@
 import { formatAddress } from '@mysten/sui/utils';
 
 import { expect, test } from '../support/fixtures';
+import { isInboxRead } from '../support/requests';
 import {
 	acceptInvitation,
 	setupMultisig,
@@ -356,18 +357,10 @@ test.describe('invitations', () => {
 					window.__e2eWallet!.setSelectedAccount(address),
 				address,
 			);
-		const savingsInbox = `/addresses/invitations/${encodeURIComponent(savings.publicKey)}`;
 		const waitForSavingsInbox = () =>
-			bob.page.waitForResponse((response) => {
-				const { pathname, searchParams } = new URL(
-					response.url(),
-				);
-				return (
-					response.request().method() === 'GET' &&
-					pathname.endsWith(savingsInbox) &&
-					!searchParams.has('showRejected')
-				);
-			});
+			bob.page.waitForResponse((response) =>
+				isInboxRead(response, savings.publicKey),
+			);
 		const inboxLoaded = waitForSavingsInbox();
 		await selectInWallet(savings.address);
 		await expect(bob.walletMenuButton()).toHaveAttribute(
