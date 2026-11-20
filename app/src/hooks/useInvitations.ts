@@ -4,16 +4,18 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { content } from '@/content';
+import { CONFIG } from '@/lib/constants';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { toUserMultisig } from '@/lib/user-multisig';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
+import { useRowsActing } from './useRowsActing';
 import { useUserMultisigs } from './useUserMultisigs';
 
 // An address in no accounts is likely waiting on an invitation.
 const NO_ACCOUNTS_REFETCH_INTERVAL = 10_000;
-const INVITATIONS_REFETCH_INTERVAL = 60_000;
 
 // Hook to fetch invitations for the current user's public key
 export function useInvitations(
@@ -24,7 +26,7 @@ export function useInvitations(
 		useApiAuth();
 	const { data: multisigs } = useUserMultisigs();
 
-	return useQuery({
+	const query = useQuery({
 		queryKey: [
 			QueryKeys.Invitations,
 			currentAddress?.address,
@@ -45,25 +47,9 @@ export function useInvitations(
 				},
 			);
 
-			// Transform to add the fields expected by components
-			return invitations.map((m) => {
-				const currentMember = m.members.find(
-					(member) =>
-						member.publicKey === currentAddress.publicKey,
-				)!;
-				return {
-					...m,
-					isAccepted: currentMember.isAccepted,
-					isRejected: currentMember.isRejected,
-					pendingMembers: m.members.filter(
-						(member) =>
-							!member.isAccepted && !member.isRejected,
-					).length,
-					rejectedMembers: m.members.filter(
-						(member) => member.isRejected,
-					).length,
-				};
-			});
+			return invitations.map((m) =>
+				toUserMultisig(m, currentAddress),
+			);
 		},
 		enabled:
 			enabled &&
@@ -74,6 +60,8 @@ export function useInvitations(
 		refetchInterval:
 			multisigs?.length === 0
 				? NO_ACCOUNTS_REFETCH_INTERVAL
-				: INVITATIONS_REFETCH_INTERVAL,
+				: CONFIG.REFETCH_INTERVAL,
 	});
+
+	return { ...query, data: useRowsActing(query.data) };
 }

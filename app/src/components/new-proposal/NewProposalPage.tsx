@@ -10,6 +10,7 @@ import {
 	useSearchParams,
 } from 'react-router-dom';
 
+import { SignersUnchecked } from '@/components/multisig/SignersUnchecked';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/button';
 import { SkeletonPage } from '@/components/ui/skeleton';
@@ -20,7 +21,7 @@ import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
 	BytesNotFromPodError,
-	SignersRefusedError,
+	ChainMismatchError,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
 import { couldNotSimulate } from '@/hooks/useDryRun';
@@ -42,6 +43,11 @@ import {
 	proposalsPath,
 } from '@/lib/proposalUtils';
 import { signerRows } from '@/lib/signers';
+import {
+	SignersRefusedError,
+	signersRefusedLine,
+	SignersUncheckedError,
+} from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { SignatureDeclinedError } from '@/lib/wallet-session';
@@ -127,8 +133,15 @@ function NewProposalWizard({
 				signerAddress: wallet.address,
 			})
 		: null;
+	// Rule 1 on the fresher copy; rule 2 from the list's row.
 	const refused =
-		signers && signers.kind !== 'ok' ? signers.kind : null;
+		signers && signers.kind !== 'ok'
+			? signers.kind
+			: listed.refused === 'notActing'
+				? listed.refused
+				: null;
+	const unchecked =
+		!refused && listed.acting?.state === 'unchecked';
 	const setup = accountSetup({
 		multisig,
 		currentAddress: currentAddress?.address,
@@ -273,7 +286,9 @@ function NewProposalWizard({
 	// bytes were refused before signing.
 	const createError =
 		create.error instanceof BytesNotFromPodError ||
-		create.error instanceof SignersRefusedError
+		create.error instanceof SignersRefusedError ||
+		create.error instanceof ChainMismatchError ||
+		create.error instanceof SignersUncheckedError
 			? create.error.message
 			: create.error &&
 				  !(create.error instanceof SignatureDeclinedError)
@@ -345,9 +360,23 @@ function NewProposalWizard({
 							{COPY.refusedTitle}
 						</div>
 						<div>
-							{content.common.signersRefused[refused]}
+							{signersRefusedLine(refused, network)}
 						</div>
 					</Alert>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={cancel}
+					>
+						{content.common.actions.goBack}
+					</Button>
+				</div>
+			) : unchecked ? (
+				<div className="flex flex-col items-start gap-5.5 p-5 md:p-8">
+					<SignersUnchecked
+						className="w-full"
+						testId="new-proposal-unchecked"
+					/>
 					<Button
 						type="button"
 						variant="outline"

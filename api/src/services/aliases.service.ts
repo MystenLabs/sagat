@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type AliasSet } from '@mysten/sagat';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
@@ -23,7 +24,6 @@ import {
 	aliasSetLoaders,
 	type AliasSetLoaders,
 } from '../loaders/alias-set.loader';
-import { type AliasSet } from '../utils/aliases';
 import { type SuiNetwork } from '../utils/client';
 import {
 	recordAccountEvent,

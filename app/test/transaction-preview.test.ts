@@ -18,9 +18,12 @@ import { beforeAll, describe, expect, test } from 'vitest';
 import { formatDateTime } from '../src/lib/dates';
 import {
 	buildTransactionPreview,
+	namedChain,
+	readTransactionBytes,
 	type SimulatedTransaction,
 	type TransactionPreviewInput,
 } from '../src/lib/transaction-preview';
+import { transfer } from './transactions';
 
 const SENDER = normalizeSuiAddress(
 	'0x5d2e00000000000000000000000000000000000000000000000000000000a1b7',
@@ -422,4 +425,30 @@ describe('buildTransactionPreview', () => {
 		expect(model.epoch).toBe('812');
 		expect(model.gas).toBe('0.0041 SUI');
 	});
+});
+
+test('names the chain of a ValidDuring expiration, and none for an epoch one', async () => {
+	const chain = toBase58(new Uint8Array(32).fill(7));
+	const validDuring = await transfer({
+		ValidDuring: {
+			minEpoch: '1',
+			maxEpoch: '2',
+			minTimestamp: null,
+			maxTimestamp: null,
+			chain,
+			nonce: 1,
+		},
+	});
+
+	expect(
+		namedChain(
+			readTransactionBytes(validDuring).transaction,
+		),
+	).toBe(chain);
+	expect(
+		namedChain(
+			readTransactionBytes(await transfer({ Epoch: 5 }))
+				.transaction,
+		),
+	).toBeNull();
 });

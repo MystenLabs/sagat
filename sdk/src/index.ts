@@ -47,3 +47,13 @@ export type {
 	VoteProposalRequest,
 	VoteProposalResponse,
 } from './types.js';
+
+export {
+	ADDRESS_ALIAS_STATE_ID,
+	ALIAS_OBJECT_INCLUDE,
+	AddressAliasesBcs,
+	decodeAliasSet,
+	deriveAliasesObjectId,
+	type AliasObjectEntry,
+	type AliasSet,
+} from './aliases.js';

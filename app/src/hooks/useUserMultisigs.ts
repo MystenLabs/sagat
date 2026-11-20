@@ -4,18 +4,21 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { content } from '@/content';
+import { CONFIG } from '@/lib/constants';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { toUserMultisig } from '@/lib/user-multisig';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { apiClient } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
+import { useRowsActing } from './useRowsActing';
 
 // Hook to fetch user's accepted multisigs from the /addresses/connections endpoint
 export function useUserMultisigs() {
 	const { isCurrentAddressAuthenticated, currentAddress } =
 		useApiAuth();
 
-	return useQuery({
+	const query = useQuery({
 		queryKey: [
 			QueryKeys.Multisigs,
 			QueryKeys.User,
@@ -32,29 +35,13 @@ export function useUserMultisigs() {
 				await apiClient.getMultisigConnections();
 
 			return (
-				connections[currentAddress?.publicKey] || []
-			).map((m) => {
-				const currentMember = m.members.find(
-					(member) =>
-						member.publicKey === currentAddress?.publicKey,
-				)!;
-
-				return {
-					...m,
-					isAccepted: currentMember.isAccepted,
-					isRejected: currentMember.isRejected,
-					pendingMembers: m.members.filter(
-						(member) =>
-							!member.isAccepted && !member.isRejected,
-					).length,
-					rejectedMembers: m.members.filter(
-						(member) => member.isRejected,
-					).length,
-				};
-			});
+				connections[currentAddress.publicKey] || []
+			).map((m) => toUserMultisig(m, currentAddress));
 		},
 		enabled: isCurrentAddressAuthenticated,
 		staleTime: 1000 * 30, // 30 seconds
-		refetchInterval: 1000 * 60, // Refetch every minute
+		refetchInterval: CONFIG.REFETCH_INTERVAL,
 	});
+
+	return { ...query, data: useRowsActing(query.data) };
 }

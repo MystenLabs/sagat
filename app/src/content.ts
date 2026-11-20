@@ -13,11 +13,13 @@ const MARKERS = {
 	external: { word: 'External', parens: '(external)' },
 } as const;
 
-/** Why a pod's signers fail a check; shared by `common` and `proposal.approvals.refused`. */
+/** Why a pod's signers fail a check, read through `signersRefusedLine`. */
 const SIGNERS_REFUSED = {
 	signers:
 		'This pod’s signers and threshold don’t make up its address.',
 	notSigner: 'Your wallet isn’t one of this pod’s signers.',
+	notActing: (network: string) =>
+		`These signers don’t control this pod on ${network}.`,
 };
 
 /** An empty proposals tab, under its title. */
@@ -98,6 +100,8 @@ export const content = {
 			signing: 'Signing…',
 			signed: 'Signed',
 			notSigned: 'Not signed',
+			/** While the node's alias set for the pod is read. */
+			checkingSigners: 'Checking this pod’s signers…',
 			/** A failed transaction's fallback when the chain gives no reason. */
 			failedOnChain: 'The transaction failed on chain.',
 		},
@@ -116,6 +120,23 @@ export const content = {
 		or: 'or',
 		/** Why the pod's signers fail a check, on a proposal or a new one. */
 		signersRefused: SIGNERS_REFUSED,
+		/** Above `signersRefused` on the pod pages, Receive and an invitation; a refused pod's subtitle in the switcher. */
+		signersRefusedTitle: 'Can’t verify this pod',
+		/** When the node's alias set for the pod couldn't be read. */
+		signersUnchecked: {
+			title: 'Couldn’t check this pod’s signers',
+			body: (network: string) =>
+				`Pods couldn’t confirm who controls this pod on ${network}. Check your connection and try again.`,
+		},
+		/** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
+		otherSignerSets: {
+			title: 'This address has other signer sets',
+			body: (network: string) =>
+				`Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
+		},
+		/** When a transaction's bytes name a chain other than the node's: under the bytes field, and why Sign is refused. */
+		wrongChain:
+			'The transaction was built for another network.',
 	},
 	shell: {
 		reconnectingWallet: 'Reconnecting wallet',
@@ -1088,7 +1109,7 @@ export const content = {
 				stillFails: (reason: string) =>
 					`It still fails after a second simulation${reason}.`,
 			},
-			/** In place of Sign when a check fails, by `ProposalIntegrityFailure`, or `proposer` for an invalid proposer proof. */
+			/** In place of Sign when a check fails, by `ProposalIntegrityFailure`, `chain` for bytes naming another chain, or `proposer` for an invalid proposer proof; the signers' lines are `common.signersRefused`'s. */
 			refused: {
 				title: 'Can’t sign this proposal',
 				unreadable: 'The transaction couldn’t be read.',
@@ -1099,7 +1120,6 @@ export const content = {
 					'The transaction doesn’t match the proposal’s digest.',
 				proposer:
 					'The proposer’s confirmation doesn’t check out.',
-				...SIGNERS_REFUSED,
 			},
 			/** Above Sign when no signature shows who proposed it: an unconfirmed external proposer, a member without their signature, or signers that don’t make up the account. */
 			proposerNotConfirmed: {

@@ -145,6 +145,16 @@ describe('account status', () => {
 		});
 	});
 
+	test('is an error for a pod whose signers were refused, whatever its invitations', () => {
+		expect(
+			accountStatus({
+				members: [signer('accepted')],
+				threshold: 1,
+				refused: 'notActing',
+			}),
+		).toMatchObject({ tone: 'error' });
+	});
+
 	test('an accept wins over a reject, like everywhere else', () => {
 		const both = {
 			...signer('accepted'),

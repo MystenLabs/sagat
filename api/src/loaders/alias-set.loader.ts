@@ -1,6 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+	ALIAS_OBJECT_INCLUDE,
+	decodeAliasSet,
+	deriveAliasesObjectId,
+	type AliasSet,
+} from '@mysten/sagat';
 import { type SuiGrpcClient } from '@mysten/sui/grpc';
 import {
 	isValidSuiAddress,
@@ -9,12 +15,6 @@ import {
 import DataLoader from 'dataloader';
 
 import { toError } from '../errors';
-import {
-	ALIAS_OBJECT_INCLUDE,
-	decodeAliasSet,
-	deriveAliasesObjectId,
-	type AliasSet,
-} from '../utils/aliases';
 import {
 	getSuiClient,
 	type SuiNetwork,

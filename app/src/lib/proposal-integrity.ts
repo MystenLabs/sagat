@@ -5,6 +5,7 @@
 // before the wallet is asked to sign them.
 import { type PublicProposal } from '@mysten/sagat';
 
+import { type AliasRead } from './alias-set';
 import {
 	computeMultisigAddress,
 	sameAddress,
@@ -57,12 +58,7 @@ export function checkProposalIntegrity(
 
 	const account = proposal.multisigAddress;
 	const { sender, gasData } = read.transaction;
-	if (
-		!sender ||
-		!sameAddress(sender, account) ||
-		(proposal.multisig.address &&
-			!sameAddress(sender, proposal.multisig.address))
-	)
+	if (!sender || !sameAddress(sender, account))
 		return 'sender';
 
 	// Any other gas owner signs as the sponsor: when that's the signer, one
@@ -92,7 +88,7 @@ export type AccountSigners = Pick<
 /**
  * Rebuilds `account` from its signers and threshold. `signers`, they
  * don't make up `account`; `notSigner`, `signerAddress` isn't one of
- * them; otherwise `address` is the rebuilt address.
+ * them.
  */
 export function checkAccountSigners(
 	multisig: AccountSigners,
@@ -100,25 +96,45 @@ export function checkAccountSigners(
 		account,
 		signerAddress,
 	}: { account: string; signerAddress: string },
-):
-	| { kind: 'ok'; address: string }
-	| { kind: 'signers' | 'notSigner' } {
-	const rebuilt = rebuildAccount(multisig, account);
-	if (!rebuilt) return { kind: 'signers' };
+): { kind: 'ok' | 'signers' | 'notSigner' } {
+	if (!rebuildAccount(multisig, account))
+		return { kind: 'signers' };
 
-	if (
-		!multisig.members.some((m) => {
-			const { address } = validatePublicKey(m.publicKey);
-			return (
-				address !== undefined &&
-				sameAddress(address, signerAddress)
-			);
-		})
-	)
+	if (!isMember(multisig, signerAddress))
 		return { kind: 'notSigner' };
 
-	return { kind: 'ok', address: rebuilt };
+	return { kind: 'ok' };
 }
+
+/** Whether `signerAddress` is one of the set's members. */
+export function isMember(
+	set: AccountSigners,
+	signerAddress: string,
+): boolean {
+	return set.members.some((m) => {
+		const { address } = validatePublicKey(m.publicKey);
+		return (
+			address !== undefined &&
+			sameAddress(address, signerAddress)
+		);
+	});
+}
+
+/** The address a signer set's members and threshold make up, or null when they make none. */
+export function signerSetAddress(
+	set: AccountSigners,
+): string | null {
+	const members = [...set.members].sort(
+		(a, b) => a.order - b.order,
+	);
+	return computeMultisigAddress(
+		members.map((m) => m.publicKey),
+		members.map((m) => m.weight),
+		set.threshold,
+	).address;
+}
+
+// Rule 1: the original signer set rebuilds the pod's address.
 
 /**
  * The address `multisig`'s signers and threshold make up, or null when
@@ -128,17 +144,120 @@ export function rebuildAccount(
 	multisig: AccountSigners,
 	account: string,
 ): string | null {
-	// A rotated account will instead need the rebuilt address to be in the
-	// account's alias set, read from the app's own fullnode.
-	const members = [...multisig.members].sort(
-		(a, b) => a.order - b.order,
-	);
-	const { address: rebuilt } = computeMultisigAddress(
-		members.map((m) => m.publicKey),
-		members.map((m) => m.weight),
-		multisig.threshold,
-	);
+	const rebuilt = signerSetAddress(multisig);
 	return rebuilt && sameAddress(rebuilt, account)
 		? rebuilt
 		: null;
+}
+
+// Rule 2: every set shown as acting rebuilds to an alias of the pod.
+
+/** Rule 2 for the signer sets shown as acting, against the pod's alias set on one network. */
+export type ActingSetsCheck<
+	S extends AccountSigners = AccountSigners,
+> =
+	| { kind: 'unchecked' }
+	| {
+			kind: 'checked';
+			/** Shown sets whose rebuilt address is an alias. */
+			acting: { set: S; address: string }[];
+			/** Shown sets that are no alias: they must not be shown as acting. */
+			refused: S[];
+			/** Aliases that no shown set rebuilds. */
+			unidentified: string[];
+	  };
+
+export function checkActingSets<S extends AccountSigners>(
+	shown: readonly S[],
+	aliases: AliasRead,
+): ActingSetsCheck<S> {
+	if (aliases.kind === 'failed')
+		return { kind: 'unchecked' };
+
+	const acting: { set: S; address: string }[] = [];
+	const refused: S[] = [];
+	for (const set of shown) {
+		const address = signerSetAddress(set);
+		if (
+			address &&
+			aliases.aliases.some((alias) =>
+				sameAddress(alias, address),
+			)
+		)
+			acting.push({ set, address });
+		else refused.push(set);
+	}
+	const unidentified = aliases.aliases.filter(
+		(alias) =>
+			!acting.some(({ address }) =>
+				sameAddress(address, alias),
+			),
+	);
+	return { kind: 'checked', acting, refused, unidentified };
+}
+
+/** The signer sets a pod's response shows as acting: today the one composition it carries. */
+export function shownActingSets(
+	multisig: AccountSigners,
+): AccountSigners[] {
+	return [multisig];
+}
+
+/** Rule 2 for a pod on one network; `checking` until its alias set is read. */
+export interface PodActing {
+	state: 'checking' | 'ok' | 'refused' | 'unchecked';
+	/** Aliases no shown set rebuilds. Empty unless `ok`. */
+	unidentified: string[];
+}
+
+/** `ok` when every shown set is an alias; `refused` when one isn't or none is shown. */
+export function podActing(
+	shown: readonly AccountSigners[],
+	aliases: AliasRead | undefined,
+): PodActing {
+	if (!aliases)
+		return { state: 'checking', unidentified: [] };
+	const check = checkActingSets(shown, aliases);
+	if (check.kind === 'unchecked')
+		return { state: 'unchecked', unidentified: [] };
+	if (check.refused.length > 0 || check.acting.length === 0)
+		return { state: 'refused', unidentified: [] };
+	return { state: 'ok', unidentified: check.unidentified };
+}
+
+/** What the app's node says about a pod on one network. */
+export interface NodeFacts {
+	aliases: AliasRead;
+	/** The node's chain identifier, null when it couldn't be read. */
+	chain: string | null;
+}
+
+/** `chain`: the bytes name another chain; `unchecked`: the node couldn't be read; `notActing`: no acting set holds the wallet's key. */
+export type NetworkFailure =
+	'chain' | 'unchecked' | 'notActing';
+
+/** Whether `signerAddress` may sign for the pod on one network, or why not. */
+export function checkSignerOnNetwork({
+	shown,
+	signerAddress,
+	namedChain,
+	node,
+}: {
+	/** The signer sets shown as acting. */
+	shown: readonly AccountSigners[];
+	signerAddress: string;
+	/** The chain the bytes name, null when they name none. */
+	namedChain: string | null;
+	node: NodeFacts;
+}): NetworkFailure | null {
+	if (namedChain && node.chain && namedChain !== node.chain)
+		return 'chain';
+	if (namedChain && !node.chain) return 'unchecked';
+	const check = checkActingSets(shown, node.aliases);
+	if (check.kind === 'unchecked') return 'unchecked';
+	return check.acting.some(({ set }) =>
+		isMember(set, signerAddress),
+	)
+		? null
+		: 'notActing';
 }

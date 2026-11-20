@@ -7,10 +7,14 @@ import {
 	type MultisigWithMembers,
 	type ProofResult,
 	type PublicProposal,
+	type TrustedMembers,
 } from '@mysten/sagat';
 
+import { type AliasRead } from './alias-set';
 import {
+	checkActingSets,
 	rebuildAccount,
+	shownActingSets,
 	type AccountSigners,
 } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
@@ -29,15 +33,47 @@ export function trustsSigners(
 	);
 }
 
+/** The keys of every shown set that passes rule 2, or null when none does or the alias set couldn't be read. */
+export function trustedMembers(
+	shown: readonly AccountSigners[],
+	aliases: AliasRead,
+): TrustedMembers | null {
+	const check = checkActingSets(shown, aliases);
+	if (
+		check.kind === 'unchecked' ||
+		check.acting.length === 0
+	)
+		return null;
+	return check.acting.flatMap(({ set }) => set.members);
+}
+
+/** The members trusted to confirm proposers: rule 1 must pass first, then rule 2 on the network `aliases` was read on. */
+export function proposerProofMembers(
+	account: ProposerProofAccount,
+	openedAddress: string,
+	aliases: AliasRead,
+): TrustedMembers | null {
+	return trustsSigners(account, openedAddress)
+		? trustedMembers(shownActingSets(account), aliases)
+		: null;
+}
+
 /**
  * Each proposer's proof from their newest add or remove, keyed by address.
- * `openedAddress` is the account the viewer opened, from the route.
+ * `openedAddress` is the account the viewer opened, from the route;
+ * `aliases` is its alias set on the network in question.
  */
 export async function verifyProposers(
 	account: ProposerProofAccount,
 	openedAddress: string,
+	aliases: AliasRead,
 ): Promise<Map<string, ProofResult>> {
-	if (!trustsSigners(account, openedAddress))
+	const members = proposerProofMembers(
+		account,
+		openedAddress,
+		aliases,
+	);
+	if (!members)
 		return new Map(
 			account.proposers.map((proposer) => [
 				proposer.address,
@@ -57,7 +93,7 @@ export async function verifyProposers(
 						proposer: proposer.address,
 						event: proposer.event,
 						accountAddress: account.address,
-						members: account.members,
+						members,
 					}),
 				] as const,
 		),
@@ -68,9 +104,10 @@ export async function verifyProposers(
 /** `invalid`: a proof doesn't check out; `unverified`: no proof shows who proposed it. */
 export type ProposerCheck = 'invalid' | 'unverified' | null;
 
-/** Checks a proposal's proposer, trusting members only when they make up the account. */
+/** Checks a proposal's proposer, trusting members only when they make up the account and act on the proposal's network, whose alias set is `aliases`. */
 export async function checkProposalProposer(
 	proposal: PublicProposal,
+	aliases: AliasRead,
 ): Promise<ProposerCheck> {
 	if (
 		!rebuildAccount(
@@ -79,8 +116,13 @@ export async function checkProposalProposer(
 		)
 	)
 		return 'unverified';
+	const members = trustedMembers(
+		shownActingSets(proposal.multisig),
+		aliases,
+	);
+	if (!members) return 'unverified';
 	const status = await verifyProposalProposer(proposal, {
-		members: proposal.multisig.members,
+		members,
 	});
 	return status === 'verified' ? null : status;
 }

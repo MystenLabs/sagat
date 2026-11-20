@@ -14,10 +14,24 @@ import {
 import { useState } from 'react';
 
 import { content } from '@/content';
+import { readNodeFacts } from '@/hooks/useAliasSets';
 import { proposalProposerQuery } from '@/hooks/useProposerProofs';
-import { checkProposalIntegrity } from '@/lib/proposal-integrity';
+import { type SuiNetwork } from '@/lib/network';
+import {
+	checkProposalIntegrity,
+	checkSignerOnNetwork,
+	shownActingSets,
+} from '@/lib/proposal-integrity';
 import { signatureAddedMessage } from '@/lib/proposalUtils';
+import {
+	signersUncheckedLine,
+	signRefusedLine,
+} from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
+import {
+	namedChain,
+	readTransactionBytes,
+} from '@/lib/transaction-preview';
 
 import { apiClient } from '../lib/api';
 import { MutationKeys, QueryKeys } from '../lib/queryKeys';
@@ -29,8 +43,9 @@ type SignProposalParams = PublicProposal & {
 
 /**
  * Signs a proposal's transaction with the wallet and adds the signature,
- * refusing bytes that fail `checkProposalIntegrity`, or an invalid
- * proposer, before the wallet sees them. Resolves with the vote's tally and
+ * refusing bytes that fail `checkProposalIntegrity`, a wallet no acting
+ * set on the proposal's network holds, bytes naming another chain, or an
+ * invalid proposer, before the wallet sees them. Resolves with the vote's tally and
  * the signature itself, so a caller can execute at once without waiting for
  * the proposal to refetch.
  */
@@ -48,22 +63,44 @@ export function useSignProposal() {
 			if (!currentAccount)
 				throw new Error(content.errors.noConnectedAccount);
 			const { id: proposalId, transactionBytes } = proposal;
+			const network = proposal.network as SuiNetwork;
 
 			const failure = checkProposalIntegrity(proposal, {
 				openedDigest: proposal.openedDigest,
 				signerAddress: currentAccount.address,
 			});
 			if (failure)
+				throw new Error(signRefusedLine(failure, network));
+
+			const node = await readNodeFacts(
+				queryClient,
+				dappKit.getClient(network),
+				network,
+				proposal.multisigAddress,
+			);
+			const onNetwork = checkSignerOnNetwork({
+				shown: shownActingSets(proposal.multisig),
+				signerAddress: currentAccount.address,
+				namedChain: namedChain(
+					readTransactionBytes(transactionBytes)
+						.transaction,
+				),
+				node,
+			});
+			if (onNetwork === 'unchecked')
+				throw new Error(signersUncheckedLine(network));
+			if (onNetwork)
 				throw new Error(
-					content.proposal.approvals.refused[failure],
+					signRefusedLine(onNetwork, network),
 				);
+
 			if (
 				(await queryClient.fetchQuery(
-					proposalProposerQuery(proposal),
+					proposalProposerQuery(proposal, node.aliases),
 				)) === 'invalid'
 			)
 				throw new Error(
-					content.proposal.approvals.refused.proposer,
+					signRefusedLine('proposer', network),
 				);
 
 			// Create transaction from built bytes for signing

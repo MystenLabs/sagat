@@ -5,6 +5,7 @@ import type { MultisigMember } from '@mysten/sagat';
 
 import { content } from '../content';
 import { signerRows, signerSetStatus } from './signers';
+import { type SignersRefusedRule } from './signers-refused';
 
 const COPY = content.signers.accountStatus;
 
@@ -17,14 +18,23 @@ export type AccountStatus =
  * while nobody rejected; a warning once someone did but the signers who
  * haven't (accepted or still invited) still carry the threshold; an error
  * once they can't, since the account can then never execute a proposal.
+ * A pod whose signers were refused is an error whatever its invitations.
  */
 export function accountStatus({
 	members,
 	threshold,
+	refused,
 }: {
 	members: MultisigMember[];
 	threshold: number;
+	refused?: SignersRefusedRule | null;
 }): AccountStatus {
+	if (refused)
+		return {
+			tone: 'error',
+			message: content.common.signersRefusedTitle,
+		};
+
 	const { rejected, canReachThreshold, rejectedNames } =
 		signerSetStatus(signerRows(members, null), threshold);
 	if (rejected === 0) return { tone: 'ok' };

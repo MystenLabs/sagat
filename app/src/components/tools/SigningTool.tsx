@@ -404,6 +404,7 @@ export default function SigningTool() {
 	const senderMultisig = foreignSender
 		? multisigs?.find(
 				(multisig) =>
+					!multisig.refused &&
 					normalizeSuiAddress(multisig.address) === sender,
 			)
 		: undefined;

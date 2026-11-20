@@ -24,6 +24,8 @@ import {
 import { newProposalPath } from '@/lib/new-proposal';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
+import { SignersRefused } from './multisig/SignersRefused';
+import { SignersUnchecked } from './multisig/SignersUnchecked';
 import { SuccessBanner } from './multisig/SuccessBanner';
 import { Button } from './ui/button';
 import { PageHeader } from './ui/page-header';
@@ -119,6 +121,22 @@ export function MultisigDetailPage() {
 		MULTISIG_PAGES.find((p) => p.id === page)?.label ??
 		name;
 
+	// A refused pod shows the reason in place of its pages.
+	if (multisig.refused) {
+		return (
+			<div className="page-shell flex-1">
+				<PageHeader
+					eyebrow={{ label: name, mono: !multisig.name }}
+					title={title}
+				/>
+				<SignersRefused
+					rule={multisig.refused}
+					testId="pod-refused"
+				/>
+			</div>
+		);
+	}
+
 	return (
 		<div
 			className="page-shell flex-1"
@@ -141,6 +159,13 @@ export function MultisigDetailPage() {
 					</Button>
 				}
 			/>
+
+			{multisig.acting.state === 'unchecked' && (
+				<SignersUnchecked
+					testId="pod-unchecked"
+					className="mb-6"
+				/>
+			)}
 
 			{arrival?.kind === 'joined' && (
 				<SuccessBanner

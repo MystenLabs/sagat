@@ -241,6 +241,12 @@ export function TransferDetailsStep({
 		onTitleChange(next);
 	};
 
+	// A new handler alone must not re-run the drop below.
+	const latestOnDraftChange = useRef(onDraftChange);
+	useEffect(() => {
+		latestOnDraftChange.current = onDraftChange;
+	});
+
 	// A preselected asset the account doesn't hold is dropped once every
 	// balance is in.
 	useEffect(() => {
@@ -251,14 +257,12 @@ export function TransferDetailsStep({
 				(b) => b.coinType === draft.coinType,
 			)
 		) {
-			onDraftChange({ ...draft, coinType: '' });
+			latestOnDraftChange.current({
+				...draft,
+				coinType: '',
+			});
 		}
-	}, [
-		balancesComplete,
-		assets.balances,
-		draft,
-		onDraftChange,
-	]);
+	}, [balancesComplete, assets.balances, draft]);
 
 	const assetTouched =
 		touched.asset || touched.amount || touched.recipient;

@@ -42,8 +42,7 @@ export function InvitationCard({
 	const creator = accountCreator(multisig);
 
 	// On success the hook moves to the account page itself.
-	const handleAccept = () =>
-		accept.mutate({ address: multisig.address });
+	const handleAccept = () => accept.mutate({ multisig });
 	const handleReject = () =>
 		reject.mutate(
 			{ address: multisig.address },
@@ -74,7 +73,8 @@ export function InvitationCard({
 				<div className="flex min-w-0 flex-col gap-1">
 					<div className="flex items-center gap-2.5">
 						<h3 className="truncate text-16 font-medium">
-							{multisig.name ? (
+							{multisig.name ||
+							multisig.acting?.state !== 'ok' ? (
 								name
 							) : (
 								<ShortAddress address={multisig.address}>

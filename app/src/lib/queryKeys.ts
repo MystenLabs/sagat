@@ -21,6 +21,8 @@ export const QueryKeys = {
 	OnChainTransaction: 'on-chain-transaction',
 	ApiHealth: 'api-health',
 	ProposerProofs: 'proposer-proofs',
+	AliasSets: 'alias-sets',
+	ChainIdentifier: 'chain-identifier',
 } as const;
 
 export const MutationKeys = {

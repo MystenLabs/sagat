@@ -14,10 +14,18 @@ import {
 import { toBase58, toBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
+import { type AliasRead } from '../src/lib/alias-set';
 import {
 	checkProposalProposer,
 	verifyProposers,
 } from '../src/lib/proposer-proofs';
+
+/** The alias set of a pod that never changed its signers. */
+const unchanged = (pod: string): AliasRead => ({
+	kind: 'read',
+	aliases: [pod],
+});
+const UNREAD: AliasRead = { kind: 'failed' };
 
 async function accountWithProposer() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
@@ -83,11 +91,40 @@ test('a signer of the account confirms a proposer', async () => {
 		await accountWithProposer();
 
 	const proof = (
-		await verifyProposers(account, account.address)
+		await verifyProposers(
+			account,
+			account.address,
+			unchanged(account.address),
+		)
 	).get(proposer);
 
 	expect(proof?.status).toBe('verified');
 	expect(proof?.signer).toBe(signer);
+});
+
+test('signers whose set is not in the alias set confirm no one', async () => {
+	const { account, proposer } = await accountWithProposer();
+	const other = (await accountWithProposer()).account;
+
+	const proof = (
+		await verifyProposers(
+			account,
+			account.address,
+			unchanged(other.address),
+		)
+	).get(proposer);
+
+	expect(proof?.status).toBe('unverified');
+});
+
+test('signers confirm no one when the alias set could not be read', async () => {
+	const { account, proposer } = await accountWithProposer();
+
+	const proof = (
+		await verifyProposers(account, account.address, UNREAD)
+	).get(proposer);
+
+	expect(proof?.status).toBe('unverified');
 });
 
 test('signers that do not make up the account confirm no one', async () => {
@@ -97,6 +134,7 @@ test('signers that do not make up the account confirm no one', async () => {
 		await verifyProposers(
 			{ ...account, threshold: 2 },
 			account.address,
+			unchanged(account.address),
 		)
 	).get(proposer);
 
@@ -108,7 +146,11 @@ test('signers of an account other than the one opened confirm no one', async () 
 	const opened = (await accountWithProposer()).account;
 
 	const proof = (
-		await verifyProposers(account, opened.address)
+		await verifyProposers(
+			account,
+			opened.address,
+			unchanged(account.address),
+		)
 	).get(proposer);
 
 	expect(proof?.status).toBe('unverified');
@@ -175,10 +217,39 @@ test('a proposal whose signers do not make up its account is not confirmed', asy
 	const proposal = await externalProposal();
 
 	expect(
-		await checkProposalProposer({
-			...proposal,
-			multisig: { ...proposal.multisig, threshold: 2 },
-		}),
+		await checkProposalProposer(
+			{
+				...proposal,
+				multisig: { ...proposal.multisig, threshold: 2 },
+			},
+			unchanged(proposal.multisigAddress),
+		),
+	).toBe('unverified');
+});
+
+test('a proposal whose signers are not in the alias set is not confirmed', async () => {
+	const proposal = await externalProposal();
+	const other = (await accountWithProposer()).account;
+
+	expect(
+		await checkProposalProposer(
+			proposal,
+			unchanged(proposal.multisigAddress),
+		),
+	).toBeNull();
+	expect(
+		await checkProposalProposer(
+			proposal,
+			unchanged(other.address),
+		),
+	).toBe('unverified');
+});
+
+test('a proposal is not confirmed when the alias set could not be read', async () => {
+	const proposal = await externalProposal();
+
+	expect(
+		await checkProposalProposer(proposal, UNREAD),
 	).toBe('unverified');
 });
 
@@ -186,13 +257,16 @@ test('an external proposer without a confirmation is unconfirmed', async () => {
 	const proposal = await externalProposal();
 
 	expect(
-		await checkProposalProposer({
-			...proposal,
-			events: {
-				created: proposal.events!.created,
-				proposer: null,
+		await checkProposalProposer(
+			{
+				...proposal,
+				events: {
+					created: proposal.events!.created,
+					proposer: null,
+				},
 			},
-		}),
+			unchanged(proposal.multisigAddress),
+		),
 	).toBe('unverified');
 });
 
@@ -203,26 +277,29 @@ test('a member proposer who signed the proposal is not flagged', async () => {
 		await keys[1].signTransaction(bytes);
 
 	expect(
-		await checkProposalProposer({
-			digest,
-			transactionBytes: toBase64(bytes),
-			proposerAddress: keys[1].toSuiAddress(),
-			multisigAddress: account.address,
-			multisig: {
-				address: account.address,
-				threshold: account.threshold,
-				members: account.members,
-			},
-			signatures: [
-				{
-					proposalId: 1,
-					publicKey: keys[1]
-						.getPublicKey()
-						.toSuiPublicKey(),
-					signature,
+		await checkProposalProposer(
+			{
+				digest,
+				transactionBytes: toBase64(bytes),
+				proposerAddress: keys[1].toSuiAddress(),
+				multisigAddress: account.address,
+				multisig: {
+					address: account.address,
+					threshold: account.threshold,
+					members: account.members,
 				},
-			],
-			events: { created: null, proposer: null },
-		} as PublicProposal),
+				signatures: [
+					{
+						proposalId: 1,
+						publicKey: keys[1]
+							.getPublicKey()
+							.toSuiPublicKey(),
+						signature,
+					},
+				],
+				events: { created: null, proposer: null },
+			} as PublicProposal,
+			unchanged(account.address),
+		),
 	).toBeNull();
 });

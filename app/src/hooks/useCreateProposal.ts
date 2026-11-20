@@ -14,9 +14,22 @@ import { useState } from 'react';
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { readNodeFacts } from '@/hooks/useAliasSets';
 import { checkNewProposal } from '@/lib/new-proposal';
-import { type AccountSigners } from '@/lib/proposal-integrity';
+import {
+	checkSignerOnNetwork,
+	shownActingSets,
+	type AccountSigners,
+} from '@/lib/proposal-integrity';
+import {
+	SignersRefusedError,
+	SignersUncheckedError,
+} from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
+import {
+	namedChain,
+	readTransactionBytes,
+} from '@/lib/transaction-preview';
 import { SignatureDeclinedError } from '@/lib/wallet-session';
 
 import { useNetwork } from '../contexts/NetworkContext';
@@ -31,11 +44,11 @@ export class BytesNotFromPodError extends Error {
 	}
 }
 
-/** The account's signers don't make up its address, or the wallet isn't one of them. Nothing was signed. */
-export class SignersRefusedError extends Error {
-	constructor(failure: 'signers' | 'notSigner') {
-		super(content.common.signersRefused[failure]);
-		this.name = 'SignersRefusedError';
+/** The bytes name a chain other than the node's. Nothing was signed. */
+export class ChainMismatchError extends Error {
+	constructor() {
+		super(content.common.wrongChain);
+		this.name = 'ChainMismatchError';
 	}
 }
 
@@ -74,7 +87,29 @@ export function useCreateProposal() {
 			);
 			if (refused === 'bytes')
 				throw new BytesNotFromPodError();
-			if (refused) throw new SignersRefusedError(refused);
+			if (refused)
+				throw new SignersRefusedError(refused, network);
+
+			const node = await readNodeFacts(
+				queryClient,
+				dappKit.getClient(network),
+				network,
+				multisig.address,
+			);
+			const onNetwork = checkSignerOnNetwork({
+				shown: shownActingSets(multisig),
+				signerAddress: currentAccount.address,
+				namedChain: namedChain(
+					readTransactionBytes(transactionData).transaction,
+				),
+				node,
+			});
+			if (onNetwork === 'chain')
+				throw new ChainMismatchError();
+			if (onNetwork === 'unchecked')
+				throw new SignersUncheckedError(network);
+			if (onNetwork)
+				throw new SignersRefusedError(onNetwork, network);
 
 			// Parse transaction data
 			const transaction = Transaction.from(transactionData);

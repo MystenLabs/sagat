@@ -313,8 +313,7 @@ export function MultisigSwitcher({
 			<ReceiveDialog
 				open={receiveOpen}
 				onClose={() => setReceiveOpen(false)}
-				address={selected.address}
-				name={accountName(selected)}
+				multisig={selected}
 			/>
 		</div>
 	);

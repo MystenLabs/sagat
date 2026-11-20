@@ -651,6 +651,35 @@ describe('checkBytes', () => {
 			owner: OTHER,
 		});
 	});
+
+	test('refuses bytes that name a chain other than the node’s, and reads them when it is unknown', async () => {
+		const chain = toBase58(new Uint8Array(32).fill(7));
+		const other = toBase58(new Uint8Array(32).fill(8));
+		const tx = transferTransaction(ACCOUNT);
+		tx.setExpiration({
+			ValidDuring: {
+				minEpoch: '1',
+				maxEpoch: '2',
+				minTimestamp: null,
+				maxTimestamp: null,
+				chain,
+				nonce: 1,
+			},
+		});
+		const bytes = toBase64(await tx.build());
+
+		expect(checkBytes(bytes, ACCOUNT, chain)).toMatchObject(
+			{
+				kind: 'ok',
+			},
+		);
+		expect(checkBytes(bytes, ACCOUNT, other)).toEqual({
+			kind: 'wrong-chain',
+		});
+		expect(checkBytes(bytes, ACCOUNT, null)).toMatchObject({
+			kind: 'ok',
+		});
+	});
 });
 
 describe('checkNewProposal', () => {

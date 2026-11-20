@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useDAppKit } from '@mysten/dapp-kit-react';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -19,6 +21,8 @@ import {
 } from '@/components/wizard/parts';
 import { useTouched } from '@/components/wizard/use-touched';
 import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
+import { chainIdentifierQuery } from '@/hooks/useAliasSets';
 import { accountName } from '@/lib/account-name';
 import {
 	bytesStatusText,
@@ -53,9 +57,18 @@ export function BytesDetailsStep({
 	onBack: () => void;
 	onCancel: () => void;
 }) {
+	const dappKit = useDAppKit();
+	const { network } = useNetwork();
+	// Unknown until read; the create mutation reads it again before signing.
+	const { data: chain } = useQuery(
+		chainIdentifierQuery(
+			dappKit.getClient(network),
+			network,
+		),
+	);
 	const check = useMemo(
-		() => checkBytes(draft, multisig.address),
-		[draft, multisig.address],
+		() => checkBytes(draft, multisig.address, chain),
+		[draft, multisig.address, chain],
 	);
 	const status = bytesStatusText(
 		check,
@@ -65,7 +78,8 @@ export function BytesDetailsStep({
 		check.kind === 'unreadable' ||
 		check.kind === 'unresolved' ||
 		check.kind === 'wrong-sender' ||
-		check.kind === 'wrong-gas-owner';
+		check.kind === 'wrong-gas-owner' ||
+		check.kind === 'wrong-chain';
 
 	const value = title ?? '';
 	const currentTitleError = titleError(value);

@@ -14,7 +14,15 @@ import {
 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
-import { checkProposalIntegrity } from '../src/lib/proposal-integrity';
+import { type AliasRead } from '../src/lib/alias-set';
+import {
+	checkActingSets,
+	checkProposalIntegrity,
+	checkSignerOnNetwork,
+	podActing,
+	rebuildAccount,
+	type NodeFacts,
+} from '../src/lib/proposal-integrity';
 
 function oneOfTwoAccount() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
@@ -94,4 +102,210 @@ test("refuses bytes that don't decode as a transaction", () => {
 			},
 		),
 	).toBe('unreadable');
+});
+
+test('a pod that never changed passes both rules as one check', () => {
+	const { address, multisig } = oneOfTwoAccount();
+
+	expect(rebuildAccount(multisig, address)).toBe(address);
+	expect(
+		checkActingSets([multisig], {
+			kind: 'read',
+			aliases: [address],
+		}),
+	).toEqual({
+		kind: 'checked',
+		acting: [{ set: multisig, address }],
+		refused: [],
+		unidentified: [],
+	});
+});
+
+test('rule 1 refuses signers that do not rebuild the address, with no alias read', () => {
+	const { address } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+
+	expect(
+		rebuildAccount(other.multisig, address),
+	).toBeNull();
+});
+
+test('rule 2 refuses a pod whose own address is not in its alias set', () => {
+	const { address, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+
+	expect(rebuildAccount(multisig, address)).toBe(address);
+	expect(
+		checkActingSets([multisig], {
+			kind: 'read',
+			aliases: [other.address],
+		}),
+	).toMatchObject({ acting: [], refused: [multisig] });
+});
+
+test('an alias no shown set rebuilds is unidentified, and the pod still passes', () => {
+	const { address, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+
+	expect(
+		checkActingSets([multisig], {
+			kind: 'read',
+			aliases: [address, other.address],
+		}),
+	).toMatchObject({
+		acting: [{ set: multisig, address }],
+		refused: [],
+		unidentified: [other.address],
+	});
+});
+
+test('an unread alias set leaves rule 2 unchecked', () => {
+	const { multisig } = oneOfTwoAccount();
+
+	expect(
+		checkActingSets([multisig], { kind: 'failed' }),
+	).toEqual({ kind: 'unchecked' });
+});
+
+test('of two shown sets, only the one that is an alias acts', () => {
+	const { address } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const stranger = oneOfTwoAccount();
+
+	const shown = [current.multisig, stranger.multisig];
+	const aliases: AliasRead = {
+		kind: 'read',
+		aliases: [address, current.address],
+	};
+	expect(checkActingSets(shown, aliases)).toEqual({
+		kind: 'checked',
+		acting: [
+			{ set: current.multisig, address: current.address },
+		],
+		refused: [stranger.multisig],
+		unidentified: [address],
+	});
+	expect(podActing(shown, aliases).state).toBe('refused');
+});
+
+const CHAIN = toBase58(new Uint8Array(32).fill(1));
+const OTHER_CHAIN = toBase58(new Uint8Array(32).fill(2));
+
+function signOnNetwork(
+	shown: ReturnType<typeof oneOfTwoAccount>['multisig'][],
+	signer: Ed25519Keypair,
+	node: NodeFacts,
+	namedChain: string | null = null,
+) {
+	return checkSignerOnNetwork({
+		shown,
+		signerAddress: signer.toSuiAddress(),
+		namedChain,
+		node,
+	});
+}
+
+test('a member of a pod that never changed may sign on the network', () => {
+	const { keys, address, multisig } = oneOfTwoAccount();
+
+	expect(
+		signOnNetwork([multisig], keys[0], {
+			aliases: { kind: 'read', aliases: [address] },
+			chain: CHAIN,
+		}),
+	).toBeNull();
+});
+
+test('a member may not sign once the pod’s address is not in its alias set', () => {
+	const { keys, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+
+	expect(
+		signOnNetwork([multisig], keys[0], {
+			aliases: { kind: 'read', aliases: [other.address] },
+			chain: CHAIN,
+		}),
+	).toBe('notActing');
+});
+
+test('a key only in a shown set that is no alias may not sign, though another shown set is one', () => {
+	const current = oneOfTwoAccount();
+	const stranger = oneOfTwoAccount();
+
+	expect(
+		signOnNetwork(
+			[current.multisig, stranger.multisig],
+			stranger.keys[0],
+			{
+				aliases: {
+					kind: 'read',
+					aliases: [current.address],
+				},
+				chain: CHAIN,
+			},
+		),
+	).toBe('notActing');
+});
+
+test('an unread alias set leaves signing unchecked', () => {
+	const { keys, multisig } = oneOfTwoAccount();
+
+	expect(
+		signOnNetwork([multisig], keys[0], {
+			aliases: { kind: 'failed' },
+			chain: CHAIN,
+		}),
+	).toBe('unchecked');
+});
+
+test('bytes that name a chain must name the node’s', () => {
+	const { keys, address, multisig } = oneOfTwoAccount();
+	const aliases: AliasRead = {
+		kind: 'read',
+		aliases: [address],
+	};
+
+	expect(
+		signOnNetwork(
+			[multisig],
+			keys[0],
+			{ aliases, chain: CHAIN },
+			CHAIN,
+		),
+	).toBeNull();
+	expect(
+		signOnNetwork(
+			[multisig],
+			keys[0],
+			{ aliases, chain: CHAIN },
+			OTHER_CHAIN,
+		),
+	).toBe('chain');
+	expect(
+		signOnNetwork(
+			[multisig],
+			keys[0],
+			{ aliases, chain: null },
+			CHAIN,
+		),
+	).toBe('unchecked');
+	expect(
+		signOnNetwork([multisig], keys[0], {
+			aliases,
+			chain: null,
+		}),
+	).toBeNull();
+});
+
+test('bytes naming another chain are refused even when the alias set is unread', () => {
+	const { keys, multisig } = oneOfTwoAccount();
+
+	expect(
+		signOnNetwork(
+			[multisig],
+			keys[0],
+			{ aliases: { kind: 'failed' }, chain: CHAIN },
+			OTHER_CHAIN,
+		),
+	).toBe('chain');
 });
