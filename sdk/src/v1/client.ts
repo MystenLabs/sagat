@@ -10,8 +10,16 @@ import {
 	type SagatClientOptions,
 } from '../client.js';
 import {
+	AccountAnswerSchema,
+	AccountDetailsSchema,
+	AccountListSchema,
 	ErrorBodySchema,
+	InvitationListSchema,
 	ProposalSchema,
+	SuccessSchema,
+	type AccountAnswerRequest,
+	type AccountProposerRequest,
+	type Network,
 } from './schemas.js';
 
 /** A 2xx response whose body does not match the route's schema. */
@@ -55,15 +63,134 @@ export class SagatV1Client {
 		);
 	}
 
+	/** The accounts the caller's keys have accepted on the network, and the ones a key was removed from. */
+	getAccounts(network: Network) {
+		return this.#request(
+			AccountListSchema,
+			'/v1/accounts',
+			{
+				query: { network },
+			},
+		);
+	}
+
+	/** An account, for a key of one of its acting signer sets on the network. */
+	getAccount(address: string, network: Network) {
+		return this.#request(
+			AccountDetailsSchema,
+			`/v1/accounts/${encodeURIComponent(address)}`,
+			{ query: { network } },
+		);
+	}
+
+	/** The accounts a caller's key has not answered for, or with `showRejected`, the ones it rejected. */
+	getInvitations(
+		network: Network,
+		{
+			showRejected = false,
+		}: { showRejected?: boolean } = {},
+	) {
+		return this.#request(
+			InvitationListSchema,
+			'/v1/invitations',
+			{
+				query: showRejected
+					? { network, showRejected: 'true' }
+					: { network },
+			},
+		);
+	}
+
+	/** Accepts an account, signed with `PersonalMessages.acceptAccountInvitation`. */
+	acceptAccountInvite(
+		address: string,
+		{
+			network,
+			...body
+		}: AccountAnswerRequest & { network: Network },
+	) {
+		return this.#request(
+			AccountAnswerSchema,
+			`/v1/accounts/${encodeURIComponent(address)}/accept`,
+			{ method: 'POST', query: { network }, body },
+		);
+	}
+
+	/** Rejects an account, signed with `PersonalMessages.rejectAccountInvitation`. */
+	rejectAccountInvite(
+		address: string,
+		{
+			network,
+			...body
+		}: AccountAnswerRequest & { network: Network },
+	) {
+		return this.#request(
+			AccountAnswerSchema,
+			`/v1/accounts/${encodeURIComponent(address)}/reject`,
+			{ method: 'POST', query: { network }, body },
+		);
+	}
+
+	/** Adds an external proposer, signed with `PersonalMessages.addMultisigProposer`. */
+	addAccountProposer(
+		address: string,
+		{
+			network,
+			...body
+		}: AccountProposerRequest & { network: Network },
+	) {
+		return this.#request(
+			SuccessSchema,
+			`/v1/accounts/${encodeURIComponent(address)}/proposers`,
+			{ method: 'POST', query: { network }, body },
+		);
+	}
+
+	/** Removes an external proposer, signed with `PersonalMessages.removeMultisigProposer`. */
+	removeAccountProposer(
+		address: string,
+		{
+			network,
+			...body
+		}: AccountProposerRequest & { network: Network },
+	) {
+		return this.#request(
+			SuccessSchema,
+			`/v1/accounts/${encodeURIComponent(address)}/proposers`,
+			{ method: 'DELETE', query: { network }, body },
+		);
+	}
+
 	async #request<T extends z.ZodType>(
 		schema: T,
 		endpoint: string,
+		{
+			method = 'GET',
+			query,
+			body: requestBody,
+		}: {
+			method?: 'GET' | 'POST' | 'DELETE';
+			query?: Record<string, string>;
+			body?: unknown;
+		} = {},
 	): Promise<z.output<T>> {
+		const search = query
+			? `?${new URLSearchParams(query)}`
+			: '';
 		const response = await this.#fetch(
-			`${this.#apiUrl}${endpoint}`,
+			`${this.#apiUrl}${endpoint}${search}`,
 			{
+				method,
 				signal: AbortSignal.timeout(this.#timeoutMs),
 				credentials: 'include',
+				...(requestBody === undefined
+					? {}
+					: {
+							headers: {
+								'Content-Type': 'application/json',
+							},
+							body: JSON.stringify(requestBody),
+						}),
 			},
 		);
 		// Only a body that is not JSON is tolerated; a failed read rejects.

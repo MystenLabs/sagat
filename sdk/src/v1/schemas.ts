@@ -140,3 +140,193 @@ export const ProposalSchema = z
 	})
 	.meta({ id: 'Proposal' });
 export type Proposal = z.infer<typeof ProposalSchema>;
+
+export const NetworkSchema = z
+	.enum(['mainnet', 'testnet', 'devnet', 'localnet'])
+	.meta({ id: 'Network', description: 'A Sui network.' });
+export type Network = z.infer<typeof NetworkSchema>;
+
+export const KeyAnswerSchema = z
+	.enum(['accepted', 'rejected', 'invited'])
+	.meta({
+		id: 'KeyAnswer',
+		description:
+			"A key's answer for the account; `invited` until it answers.",
+	});
+export type KeyAnswer = z.infer<typeof KeyAnswerSchema>;
+
+export const AccountMemberSchema = z
+	.object({
+		publicKey: z.string(),
+		weight: z.number().int(),
+		order: z.number().int(),
+		answer: KeyAnswerSchema,
+		label: z.string().nullable().meta({
+			description: "The account's label for the key.",
+		}),
+	})
+	.meta({ id: 'AccountMember' });
+export type AccountMember = z.infer<
+	typeof AccountMemberSchema
+>;
+
+export const AccountSignerSetSchema = z
+	.object({
+		address: SuiAddressSchema,
+		threshold: z.number().int(),
+		members: z.array(AccountMemberSchema),
+	})
+	.meta({ id: 'AccountSignerSet' });
+export type AccountSignerSet = z.infer<
+	typeof AccountSignerSetSchema
+>;
+
+export const ActingSignerSetSchema = z
+	.object({
+		kind: z.enum(['signer_set', 'key']).meta({
+			description:
+				'A composition the API holds, or a single registered key.',
+		}),
+		...AccountSignerSetSchema.shape,
+	})
+	.meta({ id: 'ActingSignerSet' });
+export type ActingSignerSet = z.infer<
+	typeof ActingSignerSetSchema
+>;
+
+const accountFields = {
+	address: SuiAddressSchema,
+	name: z.string().nullable(),
+	createdBy: SuiAddressSchema,
+	createdAt: z.iso.datetime(),
+	originalSignerSet: AccountSignerSetSchema,
+	signerSets: z.array(ActingSignerSetSchema).meta({
+		description:
+			"The signer sets that act for the account on the request's network.",
+	}),
+	otherSignerSets: z.array(SuiAddressSchema).meta({
+		description:
+			'The addresses in the alias set that the API cannot identify. Each can sign for the account.',
+	}),
+	signersChecked: z.boolean().meta({
+		description:
+			'False when the alias set could not be read from the chain, so the signers are as last read.',
+	}),
+};
+
+export const AccountSchema = z
+	.object(accountFields)
+	.meta({ id: 'Account' });
+export type Account = z.infer<typeof AccountSchema>;
+
+export const AccountProposerSchema = z
+	.object({
+		address: SuiAddressSchema,
+		addedBy: SuiAddressSchema,
+		addedAt: z.iso.datetime(),
+		event: AccountEventSchema.or(z.null()).meta({
+			description:
+				"The proposer's newest add or remove, or null.",
+		}),
+	})
+	.meta({ id: 'AccountProposer' });
+export type AccountProposer = z.infer<
+	typeof AccountProposerSchema
+>;
+
+export const AccountDetailsSchema = z
+	.object({
+		...accountFields,
+		network: NetworkSchema,
+		signerChangesAllowed: z.boolean().meta({
+			description:
+				'Whether the account has allowed signer changes on the network.',
+		}),
+		networksWithDifferentSigners: z
+			.array(NetworkSchema)
+			.meta({
+				description:
+					'The other supported networks whose alias set differs from this one.',
+			}),
+		proposers: z.array(AccountProposerSchema),
+	})
+	.meta({ id: 'AccountDetails' });
+export type AccountDetails = z.infer<
+	typeof AccountDetailsSchema
+>;
+
+export const RemovedAccountSchema = z
+	.object({
+		address: SuiAddressSchema,
+		name: z.string().nullable(),
+		publicKey: z.string(),
+		signerSetAddress: SuiAddressSchema,
+		eventId: z.number().int().meta({
+			description: 'The `alias.removed` event.',
+		}),
+		removedAt: z.iso.datetime(),
+	})
+	.meta({
+		id: 'RemovedAccount',
+		description:
+			"An account one of the caller's keys was removed from on the network.",
+	});
+export type RemovedAccount = z.infer<
+	typeof RemovedAccountSchema
+>;
+
+export const AccountListSchema = z
+	.object({
+		network: NetworkSchema,
+		accounts: z.array(AccountSchema),
+		removed: z.array(RemovedAccountSchema),
+	})
+	.meta({ id: 'AccountList' });
+export type AccountList = z.infer<typeof AccountListSchema>;
+
+export const InvitationListSchema = z
+	.object({
+		network: NetworkSchema,
+		invitations: z.array(AccountSchema),
+	})
+	.meta({ id: 'InvitationList' });
+export type InvitationList = z.infer<
+	typeof InvitationListSchema
+>;
+
+export const AccountAnswerRequestSchema = z
+	.object({
+		signature: z.string(),
+		expiry: z.string(),
+	})
+	.meta({ id: 'AccountAnswerRequest' });
+export type AccountAnswerRequest = z.infer<
+	typeof AccountAnswerRequestSchema
+>;
+
+export const AccountAnswerSchema = z
+	.object({
+		accountAddress: SuiAddressSchema,
+		publicKey: z.string(),
+		answer: z.enum(['accepted', 'rejected']),
+	})
+	.meta({ id: 'AccountAnswer' });
+export type AccountAnswer = z.infer<
+	typeof AccountAnswerSchema
+>;
+
+export const AccountProposerRequestSchema = z
+	.object({
+		proposer: SuiAddressSchema,
+		signature: z.string(),
+		expiry: z.string(),
+	})
+	.meta({ id: 'AccountProposerRequest' });
+export type AccountProposerRequest = z.infer<
+	typeof AccountProposerRequestSchema
+>;
+
+export const SuccessSchema = z
+	.object({ success: z.literal(true) })
+	.meta({ id: 'Success' });
+export type Success = z.infer<typeof SuccessSchema>;
