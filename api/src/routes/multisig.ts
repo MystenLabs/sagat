@@ -12,6 +12,7 @@ import {
 	authMiddleware,
 	type AuthEnv,
 } from '../services/auth.service';
+import { refuseIfChangedAccount } from '../services/changed-accounts.service';
 import {
 	acceptInvitation,
 	addProposer,
@@ -32,6 +33,7 @@ multisigRouter.get(
 	async (c: Context<AuthEnv>) => {
 		const { address } = c.req.param();
 
+		await refuseIfChangedAccount(address, 'read');
 		const multisig = await getMultisigAccount({
 			address,
 			callerKeys: c.get('publicKeys'),
@@ -112,6 +114,7 @@ multisigRouter.post('/:address/add-proposer', async (c) => {
 		await c.req.json();
 	const { address } = c.req.param();
 
+	await refuseIfChangedAccount(address, 'write');
 	await addProposer({
 		address,
 		proposer,
@@ -130,6 +133,7 @@ multisigRouter.post(
 			await c.req.json();
 		const { address } = c.req.param();
 
+		await refuseIfChangedAccount(address, 'write');
 		await removeProposer({
 			address,
 			proposer,

@@ -82,6 +82,10 @@ import {
 	requireFreshAliases,
 } from './aliases.service';
 import {
+	refuseChangedAccount,
+	refuseIfChangedAccount,
+} from './changed-accounts.service';
+import {
 	isAccountSigner,
 	notAcceptedSignerError,
 } from './membership.service';
@@ -328,7 +332,7 @@ const getProposal = async (
 	return proposal;
 };
 
-// Under the acting scope a decision waits for a fresh alias state, or fails.
+// A decision waits for a fresh alias state, or fails; the original scope refuses a changed account.
 const refreshBeforeDeciding = async (
 	scopeKind: SignerScopeKind,
 	accountAddress: string,
@@ -339,6 +343,7 @@ const refreshBeforeDeciding = async (
 			accountAddress,
 			network as SuiNetwork,
 		);
+	else await refuseChangedAccount(accountAddress, 'write');
 };
 
 // False when the read failed and the mirror is used as it is.
@@ -610,6 +615,11 @@ export const createProposal = async ({
 	const checkAccount = async () => {
 		if (scopeKind === 'acting')
 			await refreshAccount(multisigAddress, network);
+		else
+			await refuseIfChangedAccount(
+				multisigAddress,
+				'write',
+			);
 		const signers = await getAccountSigners(
 			multisigAddress,
 			scopeOn(scopeKind, network),
@@ -1123,6 +1133,10 @@ export const listProposals = async (
 	input: ListInput,
 ): Promise<PaginatedResponse<ProposalWithSignatures>> => {
 	validateNetwork(input.network);
+	await refuseIfChangedAccount(
+		input.multisigAddress,
+		'read',
+	);
 	if (
 		!(await isAccountSigner(
 			input.multisigAddress,
@@ -1195,6 +1209,11 @@ export const getProposalByDigest = async (
 	const stored = signerChangeIn(proposal.transactionBytes);
 	refuseSignerChangeUnder(scopeKind, stored);
 
+	if (scopeKind === 'original')
+		await refuseChangedAccount(
+			proposal.accountAddress,
+			'read',
+		);
 	const signerSetsStale =
 		scopeKind !== 'original' &&
 		!(await refreshForRead(

@@ -908,3 +908,34 @@ export const networksWithDifferentSigners = async (
 			other !== network && aliasSetOn(other) !== here,
 	);
 };
+
+// The accounts whose mirrored alias set is anything other than exactly their own address on one of the networks.
+export const changedAccounts = async (
+	accountAddresses: string[],
+	networks: SuiNetwork[],
+): Promise<Set<string>> => {
+	if (
+		accountAddresses.length === 0 ||
+		networks.length === 0
+	)
+		return new Set();
+	const rows = await db
+		.selectDistinct({
+			account: SchemaAccountAliases.accountAddress,
+		})
+		.from(SchemaAccountAliases)
+		.where(
+			and(
+				inArray(
+					SchemaAccountAliases.accountAddress,
+					accountAddresses,
+				),
+				inArray(SchemaAccountAliases.network, networks),
+				ne(
+					SchemaAccountAliases.aliasAddress,
+					SchemaAccountAliases.accountAddress,
+				),
+			),
+		);
+	return new Set(rows.map((row) => row.account));
+};
