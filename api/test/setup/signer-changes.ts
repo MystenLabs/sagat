@@ -1,0 +1,167 @@
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+
+import {
+	buildEnable,
+	buildSignerChange,
+	type Composition,
+	type KnownSigner,
+} from '@mysten/sagat';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { Transaction } from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
+
+import { fetchAliasSet } from '../../src/utils/aliases';
+import { parsePublicKey } from '../../src/utils/pubKey';
+import {
+	sendCoins,
+	signedBy,
+	type TestSession,
+	type TestUser,
+} from '../framework/api-test-framework';
+import { getLocalClient } from './sui-network';
+
+const client = getLocalClient();
+
+export type GasCoin = {
+	objectId: string;
+	version: string;
+	digest: string;
+};
+
+// A composition of the users' keys, in order, each of weight 1 unless given.
+export const compositionOf = (
+	members: TestUser[],
+	threshold: number,
+	weights: number[] = members.map(() => 1),
+): Composition => ({
+	threshold,
+	members: members.map((member, i) => ({
+		publicKey: member.publicKey,
+		weight: weights[i],
+	})),
+});
+
+// The address a composition rebuilds.
+export const addressOf = (composition: Composition) =>
+	MultiSigPublicKey.fromPublicKeys({
+		threshold: composition.threshold,
+		publicKeys: composition.members.map((m) => ({
+			publicKey: parsePublicKey(m.publicKey),
+			weight: m.weight,
+		})),
+	}).toSuiAddress();
+
+// Sends the account `count` coins and returns them, so proposals pending together each have their own gas.
+export const gasCoins = async (
+	address: string,
+	count: number,
+): Promise<GasCoin[]> => {
+	await sendCoins(address, count);
+	const { objects } = await client.listCoins({
+		owner: address,
+	});
+	return objects
+		.slice(0, count)
+		.map(({ objectId, version, digest }) => ({
+			objectId,
+			version,
+			digest,
+		}));
+};
+
+// Base64 bytes of a transaction from the account, paid with `gasCoin` when given.
+export const buildFrom = async (
+	account: string,
+	fill: (tx: Transaction) => void,
+	gasCoin?: GasCoin,
+) => {
+	const tx = new Transaction();
+	tx.setSender(account);
+	if (gasCoin) tx.setGasPayment([gasCoin]);
+	fill(tx);
+	return toBase64(await tx.build({ client }));
+};
+
+/**
+ * Allows signer changes on the account: `enable`, proposed through `/v1` by
+ * the first voter, signed by the others until a set reaches its threshold,
+ * executed and verified.
+ */
+export const allowSignerChanges = async (
+	session: TestSession,
+	account: string,
+	voters: TestUser[],
+	gasCoin?: GasCoin,
+) => {
+	const created = await session.createProposal(
+		voters[0],
+		account,
+		'localnet',
+		await buildFrom(account, buildEnable, gasCoin),
+	);
+	await session.voteAndExecute(
+		voters.slice(1),
+		created.digest,
+	);
+};
+
+/**
+ * The base64 bytes of a signer change of the account, built with the SDK
+ * against its alias set on chain, with the chain identifier and epoch of the
+ * local network. `known` holds every composition the test knows for the
+ * aliases, the old set's included.
+ */
+export const buildChange = async ({
+	account,
+	oldSet,
+	newSet,
+	known,
+	gasCoin,
+}: {
+	account: string;
+	oldSet: string;
+	newSet: Composition;
+	known: KnownSigner[];
+	gasCoin?: GasCoin;
+}) => {
+	const [
+		{ aliases },
+		{ chainIdentifier },
+		{ systemState },
+	] = await Promise.all([
+		fetchAliasSet(client, account),
+		client.core.getChainIdentifier(),
+		client.core.getCurrentSystemState(),
+	]);
+	return buildFrom(
+		account,
+		(tx) =>
+			buildSignerChange(tx, {
+				account,
+				aliases,
+				oldSet,
+				newSet,
+				known,
+				chain: chainIdentifier,
+				epoch: systemState.epoch,
+			}),
+		gasCoin,
+	);
+};
+
+// Proposes a signer change through `/v1`, with labels for its new keys when given.
+export const proposeChange = async (
+	session: TestSession,
+	proposer: TestUser,
+	account: string,
+	transactionBytes: string,
+	labels?: (string | null)[],
+) =>
+	session.v1.createProposal({
+		accountAddress: account,
+		network: 'localnet',
+		transactionBytes,
+		signature: await signedBy(proposer, transactionBytes),
+		labels,
+	});
