@@ -690,6 +690,8 @@ describe('checkNewProposal', () => {
 		publicKey: key.getPublicKey().toSuiPublicKey(),
 		weight: 1,
 		order,
+		answer: 'accepted' as const,
+		label: null,
 	}));
 	const address = MultiSigPublicKey.fromPublicKeys({
 		threshold,
@@ -698,11 +700,20 @@ describe('checkNewProposal', () => {
 			weight: 1,
 		})),
 	}).toSuiAddress();
+	// A pod at `account` that never changed its signers.
+	const pod = (account: string) => {
+		const set = { address, threshold, members };
+		return {
+			address: account,
+			originalSignerSet: set,
+			signerSets: [{ kind: 'signer_set' as const, ...set }],
+		};
+	};
 
 	test('passes bytes from an account its signers make up, for a member wallet', async () => {
 		expect(
 			checkNewProposal(
-				{ address, threshold, members },
+				pod(address),
 				await transferBytes(address),
 				wallet.toSuiAddress(),
 			),
@@ -713,7 +724,7 @@ describe('checkNewProposal', () => {
 		const own = wallet.toSuiAddress();
 		expect(
 			checkNewProposal(
-				{ address: own, threshold, members },
+				pod(own),
 				await transferBytes(own),
 				own,
 			),
@@ -723,7 +734,7 @@ describe('checkNewProposal', () => {
 	test('refuses a wallet that is not one of the signers', async () => {
 		expect(
 			checkNewProposal(
-				{ address, threshold, members },
+				pod(address),
 				await transferBytes(address),
 				new Ed25519Keypair().toSuiAddress(),
 			),
@@ -733,7 +744,7 @@ describe('checkNewProposal', () => {
 	test('refuses bytes not sent from the account, even when its signers check out', async () => {
 		expect(
 			checkNewProposal(
-				{ address, threshold, members },
+				pod(address),
 				await transferBytes(wallet.toSuiAddress()),
 				wallet.toSuiAddress(),
 			),

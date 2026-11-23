@@ -37,7 +37,10 @@ import {
 	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
-import { checkAccountSigners } from '@/lib/proposal-integrity';
+import {
+	checkAccountSigners,
+	shownActingSets,
+} from '@/lib/proposal-integrity';
 import {
 	proposalPagePath,
 	proposalsPath,
@@ -122,16 +125,27 @@ function NewProposalWizard({
 		useTransactionPreview();
 
 	// The account query keeps the weights fresh; the list's copy stands
-	// in until it answers, or when it fails.
+	// in until it answers, or when it fails. Rule 2 stays the list's.
 	const { data: details } = useGetMultisig(listed.address);
 	const multisig: MultisigWithMembersForPublicKey = details
-		? { ...listed, ...details }
+		? {
+				...details,
+				...(listed.refused
+					? { refused: listed.refused, acting: null }
+					: { refused: null, acting: listed.acting }),
+			}
 		: listed;
 	const signers = wallet
-		? checkAccountSigners(multisig, {
-				account: multisig.address,
-				signerAddress: wallet.address,
-			})
+		? checkAccountSigners(
+				{
+					original: multisig.originalSignerSet,
+					shown: shownActingSets(multisig),
+				},
+				{
+					account: multisig.address,
+					signerAddress: wallet.address,
+				},
+			)
 		: null;
 	// Rule 1 on the fresher copy; rule 2 from the list's row.
 	const refused =

@@ -21,23 +21,17 @@ import { QueryKeys } from '@/lib/queryKeys';
 import { useAliasSets } from './useAliasSets';
 
 /**
- * Each proposer's proof by address, undefined while checking or until
- * `enabled`; `trusted` is false unless `account` is `openedAddress`, its
- * signers make it up, and a shown set acts on the selected network.
+ * Each proposer's proof by address, undefined while checking; `trusted`
+ * is false unless `account` is `openedAddress`, its original signers
+ * make it up, and a shown set acts on the selected network.
  */
 export function useProposerProofs(
 	account: ProposerProofAccount,
-	{
-		enabled,
-		openedAddress,
-	}: { enabled: boolean; openedAddress: string },
+	{ openedAddress }: { openedAddress: string },
 ) {
-	const { aliases: reads } = useAliasSets(
-		[account.address],
-		{
-			enabled,
-		},
-	);
+	const { aliases: reads } = useAliasSets([
+		account.address,
+	]);
 	const aliases = reads?.get(
 		normalizeSuiAddress(account.address),
 	);
@@ -56,17 +50,17 @@ export function useProposerProofs(
 			QueryKeys.ProposerProofs,
 			openedAddress,
 			account.address,
-			account.threshold,
-			account.members,
+			account.originalSignerSet,
+			account.signerSets,
 			account.proposers,
 			aliases,
 		],
 		queryFn: () =>
 			verifyProposers(account, openedAddress, aliases!),
-		enabled: enabled && aliases !== undefined,
+		enabled: aliases !== undefined,
 		staleTime: Infinity,
 	});
-	return { proofs: enabled ? data : undefined, trusted };
+	return { proofs: data, trusted };
 }
 
 /** `checkProposalProposer` as a query, shared by the page and Sign; `aliases` is the pod's alias set on the proposal's network. */

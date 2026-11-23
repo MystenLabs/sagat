@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigWithMembers } from '@mysten/sagat';
+import type { AccountDetails } from '@mysten/sagat/v1';
 import {
 	formatAddress,
 	normalizeSuiAddress,
@@ -65,16 +65,15 @@ const PROOF_CHIP = {
 export function ProposersSection({
 	multisig,
 	currentAddress,
-	checkProofs,
 	openedAddress,
 	className,
 }: {
 	multisig: Pick<
-		MultisigWithMembers,
+		AccountDetails,
 		| 'address'
 		| 'name'
-		| 'threshold'
-		| 'members'
+		| 'originalSignerSet'
+		| 'signerSets'
 		| 'proposers'
 	>;
 	/**
@@ -82,8 +81,6 @@ export function ProposersSection({
 	 * proposer.
 	 */
 	currentAddress: string | undefined;
-	/** Whether `multisig` is the account's own response, the one with proposer events. */
-	checkProofs: boolean;
 	/** The account the viewer opened, from the route. */
 	openedAddress: string;
 	className?: string;
@@ -91,11 +88,16 @@ export function ProposersSection({
 	const { proposers } = multisig;
 	const name = accountName(multisig);
 	const labels = useMemo(
-		() => memberLabels(multisig.members),
-		[multisig.members],
+		() =>
+			memberLabels([
+				...multisig.originalSignerSet.members,
+				...multisig.signerSets.flatMap(
+					(set) => set.members,
+				),
+			]),
+		[multisig.originalSignerSet, multisig.signerSets],
 	);
 	const { proofs, trusted } = useProposerProofs(multisig, {
-		enabled: checkProofs,
 		openedAddress,
 	});
 	// Re-confirming can't help when the signers themselves aren't trusted.

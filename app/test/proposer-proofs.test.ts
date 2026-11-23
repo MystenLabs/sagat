@@ -49,6 +49,20 @@ async function accountWithProposer() {
 			),
 		),
 	);
+	const members = keys.map((key, order) => ({
+		publicKey: key.getPublicKey().toSuiPublicKey(),
+		weight: 1,
+		order,
+	}));
+	const set = {
+		address,
+		threshold,
+		members: members.map((member) => ({
+			...member,
+			answer: 'accepted' as const,
+			label: null,
+		})),
+	};
 	return {
 		keys,
 		signer: keys[0].toSuiAddress(),
@@ -57,11 +71,9 @@ async function accountWithProposer() {
 		account: {
 			address,
 			threshold,
-			members: keys.map((key, order) => ({
-				publicKey: key.getPublicKey().toSuiPublicKey(),
-				weight: 1,
-				order,
-			})),
+			members,
+			originalSignerSet: set,
+			signerSets: [{ kind: 'signer_set' as const, ...set }],
 			proposers: [
 				{
 					address: proposer,
@@ -132,7 +144,13 @@ test('signers that do not make up the account confirm no one', async () => {
 
 	const proof = (
 		await verifyProposers(
-			{ ...account, threshold: 2 },
+			{
+				...account,
+				originalSignerSet: {
+					...account.originalSignerSet,
+					threshold: 2,
+				},
+			},
 			account.address,
 			unchanged(account.address),
 		)

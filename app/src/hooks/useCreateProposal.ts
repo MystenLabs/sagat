@@ -5,6 +5,7 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
+import type { Account } from '@mysten/sagat/v1';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	useMutation,
@@ -19,7 +20,6 @@ import { checkNewProposal } from '@/lib/new-proposal';
 import {
 	checkSignerOnNetwork,
 	shownActingSets,
-	type AccountSigners,
 } from '@/lib/proposal-integrity';
 import {
 	SignersRefusedError,
@@ -53,7 +53,10 @@ export class ChainMismatchError extends Error {
 }
 
 interface CreateProposalParams {
-	multisig: AccountSigners & { address: string };
+	multisig: Pick<
+		Account,
+		'address' | 'originalSignerSet' | 'signerSets'
+	>;
 	transactionData: string;
 	description?: string;
 }

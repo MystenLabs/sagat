@@ -9,15 +9,17 @@ import {
 	defaultExpiry,
 	PersonalMessages,
 } from '@mysten/sagat';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	useMutation,
 	useQueryClient,
 } from '@tanstack/react-query';
 
 import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { toast } from '@/lib/toast';
 
-import { apiClient } from '../lib/api';
+import { apiV1Client } from '../lib/api';
 import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 export function useAddProposer(
@@ -29,6 +31,7 @@ export function useAddProposer(
 	const queryClient = useQueryClient();
 	const dappKit = useDAppKit();
 	const currentAccount = useCurrentAccount();
+	const { network } = useNetwork();
 
 	return useMutation({
 		mutationKey: [MutationKeys.AddProposer],
@@ -37,10 +40,12 @@ export function useAddProposer(
 				throw new Error(content.errors.noWalletConnected);
 			}
 
+			// Canonical, as the API and the signed message name it.
+			const account = normalizeSuiAddress(multisigAddress);
 			const expiry = defaultExpiry();
 			const message = PersonalMessages.addMultisigProposer(
 				proposerAddress,
-				multisigAddress,
+				account,
 				expiry,
 			);
 
@@ -49,12 +54,12 @@ export function useAddProposer(
 					message: new TextEncoder().encode(message),
 				});
 
-			return apiClient.addMultisigProposer(
-				multisigAddress,
-				proposerAddress,
+			return apiV1Client.addAccountProposer(account, {
+				network,
+				proposer: proposerAddress,
 				signature,
 				expiry,
-			);
+			});
 		},
 		onSuccess: () => {
 			// Invalidate the multisig query to refetch with new proposers

@@ -151,7 +151,7 @@ export function ReviewInvitationDialog({
 								signers={rows.map((row) => ({
 									weight: row.member.weight,
 									tone: weightTone({
-										isAccepted: row.member.isAccepted,
+										isAccepted: row.status === 'accepted',
 										isYou: row.isYou,
 									}),
 								}))}

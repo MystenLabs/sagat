@@ -3,7 +3,6 @@
 
 import {
 	ProposalStatus,
-	type MultisigWithMembers,
 	type PublicProposal,
 } from '@mysten/sagat';
 
@@ -72,7 +71,7 @@ interface ExportedProposal extends ExportEnvelope {
 }
 
 export function buildMultisigCompositionExport(
-	multisig: MultisigWithMembers,
+	multisig: MultisigCompositionInput,
 ): ExportedMultisigComposition {
 	return {
 		type: 'sagat.multisig-composition',

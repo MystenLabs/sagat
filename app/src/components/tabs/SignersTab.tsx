@@ -35,10 +35,10 @@ interface SignersTabContext {
 
 /**
  * The Members page: the signer set and who else may propose. The account
- * list already carries everything shown; the account query on top keeps
- * the proposers and weights fresh after a change on this page. When it
- * fails, the list's copy stays up under a notice with a way to try again.
- * When its signers don't make up the opened address, only the reason shows.
+ * list carries the signers; the account query on top keeps them fresh
+ * and is the one that carries the proposers. When it fails, the list's
+ * copy stays up under a notice with a way to try again. When its original
+ * signers don't make up the opened address, only the reason shows.
  */
 export function SignersTab() {
 	const { multisig } =
@@ -98,13 +98,13 @@ export function SignersTab() {
 			<div className="flex flex-col gap-5 @4xl:flex-row @4xl:items-start @4xl:gap-7">
 				<div className="flex min-w-0 flex-1 flex-col gap-5">
 					<SignersCard rows={rows} status={status} />
-					<ProposersSection
-						multisig={account}
-						currentAddress={currentAddress?.address}
-						// Only the account's own response has proposer events.
-						checkProofs={details !== undefined}
-						openedAddress={multisig.address}
-					/>
+					{details && (
+						<ProposersSection
+							multisig={details}
+							currentAddress={currentAddress?.address}
+							openedAddress={multisig.address}
+						/>
+					)}
 				</div>
 				<SetupCard
 					setup={setup}
@@ -116,7 +116,13 @@ export function SignersTab() {
 					onDownload={() =>
 						downloadJson(
 							getMultisigExportFilename(multisig.address),
-							buildMultisigCompositionExport(account),
+							buildMultisigCompositionExport({
+								address: account.address,
+								name: account.name,
+								threshold:
+									account.originalSignerSet.threshold,
+								members: account.originalSignerSet.members,
+							}),
 						)
 					}
 					className="w-full shrink-0 @4xl:w-80"

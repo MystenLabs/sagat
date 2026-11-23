@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigWithMembers } from '@mysten/sagat';
+import type {
+	Account,
+	AccountMember,
+	ActingSignerSet,
+} from '@mysten/sagat/v1';
 
 import { type SignersRefusedRule } from './signers-refused';
 
@@ -9,8 +13,13 @@ import { type SignersRefusedRule } from './signers-refused';
 export type RowActing =
 	| { state: 'checking' }
 	| { state: 'unchecked' }
-	/** `unidentified`: aliases no shown signer set rebuilds. */
-	| { state: 'ok'; unidentified: string[] };
+	| {
+			state: 'ok';
+			/** The shown sets that rebuild to an alias on the app's node. */
+			signerSets: ActingSignerSet[];
+			/** Aliases no shown signer set rebuilds. */
+			unidentified: string[];
+	  };
 
 /** A refused pod carries no rule 2 state; one that isn't carries it. */
 export type PodChecks =
@@ -21,12 +30,16 @@ export type PodChecks =
 	  }
 	| { refused: null; acting: RowActing };
 
-// Extended type that adds frontend-specific fields for displaying multisig state
-// for a specific public key
-export type MultisigWithMembersForPublicKey =
-	MultisigWithMembers & {
-		rejectedMembers: number;
-		pendingMembers: number;
-		isAccepted: boolean;
-		isRejected: boolean;
-	} & PodChecks;
+/**
+ * A pod as the signed-in key sees it on the selected network. `threshold`
+ * and `members` are of the signer set the key signs in.
+ */
+export type MultisigWithMembersForPublicKey = Account & {
+	threshold: number;
+	members: AccountMember[];
+	totalWeight: number;
+	rejectedMembers: number;
+	pendingMembers: number;
+	isAccepted: boolean;
+	isRejected: boolean;
+} & PodChecks;

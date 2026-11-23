@@ -1,14 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigWithMembers } from '@mysten/sagat';
+import type { Account } from '@mysten/sagat/v1';
 
 import {
 	accountCreator,
 	isLegacyAccount,
 } from './account-name';
 import { formatDateTime } from './dates';
-import { thresholdLabel } from './threshold';
+import { sumWeight, thresholdLabel } from './threshold';
 
 export interface AccountCreator {
 	address: string;
@@ -23,7 +23,7 @@ export interface AccountSetup {
 	thresholdLabel: string;
 	signerCount: number;
 	totalWeight: number;
-	/** ISO timestamp, or null when the API doesn't know. */
+	/** ISO timestamp, or null for a legacy account. */
 	createdAt: string | null;
 	/** `createdAt` for people, or null. */
 	createdLabel: string | null;
@@ -35,7 +35,16 @@ export function accountSetup({
 	multisig,
 	currentAddress,
 }: {
-	multisig: MultisigWithMembers;
+	multisig: Pick<
+		Account,
+		| 'address'
+		| 'createdBy'
+		| 'createdAt'
+		| 'originalSignerSet'
+	> & {
+		threshold: number;
+		members: { weight: number }[];
+	};
 	currentAddress: string | null | undefined;
 }): AccountSetup {
 	const creator = accountCreator(multisig);
@@ -44,11 +53,15 @@ export function accountSetup({
 	const createdAt = isLegacyAccount(multisig)
 		? null
 		: multisig.createdAt;
+	const totalWeight = sumWeight(multisig.members);
 	return {
 		threshold: multisig.threshold,
-		thresholdLabel: thresholdLabel(multisig),
-		signerCount: multisig.totalMembers,
-		totalWeight: multisig.totalWeight,
+		thresholdLabel: thresholdLabel({
+			threshold: multisig.threshold,
+			totalWeight,
+		}),
+		signerCount: multisig.members.length,
+		totalWeight,
 		createdAt,
 		createdLabel: formatDateTime(createdAt),
 		creator: creator && {

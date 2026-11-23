@@ -4,11 +4,11 @@
 import {
 	verifyProposalProposer,
 	verifyProposer,
-	type MultisigWithMembers,
 	type ProofResult,
 	type PublicProposal,
 	type TrustedMembers,
 } from '@mysten/sagat';
+import { type AccountDetails } from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
@@ -19,17 +19,28 @@ import {
 } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 
-export type ProposerProofAccount = AccountSigners &
-	Pick<MultisigWithMembers, 'address' | 'proposers'>;
+export type ProposerProofAccount = Pick<
+	AccountDetails,
+	| 'address'
+	| 'originalSignerSet'
+	| 'signerSets'
+	| 'proposers'
+>;
 
-/** Whether `account` is `openedAddress` and its signers make up that address. */
+/** Whether `account` is `openedAddress` and its original signers make up that address. */
 export function trustsSigners(
-	account: ProposerProofAccount,
+	account: Pick<
+		AccountDetails,
+		'address' | 'originalSignerSet'
+	>,
 	openedAddress: string,
 ) {
 	return (
 		sameAddress(account.address, openedAddress) &&
-		rebuildAccount(account, account.address) !== null
+		rebuildAccount(
+			account.originalSignerSet,
+			account.address,
+		) !== null
 	);
 }
 

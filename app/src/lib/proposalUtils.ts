@@ -3,7 +3,6 @@
 
 import {
 	ProposalStatus,
-	type MultisigWithMembers,
 	type Proposal,
 	type ProposalWithSignatures,
 	type PublicProposal,
@@ -17,14 +16,9 @@ import { validatePublicKey } from './sui-utils';
 import { getExplorerUrl } from './utils';
 
 /** The parts of an account that weigh a proposal's signatures. */
-type Composition = Pick<
-	MultisigWithMembers,
-	'threshold'
-> & {
-	members: Pick<
-		MultisigWithMembers['members'][number],
-		'publicKey' | 'weight'
-	>[];
+type Composition = {
+	threshold: number;
+	members: { publicKey: string; weight: number }[];
 };
 
 // Helper to calculate current weight of a proposal based on signatures
@@ -60,7 +54,12 @@ export const getTotalWeight = (
  */
 export function toProposalCardInput(
 	proposal: ProposalWithSignatures,
-	multisig: MultisigWithMembers,
+	multisig: {
+		address: string;
+		name: string | null;
+		threshold: number;
+		members: PublicProposal['multisig']['members'];
+	},
 ): PublicProposal {
 	return {
 		...proposal,

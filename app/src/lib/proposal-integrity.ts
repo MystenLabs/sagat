@@ -4,6 +4,7 @@
 // Checks a proposal's bytes against what the app can work out for itself
 // before the wallet is asked to sign them.
 import { type PublicProposal } from '@mysten/sagat';
+import { type ActingSignerSet } from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
@@ -18,8 +19,8 @@ import { readTransactionBytes } from './transaction-preview';
  * decode; `sender`, the bytes' sender isn't the account; `gasOwner`, the
  * bytes set a gas owner other than the account; `digest`, the bytes'
  * digest isn't the proposal's or the one the viewer opened; `signers`,
- * the account's signers don't make up its address; `notSigner`, the
- * connected wallet isn't one of them.
+ * the account's original signers don't make up its address;
+ * `notSigner`, the connected wallet is in no set shown as acting.
  */
 export type ProposalIntegrityFailure =
 	| 'unreadable'
@@ -72,10 +73,13 @@ export function checkProposalIntegrity(
 	)
 		return 'digest';
 
-	const signers = checkAccountSigners(proposal.multisig, {
-		account,
-		signerAddress,
-	});
+	const signers = checkAccountSigners(
+		{
+			original: proposal.multisig,
+			shown: shownActingSets(proposal.multisig),
+		},
+		{ account, signerAddress },
+	);
 	return signers.kind === 'ok' ? null : signers.kind;
 }
 
@@ -86,21 +90,27 @@ export type AccountSigners = Pick<
 >;
 
 /**
- * Rebuilds `account` from its signers and threshold. `signers`, they
- * don't make up `account`; `notSigner`, `signerAddress` isn't one of
- * them.
+ * Rebuilds `account` from its original signer set. `signers`, it
+ * doesn't make up `account`; `notSigner`, `signerAddress` is in none of
+ * the `shown` sets.
  */
 export function checkAccountSigners(
-	multisig: AccountSigners,
+	{
+		original,
+		shown,
+	}: {
+		original: AccountSigners;
+		shown: readonly AccountSigners[];
+	},
 	{
 		account,
 		signerAddress,
 	}: { account: string; signerAddress: string },
 ): { kind: 'ok' | 'signers' | 'notSigner' } {
-	if (!rebuildAccount(multisig, account))
+	if (!rebuildAccount(original, account))
 		return { kind: 'signers' };
 
-	if (!isMember(multisig, signerAddress))
+	if (!shown.some((set) => isMember(set, signerAddress)))
 		return { kind: 'notSigner' };
 
 	return { kind: 'ok' };
@@ -196,33 +206,56 @@ export function checkActingSets<S extends AccountSigners>(
 	return { kind: 'checked', acting, refused, unidentified };
 }
 
-/** The signer sets a pod's response shows as acting: today the one composition it carries. */
+/**
+ * The signer sets a response shows as acting: a `/v1` pod's
+ * `signerSets`, or the one composition of a legacy proposal's
+ * `multisig`.
+ */
+export function shownActingSets(pod: {
+	signerSets: ActingSignerSet[];
+}): ActingSignerSet[];
 export function shownActingSets(
 	multisig: AccountSigners,
+): AccountSigners[];
+export function shownActingSets(
+	pod: { signerSets: ActingSignerSet[] } | AccountSigners,
 ): AccountSigners[] {
-	return [multisig];
+	return 'signerSets' in pod ? pod.signerSets : [pod];
 }
 
 /** Rule 2 for a pod on one network; `checking` until its alias set is read. */
-export interface PodActing {
+export interface PodActing<
+	S extends AccountSigners = AccountSigners,
+> {
 	state: 'checking' | 'ok' | 'refused' | 'unchecked';
+	/** Shown sets that rebuild to an alias. Empty unless `ok`. */
+	signerSets: S[];
 	/** Aliases no shown set rebuilds. Empty unless `ok`. */
 	unidentified: string[];
 }
 
-/** `ok` when every shown set is an alias; `refused` when one isn't or none is shown. */
-export function podActing(
-	shown: readonly AccountSigners[],
+/** `ok` when a shown set that is an alias holds `signerAddress`; `refused` when none does. */
+export function podActing<S extends AccountSigners>(
+	shown: readonly S[],
 	aliases: AliasRead | undefined,
-): PodActing {
-	if (!aliases)
-		return { state: 'checking', unidentified: [] };
+	signerAddress: string,
+): PodActing<S> {
+	const none = { signerSets: [], unidentified: [] };
+	if (!aliases) return { state: 'checking', ...none };
 	const check = checkActingSets(shown, aliases);
 	if (check.kind === 'unchecked')
-		return { state: 'unchecked', unidentified: [] };
-	if (check.refused.length > 0 || check.acting.length === 0)
-		return { state: 'refused', unidentified: [] };
-	return { state: 'ok', unidentified: check.unidentified };
+		return { state: 'unchecked', ...none };
+	if (
+		!check.acting.some(({ set }) =>
+			isMember(set, signerAddress),
+		)
+	)
+		return { state: 'refused', ...none };
+	return {
+		state: 'ok',
+		signerSets: check.acting.map(({ set }) => set),
+		unidentified: check.unidentified,
+	};
 }
 
 /** What the app's node says about a pod on one network. */

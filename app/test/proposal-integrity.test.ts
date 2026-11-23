@@ -21,6 +21,7 @@ import {
 	checkSignerOnNetwork,
 	podActing,
 	rebuildAccount,
+	shownActingSets,
 	type NodeFacts,
 } from '../src/lib/proposal-integrity';
 
@@ -185,7 +186,44 @@ test('of two shown sets, only the one that is an alias acts', () => {
 		refused: [stranger.multisig],
 		unidentified: [address],
 	});
-	expect(podActing(shown, aliases).state).toBe('refused');
+	expect(
+		podActing(
+			shown,
+			aliases,
+			current.keys[0].toSuiAddress(),
+		),
+	).toEqual({
+		state: 'ok',
+		signerSets: [current.multisig],
+		unidentified: [address],
+	});
+	expect(
+		podActing(
+			shown,
+			aliases,
+			stranger.keys[0].toSuiAddress(),
+		).state,
+	).toBe('refused');
+});
+
+test('a /v1 pod shows its signer sets as acting, a legacy proposal its one composition', () => {
+	const { multisig } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const signerSets = [
+		{ kind: 'signer_set' as const, ...current.multisig },
+	].map((set) => ({
+		...set,
+		members: set.members.map((m) => ({
+			...m,
+			answer: 'accepted' as const,
+			label: null,
+		})),
+	}));
+	// A row carries its own threshold and members beside the sets.
+	const pod = { ...multisig, signerSets };
+
+	expect(shownActingSets(pod)).toBe(signerSets);
+	expect(shownActingSets(multisig)).toEqual([multisig]);
 });
 
 const CHAIN = toBase58(new Uint8Array(32).fill(1));

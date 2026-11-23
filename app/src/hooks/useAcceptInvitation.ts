@@ -5,7 +5,11 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	defaultExpiry,
+	PersonalMessages,
+} from '@mysten/sagat';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	useMutation,
 	useQueryClient,
@@ -28,7 +32,7 @@ import {
 } from '@/lib/signers-refused';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
-import { apiClient } from '../lib/api';
+import { apiV1Client } from '../lib/api';
 import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 
 export function useAcceptInvitation() {
@@ -65,13 +69,22 @@ export function useAcceptInvitation() {
 		}) => {
 			if (!currentAddress || !currentAccount)
 				throw new Error(content.errors.noWalletConnected);
-			const multisigAddress = multisig.address;
+			// Canonical, as the API and the signed message name it.
+			const multisigAddress = normalizeSuiAddress(
+				multisig.address,
+			);
 
 			// Both signers checks pass, on an alias set read now, before the wallet opens.
-			const signers = checkAccountSigners(multisig, {
-				account: multisigAddress,
-				signerAddress: currentAccount.address,
-			});
+			const signers = checkAccountSigners(
+				{
+					original: multisig.originalSignerSet,
+					shown: shownActingSets(multisig),
+				},
+				{
+					account: multisigAddress,
+					signerAddress: currentAccount.address,
+				},
+			);
 			if (signers.kind !== 'ok')
 				throw new SignersRefusedError(
 					signers.kind,
@@ -85,29 +98,28 @@ export function useAcceptInvitation() {
 					network,
 					multisigAddress,
 				),
+				currentAccount.address,
 			);
 			if (acting.state === 'refused')
 				throw new SignersRefusedError('notActing', network);
 			if (acting.state !== 'ok')
 				throw new SignersUncheckedError(network);
 
-			// Create and sign the message
+			const expiry = defaultExpiry();
 			const result = await dappKit.signPersonalMessage({
 				message: new TextEncoder().encode(
-					PersonalMessages.acceptMultisigInvitation(
+					PersonalMessages.acceptAccountInvitation(
 						multisigAddress,
+						expiry,
 					),
 				),
 				// The account the check passed, so another can't sign.
 				account: currentAccount,
 			});
 
-			// Call API to accept the invitation
-			return apiClient.acceptMultisigInvite(
+			return apiV1Client.acceptAccountInvite(
 				multisigAddress,
-				{
-					signature: result.signature,
-				},
+				{ network, signature: result.signature, expiry },
 			);
 		},
 		// Note who is accepting, and where, so a late response doesn't pull

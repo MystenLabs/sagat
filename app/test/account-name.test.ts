@@ -26,8 +26,10 @@ describe('account creator', () => {
 		expect(
 			accountCreator({
 				address: account,
-				draftedBy: alice.address,
-				members: [bob.member, alice.member],
+				createdBy: alice.address,
+				originalSignerSet: {
+					members: [bob.member, alice.member],
+				},
 			}),
 		).toEqual({ address: alice.address, label: 'Alice' });
 	});
@@ -37,26 +39,21 @@ describe('account creator', () => {
 		expect(
 			accountCreator({
 				address: account,
-				draftedBy: outsider.address,
-				members: [bob.member, alice.member],
+				createdBy: outsider.address,
+				originalSignerSet: {
+					members: [bob.member, alice.member],
+				},
 			}),
 		).toEqual({ address: outsider.address, label: null });
 	});
 
 	test('an unknown creator is null, not the first member', () => {
-		expect(
-			accountCreator({
-				address: account,
-				draftedBy: null,
-				members: [alice.member],
-			}),
-		).toBeNull();
 		// Accounts from before the rotation migration carry their own address.
 		expect(
 			accountCreator({
 				address: account,
-				draftedBy: account,
-				members: [alice.member],
+				createdBy: account,
+				originalSignerSet: { members: [alice.member] },
 			}),
 		).toBeNull();
 	});

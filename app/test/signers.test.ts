@@ -19,13 +19,12 @@ const member = (
 	status: 'accepted' | 'rejected' | 'pending',
 	label: string | null = null,
 ) => ({
-	multisigAddress: '0x1',
 	publicKey: new Ed25519Keypair()
 		.getPublicKey()
 		.toSuiPublicKey(),
 	weight,
-	isAccepted: status === 'accepted',
-	isRejected: status === 'rejected',
+	answer:
+		status === 'pending' ? ('invited' as const) : status,
 	order: order++,
 	label,
 });
@@ -70,11 +69,8 @@ describe('signer set status', () => {
 		).toBe(false);
 	});
 
-	test('an accept wins over a reject on the same key', () => {
-		const status = setStatus(
-			[{ ...member(1, 'accepted'), isRejected: true }],
-			1,
-		);
+	test('an accepted key counts as accepted, not rejected', () => {
+		const status = setStatus([member(1, 'accepted')], 1);
 		expect(status.accepted).toBe(1);
 		expect(status.rejected).toBe(0);
 		expect(status.rejectedNames).toEqual([]);
@@ -216,11 +212,9 @@ describe('signer rows', () => {
 		order: number,
 		label: string | null,
 	) => ({
-		multisigAddress: '0x1',
 		publicKey,
 		weight: 1,
-		isAccepted: false,
-		isRejected: false,
+		answer: 'invited' as const,
 		order,
 		label,
 	});

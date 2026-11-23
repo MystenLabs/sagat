@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigMember } from '@mysten/sagat';
+import type { AccountMember } from '@mysten/sagat/v1';
 
 import { content } from '../content';
 import { signerRows, signerSetStatus } from './signers';
@@ -25,7 +25,7 @@ export function accountStatus({
 	threshold,
 	refused,
 }: {
-	members: MultisigMember[];
+	members: AccountMember[];
 	threshold: number;
 	refused?: SignersRefusedRule | null;
 }): AccountStatus {

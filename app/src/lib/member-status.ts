@@ -1,16 +1,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/** Where a signer stands on the account: an accept wins over a reject. */
+import type { KeyAnswer } from '@mysten/sagat/v1';
+
+/** Where a signer stands on the account: still `invited` reads as pending. */
 export function memberStatus(member: {
-	isAccepted: boolean;
-	isRejected: boolean;
+	answer: KeyAnswer;
 }) {
-	return member.isAccepted
-		? ('accepted' as const)
-		: member.isRejected
-			? ('rejected' as const)
-			: ('pending' as const);
+	return member.answer === 'invited'
+		? ('pending' as const)
+		: member.answer;
 }
 
 /**

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { SagatApiError } from '@mysten/sagat';
+import { SagatResponseError } from '@mysten/sagat/v1';
 import { RpcError } from '@mysten/sui/grpc';
 import { isCancelledError } from '@tanstack/react-query';
 import type { ErrorInfo } from 'react';
@@ -35,6 +36,7 @@ export function isExpectedError(error: unknown): boolean {
 function errorSource(error: unknown): ErrorSource {
 	if (
 		error instanceof SagatApiError ||
+		error instanceof SagatResponseError ||
 		isApiFetchFailure(error)
 	)
 		return 'api';
