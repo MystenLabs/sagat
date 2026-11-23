@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { formatAddress } from '@mysten/sui/utils';
+import { type Locator } from '@playwright/test';
 
 import { expect, test } from '../support/fixtures';
 import { isInboxRead } from '../support/requests';
@@ -567,6 +568,17 @@ test.describe('invitations', () => {
 			multisig.address,
 			'localnet',
 		);
+		const expectAliceAndBob = async (scope: Locator) => {
+			await expect(
+				scope.getByTestId('member-item'),
+			).toHaveCount(2);
+			for (const { address } of [alice, bob])
+				await expect(
+					scope.locator(
+						`[data-testid="member-item"][data-address="${address}"]`,
+					),
+				).toBeVisible();
+		};
 
 		await carol.signIn();
 		const { page } = carol;
@@ -585,19 +597,7 @@ test.describe('invitations', () => {
 		await expect(original).toContainText(
 			'This pod’s address was made from these signers.',
 		);
-		await expect(
-			original.getByTestId('member-item'),
-		).toHaveCount(2);
-		await expect(
-			original.locator(
-				`[data-testid="member-item"][data-address="${alice.address}"]`,
-			),
-		).toBeVisible();
-		await expect(
-			original.locator(
-				`[data-testid="member-item"][data-address="${bob.address}"]`,
-			),
-		).toBeVisible();
+		await expectAliceAndBob(original);
 		await page
 			.getByTestId('accept-invitation-button')
 			.click();
@@ -643,18 +643,6 @@ test.describe('invitations', () => {
 		await expect(body).toHaveText(
 			'This pod’s address was made from these signers. They don’t control it on Localnet.',
 		);
-		await expect(
-			folded.getByTestId('member-item'),
-		).toHaveCount(2);
-		await expect(
-			folded.locator(
-				`[data-testid="member-item"][data-address="${alice.address}"]`,
-			),
-		).toBeVisible();
-		await expect(
-			folded.locator(
-				`[data-testid="member-item"][data-address="${bob.address}"]`,
-			),
-		).toBeVisible();
+		await expectAliceAndBob(folded);
 	});
 });

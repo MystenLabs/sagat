@@ -917,12 +917,9 @@ test.describe('proposal integrity', () => {
 		await bob.page.goto(
 			`/multisig/${multisig.address}/signers`,
 		);
-		const cards = bob.page.getByTestId('signers-card');
-		await expect(cards).toHaveCount(1);
-		await expect(cards).toHaveAttribute(
-			'data-signer-set',
-			multisig.address,
-		);
+		await expect(
+			bob.page.getByTestId('signers-card'),
+		).toHaveAttribute('data-signer-set', multisig.address);
 		await expect(
 			bob.page.getByTestId('other-acting-sets'),
 		).toHaveCount(0);

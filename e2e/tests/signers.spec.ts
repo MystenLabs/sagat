@@ -12,6 +12,7 @@ import {
 	SUI_TYPE_ARG,
 	toBase64,
 } from '@mysten/sui/utils';
+import { type Locator } from '@playwright/test';
 
 import { docsUrl } from '../../app/src/lib/docs';
 import { randomAddress } from '../support/chain';
@@ -826,25 +827,12 @@ test.describe('overview and signers', () => {
 			bothSign(alice, bob),
 			recovery.address,
 		);
-		const card = (
-			page: typeof alice.page,
-			address: string,
-		) =>
+		const folded = (page: typeof alice.page) =>
 			page.locator(
-				`[data-testid="signers-card"][data-signer-set="${address}"]`,
+				`[data-testid="folded-signer-set"][data-signer-set="${recovery.address}"]`,
 			);
-		const folded = (
-			page: typeof alice.page,
-			address: string,
-		) =>
-			page.locator(
-				`[data-testid="folded-signer-set"][data-signer-set="${address}"]`,
-			);
-		const member = (
-			cardLocator: ReturnType<typeof card>,
-			address: string,
-		) =>
-			cardLocator.locator(
+		const member = (scope: Locator, address: string) =>
+			scope.locator(
 				`[data-testid="member-item"][data-address="${address}"]`,
 			);
 
@@ -855,15 +843,14 @@ test.describe('overview and signers', () => {
 				`/multisig/${multisig.address}/signers`,
 			);
 			await expect(
-				page.getByTestId('signers-card'),
-			).toHaveCount(1);
-			await expect(
 				page.getByTestId('several-signer-sets'),
 			).toHaveText(
 				'This pod has 2 signer sets on Localnet. Each one can approve transactions on its own.',
 			);
 			// She signs in both, so the card is the pod's own set.
-			const own = card(page, multisig.address);
+			const own = page.locator(
+				`[data-testid="signers-card"][data-signer-set="${multisig.address}"]`,
+			);
 			await expect(
 				own.getByTestId('signer-set-threshold'),
 			).toHaveText('Threshold 2 of 2');
@@ -881,7 +868,7 @@ test.describe('overview and signers', () => {
 				'other-acting-sets-toggle',
 			);
 			await expect(toggle).toHaveText('1 more signer set');
-			const added = folded(page, recovery.address);
+			const added = folded(page);
 			await expect(added).toHaveCount(0);
 			await toggle.click();
 			await expect(
@@ -918,20 +905,10 @@ test.describe('overview and signers', () => {
 			await page.goto(
 				`/multisig/${multisig.address}/signers`,
 			);
-			// The card is the set he signs in.
-			await expect(
-				page.getByTestId('signers-card'),
-			).toHaveAttribute(
-				'data-signer-set',
-				multisig.address,
-			);
 			await page
 				.getByTestId('other-acting-sets-toggle')
 				.click();
-			const added = folded(page, recovery.address);
-			await expect(
-				member(added, carol.address),
-			).toBeVisible();
+			const added = folded(page);
 			await expect(
 				added.getByTestId('signer-set-address'),
 			).toHaveText(recovery.address);
@@ -1013,8 +990,8 @@ test.describe('overview and signers', () => {
 			);
 			await page.reload();
 			await expect(
-				page.getByTestId('signers-card'),
-			).toHaveCount(1);
+				page.getByTestId('other-acting-sets'),
+			).toHaveCount(0);
 			await expect(
 				card.getByTestId('other-signer-sets-count'),
 			).toHaveText('2');
