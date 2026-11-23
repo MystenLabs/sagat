@@ -28,6 +28,7 @@ import {
 	SchemaSignerSets,
 } from '../src/db/schema';
 import { ApiAuthError } from '../src/errors';
+import { assertNoPendingAliasProposal } from '../src/services/signer-changes.service';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -363,7 +364,7 @@ describe('POST /v1/proposals with a signer change', () => {
 		});
 	});
 
-	test('a change that names another chain, or none, is refused', async () => {
+	test('a change that names another chain, or none, or has no expiration epoch by the end of the next one, is refused', async () => {
 		const { k1, A, S1, S2 } = await createCast();
 		const bytes = await buildChange({
 			account: A,
@@ -416,6 +417,26 @@ describe('POST /v1/proposals with a signer change', () => {
 			message:
 				'A signer change must name its chain in the transaction’s expiration.',
 		});
+		for (const maxEpoch of [
+			String(localEpoch + 100n),
+			null,
+		])
+			expect(
+				await refusal(
+					proposeChange(
+						session,
+						k1,
+						A,
+						await withExpiration({
+							ValidDuring: { ...ValidDuring!, maxEpoch },
+						}),
+					),
+				),
+			).toEqual({
+				status: 400,
+				message:
+					'A signer change must expire by the end of the next epoch. Build it again.',
+			});
 	});
 
 	test('one proposal that calls the alias module at a time: a change, a hand-written one and a second change wait for the pending one', async () => {
@@ -511,7 +532,7 @@ describe('POST /v1/proposals with a signer change', () => {
 		expect(next.status).toBe('PENDING');
 	});
 
-	// Needs a network past epoch 1, so the expired change's next epoch is behind.
+	// Needs a network past epoch 1; the service-level case below covers the rule on a fresh one.
 	test.skipIf(localEpoch < 2n)(
 		'a pending change whose expiration epoch has passed does not block a new one, which becomes the open one',
 		async () => {
@@ -561,6 +582,39 @@ describe('POST /v1/proposals with a signer change', () => {
 			).toEqual({ digest: next.digest });
 		},
 	);
+
+	test('a pending change counts for one at a time through its last epoch, and not after it', async () => {
+		const { k1, A, S1, S2 } = await createCast();
+		const created = await proposeChange(
+			session,
+			k1,
+			A,
+			await buildChange({
+				account: A,
+				oldSet: A,
+				newSet: S2,
+				known: [S1],
+			}),
+		);
+		const last = BigInt(
+			Transaction.from(created.transactionBytes).getData()
+				.expiration!.ValidDuring!.maxEpoch!,
+		);
+		const checkAt = (epoch: bigint) =>
+			db.transaction((tx) =>
+				assertNoPendingAliasProposal(
+					tx,
+					A,
+					'localnet',
+					epoch,
+				),
+			);
+
+		await checkAt(last + 1n);
+		await expect(checkAt(last)).rejects.toThrow(
+			pendingAliasProposal(created.digest),
+		);
+	});
 
 	test('of two different changes created at once, exactly one is created', async () => {
 		const { k1, A, S1, S2, S3 } = await createCast();

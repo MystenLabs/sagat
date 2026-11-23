@@ -199,21 +199,38 @@ export const currentEpochOf = async (network: SuiNetwork) =>
 			.systemState.epoch,
 	);
 
+// The last epoch the transaction can execute in, or null when its expiration has no epoch bound.
+const lastEpochOf = ({
+	expiration,
+}: Pick<TransactionData, 'expiration'>) => {
+	const last =
+		expiration?.Epoch ??
+		(expiration?.ValidDuring ?? expiration?.Validity)
+			?.maxEpoch;
+	return last === undefined || last === null
+		? null
+		: BigInt(last);
+};
+
 // Whether the transaction's expiration epoch is before `epoch`, so it can no longer execute.
 const hasExpired = (
-	{ expiration }: Pick<TransactionData, 'expiration'>,
+	data: Pick<TransactionData, 'expiration'>,
 	epoch: bigint,
 ) => {
-	if (!expiration) return false;
-	const last =
-		expiration.Epoch ??
-		(expiration.ValidDuring ?? expiration.Validity)
-			?.maxEpoch;
-	return (
-		last !== undefined &&
-		last !== null &&
-		BigInt(last) < epoch
-	);
+	const last = lastEpochOf(data);
+	return last !== null && last < epoch;
+};
+
+// A signer change expires by the end of the epoch after `epoch`, with one epoch of slack for a client's node ahead of the API's.
+export const assertExpiresSoon = (
+	data: Pick<TransactionData, 'expiration'>,
+	epoch: bigint,
+) => {
+	const last = lastEpochOf(data);
+	if (last === null || last > epoch + 2n)
+		throw new ValidationError(
+			'A signer change must expire by the end of the next epoch. Build it again.',
+		);
 };
 
 /**

@@ -104,6 +104,7 @@ import {
 	verifyTransactionSignature,
 } from './signatures.service';
 import {
+	assertExpiresSoon,
 	assertNamesChain,
 	assertNoPendingAliasProposal,
 	checkAndWriteSignerChange,
@@ -767,6 +768,8 @@ export const createProposal = async ({
 	const epoch = callsAliasModule
 		? await currentEpochOf(network)
 		: null;
+	if (note && epoch !== null)
+		assertExpiresSoon(data, epoch);
 
 	const proposal = await db.transaction(async (tx) => {
 		// Validate the proposed transaction for:
