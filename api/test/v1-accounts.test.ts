@@ -82,61 +82,6 @@ beforeEach(async () => {
 const addresses = (accounts: { address: string }[]) =>
 	accounts.map((account) => account.address);
 
-// The design's cast: `A` with `S1` = 2-of-3 of `k1`, `k2`, `k3`, all accepted, funded, with signer changes allowed; `S2` = `k1`, `k2`, `k4`.
-const createCast = async () => {
-	const [k1, k2, k3, k4] = Array.from(
-		{ length: 4 },
-		newUser,
-	);
-	const session = await framework.connectedSession(
-		k1,
-		k2,
-		k3,
-	);
-	const client = session.v1;
-	const { address: A } = await session.createMultisig(
-		[k1, k2, k3],
-		2,
-		{ fund: true },
-	);
-	await allowSignerChanges(session, A, [k1, k2]);
-	return {
-		session,
-		client,
-		k1,
-		k2,
-		k3,
-		A,
-		S1: compositionOf([k1, k2, k3], 2),
-		S2: compositionOf([k1, k2, k4], 2),
-	};
-};
-
-// Proposes a signer change by `k1` and returns its digest.
-const proposeSignerChange = async (
-	{
-		session,
-		k1,
-		A,
-	}: Awaited<ReturnType<typeof createCast>>,
-	oldSet: string,
-	newSet: Composition,
-	known: Composition[],
-) =>
-	(
-		await proposeChange(
-			session,
-			k1,
-			A,
-			await buildChange({
-				account: A,
-				oldSet,
-				newSet,
-				known,
-			}),
-		)
-	).digest;
-
 describe('GET /v1/accounts', () => {
 	test('lists an accepted account with its original set, acting sets, answers and labels, leaves out an invitation, and refuses an unsupported network', async () => {
 		const [k1, k2, k3] = [newUser(), newUser(), newUser()];
@@ -396,27 +341,6 @@ describe('GET /v1/accounts', () => {
 				removedAt: removal.createdAt.toISOString(),
 				transactionDigest: null,
 			},
-		]);
-	});
-
-	test('a key removed by a signer change sees the account under removed, with the change’s transaction', async () => {
-		const cast = await createCast();
-		const { session, k2, k3, A, S1, S2 } = cast;
-		const digest = await proposeSignerChange(cast, A, S2, [
-			S1,
-		]);
-		await session.voteAndExecute([k2], digest);
-
-		const { removed } = await (
-			await framework.connectedSession(k3)
-		).v1.getAccounts('localnet');
-		expect(removed).toEqual([
-			expect.objectContaining({
-				address: A,
-				publicKey: k3.publicKey,
-				signerSetAddress: A,
-				transactionDigest: digest,
-			}),
 		]);
 	});
 });
@@ -747,18 +671,52 @@ describe('GET /v1/accounts/:address', () => {
 });
 
 describe('GET /v1/accounts/:address signer changes', () => {
-	test('a pending signer change is open, and once executed it is listed, without the enable before it', async () => {
-		const cast = await createCast();
-		const { session, client, k2, A, S1, S2 } = cast;
-		const digest = await proposeSignerChange(cast, A, S2, [
-			S1,
-		]);
+	test('a pending signer change is open; once executed it is listed without the enable before it and names its transaction to the key it removed; a second one is listed after it', async () => {
+		const [k1, k2, k3, k4] = Array.from(
+			{ length: 4 },
+			newUser,
+		);
+		const session = await framework.connectedSession(
+			k1,
+			k2,
+			k3,
+		);
+		const client = session.v1;
+		const { address: A } = await session.createMultisig(
+			[k1, k2, k3],
+			2,
+			{ fund: true },
+		);
+		await allowSignerChanges(session, A, [k1, k2]);
+		const S1 = compositionOf([k1, k2, k3], 2);
+		const S2 = compositionOf([k1, k2, k4], 2);
+		// Proposed by `k1`, executed with `k2`'s vote.
+		const change = async (
+			oldSet: string,
+			newSet: Composition,
+			known: Composition[],
+		) => {
+			const { digest } = await proposeChange(
+				session,
+				k1,
+				A,
+				await buildChange({
+					account: A,
+					oldSet,
+					newSet,
+					known,
+				}),
+			);
+			const open = await client.getAccount(A, 'localnet');
+			await session.voteAndExecute([k2], digest);
+			return { digest, open };
+		};
 
-		const pending = await client.getAccount(A, 'localnet');
-		expect(pending.signerChanges).toEqual([]);
-		expect(pending.openSignerChange).toEqual({ digest });
-
-		await session.voteAndExecute([k2], digest);
+		const first = await change(A, S2, [S1]);
+		expect(first.open.signerChanges).toEqual([]);
+		expect(first.open.openSignerChange).toEqual({
+			digest: first.digest,
+		});
 		const succeeded = await db
 			.select({ digest: SchemaProposals.digest })
 			.from(SchemaProposals)
@@ -773,29 +731,33 @@ describe('GET /v1/accounts/:address signer changes', () => {
 			);
 		const done = await client.getAccount(A, 'localnet');
 		expect(succeeded).toHaveLength(2);
-		expect(done.signerChanges).toEqual([{ digest }]);
-		expect(done.openSignerChange).toBeNull();
-	});
-
-	test('two signer changes that succeeded are listed oldest first', async () => {
-		const cast = await createCast();
-		const { session, client, k2, A, S1, S2 } = cast;
-		const first = await proposeSignerChange(cast, A, S2, [
-			S1,
+		expect(done.signerChanges).toEqual([
+			{ digest: first.digest },
 		]);
-		await session.voteAndExecute([k2], first);
-		const second = await proposeSignerChange(
-			cast,
-			addressOf(S2),
-			S1,
-			[S1, S2],
-		);
-		await session.voteAndExecute([k2], second);
+		expect(done.openSignerChange).toBeNull();
+		const { removed } = await (
+			await framework.connectedSession(k3)
+		).v1.getAccounts('localnet');
+		expect(removed).toEqual([
+			expect.objectContaining({
+				address: A,
+				publicKey: k3.publicKey,
+				signerSetAddress: A,
+				transactionDigest: first.digest,
+			}),
+		]);
 
+		const second = await change(addressOf(S2), S1, [
+			S1,
+			S2,
+		]);
 		expect(
 			(await client.getAccount(A, 'localnet'))
 				.signerChanges,
-		).toEqual([{ digest: first }, { digest: second }]);
+		).toEqual([
+			{ digest: first.digest },
+			{ digest: second.digest },
+		]);
 	});
 });
 
