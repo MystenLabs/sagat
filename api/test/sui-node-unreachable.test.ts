@@ -64,16 +64,25 @@ test('a request whose Sui node call fails gets a 502', async () => {
 	});
 });
 
-test('a /v1 write is refused with a 503, and the list serves the account as not checked', async () => {
+test('a /v1 write is refused with a 503, and the lists and the read serve the account and the proposal as not checked', async () => {
 	const framework = new ApiTestFramework(
 		await createTestApp(),
 	);
 	const { session, users, multisig } =
-		await framework.createVerifiedMultisig(2, 1);
+		await framework.createVerifiedMultisig(2, 2);
 	const client = session.v1;
+	const proposal = await insertProposal(
+		multisig.address,
+		'localnet',
+		users[0]!.address,
+	);
 	const proposer = newUser().address;
 	const expiry = defaultExpiry();
 
+	const notChecked = {
+		status: 503,
+		message: `The signers of account ${multisig.address} on localnet could not be checked. Please try again.`,
+	};
 	expect(
 		await refusal(
 			client.addAccountProposer(multisig.address, {
@@ -90,38 +99,7 @@ test('a /v1 write is refused with a 503, and the list serves the account as not 
 				expiry,
 			}),
 		),
-	).toEqual({
-		status: 503,
-		message: `The signers of account ${multisig.address} on localnet could not be checked. Please try again.`,
-	});
-	const { accounts } = await client.getAccounts('localnet');
-	expect(
-		accounts.map(({ address, signerSetsStale }) => ({
-			address,
-			signerSetsStale,
-		})),
-	).toEqual([
-		{ address: multisig.address, signerSetsStale: true },
-	]);
-});
-
-test('a /v1 vote is refused with a 503, and the list and the read serve the proposal as not checked', async () => {
-	const framework = new ApiTestFramework(
-		await createTestApp(),
-	);
-	const { session, users, multisig } =
-		await framework.createVerifiedMultisig(2, 2);
-	const client = session.v1;
-	const proposal = await insertProposal(
-		multisig.address,
-		'localnet',
-		users[0]!.address,
-	);
-
-	const notChecked = {
-		status: 503,
-		message: `The signers of account ${multisig.address} on localnet could not be checked. Please try again.`,
-	};
+	).toEqual(notChecked);
 	expect(
 		await refusal(
 			session.voteOnProposal(
@@ -141,6 +119,7 @@ test('a /v1 vote is refused with a 503, and the list and the read serve the prop
 			),
 		),
 	).toEqual(notChecked);
+	const { accounts } = await client.getAccounts('localnet');
 	const { proposals } = await client.getProposals({
 		accountAddress: multisig.address,
 		network: 'localnet',
@@ -150,17 +129,13 @@ test('a /v1 vote is refused with a 503, and the list and the read serve the prop
 	);
 
 	expect(
-		[...proposals, read].map(
-			({ digest, signerSetsStale }) => ({
-				digest,
-				signerSetsStale,
-			}),
+		[...accounts, ...proposals, read].map(
+			({ signerSetsStale }) => signerSetsStale,
 		),
-	).toEqual(
-		Array(2).fill({
-			digest: proposal.digest,
-			signerSetsStale: true,
-		}),
-	);
+	).toEqual([true, true, true]);
+	expect(accounts[0].address).toBe(multisig.address);
+	expect(
+		[...proposals, read].map(({ digest }) => digest),
+	).toEqual([proposal.digest, proposal.digest]);
 	expect(read.signatures).toEqual([]);
 });
