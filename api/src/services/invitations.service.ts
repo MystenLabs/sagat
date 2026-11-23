@@ -12,7 +12,6 @@ import {
 	ne,
 	sql,
 } from 'drizzle-orm';
-import { union } from 'drizzle-orm/pg-core';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -36,7 +35,10 @@ import {
 	recordAccountEvent,
 	type AccountEvent,
 } from './account-events.service';
-import { type SignerScopeKind } from './signers.service';
+import {
+	acceptedAccounts,
+	type SignerScopeKind,
+} from './signers.service';
 
 // Throws if `publicKey` has already accepted the maximum number of accounts,
 // not counting the one it is joining. Locks the key's row until `tx` ends.
@@ -52,49 +54,7 @@ export const assertKeyBelowMultisigLimit = async (
 		.where(eq(SchemaAddresses.publicKey, publicKey))
 		.for('no key update');
 
-	// A member row answers only for the account at its own signer set's address.
-	const accepted = tx.$with('accepted').as(
-		union(
-			tx
-				.select({
-					accountAddress:
-						sql<string>`${SchemaAccounts.address}`.as(
-							'accepted_account',
-						),
-				})
-				.from(SchemaSignerSetMembers)
-				.innerJoin(
-					SchemaAccounts,
-					eq(
-						SchemaAccounts.address,
-						SchemaSignerSetMembers.signerSetAddress,
-					),
-				)
-				.where(
-					and(
-						eq(SchemaSignerSetMembers.publicKey, publicKey),
-						eq(SchemaSignerSetMembers.isAccepted, true),
-					),
-				),
-			tx
-				.select({
-					accountAddress:
-						sql<string>`${SchemaAccountAcceptances.accountAddress}`.as(
-							'accepted_account',
-						),
-				})
-				.from(SchemaAccountAcceptances)
-				.where(
-					and(
-						eq(
-							SchemaAccountAcceptances.publicKey,
-							publicKey,
-						),
-						eq(SchemaAccountAcceptances.isAccepted, true),
-					),
-				),
-		),
-	);
+	const accepted = acceptedAccounts(tx, [publicKey]);
 	const [{ count }] = await tx
 		.with(accepted)
 		.select({ count: sql<number>`count(*)::int` })

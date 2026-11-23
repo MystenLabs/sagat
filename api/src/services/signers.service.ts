@@ -712,34 +712,17 @@ export const listTiedAccounts = async (
 	return rows.map((row) => row.accountAddress).sort();
 };
 
-export type RemovedFromAccount = {
-	accountAddress: string;
-	accountName: string | null;
-	publicKey: string;
-	// The set that was removed and holds the key.
-	signerSetAddress: string;
-	eventId: number;
-	// The event's digest: the last change to the alias object, not always the removal.
-	eventDigest: string | null;
-	removedAt: Date;
-};
-
-// Accounts a key accepted, is in no acting set of on the network, and whose set holding it was removed there. The newest removal per account and set.
-export const listRemovedAccounts = async (
+// The accounts the keys accepted, one row per (account, key). A member row answers only for the account at its own signer set's address.
+export const acceptedAccounts = (
+	executor: Executor,
 	publicKeys: string[],
-	network: SuiNetwork,
-): Promise<RemovedFromAccount[]> => {
-	if (publicKeys.length === 0) return [];
-	const { sets, acting } = actingForKeys(
-		publicKeys,
-		network,
-	);
-	const accepted = db.$with('accepted').as(
+) =>
+	executor.$with('accepted').as(
 		union(
-			db
+			executor
 				.select({
 					accountAddress:
-						sql<string>`${SchemaSignerSetMembers.signerSetAddress}`.as(
+						sql<string>`${SchemaAccounts.address}`.as(
 							'accepted_account',
 						),
 					publicKey:
@@ -748,6 +731,13 @@ export const listRemovedAccounts = async (
 						),
 				})
 				.from(SchemaSignerSetMembers)
+				.innerJoin(
+					SchemaAccounts,
+					eq(
+						SchemaAccounts.address,
+						SchemaSignerSetMembers.signerSetAddress,
+					),
+				)
 				.where(
 					and(
 						inArray(
@@ -757,7 +747,7 @@ export const listRemovedAccounts = async (
 						eq(SchemaSignerSetMembers.isAccepted, true),
 					),
 				),
-			db
+			executor
 				.select({
 					accountAddress:
 						sql<string>`${SchemaAccountAcceptances.accountAddress}`.as(
@@ -780,6 +770,30 @@ export const listRemovedAccounts = async (
 				),
 		),
 	);
+
+export type RemovedFromAccount = {
+	accountAddress: string;
+	accountName: string | null;
+	publicKey: string;
+	// The set that was removed and holds the key.
+	signerSetAddress: string;
+	eventId: number;
+	// The event's digest: the last change to the alias object, not always the removal.
+	eventDigest: string | null;
+	removedAt: Date;
+};
+
+// Accounts a key accepted, is in no acting set of on the network, and whose set holding it was removed there. The newest removal per account and set.
+export const listRemovedAccounts = async (
+	publicKeys: string[],
+	network: SuiNetwork,
+): Promise<RemovedFromAccount[]> => {
+	if (publicKeys.length === 0) return [];
+	const { sets, acting } = actingForKeys(
+		publicKeys,
+		network,
+	);
+	const accepted = acceptedAccounts(db, publicKeys);
 	const removal = db
 		.select({
 			id: SchemaAccountEvents.id,
