@@ -1,19 +1,26 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
+import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountSetup } from '@/lib/account-setup';
 import {
 	buildMultisigCompositionExport,
 	downloadJson,
 	getMultisigExportFilename,
 } from '@/lib/exportUtils';
+import { networkLabel } from '@/lib/network';
 import { trustsSigners } from '@/lib/proposer-proofs';
+import {
+	otherSignerSetRows,
+	signerSetCards,
+} from '@/lib/signer-sets';
 import {
 	rejectionNotice,
 	signerRows,
@@ -22,8 +29,13 @@ import {
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 
+import { OtherSignerSetsCard } from '../multisig/OtherSignerSetsCard';
 import { SetupCard } from '../multisig/SetupCard';
 import { SignersCard } from '../multisig/SignersCard';
+import {
+	OpenPodLink,
+	SignerSetAddress,
+} from '../multisig/SignerSetAddress';
 import { SignersRefused } from '../multisig/SignersRefused';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Alert } from '../ui/Alert';
@@ -34,7 +46,9 @@ interface SignersTabContext {
 }
 
 /**
- * The Members page: the signer set and who else may propose. The account
+ * The Members page: every signer set that acts on the selected network,
+ * the one the viewer signs in first, the original signers when they don't
+ * act, who else may propose, and the aliases no set makes up. The account
  * list carries the signers; the account query on top keeps them fresh
  * and is the one that carries the proposers. When it fails, the list's
  * copy stays up under a notice with a way to try again. When its original
@@ -51,7 +65,43 @@ export function SignersTab() {
 		isFetching,
 		refetch,
 	} = useGetMultisig(multisig.address);
+	const { data: pods } = useUserMultisigs();
 	const account = details ?? multisig;
+	const signerAddress = currentAddress?.address;
+	const acting =
+		multisig.acting?.state === 'ok'
+			? multisig.acting
+			: null;
+
+	const cards = useMemo(
+		() =>
+			acting
+				? signerSetCards({
+						acting: acting.signerSets,
+						fresh: details?.signerSets ?? [],
+						account: multisig.address,
+						pods: pods ?? [],
+						signerAddress,
+					})
+				: null,
+		[
+			acting,
+			details,
+			multisig.address,
+			pods,
+			signerAddress,
+		],
+	);
+	const otherSets = useMemo(
+		() =>
+			acting
+				? otherSignerSetRows(
+						acting.unidentified,
+						pods ?? [],
+					)
+				: [],
+		[acting, pods],
+	);
 
 	if (details && !trustsSigners(details, multisig.address))
 		return (
@@ -61,16 +111,25 @@ export function SignersTab() {
 			/>
 		);
 
-	const rows = signerRows(
-		account.members,
-		currentAddress?.address,
-	);
-	const status = signerSetStatus(rows, account.threshold);
+	// Until the node's alias set is read, the set the API says the viewer signs in.
+	const viewed = cards?.[0]?.set ?? account;
+	const rows = signerRows(viewed.members, signerAddress);
+	const status = signerSetStatus(rows, viewed.threshold);
 	const notice = rejectionNotice(status);
 	const setup = accountSetup({
-		multisig: account,
-		currentAddress: currentAddress?.address,
+		multisig: {
+			...account,
+			threshold: viewed.threshold,
+			members: viewed.members,
+		},
+		currentAddress: signerAddress,
 	});
+	const original =
+		cards && !cards.some((card) => card.isOriginal)
+			? account.originalSignerSet
+			: null;
+	const originalRows =
+		original && signerRows(original.members, signerAddress);
 
 	return (
 		<div className="@container flex flex-col gap-5">
@@ -97,17 +156,95 @@ export function SignersTab() {
 			    under them before that. */}
 			<div className="flex flex-col gap-5 @4xl:flex-row @4xl:items-start @4xl:gap-7">
 				<div className="flex min-w-0 flex-1 flex-col gap-5">
-					<SignersCard rows={rows} status={status} />
+					{cards && cards.length > 0 ? (
+						cards.map((card, i) => {
+							const setRows =
+								i === 0
+									? rows
+									: signerRows(
+											card.set.members,
+											signerAddress,
+										);
+							return (
+								<SignersCard
+									key={card.address}
+									rows={setRows}
+									status={
+										i === 0
+											? status
+											: signerSetStatus(
+													setRows,
+													card.set.threshold,
+												)
+									}
+									signerSet={card.address}
+								>
+									{!card.isOriginal && (
+										<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+											<div className="flex min-w-0 flex-col gap-0.5">
+												{card.pod?.name && (
+													<span
+														className="text-13 font-medium"
+														data-testid="signer-set-pod-name"
+													>
+														{card.pod.name}
+													</span>
+												)}
+												<SignerSetAddress
+													address={card.address}
+												/>
+											</div>
+											{card.pod && (
+												<OpenPodLink
+													address={card.pod.address}
+													className="-mr-2.5"
+												/>
+											)}
+										</div>
+									)}
+								</SignersCard>
+							);
+						})
+					) : (
+						<SignersCard rows={rows} status={status} />
+					)}
+					{original && originalRows && (
+						<SignersCard
+							rows={originalRows}
+							status={signerSetStatus(
+								originalRows,
+								original.threshold,
+							)}
+							title={content.signers.original.title}
+							signerSet={multisig.address}
+						>
+							<p
+								className="text-13 text-foreground-secondary"
+								data-testid="original-signers-body"
+							>
+								{content.signers.original.body(
+									networkLabel(network),
+								)}
+							</p>
+						</SignersCard>
+					)}
 					{details && (
 						<ProposersSection
 							multisig={details}
-							currentAddress={currentAddress?.address}
+							currentAddress={signerAddress}
 							openedAddress={multisig.address}
+						/>
+					)}
+					{otherSets.length > 0 && (
+						<OtherSignerSetsCard
+							rows={otherSets}
+							network={networkLabel(network)}
 						/>
 					)}
 				</div>
 				<SetupCard
 					setup={setup}
+					network={networkLabel(network)}
 					explorerUrl={getExplorerUrl(
 						multisig.address,
 						network,

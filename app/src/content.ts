@@ -117,6 +117,10 @@ export const content = {
 			threshold: number,
 			totalWeight: number,
 		) => `${threshold} of ${totalWeight}`,
+		/** "Threshold 4 of 7". */
+		threshold: (label: string) => `Threshold ${label}`,
+		/** "1 signer", "3 signers". */
+		signerCount,
 		/** Conjunctions, such as the word `joinList` puts before the last item. */
 		and: 'and',
 		or: 'or',
@@ -1055,8 +1059,6 @@ export const content = {
 		},
 		approvals: {
 			heading: 'Approvals',
-			/** "Threshold 4 of 7". */
-			threshold: (label: string) => `Threshold ${label}`,
 			notNeeded: 'Not needed',
 			executeAfterSigning: 'Execute after signing',
 			signAnyway: 'Sign anyway',
@@ -1188,6 +1190,26 @@ export const content = {
 		title: 'Signers',
 		columns: {
 			invitation: 'Invitation',
+		},
+		openPod: 'Open pod',
+		/** The pod's original signers when they don't act on the selected network. */
+		original: {
+			title: 'Original signers',
+			body: (network: string) =>
+				`This pod’s address was made from these signers. They don’t control it on ${network}.`,
+		},
+		/** Aliases no acting signer set makes up. */
+		otherSignerSets: {
+			title: 'Other signer sets',
+			body: (network: string) =>
+				`This address has other signer sets. Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
+			columns: {
+				signerSet: 'Signer set',
+				signers: 'Signers',
+			},
+			addedOutside: 'Added outside Pods',
+			createdInPods: 'Created in Pods',
+			noDetails: 'No details',
 		},
 		markers: MARKERS,
 		status: {

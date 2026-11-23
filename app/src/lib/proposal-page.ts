@@ -73,7 +73,7 @@ export function approvalsThresholdLabel(
 		'threshold' | 'members'
 	>,
 ) {
-	return content.proposal.approvals.threshold(
+	return content.common.threshold(
 		thresholdLabel({
 			threshold: multisig.threshold,
 			totalWeight: sumWeight(multisig.members),

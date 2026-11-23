@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { useId, type ReactNode } from 'react';
+
 import { content } from '@/content';
 import {
 	signerSummary,
@@ -21,28 +23,37 @@ import { SignerStatusChip } from './SignerStatusChip';
 /**
  * The signer set as a card: a numbered row per key with its name over its
  * address, its weight and where its invitation stands. The heading says
- * how many have accepted.
+ * how many have accepted; `children` go under it.
  */
 export function SignersCard({
 	rows,
 	status,
+	title = content.signers.title,
+	signerSet,
 	className,
+	children,
 }: {
 	rows: SignerEntry[];
 	status: SignerSetStatus;
+	title?: string;
+	/** The set's address, for a page that shows several sets. */
+	signerSet?: string;
 	className?: string;
+	children?: ReactNode;
 }) {
 	const summary = signerSummary(status);
+	const titleId = useId();
 
 	return (
 		<section
 			className={cn(cardClass, className)}
-			aria-labelledby="signers-title"
+			aria-labelledby={titleId}
 			data-testid="signers-card"
+			data-signer-set={signerSet}
 		>
 			<CardHeading
-				id="signers-title"
-				title={content.signers.title}
+				id={titleId}
+				title={title}
 				count={rows.length}
 			>
 				<span
@@ -52,6 +63,7 @@ export function SignersCard({
 					{summary}
 				</span>
 			</CardHeading>
+			{children}
 			<table className={tableClass}>
 				<thead>
 					<tr className={tableHeadRowClass}>

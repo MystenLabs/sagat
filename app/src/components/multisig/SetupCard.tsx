@@ -26,11 +26,14 @@ const textAction =
  */
 export function SetupCard({
 	setup,
+	network,
 	explorerUrl,
 	onDownload,
 	className,
 }: {
 	setup: AccountSetup;
+	/** The selected network's name. */
+	network: string;
 	/** Null where the explorer doesn't index the network. */
 	explorerUrl: string | null;
 	onDownload: () => void;
@@ -64,6 +67,9 @@ export function SetupCard({
 				</Row>
 				<Row label={FIELDS.totalWeight}>
 					{setup.totalWeight}
+				</Row>
+				<Row label={FIELDS.network}>
+					<span data-testid="setup-network">{network}</span>
 				</Row>
 				<Row label={COPY.created}>
 					<span
