@@ -60,7 +60,7 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { getLocalClient } from './setup/sui-network';
+import { gasCoins } from './setup/signer-changes';
 import { insertProposal } from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
@@ -934,15 +934,10 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 					buildAdd(tx, { account: address, alias }),
 				),
 			);
-		await sendCoins(address, 3);
-		const { objects: coins } =
-			await getLocalClient().listCoins({ owner: address });
 		const transfers = await Promise.all(
-			coins
-				.slice(0, 3)
-				.map((gasCoin) =>
-					buildTransfer(address, { gasCoin }),
-				),
+			(await gasCoins(address, 3)).map((gasCoin) =>
+				buildTransfer(address, { gasCoin }),
+			),
 		);
 
 		const executedVia = [];

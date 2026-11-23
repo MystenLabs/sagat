@@ -6,7 +6,6 @@ import {
 	deriveAliasesObjectId,
 	PersonalMessages,
 	verifyAccountEvent,
-	type Composition,
 } from '@mysten/sagat';
 import {
 	beforeEach,
@@ -60,10 +59,8 @@ import {
 } from './setup/shared-test-setup';
 import {
 	addressOf,
-	allowSignerChanges,
-	buildChange,
-	compositionOf,
-	proposeChange,
+	createCast,
+	proposeCastChange,
 } from './setup/signer-changes';
 import {
 	answer,
@@ -671,48 +668,25 @@ describe('GET /v1/accounts/:address', () => {
 });
 
 describe('GET /v1/accounts/:address signer changes', () => {
-	test('a pending signer change is open; once executed it is listed without the enable before it and names its transaction to the key it removed; a second one is listed after it', async () => {
-		const [k1, k2, k3, k4] = Array.from(
-			{ length: 4 },
-			newUser,
-		);
-		const session = await framework.connectedSession(
-			k1,
-			k2,
-			k3,
-		);
+	test('a signer change reads as open until executed, then is listed in order without the enable, and names its transaction to the key it removed', async () => {
+		const session = await framework.connectedSession();
 		const client = session.v1;
-		const { address: A } = await session.createMultisig(
-			[k1, k2, k3],
-			2,
-			{ fund: true },
-		);
-		await allowSignerChanges(session, A, [k1, k2]);
-		const S1 = compositionOf([k1, k2, k3], 2);
-		const S2 = compositionOf([k1, k2, k4], 2);
-		// Proposed by `k1`, executed with `k2`'s vote.
-		const change = async (
-			oldSet: string,
-			newSet: Composition,
-			known: Composition[],
-		) => {
-			const { digest } = await proposeChange(
-				session,
-				k1,
-				A,
-				await buildChange({
-					account: A,
-					oldSet,
-					newSet,
-					known,
-				}),
-			);
+		const cast = await createCast(session);
+		const { k2, k3, A, S1, S2 } = cast;
+		// Executed with `k2`'s vote.
+		const execute = async ({
+			digest,
+		}: {
+			digest: string;
+		}) => {
 			const open = await client.getAccount(A, 'localnet');
 			await session.voteAndExecute([k2], digest);
 			return { digest, open };
 		};
 
-		const first = await change(A, S2, [S1]);
+		const first = await execute(
+			await proposeCastChange(session, cast, S2),
+		);
 		expect(first.open.signerChanges).toEqual([]);
 		expect(first.open.openSignerChange).toEqual({
 			digest: first.digest,
@@ -747,10 +721,12 @@ describe('GET /v1/accounts/:address signer changes', () => {
 			}),
 		]);
 
-		const second = await change(addressOf(S2), S1, [
-			S1,
-			S2,
-		]);
+		const second = await execute(
+			await proposeCastChange(session, cast, S1, {
+				oldSet: addressOf(S2),
+				known: [S1, S2],
+			}),
+		);
 		expect(
 			(await client.getAccount(A, 'localnet'))
 				.signerChanges,

@@ -1084,6 +1084,7 @@ describe('Multisig API', () => {
 			const session = framework.createSession();
 			await session.connectUser(user);
 			await register(user);
+			// The sets that are not accounts are not counted, so one more account still fits.
 			const accounts = Array.from(
 				{ length: LIMITS.maxMultisigsPerPublicKey - 1 },
 				() => newUser().address,

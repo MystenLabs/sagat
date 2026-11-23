@@ -106,7 +106,7 @@ describe('the proof rule of a signer change', () => {
 
 	const sorted = (keys: string[]) => [...keys].sort();
 
-	test('S1 to S2: withheld while a removed signer’s signature meets the old threshold, released once signers who stay meet the new one, and the released signatures execute; the legacy list leaves it out, the other legacy routes refuse it with a 409, and the legacy verify routes verify it once executed', async () => {
+	test('S1 to S2: signatures are withheld until signers who stay meet the new threshold; legacy routes leave the change out or refuse it until it executes', async () => {
 		const cast = await createCast(session);
 		const { k1, k2, k3, A, S2 } = cast;
 		const bytes = await buildCastChange(cast, S2);
