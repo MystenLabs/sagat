@@ -165,7 +165,7 @@ describe('approvalsSignerSets', () => {
 				set.currentWeight,
 				set.threshold,
 				set.line,
-				set.rows.map((row) => [row.label, row.state]),
+				set.rows.map((row) => row.signed),
 			]),
 		).toEqual([
 			[
@@ -173,22 +173,9 @@ describe('approvalsSignerSets', () => {
 				1,
 				3,
 				'Needs 2 more weight.',
-				[
-					['Maya', 'signed'],
-					['Daniel', 'not-signed'],
-					['Alice', 'not-signed'],
-				],
+				[true, false, false],
 			],
-			[
-				'0x2',
-				1,
-				2,
-				'Needs 1 more weight.',
-				[
-					['Maya', 'signed'],
-					['Daniel', 'not-signed'],
-				],
-			],
+			['0x2', 1, 2, 'Needs 1 more weight.', [true, false]],
 		]);
 	});
 });
