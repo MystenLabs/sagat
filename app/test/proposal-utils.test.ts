@@ -4,10 +4,10 @@
 import { ProposalStatus } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { formatDigest } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
+import { signerSetAddress } from '../src/lib/proposal-integrity';
 import {
 	countSignerSets,
 	isExternalProposer,
@@ -273,10 +273,12 @@ describe('pendingFilter', () => {
 });
 
 describe('countSignerSets', () => {
-	const key = (weight: number, order: number) => ({
-		publicKey: new Ed25519Keypair()
-			.getPublicKey()
-			.toSuiPublicKey(),
+	const key = (
+		weight: number,
+		order: number,
+		keypair = new Ed25519Keypair(),
+	) => ({
+		publicKey: keypair.getPublicKey().toSuiPublicKey(),
 		weight,
 		order,
 	});
@@ -321,31 +323,18 @@ describe('countSignerSets', () => {
 	});
 
 	it('counts no signer set that is not an alias of the pod', () => {
-		const keys = [
-			new Ed25519Keypair(),
-			new Ed25519Keypair(),
-		];
-		const setOf = (keypair: Ed25519Keypair) => {
-			const publicKey = keypair.getPublicKey();
-			const members = [
-				{
-					publicKey: publicKey.toSuiPublicKey(),
-					weight: 1,
-					order: 0,
-				},
-			];
+		const proposer = new Ed25519Keypair();
+		const setOf = (member: ReturnType<typeof key>) => {
+			const set = { threshold: 1, members: [member] };
 			return {
-				address: MultiSigPublicKey.fromPublicKeys({
-					threshold: 1,
-					publicKeys: [{ publicKey, weight: 1 }],
-				}).toSuiAddress(),
-				threshold: 1,
+				...set,
+				address: signerSetAddress(set) ?? '',
 				currentWeight: 0,
 				hasReachedThreshold: false,
-				members,
 			};
 		};
-		const [current, stranger] = keys.map(setOf);
+		const current = setOf(key(1, 0));
+		const stranger = setOf(key(1, 0, proposer));
 		const proposal: Proposal = {
 			id: 1,
 			digest: DIGEST,
@@ -354,7 +343,7 @@ describe('countSignerSets', () => {
 			network: 'localnet',
 			status: ProposalStatus.PENDING,
 			transactionBytes: '',
-			proposerAddress: keys[1].toSuiAddress(),
+			proposerAddress: proposer.toSuiAddress(),
 			description: null,
 			createdAt: '2026-11-23T10:00:00.000Z',
 			signatures: [
@@ -375,7 +364,7 @@ describe('countSignerSets', () => {
 		const counted = toProposalCardInput(
 			proposal,
 			{ kind: 'read', aliases: [current.address] },
-			keys[1].toSuiAddress(),
+			proposer.toSuiAddress(),
 		);
 		expect(
 			counted.checkedSignerSets.map((set) => set.address),
