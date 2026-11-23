@@ -8,7 +8,6 @@ import {
 	PersonalMessages,
 	ProposalStatus,
 } from '@mysten/sagat';
-import { fromBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
