@@ -53,6 +53,7 @@ import {
 	routeAliasReads,
 } from '../support/requests';
 import {
+	acceptAccountInvite,
 	addAlias,
 	addProposer,
 	bothSign,
@@ -486,6 +487,67 @@ test.describe('proposal integrity', () => {
 				'/security/proposer-confirmations#confirmed-proposals',
 			),
 		);
+	});
+
+	test('refuses to sign an external proposer’s proposal confirmed by a key that no longer acts', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = createIdentity('bob');
+		const carol = await createActor('carol');
+		const payments = createIdentity('payments');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		const recovery = await setupMultisig({
+			creator: carol,
+			members: [createIdentity('dave')],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await addProposer(
+			alice,
+			multisig.address,
+			payments.address,
+		);
+		// Alice's key then acts in no set; before the pod's first /v1 read.
+		await replaceOwnAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		await acceptAccountInvite(carol, multisig.address);
+		const proposal = await proposeTransfer(
+			chain,
+			payments,
+			{
+				multisigAddress: multisig.address,
+				recipient: randomAddress(),
+				amount: MIST_PER_SUI,
+			},
+		);
+		const votes = recordVotes(carol.page);
+
+		await carol.signIn();
+		await carol.page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		const item = carol.page
+			.getByTestId('proposers-card')
+			.getByTestId('proposer-item');
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'invalid',
+		);
+
+		await carol.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		await expectRefused({ bob: carol, votes }, 'proposer');
 	});
 
 	test('refuses to sign an external proposal relabelled as a member’s', async ({

@@ -8,7 +8,11 @@ import {
 	randomAddress,
 	reportEpoch,
 } from '../support/chain';
-import { expect, test } from '../support/fixtures';
+import {
+	expect,
+	test,
+	type Fixtures,
+} from '../support/fixtures';
 import {
 	chooseType,
 	clickNewProposal,
@@ -22,12 +26,79 @@ import {
 	toast,
 } from '../support/new-proposal';
 import {
+	acceptAccountInvite,
+	addAlias,
+	bothSign,
 	cancelProposal,
 	proposeTransfer,
+	removeAlias,
 	setupMultisig,
 	setupProposal,
 	signProposal,
 } from '../support/scenarios';
+
+/**
+ * Alice and Bob's 2-of-2 pod also has Carol and Dave's 2-of-2 pod in its
+ * alias set, and both of them accepted it. Dave proposes a transfer and
+ * Carol signs it through the API, so only the added set reaches its
+ * threshold; Carol is signed in on its page.
+ */
+async function readyThroughAddedSet({
+	createActor,
+	createIdentity,
+	chain,
+}: Fixtures) {
+	const alice = createIdentity('alice');
+	const bob = createIdentity('bob');
+	const carol = await createActor('carol');
+	const dave = createIdentity('dave');
+	const multisig = await setupMultisig({
+		creator: alice,
+		members: [bob],
+		threshold: 2,
+	});
+	const recovery = await setupMultisig({
+		creator: carol,
+		members: [dave],
+		threshold: 2,
+	});
+	await chain.fund(multisig.address);
+	// Before the pod's first /v1 read, so the API sees it at once.
+	await addAlias(
+		chain,
+		bothSign(alice, bob),
+		recovery.address,
+	);
+	await acceptAccountInvite(carol, multisig.address);
+	await acceptAccountInvite(dave, multisig.address);
+	const recipient = randomAddress();
+	const proposal = await proposeTransfer(chain, dave, {
+		multisigAddress: multisig.address,
+		recipient,
+		amount: MIST_PER_SUI,
+	});
+	await signProposal(carol, proposal);
+
+	await carol.signIn();
+	await carol.page.goto(
+		`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+	);
+	const page = carol.proposalPage(proposal.digest);
+	await expect(page).toHaveAttribute(
+		'data-status',
+		'ready',
+	);
+	return {
+		alice,
+		bob,
+		carol,
+		multisig,
+		recovery,
+		proposal,
+		recipient,
+		page,
+	};
+}
 
 test.describe('proposals', () => {
 	test('members propose, co-sign and execute a SUI transfer', async ({
@@ -221,6 +292,78 @@ test.describe('proposals', () => {
 		expect(await chain.balance(recipient)).toBe(
 			MIST_PER_SUI,
 		);
+	});
+
+	test('a second signer set signs a proposal to its threshold and executes it', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { carol, recovery, proposal, recipient, page } =
+			await readyThroughAddedSet({
+				createActor,
+				createIdentity,
+				chain,
+			});
+
+		await page
+			.getByTestId('execute-proposal-button')
+			.click();
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'executed',
+		);
+		expect(await chain.balance(recipient)).toBe(
+			MIST_PER_SUI,
+		);
+		const executed = await carol.apiV1.getProposalByDigest(
+			proposal.digest,
+		);
+		expect(executed.executedVia).toBe(recovery.address);
+	});
+
+	test('an execution the node refuses once the signer set left the pod reads the signers again', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { alice, bob, carol, recovery, recipient, page } =
+			await readyThroughAddedSet({
+				createActor,
+				createIdentity,
+				chain,
+			});
+		await removeAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+
+		await page
+			.getByTestId('execute-proposal-button')
+			.click();
+		await expect(
+			toast(carol.page, 'error').filter({
+				hasText: content.toasts.proposalExecuteFailed,
+			}),
+		).toContainText(
+			content.toasts.proposalSignersChanged('Localnet'),
+		);
+		expect(await chain.balance(recipient)).toBe(0n);
+		// Read again from the node, Carol's set no longer counts: only the pod's own set shows.
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'pending',
+		);
+		await expect(
+			carol.approvalRow(carol.address),
+		).toHaveCount(0);
+		await expect(
+			carol.approvalRow(alice.address),
+		).toHaveAttribute('data-signed', 'false');
+		await expect(
+			page.getByTestId('execute-proposal-button'),
+		).toHaveCount(0);
 	});
 
 	test('pending proposals show when they expire', async ({

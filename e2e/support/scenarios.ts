@@ -82,6 +82,24 @@ export async function acceptInvitation(
 	});
 }
 
+// Accepts through `/v1`, as a key of any acting signer set can.
+export async function acceptAccountInvite(
+	member: Identity,
+	accountAddress: string,
+) {
+	const expiry = defaultExpiry();
+	return member.apiV1.acceptAccountInvite(accountAddress, {
+		network: 'localnet',
+		signature: await member.signMessage(
+			PersonalMessages.acceptAccountInvitation(
+				accountAddress,
+				expiry,
+			),
+		),
+		expiry,
+	});
+}
+
 export async function rejectInvitation(
 	member: Identity,
 	multisigAddress: string,
