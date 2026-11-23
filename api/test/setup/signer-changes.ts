@@ -90,11 +90,7 @@ export const buildFrom = async (
 	return toBase64(await tx.build({ client }));
 };
 
-/**
- * Allows signer changes on the account: `enable`, proposed through `/v1` by
- * the first voter, signed by the others until a set reaches its threshold,
- * executed and verified.
- */
+// Allows signer changes: `enable` proposed by the first voter, signed by the others, executed and verified.
 export const allowSignerChanges = async (
 	session: TestSession,
 	account: string,
@@ -113,12 +109,7 @@ export const allowSignerChanges = async (
 	);
 };
 
-/**
- * The base64 bytes of a signer change of the account, built with the SDK
- * against its alias set on chain, with the chain identifier and epoch of the
- * local network, or `epoch` when given. `known` holds every composition the
- * test knows for the aliases, the old set's included.
- */
+// A signer change built with the SDK against the alias set on chain, at the local epoch or `epoch`.
 export const buildChange = async ({
 	account,
 	oldSet,
