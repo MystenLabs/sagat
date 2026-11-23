@@ -3,7 +3,7 @@
 
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import type { MultisigWithMembers } from '@mysten/sagat';
+import type { AccountDetails } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
 import { expect, test, type Page } from '@playwright/test';
@@ -28,6 +28,7 @@ import {
 } from '../support/new-proposal';
 import {
 	acceptInvitation,
+	addAlias,
 	addProposer,
 	multisigAddressOf,
 	multisigPublicKeyOf,
@@ -398,11 +399,11 @@ test('external proposers', async ({ browser }) => {
 
 	// Hides payroll's signed add, as for a proposer added before signatures were kept.
 	await page.route(
-		`${E2E.apiUrl}/multisig/${pod.address}`,
+		`${E2E.apiUrl}/v1/accounts/${pod.address}?*`,
 		async (route) => {
 			const response = await route.fetch();
 			const account =
-				(await response.json()) as MultisigWithMembers;
+				(await response.json()) as AccountDetails;
 			await route.fulfill({
 				response,
 				json: {
@@ -440,6 +441,62 @@ test('external proposers', async ({ browser }) => {
 	).toBeVisible();
 	await card.scrollIntoViewIfNeeded();
 	await shoot(page, 'proposers-card');
+
+	await you.context.close();
+});
+
+test('other signer sets', async ({ browser }) => {
+	const chain = new Chain();
+	const maya = person('signer-sets-maya', 'Maya');
+	const outside = person('signer-sets-outside', 'Outside');
+
+	const you = await Actor.create(
+		browser,
+		'Alex',
+		demoKeypair('signer-sets-you'),
+		[],
+		{
+			network: 'mainnet',
+			walletName: 'Demo Wallet',
+		},
+	);
+	await serveFullnodeLocally(you.context, 'mainnet');
+	await you.context.addInitScript(() =>
+		localStorage.setItem('theme', 'light'),
+	);
+	const { page } = you;
+	await page.setViewportSize(WIDE);
+
+	const pod = await setupMultisig({
+		creator: you,
+		members: [maya],
+		threshold: 2,
+		name: 'Reserve',
+		labels: ['Alex', 'Maya'],
+	});
+	await chain.fund(pod.address);
+	// An alias made outside Pods, before the API first reads the alias set.
+	await addAlias(
+		chain,
+		{
+			members: [{ identity: you }, { identity: maya }],
+			threshold: 2,
+			signers: [you, maya],
+		},
+		outside.address,
+	);
+
+	await you.signIn();
+	await page.goto(`/multisig/${pod.address}/signers`);
+	const card = page.getByTestId('other-signer-sets');
+	await card
+		.getByTestId('other-signer-sets-toggle')
+		.click();
+	await expect(
+		card.getByTestId('other-signer-set'),
+	).toHaveAttribute('data-address', outside.address);
+	await card.scrollIntoViewIfNeeded();
+	await shoot(page, 'other-signer-sets');
 
 	await you.context.close();
 });

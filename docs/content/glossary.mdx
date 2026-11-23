@@ -33,7 +33,7 @@ How a signer joins a pod. Each signer accepts or rejects it by signing a message
 
 ## Network
 
-A Sui network, such as mainnet or testnet. A pod and its address are the same on every network, but each proposal belongs to one network, and balances differ between networks. See [Pods and networks](/guide/how-a-multisig-works#pods-and-networks) and [Networks](/guide/networks).
+A Sui network, such as mainnet or testnet. A pod and its address are the same on every network, but each proposal belongs to one network, balances differ between networks, and so can the signer sets that control the address. See [Pods and networks](/guide/how-a-multisig-works#pods-and-networks) and [Networks](/guide/networks).
 
 ## Pod
 
@@ -66,6 +66,10 @@ A message, not a transaction, that you sign in your wallet. Signing in, answerin
 ## Signer
 
 One of the public keys that control a pod, each with a weight. See [Signers and public keys](/guide/how-a-multisig-works#signers-and-public-keys).
+
+## Signer set
+
+A group of signers with their weights and a threshold. A pod starts with one, the signers it was created with. When the pod’s address has aliases on a network, each alias is another signer set that can approve transactions from the pod there on its own. See [Signer sets](/guide/how-a-multisig-works#signer-sets).
 
 ## Threshold
 
