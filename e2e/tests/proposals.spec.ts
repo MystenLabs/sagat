@@ -336,6 +336,26 @@ test.describe('proposals', () => {
 			page.locator(
 				`[data-testid="approvals-signer-set"][data-address="${address}"]`,
 			);
+		const status = page.getByTestId('approvals-status');
+		const toggle = page.getByTestId(
+			'approvals-other-signer-sets-toggle',
+		);
+		const foldedLine = page.getByTestId(
+			'approvals-other-signer-sets-line',
+		);
+		// Carol's set stays open; the pod's own set is folded under it.
+		await expect(set(recovery.address)).toBeVisible();
+		await expect(toggle).toHaveText(
+			content.common.moreSignerSets(1),
+		);
+		await expect(toggle).toHaveAttribute(
+			'aria-expanded',
+			'false',
+		);
+		await expect(set(multisig.address)).toHaveCount(0);
+		// The folded set is no closer to its threshold.
+		await expect(foldedLine).toHaveCount(0);
+		await toggle.click();
 		await expect(
 			page.getByTestId('approvals-signer-set'),
 		).toHaveCount(2);
@@ -347,18 +367,16 @@ test.describe('proposals', () => {
 				'data-current-weight',
 				'1',
 			);
-			await expect(set(address)).toContainText(
-				STATUS.needs(1),
-			);
 		}
+		await expect(set(multisig.address)).toContainText(
+			STATUS.needs(1),
+		);
 		await expect(page).toHaveAttribute(
 			'data-status',
 			'pending',
 		);
-		// Each set carries its own line while pending.
-		await expect(
-			page.getByTestId('approvals-status'),
-		).toHaveCount(0);
+		// The open set's line is the card's while pending.
+		await expect(status).toHaveText(STATUS.needs(1));
 
 		await page.getByTestId('execute-after-signing').click();
 		await page.getByTestId('sign-proposal-button').click();
@@ -370,16 +388,26 @@ test.describe('proposals', () => {
 			'data-current-weight',
 			'2',
 		);
-		await expect(set(recovery.address)).toContainText(
-			STATUS.reached,
+		await expect(set(recovery.address)).toHaveAttribute(
+			'data-threshold',
+			'2',
 		);
 		await expect(set(multisig.address)).toHaveAttribute(
 			'data-current-weight',
 			'1',
 		);
+		await expect(status).toHaveText(STATUS.ready);
+
+		// Once the folded set reaches its threshold too, the closed row says so.
+		await toggle.click();
+		await expect(foldedLine).toHaveCount(0);
+		await signProposal(bob, proposal);
+		await expect(foldedLine).toHaveText(STATUS.reached, {
+			timeout: 20_000,
+		});
 		await expect(
-			page.getByTestId('approvals-status'),
-		).toHaveText(STATUS.ready);
+			page.getByTestId('execute-proposal-button'),
+		).toBeVisible();
 	});
 
 	test('a second signer set signs a proposal to its threshold and executes it', async ({
