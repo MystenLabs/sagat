@@ -204,10 +204,7 @@ export interface ApprovalsSignerSet {
 	rows: ApprovalRow[];
 }
 
-/**
- * The set the Approvals card keeps open: the pod's own when the viewer's
- * key is in it, else the first that holds the key, else the first.
- */
+/** The set the Approvals card keeps open: the pod's own holding the viewer's key, else the first holding it, else the first. */
 export function mainSignerSet<
 	S extends Pick<CountedSignerSet, 'address' | 'members'>,
 >(
