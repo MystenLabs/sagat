@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { and, eq } from 'drizzle-orm';
+
 import { db } from '../../src/db';
 import {
 	SchemaAccountAcceptances,
@@ -27,6 +29,7 @@ export const setAliases = async (
 			observedAt: new Date(),
 		})
 		.onConflictDoNothing();
+	if (aliases.length === 0) return;
 	await db.insert(SchemaAccountAliases).values(
 		aliases.map((aliasAddress) => ({
 			accountAddress: account,
@@ -35,6 +38,21 @@ export const setAliases = async (
 		})),
 	);
 };
+
+// Older than the max age, so the next decision reads the chain.
+export const ageAliasState = (
+	account: string,
+	network: SuiNetwork,
+) =>
+	db
+		.update(SchemaAccountAliasState)
+		.set({ observedAt: new Date(Date.now() - 120_000) })
+		.where(
+			and(
+				eq(SchemaAccountAliasState.accountAddress, account),
+				eq(SchemaAccountAliasState.network, network),
+			),
+		);
 
 export const answerFor = (
 	account: string,

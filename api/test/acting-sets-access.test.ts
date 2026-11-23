@@ -768,6 +768,8 @@ describe('access under the acting scope', () => {
 
 	test('an account with no acting set on a network refuses every key there', async () => {
 		const { account, k1 } = await createCast();
+		// Added by the legacy route, which refuses the account once it changed.
+		const proposer = await addExternalProposer(k1, account);
 		await setAliases(account, 'localnet', [
 			newUser().address,
 		]);
@@ -781,10 +783,7 @@ describe('access under the acting scope', () => {
 		await expectRefused(vote(k1, proposal), NOT_A_SIGNER);
 		await expectRefused(propose(k1, account), NOT_A_SIGNER);
 		await expectRefused(
-			propose(
-				await addExternalProposer(k1, account),
-				account,
-			),
+			propose(proposer, account),
 			NOT_A_SIGNER,
 		);
 		expect(await listed(k1)).toEqual([]);

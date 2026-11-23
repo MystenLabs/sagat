@@ -6,7 +6,12 @@
 // draft, or a signer set added to another account) is not a legacy multisig.
 
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { describe, expect, test } from 'bun:test';
+import {
+	describe,
+	expect,
+	setDefaultTimeout,
+	test,
+} from 'bun:test';
 import { eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
@@ -21,6 +26,7 @@ import {
 	newUser,
 	type TestUser,
 } from './framework/api-test-framework';
+import { rpcCalls } from './setup/rpc-calls';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -28,6 +34,7 @@ import {
 import { insertNewSignerSet } from './setup/signer-sets';
 
 setupSharedTestEnvironment();
+setDefaultTimeout(60_000);
 
 // A 1-of-2 signer set of `[accepted, invited]` inserted directly, with no
 // `account_signer_sets` row.
@@ -226,5 +233,32 @@ describe('Legacy listings', () => {
 				eq(SchemaAccountSignerSets.accountAddress, address),
 			);
 		expect(row.status).toBe('verified');
+	});
+
+	test('51 accounts cost two chain reads, and a second listing right after costs none', async () => {
+		const framework = new ApiTestFramework(
+			await createTestApp(),
+		);
+		const {
+			session,
+			users: [a, b],
+		} = await framework.createAuthenticatedSession(2);
+		for (let i = 0; i < 51; i++)
+			await session.createMultisig(
+				[i % 2 === 0 ? a : b, newUser()],
+				1,
+			);
+
+		const before = await rpcCalls('getObjects');
+		const listed =
+			await session.client.getMultisigConnections();
+		const first = (await rpcCalls('getObjects')) - before;
+		await session.client.getMultisigConnections();
+		const second =
+			(await rpcCalls('getObjects')) - before - first;
+
+		expect(Object.values(listed).flat()).toHaveLength(51);
+		expect(first).toBe(2);
+		expect(second).toBe(0);
 	});
 });

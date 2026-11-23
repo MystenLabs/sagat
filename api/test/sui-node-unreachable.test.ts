@@ -15,7 +15,12 @@ import {
 	newUser,
 	refusal,
 	sign,
+	signedBy,
 } from './framework/api-test-framework';
+import {
+	ageAliasState,
+	setAliases,
+} from './setup/acting-sets';
 import {
 	insertProposal,
 	offlineTransfer,
@@ -38,6 +43,8 @@ test('a request whose Sui node call fails gets a 502', async () => {
 	);
 	const { session, users, multisig } =
 		await framework.createFundedVerifiedMultisig(2, 1);
+	// Fresh, so the check for a changed account reads nothing.
+	await setAliases(multisig.address, 'localnet', []);
 	const transactionBytes = await buildTransfer(
 		multisig.address,
 	);
@@ -138,4 +145,145 @@ test('a /v1 write is refused with a 503, and the lists and the read serve the ac
 		[...proposals, read].map(({ digest }) => digest),
 	).toEqual([proposal.digest, proposal.digest]);
 	expect(read.signatures).toEqual([]);
+});
+
+test('a legacy write is refused with a 503, and a legacy read serves an unchanged account from the mirror', async () => {
+	const framework = new ApiTestFramework(
+		await createTestApp(),
+	);
+	const { session, users, multisig } =
+		await framework.createVerifiedMultisig(2, 2);
+	const account = multisig.address;
+	const proposal = await insertProposal(
+		account,
+		'localnet',
+		users[0]!.address,
+	);
+	const transactionBytes = await offlineTransfer(account);
+	const proposer = newUser().address;
+	const expiry = defaultExpiry();
+
+	const notChecked = {
+		status: 503,
+		body: {
+			error: `The signers of account ${account} on localnet could not be checked. Please try again.`,
+		},
+	};
+	expect(
+		await errorOf(
+			await session.post('/proposals', {
+				multisigAddress: account,
+				network: 'localnet',
+				transactionBytes,
+				signature: await signedBy(
+					users[0]!,
+					transactionBytes,
+				),
+			}),
+		),
+	).toEqual(notChecked);
+	expect(
+		await errorOf(
+			await session.post(`/proposals/${proposal.id}/vote`, {
+				signature: await signedBy(
+					users[1]!,
+					proposal.transactionBytes,
+				),
+			}),
+		),
+	).toEqual(notChecked);
+	expect(
+		await errorOf(
+			await session.post(
+				`/proposals/${proposal.id}/cancel`,
+				{
+					signature: await sign(
+						users[0]!,
+						PersonalMessages.cancelProposal(
+							proposal.digest,
+							account,
+						),
+					),
+				},
+			),
+		),
+	).toEqual(notChecked);
+	expect(
+		await errorOf(
+			await session.post(
+				`/multisig/${account}/add-proposer`,
+				{
+					proposer,
+					expiry,
+					signature: await sign(
+						users[0]!,
+						PersonalMessages.addMultisigProposer(
+							proposer,
+							account,
+							expiry,
+						),
+					),
+				},
+			),
+		),
+	).toEqual(notChecked);
+
+	expect(
+		(await session.client.getMultisig(account)).address,
+	).toBe(account);
+	expect(
+		(
+			await session.client.getProposals(
+				account,
+				'localnet',
+				{},
+			)
+		).data.map((p) => p.id),
+	).toEqual([proposal.id]);
+	expect(
+		(
+			await session.client.getProposalByDigest(
+				proposal.digest,
+			)
+		).id,
+	).toBe(proposal.id);
+	expect(
+		Object.values(
+			await session.client.getMultisigConnections(),
+		)
+			.flat()
+			.map((m) => m.address),
+	).toContain(account);
+});
+
+test('an account whose mirror says it changed is still refused and left out when the node cannot be read', async () => {
+	const framework = new ApiTestFramework(
+		await createTestApp(),
+	);
+	const { session, multisig } =
+		await framework.createVerifiedMultisig(2, 1);
+	const account = multisig.address;
+	await setAliases(account, 'localnet', [
+		newUser().address,
+	]);
+	await ageAliasState(account, 'localnet');
+
+	expect(
+		await errorOf(
+			await session.request(`/multisig/${account}`),
+		),
+	).toEqual({
+		status: 409,
+		body: {
+			error:
+				'An account whose signers changed is served by the /v1 routes only.',
+		},
+	});
+	expect(
+		Object.values(
+			await session.client.getMultisigConnections(),
+		)
+			.flat()
+			.map((m) => m.address),
+	).not.toContain(account);
 });
