@@ -115,7 +115,6 @@ export function useAliasSets(
 	return { aliases: data };
 }
 
-/** One pod's alias read on `network` (the selected one by default), undefined until it lands. */
 export function usePodAliasSet(
 	pod: string,
 	options: { network?: SuiNetwork; enabled?: boolean } = {},

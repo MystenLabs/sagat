@@ -197,7 +197,6 @@ export interface ApprovalsSignerSet {
 	threshold: number;
 	/** The viewer's pod at the set's address, for a set other than the pod's own. */
 	podName: string | null;
-	/** "Threshold 2 of 3". */
 	heading: string;
 	/** "Threshold reached." while open, else how far the set is from it while pending. */
 	line: string | null;
@@ -276,11 +275,7 @@ export function approvalsSignerSets(
 	}));
 }
 
-/**
- * The folded row's line beside its label: "Threshold reached." when a
- * folded set reached it; while pending, the folded set missing the least
- * weight, when that is less than the main set misses; else null.
- */
+/** The folded row's line, only when a folded set reached its threshold or misses less than the main set. */
 export function foldedSignerSetsLine(
 	[main, ...folded]: readonly ApprovalsSignerSet[],
 	status: ProposalStatusKey,
@@ -313,7 +308,6 @@ export function approvalsStatus(
 	)
 		return copy.executing;
 	if (status === 'pending') {
-		// The set closest to its threshold.
 		const missing = proposal.checkedSignerSets.map(
 			(set) => set.threshold - set.currentWeight,
 		);

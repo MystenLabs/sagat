@@ -25,7 +25,6 @@ function aliasCallsIn(bytes: string) {
 	}
 }
 
-/** A pod's transaction that calls `0x2::address_alias`, read from its bytes; nothing for any other. */
 export function AliasCallsWarning({
 	bytes,
 	network,

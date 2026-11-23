@@ -296,7 +296,6 @@ export function ApprovalsCard({
 				)
 			: null;
 	const [mainSet, ...foldedSets] = signerSets ?? [];
-	// While pending, the main set's line.
 	const statusLine =
 		mainSet && status === 'pending' && !isExecuting
 			? mainSet.line
@@ -695,7 +694,6 @@ function signerSetData(set: ApprovalsSignerSet) {
 	};
 }
 
-/** A signer set's members: who signed, who hasn't, who isn't needed. */
 function ApprovalRowList({
 	rows,
 }: {

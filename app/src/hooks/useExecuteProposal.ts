@@ -65,7 +65,6 @@ export function useExecuteProposal() {
 				// The proposal's network, not whichever one is selected now.
 				const network = proposal.network as SuiNetwork;
 				const suiClient = dappKit.getClient(network);
-				// Order the set's members.
 				const multisigMembers = [...signerSet.members].sort(
 					(a, b) => a.order - b.order,
 				);

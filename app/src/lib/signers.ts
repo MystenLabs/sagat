@@ -160,7 +160,6 @@ export function rejectionNotice(
 			};
 }
 
-/** Every key's label on the pod, from its original set and every set it carries. */
 export function podLabels(
 	pod: Pick<Account, 'originalSignerSet' | 'signerSets'>,
 ): Map<string, string | null> {

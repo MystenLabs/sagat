@@ -32,7 +32,6 @@ export const calculateCurrentWeight = (
 		)
 		.reduce((total, member) => total + member.weight, 0);
 
-/** A checked signer set with the weight the proposal's signatures carry in it. */
 export interface CountedSignerSet {
 	/** Rebuilt from the members and threshold, never the API's. */
 	address: string;
@@ -46,7 +45,6 @@ export type CountedProposal = Proposal & {
 	checkedSignerSets: CountedSignerSet[];
 };
 
-/** Whether the set's signatures reach its threshold. */
 export function reachesThreshold(
 	set: Pick<
 		CountedSignerSet,

@@ -40,7 +40,6 @@ export function proposalsQueryKey({
 	];
 }
 
-/** Whether the proposals list at `queryKey` lists proposals of `status`. */
 export function proposalsListShows(
 	queryKey: readonly unknown[],
 	status: ProposalStatus,

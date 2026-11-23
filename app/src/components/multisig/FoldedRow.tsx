@@ -13,7 +13,6 @@ import {
 	CollapsibleTrigger,
 } from '../ui/collapsible';
 
-/** A row inside a card that opens in place: its label, an optional count, an optional line while closed and a chevron. */
 export function FoldedRow({
 	label,
 	count,

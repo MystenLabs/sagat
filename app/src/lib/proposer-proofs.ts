@@ -113,7 +113,6 @@ export async function verifyProposers(
 /** `invalid`: a proof doesn't check out; `unverified`: no proof shows who proposed it. */
 export type ProposerCheck = 'invalid' | 'unverified' | null;
 
-/** What `checkProposalProposer` reads of a proposal. */
 export type ProposerProposal = Pick<
 	Proposal,
 	| 'digest'
