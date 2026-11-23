@@ -30,6 +30,7 @@ import {
 	executeProposal,
 	newUser,
 	sign,
+	signedBy,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -139,9 +140,6 @@ const accountRoutes = async (
 		transactionBytes: string;
 	},
 ) => {
-	const signed = async (bytes: string) =>
-		(await user.keypair.signTransaction(fromBase64(bytes)))
-			.signature;
 	const transactionBytes = await offlineTransfer(account);
 	const proposer = newUser().address;
 	const expiry = defaultExpiry();
@@ -164,12 +162,15 @@ const accountRoutes = async (
 				multisigAddress: account,
 				network: 'localnet',
 				transactionBytes,
-				signature: await signed(transactionBytes),
+				signature: await signedBy(user, transactionBytes),
 			}),
 		),
 		vote: await errorOf(
 			await session.post(`/proposals/${proposal.id}/vote`, {
-				signature: await signed(proposal.transactionBytes),
+				signature: await signedBy(
+					user,
+					proposal.transactionBytes,
+				),
 			}),
 		),
 		cancel: await errorOf(
@@ -247,6 +248,30 @@ describe('legacy routes under alias mirror rows', () => {
 			change,
 		} = await setup();
 
+		expect(await connectionsOf(session, k1)).toContain(
+			account,
+		);
+		expect(
+			(
+				await invitee.client.getInvitations(k3.publicKey)
+			).map((multisig) => multisig.address),
+		).toContain(account);
+		expect(
+			(await session.client.getMultisig(account)).address,
+		).toBe(account);
+
+		const bot = newUser();
+		await session.addProposer(k1, bot.address, account);
+		expect(
+			(
+				await session.client.getMultisig(account)
+			).proposers.map((p) => p.address),
+		).toEqual([bot.address]);
+		await session.removeProposer(k1, bot.address, account);
+		expect(
+			(await session.client.getMultisig(account)).proposers,
+		).toEqual([]);
+
 		const cancelled = await proposeTransfer(
 			session,
 			k1,
@@ -276,6 +301,23 @@ describe('legacy routes under alias mirror rows', () => {
 			hasReachedThreshold: true,
 			currentWeight: 2,
 		});
+		const response = await session.request(
+			`/proposals/digest/${proposal.digest}`,
+		);
+		expect(response.status).toBe(200);
+		const byDigest = await response.json();
+		expect(byDigest.currentWeight).toBe(2);
+		expect(byDigest.multisig.address).toBe(account);
+		expect(
+			byDigest.multisig.members.map(
+				(m: { publicKey: string }) => m.publicKey,
+			),
+		).toEqual([
+			k1.publicKey,
+			k2.publicKey,
+			k3.publicKey,
+			k4.publicKey,
+		]);
 		const legacyProposal =
 			await session.client.getProposalByDigest(
 				proposal.digest,

@@ -18,10 +18,6 @@ import {
 	signedBy,
 } from './framework/api-test-framework';
 import {
-	ageAliasState,
-	setAliases,
-} from './setup/acting-sets';
-import {
 	insertProposal,
 	offlineTransfer,
 } from './setup/v1-proposals';
@@ -31,6 +27,8 @@ const previousRpcUrl = process.env.SUI_RPC_URL_localnet;
 process.env.SUI_RPC_URL_localnet = 'http://127.0.0.1:1';
 const { createTestApp, setupSharedTestEnvironment } =
 	await import('./setup/shared-test-setup');
+const { ageAliasState, setAliases } =
+	await import('./setup/acting-sets');
 if (previousRpcUrl === undefined)
 	delete process.env.SUI_RPC_URL_localnet;
 else process.env.SUI_RPC_URL_localnet = previousRpcUrl;
@@ -44,7 +42,9 @@ test('a request whose Sui node call fails gets a 502', async () => {
 	const { session, users, multisig } =
 		await framework.createFundedVerifiedMultisig(2, 1);
 	// Fresh, so the check for a changed account reads nothing.
-	await setAliases(multisig.address, 'localnet', []);
+	await setAliases(multisig.address, 'localnet', [
+		multisig.address,
+	]);
 	const transactionBytes = await buildTransfer(
 		multisig.address,
 	);

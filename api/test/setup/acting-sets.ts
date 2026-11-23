@@ -10,6 +10,7 @@ import {
 	SchemaAccountAliasState,
 	SchemaAddresses,
 } from '../../src/db/schema';
+import { ALIAS_STATE_MAX_AGE_MS } from '../../src/services/aliases.service';
 import { type SuiNetwork } from '../../src/utils/client';
 import { type TestUser } from '../framework/api-test-framework';
 
@@ -29,7 +30,6 @@ export const setAliases = async (
 			observedAt: new Date(),
 		})
 		.onConflictDoNothing();
-	if (aliases.length === 0) return;
 	await db.insert(SchemaAccountAliases).values(
 		aliases.map((aliasAddress) => ({
 			accountAddress: account,
@@ -46,7 +46,11 @@ export const ageAliasState = (
 ) =>
 	db
 		.update(SchemaAccountAliasState)
-		.set({ observedAt: new Date(Date.now() - 120_000) })
+		.set({
+			observedAt: new Date(
+				Date.now() - ALIAS_STATE_MAX_AGE_MS - 1_000,
+			),
+		})
 		.where(
 			and(
 				eq(SchemaAccountAliasState.accountAddress, account),
