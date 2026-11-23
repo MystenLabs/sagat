@@ -813,7 +813,7 @@ export const listRemovedAccounts = async (
 		.limit(1)
 		.as('removal');
 
-	const rows = await db
+	return db
 		.with(sets, acting, accepted)
 		.selectDistinctOn(
 			[accepted.accountAddress, sets.setAddress],
@@ -854,7 +854,6 @@ export const listRemovedAccounts = async (
 			sets.setAddress,
 			accepted.publicKey,
 		);
-	return rows;
 };
 
 // The other networks whose alias set for the account differs from this network's. No alias rows counts as `{account}`.

@@ -296,6 +296,7 @@ export const answerAccountInvitation = async ({
 		notMemberError: notSigner,
 	});
 
+	const proof = { version: 1, signature, expiry } as const;
 	await answerInvitation({
 		accountAddress: address,
 		publicKey,
@@ -304,24 +305,14 @@ export const answerAccountInvitation = async ({
 					answer,
 					event: {
 						action: 'account.accepted',
-						proof: {
-							kind: 'account.accept',
-							version: 1,
-							signature,
-							expiry,
-						},
+						proof: { kind: 'account.accept', ...proof },
 					},
 				}
 			: {
 					answer,
 					event: {
 						action: 'account.rejected',
-						proof: {
-							kind: 'account.reject',
-							version: 1,
-							signature,
-							expiry,
-						},
+						proof: { kind: 'account.reject', ...proof },
 					},
 				}),
 	});
