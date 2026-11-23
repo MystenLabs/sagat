@@ -512,7 +512,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 	});
 });
 
-describe('/v1 proposal writes and the list', () => {
+describe('/v1 proposal writes, the list and verify on the chain', () => {
 	let session: TestSession;
 	let client: SagatV1Client;
 
@@ -523,7 +523,7 @@ describe('/v1 proposal writes and the list', () => {
 		client = session.v1;
 	});
 
-	// `k1` and `k2` accepted, 2 of 2, funded.
+	// Account `A`: `k1` and `k2` accepted, 2 of 2, funded.
 	const createAccount = async () => {
 		const [k1, k2] = [newUser(), newUser()];
 		for (const user of [k1, k2])
@@ -534,7 +534,13 @@ describe('/v1 proposal writes and the list', () => {
 			{ fund: true },
 		);
 		await session.acceptMultisig(k2, account.address);
-		return { k1, k2, address: account.address };
+		const signer = multisigSigner(
+			'A',
+			[k1.keypair, k2.keypair],
+			2,
+		);
+		expect(signer.address).toBe(account.address);
+		return { k1, k2, address: account.address, signer };
 	};
 
 	test('create answers 201 with the proposal, and the list returns the account’s proposals on that network', async () => {
@@ -617,20 +623,14 @@ describe('/v1 proposal writes and the list', () => {
 	});
 
 	test('a proposal that calls the alias module reports its calls, and an external proposer’s is refused', async () => {
-		const { k1, k2, address } = await createAccount();
+		const { k1, address, signer } = await createAccount();
 		const proposer = newUser();
 		await session.addProposer(
 			k1,
 			proposer.address,
 			address,
 		);
-		expectSuccess(
-			await run(
-				address,
-				multisigSigner('A', [k1.keypair, k2.keypair], 2),
-				buildEnable,
-			),
-		);
+		expectSuccess(await run(address, signer, buildEnable));
 		const alias = newUser().address;
 		const bytes = toBase64(
 			await build(address, (tx) =>
@@ -663,38 +663,6 @@ describe('/v1 proposal writes and the list', () => {
 			{ function: 'add', aliases: [alias] },
 		]);
 	});
-});
-
-describe('POST /v1/proposals/:digest/verify on the chain', () => {
-	let session: TestSession;
-	let client: SagatV1Client;
-
-	beforeEach(async () => {
-		session = new ApiTestFramework(
-			await createTestApp(),
-		).createSession();
-		client = session.v1;
-	});
-
-	// Account `A`: `k1` and `k2` accepted, 2 of 2, funded.
-	const createAccount = async () => {
-		const [k1, k2] = [newUser(), newUser()];
-		for (const user of [k1, k2])
-			await session.connectUser(user);
-		const account = await session.createMultisig(
-			[k1, k2],
-			2,
-			{ fund: true },
-		);
-		await session.acceptMultisig(k2, account.address);
-		const signer = multisigSigner(
-			'A',
-			[k1.keypair, k2.keypair],
-			2,
-		);
-		expect(signer.address).toBe(account.address);
-		return { k1, k2, address: account.address, signer };
-	};
 
 	// Executes the proposal with the API's signatures of `setAddress`, then verifies it.
 	const executeVia = async (
