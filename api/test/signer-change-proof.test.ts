@@ -2,15 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // The proof rule of a signer change and its withheld signatures, through the
-// routes on the local network. The cast is the design's: account `A` with
-// `S1` = 2-of-3 of `k1`, `k2`, `k3`, all accepted; `S2` = `k1`, `k2`, `k4`;
-// `S3` = 3-of-3 of `S1`'s keys.
+// routes on the local network, with the cast of `setup/signer-changes`.
 
-import {
-	defaultExpiry,
-	PersonalMessages,
-	type Composition,
-} from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
 import {
 	beforeEach,
@@ -46,12 +40,12 @@ import {
 } from './setup/shared-test-setup';
 import {
 	addressOf,
-	allowSignerChanges,
-	buildChange,
-	compositionOf,
+	buildCastChange,
+	createCast,
 	gasCoins,
-	proposeChange,
+	proposeCastChange,
 } from './setup/signer-changes';
+import { changeProposer } from './setup/v1-accounts';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
@@ -72,59 +66,6 @@ describe('the proof rule of a signer change', () => {
 		framework = new ApiTestFramework(await createTestApp());
 		session = framework.createSession();
 	});
-
-	// `A` with `S1`, all accepted, funded, with signer changes allowed.
-	const createCast = async () => {
-		const [k1, k2, k3, k4] = Array.from(
-			{ length: 4 },
-			newUser,
-		);
-		for (const key of [k1, k2, k3])
-			await session.connectUser(key);
-		const S1 = compositionOf([k1, k2, k3], 2);
-		const { address: A } = await session.createMultisig(
-			[k1, k2, k3],
-			2,
-			{ fund: true },
-		);
-		await allowSignerChanges(session, A, [k1, k2]);
-		return {
-			k1,
-			k2,
-			k3,
-			k4,
-			A,
-			S1,
-			S2: compositionOf([k1, k2, k4], 2),
-			S3: compositionOf([k1, k2, k3], 3),
-		};
-	};
-
-	// The change from `A`'s original set to `newSet`, proposed by `k1`.
-	const propose = async (
-		{
-			k1,
-			A,
-			S1,
-		}: { k1: TestUser; A: string; S1: Composition },
-		newSet: Composition,
-		gasCoin?: Awaited<ReturnType<typeof gasCoins>>[number],
-	) => {
-		const bytes = await buildChange({
-			account: A,
-			oldSet: A,
-			newSet,
-			known: [S1],
-			gasCoin,
-		});
-		const created = await proposeChange(
-			session,
-			k1,
-			A,
-			bytes,
-		);
-		return { bytes, created };
-	};
 
 	// A request's status and its body as sent, so a stripped field cannot hide.
 	const raw = async (
@@ -165,15 +106,10 @@ describe('the proof rule of a signer change', () => {
 
 	const sorted = (keys: string[]) => [...keys].sort();
 
-	test('S1 to S2: withheld while a removed signer’s signature meets the old threshold, released once signers who stay meet the new one, and the released signatures execute; the legacy list leaves it out and the other legacy routes refuse it with a 409', async () => {
-		const cast = await createCast();
-		const { k1, k2, k3, A, S1, S2 } = cast;
-		const bytes = await buildChange({
-			account: A,
-			oldSet: A,
-			newSet: S2,
-			known: [S1],
-		});
+	test('S1 to S2: withheld while a removed signer’s signature meets the old threshold, released once signers who stay meet the new one, and the released signatures execute; the legacy list leaves it out, the other legacy routes refuse it with a 409, and the legacy verify routes verify it once executed', async () => {
+		const cast = await createCast(session);
+		const { k1, k2, k3, A, S2 } = cast;
+		const bytes = await buildCastChange(cast, S2);
 		const signatures = await Promise.all(
 			[k1, k2, k3].map((key) => signedBy(key, bytes)),
 		);
@@ -307,17 +243,31 @@ describe('the proof rule of a signer change', () => {
 			ready.signerSets[0],
 		);
 		expect(executed.effects.status.success).toBe(true);
-		expect(
-			(await session.v1.verifyProposalByDigest(digest))
-				.status,
-		).toBe(ProposalStatus.SUCCESS);
+		for (const path of [
+			`/proposals/${digest}/verify-by-digest`,
+			`/proposals/${id}/verify`,
+		])
+			expect(
+				await raw(path, { method: 'POST', body: {} }),
+			).toEqual({
+				status: 200,
+				text: JSON.stringify({ verified: true }),
+			});
 	});
 
 	test('a cancelled change that was not ready still withholds its signatures', async () => {
-		const cast = await createCast();
+		const cast = await createCast(session);
 		const { k1, k3, S2 } = cast;
-		const { bytes, created } = await propose(cast, S2);
-		await session.voteOnProposal(k3, created.digest, bytes);
+		const created = await proposeCastChange(
+			session,
+			cast,
+			S2,
+		);
+		await session.voteOnProposal(
+			k3,
+			created.digest,
+			created.transactionBytes,
+		);
 
 		await session.cancelProposal(k1, created);
 
@@ -335,16 +285,26 @@ describe('the proof rule of a signer change', () => {
 	});
 
 	test('a key of another acting set cannot sign a change', async () => {
-		const cast = await createCast();
+		const cast = await createCast(session);
 		const { k4, A, S2 } = cast;
-		const r2 = newUser();
-		const R = await session.createMultisig([k4, r2], 1);
-		const { bytes, created } = await propose(cast, S2);
+		const R = await session.createMultisig(
+			[k4, newUser()],
+			1,
+		);
+		const created = await proposeCastChange(
+			session,
+			cast,
+			S2,
+		);
 		await setAliases(A, 'localnet', [R.address]);
 
 		expect(
 			await refusal(
-				session.voteOnProposal(k4, created.digest, bytes),
+				session.voteOnProposal(
+					k4,
+					created.digest,
+					created.transactionBytes,
+				),
 			),
 		).toEqual({
 			status: 403,
@@ -354,7 +314,7 @@ describe('the proof rule of a signer change', () => {
 	});
 
 	test('a removed signer cannot cancel a change, also not by removing its proposer, and a signer who stays can', async () => {
-		const cast = await createCast();
+		const cast = await createCast(session);
 		const { k1, k2, k3, A, S2 } = cast;
 		const coins = await gasCoins(A, 2);
 		const transfer = await session.createProposal(
@@ -363,7 +323,14 @@ describe('the proof rule of a signer change', () => {
 			'localnet',
 			await buildTransfer(A, { gasCoin: coins[0] }),
 		);
-		const { created } = await propose(cast, S2, coins[1]);
+		const created = await proposeCastChange(
+			session,
+			cast,
+			S2,
+			{
+				gasCoin: coins[1],
+			},
+		);
 
 		expect(
 			await refusal(session.cancelProposal(k3, created)),
@@ -373,20 +340,13 @@ describe('the proof rule of a signer change', () => {
 				.message,
 		});
 
-		const expiry = defaultExpiry();
-		await session.v1.removeAccountProposer(A, {
-			network: 'localnet',
-			proposer: k1.address,
-			signature: await sign(
-				k3,
-				PersonalMessages.removeMultisigProposer(
-					k1.address,
-					A,
-					expiry,
-				),
-			),
-			expiry,
-		});
+		await changeProposer(
+			framework,
+			'remove',
+			k3,
+			A,
+			k1.address,
+		);
 		const statusOf = async (digest: string) =>
 			(
 				await db
@@ -407,13 +367,17 @@ describe('the proof rule of a signer change', () => {
 	});
 
 	test('once the old set no longer acts, an accepted signer of the set that acts cancels the change', async () => {
-		const cast = await createCast();
+		const cast = await createCast(session);
 		const { k4, A, S2 } = cast;
 		const R = await session.createMultisig(
 			[k4, newUser()],
 			1,
 		);
-		const { created } = await propose(cast, S2);
+		const created = await proposeCastChange(
+			session,
+			cast,
+			S2,
+		);
 		await setAliases(A, 'localnet', [R.address]);
 		await db
 			.delete(SchemaAccountAliases)
@@ -428,29 +392,5 @@ describe('the proof rule of a signer change', () => {
 		expect(
 			(await session.cancelProposal(k4, created)).status,
 		).toBe(ProposalStatus.CANCELLED);
-	});
-
-	test('the legacy verify routes still verify a change that executed', async () => {
-		const cast = await createCast();
-		const { k2, k3, S3 } = cast;
-		const { bytes, created } = await propose(cast, S3);
-		await session.voteOnProposal(k2, created.digest, bytes);
-		const ready = await session.voteOnProposal(
-			k3,
-			created.digest,
-			bytes,
-		);
-		await executeProposal(ready, ready.signerSets[0]);
-
-		for (const path of [
-			`/proposals/${created.digest}/verify-by-digest`,
-			`/proposals/${created.id}/verify`,
-		])
-			expect(
-				await raw(path, { method: 'POST', body: {} }),
-			).toEqual({
-				status: 200,
-				text: JSON.stringify({ verified: true }),
-			});
 	});
 });
