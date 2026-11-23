@@ -132,6 +132,88 @@ const signerSetsStale = z.boolean().meta({
 		'True when the alias set could not be read from the chain, so the signer sets are as last read.',
 });
 
+export const NoteEntrySchema = z
+	.discriminatedUnion('type', [
+		z.object({
+			type: z.literal('signer_set'),
+			version: z.literal(1),
+			address: SuiAddressSchema,
+			threshold: z.number().int(),
+			members: z.array(
+				z.object({
+					publicKey: z.string(),
+					weight: z.number().int(),
+				}),
+			),
+		}),
+		z.object({
+			type: z.literal('key'),
+			version: z.literal(1),
+			address: SuiAddressSchema,
+			publicKey: z.string(),
+		}),
+		z.object({
+			type: z.literal('other_signer_set'),
+			version: z.literal(1),
+			address: SuiAddressSchema,
+		}),
+	])
+	.meta({
+		id: 'NoteEntry',
+		description:
+			'One signer set of the composition note: its composition, a single key, or an address with no details.',
+	});
+export type NoteEntry = z.infer<typeof NoteEntrySchema>;
+
+export const SignerChangeSchema = z
+	.object({
+		note: z
+			.object({
+				account: SuiAddressSchema,
+				before: z.array(SuiAddressSchema).meta({
+					description:
+						'The alias set before the change, as the note states it.',
+				}),
+				after: z.array(SuiAddressSchema).meta({
+					description:
+						'The alias set after the change, as the note states it.',
+				}),
+				signerSets: z.array(NoteEntrySchema).meta({
+					description:
+						'One entry per address in before and after, in address order.',
+				}),
+			})
+			.nullable()
+			.meta({
+				description:
+					'The composition note as read from the bytes. Null when it does not check; such a change is never ready.',
+			}),
+		oldSet: SuiAddressSchema.nullable().meta({
+			description:
+				'The signer set the change replaces. Null when the note does not check.',
+		}),
+		newSets: z.array(SuiAddressSchema).meta({
+			description:
+				'The signer set the change adds, or for a change that only removes, every identified set left in after.',
+		}),
+		ready: z.boolean().meta({
+			description:
+				'True when the old set’s threshold is reached and signers who stay have signed for the new threshold, by their new weights.',
+		}),
+		withheldSignatures: z.array(z.string()).meta({
+			description:
+				'The public keys that signed but whose signatures are withheld until the change is ready, the proposer’s in events.created included. Empty once ready.',
+		}),
+	})
+	.meta({
+		id: 'SignerChange',
+		description:
+			'The API’s reading of the signer change in the transaction bytes, which is only its word: a client reads and checks the bytes itself with the SDK (`checkSignerChange`).',
+	});
+export type SignerChange = z.infer<
+	typeof SignerChangeSchema
+>;
+
 export const ProposalStatusNameSchema = z
 	.enum(['PENDING', 'CANCELLED', 'SUCCESS', 'FAILURE'])
 	.meta({ id: 'ProposalStatusName' });
@@ -152,16 +234,19 @@ export const ProposalSchema = z
 		status: ProposalStatusNameSchema,
 		ready: z.boolean().meta({
 			description:
-				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
+				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, signerChange.ready.',
 		}),
 		transactionBytes: z.string(),
 		proposerAddress: SuiAddressSchema,
 		description: z.string().nullable(),
 		createdAt: z.iso.datetime(),
-		signatures: z.array(ProposalSignatureSchema),
+		signatures: z.array(ProposalSignatureSchema).meta({
+			description:
+				'The signatures, less those of a signer change that is not ready, whose keys are in signerChange.withheldSignatures.',
+		}),
 		signerSets: z.array(SignerSetSchema).meta({
 			description:
-				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. Then the original set, with acting false, when it no longer acts there.",
+				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces, while that set acts. Then the original set, with acting false, when it no longer acts there.",
 		}),
 		events: ProposalEventsSchema,
 		executedVia: SuiAddressSchema.nullable().meta({
@@ -169,6 +254,10 @@ export const ProposalSchema = z
 				'The address that signed for the account when the proposal was executed, recorded when it is verified. Null until then, or when it could not be read.',
 		}),
 		signerSetsStale,
+		signerChange: SignerChangeSchema.or(z.null()).meta({
+			description:
+				'Null for a proposal that is not a signer change.',
+		}),
 	})
 	.meta({ id: 'Proposal' });
 export type Proposal = z.infer<typeof ProposalSchema>;

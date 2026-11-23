@@ -798,6 +798,25 @@ export function isProofMet(
 	);
 }
 
+/**
+ * Whether a signer change is ready: the keys that signed reach the old set's
+ * own threshold by its weights, and signers who stay have signed for the new
+ * threshold (`isProofMet`).
+ */
+export function isSignerChangeReady(
+	change: Pick<SignerChange, 'oldSet' | 'newSets'>,
+	signedKeys: readonly string[],
+): boolean {
+	const signed = new Set(signedKeys);
+	const oldWeight = membersOf(change.oldSet)
+		.filter((m) => signed.has(m.publicKey))
+		.reduce((sum, m) => sum + m.weight, 0);
+	return (
+		oldWeight >= thresholdOf(change.oldSet) &&
+		isProofMet(change, signedKeys)
+	);
+}
+
 /** The chain a transaction's expiration names, or null. */
 export function namedChain(
 	transaction: Pick<TransactionData, 'expiration'>,

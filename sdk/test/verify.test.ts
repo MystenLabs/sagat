@@ -437,6 +437,19 @@ describe('verifyProposalCreated', () => {
 		});
 	});
 
+	test('is unverified when the signature is withheld', async () => {
+		const { event, proposal } = await signCreated(outsider);
+		const { signature: _, ...withheld } = event.proof!;
+		expect(
+			(
+				await verifyProposalCreated(
+					{ ...event, proof: withheld },
+					proposal,
+				)
+			).status,
+		).toBe('unverified');
+	});
+
 	test('is invalid when someone other than the proposer signed', async () => {
 		const { event, proposal } = await signCreated(
 			outsider,
