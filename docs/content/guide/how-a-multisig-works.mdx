@@ -73,6 +73,8 @@ When the signer sets differ on another network, a notice names that network.
 
 Each entry under **Other signer sets** can approve transactions from the pod’s address on that network on its own, without the pod’s signers, so any one of them can move the pod’s funds there. Check any you do not recognize before you move funds to the pod on that network. The app reads the aliases from a Sui full node itself, not only from the API, see [What the app checks](/security/trust-model#what-the-app-checks).
 
+A proposal is counted against each signer set that controls the pod on its network. A signature counts in every set that holds the signer’s key, and the proposal is ready once any one set reaches its own threshold. See [Execution](/guide/proposals#execution).
+
 ## Next
 
 To try it in the app, follow [Get started](/guide/get-started). Read [How proposals work](/guide/proposals) for how a transaction goes from proposed to executed, and the [trust model](/security/trust-model) for what the service stores and what Sui enforces.

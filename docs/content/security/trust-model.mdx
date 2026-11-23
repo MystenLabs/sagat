@@ -16,7 +16,7 @@ The app asks for signatures through the Sui wallet standard, from whichever [wal
 - **A signed transaction:** proposing a transaction and approving a proposal. Your wallet signs the exact transaction bytes, and the API checks every signature against the stored transaction and rejects one that does not match.
 - **A signed message:** signing in, accepting or declining an invitation, adding or removing an external proposer, and cancelling a proposal.
 - **Your signed-in session:** creating a pod, with its name and key labels. Your own keys accept automatically, and every other signer still has to accept with a signed message. Creating a pod moves no funds.
-- **No new signature:** executing a proposal that has enough signed weight. The app combines the signatures already collected and sends the transaction from your browser straight to a Sui full node. Sui accepts it from whoever submits it, but only if those signatures meet the threshold.
+- **No new signature:** executing a proposal that has enough signed weight. The app combines the signatures already collected and sends the transaction from your browser straight to a Sui full node. Sui accepts it from whoever submits it, but only if those signatures meet the threshold of one of the pod’s signer sets.
 
 ## Check what you sign
 
@@ -26,15 +26,15 @@ We recommend checking every transaction in two places before you sign it, the ap
 
 ### What the app checks
 
-The app checks a proposal against what it can work out for itself from the transaction bytes, the pod’s address and its signers’ public keys, so you rely less on the API’s word. It refuses to sign when:
+The app checks a proposal against what it can work out for itself from the transaction bytes, the pod’s address, the public keys of the signers it was created with, and the signer sets a Sui full node lists for the pod’s address, so you rely less on the API’s word. It refuses to sign when:
 
 - the transaction bytes can’t be read
 - the transaction’s sender isn’t the pod
 - its gas is paid by an address other than the pod
 - the bytes’ digest isn’t the proposal’s, or isn’t the one in the link you opened
 - the transaction was built for another network
-- the pod’s signers and threshold don’t make up its address
-- your wallet isn’t one of the pod’s signers, or isn’t in a signer set that controls the pod’s address on the proposal’s network
+- the signers the pod was created with and their threshold don’t make up its address
+- your wallet’s key isn’t in a signer set that controls the pod’s address on the proposal’s network
 - the app can’t read from a Sui full node which signer sets control the pod’s address on that network
 - a signature backing the proposer the proposal names doesn’t check out, see [Proposer confirmations](/security/proposer-confirmations)
 
