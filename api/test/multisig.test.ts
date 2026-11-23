@@ -1079,13 +1079,13 @@ describe('Multisig API', () => {
 			).rejects.toThrow(limitReached);
 		});
 
-		test('counts the accounts a key accepted outside their original set', async () => {
+		test('counts the accounts a key accepted outside their original set, and not signer sets that are not accounts', async () => {
 			const user = newUser();
 			const session = framework.createSession();
 			await session.connectUser(user);
 			await register(user);
 			const accounts = Array.from(
-				{ length: LIMITS.maxMultisigsPerPublicKey },
+				{ length: LIMITS.maxMultisigsPerPublicKey - 1 },
 				() => newUser().address,
 			);
 			await db
@@ -1098,16 +1098,6 @@ describe('Multisig API', () => {
 					isAccepted: true,
 				})),
 			);
-
-			await expect(
-				session.createMultisig([user, newUser()], 1),
-			).rejects.toThrow(limitReached);
-		});
-
-		test('does not count signer sets that are not accounts', async () => {
-			const user = newUser();
-			const session = framework.createSession();
-			await session.connectUser(user);
 			for (
 				let i = 0;
 				i < LIMITS.maxMultisigsPerPublicKey;
@@ -1120,6 +1110,9 @@ describe('Multisig API', () => {
 				});
 
 			await session.createMultisig([user, newUser()], 1);
+			await expect(
+				session.createMultisig([user, newUser()], 1),
+			).rejects.toThrow(limitReached);
 		});
 
 		test('keeps the limit for simultaneous creations', async () => {
