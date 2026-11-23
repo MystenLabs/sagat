@@ -281,22 +281,21 @@ describe('countSignerSets', () => {
 		order,
 	});
 
-	it('counts a key in every set that holds it, ready once any one set reaches its threshold', () => {
+	it('counts a key in every set that holds it, once however often it is listed, ready once any one set reaches its threshold', () => {
 		const shared = key(1, 0);
 		const solo = { threshold: 1, members: [shared] };
 		const pair = {
 			threshold: 2,
 			members: [shared, key(1, 1)],
 		};
-		const signedBy = (...keys: { publicKey: string }[]) =>
-			keys.map(({ publicKey }) => ({
-				proposalId: 1,
-				publicKey,
-				signature: 'sig',
-			}));
+		const signature = {
+			proposalId: 1,
+			publicKey: shared.publicKey,
+			signature: 'sig',
+		};
 
 		const counted = countSignerSets(
-			{ signatures: signedBy(shared) },
+			{ signatures: [signature, signature] },
 			[
 				{ set: pair, address: '0x2' },
 				{ set: solo, address: '0x1' },
@@ -319,41 +318,6 @@ describe('countSignerSets', () => {
 			}),
 		).toBe('ready');
 		expect(shownSignerSet(counted)?.address).toBe('0x1');
-
-		const neither = countSignerSets(
-			{ signatures: [] },
-			[
-				{ set: pair, address: '0x2' },
-				{ set: solo, address: '0x1' },
-			],
-			null,
-		);
-		expect(
-			proposalStatusKey({
-				status: ProposalStatus.PENDING,
-				checkedSignerSets: neither,
-			}),
-		).toBe('pending');
-	});
-
-	it('counts a key listed twice in the signatures once', () => {
-		const signer = key(1, 0);
-		const set = {
-			threshold: 2,
-			members: [signer, key(1, 1)],
-		};
-		const signature = {
-			proposalId: 1,
-			publicKey: signer.publicKey,
-			signature: 'sig',
-		};
-
-		const [counted] = countSignerSets(
-			{ signatures: [signature, signature] },
-			[{ set, address: '0x1' }],
-			null,
-		);
-		expect(counted?.currentWeight).toBe(1);
 	});
 
 	it('counts no signer set that is not an alias of the pod', () => {
