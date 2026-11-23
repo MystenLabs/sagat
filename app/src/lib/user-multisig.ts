@@ -200,6 +200,7 @@ export function withListedChecks(
 			refused: null,
 			acting: listed.acting,
 		};
+	// Threshold and members stay from the sets that passed rule 2.
 	return {
 		...details,
 		threshold: listed.threshold,
