@@ -215,38 +215,6 @@ describe('GET /v1/accounts', () => {
 		});
 	});
 
-	test('an account whose set was removed on one network is listed only on the other', async () => {
-		const [k1, k2] = [newUser(), newUser()];
-		const { session } = await signIn(k1, k2);
-		const account = await session.createMultisig(
-			[k1, k2],
-			1,
-		);
-		const replacement = await session.createMultisig(
-			[k1, newUser()],
-			1,
-		);
-		await setAliases(account.address, 'testnet', [
-			replacement.address,
-		]);
-		const listed = async (
-			network: 'localnet' | 'testnet',
-		) =>
-			(
-				await listAccounts({
-					callerKeys: [k2.keypair.getPublicKey()],
-					network,
-				})
-			).accounts.map((a) => a.signerSet.address);
-
-		expect(await listed('localnet')).toContain(
-			account.address,
-		);
-		expect(await listed('testnet')).not.toContain(
-			account.address,
-		);
-	});
-
 	test('an account that holds two of the caller’s keys is listed once', async () => {
 		const [k1, k2, stranger] = [
 			newUser(),
@@ -672,7 +640,7 @@ describe('GET /v1/accounts/:address', () => {
 		});
 	});
 
-	test('names the other networks whose alias set differs', async () => {
+	test('names the other networks whose alias set differs, where an account whose set was removed is not listed', async () => {
 		const [k1, k2] = [newUser(), newUser()];
 		const { session } = await signIn(k1, k2);
 		const account = (
@@ -686,12 +654,28 @@ describe('GET /v1/accounts/:address', () => {
 			networksWithDifferentSigners(account, 'localnet', [
 				...networks,
 			]);
+		const listed = async (
+			network: (typeof networks)[number],
+		) =>
+			(
+				await listAccounts({
+					callerKeys: [k2.keypair.getPublicKey()],
+					network,
+				})
+			).accounts.map((a) => a.signerSet.address);
 
 		await setAliases(account, 'testnet', [account]);
 		expect(await differ()).toEqual([]);
 
+		await db
+			.delete(SchemaAccountAliases)
+			.where(
+				eq(SchemaAccountAliases.accountAddress, account),
+			);
 		await setAliases(account, 'testnet', [replacement]);
 		expect(await differ()).toEqual(['testnet']);
+		expect(await listed('localnet')).toContain(account);
+		expect(await listed('testnet')).not.toContain(account);
 	});
 });
 
