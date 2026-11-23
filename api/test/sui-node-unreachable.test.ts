@@ -17,6 +17,7 @@ import {
 	sign,
 	signedBy,
 } from './framework/api-test-framework';
+import { changeProposer } from './setup/v1-accounts';
 import {
 	insertProposal,
 	offlineTransfer,
@@ -83,8 +84,6 @@ test('a /v1 write is refused with a 503, and the lists and the read serve the ac
 		'localnet',
 		users[0]!.address,
 	);
-	const proposer = newUser().address;
-	const expiry = defaultExpiry();
 
 	const notChecked = {
 		status: 503,
@@ -92,19 +91,13 @@ test('a /v1 write is refused with a 503, and the lists and the read serve the ac
 	};
 	expect(
 		await refusal(
-			client.addAccountProposer(multisig.address, {
-				network: 'localnet',
-				proposer,
-				signature: await sign(
-					users[0]!,
-					PersonalMessages.addMultisigProposer(
-						proposer,
-						multisig.address,
-						expiry,
-					),
-				),
-				expiry,
-			}),
+			changeProposer(
+				framework,
+				'add',
+				users[0]!,
+				multisig.address,
+				newUser().address,
+			),
 		),
 	).toEqual(notChecked);
 	expect(
