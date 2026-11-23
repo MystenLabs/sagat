@@ -1560,6 +1560,9 @@ export const content = {
 			`Failed to cancel proposal: ${message}`,
 		proposalExecuted: 'Proposal executed',
 		proposalExecuteFailed: 'Couldn’t execute the proposal',
+		/** Under `proposalExecuteFailed` when the signer set used no longer controls the pod on the network. */
+		proposalSignersChanged: (network: string) =>
+			`This pod’s signers changed on ${network}. Pods has refreshed them.`,
 		/** The link on a failed execution toast. */
 		seeDetails: 'See details',
 		proposalSignFailed: 'Couldn’t sign the proposal',

@@ -245,6 +245,19 @@ export function checkedSignerSets<S extends AccountSigners>(
 	});
 }
 
+/** Whether a fresh alias read no longer holds the signer set at `address`; false when the read failed. */
+export function signerSetRemoved(
+	address: string,
+	aliases: AliasRead,
+): boolean {
+	return (
+		aliases.kind === 'read' &&
+		!aliases.aliases.some((alias) =>
+			sameAddress(alias, address),
+		)
+	);
+}
+
 export type ShownPod = Pick<
 	Account,
 	'address' | 'signerSets'

@@ -23,6 +23,7 @@ import {
 	podActing,
 	rebuildAccount,
 	shownActingSets,
+	signerSetRemoved,
 	type NodeFacts,
 } from '../src/lib/proposal-integrity';
 
@@ -467,4 +468,25 @@ test('while the alias set is unread, only the set that makes up the address is s
 			aliases: [address, current.address],
 		}).map((checked) => checked.set),
 	).toEqual(sets);
+});
+
+test('a signer set the node’s alias set no longer holds was removed; an unread one says nothing', () => {
+	const { address } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+
+	expect(
+		signerSetRemoved(address, {
+			kind: 'read',
+			aliases: [current.address],
+		}),
+	).toBe(true);
+	expect(
+		signerSetRemoved(address, {
+			kind: 'read',
+			aliases: [address, current.address],
+		}),
+	).toBe(false);
+	expect(
+		signerSetRemoved(address, { kind: 'failed' }),
+	).toBe(false);
 });

@@ -12,7 +12,12 @@ import {
 } from '@tanstack/react-query';
 
 import { content } from '@/content';
-import { type SuiNetwork } from '@/lib/network';
+import { readPodAliasSet } from '@/hooks/useAliasSets';
+import {
+	networkLabel,
+	type SuiNetwork,
+} from '@/lib/network';
+import { signerSetRemoved } from '@/lib/proposal-integrity';
 import { type CountedSignerSet } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
@@ -29,6 +34,16 @@ interface ExecuteProposalParams {
 	proposal: Proposal;
 	/** The checked signer set that reached its threshold. */
 	signerSet: CountedSignerSet;
+}
+
+/** The node refused the execution: the set used is no longer in the pod's alias set on the network. */
+export class SignersChangedError extends Error {
+	constructor(network: SuiNetwork) {
+		super(
+			TOASTS.proposalSignersChanged(networkLabel(network)),
+		);
+		this.name = 'SignersChangedError';
+	}
 }
 
 export function useExecuteProposal() {
@@ -48,9 +63,8 @@ export function useExecuteProposal() {
 
 			try {
 				// The proposal's network, not whichever one is selected now.
-				const suiClient = dappKit.getClient(
-					proposal.network as SuiNetwork,
-				);
+				const network = proposal.network as SuiNetwork;
+				const suiClient = dappKit.getClient(network);
 				// Order the set's members.
 				const multisigMembers = [...signerSet.members].sort(
 					(a, b) => a.order - b.order,
@@ -88,15 +102,29 @@ export function useExecuteProposal() {
 					);
 
 				// Step 3: Execute the transaction with the combined signature
-				const result = await suiClient.executeTransaction({
-					transaction: fromBase64(
-						proposal.transactionBytes,
-					),
-					signatures: [combinedSignature],
-					include: {
-						effects: true,
-					},
-				});
+				let result;
+				try {
+					result = await suiClient.executeTransaction({
+						transaction: fromBase64(
+							proposal.transactionBytes,
+						),
+						signatures: [combinedSignature],
+						include: {
+							effects: true,
+						},
+					});
+				} catch (error) {
+					// Whether the set still signs for the pod is the node's alias set to say, not the error's text.
+					const aliases = await readPodAliasSet(
+						queryClient,
+						suiClient,
+						network,
+						proposal.accountAddress,
+					);
+					if (signerSetRemoved(signerSet.address, aliases))
+						throw new SignersChangedError(network);
+					throw error;
+				}
 
 				await suiClient.waitForTransaction({
 					digest:
@@ -164,6 +192,17 @@ export function useExecuteProposal() {
 			});
 		},
 		onError: (error: Error) => {
+			if (error instanceof SignersChangedError)
+				// The row, Members and the proposal's sets read the pod again.
+				for (const key of [
+					QueryKeys.Multisigs,
+					QueryKeys.Multisig,
+					QueryKeys.Proposal,
+					QueryKeys.Proposals,
+				])
+					void queryClient.invalidateQueries({
+						queryKey: [key],
+					});
 			toast.error(TOASTS.proposalExecuteFailed, {
 				description: error.message,
 			});
@@ -172,8 +211,9 @@ export function useExecuteProposal() {
 }
 
 /**
- * Executes a proposal from a button. When execution fails, checks the
- * proposal with the API in case someone else executed it meanwhile.
+ * Executes a proposal from a button. When execution fails for any reason
+ * but changed signers, checks the proposal with the API in case someone
+ * else executed it meanwhile.
  */
 export function useExecuteOrVerify() {
 	const execute = useExecuteProposal();
@@ -187,8 +227,9 @@ export function useExecuteOrVerify() {
 			execute.mutate(
 				{ proposal, signerSet },
 				{
-					onError: () => {
-						verify.mutate(proposal.digest);
+					onError: (error) => {
+						if (!(error instanceof SignersChangedError))
+							verify.mutate(proposal.digest);
 						options?.onError?.();
 					},
 				},
