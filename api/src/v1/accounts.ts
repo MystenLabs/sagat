@@ -198,6 +198,8 @@ export const accountRoutes = (app: V1App) => {
 			networksWithDifferentSigners:
 				account.networksWithDifferentSigners,
 			proposers: account.proposers.map(toV1AccountProposer),
+			signerChanges: account.signerChanges,
+			openSignerChange: account.openSignerChange,
 		};
 	});
 

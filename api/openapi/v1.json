@@ -616,6 +616,10 @@
 					"removedAt": {
 						"type": "string",
 						"format": "date-time"
+					},
+					"transactionDigest": {
+						"type": ["string", "null"],
+						"description": "The signer change that removed the set, as the API names it, or null when it names none; a client reads the transaction from its own node."
 					}
 				},
 				"required": [
@@ -624,7 +628,8 @@
 					"publicKey",
 					"signerSetAddress",
 					"eventId",
-					"removedAt"
+					"removedAt",
+					"transactionDigest"
 				],
 				"description": "An account one of the caller's keys was removed from on the network."
 			},
@@ -674,6 +679,31 @@
 						"items": {
 							"$ref": "#/components/schemas/AccountProposer"
 						}
+					},
+					"signerChanges": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"digest": {
+									"type": "string",
+									"description": "A Sui transaction digest."
+								}
+							},
+							"required": ["digest"]
+						},
+						"description": "The signer changes that succeeded on the network, oldest first, as the API lists them; a client reads each transaction from its own node."
+					},
+					"openSignerChange": {
+						"type": ["object", "null"],
+						"properties": {
+							"digest": {
+								"type": "string",
+								"description": "A Sui transaction digest."
+							}
+						},
+						"required": ["digest"],
+						"description": "The pending signer change on the network, or null, as the API reports it; a client reads the transaction from its own node."
 					}
 				},
 				"required": [
@@ -686,7 +716,9 @@
 					"network",
 					"signerChangesEnabled",
 					"networksWithDifferentSigners",
-					"proposers"
+					"proposers",
+					"signerChanges",
+					"openSignerChange"
 				]
 			},
 			"AccountProposer": {

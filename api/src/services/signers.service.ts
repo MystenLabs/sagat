@@ -719,6 +719,8 @@ export type RemovedFromAccount = {
 	// The set that was removed and holds the key.
 	signerSetAddress: string;
 	eventId: number;
+	// The event's digest: the last change to the alias object, not always the removal.
+	eventDigest: string | null;
 	removedAt: Date;
 };
 
@@ -782,6 +784,11 @@ export const listRemovedAccounts = async (
 		.select({
 			id: SchemaAccountEvents.id,
 			createdAt: SchemaAccountEvents.createdAt,
+			digest: sql<
+				string | null
+			>`${SchemaAccountEvents.proof}->>'digest'`.as(
+				'removal_digest',
+			),
 		})
 		.from(SchemaAccountEvents)
 		.where(
@@ -809,6 +816,7 @@ export const listRemovedAccounts = async (
 				publicKey: accepted.publicKey,
 				signerSetAddress: sets.setAddress,
 				eventId: removal.id,
+				eventDigest: removal.digest,
 				removedAt: removal.createdAt,
 			},
 		)

@@ -10,7 +10,10 @@ import {
 	type AccountEventRecord,
 	type ProposerWithLatestEvent,
 } from '../services/account-events.service';
-import { type CheckedAccount } from '../services/accounts.service';
+import {
+	type CheckedAccount,
+	type RemovedAccount,
+} from '../services/accounts.service';
 import {
 	aliasCallsOf,
 	type CheckedProposal,
@@ -19,7 +22,6 @@ import {
 import {
 	memberAnswer,
 	type ActingMember,
-	type RemovedFromAccount,
 } from '../services/signers.service';
 
 const toV1AccountEvent = (
@@ -209,7 +211,7 @@ export const toV1AccountProposer = (
 });
 
 export const toV1RemovedAccount = (
-	removed: RemovedFromAccount,
+	removed: RemovedAccount,
 ): z.input<typeof v1.RemovedAccountSchema> => ({
 	address: removed.accountAddress,
 	name: removed.accountName,
@@ -217,4 +219,5 @@ export const toV1RemovedAccount = (
 	signerSetAddress: removed.signerSetAddress,
 	eventId: removed.eventId,
 	removedAt: removed.removedAt.toISOString(),
+	transactionDigest: removed.transactionDigest,
 });
