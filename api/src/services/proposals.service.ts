@@ -13,6 +13,7 @@ import {
 	PersonalMessages,
 	signersWhoStay,
 	type KeyEntry,
+	type SignerChange,
 	type SignerSetEntry,
 } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
@@ -113,7 +114,6 @@ import {
 	signerChangeIn,
 	signerChangeLabels,
 	signerChangeNote,
-	type StoredSignerChange,
 } from './signer-changes.service';
 import {
 	actingSetsOn,
@@ -127,7 +127,10 @@ import {
 	type SignerSetProgress,
 } from './signers.service';
 
-export type SignerChangeProgress = StoredSignerChange & {
+export type SignerChangeProgress = {
+	// Null when the note does not check.
+	change: SignerChange | null;
+	ready: boolean;
 	// Keys that signed, whose signatures are withheld until the change is ready.
 	withheldSignatures: string[];
 };

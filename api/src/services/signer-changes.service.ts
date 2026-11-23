@@ -72,16 +72,10 @@ export const signerChangeNote = (
 	}
 };
 
-export type StoredSignerChange = {
-	// Null when the note does not check.
-	change: SignerChange | null;
-	ready: boolean;
-};
-
 // Checked against the note's own `before`, so the answer never moves with the mirror.
 export const signerChangeIn = (
 	transactionBytes: string,
-): Pick<StoredSignerChange, 'change'> | null => {
+): { change: SignerChange | null } | null => {
 	let data: TransactionData;
 	try {
 		data = Transaction.from(transactionBytes).getData();
