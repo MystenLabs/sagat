@@ -54,14 +54,10 @@ interface SignersTabContext {
 }
 
 /**
- * The Members page: one Signers card for the set the viewer signs in,
- * with the other acting sets and, when they don't act, the original
- * signers folded under it; who else may propose; and the aliases no set
- * makes up. The account
- * list carries the signers; the account query on top keeps them fresh
- * and is the one that carries the proposers. When it fails, the list's
- * copy stays up under a notice with a way to try again. When its original
- * signers don't make up the opened address, only the reason shows.
+ * The Members page: the Signers card of the set the viewer signs in, the
+ * other acting sets and the original signers folded under it; the
+ * proposers; the aliases no set makes up. The list's copy stands in until
+ * the account query answers, and under a notice when it fails.
  */
 export function SignersTab() {
 	const { multisig } =
@@ -134,12 +130,13 @@ export function SignersTab() {
 		},
 		currentAddress: signerAddress,
 	});
-	const original =
-		cards && !cards.some((card) => card.isOriginal)
-			? account.originalSignerSet
-			: null;
 	const originalRows =
-		original && signerRows(original.members, signerAddress);
+		cards && !cards.some((card) => card.isOriginal)
+			? signerRows(
+					account.originalSignerSet.members,
+					signerAddress,
+				)
+			: null;
 	const several = (cards?.length ?? 0) > 1;
 	const differentOn = differentSignersLine(
 		details?.networksWithDifferentSigners ?? [],
@@ -218,7 +215,7 @@ export function SignersTab() {
 										))}
 									</FoldedRow>
 								)}
-								{original && originalRows && (
+								{originalRows && (
 									<FoldedRow
 										label={content.signers.original.title}
 										count={originalRows.length}

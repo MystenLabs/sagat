@@ -140,25 +140,24 @@ export function MultisigDetailPage() {
 					rule={multisig.refused}
 					testId="pod-refused"
 				/>
-				{multisig.unidentified &&
-					multisig.unidentified.length > 0 && (
-						<section
-							className={cn(cardClass, 'mt-5')}
-							data-testid="pod-controlled-by"
-						>
-							<p className="text-13">
-								{content.signers.otherSignerSets.noActingSet(
-									networkLabel(network),
-								)}
-							</p>
-							<OtherSignerSetsTable
-								rows={otherSignerSetRows(
-									multisig.unidentified,
-									multisigs ?? [],
-								)}
-							/>
-						</section>
-					)}
+				{!!multisig.unidentified?.length && (
+					<section
+						className={cn(cardClass, 'mt-5')}
+						data-testid="pod-controlled-by"
+					>
+						<p className="text-13">
+							{content.signers.otherSignerSets.noActingSet(
+								networkLabel(network),
+							)}
+						</p>
+						<OtherSignerSetsTable
+							rows={otherSignerSetRows(
+								multisig.unidentified,
+								multisigs ?? [],
+							)}
+						/>
+					</section>
+				)}
 			</div>
 		);
 	}
