@@ -60,7 +60,7 @@ export class SagatV1Client {
 			options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	}
 
-	/** Proposes a transaction, signed by an accepted key of an acting signer set or by a proposer of the account. */
+	/** Proposes a transaction, signed by an accepted key of an acting signer set or by a proposer of the account. A signer change may carry `labels` for its new keys. */
 	createProposal({
 		network,
 		...body

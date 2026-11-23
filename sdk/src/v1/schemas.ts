@@ -396,6 +396,10 @@ export const CreateProposalRequestSchema = z
 				"The proposer's signature over the transaction.",
 		}),
 		description: z.string().optional(),
+		labels: z.array(z.string().nullable()).optional().meta({
+			description:
+				'For a signer change that adds a signer set: what the account calls each of its keys, in the order of the composition note. Only keys new to the account are labelled.',
+		}),
 	})
 	.meta({ id: 'CreateProposalRequest' });
 export type CreateProposalRequest = z.infer<
