@@ -1345,28 +1345,6 @@ describe('input refused before anything is stored', () => {
 });
 
 describe('accepting and rejecting on the legacy routes', () => {
-	const answer = async (
-		session: TestSession,
-		user: TestUser,
-		address: string,
-		route: 'accept' | 'reject',
-	) => {
-		const signature = await sign(
-			user,
-			route === 'accept'
-				? PersonalMessages.acceptMultisigInvitation(address)
-				: PersonalMessages.rejectMultisigInvitation(
-						address,
-					),
-		);
-		const response = await session.post(
-			`/multisig/${address}/${route}`,
-			{ signature },
-		);
-		expect(response.status).toBe(200);
-		return signature;
-	};
-
 	test('records the signed accept and reject with the set as subject, and the same accept sent again writes no second row', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(1);
@@ -1377,20 +1355,11 @@ describe('accepting and rejecting on the legacy routes', () => {
 			3,
 		);
 
-		const accepted = await answer(
-			session,
-			early,
-			address,
-			'accept',
-		);
-		const rejected = await answer(
-			session,
-			late,
-			address,
-			'reject',
-		);
-		await answer(session, early, address, 'accept');
+		await session.acceptMultisig(early, address);
+		await session.rejectMultisig(late, address);
+		await session.acceptMultisig(early, address);
 
+		// Ed25519 signs deterministically: these are the signatures the routes got.
 		expect(await eventsOf(address, creator)).toMatchObject([
 			{
 				action: 'signer_set.rejected',
@@ -1400,7 +1369,12 @@ describe('accepting and rejecting on the legacy routes', () => {
 				proof: {
 					kind: 'signer_set.reject',
 					version: 1,
-					signature: rejected,
+					signature: await sign(
+						late,
+						PersonalMessages.rejectMultisigInvitation(
+							address,
+						),
+					),
 				},
 			},
 			{
@@ -1411,7 +1385,12 @@ describe('accepting and rejecting on the legacy routes', () => {
 				proof: {
 					kind: 'signer_set.accept',
 					version: 1,
-					signature: accepted,
+					signature: await sign(
+						early,
+						PersonalMessages.acceptMultisigInvitation(
+							address,
+						),
+					),
 				},
 			},
 		]);
