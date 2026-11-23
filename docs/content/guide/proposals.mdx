@@ -19,7 +19,7 @@ When a signer proposes, they sign the transaction in their wallet, and that sign
 
 Before you sign, check the transaction in two places, the app’s preview and your wallet’s own preview, and make sure they agree. The title is a note typed by the proposer and is not part of what you sign, so rely on the transaction itself. See [Check what you sign](/security/trust-model#check-what-you-sign).
 
-A transaction that calls Sui’s address alias functions changes who controls the pod on its network. Pods cannot show who such a transaction adds, so the app warns above the preview: “This transaction changes who controls this pod on Mainnet. Pods can’t show who is added. Check every address in it before you sign.” When it calls `replace_all`, the warning adds that it replaces every signer set of the pod at once. Check them in your wallet’s preview too.
+A transaction that calls Sui’s address alias functions changes who controls the pod on its network. Pods cannot show who it adds and warns above the preview, so check every address in it, in the app and in your wallet’s preview. A call to `replace_all` replaces every signer set of the pod at once.
 
 ## Execution
 
@@ -27,9 +27,9 @@ Once the signed weight meets the threshold, the proposal shows **Ready** and any
 
 When the pod has more than one [signer set](/guide/how-a-multisig-works#signer-sets) on the proposal’s network, each set is counted on its own. A signature belongs to a key, so it counts in every signer set that holds that key. The proposal is ready once any one set reaches its own threshold, and it executes with that set.
 
-On such a pod, the **Approvals** card says how many signer sets the pod has on that network and shows each set’s threshold, signers and signed weight.
+The proposal shows each signer set’s progress separately.
 
-If the pod’s signers change on chain after the proposal became ready, the Sui full node refuses the execution: nothing runs and no gas is paid. The app shows “This pod’s signers changed on Mainnet. Pods has refreshed them.” and reads the pod’s signer sets again. Check whether the proposal still reaches the threshold of a set that controls the pod now; if not, it needs signatures from that set’s signers.
+If the pod’s signers change on chain after the proposal became ready, the Sui full node refuses the execution: nothing runs and no gas is paid. Check whether the proposal still reaches the threshold of a signer set that controls the pod now; if not, it needs signatures from that set’s signers.
 
 A transaction can carry an expiry epoch. If it has one, the proposal shows how long it has left, and after that it cannot execute: cancel it and propose it again.
 

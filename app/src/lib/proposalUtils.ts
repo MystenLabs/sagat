@@ -18,30 +18,19 @@ import {
 } from './proposal-integrity';
 import { getExplorerUrl } from './utils';
 
-/** The parts of a signer set that weigh a proposal's signatures. */
-type Composition = {
-	threshold: number;
-	members: { publicKey: string; weight: number }[];
-};
-
-// Helper to calculate current weight of a proposal based on signatures
+/** The weight of the set's members whose key signed, each counted once. */
 export const calculateCurrentWeight = (
 	proposal: Pick<Proposal, 'signatures'>,
-	multisigDetails: Composition | undefined,
-) => {
-	if (!multisigDetails?.members) return 0;
-
-	let currentWeight = 0;
-	for (const signature of proposal.signatures) {
-		const member = multisigDetails.members.find(
-			(m) => m.publicKey === signature.publicKey,
-		);
-		if (member) {
-			currentWeight += member.weight;
-		}
-	}
-	return currentWeight;
-};
+	signerSet: AccountSigners,
+) =>
+	signerSet.members
+		.filter((member) =>
+			proposal.signatures.some(
+				(signature) =>
+					signature.publicKey === member.publicKey,
+			),
+		)
+		.reduce((total, member) => total + member.weight, 0);
 
 /** A checked signer set with the weight the proposal's signatures carry in it. */
 export interface CountedSignerSet {
@@ -67,10 +56,7 @@ export function reachesThreshold(
 	return set.currentWeight >= set.threshold;
 }
 
-/**
- * Counts the proposal's signatures in each of `checked`, the sets that
- * hold `signerAddress` first.
- */
+/** Counts the proposal's signatures in each of `checked`, the sets holding `signerAddress` first. */
 export function countSignerSets(
 	proposal: Pick<Proposal, 'signatures'>,
 	checked: readonly {
@@ -107,21 +93,14 @@ export function readySignerSet(
 	return sets.find(reachesThreshold) ?? null;
 }
 
-/**
- * The one set the screens draw: the ready one, else the first, which
- * holds the viewer's key when any does.
- */
+/** The one set the screens draw: the ready one, else the first (the viewer's when any holds them). */
 export function shownSignerSet(
 	sets: readonly CountedSignerSet[],
 ): CountedSignerSet | null {
 	return readySignerSet(sets) ?? sets[0] ?? null;
 }
 
-/**
- * A proposal as the screens show it: counted against its signer sets
- * that pass rule 2 on its network, whose alias set is `aliases`, or
- * against the one that rebuilds its account while that is unread.
- */
+/** A proposal counted against its signer sets that are aliases in `aliases`, or the one making up its address while unread. */
 export function toProposalCardInput(
 	proposal: Proposal,
 	aliases: AliasRead | undefined,

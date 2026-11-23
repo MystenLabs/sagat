@@ -496,7 +496,7 @@ test('refuses a proposal the API names for another pod', async () => {
 	).toBe('sender');
 });
 
-test('while the alias set is unread, only the set that makes up the address is shown', () => {
+test('counts every listed set that is an alias once the alias set is read, and only the set that makes up the address while it is unread or failed', () => {
 	const { address, multisig } = oneOfTwoAccount();
 	const current = oneOfTwoAccount();
 	const sets = [current.multisig, multisig];

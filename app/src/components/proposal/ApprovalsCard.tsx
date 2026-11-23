@@ -187,7 +187,7 @@ export function ApprovalsCard({
 	);
 	const walletAddress = wallet?.address ?? null;
 	const awaitingSign = status === 'pending' && !signed;
-	// The node is read only where Sign can show.
+	// The node's chain identifier is read only where Sign can show.
 	const checkNetwork = canAct && awaitingSign;
 	const network = proposal.network as SuiNetwork;
 	const dappKit = useDAppKit();

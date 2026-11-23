@@ -17,6 +17,8 @@ import { content } from '@/content';
 import { apiV1Client } from '@/lib/api';
 import { QueryKeys } from '@/lib/queryKeys';
 
+import { proposalsListShows } from './usePaginatedProposals';
+
 // Co-signers sign from their own sessions, so an open proposal polls for
 // their signatures the way the proposals list does.
 const OPEN_PROPOSAL_REFETCH_INTERVAL = 10_000;
@@ -45,10 +47,7 @@ export function useGetProposal(digest: string | null) {
 	});
 }
 
-/**
- * Writes a proposal a write returned into its read and every cached list
- * page that holds it, then has the lists read again behind it.
- */
+/** Writes a returned proposal into its read and the cached lists of its status, then refetches the lists. */
 export async function writeProposal(
 	queryClient: QueryClient,
 	proposal: Proposal,
@@ -61,7 +60,11 @@ export async function writeProposal(
 	});
 	queryClient.setQueryData(key, proposal);
 	queryClient.setQueriesData<InfiniteData<ProposalList>>(
-		{ queryKey: [QueryKeys.Proposals] },
+		{
+			queryKey: [QueryKeys.Proposals],
+			predicate: ({ queryKey }) =>
+				proposalsListShows(queryKey, proposal.status),
+		},
 		(cached) => {
 			if (
 				!cached?.pages.some((page) =>

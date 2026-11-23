@@ -582,6 +582,10 @@ test.describe('invitations', () => {
 
 		await carol.signIn();
 		const { page } = carol;
+		// Signing in lands on her own pod; a click before that would be replaced.
+		await expect(page).toHaveURL(
+			new RegExp(`/multisig/${recovery.address}/overview$`),
+		);
 		await expect(
 			page.getByTestId('nav-invitations-count'),
 		).toHaveText('1');

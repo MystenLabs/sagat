@@ -336,6 +336,26 @@ describe('countSignerSets', () => {
 		).toBe('pending');
 	});
 
+	it('counts a key listed twice in the signatures once', () => {
+		const signer = key(1, 0);
+		const set = {
+			threshold: 2,
+			members: [signer, key(1, 1)],
+		};
+		const signature = {
+			proposalId: 1,
+			publicKey: signer.publicKey,
+			signature: 'sig',
+		};
+
+		const [counted] = countSignerSets(
+			{ signatures: [signature, signature] },
+			[{ set, address: '0x1' }],
+			null,
+		);
+		expect(counted?.currentWeight).toBe(1);
+	});
+
 	it('counts no signer set that is not an alias of the pod', () => {
 		const keys = [
 			new Ed25519Keypair(),

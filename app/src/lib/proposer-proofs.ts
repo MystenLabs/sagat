@@ -125,11 +125,7 @@ export type ProposerProposal = Pick<
 	| 'signerSets'
 >;
 
-/**
- * Checks a proposal's proposer, trusting the members of its signer sets
- * that act on the proposal's network, whose alias set is `aliases`.
- * Rule 1 is the pod's own check, run where the pod is known.
- */
+/** Checks a proposal's proposer against the members of its signer sets that are aliases in `aliases`. */
 export async function checkProposalProposer(
 	proposal: ProposerProposal,
 	aliases: AliasRead,

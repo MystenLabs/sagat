@@ -55,8 +55,7 @@ interface SignProposalParams {
  * set on the proposal's network holds, bytes naming another chain, or an
  * invalid proposer, before the wallet sees them. Resolves with the
  * proposal the vote returned, counted against the sets the node read
- * passed, and the signature itself, so a caller can execute at once
- * without waiting for the proposal to refetch.
+ * passed.
  */
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
@@ -147,7 +146,6 @@ export function useSignProposal() {
 					node.aliases,
 					currentAccount.address,
 				),
-				signature,
 			};
 		},
 		onSuccess: async ({ voted, counted }) => {

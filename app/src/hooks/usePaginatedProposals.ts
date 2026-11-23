@@ -40,6 +40,17 @@ export function proposalsQueryKey({
 	];
 }
 
+/** Whether the proposals list at `queryKey` lists proposals of `status`. */
+export function proposalsListShows(
+	queryKey: readonly unknown[],
+	status: ProposalStatus,
+) {
+	const listed = queryKey[1];
+	return (
+		listed === 'all' || listed === ProposalStatus[status]
+	);
+}
+
 export function usePaginatedProposals({
 	multisigAddress,
 	network,

@@ -20,9 +20,9 @@ import { type IdentifiedSignerSet } from './types';
 
 /**
  * The first check a proposal failed: `unreadable`, the bytes don't
- * decode; `sender`, the bytes' sender isn't the account; `gasOwner`, the
- * bytes set a gas owner other than the account, or the proposal names
- * another account; `digest`, the bytes'
+ * decode; `sender`, the bytes' sender isn't the account, or the proposal
+ * names another account; `gasOwner`, the bytes set a gas owner other than
+ * the account; `digest`, the bytes'
  * digest isn't the proposal's or the one the viewer opened; `signers`,
  * the account's original signers don't make up its address;
  * `notSigner`, the connected wallet is in none of the proposal's signer
@@ -230,11 +230,7 @@ export function checkActingSets<S extends AccountSigners>(
 	return { kind: 'checked', acting, refused, unidentified };
 }
 
-/**
- * The proposal's signer sets it may be counted against: those that pass
- * rule 2 once `aliases` is read, else only the one that rebuilds
- * `account` (rule 1), which needs no node.
- */
+/** The signer sets a proposal counts against: aliases in `aliases`, or only the one making up `account` while unread. */
 export function checkedSignerSets<S extends AccountSigners>(
 	signerSets: readonly S[],
 	account: string,

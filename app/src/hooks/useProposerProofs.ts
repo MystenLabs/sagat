@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	keepPreviousData,
 	useQuery,
@@ -18,7 +17,7 @@ import {
 } from '@/lib/proposer-proofs';
 import { QueryKeys } from '@/lib/queryKeys';
 
-import { useAliasSets } from './useAliasSets';
+import { usePodAliasSet } from './useAliasSets';
 
 /**
  * Each proposer's proof by address, undefined while checking; `trusted`
@@ -29,12 +28,7 @@ export function useProposerProofs(
 	account: ProposerProofAccount,
 	{ openedAddress }: { openedAddress: string },
 ) {
-	const { aliases: reads } = useAliasSets([
-		account.address,
-	]);
-	const aliases = reads?.get(
-		normalizeSuiAddress(account.address),
-	);
+	const aliases = usePodAliasSet(account.address);
 	const trusted = useMemo(
 		() =>
 			aliases !== undefined &&

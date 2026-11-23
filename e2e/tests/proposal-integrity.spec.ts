@@ -1,11 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	defaultExpiry,
-	PersonalMessages,
-	type AuthCheckResponse,
-} from '@mysten/sagat';
+import { type AuthCheckResponse } from '@mysten/sagat';
 import {
 	type Account,
 	type AccountDetails,
@@ -988,20 +984,7 @@ test.describe('proposal integrity', () => {
 			recovery.address,
 		);
 		// Carol accepts through the added set.
-		const expiry = defaultExpiry();
-		await carol.apiV1.acceptAccountInvite(
-			multisig.address,
-			{
-				network: 'localnet',
-				signature: await carol.signMessage(
-					PersonalMessages.acceptAccountInvitation(
-						multisig.address,
-						expiry,
-					),
-				),
-				expiry,
-			},
-		);
+		await acceptAccountInvite(carol, multisig.address);
 		// Read before the change, so the API serves its mirror for a minute.
 		await carol.apiV1.getAccount(
 			multisig.address,
