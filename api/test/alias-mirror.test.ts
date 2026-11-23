@@ -654,6 +654,15 @@ describe('Alias mirror', () => {
 		};
 	};
 
+	// Through a new loader, so no earlier read is reused.
+	const refreshA = () =>
+		refreshAliases([A], NETWORK, createAliasSetLoaders());
+	// What a settled proposal that `K` executed records.
+	const settled = {
+		status: ProposalStatus.SUCCESS,
+		executedVia: K.toSuiAddress(),
+	};
+
 	// Added in step 15, removed in step 16.
 	const [Y, Z] = Array.from({ length: 2 }, () =>
 		new Ed25519Keypair().toSuiAddress(),
@@ -691,11 +700,7 @@ describe('Alias mirror', () => {
 			),
 		];
 
-		const [result] = await refreshAliases(
-			[A],
-			NETWORK,
-			createAliasSetLoaders(),
-		);
+		const [result] = await refreshA();
 
 		expect(result).toMatchObject({
 			outcome: 'updated',
@@ -703,10 +708,6 @@ describe('Alias mirror', () => {
 			added: [Y, Z].sort(),
 			removed: [],
 		});
-		const settled = {
-			status: ProposalStatus.SUCCESS,
-			executedVia: K.toSuiAddress(),
-		};
 		expect(
 			await outcomesOf(proposals.map((p) => p.id)),
 		).toEqual([
@@ -743,11 +744,7 @@ describe('Alias mirror', () => {
 			buildAdd(tx, { account: A, alias: V }),
 		);
 
-		const [result] = await refreshAliases(
-			[A],
-			NETWORK,
-			createAliasSetLoaders(),
-		);
+		const [result] = await refreshA();
 
 		expect(result).toMatchObject({
 			outcome: 'updated',
@@ -755,10 +752,6 @@ describe('Alias mirror', () => {
 			added: [V],
 			removed: [Y, Z].sort(),
 		});
-		const settled = {
-			status: ProposalStatus.SUCCESS,
-			executedVia: K.toSuiAddress(),
-		};
 		expect(
 			await outcomesOf(proposals.map((p) => p.id)),
 		).toEqual([settled, settled]);
@@ -777,11 +770,7 @@ describe('Alias mirror', () => {
 		await send(A, signerK, (tx) =>
 			buildAdd(tx, { account: A, alias: Q }),
 		);
-		await refreshAliases(
-			[A],
-			NETWORK,
-			createAliasSetLoaders(),
-		);
+		await refreshA();
 		const before = await mirrorOf(A);
 
 		const result = await client.executeTransaction({
@@ -803,11 +792,7 @@ describe('Alias mirror', () => {
 			ProposalStatus.PENDING,
 		);
 
-		const [refreshed] = await refreshAliases(
-			[A],
-			NETWORK,
-			createAliasSetLoaders(),
-		);
+		const [refreshed] = await refreshA();
 
 		// The abort still moves the object's version.
 		expect(refreshed).toMatchObject({
@@ -840,11 +825,7 @@ describe('Alias mirror', () => {
 			}),
 		);
 
-		const [result] = await refreshAliases(
-			[A],
-			NETWORK,
-			createAliasSetLoaders(),
-		);
+		const [result] = await refreshA();
 
 		expect(result).toMatchObject({
 			outcome: 'updated',
