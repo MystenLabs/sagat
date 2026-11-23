@@ -188,7 +188,6 @@ const proposalProgress = (
 	};
 };
 
-// The event's proof without its signature.
 const withoutSignature = (
 	event: AccountEventRecord,
 ): AccountEventRecord => {
@@ -483,12 +482,7 @@ const getProposalsByAccountAddress = async ({
 };
 
 /**
- * Checks a pending proposal on-chain, and records whether it succeeded and
- * the address that signed for the account. With `checkThreshold`, a pending
- * one first needs enough signatures under the original set. A cancelled one
- * that calls the alias module is looked up too, and stays cancelled when it is
- * not on chain. Returns the proposal's status afterwards; any other is
- * returned as is.
+ * Also looks up a cancelled proposal that calls the alias module; it stays cancelled when not on chain.
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
@@ -1174,7 +1168,7 @@ type ListInput = {
 	callerKeys: PublicKey[];
 };
 
-// The legacy list of an account's proposals on a network, for an accepted member of its original set. Its rows carry their signatures as stored, so signer changes are left out.
+// Its rows carry their signatures as stored, so signer changes are left out.
 export const listProposals = async (
 	input: ListInput,
 ): Promise<PaginatedResponse<ProposalWithSignatures>> => {

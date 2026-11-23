@@ -57,7 +57,6 @@ export class AliasStateUnavailableError extends Error {
 	}
 }
 
-// A request a legacy route does not serve; the `/v1` routes do.
 export class ServedByV1OnlyError extends Error {
 	constructor(subject: string) {
 		super(`${subject} is served by the /v1 routes only.`);

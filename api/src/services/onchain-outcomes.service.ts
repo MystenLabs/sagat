@@ -28,13 +28,11 @@ export type OnChainOutcome = {
 	executedVia: string | null;
 };
 
-// The calls to `0x2::address_alias` in a proposal's bytes.
 export const aliasCallsOf = (transactionBytes: string) =>
 	findAliasCalls(
 		Transaction.from(transactionBytes).getData(),
 	);
 
-// The outcome of a transaction on chain, or null when the node does not have it.
 export const lookUpOnChainOutcome = async (
 	network: SuiNetwork,
 	digest: string,
@@ -70,7 +68,7 @@ export const lookUpOnChainOutcome = async (
 	};
 };
 
-// Records the outcome while the proposal is still pending or cancelled. False when it already had one.
+// False when the proposal already had an outcome.
 export const recordOnChainOutcome = async (
 	executor: Pick<DatabaseTransaction, 'update'>,
 	proposal: Pick<Proposal, 'id' | 'network'>,
@@ -107,7 +105,6 @@ export const recordOnChainOutcome = async (
 // Can only over-match: a Move call's BCS holds its module name as a string.
 const mayCallAliasModule = sql`position(convert_to('address_alias', 'UTF8') in decode(${SchemaProposals.transactionBytes}, 'base64')) > 0`;
 
-// The account's proposals on the network, in the statuses, that call the alias module.
 export const findAliasProposals = async (
 	executor: Pick<DatabaseTransaction, 'select'>,
 	accountAddress: string,

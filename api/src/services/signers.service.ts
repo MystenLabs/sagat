@@ -388,7 +388,7 @@ export const resolveAccountSigners = async (
 		await resolveSigners([accountAddress], scope, executor)
 	).get(accountAddress);
 
-// The account's alias set on the network as mirrored, sorted. No alias rows means `{account}`.
+// Sorted. No alias rows means `{account}`.
 export const mirroredAliasSet = async (
 	executor: Executor,
 	accountAddress: string,
@@ -712,7 +712,7 @@ export const listTiedAccounts = async (
 	return rows.map((row) => row.accountAddress).sort();
 };
 
-// The accounts the keys accepted, one row per (account, key). A member row answers only for the account at its own signer set's address.
+// One row per (account, key). A member row answers only for the account at its own signer set's address.
 export const acceptedAccounts = (
 	executor: Executor,
 	publicKeys: string[],
@@ -783,7 +783,7 @@ export type RemovedFromAccount = {
 	removedAt: Date;
 };
 
-// Accounts a key accepted, is in no acting set of on the network, and whose set holding it was removed there. The newest removal per account and set.
+// Keys in no acting set there whose set was removed; the newest removal per account and set.
 export const listRemovedAccounts = async (
 	publicKeys: string[],
 	network: SuiNetwork,

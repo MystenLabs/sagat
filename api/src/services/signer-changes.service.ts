@@ -1,11 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * Signer changes: proposals that replace an acting signer set with another,
- * recognised by the composition note in their bytes. See "Changing signers"
- * in `design/account-rotation.md`.
- */
+// See "Changing signers" in `design/account-rotation.md`.
 
 import {
 	checkSignerChange,
@@ -65,10 +61,7 @@ const refusalOf = (error: unknown) => {
 	);
 };
 
-/**
- * The composition note of a signer change, or null when the transaction is
- * not one. A note that does not check (rules 1 and 2) is a `ValidationError`.
- */
+// A note that does not check (rules 1 and 2) is a `ValidationError`.
 export const signerChangeNote = (
 	data: TransactionInput,
 ): CompositionNote | null => {
@@ -85,11 +78,7 @@ export type StoredSignerChange = {
 	ready: boolean;
 };
 
-/**
- * A stored proposal's signer change, read from its bytes. Null when the bytes
- * carry no note, or are no transaction. The change is checked against the
- * note's own `before`, so the answer never moves with the mirror.
- */
+// Checked against the note's own `before`, so the answer never moves with the mirror.
 export const signerChangeIn = (
 	transactionBytes: string,
 ): Pick<StoredSignerChange, 'change'> | null => {
@@ -108,7 +97,6 @@ export const signerChangeIn = (
 	}
 };
 
-// The signer set the change adds, if it adds one.
 export const addedSetOf = (
 	note: CompositionNote,
 ): SignerSetEntry | null => {
@@ -121,10 +109,7 @@ export const addedSetOf = (
 		: null;
 };
 
-/**
- * The `labels` of a create request, aligned with the added set's members in
- * the note's order. Only a signer change that adds a set takes them.
- */
+// Aligned with the added set's members in note order; only a change that adds a set takes them.
 export const signerChangeLabels = (
 	note: CompositionNote | null,
 	labels: unknown,
@@ -176,14 +161,12 @@ export const assertNamesChain = async (
 		);
 };
 
-// The current epoch of the API's node for the network.
 export const currentEpochOf = async (network: SuiNetwork) =>
 	BigInt(
 		(await getSuiClient(network).getCurrentSystemState())
 			.systemState.epoch,
 	);
 
-// The last epoch the transaction can execute in, or null when its expiration has no epoch bound.
 const lastEpochOf = ({
 	expiration,
 }: Pick<TransactionData, 'expiration'>) => {
@@ -208,10 +191,7 @@ export const assertExpiresSoon = (
 		);
 };
 
-/**
- * One proposal that calls the alias module at a time, per account and
- * network. One whose expiration epoch is before `epoch` no longer counts.
- */
+// One alias proposal at a time per account and network; one expired before `epoch` no longer counts.
 export const assertNoPendingAliasProposal = async (
 	tx: DatabaseTransaction,
 	accountAddress: string,
@@ -234,11 +214,7 @@ export const assertNoPendingAliasProposal = async (
 		);
 };
 
-/**
- * Checks a signer change against the mirror and the signers who act now, and
- * writes the signer set it adds. Runs under the account lock, in the
- * transaction that inserts the proposal.
- */
+// Runs under the account lock, in the transaction that inserts the proposal.
 export const checkAndWriteSignerChange = async (
 	tx: DatabaseTransaction,
 	{
@@ -345,7 +321,7 @@ export const checkAndWriteSignerChange = async (
 			.onConflictDoNothing();
 };
 
-// The added set's rows and its link to the account. A composition or link that exists is left as it is.
+// A composition or link that exists is left as it is.
 const writeAddedSet = async (
 	tx: DatabaseTransaction,
 	{

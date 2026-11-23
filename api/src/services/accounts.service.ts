@@ -50,7 +50,6 @@ import {
 	type RemovedFromAccount,
 } from './signers.service';
 
-// The signer changes that succeeded on the network, oldest first, and the newest pending one.
 const signerChangesOf = async (
 	address: string,
 	network: SuiNetwork,

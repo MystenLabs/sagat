@@ -178,7 +178,6 @@ type Settlement = {
 	outcome: OnChainOutcome;
 };
 
-// The account's alias proposals with no outcome yet that the chain shows executed.
 const findExecutedAliasProposals = async (
 	account: string,
 	network: SuiNetwork,

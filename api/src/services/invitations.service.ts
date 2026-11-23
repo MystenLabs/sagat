@@ -40,8 +40,7 @@ import {
 	type SignerScopeKind,
 } from './signers.service';
 
-// Throws if `publicKey` has already accepted the maximum number of accounts,
-// not counting the one it is joining. Locks the key's row until `tx` ends.
+// Not counting the account it is joining. Locks the key's row until `tx` ends.
 export const assertKeyBelowMultisigLimit = async (
 	tx: DatabaseTransaction,
 	publicKey: string,

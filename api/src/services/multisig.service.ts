@@ -846,8 +846,7 @@ export const createSignerSet = async ({
 				.where(eq(SchemaSignerSets.address, address))
 				.for('no key update');
 
-		// A legacy multisig is also an account with the same address, so the
-		// `/v1` API sees what the legacy routes created.
+		// A legacy multisig is also an account, so `/v1` sees what the legacy routes created.
 		const [account] = await tx
 			.insert(SchemaAccounts)
 			.values({ address, name })
