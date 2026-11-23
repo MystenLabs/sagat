@@ -176,10 +176,13 @@ test('a key only in a shown set that is no alias is refused as not acting, carry
 	});
 });
 
-test('a row and the new-proposal copy read the threshold of a set that is an alias, never of one that is not', () => {
+test('a row and the new-proposal copy read the threshold of a set that is an alias, never of one that is not, the pod’s own set first', () => {
 	const { multisig } = pod();
-	const original = signerSet(undefined, 2);
 	const viewer = new Ed25519Keypair();
+	const original = signerSet(
+		[viewer, new Ed25519Keypair()],
+		2,
+	);
 	const fake = signerSet([viewer, new Ed25519Keypair()], 1);
 	const real = signerSet(
 		[viewer, new Ed25519Keypair(), new Ed25519Keypair()],
@@ -192,6 +195,7 @@ test('a row and the new-proposal copy read the threshold of a set that is an ali
 		signerSets: [
 			{ kind: 'signer_set', ...fake.set },
 			{ kind: 'signer_set', ...real.set },
+			{ kind: 'signer_set', ...original.set },
 		],
 	};
 	const signer = signerOf(viewer);
@@ -208,33 +212,13 @@ test('a row and the new-proposal copy read the threshold of a set that is an ali
 	expect(withListedChecks(listed, checking).threshold).toBe(
 		3,
 	);
-});
-
-test('a row reads the pod’s own set when the viewer signs in it and in an added set', () => {
-	const viewer = new Ed25519Keypair();
-	const own = signerSet([viewer, new Ed25519Keypair()], 2);
-	const added = signerSet(
-		[viewer, new Ed25519Keypair(), new Ed25519Keypair()],
-		3,
-	);
-	const { multisig } = pod();
-	const account: Account = {
-		...multisig,
-		address: own.set.address,
-		originalSignerSet: own.set,
-		signerSets: [
-			{ kind: 'signer_set', ...added.set },
-			{ kind: 'signer_set', ...own.set },
-		],
-	};
-	const signer = signerOf(viewer);
-
+	// The viewer signs in an added set and the pod's own: the own set's.
 	expect(
 		withActing(
-			toUserMultisig(account, signer),
+			checking,
 			{
 				kind: 'read',
-				aliases: [added.set.address, own.set.address],
+				aliases: [real.set.address, original.set.address],
 			},
 			signer,
 		).threshold,
