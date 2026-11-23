@@ -19,31 +19,25 @@ export const answer = async (
 	account: string,
 	given: 'accept' | 'reject',
 ) => {
+	const accept = given === 'accept';
 	const expiry = defaultExpiry();
-	const signature = await sign(
-		user,
-		given === 'accept'
-			? PersonalMessages.acceptAccountInvitation(
-					account,
-					expiry,
-				)
-			: PersonalMessages.rejectAccountInvitation(
-					account,
-					expiry,
-				),
-	);
+	const body = {
+		network: 'localnet' as const,
+		signature: await sign(
+			user,
+			(accept
+				? PersonalMessages.acceptAccountInvitation
+				: PersonalMessages.rejectAccountInvitation)(
+				account,
+				expiry,
+			),
+		),
+		expiry,
+	};
 	const client = framework.createSession().v1;
-	return given === 'accept'
-		? client.acceptAccountInvite(account, {
-				network: 'localnet',
-				signature,
-				expiry,
-			})
-		: client.rejectAccountInvite(account, {
-				network: 'localnet',
-				signature,
-				expiry,
-			});
+	return accept
+		? client.acceptAccountInvite(account, body)
+		: client.rejectAccountInvite(account, body);
 };
 
 // Adds or removes a proposer of the account on localnet, signed by the user, through `/v1`.
@@ -54,29 +48,25 @@ export const changeProposer = async (
 	account: string,
 	proposer: string,
 ) => {
+	const add = change === 'add';
 	const expiry = defaultExpiry();
-	const signature = await sign(
-		user,
-		change === 'add'
-			? PersonalMessages.addMultisigProposer(
-					proposer,
-					account,
-					expiry,
-				)
-			: PersonalMessages.removeMultisigProposer(
-					proposer,
-					account,
-					expiry,
-				),
-	);
-	const client = framework.createSession().v1;
 	const body = {
 		network: 'localnet' as const,
 		proposer,
-		signature,
+		signature: await sign(
+			user,
+			(add
+				? PersonalMessages.addMultisigProposer
+				: PersonalMessages.removeMultisigProposer)(
+				proposer,
+				account,
+				expiry,
+			),
+		),
 		expiry,
 	};
-	return change === 'add'
+	const client = framework.createSession().v1;
+	return add
 		? client.addAccountProposer(account, body)
 		: client.removeAccountProposer(account, body);
 };
