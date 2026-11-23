@@ -13,18 +13,11 @@ import { CopyButton } from '../ui/CopyButton';
 /** A signer set's address, whole, with a copy button. */
 export function SignerSetAddress({
 	address,
-	className,
 }: {
 	address: string;
-	className?: string;
 }) {
 	return (
-		<span
-			className={cn(
-				'flex min-w-0 items-center gap-1',
-				className,
-			)}
-		>
+		<span className="flex min-w-0 items-center gap-1">
 			<span
 				className="min-w-0 font-mono text-12 break-all"
 				data-testid="signer-set-address"
