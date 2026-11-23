@@ -26,6 +26,7 @@ import { parsePublicKey } from '../utils/pubKey';
  */
 export async function registerPublicKeys(
 	publicKeys: PublicKey[],
+	executor: Pick<typeof db, 'insert'> = db,
 ): Promise<void> {
 	if (publicKeys.length === 0) return;
 
@@ -43,7 +44,7 @@ export async function registerPublicKeys(
 					: 0,
 		);
 
-	await db
+	await executor
 		.insert(SchemaAddresses)
 		.values(addressData)
 		.onConflictDoNothing();

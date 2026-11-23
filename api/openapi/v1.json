@@ -250,7 +250,12 @@
 						"type": "string",
 						"description": "The proposer's signature over the transaction."
 					},
-					"description": { "type": "string" }
+					"description": { "type": "string" },
+					"labels": {
+						"type": "array",
+						"items": { "type": ["string", "null"] },
+						"description": "For a signer change that adds a signer set: what the account calls each of its keys, in the order of the composition note. Only keys new to the account are labelled."
+					}
 				},
 				"required": [
 					"accountAddress",
@@ -648,7 +653,7 @@
 		"/v1/proposals": {
 			"post": {
 				"summary": "Propose a transaction",
-				"description": "Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote.",
+				"description": "Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote. Only one proposal that calls `0x2::address_alias` per account and network is pending at a time. A signer change, recognised by its composition note, is checked against the account’s signers on the network, and the signer set it adds is written.",
 				"parameters": [
 					{
 						"schema": {
@@ -682,7 +687,7 @@
 						}
 					},
 					"400": {
-						"description": "The request, transaction or signature is invalid, or the network is not supported.",
+						"description": "The request, transaction or signature is invalid, the network is not supported, or a signer change does not check.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -692,7 +697,7 @@
 						}
 					},
 					"403": {
-						"description": "The signer may not propose for the account on the network, or the address is not an account.",
+						"description": "The signer may not propose for the account on the network, the address is not an account, or the proposer of a signer change is not an accepted signer of the set it replaces who stays.",
 						"content": {
 							"application/json": {
 								"schema": {

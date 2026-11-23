@@ -49,6 +49,7 @@ import {
 	ApiAuthError,
 	CommonError,
 	NotFoundError,
+	ServedByV1OnlyError,
 	ValidationError,
 } from '../errors';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
@@ -98,6 +99,13 @@ import {
 	verifySignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
+import {
+	assertNamesChain,
+	assertNoPendingAliasProposal,
+	checkAndWriteSignerChange,
+	signerChangeLabels,
+	signerChangeNote,
+} from './signer-changes.service';
 import {
 	actingSetsOn,
 	countSignatures,
@@ -500,6 +508,8 @@ export type CreateProposalInput = {
 	// Unvalidated until `normalizeText`.
 	description?: unknown;
 	network: string;
+	// For a signer change that adds a set, aligned with its members. Unvalidated until `normalizeKeyLabels`.
+	labels?: unknown;
 };
 
 /**
@@ -512,6 +522,7 @@ export const createProposal = async ({
 	signature,
 	description: rawDescription,
 	network: rawNetwork,
+	labels: rawLabels,
 	scopeKind,
 }: CreateProposalInput & {
 	scopeKind: SignerScopeKind;
@@ -622,6 +633,15 @@ export const createProposal = async ({
 			'The transaction gas owner does not match the account.',
 		);
 
+	const data = proposedTransaction.getData();
+	const callsAliasModule = findAliasCalls(data).length > 0;
+
+	// Alias calls with a composition note make a signer change.
+	const note = signerChangeNote(data);
+	if (note && scopeKind === 'original')
+		throw new ServedByV1OnlyError('A signer change');
+	const labels = signerChangeLabels(note, rawLabels);
+
 	// Verify the supplied user signature before doing any RPC work for the
 	// request. A fully resolved transaction builds without a client.
 	const built = await readable(() =>
@@ -641,6 +661,7 @@ export const createProposal = async ({
 		proposedTransaction,
 		network,
 	);
+	if (note) await assertNamesChain(data, network);
 
 	const proposal = await db.transaction(async (tx) => {
 		// Validate the proposed transaction for:
@@ -666,6 +687,22 @@ export const createProposal = async ({
 			))
 		)
 			throw await notMemberError();
+
+		if (callsAliasModule)
+			await assertNoPendingAliasProposal(
+				tx,
+				multisigAddress,
+				network,
+			);
+		if (note)
+			await checkAndWriteSignerChange(tx, {
+				accountAddress: multisigAddress,
+				network,
+				data,
+				note,
+				proposer: pubKey,
+				labels,
+			});
 
 		// Insert the proposal and the first sig!
 		const proposal = await tx

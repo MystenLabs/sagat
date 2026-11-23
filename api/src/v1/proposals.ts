@@ -49,7 +49,7 @@ const createProposalRoute = createRoute({
 	path: '/proposals',
 	summary: 'Propose a transaction',
 	description:
-		'Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote.',
+		'Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote. Only one proposal that calls `0x2::address_alias` per account and network is pending at a time. A signer change, recognised by its composition note, is checked against the account’s signers on the network, and the signer set it adds is written.',
 	request: {
 		query: networkQuery,
 		body: jsonBody(CreateProposalRequestSchema),
@@ -57,10 +57,10 @@ const createProposalRoute = createRoute({
 	responses: {
 		201: proposalResponse('The proposal, as created.'),
 		400: error(
-			'The request, transaction or signature is invalid, or the network is not supported.',
+			'The request, transaction or signature is invalid, the network is not supported, or a signer change does not check.',
 		),
 		403: error(
-			'The signer may not propose for the account on the network, or the address is not an account.',
+			'The signer may not propose for the account on the network, the address is not an account, or the proposer of a signer change is not an accepted signer of the set it replaces who stays.',
 		),
 		503: unavailable,
 	},
