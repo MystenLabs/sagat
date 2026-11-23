@@ -275,7 +275,7 @@ export function approvalsSignerSets(
 	}));
 }
 
-/** The folded row's line, only when a folded set reached its threshold or misses less than the main set. */
+/** The folded row's line, only when a folded set reached its threshold or, while pending, misses less than the main set. */
 export function foldedSignerSetsLine(
 	[main, ...folded]: readonly ApprovalsSignerSet[],
 	status: ProposalStatusKey,
