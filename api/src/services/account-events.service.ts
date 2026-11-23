@@ -388,7 +388,7 @@ export type ProposalEvents = {
 	cancelled: AccountEventRecord | null;
 };
 
-/** In one query. No access check. */
+/** The `ProposalEvents` of each proposal, by id, in one query. No access check. */
 export const getProposalEvents = async (
 	proposalIds: number[],
 ): Promise<Map<number, ProposalEvents>> => {

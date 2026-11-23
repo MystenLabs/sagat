@@ -208,7 +208,7 @@ export function decodePure<T extends Input, Input>(
 	}
 }
 
-/** Top-level calls only, in command order. */
+/** Top-level calls only, in command order; pass `Transaction.getData()` or a `TransactionDataBuilder` read from the bytes. */
 export function findAliasCalls({
 	commands,
 	inputs,
