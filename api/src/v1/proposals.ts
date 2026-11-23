@@ -28,6 +28,7 @@ import {
 	defineRoute,
 	error,
 	json,
+	jsonBody,
 	unauthorized,
 	unavailable,
 	validateNetwork,
@@ -42,12 +43,7 @@ const digestParams = z.object({
 const proposalResponse = (description: string) =>
 	json(description, ProposalSchema);
 
-const signatureBody = {
-	required: true,
-	content: {
-		'application/json': { schema: SignatureRequestSchema },
-	},
-};
+const signatureBody = jsonBody(SignatureRequestSchema);
 
 const createProposalRoute = createRoute({
 	method: 'post',
@@ -57,14 +53,7 @@ const createProposalRoute = createRoute({
 		'Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote. Only a signer may propose a transaction that calls `0x2::address_alias`.',
 	request: {
 		query: z.object({ network: NetworkSchema }),
-		body: {
-			required: true,
-			content: {
-				'application/json': {
-					schema: CreateProposalRequestSchema,
-				},
-			},
-		},
+		body: jsonBody(CreateProposalRequestSchema),
 	},
 	responses: {
 		201: proposalResponse('The proposal, as created.'),
