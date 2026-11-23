@@ -30,6 +30,7 @@ import {
 	randomAddress,
 	type Chain,
 } from '../support/chain';
+import { ageAliasState } from '../support/db';
 import { E2E } from '../support/env';
 import {
 	expect,
@@ -506,13 +507,15 @@ test.describe('proposal integrity', () => {
 			multisig.address,
 			payments.address,
 		);
-		// Alice's key then acts in no set; before the pod's first /v1 read.
+		// Alice's key then acts in no set; aged so the next read sees it.
 		await addPodAsAlias(chain, bothSign(alice, bob), {
 			creator: carol,
 			member: createIdentity('dave'),
-			accepting: [carol],
+			accepting: [],
 			replace: true,
 		});
+		await ageAliasState(multisig.address);
+		await acceptAccountInvite(carol, multisig.address);
 		const proposal = await proposeTransfer(
 			chain,
 			payments,
