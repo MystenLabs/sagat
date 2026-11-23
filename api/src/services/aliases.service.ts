@@ -7,9 +7,11 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
+	ProposalStatus,
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
 	type AccountAliasState,
+	type Proposal,
 } from '../db/schema';
 import {
 	lockAccount,
@@ -30,6 +32,12 @@ import {
 	recordAccountEvent,
 	SYSTEM_ACTOR,
 } from './account-events.service';
+import {
+	findAliasProposals,
+	lookUpOnChainOutcome,
+	recordOnChainOutcome,
+	type OnChainOutcome,
+} from './onchain-outcomes.service';
 
 export const ALIAS_STATE_MAX_AGE_MS = 60_000;
 // Each changed account writes in its own transaction.
@@ -162,14 +170,44 @@ const difference = (before: string[], after: string[]) => ({
 	removed: before.filter((a) => !after.includes(a)).sort(),
 });
 
+type Settlement = {
+	proposal: Proposal;
+	outcome: OnChainOutcome;
+};
+
+// The account's alias proposals with no outcome yet that the chain shows executed.
+const findExecutedAliasProposals = async (
+	account: string,
+	network: SuiNetwork,
+): Promise<Settlement[]> => {
+	const open = await findAliasProposals(
+		db,
+		account,
+		network,
+		[ProposalStatus.PENDING, ProposalStatus.CANCELLED],
+	);
+	const outcomes = await Promise.all(
+		open.map((proposal) =>
+			lookUpOnChainOutcome(network, proposal.digest),
+		),
+	);
+	return open.flatMap((proposal, i) => {
+		const outcome = outcomes[i];
+		return outcome ? [{ proposal, outcome }] : [];
+	});
+};
+
 const writeMirror = (
 	account: string,
 	network: SuiNetwork,
 	read: AliasSet,
 	readAt: Date,
+	settlements: Settlement[],
 ): Promise<AliasRefreshResult> =>
 	db.transaction(async (tx) => {
 		await lockAccount(tx, account);
+		for (const { proposal, outcome } of settlements)
+			await recordOnChainOutcome(tx, proposal, outcome);
 		const [row] = await tx
 			.select()
 			.from(SchemaAccountAliasState)
@@ -308,6 +346,9 @@ const refreshOne = async (
 			network,
 			read,
 			readAt,
+			read.exists
+				? await findExecutedAliasProposals(account, network)
+				: [],
 		);
 	} catch (error) {
 		return {

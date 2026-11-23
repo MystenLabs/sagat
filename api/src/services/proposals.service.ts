@@ -11,7 +11,6 @@ import {
 	findAliasCalls,
 	PersonalMessages,
 } from '@mysten/sagat';
-import { TransactionError } from '@mysten/sui/client';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
 import {
@@ -57,20 +56,14 @@ import {
 	MultisigEventType,
 	multisigProposalEvents,
 } from '../metrics';
-import {
-	getSuiClient,
-	type SuiNetwork,
-} from '../utils/client';
+import { type SuiNetwork } from '../utils/client';
 import {
 	paginateResponse,
 	wholeNumberUpTo,
 	type PaginatedResponse,
 	type PaginationCursor,
 } from '../utils/pagination';
-import {
-	getPublicKeyFromSerializedSignature,
-	signerAddressOf,
-} from '../utils/pubKey';
+import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
 import {
 	getProposalEvents,
@@ -95,6 +88,11 @@ import {
 	isCanonicalSuiAddress,
 	validateProposedTransaction,
 } from './multisig.service';
+import {
+	aliasCallsOf,
+	lookUpOnChainOutcome,
+	recordOnChainOutcome,
+} from './onchain-outcomes.service';
 import {
 	assertCanonicalSignature,
 	verifySignedMessage,
@@ -273,11 +271,8 @@ const getProposal = async (
 	return proposal;
 };
 
-// The calls to `0x2::address_alias` in a proposal's bytes.
-export const aliasCallsOf = (transactionBytes: string) =>
-	findAliasCalls(
-		Transaction.from(transactionBytes).getData(),
-	);
+// The serializers read the alias calls from here.
+export { aliasCallsOf };
 
 // Under the acting scope a decision waits for a fresh alias state, or fails.
 const refreshBeforeDeciding = async (
@@ -381,18 +376,29 @@ const getProposalsByAccountAddress = async ({
 
 /**
  * Checks a pending proposal on-chain, and records whether it succeeded and
- * the address that signed for the account. With `checkThreshold`, it first
- * needs enough signatures under the original set. Returns the proposal's status
- * afterwards; a proposal that is no longer pending is returned as is.
+ * the address that signed for the account. With `checkThreshold`, a pending
+ * one first needs enough signatures under the original set. A cancelled one
+ * that calls the alias module is looked up too, and stays cancelled when it is
+ * not on chain. Returns the proposal's status afterwards; any other is
+ * returned as is.
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
 	{ checkThreshold = false }: { checkThreshold?: boolean },
 ): Promise<ProposalStatus> => {
-	if (proposal.status !== ProposalStatus.PENDING)
+	const isPending =
+		proposal.status === ProposalStatus.PENDING;
+	if (
+		!isPending &&
+		proposal.status !== ProposalStatus.CANCELLED
+	)
+		return proposal.status;
+	const callsAliasModule =
+		aliasCallsOf(proposal.transactionBytes).length > 0;
+	if (!isPending && !callsAliasModule)
 		return proposal.status;
 
-	if (checkThreshold) {
+	if (isPending && checkThreshold) {
 		const signers = await getAccountSigners(
 			proposal.accountAddress,
 			ORIGINAL_SET,
@@ -406,71 +412,36 @@ const lookupAndVerifyProposal = async (
 			);
 	}
 
-	const tx = await getSuiClient(
+	const outcome = await lookUpOnChainOutcome(
 		proposal.network as SuiNetwork,
-	)
-		.getTransaction({
-			digest: proposal.digest,
-			include: {
-				effects: true,
-			},
-		})
-		.catch((error) => {
-			// TODO: a transaction that isn't on-chain may also never be able to
-			// run, e.g. when one of its owned inputs was spent elsewhere. Such a
-			// proposal stays pending and blocks new proposals that use the same
-			// objects. Detect it (an input's version changed or it was deleted)
-			// and move the proposal to a new terminal status for it (not
-			// FAILURE, which means the transaction failed on-chain).
-			if (
-				error instanceof TransactionError &&
-				error.reason === 'notFound'
-			)
-				throw new ValidationError(
-					'The transaction has not been executed yet.',
-				);
-			throw error;
-		});
+		proposal.digest,
+	);
+	if (!outcome) {
+		if (!isPending) return proposal.status;
+		// TODO: a transaction that isn't on-chain may also never be able to
+		// run, e.g. when one of its owned inputs was spent elsewhere. Such a
+		// proposal stays pending and blocks new proposals that use the same
+		// objects. Detect it (an input's version changed or it was deleted)
+		// and move the proposal to a new terminal status for it (not
+		// FAILURE, which means the transaction failed on-chain).
+		throw new ValidationError(
+			'The transaction has not been executed yet.',
+		);
+	}
 
-	const isSuccess =
-		tx.$kind !== 'FailedTransaction' &&
-		!!tx.Transaction.effects.status.success;
-	const status = isSuccess
-		? ProposalStatus.SUCCESS
-		: ProposalStatus.FAILURE;
-	// The sender's signature comes first.
-	const [senderSignature] = (
-		tx.$kind === 'Transaction'
-			? tx.Transaction
-			: tx.FailedTransaction
-	).signatures;
-	const executedVia = senderSignature
-		? signerAddressOf(senderSignature)
-		: null;
-
-	await db
-		.update(SchemaProposals)
-		.set({ status, executedVia })
-		.where(eq(SchemaProposals.id, proposal.id));
-
-	multisigProposalEvents.inc({
-		network: proposal.network,
-		event_type: isSuccess
-			? MultisigEventType.PROPOSAL_SUCCESS
-			: MultisigEventType.PROPOSAL_FAILURE,
-	});
+	await recordOnChainOutcome(db, proposal, outcome);
 
 	// The status is recorded; a failed refresh leaves the mirror to the next one.
 	if (
-		isSuccess &&
-		aliasCallsOf(proposal.transactionBytes).length > 0
+		outcome.status === ProposalStatus.SUCCESS &&
+		callsAliasModule
 	)
 		await refreshAliases(
 			[proposal.accountAddress],
 			proposal.network as SuiNetwork,
 		).catch(() => undefined);
 
-	return status;
+	return outcome.status;
 };
 
 // Whether the address is in the account's proposers list.
