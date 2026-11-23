@@ -324,7 +324,7 @@ describe('verifyAccountEvent', () => {
 		}
 	});
 
-	test('is invalid when the answer was signed for another account', async () => {
+	test('is invalid when the answer was signed for another account, or as an accept for a rejection', async () => {
 		const event = await signAnswer(
 			outsider,
 			'account.accepted',
@@ -337,13 +337,7 @@ describe('verifyAccountEvent', () => {
 				})
 			).status,
 		).toBe('invalid');
-	});
 
-	test('does not verify an accept signature as a rejection', async () => {
-		const event = await signAnswer(
-			outsider,
-			'account.accepted',
-		);
 		event.action = 'account.rejected';
 		event.proof = {
 			...event.proof,
