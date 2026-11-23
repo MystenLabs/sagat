@@ -314,7 +314,6 @@ const getAccountSigners = async (
 	return signers;
 };
 
-// A proposal and its signatures, by a condition on its row.
 const findProposal = async (
 	condition: SQL,
 ): Promise<ProposalWithSignatures | undefined> => {
@@ -349,7 +348,6 @@ const findProposal = async (
 	};
 };
 
-// Get a proposal by id, and its signatures.
 const getProposalById = async (
 	proposalId: number,
 ): Promise<ProposalWithSignatures> => {
@@ -395,7 +393,7 @@ const refreshBeforeDeciding = async (
 		);
 };
 
-// Refreshes a stale alias state for a read; false when the read failed and the mirror is used as it is.
+// False when the read failed and the mirror is used as it is.
 const refreshForRead = async (
 	accountAddress: string,
 	network: string,
