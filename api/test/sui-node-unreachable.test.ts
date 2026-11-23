@@ -140,7 +140,7 @@ test('a /v1 write is refused with a 503, and the lists and the read serve the ac
 	expect(read.signatures).toEqual([]);
 });
 
-test('a legacy write is refused with a 503, and a legacy read serves an unchanged account from the mirror and still refuses and leaves out one whose aged mirror says it changed', async () => {
+test('a legacy write is refused with a 503; legacy reads trust an aged mirror, serving an unchanged account and refusing or leaving out a changed one', async () => {
 	const framework = new ApiTestFramework(
 		await createTestApp(),
 	);
