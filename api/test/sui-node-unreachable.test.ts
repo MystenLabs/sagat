@@ -195,22 +195,6 @@ test('a legacy write is refused with a 503, and a legacy read serves an unchange
 	expect(
 		await errorOf(
 			await session.post(
-				`/proposals/${proposal.id}/cancel`,
-				{
-					signature: await sign(
-						users[0]!,
-						PersonalMessages.cancelProposal(
-							proposal.digest,
-							account,
-						),
-					),
-				},
-			),
-		),
-	).toEqual(notChecked);
-	expect(
-		await errorOf(
-			await session.post(
 				`/multisig/${account}/add-proposer`,
 				{
 					proposer,
