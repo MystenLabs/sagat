@@ -147,7 +147,7 @@ test('a /v1 write is refused with a 503, and the lists and the read serve the ac
 	expect(read.signatures).toEqual([]);
 });
 
-test('a legacy write is refused with a 503, and a legacy read serves an unchanged account from the mirror', async () => {
+test('a legacy write is refused with a 503, and a legacy read serves an unchanged account from the mirror and still refuses and leaves out one whose aged mirror says it changed', async () => {
 	const framework = new ApiTestFramework(
 		await createTestApp(),
 	);
@@ -162,6 +162,13 @@ test('a legacy write is refused with a 503, and a legacy read serves an unchange
 	const transactionBytes = await offlineTransfer(account);
 	const proposer = newUser().address;
 	const expiry = defaultExpiry();
+	const changed = (
+		await session.createMultisig([users[0]!, newUser()], 1)
+	).address;
+	await setAliases(changed, 'localnet', [
+		newUser().address,
+	]);
+	await ageAliasState(changed, 'localnet');
 
 	const notChecked = {
 		status: 503,
@@ -232,29 +239,8 @@ test('a legacy write is refused with a 503, and a legacy read serves an unchange
 		).id,
 	).toBe(proposal.id);
 	expect(
-		Object.values(
-			await session.client.getMultisigConnections(),
-		)
-			.flat()
-			.map((m) => m.address),
-	).toContain(account);
-});
-
-test('an account whose mirror says it changed is still refused and left out when the node cannot be read', async () => {
-	const framework = new ApiTestFramework(
-		await createTestApp(),
-	);
-	const { session, multisig } =
-		await framework.createVerifiedMultisig(2, 1);
-	const account = multisig.address;
-	await setAliases(account, 'localnet', [
-		newUser().address,
-	]);
-	await ageAliasState(account, 'localnet');
-
-	expect(
 		await errorOf(
-			await session.request(`/multisig/${account}`),
+			await session.request(`/multisig/${changed}`),
 		),
 	).toEqual({
 		status: 409,
@@ -263,11 +249,11 @@ test('an account whose mirror says it changed is still refused and left out when
 				'An account whose signers changed is served by the /v1 routes only.',
 		},
 	});
-	expect(
-		Object.values(
-			await session.client.getMultisigConnections(),
-		)
-			.flat()
-			.map((m) => m.address),
-	).not.toContain(account);
+	const listed = Object.values(
+		await session.client.getMultisigConnections(),
+	)
+		.flat()
+		.map((m) => m.address);
+	expect(listed).toContain(account);
+	expect(listed).not.toContain(changed);
 });
