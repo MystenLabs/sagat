@@ -54,7 +54,6 @@ import {
 	approvalRows,
 	approvalsNote,
 	approvalsStatus,
-	approvalsThresholdLabel,
 	cancelVariant,
 	gasEstimate,
 	hasSigned,
@@ -69,6 +68,7 @@ import {
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import { signRefusedLine } from '@/lib/signers-refused';
+import { approvalsThresholdLabel } from '@/lib/threshold';
 import {
 	namedChain,
 	readTransactionBytes,

@@ -20,6 +20,19 @@ export function thresholdLabel({
 	);
 }
 
+/** "Threshold 4 of 7": the shared wording, labelled. */
+export function approvalsThresholdLabel(set: {
+	threshold: number;
+	members: { weight: number }[];
+}) {
+	return content.common.threshold(
+		thresholdLabel({
+			threshold: set.threshold,
+			totalWeight: sumWeight(set.members),
+		}),
+	);
+}
+
 /** Bars draw one segment per unit of weight up to this many units. */
 export const BAR_SEGMENT_CAP = 10;
 

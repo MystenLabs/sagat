@@ -17,7 +17,6 @@ import {
 	type ProposalStatusKey,
 } from './proposalUtils';
 import { validatePublicKey } from './sui-utils';
-import { sumWeight, thresholdLabel } from './threshold';
 import {
 	gasCost,
 	gasLabel,
@@ -63,21 +62,6 @@ export function thresholdReached(
 		status === 'ready' ||
 		status === 'executed' ||
 		status === 'failed'
-	);
-}
-
-/** "Threshold 4 of 7", the Approvals card's heading: the shared wording, labelled. */
-export function approvalsThresholdLabel(
-	multisig: Pick<
-		PageProposal['multisig'],
-		'threshold' | 'members'
-	>,
-) {
-	return content.common.threshold(
-		thresholdLabel({
-			threshold: multisig.threshold,
-			totalWeight: sumWeight(multisig.members),
-		}),
 	);
 }
 

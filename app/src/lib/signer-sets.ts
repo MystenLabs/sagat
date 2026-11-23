@@ -9,7 +9,7 @@ import {
 	signerSetAddress,
 } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
-import { sumWeight, thresholdLabel } from './threshold';
+import { approvalsThresholdLabel } from './threshold';
 import {
 	type IdentifiedSignerSet,
 	type MultisigWithMembersForPublicKey,
@@ -126,19 +126,16 @@ export function otherSignerSetRows(
 	return unidentified.map((address) => {
 		const pod = podAt(pods, address);
 		if (!pod) return { address, pod: null };
-		const { members, threshold } = originalSignerSet(pod);
+		const set = originalSignerSet(pod);
 		return {
 			address,
 			pod: {
 				address: pod.address,
 				name: pod.name,
-				signers: content.common.signerCount(members.length),
-				threshold: content.common.threshold(
-					thresholdLabel({
-						threshold,
-						totalWeight: sumWeight(members),
-					}),
+				signers: content.common.signerCount(
+					set.members.length,
 				),
+				threshold: approvalsThresholdLabel(set),
 			},
 		};
 	});

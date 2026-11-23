@@ -20,7 +20,6 @@ import {
 	originalSignerSet,
 	shownActingSets,
 } from '@/lib/proposal-integrity';
-import { approvalsThresholdLabel } from '@/lib/proposal-page';
 import { trustsSigners } from '@/lib/proposer-proofs';
 import {
 	differentSignersLine,
@@ -33,6 +32,7 @@ import {
 	signerRows,
 	signerSetStatus,
 } from '@/lib/signers';
+import { approvalsThresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 
