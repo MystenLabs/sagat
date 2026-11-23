@@ -287,6 +287,17 @@ export async function addAlias(
 	);
 }
 
+// Removes `alias` from the multisig's alias set on chain.
+export async function removeAlias(
+	chain: Chain,
+	signing: MultisigSigning,
+	alias: string,
+) {
+	await runFromMultisig(chain, signing, (tx, account) =>
+		buildRemove(tx, { account, alias }),
+	);
+}
+
 // Replaces the multisig's own address in its alias set with `alias`, on chain.
 export async function replaceOwnAlias(
 	chain: Chain,
@@ -294,8 +305,10 @@ export async function replaceOwnAlias(
 	alias: string,
 ) {
 	await addAlias(chain, signing, alias);
-	await runFromMultisig(chain, signing, (tx, account) =>
-		buildRemove(tx, { account, alias: account }),
+	await removeAlias(
+		chain,
+		signing,
+		multisigAddressOf(signing.members, signing.threshold),
 	);
 }
 

@@ -7,6 +7,7 @@ import { expect, test } from '../support/fixtures';
 import { isInboxRead } from '../support/requests';
 import {
 	acceptInvitation,
+	addAlias,
 	setupMultisig,
 	signInViaApi,
 } from '../support/scenarios';
@@ -532,5 +533,74 @@ test.describe('invitations', () => {
 		await expect(
 			bob.page.getByTestId('nav-invitations-count'),
 		).toHaveText('1');
+	});
+
+	test('a member of a signer set added to a pod is invited to it and accepts', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = createIdentity('bob');
+		const carol = await createActor('carol');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			name: 'Treasury',
+		});
+		// Carol's own pod, whose signer set the pod then adds.
+		const recovery = await setupMultisig({
+			creator: carol,
+			members: [createIdentity('dave')],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await addAlias(
+			chain,
+			{
+				members: [{ identity: alice }, { identity: bob }],
+				threshold: 2,
+				signers: [alice, bob],
+			},
+			recovery.address,
+		);
+		// The API ties Carol to the pod once it reads the pod's alias set.
+		await alice.apiV1.getAccount(
+			multisig.address,
+			'localnet',
+		);
+
+		await carol.signIn();
+		const { page } = carol;
+		await expect(
+			page.getByTestId('nav-invitations-count'),
+		).toHaveText('1');
+		await page.getByTestId('nav-invitations').click();
+		await carol
+			.invitationCard(multisig.address)
+			.getByTestId('invitation-toggle-details')
+			.click();
+		await page
+			.getByTestId('accept-invitation-button')
+			.click();
+
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+		// The pod stays in her list once the list is read again.
+		await page.reload();
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+		await expect(
+			page.getByTestId('page-header-eyebrow'),
+		).toHaveText('Treasury');
 	});
 });

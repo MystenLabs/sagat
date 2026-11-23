@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	defaultExpiry,
+	PersonalMessages,
 	type AuthCheckResponse,
 	type PublicProposal,
 } from '@mysten/sagat';
@@ -52,6 +54,7 @@ import {
 	addAlias,
 	addProposer,
 	proposeTransfer,
+	removeAlias,
 	replaceOwnAlias,
 	setupMultisig,
 	setupProposal,
@@ -845,6 +848,87 @@ test.describe('proposal integrity', () => {
 			`/proposals?digest=${proposal.digest}`,
 		);
 		await expectRefused({ bob, votes }, 'notActing');
+	});
+
+	test('shows only the signer sets the node lists while the API still serves one it removed', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const carol = await createActor('carol');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		const recovery = await setupMultisig({
+			creator: carol,
+			members: [createIdentity('dave')],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await addAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		// Carol accepts through the added set.
+		const expiry = defaultExpiry();
+		await carol.apiV1.acceptAccountInvite(
+			multisig.address,
+			{
+				network: 'localnet',
+				signature: await carol.signMessage(
+					PersonalMessages.acceptAccountInvitation(
+						multisig.address,
+						expiry,
+					),
+				),
+				expiry,
+			},
+		);
+		// Read before the change, so the API serves its mirror for a minute.
+		await carol.apiV1.getAccount(
+			multisig.address,
+			'localnet',
+		);
+		await removeAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		// Within the minute the API keeps its mirror, it still says the set acts.
+		const served = await carol.apiV1.getAccount(
+			multisig.address,
+			'localnet',
+		);
+		expect(
+			served.signerSets.map((set) => set.address),
+		).toContain(recovery.address);
+
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		const cards = bob.page.getByTestId('signers-card');
+		await expect(cards).toHaveCount(1);
+		await expect(cards).toHaveAttribute(
+			'data-signer-set',
+			multisig.address,
+		);
+
+		await carol.signIn();
+		await carol.page.goto(
+			`/multisig/${multisig.address}/overview`,
+		);
+		const refusal = carol.page.getByTestId('pod-refused');
+		await expect(refusal).toBeVisible();
+		await expect(refusal).toHaveAttribute(
+			'data-rule',
+			'notActing',
+		);
 	});
 
 	test("shows that the pod's signers couldn't be checked while the node can't be read, until a retry reads it", async ({

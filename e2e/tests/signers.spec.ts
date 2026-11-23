@@ -17,7 +17,9 @@ import { docsUrl } from '../../app/src/lib/docs';
 import { randomAddress } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
+import { type Identity } from '../support/identity';
 import {
+	addAlias,
 	addProposer,
 	proposeTransfer,
 	setupMultisig,
@@ -25,6 +27,15 @@ import {
 	signProposal,
 } from '../support/scenarios';
 import { mintTestCoin } from '../support/test-coin';
+
+/** The signing for an alias change of a 2-of-2 pod of `a` and `b`. */
+function bothSign(a: Identity, b: Identity) {
+	return {
+		members: [{ identity: a }, { identity: b }],
+		threshold: 2,
+		signers: [a, b],
+	};
+}
 
 test.describe('overview and signers', () => {
 	test('show the setup, each key by its label and weight, and who created it', async ({
@@ -790,6 +801,235 @@ test.describe('overview and signers', () => {
 			await expect(
 				alice.proposalRow(pending.digest),
 			).toBeVisible();
+		});
+	});
+
+	test('show every signer set that acts, named after a pod only for its own signers', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = await createActor('bob');
+		const carol = createIdentity('carol');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			name: 'Treasury',
+			labels: ['Alice', 'Bob'],
+		});
+		// A composition the API holds: a pod of Alice's and Carol's.
+		const recovery = await setupMultisig({
+			creator: alice,
+			members: [carol],
+			threshold: 2,
+			name: 'Recovery',
+			labels: ['Alice', 'Carol'],
+		});
+		await chain.fund(multisig.address);
+		// Before the pod's first /v1 read, so the API sees it at once.
+		await addAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		const card = (
+			page: typeof alice.page,
+			address: string,
+		) =>
+			page.locator(
+				`[data-testid="signers-card"][data-signer-set="${address}"]`,
+			);
+		const member = (
+			cardLocator: ReturnType<typeof card>,
+			address: string,
+		) =>
+			cardLocator.locator(
+				`[data-testid="member-item"][data-address="${address}"]`,
+			);
+
+		await test.step('a signer of both sees both, the other one named after her pod', async () => {
+			await alice.signIn();
+			const { page } = alice;
+			await page.goto(
+				`/multisig/${multisig.address}/signers`,
+			);
+			await expect(
+				page.getByTestId('signers-card'),
+			).toHaveCount(2);
+			const own = card(page, multisig.address);
+			await expect(
+				member(own, alice.address),
+			).toBeVisible();
+			await expect(member(own, bob.address)).toBeVisible();
+			// The pod's own set needs no address or name.
+			await expect(
+				own.getByTestId('signer-set-address'),
+			).toHaveCount(0);
+
+			const added = card(page, recovery.address);
+			await expect(
+				member(added, alice.address),
+			).toBeVisible();
+			await expect(
+				member(added, carol.address),
+			).toBeVisible();
+			await expect(
+				added.getByTestId('signer-set-address'),
+			).toHaveText(recovery.address);
+			await expect(
+				added.getByTestId('signer-set-pod-name'),
+			).toHaveText('Recovery');
+			await expect(
+				page.getByTestId('other-signer-sets'),
+			).toHaveCount(0);
+			await expect(
+				page.getByTestId('setup-network'),
+			).toHaveText('Localnet');
+
+			await added.getByTestId('open-pod-link').click();
+			await expect(
+				page.getByTestId('multisig-detail'),
+			).toHaveAttribute(
+				'data-multisig-address',
+				recovery.address,
+			);
+		});
+
+		await test.step('a signer of the pod alone sees the other set by its address', async () => {
+			await bob.signIn();
+			const { page } = bob;
+			await page.goto(
+				`/multisig/${multisig.address}/signers`,
+			);
+			// The set he signs in comes first.
+			await expect(
+				page.getByTestId('signers-card').first(),
+			).toHaveAttribute(
+				'data-signer-set',
+				multisig.address,
+			);
+			const added = card(page, recovery.address);
+			await expect(
+				member(added, carol.address),
+			).toBeVisible();
+			await expect(
+				added.getByTestId('signer-set-address'),
+			).toHaveText(recovery.address);
+			await expect(
+				added.getByTestId('signer-set-pod-name'),
+			).toHaveCount(0);
+			await expect(
+				added.getByTestId('open-pod-link'),
+			).toHaveCount(0);
+		});
+	});
+
+	test('list the aliases no signer set makes up under other signer sets', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		const recovery = await setupMultisig({
+			creator: alice,
+			members: [
+				createIdentity('carol'),
+				createIdentity('dave'),
+			],
+			threshold: 2,
+			name: 'Treasury Recovery',
+		});
+		await chain.fund(multisig.address);
+		const stranger = randomAddress();
+		await addAlias(chain, bothSign(alice, bob), stranger);
+
+		const { page } = alice;
+		// The first /v1 read has the API keep this alias set for a minute.
+		const listed = page.waitForResponse(
+			(response) =>
+				new URL(response.url()).pathname.endsWith(
+					'/v1/accounts',
+				) && response.ok(),
+		);
+		await alice.signIn();
+		await listed;
+		await page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+
+		const card = page.getByTestId('other-signer-sets');
+		const toggle = card.getByTestId(
+			'other-signer-sets-toggle',
+		);
+		const rows = card.getByTestId('other-signer-set');
+
+		await test.step('an address nobody knows, collapsed under a count', async () => {
+			await expect(
+				card.getByTestId('other-signer-sets-count'),
+			).toHaveText('1');
+			await expect(toggle).toHaveAttribute(
+				'aria-expanded',
+				'false',
+			);
+			await expect(rows).toHaveCount(0);
+
+			await toggle.click();
+			await expect(card).toContainText(
+				'This address has other signer sets. Each one can approve transactions from this address on Localnet on its own, without this pod’s signers.',
+			);
+			await expect(rows).toHaveCount(1);
+			await expect(rows).toHaveAttribute(
+				'data-address',
+				stranger,
+			);
+			await expect(
+				rows.getByTestId('signer-set-address'),
+			).toHaveText(stranger);
+			await expect(rows).toContainText(
+				'Added outside Pods',
+			);
+			await expect(rows).toContainText('No details');
+		});
+
+		await test.step('a pod of hers the API doesn’t list as acting yet', async () => {
+			await addAlias(
+				chain,
+				bothSign(alice, bob),
+				recovery.address,
+			);
+			await page.reload();
+			await expect(
+				page.getByTestId('signers-card'),
+			).toHaveCount(1);
+			await expect(
+				card.getByTestId('other-signer-sets-count'),
+			).toHaveText('2');
+			await toggle.click();
+			const row = rows.and(
+				page.locator(
+					`[data-address="${recovery.address}"]`,
+				),
+			);
+			await expect(
+				row.getByTestId('other-signer-set-name'),
+			).toHaveText('Treasury Recovery');
+			await expect(row).toContainText('Created in Pods');
+			await expect(row).toContainText('3 signers');
+			await expect(row).toContainText('Threshold 2 of 3');
+			await expect(
+				row.getByTestId('open-pod-link'),
+			).toHaveAttribute(
+				'href',
+				`/multisig/${recovery.address}/overview`,
+			);
 		});
 	});
 });
