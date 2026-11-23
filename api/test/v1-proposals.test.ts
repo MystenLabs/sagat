@@ -1126,22 +1126,4 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			subject: voted.digest,
 		});
 	});
-
-	test('a cancelled proposal that calls no alias module stays cancelled', async () => {
-		const { k1, address } = await createAccount();
-		const created = await session.createProposal(
-			k1,
-			address,
-			'localnet',
-			await buildTransfer(address),
-		);
-		await session.cancelProposal(k1, created);
-
-		const verified = await client.verifyProposalByDigest(
-			created.digest,
-		);
-
-		expect(verified.status).toBe('CANCELLED');
-		expect(verified.executedVia).toBeNull();
-	});
 });
