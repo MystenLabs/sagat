@@ -247,12 +247,31 @@ describe('legacy routes under alias mirror rows', () => {
 			change,
 		} = await setup();
 
+		const cancelled = await proposeTransfer(
+			session,
+			k1,
+			account,
+		);
+		await session.legacyCancel(k1, cancelled, account);
+
 		// Executed before the change; verified after it.
 		const proposal = await proposeTransfer(
 			session,
 			k1,
 			account,
 		);
+		expect(
+			(
+				await session.client.getProposals(
+					account,
+					'localnet',
+					{},
+				)
+			).data.map((p) => [p.id, p.status]),
+		).toEqual([
+			[proposal.id, ProposalStatus.PENDING],
+			[cancelled.id, ProposalStatus.CANCELLED],
+		]);
 		expect(await session.legacyVote(k2, proposal)).toEqual({
 			hasReachedThreshold: true,
 			currentWeight: 2,
