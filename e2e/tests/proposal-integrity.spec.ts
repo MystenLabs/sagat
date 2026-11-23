@@ -3,9 +3,14 @@
 
 import {
 	type AuthCheckResponse,
-	type MultisigWithMembers,
 	type PublicProposal,
 } from '@mysten/sagat';
+import {
+	type Account,
+	type AccountDetails,
+	type AccountList,
+	type InvitationList,
+} from '@mysten/sagat/v1';
 import {
 	Transaction,
 	TransactionDataBuilder,
@@ -511,48 +516,46 @@ test.describe('proposal integrity', () => {
 			{ createActor, createIdentity, chain },
 			2,
 		);
-		const tamper = (account: MultisigWithMembers) =>
+		// Only the original set changes; the acting set stays as served.
+		const tamper = <A extends Account>(account: A): A =>
 			account.address === multisig.address
 				? {
 						...account,
-						members: account.members.map((m) =>
-							m.publicKey === bob.publicKey
-								? { ...m, weight: 2 }
-								: m,
-						),
+						originalSignerSet: {
+							...account.originalSignerSet,
+							members:
+								account.originalSignerSet.members.map(
+									(m) =>
+										m.publicKey === bob.publicKey
+											? { ...m, weight: 2 }
+											: m,
+								),
+						},
 					}
 				: account;
 		// The wizard reads the signers from both the account list and the account.
 		await alice.page.route(
-			`${E2E.apiUrl}/addresses/connections`,
+			`${E2E.apiUrl}/v1/accounts?*`,
 			async (route) => {
 				const response = await route.fetch();
-				const connections =
-					(await response.json()) as Record<
-						string,
-						MultisigWithMembers[]
-					>;
+				const list = (await response.json()) as AccountList;
 				await route.fulfill({
 					response,
-					json: Object.fromEntries(
-						Object.entries(connections).map(
-							([publicKey, accounts]) => [
-								publicKey,
-								accounts.map(tamper),
-							],
-						),
-					),
+					json: {
+						...list,
+						accounts: list.accounts.map(tamper),
+					},
 				});
 			},
 		);
 		await alice.page.route(
-			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			`${E2E.apiUrl}/v1/accounts/${multisig.address}?*`,
 			async (route) => {
 				const response = await route.fetch();
 				await route.fulfill({
 					response,
 					json: tamper(
-						(await response.json()) as MultisigWithMembers,
+						(await response.json()) as AccountDetails,
 					),
 				});
 			},
@@ -590,28 +593,20 @@ test.describe('proposal integrity', () => {
 		);
 		const listed = randomAddress();
 		await alice.page.route(
-			`${E2E.apiUrl}/addresses/connections`,
+			`${E2E.apiUrl}/v1/accounts?*`,
 			async (route) => {
 				const response = await route.fetch();
-				const connections =
-					(await response.json()) as Record<
-						string,
-						MultisigWithMembers[]
-					>;
+				const list = (await response.json()) as AccountList;
 				await route.fulfill({
 					response,
-					json: Object.fromEntries(
-						Object.entries(connections).map(
-							([publicKey, accounts]) => [
-								publicKey,
-								accounts.map((account) =>
-									account.address === multisig.address
-										? { ...account, address: listed }
-										: account,
-								),
-							],
+					json: {
+						...list,
+						accounts: list.accounts.map((account) =>
+							account.address === multisig.address
+								? { ...account, address: listed }
+								: account,
 						),
-					),
+					},
 				});
 			},
 		);
@@ -659,18 +654,21 @@ test.describe('proposal integrity', () => {
 		});
 		const listed = randomAddress();
 		await bob.page.route(
-			`${E2E.apiUrl}/addresses/invitations/**`,
+			`${E2E.apiUrl}/v1/invitations?*`,
 			async (route) => {
 				const response = await route.fetch();
-				const invitations =
-					(await response.json()) as MultisigWithMembers[];
+				const list =
+					(await response.json()) as InvitationList;
 				await route.fulfill({
 					response,
-					json: invitations.map((account) =>
-						account.address === multisig.address
-							? { ...account, address: listed }
-							: account,
-					),
+					json: {
+						...list,
+						invitations: list.invitations.map((account) =>
+							account.address === multisig.address
+								? { ...account, address: listed }
+								: account,
+						),
+					},
 				});
 			},
 		);
@@ -754,20 +752,25 @@ test.describe('proposal integrity', () => {
 		const carol = createIdentity('carol');
 		// Only the pod's own response changes; the pod list stays honest.
 		await alice.page.route(
-			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			`${E2E.apiUrl}/v1/accounts/${multisig.address}?*`,
 			async (route) => {
 				const response = await route.fetch();
 				const account =
-					(await response.json()) as MultisigWithMembers;
+					(await response.json()) as AccountDetails;
 				await route.fulfill({
 					response,
 					json: {
 						...account,
-						members: account.members.map((m) =>
-							m.publicKey === bob.publicKey
-								? { ...m, publicKey: carol.publicKey }
-								: m,
-						),
+						originalSignerSet: {
+							...account.originalSignerSet,
+							members:
+								account.originalSignerSet.members.map(
+									(m) =>
+										m.publicKey === bob.publicKey
+											? { ...m, publicKey: carol.publicKey }
+											: m,
+								),
+						},
 					},
 				});
 			},
@@ -803,13 +806,21 @@ test.describe('proposal integrity', () => {
 				createIdentity,
 				chain,
 			});
+		const votes = recordVotes(bob.page);
+		// Read before the change, so the API serves its unchanged mirror for a minute.
+		const listed = bob.page.waitForResponse(
+			(response) =>
+				new URL(response.url()).pathname.endsWith(
+					'/v1/accounts',
+				) && response.ok(),
+		);
+		await bob.signIn();
+		await listed;
 		await replaceOwnAlias(
 			chain,
 			bothSign(alice, bob),
 			randomAddress(),
 		);
-		const votes = recordVotes(bob.page);
-		await bob.signIn();
 
 		await bob.page.goto(
 			`/multisig/${multisig.address}/overview`,
@@ -995,7 +1006,7 @@ test.describe('proposal integrity', () => {
 		bob.page.on('request', (request) => {
 			if (
 				request.method() === 'POST' &&
-				request.url().endsWith('/accept')
+				new URL(request.url()).pathname.endsWith('/accept')
 			)
 				accepts.push(request.url());
 		});
@@ -1021,7 +1032,7 @@ test.describe('proposal integrity', () => {
 
 		const waitForSavingsInbox = () =>
 			bob.page.waitForResponse((response) =>
-				isInboxRead(response, savings.publicKey),
+				isInboxRead(response),
 			);
 		const inboxLoaded = waitForSavingsInbox();
 		// From the wallet side, the way an extension's account picker would.

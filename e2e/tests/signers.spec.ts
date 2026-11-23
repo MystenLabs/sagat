@@ -1,10 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	PersonalMessages,
-	type MultisigWithMembers,
-} from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat';
+import { type AccountDetails } from '@mysten/sagat/v1';
 import {
 	formatAddress,
 	formatDigest,
@@ -429,11 +427,11 @@ test.describe('overview and signers', () => {
 		// Hides the first recorded event, as for a proposer added before events were kept.
 		let hidden: number | undefined;
 		await alice.page.route(
-			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			`${E2E.apiUrl}/v1/accounts/${multisig.address}?*`,
 			async (route) => {
 				const response = await route.fetch();
 				const account =
-					(await response.json()) as MultisigWithMembers;
+					(await response.json()) as AccountDetails;
 				await route.fulfill({
 					response,
 					json: {
@@ -520,11 +518,11 @@ test.describe('overview and signers', () => {
 
 		// Flips a byte of the recorded signature, after the scheme flag.
 		await alice.page.route(
-			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			`${E2E.apiUrl}/v1/accounts/${multisig.address}?*`,
 			async (route) => {
 				const response = await route.fetch();
 				const account =
-					(await response.json()) as MultisigWithMembers;
+					(await response.json()) as AccountDetails;
 				await route.fulfill({
 					response,
 					json: {

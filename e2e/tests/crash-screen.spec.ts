@@ -1,11 +1,16 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { MIST_PER_SUI } from '@mysten/sui/utils';
 import type { Page } from '@playwright/test';
 
+import { randomAddress } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
-import { setupMultisig } from '../support/scenarios';
+import {
+	proposeTransfer,
+	setupMultisig,
+} from '../support/scenarios';
 
 // Rewrites a real API response into data the app can't render.
 async function corrupt<T>(
@@ -22,37 +27,48 @@ async function corrupt<T>(
 	});
 }
 
-type Member = { label: unknown };
-type Account = { name: unknown; members: Member[] };
+type Proposals = { data: { description: unknown }[] };
 
 test.describe('crash screens', () => {
 	test('a page that fails to render shows a crash screen inside the shell, and recovers', async ({
 		createActor,
 		createIdentity,
+		chain,
 	}) => {
 		const alice = await createActor('alice');
 		const bob = createIdentity('bob');
 		const multisig = await setupMultisig({
 			creator: alice,
 			members: [bob],
-			threshold: 1,
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		// Bob's, so it waits on Alice's signature under To sign.
+		await proposeTransfer(chain, bob, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
 		});
 		const { page } = alice;
 		await alice.signIn();
 
-		// Only the signers tab renders this response's member labels.
-		const detailsUrl = `${E2E.apiUrl}/multisig/${multisig.address}`;
-		await corrupt<Account>(page, detailsUrl, (body) => ({
-			...body,
-			members: body.members.map((member) => ({
-				...member,
-				label: { broken: true },
-			})),
-		}));
+		// The proposals list renders this response's descriptions.
+		const proposalsUrl = `${E2E.apiUrl}/proposals?*`;
+		await corrupt<Proposals>(
+			page,
+			proposalsUrl,
+			(body) => ({
+				...body,
+				data: body.data.map((proposal) => ({
+					...proposal,
+					description: { broken: true },
+				})),
+			}),
+		);
 
 		const crashed = page.getByTestId('page-crashed');
 		await page.goto(
-			`/multisig/${multisig.address}/signers`,
+			`/multisig/${multisig.address}/proposals`,
 		);
 		await expect(crashed).toBeVisible();
 		await expect(
@@ -66,14 +82,16 @@ test.describe('crash screens', () => {
 		).toBeVisible();
 		await expect(crashed).toBeHidden();
 
-		await page.getByTestId('multisig-tab-signers').click();
+		await page
+			.getByTestId('multisig-tab-proposals')
+			.click();
 		await expect(crashed).toBeVisible();
 
 		// Once the data is good again, retrying renders the page.
-		await page.unroute(detailsUrl);
+		await page.unroute(proposalsUrl);
 		await page.getByTestId('page-crashed-retry').click();
 		await expect(
-			page.getByTestId('signers-card'),
+			page.getByTestId('proposal-row'),
 		).toBeVisible();
 		await expect(crashed).toBeHidden();
 	});
@@ -92,28 +110,18 @@ test.describe('crash screens', () => {
 		const { page } = alice;
 		await alice.signIn();
 
-		// The sidebar's account switcher renders these names.
-		const connectionsUrl = `${E2E.apiUrl}/addresses/connections`;
-		await corrupt<Record<string, Account[]>>(
-			page,
-			connectionsUrl,
-			(body) =>
-				Object.fromEntries(
-					Object.entries(body).map(([key, accounts]) => [
-						key,
-						accounts.map((account) => ({
-							...account,
-							name: { broken: true },
-						})),
-					]),
-				),
-		);
+		// The shell reads the session's addresses from this response.
+		const authUrl = `${E2E.apiUrl}/auth/check`;
+		await corrupt<object>(page, authUrl, (body) => ({
+			...body,
+			addresses: { broken: true },
+		}));
 
 		const crashed = page.getByTestId('app-crashed');
 		await page.reload();
 		await expect(crashed).toBeVisible();
 
-		await page.unroute(connectionsUrl);
+		await page.unroute(authUrl);
 		await page.getByTestId('app-crashed-reload').click();
 		await expect(
 			page.getByTestId('multisig-switcher'),

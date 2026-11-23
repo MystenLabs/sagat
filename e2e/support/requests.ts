@@ -37,19 +37,14 @@ export async function routeAliasReads(
 	return () => page.unroute(BATCH_GET_OBJECTS, handler);
 }
 
-/** Whether `response` is a load of `publicKey`'s invitations inbox. */
-export function isInboxRead(
-	response: Response,
-	publicKey: string,
-) {
+/** Whether `response` is a load of the invitations inbox; one load covers every key of the session. */
+export function isInboxRead(response: Response) {
 	const { pathname, searchParams } = new URL(
 		response.url(),
 	);
 	return (
 		response.request().method() === 'GET' &&
-		pathname.endsWith(
-			`/addresses/invitations/${encodeURIComponent(publicKey)}`,
-		) &&
+		pathname.endsWith('/v1/invitations') &&
 		!searchParams.has('showRejected')
 	);
 }

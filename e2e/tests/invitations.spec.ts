@@ -183,7 +183,7 @@ test.describe('invitations', () => {
 				paths.push(new URL(frame.url()).pathname);
 		});
 		// The account list refresh fails; the accept call still goes through.
-		const accountList = '**/addresses/connections**';
+		const accountList = '**/v1/accounts?*';
 		await bob.page.route(accountList, (route) =>
 			route.abort(),
 		);
@@ -337,7 +337,7 @@ test.describe('invitations', () => {
 			release = resolve;
 		});
 		await bob.page.route(
-			'**/multisig/*/accept',
+			'**/v1/accounts/*/accept?*',
 			async (route) => {
 				await held;
 				await route.continue();
@@ -359,7 +359,7 @@ test.describe('invitations', () => {
 			);
 		const waitForSavingsInbox = () =>
 			bob.page.waitForResponse((response) =>
-				isInboxRead(response, savings.publicKey),
+				isInboxRead(response),
 			);
 		const inboxLoaded = waitForSavingsInbox();
 		await selectInWallet(savings.address);
@@ -377,7 +377,7 @@ test.describe('invitations', () => {
 		// From here only the accept's onSuccess refetches savings' inbox, and
 		// it does so before it decides whether to navigate.
 		const accepted = bob.page.waitForResponse(
-			'**/multisig/*/accept',
+			'**/v1/accounts/*/accept?*',
 		);
 		const refreshed = waitForSavingsInbox();
 		release();
@@ -425,7 +425,7 @@ test.describe('invitations', () => {
 			release = resolve;
 		});
 		await bob.page.route(
-			'**/multisig/*/reject',
+			'**/v1/accounts/*/reject?*',
 			async (route) => {
 				await held;
 				await route.continue();
@@ -514,7 +514,7 @@ test.describe('invitations', () => {
 		// A fake clock skips the wait for the next poll.
 		await bob.installFakeClock();
 		const firstLoad = bob.page.waitForResponse((response) =>
-			response.url().includes('/addresses/invitations/'),
+			response.url().includes('/v1/invitations?'),
 		);
 		await bob.signIn();
 		await firstLoad;
