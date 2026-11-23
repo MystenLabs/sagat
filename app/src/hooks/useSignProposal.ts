@@ -43,8 +43,8 @@ import { writeProposal } from './useGetProposal';
 
 interface SignProposalParams {
 	proposal: Proposal;
-	/** The pod from the app's own account read. */
-	pod: IntegrityPod;
+	/** The pod from the app's own account read; null from the proposal's link. */
+	pod: IntegrityPod | null;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 }
@@ -90,7 +90,7 @@ export function useSignProposal() {
 				queryClient,
 				dappKit.getClient(network),
 				network,
-				pod.address,
+				pod?.address ?? proposal.accountAddress,
 			);
 			const onNetwork = checkSignerOnNetwork({
 				shown: proposal.signerSets,

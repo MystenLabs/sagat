@@ -52,7 +52,9 @@ export interface IntegrityPod {
 
 /**
  * Whether `signerAddress` may sign the proposal's bytes for `pod`, or
- * the first check it failed. `openedDigest` is the digest the viewer
+ * the first check it failed. Without a pod (a proposal opened from its
+ * link), the account is the proposal's and rule 1 runs on its listed set
+ * that makes up that address. `openedDigest` is the digest the viewer
  * opened, from the page's URL, not from the response.
  */
 export function checkProposalIntegrity(
@@ -62,7 +64,7 @@ export function checkProposalIntegrity(
 		openedDigest,
 		signerAddress,
 	}: {
-		pod: IntegrityPod;
+		pod: IntegrityPod | null;
 		openedDigest: string;
 		signerAddress: string;
 	},
@@ -74,7 +76,7 @@ export function checkProposalIntegrity(
 		return 'unreadable';
 	}
 
-	const account = pod.address;
+	const account = pod?.address ?? proposal.accountAddress;
 	if (!sameAddress(proposal.accountAddress, account))
 		return 'sender';
 	const { sender, gasData } = read.transaction;
@@ -92,11 +94,14 @@ export function checkProposalIntegrity(
 	)
 		return 'digest';
 
+	const original =
+		pod?.originalSignerSet ??
+		proposal.signerSets.find((set) =>
+			rebuildAccount(set, account),
+		);
+	if (!original) return 'signers';
 	const signers = checkAccountSigners(
-		{
-			original: pod.originalSignerSet,
-			shown: proposal.signerSets,
-		},
+		{ original, shown: proposal.signerSets },
 		{ account, signerAddress },
 	);
 	return signers.kind === 'ok' ? null : signers.kind;

@@ -428,6 +428,51 @@ test('refuses to sign when the pod’s original set doesn’t make up its addres
 	expect(sign(other.multisig)).toBe('signers');
 });
 
+test('without a pod, the listed set that makes up the proposal’s address passes rule 1', async () => {
+	const { keys, address, multisig } = oneOfTwoAccount();
+	const { transactionBytes, digest } =
+		await transferFrom(address);
+
+	expect(
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress: address,
+				signerSets: [signerSet(multisig)],
+			},
+			{
+				pod: null,
+				openedDigest: digest,
+				signerAddress: keys[0].toSuiAddress(),
+			},
+		),
+	).toBeNull();
+});
+
+test('without a pod and no listed set that makes up the proposal’s address, signing is refused', async () => {
+	const { address } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+	const { transactionBytes, digest } =
+		await transferFrom(address);
+
+	expect(
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress: address,
+				signerSets: [signerSet(other.multisig)],
+			},
+			{
+				pod: null,
+				openedDigest: digest,
+				signerAddress: other.keys[0].toSuiAddress(),
+			},
+		),
+	).toBe('signers');
+});
+
 test('refuses a proposal the API names for another pod', async () => {
 	const { keys, address, multisig } = oneOfTwoAccount();
 	const other = oneOfTwoAccount();

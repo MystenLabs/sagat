@@ -106,7 +106,7 @@ export function ApprovalsCard({
 	canCancel: cancelAllowed,
 }: {
 	proposal: CountedProposal;
-	/** The pod from the viewer's own account read; Sign needs it. */
+	/** The pod from the viewer's own account read; null on the shared page. */
 	pod: IntegrityPod | null;
 	/** The pod's alias set on the proposal's network, undefined until read. */
 	aliases: AliasRead | undefined;
@@ -171,7 +171,7 @@ export function ApprovalsCard({
 		});
 	};
 	const rechecking = recheck.isPending;
-	const canAct = viewer === 'member' && pod !== null;
+	const canAct = viewer === 'member';
 	const shownSet = shownSignerSet(
 		proposal.checkedSignerSets,
 	);
@@ -207,7 +207,7 @@ export function ApprovalsCard({
 	});
 	const integrity = useMemo(
 		() =>
-			canAct && walletAddress && pod
+			canAct && walletAddress
 				? checkProposalIntegrity(proposal, {
 						pod,
 						openedDigest,
@@ -292,7 +292,6 @@ export function ApprovalsCard({
 	});
 
 	const onSign = () => {
-		if (!pod) return;
 		sign.mutate(
 			{ proposal, pod, openedDigest },
 			{

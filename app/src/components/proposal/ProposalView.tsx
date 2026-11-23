@@ -99,7 +99,7 @@ export function ProposalView({
 	canCancel,
 }: {
 	proposal: Proposal;
-	/** The pod from the viewer's own account read; null on the shared page, which never offers Sign. */
+	/** The pod from the viewer's own account read; null on the shared page. */
 	pod: IntegrityPod | null;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
@@ -142,8 +142,8 @@ export function ProposalView({
 	const open = status === 'pending' || status === 'ready';
 
 	// The connected wallet is in one of the proposal's signer sets, which
-	// Sign then checks. Signing needs the pod and the wallet; the network
-	// has to be the proposal's.
+	// Sign then checks. Signing needs only the wallet; the network has to
+	// be the proposal's.
 	const member = wallet
 		? proposal.signerSets
 				.flatMap((set) => set.members)
@@ -153,12 +153,11 @@ export function ProposalView({
 						wallet.address,
 				)
 		: undefined;
-	const viewer =
-		!member || !pod
-			? 'outsider'
-			: mismatch
-				? 'elsewhere'
-				: 'member';
+	const viewer = !member
+		? 'outsider'
+		: mismatch
+			? 'elsewhere'
+			: 'member';
 
 	const expiry = useExpiry(proposal.transactionBytes);
 	const knownExpired = !mismatch && !!expiry?.expired;
