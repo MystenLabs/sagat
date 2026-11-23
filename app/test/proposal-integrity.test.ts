@@ -406,94 +406,57 @@ test('bytes naming another chain are refused even when the alias set is unread',
 	).toBe('chain');
 });
 
-test('refuses to sign when the pod’s original set doesn’t make up its address, though a listed set holds the key', async () => {
+test('under a pod, refuses a proposal named for another pod or whose original set doesn’t make up its address, though a listed set holds the key', async () => {
 	const { keys, address, multisig } = oneOfTwoAccount();
 	const other = oneOfTwoAccount();
 	const { transactionBytes, digest } =
 		await transferFrom(address);
-	const proposal = {
-		transactionBytes,
-		digest,
-		accountAddress: address,
-		signerSets: [signerSet(multisig)],
-	};
-	const sign = (originalSignerSet: typeof multisig) =>
-		checkProposalIntegrity(proposal, {
-			pod: { address, originalSignerSet },
-			openedDigest: digest,
-			signerAddress: keys[0].toSuiAddress(),
-		});
+	const sign = (
+		originalSignerSet = multisig,
+		accountAddress = address,
+	) =>
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress,
+				signerSets: [signerSet(multisig)],
+			},
+			{
+				pod: { address, originalSignerSet },
+				openedDigest: digest,
+				signerAddress: keys[0].toSuiAddress(),
+			},
+		);
 
-	expect(sign(multisig)).toBeNull();
+	expect(sign()).toBeNull();
 	expect(sign(other.multisig)).toBe('signers');
+	expect(sign(multisig, other.address)).toBe('sender');
 });
 
-test('without a pod, the listed set that makes up the proposal’s address passes rule 1', async () => {
-	const { keys, address, multisig } = oneOfTwoAccount();
-	const { transactionBytes, digest } =
-		await transferFrom(address);
-
-	expect(
+test('without a pod, rule 1 runs on the listed set that makes up the proposal’s address, and none refuses signing', async () => {
+	const account = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+	const { transactionBytes, digest } = await transferFrom(
+		account.address,
+	);
+	const sign = (listed: typeof account) =>
 		checkProposalIntegrity(
 			{
 				transactionBytes,
 				digest,
-				accountAddress: address,
-				signerSets: [signerSet(multisig)],
+				accountAddress: account.address,
+				signerSets: [signerSet(listed.multisig)],
 			},
 			{
 				pod: null,
 				openedDigest: digest,
-				signerAddress: keys[0].toSuiAddress(),
+				signerAddress: listed.keys[0].toSuiAddress(),
 			},
-		),
-	).toBeNull();
-});
+		);
 
-test('without a pod and no listed set that makes up the proposal’s address, signing is refused', async () => {
-	const { address } = oneOfTwoAccount();
-	const other = oneOfTwoAccount();
-	const { transactionBytes, digest } =
-		await transferFrom(address);
-
-	expect(
-		checkProposalIntegrity(
-			{
-				transactionBytes,
-				digest,
-				accountAddress: address,
-				signerSets: [signerSet(other.multisig)],
-			},
-			{
-				pod: null,
-				openedDigest: digest,
-				signerAddress: other.keys[0].toSuiAddress(),
-			},
-		),
-	).toBe('signers');
-});
-
-test('refuses a proposal the API names for another pod', async () => {
-	const { keys, address, multisig } = oneOfTwoAccount();
-	const other = oneOfTwoAccount();
-	const { transactionBytes, digest } =
-		await transferFrom(address);
-
-	expect(
-		checkProposalIntegrity(
-			{
-				transactionBytes,
-				digest,
-				accountAddress: other.address,
-				signerSets: [signerSet(multisig)],
-			},
-			{
-				pod: { address, originalSignerSet: multisig },
-				openedDigest: digest,
-				signerAddress: keys[0].toSuiAddress(),
-			},
-		),
-	).toBe('sender');
+	expect(sign(account)).toBeNull();
+	expect(sign(other)).toBe('signers');
 });
 
 test('counts every listed set that is an alias once the alias set is read, and only the set that makes up the address while it is unread or failed', () => {
