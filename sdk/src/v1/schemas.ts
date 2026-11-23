@@ -115,6 +115,30 @@ export type ProposalEvents = z.infer<
 	typeof ProposalEventsSchema
 >;
 
+// The same meaning on an account and on a proposal.
+const signerSetsStale = z.boolean().meta({
+	description:
+		'True when the alias set could not be read from the chain, so the signer sets are as last read.',
+});
+
+export const AliasCallSchema = z
+	.object({
+		function: z.string().meta({
+			description:
+				'The `0x2::address_alias` function, as named in the transaction: `enable`, `add`, `remove` or `replace_all`.',
+		}),
+		aliases: z.array(SuiAddressSchema).nullable().meta({
+			description:
+				'The addresses the call passes: none for `enable`, one for `add` and `remove`, the new set for `replace_all`. Null when the argument is not a pure input that decodes.',
+		}),
+	})
+	.meta({
+		id: 'AliasCall',
+		description:
+			'A top-level call to `0x2::address_alias` in the transaction.',
+	});
+export type AliasCall = z.infer<typeof AliasCallSchema>;
+
 export const ProposalSchema = z
 	.object({
 		id: z.number().int(),
@@ -137,6 +161,15 @@ export const ProposalSchema = z
 				"The signer sets that act for the account on the proposal's network.",
 		}),
 		events: ProposalEventsSchema,
+		executedVia: SuiAddressSchema.nullable().meta({
+			description:
+				'The address that signed for the account when the proposal was executed, recorded when it is verified. Null until then, or when it could not be read.',
+		}),
+		aliasCalls: z.array(AliasCallSchema).meta({
+			description:
+				'The calls to `0x2::address_alias` in the transaction, in command order.',
+		}),
+		signerSetsStale,
 	})
 	.meta({ id: 'Proposal' });
 export type Proposal = z.infer<typeof ProposalSchema>;
@@ -210,10 +243,7 @@ const accountFields = {
 		description:
 			"One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network.",
 	}),
-	signerSetsStale: z.boolean().meta({
-		description:
-			'True when the alias set could not be read from the chain, so the signer sets are as last read.',
-	}),
+	signerSetsStale,
 };
 
 export const AccountSchema = z
@@ -353,4 +383,53 @@ export const AccountProposerRemovalSchema = z
 	});
 export type AccountProposerRemoval = z.infer<
 	typeof AccountProposerRemovalSchema
+>;
+
+export const CreateProposalRequestSchema = z
+	.object({
+		accountAddress: SuiAddressSchema,
+		transactionBytes: z.string().meta({
+			description:
+				'The transaction, fully resolved, as base64 BCS bytes.',
+		}),
+		signature: z.string().meta({
+			description:
+				"The proposer's signature over the transaction.",
+		}),
+		description: z.string().optional(),
+	})
+	.meta({ id: 'CreateProposalRequest' });
+export type CreateProposalRequest = z.infer<
+	typeof CreateProposalRequestSchema
+>;
+
+export const SignatureRequestSchema = z
+	.object({ signature: z.string() })
+	.meta({ id: 'SignatureRequest' });
+export type SignatureRequest = z.infer<
+	typeof SignatureRequestSchema
+>;
+
+export const ProposalStatusNameSchema = z
+	.enum(['PENDING', 'CANCELLED', 'SUCCESS', 'FAILURE'])
+	.meta({ id: 'ProposalStatusName' });
+export type ProposalStatusName = z.infer<
+	typeof ProposalStatusNameSchema
+>;
+
+export const ProposalListSchema = z
+	.object({
+		network: NetworkSchema,
+		accountAddress: SuiAddressSchema,
+		proposals: z.array(ProposalSchema),
+		hasNextPage: z.boolean(),
+		nextCursor: z.string().nullable().meta({
+			description:
+				'Pass as `nextCursor` for the next page. Null when the page is empty.',
+		}),
+		perPage: z.number().int(),
+	})
+	.meta({ id: 'ProposalList' });
+export type ProposalList = z.infer<
+	typeof ProposalListSchema
 >;

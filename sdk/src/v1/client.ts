@@ -16,11 +16,15 @@ import {
 	ErrorBodySchema,
 	InvitationAnswerSchema,
 	InvitationListSchema,
+	ProposalListSchema,
 	ProposalSchema,
 	SuccessSchema,
 	type AccountProposerRequest,
+	type CreateProposalRequest,
 	type InvitationAnswerRequest,
 	type Network,
+	type ProposalStatusName,
+	type SignatureRequest,
 } from './schemas.js';
 
 /** A 2xx response whose body does not match the route's schema. */
@@ -56,11 +60,83 @@ export class SagatV1Client {
 			options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 	}
 
+	/** Proposes a transaction, signed by an accepted key of an acting signer set or by a proposer of the account. */
+	createProposal({
+		network,
+		...body
+	}: CreateProposalRequest & { network: Network }) {
+		return this.#request(ProposalSchema, '/v1/proposals', {
+			method: 'POST',
+			query: { network },
+			body,
+		});
+	}
+
+	/** A page of an account's proposals on the network, newest first. */
+	getProposals({
+		accountAddress,
+		network,
+		status,
+		nextCursor,
+		perPage,
+	}: {
+		accountAddress: string;
+		network: Network;
+		status?: ProposalStatusName;
+		nextCursor?: string;
+		perPage?: number;
+	}) {
+		return this.#request(
+			ProposalListSchema,
+			'/v1/proposals',
+			{
+				query: {
+					accountAddress,
+					network,
+					...(status === undefined ? {} : { status }),
+					...(nextCursor === undefined
+						? {}
+						: { nextCursor }),
+					...(perPage === undefined
+						? {}
+						: { perPage: String(perPage) }),
+				},
+			},
+		);
+	}
+
 	/** A proposal by its transaction digest. */
 	getProposalByDigest(digest: string) {
 		return this.#request(
 			ProposalSchema,
 			`/v1/proposals/${encodeURIComponent(digest)}`,
+		);
+	}
+
+	/** Adds a signature over the proposal's transaction. */
+	voteForProposal(digest: string, body: SignatureRequest) {
+		return this.#request(
+			ProposalSchema,
+			`/v1/proposals/${encodeURIComponent(digest)}/vote`,
+			{ method: 'POST', body },
+		);
+	}
+
+	/** Cancels a proposal, signed with `PersonalMessages.cancelProposal`. */
+	cancelProposal(digest: string, body: SignatureRequest) {
+		return this.#request(
+			ProposalSchema,
+			`/v1/proposals/${encodeURIComponent(digest)}/cancel`,
+			{ method: 'POST', body },
+		);
+	}
+
+	/** Records the on-chain outcome of a proposal's transaction. */
+	verifyProposal(digest: string) {
+		return this.#request(
+			ProposalSchema,
+			`/v1/proposals/${encodeURIComponent(digest)}/verify`,
+			{ method: 'POST' },
 		);
 	}
 
