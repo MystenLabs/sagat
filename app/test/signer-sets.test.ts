@@ -75,6 +75,21 @@ test('puts the set the viewer signs in first, the rest in the given order', () =
 		other.address,
 		third.address,
 	]);
+
+	const own = signerSetCards({
+		acting: [viewers, original],
+		fresh: [],
+		account: original.address,
+		pods: [listed(original, 'Treasury')],
+		signerAddress: viewer.toSuiAddress(),
+	});
+
+	expect(
+		own.map(({ address, pod }) => ({ address, pod })),
+	).toEqual([
+		{ address: original.address, pod: null },
+		{ address: viewers.address, pod: null },
+	]);
 });
 
 test('a fresh read of a set that makes up the same address stands in for it', () => {
