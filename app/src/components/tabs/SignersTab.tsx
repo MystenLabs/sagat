@@ -316,10 +316,7 @@ function SignerSetLabel({ card }: { card: SignerSetCard }) {
 				<SignerSetAddress address={card.address} />
 			</div>
 			{card.pod && (
-				<OpenPodLink
-					address={card.pod.address}
-					className="-mr-2.5"
-				/>
+				<OpenPodLink address={card.pod.address} />
 			)}
 		</div>
 	);

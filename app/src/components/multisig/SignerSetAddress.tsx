@@ -36,18 +36,15 @@ export function SignerSetAddress({
 /** "Open pod", to a pod of the viewer's list. */
 export function OpenPodLink({
 	address,
-	className,
 }: {
 	address: string;
-	className?: string;
 }) {
 	return (
 		<Link
 			to={`/multisig/${address}/overview`}
 			className={cn(
 				buttonVariants({ variant: 'ghost', size: 'sm' }),
-				'gap-1',
-				className,
+				'gap-1 -mr-2.5',
 			)}
 			data-testid="open-pod-link"
 		>

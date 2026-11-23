@@ -132,10 +132,7 @@ export function OtherSignerSetsTable({
 											{pod.threshold}
 										</span>
 									</div>
-									<OpenPodLink
-										address={pod.address}
-										className="-mr-2.5"
-									/>
+									<OpenPodLink address={pod.address} />
 								</div>
 							) : (
 								<span className="text-muted-foreground">
