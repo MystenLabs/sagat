@@ -43,6 +43,14 @@ const labels: Labels = new Map(
 );
 const CREATED_AT = '2026-10-13T08:55:00.000Z';
 
+// The signers as a set's members, at their weights, in this order.
+const members = (signers: (typeof maya)[]) =>
+	signers.map((s, order) => ({
+		publicKey: s.publicKey,
+		weight: s.weight,
+		order,
+	}));
+
 // A pending proposal for a 2-of-4 account that Daniel proposed and
 // signed, counted against its one signer set; `signedBy` replaces its
 // signatures.
@@ -60,14 +68,7 @@ function proposal({
 		publicKey: s.publicKey,
 		signature: 'sig',
 	}));
-	const set = {
-		threshold,
-		members: SIGNERS.map((s, order) => ({
-			publicKey: s.publicKey,
-			weight: s.weight,
-			order,
-		})),
-	};
+	const set = { threshold, members: members(SIGNERS) };
 	return {
 		id: 1,
 		accountAddress: '0x1',
@@ -126,37 +127,33 @@ describe('approvalRows', () => {
 	});
 });
 
+// The proposal counted against each [address, threshold, signers] set.
+function counted(
+	signedBy: (typeof maya)[],
+	sets: [string, number, (typeof maya)[]][],
+): CountedProposal {
+	const counting = proposal({ signedBy });
+	counting.checkedSignerSets = countSignerSets(
+		counting,
+		sets.map(([address, threshold, signers]) => ({
+			address,
+			set: { threshold, members: members(signers) },
+		})),
+		null,
+	);
+	return counting;
+}
+
 describe('approvalsSignerSets', () => {
 	it('counts each set on its own and shows a shared key’s signature in both', () => {
-		const both = proposal({ signedBy: [maya] });
-		const second = {
-			threshold: 2,
-			members: [maya, daniel].map((s, order) => ({
-				publicKey: s.publicKey,
-				weight: s.weight,
-				order,
-			})),
-		};
-		both.checkedSignerSets = countSignerSets(
-			both,
-			[
-				{
-					set: {
-						threshold: 3,
-						members: SIGNERS.map((s, order) => ({
-							publicKey: s.publicKey,
-							weight: s.weight,
-							order,
-						})),
-					},
-					address: '0x1',
-				},
-				{ set: second, address: '0x2' },
-			],
-			null,
-		);
 		const sets = approvalsSignerSets(
-			both,
+			counted(
+				[maya],
+				[
+					['0x1', 3, SIGNERS],
+					['0x2', 2, [maya, daniel]],
+				],
+			),
 			'pending',
 			labels,
 			maya.publicKey,
@@ -196,168 +193,66 @@ describe('approvalsSignerSets', () => {
 	});
 });
 
-// The proposal counted against each set, its signers at weight, at its address.
-function counted(
-	signedBy: (typeof maya)[],
-	sets: {
-		address: string;
-		threshold: number;
-		signers: (typeof maya)[];
-	}[],
-): CountedProposal {
-	const counting = proposal({ signedBy });
-	counting.checkedSignerSets = countSignerSets(
-		counting,
-		sets.map(({ address, threshold, signers }) => ({
-			address,
-			set: {
-				threshold,
-				members: signers.map((s, order) => ({
-					publicKey: s.publicKey,
-					weight: s.weight,
-					order,
-				})),
-			},
-		})),
-		null,
-	);
-	return counting;
-}
-
 describe('mainSignerSet', () => {
-	const main = (
-		sets: Parameters<typeof counted>[1],
-		publicKey: string | null,
-	) =>
-		mainSignerSet(
-			counted([], sets).checkedSignerSets,
-			'0x1',
-			publicKey,
-		)?.address;
+	it('is the pod’s own set holding the viewer’s key wherever it comes, else the first holding it, else the first', () => {
+		const main = (
+			sets: Parameters<typeof counted>[1],
+			publicKey: string | null,
+		) =>
+			mainSignerSet(
+				counted([], sets).checkedSignerSets,
+				'0x1',
+				publicKey,
+			)?.address;
+		const ownLast: Parameters<typeof counted>[1] = [
+			['0x2', 2, [maya, daniel]],
+			['0x1', 2, SIGNERS],
+		];
 
-	it('is the pod’s own set when the viewer’s key is in it, wherever it comes', () => {
+		expect(main(ownLast, maya.publicKey)).toBe('0x1');
 		expect(
 			main(
 				[
-					{
-						address: '0x2',
-						threshold: 2,
-						signers: [maya, daniel],
-					},
-					{
-						address: '0x1',
-						threshold: 2,
-						signers: SIGNERS,
-					},
-				],
-				maya.publicKey,
-			),
-		).toBe('0x1');
-	});
-
-	it('is the first set that holds the viewer’s key when the pod’s own set doesn’t', () => {
-		expect(
-			main(
-				[
-					{
-						address: '0x1',
-						threshold: 2,
-						signers: [daniel, alice],
-					},
-					{
-						address: '0x2',
-						threshold: 2,
-						signers: [maya, daniel],
-					},
-					{
-						address: '0x3',
-						threshold: 2,
-						signers: [maya, alice],
-					},
+					['0x1', 2, [daniel, alice]],
+					['0x2', 2, [maya, daniel]],
+					['0x3', 2, [maya, alice]],
 				],
 				maya.publicKey,
 			),
 		).toBe('0x2');
-	});
-
-	it('is the first set when none holds the viewer’s key', () => {
-		expect(
-			main(
-				[
-					{
-						address: '0x2',
-						threshold: 2,
-						signers: [maya, daniel],
-					},
-					{
-						address: '0x1',
-						threshold: 2,
-						signers: SIGNERS,
-					},
-				],
-				null,
-			),
-		).toBe('0x2');
+		expect(main(ownLast, null)).toBe('0x2');
 	});
 });
 
 describe('foldedSignerSetsLine', () => {
-	const STATUS = content.proposal.approvals.status;
-	const erin = signer('Erin', 1);
-	// Maya's pod's own set, 1 of 3 with Daniel's signature, keeps the card open.
-	const line = (
-		signedBy: (typeof maya)[],
-		folded: { threshold: number; signers: (typeof maya)[] },
-		status: 'pending' | 'ready',
-		ownThreshold = 3,
-	) =>
-		foldedSignerSetsLine(
-			approvalsSignerSets(
-				counted(signedBy, [
-					{
-						address: '0x1',
-						threshold: ownThreshold,
-						signers: SIGNERS,
-					},
-					{ address: '0x2', ...folded },
-				]),
+	it('says a folded set reached its threshold, or while pending what the closest folded set needs when it is closer than the main set', () => {
+		const STATUS = content.proposal.approvals.status;
+		const erin = signer('Erin', 1);
+		// Maya's pod's own set, signed by Daniel, keeps the card open; Daniel and Erin's 2-of-2 is folded.
+		const line = (
+			signedBy: (typeof maya)[],
+			status: 'pending' | 'ready',
+			ownThreshold = 3,
+		) =>
+			foldedSignerSetsLine(
+				approvalsSignerSets(
+					counted(signedBy, [
+						['0x1', ownThreshold, SIGNERS],
+						['0x2', 2, [daniel, erin]],
+					]),
+					status,
+					labels,
+					maya.publicKey,
+					[],
+				),
 				status,
-				labels,
-				maya.publicKey,
-				[],
-			),
-			status,
+			);
+
+		expect(line([daniel, erin], 'ready')).toBe(
+			STATUS.reached,
 		);
-
-	it('says a folded set reached its threshold', () => {
-		expect(
-			line(
-				[daniel, erin],
-				{ threshold: 2, signers: [daniel, erin] },
-				'ready',
-			),
-		).toBe(STATUS.reached);
-	});
-
-	it('says what the folded set missing the least needs, while pending, when that is less than the main set needs', () => {
-		expect(
-			line(
-				[daniel],
-				{ threshold: 2, signers: [daniel, erin] },
-				'pending',
-			),
-		).toBe(STATUS.needs(1));
-	});
-
-	it('says nothing when no folded set is closer to its threshold than the main set', () => {
-		expect(
-			line(
-				[daniel],
-				{ threshold: 2, signers: [daniel, erin] },
-				'pending',
-				2,
-			),
-		).toBeNull();
+		expect(line([daniel], 'pending')).toBe(STATUS.needs(1));
+		expect(line([daniel], 'pending', 2)).toBeNull();
 	});
 });
 
@@ -456,37 +351,12 @@ describe('approvalsNote', () => {
 
 	it('names the one signer left in each signer set who is enough alone', () => {
 		const bob = signer('Bob', 1);
-		const pending = proposal({
-			threshold: 3,
-			signedBy: [maya, daniel],
-		});
-		pending.checkedSignerSets = countSignerSets(
-			pending,
+		const pending = counted(
+			[maya, daniel],
 			[
-				{
-					set: {
-						threshold: 3,
-						members: SIGNERS.map((s, order) => ({
-							publicKey: s.publicKey,
-							weight: s.weight,
-							order,
-						})),
-					},
-					address: '0x1',
-				},
-				{
-					set: {
-						threshold: 2,
-						members: [maya, bob].map((s, order) => ({
-							publicKey: s.publicKey,
-							weight: s.weight,
-							order,
-						})),
-					},
-					address: '0x2',
-				},
+				['0x1', 3, SIGNERS],
+				['0x2', 2, [maya, bob]],
 			],
-			null,
 		);
 		expect(
 			approvalsNote({
