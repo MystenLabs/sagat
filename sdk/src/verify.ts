@@ -233,7 +233,10 @@ async function checkAccountEvent(
 ): Promise<ProofResult> {
 	if (
 		!event ||
-		!Object.hasOwn(ACCOUNT_EVENT_PROOFS, event.action)
+		!Object.prototype.hasOwnProperty.call(
+			ACCOUNT_EVENT_PROOFS,
+			event.action,
+		)
 	)
 		return result('unverified', event);
 	const spec = ACCOUNT_EVENT_PROOFS[event.action];
