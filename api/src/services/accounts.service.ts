@@ -41,7 +41,7 @@ import {
 	assertCanonicalSignature,
 	verifyMemberSignedMessage,
 } from './signatures.service';
-import { storedSignerChange } from './signer-changes.service';
+import { signerChangeIn } from './signer-changes.service';
 import {
 	actingSetsOn,
 	listRemovedAccounts,
@@ -49,10 +49,6 @@ import {
 	networksWithDifferentSigners,
 	type RemovedFromAccount,
 } from './signers.service';
-
-// The checked change of a signer change; null for any other proposal.
-const signerChangeIn = (transactionBytes: string) =>
-	storedSignerChange(transactionBytes, [])?.change ?? null;
 
 // The signer changes that succeeded on the network, oldest first, and the newest pending one.
 const signerChangesOf = async (
@@ -65,8 +61,9 @@ const signerChangesOf = async (
 			ProposalStatus.PENDING,
 		])
 	)
-		.filter((proposal) =>
-			signerChangeIn(proposal.transactionBytes),
+		.filter(
+			(proposal) =>
+				signerChangeIn(proposal.transactionBytes)?.change,
 		)
 		.sort((a, b) => a.id - b.id);
 	// The newest: an older one still pending has expired.
@@ -126,8 +123,8 @@ const withTransactionDigests = async (
 			{
 				accountAddress: proposal.accountAddress,
 				oldSet:
-					signerChangeIn(proposal.transactionBytes)?.oldSet
-						.address ?? null,
+					signerChangeIn(proposal.transactionBytes)?.change
+						?.oldSet.address ?? null,
 			},
 		]),
 	);

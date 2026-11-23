@@ -332,8 +332,6 @@ export function buildSignerChange(
 		...before.filter((a) => a !== oldSet),
 		newSet.address,
 	]);
-	if (after.length === 0)
-		throw new Error('The change would leave no alias');
 
 	const known = [input.newSet, ...input.known];
 	if (

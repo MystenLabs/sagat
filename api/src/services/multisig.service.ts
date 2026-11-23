@@ -96,7 +96,7 @@ import {
 	verifyMemberSignedMessage,
 	verifySignedMessage,
 } from './signatures.service';
-import { storedSignerChange } from './signer-changes.service';
+import { signerChangeIn } from './signer-changes.service';
 import {
 	actingSetsOn,
 	keyAnswer,
@@ -1287,10 +1287,8 @@ export const removeProposer = async ({
 		const ids = pending
 			.filter(
 				(proposal) =>
-					storedSignerChange(
-						proposal.transactionBytes,
-						[],
-					) === null,
+					signerChangeIn(proposal.transactionBytes) ===
+					null,
 			)
 			.map((proposal) => proposal.id);
 		const cancelled =

@@ -38,6 +38,7 @@ import {
 	recordOnChainOutcome,
 	type OnChainOutcome,
 } from './onchain-outcomes.service';
+import { mirroredAliasSet } from './signers.service';
 
 export const ALIAS_STATE_MAX_AGE_MS = 60_000;
 // Each changed account writes in its own transaction.
@@ -238,16 +239,11 @@ const writeMirror = (
 			eq(SchemaAccountAliases.accountAddress, account),
 			eq(SchemaAccountAliases.network, network),
 		);
-		const current = await tx
-			.select({
-				address: SchemaAccountAliases.aliasAddress,
-			})
-			.from(SchemaAccountAliases)
-			.where(aliasRows);
-		const before =
-			current.length > 0
-				? current.map((r) => r.address)
-				: [account];
+		const before = await mirroredAliasSet(
+			tx,
+			account,
+			network,
+		);
 
 		const state = {
 			exists: read.exists,

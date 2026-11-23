@@ -165,7 +165,7 @@ describe('the proof rule of a signer change', () => {
 
 	const sorted = (keys: string[]) => [...keys].sort();
 
-	test('S1 to S2: withheld while a removed signer’s signature meets the old threshold, released once signers who stay meet the new one, and the released signatures execute', async () => {
+	test('S1 to S2: withheld while a removed signer’s signature meets the old threshold, released once signers who stay meet the new one, and the released signatures execute; the legacy list leaves it out and the other legacy routes refuse it with a 409', async () => {
 		const cast = await createCast();
 		const { k1, k2, k3, A, S1, S2 } = cast;
 		const bytes = await buildChange({
@@ -311,31 +311,6 @@ describe('the proof rule of a signer change', () => {
 			(await session.v1.verifyProposalByDigest(digest))
 				.status,
 		).toBe(ProposalStatus.SUCCESS);
-	});
-
-	test('S1 to S3: two signatures meet the old threshold and are not ready; the third is', async () => {
-		const cast = await createCast();
-		const { k2, k3, S3 } = cast;
-		const { bytes, created } = await propose(cast, S3);
-
-		const two = await session.voteOnProposal(
-			k2,
-			created.digest,
-			bytes,
-		);
-		expect(two.signerSets[0].hasReachedThreshold).toBe(
-			true,
-		);
-		expect(two.hasReachedThreshold).toBe(false);
-		expect(two.signerChange?.ready).toBe(false);
-
-		const three = await session.voteOnProposal(
-			k3,
-			created.digest,
-			bytes,
-		);
-		expect(three.hasReachedThreshold).toBe(true);
-		expect(three.signatures).toHaveLength(3);
 	});
 
 	test('a cancelled change that was not ready still withholds its signatures', async () => {

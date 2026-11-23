@@ -87,16 +87,13 @@ export type StoredSignerChange = {
 };
 
 /**
- * A stored proposal's signer change, read from its bytes, and whether it is
- * ready given the public keys that signed. Null when the bytes carry no note,
- * or are no transaction. The change is checked against the note's own
- * `before`, so the answer never moves with the mirror. A note that does not
- * check is never ready.
+ * A stored proposal's signer change, read from its bytes. Null when the bytes
+ * carry no note, or are no transaction. The change is checked against the
+ * note's own `before`, so the answer never moves with the mirror.
  */
-export const storedSignerChange = (
+export const signerChangeIn = (
 	transactionBytes: string,
-	signedKeys: readonly string[],
-): StoredSignerChange | null => {
+): Pick<StoredSignerChange, 'change'> | null => {
 	let data: TransactionData;
 	try {
 		data = Transaction.from(transactionBytes).getData();
@@ -106,14 +103,25 @@ export const storedSignerChange = (
 	try {
 		const note = readCompositionNote(data);
 		if (!note) return null;
-		const change = checkSignerChange(data, note.before);
-		return {
-			change,
-			ready: isSignerChangeReady(change, signedKeys),
-		};
+		return { change: checkSignerChange(data, note.before) };
 	} catch {
-		return { change: null, ready: false };
+		return { change: null };
 	}
+};
+
+// `signerChangeIn`, and whether it is ready given the public keys that signed. A note that does not check is never ready.
+export const storedSignerChange = (
+	transactionBytes: string,
+	signedKeys: readonly string[],
+): StoredSignerChange | null => {
+	const stored = signerChangeIn(transactionBytes);
+	if (!stored) return null;
+	return {
+		change: stored.change,
+		ready:
+			stored.change !== null &&
+			isSignerChangeReady(stored.change, signedKeys),
+	};
 };
 
 // The signer set the change adds, if it adds one.

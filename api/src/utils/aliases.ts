@@ -14,7 +14,6 @@ export {
 	buildAdd,
 	buildEnable,
 	buildRemove,
-	MAX_ALIASES,
 } from '@mysten/sagat';
 
 /** Read the on-chain alias set of `address`. */

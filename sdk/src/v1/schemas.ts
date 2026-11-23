@@ -165,7 +165,7 @@ export const NoteEntrySchema = z
 	});
 export type NoteEntry = z.infer<typeof NoteEntrySchema>;
 
-export const SignerChangeSchema = z
+export const ProposalSignerChangeSchema = z
 	.object({
 		note: z
 			.object({
@@ -206,12 +206,12 @@ export const SignerChangeSchema = z
 		}),
 	})
 	.meta({
-		id: 'SignerChange',
+		id: 'ProposalSignerChange',
 		description:
 			'The API’s reading of the signer change in the transaction bytes, which is only its word: a client reads and checks the bytes itself with the SDK (`checkSignerChange`).',
 	});
-export type SignerChange = z.infer<
-	typeof SignerChangeSchema
+export type ProposalSignerChange = z.infer<
+	typeof ProposalSignerChangeSchema
 >;
 
 export const ProposalStatusNameSchema = z
@@ -254,7 +254,9 @@ export const ProposalSchema = z
 				'The address that signed for the account when the proposal was executed, recorded when it is verified. Null until then, or when it could not be read.',
 		}),
 		signerSetsStale,
-		signerChange: SignerChangeSchema.or(z.null()).meta({
+		signerChange: ProposalSignerChangeSchema.or(
+			z.null(),
+		).meta({
 			description:
 				'Null for a proposal that is not a signer change.',
 		}),

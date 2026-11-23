@@ -29,7 +29,6 @@ import {
 	ValidationError,
 } from '../src/errors';
 import { listAccountEvents } from '../src/services/account-events.service';
-import { answerAccountInvitation } from '../src/services/accounts.service';
 import {
 	addProposer,
 	getMultisigAccount,
@@ -67,6 +66,7 @@ import {
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
 import { queryCount } from './setup/test-db';
+import { answer } from './setup/v1-accounts';
 import {
 	insertProposal,
 	offlineTransfer,
@@ -760,21 +760,8 @@ describe('access under the acting scope', () => {
 			NOT_A_SIGNER,
 		);
 		expect(await invitationsRoute(key)).toEqual([]);
-		const expiry = defaultExpiry();
 		await expectRefused(
-			answerAccountInvitation({
-				address: account,
-				network: 'localnet',
-				answer: 'accepted',
-				signature: await sign(
-					key,
-					PersonalMessages.acceptAccountInvitation(
-						account,
-						expiry,
-					),
-				),
-				expiry,
-			}),
+			answer(framework, key, account, 'accept'),
 			NOT_A_SIGNER,
 		);
 	});

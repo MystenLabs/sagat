@@ -52,7 +52,7 @@ const toV1SignerChange = ({
 	ready,
 	withheldSignatures,
 }: SignerChangeProgress): z.input<
-	typeof v1.SignerChangeSchema
+	typeof v1.ProposalSignerChangeSchema
 > => ({
 	note: change && {
 		account: change.account,

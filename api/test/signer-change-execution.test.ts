@@ -7,12 +7,7 @@
 // 3-of-3 of `S1`'s keys; `R`, another account's composition that shares `k1`
 // and `k2`.
 
-import {
-	buildAdd,
-	defaultExpiry,
-	PersonalMessages,
-	type Composition,
-} from '@mysten/sagat';
+import { buildAdd, type Composition } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
@@ -31,7 +26,6 @@ import {
 	executeProposal,
 	newUser,
 	refusal,
-	sign,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -54,6 +48,10 @@ import {
 	proposeChange,
 	type GasCoin,
 } from './setup/signer-changes';
+import {
+	answer,
+	changeProposer,
+} from './setup/v1-accounts';
 
 setupSharedTestEnvironment();
 
@@ -97,52 +95,6 @@ const signedIn = async (key: TestUser) => {
 	const session = framework.createSession();
 	await session.connectUser(key);
 	return session.v1;
-};
-
-const acceptAccount = async (
-	key: TestUser,
-	account: string,
-) => {
-	const expiry = defaultExpiry();
-	return framework
-		.createSession()
-		.v1.acceptAccountInvite(account, {
-			network: 'localnet',
-			signature: await sign(
-				key,
-				PersonalMessages.acceptAccountInvitation(
-					account,
-					expiry,
-				),
-			),
-			expiry,
-		});
-};
-
-const changeProposer = async (
-	change: 'add' | 'remove',
-	key: TestUser,
-	account: string,
-	proposer: string,
-) => {
-	const expiry = defaultExpiry();
-	const message =
-		change === 'add'
-			? PersonalMessages.addMultisigProposer
-			: PersonalMessages.removeMultisigProposer;
-	const body = {
-		network: 'localnet' as const,
-		proposer,
-		signature: await sign(
-			key,
-			message(proposer, account, expiry),
-		),
-		expiry,
-	};
-	const { v1 } = framework.createSession();
-	return change === 'add'
-		? v1.addAccountProposer(account, body)
-		: v1.removeAccountProposer(account, body);
 };
 
 const actingSets = async (key: TestUser, account: string) =>
@@ -291,8 +243,20 @@ describe('S1 to S2 from proposal to execution, then back to S1', () => {
 						pending.transactionBytes,
 					),
 					session.cancelProposal(k3, pending),
-					changeProposer('add', k3, A, newUser().address),
-					changeProposer('remove', k3, A, k1.address),
+					changeProposer(
+						framework,
+						'add',
+						k3,
+						A,
+						newUser().address,
+					),
+					changeProposer(
+						framework,
+						'remove',
+						k3,
+						A,
+						k1.address,
+					),
 				].map(refusal),
 			),
 		).toEqual([
@@ -351,7 +315,7 @@ describe('S1 to S2 from proposal to execution, then back to S1', () => {
 			message: NOT_A_MEMBER,
 		});
 
-		await acceptAccount(k4, A);
+		await answer(framework, k4, A, 'accept');
 
 		expect(await listedFor(k4)).toEqual([A]);
 		expect((await listProposals()).proposals).toHaveLength(
@@ -473,11 +437,15 @@ describe('a composition left by a cancelled change, and a change of the threshol
 			known: [S1],
 			gasCoin: coins[1],
 		});
-		await session.voteOnProposal(
-			k2,
-			change.digest,
-			change.transactionBytes,
-		);
+		expect(
+			(
+				await session.voteOnProposal(
+					k2,
+					change.digest,
+					change.transactionBytes,
+				)
+			).signerChange?.ready,
+		).toBe(false);
 		const ready = await session.voteOnProposal(
 			k3,
 			change.digest,
@@ -515,6 +483,8 @@ describe('a change to a composition that is already an alias', () => {
 	let session: TestSession;
 	let cast: Cast;
 	let R: Composition;
+	// `R`'s member who never answers for `A`.
+	let k5: TestUser;
 
 	beforeAll(async () => {
 		framework = new ApiTestFramework(await createTestApp());
@@ -524,7 +494,7 @@ describe('a change to a composition that is already an alias', () => {
 
 	test('another account’s composition added by a hand-written proposal acts beside S1', async () => {
 		const { k1, k2, A, coins } = cast;
-		const k5 = newUser();
+		k5 = newUser();
 		R = compositionOf([k1, k2, k5], 2);
 		const { address } = await session.createMultisig(
 			[k1, k2, k5],
@@ -577,6 +547,9 @@ describe('a change to a composition that is already an alias', () => {
 		expect(verified.status).toBe(ProposalStatus.SUCCESS);
 		expect(verified.executedVia).toBe(A);
 		expect(await actingSets(k1, A)).toEqual([addressOf(R)]);
+		expect(await invitedTo(k5)).toContain(A);
+		for (const key of [k1, k2])
+			expect(await invitedTo(key)).not.toContain(A);
 	});
 });
 

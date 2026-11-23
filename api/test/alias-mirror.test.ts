@@ -826,4 +826,36 @@ describe('Alias mirror', () => {
 			},
 		]);
 	});
+
+	test('18. a replace_all is recorded as the removals and additions it made', async () => {
+		const before = (await mirrorOf(A)).aliases;
+		const X = new Ed25519Keypair().toSuiAddress();
+		const lastDigest = await send(A, signerK, (tx) =>
+			tx.moveCall({
+				target: '0x2::address_alias::replace_all',
+				arguments: [
+					tx.object(deriveAliasesObjectId(A)),
+					tx.pure.vector('address', [K.toSuiAddress(), X]),
+				],
+			}),
+		);
+
+		const [result] = await refreshAliases(
+			[A],
+			NETWORK,
+			createAliasSetLoaders(),
+		);
+
+		expect(result).toMatchObject({
+			outcome: 'updated',
+			digest: lastDigest,
+			added: [X],
+			removed: before
+				.filter((a) => a !== K.toSuiAddress())
+				.sort(),
+		});
+		expect((await mirrorOf(A)).aliases).toEqual(
+			[K.toSuiAddress(), X].sort(),
+		);
+	});
 });

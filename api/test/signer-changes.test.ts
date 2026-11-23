@@ -142,7 +142,7 @@ describe('POST /v1/proposals with a signer change', () => {
 				),
 			);
 
-	test('a signer who stays proposes S1 to S2: the new set, its members in order and its link are written, and only the new key is labelled', async () => {
+	test('a signer who stays proposes S1 to S2: the new set, its members in order and its link are written, and only the new key is labelled, with no invitation yet', async () => {
 		const { k1, k2, k4, A, S1, S2 } = await createCast();
 
 		const created = await proposeChange(

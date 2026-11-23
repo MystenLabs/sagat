@@ -80,7 +80,7 @@
 					"signerChange": {
 						"anyOf": [
 							{
-								"$ref": "#/components/schemas/SignerChange"
+								"$ref": "#/components/schemas/ProposalSignerChange"
 							},
 							{ "type": "null" }
 						],
@@ -230,7 +230,7 @@
 				],
 				"description": "An account audit log event, as stored."
 			},
-			"SignerChange": {
+			"ProposalSignerChange": {
 				"type": "object",
 				"properties": {
 					"note": {

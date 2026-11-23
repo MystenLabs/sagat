@@ -108,6 +108,7 @@ import {
 	assertNoPendingAliasProposal,
 	checkAndWriteSignerChange,
 	currentEpochOf,
+	signerChangeIn,
 	signerChangeLabels,
 	signerChangeNote,
 	storedSignerChange,
@@ -232,8 +233,7 @@ const refuseSignerChangeUnder = (
 ) => {
 	if (
 		scopeKind === 'original' &&
-		storedSignerChange(proposal.transactionBytes, []) !==
-			null
+		signerChangeIn(proposal.transactionBytes) !== null
 	)
 		throw new ServedByV1OnlyError('A signer change');
 };
@@ -901,10 +901,7 @@ export const voteOnProposal = async ({
 		throw REFUSALS[scopeKind].notSigner();
 
 	// A set is replaced by its own signers.
-	const stored = storedSignerChange(
-		proposal.transactionBytes,
-		[],
-	);
+	const stored = signerChangeIn(proposal.transactionBytes);
 	if (
 		stored &&
 		!(
@@ -1016,10 +1013,7 @@ export const cancelProposal = async ({
 			[pubKey.toSuiPublicKey()],
 		);
 
-	const stored = storedSignerChange(
-		proposal.transactionBytes,
-		[],
-	);
+	const stored = signerChangeIn(proposal.transactionBytes);
 	const change = stored?.change;
 	// Once the old set no longer acts, the change can never execute, and any accepted signer may cancel it.
 	const oldSetActs =
@@ -1193,8 +1187,7 @@ export const listProposals = async (
 	return await getProposalsByAccountAddress({
 		...input,
 		keep: (proposal) =>
-			storedSignerChange(proposal.transactionBytes, []) ===
-			null,
+			signerChangeIn(proposal.transactionBytes) === null,
 	});
 };
 
