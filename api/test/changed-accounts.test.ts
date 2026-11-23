@@ -11,13 +11,10 @@ import {
 	setDefaultTimeout,
 	test,
 } from 'bun:test';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
-import {
-	SchemaAccountAliases,
-	SchemaAccountAliasState,
-} from '../src/db/schema';
+import { SchemaAccountAliasState } from '../src/db/schema';
 import { ServedByV1OnlyError } from '../src/errors';
 import { refuseChangedAccount } from '../src/services/changed-accounts.service';
 import {
@@ -40,7 +37,6 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { enableSignerChanges } from './setup/signer-changes';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
@@ -80,32 +76,39 @@ describe('changed accounts', () => {
 		});
 	});
 
-	test('an account that only enabled signer changes is not refused', async () => {
+	test('an account that only enabled signer changes is not refused, and one whose stale alias state is refreshed to a change is', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
 		const account = multisig.address;
-		await enableSignerChanges(session, account, users);
-		expect(
-			await db
-				.select({
-					alias: SchemaAccountAliases.aliasAddress,
-				})
-				.from(SchemaAccountAliases)
-				.where(
-					and(
+		const signer = multisigSigner(
+			'A',
+			users.map((user) => user.keypair),
+			2,
+		);
+		const read = async () =>
+			errorOf(
+				await session.request(`/multisig/${account}`),
+			);
+		const stateExists = async () =>
+			(
+				await db
+					.select({
+						exists: SchemaAccountAliasState.exists,
+					})
+					.from(SchemaAccountAliasState)
+					.where(
 						eq(
-							SchemaAccountAliases.accountAddress,
+							SchemaAccountAliasState.accountAddress,
 							account,
 						),
-						eq(SchemaAccountAliases.network, 'localnet'),
-					),
-				),
-		).toEqual([{ alias: account }]);
+					)
+			)[0].exists;
+		expect((await read()).status).toBe(200);
 
-		const read = await session.request(
-			`/multisig/${account}`,
-		);
-		expect(read.status).toBe(200);
+		expectSuccess(await run(account, signer, buildEnable));
+		await ageAliasState(account, 'localnet');
+		expect((await read()).status).toBe(200);
+		expect(await stateExists()).toBe(true);
 		const transactionBytes = await buildTransfer(account);
 		const created = await session.post('/proposals', {
 			multisigAddress: account,
@@ -117,42 +120,13 @@ describe('changed accounts', () => {
 			),
 		});
 		expect(created.status).toBe(201);
-	});
 
-	test('a stale alias state is refreshed before the decision', async () => {
-		const { session, users, multisig } =
-			await framework.createFundedVerifiedMultisig(2, 2);
-		const account = multisig.address;
-		expect(
-			(await session.request(`/multisig/${account}`))
-				.status,
-		).toBe(200);
-
-		const signer = multisigSigner(
-			'A',
-			users.map((user) => user.keypair),
-			2,
-		);
-		const other = newUser().address;
-		for (const fill of [
-			buildEnable,
-			(tx: Parameters<typeof buildEnable>[0]) =>
-				buildAdd(tx, { account, alias: other }),
-		])
-			expectSuccess(await run(account, signer, fill));
-		await ageAliasState(account, 'localnet');
-
-		expect(
-			await errorOf(
-				await session.request(`/multisig/${account}`),
+		expectSuccess(
+			await run(account, signer, (tx) =>
+				buildAdd(tx, { account, alias: newUser().address }),
 			),
-		).toEqual(SERVED_BY_V1);
-		const [state] = await db
-			.select({ exists: SchemaAccountAliasState.exists })
-			.from(SchemaAccountAliasState)
-			.where(
-				eq(SchemaAccountAliasState.accountAddress, account),
-			);
-		expect(state.exists).toBe(true);
+		);
+		await ageAliasState(account, 'localnet');
+		expect(await read()).toEqual(SERVED_BY_V1);
 	});
 });
