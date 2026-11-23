@@ -159,23 +159,13 @@ describe('GET /v1/accounts', () => {
 
 		const list = await client.getAccounts('localnet');
 
-		const members = [
-			{
-				user: k1,
-				answer: 'accepted' as const,
-				label: 'One',
-			},
-			{
-				user: k2,
-				answer: 'accepted' as const,
-				label: 'Two',
-			},
-			{
-				user: k3,
-				answer: 'rejected' as const,
-				label: null,
-			},
-		].map(({ user, answer, label }, order) => ({
+		const members = (
+			[
+				[k1, 'accepted', 'One'],
+				[k2, 'accepted', 'Two'],
+				[k3, 'rejected', null],
+			] as const
+		).map(([user, answer, label], order) => ({
 			publicKey: user.publicKey,
 			weight: 1,
 			order,
