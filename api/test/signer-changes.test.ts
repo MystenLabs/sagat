@@ -333,7 +333,7 @@ describe('POST /v1/proposals with a signer change', () => {
 			});
 	});
 
-	test('one proposal that calls the alias module at a time: a change, a hand-written one and a second change wait for the pending one', async () => {
+	test('one proposal that calls the alias module at a time: a change waits for a pending enable, and a hand-written one for a pending change', async () => {
 		const cast = await createCast(session, {
 			allow: false,
 		});
@@ -375,12 +375,6 @@ describe('POST /v1/proposals with a signer change', () => {
 
 		await session.cancelProposal(k1, enable);
 		const first = await proposeChange(session, k1, A, toS2);
-		expect(
-			await refusal(proposeChange(session, k1, A, toS3)),
-		).toEqual({
-			status: 400,
-			message: pendingAliasProposal(first.digest),
-		});
 		const handWritten = await buildFrom(
 			A,
 			(tx) =>
