@@ -207,7 +207,6 @@ export function checkActingSets<S extends AccountSigners>(
 	return { kind: 'checked', acting, refused, unidentified };
 }
 
-/** A `/v1` pod as `shownActingSets` reads it. */
 export type ShownPod = Pick<
 	Account,
 	'address' | 'signerSets'

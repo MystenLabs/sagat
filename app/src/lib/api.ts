@@ -34,7 +34,6 @@ export const apiClient = new SagatClient(
 	apiFetch,
 );
 
-/** The `/v1` routes, on the same API and fetch. */
 export const apiV1Client = new SagatV1Client(API_BASE_URL, {
 	fetch: apiFetch,
 });

@@ -39,7 +39,6 @@ export function SignersCard({
 	signerSet?: string;
 	className?: string;
 	children?: ReactNode;
-	/** Rows that fold other sets away under the table. */
 	folded?: ReactNode;
 }) {
 	const summary = signerSummary(status);
@@ -71,7 +70,6 @@ export function SignersCard({
 	);
 }
 
-/** A numbered row per key: its name over its address, its weight and where its invitation stands. */
 export function SignersTable({
 	rows,
 }: {

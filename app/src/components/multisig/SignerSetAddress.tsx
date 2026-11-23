@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 import { buttonVariants } from '../ui/button';
 import { CopyButton } from '../ui/CopyButton';
 
-/** A signer set's address, whole, with a copy button. */
 export function SignerSetAddress({
 	address,
 }: {
@@ -33,7 +32,6 @@ export function SignerSetAddress({
 	);
 }
 
-/** "Open pod", to a pod of the viewer's list. */
 export function OpenPodLink({
 	address,
 }: {

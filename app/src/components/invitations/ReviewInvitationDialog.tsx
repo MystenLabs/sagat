@@ -259,7 +259,6 @@ export function ReviewInvitationDialog({
 	);
 }
 
-/** The dialog's signer rows: number, name over address, weight and status. */
 function SignersTable({
 	rows,
 	className,

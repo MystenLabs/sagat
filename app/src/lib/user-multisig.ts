@@ -21,7 +21,6 @@ import {
 	type PodChecks,
 } from './types';
 
-/** The signed-in key: its public key and the address it derives. */
 type Signer = { publicKey: string; address: string };
 
 /** The set of `sets` holding `signerAddress`: the pod's own (making up `account`) when it does, else the first that does. */
@@ -65,7 +64,6 @@ function memberAnswer(
 	);
 }
 
-/** The fields a row reads off a signer set, with the signed-in key's `answer`. */
 function viewedThrough(
 	set: Pick<IdentifiedSignerSet, 'threshold' | 'members'>,
 	answer: KeyAnswer | null,
@@ -85,11 +83,7 @@ function viewedThrough(
 	};
 }
 
-/**
- * An account from the API as the signed-in key sees it, with rule 1
- * applied and rule 2 `checking`. Until rule 2 passes, the row reads the
- * original set; the key's answer is from whichever shown set holds it.
- */
+/** An account from the API as the signed-in key sees it, with rule 1 applied and rule 2 `checking`. */
 export function toUserMultisig<A extends Account>(
 	account: A,
 	signer: Signer,
@@ -118,11 +112,7 @@ export function toUserMultisig<A extends Account>(
 	};
 }
 
-/**
- * The row with rule 2 from its alias read; a rule 1 refusal stands
- * whatever the node says. Once `ok`, the row reads the signed-in key's
- * set among the ones that passed.
- */
+/** The row with rule 2 from its alias read; a rule 1 refusal stands whatever the node says. */
 export function withActing(
 	row: MultisigWithMembersForPublicKey,
 	aliases: AliasRead | undefined,
@@ -176,11 +166,7 @@ export function withActing(
 	}
 }
 
-/**
- * The account query's fresher copy of a listed row, under the row's
- * checks. Once rule 2 passed, the threshold and members stay the row's,
- * from the sets that passed.
- */
+/** The account query's fresher copy of a listed row, under the row's checks. */
 export function withListedChecks(
 	listed: MultisigWithMembersForPublicKey,
 	details: MultisigWithMembersForPublicKey | undefined,

@@ -286,7 +286,6 @@ export function SignersTab() {
 	);
 }
 
-/** "Threshold 2 of 3", for a page that shows several sets. */
 function SetThreshold({ set }: Pick<SignerSetCard, 'set'>) {
 	return (
 		<p
@@ -298,7 +297,6 @@ function SetThreshold({ set }: Pick<SignerSetCard, 'set'>) {
 	);
 }
 
-/** An added set's address whole with copy, under the viewer's pod name and "Open pod" when it is one of theirs. */
 function SignerSetLabel({ card }: { card: SignerSetCard }) {
 	return (
 		<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

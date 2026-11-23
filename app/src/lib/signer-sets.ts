@@ -35,7 +35,6 @@ function podAt<P extends ListedPod>(
 	);
 }
 
-/** A pod of the viewer's list, as a signer set links to it. */
 export interface LinkedPod {
 	address: string;
 	name: string | null;
@@ -61,7 +60,6 @@ export function signerSetCards({
 	/** The sets that passed rule 2. */
 	acting: readonly IdentifiedSignerSet[];
 	fresh: readonly IdentifiedSignerSet[];
-	/** The pod's own address. */
 	account: string;
 	pods: readonly ListedPod[];
 	signerAddress: string | undefined;
@@ -99,7 +97,6 @@ export function signerSetCards({
 	});
 }
 
-/** The notice naming the other networks whose signers differ, or null when there are none. */
 export function differentSignersLine(
 	networks: readonly SuiNetwork[],
 ): string | null {
@@ -110,15 +107,12 @@ export function differentSignersLine(
 		: null;
 }
 
-/** A row of the "Other signer sets" card. */
 export interface OtherSignerSetRow {
 	address: string;
 	/** Set when the alias is the address of a pod in the viewer's list. */
 	pod:
 		| (LinkedPod & {
-				/** "3 signers". */
 				signers: string;
-				/** "Threshold 2 of 3". */
 				threshold: string;
 		  })
 		| null;

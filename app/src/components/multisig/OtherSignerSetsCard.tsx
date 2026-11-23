@@ -26,14 +26,13 @@ import {
 
 const COPY = content.signers.otherSignerSets;
 
-/** The aliases no acting set makes up, collapsed under a count until opened. */
+/** The aliases no acting set makes up. */
 export function OtherSignerSetsCard({
 	rows,
 	network,
 	className,
 }: {
 	rows: OtherSignerSetRow[];
-	/** The selected network's name. */
 	network: string;
 	className?: string;
 }) {
@@ -80,7 +79,6 @@ export function OtherSignerSetsCard({
 	);
 }
 
-/** A row per alias: its pod's name when it has one, the address whole with copy, and where it was made. */
 export function OtherSignerSetsTable({
 	rows,
 }: {

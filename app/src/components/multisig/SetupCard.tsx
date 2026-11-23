@@ -32,7 +32,6 @@ export function SetupCard({
 	className,
 }: {
 	setup: AccountSetup;
-	/** The selected network's name. */
 	network: string;
 	/** Null where the explorer doesn't index the network. */
 	explorerUrl: string | null;
