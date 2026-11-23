@@ -52,7 +52,7 @@ export type CheckedAccount = MultisigAccountWithSigners & {
 const keysOf = (callerKeys: PublicKey[]) =>
 	callerKeys.map((key) => key.toSuiPublicKey());
 
-const isAccount = async (address: string) =>
+export const isAccount = async (address: string) =>
 	(
 		await db
 			.select({ one: sql`1` })

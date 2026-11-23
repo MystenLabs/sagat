@@ -386,10 +386,11 @@ export type ProposalEvents = {
 	proposer: AccountEventRecord | null;
 };
 
-/** The `ProposalEvents` of a proposal. No access check. */
+/** The `ProposalEvents` of each proposal, by id, in one query. No access check. */
 export const getProposalEvents = async (
-	proposalId: number,
-): Promise<ProposalEvents> => {
+	proposalIds: number[],
+): Promise<Map<number, ProposalEvents>> => {
+	if (proposalIds.length === 0) return new Map();
 	const created = latestEventWhere(
 		and(
 			eq(
@@ -408,14 +409,17 @@ export const getProposalEvents = async (
 		SchemaProposals.proposerAddress,
 	).as('proposer_event');
 
-	const [events] = await db
+	const rows = await db
 		.select({
+			id: SchemaProposals.id,
 			created: fieldsOf(created),
 			proposer: fieldsOf(proposer),
 		})
 		.from(SchemaProposals)
 		.leftJoinLateral(created, sql`true`)
 		.leftJoinLateral(proposer, sql`true`)
-		.where(eq(SchemaProposals.id, proposalId));
-	return events ?? { created: null, proposer: null };
+		.where(inArray(SchemaProposals.id, proposalIds));
+	return new Map(
+		rows.map(({ id, ...events }) => [id, events]),
+	);
 };

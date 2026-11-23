@@ -64,6 +64,21 @@
 					},
 					"events": {
 						"$ref": "#/components/schemas/ProposalEvents"
+					},
+					"executedVia": {
+						"type": ["string", "null"],
+						"description": "The address that signed for the account when the proposal was executed, recorded when it is verified. Null until then, or when it could not be read."
+					},
+					"aliasCalls": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/AliasCall"
+						},
+						"description": "The calls to `0x2::address_alias` in the transaction, in command order."
+					},
+					"signerSetsStale": {
+						"type": "boolean",
+						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
 					}
 				},
 				"required": [
@@ -80,7 +95,10 @@
 					"signatures",
 					"hasReachedThreshold",
 					"signerSets",
-					"events"
+					"events",
+					"executedVia",
+					"aliasCalls",
+					"signerSetsStale"
 				]
 			},
 			"ProposalSignature": {
@@ -178,11 +196,109 @@
 				],
 				"description": "An account audit log event, as stored."
 			},
+			"AliasCall": {
+				"type": "object",
+				"properties": {
+					"function": {
+						"type": "string",
+						"description": "The `0x2::address_alias` function, as named in the transaction: `enable`, `add`, `remove` or `replace_all`."
+					},
+					"aliases": {
+						"type": ["array", "null"],
+						"items": {
+							"type": "string",
+							"description": "A Sui address."
+						},
+						"description": "The addresses the call passes: none for `enable`, one for `add` and `remove`, the new set for `replace_all`. Null when the argument is not a pure input that decodes."
+					}
+				},
+				"required": ["function", "aliases"],
+				"description": "A top-level call to `0x2::address_alias` in the transaction."
+			},
 			"Error": {
 				"type": "object",
 				"properties": { "error": { "type": "string" } },
 				"required": ["error"],
 				"description": "An error response."
+			},
+			"Network": {
+				"type": "string",
+				"enum": [
+					"mainnet",
+					"testnet",
+					"devnet",
+					"localnet"
+				],
+				"description": "A Sui network."
+			},
+			"CreateProposalRequest": {
+				"type": "object",
+				"properties": {
+					"accountAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"transactionBytes": {
+						"type": "string",
+						"description": "The transaction, fully resolved, as base64 BCS bytes."
+					},
+					"signature": {
+						"type": "string",
+						"description": "The proposer's signature over the transaction."
+					},
+					"description": { "type": "string" }
+				},
+				"required": [
+					"accountAddress",
+					"transactionBytes",
+					"signature"
+				]
+			},
+			"ProposalList": {
+				"type": "object",
+				"properties": {
+					"network": {
+						"$ref": "#/components/schemas/Network"
+					},
+					"accountAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"proposals": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Proposal"
+						}
+					},
+					"hasNextPage": { "type": "boolean" },
+					"nextCursor": {
+						"type": ["string", "null"],
+						"description": "Pass as `nextCursor` for the next page. Null when the page is empty."
+					},
+					"perPage": { "type": "integer" }
+				},
+				"required": [
+					"network",
+					"accountAddress",
+					"proposals",
+					"hasNextPage",
+					"nextCursor",
+					"perPage"
+				]
+			},
+			"ProposalStatusName": {
+				"type": "string",
+				"enum": [
+					"PENDING",
+					"CANCELLED",
+					"SUCCESS",
+					"FAILURE"
+				]
+			},
+			"SignatureRequest": {
+				"type": "object",
+				"properties": { "signature": { "type": "string" } },
+				"required": ["signature"]
 			},
 			"AccountList": {
 				"type": "object",
@@ -204,16 +320,6 @@
 					}
 				},
 				"required": ["network", "accounts", "removed"]
-			},
-			"Network": {
-				"type": "string",
-				"enum": [
-					"mainnet",
-					"testnet",
-					"devnet",
-					"localnet"
-				],
-				"description": "A Sui network."
 			},
 			"Account": {
 				"type": "object",
@@ -544,6 +650,183 @@
 		"parameters": {}
 	},
 	"paths": {
+		"/v1/proposals": {
+			"post": {
+				"summary": "Propose a transaction",
+				"description": "Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote. Only a signer may propose a transaction that calls `0x2::address_alias`.",
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateProposalRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "The proposal, as created.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The request, transaction or signature is invalid, or the network is not supported.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer may not propose for the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "The address is not an account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"get": {
+				"summary": "List an account's proposals on a network",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
+						},
+						"required": true,
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
+						"name": "accountAddress",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/ProposalStatusName"
+						},
+						"required": false,
+						"name": "status",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"description": "The `nextCursor` of the previous page. Anything else starts from the first page."
+						},
+						"required": false,
+						"description": "The `nextCursor` of the previous page. Anything else starts from the first page.",
+						"name": "nextCursor",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"description": "The page size. Anything but a whole number up to the maximum gives the maximum."
+						},
+						"required": false,
+						"description": "The page size. Anything but a whole number up to the maximum gives the maximum.",
+						"name": "perPage",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "A page of the account’s proposals on the network, newest first, each counted against the signer sets that act now.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ProposalList"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The address, status or network is invalid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No valid session.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "No caller key is an accepted key of an acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
 		"/v1/proposals/{digest}": {
 			"get": {
 				"summary": "Get a proposal by its transaction digest",
@@ -572,6 +855,206 @@
 					},
 					"400": {
 						"description": "The digest is not a valid transaction digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{digest}/vote": {
+			"post": {
+				"summary": "Sign a proposal",
+				"description": "Signed over the transaction by a key of an acting signer set, accepted or not.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"required": true,
+						"description": "A Sui transaction digest.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignatureRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The proposal, with the new signature.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest or signature is invalid, the key has signed already, or the proposal is not pending.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The key is in no acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{digest}/cancel": {
+			"post": {
+				"summary": "Cancel a proposal",
+				"description": "Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"required": true,
+						"description": "A Sui transaction digest.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignatureRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The proposal, cancelled.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest or signature is invalid, the signer may not cancel it, or the proposal is not pending.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{digest}/verify": {
+			"post": {
+				"summary": "Record the on-chain outcome of a proposal",
+				"description": "Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"required": true,
+						"description": "A Sui transaction digest.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The proposal, with its outcome and the address that signed for the account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest is invalid, or the transaction has not been executed yet.",
 						"content": {
 							"application/json": {
 								"schema": {

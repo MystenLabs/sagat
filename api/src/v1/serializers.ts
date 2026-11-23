@@ -7,11 +7,13 @@ import { type z } from 'zod';
 import { type KeyLabels } from '../loaders/account-keys.loader';
 import {
 	type AccountEventRecord,
-	type ProposalEvents,
 	type ProposerWithLatestEvent,
 } from '../services/account-events.service';
 import { type CheckedAccount } from '../services/accounts.service';
-import { type ProposalProgress } from '../services/proposals.service';
+import {
+	aliasCallsOf,
+	type CheckedProposal,
+} from '../services/proposals.service';
 import {
 	memberAnswer,
 	type ActingMember,
@@ -37,9 +39,8 @@ export const toV1Proposal = ({
 	sets,
 	hasReachedThreshold,
 	events,
-}: ProposalProgress & { events: ProposalEvents }): z.input<
-	typeof v1.ProposalSchema
-> => ({
+	signerSetsStale,
+}: CheckedProposal): z.input<typeof v1.ProposalSchema> => ({
 	id: proposal.id,
 	digest: proposal.digest,
 	accountAddress: proposal.accountAddress,
@@ -71,6 +72,9 @@ export const toV1Proposal = ({
 		created: toV1AccountEvent(events.created),
 		proposer: toV1AccountEvent(events.proposer),
 	},
+	executedVia: proposal.executedVia,
+	aliasCalls: aliasCallsOf(proposal.transactionBytes),
+	signerSetsStale,
 });
 
 const toV1Member = (

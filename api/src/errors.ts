@@ -76,6 +76,8 @@ export const AuthErrors = {
 	NotAnAccountSigner:
 		'You are not a signer of this account on this network.',
 	AccountNotAccepted: 'You have not accepted this account.',
+	AliasCallByProposer:
+		'Only a signer of the account can propose a transaction that calls 0x2::address_alias.',
 };
 
 export const CommonErrors = {

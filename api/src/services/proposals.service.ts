@@ -7,7 +7,10 @@
  * (rows, or composites like `ProposalProgress`).
  */
 
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	findAliasCalls,
+	PersonalMessages,
+} from '@mysten/sagat';
 import { TransactionError } from '@mysten/sui/client';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
@@ -23,6 +26,7 @@ import {
 	inArray,
 	lt,
 	notExists,
+	type SQL,
 } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
@@ -49,6 +53,10 @@ import {
 	ValidationError,
 } from '../errors';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
+import {
+	aliasSetLoaders,
+	type AliasSetLoaders,
+} from '../loaders/alias-set.loader';
 import { ProposalByDigestLoader } from '../loaders/proposals.loader';
 import {
 	MultisigEventType,
@@ -64,13 +72,22 @@ import {
 	type PaginatedResponse,
 	type PaginationCursor,
 } from '../utils/pagination';
-import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
+import {
+	getPublicKeyFromSerializedSignature,
+	signerAddressOf,
+} from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
 import {
 	getProposalEvents,
 	recordAccountEvent,
 	type ProposalEvents,
 } from './account-events.service';
+import { isAccount } from './accounts.service';
+import {
+	refreshAliases,
+	refreshStaleAliases,
+	requireFreshAliases,
+} from './aliases.service';
 import { isAccountSigner } from './membership.service';
 import {
 	getExclusiveObjects,
@@ -138,10 +155,10 @@ const getAccountSigners = async (
 	return signers;
 };
 
-// Get a proposal by id, and its signatures.
-export const getProposalById = async (
-	proposalId: number,
-): Promise<ProposalWithSignatures> => {
+// A proposal and its signatures, by a condition on its row.
+const findProposal = async (
+	condition: SQL,
+): Promise<ProposalWithSignatures | undefined> => {
 	const result = await db
 		.select()
 		.from(SchemaProposals)
@@ -152,10 +169,9 @@ export const getProposalById = async (
 				SchemaProposalSignatures.proposalId,
 			),
 		)
-		.where(eq(SchemaProposals.id, proposalId));
+		.where(condition);
 
-	if (!result || result.length === 0)
-		throw new ValidationError('Proposal not found');
+	if (result.length === 0) return undefined;
 
 	const proposal = result[0].proposals;
 	const signatures = result
@@ -171,6 +187,71 @@ export const getProposalById = async (
 			proposalId: s.proposalId,
 		})),
 	};
+};
+
+// Get a proposal by id, and its signatures.
+export const getProposalById = async (
+	proposalId: number,
+): Promise<ProposalWithSignatures> => {
+	const proposal = await findProposal(
+		eq(SchemaProposals.id, proposalId),
+	);
+	if (!proposal)
+		throw new ValidationError('Proposal not found');
+	return proposal;
+};
+
+// The legacy routes address a proposal by id, `/v1` by digest.
+export type ProposalKey =
+	{ proposalId: number } | { digest: string };
+
+const getProposal = async (
+	key: ProposalKey,
+): Promise<ProposalWithSignatures> => {
+	if ('proposalId' in key)
+		return getProposalById(key.proposalId);
+	if (!isValidTransactionDigest(key.digest))
+		throw new CommonError('InvalidDigest');
+	const proposal = await findProposal(
+		eq(SchemaProposals.digest, key.digest),
+	);
+	if (!proposal) throw new NotFoundError();
+	return proposal;
+};
+
+// The calls to `0x2::address_alias` in a proposal's bytes.
+export const aliasCallsOf = (transactionBytes: string) =>
+	findAliasCalls(
+		Transaction.from(transactionBytes).getData(),
+	);
+
+// Under the acting scope a decision waits for a fresh alias state, or fails.
+const refreshBeforeDeciding = async (
+	scopeKind: SignerScopeKind,
+	accountAddress: string,
+	network: string,
+	loaders: AliasSetLoaders,
+) => {
+	if (scopeKind === 'acting')
+		await requireFreshAliases(
+			accountAddress,
+			network as SuiNetwork,
+			loaders,
+		);
+};
+
+// Refreshes a stale alias state for a read; false when the read failed and the mirror is used as it is.
+const refreshForRead = async (
+	accountAddress: string,
+	network: string,
+	loaders: AliasSetLoaders,
+) => {
+	const [state] = await refreshStaleAliases(
+		[accountAddress],
+		network as SuiNetwork,
+		loaders,
+	);
+	return state.outcome !== 'failed';
 };
 
 // `proposals.id` is a 32-bit serial.
@@ -245,28 +326,37 @@ const getProposalsByAccountAddress = async (
 };
 
 /**
- * Checks a pending proposal on-chain once it has enough signatures, and
- * records whether it succeeded. Returns the proposal's status afterwards;
- * a proposal that is no longer pending is returned as is.
+ * Checks a pending proposal on-chain, and records whether it succeeded and
+ * the address that signed for the account. With `readyUnder`, it first needs
+ * enough signatures under that scope. Returns the proposal's status
+ * afterwards; a proposal that is no longer pending is returned as is.
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
-	scopeKind: SignerScopeKind,
+	{
+		readyUnder,
+		loaders,
+	}: {
+		readyUnder?: SignerScopeKind;
+		loaders: AliasSetLoaders;
+	},
 ): Promise<ProposalStatus> => {
 	if (proposal.status !== ProposalStatus.PENDING)
 		return proposal.status;
 
-	const signers = await getAccountSigners(
-		proposal.accountAddress,
-		scopeOn(scopeKind, proposal.network),
-	);
-
-	if (
-		!proposalProgress(proposal, signers).hasReachedThreshold
-	)
-		throw new ValidationError(
-			'Proposal is not ready to execute',
+	if (readyUnder) {
+		const signers = await getAccountSigners(
+			proposal.accountAddress,
+			scopeOn(readyUnder, proposal.network),
 		);
+		if (
+			!proposalProgress(proposal, signers)
+				.hasReachedThreshold
+		)
+			throw new ValidationError(
+				'Proposal is not ready to execute',
+			);
+	}
 
 	const tx = await getSuiClient(
 		proposal.network as SuiNetwork,
@@ -300,10 +390,19 @@ const lookupAndVerifyProposal = async (
 	const status = isSuccess
 		? ProposalStatus.SUCCESS
 		: ProposalStatus.FAILURE;
+	// The sender's signature comes first.
+	const [senderSignature] = (
+		tx.$kind === 'Transaction'
+			? tx.Transaction
+			: tx.FailedTransaction
+	).signatures;
+	const executedVia = senderSignature
+		? signerAddressOf(senderSignature)
+		: null;
 
 	await db
 		.update(SchemaProposals)
-		.set({ status })
+		.set({ status, executedVia })
 		.where(eq(SchemaProposals.id, proposal.id));
 
 	multisigProposalEvents.inc({
@@ -312,6 +411,17 @@ const lookupAndVerifyProposal = async (
 			? MultisigEventType.PROPOSAL_SUCCESS
 			: MultisigEventType.PROPOSAL_FAILURE,
 	});
+
+	// The status is recorded; a failed refresh leaves the mirror to the next one.
+	if (
+		isSuccess &&
+		aliasCallsOf(proposal.transactionBytes).length > 0
+	)
+		await refreshAliases(
+			[proposal.accountAddress],
+			proposal.network as SuiNetwork,
+			loaders,
+		).catch(() => undefined);
 
 	return status;
 };
@@ -372,8 +482,10 @@ export const createProposal = async ({
 	description: rawDescription,
 	network: rawNetwork,
 	scopeKind,
+	loaders = aliasSetLoaders,
 }: CreateProposalInput & {
 	scopeKind: SignerScopeKind;
+	loaders?: AliasSetLoaders;
 }): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
 
@@ -405,6 +517,16 @@ export const createProposal = async ({
 	// Get the public key out of the sui signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
+	if (scopeKind === 'acting') {
+		// Only an account has an alias state to refresh.
+		if (!(await isAccount(multisigAddress)))
+			throw new NotFoundError();
+		await requireFreshAliases(
+			multisigAddress,
+			network,
+			loaders,
+		);
+	}
 	const signers = await getAccountSigners(
 		multisigAddress,
 		scopeOn(scopeKind, network),
@@ -451,6 +573,13 @@ export const createProposal = async ({
 		throw new ValidationError(
 			'The transaction gas owner does not match the account.',
 		);
+
+	if (
+		scopeKind === 'acting' &&
+		!isMember &&
+		findAliasCalls(proposedTransaction.getData()).length > 0
+	)
+		throw new ApiAuthError('AliasCallByProposer');
 
 	// Verify the supplied user signature before doing any RPC work for the
 	// request. A fully resolved transaction builds without a client.
@@ -545,21 +674,28 @@ export const createProposal = async ({
 
 // Adds a member's signature to a pending proposal.
 export const voteOnProposal = async ({
-	proposalId,
 	signature,
 	scopeKind,
-}: {
-	proposalId: number;
+	loaders = aliasSetLoaders,
+	...key
+}: ProposalKey & {
 	// The member's signature over the proposal's transaction.
 	signature: string;
 	scopeKind: SignerScopeKind;
+	loaders?: AliasSetLoaders;
 }): Promise<ProposalProgress> => {
-	const proposal = await getProposalById(proposalId);
+	const proposal = await getProposal(key);
 
 	assertCanonicalSignature(signature);
 
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
+	await refreshBeforeDeciding(
+		scopeKind,
+		proposal.accountAddress,
+		proposal.network,
+		loaders,
+	);
 
 	// Any answer: a key of an acting set signs whether or not it accepted.
 	const signers = await resolveAccountSigners(
@@ -613,15 +749,16 @@ export const voteOnProposal = async ({
 // Cancels a pending proposal. An accepted member can cancel any proposal; an
 // external proposer can cancel only their own, and only while nobody has signed.
 export const cancelProposal = async ({
-	proposalId,
 	signature,
 	scopeKind,
-}: {
-	proposalId: number;
+	loaders = aliasSetLoaders,
+	...key
+}: ProposalKey & {
 	signature: string;
 	scopeKind: SignerScopeKind;
+	loaders?: AliasSetLoaders;
 }) => {
-	const proposal = await getProposalById(proposalId);
+	const proposal = await getProposal(key);
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
@@ -631,6 +768,12 @@ export const cancelProposal = async ({
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
 	const signerAddress = pubKey.toSuiAddress();
+	await refreshBeforeDeciding(
+		scopeKind,
+		proposal.accountAddress,
+		proposal.network,
+		loaders,
+	);
 
 	// Refuses outsiders before they can take the lock, and before the signature
 	// is checked. The route is open, and this is the order callers rely on.
@@ -770,45 +913,46 @@ export const verifyProposal = async ({
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
-	return await lookupAndVerifyProposal(proposal, scopeKind);
+	return await lookupAndVerifyProposal(proposal, {
+		readyUnder: scopeKind,
+		loaders: aliasSetLoaders,
+	});
 };
 
 // Verifies the execution of a proposal. Open to anyone: it only reads the
-// chain.
+// chain. Only the original scope keeps the threshold check first.
 export const verifyProposalByDigest = async (
 	digest: string,
 	scopeKind: SignerScopeKind,
-) => {
-	if (!isValidTransactionDigest(digest))
-		throw new CommonError('InvalidDigest');
+	loaders: AliasSetLoaders = aliasSetLoaders,
+) =>
+	await lookupAndVerifyProposal(
+		await getProposal({ digest }),
+		{
+			readyUnder:
+				scopeKind === 'original' ? 'original' : undefined,
+			loaders,
+		},
+	);
 
-	const proposal =
-		await ProposalByDigestLoader.load(digest);
-
-	if (!proposal) throw new NotFoundError();
-
-	return await lookupAndVerifyProposal(proposal, scopeKind);
-};
-
-// Lists an account's proposals on a network, for an accepted member.
-export const listProposals = async ({
-	multisigAddress,
-	network,
-	status,
-	cursor,
-	callerKeys,
-	scopeKind,
-}: {
+type ListInput = {
 	multisigAddress: string;
 	network: string;
 	// One of the `ProposalStatus` names. Parsed after the access check.
 	status?: string;
 	cursor: PaginationCursor;
 	callerKeys: PublicKey[];
-	scopeKind: SignerScopeKind;
-}): Promise<PaginatedResponse<ProposalWithSignatures>> => {
-	validateNetwork(network);
+};
 
+// Both lists: the access check, then one page.
+const listProposalPage = async ({
+	multisigAddress,
+	network,
+	status,
+	cursor,
+	callerKeys,
+	scopeKind,
+}: ListInput & { scopeKind: SignerScopeKind }) => {
 	if (
 		!(await isAccountSigner(multisigAddress, callerKeys, {
 			acceptedOnly: true,
@@ -825,13 +969,70 @@ export const listProposals = async ({
 	);
 };
 
+// Lists an account's proposals on a network, for an accepted member.
+export const listProposals = async ({
+	scopeKind,
+	...input
+}: ListInput & {
+	scopeKind: SignerScopeKind;
+}): Promise<PaginatedResponse<ProposalWithSignatures>> => {
+	validateNetwork(input.network);
+	return await listProposalPage({ ...input, scopeKind });
+};
+
+export type CheckedProposal = ProposalProgress & {
+	events: ProposalEvents;
+	// True when the alias read failed and the signers come from the mirror as it was.
+	signerSetsStale: boolean;
+};
+
+// A page of an account's proposals under the acting scope, each counted against the sets that act now.
+export const listAccountProposals = async ({
+	loaders = aliasSetLoaders,
+	...input
+}: ListInput & {
+	network: SuiNetwork;
+	loaders?: AliasSetLoaders;
+}): Promise<PaginatedResponse<CheckedProposal>> => {
+	const signerSetsStale =
+		(await isAccount(input.multisigAddress)) &&
+		!(await refreshForRead(
+			input.multisigAddress,
+			input.network,
+			loaders,
+		));
+	const page = await listProposalPage({
+		...input,
+		scopeKind: 'acting',
+	});
+	const [signers, events] = await Promise.all([
+		getAccountSigners(
+			input.multisigAddress,
+			actingSetsOn(input.network),
+		),
+		getProposalEvents(page.data.map((p) => p.id)),
+	]);
+	return {
+		...page,
+		data: page.data.map((proposal) => ({
+			...proposalProgress(proposal, signers),
+			events: events.get(proposal.id) ?? NO_EVENTS,
+			signerSetsStale,
+		})),
+	};
+};
+
+const NO_EVENTS: ProposalEvents = {
+	created: null,
+	proposer: null,
+};
+
 // A proposal by digest, with its account's signers and events. Public.
 export const getProposalByDigest = async (
 	digest: string,
 	scopeKind: SignerScopeKind,
-): Promise<
-	ProposalProgress & { events: ProposalEvents }
-> => {
+	loaders: AliasSetLoaders = aliasSetLoaders,
+): Promise<CheckedProposal> => {
 	if (!isValidTransactionDigest(digest))
 		throw new CommonError('InvalidDigest');
 
@@ -840,16 +1041,24 @@ export const getProposalByDigest = async (
 
 	if (!proposal) throw new NotFoundError();
 
+	const signerSetsStale =
+		scopeKind !== 'original' &&
+		!(await refreshForRead(
+			proposal.accountAddress,
+			proposal.network,
+			loaders,
+		));
 	const [signers, events] = await Promise.all([
 		getAccountSigners(
 			proposal.accountAddress,
 			scopeOn(scopeKind, proposal.network),
 		),
-		getProposalEvents(proposal.id),
+		getProposalEvents([proposal.id]),
 	]);
 
 	return {
 		...proposalProgress(proposal, signers),
-		events,
+		events: events.get(proposal.id) ?? NO_EVENTS,
+		signerSetsStale,
 	};
 };

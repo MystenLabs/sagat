@@ -10,7 +10,9 @@ import {
 import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
 import { Secp256k1PublicKey } from '@mysten/sui/keypairs/secp256k1';
 import { Secp256r1PublicKey } from '@mysten/sui/keypairs/secp256r1';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { fromBase64 } from '@mysten/sui/utils';
+import { publicKeyFromRawBytes } from '@mysten/sui/verify';
 
 import { CommonError, ValidationError } from '../errors';
 
@@ -90,4 +92,23 @@ export const getPublicKeyFromSerializedSignature = (
 	throw new ValidationError(
 		'Invalid signature scheme. Only Ed25519, Secp256k1, and Secp256r1 are supported. zkLogin wallets are not supported.',
 	);
+};
+
+// The address of whatever made a serialized signature, a multisig or a single key, or null when it cannot be read.
+export const signerAddressOf = (
+	signature: string,
+): string | null => {
+	try {
+		const parsed = parseSerializedSignature(signature);
+		return (
+			parsed.signatureScheme === 'MultiSig'
+				? new MultiSigPublicKey(parsed.multisig.multisig_pk)
+				: publicKeyFromRawBytes(
+						parsed.signatureScheme,
+						parsed.publicKey,
+					)
+		).toSuiAddress();
+	} catch {
+		return null;
+	}
 };

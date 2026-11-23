@@ -11,9 +11,7 @@ import {
 	InvitationAnswerSchema,
 	InvitationListSchema,
 	SuccessSchema,
-	ValidationMessages,
 } from '@mysten/sagat/v1';
-import { type MiddlewareHandler } from 'hono';
 import { z } from 'zod';
 
 import { SUPPORTED_NETWORKS } from '../db/env';
@@ -26,15 +24,14 @@ import {
 	removeAccountProposer,
 } from '../services/accounts.service';
 import {
-	authMiddleware,
-	type AuthEnv,
-} from '../services/auth.service';
-import { isCanonicalSuiAddress } from '../services/multisig.service';
-import {
+	authenticated,
+	CanonicalAddressSchema,
 	defineRoute,
 	error,
 	json,
 	networkQuery,
+	unauthorized,
+	unavailable,
 	type V1App,
 } from './openapi';
 import {
@@ -43,39 +40,9 @@ import {
 	toV1RemovedAccount,
 } from './serializers';
 
-// The shared middleware refuses in plain text; `/v1` answers with the error body.
-const auth: MiddlewareHandler<AuthEnv> = async (c, next) =>
-	(await authMiddleware(c, next))
-		? c.json({ error: 'Unauthorized' }, 401)
-		: undefined;
-
-const security: Record<string, string[]>[] = [
-	{ cookieAuth: [] },
-	{ bearerAuth: [] },
-];
-const authenticated = {
-	middleware: auth,
-	security,
-};
-
-const unauthorized = error('No valid session.');
-
-// Canonical, as the signed messages name it.
 const addressParams = z.object({
-	address: z
-		.string()
-		.refine(isCanonicalSuiAddress, {
-			message: ValidationMessages.InvalidAddress,
-		})
-		.meta({
-			description:
-				'A Sui address in canonical form: `0x` and 64 lower-case hex digits.',
-		}),
+	address: CanonicalAddressSchema,
 });
-
-const unavailable = error(
-	'The signers of the account on the network could not be checked, or the account is busy.',
-);
 
 const listAccountsRoute = createRoute({
 	method: 'get',

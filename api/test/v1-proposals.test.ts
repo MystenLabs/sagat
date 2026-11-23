@@ -116,6 +116,9 @@ describe('GET /v1/proposals/:digest', () => {
 				created: expect.any(Object),
 				proposer: null,
 			},
+			executedVia: null,
+			aliasCalls: [],
+			signerSetsStale: false,
 		});
 	});
 
