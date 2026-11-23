@@ -54,6 +54,7 @@ export type SignerSetEntry = Extract<
 export type KeyEntry = Extract<NoteEntry, { type: 'key' }>;
 
 export type SignerChangeErrorReason =
+	/** The transaction carries no composition note. */
 	| 'no_note'
 	/** A note input is not exactly what the builder writes. */
 	| 'not_canonical'
@@ -492,7 +493,7 @@ function objectIdOf(
 	return id ? normalizeSuiAddress(id) : null;
 }
 
-/** Null without alias calls or a note input; throws a `SignerChangeError` for a malformed change or one failing rule 1 or 2. */
+/** Null without alias calls or a note input; throws a `SignerChangeError` for a malformed change or one failing rule 1 (the account is the sender) or 2 (each set rebuilds its address). */
 export function readCompositionNote(
 	transaction: TransactionInput,
 ): CompositionNote | null {

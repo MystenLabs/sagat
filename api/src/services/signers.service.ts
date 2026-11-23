@@ -783,7 +783,7 @@ export type RemovedFromAccount = {
 	removedAt: Date;
 };
 
-// Keys in no acting set there whose set was removed; the newest removal per account and set.
+// Accounts a key accepted, is in no acting set of there, and whose set holding it was removed; the newest removal per account and set.
 export const listRemovedAccounts = async (
 	publicKeys: string[],
 	network: SuiNetwork,
