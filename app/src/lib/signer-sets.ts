@@ -46,12 +46,7 @@ export interface SignerSetCard {
 	pod: LinkedPod | null;
 }
 
-/**
- * A card per acting signer set, the one `signerAddress` signs in
- * (`viewerSignerSet`) first, the rest in the given order. A set in
- * `fresh` that makes up the same address stands in for it, with newer
- * answers and labels.
- */
+/** A card per acting set, the viewer's (`viewerSignerSet`) first; a `fresh` set making up the same address stands in for it. */
 export function signerSetCards({
 	acting,
 	fresh,

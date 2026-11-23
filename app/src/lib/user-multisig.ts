@@ -26,11 +26,7 @@ import {
 /** The signed-in key: its public key and the address it derives. */
 type Signer = { publicKey: string; address: string };
 
-/**
- * The set of `sets` that `signerAddress` signs in: the pod's own set (the
- * one that makes up `account`) when it holds the key, else the first that
- * does; undefined when none does.
- */
+/** The set of `sets` holding `signerAddress`: the pod's own (making up `account`) when it does, else the first that does. */
 export function viewerSignerSet(
 	sets: readonly AccountSignerSet[],
 	account: string,
