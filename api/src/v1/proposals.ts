@@ -218,25 +218,19 @@ export const proposalRoutes = (app: V1App) => {
 		proposalAt(c.req.valid('param').digest),
 	);
 
-	defineRoute(app, voteRoute, async (c) => {
-		const { digest } = c.req.valid('param');
-		await voteOnProposal({
-			digest,
-			...c.req.valid('json'),
-			scopeKind: 'acting',
+	for (const [route, act] of [
+		[voteRoute, voteOnProposal],
+		[cancelRoute, cancelProposal],
+	] as const)
+		defineRoute(app, route, async (c) => {
+			const { digest } = c.req.valid('param');
+			await act({
+				digest,
+				...c.req.valid('json'),
+				scopeKind: 'acting',
+			});
+			return proposalAt(digest);
 		});
-		return proposalAt(digest);
-	});
-
-	defineRoute(app, cancelRoute, async (c) => {
-		const { digest } = c.req.valid('param');
-		await cancelProposal({
-			digest,
-			...c.req.valid('json'),
-			scopeKind: 'acting',
-		});
-		return proposalAt(digest);
-	});
 
 	defineRoute(app, verifyRoute, async (c) => {
 		const { digest } = c.req.valid('param');
