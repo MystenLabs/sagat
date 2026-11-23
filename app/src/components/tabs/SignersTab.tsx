@@ -196,7 +196,7 @@ export function SignersTab() {
 							<>
 								{others.length > 0 && (
 									<FoldedRow
-										label={COPY.moreSignerSets(
+										label={content.common.moreSignerSets(
 											others.length,
 										)}
 										testId="other-acting-sets"

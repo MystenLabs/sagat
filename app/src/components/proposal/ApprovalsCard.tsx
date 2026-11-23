@@ -10,7 +10,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Pen, Play, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
+import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CancelProposalModal } from '@/components/modals/CancelProposalModal';
+import { FoldedRow } from '@/components/multisig/FoldedRow';
 import { SignerName } from '@/components/multisig/SignerName';
 import { SignersUnchecked } from '@/components/multisig/SignersUnchecked';
 import type { SimulationProps } from '@/components/transaction-preview/simulation';
@@ -57,12 +59,14 @@ import {
 	approvalsSignerSets,
 	approvalsStatus,
 	cancelVariant,
+	foldedSignerSetsLine,
 	gasEstimate,
 	hasSigned,
 	withReason,
 	wouldReachThreshold,
 	type ApprovalRow,
 	type ApprovalsNoteInput,
+	type ApprovalsSignerSet,
 	type Labels,
 	type SimulationVerdict,
 } from '@/lib/proposal-page';
@@ -280,7 +284,7 @@ export function ApprovalsCard({
 		labels,
 		viewerPublicKey,
 	);
-	// Per set only when there are several; one set keeps the single list.
+	// Per set only when there are several, the main set first; one set keeps the single list.
 	const signerSets =
 		proposal.checkedSignerSets.length > 1
 			? approvalsSignerSets(
@@ -291,10 +295,11 @@ export function ApprovalsCard({
 					pods ?? [],
 				)
 			: null;
-	// While pending, each set's block carries its own line.
+	const [mainSet, ...foldedSets] = signerSets ?? [];
+	// While pending, the main set's line.
 	const statusLine =
-		signerSets && status === 'pending' && !isExecuting
-			? null
+		mainSet && status === 'pending' && !isExecuting
+			? mainSet.line
 			: approvalsStatus(
 					proposal,
 					status,
@@ -523,9 +528,9 @@ export function ApprovalsCard({
 					className="ml-auto text-12 text-muted-foreground"
 					data-testid="approvals-threshold"
 				>
-					{shownSet &&
-						!signerSets &&
-						approvalsThresholdLabel(shownSet)}
+					{mainSet
+						? mainSet.heading
+						: shownSet && approvalsThresholdLabel(shownSet)}
 				</span>
 			</CardHeading>
 			{statusLine && (
@@ -537,7 +542,7 @@ export function ApprovalsCard({
 				</p>
 			)}
 			<div className="border-t" />
-			{signerSets ? (
+			{signerSets && mainSet ? (
 				<>
 					<p
 						className="text-13 text-muted-foreground"
@@ -548,43 +553,54 @@ export function ApprovalsCard({
 							networkLabel(network),
 						)}
 					</p>
-					{signerSets.map((set, i) => (
-						<div
-							key={set.address}
-							className={cn(
-								'flex flex-col gap-3',
-								i > 0 && 'border-t pt-4',
-							)}
-							data-testid="approvals-signer-set"
-							data-address={set.address}
-							data-current-weight={set.currentWeight}
-							data-threshold={set.threshold}
-						>
-							<div className="flex flex-col gap-0.5">
-								{set.podName && (
-									<span className="text-13 font-medium">
-										{set.podName}
-									</span>
+					<div
+						className="flex flex-col gap-3"
+						{...signerSetData(mainSet)}
+					>
+						<ApprovalRowList rows={mainSet.rows} />
+					</div>
+					<FoldedRow
+						label={content.common.moreSignerSets(
+							foldedSets.length,
+						)}
+						line={foldedSignerSetsLine(signerSets, status)}
+						testId="approvals-other-signer-sets"
+					>
+						{foldedSets.map((set, i) => (
+							<div
+								key={set.address}
+								className={cn(
+									'flex flex-col gap-3',
+									i > 0 && 'border-t pt-4',
 								)}
-								<div className="flex flex-wrap items-baseline justify-between gap-x-3">
-									<span
-										className={cn(
-											'text-13',
-											!set.podName && 'font-medium',
-										)}
-									>
-										{set.heading}
-									</span>
-									{set.line && (
-										<span className="text-12 text-muted-foreground">
-											{set.line}
+								{...signerSetData(set)}
+							>
+								<div className="flex flex-col gap-0.5">
+									{set.podName ? (
+										<span className="text-13 font-medium">
+											{set.podName}
 										</span>
+									) : (
+										<ShortAddress
+											address={set.address}
+											className="w-fit font-mono text-12"
+										/>
 									)}
+									<div className="flex flex-wrap items-baseline justify-between gap-x-3">
+										<span className="text-13">
+											{set.heading}
+										</span>
+										{set.line && (
+											<span className="text-12 text-muted-foreground">
+												{set.line}
+											</span>
+										)}
+									</div>
 								</div>
+								<ApprovalRowList rows={set.rows} />
 							</div>
-							<ApprovalRowList rows={set.rows} />
-						</div>
-					))}
+						))}
+					</FoldedRow>
 				</>
 			) : (
 				<ApprovalRowList rows={rows} />
@@ -667,6 +683,16 @@ export function ApprovalsCard({
 			</Modal>
 		</section>
 	);
+}
+
+/** A signer set's block attributes, so each set's count can be read. */
+function signerSetData(set: ApprovalsSignerSet) {
+	return {
+		'data-testid': 'approvals-signer-set',
+		'data-address': set.address,
+		'data-current-weight': set.currentWeight,
+		'data-threshold': set.threshold,
+	};
 }
 
 /** A signer set's members: who signed, who hasn't, who isn't needed. */

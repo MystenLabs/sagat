@@ -204,7 +204,31 @@ export interface ApprovalsSignerSet {
 	rows: ApprovalRow[];
 }
 
-/** One part per checked signer set, in their order, each counted on its own. */
+/**
+ * The set the Approvals card keeps open: the pod's own when the viewer's
+ * key is in it, else the first that holds the key, else the first.
+ */
+export function mainSignerSet<
+	S extends Pick<CountedSignerSet, 'address' | 'members'>,
+>(
+	sets: readonly S[],
+	account: string,
+	publicKey: string | null | undefined,
+): S | null {
+	const holding = sets.filter(
+		(set) => yourWeight(set, publicKey) > 0,
+	);
+	return (
+		holding.find((set) =>
+			sameAddress(set.address, account),
+		) ??
+		holding[0] ??
+		sets[0] ??
+		null
+	);
+}
+
+/** One part per checked signer set, the main set (`mainSignerSet`) first and the rest in their order, each counted on its own. */
 export function approvalsSignerSets(
 	proposal: Pick<
 		PageProposal,
@@ -217,7 +241,16 @@ export function approvalsSignerSets(
 ): ApprovalsSignerSet[] {
 	const copy = content.proposal.approvals.status;
 	const open = status === 'pending' || status === 'ready';
-	return proposal.checkedSignerSets.map((set) => ({
+	const sets = proposal.checkedSignerSets;
+	const main = mainSignerSet(
+		sets,
+		proposal.accountAddress,
+		publicKey,
+	);
+	const ordered = main
+		? [main, ...sets.filter((set) => set !== main)]
+		: sets;
+	return ordered.map((set) => ({
 		address: set.address,
 		currentWeight: set.currentWeight,
 		threshold: set.threshold,
@@ -244,6 +277,29 @@ export function approvalsSignerSets(
 			publicKey,
 		),
 	}));
+}
+
+/**
+ * The folded row's line beside its label: "Threshold reached." when a
+ * folded set reached it; while pending, the folded set missing the least
+ * weight, when that is less than the main set misses; else null.
+ */
+export function foldedSignerSetsLine(
+	[main, ...folded]: readonly ApprovalsSignerSet[],
+	status: ProposalStatusKey,
+): string | null {
+	const copy = content.proposal.approvals.status;
+	if (!main || (status !== 'pending' && status !== 'ready'))
+		return null;
+	if (folded.some(reachesThreshold)) return copy.reached;
+	if (status !== 'pending' || folded.length === 0)
+		return null;
+	const missing = (set: ApprovalsSignerSet) =>
+		set.threshold - set.currentWeight;
+	const closest = Math.min(...folded.map(missing));
+	return closest < missing(main)
+		? copy.needs(closest)
+		: null;
 }
 
 /** The line under the Approvals heading; null once cancelled or expired. */

@@ -13,16 +13,19 @@ import {
 	CollapsibleTrigger,
 } from '../ui/collapsible';
 
-/** A row inside a card that opens in place: its label, an optional count and a chevron. */
+/** A row inside a card that opens in place: its label, an optional count, an optional line while closed and a chevron. */
 export function FoldedRow({
 	label,
 	count,
+	line,
 	testId,
 	card = false,
 	children,
 }: {
 	label: string;
 	count?: number;
+	/** What the folded content says that matters before it is opened. */
+	line?: string | null;
 	testId: string;
 	/** A card of its own, titled with an h2. */
 	card?: boolean;
@@ -65,6 +68,14 @@ export function FoldedRow({
 							data-testid={`${testId}-count`}
 						>
 							{count}
+						</span>
+					)}
+					{line && !open && (
+						<span
+							className="text-12 font-normal text-muted-foreground"
+							data-testid={`${testId}-line`}
+						>
+							{line}
 						</span>
 					)}
 					<ChevronDown

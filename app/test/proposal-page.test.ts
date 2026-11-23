@@ -6,12 +6,15 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
+import { content } from '../src/content';
 import {
 	activityRows,
 	approvalRows,
 	approvalsNote,
 	approvalsSignerSets,
 	cancelVariant,
+	foldedSignerSetsLine,
+	mainSignerSet,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
 	type Labels,
@@ -190,6 +193,171 @@ describe('approvalsSignerSets', () => {
 				],
 			],
 		]);
+	});
+});
+
+// The proposal counted against each set, its signers at weight, at its address.
+function counted(
+	signedBy: (typeof maya)[],
+	sets: {
+		address: string;
+		threshold: number;
+		signers: (typeof maya)[];
+	}[],
+): CountedProposal {
+	const counting = proposal({ signedBy });
+	counting.checkedSignerSets = countSignerSets(
+		counting,
+		sets.map(({ address, threshold, signers }) => ({
+			address,
+			set: {
+				threshold,
+				members: signers.map((s, order) => ({
+					publicKey: s.publicKey,
+					weight: s.weight,
+					order,
+				})),
+			},
+		})),
+		null,
+	);
+	return counting;
+}
+
+describe('mainSignerSet', () => {
+	const main = (
+		sets: Parameters<typeof counted>[1],
+		publicKey: string | null,
+	) =>
+		mainSignerSet(
+			counted([], sets).checkedSignerSets,
+			'0x1',
+			publicKey,
+		)?.address;
+
+	it('is the pod’s own set when the viewer’s key is in it, wherever it comes', () => {
+		expect(
+			main(
+				[
+					{
+						address: '0x2',
+						threshold: 2,
+						signers: [maya, daniel],
+					},
+					{
+						address: '0x1',
+						threshold: 2,
+						signers: SIGNERS,
+					},
+				],
+				maya.publicKey,
+			),
+		).toBe('0x1');
+	});
+
+	it('is the first set that holds the viewer’s key when the pod’s own set doesn’t', () => {
+		expect(
+			main(
+				[
+					{
+						address: '0x1',
+						threshold: 2,
+						signers: [daniel, alice],
+					},
+					{
+						address: '0x2',
+						threshold: 2,
+						signers: [maya, daniel],
+					},
+					{
+						address: '0x3',
+						threshold: 2,
+						signers: [maya, alice],
+					},
+				],
+				maya.publicKey,
+			),
+		).toBe('0x2');
+	});
+
+	it('is the first set when none holds the viewer’s key', () => {
+		expect(
+			main(
+				[
+					{
+						address: '0x2',
+						threshold: 2,
+						signers: [maya, daniel],
+					},
+					{
+						address: '0x1',
+						threshold: 2,
+						signers: SIGNERS,
+					},
+				],
+				null,
+			),
+		).toBe('0x2');
+	});
+});
+
+describe('foldedSignerSetsLine', () => {
+	const STATUS = content.proposal.approvals.status;
+	const erin = signer('Erin', 1);
+	// Maya's pod's own set, 1 of 3 with Daniel's signature, keeps the card open.
+	const line = (
+		signedBy: (typeof maya)[],
+		folded: { threshold: number; signers: (typeof maya)[] },
+		status: 'pending' | 'ready',
+		ownThreshold = 3,
+	) =>
+		foldedSignerSetsLine(
+			approvalsSignerSets(
+				counted(signedBy, [
+					{
+						address: '0x1',
+						threshold: ownThreshold,
+						signers: SIGNERS,
+					},
+					{ address: '0x2', ...folded },
+				]),
+				status,
+				labels,
+				maya.publicKey,
+				[],
+			),
+			status,
+		);
+
+	it('says a folded set reached its threshold', () => {
+		expect(
+			line(
+				[daniel, erin],
+				{ threshold: 2, signers: [daniel, erin] },
+				'ready',
+			),
+		).toBe(STATUS.reached);
+	});
+
+	it('says what the folded set missing the least needs, while pending, when that is less than the main set needs', () => {
+		expect(
+			line(
+				[daniel],
+				{ threshold: 2, signers: [daniel, erin] },
+				'pending',
+			),
+		).toBe(STATUS.needs(1));
+	});
+
+	it('says nothing when no folded set is closer to its threshold than the main set', () => {
+		expect(
+			line(
+				[daniel],
+				{ threshold: 2, signers: [daniel, erin] },
+				'pending',
+				2,
+			),
+		).toBeNull();
 	});
 });
 
