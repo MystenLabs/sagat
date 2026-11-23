@@ -411,11 +411,8 @@ describe('signers who stay and the proof', () => {
 	const old = entryOf(S1);
 	const next = entryOf(S2);
 
-	test('signers who stay are the old keys in the new set', () => {
+	test('signers who stay are the old keys in the new set, and the proof counts them at their new weights, not a removed signer or a new one', () => {
 		expect(signersWhoStay(old, next)).toEqual([k1, k2]);
-	});
-
-	test('the proof counts staying keys at their new weights, not a removed signer or a new one', () => {
 		expect(proofWeight(old, next, [k1, k3, k4, k5])).toBe(
 			2,
 		);
