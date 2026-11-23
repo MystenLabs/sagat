@@ -10,11 +10,12 @@ Anyone calling the Sagat API directly or through the SDK from the repository: sc
 
 The web app needs nothing from you. It updates with the release.
 
-**Nothing breaks on release day, apart from the stricter input and the new cancel message listed below.** The routes you use today keep working, frozen, on top of the new schema. The new API lives under `/v1`. The session cookie and script token are shared, so you can move one call at a time.
+**Nothing breaks on release day, apart from the stricter input, the new cancel message and the 503 when a node cannot be read, listed below.** The routes you use today keep working, frozen, on top of the new schema. The new API lives under `/v1`. The session cookie and script token are shared, so you can move one call at a time.
 
-Four things to plan for:
+Five things to plan for:
 
-- **Legacy routes refuse accounts that have rotated signers.** They return an error pointing at `/v1`. Two exceptions: `verify` and `verify-by-digest` still work, so a proposal that rotated the account can be verified, and the connection and invitation listings (`GET /addresses/connections`, `GET /addresses/invitations/:publicKey`) leave rotated accounts out silently rather than failing. A rotated account missing from a listing is not deleted and your membership is not lost; it is only visible under `/v1`. If your team never rotates, you never see any of this.
+- **Legacy routes refuse an account whose signers changed.** They answer HTTP 409 with `{"error":"An account whose signers changed is served by the /v1 routes only."}`. An account counts as changed when its alias set on any supported network is anything other than exactly its own address: after a signer change, or an alias added by hand. Calling `enable` alone does not count. The 409 comes from `GET /multisig/:address`, `GET /proposals`, `GET /proposals/digest/:digest`, `POST /proposals`, `POST /proposals/:id/vote`, `POST /proposals/:id/cancel`, `POST /multisig/:address/add-proposer` and `POST /multisig/:address/remove-proposer`, to any caller, before the membership check. The connection and invitation listings (`GET /addresses/connections`, `GET /addresses/invitations/:publicKey`) leave a changed account out silently rather than failing. An account missing from a listing is not deleted and your membership is not lost; it is only visible under `/v1`. `verify`, `verify-by-digest`, `POST /multisig`, accept, reject, sign-in, `POST /addresses` and `GET /addresses/:address` stay open, so a proposal that changed the account's signers can be verified. Read and write a changed account through the `/v1` routes in "Routes" below. If your team never changes signers, you never see this 409.
+- **Legacy routes read the alias set again.** A legacy route about one account first reads its alias set from the chain again when the last read is older than a minute, on every supported network. When a node cannot be read, create, vote, cancel, `add-proposer` and `remove-proposer` answer a 503 that names the account and network, also for an account whose signers never changed: `The signers of account <address> on <network> could not be checked. Please try again.` The reads and the two listings answer from the last read.
 - **Legacy routes are removed once their traffic reaches zero.** There is no fixed date. Migrating early keeps you off the last-user list.
 - **Stricter input on some legacy routes.** `add-proposer` and `remove-proposer` accept `expiry` only in the form `YYYY-MM-DDTHH:MM:SS`, with an optional fraction of up to nine digits, followed by `Z` or a `±HH:MM` offset, such as `2026-11-05T13:48:41.000Z`. Create, vote, cancel, accept, reject, `add-proposer` and `remove-proposer` accept a signature only as canonical base64. Other forms get a 400.
 - **Cancel takes only the new message.** `POST /proposals/:id/cancel` accepts only the signed text `Cancelling proposal <digest> on multisig <address>`. The old `Cancel proposal <id>` gets a 400. See "Signed messages" below.
@@ -271,7 +272,7 @@ Exported files carry `type` and `version`. A composition export (`sagat.multisig
 
 ## Things that did not change
 
-- Legacy routes. They keep working until their traffic is zero, except for rotated accounts, the stricter input and the new cancel message listed at the top of this guide, and signer changes, which they never serve.
+- Legacy routes. They keep working until their traffic is zero, except for an account whose signers changed, the 503 when a node cannot be read, the stricter input and the new cancel message listed at the top of this guide, and signer changes, which they never serve.
 - Authentication, tokens, and cookies. One session works against both route sets.
 - Proposal ids and digests. Existing proposals keep both.
 - Account addresses. Every existing multisig address is now an account with the same address.
