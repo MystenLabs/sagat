@@ -147,11 +147,7 @@ export function decodeAliasSet(
 	};
 }
 
-/**
- * Append `address_alias::enable` for the transaction sender. Creates the
- * sender's `AddressAliases` object with the set `{sender}`. The object cannot
- * be used later in the same transaction.
- */
+/** The `AddressAliases` object it creates cannot be used later in the same transaction. */
 export function buildEnable(tx: Transaction) {
 	tx.moveCall({
 		target: `${MODULE}::enable`,
@@ -159,7 +155,7 @@ export function buildEnable(tx: Transaction) {
 	});
 }
 
-/** Append `address_alias::add(alias)` to `account`'s alias set. The sender must be `account`. */
+/** The sender must be `account`. */
 export function buildAdd(
 	tx: Transaction,
 	{ account, alias }: { account: string; alias: string },
@@ -173,7 +169,7 @@ export function buildAdd(
 	});
 }
 
-/** Append `address_alias::remove(alias)` from `account`'s alias set. The sender must be `account`. */
+/** The sender must be `account`. */
 export function buildRemove(
 	tx: Transaction,
 	{ account, alias }: { account: string; alias: string },

@@ -54,7 +54,6 @@ export type SignerSetEntry = Extract<
 export type KeyEntry = Extract<NoteEntry, { type: 'key' }>;
 
 export type SignerChangeErrorReason =
-	/** The transaction carries no composition note. */
 	| 'no_note'
 	/** A note input is not exactly what the builder writes. */
 	| 'not_canonical'
@@ -220,10 +219,7 @@ function knownEntry(
 	};
 }
 
-/**
- * The texts of a composition note: the change, then one input per address in
- * `before` ∪ `after`, ascending. Each is passed as `tx.pure.string`.
- */
+/** The change, then one input per address in `before` ∪ `after`, ascending; each a `tx.pure.string`. */
 export function compositionNote({
 	account,
 	before,
@@ -273,14 +269,10 @@ export interface SignerChangeInput {
 	known: readonly KnownSigner[];
 	/** The chain identifier the expiration names. */
 	chain: string;
-	/** The current epoch. */
 	epoch: string | number | bigint;
 }
 
-/**
- * Append a signer change to `tx`, whose sender is the account: the alias
- * calls, the composition note and an expiration that names the chain.
- */
+/** `tx`'s sender is the account; adds an expiration that names the chain. */
 export function buildSignerChange(
 	tx: Transaction,
 	input: SignerChangeInput,
@@ -354,7 +346,6 @@ export function buildSignerChange(
 	});
 }
 
-// Input indices any command refers to.
 function usedInputs(
 	commands: TransactionData['commands'],
 ): Set<number> {
@@ -501,13 +492,7 @@ function objectIdOf(
 	return id ? normalizeSuiAddress(id) : null;
 }
 
-/**
- * Read the composition note of a signer change. Null when the transaction
- * calls no alias function or carries no note input; throws a
- * `SignerChangeError` when it carries one and is not a well-formed signer
- * change, or fails rule 1 (the note's account is the sender) or rule 2 (each
- * signer set rebuilds its address).
- */
+/** Null without alias calls or a note input; throws a `SignerChangeError` for a malformed change or one failing rule 1 or 2. */
 export function readCompositionNote(
 	transaction: TransactionInput,
 ): CompositionNote | null {
@@ -656,11 +641,7 @@ export function readCompositionNote(
 	};
 }
 
-/**
- * Check a signer change against the account's alias set, from a source the
- * caller picks (a node, or the note's own `before` for an executed change).
- * Returns the checked change or throws a `SignerChangeError`.
- */
+/** Throws a `SignerChangeError`. `aliases` come from a node or, once executed, the note's own `before`. */
 export function checkSignerChange(
 	transaction: TransactionInput,
 	aliases: readonly string[],
@@ -780,11 +761,7 @@ export function isProofMet(
 	);
 }
 
-/**
- * Whether a signer change is ready: the keys that signed reach the old set's
- * own threshold by its weights, and signers who stay have signed for the new
- * threshold (`isProofMet`).
- */
+/** The keys that signed reach the old set's own threshold, and `isProofMet`. */
 export function isSignerChangeReady(
 	change: Pick<SignerChange, 'oldSet' | 'newSets'>,
 	signedKeys: readonly string[],
@@ -799,7 +776,6 @@ export function isSignerChangeReady(
 	);
 }
 
-/** The chain a transaction's expiration names, or null. */
 export function namedChain(
 	transaction: Pick<TransactionData, 'expiration'>,
 ): string | null {
