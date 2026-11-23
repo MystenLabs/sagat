@@ -855,6 +855,26 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		).toBe('CANCELLED');
 	});
 
+	// The account's alias rows on localnet, sorted.
+	const mirroredAliases = async (address: string) =>
+		(
+			await db
+				.select({
+					alias: SchemaAccountAliases.aliasAddress,
+				})
+				.from(SchemaAccountAliases)
+				.where(
+					and(
+						eq(
+							SchemaAccountAliases.accountAddress,
+							address,
+						),
+						eq(SchemaAccountAliases.network, 'localnet'),
+					),
+				)
+				.orderBy(asc(SchemaAccountAliases.aliasAddress))
+		).map((row) => row.alias);
+
 	// Executes the proposal with `signature`, or the API's signatures of `setAddress`, then verifies it.
 	const executeVia = async (
 		proposal: Proposal,
@@ -1018,16 +1038,88 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		expect(
 			verified.signerSets.map((s) => s.address),
 		).toEqual(expected);
-		const rows = await db
-			.select({ alias: SchemaAccountAliases.aliasAddress })
-			.from(SchemaAccountAliases)
-			.where(
-				and(
-					eq(SchemaAccountAliases.accountAddress, address),
-					eq(SchemaAccountAliases.network, 'localnet'),
+		expect(await mirroredAliases(address)).toEqual(
+			expected,
+		);
+	});
+
+	// An add of a new alias, proposed by `k1` and signed by `k2`, then cancelled by `k1`.
+	const cancelledAliasProposal = async ({
+		k1,
+		k2,
+		address,
+		signer,
+	}: Awaited<ReturnType<typeof createAccount>>) => {
+		expectSuccess(await run(address, signer, buildEnable));
+		const alias = newUser().address;
+		const created = await session.createProposal(
+			k1,
+			address,
+			'localnet',
+			toBase64(
+				await build(address, (tx) =>
+					buildAdd(tx, { account: address, alias }),
 				),
-			)
-			.orderBy(asc(SchemaAccountAliases.aliasAddress));
-		expect(rows.map((r) => r.alias)).toEqual(expected);
+			),
+		);
+		const voted = await session.voteOnProposal(
+			k2,
+			created.digest,
+			created.transactionBytes,
+		);
+		await session.cancelProposal(k1, created);
+		return { alias, voted };
+	};
+
+	test('a cancelled alias proposal that executed takes its on-chain outcome', async () => {
+		const account = await createAccount();
+		const { alias, voted } =
+			await cancelledAliasProposal(account);
+		await executeProposal(voted, voted.signerSets[0]);
+
+		const verified = await client.verifyProposalByDigest(
+			voted.digest,
+		);
+
+		expect(verified.status).toBe('SUCCESS');
+		expect(verified.executedVia).toBe(account.address);
+		expect(await mirroredAliases(account.address)).toEqual(
+			[account.address, alias].sort(),
+		);
+	});
+
+	test('a cancelled alias proposal that is not on chain stays cancelled', async () => {
+		const account = await createAccount();
+		const { voted } = await cancelledAliasProposal(account);
+
+		const verified = await client.verifyProposalByDigest(
+			voted.digest,
+		);
+
+		expect(verified.status).toBe('CANCELLED');
+		expect(verified.executedVia).toBeNull();
+		expect(verified.events.cancelled).toMatchObject({
+			action: 'proposal.cancelled',
+			actor: account.k1.address,
+			subject: voted.digest,
+		});
+	});
+
+	test('a cancelled proposal that calls no alias module stays cancelled', async () => {
+		const { k1, address } = await createAccount();
+		const created = await session.createProposal(
+			k1,
+			address,
+			'localnet',
+			await buildTransfer(address),
+		);
+		await session.cancelProposal(k1, created);
+
+		const verified = await client.verifyProposalByDigest(
+			created.digest,
+		);
+
+		expect(verified.status).toBe('CANCELLED');
+		expect(verified.executedVia).toBeNull();
 	});
 });

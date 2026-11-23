@@ -5,7 +5,8 @@
 
 import { deriveAliasesObjectId } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { type Transaction } from '@mysten/sui/transactions';
+import { Transaction } from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
 import {
 	beforeAll,
 	describe,
@@ -17,9 +18,11 @@ import { and, asc, eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
 import {
+	ProposalStatus,
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
 	SchemaAccountEvents,
+	SchemaProposals,
 } from '../src/db/schema';
 import { lockAccount } from '../src/db/transaction';
 import {
@@ -46,6 +49,8 @@ import {
 	type AliasObjects,
 } from './setup/alias-reader';
 import {
+	build,
+	execute,
 	expectSuccess,
 	keySigner,
 	multisigSigner,
@@ -56,7 +61,11 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { getLocalClient } from './setup/sui-network';
+import {
+	fundAddress,
+	getLocalClient,
+	LOCALNET_WAIT,
+} from './setup/sui-network';
 import { untilBackendsWaitOnALock } from './setup/test-db';
 
 setupSharedTestEnvironment();
@@ -105,6 +114,43 @@ const mirrorOf = async (account: string) => {
 		events,
 	};
 };
+
+// A proposal row of `account` with the bytes, as Sagat would hold it.
+const proposalOf = async (
+	account: string,
+	bytes: Uint8Array,
+	status: ProposalStatus,
+) => {
+	const transactionBytes = toBase64(bytes);
+	const [proposal] = await db
+		.insert(SchemaProposals)
+		.values({
+			accountAddress: account,
+			digest: await Transaction.from(
+				transactionBytes,
+			).getDigest(),
+			transactionBytes,
+			proposerAddress: account,
+			network: NETWORK,
+			status,
+		})
+		.returning();
+	return proposal;
+};
+
+const outcomesOf = async (ids: number[]) =>
+	Promise.all(
+		ids.map(async (id) => {
+			const [row] = await db
+				.select({
+					status: SchemaProposals.status,
+					executedVia: SchemaProposals.executedVia,
+				})
+				.from(SchemaProposals)
+				.where(eq(SchemaProposals.id, id));
+			return row;
+		}),
+	);
 
 const backdate = (account: string, ageMs: number) =>
 	db
@@ -593,5 +639,191 @@ describe('Alias mirror', () => {
 		expect(bad).toBeInstanceOf(Error);
 		expect(calls()).toBe(1);
 		expect(lastIds()).toEqual([deriveAliasesObjectId(A)]);
+	});
+	// Builds and executes an alias call from `A` signed by `K`, outside any proposal.
+	const executeAsK = async (
+		fill: (tx: Transaction) => void,
+	) => {
+		const bytes = await build(A, fill);
+		return {
+			bytes,
+			result: await execute(
+				bytes,
+				await signerK.sign(bytes),
+			),
+		};
+	};
+
+	// Added in step 15, removed in step 16.
+	const [Y, Z] = Array.from({ length: 2 }, () =>
+		new Ed25519Keypair().toSuiAddress(),
+	);
+
+	test('15. a pending and a cancelled alias proposal that executed are settled by the refresh that sees the change; one not on chain keeps its status', async () => {
+		const W = new Ed25519Keypair().toSuiAddress();
+		const pendingCall = await executeAsK((tx) =>
+			buildAdd(tx, { account: A, alias: Y }),
+		);
+		const cancelledCall = await executeAsK((tx) =>
+			buildAdd(tx, { account: A, alias: Z }),
+		);
+		const lastDigest = expectSuccess(
+			cancelledCall.result,
+		).digest;
+		const neverRun = await build(A, (tx) =>
+			buildAdd(tx, { account: A, alias: W }),
+		);
+		const proposals = [
+			await proposalOf(
+				A,
+				pendingCall.bytes,
+				ProposalStatus.PENDING,
+			),
+			await proposalOf(
+				A,
+				cancelledCall.bytes,
+				ProposalStatus.CANCELLED,
+			),
+			await proposalOf(
+				A,
+				neverRun,
+				ProposalStatus.CANCELLED,
+			),
+		];
+
+		const [result] = await refreshAliases(
+			[A],
+			NETWORK,
+			createAliasSetLoaders(),
+		);
+
+		expect(result).toMatchObject({
+			outcome: 'updated',
+			digest: lastDigest,
+			added: [Y, Z].sort(),
+			removed: [],
+		});
+		const settled = {
+			status: ProposalStatus.SUCCESS,
+			executedVia: K.toSuiAddress(),
+		};
+		expect(
+			await outcomesOf(proposals.map((p) => p.id)),
+		).toEqual([
+			settled,
+			settled,
+			{
+				status: ProposalStatus.CANCELLED,
+				executedVia: null,
+			},
+		]);
+	});
+
+	test('16. settling still happens when a later alias change sits on top', async () => {
+		const pendingCall = await executeAsK((tx) =>
+			buildRemove(tx, { account: A, alias: Y }),
+		);
+		const cancelledCall = await executeAsK((tx) =>
+			buildRemove(tx, { account: A, alias: Z }),
+		);
+		const proposals = [
+			await proposalOf(
+				A,
+				pendingCall.bytes,
+				ProposalStatus.PENDING,
+			),
+			await proposalOf(
+				A,
+				cancelledCall.bytes,
+				ProposalStatus.CANCELLED,
+			),
+		];
+		const V = new Ed25519Keypair().toSuiAddress();
+		const lastDigest = await send(A, signerK, (tx) =>
+			buildAdd(tx, { account: A, alias: V }),
+		);
+
+		const [result] = await refreshAliases(
+			[A],
+			NETWORK,
+			createAliasSetLoaders(),
+		);
+
+		expect(result).toMatchObject({
+			outcome: 'updated',
+			digest: lastDigest,
+			added: [V],
+			removed: [Y, Z].sort(),
+		});
+		const settled = {
+			status: ProposalStatus.SUCCESS,
+			executedVia: K.toSuiAddress(),
+		};
+		expect(
+			await outcomesOf(proposals.map((p) => p.id)),
+		).toEqual([settled, settled]);
+	});
+
+	test('17. an alias call that failed on chain is recorded as failed and changes nothing', async () => {
+		// Two adds of one alias, both built while it is absent: the second aborts.
+		// It is sponsored, so it does not spend the gas coin of the first.
+		const sponsor = new Ed25519Keypair();
+		await fundAddress(sponsor.toSuiAddress());
+		const Q = new Ed25519Keypair().toSuiAddress();
+		const failing = await build(A, (tx) => {
+			tx.setGasOwner(sponsor.toSuiAddress());
+			buildAdd(tx, { account: A, alias: Q });
+		});
+		await send(A, signerK, (tx) =>
+			buildAdd(tx, { account: A, alias: Q }),
+		);
+		await refreshAliases(
+			[A],
+			NETWORK,
+			createAliasSetLoaders(),
+		);
+		const before = await mirrorOf(A);
+
+		const result = await client.executeTransaction({
+			transaction: failing,
+			signatures: [
+				await signerK.sign(failing),
+				(await sponsor.signTransaction(failing)).signature,
+			],
+			include: { effects: true },
+		});
+		await client.waitForTransaction({
+			result,
+			...LOCALNET_WAIT,
+		});
+		expect(result.$kind).toBe('FailedTransaction');
+		const proposal = await proposalOf(
+			A,
+			failing,
+			ProposalStatus.PENDING,
+		);
+
+		const [refreshed] = await refreshAliases(
+			[A],
+			NETWORK,
+			createAliasSetLoaders(),
+		);
+
+		// The abort still moves the object's version.
+		expect(refreshed).toMatchObject({
+			outcome: 'updated',
+			digest: proposal.digest,
+			added: [],
+			removed: [],
+		});
+		const after = await mirrorOf(A);
+		expect(after.aliases).toEqual(before.aliases);
+		expect(after.events).toEqual(before.events);
+		expect(await outcomesOf([proposal.id])).toEqual([
+			{
+				status: ProposalStatus.FAILURE,
+				executedVia: K.toSuiAddress(),
+			},
+		]);
 	});
 });
