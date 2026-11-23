@@ -127,7 +127,12 @@ export function withActing(
 	);
 	switch (acting.state) {
 		case 'refused':
-			return { ...row, refused: 'notActing', acting: null };
+			return {
+				...row,
+				refused: 'notActing',
+				acting: null,
+				unidentified: acting.unidentified,
+			};
 		case 'ok':
 			return {
 				...row,

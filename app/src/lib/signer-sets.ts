@@ -4,6 +4,8 @@
 import type { AccountSignerSet } from '@mysten/sagat/v1';
 
 import { content } from '../content';
+import { joinList } from './create-multisig';
+import { networkLabel, type SuiNetwork } from './network';
 import {
 	isMember,
 	signerSetAddress,
@@ -102,6 +104,17 @@ export function signerSetCards({
 				...cards.filter((_, i) => i !== viewer),
 			]
 		: cards;
+}
+
+/** The notice naming the other networks whose signers differ, or null when there are none. */
+export function differentSignersLine(
+	networks: readonly SuiNetwork[],
+): string | null {
+	return networks.length > 0
+		? content.signers.differentOn(
+				joinList(networks.map(networkLabel), 'and'),
+			)
+		: null;
 }
 
 /** A row of the "Other signer sets" card. */

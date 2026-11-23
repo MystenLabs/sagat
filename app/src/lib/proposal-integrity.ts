@@ -230,7 +230,7 @@ export interface PodActing<
 	state: 'checking' | 'ok' | 'refused' | 'unchecked';
 	/** Shown sets that rebuild to an alias. Empty unless `ok`. */
 	signerSets: S[];
-	/** Aliases no shown set rebuilds. Empty unless `ok`. */
+	/** Aliases no shown set rebuilds. Empty unless `ok`, or `refused` with no shown set an alias. */
 	unidentified: string[];
 }
 
@@ -250,7 +250,12 @@ export function podActing<S extends AccountSigners>(
 			isMember(set, signerAddress),
 		)
 	)
-		return { state: 'refused', ...none };
+		return {
+			state: 'refused',
+			signerSets: [],
+			unidentified:
+				check.acting.length === 0 ? check.unidentified : [],
+		};
 	return {
 		state: 'ok',
 		signerSets: check.acting.map(({ set }) => set),

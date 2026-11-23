@@ -74,69 +74,78 @@ export function OtherSignerSetsCard({
 			</h2>
 			<CollapsibleContent className="flex flex-col gap-3">
 				<p className="text-13">{COPY.body(network)}</p>
-				<table className={tableClass}>
-					<thead>
-						<tr className={tableHeadRowClass}>
-							<th className="px-3">
-								{COPY.columns.signerSet}
-							</th>
-							<th className="w-32 px-3 sm:w-60">
-								{COPY.columns.signers}
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						{rows.map(({ address, pod }) => (
-							<tr
-								key={address}
-								className={tableRowClass}
-								data-testid="other-signer-set"
-								data-address={address}
-								data-pod={pod ? 'yes' : 'no'}
-							>
-								<td className="px-3 py-2.5">
-									<div className="flex min-w-0 flex-col gap-0.5">
-										{pod?.name && (
-											<span
-												className="truncate font-medium"
-												data-testid="other-signer-set-name"
-											>
-												{pod.name}
-											</span>
-										)}
-										<SignerSetAddress address={address} />
-										<span className="text-12 text-muted-foreground">
-											{pod
-												? COPY.createdInPods
-												: COPY.addedOutside}
-										</span>
-									</div>
-								</td>
-								<td className="px-3 py-2.5">
-									{pod ? (
-										<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-											<div className="flex flex-col gap-0.5">
-												<span>{pod.signers}</span>
-												<span className="text-12 text-muted-foreground">
-													{pod.threshold}
-												</span>
-											</div>
-											<OpenPodLink
-												address={pod.address}
-												className="-mr-2.5"
-											/>
-										</div>
-									) : (
-										<span className="text-muted-foreground">
-											{COPY.noDetails}
-										</span>
-									)}
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
+				<OtherSignerSetsTable rows={rows} />
 			</CollapsibleContent>
 		</Collapsible>
+	);
+}
+
+/** A row per alias: its pod's name when it has one, the address whole with copy, and where it was made. */
+export function OtherSignerSetsTable({
+	rows,
+}: {
+	rows: OtherSignerSetRow[];
+}) {
+	return (
+		<table className={tableClass}>
+			<thead>
+				<tr className={tableHeadRowClass}>
+					<th className="px-3">{COPY.columns.signerSet}</th>
+					<th className="w-32 px-3 sm:w-60">
+						{COPY.columns.signers}
+					</th>
+				</tr>
+			</thead>
+			<tbody>
+				{rows.map(({ address, pod }) => (
+					<tr
+						key={address}
+						className={tableRowClass}
+						data-testid="other-signer-set"
+						data-address={address}
+						data-pod={pod ? 'yes' : 'no'}
+					>
+						<td className="px-3 py-2.5">
+							<div className="flex min-w-0 flex-col gap-0.5">
+								{pod?.name && (
+									<span
+										className="truncate font-medium"
+										data-testid="other-signer-set-name"
+									>
+										{pod.name}
+									</span>
+								)}
+								<SignerSetAddress address={address} />
+								<span className="text-12 text-muted-foreground">
+									{pod
+										? COPY.createdInPods
+										: COPY.addedOutside}
+								</span>
+							</div>
+						</td>
+						<td className="px-3 py-2.5">
+							{pod ? (
+								<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+									<div className="flex flex-col gap-0.5">
+										<span>{pod.signers}</span>
+										<span className="text-12 text-muted-foreground">
+											{pod.threshold}
+										</span>
+									</div>
+									<OpenPodLink
+										address={pod.address}
+										className="-mr-2.5"
+									/>
+								</div>
+							) : (
+								<span className="text-muted-foreground">
+									{COPY.noDetails}
+								</span>
+							)}
+						</td>
+					</tr>
+				))}
+			</tbody>
+		</table>
 	);
 }

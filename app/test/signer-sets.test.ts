@@ -7,6 +7,7 @@ import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { expect, test } from 'vitest';
 
 import {
+	differentSignersLine,
 	otherSignerSetRows,
 	signerSetCards,
 } from '../src/lib/signer-sets';
@@ -160,4 +161,11 @@ test('an alias is created in Pods only when it is the address of a pod whose sig
 		},
 		{ address: refused.address, pod: null },
 	]);
+});
+
+test('the signers differ notice names the other networks as a list, and none shows nothing', () => {
+	expect(differentSignersLine(['testnet', 'devnet'])).toBe(
+		'This pod’s signers are different on Testnet and Devnet.',
+	);
+	expect(differentSignersLine([])).toBeNull();
 });

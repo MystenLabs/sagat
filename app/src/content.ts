@@ -338,6 +338,9 @@ export const content = {
 			invitedYou: 'invited you as a signer.',
 			note: 'Check each address before you accept. Accepting doesn’t move funds or cost gas.',
 			accept: 'Accept invitation',
+			/** Under the pod's original signers, when the invitation comes through a set added to the pod. */
+			originalSigners:
+				'This pod’s address was made from these signers.',
 		},
 		weightBar: {
 			accepted: 'Accepted weight',
@@ -1210,7 +1213,16 @@ export const content = {
 			addedOutside: 'Added outside Pods',
 			createdInPods: 'Created in Pods',
 			noDetails: 'No details',
+			/** Under a pod's refusal when no signer set the app shows controls the address on the network. */
+			noActingSet: (network: string) =>
+				`On ${network}, this address is controlled by other signer sets.`,
 		},
+		/** Above the cards when more than one signer set acts on the network. */
+		severalSignerSets: (count: number, network: string) =>
+			`This pod has ${count} signer sets on ${network}. Each one can approve transactions on its own.`,
+		/** When the pod's alias set differs on other networks the API serves; `networks` is already a list. */
+		differentOn: (networks: string) =>
+			`This pod’s signers are different on ${networks}.`,
 		markers: MARKERS,
 		status: {
 			accepted: 'Accepted',

@@ -13,6 +13,7 @@ import {
 } from 'react-router-dom';
 
 import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { useArrivalBanner } from '@/hooks/useArrivalBanner';
 import { accountName } from '@/lib/account-name';
 import { joinList } from '@/lib/create-multisig';
@@ -21,13 +22,18 @@ import {
 	currentMultisigPage,
 	MULTISIG_PAGES,
 } from '@/lib/multisig-pages';
+import { networkLabel } from '@/lib/network';
 import { newProposalPath } from '@/lib/new-proposal';
+import { otherSignerSetRows } from '@/lib/signer-sets';
+import { cn } from '@/lib/utils';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
+import { OtherSignerSetsTable } from './multisig/OtherSignerSetsCard';
 import { SignersRefused } from './multisig/SignersRefused';
 import { SignersUnchecked } from './multisig/SignersUnchecked';
 import { SuccessBanner } from './multisig/SuccessBanner';
 import { Button } from './ui/button';
+import { cardClass } from './ui/card';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
 
@@ -37,6 +43,7 @@ export function MultisigDetailPage() {
 	const page = currentMultisigPage(location.pathname);
 	const navigate = useNavigate();
 	const currentAccount = useCurrentAccount();
+	const { network } = useNetwork();
 	const {
 		data: multisigs,
 		isLoading,
@@ -133,6 +140,25 @@ export function MultisigDetailPage() {
 					rule={multisig.refused}
 					testId="pod-refused"
 				/>
+				{multisig.unidentified &&
+					multisig.unidentified.length > 0 && (
+						<section
+							className={cn(cardClass, 'mt-5')}
+							data-testid="pod-controlled-by"
+						>
+							<p className="text-13">
+								{content.signers.otherSignerSets.noActingSet(
+									networkLabel(network),
+								)}
+							</p>
+							<OtherSignerSetsTable
+								rows={otherSignerSetRows(
+									multisig.unidentified,
+									multisigs ?? [],
+								)}
+							/>
+						</section>
+					)}
 			</div>
 		);
 	}

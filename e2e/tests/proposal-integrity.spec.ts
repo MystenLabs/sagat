@@ -819,10 +819,11 @@ test.describe('proposal integrity', () => {
 		);
 		await bob.signIn();
 		await listed;
+		const alias = randomAddress();
 		await replaceOwnAlias(
 			chain,
 			bothSign(alice, bob),
-			randomAddress(),
+			alias,
 		);
 
 		await bob.page.goto(
@@ -833,6 +834,21 @@ test.describe('proposal integrity', () => {
 		await expect(refusal).toHaveAttribute(
 			'data-rule',
 			'notActing',
+		);
+		// No set the app shows acts, so it lists what controls the address.
+		const controlledBy = bob.page.getByTestId(
+			'pod-controlled-by',
+		);
+		await expect(controlledBy).toContainText(
+			'On Localnet, this address is controlled by other signer sets.',
+		);
+		const aliases = controlledBy.getByTestId(
+			'other-signer-set',
+		);
+		await expect(aliases).toHaveCount(1);
+		await expect(aliases).toHaveAttribute(
+			'data-address',
+			alias,
 		);
 		await bob.page.getByTestId('receive-button').click();
 		const dialog = bob.page.getByTestId('receive-dialog');
@@ -929,6 +945,10 @@ test.describe('proposal integrity', () => {
 			'data-rule',
 			'notActing',
 		);
+		// The pod's own set still acts, so nothing lists other signer sets.
+		await expect(
+			carol.page.getByTestId('pod-controlled-by'),
+		).toHaveCount(0);
 	});
 
 	test("shows that the pod's signers couldn't be checked while the node can't be read, until a retry reads it", async ({

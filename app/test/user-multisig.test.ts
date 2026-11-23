@@ -186,3 +186,40 @@ test('the key’s set is the first shown set that holds it, else the original se
 		),
 	).toBe(multisig.originalSignerSet);
 });
+
+test('a row refused as not acting carries the node’s aliases only when no shown set is one', () => {
+	const { address, multisig } = pod();
+	const other = pod();
+	const stranger = signerSet();
+	const row = toUserMultisig(
+		{
+			...multisig,
+			signerSets: [
+				...multisig.signerSets,
+				{ kind: 'signer_set', ...stranger.set },
+			],
+		},
+		signerOf(stranger.keys[0]),
+	);
+
+	expect(
+		withActing(
+			row,
+			{ kind: 'read', aliases: [other.address] },
+			signerOf(stranger.keys[0]),
+		),
+	).toMatchObject({
+		refused: 'notActing',
+		unidentified: [other.address],
+	});
+	expect(
+		withActing(
+			row,
+			{ kind: 'read', aliases: [address, other.address] },
+			signerOf(stranger.keys[0]),
+		),
+	).toMatchObject({
+		refused: 'notActing',
+		unidentified: [],
+	});
+});

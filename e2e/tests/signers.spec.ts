@@ -858,7 +858,15 @@ test.describe('overview and signers', () => {
 			await expect(
 				page.getByTestId('signers-card'),
 			).toHaveCount(2);
+			await expect(
+				page.getByTestId('several-signer-sets'),
+			).toHaveText(
+				'This pod has 2 signer sets on Localnet. Each one can approve transactions on its own.',
+			);
 			const own = card(page, multisig.address);
+			await expect(
+				own.getByTestId('signer-set-threshold'),
+			).toHaveText('Threshold 2 of 2');
 			await expect(
 				member(own, alice.address),
 			).toBeVisible();
@@ -872,6 +880,9 @@ test.describe('overview and signers', () => {
 			await expect(
 				member(added, alice.address),
 			).toBeVisible();
+			await expect(
+				added.getByTestId('signer-set-threshold'),
+			).toHaveText('Threshold 2 of 2');
 			await expect(
 				member(added, carol.address),
 			).toBeVisible();

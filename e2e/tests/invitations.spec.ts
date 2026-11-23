@@ -581,6 +581,26 @@ test.describe('invitations', () => {
 			.invitationCard(multisig.address)
 			.getByTestId('invitation-toggle-details')
 			.click();
+		// She is invited through her set; the pod's address comes from Alice's and Bob's.
+		const original = page
+			.getByTestId('invitation-review')
+			.getByTestId('invitation-original-signers');
+		await expect(original).toContainText(
+			'This pod’s address was made from these signers.',
+		);
+		await expect(
+			original.getByTestId('member-item'),
+		).toHaveCount(2);
+		await expect(
+			original.locator(
+				`[data-testid="member-item"][data-address="${alice.address}"]`,
+			),
+		).toBeVisible();
+		await expect(
+			original.locator(
+				`[data-testid="member-item"][data-address="${bob.address}"]`,
+			),
+		).toBeVisible();
 		await page
 			.getByTestId('accept-invitation-button')
 			.click();

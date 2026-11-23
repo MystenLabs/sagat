@@ -27,6 +27,8 @@ export type PodChecks =
 			/** Why the pod failed a signers check: rule 1 (`signers`, `notSigner`) or rule 2 (`notActing`). */
 			refused: SignersRefusedRule;
 			acting: null;
+			/** For `notActing` when no shown set is an alias: the node's aliases. */
+			unidentified?: string[];
 	  }
 	| { refused: null; acting: RowActing };
 

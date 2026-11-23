@@ -18,6 +18,7 @@ import {
 import { networkLabel } from '@/lib/network';
 import { trustsSigners } from '@/lib/proposer-proofs';
 import {
+	differentSignersLine,
 	otherSignerSetRows,
 	signerSetCards,
 } from '@/lib/signer-sets';
@@ -26,6 +27,7 @@ import {
 	signerRows,
 	signerSetStatus,
 } from '@/lib/signers';
+import { sumWeight, thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 
@@ -130,6 +132,10 @@ export function SignersTab() {
 			: null;
 	const originalRows =
 		original && signerRows(original.members, signerAddress);
+	const several = (cards?.length ?? 0) > 1;
+	const differentOn = differentSignersLine(
+		details?.networksWithDifferentSigners ?? [],
+	);
 
 	return (
 		<div className="@container flex flex-col gap-5">
@@ -150,6 +156,22 @@ export function SignersTab() {
 					data-tone={notice.tone}
 				>
 					{notice.message}
+				</Alert>
+			)}
+			{several && (
+				<Alert
+					variant="warning"
+					data-testid="several-signer-sets"
+				>
+					{content.signers.severalSignerSets(
+						cards?.length ?? 0,
+						networkLabel(network),
+					)}
+				</Alert>
+			)}
+			{differentOn && (
+				<Alert variant="info" data-testid="signers-differ">
+					{differentOn}
 				</Alert>
 			)}
 			{/* The setup card sits beside the lists from 896px of content,
@@ -179,6 +201,21 @@ export function SignersTab() {
 									}
 									signerSet={card.address}
 								>
+									{several && (
+										<p
+											className="text-13 text-muted-foreground"
+											data-testid="signer-set-threshold"
+										>
+											{content.common.threshold(
+												thresholdLabel({
+													threshold: card.set.threshold,
+													totalWeight: sumWeight(
+														card.set.members,
+													),
+												}),
+											)}
+										</p>
+									)}
 									{!card.isOriginal && (
 										<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
 											<div className="flex min-w-0 flex-col gap-0.5">
