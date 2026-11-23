@@ -9,6 +9,7 @@
 
 import {
 	findAliasCalls,
+	isSignerChangeReady,
 	PersonalMessages,
 	signersWhoStay,
 	type KeyEntry,
@@ -112,7 +113,6 @@ import {
 	signerChangeIn,
 	signerChangeLabels,
 	signerChangeNote,
-	storedSignerChange,
 	type StoredSignerChange,
 } from './signer-changes.service';
 import {
@@ -153,10 +153,7 @@ const proposalProgress = (
 	const signedKeys = proposal.signatures.map(
 		(sig) => sig.publicKey,
 	);
-	const stored = storedSignerChange(
-		proposal.transactionBytes,
-		signedKeys,
-	);
+	const stored = signerChangeIn(proposal.transactionBytes);
 	if (!stored)
 		return {
 			proposal,
@@ -165,23 +162,28 @@ const proposalProgress = (
 			signerChange: null,
 		};
 
+	const { change } = stored;
+	// A note that does not check is never ready.
+	const ready =
+		change !== null &&
+		isSignerChangeReady(change, signedKeys);
 	const { sets } = countSignatures(
 		signers.actingSets.filter(
-			(set) =>
-				set.address === stored.change?.oldSet.address,
+			(set) => set.address === change?.oldSet.address,
 		),
 		signedKeys,
 	);
 	return {
-		proposal: stored.ready
+		proposal: ready
 			? proposal
 			: { ...proposal, signatures: [] },
 		signers,
 		sets,
-		hasReachedThreshold: stored.ready,
+		hasReachedThreshold: ready,
 		signerChange: {
-			...stored,
-			withheldSignatures: stored.ready ? [] : signedKeys,
+			change,
+			ready,
+			withheldSignatures: ready ? [] : signedKeys,
 		},
 	};
 };

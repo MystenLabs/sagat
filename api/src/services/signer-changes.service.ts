@@ -10,7 +10,6 @@
 import {
 	checkSignerChange,
 	isProofMet,
-	isSignerChangeReady,
 	namedChain,
 	readCompositionNote,
 	SignerChangeError,
@@ -107,21 +106,6 @@ export const signerChangeIn = (
 	} catch {
 		return { change: null };
 	}
-};
-
-// `signerChangeIn`, and whether it is ready given the public keys that signed. A note that does not check is never ready.
-export const storedSignerChange = (
-	transactionBytes: string,
-	signedKeys: readonly string[],
-): StoredSignerChange | null => {
-	const stored = signerChangeIn(transactionBytes);
-	if (!stored) return null;
-	return {
-		change: stored.change,
-		ready:
-			stored.change !== null &&
-			isSignerChangeReady(stored.change, signedKeys),
-	};
 };
 
 // The signer set the change adds, if it adds one.
