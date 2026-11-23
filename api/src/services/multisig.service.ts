@@ -96,6 +96,7 @@ import {
 	verifyMemberSignedMessage,
 	verifySignedMessage,
 } from './signatures.service';
+import { storedSignerChange } from './signer-changes.service';
 import {
 	actingSetsOn,
 	keyAnswer,
@@ -1263,9 +1264,12 @@ export const removeProposer = async ({
 			return { removed: false, cancelledProposals: [] };
 
 		// Cancel all pending transactions from the proposer.
-		const cancelled = await tx
-			.update(SchemaProposals)
-			.set({ status: ProposalStatus.CANCELLED })
+		const pending = await tx
+			.select({
+				id: SchemaProposals.id,
+				transactionBytes: SchemaProposals.transactionBytes,
+			})
+			.from(SchemaProposals)
 			.where(
 				and(
 					eq(SchemaProposals.accountAddress, address),
@@ -1278,11 +1282,36 @@ export const removeProposer = async ({
 						? eq(SchemaProposals.network, scope.network)
 						: undefined,
 				),
+			);
+		// Never a signer change: a signer being removed could name its proposer.
+		const ids = pending
+			.filter(
+				(proposal) =>
+					storedSignerChange(
+						proposal.transactionBytes,
+						[],
+					) === null,
 			)
-			.returning({
-				digest: SchemaProposals.digest,
-				network: SchemaProposals.network,
-			});
+			.map((proposal) => proposal.id);
+		const cancelled =
+			ids.length === 0
+				? []
+				: await tx
+						.update(SchemaProposals)
+						.set({ status: ProposalStatus.CANCELLED })
+						.where(
+							and(
+								inArray(SchemaProposals.id, ids),
+								eq(
+									SchemaProposals.status,
+									ProposalStatus.PENDING,
+								),
+							),
+						)
+						.returning({
+							digest: SchemaProposals.digest,
+							network: SchemaProposals.network,
+						});
 
 		const removed = await tx
 			.delete(SchemaAccountProposers)

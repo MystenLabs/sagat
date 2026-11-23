@@ -150,6 +150,7 @@ describe('GET /v1/proposals/:digest', () => {
 			},
 			executedVia: null,
 			signerSetsStale: false,
+			signerChange: null,
 		});
 	});
 

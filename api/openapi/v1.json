@@ -40,7 +40,7 @@
 					},
 					"ready": {
 						"type": "boolean",
-						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
+						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, signerChange.ready."
 					},
 					"transactionBytes": { "type": "string" },
 					"proposerAddress": {
@@ -56,14 +56,15 @@
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/ProposalSignature"
-						}
+						},
+						"description": "The signatures, less those of a signer change that is not ready, whose keys are in signerChange.withheldSignatures."
 					},
 					"signerSets": {
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/SignerSet"
 						},
-						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. Then the original set, with acting false, when it no longer acts there."
+						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces, while that set acts. Then the original set, with acting false, when it no longer acts there."
 					},
 					"events": {
 						"$ref": "#/components/schemas/ProposalEvents"
@@ -75,6 +76,15 @@
 					"signerSetsStale": {
 						"type": "boolean",
 						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
+					},
+					"signerChange": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/SignerChange"
+							},
+							{ "type": "null" }
+						],
+						"description": "Null for a proposal that is not a signer change."
 					}
 				},
 				"required": [
@@ -93,7 +103,8 @@
 					"signerSets",
 					"events",
 					"executedVia",
-					"signerSetsStale"
+					"signerSetsStale",
+					"signerChange"
 				]
 			},
 			"ProposalStatusName": {
@@ -218,6 +229,150 @@
 					"createdAt"
 				],
 				"description": "An account audit log event, as stored."
+			},
+			"SignerChange": {
+				"type": "object",
+				"properties": {
+					"note": {
+						"type": ["object", "null"],
+						"properties": {
+							"account": {
+								"type": "string",
+								"description": "A Sui address."
+							},
+							"before": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"description": "A Sui address."
+								},
+								"description": "The alias set before the change, as the note states it."
+							},
+							"after": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"description": "A Sui address."
+								},
+								"description": "The alias set after the change, as the note states it."
+							},
+							"signerSets": {
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/NoteEntry"
+								},
+								"description": "One entry per address in before and after, in address order."
+							}
+						},
+						"required": [
+							"account",
+							"before",
+							"after",
+							"signerSets"
+						],
+						"description": "The composition note as read from the bytes. Null when it does not check; such a change is never ready."
+					},
+					"oldSet": {
+						"type": ["string", "null"],
+						"description": "The signer set the change replaces. Null when the note does not check."
+					},
+					"newSets": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"description": "A Sui address."
+						},
+						"description": "The signer set the change adds, or for a change that only removes, every identified set left in after."
+					},
+					"ready": {
+						"type": "boolean",
+						"description": "True when the old set’s threshold is reached and signers who stay have signed for the new threshold, by their new weights."
+					},
+					"withheldSignatures": {
+						"type": "array",
+						"items": { "type": "string" },
+						"description": "The public keys that signed but whose signatures are withheld until the change is ready, the proposer’s in events.created included. Empty once ready."
+					}
+				},
+				"required": [
+					"note",
+					"oldSet",
+					"newSets",
+					"ready",
+					"withheldSignatures"
+				],
+				"description": "The API’s reading of the signer change in the transaction bytes, which is only its word: a client reads and checks the bytes itself with the SDK (`checkSignerChange`)."
+			},
+			"NoteEntry": {
+				"oneOf": [
+					{
+						"type": "object",
+						"properties": {
+							"type": {
+								"type": "string",
+								"enum": ["signer_set"]
+							},
+							"version": { "type": "number", "enum": [1] },
+							"address": {
+								"type": "string",
+								"description": "A Sui address."
+							},
+							"threshold": { "type": "integer" },
+							"members": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"publicKey": { "type": "string" },
+										"weight": { "type": "integer" }
+									},
+									"required": ["publicKey", "weight"]
+								}
+							}
+						},
+						"required": [
+							"type",
+							"version",
+							"address",
+							"threshold",
+							"members"
+						]
+					},
+					{
+						"type": "object",
+						"properties": {
+							"type": { "type": "string", "enum": ["key"] },
+							"version": { "type": "number", "enum": [1] },
+							"address": {
+								"type": "string",
+								"description": "A Sui address."
+							},
+							"publicKey": { "type": "string" }
+						},
+						"required": [
+							"type",
+							"version",
+							"address",
+							"publicKey"
+						]
+					},
+					{
+						"type": "object",
+						"properties": {
+							"type": {
+								"type": "string",
+								"enum": ["other_signer_set"]
+							},
+							"version": { "type": "number", "enum": [1] },
+							"address": {
+								"type": "string",
+								"description": "A Sui address."
+							}
+						},
+						"required": ["type", "version", "address"]
+					}
+				],
+				"description": "One signer set of the composition note: its composition, a single key, or an address with no details."
 			},
 			"Error": {
 				"type": "object",
@@ -834,7 +989,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "The proposal, with its signatures, signer sets and audit log events.",
+						"description": "The proposal, with its signatures, signer sets and audit log events. The signatures of a signer change are withheld until it is ready.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -869,7 +1024,7 @@
 		"/v1/proposals/{digest}/vote": {
 			"post": {
 				"summary": "Sign a proposal",
-				"description": "Signed over the transaction by a key of an acting signer set, accepted or not.",
+				"description": "Signed over the transaction by a key of an acting signer set, accepted or not. A signer change only by a key of the signer set it replaces.",
 				"parameters": [
 					{
 						"schema": {
@@ -914,7 +1069,7 @@
 						}
 					},
 					"403": {
-						"description": "The key is in no acting signer set of the account on the network.",
+						"description": "The key is in no acting signer set of the account on the network, or the proposal is a signer change and the key is not in the set it replaces.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -949,7 +1104,7 @@
 		"/v1/proposals/{digest}/cancel": {
 			"post": {
 				"summary": "Cancel a proposal",
-				"description": "Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed.",
+				"description": "Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed. A signer change only by an accepted signer of the set it replaces who stays.",
 				"parameters": [
 					{
 						"schema": {
@@ -994,7 +1149,7 @@
 						}
 					},
 					"403": {
-						"description": "The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer.",
+						"description": "The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer, or the proposal is a signer change and the signer does not stay.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1501,7 +1656,7 @@
 			},
 			"delete": {
 				"summary": "Remove an external proposer",
-				"description": "Signed with `PersonalMessages.removeMultisigProposer` by an accepted key of an acting signer set. Cancels the proposer’s pending proposals on the network.",
+				"description": "Signed with `PersonalMessages.removeMultisigProposer` by an accepted key of an acting signer set. Cancels the proposer’s pending proposals on the network, except a signer change.",
 				"parameters": [
 					{
 						"schema": {

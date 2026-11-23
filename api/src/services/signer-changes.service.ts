@@ -10,15 +10,20 @@
 import {
 	checkSignerChange,
 	isProofMet,
+	isSignerChangeReady,
 	namedChain,
 	readCompositionNote,
 	SignerChangeError,
 	signersWhoStay,
 	type CompositionNote,
+	type SignerChange,
 	type SignerSetEntry,
 } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
-import { type TransactionData } from '@mysten/sui/transactions';
+import {
+	Transaction,
+	type TransactionData,
+} from '@mysten/sui/transactions';
 
 import {
 	AccountSignerSetStatus,
@@ -72,6 +77,42 @@ export const signerChangeNote = (
 		return readCompositionNote(data);
 	} catch (error) {
 		throw refusalOf(error);
+	}
+};
+
+export type StoredSignerChange = {
+	// Null when the note does not check.
+	change: SignerChange | null;
+	ready: boolean;
+};
+
+/**
+ * A stored proposal's signer change, read from its bytes, and whether it is
+ * ready given the public keys that signed. Null when the bytes carry no note,
+ * or are no transaction. The change is checked against the note's own
+ * `before`, so the answer never moves with the mirror. A note that does not
+ * check is never ready.
+ */
+export const storedSignerChange = (
+	transactionBytes: string,
+	signedKeys: readonly string[],
+): StoredSignerChange | null => {
+	let data: TransactionData;
+	try {
+		data = Transaction.from(transactionBytes).getData();
+	} catch {
+		return null;
+	}
+	try {
+		const note = readCompositionNote(data);
+		if (!note) return null;
+		const change = checkSignerChange(data, note.before);
+		return {
+			change,
+			ready: isSignerChangeReady(change, signedKeys),
+		};
+	} catch {
+		return { change: null, ready: false };
 	}
 };
 

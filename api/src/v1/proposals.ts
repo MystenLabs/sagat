@@ -108,7 +108,7 @@ const getProposalRoute = createRoute({
 	request: { params: digestParams },
 	responses: {
 		200: proposalResponse(
-			'The proposal, with its signatures, signer sets and audit log events.',
+			'The proposal, with its signatures, signer sets and audit log events. The signatures of a signer change are withheld until it is ready.',
 		),
 		400: error(
 			'The digest is not a valid transaction digest.',
@@ -122,7 +122,7 @@ const voteRoute = createRoute({
 	path: '/proposals/{digest}/vote',
 	summary: 'Sign a proposal',
 	description:
-		'Signed over the transaction by a key of an acting signer set, accepted or not.',
+		'Signed over the transaction by a key of an acting signer set, accepted or not. A signer change only by a key of the signer set it replaces.',
 	request: { params: digestParams, body: signatureBody },
 	responses: {
 		200: proposalResponse(
@@ -132,7 +132,7 @@ const voteRoute = createRoute({
 			'The digest or signature is invalid, the key has signed already, or the proposal is not pending.',
 		),
 		403: error(
-			'The key is in no acting signer set of the account on the network.',
+			'The key is in no acting signer set of the account on the network, or the proposal is a signer change and the key is not in the set it replaces.',
 		),
 		404: error('No proposal has this digest.'),
 		503: unavailable,
@@ -144,7 +144,7 @@ const cancelRoute = createRoute({
 	path: '/proposals/{digest}/cancel',
 	summary: 'Cancel a proposal',
 	description:
-		'Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed.',
+		'Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed. A signer change only by an accepted signer of the set it replaces who stays.',
 	request: { params: digestParams, body: signatureBody },
 	responses: {
 		200: proposalResponse('The proposal, cancelled.'),
@@ -152,7 +152,7 @@ const cancelRoute = createRoute({
 			'The digest or signature is invalid, a signer has already signed the proposer’s proposal, or the proposal is not pending.',
 		),
 		403: error(
-			'The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer.',
+			'The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer, or the proposal is a signer change and the signer does not stay.',
 		),
 		404: error('No proposal has this digest.'),
 		503: unavailable,

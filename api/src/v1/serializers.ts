@@ -14,6 +14,7 @@ import { type CheckedAccount } from '../services/accounts.service';
 import {
 	aliasCallsOf,
 	type CheckedProposal,
+	type SignerChangeProgress,
 } from '../services/proposals.service';
 import {
 	memberAnswer,
@@ -44,6 +45,26 @@ const toV1SetMember = (member: {
 	order: member.order,
 });
 
+const toV1SignerChange = ({
+	change,
+	ready,
+	withheldSignatures,
+}: SignerChangeProgress): z.input<
+	typeof v1.SignerChangeSchema
+> => ({
+	note: change && {
+		account: change.account,
+		before: change.before,
+		after: change.after,
+		signerSets: change.signerSets,
+	},
+	oldSet: change?.oldSet.address ?? null,
+	newSets: change?.newSets.map((set) => set.address) ?? [],
+	ready,
+	withheldSignatures,
+});
+
+// The signatures and events come withheld from the service.
 export const toV1Proposal = ({
 	proposal,
 	signers,
@@ -51,6 +72,7 @@ export const toV1Proposal = ({
 	hasReachedThreshold,
 	events,
 	signerSetsStale,
+	signerChange,
 }: CheckedProposal): z.input<typeof v1.ProposalSchema> => ({
 	digest: proposal.digest,
 	accountAddress: proposal.accountAddress,
@@ -112,6 +134,8 @@ export const toV1Proposal = ({
 	},
 	executedVia: proposal.executedVia,
 	signerSetsStale,
+	signerChange:
+		signerChange && toV1SignerChange(signerChange),
 });
 
 const toV1Member = (

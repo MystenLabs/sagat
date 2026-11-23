@@ -10,6 +10,9 @@
 import {
 	findAliasCalls,
 	PersonalMessages,
+	signersWhoStay,
+	type KeyEntry,
+	type SignerSetEntry,
 } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
@@ -69,6 +72,7 @@ import { normalizeText } from '../utils/text';
 import {
 	getProposalEvents,
 	recordAccountEvent,
+	type AccountEventRecord,
 	type ProposalEvents,
 } from './account-events.service';
 import {
@@ -105,6 +109,8 @@ import {
 	checkAndWriteSignerChange,
 	signerChangeLabels,
 	signerChangeNote,
+	storedSignerChange,
+	type StoredSignerChange,
 } from './signer-changes.service';
 import {
 	actingSetsOn,
@@ -118,28 +124,118 @@ import {
 	type SignerSetProgress,
 } from './signers.service';
 
+export type SignerChangeProgress = StoredSignerChange & {
+	// Keys that signed, whose signatures are withheld until the change is ready.
+	withheldSignatures: string[];
+};
+
 // A proposal with its account's signers and how far its signatures get it.
 export type ProposalProgress = {
+	// For a signer change that is not ready, without its signatures.
 	proposal: ProposalWithSignatures;
 	// The account's signers under the scope the caller asked for.
 	signers: AccountSigners;
-	// One per acting set, in the order of `signers.actingSets`.
+	// One per acting set, in the order of `signers.actingSets`; for a signer change, only the old set while it acts.
 	sets: SignerSetProgress[];
-	// True when any one set reached its own threshold.
+	// True when any one set reached its own threshold; for a signer change, when it is ready.
 	hasReachedThreshold: boolean;
+	signerChange: SignerChangeProgress | null;
 };
 
+// Every response about a proposal is built from this, so a signer change's signatures stay withheld until it is ready.
 const proposalProgress = (
 	proposal: ProposalWithSignatures,
 	signers: AccountSigners,
-): ProposalProgress => ({
-	proposal,
-	signers,
-	...countSignatures(
-		signers.actingSets,
-		proposal.signatures.map((sig) => sig.publicKey),
-	),
-});
+): ProposalProgress => {
+	const signedKeys = proposal.signatures.map(
+		(sig) => sig.publicKey,
+	);
+	const stored = storedSignerChange(
+		proposal.transactionBytes,
+		signedKeys,
+	);
+	if (!stored)
+		return {
+			proposal,
+			signers,
+			...countSignatures(signers.actingSets, signedKeys),
+			signerChange: null,
+		};
+
+	const { sets } = countSignatures(
+		signers.actingSets.filter(
+			(set) =>
+				set.address === stored.change?.oldSet.address,
+		),
+		signedKeys,
+	);
+	return {
+		proposal: stored.ready
+			? proposal
+			: { ...proposal, signatures: [] },
+		signers,
+		sets,
+		hasReachedThreshold: stored.ready,
+		signerChange: {
+			...stored,
+			withheldSignatures: stored.ready ? [] : signedKeys,
+		},
+	};
+};
+
+// The event's proof without its signature.
+const withoutSignature = (
+	event: AccountEventRecord,
+): AccountEventRecord => {
+	if (!event.proof || typeof event.proof !== 'object')
+		return event;
+	const proof = {
+		...(event.proof as Record<string, unknown>),
+	};
+	delete proof.signature;
+	return { ...event, proof };
+};
+
+const checkedProposal = (
+	proposal: ProposalWithSignatures,
+	signers: AccountSigners,
+	events: ProposalEvents,
+	signerSetsStale: boolean,
+): CheckedProposal => {
+	const progress = proposalProgress(proposal, signers);
+	const withheld =
+		progress.signerChange !== null &&
+		!progress.signerChange.ready;
+	return {
+		...progress,
+		events:
+			withheld && events.created
+				? {
+						...events,
+						created: withoutSignature(events.created),
+					}
+				: events,
+		signerSetsStale,
+	};
+};
+
+const keysOf = (set: SignerSetEntry | KeyEntry) =>
+	set.type === 'key'
+		? [set.publicKey]
+		: set.members.map((member) => member.publicKey);
+
+// No legacy route serves a signer change: its signatures are withheld, which the legacy shape cannot express.
+const refuseSignerChangeUnder = (
+	scopeKind: SignerScopeKind,
+	proposal: Pick<Proposal, 'transactionBytes'>,
+) => {
+	if (
+		scopeKind === 'original' &&
+		storedSignerChange(proposal.transactionBytes, []) !==
+			null
+	)
+		throw new ServedByV1OnlyError('A signer change');
+};
 
 // The scope of a request on a network; for a proposal, always its own network.
 const scopeOn = (
@@ -250,7 +346,7 @@ const findProposal = async (
 };
 
 // Get a proposal by id, and its signatures.
-export const getProposalById = async (
+const getProposalById = async (
 	proposalId: number,
 ): Promise<ProposalWithSignatures> => {
 	const proposal = await findProposal(
@@ -316,7 +412,11 @@ const getProposalsByAccountAddress = async ({
 	network,
 	status: statusName,
 	cursor,
-}: Omit<ListInput, 'callerKeys'>) => {
+	// Rows it leaves out still move the cursor.
+	keep = () => true,
+}: Omit<ListInput, 'callerKeys'> & {
+	keep?: (proposal: Proposal) => boolean;
+}) => {
 	const status = statusName
 		? proposalStatusFromString(statusName)
 		: undefined;
@@ -359,7 +459,7 @@ const getProposalsByAccountAddress = async ({
 
 	const result: ProposalWithSignatures[] = [];
 
-	for (const proposal of page) {
+	for (const proposal of page.filter(keep)) {
 		const signaturesForProposal = signatures.filter(
 			(s) => s.proposalId === proposal.id,
 		);
@@ -370,9 +470,7 @@ const getProposalsByAccountAddress = async ({
 	}
 
 	const nextPageCursor =
-		result.length > 0
-			? result[result.length - 1]?.id
-			: undefined;
+		page.length > 0 ? page[page.length - 1]?.id : undefined;
 
 	return paginateResponse(
 		result,
@@ -411,9 +509,12 @@ const lookupAndVerifyProposal = async (
 			proposal.accountAddress,
 			ORIGINAL_SET,
 		);
+		// Only reads the chain afterwards, so it counts every signature as stored.
 		if (
-			!proposalProgress(proposal, signers)
-				.hasReachedThreshold
+			!countSignatures(
+				signers.actingSets,
+				proposal.signatures.map((sig) => sig.publicKey),
+			).hasReachedThreshold
 		)
 			throw new ValidationError(
 				'Proposal is not ready to execute',
@@ -766,6 +867,7 @@ export const voteOnProposal = async ({
 	scopeKind: SignerScopeKind;
 }): Promise<ProposalProgress> => {
 	const proposal = await getProposal(key);
+	refuseSignerChangeUnder(scopeKind, proposal);
 
 	const pubKey = transactionSigner(signature, scopeKind);
 	const signatureFirst = scopeKind === 'acting';
@@ -792,6 +894,22 @@ export const voteOnProposal = async ({
 		!signsFor(signers, [pubKey.toSuiPublicKey()], false)
 	)
 		throw REFUSALS[scopeKind].notSigner();
+
+	// A set is replaced by its own signers.
+	const stored = storedSignerChange(
+		proposal.transactionBytes,
+		[],
+	);
+	if (
+		stored &&
+		!(
+			stored.change &&
+			keysOf(stored.change.oldSet).includes(
+				pubKey.toSuiPublicKey(),
+			)
+		)
+	)
+		throw new ApiAuthError('NotASignerOfTheOldSet');
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
@@ -838,6 +956,7 @@ export const cancelProposal = async ({
 	scopeKind: SignerScopeKind;
 }) => {
 	const proposal = await getProposal(key);
+	refuseSignerChangeUnder(scopeKind, proposal);
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
@@ -891,6 +1010,24 @@ export const cancelProposal = async ({
 				),
 			[pubKey.toSuiPublicKey()],
 		);
+
+	const stored = storedSignerChange(
+		proposal.transactionBytes,
+		[],
+	);
+	const change = stored?.change;
+	if (
+		stored &&
+		!(
+			isMember &&
+			change?.newSets.some((set) =>
+				signersWhoStay(change.oldSet, set).includes(
+					pubKey.toSuiPublicKey(),
+				),
+			)
+		)
+	)
+		throw new ApiAuthError('CancelBySignerWhoStays');
 
 	if (!signatureFirst) await verifySignature();
 
@@ -1023,7 +1160,7 @@ type ListInput = {
 	callerKeys: PublicKey[];
 };
 
-// Lists an account's proposals on a network, for an accepted member.
+// The legacy list of an account's proposals on a network, for an accepted member of its original set. Its rows carry their signatures as stored, so signer changes are left out.
 export const listProposals = async (
 	input: ListInput,
 ): Promise<PaginatedResponse<ProposalWithSignatures>> => {
@@ -1036,7 +1173,12 @@ export const listProposals = async (
 		))
 	)
 		throw await REFUSALS.original.notAccepted();
-	return await getProposalsByAccountAddress(input);
+	return await getProposalsByAccountAddress({
+		...input,
+		keep: (proposal) =>
+			storedSignerChange(proposal.transactionBytes, []) ===
+			null,
+	});
 };
 
 const NO_EVENTS: ProposalEvents = {
@@ -1076,11 +1218,14 @@ export const listAccountProposals = async (
 	);
 	return {
 		...page,
-		data: page.data.map((proposal) => ({
-			...proposalProgress(proposal, signers),
-			events: events.get(proposal.id) ?? NO_EVENTS,
-			signerSetsStale,
-		})),
+		data: page.data.map((proposal) =>
+			checkedProposal(
+				proposal,
+				signers,
+				events.get(proposal.id) ?? NO_EVENTS,
+				signerSetsStale,
+			),
+		),
 	};
 };
 
@@ -1090,6 +1235,7 @@ export const getProposalByDigest = async (
 	scopeKind: SignerScopeKind,
 ): Promise<CheckedProposal> => {
 	const proposal = await getProposal({ digest });
+	refuseSignerChangeUnder(scopeKind, proposal);
 
 	const signerSetsStale =
 		scopeKind !== 'original' &&
@@ -1105,9 +1251,10 @@ export const getProposalByDigest = async (
 		getProposalEvents([proposal.id]),
 	]);
 
-	return {
-		...proposalProgress(proposal, signers),
-		events: events.get(proposal.id) ?? NO_EVENTS,
+	return checkedProposal(
+		proposal,
+		signers,
+		events.get(proposal.id) ?? NO_EVENTS,
 		signerSetsStale,
-	};
+	);
 };
