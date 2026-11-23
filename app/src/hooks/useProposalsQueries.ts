@@ -1,22 +1,23 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	ProposalStatus,
-	type ProposalWithSignatures,
-} from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat';
+import { type ProposalList } from '@mysten/sagat/v1';
 import { useMemo } from 'react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { type SuiNetwork } from '@/lib/network';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import {
 	listsAtCutoff,
 	mergeNewestFirst,
 	pendingFilter,
+	toProposalCardInput,
+	type CountedProposal,
 } from '../lib/proposalUtils';
+import { usePodAliasSet } from './useAliasSets';
 import { useEpochInfo } from './useEpochInfo';
-import { useGetMultisig } from './useGetMultisig';
 import { useNeverProposed } from './useNeverProposed';
 import {
 	PROPOSALS_PAGE_SIZE,
@@ -77,7 +78,7 @@ export function initialProposalFilter(
 
 interface UseProposalsQueriesParams {
 	multisig: MultisigWithMembersForPublicKey;
-	network: string;
+	network: SuiNetwork;
 	activeFilter: ProposalFilter;
 }
 
@@ -89,9 +90,9 @@ export function useProposalsQueries({
 	const { currentAddress } = useApiAuth();
 	const epochQuery = useEpochInfo();
 	const epochInfo = epochQuery.data;
-	const multisigDetailsQuery = useGetMultisig(
-		multisig.address,
-	);
+	const aliases = usePodAliasSet(multisig.address, {
+		network,
+	});
 	const enabled = !!multisig.address && !!network;
 
 	const proposalsQuery = usePaginatedProposals({
@@ -123,33 +124,50 @@ export function useProposalsQueries({
 			? [proposalsQuery, failedQuery]
 			: [proposalsQuery];
 
-	const multisigDetails = multisigDetailsQuery.data;
 	const publicKey = currentAddress?.publicKey;
+	const signerAddress = currentAddress?.address;
 	const classifyPending = useMemo(
-		() => (proposal: ProposalWithSignatures) =>
+		() => (proposal: CountedProposal) =>
 			pendingFilter(proposal, {
-				multisig: multisigDetails,
 				publicKey,
 				epochInfo,
 			}),
-		[epochInfo, multisigDetails, publicKey],
+		[epochInfo, publicKey],
+	);
+	// Each list's rows, counted against the sets the pod's alias read passes.
+	const counted = useMemo(
+		() => (pages: ProposalList[] | undefined) =>
+			pages?.flatMap((page) =>
+				page.proposals.map((proposal) =>
+					toProposalCardInput(
+						proposal,
+						aliases,
+						signerAddress,
+					),
+				),
+			),
+		[aliases, signerAddress],
 	);
 
-	const proposalPages = proposalsQuery.data?.pages;
-	const failedPages = failedQuery.data?.pages;
+	const proposalPages = useMemo(
+		() => counted(proposalsQuery.data?.pages),
+		[counted, proposalsQuery.data],
+	);
+	const failedPages = useMemo(
+		() => counted(failedQuery.data?.pages),
+		[counted, failedQuery.data],
+	);
 	const executedHasNext = proposalsQuery.hasNextPage;
 	const failedHasNext = failedQuery.hasNextPage;
 	// On Executed, the executed and failed lists, in `shownQueries` order.
 	const executedLists = useMemo(
 		() => [
 			{
-				rows:
-					proposalPages?.flatMap((page) => page.data) ?? [],
+				rows: proposalPages ?? [],
 				hasNextPage: executedHasNext,
 			},
 			{
-				rows:
-					failedPages?.flatMap((page) => page.data) ?? [],
+				rows: failedPages ?? [],
 				hasNextPage: failedHasNext,
 			},
 		],
@@ -161,9 +179,7 @@ export function useProposalsQueries({
 		],
 	);
 	const filteredProposals = useMemo(() => {
-		const loaded = proposalPages?.flatMap(
-			(page) => page.data,
-		);
+		const loaded = proposalPages;
 		if (!loaded) return [];
 		switch (activeFilter) {
 			case 'pending':
@@ -186,7 +202,10 @@ export function useProposalsQueries({
 		classifyPending,
 	]);
 
-	const pendingPages = pendingQuery.data?.pages;
+	const pendingRows = useMemo(
+		() => counted(pendingQuery.data?.pages),
+		[counted, pendingQuery.data],
+	);
 	const pendingTabCounts = useMemo(() => {
 		const counts = {
 			pending: 0,
@@ -194,12 +213,10 @@ export function useProposalsQueries({
 			ready: 0,
 			expired: 0,
 		};
-		if (!multisigDetails?.members) return counts;
-		for (const page of pendingPages ?? [])
-			for (const proposal of page.data)
-				counts[classifyPending(proposal)]++;
+		for (const proposal of pendingRows ?? [])
+			counts[classifyPending(proposal)]++;
 		return counts;
-	}, [pendingPages, multisigDetails, classifyPending]);
+	}, [pendingRows, classifyPending]);
 
 	// The counts' query is refreshed with the list, unless it is the list.
 	const refreshedQueries =
@@ -211,21 +228,13 @@ export function useProposalsQueries({
 	// first load waits for it. If it fails, nothing counts as expired.
 	const tabLoading =
 		shownQueries.some((query) => query.isPending) ||
-		// Not enabled until signed in, which isn't waiting on it.
-		(multisigDetailsQuery.isPending &&
-			multisigDetailsQuery.fetchStatus !== 'idle') ||
 		epochQuery.isPending;
 	// A failed background refetch keeps the loaded rows; only a
 	// query with nothing to show blocks the list.
 	const error =
 		shownQueries.find((query) => !query.data && query.error)
-			?.error ??
-		(multisigDetailsQuery.data
-			? null
-			: multisigDetailsQuery.error);
-	const pendingHasRows = !!pendingPages?.some(
-		(page) => page.data.length > 0,
-	);
+			?.error ?? null;
+	const pendingHasRows = !!pendingRows?.length;
 	// An empty tab asks whether the account has any proposal at all.
 	const mayHaveNone =
 		enabled &&
@@ -269,13 +278,12 @@ export function useProposalsQueries({
 					query.refetch();
 			},
 		},
-		isRefetching:
-			shownQueries.some((query) => query.isRefetching) ||
-			multisigDetailsQuery.isRefetching,
+		isRefetching: shownQueries.some(
+			(query) => query.isRefetching,
+		),
 		// Any of the queries can fail, so a retry refetches them all.
 		retry: () => {
 			for (const query of shownQueries) query.refetch();
-			multisigDetailsQuery.refetch();
 		},
 	};
 }

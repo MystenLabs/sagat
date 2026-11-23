@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ProposalStatus } from '@mysten/sagat';
+import { type Proposal } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { formatDigest } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
 import {
+	countSignerSets,
 	isExternalProposer,
 	isProposalExpired,
 	listsAtCutoff,
@@ -16,7 +19,9 @@ import {
 	proposalStatusKey,
 	proposalTitle,
 	shortDigest,
+	shownSignerSet,
 	signatureAddedMessage,
+	toProposalCardInput,
 	weightDots,
 } from '../src/lib/proposalUtils';
 import { transfer } from './transactions';
@@ -29,22 +34,25 @@ describe('proposalStatusKey', () => {
 		expect(
 			proposalStatusKey({
 				status: ProposalStatus.SUCCESS,
-				currentWeight: 0,
-				totalWeight: 2,
+				checkedSignerSets: [
+					{ currentWeight: 0, threshold: 2 },
+				],
 			}),
 		).toBe('executed');
 		expect(
 			proposalStatusKey({
 				status: ProposalStatus.CANCELLED,
-				currentWeight: 2,
-				totalWeight: 2,
+				checkedSignerSets: [
+					{ currentWeight: 2, threshold: 2 },
+				],
 			}),
 		).toBe('cancelled');
 		expect(
 			proposalStatusKey({
 				status: ProposalStatus.FAILURE,
-				currentWeight: 2,
-				totalWeight: 2,
+				checkedSignerSets: [
+					{ currentWeight: 2, threshold: 2 },
+				],
 			}),
 		).toBe('failed');
 	});
@@ -53,15 +61,17 @@ describe('proposalStatusKey', () => {
 		expect(
 			proposalStatusKey({
 				status: ProposalStatus.PENDING,
-				currentWeight: 1,
-				totalWeight: 2,
+				checkedSignerSets: [
+					{ currentWeight: 1, threshold: 2 },
+				],
 			}),
 		).toBe('pending');
 		expect(
 			proposalStatusKey({
 				status: ProposalStatus.PENDING,
-				currentWeight: 3,
-				totalWeight: 2,
+				checkedSignerSets: [
+					{ currentWeight: 3, threshold: 2 },
+				],
 			}),
 		).toBe('ready');
 	});
@@ -112,16 +122,16 @@ describe('proposalTitle', () => {
 describe('signatureAddedMessage', () => {
 	it('reports the weight still needed after the vote', () => {
 		expect(
-			signatureAddedMessage(
-				{ hasReachedThreshold: false, currentWeight: 2 },
-				4,
-			),
+			signatureAddedMessage({
+				currentWeight: 2,
+				threshold: 4,
+			}),
 		).toBe('Signature added. Needs 2 more weight.');
 		expect(
-			signatureAddedMessage(
-				{ hasReachedThreshold: true, currentWeight: 3 },
-				3,
-			),
+			signatureAddedMessage({
+				currentWeight: 3,
+				threshold: 3,
+			}),
 		).toBe('Signature added');
 	});
 });
@@ -193,13 +203,13 @@ describe('isExternalProposer', () => {
 	it('tells a signer from an address outside the account', () => {
 		expect(
 			isExternalProposer({
-				multisig,
+				checkedSignerSets: [multisig],
 				proposerAddress: signer.toSuiAddress(),
 			}),
 		).toBe(false);
 		expect(
 			isExternalProposer({
-				multisig,
+				checkedSignerSets: [multisig],
 				proposerAddress:
 					new Ed25519Keypair().toSuiAddress(),
 			}),
@@ -216,7 +226,7 @@ describe('pendingFilter', () => {
 	};
 	const multisig = {
 		threshold: 1,
-		members: [{ publicKey: 'signer', weight: 1 }],
+		members: [{ publicKey: 'signer', weight: 1, order: 0 }],
 	};
 	const signatures = [
 		{
@@ -233,10 +243,14 @@ describe('pendingFilter', () => {
 					status: ProposalStatus.PENDING,
 					transactionBytes,
 					signatures,
+					checkedSignerSets: countSignerSets(
+						{ signatures },
+						[{ set: multisig, address: '0x1' }],
+						null,
+					),
 				}),
 			);
 		const context = {
-			multisig,
 			publicKey: undefined,
 			epochInfo,
 		};
@@ -255,6 +269,135 @@ describe('pendingFilter', () => {
 				epochInfo,
 			),
 		).toBe(false);
+	});
+});
+
+describe('countSignerSets', () => {
+	const key = (weight: number, order: number) => ({
+		publicKey: new Ed25519Keypair()
+			.getPublicKey()
+			.toSuiPublicKey(),
+		weight,
+		order,
+	});
+
+	it('counts a key in every set that holds it, ready once any one set reaches its threshold', () => {
+		const shared = key(1, 0);
+		const solo = { threshold: 1, members: [shared] };
+		const pair = {
+			threshold: 2,
+			members: [shared, key(1, 1)],
+		};
+		const signedBy = (...keys: { publicKey: string }[]) =>
+			keys.map(({ publicKey }) => ({
+				proposalId: 1,
+				publicKey,
+				signature: 'sig',
+			}));
+
+		const counted = countSignerSets(
+			{ signatures: signedBy(shared) },
+			[
+				{ set: pair, address: '0x2' },
+				{ set: solo, address: '0x1' },
+			],
+			null,
+		);
+		expect(
+			counted.map((set) => [
+				set.address,
+				set.currentWeight,
+			]),
+		).toEqual([
+			['0x2', 1],
+			['0x1', 1],
+		]);
+		expect(
+			proposalStatusKey({
+				status: ProposalStatus.PENDING,
+				checkedSignerSets: counted,
+			}),
+		).toBe('ready');
+		expect(shownSignerSet(counted)?.address).toBe('0x1');
+
+		const neither = countSignerSets(
+			{ signatures: [] },
+			[
+				{ set: pair, address: '0x2' },
+				{ set: solo, address: '0x1' },
+			],
+			null,
+		);
+		expect(
+			proposalStatusKey({
+				status: ProposalStatus.PENDING,
+				checkedSignerSets: neither,
+			}),
+		).toBe('pending');
+	});
+
+	it('counts no signer set that is not an alias of the pod', () => {
+		const keys = [
+			new Ed25519Keypair(),
+			new Ed25519Keypair(),
+		];
+		const setOf = (keypair: Ed25519Keypair) => {
+			const publicKey = keypair.getPublicKey();
+			const members = [
+				{
+					publicKey: publicKey.toSuiPublicKey(),
+					weight: 1,
+					order: 0,
+				},
+			];
+			return {
+				address: MultiSigPublicKey.fromPublicKeys({
+					threshold: 1,
+					publicKeys: [{ publicKey, weight: 1 }],
+				}).toSuiAddress(),
+				threshold: 1,
+				currentWeight: 0,
+				hasReachedThreshold: false,
+				members,
+			};
+		};
+		const [current, stranger] = keys.map(setOf);
+		const proposal: Proposal = {
+			id: 1,
+			digest: DIGEST,
+			accountAddress: '0x1',
+			accountName: null,
+			network: 'localnet',
+			status: ProposalStatus.PENDING,
+			transactionBytes: '',
+			proposerAddress: keys[1].toSuiAddress(),
+			description: null,
+			createdAt: '2026-11-23T10:00:00.000Z',
+			signatures: [
+				{
+					proposalId: 1,
+					publicKey: stranger.members[0].publicKey,
+					signature: 'sig',
+				},
+			],
+			hasReachedThreshold: true,
+			signerSets: [current, stranger],
+			events: { created: null, proposer: null },
+			executedVia: null,
+			aliasCalls: [],
+			signerSetsStale: false,
+		};
+
+		const counted = toProposalCardInput(
+			proposal,
+			{ kind: 'read', aliases: [current.address] },
+			keys[1].toSuiAddress(),
+		);
+		expect(
+			counted.checkedSignerSets.map((set) => set.address),
+		).toEqual([current.address]);
+		expect(proposalStatusKey(counted)).toBe('pending');
+		expect(isExternalProposer(counted)).toBe(true);
 	});
 });
 

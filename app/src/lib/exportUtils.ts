@@ -1,11 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	ProposalStatus,
-	type PublicProposal,
-} from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat';
 
+import {
+	shownSignerSet,
+	type CountedProposal,
+} from './proposalUtils';
 import { sumWeight } from './threshold';
 
 type ExportType =
@@ -80,13 +81,17 @@ export function buildMultisigCompositionExport(
 	};
 }
 
+/** The proposal with the one signer set the screens show, as its composition. */
 export function buildProposalExport(
-	proposal: PublicProposal,
+	proposal: CountedProposal,
 	now = new Date(),
 ): ExportedProposal {
+	const shown = shownSignerSet(proposal.checkedSignerSets);
 	const multisig = buildMultisigComposition({
-		...proposal.multisig,
-		name: proposal.multisig.name ?? null,
+		address: proposal.accountAddress,
+		name: proposal.accountName,
+		threshold: shown?.threshold ?? 0,
+		members: shown?.members ?? [],
 	});
 	const memberByPublicKey = new Map(
 		multisig.members.map((member) => [
@@ -103,15 +108,15 @@ export function buildProposalExport(
 			id: proposal.id,
 			digest: proposal.digest,
 			network: proposal.network,
-			multisigAddress: proposal.multisigAddress,
+			multisigAddress: proposal.accountAddress,
 			status: proposal.status,
 			statusLabel: getProposalStatusLabel(proposal.status),
 			transactionBytes: proposal.transactionBytes,
 			proposerAddress: proposal.proposerAddress,
 			description: proposal.description,
 			createdAt: proposal.createdAt,
-			currentWeight: proposal.currentWeight,
-			threshold: proposal.multisig.threshold,
+			currentWeight: shown?.currentWeight ?? 0,
+			threshold: multisig.threshold,
 			signatures: proposal.signatures
 				.map((signature) => {
 					const member = memberByPublicKey.get(

@@ -34,8 +34,7 @@ import { content } from '@/content';
 import { useProposerProofs } from '@/hooks/useProposerProofs';
 import { accountName } from '@/lib/account-name';
 import { formatDate } from '@/lib/dates';
-import { shownActingSets } from '@/lib/proposal-integrity';
-import { memberLabels } from '@/lib/signers';
+import { podLabels } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
 import { AddProposerDialog } from './AddProposerDialog';
@@ -85,12 +84,7 @@ export function ProposersSection({
 	const { proposers } = multisig;
 	const name = accountName(multisig);
 	const labels = useMemo(
-		() =>
-			memberLabels(
-				shownActingSets(multisig).flatMap(
-					(set) => set.members,
-				),
-			),
+		() => podLabels(multisig),
 		[multisig],
 	);
 	const { proofs, trusted } = useProposerProofs(multisig, {

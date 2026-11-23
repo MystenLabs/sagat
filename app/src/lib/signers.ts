@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AccountMember } from '@mysten/sagat/v1';
+import type {
+	Account,
+	AccountMember,
+} from '@mysten/sagat/v1';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
@@ -155,4 +158,14 @@ export function rejectionNotice(
 				tone: 'error',
 				message: COPY.notice.cantReachThreshold(who),
 			};
+}
+
+/** Every key's label on the pod, from its original set and every set it carries. */
+export function podLabels(
+	pod: Pick<Account, 'originalSignerSet' | 'signerSets'>,
+): Map<string, string | null> {
+	return memberLabels([
+		...pod.originalSignerSet.members,
+		...pod.signerSets.flatMap((set) => set.members),
+	]);
 }

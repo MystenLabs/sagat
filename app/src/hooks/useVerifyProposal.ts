@@ -6,30 +6,23 @@ import {
 	useQueryClient,
 } from '@tanstack/react-query';
 
-import { apiClient } from '../lib/api';
-import { MutationKeys, QueryKeys } from '../lib/queryKeys';
+import { apiV1Client } from '../lib/api';
+import { MutationKeys } from '../lib/queryKeys';
+import { writeProposal } from './useGetProposal';
 
 /**
  * Asks the API to check a proposal's digest on chain. Silent: its only
  * caller runs it after a failed execute, which has already told the
- * viewer; a refetched proposal shows the outcome.
+ * viewer; the proposal it returns shows the outcome.
  */
 export function useVerifyProposal() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
 		mutationKey: [MutationKeys.VerifyProposal],
-		mutationFn: async (digest: string) => {
-			return apiClient.verifyProposalByDigest(digest);
-		},
-		onSuccess: () => {
-			// Invalidate all proposal-related queries
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposals],
-			});
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposal],
-			});
-		},
+		mutationFn: (digest: string) =>
+			apiV1Client.verifyProposalByDigest(digest),
+		onSuccess: (proposal) =>
+			writeProposal(queryClient, proposal),
 	});
 }

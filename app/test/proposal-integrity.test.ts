@@ -17,6 +17,7 @@ import { expect, test } from 'vitest';
 import { type AliasRead } from '../src/lib/alias-set';
 import {
 	checkActingSets,
+	checkedSignerSets,
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
 	podActing,
@@ -47,6 +48,38 @@ function oneOfTwoAccount() {
 	return { keys, address, multisig };
 }
 
+/** A set as a proposal lists it; the app reads only its members and threshold. */
+function signerSet(
+	multisig: ReturnType<typeof oneOfTwoAccount>['multisig'],
+) {
+	return {
+		...multisig,
+		currentWeight: 0,
+		hasReachedThreshold: false,
+	};
+}
+
+/** A transfer from `sender`, with its digest. */
+async function transferFrom(sender: string) {
+	const tx = new Transaction();
+	tx.setSender(sender);
+	tx.setGasPayment([
+		{
+			objectId: '0x2',
+			version: '1',
+			digest: toBase58(new Uint8Array(32)),
+		},
+	]);
+	tx.setGasPrice(1000);
+	tx.setGasBudget(10_000_000);
+	tx.transferObjects([tx.gas], '0x3');
+	const transactionBytes = toBase64(await tx.build());
+	const digest = TransactionDataBuilder.getDigestFromBytes(
+		fromBase64(transactionBytes),
+	);
+	return { transactionBytes, digest };
+}
+
 test('refuses a wallet that is not one of the signers', async () => {
 	const { address, multisig } = oneOfTwoAccount();
 
@@ -72,10 +105,11 @@ test('refuses a wallet that is not one of the signers', async () => {
 			{
 				transactionBytes,
 				digest,
-				multisigAddress: address,
-				multisig,
+				accountAddress: address,
+				signerSets: [signerSet(multisig)],
 			},
 			{
+				pod: { address, originalSignerSet: multisig },
 				openedDigest: digest,
 				signerAddress: new Ed25519Keypair().toSuiAddress(),
 			},
@@ -94,10 +128,11 @@ test("refuses bytes that don't decode as a transaction", () => {
 			{
 				transactionBytes,
 				digest: toBase58(new Uint8Array(32)),
-				multisigAddress: address,
-				multisig,
+				accountAddress: address,
+				signerSets: [signerSet(multisig)],
 			},
 			{
+				pod: { address, originalSignerSet: multisig },
 				openedDigest: toBase58(new Uint8Array(32)),
 				signerAddress: keys[0].toSuiAddress(),
 			},
@@ -368,4 +403,68 @@ test('bytes naming another chain are refused even when the alias set is unread',
 			OTHER_CHAIN,
 		),
 	).toBe('chain');
+});
+
+test('refuses to sign when the pod’s original set doesn’t make up its address, though a listed set holds the key', async () => {
+	const { keys, address, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+	const { transactionBytes, digest } =
+		await transferFrom(address);
+	const proposal = {
+		transactionBytes,
+		digest,
+		accountAddress: address,
+		signerSets: [signerSet(multisig)],
+	};
+	const sign = (originalSignerSet: typeof multisig) =>
+		checkProposalIntegrity(proposal, {
+			pod: { address, originalSignerSet },
+			openedDigest: digest,
+			signerAddress: keys[0].toSuiAddress(),
+		});
+
+	expect(sign(multisig)).toBeNull();
+	expect(sign(other.multisig)).toBe('signers');
+});
+
+test('refuses a proposal the API names for another pod', async () => {
+	const { keys, address, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+	const { transactionBytes, digest } =
+		await transferFrom(address);
+
+	expect(
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress: other.address,
+				signerSets: [signerSet(multisig)],
+			},
+			{
+				pod: { address, originalSignerSet: multisig },
+				openedDigest: digest,
+				signerAddress: keys[0].toSuiAddress(),
+			},
+		),
+	).toBe('sender');
+});
+
+test('while the alias set is unread, only the set that makes up the address is shown', () => {
+	const { address, multisig } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const sets = [current.multisig, multisig];
+
+	expect(
+		checkedSignerSets(sets, address, undefined),
+	).toEqual([{ set: multisig, address }]);
+	expect(
+		checkedSignerSets(sets, address, { kind: 'failed' }),
+	).toEqual([{ set: multisig, address }]);
+	expect(
+		checkedSignerSets(sets, address, {
+			kind: 'read',
+			aliases: [address, current.address],
+		}).map((checked) => checked.set),
+	).toEqual(sets);
 });

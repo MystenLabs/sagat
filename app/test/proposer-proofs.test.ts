@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	PersonalMessages,
-	type PublicProposal,
-} from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
@@ -17,7 +14,9 @@ import { expect, test } from 'vitest';
 import { type AliasRead } from '../src/lib/alias-set';
 import {
 	checkProposalProposer,
+	trustedMembers,
 	verifyProposers,
+	type ProposerProposal,
 } from '../src/lib/proposer-proofs';
 
 /** The alias set of a pod that never changed its signers. */
@@ -201,8 +200,23 @@ async function transfer(sender: string) {
 	};
 }
 
+/** The account's set as a proposal lists it; the app reads only its members and threshold. */
+function proposalSignerSet(
+	account: Awaited<
+		ReturnType<typeof accountWithProposer>
+	>['account'],
+) {
+	return {
+		address: account.address,
+		threshold: account.threshold,
+		currentWeight: 0,
+		hasReachedThreshold: false,
+		members: account.members,
+	};
+}
+
 /** A proposal from the account's external proposer, with both events. */
-async function externalProposal(): Promise<PublicProposal> {
+async function externalProposal(): Promise<ProposerProposal> {
 	const { account, proposer, proposerKey } =
 		await accountWithProposer();
 	const { bytes, digest } = await transfer(account.address);
@@ -212,12 +226,9 @@ async function externalProposal(): Promise<PublicProposal> {
 		digest,
 		transactionBytes: toBase64(bytes),
 		proposerAddress: proposer,
-		multisigAddress: account.address,
-		multisig: {
-			address: account.address,
-			threshold: account.threshold,
-			members: account.members,
-		},
+		accountAddress: account.address,
+		signerSets: [proposalSignerSet(account)],
+		signatures: [],
 		events: {
 			created: {
 				id: 2,
@@ -233,7 +244,7 @@ async function externalProposal(): Promise<PublicProposal> {
 			},
 			proposer: account.proposers[0].event,
 		},
-	} as PublicProposal;
+	};
 }
 
 test('a proposal whose signers do not make up its account is not confirmed', async () => {
@@ -243,9 +254,12 @@ test('a proposal whose signers do not make up its account is not confirmed', asy
 		await checkProposalProposer(
 			{
 				...proposal,
-				multisig: { ...proposal.multisig, threshold: 2 },
+				signerSets: proposal.signerSets.map((set) => ({
+					...set,
+					threshold: 2,
+				})),
 			},
-			unchanged(proposal.multisigAddress),
+			unchanged(proposal.accountAddress),
 		),
 	).toBe('unverified');
 });
@@ -257,7 +271,7 @@ test('a proposal whose signers are not in the alias set is not confirmed', async
 	expect(
 		await checkProposalProposer(
 			proposal,
-			unchanged(proposal.multisigAddress),
+			unchanged(proposal.accountAddress),
 		),
 	).toBeNull();
 	expect(
@@ -288,7 +302,7 @@ test('an external proposer without a confirmation is unconfirmed', async () => {
 					proposer: null,
 				},
 			},
-			unchanged(proposal.multisigAddress),
+			unchanged(proposal.accountAddress),
 		),
 	).toBe('unverified');
 });
@@ -305,12 +319,8 @@ test('a member proposer who signed the proposal is not flagged', async () => {
 				digest,
 				transactionBytes: toBase64(bytes),
 				proposerAddress: keys[1].toSuiAddress(),
-				multisigAddress: account.address,
-				multisig: {
-					address: account.address,
-					threshold: account.threshold,
-					members: account.members,
-				},
+				accountAddress: account.address,
+				signerSets: [proposalSignerSet(account)],
 				signatures: [
 					{
 						proposalId: 1,
@@ -321,8 +331,24 @@ test('a member proposer who signed the proposal is not flagged', async () => {
 					},
 				],
 				events: { created: null, proposer: null },
-			} as PublicProposal,
+			},
 			unchanged(account.address),
 		),
 	).toBeNull();
+});
+
+test('trusted members come from every signer set that is an alias, and none from one that isn’t', async () => {
+	const current = (await accountWithProposer()).account;
+	const recovery = (await accountWithProposer()).account;
+	const stranger = (await accountWithProposer()).account;
+
+	expect(
+		trustedMembers(
+			[current, recovery, stranger].map(proposalSignerSet),
+			{
+				kind: 'read',
+				aliases: [current.address, recovery.address],
+			},
+		),
+	).toEqual([...current.members, ...recovery.members]);
 });

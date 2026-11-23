@@ -5,7 +5,7 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { type PublicProposal } from '@mysten/sagat';
+import { type Proposal } from '@mysten/sagat/v1';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	useMutation,
@@ -20,9 +20,13 @@ import { type SuiNetwork } from '@/lib/network';
 import {
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
-	shownActingSets,
+	type IntegrityPod,
 } from '@/lib/proposal-integrity';
-import { signatureAddedMessage } from '@/lib/proposalUtils';
+import {
+	shownSignerSet,
+	signatureAddedMessage,
+	toProposalCardInput,
+} from '@/lib/proposalUtils';
 import {
 	signersUncheckedLine,
 	signRefusedLine,
@@ -33,21 +37,26 @@ import {
 	readTransactionBytes,
 } from '@/lib/transaction-preview';
 
-import { apiClient } from '../lib/api';
+import { apiV1Client } from '../lib/api';
 import { MutationKeys, QueryKeys } from '../lib/queryKeys';
+import { writeProposal } from './useGetProposal';
 
-type SignProposalParams = PublicProposal & {
+interface SignProposalParams {
+	proposal: Proposal;
+	/** The pod from the app's own account read. */
+	pod: IntegrityPod;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
-};
+}
 
 /**
  * Signs a proposal's transaction with the wallet and adds the signature,
  * refusing bytes that fail `checkProposalIntegrity`, a wallet no acting
  * set on the proposal's network holds, bytes naming another chain, or an
- * invalid proposer, before the wallet sees them. Resolves with the vote's tally and
- * the signature itself, so a caller can execute at once without waiting for
- * the proposal to refetch.
+ * invalid proposer, before the wallet sees them. Resolves with the
+ * proposal the vote returned, counted against the sets the node read
+ * passed, and the signature itself, so a caller can execute at once
+ * without waiting for the proposal to refetch.
  */
 export function useSignProposal() {
 	const currentAccount = useCurrentAccount();
@@ -59,14 +68,19 @@ export function useSignProposal() {
 
 	const mutation = useMutation({
 		mutationKey: [MutationKeys.SignProposal],
-		mutationFn: async (proposal: SignProposalParams) => {
+		mutationFn: async ({
+			proposal,
+			pod,
+			openedDigest,
+		}: SignProposalParams) => {
 			if (!currentAccount)
 				throw new Error(content.errors.noConnectedAccount);
-			const { id: proposalId, transactionBytes } = proposal;
+			const { digest, transactionBytes } = proposal;
 			const network = proposal.network as SuiNetwork;
 
 			const failure = checkProposalIntegrity(proposal, {
-				openedDigest: proposal.openedDigest,
+				pod,
+				openedDigest,
 				signerAddress: currentAccount.address,
 			});
 			if (failure)
@@ -76,10 +90,10 @@ export function useSignProposal() {
 				queryClient,
 				dappKit.getClient(network),
 				network,
-				proposal.multisigAddress,
+				pod.address,
 			);
 			const onNetwork = checkSignerOnNetwork({
-				shown: shownActingSets(proposal.multisig),
+				shown: proposal.signerSets,
 				signerAddress: currentAccount.address,
 				namedChain: namedChain(
 					readTransactionBytes(transactionBytes)
@@ -122,23 +136,26 @@ export function useSignProposal() {
 			}
 			const signature = result.signature as string;
 
-			// Call API to vote on the proposal
-			const vote = await apiClient.voteForProposal(
-				proposalId,
+			const voted = await apiV1Client.voteForProposal(
+				digest,
 				{ signature },
 			);
-			return { vote, signature };
+			return {
+				voted,
+				counted: toProposalCardInput(
+					voted,
+					node.aliases,
+					currentAccount.address,
+				),
+				signature,
+			};
 		},
-		onSuccess: ({ vote }, proposal) => {
-			// Invalidate all proposal-related queries
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposal],
-			});
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposals],
-			});
+		onSuccess: async ({ voted, counted }) => {
+			await writeProposal(queryClient, voted);
 			toast.success(
-				signatureAddedMessage(vote, proposal.totalWeight),
+				signatureAddedMessage(
+					shownSignerSet(counted.checkedSignerSets),
+				),
 			);
 		},
 		onError: (error: Error) => {

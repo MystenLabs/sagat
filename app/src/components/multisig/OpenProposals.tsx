@@ -7,7 +7,9 @@ import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 import { content } from '@/content';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { usePodAliasSet } from '@/hooks/useAliasSets';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { useNeverProposed } from '@/hooks/useNeverProposed';
 import {
@@ -43,6 +45,11 @@ export function OpenProposals({
 	multisig: MultisigWithMembersForPublicKey;
 }) {
 	const { network } = useNetwork();
+	const { currentAddress } = useApiAuth();
+	const aliases = usePodAliasSet(multisig.address, {
+		network,
+	});
+	const signerAddress = currentAddress?.address;
 	const epochQuery = useEpochInfo();
 	const epochInfo = epochQuery.data;
 	const query = usePaginatedProposals({
@@ -56,16 +63,20 @@ export function OpenProposals({
 	// it isn't open; the proposals tab lists it under Expired.
 	const proposals = useMemo(
 		() =>
-			(query.data?.pages[0]?.data ?? [])
+			(query.data?.pages[0]?.proposals ?? [])
 				.filter(
 					(proposal) =>
 						!isProposalExpired(proposal, epochInfo),
 				)
 				.slice(0, OPEN_PROPOSALS_SHOWN)
 				.map((proposal) =>
-					toProposalCardInput(proposal, multisig),
+					toProposalCardInput(
+						proposal,
+						aliases,
+						signerAddress,
+					),
 				),
-		[query.data, epochInfo, multisig],
+		[query.data, epochInfo, aliases, signerAddress],
 	);
 	const openLoading =
 		query.isPending || epochQuery.isPending;

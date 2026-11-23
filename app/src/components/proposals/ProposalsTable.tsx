@@ -1,13 +1,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type PublicProposal } from '@mysten/sagat';
 import { useMemo } from 'react';
 
 import { content } from '@/content';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
-import { isProposalExpired } from '@/lib/proposalUtils';
-import { memberLabels } from '@/lib/signers';
+import {
+	isProposalExpired,
+	type CountedProposal,
+} from '@/lib/proposalUtils';
+import { podLabels } from '@/lib/signers';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -46,7 +48,7 @@ export function ProposalsTable({
 	testId,
 }: {
 	multisig: MultisigWithMembersForPublicKey;
-	proposals: PublicProposal[];
+	proposals: CountedProposal[];
 	variant: ProposalsTableVariant;
 	loading: boolean;
 	error: unknown;
@@ -60,8 +62,8 @@ export function ProposalsTable({
 	const { data: epochInfo } = useEpochInfo();
 	// Proposers are named like signers: by their key's label, if any.
 	const labels = useMemo(
-		() => memberLabels(multisig.members),
-		[multisig.members],
+		() => podLabels(multisig),
+		[multisig],
 	);
 	const list = variant === 'list';
 

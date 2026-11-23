@@ -8,7 +8,10 @@ import {
 	type PublicProposal,
 	type TrustedMembers,
 } from '@mysten/sagat';
-import { type AccountDetails } from '@mysten/sagat/v1';
+import type {
+	AccountDetails,
+	Proposal,
+} from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
@@ -110,25 +113,58 @@ export async function verifyProposers(
 /** `invalid`: a proof doesn't check out; `unverified`: no proof shows who proposed it. */
 export type ProposerCheck = 'invalid' | 'unverified' | null;
 
-/** Checks a proposal's proposer, trusting members only when they make up the account and act on the proposal's network, whose alias set is `aliases`. */
+/** What `checkProposalProposer` reads of a proposal. */
+export type ProposerProposal = Pick<
+	Proposal,
+	| 'digest'
+	| 'accountAddress'
+	| 'proposerAddress'
+	| 'transactionBytes'
+	| 'signatures'
+	| 'events'
+	| 'signerSets'
+>;
+
+/**
+ * Checks a proposal's proposer, trusting the members of its signer sets
+ * that act on the proposal's network, whose alias set is `aliases`.
+ * Rule 1 is the pod's own check, run where the pod is known.
+ */
 export async function checkProposalProposer(
-	proposal: PublicProposal,
+	proposal: ProposerProposal,
 	aliases: AliasRead,
 ): Promise<ProposerCheck> {
-	if (
-		!rebuildAccount(
-			proposal.multisig,
-			proposal.multisigAddress,
-		)
-	)
-		return 'unverified';
 	const members = trustedMembers(
-		shownActingSets(proposal.multisig),
+		proposal.signerSets,
 		aliases,
 	);
 	if (!members) return 'unverified';
-	const status = await verifyProposalProposer(proposal, {
-		members,
-	});
+	const status = await verifyProposalProposer(
+		legacyShape(proposal),
+		{ members },
+	);
 	return status === 'verified' ? null : status;
+}
+
+// The SDK's verifier still takes the legacy shape and reads only these fields.
+function legacyShape(
+	proposal: ProposerProposal,
+): PublicProposal {
+	const read: Pick<
+		PublicProposal,
+		| 'digest'
+		| 'multisigAddress'
+		| 'proposerAddress'
+		| 'transactionBytes'
+		| 'signatures'
+		| 'events'
+	> = {
+		digest: proposal.digest,
+		multisigAddress: proposal.accountAddress,
+		proposerAddress: proposal.proposerAddress,
+		transactionBytes: proposal.transactionBytes,
+		signatures: proposal.signatures,
+		events: proposal.events,
+	};
+	return read as PublicProposal;
 }

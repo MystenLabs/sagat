@@ -3,8 +3,11 @@
 
 // Checks a proposal's bytes against what the app can work out for itself
 // before the wallet is asked to sign them.
-import { type PublicProposal } from '@mysten/sagat';
-import type { Account } from '@mysten/sagat/v1';
+import type {
+	Account,
+	Proposal,
+	SignerSet,
+} from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
@@ -18,10 +21,12 @@ import { type IdentifiedSignerSet } from './types';
 /**
  * The first check a proposal failed: `unreadable`, the bytes don't
  * decode; `sender`, the bytes' sender isn't the account; `gasOwner`, the
- * bytes set a gas owner other than the account; `digest`, the bytes'
+ * bytes set a gas owner other than the account, or the proposal names
+ * another account; `digest`, the bytes'
  * digest isn't the proposal's or the one the viewer opened; `signers`,
  * the account's original signers don't make up its address;
- * `notSigner`, the connected wallet is in no set shown as acting.
+ * `notSigner`, the connected wallet is in none of the proposal's signer
+ * sets.
  */
 export type ProposalIntegrityFailure =
 	| 'unreadable'
@@ -32,24 +37,35 @@ export type ProposalIntegrityFailure =
 	| 'notSigner';
 
 export type IntegrityProposal = Pick<
-	PublicProposal,
+	Proposal,
 	| 'transactionBytes'
 	| 'digest'
-	| 'multisigAddress'
-	| 'multisig'
+	| 'accountAddress'
+	| 'signerSets'
 >;
 
+/** The pod from the app's own account read. */
+export interface IntegrityPod {
+	address: string;
+	originalSignerSet: AccountSigners;
+}
+
 /**
- * Whether `signerAddress` may sign the proposal's bytes, or the first
- * check it failed. `openedDigest` is the digest the viewer opened, from
- * the page's URL, not from the response.
+ * Whether `signerAddress` may sign the proposal's bytes for `pod`, or
+ * the first check it failed. `openedDigest` is the digest the viewer
+ * opened, from the page's URL, not from the response.
  */
 export function checkProposalIntegrity(
 	proposal: IntegrityProposal,
 	{
+		pod,
 		openedDigest,
 		signerAddress,
-	}: { openedDigest: string; signerAddress: string },
+	}: {
+		pod: IntegrityPod;
+		openedDigest: string;
+		signerAddress: string;
+	},
 ): ProposalIntegrityFailure | null {
 	let read;
 	try {
@@ -58,7 +74,9 @@ export function checkProposalIntegrity(
 		return 'unreadable';
 	}
 
-	const account = proposal.multisigAddress;
+	const account = pod.address;
+	if (!sameAddress(proposal.accountAddress, account))
+		return 'sender';
 	const { sender, gasData } = read.transaction;
 	if (!sender || !sameAddress(sender, account))
 		return 'sender';
@@ -76,8 +94,8 @@ export function checkProposalIntegrity(
 
 	const signers = checkAccountSigners(
 		{
-			original: proposal.multisig,
-			shown: shownActingSets(proposal.multisig),
+			original: pod.originalSignerSet,
+			shown: proposal.signerSets,
 		},
 		{ account, signerAddress },
 	);
@@ -86,7 +104,7 @@ export function checkProposalIntegrity(
 
 /** The signers and threshold an account's address is made from. */
 export type AccountSigners = Pick<
-	PublicProposal['multisig'],
+	SignerSet,
 	'threshold' | 'members'
 >;
 
@@ -207,26 +225,38 @@ export function checkActingSets<S extends AccountSigners>(
 	return { kind: 'checked', acting, refused, unidentified };
 }
 
+/**
+ * The proposal's signer sets it may be counted against: those that pass
+ * rule 2 once `aliases` is read, else only the one that rebuilds
+ * `account` (rule 1), which needs no node.
+ */
+export function checkedSignerSets<S extends AccountSigners>(
+	signerSets: readonly S[],
+	account: string,
+	aliases: AliasRead | undefined,
+): { set: S; address: string }[] {
+	const check = aliases
+		? checkActingSets(signerSets, aliases)
+		: null;
+	if (check?.kind === 'checked') return check.acting;
+	return signerSets.flatMap((set) => {
+		const address = rebuildAccount(set, account);
+		return address ? [{ set, address }] : [];
+	});
+}
+
 export type ShownPod = Pick<
 	Account,
 	'address' | 'signerSets'
 >;
 
 /**
- * The signer sets a response shows as acting: a `/v1` pod's sets that
- * carry members, by address as the API used to list them, or the one
- * composition of a legacy proposal's `multisig`.
+ * The signer sets a pod's response shows as acting: its sets that carry
+ * members, by address as the API used to list them.
  */
 export function shownActingSets(
 	pod: Pick<Account, 'signerSets'>,
-): IdentifiedSignerSet[];
-export function shownActingSets(
-	multisig: AccountSigners,
-): AccountSigners[];
-export function shownActingSets(
-	pod: Pick<Account, 'signerSets'> | AccountSigners,
-): AccountSigners[] {
-	if (!('signerSets' in pod)) return [pod];
+): IdentifiedSignerSet[] {
 	return pod.signerSets
 		.filter(
 			(set): set is IdentifiedSignerSet =>

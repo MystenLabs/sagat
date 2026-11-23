@@ -4,7 +4,6 @@
 import {
 	ProposalStatus,
 	type MultisigWithMembers,
-	type PublicProposal,
 } from '@mysten/sagat';
 import { describe, expect, test } from 'vitest';
 
@@ -14,6 +13,7 @@ import {
 	getMultisigExportFilename,
 	getProposalExportFilename,
 } from '../src/lib/exportUtils';
+import { type CountedProposal } from '../src/lib/proposalUtils';
 
 const exportedAt = new Date('2026-04-28T06:30:00.000Z');
 
@@ -76,7 +76,7 @@ describe('export utils', () => {
 	});
 
 	test('associates proposal signatures with multisig member weights', () => {
-		const proposal: PublicProposal = {
+		const proposal: CountedProposal = {
 			id: 42,
 			digest: '0xdigest',
 			status: ProposalStatus.PENDING,
@@ -84,10 +84,15 @@ describe('export utils', () => {
 			proposerAddress: '0xproposer',
 			description: 'Pay supplier',
 			createdAt: '2026-10-13T08:55:00.000Z',
-			totalWeight: 3,
-			currentWeight: 3,
 			network: 'testnet',
-			multisigAddress: '0xmultisig',
+			accountAddress: '0xmultisig',
+			accountName: 'Treasury',
+			hasReachedThreshold: true,
+			signerSets: [],
+			events: { created: null, proposer: null },
+			executedVia: null,
+			aliasCalls: [],
+			signerSetsStale: false,
 			signatures: [
 				{
 					proposalId: 42,
@@ -100,16 +105,18 @@ describe('export utils', () => {
 					signature: 'sig-a',
 				},
 			],
-			multisig: {
-				address: '0xmultisig',
-				name: 'Treasury',
-				threshold: 3,
-				members: [
-					{ publicKey: 'member-b', weight: 2, order: 1 },
-					{ publicKey: 'member-a', weight: 1, order: 0 },
-					{ publicKey: 'member-c', weight: 3, order: 2 },
-				],
-			},
+			checkedSignerSets: [
+				{
+					address: '0xmultisig',
+					threshold: 3,
+					currentWeight: 3,
+					members: [
+						{ publicKey: 'member-b', weight: 2, order: 1 },
+						{ publicKey: 'member-a', weight: 1, order: 0 },
+						{ publicKey: 'member-c', weight: 3, order: 2 },
+					],
+				},
+			],
 		};
 
 		const result = buildProposalExport(

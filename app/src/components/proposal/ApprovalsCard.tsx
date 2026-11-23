@@ -5,8 +5,7 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { type PublicProposal } from '@mysten/sagat';
-import { normalizeSuiAddress } from '@mysten/sui/utils';
+import { type Proposal } from '@mysten/sagat/v1';
 import { useQuery } from '@tanstack/react-query';
 import { Pen, Play, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -32,10 +31,7 @@ import {
 } from '@/components/ui/modal';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import {
-	chainIdentifierQuery,
-	useAliasSets,
-} from '@/hooks/useAliasSets';
+import { chainIdentifierQuery } from '@/hooks/useAliasSets';
 import { useCancelProposal } from '@/hooks/useCancelProposal';
 import {
 	couldNotSimulate,
@@ -44,11 +40,12 @@ import {
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
 import { useProposalProposerCheck } from '@/hooks/useProposerProofs';
 import { useSignProposal } from '@/hooks/useSignProposal';
+import { type AliasRead } from '@/lib/alias-set';
 import { type SuiNetwork } from '@/lib/network';
 import {
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
-	shownActingSets,
+	type IntegrityPod,
 } from '@/lib/proposal-integrity';
 import {
 	approvalRows,
@@ -65,6 +62,10 @@ import {
 } from '@/lib/proposal-page';
 import {
 	proposalTitle,
+	readySignerSet,
+	shownSignerSet,
+	type CountedProposal,
+	type CountedSignerSet,
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import { signRefusedLine } from '@/lib/signers-refused';
@@ -93,6 +94,8 @@ const PROPOSER_DOCS =
  */
 export function ApprovalsCard({
 	proposal,
+	pod,
+	aliases,
 	openedDigest,
 	status,
 	labels,
@@ -102,7 +105,11 @@ export function ApprovalsCard({
 	verdict,
 	canCancel: cancelAllowed,
 }: {
-	proposal: PublicProposal;
+	proposal: CountedProposal;
+	/** The pod from the viewer's own account read; Sign needs it. */
+	pod: IntegrityPod | null;
+	/** The pod's alias set on the proposal's network, undefined until read. */
+	aliases: AliasRead | undefined;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 	status: ProposalStatusKey;
@@ -154,27 +161,29 @@ export function ApprovalsCard({
 		executing.isPending ||
 		(settling &&
 			(status === 'pending' || status === 'ready'));
-	const execute = (target: PublicProposal) => {
+	const execute = (
+		target: Proposal,
+		signerSet: CountedSignerSet,
+	) => {
 		setSettling(true);
-		executing.execute(target, {
+		executing.execute(target, signerSet, {
 			onError: () => setSettling(false),
 		});
 	};
 	const rechecking = recheck.isPending;
-	const canAct = viewer === 'member';
+	const canAct = viewer === 'member' && pod !== null;
+	const shownSet = shownSignerSet(
+		proposal.checkedSignerSets,
+	);
+	const readySet = readySignerSet(
+		proposal.checkedSignerSets,
+	);
 	const walletAddress = wallet?.address ?? null;
 	const awaitingSign = status === 'pending' && !signed;
 	// The node is read only where Sign can show.
 	const checkNetwork = canAct && awaitingSign;
 	const network = proposal.network as SuiNetwork;
 	const dappKit = useDAppKit();
-	const { aliases: reads } = useAliasSets(
-		[proposal.multisigAddress],
-		{ network, enabled: checkNetwork },
-	);
-	const aliases = reads?.get(
-		normalizeSuiAddress(proposal.multisigAddress),
-	);
 	const bytesChain = useMemo(() => {
 		try {
 			return namedChain(
@@ -198,13 +207,14 @@ export function ApprovalsCard({
 	});
 	const integrity = useMemo(
 		() =>
-			canAct && walletAddress
+			canAct && walletAddress && pod
 				? checkProposalIntegrity(proposal, {
+						pod,
 						openedDigest,
 						signerAddress: walletAddress,
 					})
 				: null,
-		[canAct, walletAddress, proposal, openedDigest],
+		[canAct, walletAddress, pod, proposal, openedDigest],
 	);
 	// Rule 2 and the bytes' chain, once the synchronous checks pass.
 	const onNetwork =
@@ -214,7 +224,7 @@ export function ApprovalsCard({
 				  (bytesChain && nodeChain === undefined)
 				? 'checking'
 				: checkSignerOnNetwork({
-						shown: shownActingSets(proposal.multisig),
+						shown: proposal.signerSets,
 						signerAddress: walletAddress,
 						namedChain: bytesChain,
 						node: { aliases, chain: nodeChain ?? null },
@@ -281,44 +291,39 @@ export function ApprovalsCard({
 		gas,
 	});
 
-	const onSign = () =>
+	const onSign = () => {
+		if (!pod) return;
 		sign.mutate(
-			{ ...proposal, openedDigest },
+			{ proposal, pod, openedDigest },
 			{
-				onSuccess: ({ vote, signature }) => {
+				onSuccess: ({ voted, counted }) => {
+					const ready = readySignerSet(
+						counted.checkedSignerSets,
+					);
 					if (
-						!vote.hasReachedThreshold ||
+						!ready ||
 						!offerExecuteAfterSigning ||
-						!executeAfterSigning ||
-						!viewerPublicKey
+						!executeAfterSigning
 					)
 						return;
-					// With the new signature, so it needn't wait for the refetch.
-					execute({
-						...proposal,
-						signatures: [
-							...proposal.signatures,
-							{
-								proposalId: proposal.id,
-								publicKey: viewerPublicKey,
-								signature,
-							},
-						],
-					});
+					// The proposal the vote returned, so it needn't wait for the refetch.
+					execute(voted, ready);
 				},
 			},
 		);
+	};
 
 	// A failing simulation is run again first: when it passes now, the
 	// proposal executes; when it still fails, or can't run this time, the
 	// viewer is asked.
 	const onExecute = () => {
+		if (!readySet) return;
 		if (!failing) {
-			execute(proposal);
+			execute(proposal, readySet);
 			return;
 		}
 		recheck.mutate(proposal.transactionBytes, {
-			onSuccess: () => execute(proposal),
+			onSuccess: () => execute(proposal, readySet),
 			onError: (error) => {
 				const reason = withReason(
 					safeDecode(error.message),
@@ -497,7 +502,7 @@ export function ApprovalsCard({
 					className="ml-auto text-12 text-muted-foreground"
 					data-testid="approvals-threshold"
 				>
-					{approvalsThresholdLabel(proposal.multisig)}
+					{shownSet && approvalsThresholdLabel(shownSet)}
 				</span>
 			</CardHeading>
 			{statusLine && (
@@ -622,7 +627,7 @@ export function ApprovalsCard({
 						variant="destructive"
 						onClick={() => {
 							setAskingToExecute(false);
-							execute(proposal);
+							if (readySet) execute(proposal, readySet);
 						}}
 						data-testid="execute-anyway-button"
 					>

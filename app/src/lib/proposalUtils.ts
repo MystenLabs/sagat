@@ -1,21 +1,24 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	ProposalStatus,
-	type Proposal,
-	type ProposalWithSignatures,
-	type PublicProposal,
-	type VoteProposalResponse,
-} from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat';
+import type {
+	Proposal,
+	SignerSetMember,
+} from '@mysten/sagat/v1';
 import { formatDigest } from '@mysten/sui/utils';
 
 import { content } from '../content';
+import { type AliasRead } from './alias-set';
 import { getExpiry, type EpochInfo } from './expiration';
-import { validatePublicKey } from './sui-utils';
+import {
+	checkedSignerSets,
+	isMember,
+	type AccountSigners,
+} from './proposal-integrity';
 import { getExplorerUrl } from './utils';
 
-/** The parts of an account that weigh a proposal's signatures. */
+/** The parts of a signer set that weigh a proposal's signatures. */
 type Composition = {
 	threshold: number;
 	members: { publicKey: string; weight: number }[];
@@ -23,7 +26,7 @@ type Composition = {
 
 // Helper to calculate current weight of a proposal based on signatures
 export const calculateCurrentWeight = (
-	proposal: Pick<ProposalWithSignatures, 'signatures'>,
+	proposal: Pick<Proposal, 'signatures'>,
 	multisigDetails: Composition | undefined,
 ) => {
 	if (!multisigDetails?.members) return 0;
@@ -40,41 +43,101 @@ export const calculateCurrentWeight = (
 	return currentWeight;
 };
 
-// Helper to get total weight (threshold) for the multisig
-export const getTotalWeight = (
-	multisigDetails: Composition | undefined,
-) => {
-	return multisigDetails?.threshold || 0;
+/** A checked signer set with the weight the proposal's signatures carry in it. */
+export interface CountedSignerSet {
+	/** Rebuilt from the members and threshold, never the API's. */
+	address: string;
+	threshold: number;
+	members: SignerSetMember[];
+	currentWeight: number;
+}
+
+/** A proposal with its checked signer sets counted, the viewer's first. */
+export type CountedProposal = Proposal & {
+	checkedSignerSets: CountedSignerSet[];
 };
 
+/** Whether the set's signatures reach its threshold. */
+export function reachesThreshold(
+	set: Pick<
+		CountedSignerSet,
+		'currentWeight' | 'threshold'
+	>,
+) {
+	return set.currentWeight >= set.threshold;
+}
+
 /**
- * A proposal as the cards and tables show it: its weights come from the
- * account's current members, and it carries the composition the execute
- * flow needs.
+ * Counts the proposal's signatures in each of `checked`, the sets that
+ * hold `signerAddress` first.
+ */
+export function countSignerSets(
+	proposal: Pick<Proposal, 'signatures'>,
+	checked: readonly {
+		set: AccountSigners;
+		address: string;
+	}[],
+	signerAddress: string | null | undefined,
+): CountedSignerSet[] {
+	const counted = checked.map(({ set, address }) => ({
+		address,
+		threshold: set.threshold,
+		members: set.members.map(
+			({ publicKey, weight, order }) => ({
+				publicKey,
+				weight,
+				order,
+			}),
+		),
+		currentWeight: calculateCurrentWeight(proposal, set),
+	}));
+	if (!signerAddress) return counted;
+	const holds = (set: CountedSignerSet) =>
+		isMember(set, signerAddress);
+	return [
+		...counted.filter(holds),
+		...counted.filter((set) => !holds(set)),
+	];
+}
+
+/** The checked set that reached its threshold, the one execution uses; null when none did. */
+export function readySignerSet(
+	sets: readonly CountedSignerSet[],
+): CountedSignerSet | null {
+	return sets.find(reachesThreshold) ?? null;
+}
+
+/**
+ * The one set the screens draw: the ready one, else the first, which
+ * holds the viewer's key when any does.
+ */
+export function shownSignerSet(
+	sets: readonly CountedSignerSet[],
+): CountedSignerSet | null {
+	return readySignerSet(sets) ?? sets[0] ?? null;
+}
+
+/**
+ * A proposal as the screens show it: counted against its signer sets
+ * that pass rule 2 on its network, whose alias set is `aliases`, or
+ * against the one that rebuilds its account while that is unread.
  */
 export function toProposalCardInput(
-	proposal: ProposalWithSignatures,
-	multisig: {
-		address: string;
-		name: string | null;
-		threshold: number;
-		members: PublicProposal['multisig']['members'];
-	},
-): PublicProposal {
+	proposal: Proposal,
+	aliases: AliasRead | undefined,
+	signerAddress: string | null | undefined,
+): CountedProposal {
 	return {
 		...proposal,
-		totalWeight: multisig.threshold,
-		currentWeight: calculateCurrentWeight(
+		checkedSignerSets: countSignerSets(
 			proposal,
-			multisig,
+			checkedSignerSets(
+				proposal.signerSets,
+				proposal.accountAddress,
+				aliases,
+			),
+			signerAddress,
 		),
-		multisig: {
-			address: multisig.address,
-			name: multisig.name,
-			threshold: multisig.threshold,
-			// A copy, so nothing downstream touches the cached array.
-			members: [...multisig.members],
-		},
 	};
 }
 
@@ -94,21 +157,22 @@ export type ProposalStatusKey =
 
 /**
  * Where a proposal stands: its terminal status, else `ready` once the
- * signatures reach the threshold, else `pending`.
+ * signatures reach the threshold of any one checked set, else `pending`.
  */
-export function proposalStatusKey(
-	proposal: Pick<
-		Proposal,
-		'status' | 'currentWeight' | 'totalWeight'
-	>,
-): ProposalStatusKey {
+export function proposalStatusKey(proposal: {
+	status: ProposalStatus;
+	checkedSignerSets: readonly Pick<
+		CountedSignerSet,
+		'currentWeight' | 'threshold'
+	>[];
+}): ProposalStatusKey {
 	if (proposal.status === ProposalStatus.SUCCESS)
 		return 'executed';
 	if (proposal.status === ProposalStatus.CANCELLED)
 		return 'cancelled';
 	if (proposal.status === ProposalStatus.FAILURE)
 		return 'failed';
-	if (proposal.currentWeight >= proposal.totalWeight)
+	if (proposal.checkedSignerSets.some(reachesThreshold))
 		return 'ready';
 	return 'pending';
 }
@@ -148,18 +212,20 @@ export function proposalTitle(
 }
 
 /**
- * The toast once a signature lands: the weight the proposal still needs
- * after the vote's tally, or just the confirmation once the vote reached
- * the proposal's threshold.
+ * The toast once a signature lands, from the set the voted proposal
+ * shows: the weight it still needs, or just the confirmation once it
+ * reached its threshold.
  */
 export function signatureAddedMessage(
-	vote: VoteProposalResponse,
-	totalWeight: number,
+	set: Pick<
+		CountedSignerSet,
+		'currentWeight' | 'threshold'
+	> | null,
 ) {
-	if (vote.hasReachedThreshold)
+	if (!set || reachesThreshold(set))
 		return content.toasts.signatureAdded;
 	return content.toasts.signatureAddedNeeds(
-		totalWeight - vote.currentWeight,
+		set.threshold - set.currentWeight,
 	);
 }
 
@@ -188,25 +254,23 @@ export function isProposalExpired(
  */
 export function pendingFilter(
 	proposal: Pick<
-		ProposalWithSignatures,
-		'status' | 'transactionBytes' | 'signatures'
+		CountedProposal,
+		| 'status'
+		| 'transactionBytes'
+		| 'signatures'
+		| 'checkedSignerSets'
 	>,
 	{
-		multisig,
 		publicKey,
 		epochInfo,
 	}: {
-		multisig: Composition | undefined;
 		publicKey: string | undefined;
 		epochInfo: EpochInfo | undefined;
 	},
 ): 'expired' | 'ready' | 'waiting' | 'pending' {
 	if (isProposalExpired(proposal, epochInfo))
 		return 'expired';
-	if (
-		calculateCurrentWeight(proposal, multisig) >=
-		getTotalWeight(multisig)
-	)
+	if (proposal.checkedSignerSets.some(reachesThreshold))
 		return 'ready';
 	return proposal.signatures.some(
 		(sig) => sig.publicKey === publicKey,
@@ -249,19 +313,15 @@ export function shortDigest(digest: string) {
 }
 
 /**
- * Whether the proposer is not one of the account's signers: an address
- * the account allowed to propose without being able to sign.
+ * Whether the proposer is a member of none of the checked signer sets:
+ * an address the account allowed to propose without being able to sign.
  */
-export function isExternalProposer(
-	proposal: Pick<
-		PublicProposal,
-		'multisig' | 'proposerAddress'
-	>,
-) {
-	return !proposal.multisig.members.some(
-		(member) =>
-			validatePublicKey(member.publicKey).address ===
-			proposal.proposerAddress,
+export function isExternalProposer(proposal: {
+	proposerAddress: string;
+	checkedSignerSets: readonly AccountSigners[];
+}) {
+	return !proposal.checkedSignerSets.some((set) =>
+		isMember(set, proposal.proposerAddress),
 	);
 }
 
@@ -336,7 +396,10 @@ const MAX_WEIGHT_DOTS = 10;
 export function weightDots({
 	currentWeight,
 	totalWeight,
-}: Pick<Proposal, 'currentWeight' | 'totalWeight'>) {
+}: {
+	currentWeight: number;
+	totalWeight: number;
+}) {
 	const total = Math.max(totalWeight, 1);
 	const current = Math.min(
 		Math.max(currentWeight, 0),

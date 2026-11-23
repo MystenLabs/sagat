@@ -7,6 +7,7 @@ import {
 } from '@mysten/dapp-kit-react';
 import type { Account } from '@mysten/sagat/v1';
 import { Transaction } from '@mysten/sui/transactions';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	useMutation,
 	useQueryClient,
@@ -33,8 +34,9 @@ import {
 import { SignatureDeclinedError } from '@/lib/wallet-session';
 
 import { useNetwork } from '../contexts/NetworkContext';
-import { apiClient } from '../lib/api';
-import { MutationKeys, QueryKeys } from '../lib/queryKeys';
+import { apiV1Client } from '../lib/api';
+import { MutationKeys } from '../lib/queryKeys';
+import { writeProposal } from './useGetProposal';
 
 /** The bytes aren't sent from the pod or another address pays their gas. Nothing was signed. */
 export class BytesNotFromPodError extends Error {
@@ -129,20 +131,18 @@ export function useCreateProposal() {
 				setAwaitingWallet(false);
 			}
 
-			// Create proposal via API
-			return apiClient.createProposal({
-				multisigAddress: multisig.address,
+			return apiV1Client.createProposal({
+				accountAddress: normalizeSuiAddress(
+					multisig.address,
+				),
 				transactionBytes: transactionData,
 				signature: signatureResult.signature as string,
 				description,
 				network,
 			});
 		},
-		onSuccess: () => {
-			// Invalidate all proposal-related queries
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposals],
-			});
+		onSuccess: async (proposal) => {
+			await writeProposal(queryClient, proposal);
 			toast.success(content.toasts.proposalCreated);
 		},
 	});

@@ -3,6 +3,8 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 
+import { type SuiNetwork } from '@/lib/network';
+
 import {
 	PROPOSALS_PAGE_SIZE,
 	proposalsQueryKey,
@@ -16,7 +18,7 @@ export function useNeverProposed({
 	enabled,
 }: {
 	multisigAddress: string;
-	network: string;
+	network: SuiNetwork;
 	enabled: boolean;
 }) {
 	const params = {
@@ -40,6 +42,6 @@ export function useNeverProposed({
 		neverProposed:
 			enabled &&
 			!invalidated &&
-			query.data?.pages[0]?.data.length === 0,
+			query.data?.pages[0]?.proposals.length === 0,
 	};
 }

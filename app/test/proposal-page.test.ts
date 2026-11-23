@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	ProposalStatus,
-	type PublicProposal,
-} from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
@@ -18,6 +15,10 @@ import {
 	type ApprovalsNoteInput,
 	type Labels,
 } from '../src/lib/proposal-page';
+import {
+	countSignerSets,
+	type CountedProposal,
+} from '../src/lib/proposalUtils';
 
 function signer(label: string, weight: number) {
 	const keypair = new Ed25519Keypair();
@@ -39,7 +40,8 @@ const labels: Labels = new Map(
 const CREATED_AT = '2026-10-13T08:55:00.000Z';
 
 // A pending proposal for a 2-of-4 account that Daniel proposed and
-// signed; `signedBy` replaces its signatures.
+// signed, counted against its one signer set; `signedBy` replaces its
+// signatures.
 function proposal({
 	threshold = 2,
 	signedBy = [daniel],
@@ -48,38 +50,43 @@ function proposal({
 	threshold?: number;
 	signedBy?: (typeof maya)[];
 	proposer?: string;
-} = {}): PublicProposal {
-	const currentWeight = signedBy.reduce(
-		(sum, s) => sum + s.weight,
-		0,
-	);
+} = {}): CountedProposal {
+	const signatures = signedBy.map((s) => ({
+		proposalId: 1,
+		publicKey: s.publicKey,
+		signature: 'sig',
+	}));
+	const set = {
+		threshold,
+		members: SIGNERS.map((s, order) => ({
+			publicKey: s.publicKey,
+			weight: s.weight,
+			order,
+		})),
+	};
 	return {
 		id: 1,
-		multisigAddress: '0x1',
+		accountAddress: '0x1',
+		accountName: 'Treasury',
 		digest: 'digest',
 		status: ProposalStatus.PENDING,
 		transactionBytes: '',
 		proposerAddress: proposer,
 		description: 'Fund payroll',
-		totalWeight: threshold,
-		currentWeight,
 		network: 'localnet',
 		createdAt: CREATED_AT,
-		signatures: signedBy.map((s) => ({
-			proposalId: 1,
-			publicKey: s.publicKey,
-			signature: 'sig',
-		})),
-		multisig: {
-			address: '0x1',
-			name: 'Treasury',
-			threshold,
-			members: SIGNERS.map((s, order) => ({
-				publicKey: s.publicKey,
-				weight: s.weight,
-				order,
-			})),
-		},
+		signatures,
+		hasReachedThreshold: false,
+		signerSets: [],
+		events: { created: null, proposer: null },
+		executedVia: null,
+		aliasCalls: [],
+		signerSetsStale: false,
+		checkedSignerSets: countSignerSets(
+			{ signatures },
+			[{ set, address: '0x1' }],
+			null,
+		),
 	};
 }
 
@@ -216,7 +223,7 @@ describe('approvalsNote', () => {
 		const extra = [1, 2].map((i) =>
 			signer(`Extra ${i}`, 1),
 		);
-		pending.multisig.members.push(
+		pending.checkedSignerSets[0].members.push(
 			...extra.map((s, i) => ({
 				publicKey: s.publicKey,
 				weight: s.weight,

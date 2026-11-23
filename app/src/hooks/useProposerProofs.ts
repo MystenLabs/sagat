@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type PublicProposal } from '@mysten/sagat';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	keepPreviousData,
@@ -15,6 +14,7 @@ import {
 	proposerProofMembers,
 	verifyProposers,
 	type ProposerProofAccount,
+	type ProposerProposal,
 } from '@/lib/proposer-proofs';
 import { QueryKeys } from '@/lib/queryKeys';
 
@@ -64,7 +64,7 @@ export function useProposerProofs(
 
 /** `checkProposalProposer` as a query, shared by the page and Sign; `aliases` is the pod's alias set on the proposal's network. */
 export function proposalProposerQuery(
-	proposal: PublicProposal,
+	proposal: ProposerProposal,
 	aliases: AliasRead,
 ) {
 	return {
@@ -73,8 +73,8 @@ export function proposalProposerQuery(
 			proposal.digest,
 			proposal.transactionBytes,
 			proposal.proposerAddress,
-			proposal.multisigAddress,
-			proposal.multisig,
+			proposal.accountAddress,
+			proposal.signerSets,
 			proposal.signatures,
 			proposal.events,
 			aliases,
@@ -90,7 +90,7 @@ export function proposalProposerQuery(
  * while `aliases` is still being read.
  */
 export function useProposalProposerCheck(
-	proposal: PublicProposal,
+	proposal: ProposerProposal,
 	{
 		enabled,
 		aliases,

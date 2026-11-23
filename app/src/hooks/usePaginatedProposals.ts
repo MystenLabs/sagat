@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ProposalStatus } from '@mysten/sagat';
+import { type ProposalStatusName } from '@mysten/sagat/v1';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
-import { apiClient } from '@/lib/api';
+import { apiV1Client } from '@/lib/api';
+import { type SuiNetwork } from '@/lib/network';
 import { QueryKeys } from '@/lib/queryKeys';
 
 /**
@@ -15,7 +18,7 @@ export const PROPOSALS_PAGE_SIZE = 10;
 
 interface UsePaginatedProposalsParams {
 	multisigAddress: string;
-	network: string;
+	network: SuiNetwork;
 	status?: ProposalStatus;
 	perPage?: number;
 	enabled?: boolean;
@@ -52,15 +55,21 @@ export function usePaginatedProposals({
 			perPage,
 		}),
 		queryFn: ({ pageParam }) =>
-			apiClient.getProposals(multisigAddress, network, {
-				status,
+			apiV1Client.getProposals({
+				accountAddress:
+					normalizeSuiAddress(multisigAddress),
+				network,
+				status:
+					status !== undefined
+						? (ProposalStatus[status] as ProposalStatusName)
+						: undefined,
 				nextCursor: pageParam,
 				perPage,
 			}),
-		initialPageParam: undefined as number | undefined,
+		initialPageParam: undefined as string | undefined,
 		getNextPageParam: (lastPage) =>
 			lastPage.hasNextPage && lastPage.nextCursor
-				? Number(lastPage.nextCursor)
+				? lastPage.nextCursor
 				: undefined,
 		enabled: enabled && !!multisigAddress && !!network,
 		refetchInterval: 30000, // Refetch first page every 30 seconds

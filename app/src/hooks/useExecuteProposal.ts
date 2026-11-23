@@ -2,10 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
-import {
-	ProposalStatus,
-	type PublicProposal,
-} from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat';
+import { type Proposal } from '@mysten/sagat/v1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
@@ -15,18 +13,22 @@ import {
 
 import { content } from '@/content';
 import { type SuiNetwork } from '@/lib/network';
+import { type CountedSignerSet } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
-import { apiClient } from '../lib/api';
+import { apiV1Client } from '../lib/api';
 import { MutationKeys, QueryKeys } from '../lib/queryKeys';
+import { writeProposal } from './useGetProposal';
 import { useVerifyProposal } from './useVerifyProposal';
 
 const TOASTS = content.toasts;
 
 interface ExecuteProposalParams {
-	proposal: PublicProposal;
+	proposal: Proposal;
+	/** The checked signer set that reached its threshold. */
+	signerSet: CountedSignerSet;
 }
 
 export function useExecuteProposal() {
@@ -37,6 +39,7 @@ export function useExecuteProposal() {
 		mutationKey: [MutationKeys.ExecuteProposal],
 		mutationFn: async ({
 			proposal,
+			signerSet,
 		}: ExecuteProposalParams) => {
 			if (proposal.status !== ProposalStatus.PENDING)
 				throw new Error(
@@ -48,10 +51,10 @@ export function useExecuteProposal() {
 				const suiClient = dappKit.getClient(
 					proposal.network as SuiNetwork,
 				);
-				// Order the members.
-				const multisigMembers = [
-					...proposal.multisig.members,
-				].sort((a, b) => a.order - b.order);
+				// Order the set's members.
+				const multisigMembers = [...signerSet.members].sort(
+					(a, b) => a.order - b.order,
+				);
 				// Step 1: Reconstruct the MultiSigPublicKey
 				const publicKeys = multisigMembers.map(
 					(member) => ({
@@ -64,12 +67,11 @@ export function useExecuteProposal() {
 
 				const multiSigPublicKey =
 					MultiSigPublicKey.fromPublicKeys({
-						threshold: proposal.multisig.threshold,
+						threshold: signerSet.threshold,
 						publicKeys,
 					});
 
-				// Step 2: Map signatures to the correct order based on the multisig public key order
-				// The signatures need to be in the same order as the public keys in the multisig
+				// Step 2: Only the set's members' signatures, in its key order
 				const orderedSignatures: string[] = [];
 				for (const member of multisigMembers) {
 					const signature = proposal.signatures.find(
@@ -109,38 +111,32 @@ export function useExecuteProposal() {
 				);
 
 				// Step 4: Call the verify endpoint to update proposal status in the backend
-				const verifyResponse =
-					await apiClient.verifyProposalByDigest(
+				const verified =
+					await apiV1Client.verifyProposalByDigest(
 						proposal.digest,
 					);
+				await writeProposal(queryClient, verified);
 
 				return {
 					executionResult:
 						result.Transaction || result.FailedTransaction,
-					verifyResponse,
+					verified,
 				};
 			} catch (error) {
 				throw error;
 			}
 		},
 		onSuccess: (data, variables) => {
-			// Invalidate all proposal-related queries
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposals],
-			});
-			// Remove standalone proposal too
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposal],
-			});
 			// Execution changes on-chain balances and objects; refresh the
-			// multisig's assets, every objects page and filter included.
-			const { network, multisig } = variables.proposal;
+			// pod's assets, every objects page and filter included.
+			const { network, accountAddress } =
+				variables.proposal;
 			for (const key of [
 				QueryKeys.Balances,
 				QueryKeys.OwnedObjects,
 			])
 				queryClient.invalidateQueries({
-					queryKey: [key, network, multisig.address],
+					queryKey: [key, network, accountAddress],
 				});
 			const digest = data.executionResult.digest;
 			const explorerUrl = getExplorerUrl(
@@ -184,11 +180,12 @@ export function useExecuteOrVerify() {
 	const verify = useVerifyProposal();
 	return {
 		execute: (
-			proposal: PublicProposal,
+			proposal: Proposal,
+			signerSet: CountedSignerSet,
 			options?: { onError?: () => void },
 		) =>
 			execute.mutate(
-				{ proposal },
+				{ proposal, signerSet },
 				{
 					onError: () => {
 						verify.mutate(proposal.digest);
