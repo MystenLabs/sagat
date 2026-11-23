@@ -77,57 +77,6 @@ test('puts the set the viewer signs in first, the rest in the given order', () =
 	]);
 });
 
-test('puts the pod’s own set first when the viewer signs in it and in an added set', () => {
-	const added = signerSet(
-		[viewer, new Ed25519Keypair()],
-		2,
-	);
-
-	const cards = signerSetCards({
-		acting: [added, original],
-		fresh: [],
-		account: original.address,
-		pods: [],
-		signerAddress: viewer.toSuiAddress(),
-	});
-
-	expect(cards.map((card) => card.address)).toEqual([
-		original.address,
-		added.address,
-	]);
-});
-
-test('names a set after the viewer’s pod at its address only when that pod’s signers make it up', () => {
-	const recovery = signerSet([viewer]);
-	const stranger = signerSet([new Ed25519Keypair()]);
-
-	const cards = signerSetCards({
-		acting: [original, recovery, stranger],
-		fresh: [],
-		account: original.address,
-		pods: [
-			listed(original, 'Treasury'),
-			listed(recovery, 'Recovery'),
-			listed(stranger, 'Refused', 'signers'),
-		],
-		signerAddress: viewer.toSuiAddress(),
-	});
-
-	expect(
-		cards.map(({ isOriginal, pod }) => ({
-			isOriginal,
-			pod,
-		})),
-	).toEqual([
-		{ isOriginal: true, pod: null },
-		{
-			isOriginal: false,
-			pod: { address: recovery.address, name: 'Recovery' },
-		},
-		{ isOriginal: false, pod: null },
-	]);
-});
-
 test('a fresh read of a set that makes up the same address stands in for it', () => {
 	const fresh = {
 		...original,

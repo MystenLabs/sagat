@@ -136,9 +136,11 @@ test('an unread alias set leaves the row unchecked, not refused', () => {
 	});
 });
 
-test('a key only in a shown set that is no alias is refused as not acting', () => {
+test('a key only in a shown set that is no alias is refused as not acting, carrying the node’s aliases only when no shown set is one', () => {
 	const { address, multisig } = pod();
+	const other = pod();
 	const stranger = signerSet();
+	const signer = signerOf(stranger.keys[0]);
 	const row = toUserMultisig(
 		{
 			...multisig,
@@ -147,39 +149,15 @@ test('a key only in a shown set that is no alias is refused as not acting', () =
 				{ kind: 'signer_set', ...stranger.set },
 			],
 		},
-		signerOf(stranger.keys[0]),
+		signer,
 	);
 
 	expect(row.refused).toBeNull();
 	expect(
 		withActing(
 			row,
-			{ kind: 'read', aliases: [address] },
-			signerOf(stranger.keys[0]),
-		),
-	).toMatchObject({ refused: 'notActing', acting: null });
-});
-
-test('a row refused as not acting carries the node’s aliases only when no shown set is one', () => {
-	const { address, multisig } = pod();
-	const other = pod();
-	const stranger = signerSet();
-	const row = toUserMultisig(
-		{
-			...multisig,
-			signerSets: [
-				...multisig.signerSets,
-				{ kind: 'signer_set', ...stranger.set },
-			],
-		},
-		signerOf(stranger.keys[0]),
-	);
-
-	expect(
-		withActing(
-			row,
 			{ kind: 'read', aliases: [other.address] },
-			signerOf(stranger.keys[0]),
+			signer,
 		),
 	).toMatchObject({
 		refused: 'notActing',
@@ -189,10 +167,11 @@ test('a row refused as not acting carries the node’s aliases only when no show
 		withActing(
 			row,
 			{ kind: 'read', aliases: [address, other.address] },
-			signerOf(stranger.keys[0]),
+			signer,
 		),
 	).toMatchObject({
 		refused: 'notActing',
+		acting: null,
 		unidentified: [],
 	});
 });
