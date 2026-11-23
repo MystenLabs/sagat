@@ -63,7 +63,7 @@ Authentication does not change. The connect message, the script token, and its o
 
 Every `/v1` account route takes a required `network` query parameter, such as `?network=mainnet`, and answers for that network only. Each one first reads the account's alias set from the chain again when the last read is older than a minute. When the chain cannot be read, the reads answer from the last read with `signerSetsStale: true`, and accept, reject and the proposer routes are refused with a 503.
 
-The proposal routes follow the same rule for the proposal's account and network. Create, vote and cancel are refused with a 503 when the alias set cannot be read; the list and `GET /v1/proposals/:digest` answer from the last read with `signerSetsStale: true`. The routes addressed by digest take no `network`: the proposal names it. Verify does not check the threshold first. It also looks up a cancelled proposal that calls `0x2::address_alias`: when the chain has it, the proposal takes its on-chain outcome in place of cancelled, with `executedVia`, and otherwise it stays cancelled. After it records a proposal that calls `0x2::address_alias` and succeeded, it reads the account's alias set again. A transaction that calls `0x2::address_alias` is refused with a 400 while another proposal of the account and network that calls it is pending: one at a time per account and network. Who may call each route is the access table in [account-rotation.md](account-rotation.md#signer-resolver).
+The proposal routes follow the same rule for the proposal's account and network. Create, vote and cancel are refused with a 503 when the alias set cannot be read; the list and `GET /v1/proposals/:digest` answer from the last read with `signerSetsStale: true`. The routes addressed by digest take no `network`: the proposal names it. Verify does not check the threshold first. It also looks up a cancelled proposal that calls `0x2::address_alias`: when the chain has it, the proposal takes its on-chain outcome in place of cancelled, with `executedVia`, and otherwise it stays cancelled. After it records a proposal that calls `0x2::address_alias` and succeeded, it reads the account's alias set again. A transaction that calls `0x2::address_alias` is refused with a 400 while another proposal of the account and network that calls it is pending: one at a time per account and network. A pending one whose expiration epoch has passed no longer counts. Who may call each route is the access table in [account-rotation.md](account-rotation.md#signer-resolver).
 
 A `/v1` route’s own errors answer `{ "error": "…" }` as JSON, also a request with no session (401, `Unauthorized`) and a body over the size limit (413, `Payload Too Large`). Three answers come as plain text from the shared middleware: a body that is not valid JSON (400, `Malformed JSON in request body`), a method and path that match no `/v1` route, a wrong method on an existing path included, as there is no 405 (404, `404 Not Found`), and the origin check (403, `Forbidden`), which refuses only a request from an origin that is not allowed when it is not a GET and has a form-like or missing content type. A key in no acting signer set of the account on the network, and an address that is no account, get a 403 with “You are not a signer of this account on this network.” A signer who has not accepted the account, on a route that needs an accepted signer, gets a 403 with “You have not accepted this account.”
 
@@ -170,7 +170,7 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 - Each member carries `answer`, the key's answer to this account, and `label`, the account's name for the key or null.
 - `signerSetsStale` is true when the alias set could not be read from the chain, so the signer sets are as last read. It is false otherwise.
 
-`GET /v1/accounts/:address` adds `network`, `signerChangesEnabled`, `networksWithDifferentSigners`, `proposers`, `signerChanges` and `openSignerChange`. `signerChanges` are the signer changes that succeeded on the network, oldest first, each `{ digest }`, so a client can read each transaction from its own node and follow the path from the original signers. `openSignerChange` is the pending signer change, `{ digest }`, or null.
+`GET /v1/accounts/:address` adds `network`, `signerChangesEnabled`, `networksWithDifferentSigners`, `proposers`, `signerChanges` and `openSignerChange`. `signerChanges` are the signer changes that succeeded on the network, oldest first, each `{ digest }`, so a client can read each transaction from its own node and follow the path from the original signers. `openSignerChange` is the newest pending signer change, `{ digest }`, or null.
 
 `GET /v1/accounts` also returns `removed`: the accounts one of your keys was removed from on the network, each with the `publicKey`, the `signerSetAddress` that was removed, the `eventId` of its `alias.removed` row, `removedAt` and `transactionDigest`. `transactionDigest` is null unless the last change to the alias object is a signer change the API holds whose note removes that set.
 
@@ -197,7 +197,7 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 
 The `/v1` client is `SagatV1Client` from `@mysten/sagat/v1`. It parses every response with the schemas exported beside it. `findAliasCalls`, exported from `@mysten/sagat`, lists the calls to `0x2::address_alias` in a transaction. The builders and checks for signer changes are exported beside it, see "Signer changes".
 
-Types: `MultisigMember` becomes `AccountMember`, `MultisigProposer` becomes `AccountProposer`, and `Account`, `AccountDetails`, `AccountList`, `InvitationList`, `ProposalList`, `AliasCall`, `SignerChange` and `NoteEntry` are new.
+Types: `MultisigMember` becomes `AccountMember`, `MultisigProposer` becomes `AccountProposer`, and `Account`, `AccountDetails`, `AccountList`, `InvitationList`, `ProposalList`, `AliasCall`, `ProposalSignerChange` and `NoteEntry` are new.
 
 The package name may change before the first publish. If it does, this guide will say so here.
 
@@ -289,7 +289,7 @@ A signer change is a proposal that replaces one acting signer set with another o
 ### Building one
 
 1. Allow signer changes once per network: propose a transaction built with `buildEnable(tx)` and execute it like any proposal. `enable` cannot share a transaction with the first change.
-2. Build the change with `buildSignerChange(tx, { account, aliases, oldSet, newSet, known, chain, epoch })`, on a transaction whose sender is the account. `aliases` is the account's alias set from a node you pick, `oldSet` the address of the set being replaced, `newSet` the new composition, `known` every composition or single key you know for the aliases, the old set included, `chain` the network's chain identifier and `epoch` the current epoch. It appends `add` and `remove` in the order the alias set allows, or only `remove` when the new set is already an alias, then the composition note, and an expiration that names the chain and is valid through the end of the next epoch. A change that expired is cancelled and proposed again; until then it counts as pending.
+2. Build the change with `buildSignerChange(tx, { account, aliases, oldSet, newSet, known, chain, epoch })`, on a transaction whose sender is the account. `aliases` is the account's alias set from a node you pick, `oldSet` the address of the set being replaced, `newSet` the new composition, `known` every composition or single key you know for the aliases, the old set included, `chain` the network's chain identifier and `epoch` the current epoch. It appends `add` and `remove` in the order the alias set allows, or only `remove` when the new set is already an alias, then the composition note, and an expiration that names the chain and is valid through the end of the next epoch. A change that expired is proposed again. It stays listed as pending, but no longer counts for one at a time.
 3. Propose it with `POST /v1/proposals`, signed by an accepted signer of the old set who stays in the new one. `labels` names the new set's keys, in the order of the note. Only keys new to the account are labelled.
 
 ### The composition note
@@ -316,13 +316,13 @@ A `signer_set` is a composition with its keys in order, a `key` is a single regi
 
 `isSignerChangeReady(change, signedKeys)` is true when the keys that signed reach the old set's threshold and signers who stay have signed for the new threshold, by their new weights.
 
-Check the bytes yourself with these before you sign or show a change, and never trust what the API says about one. `signerChange` on a proposal is only the API's reading of the bytes. `SignerChange` from `@mysten/sagat` is the checked change `checkSignerChange` returns; `SignerChange` from `@mysten/sagat/v1` is that reading.
+Check the bytes yourself with these before you sign or show a change, and never trust what the API says about one. `signerChange` on a proposal is only the API's reading of the bytes. `SignerChange` from `@mysten/sagat` is the checked change `checkSignerChange` returns; `ProposalSignerChange` from `@mysten/sagat/v1` is that reading.
 
 ### What the API does
 
 `POST /v1/proposals` treats alias calls with a composition note as a signer change. It checks the change against the alias set it just read and the signers acting on the network, then writes the new signer set, its members and its link to the account. A composition it already holds is linked as it is. It refuses:
 
-- with a 400: a note that does not check; a change built against an alias set that has changed since; bytes whose expiration does not name the network's chain; an old set the API cannot identify as acting; a change that leaves no set the API can identify; a new composition outside the limits on signers and weights; signers who stay, counting only those who accepted the account, who cannot meet the new threshold; another pending proposal of the account and network that calls `0x2::address_alias`; and `labels` on any proposal but a change that adds a set;
+- with a 400: a note that does not check; a change built against an alias set that has changed since; bytes whose expiration does not name the network's chain; an old set the API cannot identify as acting; a change that leaves no set the API can identify; a new composition outside the limits on signers and weights; signers who stay, counting only those who accepted the account, who cannot meet the new threshold; another pending proposal of the account and network that calls `0x2::address_alias`, unless its expiration epoch has passed; and `labels` on any proposal but a change that adds a set;
 - with a 403: a proposer who is not an accepted signer of the old set who stays in the new one.
 
 `signerChange` on a proposal holds:
@@ -335,9 +335,9 @@ Check the bytes yourself with these before you sign or show a change, and never 
 
 Until the change is ready, `signatures` is empty and the proof of the `created` event has no signature. Once it is ready, both come back whole. `hasReachedThreshold` is `ready`, and `signerSets` holds only the set the change replaces, while that set acts.
 
-Only a key of the set the change replaces may vote on it, accepted or not, and only an accepted signer of that set who stays in the new one may cancel it. Anyone else gets a 403. Removing a proposer never cancels a signer change.
+Only a key of the set the change replaces may vote on it, accepted or not; anyone else gets a 403. While that set acts, only an accepted signer of it who stays in the new one may cancel the change: a key that is not an accepted signer of the account gets the 403 any cancel gives it, and an accepted signer who does not stay gets a 403. Once the set no longer acts, the change can never execute, and any accepted signer may cancel it. Removing a proposer never cancels a signer change.
 
-The legacy routes never serve a signer change, also while it is pending. Create, `GET /proposals/digest/:digest`, vote and cancel answer with a 409 that points at `/v1`, and the list leaves the change out. `verify` and `verify-by-digest` stay open.
+The legacy routes never serve a signer change, also while it is pending. Create, `GET /proposals/digest/:digest`, vote and cancel answer with a 409 that points at `/v1`, and the list leaves the change out. `verify` and `verify-by-digest` stay open. The legacy create route, like `/v1`, refuses a transaction that calls `0x2::address_alias` from an external proposer with a 403.
 
 ## Checklist
 
