@@ -1217,7 +1217,10 @@ export const content = {
 			noActingSet: (network: string) =>
 				`On ${network}, this address is controlled by other signer sets.`,
 		},
-		/** Above the cards when more than one signer set acts on the network. */
+		/** The folded row under the Signers table that holds the other acting sets. */
+		moreSignerSets: (count: number) =>
+			`${count} more signer ${count === 1 ? 'set' : 'sets'}`,
+		/** Above the Signers card when more than one signer set acts on the network. */
 		severalSignerSets: (count: number, network: string) =>
 			`This pod has ${count} signer sets on ${network}. Each one can approve transactions on its own.`,
 		/** When the pod's alias set differs on other networks the API serves; `networks` is already a list. */

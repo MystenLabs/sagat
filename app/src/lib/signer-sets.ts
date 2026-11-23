@@ -6,13 +6,11 @@ import type { AccountSignerSet } from '@mysten/sagat/v1';
 import { content } from '../content';
 import { joinList } from './create-multisig';
 import { networkLabel, type SuiNetwork } from './network';
-import {
-	isMember,
-	signerSetAddress,
-} from './proposal-integrity';
+import { signerSetAddress } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 import { sumWeight, thresholdLabel } from './threshold';
 import { type MultisigWithMembersForPublicKey } from './types';
+import { viewerSignerSet } from './user-multisig';
 
 type ListedPod = Pick<
 	MultisigWithMembersForPublicKey,
@@ -49,9 +47,10 @@ export interface SignerSetCard {
 }
 
 /**
- * A card per acting signer set, the one `signerAddress` signs in first,
- * the rest in the given order. A set in `fresh` that makes up the same
- * address stands in for it, with newer answers and labels.
+ * A card per acting signer set, the one `signerAddress` signs in
+ * (`viewerSignerSet`) first, the rest in the given order. A set in
+ * `fresh` that makes up the same address stands in for it, with newer
+ * answers and labels.
  */
 export function signerSetCards({
 	acting,
@@ -72,7 +71,13 @@ export function signerSetCards({
 		set,
 		address: signerSetAddress(set),
 	}));
-	const cards = acting.flatMap((set): SignerSetCard[] => {
+	const viewers = signerAddress
+		? viewerSignerSet(acting, account, signerAddress)
+		: undefined;
+	const ordered = viewers
+		? [viewers, ...acting.filter((set) => set !== viewers)]
+		: acting;
+	return ordered.flatMap((set): SignerSetCard[] => {
 		const address = signerSetAddress(set);
 		if (!address) return [];
 		const isOriginal = sameAddress(address, account);
@@ -93,17 +98,6 @@ export function signerSetCards({
 			},
 		];
 	});
-	const viewer = signerAddress
-		? cards.findIndex(({ set }) =>
-				isMember(set, signerAddress),
-			)
-		: -1;
-	return viewer > 0
-		? [
-				cards[viewer],
-				...cards.filter((_, i) => i !== viewer),
-			]
-		: cards;
 }
 
 /** The notice naming the other networks whose signers differ, or null when there are none. */

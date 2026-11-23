@@ -77,6 +77,26 @@ test('puts the set the viewer signs in first, the rest in the given order', () =
 	]);
 });
 
+test('puts the pod’s own set first when the viewer signs in it and in an added set', () => {
+	const added = signerSet(
+		[viewer, new Ed25519Keypair()],
+		2,
+	);
+
+	const cards = signerSetCards({
+		acting: [added, original],
+		fresh: [],
+		account: original.address,
+		pods: [],
+		signerAddress: viewer.toSuiAddress(),
+	});
+
+	expect(cards.map((card) => card.address)).toEqual([
+		original.address,
+		added.address,
+	]);
+});
+
 test('names a set after the viewer’s pod at its address only when that pod’s signers make it up', () => {
 	const recovery = signerSet([viewer]);
 	const stranger = signerSet([new Ed25519Keypair()]);

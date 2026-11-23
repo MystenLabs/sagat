@@ -230,3 +230,34 @@ test('a row and the new-proposal copy read the threshold of a set that is an ali
 		3,
 	);
 });
+
+test('a row reads the pod’s own set when the viewer signs in it and in an added set', () => {
+	const viewer = new Ed25519Keypair();
+	const own = signerSet([viewer, new Ed25519Keypair()], 2);
+	const added = signerSet(
+		[viewer, new Ed25519Keypair(), new Ed25519Keypair()],
+		3,
+	);
+	const { multisig } = pod();
+	const account: Account = {
+		...multisig,
+		address: own.set.address,
+		originalSignerSet: own.set,
+		signerSets: [
+			{ kind: 'signer_set', ...added.set },
+			{ kind: 'signer_set', ...own.set },
+		],
+	};
+	const signer = signerOf(viewer);
+
+	expect(
+		withActing(
+			toUserMultisig(account, signer),
+			{
+				kind: 'read',
+				aliases: [added.set.address, own.set.address],
+			},
+			signer,
+		).threshold,
+	).toBe(2);
+});

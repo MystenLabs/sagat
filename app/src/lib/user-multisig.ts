@@ -13,8 +13,10 @@ import {
 	isMember,
 	podActing,
 	shownActingSets,
+	signerSetAddress,
 	type ShownPod,
 } from './proposal-integrity';
+import { sameAddress } from './sui-utils';
 import { sumWeight } from './threshold';
 import {
 	type MultisigWithMembersForPublicKey,
@@ -24,15 +26,26 @@ import {
 /** The signed-in key: its public key and the address it derives. */
 type Signer = { publicKey: string; address: string };
 
-/** The set `signerAddress` signs in: the first of `sets` that holds it, else `original`. */
+/**
+ * The set of `sets` that `signerAddress` signs in: the pod's own set (the
+ * one that makes up `account`) when it holds the key, else the first that
+ * does; undefined when none does.
+ */
 export function viewerSignerSet(
 	sets: readonly AccountSignerSet[],
-	original: AccountSignerSet,
+	account: string,
 	signerAddress: string,
-): AccountSignerSet {
+): AccountSignerSet | undefined {
+	const holding = sets.filter((set) =>
+		isMember(set, signerAddress),
+	);
 	return (
-		sets.find((set) => isMember(set, signerAddress)) ??
-		original
+		holding.find((set) => {
+			const address = signerSetAddress(set);
+			return (
+				address !== null && sameAddress(address, account)
+			);
+		}) ?? holding[0]
 	);
 }
 
@@ -140,11 +153,12 @@ export function withActing(
 				unidentified: acting.unidentified,
 			};
 		case 'ok': {
-			const set = viewerSignerSet(
-				acting.signerSets,
-				row.originalSignerSet,
-				signer.address,
-			);
+			const set =
+				viewerSignerSet(
+					acting.signerSets,
+					row.address,
+					signer.address,
+				) ?? row.originalSignerSet;
 			return {
 				...row,
 				...viewedThrough(

@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { AccountSignerSet } from '@mysten/sagat/v1';
 import { useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
@@ -21,6 +22,7 @@ import {
 	differentSignersLine,
 	otherSignerSetRows,
 	signerSetCards,
+	type SignerSetCard,
 } from '@/lib/signer-sets';
 import {
 	rejectionNotice,
@@ -31,9 +33,13 @@ import { sumWeight, thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 
+import { FoldedRow } from '../multisig/FoldedRow';
 import { OtherSignerSetsCard } from '../multisig/OtherSignerSetsCard';
 import { SetupCard } from '../multisig/SetupCard';
-import { SignersCard } from '../multisig/SignersCard';
+import {
+	SignersCard,
+	SignersTable,
+} from '../multisig/SignersCard';
 import {
 	OpenPodLink,
 	SignerSetAddress,
@@ -48,9 +54,10 @@ interface SignersTabContext {
 }
 
 /**
- * The Members page: every signer set that acts on the selected network,
- * the one the viewer signs in first, the original signers when they don't
- * act, who else may propose, and the aliases no set makes up. The account
+ * The Members page: one Signers card for the set the viewer signs in,
+ * with the other acting sets and, when they don't act, the original
+ * signers folded under it; who else may propose; and the aliases no set
+ * makes up. The account
  * list carries the signers; the account query on top keeps them fresh
  * and is the one that carries the proposers. When it fails, the list's
  * copy stays up under a notice with a way to try again. When its original
@@ -114,7 +121,8 @@ export function SignersTab() {
 		);
 
 	// Until the node's alias set is read, the original set.
-	const viewed = cards?.[0]?.set ?? account;
+	const [main, ...others] = cards ?? [];
+	const viewed = main?.set ?? account;
 	const rows = signerRows(viewed.members, signerAddress);
 	const status = signerSetStatus(rows, viewed.threshold);
 	const notice = rejectionNotice(status);
@@ -178,93 +186,65 @@ export function SignersTab() {
 			    under them before that. */}
 			<div className="flex flex-col gap-5 @4xl:flex-row @4xl:items-start @4xl:gap-7">
 				<div className="flex min-w-0 flex-1 flex-col gap-5">
-					{cards && cards.length > 0 ? (
-						cards.map((card, i) => {
-							const setRows =
-								i === 0
-									? rows
-									: signerRows(
-											card.set.members,
-											signerAddress,
-										);
-							return (
-								<SignersCard
-									key={card.address}
-									rows={setRows}
-									status={
-										i === 0
-											? status
-											: signerSetStatus(
-													setRows,
-													card.set.threshold,
-												)
-									}
-									signerSet={card.address}
-								>
-									{several && (
-										<p
-											className="text-13 text-muted-foreground"
-											data-testid="signer-set-threshold"
-										>
-											{content.common.threshold(
-												thresholdLabel({
-													threshold: card.set.threshold,
-													totalWeight: sumWeight(
+					<SignersCard
+						rows={rows}
+						status={status}
+						signerSet={main?.address}
+						folded={
+							<>
+								{others.length > 0 && (
+									<FoldedRow
+										label={content.signers.moreSignerSets(
+											others.length,
+										)}
+										testId="other-acting-sets"
+									>
+										{others.map((card) => (
+											<div
+												key={card.address}
+												className="flex flex-col gap-3"
+												data-testid="folded-signer-set"
+												data-signer-set={card.address}
+											>
+												<SignerSetLabel card={card} />
+												<SetThreshold set={card.set} />
+												<SignersTable
+													rows={signerRows(
 														card.set.members,
-													),
-												}),
-											)}
-										</p>
-									)}
-									{!card.isOriginal && (
-										<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-											<div className="flex min-w-0 flex-col gap-0.5">
-												{card.pod?.name && (
-													<span
-														className="text-13 font-medium"
-														data-testid="signer-set-pod-name"
-													>
-														{card.pod.name}
-													</span>
-												)}
-												<SignerSetAddress
-													address={card.address}
+														signerAddress,
+													)}
 												/>
 											</div>
-											{card.pod && (
-												<OpenPodLink
-													address={card.pod.address}
-													className="-mr-2.5"
-												/>
-											)}
-										</div>
-									)}
-								</SignersCard>
-							);
-						})
-					) : (
-						<SignersCard rows={rows} status={status} />
-					)}
-					{original && originalRows && (
-						<SignersCard
-							rows={originalRows}
-							status={signerSetStatus(
-								originalRows,
-								original.threshold,
-							)}
-							title={content.signers.original.title}
-							signerSet={multisig.address}
-						>
-							<p
-								className="text-13 text-foreground-secondary"
-								data-testid="original-signers-body"
-							>
-								{content.signers.original.body(
-									networkLabel(network),
+										))}
+									</FoldedRow>
 								)}
-							</p>
-						</SignersCard>
-					)}
+								{original && originalRows && (
+									<FoldedRow
+										label={content.signers.original.title}
+										count={originalRows.length}
+										testId="original-signers"
+									>
+										<p
+											className="text-13 text-foreground-secondary"
+											data-testid="original-signers-body"
+										>
+											{content.signers.original.body(
+												networkLabel(network),
+											)}
+										</p>
+										<SignersTable rows={originalRows} />
+									</FoldedRow>
+								)}
+							</>
+						}
+					>
+						{several && main && (
+							<SetThreshold set={main.set} />
+						)}
+						{main && !main.isOriginal && (
+							<SignerSetLabel card={main} />
+						)}
+					</SignersCard>
 					{details && (
 						<ProposersSection
 							multisig={details}
@@ -302,6 +282,48 @@ export function SignersTab() {
 					className="w-full shrink-0 @4xl:w-80"
 				/>
 			</div>
+		</div>
+	);
+}
+
+/** "Threshold 2 of 3", for a page that shows several sets. */
+function SetThreshold({ set }: { set: AccountSignerSet }) {
+	return (
+		<p
+			className="text-13 text-muted-foreground"
+			data-testid="signer-set-threshold"
+		>
+			{content.common.threshold(
+				thresholdLabel({
+					threshold: set.threshold,
+					totalWeight: sumWeight(set.members),
+				}),
+			)}
+		</p>
+	);
+}
+
+/** An added set's address whole with copy, under the viewer's pod name and "Open pod" when it is one of theirs. */
+function SignerSetLabel({ card }: { card: SignerSetCard }) {
+	return (
+		<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+			<div className="flex min-w-0 flex-col gap-0.5">
+				{card.pod?.name && (
+					<span
+						className="text-13 font-medium"
+						data-testid="signer-set-pod-name"
+					>
+						{card.pod.name}
+					</span>
+				)}
+				<SignerSetAddress address={card.address} />
+			</div>
+			{card.pod && (
+				<OpenPodLink
+					address={card.pod.address}
+					className="-mr-2.5"
+				/>
+			)}
 		</div>
 	);
 }
