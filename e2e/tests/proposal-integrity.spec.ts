@@ -923,6 +923,9 @@ test.describe('proposal integrity', () => {
 			'data-signer-set',
 			multisig.address,
 		);
+		await expect(
+			bob.page.getByTestId('other-acting-sets'),
+		).toHaveCount(0);
 
 		await carol.signIn();
 		await carol.page.goto(

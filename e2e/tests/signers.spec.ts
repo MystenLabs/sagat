@@ -837,6 +837,13 @@ test.describe('overview and signers', () => {
 			page.locator(
 				`[data-testid="signers-card"][data-signer-set="${address}"]`,
 			);
+		const folded = (
+			page: typeof alice.page,
+			address: string,
+		) =>
+			page.locator(
+				`[data-testid="folded-signer-set"][data-signer-set="${address}"]`,
+			);
 		const member = (
 			cardLocator: ReturnType<typeof card>,
 			address: string,
@@ -853,12 +860,13 @@ test.describe('overview and signers', () => {
 			);
 			await expect(
 				page.getByTestId('signers-card'),
-			).toHaveCount(2);
+			).toHaveCount(1);
 			await expect(
 				page.getByTestId('several-signer-sets'),
 			).toHaveText(
 				'This pod has 2 signer sets on Localnet. Each one can approve transactions on its own.',
 			);
+			// She signs in both, so the card is the pod's own set.
 			const own = card(page, multisig.address);
 			await expect(
 				own.getByTestId('signer-set-threshold'),
@@ -872,7 +880,18 @@ test.describe('overview and signers', () => {
 				own.getByTestId('signer-set-address'),
 			).toHaveCount(0);
 
-			const added = card(page, recovery.address);
+			// The other set is folded under the table, its count in view.
+			const toggle = own.getByTestId(
+				'other-acting-sets-toggle',
+			);
+			await expect(toggle).toHaveText('1 more signer set');
+			await expect(toggle).toHaveAttribute(
+				'aria-expanded',
+				'false',
+			);
+			const added = folded(page, recovery.address);
+			await expect(added).toHaveCount(0);
+			await toggle.click();
 			await expect(
 				member(added, alice.address),
 			).toBeVisible();
@@ -910,14 +929,17 @@ test.describe('overview and signers', () => {
 			await page.goto(
 				`/multisig/${multisig.address}/signers`,
 			);
-			// The set he signs in comes first.
+			// The card is the set he signs in.
 			await expect(
-				page.getByTestId('signers-card').first(),
+				page.getByTestId('signers-card'),
 			).toHaveAttribute(
 				'data-signer-set',
 				multisig.address,
 			);
-			const added = card(page, recovery.address);
+			await page
+				.getByTestId('other-acting-sets-toggle')
+				.click();
+			const added = folded(page, recovery.address);
 			await expect(
 				member(added, carol.address),
 			).toBeVisible();
@@ -1085,14 +1107,30 @@ test.describe('overview and signers', () => {
 		);
 		const cards = page.getByTestId('signers-card');
 		const body = page.getByTestId('original-signers-body');
-		const acting = cards.filter({ hasNot: body });
-		const original = cards.filter({ has: body });
+		const acting = cards;
+		const original = cards.getByTestId('original-signers');
 		await expect(acting).toHaveCount(1);
 		await expect(acting).toHaveAttribute(
 			'data-signer-set',
 			recovery.address,
 		);
 		await expect(original).toHaveCount(1);
+		// Folded under the acting set's table until opened.
+		const toggle = original.getByTestId(
+			'original-signers-toggle',
+		);
+		await expect(toggle).toHaveAttribute(
+			'aria-expanded',
+			'false',
+		);
+		await expect(
+			original.getByTestId('original-signers-count'),
+		).toHaveText('2');
+		await expect(body).toHaveCount(0);
+		await toggle.click();
+		await expect(body).toHaveText(
+			'This pod’s address was made from these signers. They don’t control it on Localnet.',
+		);
 		const members = original.getByTestId('member-item');
 		await expect(members).toHaveCount(2);
 		await expect(
