@@ -22,7 +22,7 @@ type ChangedAccountOptions = {
 	loaders?: AliasSetLoaders;
 };
 
-// Refreshes stale alias states on every network and returns the changed accounts; a failed read keeps the mirror as it is.
+// A failed read keeps the mirror as it is.
 export const listChangedAccounts = async (
 	accountAddresses: string[],
 	{
