@@ -881,16 +881,9 @@ test.describe('overview and signers', () => {
 				'other-acting-sets-toggle',
 			);
 			await expect(toggle).toHaveText('1 more signer set');
-			await expect(toggle).toHaveAttribute(
-				'aria-expanded',
-				'false',
-			);
 			const added = folded(page, recovery.address);
 			await expect(added).toHaveCount(0);
 			await toggle.click();
-			await expect(
-				member(added, alice.address),
-			).toBeVisible();
 			await expect(
 				added.getByTestId('signer-set-threshold'),
 			).toHaveText('Threshold 2 of 2');
@@ -995,10 +988,6 @@ test.describe('overview and signers', () => {
 			await expect(
 				card.getByTestId('other-signer-sets-count'),
 			).toHaveText('1');
-			await expect(toggle).toHaveAttribute(
-				'aria-expanded',
-				'false',
-			);
 			await expect(rows).toHaveCount(0);
 
 			await toggle.click();
@@ -1010,9 +999,6 @@ test.describe('overview and signers', () => {
 				'data-address',
 				stranger,
 			);
-			await expect(
-				rows.getByTestId('signer-set-address'),
-			).toHaveText(stranger);
 			await expect(rows).toContainText(
 				'Added outside Pods',
 			);

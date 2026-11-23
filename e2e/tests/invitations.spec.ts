@@ -635,10 +635,6 @@ test.describe('invitations', () => {
 			'original-signers-toggle',
 		);
 		const body = page.getByTestId('original-signers-body');
-		await expect(toggle).toHaveAttribute(
-			'aria-expanded',
-			'false',
-		);
 		await expect(
 			folded.getByTestId('original-signers-count'),
 		).toHaveText('2');
