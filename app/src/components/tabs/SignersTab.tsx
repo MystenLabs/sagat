@@ -20,6 +20,7 @@ import {
 	originalSignerSet,
 	shownActingSets,
 } from '@/lib/proposal-integrity';
+import { approvalsThresholdLabel } from '@/lib/proposal-page';
 import { trustsSigners } from '@/lib/proposer-proofs';
 import {
 	differentSignersLine,
@@ -32,7 +33,6 @@ import {
 	signerRows,
 	signerSetStatus,
 } from '@/lib/signers';
-import { sumWeight, thresholdLabel } from '@/lib/threshold';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { getExplorerUrl } from '@/lib/utils';
 
@@ -293,12 +293,7 @@ function SetThreshold({ set }: Pick<SignerSetCard, 'set'>) {
 			className="text-13 text-muted-foreground"
 			data-testid="signer-set-threshold"
 		>
-			{content.common.threshold(
-				thresholdLabel({
-					threshold: set.threshold,
-					totalWeight: sumWeight(set.members),
-				}),
-			)}
+			{approvalsThresholdLabel(set)}
 		</p>
 	);
 }
