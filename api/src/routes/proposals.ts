@@ -92,7 +92,6 @@ proposalsRouter.post(
 		await verifyProposal({
 			proposalId: parseInt(proposalId),
 			callerKeys: c.get('publicKeys'),
-			scopeKind: 'original',
 		});
 
 		return c.json({ verified: true });

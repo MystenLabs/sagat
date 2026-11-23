@@ -6,6 +6,7 @@ import { type Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 
+import { parsePublicKey } from '../../src/utils/pubKey';
 import {
 	getLocalClient,
 	LOCALNET_WAIT,
@@ -47,6 +48,36 @@ export function multisigSigner(
 		},
 	};
 }
+
+// The multisig signature of `set` from the signatures of its members.
+export const combinedSignature = (
+	set: {
+		threshold: number;
+		members: {
+			publicKey: string;
+			weight: number;
+			order: number;
+		}[];
+	},
+	signatures: { publicKey: string; signature: string }[],
+) => {
+	const members = [...set.members].sort(
+		(a, b) => a.order - b.order,
+	);
+	return MultiSigPublicKey.fromPublicKeys({
+		threshold: set.threshold,
+		publicKeys: members.map((m) => ({
+			publicKey: parsePublicKey(m.publicKey),
+			weight: m.weight,
+		})),
+	}).combinePartialSignatures(
+		members.flatMap(
+			(m) =>
+				signatures.find((s) => s.publicKey === m.publicKey)
+					?.signature ?? [],
+		),
+	);
+};
 
 export function keySigner(
 	label: string,

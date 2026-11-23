@@ -72,9 +72,8 @@ const createProposalRoute = createRoute({
 			'The request, transaction or signature is invalid, or the network is not supported.',
 		),
 		403: error(
-			'The signer may not propose for the account on the network.',
+			'The signer may not propose for the account on the network, or the address is not an account.',
 		),
-		404: error('The address is not an account.'),
 		503: unavailable,
 	},
 });

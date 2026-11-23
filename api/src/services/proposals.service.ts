@@ -57,7 +57,6 @@ import {
 	aliasSetLoaders,
 	type AliasSetLoaders,
 } from '../loaders/alias-set.loader';
-import { ProposalByDigestLoader } from '../loaders/proposals.loader';
 import {
 	MultisigEventType,
 	multisigProposalEvents,
@@ -82,7 +81,10 @@ import {
 	recordAccountEvent,
 	type ProposalEvents,
 } from './account-events.service';
-import { isAccount } from './accounts.service';
+import {
+	isAccount,
+	refreshAccount,
+} from './accounts.service';
 import {
 	refreshAliases,
 	refreshStaleAliases,
@@ -91,6 +93,7 @@ import {
 import { isAccountSigner } from './membership.service';
 import {
 	getExclusiveObjects,
+	isCanonicalSuiAddress,
 	validateProposedTransaction,
 } from './multisig.service';
 import {
@@ -181,10 +184,11 @@ const findProposal = async (
 
 	return {
 		...proposal,
+		// The order the legacy read by digest answers with.
 		signatures: signatures.map((s) => ({
 			publicKey: s.publicKey,
-			signature: s.signature,
 			proposalId: s.proposalId,
+			signature: s.signature,
 		})),
 	};
 };
@@ -327,27 +331,27 @@ const getProposalsByAccountAddress = async (
 
 /**
  * Checks a pending proposal on-chain, and records whether it succeeded and
- * the address that signed for the account. With `readyUnder`, it first needs
- * enough signatures under that scope. Returns the proposal's status
+ * the address that signed for the account. With `checkThreshold`, it first
+ * needs enough signatures under the original set. Returns the proposal's status
  * afterwards; a proposal that is no longer pending is returned as is.
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
 	{
-		readyUnder,
+		checkThreshold = false,
 		loaders,
 	}: {
-		readyUnder?: SignerScopeKind;
+		checkThreshold?: boolean;
 		loaders: AliasSetLoaders;
 	},
 ): Promise<ProposalStatus> => {
 	if (proposal.status !== ProposalStatus.PENDING)
 		return proposal.status;
 
-	if (readyUnder) {
+	if (checkThreshold) {
 		const signers = await getAccountSigners(
 			proposal.accountAddress,
-			scopeOn(readyUnder, proposal.network),
+			ORIGINAL_SET,
 		);
 		if (
 			!proposalProgress(proposal, signers)
@@ -489,7 +493,13 @@ export const createProposal = async ({
 }): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
 
-	if (!isValidSuiAddress(multisigAddress))
+	if (
+		!(
+			scopeKind === 'acting'
+				? isCanonicalSuiAddress
+				: isValidSuiAddress
+		)(multisigAddress)
+	)
 		throw new CommonError('InvalidAddress');
 
 	if (
@@ -517,16 +527,8 @@ export const createProposal = async ({
 	// Get the public key out of the sui signature.
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
-	if (scopeKind === 'acting') {
-		// Only an account has an alias state to refresh.
-		if (!(await isAccount(multisigAddress)))
-			throw new NotFoundError();
-		await requireFreshAliases(
-			multisigAddress,
-			network,
-			loaders,
-		);
-	}
+	if (scopeKind === 'acting')
+		await refreshAccount(multisigAddress, network, loaders);
 	const signers = await getAccountSigners(
 		multisigAddress,
 		scopeOn(scopeKind, network),
@@ -889,15 +891,13 @@ export const cancelProposal = async ({
 	});
 };
 
-// Verifies the execution of a proposal, for an accepted member.
+// Verifies the execution of a proposal, for an accepted member of the original set.
 export const verifyProposal = async ({
 	proposalId,
 	callerKeys,
-	scopeKind,
 }: {
 	proposalId: number;
 	callerKeys: PublicKey[];
-	scopeKind: SignerScopeKind;
 }) => {
 	const proposal = await getProposalById(proposalId);
 
@@ -907,14 +907,14 @@ export const verifyProposal = async ({
 			callerKeys,
 			{
 				acceptedOnly: true,
-				scope: scopeOn(scopeKind, proposal.network),
+				scope: ORIGINAL_SET,
 			},
 		))
 	)
 		throw new ApiAuthError('NotAMultisigMember');
 
 	return await lookupAndVerifyProposal(proposal, {
-		readyUnder: scopeKind,
+		checkThreshold: true,
 		loaders: aliasSetLoaders,
 	});
 };
@@ -929,8 +929,7 @@ export const verifyProposalByDigest = async (
 	await lookupAndVerifyProposal(
 		await getProposal({ digest }),
 		{
-			readyUnder:
-				scopeKind === 'original' ? 'original' : undefined,
+			checkThreshold: scopeKind === 'original',
 			loaders,
 		},
 	);
@@ -980,6 +979,11 @@ export const listProposals = async ({
 	return await listProposalPage({ ...input, scopeKind });
 };
 
+const NO_EVENTS: ProposalEvents = {
+	created: null,
+	proposer: null,
+};
+
 export type CheckedProposal = ProposalProgress & {
 	events: ProposalEvents;
 	// True when the alias read failed and the signers come from the mirror as it was.
@@ -1022,24 +1026,13 @@ export const listAccountProposals = async ({
 	};
 };
 
-const NO_EVENTS: ProposalEvents = {
-	created: null,
-	proposer: null,
-};
-
 // A proposal by digest, with its account's signers and events. Public.
 export const getProposalByDigest = async (
 	digest: string,
 	scopeKind: SignerScopeKind,
 	loaders: AliasSetLoaders = aliasSetLoaders,
 ): Promise<CheckedProposal> => {
-	if (!isValidTransactionDigest(digest))
-		throw new CommonError('InvalidDigest');
-
-	const proposal =
-		await ProposalByDigestLoader.load(digest);
-
-	if (!proposal) throw new NotFoundError();
+	const proposal = await getProposal({ digest });
 
 	const signerSetsStale =
 		scopeKind !== 'original' &&

@@ -30,7 +30,7 @@ import {
 	SchemaAccountAliases,
 	SchemaProposals,
 } from '../src/db/schema';
-import { ApiAuthError } from '../src/errors';
+import { ApiAuthError, CommonErrors } from '../src/errors';
 import {
 	buildAdd,
 	buildEnable,
@@ -38,15 +38,18 @@ import {
 import {
 	ApiTestFramework,
 	buildTransfer,
+	errorOf,
 	newUser,
 	refusal,
 	sendCoins,
 	sign,
+	signedBy,
 	type TestSession,
 } from './framework/api-test-framework';
 import { register, setAliases } from './setup/acting-sets';
 import {
 	build,
+	combinedSignature,
 	execute,
 	expectSuccess,
 	multisigSigner,
@@ -57,13 +60,7 @@ import {
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
-import {
-	combinedSignature,
-	insertProposal,
-	proposeWith,
-	signedBy,
-	voteWith,
-} from './setup/v1-proposals';
+import { insertProposal } from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
@@ -95,10 +92,10 @@ describe('GET /v1/proposals/:digest', () => {
 			users[1],
 			multisig.address,
 		);
-		const created = await proposeWith(
-			client,
+		const created = await session.createProposal(
 			users[0],
 			multisig.address,
+			'localnet',
 			await buildTransfer(multisig.address),
 			'Pay rent',
 		);
@@ -277,10 +274,10 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			{ name: 'Treasury', fund: true },
 		);
 		await session.acceptMultisig(k2, account.address);
-		const created = await proposeWith(
-			client,
+		const created = await session.createProposal(
 			k1,
 			account.address,
+			'localnet',
 			await buildTransfer(account.address),
 		);
 		return { k1, k2, account, created };
@@ -337,7 +334,11 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		);
 		expect(before.hasReachedThreshold).toBe(false);
 
-		const voted = await voteWith(client, k3, created);
+		const voted = await session.voteOnProposal(
+			k3,
+			created.digest,
+			created.transactionBytes,
+		);
 		expect(voted.hasReachedThreshold).toBe(true);
 
 		const after = await client.getProposalByDigest(
@@ -367,7 +368,13 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		expect(before.hasReachedThreshold).toBe(false);
 
 		expect(
-			await refusal(voteWith(client, key, created)),
+			await refusal(
+				session.voteOnProposal(
+					key,
+					created.digest,
+					created.transactionBytes,
+				),
+			),
 		).toEqual({
 			status: 403,
 			message: new ApiAuthError('NotAMultisigMember')
@@ -458,7 +465,11 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 	test('an open proposal is counted again against the sets that act after a change', async () => {
 		const { k1, k2, account, created } =
 			await proposeFromA();
-		await voteWith(client, k2, created);
+		await session.voteOnProposal(
+			k2,
+			created.digest,
+			created.transactionBytes,
+		);
 		expect(
 			(await client.getProposalByDigest(created.digest))
 				.hasReachedThreshold,
@@ -544,6 +555,18 @@ describe('/v1 proposal writes and the list', () => {
 		expect(created).toEqual(
 			await client.getProposalByDigest(created.digest),
 		);
+		const notCanonical = await session.post(
+			'/v1/proposals?network=localnet',
+			{
+				accountAddress: `0x${address.slice(2).toUpperCase()}`,
+				transactionBytes,
+				signature: await signedBy(k1, transactionBytes),
+			},
+		);
+		expect(await errorOf(notCanonical)).toEqual({
+			status: 400,
+			body: { error: CommonErrors.InvalidAddress },
+		});
 
 		const other = await session.createMultisig([k1, k2], 1);
 		await insertProposal(address, 'testnet', k1.address);
@@ -570,7 +593,7 @@ describe('/v1 proposal writes and the list', () => {
 				[
 					client.voteForProposal(digest, { signature }),
 					client.cancelProposal(digest, { signature }),
-					client.verifyProposal(digest),
+					client.verifyProposalByDigest(digest),
 				].map(refusal),
 			);
 
@@ -617,7 +640,12 @@ describe('/v1 proposal writes and the list', () => {
 
 		expect(
 			await refusal(
-				proposeWith(client, proposer, address, bytes),
+				session.createProposal(
+					proposer,
+					address,
+					'localnet',
+					bytes,
+				),
 			),
 		).toEqual({
 			status: 403,
@@ -625,10 +653,10 @@ describe('/v1 proposal writes and the list', () => {
 				.message,
 		});
 
-		const created = await proposeWith(
-			client,
+		const created = await session.createProposal(
 			k1,
 			address,
+			'localnet',
 			bytes,
 		);
 		expect(created.aliasCalls).toEqual([
@@ -689,7 +717,7 @@ describe('POST /v1/proposals/:digest/verify on the chain', () => {
 				signature,
 			),
 		);
-		return client.verifyProposal(proposal.digest);
+		return client.verifyProposalByDigest(proposal.digest);
 	};
 
 	test('records the address that signed for the account: the original set, another set, or a single key', async () => {
@@ -725,14 +753,18 @@ describe('POST /v1/proposals/:digest/verify on the chain', () => {
 				[key, key.address],
 			] as const
 		).entries()) {
-			const created = await proposeWith(
-				client,
+			const created = await session.createProposal(
 				k1,
 				address,
+				'localnet',
 				transfers[i],
 			);
 			const verified = await executeVia(
-				await voteWith(client, voter, created),
+				await session.voteOnProposal(
+					voter,
+					created.digest,
+					created.transactionBytes,
+				),
 				setAddress,
 			);
 			expect(verified.status).toBe(ProposalStatus.SUCCESS);
@@ -748,10 +780,10 @@ describe('POST /v1/proposals/:digest/verify on the chain', () => {
 
 	test('a proposal executed with signatures the API never saw verifies with no threshold check', async () => {
 		const { k1, k2, address } = await createAccount();
-		const created = await proposeWith(
-			client,
+		const created = await session.createProposal(
 			k1,
 			address,
+			'localnet',
 			await buildTransfer(address),
 		);
 		expect(created.hasReachedThreshold).toBe(false);
@@ -772,7 +804,7 @@ describe('POST /v1/proposals/:digest/verify on the chain', () => {
 				]),
 			),
 		);
-		const verified = await client.verifyProposal(
+		const verified = await client.verifyProposalByDigest(
 			created.digest,
 		);
 
@@ -798,10 +830,10 @@ describe('POST /v1/proposals/:digest/verify on the chain', () => {
 			),
 		);
 		// The create reads the chain, so the alias state is fresh from here on.
-		const created = await proposeWith(
-			client,
+		const created = await session.createProposal(
 			k1,
 			address,
+			'localnet',
 			bytes,
 		);
 		expect(
@@ -809,7 +841,11 @@ describe('POST /v1/proposals/:digest/verify on the chain', () => {
 		).toEqual([address]);
 
 		const verified = await executeVia(
-			await voteWith(client, k2, created),
+			await session.voteOnProposal(
+				k2,
+				created.digest,
+				created.transactionBytes,
+			),
 			address,
 		);
 

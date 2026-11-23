@@ -18,7 +18,7 @@ import {
 } from './framework/api-test-framework';
 import {
 	insertProposal,
-	voteWith,
+	offlineTransfer,
 } from './setup/v1-proposals';
 
 // The app reads this on load; restore it for this worker's other files.
@@ -118,12 +118,29 @@ test('a /v1 vote is refused with a 503, and the list and the read serve the prop
 		users[0]!.address,
 	);
 
-	expect(
-		await refusal(voteWith(client, users[1]!, proposal)),
-	).toEqual({
+	const notChecked = {
 		status: 503,
 		message: `The signers of account ${multisig.address} on localnet could not be checked. Please try again.`,
-	});
+	};
+	expect(
+		await refusal(
+			session.voteOnProposal(
+				users[1]!,
+				proposal.digest,
+				proposal.transactionBytes,
+			),
+		),
+	).toEqual(notChecked);
+	expect(
+		await refusal(
+			session.createProposal(
+				users[0]!,
+				multisig.address,
+				'localnet',
+				await offlineTransfer(multisig.address),
+			),
+		),
+	).toEqual(notChecked);
 	const { proposals } = await client.getProposals({
 		accountAddress: multisig.address,
 		network: 'localnet',

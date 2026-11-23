@@ -1,15 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
-import {
-	type SagatV1Client,
-	type SignerSet,
-} from '@mysten/sagat/v1';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
-	fromBase64,
 	normalizeSuiAddress,
 	toBase58,
 	toHex,
@@ -18,11 +11,6 @@ import {
 import { db } from '../../src/db';
 import { SchemaProposals } from '../../src/db/schema';
 import { type SuiNetwork } from '../../src/utils/client';
-import { parsePublicKey } from '../../src/utils/pubKey';
-import {
-	sign,
-	type TestUser,
-} from '../framework/api-test-framework';
 
 const random = (length: number) =>
 	crypto.getRandomValues(new Uint8Array(length));
@@ -65,79 +53,4 @@ export const insertProposal = async (
 		})
 		.returning();
 	return proposal;
-};
-
-export const signedBy = async (
-	user: TestUser,
-	transactionBytes: string,
-) =>
-	(
-		await user.keypair.signTransaction(
-			fromBase64(transactionBytes),
-		)
-	).signature;
-
-export const proposeWith = async (
-	client: SagatV1Client,
-	proposer: TestUser,
-	accountAddress: string,
-	transactionBytes: string,
-	description?: string,
-) =>
-	client.createProposal({
-		accountAddress,
-		network: 'localnet',
-		transactionBytes,
-		signature: await signedBy(proposer, transactionBytes),
-		description,
-	});
-
-export const voteWith = async (
-	client: SagatV1Client,
-	voter: TestUser,
-	proposal: { digest: string; transactionBytes: string },
-) =>
-	client.voteForProposal(proposal.digest, {
-		signature: await signedBy(
-			voter,
-			proposal.transactionBytes,
-		),
-	});
-
-export const cancelWith = async (
-	client: SagatV1Client,
-	user: TestUser,
-	proposal: { digest: string; accountAddress: string },
-) =>
-	client.cancelProposal(proposal.digest, {
-		signature: await sign(
-			user,
-			PersonalMessages.cancelProposal(
-				proposal.digest,
-				proposal.accountAddress,
-			),
-		),
-	});
-
-// The multisig signature of `set` from the proposal's signatures of its members.
-export const combinedSignature = (
-	set: Pick<SignerSet, 'threshold' | 'members'>,
-	signatures: { publicKey: string; signature: string }[],
-) => {
-	const members = [...set.members].sort(
-		(a, b) => a.order - b.order,
-	);
-	return MultiSigPublicKey.fromPublicKeys({
-		threshold: set.threshold,
-		publicKeys: members.map((m) => ({
-			publicKey: parsePublicKey(m.publicKey),
-			weight: m.weight,
-		})),
-	}).combinePartialSignatures(
-		members.flatMap(
-			(m) =>
-				signatures.find((s) => s.publicKey === m.publicKey)
-					?.signature ?? [],
-		),
-	);
 };

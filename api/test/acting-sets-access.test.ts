@@ -37,7 +37,10 @@ import {
 	listInvitations,
 	removeProposer,
 } from '../src/services/multisig.service';
-import { voteOnProposal } from '../src/services/proposals.service';
+import {
+	cancelProposal,
+	voteOnProposal,
+} from '../src/services/proposals.service';
 import {
 	actingSetsOn,
 	ORIGINAL_SET,
@@ -50,6 +53,7 @@ import {
 	refusal,
 	sendCoins,
 	sign,
+	signedBy,
 	type TestUser,
 } from './framework/api-test-framework';
 import {
@@ -64,12 +68,8 @@ import {
 import { getLocalClient } from './setup/sui-network';
 import { queryCount } from './setup/test-db';
 import {
-	cancelWith,
 	insertProposal,
 	offlineTransfer,
-	proposeWith,
-	signedBy,
-	voteWith,
 } from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
@@ -260,7 +260,7 @@ const invitations = async (
 	).map((account) => account.signerSet.address);
 
 // Anyone may call the proposal write routes; the signature decides.
-const anyone = () => framework.createSession().v1;
+const anyone = () => framework.createSession();
 
 type ProposalRef = Pick<
 	Proposal,
@@ -272,10 +272,10 @@ const propose = async (
 	account: string,
 	transactionBytes?: string,
 ) =>
-	proposeWith(
-		anyone(),
+	anyone().createProposal(
 		user,
 		account,
+		'localnet',
 		transactionBytes ?? (await offlineTransfer(account)),
 	);
 
@@ -285,7 +285,11 @@ const vote = async (
 	proposal: ProposalRef,
 ) =>
 	proposal.network === 'localnet'
-		? voteWith(anyone(), user, proposal)
+		? anyone().voteOnProposal(
+				user,
+				proposal.digest,
+				proposal.transactionBytes,
+			)
 		: voteOnProposal({
 				proposalId: proposal.id,
 				signature: await signedBy(
@@ -295,11 +299,27 @@ const vote = async (
 				scopeKind: 'acting',
 			});
 
-const cancel = (user: TestUser, proposal: ProposalRef) =>
-	cancelWith(anyone(), user, proposal);
+// As `vote`, a proposal on another network is cancelled at service level.
+const cancel = async (
+	user: TestUser,
+	proposal: ProposalRef,
+) =>
+	proposal.network === 'localnet'
+		? anyone().cancelProposal(user, proposal)
+		: cancelProposal({
+				proposalId: proposal.id,
+				signature: await sign(
+					user,
+					PersonalMessages.cancelProposal(
+						proposal.digest,
+						proposal.accountAddress,
+					),
+				),
+				scopeKind: 'acting',
+			});
 
 const verify = (proposal: ProposalRef) =>
-	anyone().verifyProposal(proposal.digest);
+	anyone().v1.verifyProposalByDigest(proposal.digest);
 
 const proposalsOf = async (
 	user: TestUser,
@@ -562,6 +582,10 @@ describe('access under the acting scope', () => {
 		await read(k3, account, TESTNET);
 		await eventsOf(k3, account, TESTNET);
 		await vote(k3, onTestnet);
+		await cancel(k3, onTestnet);
+		expect(await statusOf(onTestnet)).toBe(
+			ProposalStatus.CANCELLED,
+		);
 	});
 
 	test('a set removed and added back keeps the answer its keys gave', async () => {
@@ -661,6 +685,10 @@ describe('access under the acting scope', () => {
 		await expectRefused(
 			propose(outsider, account),
 			NOT_A_MEMBER,
+		);
+		await expectRefused(
+			propose(outsider, newUser().address),
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			proposalsOf(outsider, account),

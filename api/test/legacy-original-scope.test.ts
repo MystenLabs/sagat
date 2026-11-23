@@ -178,6 +178,17 @@ describe('legacy routes under alias mirror rows', () => {
 			account,
 		);
 		expect(
+			await errorOf(
+				await session.post(
+					`/proposals/${proposal.digest}/verify-by-digest`,
+					{},
+				),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'Proposal is not ready to execute' },
+		});
+		expect(
 			(
 				await session.client.getProposals(
 					account,

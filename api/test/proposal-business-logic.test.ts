@@ -191,7 +191,7 @@ describe('Proposal Business Logic', () => {
 			);
 
 			await expect(
-				session.v1.verifyProposal(proposal.digest),
+				session.v1.verifyProposalByDigest(proposal.digest),
 			).rejects.toThrow(/has not been executed yet/);
 			expect(
 				(

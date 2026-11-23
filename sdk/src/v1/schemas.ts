@@ -154,11 +154,11 @@ export const ProposalSchema = z
 		signatures: z.array(ProposalSignatureSchema),
 		hasReachedThreshold: z.boolean().meta({
 			description:
-				'True when one of the signer sets in signerSets has reached its threshold.',
+				'True when one of the signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
 		}),
 		signerSets: z.array(SignerSetSchema).meta({
 			description:
-				"The signer sets that act for the account on the proposal's network.",
+				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it.",
 		}),
 		events: ProposalEventsSchema,
 		executedVia: SuiAddressSchema.nullable().meta({

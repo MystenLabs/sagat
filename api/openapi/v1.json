@@ -53,14 +53,14 @@
 					},
 					"hasReachedThreshold": {
 						"type": "boolean",
-						"description": "True when one of the signer sets in signerSets has reached its threshold."
+						"description": "True when one of the signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
 					},
 					"signerSets": {
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/SignerSet"
 						},
-						"description": "The signer sets that act for the account on the proposal's network."
+						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it."
 					},
 					"events": {
 						"$ref": "#/components/schemas/ProposalEvents"
@@ -697,17 +697,7 @@
 						}
 					},
 					"403": {
-						"description": "The signer may not propose for the account on the network.",
-						"content": {
-							"application/json": {
-								"schema": {
-									"$ref": "#/components/schemas/Error"
-								}
-							}
-						}
-					},
-					"404": {
-						"description": "The address is not an account.",
+						"description": "The signer may not propose for the account on the network, or the address is not an account.",
 						"content": {
 							"application/json": {
 								"schema": {

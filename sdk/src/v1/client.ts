@@ -132,7 +132,7 @@ export class SagatV1Client {
 	}
 
 	/** Records the on-chain outcome of a proposal's transaction. */
-	verifyProposal(digest: string) {
+	verifyProposalByDigest(digest: string) {
 		return this.#request(
 			ProposalSchema,
 			`/v1/proposals/${encodeURIComponent(digest)}/verify`,

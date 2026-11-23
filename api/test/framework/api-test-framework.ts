@@ -14,7 +14,6 @@ import {
 	type Proposal,
 } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
@@ -23,12 +22,14 @@ import {
 import { expect } from 'bun:test';
 import { type Hono } from 'hono';
 
-import { parsePublicKey } from '../../src/utils/pubKey';
+import {
+	combinedSignature,
+	execute,
+} from '../setup/localnet-transactions';
 import {
 	executeTransaction,
 	fundAddress,
 	getLocalClient,
-	LOCALNET_WAIT,
 } from '../setup/sui-network';
 
 const client = getLocalClient();
@@ -55,6 +56,17 @@ export const sign = async (
 	(
 		await user.keypair.signPersonalMessage(
 			new TextEncoder().encode(message),
+		)
+	).signature;
+
+// The user's signature over the transaction.
+export const signedBy = async (
+	user: TestUser,
+	transactionBytes: string,
+) =>
+	(
+		await user.keypair.signTransaction(
+			fromBase64(transactionBytes),
 		)
 	).signature;
 
@@ -140,48 +152,15 @@ export async function executeProposal(
 		transactionBytes: string;
 		signatures: { publicKey: string; signature: string }[];
 	},
-	signerSet: {
-		threshold: number;
-		members: {
-			publicKey: string;
-			weight: number;
-			order: number;
-		}[];
-	},
+	signerSet: Parameters<typeof combinedSignature>[0],
 ) {
-	const members = [...signerSet.members].sort(
-		(a, b) => a.order - b.order,
+	const result = await execute(
+		fromBase64(transactionBytes),
+		combinedSignature(signerSet, signatures),
 	);
-	const multisigKey = MultiSigPublicKey.fromPublicKeys({
-		threshold: signerSet.threshold,
-		publicKeys: members.map((m) => ({
-			publicKey: parsePublicKey(m.publicKey),
-			weight: m.weight,
-		})),
-	});
-	const result = await client.executeTransaction({
-		transaction: fromBase64(transactionBytes),
-		signatures: [
-			multisigKey.combinePartialSignatures(
-				members.flatMap(
-					(m) =>
-						signatures.find(
-							(sig) => sig.publicKey === m.publicKey,
-						)?.signature ?? [],
-				),
-			),
-		],
-		include: { effects: true },
-	});
-	const tx =
-		result.$kind === 'Transaction'
-			? result.Transaction
-			: result.FailedTransaction;
-	await client.waitForTransaction({
-		digest: tx.digest,
-		...LOCALNET_WAIT,
-	});
-	return tx;
+	return result.$kind === 'Transaction'
+		? result.Transaction
+		: result.FailedTransaction;
 }
 
 // A client call's refusal as status and message, or null when it succeeds.
@@ -362,15 +341,11 @@ export class TestSession {
 		transactionBytes: string,
 		description?: string,
 	) {
-		const { signature } =
-			await proposer.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			);
 		return this.v1.createProposal({
 			accountAddress: multisigAddress,
 			network,
 			transactionBytes,
-			signature,
+			signature: await signedBy(proposer, transactionBytes),
 			description,
 		});
 	}
@@ -394,11 +369,9 @@ export class TestSession {
 		digest: string,
 		transactionBytes: string,
 	) {
-		const { signature } =
-			await voter.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			);
-		return this.v1.voteForProposal(digest, { signature });
+		return this.v1.voteForProposal(digest, {
+			signature: await signedBy(voter, transactionBytes),
+		});
 	}
 
 	// Collects the votes still needed from `voters`, executes the proposal
@@ -432,7 +405,7 @@ export class TestSession {
 				'No signer set reached its threshold',
 			);
 		const tx = await executeProposal(voted, signerSet);
-		await this.v1.verifyProposal(digest);
+		await this.v1.verifyProposalByDigest(digest);
 		return tx;
 	}
 

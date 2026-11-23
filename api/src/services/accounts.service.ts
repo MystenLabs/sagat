@@ -228,7 +228,7 @@ export const getAccount = async ({
 };
 
 // A non-account gets the refusal a non-signer gets, and is never refreshed.
-const refreshAccount = async (
+export const refreshAccount = async (
 	address: string,
 	network: SuiNetwork,
 	loaders: AliasSetLoaders,
