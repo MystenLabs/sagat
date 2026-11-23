@@ -6,8 +6,11 @@
 import {
 	defaultExpiry,
 	PersonalMessages,
-	type Proposal,
 } from '@mysten/sagat';
+import {
+	type Network,
+	type Proposal,
+} from '@mysten/sagat/v1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { MIST_PER_SUI, toBase64 } from '@mysten/sui/utils';
@@ -125,9 +128,7 @@ export async function proposeTransfer(
 		description?: string;
 		gasCoin?: GasCoin;
 		expiration?: Expiration;
-		network?: Parameters<
-			Identity['api']['createProposal']
-		>[0]['network'];
+		network?: Network;
 	},
 ) {
 	const transactionBytes = await chain.buildSuiTransfer({
@@ -137,8 +138,8 @@ export async function proposeTransfer(
 		gasCoin,
 		expiration,
 	});
-	return proposer.api.createProposal({
-		multisigAddress,
+	return proposer.apiV1.createProposal({
+		accountAddress: multisigAddress,
 		transactionBytes,
 		signature: await proposer.signTransaction(
 			transactionBytes,
@@ -152,7 +153,7 @@ export async function signProposal(
 	member: Identity,
 	proposal: Proposal,
 ) {
-	return member.api.voteForProposal(proposal.id, {
+	return member.apiV1.voteForProposal(proposal.digest, {
 		signature: await member.signTransaction(
 			proposal.transactionBytes,
 		),
@@ -163,11 +164,11 @@ export async function cancelProposal(
 	member: Identity,
 	proposal: Proposal,
 ) {
-	return member.api.cancelProposal(proposal.id, {
+	return member.apiV1.cancelProposal(proposal.digest, {
 		signature: await member.signMessage(
 			PersonalMessages.cancelProposal(
 				proposal.digest,
-				proposal.multisigAddress,
+				proposal.accountAddress,
 			),
 		),
 	});
@@ -349,8 +350,8 @@ export async function proposeFailedTransfer(
 			gasCoin,
 		});
 	const [proposer, ...others] = signers;
-	const proposal = await proposer.api.createProposal({
-		multisigAddress,
+	const proposal = await proposer.apiV1.createProposal({
+		accountAddress: multisigAddress,
 		transactionBytes,
 		signature: await proposer.signTransaction(
 			transactionBytes,
@@ -370,7 +371,7 @@ export async function proposeFailedTransfer(
 	await chain.client.waitForTransaction({
 		digest: proposal.digest,
 	});
-	await proposer.api.verifyProposalByDigest(
+	await proposer.apiV1.verifyProposalByDigest(
 		proposal.digest,
 	);
 	return proposal;

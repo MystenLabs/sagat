@@ -10,6 +10,8 @@ import {
 	type Route,
 } from '@playwright/test';
 
+import { E2E } from './env';
+
 const BATCH_GET_OBJECTS =
 	'**/sui.rpc.v2.LedgerService/BatchGetObjects';
 
@@ -57,5 +59,40 @@ export function isAccountListRead(response: Response) {
 			'/v1/accounts',
 		) &&
 		response.ok()
+	);
+}
+
+/** The URL of a proposal create and of the proposal list. */
+export function isProposalsUrl(url: URL) {
+	return url.pathname.endsWith('/v1/proposals');
+}
+
+/** The URL of a proposal read by its digest. */
+export const PROPOSAL_BY_DIGEST_URL = '**/v1/proposals/*';
+
+export function isCreateRequest(request: Request) {
+	return isApiPost(request, /\/v1\/proposals$/);
+}
+
+export function isVoteRequest(request: Request) {
+	return isApiPost(
+		request,
+		/\/v1\/proposals\/[^/]+\/vote$/,
+	);
+}
+
+export function isCancelRequest(request: Request) {
+	return isApiPost(
+		request,
+		/\/v1\/proposals\/[^/]+\/cancel$/,
+	);
+}
+
+function isApiPost(request: Request, path: RegExp) {
+	const url = new URL(request.url());
+	return (
+		request.method() === 'POST' &&
+		url.origin === E2E.apiUrl &&
+		path.test(url.pathname)
 	);
 }

@@ -27,7 +27,6 @@ import {
 	expectOnProposals,
 	expectSimulation,
 	fillTransfer,
-	isCreateRequest,
 	openNewProposal,
 	pasteBytes,
 	proposeAndSign,
@@ -37,6 +36,10 @@ import {
 	sharedAccount,
 	toast,
 } from '../support/new-proposal';
+import {
+	isCreateRequest,
+	isProposalsUrl,
+} from '../support/requests';
 import {
 	giveManyCoinTypes,
 	mintCoin,
@@ -1145,11 +1148,9 @@ test.describe('new proposal: review', () => {
 			2,
 		);
 		const { page } = alice;
-		const createProposal = (url: URL) =>
-			url.pathname.endsWith('/proposals');
 		// The API's error shape: `{ error }` with the status.
 		const refuseCreate = (status: number, error: string) =>
-			page.route(createProposal, (route) =>
+			page.route(isProposalsUrl, (route) =>
 				isCreateRequest(route.request())
 					? route.fulfill({
 							status,
@@ -1185,7 +1186,7 @@ test.describe('new proposal: review', () => {
 		await expect(submit).toHaveText('Try again');
 
 		// Anything else shows the general notice.
-		await page.unroute(createProposal);
+		await page.unroute(isProposalsUrl);
 		await refuseCreate(500, 'Internal server error');
 		await submit.click();
 		await expect(createError).toHaveText(
@@ -1193,7 +1194,7 @@ test.describe('new proposal: review', () => {
 		);
 		await expect(submit).toHaveText('Try again');
 
-		await page.unroute(createProposal);
+		await page.unroute(isProposalsUrl);
 		await proposeAndSign(page);
 		await expect(
 			page.getByTestId('proposal-page'),
@@ -1332,13 +1333,10 @@ test.describe('new proposal: review', () => {
 		const held = new Promise<void>((resolve) => {
 			release = resolve;
 		});
-		await page.route(
-			(url) => url.pathname.endsWith('/proposals'),
-			async (route) => {
-				if (isCreateRequest(route.request())) await held;
-				await route.fallback();
-			},
-		);
+		await page.route(isProposalsUrl, async (route) => {
+			if (isCreateRequest(route.request())) await held;
+			await route.fallback();
+		});
 
 		const submit = page.getByTestId('review-submit');
 		await submit.click();
@@ -1387,13 +1385,10 @@ test.describe('new proposal: review', () => {
 		const held = new Promise<void>((resolve) => {
 			release = resolve;
 		});
-		await page.route(
-			(url) => url.pathname.endsWith('/proposals'),
-			async (route) => {
-				if (isCreateRequest(route.request())) await held;
-				await route.fallback();
-			},
-		);
+		await page.route(isProposalsUrl, async (route) => {
+			if (isCreateRequest(route.request())) await held;
+			await route.fallback();
+		});
 		await page.evaluate(() =>
 			window.__e2eWallet!.holdSigning(),
 		);

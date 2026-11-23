@@ -649,7 +649,7 @@ test.describe('proposals', () => {
 
 		// Bob signs from the API; Alice's view picks it up on reload.
 		const proposal =
-			await bob.api.getProposalByDigest(digest);
+			await bob.apiV1.getProposalByDigest(digest);
 		await signProposal(bob, proposal);
 		await alice.page.reload();
 		await expect(page).toHaveAttribute(

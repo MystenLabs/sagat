@@ -20,6 +20,7 @@ import {
 import { randomAddress, type Chain } from './chain';
 import { E2E } from './env';
 import { type Fixtures } from './fixtures';
+import { isCreateRequest, isVoteRequest } from './requests';
 import { setupMultisig } from './scenarios';
 
 /**
@@ -65,10 +66,6 @@ export function recordCreates(page: Page) {
 	return creates;
 }
 
-export function isCreateRequest(request: Request) {
-	return isApiPost(request, /\/proposals$/);
-}
-
 /** Every vote the page sends, as it sends it. */
 export function recordVotes(page: Page) {
 	const votes: Request[] = [];
@@ -76,23 +73,6 @@ export function recordVotes(page: Page) {
 		if (isVoteRequest(request)) votes.push(request);
 	});
 	return votes;
-}
-
-export function isVoteRequest(request: Request) {
-	return isApiPost(request, /\/proposals\/\d+\/vote$/);
-}
-
-export function isCancelRequest(request: Request) {
-	return isApiPost(request, /\/proposals\/\d+\/cancel$/);
-}
-
-function isApiPost(request: Request, path: RegExp) {
-	const url = new URL(request.url());
-	return (
-		request.method() === 'POST' &&
-		url.origin === E2E.apiUrl &&
-		path.test(url.pathname)
-	);
 }
 
 /**

@@ -5,7 +5,6 @@ import {
 	defaultExpiry,
 	PersonalMessages,
 	type AuthCheckResponse,
-	type PublicProposal,
 } from '@mysten/sagat';
 import {
 	type Account,
@@ -13,6 +12,7 @@ import {
 	type AccountList,
 	type AccountMember,
 	type InvitationList,
+	type Proposal,
 } from '@mysten/sagat/v1';
 import {
 	Transaction,
@@ -41,7 +41,6 @@ import {
 	type Fixtures,
 } from '../support/fixtures';
 import {
-	isVoteRequest,
 	recordCreates,
 	recordVotes,
 	sharedAccount,
@@ -49,6 +48,8 @@ import {
 import {
 	isAccountListRead,
 	isInboxRead,
+	isVoteRequest,
+	PROPOSAL_BY_DIGEST_URL,
 	routeAliasReads,
 } from '../support/requests';
 import {
@@ -111,9 +112,9 @@ async function buildForAnotherChain(
 
 /** The proposal with other bytes, and the digest that matches them. */
 function withBytes(
-	proposal: PublicProposal,
+	proposal: Proposal,
 	transactionBytes: string,
-): PublicProposal {
+): Proposal {
 	return {
 		...proposal,
 		transactionBytes,
@@ -148,20 +149,19 @@ function withMemberPatched<A extends Account>(
 }
 
 type Tamper = (context: {
-	proposal: PublicProposal;
+	proposal: Proposal;
 	bob: Actor;
-}) => Promise<PublicProposal> | PublicProposal;
+}) => Promise<Proposal> | Proposal;
 
 /** Serves Bob the proposal response changed by `tamper`. */
 async function routeTampered(bob: Actor, tamper: Tamper) {
 	// Tampered once, so the page's refetches get the same proposal.
-	let tampered: Promise<PublicProposal> | undefined;
+	let tampered: Promise<Proposal> | undefined;
 	await bob.page.route(
-		'**/proposals/digest/*',
+		PROPOSAL_BY_DIGEST_URL,
 		async (route) => {
 			const response = await route.fetch();
-			const proposal =
-				(await response.json()) as PublicProposal;
+			const proposal = (await response.json()) as Proposal;
 			tampered ??= Promise.resolve(
 				tamper({ proposal, bob }),
 			);
@@ -296,7 +296,7 @@ test.describe('proposal integrity', () => {
 				// gas owner, so his signature would also sign as the sponsor.
 				await chain.fund(bob.address);
 				const tx = new Transaction();
-				tx.setSender(proposal.multisigAddress);
+				tx.setSender(proposal.accountAddress);
 				tx.setGasOwner(bob.address);
 				tx.setGasPayment(await chain.coins(bob.address));
 				const [coin] = tx.splitCoins(tx.gas, [
@@ -327,7 +327,7 @@ test.describe('proposal integrity', () => {
 				withBytes(
 					proposal,
 					await chain.buildSuiTransfer({
-						sender: proposal.multisigAddress,
+						sender: proposal.accountAddress,
 						recipient: randomAddress(),
 						amount: 2n * MIST_PER_SUI,
 					}),
@@ -347,7 +347,7 @@ test.describe('proposal integrity', () => {
 				withBytes(
 					proposal,
 					await chain.buildSuiTransfer({
-						sender: proposal.multisigAddress,
+						sender: proposal.accountAddress,
 						recipient: randomAddress(),
 						amount: 2n * MIST_PER_SUI,
 					}),
@@ -365,19 +365,21 @@ test.describe('proposal integrity', () => {
 		createIdentity,
 		chain,
 	}) => {
+		// At the shared link, where the account's signers are the proposal's.
 		const opened = await openTamperedProposal(
 			{ createActor, createIdentity, chain },
 			({ proposal, bob }) => ({
 				...proposal,
-				multisig: {
-					...proposal.multisig,
-					members: proposal.multisig.members.map((m) =>
+				signerSets: proposal.signerSets.map((set) => ({
+					...set,
+					members: set.members.map((m) =>
 						m.publicKey === bob.publicKey
 							? { ...m, weight: 2 }
 							: m,
 					),
-				},
+				})),
 			}),
+			{ shared: true },
 		);
 		await expectRefused(opened, 'signers');
 	});
@@ -419,7 +421,7 @@ test.describe('proposal integrity', () => {
 			({ proposal }) => ({
 				...proposal,
 				events: {
-					created: proposal.events?.created ?? null,
+					created: proposal.events.created,
 					proposer: null,
 				},
 			}),
@@ -455,11 +457,11 @@ test.describe('proposal integrity', () => {
 			{ createActor, createIdentity, chain },
 			// Bob's signature over the bytes in place of the proposer's.
 			async ({ proposal, bob }) => {
-				const created = proposal.events!.created!;
+				const created = proposal.events.created!;
 				return {
 					...proposal,
 					events: {
-						...proposal.events!,
+						...proposal.events,
 						created: {
 							...created,
 							proof: {
@@ -497,7 +499,7 @@ test.describe('proposal integrity', () => {
 			({ proposal, bob }) => ({
 				...proposal,
 				proposerAddress: publicKeyFromSuiBytes(
-					proposal.multisig.members.find(
+					proposal.signerSets[0].members.find(
 						(m) => m.publicKey !== bob.publicKey,
 					)!.publicKey,
 				).toSuiAddress(),
@@ -1248,8 +1250,8 @@ test.describe('proposal integrity', () => {
 			chain,
 			multisig.address,
 		);
-		const proposal = await alice.api.createProposal({
-			multisigAddress: multisig.address,
+		const proposal = await alice.apiV1.createProposal({
+			accountAddress: multisig.address,
 			transactionBytes,
 			signature: await alice.signTransaction(
 				transactionBytes,

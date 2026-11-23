@@ -13,10 +13,12 @@ import {
 } from '../support/fixtures';
 import {
 	beforeSending,
-	isCancelRequest,
-	isVoteRequest,
 	toast,
 } from '../support/new-proposal';
+import {
+	isCancelRequest,
+	isVoteRequest,
+} from '../support/requests';
 import {
 	addProposer,
 	cancelProposal,
@@ -54,8 +56,8 @@ async function openFailingProposal({
 			recipient: randomAddress(),
 			gasCoin,
 		});
-	const proposal = await bob.api.createProposal({
-		multisigAddress: multisig.address,
+	const proposal = await bob.apiV1.createProposal({
+		accountAddress: multisig.address,
 		transactionBytes,
 		signature: await bob.signTransaction(transactionBytes),
 		network: 'localnet',
@@ -286,7 +288,7 @@ test.describe('errors', () => {
 					signers: [alice, bob],
 					transactionBytes: proposal.transactionBytes,
 				});
-				await alice.api.verifyProposalByDigest(
+				await alice.apiV1.verifyProposalByDigest(
 					proposal.digest,
 				);
 			},
