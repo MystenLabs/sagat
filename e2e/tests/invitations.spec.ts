@@ -7,8 +7,8 @@ import { expect, test } from '../support/fixtures';
 import { isInboxRead } from '../support/requests';
 import {
 	acceptInvitation,
-	addAlias,
 	bothSign,
+	replaceOwnAlias,
 	setupMultisig,
 	signInViaApi,
 } from '../support/scenarios';
@@ -536,7 +536,7 @@ test.describe('invitations', () => {
 		).toHaveText('1');
 	});
 
-	test('a member of a signer set added to a pod is invited to it and accepts', async ({
+	test('a member of a signer set that replaced a pod’s own is invited to it, accepts, and sees the original signers apart', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -557,13 +557,13 @@ test.describe('invitations', () => {
 			threshold: 2,
 		});
 		await chain.fund(multisig.address);
-		await addAlias(
+		await replaceOwnAlias(
 			chain,
 			bothSign(alice, bob),
 			recovery.address,
 		);
 		// The API ties Carol to the pod once it reads the pod's alias set.
-		await alice.apiV1.getAccount(
+		await carol.apiV1.getAccount(
 			multisig.address,
 			'localnet',
 		);
@@ -619,5 +619,46 @@ test.describe('invitations', () => {
 		await expect(
 			page.getByTestId('page-header-eyebrow'),
 		).toHaveText('Treasury');
+
+		// Members shows her set, the original signers folded under it.
+		await page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		const card = page.getByTestId('signers-card');
+		await expect(card).toHaveCount(1);
+		await expect(card).toHaveAttribute(
+			'data-signer-set',
+			recovery.address,
+		);
+		const folded = card.getByTestId('original-signers');
+		const toggle = folded.getByTestId(
+			'original-signers-toggle',
+		);
+		const body = page.getByTestId('original-signers-body');
+		await expect(toggle).toHaveAttribute(
+			'aria-expanded',
+			'false',
+		);
+		await expect(
+			folded.getByTestId('original-signers-count'),
+		).toHaveText('2');
+		await expect(body).toHaveCount(0);
+		await toggle.click();
+		await expect(body).toHaveText(
+			'This pod’s address was made from these signers. They don’t control it on Localnet.',
+		);
+		await expect(
+			folded.getByTestId('member-item'),
+		).toHaveCount(2);
+		await expect(
+			folded.locator(
+				`[data-testid="member-item"][data-address="${alice.address}"]`,
+			),
+		).toBeVisible();
+		await expect(
+			folded.locator(
+				`[data-testid="member-item"][data-address="${bob.address}"]`,
+			),
+		).toBeVisible();
 	});
 });

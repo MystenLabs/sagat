@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	defaultExpiry,
-	PersonalMessages,
-} from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat';
 import { type AccountDetails } from '@mysten/sagat/v1';
 import {
 	formatAddress,
@@ -26,7 +23,6 @@ import {
 	addProposer,
 	bothSign,
 	proposeTransfer,
-	replaceOwnAlias,
 	setupMultisig,
 	signInViaApi,
 	signProposal,
@@ -1055,93 +1051,5 @@ test.describe('overview and signers', () => {
 				`/multisig/${recovery.address}/overview`,
 			);
 		});
-	});
-
-	test('show the original signers apart once their set no longer acts', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const alice = createIdentity('alice');
-		const bob = createIdentity('bob');
-		const carol = await createActor('carol');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob],
-			threshold: 2,
-			name: 'Treasury',
-		});
-		const recovery = await setupMultisig({
-			creator: carol,
-			members: [createIdentity('dave')],
-			threshold: 2,
-			name: 'Recovery',
-		});
-		await chain.fund(multisig.address);
-		// Before the pod's first /v1 read, so the API sees it at once.
-		await replaceOwnAlias(
-			chain,
-			bothSign(alice, bob),
-			recovery.address,
-		);
-		// Carol accepts through the added set.
-		const expiry = defaultExpiry();
-		await carol.apiV1.acceptAccountInvite(
-			multisig.address,
-			{
-				network: 'localnet',
-				signature: await carol.signMessage(
-					PersonalMessages.acceptAccountInvitation(
-						multisig.address,
-						expiry,
-					),
-				),
-				expiry,
-			},
-		);
-
-		await carol.signIn();
-		const { page } = carol;
-		await page.goto(
-			`/multisig/${multisig.address}/signers`,
-		);
-		const cards = page.getByTestId('signers-card');
-		const body = page.getByTestId('original-signers-body');
-		const acting = cards;
-		const original = cards.getByTestId('original-signers');
-		await expect(acting).toHaveCount(1);
-		await expect(acting).toHaveAttribute(
-			'data-signer-set',
-			recovery.address,
-		);
-		await expect(original).toHaveCount(1);
-		// Folded under the acting set's table until opened.
-		const toggle = original.getByTestId(
-			'original-signers-toggle',
-		);
-		await expect(toggle).toHaveAttribute(
-			'aria-expanded',
-			'false',
-		);
-		await expect(
-			original.getByTestId('original-signers-count'),
-		).toHaveText('2');
-		await expect(body).toHaveCount(0);
-		await toggle.click();
-		await expect(body).toHaveText(
-			'This pod’s address was made from these signers. They don’t control it on Localnet.',
-		);
-		const members = original.getByTestId('member-item');
-		await expect(members).toHaveCount(2);
-		await expect(
-			members.and(
-				page.locator(`[data-address="${alice.address}"]`),
-			),
-		).toBeVisible();
-		await expect(
-			members.and(
-				page.locator(`[data-address="${bob.address}"]`),
-			),
-		).toBeVisible();
 	});
 });
