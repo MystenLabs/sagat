@@ -191,7 +191,7 @@ const FRAMEWORK = normalizeSuiAddress('0x2');
 const ALIAS_MODULE = 'address_alias';
 const AddressListBcs = bcs.vector(bcs.Address);
 
-// The value of a pure input argument, or null when its bytes are not exactly one `schema` value.
+// Null when the bytes are not exactly one `schema` value.
 export function decodePure<T extends Input, Input>(
 	inputs: TransactionData['inputs'],
 	argument: Argument | undefined,
@@ -212,11 +212,7 @@ export function decodePure<T extends Input, Input>(
 	}
 }
 
-/**
- * The top-level calls to `0x2::address_alias` in a transaction, in command
- * order. Pass `Transaction.getData()`, or a `TransactionDataBuilder` read from
- * the bytes.
- */
+/** Top-level calls only, in command order. */
 export function findAliasCalls({
 	commands,
 	inputs,

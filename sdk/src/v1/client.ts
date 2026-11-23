@@ -113,7 +113,6 @@ export class SagatV1Client {
 		);
 	}
 
-	/** Adds a signature over the proposal's transaction. */
 	voteForProposal(digest: string, body: SignatureRequest) {
 		return this.#request(
 			ProposalSchema,
