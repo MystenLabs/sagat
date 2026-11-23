@@ -40,8 +40,12 @@ import {
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
 import { useProposalProposerCheck } from '@/hooks/useProposerProofs';
 import { useSignProposal } from '@/hooks/useSignProposal';
+import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { type AliasRead } from '@/lib/alias-set';
-import { type SuiNetwork } from '@/lib/network';
+import {
+	networkLabel,
+	type SuiNetwork,
+} from '@/lib/network';
 import {
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
@@ -50,12 +54,14 @@ import {
 import {
 	approvalRows,
 	approvalsNote,
+	approvalsSignerSets,
 	approvalsStatus,
 	cancelVariant,
 	gasEstimate,
 	hasSigned,
 	withReason,
 	wouldReachThreshold,
+	type ApprovalRow,
 	type ApprovalsNoteInput,
 	type Labels,
 	type SimulationVerdict,
@@ -74,7 +80,7 @@ import {
 	namedChain,
 	readTransactionBytes,
 } from '@/lib/transaction-preview';
-import { safeDecode } from '@/lib/utils';
+import { cn, safeDecode } from '@/lib/utils';
 
 const COPY = content.proposal.approvals;
 const SHARED = content.proposal.shared;
@@ -126,6 +132,7 @@ export function ApprovalsCard({
 	canCancel: boolean;
 }) {
 	const { currentAddress } = useApiAuth();
+	const { data: pods } = useUserMultisigs();
 	const wallet = useCurrentAccount();
 	const sign = useSignProposal();
 	const executing = useExecuteOrVerify();
@@ -273,12 +280,27 @@ export function ApprovalsCard({
 		labels,
 		viewerPublicKey,
 	);
-	const statusLine = approvalsStatus(
-		proposal,
-		status,
-		isExecuting,
-		verdict,
-	);
+	// Per set only when there are several; one set keeps the single list.
+	const signerSets =
+		proposal.checkedSignerSets.length > 1
+			? approvalsSignerSets(
+					proposal,
+					status,
+					labels,
+					viewerPublicKey,
+					pods ?? [],
+				)
+			: null;
+	// While pending, each set's block carries its own line.
+	const statusLine =
+		signerSets && status === 'pending' && !isExecuting
+			? null
+			: approvalsStatus(
+					proposal,
+					status,
+					isExecuting,
+					verdict,
+				);
 	const note = approvalsNote({
 		proposal,
 		status,
@@ -501,7 +523,9 @@ export function ApprovalsCard({
 					className="ml-auto text-12 text-muted-foreground"
 					data-testid="approvals-threshold"
 				>
-					{shownSet && approvalsThresholdLabel(shownSet)}
+					{shownSet &&
+						!signerSets &&
+						approvalsThresholdLabel(shownSet)}
 				</span>
 			</CardHeading>
 			{statusLine && (
@@ -513,51 +537,58 @@ export function ApprovalsCard({
 				</p>
 			)}
 			<div className="border-t" />
-			<ul className="flex flex-col gap-3">
-				{rows.map((row) => (
-					<li
-						key={row.publicKey}
-						className="flex items-center gap-3"
-						data-testid="approval-row"
-						data-address={row.address ?? undefined}
-						data-signed={row.signed}
+			{signerSets ? (
+				<>
+					<p
+						className="text-13 text-muted-foreground"
+						data-testid="approvals-several-signer-sets"
 					>
-						<span
-							aria-hidden
-							className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-11 font-medium"
-						>
-							{row.initial}
-						</span>
-						<div className="flex min-w-0 flex-1">
-							<SignerName
-								label={row.label}
-								address={row.address ?? undefined}
-								marker={row.isYou ? 'you' : null}
-								markerStyle="parens"
-								size="md"
-							/>
-						</div>
-						{row.signed ? (
-							<Chip
-								variant="info"
-								data-testid={
-									row.isYou
-										? 'proposal-already-signed'
-										: undefined
-								}
-							>
-								{STATES.signed}
-							</Chip>
-						) : (
-							<span className="shrink-0 text-12 text-muted-foreground">
-								{row.state === 'not-needed'
-									? COPY.notNeeded
-									: STATES.notSigned}
-							</span>
+						{content.common.severalSignerSets(
+							signerSets.length,
+							networkLabel(network),
 						)}
-					</li>
-				))}
-			</ul>
+					</p>
+					{signerSets.map((set, i) => (
+						<div
+							key={set.address}
+							className={cn(
+								'flex flex-col gap-3',
+								i > 0 && 'border-t pt-4',
+							)}
+							data-testid="approvals-signer-set"
+							data-address={set.address}
+							data-current-weight={set.currentWeight}
+							data-threshold={set.threshold}
+						>
+							<div className="flex flex-col gap-0.5">
+								{set.podName && (
+									<span className="text-13 font-medium">
+										{set.podName}
+									</span>
+								)}
+								<div className="flex flex-wrap items-baseline justify-between gap-x-3">
+									<span
+										className={cn(
+											'text-13',
+											!set.podName && 'font-medium',
+										)}
+									>
+										{set.heading}
+									</span>
+									{set.line && (
+										<span className="text-12 text-muted-foreground">
+											{set.line}
+										</span>
+									)}
+								</div>
+							</div>
+							<ApprovalRowList rows={set.rows} />
+						</div>
+					))}
+				</>
+			) : (
+				<ApprovalRowList rows={rows} />
+			)}
 
 			{actions && (
 				<div className="mt-1 flex flex-col gap-3">
@@ -635,6 +666,61 @@ export function ApprovalsCard({
 				</ModalActions>
 			</Modal>
 		</section>
+	);
+}
+
+/** A signer set's members: who signed, who hasn't, who isn't needed. */
+function ApprovalRowList({
+	rows,
+}: {
+	rows: ApprovalRow[];
+}) {
+	return (
+		<ul className="flex flex-col gap-3">
+			{rows.map((row) => (
+				<li
+					key={row.publicKey}
+					className="flex items-center gap-3"
+					data-testid="approval-row"
+					data-address={row.address ?? undefined}
+					data-signed={row.signed}
+				>
+					<span
+						aria-hidden
+						className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-11 font-medium"
+					>
+						{row.initial}
+					</span>
+					<div className="flex min-w-0 flex-1">
+						<SignerName
+							label={row.label}
+							address={row.address ?? undefined}
+							marker={row.isYou ? 'you' : null}
+							markerStyle="parens"
+							size="md"
+						/>
+					</div>
+					{row.signed ? (
+						<Chip
+							variant="info"
+							data-testid={
+								row.isYou
+									? 'proposal-already-signed'
+									: undefined
+							}
+						>
+							{STATES.signed}
+						</Chip>
+					) : (
+						<span className="shrink-0 text-12 text-muted-foreground">
+							{row.state === 'not-needed'
+								? COPY.notNeeded
+								: STATES.notSigned}
+						</span>
+					)}
+				</li>
+			))}
+		</ul>
 	);
 }
 

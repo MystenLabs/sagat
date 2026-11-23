@@ -173,7 +173,7 @@ export function SignersTab() {
 					variant="warning"
 					data-testid="several-signer-sets"
 				>
-					{COPY.severalSignerSets(
+					{content.common.severalSignerSets(
 						cards?.length ?? 0,
 						networkLabel(network),
 					)}

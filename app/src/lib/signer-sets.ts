@@ -16,13 +16,13 @@ import {
 } from './types';
 import { viewerSignerSet } from './user-multisig';
 
-type ListedPod = Pick<
+export type ListedPod = Pick<
 	MultisigWithMembersForPublicKey,
 	'address' | 'name' | 'signerSets' | 'refused'
 >;
 
 /** The pod of the viewer's list at `address`, when its original signers make it up. */
-function podAt<P extends ListedPod>(
+export function podAt<P extends ListedPod>(
 	pods: readonly P[],
 	address: string,
 ): P | null {

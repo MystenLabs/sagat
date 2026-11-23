@@ -18,6 +18,7 @@ import { expect, test } from '../support/fixtures';
 import {
 	amountError,
 	balanceChange,
+	bytesOnReview,
 	bytesToReview,
 	chooseAsset,
 	chooseType,
@@ -40,6 +41,11 @@ import {
 	isCreateRequest,
 	isProposalsUrl,
 } from '../support/requests';
+import {
+	aliasCallBytes,
+	bothSign,
+	enableAliases,
+} from '../support/scenarios';
 import {
 	giveManyCoinTypes,
 	mintCoin,
@@ -1129,10 +1135,71 @@ test.describe('new proposal: transaction bytes', () => {
 		).toHaveAttribute('data-state', 'ok');
 		await reviewBytes(page);
 		await expectSimulation(page, 'success');
+		await expect(
+			page.getByTestId('alias-calls-warning'),
+		).toHaveCount(0);
 		await proposeAndSign(page);
 		expect(
 			creates.map((r) => r.postDataJSON().transactionBytes),
 		).toEqual([bytes]);
+	});
+
+	test('bytes that call the alias module are warned about on Review and on the proposal, naming replace_all only when it’s called', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, bob, multisig } = await sharedAccount(
+			fixtures,
+			2,
+		);
+		const { page } = alice;
+		await enableAliases(chain, bothSign(alice, bob));
+		const warning = page.getByTestId('alias-calls-warning');
+
+		await openNewProposal(page, multisig.address, {
+			type: 'bytes',
+		});
+		await bytesOnReview(
+			page,
+			await aliasCallBytes(
+				chain,
+				multisig.address,
+				'replace_all',
+			),
+			'Replace the signer sets',
+		);
+		await expect(warning).toHaveAttribute(
+			'data-replace-all',
+			'true',
+		);
+		await expect(warning).toContainText(
+			content.transactionPreview.aliasCalls.replaceAll,
+		);
+		await proposeAndSign(page);
+		await expect(warning).toHaveAttribute(
+			'data-replace-all',
+			'true',
+		);
+
+		await openNewProposal(page, multisig.address, {
+			type: 'bytes',
+		});
+		await bytesOnReview(
+			page,
+			await aliasCallBytes(chain, multisig.address, 'add'),
+			'Add a signer set',
+		);
+		await expect(warning).toHaveAttribute(
+			'data-replace-all',
+			'false',
+		);
+		await expect(warning).toHaveText(
+			content.transactionPreview.aliasCalls.changesControl(
+				'Localnet',
+			),
+		);
 	});
 });
 

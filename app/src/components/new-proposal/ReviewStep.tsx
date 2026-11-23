@@ -6,6 +6,7 @@ import { useMemo, useRef, useState } from 'react';
 
 import { analyzerTab } from '@/components/preview-effects/IntentSummary';
 import { ExpiryChip } from '@/components/proposals/ProposalExpiry';
+import { AliasCallsWarning } from '@/components/transaction-preview/AliasCallsWarning';
 import { simulationProps } from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
 import {
@@ -26,6 +27,7 @@ import {
 	StepFooter,
 } from '@/components/wizard/parts';
 import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { type useDryRun } from '@/hooks/useDryRun';
 import { useExpiry } from '@/hooks/useExpiry';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
@@ -89,6 +91,7 @@ export function ReviewStep({
 	);
 	const currentTitleError = titleError(title);
 	const expiry = useExpiry(bytes);
+	const { network } = useNetwork();
 	const { analyzer, analyzerCount } = analyzerTab(analysis);
 	const submitLabel = () => {
 		if (awaitingWallet)
@@ -136,6 +139,8 @@ export function ReviewStep({
 					{COPY.simulationFailed(failureReason)}
 				</Notice>
 			)}
+
+			<AliasCallsWarning bytes={bytes} network={network} />
 
 			{!simulation ? (
 				<RetryNotice

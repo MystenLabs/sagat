@@ -20,6 +20,7 @@ import { SignerName } from '@/components/multisig/SignerName';
 import { analyzerTab } from '@/components/preview-effects/IntentSummary';
 import { ProposalExpiry } from '@/components/proposals/ProposalExpiry';
 import { ProposalStatusChip } from '@/components/proposals/ProposalStatusChip';
+import { AliasCallsWarning } from '@/components/transaction-preview/AliasCallsWarning';
 import { PreviewHeading } from '@/components/transaction-preview/parts';
 import {
 	expiredSimulation,
@@ -408,6 +409,13 @@ export function ProposalView({
 						</Notice>
 					)}
 				</div>
+			)}
+			{open && (
+				<AliasCallsWarning
+					bytes={proposal.transactionBytes}
+					network={proposal.network as SuiNetwork}
+					className="mb-4"
+				/>
 			)}
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">

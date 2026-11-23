@@ -150,6 +150,9 @@ export const content = {
 		},
 		otherSignerSets: OTHER_SIGNER_SETS,
 		originalSigners: ORIGINAL_SIGNERS,
+		/** When more than one signer set acts on the network: above Members' cards and in the Approvals card. */
+		severalSignerSets: (count: number, network: string) =>
+			`This pod has ${count} signer sets on ${network}. Each one can approve transactions on its own.`,
 		/** When a transaction's bytes name a chain other than the node's: under the bytes field, and why Sign is refused. */
 		wrongChain:
 			'The transaction was built for another network.',
@@ -1082,8 +1085,8 @@ export const content = {
 				needs: (missing: number) =>
 					`Needs ${missing} more weight.`,
 				ready: 'Threshold reached. Ready to execute.',
-				/** Ready, but the simulation fails. */
-				readyFailing: 'Threshold reached.',
+				/** Ready, but the simulation fails; and a signer set's line once it reached its threshold. */
+				reached: 'Threshold reached.',
 				executed: 'Threshold reached. Executed.',
 				failed: 'Threshold reached. Execution failed.',
 			},
@@ -1228,9 +1231,6 @@ export const content = {
 		/** The folded row under the Signers table that holds the other acting sets. */
 		moreSignerSets: (count: number) =>
 			`${count} more signer ${count === 1 ? 'set' : 'sets'}`,
-		/** Above the Signers card when more than one signer set acts on the network. */
-		severalSignerSets: (count: number, network: string) =>
-			`This pod has ${count} signer sets on ${network}. Each one can approve transactions on its own.`,
 		/** When the pod's alias set differs on other networks the API serves; `networks` is already a list. */
 		differentOn: (networks: string) =>
 			`This pod’s signers are different on ${networks}.`,
@@ -1450,6 +1450,13 @@ export const content = {
 		},
 		gasOwnerIsYou:
 			'Your wallet pays the gas for this transaction, so signing it also lets the transaction spend your gas coins. Don’t sign it.',
+		/** Above the preview of a pod's transaction that calls `0x2::address_alias`. */
+		aliasCalls: {
+			changesControl: (network: string) =>
+				`This transaction changes who controls this pod on ${network}. Pods can’t show who is added. Check every address in it before you sign.`,
+			replaceAll:
+				'It calls replace_all, which replaces every signer set of this pod at once.',
+		},
 		balances: {
 			change: 'Change',
 			emptyFailed:

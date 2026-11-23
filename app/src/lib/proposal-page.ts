@@ -19,7 +19,12 @@ import {
 	type CountedSignerSet,
 	type ProposalStatusKey,
 } from './proposalUtils';
-import { validatePublicKey } from './sui-utils';
+import { podAt, type ListedPod } from './signer-sets';
+import {
+	sameAddress,
+	validatePublicKey,
+} from './sui-utils';
+import { approvalsThresholdLabel } from './threshold';
 import {
 	gasCost,
 	gasLabel,
@@ -34,6 +39,7 @@ type PageProposal = Pick<
 	| 'signatures'
 	| 'proposerAddress'
 	| 'createdAt'
+	| 'accountAddress'
 >;
 
 /** Each member's address and its key's label, or null when unlabelled. */
@@ -136,9 +142,27 @@ export function approvalRows(
 	labels: Labels,
 	publicKey: string | null | undefined,
 ): ApprovalRow[] {
-	const reached = thresholdReached(status);
 	const shown = shownSignerSet(proposal.checkedSignerSets);
-	return [...(shown?.members ?? [])]
+	return shown
+		? signerSetRows(
+				shown,
+				proposal,
+				status,
+				labels,
+				publicKey,
+			)
+		: [];
+}
+
+function signerSetRows(
+	set: Pick<CountedSignerSet, 'members'>,
+	proposal: Pick<PageProposal, 'signatures'>,
+	status: ProposalStatusKey,
+	labels: Labels,
+	publicKey: string | null | undefined,
+): ApprovalRow[] {
+	const reached = thresholdReached(status);
+	return [...set.members]
 		.sort((a, b) => a.order - b.order)
 		.map((member) => {
 			const address = addressOf(member.publicKey);
@@ -165,6 +189,63 @@ export function approvalRows(
 		});
 }
 
+/** A checked signer set's part of the Approvals card, when the proposal has several. */
+export interface ApprovalsSignerSet {
+	/** Rebuilt from the members and threshold. */
+	address: string;
+	currentWeight: number;
+	threshold: number;
+	/** The viewer's pod at the set's address, for a set other than the pod's own. */
+	podName: string | null;
+	/** "Threshold 2 of 3". */
+	heading: string;
+	/** "Threshold reached." while open, else how far the set is from it while pending. */
+	line: string | null;
+	rows: ApprovalRow[];
+}
+
+/** One part per checked signer set, in their order, each counted on its own. */
+export function approvalsSignerSets(
+	proposal: Pick<
+		PageProposal,
+		'checkedSignerSets' | 'signatures' | 'accountAddress'
+	>,
+	status: ProposalStatusKey,
+	labels: Labels,
+	publicKey: string | null | undefined,
+	pods: readonly ListedPod[],
+): ApprovalsSignerSet[] {
+	const copy = content.proposal.approvals.status;
+	const open = status === 'pending' || status === 'ready';
+	return proposal.checkedSignerSets.map((set) => ({
+		address: set.address,
+		currentWeight: set.currentWeight,
+		threshold: set.threshold,
+		podName: sameAddress(
+			set.address,
+			proposal.accountAddress,
+		)
+			? null
+			: (podAt(pods, set.address)?.name ?? null),
+		heading: approvalsThresholdLabel(set),
+		// Once ready, a set short of its threshold isn't needed.
+		line: !open
+			? null
+			: reachesThreshold(set)
+				? copy.reached
+				: status === 'pending'
+					? copy.needs(set.threshold - set.currentWeight)
+					: null,
+		rows: signerSetRows(
+			set,
+			proposal,
+			status,
+			labels,
+			publicKey,
+		),
+	}));
+}
+
 /** The line under the Approvals heading; null once cancelled or expired. */
 export function approvalsStatus(
 	proposal: Pick<PageProposal, 'checkedSignerSets'>,
@@ -179,16 +260,17 @@ export function approvalsStatus(
 	)
 		return copy.executing;
 	if (status === 'pending') {
-		const shown = shownSignerSet(
-			proposal.checkedSignerSets,
+		// The set closest to its threshold.
+		const missing = proposal.checkedSignerSets.map(
+			(set) => set.threshold - set.currentWeight,
 		);
-		return shown
-			? copy.needs(shown.threshold - shown.currentWeight)
+		return missing.length > 0
+			? copy.needs(Math.min(...missing))
 			: null;
 	}
 	if (status === 'ready')
 		return simulation === 'failed'
-			? copy.readyFailing
+			? copy.reached
 			: copy.ready;
 	if (status === 'executed') return copy.executed;
 	if (status === 'failed') return copy.failed;
@@ -282,13 +364,7 @@ export function approvalsNote({
 	if (!shown) return null;
 	const missing = shown.threshold - shown.currentWeight;
 	if (hasSigned(proposal, publicKey))
-		return waitingNote(
-			shown,
-			proposal,
-			labels,
-			publicKey,
-			missing,
-		);
+		return waitingNote(proposal, labels, publicKey);
 	if (simulation === 'pending') return null;
 	if (simulation === 'failed') return copy.signingFailing;
 	if (simulation === 'unknown') return copy.notSimulated;
@@ -314,39 +390,55 @@ export function withReason(message: string): string {
 const MAX_NAMED_SIGNERS = 3;
 
 /**
- * Once the viewer signed: who can still approve it, by name when any one
- * of the others is enough (up to three of them), else the weight still
- * missing.
+ * Once the viewer signed: who can still approve it, by name when in
+ * every checked set any one of the others is enough (up to three of
+ * them, each named once), else the weight the closest set still misses.
  */
 function waitingNote(
-	set: Pick<CountedSignerSet, 'members'>,
-	proposal: Pick<PageProposal, 'signatures'>,
+	proposal: Pick<
+		PageProposal,
+		'checkedSignerSets' | 'signatures'
+	>,
 	labels: Labels,
 	publicKey: string | null | undefined,
-	missing: number,
 ) {
 	const copy = content.proposal.approvals.notes.waiting;
-	const others = [...set.members]
-		.sort((a, b) => a.order - b.order)
-		.filter(
-			(member) =>
-				member.publicKey !== publicKey &&
-				!hasSigned(proposal, member.publicKey),
-		);
+	const sets = proposal.checkedSignerSets.map((set) => ({
+		missing: set.threshold - set.currentWeight,
+		others: [...set.members]
+			.sort((a, b) => a.order - b.order)
+			.filter(
+				(member) =>
+					member.publicKey !== publicKey &&
+					!hasSigned(proposal, member.publicKey),
+			),
+	}));
 	if (
-		others.length > 0 &&
-		others.every((member) => member.weight >= missing)
+		sets.every(
+			({ missing, others }) =>
+				others.length > 0 &&
+				others.every((member) => member.weight >= missing),
+		)
 	) {
-		if (others.length > MAX_NAMED_SIGNERS)
+		const keys = [
+			...new Set(
+				sets.flatMap(({ others }) =>
+					others.map((member) => member.publicKey),
+				),
+			),
+		];
+		if (keys.length > MAX_NAMED_SIGNERS)
 			return copy.anyOther;
-		const names = others.map((member) =>
-			nameOf(addressOf(member.publicKey), labels),
+		const names = keys.map((key) =>
+			nameOf(addressOf(key), labels),
 		);
 		return names.length === 1
 			? copy.one(names[0])
 			: copy.anyOneOf(joinList(names, 'or'));
 	}
-	return copy.needs(missing);
+	return copy.needs(
+		Math.min(...sets.map(({ missing }) => missing)),
+	);
 }
 
 export interface ActivityRow {

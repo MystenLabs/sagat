@@ -294,6 +294,94 @@ test.describe('proposals', () => {
 		);
 	});
 
+	test('a key in two signer sets counts in both, and the proposal is ready once either set reaches its threshold', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = createIdentity('bob');
+		const carol = await createActor('carol');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		// Alice is in both sets.
+		const recovery = await setupMultisig({
+			creator: alice,
+			members: [carol],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await addAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		await acceptAccountInvite(carol, multisig.address);
+		const proposal = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		await carol.signIn();
+		await carol.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		const page = carol.proposalPage(proposal.digest);
+		const STATUS = content.proposal.approvals.status;
+		const set = (address: string) =>
+			page.locator(
+				`[data-testid="approvals-signer-set"][data-address="${address}"]`,
+			);
+		await expect(
+			page.getByTestId('approvals-signer-set'),
+		).toHaveCount(2);
+		for (const address of [
+			multisig.address,
+			recovery.address,
+		]) {
+			await expect(set(address)).toHaveAttribute(
+				'data-current-weight',
+				'1',
+			);
+			await expect(set(address)).toContainText(
+				STATUS.needs(1),
+			);
+		}
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'pending',
+		);
+		// Each set carries its own line while pending.
+		await expect(
+			page.getByTestId('approvals-status'),
+		).toHaveCount(0);
+
+		await page.getByTestId('execute-after-signing').click();
+		await page.getByTestId('sign-proposal-button').click();
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'ready',
+		);
+		await expect(set(recovery.address)).toHaveAttribute(
+			'data-current-weight',
+			'2',
+		);
+		await expect(set(recovery.address)).toContainText(
+			STATUS.reached,
+		);
+		await expect(set(multisig.address)).toHaveAttribute(
+			'data-current-weight',
+			'1',
+		);
+		await expect(
+			page.getByTestId('approvals-status'),
+		).toHaveText(STATUS.ready);
+	});
+
 	test('a second signer set signs a proposal to its threshold and executes it', async ({
 		createActor,
 		createIdentity,

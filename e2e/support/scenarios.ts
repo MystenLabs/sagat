@@ -5,6 +5,7 @@
 // to get to the step under test quickly; drive that step through the UI.
 import {
 	defaultExpiry,
+	deriveAliasesObjectId,
 	PersonalMessages,
 } from '@mysten/sagat';
 import {
@@ -309,10 +310,53 @@ export async function addAlias(
 	);
 	// `enable` creates the set, which the same transaction cannot then use.
 	if (!(await fetchAliasSet(chain.client, account)).exists)
-		await runFromMultisig(chain, signing, buildEnable);
+		await enableAliases(chain, signing);
 	await runFromMultisig(chain, signing, (tx) =>
 		buildAdd(tx, { account, alias }),
 	);
+}
+
+// Creates the multisig's alias set on chain, holding its own address.
+export async function enableAliases(
+	chain: Chain,
+	signing: MultisigSigning,
+) {
+	await runFromMultisig(chain, signing, buildEnable);
+}
+
+// Replaces `account`'s alias set with `aliases`; the sender must be `account`.
+export function buildReplaceAll(
+	tx: Transaction,
+	{
+		account,
+		aliases,
+	}: { account: string; aliases: string[] },
+) {
+	tx.moveCall({
+		target: '0x2::address_alias::replace_all',
+		arguments: [
+			tx.object(deriveAliasesObjectId(account)),
+			tx.pure.vector('address', aliases),
+		],
+	});
+}
+
+// Bytes from `account` that add `alias` to its alias set, or replace the set with both.
+export async function aliasCallBytes(
+	chain: Chain,
+	account: string,
+	call: 'add' | 'replace_all',
+	alias = randomAddress(),
+) {
+	const tx = new Transaction();
+	tx.setSender(account);
+	if (call === 'add') buildAdd(tx, { account, alias });
+	else
+		buildReplaceAll(tx, {
+			account,
+			aliases: [account, alias],
+		});
+	return toBase64(await tx.build({ client: chain.client }));
 }
 
 // Removes `alias` from the multisig's alias set on chain.

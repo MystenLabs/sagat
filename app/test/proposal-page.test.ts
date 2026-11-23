@@ -10,6 +10,7 @@ import {
 	activityRows,
 	approvalRows,
 	approvalsNote,
+	approvalsSignerSets,
 	cancelVariant,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
@@ -122,6 +123,76 @@ describe('approvalRows', () => {
 	});
 });
 
+describe('approvalsSignerSets', () => {
+	it('counts each set on its own and shows a shared key’s signature in both', () => {
+		const both = proposal({ signedBy: [maya] });
+		const second = {
+			threshold: 2,
+			members: [maya, daniel].map((s, order) => ({
+				publicKey: s.publicKey,
+				weight: s.weight,
+				order,
+			})),
+		};
+		both.checkedSignerSets = countSignerSets(
+			both,
+			[
+				{
+					set: {
+						threshold: 3,
+						members: SIGNERS.map((s, order) => ({
+							publicKey: s.publicKey,
+							weight: s.weight,
+							order,
+						})),
+					},
+					address: '0x1',
+				},
+				{ set: second, address: '0x2' },
+			],
+			null,
+		);
+		const sets = approvalsSignerSets(
+			both,
+			'pending',
+			labels,
+			maya.publicKey,
+			[],
+		);
+		expect(
+			sets.map((set) => [
+				set.address,
+				set.currentWeight,
+				set.threshold,
+				set.line,
+				set.rows.map((row) => [row.label, row.state]),
+			]),
+		).toEqual([
+			[
+				'0x1',
+				1,
+				3,
+				'Needs 2 more weight.',
+				[
+					['Maya', 'signed'],
+					['Daniel', 'not-signed'],
+					['Alice', 'not-signed'],
+				],
+			],
+			[
+				'0x2',
+				1,
+				2,
+				'Needs 1 more weight.',
+				[
+					['Maya', 'signed'],
+					['Daniel', 'not-signed'],
+				],
+			],
+		]);
+	});
+});
+
 describe('cancelVariant', () => {
 	it('is alone when nobody but the viewer signed', () => {
 		expect(
@@ -212,6 +283,54 @@ describe('approvalsNote', () => {
 			}),
 		).toBe(
 			'You signed. Needs 3 more weight from the other signers.',
+		);
+	});
+
+	it('names the one signer left in each signer set who is enough alone', () => {
+		const bob = signer('Bob', 1);
+		const pending = proposal({
+			threshold: 3,
+			signedBy: [maya, daniel],
+		});
+		pending.checkedSignerSets = countSignerSets(
+			pending,
+			[
+				{
+					set: {
+						threshold: 3,
+						members: SIGNERS.map((s, order) => ({
+							publicKey: s.publicKey,
+							weight: s.weight,
+							order,
+						})),
+					},
+					address: '0x1',
+				},
+				{
+					set: {
+						threshold: 2,
+						members: [maya, bob].map((s, order) => ({
+							publicKey: s.publicKey,
+							weight: s.weight,
+							order,
+						})),
+					},
+					address: '0x2',
+				},
+			],
+			null,
+		);
+		expect(
+			approvalsNote({
+				...base,
+				labels: new Map([
+					...labels,
+					[bob.address, bob.label],
+				]),
+				proposal: pending,
+			}),
+		).toBe(
+			'You signed. Any one of Alice or Bob can approve it.',
 		);
 	});
 
