@@ -5,13 +5,24 @@
 // Regression suite for the protocol rules that account rotation relies on
 // (design/account-rotation.md). The steps share state and run in order.
 
-import { deriveAliasesObjectId } from '@mysten/sagat';
+import {
+	buildAdd,
+	buildEnable,
+	buildRemove,
+	buildSignerChange,
+	deriveAliasesObjectId,
+	MAX_ALIASES,
+	readCompositionNote,
+} from '@mysten/sagat';
 import {
 	SimulationError,
 	type SuiClientTypes,
 } from '@mysten/sui/client';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { type Transaction } from '@mysten/sui/transactions';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	afterAll,
@@ -22,13 +33,7 @@ import {
 	test,
 } from 'bun:test';
 
-import {
-	buildAdd,
-	buildEnable,
-	buildRemove,
-	fetchAliasSet,
-	MAX_ALIASES,
-} from '../src/utils/aliases';
+import { fetchAliasSet } from '../src/utils/aliases';
 import {
 	build,
 	execute,
@@ -446,5 +451,71 @@ describe('Address aliases on multisig accounts', () => {
 				}),
 			'ETooManyAliases',
 		);
+	});
+});
+
+describe('Unused pure inputs', () => {
+	test('a signer change with its composition note builds, executes and reads back unchanged', async () => {
+		const keys = Array.from(
+			{ length: 4 },
+			() => new Ed25519Keypair(),
+		);
+		const [k1, k2, k3, k4] = keys;
+		const toComposition = (
+			set: Ed25519Keypair[],
+			threshold: number,
+		) => ({
+			threshold,
+			members: set.map((k) => ({
+				publicKey: k.getPublicKey().toSuiPublicKey(),
+				weight: 1,
+			})),
+		});
+		const N = multisigSigner('N', [k1, k2, k3], 2);
+		const N2 = multisigSigner("N'", [k1, k2, k4], 2);
+
+		await fundAddress(N.address);
+		expectSuccess(await run(N.address, N, buildEnable));
+
+		const [{ chainIdentifier }, { systemState }] =
+			await Promise.all([
+				client.core.getChainIdentifier(),
+				client.core.getCurrentSystemState(),
+			]);
+		const bytes = await build(N.address, (tx) =>
+			buildSignerChange(tx, {
+				account: N.address,
+				aliases: [N.address],
+				oldSet: N.address,
+				newSet: toComposition([k1, k2, k4], 2),
+				known: [toComposition([k1, k2, k3], 2)],
+				chain: chainIdentifier,
+				epoch: systemState.epoch,
+			}),
+		);
+		const built = readCompositionNote(
+			Transaction.from(bytes).getData(),
+		);
+		expect(built?.after).toEqual([N2.address]);
+
+		const executed = expectSuccess(
+			await execute(bytes, await N.sign(bytes)),
+		);
+		const onNode = await client.core.getTransaction({
+			digest: executed.digest,
+			include: { transaction: true },
+		});
+		const read = readCompositionNote(
+			TransactionDataBuilder.restore(
+				onNode.$kind === 'Transaction'
+					? onNode.Transaction.transaction
+					: onNode.FailedTransaction.transaction,
+			),
+		);
+
+		expect(read).toEqual(built);
+		expect(
+			(await fetchAliasSet(client, N.address)).aliases,
+		).toEqual(built!.after);
 	});
 });
