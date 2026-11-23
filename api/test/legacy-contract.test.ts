@@ -21,7 +21,6 @@ import {
 	ProposalStatus,
 } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
-import { fromBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'bun:test';
 import { type Hono } from 'hono';
 
@@ -29,6 +28,7 @@ import {
 	ApiTestFramework,
 	newUser,
 	sign,
+	signedBy,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -264,11 +264,7 @@ async function proposeTransfer(
 		multisigAddress,
 		network: 'localnet',
 		transactionBytes,
-		signature: (
-			await proposer.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			)
-		).signature,
+		signature: await signedBy(proposer, transactionBytes),
 		description,
 	});
 }
@@ -325,11 +321,10 @@ async function driveLegacyRoutes(app: Hono) {
 		'pay vendor',
 	);
 	await client.voteForProposal(first.id, {
-		signature: (
-			await users[1].keypair.signTransaction(
-				fromBase64(first.transactionBytes),
-			)
-		).signature,
+		signature: await signedBy(
+			users[1],
+			first.transactionBytes,
+		),
 	});
 	await client.getProposals(
 		multisig.address,
