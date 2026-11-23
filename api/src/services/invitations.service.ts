@@ -4,13 +4,22 @@
 // See "Accept and reject" in `design/account-rotation.md`.
 
 import { type PublicKey } from '@mysten/sui/cryptography';
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import {
+	and,
+	eq,
+	exists,
+	inArray,
+	ne,
+	sql,
+} from 'drizzle-orm';
+import { union } from 'drizzle-orm/pg-core';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
 import {
 	AccountSignerSetStatus,
 	SchemaAccountAcceptances,
+	SchemaAccounts,
 	SchemaAccountSignerSets,
 	SchemaAddresses,
 	SchemaSignerSetMembers,
@@ -29,12 +38,12 @@ import {
 } from './account-events.service';
 import { type SignerScopeKind } from './signers.service';
 
-// Throws if `publicKey` is already in the maximum number of multisigs, not
-// counting the one it is joining. Locks the key's row until `tx` ends.
+// Throws if `publicKey` has already accepted the maximum number of accounts,
+// not counting the one it is joining. Locks the key's row until `tx` ends.
 export const assertKeyBelowMultisigLimit = async (
 	tx: DatabaseTransaction,
 	publicKey: string,
-	joiningSignerSetAddress: string,
+	joiningAccountAddress: string,
 	scopeKind: SignerScopeKind,
 ) => {
 	await tx
@@ -43,18 +52,57 @@ export const assertKeyBelowMultisigLimit = async (
 		.where(eq(SchemaAddresses.publicKey, publicKey))
 		.for('no key update');
 
-	const accepted = await tx.$count(
-		SchemaSignerSetMembers,
-		and(
-			eq(SchemaSignerSetMembers.publicKey, publicKey),
-			eq(SchemaSignerSetMembers.isAccepted, true),
-			ne(
-				SchemaSignerSetMembers.signerSetAddress,
-				joiningSignerSetAddress,
-			),
+	// A member row answers only for the account at its own signer set's address.
+	const accepted = tx.$with('accepted').as(
+		union(
+			tx
+				.select({
+					accountAddress:
+						sql<string>`${SchemaAccounts.address}`.as(
+							'accepted_account',
+						),
+				})
+				.from(SchemaSignerSetMembers)
+				.innerJoin(
+					SchemaAccounts,
+					eq(
+						SchemaAccounts.address,
+						SchemaSignerSetMembers.signerSetAddress,
+					),
+				)
+				.where(
+					and(
+						eq(SchemaSignerSetMembers.publicKey, publicKey),
+						eq(SchemaSignerSetMembers.isAccepted, true),
+					),
+				),
+			tx
+				.select({
+					accountAddress:
+						sql<string>`${SchemaAccountAcceptances.accountAddress}`.as(
+							'accepted_account',
+						),
+				})
+				.from(SchemaAccountAcceptances)
+				.where(
+					and(
+						eq(
+							SchemaAccountAcceptances.publicKey,
+							publicKey,
+						),
+						eq(SchemaAccountAcceptances.isAccepted, true),
+					),
+				),
 		),
 	);
-	if (accepted >= LIMITS.maxMultisigsPerPublicKey)
+	const [{ count }] = await tx
+		.with(accepted)
+		.select({ count: sql<number>`count(*)::int` })
+		.from(accepted)
+		.where(
+			ne(accepted.accountAddress, joiningAccountAddress),
+		);
+	if (count >= LIMITS.maxMultisigsPerPublicKey)
 		throw new ValidationError(
 			scopeKind === 'acting'
 				? 'You have reached the maximum number of accounts for this public key.'
@@ -103,7 +151,20 @@ export const answerInvitation = async ({
 		const [signerSet] = await tx
 			.select()
 			.from(SchemaSignerSets)
-			.where(eq(SchemaSignerSets.address, accountAddress))
+			.where(
+				and(
+					eq(SchemaSignerSets.address, accountAddress),
+					// A signer set with no account at its address takes no answers.
+					exists(
+						tx
+							.select({ one: sql`1` })
+							.from(SchemaAccounts)
+							.where(
+								eq(SchemaAccounts.address, accountAddress),
+							),
+					),
+				),
+			)
 			.for('no key update');
 		if (!signerSet)
 			throw new ValidationError('Multisig not found');

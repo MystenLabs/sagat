@@ -16,7 +16,13 @@ import {
 	isValidSuiAddress,
 	normalizeSuiAddress,
 } from '@mysten/sui/utils';
-import { and, eq, inArray, type SQL } from 'drizzle-orm';
+import {
+	and,
+	asc,
+	eq,
+	inArray,
+	type SQL,
+} from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -818,22 +824,35 @@ export const createSignerSet = async ({
 
 	// add the multisig to the database.
 	return await db.transaction(async (tx) => {
-		const msig = (
+		const address = multisig.toSuiAddress();
+		const [inserted] = await tx
+			.insert(SchemaSignerSets)
+			.values({
+				address,
+				isVerified: false,
+				threshold: multisig.getThreshold(),
+				name,
+			})
+			.onConflictDoNothing({
+				target: SchemaSignerSets.address,
+			})
+			.returning();
+		// A composition left by a signer change: lock it first, as a fresh insert does.
+		if (!inserted)
 			await tx
-				.insert(SchemaSignerSets)
-				.values({
-					address: multisig.toSuiAddress(),
-					isVerified: false,
-					threshold: multisig.getThreshold(),
-					name,
-				})
-				.onConflictDoNothing({
-					target: SchemaSignerSets.address,
-				})
-				.returning()
-		)[0];
+				.select({ address: SchemaSignerSets.address })
+				.from(SchemaSignerSets)
+				.where(eq(SchemaSignerSets.address, address))
+				.for('no key update');
 
-		if (!msig) {
+		// A legacy multisig is also an account with the same address, so the
+		// `/v1` API sees what the legacy routes created.
+		const [account] = await tx
+			.insert(SchemaAccounts)
+			.values({ address, name })
+			.onConflictDoNothing()
+			.returning({ address: SchemaAccounts.address });
+		if (!account) {
 			const whereToFindIt = callerIsMember
 				? 'You’ll find it in your accounts or invitations. '
 				: '';
@@ -841,6 +860,16 @@ export const createSignerSet = async ({
 				`An account with these signers, weights and threshold already exists. ${whereToFindIt}To make a different account, change the signers, weights or threshold.`,
 			);
 		}
+
+		const msig =
+			inserted ??
+			(
+				await tx
+					.update(SchemaSignerSets)
+					.set({ isVerified: false, name })
+					.where(eq(SchemaSignerSets.address, address))
+					.returning()
+			)[0];
 
 		// Checked after the insert so a duplicate still fails as one. Keys are
 		// locked in sorted order so creations sharing keys can't deadlock.
@@ -851,13 +880,6 @@ export const createSignerSet = async ({
 				msig.address,
 				'original',
 			);
-
-		// A legacy multisig is also an account with the same address, so the
-		// `/v1` API sees what the legacy routes created.
-		await tx
-			.insert(SchemaAccounts)
-			.values({ address: msig.address, name })
-			.onConflictDoNothing();
 
 		// The multisig is the account's original signer set. The creator is
 		// the first authenticated key in the composition, else the first
@@ -880,22 +902,52 @@ export const createSignerSet = async ({
 				createdAt: SchemaAccountSignerSets.createdAt,
 			});
 
-		// insert the multisig members in the DB.
-		const members = await tx
-			.insert(SchemaSignerSetMembers)
-			.values(
-				parsedPubKeys.map((key, index) => ({
-					signerSetAddress: msig.address,
-					publicKey: key.toSuiPublicKey(),
-					weight: multisigMembers[index].weight,
-					// If authorization includes the user, we can accept immediately.
-					isAccepted: acceptingKeys.includes(
-						key.toSuiPublicKey(),
+		let members: SignerSetMember[];
+		if (inserted)
+			members = await tx
+				.insert(SchemaSignerSetMembers)
+				.values(
+					parsedPubKeys.map((key, index) => ({
+						signerSetAddress: msig.address,
+						publicKey: key.toSuiPublicKey(),
+						weight: multisigMembers[index].weight,
+						// If authorization includes the user, we can accept immediately.
+						isAccepted: acceptingKeys.includes(
+							key.toSuiPublicKey(),
+						),
+						order: index,
+					})),
+				)
+				.returning();
+		else {
+			// The address fixes the composition, so the existing rows are these members.
+			if (acceptingKeys.length > 0)
+				await tx
+					.update(SchemaSignerSetMembers)
+					.set({ isAccepted: true })
+					.where(
+						and(
+							eq(
+								SchemaSignerSetMembers.signerSetAddress,
+								msig.address,
+							),
+							inArray(
+								SchemaSignerSetMembers.publicKey,
+								acceptingKeys,
+							),
+						),
+					);
+			members = await tx
+				.select()
+				.from(SchemaSignerSetMembers)
+				.where(
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						msig.address,
 					),
-					order: index,
-				})),
-			)
-			.returning();
+				)
+				.orderBy(asc(SchemaSignerSetMembers.order));
+		}
 
 		// The account's names for its keys. Only labelled keys get a row.
 		const keyLabels = new Map<string, string>();

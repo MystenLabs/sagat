@@ -17,6 +17,7 @@ import { eq } from 'drizzle-orm';
 import { LIMITS } from '../src/constants/limits';
 import { db } from '../src/db';
 import {
+	SchemaAccountAcceptances,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
 } from '../src/db/schema';
@@ -29,10 +30,12 @@ import {
 	sign,
 	type TestUser,
 } from './framework/api-test-framework';
+import { register } from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
+import { insertNewSignerSet } from './setup/signer-sets';
 
 setupSharedTestEnvironment();
 
@@ -245,6 +248,58 @@ describe('Multisig API', () => {
 		).rejects.toThrow(
 			'An account with these signers, weights and threshold already exists. You’ll find it in your accounts or invitations.',
 		);
+	});
+
+	test('makes an account of a composition a signer change left, once', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(1);
+		const [creator] = users;
+		const invitee = newUser();
+		const { address: account } =
+			await session.createMultisig([creator, newUser()], 2);
+		const left = await insertNewSignerSet({
+			members: [creator, invitee],
+			threshold: 2,
+			account: { address: account, draftedBy: creator },
+		});
+
+		const results = await Promise.allSettled(
+			[1, 2].map(() =>
+				session.createMultisig([creator, invitee], 2, {
+					name: 'Reserve',
+				}),
+			),
+		);
+		expectSettled(results, {
+			fulfilled: 1,
+			rejectedWith:
+				'An account with these signers, weights and threshold already exists. You’ll find it in your accounts or invitations.',
+		});
+
+		const multisig = await session.client.getMultisig(left);
+		expect(multisig).toMatchObject({
+			address: left,
+			name: 'Reserve',
+			isVerified: false,
+		});
+		expect(
+			multisig.members.map((m) => [
+				m.publicKey,
+				m.isAccepted,
+			]),
+		).toEqual([
+			[creator.publicKey, true],
+			[invitee.publicKey, false],
+		]);
+		const invitations = framework.createSession();
+		await invitations.connectUser(invitee);
+		expect(
+			(
+				await invitations.client.getInvitations(
+					invitee.publicKey,
+				)
+			).map((m) => m.address),
+		).toEqual([left]);
 	});
 
 	test('does not point a non-member repeating a multisig at their accounts or invitations', async () => {
@@ -1037,6 +1092,49 @@ describe('Multisig API', () => {
 			await expect(
 				session.createMultisig([user, newUser()], 1),
 			).rejects.toThrow(limitReached);
+		});
+
+		test('counts the accounts a key accepted outside their original set', async () => {
+			const user = newUser();
+			const session = framework.createSession();
+			await session.connectUser(user);
+			await register(user);
+			const accounts = Array.from(
+				{ length: LIMITS.maxMultisigsPerPublicKey },
+				() => newUser().address,
+			);
+			await db
+				.insert(SchemaAccounts)
+				.values(accounts.map((address) => ({ address })));
+			await db.insert(SchemaAccountAcceptances).values(
+				accounts.map((accountAddress) => ({
+					accountAddress,
+					publicKey: user.publicKey,
+					isAccepted: true,
+				})),
+			);
+
+			await expect(
+				session.createMultisig([user, newUser()], 1),
+			).rejects.toThrow(limitReached);
+		});
+
+		test('does not count signer sets that are not accounts', async () => {
+			const user = newUser();
+			const session = framework.createSession();
+			await session.connectUser(user);
+			for (
+				let i = 0;
+				i < LIMITS.maxMultisigsPerPublicKey;
+				i++
+			)
+				await insertNewSignerSet({
+					members: [user, newUser()],
+					threshold: 1,
+					acceptedBy: [user],
+				});
+
+			await session.createMultisig([user, newUser()], 1);
 		});
 
 		test('keeps the limit for simultaneous creations', async () => {

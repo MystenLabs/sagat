@@ -25,6 +25,7 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
+import { insertNewSignerSet } from './setup/signer-sets';
 
 setupSharedTestEnvironment();
 
@@ -137,6 +138,47 @@ describe('Legacy listings', () => {
 		await expect(
 			session.client.getMultisig(address),
 		).rejects.toThrow('not found');
+	});
+
+	test('a signer set a change left for another account is no legacy multisig to its members', async () => {
+		const users = await setupUsers();
+		const { session, invitee, u1, u2 } = users;
+		const { address: account } =
+			await session.createMultisig([u1, newUser()], 2);
+		const left = await insertNewSignerSet({
+			members: [u1, u2],
+			threshold: 2,
+			account: { address: account, draftedBy: u1 },
+		});
+
+		const { connections, invitations } =
+			await listedFor(users);
+		expect(connections).not.toContain(left);
+		expect(invitations).not.toContain(left);
+		await expect(
+			invitee.client.getMultisig(left),
+		).rejects.toThrow('not found');
+		await expect(
+			invitee.acceptMultisig(u2, left),
+		).rejects.toThrow('Multisig not found');
+		await expect(
+			invitee.rejectMultisig(u2, left),
+		).rejects.toThrow('Multisig not found');
+
+		expect(
+			await db
+				.select({
+					isAccepted: SchemaSignerSetMembers.isAccepted,
+					isRejected: SchemaSignerSetMembers.isRejected,
+				})
+				.from(SchemaSignerSetMembers)
+				.where(
+					eq(SchemaSignerSetMembers.signerSetAddress, left),
+				),
+		).toEqual([
+			{ isAccepted: false, isRejected: false },
+			{ isAccepted: false, isRejected: false },
+		]);
 	});
 
 	test('the create route links the multisig to its own account', async () => {
