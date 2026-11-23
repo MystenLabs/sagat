@@ -354,6 +354,10 @@ export type AccountProposer = z.infer<
 	typeof AccountProposerSchema
 >;
 
+const SignerChangeRefSchema = z.object({
+	digest: TransactionDigestSchema,
+});
+
 export const AccountDetailsSchema = z
 	.object({
 		...accountFields,
@@ -369,6 +373,16 @@ export const AccountDetailsSchema = z
 					'The other supported networks whose alias set differs from this one.',
 			}),
 		proposers: z.array(AccountProposerSchema),
+		signerChanges: z.array(SignerChangeRefSchema).meta({
+			description:
+				'The signer changes that succeeded on the network, oldest first, as the API lists them; a client reads each transaction from its own node.',
+		}),
+		openSignerChange: SignerChangeRefSchema.nullable().meta(
+			{
+				description:
+					'The pending signer change on the network, or null, as the API reports it; a client reads the transaction from its own node.',
+			},
+		),
 	})
 	.meta({ id: 'AccountDetails' });
 export type AccountDetails = z.infer<
@@ -385,6 +399,11 @@ export const RemovedAccountSchema = z
 			description: 'The `alias.removed` event.',
 		}),
 		removedAt: z.iso.datetime(),
+		transactionDigest:
+			TransactionDigestSchema.nullable().meta({
+				description:
+					'The signer change that removed the set, as the API names it, or null when it names none; a client reads the transaction from its own node.',
+			}),
 	})
 	.meta({
 		id: 'RemovedAccount',
