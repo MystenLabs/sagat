@@ -19,11 +19,12 @@ import {
 	setDefaultTimeout,
 	test,
 } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
 import {
 	ProposalStatus,
+	SchemaAccountAliases,
 	SchemaProposals,
 } from '../src/db/schema';
 import { ApiAuthError } from '../src/errors';
@@ -38,7 +39,7 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
-import { setAliases } from './setup/acting-sets';
+import { answerFor, setAliases } from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -427,6 +428,30 @@ describe('the proof rule of a signer change', () => {
 
 		expect(
 			(await session.cancelProposal(k2, created)).status,
+		).toBe(ProposalStatus.CANCELLED);
+	});
+
+	test('once the old set no longer acts, an accepted signer of the set that acts cancels the change', async () => {
+		const cast = await createCast();
+		const { k4, A, S2 } = cast;
+		const R = await session.createMultisig(
+			[k4, newUser()],
+			1,
+		);
+		const { created } = await propose(cast, S2);
+		await setAliases(A, 'localnet', [R.address]);
+		await db
+			.delete(SchemaAccountAliases)
+			.where(
+				and(
+					eq(SchemaAccountAliases.accountAddress, A),
+					eq(SchemaAccountAliases.aliasAddress, A),
+				),
+			);
+		await answerFor(A, k4, 'accepted');
+
+		expect(
+			(await session.cancelProposal(k4, created)).status,
 		).toBe(ProposalStatus.CANCELLED);
 	});
 

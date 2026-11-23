@@ -42,6 +42,8 @@ import {
 export const ALIAS_STATE_MAX_AGE_MS = 60_000;
 // Each changed account writes in its own transaction.
 const WRITE_GROUP_SIZE = 8;
+// Node lookups of one account's alias proposals at once.
+const LOOKUP_GROUP_SIZE = 8;
 
 type Mirrored = { exists: boolean; version: string | null };
 
@@ -186,15 +188,19 @@ const findExecutedAliasProposals = async (
 		network,
 		[ProposalStatus.PENDING, ProposalStatus.CANCELLED],
 	);
-	const outcomes = await Promise.all(
-		open.map((proposal) =>
-			lookUpOnChainOutcome(network, proposal.digest),
-		),
-	);
-	return open.flatMap((proposal, i) => {
-		const outcome = outcomes[i];
-		return outcome ? [{ proposal, outcome }] : [];
-	});
+	const settlements: Settlement[] = [];
+	for (const group of chunk(open, LOOKUP_GROUP_SIZE)) {
+		const outcomes = await Promise.all(
+			group.map((proposal) =>
+				lookUpOnChainOutcome(network, proposal.digest),
+			),
+		);
+		group.forEach((proposal, i) => {
+			const outcome = outcomes[i];
+			if (outcome) settlements.push({ proposal, outcome });
+		});
+	}
+	return settlements;
 };
 
 const writeMirror = (
@@ -206,8 +212,6 @@ const writeMirror = (
 ): Promise<AliasRefreshResult> =>
 	db.transaction(async (tx) => {
 		await lockAccount(tx, account);
-		for (const { proposal, outcome } of settlements)
-			await recordOnChainOutcome(tx, proposal, outcome);
 		const [row] = await tx
 			.select()
 			.from(SchemaAccountAliasState)
@@ -228,6 +232,8 @@ const writeMirror = (
 			};
 		}
 
+		for (const { proposal, outcome } of settlements)
+			await recordOnChainOutcome(tx, proposal, outcome);
 		const aliasRows = and(
 			eq(SchemaAccountAliases.accountAddress, account),
 			eq(SchemaAccountAliases.network, network),

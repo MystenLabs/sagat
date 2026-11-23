@@ -107,6 +107,7 @@ import {
 	assertNamesChain,
 	assertNoPendingAliasProposal,
 	checkAndWriteSignerChange,
+	currentEpochOf,
 	signerChangeLabels,
 	signerChangeNote,
 	storedSignerChange,
@@ -763,6 +764,9 @@ export const createProposal = async ({
 		network,
 	);
 	if (note) await assertNamesChain(data, network);
+	const epoch = callsAliasModule
+		? await currentEpochOf(network)
+		: null;
 
 	const proposal = await db.transaction(async (tx) => {
 		// Validate the proposed transaction for:
@@ -789,11 +793,12 @@ export const createProposal = async ({
 		)
 			throw await notMemberError();
 
-		if (callsAliasModule)
+		if (epoch !== null)
 			await assertNoPendingAliasProposal(
 				tx,
 				multisigAddress,
 				network,
+				epoch,
 			);
 		if (note)
 			await checkAndWriteSignerChange(tx, {
@@ -1016,15 +1021,27 @@ export const cancelProposal = async ({
 		[],
 	);
 	const change = stored?.change;
+	// Once the old set no longer acts, the change can never execute, and any accepted signer may cancel it.
+	const oldSetActs =
+		!change ||
+		!!(
+			await resolveAccountSigners(
+				proposal.accountAddress,
+				actingSetsOn(proposal.network as SuiNetwork),
+			)
+		)?.actingSets.some(
+			(set) => set.address === change.oldSet.address,
+		);
 	if (
 		stored &&
 		!(
 			isMember &&
-			change?.newSets.some((set) =>
-				signersWhoStay(change.oldSet, set).includes(
-					pubKey.toSuiPublicKey(),
-				),
-			)
+			(!oldSetActs ||
+				change?.newSets.some((set) =>
+					signersWhoStay(change.oldSet, set).includes(
+						pubKey.toSuiPublicKey(),
+					),
+				))
 		)
 	)
 		throw new ApiAuthError('CancelBySignerWhoStays');

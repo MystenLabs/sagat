@@ -47,12 +47,15 @@ import {
 	buildChange,
 	buildFrom,
 	compositionOf,
+	currentEpoch,
 	gasCoins,
 	proposeChange,
 } from './setup/signer-changes';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
+
+const localEpoch = await currentEpoch();
 
 const STALE =
 	'The signers of this account changed since the signer change was built. Build it again from the current signers.';
@@ -442,6 +445,8 @@ describe('POST /v1/proposals with a signer change', () => {
 			});
 		const toS2 = await change(S2, 2);
 		const toS3 = await change(S3, 3);
+		const proposer = newUser();
+		await session.addProposer(k1, proposer.address, A);
 
 		const enable = await session.createProposal(
 			k1,
@@ -464,32 +469,98 @@ describe('POST /v1/proposals with a signer change', () => {
 			status: 400,
 			message: pendingAliasProposal(first.digest),
 		});
+		const handWritten = await buildFrom(
+			A,
+			(tx) =>
+				buildAdd(tx, {
+					account: A,
+					alias: newUser().address,
+				}),
+			coins[4],
+		);
 		expect(
 			await refusal(
 				session.createProposal(
 					k1,
 					A,
 					'localnet',
-					await buildFrom(
-						A,
-						(tx) =>
-							buildAdd(tx, {
-								account: A,
-								alias: newUser().address,
-							}),
-						coins[4],
-					),
+					handWritten,
 				),
 			),
 		).toEqual({
 			status: 400,
 			message: pendingAliasProposal(first.digest),
 		});
+		expect(
+			await refusal(
+				session.createProposal(
+					proposer,
+					A,
+					'localnet',
+					handWritten,
+				),
+			),
+		).toEqual({
+			status: 403,
+			message: new ApiAuthError('AliasCallByProposer')
+				.message,
+		});
 
 		await session.cancelProposal(k1, first);
 		const next = await proposeChange(session, k1, A, toS3);
 		expect(next.status).toBe('PENDING');
 	});
+
+	// Needs a network past epoch 1, so the expired change's next epoch is behind.
+	test.skipIf(localEpoch < 2n)(
+		'a pending change whose expiration epoch has passed does not block a new one, which becomes the open one',
+		async () => {
+			const { k1, k2, A, S1, S2, S3 } = await createCast();
+			const coins = await gasCoins(A, 2);
+			const expired = await proposeChange(
+				session,
+				k1,
+				A,
+				await buildChange({
+					account: A,
+					oldSet: A,
+					newSet: S2,
+					known: [S1],
+					gasCoin: coins[0],
+					epoch: localEpoch - 2n,
+				}),
+			);
+
+			const next = await proposeChange(
+				session,
+				k1,
+				A,
+				await buildChange({
+					account: A,
+					oldSet: A,
+					newSet: S3,
+					known: [S1],
+					gasCoin: coins[1],
+				}),
+			);
+
+			expect(next.status).toBe(ProposalStatus.PENDING);
+			expect(
+				(await pendingProposals(A)).map((p) => p.digest),
+			).toEqual(
+				expect.arrayContaining([
+					expired.digest,
+					next.digest,
+				]),
+			);
+			const signedIn = framework.createSession();
+			await signedIn.connectUser(k2);
+			expect(
+				(await signedIn.v1.getAccount(A, 'localnet'))
+					.openSignerChange,
+			).toEqual({ digest: next.digest });
+		},
+	);
 
 	test('of two different changes created at once, exactly one is created', async () => {
 		const { k1, A, S1, S2, S3 } = await createCast();

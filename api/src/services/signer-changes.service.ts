@@ -184,17 +184,52 @@ export const assertNamesChain = async (
 		);
 };
 
-// One proposal that calls the alias module at a time, per account and network.
+// The current epoch of the API's node for the network.
+export const currentEpochOf = async (network: SuiNetwork) =>
+	BigInt(
+		(await getSuiClient(network).getCurrentSystemState())
+			.systemState.epoch,
+	);
+
+// Whether the transaction's expiration epoch is before `epoch`, so it can no longer execute.
+const hasExpired = (
+	{ expiration }: Pick<TransactionData, 'expiration'>,
+	epoch: bigint,
+) => {
+	if (!expiration) return false;
+	const last =
+		expiration.Epoch ??
+		(expiration.ValidDuring ?? expiration.Validity)
+			?.maxEpoch;
+	return (
+		last !== undefined &&
+		last !== null &&
+		BigInt(last) < epoch
+	);
+};
+
+/**
+ * One proposal that calls the alias module at a time, per account and
+ * network. One whose expiration epoch is before `epoch` no longer counts.
+ */
 export const assertNoPendingAliasProposal = async (
 	tx: DatabaseTransaction,
 	accountAddress: string,
 	network: SuiNetwork,
+	epoch: bigint,
 ) => {
-	const pending = await findAliasProposals(
-		tx,
-		accountAddress,
-		network,
-		[ProposalStatus.PENDING],
+	const pending = (
+		await findAliasProposals(tx, accountAddress, network, [
+			ProposalStatus.PENDING,
+		])
+	).filter(
+		(proposal) =>
+			!hasExpired(
+				Transaction.from(
+					proposal.transactionBytes,
+				).getData(),
+				epoch,
+			),
 	);
 	if (pending.length > 0)
 		throw new ValidationError(

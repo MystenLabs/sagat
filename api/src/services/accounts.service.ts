@@ -54,7 +54,7 @@ import {
 const signerChangeIn = (transactionBytes: string) =>
 	storedSignerChange(transactionBytes, [])?.change ?? null;
 
-// The signer changes that succeeded on the network, oldest first, and the pending one.
+// The signer changes that succeeded on the network, oldest first, and the newest pending one.
 const signerChangesOf = async (
 	address: string,
 	network: SuiNetwork,
@@ -69,10 +69,13 @@ const signerChangesOf = async (
 			signerChangeIn(proposal.transactionBytes),
 		)
 		.sort((a, b) => a.id - b.id);
-	const open = changes.find(
-		(proposal) =>
-			proposal.status === ProposalStatus.PENDING,
-	);
+	// The newest: an older one still pending has expired.
+	const open = changes
+		.filter(
+			(proposal) =>
+				proposal.status === ProposalStatus.PENDING,
+		)
+		.at(-1);
 	return {
 		signerChanges: changes
 			.filter(

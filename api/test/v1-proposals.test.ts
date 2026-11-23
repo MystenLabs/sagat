@@ -838,6 +838,27 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			),
 		);
 
+		const legacyBytes = toBase64(
+			await build(address, (tx) =>
+				buildAdd(tx, {
+					account: address,
+					alias: newUser().address,
+				}),
+			),
+		);
+		const legacy = await session.client.createProposal({
+			multisigAddress: address,
+			network: 'localnet',
+			transactionBytes: legacyBytes,
+			signature: await signedBy(proposer, legacyBytes),
+		});
+		expect(legacy.proposerAddress).toBe(proposer.address);
+		// One at a time, so the proposer cancels it, as nobody has signed.
+		await session.cancelProposal(proposer, {
+			digest: legacy.digest,
+			accountAddress: address,
+		});
+
 		const created = await session.createProposal(
 			proposer,
 			address,

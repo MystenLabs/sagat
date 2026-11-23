@@ -70,6 +70,12 @@ export const gasCoins = async (
 		}));
 };
 
+export const currentEpoch = async () =>
+	BigInt(
+		(await client.core.getCurrentSystemState()).systemState
+			.epoch,
+	);
+
 // Base64 bytes of a transaction from the account, paid with `gasCoin` when given.
 export const buildFrom = async (
 	account: string,
@@ -109,8 +115,8 @@ export const allowSignerChanges = async (
 /**
  * The base64 bytes of a signer change of the account, built with the SDK
  * against its alias set on chain, with the chain identifier and epoch of the
- * local network. `known` holds every composition the test knows for the
- * aliases, the old set's included.
+ * local network, or `epoch` when given. `known` holds every composition the
+ * test knows for the aliases, the old set's included.
  */
 export const buildChange = async ({
 	account,
@@ -118,12 +124,14 @@ export const buildChange = async ({
 	newSet,
 	known,
 	gasCoin,
+	epoch,
 }: {
 	account: string;
 	oldSet: string;
 	newSet: Composition;
 	known: KnownSigner[];
 	gasCoin?: GasCoin;
+	epoch?: bigint;
 }) => {
 	const [
 		{ aliases },
@@ -134,7 +142,7 @@ export const buildChange = async ({
 		client.core.getChainIdentifier(),
 		client.core.getCurrentSystemState(),
 	]);
-	return buildFrom(
+	const bytes = await buildFrom(
 		account,
 		(tx) =>
 			buildSignerChange(tx, {
@@ -148,6 +156,18 @@ export const buildChange = async ({
 			}),
 		gasCoin,
 	);
+	if (epoch === undefined) return bytes;
+	// The node resolves no expired transaction, so the epochs are set on the resolved one.
+	const tx = Transaction.from(bytes);
+	const { ValidDuring } = tx.getData().expiration!;
+	tx.setExpiration({
+		ValidDuring: {
+			...ValidDuring!,
+			minEpoch: String(epoch),
+			maxEpoch: String(epoch + 1n),
+		},
+	});
+	return toBase64(await tx.build());
 };
 
 // Proposes a signer change through `/v1`, with labels for its new keys when given.
