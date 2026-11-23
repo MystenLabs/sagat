@@ -123,6 +123,13 @@ export const json = <T extends z.ZodType>(
 export const error = (description: string) =>
 	json(description, ErrorBodySchema);
 
+export const jsonBody = <T extends z.ZodType>(
+	schema: T,
+) => ({
+	required: true,
+	content: { 'application/json': { schema } },
+});
+
 // The shared middleware refuses in plain text; `/v1` answers with the error body.
 const auth: MiddlewareHandler<AuthEnv> = async (c, next) =>
 	(await authMiddleware(c, next))

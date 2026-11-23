@@ -29,6 +29,7 @@ import {
 	defineRoute,
 	error,
 	json,
+	jsonBody,
 	networkQuery,
 	unauthorized,
 	unavailable,
@@ -119,14 +120,7 @@ const answerRoute = (answer: 'accept' | 'reject') =>
 		request: {
 			params: addressParams,
 			query: networkQuery,
-			body: {
-				required: true,
-				content: {
-					'application/json': {
-						schema: InvitationAnswerRequestSchema,
-					},
-				},
-			},
+			body: jsonBody(InvitationAnswerRequestSchema),
 		},
 		responses: {
 			200: json(
@@ -161,14 +155,7 @@ const proposerRoute = <S extends z.ZodType>(
 		request: {
 			params: addressParams,
 			query: networkQuery,
-			body: {
-				required: true,
-				content: {
-					'application/json': {
-						schema: AccountProposerRequestSchema,
-					},
-				},
-			},
+			body: jsonBody(AccountProposerRequestSchema),
 		},
 		responses: {
 			200: done,
