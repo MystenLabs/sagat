@@ -206,9 +206,9 @@ One transaction with `sender = account`:
 
 - `address_alias::add(new set)` and `address_alias::remove(old set)`, both top-level commands. `add` comes first, because the last alias cannot be removed, unless the alias set is full, in which case `remove` comes first. If the new composition is already an alias, the transaction only removes the old one.
 - The composition note, below.
-- An expiration that names the chain, so bytes built for one network cannot be presented as another's. A change expires at the end of the epoch after the one it was built in, about two days, because the transaction has no address-owned input and the node then accepts an expiration of at most two epochs. A change that expired is cancelled and proposed again. Sagat has no expired status, so an expired change counts as pending until a signer who stays cancels it.
+- An expiration that names the chain, so bytes built for one network cannot be presented as another's. A change expires at the end of the epoch after the one it was built in, about two days: that is the longest expiration the node accepts when the gas is paid from the account's address balance and the transaction then has no address-owned input, and the builder sets it whichever way the gas is paid. A change that expired is cancelled and proposed again. Sagat has no expired status, so an expired change counts as pending until a signer who stays cancels it.
 
-The alias object is party-owned, so consensus orders the transactions that touch it and its version never goes stale in a pending proposal. The gas coin is an owned object, so the existing gas-coin collision check applies as for any proposal.
+The alias object is party-owned, so consensus orders the transactions that touch it and its version never goes stale in a pending proposal. When the gas is a coin, it is an owned object, so the existing gas-coin collision check applies as for any proposal.
 
 When the proposal is created, the API refreshes the mirror before it opens a transaction, and then, in one transaction under the account lock:
 
@@ -698,7 +698,7 @@ The API applies pending migrations on startup. Migration 0009 renames tables, so
 
 ### Protocol validation
 
-All five steps passed on localnet on 2026-10-14 (sui 1.81.1, protocol 138). The test (`api/test/address-aliases.test.ts`) and the helpers (`api/src/utils/aliases.ts`) are added in #95, the next PR of this stack. Full results are in the research note.
+All five steps passed on localnet on 2026-10-14 (sui 1.81.1, protocol 138). The test (`api/test/address-aliases.test.ts`) and the helpers are added in #95, the next PR of this stack. The builders are in `sdk/src/aliases.ts`, and `api/src/utils/aliases.ts` keeps `fetchAliasSet`. Full results are in the research note.
 
 1. Multisig account calls `enable`, then `add` with a second composition's address.
 2. Transaction with `sender = account` signed by the second composition executes.
