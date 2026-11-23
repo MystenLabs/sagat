@@ -324,23 +324,6 @@ export async function enableAliases(
 	await runFromMultisig(chain, signing, buildEnable);
 }
 
-// Replaces `account`'s alias set with `aliases`; the sender must be `account`.
-export function buildReplaceAll(
-	tx: Transaction,
-	{
-		account,
-		aliases,
-	}: { account: string; aliases: string[] },
-) {
-	tx.moveCall({
-		target: '0x2::address_alias::replace_all',
-		arguments: [
-			tx.object(deriveAliasesObjectId(account)),
-			tx.pure.vector('address', aliases),
-		],
-	});
-}
-
 // Bytes from `account` that add `alias` to its alias set, or replace the set with both.
 export async function aliasCallBytes(
 	chain: Chain,
@@ -352,9 +335,12 @@ export async function aliasCallBytes(
 	tx.setSender(account);
 	if (call === 'add') buildAdd(tx, { account, alias });
 	else
-		buildReplaceAll(tx, {
-			account,
-			aliases: [account, alias],
+		tx.moveCall({
+			target: '0x2::address_alias::replace_all',
+			arguments: [
+				tx.object(deriveAliasesObjectId(account)),
+				tx.pure.vector('address', [account, alias]),
+			],
 		});
 	return toBase64(await tx.build({ client: chain.client }));
 }

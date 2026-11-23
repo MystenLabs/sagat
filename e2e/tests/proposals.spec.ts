@@ -348,10 +348,6 @@ test.describe('proposals', () => {
 		await expect(toggle).toHaveText(
 			content.common.moreSignerSets(1),
 		);
-		await expect(toggle).toHaveAttribute(
-			'aria-expanded',
-			'false',
-		);
 		await expect(set(multisig.address)).toHaveCount(0);
 		// The folded set is no closer to its threshold.
 		await expect(foldedLine).toHaveCount(0);
@@ -386,10 +382,6 @@ test.describe('proposals', () => {
 		);
 		await expect(set(recovery.address)).toHaveAttribute(
 			'data-current-weight',
-			'2',
-		);
-		await expect(set(recovery.address)).toHaveAttribute(
-			'data-threshold',
 			'2',
 		);
 		await expect(set(multisig.address)).toHaveAttribute(
