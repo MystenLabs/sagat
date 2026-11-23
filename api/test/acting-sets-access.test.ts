@@ -4,15 +4,9 @@
 import {
 	defaultExpiry,
 	PersonalMessages,
+	SagatApiError,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { Transaction } from '@mysten/sui/transactions';
-import {
-	fromBase64,
-	normalizeSuiAddress,
-	toBase58,
-	toHex,
-} from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -43,19 +37,12 @@ import {
 	listInvitations,
 	removeProposer,
 } from '../src/services/multisig.service';
-import {
-	cancelProposal,
-	createProposal,
-	listProposals,
-	verifyProposal,
-	voteOnProposal,
-} from '../src/services/proposals.service';
+import { voteOnProposal } from '../src/services/proposals.service';
 import {
 	actingSetsOn,
 	ORIGINAL_SET,
 	type SignerScope,
 } from '../src/services/signers.service';
-import { type SuiNetwork } from '../src/utils/client';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -76,6 +63,14 @@ import {
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
 import { queryCount } from './setup/test-db';
+import {
+	cancelWith,
+	insertProposal,
+	offlineTransfer,
+	proposeWith,
+	signedBy,
+	voteWith,
+} from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
 
@@ -89,8 +84,8 @@ const NOT_A_MEMBER = new ApiAuthError('NotAMultisigMember');
 const CANNOT_CANCEL = new ValidationError(
 	'Not a member of the multisig',
 );
-const NOT_READY = new ValidationError(
-	'Proposal is not ready to execute',
+const NOT_EXECUTED = new ValidationError(
+	'The transaction has not been executed yet.',
 );
 
 let framework: ApiTestFramework;
@@ -99,6 +94,7 @@ beforeEach(async () => {
 	framework = new ApiTestFramework(await createTestApp());
 });
 
+// A route answers a service's refusal with its status and message.
 const expectRefused = async (
 	call: Promise<unknown>,
 	error: Error,
@@ -107,7 +103,11 @@ const expectRefused = async (
 		() => null,
 		(e: unknown) => e,
 	);
-	expect(thrown).toBeInstanceOf(error.constructor);
+	if (thrown instanceof SagatApiError)
+		expect(thrown.status).toBe(
+			error instanceof ApiAuthError ? 403 : 400,
+		);
+	else expect(thrown).toBeInstanceOf(error.constructor);
 	expect((thrown as Error).message).toBe(error.message);
 };
 
@@ -168,49 +168,6 @@ const createCast = async () => {
 	return { account, k1, k2, k3, r1, r2, composition };
 };
 
-const random = (length: number) =>
-	crypto.getRandomValues(new Uint8Array(length));
-
-// Transfer bytes from the account, built without the chain, on a made-up gas coin.
-const offlineTransfer = async (sender: string) => {
-	const tx = new Transaction();
-	tx.setSender(sender);
-	tx.setGasPrice(1000);
-	tx.setGasBudget(10_000_000);
-	tx.setGasPayment([
-		{
-			objectId: normalizeSuiAddress(toHex(random(32))),
-			version: '1',
-			digest: toBase58(random(32)),
-		},
-	]);
-	const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(1)]);
-	tx.transferObjects([coin], tx.pure.address(sender));
-	return (await tx.build()).toBase64();
-};
-
-// A pending proposal row, as a create on that network would leave it.
-const insertProposal = async (
-	account: string,
-	network: SuiNetwork,
-	proposerAddress: string,
-) => {
-	const transactionBytes = await offlineTransfer(account);
-	const [proposal] = await db
-		.insert(SchemaProposals)
-		.values({
-			accountAddress: account,
-			digest: await Transaction.from(
-				transactionBytes,
-			).getDigest(),
-			transactionBytes,
-			proposerAddress,
-			network,
-		})
-		.returning();
-	return proposal;
-};
-
 // Transfers from the account on localnet, each paying with its own coin.
 const fundedTransfers = async (
 	account: string,
@@ -228,7 +185,7 @@ const fundedTransfers = async (
 	);
 };
 
-const statusOf = async (proposal: Proposal) => {
+const statusOf = async (proposal: { id: number }) => {
 	const [{ status }] = await db
 		.select({ status: SchemaProposals.status })
 		.from(SchemaProposals)
@@ -302,62 +259,56 @@ const invitations = async (
 		})
 	).map((account) => account.signerSet.address);
 
+// Anyone may call the proposal write routes; the signature decides.
+const anyone = () => framework.createSession().v1;
+
+type ProposalRef = Pick<
+	Proposal,
+	'id' | 'digest' | 'accountAddress' | 'transactionBytes'
+> & { network: string };
+
 const propose = async (
 	user: TestUser,
 	account: string,
 	transactionBytes?: string,
-) => {
-	const bytes =
-		transactionBytes ?? (await offlineTransfer(account));
-	return createProposal({
-		multisigAddress: account,
-		transactionBytes: bytes,
-		signature: (
-			await user.keypair.signTransaction(fromBase64(bytes))
-		).signature,
+) =>
+	proposeWith(
+		anyone(),
+		user,
+		account,
+		transactionBytes ?? (await offlineTransfer(account)),
+	);
+
+// The routes serve localnet only, so a proposal on another network is voted on at service level.
+const vote = async (
+	user: TestUser,
+	proposal: ProposalRef,
+) =>
+	proposal.network === 'localnet'
+		? voteWith(anyone(), user, proposal)
+		: voteOnProposal({
+				proposalId: proposal.id,
+				signature: await signedBy(
+					user,
+					proposal.transactionBytes,
+				),
+				scopeKind: 'acting',
+			});
+
+const cancel = (user: TestUser, proposal: ProposalRef) =>
+	cancelWith(anyone(), user, proposal);
+
+const verify = (proposal: ProposalRef) =>
+	anyone().verifyProposal(proposal.digest);
+
+const proposalsOf = async (
+	user: TestUser,
+	account: string,
+) =>
+	(await framework.connectedSession(user)).v1.getProposals({
+		accountAddress: account,
 		network: 'localnet',
-		scopeKind: 'acting',
-	});
-};
-
-const vote = async (user: TestUser, proposal: Proposal) =>
-	voteOnProposal({
-		proposalId: proposal.id,
-		signature: (
-			await user.keypair.signTransaction(
-				fromBase64(proposal.transactionBytes),
-			)
-		).signature,
-		scopeKind: 'acting',
-	});
-
-const cancel = async (user: TestUser, proposal: Proposal) =>
-	cancelProposal({
-		proposalId: proposal.id,
-		signature: await sign(
-			user,
-			PersonalMessages.cancelProposal(
-				proposal.digest,
-				proposal.accountAddress,
-			),
-		),
-		scopeKind: 'acting',
-	});
-
-const verify = (user: TestUser, proposal: Proposal) =>
-	verifyProposal({
-		proposalId: proposal.id,
-		callerKeys: keysOf(user),
-		scopeKind: 'acting',
-	});
-
-const proposalsOf = (user: TestUser, account: string) =>
-	listProposals({
-		multisigAddress: account,
-		network: 'localnet',
-		cursor: { perPage: 20 },
-		callerKeys: keysOf(user),
-		scopeKind: 'acting',
+		perPage: 20,
 	});
 
 const changeProposer = async (
@@ -426,11 +377,14 @@ describe('access under the acting scope', () => {
 
 		const own = await propose(k1, account, first);
 		expect(
-			(await proposalsOf(k1, account)).data.map(
+			(await proposalsOf(k1, account)).proposals.map(
 				(p) => p.id,
 			),
 		).toEqual([own.id]);
-		await expectRefused(verify(k1, own), NOT_READY);
+		await expectRefused(verify(own), NOT_EXECUTED);
+		expect(await statusOf(own)).toBe(
+			ProposalStatus.PENDING,
+		);
 
 		const other = await propose(k2, account, second);
 		expect(
@@ -486,7 +440,7 @@ describe('access under the acting scope', () => {
 			cancel(r1, proposal),
 			CANNOT_CANCEL,
 		);
-		await expectRefused(verify(r1, proposal), NOT_A_MEMBER);
+		await expectRefused(verify(proposal), NOT_EXECUTED);
 		await expectRefused(
 			changeProposer('add', r1, account, newUser().address),
 			NOT_ACCEPTED,
@@ -545,7 +499,7 @@ describe('access under the acting scope', () => {
 		expect(await listed(r1)).toEqual([account]);
 		const proposal = await propose(r1, account, transfer);
 		expect(
-			(await proposalsOf(r1, account)).data.map(
+			(await proposalsOf(r1, account)).proposals.map(
 				(p) => p.id,
 			),
 		).toEqual([proposal.id]);

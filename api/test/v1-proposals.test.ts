@@ -9,33 +9,64 @@ import {
 import {
 	SagatResponseError,
 	SagatV1Client,
+	type Proposal,
 } from '@mysten/sagat/v1';
-import { fromBase64, toBase58 } from '@mysten/sui/utils';
+import {
+	fromBase64,
+	toBase58,
+	toBase64,
+} from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
 	expect,
+	setDefaultTimeout,
 	test,
 } from 'bun:test';
-import { eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
-import { SchemaProposals } from '../src/db/schema';
+import {
+	SchemaAccountAliases,
+	SchemaProposals,
+} from '../src/db/schema';
 import { ApiAuthError } from '../src/errors';
-import { voteOnProposal } from '../src/services/proposals.service';
+import {
+	buildAdd,
+	buildEnable,
+} from '../src/utils/aliases';
 import {
 	ApiTestFramework,
+	buildTransfer,
 	newUser,
+	refusal,
+	sendCoins,
+	sign,
 	type TestSession,
-	type TestUser,
 } from './framework/api-test-framework';
 import { register, setAliases } from './setup/acting-sets';
+import {
+	build,
+	execute,
+	expectSuccess,
+	multisigSigner,
+	run,
+} from './setup/localnet-transactions';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
+import { getLocalClient } from './setup/sui-network';
+import {
+	combinedSignature,
+	insertProposal,
+	proposeWith,
+	signedBy,
+	voteWith,
+} from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
+setDefaultTimeout(60_000);
 
 describe('GET /v1/proposals/:digest', () => {
 	let framework: ApiTestFramework;
@@ -64,9 +95,11 @@ describe('GET /v1/proposals/:digest', () => {
 			users[1],
 			multisig.address,
 		);
-		const created = await session.proposeTransfer(
+		const created = await proposeWith(
+			client,
 			users[0],
 			multisig.address,
+			await buildTransfer(multisig.address),
 			'Pay rent',
 		);
 		return { users, multisig, created };
@@ -244,27 +277,14 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			{ name: 'Treasury', fund: true },
 		);
 		await session.acceptMultisig(k2, account.address);
-		const created = await session.proposeTransfer(
+		const created = await proposeWith(
+			client,
 			k1,
 			account.address,
+			await buildTransfer(account.address),
 		);
 		return { k1, k2, account, created };
 	};
-
-	// A signature by a key outside the original set; no `/v1` vote route yet.
-	const signAsActing = async (
-		user: TestUser,
-		created: { id: number; transactionBytes: string },
-	) =>
-		voteOnProposal({
-			proposalId: created.id,
-			signature: (
-				await user.keypair.signTransaction(
-					fromBase64(created.transactionBytes),
-				)
-			).signature,
-			scopeKind: 'acting',
-		});
 
 	const setOf = (
 		multisig: {
@@ -317,7 +337,8 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		);
 		expect(before.hasReachedThreshold).toBe(false);
 
-		await signAsActing(k3, created);
+		const voted = await voteWith(client, k3, created);
+		expect(voted.hasReachedThreshold).toBe(true);
 
 		const after = await client.getProposalByDigest(
 			created.digest,
@@ -345,11 +366,13 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		expect(before.signerSets).toEqual([setOf(account, 1)]);
 		expect(before.hasReachedThreshold).toBe(false);
 
-		await expect(
-			signAsActing(key, created),
-		).rejects.toThrow(
-			new ApiAuthError('NotAMultisigMember'),
-		);
+		expect(
+			await refusal(voteWith(client, key, created)),
+		).toEqual({
+			status: 403,
+			message: new ApiAuthError('NotAMultisigMember')
+				.message,
+		});
 
 		const after = await client.getProposalByDigest(
 			created.digest,
@@ -430,5 +453,381 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		expect(proposal.signerSets).toEqual([
 			setOf(account, 1),
 		]);
+	});
+
+	test('an open proposal is counted again against the sets that act after a change', async () => {
+		const { k1, k2, account, created } =
+			await proposeFromA();
+		await voteWith(client, k2, created);
+		expect(
+			(await client.getProposalByDigest(created.digest))
+				.hasReachedThreshold,
+		).toBe(true);
+		// `k2` stays with a new weight and threshold; `k1` leaves.
+		const changed = await session.createMultisig(
+			[k2, newUser()],
+			3,
+			{ weights: [2, 1] },
+		);
+		await setAliases(account.address, 'localnet', [
+			changed.address,
+		]);
+
+		const read = await client.getProposalByDigest(
+			created.digest,
+		);
+		const {
+			proposals: [listed],
+		} = await client.getProposals({
+			accountAddress: account.address,
+			network: 'localnet',
+		});
+
+		for (const proposal of [read, listed]) {
+			expect(
+				proposal.signatures.map((s) => s.publicKey),
+			).toEqual(
+				expect.arrayContaining([
+					k1.publicKey,
+					k2.publicKey,
+				]),
+			);
+			expect(proposal.signatures).toHaveLength(2);
+			expect(proposal.signerSets).toEqual([
+				setOf(changed, 2),
+			]);
+			expect(proposal.hasReachedThreshold).toBe(false);
+		}
+	});
+});
+
+describe('/v1 proposal writes and the list', () => {
+	let session: TestSession;
+	let client: SagatV1Client;
+
+	beforeEach(async () => {
+		session = new ApiTestFramework(
+			await createTestApp(),
+		).createSession();
+		client = session.v1;
+	});
+
+	// `k1` and `k2` accepted, 2 of 2, funded.
+	const createAccount = async () => {
+		const [k1, k2] = [newUser(), newUser()];
+		for (const user of [k1, k2])
+			await session.connectUser(user);
+		const account = await session.createMultisig(
+			[k1, k2],
+			2,
+			{ fund: true },
+		);
+		await session.acceptMultisig(k2, account.address);
+		return { k1, k2, address: account.address };
+	};
+
+	test('create answers 201 with the proposal, and the list returns the account’s proposals on that network', async () => {
+		const { k1, k2, address } = await createAccount();
+		const transactionBytes = await buildTransfer(address);
+
+		const response = await session.post(
+			'/v1/proposals?network=localnet',
+			{
+				accountAddress: address,
+				transactionBytes,
+				signature: await signedBy(k1, transactionBytes),
+			},
+		);
+		const created = await response.json();
+
+		expect(response.status).toBe(201);
+		expect(created).toEqual(
+			await client.getProposalByDigest(created.digest),
+		);
+
+		const other = await session.createMultisig([k1, k2], 1);
+		await insertProposal(address, 'testnet', k1.address);
+		await insertProposal(
+			other.address,
+			'localnet',
+			k1.address,
+		);
+		const list = await client.getProposals({
+			accountAddress: address,
+			network: 'localnet',
+		});
+		expect(list.network).toBe('localnet');
+		expect(list.accountAddress).toBe(address);
+		expect(list.proposals.map((p) => p.digest)).toEqual([
+			created.digest,
+		]);
+	});
+
+	test('a well-formed digest with no proposal is a 404 and a malformed one a 400 on vote, cancel and verify', async () => {
+		const signature = await sign(newUser(), 'any message');
+		const refusalsFor = (digest: string) =>
+			Promise.all(
+				[
+					client.voteForProposal(digest, { signature }),
+					client.cancelProposal(digest, { signature }),
+					client.verifyProposal(digest),
+				].map(refusal),
+			);
+
+		expect(
+			await refusalsFor(
+				toBase58(new Uint8Array(32).fill(7)),
+			),
+		).toEqual(
+			Array(3).fill({
+				status: 404,
+				message: 'The requested resource was not found.',
+			}),
+		);
+		expect(await refusalsFor('not-a-digest')).toEqual(
+			Array(3).fill({
+				status: 400,
+				message:
+					'digest: The transaction digest provided is invalid.',
+			}),
+		);
+	});
+
+	test('a proposal that calls the alias module reports its calls, and an external proposer’s is refused', async () => {
+		const { k1, k2, address } = await createAccount();
+		const proposer = newUser();
+		await session.addProposer(
+			k1,
+			proposer.address,
+			address,
+		);
+		expectSuccess(
+			await run(
+				address,
+				multisigSigner('A', [k1.keypair, k2.keypair], 2),
+				buildEnable,
+			),
+		);
+		const alias = newUser().address;
+		const bytes = toBase64(
+			await build(address, (tx) =>
+				buildAdd(tx, { account: address, alias }),
+			),
+		);
+
+		expect(
+			await refusal(
+				proposeWith(client, proposer, address, bytes),
+			),
+		).toEqual({
+			status: 403,
+			message: new ApiAuthError('AliasCallByProposer')
+				.message,
+		});
+
+		const created = await proposeWith(
+			client,
+			k1,
+			address,
+			bytes,
+		);
+		expect(created.aliasCalls).toEqual([
+			{ function: 'add', aliases: [alias] },
+		]);
+	});
+});
+
+describe('POST /v1/proposals/:digest/verify on the chain', () => {
+	let session: TestSession;
+	let client: SagatV1Client;
+
+	beforeEach(async () => {
+		session = new ApiTestFramework(
+			await createTestApp(),
+		).createSession();
+		client = session.v1;
+	});
+
+	// Account `A`: `k1` and `k2` accepted, 2 of 2, funded.
+	const createAccount = async () => {
+		const [k1, k2] = [newUser(), newUser()];
+		for (const user of [k1, k2])
+			await session.connectUser(user);
+		const account = await session.createMultisig(
+			[k1, k2],
+			2,
+			{ fund: true },
+		);
+		await session.acceptMultisig(k2, account.address);
+		const signer = multisigSigner(
+			'A',
+			[k1.keypair, k2.keypair],
+			2,
+		);
+		expect(signer.address).toBe(account.address);
+		return { k1, k2, address: account.address, signer };
+	};
+
+	// Executes the proposal with the API's signatures of `setAddress`, then verifies it.
+	const executeVia = async (
+		proposal: Proposal,
+		setAddress: string,
+	) => {
+		const set = proposal.signerSets.find(
+			(s) => s.address === setAddress,
+		)!;
+		const [key] = set.members;
+		const signature =
+			set.members.length === 1
+				? proposal.signatures.find(
+						(s) => s.publicKey === key.publicKey,
+					)!.signature
+				: combinedSignature(set, proposal.signatures);
+		expectSuccess(
+			await execute(
+				fromBase64(proposal.transactionBytes),
+				signature,
+			),
+		);
+		return client.verifyProposal(proposal.digest);
+	};
+
+	test('records the address that signed for the account: the original set, another set, or a single key', async () => {
+		const { k1, k2, address, signer } =
+			await createAccount();
+		const k3 = newUser();
+		const other = await session.createMultisig([k1, k3], 2);
+		const key = newUser();
+		await register(key);
+		expectSuccess(await run(address, signer, buildEnable));
+		for (const alias of [other.address, key.address])
+			expectSuccess(
+				await run(address, signer, (tx) =>
+					buildAdd(tx, { account: address, alias }),
+				),
+			);
+		await sendCoins(address, 3);
+		const { objects: coins } =
+			await getLocalClient().listCoins({ owner: address });
+		const transfers = await Promise.all(
+			coins
+				.slice(0, 3)
+				.map((gasCoin) =>
+					buildTransfer(address, { gasCoin }),
+				),
+		);
+
+		const executedVia = [];
+		for (const [i, [voter, setAddress]] of (
+			[
+				[k2, address],
+				[k3, other.address],
+				[key, key.address],
+			] as const
+		).entries()) {
+			const created = await proposeWith(
+				client,
+				k1,
+				address,
+				transfers[i],
+			);
+			const verified = await executeVia(
+				await voteWith(client, voter, created),
+				setAddress,
+			);
+			expect(verified.status).toBe(ProposalStatus.SUCCESS);
+			executedVia.push(verified.executedVia);
+		}
+
+		expect(executedVia).toEqual([
+			address,
+			other.address,
+			key.address,
+		]);
+	});
+
+	test('a proposal executed with signatures the API never saw verifies with no threshold check', async () => {
+		const { k1, k2, address } = await createAccount();
+		const created = await proposeWith(
+			client,
+			k1,
+			address,
+			await buildTransfer(address),
+		);
+		expect(created.hasReachedThreshold).toBe(false);
+
+		const unseen = {
+			publicKey: k2.publicKey,
+			signature: await signedBy(
+				k2,
+				created.transactionBytes,
+			),
+		};
+		expectSuccess(
+			await execute(
+				fromBase64(created.transactionBytes),
+				combinedSignature(created.signerSets[0], [
+					...created.signatures,
+					unseen,
+				]),
+			),
+		);
+		const verified = await client.verifyProposal(
+			created.digest,
+		);
+
+		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(verified.executedVia).toBe(address);
+		expect(verified.signatures).toHaveLength(1);
+	});
+
+	test('an executed alias call refreshes the mirror at verify, while the alias state is still fresh', async () => {
+		const { k1, k2, address, signer } =
+			await createAccount();
+		const other = await session.createMultisig(
+			[k1, newUser()],
+			2,
+		);
+		expectSuccess(await run(address, signer, buildEnable));
+		const bytes = toBase64(
+			await build(address, (tx) =>
+				buildAdd(tx, {
+					account: address,
+					alias: other.address,
+				}),
+			),
+		);
+		// The create reads the chain, so the alias state is fresh from here on.
+		const created = await proposeWith(
+			client,
+			k1,
+			address,
+			bytes,
+		);
+		expect(
+			created.signerSets.map((s) => s.address),
+		).toEqual([address]);
+
+		const verified = await executeVia(
+			await voteWith(client, k2, created),
+			address,
+		);
+
+		const expected = [address, other.address].sort();
+		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(
+			verified.signerSets.map((s) => s.address),
+		).toEqual(expected);
+		const rows = await db
+			.select({ alias: SchemaAccountAliases.aliasAddress })
+			.from(SchemaAccountAliases)
+			.where(
+				and(
+					eq(SchemaAccountAliases.accountAddress, address),
+					eq(SchemaAccountAliases.network, 'localnet'),
+				),
+			)
+			.orderBy(asc(SchemaAccountAliases.aliasAddress));
+		expect(rows.map((r) => r.alias)).toEqual(expected);
 	});
 });
