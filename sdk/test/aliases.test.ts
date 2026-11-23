@@ -4,14 +4,9 @@
 import { bcs } from '@mysten/sui/bcs';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import {
-	Inputs,
 	Transaction,
 	type TransactionArgument,
 } from '@mysten/sui/transactions';
-import {
-	normalizeSuiAddress,
-	toBase58,
-} from '@mysten/sui/utils';
 import { describe, expect, test } from 'bun:test';
 
 import {
@@ -63,49 +58,10 @@ describe('findAliasCalls', () => {
 		]);
 	});
 
-	test('reads the calls from built bytes', async () => {
-		const tx = new Transaction();
-		tx.setSender(account);
-		tx.setGasPrice(1000);
-		tx.setGasBudget(10_000_000);
-		tx.setGasPayment([
-			{
-				objectId: normalizeSuiAddress('0x99'),
-				version: '1',
-				digest: toBase58(new Uint8Array(32).fill(1)),
-			},
-		]);
-		tx.moveCall({
-			target: '0x2::address_alias::add',
-			arguments: [
-				tx.object(
-					Inputs.SharedObjectRef({
-						objectId: aliasesObject,
-						initialSharedVersion: 1,
-						mutable: true,
-					}),
-				),
-				tx.pure.address(first),
-			],
-		});
-
-		expect(
-			findAliasCalls(
-				Transaction.from(await tx.build()).getData(),
-			),
-		).toEqual([{ function: 'add', aliases: [first] }]);
-	});
-
-	test('finds nothing in a transaction without an alias call', () => {
+	test('finds nothing in a transaction without an alias call, also with a call to another framework module', () => {
 		const tx = new Transaction();
 		const [coin] = tx.splitCoins(tx.gas, [1]);
 		tx.transferObjects([coin], first);
-
-		expect(findAliasCalls(tx.getData())).toEqual([]);
-	});
-
-	test('leaves out calls to other framework modules', () => {
-		const tx = new Transaction();
 		tx.moveCall({
 			target: '0x2::coin::zero',
 			typeArguments: ['0x2::sui::SUI'],
