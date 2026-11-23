@@ -34,7 +34,8 @@ export type PodChecks =
 
 /**
  * A pod as the signed-in key sees it on the selected network. `threshold`
- * and `members` are of the signer set the key signs in.
+ * and `members` are of the signer set the key signs in once rule 2 is
+ * `ok`, of the original set before.
  */
 export type MultisigWithMembersForPublicKey = Account & {
 	threshold: number;

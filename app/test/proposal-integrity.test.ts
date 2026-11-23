@@ -206,24 +206,38 @@ test('of two shown sets, only the one that is an alias acts', () => {
 	).toBe('refused');
 });
 
-test('a /v1 pod shows its signer sets as acting, a legacy proposal its one composition', () => {
-	const { multisig } = oneOfTwoAccount();
+test('the original set acts when the node lists the pod’s own address, though the API leaves it out', () => {
+	const { address, keys, multisig } = oneOfTwoAccount();
 	const current = oneOfTwoAccount();
-	const signerSets = [
-		{ kind: 'signer_set' as const, ...current.multisig },
-	].map((set) => ({
+	const withAnswers = (set: typeof multisig) => ({
 		...set,
 		members: set.members.map((m) => ({
 			...m,
 			answer: 'accepted' as const,
 			label: null,
 		})),
-	}));
-	// A row carries its own threshold and members beside the sets.
-	const pod = { ...multisig, signerSets };
+	});
+	const pod = {
+		address,
+		originalSignerSet: withAnswers(multisig),
+		signerSets: [
+			{
+				kind: 'signer_set' as const,
+				...withAnswers(current.multisig),
+			},
+		],
+	};
 
-	expect(shownActingSets(pod)).toBe(signerSets);
-	expect(shownActingSets(multisig)).toEqual([multisig]);
+	const acting = podActing(
+		shownActingSets(pod),
+		{ kind: 'read', aliases: [address, current.address] },
+		keys[0].toSuiAddress(),
+	);
+	expect(acting.state).toBe('ok');
+	expect(
+		acting.signerSets.map((set) => set.address),
+	).toEqual([current.address, address]);
+	expect(acting.unidentified).toEqual([]);
 });
 
 const CHAIN = toBase58(new Uint8Array(32).fill(1));

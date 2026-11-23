@@ -8,15 +8,15 @@ import { expect, test } from 'vitest';
 
 import {
 	toUserMultisig,
-	viewerSignerSet,
 	withActing,
+	withListedChecks,
 } from '../src/lib/user-multisig';
 
-/** A 1-of-2 signer set of fresh keys, every key accepted. */
+/** A signer set of fresh keys of weight 1, 1-of-2 by default, every key accepted. */
 function signerSet(
 	keys = [new Ed25519Keypair(), new Ed25519Keypair()],
+	threshold = 1,
 ) {
-	const threshold = 1;
 	const address = MultiSigPublicKey.fromPublicKeys({
 		threshold,
 		publicKeys: keys.map((key) => ({
@@ -160,33 +160,6 @@ test('a key only in a shown set that is no alias is refused as not acting', () =
 	).toMatchObject({ refused: 'notActing', acting: null });
 });
 
-test('the key’s set is the first shown set that holds it, else the original set', () => {
-	const { multisig, signer } = pod();
-	const recovery = signerSet([
-		new Ed25519Keypair(),
-		new Ed25519Keypair(),
-	]);
-	const sets = [
-		{ kind: 'signer_set' as const, ...recovery.set },
-		...multisig.signerSets,
-	];
-
-	expect(
-		viewerSignerSet(
-			sets,
-			multisig.originalSignerSet,
-			signer.address,
-		),
-	).toBe(sets[1]);
-	expect(
-		viewerSignerSet(
-			sets.slice(0, 1),
-			multisig.originalSignerSet,
-			signer.address,
-		),
-	).toBe(multisig.originalSignerSet);
-});
-
 test('a row refused as not acting carries the node’s aliases only when no shown set is one', () => {
 	const { address, multisig } = pod();
 	const other = pod();
@@ -222,4 +195,38 @@ test('a row refused as not acting carries the node’s aliases only when no show
 		refused: 'notActing',
 		unidentified: [],
 	});
+});
+
+test('a row and the new-proposal copy read the threshold of a set that is an alias, never of one that is not', () => {
+	const { multisig } = pod();
+	const original = signerSet(undefined, 2);
+	const viewer = new Ed25519Keypair();
+	const fake = signerSet([viewer, new Ed25519Keypair()], 1);
+	const real = signerSet(
+		[viewer, new Ed25519Keypair(), new Ed25519Keypair()],
+		3,
+	);
+	const account: Account = {
+		...multisig,
+		address: original.set.address,
+		originalSignerSet: original.set,
+		signerSets: [
+			{ kind: 'signer_set', ...fake.set },
+			{ kind: 'signer_set', ...real.set },
+		],
+	};
+	const signer = signerOf(viewer);
+	const checking = toUserMultisig(account, signer);
+	const listed = withActing(
+		checking,
+		{ kind: 'read', aliases: [real.set.address] },
+		signer,
+	);
+
+	// Before rule 2, the original set's; after, the real set's.
+	expect(checking.threshold).toBe(2);
+	expect(listed.threshold).toBe(3);
+	expect(withListedChecks(listed, checking).threshold).toBe(
+		3,
+	);
 });

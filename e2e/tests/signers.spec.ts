@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	defaultExpiry,
+	PersonalMessages,
+} from '@mysten/sagat';
 import { type AccountDetails } from '@mysten/sagat/v1';
 import {
 	formatAddress,
@@ -17,25 +20,18 @@ import { docsUrl } from '../../app/src/lib/docs';
 import { randomAddress } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
-import { type Identity } from '../support/identity';
+import { isAccountListRead } from '../support/requests';
 import {
 	addAlias,
 	addProposer,
+	bothSign,
 	proposeTransfer,
+	replaceOwnAlias,
 	setupMultisig,
 	signInViaApi,
 	signProposal,
 } from '../support/scenarios';
 import { mintTestCoin } from '../support/test-coin';
-
-/** The signing for an alias change of a 2-of-2 pod of `a` and `b`. */
-function bothSign(a: Identity, b: Identity) {
-	return {
-		members: [{ identity: a }, { identity: b }],
-		threshold: 2,
-		signers: [a, b],
-	};
-}
 
 test.describe('overview and signers', () => {
 	test('show the setup, each key by its label and weight, and who created it', async ({
@@ -964,12 +960,7 @@ test.describe('overview and signers', () => {
 
 		const { page } = alice;
 		// The first /v1 read has the API keep this alias set for a minute.
-		const listed = page.waitForResponse(
-			(response) =>
-				new URL(response.url()).pathname.endsWith(
-					'/v1/accounts',
-				) && response.ok(),
-		);
+		const listed = page.waitForResponse(isAccountListRead);
 		await alice.signIn();
 		await listed;
 		await page.goto(
@@ -1042,5 +1033,77 @@ test.describe('overview and signers', () => {
 				`/multisig/${recovery.address}/overview`,
 			);
 		});
+	});
+
+	test('show the original signers apart once their set no longer acts', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = createIdentity('bob');
+		const carol = await createActor('carol');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			name: 'Treasury',
+		});
+		const recovery = await setupMultisig({
+			creator: carol,
+			members: [createIdentity('dave')],
+			threshold: 2,
+			name: 'Recovery',
+		});
+		await chain.fund(multisig.address);
+		// Before the pod's first /v1 read, so the API sees it at once.
+		await replaceOwnAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		// Carol accepts through the added set.
+		const expiry = defaultExpiry();
+		await carol.apiV1.acceptAccountInvite(
+			multisig.address,
+			{
+				network: 'localnet',
+				signature: await carol.signMessage(
+					PersonalMessages.acceptAccountInvitation(
+						multisig.address,
+						expiry,
+					),
+				),
+				expiry,
+			},
+		);
+
+		await carol.signIn();
+		const { page } = carol;
+		await page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		const cards = page.getByTestId('signers-card');
+		const body = page.getByTestId('original-signers-body');
+		const acting = cards.filter({ hasNot: body });
+		const original = cards.filter({ has: body });
+		await expect(acting).toHaveCount(1);
+		await expect(acting).toHaveAttribute(
+			'data-signer-set',
+			recovery.address,
+		);
+		await expect(original).toHaveCount(1);
+		const members = original.getByTestId('member-item');
+		await expect(members).toHaveCount(2);
+		await expect(
+			members.and(
+				page.locator(`[data-address="${alice.address}"]`),
+			),
+		).toBeVisible();
+		await expect(
+			members.and(
+				page.locator(`[data-address="${bob.address}"]`),
+			),
+		).toBeVisible();
 	});
 });

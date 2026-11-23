@@ -269,6 +269,15 @@ async function runFromMultisig(
 	});
 }
 
+// The signing for an alias change of a 2-of-2 pod of `a` and `b`, both signing.
+export function bothSign(a: Identity, b: Identity) {
+	return {
+		members: [{ identity: a }, { identity: b }],
+		threshold: 2,
+		signers: [a, b],
+	};
+}
+
 // Adds `alias` to the multisig's alias set on chain, enabling it if needed.
 export async function addAlias(
 	chain: Chain,

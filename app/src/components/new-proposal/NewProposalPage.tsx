@@ -53,6 +53,7 @@ import {
 } from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { withListedChecks } from '@/lib/user-multisig';
 import { SignatureDeclinedError } from '@/lib/wallet-session';
 
 import { BytesDetailsStep } from './BytesDetailsStep';
@@ -124,17 +125,10 @@ function NewProposalWizard({
 	const { dryRun, analysis, preview, reset } =
 		useTransactionPreview();
 
-	// The account query keeps the weights fresh; the list's copy stands
+	// The account query keeps the answers fresh; the list's copy stands
 	// in until it answers, or when it fails. Rule 2 stays the list's.
 	const { data: details } = useGetMultisig(listed.address);
-	const multisig: MultisigWithMembersForPublicKey = details
-		? {
-				...details,
-				...(listed.refused
-					? { refused: listed.refused, acting: null }
-					: { refused: null, acting: listed.acting }),
-			}
-		: listed;
+	const multisig = withListedChecks(listed, details);
 	const signers = wallet
 		? checkAccountSigners(
 				{

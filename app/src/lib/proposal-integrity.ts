@@ -4,7 +4,10 @@
 // Checks a proposal's bytes against what the app can work out for itself
 // before the wallet is asked to sign them.
 import { type PublicProposal } from '@mysten/sagat';
-import { type ActingSignerSet } from '@mysten/sagat/v1';
+import type {
+	Account,
+	ActingSignerSet,
+} from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
@@ -206,21 +209,40 @@ export function checkActingSets<S extends AccountSigners>(
 	return { kind: 'checked', acting, refused, unidentified };
 }
 
+/** A `/v1` pod as `shownActingSets` reads it. */
+export type ShownPod = Pick<
+	Account,
+	'address' | 'originalSignerSet' | 'signerSets'
+>;
+
 /**
  * The signer sets a response shows as acting: a `/v1` pod's
- * `signerSets`, or the one composition of a legacy proposal's
+ * `signerSets`, with its original set when none of them makes up the
+ * pod's address, or the one composition of a legacy proposal's
  * `multisig`.
  */
-export function shownActingSets(pod: {
-	signerSets: ActingSignerSet[];
-}): ActingSignerSet[];
+export function shownActingSets(
+	pod: ShownPod,
+): ActingSignerSet[];
 export function shownActingSets(
 	multisig: AccountSigners,
 ): AccountSigners[];
 export function shownActingSets(
-	pod: { signerSets: ActingSignerSet[] } | AccountSigners,
+	pod: ShownPod | AccountSigners,
 ): AccountSigners[] {
-	return 'signerSets' in pod ? pod.signerSets : [pod];
+	if (!('signerSets' in pod)) return [pod];
+	// Whether the original set acts is the node's to say, not the API's.
+	if (
+		pod.signerSets.some((set) =>
+			rebuildAccount(set, pod.address),
+		)
+	)
+		return pod.signerSets;
+	const original: ActingSignerSet = {
+		kind: 'signer_set',
+		...pod.originalSignerSet,
+	};
+	return [...pod.signerSets, original];
 }
 
 /** Rule 2 for a pod on one network; `checking` until its alias set is read. */

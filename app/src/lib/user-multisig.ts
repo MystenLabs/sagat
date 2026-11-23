@@ -13,6 +13,7 @@ import {
 	isMember,
 	podActing,
 	shownActingSets,
+	type ShownPod,
 } from './proposal-integrity';
 import { sumWeight } from './threshold';
 import {
@@ -37,26 +38,31 @@ export function viewerSignerSet(
 
 /** `publicKey`'s answer for the pod, from the sets shown as acting; null when none holds it. */
 export function keyAnswer(
-	account: Pick<Account, 'signerSets'>,
+	account: ShownPod,
 	publicKey: string,
 ): KeyAnswer | null {
 	for (const set of shownActingSets(account)) {
-		const member = set.members.find(
-			(m) => m.publicKey === publicKey,
-		);
-		if (member) return member.answer;
+		const answer = memberAnswer(set, publicKey);
+		if (answer) return answer;
 	}
 	return null;
 }
 
-/** The fields a row reads off the set the signed-in key signs in. */
+function memberAnswer(
+	set: AccountSignerSet,
+	publicKey: string,
+): KeyAnswer | null {
+	return (
+		set.members.find((m) => m.publicKey === publicKey)
+			?.answer ?? null
+	);
+}
+
+/** The fields a row reads off a signer set, with the signed-in key's `answer`. */
 function viewedThrough(
 	set: AccountSignerSet,
-	signer: Signer,
+	answer: KeyAnswer | null,
 ) {
-	const answer = set.members.find(
-		(member) => member.publicKey === signer.publicKey,
-	)?.answer;
 	return {
 		threshold: set.threshold,
 		members: set.members,
@@ -72,7 +78,11 @@ function viewedThrough(
 	};
 }
 
-/** An account from the API as the signed-in key sees it, with rule 1 applied and rule 2 `checking`. */
+/**
+ * An account from the API as the signed-in key sees it, with rule 1
+ * applied and rule 2 `checking`. Until rule 2 passes, the row reads the
+ * original set; the key's answer is from whichever shown set holds it.
+ */
 export function toUserMultisig<A extends Account>(
 	account: A,
 	signer: Signer,
@@ -94,12 +104,8 @@ export function toUserMultisig<A extends Account>(
 	return {
 		...account,
 		...viewedThrough(
-			viewerSignerSet(
-				account.signerSets,
-				account.originalSignerSet,
-				signer.address,
-			),
-			signer,
+			account.originalSignerSet,
+			keyAnswer(account, signer.publicKey),
 		),
 		...checks,
 	};
@@ -133,16 +139,17 @@ export function withActing(
 				acting: null,
 				unidentified: acting.unidentified,
 			};
-		case 'ok':
+		case 'ok': {
+			const set = viewerSignerSet(
+				acting.signerSets,
+				row.originalSignerSet,
+				signer.address,
+			);
 			return {
 				...row,
 				...viewedThrough(
-					viewerSignerSet(
-						acting.signerSets,
-						row.originalSignerSet,
-						signer.address,
-					),
-					signer,
+					set,
+					memberAnswer(set, signer.publicKey),
 				),
 				refused: null,
 				acting: {
@@ -151,6 +158,7 @@ export function withActing(
 					unidentified: acting.unidentified,
 				},
 			};
+		}
 		default:
 			return {
 				...row,
@@ -158,4 +166,38 @@ export function withActing(
 				acting: { state: acting.state },
 			};
 	}
+}
+
+/**
+ * The account query's fresher copy of a listed row, under the row's
+ * checks. Once rule 2 passed, the threshold and members stay the row's,
+ * from the sets that passed.
+ */
+export function withListedChecks(
+	listed: MultisigWithMembersForPublicKey,
+	details: MultisigWithMembersForPublicKey | undefined,
+): MultisigWithMembersForPublicKey {
+	if (!details) return listed;
+	if (listed.refused)
+		return {
+			...details,
+			refused: listed.refused,
+			acting: null,
+		};
+	if (listed.acting.state !== 'ok')
+		return {
+			...details,
+			refused: null,
+			acting: listed.acting,
+		};
+	return {
+		...details,
+		threshold: listed.threshold,
+		members: listed.members,
+		totalWeight: listed.totalWeight,
+		pendingMembers: listed.pendingMembers,
+		rejectedMembers: listed.rejectedMembers,
+		refused: null,
+		acting: listed.acting,
+	};
 }

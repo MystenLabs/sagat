@@ -48,3 +48,14 @@ export function isInboxRead(response: Response) {
 		!searchParams.has('showRejected')
 	);
 }
+
+/** Whether `response` is a successful load of the account list. */
+export function isAccountListRead(response: Response) {
+	return (
+		response.request().method() === 'GET' &&
+		new URL(response.url()).pathname.endsWith(
+			'/v1/accounts',
+		) &&
+		response.ok()
+	);
+}

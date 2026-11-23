@@ -8,6 +8,7 @@ import { isInboxRead } from '../support/requests';
 import {
 	acceptInvitation,
 	addAlias,
+	bothSign,
 	setupMultisig,
 	signInViaApi,
 } from '../support/scenarios';
@@ -558,11 +559,7 @@ test.describe('invitations', () => {
 		await chain.fund(multisig.address);
 		await addAlias(
 			chain,
-			{
-				members: [{ identity: alice }, { identity: bob }],
-				threshold: 2,
-				signers: [alice, bob],
-			},
+			bothSign(alice, bob),
 			recovery.address,
 		);
 		// The API ties Carol to the pod once it reads the pod's alias set.

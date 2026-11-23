@@ -39,7 +39,6 @@ import {
 	test,
 	type Fixtures,
 } from '../support/fixtures';
-import { type Identity } from '../support/identity';
 import {
 	isVoteRequest,
 	recordCreates,
@@ -47,12 +46,14 @@ import {
 	sharedAccount,
 } from '../support/new-proposal';
 import {
+	isAccountListRead,
 	isInboxRead,
 	routeAliasReads,
 } from '../support/requests';
 import {
 	addAlias,
 	addProposer,
+	bothSign,
 	proposeTransfer,
 	removeAlias,
 	replaceOwnAlias,
@@ -74,15 +75,6 @@ function failAliasReads(page: Page, pod: string) {
 	return routeAliasReads(page, pod, (route) =>
 		route.abort(),
 	);
-}
-
-/** Alice and Bob sign together for their 2-of-2 pod, outside the app. */
-function bothSign(alice: Identity, bob: Identity) {
-	return {
-		members: [{ identity: alice }, { identity: bob }],
-		threshold: 2,
-		signers: [alice, bob],
-	};
 }
 
 /** Offline-built bytes of a SUI transfer from `sender` naming another chain. */
@@ -812,10 +804,7 @@ test.describe('proposal integrity', () => {
 		const votes = recordVotes(bob.page);
 		// Read before the change, so the API serves its unchanged mirror for a minute.
 		const listed = bob.page.waitForResponse(
-			(response) =>
-				new URL(response.url()).pathname.endsWith(
-					'/v1/accounts',
-				) && response.ok(),
+			isAccountListRead,
 		);
 		await bob.signIn();
 		await listed;

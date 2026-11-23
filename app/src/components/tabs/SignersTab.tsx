@@ -113,7 +113,7 @@ export function SignersTab() {
 			/>
 		);
 
-	// Until the node's alias set is read, the set the API says the viewer signs in.
+	// Until the node's alias set is read, the original set.
 	const viewed = cards?.[0]?.set ?? account;
 	const rows = signerRows(viewed.members, signerAddress);
 	const status = signerSetStatus(rows, viewed.threshold);
