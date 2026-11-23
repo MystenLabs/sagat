@@ -14,6 +14,7 @@ import { toBase64 } from '@mysten/sui/utils';
 import { fetchAliasSet } from '../../src/utils/aliases';
 import { parsePublicKey } from '../../src/utils/pubKey';
 import {
+	newUser,
 	sendCoins,
 	signedBy,
 	type TestSession,
@@ -185,3 +186,88 @@ export const proposeChange = async (
 		signature: await signedBy(proposer, transactionBytes),
 		labels,
 	});
+
+/**
+ * The design's cast: account `A` with `S1` = 2-of-3 of `k1`, `k2`, `k3`,
+ * funded; `S2` = `k1`, `k2`, `k4`; `S3` = 3-of-3 of `S1`'s keys. Keys in
+ * `unaccepted` never accept `A`. Signer changes are allowed unless `allow` is false.
+ */
+export const createCast = async (
+	session: TestSession,
+	{
+		unaccepted = [],
+		allow = true,
+	}: { unaccepted?: number[]; allow?: boolean } = {},
+) => {
+	const [k1, k2, k3, k4] = Array.from(
+		{ length: 4 },
+		newUser,
+	);
+	for (const [i, key] of [k1, k2, k3].entries())
+		if (!unaccepted.includes(i + 1))
+			await session.connectUser(key);
+	const { address: A } = await session.createMultisig(
+		[k1, k2, k3],
+		2,
+		{ fund: true },
+	);
+	if (allow) await allowSignerChanges(session, A, [k1, k2]);
+	return {
+		k1,
+		k2,
+		k3,
+		k4,
+		A,
+		S1: compositionOf([k1, k2, k3], 2),
+		S2: compositionOf([k1, k2, k4], 2),
+		S3: compositionOf([k1, k2, k3], 3),
+	};
+};
+
+export type Cast = Awaited<ReturnType<typeof createCast>>;
+
+type CastChangeOptions = {
+	// `A` and `[S1]` unless given.
+	oldSet?: string;
+	known?: KnownSigner[];
+	gasCoin?: GasCoin;
+	epoch?: bigint;
+};
+
+// The bytes of the cast's change to `newSet`, from `S1` unless `oldSet` is given.
+export const buildCastChange = (
+	{ A, S1 }: Cast,
+	newSet: Composition,
+	{
+		oldSet = A,
+		known = [S1],
+		...rest
+	}: CastChangeOptions = {},
+) =>
+	buildChange({
+		account: A,
+		oldSet,
+		newSet,
+		known,
+		...rest,
+	});
+
+// The cast's change to `newSet`, proposed by `k1` through `/v1`.
+export const proposeCastChange = async (
+	session: TestSession,
+	cast: Cast,
+	newSet: Composition,
+	{
+		labels,
+		...options
+	}: CastChangeOptions & {
+		labels?: (string | null)[];
+	} = {},
+) =>
+	proposeChange(
+		session,
+		cast.k1,
+		cast.A,
+		await buildCastChange(cast, newSet, options),
+		labels,
+	);

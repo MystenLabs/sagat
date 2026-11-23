@@ -1,10 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// Proposing a signer change on the local network, through the `/v1` routes.
-// The cast is the design's: account `A` with `S1` = 2-of-3 of `k1`, `k2`,
-// `k3`; `S2` = `k1`, `k2`, `k4`; `S3` = 3-of-3 of `S1`'s keys; `S4` = `k4`,
-// `k5`.
+// Proposing a signer change on the local network, through the `/v1` routes,
+// with the cast of `setup/signer-changes`.
 
 import { buildAdd, buildEnable } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
@@ -45,12 +43,15 @@ import {
 import {
 	addressOf,
 	allowSignerChanges,
-	buildChange,
+	buildCastChange,
 	buildFrom,
 	compositionOf,
+	createCast,
 	currentEpoch,
 	gasCoins,
+	proposeCastChange,
 	proposeChange,
+	type Cast,
 } from './setup/signer-changes';
 
 setupSharedTestEnvironment();
@@ -61,6 +62,8 @@ const localEpoch = await currentEpoch();
 const STALE =
 	'The signers of this account changed since the signer change was built. Build it again from the current signers.';
 const NOT_STAYING = new ApiAuthError('NotASignerWhoStays')
+	.message;
+const NOT_A_MEMBER = new ApiAuthError('NotAMultisigMember')
 	.message;
 const pendingAliasProposal = (digest: string) =>
 	`Another proposal that changes who controls this account on localnet is pending (${digest}). Execute or cancel it first.`;
@@ -73,61 +76,6 @@ describe('POST /v1/proposals with a signer change', () => {
 		framework = new ApiTestFramework(await createTestApp());
 		session = framework.createSession();
 	});
-
-	// `A` with `S1`, funded. Keys in `unaccepted` never accept it. Signer changes are allowed unless `allow` is false.
-	const createCast = async ({
-		unaccepted = [],
-		allow = true,
-	}: { unaccepted?: number[]; allow?: boolean } = {}) => {
-		const [k1, k2, k3, k4, k5] = Array.from(
-			{ length: 5 },
-			newUser,
-		);
-		for (const [i, key] of [k1, k2, k3].entries())
-			if (!unaccepted.includes(i + 1))
-				await session.connectUser(key);
-		const S1 = compositionOf([k1, k2, k3], 2);
-		const { address: A } = await session.createMultisig(
-			[k1, k2, k3],
-			2,
-			{ fund: true },
-		);
-		expect(A).toBe(addressOf(S1));
-		if (allow)
-			await allowSignerChanges(session, A, [k1, k2]);
-		return {
-			k1,
-			k2,
-			k3,
-			k4,
-			k5,
-			A,
-			S1,
-			S2: compositionOf([k1, k2, k4], 2),
-			S3: compositionOf([k1, k2, k3], 3),
-			S4: compositionOf([k4, k5], 2),
-		};
-	};
-
-	// An add of `alias` written by hand, proposed by `k1`, signed by `k2`, executed and verified.
-	const addByHand = async (
-		{
-			k1,
-			k2,
-			A,
-		}: { k1: TestUser; k2: TestUser; A: string },
-		alias: string,
-	) => {
-		const created = await session.createProposal(
-			k1,
-			A,
-			'localnet',
-			await buildFrom(A, (tx) =>
-				buildAdd(tx, { account: A, alias }),
-			),
-		);
-		await session.voteAndExecute([k2], created.digest);
-	};
 
 	const pendingProposals = async (account: string) =>
 		db
@@ -144,19 +92,16 @@ describe('POST /v1/proposals with a signer change', () => {
 			);
 
 	test('a signer who stays proposes S1 to S2: the new set, its members in order and its link are written, and only the new key is labelled, with no invitation yet', async () => {
-		const { k1, k2, k4, A, S1, S2 } = await createCast();
+		const cast = await createCast(session);
+		const { k1, k2, k4, A, S2 } = cast;
 
-		const created = await proposeChange(
+		const created = await proposeCastChange(
 			session,
-			k1,
-			A,
-			await buildChange({
-				account: A,
-				oldSet: A,
-				newSet: S2,
-				known: [S1],
-			}),
-			[null, 'Ben', 'Dee'],
+			cast,
+			S2,
+			{
+				labels: [null, 'Ben', 'Dee'],
+			},
 		);
 
 		expect(created.status).toBe('PENDING');
@@ -175,30 +120,21 @@ describe('POST /v1/proposals with a signer change', () => {
 			},
 		]);
 		expect(
-			(
-				await db
-					.select()
-					.from(SchemaSignerSetMembers)
-					.where(
-						eq(
-							SchemaSignerSetMembers.signerSetAddress,
-							S2Address,
-						),
-					)
-					.orderBy(asc(SchemaSignerSetMembers.order))
-			).map(
-				({
-					publicKey,
-					weight,
-					isAccepted,
-					isRejected,
-				}) => ({
-					publicKey,
-					weight,
-					isAccepted,
-					isRejected,
-				}),
-			),
+			await db
+				.select({
+					publicKey: SchemaSignerSetMembers.publicKey,
+					weight: SchemaSignerSetMembers.weight,
+					isAccepted: SchemaSignerSetMembers.isAccepted,
+					isRejected: SchemaSignerSetMembers.isRejected,
+				})
+				.from(SchemaSignerSetMembers)
+				.where(
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						S2Address,
+					),
+				)
+				.orderBy(asc(SchemaSignerSetMembers.order)),
 		).toEqual(
 			[k1, k2, k4].map((key) => ({
 				publicKey: key.publicKey,
@@ -255,107 +191,69 @@ describe('POST /v1/proposals with a signer change', () => {
 		).toEqual([]);
 	});
 
-	test('S4 is refused, and so is a change whose accepted signers who stay cannot meet the new threshold', async () => {
-		const { k1, A, S1, S3, S4 } = await createCast({
+	test('a proposer who leaves or has not accepted is refused with a 403, and a change whose accepted signers who stay cannot meet the new threshold with a 400', async () => {
+		const cast = await createCast(session, {
 			unaccepted: [3],
 		});
-		const change = (newSet: typeof S1) =>
-			buildChange({
-				account: A,
-				oldSet: A,
-				newSet,
-				known: [S1],
-			});
+		const { k1, k2, k3, k4, A, S3 } = cast;
+		const propose = async (
+			proposer: TestUser,
+			newSet: Cast['S1'],
+		) =>
+			refusal(
+				proposeChange(
+					session,
+					proposer,
+					A,
+					await buildCastChange(cast, newSet),
+				),
+			);
 
 		expect(
-			await refusal(
-				proposeChange(session, k1, A, await change(S4)),
-			),
+			await propose(k1, compositionOf([k2, k3, k4], 2)),
 		).toEqual({ status: 403, message: NOT_STAYING });
+		expect(await propose(k3, S3)).toEqual({
+			status: 403,
+			message: NOT_A_MEMBER,
+		});
 		// `k3` stays but has not accepted, so `k1` and `k2` weigh 2 of 3.
-		expect(
-			await refusal(
-				proposeChange(session, k1, A, await change(S3)),
-			),
-		).toEqual({
+		expect(await propose(k1, S3)).toEqual({
 			status: 400,
 			message:
 				'The signers who stay cannot meet the new threshold by themselves, counting only those who have accepted the account. Add new signers in one change and remove old ones in another.',
 		});
 	});
 
-	test('a proposer who removes themselves is refused with a 403, and so is a signer who has not accepted', async () => {
-		const { k1, k2, k3, k4, A, S1, S3 } = await createCast({
-			unaccepted: [3],
-		});
-		const change = (newSet: typeof S1) =>
-			buildChange({
-				account: A,
-				oldSet: A,
-				newSet,
-				known: [S1],
-			});
-
-		expect(
-			await refusal(
-				proposeChange(
-					session,
-					k1,
-					A,
-					await change(compositionOf([k2, k3, k4], 2)),
-				),
-			),
-		).toEqual({ status: 403, message: NOT_STAYING });
-		expect(
-			await refusal(
-				proposeChange(session, k3, A, await change(S3)),
-			),
-		).toEqual({
-			status: 403,
-			message: new ApiAuthError('NotAMultisigMember')
-				.message,
-		});
-	});
-
-	test('a change built before the alias set changed on chain is refused once the mirror has the change', async () => {
-		const cast = await createCast();
-		const { k1, A, S1, S2 } = cast;
+	test('a change built before the alias set changed on chain, and one that replaces an alias the API cannot identify, are refused', async () => {
+		const cast = await createCast(session);
+		const { k1, k2, A, S1, S2 } = cast;
 		const [coin] = await gasCoins(A, 1);
-		const bytes = await buildChange({
-			account: A,
-			oldSet: A,
-			newSet: S2,
-			known: [S1],
+		const stale = await buildCastChange(cast, S2, {
 			gasCoin: coin,
 		});
-
-		// Verifying the add refreshes the mirror.
-		await addByHand(cast, newUser().address);
-
-		expect(
-			await refusal(proposeChange(session, k1, A, bytes)),
-		).toEqual({ status: 400, message: STALE });
-	});
-
-	test('a change that replaces an alias the API cannot identify is refused', async () => {
-		const cast = await createCast();
-		const { k1, A, S1 } = cast;
 		const [x, y] = [newUser(), newUser()];
 		const U = compositionOf([x, y], 1);
-		await addByHand(cast, addressOf(U));
+		// Verifying the add refreshes the mirror.
+		const add = await session.createProposal(
+			k1,
+			A,
+			'localnet',
+			await buildFrom(A, (tx) =>
+				buildAdd(tx, { account: A, alias: addressOf(U) }),
+			),
+		);
+		await session.voteAndExecute([k2], add.digest);
 
 		expect(
+			await refusal(proposeChange(session, k1, A, stale)),
+		).toEqual({ status: 400, message: STALE });
+		expect(
 			await refusal(
-				proposeChange(
+				proposeCastChange(
 					session,
-					k1,
-					A,
-					await buildChange({
-						account: A,
-						oldSet: addressOf(U),
-						newSet: compositionOf([x, k1], 1),
-						known: [S1, U],
-					}),
+					cast,
+					compositionOf([x, k1], 1),
+					{ oldSet: addressOf(U), known: [S1, U] },
 				),
 			),
 		).toEqual({
@@ -365,13 +263,9 @@ describe('POST /v1/proposals with a signer change', () => {
 	});
 
 	test('a change that names another chain, or none, or has no expiration epoch by the end of the next one, is refused', async () => {
-		const { k1, A, S1, S2 } = await createCast();
-		const bytes = await buildChange({
-			account: A,
-			oldSet: A,
-			newSet: S2,
-			known: [S1],
-		});
+		const cast = await createCast(session);
+		const { k1, A, S2 } = cast;
+		const bytes = await buildCastChange(cast, S2);
 		const withExpiration = async (
 			expiration: Parameters<
 				Transaction['setExpiration']
@@ -440,9 +334,10 @@ describe('POST /v1/proposals with a signer change', () => {
 	});
 
 	test('one proposal that calls the alias module at a time: a change, a hand-written one and a second change wait for the pending one', async () => {
-		const { k1, k2, A, S1, S2, S3 } = await createCast({
+		const cast = await createCast(session, {
 			allow: false,
 		});
+		const { k1, k2, A, S2, S3 } = cast;
 		const coins = await gasCoins(A, 5);
 		// Built while the alias object does not exist yet, so it dry-runs.
 		const secondEnable = await buildFrom(
@@ -456,16 +351,12 @@ describe('POST /v1/proposals with a signer change', () => {
 			[k1, k2],
 			coins[1],
 		);
-		const change = (newSet: typeof S1, coin: number) =>
-			buildChange({
-				account: A,
-				oldSet: A,
-				newSet,
-				known: [S1],
-				gasCoin: coins[coin],
-			});
-		const toS2 = await change(S2, 2);
-		const toS3 = await change(S3, 3);
+		const toS2 = await buildCastChange(cast, S2, {
+			gasCoin: coins[2],
+		});
+		const toS3 = await buildCastChange(cast, S3, {
+			gasCoin: coins[3],
+		});
 		const proposer = newUser();
 		await session.addProposer(k1, proposer.address, A);
 
@@ -536,33 +427,21 @@ describe('POST /v1/proposals with a signer change', () => {
 	test.skipIf(localEpoch < 2n)(
 		'a pending change whose expiration epoch has passed does not block a new one, which becomes the open one',
 		async () => {
-			const { k1, k2, A, S1, S2, S3 } = await createCast();
+			const cast = await createCast(session);
+			const { k2, A, S2, S3 } = cast;
 			const coins = await gasCoins(A, 2);
-			const expired = await proposeChange(
+			const expired = await proposeCastChange(
 				session,
-				k1,
-				A,
-				await buildChange({
-					account: A,
-					oldSet: A,
-					newSet: S2,
-					known: [S1],
-					gasCoin: coins[0],
-					epoch: localEpoch - 2n,
-				}),
+				cast,
+				S2,
+				{ gasCoin: coins[0], epoch: localEpoch - 2n },
 			);
 
-			const next = await proposeChange(
+			const next = await proposeCastChange(
 				session,
-				k1,
-				A,
-				await buildChange({
-					account: A,
-					oldSet: A,
-					newSet: S3,
-					known: [S1],
-					gasCoin: coins[1],
-				}),
+				cast,
+				S3,
+				{ gasCoin: coins[1] },
 			);
 
 			expect(next.status).toBe(ProposalStatus.PENDING);
@@ -584,17 +463,12 @@ describe('POST /v1/proposals with a signer change', () => {
 	);
 
 	test('a pending change counts for one at a time through its last epoch, and not after it', async () => {
-		const { k1, A, S1, S2 } = await createCast();
-		const created = await proposeChange(
+		const cast = await createCast(session);
+		const { A, S2 } = cast;
+		const created = await proposeCastChange(
 			session,
-			k1,
-			A,
-			await buildChange({
-				account: A,
-				oldSet: A,
-				newSet: S2,
-				known: [S1],
-			}),
+			cast,
+			S2,
 		);
 		const last = BigInt(
 			Transaction.from(created.transactionBytes).getData()
@@ -617,15 +491,12 @@ describe('POST /v1/proposals with a signer change', () => {
 	});
 
 	test('of two different changes created at once, exactly one is created', async () => {
-		const { k1, A, S1, S2, S3 } = await createCast();
+		const cast = await createCast(session);
+		const { k1, A, S2, S3 } = cast;
 		const coins = await gasCoins(A, 2);
 		const changes = await Promise.all(
 			[S2, S3].map((newSet, i) =>
-				buildChange({
-					account: A,
-					oldSet: A,
-					newSet,
-					known: [S1],
+				buildCastChange(cast, newSet, {
 					gasCoin: coins[i],
 				}),
 			),
@@ -644,7 +515,8 @@ describe('POST /v1/proposals with a signer change', () => {
 	});
 
 	test('a composition that is already an account is linked as it is', async () => {
-		const { k1, k2, k4, A, S1, S2 } = await createCast();
+		const cast = await createCast(session);
+		const { k1, k2, k4, A, S2 } = cast;
 		const S2Address = (
 			await session.createMultisig([k1, k2, k4], 2)
 		).address;
@@ -662,17 +534,7 @@ describe('POST /v1/proposals with a signer change', () => {
 				.orderBy(asc(SchemaSignerSetMembers.order));
 		const before = await membersOfS2();
 
-		await proposeChange(
-			session,
-			k1,
-			A,
-			await buildChange({
-				account: A,
-				oldSet: A,
-				newSet: S2,
-				known: [S1],
-			}),
-		);
+		await proposeCastChange(session, cast, S2);
 
 		expect(await membersOfS2()).toEqual(before);
 		expect(
@@ -697,9 +559,10 @@ describe('POST /v1/proposals with a signer change', () => {
 	});
 
 	test('the legacy create route takes a hand-written enable and refuses a signer change with a 409', async () => {
-		const { k1, k2, A, S1, S2 } = await createCast({
+		const cast = await createCast(session, {
 			allow: false,
 		});
+		const { k1, k2, A, S2 } = cast;
 		const legacyCreate = async (transactionBytes: string) =>
 			session.client.createProposal({
 				multisigAddress: A,
@@ -715,14 +578,7 @@ describe('POST /v1/proposals with a signer change', () => {
 
 		expect(
 			await refusal(
-				legacyCreate(
-					await buildChange({
-						account: A,
-						oldSet: A,
-						newSet: S2,
-						known: [S1],
-					}),
-				),
+				legacyCreate(await buildCastChange(cast, S2)),
 			),
 		).toEqual({
 			status: 409,
@@ -732,7 +588,9 @@ describe('POST /v1/proposals with a signer change', () => {
 	});
 
 	test('labels on a proposal that is not a signer change are refused', async () => {
-		const { k1, A } = await createCast({ allow: false });
+		const { k1, A } = await createCast(session, {
+			allow: false,
+		});
 		const transactionBytes = await buildTransfer(A);
 
 		expect(
