@@ -122,7 +122,7 @@ describe('Address Balance Proposals', () => {
 			);
 
 			expect(proposal.id).toBeDefined();
-			expect(proposal.multisigAddress).toBe(
+			expect(proposal.accountAddress).toBe(
 				multisig.address,
 			);
 

@@ -326,8 +326,8 @@ describe('Object Collision Detection', () => {
 			);
 
 		await expect(
-			session.client.createProposal({
-				multisigAddress: multisig.address,
+			session.v1.createProposal({
+				accountAddress: multisig.address,
 				network: 'localnet',
 				transactionBytes: unresolvedBytes,
 				signature: signature.signature,

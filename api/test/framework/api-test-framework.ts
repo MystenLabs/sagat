@@ -6,10 +6,13 @@ import {
 	PersonalMessages,
 	SagatClient,
 	type MultisigWithMembers,
-	type Proposal,
 	type SagatApiError,
 } from '@mysten/sagat';
-import { SagatV1Client } from '@mysten/sagat/v1';
+import {
+	SagatV1Client,
+	type Network,
+	type Proposal,
+} from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
@@ -125,6 +128,60 @@ export async function sendCoins(
 		});
 	}
 	await executeTransaction(funder, tx);
+}
+
+// Combines the proposal's signatures from the members of `signerSet`,
+// executes the transaction on the local chain and waits for it.
+export async function executeProposal(
+	{
+		transactionBytes,
+		signatures,
+	}: {
+		transactionBytes: string;
+		signatures: { publicKey: string; signature: string }[];
+	},
+	signerSet: {
+		threshold: number;
+		members: {
+			publicKey: string;
+			weight: number;
+			order: number;
+		}[];
+	},
+) {
+	const members = [...signerSet.members].sort(
+		(a, b) => a.order - b.order,
+	);
+	const multisigKey = MultiSigPublicKey.fromPublicKeys({
+		threshold: signerSet.threshold,
+		publicKeys: members.map((m) => ({
+			publicKey: parsePublicKey(m.publicKey),
+			weight: m.weight,
+		})),
+	});
+	const result = await client.executeTransaction({
+		transaction: fromBase64(transactionBytes),
+		signatures: [
+			multisigKey.combinePartialSignatures(
+				members.flatMap(
+					(m) =>
+						signatures.find(
+							(sig) => sig.publicKey === m.publicKey,
+						)?.signature ?? [],
+				),
+			),
+		],
+		include: { effects: true },
+	});
+	const tx =
+		result.$kind === 'Transaction'
+			? result.Transaction
+			: result.FailedTransaction;
+	await client.waitForTransaction({
+		digest: tx.digest,
+		...LOCALNET_WAIT,
+	});
+	return tx;
 }
 
 // A client call's refusal as status and message, or null when it succeeds.
@@ -301,7 +358,7 @@ export class TestSession {
 	async createProposal(
 		proposer: TestUser,
 		multisigAddress: string,
-		network: string,
+		network: Network,
 		transactionBytes: string,
 		description?: string,
 	) {
@@ -309,8 +366,8 @@ export class TestSession {
 			await proposer.keypair.signTransaction(
 				fromBase64(transactionBytes),
 			);
-		return this.client.createProposal({
-			multisigAddress,
+		return this.v1.createProposal({
+			accountAddress: multisigAddress,
 			network,
 			transactionBytes,
 			signature,
@@ -334,23 +391,22 @@ export class TestSession {
 
 	async voteOnProposal(
 		voter: TestUser,
-		proposalId: number,
+		digest: string,
 		transactionBytes: string,
 	) {
 		const { signature } =
 			await voter.keypair.signTransaction(
 				fromBase64(transactionBytes),
 			);
-		return this.client.voteForProposal(proposalId, {
-			signature,
-		});
+		return this.v1.voteForProposal(digest, { signature });
 	}
 
 	// Collects the votes still needed from `voters`, executes the proposal
-	// on chain and verifies it through the API.
+	// on chain with a signer set that reached its threshold and verifies it
+	// through the API.
 	async voteAndExecute(voters: TestUser[], digest: string) {
 		const proposal =
-			await this.client.getProposalByDigest(digest);
+			await this.v1.getProposalByDigest(digest);
 		for (const voter of voters) {
 			if (
 				proposal.signatures.some(
@@ -361,63 +417,35 @@ export class TestSession {
 			const { hasReachedThreshold } =
 				await this.voteOnProposal(
 					voter,
-					proposal.id,
+					digest,
 					proposal.transactionBytes,
 				);
 			if (hasReachedThreshold) break;
 		}
 
-		const { multisig, signatures, transactionBytes } =
-			await this.client.getProposalByDigest(digest);
-		const members = multisig.members.sort(
-			(a, b) => a.order - b.order,
+		const voted = await this.v1.getProposalByDigest(digest);
+		const signerSet = voted.signerSets.find(
+			(set) => set.hasReachedThreshold,
 		);
-		const multisigKey = MultiSigPublicKey.fromPublicKeys({
-			threshold: multisig.threshold,
-			publicKeys: members.map((m) => ({
-				publicKey: parsePublicKey(m.publicKey),
-				weight: m.weight,
-			})),
-		});
-		const result = await client.executeTransaction({
-			transaction: fromBase64(transactionBytes),
-			signatures: [
-				multisigKey.combinePartialSignatures(
-					members.flatMap(
-						(m) =>
-							signatures.find(
-								(sig) => sig.publicKey === m.publicKey,
-							)?.signature ?? [],
-					),
-				),
-			],
-			include: { effects: true },
-		});
-		const tx =
-			result.$kind === 'Transaction'
-				? result.Transaction
-				: result.FailedTransaction;
-		await client.waitForTransaction({
-			digest: tx.digest,
-			...LOCALNET_WAIT,
-		});
-		await this.client.verifyProposalByDigest(digest);
+		if (!signerSet)
+			throw new Error(
+				'No signer set reached its threshold',
+			);
+		const tx = await executeProposal(voted, signerSet);
+		await this.v1.verifyProposal(digest);
 		return tx;
 	}
 
 	async cancelProposal(
 		member: TestUser,
-		proposal: Pick<
-			Proposal,
-			'id' | 'digest' | 'multisigAddress'
-		>,
+		proposal: Pick<Proposal, 'digest' | 'accountAddress'>,
 	) {
-		return this.client.cancelProposal(proposal.id, {
+		return this.v1.cancelProposal(proposal.digest, {
 			signature: await sign(
 				member,
 				PersonalMessages.cancelProposal(
 					proposal.digest,
-					proposal.multisigAddress,
+					proposal.accountAddress,
 				),
 			),
 		});

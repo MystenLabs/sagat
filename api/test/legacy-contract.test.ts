@@ -16,14 +16,19 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ProposalStatus } from '@mysten/sagat';
+import {
+	PersonalMessages,
+	ProposalStatus,
+} from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
+import { fromBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'bun:test';
 import { type Hono } from 'hono';
 
 import {
 	ApiTestFramework,
 	newUser,
+	sign,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -252,15 +257,20 @@ async function proposeTransfer(
 	tx.setSender(multisigAddress);
 	const [coin] = tx.splitCoins(tx.gas, [amount]);
 	tx.transferObjects([coin], recipient);
-	return session.createProposal(
-		proposer,
+	const transactionBytes = (
+		await tx.build({ client: getLocalClient() })
+	).toBase64();
+	return session.client.createProposal({
 		multisigAddress,
-		'localnet',
-		(
-			await tx.build({ client: getLocalClient() })
-		).toBase64(),
+		network: 'localnet',
+		transactionBytes,
+		signature: (
+			await proposer.keypair.signTransaction(
+				fromBase64(transactionBytes),
+			)
+		).signature,
 		description,
-	);
+	});
 }
 
 /** The legacy flow. Keep the order stable: placeholders depend on it. */
@@ -314,18 +324,28 @@ async function driveLegacyRoutes(app: Hono) {
 		1000,
 		'pay vendor',
 	);
-	await session.voteOnProposal(
-		users[1],
-		first.id,
-		first.transactionBytes,
-	);
+	await client.voteForProposal(first.id, {
+		signature: (
+			await users[1].keypair.signTransaction(
+				fromBase64(first.transactionBytes),
+			)
+		).signature,
+	});
 	await client.getProposals(
 		multisig.address,
 		'localnet',
 		{},
 	);
 	await client.getProposalByDigest(first.digest);
-	await session.cancelProposal(users[0], first);
+	await client.cancelProposal(first.id, {
+		signature: await sign(
+			users[0],
+			PersonalMessages.cancelProposal(
+				first.digest,
+				first.multisigAddress,
+			),
+		),
+	});
 	await client.verifyProposal(first.id);
 	await client.verifyProposalByDigest(first.digest);
 

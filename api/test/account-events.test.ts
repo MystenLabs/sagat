@@ -532,7 +532,7 @@ describe('cancelling a proposal', () => {
 
 				const startedAt = performance.now();
 				const cancel = session.post(
-					`/proposals/${proposal.id}/cancel`,
+					`/v1/proposals/${proposal.digest}/cancel`,
 					{ signature },
 				);
 				await untilBackendsWaitOnALock(db);

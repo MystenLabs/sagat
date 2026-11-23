@@ -899,14 +899,17 @@ describe('Multisig API', () => {
 				multisig.address,
 			);
 
-			// A client that never connected.
-			const anonymous = framework.createSession().client;
+			// A session that never connected.
+			const anonymous = framework.createSession();
 
 			// The public proposal lookup shows the composition, never the labels.
-			const byDigest = await anonymous.getProposalByDigest(
-				proposal.digest,
+			const byDigest =
+				await anonymous.v1.getProposalByDigest(
+					proposal.digest,
+				);
+			expect(byDigest.signerSets[0].members).toHaveLength(
+				2,
 			);
-			expect(byDigest.multisig.members).toHaveLength(2);
 			const serialized = JSON.stringify(byDigest);
 			expect(serialized).not.toContain('"label"');
 			expect(serialized).not.toContain("Alice's Ledger");
@@ -914,7 +917,7 @@ describe('Multisig API', () => {
 
 			// Member listings need a session.
 			await expect(
-				anonymous.getMultisig(multisig.address),
+				anonymous.client.getMultisig(multisig.address),
 			).rejects.toThrow();
 
 			// The same data, authenticated, does carry them.

@@ -6,6 +6,7 @@ import {
 	PersonalMessages,
 	ProposalStatus,
 } from '@mysten/sagat';
+import { type ProposalStatusName } from '@mysten/sagat/v1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { fromBase64, toBase64 } from '@mysten/sui/utils';
@@ -87,8 +88,8 @@ describe('Proposal Business Logic', () => {
 				);
 
 			await expect(
-				session.client.createProposal({
-					multisigAddress: multisig.address,
+				session.v1.createProposal({
+					accountAddress: multisig.address,
 					network: 'localnet',
 					transactionBytes: submitted,
 					signature,
@@ -111,8 +112,8 @@ describe('Proposal Business Logic', () => {
 				);
 			const before = await rpcCalls('getObjects');
 			await expect(
-				session.client.createProposal({
-					multisigAddress: multisig.address,
+				session.v1.createProposal({
+					accountAddress: multisig.address,
 					network: 'localnet',
 					transactionBytes: await buildTransfer(
 						multisig.address,
@@ -190,10 +191,15 @@ describe('Proposal Business Logic', () => {
 			);
 
 			await expect(
-				session.client.verifyProposalByDigest(
-					proposal.digest,
-				),
+				session.v1.verifyProposal(proposal.digest),
 			).rejects.toThrow(/has not been executed yet/);
+			expect(
+				(
+					await session.v1.getProposalByDigest(
+						proposal.digest,
+					)
+				).status,
+			).toBe(ProposalStatus.PENDING);
 		});
 	});
 
@@ -222,23 +228,23 @@ describe('Proposal Business Logic', () => {
 		expect(
 			await session.voteOnProposal(
 				users[2],
-				proposal.id,
+				proposal.digest,
 				proposal.transactionBytes,
 			),
-		).toEqual({
+		).toMatchObject({
 			hasReachedThreshold: false,
-			currentWeight: 2,
+			signerSets: [{ currentWeight: 2 }],
 		});
 		// 1 + 1 + 2 out of 3.
 		expect(
 			await session.voteOnProposal(
 				users[1],
-				proposal.id,
+				proposal.digest,
 				proposal.transactionBytes,
 			),
-		).toEqual({
+		).toMatchObject({
 			hasReachedThreshold: true,
-			currentWeight: 4,
+			signerSets: [{ currentWeight: 4 }],
 		});
 	});
 
@@ -256,7 +262,7 @@ describe('Proposal Business Logic', () => {
 			await expect(
 				session.voteOnProposal(
 					users[0],
-					proposal.id,
+					proposal.digest,
 					proposal.transactionBytes,
 				),
 			).rejects.toThrow('already voted');
@@ -280,7 +286,7 @@ describe('Proposal Business Logic', () => {
 				);
 
 			await expect(
-				session.client.voteForProposal(proposal.id, {
+				session.v1.voteForProposal(proposal.digest, {
 					signature,
 				}),
 			).rejects.toThrow(/Invalid Sui signature/);
@@ -319,7 +325,7 @@ describe('Proposal Business Logic', () => {
 			await expect(
 				session.voteOnProposal(
 					outsider,
-					proposal.id,
+					proposal.digest,
 					proposal.transactionBytes,
 				),
 			).rejects.toThrow(AuthErrors.NotAMultisigMember);
@@ -390,12 +396,11 @@ describe('Proposal Business Logic', () => {
 			);
 
 			// Removing the proposer cancels their proposals.
-			const { data } = await session.client.getProposals(
-				multisig.address,
-				'localnet',
-				{},
-			);
-			expect(data.map((p) => p.status)).toEqual([
+			const { proposals } = await session.v1.getProposals({
+				accountAddress: multisig.address,
+				network: 'localnet',
+			});
+			expect(proposals.map((p) => p.status)).toEqual([
 				ProposalStatus.CANCELLED,
 			]);
 
@@ -445,8 +450,8 @@ describe('Proposal Business Logic', () => {
 					]);
 					await untilBackendsWaitOnALock(db);
 					const creation = Promise.allSettled([
-						session.client.createProposal({
-							multisigAddress: multisig.address,
+						session.v1.createProposal({
+							accountAddress: multisig.address,
 							network: 'localnet',
 							transactionBytes,
 							signature,
@@ -497,12 +502,11 @@ describe('Proposal Business Logic', () => {
 
 			await session.cancelProposal(proposer, proposal);
 
-			const { data } = await session.client.getProposals(
-				multisig.address,
-				'localnet',
-				{},
-			);
-			expect(data.map((p) => p.status)).toEqual([
+			const { proposals } = await session.v1.getProposals({
+				accountAddress: multisig.address,
+				network: 'localnet',
+			});
+			expect(proposals.map((p) => p.status)).toEqual([
 				ProposalStatus.CANCELLED,
 			]);
 		});
@@ -521,7 +525,7 @@ describe('Proposal Business Logic', () => {
 			);
 			await session.voteOnProposal(
 				users[0],
-				proposal.id,
+				proposal.digest,
 				proposal.transactionBytes,
 			);
 
@@ -531,12 +535,11 @@ describe('Proposal Business Logic', () => {
 				'A signer has already signed this proposal',
 			);
 
-			const { data } = await session.client.getProposals(
-				multisig.address,
-				'localnet',
-				{},
-			);
-			expect(data.map((p) => p.status)).toEqual([
+			const { proposals } = await session.v1.getProposals({
+				accountAddress: multisig.address,
+				network: 'localnet',
+			});
+			expect(proposals.map((p) => p.status)).toEqual([
 				ProposalStatus.PENDING,
 			]);
 		});
@@ -615,10 +618,9 @@ describe('Proposal Business Logic', () => {
 			'Test proposal',
 		);
 
-		const byDigest =
-			await session.client.getProposalByDigest(
-				proposal.digest,
-			);
+		const byDigest = await session.v1.getProposalByDigest(
+			proposal.digest,
+		);
 		expect(byDigest).toMatchObject(proposal);
 		expect(byDigest.signatures).toMatchObject([
 			{ publicKey: users[0].publicKey },
@@ -666,17 +668,18 @@ describe('Proposal Business Logic', () => {
 		}
 
 		const ids = new Set<number>();
-		let cursor: number | undefined;
+		let cursor: string | undefined;
 		do {
-			const page = await session.client.getProposals(
-				multisig.address,
-				'localnet',
-				{ nextCursor: cursor, perPage: 1 },
-			);
-			expect(page.data).toHaveLength(1);
-			ids.add(page.data[0].id);
+			const page = await session.v1.getProposals({
+				accountAddress: multisig.address,
+				network: 'localnet',
+				nextCursor: cursor,
+				perPage: 1,
+			});
+			expect(page.proposals).toHaveLength(1);
+			ids.add(page.proposals[0].id);
 			cursor = page.hasNextPage
-				? Number(page.nextCursor)
+				? (page.nextCursor ?? undefined)
 				: undefined;
 		} while (cursor !== undefined);
 
@@ -738,23 +741,24 @@ describe('Proposal Business Logic', () => {
 			}),
 		);
 
-		const listByStatus = async (status: ProposalStatus) =>
+		const listByStatus = async (
+			status: ProposalStatusName,
+		) =>
 			(
-				await session.client.getProposals(
-					multisig.address,
-					'localnet',
-					{ status },
-				)
-			).data.map((p) => ({ id: p.id, status: p.status }));
+				await session.v1.getProposals({
+					accountAddress: multisig.address,
+					network: 'localnet',
+					status,
+				})
+			).proposals.map((p) => ({
+				id: p.id,
+				status: p.status,
+			}));
 
-		expect(
-			await listByStatus(ProposalStatus.PENDING),
-		).toEqual([
+		expect(await listByStatus('PENDING')).toEqual([
 			{ id: pending.id, status: ProposalStatus.PENDING },
 		]);
-		expect(
-			await listByStatus(ProposalStatus.CANCELLED),
-		).toEqual([
+		expect(await listByStatus('CANCELLED')).toEqual([
 			{
 				id: cancelled.id,
 				status: ProposalStatus.CANCELLED,
@@ -776,7 +780,7 @@ describe('Proposal Business Logic', () => {
 			await expect(
 				session.voteOnProposal(
 					users[1],
-					proposal.id,
+					proposal.digest,
 					proposal.transactionBytes,
 				),
 			).rejects.toThrow('Proposal is not pending');
@@ -1278,12 +1282,14 @@ describe('Proposal Business Logic', () => {
 
 			expect(
 				await errorOf(
-					await session.post('/proposals', {
-						multisigAddress: multisig.address,
-						transactionBytes: toBase64(bytes),
-						signature,
-						network: 'localnet',
-					}),
+					await session.post(
+						'/v1/proposals?network=localnet',
+						{
+							accountAddress: multisig.address,
+							transactionBytes: toBase64(bytes),
+							signature,
+						},
+					),
 				),
 			).toEqual({
 				status: 400,
@@ -1305,12 +1311,11 @@ describe('Proposal Business Logic', () => {
 					fromBase64(transactionBytes),
 				);
 			const propose = (description: string) =>
-				session.post('/proposals', {
-					multisigAddress: multisig.address,
+				session.post('/v1/proposals?network=localnet', {
+					accountAddress: multisig.address,
 					transactionBytes,
 					signature,
 					description,
-					network: 'localnet',
 				});
 
 			expect(
@@ -1485,7 +1490,15 @@ describe('Proposal Business Logic', () => {
 			});
 
 			// Once cancelled, the status is checked before membership.
-			await session.cancelProposal(users[0], proposal);
+			await session.client.cancelProposal(proposal.id, {
+				signature: await sign(
+					users[0],
+					PersonalMessages.cancelProposal(
+						proposal.digest,
+						multisig.address,
+					),
+				),
+			});
 			expect(await cancel(outsider, proposal.id)).toEqual({
 				status: 400,
 				body: { error: 'Proposal is not pending' },

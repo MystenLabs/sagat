@@ -21,6 +21,7 @@ import {
 	ApiTestFramework,
 	buildTransfer,
 	errorOf,
+	executeProposal,
 	newUser,
 	sign,
 	type TestSession,
@@ -85,6 +86,25 @@ const setup = async () => {
 	};
 };
 
+// A legacy transfer proposal by `proposer`.
+const proposeTransfer = async (
+	session: TestSession,
+	proposer: TestUser,
+	account: string,
+) => {
+	const transactionBytes = await buildTransfer(account);
+	return session.client.createProposal({
+		multisigAddress: account,
+		network: 'localnet',
+		transactionBytes,
+		signature: (
+			await proposer.keypair.signTransaction(
+				fromBase64(transactionBytes),
+			)
+		).signature,
+	});
+};
+
 const connectionsOf = async (
 	session: TestSession,
 	user: TestUser,
@@ -137,13 +157,23 @@ describe('legacy routes under alias mirror rows', () => {
 			(await session.client.getMultisig(account)).proposers,
 		).toEqual([]);
 
-		const cancelled = await session.proposeTransfer(
+		const cancelled = await proposeTransfer(
+			session,
 			k1,
 			account,
 		);
-		await session.cancelProposal(k1, cancelled);
+		await session.client.cancelProposal(cancelled.id, {
+			signature: await sign(
+				k1,
+				PersonalMessages.cancelProposal(
+					cancelled.digest,
+					account,
+				),
+			),
+		});
 
-		const proposal = await session.proposeTransfer(
+		const proposal = await proposeTransfer(
+			session,
 			k1,
 			account,
 		);
@@ -161,11 +191,13 @@ describe('legacy routes under alias mirror rows', () => {
 		]);
 
 		expect(
-			await session.voteOnProposal(
-				k2,
-				proposal.id,
-				proposal.transactionBytes,
-			),
+			await session.client.voteForProposal(proposal.id, {
+				signature: (
+					await k2.keypair.signTransaction(
+						fromBase64(proposal.transactionBytes),
+					)
+				).signature,
+			}),
 		).toEqual({
 			hasReachedThreshold: true,
 			currentWeight: 2,
@@ -189,8 +221,15 @@ describe('legacy routes under alias mirror rows', () => {
 			k4.publicKey,
 		]);
 
-		const tx = await session.voteAndExecute(
-			[k1, k2],
+		const legacyProposal =
+			await session.client.getProposalByDigest(
+				proposal.digest,
+			);
+		const tx = await executeProposal(
+			legacyProposal,
+			legacyProposal.multisig,
+		);
+		await session.client.verifyProposalByDigest(
 			proposal.digest,
 		);
 		expect(tx.effects.status.success).toBe(true);
@@ -215,7 +254,8 @@ describe('legacy routes under alias mirror rows', () => {
 	test('a key of another acting set gets nothing from a legacy route', async () => {
 		const { k1, r1, account, session, outsider } =
 			await setup();
-		const proposal = await session.proposeTransfer(
+		const proposal = await proposeTransfer(
+			session,
 			k1,
 			account,
 		);
