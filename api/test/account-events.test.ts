@@ -1367,7 +1367,7 @@ describe('accepting and rejecting on the legacy routes', () => {
 		return signature;
 	};
 
-	test('records the signed accept and reject with the set as subject', async () => {
+	test('records the signed accept and reject with the set as subject, and the same accept sent again writes no second row', async () => {
 		const { session, users } =
 			await framework.createAuthenticatedSession(1);
 		const [creator] = users;
@@ -1389,6 +1389,7 @@ describe('accepting and rejecting on the legacy routes', () => {
 			address,
 			'reject',
 		);
+		await answer(session, early, address, 'accept');
 
 		expect(await eventsOf(address, creator)).toMatchObject([
 			{
@@ -1414,28 +1415,6 @@ describe('accepting and rejecting on the legacy routes', () => {
 				},
 			},
 		]);
-	});
-
-	test('the same accept sent again writes no second row', async () => {
-		const { session, users } =
-			await framework.createAuthenticatedSession(1);
-		const [creator] = users;
-		const invitee = newUser();
-		const { address } = await session.createMultisig(
-			[creator, invitee],
-			2,
-		);
-
-		await answer(session, invitee, address, 'accept');
-		await answer(session, invitee, address, 'accept');
-
-		expect(
-			await eventsOf(
-				address,
-				creator,
-				'signer_set.accepted',
-			),
-		).toHaveLength(1);
 	});
 });
 

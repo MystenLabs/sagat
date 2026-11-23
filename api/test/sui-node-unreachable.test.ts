@@ -13,6 +13,7 @@ import {
 	buildTransfer,
 	errorOf,
 	newUser,
+	refusal,
 	sign,
 } from './framework/api-test-framework';
 
@@ -69,30 +70,27 @@ test('a /v1 write is refused with a 503, and the list serves the account as not 
 	const proposer = newUser().address;
 	const expiry = defaultExpiry();
 
-	const refused = await client
-		.addAccountProposer(multisig.address, {
-			network: 'localnet',
-			proposer,
-			signature: await sign(
-				users[0]!,
-				PersonalMessages.addMultisigProposer(
-					proposer,
-					multisig.address,
-					expiry,
+	expect(
+		await refusal(
+			client.addAccountProposer(multisig.address, {
+				network: 'localnet',
+				proposer,
+				signature: await sign(
+					users[0]!,
+					PersonalMessages.addMultisigProposer(
+						proposer,
+						multisig.address,
+						expiry,
+					),
 				),
-			),
-			expiry,
-		})
-		.catch((error) => error);
-	const { accounts } = await client.getAccounts('localnet');
-
-	expect({
-		status: refused.status,
-		message: refused.message,
-	}).toEqual({
+				expiry,
+			}),
+		),
+	).toEqual({
 		status: 503,
 		message: `The signers of account ${multisig.address} on localnet could not be checked. Please try again.`,
 	});
+	const { accounts } = await client.getAccounts('localnet');
 	expect(
 		accounts.map(({ address, signersChecked }) => ({
 			address,

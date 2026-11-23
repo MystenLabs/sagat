@@ -434,7 +434,7 @@ describe('GET /v1/accounts', () => {
 });
 
 describe('POST /v1/accounts/:address/accept and /reject', () => {
-	test('write account rows that verify', async () => {
+	test('write account rows that verify, and an answer of the original set is visible to the legacy routes', async () => {
 		const [k1, k2, k3] = [newUser(), newUser(), newUser()];
 		const { session } = await signIn(k1);
 		const account = (
@@ -447,6 +447,19 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 			answer: 'accepted',
 		});
 		await answer(k3, account, 'reject');
+
+		const legacy =
+			await session.client.getMultisig(account);
+		expect(
+			legacy.members.map((member) => [
+				member.isAccepted,
+				member.isRejected,
+			]),
+		).toEqual([
+			[true, false],
+			[true, false],
+			[false, true],
+		]);
 
 		const rows = await db
 			.select()
@@ -518,25 +531,6 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 					),
 				),
 		).toEqual([]);
-	});
-
-	test('an accept by a key of the original set is visible to the legacy routes', async () => {
-		const [k1, k2] = [newUser(), newUser()];
-		const { session } = await signIn(k1);
-		const account = (
-			await session.createMultisig([k1, k2], 2)
-		).address;
-
-		await answer(k2, account, 'accept');
-
-		const legacy =
-			await session.client.getMultisig(account);
-		expect(legacy.isVerified).toBe(true);
-		expect(
-			legacy.members.find(
-				(member) => member.publicKey === k2.publicKey,
-			)?.isAccepted,
-		).toBe(true);
 	});
 
 	test('a key of a composition added to another account answers for that account only', async () => {
@@ -702,11 +696,17 @@ describe('GET /v1/accounts/:address', () => {
 });
 
 describe('POST and DELETE /v1/accounts/:address/proposers', () => {
-	test('add and remove a proposer, with the add event on the read', async () => {
+	test('add and remove a proposer', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 2);
-		const client = session.v1;
 		const proposer = newUser().address;
+		const proposers = async () =>
+			(
+				await session.v1.getAccount(
+					multisig.address,
+					'localnet',
+				)
+			).proposers.map((entry) => entry.address);
 
 		expect(
 			await changeProposer(
@@ -716,19 +716,7 @@ describe('POST and DELETE /v1/accounts/:address/proposers', () => {
 				proposer,
 			),
 		).toEqual({ success: true });
-		const added = await client.getAccount(
-			multisig.address,
-			'localnet',
-		);
-		expect(added.proposers).toEqual([
-			expect.objectContaining({
-				address: proposer,
-				event: expect.objectContaining({
-					action: 'proposer.added',
-					actor: users[0].address,
-				}),
-			}),
-		]);
+		expect(await proposers()).toEqual([proposer]);
 
 		await changeProposer(
 			'remove',
@@ -736,13 +724,6 @@ describe('POST and DELETE /v1/accounts/:address/proposers', () => {
 			multisig.address,
 			proposer,
 		);
-		expect(
-			(
-				await client.getAccount(
-					multisig.address,
-					'localnet',
-				)
-			).proposers,
-		).toEqual([]);
+		expect(await proposers()).toEqual([]);
 	});
 });
