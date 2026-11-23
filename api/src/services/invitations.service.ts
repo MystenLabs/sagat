@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * A key's answer to an account invitation. See "Accept and reject" in
- * `design/account-rotation.md`.
- */
+// See "Accept and reject" in `design/account-rotation.md`.
 
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { and, eq, ne, sql } from 'drizzle-orm';
@@ -167,11 +164,7 @@ const recalculateLinks = async (
 		);
 };
 
-/**
- * Records `publicKey`'s answer to the account at `accountAddress`, already
- * verified by the caller, and recalculates only that account's links.
- * Returns the account's original signer set as it is after the change.
- */
+// The caller has verified the answer. Returns the account's original signer set after it.
 export const answerInvitation = async ({
 	accountAddress,
 	publicKey,
@@ -185,8 +178,7 @@ export const answerInvitation = async ({
 	const actor = publicKey.toSuiAddress();
 
 	return await db.transaction(async (tx) => {
-		// Lock the set first, as creation does, so when its last members accept
-		// at once the later one sees the other and verifies the set.
+		// Lock the set first, as creation does, so the last two to accept at once see each other.
 		const [signerSet] = await tx
 			.select()
 			.from(SchemaSignerSets)

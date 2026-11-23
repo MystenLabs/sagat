@@ -622,7 +622,7 @@ export const listActingAccounts = async (
 		.where(sql`${answerSql} = ${answer}`);
 };
 
-// The accounts the keys are tied to on the network (a key's set acts there, a link's composition holds a key, or a key answered) where a tied key accepted, or with `accepted: false` one did not.
+// Tied: a key's set acts there, a link's composition holds a key, or a key answered.
 export const listTiedAccounts = async (
 	publicKeys: string[],
 	network: SuiNetwork,
@@ -856,7 +856,7 @@ export const listRemovedAccounts = async (
 		);
 };
 
-// The other networks whose alias set for the account differs from this network's. No alias rows counts as `{account}`.
+// No alias rows counts as `{account}`.
 export const networksWithDifferentSigners = async (
 	accountAddress: string,
 	network: SuiNetwork,

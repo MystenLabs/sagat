@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/**
- * The `/v1` account flows. Each refreshes the alias state it decides on
- * first, then calls the signer set flows under the acting scope.
- */
+// Each flow refreshes the alias state it decides on first.
 
 import { PersonalMessages } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
@@ -64,7 +61,7 @@ const isAccount = async (address: string) =>
 			.limit(1)
 	).length > 0;
 
-// Refreshes the tied accounts a key accepted, or with `accepted: false` did not, and returns the ones whose read failed.
+// Returns the accounts whose alias read failed.
 const refreshTiedAccounts = async (
 	publicKeys: string[],
 	network: SuiNetwork,
@@ -96,10 +93,6 @@ const checked = (
 		),
 	}));
 
-/**
- * The accounts the caller's keys accepted on the network, by address, and
- * the ones a key was removed from there.
- */
 export const listAccounts = async ({
 	callerKeys,
 	network,
@@ -148,10 +141,6 @@ export const listAccounts = async ({
 	};
 };
 
-/**
- * The accounts where a caller's key is in an acting set on the network and
- * has not answered, or with `showRejected`, rejected.
- */
 export const listAccountInvitations = async ({
 	callerKeys,
 	network,
@@ -180,10 +169,7 @@ export const listAccountInvitations = async ({
 	);
 };
 
-/**
- * An account, for a key of an acting set on the network, accepted or not.
- * `networks` are the supported networks it is compared with.
- */
+// `networks` are the supported networks it is compared with.
 export const getAccount = async ({
 	address,
 	network,
@@ -252,7 +238,6 @@ const refreshAccount = async (
 	await requireFreshAliases(address, network, loaders);
 };
 
-/** A key's answer to an account, signed with the message that names it. */
 export const answerAccountInvitation = async ({
 	address,
 	network,

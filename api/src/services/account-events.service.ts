@@ -199,8 +199,6 @@ export const recordAccountEvent = async (
 	return id;
 };
 
-// Whether this signature is already in the account's log under `actions`,
-// for `subject` when one is given.
 export const isRecordedSignature = async (
 	tx: DatabaseTransaction,
 	{
