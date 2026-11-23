@@ -14,10 +14,8 @@ import {
 	type CheckedAccount,
 	type RemovedAccount,
 } from '../services/accounts.service';
-import {
-	aliasCallsOf,
-	type CheckedProposal,
-} from '../services/proposals.service';
+import { aliasCallsOf } from '../services/onchain-outcomes.service';
+import { type CheckedProposal } from '../services/proposals.service';
 import {
 	memberAnswer,
 	type ActingMember,

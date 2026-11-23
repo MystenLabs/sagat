@@ -328,9 +328,6 @@ const getProposal = async (
 	return proposal;
 };
 
-// The serializers read the alias calls from here.
-export { aliasCallsOf };
-
 // Under the acting scope a decision waits for a fresh alias state, or fails.
 const refreshBeforeDeciding = async (
 	scopeKind: SignerScopeKind,
