@@ -489,7 +489,7 @@ test.describe('proposal integrity', () => {
 		);
 	});
 
-	test('refuses to sign an external proposer’s proposal confirmed by a key that no longer acts', async ({
+	test('refuses to sign an external proposer’s proposal confirmed by a key that no longer acts, until a current signer adds the proposer again', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -544,10 +544,49 @@ test.describe('proposal integrity', () => {
 			'invalid',
 		);
 
-		await carol.page.goto(
-			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
-		);
+		const proposalPath = `/multisig/${multisig.address}/proposals/${proposal.digest}`;
+		await carol.page.goto(proposalPath);
 		await expectRefused({ bob: carol, votes }, 'proposer');
+
+		// Carol, a current signer, adds the proposer again, which signs a new confirmation.
+		await carol.page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		await carol.page
+			.getByTestId('proposers-card')
+			.getByTestId('add-proposer-button')
+			.click();
+		const add = carol.page.getByRole('dialog', {
+			name: 'Add external proposer',
+		});
+		await add
+			.getByLabel('Address', { exact: true })
+			.fill(payments.address);
+		await add
+			.getByRole('button', {
+				name: 'Add proposer',
+				exact: true,
+			})
+			.click();
+		await expect(item).toHaveCount(1);
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'verified',
+		);
+
+		await carol.page.goto(proposalPath);
+		const sign = carol.page
+			.getByTestId('approvals-card')
+			.getByTestId('sign-proposal-button');
+		await expect(sign).toBeEnabled();
+		const voted = carol.page.waitForResponse((response) =>
+			isVoteRequest(response.request()),
+		);
+		await sign.click();
+		expect((await voted).ok()).toBe(true);
+		await expect(
+			carol.approvalRow(carol.address),
+		).toHaveAttribute('data-signed', 'true');
 	});
 
 	test('refuses to sign an external proposal relabelled as a member’s', async ({
