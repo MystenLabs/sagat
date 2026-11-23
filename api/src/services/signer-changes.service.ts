@@ -196,15 +196,6 @@ const lastEpochOf = ({
 		: BigInt(last);
 };
 
-// Whether the transaction's expiration epoch is before `epoch`, so it can no longer execute.
-const hasExpired = (
-	data: Pick<TransactionData, 'expiration'>,
-	epoch: bigint,
-) => {
-	const last = lastEpochOf(data);
-	return last !== null && last < epoch;
-};
-
 // A signer change expires by the end of the epoch after `epoch`, with one epoch of slack for a client's node ahead of the API's.
 export const assertExpiresSoon = (
 	data: Pick<TransactionData, 'expiration'>,
@@ -231,15 +222,12 @@ export const assertNoPendingAliasProposal = async (
 		await findAliasProposals(tx, accountAddress, network, [
 			ProposalStatus.PENDING,
 		])
-	).filter(
-		(proposal) =>
-			!hasExpired(
-				Transaction.from(
-					proposal.transactionBytes,
-				).getData(),
-				epoch,
-			),
-	);
+	).filter((proposal) => {
+		const last = lastEpochOf(
+			Transaction.from(proposal.transactionBytes).getData(),
+		);
+		return last === null || last >= epoch;
+	});
 	if (pending.length > 0)
 		throw new ValidationError(
 			`Another proposal that changes who controls this account on ${network} is pending (${pending[0].digest}). Execute or cancel it first.`,
