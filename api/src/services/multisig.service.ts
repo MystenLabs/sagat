@@ -499,7 +499,7 @@ export const listInvitations = async ({
 	return await loadMultisigAccounts(rows);
 };
 
-// With `showRejected`, the rejected ones instead. Each account once.
+// Accounts where a key is in an acting set and has not answered, or with `showRejected`, rejected; each once.
 export const listActingInvitations = async ({
 	publicKeys,
 	showRejected,
