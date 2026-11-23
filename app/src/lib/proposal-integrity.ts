@@ -264,10 +264,7 @@ export type ShownPod = Pick<
 	'address' | 'signerSets'
 >;
 
-/**
- * The signer sets a pod's response shows as acting: its sets that carry
- * members, by address as the API used to list them.
- */
+/** A pod's sets that carry members, by address as the API used to list them. */
 export function shownActingSets(
 	pod: Pick<Account, 'signerSets'>,
 ): IdentifiedSignerSet[] {
