@@ -616,7 +616,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		);
 	});
 
-	test('an external proposer’s alias proposal is created and reports its calls', async () => {
+	test('an external proposer’s alias proposal is created as an alias call', async () => {
 		const { k1, address, signer } = await createAccount();
 		const proposer = newUser();
 		await session.addProposer(
