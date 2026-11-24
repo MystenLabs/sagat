@@ -13,7 +13,6 @@ import {
 	eq,
 	exists,
 	inArray,
-	isNull,
 	ne,
 	notExists,
 	or,
@@ -32,7 +31,6 @@ import {
 	SchemaAccountEvents,
 	SchemaAccounts,
 	SchemaAccountSignerSets,
-	SchemaAddresses,
 	SchemaSignerSetMembers,
 	SchemaSignerSets,
 	type SignerSetMember,
@@ -70,7 +68,7 @@ export type ActingMember = {
 };
 
 export type ActingSignerSet = {
-	kind: 'signer_set' | 'key';
+	kind: 'signer_set';
 	address: string;
 	threshold: number;
 	members: ActingMember[];
@@ -214,7 +212,6 @@ const readActingRows = (
 		),
 	);
 
-	const publicKey = sql<string>`COALESCE(${SchemaSignerSetMembers.publicKey}, ${SchemaAddresses.publicKey})`;
 	return db
 		.with(candidates)
 		.select({
@@ -224,7 +221,6 @@ const readActingRows = (
 			acts: candidates.acts,
 			set: SchemaSignerSets,
 			member: SchemaSignerSetMembers,
-			aliasKey: SchemaAddresses.publicKey,
 			answer: answerSql,
 		})
 		.from(candidates)
@@ -244,20 +240,16 @@ const readActingRows = (
 			),
 		)
 		.leftJoin(
-			SchemaAddresses,
-			and(
-				isNull(SchemaSignerSets.address),
-				eq(SchemaAddresses.address, candidates.address),
-			),
-		)
-		.leftJoin(
 			originalMember,
 			and(
 				eq(
 					originalMember.signerSetAddress,
 					SchemaAccounts.address,
 				),
-				eq(originalMember.publicKey, publicKey),
+				eq(
+					originalMember.publicKey,
+					SchemaSignerSetMembers.publicKey,
+				),
 			),
 		)
 		.leftJoin(
@@ -267,7 +259,10 @@ const readActingRows = (
 					SchemaAccountAcceptances.accountAddress,
 					SchemaAccounts.address,
 				),
-				eq(SchemaAccountAcceptances.publicKey, publicKey),
+				eq(
+					SchemaAccountAcceptances.publicKey,
+					SchemaSignerSetMembers.publicKey,
+				),
 			),
 		);
 };
@@ -330,20 +325,6 @@ const actingSetsOf = (
 					order: row.member.order,
 					answer: row.answer,
 				});
-		} else if (row.aliasKey !== null) {
-			sets.set(row.alias, {
-				kind: 'key',
-				address: row.alias,
-				threshold: 1,
-				members: [
-					{
-						publicKey: row.aliasKey,
-						weight: 1,
-						order: 0,
-						answer: row.answer,
-					},
-				],
-			});
 		} else {
 			otherSignerSets.push(row.alias);
 		}
@@ -459,56 +440,25 @@ const actingForKeys = (
 	publicKeys: string[],
 	network: SuiNetwork,
 ) => {
-	// Every set a key is in: its compositions, and its own address unless a composition has it.
 	const sets = db.$with('key_sets').as(
-		union(
-			db
-				.select({
-					setAddress:
-						sql<string>`${SchemaSignerSetMembers.signerSetAddress}`.as(
-							'set_address',
-						),
-					publicKey:
-						sql<string>`${SchemaSignerSetMembers.publicKey}`.as(
-							'set_key',
-						),
-				})
-				.from(SchemaSignerSetMembers)
-				.where(
-					inArray(
-						SchemaSignerSetMembers.publicKey,
-						publicKeys,
+		db
+			.select({
+				setAddress:
+					sql<string>`${SchemaSignerSetMembers.signerSetAddress}`.as(
+						'set_address',
 					),
-				),
-			db
-				.select({
-					setAddress:
-						sql<string>`${SchemaAddresses.address}`.as(
-							'set_address',
-						),
-					publicKey:
-						sql<string>`${SchemaAddresses.publicKey}`.as(
-							'set_key',
-						),
-				})
-				.from(SchemaAddresses)
-				.where(
-					and(
-						inArray(SchemaAddresses.publicKey, publicKeys),
-						notExists(
-							db
-								.select({ one: sql`1` })
-								.from(SchemaSignerSets)
-								.where(
-									eq(
-										SchemaSignerSets.address,
-										SchemaAddresses.address,
-									),
-								),
-						),
+				publicKey:
+					sql<string>`${SchemaSignerSetMembers.publicKey}`.as(
+						'set_key',
 					),
+			})
+			.from(SchemaSignerSetMembers)
+			.where(
+				inArray(
+					SchemaSignerSetMembers.publicKey,
+					publicKeys,
 				),
-		),
+			),
 	);
 
 	const ownAliases = alias(

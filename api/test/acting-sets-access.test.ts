@@ -35,6 +35,7 @@ import {
 	ValidationError,
 } from '../src/errors';
 import { listAccountEvents } from '../src/services/account-events.service';
+import { answerAccountInvitation } from '../src/services/accounts.service';
 import {
 	addProposer,
 	getMultisigAccount,
@@ -743,7 +744,7 @@ describe('access under the acting scope', () => {
 		);
 	});
 
-	test('a registered key acts as a set of one, and an address nobody knows gives nothing', async () => {
+	test('a registered key’s own address is an unknown signer set, and gives nothing like an address nobody knows', async () => {
 		const { account, k1 } = await createCast();
 		const key = newUser();
 		await register(key);
@@ -754,36 +755,53 @@ describe('access under the acting scope', () => {
 			unknown,
 		]);
 
-		const { signerSets } = await readRoute(key, account);
+		const { signerSets } = await readRoute(k1, account);
 		expect(
-			signerSets.find((s) => s.address === key.address),
-		).toEqual({
-			kind: 'key',
-			address: key.address,
-			threshold: 1,
-			members: [
-				{
-					publicKey: key.publicKey,
-					weight: 1,
-					order: 0,
-					answer: 'invited',
-					label: null,
-				},
-			],
-			acting: true,
-			original: false,
-		});
-		expect(
-			signerSets.filter((s) => s.address === unknown),
-		).toEqual([{ kind: 'unknown', address: unknown }]);
-
-		await vote(
-			key,
-			await insertProposal(account, 'localnet', k1.address),
+			signerSets.filter((s) =>
+				[key.address, unknown].includes(s.address),
+			),
+		).toEqual(
+			[key.address, unknown]
+				.sort()
+				.map((address) => ({ kind: 'unknown', address })),
 		);
-		expect(await listedRoute(key)).toEqual([]);
-		await answerFor(account, key, 'accepted');
-		expect(await listedRoute(key)).toEqual([account]);
+
+		expect(await refusal(readRoute(key, account))).toEqual(
+			ROUTE_ACCESS_DENIED,
+		);
+		await expectRefused(
+			vote(
+				key,
+				await insertProposal(
+					account,
+					'localnet',
+					k1.address,
+				),
+			),
+			NOT_A_MEMBER,
+		);
+		await expectRefused(
+			propose(key, account),
+			NOT_A_MEMBER,
+		);
+		expect(await invitationsRoute(key)).toEqual([]);
+		const expiry = defaultExpiry();
+		await expectRefused(
+			answerAccountInvitation({
+				address: account,
+				network: 'localnet',
+				answer: 'accepted',
+				signature: await sign(
+					key,
+					PersonalMessages.acceptAccountInvitation(
+						account,
+						expiry,
+					),
+				),
+				expiry,
+			}),
+			new ApiAuthError('NotAnAccountSigner'),
+		);
 	});
 
 	test('an account with no acting set on a network refuses every key there', async () => {

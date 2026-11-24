@@ -173,9 +173,8 @@ export type AccountMember = z.infer<
 export const AccountSignerSetSchema = z
 	.discriminatedUnion('kind', [
 		z.object({
-			kind: z.enum(['signer_set', 'key']).meta({
-				description:
-					'A composition the API holds, or a single registered key.',
+			kind: z.literal('signer_set').meta({
+				description: 'A composition the API holds.',
 			}),
 			address: SuiAddressSchema,
 			threshold: z.number().int(),

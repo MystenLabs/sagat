@@ -326,47 +326,13 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		expect(after.hasReachedThreshold).toBe(true);
 	});
 
-	test('a single registered key as an alias is a set of one', async () => {
+	test('an alias nobody can identify, a registered key’s own address included, is not a signer set', async () => {
 		const { account, created } = await proposeFromA();
 		const key = newUser();
 		await register(key);
 		await setAliases(account.address, 'localnet', [
 			account.address,
 			key.address,
-		]);
-		const keySet = (currentWeight: number) => ({
-			address: key.address,
-			threshold: 1,
-			currentWeight,
-			hasReachedThreshold: currentWeight >= 1,
-			members: [
-				{ publicKey: key.publicKey, weight: 1, order: 0 },
-			],
-		});
-
-		const before = await client.getProposalByDigest(
-			created.digest,
-		);
-		expect(before.signerSets).toEqual(
-			[setOf(account, 1), keySet(0)].sort(byAddress),
-		);
-		expect(before.hasReachedThreshold).toBe(false);
-
-		await signAsActing(key, created);
-
-		const after = await client.getProposalByDigest(
-			created.digest,
-		);
-		expect(after.signerSets).toEqual(
-			[setOf(account, 1), keySet(1)].sort(byAddress),
-		);
-		expect(after.hasReachedThreshold).toBe(true);
-	});
-
-	test('an alias nobody can identify is not a signer set', async () => {
-		const { account, created } = await proposeFromA();
-		await setAliases(account.address, 'localnet', [
-			account.address,
 			newUser().address,
 		]);
 

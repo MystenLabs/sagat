@@ -259,8 +259,8 @@
 						"properties": {
 							"kind": {
 								"type": "string",
-								"enum": ["signer_set", "key"],
-								"description": "A composition the API holds, or a single registered key."
+								"enum": ["signer_set"],
+								"description": "A composition the API holds."
 							},
 							"address": {
 								"type": "string",

@@ -109,7 +109,7 @@ describe('signer resolver', () => {
 		}
 	});
 
-	test('classifies each alias: a known composition and a registered key act, an unknown address does not', async () => {
+	test('classifies each alias: a known composition acts, a registered key’s own address and an unknown address do not', async () => {
 		const owners = [newUser(), newUser()];
 		const account = await createAccount(owners);
 		const signers = [newUser(), newUser()];
@@ -129,35 +129,22 @@ describe('signer resolver', () => {
 		))!;
 
 		expect(resolved.originalSet!.address).toBe(account);
-		expect(resolved.otherSignerSets).toEqual([unknown]);
-		expect(resolved.actingSets).toEqual(
-			[
-				{
-					kind: 'signer_set' as const,
-					address: composition,
-					threshold: 1,
-					members: signers.map((user, order) => ({
-						publicKey: user.publicKey,
-						weight: 1,
-						order,
-						answer: 'invited' as const,
-					})),
-				},
-				{
-					kind: 'key' as const,
-					address: key.address,
-					threshold: 1,
-					members: [
-						{
-							publicKey: key.publicKey,
-							weight: 1,
-							order: 0,
-							answer: 'invited' as const,
-						},
-					],
-				},
-			].sort((a, b) => (a.address < b.address ? -1 : 1)),
+		expect(resolved.otherSignerSets).toEqual(
+			[key.address, unknown].sort(),
 		);
+		expect(resolved.actingSets).toEqual([
+			{
+				kind: 'signer_set',
+				address: composition,
+				threshold: 1,
+				members: signers.map((user, order) => ({
+					publicKey: user.publicKey,
+					weight: 1,
+					order,
+					answer: 'invited',
+				})),
+			},
+		]);
 		expect(keyAnswer(resolved, owners[0].publicKey)).toBe(
 			null,
 		);
@@ -222,20 +209,13 @@ describe('signer resolver', () => {
 		);
 	});
 
-	test('listActingAccounts follows each network, and a key alias once it accepted', async () => {
+	test('listActingAccounts follows each network, and leaves out a key alias even once it accepted', async () => {
 		const owner = newUser();
 		const account = await createAccount([owner, newUser()]);
 		const key = newUser();
 		await register(key);
 		await setAliases(account, 'localnet', [key.address]);
 
-		expect(
-			await listActingAccounts(
-				[key.publicKey],
-				'localnet',
-				'accepted',
-			),
-		).toEqual([]);
 		await answerFor(account, key, 'accepted');
 		expect(
 			await listActingAccounts(
@@ -243,9 +223,7 @@ describe('signer resolver', () => {
 				'localnet',
 				'accepted',
 			),
-		).toEqual([
-			{ accountAddress: account, publicKey: key.publicKey },
-		]);
+		).toEqual([]);
 
 		expect(
 			await listActingAccounts(
