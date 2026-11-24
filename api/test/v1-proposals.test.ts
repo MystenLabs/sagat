@@ -622,7 +622,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		);
 	});
 
-	test('a proposal that calls the alias module reports its calls, and an external proposer’s is refused', async () => {
+	test('an external proposer’s alias proposal is created and reports its calls', async () => {
 		const { k1, address, signer } = await createAccount();
 		const proposer = newUser();
 		await session.addProposer(
@@ -638,23 +638,8 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			),
 		);
 
-		expect(
-			await refusal(
-				session.createProposal(
-					proposer,
-					address,
-					'localnet',
-					bytes,
-				),
-			),
-		).toEqual({
-			status: 403,
-			message: new ApiAuthError('AliasCallByProposer')
-				.message,
-		});
-
 		const created = await session.createProposal(
-			k1,
+			proposer,
 			address,
 			'localnet',
 			bytes,
@@ -662,6 +647,15 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		expect(created.aliasCalls).toEqual([
 			{ function: 'add', aliases: [alias] },
 		]);
+		await session.removeProposer(
+			k1,
+			proposer.address,
+			address,
+		);
+		expect(
+			(await client.getProposalByDigest(created.digest))
+				.status,
+		).toBe(ProposalStatus.CANCELLED);
 	});
 
 	// Executes the proposal with the API's signatures of `setAddress`, then verifies it.

@@ -576,13 +576,6 @@ export const createProposal = async ({
 			'The transaction gas owner does not match the account.',
 		);
 
-	if (
-		scopeKind === 'acting' &&
-		!isMember &&
-		findAliasCalls(proposedTransaction.getData()).length > 0
-	)
-		throw new ApiAuthError('AliasCallByProposer');
-
 	// Verify the supplied user signature before doing any RPC work for the
 	// request. A fully resolved transaction builds without a client.
 	const built = await proposedTransaction.build();

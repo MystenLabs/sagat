@@ -50,7 +50,7 @@ const createProposalRoute = createRoute({
 	path: '/proposals',
 	summary: 'Propose a transaction',
 	description:
-		'Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote. Only a signer may propose a transaction that calls `0x2::address_alias`.',
+		'Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote.',
 	request: {
 		query: z.object({ network: NetworkSchema }),
 		body: jsonBody(CreateProposalRequestSchema),
