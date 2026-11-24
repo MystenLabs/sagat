@@ -337,7 +337,7 @@ Until the change is ready, `signatures` is empty and the proof of the `created` 
 
 Only a key of the set the change replaces may vote on it, accepted or not; anyone else gets a 403. While that set acts, only an accepted signer of it who stays in the new one may cancel the change: a key that is not an accepted signer of the account gets the 403 any cancel gives it, and an accepted signer who does not stay gets a 403. Once the set no longer acts, the change can never execute, and any accepted signer may cancel it. Removing a proposer never cancels a signer change.
 
-The legacy routes never serve a signer change, also while it is pending. Create, `GET /proposals/digest/:digest`, vote and cancel answer with a 409 that points at `/v1`, and the list leaves the change out. `verify` and `verify-by-digest` stay open. The legacy create route, like `/v1`, refuses a transaction that calls `0x2::address_alias` from an external proposer with a 403.
+The legacy routes never serve a signer change, also while it is pending. Create, `GET /proposals/digest/:digest`, vote and cancel answer with a 409 that points at `/v1`, and the list leaves the change out. `verify` and `verify-by-digest` stay open.
 
 ## Checklist
 
