@@ -285,7 +285,7 @@ A signer change is a proposal that replaces one acting signer set with another o
 ### Building one
 
 1. Allow signer changes once per network: propose a transaction built with `buildEnable(tx)` and execute it like any proposal. `enable` cannot share a transaction with the first change.
-2. Build the change with `buildSignerChange(tx, { account, aliases, oldSet, newSet, known, chain, epoch })`, on a transaction whose sender is the account. `aliases` is the account's alias set from a node you pick, `oldSet` the address of the set being replaced, `newSet` the new composition, `known` every composition or single key you know for the aliases, the old set included, `chain` the network's chain identifier and `epoch` the current epoch. It appends `add` and `remove` in the order the alias set allows, or only `remove` when the new set is already an alias, then the composition note, and an expiration that names the chain and is valid through the end of the next epoch. A change that expired is proposed again. It stays listed as pending, but no longer counts for one at a time.
+2. Build the change with `buildSignerChange(tx, { account, aliases, oldSet, newSet, known, chain, epoch })`, on a transaction whose sender is the account. `aliases` is the account's alias set from a node you pick, `oldSet` the address of the set being replaced, `newSet` the new composition, `known` every composition you know for the aliases, the old set included, `chain` the network's chain identifier and `epoch` the current epoch. It appends `add` and `remove` in the order the alias set allows, or only `remove` when the new set is already an alias, then the composition note, and an expiration that names the chain and is valid through the end of the next epoch. A change that expired is proposed again. It stays listed as pending, but no longer counts for one at a time.
 3. Propose it with `POST /v1/proposals`, signed by an accepted signer of the old set who stays in the new one. `labels` names the new set's keys, in the order of the note. Only keys new to the account are labelled.
 
 ### The composition note
@@ -295,18 +295,17 @@ The note is a list of pure string inputs that no command uses, each a line of JS
 ```text
 {"type":"signer_change","version":1,"account":"0x...","before":["0x...","0x..."],"after":["0x...","0x..."]}
 {"type":"signer_set","version":1,"address":"0x...","threshold":2,"members":[{"publicKey":"...","weight":1},{"publicKey":"...","weight":1}]}
-{"type":"key","version":1,"address":"0x...","publicKey":"..."}
 {"type":"other_signer_set","version":1,"address":"0x..."}
 ```
 
-A `signer_set` is a composition with its keys in order, a `key` is a single registered key, and an `other_signer_set` is an alias the builder knows nothing about. Addresses are normalised, lists are sorted, and public keys are Sui public keys in base64. A note holds no labels or names.
+A `signer_set` is a composition with its keys in order, and an `other_signer_set` is any other alias, a registered key's own address included. Addresses are normalised, lists are sorted, and public keys are Sui public keys in base64. A note holds no labels or names.
 
 `readCompositionNote(transactionData)` reads the note. It returns null when the transaction calls no alias function or carries no note. It throws a `SignerChangeError`, with a `reason`, when the transaction carries a note but is not a well-formed change: an input that is not exactly what `compositionNote` writes, an input nothing uses, commands other than one `add` and one `remove`, or one `remove`, on the account's alias set, a removed set or added composition missing from the note, or a failure of rule 1 or 2 below.
 
 `checkSignerChange(transactionData, aliases)` applies the four rules and returns the change, with its `oldSet` and `newSets`:
 
 1. The note's account is the transaction's sender.
-2. Each signer set and key in the note rebuilds its stated address.
+2. Each signer set in the note rebuilds its stated address.
 3. The note's `before` equals `aliases`, the alias set from a node you pick. For an executed change, pass the note's own `before`, since the chain no longer holds that state.
 4. The note's `after` equals `aliases` with the transaction's alias calls applied.
 
