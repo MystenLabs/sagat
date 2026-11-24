@@ -771,6 +771,7 @@ describe('access under the acting scope', () => {
 				},
 			],
 			acting: true,
+			original: false,
 		});
 		expect(
 			signerSets.filter((s) => s.address === unknown),

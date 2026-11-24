@@ -114,6 +114,7 @@ export const toV1Account = ({
 			acting: signers.actingSets.some(
 				(set) => set.address === signerSet.address,
 			),
+			original: true,
 		},
 		...signers.actingSets
 			.filter((set) => set.address !== signerSet.address)
@@ -123,6 +124,7 @@ export const toV1Account = ({
 					toV1Member(member, member.answer, labels),
 				),
 				acting: true,
+				original: false,
 			})),
 		...signers.otherSignerSets.map((address) => ({
 			kind: 'unknown' as const,

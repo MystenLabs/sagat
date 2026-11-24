@@ -184,6 +184,10 @@ export const AccountSignerSetSchema = z
 				description:
 					"True when the set is in the alias set on the request's network; false only for the original set once it was removed there.",
 			}),
+			original: z.boolean().meta({
+				description:
+					"True for the original set. A convenience: the original set is the one whose members and threshold make up the account's address, so check the address.",
+			}),
 		}),
 		z.object({
 			kind: z.literal('unknown').meta({

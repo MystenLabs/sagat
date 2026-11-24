@@ -186,7 +186,12 @@ describe('GET /v1/accounts', () => {
 					createdBy: k1.address,
 					createdAt: expect.any(String),
 					signerSets: [
-						{ kind: 'signer_set', ...set, acting: true },
+						{
+							kind: 'signer_set',
+							...set,
+							acting: true,
+							original: true,
+						},
 					],
 					signersChecked: true,
 				},
@@ -609,7 +614,12 @@ describe('GET /v1/accounts/:address', () => {
 			createdBy: k1.address,
 			createdAt: expect.any(String),
 			signerSets: [
-				{ kind: 'signer_set', ...set, acting: true },
+				{
+					kind: 'signer_set',
+					...set,
+					acting: true,
+					original: true,
+				},
 			],
 			signersChecked: true,
 			network: 'localnet',
