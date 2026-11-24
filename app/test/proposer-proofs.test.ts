@@ -72,8 +72,13 @@ async function accountWithProposer() {
 			address,
 			threshold,
 			members,
-			originalSignerSet: set,
-			signerSets: [{ kind: 'signer_set' as const, ...set }],
+			signerSets: [
+				{
+					kind: 'signer_set' as const,
+					...set,
+					acting: true,
+				},
+			],
 			proposers: [
 				{
 					address: proposer,
@@ -146,10 +151,10 @@ test('signers that do not make up the account confirm no one', async () => {
 		await verifyProposers(
 			{
 				...account,
-				originalSignerSet: {
-					...account.originalSignerSet,
+				signerSets: account.signerSets.map((set) => ({
+					...set,
 					threshold: 2,
-				},
+				})),
 			},
 			account.address,
 			unchanged(account.address),

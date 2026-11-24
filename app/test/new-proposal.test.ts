@@ -705,8 +705,13 @@ describe('checkNewProposal', () => {
 		const set = { address, threshold, members };
 		return {
 			address: account,
-			originalSignerSet: set,
-			signerSets: [{ kind: 'signer_set' as const, ...set }],
+			signerSets: [
+				{
+					kind: 'signer_set' as const,
+					...set,
+					acting: true,
+				},
+			],
 		};
 	};
 

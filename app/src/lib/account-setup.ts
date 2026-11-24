@@ -37,10 +37,7 @@ export function accountSetup({
 }: {
 	multisig: Pick<
 		Account,
-		| 'address'
-		| 'createdBy'
-		| 'createdAt'
-		| 'originalSignerSet'
+		'address' | 'createdBy' | 'createdAt' | 'signerSets'
 	> & {
 		threshold: number;
 		members: { weight: number }[];

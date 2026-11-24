@@ -7,7 +7,10 @@ import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { accountName } from '@/lib/account-name';
 import { weightTone } from '@/lib/member-status';
-import { rebuildAccount } from '@/lib/proposal-integrity';
+import {
+	originalSignerSet,
+	rebuildAccount,
+} from '@/lib/proposal-integrity';
 import {
 	signerRows,
 	type SignerEntry,
@@ -79,7 +82,7 @@ export function ReviewInvitationDialog({
 		multisig.refused !== 'signers' &&
 		!rebuildAccount(multisig, multisig.address)
 			? signerRows(
-					multisig.originalSignerSet.members,
+					originalSignerSet(multisig).members,
 					currentAddress?.address,
 					creator?.address,
 				)

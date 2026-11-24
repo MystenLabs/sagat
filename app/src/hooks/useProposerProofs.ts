@@ -50,7 +50,6 @@ export function useProposerProofs(
 			QueryKeys.ProposerProofs,
 			openedAddress,
 			account.address,
-			account.originalSignerSet,
 			account.signerSets,
 			account.proposers,
 			aliases,

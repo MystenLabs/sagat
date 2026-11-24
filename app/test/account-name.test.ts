@@ -12,6 +12,9 @@ const signer = (label: string | null) => {
 		address: keypair.toSuiAddress(),
 		member: {
 			publicKey: keypair.getPublicKey().toSuiPublicKey(),
+			weight: 1,
+			order: 0,
+			answer: 'accepted' as const,
 			label,
 		},
 	};
@@ -21,15 +24,22 @@ describe('account creator', () => {
 	const alice = signer('Alice');
 	const bob = signer(null);
 	const account = `0x${'ab'.repeat(32)}`;
+	const original = (members: (typeof alice.member)[]) => [
+		{
+			kind: 'signer_set' as const,
+			address: account,
+			threshold: 1,
+			members,
+			acting: true,
+		},
+	];
 
 	test('a member who created the account shows by name, wherever they sit', () => {
 		expect(
 			accountCreator({
 				address: account,
 				createdBy: alice.address,
-				originalSignerSet: {
-					members: [bob.member, alice.member],
-				},
+				signerSets: original([bob.member, alice.member]),
 			}),
 		).toEqual({ address: alice.address, label: 'Alice' });
 	});
@@ -40,9 +50,7 @@ describe('account creator', () => {
 			accountCreator({
 				address: account,
 				createdBy: outsider.address,
-				originalSignerSet: {
-					members: [bob.member, alice.member],
-				},
+				signerSets: original([bob.member, alice.member]),
 			}),
 		).toEqual({ address: outsider.address, label: null });
 	});
@@ -53,7 +61,7 @@ describe('account creator', () => {
 			accountCreator({
 				address: account,
 				createdBy: account,
-				originalSignerSet: { members: [alice.member] },
+				signerSets: original([alice.member]),
 			}),
 		).toBeNull();
 	});

@@ -34,6 +34,7 @@ import { content } from '@/content';
 import { useProposerProofs } from '@/hooks/useProposerProofs';
 import { accountName } from '@/lib/account-name';
 import { formatDate } from '@/lib/dates';
+import { shownActingSets } from '@/lib/proposal-integrity';
 import { memberLabels } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
@@ -70,11 +71,7 @@ export function ProposersSection({
 }: {
 	multisig: Pick<
 		AccountDetails,
-		| 'address'
-		| 'name'
-		| 'originalSignerSet'
-		| 'signerSets'
-		| 'proposers'
+		'address' | 'name' | 'signerSets' | 'proposers'
 	>;
 	/**
 	 * The signed-in address, marked "(you)" when it added or confirmed a
@@ -89,13 +86,12 @@ export function ProposersSection({
 	const name = accountName(multisig);
 	const labels = useMemo(
 		() =>
-			memberLabels([
-				...multisig.originalSignerSet.members,
-				...multisig.signerSets.flatMap(
+			memberLabels(
+				shownActingSets(multisig).flatMap(
 					(set) => set.members,
 				),
-			]),
-		[multisig.originalSignerSet, multisig.signerSets],
+			),
+		[multisig],
 	);
 	const { proofs, trusted } = useProposerProofs(multisig, {
 		openedAddress,

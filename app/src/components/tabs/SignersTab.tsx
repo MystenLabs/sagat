@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AccountSignerSet } from '@mysten/sagat/v1';
 import { useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 
@@ -17,6 +16,10 @@ import {
 	getMultisigExportFilename,
 } from '@/lib/exportUtils';
 import { networkLabel } from '@/lib/network';
+import {
+	originalSignerSet,
+	shownActingSets,
+} from '@/lib/proposal-integrity';
 import { trustsSigners } from '@/lib/proposer-proofs';
 import {
 	differentSignersLine,
@@ -83,7 +86,7 @@ export function SignersTab() {
 			acting
 				? signerSetCards({
 						acting: acting.signerSets,
-						fresh: details?.signerSets ?? [],
+						fresh: details ? shownActingSets(details) : [],
 						account: multisig.address,
 						pods: pods ?? [],
 						signerAddress,
@@ -133,7 +136,7 @@ export function SignersTab() {
 	const originalRows =
 		cards && !cards.some((card) => card.isOriginal)
 			? signerRows(
-					account.originalSignerSet.members,
+					originalSignerSet(account).members,
 					signerAddress,
 				)
 			: null;
@@ -271,8 +274,8 @@ export function SignersTab() {
 								address: account.address,
 								name: account.name,
 								threshold:
-									account.originalSignerSet.threshold,
-								members: account.originalSignerSet.members,
+									originalSignerSet(account).threshold,
+								members: originalSignerSet(account).members,
 							}),
 						)
 					}
@@ -284,7 +287,7 @@ export function SignersTab() {
 }
 
 /** "Threshold 2 of 3", for a page that shows several sets. */
-function SetThreshold({ set }: { set: AccountSignerSet }) {
+function SetThreshold({ set }: Pick<SignerSetCard, 'set'>) {
 	return (
 		<p
 			className="text-13 text-muted-foreground"

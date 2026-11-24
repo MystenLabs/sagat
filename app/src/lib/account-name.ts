@@ -1,9 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Account } from '@mysten/sagat/v1';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { validatePublicKey } from '@/lib/sui-utils';
+
+import { originalSignerSet } from './proposal-integrity';
 
 /** What to call an account in copy: its name, or its short address. */
 export function accountName(m: {
@@ -30,16 +33,12 @@ export function isLegacyAccount(m: {
  * the name the account gave their key when they are one of the original
  * signers. Null for legacy accounts, where the API doesn't know.
  */
-export function accountCreator(m: {
-	address: string;
-	createdBy: string;
-	originalSignerSet: {
-		members: { publicKey: string; label: string | null }[];
-	};
-}): { address: string; label: string | null } | null {
+export function accountCreator(
+	m: Pick<Account, 'address' | 'createdBy' | 'signerSets'>,
+): { address: string; label: string | null } | null {
 	if (isLegacyAccount(m)) return null;
 	const address = m.createdBy;
-	const member = m.originalSignerSet.members.find(
+	const member = originalSignerSet(m).members.find(
 		(member) =>
 			validatePublicKey(member.publicKey).address ===
 			address,

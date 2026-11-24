@@ -1,20 +1,24 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { AccountSignerSet } from '@mysten/sagat/v1';
-
 import { content } from '../content';
 import { joinList } from './create-multisig';
 import { networkLabel, type SuiNetwork } from './network';
-import { signerSetAddress } from './proposal-integrity';
+import {
+	originalSignerSet,
+	signerSetAddress,
+} from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 import { sumWeight, thresholdLabel } from './threshold';
-import { type MultisigWithMembersForPublicKey } from './types';
+import {
+	type IdentifiedSignerSet,
+	type MultisigWithMembersForPublicKey,
+} from './types';
 import { viewerSignerSet } from './user-multisig';
 
 type ListedPod = Pick<
 	MultisigWithMembersForPublicKey,
-	'address' | 'name' | 'originalSignerSet' | 'refused'
+	'address' | 'name' | 'signerSets' | 'refused'
 >;
 
 /** The pod of the viewer's list at `address`, when its original signers make it up. */
@@ -38,7 +42,7 @@ export interface LinkedPod {
 }
 
 export interface SignerSetCard {
-	set: AccountSignerSet;
+	set: IdentifiedSignerSet;
 	/** The address the set's members and threshold make up. */
 	address: string;
 	isOriginal: boolean;
@@ -55,8 +59,8 @@ export function signerSetCards({
 	signerAddress,
 }: {
 	/** The sets that passed rule 2. */
-	acting: readonly AccountSignerSet[];
-	fresh: readonly AccountSignerSet[];
+	acting: readonly IdentifiedSignerSet[];
+	fresh: readonly IdentifiedSignerSet[];
 	/** The pod's own address. */
 	account: string;
 	pods: readonly ListedPod[];
@@ -128,7 +132,7 @@ export function otherSignerSetRows(
 	return unidentified.map((address) => {
 		const pod = podAt(pods, address);
 		if (!pod) return { address, pod: null };
-		const { members, threshold } = pod.originalSignerSet;
+		const { members, threshold } = originalSignerSet(pod);
 		return {
 			address,
 			pod: {

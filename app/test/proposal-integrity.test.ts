@@ -206,25 +206,33 @@ test('of two shown sets, only the one that is an alias acts', () => {
 	).toBe('refused');
 });
 
-test('the original set acts when the node lists the pod’s own address, though the API leaves it out', () => {
-	const { address, keys, multisig } = oneOfTwoAccount();
-	const current = oneOfTwoAccount();
-	const withAnswers = (set: typeof multisig) => ({
-		...set,
-		members: set.members.map((m) => ({
+/** An entry of a pod's `signerSets`; the app never reads `acting`. */
+function listed(
+	multisig: ReturnType<typeof oneOfTwoAccount>['multisig'],
+	acting = true,
+) {
+	return {
+		kind: 'signer_set' as const,
+		...multisig,
+		members: multisig.members.map((m) => ({
 			...m,
 			answer: 'accepted' as const,
 			label: null,
 		})),
-	});
+		acting,
+	};
+}
+
+test('the original set acts when the node lists the pod’s own address, though the API says it does not act', () => {
+	const { address, keys, multisig } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const stranger = oneOfTwoAccount();
 	const pod = {
 		address,
-		originalSignerSet: withAnswers(multisig),
 		signerSets: [
-			{
-				kind: 'signer_set' as const,
-				...withAnswers(current.multisig),
-			},
+			listed(multisig, false),
+			listed(current.multisig),
+			listed(stranger.multisig),
 		],
 	};
 
@@ -236,7 +244,7 @@ test('the original set acts when the node lists the pod’s own address, though 
 	expect(acting.state).toBe('ok');
 	expect(
 		acting.signerSets.map((set) => set.address),
-	).toEqual([current.address, address]);
+	).toEqual([current.address, address].sort());
 	expect(acting.unidentified).toEqual([]);
 });
 

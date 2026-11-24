@@ -4,10 +4,16 @@
 import type {
 	Account,
 	AccountMember,
-	ActingSignerSet,
+	AccountSignerSet,
 } from '@mysten/sagat/v1';
 
 import { type SignersRefusedRule } from './signers-refused';
+
+/** An entry of an account's `signerSets` that carries members. */
+export type IdentifiedSignerSet = Exclude<
+	AccountSignerSet,
+	{ kind: 'unknown' }
+>;
 
 /** Rule 2 on the selected network for a pod that passed rule 1 and isn't refused by it. */
 export type RowActing =
@@ -16,7 +22,7 @@ export type RowActing =
 	| {
 			state: 'ok';
 			/** The shown sets that rebuild to an alias on the app's node. */
-			signerSets: ActingSignerSet[];
+			signerSets: IdentifiedSignerSet[];
 			/** Aliases no shown signer set rebuilds. */
 			unidentified: string[];
 	  };

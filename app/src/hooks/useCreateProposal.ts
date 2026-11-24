@@ -53,10 +53,7 @@ export class ChainMismatchError extends Error {
 }
 
 interface CreateProposalParams {
-	multisig: Pick<
-		Account,
-		'address' | 'originalSignerSet' | 'signerSets'
-	>;
+	multisig: Pick<Account, 'address' | 'signerSets'>;
 	transactionData: string;
 	description?: string;
 }

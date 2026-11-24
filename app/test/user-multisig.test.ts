@@ -53,9 +53,9 @@ function pod() {
 		name: null,
 		createdBy: keys[0].toSuiAddress(),
 		createdAt: '2026-11-20T10:00:00.000Z',
-		originalSignerSet: set,
-		signerSets: [{ kind: 'signer_set', ...set }],
-		otherSignerSets: [],
+		signerSets: [
+			{ kind: 'signer_set', ...set, acting: true },
+		],
 		signerSetsStale: false,
 	};
 	return { address, multisig, signer: signerOf(keys[0]) };
@@ -86,10 +86,10 @@ test('a rule 1 refusal wins over anything the node says', () => {
 	const row = toUserMultisig(
 		{
 			...multisig,
-			originalSignerSet: {
-				...multisig.originalSignerSet,
+			signerSets: multisig.signerSets.map((set) => ({
+				...set,
 				threshold: 2,
-			},
+			})),
 		},
 		signer,
 	);
@@ -146,7 +146,11 @@ test('a key only in a shown set that is no alias is refused as not acting, carry
 			...multisig,
 			signerSets: [
 				...multisig.signerSets,
-				{ kind: 'signer_set', ...stranger.set },
+				{
+					kind: 'signer_set',
+					...stranger.set,
+					acting: true,
+				},
 			],
 		},
 		signer,
@@ -191,11 +195,10 @@ test('a row and the new-proposal copy read the threshold of a set that is an ali
 	const account: Account = {
 		...multisig,
 		address: original.set.address,
-		originalSignerSet: original.set,
 		signerSets: [
-			{ kind: 'signer_set', ...fake.set },
-			{ kind: 'signer_set', ...real.set },
-			{ kind: 'signer_set', ...original.set },
+			{ kind: 'signer_set', ...original.set, acting: true },
+			{ kind: 'signer_set', ...fake.set, acting: true },
+			{ kind: 'signer_set', ...real.set, acting: true },
 		],
 	};
 	const signer = signerOf(viewer);

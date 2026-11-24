@@ -13,6 +13,7 @@ import { type AccountDetails } from '@mysten/sagat/v1';
 import { type AliasRead } from './alias-set';
 import {
 	checkActingSets,
+	originalSignerSet,
 	rebuildAccount,
 	shownActingSets,
 	type AccountSigners,
@@ -21,24 +22,18 @@ import { sameAddress } from './sui-utils';
 
 export type ProposerProofAccount = Pick<
 	AccountDetails,
-	| 'address'
-	| 'originalSignerSet'
-	| 'signerSets'
-	| 'proposers'
+	'address' | 'signerSets' | 'proposers'
 >;
 
 /** Whether `account` is `openedAddress` and its original signers make up that address. */
 export function trustsSigners(
-	account: Pick<
-		AccountDetails,
-		'address' | 'originalSignerSet'
-	>,
+	account: Pick<AccountDetails, 'address' | 'signerSets'>,
 	openedAddress: string,
 ) {
 	return (
 		sameAddress(account.address, openedAddress) &&
 		rebuildAccount(
-			account.originalSignerSet,
+			originalSignerSet(account),
 			account.address,
 		) !== null
 	);

@@ -1,16 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type {
-	Account,
-	AccountSignerSet,
-	KeyAnswer,
-} from '@mysten/sagat/v1';
+import type { Account, KeyAnswer } from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
 	checkAccountSigners,
 	isMember,
+	originalSignerSet,
 	podActing,
 	shownActingSets,
 	signerSetAddress,
@@ -19,6 +16,7 @@ import {
 import { sameAddress } from './sui-utils';
 import { sumWeight } from './threshold';
 import {
+	type IdentifiedSignerSet,
 	type MultisigWithMembersForPublicKey,
 	type PodChecks,
 } from './types';
@@ -28,10 +26,10 @@ type Signer = { publicKey: string; address: string };
 
 /** The set of `sets` holding `signerAddress`: the pod's own (making up `account`) when it does, else the first that does. */
 export function viewerSignerSet(
-	sets: readonly AccountSignerSet[],
+	sets: readonly IdentifiedSignerSet[],
 	account: string,
 	signerAddress: string,
-): AccountSignerSet | undefined {
+): IdentifiedSignerSet | undefined {
 	const holding = sets.filter((set) =>
 		isMember(set, signerAddress),
 	);
@@ -58,7 +56,7 @@ export function keyAnswer(
 }
 
 function memberAnswer(
-	set: AccountSignerSet,
+	set: Pick<IdentifiedSignerSet, 'members'>,
 	publicKey: string,
 ): KeyAnswer | null {
 	return (
@@ -69,7 +67,7 @@ function memberAnswer(
 
 /** The fields a row reads off a signer set, with the signed-in key's `answer`. */
 function viewedThrough(
-	set: AccountSignerSet,
+	set: Pick<IdentifiedSignerSet, 'threshold' | 'members'>,
 	answer: KeyAnswer | null,
 ) {
 	return {
@@ -98,7 +96,7 @@ export function toUserMultisig<A extends Account>(
 ): A & MultisigWithMembersForPublicKey {
 	const signers = checkAccountSigners(
 		{
-			original: account.originalSignerSet,
+			original: originalSignerSet(account),
 			shown: shownActingSets(account),
 		},
 		{
@@ -113,7 +111,7 @@ export function toUserMultisig<A extends Account>(
 	return {
 		...account,
 		...viewedThrough(
-			account.originalSignerSet,
+			originalSignerSet(account),
 			keyAnswer(account, signer.publicKey),
 		),
 		...checks,
@@ -154,7 +152,7 @@ export function withActing(
 					acting.signerSets,
 					row.address,
 					signer.address,
-				) ?? row.originalSignerSet;
+				) ?? originalSignerSet(row);
 			return {
 				...row,
 				...viewedThrough(

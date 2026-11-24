@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type AccountSignerSet } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { expect, test } from 'vitest';
@@ -11,13 +10,16 @@ import {
 	otherSignerSetRows,
 	signerSetCards,
 } from '../src/lib/signer-sets';
+import { type IdentifiedSignerSet } from '../src/lib/types';
 
 /** A signer set of `keys` with weight 1 each, every key accepted. */
 function signerSet(
 	keys: Ed25519Keypair[],
 	threshold = 1,
-): AccountSignerSet {
+): IdentifiedSignerSet {
 	return {
+		kind: 'signer_set',
+		acting: true,
 		address: MultiSigPublicKey.fromPublicKeys({
 			threshold,
 			publicKeys: keys.map((key) => ({
@@ -38,14 +40,14 @@ function signerSet(
 
 /** A pod of the viewer's list made from `set`. */
 function listed(
-	set: AccountSignerSet,
+	set: IdentifiedSignerSet,
 	name: string | null,
 	refused: 'signers' | null = null,
 ) {
 	return {
 		address: set.address,
 		name,
-		originalSignerSet: set,
+		signerSets: [set],
 		refused,
 	};
 }

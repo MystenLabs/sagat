@@ -11,6 +11,7 @@ import {
 	type Account,
 	type AccountDetails,
 	type AccountList,
+	type AccountMember,
 	type InvitationList,
 } from '@mysten/sagat/v1';
 import {
@@ -118,6 +119,30 @@ function withBytes(
 		transactionBytes,
 		digest: TransactionDataBuilder.getDigestFromBytes(
 			fromBase64(transactionBytes),
+		),
+	};
+}
+
+/** `account` with `patch` on `publicKey`'s member of the set at its own address. */
+function withMemberPatched<A extends Account>(
+	account: A,
+	publicKey: string,
+	patch: Partial<AccountMember>,
+): A {
+	return {
+		...account,
+		signerSets: account.signerSets.map((set) =>
+			set.kind !== 'unknown' &&
+			set.address === account.address
+				? {
+						...set,
+						members: set.members.map((m) =>
+							m.publicKey === publicKey
+								? { ...m, ...patch }
+								: m,
+						),
+					}
+				: set,
 		),
 	};
 }
@@ -511,22 +536,12 @@ test.describe('proposal integrity', () => {
 			{ createActor, createIdentity, chain },
 			2,
 		);
-		// Only the original set changes; the acting set stays as served.
+		// Only the set at the account's address changes, the one set it has.
 		const tamper = <A extends Account>(account: A): A =>
 			account.address === multisig.address
-				? {
-						...account,
-						originalSignerSet: {
-							...account.originalSignerSet,
-							members:
-								account.originalSignerSet.members.map(
-									(m) =>
-										m.publicKey === bob.publicKey
-											? { ...m, weight: 2 }
-											: m,
-								),
-						},
-					}
+				? withMemberPatched(account, bob.publicKey, {
+						weight: 2,
+					})
 				: account;
 		// The wizard reads the signers from both the account list and the account.
 		await alice.page.route(
@@ -754,19 +769,9 @@ test.describe('proposal integrity', () => {
 					(await response.json()) as AccountDetails;
 				await route.fulfill({
 					response,
-					json: {
-						...account,
-						originalSignerSet: {
-							...account.originalSignerSet,
-							members:
-								account.originalSignerSet.members.map(
-									(m) =>
-										m.publicKey === bob.publicKey
-											? { ...m, publicKey: carol.publicKey }
-											: m,
-								),
-						},
-					},
+					json: withMemberPatched(account, bob.publicKey, {
+						publicKey: carol.publicKey,
+					}),
 				});
 			},
 		);

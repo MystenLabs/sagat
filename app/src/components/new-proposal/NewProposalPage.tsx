@@ -39,6 +39,7 @@ import {
 } from '@/lib/new-proposal';
 import {
 	checkAccountSigners,
+	originalSignerSet,
 	shownActingSets,
 } from '@/lib/proposal-integrity';
 import {
@@ -132,7 +133,7 @@ function NewProposalWizard({
 	const signers = wallet
 		? checkAccountSigners(
 				{
-					original: multisig.originalSignerSet,
+					original: originalSignerSet(multisig),
 					shown: shownActingSets(multisig),
 				},
 				{

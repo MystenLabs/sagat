@@ -34,6 +34,7 @@ import {
 } from './create-multisig';
 import {
 	checkAccountSigners,
+	originalSignerSet,
 	shownActingSets,
 } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
@@ -400,16 +401,13 @@ export function checkBytes(
  * bytes aren't sent from the pod's address with it paying gas.
  */
 export function checkNewProposal(
-	multisig: Pick<
-		Account,
-		'address' | 'originalSignerSet' | 'signerSets'
-	>,
+	multisig: Pick<Account, 'address' | 'signerSets'>,
 	bytes: string,
 	walletAddress: string,
 ): 'signers' | 'notSigner' | 'bytes' | null {
 	const signers = checkAccountSigners(
 		{
-			original: multisig.originalSignerSet,
+			original: originalSignerSet(multisig),
 			shown: shownActingSets(multisig),
 		},
 		{

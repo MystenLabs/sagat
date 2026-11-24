@@ -44,7 +44,9 @@ const multisig = ({
 		address: ACCOUNT,
 		createdBy,
 		createdAt,
-		originalSignerSet: set,
+		signerSets: [
+			{ kind: 'signer_set' as const, ...set, acting: true },
+		],
 		threshold: set.threshold,
 		members: set.members,
 	};

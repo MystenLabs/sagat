@@ -23,6 +23,7 @@ import { readPodAliasSet } from '@/hooks/useAliasSets';
 import { type ArrivalState } from '@/hooks/useArrivalBanner';
 import {
 	checkAccountSigners,
+	originalSignerSet,
 	podActing,
 	shownActingSets,
 } from '@/lib/proposal-integrity';
@@ -77,7 +78,7 @@ export function useAcceptInvitation() {
 			// Both signers checks pass, on an alias set read now, before the wallet opens.
 			const signers = checkAccountSigners(
 				{
-					original: multisig.originalSignerSet,
+					original: originalSignerSet(multisig),
 					shown: shownActingSets(multisig),
 				},
 				{

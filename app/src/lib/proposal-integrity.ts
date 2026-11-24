@@ -4,10 +4,7 @@
 // Checks a proposal's bytes against what the app can work out for itself
 // before the wallet is asked to sign them.
 import { type PublicProposal } from '@mysten/sagat';
-import type {
-	Account,
-	ActingSignerSet,
-} from '@mysten/sagat/v1';
+import type { Account } from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
@@ -16,6 +13,7 @@ import {
 	validatePublicKey,
 } from './sui-utils';
 import { readTransactionBytes } from './transaction-preview';
+import { type IdentifiedSignerSet } from './types';
 
 /**
  * The first check a proposal failed: `unreadable`, the bytes don't
@@ -212,37 +210,41 @@ export function checkActingSets<S extends AccountSigners>(
 /** A `/v1` pod as `shownActingSets` reads it. */
 export type ShownPod = Pick<
 	Account,
-	'address' | 'originalSignerSet' | 'signerSets'
+	'address' | 'signerSets'
 >;
 
 /**
- * The signer sets a response shows as acting: a `/v1` pod's
- * `signerSets`, with its original set when none of them makes up the
- * pod's address, or the one composition of a legacy proposal's
- * `multisig`.
+ * The signer sets a response shows as acting: a `/v1` pod's sets that
+ * carry members, by address as the API used to list them, or the one
+ * composition of a legacy proposal's `multisig`.
  */
 export function shownActingSets(
-	pod: ShownPod,
-): ActingSignerSet[];
+	pod: Pick<Account, 'signerSets'>,
+): IdentifiedSignerSet[];
 export function shownActingSets(
 	multisig: AccountSigners,
 ): AccountSigners[];
 export function shownActingSets(
-	pod: ShownPod | AccountSigners,
+	pod: Pick<Account, 'signerSets'> | AccountSigners,
 ): AccountSigners[] {
 	if (!('signerSets' in pod)) return [pod];
-	// Whether the original set acts is the node's to say, not the API's.
-	if (
-		pod.signerSets.some((set) =>
-			rebuildAccount(set, pod.address),
+	return pod.signerSets
+		.filter(
+			(set): set is IdentifiedSignerSet =>
+				set.kind !== 'unknown',
 		)
-	)
-		return pod.signerSets;
-	const original: ActingSignerSet = {
-		kind: 'signer_set',
-		...pod.originalSignerSet,
-	};
-	return [...pod.signerSets, original];
+		.sort((a, b) => (a.address < b.address ? -1 : 1));
+}
+
+/** The set at the pod's address; without one, a set that makes up no address. */
+export function originalSignerSet(
+	pod: ShownPod,
+): Pick<IdentifiedSignerSet, 'threshold' | 'members'> {
+	return (
+		shownActingSets(pod).find((set) =>
+			sameAddress(set.address, pod.address),
+		) ?? { threshold: 0, members: [] }
+	);
 }
 
 /** Rule 2 for a pod on one network; `checking` until its alias set is read. */
