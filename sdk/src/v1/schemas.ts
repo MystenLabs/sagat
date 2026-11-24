@@ -171,27 +171,31 @@ export type AccountMember = z.infer<
 >;
 
 export const AccountSignerSetSchema = z
-	.object({
-		address: SuiAddressSchema,
-		threshold: z.number().int(),
-		members: z.array(AccountMemberSchema),
-	})
+	.discriminatedUnion('kind', [
+		z.object({
+			kind: z.enum(['signer_set', 'key']).meta({
+				description:
+					'A composition the API holds, or a single registered key.',
+			}),
+			address: SuiAddressSchema,
+			threshold: z.number().int(),
+			members: z.array(AccountMemberSchema),
+			acting: z.boolean().meta({
+				description:
+					"True when the set is in the alias set on the request's network; false only for the original set once it was removed there.",
+			}),
+		}),
+		z.object({
+			kind: z.literal('unknown').meta({
+				description:
+					'An address in the alias set that the API cannot identify. It can sign for the account.',
+			}),
+			address: SuiAddressSchema,
+		}),
+	])
 	.meta({ id: 'AccountSignerSet' });
 export type AccountSignerSet = z.infer<
 	typeof AccountSignerSetSchema
->;
-
-export const ActingSignerSetSchema = z
-	.object({
-		kind: z.enum(['signer_set', 'key']).meta({
-			description:
-				'A composition the API holds, or a single registered key.',
-		}),
-		...AccountSignerSetSchema.shape,
-	})
-	.meta({ id: 'ActingSignerSet' });
-export type ActingSignerSet = z.infer<
-	typeof ActingSignerSetSchema
 >;
 
 const accountFields = {
@@ -199,14 +203,9 @@ const accountFields = {
 	name: z.string().nullable(),
 	createdBy: SuiAddressSchema,
 	createdAt: z.iso.datetime(),
-	originalSignerSet: AccountSignerSetSchema,
-	signerSets: z.array(ActingSignerSetSchema).meta({
+	signerSets: z.array(AccountSignerSetSchema).meta({
 		description:
-			"The signer sets that act for the account on the request's network.",
-	}),
-	otherSignerSets: z.array(SuiAddressSchema).meta({
-		description:
-			'The addresses in the alias set that the API cannot identify. Each can sign for the account.',
+			"One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network.",
 	}),
 	signersChecked: z.boolean().meta({
 		description:

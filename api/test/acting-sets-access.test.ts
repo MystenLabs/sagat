@@ -726,15 +726,17 @@ describe('access under the acting scope', () => {
 		expect(await listedRoute(k1)).toEqual([account]);
 		expect(await invitationsRoute(k1)).toEqual([stranger]);
 
-		const { address, originalSignerSet } = await readRoute(
-			k1,
-			stranger,
-		);
+		const {
+			address,
+			signerSets: [original],
+		} = await readRoute(k1, stranger);
 		expect(address).toBe(stranger);
-		expect(
-			originalSignerSet.members.map((m) => m.publicKey),
-		).toEqual(strangers.map((s) => s.publicKey));
-		expect(originalSignerSet.address).toBe(stranger);
+		expect(original).toMatchObject({
+			address: stranger,
+			members: strangers.map(({ publicKey }) => ({
+				publicKey,
+			})),
+		});
 		await expectRefused(
 			propose(k1, stranger),
 			NOT_A_MEMBER,
@@ -752,10 +754,7 @@ describe('access under the acting scope', () => {
 			unknown,
 		]);
 
-		const { signerSets, otherSignerSets } = await readRoute(
-			key,
-			account,
-		);
+		const { signerSets } = await readRoute(key, account);
 		expect(
 			signerSets.find((s) => s.address === key.address),
 		).toEqual({
@@ -771,11 +770,11 @@ describe('access under the acting scope', () => {
 					label: null,
 				},
 			],
+			acting: true,
 		});
-		expect(otherSignerSets).toEqual([unknown]);
-		expect(signerSets.map((s) => s.address)).not.toContain(
-			unknown,
-		);
+		expect(
+			signerSets.filter((s) => s.address === unknown),
+		).toEqual([{ kind: 'unknown', address: unknown }]);
 
 		await vote(
 			key,

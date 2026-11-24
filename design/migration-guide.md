@@ -129,36 +129,31 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 	"name": "Treasury",
 	"createdBy": "0x...",
 	"createdAt": "2026-11-20T10:00:00.000Z",
-	"originalSignerSet": {
-		"address": "0x...",
-		"threshold": 2,
-		"members": [
-			{
-				"publicKey": "...",
-				"weight": 1,
-				"order": 0,
-				"answer": "accepted",
-				"label": "Alice's Ledger"
-			}
-		]
-	},
 	"signerSets": [
 		{
 			"kind": "signer_set",
 			"address": "0x...",
 			"threshold": 2,
-			"members": []
+			"members": [
+				{
+					"publicKey": "...",
+					"weight": 1,
+					"order": 0,
+					"answer": "accepted",
+					"label": "Alice's Ledger"
+				}
+			],
+			"acting": true
 		}
 	],
-	"otherSignerSets": [],
 	"signersChecked": true
 }
 ```
 
-- `originalSignerSet` is the composition the account's address is derived from. It is always returned, also on a network where it no longer acts.
-- `signerSets` are the signer sets that act for the account on the network: every address in its alias set that the API can identify, as a composition it holds (`kind: "signer_set"`) or a single registered key (`kind: "key"`). For an account that never changed there is one, the original set.
+- `signerSets` has one entry per signer set. The first is the original set, the one at the account's address, which the address is derived from. It is always returned, also on a network where it no longer acts. After it come the other addresses in the alias set on the network. For an account that never changed there is one entry.
+- An entry is a composition the API holds (`kind: "signer_set"`), a single registered key (`kind: "key"`), or an address the API cannot identify (`kind: "unknown"`), which carries only `address` and can sign for the account.
+- `acting` is true when the set is in the alias set on the network, so it is false only for the original set once it was removed there.
 - Each member carries `answer`, the key's answer to this account, and `label`, the account's name for the key or null.
-- `otherSignerSets` are the addresses in the alias set that the API cannot identify. Each can sign for the account.
 - `signersChecked` is false when the alias set could not be read from the chain, so the signer sets are as last read.
 
 `GET /v1/accounts/:address` adds `network`, `signerChangesAllowed`, `networksWithDifferentSigners` and `proposers`. It does not return signer changes yet.

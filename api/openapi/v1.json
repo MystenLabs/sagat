@@ -231,23 +231,12 @@
 						"type": "string",
 						"format": "date-time"
 					},
-					"originalSignerSet": {
-						"$ref": "#/components/schemas/AccountSignerSet"
-					},
 					"signerSets": {
 						"type": "array",
 						"items": {
-							"$ref": "#/components/schemas/ActingSignerSet"
+							"$ref": "#/components/schemas/AccountSignerSet"
 						},
-						"description": "The signer sets that act for the account on the request's network."
-					},
-					"otherSignerSets": {
-						"type": "array",
-						"items": {
-							"type": "string",
-							"description": "A Sui address."
-						},
-						"description": "The addresses in the alias set that the API cannot identify. Each can sign for the account."
+						"description": "One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network."
 					},
 					"signersChecked": {
 						"type": "boolean",
@@ -259,28 +248,60 @@
 					"name",
 					"createdBy",
 					"createdAt",
-					"originalSignerSet",
 					"signerSets",
-					"otherSignerSets",
 					"signersChecked"
 				]
 			},
 			"AccountSignerSet": {
-				"type": "object",
-				"properties": {
-					"address": {
-						"type": "string",
-						"description": "A Sui address."
+				"oneOf": [
+					{
+						"type": "object",
+						"properties": {
+							"kind": {
+								"type": "string",
+								"enum": ["signer_set", "key"],
+								"description": "A composition the API holds, or a single registered key."
+							},
+							"address": {
+								"type": "string",
+								"description": "A Sui address."
+							},
+							"threshold": { "type": "integer" },
+							"members": {
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/AccountMember"
+								}
+							},
+							"acting": {
+								"type": "boolean",
+								"description": "True when the set is in the alias set on the request's network; false only for the original set once it was removed there."
+							}
+						},
+						"required": [
+							"kind",
+							"address",
+							"threshold",
+							"members",
+							"acting"
+						]
 					},
-					"threshold": { "type": "integer" },
-					"members": {
-						"type": "array",
-						"items": {
-							"$ref": "#/components/schemas/AccountMember"
-						}
+					{
+						"type": "object",
+						"properties": {
+							"kind": {
+								"type": "string",
+								"enum": ["unknown"],
+								"description": "An address in the alias set that the API cannot identify. It can sign for the account."
+							},
+							"address": {
+								"type": "string",
+								"description": "A Sui address."
+							}
+						},
+						"required": ["kind", "address"]
 					}
-				},
-				"required": ["address", "threshold", "members"]
+				]
 			},
 			"AccountMember": {
 				"type": "object",
@@ -308,33 +329,6 @@
 				"type": "string",
 				"enum": ["accepted", "rejected", "invited"],
 				"description": "A key's answer for the account; `invited` until it answers."
-			},
-			"ActingSignerSet": {
-				"type": "object",
-				"properties": {
-					"kind": {
-						"type": "string",
-						"enum": ["signer_set", "key"],
-						"description": "A composition the API holds, or a single registered key."
-					},
-					"address": {
-						"type": "string",
-						"description": "A Sui address."
-					},
-					"threshold": { "type": "integer" },
-					"members": {
-						"type": "array",
-						"items": {
-							"$ref": "#/components/schemas/AccountMember"
-						}
-					}
-				},
-				"required": [
-					"kind",
-					"address",
-					"threshold",
-					"members"
-				]
 			},
 			"RemovedAccount": {
 				"type": "object",
@@ -384,23 +378,12 @@
 						"type": "string",
 						"format": "date-time"
 					},
-					"originalSignerSet": {
-						"$ref": "#/components/schemas/AccountSignerSet"
-					},
 					"signerSets": {
 						"type": "array",
 						"items": {
-							"$ref": "#/components/schemas/ActingSignerSet"
+							"$ref": "#/components/schemas/AccountSignerSet"
 						},
-						"description": "The signer sets that act for the account on the request's network."
-					},
-					"otherSignerSets": {
-						"type": "array",
-						"items": {
-							"type": "string",
-							"description": "A Sui address."
-						},
-						"description": "The addresses in the alias set that the API cannot identify. Each can sign for the account."
+						"description": "One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network."
 					},
 					"signersChecked": {
 						"type": "boolean",
@@ -432,9 +415,7 @@
 					"name",
 					"createdBy",
 					"createdAt",
-					"originalSignerSet",
 					"signerSets",
-					"otherSignerSets",
 					"signersChecked",
 					"network",
 					"signerChangesAllowed",

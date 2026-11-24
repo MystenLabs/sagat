@@ -103,22 +103,32 @@ export const toV1Account = ({
 	name: signers.accountName,
 	createdBy: origin.draftedBy,
 	createdAt: origin.createdAt.toISOString(),
-	originalSignerSet: {
-		address: signerSet.address,
-		threshold: signerSet.threshold,
-		members: signerSet.members.map((member) =>
-			toV1Member(member, memberAnswer(member), labels),
-		),
-	},
-	signerSets: signers.actingSets.map((set) => ({
-		kind: set.kind,
-		address: set.address,
-		threshold: set.threshold,
-		members: set.members.map((member) =>
-			toV1Member(member, member.answer, labels),
-		),
-	})),
-	otherSignerSets: signers.otherSignerSets,
+	signerSets: [
+		{
+			kind: 'signer_set',
+			address: signerSet.address,
+			threshold: signerSet.threshold,
+			members: signerSet.members.map((member) =>
+				toV1Member(member, memberAnswer(member), labels),
+			),
+			acting: signers.actingSets.some(
+				(set) => set.address === signerSet.address,
+			),
+		},
+		...signers.actingSets
+			.filter((set) => set.address !== signerSet.address)
+			.map((set) => ({
+				...set,
+				members: set.members.map((member) =>
+					toV1Member(member, member.answer, labels),
+				),
+				acting: true,
+			})),
+		...signers.otherSignerSets.map((address) => ({
+			kind: 'unknown' as const,
+			address,
+		})),
+	],
 	signersChecked,
 });
 
