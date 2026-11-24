@@ -4,6 +4,11 @@
 // What the proposal page shows, kept free of React: where the proposal
 // stands, the Approvals card's rows and lines, the cancel dialog's
 // wording and the Activity card's rows.
+import {
+	checkSignerChange,
+	signerChangeProof,
+} from '@mysten/sagat';
+import { Transaction } from '@mysten/sui/transactions';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
@@ -262,6 +267,51 @@ export function approvalsStatus(
 	if (status === 'executed') return STATUS.executed;
 	if (status === 'failed') return STATUS.failed;
 	return null;
+}
+
+/**
+ * While a pending signer change's signers who stay haven't signed for
+ * the new threshold, the warning naming them. Null for bytes without a
+ * composition note that checks against `aliases`, the pod's alias set
+ * from the app's node (null until read).
+ */
+export function signerChangeWarning(
+	proposal: Pick<
+		PageProposal,
+		'transactionBytes' | 'signatures'
+	>,
+	status: ProposalStatusKey,
+	aliases: readonly string[] | null,
+	labels: Labels,
+): string | null {
+	if (
+		!aliases ||
+		(status !== 'pending' && status !== 'ready')
+	)
+		return null;
+	let proof;
+	try {
+		proof = signerChangeProof(
+			checkSignerChange(
+				Transaction.from(
+					proposal.transactionBytes,
+				).getData(),
+				aliases,
+			),
+			proposal.signatures.map((sig) => sig.publicKey),
+		);
+	} catch {
+		return null;
+	}
+	if (proof.met || proof.notSigned.length === 0)
+		return null;
+	const names = proof.notSigned.map((key) =>
+		nameOf(addressOf(key), labels),
+	);
+	return content.proposal.approvals.signerChange.body(
+		joinList(names, 'and'),
+		names.length,
+	);
 }
 
 /**

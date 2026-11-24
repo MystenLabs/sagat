@@ -1158,6 +1158,12 @@ export const content = {
 				title: 'Proposer not confirmed',
 				body: 'There’s no signature on record showing this proposal came from a signer or a confirmed external proposer. Check the transaction before you sign.',
 			},
+			/** A pending signer change whose signers who stay haven’t signed for the new threshold yet. */
+			signerChange: {
+				title: 'Signers who stay haven’t all signed',
+				body: (names: string, count: number) =>
+					`${names} will still ${count === 1 ? 'be a signer' : 'be signers'} after this change but ${count === 1 ? 'hasn’t' : 'haven’t'} signed it. If they can no longer sign, the pod could be locked.`,
+			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */
 				body: (recheck: string, gas: string | null) =>

@@ -1,8 +1,24 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+	buildSignerChange,
+	deriveAliasesObjectId,
+	type Composition,
+} from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { formatAddress } from '@mysten/sui/utils';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import {
+	Inputs,
+	Transaction,
+} from '@mysten/sui/transactions';
+import {
+	formatAddress,
+	normalizeSuiAddress,
+	toBase58,
+	toBase64,
+} from '@mysten/sui/utils';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 import { describe, expect, it } from 'vitest';
 
 import { content } from '../src/content';
@@ -13,6 +29,7 @@ import {
 	approvalsSignerSets,
 	cancelVariant,
 	foldedSignerSetsLine,
+	signerChangeWarning,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
 	type Labels,
@@ -211,6 +228,79 @@ describe('cancelVariant', () => {
 		expect(cancelVariant(proposal(), maya.publicKey)).toBe(
 			'others',
 		);
+	});
+});
+
+describe('signerChangeWarning', () => {
+	it('names the signers who stay and haven’t signed until they cover the new threshold, and is null for a proposal that is no signer change', async () => {
+		const COPY = content.proposal.approvals.signerChange;
+		const setOf = (threshold: number): Composition => ({
+			threshold,
+			members: SIGNERS.map((s) => ({
+				publicKey: s.publicKey,
+				weight: s.weight,
+			})),
+		});
+		// The pod's set, weighing 4, raises its threshold from 2 to 4.
+		const oldSet = setOf(2);
+		const pod = MultiSigPublicKey.fromPublicKeys({
+			threshold: oldSet.threshold,
+			publicKeys: oldSet.members.map((m) => ({
+				publicKey: publicKeyFromSuiBytes(m.publicKey),
+				weight: m.weight,
+			})),
+		}).toSuiAddress();
+		const tx = new Transaction();
+		tx.setSender(pod);
+		tx.setGasPrice(1000);
+		tx.setGasBudget(10_000_000);
+		tx.setGasPayment([
+			{
+				objectId: normalizeSuiAddress('0x99'),
+				version: '1',
+				digest: toBase58(new Uint8Array(32).fill(1)),
+			},
+		]);
+		tx.object(
+			Inputs.SharedObjectRef({
+				objectId: deriveAliasesObjectId(pod),
+				initialSharedVersion: 1,
+				mutable: true,
+			}),
+		);
+		buildSignerChange(tx, {
+			account: pod,
+			aliases: [pod],
+			oldSet: pod,
+			newSet: setOf(4),
+			known: [oldSet],
+			chain: toBase58(new Uint8Array(32).fill(7)),
+			epoch: 5,
+		});
+		const transactionBytes = toBase64(await tx.build());
+		const warning = (signedBy: (typeof maya)[]) =>
+			signerChangeWarning(
+				{
+					...proposal({ signedBy }),
+					transactionBytes,
+				},
+				'ready',
+				[pod],
+				labels,
+			);
+
+		expect(warning([alice])).toBe(
+			COPY.body('Maya and Daniel', 2),
+		);
+		expect(warning([alice, maya, daniel])).toBeNull();
+		expect(
+			signerChangeWarning(
+				proposal({ signedBy: [alice] }),
+				'ready',
+				[pod],
+				labels,
+			),
+		).toBeNull();
 	});
 });
 

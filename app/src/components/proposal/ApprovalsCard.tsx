@@ -61,6 +61,7 @@ import {
 	foldedSignerSetsLine,
 	gasEstimate,
 	hasSigned,
+	signerChangeWarning,
 	withReason,
 	wouldReachThreshold,
 	type ApprovalRow,
@@ -285,6 +286,16 @@ export function ApprovalsCard({
 		status === 'pending' && !isExecuting
 			? (mainSet?.line ?? null)
 			: approvalsStatus(status, isExecuting, verdict);
+	const signerChange = useMemo(
+		() =>
+			signerChangeWarning(
+				proposal,
+				status,
+				aliases?.kind === 'read' ? aliases.aliases : null,
+				labels,
+			),
+		[proposal, status, aliases, labels],
+	);
 	const note = approvalsNote({
 		proposal,
 		status,
@@ -581,6 +592,17 @@ export function ApprovalsCard({
 				<ApprovalRowList rows={mainSet?.rows ?? []} />
 			)}
 
+			{signerChange && (
+				<Alert
+					variant="warning"
+					data-testid="signer-change-warning"
+				>
+					<div className="font-medium">
+						{COPY.signerChange.title}
+					</div>
+					<div>{signerChange}</div>
+				</Alert>
+			)}
 			{actions && (
 				<div className="mt-1 flex flex-col gap-3">
 					{actions}
