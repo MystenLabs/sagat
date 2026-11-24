@@ -129,7 +129,7 @@ Every request names a network, and rights come from the acting sets on that netw
 | Cancel                               | An accepted key of an acting set, or the external proposer while nobody has signed.                                   |
 | Verify by digest                     | Anyone: it only reads the chain.                                                                                      |
 | Add or remove a proposer             | An accepted key of an acting set. Removing cancels that proposer's proposals on that network, except a signer change. |
-| Anything that calls the alias module | Signers only, never an external proposer. See changing signers.                                                       |
+| Anything that calls the alias module | As for any proposal, one at a time. See changing signers.                                                             |
 | Answer for an account                | A key of an acting set of that account. For an account's original set, a key of that composition, as today.           |
 
 The services take the acting sets where they take the composition at the account's address today. For an account that never changed there is one, and it is that composition.
@@ -284,7 +284,7 @@ If someone executes a proposal with a set the chain no longer accepts, the node 
 Sagat is defensive about what it controls: the accuracy of the mirror, access decisions, the change flow, and never building a lockout. It does not try to prevent what happens outside it, such as a signer set added by hand or signatures combined elsewhere. Those are detected at the next refresh and shown.
 
 - The app builds only `enable`, and `add` with `remove`. Never `replace_all`, so another signer set, such as a recovery set, survives a change.
-- **Hand-written proposals that call `0x2::address_alias` are allowed for signers.** The preview shows a prominent "this changes who controls the account" warning, says that the app cannot show who is added, and calls out `replace_all`. They are refused from external proposers. They count for the one-at-a-time rule, in both directions. What they add acts if Sagat can identify it, and its members are invited and get a member's rights once they accept the account. It is listed as another signer set otherwise. If one removes every acting set, the account has none.
+- **Hand-written proposals that call `0x2::address_alias` are allowed for signers and external proposers.** The preview shows a prominent "this changes who controls the account" warning, says that the app cannot show who is added, and calls out `replace_all`. They count for the one-at-a-time rule, in both directions. What they add acts if Sagat can identify it, and its members are invited and get a member's rights once they accept the account. It is listed as another signer set otherwise. If one removes every acting set, the account has none.
 - A change is dry-run before signing, and the preview shows the resulting alias set.
 - A different gas owner is refused when a proposal is created, as for any proposal.
 - Maximum 8 aliases. The builder orders its two calls so a full set still works.
@@ -498,7 +498,7 @@ The notice to a removed signer is read from the `alias.removed` rows: a key of a
 ## Changes to existing code
 
 - **Membership checks and counts** in the services take the acting sets for a network from the resolver, where they load the composition at the account's address today. A proposal is counted per set.
-- **Proposal creation** recognises a signer change from the bytes and runs its checks, and refuses alias calls from external proposers.
+- **Proposal creation** recognises a signer change from the bytes and runs its checks.
 - **Proposal reads** withhold a change's signatures until it is ready, and report its readiness.
 - **Cancel** of a change needs a signer who stays.
 - **Verify** records a signer change's outcome, writes `executed_via`, drops its threshold pre-check under `/v1`, and refreshes the mirror after an alias change. It also looks up a cancelled proposal that calls the alias module, where today it returns any proposal that is not pending as it is: when the chain shows it executed, its success or failure replaces cancelled and `executed_via` is written, the same outcome the refresh records; when it is not on chain it stays cancelled.
@@ -592,7 +592,7 @@ Decided on 2026-11-17, replacing the October design where they differ:
 | Proof                     | Ready only when signers who stay have signed for the new threshold. Signatures are withheld until then.          | The retire being executed by the new set.                     |
 | Composition note          | Required on every change, as JSON strings. The app shows the change from it.                                     | Nothing.                                                      |
 | Open changes              | One per account and network. Signers only.                                                                       | One active wizard rotation per account and network.           |
-| Hand-written alias calls  | Allowed for signers, with the warning. Refused from external proposers.                                          | Allowed on every route, never refused.                        |
+| Hand-written alias calls  | Allowed for signers, with the warning. Replaced on 2026-11-24, below.                                            | Allowed on every route, never refused.                        |
 | Who proposes and cancels  | A signer who stays, enforced by the API.                                                                         | Any accepted member.                                          |
 | Networks                  | Everything follows the request's network, the list of accounts included. A notice when signers differ elsewhere. | Reads and proposer changes for a key valid on any network.    |
 | Editor rules              | As the screens draw them.                                                                                        | Nothing.                                                      |
@@ -618,6 +618,7 @@ Decided on 2026-11-24:
 
 | Topic                    | Decision                                                                                                                                                                              | Replaces                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Hand-written alias calls | Allowed for signers and external proposers alike, with the warning.                                                                                                                   | Refused from external proposers.                                          |
 | An account's signer sets | One `signerSets` list. The original comes first, flagged `original`; `acting` says if a set is in the alias set on the request's network; an unidentified alias is `kind: 'unknown'`. | The three fields `originalSignerSet`, `signerSets` and `otherSignerSets`. |
 | A single registered key  | Listed as an other signer set, `kind: 'unknown'`, like any alias Sagat cannot identify. It gives nobody access.                                                                       | Acting as a set of one, with a member's rights once the key accepts.      |
 
