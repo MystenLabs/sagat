@@ -719,6 +719,26 @@ export function isProofMet(
 	);
 }
 
+/** `isProofMet`, and the signers who stay in any new set that have not signed, in the old set's order. */
+export function signerChangeProof(
+	change: Pick<SignerChange, 'oldSet' | 'newSets'>,
+	signedKeys: readonly string[],
+): { met: boolean; notSigned: string[] } {
+	const staying = new Set(
+		change.newSets.flatMap((set) =>
+			signersWhoStay(change.oldSet, set),
+		),
+	);
+	return {
+		met: isProofMet(change, signedKeys),
+		notSigned: change.oldSet.members
+			.map((m) => m.publicKey)
+			.filter(
+				(k) => staying.has(k) && !signedKeys.includes(k),
+			),
+	};
+}
+
 export function namedChain(
 	transaction: Pick<TransactionData, 'expiration'>,
 ): string | null {

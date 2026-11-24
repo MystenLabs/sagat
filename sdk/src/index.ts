@@ -73,6 +73,7 @@ export {
 	proofWeight,
 	readCompositionNote,
 	SignerChangeError,
+	signerChangeProof,
 	signersWhoStay,
 	type Composition,
 	type CompositionNote,

@@ -30,6 +30,7 @@ import {
 	proofWeight,
 	readCompositionNote,
 	SignerChangeError,
+	signerChangeProof,
 	signersWhoStay,
 	type Composition,
 	type SignerChangeErrorReason,
@@ -410,6 +411,19 @@ describe('signers who stay and the proof', () => {
 				k2,
 			]),
 		).toBe(true);
+	});
+
+	test('the proof names the signers who stay that have not signed, until they reach the new threshold', () => {
+		const toS2 = { oldSet: old, newSets: [next] };
+		// One below S2's threshold of 3.
+		expect(signerChangeProof(toS2, [k1, k3])).toEqual({
+			met: false,
+			notSigned: [k2],
+		});
+		expect(signerChangeProof(toS2, [k1, k2])).toEqual({
+			met: true,
+			notSigned: [],
+		});
 	});
 
 	test('a change that only removes is proven by any set left', () => {
