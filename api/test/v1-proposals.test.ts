@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	ProposalStatus,
 	SagatApiError,
 	verifyProposalCreated,
 } from '@mysten/sagat';
@@ -111,30 +110,28 @@ describe('GET /v1/proposals/:digest', () => {
 		);
 
 		expect(proposal).toEqual({
-			id: created.id,
 			digest: created.digest,
 			accountAddress: multisig.address,
 			accountName: 'Treasury',
 			network: 'localnet',
-			status: ProposalStatus.PENDING,
+			kind: 'transaction',
+			status: 'PENDING',
+			ready: false,
 			transactionBytes: created.transactionBytes,
 			proposerAddress: users[0].address,
 			description: 'Pay rent',
 			createdAt: expect.any(String),
 			signatures: [
 				{
-					proposalId: created.id,
 					publicKey: users[0].publicKey,
 					signature: expect.any(String),
 				},
 			],
-			hasReachedThreshold: false,
 			signerSets: [
 				{
 					address: multisig.address,
 					threshold: 2,
 					currentWeight: 1,
-					hasReachedThreshold: false,
 					members: multisig.members.map((member) => ({
 						publicKey: member.publicKey,
 						weight: member.weight,
@@ -147,7 +144,6 @@ describe('GET /v1/proposals/:digest', () => {
 				proposer: null,
 			},
 			executedVia: null,
-			aliasCalls: [],
 			signerSetsStale: false,
 		});
 	});
@@ -298,8 +294,6 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		address: multisig.address,
 		threshold: multisig.threshold,
 		currentWeight,
-		hasReachedThreshold:
-			currentWeight >= multisig.threshold,
 		members: multisig.members.map((member) => ({
 			publicKey: member.publicKey,
 			weight: member.weight,
@@ -332,14 +326,14 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 				byAddress,
 			),
 		);
-		expect(before.hasReachedThreshold).toBe(false);
+		expect(before.ready).toBe(false);
 
 		const voted = await session.voteOnProposal(
 			k3,
 			created.digest,
 			created.transactionBytes,
 		);
-		expect(voted.hasReachedThreshold).toBe(true);
+		expect(voted.ready).toBe(true);
 
 		const after = await client.getProposalByDigest(
 			created.digest,
@@ -349,7 +343,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 				byAddress,
 			),
 		);
-		expect(after.hasReachedThreshold).toBe(true);
+		expect(after.ready).toBe(true);
 	});
 
 	test('a single registered key as an alias is no signer set, and its signature is refused', async () => {
@@ -365,7 +359,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			created.digest,
 		);
 		expect(before.signerSets).toEqual([setOf(account, 1)]);
-		expect(before.hasReachedThreshold).toBe(false);
+		expect(before.ready).toBe(false);
 
 		expect(
 			await refusal(
@@ -385,7 +379,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			created.digest,
 		);
 		expect(after.signerSets).toEqual([setOf(account, 1)]);
-		expect(after.hasReachedThreshold).toBe(false);
+		expect(after.ready).toBe(false);
 	});
 
 	test('an alias nobody can identify, a registered key’s own address included, is not a signer set', async () => {
@@ -425,7 +419,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		expect(proposal.signerSets).toEqual([
 			setOf(composition, 0),
 		]);
-		expect(proposal.hasReachedThreshold).toBe(false);
+		expect(proposal.ready).toBe(false);
 		expect(proposal.accountName).toBe('Treasury');
 	});
 
@@ -440,7 +434,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		);
 
 		expect(proposal.signerSets).toEqual([]);
-		expect(proposal.hasReachedThreshold).toBe(false);
+		expect(proposal.ready).toBe(false);
 	});
 
 	test('alias rows on another network leave the original set acting', async () => {
@@ -472,7 +466,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		);
 		expect(
 			(await client.getProposalByDigest(created.digest))
-				.hasReachedThreshold,
+				.ready,
 		).toBe(true);
 		// `k2` stays with a new weight and threshold; `k1` leaves.
 		const changed = await session.createMultisig(
@@ -507,7 +501,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			expect(proposal.signerSets).toEqual([
 				setOf(changed, 2),
 			]);
-			expect(proposal.hasReachedThreshold).toBe(false);
+			expect(proposal.ready).toBe(false);
 		}
 	});
 });
@@ -644,9 +638,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			'localnet',
 			bytes,
 		);
-		expect(created.aliasCalls).toEqual([
-			{ function: 'add', aliases: [alias] },
-		]);
+		expect(created.kind).toBe('alias_call');
 		await session.removeProposer(
 			k1,
 			proposer.address,
@@ -655,7 +647,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		expect(
 			(await client.getProposalByDigest(created.digest))
 				.status,
-		).toBe(ProposalStatus.CANCELLED);
+		).toBe('CANCELLED');
 	});
 
 	// Executes the proposal with `signature`, or the API's signatures of `setAddress`, then verifies it.
@@ -734,7 +726,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 							),
 							setAddress,
 						);
-			expect(verified.status).toBe(ProposalStatus.SUCCESS);
+			expect(verified.status).toBe('SUCCESS');
 			executedVia.push(verified.executedVia);
 		}
 
@@ -753,7 +745,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			'localnet',
 			await buildTransfer(address),
 		);
-		expect(created.hasReachedThreshold).toBe(false);
+		expect(created.ready).toBe(false);
 
 		const unseen = {
 			publicKey: k2.publicKey,
@@ -775,7 +767,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			created.digest,
 		);
 
-		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(address);
 		expect(verified.signatures).toHaveLength(1);
 	});
@@ -817,7 +809,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		);
 
 		const expected = [address, other.address].sort();
-		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(verified.status).toBe('SUCCESS');
 		expect(
 			verified.signerSets.map((s) => s.address),
 		).toEqual(expected);

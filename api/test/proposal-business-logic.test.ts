@@ -199,7 +199,7 @@ describe('Proposal Business Logic', () => {
 						proposal.digest,
 					)
 				).status,
-			).toBe(ProposalStatus.PENDING);
+			).toBe('PENDING');
 		});
 	});
 
@@ -232,7 +232,7 @@ describe('Proposal Business Logic', () => {
 				proposal.transactionBytes,
 			),
 		).toMatchObject({
-			hasReachedThreshold: false,
+			ready: false,
 			signerSets: [{ currentWeight: 2 }],
 		});
 		// 1 + 1 + 2 out of 3.
@@ -243,7 +243,7 @@ describe('Proposal Business Logic', () => {
 				proposal.transactionBytes,
 			),
 		).toMatchObject({
-			hasReachedThreshold: true,
+			ready: true,
 			signerSets: [{ currentWeight: 4 }],
 		});
 	});
@@ -401,7 +401,7 @@ describe('Proposal Business Logic', () => {
 				network: 'localnet',
 			});
 			expect(proposals.map((p) => p.status)).toEqual([
-				ProposalStatus.CANCELLED,
+				'CANCELLED',
 			]);
 
 			await expect(
@@ -507,7 +507,7 @@ describe('Proposal Business Logic', () => {
 				network: 'localnet',
 			});
 			expect(proposals.map((p) => p.status)).toEqual([
-				ProposalStatus.CANCELLED,
+				'CANCELLED',
 			]);
 		});
 
@@ -540,7 +540,7 @@ describe('Proposal Business Logic', () => {
 				network: 'localnet',
 			});
 			expect(proposals.map((p) => p.status)).toEqual([
-				ProposalStatus.PENDING,
+				'PENDING',
 			]);
 		});
 
@@ -621,7 +621,8 @@ describe('Proposal Business Logic', () => {
 		const byDigest = await session.v1.getProposalByDigest(
 			proposal.digest,
 		);
-		expect(byDigest).toMatchObject(proposal);
+		// The created proposal also carries its row id.
+		expect(proposal).toMatchObject(byDigest);
 		expect(byDigest.signatures).toMatchObject([
 			{ publicKey: users[0].publicKey },
 		]);
@@ -667,7 +668,7 @@ describe('Proposal Business Logic', () => {
 			);
 		}
 
-		const ids = new Set<number>();
+		const digests = new Set<string>();
 		let cursor: string | undefined;
 		do {
 			const page = await session.v1.getProposals({
@@ -677,13 +678,13 @@ describe('Proposal Business Logic', () => {
 				perPage: 1,
 			});
 			expect(page.proposals).toHaveLength(1);
-			ids.add(page.proposals[0].id);
+			digests.add(page.proposals[0].digest);
 			cursor = page.hasNextPage
 				? (page.nextCursor ?? undefined)
 				: undefined;
 		} while (cursor !== undefined);
 
-		expect(ids.size).toBe(10);
+		expect(digests.size).toBe(10);
 	});
 
 	test('a page size that is not a positive integer falls back to the default', async () => {
@@ -751,18 +752,15 @@ describe('Proposal Business Logic', () => {
 					status,
 				})
 			).proposals.map((p) => ({
-				id: p.id,
+				digest: p.digest,
 				status: p.status,
 			}));
 
 		expect(await listByStatus('PENDING')).toEqual([
-			{ id: pending.id, status: ProposalStatus.PENDING },
+			{ digest: pending.digest, status: 'PENDING' },
 		]);
 		expect(await listByStatus('CANCELLED')).toEqual([
-			{
-				id: cancelled.id,
-				status: ProposalStatus.CANCELLED,
-			},
+			{ digest: cancelled.digest, status: 'CANCELLED' },
 		]);
 	});
 

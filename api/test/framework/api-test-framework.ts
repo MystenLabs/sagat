@@ -20,8 +20,11 @@ import {
 	MIST_PER_SUI,
 } from '@mysten/sui/utils';
 import { expect } from 'bun:test';
+import { eq } from 'drizzle-orm';
 import { type Hono } from 'hono';
 
+import { db } from '../../src/db';
+import { SchemaProposals } from '../../src/db/schema';
 import {
 	combinedSignature,
 	execute,
@@ -341,13 +344,19 @@ export class TestSession {
 		transactionBytes: string,
 		description?: string,
 	) {
-		return this.v1.createProposal({
+		const proposal = await this.v1.createProposal({
 			accountAddress: multisigAddress,
 			network,
 			transactionBytes,
 			signature: await signedBy(proposer, transactionBytes),
 			description,
 		});
+		// The row id, which the legacy routes take.
+		const [{ id }] = await db
+			.select({ id: SchemaProposals.id })
+			.from(SchemaProposals)
+			.where(eq(SchemaProposals.digest, proposal.digest));
+		return { ...proposal, id };
 	}
 
 	async proposeTransfer(
@@ -387,18 +396,17 @@ export class TestSession {
 				)
 			)
 				continue;
-			const { hasReachedThreshold } =
-				await this.voteOnProposal(
-					voter,
-					digest,
-					proposal.transactionBytes,
-				);
-			if (hasReachedThreshold) break;
+			const { ready } = await this.voteOnProposal(
+				voter,
+				digest,
+				proposal.transactionBytes,
+			);
+			if (ready) break;
 		}
 
 		const voted = await this.v1.getProposalByDigest(digest);
 		const signerSet = voted.signerSets.find(
-			(set) => set.hasReachedThreshold,
+			(set) => set.currentWeight >= set.threshold,
 		);
 		if (!signerSet)
 			throw new Error(

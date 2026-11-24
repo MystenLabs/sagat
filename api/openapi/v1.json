@@ -20,7 +20,6 @@
 			"Proposal": {
 				"type": "object",
 				"properties": {
-					"id": { "type": "integer" },
 					"digest": {
 						"type": "string",
 						"description": "A Sui transaction digest."
@@ -31,9 +30,17 @@
 					},
 					"accountName": { "type": ["string", "null"] },
 					"network": { "type": "string" },
+					"kind": {
+						"type": "string",
+						"enum": ["transaction", "alias_call"],
+						"description": "`alias_call` for a transaction that calls `0x2::address_alias`."
+					},
 					"status": {
-						"type": "integer",
-						"enum": [0, 1, 2, 3]
+						"$ref": "#/components/schemas/ProposalStatusName"
+					},
+					"ready": {
+						"type": "boolean",
+						"description": "True when one of the signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
 					},
 					"transactionBytes": { "type": "string" },
 					"proposerAddress": {
@@ -51,10 +58,6 @@
 							"$ref": "#/components/schemas/ProposalSignature"
 						}
 					},
-					"hasReachedThreshold": {
-						"type": "boolean",
-						"description": "True when one of the signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
-					},
 					"signerSets": {
 						"type": "array",
 						"items": {
@@ -69,46 +72,46 @@
 						"type": ["string", "null"],
 						"description": "The address that signed for the account when the proposal was executed, recorded when it is verified. Null until then, or when it could not be read."
 					},
-					"aliasCalls": {
-						"type": "array",
-						"items": {
-							"$ref": "#/components/schemas/AliasCall"
-						},
-						"description": "The calls to `0x2::address_alias` in the transaction, in command order."
-					},
 					"signerSetsStale": {
 						"type": "boolean",
 						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
 					}
 				},
 				"required": [
-					"id",
 					"digest",
 					"accountAddress",
 					"accountName",
 					"network",
+					"kind",
 					"status",
+					"ready",
 					"transactionBytes",
 					"proposerAddress",
 					"description",
 					"createdAt",
 					"signatures",
-					"hasReachedThreshold",
 					"signerSets",
 					"events",
 					"executedVia",
-					"aliasCalls",
 					"signerSetsStale"
+				]
+			},
+			"ProposalStatusName": {
+				"type": "string",
+				"enum": [
+					"PENDING",
+					"CANCELLED",
+					"SUCCESS",
+					"FAILURE"
 				]
 			},
 			"ProposalSignature": {
 				"type": "object",
 				"properties": {
-					"proposalId": { "type": "integer" },
 					"publicKey": { "type": "string" },
 					"signature": { "type": "string" }
 				},
-				"required": ["proposalId", "publicKey", "signature"]
+				"required": ["publicKey", "signature"]
 			},
 			"SignerSet": {
 				"type": "object",
@@ -119,7 +122,6 @@
 					},
 					"threshold": { "type": "integer" },
 					"currentWeight": { "type": "integer" },
-					"hasReachedThreshold": { "type": "boolean" },
 					"members": {
 						"type": "array",
 						"items": {
@@ -131,7 +133,6 @@
 					"address",
 					"threshold",
 					"currentWeight",
-					"hasReachedThreshold",
 					"members"
 				]
 			},
@@ -195,25 +196,6 @@
 					"createdAt"
 				],
 				"description": "An account audit log event, as stored."
-			},
-			"AliasCall": {
-				"type": "object",
-				"properties": {
-					"function": {
-						"type": "string",
-						"description": "The `0x2::address_alias` function, as named in the transaction: `enable`, `add`, `remove` or `replace_all`."
-					},
-					"aliases": {
-						"type": ["array", "null"],
-						"items": {
-							"type": "string",
-							"description": "A Sui address."
-						},
-						"description": "The addresses the call passes: none for `enable`, one for `add` and `remove`, the new set for `replace_all`. Null when the argument is not a pure input that decodes."
-					}
-				},
-				"required": ["function", "aliases"],
-				"description": "A top-level call to `0x2::address_alias` in the transaction."
 			},
 			"Error": {
 				"type": "object",
@@ -284,15 +266,6 @@
 					"hasNextPage",
 					"nextCursor",
 					"perPage"
-				]
-			},
-			"ProposalStatusName": {
-				"type": "string",
-				"enum": [
-					"PENDING",
-					"CANCELLED",
-					"SUCCESS",
-					"FAILURE"
 				]
 			},
 			"SignatureRequest": {

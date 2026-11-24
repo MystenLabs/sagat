@@ -25,8 +25,6 @@ export {
 	type TrustedMembers,
 } from './verify.js';
 
-export type { AliasCall } from './v1/schemas.js';
-
 export type {
 	AccountEvent,
 	Address,
@@ -57,6 +55,7 @@ export {
 	decodeAliasSet,
 	deriveAliasesObjectId,
 	findAliasCalls,
+	type AliasCall,
 	type AliasObjectEntry,
 	type AliasSet,
 } from './aliases.js';

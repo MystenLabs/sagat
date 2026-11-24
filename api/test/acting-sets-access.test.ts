@@ -264,8 +264,8 @@ const anyone = () => framework.createSession();
 
 type ProposalRef = Pick<
 	Proposal,
-	'id' | 'digest' | 'accountAddress' | 'transactionBytes'
-> & { network: string };
+	'digest' | 'accountAddress' | 'transactionBytes'
+> & { id: number; network: string };
 
 const propose = async (
 	user: TestUser,
@@ -398,9 +398,9 @@ describe('access under the acting scope', () => {
 		const own = await propose(k1, account, first);
 		expect(
 			(await proposalsOf(k1, account)).proposals.map(
-				(p) => p.id,
+				(p) => p.digest,
 			),
-		).toEqual([own.id]);
+		).toEqual([own.digest]);
 		await expectRefused(verify(own), NOT_EXECUTED);
 		expect(await statusOf(own)).toBe(
 			ProposalStatus.PENDING,
@@ -408,7 +408,13 @@ describe('access under the acting scope', () => {
 
 		const other = await propose(k2, account, second);
 		expect(
-			(await vote(k1, other)).hasReachedThreshold,
+			(
+				await anyone().voteOnProposal(
+					k1,
+					other.digest,
+					other.transactionBytes,
+				)
+			).ready,
 		).toBe(true);
 		await cancel(k1, own);
 		expect(await statusOf(own)).toBe(
@@ -520,9 +526,9 @@ describe('access under the acting scope', () => {
 		const proposal = await propose(r1, account, transfer);
 		expect(
 			(await proposalsOf(r1, account)).proposals.map(
-				(p) => p.id,
+				(p) => p.digest,
 			),
-		).toEqual([proposal.id]);
+		).toEqual([proposal.digest]);
 		await cancel(r1, proposal);
 		expect(await statusOf(proposal)).toBe(
 			ProposalStatus.CANCELLED,

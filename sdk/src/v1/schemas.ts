@@ -7,8 +7,6 @@ import {
 } from '@mysten/sui/utils';
 import { z } from 'zod';
 
-import { ProposalStatus } from '../types.js';
-
 export const ErrorBodySchema = z
 	.object({ error: z.string() })
 	.meta({ id: 'Error', description: 'An error response.' });
@@ -41,7 +39,6 @@ export type SuiAddress = z.infer<typeof SuiAddressSchema>;
 
 export const ProposalSignatureSchema = z
 	.object({
-		proposalId: z.number().int(),
 		publicKey: z.string(),
 		signature: z.string(),
 	})
@@ -66,7 +63,6 @@ export const SignerSetSchema = z
 		address: SuiAddressSchema,
 		threshold: z.number().int(),
 		currentWeight: z.number().int(),
-		hasReachedThreshold: z.boolean(),
 		members: z.array(SignerSetMemberSchema),
 	})
 	.meta({ id: 'SignerSet' });
@@ -121,41 +117,33 @@ const signerSetsStale = z.boolean().meta({
 		'True when the alias set could not be read from the chain, so the signer sets are as last read.',
 });
 
-export const AliasCallSchema = z
-	.object({
-		function: z.string().meta({
-			description:
-				'The `0x2::address_alias` function, as named in the transaction: `enable`, `add`, `remove` or `replace_all`.',
-		}),
-		aliases: z.array(SuiAddressSchema).nullable().meta({
-			description:
-				'The addresses the call passes: none for `enable`, one for `add` and `remove`, the new set for `replace_all`. Null when the argument is not a pure input that decodes.',
-		}),
-	})
-	.meta({
-		id: 'AliasCall',
-		description:
-			'A top-level call to `0x2::address_alias` in the transaction.',
-	});
-export type AliasCall = z.infer<typeof AliasCallSchema>;
+export const ProposalStatusNameSchema = z
+	.enum(['PENDING', 'CANCELLED', 'SUCCESS', 'FAILURE'])
+	.meta({ id: 'ProposalStatusName' });
+export type ProposalStatusName = z.infer<
+	typeof ProposalStatusNameSchema
+>;
 
 export const ProposalSchema = z
 	.object({
-		id: z.number().int(),
 		digest: TransactionDigestSchema,
 		accountAddress: SuiAddressSchema,
 		accountName: z.string().nullable(),
 		network: z.string(),
-		status: z.enum(ProposalStatus),
+		kind: z.enum(['transaction', 'alias_call']).meta({
+			description:
+				'`alias_call` for a transaction that calls `0x2::address_alias`.',
+		}),
+		status: ProposalStatusNameSchema,
+		ready: z.boolean().meta({
+			description:
+				'True when one of the signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
+		}),
 		transactionBytes: z.string(),
 		proposerAddress: SuiAddressSchema,
 		description: z.string().nullable(),
 		createdAt: z.iso.datetime(),
 		signatures: z.array(ProposalSignatureSchema),
-		hasReachedThreshold: z.boolean().meta({
-			description:
-				'True when one of the signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
-		}),
 		signerSets: z.array(SignerSetSchema).meta({
 			description:
 				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it.",
@@ -164,10 +152,6 @@ export const ProposalSchema = z
 		executedVia: SuiAddressSchema.nullable().meta({
 			description:
 				'The address that signed for the account when the proposal was executed, recorded when it is verified. Null until then, or when it could not be read.',
-		}),
-		aliasCalls: z.array(AliasCallSchema).meta({
-			description:
-				'The calls to `0x2::address_alias` in the transaction, in command order.',
 		}),
 		signerSetsStale,
 	})
@@ -408,13 +392,6 @@ export const SignatureRequestSchema = z
 	.meta({ id: 'SignatureRequest' });
 export type SignatureRequest = z.infer<
 	typeof SignatureRequestSchema
->;
-
-export const ProposalStatusNameSchema = z
-	.enum(['PENDING', 'CANCELLED', 'SUCCESS', 'FAILURE'])
-	.meta({ id: 'ProposalStatusName' });
-export type ProposalStatusName = z.infer<
-	typeof ProposalStatusNameSchema
 >;
 
 export const ProposalListSchema = z

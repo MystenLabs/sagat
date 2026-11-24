@@ -4,6 +4,7 @@
 import type * as v1 from '@mysten/sagat/v1';
 import { type z } from 'zod';
 
+import { ProposalStatus } from '../db/schema';
 import { type KeyLabels } from '../loaders/account-keys.loader';
 import {
 	type AccountEventRecord,
@@ -41,27 +42,30 @@ export const toV1Proposal = ({
 	events,
 	signerSetsStale,
 }: CheckedProposal): z.input<typeof v1.ProposalSchema> => ({
-	id: proposal.id,
 	digest: proposal.digest,
 	accountAddress: proposal.accountAddress,
 	accountName: signers.accountName,
 	network: proposal.network,
-	status: proposal.status,
+	kind:
+		aliasCallsOf(proposal.transactionBytes).length > 0
+			? 'alias_call'
+			: 'transaction',
+	status: ProposalStatus[
+		proposal.status
+	] as v1.ProposalStatusName,
+	ready: hasReachedThreshold,
 	transactionBytes: proposal.transactionBytes,
 	proposerAddress: proposal.proposerAddress,
 	description: proposal.description,
 	createdAt: proposal.createdAt.toISOString(),
 	signatures: proposal.signatures.map((signature) => ({
-		proposalId: signature.proposalId,
 		publicKey: signature.publicKey,
 		signature: signature.signature,
 	})),
-	hasReachedThreshold,
 	signerSets: sets.map((set) => ({
 		address: set.signerSet.address,
 		threshold: set.signerSet.threshold,
 		currentWeight: set.currentWeight,
-		hasReachedThreshold: set.hasReachedThreshold,
 		members: set.signerSet.members.map((member) => ({
 			publicKey: member.publicKey,
 			weight: member.weight,
@@ -73,7 +77,6 @@ export const toV1Proposal = ({
 		proposer: toV1AccountEvent(events.proposer),
 	},
 	executedVia: proposal.executedVia,
-	aliasCalls: aliasCallsOf(proposal.transactionBytes),
 	signerSetsStale,
 });
 

@@ -18,7 +18,11 @@ import {
 	toBase64,
 } from '@mysten/sui/utils';
 
-import type { AliasCall } from './v1/schemas.js';
+/** A top-level call to `0x2::address_alias`; `aliases` is null when the argument is not a pure input that decodes. */
+export type AliasCall = {
+	function: string;
+	aliases: string[] | null;
+};
 
 /** The `AddressAliasState` singleton (shared object). */
 export const ADDRESS_ALIAS_STATE_ID =
