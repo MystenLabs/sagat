@@ -150,12 +150,6 @@ export const NoteEntrySchema = z
 			),
 		}),
 		z.object({
-			type: z.literal('key'),
-			version: z.literal(1),
-			address: SuiAddressSchema,
-			publicKey: z.string(),
-		}),
-		z.object({
 			type: z.literal('other_signer_set'),
 			version: z.literal(1),
 			address: SuiAddressSchema,
@@ -164,7 +158,7 @@ export const NoteEntrySchema = z
 	.meta({
 		id: 'NoteEntry',
 		description:
-			'One signer set of the composition note: its composition, a single key, or an address with no details.',
+			'One signer set of the composition note: its composition, or an address with no details.',
 	});
 export type NoteEntry = z.infer<typeof NoteEntrySchema>;
 

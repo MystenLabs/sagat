@@ -12,9 +12,7 @@ import {
 	isSignerChangeReady,
 	PersonalMessages,
 	signersWhoStay,
-	type KeyEntry,
 	type SignerChange,
-	type SignerSetEntry,
 } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
@@ -223,11 +221,6 @@ const checkedProposal = (
 		signerSetsStale,
 	};
 };
-
-const keysOf = (set: SignerSetEntry | KeyEntry) =>
-	set.type === 'key'
-		? [set.publicKey]
-		: set.members.map((member) => member.publicKey);
 
 // No legacy route serves a signer change: its signatures are withheld, which the legacy shape cannot express.
 const refuseSignerChangeUnder = (
@@ -904,8 +897,9 @@ export const voteOnProposal = async ({
 		stored &&
 		!(
 			stored.change &&
-			keysOf(stored.change.oldSet).includes(
-				pubKey.toSuiPublicKey(),
+			stored.change.oldSet.members.some(
+				(member) =>
+					member.publicKey === pubKey.toSuiPublicKey(),
 			)
 		)
 	)

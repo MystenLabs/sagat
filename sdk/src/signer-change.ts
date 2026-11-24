@@ -33,10 +33,6 @@ export interface Composition {
 	members: readonly { publicKey: string; weight: number }[];
 }
 
-/** What a caller knows about an alias: a composition, or a single key. */
-export type KnownSigner =
-	Composition | { publicKey: string };
-
 export interface SignerChangeEntry {
 	type: 'signer_change';
 	version: 1;
@@ -51,7 +47,6 @@ export type SignerSetEntry = Extract<
 	NoteEntry,
 	{ type: 'signer_set' }
 >;
-export type KeyEntry = Extract<NoteEntry, { type: 'key' }>;
 
 export type SignerChangeErrorReason =
 	/** The transaction carries no composition note. */
@@ -110,9 +105,9 @@ export interface SignerChange {
 	before: string[];
 	after: string[];
 	/** The set the change removes. */
-	oldSet: SignerSetEntry | KeyEntry;
-	/** The added set, or for a change that only removes, every identified set left in `after`. */
-	newSets: (SignerSetEntry | KeyEntry)[];
+	oldSet: SignerSetEntry;
+	/** The added set, or for a change that only removes, every composition left in `after`. */
+	newSets: SignerSetEntry[];
 	signerSets: NoteEntry[];
 }
 
@@ -124,7 +119,6 @@ type TransactionInput = Pick<
 const NOTE_TYPES = new Set([
 	'signer_change',
 	'signer_set',
-	'key',
 	'other_signer_set',
 ]);
 
@@ -164,13 +158,6 @@ function entryText(
 					weight: m.weight,
 				})),
 			});
-		case 'key':
-			return JSON.stringify({
-				type: entry.type,
-				version: 1,
-				address: entry.address,
-				publicKey: entry.publicKey,
-			});
 		case 'other_signer_set':
 			return JSON.stringify({
 				type: entry.type,
@@ -197,26 +184,17 @@ const multisigOf = (composition: Composition) =>
 	});
 
 function knownEntry(
-	signer: KnownSigner,
-): SignerSetEntry | KeyEntry {
-	if ('threshold' in signer) {
-		return {
-			type: 'signer_set',
-			version: 1,
-			address: multisigOf(signer).toSuiAddress(),
-			threshold: signer.threshold,
-			members: signer.members.map((m) => ({
-				publicKey: parseKey(m.publicKey).toSuiPublicKey(),
-				weight: m.weight,
-			})),
-		};
-	}
-	const key = parseKey(signer.publicKey);
+	composition: Composition,
+): SignerSetEntry {
 	return {
-		type: 'key',
+		type: 'signer_set',
 		version: 1,
-		address: key.toSuiAddress(),
-		publicKey: key.toSuiPublicKey(),
+		address: multisigOf(composition).toSuiAddress(),
+		threshold: composition.threshold,
+		members: composition.members.map((m) => ({
+			publicKey: parseKey(m.publicKey).toSuiPublicKey(),
+			weight: m.weight,
+		})),
 	};
 }
 
@@ -230,7 +208,7 @@ export function compositionNote({
 	account: string;
 	before: readonly string[];
 	after: readonly string[];
-	known: readonly KnownSigner[];
+	known: readonly Composition[];
 }): string[] {
 	const byAddress = new Map<string, NoteEntry>();
 	for (const signer of known) {
@@ -266,8 +244,8 @@ export interface SignerChangeInput {
 	/** Address of the signer set the change replaces. */
 	oldSet: string;
 	newSet: Composition;
-	/** Every composition or single key the caller knows for the aliases. Must include the old set. */
-	known: readonly KnownSigner[];
+	/** Every composition the caller knows for the aliases. Must include the old set. */
+	known: readonly Composition[];
 	/** The chain identifier the expiration names. */
 	chain: string;
 	epoch: string | number | bigint;
@@ -459,14 +437,6 @@ function parseEntry(
 					),
 				};
 				break;
-			case 'key':
-				entry = {
-					type: 'key',
-					version: 1,
-					address: address(json.address),
-					publicKey: key(json.publicKey),
-				};
-				break;
 			default:
 				entry = {
 					type: 'other_signer_set',
@@ -600,8 +570,7 @@ export function readCompositionNote(
 
 	const entryOf = (address: string) =>
 		signerSets.find((e) => e.address === address);
-	const oldEntry = entryOf(removed[0].alias);
-	if (!oldEntry || oldEntry.type === 'other_signer_set')
+	if (entryOf(removed[0].alias)?.type !== 'signer_set')
 		throw new SignerChangeError(
 			'composition',
 			`The note does not hold the composition of the removed set ${removed[0].alias}`,
@@ -619,10 +588,7 @@ export function readCompositionNote(
 		if (entry.type === 'other_signer_set') continue;
 		let address: string | null;
 		try {
-			address =
-				entry.type === 'key'
-					? parseKey(entry.publicKey).toSuiAddress()
-					: multisigOf(entry).toSuiAddress();
+			address = multisigOf(entry).toSuiAddress();
 		} catch {
 			address = null;
 		}
@@ -688,15 +654,14 @@ export function checkSignerChange(
 
 	const identified = (
 		entry: NoteEntry | undefined,
-	): entry is SignerSetEntry | KeyEntry =>
-		entry !== undefined &&
-		entry.type !== 'other_signer_set';
+	): entry is SignerSetEntry =>
+		entry?.type === 'signer_set';
 	const entryOf = (address: string) =>
 		note.signerSets.find((e) => e.address === address);
 	// The reader requires one remove, of a set with its composition.
 	const oldSet = entryOf(
 		note.calls.find((c) => c.function === 'remove')!.alias,
-	) as SignerSetEntry | KeyEntry;
+	) as SignerSetEntry;
 	const add = note.calls.find((c) => c.function === 'add');
 	return {
 		account: note.account,
@@ -706,43 +671,35 @@ export function checkSignerChange(
 		newSets: add
 			? [entryOf(add.alias)].filter(identified)
 			: note.signerSets.filter(
-					(e): e is SignerSetEntry | KeyEntry =>
+					(e): e is SignerSetEntry =>
 						identified(e) && after.includes(e.address),
 				),
 		signerSets: note.signerSets,
 	};
 }
 
-const membersOf = (set: SignerSetEntry | KeyEntry) =>
-	set.type === 'key'
-		? [{ publicKey: set.publicKey, weight: 1 }]
-		: set.members;
-
-const thresholdOf = (set: SignerSetEntry | KeyEntry) =>
-	set.type === 'key' ? 1 : set.threshold;
-
 /** The public keys of the old set that are also in the new set. */
 export function signersWhoStay(
-	oldSet: SignerSetEntry | KeyEntry,
-	newSet: SignerSetEntry | KeyEntry,
+	oldSet: SignerSetEntry,
+	newSet: SignerSetEntry,
 ): string[] {
 	const kept = new Set(
-		membersOf(newSet).map((m) => m.publicKey),
+		newSet.members.map((m) => m.publicKey),
 	);
-	return membersOf(oldSet)
+	return oldSet.members
 		.map((m) => m.publicKey)
 		.filter((k) => kept.has(k));
 }
 
 /** The new set's weight of the signers who stay that are in `keys` (keys that signed, or accepted). */
 export function proofWeight(
-	oldSet: SignerSetEntry | KeyEntry,
-	newSet: SignerSetEntry | KeyEntry,
+	oldSet: SignerSetEntry,
+	newSet: SignerSetEntry,
 	keys: readonly string[],
 ): number {
 	const staying = new Set(signersWhoStay(oldSet, newSet));
 	const listed = new Set(keys);
-	return membersOf(newSet)
+	return newSet.members
 		.filter(
 			(m) =>
 				staying.has(m.publicKey) && listed.has(m.publicKey),
@@ -758,7 +715,7 @@ export function isProofMet(
 	return change.newSets.some(
 		(set) =>
 			proofWeight(change.oldSet, set, signedKeys) >=
-			thresholdOf(set),
+			set.threshold,
 	);
 }
 
@@ -768,11 +725,11 @@ export function isSignerChangeReady(
 	signedKeys: readonly string[],
 ): boolean {
 	const signed = new Set(signedKeys);
-	const oldWeight = membersOf(change.oldSet)
+	const oldWeight = change.oldSet.members
 		.filter((m) => signed.has(m.publicKey))
 		.reduce((sum, m) => sum + m.weight, 0);
 	return (
-		oldWeight >= thresholdOf(change.oldSet) &&
+		oldWeight >= change.oldSet.threshold &&
 		isProofMet(change, signedKeys)
 	);
 }

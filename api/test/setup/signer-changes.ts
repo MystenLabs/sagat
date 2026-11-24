@@ -5,7 +5,6 @@ import {
 	buildEnable,
 	buildSignerChange,
 	type Composition,
-	type KnownSigner,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
@@ -121,7 +120,7 @@ export const buildChange = async ({
 	account: string;
 	oldSet: string;
 	newSet: Composition;
-	known: KnownSigner[];
+	known: Composition[];
 	gasCoin?: GasCoin;
 	epoch?: bigint;
 }) => {
@@ -220,7 +219,7 @@ export type Cast = Awaited<ReturnType<typeof createCast>>;
 type CastChangeOptions = {
 	// `A` and `[S1]` unless given.
 	oldSet?: string;
-	known?: KnownSigner[];
+	known?: Composition[];
 	gasCoin?: GasCoin;
 	epoch?: bigint;
 };

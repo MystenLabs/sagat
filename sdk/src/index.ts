@@ -77,8 +77,6 @@ export {
 	signersWhoStay,
 	type Composition,
 	type CompositionNote,
-	type KeyEntry,
-	type KnownSigner,
 	type NoteEntry,
 	type SignerChange,
 	type SignerChangeErrorReason,

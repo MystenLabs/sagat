@@ -220,13 +220,7 @@ describe('buildSignerChange', () => {
 describe('composition note', () => {
 	test('round-trips through build and Transaction.from', async () => {
 		const aliases = [A, K.toSuiAddress(), U];
-		const tx = change({
-			aliases,
-			known: [
-				S1,
-				{ publicKey: K.getPublicKey().toSuiPublicKey() },
-			],
-		});
+		const tx = change({ aliases });
 		const data = await fromBytes(tx);
 		const after = [
 			K.toSuiAddress(),
@@ -238,11 +232,7 @@ describe('composition note', () => {
 			account: A,
 			before: aliases,
 			after,
-			known: [
-				S2,
-				S1,
-				{ publicKey: K.getPublicKey().toSuiPublicKey() },
-			],
+			known: [S2, S1],
 		});
 		expect(
 			data.inputs
@@ -268,19 +258,11 @@ describe('composition note', () => {
 						? entryOf(S1)
 						: address === addressOf(S2)
 							? entryOf(S2)
-							: address === U
-								? {
-										type: 'other_signer_set',
-										version: 1,
-										address,
-									}
-								: {
-										type: 'key',
-										version: 1,
-										address,
-										publicKey:
-											K.getPublicKey().toSuiPublicKey(),
-									},
+							: {
+									type: 'other_signer_set',
+									version: 1,
+									address,
+								},
 				),
 		});
 
@@ -464,5 +446,22 @@ describe('signers who stay and the proof', () => {
 		expect(isProofMet(checked, [k2, k3])).toBe(false);
 		// S2 alone reaches its threshold.
 		expect(isProofMet(checked, [k1, k2])).toBe(true);
+
+		// A key's own address left is no set to stay in.
+		const toKey = [A, K.toSuiAddress()];
+		expect(
+			checkSignerChange(
+				handWritten(
+					[['remove', A]],
+					compositionNote({
+						account: A,
+						before: toKey,
+						after: [K.toSuiAddress()],
+						known: [S1],
+					}),
+				).getData(),
+				toKey,
+			).newSets,
+		).toEqual([]);
 	});
 });
