@@ -60,7 +60,10 @@ const actingSets = async (key: TestUser, account: string) =>
 		await (
 			await signedIn(key)
 		).getAccount(account, 'localnet')
-	).signerSets.map((set) => set.address);
+	).signerSets
+		.filter((set) => set.kind !== 'unknown' && set.acting)
+		.map((set) => set.address)
+		.sort();
 
 const invitedTo = async (key: TestUser) =>
 	(
@@ -142,10 +145,16 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		const account = await (
 			await signedIn(k1)
 		).getAccount(A, 'localnet');
-		expect(account.originalSignerSet.address).toBe(A);
-		expect(
-			account.signerSets.map((s) => s.address),
-		).toEqual([addressOf(S2)]);
+		expect(account.signerSets).toEqual([
+			expect.objectContaining({
+				address: A,
+				acting: false,
+			}),
+			expect.objectContaining({
+				address: addressOf(S2),
+				acting: true,
+			}),
+		]);
 	});
 
 	test('the removed k3 is refused everything a signer gets', async () => {
@@ -210,15 +219,17 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 	});
 
 	test('the new k4 is invited, shown as invited, signs at once, and gets a member’s rights once it accepts', async () => {
-		const { k4, A } = cast;
+		const { k4, A, S2 } = cast;
 		expect(await invitedTo(k4)).toEqual([A]);
 		const account = await (
 			await signedIn(k4)
 		).getAccount(A, 'localnet');
+		const s2 = account.signerSets[1];
+		expect(s2.address).toBe(addressOf(S2));
 		expect(
-			account.signerSets[0].members.find(
-				(m) => m.publicKey === k4.publicKey,
-			)?.answer,
+			s2.kind !== 'unknown' &&
+				s2.members.find((m) => m.publicKey === k4.publicKey)
+					?.answer,
 		).toBe('invited');
 		const voted = await session.voteOnProposal(
 			k4,
