@@ -658,25 +658,22 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		).toBe(ProposalStatus.CANCELLED);
 	});
 
-	// Executes the proposal with the API's signatures of `setAddress`, then verifies it.
+	// Executes the proposal with `signature`, or the API's signatures of `setAddress`, then verifies it.
 	const executeVia = async (
 		proposal: Proposal,
 		setAddress: string,
+		signature?: string,
 	) => {
-		const set = proposal.signerSets.find(
-			(s) => s.address === setAddress,
-		)!;
-		const [key] = set.members;
-		const signature =
-			set.members.length === 1
-				? proposal.signatures.find(
-						(s) => s.publicKey === key.publicKey,
-					)!.signature
-				: combinedSignature(set, proposal.signatures);
 		expectSuccess(
 			await execute(
 				fromBase64(proposal.transactionBytes),
-				signature,
+				signature ??
+					combinedSignature(
+						proposal.signerSets.find(
+							(s) => s.address === setAddress,
+						)!,
+						proposal.signatures,
+					),
 			),
 		);
 		return client.verifyProposalByDigest(proposal.digest);
@@ -721,14 +718,22 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 				'localnet',
 				transfers[i],
 			);
-			const verified = await executeVia(
-				await session.voteOnProposal(
-					voter,
-					created.digest,
-					created.transactionBytes,
-				),
-				setAddress,
-			);
+			// The API does not count the key, which signs on its own.
+			const verified =
+				voter === key
+					? await executeVia(
+							created,
+							setAddress,
+							await signedBy(key, created.transactionBytes),
+						)
+					: await executeVia(
+							await session.voteOnProposal(
+								voter,
+								created.digest,
+								created.transactionBytes,
+							),
+							setAddress,
+						);
 			expect(verified.status).toBe(ProposalStatus.SUCCESS);
 			executedVia.push(verified.executedVia);
 		}
