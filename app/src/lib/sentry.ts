@@ -23,7 +23,10 @@ export function initSentry() {
 			/^moz-extension:\/\//,
 			/^safari-web-extension:\/\//,
 		],
-		ignoreErrors: [/ResizeObserver loop/],
+		ignoreErrors: [
+			/ResizeObserver loop/,
+			/Refused to evaluate a string as JavaScript/,
+		],
 		// Breadcrumbs are already on the event here, so this masks them too.
 		beforeSend: (event) => maskDigests(event),
 	});
