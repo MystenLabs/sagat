@@ -11,8 +11,6 @@ Any signer who has accepted can propose. A pod can also have up to 5 [external p
 
 The transaction’s sender must be the pod, and its gas must be paid by the pod. A pod can have up to 10 pending proposals per network, and two pending proposals on the same network cannot use the same owned object.
 
-Only signers can propose a transaction that changes which signer sets control the pod. The same transaction from an external proposer is refused.
-
 ## Signing
 
 When a signer proposes, they sign the transaction in their wallet, and that signature counts as the first one. Other signers open the proposal, review the preview and sign the exact transaction bytes with their wallet. Each signer signs a proposal once. The API checks every signature against the stored transaction and rejects one that does not match.
