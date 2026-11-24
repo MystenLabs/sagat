@@ -242,7 +242,7 @@ Anyone with the released signatures combines them with the old set and executes.
 An alias call names an address and nothing else, so the transaction by itself does not say who the new signers are. Every signer change therefore carries the compositions in its own bytes, as pure inputs that no command uses:
 
 - one input with the account, and the alias set before and after as lists of addresses;
-- one input per signer set in either list that Sagat can resolve: its address, threshold, and public keys with weights, in order. A single-key alias is its address and key. An alias Sagat cannot resolve is its address only.
+- one input per signer set in either list that Sagat can resolve: its address, threshold, and public keys with weights, in order. Any other alias, a registered key's own address included, is its address only.
 
 Each is a UTF-8 string of JSON with a fixed field order and a version, built by one SDK function.
 
