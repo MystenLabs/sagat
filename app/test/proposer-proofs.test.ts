@@ -210,7 +210,6 @@ function proposalSignerSet(
 		address: account.address,
 		threshold: account.threshold,
 		currentWeight: 0,
-		hasReachedThreshold: false,
 		members: account.members,
 	};
 }
@@ -323,7 +322,6 @@ test('a member proposer who signed the proposal is not flagged', async () => {
 				signerSets: [proposalSignerSet(account)],
 				signatures: [
 					{
-						proposalId: 1,
 						publicKey: keys[1]
 							.getPublicKey()
 							.toSuiPublicKey(),

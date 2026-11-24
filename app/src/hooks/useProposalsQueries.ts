@@ -1,8 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
-import { type ProposalList } from '@mysten/sagat/v1';
+import {
+	type ProposalList,
+	type ProposalStatusName,
+} from '@mysten/sagat/v1';
 import { useMemo } from 'react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
@@ -38,14 +40,14 @@ export type ProposalFilter =
 // from a second query, since the endpoint takes one status.
 const API_STATUS: Record<
 	ProposalFilter,
-	ProposalStatus | undefined
+	ProposalStatusName | undefined
 > = {
-	pending: ProposalStatus.PENDING,
-	waiting: ProposalStatus.PENDING,
-	ready: ProposalStatus.PENDING,
-	executed: ProposalStatus.SUCCESS,
-	cancelled: ProposalStatus.CANCELLED,
-	expired: ProposalStatus.PENDING,
+	pending: 'PENDING',
+	waiting: 'PENDING',
+	ready: 'PENDING',
+	executed: 'SUCCESS',
+	cancelled: 'CANCELLED',
+	expired: 'PENDING',
 	all: undefined,
 };
 
@@ -105,7 +107,7 @@ export function useProposalsQueries({
 	const failedQuery = usePaginatedProposals({
 		multisigAddress: multisig.address,
 		network,
-		status: ProposalStatus.FAILURE,
+		status: 'FAILURE',
 		perPage: PROPOSALS_PAGE_SIZE,
 		enabled: enabled && activeFilter === 'executed',
 	});
@@ -114,7 +116,7 @@ export function useProposalsQueries({
 	const pendingQuery = usePaginatedProposals({
 		multisigAddress: multisig.address,
 		network,
-		status: ProposalStatus.PENDING,
+		status: 'PENDING',
 		perPage: PROPOSALS_PAGE_SIZE,
 		enabled,
 	});
@@ -220,7 +222,7 @@ export function useProposalsQueries({
 
 	// The counts' query is refreshed with the list, unless it is the list.
 	const refreshedQueries =
-		API_STATUS[activeFilter] === ProposalStatus.PENDING
+		API_STATUS[activeFilter] === 'PENDING'
 			? shownQueries
 			: [...shownQueries, pendingQuery];
 

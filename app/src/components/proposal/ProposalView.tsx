@@ -5,7 +5,6 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { ProposalStatus } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Link2 } from 'lucide-react';
@@ -335,15 +334,12 @@ export function ProposalView({
 								{createdAt}
 							</span>
 						)}
-						{proposal.status === ProposalStatus.PENDING &&
-							!mismatch && (
-								<ProposalExpiry
-									transactionBytes={
-										proposal.transactionBytes
-									}
-									variant="inline"
-								/>
-							)}
+						{proposal.status === 'PENDING' && !mismatch && (
+							<ProposalExpiry
+								transactionBytes={proposal.transactionBytes}
+								variant="inline"
+							/>
+						)}
 					</span>
 				}
 				actions={

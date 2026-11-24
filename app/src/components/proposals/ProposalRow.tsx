@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import {
 	Download,
 	ExternalLink,
@@ -92,8 +91,7 @@ export function ProposalRow({
 	const status = expired
 		? 'expired'
 		: proposalStatusKey(proposal);
-	const pending =
-		proposal.status === ProposalStatus.PENDING;
+	const pending = proposal.status === 'PENDING';
 	const signed =
 		pending &&
 		!!currentAddress &&

@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import type {
 	Proposal,
 	ProposalList,
@@ -41,7 +40,7 @@ export function useGetProposal(digest: string | null) {
 		enabled: !!digest,
 		retry: false, // max 1 retry.
 		refetchInterval: (query) =>
-			query.state.data?.status === ProposalStatus.PENDING
+			query.state.data?.status === 'PENDING'
 				? OPEN_PROPOSAL_REFETCH_INTERVAL
 				: false,
 	});

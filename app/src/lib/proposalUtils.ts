@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import type {
 	Proposal,
 	SignerSetMember,
@@ -137,18 +136,15 @@ export type ProposalStatusKey =
  * signatures reach the threshold of any one checked set, else `pending`.
  */
 export function proposalStatusKey(proposal: {
-	status: ProposalStatus;
+	status: Proposal['status'];
 	checkedSignerSets: readonly Pick<
 		CountedSignerSet,
 		'currentWeight' | 'threshold'
 	>[];
 }): ProposalStatusKey {
-	if (proposal.status === ProposalStatus.SUCCESS)
-		return 'executed';
-	if (proposal.status === ProposalStatus.CANCELLED)
-		return 'cancelled';
-	if (proposal.status === ProposalStatus.FAILURE)
-		return 'failed';
+	if (proposal.status === 'SUCCESS') return 'executed';
+	if (proposal.status === 'CANCELLED') return 'cancelled';
+	if (proposal.status === 'FAILURE') return 'failed';
 	if (proposal.checkedSignerSets.some(reachesThreshold))
 		return 'ready';
 	return 'pending';
@@ -216,7 +212,7 @@ export function isProposalExpired(
 	epochInfo: EpochInfo | undefined,
 ) {
 	return (
-		proposal.status === ProposalStatus.PENDING &&
+		proposal.status === 'PENDING' &&
 		!!epochInfo &&
 		!!getExpiry(proposal.transactionBytes, epochInfo)
 			?.expired
@@ -303,24 +299,31 @@ export function isExternalProposer(proposal: {
 }
 
 /** One of several lists of rows, each newest first, loaded by page. */
-type PagedList<T extends { id: number }> = {
+type PagedList<T extends { createdAt: string }> = {
 	rows: T[];
 	hasNextPage: boolean;
 };
 
-// The oldest loaded id of a list with more to load; one with no rows yet
-// could still hold anything.
-const oldestLoaded = (list: PagedList<{ id: number }>) =>
-	list.rows[list.rows.length - 1]?.id ?? Infinity;
+const createdAt = (row: { createdAt: string }) =>
+	Date.parse(row.createdAt);
+
+// The oldest loaded time of a list with more to load; one with no rows
+// yet could still hold anything.
+const oldestLoaded = (
+	list: PagedList<{ createdAt: string }>,
+) => {
+	const oldest = list.rows[list.rows.length - 1];
+	return oldest ? createdAt(oldest) : Infinity;
+};
 
 /**
- * The oldest id a merge of `lists` can show for sure. Until a list is
+ * The oldest creation time a merge of `lists` can show for sure. Until a list is
  * fully loaded, its next page can still hold rows newer than another
  * list's loaded ones, so the cutoff is the newest of the oldest loaded
  * rows among the lists with more to load.
  */
 export function mergeCutoff(
-	lists: PagedList<{ id: number }>[],
+	lists: PagedList<{ createdAt: string }>[],
 ) {
 	return Math.max(
 		-Infinity,
@@ -334,14 +337,14 @@ export function mergeCutoff(
  * Lists that each come newest first, merged into one, down to
  * `mergeCutoff`; the rest show once the pages above them arrive.
  */
-export function mergeNewestFirst<T extends { id: number }>(
-	lists: PagedList<T>[],
-): T[] {
+export function mergeNewestFirst<
+	T extends { createdAt: string },
+>(lists: PagedList<T>[]): T[] {
 	const cutoff = mergeCutoff(lists);
 	return lists
 		.flatMap((list) => list.rows)
-		.filter((row) => row.id >= cutoff)
-		.sort((a, b) => b.id - a.id);
+		.filter((row) => createdAt(row) >= cutoff)
+		.sort((a, b) => createdAt(b) - createdAt(a));
 }
 
 /**
@@ -350,7 +353,7 @@ export function mergeNewestFirst<T extends { id: number }>(
  * add rows the cutoff still hides.
  */
 export function listsAtCutoff(
-	lists: PagedList<{ id: number }>[],
+	lists: PagedList<{ createdAt: string }>[],
 ) {
 	const cutoff = mergeCutoff(lists);
 	return lists.flatMap((list, index) =>

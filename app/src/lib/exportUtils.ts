@@ -43,7 +43,6 @@ interface ExportedMultisigComposition extends ExportEnvelope {
 }
 
 interface ExportedProposalSignature {
-	proposalId: number;
 	publicKey: string;
 	signature: string;
 	weight: number | null;
@@ -54,7 +53,6 @@ interface ExportedProposal extends ExportEnvelope {
 	type: 'sagat.proposal';
 	exportedAt: string;
 	proposal: {
-		id: number;
 		digest: string;
 		network: string;
 		multisigAddress: string;
@@ -105,12 +103,11 @@ export function buildProposalExport(
 		version: 1,
 		exportedAt: now.toISOString(),
 		proposal: {
-			id: proposal.id,
 			digest: proposal.digest,
 			network: proposal.network,
 			multisigAddress: proposal.accountAddress,
-			status: proposal.status,
-			statusLabel: getProposalStatusLabel(proposal.status),
+			status: ProposalStatus[proposal.status],
+			statusLabel: proposal.status,
 			transactionBytes: proposal.transactionBytes,
 			proposerAddress: proposal.proposerAddress,
 			description: proposal.description,
@@ -118,14 +115,11 @@ export function buildProposalExport(
 			currentWeight: shown?.currentWeight ?? 0,
 			threshold: multisig.threshold,
 			signatures: proposal.signatures
-				.map((signature) => {
-					const member = memberByPublicKey.get(
-						signature.publicKey,
-					);
+				.map(({ publicKey, signature }) => {
+					const member = memberByPublicKey.get(publicKey);
 					return {
-						proposalId: signature.proposalId,
-						publicKey: signature.publicKey,
-						signature: signature.signature,
+						publicKey,
+						signature,
 						weight: member?.weight ?? null,
 						order: member?.order ?? null,
 					};
@@ -199,10 +193,6 @@ function buildMultisigComposition(
 		totalMembers: members.length,
 		members,
 	};
-}
-
-function getProposalStatusLabel(status: ProposalStatus) {
-	return ProposalStatus[status] ?? 'UNKNOWN';
 }
 
 function sanitizeFilenameSegment(value: string) {

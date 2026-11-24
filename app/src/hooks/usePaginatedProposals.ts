@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import { type ProposalStatusName } from '@mysten/sagat/v1';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -19,7 +18,7 @@ export const PROPOSALS_PAGE_SIZE = 10;
 interface UsePaginatedProposalsParams {
 	multisigAddress: string;
 	network: SuiNetwork;
-	status?: ProposalStatus;
+	status?: ProposalStatusName;
 	perPage?: number;
 	enabled?: boolean;
 }
@@ -33,7 +32,7 @@ export function proposalsQueryKey({
 }: Omit<UsePaginatedProposalsParams, 'enabled'>) {
 	return [
 		QueryKeys.Proposals,
-		status !== undefined ? ProposalStatus[status] : 'all',
+		status ?? 'all',
 		multisigAddress,
 		network,
 		perPage,
@@ -42,12 +41,10 @@ export function proposalsQueryKey({
 
 export function proposalsListShows(
 	queryKey: readonly unknown[],
-	status: ProposalStatus,
+	status: ProposalStatusName,
 ) {
 	const listed = queryKey[1];
-	return (
-		listed === 'all' || listed === ProposalStatus[status]
-	);
+	return listed === 'all' || listed === status;
 }
 
 export function usePaginatedProposals({
@@ -69,10 +66,7 @@ export function usePaginatedProposals({
 				accountAddress:
 					normalizeSuiAddress(multisigAddress),
 				network,
-				status:
-					status !== undefined
-						? (ProposalStatus[status] as ProposalStatusName)
-						: undefined,
+				status,
 				nextCursor: pageParam,
 				perPage,
 			}),

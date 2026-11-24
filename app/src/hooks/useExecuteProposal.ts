@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
-import { ProposalStatus } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { fromBase64 } from '@mysten/sui/utils';
@@ -56,7 +55,7 @@ export function useExecuteProposal() {
 			proposal,
 			signerSet,
 		}: ExecuteProposalParams) => {
-			if (proposal.status !== ProposalStatus.PENDING)
+			if (proposal.status !== 'PENDING')
 				throw new Error(
 					content.proposal.execute.notPending,
 				);

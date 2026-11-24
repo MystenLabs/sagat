@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { formatDigest } from '@mysten/sui/utils';
@@ -33,7 +32,7 @@ describe('proposalStatusKey', () => {
 	it('reports terminal statuses as they are', () => {
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.SUCCESS,
+				status: 'SUCCESS',
 				checkedSignerSets: [
 					{ currentWeight: 0, threshold: 2 },
 				],
@@ -41,7 +40,7 @@ describe('proposalStatusKey', () => {
 		).toBe('executed');
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.CANCELLED,
+				status: 'CANCELLED',
 				checkedSignerSets: [
 					{ currentWeight: 2, threshold: 2 },
 				],
@@ -49,7 +48,7 @@ describe('proposalStatusKey', () => {
 		).toBe('cancelled');
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.FAILURE,
+				status: 'FAILURE',
 				checkedSignerSets: [
 					{ currentWeight: 2, threshold: 2 },
 				],
@@ -60,7 +59,7 @@ describe('proposalStatusKey', () => {
 	it('splits pending proposals by whether they reach the threshold', () => {
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.PENDING,
+				status: 'PENDING',
 				checkedSignerSets: [
 					{ currentWeight: 1, threshold: 2 },
 				],
@@ -68,7 +67,7 @@ describe('proposalStatusKey', () => {
 		).toBe('pending');
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.PENDING,
+				status: 'PENDING',
 				checkedSignerSets: [
 					{ currentWeight: 3, threshold: 2 },
 				],
@@ -230,7 +229,6 @@ describe('pendingFilter', () => {
 	};
 	const signatures = [
 		{
-			proposalId: 1,
 			publicKey: 'signer',
 			signature: 'sig',
 		},
@@ -240,7 +238,7 @@ describe('pendingFilter', () => {
 		const proposal = (lastEpoch: number) =>
 			transfer({ Epoch: lastEpoch }).then(
 				(transactionBytes) => ({
-					status: ProposalStatus.PENDING,
+					status: 'PENDING',
 					transactionBytes,
 					signatures,
 					checkedSignerSets: countSignerSets(
@@ -264,7 +262,7 @@ describe('pendingFilter', () => {
 			isProposalExpired(
 				{
 					...(await proposal(9)),
-					status: ProposalStatus.SUCCESS,
+					status: 'SUCCESS',
 				},
 				epochInfo,
 			),
@@ -291,7 +289,6 @@ describe('countSignerSets', () => {
 			members: [shared, key(1, 1)],
 		};
 		const signature = {
-			proposalId: 1,
 			publicKey: shared.publicKey,
 			signature: 'sig',
 		};
@@ -315,7 +312,7 @@ describe('countSignerSets', () => {
 		]);
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.PENDING,
+				status: 'PENDING',
 				checkedSignerSets: counted,
 			}),
 		).toBe('ready');
@@ -330,34 +327,31 @@ describe('countSignerSets', () => {
 				...set,
 				address: signerSetAddress(set) ?? '',
 				currentWeight: 0,
-				hasReachedThreshold: false,
 			};
 		};
 		const current = setOf(key(1, 0));
 		const stranger = setOf(key(1, 0, proposer));
 		const proposal: Proposal = {
-			id: 1,
 			digest: DIGEST,
 			accountAddress: '0x1',
 			accountName: null,
 			network: 'localnet',
-			status: ProposalStatus.PENDING,
+			kind: 'transaction',
+			status: 'PENDING',
+			ready: true,
 			transactionBytes: '',
 			proposerAddress: proposer.toSuiAddress(),
 			description: null,
 			createdAt: '2026-11-23T10:00:00.000Z',
 			signatures: [
 				{
-					proposalId: 1,
 					publicKey: stranger.members[0].publicKey,
 					signature: 'sig',
 				},
 			],
-			hasReachedThreshold: true,
 			signerSets: [current, stranger],
 			events: { created: null, proposer: null },
 			executedVia: null,
-			aliasCalls: [],
 			signerSetsStale: false,
 		};
 
@@ -374,9 +368,12 @@ describe('countSignerSets', () => {
 	});
 });
 
-// Rows with just these ids, for the merge helpers.
+// Rows named by these ids, created in their order, for the merge helpers.
 const ids = (...list: number[]) =>
-	list.map((id) => ({ id }));
+	list.map((id) => ({
+		id,
+		createdAt: new Date(id * 1000).toISOString(),
+	}));
 
 describe('mergeNewestFirst', () => {
 	it('holds back rows a list with more to load could still go above', () => {

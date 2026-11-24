@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import { ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -55,7 +54,7 @@ export function OpenProposals({
 	const query = usePaginatedProposals({
 		multisigAddress: multisig.address,
 		network,
-		status: ProposalStatus.PENDING,
+		status: 'PENDING',
 		// The proposals tab's page size, so both share one cached query.
 		perPage: PROPOSALS_PAGE_SIZE,
 	});

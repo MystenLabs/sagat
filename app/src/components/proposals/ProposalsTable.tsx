@@ -115,7 +115,7 @@ export function ProposalsTable({
 					<tbody className="@max-md:block">
 						{proposals.map((proposal) => (
 							<ProposalRow
-								key={proposal.id}
+								key={proposal.digest}
 								proposal={proposal}
 								variant={variant}
 								expired={isProposalExpired(

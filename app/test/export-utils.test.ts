@@ -77,9 +77,10 @@ describe('export utils', () => {
 
 	test('associates proposal signatures with multisig member weights', () => {
 		const proposal: CountedProposal = {
-			id: 42,
 			digest: '0xdigest',
-			status: ProposalStatus.PENDING,
+			kind: 'transaction',
+			status: 'PENDING',
+			ready: true,
 			transactionBytes: 'transaction-bytes',
 			proposerAddress: '0xproposer',
 			description: 'Pay supplier',
@@ -87,20 +88,16 @@ describe('export utils', () => {
 			network: 'testnet',
 			accountAddress: '0xmultisig',
 			accountName: 'Treasury',
-			hasReachedThreshold: true,
 			signerSets: [],
 			events: { created: null, proposer: null },
 			executedVia: null,
-			aliasCalls: [],
 			signerSetsStale: false,
 			signatures: [
 				{
-					proposalId: 42,
 					publicKey: 'member-b',
 					signature: 'sig-b',
 				},
 				{
-					proposalId: 42,
 					publicKey: 'member-a',
 					signature: 'sig-a',
 				},
@@ -129,7 +126,6 @@ describe('export utils', () => {
 			version: 1,
 			exportedAt: exportedAt.toISOString(),
 			proposal: {
-				id: 42,
 				digest: '0xdigest',
 				network: 'testnet',
 				multisigAddress: '0xmultisig',
@@ -143,14 +139,12 @@ describe('export utils', () => {
 				threshold: 3,
 				signatures: [
 					{
-						proposalId: 42,
 						publicKey: 'member-a',
 						signature: 'sig-a',
 						weight: 1,
 						order: 0,
 					},
 					{
-						proposalId: 42,
 						publicKey: 'member-b',
 						signature: 'sig-b',
 						weight: 2,

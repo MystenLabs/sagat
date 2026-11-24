@@ -57,7 +57,6 @@ function signerSet(
 	return {
 		...multisig,
 		currentWeight: 0,
-		hasReachedThreshold: false,
 	};
 }
 

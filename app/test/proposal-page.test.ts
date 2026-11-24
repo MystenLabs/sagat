@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
@@ -64,28 +63,26 @@ function proposal({
 	proposer?: string;
 } = {}): CountedProposal {
 	const signatures = signedBy.map((s) => ({
-		proposalId: 1,
 		publicKey: s.publicKey,
 		signature: 'sig',
 	}));
 	const set = { threshold, members: members(SIGNERS) };
 	return {
-		id: 1,
 		accountAddress: '0x1',
 		accountName: 'Treasury',
 		digest: 'digest',
-		status: ProposalStatus.PENDING,
+		kind: 'transaction',
+		status: 'PENDING',
+		ready: false,
 		transactionBytes: '',
 		proposerAddress: proposer,
 		description: 'Fund payroll',
 		network: 'localnet',
 		createdAt: CREATED_AT,
 		signatures,
-		hasReachedThreshold: false,
 		signerSets: [],
 		events: { created: null, proposer: null },
 		executedVia: null,
-		aliasCalls: [],
 		signerSetsStale: false,
 		checkedSignerSets: countSignerSets(
 			{ signatures },

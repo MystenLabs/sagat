@@ -151,15 +151,17 @@ function legacyShape(
 		| 'multisigAddress'
 		| 'proposerAddress'
 		| 'transactionBytes'
-		| 'signatures'
 		| 'events'
 	> = {
 		digest: proposal.digest,
 		multisigAddress: proposal.accountAddress,
 		proposerAddress: proposal.proposerAddress,
 		transactionBytes: proposal.transactionBytes,
-		signatures: proposal.signatures,
 		events: proposal.events,
 	};
-	return read as PublicProposal;
+	// The legacy signature also carries a proposal id the verifier never reads.
+	return {
+		...read,
+		signatures: proposal.signatures,
+	} as PublicProposal;
 }
