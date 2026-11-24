@@ -337,7 +337,7 @@ A changed account is served by `/v1` only. The app's calls about one account (ac
 | `POST /v1/accounts/:address/accept`, `/reject`          | accept, reject                          | A key's answer to the account, with a signed message that names it. Answering the same again records nothing.                                                                         |
 | `POST`, `DELETE /v1/accounts/:address/proposers`        | add-proposer, remove-proposer           | Takes the network. A removal says whether it removed the proposer and which proposals it cancelled.                                                                                   |
 | `POST /v1/proposals`                                    | `POST /proposals`                       | A signer change is recognised from the bytes, and its checks run.                                                                                                                     |
-| `GET /v1/proposals`, `GET /v1/proposals/:digest`        | list, by digest                         | The count per acting set, `executedVia`, and for a change its note, its readiness and withheld signatures.                                                                            |
+| `GET /v1/proposals`, `GET /v1/proposals/:digest`        | list, by digest                         | The count per acting set, `executedVia`, the kind, one `ready`, and for a change what it removes and adds, its withheld signatures listed as null.                                    |
 | `POST /v1/proposals/:digest/vote`, `/cancel`, `/verify` | vote, cancel, verify-by-digest          | Verify has no threshold pre-check and refreshes after an alias change.                                                                                                                |
 
 Not under `/v1`: sign-in, registering keys, address lookup and creating an account. A signer change does not touch them.
@@ -628,6 +628,7 @@ Decided on 2026-11-24:
 | Hand-written alias calls | Allowed for signers and external proposers alike, with the warning.                                                                                                                   | Refused from external proposers.                                          |
 | An account's signer sets | One `signerSets` list. The original comes first, flagged `original`; `acting` says if a set is in the alias set on the request's network; an unidentified alias is `kind: 'unknown'`. | The three fields `originalSignerSet`, `signerSets` and `otherSignerSets`. |
 | A single registered key  | Listed as an other signer set, `kind: 'unknown'`, like any alias Sagat cannot identify. It gives nobody access.                                                                       | Acting as a set of one, with a member's rights once the key accepts.      |
+| The `/v1` proposal       | Carries what only the API knows: `kind`, `status` as a name, not a number, one `ready` for three flags, `signatures` with null while withheld, `signerChange: { removes, adds }`.     | The note, `oldSet`, `newSets`, `withheldSignatures`, `aliasCalls`, `id`.  |
 
 Still open:
 

@@ -83,10 +83,10 @@ Signer changes are described at the end. You do not need them unless you rotate 
 | Proposal             | `status`                                                            | A name: `PENDING`, `CANCELLED`, `SUCCESS` or `FAILURE`, as the list's `status` filter takes.                                                                                                                                                                                                                                                                                                                                         |
 | Proposal             |                                                                     | `ready`: true when an acting set in `signerSets` has reached its threshold. For a signer change, true once it is ready.                                                                                                                                                                                                                                                                                                              |
 | Proposal             | `events`                                                            | `created` and `proposer`, each an audit log event or null, as on the legacy route, and `cancelled`: the proposal’s newest `proposal.cancelled` event, or null. For a signer change that is not ready, `created` comes without the signature in its proof.                                                                                                                                                                            |
-| Proposal             | `signatures`                                                        | Each `{ publicKey, signature }`, without `proposalId`. A signer change's are withheld until it is ready, see "Signer changes".                                                                                                                                                                                                                                                                                                       |
+| Proposal             | `signatures`                                                        | Each `{ publicKey, signature }`, without `proposalId`. `signature` is null while a signer change that is not ready withholds it, see "Signer changes".                                                                                                                                                                                                                                                                               |
 | Proposal             |                                                                     | `executedVia`: the address that signed for the account at execution, as it is, recorded when the proposal is verified. Null until then, or when it could not be read.                                                                                                                                                                                                                                                                |
-| Proposal             |                                                                     | `kind`: `transaction`, or `alias_call` for a transaction that calls `0x2::address_alias`.                                                                                                                                                                                                                                                                                                                                            |
-| Proposal             |                                                                     | `signerChange`: what the API reads of a signer change in the bytes, or null when the proposal is not one, see "Signer changes".                                                                                                                                                                                                                                                                                                      |
+| Proposal             |                                                                     | `kind`: `transaction`, `alias_call` for a transaction that calls `0x2::address_alias`, or `signer_change`.                                                                                                                                                                                                                                                                                                                           |
+| Proposal             |                                                                     | `signerChange`: `{ removes, adds }`, what the API reads of a signer change in the bytes, or null when `kind` is not `signer_change`, see "Signer changes".                                                                                                                                                                                                                                                                           |
 | Proposal             |                                                                     | `signerSetsStale`: true when the alias set could not be read from the chain, so `signerSets` are as last read.                                                                                                                                                                                                                                                                                                                       |
 | Proposal list        | `data`                                                              | `proposals`, beside `network`, `accountAddress`, `hasNextPage`, `nextCursor` and `perPage`.                                                                                                                                                                                                                                                                                                                                          |
 | Vote response        | `hasReachedThreshold`, `currentWeight`                              | The proposal. Read `ready` on it, and `signerSets[].currentWeight` for one tally per set.                                                                                                                                                                                                                                                                                                                                            |
@@ -249,23 +249,19 @@ const key = MultiSigPublicKey.fromPublicKeys({
 	})),
 });
 
-const signatures = members
-	.map((m) =>
+const signatures = members.flatMap(
+	(m) =>
 		proposal.signatures.find(
 			(s) => s.publicKey === m.publicKey,
-		),
-	)
-	.filter(
-		(s): s is NonNullable<typeof s> => s !== undefined,
-	)
-	.map((s) => s.signature);
+		)?.signature ?? [],
+);
 
 const combined = key.combinePartialSignatures(signatures);
 ```
 
 Passing a signature from a key outside the chosen set makes the combination fail. This is the most likely mistake when migrating.
 
-For a signer change, wait for the proposal's own `hasReachedThreshold`, which is true once the change is ready. Until then `signatures` is empty, even when the set it replaces has reached its threshold.
+For a signer change, `ready` is true once the change is ready. Until then each `signature` is null, even when the set it replaces has reached its threshold.
 
 The transaction sender is the account address. It is not the signer set address, and you do not change it.
 
@@ -325,15 +321,9 @@ Check the bytes yourself with these before you sign or show a change, and never 
 - with a 400: a note that does not check; a change built against an alias set that has changed since; bytes whose expiration does not name the network's chain, or has no last epoch by the end of the next one; an old set the API cannot identify as acting; a change that leaves no set the API can identify; a new composition outside the limits on signers and weights; signers who stay, counting only those who accepted the account, who cannot meet the new threshold; another pending proposal of the account and network that calls `0x2::address_alias`, unless its expiration epoch has passed; and `labels` on any proposal but a change that adds a set;
 - with a 403: a proposer who is not an accepted signer of the old set who stays in the new one.
 
-`signerChange` on a proposal holds:
+`signerChange` on a proposal holds `removes`, the set the change replaces, and `adds`, the set it adds, or null for a change that only removes. `removes` is null when the note does not check, in which case the change is never ready.
 
-- `note`: `account`, `before`, `after` and `signerSets` as read from the bytes, or null when the note does not check, in which case the change is never ready;
-- `oldSet`: the address of the set the change replaces;
-- `newSets`: the set it adds, or for a change that only removes, every identified set left in `after`;
-- `ready`;
-- `withheldSignatures`: the public keys that signed while the change is not ready, and empty once it is.
-
-Until the change is ready, `signatures` is empty and the proof of the `created` event has no signature. Once it is ready, both come back whole. `hasReachedThreshold` is `ready`, and `signerSets` holds only the set the change replaces, while that set acts.
+Until the change is ready, each `signature` is null and the proof of the `created` event has no signature. Once it is ready, both come back whole. `signerSets` holds only the set the change replaces, while that set acts.
 
 Only a key of the set the change replaces may vote on it, accepted or not; anyone else gets a 403. While that set acts, only an accepted signer of it who stays in the new one may cancel the change: a key that is not an accepted signer of the account gets the 403 any cancel gives it, and an accepted signer who does not stay gets a 403. Once the set no longer acts, the change can never execute, and any accepted signer may cancel it. Removing a proposer never cancels a signer change.
 
