@@ -97,19 +97,18 @@ New routes for rotation are listed at the end. You do not need them unless you r
 
 Every `/v1` proposal route answers with the proposal in one shape, the one `GET /v1/proposals/:digest` returns. The legacy routes return a shorter proposal from create and the list, and the public one from `GET /proposals/digest/:digest`; cancel and verify return no proposal.
 
-The legacy `totalWeight` on `GET /proposals/digest/:digest` is the multisig's threshold, not the sum of member weights; the name was misleading. To check progress, compare `signerSets[].currentWeight` with `signerSets[].threshold`, or use `hasReachedThreshold`.
+The legacy `totalWeight` on `GET /proposals/digest/:digest` is the multisig's threshold, not the sum of member weights; the name was misleading. To check progress, compare `signerSets[].currentWeight` with `signerSets[].threshold`, or use `ready`.
 
 Shape of `signerSets` on a proposal:
 
 ```json
 {
-	"hasReachedThreshold": false,
+	"ready": false,
 	"signerSets": [
 		{
 			"address": "0x...",
 			"threshold": 2,
 			"currentWeight": 1,
-			"hasReachedThreshold": false,
 			"members": [
 				{
 					"publicKey": "...",
@@ -215,7 +214,7 @@ Before, you rebuilt the combined key from `proposal.multisig.members` and combin
 
 After:
 
-1. Pick a signer set from `proposal.signerSets` where `hasReachedThreshold` is true.
+1. Once `proposal.ready` is true, pick a signer set from `proposal.signerSets` whose `currentWeight` is at least its `threshold`.
 2. Rebuild the combined key from that set's `members`, in `order`.
 3. Combine only the signatures whose public key is in that set, in the same order.
 4. Execute, then call `POST /v1/proposals/:digest/verify`. The proposal it returns names the set you used in `executedVia`.
@@ -225,7 +224,7 @@ import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 
 const set = proposal.signerSets.find(
-	(s) => s.hasReachedThreshold,
+	(s) => s.currentWeight >= s.threshold,
 );
 if (!set)
 	throw new Error('No signer set has reached threshold');
@@ -292,5 +291,5 @@ The alias set, with each entry classified, comes with `GET /v1/accounts/:address
 - [ ] Accept and reject messages updated, if built by hand
 - [ ] Cancel message updated, if built by hand
 - [ ] Execution code picks one signer set and filters signatures
-- [ ] Any reader of `currentWeight`, `totalWeight`, or `multisig` moved to `signerSets`
+- [ ] Any reader of `currentWeight`, `totalWeight`, or `multisig` moved to `signerSets`, of `hasReachedThreshold` to `ready`, and of a numeric `status` to its name
 - [ ] Tested against testnet
