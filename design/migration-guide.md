@@ -143,7 +143,8 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 					"label": "Alice's Ledger"
 				}
 			],
-			"acting": true
+			"acting": true,
+			"original": true
 		}
 	],
 	"signersChecked": true
@@ -153,6 +154,7 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 - `signerSets` has one entry per signer set. The first is the original set, the one at the account's address, which the address is derived from. It is always returned, also on a network where it no longer acts. After it come the other addresses in the alias set on the network. For an account that never changed there is one entry.
 - An entry is a composition the API holds (`kind: "signer_set"`), a single registered key (`kind: "key"`), or an address the API cannot identify (`kind: "unknown"`), which carries only `address` and can sign for the account.
 - `acting` is true when the set is in the alias set on the network, so it is false only for the original set once it was removed there.
+- `original` is true for that first entry and false for the others. It is a convenience: the address is what identifies the original set.
 - Each member carries `answer`, the key's answer to this account, and `label`, the account's name for the key or null.
 - `signersChecked` is false when the alias set could not be read from the chain, so the signer sets are as last read.
 

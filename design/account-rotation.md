@@ -619,7 +619,7 @@ Decided on 2026-11-24:
 
 | Topic                    | Decision                                                                                                                                                                              | Replaces                                                                  |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| An account's signer sets | One `signerSets` list. The original comes first, `acting` says whether a set is in the alias set on the request's network, and an alias the API cannot identify is `kind: 'unknown'`. | The three fields `originalSignerSet`, `signerSets` and `otherSignerSets`. |
+| An account's signer sets | One `signerSets` list. The original comes first, flagged `original`; `acting` says if a set is in the alias set on the request's network; an unidentified alias is `kind: 'unknown'`. | The three fields `originalSignerSet`, `signerSets` and `otherSignerSets`. |
 
 Still open:
 
