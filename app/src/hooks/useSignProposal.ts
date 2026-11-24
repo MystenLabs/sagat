@@ -20,7 +20,7 @@ import { type SuiNetwork } from '@/lib/network';
 import {
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
-	type IntegrityPod,
+	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
 	shownSignerSet,
@@ -44,7 +44,7 @@ import { writeProposal } from './useGetProposal';
 interface SignProposalParams {
 	proposal: Proposal;
 	/** The pod from the app's own account read; null from the proposal's link. */
-	pod: IntegrityPod | null;
+	pod: ShownPod | null;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 }

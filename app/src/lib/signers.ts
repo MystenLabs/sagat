@@ -9,6 +9,7 @@ import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
 import { memberStatus } from './member-status';
+import { shownActingSets } from './proposal-integrity';
 import { validatePublicKey } from './sui-utils';
 
 const COPY = content.signers;
@@ -161,10 +162,9 @@ export function rejectionNotice(
 }
 
 export function podLabels(
-	pod: Pick<Account, 'originalSignerSet' | 'signerSets'>,
+	pod: Pick<Account, 'signerSets'>,
 ): Map<string, string | null> {
-	return memberLabels([
-		...pod.originalSignerSet.members,
-		...pod.signerSets.flatMap((set) => set.members),
-	]);
+	return memberLabels(
+		shownActingSets(pod).flatMap((set) => set.members),
+	);
 }

@@ -55,7 +55,7 @@ import {
 	getProposalExportFilename,
 } from '@/lib/exportUtils';
 import { networkLabel } from '@/lib/network';
-import { type IntegrityPod } from '@/lib/proposal-integrity';
+import { type ShownPod } from '@/lib/proposal-integrity';
 import {
 	proposalPageStatus,
 	withReason,
@@ -101,7 +101,7 @@ export function ProposalView({
 }: {
 	proposal: Proposal;
 	/** The pod from the viewer's own account read; null on the shared page. */
-	pod: IntegrityPod | null;
+	pod: ShownPod | null;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 	labels: Labels;

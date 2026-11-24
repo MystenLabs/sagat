@@ -25,6 +25,7 @@ import {
 	shownActingSets,
 	signerSetRemoved,
 	type NodeFacts,
+	type ShownPod,
 } from '../src/lib/proposal-integrity';
 
 function oneOfTwoAccount() {
@@ -110,7 +111,7 @@ test('refuses a wallet that is not one of the signers', async () => {
 				signerSets: [signerSet(multisig)],
 			},
 			{
-				pod: { address, originalSignerSet: multisig },
+				pod: { address, signerSets: [listed(multisig)] },
 				openedDigest: digest,
 				signerAddress: new Ed25519Keypair().toSuiAddress(),
 			},
@@ -133,7 +134,7 @@ test("refuses bytes that don't decode as a transaction", () => {
 				signerSets: [signerSet(multisig)],
 			},
 			{
-				pod: { address, originalSignerSet: multisig },
+				pod: { address, signerSets: [listed(multisig)] },
 				openedDigest: toBase58(new Uint8Array(32)),
 				signerAddress: keys[0].toSuiAddress(),
 			},
@@ -412,7 +413,7 @@ test('under a pod, refuses a proposal named for another pod or whose original se
 	const { transactionBytes, digest } =
 		await transferFrom(address);
 	const sign = (
-		originalSignerSet = multisig,
+		signerSets: ShownPod['signerSets'] = [listed(multisig)],
 		accountAddress = address,
 	) =>
 		checkProposalIntegrity(
@@ -423,15 +424,25 @@ test('under a pod, refuses a proposal named for another pod or whose original se
 				signerSets: [signerSet(multisig)],
 			},
 			{
-				pod: { address, originalSignerSet },
+				pod: { address, signerSets },
 				openedDigest: digest,
 				signerAddress: keys[0].toSuiAddress(),
 			},
 		);
 
 	expect(sign()).toBeNull();
-	expect(sign(other.multisig)).toBe('signers');
-	expect(sign(multisig, other.address)).toBe('sender');
+	expect(
+		sign([listed({ ...other.multisig, address })]),
+	).toBe('signers');
+	expect(sign(undefined, other.address)).toBe('sender');
+	// No set at the pod's address, or only an unknown one there.
+	expect(sign([listed(other.multisig)])).toBe('signers');
+	expect(
+		sign([
+			{ kind: 'unknown', address },
+			listed(other.multisig),
+		]),
+	).toBe('signers');
 });
 
 test('without a pod, rule 1 runs on the listed set that makes up the proposal’s address, and none refuses signing', async () => {

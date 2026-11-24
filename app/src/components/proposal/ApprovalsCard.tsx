@@ -51,7 +51,7 @@ import {
 import {
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
-	type IntegrityPod,
+	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
 	approvalRows,
@@ -117,7 +117,7 @@ export function ApprovalsCard({
 }: {
 	proposal: CountedProposal;
 	/** The pod from the viewer's own account read; null on the shared page. */
-	pod: IntegrityPod | null;
+	pod: ShownPod | null;
 	/** The pod's alias set on the proposal's network, undefined until read. */
 	aliases: AliasRead | undefined;
 	/** The digest the viewer opened, from the page's URL. */

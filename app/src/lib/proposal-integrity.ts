@@ -44,12 +44,6 @@ export type IntegrityProposal = Pick<
 	| 'signerSets'
 >;
 
-/** The pod from the app's own account read. */
-export interface IntegrityPod {
-	address: string;
-	originalSignerSet: AccountSigners;
-}
-
 /**
  * Whether `signerAddress` may sign the proposal's bytes for `pod`, or
  * the first check it failed. Without a pod (a proposal opened from its
@@ -64,7 +58,7 @@ export function checkProposalIntegrity(
 		openedDigest,
 		signerAddress,
 	}: {
-		pod: IntegrityPod | null;
+		pod: ShownPod | null;
 		openedDigest: string;
 		signerAddress: string;
 	},
@@ -94,11 +88,11 @@ export function checkProposalIntegrity(
 	)
 		return 'digest';
 
-	const original =
-		pod?.originalSignerSet ??
-		proposal.signerSets.find((set) =>
-			rebuildAccount(set, account),
-		);
+	const original = pod
+		? originalSignerSet(pod)
+		: proposal.signerSets.find((set) =>
+				rebuildAccount(set, account),
+			);
 	if (!original) return 'signers';
 	const signers = checkAccountSigners(
 		{ original, shown: proposal.signerSets },
