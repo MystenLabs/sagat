@@ -4,8 +4,16 @@
 // Proposing a signer change on the local network, through the `/v1` routes,
 // with the cast of `setup/signer-changes`.
 
-import { buildAdd, buildEnable } from '@mysten/sagat';
-import { Transaction } from '@mysten/sui/transactions';
+import {
+	buildAdd,
+	buildEnable,
+	buildRemove,
+	compositionNote,
+} from '@mysten/sagat';
+import {
+	Inputs,
+	Transaction,
+} from '@mysten/sui/transactions';
 import { toBase58, toBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
@@ -36,6 +44,7 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
+import { setAliases } from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -67,6 +76,38 @@ const NOT_A_MEMBER = new ApiAuthError('NotAMultisigMember')
 	.message;
 const pendingAliasProposal = (digest: string) =>
 	`Another proposal that changes who controls this account on localnet is pending (${digest}). Execute or cancel it first.`;
+
+// A hand-written change that only removes `alias`, with the SDK's note for `before`.
+const removal = async (
+	cast: Cast,
+	alias: string,
+	before: string[],
+) => {
+	const { expiration, gasData, inputs } = Transaction.from(
+		await buildCastChange(cast, cast.S2),
+	).getData();
+	return buildFrom(cast.A, (tx) => {
+		// Every input resolved, so nothing dry-runs against the chain's alias set.
+		tx.object(
+			Inputs.SharedObjectRef(
+				inputs.find((i) => i.Object?.SharedObject)!.Object!
+					.SharedObject!,
+			),
+		);
+		buildRemove(tx, { account: cast.A, alias });
+		for (const text of compositionNote({
+			account: cast.A,
+			before,
+			after: before.filter((a) => a !== alias),
+			known: [cast.S1],
+		}))
+			tx.pure.string(text);
+		tx.setExpiration(expiration!);
+		tx.setGasPayment(gasData.payment!);
+		tx.setGasPrice(BigInt(gasData.price!));
+		tx.setGasBudget(BigInt(gasData.budget!));
+	});
+};
 
 describe('POST /v1/proposals with a signer change', () => {
 	let framework: ApiTestFramework;
@@ -222,6 +263,23 @@ describe('POST /v1/proposals with a signer change', () => {
 			message:
 				'The signers who stay cannot meet the new threshold by themselves, counting only those who have accepted the account. Add new signers in one change and remove old ones in another.',
 		});
+
+		// A key's own address left is no set to stay in.
+		await setAliases(A, 'localnet', [k1.address]);
+		expect(
+			await refusal(
+				proposeChange(
+					session,
+					k1,
+					A,
+					await removal(cast, A, [A, k1.address]),
+				),
+			),
+		).toEqual({
+			status: 400,
+			message:
+				'The change leaves no signer set the API can identify acting for the account.',
+		});
 	});
 
 	test('a change built before the alias set changed on chain, and one that replaces an alias the API cannot identify, are refused', async () => {
@@ -259,6 +317,19 @@ describe('POST /v1/proposals with a signer change', () => {
 		).toEqual({
 			status: 400,
 			message: `The signer set this change replaces, ${addressOf(U)}, is not one the API can identify as acting for the account on localnet.`,
+		});
+		expect(
+			await refusal(
+				proposeChange(
+					session,
+					k1,
+					A,
+					await removal(cast, k1.address, [A, k1.address]),
+				),
+			),
+		).toEqual({
+			status: 400,
+			message: `This is not a valid signer change: The note does not hold the composition of the removed set ${k1.address}.`,
 		});
 	});
 
