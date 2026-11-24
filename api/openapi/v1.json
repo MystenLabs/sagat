@@ -32,15 +32,19 @@
 					"network": { "type": "string" },
 					"kind": {
 						"type": "string",
-						"enum": ["transaction", "alias_call"],
-						"description": "`alias_call` for a transaction that calls `0x2::address_alias`."
+						"enum": [
+							"transaction",
+							"alias_call",
+							"signer_change"
+						],
+						"description": "`alias_call` for a transaction that calls `0x2::address_alias`, `signer_change` when it also carries a composition note."
 					},
 					"status": {
 						"$ref": "#/components/schemas/ProposalStatusName"
 					},
 					"ready": {
 						"type": "boolean",
-						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, signerChange.ready."
+						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, when the old set’s threshold is reached and signers who stay have signed for the new threshold, by their new weights."
 					},
 					"transactionBytes": { "type": "string" },
 					"proposerAddress": {
@@ -57,7 +61,7 @@
 						"items": {
 							"$ref": "#/components/schemas/ProposalSignature"
 						},
-						"description": "The signatures, less those of a signer change that is not ready, whose keys are in signerChange.withheldSignatures."
+						"description": "One entry per key that signed."
 					},
 					"signerSets": {
 						"type": "array",
@@ -65,6 +69,15 @@
 							"$ref": "#/components/schemas/SignerSet"
 						},
 						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces, while that set acts. Then the original set, with acting false, when it no longer acts there."
+					},
+					"signerChange": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/ProposalSignerChange"
+							},
+							{ "type": "null" }
+						],
+						"description": "Non-null exactly when kind is `signer_change`."
 					},
 					"events": {
 						"$ref": "#/components/schemas/ProposalEvents"
@@ -76,15 +89,6 @@
 					"signerSetsStale": {
 						"type": "boolean",
 						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
-					},
-					"signerChange": {
-						"anyOf": [
-							{
-								"$ref": "#/components/schemas/ProposalSignerChange"
-							},
-							{ "type": "null" }
-						],
-						"description": "Null for a proposal that is not a signer change."
 					}
 				},
 				"required": [
@@ -101,10 +105,10 @@
 					"createdAt",
 					"signatures",
 					"signerSets",
+					"signerChange",
 					"events",
 					"executedVia",
-					"signerSetsStale",
-					"signerChange"
+					"signerSetsStale"
 				]
 			},
 			"ProposalStatusName": {
@@ -120,7 +124,10 @@
 				"type": "object",
 				"properties": {
 					"publicKey": { "type": "string" },
-					"signature": { "type": "string" }
+					"signature": {
+						"type": ["string", "null"],
+						"description": "Null while a signer change that is not ready withholds it."
+					}
 				},
 				"required": ["publicKey", "signature"]
 			},
@@ -168,6 +175,21 @@
 					"order": { "type": "integer" }
 				},
 				"required": ["publicKey", "weight", "order"]
+			},
+			"ProposalSignerChange": {
+				"type": "object",
+				"properties": {
+					"removes": {
+						"type": ["string", "null"],
+						"description": "The signer set the change removes. Null when its composition note does not check; such a change is never ready."
+					},
+					"adds": {
+						"type": ["string", "null"],
+						"description": "The signer set the change adds. Null for a change that only removes."
+					}
+				},
+				"required": ["removes", "adds"],
+				"description": "The API’s reading of the signer change in the transaction bytes, which is only its word: a client reads and checks the bytes itself with the SDK (`checkSignerChange`)."
 			},
 			"ProposalEvents": {
 				"type": "object",
@@ -229,150 +251,6 @@
 					"createdAt"
 				],
 				"description": "An account audit log event, as stored."
-			},
-			"ProposalSignerChange": {
-				"type": "object",
-				"properties": {
-					"note": {
-						"type": ["object", "null"],
-						"properties": {
-							"account": {
-								"type": "string",
-								"description": "A Sui address."
-							},
-							"before": {
-								"type": "array",
-								"items": {
-									"type": "string",
-									"description": "A Sui address."
-								},
-								"description": "The alias set before the change, as the note states it."
-							},
-							"after": {
-								"type": "array",
-								"items": {
-									"type": "string",
-									"description": "A Sui address."
-								},
-								"description": "The alias set after the change, as the note states it."
-							},
-							"signerSets": {
-								"type": "array",
-								"items": {
-									"$ref": "#/components/schemas/NoteEntry"
-								},
-								"description": "One entry per address in before and after, in address order."
-							}
-						},
-						"required": [
-							"account",
-							"before",
-							"after",
-							"signerSets"
-						],
-						"description": "The composition note as read from the bytes. Null when it does not check; such a change is never ready."
-					},
-					"oldSet": {
-						"type": ["string", "null"],
-						"description": "The signer set the change replaces. Null when the note does not check."
-					},
-					"newSets": {
-						"type": "array",
-						"items": {
-							"type": "string",
-							"description": "A Sui address."
-						},
-						"description": "The signer set the change adds, or for a change that only removes, every identified set left in after."
-					},
-					"ready": {
-						"type": "boolean",
-						"description": "True when the old set’s threshold is reached and signers who stay have signed for the new threshold, by their new weights."
-					},
-					"withheldSignatures": {
-						"type": "array",
-						"items": { "type": "string" },
-						"description": "The public keys that signed but whose signatures are withheld until the change is ready, the proposer’s in events.created included. Empty once ready."
-					}
-				},
-				"required": [
-					"note",
-					"oldSet",
-					"newSets",
-					"ready",
-					"withheldSignatures"
-				],
-				"description": "The API’s reading of the signer change in the transaction bytes, which is only its word: a client reads and checks the bytes itself with the SDK (`checkSignerChange`)."
-			},
-			"NoteEntry": {
-				"oneOf": [
-					{
-						"type": "object",
-						"properties": {
-							"type": {
-								"type": "string",
-								"enum": ["signer_set"]
-							},
-							"version": { "type": "number", "enum": [1] },
-							"address": {
-								"type": "string",
-								"description": "A Sui address."
-							},
-							"threshold": { "type": "integer" },
-							"members": {
-								"type": "array",
-								"items": {
-									"type": "object",
-									"properties": {
-										"publicKey": { "type": "string" },
-										"weight": { "type": "integer" }
-									},
-									"required": ["publicKey", "weight"]
-								}
-							}
-						},
-						"required": [
-							"type",
-							"version",
-							"address",
-							"threshold",
-							"members"
-						]
-					},
-					{
-						"type": "object",
-						"properties": {
-							"type": { "type": "string", "enum": ["key"] },
-							"version": { "type": "number", "enum": [1] },
-							"address": {
-								"type": "string",
-								"description": "A Sui address."
-							},
-							"publicKey": { "type": "string" }
-						},
-						"required": [
-							"type",
-							"version",
-							"address",
-							"publicKey"
-						]
-					},
-					{
-						"type": "object",
-						"properties": {
-							"type": {
-								"type": "string",
-								"enum": ["other_signer_set"]
-							},
-							"version": { "type": "number", "enum": [1] },
-							"address": {
-								"type": "string",
-								"description": "A Sui address."
-							}
-						},
-						"required": ["type", "version", "address"]
-					}
-				],
-				"description": "One signer set of the composition note: its composition, a single key, or an address with no details."
 			},
 			"Error": {
 				"type": "object",

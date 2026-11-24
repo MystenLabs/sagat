@@ -131,7 +131,11 @@ describe('the proof rule of a signer change', () => {
 		expect(create.status).toBe(201);
 		expect(leaks(create.text)).toEqual([]);
 		const created = JSON.parse(create.text) as Proposal;
-		const { id, digest } = created;
+		const { digest } = created;
+		const [{ id }] = await db
+			.select({ id: SchemaProposals.id })
+			.from(SchemaProposals)
+			.where(eq(SchemaProposals.digest, digest));
 
 		const afterK3 = await vote(digest, sig3);
 		expect(leaks(afterK3.text)).toEqual([]);
@@ -139,27 +143,22 @@ describe('the proof rule of a signer change', () => {
 		expect(voted.signerSets).toEqual([
 			expect.objectContaining({
 				address: A,
+				threshold: 2,
 				currentWeight: 2,
-				hasReachedThreshold: true,
 			}),
 		]);
-		expect(voted.hasReachedThreshold).toBe(false);
-		expect(voted.signatures).toEqual([]);
+		expect(voted.kind).toBe('signer_change');
+		expect(voted.ready).toBe(false);
 		expect(voted.signerChange).toEqual({
-			note: {
-				account: A,
-				before: [A],
-				after: [addressOf(S2)],
-				signerSets: expect.any(Array),
-			},
-			oldSet: A,
-			newSets: [addressOf(S2)],
-			ready: false,
-			withheldSignatures: expect.any(Array),
+			removes: A,
+			adds: addressOf(S2),
 		});
 		expect(
-			sorted(voted.signerChange!.withheldSignatures),
+			sorted(voted.signatures.map((s) => s.publicKey)),
 		).toEqual(sorted([k1.publicKey, k3.publicKey]));
+		expect(
+			voted.signatures.map((s) => s.signature),
+		).toEqual([null, null]);
 		expect(voted.events.created?.proof).toEqual({
 			kind: 'proposal.create',
 			version: 1,
@@ -224,11 +223,10 @@ describe('the proof rule of a signer change', () => {
 
 		const afterK2 = await vote(digest, sig2);
 		const ready = JSON.parse(afterK2.text) as Proposal;
-		expect(ready.hasReachedThreshold).toBe(true);
-		expect(ready.signerChange).toMatchObject({
-			ready: true,
-			withheldSignatures: [],
-		});
+		expect(ready.ready).toBe(true);
+		expect(
+			ready.signatures.every((s) => s.signature !== null),
+		).toBe(true);
 		expect(sorted(leaks(afterK2.text))).toEqual(
 			sorted(signatures),
 		);
@@ -274,11 +272,13 @@ describe('the proof rule of a signer change', () => {
 		const read = await session.v1.getProposalByDigest(
 			created.digest,
 		);
-		expect(read.status).toBe(ProposalStatus.CANCELLED);
-		expect(read.signatures).toEqual([]);
+		expect(read.status).toBe('CANCELLED');
 		expect(
-			sorted(read.signerChange!.withheldSignatures),
+			sorted(read.signatures.map((s) => s.publicKey)),
 		).toEqual(sorted([k1.publicKey, k3.publicKey]));
+		expect(read.signatures.map((s) => s.signature)).toEqual(
+			[null, null],
+		);
 		expect(read.events.created?.proof).not.toHaveProperty(
 			'signature',
 		);
@@ -363,7 +363,7 @@ describe('the proof rule of a signer change', () => {
 
 		expect(
 			(await session.cancelProposal(k2, created)).status,
-		).toBe(ProposalStatus.CANCELLED);
+		).toBe('CANCELLED');
 	});
 
 	test('once the old set no longer acts, an accepted signer of the set that acts cancels the change', async () => {
@@ -391,6 +391,6 @@ describe('the proof rule of a signer change', () => {
 
 		expect(
 			(await session.cancelProposal(k4, created)).status,
-		).toBe(ProposalStatus.CANCELLED);
+		).toBe('CANCELLED');
 	});
 });

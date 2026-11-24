@@ -442,7 +442,7 @@ describe('POST /v1/proposals with a signer change', () => {
 				{ gasCoin: coins[1] },
 			);
 
-			expect(next.status).toBe(ProposalStatus.PENDING);
+			expect(next.status).toBe('PENDING');
 			expect(
 				(await pendingProposals(A)).map((p) => p.digest),
 			).toEqual(

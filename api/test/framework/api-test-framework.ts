@@ -153,7 +153,10 @@ export async function executeProposal(
 		signatures,
 	}: {
 		transactionBytes: string;
-		signatures: { publicKey: string; signature: string }[];
+		signatures: {
+			publicKey: string;
+			signature: string | null;
+		}[];
 	},
 	signerSet: Parameters<typeof combinedSignature>[0],
 ) {

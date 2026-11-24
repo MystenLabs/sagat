@@ -59,7 +59,10 @@ export const combinedSignature = (
 			order: number;
 		}[];
 	},
-	signatures: { publicKey: string; signature: string }[],
+	signatures: {
+		publicKey: string;
+		signature: string | null;
+	}[],
 ) => {
 	const members = [...set.members].sort(
 		(a, b) => a.order - b.order,

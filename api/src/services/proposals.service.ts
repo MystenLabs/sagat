@@ -130,7 +130,6 @@ import {
 export type SignerChangeProgress = {
 	// Null when the note does not check.
 	change: SignerChange | null;
-	ready: boolean;
 	// Keys that signed, whose signatures are withheld until the change is ready.
 	withheldSignatures: string[];
 };
@@ -185,7 +184,6 @@ const proposalProgress = (
 		hasReachedThreshold: ready,
 		signerChange: {
 			change,
-			ready,
 			withheldSignatures: ready ? [] : signedKeys,
 		},
 	};
@@ -212,7 +210,7 @@ const checkedProposal = (
 	const progress = proposalProgress(proposal, signers);
 	const withheld =
 		progress.signerChange !== null &&
-		!progress.signerChange.ready;
+		!progress.hasReachedThreshold;
 	return {
 		...progress,
 		events:

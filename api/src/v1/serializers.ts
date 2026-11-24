@@ -49,21 +49,13 @@ const toV1SetMember = (member: {
 
 const toV1SignerChange = ({
 	change,
-	ready,
-	withheldSignatures,
 }: SignerChangeProgress): z.input<
 	typeof v1.ProposalSignerChangeSchema
 > => ({
-	note: change && {
-		account: change.account,
-		before: change.before,
-		after: change.after,
-		signerSets: change.signerSets,
-	},
-	oldSet: change?.oldSet.address ?? null,
-	newSets: change?.newSets.map((set) => set.address) ?? [],
-	ready,
-	withheldSignatures,
+	removes: change?.oldSet.address ?? null,
+	adds:
+		change?.after.find((a) => !change.before.includes(a)) ??
+		null,
 });
 
 // The signatures and events come withheld from the service.
@@ -80,8 +72,9 @@ export const toV1Proposal = ({
 	accountAddress: proposal.accountAddress,
 	accountName: signers.accountName,
 	network: proposal.network,
-	kind:
-		aliasCallsOf(proposal.transactionBytes).length > 0
+	kind: signerChange
+		? 'signer_change'
+		: aliasCallsOf(proposal.transactionBytes).length > 0
 			? 'alias_call'
 			: 'transaction',
 	status: ProposalStatus[
@@ -92,10 +85,18 @@ export const toV1Proposal = ({
 	proposerAddress: proposal.proposerAddress,
 	description: proposal.description,
 	createdAt: proposal.createdAt.toISOString(),
-	signatures: proposal.signatures.map((signature) => ({
-		publicKey: signature.publicKey,
-		signature: signature.signature,
-	})),
+	signatures:
+		signerChange && !hasReachedThreshold
+			? signerChange.withheldSignatures.map(
+					(publicKey) => ({
+						publicKey,
+						signature: null,
+					}),
+				)
+			: proposal.signatures.map((signature) => ({
+					publicKey: signature.publicKey,
+					signature: signature.signature,
+				})),
 	signerSets: [
 		...sets.map((set) => ({
 			address: set.signerSet.address,
@@ -129,6 +130,8 @@ export const toV1Proposal = ({
 				]
 			: []),
 	],
+	signerChange:
+		signerChange && toV1SignerChange(signerChange),
 	events: {
 		created: toV1AccountEvent(events.created),
 		proposer: toV1AccountEvent(events.proposer),
@@ -136,8 +139,6 @@ export const toV1Proposal = ({
 	},
 	executedVia: proposal.executedVia,
 	signerSetsStale,
-	signerChange:
-		signerChange && toV1SignerChange(signerChange),
 });
 
 const toV1Member = (

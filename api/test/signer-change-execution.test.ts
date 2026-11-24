@@ -14,7 +14,6 @@ import {
 	test,
 } from 'bun:test';
 
-import { ProposalStatus } from '../src/db/schema';
 import { ApiAuthError } from '../src/errors';
 import {
 	ApiTestFramework,
@@ -81,7 +80,7 @@ const executeAndVerify = async (
 	proposal: Proposal,
 ) => {
 	const set = proposal.signerSets.find(
-		(s) => s.hasReachedThreshold,
+		(s) => s.currentWeight >= s.threshold,
 	)!;
 	expect(
 		(await executeProposal(proposal, set)).effects.status
@@ -122,7 +121,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			created.digest,
 			created.transactionBytes,
 		);
-		expect(transfer.hasReachedThreshold).toBe(true);
+		expect(transfer.ready).toBe(true);
 
 		const change = await proposeCastChange(
 			session,
@@ -137,10 +136,10 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			change.digest,
 			change.transactionBytes,
 		);
-		expect(ready.signerChange?.ready).toBe(true);
+		expect(ready.ready).toBe(true);
 		const verified = await executeAndVerify(session, ready);
 
-		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(A);
 		const account = await (
 			await signedIn(k1)
@@ -238,7 +237,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			pending.digest,
 			pending.transactionBytes,
 		);
-		expect(voted.hasReachedThreshold).toBe(true);
+		expect(voted.ready).toBe(true);
 
 		const k4Client = await signedIn(k4);
 		const bytes = await buildTransfer(A, {
@@ -267,9 +266,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		expect((await listProposals()).proposals).toHaveLength(
 			4,
 		);
-		expect((await propose()).status).toBe(
-			ProposalStatus.PENDING,
-		);
+		expect((await propose()).status).toBe('PENDING');
 	});
 
 	test('the transfer proposed before the change counts k1 only under S2, keeps k3’s signature, and executes with S2 once k2 signs', async () => {
@@ -284,20 +281,19 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			expect.objectContaining({
 				address: addressOf(S2),
 				currentWeight: 1,
-				hasReachedThreshold: false,
 			}),
 		]);
-		expect(read.hasReachedThreshold).toBe(false);
+		expect(read.ready).toBe(false);
 
 		const ready = await session.voteOnProposal(
 			k2,
 			transfer.digest,
 			transfer.transactionBytes,
 		);
-		expect(ready.hasReachedThreshold).toBe(true);
+		expect(ready.ready).toBe(true);
 		const verified = await executeAndVerify(session, ready);
 
-		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(addressOf(S2));
 	});
 
@@ -313,10 +309,10 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 				gasCoin: coins[4],
 			},
 		);
-		expect(change.aliasCalls).toEqual([
-			{ function: 'add', aliases: [A] },
-			{ function: 'remove', aliases: [addressOf(S2)] },
-		]);
+		expect(change.signerChange).toEqual({
+			removes: addressOf(S2),
+			adds: A,
+		});
 		const ready = await session.voteOnProposal(
 			k2,
 			change.digest,
@@ -324,7 +320,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		);
 		const verified = await executeAndVerify(session, ready);
 
-		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(addressOf(S2));
 		expect(await actingSets(k3, A)).toEqual([A]);
 		expect(await listedFor(k3)).toEqual([A]);
@@ -356,7 +352,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 					change.digest,
 					change.transactionBytes,
 				)
-			).signerChange?.ready,
+			).ready,
 		).toBe(false);
 		const ready = await session.voteOnProposal(
 			k3,
@@ -364,7 +360,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			change.transactionBytes,
 		);
 		const verified = await executeAndVerify(session, ready);
-		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(A);
 		expect(await actingSets(k1, A)).toEqual([
 			addressOf(S3),
@@ -430,16 +426,16 @@ describe('a change to a composition that is already an alias', () => {
 			change.digest,
 			change.transactionBytes,
 		);
-		expect(removedSigned.signerChange?.ready).toBe(false);
+		expect(removedSigned.ready).toBe(false);
 		const ready = await session.voteOnProposal(
 			k2,
 			change.digest,
 			change.transactionBytes,
 		);
-		expect(ready.signerChange?.ready).toBe(true);
+		expect(ready.ready).toBe(true);
 		const verified = await executeAndVerify(session, ready);
 
-		expect(verified.status).toBe(ProposalStatus.SUCCESS);
+		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(A);
 		expect(await actingSets(k1, A)).toEqual([addressOf(R)]);
 		expect(await invitedTo(k5)).toContain(A);
