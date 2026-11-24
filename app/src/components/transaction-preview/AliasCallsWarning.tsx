@@ -1,8 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { findAliasCalls } from '@mysten/sagat';
-import { Transaction } from '@mysten/sui/transactions';
 import { useMemo } from 'react';
 
 import { Alert } from '@/components/ui/Alert';
@@ -11,19 +9,9 @@ import {
 	networkLabel,
 	type SuiNetwork,
 } from '@/lib/network';
+import { aliasCallsIn } from '@/lib/proposalUtils';
 
 const COPY = content.transactionPreview.aliasCalls;
-
-// None for bytes that don't decode, which the preview reports itself.
-function aliasCallsIn(bytes: string) {
-	try {
-		return findAliasCalls(
-			Transaction.from(bytes).getData(),
-		);
-	} catch {
-		return [];
-	}
-}
 
 export function AliasCallsWarning({
 	bytes,

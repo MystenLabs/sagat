@@ -29,7 +29,7 @@ import {
 	proposalPagePath,
 	proposalStatusKey,
 	proposalTitle,
-	readySignerSet,
+	rowExecuteSet,
 	shortDigest,
 	shownSignerSet,
 	type CountedProposal,
@@ -102,9 +102,7 @@ export function ProposalRow({
 	const shownSet = shownSignerSet(
 		proposal.checkedSignerSets,
 	);
-	const readySet = readySignerSet(
-		proposal.checkedSignerSets,
-	);
+	const readySet = rowExecuteSet(proposal);
 	const list = variant === 'list';
 	const createdOn = formatShortDate(proposal.createdAt);
 	// The digest goes under the title, unless the title already is the

@@ -3,7 +3,8 @@
 
 import { type Proposal } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { formatDigest } from '@mysten/sui/utils';
+import { Transaction } from '@mysten/sui/transactions';
+import { formatDigest, toBase64 } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
 import { signerSetAddress } from '../src/lib/proposal-integrity';
@@ -17,6 +18,7 @@ import {
 	proposalExplorerUrl,
 	proposalStatusKey,
 	proposalTitle,
+	rowExecuteSet,
 	shortDigest,
 	shownSignerSet,
 	signatureAddedMessage,
@@ -374,6 +376,49 @@ const ids = (...list: number[]) =>
 		id,
 		createdAt: new Date(id * 1000).toISOString(),
 	}));
+
+describe('rowExecuteSet', () => {
+	it('is the ready set, and none for a proposal that calls the alias module', async () => {
+		const member = {
+			publicKey: new Ed25519Keypair()
+				.getPublicKey()
+				.toSuiPublicKey(),
+			weight: 1,
+			order: 0,
+		};
+		const checkedSignerSets = countSignerSets(
+			{
+				signatures: [
+					{ publicKey: member.publicKey, signature: 'sig' },
+				],
+			},
+			[
+				{
+					set: { threshold: 1, members: [member] },
+					address: '0x1',
+				},
+			],
+			null,
+		);
+		const aliasCall = Transaction.from(await transfer());
+		aliasCall.moveCall({
+			target: '0x2::address_alias::enable',
+		});
+
+		expect(
+			rowExecuteSet({
+				checkedSignerSets,
+				transactionBytes: await transfer(),
+			}),
+		).toBe(checkedSignerSets[0]);
+		expect(
+			rowExecuteSet({
+				checkedSignerSets,
+				transactionBytes: toBase64(await aliasCall.build()),
+			}),
+		).toBeNull();
+	});
+});
 
 describe('mergeNewestFirst', () => {
 	it('holds back rows a list with more to load could still go above', () => {

@@ -1,10 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { findAliasCalls } from '@mysten/sagat';
 import type {
 	Proposal,
 	SignerSetMember,
 } from '@mysten/sagat/v1';
+import { Transaction } from '@mysten/sui/transactions';
 import { formatDigest } from '@mysten/sui/utils';
 
 import { content } from '../content';
@@ -88,6 +90,29 @@ export function readySignerSet(
 	sets: readonly CountedSignerSet[],
 ): CountedSignerSet | null {
 	return sets.find(reachesThreshold) ?? null;
+}
+
+// None for bytes that don't decode, which the preview reports itself.
+export function aliasCallsIn(bytes: string) {
+	try {
+		return findAliasCalls(
+			Transaction.from(bytes).getData(),
+		);
+	} catch {
+		return [];
+	}
+}
+
+/** The set a list row executes with; none for a proposal that calls the alias module, which executes from its page. */
+export function rowExecuteSet(
+	proposal: Pick<
+		CountedProposal,
+		'checkedSignerSets' | 'transactionBytes'
+	>,
+): CountedSignerSet | null {
+	return aliasCallsIn(proposal.transactionBytes).length > 0
+		? null
+		: readySignerSet(proposal.checkedSignerSets);
 }
 
 /** The one set the screens draw: the ready one, else the first (the viewer's when any holds them). */
