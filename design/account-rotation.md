@@ -615,6 +615,12 @@ Decided on 2026-11-19:
 | Acceptance                   | A key answers per account, with a signed message that names it.                                                                                                                                        | Acceptance on the composition, carried to every account that uses it.                                 |
 | Adding a set through the app | Not now. A change stays a swap of one set for another.                                                                                                                                                 | Nothing.                                                                                              |
 
+Decided on 2026-11-24:
+
+| Topic                    | Decision                                                                                                                                                                              | Replaces                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| An account's signer sets | One `signerSets` list. The original comes first, `acting` says whether a set is in the alias set on the request's network, and an alias the API cannot identify is `kind: 'unknown'`. | The three fields `originalSignerSet`, `signerSets` and `otherSignerSets`. |
+
 Still open:
 
 1. **Proposers per network.** They are account-wide rows, while rights are per network. A signer removed on mainnet who still acts on another network can add or remove a proposer there, and it applies everywhere. Making proposers per network needs a column and a signed message that names the network.
