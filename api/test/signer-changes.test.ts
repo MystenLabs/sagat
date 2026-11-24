@@ -407,12 +407,16 @@ describe('POST /v1/proposals with a signer change', () => {
 				),
 			),
 		).toEqual({
-			status: 403,
-			message: new ApiAuthError('AliasCallByProposer')
-				.message,
+			status: 400,
+			message: pendingAliasProposal(first.digest),
 		});
 
 		await session.cancelProposal(k1, first);
+		expect(
+			await refusal(
+				proposeChange(session, proposer, A, toS3),
+			),
+		).toEqual({ status: 403, message: NOT_STAYING });
 		const next = await proposeChange(session, k1, A, toS3);
 		expect(next.status).toBe('PENDING');
 	});
