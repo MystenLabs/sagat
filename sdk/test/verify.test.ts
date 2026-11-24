@@ -437,13 +437,13 @@ describe('verifyProposalCreated', () => {
 		});
 	});
 
-	test('is unverified when the signature is withheld', async () => {
+	test('is unverified when the proof has no signature', async () => {
 		const { event, proposal } = await signCreated(outsider);
-		const { signature: _, ...withheld } = event.proof!;
+		const { signature: _, ...unsigned } = event.proof!;
 		expect(
 			(
 				await verifyProposalCreated(
-					{ ...event, proof: withheld },
+					{ ...event, proof: unsigned },
 					proposal,
 				)
 			).status,

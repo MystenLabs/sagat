@@ -9,10 +9,8 @@
 
 import {
 	findAliasCalls,
-	isSignerChangeReady,
 	PersonalMessages,
 	signersWhoStay,
-	type SignerChange,
 } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
@@ -72,7 +70,6 @@ import { normalizeText } from '../utils/text';
 import {
 	getProposalEvents,
 	recordAccountEvent,
-	type AccountEventRecord,
 	type ProposalEvents,
 } from './account-events.service';
 import {
@@ -125,78 +122,42 @@ import {
 	type SignerSetProgress,
 } from './signers.service';
 
-export type SignerChangeProgress = {
-	// Null when the note does not check.
-	change: SignerChange | null;
-	// Keys that signed, whose signatures are withheld until the change is ready.
-	withheldSignatures: string[];
-};
-
 // A proposal with its account's signers and how far its signatures get it.
 export type ProposalProgress = {
-	// For a signer change that is not ready, without its signatures.
 	proposal: ProposalWithSignatures;
 	// The account's signers under the scope the caller asked for.
 	signers: AccountSigners;
 	// One per acting set, in the order of `signers.actingSets`; for a signer change, only the old set while it acts.
 	sets: SignerSetProgress[];
-	// True when any one set reached its own threshold; for a signer change, when it is ready.
+	// True when any one set reached its own threshold.
 	hasReachedThreshold: boolean;
-	signerChange: SignerChangeProgress | null;
+	signerChange: ReturnType<typeof signerChangeIn>;
 };
 
-// Every response about a proposal is built from this, so a signer change's signatures stay withheld until it is ready.
 const proposalProgress = (
 	proposal: ProposalWithSignatures,
 	signers: AccountSigners,
 ): ProposalProgress => {
-	const signedKeys = proposal.signatures.map(
-		(sig) => sig.publicKey,
+	const signerChange = signerChangeIn(
+		proposal.transactionBytes,
 	);
-	const stored = signerChangeIn(proposal.transactionBytes);
-	if (!stored)
-		return {
-			proposal,
-			signers,
-			...countSignatures(signers.actingSets, signedKeys),
-			signerChange: null,
-		};
-
-	const { change } = stored;
-	// A note that does not check is never ready.
-	const ready =
-		change !== null &&
-		isSignerChangeReady(change, signedKeys);
-	const { sets } = countSignatures(
-		signers.actingSets.filter(
-			(set) => set.address === change?.oldSet.address,
-		),
-		signedKeys,
-	);
+	// A note that does not check has no old set, so it is never ready.
+	const sets = signerChange
+		? signers.actingSets.filter(
+				(set) =>
+					set.address ===
+					signerChange.change?.oldSet.address,
+			)
+		: signers.actingSets;
 	return {
-		proposal: ready
-			? proposal
-			: { ...proposal, signatures: [] },
+		proposal,
 		signers,
-		sets,
-		hasReachedThreshold: ready,
-		signerChange: {
-			change,
-			withheldSignatures: ready ? [] : signedKeys,
-		},
+		...countSignatures(
+			sets,
+			proposal.signatures.map((sig) => sig.publicKey),
+		),
+		signerChange,
 	};
-};
-
-const withoutSignature = (
-	event: AccountEventRecord,
-): AccountEventRecord => {
-	if (!event.proof || typeof event.proof !== 'object')
-		return event;
-	const proof = {
-		...(event.proof as Record<string, unknown>),
-	};
-	delete proof.signature;
-	return { ...event, proof };
 };
 
 const checkedProposal = (
@@ -204,25 +165,13 @@ const checkedProposal = (
 	signers: AccountSigners,
 	events: ProposalEvents,
 	signerSetsStale: boolean,
-): CheckedProposal => {
-	const progress = proposalProgress(proposal, signers);
-	const withheld =
-		progress.signerChange !== null &&
-		!progress.hasReachedThreshold;
-	return {
-		...progress,
-		events:
-			withheld && events.created
-				? {
-						...events,
-						created: withoutSignature(events.created),
-					}
-				: events,
-		signerSetsStale,
-	};
-};
+): CheckedProposal => ({
+	...proposalProgress(proposal, signers),
+	events,
+	signerSetsStale,
+});
 
-// No legacy route serves a signer change: its signatures are withheld, which the legacy shape cannot express.
+// No legacy route serves a signer change: it is a `/v1` feature.
 const refuseSignerChangeUnder = (
 	scopeKind: SignerScopeKind,
 	proposal: Pick<Proposal, 'transactionBytes'>,

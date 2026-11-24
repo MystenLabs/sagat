@@ -719,21 +719,6 @@ export function isProofMet(
 	);
 }
 
-/** The keys that signed reach the old set's own threshold, and `isProofMet`. */
-export function isSignerChangeReady(
-	change: Pick<SignerChange, 'oldSet' | 'newSets'>,
-	signedKeys: readonly string[],
-): boolean {
-	const signed = new Set(signedKeys);
-	const oldWeight = change.oldSet.members
-		.filter((m) => signed.has(m.publicKey))
-		.reduce((sum, m) => sum + m.weight, 0);
-	return (
-		oldWeight >= change.oldSet.threshold &&
-		isProofMet(change, signedKeys)
-	);
-}
-
 export function namedChain(
 	transaction: Pick<TransactionData, 'expiration'>,
 ): string | null {

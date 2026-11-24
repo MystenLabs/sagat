@@ -108,7 +108,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		coins = await gasCoins(cast.A, 6);
 	});
 
-	test('executes with the released signatures, records S1 as what executed it, and the account shows S2 acting and S1 as the original set', async () => {
+	test('executes with its signatures, records S1 as what executed it, and the account shows S2 acting and S1 as the original set', async () => {
 		const { k1, k2, k3, A, S2 } = cast;
 		const created = await session.createProposal(
 			k1,
@@ -335,8 +335,8 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		});
 	});
 
-	test('S1 to S3 is ready once all three have signed, and S3 acts after it', async () => {
-		const { k1, k2, k3, A, S3 } = cast;
+	test('S1 to S3 is ready at S1’s threshold, and S3 acts after it', async () => {
+		const { k1, k2, A, S3 } = cast;
 		const change = await proposeCastChange(
 			session,
 			cast,
@@ -345,20 +345,12 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 				gasCoin: coins[5],
 			},
 		);
-		expect(
-			(
-				await session.voteOnProposal(
-					k2,
-					change.digest,
-					change.transactionBytes,
-				)
-			).ready,
-		).toBe(false);
 		const ready = await session.voteOnProposal(
-			k3,
+			k2,
 			change.digest,
 			change.transactionBytes,
 		);
+		expect(ready.ready).toBe(true);
 		const verified = await executeAndVerify(session, ready);
 		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(A);
@@ -410,7 +402,7 @@ describe('a change to a composition that is already an alias', () => {
 		);
 	});
 
-	test('the change only removes S1, is ready once signers who stay have signed for R’s threshold, and R acts after it', async () => {
+	test('the change only removes S1, is ready at S1’s threshold, also with a removed signer’s signature, and R acts after it', async () => {
 		const { k1, k2, k3, A, S1 } = cast;
 		const change = await proposeCastChange(
 			session,
@@ -421,14 +413,8 @@ describe('a change to a composition that is already an alias', () => {
 				gasCoin: coins[1],
 			},
 		);
-		const removedSigned = await session.voteOnProposal(
-			k3,
-			change.digest,
-			change.transactionBytes,
-		);
-		expect(removedSigned.ready).toBe(false);
 		const ready = await session.voteOnProposal(
-			k2,
+			k3,
 			change.digest,
 			change.transactionBytes,
 		);

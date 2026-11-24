@@ -1,8 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// The proof rule of a signer change and its withheld signatures, through the
-// routes on the local network, with the cast of `setup/signer-changes`.
+// Signing, reading and cancelling a signer change, through the routes on the
+// local network, with the cast of `setup/signer-changes`.
 
 import { PersonalMessages } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
@@ -58,7 +58,7 @@ const SERVED_BY_V1 = {
 	},
 };
 
-describe('the proof rule of a signer change', () => {
+describe('signing and cancelling a signer change', () => {
 	let framework: ApiTestFramework;
 	let session: TestSession;
 
@@ -106,7 +106,7 @@ describe('the proof rule of a signer change', () => {
 
 	const sorted = (keys: string[]) => [...keys].sort();
 
-	test('S1 to S2: signatures are withheld until signers who stay meet the new threshold; legacy routes leave the change out or refuse it until it executes', async () => {
+	test('S1 to S2: ready at the old set’s threshold with its signatures returned; legacy routes leave the change out or refuse it until it executes', async () => {
 		const cast = await createCast(session);
 		const { k1, k2, k3, A, S2 } = cast;
 		const bytes = await buildCastChange(cast, S2);
@@ -114,7 +114,7 @@ describe('the proof rule of a signer change', () => {
 			[k1, k2, k3].map((key) => signedBy(key, bytes)),
 		);
 		const [sig1, sig2, sig3] = signatures;
-		const leaks = (text: string) =>
+		const returned = (text: string) =>
 			signatures.filter((sig) => text.includes(sig));
 
 		const create = await raw(
@@ -129,7 +129,7 @@ describe('the proof rule of a signer change', () => {
 			},
 		);
 		expect(create.status).toBe(201);
-		expect(leaks(create.text)).toEqual([]);
+		expect(returned(create.text)).toEqual([sig1]);
 		const created = JSON.parse(create.text) as Proposal;
 		const { digest } = created;
 		const [{ id }] = await db
@@ -138,7 +138,6 @@ describe('the proof rule of a signer change', () => {
 			.where(eq(SchemaProposals.digest, digest));
 
 		const afterK3 = await vote(digest, sig3);
-		expect(leaks(afterK3.text)).toEqual([]);
 		const voted = JSON.parse(afterK3.text) as Proposal;
 		expect(voted.signerSets).toEqual([
 			expect.objectContaining({
@@ -148,7 +147,7 @@ describe('the proof rule of a signer change', () => {
 			}),
 		]);
 		expect(voted.kind).toBe('signer_change');
-		expect(voted.ready).toBe(false);
+		expect(voted.ready).toBe(true);
 		expect(voted.signerChange).toEqual({
 			removes: A,
 			adds: addressOf(S2),
@@ -157,11 +156,12 @@ describe('the proof rule of a signer change', () => {
 			sorted(voted.signatures.map((s) => s.publicKey)),
 		).toEqual(sorted([k1.publicKey, k3.publicKey]));
 		expect(
-			voted.signatures.map((s) => s.signature),
-		).toEqual([null, null]);
+			sorted(voted.signatures.map((s) => s.signature)),
+		).toEqual(sorted([sig1, sig3]));
 		expect(voted.events.created?.proof).toEqual({
 			kind: 'proposal.create',
 			version: 1,
+			signature: sig1,
 		});
 
 		const reads = [
@@ -173,7 +173,9 @@ describe('the proof rule of a signer change', () => {
 		for (const read of reads) {
 			expect(read.status).toBe(200);
 			expect(read.text).toContain(digest);
-			expect(leaks(read.text)).toEqual([]);
+			expect(sorted(returned(read.text))).toEqual(
+				sorted([sig1, sig3]),
+			);
 		}
 
 		const legacyList = await raw(
@@ -221,24 +223,9 @@ describe('the proof rule of a signer change', () => {
 				body: JSON.parse(refused.text),
 			}).toEqual(SERVED_BY_V1);
 
-		const afterK2 = await vote(digest, sig2);
-		const ready = JSON.parse(afterK2.text) as Proposal;
-		expect(ready.ready).toBe(true);
-		expect(
-			ready.signatures.every((s) => s.signature !== null),
-		).toBe(true);
-		expect(sorted(leaks(afterK2.text))).toEqual(
-			sorted(signatures),
-		);
-		expect(ready.events.created?.proof).toEqual({
-			kind: 'proposal.create',
-			version: 1,
-			signature: sig1,
-		});
-
 		const executed = await executeProposal(
-			ready,
-			ready.signerSets[0],
+			voted,
+			voted.signerSets[0],
 		);
 		expect(executed.effects.status.success).toBe(true);
 		for (const path of [
@@ -251,37 +238,6 @@ describe('the proof rule of a signer change', () => {
 				status: 200,
 				text: JSON.stringify({ verified: true }),
 			});
-	});
-
-	test('a cancelled change that was not ready still withholds its signatures', async () => {
-		const cast = await createCast(session);
-		const { k1, k3, S2 } = cast;
-		const created = await proposeCastChange(
-			session,
-			cast,
-			S2,
-		);
-		await session.voteOnProposal(
-			k3,
-			created.digest,
-			created.transactionBytes,
-		);
-
-		await session.cancelProposal(k1, created);
-
-		const read = await session.v1.getProposalByDigest(
-			created.digest,
-		);
-		expect(read.status).toBe('CANCELLED');
-		expect(
-			sorted(read.signatures.map((s) => s.publicKey)),
-		).toEqual(sorted([k1.publicKey, k3.publicKey]));
-		expect(read.signatures.map((s) => s.signature)).toEqual(
-			[null, null],
-		);
-		expect(read.events.created?.proof).not.toHaveProperty(
-			'signature',
-		);
 	});
 
 	test('a key of another acting set cannot sign a change', async () => {

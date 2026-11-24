@@ -44,7 +44,7 @@
 					},
 					"ready": {
 						"type": "boolean",
-						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, when the old set’s threshold is reached and signers who stay have signed for the new threshold, by their new weights."
+						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
 					},
 					"transactionBytes": { "type": "string" },
 					"proposerAddress": {
@@ -124,10 +124,7 @@
 				"type": "object",
 				"properties": {
 					"publicKey": { "type": "string" },
-					"signature": {
-						"type": ["string", "null"],
-						"description": "Null while a signer change that is not ready withholds it."
-					}
+					"signature": { "type": "string" }
 				},
 				"required": ["publicKey", "signature"]
 			},
@@ -899,7 +896,7 @@
 				],
 				"responses": {
 					"200": {
-						"description": "The proposal, with its signatures, signer sets and audit log events. The signatures of a signer change are withheld until it is ready.",
+						"description": "The proposal, with its signatures, signer sets and audit log events.",
 						"content": {
 							"application/json": {
 								"schema": {

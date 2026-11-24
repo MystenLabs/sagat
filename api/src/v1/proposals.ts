@@ -108,7 +108,7 @@ const getProposalRoute = createRoute({
 	request: { params: digestParams },
 	responses: {
 		200: proposalResponse(
-			'The proposal, with its signatures, signer sets and audit log events. The signatures of a signer change are withheld until it is ready.',
+			'The proposal, with its signatures, signer sets and audit log events.',
 		),
 		400: error(
 			'The digest is not a valid transaction digest.',

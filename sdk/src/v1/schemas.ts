@@ -40,10 +40,7 @@ export type SuiAddress = z.infer<typeof SuiAddressSchema>;
 export const ProposalSignatureSchema = z
 	.object({
 		publicKey: z.string(),
-		signature: z.string().nullable().meta({
-			description:
-				'Null while a signer change that is not ready withholds it.',
-		}),
+		signature: z.string(),
 	})
 	.meta({ id: 'ProposalSignature' });
 export type ProposalSignature = z.infer<
@@ -204,7 +201,7 @@ export const ProposalSchema = z
 		status: ProposalStatusNameSchema,
 		ready: z.boolean().meta({
 			description:
-				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, when the old set’s threshold is reached and signers who stay have signed for the new threshold, by their new weights.',
+				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
 		}),
 		transactionBytes: z.string(),
 		proposerAddress: SuiAddressSchema,

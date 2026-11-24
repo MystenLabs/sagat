@@ -25,7 +25,6 @@ import {
 	deriveAliasesObjectId,
 	findAliasCalls,
 	isProofMet,
-	isSignerChangeReady,
 	MAX_ALIASES,
 	namedChain,
 	proofWeight,
@@ -411,20 +410,6 @@ describe('signers who stay and the proof', () => {
 				k2,
 			]),
 		).toBe(true);
-	});
-
-	test('a change is ready when the old threshold is reached and signers who stay meet the new one', () => {
-		const toS2 = { oldSet: old, newSets: [next] };
-		// The old threshold, with a removed signer, but no proof.
-		expect(isSignerChangeReady(toS2, [k1, k3])).toBe(false);
-		expect(isSignerChangeReady(toS2, [k1, k2])).toBe(true);
-		// The proof, short of the old 3-of-3.
-		expect(
-			isSignerChangeReady(
-				{ oldSet: entryOf(S3), newSets: [next] },
-				[k1, k2],
-			),
-		).toBe(false);
 	});
 
 	test('a change that only removes is proven by any set left', () => {

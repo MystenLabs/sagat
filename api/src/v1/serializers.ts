@@ -17,7 +17,6 @@ import {
 import {
 	aliasCallsOf,
 	type CheckedProposal,
-	type SignerChangeProgress,
 } from '../services/proposals.service';
 import {
 	memberAnswer,
@@ -49,7 +48,7 @@ const toV1SetMember = (member: {
 
 const toV1SignerChange = ({
 	change,
-}: SignerChangeProgress): z.input<
+}: NonNullable<CheckedProposal['signerChange']>): z.input<
 	typeof v1.ProposalSignerChangeSchema
 > => ({
 	removes: change?.oldSet.address ?? null,
@@ -58,7 +57,6 @@ const toV1SignerChange = ({
 		null,
 });
 
-// The signatures and events come withheld from the service.
 export const toV1Proposal = ({
 	proposal,
 	signers,
@@ -85,18 +83,10 @@ export const toV1Proposal = ({
 	proposerAddress: proposal.proposerAddress,
 	description: proposal.description,
 	createdAt: proposal.createdAt.toISOString(),
-	signatures:
-		signerChange && !hasReachedThreshold
-			? signerChange.withheldSignatures.map(
-					(publicKey) => ({
-						publicKey,
-						signature: null,
-					}),
-				)
-			: proposal.signatures.map((signature) => ({
-					publicKey: signature.publicKey,
-					signature: signature.signature,
-				})),
+	signatures: proposal.signatures.map((signature) => ({
+		publicKey: signature.publicKey,
+		signature: signature.signature,
+	})),
 	signerSets: [
 		...sets.map((set) => ({
 			address: set.signerSet.address,

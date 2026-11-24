@@ -69,7 +69,6 @@ export {
 	checkSignerChange,
 	compositionNote,
 	isProofMet,
-	isSignerChangeReady,
 	namedChain,
 	proofWeight,
 	readCompositionNote,
