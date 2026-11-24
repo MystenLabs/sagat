@@ -465,8 +465,9 @@ export function ApiAuthProvider({
 			signedOut = false;
 		}
 		// The kit swallows a wallet's refusal to disconnect and disconnects
-		// locally regardless.
-		await dappKit.disconnectWallet();
+		// locally regardless. It throws when no wallet is connected.
+		if (dappKit.stores.$connection.get().wallet)
+			await dappKit.disconnectWallet();
 		// Only when the sign-out worked, so it never sits beside a failure.
 		if (signedOut) toast.success(TOASTS.walletDisconnected);
 	};
