@@ -274,18 +274,6 @@ export function ApprovalsCard({
 		return COPY.signProposal;
 	};
 
-	const signerSets = approvalsSignerSets(
-		proposal,
-		status,
-		labels,
-		viewerPublicKey,
-		pods ?? [],
-	);
-	const [mainSet, ...foldedSets] = signerSets;
-	const statusLine =
-		status === 'pending' && !isExecuting
-			? (mainSet?.line ?? null)
-			: approvalsStatus(status, isExecuting, verdict);
 	const signerChange = useMemo(
 		() =>
 			signerChangeWarning(
@@ -296,6 +284,19 @@ export function ApprovalsCard({
 			),
 		[proposal, status, aliases, labels],
 	);
+	const signerSets = approvalsSignerSets(
+		proposal,
+		status,
+		labels,
+		viewerPublicKey,
+		pods ?? [],
+		signerChange?.notSigned,
+	);
+	const [mainSet, ...foldedSets] = signerSets;
+	const statusLine =
+		status === 'pending' && !isExecuting
+			? (mainSet?.line ?? null)
+			: approvalsStatus(status, isExecuting, verdict);
 	const note = approvalsNote({
 		proposal,
 		status,
@@ -600,7 +601,7 @@ export function ApprovalsCard({
 					<div className="font-medium">
 						{COPY.signerChange.title}
 					</div>
-					<div>{signerChange}</div>
+					<div>{signerChange.body}</div>
 				</Alert>
 			)}
 			{actions && (

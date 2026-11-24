@@ -141,7 +141,8 @@ export interface ApprovalRow {
 
 /**
  * One row per member of the signer set, in composition order. A member
- * who didn't sign is "Not needed" once the threshold is reached.
+ * who didn't sign is "Not needed" once the threshold is reached, unless
+ * the signer change warning names them (`notSigned`).
  */
 export function approvalRows(
 	set: Pick<CountedSignerSet, 'members'>,
@@ -149,6 +150,7 @@ export function approvalRows(
 	status: ProposalStatusKey,
 	labels: Labels,
 	publicKey: string | null | undefined,
+	notSigned: readonly string[] = [],
 ): ApprovalRow[] {
 	const reached = thresholdReached(status);
 	return [...set.members]
@@ -171,7 +173,7 @@ export function approvalRows(
 				isYou: member.publicKey === publicKey,
 				state: signed
 					? 'signed'
-					: reached
+					: reached && !notSigned.includes(member.publicKey)
 						? 'not-needed'
 						: 'not-signed',
 			};
@@ -202,6 +204,7 @@ export function approvalsSignerSets(
 	labels: Labels,
 	publicKey: string | null | undefined,
 	pods: readonly ListedPod[],
+	notSigned: readonly string[] = [],
 ): ApprovalsSignerSet[] {
 	const open = status === 'pending' || status === 'ready';
 	return proposal.checkedSignerSets.map((set) => ({
@@ -229,6 +232,7 @@ export function approvalsSignerSets(
 			status,
 			labels,
 			publicKey,
+			notSigned,
 		),
 	}));
 }
@@ -271,9 +275,9 @@ export function approvalsStatus(
 
 /**
  * While a pending signer change's signers who stay haven't signed for
- * the new threshold, the warning naming them. Null for bytes without a
- * composition note that checks against `aliases`, the pod's alias set
- * from the app's node (null until read).
+ * the new threshold, the warning naming them and their keys. Null for
+ * bytes without a composition note that checks against `aliases`, the
+ * pod's alias set from the app's node (null until read).
  */
 export function signerChangeWarning(
 	proposal: Pick<
@@ -283,7 +287,7 @@ export function signerChangeWarning(
 	status: ProposalStatusKey,
 	aliases: readonly string[] | null,
 	labels: Labels,
-): string | null {
+): { body: string; notSigned: string[] } | null {
 	if (
 		!aliases ||
 		(status !== 'pending' && status !== 'ready')
@@ -308,10 +312,13 @@ export function signerChangeWarning(
 	const names = proof.notSigned.map((key) =>
 		nameOf(addressOf(key), labels),
 	);
-	return content.proposal.approvals.signerChange.body(
-		joinList(names, 'and'),
-		names.length,
-	);
+	return {
+		body: content.proposal.approvals.signerChange.body(
+			joinList(names, 'and'),
+			names.length,
+		),
+		notSigned: proof.notSigned,
+	};
 }
 
 /**

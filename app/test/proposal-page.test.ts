@@ -135,6 +135,18 @@ describe('approvalRows', () => {
 			['Daniel', 'signed', false],
 			['Alice', 'not-needed', false],
 		]);
+		// A member the signer change warning names stays not signed.
+		const byAlice = proposal({ signedBy: [alice] });
+		expect(
+			approvalRows(
+				byAlice.checkedSignerSets[0],
+				byAlice,
+				'ready',
+				labels,
+				maya.publicKey,
+				[maya.publicKey],
+			).map((row) => row.state),
+		).toEqual(['not-signed', 'not-needed', 'signed']);
 	});
 });
 
@@ -289,9 +301,10 @@ describe('signerChangeWarning', () => {
 				labels,
 			);
 
-		expect(warning([alice])).toBe(
-			COPY.body('Maya and Daniel', 2),
-		);
+		expect(warning([alice])).toEqual({
+			body: COPY.body('Maya and Daniel', 2),
+			notSigned: [maya.publicKey, daniel.publicKey],
+		});
 		expect(warning([alice, maya, daniel])).toBeNull();
 		expect(
 			signerChangeWarning(
