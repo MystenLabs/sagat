@@ -149,10 +149,12 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			expect.objectContaining({
 				address: A,
 				acting: false,
+				original: true,
 			}),
 			expect.objectContaining({
 				address: addressOf(S2),
 				acting: true,
+				original: false,
 			}),
 		]);
 	});
