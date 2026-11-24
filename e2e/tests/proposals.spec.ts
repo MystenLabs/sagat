@@ -448,6 +448,22 @@ test.describe('proposals', () => {
 		await signProposal(bob, proposal);
 
 		await alice.signIn();
+		// Its list row offers no Execute: that happens on the page, under the warning.
+		await alice.page.goto(
+			`/multisig/${multisig.address}/proposals`,
+		);
+		await alice.page
+			.getByTestId('proposal-filter-ready')
+			.click();
+		const row = alice.proposalRow(proposal.digest);
+		await expect(row).toHaveAttribute(
+			'data-status',
+			'ready',
+		);
+		await expect(
+			row.getByTestId('execute-proposal-button'),
+		).toHaveCount(0);
+
 		await alice.page.goto(
 			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
 		);
@@ -464,6 +480,9 @@ test.describe('proposals', () => {
 				1,
 			),
 		);
+		await expect(
+			alice.approvalRow(carol.address),
+		).toContainText(content.common.states.notSigned);
 
 		await page
 			.getByTestId('execute-proposal-button')
