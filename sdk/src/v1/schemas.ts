@@ -201,7 +201,7 @@ export const ProposalSchema = z
 		status: ProposalStatusNameSchema,
 		ready: z.boolean().meta({
 			description:
-				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
+				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending, except a signer change; executedVia names what executed it.',
 		}),
 		transactionBytes: z.string(),
 		proposerAddress: SuiAddressSchema,
@@ -212,7 +212,7 @@ export const ProposalSchema = z
 		}),
 		signerSets: z.array(SignerSetSchema).meta({
 			description:
-				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces, while that set acts. Then the original set, with acting false, when it no longer acts there.",
+				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces: while pending, only while that set acts; once no longer pending, as the change describes it. Then the original set, with acting false, when it no longer acts there.",
 		}),
 		signerChange: ProposalSignerChangeSchema.or(
 			z.null(),

@@ -437,7 +437,13 @@ export const signsFor = (
 	});
 
 export type SignerSetProgress = {
-	signerSet: ActingSignerSet;
+	// Also a set a signer change describes, which may no longer act.
+	signerSet: Pick<
+		ActingSignerSet,
+		'address' | 'threshold'
+	> & {
+		members: Omit<ActingMember, 'answer'>[];
+	};
 	// Sum of the weights of the members that signed.
 	currentWeight: number;
 	hasReachedThreshold: boolean;
@@ -445,7 +451,7 @@ export type SignerSetProgress = {
 
 // A key counts in each set that holds it.
 export const countSignatures = (
-	actingSets: ActingSignerSet[],
+	actingSets: SignerSetProgress['signerSet'][],
 	signedKeys: string[],
 ): {
 	sets: SignerSetProgress[];

@@ -127,7 +127,7 @@ export type ProposalProgress = {
 	proposal: ProposalWithSignatures;
 	// The account's signers under the scope the caller asked for.
 	signers: AccountSigners;
-	// One per acting set, in the order of `signers.actingSets`; for a signer change, only the old set while it acts.
+	// One per acting set, in the order of `signers.actingSets`; for a signer change, only the old set: while pending, only while it acts.
 	sets: SignerSetProgress[];
 	// True when any one set reached its own threshold.
 	hasReachedThreshold: boolean;
@@ -141,14 +141,27 @@ const proposalProgress = (
 	const signerChange = signerChangeIn(
 		proposal.transactionBytes,
 	);
-	// A note that does not check has no old set, so it is never ready.
-	const sets = signerChange
-		? signers.actingSets.filter(
-				(set) =>
-					set.address ===
-					signerChange.change?.oldSet.address,
-			)
-		: signers.actingSets;
+	// A note that does not check is never ready; once not pending, the old set is read from the change.
+	const oldSet = signerChange?.change?.oldSet;
+	const sets = !signerChange
+		? signers.actingSets
+		: proposal.status !== ProposalStatus.PENDING && oldSet
+			? [
+					{
+						address: oldSet.address,
+						threshold: oldSet.threshold,
+						members: oldSet.members.map(
+							({ publicKey, weight }, order) => ({
+								publicKey,
+								weight,
+								order,
+							}),
+						),
+					},
+				]
+			: signers.actingSets.filter(
+					(set) => set.address === oldSet?.address,
+				);
 	return {
 		proposal,
 		signers,

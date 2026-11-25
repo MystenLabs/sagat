@@ -143,6 +143,10 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 
 		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(A);
+		expect(verified).toMatchObject({
+			ready: true,
+			signerSets: ready.signerSets,
+		});
 		const account = await (
 			await signedIn(k1)
 		).getAccount(A, 'localnet');
