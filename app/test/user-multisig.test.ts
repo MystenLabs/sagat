@@ -227,3 +227,16 @@ test('a row and the new-proposal copy read the threshold of a set that is an ali
 		).threshold,
 	).toBe(2);
 });
+
+test('an account read for another address leaves the listed row as it is', () => {
+	const { multisig, signer } = pod();
+	const other = pod();
+	const listed = toUserMultisig(multisig, signer);
+
+	expect(
+		withListedChecks(
+			listed,
+			toUserMultisig(other.multisig, other.signer),
+		),
+	).toBe(listed);
+});

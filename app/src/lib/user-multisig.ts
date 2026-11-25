@@ -171,7 +171,11 @@ export function withListedChecks(
 	listed: MultisigWithMembersForPublicKey,
 	details: MultisigWithMembersForPublicKey | undefined,
 ): MultisigWithMembersForPublicKey {
-	if (!details) return listed;
+	if (
+		!details ||
+		!sameAddress(details.address, listed.address)
+	)
+		return listed;
 	if (listed.refused)
 		return {
 			...details,
