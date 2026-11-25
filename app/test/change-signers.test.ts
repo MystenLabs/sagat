@@ -213,6 +213,26 @@ describe('differences', () => {
 			).map((d) => d.text),
 		).toEqual([COPY.change.moves('Alice', 3, 2)]);
 	});
+
+	test('a new row carrying a replaced signer’s key is an add', () => {
+		const current = currentSet([1, 1, 1], 2);
+		const [maya, daniel, alice] = rowsOf(current);
+		expect(
+			rowDifferences(
+				current,
+				[
+					maya,
+					{ ...daniel, key: newKey().toSuiPublicKey() },
+					alice,
+					{ ...added(), key: daniel.key },
+				],
+				2,
+			).map((d) => d.text),
+		).toEqual([
+			COPY.change.add('Priya', 1),
+			COPY.change.replace('Daniel'),
+		]);
+	});
 });
 
 test('a change’s differences come from its bytes, checked against the alias set the note starts from', async () => {

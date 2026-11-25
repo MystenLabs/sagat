@@ -286,11 +286,25 @@ function differences(
 	before: ChangeSide,
 	after: ChangeSide,
 ): Difference[] {
+	// Each old member pairs once, the editor's replaced rows first.
+	const used = new Set<Member>();
+	const match = (m: Member) => {
+		const b = before.members.find(
+			(b) =>
+				!used.has(b) &&
+				b.publicKey === (m.was ?? m.publicKey),
+		);
+		if (b) used.add(b);
+		return b;
+	};
+	const replaced = new Map(
+		after.members.flatMap((m) =>
+			m.was ? [[m, match(m)]] : [],
+		),
+	);
 	const pairs = after.members.map((m) => ({
 		m,
-		b: before.members.find(
-			(b) => b.publicKey === (m.was ?? m.publicKey),
-		),
+		b: m.was ? replaced.get(m) : match(m),
 	}));
 	const kept = pairs.flatMap(({ m, b }) =>
 		b ? [{ m, b }] : [],
