@@ -4,7 +4,6 @@
 import { createRoute } from '@hono/zod-openapi';
 import {
 	CreateProposalRequestSchema,
-	NetworkSchema,
 	ProposalListSchema,
 	ProposalSchema,
 	ProposalStatusNameSchema,
@@ -29,9 +28,9 @@ import {
 	error,
 	json,
 	jsonBody,
+	networkQuery,
 	unauthorized,
 	unavailable,
-	validateNetwork,
 	type V1App,
 } from './openapi';
 import { toV1Proposal } from './serializers';
@@ -52,7 +51,7 @@ const createProposalRoute = createRoute({
 	description:
 		'Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote.',
 	request: {
-		query: z.object({ network: NetworkSchema }),
+		query: networkQuery,
 		body: jsonBody(CreateProposalRequestSchema),
 	},
 	responses: {
@@ -75,7 +74,7 @@ const listProposalsRoute = createRoute({
 	request: {
 		query: z.object({
 			accountAddress: CanonicalAddressSchema,
-			network: NetworkSchema,
+			...networkQuery.shape,
 			status: ProposalStatusNameSchema.optional(),
 			nextCursor: z.string().optional().meta({
 				description:
@@ -184,9 +183,7 @@ const proposalAt = async (digest: string) =>
 
 export const proposalRoutes = (app: V1App) => {
 	defineRoute(app, createProposalRoute, async (c) => {
-		const network = validateNetwork(
-			c.req.valid('query').network,
-		);
+		const { network } = c.req.valid('query');
 		const { accountAddress, ...body } = c.req.valid('json');
 		const proposal = await createProposal({
 			...body,
@@ -199,16 +196,15 @@ export const proposalRoutes = (app: V1App) => {
 
 	defineRoute(app, listProposalsRoute, async (c) => {
 		const query = c.req.valid('query');
-		const network = validateNetwork(query.network);
 		const page = await listAccountProposals({
 			multisigAddress: query.accountAddress,
-			network,
+			network: query.network,
 			status: query.status,
 			cursor: newCursor(query),
 			callerKeys: c.get('publicKeys'),
 		});
 		return {
-			network,
+			network: query.network,
 			accountAddress: query.accountAddress,
 			proposals: page.data.map(toV1Proposal),
 			hasNextPage: page.hasNextPage,
