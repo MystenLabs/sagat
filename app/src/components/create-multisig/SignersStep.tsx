@@ -17,6 +17,7 @@ import {
 	verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { ArrowLeft, Info, Plus } from 'lucide-react';
+import { type ReactNode } from 'react';
 
 import { SegmentBar } from '@/components/multisig/SegmentBar';
 import {
@@ -77,40 +78,6 @@ export function SignersStep({
 	onContinue: () => void;
 	onCancel: () => void;
 }) {
-	const sensors = useSensors(
-		useSensor(PointerSensor),
-		useSensor(KeyboardSensor, {
-			coordinateGetter: sortableKeyboardCoordinates,
-		}),
-	);
-	const atMax = signers.length >= CONFIG.MAX_MEMBERS;
-
-	const handleDragEnd = ({
-		active,
-		over,
-	}: DragEndEvent) => {
-		if (!over || active.id === over.id) return;
-		const from = signers.findIndex(
-			(s) => s.id === active.id,
-		);
-		const to = signers.findIndex((s) => s.id === over.id);
-		onSignersChange(arrayMove(signers, from, to));
-	};
-
-	const addSigner = (
-		<Button
-			type="button"
-			variant="outline"
-			className={cn('h-9.5', atMax && disabledButton)}
-			disabled={atMax}
-			onClick={onAddSigner}
-			data-testid="create-add-signer"
-		>
-			<Plus />
-			{COPY.signersStep.addSigner}
-		</Button>
-	);
-
 	return (
 		<div
 			className="flex flex-col gap-7 p-5 md:p-7"
@@ -133,81 +100,41 @@ export function SignersStep({
 					</span>
 				</div>
 
-				<div className="flex flex-col gap-2">
-					{/* Mirrors a signer row (its border, padding, gaps and
-					    columns) so the labels line up with the fields. */}
-					<div
-						aria-hidden
-						className="hidden gap-2.5 rounded-md border border-transparent bg-muted px-3 py-1.5 text-12 text-muted-foreground @xl/card:flex"
-					>
-						<span className="w-9 shrink-0 pl-1">#</span>
-						<span className="min-w-25 flex-1">
-							{FIELDS.signer}
-						</span>
-						<span className="min-w-0 flex-2 indent-3">
-							{FIELDS.publicKey}
-						</span>
-						{/* The small stepper's width, then the remove button's. */}
-						<span className="w-24 shrink-0">
-							{FIELDS.weight}
-						</span>
-						<span className="w-4.5 shrink-0" />
-					</div>
-					<DndContext
-						sensors={sensors}
-						collisionDetection={closestCenter}
-						onDragEnd={handleDragEnd}
-					>
-						<SortableContext
-							items={signers.map((s) => s.id)}
-							strategy={verticalListSortingStrategy}
-						>
-							{signers.map((signer, index) => (
-								<SignerRow
-									key={signer.id}
-									signer={signer}
-									check={check.signers[index]}
-									index={index}
-									autoFocus={signer.id === focusId}
-									onChange={(changes) =>
-										onSignersChange(
-											signers.map((s) =>
-												s.id === signer.id
-													? { ...s, ...changes }
-													: s,
-											),
-										)
-									}
-									onRemove={() =>
-										onSignersChange(
-											signers.filter(
-												(s) => s.id !== signer.id,
-											),
-										)
-									}
-								/>
-							))}
-						</SortableContext>
-					</DndContext>
-				</div>
+				<SignerList
+					signers={signers}
+					onChange={onSignersChange}
+				>
+					{signers.map((signer, index) => (
+						<SignerRow
+							key={signer.id}
+							signer={signer}
+							check={check.signers[index]}
+							index={index}
+							autoFocus={signer.id === focusId}
+							onChange={(changes) =>
+								onSignersChange(
+									signers.map((s) =>
+										s.id === signer.id
+											? { ...s, ...changes }
+											: s,
+									),
+								)
+							}
+							onRemove={() =>
+								onSignersChange(
+									signers.filter((s) => s.id !== signer.id),
+								)
+							}
+						/>
+					))}
+				</SignerList>
 
 				<div className="flex flex-col items-start gap-3 @xl/card:flex-row @xl/card:items-center @xl/card:justify-between">
-					{atMax ? (
-						<Tooltip>
-							<TooltipTrigger
-								render={<span className="inline-flex" />}
-							>
-								{addSigner}
-							</TooltipTrigger>
-							<TooltipContent>
-								{COPY.signersStep.maxSigners(
-									CONFIG.MAX_MEMBERS,
-								)}
-							</TooltipContent>
-						</Tooltip>
-					) : (
-						addSigner
-					)}
+					<AddSignerButton
+						atMax={signers.length >= CONFIG.MAX_MEMBERS}
+						onClick={onAddSigner}
+						testId="create-add-signer"
+					/>
 					{signers.length > 1 && (
 						<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
 							<Info className="mt-0.5 size-3 shrink-0" />
@@ -219,38 +146,14 @@ export function SignersStep({
 
 			<Separator />
 
-			<section className="flex flex-col gap-3.5">
-				<SectionHeading
-					title={COPY.signersStep.thresholdTitle}
-					description={
-						COPY.signersStep.thresholdDescription
-					}
-				/>
-				<div className="flex items-center gap-4">
-					<NumberStepper
-						value={threshold}
-						min={1}
-						max={maxThreshold}
-						onChange={onThresholdChange}
-						label={FIELDS.threshold}
-						size="lg"
-						testId="create-threshold"
-					/>
-					<span
-						className="text-16 text-foreground-secondary"
-						data-testid="create-total-weight"
-					>
-						{COPY.signersStep.ofTotalWeight(
-							check.totalWeight,
-						)}
-					</span>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					<ThresholdBar
-						threshold={threshold}
-						totalWeight={check.totalWeight}
-					/>
-					{check.tooFewSigners ? (
+			<ThresholdSection
+				threshold={threshold}
+				totalWeight={check.totalWeight}
+				max={maxThreshold}
+				onChange={onThresholdChange}
+				testId="create"
+				notice={
+					check.tooFewSigners ? (
 						<Notice
 							tone="warning"
 							className="mt-2"
@@ -268,9 +171,9 @@ export function SignersStep({
 								{check.warning}
 							</Notice>
 						)
-					)}
-				</div>
-			</section>
+					)
+				}
+			/>
 
 			<Separator />
 
@@ -309,17 +212,188 @@ export function SignersStep({
 	);
 }
 
-function ThresholdBar({
+/** Add signer, with why it's disabled at the maximum. */
+export function AddSignerButton({
+	atMax,
+	onClick,
+	testId,
+}: {
+	atMax: boolean;
+	onClick: () => void;
+	testId: string;
+}) {
+	const button = (
+		<Button
+			type="button"
+			variant="outline"
+			className={cn('h-9.5', atMax && disabledButton)}
+			disabled={atMax}
+			onClick={onClick}
+			data-testid={testId}
+		>
+			<Plus />
+			{content.common.actions.addSigner}
+		</Button>
+	);
+	return atMax ? (
+		<Tooltip>
+			<TooltipTrigger
+				render={<span className="inline-flex" />}
+			>
+				{button}
+			</TooltipTrigger>
+			<TooltipContent>
+				{COPY.signersStep.maxSigners(CONFIG.MAX_MEMBERS)}
+			</TooltipContent>
+		</Tooltip>
+	) : (
+		button
+	);
+}
+
+/** The threshold: stepper, total weight, bar, and a notice under it. */
+export function ThresholdSection({
 	threshold,
 	totalWeight,
+	max,
+	onChange,
+	testId,
+	currently,
+	error = false,
+	notice,
 }: {
 	threshold: number;
 	totalWeight: number;
+	max: number;
+	onChange: (threshold: number) => void;
+	/** Prefix of `<testId>-threshold` and `<testId>-total-weight`. */
+	testId: string;
+	/** After the total weight. */
+	currently?: ReactNode;
+	error?: boolean;
+	notice: ReactNode;
+}) {
+	return (
+		<section className="flex flex-col gap-3.5">
+			<SectionHeading
+				title={COPY.signersStep.thresholdTitle}
+				description={COPY.signersStep.thresholdDescription}
+			/>
+			<div
+				className={cn(
+					'flex items-center gap-4',
+					// Change signers' row wraps whole phrases on phones.
+					currently !== undefined && 'flex-wrap gap-y-1',
+				)}
+			>
+				<NumberStepper
+					value={threshold}
+					min={1}
+					max={max}
+					onChange={onChange}
+					label={FIELDS.threshold}
+					size="lg"
+					testId={`${testId}-threshold`}
+				/>
+				<span
+					className="text-16 text-foreground-secondary"
+					data-testid={`${testId}-total-weight`}
+				>
+					{COPY.signersStep.ofTotalWeight(totalWeight)}
+				</span>
+				{currently}
+			</div>
+			<div className="flex flex-col gap-1.5">
+				<ThresholdBar
+					threshold={threshold}
+					totalWeight={totalWeight}
+					error={error}
+				/>
+				{notice}
+			</div>
+		</section>
+	);
+}
+
+/** The column labels over draggable signer rows (`children`). */
+export function SignerList<S extends { id: string }>({
+	signers,
+	onChange,
+	children,
+}: {
+	signers: S[];
+	onChange: (signers: S[]) => void;
+	children: ReactNode;
+}) {
+	const sensors = useSensors(
+		useSensor(PointerSensor),
+		useSensor(KeyboardSensor, {
+			coordinateGetter: sortableKeyboardCoordinates,
+		}),
+	);
+	const handleDragEnd = ({
+		active,
+		over,
+	}: DragEndEvent) => {
+		if (!over || active.id === over.id) return;
+		const from = signers.findIndex(
+			(s) => s.id === active.id,
+		);
+		const to = signers.findIndex((s) => s.id === over.id);
+		onChange(arrayMove(signers, from, to));
+	};
+
+	return (
+		<div className="flex flex-col gap-2">
+			{/* Mirrors a signer row (its border, padding, gaps and
+			    columns) so the labels line up with the fields. */}
+			<div
+				aria-hidden
+				className="hidden gap-2.5 rounded-md border border-transparent bg-muted px-3 py-1.5 text-12 text-muted-foreground @xl/card:flex"
+			>
+				<span className="w-9 shrink-0 pl-1">#</span>
+				<span className="min-w-25 flex-1">
+					{FIELDS.signer}
+				</span>
+				<span className="min-w-0 flex-2 indent-3">
+					{FIELDS.publicKey}
+				</span>
+				{/* The small stepper's width, then the remove button's. */}
+				<span className="w-24 shrink-0">
+					{FIELDS.weight}
+				</span>
+				<span className="w-4.5 shrink-0" />
+			</div>
+			<DndContext
+				sensors={sensors}
+				collisionDetection={closestCenter}
+				onDragEnd={handleDragEnd}
+			>
+				<SortableContext
+					items={signers.map((s) => s.id)}
+					strategy={verticalListSortingStrategy}
+				>
+					{children}
+				</SortableContext>
+			</DndContext>
+		</div>
+	);
+}
+
+function ThresholdBar({
+	threshold,
+	totalWeight,
+	error,
+}: {
+	threshold: number;
+	totalWeight: number;
+	error?: boolean;
 }) {
 	return (
 		// The threshold field and "of N total weight" already say this.
 		<SegmentBar
 			layout={thresholdBar(threshold, totalWeight)}
+			error={error}
 		/>
 	);
 }

@@ -21,6 +21,7 @@ export function NumberStepper({
 	label,
 	size,
 	testId,
+	className,
 }: {
 	value: number;
 	min: number;
@@ -30,6 +31,7 @@ export function NumberStepper({
 	label: string;
 	size: 'sm' | 'lg';
 	testId: string;
+	className?: string;
 }) {
 	const [draft, setDraft] = useState<string | null>(null);
 	const commit = () => {
@@ -52,6 +54,7 @@ export function NumberStepper({
 			className={cn(
 				'inline-flex shrink-0 overflow-hidden rounded-md border border-foreground/12',
 				size === 'sm' ? inputSizes.sm : inputSizes.lg,
+				className,
 			)}
 		>
 			<button

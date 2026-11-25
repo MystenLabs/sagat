@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type ReactNode } from 'react';
+
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { content } from '@/content';
@@ -58,6 +60,7 @@ export function SignerName({
 	size = 'md',
 	wrap = false,
 	labelTestId,
+	badge,
 }: {
 	label: string | null;
 	address?: string;
@@ -72,6 +75,8 @@ export function SignerName({
 	wrap?: boolean;
 	/** A test id on the label, for the member tables. */
 	labelTestId?: string;
+	/** A chip after the name. */
+	badge?: ReactNode;
 }) {
 	const s = SIZES[size];
 	// The space keeps "Alice (you)" readable as text; the gap spaces it.
@@ -127,6 +132,7 @@ export function SignerName({
 					</span>
 				)}
 				{markerText}
+				{badge}
 			</span>
 		);
 
@@ -149,6 +155,7 @@ export function SignerName({
 					{label}
 				</span>
 				{markerText}
+				{badge}
 			</span>
 			{address && (
 				<span

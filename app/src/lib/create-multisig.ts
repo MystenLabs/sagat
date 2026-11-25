@@ -156,13 +156,20 @@ export function checkSigners({
 	signers,
 	threshold,
 	lookups,
+	positions,
 }: {
 	signers: SignerDraft[];
 	threshold: number;
 	/** Addresses whose lookup came back empty. */
 	lookups: Record<string, FailedLookup>;
+	/** Each row's number on screen, when it isn't its index + 1. */
+	positions?: number[];
 }): SignersCheck {
-	const names = signers.map(signerName);
+	const at = (index: number) =>
+		positions?.[index] ?? index + 1;
+	const names = signers.map((s, i) =>
+		signerName(s, at(i) - 1),
+	);
 	const statuses = signers.map((s) =>
 		keyStatus(s, lookups),
 	);
@@ -196,19 +203,19 @@ export function checkSigners({
 				// "Daniel (signer 2)", "Signer 2" when unnamed, or a sentence of
 				// its own when the key is the unnamed creator's.
 				const ownerName = names[owner];
-				const position = COPY.signerN(owner + 1);
+				const position = COPY.signerN(at(owner));
 				const owned = signers[owner];
 				finalStatus = {
 					kind: 'error',
 					message:
 						owned.isCreator && !owned.label.trim()
-							? COPY.duplicateKeyYours(owner + 1)
+							? COPY.duplicateKeyYours(at(owner))
 							: COPY.duplicateKey(
 									ownerName === position
 										? position
 										: COPY.signerWithPosition(
 												ownerName,
-												owner + 1,
+												at(owner),
 											),
 								),
 				};
@@ -236,24 +243,27 @@ export function checkSigners({
 	);
 	const tooFewSigners = signers.length < CONFIG.MIN_MEMBERS;
 
-	// Rows that hold Continue back, by their 1-based position.
+	// Rows that hold Continue back, by index.
 	const blocked = checks.flatMap((c, i) =>
-		c.complete ? [] : [i + 1],
+		c.complete ? [] : [i],
 	);
 	let blockedMessage: string | null = null;
 	let addressMessage: string | null = null;
 	if (blocked.length > 0) {
-		const only = checks[blocked[0] - 1];
+		const only = checks[blocked[0]];
 		if (
 			blocked.length === 1 &&
 			only.status.kind === 'no-key'
 		) {
-			blockedMessage = COPY.blockedNoKey(blocked[0]);
-			addressMessage = COPY.addressNoKey(blocked[0]);
+			blockedMessage = COPY.blockedNoKey(at(blocked[0]));
+			addressMessage = COPY.addressNoKey(at(blocked[0]));
 		} else {
 			const which = COPY.blockedSigners(
 				blocked.length,
-				joinList(blocked.map(String), 'and'),
+				joinList(
+					blocked.map((i) => String(at(i))),
+					'and',
+				),
 			);
 			blockedMessage = COPY.blockedFinish(which);
 			addressMessage = COPY.addressFinish(which);

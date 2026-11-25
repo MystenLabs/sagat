@@ -103,6 +103,9 @@ export function PreviewCard({
 	threshold,
 	address,
 	addressMessage,
+	network,
+	addressNote = COPY.preview.live,
+	thresholdError = false,
 }: {
 	name: string;
 	/** False until the signers step has been opened. */
@@ -113,6 +116,9 @@ export function PreviewCard({
 	threshold: number;
 	address: string | null;
 	addressMessage: string | null;
+	network?: string;
+	addressNote?: string;
+	thresholdError?: boolean;
 }) {
 	const muted = 'text-muted-foreground/70';
 	return (
@@ -138,6 +144,11 @@ export function PreviewCard({
 						{name.trim() || COPY.preview.notSet}
 					</span>
 				</SummaryRow>
+				{network && (
+					<SummaryRow label={FIELDS.network}>
+						<span className="text-12">{network}</span>
+					</SummaryRow>
+				)}
 				<SummaryRow label={FIELDS.signers}>
 					<span
 						className={cn('text-12', !setUp && muted)}
@@ -154,7 +165,10 @@ export function PreviewCard({
 				<SummaryRow label={FIELDS.threshold}>
 					{setUp ? (
 						<span
-							className="text-12"
+							className={cn(
+								'text-12',
+								thresholdError && 'text-error-foreground',
+							)}
 							data-testid="create-preview-threshold"
 						>
 							{thresholdLabel({ threshold, totalWeight })}
@@ -187,7 +201,7 @@ export function PreviewCard({
 						</div>
 						<span className="flex items-center gap-1.5 text-12 text-success-foreground">
 							<Check className="size-3" />
-							{COPY.preview.live}
+							{addressNote}
 						</span>
 					</>
 				) : (

@@ -82,6 +82,8 @@ interface CreateProposalParams {
 	multisig: Pick<Account, 'address' | 'signerSets'>;
 	transactionData: string;
 	description?: string;
+	/** For a signer change that adds a set: a name per key of it, null for none. */
+	labels?: (string | null)[];
 }
 
 export function useCreateProposal() {
@@ -100,6 +102,7 @@ export function useCreateProposal() {
 			multisig,
 			transactionData,
 			description,
+			labels,
 		}: CreateProposalParams) => {
 			if (!currentAddress || !currentAccount) {
 				throw new Error(content.errors.noConnectedAccount);
@@ -162,6 +165,7 @@ export function useCreateProposal() {
 				transactionBytes: transactionData,
 				signature: signatureResult.signature as string,
 				description,
+				labels,
 				network,
 			});
 		},

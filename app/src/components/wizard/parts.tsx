@@ -155,7 +155,7 @@ export function CopyText({
 export type WizardStep = 1 | 2 | 3;
 
 /** One label per step, to match `WizardStep`. */
-export type WizardSteps = readonly [string, string, string];
+export type WizardSteps = readonly string[];
 
 /**
  * Where the wizard is. Every step up to `reach` (the furthest one whose

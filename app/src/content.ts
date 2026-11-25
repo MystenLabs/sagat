@@ -82,6 +82,8 @@ export const content = {
 			signAndExecute: 'Sign and execute',
 			learnMore: 'Learn more',
 			viewProposal: 'View proposal',
+			addSigner: 'Add signer',
+			moreActions: 'More actions',
 		},
 		/** Field, row and column labels. */
 		fields: {
@@ -453,7 +455,6 @@ export const content = {
 				'Paste each signer’s public key, or search by their address.',
 			count: (count: number, max: number) =>
 				`${count} of ${max}`,
-			addSigner: 'Add signer',
 			maxSigners: (max: number) => `Up to ${max} signers`,
 			orderNote:
 				'Signer order affects the address. Drag to reorder before you create the pod.',
@@ -999,7 +1000,6 @@ export const content = {
 			youSigned: 'You signed',
 			executeFailed: (message: string) =>
 				`Couldn’t execute: ${message}`,
-			moreActions: 'More actions',
 			download: 'Download',
 		},
 		/** The status chip's label for where a proposal stands. */
@@ -1246,6 +1246,16 @@ export const content = {
 		enableSignerChanges: 'Enable signer changes',
 		enableSignerChangesPending: (network: string) =>
 			`A proposal to enable signer changes on ${network} is open.`,
+		/** The entry points to Change signers. */
+		changeThreshold: 'Change threshold',
+		replace: 'Replace',
+		changeWeight: 'Change weight',
+		cantRemoveYourself:
+			'You can’t remove yourself. Another signer can remove you with a change.',
+		needsTwoSigners:
+			'A pod needs at least 2 signers. Add a signer first, or use Replace.',
+		changePending:
+			'A signer change is waiting for signatures. New changes can start once it’s executed or cancelled.',
 		/** When the pod's alias set differs on other networks the API serves; `networks` is already a list. */
 		differentOn: (networks: string) =>
 			`This pod’s signers are different on ${networks}.`,
@@ -1282,6 +1292,95 @@ export const content = {
 			oneRejected: (name: string) =>
 				`${name} rejected the invitation.`,
 		},
+	},
+	/** Change signers: the editor and its review. lib/change-signers reads it. */
+	changeSigners: {
+		title: 'Change signers',
+		steps: ['Changes', 'Review'],
+		description:
+			'Add, remove or edit signers. The current signers approve all changes as one proposal.',
+		reviewChanges: 'Review changes',
+		currently: (label: string) => `Currently ${label}`,
+		unreachable: (
+			threshold: number,
+			total: number,
+			removed: string | null,
+		) =>
+			`The threshold is ${threshold}, but the signers left only add up to ${total} weight, so no proposal could ever pass. Lower the threshold to ${total} or less${removed ? `, or keep ${removed}` : ''}.`,
+		stayingShort: (threshold: number, weight: number) =>
+			`The threshold is ${threshold}, but the signers who stay and have accepted this pod only add up to ${weight} weight. New signers can’t count until they accept. Lower the threshold to ${weight} or less, or keep more of the current signers.`,
+		chips: {
+			new: 'New',
+			removed: 'Removed',
+			replaced: 'Replaced',
+		},
+		row: {
+			weightChange: (from: number, to: number) =>
+				`Weight ${from} → ${to}`,
+			invited:
+				'Gets an invitation once this change executes',
+			was: 'Was',
+			weightStays: (weight: number) =>
+				`weight stays ${weight}`,
+			removed: (name: string, network: string) =>
+				`${name} can no longer sign on ${network} once this change executes.`,
+			undo: 'Undo',
+		},
+		addressStays: 'Address stays the same',
+		review: {
+			description:
+				'Check the changes before you propose them. Nothing changes until the current signers approve.',
+			changes: 'Changes',
+			carryOver:
+				'Signatures from signers who stay carry over, and open proposals are recounted against the new weights and threshold.',
+			carryOverReorder:
+				'Open proposals and their signatures carry over. Weights and the threshold don’t change.',
+			signersAfter: 'Signers after the change',
+			address: 'Sui address · stays the same',
+		},
+		/** The differences, and the proposal's title: the first one and how many more. */
+		change: {
+			add: (name: string, weight: number) =>
+				`Add ${name} (weight ${weight})`,
+			addTitle: (name: string) => `Add ${name}`,
+			remove: (name: string) => `Remove ${name}`,
+			replace: (name: string) => `Replace ${name}’s key`,
+			weight: (name: string, from: number, to: number) =>
+				`Change ${name}’s weight from ${from} to ${to}`,
+			threshold: (from: string, to: string) =>
+				`Change the threshold from ${from} to ${to}`,
+			moves: (name: string, from: number, to: number) =>
+				`Reorder signers: ${name} moves from ${from} to ${to}`,
+			reorder: 'Reorder signers',
+			more: (title: string, count: number) =>
+				`${title} and ${count} more`,
+		},
+		help: [
+			{
+				id: 'who-approves',
+				question: 'Who approves this change?',
+				answer:
+					'The current signers approve it as one proposal, at the current threshold. Any signer who stays can cancel it. A signer being removed can’t.',
+			},
+			{
+				id: 'open-proposals',
+				question: 'What happens to open proposals?',
+				answer:
+					'They carry over. Signatures from signers who stay still count, and progress is recounted against the new weights and threshold.',
+			},
+			{
+				id: 'new-signers',
+				question: 'When do new signers get access?',
+				answer:
+					'After the change executes. From then on they can sign proposals.',
+			},
+			{
+				id: 'weights-and-threshold',
+				question: 'How do weights and the threshold work?',
+				answer:
+					'Each signer’s weight counts toward the threshold. A proposal can execute once the signatures on it add up to the threshold.',
+			},
+		],
 	},
 	proposers: {
 		title: 'External proposers',

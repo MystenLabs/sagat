@@ -344,24 +344,7 @@ function RowMenu({
 	);
 	return (
 		<DropdownMenu>
-			<IconTooltip
-				label={COPY.moreActions}
-				trigger={
-					<DropdownMenuTrigger
-						className={cn(
-							buttonVariants({
-								variant: 'ghost',
-								size: 'icon-sm',
-							}),
-							'@max-md:size-9',
-						)}
-						aria-label={COPY.moreActions}
-						data-testid="proposal-actions"
-					/>
-				}
-			>
-				<MoreHorizontal />
-			</IconTooltip>
+			<MoreActionsTrigger testId="proposal-actions" />
 			<DropdownMenuContent
 				align="end"
 				className="w-auto min-w-40"
@@ -406,6 +389,38 @@ function RowMenu({
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
+	);
+}
+
+/** A row's "⋯" menu trigger, named by its tooltip. */
+export function MoreActionsTrigger({
+	testId,
+	disabled,
+}: {
+	testId: string;
+	disabled?: boolean;
+}) {
+	return (
+		<IconTooltip
+			label={content.common.actions.moreActions}
+			trigger={
+				<DropdownMenuTrigger
+					disabled={disabled}
+					className={cn(
+						buttonVariants({
+							variant: 'ghost',
+							size: 'icon-sm',
+						}),
+						'@max-md:size-9',
+						disabled && 'disabled:opacity-30',
+					)}
+					aria-label={content.common.actions.moreActions}
+					data-testid={testId}
+				/>
+			}
+		>
+			<MoreHorizontal />
+		</IconTooltip>
 	);
 }
 
