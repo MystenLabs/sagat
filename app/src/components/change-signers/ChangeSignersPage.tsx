@@ -303,7 +303,12 @@ function ChangeSignersWizard({
 
 	const submitting = useRef(false);
 	const submit = () => {
-		if (built?.error || create.error) {
+		// A declined signature keeps the bytes; the click goes to the wallet again.
+		if (
+			built?.error ||
+			(create.error &&
+				!(create.error instanceof SignatureDeclinedError))
+		) {
 			void build();
 			return;
 		}
