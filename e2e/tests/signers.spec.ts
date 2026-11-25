@@ -1263,7 +1263,7 @@ test.describe('overview and signers', () => {
 			await expect(menu).toBeDisabled();
 	});
 
-	test('after a signer change executed, the new signers propose a transfer and a second change from the app and sign them', async ({
+	test('a signer change executes from its page with no Cancel for the removed signer, who is told once, then the new signers propose a transfer and a second change and sign them', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -1328,11 +1328,16 @@ test.describe('overview and signers', () => {
 					'\0',
 				)
 				.split('\0');
+			const notice = carol.page
+				.locator('[data-sonner-toast]')
+				.filter({ hasText: removal });
+			await expect(notice).toBeVisible();
+			// Told once: not again on the next read.
+			await carol.page.reload();
 			await expect(
-				carol.page
-					.locator('[data-sonner-toast]')
-					.filter({ hasText: removal }),
+				carol.page.getByTestId('dashboard-empty'),
 			).toBeVisible();
+			await expect(notice).toHaveCount(0);
 
 			await signInViaApi(dave);
 			await acceptAccountInvite(dave, multisig.address);
