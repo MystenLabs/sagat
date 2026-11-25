@@ -88,7 +88,7 @@ New routes for rotation are listed at the end. You do not need them unless you r
 | Vote response        | `currentWeight`                                                     | Removed. Read `signerSets[].currentWeight` on the proposal; one tally per set.                                                                                                                                                                                  |
 | Connections          | an object of multisigs per public key                               | `accounts`: each account once, sorted by address, and `removed`.                                                                                                                                                                                                |
 | Invitations          | an array of multisigs                                               | `invitations`: each account once.                                                                                                                                                                                                                               |
-| Account              | `isVerified`, `threshold`, `members`, `totalMembers`, `totalWeight` | `originalSignerSet`, `signerSets`, `otherSignerSets` and `signersChecked`, see "Accounts" below.                                                                                                                                                                |
+| Account              | `isVerified`, `threshold`, `members`, `totalMembers`, `totalWeight` | `signerSets` and `signersChecked`, see "Accounts" below.                                                                                                                                                                                                        |
 | Account              | `draftedBy`                                                         | `createdBy`                                                                                                                                                                                                                                                     |
 | Member               | `multisigAddress`, `isAccepted`, `isRejected`                       | `answer`: the key's answer to this account, `accepted`, `rejected` or `invited`. Members sit inside their set, so they carry no set address.                                                                                                                    |
 | Member               | `label`                                                             | Unchanged.                                                                                                                                                                                                                                                      |
@@ -273,7 +273,7 @@ Exported files carry `type` and `version`. Files with `version: 1` keep the old 
 | `POST /v1/signer-sets` with `forAccount`              | Draft a new signer set for an account.           |
 | `GET /v1/accounts/:address/drafts`                    | Drafted signer sets and their invitation status. |
 
-The alias set, with each entry classified, comes with `GET /v1/accounts/:address` as `signerSets` and `otherSignerSets`.
+The alias set, with each entry classified, comes with `GET /v1/accounts/:address` as `signerSets`.
 
 ## Checklist
 
