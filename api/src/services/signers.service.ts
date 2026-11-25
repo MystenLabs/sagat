@@ -61,7 +61,7 @@ export const actingSetsOn = (
 export type KeyAnswer = 'accepted' | 'rejected' | 'invited';
 
 // The pool, or a transaction whose locks the read should see past.
-export type Executor = typeof db | DatabaseTransaction;
+type Executor = typeof db | DatabaseTransaction;
 
 export type ActingMember = {
 	publicKey: string;

@@ -10,12 +10,6 @@ import {
 import { type ClientWithCoreApi } from '@mysten/sui/client';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 
-export {
-	buildAdd,
-	buildEnable,
-	buildRemove,
-} from '@mysten/sagat';
-
 /** Read the on-chain alias set of `address`. */
 export async function fetchAliasSet(
 	client: ClientWithCoreApi,

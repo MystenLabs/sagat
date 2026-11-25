@@ -112,7 +112,7 @@ const chainIdentifiers = new Map<
 	Promise<string>
 >();
 
-export const chainIdentifierOf = (
+const chainIdentifierOf = (
 	network: SuiNetwork,
 ): Promise<string> => {
 	let identifier = chainIdentifiers.get(network);

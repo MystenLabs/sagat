@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	buildAdd,
+	buildEnable,
+	buildRemove,
 	defaultExpiry,
 	deriveAliasesObjectId,
 	PersonalMessages,
@@ -34,11 +37,6 @@ import {
 	listRemovedAccounts,
 	networksWithDifferentSigners,
 } from '../src/services/signers.service';
-import {
-	buildAdd,
-	buildEnable,
-	buildRemove,
-} from '../src/utils/aliases';
 import {
 	ApiTestFramework,
 	newUser,

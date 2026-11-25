@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	buildAdd,
+	buildEnable,
 	PersonalMessages,
 	SagatApiError,
 	verifyProposalCreated,
@@ -30,10 +32,6 @@ import { db } from '../src/db';
 import { SchemaProposals } from '../src/db/schema';
 import { ApiAuthError, CommonErrors } from '../src/errors';
 import { mirroredAliasSet } from '../src/services/signers.service';
-import {
-	buildAdd,
-	buildEnable,
-} from '../src/utils/aliases';
 import {
 	ApiTestFramework,
 	buildTransfer,
