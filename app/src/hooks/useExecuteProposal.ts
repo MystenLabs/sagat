@@ -21,8 +21,8 @@ import {
 	aliasCallsIn,
 	type CountedSignerSet,
 } from '@/lib/proposalUtils';
-import { toast } from '@/lib/toast';
-import { getExplorerUrl, safeDecode } from '@/lib/utils';
+import { explorerLink, toast } from '@/lib/toast';
+import { safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiV1Client } from '../lib/api';
@@ -188,14 +188,6 @@ export function useExecuteProposal() {
 					});
 			}
 			const digest = data.executionResult.digest;
-			const explorerUrl = getExplorerUrl(
-				digest,
-				variables.proposal.network,
-			);
-			const link = (label: string) =>
-				explorerUrl
-					? { label, href: explorerUrl }
-					: undefined;
 			// The node can land the transaction and still fail it.
 			const { status } = data.executionResult;
 			if (!status.success) {
@@ -203,13 +195,20 @@ export function useExecuteProposal() {
 					description:
 						safeDecode(status.error.message) ||
 						content.common.states.failedOnChain,
-					link: link(TOASTS.seeDetails),
+					link: explorerLink(
+						digest,
+						variables.proposal.network,
+						TOASTS.seeDetails,
+					),
 				});
 				return;
 			}
 			toast.success(TOASTS.proposalExecuted, {
 				description: digest,
-				link: link(content.common.actions.viewOnExplorer),
+				link: explorerLink(
+					digest,
+					variables.proposal.network,
+				),
 			});
 		},
 		onError: (error: Error) => {

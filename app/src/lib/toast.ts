@@ -7,12 +7,23 @@ import {
 } from 'sonner';
 
 import { content } from '../content';
+import { getExplorerUrl } from './utils';
 
 /** An underlined link at the end of the toast: a URL opens in a new tab. */
 export type ToastLink = {
 	label: string;
 	href: string;
 };
+
+/** A link to the transaction on the explorer; none where the network has no explorer. */
+export function explorerLink(
+	digest: string,
+	network: string,
+	label: string = content.common.actions.viewOnExplorer,
+): ToastLink | undefined {
+	const href = getExplorerUrl(digest, network);
+	return href ? { label, href } : undefined;
+}
 
 type Options = Omit<ExternalToast, 'action'> & {
 	link?: ToastLink;

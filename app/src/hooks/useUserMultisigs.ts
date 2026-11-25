@@ -13,14 +13,13 @@ import {
 	networkLabel,
 	type SuiNetwork,
 } from '@/lib/network';
-import { toast } from '@/lib/toast';
+import { explorerLink, toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import {
 	noLongerSignerOf,
 	removalsToTell,
 	rowsAnswered,
 } from '@/lib/user-multisig';
-import { getExplorerUrl } from '@/lib/utils';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -96,10 +95,6 @@ function noticeRemovals(
 			String(Math.max(...fresh.map((pod) => pod.eventId))),
 		);
 		for (const pod of fresh) {
-			const href = getExplorerUrl(
-				pod.transactionDigest!,
-				network,
-			);
 			toast.info(
 				content.toasts.removedFromPod(
 					accountName(pod),
@@ -107,13 +102,10 @@ function noticeRemovals(
 					formatShortDateTime(pod.removedAt) ?? '',
 				),
 				{
-					link: href
-						? {
-								label:
-									content.common.actions.viewOnExplorer,
-								href,
-							}
-						: undefined,
+					link: explorerLink(
+						pod.transactionDigest!,
+						network,
+					),
 				},
 			);
 		}
