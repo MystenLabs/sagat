@@ -9,6 +9,7 @@ import {
 	buildEnable,
 	buildRemove,
 	compositionNote,
+	type Composition,
 } from '@mysten/sagat';
 import {
 	Inputs,
@@ -34,6 +35,7 @@ import {
 	SchemaSignerSets,
 } from '../src/db/schema';
 import { ApiAuthError } from '../src/errors';
+import { signerChangesOf } from '../src/services/accounts.service';
 import { assertNoPendingAliasProposal } from '../src/services/signer-changes.service';
 import {
 	ApiTestFramework,
@@ -62,6 +64,7 @@ import {
 	proposeChange,
 	type Cast,
 } from './setup/signer-changes';
+import { insertProposal } from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
@@ -506,44 +509,31 @@ describe('POST /v1/proposals with a signer change', () => {
 		expect(next.status).toBe('PENDING');
 	});
 
-	// Needs a network past epoch 1; the service-level case below covers the rule on a fresh one.
-	test.skipIf(localEpoch < 2n)(
-		'a pending change whose expiration epoch has passed does not block a new one, which becomes the open one',
-		async () => {
-			const cast = await createCast(session);
-			const { k2, A, S2, S3 } = cast;
-			const coins = await gasCoins(A, 2);
-			const expired = await proposeCastChange(
-				session,
-				cast,
-				S2,
-				{ gasCoin: coins[0], epoch: localEpoch - 2n },
-			);
+	test('the newest pending change is the open one until it expires', async () => {
+		const cast = await createCast(session);
+		const { k1, A, S2, S3 } = cast;
+		// Written directly: the older one ends after epoch 101, the newer after epoch 1.
+		const written = async (
+			newSet: Composition,
+			epoch: bigint,
+		) =>
+			(
+				await insertProposal(
+					A,
+					'localnet',
+					k1.address,
+					await buildCastChange(cast, newSet, { epoch }),
+				)
+			).digest;
+		const older = await written(S2, 100n);
+		const newer = await written(S3, 0n);
+		const openAt = async (epoch: bigint) =>
+			(await signerChangesOf(A, 'localnet', epoch))
+				.openSignerChange;
 
-			const next = await proposeCastChange(
-				session,
-				cast,
-				S3,
-				{ gasCoin: coins[1] },
-			);
-
-			expect(next.status).toBe('PENDING');
-			expect(
-				(await pendingProposals(A)).map((p) => p.digest),
-			).toEqual(
-				expect.arrayContaining([
-					expired.digest,
-					next.digest,
-				]),
-			);
-			const signedIn = framework.createSession();
-			await signedIn.connectUser(k2);
-			expect(
-				(await signedIn.v1.getAccount(A, 'localnet'))
-					.openSignerChange,
-			).toEqual({ digest: next.digest });
-		},
-	);
+		expect(await openAt(1n)).toEqual({ digest: newer });
+		expect(await openAt(2n)).toEqual({ digest: older });
+	});
 
 	test('a pending change counts for one at a time through its last epoch, and not after it', async () => {
 		const cast = await createCast(session);

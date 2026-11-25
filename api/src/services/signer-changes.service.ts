@@ -185,6 +185,16 @@ export const assertExpiresSoon = (
 		);
 };
 
+// Whether a pending proposal can still execute at `epoch`.
+export const unexpiredAt =
+	(epoch: bigint) =>
+	({ transactionBytes }: { transactionBytes: string }) => {
+		const last = lastEpochOf(
+			Transaction.from(transactionBytes).getData(),
+		);
+		return last === null || last >= epoch;
+	};
+
 // One alias proposal at a time per account and network; one expired before `epoch` no longer counts.
 export const assertNoPendingAliasProposal = async (
 	tx: DatabaseTransaction,
@@ -196,12 +206,7 @@ export const assertNoPendingAliasProposal = async (
 		await findAliasProposals(tx, accountAddress, network, [
 			ProposalStatus.PENDING,
 		])
-	).filter((proposal) => {
-		const last = lastEpochOf(
-			Transaction.from(proposal.transactionBytes).getData(),
-		);
-		return last === null || last >= epoch;
-	});
+	).filter(unexpiredAt(epoch));
 	if (pending.length > 0)
 		throw new ValidationError(
 			`Another proposal that changes who controls this account on ${network} is pending (${pending[0].digest}). Execute or cancel it first.`,

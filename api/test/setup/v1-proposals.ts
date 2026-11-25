@@ -33,13 +33,14 @@ export const offlineTransfer = async (sender: string) => {
 	return (await tx.build()).toBase64();
 };
 
-// A pending proposal row, as a create on that network would leave it.
+// A pending proposal row, as a create on that network would leave it; a transfer unless `transactionBytes` is given.
 export const insertProposal = async (
 	account: string,
 	network: SuiNetwork,
 	proposerAddress: string,
+	transactionBytes?: string,
 ) => {
-	const transactionBytes = await offlineTransfer(account);
+	transactionBytes ??= await offlineTransfer(account);
 	const [proposal] = await db
 		.insert(SchemaProposals)
 		.values({

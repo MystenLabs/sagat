@@ -41,7 +41,11 @@ import {
 	assertCanonicalSignature,
 	verifyMemberSignedMessage,
 } from './signatures.service';
-import { signerChangeIn } from './signer-changes.service';
+import {
+	currentEpochOf,
+	signerChangeIn,
+	unexpiredAt,
+} from './signer-changes.service';
 import {
 	actingSetsOn,
 	listRemovedAccounts,
@@ -50,9 +54,11 @@ import {
 	type RemovedFromAccount,
 } from './signers.service';
 
-const signerChangesOf = async (
+// The account's executed signer changes, and the newest pending one that has not expired at `epoch`.
+export const signerChangesOf = async (
 	address: string,
 	network: SuiNetwork,
+	epoch: bigint,
 ) => {
 	const changes = (
 		await findAliasProposals(db, address, network, [
@@ -65,12 +71,12 @@ const signerChangesOf = async (
 				signerChangeIn(proposal.transactionBytes)?.change,
 		)
 		.sort((a, b) => a.id - b.id);
-	// The newest: an older one still pending has expired.
 	const open = changes
 		.filter(
 			(proposal) =>
 				proposal.status === ProposalStatus.PENDING,
 		)
+		.filter(unexpiredAt(epoch))
 		.at(-1);
 	return {
 		signerChanges: changes
@@ -335,7 +341,9 @@ export const getAccount = async ({
 				network,
 				networks,
 			),
-			signerChangesOf(address, network),
+			currentEpochOf(network).then((epoch) =>
+				signerChangesOf(address, network, epoch),
+			),
 		]);
 	return {
 		...account,
