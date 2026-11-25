@@ -6,9 +6,12 @@ import {
 	type RouteConfig,
 	type RouteHandler,
 } from '@hono/zod-openapi';
-import { ErrorBodySchema } from '@mysten/sagat/v1';
+import {
+	ErrorBodySchema,
+	NetworkSchema,
+} from '@mysten/sagat/v1';
 import { routePath } from 'hono/route';
-import { type z } from 'zod';
+import { z } from 'zod';
 
 import { SUPPORTED_NETWORKS } from '../db/env';
 import {
@@ -90,10 +93,15 @@ export const error = (description: string) =>
 	json(description, ErrorBodySchema);
 
 // The shared check, in the `/v1` wording.
-export const validateNetwork = (network: string) => {
+const validateNetwork = (network: string) => {
 	if (!SUPPORTED_NETWORKS.includes(network as SuiNetwork))
 		throw new ValidationError(
 			`Unsupported network: ${network}. Supported: ${SUPPORTED_NETWORKS.join(', ')}.`,
 		);
 	return network as SuiNetwork;
 };
+
+// A `network` query that is one of this deployment's networks.
+export const networkQuery = z.object({
+	network: NetworkSchema.transform(validateNetwork),
+});

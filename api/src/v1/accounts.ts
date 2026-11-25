@@ -10,7 +10,6 @@ import {
 	InvitationAnswerRequestSchema,
 	InvitationAnswerSchema,
 	InvitationListSchema,
-	NetworkSchema,
 	SuccessSchema,
 	ValidationMessages,
 } from '@mysten/sagat/v1';
@@ -35,7 +34,7 @@ import {
 	defineRoute,
 	error,
 	json,
-	validateNetwork,
+	networkQuery,
 	type V1App,
 } from './openapi';
 import {
@@ -61,7 +60,6 @@ const authenticated = {
 
 const unauthorized = error('No valid session.');
 
-const networkQuery = z.object({ network: NetworkSchema });
 // Canonical, as the signed messages name it.
 const addressParams = z.object({
 	address: z
@@ -219,9 +217,7 @@ const proposerRoute = <S extends z.ZodType>(
 
 export const accountRoutes = (app: V1App) => {
 	defineRoute(app, listAccountsRoute, async (c) => {
-		const network = validateNetwork(
-			c.req.valid('query').network,
-		);
+		const { network } = c.req.valid('query');
 		const { accounts, removed } = await listAccounts({
 			callerKeys: c.get('publicKeys'),
 			network,
@@ -234,9 +230,7 @@ export const accountRoutes = (app: V1App) => {
 	});
 
 	defineRoute(app, getAccountRoute, async (c) => {
-		const network = validateNetwork(
-			c.req.valid('query').network,
-		);
+		const { network } = c.req.valid('query');
 		const account = await getAccount({
 			address: c.req.valid('param').address,
 			network,
@@ -254,12 +248,11 @@ export const accountRoutes = (app: V1App) => {
 	});
 
 	defineRoute(app, listInvitationsRoute, async (c) => {
-		const query = c.req.valid('query');
-		const network = validateNetwork(query.network);
+		const { network, showRejected } = c.req.valid('query');
 		const invitations = await listAccountInvitations({
 			callerKeys: c.get('publicKeys'),
 			network,
-			showRejected: query.showRejected === 'true',
+			showRejected: showRejected === 'true',
 		});
 		return {
 			network,
@@ -274,9 +267,7 @@ export const accountRoutes = (app: V1App) => {
 		defineRoute(app, answerRoute(answer), async (c) =>
 			answerAccountInvitation({
 				address: c.req.valid('param').address,
-				network: validateNetwork(
-					c.req.valid('query').network,
-				),
+				network: c.req.valid('query').network,
 				answer: given,
 				...c.req.valid('json'),
 			}),
@@ -291,9 +282,7 @@ export const accountRoutes = (app: V1App) => {
 		async (c) => {
 			await addAccountProposer({
 				address: c.req.valid('param').address,
-				network: validateNetwork(
-					c.req.valid('query').network,
-				),
+				network: c.req.valid('query').network,
 				...c.req.valid('json'),
 			});
 			return { success: true as const };
@@ -312,9 +301,7 @@ export const accountRoutes = (app: V1App) => {
 		async (c) =>
 			removeAccountProposer({
 				address: c.req.valid('param').address,
-				network: validateNetwork(
-					c.req.valid('query').network,
-				),
+				network: c.req.valid('query').network,
 				...c.req.valid('json'),
 			}),
 	);
