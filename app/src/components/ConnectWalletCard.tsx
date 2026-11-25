@@ -6,6 +6,7 @@ import {
 	useCurrentWallet,
 	useWallets,
 } from '@mysten/dapp-kit-react';
+import type { SignatureScheme } from '@mysten/sui/cryptography';
 import { TriangleAlert, Wallet } from 'lucide-react';
 import { useEffect } from 'react';
 
@@ -120,7 +121,7 @@ export function ConnectWalletCard() {
 function UnsupportedAccountPrompt({
 	scheme,
 }: {
-	scheme: string;
+	scheme: SignatureScheme;
 }) {
 	const accounts = useCurrentWallet()?.accounts ?? [];
 	const { disconnectWallet } = useApiAuth();

@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { SignatureScheme } from '@mysten/sui/cryptography';
+
 import { VALIDATION } from './lib/constants';
 
 const TITLE_MAX =
@@ -213,7 +215,7 @@ export const content = {
 			disconnect: 'Disconnect',
 		},
 		unsupportedAccount: {
-			title: (scheme: string) =>
+			title: (scheme: SignatureScheme) =>
 				scheme === 'ZkLogin'
 					? 'zkLogin accounts aren’t supported yet'
 					: scheme === 'Passkey'
@@ -223,7 +225,7 @@ export const content = {
 				'Switch to another account in this wallet from the account menu.',
 			noOtherAccount:
 				'Share another account from your wallet, or disconnect and connect a different wallet.',
-			menuNote: (scheme: string) =>
+			menuNote: (scheme: SignatureScheme) =>
 				scheme === 'ZkLogin'
 					? 'zkLogin isn’t supported yet'
 					: scheme === 'Passkey'
@@ -1535,7 +1537,7 @@ export const content = {
 		noConnectedAccount: 'No connected account',
 		multisigAsMember:
 			'This address is a pod. A pod can’t be added as a signer of another pod.',
-		unsupportedKeyAsMember: (scheme: string) =>
+		unsupportedKeyAsMember: (scheme: SignatureScheme) =>
 			scheme === 'ZkLogin'
 				? 'This is a zkLogin account. zkLogin accounts aren’t supported yet.'
 				: scheme === 'Passkey'
