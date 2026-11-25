@@ -1332,6 +1332,18 @@ describe('Proposal Business Logic', () => {
 				),
 			});
 			expect(response.status).toBe(413);
+			expect(
+				await errorOf(
+					await session.post('/v1/proposals', {
+						transactionBytes: 'a'.repeat(
+							LIMITS.maxRequestBodyBytes,
+						),
+					}),
+				),
+			).toEqual({
+				status: 413,
+				body: { error: 'Payload Too Large' },
+			});
 		});
 
 		test('an unsupported network is checked before anything else', async () => {

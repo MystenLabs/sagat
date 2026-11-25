@@ -90,9 +90,18 @@ app.use('*', (c, next) =>
 		? checkOrigin(c, next)
 		: next(),
 );
-app.use(
-	'*',
-	bodyLimit({ maxSize: LIMITS.maxRequestBodyBytes }),
+const limitBody = bodyLimit({
+	maxSize: LIMITS.maxRequestBodyBytes,
+});
+const limitV1Body = bodyLimit({
+	maxSize: LIMITS.maxRequestBodyBytes,
+	onError: (c) =>
+		c.json({ error: 'Payload Too Large' }, 413),
+});
+app.use('*', (c, next) =>
+	c.req.path.startsWith('/v1/')
+		? limitV1Body(c, next)
+		: limitBody(c, next),
 );
 
 // Health check endpoint
