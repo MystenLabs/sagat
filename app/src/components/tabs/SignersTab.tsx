@@ -342,7 +342,8 @@ export function SignersTab() {
 											removeBlocked={
 												row.isYou
 													? COPY.cantRemoveYourself
-													: rows.length <= 2
+													: rows.length <=
+														  CONFIG.MIN_MEMBERS
 														? COPY.needsTwoSigners
 														: null
 											}

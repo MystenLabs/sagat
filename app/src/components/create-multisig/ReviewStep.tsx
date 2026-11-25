@@ -207,7 +207,7 @@ export function ReviewStep({
 	);
 }
 
-export interface ReviewSigner {
+interface ReviewSigner {
 	id: string;
 	position: number;
 	name: string | null;

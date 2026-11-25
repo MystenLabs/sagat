@@ -181,7 +181,7 @@ describe('differences', () => {
 		);
 	});
 
-	test('a replaced key, and one signer moving', () => {
+	test('a replaced key reads as one Replace line, and one signer moving reads as that signer’s move', () => {
 		const current = currentSet([1, 1, 1, 1], 2);
 		const [maya, daniel, alice, tomas] = rowsOf(current);
 		expect(
@@ -206,7 +206,7 @@ describe('differences', () => {
 	});
 });
 
-test('labels name only the keys new to the set, in the new set’s order', () => {
+test('labels are the typed names of keys new to the set, null for keys that stay, and none once the new set is already an alias', () => {
 	const current = currentSet([1, 1, 1], 2);
 	const [maya, daniel, alice] = rowsOf(current);
 	const rows = [
