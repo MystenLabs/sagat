@@ -152,18 +152,24 @@ export interface SignersCheck {
 	address: string | null;
 }
 
-export function checkSigners({
+export function checkSigners<T extends SignerDraft>({
 	signers,
 	threshold,
 	lookups,
 	positions,
+	warningName,
 }: {
-	signers: SignerDraft[];
+	signers: T[];
 	threshold: number;
 	/** Addresses whose lookup came back empty. */
 	lookups: Record<string, FailedLookup>;
 	/** Each row's number on screen, when it isn't its index + 1. */
 	positions?: number[];
+	/** How the threshold warning names a row, when not as on this wizard. */
+	warningName?: (signer: T) => {
+		name: string;
+		you: boolean;
+	};
 }): SignersCheck {
 	const at = (index: number) =>
 		positions?.[index] ?? index + 1;
@@ -299,6 +305,7 @@ export function checkSigners({
 										name: names[i],
 										weight: s.weight,
 										you: !!s.isCreator,
+										...warningName?.(s),
 									},
 								]
 							: [],

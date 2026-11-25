@@ -14,7 +14,6 @@ import {
 	checkSigners,
 	invitedName,
 	joinList,
-	thresholdWarning,
 	type FailedLookup,
 	type SignerDraft,
 	type SignersCheck,
@@ -165,8 +164,12 @@ export function checkChange({
 		positions: rows.flatMap((row, i) =>
 			row.removed ? [] : [i + 1],
 		),
+		warningName: (row) => ({
+			name: rowName(row),
+			you: !!row.isCreator && !row.label.trim(),
+		}),
 	});
-	const { totalWeight, address } = signers;
+	const { address } = signers;
 	const removed = rows.flatMap((row) =>
 		row.removed ? [rowName(row)] : [],
 	);
@@ -208,24 +211,10 @@ export function checkChange({
 		if (weight < threshold)
 			error = COPY.stayingShort(threshold, weight);
 	}
-	const complete = kept.filter(
-		(_, i) => signers.signers[i].complete,
-	);
 	return {
 		signers,
 		error,
-		warning:
-			error || signers.tooFewSigners
-				? null
-				: thresholdWarning({
-						signers: complete.map((row) => ({
-							name: rowName(row),
-							weight: row.weight,
-							you: row.isCreator && !row.label.trim(),
-						})),
-						threshold,
-						totalWeight,
-					}),
+		warning: error ? null : signers.warning,
 		canReview:
 			signers.canContinue &&
 			!error &&
