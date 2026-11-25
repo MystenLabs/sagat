@@ -69,7 +69,7 @@ describe('changed accounts', () => {
 		});
 	});
 
-	test('refuses an account whose stale alias state refreshes to a signer change, but not one that only enabled signer changes', async () => {
+	test('refuses an account whose stale alias state refreshes to a changed alias set, but not one that only enabled signer changes', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
 		const account = multisig.address;
