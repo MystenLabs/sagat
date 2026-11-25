@@ -544,8 +544,13 @@ describe('POST /v1/proposals with a signer change', () => {
 		const older = await written(S2, 100n);
 		const newer = await written(S3, 0n);
 		const openAt = async (epoch: bigint) =>
-			(await signerChangesOf(A, 'localnet', epoch))
-				.openSignerChange;
+			(
+				await signerChangesOf(
+					A,
+					'localnet',
+					async () => epoch,
+				)
+			).openSignerChange;
 
 		expect(await openAt(1n)).toEqual({ digest: newer });
 		expect(await openAt(2n)).toEqual({ digest: older });

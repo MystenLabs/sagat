@@ -174,13 +174,15 @@ export const assertExpiresSoon = (
 		);
 };
 
+// The last epoch a transaction can execute in, or null when it never expires.
+export const lastEpochIn = (transactionBytes: string) =>
+	lastEpochOf(Transaction.from(transactionBytes).getData());
+
 // Whether a pending proposal can still execute at `epoch`.
 export const unexpiredAt =
 	(epoch: bigint) =>
 	({ transactionBytes }: { transactionBytes: string }) => {
-		const last = lastEpochOf(
-			Transaction.from(transactionBytes).getData(),
-		);
+		const last = lastEpochIn(transactionBytes);
 		return last === null || last >= epoch;
 	};
 

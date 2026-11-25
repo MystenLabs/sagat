@@ -43,6 +43,7 @@ import {
 } from './signatures.service';
 import {
 	currentEpochOf,
+	lastEpochIn,
 	signerChangeIn,
 	unexpiredAt,
 } from './signer-changes.service';
@@ -54,11 +55,11 @@ import {
 	type RemovedFromAccount,
 } from './signers.service';
 
-// The account's executed signer changes, and the newest pending one that has not expired at `epoch`.
+// The account's executed signer changes, and the newest pending one that has not expired at the current epoch.
 export const signerChangesOf = async (
 	address: string,
 	network: SuiNetwork,
-	epoch: bigint,
+	readEpoch: () => Promise<bigint>,
 ) => {
 	const changes = (
 		await findAliasProposals(db, address, network, [
@@ -71,13 +72,22 @@ export const signerChangesOf = async (
 				signerChangeIn(proposal.transactionBytes)?.change,
 		)
 		.sort((a, b) => a.id - b.id);
-	const open = changes
-		.filter(
-			(proposal) =>
-				proposal.status === ProposalStatus.PENDING,
-		)
-		.filter(unexpiredAt(epoch))
-		.at(-1);
+	const pending = changes.filter(
+		(proposal) =>
+			proposal.status === ProposalStatus.PENDING,
+	);
+	// Read only when a pending change can expire; unread, the newest pending one is open.
+	const epoch = pending.some(
+		({ transactionBytes }) =>
+			lastEpochIn(transactionBytes) !== null,
+	)
+		? await readEpoch().catch(() => null)
+		: null;
+	const open = (
+		epoch === null
+			? pending
+			: pending.filter(unexpiredAt(epoch))
+	).at(-1);
 	return {
 		signerChanges: changes
 			.filter(
@@ -341,8 +351,8 @@ export const getAccount = async ({
 				network,
 				networks,
 			),
-			currentEpochOf(network).then((epoch) =>
-				signerChangesOf(address, network, epoch),
+			signerChangesOf(address, network, () =>
+				currentEpochOf(network),
 			),
 		]);
 	return {
