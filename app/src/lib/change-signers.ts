@@ -76,17 +76,13 @@ export const isReplaced = (row: ChangeRow) =>
 	!!row.was &&
 	suiKey(row.key) !== suiKey(row.was.publicKey);
 
-const memberName = (row: ChangeRow) =>
-	invitedName({
-		...row,
-		label: row.was?.label ?? '',
-		key: row.was?.publicKey ?? '',
-	});
+const memberName = (m: AccountMember) =>
+	invitedName({ label: m.label ?? '', key: m.publicKey });
 
 /** A row's name in copy: the member it was, unless its key was replaced. */
 export const rowName = (row: ChangeRow) =>
 	row.was && (row.removed || !isReplaced(row))
-		? memberName(row)
+		? memberName(row.was)
 		: invitedName(row);
 
 export type RowChip = 'new' | 'removed' | 'replaced';
@@ -405,12 +401,7 @@ export function rowDifferences(
 				.map((m) => ({
 					publicKey: suiKey(m.publicKey),
 					weight: m.weight,
-					name: invitedName({
-						id: '',
-						label: m.label ?? '',
-						key: m.publicKey,
-						weight: m.weight,
-					}),
+					name: memberName(m),
 				})),
 		},
 		{

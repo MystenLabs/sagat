@@ -440,7 +440,9 @@ export function thresholdBar(
 }
 
 /** What the success banner calls an invited signer. */
-export function invitedName(signer: SignerDraft) {
+export function invitedName(
+	signer: Pick<SignerDraft, 'label' | 'key'>,
+) {
 	const label = signer.label.trim();
 	if (label) return label;
 	const { address } = validatePublicKey(signer.key.trim());
