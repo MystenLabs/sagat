@@ -41,6 +41,7 @@ import { WeightBar } from './WeightBar';
 const ACTIONS = content.common.actions;
 const FIELDS = content.common.fields;
 const COPY = content.invitations;
+const ORIGINAL_SIGNERS = content.common.originalSigners;
 
 /**
  * The invitation in full before accepting: the account's setup, its
@@ -213,10 +214,10 @@ export function ReviewInvitationDialog({
 								data-testid="invitation-original-signers"
 							>
 								<h3 className="text-16 font-medium">
-									{content.signers.original.title}
+									{ORIGINAL_SIGNERS.title}
 								</h3>
 								<p className="text-13 text-foreground-secondary">
-									{COPY.reviewDialog.originalSigners}
+									{ORIGINAL_SIGNERS.madeFrom}
 								</p>
 								<SignersTable
 									rows={original}

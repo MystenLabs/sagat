@@ -28,6 +28,20 @@ const SIGNERS_REFUSED = {
 const IN_THIS_STATE =
 	'Proposals in this state show up here.';
 
+/** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
+const OTHER_SIGNER_SETS = {
+	title: 'This address has other signer sets',
+	body: (network: string) =>
+		`Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
+};
+
+/** The pod's original signers, on the Signers tab and an invitation through an added set. */
+const ORIGINAL_SIGNERS = {
+	title: 'Original signers',
+	madeFrom:
+		'This pod’s address was made from these signers.',
+};
+
 function signerCount(count: number) {
 	return count === 1 ? '1 signer' : `${count} signers`;
 }
@@ -134,12 +148,8 @@ export const content = {
 			body: (network: string) =>
 				`Pods couldn’t confirm who controls this pod on ${network}. Check your connection and try again.`,
 		},
-		/** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
-		otherSignerSets: {
-			title: 'This address has other signer sets',
-			body: (network: string) =>
-				`Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
-		},
+		otherSignerSets: OTHER_SIGNER_SETS,
+		originalSigners: ORIGINAL_SIGNERS,
 		/** When a transaction's bytes name a chain other than the node's: under the bytes field, and why Sign is refused. */
 		wrongChain:
 			'The transaction was built for another network.',
@@ -338,9 +348,6 @@ export const content = {
 			invitedYou: 'invited you as a signer.',
 			note: 'Check each address before you accept. Accepting doesn’t move funds or cost gas.',
 			accept: 'Accept invitation',
-			/** Under the pod's original signers, when the invitation comes through a set added to the pod. */
-			originalSigners:
-				'This pod’s address was made from these signers.',
 		},
 		weightBar: {
 			accepted: 'Accepted weight',
@@ -1197,15 +1204,14 @@ export const content = {
 		openPod: 'Open pod',
 		/** The pod's original signers when they don't act on the selected network. */
 		original: {
-			title: 'Original signers',
 			body: (network: string) =>
-				`This pod’s address was made from these signers. They don’t control it on ${network}.`,
+				`${ORIGINAL_SIGNERS.madeFrom} They don’t control it on ${network}.`,
 		},
 		/** Aliases no acting signer set makes up. */
 		otherSignerSets: {
 			title: 'Other signer sets',
 			body: (network: string) =>
-				`This address has other signer sets. Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
+				`${OTHER_SIGNER_SETS.title}. ${OTHER_SIGNER_SETS.body(network)}`,
 			columns: {
 				signerSet: 'Signer set',
 				signers: 'Signers',

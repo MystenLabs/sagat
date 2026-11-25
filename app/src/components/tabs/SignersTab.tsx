@@ -220,7 +220,9 @@ export function SignersTab() {
 								)}
 								{originalRows && (
 									<FoldedRow
-										label={content.signers.original.title}
+										label={
+											content.common.originalSigners.title
+										}
 										count={originalRows.length}
 										testId="original-signers"
 									>
