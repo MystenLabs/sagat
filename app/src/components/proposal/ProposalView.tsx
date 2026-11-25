@@ -507,7 +507,7 @@ function ChangesCard({ list }: { list: Difference[] }) {
 			)}
 			<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
 				<Info className="mt-0.5 size-3 shrink-0" />
-				{COPY.onceExecutes}
+				{COPY.onceExecutes(COPY.carryOver)}
 			</p>
 		</section>
 	);
