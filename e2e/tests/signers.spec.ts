@@ -1186,6 +1186,11 @@ test.describe('overview and signers', () => {
 			changes.getByTestId('change-item'),
 		).toHaveCount(2);
 		await expect(
+			changes.locator(
+				'[data-testid="change-item"][data-kind="add"]',
+			),
+		).toContainText('Dave');
+		await expect(
 			page.getByTestId('alias-calls-warning'),
 		).toHaveCount(0);
 
@@ -1339,6 +1344,15 @@ test.describe('overview and signers', () => {
 			const change = (await (
 				await created
 			).json()) as Proposal;
+			const changePath = `/multisig/${multisig.address}/proposals/${change.digest}`;
+			await carol.signIn();
+			await carol.page.goto(changePath);
+			await expect(
+				carol.page.getByTestId('signer-change-removed'),
+			).toBeVisible();
+			await expect(
+				carol.page.getByTestId('cancel-proposal-button'),
+			).toHaveCount(0);
 			await signProposal(bob, change);
 			await page.goto(
 				`/multisig/${multisig.address}/proposals`,
@@ -1353,9 +1367,7 @@ test.describe('overview and signers', () => {
 			await expect(
 				row.getByTestId('execute-proposal-button'),
 			).toHaveCount(0);
-			await page.goto(
-				`/multisig/${multisig.address}/proposals/${change.digest}`,
-			);
+			await page.goto(changePath);
 			await executeProposal(page);
 			await page.reload();
 			for (const signer of [alice, bob])
@@ -1365,7 +1377,7 @@ test.describe('overview and signers', () => {
 					),
 				).toHaveAttribute('data-signed', 'true');
 
-			await carol.signIn();
+			await carol.page.goto('/');
 			// Split at a placeholder for the date, which isn't rebuilt.
 			const [removal] = content.toasts
 				.removedFromPod('Treasury', '\0')
@@ -1436,6 +1448,7 @@ test.describe('overview and signers', () => {
 					})),
 					3,
 				),
+				labels: [],
 			});
 			await signProposal(alice, proposal);
 			await page.reload();
