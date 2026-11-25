@@ -14,7 +14,7 @@ type ExportType =
 
 interface ExportEnvelope {
 	type: ExportType;
-	version: 1;
+	version: number;
 }
 
 interface ExportedMultisigMember {
@@ -32,6 +32,7 @@ interface MultisigCompositionInput {
 
 interface ExportedMultisigComposition extends ExportEnvelope {
 	type: 'sagat.multisig-composition';
+	version: 1;
 	multisig: {
 		address: string;
 		name: string | null;
@@ -49,8 +50,10 @@ interface ExportedProposalSignature {
 	order: number | null;
 }
 
+/** Version 2: a `/v1` proposal, with no proposal id. */
 interface ExportedProposal extends ExportEnvelope {
 	type: 'sagat.proposal';
+	version: 2;
 	exportedAt: string;
 	proposal: {
 		digest: string;
@@ -100,7 +103,7 @@ export function buildProposalExport(
 
 	return {
 		type: 'sagat.proposal',
-		version: 1,
+		version: 2,
 		exportedAt: now.toISOString(),
 		proposal: {
 			digest: proposal.digest,

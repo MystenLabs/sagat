@@ -123,7 +123,7 @@ describe('export utils', () => {
 
 		expect(result).toMatchObject({
 			type: 'sagat.proposal',
-			version: 1,
+			version: 2,
 			exportedAt: exportedAt.toISOString(),
 			proposal: {
 				digest: '0xdigest',
