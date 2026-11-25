@@ -914,11 +914,6 @@ export const changedAccounts = async (
 	accountAddresses: string[],
 	networks: SuiNetwork[],
 ): Promise<Set<string>> => {
-	if (
-		accountAddresses.length === 0 ||
-		networks.length === 0
-	)
-		return new Set();
 	const rows = await db
 		.selectDistinct({
 			account: SchemaAccountAliases.accountAddress,
