@@ -101,11 +101,15 @@ export const ProposalEventsSchema = z
 		proposer: AccountEventSchema.or(z.null()).meta({
 			description: "The proposer's newest add or remove.",
 		}),
+		cancelled: AccountEventSchema.or(z.null()).meta({
+			description:
+				"The proposal's newest `proposal.cancelled` event: who cancelled it and when. A cancel by a proposer removal carries a `caused_by` proof naming the removal's event.",
+		}),
 	})
 	.meta({
 		id: 'ProposalEvents',
 		description:
-			"The proposal's audit log events, for checking who proposed it. Each is null where none exists.",
+			"The proposal's audit log events, for checking who proposed it and who cancelled it. Each is null where none exists.",
 	});
 export type ProposalEvents = z.infer<
 	typeof ProposalEventsSchema

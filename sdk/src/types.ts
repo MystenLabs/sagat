@@ -138,7 +138,10 @@ export interface PublicProposal extends Proposal {
 }
 
 /** Audit log events of a proposal, null where none exists. */
-export type ProposalEvents = v1.ProposalEvents;
+export type ProposalEvents = Pick<
+	v1.ProposalEvents,
+	'created' | 'proposer'
+>;
 /** A signature for a given proposal  */
 export interface ProposalSignature {
 	proposalId: number;

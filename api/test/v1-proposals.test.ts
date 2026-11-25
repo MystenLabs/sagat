@@ -142,6 +142,7 @@ describe('GET /v1/proposals/:digest', () => {
 			events: {
 				created: expect.any(Object),
 				proposer: null,
+				cancelled: null,
 			},
 			executedVia: null,
 			signerSetsStale: false,

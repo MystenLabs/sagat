@@ -165,10 +165,19 @@
 							{ "type": "null" }
 						],
 						"description": "The proposer's newest add or remove."
+					},
+					"cancelled": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/AccountEvent"
+							},
+							{ "type": "null" }
+						],
+						"description": "The proposal's newest `proposal.cancelled` event: who cancelled it and when. A cancel by a proposer removal carries a `caused_by` proof naming the removal's event."
 					}
 				},
-				"required": ["created", "proposer"],
-				"description": "The proposal's audit log events, for checking who proposed it. Each is null where none exists."
+				"required": ["created", "proposer", "cancelled"],
+				"description": "The proposal's audit log events, for checking who proposed it and who cancelled it. Each is null where none exists."
 			},
 			"AccountEvent": {
 				"type": "object",

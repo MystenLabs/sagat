@@ -1018,6 +1018,7 @@ export const listProposals = async ({
 const NO_EVENTS: ProposalEvents = {
 	created: null,
 	proposer: null,
+	cancelled: null,
 };
 
 export type CheckedProposal = ProposalProgress & {

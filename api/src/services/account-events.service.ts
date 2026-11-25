@@ -384,6 +384,8 @@ export type ProposalEvents = {
 	created: AccountEventRecord | null;
 	// The proposer's newest add or remove.
 	proposer: AccountEventRecord | null;
+	// The newest `proposal.cancelled`.
+	cancelled: AccountEventRecord | null;
 };
 
 /** The `ProposalEvents` of each proposal, by id, in one query. No access check. */
@@ -391,19 +393,26 @@ export const getProposalEvents = async (
 	proposalIds: number[],
 ): Promise<Map<number, ProposalEvents>> => {
 	if (proposalIds.length === 0) return new Map();
-	const created = latestEventWhere(
-		and(
-			eq(
-				SchemaAccountEvents.accountAddress,
-				SchemaProposals.accountAddress,
+	const proposalEvent = (action: AccountEventAction) =>
+		latestEventWhere(
+			and(
+				eq(
+					SchemaAccountEvents.accountAddress,
+					SchemaProposals.accountAddress,
+				),
+				eq(
+					SchemaAccountEvents.subject,
+					SchemaProposals.digest,
+				),
+				eq(SchemaAccountEvents.action, action),
 			),
-			eq(
-				SchemaAccountEvents.subject,
-				SchemaProposals.digest,
-			),
-			eq(SchemaAccountEvents.action, 'proposal.created'),
-		),
-	).as('created_event');
+		);
+	const created = proposalEvent('proposal.created').as(
+		'created_event',
+	);
+	const cancelled = proposalEvent('proposal.cancelled').as(
+		'cancelled_event',
+	);
 	const proposer = latestProposerEvent(
 		SchemaProposals.accountAddress,
 		SchemaProposals.proposerAddress,
@@ -414,10 +423,12 @@ export const getProposalEvents = async (
 			id: SchemaProposals.id,
 			created: fieldsOf(created),
 			proposer: fieldsOf(proposer),
+			cancelled: fieldsOf(cancelled),
 		})
 		.from(SchemaProposals)
 		.leftJoinLateral(created, sql`true`)
 		.leftJoinLateral(proposer, sql`true`)
+		.leftJoinLateral(cancelled, sql`true`)
 		.where(inArray(SchemaProposals.id, proposalIds));
 	return new Map(
 		rows.map(({ id, ...events }) => [id, events]),

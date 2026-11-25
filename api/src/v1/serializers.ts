@@ -75,6 +75,7 @@ export const toV1Proposal = ({
 	events: {
 		created: toV1AccountEvent(events.created),
 		proposer: toV1AccountEvent(events.proposer),
+		cancelled: toV1AccountEvent(events.cancelled),
 	},
 	executedVia: proposal.executedVia,
 	signerSetsStale,
