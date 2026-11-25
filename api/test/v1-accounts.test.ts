@@ -466,13 +466,32 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 			).toBe('verified');
 	});
 
-	test('a key in no acting set is refused, and nothing is recorded', async () => {
+	test('a key in no acting set is refused once its signature verifies, and nothing is recorded', async () => {
 		const k1 = newUser();
 		const { session } = await signIn(k1);
 		const account = (
 			await session.createMultisig([k1, newUser()], 2)
 		).address;
+		const expiry = defaultExpiry();
 
+		expect(
+			await refusal(
+				session.v1.acceptAccountInvite(account, {
+					network: 'localnet',
+					signature: await sign(
+						newUser(),
+						PersonalMessages.rejectAccountInvitation(
+							account,
+							expiry,
+						),
+					),
+					expiry,
+				}),
+			),
+		).toEqual({
+			status: 400,
+			message: 'Invalid signature for message.',
+		});
 		expect(
 			await refusal(answer(newUser(), account, 'accept')),
 		).toEqual({
