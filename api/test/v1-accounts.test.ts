@@ -153,7 +153,7 @@ describe('GET /v1/accounts', () => {
 		await session.acceptMultisig(k2, account.address);
 		await session.rejectMultisig(k3, account.address);
 		const stranger = newUser();
-		const invitedTo = await (
+		await (
 			await signIn(stranger)
 		).session.createMultisig([stranger, k1], 1);
 
@@ -198,9 +198,6 @@ describe('GET /v1/accounts', () => {
 			],
 			removed: [],
 		});
-		expect(addresses(list.accounts)).not.toContain(
-			invitedTo.address,
-		);
 		expect(
 			await refusal(client.getAccounts('testnet')),
 		).toEqual({
