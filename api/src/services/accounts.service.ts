@@ -184,7 +184,7 @@ export const getAccount = async ({
 	loaders?: AliasSetLoaders;
 }) => {
 	if (!(await isAccount(address)))
-		throw new ApiAuthError('AccessDenied');
+		throw new ApiAuthError('NotAnAccountSigner');
 	const [state] = await refreshStaleAliases(
 		[address],
 		network,
@@ -231,10 +231,10 @@ export const getAccount = async ({
 const refreshAccount = async (
 	address: string,
 	network: SuiNetwork,
-	notSigner: () => Error,
 	loaders: AliasSetLoaders,
 ) => {
-	if (!(await isAccount(address))) throw notSigner();
+	if (!(await isAccount(address)))
+		throw new ApiAuthError('NotAnAccountSigner');
 	await requireFreshAliases(address, network, loaders);
 };
 
@@ -259,14 +259,7 @@ export const answerAccountInvitation = async ({
 	validateIsoExpiry(expiry);
 	assertCanonicalSignature(signature);
 
-	const notSigner = () =>
-		new ApiAuthError('NotAnAccountSigner');
-	await refreshAccount(
-		address,
-		network,
-		notSigner,
-		loaders,
-	);
+	await refreshAccount(address, network, loaders);
 	const publicKey = await verifyMemberSignedMessage({
 		accountAddress: address,
 		scope: actingSetsOn(network),
@@ -278,13 +271,15 @@ export const answerAccountInvitation = async ({
 			expiry,
 		),
 		acceptedOnly: false,
-		notMemberError: notSigner,
+		notMemberError: () =>
+			new ApiAuthError('NotAnAccountSigner'),
 	});
 
 	const proof = { version: 1, signature, expiry } as const;
 	await answerInvitation({
 		accountAddress: address,
 		publicKey,
+		scopeKind: 'acting',
 		...(answer === 'accepted'
 			? {
 					answer,
@@ -325,12 +320,7 @@ const changeProposer =
 		loaders = aliasSetLoaders,
 		...signed
 	}: AccountProposerChange) => {
-		await refreshAccount(
-			address,
-			network,
-			() => new ApiAuthError('NotAMultisigMember'),
-			loaders,
-		);
+		await refreshAccount(address, network, loaders);
 		await change({
 			address,
 			...signed,

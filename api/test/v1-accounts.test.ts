@@ -701,6 +701,20 @@ describe('POST and DELETE /v1/accounts/:address/proposers', () => {
 			),
 		).toEqual({ success: true });
 		expect(await proposers()).toEqual([proposer]);
+		expect(
+			await refusal(
+				changeProposer(
+					'add',
+					users[0],
+					newUser().address,
+					proposer,
+				),
+			),
+		).toEqual({
+			status: 403,
+			message:
+				'You are not a signer of this account on this network.',
+		});
 
 		await changeProposer(
 			'remove',

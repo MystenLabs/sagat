@@ -36,6 +36,7 @@ import {
 	errorOf,
 	expectSettled,
 	newUser,
+	refusal,
 	sendCoins,
 	sign,
 	type TestSession,
@@ -1121,6 +1122,31 @@ describe('Proposal Business Logic', () => {
 					proposer: newUser().address,
 				}),
 			).toEqual(proposerLimitResponse);
+			const extra = newUser().address;
+			const expiry = defaultExpiry();
+			expect(
+				await refusal(
+					framework
+						.createSession()
+						.v1.addAccountProposer(multisig.address, {
+							network: 'localnet',
+							proposer: extra,
+							signature: await sign(
+								users[0],
+								PersonalMessages.addMultisigProposer(
+									extra,
+									multisig.address,
+									expiry,
+								),
+							),
+							expiry,
+						}),
+				),
+			).toEqual({
+				status: 400,
+				message:
+					'You have reached the maximum number of proposers for this account.',
+			});
 			// At the limit, a proposer that is already there can still be
 			// re-confirmed.
 			expect(

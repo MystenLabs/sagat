@@ -28,6 +28,7 @@ import {
 	recordAccountEvent,
 	type AccountEvent,
 } from './account-events.service';
+import { type SignerScopeKind } from './signers.service';
 
 // Throws if `publicKey` is already in the maximum number of multisigs, not
 // counting the one it is joining. Locks the key's row until `tx` ends.
@@ -35,6 +36,7 @@ export const assertKeyBelowMultisigLimit = async (
 	tx: DatabaseTransaction,
 	publicKey: string,
 	joiningSignerSetAddress: string,
+	scopeKind: SignerScopeKind,
 ) => {
 	await tx
 		.select({ publicKey: SchemaAddresses.publicKey })
@@ -55,7 +57,9 @@ export const assertKeyBelowMultisigLimit = async (
 	);
 	if (accepted >= LIMITS.maxMultisigsPerPublicKey)
 		throw new ValidationError(
-			'You have reached the maximum number of multisigs for this public key',
+			scopeKind === 'acting'
+				? 'You have reached the maximum number of accounts for this public key.'
+				: 'You have reached the maximum number of multisigs for this public key',
 		);
 };
 
@@ -168,11 +172,13 @@ const recalculateLinks = async (
 export const answerInvitation = async ({
 	accountAddress,
 	publicKey,
+	scopeKind,
 	answer,
 	event,
 }: {
 	accountAddress: string;
 	publicKey: PublicKey;
+	scopeKind: SignerScopeKind;
 } & InvitationAnswer): Promise<SignerSet> => {
 	const key = publicKey.toSuiPublicKey();
 	const actor = publicKey.toSuiAddress();
@@ -241,6 +247,7 @@ export const answerInvitation = async ({
 					tx,
 					key,
 					accountAddress,
+					scopeKind,
 				);
 		} else {
 			if (current?.isAccepted)

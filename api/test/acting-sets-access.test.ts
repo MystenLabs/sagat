@@ -83,6 +83,8 @@ const LOCALNET = actingSetsOn('localnet');
 const TESTNET = actingSetsOn('testnet');
 
 const ACCESS_DENIED = new ApiAuthError('AccessDenied');
+const NOT_A_SIGNER = new ApiAuthError('NotAnAccountSigner');
+const NOT_ACCEPTED = new ApiAuthError('AccountNotAccepted');
 const NOT_A_MEMBER = new ApiAuthError('NotAMultisigMember');
 const CANNOT_CANCEL = new ValidationError(
 	'Not a member of the multisig',
@@ -245,9 +247,9 @@ const routesAs = async (user: TestUser) => {
 	return session.v1;
 };
 
-const ROUTE_ACCESS_DENIED = {
+const ROUTE_NOT_A_SIGNER = {
 	status: 403,
-	message: ACCESS_DENIED.message,
+	message: NOT_A_SIGNER.message,
 };
 
 const readRoute = async (user: TestUser, account: string) =>
@@ -487,7 +489,7 @@ describe('access under the acting scope', () => {
 		await expectRefused(verify(r1, proposal), NOT_A_MEMBER);
 		await expectRefused(
 			changeProposer('add', r1, account, newUser().address),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
 		await expectRefused(
 			changeProposer(
@@ -496,7 +498,7 @@ describe('access under the acting scope', () => {
 				account,
 				newUser().address,
 			),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
 		await expectRefused(
 			eventsOf(r1, account),
@@ -581,7 +583,7 @@ describe('access under the acting scope', () => {
 		);
 
 		expect(await listed(k3)).toEqual([]);
-		await expectRefused(read(k3, account), ACCESS_DENIED);
+		await expectRefused(read(k3, account), NOT_A_SIGNER);
 		await expectRefused(vote(k3, onLocalnet), NOT_A_MEMBER);
 		await expectRefused(propose(k3, account), NOT_A_MEMBER);
 		await expectRefused(
@@ -590,7 +592,7 @@ describe('access under the acting scope', () => {
 		);
 		await expectRefused(
 			changeProposer('add', k3, account, newUser().address),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			eventsOf(k3, account),
@@ -671,7 +673,7 @@ describe('access under the acting scope', () => {
 
 		await expectRefused(
 			read(proposer, account),
-			ACCESS_DENIED,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			vote(proposer, signed),
@@ -697,7 +699,7 @@ describe('access under the acting scope', () => {
 
 		expect(
 			await refusal(readRoute(outsider, account)),
-		).toEqual(ROUTE_ACCESS_DENIED);
+		).toEqual(ROUTE_NOT_A_SIGNER);
 		await expectRefused(
 			vote(outsider, proposal),
 			NOT_A_MEMBER,
@@ -712,7 +714,7 @@ describe('access under the acting scope', () => {
 		);
 		expect(
 			await refusal(readRoute(k1, newUser().address)),
-		).toEqual(ROUTE_ACCESS_DENIED);
+		).toEqual(ROUTE_NOT_A_SIGNER);
 	});
 
 	test('a stranger’s account that lists a known composition invites its keys but is not their account', async () => {
@@ -767,7 +769,7 @@ describe('access under the acting scope', () => {
 		);
 
 		expect(await refusal(readRoute(key, account))).toEqual(
-			ROUTE_ACCESS_DENIED,
+			ROUTE_NOT_A_SIGNER,
 		);
 		await expectRefused(
 			vote(
@@ -800,7 +802,7 @@ describe('access under the acting scope', () => {
 				),
 				expiry,
 			}),
-			new ApiAuthError('NotAnAccountSigner'),
+			NOT_A_SIGNER,
 		);
 	});
 
@@ -815,7 +817,7 @@ describe('access under the acting scope', () => {
 			k1.address,
 		);
 
-		await expectRefused(read(k1, account), ACCESS_DENIED);
+		await expectRefused(read(k1, account), NOT_A_SIGNER);
 		await expectRefused(vote(k1, proposal), NOT_A_MEMBER);
 		await expectRefused(propose(k1, account), NOT_A_MEMBER);
 		await expectRefused(
@@ -844,7 +846,7 @@ describe('access under the acting scope', () => {
 		expect(
 			signers.actingSets.map((s) => s.address),
 		).toEqual([composition]);
-		await expectRefused(read(k3, account), ACCESS_DENIED);
+		await expectRefused(read(k3, account), NOT_A_SIGNER);
 	});
 
 	test('key labels never cross accounts', async () => {

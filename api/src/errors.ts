@@ -75,6 +75,7 @@ export const AuthErrors = {
 		'Access denied. You are not a member of this multisig.',
 	NotAnAccountSigner:
 		'You are not a signer of this account on this network.',
+	AccountNotAccepted: 'You have not accepted this account.',
 };
 
 export const CommonErrors = {

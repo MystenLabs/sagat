@@ -81,7 +81,10 @@ import {
 	answerInvitation,
 	assertKeyBelowMultisigLimit,
 } from './invitations.service';
-import { isAccountSigner } from './membership.service';
+import {
+	isAccountSigner,
+	notAcceptedSignerError,
+} from './membership.service';
 import {
 	assertCanonicalSignature,
 	verifyMemberSignedMessage,
@@ -197,7 +200,7 @@ export const getMultisigAccount = async ({
 				false,
 			)
 		)
-			throw new ApiAuthError('AccessDenied');
+			throw new ApiAuthError('NotAnAccountSigner');
 
 		const [origin, proposers, labels] = await Promise.all([
 			getAccountOrigin(address),
@@ -846,6 +849,7 @@ export const createSignerSet = async ({
 				tx,
 				key,
 				msig.address,
+				'original',
 			);
 
 		// A legacy multisig is also an account with the same address, so the
@@ -956,6 +960,7 @@ export const acceptInvitation = async ({
 	const signerSet = await answerInvitation({
 		accountAddress: address,
 		publicKey: pubKey,
+		scopeKind: 'original',
 		answer: 'accepted',
 		event: {
 			action: 'signer_set.accepted',
@@ -1018,6 +1023,7 @@ export const rejectInvitation = async ({
 	await answerInvitation({
 		accountAddress: address,
 		publicKey: pubKey,
+		scopeKind: 'original',
 		answer: 'rejected',
 		event: {
 			action: 'signer_set.rejected',
@@ -1039,6 +1045,17 @@ type ProposerChange = {
 	expiry: string;
 	scope: SignerScope;
 };
+
+// Legacy answers one text; the acting scope tells a signer who has not accepted from no signer.
+const notAcceptedMemberError =
+	(address: string, scope: SignerScope) =>
+	async (signer: PublicKey) =>
+		scope.kind === 'acting'
+			? notAcceptedSignerError(
+					await resolveAccountSigners(address, scope),
+					[signer.toSuiPublicKey()],
+				)
+			: new ApiAuthError('NotAMultisigMember');
 
 // Lower-case `0x` and 64 hex digits.
 export const isCanonicalSuiAddress = (address: string) =>
@@ -1071,8 +1088,7 @@ export const addProposer = async ({
 			expiry,
 		),
 		acceptedOnly: true,
-		notMemberError: () =>
-			new ApiAuthError('NotAMultisigMember'),
+		notMemberError: notAcceptedMemberError(address, scope),
 	});
 
 	const actor = publicKey.toSuiAddress();
@@ -1112,7 +1128,9 @@ export const addProposer = async ({
 				LIMITS.maxProposersPerMultisig
 			)
 				throw new ValidationError(
-					'You have reached the maximum number of proposers for this multisig',
+					scope.kind === 'acting'
+						? 'You have reached the maximum number of proposers for this account.'
+						: 'You have reached the maximum number of proposers for this multisig',
 				);
 
 			await tx.insert(SchemaAccountProposers).values({
@@ -1165,8 +1183,7 @@ export const removeProposer = async ({
 			expiry,
 		),
 		acceptedOnly: true,
-		notMemberError: () =>
-			new ApiAuthError('NotAMultisigMember'),
+		notMemberError: notAcceptedMemberError(address, scope),
 	});
 
 	// Remove the proposer from the multisig, removing all pending transactions from the proposer.

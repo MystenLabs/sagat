@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	defaultExpiry,
+	PersonalMessages,
+} from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
 	beforeEach,
@@ -1021,6 +1024,24 @@ describe('Multisig API', () => {
 			await expect(
 				session.acceptMultisig(user, oneTooMany),
 			).rejects.toThrow(limitReached);
+			const expiry = defaultExpiry();
+			await expect(
+				framework
+					.createSession()
+					.v1.acceptAccountInvite(oneTooMany, {
+						network: 'localnet',
+						signature: await sign(
+							user,
+							PersonalMessages.acceptAccountInvitation(
+								oneTooMany,
+								expiry,
+							),
+						),
+						expiry,
+					}),
+			).rejects.toThrow(
+				'You have reached the maximum number of accounts for this public key.',
+			);
 			// At the limit, accepting a multisig again is still allowed.
 			await session.acceptMultisig(user, last);
 		});

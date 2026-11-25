@@ -90,7 +90,9 @@ export const verifyMemberSignedMessage = async ({
 	message: string;
 	// Whether the member must have accepted the account.
 	acceptedOnly: boolean;
-	notMemberError: () => Error;
+	notMemberError: (
+		signer: PublicKey,
+	) => Error | Promise<Error>;
 }): Promise<PublicKey> => {
 	const signer =
 		getPublicKeyFromSerializedSignature(signature);
@@ -101,7 +103,7 @@ export const verifyMemberSignedMessage = async ({
 			scope,
 		}))
 	)
-		throw notMemberError();
+		throw await notMemberError(signer);
 
 	await validatePersonalMessage(signer, signature, message);
 	return signer;
