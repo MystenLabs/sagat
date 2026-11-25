@@ -1,24 +1,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
-
 import { content } from '@/content';
 import { type OtherSignerSetRow } from '@/lib/signer-sets';
-import { cn } from '@/lib/utils';
 
-import { cardClass } from '../ui/card';
-import {
-	Collapsible,
-	CollapsibleContent,
-	CollapsibleTrigger,
-} from '../ui/collapsible';
 import {
 	tableClass,
 	tableHeadRowClass,
 	tableRowClass,
 } from '../ui/table';
+import { FoldedRow } from './FoldedRow';
 import {
 	OpenPodLink,
 	SignerSetAddress,
@@ -30,52 +21,20 @@ const COPY = content.signers.otherSignerSets;
 export function OtherSignerSetsCard({
 	rows,
 	network,
-	className,
 }: {
 	rows: OtherSignerSetRow[];
 	network: string;
-	className?: string;
 }) {
-	const [open, setOpen] = useState(false);
-
 	return (
-		<Collapsible
-			open={open}
-			onOpenChange={setOpen}
-			render={<section />}
-			className={cn(cardClass, className)}
-			aria-labelledby="other-signer-sets-title"
-			data-testid="other-signer-sets"
+		<FoldedRow
+			label={COPY.title}
+			count={rows.length}
+			testId="other-signer-sets"
+			card
 		>
-			<h2
-				id="other-signer-sets-title"
-				className="text-16 font-medium"
-			>
-				<CollapsibleTrigger
-					className="flex w-full cursor-pointer items-center gap-2 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					data-testid="other-signer-sets-toggle"
-				>
-					{COPY.title}
-					<span
-						className="text-12 font-normal text-muted-foreground"
-						data-testid="other-signer-sets-count"
-					>
-						{rows.length}
-					</span>
-					<ChevronDown
-						aria-hidden
-						className={cn(
-							'ml-auto size-4 transition-transform',
-							open && 'rotate-180',
-						)}
-					/>
-				</CollapsibleTrigger>
-			</h2>
-			<CollapsibleContent className="flex flex-col gap-3">
-				<p className="text-13">{COPY.body(network)}</p>
-				<OtherSignerSetsTable rows={rows} />
-			</CollapsibleContent>
-		</Collapsible>
+			<p className="text-13">{COPY.body(network)}</p>
+			<OtherSignerSetsTable rows={rows} />
+		</FoldedRow>
 	);
 }
 
