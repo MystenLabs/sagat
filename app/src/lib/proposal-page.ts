@@ -203,28 +203,7 @@ export interface ApprovalsSignerSet {
 	rows: ApprovalRow[];
 }
 
-/** The set the Approvals card keeps open: the pod's own holding the viewer's key, else the first holding it, else the first. */
-export function mainSignerSet<
-	S extends Pick<CountedSignerSet, 'address' | 'members'>,
->(
-	sets: readonly S[],
-	account: string,
-	publicKey: string | null | undefined,
-): S | null {
-	const holding = sets.filter(
-		(set) => yourWeight(set, publicKey) > 0,
-	);
-	return (
-		holding.find((set) =>
-			sameAddress(set.address, account),
-		) ??
-		holding[0] ??
-		sets[0] ??
-		null
-	);
-}
-
-/** One part per checked signer set, the main set (`mainSignerSet`) first and the rest in their order, each counted on its own. */
+/** One part per checked signer set in `countSignerSets` order, the first being the main set, each counted on its own. */
 export function approvalsSignerSets(
 	proposal: Pick<
 		PageProposal,
@@ -237,16 +216,7 @@ export function approvalsSignerSets(
 ): ApprovalsSignerSet[] {
 	const copy = content.proposal.approvals.status;
 	const open = status === 'pending' || status === 'ready';
-	const sets = proposal.checkedSignerSets;
-	const main = mainSignerSet(
-		sets,
-		proposal.accountAddress,
-		publicKey,
-	);
-	const ordered = main
-		? [main, ...sets.filter((set) => set !== main)]
-		: sets;
-	return ordered.map((set) => ({
+	return proposal.checkedSignerSets.map((set) => ({
 		address: set.address,
 		currentWeight: set.currentWeight,
 		threshold: set.threshold,

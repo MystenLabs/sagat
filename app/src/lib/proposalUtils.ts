@@ -17,6 +17,7 @@ import {
 	isMember,
 	type AccountSigners,
 } from './proposal-integrity';
+import { sameAddress } from './sui-utils';
 import { getExplorerUrl } from './utils';
 
 /** The weight of the set's members whose key signed, each counted once. */
@@ -55,9 +56,9 @@ export function reachesThreshold(
 	return set.currentWeight >= set.threshold;
 }
 
-/** Counts the proposal's signatures in each of `checked`, the sets holding `signerAddress` first. */
+/** Counts the proposal's signatures in each of `checked`, the sets holding `signerAddress` first, the pod's own leading them. */
 export function countSignerSets(
-	proposal: Pick<Proposal, 'signatures'>,
+	proposal: Pick<Proposal, 'signatures' | 'accountAddress'>,
 	checked: readonly {
 		set: AccountSigners;
 		address: string;
@@ -77,12 +78,13 @@ export function countSignerSets(
 		currentWeight: calculateCurrentWeight(proposal, set),
 	}));
 	if (!signerAddress) return counted;
-	const holds = (set: CountedSignerSet) =>
-		isMember(set, signerAddress);
-	return [
-		...counted.filter(holds),
-		...counted.filter((set) => !holds(set)),
-	];
+	const rank = (set: CountedSignerSet) =>
+		!isMember(set, signerAddress)
+			? 2
+			: sameAddress(set.address, proposal.accountAddress)
+				? 0
+				: 1;
+	return [...counted].sort((a, b) => rank(a) - rank(b));
 }
 
 /** The checked set that reached its threshold, the one execution uses; null when none did. */
@@ -115,7 +117,7 @@ export function rowExecuteSet(
 		: readySignerSet(proposal.checkedSignerSets);
 }
 
-/** The one set the screens draw: the ready one, else the first (the viewer's when any holds them). */
+/** The one set the screens draw: the ready one, else the first (`countSignerSets` order). */
 export function shownSignerSet(
 	sets: readonly CountedSignerSet[],
 ): CountedSignerSet | null {

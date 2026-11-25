@@ -244,7 +244,7 @@ describe('pendingFilter', () => {
 					transactionBytes,
 					signatures,
 					checkedSignerSets: countSignerSets(
-						{ signatures },
+						{ signatures, accountAddress: '0x1' },
 						[{ set: multisig, address: '0x1' }],
 						null,
 					),
@@ -296,7 +296,10 @@ describe('countSignerSets', () => {
 		};
 
 		const counted = countSignerSets(
-			{ signatures: [signature, signature] },
+			{
+				signatures: [signature, signature],
+				accountAddress: '0x1',
+			},
 			[
 				{ set: pair, address: '0x2' },
 				{ set: solo, address: '0x1' },
@@ -319,6 +322,34 @@ describe('countSignerSets', () => {
 			}),
 		).toBe('ready');
 		expect(shownSignerSet(counted)?.address).toBe('0x1');
+	});
+
+	it('puts the pod’s own set holding the viewer’s key first wherever it comes, then the others holding it, then the rest', () => {
+		const viewer = new Ed25519Keypair();
+		const set = (address: string, holds: boolean) => ({
+			address,
+			set: {
+				threshold: 1,
+				members: [key(1, 0, holds ? viewer : undefined)],
+			},
+		});
+		const order = (signerAddress: string | null) =>
+			countSignerSets(
+				{ signatures: [], accountAddress: '0x1' },
+				[
+					set('0x2', false),
+					set('0x3', true),
+					set('0x1', true),
+				],
+				signerAddress,
+			).map((counted) => counted.address);
+
+		expect(order(viewer.toSuiAddress())).toEqual([
+			'0x1',
+			'0x3',
+			'0x2',
+		]);
+		expect(order(null)).toEqual(['0x2', '0x3', '0x1']);
 	});
 
 	it('counts no signer set that is not an alias of the pod', () => {
@@ -391,6 +422,7 @@ describe('rowExecuteSet', () => {
 				signatures: [
 					{ publicKey: member.publicKey, signature: 'sig' },
 				],
+				accountAddress: '0x1',
 			},
 			[
 				{
