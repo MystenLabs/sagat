@@ -23,10 +23,20 @@ import { randomAddress } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 import {
+	executeProposal,
+	expectOnProposal,
+	expectSimulation,
+	fillTransfer,
+	openNewProposal,
+	proposeAndSign,
+	reviewTransfer,
+} from '../support/new-proposal';
+import {
 	isAccountListRead,
 	isCreateRequest,
 } from '../support/requests';
 import {
+	acceptAccountInvite,
 	addAlias,
 	addProposer,
 	aliasCallBytes,
@@ -1163,6 +1173,21 @@ test.describe('overview and signers', () => {
 			await created
 		).json()) as Proposal;
 		await expect(alice.proposalPage(digest)).toBeVisible();
+		const changes = page.getByTestId(
+			'signer-change-changes',
+		);
+		for (const kind of ['add', 'remove'])
+			await expect(
+				changes.locator(
+					`[data-testid="change-item"][data-kind="${kind}"]`,
+				),
+			).toHaveCount(1);
+		await expect(
+			changes.getByTestId('change-item'),
+		).toHaveCount(2);
+		await expect(
+			page.getByTestId('alias-calls-warning'),
+		).toHaveCount(0);
 
 		const proposal =
 			await alice.apiV1.getProposalByDigest(digest);
@@ -1181,6 +1206,11 @@ test.describe('overview and signers', () => {
 		});
 
 		await page.getByTestId('multisig-tab-signers').click();
+		await expect(
+			page.getByTestId('signer-change-pending'),
+		).toContainText(
+			`(${content.common.thresholdLabel(1, 2)} weight)`,
+		);
 		await expect(
 			page.getByTestId('signer-change-proposal'),
 		).toHaveAttribute(
@@ -1254,5 +1284,187 @@ test.describe('overview and signers', () => {
 			.getByTestId('signer-menu')
 			.all())
 			await expect(menu).toBeDisabled();
+	});
+
+	test('after a signer change executed, the new signers propose a transfer and a second change from the app and sign them', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		test.slow();
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const carol = await createActor('carol');
+		const dave = await createActor('dave');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob, carol],
+			threshold: 2,
+			name: 'Treasury',
+		});
+		await chain.fund(multisig.address);
+		await enableAliases(chain, {
+			members: [alice, bob, carol].map((identity) => ({
+				identity,
+			})),
+			threshold: 2,
+			signers: [alice, bob],
+		});
+		const newSet = multisigAddressOf(
+			[alice, bob, dave].map((identity) => ({ identity })),
+			2,
+		);
+		const members = `/multisig/${multisig.address}/signers`;
+
+		await test.step('Alice and Bob replace Carol with Dave, and Dave accepts', async () => {
+			await alice.signIn();
+			const { page } = alice;
+			await page.goto(members);
+			await page
+				.locator(
+					`[data-testid="member-item"][data-address="${carol.address}"]`,
+				)
+				.getByTestId('signer-menu')
+				.click();
+			await page.getByTestId('signer-menu-replace').click();
+			await page
+				.getByTestId('create-signer-key')
+				.nth(2)
+				.fill(dave.publicKey);
+			await page.getByTestId('change-review').click();
+			const created = page.waitForResponse((response) =>
+				isCreateRequest(response.request()),
+			);
+			await page.getByTestId('review-submit').click();
+			const change = (await (
+				await created
+			).json()) as Proposal;
+			await signProposal(bob, change);
+			await page.goto(
+				`/multisig/${multisig.address}/proposals`,
+			);
+			await page
+				.getByTestId('proposal-filter-ready')
+				.click();
+			const row = alice.proposalRow(change.digest);
+			await expect(
+				row.getByTestId('proposal-execute-from-page'),
+			).toBeVisible();
+			await expect(
+				row.getByTestId('execute-proposal-button'),
+			).toHaveCount(0);
+			await page.goto(
+				`/multisig/${multisig.address}/proposals/${change.digest}`,
+			);
+			await executeProposal(page);
+			await page.reload();
+			for (const signer of [alice, bob])
+				await expect(
+					page.locator(
+						`[data-testid="approval-row"][data-address="${signer.address}"]`,
+					),
+				).toHaveAttribute('data-signed', 'true');
+
+			await carol.signIn();
+			// Split at a placeholder for the date, which isn't rebuilt.
+			const [removal] = content.toasts
+				.removedFromPod('Treasury', '\0')
+				.split('\0');
+			await expect(
+				carol.page
+					.locator('[data-sonner-toast]')
+					.filter({ hasText: removal }),
+			).toBeVisible();
+
+			await signInViaApi(dave);
+			await acceptAccountInvite(dave, multisig.address);
+		});
+
+		const { page } = dave;
+		await dave.signIn();
+
+		await test.step('Dave proposes a transfer from the wizard, Alice signs, Dave executes', async () => {
+			await openNewProposal(page, multisig.address, {
+				type: 'transfer',
+			});
+			await fillTransfer(page, {
+				coinType: SUI_TYPE_ARG,
+				amount: '1',
+				recipient: randomAddress(),
+			});
+			await reviewTransfer(page);
+			await expectSimulation(page, 'success');
+			const digest = await proposeAndSign(page);
+			await signProposal(
+				alice,
+				await alice.apiV1.getProposalByDigest(digest),
+			);
+			await page.reload();
+			await executeProposal(page);
+		});
+
+		await test.step('Dave proposes a second change, 3 of 3, from Members, and Alice signs it', async () => {
+			await page.goto(members);
+			await page.getByTestId('change-threshold').click();
+			const threshold = page
+				.getByTestId('change-signers-step')
+				.getByTestId('change-threshold');
+			await threshold.fill('3');
+			await threshold.blur();
+			await page.getByTestId('change-review').click();
+			const created = page.waitForResponse((response) =>
+				isCreateRequest(response.request()),
+			);
+			await page.getByTestId('review-submit').click();
+			const { digest } = (await (
+				await created
+			).json()) as Proposal;
+			await expectOnProposal(
+				page,
+				multisig.address,
+				digest,
+			);
+
+			const proposal =
+				await dave.apiV1.getProposalByDigest(digest);
+			expect(proposal.kind).toBe('signer_change');
+			expect(proposal.signerChange).toEqual({
+				removes: newSet,
+				adds: multisigAddressOf(
+					[alice, bob, dave].map((identity) => ({
+						identity,
+					})),
+					3,
+				),
+			});
+			await signProposal(alice, proposal);
+			await page.reload();
+			await expect(
+				dave.proposalPage(digest),
+			).toHaveAttribute('data-status', 'ready');
+		});
+	});
+
+	test('say the pod has no SUI when enabling signer changes can’t pay gas', async ({
+		createActor,
+		createIdentity,
+	}) => {
+		const alice = await createActor('alice');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [createIdentity('bob')],
+			threshold: 2,
+		});
+		await alice.signIn();
+		const { page } = alice;
+		await page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		await page.getByTestId('enable-signer-changes').click();
+		await expect(
+			page
+				.locator('[data-sonner-toast]')
+				.filter({ hasText: content.common.noGas }),
+		).toBeVisible();
 	});
 });
