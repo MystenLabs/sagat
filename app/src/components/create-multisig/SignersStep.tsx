@@ -152,27 +152,8 @@ export function SignersStep({
 				max={maxThreshold}
 				onChange={onThresholdChange}
 				testId="create"
-				notice={
-					check.tooFewSigners ? (
-						<Notice
-							tone="warning"
-							className="mt-2"
-							testId="create-too-few"
-						>
-							{COPY.tooFewSigners}
-						</Notice>
-					) : (
-						check.warning && (
-							<Notice
-								tone="warning"
-								className="mt-2"
-								testId="create-threshold-warning"
-							>
-								{check.warning}
-							</Notice>
-						)
-					)
-				}
+				tooFewSigners={check.tooFewSigners}
+				warning={check.warning}
 			/>
 
 			<Separator />
@@ -259,19 +240,22 @@ export function ThresholdSection({
 	onChange,
 	testId,
 	currently,
-	error = false,
-	notice,
+	tooFewSigners,
+	error,
+	warning,
 }: {
 	threshold: number;
 	totalWeight: number;
 	max: number;
 	onChange: (threshold: number) => void;
-	/** Prefix of `<testId>-threshold` and `<testId>-total-weight`. */
+	/** Prefix of the stepper's, the total weight's and the notices' test ids. */
 	testId: string;
 	/** After the total weight. */
 	currently?: ReactNode;
-	error?: boolean;
-	notice: ReactNode;
+	tooFewSigners: boolean;
+	/** Blocks the step; shown over the warning. */
+	error?: string | null;
+	warning: string | null;
 }) {
 	return (
 		<section className="flex flex-col gap-3.5">
@@ -307,9 +291,35 @@ export function ThresholdSection({
 				<ThresholdBar
 					threshold={threshold}
 					totalWeight={totalWeight}
-					error={error}
+					error={!!error}
 				/>
-				{notice}
+				{tooFewSigners ? (
+					<Notice
+						tone="warning"
+						className="mt-2"
+						testId={`${testId}-too-few`}
+					>
+						{COPY.tooFewSigners}
+					</Notice>
+				) : error ? (
+					<Notice
+						tone="error"
+						className="mt-2"
+						testId={`${testId}-threshold-error`}
+					>
+						{error}
+					</Notice>
+				) : (
+					warning && (
+						<Notice
+							tone="warning"
+							className="mt-2"
+							testId={`${testId}-threshold-warning`}
+						>
+							{warning}
+						</Notice>
+					)
+				)}
 			</div>
 		</section>
 	);

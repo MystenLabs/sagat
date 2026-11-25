@@ -16,7 +16,6 @@ import {
 import { Chip } from '@/components/ui/chip';
 import { Separator } from '@/components/ui/separator';
 import {
-	Notice,
 	SectionHeading,
 	StepFooter,
 } from '@/components/wizard/parts';
@@ -170,32 +169,9 @@ export function ChangesStep({
 						</span>
 					)
 				}
-				error={!!check.error}
-				notice={
-					check.signers.tooFewSigners ? (
-						<Notice tone="warning" className="mt-2">
-							{CREATE.tooFewSigners}
-						</Notice>
-					) : check.error ? (
-						<Notice
-							tone="error"
-							className="mt-2"
-							testId="change-threshold-error"
-						>
-							{check.error}
-						</Notice>
-					) : (
-						check.warning && (
-							<Notice
-								tone="warning"
-								className="mt-2"
-								testId="change-threshold-warning"
-							>
-								{check.warning}
-							</Notice>
-						)
-					)
-				}
+				tooFewSigners={check.signers.tooFewSigners}
+				error={check.error}
+				warning={check.warning}
 			/>
 
 			<Separator />
