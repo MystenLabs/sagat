@@ -16,10 +16,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import {
-	PersonalMessages,
-	ProposalStatus,
-} from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import { expect, test } from 'bun:test';
 import { type Hono } from 'hono';
@@ -27,8 +24,6 @@ import { type Hono } from 'hono';
 import {
 	ApiTestFramework,
 	newUser,
-	sign,
-	signedBy,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
@@ -260,13 +255,12 @@ async function proposeTransfer(
 	const transactionBytes = (
 		await tx.build({ client: getLocalClient() })
 	).toBase64();
-	return session.client.createProposal({
+	return session.legacyPropose(
+		proposer,
 		multisigAddress,
-		network: 'localnet',
 		transactionBytes,
-		signature: await signedBy(proposer, transactionBytes),
 		description,
-	});
+	);
 }
 
 /** The legacy flow. Keep the order stable: placeholders depend on it. */
@@ -320,27 +314,18 @@ async function driveLegacyRoutes(app: Hono) {
 		1000,
 		'pay vendor',
 	);
-	await client.voteForProposal(first.id, {
-		signature: await signedBy(
-			users[1],
-			first.transactionBytes,
-		),
-	});
+	await session.legacyVote(users[1], first);
 	await client.getProposals(
 		multisig.address,
 		'localnet',
 		{},
 	);
 	await client.getProposalByDigest(first.digest);
-	await client.cancelProposal(first.id, {
-		signature: await sign(
-			users[0],
-			PersonalMessages.cancelProposal(
-				first.digest,
-				first.multisigAddress,
-			),
-		),
-	});
+	await session.legacyCancel(
+		users[0],
+		first,
+		first.multisigAddress,
+	);
 	await client.verifyProposal(first.id);
 	await client.verifyProposalByDigest(first.digest);
 

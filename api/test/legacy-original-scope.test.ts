@@ -92,17 +92,11 @@ const proposeTransfer = async (
 	proposer: TestUser,
 	account: string,
 ) => {
-	const transactionBytes = await buildTransfer(account);
-	return session.client.createProposal({
-		multisigAddress: account,
-		network: 'localnet',
-		transactionBytes,
-		signature: (
-			await proposer.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			)
-		).signature,
-	});
+	return session.legacyPropose(
+		proposer,
+		account,
+		await buildTransfer(account),
+	);
 };
 
 const connectionsOf = async (
@@ -162,15 +156,7 @@ describe('legacy routes under alias mirror rows', () => {
 			k1,
 			account,
 		);
-		await session.client.cancelProposal(cancelled.id, {
-			signature: await sign(
-				k1,
-				PersonalMessages.cancelProposal(
-					cancelled.digest,
-					account,
-				),
-			),
-		});
+		await session.legacyCancel(k1, cancelled, account);
 
 		const proposal = await proposeTransfer(
 			session,
@@ -201,15 +187,7 @@ describe('legacy routes under alias mirror rows', () => {
 			[cancelled.id, ProposalStatus.CANCELLED],
 		]);
 
-		expect(
-			await session.client.voteForProposal(proposal.id, {
-				signature: (
-					await k2.keypair.signTransaction(
-						fromBase64(proposal.transactionBytes),
-					)
-				).signature,
-			}),
-		).toEqual({
+		expect(await session.legacyVote(k2, proposal)).toEqual({
 			hasReachedThreshold: true,
 			currentWeight: 2,
 		});

@@ -431,6 +431,50 @@ export class TestSession {
 			),
 		});
 	}
+
+	// The legacy routes, which take the proposal's row id.
+	async legacyPropose(
+		proposer: TestUser,
+		multisigAddress: string,
+		transactionBytes: string,
+		description?: string,
+	) {
+		return this.client.createProposal({
+			multisigAddress,
+			network: 'localnet',
+			transactionBytes,
+			signature: await signedBy(proposer, transactionBytes),
+			description,
+		});
+	}
+
+	async legacyVote(
+		voter: TestUser,
+		proposal: { id: number; transactionBytes: string },
+	) {
+		return this.client.voteForProposal(proposal.id, {
+			signature: await signedBy(
+				voter,
+				proposal.transactionBytes,
+			),
+		});
+	}
+
+	async legacyCancel(
+		member: TestUser,
+		proposal: { id: number; digest: string },
+		multisigAddress: string,
+	) {
+		return this.client.cancelProposal(proposal.id, {
+			signature: await sign(
+				member,
+				PersonalMessages.cancelProposal(
+					proposal.digest,
+					multisigAddress,
+				),
+			),
+		});
+	}
 }
 
 export class ApiTestFramework {

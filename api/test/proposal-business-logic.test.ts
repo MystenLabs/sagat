@@ -1528,15 +1528,11 @@ describe('Proposal Business Logic', () => {
 			});
 
 			// Once cancelled, the status is checked before membership.
-			await session.client.cancelProposal(proposal.id, {
-				signature: await sign(
-					users[0],
-					PersonalMessages.cancelProposal(
-						proposal.digest,
-						multisig.address,
-					),
-				),
-			});
+			await session.legacyCancel(
+				users[0],
+				proposal,
+				multisig.address,
+			);
 			expect(await cancel(outsider, proposal.id)).toEqual({
 				status: 400,
 				body: { error: 'Proposal is not pending' },
