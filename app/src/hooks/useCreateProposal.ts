@@ -5,6 +5,10 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
+import {
+	checkSignerChange,
+	readCompositionNote,
+} from '@mysten/sagat';
 import type { Account } from '@mysten/sagat/v1';
 import { Transaction } from '@mysten/sui/transactions';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
@@ -17,6 +21,7 @@ import { useState } from 'react';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { readNodeFacts } from '@/hooks/useAliasSets';
+import { SignersChangedError } from '@/hooks/useExecuteProposal';
 import { shownApiError } from '@/lib/api-errors';
 import { checkNewProposal } from '@/lib/new-proposal';
 import {
@@ -69,13 +74,23 @@ export function createFailedLine(
 		error instanceof BytesNotFromPodError ||
 		error instanceof SignersRefusedError ||
 		error instanceof ChainMismatchError ||
-		error instanceof SignersUncheckedError
+		error instanceof SignersUncheckedError ||
+		error instanceof SignersChangedError
 	)
 		return error.message;
 	return shownApiError(
 		error,
 		content.newProposal.createFailed,
 	);
+}
+
+// A malformed note is left to the API to refuse.
+function carriesNote(transaction: Transaction) {
+	try {
+		return !!readCompositionNote(transaction.getData());
+	} catch {
+		return false;
+	}
 }
 
 interface CreateProposalParams {
@@ -142,6 +157,18 @@ export function useCreateProposal() {
 
 			// Parse transaction data
 			const transaction = Transaction.from(transactionData);
+			if (carriesNote(transaction)) {
+				if (node.aliases.kind !== 'read')
+					throw new SignersUncheckedError(network);
+				try {
+					checkSignerChange(
+						transaction.getData(),
+						node.aliases.aliases,
+					);
+				} catch {
+					throw new SignersChangedError(network);
+				}
+			}
 
 			// The wallet builds and signs it. Anything thrown here comes from
 			// the wallet, so nothing has been sent yet.
