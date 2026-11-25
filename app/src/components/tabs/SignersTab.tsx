@@ -83,6 +83,7 @@ import { InlineRetry } from '../ui/inline-retry';
 
 const COPY = content.signers;
 const COMMON = content.common;
+const NEW_PROPOSAL = content.newProposal;
 
 interface SignersTabContext {
 	multisig: MultisigWithMembersForPublicKey;
@@ -189,10 +190,7 @@ export function SignersTab() {
 			);
 		} catch (error) {
 			toast.error(
-				errorMessage(
-					error,
-					content.newProposal.createFailed,
-				),
+				errorMessage(error, NEW_PROPOSAL.createFailed),
 			);
 			return;
 		} finally {
@@ -215,7 +213,7 @@ export function SignersTab() {
 				onError: (error) =>
 					toast.error(
 						createFailedLine(error) ??
-							content.newProposal.signatureDeclined,
+							NEW_PROPOSAL.signatureDeclined,
 					),
 			},
 		);
