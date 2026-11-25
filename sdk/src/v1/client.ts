@@ -12,6 +12,7 @@ import {
 import {
 	AccountDetailsSchema,
 	AccountListSchema,
+	AccountProposerRemovalSchema,
 	ErrorBodySchema,
 	InvitationAnswerSchema,
 	InvitationListSchema,
@@ -146,7 +147,7 @@ export class SagatV1Client {
 		);
 	}
 
-	/** Removes an external proposer, signed with `PersonalMessages.removeMultisigProposer`. */
+	/** Removes an external proposer, signed with `PersonalMessages.removeMultisigProposer`, and says what the call did. */
 	removeAccountProposer(
 		address: string,
 		{
@@ -155,7 +156,7 @@ export class SagatV1Client {
 		}: AccountProposerRequest & { network: Network },
 	) {
 		return this.#request(
-			SuccessSchema,
+			AccountProposerRemovalSchema,
 			`/v1/accounts/${encodeURIComponent(address)}/proposers`,
 			{ method: 'DELETE', query: { network }, body },
 		);

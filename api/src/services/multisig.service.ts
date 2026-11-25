@@ -1187,7 +1187,7 @@ export const removeProposer = async ({
 	});
 
 	// Remove the proposer from the multisig, removing all pending transactions from the proposer.
-	await db.transaction(async (tx) => {
+	return await db.transaction(async (tx) => {
 		// First, as this touches proposals before recording takes the lock. Also
 		// serializes with proposal creation, which re-checks the proposer under it.
 		await lockAccount(tx, address);
@@ -1203,7 +1203,7 @@ export const removeProposer = async ({
 				],
 			})
 		)
-			return;
+			return { removed: false, cancelledProposals: [] };
 
 		// Cancel all pending transactions from the proposer.
 		const cancelled = await tx
@@ -1242,8 +1242,14 @@ export const removeProposer = async ({
 				address: SchemaAccountProposers.address,
 			});
 
+		const done = {
+			removed: removed.length > 0,
+			cancelledProposals: cancelled.map(
+				({ digest }) => digest,
+			),
+		};
 		if (removed.length === 0 && cancelled.length === 0)
-			return;
+			return done;
 
 		const actor = publicKey.toSuiAddress();
 		const parentId = await recordAccountEvent(tx, {
@@ -1272,5 +1278,6 @@ export const removeProposer = async ({
 				network,
 				proof: { kind: 'caused_by', eventId: parentId },
 			});
+		return done;
 	});
 };

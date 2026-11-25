@@ -520,6 +520,25 @@
 					"expiry": { "type": "string" }
 				},
 				"required": ["proposer", "signature", "expiry"]
+			},
+			"AccountProposerRemoval": {
+				"type": "object",
+				"properties": {
+					"removed": {
+						"type": "boolean",
+						"description": "Whether this call removed the proposer from the list."
+					},
+					"cancelledProposals": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"description": "The digests of the pending proposals this call cancelled."
+					}
+				},
+				"required": ["removed", "cancelledProposals"],
+				"description": "What this call did. A request whose signature is already recorded does nothing."
 			}
 		},
 		"parameters": {}
@@ -1033,11 +1052,11 @@
 				},
 				"responses": {
 					"200": {
-						"description": "The change was made.",
+						"description": "Whether the proposer was removed, and the proposals cancelled.",
 						"content": {
 							"application/json": {
 								"schema": {
-									"$ref": "#/components/schemas/Success"
+									"$ref": "#/components/schemas/AccountProposerRemoval"
 								}
 							}
 						}

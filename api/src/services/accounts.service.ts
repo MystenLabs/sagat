@@ -313,7 +313,11 @@ type AccountProposerChange = {
 };
 
 const changeProposer =
-	(change: typeof addProposer) =>
+	<R>(
+		change: (
+			input: Parameters<typeof addProposer>[0],
+		) => Promise<R>,
+	) =>
 	async ({
 		address,
 		network,
@@ -321,7 +325,7 @@ const changeProposer =
 		...signed
 	}: AccountProposerChange) => {
 		await refreshAccount(address, network, loaders);
-		await change({
+		return await change({
 			address,
 			...signed,
 			scope: actingSetsOn(network),
@@ -332,6 +336,6 @@ const changeProposer =
 export const addAccountProposer =
 	changeProposer(addProposer);
 
-// Removes an external proposer, and cancels its pending proposals on the network.
+// Removes an external proposer, and cancels its pending proposals on the network. Returns what it did.
 export const removeAccountProposer =
 	changeProposer(removeProposer);

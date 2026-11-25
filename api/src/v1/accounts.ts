@@ -5,6 +5,7 @@ import { createRoute } from '@hono/zod-openapi';
 import {
 	AccountDetailsSchema,
 	AccountListSchema,
+	AccountProposerRemovalSchema,
 	AccountProposerRequestSchema,
 	InvitationAnswerRequestSchema,
 	InvitationAnswerSchema,
@@ -177,7 +178,10 @@ const answerRoute = (answer: 'accept' | 'reject') =>
 		},
 	});
 
-const proposerRoute = (method: 'post' | 'delete') =>
+const proposerRoute = <S extends z.ZodType>(
+	method: 'post' | 'delete',
+	done: ReturnType<typeof json<S>>,
+) =>
 	createRoute({
 		method,
 		path: '/accounts/{address}/proposers',
@@ -202,7 +206,7 @@ const proposerRoute = (method: 'post' | 'delete') =>
 			},
 		},
 		responses: {
-			200: json('The change was made.', SuccessSchema),
+			200: done,
 			400: error(
 				'The request, address, proposer, expiry or signature is invalid.',
 			),
@@ -278,12 +282,14 @@ export const accountRoutes = (app: V1App) => {
 			}),
 		);
 
-	for (const [method, change] of [
-		['post', addAccountProposer],
-		['delete', removeAccountProposer],
-	] as const)
-		defineRoute(app, proposerRoute(method), async (c) => {
-			await change({
+	defineRoute(
+		app,
+		proposerRoute(
+			'post',
+			json('The change was made.', SuccessSchema),
+		),
+		async (c) => {
+			await addAccountProposer({
 				address: c.req.valid('param').address,
 				network: validateNetwork(
 					c.req.valid('query').network,
@@ -291,5 +297,25 @@ export const accountRoutes = (app: V1App) => {
 				...c.req.valid('json'),
 			});
 			return { success: true as const };
-		});
+		},
+	);
+
+	defineRoute(
+		app,
+		proposerRoute(
+			'delete',
+			json(
+				'Whether the proposer was removed, and the proposals cancelled.',
+				AccountProposerRemovalSchema,
+			),
+		),
+		async (c) =>
+			removeAccountProposer({
+				address: c.req.valid('param').address,
+				network: validateNetwork(
+					c.req.valid('query').network,
+				),
+				...c.req.valid('json'),
+			}),
+	);
 };

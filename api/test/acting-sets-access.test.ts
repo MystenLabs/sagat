@@ -898,13 +898,18 @@ describe('access under the acting scope', () => {
 			'testnet',
 			first.address,
 		);
-		await changeProposer(
-			'remove',
-			k1,
-			account,
-			first.address,
-			LOCALNET,
-		);
+		expect(
+			await changeProposer(
+				'remove',
+				k1,
+				account,
+				first.address,
+				LOCALNET,
+			),
+		).toEqual({
+			removed: true,
+			cancelledProposals: [firstOnLocalnet.digest],
+		});
 		expect(await statusOf(firstOnLocalnet)).toBe(
 			ProposalStatus.CANCELLED,
 		);

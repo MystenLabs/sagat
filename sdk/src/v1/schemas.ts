@@ -332,3 +332,25 @@ export const SuccessSchema = z
 	.object({ success: z.literal(true) })
 	.meta({ id: 'Success' });
 export type Success = z.infer<typeof SuccessSchema>;
+
+export const AccountProposerRemovalSchema = z
+	.object({
+		removed: z.boolean().meta({
+			description:
+				'Whether this call removed the proposer from the list.',
+		}),
+		cancelledProposals: z
+			.array(TransactionDigestSchema)
+			.meta({
+				description:
+					'The digests of the pending proposals this call cancelled.',
+			}),
+	})
+	.meta({
+		id: 'AccountProposerRemoval',
+		description:
+			'What this call did. A request whose signature is already recorded does nothing.',
+	});
+export type AccountProposerRemoval = z.infer<
+	typeof AccountProposerRemovalSchema
+>;
