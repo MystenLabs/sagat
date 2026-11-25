@@ -1148,6 +1148,10 @@ test.describe('overview and signers', () => {
 			.getByTestId('create-signer-key')
 			.nth(2)
 			.fill(dave.publicKey);
+		await page
+			.getByTestId('create-signer-label')
+			.nth(2)
+			.fill('Dave');
 		await page.getByTestId('change-review').click();
 
 		const created = page.waitForResponse((response) =>
@@ -1170,6 +1174,9 @@ test.describe('overview and signers', () => {
 				})),
 				2,
 			),
+			labels: [
+				{ publicKey: dave.publicKey, label: 'Dave' },
+			],
 		});
 
 		await page.getByTestId('multisig-tab-signers').click();
