@@ -34,8 +34,7 @@ export function AliasCallsWarning({
 			data-testid="alias-calls-warning"
 			data-replace-all={replaceAll}
 		>
-			{COPY.changesControl(networkLabel(network))}
-			{replaceAll && <> {COPY.replaceAll}</>}
+			{COPY.warning(networkLabel(network), replaceAll)}
 		</Alert>
 	);
 }

@@ -1452,10 +1452,9 @@ export const content = {
 			'Your wallet pays the gas for this transaction, so signing it also lets the transaction spend your gas coins. Don’t sign it.',
 		/** Above the preview of a pod's transaction that calls `0x2::address_alias`. */
 		aliasCalls: {
-			changesControl: (network: string) =>
-				`This transaction changes who controls this pod on ${network}. Pods can’t show who is added. Check every address in it before you sign.`,
-			replaceAll:
-				'It calls replace_all, which replaces every signer set of this pod at once.',
+			/** With a second sentence when the transaction calls `replace_all`. */
+			warning: (network: string, replaceAll: boolean) =>
+				`This transaction changes who controls this pod on ${network}. Pods can’t show who is added. Check every address in it before you sign.${replaceAll ? ' It calls replace_all, which replaces every signer set of this pod at once.' : ''}`,
 		},
 		balances: {
 			change: 'Change',

@@ -1175,7 +1175,10 @@ test.describe('new proposal: transaction bytes', () => {
 			'true',
 		);
 		await expect(warning).toContainText(
-			content.transactionPreview.aliasCalls.replaceAll,
+			content.transactionPreview.aliasCalls.warning(
+				'Localnet',
+				true,
+			),
 		);
 		await proposeAndSign(page);
 		await expect(warning).toHaveAttribute(
@@ -1196,8 +1199,9 @@ test.describe('new proposal: transaction bytes', () => {
 			'false',
 		);
 		await expect(warning).toHaveText(
-			content.transactionPreview.aliasCalls.changesControl(
+			content.transactionPreview.aliasCalls.warning(
 				'Localnet',
+				false,
 			),
 		);
 	});

@@ -85,8 +85,9 @@ import { cn, safeDecode } from '@/lib/utils';
 
 const COPY = content.proposal.approvals;
 const SHARED = content.proposal.shared;
-const ACTIONS = content.common.actions;
-const STATES = content.common.states;
+const COMMON = content.common;
+const ACTIONS = COMMON.actions;
+const STATES = COMMON.states;
 const PROPOSER_DOCS =
 	'/security/proposer-confirmations#confirmed-proposals';
 
@@ -524,7 +525,7 @@ export function ApprovalsCard({
 						className="text-13 text-muted-foreground"
 						data-testid="approvals-several-signer-sets"
 					>
-						{content.common.severalSignerSets(
+						{COMMON.severalSignerSets(
 							signerSets.length,
 							networkLabel(network),
 						)}
@@ -536,9 +537,7 @@ export function ApprovalsCard({
 						<ApprovalRowList rows={mainSet.rows} />
 					</div>
 					<FoldedRow
-						label={content.common.moreSignerSets(
-							foldedSets.length,
-						)}
+						label={COMMON.moreSignerSets(foldedSets.length)}
 						line={foldedSignerSetsLine(signerSets, status)}
 						testId="approvals-other-signer-sets"
 					>

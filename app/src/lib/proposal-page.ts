@@ -31,6 +31,9 @@ import {
 	type SimulatedTransaction,
 } from './transaction-preview';
 
+const STATUS = content.proposal.approvals.status;
+const NOTES = content.proposal.approvals.notes;
+
 type PageProposal = Pick<
 	CountedProposal,
 	| 'status'
@@ -194,7 +197,6 @@ export function approvalsSignerSets(
 	publicKey: string | null | undefined,
 	pods: readonly ListedPod[],
 ): ApprovalsSignerSet[] {
-	const copy = content.proposal.approvals.status;
 	const open = status === 'pending' || status === 'ready';
 	return proposal.checkedSignerSets.map((set) => ({
 		address: set.address,
@@ -211,9 +213,9 @@ export function approvalsSignerSets(
 		line: !open
 			? null
 			: reachesThreshold(set)
-				? copy.reached
+				? STATUS.reached
 				: status === 'pending'
-					? copy.needs(set.threshold - set.currentWeight)
+					? STATUS.needs(set.threshold - set.currentWeight)
 					: null,
 		rows: approvalRows(
 			set,
@@ -230,17 +232,16 @@ export function foldedSignerSetsLine(
 	[main, ...folded]: readonly ApprovalsSignerSet[],
 	status: ProposalStatusKey,
 ): string | null {
-	const copy = content.proposal.approvals.status;
 	if (!main || (status !== 'pending' && status !== 'ready'))
 		return null;
-	if (folded.some(reachesThreshold)) return copy.reached;
+	if (folded.some(reachesThreshold)) return STATUS.reached;
 	if (status !== 'pending' || folded.length === 0)
 		return null;
 	const missing = (set: ApprovalsSignerSet) =>
 		set.threshold - set.currentWeight;
 	const closest = Math.min(...folded.map(missing));
 	return closest < missing(main)
-		? copy.needs(closest)
+		? STATUS.needs(closest)
 		: null;
 }
 
@@ -250,18 +251,17 @@ export function approvalsStatus(
 	executing: boolean,
 	simulation: SimulationVerdict,
 ) {
-	const copy = content.proposal.approvals.status;
 	if (
 		executing &&
 		(status === 'pending' || status === 'ready')
 	)
-		return copy.executing;
+		return STATUS.executing;
 	if (status === 'ready')
 		return simulation === 'failed'
-			? copy.reached
-			: copy.ready;
-	if (status === 'executed') return copy.executed;
-	if (status === 'failed') return copy.failed;
+			? STATUS.reached
+			: STATUS.ready;
+	if (status === 'executed') return STATUS.executed;
+	if (status === 'failed') return STATUS.failed;
 	return null;
 }
 
@@ -333,18 +333,17 @@ export function approvalsNote({
 	executing,
 	gas,
 }: ApprovalsNoteInput): string | null {
-	const copy = content.proposal.approvals.notes;
-	if (executing) return copy.executing;
+	if (executing) return NOTES.executing;
 	if (status === 'executed') return null;
-	if (status === 'failed') return copy.failed;
-	if (status === 'cancelled') return copy.cancelled;
-	if (viewer === 'outsider') return copy.outsider;
+	if (status === 'failed') return NOTES.failed;
+	if (status === 'cancelled') return NOTES.cancelled;
+	if (viewer === 'outsider') return NOTES.outsider;
 	if (viewer === 'elsewhere') return null;
-	if (status === 'expired') return copy.expired;
+	if (status === 'expired') return NOTES.expired;
 
 	if (status === 'ready') {
-		if (simulation === 'failed') return copy.readyFailing;
-		return gas ? copy.gasPaidAbout(gas) : copy.gasPaid;
+		if (simulation === 'failed') return NOTES.readyFailing;
+		return gas ? NOTES.gasPaidAbout(gas) : NOTES.gasPaid;
 	}
 
 	// Pending.
@@ -354,14 +353,14 @@ export function approvalsNote({
 	if (hasSigned(proposal, publicKey))
 		return waitingNote(proposal, labels, publicKey);
 	if (simulation === 'pending') return null;
-	if (simulation === 'failed') return copy.signingFailing;
-	if (simulation === 'unknown') return copy.notSimulated;
+	if (simulation === 'failed') return NOTES.signingFailing;
+	if (simulation === 'unknown') return NOTES.notSimulated;
 	if (wouldReachThreshold(proposal, publicKey))
 		return executeAfterSigning
-			? copy.reachesThresholdGas
-			: copy.reachesThreshold;
+			? NOTES.reachesThresholdGas
+			: NOTES.reachesThreshold;
 	const after = missing - yourWeight(shown, publicKey);
-	return after > 0 ? copy.needsAfterYours(after) : null;
+	return after > 0 ? NOTES.needsAfterYours(after) : null;
 }
 
 /** "Not enough gas." → "Not enough gas", so a sentence can follow. */
@@ -390,7 +389,6 @@ function waitingNote(
 	labels: Labels,
 	publicKey: string | null | undefined,
 ) {
-	const copy = content.proposal.approvals.notes.waiting;
 	const sets = proposal.checkedSignerSets.map((set) => ({
 		missing: set.threshold - set.currentWeight,
 		others: [...set.members]
@@ -416,15 +414,15 @@ function waitingNote(
 			),
 		];
 		if (keys.length > MAX_NAMED_SIGNERS)
-			return copy.anyOther;
+			return NOTES.waiting.anyOther;
 		const names = keys.map((key) =>
 			nameOf(addressOf(key), labels),
 		);
 		return names.length === 1
-			? copy.one(names[0])
-			: copy.anyOneOf(joinList(names, 'or'));
+			? NOTES.waiting.one(names[0])
+			: NOTES.waiting.anyOneOf(joinList(names, 'or'));
 	}
-	return copy.needs(
+	return NOTES.waiting.needs(
 		Math.min(...sets.map(({ missing }) => missing)),
 	);
 }
