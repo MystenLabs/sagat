@@ -10,7 +10,12 @@ import { ErrorBodySchema } from '@mysten/sagat/v1';
 import { routePath } from 'hono/route';
 import { type z } from 'zod';
 
-import { ResponseSchemaError } from '../errors';
+import { SUPPORTED_NETWORKS } from '../db/env';
+import {
+	ResponseSchemaError,
+	ValidationError,
+} from '../errors';
+import { type SuiNetwork } from '../utils/client';
 
 // `<path>: <message>` per issue, or just the message for an empty path.
 export const formatIssues = (issues: z.core.$ZodIssue[]) =>
@@ -83,3 +88,12 @@ export const json = <T extends z.ZodType>(
 
 export const error = (description: string) =>
 	json(description, ErrorBodySchema);
+
+// The shared check, in the `/v1` wording.
+export const validateNetwork = (network: string) => {
+	if (!SUPPORTED_NETWORKS.includes(network as SuiNetwork))
+		throw new ValidationError(
+			`Unsupported network: ${network}. Supported: ${SUPPORTED_NETWORKS.join(', ')}.`,
+		);
+	return network as SuiNetwork;
+};

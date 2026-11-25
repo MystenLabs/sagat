@@ -16,10 +16,7 @@ import {
 import { type MiddlewareHandler } from 'hono';
 import { z } from 'zod';
 
-import {
-	SUPPORTED_NETWORKS,
-	validateNetwork,
-} from '../db/env';
+import { SUPPORTED_NETWORKS } from '../db/env';
 import {
 	addAccountProposer,
 	answerAccountInvitation,
@@ -37,6 +34,7 @@ import {
 	defineRoute,
 	error,
 	json,
+	validateNetwork,
 	type V1App,
 } from './openapi';
 import {

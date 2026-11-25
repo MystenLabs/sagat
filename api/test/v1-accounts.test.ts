@@ -206,7 +206,7 @@ describe('GET /v1/accounts', () => {
 		).toEqual({
 			status: 400,
 			message:
-				'Unsupported network: testnet. Only localnet are supported.',
+				'Unsupported network: testnet. Supported: localnet.',
 		});
 	});
 
