@@ -148,6 +148,42 @@ const scopeOn = (
 		? ORIGINAL_SET
 		: actingSetsOn(network as SuiNetwork);
 
+const notAccepted = async (
+	signers: () => Promise<AccountSigners | undefined>,
+	keys: string[],
+) => notAcceptedSignerError(await signers(), keys);
+
+// The refusals that differ by scope; legacy keeps its texts.
+const REFUSALS = {
+	original: {
+		notAccepted: async () =>
+			new ApiAuthError('NotAMultisigMember'),
+		// Neither an accepted signer nor the proposal's own proposer.
+		notCanceller: async () =>
+			new ValidationError('Not a member of the multisig'),
+		// A proposer removed while their cancel waited for the lock.
+		lostProposer: () =>
+			new ValidationError('Not a member of the multisig'),
+		notSigner: () => new ApiAuthError('NotAMultisigMember'),
+		senderMismatch:
+			'The transaction sender does not match the multisig address.',
+		unreadableSignature: (error: unknown) => error,
+	},
+	acting: {
+		notAccepted,
+		notCanceller: notAccepted,
+		lostProposer: () =>
+			new ApiAuthError('NotAnAccountSigner'),
+		notSigner: () => new ApiAuthError('NotAnAccountSigner'),
+		senderMismatch:
+			'The transaction sender does not match the account.',
+		unreadableSignature: (error: unknown) =>
+			error instanceof CommonError
+				? new CommonError('InvalidTransactionSignature')
+				: error,
+	},
+} satisfies Record<SignerScopeKind, object>;
+
 // The account's signers under the scope, or `NotFoundError`.
 const getAccountSigners = async (
 	accountAddress: string,
@@ -473,12 +509,7 @@ const transactionSigner = (
 		assertCanonicalSignature(signature);
 		return getPublicKeyFromSerializedSignature(signature);
 	} catch (error) {
-		if (
-			scopeKind === 'acting' &&
-			error instanceof CommonError
-		)
-			throw new CommonError('InvalidTransactionSignature');
-		throw error;
+		throw REFUSALS[scopeKind].unreadableSignature(error);
 	}
 };
 
@@ -564,14 +595,13 @@ export const createProposal = async ({
 			pubKey.toSuiAddress(),
 		));
 
-	// Legacy answers one text for both.
 	const notMemberError = () =>
-		scopeKind === 'acting'
-			? notAcceptedSignerError(signers, [
-					pubKey.toSuiPublicKey(),
-				])
-			: new ApiAuthError('NotAMultisigMember');
-	if (!isMember && !isProposer) throw notMemberError();
+		REFUSALS[scopeKind].notAccepted(
+			async () => signers,
+			[pubKey.toSuiPublicKey()],
+		);
+	if (!isMember && !isProposer)
+		throw await notMemberError();
 
 	const proposedTransaction = Transaction.from(
 		transactionBytes,
@@ -588,9 +618,7 @@ export const createProposal = async ({
 		proposedTransaction.getData().sender !== multisigAddress
 	)
 		throw new ValidationError(
-			scopeKind === 'acting'
-				? 'The transaction sender does not match the account.'
-				: 'The transaction sender does not match the multisig address.',
+			REFUSALS[scopeKind].senderMismatch,
 		);
 
 	// A different gas owner would sign as sponsor with the member's signature.
@@ -639,7 +667,7 @@ export const createProposal = async ({
 				pubKey.toSuiAddress(),
 			))
 		)
-			throw notMemberError();
+			throw await notMemberError();
 
 		// Insert the proposal and the first sig!
 		const proposal = await tx
@@ -723,11 +751,7 @@ export const voteOnProposal = async ({
 		!signers ||
 		!signsFor(signers, [pubKey.toSuiPublicKey()], false)
 	)
-		throw new ApiAuthError(
-			scopeKind === 'acting'
-				? 'NotAnAccountSigner'
-				: 'NotAMultisigMember',
-		);
+		throw REFUSALS[scopeKind].notSigner();
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
@@ -816,15 +840,14 @@ export const cancelProposal = async ({
 		));
 
 	if (!isMember && !isOwnProposer)
-		throw scopeKind === 'acting'
-			? notAcceptedSignerError(
-					await resolveAccountSigners(
-						proposal.accountAddress,
-						actingSetsOn(proposal.network as SuiNetwork),
-					),
-					[pubKey.toSuiPublicKey()],
-				)
-			: new ValidationError('Not a member of the multisig');
+		throw await REFUSALS[scopeKind].notCanceller(
+			() =>
+				resolveAccountSigners(
+					proposal.accountAddress,
+					scopeOn(scopeKind, proposal.network),
+				),
+			[pubKey.toSuiPublicKey()],
+		);
 
 	await verifySignedMessage(
 		signature,
@@ -849,11 +872,7 @@ export const cancelProposal = async ({
 				signerAddress,
 			))
 		)
-			throw scopeKind === 'acting'
-				? new ApiAuthError('NotAnAccountSigner')
-				: new ValidationError(
-						'Not a member of the multisig',
-					);
+			throw REFUSALS[scopeKind].lostProposer();
 
 		// The first status check ran without the lock, so it may have moved. A
 		// proposer's cancel is guarded in the same statement, so a signature
@@ -986,15 +1005,10 @@ const listProposalPage = async ({
 			scope,
 		}))
 	)
-		throw scopeKind === 'acting'
-			? notAcceptedSignerError(
-					await resolveAccountSigners(
-						multisigAddress,
-						scope,
-					),
-					callerKeys.map((key) => key.toSuiPublicKey()),
-				)
-			: new ApiAuthError('NotAMultisigMember');
+		throw await REFUSALS[scopeKind].notAccepted(
+			() => resolveAccountSigners(multisigAddress, scope),
+			callerKeys.map((key) => key.toSuiPublicKey()),
+		);
 
 	return await getProposalsByAccountAddress(
 		multisigAddress,
