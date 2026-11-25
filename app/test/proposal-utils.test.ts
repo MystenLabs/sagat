@@ -1,13 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type Proposal } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Transaction } from '@mysten/sui/transactions';
 import { formatDigest, toBase64 } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
-import { signerSetAddress } from '../src/lib/proposal-integrity';
 import {
 	countSignerSets,
 	isExternalProposer,
@@ -25,6 +23,8 @@ import {
 	toProposalCardInput,
 	weightDots,
 } from '../src/lib/proposalUtils';
+import { v1Proposal } from './proposal';
+import { listedSet, signerSet } from './signer-set';
 import { transfer } from './transactions';
 
 const DIGEST =
@@ -218,30 +218,14 @@ describe('isExternalProposer', () => {
 	});
 
 	it('marks no member of a listed set as external while the alias read is pending, though no set is counted yet', () => {
-		const set = {
-			...multisig,
-			address: '0x2',
-			currentWeight: 0,
-		};
 		const counted = toProposalCardInput(
-			{
+			v1Proposal({
 				digest: DIGEST,
-				accountAddress: '0x1',
-				accountName: null,
-				network: 'localnet',
-				kind: 'transaction',
-				status: 'PENDING',
-				ready: false,
-				transactionBytes: '',
 				proposerAddress: signer.toSuiAddress(),
-				description: null,
-				createdAt: '2026-11-23T10:00:00.000Z',
-				signatures: [],
-				signerSets: [set],
-				events: { created: null, proposer: null },
-				executedVia: null,
-				signerSetsStale: false,
-			},
+				signerSets: [
+					listedSet({ ...multisig, address: '0x2' }),
+				],
+			}),
 			undefined,
 			null,
 		);
@@ -386,28 +370,14 @@ describe('countSignerSets', () => {
 
 	it('counts no signer set that is not an alias of the pod', () => {
 		const proposer = new Ed25519Keypair();
-		const setOf = (member: ReturnType<typeof key>) => {
-			const set = { threshold: 1, members: [member] };
-			return {
-				...set,
-				address: signerSetAddress(set) ?? '',
-				currentWeight: 0,
-			};
-		};
-		const current = setOf(key(1, 0));
-		const stranger = setOf(key(1, 0, proposer));
-		const proposal: Proposal = {
+		const current = listedSet(
+			signerSet([new Ed25519Keypair()]),
+		);
+		const stranger = listedSet(signerSet([proposer]));
+		const proposal = v1Proposal({
 			digest: DIGEST,
-			accountAddress: '0x1',
-			accountName: null,
-			network: 'localnet',
-			kind: 'transaction',
-			status: 'PENDING',
 			ready: true,
-			transactionBytes: '',
 			proposerAddress: proposer.toSuiAddress(),
-			description: null,
-			createdAt: '2026-11-23T10:00:00.000Z',
 			signatures: [
 				{
 					publicKey: stranger.members[0].publicKey,
@@ -415,10 +385,7 @@ describe('countSignerSets', () => {
 				},
 			],
 			signerSets: [current, stranger],
-			events: { created: null, proposer: null },
-			executedVia: null,
-			signerSetsStale: false,
-		};
+		});
 
 		const counted = toProposalCardInput(
 			proposal,

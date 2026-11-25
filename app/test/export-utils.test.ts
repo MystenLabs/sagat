@@ -14,6 +14,7 @@ import {
 	getProposalExportFilename,
 } from '../src/lib/exportUtils';
 import { type CountedProposal } from '../src/lib/proposalUtils';
+import { v1Proposal } from './proposal';
 
 const exportedAt = new Date('2026-04-28T06:30:00.000Z');
 
@@ -77,21 +78,17 @@ describe('export utils', () => {
 
 	test('associates proposal signatures with multisig member weights', () => {
 		const proposal: CountedProposal = {
-			digest: '0xdigest',
-			kind: 'transaction',
-			status: 'PENDING',
-			ready: true,
-			transactionBytes: 'transaction-bytes',
-			proposerAddress: '0xproposer',
-			description: 'Pay supplier',
-			createdAt: '2026-10-13T08:55:00.000Z',
-			network: 'testnet',
-			accountAddress: '0xmultisig',
-			accountName: 'Treasury',
-			signerSets: [],
-			events: { created: null, proposer: null },
-			executedVia: null,
-			signerSetsStale: false,
+			...v1Proposal({
+				digest: '0xdigest',
+				ready: true,
+				transactionBytes: 'transaction-bytes',
+				proposerAddress: '0xproposer',
+				description: 'Pay supplier',
+				createdAt: '2026-10-13T08:55:00.000Z',
+				network: 'testnet',
+				accountAddress: '0xmultisig',
+				accountName: 'Treasury',
+			}),
 			signatures: [
 				{
 					publicKey: 'member-b',

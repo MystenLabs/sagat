@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { toBase58, toBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
@@ -19,38 +18,13 @@ import {
 	type NodeFacts,
 	type ShownPod,
 } from '../src/lib/proposal-integrity';
+import { listedSet, signerSet } from './signer-set';
 import { digestOf, transfer } from './transactions';
 
 function oneOfTwoAccount() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
-	const threshold = 1;
-	const address = MultiSigPublicKey.fromPublicKeys({
-		threshold,
-		publicKeys: keys.map((key) => ({
-			publicKey: key.getPublicKey(),
-			weight: 1,
-		})),
-	}).toSuiAddress();
-	const multisig = {
-		address,
-		threshold,
-		members: keys.map((key, order) => ({
-			publicKey: key.getPublicKey().toSuiPublicKey(),
-			weight: 1,
-			order,
-		})),
-	};
-	return { keys, address, multisig };
-}
-
-/** A set as a proposal lists it; the app reads only its members and threshold. */
-function signerSet(
-	multisig: ReturnType<typeof oneOfTwoAccount>['multisig'],
-) {
-	return {
-		...multisig,
-		currentWeight: 0,
-	};
+	const multisig = signerSet(keys);
+	return { keys, address: multisig.address, multisig };
 }
 
 test('refuses a wallet that is not one of the signers', async () => {
@@ -68,7 +42,7 @@ test('refuses a wallet that is not one of the signers', async () => {
 				transactionBytes,
 				digest,
 				accountAddress: address,
-				signerSets: [signerSet(multisig)],
+				signerSets: [listedSet(multisig)],
 			},
 			{
 				pod: { address, signerSets: [listed(multisig)] },
@@ -91,7 +65,7 @@ test("refuses bytes that don't decode as a transaction", () => {
 				transactionBytes,
 				digest: toBase58(new Uint8Array(32)),
 				accountAddress: address,
-				signerSets: [signerSet(multisig)],
+				signerSets: [listedSet(multisig)],
 			},
 			{
 				pod: { address, signerSets: [listed(multisig)] },
@@ -208,16 +182,7 @@ function listed(
 	multisig: ReturnType<typeof oneOfTwoAccount>['multisig'],
 	acting = true,
 ) {
-	return {
-		kind: 'signer_set' as const,
-		...multisig,
-		members: multisig.members.map((m) => ({
-			...m,
-			answer: 'accepted' as const,
-			label: null,
-		})),
-		acting,
-	};
+	return { ...multisig, acting };
 }
 
 test('the original set acts when the node lists the pod’s own address, though the API says it does not act', () => {
@@ -384,7 +349,7 @@ test('under a pod, refuses a proposal named for another pod or whose original se
 				transactionBytes,
 				digest,
 				accountAddress,
-				signerSets: [signerSet(multisig)],
+				signerSets: [listedSet(multisig)],
 			},
 			{
 				pod: { address, signerSets },
@@ -422,7 +387,7 @@ test('without a pod, rule 1 runs on the listed set that makes up the proposal’
 				transactionBytes,
 				digest,
 				accountAddress: account.address,
-				signerSets: [signerSet(listed.multisig)],
+				signerSets: [listedSet(listed.multisig)],
 			},
 			{
 				pod: null,

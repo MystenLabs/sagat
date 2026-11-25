@@ -21,6 +21,8 @@ import {
 	countSignerSets,
 	type CountedProposal,
 } from '../src/lib/proposalUtils';
+import { v1Proposal } from './proposal';
+import { listedSet } from './signer-set';
 
 function signer(label: string, weight: number) {
 	const keypair = new Ed25519Keypair();
@@ -69,24 +71,14 @@ function proposal({
 	}));
 	const set = { threshold, members: members(SIGNERS) };
 	return {
-		accountAddress: '0x1',
-		accountName: 'Treasury',
-		digest: 'digest',
-		kind: 'transaction',
-		status: 'PENDING',
-		ready: false,
-		transactionBytes: '',
-		proposerAddress: proposer,
-		description: 'Fund payroll',
-		network: 'localnet',
-		createdAt: CREATED_AT,
-		signatures,
-		signerSets: [
-			{ ...set, address: '0x1', currentWeight: 0 },
-		],
-		events: { created: null, proposer: null },
-		executedVia: null,
-		signerSetsStale: false,
+		...v1Proposal({
+			accountName: 'Treasury',
+			proposerAddress: proposer,
+			description: 'Fund payroll',
+			createdAt: CREATED_AT,
+			signatures,
+			signerSets: [listedSet({ ...set, address: '0x1' })],
+		}),
 		checkedSignerSets: countSignerSets(
 			{ signatures, accountAddress: '0x1' },
 			[{ set, address: '0x1' }],

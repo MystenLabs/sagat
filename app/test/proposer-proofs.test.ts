@@ -14,6 +14,7 @@ import {
 	verifyProposers,
 	type ProposerProposal,
 } from '../src/lib/proposer-proofs';
+import { listedSet } from './signer-set';
 import { digestOf, transfer } from './transactions';
 
 /** The alias set of a pod that never changed its signers. */
@@ -175,20 +176,6 @@ test('signers of an account other than the one opened confirm no one', async () 
 	expect(proof?.status).toBe('unverified');
 });
 
-/** The account's set as a proposal lists it; the app reads only its members and threshold. */
-function proposalSignerSet(
-	account: Awaited<
-		ReturnType<typeof accountWithProposer>
-	>['account'],
-) {
-	return {
-		address: account.address,
-		threshold: account.threshold,
-		currentWeight: 0,
-		members: account.members,
-	};
-}
-
 /** A proposal from the account's external proposer, with both events. */
 async function externalProposal(): Promise<ProposerProposal> {
 	const { account, proposer, proposerKey } =
@@ -206,7 +193,7 @@ async function externalProposal(): Promise<ProposerProposal> {
 		transactionBytes,
 		proposerAddress: proposer,
 		accountAddress: account.address,
-		signerSets: [proposalSignerSet(account)],
+		signerSets: [listedSet(account)],
 		signatures: [],
 		events: {
 			created: {
@@ -304,7 +291,7 @@ test('a member proposer who signed the proposal is not flagged', async () => {
 				transactionBytes,
 				proposerAddress: keys[1].toSuiAddress(),
 				accountAddress: account.address,
-				signerSets: [proposalSignerSet(account)],
+				signerSets: [listedSet(account)],
 				signatures: [
 					{
 						publicKey: keys[1]
@@ -327,7 +314,7 @@ test('trusted members come from every signer set that is an alias, and none from
 
 	expect(
 		trustedMembers(
-			[current, recovery, stranger].map(proposalSignerSet),
+			[current, recovery, stranger].map(listedSet),
 			{
 				kind: 'read',
 				aliases: [current.address, recovery.address],

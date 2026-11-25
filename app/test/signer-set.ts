@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { SignerSet } from '@mysten/sagat/v1';
 import { type Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 
@@ -31,4 +32,13 @@ export function signerSet(
 			label: null,
 		})),
 	};
+}
+
+/** A set as a proposal lists it: its address, members and threshold, nothing counted. */
+export function listedSet({
+	address,
+	threshold,
+	members,
+}: Omit<SignerSet, 'currentWeight'>): SignerSet {
+	return { address, threshold, members, currentWeight: 0 };
 }
