@@ -69,8 +69,6 @@ import { insertProposal } from './setup/v1-proposals';
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
 
-const localEpoch = await currentEpoch();
-
 const STALE =
 	'The signers of this account changed since the signer change was built. Build it again from the current signers.';
 const NOT_STAYING = new ApiAuthError('NotASignerWhoStays')
@@ -350,7 +348,7 @@ describe('POST /v1/proposals with a signer change', () => {
 		});
 	});
 
-	test('a change that names another chain, or none, or has no expiration epoch by the end of the next one, is refused', async () => {
+	test('a change that names another chain, or none, or has no expiration epoch by the end of the one after next, is refused, and one that expires with it is not', async () => {
 		const cast = await createCast(session);
 		const { k1, A, S2 } = cast;
 		const bytes = await buildCastChange(cast, S2);
@@ -399,10 +397,8 @@ describe('POST /v1/proposals with a signer change', () => {
 			message:
 				'A signer change must name its chain in the transaction’s expiration.',
 		});
-		for (const maxEpoch of [
-			String(localEpoch + 100n),
-			null,
-		])
+		const epoch = await currentEpoch();
+		for (const maxEpoch of [String(epoch + 3n), null])
 			expect(
 				await refusal(
 					proposeChange(
@@ -419,6 +415,21 @@ describe('POST /v1/proposals with a signer change', () => {
 				message:
 					'A signer change must expire by the end of the next epoch. Build it again.',
 			});
+		expect(
+			(
+				await proposeChange(
+					session,
+					k1,
+					A,
+					await withExpiration({
+						ValidDuring: {
+							...ValidDuring!,
+							maxEpoch: String(epoch + 2n),
+						},
+					}),
+				)
+			).status,
+		).toBe('PENDING');
 	});
 
 	test('one proposal that calls the alias module at a time: a change waits for a pending enable, and a hand-written one for a pending change', async () => {
