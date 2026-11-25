@@ -1005,14 +1005,14 @@ const listProposalPage = async ({
 };
 
 // Lists an account's proposals on a network, for an accepted member.
-export const listProposals = async ({
-	scopeKind,
-	...input
-}: ListInput & {
-	scopeKind: SignerScopeKind;
-}): Promise<PaginatedResponse<ProposalWithSignatures>> => {
+export const listProposals = async (
+	input: ListInput,
+): Promise<PaginatedResponse<ProposalWithSignatures>> => {
 	validateNetwork(input.network);
-	return await listProposalPage({ ...input, scopeKind });
+	return await listProposalPage({
+		...input,
+		scopeKind: 'original',
+	});
 };
 
 const NO_EVENTS: ProposalEvents = {

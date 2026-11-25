@@ -128,7 +128,6 @@ proposalsRouter.get(
 			status,
 			cursor: newCursor({ nextCursor, perPage }),
 			callerKeys: c.get('publicKeys'),
-			scopeKind: 'original',
 		});
 
 		return c.json(toLegacyPaginatedProposals(proposals));
