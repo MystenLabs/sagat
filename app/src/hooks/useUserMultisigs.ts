@@ -2,13 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { type RemovedAccount } from '@mysten/sagat/v1';
-import { formatAddress } from '@mysten/sui/utils';
 import { useQuery } from '@tanstack/react-query';
 
 import { content } from '@/content';
+import { accountName } from '@/lib/account-name';
 import { CONFIG } from '@/lib/constants';
 import { formatShortDateTime } from '@/lib/dates';
 import { removalsSeenKey } from '@/lib/localStorageKeys';
+import {
+	networkLabel,
+	type SuiNetwork,
+} from '@/lib/network';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import {
@@ -76,7 +80,7 @@ export function useUserMultisigs() {
 function noticeRemovals(
 	removed: RemovedAccount[],
 	wallet: { address: string; publicKey: string },
-	network: string,
+	network: SuiNetwork,
 ) {
 	const key = removalsSeenKey(wallet.address, network);
 	try {
@@ -98,7 +102,8 @@ function noticeRemovals(
 			);
 			toast.info(
 				content.toasts.removedFromPod(
-					pod.name ?? formatAddress(pod.address),
+					accountName(pod),
+					networkLabel(network),
 					formatShortDateTime(pod.removedAt) ?? '',
 				),
 				{

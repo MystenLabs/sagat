@@ -1723,8 +1723,12 @@ export const content = {
 		signatureCopied: 'Signature copied',
 		signFailed: 'Failed to sign the transaction',
 		ledgerHashCopied: 'Ledger hash copied',
-		removedFromPod: (pod: string, when: string) =>
-			`You were removed from ${pod} by a signer change on ${when}.`,
+		removedFromPod: (
+			pod: string,
+			network: string,
+			when: string,
+		) =>
+			`You were removed from ${pod}’s signers on ${network} by a signer change on ${when}.`,
 	},
 	errors: {
 		noWalletConnected: 'No wallet connected',

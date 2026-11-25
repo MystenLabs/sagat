@@ -19,6 +19,7 @@ import { type Locator } from '@playwright/test';
 
 import { content } from '../../app/src/content';
 import { docsUrl } from '../../app/src/lib/docs';
+import { networkLabel } from '../../app/src/lib/network';
 import { randomAddress } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
@@ -1380,7 +1381,11 @@ test.describe('overview and signers', () => {
 			await carol.page.goto('/');
 			// Split at a placeholder for the date, which isn't rebuilt.
 			const [removal] = content.toasts
-				.removedFromPod('Treasury', '\0')
+				.removedFromPod(
+					'Treasury',
+					networkLabel('localnet'),
+					'\0',
+				)
 				.split('\0');
 			await expect(
 				carol.page
