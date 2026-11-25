@@ -114,6 +114,15 @@ describe('what blocks Review', () => {
 		});
 	});
 
+	test('Replace from Members on a 2-of-2 pod opens with no threshold error', () => {
+		const current = currentSet([1, 1], 2);
+		const { rows } = startRows(current, current.viewer, {
+			kind: 'replace',
+			publicKey: current.members[1].publicKey,
+		});
+		expect(check(current, rows).error).toBeNull();
+	});
+
 	test('the signers who stay and have accepted must meet the new threshold; a staying signer still invited doesn’t count', () => {
 		// Alice (weight 1) hasn't accepted; Priya is new.
 		const current = currentSet([1, 1, 1], 2, [2]);

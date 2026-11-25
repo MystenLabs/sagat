@@ -171,11 +171,13 @@ export function checkChange({
 		row.removed ? [rowName(row)] : [],
 	);
 
+	// Kept rows count with a key still being typed.
+	const keptWeight = sumWeight(kept);
 	let error: string | null = null;
-	if (threshold > totalWeight)
+	if (threshold > keptWeight)
 		error = COPY.unreachable(
 			threshold,
-			totalWeight,
+			keptWeight,
 			removed.length > 0 ? joinList(removed, 'or') : null,
 		);
 	else if (address) {
