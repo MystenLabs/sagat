@@ -21,6 +21,7 @@ import { eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
 import { SchemaProposals } from '../src/db/schema';
+import { ApiAuthError } from '../src/errors';
 import { voteOnProposal } from '../src/services/proposals.service';
 import {
 	ApiTestFramework,
@@ -324,6 +325,34 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			),
 		);
 		expect(after.hasReachedThreshold).toBe(true);
+	});
+
+	test('a single registered key as an alias is no signer set, and its signature is refused', async () => {
+		const { account, created } = await proposeFromA();
+		const key = newUser();
+		await register(key);
+		await setAliases(account.address, 'localnet', [
+			account.address,
+			key.address,
+		]);
+
+		const before = await client.getProposalByDigest(
+			created.digest,
+		);
+		expect(before.signerSets).toEqual([setOf(account, 1)]);
+		expect(before.hasReachedThreshold).toBe(false);
+
+		await expect(
+			signAsActing(key, created),
+		).rejects.toThrow(
+			new ApiAuthError('NotAMultisigMember'),
+		);
+
+		const after = await client.getProposalByDigest(
+			created.digest,
+		);
+		expect(after.signerSets).toEqual([setOf(account, 1)]);
+		expect(after.hasReachedThreshold).toBe(false);
 	});
 
 	test('an alias nobody can identify, a registered key’s own address included, is not a signer set', async () => {
