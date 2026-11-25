@@ -5,7 +5,7 @@ import type { Account, KeyAnswer } from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
-	checkAccountSigners,
+	checkPodSigners,
 	isMember,
 	originalSignerSet,
 	podActing,
@@ -85,16 +85,7 @@ export function toUserMultisig<A extends Account>(
 	account: A,
 	signer: Signer,
 ): A & MultisigWithMembersForPublicKey {
-	const signers = checkAccountSigners(
-		{
-			original: originalSignerSet(account),
-			shown: shownActingSets(account),
-		},
-		{
-			account: account.address,
-			signerAddress: signer.address,
-		},
-	);
+	const signers = checkPodSigners(account, signer.address);
 	const checks: PodChecks =
 		signers.kind === 'ok'
 			? { refused: null, acting: { state: 'checking' } }

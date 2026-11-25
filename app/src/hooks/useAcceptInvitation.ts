@@ -22,8 +22,7 @@ import { useNetwork } from '@/contexts/NetworkContext';
 import { readPodAliasSet } from '@/hooks/useAliasSets';
 import { type ArrivalState } from '@/hooks/useArrivalBanner';
 import {
-	checkAccountSigners,
-	originalSignerSet,
+	checkPodSigners,
 	podActing,
 	shownActingSets,
 } from '@/lib/proposal-integrity';
@@ -76,15 +75,9 @@ export function useAcceptInvitation() {
 			);
 
 			// Both signers checks pass, on an alias set read now, before the wallet opens.
-			const signers = checkAccountSigners(
-				{
-					original: originalSignerSet(multisig),
-					shown: shownActingSets(multisig),
-				},
-				{
-					account: multisigAddress,
-					signerAddress: currentAccount.address,
-				},
+			const signers = checkPodSigners(
+				multisig,
+				currentAccount.address,
 			);
 			if (signers.kind !== 'ok')
 				throw new SignersRefusedError(

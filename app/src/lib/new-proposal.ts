@@ -32,11 +32,7 @@ import {
 	stripHiddenCharacters,
 	textLength,
 } from './create-multisig';
-import {
-	checkAccountSigners,
-	originalSignerSet,
-	shownActingSets,
-} from './proposal-integrity';
+import { checkPodSigners } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 import { namedChain } from './transaction-preview';
 
@@ -405,16 +401,7 @@ export function checkNewProposal(
 	bytes: string,
 	walletAddress: string,
 ): 'signers' | 'notSigner' | 'bytes' | null {
-	const signers = checkAccountSigners(
-		{
-			original: originalSignerSet(multisig),
-			shown: shownActingSets(multisig),
-		},
-		{
-			account: multisig.address,
-			signerAddress: walletAddress,
-		},
-	);
+	const signers = checkPodSigners(multisig, walletAddress);
 	if (signers.kind !== 'ok') return signers.kind;
 	if (checkBytes(bytes, multisig.address).kind !== 'ok')
 		return 'bytes';

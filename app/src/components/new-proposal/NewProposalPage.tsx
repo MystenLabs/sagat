@@ -37,11 +37,7 @@ import {
 	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
-import {
-	checkAccountSigners,
-	originalSignerSet,
-	shownActingSets,
-} from '@/lib/proposal-integrity';
+import { checkPodSigners } from '@/lib/proposal-integrity';
 import {
 	proposalPagePath,
 	proposalsPath,
@@ -130,16 +126,7 @@ function NewProposalWizard({
 	const { data: details } = useGetMultisig(listed.address);
 	const multisig = withListedChecks(listed, details);
 	const signers = wallet
-		? checkAccountSigners(
-				{
-					original: originalSignerSet(multisig),
-					shown: shownActingSets(multisig),
-				},
-				{
-					account: multisig.address,
-					signerAddress: wallet.address,
-				},
-			)
+		? checkPodSigners(multisig, wallet.address)
 		: null;
 	// Rule 1 on the fresher copy; rule 2 from the list's row.
 	const refused =

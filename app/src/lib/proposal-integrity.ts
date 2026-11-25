@@ -246,6 +246,20 @@ export function originalSignerSet(
 	);
 }
 
+/** Rule 1 for a `/v1` pod: its original set against its own address. */
+export function checkPodSigners(
+	pod: ShownPod,
+	signerAddress: string,
+) {
+	return checkAccountSigners(
+		{
+			original: originalSignerSet(pod),
+			shown: shownActingSets(pod),
+		},
+		{ account: pod.address, signerAddress },
+	);
+}
+
 /** Rule 2 for a pod on one network; `checking` until its alias set is read. */
 export interface PodActing<
 	S extends AccountSigners = AccountSigners,
