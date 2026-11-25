@@ -20,9 +20,14 @@ import { type Locator } from '@playwright/test';
 import { content } from '../../app/src/content';
 import { docsUrl } from '../../app/src/lib/docs';
 import { networkLabel } from '../../app/src/lib/network';
-import { randomAddress } from '../support/chain';
+import type { Actor } from '../support/actor';
+import {
+	randomAddress,
+	type Chain,
+} from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
+import type { Identity } from '../support/identity';
 import {
 	executeProposal,
 	expectOnProposal,
@@ -1130,49 +1135,15 @@ test.describe('overview and signers', () => {
 		const bob = createIdentity('bob');
 		const carol = createIdentity('carol');
 		const dave = createIdentity('dave');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob, carol],
-			threshold: 2,
-		});
-		await chain.fund(multisig.address);
-		await enableAliases(chain, {
-			members: [alice, bob, carol].map((identity) => ({
-				identity,
-			})),
-			threshold: 2,
-			signers: [alice, bob],
-		});
-		await alice.signIn();
+		const {
+			multisig,
+			change: { digest },
+		} = await replaceFromMembers(
+			{ alice, bob, carol, chain },
+			dave.publicKey,
+			{ label: 'Dave' },
+		);
 		const { page } = alice;
-		await page.goto(
-			`/multisig/${multisig.address}/signers`,
-		);
-
-		await page
-			.locator(
-				`[data-testid="member-item"][data-address="${carol.address}"]`,
-			)
-			.getByTestId('signer-menu')
-			.click();
-		await page.getByTestId('signer-menu-replace').click();
-		await page
-			.getByTestId('create-signer-key')
-			.nth(2)
-			.fill(dave.publicKey);
-		await page
-			.getByTestId('create-signer-label')
-			.nth(2)
-			.fill('Dave');
-		await page.getByTestId('change-review').click();
-
-		const created = page.waitForResponse((response) =>
-			isCreateRequest(response.request()),
-		);
-		await page.getByTestId('review-submit').click();
-		const { digest } = (await (
-			await created
-		).json()) as Proposal;
 		await expect(alice.proposalPage(digest)).toBeVisible();
 		const changes = page.getByTestId(
 			'signer-change-changes',
@@ -1302,20 +1273,11 @@ test.describe('overview and signers', () => {
 		const bob = createIdentity('bob');
 		const carol = await createActor('carol');
 		const dave = await createActor('dave');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob, carol],
-			threshold: 2,
-			name: 'Treasury',
-		});
-		await chain.fund(multisig.address);
-		await enableAliases(chain, {
-			members: [alice, bob, carol].map((identity) => ({
-				identity,
-			})),
-			threshold: 2,
-			signers: [alice, bob],
-		});
+		const { multisig, change } = await replaceFromMembers(
+			{ alice, bob, carol, chain },
+			dave.publicKey,
+			{ name: 'Treasury' },
+		);
 		const newSet = multisigAddressOf(
 			[alice, bob, dave].map((identity) => ({ identity })),
 			2,
@@ -1323,28 +1285,7 @@ test.describe('overview and signers', () => {
 		const members = `/multisig/${multisig.address}/signers`;
 
 		await test.step('Alice and Bob replace Carol with Dave, and Dave accepts', async () => {
-			await alice.signIn();
 			const { page } = alice;
-			await page.goto(members);
-			await page
-				.locator(
-					`[data-testid="member-item"][data-address="${carol.address}"]`,
-				)
-				.getByTestId('signer-menu')
-				.click();
-			await page.getByTestId('signer-menu-replace').click();
-			await page
-				.getByTestId('create-signer-key')
-				.nth(2)
-				.fill(dave.publicKey);
-			await page.getByTestId('change-review').click();
-			const created = page.waitForResponse((response) =>
-				isCreateRequest(response.request()),
-			);
-			await page.getByTestId('review-submit').click();
-			const change = (await (
-				await created
-			).json()) as Proposal;
 			const changePath = `/multisig/${multisig.address}/proposals/${change.digest}`;
 			await carol.signIn();
 			await carol.page.goto(changePath);
@@ -1486,3 +1427,61 @@ test.describe('overview and signers', () => {
 		).toBeVisible();
 	});
 });
+
+// On a 2-of-3 pod with Bob and Carol, Alice proposes replacing Carol with `key` from Members.
+async function replaceFromMembers(
+	{
+		alice,
+		bob,
+		carol,
+		chain,
+	}: {
+		alice: Actor;
+		bob: Identity;
+		carol: Identity;
+		chain: Chain;
+	},
+	key: string,
+	{ label, name }: { label?: string; name?: string } = {},
+) {
+	const multisig = await setupMultisig({
+		creator: alice,
+		members: [bob, carol],
+		threshold: 2,
+		name,
+	});
+	await chain.fund(multisig.address);
+	await enableAliases(chain, {
+		members: [alice, bob, carol].map((identity) => ({
+			identity,
+		})),
+		threshold: 2,
+		signers: [alice, bob],
+	});
+	await alice.signIn();
+	const { page } = alice;
+	await page.goto(`/multisig/${multisig.address}/signers`);
+	await page
+		.locator(
+			`[data-testid="member-item"][data-address="${carol.address}"]`,
+		)
+		.getByTestId('signer-menu')
+		.click();
+	await page.getByTestId('signer-menu-replace').click();
+	await page
+		.getByTestId('create-signer-key')
+		.nth(2)
+		.fill(key);
+	if (label)
+		await page
+			.getByTestId('create-signer-label')
+			.nth(2)
+			.fill(label);
+	await page.getByTestId('change-review').click();
+	const created = page.waitForResponse((response) =>
+		isCreateRequest(response.request()),
+	);
+	await page.getByTestId('review-submit').click();
+	const change = (await (await created).json()) as Proposal;
+	return { multisig, change };
+}
