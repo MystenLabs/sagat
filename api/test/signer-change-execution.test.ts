@@ -89,7 +89,9 @@ const executeAndVerify = async (
 	return session.v1.verifyProposalByDigest(proposal.digest);
 };
 
-const NOT_A_MEMBER = new ApiAuthError('NotAMultisigMember')
+const NOT_ACCEPTED = new ApiAuthError('AccountNotAccepted')
+	.message;
+const NOT_A_SIGNER = new ApiAuthError('NotAnAccountSigner')
 	.message;
 
 describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
@@ -203,19 +205,13 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 				].map(refusal),
 			),
 		).toEqual([
-			{
-				status: 403,
-				message: new ApiAuthError('AccessDenied').message,
-			},
-			{ status: 403, message: NOT_A_MEMBER },
-			{ status: 403, message: NOT_A_MEMBER },
-			{ status: 403, message: NOT_A_MEMBER },
-			{
-				status: 400,
-				message: 'Not a member of the multisig',
-			},
-			{ status: 403, message: NOT_A_MEMBER },
-			{ status: 403, message: NOT_A_MEMBER },
+			{ status: 403, message: NOT_A_SIGNER },
+			{ status: 403, message: NOT_A_SIGNER },
+			{ status: 403, message: NOT_A_SIGNER },
+			{ status: 403, message: NOT_A_SIGNER },
+			{ status: 403, message: NOT_A_SIGNER },
+			{ status: 403, message: NOT_A_SIGNER },
+			{ status: 403, message: NOT_A_SIGNER },
 		]);
 	});
 
@@ -253,11 +249,11 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		expect(await listedFor(k4)).toEqual([]);
 		expect(await refusal(listProposals())).toEqual({
 			status: 403,
-			message: NOT_A_MEMBER,
+			message: NOT_ACCEPTED,
 		});
 		expect(await refusal(propose())).toEqual({
 			status: 403,
-			message: NOT_A_MEMBER,
+			message: NOT_ACCEPTED,
 		});
 
 		await answer(framework, k4, A, 'accept');
@@ -331,7 +327,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			),
 		).toEqual({
 			status: 403,
-			message: new ApiAuthError('AccessDenied').message,
+			message: NOT_A_SIGNER,
 		});
 	});
 

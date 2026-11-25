@@ -72,7 +72,7 @@ const STALE =
 	'The signers of this account changed since the signer change was built. Build it again from the current signers.';
 const NOT_STAYING = new ApiAuthError('NotASignerWhoStays')
 	.message;
-const NOT_A_MEMBER = new ApiAuthError('NotAMultisigMember')
+const NOT_ACCEPTED = new ApiAuthError('AccountNotAccepted')
 	.message;
 const pendingAliasProposal = (digest: string) =>
 	`Another proposal that changes who controls this account on localnet is pending (${digest}). Execute or cancel it first.`;
@@ -255,7 +255,7 @@ describe('POST /v1/proposals with a signer change', () => {
 		).toEqual({ status: 403, message: NOT_STAYING });
 		expect(await propose(k3, S3)).toEqual({
 			status: 403,
-			message: NOT_A_MEMBER,
+			message: NOT_ACCEPTED,
 		});
 		// `k3` stays but has not accepted, so `k1` and `k2` weigh 2 of 3.
 		expect(await propose(k1, S3)).toEqual({
