@@ -418,7 +418,7 @@ test.describe('proposal integrity', () => {
 			({ proposal }) => ({
 				...proposal,
 				events: {
-					created: proposal.events.created,
+					...proposal.events,
 					proposer: null,
 				},
 			}),
