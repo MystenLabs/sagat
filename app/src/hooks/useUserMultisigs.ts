@@ -6,10 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { content } from '@/content';
 import { CONFIG } from '@/lib/constants';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import {
-	keyAnswer,
-	toUserMultisig,
-} from '@/lib/user-multisig';
+import { rowsAnswered } from '@/lib/user-multisig';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -39,15 +36,11 @@ export function useUserMultisigs() {
 			// Every key of the session's pods; this key's are the ones it accepted.
 			const { accounts } =
 				await apiV1Client.getAccounts(network);
-			return accounts
-				.filter(
-					(account) =>
-						keyAnswer(account, currentAddress.publicKey) ===
-						'accepted',
-				)
-				.map((account) =>
-					toUserMultisig(account, currentAddress),
-				);
+			return rowsAnswered(
+				accounts,
+				currentAddress,
+				'accepted',
+			);
 		},
 		enabled: isCurrentAddressAuthenticated,
 		staleTime: 1000 * 30, // 30 seconds

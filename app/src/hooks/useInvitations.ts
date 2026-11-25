@@ -6,10 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { content } from '@/content';
 import { CONFIG } from '@/lib/constants';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import {
-	keyAnswer,
-	toUserMultisig,
-} from '@/lib/user-multisig';
+import { rowsAnswered } from '@/lib/user-multisig';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -50,16 +47,11 @@ export function useInvitations(
 				await apiV1Client.getInvitations(network, {
 					showRejected,
 				});
-			const answer = showRejected ? 'rejected' : 'invited';
-			return invitations
-				.filter(
-					(account) =>
-						keyAnswer(account, currentAddress.publicKey) ===
-						answer,
-				)
-				.map((account) =>
-					toUserMultisig(account, currentAddress),
-				);
+			return rowsAnswered(
+				invitations,
+				currentAddress,
+				showRejected ? 'rejected' : 'invited',
+			);
 		},
 		enabled:
 			enabled &&

@@ -100,6 +100,20 @@ export function toUserMultisig<A extends Account>(
 	};
 }
 
+/** The rows of the accounts where the signed-in key's answer is `answer`. */
+export function rowsAnswered<A extends Account>(
+	accounts: readonly A[],
+	signer: Signer,
+	answer: KeyAnswer,
+) {
+	return accounts
+		.filter(
+			(account) =>
+				keyAnswer(account, signer.publicKey) === answer,
+		)
+		.map((account) => toUserMultisig(account, signer));
+}
+
 /** The row with rule 2 from its alias read; a rule 1 refusal stands whatever the node says. */
 export function withActing(
 	row: MultisigWithMembersForPublicKey,
