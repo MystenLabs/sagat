@@ -142,7 +142,7 @@ const addresses = (accounts: { address: string }[]) =>
 	accounts.map((account) => account.address);
 
 describe('GET /v1/accounts', () => {
-	test('lists an accepted account with its original set, acting sets, answers and labels, and leaves out an invitation', async () => {
+	test('lists an accepted account with its original set, acting sets, answers and labels, leaves out an invitation, and refuses an unsupported network', async () => {
 		const [k1, k2, k3] = [newUser(), newUser(), newUser()];
 		const { session, client } = await signIn(k1);
 		const account = await session.createMultisig(
@@ -400,7 +400,7 @@ describe('GET /v1/accounts', () => {
 });
 
 describe('POST /v1/accounts/:address/accept and /reject', () => {
-	test('write account rows that verify, and an answer of the original set is visible to the legacy routes', async () => {
+	test('write account rows that verify, answer a repeated reject as the first and refuse a reject after an accept, and an answer of the original set is visible to the legacy routes', async () => {
 		const [k1, k2, k3] = [newUser(), newUser(), newUser()];
 		const { session } = await signIn(k1);
 		const account = (
@@ -711,7 +711,7 @@ describe('GET /v1/accounts/:address', () => {
 });
 
 describe('POST and DELETE /v1/accounts/:address/proposers', () => {
-	test('add and remove a proposer', async () => {
+	test('add and remove a proposer, and refuse an address that is no account', async () => {
 		const { session, users, multisig } =
 			await framework.createVerifiedMultisig(2, 2);
 		const proposer = newUser().address;
