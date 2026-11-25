@@ -327,9 +327,12 @@ function keyStatus(
 	const scheme = publicKeyScheme(key);
 	return {
 		kind: 'error',
-		message: scheme
-			? content.errors.unsupportedKeyAsMember(scheme)
-			: COPY.invalidKey,
+		message:
+			scheme === 'MultiSig'
+				? content.errors.multisigAsMember
+				: scheme
+					? content.errors.unsupportedKeyAsMember(scheme)
+					: COPY.invalidKey,
 	};
 }
 

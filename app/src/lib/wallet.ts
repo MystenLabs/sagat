@@ -97,10 +97,20 @@ export function publicKeyScheme(
 	address?: string,
 ): SignatureScheme | undefined {
 	try {
+		const parsed = publicKeyFromSuiBytes(publicKey, {
+			address,
+		});
+		// Without an address, some non-Sui bytes misparse; keep only exact round-trips.
+		if (
+			!address &&
+			parsed.toSuiPublicKey() !==
+				(typeof publicKey === 'string'
+					? publicKey
+					: toBase64(publicKey))
+		)
+			return undefined;
 		return SIGNATURE_FLAG_TO_SCHEME[
-			publicKeyFromSuiBytes(publicKey, {
-				address,
-			}).flag() as SignatureFlag
+			parsed.flag() as SignatureFlag
 		];
 	} catch {
 		return undefined;

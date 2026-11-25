@@ -13,7 +13,7 @@ import { describe, expect, test } from 'vitest';
 import { unsupportedAccountScheme } from '../src/lib/wallet';
 
 describe('unsupportedAccountScheme', () => {
-	test('refuses a flagged key that matches its address', () => {
+	test('refuses a zkLogin key that matches its address', () => {
 		const key = toZkLoginPublicIdentifier(
 			123n,
 			'https://accounts.google.com',

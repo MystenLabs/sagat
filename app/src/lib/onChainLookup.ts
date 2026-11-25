@@ -55,7 +55,7 @@ export class SignerAddressError extends Error {
 	}
 }
 
-export class MultisigAddressError extends SignerAddressError {
+class MultisigAddressError extends SignerAddressError {
 	constructor(network: NetworkName) {
 		super(network, content.errors.multisigAsMember);
 	}

@@ -4,7 +4,7 @@
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { PasskeyPublicKey } from '@mysten/sui/keypairs/passkey';
 import { Secp256r1Keypair } from '@mysten/sui/keypairs/secp256r1';
-import { formatAddress } from '@mysten/sui/utils';
+import { formatAddress, toBase64 } from '@mysten/sui/utils';
 import { toZkLoginPublicIdentifier } from '@mysten/sui/zklogin';
 import { describe, expect, test } from 'vitest';
 
@@ -408,6 +408,23 @@ describe('signer checks', () => {
 			kind: 'error',
 			message:
 				content.errors.unsupportedKeyAsMember('Passkey'),
+		});
+	});
+
+	test('a flagless key that reads as zkLogin says the key is invalid', () => {
+		const bytes = new Uint8Array(32).fill(7);
+		bytes[0] = 5;
+		const check = checkSigners({
+			signers: [
+				signer('1', { isCreator: true }),
+				signer('2', { key: toBase64(bytes) }),
+			],
+			threshold: 1,
+			lookups: {},
+		});
+		expect(check.signers[1].status).toEqual({
+			kind: 'error',
+			message: content.createMultisig.invalidKey,
 		});
 	});
 
