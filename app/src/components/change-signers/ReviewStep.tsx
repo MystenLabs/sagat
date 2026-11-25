@@ -43,6 +43,7 @@ import { sumWeight } from '@/lib/threshold';
 
 const COPY = content.changeSigners;
 const FIELDS = content.common.fields;
+const CREATE = content.createMultisig;
 
 const LIST_CHIPS: Partial<Record<ChangeKind, RowChip>> = {
 	add: 'new',
@@ -162,7 +163,7 @@ export function ReviewStep({
 
 			<dl className="flex flex-wrap gap-x-6 gap-y-3 rounded-lg bg-muted p-4">
 				<Stat
-					label={content.createMultisig.fields.name}
+					label={CREATE.fields.name}
 					className="mr-auto"
 				>
 					{name}
@@ -190,7 +191,7 @@ export function ReviewStep({
 						data-testid="change-review-edit"
 					>
 						<Pen className="size-3" />
-						{content.createMultisig.reviewStep.edit}
+						{CREATE.reviewStep.edit}
 					</Button>
 				</div>
 				<ReviewSigners

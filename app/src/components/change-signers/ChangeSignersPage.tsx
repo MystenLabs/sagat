@@ -72,6 +72,7 @@ import { ChangesStep } from './ChangesStep';
 import { ReviewStep } from './ReviewStep';
 
 const COPY = content.changeSigners;
+const NEW_PROPOSAL = content.newProposal;
 
 /** Change signers: its own page, like New proposal; back to Members unless the pod can take a change now. */
 export function ChangeSignersPage() {
@@ -275,7 +276,7 @@ function ChangeSignersWizard({
 			next = {
 				error: errorMessage(
 					error,
-					content.newProposal.createFailed,
+					NEW_PROPOSAL.createFailed,
 				),
 			};
 		}
@@ -352,9 +353,7 @@ function ChangeSignersWizard({
 				},
 				onError: (error) => {
 					if (error instanceof SignatureDeclinedError)
-						toast.error(
-							content.newProposal.signatureDeclined,
-						);
+						toast.error(NEW_PROPOSAL.signatureDeclined);
 				},
 				onSettled: () => {
 					submitting.current = false;
