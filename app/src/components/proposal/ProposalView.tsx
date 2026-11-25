@@ -6,13 +6,14 @@ import {
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, Link2 } from 'lucide-react';
+import { Download, Info, Link2, Mail } from 'lucide-react';
 import {
 	useEffect,
 	useMemo,
 	type ReactElement,
 } from 'react';
 
+import { ChangeList } from '@/components/change-signers/ReviewStep';
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { SignerName } from '@/components/multisig/SignerName';
 import { analyzerTab } from '@/components/preview-effects/IntentSummary';
@@ -46,6 +47,8 @@ import { refusedAsExpired } from '@/hooks/useDryRun';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { useExpiry } from '@/hooks/useExpiry';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
+import { type Difference } from '@/lib/change-signers';
+import { joinList } from '@/lib/create-multisig';
 import { formatDateTime } from '@/lib/dates';
 import {
 	buildProposalExport,
@@ -59,6 +62,7 @@ import {
 	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
+	checkedChange,
 	proposalPageStatus,
 	withReason,
 	type Labels,
@@ -142,6 +146,18 @@ export function ProposalView({
 	const onChain =
 		status === 'executed' || status === 'failed';
 	const open = status === 'pending' || status === 'ready';
+	// Only what the bytes do, checked against the node's alias set.
+	const changes = useMemo(
+		() =>
+			open
+				? checkedChange(
+						proposal.transactionBytes,
+						aliases,
+						labels,
+					)?.list
+				: null,
+		[open, aliases, proposal.transactionBytes, labels],
+	);
 
 	// The connected wallet is in one of the proposal's signer sets, which
 	// Sign then checks. Signing needs only the wallet; the network has to
@@ -406,7 +422,7 @@ export function ProposalView({
 					)}
 				</div>
 			)}
-			{open && (
+			{open && !changes && (
 				<AliasCallsWarning
 					bytes={proposal.transactionBytes}
 					network={proposal.network as SuiNetwork}
@@ -415,21 +431,24 @@ export function ProposalView({
 			)}
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-				{onChain ? (
-					<OnChainCard
-						proposal={proposal}
-						status={status}
-						result={chainResult}
-						error={chain.error?.message ?? null}
-					/>
-				) : (
-					<section
-						className={cardClass}
-						aria-label={content.common.transactionPreview}
-					>
-						{previewBlock}
-					</section>
-				)}
+				<div className="flex min-w-0 flex-col gap-4">
+					{changes && <ChangesCard list={changes} />}
+					{onChain ? (
+						<OnChainCard
+							proposal={proposal}
+							status={status}
+							result={chainResult}
+							error={chain.error?.message ?? null}
+						/>
+					) : (
+						<section
+							className={cardClass}
+							aria-label={content.common.transactionPreview}
+						>
+							{previewBlock}
+						</section>
+					)}
+				</div>
 				<div className="flex min-w-0 flex-col gap-4">
 					<ApprovalsCard
 						proposal={proposal}
@@ -454,6 +473,37 @@ export function ProposalView({
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function ChangesCard({ list }: { list: Difference[] }) {
+	const COPY = content.changeSigners.review;
+	const added = list.flatMap((item) =>
+		item.kind === 'add' && item.name ? [item.name] : [],
+	);
+	return (
+		<section
+			className={cardClass}
+			data-testid="signer-change-changes"
+		>
+			<h3 className="text-15 font-medium">
+				{COPY.changes}
+			</h3>
+			<ChangeList list={list} />
+			{added.length > 0 && (
+				<p className="flex items-start gap-1.5 text-12">
+					<Mail className="mt-0.5 size-3 shrink-0" />
+					{COPY.invitation(
+						joinList(added, 'and'),
+						added.length,
+					)}
+				</p>
+			)}
+			<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
+				<Info className="mt-0.5 size-3 shrink-0" />
+				{COPY.onceExecutes}
+			</p>
+		</section>
 	);
 }
 

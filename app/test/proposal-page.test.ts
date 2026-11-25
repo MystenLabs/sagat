@@ -1,23 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	buildSignerChange,
-	deriveAliasesObjectId,
-	type Composition,
-} from '@mysten/sagat';
+import { type Composition } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import {
-	Inputs,
-	Transaction,
-} from '@mysten/sui/transactions';
-import {
-	formatAddress,
-	normalizeSuiAddress,
-	toBase58,
-	toBase64,
-} from '@mysten/sui/utils';
+import { formatAddress } from '@mysten/sui/utils';
 import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 import { describe, expect, it } from 'vitest';
 
@@ -40,6 +27,7 @@ import {
 } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
 import { listedSet } from './signer-set';
+import { signerChange } from './transactions';
 
 function signer(label: string, weight: number) {
 	const keypair = new Ed25519Keypair();
@@ -265,36 +253,8 @@ describe('signerChangeWarning', () => {
 		})),
 	}).toSuiAddress();
 	// The bytes of a change from the pod's set to `newSet`.
-	async function changeTo(newSet: Composition) {
-		const tx = new Transaction();
-		tx.setSender(pod);
-		tx.setGasPrice(1000);
-		tx.setGasBudget(10_000_000);
-		tx.setGasPayment([
-			{
-				objectId: normalizeSuiAddress('0x99'),
-				version: '1',
-				digest: toBase58(new Uint8Array(32).fill(1)),
-			},
-		]);
-		tx.object(
-			Inputs.SharedObjectRef({
-				objectId: deriveAliasesObjectId(pod),
-				initialSharedVersion: 1,
-				mutable: true,
-			}),
-		);
-		buildSignerChange(tx, {
-			account: pod,
-			aliases: [pod],
-			oldSet: pod,
-			newSet,
-			known: [oldSet],
-			chain: toBase58(new Uint8Array(32).fill(7)),
-			epoch: 5,
-		});
-		return toBase64(await tx.build());
-	}
+	const changeTo = async (newSet: Composition) =>
+		(await signerChange(oldSet, newSet)).bytes;
 	const warning = (
 		transactionBytes: string,
 		signedBy: (typeof maya)[],

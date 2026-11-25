@@ -17,7 +17,10 @@ import {
 	type SuiNetwork,
 } from '@/lib/network';
 import { signerSetRemoved } from '@/lib/proposal-integrity';
-import { type CountedSignerSet } from '@/lib/proposalUtils';
+import {
+	aliasCallsIn,
+	type CountedSignerSet,
+} from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
@@ -168,6 +171,22 @@ export function useExecuteProposal() {
 			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisig],
 			});
+			// Members shows loading, not the facts the change made stale.
+			if (
+				aliasCallsIn(variables.proposal.transactionBytes)
+					.length > 0
+			) {
+				void queryClient.resetQueries({
+					queryKey: [QueryKeys.Multisig, accountAddress],
+				});
+				for (const key of [
+					QueryKeys.Multisigs,
+					QueryKeys.AliasSets,
+				])
+					void queryClient.invalidateQueries({
+						queryKey: [key],
+					});
+			}
 			const digest = data.executionResult.digest;
 			const explorerUrl = getExplorerUrl(
 				digest,

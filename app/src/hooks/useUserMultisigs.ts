@@ -1,15 +1,21 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type RemovedAccount } from '@mysten/sagat/v1';
+import { formatAddress } from '@mysten/sui/utils';
 import { useQuery } from '@tanstack/react-query';
 
 import { content } from '@/content';
 import { CONFIG } from '@/lib/constants';
+import { formatShortDateTime } from '@/lib/dates';
+import { removalsSeenKey } from '@/lib/localStorageKeys';
+import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import {
 	noLongerSignerOf,
 	rowsAnswered,
 } from '@/lib/user-multisig';
+import { getExplorerUrl } from '@/lib/utils';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -39,6 +45,7 @@ export function useUserMultisigs() {
 
 			// Every key of the session's pods; this key's are the ones it accepted.
 			const list = await apiV1Client.getAccounts(network);
+			noticeRemovals(list.removed, currentAddress, network);
 			return {
 				rows: rowsAnswered(
 					list.accounts,
@@ -62,4 +69,50 @@ export function useUserMultisigs() {
 		/** Pods this key was a signer of and no longer is. */
 		noLongerSigner: query.data?.noLongerSigner,
 	};
+}
+
+/** A notice, once per wallet and network, for each pod a signer change removed the wallet from. */
+function noticeRemovals(
+	removed: RemovedAccount[],
+	wallet: { address: string; publicKey: string },
+	network: string,
+) {
+	const key = removalsSeenKey(wallet.address, network);
+	try {
+		const seen = Number(localStorage.getItem(key) ?? -1);
+		const fresh = removed.filter(
+			(pod) =>
+				pod.publicKey === wallet.publicKey &&
+				pod.transactionDigest &&
+				pod.eventId > seen,
+		);
+		if (fresh.length === 0) return;
+		localStorage.setItem(
+			key,
+			String(Math.max(...fresh.map((pod) => pod.eventId))),
+		);
+		for (const pod of fresh) {
+			const href = getExplorerUrl(
+				pod.transactionDigest!,
+				network,
+			);
+			toast.info(
+				content.toasts.removedFromPod(
+					pod.name ?? formatAddress(pod.address),
+					formatShortDateTime(pod.removedAt) ?? '',
+				),
+				{
+					link: href
+						? {
+								label:
+									content.common.actions.viewOnExplorer,
+								href,
+							}
+						: undefined,
+				},
+			);
+		}
+	} catch {
+		// Without storage, no notice rather than one on every read.
+	}
 }

@@ -49,6 +49,13 @@ export const toast = {
 			id: message,
 			...withLink(options),
 		}),
+	/** Stays until closed, like an error. */
+	info: (message: string, options?: Options) =>
+		sonner.info(message, {
+			duration: Infinity,
+			closeButton: true,
+			...withLink(options),
+		}),
 	/** "Address copied" and friends. */
 	copied: (
 		what: string = content.common.states.copied,

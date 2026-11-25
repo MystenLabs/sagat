@@ -13,3 +13,9 @@ export const LocalStorageKeys = {
 /** The multisig a wallet address last opened. */
 export const lastViewedMultisigKey = (address: string) =>
 	`lastViewedMultisig_${address}`;
+
+/** The highest removal event a wallet address was told about on a network. */
+export const removalsSeenKey = (
+	address: string,
+	network: string,
+) => `removalsSeen_${address}_${network}`;

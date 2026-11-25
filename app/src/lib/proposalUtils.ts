@@ -11,6 +11,7 @@ import { formatDigest } from '@mysten/sui/utils';
 
 import { content } from '../content';
 import { type AliasRead } from './alias-set';
+import { signerChangeIn } from './change-signers';
 import { getExpiry, type EpochInfo } from './expiration';
 import {
 	checkedSignerSets,
@@ -24,7 +25,12 @@ import { getExplorerUrl } from './utils';
 /** The weight of the set's members whose key signed, each counted once. */
 export const calculateCurrentWeight = (
 	proposal: Pick<Proposal, 'signatures'>,
-	signerSet: AccountSigners,
+	signerSet: {
+		members: readonly {
+			publicKey: string;
+			weight: number;
+		}[];
+	},
 ) =>
 	signerSet.members
 		.filter((member) =>
@@ -168,6 +174,10 @@ export function toProposalCardInput(
 	aliases: AliasRead | undefined,
 	signerAddress: string | null | undefined,
 ): CountedProposal {
+	// An executed change counts against the set its bytes removed.
+	const change =
+		proposal.status === 'SUCCESS' &&
+		signerChangeIn(proposal.transactionBytes, null);
 	return {
 		...proposal,
 		checkedSignerSets: countSignerSets(
@@ -175,7 +185,12 @@ export function toProposalCardInput(
 			checkedSignerSets(
 				proposal.signerSets,
 				proposal.accountAddress,
-				aliases,
+				change
+					? {
+							kind: 'read',
+							aliases: [change.oldSet.address],
+						}
+					: aliases,
 			),
 			signerAddress,
 		),

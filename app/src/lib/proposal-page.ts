@@ -4,14 +4,15 @@
 // What the proposal page shows, kept free of React: where the proposal
 // stands, the Approvals card's rows and lines, the cancel dialog's
 // wording and the Activity card's rows.
-import {
-	checkSignerChange,
-	signerChangeProof,
-} from '@mysten/sagat';
-import { Transaction } from '@mysten/sui/transactions';
+import { signerChangeProof } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
+import { type AliasRead } from './alias-set';
+import {
+	changeDifferences,
+	signerChangeIn,
+} from './change-signers';
 import { joinList } from './create-multisig';
 import { type EpochInfo } from './expiration';
 import {
@@ -88,6 +89,27 @@ const addressOf = (publicKey: string) =>
 function nameOf(address: string | null, labels: Labels) {
 	if (!address) return content.common.unknownKey;
 	return labels.get(address) || formatAddress(address);
+}
+
+const keyName = (publicKey: string, labels: Labels) =>
+	nameOf(addressOf(publicKey), labels);
+
+/** The signer change the bytes make, checked against the node's alias read, with its differences; null unless it adds one set. */
+export function checkedChange(
+	bytes: string,
+	aliases: AliasRead | undefined,
+	labels: Labels,
+) {
+	const change =
+		aliases?.kind === 'read'
+			? signerChangeIn(bytes, aliases.aliases)
+			: null;
+	const list =
+		change &&
+		changeDifferences(change, (key) =>
+			keyName(key, labels),
+		);
+	return change && list ? { change, list } : null;
 }
 
 /** Whether `publicKey` signed the proposal. */
@@ -296,23 +318,18 @@ export function signerChangeWarning(
 		(status !== 'pending' && status !== 'ready')
 	)
 		return null;
-	let proof;
-	try {
-		proof = signerChangeProof(
-			checkSignerChange(
-				Transaction.from(
-					proposal.transactionBytes,
-				).getData(),
-				aliases,
-			),
-			proposal.signatures.map((sig) => sig.publicKey),
-		);
-	} catch {
-		return null;
-	}
+	const change = signerChangeIn(
+		proposal.transactionBytes,
+		aliases,
+	);
+	if (!change) return null;
+	const proof = signerChangeProof(
+		change,
+		proposal.signatures.map((sig) => sig.publicKey),
+	);
 	if (proof.met) return null;
 	const names = proof.notSigned.map((key) =>
-		nameOf(addressOf(key), labels),
+		keyName(key, labels),
 	);
 	return {
 		body:
@@ -476,9 +493,7 @@ function waitingNote(
 		];
 		if (keys.length > MAX_NAMED_SIGNERS)
 			return NOTES.waiting.anyOther;
-		const names = keys.map((key) =>
-			nameOf(addressOf(key), labels),
-		);
+		const names = keys.map((key) => keyName(key, labels));
 		return names.length === 1
 			? NOTES.waiting.one(names[0])
 			: NOTES.waiting.anyOneOf(joinList(names, 'or'));

@@ -125,6 +125,9 @@ export const content = {
 			failedOnChain: 'The transaction failed on chain.',
 		},
 		unknownKey: 'Unknown key',
+		/** A pod's transaction can't build without SUI for gas. */
+		noGas:
+			'This pod has no SUI to pay gas. Send it some SUI first.',
 		/** The heading of the wizards' next-steps card. */
 		whatHappensNext: 'What happens next',
 		/** The transaction preview block's name, as heading or region label. */
@@ -1002,6 +1005,8 @@ export const content = {
 			executeFailed: (message: string) =>
 				`Couldn’t execute: ${message}`,
 			download: 'Download',
+			/** A ready proposal that calls the alias module executes from its page. */
+			executeFromPage: 'Open to execute',
 		},
 		/** The status chip's label for where a proposal stands. */
 		status: {
@@ -1255,8 +1260,11 @@ export const content = {
 			'You can’t remove yourself. Another signer can remove you with a change.',
 		needsTwoSigners:
 			'A pod needs at least 2 signers. Add a signer first, or use Replace.',
-		changePending:
-			'A signer change is waiting for signatures. New changes can start once it’s executed or cancelled.',
+		changePending: (quote?: {
+			title: string;
+			weight: string;
+		}) =>
+			`A signer change is waiting for signatures${quote ? `: “${quote.title}” (${quote.weight} weight)` : ''}. New changes can start once it’s executed or cancelled.`,
 		/** When a pending proposal that calls the alias module is neither a signer change nor the one enabling them. */
 		aliasProposalPending:
 			'A proposal that affects this pod’s signers is open. New changes can start once it’s executed, cancelled or expired.',
@@ -1340,6 +1348,11 @@ export const content = {
 			carryOverReorder:
 				'Open proposals and their signatures carry over. Weights and the threshold don’t change.',
 			signersAfter: 'Signers after the change',
+			/** The proposal page's Changes card: who an executed change invites, and what carries over. */
+			invitation: (names: string, count: number) =>
+				`${names} ${count === 1 ? 'gets' : 'get'} an invitation once this executes.`,
+			onceExecutes:
+				'Once this executes, signatures from signers who stay carry over, and open proposals are recounted against the new weights and threshold.',
 			address: 'Sui address · stays the same',
 		},
 		/** The differences, and the proposal's title: the first one and how many more. */
@@ -1705,6 +1718,8 @@ export const content = {
 		signatureCopied: 'Signature copied',
 		signFailed: 'Failed to sign the transaction',
 		ledgerHashCopied: 'Ledger hash copied',
+		removedFromPod: (pod: string, when: string) =>
+			`You were removed from ${pod} by a signer change on ${when}.`,
 	},
 	errors: {
 		noWalletConnected: 'No wallet connected',

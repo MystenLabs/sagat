@@ -17,6 +17,7 @@ import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { useAliasProposals } from '@/hooks/useAliasProposals';
+import { usePodAliasSet } from '@/hooks/useAliasSets';
 import {
 	createFailedLine,
 	useCreateProposal,
@@ -28,6 +29,7 @@ import { accountSetup } from '@/lib/account-setup';
 import {
 	canChangeSigners,
 	changeSignersPath,
+	changeTitle,
 	type ChangeIntent,
 } from '@/lib/change-signers';
 import { CONFIG } from '@/lib/constants';
@@ -37,8 +39,11 @@ import {
 	getMultisigExportFilename,
 } from '@/lib/exportUtils';
 import { networkLabel } from '@/lib/network';
+import { buildFailedLine } from '@/lib/new-proposal';
 import { originalSignerSet } from '@/lib/proposal-integrity';
+import { checkedChange } from '@/lib/proposal-page';
 import {
+	calculateCurrentWeight,
 	enablesSignerChanges,
 	proposalPagePath,
 } from '@/lib/proposalUtils';
@@ -49,6 +54,7 @@ import {
 	type SignerSetCard,
 } from '@/lib/signer-sets';
 import {
+	podLabels,
 	rejectionNotice,
 	signerRows,
 	signerSetStatus,
@@ -56,11 +62,7 @@ import {
 import { approvalsThresholdLabel } from '@/lib/threshold';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import {
-	cn,
-	errorMessage,
-	getExplorerUrl,
-} from '@/lib/utils';
+import { cn, getExplorerUrl } from '@/lib/utils';
 
 import { FoldedRow } from '../multisig/FoldedRow';
 import { OtherSignerSetsCard } from '../multisig/OtherSignerSetsCard';
@@ -145,6 +147,33 @@ export function SignersTab() {
 	const enableProposal = aliasProposals?.find((proposal) =>
 		enablesSignerChanges(proposal.transactionBytes),
 	);
+	const aliases = usePodAliasSet(multisig.address);
+	const openSignerChange = details?.openSignerChange;
+	// The open change's quote, from its bytes once in the loaded pages.
+	const changeQuote = useMemo(() => {
+		const proposal = aliasProposals?.find(
+			(p) => p.digest === openSignerChange?.digest,
+		);
+		const checked =
+			proposal &&
+			checkedChange(
+				proposal.transactionBytes,
+				aliases,
+				podLabels(account),
+			);
+		return checked
+			? {
+					title: changeTitle(checked.list),
+					weight: content.common.thresholdLabel(
+						calculateCurrentWeight(
+							proposal,
+							checked.change.oldSet,
+						),
+						checked.change.oldSet.threshold,
+					),
+				}
+			: undefined;
+	}, [aliasProposals, openSignerChange, aliases, account]);
 	const changesEnabled =
 		details?.signerChangesEnabled ?? true;
 	const enablePending = !changesEnabled && !!enableProposal;
@@ -175,7 +204,11 @@ export function SignersTab() {
 			);
 		} catch (error) {
 			toast.error(
-				errorMessage(error, NEW_PROPOSAL.createFailed),
+				await buildFailedLine(
+					dappKit.getClient(network),
+					multisig.address,
+					error,
+				),
 			);
 			return;
 		} finally {
@@ -301,7 +334,7 @@ export function SignersTab() {
 					testId="signer-change-pending"
 					linkTestId="signer-change-proposal"
 				>
-					{COPY.changePending}
+					{COPY.changePending(changeQuote)}
 				</ProposalBanner>
 			)}
 			{otherAliasProposal && (

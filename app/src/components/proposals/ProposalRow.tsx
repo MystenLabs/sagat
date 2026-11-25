@@ -291,21 +291,29 @@ export function ProposalRow({
 			)}
 			<td className="px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0">
 				<div className="flex items-center justify-end gap-1 @max-md:flex-wrap">
-					{status === 'ready' && readySet && (
-						<Button
-							size="sm"
-							className="@max-md:h-9 @max-md:px-3.5"
-							onClick={() =>
-								executing.execute(proposal, readySet)
-							}
-							disabled={executing.isPending}
-							data-testid="execute-proposal-button"
-						>
-							{executing.isPending
-								? SHARED.executing
-								: SHARED.execute}
-						</Button>
-					)}
+					{status === 'ready' &&
+						(readySet ? (
+							<Button
+								size="sm"
+								className="@max-md:h-9 @max-md:px-3.5"
+								onClick={() =>
+									executing.execute(proposal, readySet)
+								}
+								disabled={executing.isPending}
+								data-testid="execute-proposal-button"
+							>
+								{executing.isPending
+									? SHARED.executing
+									: SHARED.execute}
+							</Button>
+						) : (
+							<span
+								className="text-12 whitespace-nowrap text-muted-foreground"
+								data-testid="proposal-execute-from-page"
+							>
+								{COPY.executeFromPage}
+							</span>
+						))}
 					{list && (
 						<RowMenu
 							explorerUrl={explorerUrl}

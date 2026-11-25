@@ -7,17 +7,20 @@ import { describe, expect, test } from 'vitest';
 
 import { content } from '../src/content';
 import {
+	changeDifferences,
 	changeLabels,
 	changeTitle,
 	checkChange,
-	differences,
 	newComposition,
 	newRow,
+	rowDifferences,
+	signerChangeIn,
 	startRows,
 	type ChangeRow,
 	type CurrentSet,
 } from '../src/lib/change-signers';
 import { computeMultisigAddress } from '../src/lib/sui-utils';
+import { signerChange } from './transactions';
 
 const COPY = content.changeSigners;
 
@@ -165,7 +168,7 @@ describe('differences', () => {
 					? { ...row, removed: true }
 					: row,
 		);
-		const list = differences(
+		const list = rowDifferences(
 			current,
 			[...rows, added()],
 			5,
@@ -185,7 +188,7 @@ describe('differences', () => {
 		const current = currentSet([1, 1, 1, 1], 2);
 		const [maya, daniel, alice, tomas] = rowsOf(current);
 		expect(
-			differences(
+			rowDifferences(
 				current,
 				[
 					maya,
@@ -197,13 +200,48 @@ describe('differences', () => {
 			).map((d) => d.text),
 		).toEqual([COPY.change.replace('Daniel')]);
 		expect(
-			differences(
+			rowDifferences(
 				current,
 				[maya, alice, daniel, tomas],
 				2,
 			).map((d) => d.text),
 		).toEqual([COPY.change.moves('Alice', 3, 2)]);
 	});
+});
+
+test('a change’s differences come from its bytes, checked against the alias set the note starts from', async () => {
+	const [maya, daniel, alice, priya] = [0, 1, 2, 3].map(
+		() => newKey(),
+	);
+	const set = (...keys: (typeof maya)[]) => ({
+		threshold: 2,
+		members: keys.map((key) => ({
+			publicKey: key.toSuiPublicKey(),
+			weight: 1,
+		})),
+	});
+	const { pod, bytes } = await signerChange(
+		set(maya, daniel, alice),
+		set(maya, daniel, priya),
+	);
+	const names = new Map(
+		[maya, daniel, alice, priya].map((key, i) => [
+			key.toSuiPublicKey(),
+			['Maya', 'Daniel', 'Alice', 'Priya'][i],
+		]),
+	);
+	const change = signerChangeIn(bytes, [pod]);
+	const list = change
+		? changeDifferences(change, (key) => names.get(key)!)
+		: null;
+	expect(list?.map((d) => d.text)).toEqual([
+		COPY.change.add('Priya', 1),
+		COPY.change.remove('Alice'),
+	]);
+	expect(list?.[0].address).toBe(priya.toSuiAddress());
+	expect(
+		signerChangeIn(bytes, [maya.toSuiAddress()]),
+	).toBeNull();
 });
 
 test('labels are the typed names of keys new to the set, null for keys that stay, and none once the new set is already an alias', () => {

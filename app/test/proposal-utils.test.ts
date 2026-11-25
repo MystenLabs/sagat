@@ -33,7 +33,7 @@ import {
 } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
 import { listedSet, signerSet } from './signer-set';
-import { transfer } from './transactions';
+import { signerChange, transfer } from './transactions';
 
 const DIGEST =
 	'HkV4y3pGsyPvGyX7tfm9MGKvjEsPKDpr5DW2KzuaE7ac';
@@ -404,6 +404,51 @@ describe('countSignerSets', () => {
 			counted.checkedSignerSets.map((set) => set.address),
 		).toEqual([current.address]);
 		expect(proposalStatusKey(counted)).toBe('pending');
+	});
+
+	it('counts an executed change against the set its bytes removed, which is no alias any more, and a cancelled one not', async () => {
+		const old = {
+			threshold: 1,
+			members: [key(1, 0), key(1, 1)],
+		};
+		const { pod, bytes } = await signerChange(old, {
+			threshold: 1,
+			members: [key(1, 0)],
+		});
+		const counted = (status: Proposal['status']) =>
+			toProposalCardInput(
+				{
+					digest: DIGEST,
+					accountAddress: pod,
+					accountName: null,
+					network: 'localnet',
+					kind: 'signer_change',
+					status,
+					ready: true,
+					transactionBytes: bytes,
+					proposerAddress: pod,
+					description: null,
+					createdAt: '2026-11-23T10:00:00.000Z',
+					signatures: [],
+					signerSets: [
+						{ ...old, address: pod, currentWeight: 0 },
+					],
+					signerChange: null,
+					events: { created: null, proposer: null },
+					executedVia: null,
+					signerSetsStale: false,
+				},
+				{ kind: 'read', aliases: ['0x2'] },
+				null,
+			);
+		expect(
+			counted('SUCCESS').checkedSignerSets.map(
+				(set) => set.address,
+			),
+		).toEqual([pod]);
+		expect(counted('CANCELLED').checkedSignerSets).toEqual(
+			[],
+		);
 	});
 });
 

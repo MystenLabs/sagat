@@ -5,7 +5,10 @@
 // types, what blocks Review on a transfer, the generated title, and how
 // pasted bytes are read. Its messages come from content.ts.
 import type { Account } from '@mysten/sagat/v1';
-import type { SuiClientTypes } from '@mysten/sui/client';
+import type {
+	ClientWithCoreApi,
+	SuiClientTypes,
+} from '@mysten/sui/client';
 import {
 	Transaction,
 	TransactionDataBuilder,
@@ -35,6 +38,7 @@ import {
 import { checkPodSigners } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 import { namedChain } from './transaction-preview';
+import { errorMessage } from './utils';
 
 const COPY = content.newProposal;
 
@@ -256,6 +260,23 @@ export function lacksGas(
 			isSuiCoinType(b.coinType) &&
 			(toBigInt(b.balance) ?? 0n) > 0n,
 	);
+}
+
+/** Why a pod's transaction didn't build: no SUI for gas, read once from the node, else the error's own line. */
+export async function buildFailedLine(
+	client: ClientWithCoreApi,
+	pod: string,
+	error: unknown,
+) {
+	const sui = await client.core
+		.getBalance({ owner: pod })
+		.then(
+			({ balance }) => balance.balance,
+			() => null,
+		);
+	return sui === '0'
+		? content.common.noGas
+		: errorMessage(error, content.newProposal.createFailed);
 }
 
 export interface MaxTransfer {

@@ -50,9 +50,9 @@ import {
 	changeLabels,
 	changeTitle,
 	checkChange,
-	differences,
 	newComposition,
 	newRow,
+	rowDifferences,
 	startRows,
 	type ChangeIntent,
 	type ChangeRow,
@@ -60,12 +60,12 @@ import {
 } from '@/lib/change-signers';
 import { addressInput } from '@/lib/create-multisig';
 import { networkLabel } from '@/lib/network';
+import { buildFailedLine } from '@/lib/new-proposal';
 import { proposalPagePath } from '@/lib/proposalUtils';
 import { QueryKeys } from '@/lib/queryKeys';
 import { SignersUncheckedError } from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import { errorMessage } from '@/lib/utils';
 import { SignatureDeclinedError } from '@/lib/wallet-session';
 
 import { ChangesStep } from './ChangesStep';
@@ -221,7 +221,7 @@ function ChangeSignersWizard({
 		[current, rows, threshold, failedLookups],
 	);
 	const list = useMemo(
-		() => differences(current, rows, threshold),
+		() => rowDifferences(current, rows, threshold),
 		[current, rows, threshold],
 	);
 
@@ -243,8 +243,8 @@ function ChangeSignersWizard({
 		create.reset();
 		dryRun.reset();
 		let next: Built;
+		const client = dappKit.getClient(network);
 		try {
-			const client = dappKit.getClient(network);
 			const node = await readNodeFacts(
 				queryClient,
 				client,
@@ -274,9 +274,10 @@ function ChangeSignersWizard({
 			};
 		} catch (error) {
 			next = {
-				error: errorMessage(
+				error: await buildFailedLine(
+					client,
+					multisig.address,
 					error,
-					NEW_PROPOSAL.createFailed,
 				),
 			};
 		}

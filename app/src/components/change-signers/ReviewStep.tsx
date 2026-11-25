@@ -136,23 +136,7 @@ export function ReviewStep({
 						{list.length}
 					</span>
 				</h3>
-				<ul className="rounded-lg border">
-					{list.map((item) => {
-						const Icon = ICONS[item.kind];
-						return (
-							<li
-								key={item.text}
-								className="flex items-center gap-3 border-b px-4 py-3.5 text-13 last:border-b-0"
-								data-testid="change-item"
-								data-kind={item.kind}
-							>
-								<Icon className="size-4 shrink-0" />
-								<span className="flex-1">{item.text}</span>
-								<ChangeChip kind={LIST_CHIPS[item.kind]} />
-							</li>
-						);
-					})}
-				</ul>
+				<ChangeList list={list} />
 				<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
 					<Info className="mt-0.5 size-3 shrink-0" />
 					{list.every((item) => item.kind === 'reorder')
@@ -242,6 +226,40 @@ export function ReviewStep({
 				onCancel={onCancel}
 			/>
 		</div>
+	);
+}
+
+/** The differences as a bordered list, with an add's Sui address under it when known. */
+export function ChangeList({
+	list,
+}: {
+	list: Difference[];
+}) {
+	return (
+		<ul className="rounded-lg border">
+			{list.map((item) => {
+				const Icon = ICONS[item.kind];
+				return (
+					<li
+						key={item.text}
+						className="flex items-center gap-3 border-b px-4 py-3.5 text-13 last:border-b-0"
+						data-testid="change-item"
+						data-kind={item.kind}
+					>
+						<Icon className="size-4 shrink-0" />
+						<span className="flex min-w-0 flex-1 flex-col gap-0.5">
+							{item.text}
+							{item.address && (
+								<span className="font-mono text-12 break-all text-muted-foreground">
+									{item.address}
+								</span>
+							)}
+						</span>
+						<ChangeChip kind={LIST_CHIPS[item.kind]} />
+					</li>
+				);
+			})}
+		</ul>
 	);
 }
 
