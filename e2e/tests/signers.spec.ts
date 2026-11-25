@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { PersonalMessages } from '@mysten/sagat';
-import { type AccountDetails } from '@mysten/sagat/v1';
+import {
+	type AccountDetails,
+	type Proposal,
+} from '@mysten/sagat/v1';
 import {
 	formatAddress,
 	formatDigest,
@@ -14,11 +17,15 @@ import {
 } from '@mysten/sui/utils';
 import { type Locator } from '@playwright/test';
 
+import { content } from '../../app/src/content';
 import { docsUrl } from '../../app/src/lib/docs';
 import { randomAddress } from '../support/chain';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
-import { isAccountListRead } from '../support/requests';
+import {
+	isAccountListRead,
+	isCreateRequest,
+} from '../support/requests';
 import {
 	addAlias,
 	addProposer,
@@ -1014,5 +1021,85 @@ test.describe('overview and signers', () => {
 				`/multisig/${recovery.address}/overview`,
 			);
 		});
+	});
+
+	test('allow signer changes with a proposal, and stop offering it once it executed', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await alice.signIn();
+		const { page } = alice;
+		const members = `/multisig/${multisig.address}/signers`;
+		const allow = page.getByTestId('allow-signer-changes');
+		const banner = page.getByTestId(
+			'allow-signer-changes-pending',
+		);
+		await page.goto(members);
+
+		const created = page.waitForResponse((response) =>
+			isCreateRequest(response.request()),
+		);
+		await allow.click();
+		const proposal = (await (
+			await created
+		).json()) as Proposal;
+		const proposalPage = alice.proposalPage(
+			proposal.digest,
+		);
+		await expect(proposalPage).toHaveAttribute(
+			'data-status',
+			'pending',
+		);
+		await expect(
+			page.getByTestId('alias-calls-warning'),
+		).toHaveText(
+			content.transactionPreview.aliasCalls.allowsChanges(
+				'Localnet',
+			),
+		);
+
+		await page.goto(members);
+		await expect(banner).toContainText(
+			content.signers.allowSignerChangesPending('Localnet'),
+		);
+		await expect(allow).toHaveCount(0);
+		await page
+			.getByTestId('allow-signer-changes-proposal')
+			.click();
+		await expect(proposalPage).toBeVisible();
+
+		await signProposal(bob, proposal);
+		await page.reload();
+		await page
+			.getByTestId('execute-proposal-button')
+			.click();
+		await expect(proposalPage).toHaveAttribute(
+			'data-status',
+			'executed',
+		);
+
+		const accountRead = page.waitForResponse(
+			(response) =>
+				response.request().method() === 'GET' &&
+				new URL(response.url()).pathname.endsWith(
+					`/v1/accounts/${multisig.address}`,
+				),
+		);
+		await page.getByTestId('multisig-tab-signers').click();
+		expect(
+			((await (await accountRead).json()) as AccountDetails)
+				.signerChangesEnabled,
+		).toBe(true);
+		await expect(allow).toHaveCount(0);
+		await expect(banner).toHaveCount(0);
 	});
 });
