@@ -3,15 +3,7 @@
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import {
-	Transaction,
-	TransactionDataBuilder,
-} from '@mysten/sui/transactions';
-import {
-	fromBase64,
-	toBase58,
-	toBase64,
-} from '@mysten/sui/utils';
+import { toBase58, toBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
 import { type AliasRead } from '../src/lib/alias-set';
@@ -27,6 +19,7 @@ import {
 	type NodeFacts,
 	type ShownPod,
 } from '../src/lib/proposal-integrity';
+import { digestOf, transfer } from './transactions';
 
 function oneOfTwoAccount() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
@@ -60,46 +53,14 @@ function signerSet(
 	};
 }
 
-/** A transfer from `sender`, with its digest. */
-async function transferFrom(sender: string) {
-	const tx = new Transaction();
-	tx.setSender(sender);
-	tx.setGasPayment([
-		{
-			objectId: '0x2',
-			version: '1',
-			digest: toBase58(new Uint8Array(32)),
-		},
-	]);
-	tx.setGasPrice(1000);
-	tx.setGasBudget(10_000_000);
-	tx.transferObjects([tx.gas], '0x3');
-	const transactionBytes = toBase64(await tx.build());
-	const digest = TransactionDataBuilder.getDigestFromBytes(
-		fromBase64(transactionBytes),
-	);
-	return { transactionBytes, digest };
-}
-
 test('refuses a wallet that is not one of the signers', async () => {
 	const { address, multisig } = oneOfTwoAccount();
 
-	const tx = new Transaction();
-	tx.setSender(address);
-	tx.setGasPayment([
-		{
-			objectId: '0x2',
-			version: '1',
-			digest: toBase58(new Uint8Array(32)),
-		},
-	]);
-	tx.setGasPrice(1000);
-	tx.setGasBudget(10_000_000);
-	tx.transferObjects([tx.gas], '0x3');
-	const transactionBytes = toBase64(await tx.build());
-	const digest = TransactionDataBuilder.getDigestFromBytes(
-		fromBase64(transactionBytes),
+	const transactionBytes = await transfer(
+		undefined,
+		address,
 	);
+	const digest = digestOf(transactionBytes);
 
 	expect(
 		checkProposalIntegrity(
@@ -409,8 +370,11 @@ test('bytes naming another chain are refused even when the alias set is unread',
 test('under a pod, refuses a proposal named for another pod or whose original set doesn’t make up its address, though a listed set holds the key', async () => {
 	const { keys, address, multisig } = oneOfTwoAccount();
 	const other = oneOfTwoAccount();
-	const { transactionBytes, digest } =
-		await transferFrom(address);
+	const transactionBytes = await transfer(
+		undefined,
+		address,
+	);
+	const digest = digestOf(transactionBytes);
 	const sign = (
 		signerSets: ShownPod['signerSets'] = [listed(multisig)],
 		accountAddress = address,
@@ -447,9 +411,11 @@ test('under a pod, refuses a proposal named for another pod or whose original se
 test('without a pod, rule 1 runs on the listed set that makes up the proposal’s address, and none refuses signing', async () => {
 	const account = oneOfTwoAccount();
 	const other = oneOfTwoAccount();
-	const { transactionBytes, digest } = await transferFrom(
+	const transactionBytes = await transfer(
+		undefined,
 		account.address,
 	);
+	const digest = digestOf(transactionBytes);
 	const sign = (listed: typeof account) =>
 		checkProposalIntegrity(
 			{

@@ -4,11 +4,7 @@
 import { PersonalMessages } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import {
-	Transaction,
-	TransactionDataBuilder,
-} from '@mysten/sui/transactions';
-import { toBase58, toBase64 } from '@mysten/sui/utils';
+import { fromBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
 import { type AliasRead } from '../src/lib/alias-set';
@@ -18,6 +14,7 @@ import {
 	verifyProposers,
 	type ProposerProposal,
 } from '../src/lib/proposer-proofs';
+import { digestOf, transfer } from './transactions';
 
 /** The alias set of a pod that never changed its signers. */
 const unchanged = (pod: string): AliasRead => ({
@@ -178,28 +175,6 @@ test('signers of an account other than the one opened confirm no one', async () 
 	expect(proof?.status).toBe('unverified');
 });
 
-/** A transfer's bytes from `sender`, with their digest. */
-async function transfer(sender: string) {
-	const tx = new Transaction();
-	tx.setSender(sender);
-	tx.setGasPayment([
-		{
-			objectId: '0x2',
-			version: '1',
-			digest: toBase58(new Uint8Array(32)),
-		},
-	]);
-	tx.setGasPrice(1000);
-	tx.setGasBudget(10_000_000);
-	tx.transferObjects([tx.gas], '0x3');
-	const bytes = await tx.build();
-	return {
-		bytes,
-		digest:
-			TransactionDataBuilder.getDigestFromBytes(bytes),
-	};
-}
-
 /** The account's set as a proposal lists it; the app reads only its members and threshold. */
 function proposalSignerSet(
 	account: Awaited<
@@ -218,12 +193,17 @@ function proposalSignerSet(
 async function externalProposal(): Promise<ProposerProposal> {
 	const { account, proposer, proposerKey } =
 		await accountWithProposer();
-	const { bytes, digest } = await transfer(account.address);
-	const { signature } =
-		await proposerKey.signTransaction(bytes);
+	const transactionBytes = await transfer(
+		undefined,
+		account.address,
+	);
+	const digest = digestOf(transactionBytes);
+	const { signature } = await proposerKey.signTransaction(
+		fromBase64(transactionBytes),
+	);
 	return {
 		digest,
-		transactionBytes: toBase64(bytes),
+		transactionBytes,
 		proposerAddress: proposer,
 		accountAddress: account.address,
 		signerSets: [proposalSignerSet(account)],
@@ -308,15 +288,20 @@ test('an external proposer without a confirmation is unconfirmed', async () => {
 
 test('a member proposer who signed the proposal is not flagged', async () => {
 	const { account, keys } = await accountWithProposer();
-	const { bytes, digest } = await transfer(account.address);
-	const { signature } =
-		await keys[1].signTransaction(bytes);
+	const transactionBytes = await transfer(
+		undefined,
+		account.address,
+	);
+	const digest = digestOf(transactionBytes);
+	const { signature } = await keys[1].signTransaction(
+		fromBase64(transactionBytes),
+	);
 
 	expect(
 		await checkProposalProposer(
 			{
 				digest,
-				transactionBytes: toBase64(bytes),
+				transactionBytes,
 				proposerAddress: keys[1].toSuiAddress(),
 				accountAddress: account.address,
 				signerSets: [proposalSignerSet(account)],
