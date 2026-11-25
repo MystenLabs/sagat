@@ -18,10 +18,8 @@ import {
 	type SignerDraft,
 	type SignersCheck,
 } from './create-multisig';
-import {
-	sameAddress,
-	validatePublicKey,
-} from './sui-utils';
+import { signerRows } from './signers';
+import { sameAddress } from './sui-utils';
 import { sumWeight } from './threshold';
 import { extractPublicKeyFromBase64 } from './wallet';
 
@@ -91,6 +89,16 @@ export function rowChip(row: ChangeRow): RowChip | null {
 	return isReplaced(row) ? 'replaced' : null;
 }
 
+/** Whether the viewer may open the editor: signer changes are enabled for the pod and the viewer signs in `set`. */
+export const canChangeSigners = (
+	enabled: boolean | undefined,
+	set: { members: AccountMember[] } | undefined,
+	viewer: string | undefined,
+) =>
+	!!enabled &&
+	!!set &&
+	signerRows(set.members, viewer).some((row) => row.isYou);
+
 /** The current set as rows, with a Members entry point applied; `focusId` is the row to focus. */
 export function startRows(
 	current: CurrentSet,
@@ -98,21 +106,14 @@ export function startRows(
 	intent?: ChangeIntent | null,
 ): { rows: ChangeRow[]; focusId: string | null } {
 	let focusId: string | null = null;
-	const rows = [...current.members]
-		.sort((a, b) => a.order - b.order)
-		.map((member, i): ChangeRow => {
-			const { address } = validatePublicKey(
-				member.publicKey,
-			);
+	const rows = signerRows(current.members, viewer).map(
+		({ member, isYou }, i): ChangeRow => {
 			const row: ChangeRow = {
 				id: `signer-${i}`,
 				label: member.label ?? '',
 				key: member.publicKey,
 				weight: member.weight,
-				isCreator:
-					!!address &&
-					!!viewer &&
-					sameAddress(address, viewer),
+				isCreator: isYou,
 				was: member,
 			};
 			// The viewer stays: their own row takes no intent.
@@ -128,7 +129,8 @@ export function startRows(
 				}
 			}
 			return row;
-		});
+		},
+	);
 	if (intent?.kind === 'add') {
 		rows.push(newRow(0));
 		focusId = 'new-0';

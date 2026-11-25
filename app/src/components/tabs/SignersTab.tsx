@@ -26,6 +26,7 @@ import { useSignerSetCards } from '@/hooks/useSignerSetCards';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountSetup } from '@/lib/account-setup';
 import {
+	canChangeSigners,
 	changeSignersPath,
 	type ChangeIntent,
 } from '@/lib/change-signers';
@@ -227,10 +228,11 @@ export function SignersTab() {
 				)
 			: null;
 	const several = (cards?.length ?? 0) > 1;
-	const offerChanges =
-		!!main &&
-		rows.some((row) => row.isYou) &&
-		details?.signerChangesEnabled === true;
+	const offerChanges = canChangeSigners(
+		details?.signerChangesEnabled,
+		main?.set,
+		signerAddress,
+	);
 	const atMax = rows.length >= CONFIG.MAX_MEMBERS;
 	const differentOn = differentSignersLine(
 		details?.networksWithDifferentSigners ?? [],

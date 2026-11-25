@@ -46,6 +46,7 @@ import { usePublicKeyLookups } from '@/hooks/usePublicKeyLookups';
 import { useSignerSetCards } from '@/hooks/useSignerSetCards';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import {
+	canChangeSigners,
 	changeLabels,
 	changeTitle,
 	checkChange,
@@ -61,7 +62,6 @@ import { addressInput } from '@/lib/create-multisig';
 import { networkLabel } from '@/lib/network';
 import { proposalPagePath } from '@/lib/proposalUtils';
 import { QueryKeys } from '@/lib/queryKeys';
-import { signerRows } from '@/lib/signers';
 import { SignersUncheckedError } from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
@@ -109,13 +109,13 @@ export function ChangeSignersPage() {
 	if (
 		!details ||
 		!main ||
-		!details.signerChangesEnabled ||
-		details.openSignerChange ||
-		aliasProposals?.length ||
-		!signerRows(
-			main.set.members,
+		!canChangeSigners(
+			details.signerChangesEnabled,
+			main.set,
 			currentAddress?.address,
-		).some((row) => row.isYou)
+		) ||
+		details.openSignerChange ||
+		aliasProposals?.length
 	)
 		return <Navigate to={members} replace />;
 	return (
