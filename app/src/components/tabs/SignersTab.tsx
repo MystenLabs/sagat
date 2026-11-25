@@ -52,6 +52,8 @@ import { ProposersSection } from '../proposers/ProposersSection';
 import { Alert } from '../ui/Alert';
 import { InlineRetry } from '../ui/inline-retry';
 
+const COPY = content.signers;
+
 interface SignersTabContext {
 	multisig: MultisigWithMembersForPublicKey;
 }
@@ -149,7 +151,7 @@ export function SignersTab() {
 		<div className="@container flex flex-col gap-5">
 			{isError && (
 				<Alert variant="error" data-testid="signers-error">
-					{content.signers.loadError}{' '}
+					{COPY.loadError}{' '}
 					<InlineRetry
 						onRetry={() => void refetch()}
 						retrying={isFetching}
@@ -171,7 +173,7 @@ export function SignersTab() {
 					variant="warning"
 					data-testid="several-signer-sets"
 				>
-					{content.signers.severalSignerSets(
+					{COPY.severalSignerSets(
 						cards?.length ?? 0,
 						networkLabel(network),
 					)}
@@ -194,7 +196,7 @@ export function SignersTab() {
 							<>
 								{others.length > 0 && (
 									<FoldedRow
-										label={content.signers.moreSignerSets(
+										label={COPY.moreSignerSets(
 											others.length,
 										)}
 										testId="other-acting-sets"
@@ -230,7 +232,7 @@ export function SignersTab() {
 											className="text-13 text-foreground-secondary"
 											data-testid="original-signers-body"
 										>
-											{content.signers.original.body(
+											{COPY.original.body(
 												networkLabel(network),
 											)}
 										</p>
