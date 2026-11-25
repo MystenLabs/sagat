@@ -30,6 +30,8 @@ import {
 	addAlias,
 	addProposer,
 	bothSign,
+	enableAliases,
+	multisigAddressOf,
 	proposeTransfer,
 	setupMultisig,
 	signInViaApi,
@@ -1105,5 +1107,87 @@ test.describe('overview and signers', () => {
 		).toBe(true);
 		await expect(enable).toHaveCount(0);
 		await expect(banner).toHaveCount(0);
+	});
+
+	test('replace a signer from Members and propose the change, then hold new changes while it’s open', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const carol = createIdentity('carol');
+		const dave = createIdentity('dave');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob, carol],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await enableAliases(chain, {
+			members: [alice, bob, carol].map((identity) => ({
+				identity,
+			})),
+			threshold: 2,
+			signers: [alice, bob],
+		});
+		await alice.signIn();
+		const { page } = alice;
+		await page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+
+		await page
+			.locator(
+				`[data-testid="member-item"][data-address="${carol.address}"]`,
+			)
+			.getByTestId('signer-menu')
+			.click();
+		await page.getByTestId('signer-menu-replace').click();
+		await page
+			.getByTestId('create-signer-key')
+			.nth(2)
+			.fill(dave.publicKey);
+		await page.getByTestId('change-review').click();
+
+		const created = page.waitForResponse((response) =>
+			isCreateRequest(response.request()),
+		);
+		await page.getByTestId('review-submit').click();
+		const { digest } = (await (
+			await created
+		).json()) as Proposal;
+		await expect(alice.proposalPage(digest)).toBeVisible();
+
+		const proposal =
+			await alice.apiV1.getProposalByDigest(digest);
+		expect(proposal.kind).toBe('signer_change');
+		expect(proposal.signerChange).toEqual({
+			removes: multisig.address,
+			adds: multisigAddressOf(
+				[alice, bob, dave].map((identity) => ({
+					identity,
+				})),
+				2,
+			),
+		});
+
+		await page.getByTestId('multisig-tab-signers').click();
+		await expect(
+			page.getByTestId('signer-change-proposal'),
+		).toHaveAttribute(
+			'href',
+			`/multisig/${multisig.address}/proposals/${digest}`,
+		);
+		await expect(
+			page.getByTestId('signers-add-signer'),
+		).toBeDisabled();
+		await expect(
+			page.getByTestId('change-threshold'),
+		).toBeDisabled();
+		for (const menu of await page
+			.getByTestId('signer-menu')
+			.all())
+			await expect(menu).toBeDisabled();
 	});
 });
