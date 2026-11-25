@@ -16,16 +16,12 @@ import {
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useAliasProposals } from '@/hooks/useAliasProposals';
 import {
 	createFailedLine,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
-import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
-import {
-	PROPOSALS_PAGE_SIZE,
-	usePaginatedProposals,
-} from '@/hooks/usePaginatedProposals';
 import { useSignerSetCards } from '@/hooks/useSignerSetCards';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountSetup } from '@/lib/account-setup';
@@ -41,9 +37,7 @@ import {
 import { networkLabel } from '@/lib/network';
 import { originalSignerSet } from '@/lib/proposal-integrity';
 import {
-	aliasCallsIn,
 	enablesSignerChanges,
-	isProposalExpired,
 	proposalPagePath,
 } from '@/lib/proposalUtils';
 import { trustsSigners } from '@/lib/proposer-proofs';
@@ -137,33 +131,17 @@ export function SignersTab() {
 	const dappKit = useDAppKit();
 	const create = useCreateProposal();
 	const [building, setBuilding] = useState(false);
-	const { data: epochInfo } = useEpochInfo();
-	// The query Overview and Proposals share, so it's usually cached.
-	const { data: pending } = usePaginatedProposals({
-		multisigAddress: multisig.address,
-		network,
-		status: 'PENDING',
-		perPage: PROPOSALS_PAGE_SIZE,
-	});
 	// Undefined until the list loads; the API takes one alias proposal at a time.
-	const aliasProposals = useMemo(
-		() =>
-			pending?.pages
-				.flatMap((page) => page.proposals)
-				.filter(
-					(proposal) =>
-						!isProposalExpired(proposal, epochInfo) &&
-						aliasCallsIn(proposal.transactionBytes).length >
-							0,
-				),
-		[pending, epochInfo],
+	const aliasProposals = useAliasProposals(
+		multisig.address,
 	);
 	const enableProposal = aliasProposals?.find((proposal) =>
 		enablesSignerChanges(proposal.transactionBytes),
 	);
 	const changesEnabled =
 		details?.signerChangesEnabled ?? true;
-	const changePending = !!details?.openSignerChange;
+	const changePending =
+		!!details?.openSignerChange || !!aliasProposals?.length;
 	const openChange = (intent: ChangeIntent | null = null) =>
 		navigate(changeSignersPath(multisig.address), {
 			state: intent,
@@ -246,8 +224,7 @@ export function SignersTab() {
 	const offerChanges =
 		!!main &&
 		rows.some((row) => row.isYou) &&
-		details?.signerChangesEnabled === true &&
-		!enableProposal;
+		details?.signerChangesEnabled === true;
 	const differentOn = differentSignersLine(
 		details?.networksWithDifferentSigners ?? [],
 	);

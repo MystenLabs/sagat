@@ -33,6 +33,7 @@ import { WizardPage } from '@/components/wizard/WizardPage';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useAliasProposals } from '@/hooks/useAliasProposals';
 import { readNodeFacts } from '@/hooks/useAliasSets';
 import {
 	createFailedLine,
@@ -89,6 +90,7 @@ export function ChangeSignersPage() {
 		multisig?.address,
 	);
 	const cards = useSignerSetCards(multisig);
+	const aliasProposals = useAliasProposals(address ?? '');
 	const loading = (
 		<SkeletonPage
 			message={content.common.states.loadingPod}
@@ -109,6 +111,7 @@ export function ChangeSignersPage() {
 		!main ||
 		!details.signerChangesEnabled ||
 		details.openSignerChange ||
+		aliasProposals?.length ||
 		!signerRows(
 			main.set.members,
 			currentAddress?.address,
