@@ -6,7 +6,12 @@ import { fileURLToPath } from 'node:url';
 import type { AccountDetails } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MIST_PER_SUI } from '@mysten/sui/utils';
-import { expect, test, type Page } from '@playwright/test';
+import {
+	expect,
+	test,
+	type Browser,
+	type Page,
+} from '@playwright/test';
 
 import {
 	Actor,
@@ -30,6 +35,7 @@ import {
 	acceptInvitation,
 	addAlias,
 	addProposer,
+	bothSign,
 	multisigAddressOf,
 	multisigPublicKeyOf,
 	proposeTransfer,
@@ -55,6 +61,29 @@ function demoKeypair(name: string) {
 
 function person(name: string, label: string) {
 	return new Identity(label, demoKeypair(name));
+}
+
+// Alex's demo wallet on Mainnet, served by the local full node, in the light theme.
+async function demoActor(
+	browser: Browser,
+	key: string,
+	otherAccounts: Identity[] = [],
+) {
+	const you = await Actor.create(
+		browser,
+		'Alex',
+		demoKeypair(key),
+		otherAccounts,
+		{
+			network: 'mainnet',
+			walletName: 'Demo Wallet',
+		},
+	);
+	await serveFullnodeLocally(you.context, 'mainnet');
+	await you.context.addInitScript(() =>
+		localStorage.setItem('theme', 'light'),
+	);
+	return you;
 }
 
 // Wider for the wallets and tools shots, so full addresses fit on one line.
@@ -121,20 +150,7 @@ test('getting started', async ({ browser }) => {
 	for (const someone of [maya, daniel, tomas, hana])
 		await signInViaApi(someone);
 
-	const you = await Actor.create(
-		browser,
-		'Alex',
-		demoKeypair('you'),
-		[backup],
-		{
-			network: 'mainnet',
-			walletName: 'Demo Wallet',
-		},
-	);
-	await serveFullnodeLocally(you.context, 'mainnet');
-	await you.context.addInitScript(() =>
-		localStorage.setItem('theme', 'light'),
-	);
+	const you = await demoActor(browser, 'you', [backup]);
 	const { page } = you;
 
 	await test.step('connect a wallet', async () => {
@@ -370,20 +386,7 @@ test('external proposers', async ({ browser }) => {
 	const payments = person('payments-service', 'Payments');
 	const payroll = person('payroll-service', 'Payroll');
 
-	const you = await Actor.create(
-		browser,
-		'Alex',
-		demoKeypair('proposers-you'),
-		[],
-		{
-			network: 'mainnet',
-			walletName: 'Demo Wallet',
-		},
-	);
-	await serveFullnodeLocally(you.context, 'mainnet');
-	await you.context.addInitScript(() =>
-		localStorage.setItem('theme', 'light'),
-	);
+	const you = await demoActor(browser, 'proposers-you');
 	const { page } = you;
 	await page.setViewportSize(WIDE);
 
@@ -450,20 +453,7 @@ test('other signer sets', async ({ browser }) => {
 	const maya = person('signer-sets-maya', 'Maya');
 	const outside = person('signer-sets-outside', 'Outside');
 
-	const you = await Actor.create(
-		browser,
-		'Alex',
-		demoKeypair('signer-sets-you'),
-		[],
-		{
-			network: 'mainnet',
-			walletName: 'Demo Wallet',
-		},
-	);
-	await serveFullnodeLocally(you.context, 'mainnet');
-	await you.context.addInitScript(() =>
-		localStorage.setItem('theme', 'light'),
-	);
+	const you = await demoActor(browser, 'signer-sets-you');
 	const { page } = you;
 	await page.setViewportSize(WIDE);
 
@@ -478,11 +468,7 @@ test('other signer sets', async ({ browser }) => {
 	// An alias made outside Pods, before the API first reads the alias set.
 	await addAlias(
 		chain,
-		{
-			members: [{ identity: you }, { identity: maya }],
-			threshold: 2,
-			signers: [you, maya],
-		},
+		bothSign(you, maya),
 		outside.address,
 	);
 
