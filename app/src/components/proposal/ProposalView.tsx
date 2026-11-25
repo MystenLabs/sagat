@@ -47,7 +47,10 @@ import { refusedAsExpired } from '@/hooks/useDryRun';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { useExpiry } from '@/hooks/useExpiry';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
-import { type Difference } from '@/lib/change-signers';
+import {
+	changeTitle,
+	type Difference,
+} from '@/lib/change-signers';
 import { joinList } from '@/lib/create-multisig';
 import { formatDateTime } from '@/lib/dates';
 import {
@@ -302,7 +305,11 @@ export function ProposalView({
 			data-status={status}
 		>
 			<PageHeader
-				title={proposalTitle(proposal)}
+				title={
+					checked?.list
+						? changeTitle(checked.list)
+						: proposalTitle(proposal)
+				}
 				backLink={proposalsPath ?? undefined}
 				backLabel={SHARED.backLabel}
 				className="mb-6"
