@@ -26,10 +26,14 @@ import {
 	SchemaProposals,
 	SchemaProposalSignatures,
 } from '../src/db/schema';
-import { AuthErrors, CommonErrors } from '../src/errors';
-import { ProposalByDigestLoader } from '../src/loaders/proposals.loader';
+import {
+	AuthErrors,
+	CommonError,
+	CommonErrors,
+} from '../src/errors';
 import { SignerSetDataLoader } from '../src/loaders/signer-set.loader';
 import { listAccountEvents } from '../src/services/account-events.service';
+import { getProposalByDigest } from '../src/services/proposals.service';
 import { ORIGINAL_SET } from '../src/services/signers.service';
 import {
 	ApiTestFramework,
@@ -642,13 +646,17 @@ describe('Proposal Business Logic', () => {
 
 		const [byDigest, badDigest, signerSet, badAddress] =
 			await Promise.all([
-				ProposalByDigestLoader.load(proposal.digest),
-				ProposalByDigestLoader.load('\0'),
+				getProposalByDigest(proposal.digest, 'original'),
+				getProposalByDigest('\0', 'original').catch(
+					(error: Error) => error,
+				),
 				SignerSetDataLoader.load(multisig.address),
 				SignerSetDataLoader.load('\0'),
 			]);
-		expect(byDigest?.digest).toBe(proposal.digest);
-		expect(badDigest).toBeNull();
+		expect(byDigest.proposal.digest).toBe(proposal.digest);
+		expect(badDigest).toEqual(
+			new CommonError('InvalidDigest'),
+		);
 		expect(signerSet?.address).toBe(multisig.address);
 		expect(badAddress).toBeNull();
 	});
