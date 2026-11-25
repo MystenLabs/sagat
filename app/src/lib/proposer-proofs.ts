@@ -5,7 +5,6 @@ import {
 	verifyProposalProposer,
 	verifyProposer,
 	type ProofResult,
-	type PublicProposal,
 	type TrustedMembers,
 } from '@mysten/sagat';
 import type {
@@ -135,33 +134,11 @@ export async function checkProposalProposer(
 	);
 	if (!members) return 'unverified';
 	const status = await verifyProposalProposer(
-		legacyShape(proposal),
+		{
+			...proposal,
+			multisigAddress: proposal.accountAddress,
+		},
 		{ members },
 	);
 	return status === 'verified' ? null : status;
-}
-
-// The SDK's verifier still takes the legacy shape and reads only these fields.
-function legacyShape(
-	proposal: ProposerProposal,
-): PublicProposal {
-	const read: Pick<
-		PublicProposal,
-		| 'digest'
-		| 'multisigAddress'
-		| 'proposerAddress'
-		| 'transactionBytes'
-		| 'events'
-	> = {
-		digest: proposal.digest,
-		multisigAddress: proposal.accountAddress,
-		proposerAddress: proposal.proposerAddress,
-		transactionBytes: proposal.transactionBytes,
-		events: proposal.events,
-	};
-	// The legacy signature also carries a proposal id the verifier never reads.
-	return {
-		...read,
-		signatures: proposal.signatures,
-	} as PublicProposal;
 }
