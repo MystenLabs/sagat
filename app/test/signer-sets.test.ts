@@ -29,7 +29,7 @@ function listed(
 const viewer = new Ed25519Keypair();
 const original = signerSet([viewer, new Ed25519Keypair()]);
 
-test('puts the set the viewer signs in first, the rest in the given order', () => {
+test('puts the set the viewer signs in first, the pod’s own before an added one, the rest in the given order, and links the pod’s own set to no pod', () => {
 	const other = signerSet([new Ed25519Keypair()]);
 	const third = signerSet([new Ed25519Keypair()]);
 	const viewers = signerSet([
