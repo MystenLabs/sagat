@@ -136,7 +136,7 @@ export function checkAccountSigners(
 
 /** Whether `signerAddress` is one of the set's members. */
 export function isMember(
-	set: AccountSigners,
+	set: Pick<AccountSigners, 'members'>,
 	signerAddress: string,
 ): boolean {
 	return set.members.some((m) => {

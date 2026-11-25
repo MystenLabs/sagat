@@ -54,7 +54,10 @@ import {
 	getProposalExportFilename,
 } from '@/lib/exportUtils';
 import { networkLabel } from '@/lib/network';
-import { type ShownPod } from '@/lib/proposal-integrity';
+import {
+	isMember,
+	type ShownPod,
+} from '@/lib/proposal-integrity';
 import {
 	proposalPageStatus,
 	withReason,
@@ -71,7 +74,6 @@ import {
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import { QueryKeys } from '@/lib/queryKeys';
-import { validatePublicKey } from '@/lib/sui-utils';
 import { safeDecode } from '@/lib/utils';
 
 import { ActivityCard } from './ActivityCard';
@@ -147,10 +149,8 @@ export function ProposalView({
 	const member = wallet
 		? proposal.signerSets
 				.flatMap((set) => set.members)
-				.find(
-					(m) =>
-						validatePublicKey(m.publicKey).address ===
-						wallet.address,
+				.find((m) =>
+					isMember({ members: [m] }, wallet.address),
 				)
 		: undefined;
 	const viewer = !member
