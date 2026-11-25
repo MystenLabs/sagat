@@ -27,7 +27,7 @@ When a signer adds an external proposer, their wallet signs a message that names
 - **Unverified:** no signature the app can check is on record, for example for a proposer added before signatures were kept. Any signer can re-confirm the proposer by adding them again.
 - **Doesn’t check out:** the signature on record doesn’t match, or wasn’t made by a current signer. The app refuses to sign that proposer’s proposals. Remove the proposer if you don’t recognize it. If you do, any signer can confirm it again by adding it again from the **Members** page.
 
-When a pod’s signers change on a network, a confirmation made by a key that no longer signs for the pod there stops counting. The proposer then shows as not checking out, and the app refuses to sign their proposals on that network. If you recognize the proposer, any signer can confirm them again by adding them again from the **Members** page. Otherwise, remove them.
+When a pod’s signers change on a network, a confirmation made by a key that no longer signs for the pod there stops counting. The proposer then shows as not checking out, and the app refuses to sign their proposals on that network.
 
 ## What a confirmation doesn’t prove
 

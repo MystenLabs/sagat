@@ -17,15 +17,13 @@ When a signer proposes, they sign the transaction in their wallet, and that sign
 
 Before you sign, check the transaction in two places, the app’s preview and your wallet’s own preview, and make sure they agree. The title is a note typed by the proposer and is not part of what you sign, so rely on the transaction itself. See [Check what you sign](/security/trust-model#check-what-you-sign).
 
-A transaction that calls Sui’s address alias functions changes who controls the pod on its network. Pods cannot show who it adds and warns above the preview, so check every address in it, in the app and in your wallet’s preview. A call to `replace_all` replaces every signer set of the pod at once.
+A transaction that calls Sui’s address alias functions changes who controls the pod on its network. Pods cannot show who it adds, so check every address in it, in the app and in your wallet’s preview. A call to `replace_all` replaces every signer set of the pod at once.
 
 ## Execution
 
 Once the signed weight meets the threshold, the proposal shows **Ready** and any signer can press **Execute**. The app combines the collected signatures into one and sends the transaction from your browser straight to a Sui full node. Your wallet is not asked to sign again: the signatures already collected cover these exact bytes, and Sui accepts the transaction only if they meet the threshold. The API then reads the result from the chain and marks the proposal **Executed** or **Failed**.
 
 When the pod has more than one [signer set](/guide/how-a-multisig-works#signer-sets) on the proposal’s network, each set is counted on its own. A signature belongs to a key, so it counts in every signer set that holds that key. The proposal is ready once any one set reaches its own threshold, and it executes with that set.
-
-The proposal shows each signer set’s progress separately.
 
 If the pod’s signers change on chain after the proposal became ready, the Sui full node refuses the execution: nothing runs and no gas is paid. Check whether the proposal still reaches the threshold of a signer set that controls the pod now; if not, it needs signatures from that set’s signers.
 
