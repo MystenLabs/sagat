@@ -43,7 +43,6 @@ export type MultisigWithMembersForPublicKey = Account & {
 	threshold: number;
 	members: AccountMember[];
 	totalWeight: number;
-	rejectedMembers: number;
 	pendingMembers: number;
 	isAccepted: boolean;
 	isRejected: boolean;

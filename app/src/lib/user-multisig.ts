@@ -77,9 +77,6 @@ function viewedThrough(
 		pendingMembers: set.members.filter(
 			(member) => member.answer === 'invited',
 		).length,
-		rejectedMembers: set.members.filter(
-			(member) => member.answer === 'rejected',
-		).length,
 	};
 }
 
@@ -195,7 +192,6 @@ export function withListedChecks(
 		members: listed.members,
 		totalWeight: listed.totalWeight,
 		pendingMembers: listed.pendingMembers,
-		rejectedMembers: listed.rejectedMembers,
 		refused: null,
 		acting: listed.acting,
 	};
