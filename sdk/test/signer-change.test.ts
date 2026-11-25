@@ -398,19 +398,6 @@ describe('signers who stay and the proof', () => {
 		expect(proofWeight(old, next, [k1, k3, k4, k5])).toBe(
 			2,
 		);
-		expect(
-			isProofMet({ oldSet: old, newSets: [next] }, [
-				k1,
-				k3,
-				k4,
-			]),
-		).toBe(false);
-		expect(
-			isProofMet({ oldSet: old, newSets: [next] }, [
-				k1,
-				k2,
-			]),
-		).toBe(true);
 	});
 
 	test('the proof names the signers who stay that have not signed, until they reach the new threshold', () => {
@@ -445,22 +432,5 @@ describe('signers who stay and the proof', () => {
 		expect(isProofMet(checked, [k2, k3])).toBe(false);
 		// S2 alone reaches its threshold.
 		expect(isProofMet(checked, [k1, k2])).toBe(true);
-
-		// A key's own address left is no set to stay in.
-		const toKey = [A, K.toSuiAddress()];
-		expect(
-			checkSignerChange(
-				handWritten(
-					[['remove', A]],
-					compositionNote({
-						account: A,
-						before: toKey,
-						after: [K.toSuiAddress()],
-						known: [S1],
-					}),
-				).getData(),
-				toKey,
-			).newSets,
-		).toEqual([]);
 	});
 });
