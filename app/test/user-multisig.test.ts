@@ -3,7 +3,6 @@
 
 import { type Account } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { expect, test } from 'vitest';
 
 import {
@@ -11,34 +10,7 @@ import {
 	withActing,
 	withListedChecks,
 } from '../src/lib/user-multisig';
-
-/** A signer set of fresh keys of weight 1, 1-of-2 by default, every key accepted. */
-function signerSet(
-	keys = [new Ed25519Keypair(), new Ed25519Keypair()],
-	threshold = 1,
-) {
-	const address = MultiSigPublicKey.fromPublicKeys({
-		threshold,
-		publicKeys: keys.map((key) => ({
-			publicKey: key.getPublicKey(),
-			weight: 1,
-		})),
-	}).toSuiAddress();
-	return {
-		keys,
-		set: {
-			address,
-			threshold,
-			members: keys.map((key, order) => ({
-				publicKey: key.getPublicKey().toSuiPublicKey(),
-				weight: 1,
-				order,
-				answer: 'accepted' as const,
-				label: null,
-			})),
-		},
-	};
-}
+import { signerSet } from './signer-set';
 
 const signerOf = (key: Ed25519Keypair) => ({
 	publicKey: key.getPublicKey().toSuiPublicKey(),
@@ -46,16 +18,15 @@ const signerOf = (key: Ed25519Keypair) => ({
 });
 
 function pod() {
-	const { keys, set } = signerSet();
+	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
+	const set = signerSet(keys);
 	const address = set.address;
 	const multisig: Account = {
 		address,
 		name: null,
 		createdBy: keys[0].toSuiAddress(),
 		createdAt: '2026-11-20T10:00:00.000Z',
-		signerSets: [
-			{ kind: 'signer_set', ...set, acting: true },
-		],
+		signerSets: [set],
 		signerSetsStale: false,
 	};
 	return { address, multisig, signer: signerOf(keys[0]) };
@@ -139,19 +110,16 @@ test('an unread alias set leaves the row unchecked, not refused', () => {
 test('a key only in a shown set that is no alias is refused as not acting, carrying the node’s aliases only when no shown set is one', () => {
 	const { address, multisig } = pod();
 	const other = pod();
-	const stranger = signerSet();
-	const signer = signerOf(stranger.keys[0]);
+	const strangerKey = new Ed25519Keypair();
+	const stranger = signerSet([
+		strangerKey,
+		new Ed25519Keypair(),
+	]);
+	const signer = signerOf(strangerKey);
 	const row = toUserMultisig(
 		{
 			...multisig,
-			signerSets: [
-				...multisig.signerSets,
-				{
-					kind: 'signer_set',
-					...stranger.set,
-					acting: true,
-				},
-			],
+			signerSets: [...multisig.signerSets, stranger],
 		},
 		signer,
 	);
@@ -194,18 +162,14 @@ test('a row and the new-proposal copy read the threshold of a set that is an ali
 	);
 	const account: Account = {
 		...multisig,
-		address: original.set.address,
-		signerSets: [
-			{ kind: 'signer_set', ...original.set, acting: true },
-			{ kind: 'signer_set', ...fake.set, acting: true },
-			{ kind: 'signer_set', ...real.set, acting: true },
-		],
+		address: original.address,
+		signerSets: [original, fake, real],
 	};
 	const signer = signerOf(viewer);
 	const checking = toUserMultisig(account, signer);
 	const listed = withActing(
 		checking,
-		{ kind: 'read', aliases: [real.set.address] },
+		{ kind: 'read', aliases: [real.address] },
 		signer,
 	);
 
@@ -221,7 +185,7 @@ test('a row and the new-proposal copy read the threshold of a set that is an ali
 			checking,
 			{
 				kind: 'read',
-				aliases: [real.set.address, original.set.address],
+				aliases: [real.address, original.address],
 			},
 			signer,
 		).threshold,

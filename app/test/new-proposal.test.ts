@@ -3,7 +3,6 @@
 
 import { bcs } from '@mysten/sui/bcs';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
@@ -34,6 +33,7 @@ import {
 	type TransferDraft,
 } from '../src/lib/new-proposal';
 import { COIN_DECIMALS, U64_MAX } from './coin-decimals';
+import { signerSet } from './signer-set';
 
 const ACCOUNT = normalizeSuiAddress(
 	'0x5d2e00000000000000000000000000000000000000000000000000000000a1b7',
@@ -684,36 +684,13 @@ describe('checkBytes', () => {
 
 describe('checkNewProposal', () => {
 	const wallet = new Ed25519Keypair();
-	const keys = [wallet, new Ed25519Keypair()];
-	const threshold = 1;
-	const members = keys.map((key, order) => ({
-		publicKey: key.getPublicKey().toSuiPublicKey(),
-		weight: 1,
-		order,
-		answer: 'accepted' as const,
-		label: null,
-	}));
-	const address = MultiSigPublicKey.fromPublicKeys({
-		threshold,
-		publicKeys: keys.map((key) => ({
-			publicKey: key.getPublicKey(),
-			weight: 1,
-		})),
-	}).toSuiAddress();
+	const set = signerSet([wallet, new Ed25519Keypair()]);
+	const { address } = set;
 	// A pod at `account` that never changed its signers.
-	const pod = (account: string) => {
-		const set = { address, threshold, members };
-		return {
-			address: account,
-			signerSets: [
-				{
-					kind: 'signer_set' as const,
-					...set,
-					acting: true,
-				},
-			],
-		};
-	};
+	const pod = (account: string) => ({
+		address: account,
+		signerSets: [set],
+	});
 
 	test('passes bytes from an account its signers make up, for a member wallet', async () => {
 		expect(
