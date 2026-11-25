@@ -9,7 +9,10 @@ import {
 } from '@mysten/sui/utils';
 
 import { db } from '../../src/db';
-import { SchemaProposals } from '../../src/db/schema';
+import {
+	SchemaProposals,
+	type ProposalStatus,
+} from '../../src/db/schema';
 import { type SuiNetwork } from '../../src/utils/client';
 
 const random = (length: number) =>
@@ -33,12 +36,18 @@ export const offlineTransfer = async (sender: string) => {
 	return (await tx.build()).toBase64();
 };
 
-// A pending proposal row, as a create on that network would leave it; a transfer unless `transactionBytes` is given.
+// A proposal row, as a create on that network would leave it; a pending transfer unless given.
 export const insertProposal = async (
 	account: string,
 	network: SuiNetwork,
 	proposerAddress: string,
-	transactionBytes?: string,
+	{
+		transactionBytes,
+		status,
+	}: {
+		transactionBytes?: string;
+		status?: ProposalStatus;
+	} = {},
 ) => {
 	transactionBytes ??= await offlineTransfer(account);
 	const [proposal] = await db
@@ -51,6 +60,7 @@ export const insertProposal = async (
 			transactionBytes,
 			proposerAddress,
 			network,
+			status,
 		})
 		.returning();
 	return proposal;

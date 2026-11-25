@@ -92,12 +92,19 @@ export function keySigner(
 	};
 }
 
+// Paid with `gasCoin` when given.
 export async function build(
 	sender: string,
 	fill: (tx: Transaction) => void,
+	gasCoin?: {
+		objectId: string;
+		version: string;
+		digest: string;
+	},
 ) {
 	const tx = new Transaction();
 	tx.setSender(sender);
+	if (gasCoin) tx.setGasPayment([gasCoin]);
 	fill(tx);
 	return tx.build({ client });
 }

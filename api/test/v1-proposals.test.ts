@@ -24,14 +24,12 @@ import {
 	setDefaultTimeout,
 	test,
 } from 'bun:test';
-import { and, asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
-import {
-	SchemaAccountAliases,
-	SchemaProposals,
-} from '../src/db/schema';
+import { SchemaProposals } from '../src/db/schema';
 import { ApiAuthError, CommonErrors } from '../src/errors';
+import { mirroredAliasSet } from '../src/services/signers.service';
 import {
 	buildAdd,
 	buildEnable,
@@ -877,26 +875,6 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		).toBe('CANCELLED');
 	});
 
-	// The account's alias rows on localnet, sorted.
-	const mirroredAliases = async (address: string) =>
-		(
-			await db
-				.select({
-					alias: SchemaAccountAliases.aliasAddress,
-				})
-				.from(SchemaAccountAliases)
-				.where(
-					and(
-						eq(
-							SchemaAccountAliases.accountAddress,
-							address,
-						),
-						eq(SchemaAccountAliases.network, 'localnet'),
-					),
-				)
-				.orderBy(asc(SchemaAccountAliases.aliasAddress))
-		).map((row) => row.alias);
-
 	// Executes the proposal with `signature`, or the API's signatures of `setAddress`, then verifies it.
 	const executeVia = async (
 		proposal: Proposal,
@@ -1055,9 +1033,9 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		expect(
 			verified.signerSets.map((s) => s.address),
 		).toEqual(expected);
-		expect(await mirroredAliases(address)).toEqual(
-			expected,
-		);
+		expect(
+			await mirroredAliasSet(db, address, 'localnet'),
+		).toEqual(expected);
 	});
 
 	// An add of a new alias, proposed by `k1` and signed by `k2`, then cancelled by `k1`.
@@ -1100,9 +1078,13 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 
 		expect(verified.status).toBe('SUCCESS');
 		expect(verified.executedVia).toBe(account.address);
-		expect(await mirroredAliases(account.address)).toEqual(
-			[account.address, alias].sort(),
-		);
+		expect(
+			await mirroredAliasSet(
+				db,
+				account.address,
+				'localnet',
+			),
+		).toEqual([account.address, alias].sort());
 	});
 
 	test('a cancelled alias proposal that is not on chain stays cancelled', async () => {

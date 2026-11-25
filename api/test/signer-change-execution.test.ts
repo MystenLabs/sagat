@@ -7,6 +7,7 @@
 
 import { buildAdd, type Composition } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
+import { toBase64 } from '@mysten/sui/utils';
 import {
 	beforeAll,
 	describe,
@@ -24,13 +25,13 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
+import { build } from './setup/localnet-transactions';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
 import {
 	addressOf,
-	buildFrom,
 	compositionOf,
 	createCast,
 	gasCoins,
@@ -351,11 +352,13 @@ describe('a change to a composition that is already an alias', () => {
 			k1,
 			A,
 			'localnet',
-			await buildFrom(
-				A,
-				(tx) =>
-					buildAdd(tx, { account: A, alias: address }),
-				coins[0],
+			toBase64(
+				await build(
+					A,
+					(tx) =>
+						buildAdd(tx, { account: A, alias: address }),
+					coins[0],
+				),
 			),
 		);
 		await session.voteAndExecute([k2], created.digest);

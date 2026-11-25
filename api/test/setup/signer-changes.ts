@@ -19,6 +19,7 @@ import {
 	type TestSession,
 	type TestUser,
 } from '../framework/api-test-framework';
+import { build } from './localnet-transactions';
 import { getLocalClient } from './sui-network';
 
 const client = getLocalClient();
@@ -76,19 +77,6 @@ export const currentEpoch = async () =>
 			.epoch,
 	);
 
-// Base64 bytes of a transaction from the account, paid with `gasCoin` when given.
-export const buildFrom = async (
-	account: string,
-	fill: (tx: Transaction) => void,
-	gasCoin?: GasCoin,
-) => {
-	const tx = new Transaction();
-	tx.setSender(account);
-	if (gasCoin) tx.setGasPayment([gasCoin]);
-	fill(tx);
-	return toBase64(await tx.build({ client }));
-};
-
 // Allows signer changes: `enable` proposed by the first voter, signed by the others, executed and verified.
 export const allowSignerChanges = async (
 	session: TestSession,
@@ -100,65 +88,12 @@ export const allowSignerChanges = async (
 		voters[0],
 		account,
 		'localnet',
-		await buildFrom(account, buildEnable, gasCoin),
+		toBase64(await build(account, buildEnable, gasCoin)),
 	);
 	await session.voteAndExecute(
 		voters.slice(1),
 		created.digest,
 	);
-};
-
-// A signer change built with the SDK against the alias set on chain, at the local epoch or `epoch`.
-export const buildChange = async ({
-	account,
-	oldSet,
-	newSet,
-	known,
-	gasCoin,
-	epoch,
-}: {
-	account: string;
-	oldSet: string;
-	newSet: Composition;
-	known: Composition[];
-	gasCoin?: GasCoin;
-	epoch?: bigint;
-}) => {
-	const [
-		{ aliases },
-		{ chainIdentifier },
-		{ systemState },
-	] = await Promise.all([
-		fetchAliasSet(client, account),
-		client.core.getChainIdentifier(),
-		client.core.getCurrentSystemState(),
-	]);
-	const bytes = await buildFrom(
-		account,
-		(tx) =>
-			buildSignerChange(tx, {
-				account,
-				aliases,
-				oldSet,
-				newSet,
-				known,
-				chain: chainIdentifier,
-				epoch: systemState.epoch,
-			}),
-		gasCoin,
-	);
-	if (epoch === undefined) return bytes;
-	// The node resolves no expired transaction, so the epochs are set on the resolved one.
-	const tx = Transaction.from(bytes);
-	const { ValidDuring } = tx.getData().expiration!;
-	tx.setExpiration({
-		ValidDuring: {
-			...ValidDuring!,
-			minEpoch: String(epoch),
-			maxEpoch: String(epoch + 1n),
-		},
-	});
-	return toBase64(await tx.build());
 };
 
 // Proposes a signer change through `/v1`, with labels for its new keys when given.
@@ -224,23 +159,55 @@ type CastChangeOptions = {
 	epoch?: bigint;
 };
 
-// The bytes of the cast's change to `newSet`, from `S1` unless `oldSet` is given.
-export const buildCastChange = (
-	{ A, S1 }: Cast,
+// The cast's change to `newSet`, from `S1` unless `oldSet` is given, built with the SDK against the alias set on chain, at the local epoch or `epoch`.
+export const buildCastChange = async (
+	{ A: account, S1 }: Cast,
 	newSet: Composition,
 	{
-		oldSet = A,
+		oldSet = account,
 		known = [S1],
-		...rest
+		gasCoin,
+		epoch,
 	}: CastChangeOptions = {},
-) =>
-	buildChange({
-		account: A,
-		oldSet,
-		newSet,
-		known,
-		...rest,
+) => {
+	const [
+		{ aliases },
+		{ chainIdentifier },
+		{ systemState },
+	] = await Promise.all([
+		fetchAliasSet(client, account),
+		client.core.getChainIdentifier(),
+		client.core.getCurrentSystemState(),
+	]);
+	const bytes = toBase64(
+		await build(
+			account,
+			(tx) =>
+				buildSignerChange(tx, {
+					account,
+					aliases,
+					oldSet,
+					newSet,
+					known,
+					chain: chainIdentifier,
+					epoch: systemState.epoch,
+				}),
+			gasCoin,
+		),
+	);
+	if (epoch === undefined) return bytes;
+	// The node resolves no expired transaction, so the epochs are set on the resolved one.
+	const tx = Transaction.from(bytes);
+	const { ValidDuring } = tx.getData().expiration!;
+	tx.setExpiration({
+		ValidDuring: {
+			...ValidDuring!,
+			minEpoch: String(epoch),
+			maxEpoch: String(epoch + 1n),
+		},
 	});
+	return toBase64(await tx.build());
+};
 
 // The cast's change to `newSet`, proposed by `k1` through `/v1`.
 export const proposeCastChange = async (

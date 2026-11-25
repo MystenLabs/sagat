@@ -5,7 +5,7 @@
 
 import { deriveAliasesObjectId } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { Transaction } from '@mysten/sui/transactions';
+import { type Transaction } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
 import {
 	beforeAll,
@@ -67,6 +67,7 @@ import {
 	LOCALNET_WAIT,
 } from './setup/sui-network';
 import { untilBackendsWaitOnALock } from './setup/test-db';
+import { insertProposal } from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
@@ -113,29 +114,6 @@ const mirrorOf = async (account: string) => {
 		aliases: aliases.map((row) => row.address),
 		events,
 	};
-};
-
-// A proposal row of `account` with the bytes, as Sagat would hold it.
-const proposalOf = async (
-	account: string,
-	bytes: Uint8Array,
-	status: ProposalStatus,
-) => {
-	const transactionBytes = toBase64(bytes);
-	const [proposal] = await db
-		.insert(SchemaProposals)
-		.values({
-			accountAddress: account,
-			digest: await Transaction.from(
-				transactionBytes,
-			).getDigest(),
-			transactionBytes,
-			proposerAddress: account,
-			network: NETWORK,
-			status,
-		})
-		.returning();
-	return proposal;
 };
 
 const outcomesOf = async (ids: number[]) =>
@@ -683,21 +661,18 @@ describe('Alias mirror', () => {
 			buildAdd(tx, { account: A, alias: W }),
 		);
 		const proposals = [
-			await proposalOf(
-				A,
-				pendingCall.bytes,
-				ProposalStatus.PENDING,
-			),
-			await proposalOf(
-				A,
-				cancelledCall.bytes,
-				ProposalStatus.CANCELLED,
-			),
-			await proposalOf(
-				A,
-				neverRun,
-				ProposalStatus.CANCELLED,
-			),
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(pendingCall.bytes),
+				status: ProposalStatus.PENDING,
+			}),
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(cancelledCall.bytes),
+				status: ProposalStatus.CANCELLED,
+			}),
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(neverRun),
+				status: ProposalStatus.CANCELLED,
+			}),
 		];
 
 		const [result] = await refreshA();
@@ -728,16 +703,14 @@ describe('Alias mirror', () => {
 			buildRemove(tx, { account: A, alias: Z }),
 		);
 		const proposals = [
-			await proposalOf(
-				A,
-				pendingCall.bytes,
-				ProposalStatus.PENDING,
-			),
-			await proposalOf(
-				A,
-				cancelledCall.bytes,
-				ProposalStatus.CANCELLED,
-			),
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(pendingCall.bytes),
+				status: ProposalStatus.PENDING,
+			}),
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(cancelledCall.bytes),
+				status: ProposalStatus.CANCELLED,
+			}),
 		];
 		const V = new Ed25519Keypair().toSuiAddress();
 		const lastDigest = await send(A, signerK, (tx) =>
@@ -786,11 +759,10 @@ describe('Alias mirror', () => {
 			...LOCALNET_WAIT,
 		});
 		expect(result.$kind).toBe('FailedTransaction');
-		const proposal = await proposalOf(
-			A,
-			failing,
-			ProposalStatus.PENDING,
-		);
+		const proposal = await insertProposal(A, NETWORK, A, {
+			transactionBytes: toBase64(failing),
+			status: ProposalStatus.PENDING,
+		});
 
 		const [refreshed] = await refreshA();
 

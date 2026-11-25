@@ -1,8 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
-
 import { db } from '../../src/db';
 import {
 	SchemaAccountSignerSets,
@@ -11,6 +9,7 @@ import {
 	SchemaSignerSets,
 } from '../../src/db/schema';
 import { type TestUser } from '../framework/api-test-framework';
+import { addressOf, compositionOf } from './signer-changes';
 
 // A signer set with no account at its address, as a signer change leaves it,
 // linked to `account` when given. `acceptedBy` writes rows a change never would.
@@ -25,13 +24,9 @@ export const insertNewSignerSet = async ({
 	account?: { address: string; draftedBy: TestUser };
 	acceptedBy?: TestUser[];
 }) => {
-	const address = MultiSigPublicKey.fromPublicKeys({
-		threshold,
-		publicKeys: members.map((member) => ({
-			publicKey: member.keypair.getPublicKey(),
-			weight: 1,
-		})),
-	}).toSuiAddress();
+	const address = addressOf(
+		compositionOf(members, threshold),
+	);
 	await db
 		.insert(SchemaAddresses)
 		.values(

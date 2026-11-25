@@ -47,6 +47,7 @@ import {
 	type TestUser,
 } from './framework/api-test-framework';
 import { setAliases } from './setup/acting-sets';
+import { build } from './setup/localnet-transactions';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -55,7 +56,6 @@ import {
 	addressOf,
 	allowSignerChanges,
 	buildCastChange,
-	buildFrom,
 	compositionOf,
 	createCast,
 	currentEpoch,
@@ -87,27 +87,29 @@ const removal = async (
 	const { expiration, gasData, inputs } = Transaction.from(
 		await buildCastChange(cast, cast.S2),
 	).getData();
-	return buildFrom(cast.A, (tx) => {
-		// Every input resolved, so nothing dry-runs against the chain's alias set.
-		tx.object(
-			Inputs.SharedObjectRef(
-				inputs.find((i) => i.Object?.SharedObject)!.Object!
-					.SharedObject!,
-			),
-		);
-		buildRemove(tx, { account: cast.A, alias });
-		for (const text of compositionNote({
-			account: cast.A,
-			before,
-			after: before.filter((a) => a !== alias),
-			known: [cast.S1],
-		}))
-			tx.pure.string(text);
-		tx.setExpiration(expiration!);
-		tx.setGasPayment(gasData.payment!);
-		tx.setGasPrice(BigInt(gasData.price!));
-		tx.setGasBudget(BigInt(gasData.budget!));
-	});
+	return toBase64(
+		await build(cast.A, (tx) => {
+			// Every input resolved, so nothing dry-runs against the chain's alias set.
+			tx.object(
+				Inputs.SharedObjectRef(
+					inputs.find((i) => i.Object?.SharedObject)!
+						.Object!.SharedObject!,
+				),
+			);
+			buildRemove(tx, { account: cast.A, alias });
+			for (const text of compositionNote({
+				account: cast.A,
+				before,
+				after: before.filter((a) => a !== alias),
+				known: [cast.S1],
+			}))
+				tx.pure.string(text);
+			tx.setExpiration(expiration!);
+			tx.setGasPayment(gasData.payment!);
+			tx.setGasPrice(BigInt(gasData.price!));
+			tx.setGasBudget(BigInt(gasData.budget!));
+		}),
+	);
 };
 
 describe('POST /v1/proposals with a signer change', () => {
@@ -311,8 +313,10 @@ describe('POST /v1/proposals with a signer change', () => {
 			k1,
 			A,
 			'localnet',
-			await buildFrom(A, (tx) =>
-				buildAdd(tx, { account: A, alias: addressOf(U) }),
+			toBase64(
+				await build(A, (tx) =>
+					buildAdd(tx, { account: A, alias: addressOf(U) }),
+				),
 			),
 		);
 		await session.voteAndExecute([k2], add.digest);
@@ -439,10 +443,8 @@ describe('POST /v1/proposals with a signer change', () => {
 		const { k1, k2, A, S2, S3 } = cast;
 		const coins = await gasCoins(A, 5);
 		// Built while the alias object does not exist yet, so it dry-runs.
-		const secondEnable = await buildFrom(
-			A,
-			buildEnable,
-			coins[0],
+		const secondEnable = toBase64(
+			await build(A, buildEnable, coins[0]),
 		);
 		await allowSignerChanges(
 			session,
@@ -474,14 +476,16 @@ describe('POST /v1/proposals with a signer change', () => {
 
 		await session.cancelProposal(k1, enable);
 		const first = await proposeChange(session, k1, A, toS2);
-		const handWritten = await buildFrom(
-			A,
-			(tx) =>
-				buildAdd(tx, {
-					account: A,
-					alias: newUser().address,
-				}),
-			coins[4],
+		const handWritten = toBase64(
+			await build(
+				A,
+				(tx) =>
+					buildAdd(tx, {
+						account: A,
+						alias: newUser().address,
+					}),
+				coins[4],
+			),
 		);
 		expect(
 			await refusal(
@@ -529,12 +533,13 @@ describe('POST /v1/proposals with a signer change', () => {
 			epoch: bigint,
 		) =>
 			(
-				await insertProposal(
-					A,
-					'localnet',
-					k1.address,
-					await buildCastChange(cast, newSet, { epoch }),
-				)
+				await insertProposal(A, 'localnet', k1.address, {
+					transactionBytes: await buildCastChange(
+						cast,
+						newSet,
+						{ epoch },
+					),
+				})
 			).digest;
 		const older = await written(S2, 100n);
 		const newer = await written(S3, 0n);
@@ -656,7 +661,7 @@ describe('POST /v1/proposals with a signer change', () => {
 			});
 
 		const enable = await legacyCreate(
-			await buildFrom(A, buildEnable),
+			toBase64(await build(A, buildEnable)),
 		);
 		await session.voteAndExecute([k2], enable.digest);
 
