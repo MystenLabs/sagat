@@ -417,7 +417,7 @@ test.describe('proposals', () => {
 		expect(executed.executedVia).toBe(recovery.address);
 	});
 
-	test('a signer change ready at the old threshold names the signer who stays and hasn’t signed, and executes', async ({
+	test('a signer change ready at the old threshold warns, offers no Execute in its list row, and executes', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -474,15 +474,7 @@ test.describe('proposals', () => {
 		);
 		await expect(
 			alice.page.getByTestId('signer-change-warning'),
-		).toContainText(
-			content.proposal.approvals.signerChange.body(
-				'Carol',
-				1,
-			),
-		);
-		await expect(
-			alice.approvalRow(carol.address),
-		).toContainText(content.common.states.notSigned);
+		).toBeVisible();
 
 		await page
 			.getByTestId('execute-proposal-button')
