@@ -66,6 +66,13 @@ describe('findAliasCalls', () => {
 			target: '0x2::coin::zero',
 			typeArguments: ['0x2::sui::SUI'],
 		});
+		tx.moveCall({
+			target: '0x3::address_alias::add',
+			arguments: [
+				tx.object(aliasesObject),
+				tx.pure.address(first),
+			],
+		});
 
 		expect(findAliasCalls(tx.getData())).toEqual([]);
 	});
