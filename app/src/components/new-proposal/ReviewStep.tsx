@@ -5,7 +5,7 @@ import { ArrowLeft, Pen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 
 import { analyzerTab } from '@/components/preview-effects/IntentSummary';
-import { ExpiryChip } from '@/components/proposals/ProposalExpiry';
+import { ReviewExpiry } from '@/components/proposals/ProposalExpiry';
 import { AliasCallsWarning } from '@/components/transaction-preview/AliasCallsWarning';
 import { simulationProps } from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
@@ -29,7 +29,6 @@ import {
 import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { type useDryRun } from '@/hooks/useDryRun';
-import { useExpiry } from '@/hooks/useExpiry';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { titleError } from '@/lib/new-proposal';
 import { type NamedAccount } from '@/lib/transaction-preview';
@@ -87,7 +86,6 @@ export function ReviewStep({
 		[senderAddress, senderName],
 	);
 	const currentTitleError = titleError(title);
-	const expiry = useExpiry(bytes);
 	const { network } = useNetwork();
 	const { analyzer, analyzerCount } = analyzerTab(analysis);
 
@@ -108,11 +106,7 @@ export function ReviewStep({
 				onTitleChange={onTitleChange}
 			/>
 
-			{expiry && (
-				<div className="flex" data-testid="review-expiry">
-					<ExpiryChip expiry={expiry} />
-				</div>
-			)}
+			<ReviewExpiry bytes={bytes} />
 
 			{simulationFailed && (
 				<SimulationFailedNotice dryRun={dryRun} />

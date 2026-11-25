@@ -22,14 +22,13 @@ import {
 	SimulationFailedNotice,
 	SimulationRetry,
 } from '@/components/new-proposal/ReviewStep';
-import { ExpiryChip } from '@/components/proposals/ProposalExpiry';
+import { ReviewExpiry } from '@/components/proposals/ProposalExpiry';
 import { simulationProps } from '@/components/transaction-preview/simulation';
 import { Button } from '@/components/ui/button';
 import { Stat } from '@/components/ui/stat';
 import { SectionHeading } from '@/components/wizard/parts';
 import { content } from '@/content';
 import { type useDryRun } from '@/hooks/useDryRun';
-import { useExpiry } from '@/hooks/useExpiry';
 import {
 	isReplaced,
 	rowChip,
@@ -222,7 +221,7 @@ export function ReviewStep({
 				address={address}
 			/>
 
-			{bytes && <Expiry bytes={bytes} />}
+			{bytes && <ReviewExpiry bytes={bytes} />}
 			{simulationFailed && (
 				<SimulationFailedNotice dryRun={dryRun} />
 			)}
@@ -242,17 +241,6 @@ export function ReviewStep({
 				onCancel={onCancel}
 			/>
 		</div>
-	);
-}
-
-function Expiry({ bytes }: { bytes: string }) {
-	const expiry = useExpiry(bytes);
-	return (
-		expiry && (
-			<div className="flex" data-testid="review-expiry">
-				<ExpiryChip expiry={expiry} />
-			</div>
-		)
 	);
 }
 
