@@ -236,11 +236,11 @@ describe('GET /v1/accounts', () => {
 		).toEqual([account]);
 	});
 
-	test('a removal is not reported while another acting set still holds the key', async () => {
-		const key = newUser();
+	test('a removal is not reported while another acting set still holds the key, or for a key that never accepted', async () => {
+		const [key, invited] = [newUser(), newUser()];
 		const { session } = await signIn(key);
 		const account = (
-			await session.createMultisig([key, newUser()], 1)
+			await session.createMultisig([key, invited], 1)
 		).address;
 		const composition = (
 			await session.createMultisig([key, newUser()], 1)
@@ -283,6 +283,12 @@ describe('GET /v1/accounts', () => {
 				removedAt: expect.any(Date),
 			},
 		]);
+		expect(
+			await listRemovedAccounts(
+				[invited.publicKey],
+				'localnet',
+			),
+		).toEqual([]);
 	});
 
 	test('51 accounts cost two chain reads, and a second list right after costs none', async () => {
