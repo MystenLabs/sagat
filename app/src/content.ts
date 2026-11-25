@@ -1163,6 +1163,8 @@ export const content = {
 				title: 'Signers who stay haven’t all signed',
 				body: (names: string, count: number) =>
 					`${names} will still ${count === 1 ? 'be a signer' : 'be signers'} after this change but ${count === 1 ? 'hasn’t' : 'haven’t'} signed it. If they can no longer sign, the pod could be locked.`,
+				unreachable:
+					'The signers who stay after this change can’t reach its new threshold. If it executes, the pod could be locked.',
 			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */

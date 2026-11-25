@@ -277,7 +277,8 @@ export function approvalsStatus(
 
 /**
  * While a pending signer change's signers who stay haven't signed for
- * the new threshold, the warning naming them and their keys. Null for
+ * the new threshold, the warning naming them and their keys, or saying
+ * they can't reach it once nobody is left to name. Null for
  * bytes without a composition note that checks against `aliases`, the
  * pod's alias set from the app's node (null until read).
  */
@@ -309,16 +310,18 @@ export function signerChangeWarning(
 	} catch {
 		return null;
 	}
-	if (proof.met || proof.notSigned.length === 0)
-		return null;
+	if (proof.met) return null;
 	const names = proof.notSigned.map((key) =>
 		nameOf(addressOf(key), labels),
 	);
 	return {
-		body: SIGNER_CHANGE.body(
-			joinList(names, 'and'),
-			names.length,
-		),
+		body:
+			names.length === 0
+				? SIGNER_CHANGE.unreachable
+				: SIGNER_CHANGE.body(
+						joinList(names, 'and'),
+						names.length,
+					),
 		notSigned: proof.notSigned,
 	};
 }

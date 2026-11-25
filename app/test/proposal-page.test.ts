@@ -244,24 +244,28 @@ describe('cancelVariant', () => {
 });
 
 describe('signerChangeWarning', () => {
-	it('names the signers who stay and haven’t signed until they cover the new threshold, and is null for a proposal that is no signer change', async () => {
-		const COPY = content.proposal.approvals.signerChange;
-		const setOf = (threshold: number): Composition => ({
-			threshold,
-			members: SIGNERS.map((s) => ({
-				publicKey: s.publicKey,
-				weight: s.weight,
-			})),
-		});
-		// The pod's set, weighing 4, raises its threshold from 2 to 4.
-		const oldSet = setOf(2);
-		const pod = MultiSigPublicKey.fromPublicKeys({
-			threshold: oldSet.threshold,
-			publicKeys: oldSet.members.map((m) => ({
-				publicKey: publicKeyFromSuiBytes(m.publicKey),
-				weight: m.weight,
-			})),
-		}).toSuiAddress();
+	const COPY = content.proposal.approvals.signerChange;
+	const setOf = (
+		threshold: number,
+		signers = SIGNERS,
+	): Composition => ({
+		threshold,
+		members: signers.map((s) => ({
+			publicKey: s.publicKey,
+			weight: s.weight,
+		})),
+	});
+	// The pod's set, weighing 4, at threshold 2.
+	const oldSet = setOf(2);
+	const pod = MultiSigPublicKey.fromPublicKeys({
+		threshold: oldSet.threshold,
+		publicKeys: oldSet.members.map((m) => ({
+			publicKey: publicKeyFromSuiBytes(m.publicKey),
+			weight: m.weight,
+		})),
+	}).toSuiAddress();
+	// The bytes of a change from the pod's set to `newSet`.
+	async function changeTo(newSet: Composition) {
 		const tx = new Transaction();
 		tx.setSender(pod);
 		tx.setGasPrice(1000);
@@ -284,28 +288,35 @@ describe('signerChangeWarning', () => {
 			account: pod,
 			aliases: [pod],
 			oldSet: pod,
-			newSet: setOf(4),
+			newSet,
 			known: [oldSet],
 			chain: toBase58(new Uint8Array(32).fill(7)),
 			epoch: 5,
 		});
-		const transactionBytes = toBase64(await tx.build());
-		const warning = (signedBy: (typeof maya)[]) =>
-			signerChangeWarning(
-				{
-					...proposal({ signedBy }),
-					transactionBytes,
-				},
-				'ready',
-				[pod],
-				labels,
-			);
+		return toBase64(await tx.build());
+	}
+	const warning = (
+		transactionBytes: string,
+		signedBy: (typeof maya)[],
+	) =>
+		signerChangeWarning(
+			{ ...proposal({ signedBy }), transactionBytes },
+			'ready',
+			[pod],
+			labels,
+		);
 
-		expect(warning([alice])).toEqual({
+	it('names the signers who stay and haven’t signed until they cover the new threshold, and is null for a proposal that is no signer change', async () => {
+		// The threshold rises from 2 to 4.
+		const transactionBytes = await changeTo(setOf(4));
+
+		expect(warning(transactionBytes, [alice])).toEqual({
 			body: COPY.body('Maya and Daniel', 2),
 			notSigned: [maya.publicKey, daniel.publicKey],
 		});
-		expect(warning([alice, maya, daniel])).toBeNull();
+		expect(
+			warning(transactionBytes, [alice, maya, daniel]),
+		).toBeNull();
 		expect(
 			signerChangeWarning(
 				proposal({ signedBy: [alice] }),
@@ -314,6 +325,20 @@ describe('signerChangeWarning', () => {
 				labels,
 			),
 		).toBeNull();
+	});
+
+	it('warns when every signer who stays has signed and their weight still misses the new threshold', async () => {
+		// Alice leaves for a new key of weight 2: Maya and Daniel weigh 2 of the new 3 of 4.
+		const transactionBytes = await changeTo(
+			setOf(3, [maya, daniel, signer('New', 2)]),
+		);
+
+		expect(
+			warning(transactionBytes, [maya, daniel]),
+		).toEqual({
+			body: COPY.unreachable,
+			notSigned: [],
+		});
 	});
 });
 
