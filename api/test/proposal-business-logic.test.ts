@@ -306,7 +306,7 @@ describe('Proposal Business Logic', () => {
 
 			await expect(
 				session.proposeTransfer(invitee, multisig.address),
-			).rejects.toThrow(AuthErrors.NotAMultisigMember);
+			).rejects.toThrow(AuthErrors.AccountNotAccepted);
 		});
 
 		test('non-members cannot propose or vote', async () => {
@@ -316,7 +316,7 @@ describe('Proposal Business Logic', () => {
 
 			await expect(
 				session.proposeTransfer(outsider, multisig.address),
-			).rejects.toThrow(AuthErrors.NotAMultisigMember);
+			).rejects.toThrow(AuthErrors.NotAnAccountSigner);
 
 			const proposal = await session.proposeTransfer(
 				users[0],
@@ -328,7 +328,7 @@ describe('Proposal Business Logic', () => {
 					proposal.digest,
 					proposal.transactionBytes,
 				),
-			).rejects.toThrow(AuthErrors.NotAMultisigMember);
+			).rejects.toThrow(AuthErrors.NotAnAccountSigner);
 		});
 	});
 
@@ -406,7 +406,7 @@ describe('Proposal Business Logic', () => {
 
 			await expect(
 				session.proposeTransfer(proposer, multisig.address),
-			).rejects.toThrow(AuthErrors.NotAMultisigMember);
+			).rejects.toThrow(AuthErrors.NotAnAccountSigner);
 		});
 
 		test('rejects a proposal from a proposer removed while it waited on the account lock', async () => {
@@ -466,7 +466,7 @@ describe('Proposal Business Logic', () => {
 			expect((await removal)[0].status).toBe('fulfilled');
 			expectSettled(await creation, {
 				fulfilled: 0,
-				rejectedWith: AuthErrors.NotAMultisigMember,
+				rejectedWith: AuthErrors.NotAnAccountSigner,
 			});
 			expect(
 				await db
@@ -564,7 +564,7 @@ describe('Proposal Business Logic', () => {
 			);
 			await expect(
 				session.cancelProposal(proposerB, proposalByA),
-			).rejects.toThrow('Not a member of the multisig');
+			).rejects.toThrow(AuthErrors.NotAnAccountSigner);
 
 			// Frees the coins for the next proposal.
 			await session.cancelProposal(users[0], proposalByA);
@@ -576,7 +576,7 @@ describe('Proposal Business Logic', () => {
 				);
 			await expect(
 				session.cancelProposal(proposerA, proposalByMember),
-			).rejects.toThrow('Not a member of the multisig');
+			).rejects.toThrow(AuthErrors.NotAnAccountSigner);
 		});
 
 		test('keeps the proposer limit for simultaneous adds', async () => {
@@ -797,7 +797,7 @@ describe('Proposal Business Logic', () => {
 
 			await expect(
 				session.cancelProposal(newUser(), proposal),
-			).rejects.toThrow('Not a member of the multisig');
+			).rejects.toThrow(AuthErrors.NotAnAccountSigner);
 		});
 	});
 
@@ -1294,6 +1294,34 @@ describe('Proposal Business Logic', () => {
 				body: {
 					error:
 						'The transaction gas owner does not match the account.',
+				},
+			});
+
+			const other = Transaction.from(
+				await buildTransfer(multisig.address),
+			);
+			other.setSender(newUser().address);
+			const otherBytes = await other.build();
+			expect(
+				await errorOf(
+					await session.post(
+						'/v1/proposals?network=localnet',
+						{
+							accountAddress: multisig.address,
+							transactionBytes: toBase64(otherBytes),
+							signature: (
+								await users[0].keypair.signTransaction(
+									otherBytes,
+								)
+							).signature,
+						},
+					),
+				),
+			).toEqual({
+				status: 400,
+				body: {
+					error:
+						'The transaction sender does not match the account.',
 				},
 			});
 		});

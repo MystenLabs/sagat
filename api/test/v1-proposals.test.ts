@@ -371,7 +371,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			),
 		).toEqual({
 			status: 403,
-			message: new ApiAuthError('NotAMultisigMember')
+			message: new ApiAuthError('NotAnAccountSigner')
 				.message,
 		});
 

@@ -80,10 +80,6 @@ const TESTNET = actingSetsOn('testnet');
 const ACCESS_DENIED = new ApiAuthError('AccessDenied');
 const NOT_A_SIGNER = new ApiAuthError('NotAnAccountSigner');
 const NOT_ACCEPTED = new ApiAuthError('AccountNotAccepted');
-const NOT_A_MEMBER = new ApiAuthError('NotAMultisigMember');
-const CANNOT_CANCEL = new ValidationError(
-	'Not a member of the multisig',
-);
 const NOT_EXECUTED = new ValidationError(
 	'The transaction has not been executed yet.',
 );
@@ -459,13 +455,10 @@ describe('access under the acting scope', () => {
 
 		await expectRefused(
 			proposalsOf(r1, account),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
-		await expectRefused(propose(r1, account), NOT_A_MEMBER);
-		await expectRefused(
-			cancel(r1, proposal),
-			CANNOT_CANCEL,
-		);
+		await expectRefused(propose(r1, account), NOT_ACCEPTED);
+		await expectRefused(cancel(r1, proposal), NOT_ACCEPTED);
 		await expectRefused(verify(proposal), NOT_EXECUTED);
 		await expectRefused(
 			changeProposer('add', r1, account, newUser().address),
@@ -505,7 +498,7 @@ describe('access under the acting scope', () => {
 		expect(await listed(r1)).toEqual([]);
 		expect(await invitations(r1)).toEqual([]);
 		expect(await invitations(r1, true)).toEqual([account]);
-		await expectRefused(propose(r1, account), NOT_A_MEMBER);
+		await expectRefused(propose(r1, account), NOT_ACCEPTED);
 	});
 
 	test('a key of a second acting set gets a member’s rights once it accepted, on that account only', async () => {
@@ -516,7 +509,7 @@ describe('access under the acting scope', () => {
 		]);
 		await expectRefused(
 			proposalsOf(r1, account),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
 
 		await answerFor(account, r1, 'accepted');
@@ -548,7 +541,7 @@ describe('access under the acting scope', () => {
 			other,
 			composition,
 		]);
-		await expectRefused(propose(r1, other), NOT_A_MEMBER);
+		await expectRefused(propose(r1, other), NOT_ACCEPTED);
 		expect(await listed(r1)).toEqual([account]);
 	});
 
@@ -564,11 +557,11 @@ describe('access under the acting scope', () => {
 
 		expect(await listed(k3)).toEqual([]);
 		await expectRefused(read(k3, account), NOT_A_SIGNER);
-		await expectRefused(vote(k3, onLocalnet), NOT_A_MEMBER);
-		await expectRefused(propose(k3, account), NOT_A_MEMBER);
+		await expectRefused(vote(k3, onLocalnet), NOT_A_SIGNER);
+		await expectRefused(propose(k3, account), NOT_A_SIGNER);
 		await expectRefused(
 			cancel(k3, onLocalnet),
-			CANNOT_CANCEL,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			changeProposer('add', k3, account, newUser().address),
@@ -620,7 +613,7 @@ describe('access under the acting scope', () => {
 				),
 			);
 		expect(await listed(r1)).toEqual([]);
-		await expectRefused(vote(r1, proposal), NOT_A_MEMBER);
+		await expectRefused(vote(r1, proposal), NOT_A_SIGNER);
 
 		await setAliases(account, 'localnet', [composition]);
 		const [transfer] = await fundedTransfers(account, 1);
@@ -661,11 +654,11 @@ describe('access under the acting scope', () => {
 		);
 		await expectRefused(
 			vote(proposer, signed),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			proposalsOf(proposer, account),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 
 		await setAliases(account, 'localnet', [composition]);
@@ -686,11 +679,11 @@ describe('access under the acting scope', () => {
 		).toEqual(ROUTE_NOT_A_SIGNER);
 		await expectRefused(
 			vote(outsider, proposal),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			propose(outsider, account),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			propose(outsider, newUser().address),
@@ -698,7 +691,7 @@ describe('access under the acting scope', () => {
 		);
 		await expectRefused(
 			proposalsOf(outsider, account),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		expect(
 			await refusal(readRoute(k1, newUser().address)),
@@ -730,7 +723,7 @@ describe('access under the acting scope', () => {
 		});
 		await expectRefused(
 			propose(k1, stranger),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
 	});
 
@@ -768,11 +761,11 @@ describe('access under the acting scope', () => {
 					k1.address,
 				),
 			),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			propose(key, account),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		expect(await invitationsRoute(key)).toEqual([]);
 		const expiry = defaultExpiry();
@@ -806,14 +799,14 @@ describe('access under the acting scope', () => {
 		);
 
 		await expectRefused(read(k1, account), NOT_A_SIGNER);
-		await expectRefused(vote(k1, proposal), NOT_A_MEMBER);
-		await expectRefused(propose(k1, account), NOT_A_MEMBER);
+		await expectRefused(vote(k1, proposal), NOT_A_SIGNER);
+		await expectRefused(propose(k1, account), NOT_A_SIGNER);
 		await expectRefused(
 			propose(
 				await addExternalProposer(k1, account),
 				account,
 			),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		expect(await listed(k1)).toEqual([]);
 

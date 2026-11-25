@@ -428,7 +428,7 @@ describe('cancelling a proposal', () => {
 
 		await expect(
 			session.cancelProposal(newUser(), proposal),
-		).rejects.toThrow('Not a member of the multisig');
+		).rejects.toThrow(AuthErrors.NotAnAccountSigner);
 
 		expect(
 			await eventsOf(
@@ -647,7 +647,7 @@ describe('cancelling a proposal', () => {
 
 		expectSettled(await cancel, {
 			fulfilled: 0,
-			rejectedWith: 'Not a member of the multisig',
+			rejectedWith: AuthErrors.NotAnAccountSigner,
 		});
 		expect(await statusOf(proposal.id)).toBe(
 			ProposalStatus.PENDING,

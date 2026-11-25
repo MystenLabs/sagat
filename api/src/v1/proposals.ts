@@ -150,7 +150,10 @@ const cancelRoute = createRoute({
 	responses: {
 		200: proposalResponse('The proposal, cancelled.'),
 		400: error(
-			'The digest or signature is invalid, the signer may not cancel it, or the proposal is not pending.',
+			'The digest or signature is invalid, a signer has already signed the proposer’s proposal, or the proposal is not pending.',
+		),
+		403: error(
+			'The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer.',
 		),
 		404: error('No proposal has this digest.'),
 		503: unavailable,

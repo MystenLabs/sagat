@@ -957,7 +957,17 @@
 						}
 					},
 					"400": {
-						"description": "The digest or signature is invalid, the signer may not cancel it, or the proposal is not pending.",
+						"description": "The digest or signature is invalid, a signer has already signed the proposer’s proposal, or the proposal is not pending.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer.",
 						"content": {
 							"application/json": {
 								"schema": {
