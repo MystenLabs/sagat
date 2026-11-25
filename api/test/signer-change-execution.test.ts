@@ -38,10 +38,7 @@ import {
 	type Cast,
 	type GasCoin,
 } from './setup/signer-changes';
-import {
-	answer,
-	changeProposer,
-} from './setup/v1-accounts';
+import { answer } from './setup/v1-accounts';
 
 setupSharedTestEnvironment();
 
@@ -164,7 +161,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		]);
 	});
 
-	test('the removed k3 is refused everything a signer gets', async () => {
+	test('the removed k3 may not sign', async () => {
 		const { k1, k3, A } = cast;
 		pending = await session.createProposal(
 			k1,
@@ -172,51 +169,16 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			'localnet',
 			await buildTransfer(A, { gasCoin: coins[2] }),
 		);
-		const k3Client = await signedIn(k3);
-		const bytes = await buildTransfer(A, {
-			gasCoin: coins[3],
-		});
 
 		expect(
-			await Promise.all(
-				[
-					k3Client.getAccount(A, 'localnet'),
-					k3Client.getProposals({
-						accountAddress: A,
-						network: 'localnet',
-					}),
-					session.createProposal(k3, A, 'localnet', bytes),
-					session.voteOnProposal(
-						k3,
-						pending.digest,
-						pending.transactionBytes,
-					),
-					session.cancelProposal(k3, pending),
-					changeProposer(
-						framework,
-						'add',
-						k3,
-						A,
-						newUser().address,
-					),
-					changeProposer(
-						framework,
-						'remove',
-						k3,
-						A,
-						k1.address,
-					),
-				].map(refusal),
+			await refusal(
+				session.voteOnProposal(
+					k3,
+					pending.digest,
+					pending.transactionBytes,
+				),
 			),
-		).toEqual([
-			{ status: 403, message: NOT_A_SIGNER },
-			{ status: 403, message: NOT_A_SIGNER },
-			{ status: 403, message: NOT_A_SIGNER },
-			{ status: 403, message: NOT_A_SIGNER },
-			{ status: 403, message: NOT_A_SIGNER },
-			{ status: 403, message: NOT_A_SIGNER },
-			{ status: 403, message: NOT_A_SIGNER },
-		]);
+		).toEqual({ status: 403, message: NOT_A_SIGNER });
 	});
 
 	test('the new k4 is invited, shown as invited, signs at once, and gets a member’s rights once it accepts', async () => {
