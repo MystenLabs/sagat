@@ -147,16 +147,15 @@ export function ProposalView({
 		status === 'executed' || status === 'failed';
 	const open = status === 'pending' || status === 'ready';
 	// Only what the bytes do, checked against the node's alias set.
-	const changes = useMemo(
+	const checked = useMemo(
 		() =>
-			open
-				? checkedChange(proposal, aliases, labels, {
-						pod: pod?.address ?? proposal.accountAddress,
-						digest: openedDigest,
-					})?.list
-				: null,
-		[open, aliases, proposal, labels, pod, openedDigest],
+			checkedChange(proposal, aliases, labels, {
+				pod: pod?.address ?? proposal.accountAddress,
+				digest: openedDigest,
+			}),
+		[aliases, proposal, labels, pod, openedDigest],
 	);
+	const changes = open ? (checked?.list ?? null) : null;
 
 	// The connected wallet is in one of the proposal's signer sets, which
 	// Sign then checks. Signing needs only the wallet; the network has to
@@ -453,6 +452,7 @@ export function ProposalView({
 						proposal={proposal}
 						pod={pod}
 						aliases={aliases}
+						change={checked?.change ?? null}
 						openedDigest={openedDigest}
 						status={status}
 						labels={labels}

@@ -99,7 +99,7 @@ function nameOf(address: string | null, labels: Labels) {
 const keyName = (publicKey: string, labels: Labels) =>
 	nameOf(addressOf(publicKey), labels);
 
-/** The signer change the bytes make, checked against the node's alias read, with its differences; null unless it adds one set. */
+/** The checked signer change of the opened bytes, with its differences (null unless it adds one set). */
 export function checkedChange(
 	{
 		transactionBytes,
@@ -147,7 +147,7 @@ export function checkedChange(
 	const list = changeDifferences(change, (key) =>
 		keyName(key, merged),
 	);
-	return list ? { change, list } : null;
+	return { change, list };
 }
 
 /** Whether `publicKey` signed the proposal. */

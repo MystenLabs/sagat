@@ -5,6 +5,7 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
+import { type SignerChange } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
 import { useQuery } from '@tanstack/react-query';
 import { Pen, Play, X } from 'lucide-react';
@@ -44,10 +45,7 @@ import { useProposalProposerCheck } from '@/hooks/useProposerProofs';
 import { useSignProposal } from '@/hooks/useSignProposal';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { type AliasRead } from '@/lib/alias-set';
-import {
-	removedBy,
-	signerChangeIn,
-} from '@/lib/change-signers';
+import { removedBy } from '@/lib/change-signers';
 import {
 	networkLabel,
 	type SuiNetwork,
@@ -109,6 +107,7 @@ export function ApprovalsCard({
 	proposal,
 	pod,
 	aliases,
+	change,
 	openedDigest,
 	status,
 	labels,
@@ -123,6 +122,8 @@ export function ApprovalsCard({
 	pod: ShownPod | null;
 	/** The pod's alias set on the proposal's network, undefined until read. */
 	aliases: AliasRead | undefined;
+	/** The signer change the bytes make, checked by the page. */
+	change: SignerChange | null;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 	status: ProposalStatusKey;
@@ -252,17 +253,6 @@ export function ApprovalsCard({
 	const unchecked =
 		!refusing && onNetwork === 'unchecked' && awaitingSign;
 	const checkingSigners = onNetwork === 'checking';
-	// The signer change the bytes make, checked against the node's alias set.
-	const change = useMemo(
-		() =>
-			aliases?.kind === 'read'
-				? signerChangeIn(
-						proposal.transactionBytes,
-						aliases.aliases,
-					)
-				: null,
-		[aliases, proposal.transactionBytes],
-	);
 	// A signer the change removes can't cancel it.
 	const removed = removedBy(change, viewerPublicKey);
 	// Cancelling signs a message for the API session.

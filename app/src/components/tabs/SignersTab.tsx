@@ -160,7 +160,7 @@ export function SignersTab() {
 				pod: multisig.address,
 				digest: proposal.digest,
 			});
-		return checked
+		return proposal && checked?.list
 			? {
 					title: changeTitle(checked.list),
 					weight: content.common.thresholdLabel(

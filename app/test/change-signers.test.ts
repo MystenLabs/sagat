@@ -289,7 +289,7 @@ test('a change’s differences come from its bytes, checked against the alias se
 			{ kind: 'read', aliases: [pod] },
 			podLabels,
 			{ pod, digest: digestOf(bytes) },
-		)?.list.map((d) => d.text);
+		)?.list?.map((d) => d.text);
 	expect(
 		named([told(priya, 'Priya'), told(alice, 'Ally')]),
 	).toEqual([
