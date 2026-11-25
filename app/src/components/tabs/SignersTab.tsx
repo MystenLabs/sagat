@@ -38,6 +38,7 @@ import {
 	shownActingSets,
 } from '@/lib/proposal-integrity';
 import {
+	aliasCallsIn,
 	allowsSignerChanges,
 	isProposalExpired,
 	proposalPagePath,
@@ -154,16 +155,21 @@ export function SignersTab() {
 		status: 'PENDING',
 		perPage: PROPOSALS_PAGE_SIZE,
 	});
-	const allowProposal = useMemo(
+	// Undefined until the list loads; the API takes one alias proposal at a time.
+	const aliasProposals = useMemo(
 		() =>
 			pending?.pages
 				.flatMap((page) => page.proposals)
-				.find(
+				.filter(
 					(proposal) =>
 						!isProposalExpired(proposal, epochInfo) &&
-						allowsSignerChanges(proposal.transactionBytes),
+						aliasCallsIn(proposal.transactionBytes).length >
+							0,
 				),
 		[pending, epochInfo],
+	);
+	const allowProposal = aliasProposals?.find((proposal) =>
+		allowsSignerChanges(proposal.transactionBytes),
 	);
 	const changesAllowed =
 		details?.signerChangesEnabled ?? true;
@@ -414,7 +420,9 @@ export function SignersTab() {
 						)
 					}
 					onAllowSignerChanges={
-						acting && !changesAllowed && !allowProposal
+						acting &&
+						!changesAllowed &&
+						aliasProposals?.length === 0
 							? () => void allowSignerChanges()
 							: undefined
 					}

@@ -164,6 +164,10 @@ export function useExecuteProposal() {
 				queryClient.invalidateQueries({
 					queryKey: [key, network, accountAddress],
 				});
+			// An alias call can change whether the pod allows signer changes.
+			void queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Multisig],
+			});
 			const digest = data.executionResult.digest;
 			const explorerUrl = getExplorerUrl(
 				digest,
