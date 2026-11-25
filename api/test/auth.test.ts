@@ -84,6 +84,16 @@ describe('Auth API', () => {
 		await expect(
 			session.client.checkAuth(),
 		).rejects.toThrow('Unauthorized');
+		expect(
+			await errorOf(
+				await session.request(
+					'/v1/accounts?network=localnet',
+				),
+			),
+		).toEqual({
+			status: 401,
+			body: { error: 'Unauthorized' },
+		});
 
 		await session.connectUser(user);
 		expect(await connectedAddresses(session)).toEqual([

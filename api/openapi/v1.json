@@ -616,8 +616,10 @@
 					"401": {
 						"description": "No valid session.",
 						"content": {
-							"text/plain": {
-								"schema": { "type": "string" }
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
 							}
 						}
 					}
@@ -676,8 +678,10 @@
 					"401": {
 						"description": "No valid session.",
 						"content": {
-							"text/plain": {
-								"schema": { "type": "string" }
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
 							}
 						}
 					},
@@ -747,8 +751,10 @@
 					"401": {
 						"description": "No valid session.",
 						"content": {
-							"text/plain": {
-								"schema": { "type": "string" }
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
 							}
 						}
 					}

@@ -45,7 +45,11 @@ import {
 	toV1RemovedAccount,
 } from './serializers';
 
-const auth: MiddlewareHandler<AuthEnv> = authMiddleware;
+// The shared middleware refuses in plain text; `/v1` answers with the error body.
+const auth: MiddlewareHandler<AuthEnv> = async (c, next) =>
+	(await authMiddleware(c, next))
+		? c.json({ error: 'Unauthorized' }, 401)
+		: undefined;
 
 const security: Record<string, string[]>[] = [
 	{ cookieAuth: [] },
@@ -56,10 +60,7 @@ const authenticated = {
 	security,
 };
 
-const unauthorized = {
-	description: 'No valid session.',
-	content: { 'text/plain': { schema: z.string() } },
-};
+const unauthorized = error('No valid session.');
 
 const networkQuery = z.object({ network: NetworkSchema });
 // Canonical, as the signed messages name it.
