@@ -99,6 +99,10 @@ function nameOf(address: string | null, labels: Labels) {
 const keyName = (publicKey: string, labels: Labels) =>
 	nameOf(addressOf(publicKey), labels);
 
+// A name as two names compare: trimmed, spaces collapsed, lower case.
+const normalName = (name: string) =>
+	name.trim().replace(/\s+/g, ' ').toLowerCase();
+
 /** The checked signer change of the opened bytes, with its differences (null unless it adds one set). */
 export function checkedChange(
 	{
@@ -130,14 +134,20 @@ export function checkedChange(
 	const old = new Set(
 		change.oldSet.members.map((m) => m.publicKey),
 	);
-	const taken = new Set(labels.values());
+	const taken = new Set(
+		[...labels.values()].map(
+			(name) => name && normalName(name),
+		),
+	);
 	// The API's label names only a key the bytes add, never as a current signer; the pod's labels win.
 	const merged: Labels = new Map([
 		...(signerChange?.labels ?? []).flatMap(
 			({ publicKey, label }) => {
 				const key = suiKey(publicKey);
 				const address = addressOf(key);
-				return address && !old.has(key) && !taken.has(label)
+				return address &&
+					!old.has(key) &&
+					!taken.has(normalName(label))
 					? [[address, label] as const]
 					: [];
 			},

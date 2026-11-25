@@ -312,6 +312,46 @@ test('a change’s differences come from its bytes, checked against the alias se
 	).toEqual([true, false]);
 });
 
+test('a proposer’s name for an added key is dropped when it reads as a current signer’s name', async () => {
+	const [hana, priya] = [newKey(), newKey()];
+	const set = (...keys: (typeof hana)[]) => ({
+		threshold: 1,
+		members: keys.map((key) => ({
+			publicKey: key.toSuiPublicKey(),
+			weight: 1,
+		})),
+	});
+	const { pod, bytes } = await signerChange(
+		set(hana),
+		set(hana, priya),
+	);
+	const added = (label: string) =>
+		checkedChange(
+			{
+				transactionBytes: bytes,
+				signerChange: {
+					removes: null,
+					adds: null,
+					labels: [
+						{ publicKey: priya.toSuiPublicKey(), label },
+					],
+				},
+			},
+			{ kind: 'read', aliases: [pod] },
+			new Map([[hana.toSuiAddress(), 'Hana']]),
+			{ pod, digest: digestOf(bytes) },
+		)?.list?.[0].text;
+	const unnamed = COPY.change.add(
+		formatAddress(priya.toSuiAddress()),
+		1,
+	);
+	expect(added('hana')).toBe(unnamed);
+	expect(added(' Hana  ')).toBe(unnamed);
+	expect(added('Hana K')).toBe(
+		COPY.change.add('Hana K', 1),
+	);
+});
+
 test('a change is checked only as the opened proposal of the pod that sends it', async () => {
 	const [maya, daniel] = [newKey(), newKey()];
 	const set = (...keys: (typeof maya)[]) => ({
