@@ -431,6 +431,14 @@ export class ApiTestFramework {
 		return new TestSession(this.app);
 	}
 
+	// A session with `users` connected.
+	async connectedSession(...users: TestUser[]) {
+		const session = this.createSession();
+		for (const user of users)
+			await session.connectUser(user);
+		return session;
+	}
+
 	async createAuthenticatedSession(userCount: number) {
 		const session = this.createSession();
 		const users = Array.from(

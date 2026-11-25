@@ -66,13 +66,6 @@ beforeEach(async () => {
 	framework = new ApiTestFramework(await createTestApp());
 });
 
-// A session signed in as `users`, with its `/v1` client.
-const signIn = async (...users: TestUser[]) => {
-	const session = framework.createSession();
-	for (const user of users) await session.connectUser(user);
-	return { session, client: session.v1 };
-};
-
 const answer = async (
 	user: TestUser,
 	account: string,
@@ -144,7 +137,7 @@ const addresses = (accounts: { address: string }[]) =>
 describe('GET /v1/accounts', () => {
 	test('lists an accepted account with its original set, acting sets, answers and labels, leaves out an invitation, and refuses an unsupported network', async () => {
 		const [k1, k2, k3] = [newUser(), newUser(), newUser()];
-		const { session, client } = await signIn(k1);
+		const session = await framework.connectedSession(k1);
 		const account = await session.createMultisig(
 			[k1, k2, k3],
 			2,
@@ -154,10 +147,10 @@ describe('GET /v1/accounts', () => {
 		await session.rejectMultisig(k3, account.address);
 		const stranger = newUser();
 		await (
-			await signIn(stranger)
-		).session.createMultisig([stranger, k1], 1);
+			await framework.connectedSession(stranger)
+		).createMultisig([stranger, k1], 1);
 
-		const list = await client.getAccounts('localnet');
+		const list = await session.v1.getAccounts('localnet');
 
 		const members = (
 			[
@@ -199,7 +192,7 @@ describe('GET /v1/accounts', () => {
 			removed: [],
 		});
 		expect(
-			await refusal(client.getAccounts('testnet')),
+			await refusal(session.v1.getAccounts('testnet')),
 		).toEqual({
 			status: 400,
 			message:
@@ -215,14 +208,17 @@ describe('GET /v1/accounts', () => {
 		];
 		const account = (
 			await (
-				await signIn(stranger)
-			).session.createMultisig([stranger, k1, k2], 3)
+				await framework.connectedSession(stranger)
+			).createMultisig([stranger, k1, k2], 3)
 		).address;
-		const { client } = await signIn(k1, k2);
+		const session = await framework.connectedSession(
+			k1,
+			k2,
+		);
 
 		expect(
 			addresses(
-				(await client.getInvitations('localnet'))
+				(await session.v1.getInvitations('localnet'))
 					.invitations,
 			),
 		).toEqual([account]);
@@ -231,14 +227,14 @@ describe('GET /v1/accounts', () => {
 		await answer(k2, account, 'accept');
 		expect(
 			addresses(
-				(await client.getAccounts('localnet')).accounts,
+				(await session.v1.getAccounts('localnet')).accounts,
 			),
 		).toEqual([account]);
 	});
 
 	test('a removal is not reported while another acting set still holds the key, or for a key that never accepted', async () => {
 		const [key, invited] = [newUser(), newUser()];
-		const { session } = await signIn(key);
+		const session = await framework.connectedSession(key);
 		const account = (
 			await session.createMultisig([key, invited], 1)
 		).address;
@@ -293,7 +289,7 @@ describe('GET /v1/accounts', () => {
 
 	test('51 accounts cost two chain reads, and a second list right after costs none', async () => {
 		const [a, b] = [newUser(), newUser()];
-		const { session, client } = await signIn(a, b);
+		const session = await framework.connectedSession(a, b);
 		for (let i = 0; i < 51; i++)
 			await session.createMultisig(
 				[i % 2 === 0 ? a : b, newUser()],
@@ -301,9 +297,9 @@ describe('GET /v1/accounts', () => {
 			);
 
 		const before = await rpcCalls('getObjects');
-		const list = await client.getAccounts('localnet');
+		const list = await session.v1.getAccounts('localnet');
 		const first = (await rpcCalls('getObjects')) - before;
-		await client.getAccounts('localnet');
+		await session.v1.getAccounts('localnet');
 		const second =
 			(await rpcCalls('getObjects')) - before - first;
 
@@ -314,7 +310,7 @@ describe('GET /v1/accounts', () => {
 
 	test('a failed alias read marks only its account as not checked', async () => {
 		const key = newUser();
-		const { session } = await signIn(key);
+		const session = await framework.connectedSession(key);
 		const [failing, healthy] = [
 			await session.createMultisig([key, newUser()], 1),
 			await session.createMultisig([key, newUser()], 1),
@@ -370,8 +366,8 @@ describe('GET /v1/accounts', () => {
 			expectSuccess(await run(account, signer, fill));
 
 		const list = await (
-			await signIn(users[0])
-		).client.getAccounts('localnet');
+			await framework.connectedSession(users[0])
+		).v1.getAccounts('localnet');
 
 		const [removal] = await db
 			.select({
@@ -402,7 +398,7 @@ describe('GET /v1/accounts', () => {
 describe('POST /v1/accounts/:address/accept and /reject', () => {
 	test('write account rows that verify, answer a repeated reject as the first and refuse a reject after an accept, and an answer of the original set is visible to the legacy routes', async () => {
 		const [k1, k2, k3] = [newUser(), newUser(), newUser()];
-		const { session } = await signIn(k1);
+		const session = await framework.connectedSession(k1);
 		const account = (
 			await session.createMultisig([k1, k2, k3], 2)
 		).address;
@@ -480,7 +476,7 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 
 	test('a key in no acting set is refused once its signature verifies, and nothing is recorded', async () => {
 		const k1 = newUser();
-		const { session } = await signIn(k1);
+		const session = await framework.connectedSession(k1);
 		const account = (
 			await session.createMultisig([k1, newUser()], 2)
 		).address;
@@ -529,29 +525,28 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 
 	test('a key of a composition added to another account answers for that account only', async () => {
 		const [s1, s2] = [newUser(), newUser()];
-		const own = await signIn(s1, s2);
+		const own = await framework.connectedSession(s1, s2);
 		const composition = (
-			await own.session.createMultisig([s1, s2], 2)
+			await own.createMultisig([s1, s2], 2)
 		).address;
 		const stranger = newUser();
 		const account = (
 			await (
-				await signIn(stranger)
-			).session.createMultisig([stranger, newUser()], 2)
+				await framework.connectedSession(stranger)
+			).createMultisig([stranger, newUser()], 2)
 		).address;
 		await setAliases(account, 'localnet', [
 			account,
 			composition,
 		]);
-		const first = await signIn(s1);
-		const second = await signIn(s2);
+		const first = await framework.connectedSession(s1);
+		const second = await framework.connectedSession(s2);
 
 		await answer(s1, account, 'accept');
 
 		expect(
 			addresses(
-				(await first.client.getAccounts('localnet'))
-					.accounts,
+				(await first.v1.getAccounts('localnet')).accounts,
 			),
 		).toEqual([account, composition].sort());
 		expect(
@@ -575,13 +570,12 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 		).toEqual([{ isAccepted: true }]);
 		expect(
 			addresses(
-				(await second.client.getAccounts('localnet'))
-					.accounts,
+				(await second.v1.getAccounts('localnet')).accounts,
 			),
 		).toEqual([composition]);
 		expect(
 			addresses(
-				(await second.client.getInvitations('localnet'))
+				(await second.v1.getInvitations('localnet'))
 					.invitations,
 			),
 		).toEqual([account]);
@@ -591,7 +585,7 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 describe('GET /v1/accounts/:address', () => {
 	test('returns the original and acting sets with labels, whether changes are allowed, and the proposers with their events, also to an invited key', async () => {
 		const [k1, k2] = [newUser(), newUser()];
-		const { session, client } = await signIn(k1);
+		const session = await framework.connectedSession(k1);
 		const account = (
 			await session.createMultisig([k1, k2], 2, {
 				name: 'Treasury',
@@ -600,9 +594,9 @@ describe('GET /v1/accounts/:address', () => {
 		).address;
 		const proposer = newUser().address;
 		await session.addProposer(k1, proposer, account);
-		const invited = await signIn(k2);
+		const invited = await framework.connectedSession(k2);
 
-		const before = await client.getAccount(
+		const before = await session.v1.getAccount(
 			account,
 			'localnet',
 		);
@@ -613,7 +607,7 @@ describe('GET /v1/accounts/:address', () => {
 			.where(
 				eq(SchemaAccountAliasState.accountAddress, account),
 			);
-		const read = await invited.client.getAccount(
+		const read = await invited.v1.getAccount(
 			account,
 			'localnet',
 		);
@@ -673,7 +667,10 @@ describe('GET /v1/accounts/:address', () => {
 
 	test('names the other networks whose alias set differs, where an account whose set was removed is not listed', async () => {
 		const [k1, k2] = [newUser(), newUser()];
-		const { session } = await signIn(k1, k2);
+		const session = await framework.connectedSession(
+			k1,
+			k2,
+		);
 		const account = (
 			await session.createMultisig([k1, k2], 2)
 		).address;

@@ -240,29 +240,29 @@ const keysOf = (user: TestUser) => [
 	user.keypair.getPublicKey(),
 ];
 
-// The `/v1` routes, signed in as `user`.
-const routesAs = async (user: TestUser) => {
-	const session = framework.createSession();
-	await session.connectUser(user);
-	return session.v1;
-};
-
 const ROUTE_NOT_A_SIGNER = {
 	status: 403,
 	message: NOT_A_SIGNER.message,
 };
 
 const readRoute = async (user: TestUser, account: string) =>
-	(await routesAs(user)).getAccount(account, 'localnet');
+	(await framework.connectedSession(user)).v1.getAccount(
+		account,
+		'localnet',
+	);
 
 const listedRoute = async (user: TestUser) =>
 	(
-		await (await routesAs(user)).getAccounts('localnet')
+		await (
+			await framework.connectedSession(user)
+		).v1.getAccounts('localnet')
 	).accounts.map((account) => account.address);
 
 const invitationsRoute = async (user: TestUser) =>
 	(
-		await (await routesAs(user)).getInvitations('localnet')
+		await (
+			await framework.connectedSession(user)
+		).v1.getInvitations('localnet')
 	).invitations.map((account) => account.address);
 
 const read = (
@@ -944,7 +944,8 @@ describe('access under the acting scope', () => {
 
 	test('the account list does not cost more statements with more accounts', async () => {
 		const key = newUser();
-		const client = await routesAs(key);
+		const client = (await framework.connectedSession(key))
+			.v1;
 		const listedCount = async () =>
 			(await client.getAccounts('localnet')).accounts
 				.length;
