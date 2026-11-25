@@ -137,10 +137,8 @@ export type ProposalProgress = {
 const proposalProgress = (
 	proposal: ProposalWithSignatures,
 	signers: AccountSigners,
+	signerChange = signerChangeIn(proposal.transactionBytes),
 ): ProposalProgress => {
-	const signerChange = signerChangeIn(
-		proposal.transactionBytes,
-	);
 	// A note that does not check is never ready; once not pending, the old set is read from the change.
 	const oldSet = signerChange?.change?.oldSet;
 	const sets = !signerChange
@@ -178,8 +176,9 @@ const checkedProposal = (
 	signers: AccountSigners,
 	events: ProposalEvents,
 	signerSetsStale: boolean,
+	signerChange?: ProposalProgress['signerChange'],
 ): CheckedProposal => ({
-	...proposalProgress(proposal, signers),
+	...proposalProgress(proposal, signers, signerChange),
 	events,
 	signerSetsStale,
 });
@@ -187,12 +186,9 @@ const checkedProposal = (
 // No legacy route serves a signer change: it is a `/v1` feature.
 const refuseSignerChangeUnder = (
 	scopeKind: SignerScopeKind,
-	proposal: Pick<Proposal, 'transactionBytes'>,
+	signerChange: ProposalProgress['signerChange'],
 ) => {
-	if (
-		scopeKind === 'original' &&
-		signerChangeIn(proposal.transactionBytes) !== null
-	)
+	if (scopeKind === 'original' && signerChange !== null)
 		throw new ServedByV1OnlyError('A signer change');
 };
 
@@ -825,7 +821,8 @@ export const voteOnProposal = async ({
 	scopeKind: SignerScopeKind;
 }): Promise<ProposalProgress> => {
 	const proposal = await getProposal(key);
-	refuseSignerChangeUnder(scopeKind, proposal);
+	const stored = signerChangeIn(proposal.transactionBytes);
+	refuseSignerChangeUnder(scopeKind, stored);
 
 	const pubKey = transactionSigner(signature, scopeKind);
 	const signatureFirst = scopeKind === 'acting';
@@ -854,7 +851,6 @@ export const voteOnProposal = async ({
 		throw REFUSALS[scopeKind].notSigner();
 
 	// A set is replaced by its own signers.
-	const stored = signerChangeIn(proposal.transactionBytes);
 	if (
 		stored &&
 		!(
@@ -898,7 +894,7 @@ export const voteOnProposal = async ({
 		event_type: MultisigEventType.SIGNATURE_ADDED,
 	});
 
-	return proposalProgress(proposal, signers);
+	return proposalProgress(proposal, signers, stored);
 };
 
 // Cancels a pending proposal. An accepted member can cancel any proposal; an
@@ -912,7 +908,8 @@ export const cancelProposal = async ({
 	scopeKind: SignerScopeKind;
 }) => {
 	const proposal = await getProposal(key);
-	refuseSignerChangeUnder(scopeKind, proposal);
+	const stored = signerChangeIn(proposal.transactionBytes);
+	refuseSignerChangeUnder(scopeKind, stored);
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
@@ -967,7 +964,6 @@ export const cancelProposal = async ({
 			[pubKey.toSuiPublicKey()],
 		);
 
-	const stored = signerChangeIn(proposal.transactionBytes);
 	const change = stored?.change;
 	// Once the old set no longer acts, the change can never execute, and any accepted signer may cancel it.
 	const oldSetActs =
@@ -1199,7 +1195,8 @@ export const getProposalByDigest = async (
 	scopeKind: SignerScopeKind,
 ): Promise<CheckedProposal> => {
 	const proposal = await getProposal({ digest });
-	refuseSignerChangeUnder(scopeKind, proposal);
+	const stored = signerChangeIn(proposal.transactionBytes);
+	refuseSignerChangeUnder(scopeKind, stored);
 
 	const signerSetsStale =
 		scopeKind !== 'original' &&
@@ -1220,5 +1217,6 @@ export const getProposalByDigest = async (
 		signers,
 		events.get(proposal.id) ?? NO_EVENTS,
 		signerSetsStale,
+		stored,
 	);
 };
