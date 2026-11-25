@@ -159,6 +159,8 @@ export const content = {
 		/** When more than one signer set acts on the network: above Members' cards and in the Approvals card. */
 		severalSignerSets: (count: number, network: string) =>
 			`This pod has ${count} signer sets on ${network}. Each one can approve transactions on its own.`,
+		/** Why Add signer is disabled at the maximum: the create wizard and Members. */
+		maxSigners: (max: number) => `Up to ${max} signers`,
 		/** When a transaction's bytes name a chain other than the node's: under the bytes field, and why Sign is refused. */
 		wrongChain:
 			'The transaction was built for another network.',
@@ -455,7 +457,6 @@ export const content = {
 				'Paste each signer’s public key, or search by their address.',
 			count: (count: number, max: number) =>
 				`${count} of ${max}`,
-			maxSigners: (max: number) => `Up to ${max} signers`,
 			orderNote:
 				'Signer order affects the address. Drag to reorder before you create the pod.',
 			thresholdTitle: 'Approval threshold',

@@ -243,7 +243,7 @@ export function AddSignerButton({
 				{button}
 			</TooltipTrigger>
 			<TooltipContent>
-				{COPY.signersStep.maxSigners(CONFIG.MAX_MEMBERS)}
+				{content.common.maxSigners(CONFIG.MAX_MEMBERS)}
 			</TooltipContent>
 		</Tooltip>
 	) : (
