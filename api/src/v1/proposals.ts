@@ -10,9 +10,11 @@ import {
 	SignatureRequestSchema,
 	TransactionDigestSchema,
 } from '@mysten/sagat/v1';
+import { type PublicKey } from '@mysten/sui/cryptography';
 import { z } from 'zod';
 
 import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
+import { isAccountSigner } from '../services/membership.service';
 import {
 	cancelProposal,
 	createProposal,
@@ -21,6 +23,8 @@ import {
 	verifyProposalByDigest,
 	voteOnProposal,
 } from '../services/proposals.service';
+import { actingSetsOn } from '../services/signers.service';
+import { type SuiNetwork } from '../utils/client';
 import { newCursor } from '../utils/pagination';
 import {
 	authenticated,
@@ -30,6 +34,7 @@ import {
 	json,
 	jsonBody,
 	networkQuery,
+	sessionIfAny,
 	unauthorized,
 	unavailable,
 	type V1App,
@@ -49,6 +54,7 @@ const createProposalRoute = createRoute({
 	method: 'post',
 	path: '/proposals',
 	summary: 'Propose a transaction',
+	...sessionIfAny,
 	description:
 		'Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote. Only one proposal that calls `0x2::address_alias` per account and network is pending at a time. A signer change, recognised by its composition note, is checked against the account’s signers on the network, and the signer set it adds is written.',
 	request: {
@@ -106,6 +112,7 @@ const getProposalRoute = createRoute({
 	method: 'get',
 	path: '/proposals/{digest}',
 	summary: 'Get a proposal by its transaction digest',
+	...sessionIfAny,
 	request: { params: digestParams },
 	responses: {
 		200: proposalResponse(
@@ -122,6 +129,7 @@ const voteRoute = createRoute({
 	method: 'post',
 	path: '/proposals/{digest}/vote',
 	summary: 'Sign a proposal',
+	...sessionIfAny,
 	description:
 		'Signed over the transaction by a key of an acting signer set, accepted or not. A signer change only by a key of the signer set it replaces.',
 	request: { params: digestParams, body: signatureBody },
@@ -144,6 +152,7 @@ const cancelRoute = createRoute({
 	method: 'post',
 	path: '/proposals/{digest}/cancel',
 	summary: 'Cancel a proposal',
+	...sessionIfAny,
 	description:
 		'Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed. A signer change only by an accepted signer of the set it replaces who stays.',
 	request: { params: digestParams, body: signatureBody },
@@ -164,6 +173,7 @@ const verifyRoute = createRoute({
 	method: 'post',
 	path: '/proposals/{digest}/verify',
 	summary: 'Record the on-chain outcome of a proposal',
+	...sessionIfAny,
 	description:
 		'Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is.',
 	request: { params: digestParams },
@@ -178,16 +188,35 @@ const verifyRoute = createRoute({
 	},
 });
 
+// The account's key labels, only for a caller whose session key signs for the account on the network.
+const labelsFor = async (
+	accountAddress: string,
+	network: string,
+	callerKeys: PublicKey[],
+) =>
+	callerKeys.length > 0 &&
+	(await isAccountSigner(accountAddress, callerKeys, {
+		acceptedOnly: false,
+		scope: actingSetsOn(network as SuiNetwork),
+	}))
+		? AccountKeyLabelsDataLoader.load(accountAddress)
+		: new Map<string, string>();
+
 // The proposal as `GET /v1/proposals/{digest}` returns it.
-const proposalAt = async (digest: string) => {
+const proposalAt = async (
+	digest: string,
+	callerKeys: PublicKey[],
+) => {
 	const proposal = await getProposalByDigest(
 		digest,
 		'acting',
 	);
 	return toV1Proposal(
 		proposal,
-		await AccountKeyLabelsDataLoader.load(
+		await labelsFor(
 			proposal.proposal.accountAddress,
+			proposal.proposal.network,
+			callerKeys,
 		),
 	);
 };
@@ -202,7 +231,7 @@ export const proposalRoutes = (app: V1App) => {
 			network,
 			scopeKind: 'acting',
 		});
-		return proposalAt(proposal.digest);
+		return proposalAt(proposal.digest, c.get('publicKeys'));
 	});
 
 	defineRoute(app, listProposalsRoute, async (c) => {
@@ -214,8 +243,10 @@ export const proposalRoutes = (app: V1App) => {
 			cursor: newCursor(query),
 			callerKeys: c.get('publicKeys'),
 		});
-		const labels = await AccountKeyLabelsDataLoader.load(
+		const labels = await labelsFor(
 			query.accountAddress,
+			query.network,
+			c.get('publicKeys'),
 		);
 		return {
 			network: query.network,
@@ -230,7 +261,10 @@ export const proposalRoutes = (app: V1App) => {
 	});
 
 	defineRoute(app, getProposalRoute, async (c) =>
-		proposalAt(c.req.valid('param').digest),
+		proposalAt(
+			c.req.valid('param').digest,
+			c.get('publicKeys'),
+		),
 	);
 
 	for (const [route, act] of [
@@ -244,12 +278,12 @@ export const proposalRoutes = (app: V1App) => {
 				...c.req.valid('json'),
 				scopeKind: 'acting',
 			});
-			return proposalAt(digest);
+			return proposalAt(digest, c.get('publicKeys'));
 		});
 
 	defineRoute(app, verifyRoute, async (c) => {
 		const { digest } = c.req.valid('param');
 		await verifyProposalByDigest(digest, 'acting');
-		return proposalAt(digest);
+		return proposalAt(digest, c.get('publicKeys'));
 	});
 };

@@ -132,7 +132,7 @@ describe('POST /v1/proposals with a signer change', () => {
 				),
 			);
 
-	test('a signer who stays proposes S1 to S2: the new set, its members in order and its link are written, and only the new key is labelled, with no invitation yet', async () => {
+	test('a signer who stays proposes S1 to S2: the new set, its members in order and its link are written, and only the new key is labelled, for a signer’s session only, with no invitation yet', async () => {
 		const cast = await createCast(session);
 		const { k1, k2, k4, A, S2 } = cast;
 
@@ -149,6 +149,17 @@ describe('POST /v1/proposals with a signer change', () => {
 		expect(created.signerChange?.labels).toEqual([
 			{ publicKey: k4.publicKey, label: 'Dee' },
 		]);
+		const labelsAs = async (reader: TestSession) =>
+			(await reader.v1.getProposalByDigest(created.digest))
+				.signerChange?.labels;
+		expect(
+			await labelsAs(framework.createSession()),
+		).toEqual([]);
+		expect(
+			await labelsAs(
+				await framework.connectedSession(newUser()),
+			),
+		).toEqual([]);
 		const S2Address = addressOf(S2);
 		expect(
 			await db
