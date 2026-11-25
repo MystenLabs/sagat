@@ -127,8 +127,6 @@ export async function sendCoins(
 	await executeTransaction(funder, tx);
 }
 
-// A client for the API (calling the app directly), that keeps the session
-// cookie between requests like a browser would.
 // A client call's refusal as status and message, or null when it succeeds.
 export const refusal = (call: Promise<unknown>) =>
 	call.then(
@@ -139,6 +137,8 @@ export const refusal = (call: Promise<unknown>) =>
 		}),
 	);
 
+// A client for the API (calling the app directly), that keeps the session
+// cookie between requests like a browser would.
 export class TestSession {
 	#cookie = '';
 	readonly client: SagatClient;

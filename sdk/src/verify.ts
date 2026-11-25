@@ -55,7 +55,7 @@ const proposerMessage =
 	(accountAddress, expiry, subject) =>
 		subject ? build(subject, accountAddress, expiry) : null;
 
-// `membersOnly` is false for an answer: an invited key is in no set yet.
+// `membersOnly` is false for an answer: its key need not be a trusted member yet.
 const ACCOUNT_EVENT_PROOFS: Record<
 	string,
 	{
