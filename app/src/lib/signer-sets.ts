@@ -35,7 +35,7 @@ function podAt<P extends ListedPod>(
 	);
 }
 
-export interface LinkedPod {
+interface LinkedPod {
 	address: string;
 	name: string | null;
 }

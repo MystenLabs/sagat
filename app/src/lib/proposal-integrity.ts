@@ -261,7 +261,7 @@ export function checkPodSigners(
 }
 
 /** Rule 2 for a pod on one network; `checking` until its alias set is read. */
-export interface PodActing<
+interface PodActing<
 	S extends AccountSigners = AccountSigners,
 > {
 	state: 'checking' | 'ok' | 'refused' | 'unchecked';
