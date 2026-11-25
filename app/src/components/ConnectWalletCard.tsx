@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { WalletPicker } from '@/components/WalletPicker';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import { isZkLoginAccount } from '@/lib/wallet';
+import { unsupportedAccountScheme } from '@/lib/wallet';
 
 const COPY = content.signedOut;
 
@@ -25,6 +25,9 @@ const COPY = content.signedOut;
  */
 export function ConnectWalletCard() {
 	const currentAccount = useCurrentAccount();
+	const unsupported =
+		currentAccount &&
+		unsupportedAccountScheme(currentAccount);
 	const wallets = useWallets();
 	const {
 		declined,
@@ -59,9 +62,8 @@ export function ConnectWalletCard() {
 
 	return (
 		<div className="page-shell flex-1 justify-center">
-			{currentAccount &&
-			isZkLoginAccount(currentAccount) ? (
-				<ZkLoginPrompt />
+			{unsupported ? (
+				<UnsupportedAccountPrompt scheme={unsupported} />
 			) : currentAccount ? (
 				<EmptyState
 					testId="auth-prompt"
@@ -112,32 +114,36 @@ export function ConnectWalletCard() {
 }
 
 /**
- * A zkLogin account can't sign in, so no Sign in: point to another account
- * in the wallet, or, with none, offer the way out.
+ * An account of an unsupported key type can't sign in, so no Sign in: point
+ * to another account in the wallet, or, with none, offer the way out.
  */
-function ZkLoginPrompt() {
+function UnsupportedAccountPrompt({
+	scheme,
+}: {
+	scheme: string;
+}) {
 	const accounts = useCurrentWallet()?.accounts ?? [];
 	const { disconnectWallet } = useApiAuth();
 
 	return accounts.some(
-		(account) => !isZkLoginAccount(account),
+		(account) => !unsupportedAccountScheme(account),
 	) ? (
 		<EmptyState
-			testId="zklogin-switch-account"
+			testId="unsupported-account-switch"
 			icon={Wallet}
-			title={COPY.zkLogin.title}
-			description={COPY.zkLogin.switchAccount}
+			title={COPY.unsupportedAccount.title(scheme)}
+			description={COPY.unsupportedAccount.switchAccount}
 		/>
 	) : (
 		<EmptyState
-			testId="zklogin-no-other-account"
+			testId="unsupported-account-no-other"
 			icon={Wallet}
-			title={COPY.zkLogin.title}
-			description={COPY.zkLogin.noOtherAccount}
+			title={COPY.unsupportedAccount.title(scheme)}
+			description={COPY.unsupportedAccount.noOtherAccount}
 			action={
 				<Button
 					onClick={() => void disconnectWallet()}
-					data-testid="zklogin-disconnect"
+					data-testid="unsupported-account-disconnect"
 				>
 					{COPY.walletMenu.disconnect}
 				</Button>

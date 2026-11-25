@@ -2,14 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	SIGNATURE_FLAG_TO_SCHEME,
 	SIGNATURE_SCHEME_TO_FLAG,
 	SIGNATURE_SCHEME_TO_SIZE,
 	type PublicKey,
+	type SignatureFlag,
+	type SignatureScheme,
 } from '@mysten/sui/cryptography';
 import { Ed25519PublicKey } from '@mysten/sui/keypairs/ed25519';
 import { Secp256k1PublicKey } from '@mysten/sui/keypairs/secp256k1';
 import { Secp256r1PublicKey } from '@mysten/sui/keypairs/secp256r1';
-import { fromBase64 } from '@mysten/sui/utils';
+import { fromBase64, toBase64 } from '@mysten/sui/utils';
 import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 
 // Format the expiry time for the signature message
@@ -65,24 +68,41 @@ export const extractPublicKeyFromBase64 = (
 };
 
 /**
- * Whether a wallet account is certainly zkLogin: its key parses, matches
- * its address and carries the zkLogin flag. Anything else, an unknown key
- * included, signs in as usual and the API has the last word.
+ * The scheme of a wallet account's key when it's certainly one we can't
+ * take: the key parses, matches its address and isn't a supported type.
+ * Anything else, an unknown key included, signs in as usual and the API
+ * has the last word.
  */
-export function isZkLoginAccount({
+export function unsupportedAccountScheme({
 	address,
 	publicKey,
 }: {
 	address: string;
 	publicKey: ArrayLike<number>;
-}): boolean {
+}): SignatureScheme | undefined {
+	const bytes = new Uint8Array(publicKey);
+	const scheme = publicKeyScheme(bytes, address);
+	if (!scheme) return undefined;
 	try {
-		return (
-			publicKeyFromSuiBytes(new Uint8Array(publicKey), {
-				address,
-			}).flag() === SIGNATURE_SCHEME_TO_FLAG.ZkLogin
-		);
+		extractPublicKeyFromBase64(toBase64(bytes));
+		return undefined;
 	} catch {
-		return false;
+		return scheme;
+	}
+}
+
+/** The scheme of a Sui public key (and `address`’s, when given), if it parses. */
+export function publicKeyScheme(
+	publicKey: string | Uint8Array,
+	address?: string,
+): SignatureScheme | undefined {
+	try {
+		return SIGNATURE_FLAG_TO_SCHEME[
+			publicKeyFromSuiBytes(publicKey, {
+				address,
+			}).flag() as SignatureFlag
+		];
+	} catch {
+		return undefined;
 	}
 }

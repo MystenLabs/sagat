@@ -38,7 +38,7 @@ import {
 	validatePublicKey,
 } from '@/lib/sui-utils';
 import { toast } from '@/lib/toast';
-import { isZkLoginAccount } from '@/lib/wallet';
+import { unsupportedAccountScheme } from '@/lib/wallet';
 import {
 	SignInCancelledError,
 	WalletDeclinedError,
@@ -254,8 +254,11 @@ export function ApiAuthProvider({
 				throw new Error(content.errors.noWalletConnected);
 			// The card and the menu don't offer it, but the account can
 			// change in the wallet between the render and the click.
-			if (isZkLoginAccount(account))
-				throw new Error(COPY.zkLogin.title);
+			const unsupported = unsupportedAccountScheme(account);
+			if (unsupported)
+				throw new Error(
+					COPY.unsupportedAccount.title(unsupported),
+				);
 			// Rejecting here (not returning) lets onError toast it.
 			if (
 				queryClient.getQueryState(AUTH_QUERY_KEY)

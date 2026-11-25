@@ -212,13 +212,23 @@ export const content = {
 			triggerLabel: (label: string) => `Wallet ${label}`,
 			disconnect: 'Disconnect',
 		},
-		zkLogin: {
-			title: 'zkLogin accounts aren’t supported yet',
+		unsupportedAccount: {
+			title: (scheme: string) =>
+				scheme === 'ZkLogin'
+					? 'zkLogin accounts aren’t supported yet'
+					: scheme === 'Passkey'
+						? 'Passkey accounts aren’t supported yet'
+						: 'This account’s key type isn’t supported yet',
 			switchAccount:
 				'Switch to another account in this wallet from the account menu.',
 			noOtherAccount:
 				'Share another account from your wallet, or disconnect and connect a different wallet.',
-			menuNote: 'zkLogin isn’t supported yet',
+			menuNote: (scheme: string) =>
+				scheme === 'ZkLogin'
+					? 'zkLogin isn’t supported yet'
+					: scheme === 'Passkey'
+						? 'Passkeys aren’t supported yet'
+						: 'Key type isn’t supported yet',
 		},
 	},
 	firstUse: {
@@ -1525,5 +1535,11 @@ export const content = {
 		noConnectedAccount: 'No connected account',
 		multisigAsMember:
 			'This address is a pod. A pod can’t be added as a signer of another pod.',
+		unsupportedKeyAsMember: (scheme: string) =>
+			scheme === 'ZkLogin'
+				? 'This is a zkLogin account. zkLogin accounts aren’t supported yet.'
+				: scheme === 'Passkey'
+					? 'This is a passkey account. Passkey accounts aren’t supported yet.'
+					: 'This account’s key type isn’t supported yet. Signers need an Ed25519, Secp256k1 or Secp256r1 key.',
 	},
 } as const;

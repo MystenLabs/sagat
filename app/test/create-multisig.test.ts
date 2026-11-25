@@ -2,7 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { PasskeyPublicKey } from '@mysten/sui/keypairs/passkey';
+import { Secp256r1Keypair } from '@mysten/sui/keypairs/secp256r1';
 import { formatAddress } from '@mysten/sui/utils';
+import { toZkLoginPublicIdentifier } from '@mysten/sui/zklogin';
 import { describe, expect, test } from 'vitest';
 
 import { content } from '../src/content';
@@ -361,6 +364,50 @@ describe('signer checks', () => {
 		).toEqual({
 			kind: 'error',
 			message: content.createMultisig.lookupFailed,
+		});
+	});
+
+	test('a zkLogin key says zkLogin accounts aren’t supported', () => {
+		const check = checkSigners({
+			signers: [
+				signer('1', { isCreator: true }),
+				signer('2', {
+					key: toZkLoginPublicIdentifier(
+						1n,
+						'https://accounts.google.com',
+						{ legacyAddress: false },
+					).toSuiPublicKey(),
+				}),
+			],
+			threshold: 1,
+			lookups: {},
+		});
+		expect(check.signers[1].status).toEqual({
+			kind: 'error',
+			message:
+				content.errors.unsupportedKeyAsMember('ZkLogin'),
+		});
+	});
+
+	test('a passkey key says passkey accounts aren’t supported', () => {
+		const check = checkSigners({
+			signers: [
+				signer('1', { isCreator: true }),
+				signer('2', {
+					key: new PasskeyPublicKey(
+						Secp256r1Keypair.generate()
+							.getPublicKey()
+							.toRawBytes(),
+					).toSuiPublicKey(),
+				}),
+			],
+			threshold: 1,
+			lookups: {},
+		});
+		expect(check.signers[1].status).toEqual({
+			kind: 'error',
+			message:
+				content.errors.unsupportedKeyAsMember('Passkey'),
 		});
 	});
 

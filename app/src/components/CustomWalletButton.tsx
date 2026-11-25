@@ -20,7 +20,7 @@ import {
 
 import { content } from '@/content';
 import { cn } from '@/lib/utils';
-import { isZkLoginAccount } from '@/lib/wallet';
+import { unsupportedAccountScheme } from '@/lib/wallet';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -301,6 +301,7 @@ function AccountItem({
 	} = useApiAuth();
 	const isAccountAuthenticated =
 		authenticatedAddresses.includes(account.address);
+	const unsupported = unsupportedAccountScheme(account);
 
 	const switchTo = () => {
 		if (!isCurrent) dappKit.switchAccount({ account });
@@ -342,12 +343,14 @@ function AccountItem({
 			<span className="ml-auto flex shrink-0 items-center gap-2.5">
 				{canSign &&
 					!isAccountAuthenticated &&
-					(isZkLoginAccount(account) ? (
+					(unsupported ? (
 						<span
 							className="text-11 text-muted-foreground"
-							data-testid="wallet-account-zklogin"
+							data-testid="wallet-account-unsupported"
 						>
-							{COPY.zkLogin.menuNote}
+							{COPY.unsupportedAccount.menuNote(
+								unsupported,
+							)}
 						</span>
 					) : (
 						<Button
