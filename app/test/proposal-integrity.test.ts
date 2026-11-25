@@ -419,7 +419,7 @@ test('counts every listed set that is an alias once the alias set is read, and o
 	).toEqual(sets);
 });
 
-test('a signer set the node’s alias set no longer holds was removed; an unread one says nothing', () => {
+test('a signer set the node’s alias set no longer holds was removed; a failed read says nothing', () => {
 	const { address } = oneOfTwoAccount();
 	const current = oneOfTwoAccount();
 

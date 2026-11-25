@@ -163,14 +163,8 @@ describe('approvalsSignerSets', () => {
 				set.rows.map((row) => row.signed),
 			]),
 		).toEqual([
-			[
-				'0x1',
-				1,
-				3,
-				'Needs 2 more weight.',
-				[true, false, false],
-			],
-			['0x2', 1, 2, 'Needs 1 more weight.', [true, false]],
+			['0x1', 1, 3, STATUS.needs(2), [true, false, false]],
+			['0x2', 1, 2, STATUS.needs(1), [true, false]],
 		]);
 	});
 });
