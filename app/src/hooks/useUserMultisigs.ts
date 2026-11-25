@@ -13,6 +13,7 @@ import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import {
 	noLongerSignerOf,
+	removalsToTell,
 	rowsAnswered,
 } from '@/lib/user-multisig';
 import { getExplorerUrl } from '@/lib/utils';
@@ -71,7 +72,7 @@ export function useUserMultisigs() {
 	};
 }
 
-/** A notice, once per wallet and network, for each pod a signer change removed the wallet from. */
+/** A notice, once per wallet and network, for the latest signer change that removed the wallet from each pod. */
 function noticeRemovals(
 	removed: RemovedAccount[],
 	wallet: { address: string; publicKey: string },
@@ -80,11 +81,10 @@ function noticeRemovals(
 	const key = removalsSeenKey(wallet.address, network);
 	try {
 		const seen = Number(localStorage.getItem(key) ?? -1);
-		const fresh = removed.filter(
-			(pod) =>
-				pod.publicKey === wallet.publicKey &&
-				pod.transactionDigest &&
-				pod.eventId > seen,
+		const fresh = removalsToTell(
+			removed,
+			wallet.publicKey,
+			seen,
 		);
 		if (fresh.length === 0) return;
 		localStorage.setItem(

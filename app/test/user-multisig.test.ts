@@ -7,6 +7,7 @@ import { expect, test } from 'vitest';
 
 import {
 	noLongerSignerOf,
+	removalsToTell,
 	rowsAnswered,
 	toUserMultisig,
 	withActing,
@@ -248,4 +249,27 @@ test('a key only in a set the API reports as not acting gets no row and the no-l
 	expect(
 		noLongerSignerOf(list, signerOf(kept).publicKey),
 	).toEqual([]);
+});
+
+test('a removal is told once, for the latest change that removed the key from each pod', () => {
+	const removal = (address: string, eventId: number) => ({
+		address,
+		name: null,
+		publicKey: 'key',
+		signerSetAddress: address,
+		eventId,
+		removedAt: '2026-11-20T10:00:00.000Z',
+		transactionDigest: `digest-${eventId}`,
+	});
+	const removed = [
+		removal('0x1', 3),
+		removal('0x1', 7),
+		removal('0x2', 5),
+	];
+	expect(
+		removalsToTell(removed, 'key', -1).map(
+			(r) => r.eventId,
+		),
+	).toEqual([7, 5]);
+	expect(removalsToTell(removed, 'key', 7)).toEqual([]);
 });

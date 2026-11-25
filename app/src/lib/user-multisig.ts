@@ -5,6 +5,7 @@ import type {
 	Account,
 	AccountList,
 	KeyAnswer,
+	RemovedAccount,
 } from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
@@ -227,4 +228,22 @@ export function withListedChecks(
 		refused: null,
 		acting: listed.acting,
 	};
+}
+
+/** The newest removal of `publicKey` from each pod, when it is newer than `seen` and names its transaction. */
+export function removalsToTell(
+	removed: RemovedAccount[],
+	publicKey: string,
+	seen: number,
+) {
+	const newest = new Map<string, RemovedAccount>();
+	for (const pod of removed)
+		if (
+			pod.publicKey === publicKey &&
+			pod.eventId > (newest.get(pod.address)?.eventId ?? -1)
+		)
+			newest.set(pod.address, pod);
+	return [...newest.values()].filter(
+		(pod) => pod.transactionDigest && pod.eventId > seen,
+	);
 }
