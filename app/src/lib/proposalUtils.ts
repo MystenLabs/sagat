@@ -47,6 +47,16 @@ export type CountedProposal = Proposal & {
 	checkedSignerSets: CountedSignerSet[];
 };
 
+/** The weight a signer set still misses to reach its threshold. */
+export function missingWeight(
+	set: Pick<
+		CountedSignerSet,
+		'currentWeight' | 'threshold'
+	>,
+) {
+	return set.threshold - set.currentWeight;
+}
+
 export function reachesThreshold(
 	set: Pick<
 		CountedSignerSet,
@@ -237,7 +247,7 @@ export function signatureAddedMessage(
 	if (!set || reachesThreshold(set))
 		return content.toasts.signatureAdded;
 	return content.toasts.signatureAddedNeeds(
-		set.threshold - set.currentWeight,
+		missingWeight(set),
 	);
 }
 
@@ -414,12 +424,9 @@ const MAX_WEIGHT_DOTS = 10;
  */
 export function weightDots({
 	currentWeight,
-	totalWeight,
-}: {
-	currentWeight: number;
-	totalWeight: number;
-}) {
-	const total = Math.max(totalWeight, 1);
+	threshold,
+}: Pick<CountedSignerSet, 'currentWeight' | 'threshold'>) {
+	const total = Math.max(threshold, 1);
 	const current = Math.min(
 		Math.max(currentWeight, 0),
 		total,

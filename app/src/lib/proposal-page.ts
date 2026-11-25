@@ -12,6 +12,7 @@ import { type EpochInfo } from './expiration';
 import {
 	isExternalProposer,
 	isProposalExpired,
+	missingWeight,
 	proposalStatusKey,
 	reachesThreshold,
 	shownSignerSet,
@@ -215,7 +216,7 @@ export function approvalsSignerSets(
 			: reachesThreshold(set)
 				? STATUS.reached
 				: status === 'pending'
-					? STATUS.needs(set.threshold - set.currentWeight)
+					? STATUS.needs(missingWeight(set))
 					: null,
 		rows: approvalRows(
 			set,
@@ -237,10 +238,8 @@ export function foldedSignerSetsLine(
 	if (folded.some(reachesThreshold)) return STATUS.reached;
 	if (status !== 'pending' || folded.length === 0)
 		return null;
-	const missing = (set: ApprovalsSignerSet) =>
-		set.threshold - set.currentWeight;
-	const closest = Math.min(...folded.map(missing));
-	return closest < missing(main)
+	const closest = Math.min(...folded.map(missingWeight));
+	return closest < missingWeight(main)
 		? STATUS.needs(closest)
 		: null;
 }
@@ -349,7 +348,7 @@ export function approvalsNote({
 	// Pending.
 	const shown = shownSignerSet(proposal.checkedSignerSets);
 	if (!shown) return null;
-	const missing = shown.threshold - shown.currentWeight;
+	const missing = missingWeight(shown);
 	if (hasSigned(proposal, publicKey))
 		return waitingNote(proposal, labels, publicKey);
 	if (simulation === 'pending') return null;
@@ -390,7 +389,7 @@ function waitingNote(
 	publicKey: string | null | undefined,
 ) {
 	const sets = proposal.checkedSignerSets.map((set) => ({
-		missing: set.threshold - set.currentWeight,
+		missing: missingWeight(set),
 		others: [...set.members]
 			.sort((a, b) => a.order - b.order)
 			.filter(

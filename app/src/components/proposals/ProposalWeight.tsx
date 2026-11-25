@@ -30,14 +30,10 @@ export function ProposalWeight({
 	>;
 	className?: string;
 }) {
-	const weight = {
-		currentWeight: signerSet.currentWeight,
-		totalWeight: signerSet.threshold,
-	};
-	const { dots, filled } = weightDots(weight);
+	const { dots, filled } = weightDots(signerSet);
 	const label = content.proposals.weight.label(
-		weight.currentWeight,
-		weight.totalWeight,
+		signerSet.currentWeight,
+		signerSet.threshold,
 	);
 	return (
 		<TooltipProvider delay={150}>
@@ -53,8 +49,8 @@ export function ProposalWeight({
 						className,
 					)}
 					data-testid="proposal-weight"
-					data-current-weight={weight.currentWeight}
-					data-total-weight={weight.totalWeight}
+					data-current-weight={signerSet.currentWeight}
+					data-total-weight={signerSet.threshold}
 				>
 					{Array.from({ length: dots }, (_, i) => (
 						<span

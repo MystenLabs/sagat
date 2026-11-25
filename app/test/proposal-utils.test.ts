@@ -140,37 +140,37 @@ describe('signatureAddedMessage', () => {
 describe('weightDots', () => {
 	it('shows one dot per unit of weight', () => {
 		expect(
-			weightDots({ currentWeight: 2, totalWeight: 4 }),
+			weightDots({ currentWeight: 2, threshold: 4 }),
 		).toEqual({ dots: 4, filled: 2 });
 		expect(
-			weightDots({ currentWeight: 0, totalWeight: 1 }),
+			weightDots({ currentWeight: 0, threshold: 1 }),
 		).toEqual({ dots: 1, filled: 0 });
 	});
 
 	it('caps the filled dots at the threshold', () => {
 		expect(
-			weightDots({ currentWeight: 5, totalWeight: 3 }),
+			weightDots({ currentWeight: 5, threshold: 3 }),
 		).toEqual({ dots: 3, filled: 3 });
 	});
 
 	it('scales large thresholds down to ten dots', () => {
 		expect(
-			weightDots({ currentWeight: 25, totalWeight: 100 }),
+			weightDots({ currentWeight: 25, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 3 });
 		expect(
-			weightDots({ currentWeight: 100, totalWeight: 100 }),
+			weightDots({ currentWeight: 100, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 10 });
 	});
 
 	it('keeps a scaled proposal short of full until it reaches the threshold', () => {
 		expect(
-			weightDots({ currentWeight: 95, totalWeight: 100 }),
+			weightDots({ currentWeight: 95, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 9 });
 		expect(
-			weightDots({ currentWeight: 1, totalWeight: 100 }),
+			weightDots({ currentWeight: 1, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 1 });
 		expect(
-			weightDots({ currentWeight: 0, totalWeight: 100 }),
+			weightDots({ currentWeight: 0, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 0 });
 	});
 });
