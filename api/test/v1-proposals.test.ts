@@ -38,6 +38,7 @@ import {
 	ApiTestFramework,
 	buildTransfer,
 	errorOf,
+	executeProposal,
 	newUser,
 	refusal,
 	sendCoins,
@@ -48,7 +49,6 @@ import {
 import { register, setAliases } from './setup/acting-sets';
 import {
 	build,
-	combinedSignature,
 	execute,
 	expectSuccess,
 	multisigSigner,
@@ -657,18 +657,20 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		setAddress: string,
 		signature?: string,
 	) => {
-		expectSuccess(
-			await execute(
-				fromBase64(proposal.transactionBytes),
-				signature ??
-					combinedSignature(
-						proposal.signerSets.find(
-							(s) => s.address === setAddress,
-						)!,
-						proposal.signatures,
-					),
-			),
-		);
+		if (signature)
+			expectSuccess(
+				await execute(
+					fromBase64(proposal.transactionBytes),
+					signature,
+				),
+			);
+		else
+			await executeProposal(
+				proposal,
+				proposal.signerSets.find(
+					(s) => s.address === setAddress,
+				)!,
+			);
 		return client.verifyProposalByDigest(proposal.digest);
 	};
 
@@ -755,14 +757,12 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 				created.transactionBytes,
 			),
 		};
-		expectSuccess(
-			await execute(
-				fromBase64(created.transactionBytes),
-				combinedSignature(created.signerSets[0], [
-					...created.signatures,
-					unseen,
-				]),
-			),
+		await executeProposal(
+			{
+				transactionBytes: created.transactionBytes,
+				signatures: [...created.signatures, unseen],
+			},
+			created.signerSets[0],
 		);
 		const verified = await client.verifyProposalByDigest(
 			created.digest,
