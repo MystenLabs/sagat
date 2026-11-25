@@ -1,13 +1,30 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useDAppKit } from '@mysten/dapp-kit-react';
+import { buildEnable } from '@mysten/sagat';
+import { Transaction } from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
+import { useMemo, useState } from 'react';
+import {
+	Link,
+	useNavigate,
+	useOutletContext,
+} from 'react-router-dom';
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
+import {
+	createFailedLine,
+	useCreateProposal,
+} from '@/hooks/useCreateProposal';
+import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
+import {
+	PROPOSALS_PAGE_SIZE,
+	usePaginatedProposals,
+} from '@/hooks/usePaginatedProposals';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountSetup } from '@/lib/account-setup';
 import {
@@ -20,6 +37,11 @@ import {
 	originalSignerSet,
 	shownActingSets,
 } from '@/lib/proposal-integrity';
+import {
+	allowsSignerChanges,
+	isProposalExpired,
+	proposalPagePath,
+} from '@/lib/proposalUtils';
 import { trustsSigners } from '@/lib/proposer-proofs';
 import {
 	differentSignersLine,
@@ -33,8 +55,13 @@ import {
 	signerSetStatus,
 } from '@/lib/signers';
 import { approvalsThresholdLabel } from '@/lib/threshold';
+import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import { getExplorerUrl } from '@/lib/utils';
+import {
+	cn,
+	errorMessage,
+	getExplorerUrl,
+} from '@/lib/utils';
 
 import { FoldedRow } from '../multisig/FoldedRow';
 import { OtherSignerSetsCard } from '../multisig/OtherSignerSetsCard';
@@ -50,6 +77,7 @@ import {
 import { SignersRefused } from '../multisig/SignersRefused';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Alert } from '../ui/Alert';
+import { buttonVariants } from '../ui/button';
 import { InlineRetry } from '../ui/inline-retry';
 
 const COPY = content.signers;
@@ -113,6 +141,79 @@ export function SignersTab() {
 				: [],
 		[acting, pods],
 	);
+
+	const navigate = useNavigate();
+	const dappKit = useDAppKit();
+	const create = useCreateProposal();
+	const [building, setBuilding] = useState(false);
+	const { data: epochInfo } = useEpochInfo();
+	// The query Overview and Proposals share, so it's usually cached.
+	const { data: pending } = usePaginatedProposals({
+		multisigAddress: multisig.address,
+		network,
+		status: 'PENDING',
+		perPage: PROPOSALS_PAGE_SIZE,
+	});
+	const allowProposal = useMemo(
+		() =>
+			pending?.pages
+				.flatMap((page) => page.proposals)
+				.find(
+					(proposal) =>
+						!isProposalExpired(proposal, epochInfo) &&
+						allowsSignerChanges(proposal.transactionBytes),
+				),
+		[pending, epochInfo],
+	);
+	const changesAllowed =
+		details?.signerChangesEnabled ?? true;
+
+	const allowSignerChanges = async () => {
+		if (!details) return;
+		setBuilding(true);
+		let bytes: string;
+		try {
+			const tx = new Transaction();
+			tx.setSender(multisig.address);
+			buildEnable(tx);
+			bytes = toBase64(
+				await tx.build({
+					client: dappKit.getClient(network),
+				}),
+			);
+		} catch (error) {
+			toast.error(
+				errorMessage(
+					error,
+					content.newProposal.createFailed,
+				),
+			);
+			return;
+		} finally {
+			setBuilding(false);
+		}
+		create.mutate(
+			{
+				multisig: details,
+				transactionData: bytes,
+				description: COPY.allowSignerChanges,
+			},
+			{
+				onSuccess: (proposal) =>
+					navigate(
+						proposalPagePath(
+							multisig.address,
+							proposal.digest,
+						),
+					),
+				onError: (error) =>
+					toast.error(
+						createFailedLine(error) ??
+							content.newProposal.signatureDeclined,
+					),
+			},
+		);
+	};
 
 	if (details && !trustsSigners(details, multisig.address))
 		return (
@@ -178,6 +279,36 @@ export function SignersTab() {
 						cards?.length ?? 0,
 						networkLabel(network),
 					)}
+				</Alert>
+			)}
+			{!changesAllowed && allowProposal && (
+				<Alert
+					variant="info"
+					data-testid="allow-signer-changes-pending"
+				>
+					<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+						<span>
+							{COPY.allowSignerChangesPending(
+								networkLabel(network),
+							)}
+						</span>
+						<Link
+							to={proposalPagePath(
+								multisig.address,
+								allowProposal.digest,
+							)}
+							className={cn(
+								buttonVariants({
+									variant: 'link',
+									size: 'xs',
+								}),
+								'h-auto px-0 text-13 text-inherit hover:no-underline',
+							)}
+							data-testid="allow-signer-changes-proposal"
+						>
+							{content.common.actions.viewProposal}
+						</Link>
+					</div>
 				</Alert>
 			)}
 			{differentOn && (
@@ -282,6 +413,12 @@ export function SignersTab() {
 							}),
 						)
 					}
+					onAllowSignerChanges={
+						acting && !changesAllowed && !allowProposal
+							? () => void allowSignerChanges()
+							: undefined
+					}
+					allowing={building || create.isPending}
 					className="w-full shrink-0 @4xl:w-80"
 				/>
 			</div>

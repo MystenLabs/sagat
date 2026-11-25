@@ -7,6 +7,7 @@ import { formatDigest, toBase64 } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
 import {
+	allowsSignerChanges,
 	countSignerSets,
 	isExternalProposer,
 	isProposalExpired,
@@ -447,6 +448,30 @@ describe('rowExecuteSet', () => {
 				transactionBytes: toBase64(await aliasCall.build()),
 			}),
 		).toBeNull();
+	});
+});
+
+describe('allowsSignerChanges', () => {
+	it('holds only for bytes whose alias calls are all enable', async () => {
+		const withCalls = async (...functions: string[]) => {
+			const tx = Transaction.from(await transfer());
+			for (const fn of functions)
+				tx.moveCall({
+					target: `0x2::address_alias::${fn}`,
+				});
+			return toBase64(await tx.build());
+		};
+		expect(allowsSignerChanges(await transfer())).toBe(
+			false,
+		);
+		expect(
+			allowsSignerChanges(await withCalls('enable')),
+		).toBe(true);
+		expect(
+			allowsSignerChanges(
+				await withCalls('enable', 'remove'),
+			),
+		).toBe(false);
 	});
 });
 

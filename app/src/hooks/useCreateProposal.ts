@@ -17,6 +17,7 @@ import { useState } from 'react';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { readNodeFacts } from '@/hooks/useAliasSets';
+import { shownApiError } from '@/lib/api-errors';
 import { checkNewProposal } from '@/lib/new-proposal';
 import {
 	checkSignerOnNetwork,
@@ -52,6 +53,29 @@ export class ChainMismatchError extends Error {
 		super(content.common.wrongChain);
 		this.name = 'ChainMismatchError';
 	}
+}
+
+/**
+ * What to show for a failed create: why the bytes were refused before
+ * signing, the API's reason when it refused the proposal, else the
+ * generic line. Null for a declined signature, which is a toast alone.
+ */
+export function createFailedLine(
+	error: Error | null,
+): string | null {
+	if (!error || error instanceof SignatureDeclinedError)
+		return null;
+	if (
+		error instanceof BytesNotFromPodError ||
+		error instanceof SignersRefusedError ||
+		error instanceof ChainMismatchError ||
+		error instanceof SignersUncheckedError
+	)
+		return error.message;
+	return shownApiError(
+		error,
+		content.newProposal.createFailed,
+	);
 }
 
 interface CreateProposalParams {

@@ -116,6 +116,15 @@ export function aliasCallsIn(bytes: string) {
 	}
 }
 
+/** Whether the bytes call the alias module only to `enable` it. */
+export function allowsSignerChanges(bytes: string) {
+	const calls = aliasCallsIn(bytes);
+	return (
+		calls.length > 0 &&
+		calls.every((call) => call.function === 'enable')
+	);
+}
+
 /** The set a list row executes with; none for a proposal that calls the alias module, which executes from its page. */
 export function rowExecuteSet(
 	proposal: Pick<

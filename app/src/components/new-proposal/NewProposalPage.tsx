@@ -20,8 +20,7 @@ import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
 import {
-	BytesNotFromPodError,
-	ChainMismatchError,
+	createFailedLine,
 	useCreateProposal,
 } from '@/hooks/useCreateProposal';
 import { couldNotSimulate } from '@/hooks/useDryRun';
@@ -29,7 +28,6 @@ import { useGetMultisig } from '@/hooks/useGetMultisig';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountSetup } from '@/lib/account-setup';
-import { shownApiError } from '@/lib/api-errors';
 import { normalizeCoinType } from '@/lib/coin-type';
 import {
 	proposalTypeFromQuery,
@@ -43,11 +41,7 @@ import {
 	proposalsPath,
 } from '@/lib/proposalUtils';
 import { signerRows } from '@/lib/signers';
-import {
-	SignersRefusedError,
-	signersRefusedLine,
-	SignersUncheckedError,
-} from '@/lib/signers-refused';
+import { signersRefusedLine } from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { withListedChecks } from '@/lib/user-multisig';
@@ -276,19 +270,8 @@ function NewProposalWizard({
 		);
 	};
 	// A declined signature is the toast alone; anything else is the
-	// notice on Review, with the API's reason when it refused the
-	// proposal (a coin another pending proposal uses, say), or why the
-	// bytes were refused before signing.
-	const createError =
-		create.error instanceof BytesNotFromPodError ||
-		create.error instanceof SignersRefusedError ||
-		create.error instanceof ChainMismatchError ||
-		create.error instanceof SignersUncheckedError
-			? create.error.message
-			: create.error &&
-				  !(create.error instanceof SignatureDeclinedError)
-				? shownApiError(create.error, COPY.createFailed)
-				: null;
+	// notice on Review.
+	const createError = createFailedLine(create.error);
 
 	const detailsProps = {
 		multisig,
