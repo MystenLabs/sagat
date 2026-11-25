@@ -276,7 +276,7 @@ export async function buildFailedLine(
 		);
 	return sui === '0'
 		? content.common.noGas
-		: errorMessage(error, content.newProposal.createFailed);
+		: errorMessage(error, COPY.createFailed);
 }
 
 export interface MaxTransfer {

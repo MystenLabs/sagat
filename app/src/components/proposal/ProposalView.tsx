@@ -483,7 +483,7 @@ export function ProposalView({
 }
 
 function ChangesCard({ list }: { list: Difference[] }) {
-	const COPY = content.changeSigners.review;
+	const REVIEW = content.changeSigners.review;
 	const added = list.flatMap((item) =>
 		item.kind === 'add' && item.name ? [item.name] : [],
 	);
@@ -493,13 +493,13 @@ function ChangesCard({ list }: { list: Difference[] }) {
 			data-testid="signer-change-changes"
 		>
 			<h3 className="text-15 font-medium">
-				{COPY.changes}
+				{REVIEW.changes}
 			</h3>
 			<ChangeList list={list} />
 			{added.length > 0 && (
 				<p className="flex items-start gap-1.5 text-12">
 					<Mail className="mt-0.5 size-3 shrink-0" />
-					{COPY.invitation(
+					{REVIEW.invitation(
 						joinList(added, 'and'),
 						added.length,
 					)}
@@ -507,7 +507,7 @@ function ChangesCard({ list }: { list: Difference[] }) {
 			)}
 			<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
 				<Info className="mt-0.5 size-3 shrink-0" />
-				{COPY.onceExecutes(COPY.carryOver)}
+				{REVIEW.onceExecutes(REVIEW.carryOver)}
 			</p>
 		</section>
 	);

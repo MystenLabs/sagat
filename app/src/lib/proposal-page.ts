@@ -103,7 +103,7 @@ const keyName = (publicKey: string, labels: Labels) =>
 const normalName = (name: string) =>
 	name.trim().replace(/\s+/g, ' ').toLowerCase();
 
-/** The checked signer change of the opened bytes, with its differences (null unless it adds one set). */
+/** The opened bytes' checked signer change, with its differences. */
 export function checkedChange(
 	{
 		transactionBytes,
@@ -348,15 +348,11 @@ export function approvalsStatus(
 /**
  * While a pending signer change's signers who stay haven't signed for
  * the new threshold, the warning naming them and their keys, or saying
- * they can't reach it once nobody is left to name. Null for
- * bytes without a composition note that checks against `aliases`, the
- * pod's alias set from the app's node (null until read).
+ * they can't reach it once nobody is left to name. Null without a
+ * checked `change`.
  */
 export function signerChangeWarning(
-	proposal: Pick<
-		PageProposal,
-		'transactionBytes' | 'signatures'
-	>,
+	proposal: Pick<PageProposal, 'signatures'>,
 	status: ProposalStatusKey,
 	change: SignerChange | null,
 	labels: Labels,

@@ -261,7 +261,7 @@ describe('signerChangeWarning', () => {
 		signedBy: (typeof maya)[],
 	) =>
 		signerChangeWarning(
-			{ ...proposal({ signedBy }), transactionBytes },
+			proposal({ signedBy }),
 			'ready',
 			signerChangeIn(transactionBytes, [pod]),
 			labels,

@@ -418,7 +418,7 @@ export function rowDifferences(
 	);
 }
 
-/** The signer change the bytes make, checked against `aliases`, or the note's own `before` once no longer pending; null when there is none or it doesn't check. */
+/** The bytes' signer change, checked against `aliases` (else the note's `before`). */
 export function signerChangeIn(
 	bytes: string,
 	aliases: readonly string[] | null,
@@ -433,7 +433,7 @@ export function signerChangeIn(
 	}
 }
 
-/** A checked change's differences, keys named by `nameOf`; null unless it adds exactly one set (a remove-only change adds none). */
+/** A checked change's differences; null unless it adds exactly one set. */
 export function changeDifferences(
 	change: SignerChange,
 	nameOf: (publicKey: string) => string,
