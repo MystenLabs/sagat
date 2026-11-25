@@ -190,7 +190,10 @@ describe('differences', () => {
 			COPY.change.more(COPY.change.addTitle('Priya'), 3),
 		);
 		expect(changeTitle(list.slice(0, 2))).toBe(
-			'Add Priya and remove Hana',
+			COPY.change.two(
+				COPY.change.addTitle('Priya'),
+				COPY.change.remove('Hana'),
+			),
 		);
 	});
 
@@ -209,13 +212,16 @@ describe('differences', () => {
 				2,
 			).map((d) => d.text),
 		).toEqual([COPY.change.replace('Daniel')]);
-		expect(
-			rowDifferences(
-				current,
-				[maya, alice, daniel, tomas],
-				2,
-			).map((d) => d.text),
-		).toEqual([COPY.change.moves('Alice', 3, 2)]);
+		const moved = rowDifferences(
+			current,
+			[maya, alice, daniel, tomas],
+			2,
+		);
+		expect(moved.map((d) => d.text)).toEqual([
+			COPY.change.moves('Alice', 3, 2),
+		]);
+		// A reorder is always titled Reorder signers.
+		expect(changeTitle(moved)).toBe(COPY.change.reorder);
 	});
 
 	test('a new row carrying a replaced signer’s key is an add', () => {
@@ -239,7 +245,7 @@ describe('differences', () => {
 	});
 });
 
-test('a change’s differences come from its bytes, checked against the alias set the note starts from', async () => {
+test('a change’s differences come from its bytes checked against the note’s alias set, name an added key by the proposer’s label but never as a current signer, and mark who it removes', async () => {
 	const [maya, daniel, alice, priya] = [0, 1, 2, 3].map(
 		() => newKey(),
 	);
