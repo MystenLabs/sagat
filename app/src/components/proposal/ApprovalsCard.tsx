@@ -45,6 +45,10 @@ import { useSignProposal } from '@/hooks/useSignProposal';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { type AliasRead } from '@/lib/alias-set';
 import {
+	removedBy,
+	signerChangeIn,
+} from '@/lib/change-signers';
+import {
 	networkLabel,
 	type SuiNetwork,
 } from '@/lib/network';
@@ -248,9 +252,22 @@ export function ApprovalsCard({
 	const unchecked =
 		!refusing && onNetwork === 'unchecked' && awaitingSign;
 	const checkingSigners = onNetwork === 'checking';
+	// The signer change the bytes make, checked against the node's alias set.
+	const change = useMemo(
+		() =>
+			aliases?.kind === 'read'
+				? signerChangeIn(
+						proposal.transactionBytes,
+						aliases.aliases,
+					)
+				: null,
+		[aliases, proposal.transactionBytes],
+	);
+	// A signer the change removes can't cancel it.
+	const removed = removedBy(change, viewerPublicKey);
 	// Cancelling signs a message for the API session.
 	const canCancel =
-		cancelAllowed && canAct && !!currentAddress;
+		cancelAllowed && canAct && !!currentAddress && !removed;
 	const settled =
 		verdict === 'passed' ||
 		verdict === 'failed' ||
@@ -276,13 +293,8 @@ export function ApprovalsCard({
 
 	const signerChange = useMemo(
 		() =>
-			signerChangeWarning(
-				proposal,
-				status,
-				aliases?.kind === 'read' ? aliases.aliases : null,
-				labels,
-			),
-		[proposal, status, aliases, labels],
+			signerChangeWarning(proposal, status, change, labels),
+		[proposal, status, change, labels],
 	);
 	const signerSets = approvalsSignerSets(
 		proposal,
@@ -478,6 +490,14 @@ export function ApprovalsCard({
 							{signLabel()}
 						</Button>
 					</ButtonRow>
+					{removed && (
+						<p
+							className="text-13 text-muted-foreground"
+							data-testid="signer-change-removed"
+						>
+							{COPY.signerChange.removed}
+						</p>
+					)}
 				</>
 			);
 		} else if (status === 'pending' && signed) {

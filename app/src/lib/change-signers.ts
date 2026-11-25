@@ -453,19 +453,35 @@ export function changeDifferences(
 	);
 }
 
-/** "Add Priya", or "Add Priya and 3 more". */
-export function changeTitle([
-	first,
-	...rest
-]: Difference[]) {
-	if (!first) return '';
-	const title = first.name
-		? COPY.change.addTitle(first.name)
-		: first.text;
-	return rest.length > 0
-		? COPY.change.more(title, rest.length)
-		: title;
+// A change as a title: an add without its weight, a reorder without who moves.
+const titleOf = (d: Difference) =>
+	d.name
+		? COPY.change.addTitle(d.name)
+		: d.kind === 'reorder'
+			? COPY.change.reorder
+			: d.text;
+
+/** "Remove Hana", "Add Priya and remove Hana", or "Add Priya and 3 more". */
+export function changeTitle(list: Difference[]) {
+	const [first, second] = list.map(titleOf);
+	if (list.length < 2) return first ?? '';
+	return list.length === 2
+		? COPY.change.two(first, second)
+		: COPY.change.more(first, list.length - 1);
 }
+
+/** Whether `publicKey` is in the change's old set and stays in none of its new sets. */
+export const removedBy = (
+	change: SignerChange | null,
+	publicKey: string | null,
+) =>
+	!!change &&
+	change.oldSet.members.some(
+		(m) => m.publicKey === publicKey,
+	) &&
+	!change.newSets.some((set) =>
+		set.members.some((m) => m.publicKey === publicKey),
+	);
 
 /** The typed name of each key new to the set, aligned with the new set; undefined when there is none or the set is already an alias. */
 export function changeLabels({

@@ -9,6 +9,7 @@ import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 import { describe, expect, it } from 'vitest';
 
 import { content } from '../src/content';
+import { signerChangeIn } from '../src/lib/change-signers';
 import {
 	activityRows,
 	approvalRows,
@@ -262,7 +263,7 @@ describe('signerChangeWarning', () => {
 		signerChangeWarning(
 			{ ...proposal({ signedBy }), transactionBytes },
 			'ready',
-			[pod],
+			signerChangeIn(transactionBytes, [pod]),
 			labels,
 		);
 
@@ -281,7 +282,10 @@ describe('signerChangeWarning', () => {
 			signerChangeWarning(
 				proposal({ signedBy: [alice] }),
 				'ready',
-				[pod],
+				signerChangeIn(
+					proposal({ signedBy: [alice] }).transactionBytes,
+					[pod],
+				),
 				labels,
 			),
 		).toBeNull();

@@ -3,6 +3,7 @@
 
 import type { AccountMember } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, test } from 'vitest';
 
 import { content } from '../src/content';
@@ -13,12 +14,14 @@ import {
 	checkChange,
 	newComposition,
 	newRow,
+	removedBy,
 	rowDifferences,
 	signerChangeIn,
 	startRows,
 	type ChangeRow,
 	type CurrentSet,
 } from '../src/lib/change-signers';
+import { checkedChange } from '../src/lib/proposal-page';
 import { computeMultisigAddress } from '../src/lib/sui-utils';
 import { signerChange } from './transactions';
 
@@ -182,6 +185,9 @@ describe('differences', () => {
 		expect(changeTitle(list)).toBe(
 			COPY.change.more(COPY.change.addTitle('Priya'), 3),
 		);
+		expect(changeTitle(list.slice(0, 2))).toBe(
+			'Add Priya and remove Hana',
+		);
 	});
 
 	test('a replaced key reads as one Replace line, and one signer moving reads as that signer’s move', () => {
@@ -242,6 +248,43 @@ test('a change’s differences come from its bytes, checked against the alias se
 	expect(
 		signerChangeIn(bytes, [maya.toSuiAddress()]),
 	).toBeNull();
+	// The API's label names the key the bytes add, never one they remove.
+	const told = (key: typeof maya, label: string) => ({
+		publicKey: key.toSuiPublicKey(),
+		label,
+	});
+	const named = (
+		labels: ReturnType<typeof told>[],
+		podLabels: Map<string, string | null> = new Map(),
+	) =>
+		checkedChange(
+			{
+				transactionBytes: bytes,
+				signerChange: { removes: null, adds: null, labels },
+			},
+			{ kind: 'read', aliases: [pod] },
+			podLabels,
+		)?.list.map((d) => d.text);
+	expect(
+		named([told(priya, 'Priya'), told(alice, 'Ally')]),
+	).toEqual([
+		COPY.change.add('Priya', 1),
+		COPY.change.remove(formatAddress(alice.toSuiAddress())),
+	]);
+	// Never a current signer's name.
+	expect(
+		named(
+			[told(priya, 'Alice')],
+			new Map([[alice.toSuiAddress(), 'Alice']]),
+		)?.[0],
+	).toBe(
+		COPY.change.add(formatAddress(priya.toSuiAddress()), 1),
+	);
+	expect(
+		[alice, maya].map((key) =>
+			removedBy(change, key.toSuiPublicKey()),
+		),
+	).toEqual([true, false]);
 });
 
 test('labels are the typed names of keys new to the set, null for keys that stay, and none once the new set is already an alias', () => {

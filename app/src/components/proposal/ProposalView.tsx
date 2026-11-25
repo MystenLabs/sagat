@@ -150,13 +150,9 @@ export function ProposalView({
 	const changes = useMemo(
 		() =>
 			open
-				? checkedChange(
-						proposal.transactionBytes,
-						aliases,
-						labels,
-					)?.list
+				? checkedChange(proposal, aliases, labels)?.list
 				: null,
-		[open, aliases, proposal.transactionBytes, labels],
+		[open, aliases, proposal, labels],
 	);
 
 	// The connected wallet is in one of the proposal's signer sets, which

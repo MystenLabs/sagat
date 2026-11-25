@@ -156,11 +156,7 @@ export function SignersTab() {
 		);
 		const checked =
 			proposal &&
-			checkedChange(
-				proposal.transactionBytes,
-				aliases,
-				podLabels(account),
-			);
+			checkedChange(proposal, aliases, podLabels(account));
 		return checked
 			? {
 					title: changeTitle(checked.list),

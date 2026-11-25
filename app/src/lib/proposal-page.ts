@@ -4,7 +4,10 @@
 // What the proposal page shows, kept free of React: where the proposal
 // stands, the Approvals card's rows and lines, the cancel dialog's
 // wording and the Activity card's rows.
-import { signerChangeProof } from '@mysten/sagat';
+import {
+	signerChangeProof,
+	type SignerChange,
+} from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
@@ -12,6 +15,7 @@ import { type AliasRead } from './alias-set';
 import {
 	changeDifferences,
 	signerChangeIn,
+	suiKey,
 } from './change-signers';
 import { joinList } from './create-multisig';
 import { type EpochInfo } from './expiration';
@@ -96,18 +100,41 @@ const keyName = (publicKey: string, labels: Labels) =>
 
 /** The signer change the bytes make, checked against the node's alias read, with its differences; null unless it adds one set. */
 export function checkedChange(
-	bytes: string,
+	{
+		transactionBytes,
+		signerChange,
+	}: Pick<
+		CountedProposal,
+		'transactionBytes' | 'signerChange'
+	>,
 	aliases: AliasRead | undefined,
 	labels: Labels,
 ) {
 	const change =
 		aliases?.kind === 'read'
-			? signerChangeIn(bytes, aliases.aliases)
+			? signerChangeIn(transactionBytes, aliases.aliases)
 			: null;
+	const old = new Set(
+		change?.oldSet.members.map((m) => m.publicKey),
+	);
+	const taken = new Set(labels.values());
+	// The API's label names only a key the bytes add, never as a current signer; the pod's labels win.
+	const merged: Labels = new Map([
+		...(signerChange?.labels ?? []).flatMap(
+			({ publicKey, label }) => {
+				const key = suiKey(publicKey);
+				const address = addressOf(key);
+				return address && !old.has(key) && !taken.has(label)
+					? [[address, label] as const]
+					: [];
+			},
+		),
+		...labels,
+	]);
 	const list =
 		change &&
 		changeDifferences(change, (key) =>
-			keyName(key, labels),
+			keyName(key, merged),
 		);
 	return change && list ? { change, list } : null;
 }
@@ -310,19 +337,14 @@ export function signerChangeWarning(
 		'transactionBytes' | 'signatures'
 	>,
 	status: ProposalStatusKey,
-	aliases: readonly string[] | null,
+	change: SignerChange | null,
 	labels: Labels,
 ): { body: string; notSigned: string[] } | null {
 	if (
-		!aliases ||
+		!change ||
 		(status !== 'pending' && status !== 'ready')
 	)
 		return null;
-	const change = signerChangeIn(
-		proposal.transactionBytes,
-		aliases,
-	);
-	if (!change) return null;
 	const proof = signerChangeProof(
 		change,
 		proposal.signatures.map((sig) => sig.publicKey),

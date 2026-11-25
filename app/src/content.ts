@@ -1172,6 +1172,9 @@ export const content = {
 					`${names} will still ${count === 1 ? 'be a signer' : 'be signers'} after this change but ${count === 1 ? 'hasn’t' : 'haven’t'} signed it. If they can no longer sign, the pod could be locked.`,
 				unreachable:
 					'The signers who stay after this change can’t reach its new threshold. If it executes, the pod could be locked.',
+				/** Under the Sign button, for a signer the change removes. */
+				removed:
+					'You’re being removed in this change, so you can’t cancel it. You can still sign it.',
 			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */
@@ -1371,6 +1374,8 @@ export const content = {
 			reorder: 'Reorder signers',
 			more: (title: string, count: number) =>
 				`${title} and ${count} more`,
+			two: (first: string, second: string) =>
+				`${first} and ${second.charAt(0).toLowerCase()}${second.slice(1)}`,
 		},
 		help: [
 			{
