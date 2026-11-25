@@ -130,31 +130,10 @@ export interface ApprovalRow {
 }
 
 /**
- * One row per member of the shown signer set, in composition order. A
- * member who didn't sign is "Not needed" once the threshold is reached.
+ * One row per member of the signer set, in composition order. A member
+ * who didn't sign is "Not needed" once the threshold is reached.
  */
 export function approvalRows(
-	proposal: Pick<
-		PageProposal,
-		'checkedSignerSets' | 'signatures'
-	>,
-	status: ProposalStatusKey,
-	labels: Labels,
-	publicKey: string | null | undefined,
-): ApprovalRow[] {
-	const shown = shownSignerSet(proposal.checkedSignerSets);
-	return shown
-		? signerSetRows(
-				shown,
-				proposal,
-				status,
-				labels,
-				publicKey,
-			)
-		: [];
-}
-
-function signerSetRows(
 	set: Pick<CountedSignerSet, 'members'>,
 	proposal: Pick<PageProposal, 'signatures'>,
 	status: ProposalStatusKey,
@@ -235,7 +214,7 @@ export function approvalsSignerSets(
 				: status === 'pending'
 					? copy.needs(set.threshold - set.currentWeight)
 					: null,
-		rows: signerSetRows(
+		rows: approvalRows(
 			set,
 			proposal,
 			status,
@@ -264,9 +243,8 @@ export function foldedSignerSetsLine(
 		: null;
 }
 
-/** The line under the Approvals heading; null once cancelled or expired. */
+/** The line under the Approvals heading while executing or once ready; a pending count is the main set's `line`. */
 export function approvalsStatus(
-	proposal: Pick<PageProposal, 'checkedSignerSets'>,
 	status: ProposalStatusKey,
 	executing: boolean,
 	simulation: SimulationVerdict,
@@ -277,14 +255,6 @@ export function approvalsStatus(
 		(status === 'pending' || status === 'ready')
 	)
 		return copy.executing;
-	if (status === 'pending') {
-		const missing = proposal.checkedSignerSets.map(
-			(set) => set.threshold - set.currentWeight,
-		);
-		return missing.length > 0
-			? copy.needs(Math.min(...missing))
-			: null;
-	}
 	if (status === 'ready')
 		return simulation === 'failed'
 			? copy.reached

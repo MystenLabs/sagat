@@ -54,7 +54,6 @@ import {
 	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
-	approvalRows,
 	approvalsNote,
 	approvalsSignerSets,
 	approvalsStatus,
@@ -73,13 +72,11 @@ import {
 import {
 	proposalTitle,
 	readySignerSet,
-	shownSignerSet,
 	type CountedProposal,
 	type CountedSignerSet,
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import { signRefusedLine } from '@/lib/signers-refused';
-import { approvalsThresholdLabel } from '@/lib/threshold';
 import {
 	namedChain,
 	readTransactionBytes,
@@ -183,9 +180,6 @@ export function ApprovalsCard({
 	};
 	const rechecking = recheck.isPending;
 	const canAct = viewer === 'member';
-	const shownSet = shownSignerSet(
-		proposal.checkedSignerSets,
-	);
 	const readySet = readySignerSet(
 		proposal.checkedSignerSets,
 	);
@@ -278,33 +272,18 @@ export function ApprovalsCard({
 		return COPY.signProposal;
 	};
 
-	const rows = approvalRows(
+	const signerSets = approvalsSignerSets(
 		proposal,
 		status,
 		labels,
 		viewerPublicKey,
+		pods ?? [],
 	);
-	// Per set only when there are several, the main set first; one set keeps the single list.
-	const signerSets =
-		proposal.checkedSignerSets.length > 1
-			? approvalsSignerSets(
-					proposal,
-					status,
-					labels,
-					viewerPublicKey,
-					pods ?? [],
-				)
-			: null;
-	const [mainSet, ...foldedSets] = signerSets ?? [];
+	const [mainSet, ...foldedSets] = signerSets;
 	const statusLine =
-		mainSet && status === 'pending' && !isExecuting
-			? mainSet.line
-			: approvalsStatus(
-					proposal,
-					status,
-					isExecuting,
-					verdict,
-				);
+		status === 'pending' && !isExecuting
+			? (mainSet?.line ?? null)
+			: approvalsStatus(status, isExecuting, verdict);
 	const note = approvalsNote({
 		proposal,
 		status,
@@ -527,9 +506,7 @@ export function ApprovalsCard({
 					className="ml-auto text-12 text-muted-foreground"
 					data-testid="approvals-threshold"
 				>
-					{mainSet
-						? mainSet.heading
-						: shownSet && approvalsThresholdLabel(shownSet)}
+					{mainSet?.heading}
 				</span>
 			</CardHeading>
 			{statusLine && (
@@ -541,7 +518,7 @@ export function ApprovalsCard({
 				</p>
 			)}
 			<div className="border-t" />
-			{signerSets && mainSet ? (
+			{mainSet && foldedSets.length > 0 ? (
 				<>
 					<p
 						className="text-13 text-muted-foreground"
@@ -602,7 +579,7 @@ export function ApprovalsCard({
 					</FoldedRow>
 				</>
 			) : (
-				<ApprovalRowList rows={rows} />
+				<ApprovalRowList rows={mainSet?.rows ?? []} />
 			)}
 
 			{actions && (

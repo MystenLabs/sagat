@@ -109,8 +109,10 @@ describe('wouldReachThreshold', () => {
 
 describe('approvalRows', () => {
 	it('marks the members who did not sign as not needed once the threshold is reached', () => {
+		const signed = proposal({ signedBy: [daniel, maya] });
 		const rows = approvalRows(
-			proposal({ signedBy: [daniel, maya] }),
+			signed.checkedSignerSets[0],
+			signed,
 			'ready',
 			labels,
 			maya.publicKey,
