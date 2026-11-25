@@ -14,6 +14,15 @@ import { ALIAS_STATE_MAX_AGE_MS } from '../../src/services/aliases.service';
 import { type SuiNetwork } from '../../src/utils/client';
 import { type TestUser } from '../framework/api-test-framework';
 
+// A legacy route's answer for an account whose signers changed.
+export const SERVED_BY_V1 = {
+	status: 409,
+	body: {
+		error:
+			'An account whose signers changed is served by the /v1 routes only.',
+	},
+};
+
 // What the refresh would write.
 export const setAliases = async (
 	account: string,

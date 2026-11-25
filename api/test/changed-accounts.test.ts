@@ -26,6 +26,7 @@ import {
 } from './framework/api-test-framework';
 import {
 	ageAliasState,
+	SERVED_BY_V1,
 	setAliases,
 } from './setup/acting-sets';
 import {
@@ -46,14 +47,6 @@ let framework: ApiTestFramework;
 beforeEach(async () => {
 	framework = new ApiTestFramework(await createTestApp());
 });
-
-const SERVED_BY_V1 = {
-	status: 409,
-	body: {
-		error:
-			'An account whose signers changed is served by the /v1 routes only.',
-	},
-};
 
 describe('changed accounts', () => {
 	test('an account changed on one network is refused on all, and only when that network is checked', async () => {

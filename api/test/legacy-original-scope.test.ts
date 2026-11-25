@@ -33,7 +33,11 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
-import { answerFor, setAliases } from './setup/acting-sets';
+import {
+	answerFor,
+	SERVED_BY_V1,
+	setAliases,
+} from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -119,14 +123,6 @@ const connectionsOf = async (
 	(await session.client.getMultisigConnections())[
 		user.publicKey
 	].map((multisig) => multisig.address);
-
-const SERVED_BY_V1 = {
-	status: 409,
-	body: {
-		error:
-			'An account whose signers changed is served by the /v1 routes only.',
-	},
-};
 
 // Each legacy route about the account or its pending `proposal`, called by `user`.
 const accountRoutes = async (

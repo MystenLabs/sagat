@@ -28,7 +28,7 @@ const previousRpcUrl = process.env.SUI_RPC_URL_localnet;
 process.env.SUI_RPC_URL_localnet = 'http://127.0.0.1:1';
 const { createTestApp, setupSharedTestEnvironment } =
 	await import('./setup/shared-test-setup');
-const { ageAliasState, setAliases } =
+const { ageAliasState, SERVED_BY_V1, setAliases } =
 	await import('./setup/acting-sets');
 if (previousRpcUrl === undefined)
 	delete process.env.SUI_RPC_URL_localnet;
@@ -235,13 +235,7 @@ test('a legacy write is refused with a 503; legacy reads trust an aged mirror, s
 		await errorOf(
 			await session.request(`/multisig/${changed}`),
 		),
-	).toEqual({
-		status: 409,
-		body: {
-			error:
-				'An account whose signers changed is served by the /v1 routes only.',
-		},
-	});
+	).toEqual(SERVED_BY_V1);
 	const listed = Object.values(
 		await session.client.getMultisigConnections(),
 	)
