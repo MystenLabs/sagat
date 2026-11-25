@@ -406,6 +406,12 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 			publicKey: k2.publicKey,
 			answer: 'accepted',
 		});
+		expect(
+			await refusal(answer(k2, account, 'reject')),
+		).toEqual({
+			status: 400,
+			message: 'Cannot reject after accepting',
+		});
 		const rejected = await answer(k3, account, 'reject');
 		expect(await answer(k3, account, 'reject')).toEqual(
 			rejected,
