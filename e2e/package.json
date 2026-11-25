@@ -11,13 +11,13 @@
 		"docs:screenshots": "playwright test --config docs-screenshots.config.ts"
 	},
 	"devDependencies": {
-		"@mysten-incubation/dev-wallet": "0.6.0",
+		"@mysten-incubation/dev-wallet": "0.6.2",
 		"@mysten/sagat": "workspace:*",
-		"@mysten/signers": "^1.1.35",
-		"@mysten/sui": "^2.39.1",
-		"@playwright/test": "1.64.1",
-		"@types/node": "^24.5.2",
+		"@mysten/signers": "^2.0.1",
+		"@mysten/sui": "^3.0.1",
+		"@playwright/test": "1.65.1",
+		"@types/node": "^26.6.6",
 		"esbuild": "^0.28.2",
-		"typescript": "^5.8.3"
+		"typescript": "^7.0.2"
 	}
 }
