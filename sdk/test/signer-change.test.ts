@@ -264,6 +264,8 @@ describe('composition note', () => {
 									address,
 								},
 				),
+			removed: entryOf(S1),
+			added: entryOf(S2),
 		});
 
 		const checked = checkSignerChange(data, aliases);

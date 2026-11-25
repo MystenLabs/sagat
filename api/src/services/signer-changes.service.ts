@@ -92,25 +92,13 @@ export const signerChangeIn = (
 	}
 };
 
-export const addedSetOf = (
-	note: CompositionNote,
-): SignerSetEntry | null => {
-	const add = note.calls.find((c) => c.function === 'add');
-	// The reader requires the added set's composition.
-	return add
-		? (note.signerSets.find(
-				(e) => e.address === add.alias,
-			) as SignerSetEntry)
-		: null;
-};
-
 // Aligned with the added set's members in note order; only a change that adds a set takes them.
 export const signerChangeLabels = (
 	note: CompositionNote | null,
 	labels: unknown,
 ): (string | null)[] => {
 	if (labels === undefined || labels === null) return [];
-	const added = note && addedSetOf(note);
+	const added = note?.added;
 	if (!added)
 		throw new ValidationError(
 			'labels are taken only for a signer change that adds a signer set.',
@@ -274,7 +262,7 @@ export const checkAndWriteSignerChange = async (
 	)
 		throw new ApiAuthError('NotASignerWhoStays');
 
-	const added = addedSetOf(note);
+	const { added } = note;
 	if (added)
 		await validateQuorum(
 			added.members.map((member) =>

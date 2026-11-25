@@ -50,24 +50,20 @@ const toV1SignerChange = (
 	{ change }: NonNullable<CheckedProposal['signerChange']>,
 	labels: KeyLabels,
 ): z.input<typeof v1.ProposalSignerChangeSchema> => {
-	const adds =
-		change?.after.find((a) => !change.before.includes(a)) ??
-		null;
 	const old = new Set(
 		change?.oldSet.members.map((m) => m.publicKey),
 	);
 	return {
 		removes: change?.oldSet.address ?? null,
-		adds,
-		labels: (
-			change?.newSets.find((set) => set.address === adds)
-				?.members ?? []
-		).flatMap(({ publicKey }) => {
-			const label = labels.get(publicKey);
-			return label && !old.has(publicKey)
-				? [{ publicKey, label }]
-				: [];
-		}),
+		adds: change?.added?.address ?? null,
+		labels: (change?.added?.members ?? []).flatMap(
+			({ publicKey }) => {
+				const label = labels.get(publicKey);
+				return label && !old.has(publicKey)
+					? [{ publicKey, label }]
+					: [];
+			},
+		),
 	};
 };
 

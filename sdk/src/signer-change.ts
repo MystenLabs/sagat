@@ -97,6 +97,10 @@ export interface CompositionNote {
 	/** The transaction's alias calls, in command order. */
 	calls: SignerChangeCall[];
 	signerSets: NoteEntry[];
+	/** The set the calls remove. */
+	removed: SignerSetEntry;
+	/** The set the calls add; null for a change that only removes. */
+	added: SignerSetEntry | null;
 }
 
 /** A signer change checked against an alias set. */
@@ -106,6 +110,8 @@ export interface SignerChange {
 	after: string[];
 	/** The set the change removes. */
 	oldSet: SignerSetEntry;
+	/** The set the change adds; null for a change that only removes. */
+	added: SignerSetEntry | null;
 	/** The added set, or for a change that only removes, every composition left in `after`. */
 	newSets: SignerSetEntry[];
 	signerSets: NoteEntry[];
@@ -570,15 +576,16 @@ export function readCompositionNote(
 
 	const entryOf = (address: string) =>
 		signerSets.find((e) => e.address === address);
-	if (entryOf(removed[0].alias)?.type !== 'signer_set')
+	const removedSet = entryOf(removed[0].alias);
+	if (removedSet?.type !== 'signer_set')
 		throw new SignerChangeError(
 			'composition',
 			`The note does not hold the composition of the removed set ${removed[0].alias}`,
 		);
-	if (
-		added[0] &&
-		entryOf(added[0].alias)?.type !== 'signer_set'
-	)
+	const addedSet = added[0]
+		? entryOf(added[0].alias)
+		: null;
+	if (addedSet !== null && addedSet?.type !== 'signer_set')
 		throw new SignerChangeError(
 			'composition',
 			`The note does not hold the composition of the added set ${added[0].alias}`,
@@ -605,6 +612,8 @@ export function readCompositionNote(
 		after: change.after,
 		calls,
 		signerSets,
+		removed: removedSet,
+		added: addedSet,
 	};
 }
 
@@ -652,27 +661,18 @@ export function checkSignerChange(
 			"The note's after does not follow from the alias set and the calls",
 		);
 
-	const identified = (
-		entry: NoteEntry | undefined,
-	): entry is SignerSetEntry =>
-		entry?.type === 'signer_set';
-	const entryOf = (address: string) =>
-		note.signerSets.find((e) => e.address === address);
-	// The reader requires one remove, of a set with its composition.
-	const oldSet = entryOf(
-		note.calls.find((c) => c.function === 'remove')!.alias,
-	) as SignerSetEntry;
-	const add = note.calls.find((c) => c.function === 'add');
 	return {
 		account: note.account,
 		before,
 		after,
-		oldSet,
-		newSets: add
-			? [entryOf(add.alias)].filter(identified)
+		oldSet: note.removed,
+		added: note.added,
+		newSets: note.added
+			? [note.added]
 			: note.signerSets.filter(
 					(e): e is SignerSetEntry =>
-						identified(e) && after.includes(e.address),
+						e.type === 'signer_set' &&
+						after.includes(e.address),
 				),
 		signerSets: note.signerSets,
 	};
