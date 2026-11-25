@@ -124,6 +124,18 @@ export function shownSignerSet(
 	return readySignerSet(sets) ?? sets[0] ?? null;
 }
 
+/** Whether a listed proposal is `account`'s on `network`. */
+export function isPodProposal(
+	proposal: Pick<Proposal, 'accountAddress' | 'network'>,
+	account: string,
+	network: string,
+) {
+	return (
+		proposal.network === network &&
+		sameAddress(proposal.accountAddress, account)
+	);
+}
+
 /** A proposal counted against its signer sets that are aliases in `aliases`, or the one making up its address while unread. */
 export function toProposalCardInput(
 	proposal: Proposal,

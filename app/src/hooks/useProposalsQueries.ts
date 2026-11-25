@@ -12,6 +12,7 @@ import { type SuiNetwork } from '@/lib/network';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import {
+	isPodProposal,
 	listsAtCutoff,
 	mergeNewestFirst,
 	pendingFilter,
@@ -136,19 +137,27 @@ export function useProposalsQueries({
 			}),
 		[epochInfo, publicKey],
 	);
-	// Each list's rows, counted against the sets the pod's alias read passes.
+	// Each list's rows of this pod and network, counted against the sets the pod's alias read passes.
 	const counted = useMemo(
 		() => (pages: ProposalList[] | undefined) =>
 			pages?.flatMap((page) =>
-				page.proposals.map((proposal) =>
-					toProposalCardInput(
-						proposal,
-						aliases,
-						signerAddress,
+				page.proposals
+					.filter((proposal) =>
+						isPodProposal(
+							proposal,
+							multisig.address,
+							network,
+						),
+					)
+					.map((proposal) =>
+						toProposalCardInput(
+							proposal,
+							aliases,
+							signerAddress,
+						),
 					),
-				),
 			),
-		[aliases, signerAddress],
+		[aliases, signerAddress, multisig.address, network],
 	);
 
 	const proposalPages = useMemo(

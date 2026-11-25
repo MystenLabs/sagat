@@ -17,6 +17,7 @@ import {
 } from '@/hooks/usePaginatedProposals';
 import { type ProposalsPageState } from '@/hooks/useProposalsQueries';
 import {
+	isPodProposal,
 	isProposalExpired,
 	proposalsPath,
 	toProposalCardInput,
@@ -65,7 +66,11 @@ export function OpenProposals({
 			(query.data?.pages[0]?.proposals ?? [])
 				.filter(
 					(proposal) =>
-						!isProposalExpired(proposal, epochInfo),
+						isPodProposal(
+							proposal,
+							multisig.address,
+							network,
+						) && !isProposalExpired(proposal, epochInfo),
 				)
 				.slice(0, OPEN_PROPOSALS_SHOWN)
 				.map((proposal) =>
@@ -75,7 +80,14 @@ export function OpenProposals({
 						signerAddress,
 					),
 				),
-		[query.data, epochInfo, aliases, signerAddress],
+		[
+			query.data,
+			epochInfo,
+			aliases,
+			signerAddress,
+			multisig.address,
+			network,
+		],
 	);
 	const openLoading =
 		query.isPending || epochQuery.isPending;
