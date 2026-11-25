@@ -116,13 +116,19 @@ export function aliasCallsIn(bytes: string) {
 	}
 }
 
-/** Whether the bytes call the alias module only to `enable` it. */
+/** Whether the bytes are nothing but `enable` calls of the alias module. */
 export function allowsSignerChanges(bytes: string) {
-	const calls = aliasCallsIn(bytes);
-	return (
-		calls.length > 0 &&
-		calls.every((call) => call.function === 'enable')
-	);
+	try {
+		const data = Transaction.from(bytes).getData();
+		const calls = findAliasCalls(data);
+		return (
+			calls.length > 0 &&
+			calls.length === data.commands.length &&
+			calls.every((call) => call.function === 'enable')
+		);
+	} catch {
+		return false;
+	}
 }
 
 /** The set a list row executes with; none for a proposal that calls the alias module, which executes from its page. */

@@ -2,8 +2,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { Transaction } from '@mysten/sui/transactions';
-import { formatDigest, toBase64 } from '@mysten/sui/utils';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
+import {
+	formatDigest,
+	fromBase64,
+	toBase64,
+} from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -452,7 +459,7 @@ describe('rowExecuteSet', () => {
 });
 
 describe('allowsSignerChanges', () => {
-	it('holds only for bytes whose alias calls are all enable', async () => {
+	it('holds only for bytes that are nothing but enable calls', async () => {
 		const withCalls = async (...functions: string[]) => {
 			const tx = Transaction.from(await transfer());
 			for (const fn of functions)
@@ -461,12 +468,20 @@ describe('allowsSignerChanges', () => {
 				});
 			return toBase64(await tx.build());
 		};
+		// The same enable call without the transfer.
+		const enableOnly = TransactionDataBuilder.fromBytes(
+			fromBase64(await withCalls('enable')),
+		);
+		enableOnly.commands.shift();
 		expect(allowsSignerChanges(await transfer())).toBe(
 			false,
 		);
 		expect(
-			allowsSignerChanges(await withCalls('enable')),
+			allowsSignerChanges(toBase64(enableOnly.build())),
 		).toBe(true);
+		expect(
+			allowsSignerChanges(await withCalls('enable')),
+		).toBe(false);
 		expect(
 			allowsSignerChanges(
 				await withCalls('enable', 'remove'),
