@@ -312,6 +312,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		expect(change.signerChange).toEqual({
 			removes: addressOf(S2),
 			adds: A,
+			labels: [],
 		});
 		const ready = await session.voteOnProposal(
 			k2,

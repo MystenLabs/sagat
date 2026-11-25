@@ -12,6 +12,7 @@ import {
 } from '@mysten/sagat/v1';
 import { z } from 'zod';
 
+import { AccountKeyLabelsDataLoader } from '../loaders/account-keys.loader';
 import {
 	cancelProposal,
 	createProposal,
@@ -178,8 +179,18 @@ const verifyRoute = createRoute({
 });
 
 // The proposal as `GET /v1/proposals/{digest}` returns it.
-const proposalAt = async (digest: string) =>
-	toV1Proposal(await getProposalByDigest(digest, 'acting'));
+const proposalAt = async (digest: string) => {
+	const proposal = await getProposalByDigest(
+		digest,
+		'acting',
+	);
+	return toV1Proposal(
+		proposal,
+		await AccountKeyLabelsDataLoader.load(
+			proposal.proposal.accountAddress,
+		),
+	);
+};
 
 export const proposalRoutes = (app: V1App) => {
 	defineRoute(app, createProposalRoute, async (c) => {
@@ -203,10 +214,15 @@ export const proposalRoutes = (app: V1App) => {
 			cursor: newCursor(query),
 			callerKeys: c.get('publicKeys'),
 		});
+		const labels = await AccountKeyLabelsDataLoader.load(
+			query.accountAddress,
+		);
 		return {
 			network: query.network,
 			accountAddress: query.accountAddress,
-			proposals: page.data.map(toV1Proposal),
+			proposals: page.data.map((proposal) =>
+				toV1Proposal(proposal, labels),
+			),
 			hasNextPage: page.hasNextPage,
 			nextCursor: page.nextCursor ?? null,
 			perPage: page.perPage,

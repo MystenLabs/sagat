@@ -169,6 +169,17 @@ export const ProposalSignerChangeSchema = z
 			description:
 				'The signer set the change adds. Null for a change that only removes.',
 		}),
+		labels: z
+			.array(
+				z.object({
+					publicKey: z.string(),
+					label: z.string(),
+				}),
+			)
+			.meta({
+				description:
+					'The account’s labels for the keys the added set brings in, in its order: only the API’s word, for display.',
+			}),
 	})
 	.meta({
 		id: 'ProposalSignerChange',

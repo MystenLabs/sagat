@@ -146,6 +146,9 @@ describe('POST /v1/proposals with a signer change', () => {
 		);
 
 		expect(created.status).toBe('PENDING');
+		expect(created.signerChange?.labels).toEqual([
+			{ publicKey: k4.publicKey, label: 'Dee' },
+		]);
 		const S2Address = addressOf(S2);
 		expect(
 			await db

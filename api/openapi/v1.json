@@ -183,9 +183,21 @@
 					"adds": {
 						"type": ["string", "null"],
 						"description": "The signer set the change adds. Null for a change that only removes."
+					},
+					"labels": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"publicKey": { "type": "string" },
+								"label": { "type": "string" }
+							},
+							"required": ["publicKey", "label"]
+						},
+						"description": "The account’s labels for the keys the added set brings in, in its order: only the API’s word, for display."
 					}
 				},
-				"required": ["removes", "adds"],
+				"required": ["removes", "adds", "labels"],
 				"description": "The API’s reading of the signer change in the transaction bytes, which is only its word: a client reads and checks the bytes itself with the SDK (`checkSignerChange`)."
 			},
 			"ProposalEvents": {

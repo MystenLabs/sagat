@@ -46,26 +46,43 @@ const toV1SetMember = (member: {
 	order: member.order,
 });
 
-const toV1SignerChange = ({
-	change,
-}: NonNullable<CheckedProposal['signerChange']>): z.input<
-	typeof v1.ProposalSignerChangeSchema
-> => ({
-	removes: change?.oldSet.address ?? null,
-	adds:
+const toV1SignerChange = (
+	{ change }: NonNullable<CheckedProposal['signerChange']>,
+	labels: KeyLabels,
+): z.input<typeof v1.ProposalSignerChangeSchema> => {
+	const adds =
 		change?.after.find((a) => !change.before.includes(a)) ??
-		null,
-});
+		null;
+	const old = new Set(
+		change?.oldSet.members.map((m) => m.publicKey),
+	);
+	return {
+		removes: change?.oldSet.address ?? null,
+		adds,
+		labels: (
+			change?.newSets.find((set) => set.address === adds)
+				?.members ?? []
+		).flatMap(({ publicKey }) => {
+			const label = labels.get(publicKey);
+			return label && !old.has(publicKey)
+				? [{ publicKey, label }]
+				: [];
+		}),
+	};
+};
 
-export const toV1Proposal = ({
-	proposal,
-	signers,
-	sets,
-	hasReachedThreshold,
-	events,
-	signerSetsStale,
-	signerChange,
-}: CheckedProposal): z.input<typeof v1.ProposalSchema> => ({
+export const toV1Proposal = (
+	{
+		proposal,
+		signers,
+		sets,
+		hasReachedThreshold,
+		events,
+		signerSetsStale,
+		signerChange,
+	}: CheckedProposal,
+	labels: KeyLabels,
+): z.input<typeof v1.ProposalSchema> => ({
 	digest: proposal.digest,
 	accountAddress: proposal.accountAddress,
 	accountName: signers.accountName,
@@ -121,7 +138,7 @@ export const toV1Proposal = ({
 			: []),
 	],
 	signerChange:
-		signerChange && toV1SignerChange(signerChange),
+		signerChange && toV1SignerChange(signerChange, labels),
 	events: {
 		created: toV1AccountEvent(events.created),
 		proposer: toV1AccountEvent(events.proposer),

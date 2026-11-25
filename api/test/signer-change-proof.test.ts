@@ -151,6 +151,7 @@ describe('signing and cancelling a signer change', () => {
 		expect(voted.signerChange).toEqual({
 			removes: A,
 			adds: addressOf(S2),
+			labels: [],
 		});
 		expect(
 			sorted(voted.signatures.map((s) => s.publicKey)),
