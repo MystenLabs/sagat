@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Proposal } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import {
 	Transaction,
@@ -417,27 +418,16 @@ describe('countSignerSets', () => {
 		});
 		const counted = (status: Proposal['status']) =>
 			toProposalCardInput(
-				{
+				v1Proposal({
 					digest: DIGEST,
 					accountAddress: pod,
-					accountName: null,
-					network: 'localnet',
 					kind: 'signer_change',
 					status,
 					ready: true,
 					transactionBytes: bytes,
 					proposerAddress: pod,
-					description: null,
-					createdAt: '2026-11-23T10:00:00.000Z',
-					signatures: [],
-					signerSets: [
-						{ ...old, address: pod, currentWeight: 0 },
-					],
-					signerChange: null,
-					events: { created: null, proposer: null },
-					executedVia: null,
-					signerSetsStale: false,
-				},
+					signerSets: [listedSet({ ...old, address: pod })],
+				}),
 				{ kind: 'read', aliases: ['0x2'] },
 				null,
 			);
