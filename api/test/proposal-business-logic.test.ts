@@ -50,6 +50,10 @@ import {
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
 import { untilBackendsWaitOnALock } from './setup/test-db';
+import {
+	insertProposal,
+	offlineTransfer,
+} from './setup/v1-proposals';
 
 const client = getLocalClient();
 
@@ -1561,6 +1565,43 @@ describe('Proposal Business Logic', () => {
 			expect(await addProposer('AAAA')).toEqual(
 				invalidSignature,
 			);
+
+			const invalidTransactionSignature = {
+				status: 400,
+				body: {
+					error:
+						'Invalid Sui signature for the proposed transaction.',
+				},
+			};
+			expect(
+				await errorOf(
+					await session.post(
+						'/v1/proposals?network=localnet',
+						{
+							accountAddress: multisig.address,
+							transactionBytes: await offlineTransfer(
+								multisig.address,
+							),
+							signature: 'QQ==',
+						},
+					),
+				),
+			).toEqual(invalidTransactionSignature);
+			const { digest } = await insertProposal(
+				multisig.address,
+				'localnet',
+				newUser().address,
+			);
+			expect(
+				await errorOf(
+					await session.post(
+						`/v1/proposals/${digest}/vote`,
+						{
+							signature: 'AAAA',
+						},
+					),
+				),
+			).toEqual(invalidTransactionSignature);
 		});
 
 		test('a signature with extra bytes inside it gets a 400 and stores nothing', async () => {

@@ -464,6 +464,24 @@ const isAccountProposerUnderLock = async (
 	return !!proposer;
 };
 
+// The signer of a signature over a transaction; `/v1` refuses an unreadable one as one that does not verify.
+const transactionSigner = (
+	signature: string,
+	scopeKind: SignerScopeKind,
+) => {
+	try {
+		assertCanonicalSignature(signature);
+		return getPublicKeyFromSerializedSignature(signature);
+	} catch (error) {
+		if (
+			scopeKind === 'acting' &&
+			error instanceof CommonError
+		)
+			throw new CommonError('InvalidTransactionSignature');
+		throw error;
+	}
+};
+
 // The base64 length of the largest transaction we accept.
 const MAX_TRANSACTION_BASE64_LENGTH =
 	Math.ceil(LIMITS.maxTransactionBytes / 3) * 4;
@@ -525,11 +543,7 @@ export const createProposal = async ({
 		},
 	});
 
-	assertCanonicalSignature(signature);
-
-	// Get the public key out of the sui signature.
-	const pubKey =
-		getPublicKeyFromSerializedSignature(signature);
+	const pubKey = transactionSigner(signature, scopeKind);
 	if (scopeKind === 'acting')
 		await refreshAccount(multisigAddress, network, loaders);
 	const signers = await getAccountSigners(
@@ -692,10 +706,7 @@ export const voteOnProposal = async ({
 }): Promise<ProposalProgress> => {
 	const proposal = await getProposal(key);
 
-	assertCanonicalSignature(signature);
-
-	const pubKey =
-		getPublicKeyFromSerializedSignature(signature);
+	const pubKey = transactionSigner(signature, scopeKind);
 	await refreshBeforeDeciding(
 		scopeKind,
 		proposal.accountAddress,

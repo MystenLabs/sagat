@@ -11,7 +11,7 @@
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { fromBase64, toBase64 } from '@mysten/sui/utils';
 
-import { CommonError, ValidationError } from '../errors';
+import { CommonError } from '../errors';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import { isAccountSigner } from './membership.service';
 import { type SignerScope } from './signers.service';
@@ -133,7 +133,5 @@ export const verifyTransactionSignature = async (
 			signer.verifyTransaction(bytes, signature),
 		))
 	)
-		throw new ValidationError(
-			'Invalid Sui signature for the proposed transaction.',
-		);
+		throw new CommonError('InvalidTransactionSignature');
 };

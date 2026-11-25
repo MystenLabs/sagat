@@ -81,6 +81,8 @@ export const AuthErrors = {
 export const CommonErrors = {
 	InvalidAddress: ValidationMessages.InvalidAddress,
 	InvalidSignature: 'Invalid signature for message.',
+	InvalidTransactionSignature:
+		'Invalid Sui signature for the proposed transaction.',
 	InvalidDigest: ValidationMessages.InvalidDigest,
 };
 
