@@ -409,7 +409,10 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 			publicKey: k2.publicKey,
 			answer: 'accepted',
 		});
-		await answer(k3, account, 'reject');
+		const rejected = await answer(k3, account, 'reject');
+		expect(await answer(k3, account, 'reject')).toEqual(
+			rejected,
+		);
 
 		const legacy =
 			await session.client.getMultisig(account);

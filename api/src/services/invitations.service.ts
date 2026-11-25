@@ -254,10 +254,13 @@ export const answerInvitation = async ({
 				throw new ValidationError(
 					'Cannot reject after accepting',
 				);
-			if (current?.isRejected)
+			if (current?.isRejected) {
+				// `/v1` answers it as a repeated accept, and changes nothing.
+				if (scopeKind === 'acting') return signerSet;
 				throw new ValidationError(
 					'This invitation has already been rejected',
 				);
+			}
 		}
 
 		const state = {
