@@ -538,7 +538,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		return { k1, k2, address: account.address, signer };
 	};
 
-	test('create answers 201 with the proposal, and the list returns the account’s proposals on that network', async () => {
+	test('create answers 201 with the proposal and refuses an account address that is not canonical, and the list returns only the account’s proposals on that network', async () => {
 		const { k1, k2, address } = await createAccount();
 		const transactionBytes = await buildTransfer(address);
 
@@ -617,7 +617,7 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		);
 	});
 
-	test('an external proposer’s alias proposal is created as an alias call', async () => {
+	test('an external proposer’s alias proposal is created as an alias call, and removing the proposer cancels it', async () => {
 		const { k1, address, signer } = await createAccount();
 		const proposer = newUser();
 		await session.addProposer(
