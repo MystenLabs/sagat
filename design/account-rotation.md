@@ -226,6 +226,8 @@ The creation check already holds that the signers who stay could reach the new t
 
 Only a signer who stays can cancel a change, and removing a proposer never cancels one: that route cancels the pending proposals of any address it is given, which would let a signer being removed cancel the change by naming its proposer. A cancel is recorded in Sagat only, as for any proposal.
 
+A known limit: the proposer of a change can be the only signer of the old set who stays. Then no other signer can cancel the change, and since one alias proposal is pending at a time per account and network, nobody else can propose another change until it expires, while the proposer can propose again at expiry. The way out is a transaction built outside the app.
+
 ### 4. Execute
 
 Anyone with the signatures combines them with the old set and executes. From that transaction on, on that network:
