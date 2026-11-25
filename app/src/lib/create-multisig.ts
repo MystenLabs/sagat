@@ -17,6 +17,7 @@ import {
 	validatePublicKey,
 } from './sui-utils';
 import { sumWeight } from './threshold';
+import { publicKeyScheme } from './wallet';
 import {
 	weightBarLayout,
 	type WeightBarLayout,
@@ -321,9 +322,18 @@ function keyStatus(
 	}
 
 	const parsed = validatePublicKey(key);
-	return parsed.isValid && parsed.address
-		? { kind: 'valid', address: parsed.address }
-		: { kind: 'error', message: COPY.invalidKey };
+	if (parsed.isValid && parsed.address)
+		return { kind: 'valid', address: parsed.address };
+	const scheme = publicKeyScheme(key);
+	return {
+		kind: 'error',
+		message:
+			scheme === 'MultiSig'
+				? content.errors.multisigAsMember
+				: scheme
+					? content.errors.unsupportedKeyAsMember(scheme)
+					: COPY.invalidKey,
+	};
 }
 
 /**

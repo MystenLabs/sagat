@@ -9,6 +9,7 @@ import { publicKeyFromRawBytes } from '@mysten/sui/verify';
 import { content } from '../content';
 import { apiClient } from './api';
 import { reportUnexpected } from './error-reporting';
+import { validatePublicKey } from './sui-utils';
 
 const GRAPHQL_URLS = {
 	mainnet: 'https://graphql.mainnet.sui.io/graphql',
@@ -45,11 +46,18 @@ interface TransactionsQueryResult {
 	};
 }
 
-export class MultisigAddressError extends Error {
+/** A network shows the address can’t be a signer. */
+export class SignerAddressError extends Error {
 	network: NetworkName;
-	constructor(network: NetworkName) {
-		super(content.errors.multisigAsMember);
+	constructor(network: NetworkName, message: string) {
+		super(message);
 		this.network = network;
+	}
+}
+
+class MultisigAddressError extends SignerAddressError {
+	constructor(network: NetworkName) {
+		super(network, content.errors.multisigAsMember);
 	}
 }
 
@@ -62,8 +70,9 @@ const GRAPHQL_TIMEOUT_MS = 10_000;
  * A key from one network's GraphQL endpoint: the first transaction the
  * address sent carries its signature.
  *
- * Rejects with `NotFound` when there is none, and with
- * `MultisigAddressError` when the signature belongs to a multisig.
+ * Rejects with `NotFound` when there is none, and with a
+ * `SignerAddressError` when the signature belongs to a multisig or the
+ * address's own key is of a type signers can't have.
  */
 async function lookupOnNetwork(
 	address: string,
@@ -89,13 +98,37 @@ async function lookupOnNetwork(
 		if (parsed.signatureScheme === 'MultiSig')
 			throw new MultisigAddressError(network);
 
-		const pubKey = publicKeyFromRawBytes(
-			parsed.signatureScheme,
-			parsed.publicKey,
-		);
+		let pubKey;
+		if (parsed.signatureScheme === 'ZkLogin') {
+			// zkLogin needs the address to pick its form; a sponsor's won't match.
+			try {
+				pubKey = publicKeyFromRawBytes(
+					'ZkLogin',
+					parsed.publicKey,
+					{
+						address,
+					},
+				);
+			} catch {
+				continue;
+			}
+		} else {
+			pubKey = publicKeyFromRawBytes(
+				parsed.signatureScheme,
+				parsed.publicKey,
+			);
+		}
+		if (pubKey.toSuiAddress() !== address) continue;
 
-		if (pubKey.toSuiAddress() === address)
-			return pubKey.toSuiPublicKey();
+		const key = pubKey.toSuiPublicKey();
+		if (!validatePublicKey(key).isValid)
+			throw new SignerAddressError(
+				network,
+				content.errors.unsupportedKeyAsMember(
+					parsed.signatureScheme,
+				),
+			);
+		return key;
 	}
 
 	throw new NotFound();
@@ -134,8 +167,8 @@ export type PublicKeyLookup =
  * sent on mainnet, testnet or devnet. Resolves as soon as any of them has
  * the key.
  *
- * Throws `MultisigAddressError` when no source has a key and a network
- * shows the address is a multisig.
+ * Throws a `SignerAddressError` when no source has a key and a network
+ * shows the address is a multisig or has a key type signers can't have.
  */
 export async function lookupPublicKey(
 	address: string,
@@ -158,7 +191,7 @@ export async function lookupPublicKey(
 				(error: unknown) => {
 					if (
 						!(error instanceof NotFound) &&
-						!(error instanceof MultisigAddressError)
+						!(error instanceof SignerAddressError)
 					)
 						reportUnexpected(error, {
 							source: 'rpc',
@@ -180,10 +213,10 @@ export async function lookupPublicKey(
 			error instanceof AggregateError
 				? error.errors
 				: [error];
-		const multisig = reasons.find(
-			(r) => r instanceof MultisigAddressError,
+		const refused = reasons.find(
+			(r) => r instanceof SignerAddressError,
 		);
-		if (multisig) throw multisig;
+		if (refused) throw refused;
 		return reasons.some((r) => r instanceof NotFound)
 			? { kind: 'missing' }
 			: { kind: 'unreachable' };

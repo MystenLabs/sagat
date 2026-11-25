@@ -22,7 +22,7 @@ test.describe('wallet sign-in', () => {
 		await zoe.connectWallet({ signIn: false });
 
 		const refusal = zoe.page.getByTestId(
-			'zklogin-no-other-account',
+			'unsupported-account-no-other',
 		);
 		await expect(refusal).toContainText(
 			'zkLogin accounts aren’t supported yet',
@@ -37,7 +37,7 @@ test.describe('wallet sign-in', () => {
 		).toBe(0);
 
 		await zoe.page
-			.getByTestId('zklogin-disconnect')
+			.getByTestId('unsupported-account-disconnect')
 			.click();
 		await expect(
 			zoe.page.getByTestId('connect-wallet-prompt'),
@@ -57,7 +57,7 @@ test.describe('wallet sign-in', () => {
 		await page.goto('/');
 		await zoe.connectWallet({ signIn: false });
 		await expect(
-			page.getByTestId('zklogin-switch-account'),
+			page.getByTestId('unsupported-account-switch'),
 		).toBeVisible();
 
 		await zoe.openWalletMenu();
@@ -66,7 +66,7 @@ test.describe('wallet sign-in', () => {
 				.locator(
 					'[data-testid="wallet-account"][data-current="true"]',
 				)
-				.getByTestId('wallet-account-zklogin'),
+				.getByTestId('wallet-account-unsupported'),
 		).toBeVisible();
 		await expect(
 			page.getByTestId('wallet-account-sign'),

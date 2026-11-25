@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { type FailedLookup } from '@/lib/create-multisig';
 import {
 	lookupPublicKey,
-	MultisigAddressError,
+	SignerAddressError,
 } from '@/lib/onChainLookup';
 
 const DEBOUNCE_MS = 400;
@@ -73,7 +73,7 @@ export function usePublicKeyLookups(
 						setFailed((prev) => ({
 							...prev,
 							[address]:
-								error instanceof MultisigAddressError
+								error instanceof SignerAddressError
 									? {
 											kind: 'error',
 											message: error.message,
