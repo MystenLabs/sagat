@@ -174,10 +174,16 @@ export function toProposalCardInput(
 	aliases: AliasRead | undefined,
 	signerAddress: string | null | undefined,
 ): CountedProposal {
-	// An executed change counts against the set its bytes removed.
+	// A change counts only against the set it replaces: an executed one from its note, an open one once it checks.
 	const change =
-		proposal.status === 'SUCCESS' &&
-		signerChangeIn(proposal.transactionBytes, null);
+		proposal.status === 'SUCCESS'
+			? signerChangeIn(proposal.transactionBytes, null)
+			: proposal.status === 'PENDING' &&
+				aliases?.kind === 'read' &&
+				signerChangeIn(
+					proposal.transactionBytes,
+					aliases.aliases,
+				);
 	return {
 		...proposal,
 		checkedSignerSets: countSignerSets(

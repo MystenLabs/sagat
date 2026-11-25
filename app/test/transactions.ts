@@ -46,18 +46,22 @@ export const digestOf = (bytes: string) =>
 	TransactionDataBuilder.getDigestFromBytes(
 		fromBase64(bytes),
 	);
-// The pod `oldSet` makes up, and the bytes of its signer change to `newSet`.
-export async function signerChange(
-	oldSet: Composition,
-	newSet: Composition,
-) {
-	const pod = MultiSigPublicKey.fromPublicKeys({
-		threshold: oldSet.threshold,
-		publicKeys: oldSet.members.map((m) => ({
+const addressOf = (set: Composition) =>
+	MultiSigPublicKey.fromPublicKeys({
+		threshold: set.threshold,
+		publicKeys: set.members.map((m) => ({
 			publicKey: publicKeyFromSuiBytes(m.publicKey),
 			weight: m.weight,
 		})),
 	}).toSuiAddress();
+
+// The pod `oldSet` makes up, and the bytes of its signer change to `newSet`, with `others` acting beside it.
+export async function signerChange(
+	oldSet: Composition,
+	newSet: Composition,
+	others: Composition[] = [],
+) {
+	const pod = addressOf(oldSet);
 	const tx = new Transaction();
 	tx.setSender(pod);
 	tx.setGasPrice(1000);
@@ -78,10 +82,10 @@ export async function signerChange(
 	);
 	buildSignerChange(tx, {
 		account: pod,
-		aliases: [pod],
+		aliases: [pod, ...others.map(addressOf)],
 		oldSet: pod,
 		newSet,
-		known: [oldSet],
+		known: [oldSet, ...others],
 		chain: toBase58(new Uint8Array(32).fill(7)),
 		epoch: 5,
 	});

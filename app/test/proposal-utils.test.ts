@@ -440,6 +440,46 @@ describe('countSignerSets', () => {
 			[],
 		);
 	});
+
+	it('counts a pending change only against the set it replaces, not a second acting set', async () => {
+		const old = {
+			threshold: 2,
+			members: [key(1, 0), key(1, 1)],
+		};
+		const second = listedSet(
+			signerSet([new Ed25519Keypair()]),
+		);
+		const { pod, bytes } = await signerChange(
+			old,
+			{ threshold: 1, members: [key(1, 0)] },
+			[second],
+		);
+		const counted = toProposalCardInput(
+			v1Proposal({
+				digest: DIGEST,
+				accountAddress: pod,
+				kind: 'signer_change',
+				transactionBytes: bytes,
+				proposerAddress: pod,
+				signatures: [
+					{
+						publicKey: second.members[0].publicKey,
+						signature: 'sig',
+					},
+				],
+				signerSets: [
+					listedSet({ ...old, address: pod }),
+					second,
+				],
+			}),
+			{ kind: 'read', aliases: [pod, second.address] },
+			null,
+		);
+		expect(
+			counted.checkedSignerSets.map((set) => set.address),
+		).toEqual([pod]);
+		expect(proposalStatusKey(counted)).toBe('pending');
+	});
 });
 
 // Rows named by these ids, created in their order, for the merge helpers.
