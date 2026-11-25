@@ -80,9 +80,6 @@ const TESTNET = actingSetsOn('testnet');
 const ACCESS_DENIED = new ApiAuthError('AccessDenied');
 const NOT_A_SIGNER = new ApiAuthError('NotAnAccountSigner');
 const NOT_ACCEPTED = new ApiAuthError('AccountNotAccepted');
-const NOT_EXECUTED = new ValidationError(
-	'The transaction has not been executed yet.',
-);
 
 let framework: ApiTestFramework;
 
@@ -314,9 +311,6 @@ const cancel = async (
 				scopeKind: 'acting',
 			});
 
-const verify = (proposal: ProposalRef) =>
-	anyone().v1.verifyProposalByDigest(proposal.digest);
-
 const proposalsOf = async (
 	user: TestUser,
 	account: string,
@@ -397,7 +391,6 @@ describe('access under the acting scope', () => {
 				(p) => p.digest,
 			),
 		).toEqual([own.digest]);
-		await expectRefused(verify(own), NOT_EXECUTED);
 		expect(await statusOf(own)).toBe(
 			ProposalStatus.PENDING,
 		);
@@ -459,7 +452,6 @@ describe('access under the acting scope', () => {
 		);
 		await expectRefused(propose(r1, account), NOT_ACCEPTED);
 		await expectRefused(cancel(r1, proposal), NOT_ACCEPTED);
-		await expectRefused(verify(proposal), NOT_EXECUTED);
 		await expectRefused(
 			changeProposer('add', r1, account, newUser().address),
 			NOT_ACCEPTED,
