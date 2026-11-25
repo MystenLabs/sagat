@@ -39,6 +39,7 @@ import { approvalsThresholdLabel } from './threshold';
 import {
 	gasCost,
 	gasLabel,
+	readTransactionBytes,
 	type SimulatedTransaction,
 } from './transaction-preview';
 
@@ -109,13 +110,25 @@ export function checkedChange(
 	>,
 	aliases: AliasRead | undefined,
 	labels: Labels,
+	opened: { pod: string; digest: string },
 ) {
 	const change =
 		aliases?.kind === 'read'
 			? signerChangeIn(transactionBytes, aliases.aliases)
 			: null;
+	if (!change) return null;
+	// Only the opened proposal's own bytes, sent by the pod.
+	const { digest, transaction } = readTransactionBytes(
+		transactionBytes,
+	);
+	if (
+		!transaction.sender ||
+		!sameAddress(transaction.sender, opened.pod) ||
+		digest !== opened.digest
+	)
+		return null;
 	const old = new Set(
-		change?.oldSet.members.map((m) => m.publicKey),
+		change.oldSet.members.map((m) => m.publicKey),
 	);
 	const taken = new Set(labels.values());
 	// The API's label names only a key the bytes add, never as a current signer; the pod's labels win.
@@ -131,12 +144,10 @@ export function checkedChange(
 		),
 		...labels,
 	]);
-	const list =
-		change &&
-		changeDifferences(change, (key) =>
-			keyName(key, merged),
-		);
-	return change && list ? { change, list } : null;
+	const list = changeDifferences(change, (key) =>
+		keyName(key, merged),
+	);
+	return list ? { change, list } : null;
 }
 
 /** Whether `publicKey` signed the proposal. */

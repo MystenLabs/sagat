@@ -150,9 +150,12 @@ export function ProposalView({
 	const changes = useMemo(
 		() =>
 			open
-				? checkedChange(proposal, aliases, labels)?.list
+				? checkedChange(proposal, aliases, labels, {
+						pod: pod?.address ?? proposal.accountAddress,
+						digest: openedDigest,
+					})?.list
 				: null,
-		[open, aliases, proposal, labels],
+		[open, aliases, proposal, labels, pod, openedDigest],
 	);
 
 	// The connected wallet is in one of the proposal's signer sets, which

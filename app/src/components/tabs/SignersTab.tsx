@@ -156,7 +156,10 @@ export function SignersTab() {
 		);
 		const checked =
 			proposal &&
-			checkedChange(proposal, aliases, podLabels(account));
+			checkedChange(proposal, aliases, podLabels(account), {
+				pod: multisig.address,
+				digest: proposal.digest,
+			});
 		return checked
 			? {
 					title: changeTitle(checked.list),
@@ -169,7 +172,13 @@ export function SignersTab() {
 					),
 				}
 			: undefined;
-	}, [aliasProposals, openSignerChange, aliases, account]);
+	}, [
+		aliasProposals,
+		openSignerChange,
+		aliases,
+		account,
+		multisig.address,
+	]);
 	const changesEnabled =
 		details?.signerChangesEnabled ?? true;
 	const enablePending = !changesEnabled && !!enableProposal;

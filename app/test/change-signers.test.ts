@@ -23,7 +23,11 @@ import {
 } from '../src/lib/change-signers';
 import { checkedChange } from '../src/lib/proposal-page';
 import { computeMultisigAddress } from '../src/lib/sui-utils';
-import { signerChange } from './transactions';
+import {
+	digestOf,
+	signerChange,
+	transfer,
+} from './transactions';
 
 const COPY = content.changeSigners;
 
@@ -284,6 +288,7 @@ test('a change’s differences come from its bytes, checked against the alias se
 			},
 			{ kind: 'read', aliases: [pod] },
 			podLabels,
+			{ pod, digest: digestOf(bytes) },
 		)?.list.map((d) => d.text);
 	expect(
 		named([told(priya, 'Priya'), told(alice, 'Ally')]),
@@ -305,6 +310,42 @@ test('a change’s differences come from its bytes, checked against the alias se
 			removedBy(change, key.toSuiPublicKey()),
 		),
 	).toEqual([true, false]);
+});
+
+test('a change is checked only as the opened proposal of the pod that sends it', async () => {
+	const [maya, daniel] = [newKey(), newKey()];
+	const set = (...keys: (typeof maya)[]) => ({
+		threshold: 1,
+		members: keys.map((key) => ({
+			publicKey: key.toSuiPublicKey(),
+			weight: 1,
+		})),
+	});
+	const { pod, bytes } = await signerChange(
+		set(maya),
+		set(maya, daniel),
+	);
+	const checked = (opened: {
+		pod: string;
+		digest: string;
+	}) =>
+		checkedChange(
+			{ transactionBytes: bytes, signerChange: null },
+			{ kind: 'read', aliases: [pod] },
+			new Map(),
+			opened,
+		);
+	const digest = digestOf(bytes);
+	expect(checked({ pod, digest })).not.toBeNull();
+	expect(
+		checked({ pod: maya.toSuiAddress(), digest }),
+	).toBeNull();
+	expect(
+		checked({
+			pod,
+			digest: digestOf(await transfer(undefined, pod)),
+		}),
+	).toBeNull();
 });
 
 test('labels are the typed names of keys new to the set, null for keys that stay, and none once the new set is already an alias', () => {
