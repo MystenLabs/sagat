@@ -39,6 +39,8 @@ import {
 
 const STATUS = content.proposal.approvals.status;
 const NOTES = content.proposal.approvals.notes;
+const SIGNER_CHANGE =
+	content.proposal.approvals.signerChange;
 
 type PageProposal = Pick<
 	CountedProposal,
@@ -313,7 +315,7 @@ export function signerChangeWarning(
 		nameOf(addressOf(key), labels),
 	);
 	return {
-		body: content.proposal.approvals.signerChange.body(
+		body: SIGNER_CHANGE.body(
 			joinList(names, 'and'),
 			names.length,
 		),
