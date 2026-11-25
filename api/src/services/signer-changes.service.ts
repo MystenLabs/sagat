@@ -25,8 +25,6 @@ import {
 	ProposalStatus,
 	SchemaAccountKeys,
 	SchemaAccountSignerSets,
-	SchemaSignerSetMembers,
-	SchemaSignerSets,
 } from '../db/schema';
 import { type DatabaseTransaction } from '../db/transaction';
 import { ApiAuthError, ValidationError } from '../errors';
@@ -37,7 +35,10 @@ import {
 import { parsePublicKey } from '../utils/pubKey';
 import { normalizeKeyLabels } from './account-keys.service';
 import { registerPublicKeys } from './addresses.service';
-import { validateQuorum } from './multisig.service';
+import {
+	insertSignerSet,
+	validateQuorum,
+} from './multisig.service';
 import { findAliasProposals } from './onchain-outcomes.service';
 import {
 	actingSetsOn,
@@ -340,26 +341,20 @@ const writeAddedSet = async (
 		tx,
 	);
 
-	const [inserted] = await tx
-		.insert(SchemaSignerSets)
-		.values({
+	await insertSignerSet(
+		tx,
+		{
 			address: added.address,
 			threshold: added.threshold,
 			isVerified: false,
-		})
-		.onConflictDoNothing({
-			target: SchemaSignerSets.address,
-		})
-		.returning({ address: SchemaSignerSets.address });
-	if (inserted)
-		await tx.insert(SchemaSignerSetMembers).values(
-			added.members.map((member, order) => ({
-				signerSetAddress: added.address,
-				publicKey: member.publicKey,
-				weight: member.weight,
-				order,
-			})),
-		);
+		},
+		added.members.map((member, order) => ({
+			signerSetAddress: added.address,
+			publicKey: member.publicKey,
+			weight: member.weight,
+			order,
+		})),
+	);
 
 	await tx
 		.insert(SchemaAccountSignerSets)

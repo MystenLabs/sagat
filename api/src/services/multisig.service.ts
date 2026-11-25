@@ -741,6 +741,30 @@ export type CreatedSignerSet = {
 	origin: SignerSetOrigin;
 };
 
+// Writes a composition and its members unless its address exists; `inserted` is the new row.
+export const insertSignerSet = async (
+	tx: DatabaseTransaction,
+	signerSet: typeof SchemaSignerSets.$inferInsert,
+	members: (typeof SchemaSignerSetMembers.$inferInsert)[],
+) => {
+	const [inserted] = await tx
+		.insert(SchemaSignerSets)
+		.values(signerSet)
+		.onConflictDoNothing({
+			target: SchemaSignerSets.address,
+		})
+		.returning();
+	return {
+		inserted,
+		members: inserted
+			? await tx
+					.insert(SchemaSignerSetMembers)
+					.values(members)
+					.returning()
+			: [],
+	};
+};
+
 /**
  * Creates a signer set together with the account of the same address, as
  * the account's original signer set. The caller's keys that are in the
@@ -826,18 +850,26 @@ export const createSignerSet = async ({
 	// add the multisig to the database.
 	return await db.transaction(async (tx) => {
 		const address = multisig.toSuiAddress();
-		const [inserted] = await tx
-			.insert(SchemaSignerSets)
-			.values({
-				address,
-				isVerified: false,
-				threshold: multisig.getThreshold(),
-				name,
-			})
-			.onConflictDoNothing({
-				target: SchemaSignerSets.address,
-			})
-			.returning();
+		const { inserted, members: insertedMembers } =
+			await insertSignerSet(
+				tx,
+				{
+					address,
+					isVerified: false,
+					threshold: multisig.getThreshold(),
+					name,
+				},
+				parsedPubKeys.map((key, index) => ({
+					signerSetAddress: address,
+					publicKey: key.toSuiPublicKey(),
+					weight: multisigMembers[index].weight,
+					// If authorization includes the user, we can accept immediately.
+					isAccepted: acceptingKeys.includes(
+						key.toSuiPublicKey(),
+					),
+					order: index,
+				})),
+			);
 		// A composition left by a signer change: lock it first, as a fresh insert does.
 		if (!inserted)
 			await tx
@@ -903,22 +935,7 @@ export const createSignerSet = async ({
 			});
 
 		let members: SignerSetMember[];
-		if (inserted)
-			members = await tx
-				.insert(SchemaSignerSetMembers)
-				.values(
-					parsedPubKeys.map((key, index) => ({
-						signerSetAddress: msig.address,
-						publicKey: key.toSuiPublicKey(),
-						weight: multisigMembers[index].weight,
-						// If authorization includes the user, we can accept immediately.
-						isAccepted: acceptingKeys.includes(
-							key.toSuiPublicKey(),
-						),
-						order: index,
-					})),
-				)
-				.returning();
+		if (inserted) members = insertedMembers;
 		else {
 			// The address fixes the composition, so the existing rows are these members.
 			if (acceptingKeys.length > 0)
