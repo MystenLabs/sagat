@@ -132,33 +132,6 @@ const signerSetsStale = z.boolean().meta({
 		'True when the alias set could not be read from the chain, so the signer sets are as last read.',
 });
 
-export const NoteEntrySchema = z
-	.discriminatedUnion('type', [
-		z.object({
-			type: z.literal('signer_set'),
-			version: z.literal(1),
-			address: SuiAddressSchema,
-			threshold: z.number().int(),
-			members: z.array(
-				z.object({
-					publicKey: z.string(),
-					weight: z.number().int(),
-				}),
-			),
-		}),
-		z.object({
-			type: z.literal('other_signer_set'),
-			version: z.literal(1),
-			address: SuiAddressSchema,
-		}),
-	])
-	.meta({
-		id: 'NoteEntry',
-		description:
-			'One signer set of the composition note: its composition, or an address with no details.',
-	});
-export type NoteEntry = z.infer<typeof NoteEntrySchema>;
-
 export const ProposalSignerChangeSchema = z
 	.object({
 		removes: SuiAddressSchema.nullable().meta({

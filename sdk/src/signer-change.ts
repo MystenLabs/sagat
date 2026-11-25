@@ -25,7 +25,6 @@ import {
 	findAliasCalls,
 	MAX_ALIASES,
 } from './aliases.js';
-import type { NoteEntry } from './v1/schemas.js';
 
 /** A signer set: threshold, and public keys with weights, in order. */
 export interface Composition {
@@ -41,8 +40,20 @@ export interface SignerChangeEntry {
 	after: string[];
 }
 
-/** One composition note input per address in `before` ∪ `after`. */
-export type { NoteEntry };
+/** One composition note input per address in `before` ∪ `after`: a signer set's composition, or an address with no details. */
+export type NoteEntry =
+	| {
+			type: 'signer_set';
+			version: 1;
+			address: string;
+			threshold: number;
+			members: { publicKey: string; weight: number }[];
+	  }
+	| {
+			type: 'other_signer_set';
+			version: 1;
+			address: string;
+	  };
 export type SignerSetEntry = Extract<
 	NoteEntry,
 	{ type: 'signer_set' }
