@@ -116,7 +116,6 @@ export interface CompositionNote {
 
 /** A signer change checked against an alias set. */
 export interface SignerChange {
-	account: string;
 	before: string[];
 	after: string[];
 	/** The set the change removes. */
@@ -125,7 +124,6 @@ export interface SignerChange {
 	added: SignerSetEntry | null;
 	/** The added set, or for a change that only removes, every composition left in `after`. */
 	newSets: SignerSetEntry[];
-	signerSets: NoteEntry[];
 }
 
 type TransactionInput = Pick<
@@ -673,7 +671,6 @@ export function checkSignerChange(
 		);
 
 	return {
-		account: note.account,
 		before,
 		after,
 		oldSet: note.removed,
@@ -685,7 +682,6 @@ export function checkSignerChange(
 						e.type === 'signer_set' &&
 						after.includes(e.address),
 				),
-		signerSets: note.signerSets,
 	};
 }
 

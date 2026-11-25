@@ -79,7 +79,5 @@ export {
 	type CompositionNote,
 	type NoteEntry,
 	type SignerChange,
-	type SignerChangeErrorReason,
-	type SignerChangeInput,
 	type SignerSetEntry,
 } from './signer-change.js';

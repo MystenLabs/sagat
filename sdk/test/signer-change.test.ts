@@ -33,10 +33,12 @@ import {
 	signerChangeProof,
 	signersWhoStay,
 	type Composition,
-	type SignerChangeErrorReason,
-	type SignerChangeInput,
 	type SignerSetEntry,
 } from '../src/index.js';
+import type {
+	SignerChangeErrorReason,
+	SignerChangeInput,
+} from '../src/signer-change.js';
 
 const [k1, k2, k3, k4, k5] = Array.from({ length: 5 }, () =>
 	new Ed25519Keypair().getPublicKey().toSuiPublicKey(),
