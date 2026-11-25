@@ -51,6 +51,7 @@ import {
 import {
 	acceptAccountInvite,
 	addAlias,
+	addPodAsAlias,
 	addProposer,
 	bothSign,
 	proposeTransfer,
@@ -499,11 +500,6 @@ test.describe('proposal integrity', () => {
 			members: [bob],
 			threshold: 2,
 		});
-		const recovery = await setupMultisig({
-			creator: carol,
-			members: [createIdentity('dave')],
-			threshold: 2,
-		});
 		await chain.fund(multisig.address);
 		await addProposer(
 			alice,
@@ -511,12 +507,12 @@ test.describe('proposal integrity', () => {
 			payments.address,
 		);
 		// Alice's key then acts in no set; before the pod's first /v1 read.
-		await replaceOwnAlias(
-			chain,
-			bothSign(alice, bob),
-			recovery.address,
-		);
-		await acceptAccountInvite(carol, multisig.address);
+		await addPodAsAlias(chain, bothSign(alice, bob), {
+			creator: carol,
+			member: createIdentity('dave'),
+			accepting: [carol],
+			replace: true,
+		});
 		const proposal = await proposeTransfer(
 			chain,
 			payments,

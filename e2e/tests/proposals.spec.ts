@@ -26,8 +26,7 @@ import {
 	toast,
 } from '../support/new-proposal';
 import {
-	acceptAccountInvite,
-	addAlias,
+	addPodAsAlias,
 	bothSign,
 	cancelProposal,
 	proposeTransfer,
@@ -57,20 +56,17 @@ async function readyThroughAddedSet({
 		members: [bob],
 		threshold: 2,
 	});
-	const recovery = await setupMultisig({
-		creator: carol,
-		members: [dave],
-		threshold: 2,
-	});
 	await chain.fund(multisig.address);
 	// Before the pod's first /v1 read, so the API sees it at once.
-	await addAlias(
+	const recovery = await addPodAsAlias(
 		chain,
 		bothSign(alice, bob),
-		recovery.address,
+		{
+			creator: carol,
+			member: dave,
+			accepting: [carol, dave],
+		},
 	);
-	await acceptAccountInvite(carol, multisig.address);
-	await acceptAccountInvite(dave, multisig.address);
 	const recipient = randomAddress();
 	const proposal = await proposeTransfer(chain, dave, {
 		multisigAddress: multisig.address,
@@ -307,19 +303,13 @@ test.describe('proposals', () => {
 			members: [bob],
 			threshold: 2,
 		});
-		// Alice is in both sets.
-		const recovery = await setupMultisig({
-			creator: alice,
-			members: [carol],
-			threshold: 2,
-		});
 		await chain.fund(multisig.address);
-		await addAlias(
+		// Alice is in both sets.
+		const recovery = await addPodAsAlias(
 			chain,
 			bothSign(alice, bob),
-			recovery.address,
+			{ creator: alice, member: carol, accepting: [carol] },
 		);
-		await acceptAccountInvite(carol, multisig.address);
 		const proposal = await proposeTransfer(chain, alice, {
 			multisigAddress: multisig.address,
 			recipient: randomAddress(),

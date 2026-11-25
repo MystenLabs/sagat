@@ -370,6 +370,43 @@ export async function replaceOwnAlias(
 	);
 }
 
+// Adds a 2-of-2 pod of `creator` and `member` to the alias set of the
+// pod `signing` signs for (in place of its own address with `replace`),
+// and has each of `accepting` accept that pod through it.
+export async function addPodAsAlias(
+	chain: Chain,
+	signing: MultisigSigning,
+	{
+		creator,
+		member,
+		accepting,
+		replace = false,
+	}: {
+		creator: Identity;
+		member: Identity;
+		accepting: Identity[];
+		replace?: boolean;
+	},
+) {
+	const added = await setupMultisig({
+		creator,
+		members: [member],
+		threshold: 2,
+	});
+	await (replace ? replaceOwnAlias : addAlias)(
+		chain,
+		signing,
+		added.address,
+	);
+	const pod = multisigAddressOf(
+		signing.members,
+		signing.threshold,
+	);
+	for (const identity of accepting)
+		await acceptAccountInvite(identity, pod);
+	return added;
+}
+
 // Proposes a SUI transfer of more than the account holds, signed by
 // `signers` (the first proposes), and executes it on-chain, where it fails.
 // The API then records it as failed. `members` as for `executeOutsideApp`.
