@@ -40,6 +40,7 @@ type PageProposal = Pick<
 	| 'proposerAddress'
 	| 'createdAt'
 	| 'accountAddress'
+	| 'signerSets'
 >;
 
 /** Each member's address and its key's label, or null when unlabelled. */

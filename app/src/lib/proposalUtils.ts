@@ -313,14 +313,14 @@ export function shortDigest(digest: string) {
 }
 
 /**
- * Whether the proposer is a member of none of the checked signer sets:
+ * Whether the proposer is a member of none of the proposal's signer sets:
  * an address the account allowed to propose without being able to sign.
  */
 export function isExternalProposer(proposal: {
 	proposerAddress: string;
-	checkedSignerSets: readonly AccountSigners[];
+	signerSets: readonly AccountSigners[];
 }) {
-	return !proposal.checkedSignerSets.some((set) =>
+	return !proposal.signerSets.some((set) =>
 		isMember(set, proposal.proposerAddress),
 	);
 }

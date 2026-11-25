@@ -204,17 +204,49 @@ describe('isExternalProposer', () => {
 	it('tells a signer from an address outside the account', () => {
 		expect(
 			isExternalProposer({
-				checkedSignerSets: [multisig],
+				signerSets: [multisig],
 				proposerAddress: signer.toSuiAddress(),
 			}),
 		).toBe(false);
 		expect(
 			isExternalProposer({
-				checkedSignerSets: [multisig],
+				signerSets: [multisig],
 				proposerAddress:
 					new Ed25519Keypair().toSuiAddress(),
 			}),
 		).toBe(true);
+	});
+
+	it('marks no member of a listed set as external while the alias read is pending, though no set is counted yet', () => {
+		const set = {
+			...multisig,
+			address: '0x2',
+			currentWeight: 0,
+		};
+		const counted = toProposalCardInput(
+			{
+				digest: DIGEST,
+				accountAddress: '0x1',
+				accountName: null,
+				network: 'localnet',
+				kind: 'transaction',
+				status: 'PENDING',
+				ready: false,
+				transactionBytes: '',
+				proposerAddress: signer.toSuiAddress(),
+				description: null,
+				createdAt: '2026-11-23T10:00:00.000Z',
+				signatures: [],
+				signerSets: [set],
+				events: { created: null, proposer: null },
+				executedVia: null,
+				signerSetsStale: false,
+			},
+			undefined,
+			null,
+		);
+		expect(counted.checkedSignerSets).toEqual([]);
+		expect(isExternalProposer(counted)).toBe(false);
 	});
 });
 
@@ -397,7 +429,6 @@ describe('countSignerSets', () => {
 			counted.checkedSignerSets.map((set) => set.address),
 		).toEqual([current.address]);
 		expect(proposalStatusKey(counted)).toBe('pending');
-		expect(isExternalProposer(counted)).toBe(true);
 	});
 });
 

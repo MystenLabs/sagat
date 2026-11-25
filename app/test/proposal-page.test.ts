@@ -81,7 +81,9 @@ function proposal({
 		network: 'localnet',
 		createdAt: CREATED_AT,
 		signatures,
-		signerSets: [],
+		signerSets: [
+			{ ...set, address: '0x1', currentWeight: 0 },
+		],
 		events: { created: null, proposer: null },
 		executedVia: null,
 		signerSetsStale: false,
