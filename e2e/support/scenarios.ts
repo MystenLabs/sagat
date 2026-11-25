@@ -4,6 +4,9 @@
 // Sets up state through the real API, signing as the given users. Use these
 // to get to the step under test quickly; drive that step through the UI.
 import {
+	buildAdd,
+	buildEnable,
+	buildRemove,
 	buildSignerChange,
 	defaultExpiry,
 	deriveAliasesObjectId,
@@ -18,12 +21,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { MIST_PER_SUI, toBase64 } from '@mysten/sui/utils';
 import { expect } from '@playwright/test';
 
-import {
-	buildAdd,
-	buildEnable,
-	buildRemove,
-	fetchAliasSet,
-} from '../../api/src/utils/aliases';
+import { fetchAliasSet } from '../../api/src/utils/aliases';
 import {
 	randomAddress,
 	type Chain,
