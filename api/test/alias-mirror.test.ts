@@ -43,6 +43,7 @@ import {
 } from '../src/services/aliases.service';
 import { fetchAliasSet } from '../src/utils/aliases';
 import { ApiTestFramework } from './framework/api-test-framework';
+import { ageAliasState } from './setup/acting-sets';
 import {
 	readObjects,
 	serving,
@@ -129,12 +130,6 @@ const outcomesOf = async (ids: number[]) =>
 			return row;
 		}),
 	);
-
-const backdate = (account: string, ageMs: number) =>
-	db
-		.update(SchemaAccountAliasState)
-		.set({ observedAt: new Date(Date.now() - ageMs) })
-		.where(stateWhere(account));
 
 describe('Alias mirror', () => {
 	let A: string;
@@ -417,7 +412,11 @@ describe('Alias mirror', () => {
 
 	test('9. the 60 second rule', async () => {
 		const reads = serving(readObjects);
-		await backdate(A, ALIAS_STATE_MAX_AGE_MS - 1_000);
+		await ageAliasState(
+			A,
+			NETWORK,
+			ALIAS_STATE_MAX_AGE_MS - 1_000,
+		);
 		expect(
 			await refreshStaleAliases(
 				[A],
@@ -429,7 +428,7 @@ describe('Alias mirror', () => {
 		]);
 		expect(reads.calls()).toBe(0);
 
-		await backdate(A, -5_000);
+		await ageAliasState(A, NETWORK, -5_000);
 		expect(
 			await refreshStaleAliases(
 				[A],
@@ -441,7 +440,7 @@ describe('Alias mirror', () => {
 		]);
 		expect(reads.calls()).toBe(1);
 
-		await backdate(A, ALIAS_STATE_MAX_AGE_MS + 1_000);
+		await ageAliasState(A, NETWORK);
 		await db
 			.delete(SchemaAccountAliasState)
 			.where(stateWhere(B));
@@ -464,7 +463,7 @@ describe('Alias mirror', () => {
 		).resolves.toMatchObject({ outcome: 'fresh' });
 		expect(failing.calls()).toBe(0);
 
-		await backdate(A, ALIAS_STATE_MAX_AGE_MS + 1_000);
+		await ageAliasState(A, NETWORK);
 		const error = await requireFreshAliases(
 			A,
 			NETWORK,
@@ -478,7 +477,7 @@ describe('Alias mirror', () => {
 		expect((error as Error).cause).toBe(unreachable);
 
 		// A rejection from the refresh itself, not a failed outcome.
-		await backdate(A, ALIAS_STATE_MAX_AGE_MS + 1_000);
+		await ageAliasState(A, NETWORK);
 		const broken = new Error('loaders broken');
 		const rejected = await requireFreshAliases(
 			A,

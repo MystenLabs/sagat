@@ -48,18 +48,15 @@ export const setAliases = async (
 	);
 };
 
-// Older than the max age, so the next decision reads the chain.
+// Observed `ageMs` ago; by default older than the max age, so the next decision reads the chain.
 export const ageAliasState = (
 	account: string,
 	network: SuiNetwork,
+	ageMs = ALIAS_STATE_MAX_AGE_MS + 1_000,
 ) =>
 	db
 		.update(SchemaAccountAliasState)
-		.set({
-			observedAt: new Date(
-				Date.now() - ALIAS_STATE_MAX_AGE_MS - 1_000,
-			),
-		})
+		.set({ observedAt: new Date(Date.now() - ageMs) })
 		.where(
 			and(
 				eq(SchemaAccountAliasState.accountAddress, account),
