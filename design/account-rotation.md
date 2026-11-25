@@ -14,7 +14,7 @@ This uses Sui address aliases: the account adds the address of a new composition
 - An account can have **several signer sets** on a network: every signer set in its alias set that Sagat can identify acts for it. An alias it cannot identify is listed with a warning. Nearly every account has one set.
 - The **original signer set stays readable** for every account. The address is derived from it, so it is the proof of the address, and the app checks it whatever acts now.
 - New signers are **invited after** the change executes. A key agrees to an account, not to a composition, so nobody becomes a signer of an account they never accepted.
-- A change can only execute once the signers who stay have signed it for the new threshold, so a change cannot lock the account out.
+- A change is ready at the threshold of the set it replaces, like any proposal. Until the signers who stay have signed it for the new threshold, the app warns that it could lock the account out, and blocks nothing.
 - The transaction carries both compositions, so anyone can check what it does without Sagat.
 - Everything follows a network: rights, the list of accounts, the signers shown.
 
@@ -174,7 +174,7 @@ sequenceDiagram
     P->>A: Propose the change (one transaction, with both compositions)
     A->>A: Check the change, write the new signer set
     O->>A: Sign, at the current threshold
-    A->>A: Ready once signers who stay meet the new threshold
+    A->>A: Ready at the current threshold, with a warning until signers who stay have signed
     O->>C: Execute
     A->>C: Re-read alias set
     A-->>N: Invitations
