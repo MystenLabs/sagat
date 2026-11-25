@@ -36,12 +36,7 @@ import {
 	signProposal,
 } from '../support/scenarios';
 
-/**
- * Alice and Bob's 2-of-2 pod also has Carol and Dave's 2-of-2 pod in its
- * alias set, and both of them accepted it. Dave proposes a transfer and
- * Carol signs it through the API, so only the added set reaches its
- * threshold; Carol is signed in on its page.
- */
+/** A transfer ready only through Carol and Dave's added set, open on Carol's page. */
 async function readyThroughAddedSet({
 	createActor,
 	createIdentity,

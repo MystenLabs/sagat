@@ -44,13 +44,7 @@ export type IntegrityProposal = Pick<
 	| 'signerSets'
 >;
 
-/**
- * Whether `signerAddress` may sign the proposal's bytes for `pod`, or
- * the first check it failed. Without a pod (a proposal opened from its
- * link), the account is the proposal's and rule 1 runs on its listed set
- * that makes up that address. `openedDigest` is the digest the viewer
- * opened, from the page's URL, not from the response.
- */
+/** Whether `signerAddress` may sign the bytes for `pod` (else the proposal's own address), or the first check it failed. */
 export function checkProposalIntegrity(
 	proposal: IntegrityProposal,
 	{
