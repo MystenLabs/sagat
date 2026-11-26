@@ -1023,7 +1023,7 @@ test.describe('overview and signers', () => {
 		});
 	});
 
-	test('allow signer changes with a proposal, and stop offering it once it executed', async ({
+	test('enable signer changes with a proposal, and stop offering it once it executed', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -1039,16 +1039,18 @@ test.describe('overview and signers', () => {
 		await alice.signIn();
 		const { page } = alice;
 		const members = `/multisig/${multisig.address}/signers`;
-		const allow = page.getByTestId('allow-signer-changes');
+		const enable = page.getByTestId(
+			'enable-signer-changes',
+		);
 		const banner = page.getByTestId(
-			'allow-signer-changes-pending',
+			'enable-signer-changes-pending',
 		);
 		await page.goto(members);
 
 		const created = page.waitForResponse((response) =>
 			isCreateRequest(response.request()),
 		);
-		await allow.click();
+		await enable.click();
 		const proposal = (await (
 			await created
 		).json()) as Proposal;
@@ -1062,18 +1064,20 @@ test.describe('overview and signers', () => {
 		await expect(
 			page.getByTestId('alias-calls-warning'),
 		).toHaveText(
-			content.transactionPreview.aliasCalls.allowsChanges(
+			content.transactionPreview.aliasCalls.enablesChanges(
 				'Localnet',
 			),
 		);
 
 		await page.goto(members);
 		await expect(banner).toContainText(
-			content.signers.allowSignerChangesPending('Localnet'),
+			content.signers.enableSignerChangesPending(
+				'Localnet',
+			),
 		);
-		await expect(allow).toHaveCount(0);
+		await expect(enable).toHaveCount(0);
 		await page
-			.getByTestId('allow-signer-changes-proposal')
+			.getByTestId('enable-signer-changes-proposal')
 			.click();
 		await expect(proposalPage).toBeVisible();
 
@@ -1099,7 +1103,7 @@ test.describe('overview and signers', () => {
 			((await (await accountRead).json()) as AccountDetails)
 				.signerChangesEnabled,
 		).toBe(true);
-		await expect(allow).toHaveCount(0);
+		await expect(enable).toHaveCount(0);
 		await expect(banner).toHaveCount(0);
 	});
 });
