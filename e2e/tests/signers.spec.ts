@@ -1425,6 +1425,75 @@ test.describe('overview and signers', () => {
 		});
 	});
 
+	test('a signer change waits for its new signer, who signs it from its link, before it executes, and the new signer is then invited', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const dave = await createActor('dave');
+		// 2 of 2: Alice and Bob replace Bob with Dave, at 2.
+		const { multisig, change } = await replaceFromMembers(
+			{ alice, bob, chain },
+			dave.publicKey,
+			{ label: 'Dave' },
+		);
+		const changePage = alice.proposalPage(change.digest);
+		await expect(changePage).toBeVisible();
+		await signProposal(bob, change);
+		await alice.page.reload();
+		await expect(changePage).toHaveAttribute(
+			'data-status',
+			'ready',
+		);
+		await expect(
+			changePage.getByTestId('signer-change-warning'),
+		).toContainText(
+			content.proposal.approvals.signerChange.body(
+				'Dave',
+				1,
+			),
+		);
+		await expect(
+			changePage.getByTestId('execute-proposal-button'),
+		).toHaveCount(0);
+
+		// Not a signer of the pod yet, Dave opens the shared link and signs.
+		await dave.signIn();
+		await dave.page.goto(
+			`/proposals?digest=${change.digest}`,
+		);
+		const davePage = dave.proposalPage(change.digest);
+		await expect(
+			davePage.getByTestId('signer-change-changes'),
+		).toBeVisible();
+		await expect(
+			davePage.getByTestId('cancel-proposal-button'),
+		).toHaveCount(0);
+		await davePage
+			.getByTestId('sign-proposal-button')
+			.click();
+		await expect(
+			davePage.getByTestId('proposal-already-signed'),
+		).toBeVisible();
+		await expect(
+			davePage.getByTestId('execute-proposal-button'),
+		).toHaveCount(0);
+
+		await alice.page.reload();
+		await expect(
+			changePage.getByTestId('signer-change-warning'),
+		).toHaveCount(0);
+		await executeProposal(alice.page);
+
+		await dave.page.goto('/');
+		await dave.page.getByTestId('nav-invitations').click();
+		await expect(
+			dave.invitationCard(multisig.address),
+		).toBeVisible();
+	});
+
 	test('say the pod has no SUI when enabling signer changes can’t pay gas', async ({
 		createActor,
 		createIdentity,
