@@ -397,23 +397,21 @@ describe('signers who stay and the proof', () => {
 	const old = entryOf(S1);
 	const next = entryOf(S2);
 
-	test('signers who stay are the old keys in the new set, and the proof counts them at their new weights, not a removed signer or a new one', () => {
+	test('signers who stay are the old keys in the new set, and the proof counts the new set’s members at their new weights, staying or new, not a removed signer', () => {
 		expect(signersWhoStay(old, next)).toEqual([k1, k2]);
-		expect(proofWeight(old, next, [k1, k3, k4, k5])).toBe(
-			2,
-		);
+		expect(proofWeight(next, [k1, k3, k4, k5])).toBe(3);
 	});
 
-	test('the proof names the signers who stay that have not signed, until they reach the new threshold', () => {
-		const toS2 = { oldSet: old, newSets: [next] };
+	test('the proof names the new set’s members that have not signed, new signers too, until they reach the new threshold', () => {
+		const toS2 = { newSets: [next] };
 		// One below S2's threshold of 3.
 		expect(signerChangeProof(toS2, [k1, k3])).toEqual({
 			met: false,
-			notSigned: [k2],
+			notSigned: [k2, k4],
 		});
-		expect(signerChangeProof(toS2, [k1, k2])).toEqual({
+		expect(signerChangeProof(toS2, [k1, k4])).toEqual({
 			met: true,
-			notSigned: [],
+			notSigned: [k2],
 		});
 	});
 

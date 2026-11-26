@@ -698,51 +698,42 @@ export function signersWhoStay(
 		.filter((k) => kept.has(k));
 }
 
-/** The new set's weight of the signers who stay that are in `keys` (keys that signed, or accepted). */
+/** The new set's weight of its members in `keys` (keys that signed, or accepted), whether they stay or are new. */
 export function proofWeight(
-	oldSet: SignerSetEntry,
 	newSet: SignerSetEntry,
 	keys: readonly string[],
 ): number {
-	const staying = new Set(signersWhoStay(oldSet, newSet));
 	const listed = new Set(keys);
 	return newSet.members
-		.filter(
-			(m) =>
-				staying.has(m.publicKey) && listed.has(m.publicKey),
-		)
+		.filter((m) => listed.has(m.publicKey))
 		.reduce((sum, m) => sum + m.weight, 0);
 }
 
-/** Whether signers who stay have signed for the threshold of at least one of the change's new sets. */
+/** Whether members of at least one of the change's new sets have signed for its threshold. */
 export function isProofMet(
-	change: Pick<SignerChange, 'oldSet' | 'newSets'>,
+	change: Pick<SignerChange, 'newSets'>,
 	signedKeys: readonly string[],
 ): boolean {
 	return change.newSets.some(
-		(set) =>
-			proofWeight(change.oldSet, set, signedKeys) >=
-			set.threshold,
+		(set) => proofWeight(set, signedKeys) >= set.threshold,
 	);
 }
 
-/** `isProofMet`, and the signers who stay in any new set that have not signed, in the old set's order. */
+/** `isProofMet`, and the members of any new set that have not signed, in the new sets' order. */
 export function signerChangeProof(
-	change: Pick<SignerChange, 'oldSet' | 'newSets'>,
+	change: Pick<SignerChange, 'newSets'>,
 	signedKeys: readonly string[],
 ): { met: boolean; notSigned: string[] } {
-	const staying = new Set(
-		change.newSets.flatMap((set) =>
-			signersWhoStay(change.oldSet, set),
-		),
-	);
+	const signed = new Set(signedKeys);
 	return {
 		met: isProofMet(change, signedKeys),
-		notSigned: change.oldSet.members
-			.map((m) => m.publicKey)
-			.filter(
-				(k) => staying.has(k) && !signedKeys.includes(k),
+		notSigned: [
+			...new Set(
+				change.newSets.flatMap((set) =>
+					set.members.map((m) => m.publicKey),
+				),
 			),
+		].filter((k) => !signed.has(k)),
 	};
 }
 
