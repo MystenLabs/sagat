@@ -5,6 +5,7 @@
 // stands, the Approvals card's rows and lines, the cancel dialog's
 // wording and the Activity card's rows.
 import {
+	proofWeight,
 	signerChangeProof,
 	type SignerChange,
 } from '@mysten/sagat';
@@ -331,6 +332,51 @@ export function approvalsSignerSets(
 			notSigned,
 		),
 	}));
+}
+
+/** A checked change's new sets as Approvals parts: their members, marked by the proposal's signatures, counted by the new weights against the new threshold. */
+export function newSignerSets(
+	change: SignerChange,
+	proposal: Pick<PageProposal, 'signatures'>,
+	status: ProposalStatusKey,
+	labels: Labels,
+	publicKey: string | null | undefined,
+	notSigned: readonly string[] = [],
+): ApprovalsSignerSet[] {
+	const signed = proposal.signatures.map(
+		(sig) => sig.publicKey,
+	);
+	return change.newSets.map((set) => {
+		const counted = {
+			currentWeight: proofWeight(set, signed),
+			threshold: set.threshold,
+		};
+		return {
+			address: set.address,
+			...counted,
+			podName: null,
+			heading: approvalsThresholdLabel(set),
+			line:
+				status !== 'pending' && status !== 'ready'
+					? null
+					: reachesThreshold(counted)
+						? STATUS.reached
+						: STATUS.needs(missingWeight(counted)),
+			rows: approvalRows(
+				{
+					members: set.members.map((m, order) => ({
+						...m,
+						order,
+					})),
+				},
+				proposal,
+				status,
+				labels,
+				publicKey,
+				notSigned,
+			),
+		};
+	});
 }
 
 /** The folded row's line, only when a folded set reached its threshold or, while pending, misses less than the main set. */

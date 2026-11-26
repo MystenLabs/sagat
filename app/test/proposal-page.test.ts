@@ -18,6 +18,7 @@ import {
 	cancelVariant,
 	foldedSignerSetsLine,
 	newSignerKey,
+	newSignerSets,
 	signerChangeWarning,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
@@ -271,6 +272,47 @@ describe('newSignerKey', () => {
 		expect(
 			newSignerKey(change, signer('Other', 1).address),
 		).toBeNull();
+	});
+});
+
+describe('newSignerSets', () => {
+	it('counts the new set’s members who signed by the new weights against the new threshold', async () => {
+		// Alice leaves for a new key of weight 2, at 3 of 4.
+		const newKey = signer('New', 2);
+		const change = signerChangeIn(
+			await changeTo(setOf(3, [maya, daniel, newKey])),
+			[pod],
+		)!;
+		// Alice signed too, but the new set doesn't hold her.
+		const [set] = newSignerSets(
+			change,
+			proposal({ signedBy: [alice, maya, newKey] }),
+			'ready',
+			labels,
+			null,
+		);
+
+		expect(set).toMatchObject({
+			currentWeight: 3,
+			threshold: 3,
+			line: STATUS.reached,
+		});
+		expect(
+			set.rows.map((row) => [row.publicKey, row.signed]),
+		).toEqual([
+			[maya.publicKey, true],
+			[daniel.publicKey, false],
+			[newKey.publicKey, true],
+		]);
+		expect(
+			newSignerSets(
+				change,
+				proposal({ signedBy: [alice, maya] }),
+				'ready',
+				labels,
+				null,
+			)[0].line,
+		).toBe(STATUS.needs(2));
 	});
 });
 

@@ -63,6 +63,7 @@ import {
 	foldedSignerSetsLine,
 	gasEstimate,
 	hasSigned,
+	newSignerSets,
 	signerChangeWarning,
 	withReason,
 	wouldReachThreshold,
@@ -313,9 +314,22 @@ export function ApprovalsCard({
 		signerChange?.notSigned,
 	);
 	const [mainSet, ...foldedSets] = signerSets;
+	// A checked change counts the current signers and, apart, its new set.
+	const newSets = change
+		? newSignerSets(
+				change,
+				proposal,
+				status,
+				labels,
+				viewerPublicKey,
+				signerChange?.notSigned,
+			)
+		: [];
 	const statusLine =
 		status === 'pending' && !isExecuting
-			? (mainSet?.line ?? null)
+			? newSets.length > 0
+				? null
+				: (mainSet?.line ?? null)
 			: approvalsStatus(status, isExecuting, verdict);
 	const note = approvalsNote({
 		proposal,
@@ -545,12 +559,14 @@ export function ApprovalsCard({
 				id="approvals-heading"
 				title={COPY.heading}
 			>
-				<span
-					className="ml-auto text-12 text-muted-foreground"
-					data-testid="approvals-threshold"
-				>
-					{mainSet?.heading}
-				</span>
+				{newSets.length === 0 && (
+					<span
+						className="ml-auto text-12 text-muted-foreground"
+						data-testid="approvals-threshold"
+					>
+						{mainSet?.heading}
+					</span>
+				)}
 			</CardHeading>
 			{statusLine && (
 				<p
@@ -561,7 +577,22 @@ export function ApprovalsCard({
 				</p>
 			)}
 			<div className="border-t" />
-			{mainSet && foldedSets.length > 0 ? (
+			{mainSet && newSets.length > 0 ? (
+				<>
+					<SignerSetPart
+						set={mainSet}
+						name={COPY.currentSigners}
+					/>
+					{newSets.map((set) => (
+						<SignerSetPart
+							key={set.address}
+							set={set}
+							name={COPY.newSigners}
+							className="border-t pt-4"
+						/>
+					))}
+				</>
+			) : mainSet && foldedSets.length > 0 ? (
 				<>
 					<p
 						className="text-13 text-muted-foreground"
@@ -584,38 +615,12 @@ export function ApprovalsCard({
 						testId="approvals-other-signer-sets"
 					>
 						{foldedSets.map((set, i) => (
-							<div
+							<SignerSetPart
 								key={set.address}
-								className={cn(
-									'flex flex-col gap-3',
-									i > 0 && 'border-t pt-4',
-								)}
-								{...signerSetData(set)}
-							>
-								<div className="flex flex-col gap-0.5">
-									{set.podName ? (
-										<span className="text-13 font-medium">
-											{set.podName}
-										</span>
-									) : (
-										<ShortAddress
-											address={set.address}
-											className="w-fit font-mono text-12"
-										/>
-									)}
-									<div className="flex flex-wrap items-baseline justify-between gap-x-3">
-										<span className="text-13">
-											{set.heading}
-										</span>
-										{set.line && (
-											<span className="text-12 text-muted-foreground">
-												{set.line}
-											</span>
-										)}
-									</div>
-								</div>
-								<ApprovalRowList rows={set.rows} />
-							</div>
+								set={set}
+								name={set.podName}
+								className={cn(i > 0 && 'border-t pt-4')}
+							/>
 						))}
 					</FoldedRow>
 				</>
@@ -710,6 +715,46 @@ export function ApprovalsCard({
 				</ModalActions>
 			</Modal>
 		</section>
+	);
+}
+
+/** A signer set named, else by its address, with its threshold, its line and its rows. */
+function SignerSetPart({
+	set,
+	name,
+	className,
+}: {
+	set: ApprovalsSignerSet;
+	name: string | null;
+	className?: string;
+}) {
+	return (
+		<div
+			className={cn('flex flex-col gap-3', className)}
+			{...signerSetData(set)}
+		>
+			<div className="flex flex-col gap-0.5">
+				{name ? (
+					<span className="text-13 font-medium">
+						{name}
+					</span>
+				) : (
+					<ShortAddress
+						address={set.address}
+						className="w-fit font-mono text-12"
+					/>
+				)}
+				<div className="flex flex-wrap items-baseline justify-between gap-x-3">
+					<span className="text-13">{set.heading}</span>
+					{set.line && (
+						<span className="text-12 text-muted-foreground">
+							{set.line}
+						</span>
+					)}
+				</div>
+			</div>
+			<ApprovalRowList rows={set.rows} />
+		</div>
 	);
 }
 

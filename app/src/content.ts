@@ -1089,6 +1089,9 @@ export const content = {
 			signAnyway: 'Sign anyway',
 			signProposal: 'Sign proposal',
 			simulating: 'Simulating…',
+			/** A signer change's two counts: the set that executes it, and the new set that confirms it. */
+			currentSigners: 'Current signers',
+			newSigners: 'New signers',
 			/** The line under the heading. */
 			status: {
 				executing: 'Threshold reached. Executing…',
