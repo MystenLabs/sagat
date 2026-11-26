@@ -131,7 +131,7 @@ const voteRoute = createRoute({
 	summary: 'Sign a proposal',
 	...sessionIfAny,
 	description:
-		'Signed over the transaction by a key of an acting signer set, accepted or not. A signer change only by a key of the signer set it replaces.',
+		'Signed over the transaction by a key of an acting signer set, accepted or not. A signer change only by a key of the signer set it replaces or of a signer set that acts after it; only the replaced set’s signatures count toward its threshold.',
 	request: { params: digestParams, body: signatureBody },
 	responses: {
 		200: proposalResponse(
@@ -141,7 +141,7 @@ const voteRoute = createRoute({
 			'The digest or signature is invalid, the key has signed already, or the proposal is not pending.',
 		),
 		403: error(
-			'The key is in no acting signer set of the account on the network, or the proposal is a signer change and the key is not in the set it replaces.',
+			'The key is in no acting signer set of the account on the network, or the proposal is a signer change and the key is in neither the set it replaces nor a set that acts after it.',
 		),
 		404: error('No proposal has this digest.'),
 		503: unavailable,

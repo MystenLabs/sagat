@@ -241,11 +241,12 @@ describe('signing and cancelling a signer change', () => {
 			});
 	});
 
-	test('a key of another acting set cannot sign a change', async () => {
+	test('a key of another acting set, or of none, cannot sign a change', async () => {
 		const cast = await createCast(session);
-		const { k4, A, S2 } = cast;
+		const { A, S2 } = cast;
+		const other = newUser();
 		const R = await session.createMultisig(
-			[k4, newUser()],
+			[other, newUser()],
 			1,
 		);
 		const created = await proposeCastChange(
@@ -254,18 +255,23 @@ describe('signing and cancelling a signer change', () => {
 			S2,
 		);
 		await setAliases(A, 'localnet', [R.address]);
-
-		expect(
-			await refusal(
+		const voteAs = (key: TestUser) =>
+			refusal(
 				session.voteOnProposal(
-					k4,
+					key,
 					created.digest,
 					created.transactionBytes,
 				),
-			),
-		).toEqual({
+			);
+
+		expect(await voteAs(other)).toEqual({
 			status: 403,
 			message: new ApiAuthError('NotASignerOfTheOldSet')
+				.message,
+		});
+		expect(await voteAs(newUser())).toEqual({
+			status: 403,
+			message: new ApiAuthError('NotAnAccountSigner')
 				.message,
 		});
 	});

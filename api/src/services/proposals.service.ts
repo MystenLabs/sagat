@@ -846,6 +846,14 @@ export const voteOnProposal = async ({
 		proposal.network,
 	);
 
+	// A key a signer change adds signs it too; its signature never counts for the old set.
+	const inNewSet = !!stored?.change?.newSets.some((set) =>
+		set.members.some(
+			(member) =>
+				member.publicKey === pubKey.toSuiPublicKey(),
+		),
+	);
+
 	// Any answer: a key of an acting set signs whether or not it accepted.
 	const signers = await resolveAccountSigners(
 		proposal.accountAddress,
@@ -853,13 +861,15 @@ export const voteOnProposal = async ({
 	);
 	if (
 		!signers ||
-		!signsFor(signers, [pubKey.toSuiPublicKey()], false)
+		(!inNewSet &&
+			!signsFor(signers, [pubKey.toSuiPublicKey()], false))
 	)
 		throw REFUSALS[scopeKind].notSigner();
 
 	// A set is replaced by its own signers.
 	if (
 		stored &&
+		!inNewSet &&
 		!(
 			stored.change &&
 			stored.change.oldSet.members.some(

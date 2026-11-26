@@ -108,8 +108,8 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		coins = await gasCoins(cast.A, 6);
 	});
 
-	test('executes with its signatures, records S1 as what executed it, and the account shows S2 acting and S1 as the original set', async () => {
-		const { k1, k2, k3, A, S2 } = cast;
+	test('the new k4 signs without counting for S1, the change executes with S1’s signatures, records S1 as what executed it, and the account shows S2 acting and S1 as the original set', async () => {
+		const { k1, k2, k3, k4, A, S2 } = cast;
 		const created = await session.createProposal(
 			k1,
 			A,
@@ -131,6 +131,21 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 				gasCoin: coins[1],
 			},
 		);
+		const byK4 = await session.voteOnProposal(
+			k4,
+			change.digest,
+			change.transactionBytes,
+		);
+		expect(byK4.ready).toBe(false);
+		expect(byK4.signerSets).toEqual([
+			expect.objectContaining({
+				address: A,
+				currentWeight: 1,
+			}),
+		]);
+		expect(
+			byK4.signatures.map((s) => s.publicKey).sort(),
+		).toEqual([k1.publicKey, k4.publicKey].sort());
 		const ready = await session.voteOnProposal(
 			k2,
 			change.digest,

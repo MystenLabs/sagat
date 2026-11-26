@@ -943,7 +943,7 @@
 		"/v1/proposals/{digest}/vote": {
 			"post": {
 				"summary": "Sign a proposal",
-				"description": "Signed over the transaction by a key of an acting signer set, accepted or not. A signer change only by a key of the signer set it replaces.",
+				"description": "Signed over the transaction by a key of an acting signer set, accepted or not. A signer change only by a key of the signer set it replaces or of a signer set that acts after it; only the replaced set’s signatures count toward its threshold.",
 				"parameters": [
 					{
 						"schema": {
@@ -988,7 +988,7 @@
 						}
 					},
 					"403": {
-						"description": "The key is in no acting signer set of the account on the network, or the proposal is a signer change and the key is not in the set it replaces.",
+						"description": "The key is in no acting signer set of the account on the network, or the proposal is a signer change and the key is in neither the set it replaces nor a set that acts after it.",
 						"content": {
 							"application/json": {
 								"schema": {
