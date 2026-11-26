@@ -256,7 +256,7 @@ describe('pendingFilter', () => {
 		const proposal = (lastEpoch: number) =>
 			transfer({ Epoch: lastEpoch }).then(
 				(transactionBytes) => ({
-					status: 'PENDING',
+					status: 'PENDING' as const,
 					transactionBytes,
 					signatures,
 					checkedSignerSets: countSignerSets(
