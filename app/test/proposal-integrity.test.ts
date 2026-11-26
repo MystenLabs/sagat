@@ -6,6 +6,7 @@ import { toBase58, toBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
 import { type AliasRead } from '../src/lib/alias-set';
+import { signerChangeIn } from '../src/lib/change-signers';
 import {
 	actingOnly,
 	checkActingSets,
@@ -22,7 +23,11 @@ import {
 import { toProposalCardInput } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
 import { listedSet, signerSet } from './signer-set';
-import { digestOf, transfer } from './transactions';
+import {
+	digestOf,
+	signerChange,
+	transfer,
+} from './transactions';
 
 function oneOfTwoAccount() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
@@ -55,6 +60,69 @@ test('refuses a wallet that is not one of the signers', async () => {
 			},
 		),
 	).toBe('notSigner');
+});
+
+test('lets a key a checked signer change adds sign the change, and refuses a key in neither set', async () => {
+	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
+	const multisig = signerSet(keys, 2);
+	const added = new Ed25519Keypair();
+	const setOf = (signers: Ed25519Keypair[]) => ({
+		threshold: 2,
+		members: signers.map((key) => ({
+			publicKey: key.getPublicKey().toSuiPublicKey(),
+			weight: 1,
+		})),
+	});
+	// Replaces the second key with `added`.
+	const { pod, bytes: transactionBytes } =
+		await signerChange(
+			setOf(keys),
+			setOf([keys[0], added]),
+		);
+	const digest = digestOf(transactionBytes);
+	const newSets =
+		signerChangeIn(transactionBytes, [pod])?.newSets ?? [];
+	const node: NodeFacts = {
+		aliases: { kind: 'read', aliases: [pod] },
+		chain: null,
+	};
+	const sign = (
+		signer: Ed25519Keypair,
+		sets: typeof newSets,
+	) => [
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress: pod,
+				signerSets: [listedSet(multisig)],
+			},
+			{
+				pod: null,
+				openedDigest: digest,
+				signerAddress: signer.toSuiAddress(),
+				newSets: sets,
+			},
+		),
+		checkSignerOnNetwork({
+			shown: [multisig],
+			signerAddress: signer.toSuiAddress(),
+			namedChain: null,
+			node,
+			newSets: sets,
+		}),
+	];
+
+	expect(sign(added, newSets)).toEqual([null, null]);
+	expect(sign(new Ed25519Keypair(), newSets)).toEqual([
+		'notSigner',
+		'notActing',
+	]);
+	// Without a checked change, the key is no signer.
+	expect(sign(added, [])).toEqual([
+		'notSigner',
+		'notActing',
+	]);
 });
 
 test("refuses bytes that don't decode as a transaction", () => {

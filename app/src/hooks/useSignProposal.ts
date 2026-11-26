@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { content } from '@/content';
 import { readNodeFacts } from '@/hooks/useAliasSets';
 import { proposalProposerQuery } from '@/hooks/useProposerProofs';
+import { signerChangeIn } from '@/lib/change-signers';
 import { type SuiNetwork } from '@/lib/network';
 import {
 	checkProposalIntegrity,
@@ -52,8 +53,9 @@ interface SignProposalParams {
 /**
  * Signs a proposal's transaction with the wallet and adds the signature,
  * refusing bytes that fail `checkProposalIntegrity`, a wallet no acting
- * set on the proposal's network holds, bytes naming another chain, or an
- * invalid proposer, before the wallet sees them. Resolves with the
+ * set on the proposal's network holds (nor a new set of the signer change
+ * the bytes make), bytes naming another chain, or an invalid proposer,
+ * before the wallet sees them. Resolves with the
  * proposal the vote returned, counted against the sets the node read
  * passed.
  */
@@ -77,20 +79,30 @@ export function useSignProposal() {
 			const { digest, transactionBytes } = proposal;
 			const network = proposal.network as SuiNetwork;
 
-			const failure = checkProposalIntegrity(proposal, {
-				pod,
-				openedDigest,
-				signerAddress: currentAccount.address,
-			});
-			if (failure)
-				throw new Error(signRefusedLine(failure, network));
-
 			const node = await readNodeFacts(
 				queryClient,
 				dappKit.getClient(network),
 				network,
 				pod?.address ?? proposal.accountAddress,
 			);
+			// Only from the bytes, checked against the node's alias set.
+			const newSets =
+				(node.aliases.kind === 'read' &&
+					signerChangeIn(
+						transactionBytes,
+						node.aliases.aliases,
+					)?.newSets) ||
+				[];
+
+			const failure = checkProposalIntegrity(proposal, {
+				pod,
+				openedDigest,
+				signerAddress: currentAccount.address,
+				newSets,
+			});
+			if (failure)
+				throw new Error(signRefusedLine(failure, network));
+
 			const onNetwork = checkSignerOnNetwork({
 				shown: proposal.signerSets,
 				signerAddress: currentAccount.address,
@@ -99,6 +111,7 @@ export function useSignProposal() {
 						.transaction,
 				),
 				node,
+				newSets,
 			});
 			if (onNetwork === 'unchecked')
 				throw new Error(signersUncheckedLine(network));

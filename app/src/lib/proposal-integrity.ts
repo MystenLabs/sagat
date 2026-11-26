@@ -77,10 +77,13 @@ export function checkProposalIntegrity(
 		pod,
 		openedDigest,
 		signerAddress,
+		newSets = [],
 	}: {
 		pod: ShownPod | null;
 		openedDigest: string;
 		signerAddress: string;
+		/** The new sets of the signer change the bytes make, checked against the node's alias set: their members may sign it too. */
+		newSets?: readonly SetMembers[];
 	},
 ): ProposalIntegrityFailure | null {
 	let read;
@@ -120,6 +123,11 @@ export function checkProposalIntegrity(
 		{ original, shown: proposal.signerSets },
 		{ account, signerAddress },
 	);
+	if (
+		signers.kind === 'notSigner' &&
+		newSets.some((set) => isMember(set, signerAddress))
+	)
+		return null;
 	return signers.kind === 'ok' ? null : signers.kind;
 }
 
@@ -156,9 +164,14 @@ export function checkAccountSigners(
 	return { kind: 'ok' };
 }
 
+/** A signer set's keys, whatever else it carries. */
+export type SetMembers = {
+	members: readonly { publicKey: string }[];
+};
+
 /** Whether `signerAddress` is one of the set's members. */
 export function isMember(
-	set: Pick<AccountSigners, 'members'>,
+	set: SetMembers,
 	signerAddress: string,
 ): boolean {
 	return set.members.some((m) => {
@@ -374,6 +387,7 @@ export function checkSignerOnNetwork({
 	signerAddress,
 	namedChain,
 	node,
+	newSets = [],
 }: {
 	/** The signer sets shown as acting. */
 	shown: readonly AccountSigners[];
@@ -381,6 +395,8 @@ export function checkSignerOnNetwork({
 	/** The chain the bytes name, null when they name none. */
 	namedChain: string | null;
 	node: NodeFacts;
+	/** As `checkProposalIntegrity`'s: a checked signer change's new sets. */
+	newSets?: readonly SetMembers[];
 }): NetworkFailure | null {
 	if (namedChain && node.chain && namedChain !== node.chain)
 		return 'chain';
@@ -389,7 +405,7 @@ export function checkSignerOnNetwork({
 	if (check.kind === 'unchecked') return 'unchecked';
 	return check.acting.some(({ set }) =>
 		isMember(set, signerAddress),
-	)
+	) || newSets.some((set) => isMember(set, signerAddress))
 		? null
 		: 'notActing';
 }
