@@ -14,6 +14,7 @@ export function signerSet(
 	return {
 		kind: 'signer_set',
 		acting: true,
+		original: true,
 		address: MultiSigPublicKey.fromPublicKeys({
 			threshold,
 			publicKeys: keys.map((key) => ({
