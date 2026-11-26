@@ -31,7 +31,9 @@ import { content } from '@/content';
 import { type useDryRun } from '@/hooks/useDryRun';
 import {
 	isReplaced,
+	newComposition,
 	rowChip,
+	thresholdSummary,
 	type ChangeKind,
 	type ChangeRow,
 	type CurrentSet,
@@ -136,7 +138,13 @@ export function ReviewStep({
 						{list.length}
 					</span>
 				</h3>
-				<ChangeList list={list} />
+				<ChangeList
+					list={list}
+					summary={thresholdSummary(
+						current,
+						newComposition(rows, threshold),
+					)}
+				/>
 				<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
 					<Info className="mt-0.5 size-3 shrink-0" />
 					{list.every((item) => item.kind === 'reorder')
@@ -229,11 +237,13 @@ export function ReviewStep({
 	);
 }
 
-/** The differences as a bordered list, with an add's Sui address under it when known. */
+/** The differences as a bordered list, with an add's Sui address under it when known, and `summary` as the last line. */
 export function ChangeList({
 	list,
+	summary,
 }: {
 	list: Difference[];
+	summary?: string | null;
 }) {
 	return (
 		<ul className="rounded-lg border">
@@ -259,6 +269,15 @@ export function ChangeList({
 					</li>
 				);
 			})}
+			{summary && (
+				<li
+					className="flex items-center gap-3 px-4 py-3.5 text-13"
+					data-testid="change-summary"
+				>
+					<Users className="size-4 shrink-0" />
+					{summary}
+				</li>
+			)}
 		</ul>
 	);
 }

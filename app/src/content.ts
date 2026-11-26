@@ -1351,6 +1351,9 @@ export const content = {
 			carryOverReorder:
 				'Open proposals and their signatures carry over. Weights and the threshold don’t change.',
 			signersAfter: 'Signers after the change',
+			/** The last line under the differences when the total weight changes and the threshold doesn’t: "2 of 2", "2 of 3". */
+			thresholdAfter: (now: string, before: string) =>
+				`Threshold after this change: ${now} (was ${before})`,
 			/** The proposal page's Changes card: who an executed change invites, and what carries over. */
 			invitation: (names: string, count: number) =>
 				`${names} ${count === 1 ? 'gets' : 'get'} an invitation once this executes.`,

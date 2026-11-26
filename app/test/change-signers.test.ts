@@ -18,6 +18,7 @@ import {
 	rowDifferences,
 	signerChangeIn,
 	startRows,
+	thresholdSummary,
 	type ChangeRow,
 	type CurrentSet,
 } from '../src/lib/change-signers';
@@ -242,6 +243,36 @@ describe('differences', () => {
 			COPY.change.add('Priya', 1),
 			COPY.change.replace('Daniel'),
 		]);
+	});
+
+	test('a new total under the same threshold reads as a summary line, not a difference; no line when the total stays or the threshold changes', () => {
+		const current = currentSet([1, 1, 1], 2);
+		const rows = rowsOf(current);
+		const removed = rows.map((row, i) =>
+			i === 2 ? { ...row, removed: true } : row,
+		);
+		const summary = (
+			next: ChangeRow[],
+			threshold: number,
+		) =>
+			thresholdSummary(
+				current,
+				newComposition(next, threshold),
+			);
+		expect(summary(removed, 2)).toBe(
+			COPY.review.thresholdAfter('2 of 2', '2 of 3'),
+		);
+		const list = rowDifferences(current, removed, 2);
+		expect(changeTitle(list)).toBe(
+			COPY.change.remove('Alice'),
+		);
+		const replaced = rows.map((row, i) =>
+			i === 2
+				? { ...row, key: newKey().toSuiPublicKey() }
+				: row,
+		);
+		expect(summary(replaced, 2)).toBeNull();
+		expect(summary(removed, 1)).toBeNull();
 	});
 });
 

@@ -387,6 +387,25 @@ function reorderLine(
 		: COPY.change.reorder;
 }
 
+/** "Threshold after this change: 2 of 2 (was 2 of 3)" when the total weight changes and the threshold doesn't; null otherwise, as the threshold's own difference says it. */
+export function thresholdSummary(
+	before: Pick<Composition, 'threshold' | 'members'>,
+	after: Pick<Composition, 'threshold' | 'members'>,
+): string | null {
+	const [was, now] = [before, after].map((set) =>
+		sumWeight([...set.members]),
+	);
+	return after.threshold === before.threshold && now !== was
+		? COPY.review.thresholdAfter(
+				content.common.thresholdLabel(after.threshold, now),
+				content.common.thresholdLabel(
+					before.threshold,
+					was,
+				),
+			)
+		: null;
+}
+
 /** The editor's differences: the current set before, the rows that stay after. */
 export function rowDifferences(
 	current: CurrentSet,
