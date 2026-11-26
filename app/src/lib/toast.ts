@@ -1,6 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { createElement } from 'react';
 import {
 	toast as sonner,
 	type ExternalToast,
@@ -44,6 +45,10 @@ function withLink({
 	};
 }
 
+// The message, with its whole text on hover once the toast clamps it.
+const text = (message: string) =>
+	createElement('span', { title: message }, message);
+
 /**
  * The app's toast API, wrapping sonner with the behaviour from the designs:
  * success and copy toasts close on their own, error toasts stay until the
@@ -51,9 +56,9 @@ function withLink({
  */
 export const toast = {
 	success: (message: string, options?: Options) =>
-		sonner.success(message, withLink(options)),
+		sonner.success(text(message), withLink(options)),
 	error: (message: string, options?: Options) =>
-		sonner.error(message, {
+		sonner.error(text(message), {
 			duration: Infinity,
 			closeButton: true,
 			// Sticky, so repeats of the same error replace it instead of stacking
@@ -62,7 +67,7 @@ export const toast = {
 		}),
 	/** Stays until closed, like an error. */
 	info: (message: string, options?: Options) =>
-		sonner.info(message, {
+		sonner.info(text(message), {
 			duration: Infinity,
 			closeButton: true,
 			...withLink(options),
