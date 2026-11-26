@@ -475,6 +475,15 @@ test.describe('proposals', () => {
 		await expect(
 			alice.page.getByTestId('signer-change-warning'),
 		).toBeVisible();
+		// Held until Carol signs for the new threshold.
+		await expect(
+			page.getByTestId('execute-proposal-button'),
+		).toHaveCount(0);
+		await signProposal(carol, proposal);
+		await alice.page.reload();
+		await expect(
+			alice.page.getByTestId('signer-change-warning'),
+		).toHaveCount(0);
 
 		await page
 			.getByTestId('execute-proposal-button')
