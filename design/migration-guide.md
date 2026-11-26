@@ -55,7 +55,7 @@ Authentication does not change. The connect message, the script token, and its o
 | `GET /addresses/invitations/:publicKey`                                  | `GET /v1/invitations`                    | Accounts where a key of the session is in an acting signer set and has not answered. `showRejected=true` lists the rejected ones instead.                                                                                                           |
 | `POST /proposals`                                                        | `POST /v1/proposals?network=`            | Body `accountAddress`, `transactionBytes`, `signature`, an optional `description` and, for a signer change, optional `labels`. The address must be canonical; one that is no account gets the 403 a non-signer gets. Answers 201 with the proposal. |
 | `GET /proposals`                                                         | `GET /v1/proposals`                      | Query `accountAddress`, `network`, and optional `status`, `nextCursor` and `perPage`. Needs a session.                                                                                                                                              |
-| `POST /proposals/:id/vote`                                               | `POST /v1/proposals/:digest/vote`        | Addressed by digest. Body `signature`. Answers with the proposal. A signer change takes signatures only from keys of the set it replaces.                                                                                                           |
+| `POST /proposals/:id/vote`                                               | `POST /v1/proposals/:digest/vote`        | Addressed by digest. Body `signature`. Answers with the proposal. A signer change takes signatures from keys of the set it replaces and of the set it adds.                                                                                         |
 | `POST /proposals/:id/cancel`                                             | `POST /v1/proposals/:digest/cancel`      | Addressed by digest. Body `signature`, signed with the same message as before. Answers with the proposal. A signer change only by an accepted signer who stays.                                                                                     |
 | `POST /proposals/:id/verify`, `POST /proposals/:digest/verify-by-digest` | `POST /v1/proposals/:digest/verify`      | Addressed by digest, no body, open to anyone. Records `executedVia`. Also looks up a cancelled proposal that calls `0x2::address_alias`. Answers with the proposal.                                                                                 |
 | `GET /proposals/digest/:digest`                                          | `GET /v1/proposals/:digest`              | Public. Response changed, see below.                                                                                                                                                                                                                |
@@ -262,7 +262,7 @@ const combined = key.combinePartialSignatures(signatures);
 
 Passing a signature from a key outside the chosen set makes the combination fail. This is the most likely mistake when migrating.
 
-For a signer change, `ready` counts only the set it replaces. Before executing one, check `signerChangeProof` (see "Signer changes") and warn while its `met` is false.
+For a signer change, `ready` counts only the set it replaces. Before executing one, check `signerChangeProof` (see "Signer changes") and hold execution while its `met` is false, as the app does.
 
 The transaction sender is the account address. It is not the signer set address, and you do not change it.
 
@@ -287,7 +287,7 @@ A signer change is a proposal that replaces one acting signer set with another o
 
 1. Enable signer changes once per network: propose a transaction built with `buildEnable(tx)` and execute it like any proposal. `enable` cannot share a transaction with the first change.
 2. Build the change with `buildSignerChange(tx, { account, aliases, oldSet, newSet, known, chain, epoch })`, on a transaction whose sender is the account. `aliases` is the account's alias set from a node you pick, `oldSet` the address of the set being replaced, `newSet` the new composition, `known` every composition you know for the aliases, the old set included, `chain` the network's chain identifier and `epoch` the current epoch. It appends `add` and `remove` in the order the alias set allows, or only `remove` when the new set is already an alias, then the composition note, and an expiration that names the chain and is valid through the end of the next epoch. A change that expired is proposed again. It stays listed as pending, but no longer counts for one at a time.
-3. Propose it with `POST /v1/proposals`, signed by an accepted signer of the old set who stays in the new one. `labels` names the new set's keys, in the order of the note. Only keys new to the account are labelled.
+3. Propose it with `POST /v1/proposals`, signed by an accepted signer of the old set who stays in the new one. Share it with the new signers: they confirm the change by signing it. `labels` names the new set's keys, in the order of the note. Only keys new to the account are labelled.
 
 ### The composition note
 
@@ -310,7 +310,7 @@ A `signer_set` is a composition with its keys in order, and an `other_signer_set
 3. The note's `before` equals `aliases`, the alias set from a node you pick. For an executed change, pass the note's own `before`, since the chain no longer holds that state.
 4. The note's `after` equals `aliases` with the transaction's alias calls applied.
 
-`signerChangeProof(change, signedKeys)` says whether signers who stay have signed for the new threshold by their new weights (`met`), and lists the signers who stay that have not signed (`notSigned`).
+`signerChangeProof(change, signedKeys)` says whether the members of the new set whose keys signed, staying or new, meet the new threshold by their new weights (`met`), and lists the members of the new set that have not signed (`notSigned`). `proofWeight` and `isProofMet` return the weight and `met` alone.
 
 Check the bytes yourself with these before you sign or show a change, and never trust what the API says about one. `signerChange` on a proposal is only the API's reading of the bytes. `SignerChange` from `@mysten/sagat` is the checked change `checkSignerChange` returns; `ProposalSignerChange` from `@mysten/sagat/v1` is that reading.
 
@@ -318,14 +318,14 @@ Check the bytes yourself with these before you sign or show a change, and never 
 
 `POST /v1/proposals` treats alias calls with a composition note as a signer change. It checks the change against the alias set it just read and the signers acting on the network, then writes the new signer set, its members and its link to the account. A composition it already holds is linked as it is. It refuses:
 
-- with a 400: a note that does not check; a change built against an alias set that has changed since; bytes whose expiration does not name the network's chain, or has no last epoch by the end of the next one; an old set the API cannot identify as acting; a change that leaves no set the API can identify; a new composition outside the limits on signers and weights; signers who stay, counting only those who accepted the account, who cannot meet the new threshold; another pending proposal of the account and network that calls `0x2::address_alias`, unless its expiration epoch has passed; and `labels` on any proposal but a change that adds a set;
+- with a 400: a note that does not check; a change built against an alias set that has changed since; bytes whose expiration does not name the network's chain, or has no last epoch by the end of the next one; an old set the API cannot identify as acting; a change that leaves no set the API can identify; a new composition outside the limits on signers and weights; another pending proposal of the account and network that calls `0x2::address_alias`, unless its expiration epoch has passed; and `labels` on any proposal but a change that adds a set;
 - with a 403: a proposer who is not an accepted signer of the old set who stays in the new one.
 
 `signerChange` on a proposal holds `removes`, the set the change replaces, and `adds`, the set it adds, or null for a change that only removes. `removes` is null when the note does not check, in which case the change is never ready. `labels` lists the account's labels for the keys the change adds, each `{ publicKey, label }`. It is filled only when the request carries a session whose key signs for the account, and is empty otherwise.
 
 `signerSets` holds only the set the change replaces: while the change is pending, only while that set acts; once it is no longer pending, as the change describes it, so an executed change still shows the set it replaced. `ready` is true once that set reaches its threshold.
 
-Only a key of the set the change replaces may vote on it, accepted or not; anyone else gets a 403. While that set acts, only an accepted signer of it who stays in the new one may cancel the change: a key that is not an accepted signer of the account gets the 403 any cancel gives it, and an accepted signer who does not stay gets a 403. Once the set no longer acts, the change can never execute, and any accepted signer may cancel it. Removing a proposer never cancels a signer change.
+A key of the set the change replaces may vote on it, accepted or not, and so may a key of the set it adds; anyone else gets a 403. A vote from a key the change adds is stored like any other, but never makes the change ready and is not combined at execution: it shows that the key is live and saw this exact change. While that set acts, only an accepted signer of it who stays in the new one may cancel the change: a key that is not an accepted signer of the account gets the 403 any cancel gives it, and an accepted signer who does not stay gets a 403. Once the set no longer acts, the change can never execute, and any accepted signer may cancel it. Removing a proposer never cancels a signer change.
 
 The legacy routes never serve a signer change, also while it is pending. Create, `GET /proposals/digest/:digest`, vote and cancel answer with a 409 that points at `/v1`, and the list leaves the change out. `verify` and `verify-by-digest` stay open.
 
@@ -338,6 +338,6 @@ The legacy routes never serve a signer change, also while it is pending. Create,
 - [ ] Accept and reject messages updated, if built by hand
 - [ ] Cancel message updated, if built by hand
 - [ ] Execution code picks one signer set and filters signatures
-- [ ] Signer changes checked with the SDK before signing or showing them, if you rotate signers
+- [ ] Signer changes checked with the SDK before signing or showing them, and executed only once `signerChangeProof` is met, if you rotate signers
 - [ ] Any reader of `currentWeight`, `totalWeight`, or `multisig` moved to `signerSets`, of `hasReachedThreshold` to `ready`, and of a numeric `status` to its name
 - [ ] Tested against testnet
