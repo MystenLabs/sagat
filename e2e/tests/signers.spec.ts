@@ -1449,7 +1449,7 @@ test.describe('overview and signers', () => {
 	});
 });
 
-// On a 2-of-3 pod with Bob and Carol, Alice proposes replacing Carol with `key` from Members.
+// On a 2-of-3 pod with Bob and Carol (without Carol, 2-of-2 with Bob), Alice proposes replacing the last of them with `key` from Members.
 async function replaceFromMembers(
 	{
 		alice,
@@ -1459,21 +1459,23 @@ async function replaceFromMembers(
 	}: {
 		alice: Actor;
 		bob: Identity;
-		carol: Identity;
+		carol?: Identity;
 		chain: Chain;
 	},
 	key: string,
 	{ label, name }: { label?: string; name?: string } = {},
 ) {
+	const others = carol ? [bob, carol] : [bob];
+	const replaced = others[others.length - 1];
 	const multisig = await setupMultisig({
 		creator: alice,
-		members: [bob, carol],
+		members: others,
 		threshold: 2,
 		name,
 	});
 	await chain.fund(multisig.address);
 	await enableAliases(chain, {
-		members: [alice, bob, carol].map((identity) => ({
+		members: [alice, ...others].map((identity) => ({
 			identity,
 		})),
 		threshold: 2,
@@ -1484,19 +1486,19 @@ async function replaceFromMembers(
 	await page.goto(`/multisig/${multisig.address}/signers`);
 	await page
 		.locator(
-			`[data-testid="member-item"][data-address="${carol.address}"]`,
+			`[data-testid="member-item"][data-address="${replaced.address}"]`,
 		)
 		.getByTestId('signer-menu')
 		.click();
 	await page.getByTestId('signer-menu-replace').click();
 	await page
 		.getByTestId('create-signer-key')
-		.nth(2)
+		.nth(others.length)
 		.fill(key);
 	if (label)
 		await page
 			.getByTestId('create-signer-label')
-			.nth(2)
+			.nth(others.length)
 			.fill(label);
 	await page.getByTestId('change-review').click();
 	const created = page.waitForResponse((response) =>
