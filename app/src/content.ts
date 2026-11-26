@@ -899,6 +899,8 @@ export const content = {
 			}`,
 		created: (invited: string, count: number) =>
 			`Pod created. ${count === 1 ? 'Invitation' : 'Invitations'} sent to ${invited}.`,
+		noLongerSigner: (network: string) =>
+			`You’re no longer a signer of this pod on ${network}.`,
 
 		value: {
 			total: 'Total value',

@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Account, KeyAnswer } from '@mysten/sagat/v1';
+import type {
+	Account,
+	AccountList,
+	KeyAnswer,
+} from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
@@ -42,16 +46,39 @@ export function viewerSignerSet(
 	);
 }
 
-/** `publicKey`'s answer for the pod, from the sets shown as acting; null when none holds it. */
+/** `publicKey`'s answer for the pod, from the sets shown as acting that the API reports acting; null when none holds it. */
 export function keyAnswer(
 	account: ShownPod,
 	publicKey: string,
 ): KeyAnswer | null {
 	for (const set of shownActingSets(account)) {
+		if (!set.acting) continue;
 		const answer = memberAnswer(set, publicKey);
 		if (answer) return answer;
 	}
 	return null;
+}
+
+/** The pods `publicKey` is no longer a signer of: listed as removed, or held only in sets the API reports as not acting. */
+export function noLongerSignerOf(
+	list: Pick<AccountList, 'accounts' | 'removed'>,
+	publicKey: string,
+): string[] {
+	const heldOnlyByOldSets = list.accounts
+		.filter(
+			(account) =>
+				keyAnswer(account, publicKey) === null &&
+				shownActingSets(account).some((set) =>
+					memberAnswer(set, publicKey),
+				),
+		)
+		.map((account) => account.address);
+	return [
+		...list.removed
+			.filter((pod) => pod.publicKey === publicKey)
+			.map((pod) => pod.address),
+		...heldOnlyByOldSets,
+	];
 }
 
 function memberAnswer(

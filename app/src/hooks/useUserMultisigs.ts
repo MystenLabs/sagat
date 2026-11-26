@@ -6,7 +6,10 @@ import { useQuery } from '@tanstack/react-query';
 import { content } from '@/content';
 import { CONFIG } from '@/lib/constants';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import { rowsAnswered } from '@/lib/user-multisig';
+import {
+	noLongerSignerOf,
+	rowsAnswered,
+} from '@/lib/user-multisig';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useNetwork } from '../contexts/NetworkContext';
@@ -27,25 +30,36 @@ export function useUserMultisigs() {
 			network,
 			currentAddress,
 		],
-		queryFn: async (): Promise<
-			MultisigWithMembersForPublicKey[]
-		> => {
+		queryFn: async (): Promise<{
+			rows: MultisigWithMembersForPublicKey[];
+			noLongerSigner: string[];
+		}> => {
 			if (!currentAddress)
 				throw new Error(content.errors.noWalletConnected);
 
 			// Every key of the session's pods; this key's are the ones it accepted.
-			const { accounts } =
-				await apiV1Client.getAccounts(network);
-			return rowsAnswered(
-				accounts,
-				currentAddress,
-				'accepted',
-			);
+			const list = await apiV1Client.getAccounts(network);
+			return {
+				rows: rowsAnswered(
+					list.accounts,
+					currentAddress,
+					'accepted',
+				),
+				noLongerSigner: noLongerSignerOf(
+					list,
+					currentAddress.publicKey,
+				),
+			};
 		},
 		enabled: isCurrentAddressAuthenticated,
 		staleTime: 1000 * 30, // 30 seconds
 		refetchInterval: CONFIG.REFETCH_INTERVAL,
 	});
 
-	return { ...query, data: useRowsActing(query.data) };
+	return {
+		...query,
+		data: useRowsActing(query.data?.rows),
+		/** Pods this key was a signer of and no longer is. */
+		noLongerSigner: query.data?.noLongerSigner,
+	};
 }

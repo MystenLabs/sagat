@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { Plus } from 'lucide-react';
+import { Plus, UserMinus } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import {
 	Navigate,
@@ -34,6 +34,7 @@ import { SignersUnchecked } from './multisig/SignersUnchecked';
 import { SuccessBanner } from './multisig/SuccessBanner';
 import { Button } from './ui/button';
 import { cardClass } from './ui/card';
+import { EmptyState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
 
@@ -48,6 +49,7 @@ export function MultisigDetailPage() {
 		data: multisigs,
 		isLoading,
 		isFetching,
+		noLongerSigner,
 	} = useUserMultisigs();
 	// Set by the invitation and create flows: a greeting shown once.
 	const [arrival, dismissArrival] = useArrivalBanner();
@@ -91,6 +93,26 @@ export function MultisigDetailPage() {
 			<SkeletonPage
 				message={content.common.states.loadingPod}
 			/>
+		);
+	}
+
+	// A key a signer change removed sees a plain line, not the pod.
+	if (
+		address &&
+		!multisigDetails &&
+		noLongerSigner?.includes(address)
+	) {
+		return (
+			<div className="page-shell flex-1">
+				<EmptyState
+					size="page"
+					icon={UserMinus}
+					title={content.overview.noLongerSigner(
+						networkLabel(network),
+					)}
+					testId="pod-no-longer-signer"
+				/>
+			</div>
 		);
 	}
 

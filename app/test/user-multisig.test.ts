@@ -6,6 +6,8 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { expect, test } from 'vitest';
 
 import {
+	noLongerSignerOf,
+	rowsAnswered,
 	toUserMultisig,
 	withActing,
 	withListedChecks,
@@ -203,4 +205,47 @@ test('an account read for another address leaves the listed row as it is', () =>
 			toUserMultisig(other.multisig, other.signer),
 		),
 	).toBe(listed);
+});
+
+test('a key only in a set the API reports as not acting gets no row and the no-longer-a-signer state, while the session’s other key keeps the pod', () => {
+	const [kept, removed, added] = [
+		new Ed25519Keypair(),
+		new Ed25519Keypair(),
+		new Ed25519Keypair(),
+	];
+	const original = {
+		...signerSet([kept, removed]),
+		acting: false,
+	};
+	const current = {
+		...signerSet([kept, added]),
+		original: false,
+	};
+	const list = {
+		accounts: [
+			{
+				...pod().multisig,
+				address: original.address,
+				signerSets: [original, current],
+			},
+		],
+		removed: [],
+	};
+
+	expect(
+		rowsAnswered(list.accounts, signerOf(kept), 'accepted'),
+	).toHaveLength(1);
+	expect(
+		rowsAnswered(
+			list.accounts,
+			signerOf(removed),
+			'accepted',
+		),
+	).toEqual([]);
+	expect(
+		noLongerSignerOf(list, signerOf(removed).publicKey),
+	).toEqual([original.address]);
+	expect(
+		noLongerSignerOf(list, signerOf(kept).publicKey),
+	).toEqual([]);
 });
