@@ -55,7 +55,7 @@ export function OnChainCard({
 
 	return (
 		<section
-			className={cn(cardClass, 'self-start')}
+			className={cardClass}
 			aria-labelledby="on-chain-heading"
 			data-testid="proposal-on-chain"
 			data-status={status}
