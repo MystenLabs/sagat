@@ -147,6 +147,12 @@ export function SignersTab() {
 	);
 	const changesEnabled =
 		details?.signerChangesEnabled ?? true;
+	const enablePending = !changesEnabled && !!enableProposal;
+	// A pending alias proposal neither banner below names.
+	const otherAliasProposal =
+		details && !details.openSignerChange && !enablePending
+			? aliasProposals?.[0]
+			: undefined;
 	const changePending =
 		!!details?.openSignerChange || !!aliasProposals?.length;
 	const openChange = (intent: ChangeIntent | null = null) =>
@@ -296,6 +302,19 @@ export function SignersTab() {
 					linkTestId="signer-change-proposal"
 				>
 					{COPY.changePending}
+				</ProposalBanner>
+			)}
+			{otherAliasProposal && (
+				<ProposalBanner
+					variant="warning"
+					to={proposalPagePath(
+						multisig.address,
+						otherAliasProposal.digest,
+					)}
+					testId="alias-proposal-pending"
+					linkTestId="alias-proposal"
+				>
+					{COPY.aliasProposalPending}
 				</ProposalBanner>
 			)}
 			{differentOn && (

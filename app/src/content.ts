@@ -1257,6 +1257,9 @@ export const content = {
 			'A pod needs at least 2 signers. Add a signer first, or use Replace.',
 		changePending:
 			'A signer change is waiting for signatures. New changes can start once it’s executed or cancelled.',
+		/** When a pending proposal that calls the alias module is neither a signer change nor the one enabling them. */
+		aliasProposalPending:
+			'A proposal that affects this pod’s signers is open. New changes can start once it’s executed, cancelled or expired.',
 		/** When the pod's alias set differs on other networks the API serves; `networks` is already a list. */
 		differentOn: (networks: string) =>
 			`This pod’s signers are different on ${networks}.`,
