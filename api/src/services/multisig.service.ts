@@ -673,6 +673,7 @@ export const validateProposedTransaction = async (
 	exclusiveObjects: string[],
 	multisigAddress: string,
 	network: SuiNetwork,
+	usedObjectsRefusal: (ids: string[]) => string,
 ) => {
 	await lockAccount(tx, multisigAddress);
 
@@ -709,8 +710,7 @@ export const validateProposedTransaction = async (
 
 	if (usedObjects.length > 0) {
 		throw new ValidationError(
-			'These owned/receiving objects are already used by pending proposals: ' +
-				usedObjects.join(', '),
+			usedObjectsRefusal(usedObjects),
 		);
 	}
 };

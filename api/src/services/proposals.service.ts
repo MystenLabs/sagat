@@ -153,6 +153,9 @@ const notAccepted = async (
 	keys: string[],
 ) => notAcceptedSignerError(await signers(), keys);
 
+const USED_OBJECTS =
+	'These owned/receiving objects are already used by pending proposals: ';
+
 // The refusals that differ by scope; legacy keeps its texts.
 const REFUSALS = {
 	original: {
@@ -168,6 +171,8 @@ const REFUSALS = {
 		senderMismatch:
 			'The transaction sender does not match the multisig address.',
 		unreadableSignature: (error: unknown) => error,
+		usedObjects: (ids: string[]) =>
+			USED_OBJECTS + ids.join(', '),
 	},
 	acting: {
 		notAccepted,
@@ -181,6 +186,11 @@ const REFUSALS = {
 			error instanceof CommonError
 				? new CommonError('InvalidTransactionSignature')
 				: error,
+		// Names three objects at most.
+		usedObjects: (ids: string[]) =>
+			ids.length <= 3
+				? USED_OBJECTS + ids.join(', ')
+				: `${USED_OBJECTS}${ids.slice(0, 3).join(', ')} and ${ids.length - 3} more.`,
 	},
 } satisfies Record<SignerScopeKind, object>;
 
@@ -655,6 +665,7 @@ export const createProposal = async ({
 			exclusiveObjects,
 			multisigAddress,
 			network,
+			REFUSALS[scopeKind].usedObjects,
 		);
 
 		// The proposer check above ran before the account lock, so a removal
