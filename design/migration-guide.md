@@ -284,7 +284,7 @@ A signer change is a proposal that replaces one acting signer set with another o
 
 ### Building one
 
-1. Allow signer changes once per network: propose a transaction built with `buildEnable(tx)` and execute it like any proposal. `enable` cannot share a transaction with the first change.
+1. Enable signer changes once per network: propose a transaction built with `buildEnable(tx)` and execute it like any proposal. `enable` cannot share a transaction with the first change.
 2. Build the change with `buildSignerChange(tx, { account, aliases, oldSet, newSet, known, chain, epoch })`, on a transaction whose sender is the account. `aliases` is the account's alias set from a node you pick, `oldSet` the address of the set being replaced, `newSet` the new composition, `known` every composition you know for the aliases, the old set included, `chain` the network's chain identifier and `epoch` the current epoch. It appends `add` and `remove` in the order the alias set allows, or only `remove` when the new set is already an alias, then the composition note, and an expiration that names the chain and is valid through the end of the next epoch. A change that expired is proposed again. It stays listed as pending, but no longer counts for one at a time.
 3. Propose it with `POST /v1/proposals`, signed by an accepted signer of the old set who stays in the new one. `labels` names the new set's keys, in the order of the note. Only keys new to the account are labelled.
 
