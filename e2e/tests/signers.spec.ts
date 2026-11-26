@@ -1338,6 +1338,17 @@ test.describe('overview and signers', () => {
 				carol.page.getByTestId('dashboard-empty'),
 			).toBeVisible();
 			await expect(notice).toHaveCount(0);
+			await carol.page.goto(members);
+			await expect(
+				carol.page.getByTestId('pod-no-longer-signer'),
+			).toHaveText(
+				content.overview.noLongerSigner(
+					networkLabel('localnet'),
+				),
+			);
+			await expect(
+				carol.page.getByTestId('pod-refused'),
+			).toHaveCount(0);
 
 			await signInViaApi(dave);
 			await acceptAccountInvite(dave, multisig.address);
