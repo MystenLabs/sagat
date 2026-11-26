@@ -327,18 +327,22 @@ describe('signerChangeWarning', () => {
 		).toBeNull();
 	});
 
-	it('warns when every signer who stays has signed and their weight still misses the new threshold', async () => {
+	it('names a new signer who hasn’t signed while the signers who stay miss the new threshold without them', async () => {
 		// Alice leaves for a new key of weight 2: Maya and Daniel weigh 2 of the new 3 of 4.
+		const newKey = signer('New', 2);
 		const transactionBytes = await changeTo(
-			setOf(3, [maya, daniel, signer('New', 2)]),
+			setOf(3, [maya, daniel, newKey]),
 		);
 
 		expect(
 			warning(transactionBytes, [maya, daniel]),
 		).toEqual({
-			body: COPY.unreachable,
-			notSigned: [],
+			body: COPY.body(formatAddress(newKey.address), 1),
+			notSigned: [newKey.publicKey],
 		});
+		expect(
+			warning(transactionBytes, [maya, newKey]),
+		).toBeNull();
 	});
 });
 
