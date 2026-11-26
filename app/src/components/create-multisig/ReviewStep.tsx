@@ -232,7 +232,7 @@ export function ReviewSigners({
 					<thead>
 						<tr className={tableShellHeadRowClass}>
 							<th className="w-10 pl-3">#</th>
-							<th className="w-30">{FIELDS.signer}</th>
+							<th className="w-1/2">{FIELDS.signer}</th>
 							<th>{FIELDS.publicKey}</th>
 							<th className="w-16 pr-3 text-right">
 								{FIELDS.weight}
@@ -256,6 +256,7 @@ export function ReviewSigners({
 										marker={row.isYou ? 'you' : null}
 										markerStyle="parens"
 										wrap
+										full
 										labelTestId="create-review-signer-name"
 										badge={row.chip}
 									/>
