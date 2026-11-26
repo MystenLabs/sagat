@@ -210,9 +210,9 @@ const accountFields = {
 		description:
 			"One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network.",
 	}),
-	signersChecked: z.boolean().meta({
+	signerSetsStale: z.boolean().meta({
 		description:
-			'False when the alias set could not be read from the chain, so the signers are as last read.',
+			'True when the alias set could not be read from the chain, so the signer sets are as last read.',
 	}),
 };
 

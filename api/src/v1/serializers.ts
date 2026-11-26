@@ -90,14 +90,14 @@ export const toV1Account = ({
 	labels,
 	origin,
 	signers,
-	signersChecked,
+	signerSetsStale,
 }: Pick<
 	CheckedAccount,
 	| 'signerSet'
 	| 'labels'
 	| 'origin'
 	| 'signers'
-	| 'signersChecked'
+	| 'signerSetsStale'
 >): z.input<typeof v1.AccountSchema> => ({
 	address: signerSet.address,
 	name: signers.accountName,
@@ -131,7 +131,7 @@ export const toV1Account = ({
 			address,
 		})),
 	],
-	signersChecked,
+	signerSetsStale,
 });
 
 export const toV1AccountProposer = (

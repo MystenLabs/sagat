@@ -186,7 +186,7 @@ describe('GET /v1/accounts', () => {
 							original: true,
 						},
 					],
-					signersChecked: true,
+					signerSetsStale: false,
 				},
 			],
 			removed: [],
@@ -337,12 +337,12 @@ describe('GET /v1/accounts', () => {
 			Object.fromEntries(
 				accounts.map((account) => [
 					account.signerSet.address,
-					account.signersChecked,
+					account.signerSetsStale,
 				]),
 			),
 		).toEqual({
-			[failing.address]: false,
-			[healthy.address]: true,
+			[failing.address]: true,
+			[healthy.address]: false,
 		});
 	});
 
@@ -646,7 +646,7 @@ describe('GET /v1/accounts/:address', () => {
 					original: true,
 				},
 			],
-			signersChecked: true,
+			signerSetsStale: false,
 			network: 'localnet',
 			signerChangesEnabled: true,
 			networksWithDifferentSigners: [],

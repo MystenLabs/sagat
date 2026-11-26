@@ -92,11 +92,11 @@ test('a /v1 write is refused with a 503, and the list serves the account as not 
 	});
 	const { accounts } = await client.getAccounts('localnet');
 	expect(
-		accounts.map(({ address, signersChecked }) => ({
+		accounts.map(({ address, signerSetsStale }) => ({
 			address,
-			signersChecked,
+			signerSetsStale,
 		})),
 	).toEqual([
-		{ address: multisig.address, signersChecked: false },
+		{ address: multisig.address, signerSetsStale: true },
 	]);
 });

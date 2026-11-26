@@ -238,9 +238,9 @@
 						},
 						"description": "One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network."
 					},
-					"signersChecked": {
+					"signerSetsStale": {
 						"type": "boolean",
-						"description": "False when the alias set could not be read from the chain, so the signers are as last read."
+						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
 					}
 				},
 				"required": [
@@ -249,7 +249,7 @@
 					"createdBy",
 					"createdAt",
 					"signerSets",
-					"signersChecked"
+					"signerSetsStale"
 				]
 			},
 			"AccountSignerSet": {
@@ -390,9 +390,9 @@
 						},
 						"description": "One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network."
 					},
-					"signersChecked": {
+					"signerSetsStale": {
 						"type": "boolean",
-						"description": "False when the alias set could not be read from the chain, so the signers are as last read."
+						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
 					},
 					"network": {
 						"$ref": "#/components/schemas/Network"
@@ -421,7 +421,7 @@
 					"createdBy",
 					"createdAt",
 					"signerSets",
-					"signersChecked",
+					"signerSetsStale",
 					"network",
 					"signerChangesEnabled",
 					"networksWithDifferentSigners",

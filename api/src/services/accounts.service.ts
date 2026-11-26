@@ -44,9 +44,9 @@ import {
 	type RemovedFromAccount,
 } from './signers.service';
 
-// False when the alias read failed and the signers come from the mirror as it was.
+// True when the alias read failed and the signers come from the mirror as it was.
 export type CheckedAccount = MultisigAccountWithSigners & {
-	signersChecked: boolean;
+	signerSetsStale: boolean;
 };
 
 const keysOf = (callerKeys: PublicKey[]) =>
@@ -88,7 +88,7 @@ const checked = (
 ): CheckedAccount[] =>
 	accounts.map((account) => ({
 		...account,
-		signersChecked: !unchecked.has(
+		signerSetsStale: unchecked.has(
 			account.signerSet.address,
 		),
 	}));
@@ -221,7 +221,7 @@ export const getAccount = async ({
 		]);
 	return {
 		...account,
-		signersChecked: state.outcome !== 'failed',
+		signerSetsStale: state.outcome === 'failed',
 		signerChangesEnabled,
 		networksWithDifferentSigners: differentOn,
 	};
