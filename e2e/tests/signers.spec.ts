@@ -29,6 +29,7 @@ import {
 import {
 	addAlias,
 	addProposer,
+	aliasCallBytes,
 	bothSign,
 	enableAliases,
 	multisigAddressOf,
@@ -1186,6 +1187,63 @@ test.describe('overview and signers', () => {
 			'href',
 			`/multisig/${multisig.address}/proposals/${digest}`,
 		);
+		await expect(
+			page.getByTestId('signers-add-signer'),
+		).toBeDisabled();
+		await expect(
+			page.getByTestId('change-threshold'),
+		).toBeDisabled();
+		for (const menu of await page
+			.getByTestId('signer-menu')
+			.all())
+			await expect(menu).toBeDisabled();
+	});
+
+	test('hold new changes while a hand-written alias proposal is open, and say why', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = await createActor('alice');
+		const bob = createIdentity('bob');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await enableAliases(chain, bothSign(alice, bob));
+		const transactionBytes = await aliasCallBytes(
+			chain,
+			multisig.address,
+			'add',
+		);
+		const { digest } = await alice.apiV1.createProposal({
+			accountAddress: multisig.address,
+			transactionBytes,
+			signature: await alice.signTransaction(
+				transactionBytes,
+			),
+			network: 'localnet',
+		});
+
+		await alice.signIn();
+		const { page } = alice;
+		await page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		await expect(
+			page.getByTestId('alias-proposal-pending'),
+		).toContainText(content.signers.aliasProposalPending);
+		await expect(
+			page.getByTestId('alias-proposal'),
+		).toHaveAttribute(
+			'href',
+			`/multisig/${multisig.address}/proposals/${digest}`,
+		);
+		await expect(
+			page.getByTestId('signer-change-pending'),
+		).toHaveCount(0);
 		await expect(
 			page.getByTestId('signers-add-signer'),
 		).toBeDisabled();
