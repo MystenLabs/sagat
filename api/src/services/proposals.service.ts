@@ -878,7 +878,7 @@ export const voteOnProposal = async ({
 			)
 		)
 	)
-		throw new ApiAuthError('NotASignerOfTheOldSet');
+		throw new ApiAuthError('NotASignerOfTheChange');
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');

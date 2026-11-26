@@ -266,7 +266,7 @@ describe('signing and cancelling a signer change', () => {
 
 		expect(await voteAs(other)).toEqual({
 			status: 403,
-			message: new ApiAuthError('NotASignerOfTheOldSet')
+			message: new ApiAuthError('NotASignerOfTheChange')
 				.message,
 		});
 		expect(await voteAs(newUser())).toEqual({

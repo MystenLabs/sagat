@@ -85,8 +85,8 @@ export const AuthErrors = {
 	AccountNotAccepted: 'You have not accepted this account.',
 	NotASignerWhoStays:
 		'Only an accepted signer of the signer set being replaced who stays in the new one can propose this signer change.',
-	NotASignerOfTheOldSet:
-		'Only a key of the signer set this change replaces can sign it.',
+	NotASignerOfTheChange:
+		'Only a key of the signer set this change replaces, or of a signer set it adds, can sign it.',
 	CancelBySignerWhoStays:
 		'Only an accepted signer of the signer set being replaced who stays in the new one can cancel this signer change.',
 };
