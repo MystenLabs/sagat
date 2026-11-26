@@ -1039,9 +1039,9 @@ test.describe('overview and signers', () => {
 		await alice.signIn();
 		const { page } = alice;
 		const members = `/multisig/${multisig.address}/signers`;
-		const enable = page.getByTestId(
-			'enable-signer-changes',
-		);
+		const enable = page
+			.getByTestId('signers-card')
+			.getByTestId('enable-signer-changes');
 		const banner = page.getByTestId(
 			'enable-signer-changes-pending',
 		);
