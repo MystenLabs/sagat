@@ -208,7 +208,7 @@ export const getAccount = async ({
 				).catch(() => undefined),
 			),
 	);
-	const [signerChangesAllowed, differentOn] =
+	const [signerChangesEnabled, differentOn] =
 		await Promise.all([
 			state.outcome === 'failed'
 				? aliasObjectExists(address, network)
@@ -222,7 +222,7 @@ export const getAccount = async ({
 	return {
 		...account,
 		signersChecked: state.outcome !== 'failed',
-		signerChangesAllowed,
+		signerChangesEnabled,
 		networksWithDifferentSigners: differentOn,
 	};
 };

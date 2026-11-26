@@ -240,7 +240,7 @@ export const accountRoutes = (app: V1App) => {
 		return {
 			...toV1Account(account),
 			network,
-			signerChangesAllowed: account.signerChangesAllowed,
+			signerChangesEnabled: account.signerChangesEnabled,
 			networksWithDifferentSigners:
 				account.networksWithDifferentSigners,
 			proposers: account.proposers.map(toV1AccountProposer),

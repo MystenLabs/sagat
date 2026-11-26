@@ -240,9 +240,9 @@ export const AccountDetailsSchema = z
 	.object({
 		...accountFields,
 		network: NetworkSchema,
-		signerChangesAllowed: z.boolean().meta({
+		signerChangesEnabled: z.boolean().meta({
 			description:
-				'Whether the account has allowed signer changes on the network.',
+				'Whether signer changes are enabled for the account on the network.',
 		}),
 		networksWithDifferentSigners: z
 			.array(NetworkSchema)

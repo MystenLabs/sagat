@@ -397,9 +397,9 @@
 					"network": {
 						"$ref": "#/components/schemas/Network"
 					},
-					"signerChangesAllowed": {
+					"signerChangesEnabled": {
 						"type": "boolean",
-						"description": "Whether the account has allowed signer changes on the network."
+						"description": "Whether signer changes are enabled for the account on the network."
 					},
 					"networksWithDifferentSigners": {
 						"type": "array",
@@ -423,7 +423,7 @@
 					"signerSets",
 					"signersChecked",
 					"network",
-					"signerChangesAllowed",
+					"signerChangesEnabled",
 					"networksWithDifferentSigners",
 					"proposers"
 				]

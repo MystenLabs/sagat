@@ -160,7 +160,7 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 - Each member carries `answer`, the key's answer to this account, and `label`, the account's name for the key or null.
 - `signersChecked` is false when the alias set could not be read from the chain, so the signer sets are as last read.
 
-`GET /v1/accounts/:address` adds `network`, `signerChangesAllowed`, `networksWithDifferentSigners` and `proposers`. It does not return signer changes yet.
+`GET /v1/accounts/:address` adds `network`, `signerChangesEnabled`, `networksWithDifferentSigners` and `proposers`. It does not return signer changes yet.
 
 `GET /v1/accounts` also returns `removed`: the accounts one of your keys was removed from on the network, each with the `publicKey`, the `signerSetAddress` that was removed, the `eventId` of its `alias.removed` row and `removedAt`. It names no transaction yet.
 

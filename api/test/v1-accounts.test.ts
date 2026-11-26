@@ -583,7 +583,7 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 });
 
 describe('GET /v1/accounts/:address', () => {
-	test('returns the original and acting sets with labels, whether changes are allowed, and the proposers with their events, also to an invited key', async () => {
+	test('returns the original and acting sets with labels, whether signer changes are enabled, and the proposers with their events, also to an invited key', async () => {
 		const [k1, k2] = [newUser(), newUser()];
 		const session = await framework.connectedSession(k1);
 		const account = (
@@ -632,7 +632,7 @@ describe('GET /v1/accounts/:address', () => {
 				},
 			],
 		};
-		expect(before.signerChangesAllowed).toBe(false);
+		expect(before.signerChangesEnabled).toBe(false);
 		expect(read).toEqual({
 			address: account,
 			name: 'Treasury',
@@ -648,7 +648,7 @@ describe('GET /v1/accounts/:address', () => {
 			],
 			signersChecked: true,
 			network: 'localnet',
-			signerChangesAllowed: true,
+			signerChangesEnabled: true,
 			networksWithDifferentSigners: [],
 			proposers: [
 				{
