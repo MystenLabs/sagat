@@ -164,7 +164,7 @@ export function useExecuteProposal() {
 				queryClient.invalidateQueries({
 					queryKey: [key, network, accountAddress],
 				});
-			// An alias call can change whether the pod allows signer changes.
+			// An alias call can change whether the pod has signer changes enabled.
 			void queryClient.invalidateQueries({
 				queryKey: [QueryKeys.Multisig],
 			});

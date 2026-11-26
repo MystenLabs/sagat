@@ -1240,9 +1240,9 @@ export const content = {
 				`On ${network}, this address is controlled by other signer sets.`,
 		},
 		/** The Setup card's button, and the title of the proposal it creates. */
-		allowSignerChanges: 'Allow signer changes',
-		allowSignerChangesPending: (network: string) =>
-			`A proposal to allow signer changes on ${network} is open.`,
+		enableSignerChanges: 'Enable signer changes',
+		enableSignerChangesPending: (network: string) =>
+			`A proposal to enable signer changes on ${network} is open.`,
 		/** When the pod's alias set differs on other networks the API serves; `networks` is already a list. */
 		differentOn: (networks: string) =>
 			`This pod’s signers are different on ${networks}.`,
@@ -1468,8 +1468,8 @@ export const content = {
 			warning: (network: string, replaceAll: boolean) =>
 				`This transaction changes who controls this pod on ${network}. Pods can’t show who is added. Check every address in it before you sign.${replaceAll ? ' It calls replace_all, which replaces every signer set of this pod at once.' : ''}`,
 			/** In place of `warning` when every alias call is `enable`. */
-			allowsChanges: (network: string) =>
-				`This transaction allows signer changes for this pod on ${network}. It doesn’t change this pod’s signers.`,
+			enablesChanges: (network: string) =>
+				`This transaction enables signer changes for this pod on ${network}. It doesn’t change this pod’s signers.`,
 		},
 		balances: {
 			change: 'Change',

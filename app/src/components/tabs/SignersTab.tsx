@@ -39,7 +39,7 @@ import {
 } from '@/lib/proposal-integrity';
 import {
 	aliasCallsIn,
-	allowsSignerChanges,
+	enablesSignerChanges,
 	isProposalExpired,
 	proposalPagePath,
 } from '@/lib/proposalUtils';
@@ -169,13 +169,13 @@ export function SignersTab() {
 				),
 		[pending, epochInfo],
 	);
-	const allowProposal = aliasProposals?.find((proposal) =>
-		allowsSignerChanges(proposal.transactionBytes),
+	const enableProposal = aliasProposals?.find((proposal) =>
+		enablesSignerChanges(proposal.transactionBytes),
 	);
-	const changesAllowed =
+	const changesEnabled =
 		details?.signerChangesEnabled ?? true;
 
-	const allowSignerChanges = async () => {
+	const enableSignerChanges = async () => {
 		if (!details) return;
 		setBuilding(true);
 		let bytes: string;
@@ -200,7 +200,7 @@ export function SignersTab() {
 			{
 				multisig: details,
 				transactionData: bytes,
-				description: COPY.allowSignerChanges,
+				description: COPY.enableSignerChanges,
 			},
 			{
 				onSuccess: (proposal) =>
@@ -285,21 +285,21 @@ export function SignersTab() {
 					)}
 				</Alert>
 			)}
-			{!changesAllowed && allowProposal && (
+			{!changesEnabled && enableProposal && (
 				<Alert
 					variant="info"
-					data-testid="allow-signer-changes-pending"
+					data-testid="enable-signer-changes-pending"
 				>
 					<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
 						<span>
-							{COPY.allowSignerChangesPending(
+							{COPY.enableSignerChangesPending(
 								networkLabel(network),
 							)}
 						</span>
 						<Link
 							to={proposalPagePath(
 								multisig.address,
-								allowProposal.digest,
+								enableProposal.digest,
 							)}
 							className={cn(
 								buttonVariants({
@@ -308,7 +308,7 @@ export function SignersTab() {
 								}),
 								'h-auto px-0 text-13 text-inherit hover:no-underline',
 							)}
-							data-testid="allow-signer-changes-proposal"
+							data-testid="enable-signer-changes-proposal"
 						>
 							{content.common.actions.viewProposal}
 						</Link>
@@ -417,14 +417,14 @@ export function SignersTab() {
 							}),
 						)
 					}
-					onAllowSignerChanges={
+					onEnableSignerChanges={
 						acting &&
-						!changesAllowed &&
+						!changesEnabled &&
 						aliasProposals?.length === 0
-							? () => void allowSignerChanges()
+							? () => void enableSignerChanges()
 							: undefined
 					}
-					allowing={building || create.isPending}
+					enabling={building || create.isPending}
 					className="w-full shrink-0 @4xl:w-80"
 				/>
 			</div>

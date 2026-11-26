@@ -14,8 +14,8 @@ import {
 import { describe, expect, it } from 'vitest';
 
 import {
-	allowsSignerChanges,
 	countSignerSets,
+	enablesSignerChanges,
 	isExternalProposer,
 	isProposalExpired,
 	listsAtCutoff,
@@ -458,7 +458,7 @@ describe('rowExecuteSet', () => {
 	});
 });
 
-describe('allowsSignerChanges', () => {
+describe('enablesSignerChanges', () => {
 	it('holds only for bytes that are nothing but enable calls', async () => {
 		const withCalls = async (...functions: string[]) => {
 			const tx = Transaction.from(await transfer());
@@ -473,17 +473,17 @@ describe('allowsSignerChanges', () => {
 			fromBase64(await withCalls('enable')),
 		);
 		enableOnly.commands.shift();
-		expect(allowsSignerChanges(await transfer())).toBe(
+		expect(enablesSignerChanges(await transfer())).toBe(
 			false,
 		);
 		expect(
-			allowsSignerChanges(toBase64(enableOnly.build())),
+			enablesSignerChanges(toBase64(enableOnly.build())),
 		).toBe(true);
 		expect(
-			allowsSignerChanges(await withCalls('enable')),
+			enablesSignerChanges(await withCalls('enable')),
 		).toBe(false);
 		expect(
-			allowsSignerChanges(
+			enablesSignerChanges(
 				await withCalls('enable', 'remove'),
 			),
 		).toBe(false);

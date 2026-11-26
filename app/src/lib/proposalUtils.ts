@@ -117,7 +117,7 @@ export function aliasCallsIn(bytes: string) {
 }
 
 /** Whether the bytes are nothing but `enable` calls of the alias module. */
-export function allowsSignerChanges(bytes: string) {
+export function enablesSignerChanges(bytes: string) {
 	try {
 		const data = Transaction.from(bytes).getData();
 		const calls = findAliasCalls(data);
