@@ -437,7 +437,12 @@ export function ProposalView({
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="flex min-w-0 flex-col gap-4">
-					{changes && <ChangesCard list={changes} />}
+					{changes && (
+						<ChangesCard
+							list={changes}
+							summary={checked?.summary ?? null}
+						/>
+					)}
 					{onChain ? (
 						<OnChainCard
 							proposal={proposal}
@@ -482,7 +487,13 @@ export function ProposalView({
 	);
 }
 
-function ChangesCard({ list }: { list: Difference[] }) {
+function ChangesCard({
+	list,
+	summary,
+}: {
+	list: Difference[];
+	summary: string | null;
+}) {
 	const REVIEW = content.changeSigners.review;
 	const added = list.flatMap((item) =>
 		item.kind === 'add' && item.name ? [item.name] : [],
@@ -495,7 +506,7 @@ function ChangesCard({ list }: { list: Difference[] }) {
 			<h3 className="text-15 font-medium">
 				{REVIEW.changes}
 			</h3>
-			<ChangeList list={list} />
+			<ChangeList list={list} summary={summary} />
 			{added.length > 0 && (
 				<p className="flex items-start gap-1.5 text-12">
 					<Mail className="mt-0.5 size-3 shrink-0" />

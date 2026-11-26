@@ -16,6 +16,7 @@ import {
 	changeDifferences,
 	signerChangeIn,
 	suiKey,
+	thresholdSummary,
 } from './change-signers';
 import { joinList } from './create-multisig';
 import { type EpochInfo } from './expiration';
@@ -157,7 +158,10 @@ export function checkedChange(
 	const list = changeDifferences(change, (key) =>
 		keyName(key, merged),
 	);
-	return { change, list };
+	const summary = list
+		? thresholdSummary(change.oldSet, change.newSets[0])
+		: null;
+	return { change, list, summary };
 }
 
 /** Whether `publicKey` signed the proposal. */
