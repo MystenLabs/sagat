@@ -395,11 +395,12 @@ export function foldedSignerSetsLine(
 		: null;
 }
 
-/** The line under the Approvals heading while executing or once ready; a pending count is the main set's `line`. */
+/** The line under the Approvals heading while executing or once ready, none while a signer change's Execute is `held`; a pending count is the main set's `line`. */
 export function approvalsStatus(
 	status: ProposalStatusKey,
 	executing: boolean,
 	simulation: SimulationVerdict,
+	held = false,
 ) {
 	if (
 		executing &&
@@ -407,19 +408,20 @@ export function approvalsStatus(
 	)
 		return STATUS.executing;
 	if (status === 'ready')
-		return simulation === 'failed'
-			? STATUS.reached
-			: STATUS.ready;
+		return held
+			? null
+			: simulation === 'failed'
+				? STATUS.reached
+				: STATUS.ready;
 	if (status === 'executed') return STATUS.executed;
 	if (status === 'failed') return STATUS.failed;
 	return null;
 }
 
 /**
- * While a pending signer change's signers who stay haven't signed for
- * the new threshold, the warning naming them and their keys, or saying
- * they can't reach it once nobody is left to name. Null without a
- * checked `change`.
+ * While an open signer change's new set hasn't signed for its threshold,
+ * which holds Execute, the line naming its members who haven't signed,
+ * and their keys. Null without a checked `change`.
  */
 export function signerChangeWarning(
 	proposal: Pick<PageProposal, 'signatures'>,
@@ -441,13 +443,10 @@ export function signerChangeWarning(
 		keyName(key, labels),
 	);
 	return {
-		body:
-			names.length === 0
-				? SIGNER_CHANGE.unreachable
-				: SIGNER_CHANGE.body(
-						joinList(names, 'and'),
-						names.length,
-					),
+		body: SIGNER_CHANGE.body(
+			joinList(names, 'and'),
+			names.length,
+		),
 		notSigned: proof.notSigned,
 	};
 }
@@ -507,6 +506,8 @@ export interface ApprovalsNoteInput {
 	executing: boolean;
 	/** The dry run's gas cost, from `gasEstimate`. */
 	gas: string | null;
+	/** Execute is held until a signer change's new signers confirm it. */
+	held?: boolean;
 }
 
 /** The note under the Approvals card's actions. */
@@ -520,6 +521,7 @@ export function approvalsNote({
 	executeAfterSigning,
 	executing,
 	gas,
+	held = false,
 }: ApprovalsNoteInput): string | null {
 	if (executing) return NOTES.executing;
 	if (status === 'executed') return null;
@@ -531,6 +533,7 @@ export function approvalsNote({
 	if (status === 'expired') return NOTES.expired;
 
 	if (status === 'ready') {
+		if (held) return null;
 		if (simulation === 'failed') return NOTES.readyFailing;
 		return gas ? NOTES.gasPaidAbout(gas) : NOTES.gasPaid;
 	}

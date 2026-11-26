@@ -1168,13 +1168,11 @@ export const content = {
 				title: 'Proposer not confirmed',
 				body: 'There’s no signature on record showing this proposal came from a signer or a confirmed external proposer. Check the transaction before you sign.',
 			},
-			/** A pending signer change whose signers who stay haven’t signed for the new threshold yet. */
+			/** An open signer change whose new set hasn’t signed for its threshold yet, which holds Execute; `names` are the new set’s members who haven’t signed. */
 			signerChange: {
-				title: 'Signers who stay haven’t all signed',
+				title: 'New signers haven’t confirmed this change',
 				body: (names: string, count: number) =>
-					`${names} will still ${count === 1 ? 'be a signer' : 'be signers'} after this change but ${count === 1 ? 'hasn’t' : 'haven’t'} signed it. If they can no longer sign, the pod could be locked.`,
-				unreachable:
-					'The signers who stay after this change can’t reach its new threshold. If it executes, the pod could be locked.',
+					`The new signers haven’t confirmed this change yet. ${names} still ${count === 1 ? 'needs' : 'need'} to sign before it can be executed here.`,
 				/** Under the Sign button, for a signer the change removes. */
 				removed:
 					'You’re being removed in this change, so you can’t cancel it. You can still sign it.',

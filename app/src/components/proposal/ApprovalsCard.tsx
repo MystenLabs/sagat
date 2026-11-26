@@ -168,6 +168,13 @@ export function ApprovalsCard({
 		useState(false);
 
 	const signed = hasSigned(proposal, viewerPublicKey);
+	const signerChange = useMemo(
+		() =>
+			signerChangeWarning(proposal, status, change, labels),
+		[proposal, status, change, labels],
+	);
+	// Execute waits for a checked change's new signers to confirm it.
+	const held = signerChange !== null;
 	const reaches = wouldReachThreshold(
 		proposal,
 		viewerPublicKey,
@@ -187,17 +194,22 @@ export function ApprovalsCard({
 		});
 	};
 	const rechecking = recheck.isPending;
-	// A new signer can only sign, also once the current signers are ready.
+	// A new signer can only sign.
 	const newSigner = viewer === 'newSigner';
 	const canAct = viewer === 'member' || newSigner;
 	const readySet = readySignerSet(
 		proposal.checkedSignerSets,
 	);
 	const walletAddress = wallet?.address ?? null;
+	// Once ready, only a signer the held change still waits for signs.
 	const awaitingSign =
 		!signed &&
 		(status === 'pending' ||
-			(newSigner && status === 'ready'));
+			(status === 'ready' &&
+				!!viewerPublicKey &&
+				!!signerChange?.notSigned.includes(
+					viewerPublicKey,
+				)));
 	// The node's chain identifier is read only where Sign can show.
 	const checkNetwork = canAct && awaitingSign;
 	const network = proposal.network as SuiNetwork;
@@ -285,6 +297,7 @@ export function ApprovalsCard({
 	// executes in the same step.
 	const offerExecuteAfterSigning =
 		!newSigner &&
+		!held &&
 		status === 'pending' &&
 		!signed &&
 		verdict === 'passed' &&
@@ -300,11 +313,6 @@ export function ApprovalsCard({
 		return COPY.signProposal;
 	};
 
-	const signerChange = useMemo(
-		() =>
-			signerChangeWarning(proposal, status, change, labels),
-		[proposal, status, change, labels],
-	);
 	const signerSets = approvalsSignerSets(
 		proposal,
 		status,
@@ -330,7 +338,7 @@ export function ApprovalsCard({
 			? newSets.length > 0
 				? null
 				: (mainSet?.line ?? null)
-			: approvalsStatus(status, isExecuting, verdict);
+			: approvalsStatus(status, isExecuting, verdict, held);
 	const note = approvalsNote({
 		proposal,
 		status,
@@ -341,6 +349,7 @@ export function ApprovalsCard({
 		executeAfterSigning: signAndExecute,
 		executing: isExecuting,
 		gas,
+		held,
 	});
 
 	const onSign = () => {
@@ -525,6 +534,10 @@ export function ApprovalsCard({
 		} else if (newSigner) {
 			// Nothing more to do once signed.
 		} else if (status === 'pending' && signed) {
+			actions = (
+				<ButtonRow>{cancelButton('outline')}</ButtonRow>
+			);
+		} else if (status === 'ready' && held) {
 			actions = (
 				<ButtonRow>{cancelButton('outline')}</ButtonRow>
 			);

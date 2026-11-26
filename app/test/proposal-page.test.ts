@@ -15,6 +15,7 @@ import {
 	approvalRows,
 	approvalsNote,
 	approvalsSignerSets,
+	approvalsStatus,
 	cancelVariant,
 	foldedSignerSetsLine,
 	newSignerKey,
@@ -369,6 +370,61 @@ describe('signerChangeWarning', () => {
 		expect(
 			warning(transactionBytes, [maya, newKey]),
 		).toBeNull();
+	});
+});
+
+describe('a held signer change', () => {
+	it('holds Execute until the new set signs for its threshold, and holds nothing for alias calls that don’t check', async () => {
+		// Alice leaves for a new key of weight 2, at 3 of 4.
+		const newKey = signer('New', 2);
+		const transactionBytes = await changeTo(
+			setOf(3, [maya, daniel, newKey]),
+		);
+		const held = (
+			signedBy: (typeof maya)[],
+			aliases = [pod],
+		) =>
+			signerChangeWarning(
+				proposal({ signedBy }),
+				'ready',
+				signerChangeIn(transactionBytes, aliases),
+				labels,
+			) !== null;
+		const ready = (isHeld: boolean) => ({
+			status: approvalsStatus(
+				'ready',
+				false,
+				'passed',
+				isHeld,
+			),
+			note: approvalsNote({
+				proposal: proposal({ signedBy: [maya, daniel] }),
+				status: 'ready',
+				labels,
+				publicKey: maya.publicKey,
+				viewer: 'member',
+				simulation: 'passed',
+				executeAfterSigning: false,
+				executing: false,
+				gas: null,
+				held: isHeld,
+			}),
+		});
+
+		expect(held([maya, daniel])).toBe(true);
+		expect(ready(true)).toEqual({
+			status: null,
+			note: null,
+		});
+		expect(held([maya, newKey])).toBe(false);
+		expect(ready(false)).toEqual({
+			status: STATUS.ready,
+			note: NOTES.gasPaid,
+		});
+		// Read against another alias set, the calls are no checked change.
+		expect(held([maya, daniel], [maya.address])).toBe(
+			false,
+		);
 	});
 });
 
