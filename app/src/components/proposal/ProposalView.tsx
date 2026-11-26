@@ -67,6 +67,7 @@ import {
 } from '@/lib/proposal-integrity';
 import {
 	checkedChange,
+	newSignerKey,
 	proposalPageStatus,
 	withReason,
 	type Labels,
@@ -171,11 +172,22 @@ export function ProposalView({
 					isMember({ members: [m] }, wallet.address),
 				)
 		: undefined;
-	const viewer = !member
+	// Else a key the open change's checked bytes add, which may only sign.
+	const newSigner =
+		!member && open
+			? newSignerKey(
+					checked?.change ?? null,
+					wallet?.address,
+				)
+			: null;
+	const viewerKey = member?.publicKey ?? newSigner;
+	const viewer = !viewerKey
 		? 'outsider'
 		: mismatch
 			? 'elsewhere'
-			: 'member';
+			: member
+				? 'member'
+				: 'newSigner';
 
 	const expiry = useExpiry(proposal.transactionBytes);
 	const knownExpired = !mismatch && !!expiry?.expired;
@@ -442,7 +454,7 @@ export function ProposalView({
 						<ChangesCard
 							list={changes}
 							summary={checked?.summary ?? null}
-							you={member ? suiKey(member.publicKey) : null}
+							you={viewerKey ? suiKey(viewerKey) : null}
 						/>
 					)}
 					{onChain ? (
@@ -471,7 +483,7 @@ export function ProposalView({
 						status={status}
 						labels={labels}
 						viewer={viewer}
-						viewerPublicKey={member?.publicKey ?? null}
+						viewerPublicKey={viewerKey}
 						simulation={simulation}
 						verdict={verdict}
 						canCancel={canCancel}

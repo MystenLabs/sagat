@@ -129,7 +129,7 @@ export function ApprovalsCard({
 	status: ProposalStatusKey;
 	labels: Labels;
 	viewer: ApprovalsNoteInput['viewer'];
-	/** The viewer's key, when they are a signer. */
+	/** The viewer's key, when they are a signer or a new signer. */
 	viewerPublicKey: string | null;
 	simulation: SimulationProps | null;
 	verdict: SimulationVerdict;
@@ -186,12 +186,17 @@ export function ApprovalsCard({
 		});
 	};
 	const rechecking = recheck.isPending;
-	const canAct = viewer === 'member';
+	// A new signer can only sign, also once the current signers are ready.
+	const newSigner = viewer === 'newSigner';
+	const canAct = viewer === 'member' || newSigner;
 	const readySet = readySignerSet(
 		proposal.checkedSignerSets,
 	);
 	const walletAddress = wallet?.address ?? null;
-	const awaitingSign = status === 'pending' && !signed;
+	const awaitingSign =
+		!signed &&
+		(status === 'pending' ||
+			(newSigner && status === 'ready'));
 	// The node's chain identifier is read only where Sign can show.
 	const checkNetwork = canAct && awaitingSign;
 	const network = proposal.network as SuiNetwork;
@@ -224,9 +229,17 @@ export function ApprovalsCard({
 						pod,
 						openedDigest,
 						signerAddress: walletAddress,
+						newSets: change?.newSets,
 					})
 				: null,
-		[canAct, walletAddress, pod, proposal, openedDigest],
+		[
+			canAct,
+			walletAddress,
+			pod,
+			proposal,
+			openedDigest,
+			change,
+		],
 	);
 	// Rule 2 and the bytes' chain, once the synchronous checks pass.
 	const onNetwork =
@@ -240,6 +253,7 @@ export function ApprovalsCard({
 						signerAddress: walletAddress,
 						namedChain: bytesChain,
 						node: { aliases, chain: nodeChain ?? null },
+						newSets: change?.newSets,
 					});
 	const refused =
 		integrity ??
@@ -257,7 +271,10 @@ export function ApprovalsCard({
 	const removed = removedBy(change, viewerPublicKey);
 	// Cancelling signs a message for the API session.
 	const canCancel =
-		cancelAllowed && canAct && !!currentAddress && !removed;
+		cancelAllowed &&
+		viewer === 'member' &&
+		!!currentAddress &&
+		!removed;
 	const settled =
 		verdict === 'passed' ||
 		verdict === 'failed' ||
@@ -266,6 +283,7 @@ export function ApprovalsCard({
 	// Only after a dry run that passed: signing blind (`unknown`) never
 	// executes in the same step.
 	const offerExecuteAfterSigning =
+		!newSigner &&
 		status === 'pending' &&
 		!signed &&
 		verdict === 'passed' &&
@@ -433,7 +451,7 @@ export function ApprovalsCard({
 					<ButtonRow>{cancelButton('outline')}</ButtonRow>
 				</>
 			);
-		} else if (status === 'pending' && !signed) {
+		} else if (awaitingSign) {
 			actions = (
 				<>
 					{proposer.check === 'unverified' && (
@@ -490,6 +508,8 @@ export function ApprovalsCard({
 					)}
 				</>
 			);
+		} else if (newSigner) {
+			// Nothing more to do once signed.
 		} else if (status === 'pending' && signed) {
 			actions = (
 				<ButtonRow>{cancelButton('outline')}</ButtonRow>

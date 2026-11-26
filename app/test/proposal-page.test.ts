@@ -17,6 +17,7 @@ import {
 	approvalsSignerSets,
 	cancelVariant,
 	foldedSignerSetsLine,
+	newSignerKey,
 	signerChangeWarning,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
@@ -232,30 +233,49 @@ describe('cancelVariant', () => {
 	});
 });
 
+const setOf = (
+	threshold: number,
+	signers = SIGNERS,
+): Composition => ({
+	threshold,
+	members: signers.map((s) => ({
+		publicKey: s.publicKey,
+		weight: s.weight,
+	})),
+});
+// The pod's set, weighing 4, at threshold 2.
+const oldSet = setOf(2);
+const pod = MultiSigPublicKey.fromPublicKeys({
+	threshold: oldSet.threshold,
+	publicKeys: oldSet.members.map((m) => ({
+		publicKey: publicKeyFromSuiBytes(m.publicKey),
+		weight: m.weight,
+	})),
+}).toSuiAddress();
+// The bytes of a change from the pod's set to `newSet`.
+const changeTo = async (newSet: Composition) =>
+	(await signerChange(oldSet, newSet)).bytes;
+
+describe('newSignerKey', () => {
+	it('is the key a checked change adds, and none for a signer who stays or a stranger', async () => {
+		const newKey = signer('New', 2);
+		const change = signerChangeIn(
+			await changeTo(setOf(3, [maya, daniel, newKey])),
+			[pod],
+		);
+
+		expect(newSignerKey(change, newKey.address)).toBe(
+			newKey.publicKey,
+		);
+		expect(newSignerKey(change, maya.address)).toBeNull();
+		expect(
+			newSignerKey(change, signer('Other', 1).address),
+		).toBeNull();
+	});
+});
+
 describe('signerChangeWarning', () => {
 	const COPY = content.proposal.approvals.signerChange;
-	const setOf = (
-		threshold: number,
-		signers = SIGNERS,
-	): Composition => ({
-		threshold,
-		members: signers.map((s) => ({
-			publicKey: s.publicKey,
-			weight: s.weight,
-		})),
-	});
-	// The pod's set, weighing 4, at threshold 2.
-	const oldSet = setOf(2);
-	const pod = MultiSigPublicKey.fromPublicKeys({
-		threshold: oldSet.threshold,
-		publicKeys: oldSet.members.map((m) => ({
-			publicKey: publicKeyFromSuiBytes(m.publicKey),
-			weight: m.weight,
-		})),
-	}).toSuiAddress();
-	// The bytes of a change from the pod's set to `newSet`.
-	const changeTo = async (newSet: Composition) =>
-		(await signerChange(oldSet, newSet)).bytes;
 	const warning = (
 		transactionBytes: string,
 		signedBy: (typeof maya)[],

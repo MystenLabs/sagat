@@ -20,6 +20,7 @@ import {
 } from './change-signers';
 import { joinList } from './create-multisig';
 import { type EpochInfo } from './expiration';
+import { isMember } from './proposal-integrity';
 import {
 	isExternalProposer,
 	isProposalExpired,
@@ -162,6 +163,25 @@ export function checkedChange(
 		? thresholdSummary(change.oldSet, change.newSets[0])
 		: null;
 	return { change, list, summary };
+}
+
+/** The key `address` signs with as a member of a checked change's new set, when the set it replaces doesn't hold it; null otherwise. */
+export function newSignerKey(
+	change: SignerChange | null,
+	address: string | null | undefined,
+): string | null {
+	if (
+		!change ||
+		!address ||
+		isMember(change.oldSet, address)
+	)
+		return null;
+	return (
+		change.newSets
+			.flatMap((set) => set.members)
+			.find((m) => isMember({ members: [m] }, address))
+			?.publicKey ?? null
+	);
 }
 
 /** Whether `publicKey` signed the proposal. */
@@ -429,11 +449,12 @@ export interface ApprovalsNoteInput {
 	labels: Labels;
 	publicKey: string | null | undefined;
 	/**
-	 * `member` can act; `elsewhere` is a member on another network than
-	 * the proposal's, whom the network banner speaks to; `outsider`
-	 * isn't a member, or isn't connected.
+	 * `member` can act; `newSigner` can only sign, as a member of a
+	 * checked change's new set (`newSignerKey`); `elsewhere` is either of
+	 * them on another network than the proposal's, whom the network
+	 * banner speaks to; `outsider` isn't a member, or isn't connected.
 	 */
-	viewer: 'member' | 'elsewhere' | 'outsider';
+	viewer: 'member' | 'newSigner' | 'elsewhere' | 'outsider';
 	simulation: SimulationVerdict;
 	/** The Execute after signing box is ticked. */
 	executeAfterSigning: boolean;
@@ -459,7 +480,8 @@ export function approvalsNote({
 	if (status === 'failed') return NOTES.failed;
 	if (status === 'cancelled') return NOTES.cancelled;
 	if (viewer === 'outsider') return NOTES.outsider;
-	if (viewer === 'elsewhere') return null;
+	if (viewer === 'elsewhere' || viewer === 'newSigner')
+		return null;
 	if (status === 'expired') return NOTES.expired;
 
 	if (status === 'ready') {
