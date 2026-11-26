@@ -106,7 +106,7 @@ const keyName = (publicKey: string, labels: Labels) =>
 const normalName = (name: string) =>
 	name.trim().replace(/\s+/g, ' ').toLowerCase();
 
-/** The opened bytes' checked signer change, with its differences. */
+/** The opened bytes' checked signer change, with its differences and the labels to name its keys by. */
 export function checkedChange(
 	{
 		transactionBytes,
@@ -163,7 +163,7 @@ export function checkedChange(
 	const summary = list
 		? thresholdSummary(change.oldSet, change.newSets[0])
 		: null;
-	return { change, list, summary };
+	return { change, list, summary, labels: merged };
 }
 
 /** The key `address` signs with as a member of a checked change's new set, when the set it replaces doesn't hold it; null otherwise. */

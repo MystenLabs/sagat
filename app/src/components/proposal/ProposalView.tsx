@@ -481,7 +481,7 @@ export function ProposalView({
 						change={checked?.change ?? null}
 						openedDigest={openedDigest}
 						status={status}
-						labels={labels}
+						labels={checked?.labels ?? labels}
 						viewer={viewer}
 						viewerPublicKey={viewerKey}
 						simulation={simulation}
