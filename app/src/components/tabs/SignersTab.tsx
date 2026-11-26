@@ -277,6 +277,10 @@ export function SignersTab() {
 		main?.set,
 		signerAddress,
 	);
+	const offerEnable =
+		!!acting &&
+		!changesEnabled &&
+		aliasProposals?.length === 0;
 	const atMax = rows.length >= CONFIG.MAX_MEMBERS;
 	const differentOn = differentSignersLine(
 		details?.networksWithDifferentSigners ?? [],
@@ -369,25 +373,37 @@ export function SignersTab() {
 						status={status}
 						signerSet={main?.address}
 						action={
-							offerChanges && (
-								<AtMaxTooltip atMax={atMax}>
-									<Button
-										variant="outline"
-										size="sm"
-										disabled={changePending || atMax}
-										onClick={() =>
-											openChange({ kind: 'add' })
-										}
-										className={cn(
-											'disabled:border-transparent',
-											disabledButton,
-										)}
-										data-testid="signers-add-signer"
-									>
-										<Plus />
-										{content.common.actions.addSigner}
-									</Button>
-								</AtMaxTooltip>
+							offerEnable ? (
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => void enableSignerChanges()}
+									disabled={building || create.isPending}
+									data-testid="enable-signer-changes"
+								>
+									{COPY.enableSignerChanges}
+								</Button>
+							) : (
+								offerChanges && (
+									<AtMaxTooltip atMax={atMax}>
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={changePending || atMax}
+											onClick={() =>
+												openChange({ kind: 'add' })
+											}
+											className={cn(
+												'disabled:border-transparent',
+												disabledButton,
+											)}
+											data-testid="signers-add-signer"
+										>
+											<Plus />
+											{content.common.actions.addSigner}
+										</Button>
+									</AtMaxTooltip>
+								)
 							)
 						}
 						menu={
@@ -469,35 +485,16 @@ export function SignersTab() {
 							</>
 						}
 					>
-						{acting &&
-							!changesEnabled &&
-							aliasProposals?.length === 0 && (
-								<Alert
-									variant="info"
-									data-testid="signer-changes-not-enabled"
-								>
-									<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-										<span>
-											{COPY.signerChangesNotEnabled(
-												networkLabel(network),
-											)}
-										</span>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={() =>
-												void enableSignerChanges()
-											}
-											disabled={
-												building || create.isPending
-											}
-											data-testid="enable-signer-changes"
-										>
-											{COPY.enableSignerChanges}
-										</Button>
-									</div>
-								</Alert>
-							)}
+						{offerEnable && (
+							<p
+								className="text-13 text-muted-foreground"
+								data-testid="signer-changes-not-enabled"
+							>
+								{COPY.signerChangesNotEnabled(
+									networkLabel(network),
+								)}
+							</p>
+						)}
 						{several && main && (
 							<SetThreshold set={main.set} />
 						)}
