@@ -5,6 +5,9 @@ import {
 	ProposalStatus,
 	type MultisigWithMembers,
 } from '@mysten/sagat';
+import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -15,6 +18,7 @@ import {
 } from '../src/lib/exportUtils';
 import { type CountedProposal } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
+import { listedSet, signerSet } from './signer-set';
 
 const exportedAt = new Date('2026-04-28T06:30:00.000Z');
 
@@ -150,12 +154,51 @@ describe('export utils', () => {
 				],
 			},
 		});
-		expect(result.multisig.name).toBe('Treasury');
-		expect(result.multisig.members).toEqual([
+		expect(result.multisig?.address).toBe('0xmultisig');
+		expect(result.multisig?.name).toBe('Treasury');
+		expect(result.multisig?.members).toEqual([
 			{ publicKey: 'member-a', weight: 1, order: 0 },
 			{ publicKey: 'member-b', weight: 2, order: 1 },
 			{ publicKey: 'member-c', weight: 3, order: 2 },
 		]);
+	});
+
+	test('names and addresses the composition after the signer set it lists, and has none without a checked set', () => {
+		const added = signerSet(
+			[new Ed25519Keypair(), new Ed25519Keypair()],
+			2,
+		);
+		const proposal = (
+			checkedSignerSets: CountedProposal['checkedSignerSets'],
+		): CountedProposal => ({
+			...v1Proposal({
+				accountAddress: '0x1',
+				accountName: 'Treasury',
+			}),
+			checkedSignerSets,
+		});
+
+		const { proposal: exported, multisig: composition } =
+			buildProposalExport(proposal([listedSet(added)]));
+		expect(exported.multisigAddress).toBe('0x1');
+		expect(composition?.address).toBe(added.address);
+		expect(composition?.name).toBeNull();
+		expect(
+			MultiSigPublicKey.fromPublicKeys({
+				threshold: composition!.threshold,
+				publicKeys: composition!.members.map(
+					({ publicKey, weight }) => ({
+						publicKey: publicKeyFromSuiBytes(publicKey),
+						weight,
+					}),
+				),
+			}).toSuiAddress(),
+		).toBe(added.address);
+
+		const unchecked = buildProposalExport(proposal([]));
+		expect(unchecked.multisig).toBeNull();
+		expect(unchecked.proposal.currentWeight).toBeNull();
+		expect(unchecked.proposal.threshold).toBeNull();
 	});
 
 	test('sanitizes export filenames', () => {
