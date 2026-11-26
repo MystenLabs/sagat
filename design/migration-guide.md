@@ -62,7 +62,7 @@ Authentication does not change. The connect message, the script token, and its o
 | `POST /addresses`, `GET /addresses/:address` | `/v1/addresses`, same shape                   | **Proposed.**                                                                                                                                                                                                               |
 | `/auth/*`                                    | unchanged, shared by both route sets          |                                                                                                                                                                                                                             |
 
-Every `/v1` account route takes a required `network` query parameter, such as `?network=mainnet`, and answers for that network only. Each one first reads the account's alias set from the chain again when the last read is older than a minute. When the chain cannot be read, the reads answer from the last read with `signersChecked: false`, and accept, reject and the proposer routes are refused with a 503.
+Every `/v1` account route takes a required `network` query parameter, such as `?network=mainnet`, and answers for that network only. Each one first reads the account's alias set from the chain again when the last read is older than a minute. When the chain cannot be read, the reads answer from the last read with `signerSetsStale: true`, and accept, reject and the proposer routes are refused with a 503.
 
 Every `/v1` error answers `{ "error": "…" }` as JSON, also a request with no session (401, `Unauthorized`) and a body over the size limit (413, `Payload Too Large`). A key in no acting signer set of the account on the network, and an address that is no account, get a 403 with “You are not a signer of this account on this network.” A signer who has not accepted the account, on a route that needs an accepted signer, gets a 403 with “You have not accepted this account.”
 
@@ -88,7 +88,7 @@ New routes for rotation are listed at the end. You do not need them unless you r
 | Vote response        | `currentWeight`                                                     | Removed. Read `signerSets[].currentWeight` on the proposal; one tally per set.                                                                                                                                                                                  |
 | Connections          | an object of multisigs per public key                               | `accounts`: each account once, sorted by address, and `removed`.                                                                                                                                                                                                |
 | Invitations          | an array of multisigs                                               | `invitations`: each account once.                                                                                                                                                                                                                               |
-| Account              | `isVerified`, `threshold`, `members`, `totalMembers`, `totalWeight` | `signerSets` and `signersChecked`, see "Accounts" below.                                                                                                                                                                                                        |
+| Account              | `isVerified`, `threshold`, `members`, `totalMembers`, `totalWeight` | `signerSets` and `signerSetsStale`, see "Accounts" below.                                                                                                                                                                                                       |
 | Account              | `draftedBy`                                                         | `createdBy`                                                                                                                                                                                                                                                     |
 | Member               | `multisigAddress`, `isAccepted`, `isRejected`                       | `answer`: the key's answer to this account, `accepted`, `rejected` or `invited`. Members sit inside their set, so they carry no set address.                                                                                                                    |
 | Member               | `label`                                                             | Unchanged.                                                                                                                                                                                                                                                      |
@@ -149,7 +149,7 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 			"original": true
 		}
 	],
-	"signersChecked": true
+	"signerSetsStale": false
 }
 ```
 
@@ -158,7 +158,7 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 - `acting` is true when the set is in the alias set on the network, so it is false only for the original set once it was removed there.
 - `original` is true for that first entry and false for the others. It is a convenience: the address is what identifies the original set.
 - Each member carries `answer`, the key's answer to this account, and `label`, the account's name for the key or null.
-- `signersChecked` is false when the alias set could not be read from the chain, so the signer sets are as last read.
+- `signerSetsStale` is true when the alias set could not be read from the chain, so the signer sets are as last read. It is false otherwise.
 
 `GET /v1/accounts/:address` adds `network`, `signerChangesEnabled`, `networksWithDifferentSigners` and `proposers`. It does not return signer changes yet.
 
