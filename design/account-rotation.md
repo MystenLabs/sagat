@@ -180,11 +180,11 @@ sequenceDiagram
     A-->>N: Invitations
 ```
 
-### 0. Allow signer changes (once per network)
+### 0. Enable signer changes (once per network)
 
 The alias object does not exist until the account calls `address_alias::enable`, and a change needs it as an input, so `enable` cannot share a transaction with the first change. The spike confirmed a combined transaction fails to build.
 
-- The members page offers "allow signer changes" at any time: an ordinary proposal that calls `enable`, approved like any other. It changes nothing by itself: the alias set stays `{account}` and the account does not count as changed.
+- The members page offers "enable signer changes" at any time: an ordinary proposal that calls `enable`, approved like any other. It changes nothing by itself: the alias set stays `{account}` and the account does not count as changed.
 - A change started before that step was done begins with it.
 - The account needs SUI on that network to pay for it.
 - This step is kept apart from the change flow so that it can be removed if the protocol later lets the two share a transaction.
@@ -329,16 +329,16 @@ These checks land before any account can change its signers through the app, see
 
 A changed account is served by `/v1` only. The app calls only legacy routes today, and eleven of its calls are about one account, so it moves each of them in the pull request that follows its route, for every account and not only changed ones. The gate lands when the last one has moved. Each handler is thin: the flows are already services.
 
-| `/v1` route                                             | Replaces for the app                    | Notes                                                                                                                                                                          |
-| ------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /v1/accounts`                                      | `GET /addresses/connections`            | Takes the network. Each account with its original set. Also reports accounts the caller was removed from.                                                                      |
-| `GET /v1/accounts/:address`                             | `GET /multisig/:address`                | Takes the network. Every signer set, the original first, which ones act, the signer changes that succeeded, whether changes are allowed, an open change, networks that differ. |
-| `GET /v1/invitations`                                   | `GET /addresses/invitations/:publicKey` | Takes the network. A key of an acting set that has not answered for that account.                                                                                              |
-| `POST /v1/accounts/:address/accept`, `/reject`          | accept, reject                          | A key's answer to the account, with a signed message that names it. Answering the same again records nothing.                                                                  |
-| `POST`, `DELETE /v1/accounts/:address/proposers`        | add-proposer, remove-proposer           | Takes the network. A removal says whether it removed the proposer and which proposals it cancelled.                                                                            |
-| `POST /v1/proposals`                                    | `POST /proposals`                       | A signer change is recognised from the bytes, and its checks run.                                                                                                              |
-| `GET /v1/proposals`, `GET /v1/proposals/:digest`        | list, by digest                         | The count per acting set, `executedVia`, and for a change its note, its readiness and withheld signatures.                                                                     |
-| `POST /v1/proposals/:digest/vote`, `/cancel`, `/verify` | vote, cancel, verify-by-digest          | Verify has no threshold pre-check and refreshes after an alias change.                                                                                                         |
+| `/v1` route                                             | Replaces for the app                    | Notes                                                                                                                                                                                 |
+| ------------------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /v1/accounts`                                      | `GET /addresses/connections`            | Takes the network. Each account with its original set. Also reports accounts the caller was removed from.                                                                             |
+| `GET /v1/accounts/:address`                             | `GET /multisig/:address`                | Takes the network. Every signer set, the original first, which ones act, the signer changes that succeeded, whether signer changes are enabled, an open change, networks that differ. |
+| `GET /v1/invitations`                                   | `GET /addresses/invitations/:publicKey` | Takes the network. A key of an acting set that has not answered for that account.                                                                                                     |
+| `POST /v1/accounts/:address/accept`, `/reject`          | accept, reject                          | A key's answer to the account, with a signed message that names it. Answering the same again records nothing.                                                                         |
+| `POST`, `DELETE /v1/accounts/:address/proposers`        | add-proposer, remove-proposer           | Takes the network. A removal says whether it removed the proposer and which proposals it cancelled.                                                                                   |
+| `POST /v1/proposals`                                    | `POST /proposals`                       | A signer change is recognised from the bytes, and its checks run.                                                                                                                     |
+| `GET /v1/proposals`, `GET /v1/proposals/:digest`        | list, by digest                         | The count per acting set, `executedVia`, and for a change its note, its readiness and withheld signatures.                                                                            |
+| `POST /v1/proposals/:digest/vote`, `/cancel`, `/verify` | vote, cancel, verify-by-digest          | Verify has no threshold pre-check and refreshes after an alias change.                                                                                                                |
 
 Not under `/v1`: sign-in, registering keys, address lookup and creating an account. A signer change does not touch them.
 
@@ -515,7 +515,7 @@ The notice to a removed signer is read from the `alias.removed` rows: a key of a
 
 The designer's screens cover the editor, the review, the change as a proposal, the lists before and after, the edge cases of the editor, other signer sets, a pending change, a cancelled change and the removed signer. This design needs a few states they do not have yet:
 
-- allowing signer changes, the one-time step;
+- enabling signer changes, the one-time step;
 - the editor's error when the signers who stay cannot meet the new threshold;
 - on the change's page, how far the signers who stay are from the new threshold, and that a removed signer's signature does not count toward it;
 - the notice that signers differ on another network;
@@ -558,7 +558,7 @@ Each step is one pull request and lands on main by itself. Steps 1 to 4 change n
 6. **`/v1` proposal routes** with `executed_via`, then **the app proposes, signs, cancels, verifies and executes through them**.
 7. **The legacy gate**, with the legacy refresh. Lands once the app makes no gated call.
 8. **Signer changes in the API and SDK.** The builders and the note, recognising a change, its checks, the proof rule and withheld signatures, the cancel rule, the new set's rows, the key cap, and the succeeded changes on the account read.
-9. **Allow signer changes** in the app.
+9. **Enable signer changes** in the app.
 10. **The change editor and review** in the app.
 11. **The change as a proposal** in the app: its page for a staying and a removed signer, the pending banner, the cancelled state, the lists and members page afterwards with the path from the original signers, and the notice to a removed signer.
 
