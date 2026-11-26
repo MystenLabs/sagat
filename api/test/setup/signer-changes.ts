@@ -77,8 +77,8 @@ export const currentEpoch = async () =>
 			.epoch,
 	);
 
-// Allows signer changes: `enable` proposed by the first voter, signed by the others, executed and verified.
-export const allowSignerChanges = async (
+// Enables signer changes: `enable` proposed by the first voter, signed by the others, executed and verified.
+export const enableSignerChanges = async (
 	session: TestSession,
 	account: string,
 	voters: TestUser[],
@@ -115,14 +115,14 @@ export const proposeChange = async (
 /**
  * The design's cast: account `A` with `S1` = 2-of-3 of `k1`, `k2`, `k3`,
  * funded; `S2` = `k1`, `k2`, `k4`; `S3` = 3-of-3 of `S1`'s keys. Keys in
- * `unaccepted` never accept `A`. Signer changes are allowed unless `allow` is false.
+ * `unaccepted` never accept `A`. Signer changes are enabled unless `enable` is false.
  */
 export const createCast = async (
 	session: TestSession,
 	{
 		unaccepted = [],
-		allow = true,
-	}: { unaccepted?: number[]; allow?: boolean } = {},
+		enable = true,
+	}: { unaccepted?: number[]; enable?: boolean } = {},
 ) => {
 	const [k1, k2, k3, k4] = Array.from(
 		{ length: 4 },
@@ -136,7 +136,8 @@ export const createCast = async (
 		2,
 		{ fund: true },
 	);
-	if (allow) await allowSignerChanges(session, A, [k1, k2]);
+	if (enable)
+		await enableSignerChanges(session, A, [k1, k2]);
 	return {
 		k1,
 		k2,

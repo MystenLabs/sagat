@@ -54,11 +54,11 @@ import {
 } from './setup/shared-test-setup';
 import {
 	addressOf,
-	allowSignerChanges,
 	buildCastChange,
 	compositionOf,
 	createCast,
 	currentEpoch,
+	enableSignerChanges,
 	gasCoins,
 	proposeCastChange,
 	proposeChange,
@@ -438,7 +438,7 @@ describe('POST /v1/proposals with a signer change', () => {
 
 	test('one proposal that calls the alias module at a time: a change waits for a pending enable, and a hand-written one for a pending change', async () => {
 		const cast = await createCast(session, {
-			allow: false,
+			enable: false,
 		});
 		const { k1, k2, A, S2, S3 } = cast;
 		const coins = await gasCoins(A, 5);
@@ -446,7 +446,7 @@ describe('POST /v1/proposals with a signer change', () => {
 		const secondEnable = toBase64(
 			await build(A, buildEnable, coins[0]),
 		);
-		await allowSignerChanges(
+		await enableSignerChanges(
 			session,
 			A,
 			[k1, k2],
@@ -654,7 +654,7 @@ describe('POST /v1/proposals with a signer change', () => {
 
 	test('the legacy create route takes a hand-written enable and refuses a signer change with a 409', async () => {
 		const cast = await createCast(session, {
-			allow: false,
+			enable: false,
 		});
 		const { k1, k2, A, S2 } = cast;
 		const legacyCreate = async (transactionBytes: string) =>
@@ -683,7 +683,7 @@ describe('POST /v1/proposals with a signer change', () => {
 
 	test('labels on a proposal that is not a signer change are refused', async () => {
 		const { k1, A } = await createCast(session, {
-			allow: false,
+			enable: false,
 		});
 		const transactionBytes = await buildTransfer(A);
 
