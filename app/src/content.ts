@@ -1239,7 +1239,10 @@ export const content = {
 			noActingSet: (network: string) =>
 				`On ${network}, this address is controlled by other signer sets.`,
 		},
-		/** The Setup card's button, and the title of the proposal it creates. */
+		/** Atop the Signers card until signer changes are enabled; the button beside it. */
+		signerChangesNotEnabled: (network: string) =>
+			`Signer changes aren’t enabled for this pod on ${network} yet. Enabling them takes one proposal that the signers approve.`,
+		/** The Signers card's button, and the title of the proposal it creates. */
 		enableSignerChanges: 'Enable signer changes',
 		enableSignerChangesPending: (network: string) =>
 			`A proposal to enable signer changes on ${network} is open.`,

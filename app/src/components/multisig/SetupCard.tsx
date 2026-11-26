@@ -29,8 +29,6 @@ export function SetupCard({
 	network,
 	explorerUrl,
 	onDownload,
-	onEnableSignerChanges,
-	enabling = false,
 	className,
 }: {
 	setup: AccountSetup;
@@ -38,9 +36,6 @@ export function SetupCard({
 	/** Null where the explorer doesn't index the network. */
 	explorerUrl: string | null;
 	onDownload: () => void;
-	/** Offers the button when set. */
-	onEnableSignerChanges?: () => void;
-	enabling?: boolean;
 	className?: string;
 }) {
 	return (
@@ -94,17 +89,6 @@ export function SetupCard({
 					/>
 				</Row>
 			</dl>
-			{onEnableSignerChanges && (
-				<Button
-					variant="outline"
-					onClick={onEnableSignerChanges}
-					disabled={enabling}
-					className="mt-2 w-full"
-					data-testid="enable-signer-changes"
-				>
-					{content.signers.enableSignerChanges}
-				</Button>
-			)}
 			<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t pt-3">
 				{explorerUrl && (
 					// Styled as the button, not rendered through it: Base UI

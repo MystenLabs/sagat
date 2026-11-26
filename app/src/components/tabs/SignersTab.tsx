@@ -78,7 +78,7 @@ import {
 import { SignersRefused } from '../multisig/SignersRefused';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Alert } from '../ui/Alert';
-import { buttonVariants } from '../ui/button';
+import { Button, buttonVariants } from '../ui/button';
 import { InlineRetry } from '../ui/inline-retry';
 
 const COPY = content.signers;
@@ -376,6 +376,35 @@ export function SignersTab() {
 							</>
 						}
 					>
+						{acting &&
+							!changesEnabled &&
+							aliasProposals?.length === 0 && (
+								<Alert
+									variant="info"
+									data-testid="signer-changes-not-enabled"
+								>
+									<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+										<span>
+											{COPY.signerChangesNotEnabled(
+												networkLabel(network),
+											)}
+										</span>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() =>
+												void enableSignerChanges()
+											}
+											disabled={
+												building || create.isPending
+											}
+											data-testid="enable-signer-changes"
+										>
+											{COPY.enableSignerChanges}
+										</Button>
+									</div>
+								</Alert>
+							)}
 						{several && main && (
 							<SetThreshold set={main.set} />
 						)}
@@ -417,14 +446,6 @@ export function SignersTab() {
 							}),
 						)
 					}
-					onEnableSignerChanges={
-						acting &&
-						!changesEnabled &&
-						aliasProposals?.length === 0
-							? () => void enableSignerChanges()
-							: undefined
-					}
-					enabling={building || create.isPending}
 					className="w-full shrink-0 @4xl:w-80"
 				/>
 			</div>
