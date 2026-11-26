@@ -151,6 +151,18 @@ export function ReviewStep({
 						? COPY.review.carryOverReorder
 						: COPY.review.carryOver}
 				</p>
+				{list.some(
+					(item) =>
+						item.kind === 'add' || item.kind === 'replace',
+				) && (
+					<p
+						className="flex items-start gap-1.5 text-12 text-muted-foreground"
+						data-testid="change-review-new-signers"
+					>
+						<Info className="mt-0.5 size-3 shrink-0" />
+						{COPY.review.newSignersSign}
+					</p>
+				)}
 			</section>
 
 			<dl className="flex flex-wrap gap-x-6 gap-y-3 rounded-lg bg-muted p-4">

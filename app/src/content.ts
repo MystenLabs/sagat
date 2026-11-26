@@ -1348,6 +1348,9 @@ export const content = {
 				'Signatures from signers who stay carry over, and open proposals are recounted against the new weights and threshold.',
 			carryOverReorder:
 				'Open proposals and their signatures carry over. Weights and the threshold don’t change.',
+			/** Under the carry-over line when the change adds or replaces a key. */
+			newSignersSign:
+				'New signers confirm this change by signing it. Share the proposal’s link with them after you propose.',
 			signersAfter: 'Signers after the change',
 			/** The last line under the differences when the total weight changes and the threshold doesn’t: "2 of 2", "2 of 3". */
 			thresholdAfter: (now: string, before: string) =>
