@@ -237,13 +237,15 @@ export function ReviewStep({
 	);
 }
 
-/** The differences as a bordered list, with an add's Sui address under it when known, and `summary` as the last line. */
+/** The differences as a bordered list, with an add's Sui address under it when known, and `summary` as the last line; a line naming `you` (a key) is marked. */
 export function ChangeList({
 	list,
 	summary,
+	you,
 }: {
 	list: Difference[];
 	summary?: string | null;
+	you?: string | null;
 }) {
 	return (
 		<ul className="rounded-lg border">
@@ -258,7 +260,17 @@ export function ChangeList({
 					>
 						<Icon className="size-4 shrink-0" />
 						<span className="flex min-w-0 flex-1 flex-col gap-0.5">
-							{item.text}
+							<span>
+								{item.text}
+								{you && item.publicKey === you && (
+									<>
+										{' '}
+										<span className="text-muted-foreground">
+											{content.signers.markers.you.parens}
+										</span>
+									</>
+								)}
+							</span>
 							{item.address && (
 								<span className="font-mono text-12 break-all text-muted-foreground">
 									{item.address}

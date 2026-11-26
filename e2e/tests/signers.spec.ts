@@ -1293,6 +1293,11 @@ test.describe('overview and signers', () => {
 				carol.page.getByTestId('signer-change-removed'),
 			).toBeVisible();
 			await expect(
+				carol.page.locator(
+					'[data-testid="change-item"][data-kind="remove"]',
+				),
+			).toContainText(content.signers.markers.you.parens);
+			await expect(
 				carol.page.getByTestId('cancel-proposal-button'),
 			).toHaveCount(0);
 			await signProposal(bob, change);

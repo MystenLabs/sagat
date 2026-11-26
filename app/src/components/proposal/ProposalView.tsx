@@ -49,6 +49,7 @@ import { useExpiry } from '@/hooks/useExpiry';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import {
 	changeTitle,
+	suiKey,
 	type Difference,
 } from '@/lib/change-signers';
 import { joinList } from '@/lib/create-multisig';
@@ -441,6 +442,7 @@ export function ProposalView({
 						<ChangesCard
 							list={changes}
 							summary={checked?.summary ?? null}
+							you={member ? suiKey(member.publicKey) : null}
 						/>
 					)}
 					{onChain ? (
@@ -490,9 +492,12 @@ export function ProposalView({
 function ChangesCard({
 	list,
 	summary,
+	you,
 }: {
 	list: Difference[];
 	summary: string | null;
+	/** The viewer's key, marked where a line names it. */
+	you: string | null;
 }) {
 	const REVIEW = content.changeSigners.review;
 	const added = list.flatMap((item) =>
@@ -506,7 +511,7 @@ function ChangesCard({
 			<h3 className="text-15 font-medium">
 				{REVIEW.changes}
 			</h3>
-			<ChangeList list={list} summary={summary} />
+			<ChangeList list={list} summary={summary} you={you} />
 			{added.length > 0 && (
 				<p className="flex items-start gap-1.5 text-12">
 					<Mail className="mt-0.5 size-3 shrink-0" />

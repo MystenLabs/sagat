@@ -260,6 +260,8 @@ export interface Difference {
 	name?: string;
 	/** An add's Sui address. */
 	address?: string;
+	/** The key of the signer the line names. */
+	publicKey?: string;
 }
 
 interface Member {
@@ -313,18 +315,21 @@ function differences(
 				text: COPY.change.add(m.name, m.weight),
 				name: m.name,
 				address: m.address,
+				publicKey: m.publicKey,
 			})),
 		...before.members
 			.filter((b) => !kept.some((p) => p.b === b))
 			.map((b) => ({
 				kind: 'remove' as const,
 				text: COPY.change.remove(b.name),
+				publicKey: b.publicKey,
 			})),
 		...kept
 			.filter(({ m, b }) => m.publicKey !== b.publicKey)
 			.map(({ b }) => ({
 				kind: 'replace' as const,
 				text: COPY.change.replace(b.name),
+				publicKey: b.publicKey,
 			})),
 		...kept
 			.filter(({ m, b }) => m.weight !== b.weight)
@@ -335,6 +340,7 @@ function differences(
 					b.weight,
 					m.weight,
 				),
+				publicKey: b.publicKey,
 			})),
 	];
 	if (after.threshold !== before.threshold)
