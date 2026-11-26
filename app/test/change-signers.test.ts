@@ -134,14 +134,14 @@ describe('what blocks Review', () => {
 		expect(check(current, rows).error).toBeNull();
 	});
 
-	test('the signers who stay and have accepted must meet the new threshold; a staying signer still invited doesn’t count', () => {
+	test('a threshold the accepted signers who stay can’t reach alone passes when the new set can', () => {
 		// Alice (weight 1) hasn't accepted; Priya is new.
 		const current = currentSet([1, 1, 1], 2, [2]);
 		const rows = [...rowsOf(current), added(3)];
 		expect(check(current, rows, 2).canReview).toBe(true);
 		expect(check(current, rows, 3)).toMatchObject({
-			canReview: false,
-			error: COPY.stayingShort(3, 2),
+			canReview: true,
+			error: null,
 		});
 	});
 

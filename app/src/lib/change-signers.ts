@@ -5,7 +5,6 @@
 // blocks Review, the differences, and what the proposal carries.
 import {
 	checkSignerChange,
-	proofWeight,
 	readCompositionNote,
 	type Composition,
 	type SignerChange,
@@ -182,41 +181,16 @@ export function checkChange({
 
 	// Kept rows count with a key still being typed.
 	const keptWeight = sumWeight(kept);
-	let error: string | null = null;
-	if (threshold > keptWeight)
-		error = COPY.unreachable(
-			threshold,
-			keptWeight,
-			removed.length > 0 ? joinList(removed, 'or') : null,
-		);
-	else if (address) {
-		const entry = (
-			set: Pick<CurrentSet, 'address' | 'threshold'>,
-			members: { publicKey: string; weight: number }[],
-		) => ({
-			type: 'signer_set' as const,
-			version: 1 as const,
-			...set,
-			members: members.map((m) => ({
-				publicKey: suiKey(m.publicKey),
-				weight: m.weight,
-			})),
-		});
-		const weight = proofWeight(
-			entry(
-				{ address, threshold },
-				kept.map((row) => ({
-					publicKey: row.key,
-					weight: row.weight,
-				})),
-			),
-			current.members
-				.filter((m) => m.answer === 'accepted')
-				.map((m) => suiKey(m.publicKey)),
-		);
-		if (weight < threshold)
-			error = COPY.stayingShort(threshold, weight);
-	}
+	const error =
+		threshold > keptWeight
+			? COPY.unreachable(
+					threshold,
+					keptWeight,
+					removed.length > 0
+						? joinList(removed, 'or')
+						: null,
+				)
+			: null;
 	return {
 		signers,
 		error,

@@ -1322,8 +1322,6 @@ export const content = {
 			removed: string | null,
 		) =>
 			`The threshold is ${threshold}, but the signers left only add up to ${total} weight, so no proposal could ever pass. Lower the threshold to ${total} or less${removed ? `, or keep ${removed}` : ''}.`,
-		stayingShort: (threshold: number, weight: number) =>
-			`The threshold is ${threshold}, but the signers who stay and have accepted this pod only add up to ${weight} weight. New signers can’t count until they accept. Lower the threshold to ${weight} or less, or keep more of the current signers.`,
 		chips: {
 			new: 'New',
 			removed: 'Removed',
