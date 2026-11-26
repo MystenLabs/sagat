@@ -249,7 +249,7 @@ describe('POST /v1/proposals with a signer change', () => {
 		).toEqual([]);
 	});
 
-	test('a proposer who leaves or has not accepted is refused with a 403, and a change whose accepted signers who stay cannot meet the new threshold with a 400', async () => {
+	test('a proposer who leaves or has not accepted is refused with a 403, and a change whose accepted signers who stay cannot meet the new threshold is created', async () => {
 		const cast = await createCast(session, {
 			unaccepted: [3],
 		});
@@ -275,11 +275,14 @@ describe('POST /v1/proposals with a signer change', () => {
 			message: NOT_ACCEPTED,
 		});
 		// `k3` stays but has not accepted, so `k1` and `k2` weigh 2 of 3.
-		expect(await propose(k1, S3)).toEqual({
-			status: 400,
-			message:
-				'The signers who stay cannot meet the new threshold by themselves, counting only those who have accepted the account. Add new signers in one change and remove old ones in another.',
-		});
+		const short = await proposeChange(
+			session,
+			k1,
+			A,
+			await buildCastChange(cast, S3),
+		);
+		expect(short.status).toBe('PENDING');
+		await session.cancelProposal(k1, short);
 
 		// A key's own address left is no set to stay in.
 		await setAliases(A, 'localnet', [k1.address]);

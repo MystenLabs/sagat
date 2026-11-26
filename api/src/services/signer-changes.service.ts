@@ -5,7 +5,6 @@
 
 import {
 	checkSignerChange,
-	isProofMet,
 	namedChain,
 	readCompositionNote,
 	SignerChangeError,
@@ -272,10 +271,6 @@ export const checkAndWriteSignerChange = async (
 			),
 			added.members.map((member) => member.weight),
 			added.threshold,
-		);
-	if (!isProofMet(change, accepted))
-		throw new ValidationError(
-			'The signers who stay cannot meet the new threshold by themselves, counting only those who have accepted the account. Add new signers in one change and remove old ones in another.',
 		);
 
 	if (!added) return;
