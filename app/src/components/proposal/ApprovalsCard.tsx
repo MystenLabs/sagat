@@ -232,25 +232,30 @@ export function ApprovalsCard({
 		enabled: checkNetwork,
 		aliases,
 	});
-	const integrity = useMemo(
-		() =>
-			canAct && walletAddress
-				? checkProposalIntegrity(proposal, {
-						pod,
-						openedDigest,
-						signerAddress: walletAddress,
-						newSet: change?.newSet,
-					})
-				: null,
-		[
-			canAct,
-			walletAddress,
+	const integrity = useMemo(() => {
+		if (!canAct || !walletAddress) return null;
+		const failure = checkProposalIntegrity(proposal, {
 			pod,
-			proposal,
 			openedDigest,
-			change,
-		],
-	);
+			signerAddress: walletAddress,
+			newSet: change?.newSet,
+		});
+		// A new signer's place comes from the alias read; until it lands, Sign waits for or retries it.
+		return failure === 'notSigner' &&
+			newSigner &&
+			aliases?.kind !== 'read'
+			? null
+			: failure;
+	}, [
+		canAct,
+		walletAddress,
+		pod,
+		proposal,
+		openedDigest,
+		change,
+		newSigner,
+		aliases,
+	]);
 	// Rule 2 and the bytes' chain, once the synchronous checks pass.
 	const onNetwork =
 		!checkNetwork || !walletAddress || integrity

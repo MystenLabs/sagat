@@ -49,6 +49,7 @@ import { useExpiry } from '@/hooks/useExpiry';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
 import {
 	changeTitle,
+	signerChangeIn,
 	suiKey,
 	type Difference,
 } from '@/lib/change-signers';
@@ -187,13 +188,17 @@ export function ProposalView({
 					isMember({ members: [m] }, wallet.address),
 				)
 		: undefined;
-	// Else a key the open change's checked bytes add, which may only sign.
+	// Else a key the open change adds, which may only sign: checked, or the bytes' note's until the alias read lands, which Sign waits for or retries.
+	const adding = useMemo(
+		() =>
+			aliases?.kind === 'read'
+				? (checked?.change ?? null)
+				: signerChangeIn(proposal.transactionBytes, null),
+		[aliases, checked, proposal.transactionBytes],
+	);
 	const newSigner =
 		!member && open
-			? newSignerKey(
-					checked?.change ?? null,
-					wallet?.address,
-				)
+			? newSignerKey(adding, wallet?.address)
 			: null;
 	const viewerKey = member?.publicKey ?? newSigner;
 	const viewer = !viewerKey
