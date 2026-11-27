@@ -69,7 +69,7 @@ export const SignerSetSchema = z
 		members: z.array(SignerSetMemberSchema),
 		acting: z.boolean().meta({
 			description:
-				"True when the set acts for the account on the proposal's network; false only for the original set once it was removed there. A set that does not act counts no signatures.",
+				"True when the set acts for the account on the proposal's network. For a signer change, true for the set it replaces, the one the proposal is counted against, also once it is no longer pending. False only for the original set when it is listed only so the account's address can be rebuilt: once it was removed there, or beside the set a signer change replaces. A set that does not act counts no signatures.",
 		}),
 		original: z.boolean().meta({
 			description:
@@ -196,7 +196,7 @@ export const ProposalSchema = z
 		}),
 		signerSets: z.array(SignerSetSchema).meta({
 			description:
-				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces: while pending, only while that set acts; once no longer pending, as the change describes it. Then the original set, with acting false, when it no longer acts there.",
+				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces: while pending, only while that set acts; once no longer pending, as the change describes it, still flagged acting, since it is the set the proposal was counted against. Then the original set, with acting false, when it is not among them.",
 		}),
 		signerChange: ProposalSignerChangeSchema.or(
 			z.null(),

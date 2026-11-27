@@ -141,6 +141,8 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			expect.objectContaining({
 				address: A,
 				currentWeight: 1,
+				acting: true,
+				original: true,
 			}),
 		]);
 		expect(
@@ -259,6 +261,13 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			expect.objectContaining({
 				address: addressOf(S2),
 				currentWeight: 1,
+				acting: true,
+			}),
+			expect.objectContaining({
+				address: cast.A,
+				currentWeight: 0,
+				acting: false,
+				original: true,
 			}),
 		]);
 		expect(read.ready).toBe(false);
@@ -292,11 +301,37 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			adds: A,
 			labels: [],
 		});
+		// Only S2 counts; S1 is listed so the account's address can be rebuilt.
+		expect(change.ready).toBe(false);
+		expect(change.signerSets).toEqual([
+			expect.objectContaining({
+				address: addressOf(S2),
+				currentWeight: 1,
+				acting: true,
+				original: false,
+			}),
+			expect.objectContaining({
+				address: A,
+				currentWeight: 0,
+				acting: false,
+				original: true,
+			}),
+		]);
 		const ready = await session.voteOnProposal(
 			k2,
 			change.digest,
 			change.transactionBytes,
 		);
+		expect(ready.ready).toBe(true);
+		expect(
+			ready.signerSets.map((set) => [
+				set.address,
+				set.currentWeight,
+			]),
+		).toEqual([
+			[addressOf(S2), 2],
+			[A, 0],
+		]);
 		const verified = await executeAndVerify(session, ready);
 
 		expect(verified.status).toBe('SUCCESS');
