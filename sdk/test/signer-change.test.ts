@@ -24,7 +24,6 @@ import {
 	compositionNote,
 	deriveAliasesObjectId,
 	findAliasCalls,
-	isProofMet,
 	MAX_ALIASES,
 	namedChain,
 	proofWeight,
@@ -431,8 +430,12 @@ describe('signers who stay and the proof', () => {
 			),
 		);
 
-		expect(isProofMet(checked, [k2, k3])).toBe(false);
+		expect(signerChangeProof(checked, [k2, k3]).met).toBe(
+			false,
+		);
 		// S2 alone reaches its threshold.
-		expect(isProofMet(checked, [k1, k2])).toBe(true);
+		expect(signerChangeProof(checked, [k1, k2]).met).toBe(
+			true,
+		);
 	});
 });

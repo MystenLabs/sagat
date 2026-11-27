@@ -310,7 +310,7 @@ A `signer_set` is a composition with its keys in order, and an `other_signer_set
 3. The note's `before` equals `aliases`, the alias set from a node you pick. For an executed change, pass the note's own `before`, since the chain no longer holds that state.
 4. The note's `after` equals `aliases` with the transaction's alias calls applied.
 
-`signerChangeProof(change, signedKeys)` says whether the members of the new set whose keys signed, staying or new, meet the new threshold by their new weights (`met`), and lists the members of the new set that have not signed (`notSigned`). `proofWeight` and `isProofMet` return the weight and `met` alone.
+`signerChangeProof(change, signedKeys)` says whether the members of the new set whose keys signed, staying or new, meet the new threshold by their new weights (`met`), and lists the members of the new set that have not signed (`notSigned`). `proofWeight` returns the weight alone.
 
 Check the bytes yourself with these before you sign or show a change, and never trust what the API says about one. `signerChange` on a proposal is only the API's reading of the bytes. `SignerChange` from `@mysten/sagat` is the checked change `checkSignerChange` returns; `ProposalSignerChange` from `@mysten/sagat/v1` is that reading.
 

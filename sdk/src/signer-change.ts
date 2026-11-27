@@ -709,24 +709,17 @@ export function proofWeight(
 		.reduce((sum, m) => sum + m.weight, 0);
 }
 
-/** Whether members of at least one of the change's new sets have signed for its threshold. */
-export function isProofMet(
-	change: Pick<SignerChange, 'newSets'>,
-	signedKeys: readonly string[],
-): boolean {
-	return change.newSets.some(
-		(set) => proofWeight(set, signedKeys) >= set.threshold,
-	);
-}
-
-/** `isProofMet`, and the members of any new set that have not signed, in the new sets' order. */
+/** Whether a new set's signers meet its threshold, and the new sets' members that have not signed, in order. */
 export function signerChangeProof(
 	change: Pick<SignerChange, 'newSets'>,
 	signedKeys: readonly string[],
 ): { met: boolean; notSigned: string[] } {
 	const signed = new Set(signedKeys);
 	return {
-		met: isProofMet(change, signedKeys),
+		met: change.newSets.some(
+			(set) =>
+				proofWeight(set, signedKeys) >= set.threshold,
+		),
 		notSigned: [
 			...new Set(
 				change.newSets.flatMap((set) =>
