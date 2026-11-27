@@ -377,7 +377,7 @@ describe('signerChangeWarning', () => {
 });
 
 describe('a held signer change', () => {
-	it('holds Execute until the new set signs for its threshold, and holds nothing for alias calls that don’t check', async () => {
+	it('holds a signer change, with no status line or note, until the new set signs for its threshold, and holds nothing for alias calls that don’t check', async () => {
 		// Alice leaves for a new key of weight 2, at 3 of 4.
 		const newKey = signer('New', 2);
 		const transactionBytes = await changeTo(
