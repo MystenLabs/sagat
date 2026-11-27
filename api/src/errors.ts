@@ -57,6 +57,13 @@ export class AliasStateUnavailableError extends Error {
 	}
 }
 
+export class ServedByV1OnlyError extends Error {
+	constructor(subject: string) {
+		super(`${subject} is served by the /v1 routes only.`);
+		this.name = 'ServedByV1OnlyError';
+	}
+}
+
 export const toError = (error: unknown) =>
 	error instanceof Error ? error : new Error(String(error));
 
@@ -76,6 +83,12 @@ export const AuthErrors = {
 	NotAnAccountSigner:
 		'You are not a signer of this account on this network.',
 	AccountNotAccepted: 'You have not accepted this account.',
+	NotASignerWhoStays:
+		'Only an accepted signer of the signer set being replaced who stays in the new one can propose this signer change.',
+	NotASignerOfTheChange:
+		'Only a key of the signer set this change replaces, or of the signer set it adds, can sign it.',
+	CancelBySignerWhoStays:
+		'Only an accepted signer of the signer set being replaced who stays in the new one can cancel this signer change.',
 };
 
 export const CommonErrors = {
@@ -100,6 +113,9 @@ export const appErrorHandler: ErrorHandler = (err, c) => {
 
 	if (err instanceof CommonError)
 		return c.json({ error: err.message }, 400);
+
+	if (err instanceof ServedByV1OnlyError)
+		return c.json({ error: err.message }, 409);
 
 	if (err instanceof RpcError) {
 		// eslint-disable-next-line no-console

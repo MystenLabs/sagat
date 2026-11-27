@@ -16,6 +16,7 @@ export {
 } from './constants.js';
 
 export {
+	verifyAcceptedBySignerChange,
 	verifyAccountEvent,
 	verifyProposalCreated,
 	verifyProposalProposer,
@@ -52,10 +53,31 @@ export {
 	ADDRESS_ALIAS_STATE_ID,
 	ALIAS_OBJECT_INCLUDE,
 	AddressAliasesBcs,
+	buildAdd,
+	buildEnable,
+	buildRemove,
 	decodeAliasSet,
 	deriveAliasesObjectId,
 	findAliasCalls,
+	MAX_ALIASES,
 	type AliasCall,
 	type AliasObjectEntry,
 	type AliasSet,
 } from './aliases.js';
+
+export {
+	buildSignerChange,
+	checkSignerChange,
+	compositionNote,
+	namedChain,
+	proofWeight,
+	readCompositionNote,
+	SignerChangeError,
+	signerChangeProof,
+	signersWhoStay,
+	type Composition,
+	type CompositionNote,
+	type NoteEntry,
+	type SignerChange,
+	type SignerSetEntry,
+} from './signer-change.js';

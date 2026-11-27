@@ -1,8 +1,24 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+	buildSignerChange,
+	deriveAliasesObjectId,
+	type Composition,
+} from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { formatAddress } from '@mysten/sui/utils';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import {
+	Inputs,
+	Transaction,
+} from '@mysten/sui/transactions';
+import {
+	formatAddress,
+	normalizeSuiAddress,
+	toBase58,
+	toBase64,
+} from '@mysten/sui/utils';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 import { describe, expect, it } from 'vitest';
 
 import { content } from '../src/content';
@@ -13,6 +29,7 @@ import {
 	approvalsSignerSets,
 	cancelVariant,
 	foldedSignerSetsLine,
+	signerChangeWarning,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
 	type Labels,
@@ -118,6 +135,18 @@ describe('approvalRows', () => {
 			['Daniel', 'signed', false],
 			['Alice', 'not-needed', false],
 		]);
+		// A member the signer change warning names stays not signed.
+		const byAlice = proposal({ signedBy: [alice] });
+		expect(
+			approvalRows(
+				byAlice.checkedSignerSets[0],
+				byAlice,
+				'ready',
+				labels,
+				maya.publicKey,
+				[maya.publicKey],
+			).map((row) => row.state),
+		).toEqual(['not-signed', 'not-needed', 'signed']);
 	});
 });
 
@@ -211,6 +240,109 @@ describe('cancelVariant', () => {
 		expect(cancelVariant(proposal(), maya.publicKey)).toBe(
 			'others',
 		);
+	});
+});
+
+describe('signerChangeWarning', () => {
+	const COPY = content.proposal.approvals.signerChange;
+	const setOf = (
+		threshold: number,
+		signers = SIGNERS,
+	): Composition => ({
+		threshold,
+		members: signers.map((s) => ({
+			publicKey: s.publicKey,
+			weight: s.weight,
+		})),
+	});
+	// The pod's set, weighing 4, at threshold 2.
+	const oldSet = setOf(2);
+	const pod = MultiSigPublicKey.fromPublicKeys({
+		threshold: oldSet.threshold,
+		publicKeys: oldSet.members.map((m) => ({
+			publicKey: publicKeyFromSuiBytes(m.publicKey),
+			weight: m.weight,
+		})),
+	}).toSuiAddress();
+	// The bytes of a change from the pod's set to `newSet`.
+	async function changeTo(newSet: Composition) {
+		const tx = new Transaction();
+		tx.setSender(pod);
+		tx.setGasPrice(1000);
+		tx.setGasBudget(10_000_000);
+		tx.setGasPayment([
+			{
+				objectId: normalizeSuiAddress('0x99'),
+				version: '1',
+				digest: toBase58(new Uint8Array(32).fill(1)),
+			},
+		]);
+		tx.object(
+			Inputs.SharedObjectRef({
+				objectId: deriveAliasesObjectId(pod),
+				initialSharedVersion: 1,
+				mutable: true,
+			}),
+		);
+		buildSignerChange(tx, {
+			account: pod,
+			aliases: [pod],
+			oldSet: pod,
+			newSet,
+			known: [oldSet],
+			chain: toBase58(new Uint8Array(32).fill(7)),
+			epoch: 5,
+		});
+		return toBase64(await tx.build());
+	}
+	const warning = (
+		transactionBytes: string,
+		signedBy: (typeof maya)[],
+	) =>
+		signerChangeWarning(
+			{ ...proposal({ signedBy }), transactionBytes },
+			'ready',
+			[pod],
+			labels,
+		);
+
+	it('names the signers who stay and haven’t signed until they cover the new threshold, and is null for a proposal that is no signer change', async () => {
+		// The threshold rises from 2 to 4.
+		const transactionBytes = await changeTo(setOf(4));
+
+		expect(warning(transactionBytes, [alice])).toEqual({
+			body: COPY.body('Maya and Daniel', 2),
+			notSigned: [maya.publicKey, daniel.publicKey],
+		});
+		expect(
+			warning(transactionBytes, [alice, maya, daniel]),
+		).toBeNull();
+		expect(
+			signerChangeWarning(
+				proposal({ signedBy: [alice] }),
+				'ready',
+				[pod],
+				labels,
+			),
+		).toBeNull();
+	});
+
+	it('names a new signer who hasn’t signed while the signers who stay miss the new threshold without them', async () => {
+		// Alice leaves for a new key of weight 2: Maya and Daniel weigh 2 of the new 3 of 4.
+		const newKey = signer('New', 2);
+		const transactionBytes = await changeTo(
+			setOf(3, [maya, daniel, newKey]),
+		);
+
+		expect(
+			warning(transactionBytes, [maya, daniel]),
+		).toEqual({
+			body: COPY.body(formatAddress(newKey.address), 1),
+			notSigned: [newKey.publicKey],
+		});
+		expect(
+			warning(transactionBytes, [maya, newKey]),
+		).toBeNull();
 	});
 });
 

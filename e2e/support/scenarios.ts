@@ -4,6 +4,10 @@
 // Sets up state through the real API, signing as the given users. Use these
 // to get to the step under test quickly; drive that step through the UI.
 import {
+	buildAdd,
+	buildEnable,
+	buildRemove,
+	buildSignerChange,
 	defaultExpiry,
 	deriveAliasesObjectId,
 	PersonalMessages,
@@ -17,12 +21,7 @@ import { Transaction } from '@mysten/sui/transactions';
 import { MIST_PER_SUI, toBase64 } from '@mysten/sui/utils';
 import { expect } from '@playwright/test';
 
-import {
-	buildAdd,
-	buildEnable,
-	buildRemove,
-	fetchAliasSet,
-} from '../../api/src/utils/aliases';
+import { fetchAliasSet } from '../../api/src/utils/aliases';
 import {
 	randomAddress,
 	type Chain,
@@ -322,6 +321,57 @@ export async function enableAliases(
 	signing: MultisigSigning,
 ) {
 	await runFromMultisig(chain, signing, buildEnable);
+}
+
+// Proposes, as `proposer`, the signer change of the pod of `members` (weight 1 each, its own address its only alias) from `threshold` to `newThreshold`.
+export async function proposeThresholdChange(
+	chain: Chain,
+	proposer: Identity,
+	{
+		members,
+		threshold,
+		newThreshold,
+	}: {
+		members: Identity[];
+		threshold: number;
+		newThreshold: number;
+	},
+) {
+	const setOf = (t: number) => ({
+		threshold: t,
+		members: members.map((m) => ({
+			publicKey: m.publicKey,
+			weight: 1,
+		})),
+	});
+	const account = multisigAddressOf(
+		members.map((identity) => ({ identity })),
+		threshold,
+	);
+	const { chainIdentifier } =
+		await chain.client.getChainIdentifier();
+	const tx = new Transaction();
+	tx.setSender(account);
+	buildSignerChange(tx, {
+		account,
+		aliases: [account],
+		oldSet: account,
+		newSet: setOf(newThreshold),
+		known: [setOf(threshold)],
+		chain: chainIdentifier,
+		epoch: await chain.epoch(),
+	});
+	const transactionBytes = toBase64(
+		await tx.build({ client: chain.client }),
+	);
+	return proposer.apiV1.createProposal({
+		accountAddress: account,
+		transactionBytes,
+		signature: await proposer.signTransaction(
+			transactionBytes,
+		),
+		network: 'localnet',
+	});
 }
 
 // Bytes from `account` that add `alias` to its alias set, or replace the set with both.

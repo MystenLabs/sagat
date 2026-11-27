@@ -1,6 +1,8 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { and, eq } from 'drizzle-orm';
+
 import { db } from '../../src/db';
 import {
 	SchemaAccountAcceptances,
@@ -8,8 +10,18 @@ import {
 	SchemaAccountAliasState,
 	SchemaAddresses,
 } from '../../src/db/schema';
+import { ALIAS_STATE_MAX_AGE_MS } from '../../src/services/aliases.service';
 import { type SuiNetwork } from '../../src/utils/client';
 import { type TestUser } from '../framework/api-test-framework';
+
+// A legacy route's answer for an account whose signers changed.
+export const SERVED_BY_V1 = {
+	status: 409,
+	body: {
+		error:
+			'An account whose signers changed is served by the /v1 routes only.',
+	},
+};
 
 // What the refresh would write.
 export const setAliases = async (
@@ -35,6 +47,22 @@ export const setAliases = async (
 		})),
 	);
 };
+
+// Observed `ageMs` ago; by default older than the max age, so the next decision reads the chain.
+export const ageAliasState = (
+	account: string,
+	network: SuiNetwork,
+	ageMs = ALIAS_STATE_MAX_AGE_MS + 1_000,
+) =>
+	db
+		.update(SchemaAccountAliasState)
+		.set({ observedAt: new Date(Date.now() - ageMs) })
+		.where(
+			and(
+				eq(SchemaAccountAliasState.accountAddress, account),
+				eq(SchemaAccountAliasState.network, network),
+			),
+		);
 
 export const answerFor = (
 	account: string,

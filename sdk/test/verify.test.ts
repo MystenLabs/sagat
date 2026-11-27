@@ -6,6 +6,7 @@ import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { Secp256k1Keypair } from '@mysten/sui/keypairs/secp256k1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
+	Inputs,
 	Transaction,
 	TransactionDataBuilder,
 } from '@mysten/sui/transactions';
@@ -17,7 +18,10 @@ import {
 import { describe, expect, test } from 'bun:test';
 
 import {
+	buildSignerChange,
+	deriveAliasesObjectId,
 	PersonalMessages,
+	verifyAcceptedBySignerChange,
 	verifyAccountEvent,
 	verifyProposalCreated,
 	verifyProposalProposer,
@@ -349,6 +353,162 @@ describe('verifyAccountEvent', () => {
 	});
 });
 
+describe('verifyAcceptedBySignerChange', () => {
+	const [k1, k2, k3, added, other] = Array.from(
+		{ length: 5 },
+		() => new Ed25519Keypair(),
+	);
+	const compositionOf = (keys: Keypair[]) => ({
+		threshold: 2,
+		members: keys.map((key) => ({
+			publicKey: key.getPublicKey().toSuiPublicKey(),
+			weight: 1,
+		})),
+	});
+	const S1 = compositionOf([k1, k2, k3]);
+	const A = MultiSigPublicKey.fromPublicKeys({
+		threshold: 2,
+		publicKeys: [k1, k2, k3].map((key) => ({
+			publicKey: key.getPublicKey(),
+			weight: 1,
+		})),
+	}).toSuiAddress();
+
+	// A's change from S1 to k1, k2 and `newKey`, signed by `signer`, and the row for `newKey`.
+	const signedChange = async (
+		newKey: Keypair,
+		signer: Keypair,
+	) => {
+		const tx = new Transaction();
+		tx.setSender(A);
+		tx.setGasPrice(1000);
+		tx.setGasBudget(10_000_000);
+		tx.setGasPayment([
+			{
+				objectId: '0x99',
+				version: '1',
+				digest: toBase58(new Uint8Array(32).fill(1)),
+			},
+		]);
+		tx.object(
+			Inputs.SharedObjectRef({
+				objectId: deriveAliasesObjectId(A),
+				initialSharedVersion: 1,
+				mutable: true,
+			}),
+		);
+		buildSignerChange(tx, {
+			account: A,
+			aliases: [A],
+			oldSet: A,
+			newSet: compositionOf([k1, k2, newKey]),
+			known: [S1],
+			chain: toBase58(new Uint8Array(32).fill(7)),
+			epoch: 5,
+		});
+		const bytes = await tx.build();
+		const { signature } =
+			await signer.signTransaction(bytes);
+		const proposal = {
+			digest:
+				TransactionDataBuilder.getDigestFromBytes(bytes),
+			accountAddress: A,
+			transactionBytes: toBase64(bytes),
+		};
+		const event: AccountEvent = {
+			id: 4,
+			action: 'account.accepted',
+			actor: added.toSuiAddress(),
+			subject: proposal.digest,
+			proof: {
+				kind: 'signer_change.sign',
+				version: 1,
+				signature,
+			},
+			createdAt,
+		};
+		return { event, proposal };
+	};
+
+	test('verifies a key’s signature over the change that adds it, which verifyAccountEvent leaves unverified', async () => {
+		const { event, proposal } = await signedChange(
+			added,
+			added,
+		);
+		expect(
+			await verifyAcceptedBySignerChange(event, proposal, {
+				accountAddress: A,
+			}),
+		).toEqual({
+			status: 'verified',
+			signer: added.toSuiAddress(),
+			createdAt,
+		});
+		expect(
+			(
+				await verifyAccountEvent(event, {
+					accountAddress: A,
+					members: [],
+				})
+			).status,
+		).toBe('unverified');
+	});
+
+	test('is invalid when the change adds another key', async () => {
+		const { event, proposal } = await signedChange(
+			other,
+			added,
+		);
+		expect(
+			(
+				await verifyAcceptedBySignerChange(
+					event,
+					proposal,
+					{
+						accountAddress: A,
+					},
+				)
+			).status,
+		).toBe('invalid');
+	});
+
+	test('is invalid when the signature is another key’s', async () => {
+		const { event, proposal } = await signedChange(
+			added,
+			other,
+		);
+		expect(
+			(
+				await verifyAcceptedBySignerChange(
+					event,
+					proposal,
+					{
+						accountAddress: A,
+					},
+				)
+			).status,
+		).toBe('invalid');
+	});
+
+	test('is invalid on another account’s log', async () => {
+		const { event, proposal } = await signedChange(
+			added,
+			added,
+		);
+		expect(
+			(
+				await verifyAcceptedBySignerChange(
+					event,
+					proposal,
+					{
+						accountAddress: other.toSuiAddress(),
+					},
+				)
+			).status,
+		).toBe('invalid');
+	});
+});
+
 describe('verifyProposer', () => {
 	test('verifies a member proposer by membership alone', async () => {
 		const result = await verifyProposer({
@@ -435,6 +595,19 @@ describe('verifyProposalCreated', () => {
 			signer: outsider.toSuiAddress(),
 			createdAt,
 		});
+	});
+
+	test('is unverified when the proof has no signature', async () => {
+		const { event, proposal } = await signCreated(outsider);
+		const { signature: _, ...unsigned } = event.proof!;
+		expect(
+			(
+				await verifyProposalCreated(
+					{ ...event, proof: unsigned },
+					proposal,
+				)
+			).status,
+		).toBe('unverified');
 	});
 
 	test('is invalid when someone other than the proposer signed', async () => {

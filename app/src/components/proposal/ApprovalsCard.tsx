@@ -61,6 +61,7 @@ import {
 	foldedSignerSetsLine,
 	gasEstimate,
 	hasSigned,
+	signerChangeWarning,
 	withReason,
 	wouldReachThreshold,
 	type ApprovalRow,
@@ -273,12 +274,23 @@ export function ApprovalsCard({
 		return COPY.signProposal;
 	};
 
+	const signerChange = useMemo(
+		() =>
+			signerChangeWarning(
+				proposal,
+				status,
+				aliases?.kind === 'read' ? aliases.aliases : null,
+				labels,
+			),
+		[proposal, status, aliases, labels],
+	);
 	const signerSets = approvalsSignerSets(
 		proposal,
 		status,
 		labels,
 		viewerPublicKey,
 		pods ?? [],
+		signerChange?.notSigned,
 	);
 	const [mainSet, ...foldedSets] = signerSets;
 	const statusLine =
@@ -581,6 +593,17 @@ export function ApprovalsCard({
 				<ApprovalRowList rows={mainSet?.rows ?? []} />
 			)}
 
+			{signerChange && (
+				<Alert
+					variant="warning"
+					data-testid="signer-change-warning"
+				>
+					<div className="font-medium">
+						{COPY.signerChange.title}
+					</div>
+					<div>{signerChange.body}</div>
+				</Alert>
+			)}
 			{actions && (
 				<div className="mt-1 flex flex-col gap-3">
 					{actions}

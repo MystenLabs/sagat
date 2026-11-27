@@ -32,15 +32,19 @@
 					"network": { "type": "string" },
 					"kind": {
 						"type": "string",
-						"enum": ["transaction", "alias_call"],
-						"description": "`alias_call` for a transaction that calls `0x2::address_alias`."
+						"enum": [
+							"transaction",
+							"alias_call",
+							"signer_change"
+						],
+						"description": "`alias_call` for a transaction that calls `0x2::address_alias`, `signer_change` when it also carries a composition note."
 					},
 					"status": {
 						"$ref": "#/components/schemas/ProposalStatusName"
 					},
 					"ready": {
 						"type": "boolean",
-						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
+						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending, except a signer change; executedVia names what executed it. A pending signer change also needs the signatures of the new signer set for its own threshold."
 					},
 					"transactionBytes": { "type": "string" },
 					"proposerAddress": {
@@ -56,14 +60,24 @@
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/ProposalSignature"
-						}
+						},
+						"description": "One entry per key that signed."
 					},
 					"signerSets": {
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/SignerSet"
 						},
-						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. Then the original set, with acting false, when it no longer acts there."
+						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces: while pending, only while that set acts; once no longer pending, as the change describes it, still flagged acting, since it is the set the proposal was counted against. Then the original set, with acting false, when it is not among them."
+					},
+					"signerChange": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/ProposalSignerChange"
+							},
+							{ "type": "null" }
+						],
+						"description": "Non-null exactly when kind is `signer_change`."
 					},
 					"events": {
 						"$ref": "#/components/schemas/ProposalEvents"
@@ -91,6 +105,7 @@
 					"createdAt",
 					"signatures",
 					"signerSets",
+					"signerChange",
 					"events",
 					"executedVia",
 					"signerSetsStale"
@@ -133,7 +148,7 @@
 					},
 					"acting": {
 						"type": "boolean",
-						"description": "True when the set acts for the account on the proposal's network; false only for the original set once it was removed there. A set that does not act counts no signatures."
+						"description": "True when the set acts for the account on the proposal's network. For a signer change, true for the set it replaces, the one the proposal is counted against, also once it is no longer pending. False only for the original set when it is listed only so the account's address can be rebuilt: once it was removed there, or beside the set a signer change replaces. A set that does not act counts no signatures."
 					},
 					"original": {
 						"type": "boolean",
@@ -157,6 +172,33 @@
 					"order": { "type": "integer" }
 				},
 				"required": ["publicKey", "weight", "order"]
+			},
+			"ProposalSignerChange": {
+				"type": "object",
+				"properties": {
+					"removes": {
+						"type": ["string", "null"],
+						"description": "The signer set the change removes. Null when its composition note does not check; such a change is never ready."
+					},
+					"adds": {
+						"type": ["string", "null"],
+						"description": "The signer set the change adds. Null when its composition note does not check."
+					},
+					"labels": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"publicKey": { "type": "string" },
+								"label": { "type": "string" }
+							},
+							"required": ["publicKey", "label"]
+						},
+						"description": "The account’s labels for the keys the added set brings in, in its order: only the API’s word, for display."
+					}
+				},
+				"required": ["removes", "adds", "labels"],
+				"description": "The API’s reading of the signer change in the transaction bytes, which is only its word: a client reads and checks the bytes itself with the SDK (`checkSignerChange`)."
 			},
 			"ProposalEvents": {
 				"type": "object",
@@ -250,7 +292,12 @@
 						"type": "string",
 						"description": "The proposer's signature over the transaction."
 					},
-					"description": { "type": "string" }
+					"description": { "type": "string" },
+					"labels": {
+						"type": "array",
+						"items": { "type": ["string", "null"] },
+						"description": "For a signer change that adds a signer set: what the account calls each of its keys, in the order of the composition note. Only keys new to the account are labelled."
+					}
 				},
 				"required": [
 					"accountAddress",
@@ -456,6 +503,10 @@
 					"removedAt": {
 						"type": "string",
 						"format": "date-time"
+					},
+					"transactionDigest": {
+						"type": ["string", "null"],
+						"description": "The signer change that removed the set, as the API names it, or null when it names none; a client reads the transaction from its own node."
 					}
 				},
 				"required": [
@@ -464,7 +515,8 @@
 					"publicKey",
 					"signerSetAddress",
 					"eventId",
-					"removedAt"
+					"removedAt",
+					"transactionDigest"
 				],
 				"description": "An account one of the caller's keys was removed from on the network."
 			},
@@ -514,6 +566,17 @@
 						"items": {
 							"$ref": "#/components/schemas/AccountProposer"
 						}
+					},
+					"openSignerChange": {
+						"type": ["object", "null"],
+						"properties": {
+							"digest": {
+								"type": "string",
+								"description": "A Sui transaction digest."
+							}
+						},
+						"required": ["digest"],
+						"description": "The newest pending signer change on the network that has not expired, or null, as the API reports it; a client reads the transaction from its own node."
 					}
 				},
 				"required": [
@@ -526,7 +589,8 @@
 					"network",
 					"signerChangesEnabled",
 					"networksWithDifferentSigners",
-					"proposers"
+					"proposers",
+					"openSignerChange"
 				]
 			},
 			"AccountProposer": {
@@ -648,7 +712,7 @@
 		"/v1/proposals": {
 			"post": {
 				"summary": "Propose a transaction",
-				"description": "Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote.",
+				"description": "Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote. Only one proposal that calls `0x2::address_alias` per account and network is pending at a time. A signer change, recognised by its composition note, is checked against the account’s signers on the network, and the signer set it adds is written.",
 				"parameters": [
 					{
 						"schema": {
@@ -682,7 +746,7 @@
 						}
 					},
 					"400": {
-						"description": "The request, transaction or signature is invalid, or the network is not supported.",
+						"description": "The request, transaction or signature is invalid, the network is not supported, or a signer change does not check.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -692,7 +756,7 @@
 						}
 					},
 					"403": {
-						"description": "The signer may not propose for the account on the network, or the address is not an account.",
+						"description": "The signer may not propose for the account on the network, the address is not an account, or the proposer of a signer change is not an accepted signer of the set it replaces who stays.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -864,7 +928,7 @@
 		"/v1/proposals/{digest}/vote": {
 			"post": {
 				"summary": "Sign a proposal",
-				"description": "Signed over the transaction by a key of an acting signer set, accepted or not.",
+				"description": "Signed over the transaction by a key of an acting signer set, accepted or not. A signer change only by a key of the signer set it replaces or of the signer set it adds; only the replaced set’s signatures count toward its threshold.",
 				"parameters": [
 					{
 						"schema": {
@@ -909,7 +973,7 @@
 						}
 					},
 					"403": {
-						"description": "The key is in no acting signer set of the account on the network.",
+						"description": "The key is in no acting signer set of the account on the network, or the proposal is a signer change and the key is in neither the set it replaces nor the set it adds.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -944,7 +1008,7 @@
 		"/v1/proposals/{digest}/cancel": {
 			"post": {
 				"summary": "Cancel a proposal",
-				"description": "Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed.",
+				"description": "Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed. A signer change, while the set it replaces acts, only by an accepted signer of that set who stays; once it no longer acts, by any accepted key of an acting signer set.",
 				"parameters": [
 					{
 						"schema": {
@@ -989,7 +1053,7 @@
 						}
 					},
 					"403": {
-						"description": "The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer.",
+						"description": "The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer, or the proposal is a signer change whose replaced set still acts and the signer does not stay.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1024,7 +1088,7 @@
 		"/v1/proposals/{digest}/verify": {
 			"post": {
 				"summary": "Record the on-chain outcome of a proposal",
-				"description": "Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is.",
+				"description": "Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is, except a cancelled one that calls `0x2::address_alias`, which takes its on-chain outcome when the chain has it.",
 				"parameters": [
 					{
 						"schema": {
@@ -1496,7 +1560,7 @@
 			},
 			"delete": {
 				"summary": "Remove an external proposer",
-				"description": "Signed with `PersonalMessages.removeMultisigProposer` by an accepted key of an acting signer set. Cancels the proposer’s pending proposals on the network.",
+				"description": "Signed with `PersonalMessages.removeMultisigProposer` by an accepted key of an acting signer set. Cancels the proposer’s pending proposals on the network, except a signer change.",
 				"parameters": [
 					{
 						"schema": {

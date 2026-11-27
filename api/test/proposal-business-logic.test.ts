@@ -54,6 +54,7 @@ import {
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
 import { untilBackendsWaitOnALock } from './setup/test-db';
+import { changeProposer as changeAccountProposer } from './setup/v1-accounts';
 import {
 	insertProposal,
 	offlineTransfer,
@@ -1136,25 +1137,15 @@ describe('Proposal Business Logic', () => {
 					proposer: newUser().address,
 				}),
 			).toEqual(proposerLimitResponse);
-			const extra = newUser().address;
-			const expiry = defaultExpiry();
 			expect(
 				await refusal(
-					framework
-						.createSession()
-						.v1.addAccountProposer(multisig.address, {
-							network: 'localnet',
-							proposer: extra,
-							signature: await sign(
-								users[0],
-								PersonalMessages.addMultisigProposer(
-									extra,
-									multisig.address,
-									expiry,
-								),
-							),
-							expiry,
-						}),
+					changeAccountProposer(
+						framework,
+						'add',
+						users[0],
+						multisig.address,
+						newUser().address,
+					),
 				),
 			).toEqual({
 				status: 400,

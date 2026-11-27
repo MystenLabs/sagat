@@ -94,7 +94,6 @@ export const getPublicKeyFromSerializedSignature = (
 	);
 };
 
-// The address of whatever made a serialized signature, a multisig or a single key, or null when it cannot be read.
 export const signerAddressOf = (
 	signature: string,
 ): string | null => {

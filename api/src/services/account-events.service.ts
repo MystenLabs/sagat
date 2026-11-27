@@ -133,13 +133,21 @@ type AccountEventRegistry = {
 		subject: string;
 		proof: SignedProof<'signer_set.reject'>;
 	};
-	'account.accepted': {
-		actor: string;
-		proof: SignedProof<
-			'account.accept',
-			{ expiry: string }
-		>;
-	};
+	'account.accepted':
+		| {
+				actor: string;
+				proof: SignedProof<
+					'account.accept',
+					{ expiry: string }
+				>;
+		  }
+		// By signing the executed signer change that adds the key: `subject` is its digest, the signature the key's vote.
+		| {
+				actor: string;
+				subject: string;
+				network: string;
+				proof: SignedProof<'signer_change.sign'>;
+		  };
 	'account.rejected': {
 		actor: string;
 		proof: SignedProof<
@@ -176,12 +184,16 @@ type UnsetFields = {
 
 export type AccountEventAction = keyof AccountEventRegistry;
 
+// Per shape, so an action with two shapes leaves unset only what each lacks.
+type WithUnset<Fields> = Fields extends unknown
+	? Fields & Omit<UnsetFields, keyof Fields>
+	: never;
+
 export type AccountEvent = {
 	[A in AccountEventAction]: {
 		action: A;
 		accountAddress: string;
-	} & AccountEventRegistry[A] &
-		Omit<UnsetFields, keyof AccountEventRegistry[A]>;
+	} & WithUnset<AccountEventRegistry[A]>;
 }[AccountEventAction];
 
 // Takes the lock so an account's ids follow commit order. A writer touching

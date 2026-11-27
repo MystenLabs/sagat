@@ -69,7 +69,7 @@ export const SignerSetSchema = z
 		members: z.array(SignerSetMemberSchema),
 		acting: z.boolean().meta({
 			description:
-				"True when the set acts for the account on the proposal's network; false only for the original set once it was removed there. A set that does not act counts no signatures.",
+				"True when the set acts for the account on the proposal's network. For a signer change, true for the set it replaces, the one the proposal is counted against, also once it is no longer pending. False only for the original set when it is listed only so the account's address can be rebuilt: once it was removed there, or beside the set a signer change replaces. A set that does not act counts no signatures.",
 		}),
 		original: z.boolean().meta({
 			description:
@@ -132,6 +132,37 @@ const signerSetsStale = z.boolean().meta({
 		'True when the alias set could not be read from the chain, so the signer sets are as last read.',
 });
 
+export const ProposalSignerChangeSchema = z
+	.object({
+		removes: SuiAddressSchema.nullable().meta({
+			description:
+				'The signer set the change removes. Null when its composition note does not check; such a change is never ready.',
+		}),
+		adds: SuiAddressSchema.nullable().meta({
+			description:
+				'The signer set the change adds. Null when its composition note does not check.',
+		}),
+		labels: z
+			.array(
+				z.object({
+					publicKey: z.string(),
+					label: z.string(),
+				}),
+			)
+			.meta({
+				description:
+					'The account’s labels for the keys the added set brings in, in its order: only the API’s word, for display.',
+			}),
+	})
+	.meta({
+		id: 'ProposalSignerChange',
+		description:
+			'The API’s reading of the signer change in the transaction bytes, which is only its word: a client reads and checks the bytes itself with the SDK (`checkSignerChange`).',
+	});
+export type ProposalSignerChange = z.infer<
+	typeof ProposalSignerChangeSchema
+>;
+
 export const ProposalStatusNameSchema = z
 	.enum(['PENDING', 'CANCELLED', 'SUCCESS', 'FAILURE'])
 	.meta({ id: 'ProposalStatusName' });
@@ -145,23 +176,33 @@ export const ProposalSchema = z
 		accountAddress: SuiAddressSchema,
 		accountName: z.string().nullable(),
 		network: z.string(),
-		kind: z.enum(['transaction', 'alias_call']).meta({
-			description:
-				'`alias_call` for a transaction that calls `0x2::address_alias`.',
-		}),
+		kind: z
+			.enum(['transaction', 'alias_call', 'signer_change'])
+			.meta({
+				description:
+					'`alias_call` for a transaction that calls `0x2::address_alias`, `signer_change` when it also carries a composition note.',
+			}),
 		status: ProposalStatusNameSchema,
 		ready: z.boolean().meta({
 			description:
-				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
+				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending, except a signer change; executedVia names what executed it. A pending signer change also needs the signatures of the new signer set for its own threshold.',
 		}),
 		transactionBytes: z.string(),
 		proposerAddress: SuiAddressSchema,
 		description: z.string().nullable(),
 		createdAt: z.iso.datetime(),
-		signatures: z.array(ProposalSignatureSchema),
+		signatures: z.array(ProposalSignatureSchema).meta({
+			description: 'One entry per key that signed.',
+		}),
 		signerSets: z.array(SignerSetSchema).meta({
 			description:
-				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. Then the original set, with acting false, when it no longer acts there.",
+				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. For a signer change, only the set it replaces: while pending, only while that set acts; once no longer pending, as the change describes it, still flagged acting, since it is the set the proposal was counted against. Then the original set, with acting false, when it is not among them.",
+		}),
+		signerChange: ProposalSignerChangeSchema.or(
+			z.null(),
+		).meta({
+			description:
+				'Non-null exactly when kind is `signer_change`.',
 		}),
 		events: ProposalEventsSchema,
 		executedVia: SuiAddressSchema.nullable().meta({
@@ -265,6 +306,10 @@ export type AccountProposer = z.infer<
 	typeof AccountProposerSchema
 >;
 
+const SignerChangeRefSchema = z.object({
+	digest: TransactionDigestSchema,
+});
+
 export const AccountDetailsSchema = z
 	.object({
 		...accountFields,
@@ -280,6 +325,12 @@ export const AccountDetailsSchema = z
 					'The other supported networks whose alias set differs from this one.',
 			}),
 		proposers: z.array(AccountProposerSchema),
+		openSignerChange: SignerChangeRefSchema.nullable().meta(
+			{
+				description:
+					'The newest pending signer change on the network that has not expired, or null, as the API reports it; a client reads the transaction from its own node.',
+			},
+		),
 	})
 	.meta({ id: 'AccountDetails' });
 export type AccountDetails = z.infer<
@@ -296,6 +347,11 @@ export const RemovedAccountSchema = z
 			description: 'The `alias.removed` event.',
 		}),
 		removedAt: z.iso.datetime(),
+		transactionDigest:
+			TransactionDigestSchema.nullable().meta({
+				description:
+					'The signer change that removed the set, as the API names it, or null when it names none; a client reads the transaction from its own node.',
+			}),
 	})
 	.meta({
 		id: 'RemovedAccount',
@@ -396,6 +452,10 @@ export const CreateProposalRequestSchema = z
 				"The proposer's signature over the transaction.",
 		}),
 		description: z.string().optional(),
+		labels: z.array(z.string().nullable()).optional().meta({
+			description:
+				'For a signer change that adds a signer set: what the account calls each of its keys, in the order of the composition note. Only keys new to the account are labelled.',
+		}),
 	})
 	.meta({ id: 'CreateProposalRequest' });
 export type CreateProposalRequest = z.infer<

@@ -8,6 +8,7 @@ import {
 } from '@mysten/sui/client';
 import {
 	type Argument,
+	type Transaction,
 	type TransactionData,
 } from '@mysten/sui/transactions';
 import {
@@ -27,6 +28,9 @@ export type AliasCall = {
 /** The `AddressAliasState` singleton (shared object). */
 export const ADDRESS_ALIAS_STATE_ID =
 	normalizeSuiAddress('0xa');
+
+/** Protocol limit on the size of an alias set (`address_alias::MAX_ALIASES`). */
+export const MAX_ALIASES = 8;
 
 const MODULE = '0x2::address_alias';
 const ALIAS_KEY_TYPE = `${MODULE}::AliasKey`;
@@ -143,12 +147,48 @@ export function decodeAliasSet(
 	};
 }
 
+/** The `AddressAliases` object it creates cannot be used later in the same transaction. */
+export function buildEnable(tx: Transaction) {
+	tx.moveCall({
+		target: `${MODULE}::enable`,
+		arguments: [tx.object(ADDRESS_ALIAS_STATE_ID)],
+	});
+}
+
+/** The sender must be `account`. */
+export function buildAdd(
+	tx: Transaction,
+	{ account, alias }: { account: string; alias: string },
+) {
+	tx.moveCall({
+		target: `${MODULE}::add`,
+		arguments: [
+			tx.object(deriveAliasesObjectId(account)),
+			tx.pure.address(alias),
+		],
+	});
+}
+
+/** The sender must be `account`. */
+export function buildRemove(
+	tx: Transaction,
+	{ account, alias }: { account: string; alias: string },
+) {
+	tx.moveCall({
+		target: `${MODULE}::remove`,
+		arguments: [
+			tx.object(deriveAliasesObjectId(account)),
+			tx.pure.address(alias),
+		],
+	});
+}
+
 const FRAMEWORK = normalizeSuiAddress('0x2');
 const ALIAS_MODULE = 'address_alias';
 const AddressListBcs = bcs.vector(bcs.Address);
 
-// The value of a pure input argument, or null when its bytes are not exactly one `schema` value.
-function decodePure<T extends Input, Input>(
+// Null when the bytes are not exactly one `schema` value.
+export function decodePure<T extends Input, Input>(
 	inputs: TransactionData['inputs'],
 	argument: Argument | undefined,
 	schema: BcsType<T, Input>,
@@ -168,11 +208,7 @@ function decodePure<T extends Input, Input>(
 	}
 }
 
-/**
- * The top-level calls to `0x2::address_alias` in a transaction, in command
- * order. Pass `Transaction.getData()`, or a `TransactionDataBuilder` read from
- * the bytes.
- */
+/** Top-level calls only, in command order; pass `Transaction.getData()` or a `TransactionDataBuilder` read from the bytes. */
 export function findAliasCalls({
 	commands,
 	inputs,

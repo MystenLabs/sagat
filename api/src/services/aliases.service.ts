@@ -7,9 +7,13 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '../db';
 import {
+	ProposalStatus,
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
+	SchemaProposals,
+	SchemaProposalSignatures,
 	type AccountAliasState,
+	type Proposal,
 } from '../db/schema';
 import {
 	lockAccount,
@@ -30,10 +34,21 @@ import {
 	recordAccountEvent,
 	SYSTEM_ACTOR,
 } from './account-events.service';
+import { acceptAddedKey } from './invitations.service';
+import {
+	findAliasProposals,
+	lookUpOnChainOutcome,
+	recordOnChainOutcome,
+	type OnChainOutcome,
+} from './onchain-outcomes.service';
+import { signerChangeIn } from './signer-changes.service';
+import { mirroredAliasSet } from './signers.service';
 
 export const ALIAS_STATE_MAX_AGE_MS = 60_000;
 // Each changed account writes in its own transaction.
 const WRITE_GROUP_SIZE = 8;
+// Node lookups of one account's alias proposals at once.
+const LOOKUP_GROUP_SIZE = 8;
 
 type Mirrored = { exists: boolean; version: string | null };
 
@@ -162,11 +177,108 @@ const difference = (before: string[], after: string[]) => ({
 	removed: before.filter((a) => !after.includes(a)).sort(),
 });
 
+type Settlement = {
+	proposal: Proposal;
+	outcome: OnChainOutcome;
+};
+
+const findExecutedAliasProposals = async (
+	account: string,
+	network: SuiNetwork,
+): Promise<Settlement[]> => {
+	const open = await findAliasProposals(
+		db,
+		account,
+		network,
+		[ProposalStatus.PENDING, ProposalStatus.CANCELLED],
+	);
+	const settlements: Settlement[] = [];
+	for (const group of chunk(open, LOOKUP_GROUP_SIZE)) {
+		const outcomes = await Promise.all(
+			group.map((proposal) =>
+				lookUpOnChainOutcome(network, proposal.digest),
+			),
+		);
+		group.forEach((proposal, i) => {
+			const outcome = outcomes[i];
+			if (outcome) settlements.push({ proposal, outcome });
+		});
+	}
+	return settlements;
+};
+
+// Accepts each key that an executed change among `digests` adds at an alias in `added`, and that signed it.
+const acceptKeysThatSigned = async (
+	tx: DatabaseTransaction,
+	account: string,
+	network: SuiNetwork,
+	added: string[],
+	digests: string[],
+) => {
+	if (added.length === 0) return;
+	const changes = await tx
+		.select({
+			id: SchemaProposals.id,
+			digest: SchemaProposals.digest,
+			transactionBytes: SchemaProposals.transactionBytes,
+		})
+		.from(SchemaProposals)
+		.where(
+			and(
+				inArray(SchemaProposals.digest, [
+					...new Set(digests),
+				]),
+				eq(SchemaProposals.accountAddress, account),
+				eq(SchemaProposals.network, network),
+				eq(SchemaProposals.status, ProposalStatus.SUCCESS),
+			),
+		);
+	for (const change of changes) {
+		const read = signerChangeIn(
+			change.transactionBytes,
+		)?.change;
+		if (!read || !added.includes(read.newSet.address))
+			continue;
+		const replaced = new Set(
+			read.oldSet.members.map((m) => m.publicKey),
+		);
+		const newKeys = new Set(
+			read.newSet.members
+				.map((m) => m.publicKey)
+				.filter((key) => !replaced.has(key)),
+		);
+		const signatures = await tx
+			.select({
+				publicKey: SchemaProposalSignatures.publicKey,
+				signature: SchemaProposalSignatures.signature,
+			})
+			.from(SchemaProposalSignatures)
+			.where(
+				eq(SchemaProposalSignatures.proposalId, change.id),
+			);
+		// Key rows are locked in the order creation locks them, so writers sharing keys can't deadlock.
+		const signed = signatures
+			.filter(({ publicKey }) => newKeys.has(publicKey))
+			.toSorted((a, b) =>
+				a.publicKey < b.publicKey ? -1 : 1,
+			);
+		for (const { publicKey, signature } of signed)
+			await acceptAddedKey(tx, {
+				accountAddress: account,
+				key: publicKey,
+				digest: change.digest,
+				network,
+				signature,
+			});
+	}
+};
+
 const writeMirror = (
 	account: string,
 	network: SuiNetwork,
 	read: AliasSet,
 	readAt: Date,
+	settlements: Settlement[],
 ): Promise<AliasRefreshResult> =>
 	db.transaction(async (tx) => {
 		await lockAccount(tx, account);
@@ -190,20 +302,17 @@ const writeMirror = (
 			};
 		}
 
+		for (const { proposal, outcome } of settlements)
+			await recordOnChainOutcome(tx, proposal, outcome);
 		const aliasRows = and(
 			eq(SchemaAccountAliases.accountAddress, account),
 			eq(SchemaAccountAliases.network, network),
 		);
-		const current = await tx
-			.select({
-				address: SchemaAccountAliases.aliasAddress,
-			})
-			.from(SchemaAccountAliases)
-			.where(aliasRows);
-		const before =
-			current.length > 0
-				? current.map((r) => r.address)
-				: [account];
+		const before = await mirroredAliasSet(
+			tx,
+			account,
+			network,
+		);
 
 		const state = {
 			exists: read.exists,
@@ -267,6 +376,21 @@ const writeMirror = (
 					network,
 					proof,
 				});
+		await acceptKeysThatSigned(
+			tx,
+			account,
+			network,
+			added,
+			[
+				read.previousTransaction,
+				...settlements
+					.filter(
+						({ outcome }) =>
+							outcome.status === ProposalStatus.SUCCESS,
+					)
+					.map(({ proposal }) => proposal.digest),
+			],
+		);
 
 		return {
 			accountAddress: account,
@@ -308,6 +432,9 @@ const refreshOne = async (
 			network,
 			read,
 			readAt,
+			read.exists
+				? await findExecutedAliasProposals(account, network)
+				: [],
 		);
 	} catch (error) {
 		return {

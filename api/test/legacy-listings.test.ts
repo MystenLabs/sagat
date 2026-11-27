@@ -5,8 +5,12 @@
 // composition, `(A, A)` in `account_signer_sets`: a signer set without one (a
 // draft, or a signer set added to another account) is not a legacy multisig.
 
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { describe, expect, test } from 'bun:test';
+import {
+	describe,
+	expect,
+	setDefaultTimeout,
+	test,
+} from 'bun:test';
 import { eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
@@ -14,53 +18,20 @@ import {
 	SchemaAccounts,
 	SchemaAccountSignerSets,
 	SchemaSignerSetMembers,
-	SchemaSignerSets,
 } from '../src/db/schema';
 import {
 	ApiTestFramework,
 	newUser,
-	type TestUser,
 } from './framework/api-test-framework';
+import { rpcCalls } from './setup/rpc-calls';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
+import { insertNewSignerSet } from './setup/signer-sets';
 
 setupSharedTestEnvironment();
-
-// A 1-of-2 signer set of `[accepted, invited]` inserted directly, with no
-// `account_signer_sets` row.
-const insertSignerSet = async (
-	accepted: TestUser,
-	invited: TestUser,
-) => {
-	const address = MultiSigPublicKey.fromPublicKeys({
-		threshold: 1,
-		publicKeys: [accepted, invited].map((m) => ({
-			publicKey: m.keypair.getPublicKey(),
-			weight: 1,
-		})),
-	}).toSuiAddress();
-	await db.insert(SchemaSignerSets).values({
-		address,
-		threshold: 1,
-		isVerified: false,
-	});
-	await db.insert(SchemaSignerSetMembers).values([
-		{
-			signerSetAddress: address,
-			publicKey: accepted.publicKey,
-			order: 0,
-			isAccepted: true,
-		},
-		{
-			signerSetAddress: address,
-			publicKey: invited.publicKey,
-			order: 1,
-		},
-	]);
-	return address;
-};
+setDefaultTimeout(60_000);
 
 // Two users: `u1` connected in `session`, `u2` in `invitee`, so `u2` is
 // invited rather than auto-accepted.
@@ -107,7 +78,11 @@ describe('Legacy listings', () => {
 		).address;
 
 		// The same members in a signer set with no account and no link row.
-		const draft = await insertSignerSet(u1, u2);
+		const draft = await insertNewSignerSet({
+			members: [u1, u2],
+			threshold: 1,
+			acceptedBy: [u1],
+		});
 
 		const { connections, invitations } =
 			await listedFor(users);
@@ -126,7 +101,11 @@ describe('Legacy listings', () => {
 		const { session, u1, u2 } = users;
 
 		// The account exists, but nothing links it to its own composition.
-		const address = await insertSignerSet(u1, u2);
+		const address = await insertNewSignerSet({
+			members: [u1, u2],
+			threshold: 1,
+			acceptedBy: [u1],
+		});
 		await db.insert(SchemaAccounts).values({ address });
 
 		const { connections, invitations } =
@@ -137,6 +116,47 @@ describe('Legacy listings', () => {
 		await expect(
 			session.client.getMultisig(address),
 		).rejects.toThrow('not found');
+	});
+
+	test('a signer set a change left for another account is no legacy multisig to its members', async () => {
+		const users = await setupUsers();
+		const { session, invitee, u1, u2 } = users;
+		const { address: account } =
+			await session.createMultisig([u1, newUser()], 2);
+		const left = await insertNewSignerSet({
+			members: [u1, u2],
+			threshold: 2,
+			account: { address: account, draftedBy: u1 },
+		});
+
+		const { connections, invitations } =
+			await listedFor(users);
+		expect(connections).not.toContain(left);
+		expect(invitations).not.toContain(left);
+		await expect(
+			invitee.client.getMultisig(left),
+		).rejects.toThrow('not found');
+		await expect(
+			invitee.acceptMultisig(u2, left),
+		).rejects.toThrow('Multisig not found');
+		await expect(
+			invitee.rejectMultisig(u2, left),
+		).rejects.toThrow('Multisig not found');
+
+		expect(
+			await db
+				.select({
+					isAccepted: SchemaSignerSetMembers.isAccepted,
+					isRejected: SchemaSignerSetMembers.isRejected,
+				})
+				.from(SchemaSignerSetMembers)
+				.where(
+					eq(SchemaSignerSetMembers.signerSetAddress, left),
+				),
+		).toEqual([
+			{ isAccepted: false, isRejected: false },
+			{ isAccepted: false, isRejected: false },
+		]);
 	});
 
 	test('the create route links the multisig to its own account', async () => {
@@ -184,5 +204,32 @@ describe('Legacy listings', () => {
 				eq(SchemaAccountSignerSets.accountAddress, address),
 			);
 		expect(row.status).toBe('verified');
+	});
+
+	test('51 accounts cost two chain reads, and a second listing right after costs none', async () => {
+		const framework = new ApiTestFramework(
+			await createTestApp(),
+		);
+		const {
+			session,
+			users: [a, b],
+		} = await framework.createAuthenticatedSession(2);
+		for (let i = 0; i < 51; i++)
+			await session.createMultisig(
+				[i % 2 === 0 ? a : b, newUser()],
+				1,
+			);
+
+		const before = await rpcCalls('getObjects');
+		const listed =
+			await session.client.getMultisigConnections();
+		const first = (await rpcCalls('getObjects')) - before;
+		await session.client.getMultisigConnections();
+		const second =
+			(await rpcCalls('getObjects')) - before - first;
+
+		expect(Object.values(listed).flat()).toHaveLength(51);
+		expect(first).toBe(2);
+		expect(second).toBe(0);
 	});
 });

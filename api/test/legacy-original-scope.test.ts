@@ -1,21 +1,26 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-// The legacy routes ask for the original signer set, whatever the alias mirror says acts.
+// The legacy routes ask for the original signer set, and refuse an account whose alias mirror says another composition acts.
 
 import {
 	defaultExpiry,
 	PersonalMessages,
 	ProposalStatus,
 } from '@mysten/sagat';
-import { fromBase64 } from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
 	expect,
 	test,
 } from 'bun:test';
+import { asc, eq } from 'drizzle-orm';
 
+import { db } from '../src/db';
+import {
+	SchemaProposals,
+	SchemaSignerSetMembers,
+} from '../src/db/schema';
 import { AuthErrors } from '../src/errors';
 import {
 	ApiTestFramework,
@@ -24,14 +29,23 @@ import {
 	executeProposal,
 	newUser,
 	sign,
+	signedBy,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
-import { answerFor, setAliases } from './setup/acting-sets';
+import {
+	answerFor,
+	SERVED_BY_V1,
+	setAliases,
+} from './setup/acting-sets';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
+import {
+	insertProposal,
+	offlineTransfer,
+} from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
 
@@ -41,9 +55,9 @@ beforeEach(async () => {
 	framework = new ApiTestFramework(await createTestApp());
 });
 
-// `A`: original set 2 of 4 (`k1`, `k2` accepted, `k3`, `k4` invited), funded. The
-// mirror says composition `R` acts on localnet and `A` does not, and `r1`
-// of `R` accepted `A`.
+// `A`: original set 2 of 4 (`k1`, `k2` accepted, `k3`, `k4` invited), funded.
+// `change` writes the mirror rows that say composition `R` acts on localnet
+// and `A` does not, and that `r1` of `R` accepted `A`.
 const setup = async () => {
 	const [k1, k2, k3, k4, r1] = [
 		newUser(),
@@ -70,8 +84,10 @@ const setup = async () => {
 		await outsider.createMultisig([r1, newUser()], 1)
 	).address;
 
-	await setAliases(account, 'localnet', [composition]);
-	await answerFor(account, r1, 'accepted');
+	const change = async () => {
+		await setAliases(account, 'localnet', [composition]);
+		await answerFor(account, r1, 'accepted');
+	};
 
 	return {
 		k1,
@@ -83,6 +99,7 @@ const setup = async () => {
 		session,
 		invitee,
 		outsider,
+		change,
 	};
 };
 
@@ -107,10 +124,124 @@ const connectionsOf = async (
 		user.publicKey
 	].map((multisig) => multisig.address);
 
+// Each legacy route about the account or its pending `proposal`, called by `user`.
+const accountRoutes = async (
+	session: TestSession,
+	user: TestUser,
+	account: string,
+	proposal: {
+		id: number;
+		digest: string;
+		transactionBytes: string;
+	},
+) => {
+	const transactionBytes = await offlineTransfer(account);
+	const proposer = newUser().address;
+	const expiry = defaultExpiry();
+	return {
+		read: await errorOf(
+			await session.request(`/multisig/${account}`),
+		),
+		proposals: await errorOf(
+			await session.request(
+				`/proposals?multisigAddress=${account}&network=localnet`,
+			),
+		),
+		byDigest: await errorOf(
+			await session.request(
+				`/proposals/digest/${proposal.digest}`,
+			),
+		),
+		create: await errorOf(
+			await session.post('/proposals', {
+				multisigAddress: account,
+				network: 'localnet',
+				transactionBytes,
+				signature: await signedBy(user, transactionBytes),
+			}),
+		),
+		vote: await errorOf(
+			await session.post(`/proposals/${proposal.id}/vote`, {
+				signature: await signedBy(
+					user,
+					proposal.transactionBytes,
+				),
+			}),
+		),
+		cancel: await errorOf(
+			await session.post(
+				`/proposals/${proposal.id}/cancel`,
+				{
+					signature: await sign(
+						user,
+						PersonalMessages.cancelProposal(
+							proposal.digest,
+							account,
+						),
+					),
+				},
+			),
+		),
+		addProposer: await errorOf(
+			await session.post(
+				`/multisig/${account}/add-proposer`,
+				{
+					proposer,
+					expiry,
+					signature: await sign(
+						user,
+						PersonalMessages.addMultisigProposer(
+							proposer,
+							account,
+							expiry,
+						),
+					),
+				},
+			),
+		),
+		removeProposer: await errorOf(
+			await session.post(
+				`/multisig/${account}/remove-proposer`,
+				{
+					proposer,
+					expiry,
+					signature: await sign(
+						user,
+						PersonalMessages.removeMultisigProposer(
+							proposer,
+							account,
+							expiry,
+						),
+					),
+				},
+			),
+		),
+	};
+};
+
+const EVERY_ROUTE_REFUSED = {
+	read: SERVED_BY_V1,
+	proposals: SERVED_BY_V1,
+	byDigest: SERVED_BY_V1,
+	create: SERVED_BY_V1,
+	vote: SERVED_BY_V1,
+	cancel: SERVED_BY_V1,
+	addProposer: SERVED_BY_V1,
+	removeProposer: SERVED_BY_V1,
+};
+
 describe('legacy routes under alias mirror rows', () => {
-	test("the original set's keys keep every legacy route", async () => {
-		const { k1, k2, k3, k4, account, session, invitee } =
-			await setup();
+	test("the original set's keys get a 409 from every legacy route about the account, and keep the open ones", async () => {
+		const {
+			k1,
+			k2,
+			k3,
+			k4,
+			account,
+			session,
+			invitee,
+			change,
+		} = await setup();
 
 		expect(await connectionsOf(session, k1)).toContain(
 			account,
@@ -120,24 +251,9 @@ describe('legacy routes under alias mirror rows', () => {
 				await invitee.client.getInvitations(k3.publicKey)
 			).map((multisig) => multisig.address),
 		).toContain(account);
-		await invitee.acceptMultisig(k3, account);
-		await invitee.rejectMultisig(k4, account);
-
-		const multisig =
-			await session.client.getMultisig(account);
-		expect(multisig.address).toBe(account);
 		expect(
-			multisig.members.map((m) => [
-				m.publicKey,
-				m.isAccepted,
-				m.isRejected,
-			]),
-		).toEqual([
-			[k1.publicKey, true, false],
-			[k2.publicKey, true, false],
-			[k3.publicKey, true, false],
-			[k4.publicKey, false, true],
-		]);
+			(await session.client.getMultisig(account)).address,
+		).toBe(account);
 
 		const bot = newUser();
 		await session.addProposer(k1, bot.address, account);
@@ -158,22 +274,12 @@ describe('legacy routes under alias mirror rows', () => {
 		);
 		await session.legacyCancel(k1, cancelled, account);
 
+		// Executed before the change; verified after it.
 		const proposal = await proposeTransfer(
 			session,
 			k1,
 			account,
 		);
-		expect(
-			await errorOf(
-				await session.post(
-					`/proposals/${proposal.digest}/verify-by-digest`,
-					{},
-				),
-			),
-		).toEqual({
-			status: 400,
-			body: { error: 'Proposal is not ready to execute' },
-		});
 		expect(
 			(
 				await session.client.getProposals(
@@ -186,12 +292,10 @@ describe('legacy routes under alias mirror rows', () => {
 			[proposal.id, ProposalStatus.PENDING],
 			[cancelled.id, ProposalStatus.CANCELLED],
 		]);
-
 		expect(await session.legacyVote(k2, proposal)).toEqual({
 			hasReachedThreshold: true,
 			currentWeight: 2,
 		});
-
 		const response = await session.request(
 			`/proposals/digest/${proposal.digest}`,
 		);
@@ -209,7 +313,6 @@ describe('legacy routes under alias mirror rows', () => {
 			k3.publicKey,
 			k4.publicKey,
 		]);
-
 		const legacyProposal =
 			await session.client.getProposalByDigest(
 				proposal.digest,
@@ -218,17 +321,86 @@ describe('legacy routes under alias mirror rows', () => {
 			legacyProposal,
 			legacyProposal.multisig,
 		);
+		expect(tx.effects.status.success).toBe(true);
+
+		await change();
+
+		expect(await connectionsOf(session, k1)).not.toContain(
+			account,
+		);
+		expect(
+			(
+				await invitee.client.getInvitations(k3.publicKey)
+			).map((multisig) => multisig.address),
+		).not.toContain(account);
+		await invitee.acceptMultisig(k3, account);
+		await invitee.rejectMultisig(k4, account);
+		expect(
+			await db
+				.select({
+					publicKey: SchemaSignerSetMembers.publicKey,
+					isAccepted: SchemaSignerSetMembers.isAccepted,
+					isRejected: SchemaSignerSetMembers.isRejected,
+				})
+				.from(SchemaSignerSetMembers)
+				.where(
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						account,
+					),
+				)
+				.orderBy(asc(SchemaSignerSetMembers.order)),
+		).toEqual([
+			{
+				publicKey: k1.publicKey,
+				isAccepted: true,
+				isRejected: false,
+			},
+			{
+				publicKey: k2.publicKey,
+				isAccepted: true,
+				isRejected: false,
+			},
+			{
+				publicKey: k3.publicKey,
+				isAccepted: true,
+				isRejected: false,
+			},
+			{
+				publicKey: k4.publicKey,
+				isAccepted: false,
+				isRejected: true,
+			},
+		]);
+
+		const pending = await insertProposal(
+			account,
+			'localnet',
+			k1.address,
+		);
+		expect(
+			await accountRoutes(session, k1, account, pending),
+		).toEqual(EVERY_ROUTE_REFUSED);
+
+		expect(
+			await errorOf(
+				await session.post(
+					`/proposals/${pending.digest}/verify-by-digest`,
+					{},
+				),
+			),
+		).toEqual({
+			status: 400,
+			body: { error: 'Proposal is not ready to execute' },
+		});
 		await session.client.verifyProposalByDigest(
 			proposal.digest,
 		);
-		expect(tx.effects.status.success).toBe(true);
-		expect(
-			(
-				await session.client.getProposalByDigest(
-					proposal.digest,
-				)
-			).status,
-		).toBe(ProposalStatus.SUCCESS);
+		const [{ status }] = await db
+			.select({ status: SchemaProposals.status })
+			.from(SchemaProposals)
+			.where(eq(SchemaProposals.id, proposal.id));
+		expect(status).toBe(ProposalStatus.SUCCESS);
 
 		const verified = await session.post(
 			`/proposals/${proposal.id}/verify`,
@@ -238,20 +410,27 @@ describe('legacy routes under alias mirror rows', () => {
 		expect(await verified.json()).toEqual({
 			verified: true,
 		});
+
+		await session.client.registerAddresses();
+		expect(
+			(await session.request(`/addresses/${k1.address}`))
+				.status,
+		).toBe(200);
+		expect(
+			(await session.createMultisig([k1, newUser()], 1))
+				.address,
+		).not.toBe(account);
 	});
 
 	test('a key of another acting set gets nothing from a legacy route', async () => {
-		const { k1, r1, account, session, outsider } =
+		const { k1, r1, account, outsider, change } =
 			await setup();
-		const proposal = await proposeTransfer(
-			session,
-			k1,
+		await change();
+		const proposal = await insertProposal(
 			account,
+			'localnet',
+			k1.address,
 		);
-		const notAMember = {
-			status: 403,
-			body: { error: AuthErrors.NotAMultisigMember },
-		};
 
 		expect(await connectionsOf(outsider, r1)).not.toContain(
 			account,
@@ -262,115 +441,10 @@ describe('legacy routes under alias mirror rows', () => {
 			).map((multisig) => multisig.address),
 		).not.toContain(account);
 
+		// The refusal comes before the member check.
 		expect(
-			await errorOf(
-				await outsider.request(`/multisig/${account}`),
-			),
-		).toEqual({
-			status: 403,
-			body: { error: AuthErrors.AccessDenied },
-		});
-
-		const transactionBytes = await buildTransfer(account);
-		expect(
-			await errorOf(
-				await outsider.post('/proposals', {
-					multisigAddress: account,
-					network: 'localnet',
-					transactionBytes,
-					signature: (
-						await r1.keypair.signTransaction(
-							fromBase64(transactionBytes),
-						)
-					).signature,
-				}),
-			),
-		).toEqual(notAMember);
-
-		expect(
-			await errorOf(
-				await outsider.post(
-					`/proposals/${proposal.id}/vote`,
-					{
-						signature: (
-							await r1.keypair.signTransaction(
-								fromBase64(proposal.transactionBytes),
-							)
-						).signature,
-					},
-				),
-			),
-		).toEqual(notAMember);
-
-		expect(
-			await errorOf(
-				await outsider.post(
-					`/proposals/${proposal.id}/cancel`,
-					{
-						signature: await sign(
-							r1,
-							PersonalMessages.cancelProposal(
-								proposal.digest,
-								account,
-							),
-						),
-					},
-				),
-			),
-		).toEqual({
-			status: 400,
-			body: { error: 'Not a member of the multisig' },
-		});
-
-		expect(
-			await errorOf(
-				await outsider.request(
-					`/proposals?multisigAddress=${account}&network=localnet`,
-				),
-			),
-		).toEqual(notAMember);
-
-		const proposer = newUser().address;
-		const expiry = defaultExpiry();
-		expect(
-			await errorOf(
-				await outsider.post(
-					`/multisig/${account}/add-proposer`,
-					{
-						proposer,
-						expiry,
-						signature: await sign(
-							r1,
-							PersonalMessages.addMultisigProposer(
-								proposer,
-								account,
-								expiry,
-							),
-						),
-					},
-				),
-			),
-		).toEqual(notAMember);
-
-		expect(
-			await errorOf(
-				await outsider.post(
-					`/multisig/${account}/remove-proposer`,
-					{
-						proposer,
-						expiry,
-						signature: await sign(
-							r1,
-							PersonalMessages.removeMultisigProposer(
-								proposer,
-								account,
-								expiry,
-							),
-						),
-					},
-				),
-			),
-		).toEqual(notAMember);
+			await accountRoutes(outsider, r1, account, proposal),
+		).toEqual(EVERY_ROUTE_REFUSED);
 
 		expect(
 			await errorOf(
@@ -379,6 +453,9 @@ describe('legacy routes under alias mirror rows', () => {
 					{},
 				),
 			),
-		).toEqual(notAMember);
+		).toEqual({
+			status: 403,
+			body: { error: AuthErrors.NotAMultisigMember },
+		});
 	});
 });
