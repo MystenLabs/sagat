@@ -87,11 +87,13 @@ export function MultisigDetailPage() {
 	}, [address, verifiedMultisigs, currentAccount?.address]);
 
 	// A key a signer change removed sees a plain line, not the pod,
-	// and keeps it through background refetches.
+	// and keeps it through background refetches, but not while the list
+	// refreshes right after accepting again.
 	if (
 		address &&
 		!multisigDetails &&
-		noLongerSigner?.includes(address)
+		noLongerSigner?.includes(address) &&
+		!(arrival?.kind === 'joined' && isFetching)
 	) {
 		return (
 			<div className="page-shell flex-1">
