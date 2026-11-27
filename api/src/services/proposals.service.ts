@@ -1041,44 +1041,34 @@ type ListInput = {
 	callerKeys: PublicKey[];
 };
 
-// Both lists: the access check, then one page.
+// Both lists, after their access check: one page.
 const listProposalPage = async ({
 	multisigAddress,
 	network,
 	status,
 	cursor,
-	callerKeys,
-	scopeKind,
-}: ListInput & { scopeKind: SignerScopeKind }) => {
-	const scope = scopeOn(scopeKind, network);
-	if (
-		!(await isAccountSigner(multisigAddress, callerKeys, {
-			acceptedOnly: true,
-			scope,
-		}))
-	)
-		throw await REFUSALS[scopeKind].notAccepted(
-			() => resolveAccountSigners(multisigAddress, scope),
-			callerKeys.map((key) => key.toSuiPublicKey()),
-		);
-
-	return await getProposalsByAccountAddress(
+}: ListInput) =>
+	await getProposalsByAccountAddress(
 		multisigAddress,
 		network,
 		cursor,
 		status ? proposalStatusFromString(status) : undefined,
 	);
-};
 
 // Lists an account's proposals on a network, for an accepted member.
 export const listProposals = async (
 	input: ListInput,
 ): Promise<PaginatedResponse<ProposalWithSignatures>> => {
 	validateNetwork(input.network);
-	return await listProposalPage({
-		...input,
-		scopeKind: 'original',
-	});
+	if (
+		!(await isAccountSigner(
+			input.multisigAddress,
+			input.callerKeys,
+			{ acceptedOnly: true, scope: ORIGINAL_SET },
+		))
+	)
+		throw await REFUSALS.original.notAccepted();
+	return await listProposalPage(input);
 };
 
 const NO_EVENTS: ProposalEvents = {
@@ -1108,17 +1098,19 @@ export const listAccountProposals = async ({
 			input.network,
 			loaders,
 		));
-	const page = await listProposalPage({
-		...input,
-		scopeKind: 'acting',
-	});
-	const [signers, events] = await Promise.all([
-		getAccountSigners(
-			input.multisigAddress,
-			actingSetsOn(input.network),
-		),
-		getProposalEvents(page.data.map((p) => p.id)),
-	]);
+	const keys = input.callerKeys.map((key) =>
+		key.toSuiPublicKey(),
+	);
+	const signers = await resolveAccountSigners(
+		input.multisigAddress,
+		actingSetsOn(input.network),
+	);
+	if (!signers || !signsFor(signers, keys, true))
+		throw notAcceptedSignerError(signers, keys);
+	const page = await listProposalPage(input);
+	const events = await getProposalEvents(
+		page.data.map((p) => p.id),
+	);
 	return {
 		...page,
 		data: page.data.map((proposal) => ({
