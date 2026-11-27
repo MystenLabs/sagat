@@ -649,6 +649,18 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			error: new ApiAuthError('NotAnAccountSigner').message,
 		},
 	};
+	const create = async (
+		accountAddress: string,
+		bytes: string,
+		signature: string,
+	) =>
+		errorOf(
+			await session.post('/v1/proposals?network=localnet', {
+				accountAddress,
+				transactionBytes: bytes,
+				signature,
+			}),
+		);
 
 	test('create refuses a signature that does not verify alike for a signer, an outsider and an address that is no account', async () => {
 		const { k1, address } = await createAccount();
@@ -660,21 +672,6 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 		const noAccount = newUser().address;
 		await sendCoins(noAccount, 1);
 		const noAccountBytes = await buildTransfer(noAccount);
-		const create = async (
-			accountAddress: string,
-			bytes: string,
-			signature: string,
-		) =>
-			errorOf(
-				await session.post(
-					'/v1/proposals?network=localnet',
-					{
-						accountAddress,
-						transactionBytes: bytes,
-						signature,
-					},
-				),
-			);
 
 		const answers = [
 			await create(
@@ -732,18 +729,10 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			bcs.TransactionData.serialize(data).toBase64();
 		for (const bytes of ['AAAA', unbuildable])
 			expect(
-				await errorOf(
-					await session.post(
-						'/v1/proposals?network=localnet',
-						{
-							accountAddress: address,
-							transactionBytes: bytes,
-							signature: await signedBy(
-								outsider,
-								transactionBytes,
-							),
-						},
-					),
+				await create(
+					address,
+					bytes,
+					await signedBy(outsider, transactionBytes),
 				),
 			).toEqual({
 				status: 400,
