@@ -1393,7 +1393,7 @@ export const content = {
 				id: 'who-approves',
 				question: 'Who approves this change?',
 				answer:
-					'The current signers approve it as one proposal, at the current threshold. Any signer who stays can cancel it. A signer being removed can’t.',
+					'The current signers approve it as one proposal, at the current threshold. The signers after the change sign it too, enough for the new threshold, before it can execute. Any signer who stays can cancel it. A signer being removed can’t.',
 			},
 			{
 				id: 'open-proposals',

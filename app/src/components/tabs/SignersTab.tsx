@@ -6,13 +6,14 @@ import { buildEnable } from '@mysten/sagat';
 import { Transaction } from '@mysten/sui/transactions';
 import { toBase64 } from '@mysten/sui/utils';
 import { Plus } from 'lucide-react';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import {
 	Link,
 	useNavigate,
 	useOutletContext,
 } from 'react-router-dom';
 
+import { AtMaxTooltip } from '@/components/create-multisig/SignersStep';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
@@ -85,11 +86,6 @@ import {
 	disabledButton,
 } from '../ui/button';
 import { InlineRetry } from '../ui/inline-retry';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '../ui/tooltip';
 
 const COPY = content.signers;
 const COMMON = content.common;
@@ -579,30 +575,6 @@ function ProposalBanner({
 				</Link>
 			</div>
 		</Alert>
-	);
-}
-
-// A disabled button takes no pointer, so a wrapper holds the tooltip.
-function AtMaxTooltip({
-	atMax,
-	children,
-}: {
-	atMax: boolean;
-	children: ReactNode;
-}) {
-	return atMax ? (
-		<Tooltip>
-			<TooltipTrigger
-				render={<span className="inline-flex" />}
-			>
-				{children}
-			</TooltipTrigger>
-			<TooltipContent>
-				{content.common.maxSigners(CONFIG.MAX_MEMBERS)}
-			</TooltipContent>
-		</Tooltip>
-	) : (
-		children
 	);
 }
 

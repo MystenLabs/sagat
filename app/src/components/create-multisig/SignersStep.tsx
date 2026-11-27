@@ -203,32 +203,45 @@ export function AddSignerButton({
 	onClick: () => void;
 	testId: string;
 }) {
-	const button = (
-		<Button
-			type="button"
-			variant="outline"
-			className={cn('h-9.5', atMax && disabledButton)}
-			disabled={atMax}
-			onClick={onClick}
-			data-testid={testId}
-		>
-			<Plus />
-			{content.common.actions.addSigner}
-		</Button>
+	return (
+		<AtMaxTooltip atMax={atMax}>
+			<Button
+				type="button"
+				variant="outline"
+				className={cn('h-9.5', atMax && disabledButton)}
+				disabled={atMax}
+				onClick={onClick}
+				data-testid={testId}
+			>
+				<Plus />
+				{content.common.actions.addSigner}
+			</Button>
+		</AtMaxTooltip>
 	);
+}
+
+/** Why `children` is disabled at the maximum number of signers. */
+export function AtMaxTooltip({
+	atMax,
+	children,
+}: {
+	atMax: boolean;
+	children: ReactNode;
+}) {
+	// A disabled button takes no pointer, so a wrapper holds the tooltip.
 	return atMax ? (
 		<Tooltip>
 			<TooltipTrigger
 				render={<span className="inline-flex" />}
 			>
-				{button}
+				{children}
 			</TooltipTrigger>
 			<TooltipContent>
 				{content.common.maxSigners(CONFIG.MAX_MEMBERS)}
 			</TooltipContent>
 		</Tooltip>
 	) : (
-		button
+		children
 	);
 }
 
