@@ -698,7 +698,7 @@ export function signersWhoStay(
 		.filter((k) => kept.has(k));
 }
 
-/** The new set's weight of its members in `keys` (keys that signed, or accepted), whether they stay or are new. */
+/** The new set's weight of its members in `keys` (keys that signed), whether they stay or are new. */
 export function proofWeight(
 	newSet: SignerSetEntry,
 	keys: readonly string[],
