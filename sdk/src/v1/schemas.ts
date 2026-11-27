@@ -328,7 +328,7 @@ export const AccountDetailsSchema = z
 		openSignerChange: SignerChangeRefSchema.nullable().meta(
 			{
 				description:
-					'The pending signer change on the network, or null, as the API reports it; a client reads the transaction from its own node.',
+					'The newest pending signer change on the network that has not expired, or null, as the API reports it; a client reads the transaction from its own node.',
 			},
 		),
 	})

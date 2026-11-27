@@ -154,7 +154,7 @@ const cancelRoute = createRoute({
 	summary: 'Cancel a proposal',
 	...sessionIfAny,
 	description:
-		'Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed. A signer change only by an accepted signer of the set it replaces who stays.',
+		'Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed. A signer change, while the set it replaces acts, only by an accepted signer of that set who stays; once it no longer acts, by any accepted key of an acting signer set.',
 	request: { params: digestParams, body: signatureBody },
 	responses: {
 		200: proposalResponse('The proposal, cancelled.'),
@@ -162,7 +162,7 @@ const cancelRoute = createRoute({
 			'The digest or signature is invalid, a signer has already signed the proposer’s proposal, or the proposal is not pending.',
 		),
 		403: error(
-			'The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer, or the proposal is a signer change and the signer does not stay.',
+			'The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer, or the proposal is a signer change whose replaced set still acts and the signer does not stay.',
 		),
 		404: error('No proposal has this digest.'),
 		503: unavailable,
@@ -175,7 +175,7 @@ const verifyRoute = createRoute({
 	summary: 'Record the on-chain outcome of a proposal',
 	...sessionIfAny,
 	description:
-		'Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is.',
+		'Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is, except a cancelled one that calls `0x2::address_alias`, which takes its on-chain outcome when the chain has it.',
 	request: { params: digestParams },
 	responses: {
 		200: proposalResponse(

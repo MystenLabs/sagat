@@ -576,7 +576,7 @@
 							}
 						},
 						"required": ["digest"],
-						"description": "The pending signer change on the network, or null, as the API reports it; a client reads the transaction from its own node."
+						"description": "The newest pending signer change on the network that has not expired, or null, as the API reports it; a client reads the transaction from its own node."
 					}
 				},
 				"required": [
@@ -1008,7 +1008,7 @@
 		"/v1/proposals/{digest}/cancel": {
 			"post": {
 				"summary": "Cancel a proposal",
-				"description": "Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed. A signer change only by an accepted signer of the set it replaces who stays.",
+				"description": "Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed. A signer change, while the set it replaces acts, only by an accepted signer of that set who stays; once it no longer acts, by any accepted key of an acting signer set.",
 				"parameters": [
 					{
 						"schema": {
@@ -1053,7 +1053,7 @@
 						}
 					},
 					"403": {
-						"description": "The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer, or the proposal is a signer change and the signer does not stay.",
+						"description": "The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer, or the proposal is a signer change whose replaced set still acts and the signer does not stay.",
 						"content": {
 							"application/json": {
 								"schema": {
@@ -1088,7 +1088,7 @@
 		"/v1/proposals/{digest}/verify": {
 			"post": {
 				"summary": "Record the on-chain outcome of a proposal",
-				"description": "Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is.",
+				"description": "Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is, except a cancelled one that calls `0x2::address_alias`, which takes its on-chain outcome when the chain has it.",
 				"parameters": [
 					{
 						"schema": {
