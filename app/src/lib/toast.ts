@@ -88,7 +88,11 @@ export const toast = {
 			// Sticky, so repeats of the same error replace it instead of stacking
 			id: message,
 			...withLink(options),
-			cancel: copyButton(message),
+			cancel: copyButton(
+				typeof options?.description === 'string'
+					? `${message}\n${options.description}`
+					: message,
+			),
 		}),
 	/** Stays until closed, like an error. */
 	info: (message: string, options?: Options) =>
