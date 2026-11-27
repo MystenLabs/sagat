@@ -5,7 +5,12 @@
 // through the `/v1` routes, with the cast of `setup/signer-changes`, all
 // accepted; `R` is another account's composition that shares `k1` and `k2`.
 
-import { buildAdd, type Composition } from '@mysten/sagat';
+import {
+	buildAdd,
+	verifyAcceptedBySignerChange,
+	type AccountEvent,
+	type Composition,
+} from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
 import { toBase64 } from '@mysten/sui/utils';
 import {
@@ -14,7 +19,14 @@ import {
 	expect,
 	test,
 } from 'bun:test';
+import { and, eq } from 'drizzle-orm';
 
+import { db } from '../src/db';
+import {
+	ProposalStatus,
+	SchemaAccountEvents,
+	SchemaProposals,
+} from '../src/db/schema';
 import { ApiAuthError } from '../src/errors';
 import {
 	ApiTestFramework,
@@ -25,6 +37,7 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
+import { ageAliasState } from './setup/acting-sets';
 import {
 	build,
 	type GasCoin,
@@ -41,7 +54,6 @@ import {
 	proposeCastChange,
 	type Cast,
 } from './setup/signer-changes';
-import { answer } from './setup/v1-accounts';
 
 setupSharedTestEnvironment();
 
@@ -74,11 +86,8 @@ const listedFor = async (key: TestUser) =>
 		await (await signedIn(key)).getAccounts('localnet')
 	).accounts.map((account) => account.address);
 
-// Executes a proposal with the API's signatures of the set that reached its threshold, and verifies it.
-const executeAndVerify = async (
-	session: TestSession,
-	proposal: Proposal,
-) => {
+// Executes a proposal on chain with the API's signatures of the set that reached its threshold.
+const executeReady = async (proposal: Proposal) => {
 	const set = proposal.signerSets.find(
 		(s) => s.currentWeight >= s.threshold,
 	)!;
@@ -86,11 +95,64 @@ const executeAndVerify = async (
 		(await executeProposal(proposal, set)).effects.status
 			.success,
 	).toBe(true);
+};
+
+// Executes a proposal as `executeReady` does, and verifies it.
+const executeAndVerify = async (
+	session: TestSession,
+	proposal: Proposal,
+) => {
+	await executeReady(proposal);
 	return session.v1.verifyProposalByDigest(proposal.digest);
 };
 
-const NOT_ACCEPTED = new ApiAuthError('AccountNotAccepted')
-	.message;
+// `key`'s `account.accepted` row for `account`, checked against the change it names.
+const verifiedAcceptance = async (
+	session: TestSession,
+	key: TestUser,
+	account: string,
+) => {
+	const [event] = await db
+		.select()
+		.from(SchemaAccountEvents)
+		.where(
+			and(
+				eq(SchemaAccountEvents.accountAddress, account),
+				eq(SchemaAccountEvents.action, 'account.accepted'),
+				eq(SchemaAccountEvents.actor, key.address),
+			),
+		);
+	return verifyAcceptedBySignerChange(
+		{
+			id: event.id,
+			action: event.action,
+			actor: event.actor,
+			subject: event.subject,
+			proof: event.proof as AccountEvent['proof'],
+			createdAt: event.createdAt.toISOString(),
+		},
+		await session.v1.getProposalByDigest(event.subject!),
+	);
+};
+
+// A member's answer for `account` in its set at `address`, as `key` reads it.
+const answerOf = async (
+	key: TestUser,
+	account: string,
+	address: string,
+) => {
+	const set = (
+		await (
+			await signedIn(key)
+		).getAccount(account, 'localnet')
+	).signerSets.find((s) => s.address === address);
+	return (
+		set?.kind !== 'unknown' &&
+		set?.members.find((m) => m.publicKey === key.publicKey)
+			?.answer
+	);
+};
+
 const NOT_A_SIGNER = new ApiAuthError('NotAnAccountSigner')
 	.message;
 
@@ -201,19 +263,18 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		).toEqual({ status: 403, message: NOT_A_SIGNER });
 	});
 
-	test('the new k4 is invited, shown as invited, signs at once, and gets a member’s rights once it accepts', async () => {
+	test('the new k4, which signed the change, is accepted with no invitation, signs at once, and has a member’s rights at once', async () => {
 		const { k4, A, S2 } = cast;
-		expect(await invitedTo(k4)).toEqual([A]);
-		const account = await (
-			await signedIn(k4)
-		).getAccount(A, 'localnet');
-		const s2 = account.signerSets[1];
-		expect(s2.address).toBe(addressOf(S2));
+		expect(await invitedTo(k4)).toEqual([]);
+		expect(await answerOf(k4, A, addressOf(S2))).toBe(
+			'accepted',
+		);
 		expect(
-			s2.kind !== 'unknown' &&
-				s2.members.find((m) => m.publicKey === k4.publicKey)
-					?.answer,
-		).toBe('invited');
+			await verifiedAcceptance(session, k4, A),
+		).toMatchObject({
+			status: 'verified',
+			signer: k4.address,
+		});
 		const voted = await session.voteOnProposal(
 			k4,
 			pending.digest,
@@ -232,18 +293,6 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			});
 		const propose = () =>
 			session.createProposal(k4, A, 'localnet', bytes);
-		expect(await listedFor(k4)).toEqual([]);
-		expect(await refusal(listProposals())).toEqual({
-			status: 403,
-			message: NOT_ACCEPTED,
-		});
-		expect(await refusal(propose())).toEqual({
-			status: 403,
-			message: NOT_ACCEPTED,
-		});
-
-		await answer(framework, k4, A, 'accept');
-
 		expect(await listedFor(k4)).toEqual([A]);
 		expect((await listProposals()).proposals).toHaveLength(
 			4,
@@ -468,5 +517,60 @@ describe('a change to a composition that is already an alias', () => {
 		expect(await invitedTo(k5)).toContain(A);
 		for (const key of [k1, k2])
 			expect(await invitedTo(key)).not.toContain(A);
+	});
+});
+
+describe('a change executed without the API', () => {
+	let session: TestSession;
+	let cast: Cast;
+
+	beforeAll(async () => {
+		framework = new ApiTestFramework(await createTestApp());
+		session = framework.createSession();
+		cast = await createCast(session);
+	});
+
+	test('a change executed outside the API is settled by the next refresh, and a new key that signed it is accepted with no invitation', async () => {
+		const { k2, k4, A, S2 } = cast;
+		const change = await proposeCastChange(
+			session,
+			cast,
+			S2,
+		);
+		await session.voteOnProposal(
+			k4,
+			change.digest,
+			change.transactionBytes,
+		);
+		const ready = await session.voteOnProposal(
+			k2,
+			change.digest,
+			change.transactionBytes,
+		);
+		expect(ready.ready).toBe(true);
+		await executeReady(ready);
+		const [stored] = await db
+			.select({ status: SchemaProposals.status })
+			.from(SchemaProposals)
+			.where(eq(SchemaProposals.digest, change.digest));
+		expect(stored.status).toBe(ProposalStatus.PENDING);
+
+		// The next read refreshes the stale mirror.
+		await ageAliasState(A, 'localnet');
+		expect(await answerOf(k4, A, addressOf(S2))).toBe(
+			'accepted',
+		);
+
+		expect(
+			(await session.v1.getProposalByDigest(change.digest))
+				.status,
+		).toBe('SUCCESS');
+		expect(await invitedTo(k4)).not.toContain(A);
+		expect(
+			await verifiedAcceptance(session, k4, A),
+		).toMatchObject({
+			status: 'verified',
+			signer: k4.address,
+		});
 	});
 });

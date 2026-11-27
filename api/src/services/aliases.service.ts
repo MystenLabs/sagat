@@ -1,7 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type AliasSet } from '@mysten/sagat';
+import {
+	readCompositionNote,
+	type AliasSet,
+} from '@mysten/sagat';
+import { Transaction } from '@mysten/sui/transactions';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
@@ -10,6 +14,8 @@ import {
 	ProposalStatus,
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
+	SchemaProposals,
+	SchemaProposalSignatures,
 	type AccountAliasState,
 	type Proposal,
 } from '../db/schema';
@@ -32,6 +38,7 @@ import {
 	recordAccountEvent,
 	SYSTEM_ACTOR,
 } from './account-events.service';
+import { acceptAddedKey } from './invitations.service';
 import {
 	findAliasProposals,
 	lookUpOnChainOutcome,
@@ -203,6 +210,76 @@ const findExecutedAliasProposals = async (
 	return settlements;
 };
 
+// The note of a proposal's bytes, or null when they carry none that reads.
+const noteOf = (transactionBytes: string) => {
+	try {
+		return readCompositionNote(
+			Transaction.from(transactionBytes).getData(),
+		);
+	} catch {
+		return null;
+	}
+};
+
+// Accepts each key that an executed change among `digests` adds at an alias in `added`, and that signed it.
+const acceptKeysThatSigned = async (
+	tx: DatabaseTransaction,
+	account: string,
+	network: SuiNetwork,
+	added: string[],
+	digests: string[],
+) => {
+	if (added.length === 0) return;
+	const changes = await tx
+		.select({
+			id: SchemaProposals.id,
+			digest: SchemaProposals.digest,
+			transactionBytes: SchemaProposals.transactionBytes,
+		})
+		.from(SchemaProposals)
+		.where(
+			and(
+				inArray(SchemaProposals.digest, [
+					...new Set(digests),
+				]),
+				eq(SchemaProposals.accountAddress, account),
+				eq(SchemaProposals.network, network),
+				eq(SchemaProposals.status, ProposalStatus.SUCCESS),
+			),
+		);
+	for (const change of changes) {
+		const note = noteOf(change.transactionBytes);
+		if (!note?.added || !added.includes(note.added.address))
+			continue;
+		const replaced = new Set(
+			note.removed.members.map((m) => m.publicKey),
+		);
+		const newKeys = new Set(
+			note.added.members
+				.map((m) => m.publicKey)
+				.filter((key) => !replaced.has(key)),
+		);
+		const signatures = await tx
+			.select({
+				publicKey: SchemaProposalSignatures.publicKey,
+				signature: SchemaProposalSignatures.signature,
+			})
+			.from(SchemaProposalSignatures)
+			.where(
+				eq(SchemaProposalSignatures.proposalId, change.id),
+			);
+		for (const { publicKey, signature } of signatures)
+			if (newKeys.has(publicKey))
+				await acceptAddedKey(tx, {
+					accountAddress: account,
+					key: publicKey,
+					digest: change.digest,
+					network,
+					signature,
+				});
+	}
+};
+
 const writeMirror = (
 	account: string,
 	network: SuiNetwork,
@@ -306,6 +383,21 @@ const writeMirror = (
 					network,
 					proof,
 				});
+		await acceptKeysThatSigned(
+			tx,
+			account,
+			network,
+			added,
+			[
+				read.previousTransaction,
+				...settlements
+					.filter(
+						({ outcome }) =>
+							outcome.status === ProposalStatus.SUCCESS,
+					)
+					.map(({ proposal }) => proposal.digest),
+			],
+		);
 
 		return {
 			accountAddress: account,

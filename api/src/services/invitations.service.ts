@@ -30,6 +30,7 @@ import {
 	type DatabaseTransaction,
 } from '../db/transaction';
 import { ValidationError } from '../errors';
+import { parsePublicKey } from '../utils/pubKey';
 import {
 	isRecordedSignature,
 	recordAccountEvent,
@@ -41,11 +42,10 @@ import {
 } from './signers.service';
 
 // Not counting the account it is joining. Locks the key's row until `tx` ends.
-export const assertKeyBelowMultisigLimit = async (
+const isKeyAtMultisigLimit = async (
 	tx: DatabaseTransaction,
 	publicKey: string,
 	joiningAccountAddress: string,
-	scopeKind: SignerScopeKind,
 ) => {
 	await tx
 		.select({ publicKey: SchemaAddresses.publicKey })
@@ -61,7 +61,22 @@ export const assertKeyBelowMultisigLimit = async (
 		.where(
 			ne(accepted.accountAddress, joiningAccountAddress),
 		);
-	if (count >= LIMITS.maxMultisigsPerPublicKey)
+	return count >= LIMITS.maxMultisigsPerPublicKey;
+};
+
+export const assertKeyBelowMultisigLimit = async (
+	tx: DatabaseTransaction,
+	publicKey: string,
+	joiningAccountAddress: string,
+	scopeKind: SignerScopeKind,
+) => {
+	if (
+		await isKeyAtMultisigLimit(
+			tx,
+			publicKey,
+			joiningAccountAddress,
+		)
+	)
 		throw new ValidationError(
 			scopeKind === 'acting'
 				? 'You have reached the maximum number of accounts for this public key.'
@@ -89,6 +104,143 @@ export type InvitationAnswer =
 				'signer_set.rejected' | 'account.rejected'
 			>;
 	  };
+
+// The key's answer row for the account: its member row in the original set, else its acceptance row.
+const readAnswer = async (
+	tx: DatabaseTransaction,
+	accountAddress: string,
+	key: string,
+) => {
+	const [member] = await tx
+		.select({
+			isAccepted: SchemaSignerSetMembers.isAccepted,
+			isRejected: SchemaSignerSetMembers.isRejected,
+		})
+		.from(SchemaSignerSetMembers)
+		.where(
+			and(
+				eq(
+					SchemaSignerSetMembers.signerSetAddress,
+					accountAddress,
+				),
+				eq(SchemaSignerSetMembers.publicKey, key),
+			),
+		);
+	const [acceptance] = member
+		? []
+		: await tx
+				.select({
+					isAccepted: SchemaAccountAcceptances.isAccepted,
+					isRejected: SchemaAccountAcceptances.isRejected,
+				})
+				.from(SchemaAccountAcceptances)
+				.where(
+					and(
+						eq(
+							SchemaAccountAcceptances.accountAddress,
+							accountAddress,
+						),
+						eq(SchemaAccountAcceptances.publicKey, key),
+					),
+				);
+	return { member, current: member ?? acceptance };
+};
+
+const writeAnswer = async (
+	tx: DatabaseTransaction,
+	{
+		accountAddress,
+		key,
+		answer,
+		isMember,
+	}: {
+		accountAddress: string;
+		key: string;
+		answer: InvitationAnswer['answer'];
+		isMember: boolean;
+	},
+) => {
+	const state = {
+		isAccepted: answer === 'accepted',
+		isRejected: answer === 'rejected',
+	};
+	if (isMember)
+		await tx
+			.update(SchemaSignerSetMembers)
+			.set(state)
+			.where(
+				and(
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						accountAddress,
+					),
+					eq(SchemaSignerSetMembers.publicKey, key),
+				),
+			);
+	else
+		await tx
+			.insert(SchemaAccountAcceptances)
+			.values({
+				accountAddress,
+				publicKey: key,
+				...state,
+			})
+			.onConflictDoUpdate({
+				target: [
+					SchemaAccountAcceptances.accountAddress,
+					SchemaAccountAcceptances.publicKey,
+				],
+				set: { ...state, answeredAt: sql`now()` },
+			});
+};
+
+// For a key that signed the executed change that adds it, under the caller's account lock; skips one already accepted or at the limit.
+export const acceptAddedKey = async (
+	tx: DatabaseTransaction,
+	{
+		accountAddress,
+		key,
+		digest,
+		network,
+		signature,
+	}: {
+		accountAddress: string;
+		key: string;
+		digest: string;
+		network: string;
+		signature: string;
+	},
+) => {
+	const { member, current } = await readAnswer(
+		tx,
+		accountAddress,
+		key,
+	);
+	if (
+		current?.isAccepted ||
+		(await isKeyAtMultisigLimit(tx, key, accountAddress))
+	)
+		return;
+
+	await writeAnswer(tx, {
+		accountAddress,
+		key,
+		answer: 'accepted',
+		isMember: !!member,
+	});
+	await recordAccountEvent(tx, {
+		action: 'account.accepted',
+		accountAddress,
+		actor: parsePublicKey(key).toSuiAddress(),
+		subject: digest,
+		network,
+		proof: {
+			kind: 'signer_change.sign',
+			version: 1,
+			signature,
+		},
+	});
+};
 
 // The caller has verified the answer. Returns the account's original signer set after it.
 export const answerInvitation = async ({
@@ -139,39 +291,11 @@ export const answerInvitation = async ({
 		)
 			return signerSet;
 
-		const [member] = await tx
-			.select({
-				isAccepted: SchemaSignerSetMembers.isAccepted,
-				isRejected: SchemaSignerSetMembers.isRejected,
-			})
-			.from(SchemaSignerSetMembers)
-			.where(
-				and(
-					eq(
-						SchemaSignerSetMembers.signerSetAddress,
-						accountAddress,
-					),
-					eq(SchemaSignerSetMembers.publicKey, key),
-				),
-			);
-		const [acceptance] = member
-			? []
-			: await tx
-					.select({
-						isAccepted: SchemaAccountAcceptances.isAccepted,
-						isRejected: SchemaAccountAcceptances.isRejected,
-					})
-					.from(SchemaAccountAcceptances)
-					.where(
-						and(
-							eq(
-								SchemaAccountAcceptances.accountAddress,
-								accountAddress,
-							),
-							eq(SchemaAccountAcceptances.publicKey, key),
-						),
-					);
-		const current = member ?? acceptance;
+		const { member, current } = await readAnswer(
+			tx,
+			accountAddress,
+			key,
+		);
 
 		// Accepting again records nothing but still recalculates, as the legacy accept did.
 		const changes =
@@ -198,38 +322,13 @@ export const answerInvitation = async ({
 			}
 		}
 
-		const state = {
-			isAccepted: answer === 'accepted',
-			isRejected: answer === 'rejected',
-		};
-		if (changes && member)
-			await tx
-				.update(SchemaSignerSetMembers)
-				.set(state)
-				.where(
-					and(
-						eq(
-							SchemaSignerSetMembers.signerSetAddress,
-							accountAddress,
-						),
-						eq(SchemaSignerSetMembers.publicKey, key),
-					),
-				);
-		else if (changes)
-			await tx
-				.insert(SchemaAccountAcceptances)
-				.values({
-					accountAddress,
-					publicKey: key,
-					...state,
-				})
-				.onConflictDoUpdate({
-					target: [
-						SchemaAccountAcceptances.accountAddress,
-						SchemaAccountAcceptances.publicKey,
-					],
-					set: { ...state, answeredAt: sql`now()` },
-				});
+		if (changes)
+			await writeAnswer(tx, {
+				accountAddress,
+				key,
+				answer,
+				isMember: !!member,
+			});
 
 		let result = signerSet;
 		if (member)
