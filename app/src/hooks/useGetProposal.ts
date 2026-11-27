@@ -46,7 +46,7 @@ export function useGetProposal(digest: string | null) {
 	});
 }
 
-/** Writes a returned proposal into its read and the cached lists of its status, then refetches the lists. */
+/** Writes a returned proposal into its read and the cached lists of its status, drops it from the others, then refetches the lists. */
 export async function writeProposal(
 	queryClient: QueryClient,
 	proposal: AppProposal,
@@ -58,32 +58,30 @@ export async function writeProposal(
 		exact: true,
 	});
 	queryClient.setQueryData(key, proposal);
-	queryClient.setQueriesData<InfiniteData<AppProposalList>>(
-		{
-			queryKey: [QueryKeys.Proposals],
-			predicate: ({ queryKey }) =>
-				proposalsListShows(queryKey, proposal.status),
-		},
-		(cached) => {
-			if (
-				!cached?.pages.some((page) =>
-					page.proposals.some(
-						(row) => row.digest === proposal.digest,
-					),
-				)
-			)
-				return cached;
-			return {
+	// Lists of another status drop the row instead; none gains one.
+	for (const [
+		queryKey,
+		cached,
+	] of queryClient.getQueriesData<
+		InfiniteData<AppProposalList>
+	>({ queryKey: [QueryKeys.Proposals] }))
+		if (cached)
+			queryClient.setQueryData(queryKey, {
 				...cached,
 				pages: cached.pages.map((page) => ({
 					...page,
-					proposals: page.proposals.map((row) =>
-						row.digest === proposal.digest ? proposal : row,
+					proposals: page.proposals.flatMap((row) =>
+						row.digest !== proposal.digest
+							? [row]
+							: proposalsListShows(
+										queryKey,
+										proposal.status,
+								  )
+								? [proposal]
+								: [],
 					),
 				})),
-			};
-		},
-	);
+			});
 	void queryClient.invalidateQueries({
 		queryKey: [QueryKeys.Proposals],
 	});

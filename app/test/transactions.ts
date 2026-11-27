@@ -2,14 +2,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	buildSignerChange,
+	deriveAliasesObjectId,
+	type Composition,
+} from '@mysten/sagat';
+import { MultiSigPublicKey } from '@mysten/sui/multisig';
+import {
+	Inputs,
 	Transaction,
 	TransactionDataBuilder,
 } from '@mysten/sui/transactions';
 import {
 	fromBase64,
+	normalizeSuiAddress,
 	toBase58,
 	toBase64,
 } from '@mysten/sui/utils';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 
 // A transfer's bytes from `sender`, with the given expiration.
 export async function transfer(
@@ -37,3 +46,48 @@ export const digestOf = (bytes: string) =>
 	TransactionDataBuilder.getDigestFromBytes(
 		fromBase64(bytes),
 	);
+const addressOf = (set: Composition) =>
+	MultiSigPublicKey.fromPublicKeys({
+		threshold: set.threshold,
+		publicKeys: set.members.map((m) => ({
+			publicKey: publicKeyFromSuiBytes(m.publicKey),
+			weight: m.weight,
+		})),
+	}).toSuiAddress();
+
+// The pod (by default the one `oldSet` makes up), and the bytes of its signer change from `oldSet` to `newSet`, with `others` acting beside it.
+export async function signerChange(
+	oldSet: Composition,
+	newSet: Composition,
+	others: Composition[] = [],
+	pod = addressOf(oldSet),
+) {
+	const tx = new Transaction();
+	tx.setSender(pod);
+	tx.setGasPrice(1000);
+	tx.setGasBudget(10_000_000);
+	tx.setGasPayment([
+		{
+			objectId: normalizeSuiAddress('0x99'),
+			version: '1',
+			digest: toBase58(new Uint8Array(32).fill(1)),
+		},
+	]);
+	tx.object(
+		Inputs.SharedObjectRef({
+			objectId: deriveAliasesObjectId(pod),
+			initialSharedVersion: 1,
+			mutable: true,
+		}),
+	);
+	buildSignerChange(tx, {
+		account: pod,
+		aliases: [addressOf(oldSet), ...others.map(addressOf)],
+		oldSet: addressOf(oldSet),
+		newSet,
+		known: [oldSet, ...others],
+		chain: toBase58(new Uint8Array(32).fill(7)),
+		epoch: 5,
+	});
+	return { pod, bytes: toBase64(await tx.build()) };
+}

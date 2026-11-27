@@ -11,6 +11,7 @@ import { formatDigest } from '@mysten/sui/utils';
 
 import { content } from '../content';
 import { type AliasRead } from './alias-set';
+import { signerChangeIn } from './change-signers';
 import { getExpiry, type EpochInfo } from './expiration';
 import {
 	checkedSignerSets,
@@ -24,7 +25,12 @@ import { getExplorerUrl } from './utils';
 /** The weight of the set's members whose key signed, each counted once. */
 export const calculateCurrentWeight = (
 	proposal: Pick<Proposal, 'signatures'>,
-	signerSet: AccountSigners,
+	signerSet: {
+		members: readonly {
+			publicKey: string;
+			weight: number;
+		}[];
+	},
 ) =>
 	signerSet.members
 		.filter((member) =>
@@ -116,6 +122,21 @@ export function aliasCallsIn(bytes: string) {
 	}
 }
 
+/** Whether the bytes are nothing but `enable` calls of the alias module. */
+export function enablesSignerChanges(bytes: string) {
+	try {
+		const data = Transaction.from(bytes).getData();
+		const calls = findAliasCalls(data);
+		return (
+			calls.length > 0 &&
+			calls.length === data.commands.length &&
+			calls.every((call) => call.function === 'enable')
+		);
+	} catch {
+		return false;
+	}
+}
+
 /** The set a list row executes with; none for a proposal that calls the alias module, which executes from its page. */
 export function rowExecuteSet(
 	proposal: Pick<
@@ -153,6 +174,16 @@ export function toProposalCardInput(
 	aliases: AliasRead | undefined,
 	signerAddress: string | null | undefined,
 ): CountedProposal {
+	// A change counts only against the set it replaces: an executed one from its note, an open one once it checks.
+	const change =
+		proposal.status === 'SUCCESS'
+			? signerChangeIn(proposal.transactionBytes, null)
+			: proposal.status === 'PENDING' &&
+				aliases?.kind === 'read' &&
+				signerChangeIn(
+					proposal.transactionBytes,
+					aliases.aliases,
+				);
 	return {
 		...proposal,
 		checkedSignerSets: countSignerSets(
@@ -160,7 +191,12 @@ export function toProposalCardInput(
 			checkedSignerSets(
 				proposal.signerSets,
 				proposal.accountAddress,
-				aliases,
+				change
+					? {
+							kind: 'read',
+							aliases: [change.oldSet.address],
+						}
+					: aliases,
 			),
 			signerAddress,
 		),
@@ -272,8 +308,9 @@ export function isProposalExpired(
 /**
  * Which of the proposals page's pending tabs a pending proposal belongs
  * on: Expired once its transaction can't execute, whatever its
- * signatures; else Ready at the threshold; else Awaiting others when
- * `publicKey` signed it, To sign when not.
+ * signatures; else Ready at the threshold, unless a signer change is
+ * `held` for its new signers; else Awaiting others when `publicKey`
+ * signed it, To sign when not.
  */
 export function pendingFilter(
 	proposal: Pick<
@@ -286,14 +323,19 @@ export function pendingFilter(
 	{
 		publicKey,
 		epochInfo,
+		held = false,
 	}: {
 		publicKey: string | undefined;
 		epochInfo: EpochInfo | undefined;
+		held?: boolean;
 	},
 ): 'expired' | 'ready' | 'waiting' | 'pending' {
 	if (isProposalExpired(proposal, epochInfo))
 		return 'expired';
-	if (proposal.checkedSignerSets.some(reachesThreshold))
+	if (
+		!held &&
+		proposal.checkedSignerSets.some(reachesThreshold)
+	)
 		return 'ready';
 	return proposal.signatures.some(
 		(sig) => sig.publicKey === publicKey,

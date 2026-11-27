@@ -1,44 +1,74 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { useMemo } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useDAppKit } from '@mysten/dapp-kit-react';
+import { buildEnable } from '@mysten/sagat';
+import { Transaction } from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
+import { Plus } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+	Link,
+	useNavigate,
+	useOutletContext,
+} from 'react-router-dom';
 
+import { AtMaxTooltip } from '@/components/create-multisig/SignersStep';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { useAliasProposals } from '@/hooks/useAliasProposals';
+import { usePodAliasSet } from '@/hooks/useAliasSets';
+import {
+	createFailedLine,
+	useCreateProposal,
+} from '@/hooks/useCreateProposal';
 import { useGetMultisig } from '@/hooks/useGetMultisig';
+import { useSignerSetCards } from '@/hooks/useSignerSetCards';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { accountSetup } from '@/lib/account-setup';
+import {
+	canChangeSigners,
+	changeSignersPath,
+	changeTitle,
+	type ChangeIntent,
+} from '@/lib/change-signers';
+import { CONFIG } from '@/lib/constants';
 import {
 	buildMultisigCompositionExport,
 	downloadJson,
 	getMultisigExportFilename,
 } from '@/lib/exportUtils';
 import { networkLabel } from '@/lib/network';
+import { buildFailedLine } from '@/lib/new-proposal';
+import { originalSignerSet } from '@/lib/proposal-integrity';
+import { checkedChange } from '@/lib/proposal-page';
 import {
-	originalSignerSet,
-	shownActingSets,
-} from '@/lib/proposal-integrity';
+	calculateCurrentWeight,
+	enablesSignerChanges,
+	proposalPagePath,
+} from '@/lib/proposalUtils';
 import { trustsSigners } from '@/lib/proposer-proofs';
 import {
 	differentSignersLine,
 	otherSignerSetRows,
-	signerSetCards,
 	type SignerSetCard,
 } from '@/lib/signer-sets';
 import {
+	podLabels,
 	rejectionNotice,
 	signerRows,
 	signerSetStatus,
 } from '@/lib/signers';
 import { approvalsThresholdLabel } from '@/lib/threshold';
+import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import { getExplorerUrl } from '@/lib/utils';
+import { cn, getExplorerUrl } from '@/lib/utils';
 
 import { FoldedRow } from '../multisig/FoldedRow';
 import { OtherSignerSetsCard } from '../multisig/OtherSignerSetsCard';
 import { SetupCard } from '../multisig/SetupCard';
+import { SignerRowMenu } from '../multisig/SignerRowMenu';
 import {
 	SignersCard,
 	SignersTable,
@@ -50,10 +80,16 @@ import {
 import { SignersRefused } from '../multisig/SignersRefused';
 import { ProposersSection } from '../proposers/ProposersSection';
 import { Alert } from '../ui/Alert';
+import {
+	Button,
+	buttonVariants,
+	disabledButton,
+} from '../ui/button';
 import { InlineRetry } from '../ui/inline-retry';
 
 const COPY = content.signers;
 const COMMON = content.common;
+const NEW_PROPOSAL = content.newProposal;
 
 interface SignersTabContext {
 	multisig: MultisigWithMembersForPublicKey;
@@ -84,25 +120,7 @@ export function SignersTab() {
 			? multisig.acting
 			: null;
 
-	const cards = useMemo(
-		() =>
-			acting
-				? signerSetCards({
-						acting: acting.signerSets,
-						fresh: details ? shownActingSets(details) : [],
-						account: multisig.address,
-						pods: pods ?? [],
-						signerAddress,
-					})
-				: null,
-		[
-			acting,
-			details,
-			multisig.address,
-			pods,
-			signerAddress,
-		],
-	);
+	const cards = useSignerSetCards(multisig);
 	const otherSets = useMemo(
 		() =>
 			acting
@@ -113,6 +131,112 @@ export function SignersTab() {
 				: [],
 		[acting, pods],
 	);
+
+	const navigate = useNavigate();
+	const dappKit = useDAppKit();
+	const create = useCreateProposal();
+	const [building, setBuilding] = useState(false);
+	// Undefined until the list loads; the API takes one alias proposal at a time.
+	const { proposals: aliasProposals } = useAliasProposals(
+		multisig.address,
+	);
+	const enableProposal = aliasProposals?.find((proposal) =>
+		enablesSignerChanges(proposal.transactionBytes),
+	);
+	const aliases = usePodAliasSet(multisig.address);
+	const openSignerChange = details?.openSignerChange;
+	// The open change's quote, from its bytes once in the loaded pages.
+	const changeQuote = useMemo(() => {
+		const proposal = aliasProposals?.find(
+			(p) => p.digest === openSignerChange?.digest,
+		);
+		const checked =
+			proposal &&
+			checkedChange(proposal, aliases, podLabels(account), {
+				pod: multisig.address,
+				digest: proposal.digest,
+			});
+		return proposal && checked?.list
+			? {
+					title: changeTitle(checked.list),
+					weight: COMMON.thresholdLabel(
+						calculateCurrentWeight(
+							proposal,
+							checked.change.oldSet,
+						),
+						checked.change.oldSet.threshold,
+					),
+				}
+			: undefined;
+	}, [
+		aliasProposals,
+		openSignerChange,
+		aliases,
+		account,
+		multisig.address,
+	]);
+	const changesEnabled =
+		details?.signerChangesEnabled ?? true;
+	const enablePending = !changesEnabled && !!enableProposal;
+	// A pending alias proposal neither banner below names.
+	const otherAliasProposal =
+		details && !details.openSignerChange && !enablePending
+			? aliasProposals?.[0]
+			: undefined;
+	const changePending =
+		!!details?.openSignerChange || !!aliasProposals?.length;
+	const openChange = (intent: ChangeIntent | null = null) =>
+		navigate(changeSignersPath(multisig.address), {
+			state: intent,
+		});
+
+	const enableSignerChanges = async () => {
+		if (!details) return;
+		setBuilding(true);
+		let bytes: string;
+		try {
+			const tx = new Transaction();
+			tx.setSender(multisig.address);
+			buildEnable(tx);
+			bytes = toBase64(
+				await tx.build({
+					client: dappKit.getClient(network),
+				}),
+			);
+		} catch (error) {
+			toast.error(
+				await buildFailedLine(
+					dappKit.getClient(network),
+					multisig.address,
+					error,
+				),
+			);
+			return;
+		} finally {
+			setBuilding(false);
+		}
+		create.mutate(
+			{
+				multisig: details,
+				transactionData: bytes,
+				description: COPY.enableSignerChanges,
+			},
+			{
+				onSuccess: (proposal) =>
+					navigate(
+						proposalPagePath(
+							multisig.address,
+							proposal.digest,
+						),
+					),
+				onError: (error) =>
+					toast.error(
+						createFailedLine(error) ??
+							NEW_PROPOSAL.signatureDeclined,
+					),
+			},
+		);
+	};
 
 	if (details && !trustsSigners(details, multisig.address))
 		return (
@@ -144,6 +268,16 @@ export function SignersTab() {
 				)
 			: null;
 	const several = (cards?.length ?? 0) > 1;
+	const offerChanges = canChangeSigners(
+		details?.signerChangesEnabled,
+		main?.set,
+		signerAddress,
+	);
+	const offerEnable =
+		!!acting &&
+		!changesEnabled &&
+		aliasProposals?.length === 0;
+	const atMax = rows.length >= CONFIG.MAX_MEMBERS;
 	const differentOn = differentSignersLine(
 		details?.networksWithDifferentSigners ?? [],
 	);
@@ -180,6 +314,47 @@ export function SignersTab() {
 					)}
 				</Alert>
 			)}
+			{!changesEnabled && enableProposal && (
+				<ProposalBanner
+					variant="info"
+					to={proposalPagePath(
+						multisig.address,
+						enableProposal.digest,
+					)}
+					testId="enable-signer-changes-pending"
+					linkTestId="enable-signer-changes-proposal"
+				>
+					{COPY.enableSignerChangesPending(
+						networkLabel(network),
+					)}
+				</ProposalBanner>
+			)}
+			{details?.openSignerChange && (
+				<ProposalBanner
+					variant="warning"
+					to={proposalPagePath(
+						multisig.address,
+						details.openSignerChange.digest,
+					)}
+					testId="signer-change-pending"
+					linkTestId="signer-change-proposal"
+				>
+					{COPY.changePending(changeQuote)}
+				</ProposalBanner>
+			)}
+			{otherAliasProposal && (
+				<ProposalBanner
+					variant="warning"
+					to={proposalPagePath(
+						multisig.address,
+						otherAliasProposal.digest,
+					)}
+					testId="alias-proposal-pending"
+					linkTestId="alias-proposal"
+				>
+					{COPY.aliasProposalPending}
+				</ProposalBanner>
+			)}
 			{differentOn && (
 				<Alert variant="info" data-testid="signers-differ">
 					{differentOn}
@@ -193,6 +368,71 @@ export function SignersTab() {
 						rows={rows}
 						status={status}
 						signerSet={main?.address}
+						action={
+							offerEnable ? (
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => void enableSignerChanges()}
+									disabled={building || create.isPending}
+									data-testid="enable-signer-changes"
+								>
+									{COPY.enableSignerChanges}
+								</Button>
+							) : (
+								offerChanges && (
+									<AtMaxTooltip atMax={atMax}>
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={changePending || atMax}
+											onClick={() =>
+												openChange({ kind: 'add' })
+											}
+											className={cn(
+												'disabled:border-transparent',
+												disabledButton,
+											)}
+											data-testid="signers-add-signer"
+										>
+											<Plus />
+											{COMMON.actions.addSigner}
+										</Button>
+									</AtMaxTooltip>
+								)
+							)
+						}
+						menu={
+							offerChanges
+								? (row) => (
+										<SignerRowMenu
+											disabled={changePending}
+											isYou={row.isYou}
+											removeBlocked={
+												row.isYou
+													? COPY.cantRemoveYourself
+													: rows.length <=
+														  CONFIG.MIN_MEMBERS
+														? COPY.needsTwoSigners
+														: null
+											}
+											onReplace={() =>
+												openChange({
+													kind: 'replace',
+													publicKey: row.member.publicKey,
+												})
+											}
+											onChangeWeight={() => openChange()}
+											onRemove={() =>
+												openChange({
+													kind: 'remove',
+													publicKey: row.member.publicKey,
+												})
+											}
+										/>
+									)
+								: undefined
+						}
 						folded={
 							<>
 								{others.length > 0 && (
@@ -241,6 +481,16 @@ export function SignersTab() {
 							</>
 						}
 					>
+						{offerEnable && (
+							<p
+								className="text-13 text-muted-foreground"
+								data-testid="signer-changes-not-enabled"
+							>
+								{COPY.signerChangesNotEnabled(
+									networkLabel(network),
+								)}
+							</p>
+						)}
 						{several && main && (
 							<SetThreshold set={main.set} />
 						)}
@@ -282,10 +532,49 @@ export function SignersTab() {
 							}),
 						)
 					}
+					onChangeThreshold={
+						offerChanges ? () => openChange() : undefined
+					}
+					changePending={changePending}
 					className="w-full shrink-0 @4xl:w-80"
 				/>
 			</div>
 		</div>
+	);
+}
+
+function ProposalBanner({
+	variant,
+	to,
+	testId,
+	linkTestId,
+	children,
+}: {
+	variant: 'info' | 'warning';
+	to: string;
+	testId: string;
+	linkTestId: string;
+	children: string;
+}) {
+	return (
+		<Alert variant={variant} data-testid={testId}>
+			<div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+				<span>{children}</span>
+				<Link
+					to={to}
+					className={cn(
+						buttonVariants({
+							variant: 'link',
+							size: 'xs',
+						}),
+						'h-auto px-0 text-13 text-inherit hover:no-underline',
+					)}
+					data-testid={linkTestId}
+				>
+					{COMMON.actions.viewProposal}
+				</Link>
+			</div>
+		</Alert>
 	);
 }
 

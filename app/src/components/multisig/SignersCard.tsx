@@ -30,6 +30,8 @@ export function SignersCard({
 	status,
 	signerSet,
 	className,
+	action,
+	menu,
 	children,
 	folded,
 }: {
@@ -38,6 +40,10 @@ export function SignersCard({
 	/** The set's address, for a page that shows several sets. */
 	signerSet?: string;
 	className?: string;
+	/** At the heading's end. */
+	action?: ReactNode;
+	/** A row's menu, in a last column. */
+	menu?: (row: SignerEntry) => ReactNode;
 	children?: ReactNode;
 	folded?: ReactNode;
 }) {
@@ -62,9 +68,10 @@ export function SignersCard({
 				>
 					{summary}
 				</span>
+				{action}
 			</CardHeading>
 			{children}
-			<SignersTable rows={rows} />
+			<SignersTable rows={rows} menu={menu} />
 			{folded}
 		</section>
 	);
@@ -72,8 +79,10 @@ export function SignersCard({
 
 export function SignersTable({
 	rows,
+	menu,
 }: {
 	rows: SignerEntry[];
+	menu?: (row: SignerEntry) => ReactNode;
 }) {
 	return (
 		<table className={tableClass}>
@@ -88,6 +97,7 @@ export function SignersTable({
 					<th className="w-24 px-3 sm:w-26">
 						{content.signers.columns.invitation}
 					</th>
+					{menu && <th className="w-11" />}
 				</tr>
 			</thead>
 			<tbody>
@@ -131,6 +141,11 @@ export function SignersTable({
 						<td className="px-3 py-2.5">
 							<SignerStatusChip status={row.status} />
 						</td>
+						{menu && (
+							<td className="pr-1 text-right">
+								{menu(row)}
+							</td>
+						)}
 					</tr>
 				))}
 			</tbody>

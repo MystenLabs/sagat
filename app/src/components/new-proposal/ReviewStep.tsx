@@ -5,7 +5,7 @@ import { ArrowLeft, Pen } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 
 import { analyzerTab } from '@/components/preview-effects/IntentSummary';
-import { ExpiryChip } from '@/components/proposals/ProposalExpiry';
+import { ReviewExpiry } from '@/components/proposals/ProposalExpiry';
 import { AliasCallsWarning } from '@/components/transaction-preview/AliasCallsWarning';
 import { simulationProps } from '@/components/transaction-preview/simulation';
 import { TransactionPreview } from '@/components/transaction-preview/TransactionPreview';
@@ -29,7 +29,6 @@ import {
 import { content } from '@/content';
 import { useNetwork } from '@/contexts/NetworkContext';
 import { type useDryRun } from '@/hooks/useDryRun';
-import { useExpiry } from '@/hooks/useExpiry';
 import { type useTransactionAnalysis } from '@/hooks/useTransactionAnalysis';
 import { titleError } from '@/lib/new-proposal';
 import { type NamedAccount } from '@/lib/transaction-preview';
@@ -86,27 +85,9 @@ export function ReviewStep({
 		() => [{ address: senderAddress, name: senderName }],
 		[senderAddress, senderName],
 	);
-	const failureReason = safeDecode(
-		dryRun.error?.message || COPY.simulationFailedFallback,
-	);
 	const currentTitleError = titleError(title);
-	const expiry = useExpiry(bytes);
 	const { network } = useNetwork();
 	const { analyzer, analyzerCount } = analyzerTab(analysis);
-	const submitLabel = () => {
-		if (awaitingWallet)
-			return content.common.states.confirmInWallet;
-		if (creating) return COPY.review.creating;
-		if (createError) return content.common.actions.tryAgain;
-		return (
-			<>
-				<Pen />
-				{simulationFailed
-					? COPY.review.proposeAnyway
-					: COPY.review.propose}
-			</>
-		);
-	};
 
 	return (
 		<div
@@ -125,31 +106,16 @@ export function ReviewStep({
 				onTitleChange={onTitleChange}
 			/>
 
-			{expiry && (
-				<div className="flex" data-testid="review-expiry">
-					<ExpiryChip expiry={expiry} />
-				</div>
-			)}
+			<ReviewExpiry bytes={bytes} />
 
 			{simulationFailed && (
-				<Notice
-					tone="error"
-					testId="review-simulation-error"
-				>
-					{COPY.simulationFailed(failureReason)}
-				</Notice>
+				<SimulationFailedNotice dryRun={dryRun} />
 			)}
 
 			<AliasCallsWarning bytes={bytes} network={network} />
 
 			{!simulation ? (
-				<RetryNotice
-					onRetry={onRetrySimulation}
-					testId="review-simulation-unreachable"
-					retryTestId="review-simulation-retry"
-				>
-					{COPY.simulationUnreachable}
-				</RetryNotice>
+				<SimulationRetry onRetry={onRetrySimulation} />
 			) : (
 				<TransactionPreview
 					bytes={bytes}
@@ -160,6 +126,94 @@ export function ReviewStep({
 				/>
 			)}
 
+			<ProposeFooter
+				testId="new-proposal"
+				createError={createError}
+				creating={creating}
+				awaitingWallet={awaitingWallet}
+				simulationFailed={simulationFailed}
+				disabled={!settled || !!currentTitleError}
+				onSubmit={onSubmit}
+				onBack={onBack}
+				onCancel={onCancel}
+			/>
+		</div>
+	);
+}
+
+export function SimulationFailedNotice({
+	dryRun,
+}: {
+	dryRun: ReturnType<typeof useDryRun>;
+}) {
+	return (
+		<Notice tone="error" testId="review-simulation-error">
+			{COPY.simulationFailed(
+				safeDecode(
+					dryRun.error?.message ||
+						COPY.simulationFailedFallback,
+				),
+			)}
+		</Notice>
+	);
+}
+
+/** When the simulation couldn't run at all. */
+export function SimulationRetry({
+	onRetry,
+}: {
+	onRetry: () => void;
+}) {
+	return (
+		<RetryNotice
+			onRetry={onRetry}
+			testId="review-simulation-unreachable"
+			retryTestId="review-simulation-retry"
+		>
+			{COPY.simulationUnreachable}
+		</RetryNotice>
+	);
+}
+
+/** The create error, then Back and Propose and sign. */
+export function ProposeFooter({
+	testId,
+	createError,
+	creating,
+	awaitingWallet,
+	simulationFailed,
+	disabled,
+	onSubmit,
+	onBack,
+	onCancel,
+}: {
+	testId: string;
+	createError: string | null;
+	creating: boolean;
+	awaitingWallet: boolean;
+	simulationFailed: boolean;
+	/** Holds Propose besides creating. */
+	disabled: boolean;
+	onSubmit: () => void;
+	onBack: () => void;
+	onCancel: () => void;
+}) {
+	const submitLabel = () => {
+		if (awaitingWallet)
+			return content.common.states.confirmInWallet;
+		if (creating) return COPY.review.creating;
+		if (createError) return content.common.actions.tryAgain;
+		return (
+			<>
+				<Pen />
+				{simulationFailed
+					? COPY.review.proposeAnyway
+					: COPY.review.propose}
+			</>
+		);
+	};
+	return (
+		<>
 			<Separator />
 
 			{createError && (
@@ -172,7 +226,7 @@ export function ReviewStep({
 				onCancel={onCancel}
 				cancelDisabled={creating}
 				cancelLabel={content.common.actions.discard}
-				testId="new-proposal"
+				testId={testId}
 				back={
 					<Button
 						type="button"
@@ -190,9 +244,7 @@ export function ReviewStep({
 					<Button
 						type="button"
 						onClick={onSubmit}
-						disabled={
-							!settled || creating || !!currentTitleError
-						}
+						disabled={disabled || creating}
 						className={cn(
 							disabledButton,
 							'w-full sm:w-auto',
@@ -203,7 +255,7 @@ export function ReviewStep({
 					</Button>
 				}
 			/>
-		</div>
+		</>
 	);
 }
 

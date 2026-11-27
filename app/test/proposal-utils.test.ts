@@ -1,13 +1,22 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Proposal } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { Transaction } from '@mysten/sui/transactions';
-import { formatDigest, toBase64 } from '@mysten/sui/utils';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
+import {
+	formatDigest,
+	fromBase64,
+	toBase64,
+} from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
 import {
 	countSignerSets,
+	enablesSignerChanges,
 	isExternalProposer,
 	isProposalExpired,
 	listsAtCutoff,
@@ -25,7 +34,7 @@ import {
 } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
 import { listedSet, signerSet } from './signer-set';
-import { transfer } from './transactions';
+import { signerChange, transfer } from './transactions';
 
 const DIGEST =
 	'HkV4y3pGsyPvGyX7tfm9MGKvjEsPKDpr5DW2KzuaE7ac';
@@ -286,6 +295,31 @@ describe('pendingFilter', () => {
 			),
 		).toBe(false);
 	});
+
+	it('files a held signer change at the threshold by whether the viewer signed, not as ready', async () => {
+		const atThreshold = {
+			status: 'PENDING' as const,
+			transactionBytes: await transfer({ Epoch: 10 }),
+			signatures,
+			checkedSignerSets: countSignerSets(
+				{ signatures, accountAddress: '0x1' },
+				[{ set: multisig, address: '0x1' }],
+				null,
+			),
+		};
+		const filed = (
+			publicKey: string | undefined,
+			held: boolean,
+		) =>
+			pendingFilter(atThreshold, {
+				publicKey,
+				epochInfo,
+				held,
+			});
+		expect(filed('signer', true)).toBe('waiting');
+		expect(filed(undefined, true)).toBe('pending');
+		expect(filed('signer', false)).toBe('ready');
+	});
 });
 
 describe('countSignerSets', () => {
@@ -397,6 +431,80 @@ describe('countSignerSets', () => {
 		).toEqual([current.address]);
 		expect(proposalStatusKey(counted)).toBe('pending');
 	});
+
+	it('counts an executed change against the set its bytes removed, which is no alias any more, and a cancelled one not', async () => {
+		const old = {
+			threshold: 1,
+			members: [key(1, 0), key(1, 1)],
+		};
+		const { pod, bytes } = await signerChange(old, {
+			threshold: 1,
+			members: [key(1, 0)],
+		});
+		const counted = (status: Proposal['status']) =>
+			toProposalCardInput(
+				v1Proposal({
+					digest: DIGEST,
+					accountAddress: pod,
+					kind: 'signer_change',
+					status,
+					ready: true,
+					transactionBytes: bytes,
+					proposerAddress: pod,
+					signerSets: [listedSet({ ...old, address: pod })],
+				}),
+				{ kind: 'read', aliases: ['0x2'] },
+				null,
+			);
+		expect(
+			counted('SUCCESS').checkedSignerSets.map(
+				(set) => set.address,
+			),
+		).toEqual([pod]);
+		expect(counted('CANCELLED').checkedSignerSets).toEqual(
+			[],
+		);
+	});
+
+	it('counts a pending change only against the set it replaces, not a second acting set', async () => {
+		const old = {
+			threshold: 2,
+			members: [key(1, 0), key(1, 1)],
+		};
+		const second = listedSet(
+			signerSet([new Ed25519Keypair()]),
+		);
+		const { pod, bytes } = await signerChange(
+			old,
+			{ threshold: 1, members: [key(1, 0)] },
+			[second],
+		);
+		const counted = toProposalCardInput(
+			v1Proposal({
+				digest: DIGEST,
+				accountAddress: pod,
+				kind: 'signer_change',
+				transactionBytes: bytes,
+				proposerAddress: pod,
+				signatures: [
+					{
+						publicKey: second.members[0].publicKey,
+						signature: 'sig',
+					},
+				],
+				signerSets: [
+					listedSet({ ...old, address: pod }),
+					second,
+				],
+			}),
+			{ kind: 'read', aliases: [pod, second.address] },
+			null,
+		);
+		expect(
+			counted.checkedSignerSets.map((set) => set.address),
+		).toEqual([pod]);
+		expect(proposalStatusKey(counted)).toBe('pending');
+	});
 });
 
 // Rows named by these ids, created in their order, for the merge helpers.
@@ -447,6 +555,38 @@ describe('rowExecuteSet', () => {
 				transactionBytes: toBase64(await aliasCall.build()),
 			}),
 		).toBeNull();
+	});
+});
+
+describe('enablesSignerChanges', () => {
+	it('holds only for bytes that are nothing but enable calls', async () => {
+		const withCalls = async (...functions: string[]) => {
+			const tx = Transaction.from(await transfer());
+			for (const fn of functions)
+				tx.moveCall({
+					target: `0x2::address_alias::${fn}`,
+				});
+			return toBase64(await tx.build());
+		};
+		// The same enable call without the transfer.
+		const enableOnly = TransactionDataBuilder.fromBytes(
+			fromBase64(await withCalls('enable')),
+		);
+		enableOnly.commands.shift();
+		expect(enablesSignerChanges(await transfer())).toBe(
+			false,
+		);
+		expect(
+			enablesSignerChanges(toBase64(enableOnly.build())),
+		).toBe(true);
+		expect(
+			enablesSignerChanges(await withCalls('enable')),
+		).toBe(false);
+		expect(
+			enablesSignerChanges(
+				await withCalls('enable', 'remove'),
+			),
+		).toBe(false);
 	});
 });
 

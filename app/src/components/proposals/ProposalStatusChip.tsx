@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { content } from '@/content';
-import { type ProposalStatusKey } from '@/lib/proposalUtils';
+import { type ShownStatus } from '@/lib/proposal-page';
 
 import { Chip, type ChipProps } from '../ui/chip';
 
@@ -16,10 +16,11 @@ const STATUS_CHIP = {
 	},
 	failed: { variant: 'error', label: STATUS.failed },
 	ready: { variant: 'info', label: STATUS.ready },
+	waiting: { variant: 'warning', label: STATUS.waiting },
 	pending: { variant: 'warning', label: STATUS.pending },
 	expired: { variant: 'neutral', label: STATUS.expired },
 } as const satisfies Record<
-	ProposalStatusKey,
+	ShownStatus,
 	{ variant: ChipProps['variant']; label: string }
 >;
 
@@ -27,7 +28,7 @@ const STATUS_CHIP = {
 export function ProposalStatusChip({
 	status,
 	...props
-}: { status: ProposalStatusKey } & Omit<
+}: { status: ShownStatus } & Omit<
 	ChipProps,
 	'variant' | 'children'
 >) {

@@ -6,6 +6,7 @@ import { toBase58, toBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
 import { type AliasRead } from '../src/lib/alias-set';
+import { signerChangeIn } from '../src/lib/change-signers';
 import {
 	actingOnly,
 	checkActingSets,
@@ -22,7 +23,11 @@ import {
 import { toProposalCardInput } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
 import { listedSet, signerSet } from './signer-set';
-import { digestOf, transfer } from './transactions';
+import {
+	digestOf,
+	signerChange,
+	transfer,
+} from './transactions';
 
 function oneOfTwoAccount() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
@@ -55,6 +60,131 @@ test('refuses a wallet that is not one of the signers', async () => {
 			},
 		),
 	).toBe('notSigner');
+});
+
+test('lets a key a checked signer change adds sign the change, and refuses a key in neither set', async () => {
+	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
+	const multisig = signerSet(keys, 2);
+	const added = new Ed25519Keypair();
+	const setOf = (signers: Ed25519Keypair[]) => ({
+		threshold: 2,
+		members: signers.map((key) => ({
+			publicKey: key.getPublicKey().toSuiPublicKey(),
+			weight: 1,
+		})),
+	});
+	// Replaces the second key with `added`.
+	const { pod, bytes: transactionBytes } =
+		await signerChange(
+			setOf(keys),
+			setOf([keys[0], added]),
+		);
+	const digest = digestOf(transactionBytes);
+	const newSet =
+		signerChangeIn(transactionBytes, [pod])?.newSet ?? null;
+	const node: NodeFacts = {
+		aliases: { kind: 'read', aliases: [pod] },
+		chain: null,
+	};
+	const sign = (
+		signer: Ed25519Keypair,
+		set: typeof newSet,
+	) => [
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress: pod,
+				signerSets: [listedSet(multisig)],
+				notActingSets: [],
+			},
+			{
+				pod: null,
+				openedDigest: digest,
+				signerAddress: signer.toSuiAddress(),
+				newSet: set,
+			},
+		),
+		checkSignerOnNetwork({
+			shown: [multisig],
+			signerAddress: signer.toSuiAddress(),
+			namedChain: null,
+			node,
+			newSet: set,
+		}),
+	];
+
+	expect(sign(added, newSet)).toEqual([null, null]);
+	expect(sign(new Ed25519Keypair(), newSet)).toEqual([
+		'notSigner',
+		'notActing',
+	]);
+	// Without a checked change, the key is no signer.
+	expect(sign(added, null)).toEqual([
+		'notSigner',
+		'notActing',
+	]);
+});
+
+test('on a pod’s second change, a key it adds signs without a pod once the original set is listed, and not without it', async () => {
+	const [a, b, c] = [
+		new Ed25519Keypair(),
+		new Ed25519Keypair(),
+		new Ed25519Keypair(),
+	];
+	const added = new Ed25519Keypair();
+	const original = signerSet([a, b], 2);
+	// The set the first change left acting, which the second replaces.
+	const current = signerSet([a, c], 2);
+	const setOf = (signers: Ed25519Keypair[]) => ({
+		threshold: 2,
+		members: signers.map((key) => ({
+			publicKey: key.getPublicKey().toSuiPublicKey(),
+			weight: 1,
+		})),
+	});
+	const { bytes: transactionBytes } = await signerChange(
+		setOf([a, c]),
+		setOf([a, added]),
+		[],
+		original.address,
+	);
+	const digest = digestOf(transactionBytes);
+	const newSet =
+		signerChangeIn(transactionBytes, [current.address])
+			?.newSet ?? null;
+	const sign = (
+		signer: Ed25519Keypair,
+		notActingSets: ReturnType<typeof listedSet>[],
+	) =>
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress: original.address,
+				signerSets: [
+					listedSet({ ...current, original: false }),
+				],
+				notActingSets,
+			},
+			{
+				pod: null,
+				openedDigest: digest,
+				signerAddress: signer.toSuiAddress(),
+				newSet,
+			},
+		);
+	const listedOriginal = [
+		listedSet({ ...original, acting: false }),
+	];
+
+	expect(newSet).not.toBeNull();
+	expect(sign(added, listedOriginal)).toBeNull();
+	expect(sign(new Ed25519Keypair(), listedOriginal)).toBe(
+		'notSigner',
+	);
+	// Without the original set, nothing rebuilds the address.
+	expect(sign(added, [])).toBe('signers');
 });
 
 test("refuses bytes that don't decode as a transaction", () => {

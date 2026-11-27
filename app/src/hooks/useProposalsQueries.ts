@@ -7,6 +7,7 @@ import { useMemo } from 'react';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type SuiNetwork } from '@/lib/network';
 import { type AppProposalList } from '@/lib/proposal-integrity';
+import { changeHold } from '@/lib/proposal-page';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import {
@@ -14,6 +15,7 @@ import {
 	listsAtCutoff,
 	mergeNewestFirst,
 	pendingFilter,
+	proposalStatusKey,
 	toProposalCardInput,
 	type CountedProposal,
 } from '../lib/proposalUtils';
@@ -132,8 +134,17 @@ export function useProposalsQueries({
 			pendingFilter(proposal, {
 				publicKey,
 				epochInfo,
+				// The hold only matters once the threshold is reached.
+				held:
+					proposalStatusKey(proposal) === 'ready' &&
+					changeHold(
+						proposal,
+						proposalStatusKey(proposal),
+						aliases,
+						new Map(),
+					) !== null,
 			}),
-		[epochInfo, publicKey],
+		[epochInfo, publicKey, aliases],
 	);
 	// Each list's rows of this pod and network, counted against the sets the pod's alias read passes.
 	const counted = useMemo(

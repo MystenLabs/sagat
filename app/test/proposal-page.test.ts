@@ -1,35 +1,29 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	buildSignerChange,
-	deriveAliasesObjectId,
-	type Composition,
-} from '@mysten/sagat';
+import { type Composition } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import {
-	Inputs,
-	Transaction,
-} from '@mysten/sui/transactions';
-import {
-	formatAddress,
-	normalizeSuiAddress,
-	toBase58,
-	toBase64,
-} from '@mysten/sui/utils';
+import { formatAddress } from '@mysten/sui/utils';
 import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 import { describe, expect, it } from 'vitest';
 
 import { content } from '../src/content';
+import { type AliasRead } from '../src/lib/alias-set';
+import { signerChangeIn } from '../src/lib/change-signers';
 import {
 	activityRows,
 	approvalRows,
 	approvalsNote,
 	approvalsSignerSets,
+	approvalsStatus,
 	cancelVariant,
+	changeHold,
 	foldedSignerSetsLine,
-	signerChangeWarning,
+	newSignerKey,
+	newSignerSet,
+	shownChange,
+	shownStatus,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
 	type Labels,
@@ -37,9 +31,11 @@ import {
 import {
 	countSignerSets,
 	type CountedProposal,
+	type ProposalStatusKey,
 } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
 import { listedSet } from './signer-set';
+import { digestOf, signerChange } from './transactions';
 
 function signer(label: string, weight: number) {
 	const keypair = new Ed25519Keypair();
@@ -61,6 +57,8 @@ const labels: Labels = new Map(
 const CREATED_AT = '2026-10-13T08:55:00.000Z';
 const STATUS = content.proposal.approvals.status;
 const NOTES = content.proposal.approvals.notes;
+const REVIEW = content.changeSigners.review;
+const CHANGE = content.changeSigners.change;
 
 // The signers as a set's members, at their weights, in this order.
 const members = (signers: (typeof maya)[]) =>
@@ -243,106 +241,339 @@ describe('cancelVariant', () => {
 	});
 });
 
-describe('signerChangeWarning', () => {
-	const COPY = content.proposal.approvals.signerChange;
-	const setOf = (
-		threshold: number,
-		signers = SIGNERS,
-	): Composition => ({
-		threshold,
-		members: signers.map((s) => ({
-			publicKey: s.publicKey,
-			weight: s.weight,
-		})),
-	});
-	// The pod's set, weighing 4, at threshold 2.
-	const oldSet = setOf(2);
-	const pod = MultiSigPublicKey.fromPublicKeys({
-		threshold: oldSet.threshold,
-		publicKeys: oldSet.members.map((m) => ({
-			publicKey: publicKeyFromSuiBytes(m.publicKey),
-			weight: m.weight,
-		})),
-	}).toSuiAddress();
-	// The bytes of a change from the pod's set to `newSet`.
-	async function changeTo(newSet: Composition) {
-		const tx = new Transaction();
-		tx.setSender(pod);
-		tx.setGasPrice(1000);
-		tx.setGasBudget(10_000_000);
-		tx.setGasPayment([
-			{
-				objectId: normalizeSuiAddress('0x99'),
-				version: '1',
-				digest: toBase58(new Uint8Array(32).fill(1)),
-			},
-		]);
-		tx.object(
-			Inputs.SharedObjectRef({
-				objectId: deriveAliasesObjectId(pod),
-				initialSharedVersion: 1,
-				mutable: true,
-			}),
+const setOf = (
+	threshold: number,
+	signers = SIGNERS,
+): Composition => ({
+	threshold,
+	members: signers.map((s) => ({
+		publicKey: s.publicKey,
+		weight: s.weight,
+	})),
+});
+// The pod's set, weighing 4, at threshold 2.
+const oldSet = setOf(2);
+const pod = MultiSigPublicKey.fromPublicKeys({
+	threshold: oldSet.threshold,
+	publicKeys: oldSet.members.map((m) => ({
+		publicKey: publicKeyFromSuiBytes(m.publicKey),
+		weight: m.weight,
+	})),
+}).toSuiAddress();
+// The bytes of a change from the pod's set to `newSet`.
+const changeTo = async (newSet: Composition) =>
+	(await signerChange(oldSet, newSet)).bytes;
+
+describe('newSignerKey', () => {
+	it('is the key a checked change adds, and none for a signer who stays or a stranger', async () => {
+		const newKey = signer('New', 2);
+		const change = signerChangeIn(
+			await changeTo(setOf(3, [maya, daniel, newKey])),
+			[pod],
 		);
-		buildSignerChange(tx, {
-			account: pod,
-			aliases: [pod],
-			oldSet: pod,
-			newSet,
-			known: [oldSet],
-			chain: toBase58(new Uint8Array(32).fill(7)),
-			epoch: 5,
+
+		expect(newSignerKey(change, newKey.address)).toBe(
+			newKey.publicKey,
+		);
+		expect(newSignerKey(change, maya.address)).toBeNull();
+		expect(
+			newSignerKey(change, signer('Other', 1).address),
+		).toBeNull();
+	});
+});
+
+describe('newSignerSet', () => {
+	it('counts the new set’s members who signed by the new weights against the new threshold', async () => {
+		// Alice leaves for a new key of weight 2, at 3 of 4.
+		const newKey = signer('New', 2);
+		const change = signerChangeIn(
+			await changeTo(setOf(3, [maya, daniel, newKey])),
+			[pod],
+		)!;
+		// Alice signed too, but the new set doesn't hold her.
+		const set = newSignerSet(
+			change,
+			proposal({ signedBy: [alice, maya, newKey] }),
+			'ready',
+			labels,
+			null,
+		);
+
+		expect(set).toMatchObject({
+			currentWeight: 3,
+			threshold: 3,
+			line: STATUS.reached,
 		});
-		return toBase64(await tx.build());
-	}
-	const warning = (
+		expect(
+			set.rows.map((row) => [row.publicKey, row.signed]),
+		).toEqual([
+			[maya.publicKey, true],
+			[daniel.publicKey, false],
+			[newKey.publicKey, true],
+		]);
+		expect(
+			newSignerSet(
+				change,
+				proposal({ signedBy: [alice, maya] }),
+				'ready',
+				labels,
+				null,
+			).line,
+		).toBe(STATUS.needs(2));
+		// Once executed: who signed, with no line and nobody "not needed".
+		const executed = newSignerSet(
+			change,
+			proposal({ signedBy: [alice, maya] }),
+			'executed',
+			labels,
+			null,
+		);
+		expect(executed.line).toBeNull();
+		expect(executed.rows.map((row) => row.state)).toEqual([
+			'signed',
+			'not-signed',
+			'not-signed',
+		]);
+	});
+});
+
+describe('shownChange', () => {
+	it('shows an open change checked against the alias set under Changes with its open-only lines, and one no longer open from its note under what it did or would have done', async () => {
+		const newKey = signer('New', 1);
+		const transactionBytes = await changeTo(
+			setOf(2, [maya, daniel, alice, newKey]),
+		);
+		const shown = (
+			status: ProposalStatusKey,
+			aliases: string[],
+		) =>
+			shownChange(
+				{
+					...proposal({ signedBy: [maya] }),
+					transactionBytes,
+				},
+				status,
+				{ kind: 'read', aliases },
+				labels,
+				{ pod, digest: digestOf(transactionBytes) },
+			);
+		const lines = [
+			CHANGE.add(formatAddress(newKey.address), 1),
+		];
+
+		expect(shown('pending', [pod])).toMatchObject({
+			heading: REVIEW.changes,
+			invited: [formatAddress(newKey.address)],
+			carryOver: true,
+		});
+		expect(
+			shown('pending', [pod])?.list?.map((d) => d.text),
+		).toEqual(lines);
+		// Open, it must check against the alias set read now.
+		expect(shown('pending', [maya.address])).toBeNull();
+		// No longer open, the note's own change, though the alias set moved on.
+		const executed = shown('executed', [maya.address]);
+		expect(executed).toMatchObject({
+			heading: REVIEW.did,
+			invited: [],
+			carryOver: false,
+		});
+		expect(executed?.list?.map((d) => d.text)).toEqual(
+			lines,
+		);
+		expect(shown('cancelled', [pod])?.heading).toBe(
+			REVIEW.wouldHave,
+		);
+	});
+
+	it('invites an added key that hasn’t signed only when the change can execute without its signature', async () => {
+		const invited = async (
+			before: (typeof maya)[],
+			after: (typeof maya)[],
+		) => {
+			const { pod, bytes } = await signerChange(
+				setOf(2, before),
+				setOf(2, after),
+			);
+			return shownChange(
+				{
+					...proposal({ signedBy: [before[0]] }),
+					transactionBytes: bytes,
+				},
+				'pending',
+				{ kind: 'read', aliases: [pod] },
+				labels,
+				{ pod, digest: digestOf(bytes) },
+			)?.invited;
+		};
+		const [one, two, three, added] = [1, 2, 3, 4].map((n) =>
+			signer(`Signer ${n}`, 1),
+		);
+		// 2 of 2, replacing one signer: the new key must sign.
+		expect(await invited([one, two], [one, added])).toEqual(
+			[],
+		);
+		// 2 of 3 adding one: the threshold doesn't need it.
+		expect(
+			await invited(
+				[one, two, three],
+				[one, two, three, added],
+			),
+		).toEqual([formatAddress(added.address)]);
+	});
+});
+
+describe('changeHold', () => {
+	const COPY = content.proposal.approvals.signerChange;
+	const hold = (
 		transactionBytes: string,
 		signedBy: (typeof maya)[],
+		aliases: AliasRead | undefined = {
+			kind: 'read',
+			aliases: [pod],
+		},
 	) =>
-		signerChangeWarning(
+		changeHold(
 			{ ...proposal({ signedBy }), transactionBytes },
 			'ready',
-			[pod],
+			aliases,
 			labels,
 		);
 
-	it('names the signers who stay and haven’t signed until they cover the new threshold, and is null for a proposal that is no signer change', async () => {
+	it('names who hasn’t signed, from the checked change or the bytes’ own note until a read lands, until the new set signs for its threshold, with no status line or note meanwhile', async () => {
 		// The threshold rises from 2 to 4.
-		const transactionBytes = await changeTo(setOf(4));
-
-		expect(warning(transactionBytes, [alice])).toEqual({
-			body: COPY.body('Maya and Daniel', 2),
+		const raised = await changeTo(setOf(4));
+		expect(hold(raised, [alice])).toEqual({
+			line: COPY.body('Maya and Daniel', 2),
 			notSigned: [maya.publicKey, daniel.publicKey],
+			moved: false,
 		});
+		expect(hold(raised, [alice, maya, daniel])).toBeNull();
 		expect(
-			warning(transactionBytes, [alice, maya, daniel]),
+			hold(proposal().transactionBytes, [alice]),
 		).toBeNull();
-		expect(
-			signerChangeWarning(
-				proposal({ signedBy: [alice] }),
-				'ready',
-				[pod],
-				labels,
-			),
-		).toBeNull();
-	});
 
-	it('names a new signer who hasn’t signed while the signers who stay miss the new threshold without them', async () => {
 		// Alice leaves for a new key of weight 2: Maya and Daniel weigh 2 of the new 3 of 4.
 		const newKey = signer('New', 2);
 		const transactionBytes = await changeTo(
 			setOf(3, [maya, daniel, newKey]),
 		);
+		const waiting = {
+			line: COPY.body(formatAddress(newKey.address), 1),
+			notSigned: [newKey.publicKey],
+			moved: false,
+		};
+		expect(hold(transactionBytes, [maya, daniel])).toEqual(
+			waiting,
+		);
+		expect(
+			hold(transactionBytes, [maya, newKey]),
+		).toBeNull();
+		const failed = { kind: 'failed' } as const;
+		expect(
+			hold(transactionBytes, [maya, daniel], failed),
+		).toEqual(waiting);
+		expect(
+			hold(transactionBytes, [maya, newKey], failed),
+		).toBeNull();
+
+		const ready = (isHeld: boolean) => ({
+			status: approvalsStatus(
+				'ready',
+				false,
+				'passed',
+				isHeld,
+			),
+			note: approvalsNote({
+				proposal: proposal({ signedBy: [maya, daniel] }),
+				status: 'ready',
+				labels,
+				publicKey: maya.publicKey,
+				viewer: 'member',
+				simulation: 'passed',
+				executeAfterSigning: false,
+				executing: false,
+				gas: null,
+				held: isHeld,
+			}),
+		});
 
 		expect(
-			warning(transactionBytes, [maya, daniel]),
+			ready(
+				hold(transactionBytes, [maya, daniel]) !== null,
+			),
 		).toEqual({
-			body: COPY.body(formatAddress(newKey.address), 1),
-			notSigned: [newKey.publicKey],
+			status: null,
+			note: null,
 		});
 		expect(
-			warning(transactionBytes, [maya, newKey]),
+			ready(
+				hold(transactionBytes, [maya, newKey]) !== null,
+			),
+		).toEqual({
+			status: STATUS.ready,
+			note: NOTES.gasPaid,
+		});
+	});
+
+	it('holds from the bytes’ own note, saying to propose it again, when the alias set read doesn’t check the change', async () => {
+		const newKey = signer('New', 2);
+		const transactionBytes = await changeTo(
+			setOf(3, [maya, daniel, newKey]),
+		);
+		// A read of another set: the pod's signer sets moved since.
+		const moved = {
+			kind: 'read',
+			aliases: [maya.address],
+		} as const;
+
+		expect(
+			hold(transactionBytes, [maya, daniel], moved),
+		).toEqual({
+			line: COPY.moved,
+			notSigned: [newKey.publicKey],
+			moved: true,
+		});
+		expect(
+			hold(transactionBytes, [maya, newKey], moved),
 		).toBeNull();
+		expect(hold(transactionBytes, [maya, daniel])).toEqual({
+			line: COPY.body(formatAddress(newKey.address), 1),
+			notSigned: [newKey.publicKey],
+			moved: false,
+		});
+	});
+});
+
+describe('shownStatus', () => {
+	it('says waiting for a ready signer change while it is held, then ready, and never for a proposal that is no signer change', async () => {
+		// Alice leaves for a new key of weight 2, at 3 of 4.
+		const newKey = signer('New', 2);
+		const transactionBytes = await changeTo(
+			setOf(3, [maya, daniel, newKey]),
+		);
+		const shown = (
+			signedBy: (typeof maya)[],
+			bytes = transactionBytes,
+		) =>
+			shownStatus(
+				'ready',
+				changeHold(
+					{
+						...proposal({ signedBy }),
+						transactionBytes: bytes,
+					},
+					'ready',
+					{ kind: 'failed' },
+					labels,
+				),
+			);
+
+		expect(shown([maya, daniel])).toBe('waiting');
+		expect(shown([maya, newKey])).toBe('ready');
+		expect(
+			shown([maya, daniel], proposal().transactionBytes),
+		).toBe('ready');
 	});
 });
 

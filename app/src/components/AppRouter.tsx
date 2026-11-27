@@ -20,6 +20,7 @@ import { TOOLS } from '../config/tools';
 import { useApiAuth } from '../contexts/ApiAuthContext';
 import { useSessionBoot } from '../hooks/useSessionBoot';
 import { ApiUnreachable } from './ApiUnreachable';
+import { ChangeSignersPage } from './change-signers/ChangeSignersPage';
 import { ConnectWalletCard } from './ConnectWalletCard';
 import { CreateMultisigPage } from './create-multisig/CreateMultisigPage';
 import { DevnetNotSupported } from './DevnetNotSupported';
@@ -74,6 +75,10 @@ const routes: RouteConfig[] = [
 	{
 		path: '/multisig/:address/proposals/new',
 		element: <NewProposalPage />,
+	},
+	{
+		path: '/multisig/:address/signers/change',
+		element: <ChangeSignersPage />,
 	},
 	// The account shell renders its own header, so a proposal's page is
 	// not one of its children either.

@@ -8,19 +8,30 @@ import {
 	Link2,
 	MoreHorizontal,
 } from 'lucide-react';
-import { type ReactElement, type ReactNode } from 'react';
+import {
+	useMemo,
+	type ReactElement,
+	type ReactNode,
+} from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
+import { type AliasRead } from '@/lib/alias-set';
 import { formatShortDate } from '@/lib/dates';
 import {
 	buildProposalExport,
 	downloadJson,
 	getProposalExportFilename,
 } from '@/lib/exportUtils';
+import {
+	changeHold,
+	listedTitle,
+	shownStatus,
+	type Labels,
+} from '@/lib/proposal-page';
 import {
 	canExportProposal,
 	isExternalProposer,
@@ -76,6 +87,8 @@ export function ProposalRow({
 	variant,
 	expired,
 	proposerLabel,
+	aliases,
+	labels,
 }: {
 	proposal: CountedProposal;
 	variant: ProposalsTableVariant;
@@ -83,6 +96,10 @@ export function ProposalRow({
 	expired: boolean;
 	/** The proposer's key label, when they are a labelled signer. */
 	proposerLabel: string | null;
+	/** The pod's alias read, to check a signer change as its page does. */
+	aliases: AliasRead | undefined;
+	/** The pod's labels, to name a signer change's keys. */
+	labels: Labels;
 }) {
 	const { currentAddress } = useApiAuth();
 	const executing = useExecuteOrVerify();
@@ -91,6 +108,10 @@ export function ProposalRow({
 	const status = expired
 		? 'expired'
 		: proposalStatusKey(proposal);
+	const shown = shownStatus(
+		status,
+		changeHold(proposal, status, aliases, labels),
+	);
 	const pending = proposal.status === 'PENDING';
 	const signed =
 		pending &&
@@ -106,10 +127,16 @@ export function ProposalRow({
 		status === 'ready' ? rowExecuteSet(proposal) : null;
 	const list = variant === 'list';
 	const createdOn = formatShortDate(proposal.createdAt);
+	const title = useMemo(
+		() => listedTitle(proposal, status, aliases, labels),
+		[proposal, status, aliases, labels],
+	);
 	// The digest goes under the title, unless the title already is the
-	// digest (no description). The overview's column is too narrow for it,
-	// but its stacked rows have room.
-	const showDigest = !!proposal.description?.trim();
+	// digest. The overview's column is too narrow for it, but its stacked
+	// rows have room.
+	const showDigest =
+		!!proposal.description?.trim() ||
+		title !== proposalTitle(proposal);
 	// A signer goes by their key's label. An outside proposer has none, so
 	// goes by address, marked as such.
 	const proposerMarker =
@@ -160,7 +187,7 @@ export function ProposalRow({
 							className="truncate text-14 font-medium text-foreground hover:underline @max-md:line-clamp-2 @max-md:whitespace-normal"
 							data-testid="proposal-title"
 						>
-							{proposalTitle(proposal)}
+							{title}
 						</Link>
 						{/* The proposer leads the meta line and each item
 							    after it brings its own "·". In the list's table
@@ -264,7 +291,7 @@ export function ProposalRow({
 			</td>
 			<td className="px-3 py-2.75 @max-md:block @max-md:self-center @max-md:p-0">
 				<ProposalStatusChip
-					status={status}
+					status={shown}
 					data-testid="proposal-status"
 				/>
 			</td>
@@ -291,21 +318,29 @@ export function ProposalRow({
 			)}
 			<td className="px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0">
 				<div className="flex items-center justify-end gap-1 @max-md:flex-wrap">
-					{status === 'ready' && readySet && (
-						<Button
-							size="sm"
-							className="@max-md:h-9 @max-md:px-3.5"
-							onClick={() =>
-								executing.execute(proposal, readySet)
-							}
-							disabled={executing.isPending}
-							data-testid="execute-proposal-button"
-						>
-							{executing.isPending
-								? SHARED.executing
-								: SHARED.execute}
-						</Button>
-					)}
+					{shown === 'ready' &&
+						(readySet ? (
+							<Button
+								size="sm"
+								className="@max-md:h-9 @max-md:px-3.5"
+								onClick={() =>
+									executing.execute(proposal, readySet)
+								}
+								disabled={executing.isPending}
+								data-testid="execute-proposal-button"
+							>
+								{executing.isPending
+									? SHARED.executing
+									: SHARED.execute}
+							</Button>
+						) : (
+							<span
+								className="text-12 whitespace-nowrap text-muted-foreground"
+								data-testid="proposal-execute-from-page"
+							>
+								{COPY.executeFromPage}
+							</span>
+						))}
 					{list && (
 						<RowMenu
 							explorerUrl={explorerUrl}
@@ -344,24 +379,7 @@ function RowMenu({
 	);
 	return (
 		<DropdownMenu>
-			<IconTooltip
-				label={COPY.moreActions}
-				trigger={
-					<DropdownMenuTrigger
-						className={cn(
-							buttonVariants({
-								variant: 'ghost',
-								size: 'icon-sm',
-							}),
-							'@max-md:size-9',
-						)}
-						aria-label={COPY.moreActions}
-						data-testid="proposal-actions"
-					/>
-				}
-			>
-				<MoreHorizontal />
-			</IconTooltip>
+			<MoreActionsTrigger testId="proposal-actions" />
 			<DropdownMenuContent
 				align="end"
 				className="w-auto min-w-40"
@@ -406,6 +424,38 @@ function RowMenu({
 				</DropdownMenuGroup>
 			</DropdownMenuContent>
 		</DropdownMenu>
+	);
+}
+
+/** A row's "⋯" menu trigger, named by its tooltip. */
+export function MoreActionsTrigger({
+	testId,
+	disabled,
+}: {
+	testId: string;
+	disabled?: boolean;
+}) {
+	return (
+		<IconTooltip
+			label={content.common.actions.moreActions}
+			trigger={
+				<DropdownMenuTrigger
+					disabled={disabled}
+					className={cn(
+						buttonVariants({
+							variant: 'ghost',
+							size: 'icon-sm',
+						}),
+						'@max-md:size-9',
+						disabled && 'disabled:opacity-30',
+					)}
+					aria-label={content.common.actions.moreActions}
+					data-testid={testId}
+				/>
+			}
+		>
+			<MoreHorizontal />
+		</IconTooltip>
 	);
 }
 

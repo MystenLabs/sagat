@@ -28,6 +28,9 @@ const SIGNERS_REFUSED = {
 const IN_THIS_STATE =
 	'Proposals in this state show up here.';
 
+/** A signer change whose Execute waits for its new signers: its status chip and its warning’s title. */
+const WAITING_FOR_NEW_SIGNERS = 'Waiting for new signers';
+
 /** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
 const OTHER_SIGNER_SETS = {
 	title: 'This address has other signer sets',
@@ -81,6 +84,9 @@ export const content = {
 			loadMore: 'Load more',
 			signAndExecute: 'Sign and execute',
 			learnMore: 'Learn more',
+			viewProposal: 'View proposal',
+			addSigner: 'Add signer',
+			moreActions: 'More actions',
 		},
 		/** Field, row and column labels. */
 		fields: {
@@ -122,6 +128,9 @@ export const content = {
 			failedOnChain: 'The transaction failed on chain.',
 		},
 		unknownKey: 'Unknown key',
+		/** A pod's transaction can't build without SUI for gas. */
+		noGas:
+			'This pod has no SUI to pay gas. Send it some SUI first.',
 		/** The heading of the wizards' next-steps card. */
 		whatHappensNext: 'What happens next',
 		/** The transaction preview block's name, as heading or region label. */
@@ -156,6 +165,8 @@ export const content = {
 		/** When more than one signer set acts on the network: above Members' cards and in the Approvals card. */
 		severalSignerSets: (count: number, network: string) =>
 			`This pod has ${count} signer sets on ${network}. Each one can approve transactions on its own.`,
+		/** Why Add signer is disabled at the maximum: the create wizard and Members. */
+		maxSigners: (max: number) => `Up to ${max} signers`,
 		/** When a transaction's bytes name a chain other than the node's: under the bytes field, and why Sign is refused. */
 		wrongChain:
 			'The transaction was built for another network.',
@@ -452,8 +463,6 @@ export const content = {
 				'Paste each signer’s public key, or search by their address.',
 			count: (count: number, max: number) =>
 				`${count} of ${max}`,
-			addSigner: 'Add signer',
-			maxSigners: (max: number) => `Up to ${max} signers`,
 			orderNote:
 				'Signer order affects the address. Drag to reorder before you create the pod.',
 			thresholdTitle: 'Approval threshold',
@@ -998,8 +1007,9 @@ export const content = {
 			youSigned: 'You signed',
 			executeFailed: (message: string) =>
 				`Couldn’t execute: ${message}`,
-			moreActions: 'More actions',
 			download: 'Download',
+			/** A ready proposal that calls the alias module executes from its page. */
+			executeFromPage: 'Open to execute',
 		},
 		/** The status chip's label for where a proposal stands. */
 		status: {
@@ -1007,6 +1017,8 @@ export const content = {
 			cancelled: 'Cancelled',
 			failed: 'Failed',
 			ready: 'Ready',
+			/** Ready, but a signer change's Execute waits for its new signers. */
+			waiting: WAITING_FOR_NEW_SIGNERS,
 			pending: 'Pending',
 			expired: 'Expired',
 		},
@@ -1082,6 +1094,9 @@ export const content = {
 			signAnyway: 'Sign anyway',
 			signProposal: 'Sign proposal',
 			simulating: 'Simulating…',
+			/** A signer change's two counts: the set that executes it, and the new set that confirms it. */
+			currentSigners: 'Current signers',
+			newSigners: 'New signers',
 			/** The line under the heading. */
 			status: {
 				executing: 'Threshold reached. Executing…',
@@ -1158,13 +1173,17 @@ export const content = {
 				title: 'Proposer not confirmed',
 				body: 'There’s no signature on record showing this proposal came from a signer or a confirmed external proposer. Check the transaction before you sign.',
 			},
-			/** A pending signer change whose signers who stay haven’t signed for the new threshold yet. */
+			/** An open signer change whose new set hasn’t signed for its threshold yet, which holds Execute; `names` are the new set’s members who haven’t signed. */
 			signerChange: {
-				title: 'Signers who stay haven’t all signed',
+				title: WAITING_FOR_NEW_SIGNERS,
 				body: (names: string, count: number) =>
-					`${names} will still ${count === 1 ? 'be a signer' : 'be signers'} after this change but ${count === 1 ? 'hasn’t' : 'haven’t'} signed it. If they can no longer sign, the pod could be locked.`,
-				unreachable:
-					'The signers who stay after this change can’t reach its new threshold. If it executes, the pod could be locked.',
+					`${names} ${count === 1 ? 'hasn’t' : 'haven’t'} signed yet. It can be executed here once the new signers reach their threshold.`,
+				/** In place of `body` when the pod’s alias set read now doesn’t check the change. */
+				moved:
+					'This pod’s signer sets changed after this was proposed. Cancel it and propose the change again.',
+				/** Under the Sign button, for a signer the change removes. */
+				removed:
+					'You’re being removed in this change, so you can’t cancel it. You can still sign it.',
 			},
 			executeAnyway: {
 				/** `recheck`: the recheck's message, which leads the body. */
@@ -1238,6 +1257,29 @@ export const content = {
 			noActingSet: (network: string) =>
 				`On ${network}, this address is controlled by other signer sets.`,
 		},
+		/** Atop the Signers card until signer changes are enabled; the button beside it. */
+		signerChangesNotEnabled: (network: string) =>
+			`Signer changes aren’t enabled for this pod on ${network} yet. Enabling them takes one proposal that the signers approve.`,
+		/** The Signers card's button, and the title of the proposal it creates. */
+		enableSignerChanges: 'Enable signer changes',
+		enableSignerChangesPending: (network: string) =>
+			`A proposal to enable signer changes on ${network} is open.`,
+		/** The entry points to Change signers. */
+		changeThreshold: 'Change threshold',
+		replace: 'Replace',
+		changeWeight: 'Change weight',
+		cantRemoveYourself:
+			'You can’t remove yourself. Another signer can remove you with a change.',
+		needsTwoSigners:
+			'A pod needs at least 2 signers. Add a signer first, or use Replace.',
+		changePending: (quote?: {
+			title: string;
+			weight: string;
+		}) =>
+			`A signer change is waiting for signatures${quote ? `: “${quote.title}” (${quote.weight} weight)` : ''}. New changes can start once it’s executed or cancelled.`,
+		/** When a pending proposal that calls the alias module is neither a signer change nor the one enabling them. */
+		aliasProposalPending:
+			'A proposal that affects this pod’s signers is open. New changes can start once it’s executed, cancelled or expired.',
 		/** When the pod's alias set differs on other networks the API serves; `networks` is already a list. */
 		differentOn: (networks: string) =>
 			`This pod’s signers are different on ${networks}.`,
@@ -1274,6 +1316,116 @@ export const content = {
 			oneRejected: (name: string) =>
 				`${name} rejected the invitation.`,
 		},
+	},
+	/** Change signers: the editor and its review. lib/change-signers reads it. */
+	changeSigners: {
+		title: 'Change signers',
+		steps: ['Changes', 'Review'],
+		description:
+			'Add, remove or edit signers. The current signers approve all changes as one proposal.',
+		reviewChanges: 'Review changes',
+		currently: (label: string) => `Currently ${label}`,
+		unreachable: (
+			threshold: number,
+			total: number,
+			removed: string | null,
+		) =>
+			`The threshold is ${threshold}, but the signers left only add up to ${total} weight, so no proposal could ever pass. Lower the threshold to ${total} or less${removed ? `, or keep ${removed}` : ''}.`,
+		alreadySignerSet:
+			'This pod already has a signer set with exactly these signers.',
+		chips: {
+			new: 'New',
+			removed: 'Removed',
+			replaced: 'Replaced',
+		},
+		row: {
+			weightChange: (from: number, to: number) =>
+				`Weight ${from} → ${to}`,
+			joins: 'Becomes a signer once this change executes',
+			was: 'Was',
+			weightStays: (weight: number) =>
+				`weight stays ${weight}`,
+			removed: (name: string, network: string) =>
+				`${name} can no longer sign on ${network} once this change executes.`,
+			undo: 'Undo',
+		},
+		addressStays: 'Address stays the same',
+		review: {
+			description:
+				'Check the changes before you propose them. Nothing changes until the current signers approve.',
+			changes: 'Changes',
+			/** The Changes card's heading on an executed change. */
+			did: 'What this change did',
+			/** The Changes card's heading on a cancelled, expired or failed change. */
+			wouldHave: 'What this change would have done',
+			carryOver:
+				'Signatures from signers who stay carry over, and open proposals are recounted against the new weights and threshold.',
+			carryOverReorder:
+				'Open proposals and their signatures carry over. Weights and the threshold don’t change.',
+			/** Under the carry-over line when the change adds or replaces a key. */
+			newSignersSign:
+				'New signers confirm this change by signing it. Share the proposal’s link with them after you propose.',
+			signersAfter: 'Signers after the change',
+			/** The last line under the differences when the total weight changes and the threshold doesn’t: "2 of 2", "2 of 3". */
+			thresholdAfter: (now: string, before: string) =>
+				`Threshold after this change: ${now} (was ${before})`,
+			/** The proposal page's Changes card: the added signers whose signature the change doesn’t need, and what carries over. */
+			invitation: (names: string, count: number) =>
+				`${names} ${count === 1 ? 'gets' : 'get'} an invitation once this executes, unless they sign this change first.`,
+			/** `carryOver`: one of the carry-over sentences above. */
+			onceExecutes: (carryOver: string) =>
+				`Once this executes, ${carryOver.charAt(0).toLowerCase()}${carryOver.slice(1)}`,
+			address: 'Sui address · stays the same',
+		},
+		/** The differences, and the proposal's title: the first one and how many more. */
+		change: {
+			add: (name: string, weight: number) =>
+				`Add ${name} (weight ${weight})`,
+			addTitle: (name: string) => `Add ${name}`,
+			remove: (name: string, weight: number) =>
+				`Remove ${name} (weight ${weight})`,
+			removeTitle: (name: string) => `Remove ${name}`,
+			replace: (name: string, weight: number) =>
+				`Replace ${name} (weight ${weight})`,
+			replaceTitle: (name: string) => `Replace ${name}`,
+			weight: (name: string, from: number, to: number) =>
+				`Change ${name}’s weight from ${from} to ${to}`,
+			threshold: (from: string, to: string) =>
+				`Change the threshold from ${from} to ${to}`,
+			moves: (name: string, from: number, to: number) =>
+				`Reorder signers: ${name} moves from ${from} to ${to}`,
+			reorder: 'Reorder signers',
+			more: (title: string, count: number) =>
+				`${title} and ${count} more`,
+			two: (first: string, second: string) =>
+				`${first} and ${second.charAt(0).toLowerCase()}${second.slice(1)}`,
+		},
+		help: [
+			{
+				id: 'who-approves',
+				question: 'Who approves this change?',
+				answer:
+					'The current signers approve it as one proposal, at the current threshold. The signers after the change sign it too, enough for the new threshold, before it can execute. Any signer who stays can cancel it. A signer being removed can’t.',
+			},
+			{
+				id: 'open-proposals',
+				question: 'What happens to open proposals?',
+				answer:
+					'They carry over. Signatures from signers who stay still count, and progress is recounted against the new weights and threshold.',
+			},
+			{
+				id: 'new-signers',
+				question: 'When do new signers get access?',
+				answer:
+					'After the change executes. From then on they can sign proposals.',
+			},
+			{
+				id: 'weights-and-threshold',
+				question: 'How do weights and the threshold work?',
+				answer:
+					'Each signer’s weight counts toward the threshold. A proposal can execute once the signatures on it add up to the threshold.',
+			},
+		],
 	},
 	proposers: {
 		title: 'External proposers',
@@ -1462,6 +1614,9 @@ export const content = {
 			/** With a second sentence when the transaction calls `replace_all`. */
 			warning: (network: string, replaceAll: boolean) =>
 				`This transaction changes who controls this pod on ${network}. Pods can’t show who is added. Check every address in it before you sign.${replaceAll ? ' It calls replace_all, which replaces every signer set of this pod at once.' : ''}`,
+			/** In place of `warning` when every alias call is `enable`. */
+			enablesChanges: (network: string) =>
+				`This transaction enables signer changes for this pod on ${network}. It doesn’t change this pod’s signers.`,
 		},
 		balances: {
 			change: 'Change',
@@ -1591,6 +1746,12 @@ export const content = {
 		signatureCopied: 'Signature copied',
 		signFailed: 'Failed to sign the transaction',
 		ledgerHashCopied: 'Ledger hash copied',
+		removedFromPod: (
+			pod: string,
+			network: string,
+			when: string,
+		) =>
+			`You were removed from ${pod}’s signers on ${network} by a signer change on ${when}.`,
 	},
 	errors: {
 		noWalletConnected: 'No wallet connected',

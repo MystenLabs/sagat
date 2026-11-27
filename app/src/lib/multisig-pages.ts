@@ -46,6 +46,29 @@ export type MultisigPageId =
 	(typeof MULTISIG_PAGES)[number]['id'];
 
 /**
+ * The pod the sidebar presents: the route's, else the last viewed, else
+ * the first. None on the shared proposal page or on a pod route outside
+ * `accepted`.
+ */
+export function sidebarPod<T extends { address: string }>(
+	pathname: string,
+	accepted: T[],
+	lastViewed: string | null,
+): T | undefined {
+	if (matchPath('/proposals', pathname)) return undefined;
+	const routeAddress = matchPath(
+		{ path: '/multisig/:address', end: false },
+		pathname,
+	)?.params.address;
+	if (routeAddress)
+		return accepted.find((m) => m.address === routeAddress);
+	return (
+		accepted.find((m) => m.address === lastViewed) ??
+		accepted[0]
+	);
+}
+
+/**
  * The account page a path is on, for the title and the sidebar. The
  * account's bare path redirects to its overview.
  */

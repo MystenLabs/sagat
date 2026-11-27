@@ -147,6 +147,24 @@ test.describe('errors', () => {
 			.locator('[data-title]')
 			.boundingBox();
 		expect(title?.width).toBeGreaterThan(160);
+		// Copy takes the title and the node's whole refusal, and keeps the toast.
+		await alice.context.grantPermissions([
+			'clipboard-read',
+			'clipboard-write',
+		]);
+		const refusal = await toast
+			.locator('[data-description]')
+			.innerText();
+		expect(refusal.length).toBeGreaterThan(0);
+		await toast.getByTestId('toast-copy').click();
+		const copied = await alice.page.evaluate(() =>
+			navigator.clipboard.readText(),
+		);
+		expect(copied).toContain(
+			'Couldn’t execute the proposal',
+		);
+		expect(copied).toContain(refusal);
+		await expect(toast).toBeVisible();
 		// TODO: it can never execute now, so it should move to a new terminal
 		// status (see lookupAndVerifyProposal in the API) instead of staying
 		// ready.

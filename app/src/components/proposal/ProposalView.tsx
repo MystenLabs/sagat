@@ -6,13 +6,14 @@ import {
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
 import { useQuery } from '@tanstack/react-query';
-import { Download, Link2 } from 'lucide-react';
+import { Download, Info, Link2, Mail } from 'lucide-react';
 import {
 	useEffect,
 	useMemo,
 	type ReactElement,
 } from 'react';
 
+import { ChangeList } from '@/components/change-signers/ReviewStep';
 import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { SignerName } from '@/components/multisig/SignerName';
 import { analyzerTab } from '@/components/preview-effects/IntentSummary';
@@ -46,6 +47,13 @@ import { refusedAsExpired } from '@/hooks/useDryRun';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { useExpiry } from '@/hooks/useExpiry';
 import { useTransactionPreview } from '@/hooks/useTransactionPreview';
+import {
+	changeTitle,
+	signerChangeIn,
+	suiKey,
+	type Difference,
+} from '@/lib/change-signers';
+import { joinList } from '@/lib/create-multisig';
 import { formatDateTime } from '@/lib/dates';
 import {
 	buildProposalExport,
@@ -59,7 +67,11 @@ import {
 	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
+	changeHold,
+	newSignerKey,
 	proposalPageStatus,
+	shownChange,
+	shownStatus,
 	withReason,
 	type Labels,
 	type SimulationVerdict,
@@ -142,6 +154,29 @@ export function ProposalView({
 	const onChain =
 		status === 'executed' || status === 'failed';
 	const open = status === 'pending' || status === 'ready';
+	// Only what the bytes do: while open, checked against the node's alias set.
+	const shown = useMemo(
+		() =>
+			shownChange(proposal, status, aliases, labels, {
+				pod: pod?.address ?? proposal.accountAddress,
+				digest: openedDigest,
+			}),
+		[aliases, proposal, status, labels, pod, openedDigest],
+	);
+	const checked = open ? shown : null;
+	const hold = useMemo(
+		() =>
+			changeHold(
+				proposal,
+				status,
+				aliases,
+				shown?.labels ?? labels,
+			),
+		[proposal, status, aliases, shown, labels],
+	);
+	const title = shown?.list
+		? changeTitle(shown.list)
+		: proposalTitle(proposal);
 
 	// The connected wallet is in one of the proposal's signer sets, which
 	// Sign then checks. Signing needs only the wallet; the network has to
@@ -153,11 +188,26 @@ export function ProposalView({
 					isMember({ members: [m] }, wallet.address),
 				)
 		: undefined;
-	const viewer = !member
+	// Else a key the open change adds, which may only sign: checked, or the bytes' note's until the alias read lands, which Sign waits for or retries.
+	const adding = useMemo(
+		() =>
+			aliases?.kind === 'read'
+				? (checked?.change ?? null)
+				: signerChangeIn(proposal.transactionBytes, null),
+		[aliases, checked, proposal.transactionBytes],
+	);
+	const newSigner =
+		!member && open
+			? newSignerKey(adding, wallet?.address)
+			: null;
+	const viewerKey = member?.publicKey ?? newSigner;
+	const viewer = !viewerKey
 		? 'outsider'
 		: mismatch
 			? 'elsewhere'
-			: 'member';
+			: member
+				? 'member'
+				: 'newSigner';
 
 	const expiry = useExpiry(proposal.transactionBytes);
 	const knownExpired = !mismatch && !!expiry?.expired;
@@ -288,14 +338,14 @@ export function ProposalView({
 			data-status={status}
 		>
 			<PageHeader
-				title={proposalTitle(proposal)}
+				title={title}
 				backLink={proposalsPath ?? undefined}
 				backLabel={SHARED.backLabel}
 				className="mb-6"
 				description={
 					<span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-13 max-sm:flex-col max-sm:items-start max-sm:[&>span>[aria-hidden]]:hidden">
 						<ProposalStatusChip
-							status={status}
+							status={shownStatus(status, hold)}
 							className="mr-0.5"
 							data-testid="proposal-status"
 						/>
@@ -406,7 +456,7 @@ export function ProposalView({
 					)}
 				</div>
 			)}
-			{open && (
+			{open && !shown?.list && (
 				<AliasCallsWarning
 					bytes={proposal.transactionBytes}
 					network={proposal.network as SuiNetwork}
@@ -415,31 +465,46 @@ export function ProposalView({
 			)}
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-				{onChain ? (
-					<OnChainCard
-						proposal={proposal}
-						status={status}
-						result={chainResult}
-						error={chain.error?.message ?? null}
-					/>
-				) : (
-					<section
-						className={cardClass}
-						aria-label={content.common.transactionPreview}
-					>
-						{previewBlock}
-					</section>
-				)}
+				<div className="flex min-w-0 flex-col gap-4">
+					{shown?.list && (
+						<ChangesCard
+							list={shown.list}
+							summary={shown.summary}
+							heading={shown.heading}
+							invited={shown.invited}
+							carryOver={shown.carryOver}
+							you={viewerKey ? suiKey(viewerKey) : null}
+						/>
+					)}
+					{onChain ? (
+						<OnChainCard
+							proposal={proposal}
+							status={status}
+							result={chainResult}
+							error={chain.error?.message ?? null}
+						/>
+					) : (
+						<section
+							className={cardClass}
+							aria-label={content.common.transactionPreview}
+						>
+							{previewBlock}
+						</section>
+					)}
+				</div>
 				<div className="flex min-w-0 flex-col gap-4">
 					<ApprovalsCard
 						proposal={proposal}
+						title={title}
 						pod={pod}
 						aliases={aliases}
+						change={shown?.change ?? null}
+						hold={hold}
 						openedDigest={openedDigest}
 						status={status}
-						labels={labels}
+						labels={shown?.labels ?? labels}
 						viewer={viewer}
-						viewerPublicKey={member?.publicKey ?? null}
+						viewerPublicKey={viewerKey}
 						simulation={simulation}
 						verdict={verdict}
 						canCancel={canCancel}
@@ -454,6 +519,51 @@ export function ProposalView({
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function ChangesCard({
+	list,
+	summary,
+	heading,
+	invited,
+	carryOver,
+	you,
+}: {
+	list: Difference[];
+	summary: string | null;
+	heading: string;
+	/** The names the invitation line gives. */
+	invited: string[];
+	/** Whether the "Once this executes" line shows. */
+	carryOver: boolean;
+	/** The viewer's key, marked where a line names it. */
+	you: string | null;
+}) {
+	const REVIEW = content.changeSigners.review;
+	return (
+		<section
+			className={cardClass}
+			data-testid="signer-change-changes"
+		>
+			<h3 className="text-15 font-medium">{heading}</h3>
+			<ChangeList list={list} summary={summary} you={you} />
+			{invited.length > 0 && (
+				<p className="flex items-start gap-1.5 text-12">
+					<Mail className="mt-0.5 size-3 shrink-0" />
+					{REVIEW.invitation(
+						joinList(invited, 'and'),
+						invited.length,
+					)}
+				</p>
+			)}
+			{carryOver && (
+				<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
+					<Info className="mt-0.5 size-3 shrink-0" />
+					{REVIEW.onceExecutes(REVIEW.carryOver)}
+				</p>
+			)}
+		</section>
 	);
 }
 

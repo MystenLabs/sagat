@@ -25,15 +25,21 @@ const TONE_CLASS: Record<WeightTone, string> = {
  */
 export function SegmentBar({
 	layout,
+	error = false,
 	children,
 }: {
 	layout: WeightBarLayout;
+	/** Every segment in the error colour. */
+	error?: boolean;
 	children?: ReactNode;
 }) {
 	return (
 		<div
 			aria-hidden
-			className="relative flex h-1.5"
+			className={cn(
+				'relative flex h-1.5',
+				error && '*:bg-error-foreground!',
+			)}
 			style={
 				layout.kind === 'segments'
 					? { gap: SEGMENT_GAP_PX }

@@ -5,20 +5,31 @@
 // stands, the Approvals card's rows and lines, the cancel dialog's
 // wording and the Activity card's rows.
 import {
-	checkSignerChange,
+	proofWeight,
 	signerChangeProof,
+	type SignerChange,
 } from '@mysten/sagat';
-import { Transaction } from '@mysten/sui/transactions';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
+import { type AliasRead } from './alias-set';
+import {
+	changeDifferences,
+	changeTitle,
+	signerChangeIn,
+	suiKey,
+	thresholdSummary,
+	type Difference,
+} from './change-signers';
 import { joinList } from './create-multisig';
 import { type EpochInfo } from './expiration';
+import { isMember } from './proposal-integrity';
 import {
 	isExternalProposer,
 	isProposalExpired,
 	missingWeight,
 	proposalStatusKey,
+	proposalTitle,
 	reachesThreshold,
 	shownSignerSet,
 	type CountedProposal,
@@ -34,6 +45,7 @@ import { approvalsThresholdLabel } from './threshold';
 import {
 	gasCost,
 	gasLabel,
+	readTransactionBytes,
 	type SimulatedTransaction,
 } from './transaction-preview';
 
@@ -41,6 +53,7 @@ const STATUS = content.proposal.approvals.status;
 const NOTES = content.proposal.approvals.notes;
 const SIGNER_CHANGE =
 	content.proposal.approvals.signerChange;
+const REVIEW = content.changeSigners.review;
 
 type PageProposal = Pick<
 	CountedProposal,
@@ -88,6 +101,170 @@ const addressOf = (publicKey: string) =>
 function nameOf(address: string | null, labels: Labels) {
 	if (!address) return content.common.unknownKey;
 	return labels.get(address) || formatAddress(address);
+}
+
+const keyName = (publicKey: string, labels: Labels) =>
+	nameOf(addressOf(publicKey), labels);
+
+// A name as two names compare: trimmed, spaces collapsed, lower case.
+const normalName = (name: string) =>
+	name.trim().replace(/\s+/g, ' ').toLowerCase();
+
+type ChangeProposal = Pick<
+	CountedProposal,
+	'transactionBytes' | 'signerChange'
+>;
+
+/** The opened bytes' checked signer change, with its differences and the labels to name its keys by. */
+export function checkedChange(
+	proposal: ChangeProposal,
+	aliases: AliasRead | undefined,
+	labels: Labels,
+	opened: { pod: string; digest: string },
+) {
+	return aliases?.kind === 'read'
+		? readChange(proposal, aliases.aliases, labels, opened)
+		: null;
+}
+
+/** `checkedChange` for the change the bytes' own note makes, for a proposal that is no longer open. */
+export const noteChange = (
+	proposal: ChangeProposal,
+	labels: Labels,
+	opened: { pod: string; digest: string },
+) => readChange(proposal, null, labels, opened);
+
+function readChange(
+	{ transactionBytes, signerChange }: ChangeProposal,
+	aliases: readonly string[] | null,
+	labels: Labels,
+	opened: { pod: string; digest: string },
+) {
+	const change = signerChangeIn(transactionBytes, aliases);
+	if (!change) return null;
+	// Only the opened proposal's own bytes, sent by the pod.
+	const { digest, transaction } = readTransactionBytes(
+		transactionBytes,
+	);
+	if (
+		!transaction.sender ||
+		!sameAddress(transaction.sender, opened.pod) ||
+		digest !== opened.digest
+	)
+		return null;
+	const old = new Set(
+		change.oldSet.members.map((m) => m.publicKey),
+	);
+	const taken = new Set(
+		[...labels.values()].map(
+			(name) => name && normalName(name),
+		),
+	);
+	// The API's label names only a key the bytes add, never as a current signer; the pod's labels win.
+	const merged: Labels = new Map([
+		...(signerChange?.labels ?? []).flatMap(
+			({ publicKey, label }) => {
+				const key = suiKey(publicKey);
+				const address = addressOf(key);
+				return address &&
+					!old.has(key) &&
+					!taken.has(normalName(label))
+					? [[address, label] as const]
+					: [];
+			},
+		),
+		...labels,
+	]);
+	const list = changeDifferences(change, (key) =>
+		keyName(key, merged),
+	);
+	const summary = thresholdSummary(
+		change.oldSet,
+		change.newSet,
+	);
+	return { change, list, summary, labels: merged };
+}
+
+/**
+ * The change a proposal's page shows: while open, checked against the
+ * alias read, under "Changes" with the lines only an open change has (who
+ * gets an invitation, what carries over); once no longer open, the bytes'
+ * own note, under what it did or would have done.
+ */
+export function shownChange(
+	proposal: ChangeProposal &
+		Pick<PageProposal, 'signatures'>,
+	status: ProposalStatusKey,
+	aliases: AliasRead | undefined,
+	labels: Labels,
+	opened: { pod: string; digest: string },
+) {
+	const open = status === 'pending' || status === 'ready';
+	const read = open
+		? checkedChange(proposal, aliases, labels, opened)
+		: noteChange(proposal, labels, opened);
+	if (!read) return null;
+	return {
+		...read,
+		heading: open
+			? REVIEW.changes
+			: status === 'executed'
+				? REVIEW.did
+				: REVIEW.wouldHave,
+		invited: open ? invitedNames(read, proposal) : [],
+		carryOver: open,
+	};
+}
+
+/** Whether the change can't execute without `publicKey`'s signature: its proof stays unmet with every other key of its new set signed. */
+export function signatureNeeded(
+	change: SignerChange,
+	publicKey: string,
+) {
+	const others = change.newSet.members
+		.map((m) => m.publicKey)
+		.filter((key) => key !== publicKey);
+	return !signerChangeProof(change, others).met;
+}
+
+// The keys a change adds that may still get an invitation: not signed (a signer accepts the pod when it executes) and not needed (the hold names those).
+function invitedNames(
+	{
+		change,
+		list,
+	}: { change: SignerChange; list: Difference[] },
+	proposal: Pick<PageProposal, 'signatures'>,
+) {
+	return list.flatMap(
+		({ kind, name, publicKey, newKey }) => {
+			const key = kind === 'replace' ? newKey : publicKey;
+			return (kind === 'add' || kind === 'replace') &&
+				name &&
+				key &&
+				!hasSigned(proposal, key) &&
+				!signatureNeeded(change, key)
+				? [name]
+				: [];
+		},
+	);
+}
+
+/** The key `address` signs with as a member of a checked change's new set, when the set it replaces doesn't hold it; null otherwise. */
+export function newSignerKey(
+	change: SignerChange | null,
+	address: string | null | undefined,
+): string | null {
+	if (
+		!change ||
+		!address ||
+		isMember(change.oldSet, address)
+	)
+		return null;
+	return (
+		change.newSet.members.find((m) =>
+			isMember({ members: [m] }, address),
+		)?.publicKey ?? null
+	);
 }
 
 /** Whether `publicKey` signed the proposal. */
@@ -239,6 +416,52 @@ export function approvalsSignerSets(
 	}));
 }
 
+/** A checked change's new set as an Approvals part: its members, marked by the proposal's signatures, counted by the new weights against the new threshold. */
+export function newSignerSet(
+	{ newSet: set }: SignerChange,
+	proposal: Pick<PageProposal, 'signatures'>,
+	status: ProposalStatusKey,
+	labels: Labels,
+	publicKey: string | null | undefined,
+	notSigned: readonly string[] = [],
+): ApprovalsSignerSet {
+	const signed = proposal.signatures.map(
+		(sig) => sig.publicKey,
+	);
+	const open = status === 'pending' || status === 'ready';
+	const counted = {
+		currentWeight: proofWeight(set, signed),
+		threshold: set.threshold,
+	};
+	return {
+		address: set.address,
+		...counted,
+		podName: null,
+		heading: approvalsThresholdLabel(set),
+		line: !open
+			? null
+			: reachesThreshold(counted)
+				? STATUS.reached
+				: STATUS.needs(missingWeight(counted)),
+		rows: approvalRows(
+			{
+				members: set.members.map((m, order) => ({
+					...m,
+					order,
+				})),
+			},
+			proposal,
+			status,
+			labels,
+			publicKey,
+			// Once closed, a new signer who didn't sign reads as not signed.
+			open
+				? notSigned
+				: set.members.map((m) => m.publicKey),
+		),
+	};
+}
+
 /** The folded row's line, only when a folded set reached its threshold or, while pending, misses less than the main set. */
 export function foldedSignerSetsLine(
 	[main, ...folded]: readonly ApprovalsSignerSet[],
@@ -255,11 +478,12 @@ export function foldedSignerSetsLine(
 		: null;
 }
 
-/** The line under the Approvals heading while executing or once ready; a pending count is the main set's `line`. */
+/** The line under the Approvals heading while executing or once ready, none while a signer change's Execute is `held`; a pending count is the main set's `line`. */
 export function approvalsStatus(
 	status: ProposalStatusKey,
 	executing: boolean,
 	simulation: SimulationVerdict,
+	held = false,
 ) {
 	if (
 		executing &&
@@ -267,63 +491,109 @@ export function approvalsStatus(
 	)
 		return STATUS.executing;
 	if (status === 'ready')
-		return simulation === 'failed'
-			? STATUS.reached
-			: STATUS.ready;
+		return held
+			? null
+			: simulation === 'failed'
+				? STATUS.reached
+				: STATUS.ready;
 	if (status === 'executed') return STATUS.executed;
 	if (status === 'failed') return STATUS.failed;
 	return null;
 }
 
+/** What holds an open signer change's Execute: the line to show and the new set's keys that haven't signed; `moved` when the alias read doesn't check the bytes. */
+export interface ChangeHold {
+	line: string;
+	notSigned: string[];
+	moved: boolean;
+}
+
 /**
- * While a pending signer change's signers who stay haven't signed for
- * the new threshold, the warning naming them and their keys, or saying
- * they can't reach it once nobody is left to name. Null for
- * bytes without a composition note that checks against `aliases`, the
- * pod's alias set from the app's node (null until read).
+ * While an open signer change's new set hasn't signed for its threshold,
+ * which holds Execute, what holds it; null otherwise. Without a change
+ * checked against the alias read, the bytes' own note decides.
  */
-export function signerChangeWarning(
+export function changeHold(
 	proposal: Pick<
 		PageProposal,
-		'transactionBytes' | 'signatures'
+		'signatures' | 'transactionBytes'
 	>,
 	status: ProposalStatusKey,
-	aliases: readonly string[] | null,
+	aliases: AliasRead | undefined,
 	labels: Labels,
-): { body: string; notSigned: string[] } | null {
-	if (
-		!aliases ||
-		(status !== 'pending' && status !== 'ready')
-	)
+): ChangeHold | null {
+	if (status !== 'pending' && status !== 'ready')
 		return null;
-	let proof;
-	try {
-		proof = signerChangeProof(
-			checkSignerChange(
-				Transaction.from(
-					proposal.transactionBytes,
-				).getData(),
-				aliases,
-			),
-			proposal.signatures.map((sig) => sig.publicKey),
-		);
-	} catch {
-		return null;
-	}
+	const read = aliases?.kind === 'read';
+	const checked = read
+		? signerChangeIn(
+				proposal.transactionBytes,
+				aliases.aliases,
+			)
+		: null;
+	const change =
+		checked ??
+		signerChangeIn(proposal.transactionBytes, null);
+	if (!change) return null;
+	const proof = signerChangeProof(
+		change,
+		proposal.signatures.map((sig) => sig.publicKey),
+	);
 	if (proof.met) return null;
+	// The pod's alias set moved since the bytes were built.
+	const moved = read && !checked;
 	const names = proof.notSigned.map((key) =>
-		nameOf(addressOf(key), labels),
+		keyName(key, labels),
 	);
 	return {
-		body:
-			names.length === 0
-				? SIGNER_CHANGE.unreachable
-				: SIGNER_CHANGE.body(
-						joinList(names, 'and'),
-						names.length,
-					),
+		line: moved
+			? SIGNER_CHANGE.moved
+			: SIGNER_CHANGE.body(
+					joinList(names, 'and'),
+					names.length,
+				),
 		notSigned: proof.notSigned,
+		moved,
 	};
+}
+
+/** What a proposal's status chip says: `waiting` instead of `ready` while a signer change's Execute is held. */
+export type ShownStatus = ProposalStatusKey | 'waiting';
+
+export const shownStatus = (
+	status: ProposalStatusKey,
+	hold: ChangeHold | null,
+): ShownStatus =>
+	status === 'ready' && hold ? 'waiting' : status;
+
+type ListedProposal = Pick<
+	CountedProposal,
+	| 'signatures'
+	| 'transactionBytes'
+	| 'signerChange'
+	| 'accountAddress'
+	| 'digest'
+>;
+
+/** A listed proposal's title: its signer change's, read as its page reads it, checked while open and from the bytes' note once closed; otherwise its description or digest. */
+export function listedTitle(
+	proposal: ListedProposal &
+		Pick<CountedProposal, 'description'>,
+	status: ProposalStatusKey,
+	aliases: AliasRead | undefined,
+	labels: Labels,
+) {
+	const opened = {
+		pod: proposal.accountAddress,
+		digest: proposal.digest,
+	};
+	const read =
+		status === 'pending' || status === 'ready'
+			? checkedChange(proposal, aliases, labels, opened)
+			: noteChange(proposal, labels, opened);
+	return read?.list
+		? changeTitle(read.list)
+		: proposalTitle(proposal);
 }
 
 /**
@@ -369,17 +639,20 @@ export interface ApprovalsNoteInput {
 	labels: Labels;
 	publicKey: string | null | undefined;
 	/**
-	 * `member` can act; `elsewhere` is a member on another network than
-	 * the proposal's, whom the network banner speaks to; `outsider`
-	 * isn't a member, or isn't connected.
+	 * `member` can act; `newSigner` can only sign, as a member of a
+	 * checked change's new set (`newSignerKey`); `elsewhere` is either of
+	 * them on another network than the proposal's, whom the network
+	 * banner speaks to; `outsider` isn't a member, or isn't connected.
 	 */
-	viewer: 'member' | 'elsewhere' | 'outsider';
+	viewer: 'member' | 'newSigner' | 'elsewhere' | 'outsider';
 	simulation: SimulationVerdict;
 	/** The Execute after signing box is ticked. */
 	executeAfterSigning: boolean;
 	executing: boolean;
 	/** The dry run's gas cost, from `gasEstimate`. */
 	gas: string | null;
+	/** Execute is held until a signer change's new signers confirm it. */
+	held?: boolean;
 }
 
 /** The note under the Approvals card's actions. */
@@ -393,16 +666,19 @@ export function approvalsNote({
 	executeAfterSigning,
 	executing,
 	gas,
+	held = false,
 }: ApprovalsNoteInput): string | null {
 	if (executing) return NOTES.executing;
 	if (status === 'executed') return null;
 	if (status === 'failed') return NOTES.failed;
 	if (status === 'cancelled') return NOTES.cancelled;
 	if (viewer === 'outsider') return NOTES.outsider;
-	if (viewer === 'elsewhere') return null;
+	if (viewer === 'elsewhere' || viewer === 'newSigner')
+		return null;
 	if (status === 'expired') return NOTES.expired;
 
 	if (status === 'ready') {
+		if (held) return null;
 		if (simulation === 'failed') return NOTES.readyFailing;
 		return gas ? NOTES.gasPaidAbout(gas) : NOTES.gasPaid;
 	}
@@ -476,9 +752,7 @@ function waitingNote(
 		];
 		if (keys.length > MAX_NAMED_SIGNERS)
 			return NOTES.waiting.anyOther;
-		const names = keys.map((key) =>
-			nameOf(addressOf(key), labels),
-		);
+		const names = keys.map((key) => keyName(key, labels));
 		return names.length === 1
 			? NOTES.waiting.one(names[0])
 			: NOTES.waiting.anyOneOf(joinList(names, 'or'));

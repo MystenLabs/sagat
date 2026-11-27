@@ -29,8 +29,6 @@ import {
 	addPodAsAlias,
 	bothSign,
 	cancelProposal,
-	enableAliases,
-	proposeThresholdChange,
 	proposeTransfer,
 	removeAlias,
 	setupMultisig,
@@ -415,74 +413,6 @@ test.describe('proposals', () => {
 			proposal.digest,
 		);
 		expect(executed.executedVia).toBe(recovery.address);
-	});
-
-	test('a signer change ready at the old threshold warns, offers no Execute in its list row, and executes', async ({
-		createActor,
-		createIdentity,
-		chain,
-	}) => {
-		const alice = await createActor('alice');
-		const bob = createIdentity('bob');
-		const carol = createIdentity('carol');
-		const members = [alice, bob, carol];
-		// A pod of its own: executing changes its signers.
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob, carol],
-			threshold: 2,
-			labels: ['Alice', 'Bob', 'Carol'],
-		});
-		await chain.fund(multisig.address);
-		await enableAliases(chain, {
-			members: members.map((identity) => ({ identity })),
-			threshold: 2,
-			signers: [alice, bob],
-		});
-		// 2-of-3 to 3-of-3, signed by Alice and Bob: ready, with Carol missing for the new threshold.
-		const proposal = await proposeThresholdChange(
-			chain,
-			alice,
-			{ members, threshold: 2, newThreshold: 3 },
-		);
-		await signProposal(bob, proposal);
-
-		await alice.signIn();
-		// Its list row offers no Execute: that happens on the page, under the warning.
-		await alice.page.goto(
-			`/multisig/${multisig.address}/proposals`,
-		);
-		await alice.page
-			.getByTestId('proposal-filter-ready')
-			.click();
-		const row = alice.proposalRow(proposal.digest);
-		await expect(row).toHaveAttribute(
-			'data-status',
-			'ready',
-		);
-		await expect(
-			row.getByTestId('execute-proposal-button'),
-		).toHaveCount(0);
-
-		await alice.page.goto(
-			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
-		);
-		const page = alice.proposalPage(proposal.digest);
-		await expect(page).toHaveAttribute(
-			'data-status',
-			'ready',
-		);
-		await expect(
-			alice.page.getByTestId('signer-change-warning'),
-		).toBeVisible();
-
-		await page
-			.getByTestId('execute-proposal-button')
-			.click();
-		await expect(page).toHaveAttribute(
-			'data-status',
-			'executed',
-		);
 	});
 
 	test('an execution the node refuses once the signer set left the pod reads the signers again', async ({

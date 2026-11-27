@@ -4,6 +4,7 @@
 import { useMemo } from 'react';
 
 import { content } from '@/content';
+import { usePodAliasSet } from '@/hooks/useAliasSets';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import {
 	isProposalExpired,
@@ -60,6 +61,8 @@ export function ProposalsTable({
 	testId: string;
 }) {
 	const { data: epochInfo } = useEpochInfo();
+	// The read the rows were counted against, shared with their query.
+	const aliases = usePodAliasSet(multisig.address);
 	// Proposers are named like signers: by their key's label, if any.
 	const labels = useMemo(
 		() => podLabels(multisig),
@@ -88,7 +91,7 @@ export function ProposalsTable({
 				<thead className="@max-md:hidden">
 					<tr className={tableShellHeadRowClass}>
 						<th className="px-3">{TABLE.proposal}</th>
-						<th className="w-20 px-3 sm:w-26">
+						<th className="w-20 px-3 sm:w-48">
 							{FIELDS.status}
 						</th>
 						<th className="hidden w-32 px-3 sm:table-cell">
@@ -126,6 +129,8 @@ export function ProposalsTable({
 									labels.get(proposal.proposerAddress) ??
 									null
 								}
+								aliases={aliases}
+								labels={labels}
 							/>
 						))}
 						{noProposals && (

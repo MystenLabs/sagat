@@ -47,6 +47,18 @@ export function ProposalExpiry({
 	);
 }
 
+// The badge on a review step, when the bytes expire.
+export function ReviewExpiry({ bytes }: { bytes: string }) {
+	const expiry = useExpiry(bytes);
+	return (
+		expiry && (
+			<div className="flex" data-testid="review-expiry">
+				<ExpiryChip expiry={expiry} />
+			</div>
+		)
+	);
+}
+
 // The badge for an expiry from `useExpiry`.
 export function ExpiryChip({ expiry }: { expiry: Expiry }) {
 	return (

@@ -17,9 +17,13 @@ import {
 	type SuiNetwork,
 } from '@/lib/network';
 import { signerSetRemoved } from '@/lib/proposal-integrity';
-import { type CountedSignerSet } from '@/lib/proposalUtils';
-import { toast } from '@/lib/toast';
-import { getExplorerUrl, safeDecode } from '@/lib/utils';
+import { changeHold } from '@/lib/proposal-page';
+import {
+	aliasCallsIn,
+	type CountedSignerSet,
+} from '@/lib/proposalUtils';
+import { explorerLink, toast } from '@/lib/toast';
+import { safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
 import { apiV1Client } from '../lib/api';
@@ -64,6 +68,23 @@ export function useExecuteProposal() {
 				// The proposal's network, not whichever one is selected now.
 				const network = proposal.network as SuiNetwork;
 				const suiClient = dappKit.getClient(network);
+				// A signer change's hold, decided again on the alias set read now.
+				if (
+					aliasCallsIn(proposal.transactionBytes).length > 0
+				) {
+					const hold = changeHold(
+						proposal,
+						'ready',
+						await readPodAliasSet(
+							queryClient,
+							suiClient,
+							network,
+							proposal.accountAddress,
+						),
+						new Map(),
+					);
+					if (hold) throw new Error(hold.line);
+				}
 				const multisigMembers = [...signerSet.members].sort(
 					(a, b) => a.order - b.order,
 				);
@@ -164,15 +185,27 @@ export function useExecuteProposal() {
 				queryClient.invalidateQueries({
 					queryKey: [key, network, accountAddress],
 				});
+			// An alias call can change whether the pod has signer changes enabled.
+			void queryClient.invalidateQueries({
+				queryKey: [QueryKeys.Multisig],
+			});
+			// Members shows loading, not the facts the change made stale.
+			if (
+				aliasCallsIn(variables.proposal.transactionBytes)
+					.length > 0
+			) {
+				void queryClient.resetQueries({
+					queryKey: [QueryKeys.Multisig, accountAddress],
+				});
+				for (const key of [
+					QueryKeys.Multisigs,
+					QueryKeys.AliasSets,
+				])
+					void queryClient.invalidateQueries({
+						queryKey: [key],
+					});
+			}
 			const digest = data.executionResult.digest;
-			const explorerUrl = getExplorerUrl(
-				digest,
-				variables.proposal.network,
-			);
-			const link = (label: string) =>
-				explorerUrl
-					? { label, href: explorerUrl }
-					: undefined;
 			// The node can land the transaction and still fail it.
 			const { status } = data.executionResult;
 			if (!status.success) {
@@ -180,13 +213,20 @@ export function useExecuteProposal() {
 					description:
 						safeDecode(status.error.message) ||
 						content.common.states.failedOnChain,
-					link: link(TOASTS.seeDetails),
+					link: explorerLink(
+						digest,
+						variables.proposal.network,
+						TOASTS.seeDetails,
+					),
 				});
 				return;
 			}
 			toast.success(TOASTS.proposalExecuted, {
 				description: digest,
-				link: link(content.common.actions.viewOnExplorer),
+				link: explorerLink(
+					digest,
+					variables.proposal.network,
+				),
 			});
 		},
 		onError: (error: Error) => {

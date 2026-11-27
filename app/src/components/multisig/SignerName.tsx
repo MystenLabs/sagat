@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type ReactNode } from 'react';
+
 import { ShortAddress } from '@/components/invitations/ShortAddress';
+import { SignerSetAddress } from '@/components/multisig/SignerSetAddress';
 import { CopyButton } from '@/components/ui/CopyButton';
 import { content } from '@/content';
 import { cn } from '@/lib/utils';
@@ -57,7 +60,9 @@ export function SignerName({
 	copy = false,
 	size = 'md',
 	wrap = false,
+	full = false,
 	labelTestId,
+	badge,
 }: {
 	label: string | null;
 	address?: string;
@@ -70,8 +75,12 @@ export function SignerName({
 	 * truncating it (the create wizard's review).
 	 */
 	wrap?: boolean;
+	/** The whole address with a copy button instead of the short one (the review tables). */
+	full?: boolean;
 	/** A test id on the label, for the member tables. */
 	labelTestId?: string;
+	/** A chip after the name. */
+	badge?: ReactNode;
 }) {
 	const s = SIZES[size];
 	// The space keeps "Alice (you)" readable as text; the gap spaces it.
@@ -95,13 +104,17 @@ export function SignerName({
 		return (
 			<span
 				className={cn(
-					'min-w-0 flex-wrap items-center',
+					'min-w-0 items-center',
+					// The whole address breaks inside its own block, so the marker stays beside it.
+					full ? 'flex-nowrap' : 'flex-wrap',
 					s.display,
 					s.gap,
 					s.bare,
 				)}
 			>
-				{address ? (
+				{address && full ? (
+					<SignerSetAddress address={address} />
+				) : address ? (
 					// The address and its copy button never split; only the
 					// marker may wrap under them.
 					<span
@@ -127,6 +140,7 @@ export function SignerName({
 					</span>
 				)}
 				{markerText}
+				{badge}
 			</span>
 		);
 
@@ -149,8 +163,11 @@ export function SignerName({
 					{label}
 				</span>
 				{markerText}
+				{badge}
 			</span>
-			{address && (
+			{address && full ? (
+				<SignerSetAddress address={address} />
+			) : address ? (
 				<span
 					className={cn(
 						'flex items-center gap-1 font-mono',
@@ -160,7 +177,7 @@ export function SignerName({
 					<ShortAddress address={address} />
 					{copyButton}
 				</span>
-			)}
+			) : null}
 		</span>
 	);
 }

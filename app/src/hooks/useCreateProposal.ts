@@ -5,6 +5,10 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
+import {
+	checkSignerChange,
+	readCompositionNote,
+} from '@mysten/sagat';
 import type { Account } from '@mysten/sagat/v1';
 import { Transaction } from '@mysten/sui/transactions';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
@@ -17,6 +21,8 @@ import { useState } from 'react';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { readNodeFacts } from '@/hooks/useAliasSets';
+import { SignersChangedError } from '@/hooks/useExecuteProposal';
+import { shownApiError } from '@/lib/api-errors';
 import { checkNewProposal } from '@/lib/new-proposal';
 import {
 	checkSignerOnNetwork,
@@ -54,10 +60,45 @@ export class ChainMismatchError extends Error {
 	}
 }
 
+/**
+ * What to show for a failed create: why the bytes were refused before
+ * signing, the API's reason when it refused the proposal, else the
+ * generic line. Null for a declined signature, which is a toast alone.
+ */
+export function createFailedLine(
+	error: Error | null,
+): string | null {
+	if (!error || error instanceof SignatureDeclinedError)
+		return null;
+	if (
+		error instanceof BytesNotFromPodError ||
+		error instanceof SignersRefusedError ||
+		error instanceof ChainMismatchError ||
+		error instanceof SignersUncheckedError ||
+		error instanceof SignersChangedError
+	)
+		return error.message;
+	return shownApiError(
+		error,
+		content.newProposal.createFailed,
+	);
+}
+
+// A malformed note is left to the API to refuse.
+function carriesNote(transaction: Transaction) {
+	try {
+		return !!readCompositionNote(transaction.getData());
+	} catch {
+		return false;
+	}
+}
+
 interface CreateProposalParams {
 	multisig: Pick<Account, 'address' | 'signerSets'>;
 	transactionData: string;
 	description?: string;
+	/** For a signer change that adds a set: a name per key of it, null for none. */
+	labels?: (string | null)[];
 }
 
 export function useCreateProposal() {
@@ -76,6 +117,7 @@ export function useCreateProposal() {
 			multisig,
 			transactionData,
 			description,
+			labels,
 		}: CreateProposalParams) => {
 			if (!currentAddress || !currentAccount) {
 				throw new Error(content.errors.noConnectedAccount);
@@ -115,6 +157,18 @@ export function useCreateProposal() {
 
 			// Parse transaction data
 			const transaction = Transaction.from(transactionData);
+			if (carriesNote(transaction)) {
+				if (node.aliases.kind !== 'read')
+					throw new SignersUncheckedError(network);
+				try {
+					checkSignerChange(
+						transaction.getData(),
+						node.aliases.aliases,
+					);
+				} catch {
+					throw new SignersChangedError(network);
+				}
+			}
 
 			// The wallet builds and signs it. Anything thrown here comes from
 			// the wallet, so nothing has been sent yet.
@@ -138,6 +192,7 @@ export function useCreateProposal() {
 				transactionBytes: transactionData,
 				signature: signatureResult.signature as string,
 				description,
+				labels,
 				network,
 			});
 		},

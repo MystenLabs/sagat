@@ -12,6 +12,8 @@ import {
 	type ToasterProps,
 } from 'sonner';
 
+import { pillButtonClass } from '@/lib/toast';
+
 /**
  * Toasts from the designs: one dark pill for every type, bottom centre of
  * the content area, the icon alone tells success from failure. Success and
@@ -54,13 +56,11 @@ const Toaster = (props: ToasterProps) => (
 				icon: 'flex size-4 shrink-0 items-center justify-center select-none [&>svg]:size-4',
 				content:
 					'flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1',
-				title: 'font-medium leading-[1.4] wrap-anywhere',
+				title:
+					'line-clamp-4 font-medium leading-[1.4] wrap-anywhere',
 				description:
 					'min-w-0 text-13 wrap-anywhere text-toast-foreground/60',
-				actionButton:
-					'shrink-0 cursor-pointer text-14 text-toast-foreground/60 underline underline-offset-4 hover:text-toast-foreground',
-				cancelButton:
-					'shrink-0 cursor-pointer text-14 text-toast-foreground/60 underline underline-offset-4 hover:text-toast-foreground',
+				actionButton: pillButtonClass,
 				closeButton:
 					'order-last static! ml-0.5 flex size-4! shrink-0 translate-0! cursor-pointer items-center justify-center rounded-sm border-0! bg-transparent! text-toast-foreground/60 hover:bg-transparent! hover:text-toast-foreground [&>svg]:size-3.5',
 			},

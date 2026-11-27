@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { ArrowLeft, Pen } from 'lucide-react';
+import { type ReactNode } from 'react';
 
 import { SignerName } from '@/components/multisig/SignerName';
 import {
@@ -149,97 +150,14 @@ export function ReviewStep({
 						{COPY.reviewStep.edit}
 					</button>
 				</div>
-				{/* A table in a wide card; a list of signers in a narrow one. */}
-				<div className="hidden overflow-x-auto rounded-lg border border-foreground/8 bg-card @xl/card:block">
-					<table className="w-full min-w-150 text-left">
-						<thead>
-							<tr className={tableShellHeadRowClass}>
-								<th className="w-10 pl-3">#</th>
-								<th className="w-30">{FIELDS.signer}</th>
-								<th>{FIELDS.publicKey}</th>
-								<th className="w-16 pr-3 text-right">
-									{FIELDS.weight}
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{rows.map((row) => (
-								<tr
-									key={row.id}
-									className={tableRowClass}
-									data-testid="create-review-signer"
-								>
-									<td className="py-3 pl-3 align-middle text-12 text-muted-foreground">
-										{row.position}
-									</td>
-									<td className="py-3 pr-3 align-middle">
-										<SignerName
-											label={row.name}
-											address={row.address}
-											marker={row.isYou ? 'you' : null}
-											markerStyle="parens"
-											wrap
-											labelTestId="create-review-signer-name"
-										/>
-									</td>
-									<td className="py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary">
-										{row.key}
-									</td>
-									<td className="py-3 pr-3 text-right align-middle text-13">
-										{row.weight}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
-				<ul
-					className="divide-y divide-foreground/8 rounded-lg border border-foreground/8 bg-card @xl/card:hidden"
-					data-testid="create-review-list"
-				>
-					{rows.map((row) => (
-						<li
-							key={row.id}
-							className="flex items-center gap-3 px-3 py-2.5"
-							data-testid="create-review-item"
-						>
-							<span className="w-4 shrink-0 text-12 text-muted-foreground">
-								{row.position}
-							</span>
-							<div className="flex min-w-0 flex-1 flex-col">
-								<SignerName
-									label={row.name}
-									address={row.address}
-									marker={row.isYou ? 'you' : null}
-									markerStyle="parens"
-									wrap
-								/>
-								<span className="truncate font-mono text-11 text-foreground-secondary">
-									{row.key}
-								</span>
-							</div>
-							<span className="shrink-0 text-13">
-								{row.weight}
-							</span>
-						</li>
-					))}
-				</ul>
+				<ReviewSigners rows={rows} />
 			</section>
 
-			<div className="flex flex-col gap-1.5 rounded-lg border border-foreground/12 p-3.5">
-				<div className="flex items-center justify-between">
-					<span className="text-12 text-muted-foreground">
-						{FIELDS.suiAddress}
-					</span>
-					<CopyText value={address} label={ACTIONS.copy} />
-				</div>
-				<span
-					className="font-mono text-13 break-all"
-					data-testid="create-review-address"
-				>
-					{address}
-				</span>
-			</div>
+			<AddressBox
+				label={FIELDS.suiAddress}
+				address={address}
+				testId="create-review-address"
+			/>
 
 			<Separator />
 
@@ -285,6 +203,134 @@ export function ReviewStep({
 					</Button>
 				}
 			/>
+		</div>
+	);
+}
+
+interface ReviewSigner {
+	id: string;
+	position: number;
+	name: string | null;
+	isYou?: boolean;
+	key: string;
+	address: string | undefined;
+	weight: ReactNode;
+	chip?: ReactNode;
+}
+
+/** The signers as a table in a wide card, a list in a narrow one. */
+export function ReviewSigners({
+	rows,
+}: {
+	rows: ReviewSigner[];
+}) {
+	return (
+		<>
+			{/* A table in a wide card; a list of signers in a narrow one. */}
+			<div className="hidden overflow-x-auto rounded-lg border border-foreground/8 bg-card @xl/card:block">
+				<table className="w-full min-w-150 text-left">
+					<thead>
+						<tr className={tableShellHeadRowClass}>
+							<th className="w-10 pl-3">#</th>
+							<th className="w-1/2">{FIELDS.signer}</th>
+							<th>{FIELDS.publicKey}</th>
+							<th className="w-16 pr-3 text-right">
+								{FIELDS.weight}
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						{rows.map((row) => (
+							<tr
+								key={row.id}
+								className={tableRowClass}
+								data-testid="create-review-signer"
+							>
+								<td className="py-3 pl-3 align-middle text-12 text-muted-foreground">
+									{row.position}
+								</td>
+								<td className="py-3 pr-3 align-middle">
+									<SignerName
+										label={row.name}
+										address={row.address}
+										marker={row.isYou ? 'you' : null}
+										markerStyle="parens"
+										wrap
+										full
+										labelTestId="create-review-signer-name"
+										badge={row.chip}
+									/>
+								</td>
+								<td className="py-3 pr-3 align-middle font-mono text-11 break-all text-foreground-secondary">
+									{row.key}
+								</td>
+								<td className="py-3 pr-3 text-right align-middle text-13">
+									{row.weight}
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+			<ul
+				className="divide-y divide-foreground/8 rounded-lg border border-foreground/8 bg-card @xl/card:hidden"
+				data-testid="create-review-list"
+			>
+				{rows.map((row) => (
+					<li
+						key={row.id}
+						className="flex items-center gap-3 px-3 py-2.5"
+						data-testid="create-review-item"
+					>
+						<span className="w-4 shrink-0 text-12 text-muted-foreground">
+							{row.position}
+						</span>
+						<div className="flex min-w-0 flex-1 flex-col">
+							<SignerName
+								label={row.name}
+								address={row.address}
+								marker={row.isYou ? 'you' : null}
+								markerStyle="parens"
+								wrap
+								badge={row.chip}
+							/>
+							<span className="truncate font-mono text-11 text-foreground-secondary">
+								{row.key}
+							</span>
+						</div>
+						<span className="shrink-0 text-13">
+							{row.weight}
+						</span>
+					</li>
+				))}
+			</ul>
+		</>
+	);
+}
+
+export function AddressBox({
+	label,
+	address,
+	testId,
+}: {
+	label: string;
+	address: string;
+	testId?: string;
+}) {
+	return (
+		<div className="flex flex-col gap-1.5 rounded-lg border border-foreground/12 p-3.5">
+			<div className="flex items-center justify-between">
+				<span className="text-12 text-muted-foreground">
+					{label}
+				</span>
+				<CopyText value={address} label={ACTIONS.copy} />
+			</div>
+			<span
+				className="font-mono text-13 break-all"
+				data-testid={testId}
+			>
+				{address}
+			</span>
 		</div>
 	);
 }

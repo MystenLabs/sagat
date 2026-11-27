@@ -8,7 +8,11 @@ import { content } from '@/content';
 import { type AccountSetup } from '@/lib/account-setup';
 import { cn } from '@/lib/utils';
 
-import { Button, buttonVariants } from '../ui/button';
+import {
+	Button,
+	buttonVariants,
+	disabledButton,
+} from '../ui/button';
 import { cardClass, CardHeading } from '../ui/card';
 import { Separator } from '../ui/separator';
 import { CreatedBy } from './CreatedBy';
@@ -29,6 +33,8 @@ export function SetupCard({
 	network,
 	explorerUrl,
 	onDownload,
+	onChangeThreshold,
+	changePending = false,
 	className,
 }: {
 	setup: AccountSetup;
@@ -36,6 +42,10 @@ export function SetupCard({
 	/** Null where the explorer doesn't index the network. */
 	explorerUrl: string | null;
 	onDownload: () => void;
+	/** Offers Change threshold when set. */
+	onChangeThreshold?: () => void;
+	/** Holds Change threshold while a signer change is open. */
+	changePending?: boolean;
 	className?: string;
 }) {
 	return (
@@ -89,6 +99,21 @@ export function SetupCard({
 					/>
 				</Row>
 			</dl>
+			{onChangeThreshold && (
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={onChangeThreshold}
+					disabled={changePending}
+					className={cn(
+						'mt-2 w-full disabled:border-transparent',
+						disabledButton,
+					)}
+					data-testid="change-threshold"
+				>
+					{content.signers.changeThreshold}
+				</Button>
+			)}
 			<div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t pt-3">
 				{explorerUrl && (
 					// Styled as the button, not rendered through it: Base UI
