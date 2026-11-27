@@ -1458,6 +1458,25 @@ test.describe('overview and signers', () => {
 		await expect(
 			changePage.getByTestId('execute-proposal-button'),
 		).toHaveCount(0);
+		await expect(
+			changePage.getByTestId('proposal-status'),
+		).toHaveText(content.proposals.status.waiting);
+		await alice.page.goto(
+			`/multisig/${multisig.address}/proposals`,
+		);
+		await alice.page
+			.getByTestId('proposal-filter-ready')
+			.click();
+		const row = alice.proposalRow(change.digest);
+		await expect(
+			row.getByTestId('proposal-status'),
+		).toHaveText(content.proposals.status.waiting);
+		await expect(
+			row.getByTestId('proposal-execute-from-page'),
+		).toHaveCount(0);
+		await alice.page.goto(
+			`/multisig/${multisig.address}/proposals/${change.digest}`,
+		);
 
 		// Not a signer of the pod yet, Dave opens the shared link and signs.
 		await dave.signIn();
@@ -1485,6 +1504,9 @@ test.describe('overview and signers', () => {
 		await expect(
 			changePage.getByTestId('signer-change-warning'),
 		).toHaveCount(0);
+		await expect(
+			changePage.getByTestId('proposal-status'),
+		).toHaveText(content.proposals.status.ready);
 		await executeProposal(alice.page);
 
 		await dave.page.goto('/');
