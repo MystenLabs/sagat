@@ -1047,7 +1047,7 @@ const listProposalPage = async ({
 	network,
 	status,
 	cursor,
-}: ListInput) =>
+}: Omit<ListInput, 'callerKeys'>) =>
 	await getProposalsByAccountAddress(
 		multisigAddress,
 		network,
