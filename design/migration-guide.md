@@ -171,7 +171,7 @@ Members here carry no `label`. Key labels (0010) appear on a proposal only as `s
 - Each member carries `answer`, the key's answer to this account, and `label`, the account's name for the key or null.
 - `signerSetsStale` is true when the alias set could not be read from the chain, so the signer sets are as last read. It is false otherwise.
 
-`GET /v1/accounts/:address` adds `network`, `signerChangesEnabled`, `networksWithDifferentSigners`, `proposers` and `openSignerChange`. `openSignerChange` is the newest pending signer change, `{ digest }`, or null.
+`GET /v1/accounts/:address` adds `network`, `signerChangesEnabled`, `networksWithDifferentSigners`, `proposers` and `openSignerChange`. `openSignerChange` is the newest pending signer change that has not expired, `{ digest }`, or null.
 
 `GET /v1/accounts` also returns `removed`: the accounts one of your keys was removed from on the network, each with the `publicKey`, the `signerSetAddress` that was removed, the `eventId` of its `alias.removed` row, `removedAt` and `transactionDigest`. `transactionDigest` is null unless the last change to the alias object is a signer change the API holds whose note removes that set.
 
