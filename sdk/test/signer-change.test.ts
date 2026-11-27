@@ -401,7 +401,7 @@ describe('signers who stay and the proof', () => {
 		expect(proofWeight(next, [k1, k3, k4, k5])).toBe(3);
 	});
 
-	test('the proof names the new set’s members that have not signed, new signers too, until they reach the new threshold', () => {
+	test('the proof names the new set’s members that have not signed, new signers too, and is met at the new threshold', () => {
 		const toS2 = { newSets: [next] };
 		// One below S2's threshold of 3.
 		expect(signerChangeProof(toS2, [k1, k3])).toEqual({
