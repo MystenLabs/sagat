@@ -417,13 +417,13 @@ test.describe('proposals', () => {
 		expect(executed.executedVia).toBe(recovery.address);
 	});
 
-	test('a signer change ready at the old threshold warns, offers no Execute in its list row, and executes', async ({
+	test('a signer change ready at the old threshold warns, offers no Execute until the staying signer signs, and then executes', async ({
 		createActor,
 		createIdentity,
 		chain,
 	}) => {
 		const alice = await createActor('alice');
-		const bob = createIdentity('bob');
+		const bob = await createActor('bob');
 		const carol = createIdentity('carol');
 		const members = [alice, bob, carol];
 		// A pod of its own: executing changes its signers.
@@ -445,6 +445,17 @@ test.describe('proposals', () => {
 			alice,
 			{ members, threshold: 2, newThreshold: 3 },
 		);
+		// Bob's signature reaches the old threshold, but Execute after signing isn't offered.
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		await expect(
+			bob.page.getByTestId('sign-proposal-button'),
+		).toBeEnabled();
+		await expect(
+			bob.page.getByTestId('execute-after-signing'),
+		).toHaveCount(0);
 		await signProposal(bob, proposal);
 
 		await alice.signIn();
