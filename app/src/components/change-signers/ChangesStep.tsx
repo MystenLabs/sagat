@@ -226,7 +226,7 @@ function rowNote(row: ChangeRow, network: string) {
 	const { was } = row;
 	if (row.removed)
 		return COPY.row.removed(rowName(row), network);
-	if (!was) return COPY.row.invited;
+	if (!was) return COPY.row.joins;
 	const weight =
 		row.weight !== was.weight ? (
 			<span className="text-info-foreground">

@@ -67,6 +67,7 @@ import {
 } from '@/lib/proposal-integrity';
 import {
 	checkedChange,
+	hasSigned,
 	holdingChange,
 	newSignerKey,
 	proposalPageStatus,
@@ -465,6 +466,7 @@ export function ProposalView({
 							list={changes}
 							summary={checked?.summary ?? null}
 							you={viewerKey ? suiKey(viewerKey) : null}
+							proposal={proposal}
 						/>
 					)}
 					{onChain ? (
@@ -515,15 +517,22 @@ function ChangesCard({
 	list,
 	summary,
 	you,
+	proposal,
 }: {
 	list: Difference[];
 	summary: string | null;
 	/** The viewer's key, marked where a line names it. */
 	you: string | null;
+	proposal: Pick<CountedProposal, 'signatures'>;
 }) {
 	const REVIEW = content.changeSigners.review;
+	// An added key that signed the change accepts the pod when it executes.
 	const added = list.flatMap((item) =>
-		item.kind === 'add' && item.name ? [item.name] : [],
+		item.kind === 'add' &&
+		item.name &&
+		!hasSigned(proposal, item.publicKey)
+			? [item.name]
+			: [],
 	);
 	return (
 		<section

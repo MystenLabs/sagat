@@ -1336,8 +1336,7 @@ export const content = {
 		row: {
 			weightChange: (from: number, to: number) =>
 				`Weight ${from} → ${to}`,
-			invited:
-				'Gets an invitation once this change executes',
+			joins: 'Becomes a signer once this change executes',
 			was: 'Was',
 			weightStays: (weight: number) =>
 				`weight stays ${weight}`,
