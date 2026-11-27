@@ -268,7 +268,6 @@ export const answerAccountInvitation = async ({
 	validateIsoExpiry(expiry);
 	assertCanonicalSignature(signature);
 
-	await refreshAccount(address, network, loaders);
 	const publicKey = await verifyMemberSignedMessage({
 		accountAddress: address,
 		scope: actingSetsOn(network),
@@ -282,6 +281,8 @@ export const answerAccountInvitation = async ({
 		acceptedOnly: false,
 		notMemberError: () =>
 			new ApiAuthError('NotAnAccountSigner'),
+		beforeMembership: () =>
+			refreshAccount(address, network, loaders),
 	});
 
 	const proof = { version: 1, signature, expiry } as const;
@@ -332,14 +333,14 @@ const changeProposer =
 		network,
 		loaders = aliasSetLoaders,
 		...signed
-	}: AccountProposerChange) => {
-		await refreshAccount(address, network, loaders);
-		return await change({
+	}: AccountProposerChange) =>
+		await change({
 			address,
 			...signed,
 			scope: actingSetsOn(network),
+			beforeMembership: () =>
+				refreshAccount(address, network, loaders),
 		});
-	};
 
 // Adds or re-confirms an external proposer, signed by an accepted key of an acting set.
 export const addAccountProposer =

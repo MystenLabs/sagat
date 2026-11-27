@@ -75,7 +75,8 @@ export const verifySignedMessage = async (
  * Recovers the signer of a personal message, checks that it signs for the
  * account under the scope, then checks the signature. Under the original set
  * membership is checked first, so a non-member gets `notMemberError` whatever
- * it signed; under the acting scope the signature is checked first.
+ * it signed; under the acting scope the signature is checked first, then
+ * `beforeMembership` runs.
  */
 export const verifyMemberSignedMessage = async ({
 	accountAddress,
@@ -84,6 +85,7 @@ export const verifyMemberSignedMessage = async ({
 	message,
 	acceptedOnly,
 	notMemberError,
+	beforeMembership,
 }: {
 	accountAddress: string;
 	scope: SignerScope;
@@ -94,17 +96,21 @@ export const verifyMemberSignedMessage = async ({
 	notMemberError: (
 		signer: PublicKey,
 	) => Error | Promise<Error>;
+	// Under the acting scope only.
+	beforeMembership?: () => Promise<void>;
 }): Promise<PublicKey> => {
 	const signer =
 		getPublicKeyFromSerializedSignature(signature);
 	const signatureFirst = scope.kind === 'acting';
 
-	if (signatureFirst)
+	if (signatureFirst) {
 		await validatePersonalMessage(
 			signer,
 			signature,
 			message,
 		);
+		await beforeMembership?.();
+	}
 	if (
 		!(await isAccountSigner(accountAddress, [signer], {
 			acceptedOnly,

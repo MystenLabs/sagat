@@ -752,4 +752,99 @@ describe('POST and DELETE /v1/accounts/:address/proposers', () => {
 		);
 		expect(await proposers()).toEqual([]);
 	});
+
+	test('accept, reject and the proposer routes refuse a signature that does not verify alike for an account and an address that is no account', async () => {
+		const { session, users, multisig } =
+			await framework.createVerifiedMultisig(2, 2);
+		const noAccount = newUser().address;
+		const proposer = newUser().address;
+		const expiry = defaultExpiry();
+		const answerBody = (signature: string) => ({
+			network: 'localnet' as const,
+			signature,
+			expiry,
+		});
+		const proposerBody = (signature: string) => ({
+			...answerBody(signature),
+			proposer,
+		});
+		const routes = [
+			{
+				message: (address: string) =>
+					PersonalMessages.acceptAccountInvitation(
+						address,
+						expiry,
+					),
+				send: (address: string, signature: string) =>
+					session.v1.acceptAccountInvite(
+						address,
+						answerBody(signature),
+					),
+			},
+			{
+				message: (address: string) =>
+					PersonalMessages.rejectAccountInvitation(
+						address,
+						expiry,
+					),
+				send: (address: string, signature: string) =>
+					session.v1.rejectAccountInvite(
+						address,
+						answerBody(signature),
+					),
+			},
+			{
+				message: (address: string) =>
+					PersonalMessages.addMultisigProposer(
+						proposer,
+						address,
+						expiry,
+					),
+				send: (address: string, signature: string) =>
+					session.v1.addAccountProposer(
+						address,
+						proposerBody(signature),
+					),
+			},
+			{
+				message: (address: string) =>
+					PersonalMessages.removeMultisigProposer(
+						proposer,
+						address,
+						expiry,
+					),
+				send: (address: string, signature: string) =>
+					session.v1.removeAccountProposer(
+						address,
+						proposerBody(signature),
+					),
+			},
+		];
+		const otherMessage = await sign(
+			users[0],
+			'another message',
+		);
+
+		for (const route of routes) {
+			for (const address of [multisig.address, noAccount])
+				expect(
+					await refusal(route.send(address, otherMessage)),
+				).toEqual({
+					status: 400,
+					message: 'Invalid signature for message.',
+				});
+			expect(
+				await refusal(
+					route.send(
+						noAccount,
+						await sign(users[0], route.message(noAccount)),
+					),
+				),
+			).toEqual({
+				status: 403,
+				message:
+					'You are not a signer of this account on this network.',
+			});
+		}
+	});
 });

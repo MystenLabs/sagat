@@ -1044,6 +1044,7 @@ type ProposerChange = {
 	signature: string;
 	expiry: string;
 	scope: SignerScope;
+	beforeMembership?: () => Promise<void>;
 };
 
 // Legacy answers one text; the acting scope tells a signer who has not accepted from no signer.
@@ -1069,6 +1070,7 @@ export const addProposer = async ({
 	signature,
 	expiry,
 	scope,
+	beforeMembership,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
 	validateIsoExpiry(expiry);
@@ -1089,6 +1091,7 @@ export const addProposer = async ({
 		),
 		acceptedOnly: true,
 		notMemberError: notAcceptedMemberError(address, scope),
+		beforeMembership,
 	});
 
 	const actor = publicKey.toSuiAddress();
@@ -1164,6 +1167,7 @@ export const removeProposer = async ({
 	signature,
 	expiry,
 	scope,
+	beforeMembership,
 }: ProposerChange) => {
 	// Validate the expiry time of the signature.
 	validateIsoExpiry(expiry);
@@ -1184,6 +1188,7 @@ export const removeProposer = async ({
 		),
 		acceptedOnly: true,
 		notMemberError: notAcceptedMemberError(address, scope),
+		beforeMembership,
 	});
 
 	// Remove the proposer from the multisig, removing all pending transactions from the proposer.
