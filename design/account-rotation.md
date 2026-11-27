@@ -121,7 +121,7 @@ Every request names a network, and rights come from the acting sets on that netw
 | Action                               | Who                                                                                                                   |
 | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
 | List accounts                        | An accepted key of an acting set.                                                                                     |
-| Read an account                      | A key of an acting set, accepted or invited, as today.                                                                |
+| Read an account                      | A key of an acting set, whatever its answer, as today.                                                                |
 | List an account's proposals          | An accepted key of an acting set.                                                                                     |
 | Read a proposal by digest            | Anyone, as today.                                                                                                     |
 | Create a proposal                    | An accepted key of an acting set, or a proposer of the account.                                                       |
