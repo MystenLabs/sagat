@@ -34,6 +34,16 @@ const toV1AccountEvent = (
 		createdAt: event.createdAt.toISOString(),
 	};
 
+const toV1SetMember = (member: {
+	publicKey: string;
+	weight: number;
+	order: number;
+}): z.input<typeof v1.SignerSetMemberSchema> => ({
+	publicKey: member.publicKey,
+	weight: member.weight,
+	order: member.order,
+});
+
 export const toV1Proposal = ({
 	proposal,
 	signers,
@@ -62,16 +72,39 @@ export const toV1Proposal = ({
 		publicKey: signature.publicKey,
 		signature: signature.signature,
 	})),
-	signerSets: sets.map((set) => ({
-		address: set.signerSet.address,
-		threshold: set.signerSet.threshold,
-		currentWeight: set.currentWeight,
-		members: set.signerSet.members.map((member) => ({
-			publicKey: member.publicKey,
-			weight: member.weight,
-			order: member.order,
+	signerSets: [
+		...sets.map((set) => ({
+			address: set.signerSet.address,
+			threshold: set.signerSet.threshold,
+			currentWeight: set.currentWeight,
+			members: set.signerSet.members.map(toV1SetMember),
+			acting: true,
+			original:
+				set.signerSet.address ===
+				signers.originalSet?.address,
 		})),
-	})),
+		// Listed so the account's address can be rebuilt; counts nothing.
+		...(signers.originalSet &&
+		!sets.some(
+			(set) =>
+				set.signerSet.address ===
+				signers.originalSet?.address,
+		)
+			? [
+					{
+						address: signers.originalSet.address,
+						threshold: signers.originalSet.threshold,
+						currentWeight: 0,
+						members:
+							signers.originalSet.members.map(
+								toV1SetMember,
+							),
+						acting: false,
+						original: true,
+					},
+				]
+			: []),
+	],
 	events: {
 		created: toV1AccountEvent(events.created),
 		proposer: toV1AccountEvent(events.proposer),

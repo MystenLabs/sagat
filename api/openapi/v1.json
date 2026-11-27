@@ -40,7 +40,7 @@
 					},
 					"ready": {
 						"type": "boolean",
-						"description": "True when one of the signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
+						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
 					},
 					"transactionBytes": { "type": "string" },
 					"proposerAddress": {
@@ -63,7 +63,7 @@
 						"items": {
 							"$ref": "#/components/schemas/SignerSet"
 						},
-						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it."
+						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. Then the original set, with acting false, when it no longer acts there."
 					},
 					"events": {
 						"$ref": "#/components/schemas/ProposalEvents"
@@ -121,19 +121,32 @@
 						"description": "A Sui address."
 					},
 					"threshold": { "type": "integer" },
-					"currentWeight": { "type": "integer" },
+					"currentWeight": {
+						"type": "integer",
+						"description": "The summed weight of the members that signed; 0 for a set that does not act."
+					},
 					"members": {
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/SignerSetMember"
 						}
+					},
+					"acting": {
+						"type": "boolean",
+						"description": "True when the set acts for the account on the proposal's network; false only for the original set once it was removed there. A set that does not act counts no signatures."
+					},
+					"original": {
+						"type": "boolean",
+						"description": "True for the original set. A convenience: the original set is the one whose members and threshold make up the account's address, so check the address."
 					}
 				},
 				"required": [
 					"address",
 					"threshold",
 					"currentWeight",
-					"members"
+					"members",
+					"acting",
+					"original"
 				]
 			},
 			"SignerSetMember": {

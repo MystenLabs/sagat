@@ -62,8 +62,19 @@ export const SignerSetSchema = z
 	.object({
 		address: SuiAddressSchema,
 		threshold: z.number().int(),
-		currentWeight: z.number().int(),
+		currentWeight: z.number().int().meta({
+			description:
+				'The summed weight of the members that signed; 0 for a set that does not act.',
+		}),
 		members: z.array(SignerSetMemberSchema),
+		acting: z.boolean().meta({
+			description:
+				"True when the set acts for the account on the proposal's network; false only for the original set once it was removed there. A set that does not act counts no signatures.",
+		}),
+		original: z.boolean().meta({
+			description:
+				"True for the original set. A convenience: the original set is the one whose members and threshold make up the account's address, so check the address.",
+		}),
 	})
 	.meta({ id: 'SignerSet' });
 export type SignerSet = z.infer<typeof SignerSetSchema>;
@@ -141,7 +152,7 @@ export const ProposalSchema = z
 		status: ProposalStatusNameSchema,
 		ready: z.boolean().meta({
 			description:
-				'True when one of the signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
+				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it.',
 		}),
 		transactionBytes: z.string(),
 		proposerAddress: SuiAddressSchema,
@@ -150,7 +161,7 @@ export const ProposalSchema = z
 		signatures: z.array(ProposalSignatureSchema),
 		signerSets: z.array(SignerSetSchema).meta({
 			description:
-				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it.",
+				"The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. Then the original set, with acting false, when it no longer acts there.",
 		}),
 		events: ProposalEventsSchema,
 		executedVia: SuiAddressSchema.nullable().meta({

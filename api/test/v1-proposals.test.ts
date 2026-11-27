@@ -137,6 +137,8 @@ describe('GET /v1/proposals/:digest', () => {
 						weight: member.weight,
 						order: member.order,
 					})),
+					acting: true,
+					original: true,
 				},
 			],
 			events: {
@@ -291,6 +293,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			}[];
 		},
 		currentWeight: number,
+		original = false,
 	) => ({
 		address: multisig.address,
 		threshold: multisig.threshold,
@@ -300,6 +303,16 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			weight: member.weight,
 			order: member.order,
 		})),
+		acting: true,
+		original,
+	});
+
+	// The original set once it no longer acts: listed, counted as nothing.
+	const removedOriginal = (
+		multisig: Parameters<typeof setOf>[0],
+	) => ({
+		...setOf(multisig, 0, true),
+		acting: false,
 	});
 
 	const byAddress = (
@@ -323,7 +336,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			created.digest,
 		);
 		expect(before.signerSets).toEqual(
-			[setOf(account, 1), setOf(composition, 1)].sort(
+			[setOf(account, 1, true), setOf(composition, 1)].sort(
 				byAddress,
 			),
 		);
@@ -340,7 +353,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			created.digest,
 		);
 		expect(after.signerSets).toEqual(
-			[setOf(account, 1), setOf(composition, 2)].sort(
+			[setOf(account, 1, true), setOf(composition, 2)].sort(
 				byAddress,
 			),
 		);
@@ -359,7 +372,9 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		const before = await client.getProposalByDigest(
 			created.digest,
 		);
-		expect(before.signerSets).toEqual([setOf(account, 1)]);
+		expect(before.signerSets).toEqual([
+			setOf(account, 1, true),
+		]);
 		expect(before.ready).toBe(false);
 
 		expect(
@@ -379,7 +394,9 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		const after = await client.getProposalByDigest(
 			created.digest,
 		);
-		expect(after.signerSets).toEqual([setOf(account, 1)]);
+		expect(after.signerSets).toEqual([
+			setOf(account, 1, true),
+		]);
 		expect(after.ready).toBe(false);
 	});
 
@@ -398,7 +415,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		);
 
 		expect(proposal.signerSets).toEqual([
-			setOf(account, 1),
+			setOf(account, 1, true),
 		]);
 	});
 
@@ -419,6 +436,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		expect(proposal.signatures).toHaveLength(1);
 		expect(proposal.signerSets).toEqual([
 			setOf(composition, 0),
+			removedOriginal(account),
 		]);
 		expect(proposal.ready).toBe(false);
 		expect(proposal.accountName).toBe('Treasury');
@@ -434,7 +452,12 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			created.digest,
 		);
 
-		expect(proposal.signerSets).toEqual([]);
+		expect(
+			proposal.signerSets.filter((set) => set.acting),
+		).toEqual([]);
+		expect(proposal.signerSets).toEqual([
+			removedOriginal(account),
+		]);
 		expect(proposal.ready).toBe(false);
 	});
 
@@ -453,7 +476,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 		);
 
 		expect(proposal.signerSets).toEqual([
-			setOf(account, 1),
+			setOf(account, 1, true),
 		]);
 	});
 
@@ -501,6 +524,7 @@ describe('GET /v1/proposals/:digest counts per acting set', () => {
 			expect(proposal.signatures).toHaveLength(2);
 			expect(proposal.signerSets).toEqual([
 				setOf(changed, 2),
+				removedOriginal(account),
 			]);
 			expect(proposal.ready).toBe(false);
 		}
