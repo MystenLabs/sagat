@@ -18,6 +18,8 @@ import {
 	approvalsStatus,
 	cancelVariant,
 	foldedSignerSetsLine,
+	holdingChange,
+	listedStatus,
 	newSignerKey,
 	newSignerSets,
 	shownStatus,
@@ -442,6 +444,38 @@ describe('shownStatus', () => {
 
 		expect(shown([maya, daniel])).toBe('waiting');
 		expect(shown([maya, newKey])).toBe('ready');
+	});
+
+	it('says waiting from the bytes’ own note while the alias read failed, until the new set signs, and never for a proposal that is no signer change', async () => {
+		const newKey = signer('New', 2);
+		const transactionBytes = await changeTo(
+			setOf(3, [maya, daniel, newKey]),
+		);
+		const failed = { kind: 'failed' } as const;
+		const listed = (signedBy: (typeof maya)[]) =>
+			listedStatus(
+				{ ...proposal({ signedBy }), transactionBytes },
+				'ready',
+				failed,
+			);
+		const onPage = (signedBy: (typeof maya)[]) =>
+			shownStatus(
+				proposal({ signedBy }),
+				'ready',
+				holdingChange(transactionBytes, null, failed),
+			);
+
+		expect(listed([maya, daniel])).toBe('waiting');
+		expect(onPage([maya, daniel])).toBe('waiting');
+		expect(listed([maya, newKey])).toBe('ready');
+		expect(onPage([maya, newKey])).toBe('ready');
+		expect(
+			listedStatus(
+				proposal({ signedBy: [maya, daniel] }),
+				'ready',
+				failed,
+			),
+		).toBe('ready');
 	});
 });
 

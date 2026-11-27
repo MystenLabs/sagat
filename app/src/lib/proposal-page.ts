@@ -436,6 +436,16 @@ function unmetProof(
 	return proof.met ? null : proof;
 }
 
+/** The change whose new signers hold Execute: the checked one, else, until an alias read checks the bytes, the change their note makes, which can only hold. */
+export function holdingChange(
+	transactionBytes: string,
+	checked: SignerChange | null,
+	aliases: AliasRead | undefined,
+): SignerChange | null {
+	if (checked || aliases?.kind === 'read') return checked;
+	return signerChangeIn(transactionBytes, null);
+}
+
 /** What a proposal's status chip says: `waiting` instead of `ready` while a signer change's Execute waits for its new signers. */
 export type ShownStatus = ProposalStatusKey | 'waiting';
 
@@ -477,7 +487,11 @@ export function listedStatus(
 	return shownStatus(
 		proposal,
 		status,
-		checked?.change ?? null,
+		holdingChange(
+			proposal.transactionBytes,
+			checked?.change ?? null,
+			aliases,
+		),
 	);
 }
 

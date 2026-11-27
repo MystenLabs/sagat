@@ -63,6 +63,7 @@ import {
 	foldedSignerSetsLine,
 	gasEstimate,
 	hasSigned,
+	holdingChange,
 	newSignerSets,
 	signerChangeWarning,
 	withReason,
@@ -170,8 +171,17 @@ export function ApprovalsCard({
 	const signed = hasSigned(proposal, viewerPublicKey);
 	const signerChange = useMemo(
 		() =>
-			signerChangeWarning(proposal, status, change, labels),
-		[proposal, status, change, labels],
+			signerChangeWarning(
+				proposal,
+				status,
+				holdingChange(
+					proposal.transactionBytes,
+					change,
+					aliases,
+				),
+				labels,
+			),
+		[proposal, status, change, aliases, labels],
 	);
 	// Execute waits for a checked change's new signers to confirm it.
 	const held = signerChange !== null;

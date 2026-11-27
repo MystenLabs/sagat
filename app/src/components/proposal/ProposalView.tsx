@@ -67,6 +67,7 @@ import {
 } from '@/lib/proposal-integrity';
 import {
 	checkedChange,
+	holdingChange,
 	newSignerKey,
 	proposalPageStatus,
 	shownStatus,
@@ -333,7 +334,11 @@ export function ProposalView({
 							status={shownStatus(
 								proposal,
 								status,
-								checked?.change ?? null,
+								holdingChange(
+									proposal.transactionBytes,
+									checked?.change ?? null,
+									aliases,
+								),
 							)}
 							className="mr-0.5"
 							data-testid="proposal-status"
