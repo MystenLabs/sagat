@@ -28,7 +28,7 @@ const SIGNERS_REFUSED = {
 const IN_THIS_STATE =
 	'Proposals in this state show up here.';
 
-/** A ready signer change whose Execute waits for its new signers. */
+/** A signer change whose Execute waits for its new signers: its status chip and its warning’s title. */
 const WAITING_FOR_NEW_SIGNERS = 'Waiting for new signers';
 
 /** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
@@ -1175,9 +1175,9 @@ export const content = {
 			},
 			/** An open signer change whose new set hasn’t signed for its threshold yet, which holds Execute; `names` are the new set’s members who haven’t signed. */
 			signerChange: {
-				title: 'New signers haven’t confirmed this change',
+				title: WAITING_FOR_NEW_SIGNERS,
 				body: (names: string, count: number) =>
-					`The new signers haven’t confirmed this change yet. ${names} still ${count === 1 ? 'needs' : 'need'} to sign before it can be executed here.`,
+					`${names} still ${count === 1 ? 'needs' : 'need'} to sign before it can be executed here.`,
 				/** Under the Sign button, for a signer the change removes. */
 				removed:
 					'You’re being removed in this change, so you can’t cancel it. You can still sign it.',
