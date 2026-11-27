@@ -5,7 +5,6 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { type Proposal } from '@mysten/sagat/v1';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	useMutation,
@@ -20,6 +19,7 @@ import { type SuiNetwork } from '@/lib/network';
 import {
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
+	type AppProposal,
 	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
@@ -42,7 +42,7 @@ import { MutationKeys, QueryKeys } from '../lib/queryKeys';
 import { writeProposal } from './useGetProposal';
 
 interface SignProposalParams {
-	proposal: Proposal;
+	proposal: AppProposal;
 	/** The pod from the app's own account read; null from the proposal's link. */
 	pod: ShownPod | null;
 	/** The digest the viewer opened, from the page's URL. */

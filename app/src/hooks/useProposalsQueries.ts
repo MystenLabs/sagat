@@ -1,14 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	type ProposalList,
-	type ProposalStatusName,
-} from '@mysten/sagat/v1';
+import { type ProposalStatusName } from '@mysten/sagat/v1';
 import { useMemo } from 'react';
 
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type SuiNetwork } from '@/lib/network';
+import { type AppProposalList } from '@/lib/proposal-integrity';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import {
@@ -139,7 +137,7 @@ export function useProposalsQueries({
 	);
 	// Each list's rows of this pod and network, counted against the sets the pod's alias read passes.
 	const counted = useMemo(
-		() => (pages: ProposalList[] | undefined) =>
+		() => (pages: AppProposalList[] | undefined) =>
 			pages?.flatMap((page) =>
 				page.proposals
 					.filter((proposal) =>

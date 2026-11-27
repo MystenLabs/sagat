@@ -4,6 +4,11 @@
 import { SagatClient, type Fetch } from '@mysten/sagat';
 import { SagatV1Client } from '@mysten/sagat/v1';
 
+import {
+	actingOnly,
+	type AppProposalList,
+} from './proposal-integrity';
+
 export const API_BASE_URL =
 	import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
@@ -34,6 +39,49 @@ export const apiClient = new SagatClient(
 	apiFetch,
 );
 
-export const apiV1Client = new SagatV1Client(API_BASE_URL, {
+// Every proposal the app reads comes through here.
+class AppV1Client extends SagatV1Client {
+	override async createProposal(
+		...args: Parameters<SagatV1Client['createProposal']>
+	) {
+		return actingOnly(await super.createProposal(...args));
+	}
+
+	override async getProposals(
+		...args: Parameters<SagatV1Client['getProposals']>
+	): Promise<AppProposalList> {
+		const list = await super.getProposals(...args);
+		return {
+			...list,
+			proposals: list.proposals.map(actingOnly),
+		};
+	}
+
+	override async getProposalByDigest(digest: string) {
+		return actingOnly(
+			await super.getProposalByDigest(digest),
+		);
+	}
+
+	override async voteForProposal(
+		...args: Parameters<SagatV1Client['voteForProposal']>
+	) {
+		return actingOnly(await super.voteForProposal(...args));
+	}
+
+	override async cancelProposal(
+		...args: Parameters<SagatV1Client['cancelProposal']>
+	) {
+		return actingOnly(await super.cancelProposal(...args));
+	}
+
+	override async verifyProposalByDigest(digest: string) {
+		return actingOnly(
+			await super.verifyProposalByDigest(digest),
+		);
+	}
+}
+
+export const apiV1Client = new AppV1Client(API_BASE_URL, {
 	fetch: apiFetch,
 });

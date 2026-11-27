@@ -16,6 +16,7 @@ import {
 	checkedSignerSets,
 	isMember,
 	type AccountSigners,
+	type AppProposal,
 } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 import { getExplorerUrl } from './utils';
@@ -43,7 +44,7 @@ export interface CountedSignerSet {
 }
 
 /** A proposal with its checked signer sets counted, the viewer's first. */
-export type CountedProposal = Proposal & {
+export type CountedProposal = AppProposal & {
 	checkedSignerSets: CountedSignerSet[];
 };
 
@@ -148,7 +149,7 @@ export function isPodProposal(
 
 /** A proposal counted against its signer sets that are aliases in `aliases`, or the one making up its address while unread. */
 export function toProposalCardInput(
-	proposal: Proposal,
+	proposal: AppProposal,
 	aliases: AliasRead | undefined,
 	signerAddress: string | null | undefined,
 ): CountedProposal {

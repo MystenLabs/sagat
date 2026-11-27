@@ -6,6 +6,7 @@
 import type {
 	Account,
 	Proposal,
+	ProposalList,
 	SignerSet,
 } from '@mysten/sagat/v1';
 
@@ -36,12 +37,37 @@ export type ProposalIntegrityFailure =
 	| 'signers'
 	| 'notSigner';
 
+/** A `/v1` proposal whose `signerSets` are only the sets that act; the others are apart, there only to rebuild the pod's address. */
+export type AppProposal = Proposal & {
+	notActingSets: SignerSet[];
+};
+
+export type AppProposalList = Omit<
+	ProposalList,
+	'proposals'
+> & { proposals: AppProposal[] };
+
+export function actingOnly(
+	proposal: Proposal,
+): AppProposal {
+	return {
+		...proposal,
+		signerSets: proposal.signerSets.filter(
+			(set) => set.acting,
+		),
+		notActingSets: proposal.signerSets.filter(
+			(set) => !set.acting,
+		),
+	};
+}
+
 export type IntegrityProposal = Pick<
-	Proposal,
+	AppProposal,
 	| 'transactionBytes'
 	| 'digest'
 	| 'accountAddress'
 	| 'signerSets'
+	| 'notActingSets'
 >;
 
 /** Whether `signerAddress` may sign the bytes for `pod` (else the proposal's own address), or the first check it failed. */
@@ -84,9 +110,11 @@ export function checkProposalIntegrity(
 
 	const original = pod
 		? originalSignerSet(pod)
-		: proposal.signerSets.find((set) =>
-				rebuildAccount(set, account),
-			);
+		: // Trusted because it rebuilds the address, whatever its flags.
+			[
+				...proposal.signerSets,
+				...proposal.notActingSets,
+			].find((set) => rebuildAccount(set, account));
 	if (!original) return 'signers';
 	const signers = checkAccountSigners(
 		{ original, shown: proposal.signerSets },

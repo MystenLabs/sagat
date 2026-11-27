@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { SagatApiError } from '@mysten/sagat';
-import { type Proposal } from '@mysten/sagat/v1';
 import { useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 
@@ -11,6 +10,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { content } from '@/content';
 import { useGetProposal } from '@/hooks/useGetProposal';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
+import { type AppProposal } from '@/lib/proposal-integrity';
 import {
 	proposalPagePath,
 	proposalsPath,
@@ -104,7 +104,7 @@ function AccountProposal({
 	openedDigest,
 }: {
 	multisig: MultisigWithMembersForPublicKey;
-	proposal: Proposal;
+	proposal: AppProposal;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 }) {

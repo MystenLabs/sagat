@@ -34,11 +34,20 @@ export function signerSet(
 	};
 }
 
-/** A set as a proposal lists it: its address, members and threshold, nothing counted. */
+/** A set as a proposal lists it: its address, members, threshold and flags, nothing counted. */
 export function listedSet({
 	address,
 	threshold,
 	members,
+	acting,
+	original,
 }: Omit<SignerSet, 'currentWeight'>): SignerSet {
-	return { address, threshold, members, currentWeight: 0 };
+	return {
+		address,
+		threshold,
+		members,
+		currentWeight: 0,
+		acting,
+		original,
+	};
 }

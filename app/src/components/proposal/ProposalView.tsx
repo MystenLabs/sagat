@@ -5,7 +5,6 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { type Proposal } from '@mysten/sagat/v1';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Link2 } from 'lucide-react';
 import {
@@ -56,6 +55,7 @@ import {
 import { networkLabel } from '@/lib/network';
 import {
 	isMember,
+	type AppProposal,
 	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
@@ -100,7 +100,7 @@ export function ProposalView({
 	proposalsPath,
 	canCancel,
 }: {
-	proposal: Proposal;
+	proposal: AppProposal;
 	/** The pod from the viewer's own account read; null on the shared page. */
 	pod: ShownPod | null;
 	/** The digest the viewer opened, from the page's URL. */

@@ -1,10 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type {
-	Proposal,
-	ProposalList,
-} from '@mysten/sagat/v1';
 import { isValidTransactionDigest } from '@mysten/sui/utils';
 import {
 	useQuery,
@@ -14,6 +10,10 @@ import {
 
 import { content } from '@/content';
 import { apiV1Client } from '@/lib/api';
+import {
+	type AppProposal,
+	type AppProposalList,
+} from '@/lib/proposal-integrity';
 import { QueryKeys } from '@/lib/queryKeys';
 
 import { proposalsListShows } from './usePaginatedProposals';
@@ -49,7 +49,7 @@ export function useGetProposal(digest: string | null) {
 /** Writes a returned proposal into its read and the cached lists of its status, then refetches the lists. */
 export async function writeProposal(
 	queryClient: QueryClient,
-	proposal: Proposal,
+	proposal: AppProposal,
 ) {
 	const key = proposalQueryKey(proposal.digest);
 	// An older read in flight must not land over the write.
@@ -58,7 +58,7 @@ export async function writeProposal(
 		exact: true,
 	});
 	queryClient.setQueryData(key, proposal);
-	queryClient.setQueriesData<InfiniteData<ProposalList>>(
+	queryClient.setQueriesData<InfiniteData<AppProposalList>>(
 		{
 			queryKey: [QueryKeys.Proposals],
 			predicate: ({ queryKey }) =>

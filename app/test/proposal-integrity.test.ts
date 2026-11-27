@@ -7,6 +7,7 @@ import { expect, test } from 'vitest';
 
 import { type AliasRead } from '../src/lib/alias-set';
 import {
+	actingOnly,
 	checkActingSets,
 	checkedSignerSets,
 	checkProposalIntegrity,
@@ -18,6 +19,8 @@ import {
 	type NodeFacts,
 	type ShownPod,
 } from '../src/lib/proposal-integrity';
+import { toProposalCardInput } from '../src/lib/proposalUtils';
+import { v1Proposal } from './proposal';
 import { listedSet, signerSet } from './signer-set';
 import { digestOf, transfer } from './transactions';
 
@@ -43,6 +46,7 @@ test('refuses a wallet that is not one of the signers', async () => {
 				digest,
 				accountAddress: address,
 				signerSets: [listedSet(multisig)],
+				notActingSets: [],
 			},
 			{
 				pod: { address, signerSets: [listed(multisig)] },
@@ -66,6 +70,7 @@ test("refuses bytes that don't decode as a transaction", () => {
 				digest: toBase58(new Uint8Array(32)),
 				accountAddress: address,
 				signerSets: [listedSet(multisig)],
+				notActingSets: [],
 			},
 			{
 				pod: { address, signerSets: [listed(multisig)] },
@@ -350,6 +355,7 @@ test('under a pod, refuses a proposal named for another pod or whose original se
 				digest,
 				accountAddress,
 				signerSets: [listedSet(multisig)],
+				notActingSets: [],
 			},
 			{
 				pod: { address, signerSets },
@@ -388,6 +394,7 @@ test('without a pod, rule 1 runs on the listed set that makes up the proposal’
 				digest,
 				accountAddress: account.address,
 				signerSets: [listedSet(listed.multisig)],
+				notActingSets: [],
 			},
 			{
 				pod: null,
@@ -398,6 +405,83 @@ test('without a pod, rule 1 runs on the listed set that makes up the proposal’
 
 	expect(sign(account)).toBeNull();
 	expect(sign(other)).toBe('signers');
+});
+
+test('an original set listed as not acting only rebuilds the address: its key is no signer and it is neither shown nor counted', async () => {
+	const original = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const transactionBytes = await transfer(
+		undefined,
+		original.address,
+	);
+	const digest = digestOf(transactionBytes);
+	const received = (originalActs: boolean) =>
+		actingOnly(
+			v1Proposal({
+				digest,
+				transactionBytes,
+				accountAddress: original.address,
+				signatures: [
+					{
+						publicKey: original.keys[0]
+							.getPublicKey()
+							.toSuiPublicKey(),
+						signature: 'sig',
+					},
+				],
+				signerSets: [
+					listedSet({
+						...current.multisig,
+						original: false,
+					}),
+					listedSet({
+						...original.multisig,
+						acting: originalActs,
+					}),
+				],
+			}),
+		);
+	const sign = (
+		proposal: ReturnType<typeof received>,
+		signer: Ed25519Keypair,
+	) =>
+		checkProposalIntegrity(proposal, {
+			pod: null,
+			openedDigest: digest,
+			signerAddress: signer.toSuiAddress(),
+		});
+	const aliases: AliasRead = {
+		kind: 'read',
+		aliases: [current.address],
+	};
+
+	const proposal = received(false);
+	expect(
+		proposal.signerSets.map((set) => set.address),
+	).toEqual([current.address]);
+	expect(sign(proposal, current.keys[0])).toBeNull();
+	expect(sign(proposal, original.keys[0])).toBe(
+		'notSigner',
+	);
+	for (const read of [aliases, undefined])
+		expect(
+			toProposalCardInput(proposal, read, null)
+				.checkedSignerSets,
+		).toEqual(
+			read
+				? [expect.objectContaining({ currentWeight: 0 })]
+				: [],
+		);
+
+	// Flagged acting, it is a shown set as before, which the node then refuses.
+	const flagged = received(true);
+	expect(sign(flagged, original.keys[0])).toBeNull();
+	expect(
+		signOnNetwork(flagged.signerSets, original.keys[0], {
+			aliases,
+			chain: CHAIN,
+		}),
+	).toBe('notActing');
 });
 
 test('counts every listed set that is an alias once the alias set is read, and only the set that makes up the address while it is unread or failed', () => {

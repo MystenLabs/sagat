@@ -1,12 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { Proposal } from '@mysten/sagat/v1';
+import { type AppProposal } from '../src/lib/proposal-integrity';
 
-/** A pending `/v1` proposal with no signatures or signer sets; `fields` replace its own. */
+/** A pending `/v1` proposal as the app holds it, with no signatures or signer sets; `fields` replace its own. */
 export function v1Proposal(
-	fields: Partial<Proposal> = {},
-): Proposal {
+	fields: Partial<AppProposal> = {},
+): AppProposal {
 	return {
 		digest: 'digest',
 		accountAddress: '0x1',
@@ -21,6 +21,7 @@ export function v1Proposal(
 		createdAt: '2026-11-23T10:00:00.000Z',
 		signatures: [],
 		signerSets: [],
+		notActingSets: [],
 		events: {
 			created: null,
 			proposer: null,
