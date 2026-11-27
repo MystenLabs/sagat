@@ -86,7 +86,7 @@ export const AuthErrors = {
 	NotASignerWhoStays:
 		'Only an accepted signer of the signer set being replaced who stays in the new one can propose this signer change.',
 	NotASignerOfTheChange:
-		'Only a key of the signer set this change replaces, or of a signer set it adds, can sign it.',
+		'Only a key of the signer set this change replaces, or of the signer set it adds (for a change that only removes one, of a set left after it), can sign it.',
 	CancelBySignerWhoStays:
 		'Only an accepted signer of the signer set being replaced who stays in the new one can cancel this signer change.',
 };
