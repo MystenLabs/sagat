@@ -1178,6 +1178,9 @@ export const content = {
 				title: WAITING_FOR_NEW_SIGNERS,
 				body: (names: string, count: number) =>
 					`${names} still ${count === 1 ? 'needs' : 'need'} to sign before it can be executed here.`,
+				/** In place of `body` when the pod’s alias set read now doesn’t check the change. */
+				moved:
+					'This pod’s signer sets changed after this was proposed. Cancel it and propose the change again.',
 				/** Under the Sign button, for a signer the change removes. */
 				removed:
 					'You’re being removed in this change, so you can’t cancel it. You can still sign it.',

@@ -17,7 +17,7 @@ import {
 	type SuiNetwork,
 } from '@/lib/network';
 import { signerSetRemoved } from '@/lib/proposal-integrity';
-import { heldLine } from '@/lib/proposal-page';
+import { changeHold } from '@/lib/proposal-page';
 import {
 	aliasCallsIn,
 	type CountedSignerSet,
@@ -72,16 +72,18 @@ export function useExecuteProposal() {
 				if (
 					aliasCallsIn(proposal.transactionBytes).length > 0
 				) {
-					const held = heldLine(
+					const hold = changeHold(
 						proposal,
+						'ready',
 						await readPodAliasSet(
 							queryClient,
 							suiClient,
 							network,
 							proposal.accountAddress,
 						),
+						new Map(),
 					);
-					if (held) throw new Error(held);
+					if (hold) throw new Error(hold.line);
 				}
 				const multisigMembers = [...signerSet.members].sort(
 					(a, b) => a.order - b.order,

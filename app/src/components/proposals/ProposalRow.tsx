@@ -27,8 +27,9 @@ import {
 	getProposalExportFilename,
 } from '@/lib/exportUtils';
 import {
-	listedStatus,
+	changeHold,
 	listedTitle,
+	shownStatus,
 	type Labels,
 } from '@/lib/proposal-page';
 import {
@@ -107,7 +108,10 @@ export function ProposalRow({
 	const status = expired
 		? 'expired'
 		: proposalStatusKey(proposal);
-	const shown = listedStatus(proposal, status, aliases);
+	const shown = shownStatus(
+		status,
+		changeHold(proposal, status, aliases, labels),
+	);
 	const pending = proposal.status === 'PENDING';
 	const signed =
 		pending &&

@@ -66,7 +66,7 @@ import {
 	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
-	holdingChange,
+	changeHold,
 	newSignerKey,
 	proposalPageStatus,
 	shownChange,
@@ -163,6 +163,16 @@ export function ProposalView({
 		[aliases, proposal, status, labels, pod, openedDigest],
 	);
 	const checked = open ? shown : null;
+	const hold = useMemo(
+		() =>
+			changeHold(
+				proposal,
+				status,
+				aliases,
+				shown?.labels ?? labels,
+			),
+		[proposal, status, aliases, shown, labels],
+	);
 	const title = shown?.list
 		? changeTitle(shown.list)
 		: proposalTitle(proposal);
@@ -330,15 +340,7 @@ export function ProposalView({
 				description={
 					<span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-13 max-sm:flex-col max-sm:items-start max-sm:[&>span>[aria-hidden]]:hidden">
 						<ProposalStatusChip
-							status={shownStatus(
-								proposal,
-								status,
-								holdingChange(
-									proposal.transactionBytes,
-									checked?.change ?? null,
-									aliases,
-								),
-							)}
+							status={shownStatus(status, hold)}
 							className="mr-0.5"
 							data-testid="proposal-status"
 						/>
@@ -492,6 +494,7 @@ export function ProposalView({
 						pod={pod}
 						aliases={aliases}
 						change={shown?.change ?? null}
+						hold={hold}
 						openedDigest={openedDigest}
 						status={status}
 						labels={shown?.labels ?? labels}

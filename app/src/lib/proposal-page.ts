@@ -501,48 +501,70 @@ export function approvalsStatus(
 	return null;
 }
 
-// An open checked change's new-set proof while it isn't met; null otherwise.
-function unmetProof(
-	proposal: Pick<PageProposal, 'signatures'>,
+/** What holds an open signer change's Execute: the line to show and the new set's keys that haven't signed; `moved` when the alias read doesn't check the bytes. */
+export interface ChangeHold {
+	line: string;
+	notSigned: string[];
+	moved: boolean;
+}
+
+/**
+ * While an open signer change's new set hasn't signed for its threshold,
+ * which holds Execute, what holds it; null otherwise. Without a change
+ * checked against the alias read, the bytes' own note decides.
+ */
+export function changeHold(
+	proposal: Pick<
+		PageProposal,
+		'signatures' | 'transactionBytes'
+	>,
 	status: ProposalStatusKey,
-	change: SignerChange | null,
-) {
-	if (
-		!change ||
-		(status !== 'pending' && status !== 'ready')
-	)
+	aliases: AliasRead | undefined,
+	labels: Labels,
+): ChangeHold | null {
+	if (status !== 'pending' && status !== 'ready')
 		return null;
+	const read = aliases?.kind === 'read';
+	const checked = read
+		? signerChangeIn(
+				proposal.transactionBytes,
+				aliases.aliases,
+			)
+		: null;
+	const change =
+		checked ??
+		signerChangeIn(proposal.transactionBytes, null);
+	if (!change) return null;
 	const proof = signerChangeProof(
 		change,
 		proposal.signatures.map((sig) => sig.publicKey),
 	);
-	return proof.met ? null : proof;
+	if (proof.met) return null;
+	// The pod's alias set moved since the bytes were built.
+	const moved = read && !checked;
+	const names = proof.notSigned.map((key) =>
+		keyName(key, labels),
+	);
+	return {
+		line: moved
+			? SIGNER_CHANGE.moved
+			: SIGNER_CHANGE.body(
+					joinList(names, 'and'),
+					names.length,
+				),
+		notSigned: proof.notSigned,
+		moved,
+	};
 }
 
-/** The change whose new signers hold Execute: the checked one, else, until an alias read checks the bytes, the change their note makes, which can only hold. */
-export function holdingChange(
-	transactionBytes: string,
-	checked: SignerChange | null,
-	aliases: AliasRead | undefined,
-): SignerChange | null {
-	if (checked || aliases?.kind === 'read') return checked;
-	return signerChangeIn(transactionBytes, null);
-}
-
-/** What a proposal's status chip says: `waiting` instead of `ready` while a signer change's Execute waits for its new signers. */
+/** What a proposal's status chip says: `waiting` instead of `ready` while a signer change's Execute is held. */
 export type ShownStatus = ProposalStatusKey | 'waiting';
 
-/** The status the page header and the proposals list show, from the proof that holds Execute. */
-export function shownStatus(
-	proposal: Pick<PageProposal, 'signatures'>,
+export const shownStatus = (
 	status: ProposalStatusKey,
-	change: SignerChange | null,
-): ShownStatus {
-	return status === 'ready' &&
-		unmetProof(proposal, status, change)
-		? 'waiting'
-		: status;
-}
+	hold: ChangeHold | null,
+): ShownStatus =>
+	status === 'ready' && hold ? 'waiting' : status;
 
 type ListedProposal = Pick<
 	CountedProposal,
@@ -552,51 +574,6 @@ type ListedProposal = Pick<
 	| 'accountAddress'
 	| 'digest'
 >;
-
-/** The line naming who a listed proposal's signer change, checked as its page checks it, still waits for; null when it doesn't wait. Execute decides on it with a fresh alias read. */
-export function heldLine(
-	proposal: ListedProposal,
-	aliases: AliasRead | undefined,
-): string | null {
-	const checked = checkedChange(
-		proposal,
-		aliases,
-		new Map(),
-		{
-			pod: proposal.accountAddress,
-			digest: proposal.digest,
-		},
-	);
-	return (
-		signerChangeWarning(
-			proposal,
-			'ready',
-			holdingChange(
-				proposal.transactionBytes,
-				checked?.change ?? null,
-				aliases,
-			),
-			checked?.labels ?? new Map(),
-		)?.body ?? null
-	);
-}
-
-/** Whether a listed proposal's signer change, checked as its page checks it, still waits for its new signers. */
-export const listedHeld = (
-	proposal: ListedProposal,
-	aliases: AliasRead | undefined,
-) => heldLine(proposal, aliases) !== null;
-
-/** `shownStatus` for a listed proposal. */
-export function listedStatus(
-	proposal: ListedProposal,
-	status: ProposalStatusKey,
-	aliases: AliasRead | undefined,
-): ShownStatus {
-	return status === 'ready' && listedHeld(proposal, aliases)
-		? 'waiting'
-		: status;
-}
 
 /** A listed proposal's title: its signer change's, checked as its page checks it while open and the alias set is read, else from the bytes' note; otherwise its description or digest. */
 export function listedTitle(
@@ -618,31 +595,6 @@ export function listedTitle(
 	return read?.list
 		? changeTitle(read.list)
 		: proposalTitle(proposal);
-}
-
-/**
- * While an open signer change's new set hasn't signed for its threshold,
- * which holds Execute, the line naming its members who haven't signed,
- * and their keys. Null without a checked `change`.
- */
-export function signerChangeWarning(
-	proposal: Pick<PageProposal, 'signatures'>,
-	status: ProposalStatusKey,
-	change: SignerChange | null,
-	labels: Labels,
-): { body: string; notSigned: string[] } | null {
-	const proof = unmetProof(proposal, status, change);
-	if (!proof) return null;
-	const names = proof.notSigned.map((key) =>
-		keyName(key, labels),
-	);
-	return {
-		body: SIGNER_CHANGE.body(
-			joinList(names, 'and'),
-			names.length,
-		),
-		notSigned: proof.notSigned,
-	};
 }
 
 /**

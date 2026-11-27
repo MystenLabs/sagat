@@ -63,14 +63,13 @@ import {
 	foldedSignerSetsLine,
 	gasEstimate,
 	hasSigned,
-	holdingChange,
 	newSignerSet,
-	signerChangeWarning,
 	withReason,
 	wouldReachThreshold,
 	type ApprovalRow,
 	type ApprovalsNoteInput,
 	type ApprovalsSignerSet,
+	type ChangeHold,
 	type Labels,
 	type SimulationVerdict,
 } from '@/lib/proposal-page';
@@ -110,6 +109,7 @@ export function ApprovalsCard({
 	pod,
 	aliases,
 	change,
+	hold,
 	openedDigest,
 	status,
 	labels,
@@ -128,6 +128,8 @@ export function ApprovalsCard({
 	aliases: AliasRead | undefined;
 	/** The signer change the bytes make, checked by the page. */
 	change: SignerChange | null;
+	/** What holds a signer change's Execute, from `changeHold`. */
+	hold: ChangeHold | null;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 	status: ProposalStatusKey;
@@ -171,22 +173,7 @@ export function ApprovalsCard({
 		useState(false);
 
 	const signed = hasSigned(proposal, viewerPublicKey);
-	const signerChange = useMemo(
-		() =>
-			signerChangeWarning(
-				proposal,
-				status,
-				holdingChange(
-					proposal.transactionBytes,
-					change,
-					aliases,
-				),
-				labels,
-			),
-		[proposal, status, change, aliases, labels],
-	);
-	// Execute waits for a checked change's new signers to confirm it.
-	const held = signerChange !== null;
+	const held = hold !== null;
 	const reaches = wouldReachThreshold(
 		proposal,
 		viewerPublicKey,
@@ -219,9 +206,7 @@ export function ApprovalsCard({
 		(status === 'pending' ||
 			(status === 'ready' &&
 				!!viewerPublicKey &&
-				!!signerChange?.notSigned.includes(
-					viewerPublicKey,
-				)));
+				!!hold?.notSigned.includes(viewerPublicKey)));
 	// The node's chain identifier is read only where Sign can show.
 	const checkNetwork = canAct && awaitingSign;
 	const network = proposal.network as SuiNetwork;
@@ -331,7 +316,7 @@ export function ApprovalsCard({
 		labels,
 		viewerPublicKey,
 		pods ?? [],
-		signerChange?.notSigned,
+		hold?.notSigned,
 	);
 	const [mainSet, ...foldedSets] = signerSets;
 	// A checked change counts the current signers and, apart, its new set.
@@ -342,7 +327,7 @@ export function ApprovalsCard({
 				status,
 				labels,
 				viewerPublicKey,
-				signerChange?.notSigned,
+				hold?.notSigned,
 			)
 		: null;
 	// Once closed, the new set only follows the signers, under the card's own rows.
@@ -660,7 +645,7 @@ export function ApprovalsCard({
 				/>
 			)}
 
-			{signerChange && (
+			{hold && (
 				<Alert
 					variant="warning"
 					data-testid="signer-change-warning"
@@ -668,7 +653,7 @@ export function ApprovalsCard({
 					<div className="font-medium">
 						{COPY.signerChange.title}
 					</div>
-					<div>{signerChange.body}</div>
+					<div>{hold.line}</div>
 				</Alert>
 			)}
 			{actions && (

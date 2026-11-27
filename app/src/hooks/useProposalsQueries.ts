@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type SuiNetwork } from '@/lib/network';
 import { type AppProposalList } from '@/lib/proposal-integrity';
-import { listedHeld } from '@/lib/proposal-page';
+import { changeHold } from '@/lib/proposal-page';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import {
@@ -15,6 +15,7 @@ import {
 	listsAtCutoff,
 	mergeNewestFirst,
 	pendingFilter,
+	proposalStatusKey,
 	toProposalCardInput,
 	type CountedProposal,
 } from '../lib/proposalUtils';
@@ -133,7 +134,13 @@ export function useProposalsQueries({
 			pendingFilter(proposal, {
 				publicKey,
 				epochInfo,
-				held: listedHeld(proposal, aliases),
+				held:
+					changeHold(
+						proposal,
+						proposalStatusKey(proposal),
+						aliases,
+						new Map(),
+					) !== null,
 			}),
 		[epochInfo, publicKey, aliases],
 	);
