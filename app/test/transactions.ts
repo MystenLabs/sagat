@@ -55,13 +55,13 @@ const addressOf = (set: Composition) =>
 		})),
 	}).toSuiAddress();
 
-// The pod `oldSet` makes up, and the bytes of its signer change to `newSet`, with `others` acting beside it.
+// The pod (by default the one `oldSet` makes up), and the bytes of its signer change from `oldSet` to `newSet`, with `others` acting beside it.
 export async function signerChange(
 	oldSet: Composition,
 	newSet: Composition,
 	others: Composition[] = [],
+	pod = addressOf(oldSet),
 ) {
-	const pod = addressOf(oldSet);
 	const tx = new Transaction();
 	tx.setSender(pod);
 	tx.setGasPrice(1000);
@@ -82,8 +82,8 @@ export async function signerChange(
 	);
 	buildSignerChange(tx, {
 		account: pod,
-		aliases: [pod, ...others.map(addressOf)],
-		oldSet: pod,
+		aliases: [addressOf(oldSet), ...others.map(addressOf)],
+		oldSet: addressOf(oldSet),
 		newSet,
 		known: [oldSet, ...others],
 		chain: toBase58(new Uint8Array(32).fill(7)),

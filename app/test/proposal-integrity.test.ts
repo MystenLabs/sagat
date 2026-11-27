@@ -96,6 +96,7 @@ test('lets a key a checked signer change adds sign the change, and refuses a key
 				digest,
 				accountAddress: pod,
 				signerSets: [listedSet(multisig)],
+				notActingSets: [],
 			},
 			{
 				pod: null,
@@ -123,6 +124,67 @@ test('lets a key a checked signer change adds sign the change, and refuses a key
 		'notSigner',
 		'notActing',
 	]);
+});
+
+test('on a pod’s second change, a key it adds signs without a pod once the original set is listed, and not without it', async () => {
+	const [a, b, c] = [
+		new Ed25519Keypair(),
+		new Ed25519Keypair(),
+		new Ed25519Keypair(),
+	];
+	const added = new Ed25519Keypair();
+	const original = signerSet([a, b], 2);
+	// The set the first change left acting, which the second replaces.
+	const current = signerSet([a, c], 2);
+	const setOf = (signers: Ed25519Keypair[]) => ({
+		threshold: 2,
+		members: signers.map((key) => ({
+			publicKey: key.getPublicKey().toSuiPublicKey(),
+			weight: 1,
+		})),
+	});
+	const { bytes: transactionBytes } = await signerChange(
+		setOf([a, c]),
+		setOf([a, added]),
+		[],
+		original.address,
+	);
+	const digest = digestOf(transactionBytes);
+	const newSets =
+		signerChangeIn(transactionBytes, [current.address])
+			?.newSets ?? [];
+	const sign = (
+		signer: Ed25519Keypair,
+		notActingSets: ReturnType<typeof listedSet>[],
+	) =>
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress: original.address,
+				signerSets: [
+					listedSet({ ...current, original: false }),
+				],
+				notActingSets,
+			},
+			{
+				pod: null,
+				openedDigest: digest,
+				signerAddress: signer.toSuiAddress(),
+				newSets,
+			},
+		);
+	const listedOriginal = [
+		listedSet({ ...original, acting: false }),
+	];
+
+	expect(newSets).toHaveLength(1);
+	expect(sign(added, listedOriginal)).toBeNull();
+	expect(sign(new Ed25519Keypair(), listedOriginal)).toBe(
+		'notSigner',
+	);
+	// Without the original set, nothing rebuilds the address.
+	expect(sign(added, [])).toBe('signers');
 });
 
 test("refuses bytes that don't decode as a transaction", () => {
