@@ -709,6 +709,12 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 				await signedBy(outsider, transactionBytes),
 			),
 		).toEqual(notASigner);
+	});
+
+	test('create answers 400 for bytes that cannot be read or built', async () => {
+		const { address } = await createAccount();
+		const outsider = newUser();
+		const transactionBytes = await buildTransfer(address);
 		// Parses and is fully resolved, but its command uses an input that does not exist.
 		const data = bcs.TransactionData.parse(
 			fromBase64(transactionBytes),
@@ -726,10 +732,18 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 			bcs.TransactionData.serialize(data).toBase64();
 		for (const bytes of ['AAAA', unbuildable])
 			expect(
-				await create(
-					address,
-					bytes,
-					await signedBy(outsider, transactionBytes),
+				await errorOf(
+					await session.post(
+						'/v1/proposals?network=localnet',
+						{
+							accountAddress: address,
+							transactionBytes: bytes,
+							signature: await signedBy(
+								outsider,
+								transactionBytes,
+							),
+						},
+					),
 				),
 			).toEqual({
 				status: 400,
