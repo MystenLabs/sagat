@@ -4,6 +4,7 @@
 // The rules of the new-proposal wizard, kept free of React: the proposal
 // types, what blocks Review on a transfer, the generated title, and how
 // pasted bytes are read. Its messages come from content.ts.
+import type { Account } from '@mysten/sagat/v1';
 import type { SuiClientTypes } from '@mysten/sui/client';
 import {
 	Transaction,
@@ -31,10 +32,7 @@ import {
 	stripHiddenCharacters,
 	textLength,
 } from './create-multisig';
-import {
-	checkAccountSigners,
-	type AccountSigners,
-} from './proposal-integrity';
+import { checkPodSigners } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 import { namedChain } from './transaction-preview';
 
@@ -394,19 +392,16 @@ export function checkBytes(
 
 /**
  * Why `walletAddress` mustn't sign `bytes` for `multisig`, or null:
- * `signers`, the account's signers don't make up its address;
- * `notSigner`, the wallet isn't one of them; `bytes`, the bytes aren't
- * sent from the pod's address with it paying gas.
+ * `signers`, the account's original signers don't make up its address;
+ * `notSigner`, the wallet is in no set shown as acting; `bytes`, the
+ * bytes aren't sent from the pod's address with it paying gas.
  */
 export function checkNewProposal(
-	multisig: AccountSigners & { address: string },
+	multisig: Pick<Account, 'address' | 'signerSets'>,
 	bytes: string,
 	walletAddress: string,
 ): 'signers' | 'notSigner' | 'bytes' | null {
-	const signers = checkAccountSigners(multisig, {
-		account: multisig.address,
-		signerAddress: walletAddress,
-	});
+	const signers = checkPodSigners(multisig, walletAddress);
 	if (signers.kind !== 'ok') return signers.kind;
 	if (checkBytes(bytes, multisig.address).kind !== 'ok')
 		return 'bytes';

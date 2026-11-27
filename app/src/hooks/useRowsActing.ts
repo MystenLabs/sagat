@@ -4,6 +4,7 @@
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { useMemo } from 'react';
 
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { withActing } from '@/lib/user-multisig';
 
@@ -21,14 +22,20 @@ export function useRowsActing(
 		[rows],
 	);
 	const { aliases } = useAliasSets(pods);
+	const { currentAddress } = useApiAuth();
 	return useMemo(
 		() =>
-			rows?.map((row) =>
-				withActing(
-					row,
-					aliases?.get(normalizeSuiAddress(row.address)),
-				),
-			),
-		[rows, aliases],
+			currentAddress
+				? rows?.map((row) =>
+						withActing(
+							row,
+							aliases?.get(
+								normalizeSuiAddress(row.address),
+							),
+							currentAddress,
+						),
+					)
+				: rows,
+		[rows, aliases, currentAddress],
 	);
 }

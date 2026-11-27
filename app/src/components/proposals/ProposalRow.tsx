@@ -2,10 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
-	ProposalStatus,
-	type PublicProposal,
-} from '@mysten/sagat';
-import {
 	Download,
 	ExternalLink,
 	FileText,
@@ -33,7 +29,10 @@ import {
 	proposalPagePath,
 	proposalStatusKey,
 	proposalTitle,
+	rowExecuteSet,
 	shortDigest,
+	shownSignerSet,
+	type CountedProposal,
 } from '@/lib/proposalUtils';
 import { cn } from '@/lib/utils';
 
@@ -78,7 +77,7 @@ export function ProposalRow({
 	expired,
 	proposerLabel,
 }: {
-	proposal: PublicProposal;
+	proposal: CountedProposal;
 	variant: ProposalsTableVariant;
 	/** Still pending, but past its last epoch. */
 	expired: boolean;
@@ -92,8 +91,7 @@ export function ProposalRow({
 	const status = expired
 		? 'expired'
 		: proposalStatusKey(proposal);
-	const pending =
-		proposal.status === ProposalStatus.PENDING;
+	const pending = proposal.status === 'PENDING';
 	const signed =
 		pending &&
 		!!currentAddress &&
@@ -101,6 +99,11 @@ export function ProposalRow({
 			(sig) => sig.publicKey === currentAddress.publicKey,
 		);
 	const explorerUrl = proposalExplorerUrl(status, proposal);
+	const shownSet = shownSignerSet(
+		proposal.checkedSignerSets,
+	);
+	const readySet =
+		status === 'ready' ? rowExecuteSet(proposal) : null;
 	const list = variant === 'list';
 	const createdOn = formatShortDate(proposal.createdAt);
 	// The digest goes under the title, unless the title already is the
@@ -116,7 +119,7 @@ export function ProposalRow({
 				? 'external'
 				: null;
 	const pagePath = proposalPagePath(
-		proposal.multisigAddress,
+		proposal.accountAddress,
 		proposal.digest,
 	);
 
@@ -266,7 +269,9 @@ export function ProposalRow({
 				/>
 			</td>
 			<td className="hidden px-3 py-2.75 sm:table-cell @max-md:block @max-md:self-center @max-md:p-0">
-				<ProposalWeight proposal={proposal} />
+				{shownSet && (
+					<ProposalWeight signerSet={shownSet} />
+				)}
 			</td>
 			{list && (
 				<td className="hidden px-3 py-2.75 md:table-cell @max-md:hidden">
@@ -286,11 +291,13 @@ export function ProposalRow({
 			)}
 			<td className="px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0">
 				<div className="flex items-center justify-end gap-1 @max-md:flex-wrap">
-					{status === 'ready' && (
+					{status === 'ready' && readySet && (
 						<Button
 							size="sm"
 							className="@max-md:h-9 @max-md:px-3.5"
-							onClick={() => executing.execute(proposal)}
+							onClick={() =>
+								executing.execute(proposal, readySet)
+							}
 							disabled={executing.isPending}
 							data-testid="execute-proposal-button"
 						>

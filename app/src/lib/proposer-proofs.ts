@@ -4,32 +4,40 @@
 import {
 	verifyProposalProposer,
 	verifyProposer,
-	type MultisigWithMembers,
 	type ProofResult,
-	type PublicProposal,
 	type TrustedMembers,
 } from '@mysten/sagat';
+import type {
+	AccountDetails,
+	Proposal,
+} from '@mysten/sagat/v1';
 
 import { type AliasRead } from './alias-set';
 import {
 	checkActingSets,
+	originalSignerSet,
 	rebuildAccount,
 	shownActingSets,
 	type AccountSigners,
 } from './proposal-integrity';
 import { sameAddress } from './sui-utils';
 
-export type ProposerProofAccount = AccountSigners &
-	Pick<MultisigWithMembers, 'address' | 'proposers'>;
+export type ProposerProofAccount = Pick<
+	AccountDetails,
+	'address' | 'signerSets' | 'proposers'
+>;
 
-/** Whether `account` is `openedAddress` and its signers make up that address. */
+/** Whether `account` is `openedAddress` and its original signers make up that address. */
 export function trustsSigners(
-	account: ProposerProofAccount,
+	account: Pick<AccountDetails, 'address' | 'signerSets'>,
 	openedAddress: string,
 ) {
 	return (
 		sameAddress(account.address, openedAddress) &&
-		rebuildAccount(account, account.address) !== null
+		rebuildAccount(
+			originalSignerSet(account),
+			account.address,
+		) !== null
 	);
 }
 
@@ -104,25 +112,33 @@ export async function verifyProposers(
 /** `invalid`: a proof doesn't check out; `unverified`: no proof shows who proposed it. */
 export type ProposerCheck = 'invalid' | 'unverified' | null;
 
-/** Checks a proposal's proposer, trusting members only when they make up the account and act on the proposal's network, whose alias set is `aliases`. */
+export type ProposerProposal = Pick<
+	Proposal,
+	| 'digest'
+	| 'accountAddress'
+	| 'proposerAddress'
+	| 'transactionBytes'
+	| 'signatures'
+	| 'events'
+	| 'signerSets'
+>;
+
+/** Checks a proposal's proposer against the members of its signer sets that are aliases in `aliases`. */
 export async function checkProposalProposer(
-	proposal: PublicProposal,
+	proposal: ProposerProposal,
 	aliases: AliasRead,
 ): Promise<ProposerCheck> {
-	if (
-		!rebuildAccount(
-			proposal.multisig,
-			proposal.multisigAddress,
-		)
-	)
-		return 'unverified';
 	const members = trustedMembers(
-		shownActingSets(proposal.multisig),
+		proposal.signerSets,
 		aliases,
 	);
 	if (!members) return 'unverified';
-	const status = await verifyProposalProposer(proposal, {
-		members,
-	});
+	const status = await verifyProposalProposer(
+		{
+			...proposal,
+			multisigAddress: proposal.accountAddress,
+		},
+		{ members },
+	);
 	return status === 'verified' ? null : status;
 }

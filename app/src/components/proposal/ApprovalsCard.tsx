@@ -5,13 +5,14 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { type PublicProposal } from '@mysten/sagat';
-import { normalizeSuiAddress } from '@mysten/sui/utils';
+import { type Proposal } from '@mysten/sagat/v1';
 import { useQuery } from '@tanstack/react-query';
 import { Pen, Play, X } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 
+import { ShortAddress } from '@/components/invitations/ShortAddress';
 import { CancelProposalModal } from '@/components/modals/CancelProposalModal';
+import { FoldedRow } from '@/components/multisig/FoldedRow';
 import { SignerName } from '@/components/multisig/SignerName';
 import { SignersUnchecked } from '@/components/multisig/SignersUnchecked';
 import type { SimulationProps } from '@/components/transaction-preview/simulation';
@@ -32,10 +33,7 @@ import {
 } from '@/components/ui/modal';
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
-import {
-	chainIdentifierQuery,
-	useAliasSets,
-} from '@/hooks/useAliasSets';
+import { chainIdentifierQuery } from '@/hooks/useAliasSets';
 import { useCancelProposal } from '@/hooks/useCancelProposal';
 import {
 	couldNotSimulate,
@@ -44,28 +42,38 @@ import {
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
 import { useProposalProposerCheck } from '@/hooks/useProposerProofs';
 import { useSignProposal } from '@/hooks/useSignProposal';
-import { type SuiNetwork } from '@/lib/network';
+import { useUserMultisigs } from '@/hooks/useUserMultisigs';
+import { type AliasRead } from '@/lib/alias-set';
+import {
+	networkLabel,
+	type SuiNetwork,
+} from '@/lib/network';
 import {
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
-	shownActingSets,
+	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
-	approvalRows,
 	approvalsNote,
+	approvalsSignerSets,
 	approvalsStatus,
-	approvalsThresholdLabel,
 	cancelVariant,
+	foldedSignerSetsLine,
 	gasEstimate,
 	hasSigned,
 	withReason,
 	wouldReachThreshold,
+	type ApprovalRow,
 	type ApprovalsNoteInput,
+	type ApprovalsSignerSet,
 	type Labels,
 	type SimulationVerdict,
 } from '@/lib/proposal-page';
 import {
 	proposalTitle,
+	readySignerSet,
+	type CountedProposal,
+	type CountedSignerSet,
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import { signRefusedLine } from '@/lib/signers-refused';
@@ -73,12 +81,13 @@ import {
 	namedChain,
 	readTransactionBytes,
 } from '@/lib/transaction-preview';
-import { safeDecode } from '@/lib/utils';
+import { cn, safeDecode } from '@/lib/utils';
 
 const COPY = content.proposal.approvals;
 const SHARED = content.proposal.shared;
-const ACTIONS = content.common.actions;
-const STATES = content.common.states;
+const COMMON = content.common;
+const ACTIONS = COMMON.actions;
+const STATES = COMMON.states;
 const PROPOSER_DOCS =
 	'/security/proposer-confirmations#confirmed-proposals';
 
@@ -93,6 +102,8 @@ const PROPOSER_DOCS =
  */
 export function ApprovalsCard({
 	proposal,
+	pod,
+	aliases,
 	openedDigest,
 	status,
 	labels,
@@ -102,7 +113,11 @@ export function ApprovalsCard({
 	verdict,
 	canCancel: cancelAllowed,
 }: {
-	proposal: PublicProposal;
+	proposal: CountedProposal;
+	/** The pod from the viewer's own account read; null on the shared page. */
+	pod: ShownPod | null;
+	/** The pod's alias set on the proposal's network, undefined until read. */
+	aliases: AliasRead | undefined;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 	status: ProposalStatusKey;
@@ -119,6 +134,7 @@ export function ApprovalsCard({
 	canCancel: boolean;
 }) {
 	const { currentAddress } = useApiAuth();
+	const { data: pods } = useUserMultisigs();
 	const wallet = useCurrentAccount();
 	const sign = useSignProposal();
 	const executing = useExecuteOrVerify();
@@ -154,27 +170,26 @@ export function ApprovalsCard({
 		executing.isPending ||
 		(settling &&
 			(status === 'pending' || status === 'ready'));
-	const execute = (target: PublicProposal) => {
+	const execute = (
+		target: Proposal,
+		signerSet: CountedSignerSet,
+	) => {
 		setSettling(true);
-		executing.execute(target, {
+		executing.execute(target, signerSet, {
 			onError: () => setSettling(false),
 		});
 	};
 	const rechecking = recheck.isPending;
 	const canAct = viewer === 'member';
+	const readySet = readySignerSet(
+		proposal.checkedSignerSets,
+	);
 	const walletAddress = wallet?.address ?? null;
 	const awaitingSign = status === 'pending' && !signed;
-	// The node is read only where Sign can show.
+	// The node's chain identifier is read only where Sign can show.
 	const checkNetwork = canAct && awaitingSign;
 	const network = proposal.network as SuiNetwork;
 	const dappKit = useDAppKit();
-	const { aliases: reads } = useAliasSets(
-		[proposal.multisigAddress],
-		{ network, enabled: checkNetwork },
-	);
-	const aliases = reads?.get(
-		normalizeSuiAddress(proposal.multisigAddress),
-	);
 	const bytesChain = useMemo(() => {
 		try {
 			return namedChain(
@@ -200,11 +215,12 @@ export function ApprovalsCard({
 		() =>
 			canAct && walletAddress
 				? checkProposalIntegrity(proposal, {
+						pod,
 						openedDigest,
 						signerAddress: walletAddress,
 					})
 				: null,
-		[canAct, walletAddress, proposal, openedDigest],
+		[canAct, walletAddress, pod, proposal, openedDigest],
 	);
 	// Rule 2 and the bytes' chain, once the synchronous checks pass.
 	const onNetwork =
@@ -214,7 +230,7 @@ export function ApprovalsCard({
 				  (bytesChain && nodeChain === undefined)
 				? 'checking'
 				: checkSignerOnNetwork({
-						shown: shownActingSets(proposal.multisig),
+						shown: proposal.signerSets,
 						signerAddress: walletAddress,
 						namedChain: bytesChain,
 						node: { aliases, chain: nodeChain ?? null },
@@ -257,18 +273,18 @@ export function ApprovalsCard({
 		return COPY.signProposal;
 	};
 
-	const rows = approvalRows(
+	const signerSets = approvalsSignerSets(
 		proposal,
 		status,
 		labels,
 		viewerPublicKey,
+		pods ?? [],
 	);
-	const statusLine = approvalsStatus(
-		proposal,
-		status,
-		isExecuting,
-		verdict,
-	);
+	const [mainSet, ...foldedSets] = signerSets;
+	const statusLine =
+		status === 'pending' && !isExecuting
+			? (mainSet?.line ?? null)
+			: approvalsStatus(status, isExecuting, verdict);
 	const note = approvalsNote({
 		proposal,
 		status,
@@ -281,44 +297,38 @@ export function ApprovalsCard({
 		gas,
 	});
 
-	const onSign = () =>
+	const onSign = () => {
 		sign.mutate(
-			{ ...proposal, openedDigest },
+			{ proposal, pod, openedDigest },
 			{
-				onSuccess: ({ vote, signature }) => {
+				onSuccess: ({ voted, counted }) => {
+					const ready = readySignerSet(
+						counted.checkedSignerSets,
+					);
 					if (
-						!vote.hasReachedThreshold ||
+						!ready ||
 						!offerExecuteAfterSigning ||
-						!executeAfterSigning ||
-						!viewerPublicKey
+						!executeAfterSigning
 					)
 						return;
-					// With the new signature, so it needn't wait for the refetch.
-					execute({
-						...proposal,
-						signatures: [
-							...proposal.signatures,
-							{
-								proposalId: proposal.id,
-								publicKey: viewerPublicKey,
-								signature,
-							},
-						],
-					});
+					// The proposal the vote returned, so it needn't wait for the refetch.
+					execute(voted, ready);
 				},
 			},
 		);
+	};
 
 	// A failing simulation is run again first: when it passes now, the
 	// proposal executes; when it still fails, or can't run this time, the
 	// viewer is asked.
 	const onExecute = () => {
+		if (!readySet) return;
 		if (!failing) {
-			execute(proposal);
+			execute(proposal, readySet);
 			return;
 		}
 		recheck.mutate(proposal.transactionBytes, {
-			onSuccess: () => execute(proposal),
+			onSuccess: () => execute(proposal, readySet),
 			onError: (error) => {
 				const reason = withReason(
 					safeDecode(error.message),
@@ -497,7 +507,7 @@ export function ApprovalsCard({
 					className="ml-auto text-12 text-muted-foreground"
 					data-testid="approvals-threshold"
 				>
-					{approvalsThresholdLabel(proposal.multisig)}
+					{mainSet?.heading}
 				</span>
 			</CardHeading>
 			{statusLine && (
@@ -509,51 +519,67 @@ export function ApprovalsCard({
 				</p>
 			)}
 			<div className="border-t" />
-			<ul className="flex flex-col gap-3">
-				{rows.map((row) => (
-					<li
-						key={row.publicKey}
-						className="flex items-center gap-3"
-						data-testid="approval-row"
-						data-address={row.address ?? undefined}
-						data-signed={row.signed}
+			{mainSet && foldedSets.length > 0 ? (
+				<>
+					<p
+						className="text-13 text-muted-foreground"
+						data-testid="approvals-several-signer-sets"
 					>
-						<span
-							aria-hidden
-							className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-11 font-medium"
-						>
-							{row.initial}
-						</span>
-						<div className="flex min-w-0 flex-1">
-							<SignerName
-								label={row.label}
-								address={row.address ?? undefined}
-								marker={row.isYou ? 'you' : null}
-								markerStyle="parens"
-								size="md"
-							/>
-						</div>
-						{row.signed ? (
-							<Chip
-								variant="info"
-								data-testid={
-									row.isYou
-										? 'proposal-already-signed'
-										: undefined
-								}
-							>
-								{STATES.signed}
-							</Chip>
-						) : (
-							<span className="shrink-0 text-12 text-muted-foreground">
-								{row.state === 'not-needed'
-									? COPY.notNeeded
-									: STATES.notSigned}
-							</span>
+						{COMMON.severalSignerSets(
+							signerSets.length,
+							networkLabel(network),
 						)}
-					</li>
-				))}
-			</ul>
+					</p>
+					<div
+						className="flex flex-col gap-3"
+						{...signerSetData(mainSet)}
+					>
+						<ApprovalRowList rows={mainSet.rows} />
+					</div>
+					<FoldedRow
+						label={COMMON.moreSignerSets(foldedSets.length)}
+						line={foldedSignerSetsLine(signerSets, status)}
+						testId="approvals-other-signer-sets"
+					>
+						{foldedSets.map((set, i) => (
+							<div
+								key={set.address}
+								className={cn(
+									'flex flex-col gap-3',
+									i > 0 && 'border-t pt-4',
+								)}
+								{...signerSetData(set)}
+							>
+								<div className="flex flex-col gap-0.5">
+									{set.podName ? (
+										<span className="text-13 font-medium">
+											{set.podName}
+										</span>
+									) : (
+										<ShortAddress
+											address={set.address}
+											className="w-fit font-mono text-12"
+										/>
+									)}
+									<div className="flex flex-wrap items-baseline justify-between gap-x-3">
+										<span className="text-13">
+											{set.heading}
+										</span>
+										{set.line && (
+											<span className="text-12 text-muted-foreground">
+												{set.line}
+											</span>
+										)}
+									</div>
+								</div>
+								<ApprovalRowList rows={set.rows} />
+							</div>
+						))}
+					</FoldedRow>
+				</>
+			) : (
+				<ApprovalRowList rows={mainSet?.rows ?? []} />
+			)}
 
 			{actions && (
 				<div className="mt-1 flex flex-col gap-3">
@@ -622,7 +648,7 @@ export function ApprovalsCard({
 						variant="destructive"
 						onClick={() => {
 							setAskingToExecute(false);
-							execute(proposal);
+							if (readySet) execute(proposal, readySet);
 						}}
 						data-testid="execute-anyway-button"
 					>
@@ -631,6 +657,70 @@ export function ApprovalsCard({
 				</ModalActions>
 			</Modal>
 		</section>
+	);
+}
+
+/** A signer set's block attributes, so each set's count can be read. */
+function signerSetData(set: ApprovalsSignerSet) {
+	return {
+		'data-testid': 'approvals-signer-set',
+		'data-address': set.address,
+		'data-current-weight': set.currentWeight,
+		'data-threshold': set.threshold,
+	};
+}
+
+function ApprovalRowList({
+	rows,
+}: {
+	rows: ApprovalRow[];
+}) {
+	return (
+		<ul className="flex flex-col gap-3">
+			{rows.map((row) => (
+				<li
+					key={row.publicKey}
+					className="flex items-center gap-3"
+					data-testid="approval-row"
+					data-address={row.address ?? undefined}
+					data-signed={row.signed}
+				>
+					<span
+						aria-hidden
+						className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-11 font-medium"
+					>
+						{row.initial}
+					</span>
+					<div className="flex min-w-0 flex-1">
+						<SignerName
+							label={row.label}
+							address={row.address ?? undefined}
+							marker={row.isYou ? 'you' : null}
+							markerStyle="parens"
+							size="md"
+						/>
+					</div>
+					{row.signed ? (
+						<Chip
+							variant="info"
+							data-testid={
+								row.isYou
+									? 'proposal-already-signed'
+									: undefined
+							}
+						>
+							{STATES.signed}
+						</Chip>
+					) : (
+						<span className="shrink-0 text-12 text-muted-foreground">
+							{row.state === 'not-needed'
+								? COPY.notNeeded
+								: STATES.notSigned}
+						</span>
+					)}
+				</li>
+			))}
+		</ul>
 	);
 }
 

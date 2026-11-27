@@ -16,6 +16,7 @@ import { useSessionBoot } from '@/hooks/useSessionBoot';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
 import { type Labels } from '@/lib/proposal-page';
 import { proposalPagePath } from '@/lib/proposalUtils';
+import { sameAddress } from '@/lib/sui-utils';
 
 import { ProposalLoadError } from './ProposalPage';
 import { ProposalPageSkeleton } from './ProposalPageSkeleton';
@@ -70,7 +71,7 @@ export function SharedProposalPage() {
 
 	const own = multisigs?.find(
 		(m) =>
-			m.address === proposal.multisigAddress &&
+			sameAddress(m.address, proposal.accountAddress) &&
 			m.isAccepted,
 	);
 	if (own)
@@ -87,6 +88,7 @@ export function SharedProposalPage() {
 		<ProposalView
 			key={proposal.digest}
 			proposal={proposal}
+			pod={null}
 			openedDigest={digest}
 			labels={NO_LABELS}
 			proposalsPath={null}

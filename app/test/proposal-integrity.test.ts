@@ -2,79 +2,54 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import {
-	Transaction,
-	TransactionDataBuilder,
-} from '@mysten/sui/transactions';
-import {
-	fromBase64,
-	toBase58,
-	toBase64,
-} from '@mysten/sui/utils';
+import { toBase58, toBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'vitest';
 
 import { type AliasRead } from '../src/lib/alias-set';
 import {
+	actingOnly,
 	checkActingSets,
+	checkedSignerSets,
 	checkProposalIntegrity,
 	checkSignerOnNetwork,
 	podActing,
 	rebuildAccount,
+	shownActingSets,
+	signerSetRemoved,
 	type NodeFacts,
+	type ShownPod,
 } from '../src/lib/proposal-integrity';
+import { toProposalCardInput } from '../src/lib/proposalUtils';
+import { v1Proposal } from './proposal';
+import { listedSet, signerSet } from './signer-set';
+import { digestOf, transfer } from './transactions';
 
 function oneOfTwoAccount() {
 	const keys = [new Ed25519Keypair(), new Ed25519Keypair()];
-	const threshold = 1;
-	const address = MultiSigPublicKey.fromPublicKeys({
-		threshold,
-		publicKeys: keys.map((key) => ({
-			publicKey: key.getPublicKey(),
-			weight: 1,
-		})),
-	}).toSuiAddress();
-	const multisig = {
-		address,
-		threshold,
-		members: keys.map((key, order) => ({
-			publicKey: key.getPublicKey().toSuiPublicKey(),
-			weight: 1,
-			order,
-		})),
-	};
-	return { keys, address, multisig };
+	const multisig = signerSet(keys);
+	return { keys, address: multisig.address, multisig };
 }
 
 test('refuses a wallet that is not one of the signers', async () => {
 	const { address, multisig } = oneOfTwoAccount();
 
-	const tx = new Transaction();
-	tx.setSender(address);
-	tx.setGasPayment([
-		{
-			objectId: '0x2',
-			version: '1',
-			digest: toBase58(new Uint8Array(32)),
-		},
-	]);
-	tx.setGasPrice(1000);
-	tx.setGasBudget(10_000_000);
-	tx.transferObjects([tx.gas], '0x3');
-	const transactionBytes = toBase64(await tx.build());
-	const digest = TransactionDataBuilder.getDigestFromBytes(
-		fromBase64(transactionBytes),
+	const transactionBytes = await transfer(
+		undefined,
+		address,
 	);
+	const digest = digestOf(transactionBytes);
 
 	expect(
 		checkProposalIntegrity(
 			{
 				transactionBytes,
 				digest,
-				multisigAddress: address,
-				multisig,
+				accountAddress: address,
+				signerSets: [listedSet(multisig)],
+				notActingSets: [],
 			},
 			{
+				pod: { address, signerSets: [listed(multisig)] },
 				openedDigest: digest,
 				signerAddress: new Ed25519Keypair().toSuiAddress(),
 			},
@@ -93,10 +68,12 @@ test("refuses bytes that don't decode as a transaction", () => {
 			{
 				transactionBytes,
 				digest: toBase58(new Uint8Array(32)),
-				multisigAddress: address,
-				multisig,
+				accountAddress: address,
+				signerSets: [listedSet(multisig)],
+				notActingSets: [],
 			},
 			{
+				pod: { address, signerSets: [listed(multisig)] },
 				openedDigest: toBase58(new Uint8Array(32)),
 				signerAddress: keys[0].toSuiAddress(),
 			},
@@ -185,7 +162,57 @@ test('of two shown sets, only the one that is an alias acts', () => {
 		refused: [stranger.multisig],
 		unidentified: [address],
 	});
-	expect(podActing(shown, aliases).state).toBe('refused');
+	expect(
+		podActing(
+			shown,
+			aliases,
+			current.keys[0].toSuiAddress(),
+		),
+	).toEqual({
+		state: 'ok',
+		signerSets: [current.multisig],
+		unidentified: [address],
+	});
+	expect(
+		podActing(
+			shown,
+			aliases,
+			stranger.keys[0].toSuiAddress(),
+		).state,
+	).toBe('refused');
+});
+
+/** An entry of a pod's `signerSets`; the app never reads `acting`. */
+function listed(
+	multisig: ReturnType<typeof oneOfTwoAccount>['multisig'],
+	acting = true,
+) {
+	return { ...multisig, acting };
+}
+
+test('the original set acts when the node lists the pod’s own address, though the API says it does not act', () => {
+	const { address, keys, multisig } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const stranger = oneOfTwoAccount();
+	const pod = {
+		address,
+		signerSets: [
+			listed(multisig, false),
+			listed(current.multisig),
+			listed(stranger.multisig),
+		],
+	};
+
+	const acting = podActing(
+		shownActingSets(pod),
+		{ kind: 'read', aliases: [address, current.address] },
+		keys[0].toSuiAddress(),
+	);
+	expect(acting.state).toBe('ok');
+	expect(
+		acting.signerSets.map((set) => set.address),
+	).toEqual([current.address, address].sort());
+	expect(acting.unidentified).toEqual([]);
 });
 
 const CHAIN = toBase58(new Uint8Array(32).fill(1));
@@ -308,4 +335,191 @@ test('bytes naming another chain are refused even when the alias set is unread',
 			OTHER_CHAIN,
 		),
 	).toBe('chain');
+});
+
+test('under a pod, refuses a proposal named for another pod or whose original set doesn’t make up its address, though a listed set holds the key', async () => {
+	const { keys, address, multisig } = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+	const transactionBytes = await transfer(
+		undefined,
+		address,
+	);
+	const digest = digestOf(transactionBytes);
+	const sign = (
+		signerSets: ShownPod['signerSets'] = [listed(multisig)],
+		accountAddress = address,
+	) =>
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress,
+				signerSets: [listedSet(multisig)],
+				notActingSets: [],
+			},
+			{
+				pod: { address, signerSets },
+				openedDigest: digest,
+				signerAddress: keys[0].toSuiAddress(),
+			},
+		);
+
+	expect(sign()).toBeNull();
+	expect(
+		sign([listed({ ...other.multisig, address })]),
+	).toBe('signers');
+	expect(sign(undefined, other.address)).toBe('sender');
+	// No set at the pod's address, or only an unknown one there.
+	expect(sign([listed(other.multisig)])).toBe('signers');
+	expect(
+		sign([
+			{ kind: 'unknown', address },
+			listed(other.multisig),
+		]),
+	).toBe('signers');
+});
+
+test('without a pod, rule 1 runs on the listed set that makes up the proposal’s address, and none refuses signing', async () => {
+	const account = oneOfTwoAccount();
+	const other = oneOfTwoAccount();
+	const transactionBytes = await transfer(
+		undefined,
+		account.address,
+	);
+	const digest = digestOf(transactionBytes);
+	const sign = (listed: typeof account) =>
+		checkProposalIntegrity(
+			{
+				transactionBytes,
+				digest,
+				accountAddress: account.address,
+				signerSets: [listedSet(listed.multisig)],
+				notActingSets: [],
+			},
+			{
+				pod: null,
+				openedDigest: digest,
+				signerAddress: listed.keys[0].toSuiAddress(),
+			},
+		);
+
+	expect(sign(account)).toBeNull();
+	expect(sign(other)).toBe('signers');
+});
+
+test('an original set listed as not acting only rebuilds the address: its key is no signer and it is neither shown nor counted', async () => {
+	const original = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const transactionBytes = await transfer(
+		undefined,
+		original.address,
+	);
+	const digest = digestOf(transactionBytes);
+	const received = (originalActs: boolean) =>
+		actingOnly(
+			v1Proposal({
+				digest,
+				transactionBytes,
+				accountAddress: original.address,
+				signatures: [
+					{
+						publicKey: original.keys[0]
+							.getPublicKey()
+							.toSuiPublicKey(),
+						signature: 'sig',
+					},
+				],
+				signerSets: [
+					listedSet({
+						...current.multisig,
+						original: false,
+					}),
+					listedSet({
+						...original.multisig,
+						acting: originalActs,
+					}),
+				],
+			}),
+		);
+	const sign = (
+		proposal: ReturnType<typeof received>,
+		signer: Ed25519Keypair,
+	) =>
+		checkProposalIntegrity(proposal, {
+			pod: null,
+			openedDigest: digest,
+			signerAddress: signer.toSuiAddress(),
+		});
+	const aliases: AliasRead = {
+		kind: 'read',
+		aliases: [current.address],
+	};
+
+	const proposal = received(false);
+	expect(
+		proposal.signerSets.map((set) => set.address),
+	).toEqual([current.address]);
+	expect(sign(proposal, current.keys[0])).toBeNull();
+	expect(sign(proposal, original.keys[0])).toBe(
+		'notSigner',
+	);
+	for (const read of [aliases, undefined])
+		expect(
+			toProposalCardInput(proposal, read, null)
+				.checkedSignerSets,
+		).toEqual(
+			read
+				? [expect.objectContaining({ currentWeight: 0 })]
+				: [],
+		);
+
+	// Flagged acting, it is a shown set as before, which the node then refuses.
+	const flagged = received(true);
+	expect(sign(flagged, original.keys[0])).toBeNull();
+	expect(
+		signOnNetwork(flagged.signerSets, original.keys[0], {
+			aliases,
+			chain: CHAIN,
+		}),
+	).toBe('notActing');
+});
+
+test('counts every listed set that is an alias once the alias set is read, and only the set that makes up the address while it is unread or failed', () => {
+	const { address, multisig } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+	const sets = [current.multisig, multisig];
+
+	expect(
+		checkedSignerSets(sets, address, undefined),
+	).toEqual([{ set: multisig, address }]);
+	expect(
+		checkedSignerSets(sets, address, { kind: 'failed' }),
+	).toEqual([{ set: multisig, address }]);
+	expect(
+		checkedSignerSets(sets, address, {
+			kind: 'read',
+			aliases: [address, current.address],
+		}).map((checked) => checked.set),
+	).toEqual(sets);
+});
+
+test('a signer set the node’s alias set no longer holds was removed; a failed read says nothing', () => {
+	const { address } = oneOfTwoAccount();
+	const current = oneOfTwoAccount();
+
+	expect(
+		signerSetRemoved(address, {
+			kind: 'read',
+			aliases: [current.address],
+		}),
+	).toBe(true);
+	expect(
+		signerSetRemoved(address, {
+			kind: 'read',
+			aliases: [address, current.address],
+		}),
+	).toBe(false);
+	expect(
+		signerSetRemoved(address, { kind: 'failed' }),
+	).toBe(false);
 });

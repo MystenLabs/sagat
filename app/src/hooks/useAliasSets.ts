@@ -115,6 +115,14 @@ export function useAliasSets(
 	return { aliases: data };
 }
 
+export function usePodAliasSet(
+	pod: string,
+	options: { network?: SuiNetwork; enabled?: boolean } = {},
+): AliasRead | undefined {
+	const { aliases } = useAliasSets([pod], options);
+	return aliases?.get(normalizeSuiAddress(pod));
+}
+
 /** Reads every shown alias set again, and every chain identifier that failed; `retrying` while any of them is in flight. */
 export function useRetryNodeReads() {
 	const queryClient = useQueryClient();

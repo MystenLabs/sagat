@@ -6,10 +6,11 @@ import { useQuery } from '@tanstack/react-query';
 import { content } from '@/content';
 import { CONFIG } from '@/lib/constants';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
-import { toUserMultisig } from '@/lib/user-multisig';
+import { rowsAnswered } from '@/lib/user-multisig';
 
 import { useApiAuth } from '../contexts/ApiAuthContext';
-import { apiClient } from '../lib/api';
+import { useNetwork } from '../contexts/NetworkContext';
+import { apiV1Client } from '../lib/api';
 import { QueryKeys } from '../lib/queryKeys';
 import { useRowsActing } from './useRowsActing';
 import { useUserMultisigs } from './useUserMultisigs';
@@ -17,18 +18,20 @@ import { useUserMultisigs } from './useUserMultisigs';
 // An address in no accounts is likely waiting on an invitation.
 const NO_ACCOUNTS_REFETCH_INTERVAL = 10_000;
 
-// Hook to fetch invitations for the current user's public key
+/** The signed-in key's invitations on the selected network, or the ones it rejected. */
 export function useInvitations(
 	showRejected = false,
 	{ enabled = true }: { enabled?: boolean } = {},
 ) {
 	const { isCurrentAddressAuthenticated, currentAddress } =
 		useApiAuth();
+	const { network } = useNetwork();
 	const { data: multisigs } = useUserMultisigs();
 
 	const query = useQuery({
 		queryKey: [
 			QueryKeys.Invitations,
+			network,
 			currentAddress?.address,
 			showRejected,
 		],
@@ -39,16 +42,15 @@ export function useInvitations(
 				throw new Error(content.errors.noWalletConnected);
 			}
 
-			// Get invitations for this public key
-			const invitations = await apiClient.getInvitations(
-				currentAddress.publicKey,
-				{
+			// Every key of the session's invitations; this key's are its own.
+			const { invitations } =
+				await apiV1Client.getInvitations(network, {
 					showRejected,
-				},
-			);
-
-			return invitations.map((m) =>
-				toUserMultisig(m, currentAddress),
+				});
+			return rowsAnswered(
+				invitations,
+				currentAddress,
+				showRejected ? 'rejected' : 'invited',
 			);
 		},
 		enabled:

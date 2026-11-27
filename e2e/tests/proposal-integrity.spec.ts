@@ -1,11 +1,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { type AuthCheckResponse } from '@mysten/sagat';
 import {
-	type AuthCheckResponse,
-	type MultisigWithMembers,
-	type PublicProposal,
-} from '@mysten/sagat';
+	type Account,
+	type AccountDetails,
+	type AccountList,
+	type AccountMember,
+	type InvitationList,
+	type Proposal,
+} from '@mysten/sagat/v1';
 import {
 	Transaction,
 	TransactionDataBuilder,
@@ -32,21 +36,26 @@ import {
 	test,
 	type Fixtures,
 } from '../support/fixtures';
-import { type Identity } from '../support/identity';
 import {
-	isVoteRequest,
 	recordCreates,
 	recordVotes,
 	sharedAccount,
 } from '../support/new-proposal';
 import {
+	isAccountListRead,
 	isInboxRead,
+	isVoteRequest,
+	PROPOSAL_BY_DIGEST_URL,
 	routeAliasReads,
 } from '../support/requests';
 import {
+	acceptAccountInvite,
 	addAlias,
+	addPodAsAlias,
 	addProposer,
+	bothSign,
 	proposeTransfer,
+	removeAlias,
 	replaceOwnAlias,
 	setupMultisig,
 	setupProposal,
@@ -66,15 +75,6 @@ function failAliasReads(page: Page, pod: string) {
 	return routeAliasReads(page, pod, (route) =>
 		route.abort(),
 	);
-}
-
-/** Alice and Bob sign together for their 2-of-2 pod, outside the app. */
-function bothSign(alice: Identity, bob: Identity) {
-	return {
-		members: [{ identity: alice }, { identity: bob }],
-		threshold: 2,
-		signers: [alice, bob],
-	};
 }
 
 /** Offline-built bytes of a SUI transfer from `sender` naming another chain. */
@@ -110,9 +110,9 @@ async function buildForAnotherChain(
 
 /** The proposal with other bytes, and the digest that matches them. */
 function withBytes(
-	proposal: PublicProposal,
+	proposal: Proposal,
 	transactionBytes: string,
-): PublicProposal {
+): Proposal {
 	return {
 		...proposal,
 		transactionBytes,
@@ -122,21 +122,44 @@ function withBytes(
 	};
 }
 
+/** `account` with `patch` on `publicKey`'s member of the set at its own address. */
+function withMemberPatched<A extends Account>(
+	account: A,
+	publicKey: string,
+	patch: Partial<AccountMember>,
+): A {
+	return {
+		...account,
+		signerSets: account.signerSets.map((set) =>
+			set.kind !== 'unknown' &&
+			set.address === account.address
+				? {
+						...set,
+						members: set.members.map((m) =>
+							m.publicKey === publicKey
+								? { ...m, ...patch }
+								: m,
+						),
+					}
+				: set,
+		),
+	};
+}
+
 type Tamper = (context: {
-	proposal: PublicProposal;
+	proposal: Proposal;
 	bob: Actor;
-}) => Promise<PublicProposal> | PublicProposal;
+}) => Promise<Proposal> | Proposal;
 
 /** Serves Bob the proposal response changed by `tamper`. */
 async function routeTampered(bob: Actor, tamper: Tamper) {
 	// Tampered once, so the page's refetches get the same proposal.
-	let tampered: Promise<PublicProposal> | undefined;
+	let tampered: Promise<Proposal> | undefined;
 	await bob.page.route(
-		'**/proposals/digest/*',
+		PROPOSAL_BY_DIGEST_URL,
 		async (route) => {
 			const response = await route.fetch();
-			const proposal =
-				(await response.json()) as PublicProposal;
+			const proposal = (await response.json()) as Proposal;
 			tampered ??= Promise.resolve(
 				tamper({ proposal, bob }),
 			);
@@ -271,7 +294,7 @@ test.describe('proposal integrity', () => {
 				// gas owner, so his signature would also sign as the sponsor.
 				await chain.fund(bob.address);
 				const tx = new Transaction();
-				tx.setSender(proposal.multisigAddress);
+				tx.setSender(proposal.accountAddress);
 				tx.setGasOwner(bob.address);
 				tx.setGasPayment(await chain.coins(bob.address));
 				const [coin] = tx.splitCoins(tx.gas, [
@@ -302,7 +325,7 @@ test.describe('proposal integrity', () => {
 				withBytes(
 					proposal,
 					await chain.buildSuiTransfer({
-						sender: proposal.multisigAddress,
+						sender: proposal.accountAddress,
 						recipient: randomAddress(),
 						amount: 2n * MIST_PER_SUI,
 					}),
@@ -322,7 +345,7 @@ test.describe('proposal integrity', () => {
 				withBytes(
 					proposal,
 					await chain.buildSuiTransfer({
-						sender: proposal.multisigAddress,
+						sender: proposal.accountAddress,
 						recipient: randomAddress(),
 						amount: 2n * MIST_PER_SUI,
 					}),
@@ -340,19 +363,21 @@ test.describe('proposal integrity', () => {
 		createIdentity,
 		chain,
 	}) => {
+		// At the shared link, where the account's signers are the proposal's.
 		const opened = await openTamperedProposal(
 			{ createActor, createIdentity, chain },
 			({ proposal, bob }) => ({
 				...proposal,
-				multisig: {
-					...proposal.multisig,
-					members: proposal.multisig.members.map((m) =>
+				signerSets: proposal.signerSets.map((set) => ({
+					...set,
+					members: set.members.map((m) =>
 						m.publicKey === bob.publicKey
 							? { ...m, weight: 2 }
 							: m,
 					),
-				},
+				})),
 			}),
+			{ shared: true },
 		);
 		await expectRefused(opened, 'signers');
 	});
@@ -394,7 +419,7 @@ test.describe('proposal integrity', () => {
 			({ proposal }) => ({
 				...proposal,
 				events: {
-					created: proposal.events?.created ?? null,
+					...proposal.events,
 					proposer: null,
 				},
 			}),
@@ -430,11 +455,11 @@ test.describe('proposal integrity', () => {
 			{ createActor, createIdentity, chain },
 			// Bob's signature over the bytes in place of the proposer's.
 			async ({ proposal, bob }) => {
-				const created = proposal.events!.created!;
+				const created = proposal.events.created!;
 				return {
 					...proposal,
 					events: {
-						...proposal.events!,
+						...proposal.events,
 						created: {
 							...created,
 							proof: {
@@ -461,6 +486,101 @@ test.describe('proposal integrity', () => {
 		);
 	});
 
+	test('refuses to sign an external proposer’s proposal confirmed by a key that no longer acts, until a current signer adds the proposer again', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = createIdentity('bob');
+		const carol = await createActor('carol');
+		const payments = createIdentity('payments');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await addProposer(
+			alice,
+			multisig.address,
+			payments.address,
+		);
+		// Alice's key then acts in no set; before the pod's first /v1 read.
+		await addPodAsAlias(chain, bothSign(alice, bob), {
+			creator: carol,
+			member: createIdentity('dave'),
+			accepting: [carol],
+			replace: true,
+		});
+		const proposal = await proposeTransfer(
+			chain,
+			payments,
+			{
+				multisigAddress: multisig.address,
+				recipient: randomAddress(),
+				amount: MIST_PER_SUI,
+			},
+		);
+		const votes = recordVotes(carol.page);
+
+		await carol.signIn();
+		await carol.page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		const item = carol.page
+			.getByTestId('proposers-card')
+			.getByTestId('proposer-item');
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'invalid',
+		);
+
+		const proposalPath = `/multisig/${multisig.address}/proposals/${proposal.digest}`;
+		await carol.page.goto(proposalPath);
+		await expectRefused({ bob: carol, votes }, 'proposer');
+
+		// Carol, a current signer, adds the proposer again, which signs a new confirmation.
+		await carol.page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		await carol.page
+			.getByTestId('proposers-card')
+			.getByTestId('add-proposer-button')
+			.click();
+		const add = carol.page.getByRole('dialog', {
+			name: 'Add external proposer',
+		});
+		await add
+			.getByLabel('Address', { exact: true })
+			.fill(payments.address);
+		await add
+			.getByRole('button', {
+				name: 'Add proposer',
+				exact: true,
+			})
+			.click();
+		await expect(item).toHaveCount(1);
+		await expect(item).toHaveAttribute(
+			'data-status',
+			'verified',
+		);
+
+		await carol.page.goto(proposalPath);
+		const sign = carol.page
+			.getByTestId('approvals-card')
+			.getByTestId('sign-proposal-button');
+		await expect(sign).toBeEnabled();
+		const voted = carol.page.waitForResponse((response) =>
+			isVoteRequest(response.request()),
+		);
+		await sign.click();
+		expect((await voted).ok()).toBe(true);
+		await expect(
+			carol.approvalRow(carol.address),
+		).toHaveAttribute('data-signed', 'true');
+	});
+
 	test('refuses to sign an external proposal relabelled as a member’s', async ({
 		createActor,
 		createIdentity,
@@ -472,7 +592,7 @@ test.describe('proposal integrity', () => {
 			({ proposal, bob }) => ({
 				...proposal,
 				proposerAddress: publicKeyFromSuiBytes(
-					proposal.multisig.members.find(
+					proposal.signerSets[0].members.find(
 						(m) => m.publicKey !== bob.publicKey,
 					)!.publicKey,
 				).toSuiAddress(),
@@ -511,48 +631,36 @@ test.describe('proposal integrity', () => {
 			{ createActor, createIdentity, chain },
 			2,
 		);
-		const tamper = (account: MultisigWithMembers) =>
+		// Only the set at the account's address changes, the one set it has.
+		const tamper = <A extends Account>(account: A): A =>
 			account.address === multisig.address
-				? {
-						...account,
-						members: account.members.map((m) =>
-							m.publicKey === bob.publicKey
-								? { ...m, weight: 2 }
-								: m,
-						),
-					}
+				? withMemberPatched(account, bob.publicKey, {
+						weight: 2,
+					})
 				: account;
 		// The wizard reads the signers from both the account list and the account.
 		await alice.page.route(
-			`${E2E.apiUrl}/addresses/connections`,
+			`${E2E.apiUrl}/v1/accounts?*`,
 			async (route) => {
 				const response = await route.fetch();
-				const connections =
-					(await response.json()) as Record<
-						string,
-						MultisigWithMembers[]
-					>;
+				const list = (await response.json()) as AccountList;
 				await route.fulfill({
 					response,
-					json: Object.fromEntries(
-						Object.entries(connections).map(
-							([publicKey, accounts]) => [
-								publicKey,
-								accounts.map(tamper),
-							],
-						),
-					),
+					json: {
+						...list,
+						accounts: list.accounts.map(tamper),
+					},
 				});
 			},
 		);
 		await alice.page.route(
-			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			`${E2E.apiUrl}/v1/accounts/${multisig.address}?*`,
 			async (route) => {
 				const response = await route.fetch();
 				await route.fulfill({
 					response,
 					json: tamper(
-						(await response.json()) as MultisigWithMembers,
+						(await response.json()) as AccountDetails,
 					),
 				});
 			},
@@ -590,28 +698,20 @@ test.describe('proposal integrity', () => {
 		);
 		const listed = randomAddress();
 		await alice.page.route(
-			`${E2E.apiUrl}/addresses/connections`,
+			`${E2E.apiUrl}/v1/accounts?*`,
 			async (route) => {
 				const response = await route.fetch();
-				const connections =
-					(await response.json()) as Record<
-						string,
-						MultisigWithMembers[]
-					>;
+				const list = (await response.json()) as AccountList;
 				await route.fulfill({
 					response,
-					json: Object.fromEntries(
-						Object.entries(connections).map(
-							([publicKey, accounts]) => [
-								publicKey,
-								accounts.map((account) =>
-									account.address === multisig.address
-										? { ...account, address: listed }
-										: account,
-								),
-							],
+					json: {
+						...list,
+						accounts: list.accounts.map((account) =>
+							account.address === multisig.address
+								? { ...account, address: listed }
+								: account,
 						),
-					),
+					},
 				});
 			},
 		);
@@ -659,18 +759,21 @@ test.describe('proposal integrity', () => {
 		});
 		const listed = randomAddress();
 		await bob.page.route(
-			`${E2E.apiUrl}/addresses/invitations/**`,
+			`${E2E.apiUrl}/v1/invitations?*`,
 			async (route) => {
 				const response = await route.fetch();
-				const invitations =
-					(await response.json()) as MultisigWithMembers[];
+				const list =
+					(await response.json()) as InvitationList;
 				await route.fulfill({
 					response,
-					json: invitations.map((account) =>
-						account.address === multisig.address
-							? { ...account, address: listed }
-							: account,
-					),
+					json: {
+						...list,
+						invitations: list.invitations.map((account) =>
+							account.address === multisig.address
+								? { ...account, address: listed }
+								: account,
+						),
+					},
 				});
 			},
 		);
@@ -754,21 +857,16 @@ test.describe('proposal integrity', () => {
 		const carol = createIdentity('carol');
 		// Only the pod's own response changes; the pod list stays honest.
 		await alice.page.route(
-			`${E2E.apiUrl}/multisig/${multisig.address}`,
+			`${E2E.apiUrl}/v1/accounts/${multisig.address}?*`,
 			async (route) => {
 				const response = await route.fetch();
 				const account =
-					(await response.json()) as MultisigWithMembers;
+					(await response.json()) as AccountDetails;
 				await route.fulfill({
 					response,
-					json: {
-						...account,
-						members: account.members.map((m) =>
-							m.publicKey === bob.publicKey
-								? { ...m, publicKey: carol.publicKey }
-								: m,
-						),
-					},
+					json: withMemberPatched(account, bob.publicKey, {
+						publicKey: carol.publicKey,
+					}),
 				});
 			},
 		);
@@ -803,13 +901,19 @@ test.describe('proposal integrity', () => {
 				createIdentity,
 				chain,
 			});
+		const votes = recordVotes(bob.page);
+		// Read before the change, so the API serves its unchanged mirror for a minute.
+		const listed = bob.page.waitForResponse(
+			isAccountListRead,
+		);
+		await bob.signIn();
+		await listed;
+		const alias = randomAddress();
 		await replaceOwnAlias(
 			chain,
 			bothSign(alice, bob),
-			randomAddress(),
+			alias,
 		);
-		const votes = recordVotes(bob.page);
-		await bob.signIn();
 
 		await bob.page.goto(
 			`/multisig/${multisig.address}/overview`,
@@ -819,6 +923,21 @@ test.describe('proposal integrity', () => {
 		await expect(refusal).toHaveAttribute(
 			'data-rule',
 			'notActing',
+		);
+		// No set the app shows acts, so it lists what controls the address.
+		const controlledBy = bob.page.getByTestId(
+			'pod-controlled-by',
+		);
+		await expect(controlledBy).toContainText(
+			'On Localnet, this address is controlled by other signer sets.',
+		);
+		const aliases = controlledBy.getByTestId(
+			'other-signer-set',
+		);
+		await expect(aliases).toHaveCount(1);
+		await expect(aliases).toHaveAttribute(
+			'data-address',
+			alias,
 		);
 		await bob.page.getByTestId('receive-button').click();
 		const dialog = bob.page.getByTestId('receive-dialog');
@@ -834,6 +953,78 @@ test.describe('proposal integrity', () => {
 			`/proposals?digest=${proposal.digest}`,
 		);
 		await expectRefused({ bob, votes }, 'notActing');
+	});
+
+	test('shows only the signer sets the node lists while the API still serves one it removed', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = await createActor('bob');
+		const carol = await createActor('carol');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		const recovery = await setupMultisig({
+			creator: carol,
+			members: [createIdentity('dave')],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await addAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		// Carol accepts through the added set.
+		await acceptAccountInvite(carol, multisig.address);
+		// Read before the change, so the API serves its mirror for a minute.
+		await carol.apiV1.getAccount(
+			multisig.address,
+			'localnet',
+		);
+		await removeAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		// Within the minute the API keeps its mirror, it still says the set acts.
+		const served = await carol.apiV1.getAccount(
+			multisig.address,
+			'localnet',
+		);
+		expect(
+			served.signerSets.map((set) => set.address),
+		).toContain(recovery.address);
+
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		await expect(
+			bob.page.getByTestId('signers-card'),
+		).toHaveAttribute('data-signer-set', multisig.address);
+		await expect(
+			bob.page.getByTestId('other-acting-sets'),
+		).toHaveCount(0);
+
+		await carol.signIn();
+		await carol.page.goto(
+			`/multisig/${multisig.address}/overview`,
+		);
+		const refusal = carol.page.getByTestId('pod-refused');
+		await expect(refusal).toBeVisible();
+		await expect(refusal).toHaveAttribute(
+			'data-rule',
+			'notActing',
+		);
+		// The pod's own set still acts, so nothing lists other signer sets.
+		await expect(
+			carol.page.getByTestId('pod-controlled-by'),
+		).toHaveCount(0);
 	});
 
 	test("shows that the pod's signers couldn't be checked while the node can't be read, until a retry reads it", async ({
@@ -995,7 +1186,7 @@ test.describe('proposal integrity', () => {
 		bob.page.on('request', (request) => {
 			if (
 				request.method() === 'POST' &&
-				request.url().endsWith('/accept')
+				new URL(request.url()).pathname.endsWith('/accept')
 			)
 				accepts.push(request.url());
 		});
@@ -1021,7 +1212,7 @@ test.describe('proposal integrity', () => {
 
 		const waitForSavingsInbox = () =>
 			bob.page.waitForResponse((response) =>
-				isInboxRead(response, savings.publicKey),
+				isInboxRead(response),
 			);
 		const inboxLoaded = waitForSavingsInbox();
 		// From the wallet side, the way an extension's account picker would.
@@ -1139,8 +1330,8 @@ test.describe('proposal integrity', () => {
 			chain,
 			multisig.address,
 		);
-		const proposal = await alice.api.createProposal({
-			multisigAddress: multisig.address,
+		const proposal = await alice.apiV1.createProposal({
+			accountAddress: multisig.address,
 			transactionBytes,
 			signature: await alice.signTransaction(
 				transactionBytes,

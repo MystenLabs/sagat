@@ -5,7 +5,11 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	defaultExpiry,
+	PersonalMessages,
+} from '@mysten/sagat';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	useMutation,
 	useQueryClient,
@@ -13,21 +17,23 @@ import {
 
 import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { MutationKeys, QueryKeys } from '@/lib/queryKeys';
 import { toast } from '@/lib/toast';
 
-import { apiClient } from '../lib/api';
+import { apiV1Client } from '../lib/api';
 
 export function useRejectInvitation() {
 	const currentAccount = useCurrentAccount();
 	const queryClient = useQueryClient();
 	const { currentAddress } = useApiAuth();
 	const dappKit = useDAppKit();
+	const { network } = useNetwork();
 
 	return useMutation({
 		mutationKey: [MutationKeys.RejectInvitation],
 		mutationFn: async ({
-			address: multisigAddress,
+			address,
 		}: {
 			address: string;
 		}) => {
@@ -35,21 +41,21 @@ export function useRejectInvitation() {
 				throw new Error(content.errors.noWalletConnected);
 			}
 
-			// Sign rejection message
+			// Canonical, as the API and the signed message name it.
+			const multisigAddress = normalizeSuiAddress(address);
+			const expiry = defaultExpiry();
 			const message =
-				PersonalMessages.rejectMultisigInvitation(
+				PersonalMessages.rejectAccountInvitation(
 					multisigAddress,
+					expiry,
 				);
 			const result = await dappKit.signPersonalMessage({
 				message: new TextEncoder().encode(message),
 			});
 
-			// Send to API
-			return apiClient.rejectMultisigInvite(
+			return apiV1Client.rejectAccountInvite(
 				multisigAddress,
-				{
-					signature: result.signature,
-				},
+				{ network, signature: result.signature, expiry },
 			);
 		},
 		onSuccess: () => {

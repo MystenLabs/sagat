@@ -68,7 +68,7 @@ test('proposal filters show each proposal where it belongs', async ({
 		signers: [bob, carol],
 		transactionBytes: executed.transactionBytes,
 	});
-	await bob.api.verifyProposalByDigest(executed.digest);
+	await bob.apiV1.verifyProposalByDigest(executed.digest);
 	const cancelled = await propose(bob, coins[4]);
 	await cancelProposal(bob, cancelled);
 	// Signed by Bob and Carol, executed on-chain where it fails, then

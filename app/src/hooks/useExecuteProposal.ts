@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useDAppKit } from '@mysten/dapp-kit-react';
-import {
-	ProposalStatus,
-	type PublicProposal,
-} from '@mysten/sagat';
+import { type Proposal } from '@mysten/sagat/v1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { fromBase64 } from '@mysten/sui/utils';
 import {
@@ -14,19 +11,38 @@ import {
 } from '@tanstack/react-query';
 
 import { content } from '@/content';
-import { type SuiNetwork } from '@/lib/network';
+import { readPodAliasSet } from '@/hooks/useAliasSets';
+import {
+	networkLabel,
+	type SuiNetwork,
+} from '@/lib/network';
+import { signerSetRemoved } from '@/lib/proposal-integrity';
+import { type CountedSignerSet } from '@/lib/proposalUtils';
 import { toast } from '@/lib/toast';
 import { getExplorerUrl, safeDecode } from '@/lib/utils';
 import { extractPublicKeyFromBase64 } from '@/lib/wallet';
 
-import { apiClient } from '../lib/api';
+import { apiV1Client } from '../lib/api';
 import { MutationKeys, QueryKeys } from '../lib/queryKeys';
+import { writeProposal } from './useGetProposal';
 import { useVerifyProposal } from './useVerifyProposal';
 
 const TOASTS = content.toasts;
 
 interface ExecuteProposalParams {
-	proposal: PublicProposal;
+	proposal: Proposal;
+	/** The checked signer set that reached its threshold. */
+	signerSet: CountedSignerSet;
+}
+
+/** The node refused the execution: the set used is no longer in the pod's alias set on the network. */
+export class SignersChangedError extends Error {
+	constructor(network: SuiNetwork) {
+		super(
+			TOASTS.proposalSignersChanged(networkLabel(network)),
+		);
+		this.name = 'SignersChangedError';
+	}
 }
 
 export function useExecuteProposal() {
@@ -37,21 +53,20 @@ export function useExecuteProposal() {
 		mutationKey: [MutationKeys.ExecuteProposal],
 		mutationFn: async ({
 			proposal,
+			signerSet,
 		}: ExecuteProposalParams) => {
-			if (proposal.status !== ProposalStatus.PENDING)
+			if (proposal.status !== 'PENDING')
 				throw new Error(
 					content.proposal.execute.notPending,
 				);
 
 			try {
 				// The proposal's network, not whichever one is selected now.
-				const suiClient = dappKit.getClient(
-					proposal.network as SuiNetwork,
+				const network = proposal.network as SuiNetwork;
+				const suiClient = dappKit.getClient(network);
+				const multisigMembers = [...signerSet.members].sort(
+					(a, b) => a.order - b.order,
 				);
-				// Order the members.
-				const multisigMembers = [
-					...proposal.multisig.members,
-				].sort((a, b) => a.order - b.order);
 				// Step 1: Reconstruct the MultiSigPublicKey
 				const publicKeys = multisigMembers.map(
 					(member) => ({
@@ -64,12 +79,11 @@ export function useExecuteProposal() {
 
 				const multiSigPublicKey =
 					MultiSigPublicKey.fromPublicKeys({
-						threshold: proposal.multisig.threshold,
+						threshold: signerSet.threshold,
 						publicKeys,
 					});
 
-				// Step 2: Map signatures to the correct order based on the multisig public key order
-				// The signatures need to be in the same order as the public keys in the multisig
+				// Step 2: Only the set's members' signatures, in its key order
 				const orderedSignatures: string[] = [];
 				for (const member of multisigMembers) {
 					const signature = proposal.signatures.find(
@@ -86,15 +100,29 @@ export function useExecuteProposal() {
 					);
 
 				// Step 3: Execute the transaction with the combined signature
-				const result = await suiClient.executeTransaction({
-					transaction: fromBase64(
-						proposal.transactionBytes,
-					),
-					signatures: [combinedSignature],
-					include: {
-						effects: true,
-					},
-				});
+				let result;
+				try {
+					result = await suiClient.executeTransaction({
+						transaction: fromBase64(
+							proposal.transactionBytes,
+						),
+						signatures: [combinedSignature],
+						include: {
+							effects: true,
+						},
+					});
+				} catch (error) {
+					// Whether the set still signs for the pod is the node's alias set to say, not the error's text.
+					const aliases = await readPodAliasSet(
+						queryClient,
+						suiClient,
+						network,
+						proposal.accountAddress,
+					);
+					if (signerSetRemoved(signerSet.address, aliases))
+						throw new SignersChangedError(network);
+					throw error;
+				}
 
 				await suiClient.waitForTransaction({
 					digest:
@@ -109,38 +137,32 @@ export function useExecuteProposal() {
 				);
 
 				// Step 4: Call the verify endpoint to update proposal status in the backend
-				const verifyResponse =
-					await apiClient.verifyProposalByDigest(
+				const verified =
+					await apiV1Client.verifyProposalByDigest(
 						proposal.digest,
 					);
+				await writeProposal(queryClient, verified);
 
 				return {
 					executionResult:
 						result.Transaction || result.FailedTransaction,
-					verifyResponse,
+					verified,
 				};
 			} catch (error) {
 				throw error;
 			}
 		},
 		onSuccess: (data, variables) => {
-			// Invalidate all proposal-related queries
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposals],
-			});
-			// Remove standalone proposal too
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposal],
-			});
 			// Execution changes on-chain balances and objects; refresh the
-			// multisig's assets, every objects page and filter included.
-			const { network, multisig } = variables.proposal;
+			// pod's assets, every objects page and filter included.
+			const { network, accountAddress } =
+				variables.proposal;
 			for (const key of [
 				QueryKeys.Balances,
 				QueryKeys.OwnedObjects,
 			])
 				queryClient.invalidateQueries({
-					queryKey: [key, network, multisig.address],
+					queryKey: [key, network, accountAddress],
 				});
 			const digest = data.executionResult.digest;
 			const explorerUrl = getExplorerUrl(
@@ -168,6 +190,17 @@ export function useExecuteProposal() {
 			});
 		},
 		onError: (error: Error) => {
+			if (error instanceof SignersChangedError)
+				// The row, Members and the proposal's sets read the pod again.
+				for (const key of [
+					QueryKeys.Multisigs,
+					QueryKeys.Multisig,
+					QueryKeys.Proposal,
+					QueryKeys.Proposals,
+				])
+					void queryClient.invalidateQueries({
+						queryKey: [key],
+					});
 			toast.error(TOASTS.proposalExecuteFailed, {
 				description: error.message,
 			});
@@ -176,22 +209,25 @@ export function useExecuteProposal() {
 }
 
 /**
- * Executes a proposal from a button. When execution fails, checks the
- * proposal with the API in case someone else executed it meanwhile.
+ * Executes a proposal from a button. When execution fails for any reason
+ * but changed signers, checks the proposal with the API in case someone
+ * else executed it meanwhile.
  */
 export function useExecuteOrVerify() {
 	const execute = useExecuteProposal();
 	const verify = useVerifyProposal();
 	return {
 		execute: (
-			proposal: PublicProposal,
+			proposal: Proposal,
+			signerSet: CountedSignerSet,
 			options?: { onError?: () => void },
 		) =>
 			execute.mutate(
-				{ proposal },
+				{ proposal, signerSet },
 				{
-					onError: () => {
-						verify.mutate(proposal.digest);
+					onError: (error) => {
+						if (!(error instanceof SignersChangedError))
+							verify.mutate(proposal.digest);
 						options?.onError?.();
 					},
 				},

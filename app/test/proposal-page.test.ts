@@ -1,23 +1,28 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	ProposalStatus,
-	type PublicProposal,
-} from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { formatAddress } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
+import { content } from '../src/content';
 import {
 	activityRows,
 	approvalRows,
 	approvalsNote,
+	approvalsSignerSets,
 	cancelVariant,
+	foldedSignerSetsLine,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
 	type Labels,
 } from '../src/lib/proposal-page';
+import {
+	countSignerSets,
+	type CountedProposal,
+} from '../src/lib/proposalUtils';
+import { v1Proposal } from './proposal';
+import { listedSet } from './signer-set';
 
 function signer(label: string, weight: number) {
 	const keypair = new Ed25519Keypair();
@@ -37,9 +42,20 @@ const labels: Labels = new Map(
 	SIGNERS.map((s) => [s.address, s.label]),
 );
 const CREATED_AT = '2026-10-13T08:55:00.000Z';
+const STATUS = content.proposal.approvals.status;
+const NOTES = content.proposal.approvals.notes;
+
+// The signers as a set's members, at their weights, in this order.
+const members = (signers: (typeof maya)[]) =>
+	signers.map((s, order) => ({
+		publicKey: s.publicKey,
+		weight: s.weight,
+		order,
+	}));
 
 // A pending proposal for a 2-of-4 account that Daniel proposed and
-// signed; `signedBy` replaces its signatures.
+// signed, counted against its one signer set; `signedBy` replaces its
+// signatures.
 function proposal({
 	threshold = 2,
 	signedBy = [daniel],
@@ -48,38 +64,26 @@ function proposal({
 	threshold?: number;
 	signedBy?: (typeof maya)[];
 	proposer?: string;
-} = {}): PublicProposal {
-	const currentWeight = signedBy.reduce(
-		(sum, s) => sum + s.weight,
-		0,
-	);
+} = {}): CountedProposal {
+	const signatures = signedBy.map((s) => ({
+		publicKey: s.publicKey,
+		signature: 'sig',
+	}));
+	const set = { threshold, members: members(SIGNERS) };
 	return {
-		id: 1,
-		multisigAddress: '0x1',
-		digest: 'digest',
-		status: ProposalStatus.PENDING,
-		transactionBytes: '',
-		proposerAddress: proposer,
-		description: 'Fund payroll',
-		totalWeight: threshold,
-		currentWeight,
-		network: 'localnet',
-		createdAt: CREATED_AT,
-		signatures: signedBy.map((s) => ({
-			proposalId: 1,
-			publicKey: s.publicKey,
-			signature: 'sig',
-		})),
-		multisig: {
-			address: '0x1',
-			name: 'Treasury',
-			threshold,
-			members: SIGNERS.map((s, order) => ({
-				publicKey: s.publicKey,
-				weight: s.weight,
-				order,
-			})),
-		},
+		...v1Proposal({
+			accountName: 'Treasury',
+			proposerAddress: proposer,
+			description: 'Fund payroll',
+			createdAt: CREATED_AT,
+			signatures,
+			signerSets: [listedSet({ ...set, address: '0x1' })],
+		}),
+		checkedSignerSets: countSignerSets(
+			{ signatures, accountAddress: '0x1' },
+			[{ set, address: '0x1' }],
+			null,
+		),
 	};
 }
 
@@ -99,8 +103,10 @@ describe('wouldReachThreshold', () => {
 
 describe('approvalRows', () => {
 	it('marks the members who did not sign as not needed once the threshold is reached', () => {
+		const signed = proposal({ signedBy: [daniel, maya] });
 		const rows = approvalRows(
-			proposal({ signedBy: [daniel, maya] }),
+			signed.checkedSignerSets[0],
+			signed,
 			'ready',
 			labels,
 			maya.publicKey,
@@ -112,6 +118,85 @@ describe('approvalRows', () => {
 			['Daniel', 'signed', false],
 			['Alice', 'not-needed', false],
 		]);
+	});
+});
+
+// The proposal counted against each [address, threshold, signers] set, for `viewer` when given.
+function counted(
+	signedBy: (typeof maya)[],
+	sets: [string, number, (typeof maya)[]][],
+	viewer: string | null = null,
+): CountedProposal {
+	const counting = proposal({ signedBy });
+	counting.checkedSignerSets = countSignerSets(
+		counting,
+		sets.map(([address, threshold, signers]) => ({
+			address,
+			set: { threshold, members: members(signers) },
+		})),
+		viewer,
+	);
+	return counting;
+}
+
+describe('approvalsSignerSets', () => {
+	it('counts each set on its own and shows a shared key’s signature in both', () => {
+		const sets = approvalsSignerSets(
+			counted(
+				[maya],
+				[
+					['0x1', 3, SIGNERS],
+					['0x2', 2, [maya, daniel]],
+				],
+			),
+			'pending',
+			labels,
+			maya.publicKey,
+			[],
+		);
+		expect(
+			sets.map((set) => [
+				set.address,
+				set.currentWeight,
+				set.threshold,
+				set.line,
+				set.rows.map((row) => row.signed),
+			]),
+		).toEqual([
+			['0x1', 1, 3, STATUS.needs(2), [true, false, false]],
+			['0x2', 1, 2, STATUS.needs(1), [true, false]],
+		]);
+	});
+});
+
+describe('foldedSignerSetsLine', () => {
+	it('says a folded set reached its threshold, or while pending what the closest folded set needs when it is closer than the main set', () => {
+		const erin = signer('Erin', 1);
+		// Maya's pod's own set, signed by Daniel, keeps the card open; Daniel and Erin's 2-of-2 is folded.
+		const line = (
+			signedBy: (typeof maya)[],
+			status: 'pending' | 'ready',
+			ownThreshold = 3,
+		) =>
+			foldedSignerSetsLine(
+				approvalsSignerSets(
+					counted(signedBy, [
+						['0x1', ownThreshold, SIGNERS],
+						['0x2', 2, [daniel, erin]],
+					]),
+					status,
+					labels,
+					maya.publicKey,
+					[],
+				),
+				status,
+			);
+
+		expect(line([daniel, erin], 'ready')).toBe(
+			STATUS.reached,
+		);
+		expect(line([daniel], 'pending')).toBe(STATUS.needs(1));
+		expect(line([daniel], 'pending', 2)).toBeNull();
 	});
 });
 
@@ -208,6 +293,29 @@ describe('approvalsNote', () => {
 		);
 	});
 
+	it('names the one signer left in each signer set who is enough alone', () => {
+		const bob = signer('Bob', 1);
+		const pending = counted(
+			[maya, daniel],
+			[
+				['0x1', 3, SIGNERS],
+				['0x2', 2, [maya, bob]],
+			],
+		);
+		expect(
+			approvalsNote({
+				...base,
+				labels: new Map([
+					...labels,
+					[bob.address, bob.label],
+				]),
+				proposal: pending,
+			}),
+		).toBe(
+			'You signed. Any one of Alice or Bob can approve it.',
+		);
+	});
+
 	it('stops naming who can approve it past three signers', () => {
 		const pending = proposal({
 			threshold: 2,
@@ -216,7 +324,7 @@ describe('approvalsNote', () => {
 		const extra = [1, 2].map((i) =>
 			signer(`Extra ${i}`, 1),
 		);
-		pending.multisig.members.push(
+		pending.checkedSignerSets[0].members.push(
 			...extra.map((s, i) => ({
 				publicKey: s.publicKey,
 				weight: s.weight,
@@ -226,6 +334,28 @@ describe('approvalsNote', () => {
 		expect(
 			approvalsNote({ ...base, proposal: pending }),
 		).toBe('You signed. Any other signer can approve it.');
+	});
+
+	it('counts the set the status line counts: the pod’s own holding the viewer, though another holding them sorts first', () => {
+		const pending = counted(
+			[],
+			[
+				['0x0', 3, SIGNERS],
+				['0x1', 2, SIGNERS],
+			],
+			maya.address,
+		);
+		const [main] = approvalsSignerSets(
+			pending,
+			'pending',
+			labels,
+			maya.publicKey,
+			[],
+		);
+		expect(main.line).toBe(STATUS.needs(2));
+		expect(
+			approvalsNote({ ...base, proposal: pending }),
+		).toBe(NOTES.needsAfterYours(1));
 	});
 
 	it('asks an unsigned member to check the wallet when the dry run couldn’t run', () => {

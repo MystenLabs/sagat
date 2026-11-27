@@ -12,6 +12,9 @@ const signer = (label: string | null) => {
 		address: keypair.toSuiAddress(),
 		member: {
 			publicKey: keypair.getPublicKey().toSuiPublicKey(),
+			weight: 1,
+			order: 0,
+			answer: 'accepted' as const,
 			label,
 		},
 	};
@@ -21,13 +24,22 @@ describe('account creator', () => {
 	const alice = signer('Alice');
 	const bob = signer(null);
 	const account = `0x${'ab'.repeat(32)}`;
+	const original = (members: (typeof alice.member)[]) => [
+		{
+			kind: 'signer_set' as const,
+			address: account,
+			threshold: 1,
+			members,
+			acting: true,
+		},
+	];
 
 	test('a member who created the account shows by name, wherever they sit', () => {
 		expect(
 			accountCreator({
 				address: account,
-				draftedBy: alice.address,
-				members: [bob.member, alice.member],
+				createdBy: alice.address,
+				signerSets: original([bob.member, alice.member]),
 			}),
 		).toEqual({ address: alice.address, label: 'Alice' });
 	});
@@ -37,26 +49,19 @@ describe('account creator', () => {
 		expect(
 			accountCreator({
 				address: account,
-				draftedBy: outsider.address,
-				members: [bob.member, alice.member],
+				createdBy: outsider.address,
+				signerSets: original([bob.member, alice.member]),
 			}),
 		).toEqual({ address: outsider.address, label: null });
 	});
 
 	test('an unknown creator is null, not the first member', () => {
-		expect(
-			accountCreator({
-				address: account,
-				draftedBy: null,
-				members: [alice.member],
-			}),
-		).toBeNull();
 		// Accounts from before the rotation migration carry their own address.
 		expect(
 			accountCreator({
 				address: account,
-				draftedBy: account,
-				members: [alice.member],
+				createdBy: account,
+				signerSets: original([alice.member]),
 			}),
 		).toBeNull();
 	});

@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigWithMembers } from '@mysten/sagat';
+import type { AccountDetails } from '@mysten/sagat/v1';
 import {
 	formatAddress,
 	normalizeSuiAddress,
@@ -34,7 +34,7 @@ import { content } from '@/content';
 import { useProposerProofs } from '@/hooks/useProposerProofs';
 import { accountName } from '@/lib/account-name';
 import { formatDate } from '@/lib/dates';
-import { memberLabels } from '@/lib/signers';
+import { podLabels } from '@/lib/signers';
 import { cn } from '@/lib/utils';
 
 import { AddProposerDialog } from './AddProposerDialog';
@@ -65,25 +65,18 @@ const PROOF_CHIP = {
 export function ProposersSection({
 	multisig,
 	currentAddress,
-	checkProofs,
 	openedAddress,
 	className,
 }: {
 	multisig: Pick<
-		MultisigWithMembers,
-		| 'address'
-		| 'name'
-		| 'threshold'
-		| 'members'
-		| 'proposers'
+		AccountDetails,
+		'address' | 'name' | 'signerSets' | 'proposers'
 	>;
 	/**
 	 * The signed-in address, marked "(you)" when it added or confirmed a
 	 * proposer.
 	 */
 	currentAddress: string | undefined;
-	/** Whether `multisig` is the account's own response, the one with proposer events. */
-	checkProofs: boolean;
 	/** The account the viewer opened, from the route. */
 	openedAddress: string;
 	className?: string;
@@ -91,11 +84,10 @@ export function ProposersSection({
 	const { proposers } = multisig;
 	const name = accountName(multisig);
 	const labels = useMemo(
-		() => memberLabels(multisig.members),
-		[multisig.members],
+		() => podLabels(multisig),
+		[multisig],
 	);
 	const { proofs, trusted } = useProposerProofs(multisig, {
-		enabled: checkProofs,
 		openedAddress,
 	});
 	// Re-confirming can't help when the signers themselves aren't trusted.

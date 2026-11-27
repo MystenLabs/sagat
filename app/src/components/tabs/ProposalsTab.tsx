@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { Plus, RefreshCw } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
 	useLocation,
 	useNavigate,
@@ -11,7 +11,6 @@ import {
 
 import { content } from '@/content';
 import { newProposalPath } from '@/lib/new-proposal';
-import { toProposalCardInput } from '@/lib/proposalUtils';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
@@ -55,7 +54,7 @@ export function ProposalsTab() {
 		useState(false);
 
 	const {
-		filteredProposals,
+		filteredProposals: proposals,
 		pendingTabCounts,
 		neverProposed,
 		isLoading,
@@ -68,13 +67,6 @@ export function ProposalsTab() {
 		network,
 		activeFilter,
 	});
-	const proposals = useMemo(
-		() =>
-			filteredProposals.map((proposal) =>
-				toProposalCardInput(proposal, multisig),
-			),
-		[filteredProposals, multisig],
-	);
 
 	const handleRefresh = () => {
 		if (isRefreshCooldown || isRefetching) return;

@@ -1,12 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	ProposalStatus,
-	type MultisigWithMembers,
-	type PublicProposal,
-} from '@mysten/sagat';
+import { ProposalStatus } from '@mysten/sagat';
 
+import {
+	shownSignerSet,
+	type CountedProposal,
+} from './proposalUtils';
+import { sameAddress } from './sui-utils';
 import { sumWeight } from './threshold';
 
 type ExportType =
@@ -14,7 +15,7 @@ type ExportType =
 
 interface ExportEnvelope {
 	type: ExportType;
-	version: 1;
+	version: number;
 }
 
 interface ExportedMultisigMember {
@@ -32,6 +33,7 @@ interface MultisigCompositionInput {
 
 interface ExportedMultisigComposition extends ExportEnvelope {
 	type: 'sagat.multisig-composition';
+	version: 1;
 	multisig: {
 		address: string;
 		name: string | null;
@@ -43,18 +45,18 @@ interface ExportedMultisigComposition extends ExportEnvelope {
 }
 
 interface ExportedProposalSignature {
-	proposalId: number;
 	publicKey: string;
 	signature: string;
 	weight: number | null;
 	order: number | null;
 }
 
+/** Version 2: a `/v1` proposal, with no proposal id. */
 interface ExportedProposal extends ExportEnvelope {
 	type: 'sagat.proposal';
+	version: 2;
 	exportedAt: string;
 	proposal: {
-		id: number;
 		digest: string;
 		network: string;
 		multisigAddress: string;
@@ -64,15 +66,16 @@ interface ExportedProposal extends ExportEnvelope {
 		proposerAddress: string;
 		description: string | null;
 		createdAt: string;
-		currentWeight: number;
-		threshold: number;
+		currentWeight: number | null;
+		threshold: number | null;
 		signatures: ExportedProposalSignature[];
 	};
-	multisig: ExportedMultisigComposition['multisig'];
+	/** The listed signer set at its own address; null when no set was checked. */
+	multisig: ExportedMultisigComposition['multisig'] | null;
 }
 
 export function buildMultisigCompositionExport(
-	multisig: MultisigWithMembers,
+	multisig: MultisigCompositionInput,
 ): ExportedMultisigComposition {
 	return {
 		type: 'sagat.multisig-composition',
@@ -81,16 +84,28 @@ export function buildMultisigCompositionExport(
 	};
 }
 
+/** The proposal with the one signer set the screens show, as its composition. */
 export function buildProposalExport(
-	proposal: PublicProposal,
+	proposal: CountedProposal,
 	now = new Date(),
 ): ExportedProposal {
-	const multisig = buildMultisigComposition({
-		...proposal.multisig,
-		name: proposal.multisig.name ?? null,
-	});
+	const shown = shownSignerSet(proposal.checkedSignerSets);
+	const multisig =
+		shown &&
+		buildMultisigComposition({
+			address: shown.address,
+			// Only the pod's own set goes by the pod's name.
+			name: sameAddress(
+				shown.address,
+				proposal.accountAddress,
+			)
+				? proposal.accountName
+				: null,
+			threshold: shown.threshold,
+			members: shown.members,
+		});
 	const memberByPublicKey = new Map(
-		multisig.members.map((member) => [
+		(multisig?.members ?? []).map((member) => [
 			member.publicKey,
 			member,
 		]),
@@ -98,30 +113,26 @@ export function buildProposalExport(
 
 	return {
 		type: 'sagat.proposal',
-		version: 1,
+		version: 2,
 		exportedAt: now.toISOString(),
 		proposal: {
-			id: proposal.id,
 			digest: proposal.digest,
 			network: proposal.network,
-			multisigAddress: proposal.multisigAddress,
-			status: proposal.status,
-			statusLabel: getProposalStatusLabel(proposal.status),
+			multisigAddress: proposal.accountAddress,
+			status: ProposalStatus[proposal.status],
+			statusLabel: proposal.status,
 			transactionBytes: proposal.transactionBytes,
 			proposerAddress: proposal.proposerAddress,
 			description: proposal.description,
 			createdAt: proposal.createdAt,
-			currentWeight: proposal.currentWeight,
-			threshold: proposal.multisig.threshold,
+			currentWeight: shown?.currentWeight ?? null,
+			threshold: shown?.threshold ?? null,
 			signatures: proposal.signatures
-				.map((signature) => {
-					const member = memberByPublicKey.get(
-						signature.publicKey,
-					);
+				.map(({ publicKey, signature }) => {
+					const member = memberByPublicKey.get(publicKey);
 					return {
-						proposalId: signature.proposalId,
-						publicKey: signature.publicKey,
-						signature: signature.signature,
+						publicKey,
+						signature,
 						weight: member?.weight ?? null,
 						order: member?.order ?? null,
 					};
@@ -195,10 +206,6 @@ function buildMultisigComposition(
 		totalMembers: members.length,
 		members,
 	};
-}
-
-function getProposalStatusLabel(status: ProposalStatus) {
-	return ProposalStatus[status] ?? 'UNKNOWN';
 }
 
 function sanitizeFilenameSegment(value: string) {

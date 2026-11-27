@@ -21,6 +21,7 @@ import { PersonalMessages } from './constants.js';
 import type {
 	AccountEvent,
 	Proposal,
+	ProposalSignature,
 	PublicProposal,
 } from './types.js';
 
@@ -385,9 +386,24 @@ export function verifyProposalCreated(
 	);
 }
 
+/** The fields of a proposal `verifyProposalProposer` reads. */
+type ProposerProofProposal = Pick<
+	PublicProposal,
+	| 'digest'
+	| 'multisigAddress'
+	| 'proposerAddress'
+	| 'transactionBytes'
+	| 'events'
+> & {
+	signatures: Pick<
+		ProposalSignature,
+		'publicKey' | 'signature'
+	>[];
+};
+
 // Verified by a signature from `address` in `proposal.signatures`, invalid if an entry under its key doesn't check out.
 const proposerVoteStatus = async (
-	proposal: PublicProposal,
+	proposal: ProposerProofProposal,
 	address: string,
 ): Promise<ProofStatus> => {
 	const transaction = readTransaction(proposal);
@@ -423,7 +439,7 @@ const proposerVoteStatus = async (
 };
 
 async function checkProposalProposer(
-	proposal: PublicProposal,
+	proposal: ProposerProofProposal,
 	{ members }: { members: TrustedMembers },
 ): Promise<ProofStatus> {
 	const [created, proposer] = await Promise.all([
@@ -452,7 +468,7 @@ async function checkProposalProposer(
 
 /** Verifies a member by their signature on the bytes (through a vote, that they signed them, not that they submitted the proposal), anyone else by their created and add events. */
 export function verifyProposalProposer(
-	proposal: PublicProposal,
+	proposal: ProposerProofProposal,
 	options: { members: TrustedMembers },
 ): Promise<ProofStatus> {
 	return failClosed(

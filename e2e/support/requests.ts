@@ -10,6 +10,8 @@ import {
 	type Route,
 } from '@playwright/test';
 
+import { E2E } from './env';
+
 const BATCH_GET_OBJECTS =
 	'**/sui.rpc.v2.LedgerService/BatchGetObjects';
 
@@ -37,19 +39,60 @@ export async function routeAliasReads(
 	return () => page.unroute(BATCH_GET_OBJECTS, handler);
 }
 
-/** Whether `response` is a load of `publicKey`'s invitations inbox. */
-export function isInboxRead(
-	response: Response,
-	publicKey: string,
-) {
+/** Whether `response` is a load of the invitations inbox; one load covers every key of the session. */
+export function isInboxRead(response: Response) {
 	const { pathname, searchParams } = new URL(
 		response.url(),
 	);
 	return (
 		response.request().method() === 'GET' &&
-		pathname.endsWith(
-			`/addresses/invitations/${encodeURIComponent(publicKey)}`,
-		) &&
+		pathname.endsWith('/v1/invitations') &&
 		!searchParams.has('showRejected')
+	);
+}
+
+/** Whether `response` is a successful load of the account list. */
+export function isAccountListRead(response: Response) {
+	return (
+		response.request().method() === 'GET' &&
+		new URL(response.url()).pathname.endsWith(
+			'/v1/accounts',
+		) &&
+		response.ok()
+	);
+}
+
+/** The URL of a proposal create and of the proposal list. */
+export function isProposalsUrl(url: URL) {
+	return url.pathname.endsWith('/v1/proposals');
+}
+
+/** The URL of a proposal read by its digest. */
+export const PROPOSAL_BY_DIGEST_URL = '**/v1/proposals/*';
+
+export function isCreateRequest(request: Request) {
+	return isApiPost(request, /\/v1\/proposals$/);
+}
+
+export function isVoteRequest(request: Request) {
+	return isApiPost(
+		request,
+		/\/v1\/proposals\/[^/]+\/vote$/,
+	);
+}
+
+export function isCancelRequest(request: Request) {
+	return isApiPost(
+		request,
+		/\/v1\/proposals\/[^/]+\/cancel$/,
+	);
+}
+
+function isApiPost(request: Request, path: RegExp) {
+	const url = new URL(request.url());
+	return (
+		request.method() === 'POST' &&
+		url.origin === E2E.apiUrl &&
+		path.test(url.pathname)
 	);
 }

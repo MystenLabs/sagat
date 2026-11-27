@@ -1,8 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type PublicProposal } from '@mysten/sagat';
-import { normalizeSuiAddress } from '@mysten/sui/utils';
 import {
 	keepPreviousData,
 	useQuery,
@@ -15,32 +13,22 @@ import {
 	proposerProofMembers,
 	verifyProposers,
 	type ProposerProofAccount,
+	type ProposerProposal,
 } from '@/lib/proposer-proofs';
 import { QueryKeys } from '@/lib/queryKeys';
 
-import { useAliasSets } from './useAliasSets';
+import { usePodAliasSet } from './useAliasSets';
 
 /**
- * Each proposer's proof by address, undefined while checking or until
- * `enabled`; `trusted` is false unless `account` is `openedAddress`, its
- * signers make it up, and a shown set acts on the selected network.
+ * Each proposer's proof by address, undefined while checking; `trusted`
+ * is false unless `account` is `openedAddress`, its original signers
+ * make it up, and a shown set acts on the selected network.
  */
 export function useProposerProofs(
 	account: ProposerProofAccount,
-	{
-		enabled,
-		openedAddress,
-	}: { enabled: boolean; openedAddress: string },
+	{ openedAddress }: { openedAddress: string },
 ) {
-	const { aliases: reads } = useAliasSets(
-		[account.address],
-		{
-			enabled,
-		},
-	);
-	const aliases = reads?.get(
-		normalizeSuiAddress(account.address),
-	);
+	const aliases = usePodAliasSet(account.address);
 	const trusted = useMemo(
 		() =>
 			aliases !== undefined &&
@@ -56,22 +44,21 @@ export function useProposerProofs(
 			QueryKeys.ProposerProofs,
 			openedAddress,
 			account.address,
-			account.threshold,
-			account.members,
+			account.signerSets,
 			account.proposers,
 			aliases,
 		],
 		queryFn: () =>
 			verifyProposers(account, openedAddress, aliases!),
-		enabled: enabled && aliases !== undefined,
+		enabled: aliases !== undefined,
 		staleTime: Infinity,
 	});
-	return { proofs: enabled ? data : undefined, trusted };
+	return { proofs: data, trusted };
 }
 
 /** `checkProposalProposer` as a query, shared by the page and Sign; `aliases` is the pod's alias set on the proposal's network. */
 export function proposalProposerQuery(
-	proposal: PublicProposal,
+	proposal: ProposerProposal,
 	aliases: AliasRead,
 ) {
 	return {
@@ -80,8 +67,8 @@ export function proposalProposerQuery(
 			proposal.digest,
 			proposal.transactionBytes,
 			proposal.proposerAddress,
-			proposal.multisigAddress,
-			proposal.multisig,
+			proposal.accountAddress,
+			proposal.signerSets,
 			proposal.signatures,
 			proposal.events,
 			aliases,
@@ -97,7 +84,7 @@ export function proposalProposerQuery(
  * while `aliases` is still being read.
  */
 export function useProposalProposerCheck(
-	proposal: PublicProposal,
+	proposal: ProposerProposal,
 	{
 		enabled,
 		aliases,

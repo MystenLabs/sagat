@@ -5,10 +5,6 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import {
-	ProposalStatus,
-	type PublicProposal,
-} from '@mysten/sagat';
 import { useQuery } from '@tanstack/react-query';
 import { Download, Link2 } from 'lucide-react';
 import {
@@ -22,6 +18,7 @@ import { SignerName } from '@/components/multisig/SignerName';
 import { analyzerTab } from '@/components/preview-effects/IntentSummary';
 import { ProposalExpiry } from '@/components/proposals/ProposalExpiry';
 import { ProposalStatusChip } from '@/components/proposals/ProposalStatusChip';
+import { AliasCallsWarning } from '@/components/transaction-preview/AliasCallsWarning';
 import { PreviewHeading } from '@/components/transaction-preview/parts';
 import {
 	expiredSimulation,
@@ -43,6 +40,7 @@ import {
 	useNetwork,
 	type SuiNetwork,
 } from '@/contexts/NetworkContext';
+import { usePodAliasSet } from '@/hooks/useAliasSets';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { refusedAsExpired } from '@/hooks/useDryRun';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
@@ -56,6 +54,11 @@ import {
 } from '@/lib/exportUtils';
 import { networkLabel } from '@/lib/network';
 import {
+	isMember,
+	type AppProposal,
+	type ShownPod,
+} from '@/lib/proposal-integrity';
+import {
 	proposalPageStatus,
 	withReason,
 	type Labels,
@@ -66,10 +69,11 @@ import {
 	isExternalProposer,
 	proposalLinkUrl,
 	proposalTitle,
+	toProposalCardInput,
+	type CountedProposal,
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import { QueryKeys } from '@/lib/queryKeys';
-import { validatePublicKey } from '@/lib/sui-utils';
 import { safeDecode } from '@/lib/utils';
 
 import { ActivityCard } from './ActivityCard';
@@ -85,16 +89,20 @@ const SHARED = content.proposal.shared;
  * pointing to the explorer) and the approvals and activity on the
  * right, stacked below `lg`.
  * `proposalsPath` links back to the account's proposals, when the page
- * is under the account.
+ * is under the account. The signers shown are the proposal's signer sets
+ * that pass the app's checks on its network.
  */
 export function ProposalView({
-	proposal,
+	proposal: received,
+	pod,
 	openedDigest,
 	labels,
 	proposalsPath,
 	canCancel,
 }: {
-	proposal: PublicProposal;
+	proposal: AppProposal;
+	/** The pod from the viewer's own account read; null on the shared page. */
+	pod: ShownPod | null;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 	labels: Labels;
@@ -111,6 +119,18 @@ export function ProposalView({
 	const client = useDAppKit().getClient();
 	const { dryRun, analysis, preview } =
 		useTransactionPreview();
+	const aliases = usePodAliasSet(received.accountAddress, {
+		network: received.network as SuiNetwork,
+	});
+	const proposal = useMemo(
+		() =>
+			toProposalCardInput(
+				received,
+				aliases,
+				wallet?.address,
+			),
+		[received, aliases, wallet?.address],
+	);
 
 	const mismatch = proposal.network !== network;
 	// The epoch is the current network's: on another network there is no
@@ -123,14 +143,15 @@ export function ProposalView({
 		status === 'executed' || status === 'failed';
 	const open = status === 'pending' || status === 'ready';
 
-	// The connected wallet is one of the signers. Signing needs only the
-	// wallet; the network has to be the proposal's.
+	// The connected wallet is in one of the proposal's signer sets, which
+	// Sign then checks. Signing needs only the wallet; the network has to
+	// be the proposal's.
 	const member = wallet
-		? proposal.multisig.members.find(
-				(m) =>
-					validatePublicKey(m.publicKey).address ===
-					wallet.address,
-			)
+		? proposal.signerSets
+				.flatMap((set) => set.members)
+				.find((m) =>
+					isMember({ members: [m] }, wallet.address),
+				)
 		: undefined;
 	const viewer = !member
 		? 'outsider'
@@ -198,11 +219,11 @@ export function ProposalView({
 	const accounts = useMemo(
 		() => [
 			{
-				address: proposal.multisig.address,
-				name: proposal.multisig.name ?? null,
+				address: proposal.accountAddress,
+				name: proposal.accountName,
 			},
 		],
-		[proposal.multisig.address, proposal.multisig.name],
+		[proposal.accountAddress, proposal.accountName],
 	);
 	const { analyzer, analyzerCount } = analyzerTab(analysis);
 
@@ -313,15 +334,12 @@ export function ProposalView({
 								{createdAt}
 							</span>
 						)}
-						{proposal.status === ProposalStatus.PENDING &&
-							!mismatch && (
-								<ProposalExpiry
-									transactionBytes={
-										proposal.transactionBytes
-									}
-									variant="inline"
-								/>
-							)}
+						{proposal.status === 'PENDING' && !mismatch && (
+							<ProposalExpiry
+								transactionBytes={proposal.transactionBytes}
+								variant="inline"
+							/>
+						)}
 					</span>
 				}
 				actions={
@@ -388,6 +406,13 @@ export function ProposalView({
 					)}
 				</div>
 			)}
+			{open && (
+				<AliasCallsWarning
+					bytes={proposal.transactionBytes}
+					network={proposal.network as SuiNetwork}
+					className="mb-4"
+				/>
+			)}
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
 				{onChain ? (
@@ -408,6 +433,8 @@ export function ProposalView({
 				<div className="flex min-w-0 flex-col gap-4">
 					<ApprovalsCard
 						proposal={proposal}
+						pod={pod}
+						aliases={aliases}
 						openedDigest={openedDigest}
 						status={status}
 						labels={labels}
@@ -438,7 +465,7 @@ function HeaderActions({
 	proposal,
 	status,
 }: {
-	proposal: PublicProposal;
+	proposal: CountedProposal;
 	status: ProposalStatusKey;
 }) {
 	const { copy } = useCopyToClipboard(

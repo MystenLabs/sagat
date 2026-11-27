@@ -1,15 +1,23 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { Transaction } from '@mysten/sui/transactions';
-import { toBase58, toBase64 } from '@mysten/sui/utils';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
+import {
+	fromBase64,
+	toBase58,
+	toBase64,
+} from '@mysten/sui/utils';
 
-// A transfer's bytes, with the given expiration.
+// A transfer's bytes from `sender`, with the given expiration.
 export async function transfer(
 	expiration?: Parameters<Transaction['setExpiration']>[0],
+	sender = '0x1',
 ) {
 	const tx = new Transaction();
-	tx.setSender('0x1');
+	tx.setSender(sender);
 	tx.setGasPayment([
 		{
 			objectId: '0x2',
@@ -23,3 +31,9 @@ export async function transfer(
 	tx.transferObjects([tx.gas], '0x3');
 	return toBase64(await tx.build());
 }
+
+// The digest of a transaction's base64 bytes.
+export const digestOf = (bytes: string) =>
+	TransactionDataBuilder.getDigestFromBytes(
+		fromBase64(bytes),
+	);

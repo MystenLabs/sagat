@@ -8,7 +8,11 @@ import {
 	randomAddress,
 	reportEpoch,
 } from '../support/chain';
-import { expect, test } from '../support/fixtures';
+import {
+	expect,
+	test,
+	type Fixtures,
+} from '../support/fixtures';
 import {
 	chooseType,
 	clickNewProposal,
@@ -22,12 +26,70 @@ import {
 	toast,
 } from '../support/new-proposal';
 import {
+	addPodAsAlias,
+	bothSign,
 	cancelProposal,
 	proposeTransfer,
+	removeAlias,
 	setupMultisig,
 	setupProposal,
 	signProposal,
 } from '../support/scenarios';
+
+/** A transfer ready only through Carol and Dave's added set, open on Carol's page. */
+async function readyThroughAddedSet({
+	createActor,
+	createIdentity,
+	chain,
+}: Fixtures) {
+	const alice = createIdentity('alice');
+	const bob = createIdentity('bob');
+	const carol = await createActor('carol');
+	const dave = createIdentity('dave');
+	const multisig = await setupMultisig({
+		creator: alice,
+		members: [bob],
+		threshold: 2,
+	});
+	await chain.fund(multisig.address);
+	// Before the pod's first /v1 read, so the API sees it at once.
+	const recovery = await addPodAsAlias(
+		chain,
+		bothSign(alice, bob),
+		{
+			creator: carol,
+			member: dave,
+			accepting: [carol, dave],
+		},
+	);
+	const recipient = randomAddress();
+	const proposal = await proposeTransfer(chain, dave, {
+		multisigAddress: multisig.address,
+		recipient,
+		amount: MIST_PER_SUI,
+	});
+	await signProposal(carol, proposal);
+
+	await carol.signIn();
+	await carol.page.goto(
+		`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+	);
+	const page = carol.proposalPage(proposal.digest);
+	await expect(page).toHaveAttribute(
+		'data-status',
+		'ready',
+	);
+	return {
+		alice,
+		bob,
+		carol,
+		multisig,
+		recovery,
+		proposal,
+		recipient,
+		page,
+	};
+}
 
 test.describe('proposals', () => {
 	test('members propose, co-sign and execute a SUI transfer', async ({
@@ -221,6 +283,180 @@ test.describe('proposals', () => {
 		expect(await chain.balance(recipient)).toBe(
 			MIST_PER_SUI,
 		);
+	});
+
+	test('a key in two signer sets counts in both, and the proposal is ready once either set reaches its threshold', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = createIdentity('bob');
+		const carol = await createActor('carol');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		// Alice is in both sets.
+		const recovery = await addPodAsAlias(
+			chain,
+			bothSign(alice, bob),
+			{ creator: alice, member: carol, accepting: [carol] },
+		);
+		const proposal = await proposeTransfer(chain, alice, {
+			multisigAddress: multisig.address,
+			recipient: randomAddress(),
+			amount: MIST_PER_SUI,
+		});
+
+		await carol.signIn();
+		await carol.page.goto(
+			`/multisig/${multisig.address}/proposals/${proposal.digest}`,
+		);
+		const page = carol.proposalPage(proposal.digest);
+		const STATUS = content.proposal.approvals.status;
+		const set = (address: string) =>
+			page.locator(
+				`[data-testid="approvals-signer-set"][data-address="${address}"]`,
+			);
+		const status = page.getByTestId('approvals-status');
+		const toggle = page.getByTestId(
+			'approvals-other-signer-sets-toggle',
+		);
+		const foldedLine = page.getByTestId(
+			'approvals-other-signer-sets-line',
+		);
+		// Carol's set stays open; the pod's own set is folded under it.
+		await expect(set(recovery.address)).toBeVisible();
+		await expect(toggle).toHaveText(
+			content.common.moreSignerSets(1),
+		);
+		await expect(set(multisig.address)).toHaveCount(0);
+		// The folded set is no closer to its threshold.
+		await expect(foldedLine).toHaveCount(0);
+		await toggle.click();
+		await expect(
+			page.getByTestId('approvals-signer-set'),
+		).toHaveCount(2);
+		for (const address of [
+			multisig.address,
+			recovery.address,
+		]) {
+			await expect(set(address)).toHaveAttribute(
+				'data-current-weight',
+				'1',
+			);
+		}
+		await expect(set(multisig.address)).toContainText(
+			STATUS.needs(1),
+		);
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'pending',
+		);
+		// The open set's line is the card's while pending.
+		await expect(status).toHaveText(STATUS.needs(1));
+
+		await page.getByTestId('execute-after-signing').click();
+		await page.getByTestId('sign-proposal-button').click();
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'ready',
+		);
+		await expect(set(recovery.address)).toHaveAttribute(
+			'data-current-weight',
+			'2',
+		);
+		await expect(set(multisig.address)).toHaveAttribute(
+			'data-current-weight',
+			'1',
+		);
+		await expect(status).toHaveText(STATUS.ready);
+
+		// Once the folded set reaches its threshold too, the closed row says so.
+		await toggle.click();
+		await expect(foldedLine).toHaveCount(0);
+		await signProposal(bob, proposal);
+		await expect(foldedLine).toHaveText(STATUS.reached, {
+			timeout: 20_000,
+		});
+		await expect(
+			page.getByTestId('execute-proposal-button'),
+		).toBeVisible();
+	});
+
+	test('a second signer set signs a proposal to its threshold and executes it', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { carol, recovery, proposal, recipient, page } =
+			await readyThroughAddedSet({
+				createActor,
+				createIdentity,
+				chain,
+			});
+
+		await page
+			.getByTestId('execute-proposal-button')
+			.click();
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'executed',
+		);
+		expect(await chain.balance(recipient)).toBe(
+			MIST_PER_SUI,
+		);
+		const executed = await carol.apiV1.getProposalByDigest(
+			proposal.digest,
+		);
+		expect(executed.executedVia).toBe(recovery.address);
+	});
+
+	test('an execution the node refuses once the signer set left the pod reads the signers again', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const { alice, bob, carol, recovery, recipient, page } =
+			await readyThroughAddedSet({
+				createActor,
+				createIdentity,
+				chain,
+			});
+		await removeAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+
+		await page
+			.getByTestId('execute-proposal-button')
+			.click();
+		await expect(
+			toast(carol.page, 'error').filter({
+				hasText: content.toasts.proposalExecuteFailed,
+			}),
+		).toContainText(
+			content.toasts.proposalSignersChanged('Localnet'),
+		);
+		expect(await chain.balance(recipient)).toBe(0n);
+		// Read again from the node, Carol's set no longer counts: only the pod's own set shows.
+		await expect(page).toHaveAttribute(
+			'data-status',
+			'pending',
+		);
+		await expect(
+			carol.approvalRow(carol.address),
+		).toHaveCount(0);
+		await expect(
+			carol.approvalRow(alice.address),
+		).toHaveAttribute('data-signed', 'false');
+		await expect(
+			page.getByTestId('execute-proposal-button'),
+		).toHaveCount(0);
 	});
 
 	test('pending proposals show when they expire', async ({
@@ -649,7 +885,7 @@ test.describe('proposals', () => {
 
 		// Bob signs from the API; Alice's view picks it up on reload.
 		const proposal =
-			await bob.api.getProposalByDigest(digest);
+			await bob.apiV1.getProposalByDigest(digest);
 		await signProposal(bob, proposal);
 		await alice.page.reload();
 		await expect(page).toHaveAttribute(

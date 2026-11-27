@@ -3,9 +3,16 @@
 
 import type { Page } from '@playwright/test';
 
+import {
+	addSigners,
+	nameMultisig,
+} from '../support/create-wizard';
 import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
-import { setupMultisig } from '../support/scenarios';
+import {
+	setupMultisig,
+	signInViaApi,
+} from '../support/scenarios';
 
 // Rewrites a real API response into data the app can't render.
 async function corrupt<T>(
@@ -22,9 +29,6 @@ async function corrupt<T>(
 	});
 }
 
-type Member = { label: unknown };
-type Account = { name: unknown; members: Member[] };
-
 test.describe('crash screens', () => {
 	test('a page that fails to render shows a crash screen inside the shell, and recovers', async ({
 		createActor,
@@ -32,28 +36,25 @@ test.describe('crash screens', () => {
 	}) => {
 		const alice = await createActor('alice');
 		const bob = createIdentity('bob');
-		const multisig = await setupMultisig({
-			creator: alice,
-			members: [bob],
-			threshold: 1,
-		});
+		// So the API can look up Bob's key from his address.
+		await signInViaApi(bob);
 		const { page } = alice;
 		await alice.signIn();
 
-		// Only the signers tab renders this response's member labels.
-		const detailsUrl = `${E2E.apiUrl}/multisig/${multisig.address}`;
-		await corrupt<Account>(page, detailsUrl, (body) => ({
+		// The wizard puts the looked-up key in the signer's row.
+		const addressUrl = `${E2E.apiUrl}/addresses/*`;
+		await corrupt<object>(page, addressUrl, (body) => ({
 			...body,
-			members: body.members.map((member) => ({
-				...member,
-				label: { broken: true },
-			})),
+			publicKey: { broken: true },
 		}));
+		const addBob = async () => {
+			await page.goto('/create');
+			await nameMultisig(page, 'Treasury');
+			await addSigners(page, [{ key: bob.address }]);
+		};
 
 		const crashed = page.getByTestId('page-crashed');
-		await page.goto(
-			`/multisig/${multisig.address}/signers`,
-		);
+		await addBob();
 		await expect(crashed).toBeVisible();
 		await expect(
 			page.getByTestId('nav-invitations'),
@@ -66,14 +67,14 @@ test.describe('crash screens', () => {
 		).toBeVisible();
 		await expect(crashed).toBeHidden();
 
-		await page.getByTestId('multisig-tab-signers').click();
+		await addBob();
 		await expect(crashed).toBeVisible();
 
 		// Once the data is good again, retrying renders the page.
-		await page.unroute(detailsUrl);
+		await page.unroute(addressUrl);
 		await page.getByTestId('page-crashed-retry').click();
 		await expect(
-			page.getByTestId('signers-card'),
+			page.getByTestId('create-name-input'),
 		).toBeVisible();
 		await expect(crashed).toBeHidden();
 	});
@@ -92,28 +93,18 @@ test.describe('crash screens', () => {
 		const { page } = alice;
 		await alice.signIn();
 
-		// The sidebar's account switcher renders these names.
-		const connectionsUrl = `${E2E.apiUrl}/addresses/connections`;
-		await corrupt<Record<string, Account[]>>(
-			page,
-			connectionsUrl,
-			(body) =>
-				Object.fromEntries(
-					Object.entries(body).map(([key, accounts]) => [
-						key,
-						accounts.map((account) => ({
-							...account,
-							name: { broken: true },
-						})),
-					]),
-				),
-		);
+		// The shell reads the session's addresses from this response.
+		const authUrl = `${E2E.apiUrl}/auth/check`;
+		await corrupt<object>(page, authUrl, (body) => ({
+			...body,
+			addresses: { broken: true },
+		}));
 
 		const crashed = page.getByTestId('app-crashed');
 		await page.reload();
 		await expect(crashed).toBeVisible();
 
-		await page.unroute(connectionsUrl);
+		await page.unroute(authUrl);
 		await page.getByTestId('app-crashed-reload').click();
 		await expect(
 			page.getByTestId('multisig-switcher'),

@@ -5,10 +5,8 @@ import {
 	useCurrentAccount,
 	useDAppKit,
 } from '@mysten/dapp-kit-react';
-import {
-	PersonalMessages,
-	type Proposal,
-} from '@mysten/sagat';
+import { PersonalMessages } from '@mysten/sagat';
+import { type Proposal } from '@mysten/sagat/v1';
 import {
 	useMutation,
 	useQueryClient,
@@ -18,8 +16,9 @@ import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { toast } from '@/lib/toast';
 
-import { apiClient } from '../lib/api';
-import { MutationKeys, QueryKeys } from '../lib/queryKeys';
+import { apiV1Client } from '../lib/api';
+import { MutationKeys } from '../lib/queryKeys';
+import { writeProposal } from './useGetProposal';
 
 export function useCancelProposal() {
 	const queryClient = useQueryClient();
@@ -30,10 +29,7 @@ export function useCancelProposal() {
 	return useMutation({
 		mutationKey: [MutationKeys.CancelProposal],
 		mutationFn: async (
-			proposal: Pick<
-				Proposal,
-				'id' | 'digest' | 'multisigAddress'
-			>,
+			proposal: Pick<Proposal, 'digest' | 'accountAddress'>,
 		) => {
 			if (!currentAccount || !currentAddress)
 				throw new Error(content.errors.noWalletConnected);
@@ -41,7 +37,7 @@ export function useCancelProposal() {
 			// Create a message to sign for cancellation
 			const message = PersonalMessages.cancelProposal(
 				proposal.digest,
-				proposal.multisigAddress,
+				proposal.accountAddress,
 			);
 
 			// Sign the message
@@ -50,18 +46,12 @@ export function useCancelProposal() {
 			});
 
 			// Call API to cancel the proposal
-			return apiClient.cancelProposal(proposal.id, {
+			return apiV1Client.cancelProposal(proposal.digest, {
 				signature: signResult.signature,
 			});
 		},
-		onSuccess: () => {
-			// Invalidate all proposal-related queries
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposals],
-			});
-			queryClient.invalidateQueries({
-				queryKey: [QueryKeys.Proposal],
-			});
+		onSuccess: (cancelled) => {
+			void writeProposal(queryClient, cancelled);
 			toast.success(content.toasts.proposalCancelled);
 		},
 		onError: (error: Error) => {

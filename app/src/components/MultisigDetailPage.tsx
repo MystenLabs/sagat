@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useCurrentAccount } from '@mysten/dapp-kit-react';
-import { Plus } from 'lucide-react';
+import { Plus, UserMinus } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import {
 	Navigate,
@@ -13,6 +13,7 @@ import {
 } from 'react-router-dom';
 
 import { content } from '@/content';
+import { useNetwork } from '@/contexts/NetworkContext';
 import { useArrivalBanner } from '@/hooks/useArrivalBanner';
 import { accountName } from '@/lib/account-name';
 import { joinList } from '@/lib/create-multisig';
@@ -21,13 +22,19 @@ import {
 	currentMultisigPage,
 	MULTISIG_PAGES,
 } from '@/lib/multisig-pages';
+import { networkLabel } from '@/lib/network';
 import { newProposalPath } from '@/lib/new-proposal';
+import { otherSignerSetRows } from '@/lib/signer-sets';
+import { cn } from '@/lib/utils';
 
 import { useUserMultisigs } from '../hooks/useUserMultisigs';
+import { OtherSignerSetsTable } from './multisig/OtherSignerSetsCard';
 import { SignersRefused } from './multisig/SignersRefused';
 import { SignersUnchecked } from './multisig/SignersUnchecked';
 import { SuccessBanner } from './multisig/SuccessBanner';
 import { Button } from './ui/button';
+import { cardClass } from './ui/card';
+import { EmptyState } from './ui/empty-state';
 import { PageHeader } from './ui/page-header';
 import { SkeletonPage } from './ui/skeleton';
 
@@ -37,10 +44,12 @@ export function MultisigDetailPage() {
 	const page = currentMultisigPage(location.pathname);
 	const navigate = useNavigate();
 	const currentAccount = useCurrentAccount();
+	const { network } = useNetwork();
 	const {
 		data: multisigs,
 		isLoading,
 		isFetching,
+		noLongerSigner,
 	} = useUserMultisigs();
 	// Set by the invitation and create flows: a greeting shown once.
 	const [arrival, dismissArrival] = useArrivalBanner();
@@ -76,6 +85,29 @@ export function MultisigDetailPage() {
 			);
 		}
 	}, [address, verifiedMultisigs, currentAccount?.address]);
+
+	// A key a signer change removed sees a plain line, not the pod,
+	// and keeps it through background refetches, but not while the list
+	// refreshes right after accepting again.
+	if (
+		address &&
+		!multisigDetails &&
+		noLongerSigner?.includes(address) &&
+		!(arrival?.kind === 'joined' && isFetching)
+	) {
+		return (
+			<div className="page-shell flex-1">
+				<EmptyState
+					size="page"
+					icon={UserMinus}
+					title={content.overview.noLongerSigner(
+						networkLabel(network),
+					)}
+					testId="pod-no-longer-signer"
+				/>
+			</div>
+		);
+	}
 
 	// Also wait while the list refreshes without this account (just
 	// joined), rather than redirecting on the stale list.
@@ -133,6 +165,24 @@ export function MultisigDetailPage() {
 					rule={multisig.refused}
 					testId="pod-refused"
 				/>
+				{!!multisig.unidentified?.length && (
+					<section
+						className={cn(cardClass, 'mt-5')}
+						data-testid="pod-controlled-by"
+					>
+						<p className="text-13">
+							{content.signers.otherSignerSets.noActingSet(
+								networkLabel(network),
+							)}
+						</p>
+						<OtherSignerSetsTable
+							rows={otherSignerSetRows(
+								multisig.unidentified,
+								multisigs ?? [],
+							)}
+						/>
+					</section>
+				)}
 			</div>
 		);
 	}

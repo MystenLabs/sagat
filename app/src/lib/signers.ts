@@ -1,11 +1,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { MultisigMember } from '@mysten/sagat';
+import type {
+	Account,
+	AccountMember,
+} from '@mysten/sagat/v1';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
 import { memberStatus } from './member-status';
+import { shownActingSets } from './proposal-integrity';
 import { validatePublicKey } from './sui-utils';
 
 const COPY = content.signers;
@@ -26,7 +30,7 @@ export interface SignerSetStatus {
 }
 
 export interface SignerEntry {
-	member: MultisigMember;
+	member: AccountMember;
 	address: string | undefined;
 	/** The key's label, else its short address. */
 	name: string;
@@ -41,7 +45,7 @@ export interface SignerEntry {
  * `creatorAddress` marks the account's creator, when known.
  */
 export function signerRows(
-	members: MultisigMember[],
+	members: AccountMember[],
 	currentAddress: string | null | undefined,
 	creatorAddress?: string | null,
 ): SignerEntry[] {
@@ -71,7 +75,7 @@ export function signerRows(
  * Skips members whose key does not parse.
  */
 export function memberLabels(
-	members: MultisigMember[],
+	members: Pick<AccountMember, 'publicKey' | 'label'>[],
 ): Map<string, string | null> {
 	const labels = new Map<string, string | null>();
 	for (const member of members) {
@@ -155,4 +159,12 @@ export function rejectionNotice(
 				tone: 'error',
 				message: COPY.notice.cantReachThreshold(who),
 			};
+}
+
+export function podLabels(
+	pod: Pick<Account, 'signerSets'>,
+): Map<string, string | null> {
+	return memberLabels(
+		shownActingSets(pod).flatMap((set) => set.members),
+	);
 }

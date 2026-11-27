@@ -7,7 +7,14 @@ import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { accountName } from '@/lib/account-name';
 import { weightTone } from '@/lib/member-status';
-import { signerRows } from '@/lib/signers';
+import {
+	originalSignerSet,
+	rebuildAccount,
+} from '@/lib/proposal-integrity';
+import {
+	signerRows,
+	type SignerEntry,
+} from '@/lib/signers';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 import { cn, errorMessage } from '@/lib/utils';
 
@@ -34,6 +41,7 @@ import { WeightBar } from './WeightBar';
 const ACTIONS = content.common.actions;
 const FIELDS = content.common.fields;
 const COPY = content.invitations;
+const ORIGINAL_SIGNERS = content.common.originalSigners;
 
 /**
  * The invitation in full before accepting: the account's setup, its
@@ -70,6 +78,16 @@ export function ReviewInvitationDialog({
 		creator?.address,
 	);
 	const you = rows.find((row) => row.isYou);
+	// Invited through a set added to the pod: its original signers too.
+	const original =
+		multisig.refused !== 'signers' &&
+		!rebuildAccount(multisig, multisig.address)
+			? signerRows(
+					originalSignerSet(multisig).members,
+					currentAddress?.address,
+					creator?.address,
+				)
+			: null;
 	// Accept needs both signers checks; disabled while the node is read.
 	const offerAccept =
 		!multisig.refused &&
@@ -151,7 +169,7 @@ export function ReviewInvitationDialog({
 								signers={rows.map((row) => ({
 									weight: row.member.weight,
 									tone: weightTone({
-										isAccepted: row.member.isAccepted,
+										isAccepted: row.status === 'accepted',
 										isYou: row.isYou,
 									}),
 								}))}
@@ -188,68 +206,25 @@ export function ReviewInvitationDialog({
 							</CheckedAddress>
 						</div>
 
-						<div className={cn('mt-4', tableShellClass)}>
-							<table className={tableClass}>
-								<thead>
-									<tr className={tableShellHeadRowClass}>
-										{/* Hidden at phone width so the name and address keep their room. */}
-										<th className="hidden w-9 px-3 sm:table-cell">
-											#
-										</th>
-										<th className="px-3">
-											{FIELDS.signer}
-										</th>
-										<th className="w-15 px-3 text-right">
-											{FIELDS.weight}
-										</th>
-										<th className="w-24 px-3">
-											{FIELDS.status}
-										</th>
-									</tr>
-								</thead>
-								<tbody>
-									{rows.map((row, i) => (
-										<tr
-											key={row.member.publicKey}
-											className={cn(
-												tableRowClass,
-												row.isYou && 'bg-surface',
-											)}
-											data-testid="member-item"
-											data-address={row.address}
-											data-status={row.status}
-										>
-											<td className="hidden px-3 py-2.5 text-12 text-muted-foreground sm:table-cell">
-												{i + 1}
-											</td>
-											<td className="px-3 py-1">
-												<SignerName
-													label={row.member.label}
-													address={row.address}
-													marker={
-														row.isYou
-															? 'you'
-															: row.isCreator
-																? 'creator'
-																: null
-													}
-													size="sm"
-													labelTestId="member-label"
-												/>
-											</td>
-											<td className="px-3 py-2.5 text-right font-medium">
-												{row.member.weight}
-											</td>
-											<td className="px-3 py-2.5">
-												<SignerStatusChip
-													status={row.status}
-												/>
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
+						<SignersTable rows={rows} className="mt-4" />
+
+						{original && (
+							<section
+								className="mt-5 flex flex-col gap-1"
+								data-testid="invitation-original-signers"
+							>
+								<h3 className="text-16 font-medium">
+									{ORIGINAL_SIGNERS.title}
+								</h3>
+								<p className="text-13 text-foreground-secondary">
+									{ORIGINAL_SIGNERS.madeFrom}
+								</p>
+								<SignersTable
+									rows={original}
+									className="mt-3"
+								/>
+							</section>
+						)}
 
 						<p className="mt-4 flex items-start gap-2.5 text-13 text-foreground-secondary">
 							<Info className="mt-0.5 size-4 shrink-0" />
@@ -282,5 +257,72 @@ export function ReviewInvitationDialog({
 				)}
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+function SignersTable({
+	rows,
+	className,
+}: {
+	rows: SignerEntry[];
+	className?: string;
+}) {
+	return (
+		<div className={cn(tableShellClass, className)}>
+			<table className={tableClass}>
+				<thead>
+					<tr className={tableShellHeadRowClass}>
+						{/* Hidden at phone width so the name and address keep their room. */}
+						<th className="hidden w-9 px-3 sm:table-cell">
+							#
+						</th>
+						<th className="px-3">{FIELDS.signer}</th>
+						<th className="w-15 px-3 text-right">
+							{FIELDS.weight}
+						</th>
+						<th className="w-24 px-3">{FIELDS.status}</th>
+					</tr>
+				</thead>
+				<tbody>
+					{rows.map((row, i) => (
+						<tr
+							key={row.member.publicKey}
+							className={cn(
+								tableRowClass,
+								row.isYou && 'bg-surface',
+							)}
+							data-testid="member-item"
+							data-address={row.address}
+							data-status={row.status}
+						>
+							<td className="hidden px-3 py-2.5 text-12 text-muted-foreground sm:table-cell">
+								{i + 1}
+							</td>
+							<td className="px-3 py-1">
+								<SignerName
+									label={row.member.label}
+									address={row.address}
+									marker={
+										row.isYou
+											? 'you'
+											: row.isCreator
+												? 'creator'
+												: null
+									}
+									size="sm"
+									labelTestId="member-label"
+								/>
+							</td>
+							<td className="px-3 py-2.5 text-right font-medium">
+								{row.member.weight}
+							</td>
+							<td className="px-3 py-2.5">
+								<SignerStatusChip status={row.status} />
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
 	);
 }

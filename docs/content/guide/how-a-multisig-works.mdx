@@ -55,7 +55,25 @@ An existing pod’s signers, weights and threshold cannot be edited. A different
 
 ## Pods and networks
 
-A pod and its address are the same on every Sui network. Proposals and balances are not: each proposal belongs to the [network](/glossary#network) it was created on, and the app shows the proposals and balances of the [network you have selected](/guide/networks).
+A pod and its address are the same on every Sui network. Proposals and balances are not: each proposal belongs to the [network](/glossary#network) it was created on, and the app shows the proposals and balances of the [network you have selected](/guide/networks). The signers a pod was created with are the same everywhere, but when its address has aliases, which [signer sets](#signer-sets) control it can differ from one network to another.
+
+## Signer sets
+
+A Sui address can have aliases: other addresses allowed to sign for it, set per network. Each alias of a pod’s address is another signer set, with its own signers and threshold, and Sui accepts it in place of the pod’s own signers. Nearly every pod has one signer set, the signers it was created with, and none of what follows shows.
+
+The **Members** page shows the signer sets of the network you have selected, which the **Setup** card names in its **Network** row. When the pod’s address has aliases on that network:
+
+- The **Signers** card shows the set you sign in, the pod’s own set when you are one of its signers. Every other set that controls the pod there and that Pods knows is folded under it with its own threshold, and a notice says how many sets there are. A set that is itself one of your pods shows that pod’s name and an **Open pod** link.
+- When the signers the address was made from no longer control it on that network, they are folded under the same card as **Original signers**.
+- Aliases Pods cannot identify are listed under **Other signer sets**, as “Added outside Pods” with no details, or as “Created in Pods” for one of your own pods.
+
+When the signer sets differ on another network, a notice names that network.
+
+![The Members page of a pod with two signers and the Other signer sets card open, listing one address added outside Pods with no details](/screenshots/other-signer-sets.png)
+
+Each entry under **Other signer sets** can approve transactions from the pod’s address on that network on its own, without the pod’s signers, so any one of them can move the pod’s funds there. Check any you do not recognize before you move funds to the pod on that network. The app reads the aliases from a Sui full node itself, not only from the API, see [What the app checks](/security/trust-model#what-the-app-checks).
+
+A proposal is counted against each signer set that controls the pod on its network. A signature counts in every set that holds the signer’s key, and the proposal is ready once any one set reaches its own threshold. See [Execution](/guide/proposals#execution).
 
 ## Next
 

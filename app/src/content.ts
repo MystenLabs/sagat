@@ -28,6 +28,20 @@ const SIGNERS_REFUSED = {
 const IN_THIS_STATE =
 	'Proposals in this state show up here.';
 
+/** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
+const OTHER_SIGNER_SETS = {
+	title: 'This address has other signer sets',
+	body: (network: string) =>
+		`Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
+};
+
+/** The pod's original signers, on the Signers tab and an invitation through an added set. */
+const ORIGINAL_SIGNERS = {
+	title: 'Original signers',
+	madeFrom:
+		'This pod’s address was made from these signers.',
+};
+
 function signerCount(count: number) {
 	return count === 1 ? '1 signer' : `${count} signers`;
 }
@@ -117,6 +131,10 @@ export const content = {
 			threshold: number,
 			totalWeight: number,
 		) => `${threshold} of ${totalWeight}`,
+		/** "Threshold 4 of 7". */
+		threshold: (label: string) => `Threshold ${label}`,
+		/** "1 signer", "3 signers". */
+		signerCount,
 		/** Conjunctions, such as the word `joinList` puts before the last item. */
 		and: 'and',
 		or: 'or',
@@ -130,12 +148,14 @@ export const content = {
 			body: (network: string) =>
 				`Pods couldn’t confirm who controls this pod on ${network}. Check your connection and try again.`,
 		},
-		/** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
-		otherSignerSets: {
-			title: 'This address has other signer sets',
-			body: (network: string) =>
-				`Each one can approve transactions from this address on ${network} on its own, without this pod’s signers.`,
-		},
+		otherSignerSets: OTHER_SIGNER_SETS,
+		originalSigners: ORIGINAL_SIGNERS,
+		/** The folded row that holds the other signer sets: under Members' Signers table and the Approvals card's signers. */
+		moreSignerSets: (count: number) =>
+			`${count} more signer ${count === 1 ? 'set' : 'sets'}`,
+		/** When more than one signer set acts on the network: above Members' cards and in the Approvals card. */
+		severalSignerSets: (count: number, network: string) =>
+			`This pod has ${count} signer sets on ${network}. Each one can approve transactions on its own.`,
 		/** When a transaction's bytes name a chain other than the node's: under the bytes field, and why Sign is refused. */
 		wrongChain:
 			'The transaction was built for another network.',
@@ -885,6 +905,8 @@ export const content = {
 			}`,
 		created: (invited: string, count: number) =>
 			`Pod created. ${count === 1 ? 'Invitation' : 'Invitations'} sent to ${invited}.`,
+		noLongerSigner: (network: string) =>
+			`You’re no longer a signer of this pod on ${network}.`,
 
 		value: {
 			total: 'Total value',
@@ -1055,8 +1077,6 @@ export const content = {
 		},
 		approvals: {
 			heading: 'Approvals',
-			/** "Threshold 4 of 7". */
-			threshold: (label: string) => `Threshold ${label}`,
 			notNeeded: 'Not needed',
 			executeAfterSigning: 'Execute after signing',
 			signAnyway: 'Sign anyway',
@@ -1068,8 +1088,8 @@ export const content = {
 				needs: (missing: number) =>
 					`Needs ${missing} more weight.`,
 				ready: 'Threshold reached. Ready to execute.',
-				/** Ready, but the simulation fails. */
-				readyFailing: 'Threshold reached.',
+				/** Ready, but the simulation fails; and a signer set's line once it reached its threshold. */
+				reached: 'Threshold reached.',
 				executed: 'Threshold reached. Executed.',
 				failed: 'Threshold reached. Execution failed.',
 			},
@@ -1189,6 +1209,30 @@ export const content = {
 		columns: {
 			invitation: 'Invitation',
 		},
+		openPod: 'Open pod',
+		/** The pod's original signers when they don't act on the selected network. */
+		original: {
+			body: (network: string) =>
+				`${ORIGINAL_SIGNERS.madeFrom} They don’t control it on ${network}.`,
+		},
+		/** Aliases no acting signer set makes up. */
+		otherSignerSets: {
+			title: 'Other signer sets',
+			body: (network: string) =>
+				`${OTHER_SIGNER_SETS.title}. ${OTHER_SIGNER_SETS.body(network)}`,
+			columns: {
+				signerSet: 'Signer set',
+			},
+			addedOutside: 'Added outside Pods',
+			createdInPods: 'Created in Pods',
+			noDetails: 'No details',
+			/** Under a pod's refusal when no signer set the app shows controls the address on the network. */
+			noActingSet: (network: string) =>
+				`On ${network}, this address is controlled by other signer sets.`,
+		},
+		/** When the pod's alias set differs on other networks the API serves; `networks` is already a list. */
+		differentOn: (networks: string) =>
+			`This pod’s signers are different on ${networks}.`,
 		markers: MARKERS,
 		status: {
 			accepted: 'Accepted',
@@ -1405,6 +1449,12 @@ export const content = {
 		},
 		gasOwnerIsYou:
 			'Your wallet pays the gas for this transaction, so signing it also lets the transaction spend your gas coins. Don’t sign it.',
+		/** Above the preview of a pod's transaction that calls `0x2::address_alias`. */
+		aliasCalls: {
+			/** With a second sentence when the transaction calls `replace_all`. */
+			warning: (network: string, replaceAll: boolean) =>
+				`This transaction changes who controls this pod on ${network}. Pods can’t show who is added. Check every address in it before you sign.${replaceAll ? ' It calls replace_all, which replaces every signer set of this pod at once.' : ''}`,
+		},
 		balances: {
 			change: 'Change',
 			emptyFailed:
@@ -1515,6 +1565,9 @@ export const content = {
 			`Failed to cancel proposal: ${message}`,
 		proposalExecuted: 'Proposal executed',
 		proposalExecuteFailed: 'Couldn’t execute the proposal',
+		/** Under `proposalExecuteFailed` when the signer set used no longer controls the pod on the network. */
+		proposalSignersChanged: (network: string) =>
+			`This pod’s signers changed on ${network}. Pods has refreshed them.`,
 		/** The link on a failed execution toast. */
 		seeDetails: 'See details',
 		proposalSignFailed: 'Couldn’t sign the proposal',

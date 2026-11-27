@@ -1,10 +1,11 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type Proposal } from '@mysten/sagat';
-
 import { content } from '@/content';
-import { weightDots } from '@/lib/proposalUtils';
+import {
+	weightDots,
+	type CountedSignerSet,
+} from '@/lib/proposalUtils';
 import { cn } from '@/lib/utils';
 
 import {
@@ -15,21 +16,24 @@ import {
 } from '../ui/tooltip';
 
 /**
- * A proposal's signature weight against its threshold as a row of dots,
- * one per unit of weight, filled as signatures come in. The exact numbers
- * ("2 of 4") sit in a tooltip.
+ * A proposal's signature weight in a signer set against the set's
+ * threshold as a row of dots, one per unit of weight, filled as
+ * signatures come in. The exact numbers ("2 of 4") sit in a tooltip.
  */
 export function ProposalWeight({
-	proposal,
+	signerSet,
 	className,
 }: {
-	proposal: Pick<Proposal, 'currentWeight' | 'totalWeight'>;
+	signerSet: Pick<
+		CountedSignerSet,
+		'currentWeight' | 'threshold'
+	>;
 	className?: string;
 }) {
-	const { dots, filled } = weightDots(proposal);
+	const { dots, filled } = weightDots(signerSet);
 	const label = content.proposals.weight.label(
-		proposal.currentWeight,
-		proposal.totalWeight,
+		signerSet.currentWeight,
+		signerSet.threshold,
 	);
 	return (
 		<TooltipProvider delay={150}>
@@ -45,8 +49,8 @@ export function ProposalWeight({
 						className,
 					)}
 					data-testid="proposal-weight"
-					data-current-weight={proposal.currentWeight}
-					data-total-weight={proposal.totalWeight}
+					data-current-weight={signerSet.currentWeight}
+					data-total-weight={signerSet.threshold}
 				>
 					{Array.from({ length: dots }, (_, i) => (
 						<span

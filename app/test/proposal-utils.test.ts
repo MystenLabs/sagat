@@ -1,12 +1,13 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { formatDigest } from '@mysten/sui/utils';
+import { Transaction } from '@mysten/sui/transactions';
+import { formatDigest, toBase64 } from '@mysten/sui/utils';
 import { describe, expect, it } from 'vitest';
 
 import {
+	countSignerSets,
 	isExternalProposer,
 	isProposalExpired,
 	listsAtCutoff,
@@ -15,10 +16,15 @@ import {
 	proposalExplorerUrl,
 	proposalStatusKey,
 	proposalTitle,
+	rowExecuteSet,
 	shortDigest,
+	shownSignerSet,
 	signatureAddedMessage,
+	toProposalCardInput,
 	weightDots,
 } from '../src/lib/proposalUtils';
+import { v1Proposal } from './proposal';
+import { listedSet, signerSet } from './signer-set';
 import { transfer } from './transactions';
 
 const DIGEST =
@@ -28,23 +34,26 @@ describe('proposalStatusKey', () => {
 	it('reports terminal statuses as they are', () => {
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.SUCCESS,
-				currentWeight: 0,
-				totalWeight: 2,
+				status: 'SUCCESS',
+				checkedSignerSets: [
+					{ currentWeight: 0, threshold: 2 },
+				],
 			}),
 		).toBe('executed');
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.CANCELLED,
-				currentWeight: 2,
-				totalWeight: 2,
+				status: 'CANCELLED',
+				checkedSignerSets: [
+					{ currentWeight: 2, threshold: 2 },
+				],
 			}),
 		).toBe('cancelled');
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.FAILURE,
-				currentWeight: 2,
-				totalWeight: 2,
+				status: 'FAILURE',
+				checkedSignerSets: [
+					{ currentWeight: 2, threshold: 2 },
+				],
 			}),
 		).toBe('failed');
 	});
@@ -52,16 +61,18 @@ describe('proposalStatusKey', () => {
 	it('splits pending proposals by whether they reach the threshold', () => {
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.PENDING,
-				currentWeight: 1,
-				totalWeight: 2,
+				status: 'PENDING',
+				checkedSignerSets: [
+					{ currentWeight: 1, threshold: 2 },
+				],
 			}),
 		).toBe('pending');
 		expect(
 			proposalStatusKey({
-				status: ProposalStatus.PENDING,
-				currentWeight: 3,
-				totalWeight: 2,
+				status: 'PENDING',
+				checkedSignerSets: [
+					{ currentWeight: 3, threshold: 2 },
+				],
 			}),
 		).toBe('ready');
 	});
@@ -112,16 +123,16 @@ describe('proposalTitle', () => {
 describe('signatureAddedMessage', () => {
 	it('reports the weight still needed after the vote', () => {
 		expect(
-			signatureAddedMessage(
-				{ hasReachedThreshold: false, currentWeight: 2 },
-				4,
-			),
+			signatureAddedMessage({
+				currentWeight: 2,
+				threshold: 4,
+			}),
 		).toBe('Signature added. Needs 2 more weight.');
 		expect(
-			signatureAddedMessage(
-				{ hasReachedThreshold: true, currentWeight: 3 },
-				3,
-			),
+			signatureAddedMessage({
+				currentWeight: 3,
+				threshold: 3,
+			}),
 		).toBe('Signature added');
 	});
 });
@@ -129,37 +140,37 @@ describe('signatureAddedMessage', () => {
 describe('weightDots', () => {
 	it('shows one dot per unit of weight', () => {
 		expect(
-			weightDots({ currentWeight: 2, totalWeight: 4 }),
+			weightDots({ currentWeight: 2, threshold: 4 }),
 		).toEqual({ dots: 4, filled: 2 });
 		expect(
-			weightDots({ currentWeight: 0, totalWeight: 1 }),
+			weightDots({ currentWeight: 0, threshold: 1 }),
 		).toEqual({ dots: 1, filled: 0 });
 	});
 
 	it('caps the filled dots at the threshold', () => {
 		expect(
-			weightDots({ currentWeight: 5, totalWeight: 3 }),
+			weightDots({ currentWeight: 5, threshold: 3 }),
 		).toEqual({ dots: 3, filled: 3 });
 	});
 
 	it('scales large thresholds down to ten dots', () => {
 		expect(
-			weightDots({ currentWeight: 25, totalWeight: 100 }),
+			weightDots({ currentWeight: 25, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 3 });
 		expect(
-			weightDots({ currentWeight: 100, totalWeight: 100 }),
+			weightDots({ currentWeight: 100, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 10 });
 	});
 
 	it('keeps a scaled proposal short of full until it reaches the threshold', () => {
 		expect(
-			weightDots({ currentWeight: 95, totalWeight: 100 }),
+			weightDots({ currentWeight: 95, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 9 });
 		expect(
-			weightDots({ currentWeight: 1, totalWeight: 100 }),
+			weightDots({ currentWeight: 1, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 1 });
 		expect(
-			weightDots({ currentWeight: 0, totalWeight: 100 }),
+			weightDots({ currentWeight: 0, threshold: 100 }),
 		).toEqual({ dots: 10, filled: 0 });
 	});
 });
@@ -193,17 +204,33 @@ describe('isExternalProposer', () => {
 	it('tells a signer from an address outside the account', () => {
 		expect(
 			isExternalProposer({
-				multisig,
+				signerSets: [multisig],
 				proposerAddress: signer.toSuiAddress(),
 			}),
 		).toBe(false);
 		expect(
 			isExternalProposer({
-				multisig,
+				signerSets: [multisig],
 				proposerAddress:
 					new Ed25519Keypair().toSuiAddress(),
 			}),
 		).toBe(true);
+	});
+
+	it('marks no member of a listed set as external while the alias read is pending, though no set is counted yet', () => {
+		const counted = toProposalCardInput(
+			v1Proposal({
+				digest: DIGEST,
+				proposerAddress: signer.toSuiAddress(),
+				signerSets: [
+					listedSet({ ...multisig, address: '0x2' }),
+				],
+			}),
+			undefined,
+			null,
+		);
+		expect(counted.checkedSignerSets).toEqual([]);
+		expect(isExternalProposer(counted)).toBe(false);
 	});
 });
 
@@ -216,11 +243,10 @@ describe('pendingFilter', () => {
 	};
 	const multisig = {
 		threshold: 1,
-		members: [{ publicKey: 'signer', weight: 1 }],
+		members: [{ publicKey: 'signer', weight: 1, order: 0 }],
 	};
 	const signatures = [
 		{
-			proposalId: 1,
 			publicKey: 'signer',
 			signature: 'sig',
 		},
@@ -230,13 +256,17 @@ describe('pendingFilter', () => {
 		const proposal = (lastEpoch: number) =>
 			transfer({ Epoch: lastEpoch }).then(
 				(transactionBytes) => ({
-					status: ProposalStatus.PENDING,
+					status: 'PENDING' as const,
 					transactionBytes,
 					signatures,
+					checkedSignerSets: countSignerSets(
+						{ signatures, accountAddress: '0x1' },
+						[{ set: multisig, address: '0x1' }],
+						null,
+					),
 				}),
 			);
 		const context = {
-			multisig,
 			publicKey: undefined,
 			epochInfo,
 		};
@@ -250,7 +280,7 @@ describe('pendingFilter', () => {
 			isProposalExpired(
 				{
 					...(await proposal(9)),
-					status: ProposalStatus.SUCCESS,
+					status: 'SUCCESS',
 				},
 				epochInfo,
 			),
@@ -258,9 +288,167 @@ describe('pendingFilter', () => {
 	});
 });
 
-// Rows with just these ids, for the merge helpers.
+describe('countSignerSets', () => {
+	const key = (
+		weight: number,
+		order: number,
+		keypair = new Ed25519Keypair(),
+	) => ({
+		publicKey: keypair.getPublicKey().toSuiPublicKey(),
+		weight,
+		order,
+	});
+
+	it('counts a key in every set that holds it, once however often it is listed, ready once any one set reaches its threshold', () => {
+		const shared = key(1, 0);
+		const solo = { threshold: 1, members: [shared] };
+		const pair = {
+			threshold: 2,
+			members: [shared, key(1, 1)],
+		};
+		const signature = {
+			publicKey: shared.publicKey,
+			signature: 'sig',
+		};
+
+		const counted = countSignerSets(
+			{
+				signatures: [signature, signature],
+				accountAddress: '0x1',
+			},
+			[
+				{ set: pair, address: '0x2' },
+				{ set: solo, address: '0x1' },
+			],
+			null,
+		);
+		expect(
+			counted.map((set) => [
+				set.address,
+				set.currentWeight,
+			]),
+		).toEqual([
+			['0x2', 1],
+			['0x1', 1],
+		]);
+		expect(
+			proposalStatusKey({
+				status: 'PENDING',
+				checkedSignerSets: counted,
+			}),
+		).toBe('ready');
+		expect(shownSignerSet(counted)?.address).toBe('0x1');
+	});
+
+	it('puts the pod’s own set holding the viewer’s key first wherever it comes, then the others holding it, then the rest', () => {
+		const viewer = new Ed25519Keypair();
+		const set = (address: string, holds: boolean) => ({
+			address,
+			set: {
+				threshold: 1,
+				members: [key(1, 0, holds ? viewer : undefined)],
+			},
+		});
+		const order = (signerAddress: string | null) =>
+			countSignerSets(
+				{ signatures: [], accountAddress: '0x1' },
+				[
+					set('0x2', false),
+					set('0x3', true),
+					set('0x1', true),
+				],
+				signerAddress,
+			).map((counted) => counted.address);
+
+		expect(order(viewer.toSuiAddress())).toEqual([
+			'0x1',
+			'0x3',
+			'0x2',
+		]);
+		expect(order(null)).toEqual(['0x2', '0x3', '0x1']);
+	});
+
+	it('counts no signer set that is not an alias of the pod', () => {
+		const proposer = new Ed25519Keypair();
+		const current = listedSet(
+			signerSet([new Ed25519Keypair()]),
+		);
+		const stranger = listedSet(signerSet([proposer]));
+		const proposal = v1Proposal({
+			digest: DIGEST,
+			ready: true,
+			proposerAddress: proposer.toSuiAddress(),
+			signatures: [
+				{
+					publicKey: stranger.members[0].publicKey,
+					signature: 'sig',
+				},
+			],
+			signerSets: [current, stranger],
+		});
+
+		const counted = toProposalCardInput(
+			proposal,
+			{ kind: 'read', aliases: [current.address] },
+			proposer.toSuiAddress(),
+		);
+		expect(
+			counted.checkedSignerSets.map((set) => set.address),
+		).toEqual([current.address]);
+		expect(proposalStatusKey(counted)).toBe('pending');
+	});
+});
+
+// Rows named by these ids, created in their order, for the merge helpers.
 const ids = (...list: number[]) =>
-	list.map((id) => ({ id }));
+	list.map((id) => ({
+		id,
+		createdAt: new Date(id * 1000).toISOString(),
+	}));
+
+describe('rowExecuteSet', () => {
+	it('is the ready set, and none for a proposal that calls the alias module', async () => {
+		const member = {
+			publicKey: new Ed25519Keypair()
+				.getPublicKey()
+				.toSuiPublicKey(),
+			weight: 1,
+			order: 0,
+		};
+		const checkedSignerSets = countSignerSets(
+			{
+				signatures: [
+					{ publicKey: member.publicKey, signature: 'sig' },
+				],
+				accountAddress: '0x1',
+			},
+			[
+				{
+					set: { threshold: 1, members: [member] },
+					address: '0x1',
+				},
+			],
+			null,
+		);
+		const aliasCall = Transaction.from(await transfer());
+		aliasCall.moveCall({
+			target: '0x2::address_alias::enable',
+		});
+
+		expect(
+			rowExecuteSet({
+				checkedSignerSets,
+				transactionBytes: await transfer(),
+			}),
+		).toBe(checkedSignerSets[0]);
+		expect(
+			rowExecuteSet({
+				checkedSignerSets,
+				transactionBytes: toBase64(await aliasCall.build()),
+			}),
+		).toBeNull();
+	});
+});
 
 describe('mergeNewestFirst', () => {
 	it('holds back rows a list with more to load could still go above', () => {

@@ -10,6 +10,7 @@ import {
 	type Actor,
 } from '../support/actor';
 import { type Chain } from '../support/chain';
+import { E2E } from '../support/env';
 import { expect, test } from '../support/fixtures';
 import { type Identity } from '../support/identity';
 import { setupMultisig } from '../support/scenarios';
@@ -96,9 +97,19 @@ function packageIdTrigger(page: Page) {
 }
 
 // Has the app call localnet testnet, so its explorer links show: Suiscan
-// doesn't index localnet.
+// doesn't index localnet. The e2e API serves localnet alone, so its
+// `/v1` reads for testnet are answered for localnet.
 async function callLocalnetTestnet(page: Page) {
 	await serveFullnodeLocally(page, 'testnet');
+	await page.route(`${E2E.apiUrl}/v1/**`, async (route) => {
+		const url = new URL(route.request().url());
+		if (url.searchParams.get('network') !== 'testnet')
+			return route.fallback();
+		url.searchParams.set('network', 'localnet');
+		await route.fulfill({
+			response: await route.fetch({ url: url.toString() }),
+		});
+	});
 	await page.evaluate(() =>
 		localStorage.setItem('SuiNetwork', 'testnet'),
 	);

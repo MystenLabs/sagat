@@ -18,6 +18,7 @@ import { expect, test } from '../support/fixtures';
 import {
 	amountError,
 	balanceChange,
+	bytesOnReview,
 	bytesToReview,
 	chooseAsset,
 	chooseType,
@@ -27,7 +28,6 @@ import {
 	expectOnProposals,
 	expectSimulation,
 	fillTransfer,
-	isCreateRequest,
 	openNewProposal,
 	pasteBytes,
 	proposeAndSign,
@@ -37,6 +37,15 @@ import {
 	sharedAccount,
 	toast,
 } from '../support/new-proposal';
+import {
+	isCreateRequest,
+	isProposalsUrl,
+} from '../support/requests';
+import {
+	aliasCallBytes,
+	bothSign,
+	enableAliases,
+} from '../support/scenarios';
 import {
 	giveManyCoinTypes,
 	mintCoin,
@@ -1126,10 +1135,75 @@ test.describe('new proposal: transaction bytes', () => {
 		).toHaveAttribute('data-state', 'ok');
 		await reviewBytes(page);
 		await expectSimulation(page, 'success');
+		await expect(
+			page.getByTestId('alias-calls-warning'),
+		).toHaveCount(0);
 		await proposeAndSign(page);
 		expect(
 			creates.map((r) => r.postDataJSON().transactionBytes),
 		).toEqual([bytes]);
+	});
+
+	test('bytes that call the alias module are warned about on Review and on the proposal, naming replace_all only when it’s called', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const fixtures = { createActor, createIdentity, chain };
+		const { alice, bob, multisig } = await sharedAccount(
+			fixtures,
+			2,
+		);
+		const { page } = alice;
+		await enableAliases(chain, bothSign(alice, bob));
+		const warning = page.getByTestId('alias-calls-warning');
+
+		await openNewProposal(page, multisig.address, {
+			type: 'bytes',
+		});
+		await bytesOnReview(
+			page,
+			await aliasCallBytes(
+				chain,
+				multisig.address,
+				'replace_all',
+			),
+			'Replace the signer sets',
+		);
+		await expect(warning).toHaveAttribute(
+			'data-replace-all',
+			'true',
+		);
+		await expect(warning).toContainText(
+			content.transactionPreview.aliasCalls.warning(
+				'Localnet',
+				true,
+			),
+		);
+		await proposeAndSign(page);
+		await expect(warning).toHaveAttribute(
+			'data-replace-all',
+			'true',
+		);
+
+		await openNewProposal(page, multisig.address, {
+			type: 'bytes',
+		});
+		await bytesOnReview(
+			page,
+			await aliasCallBytes(chain, multisig.address, 'add'),
+			'Add a signer set',
+		);
+		await expect(warning).toHaveAttribute(
+			'data-replace-all',
+			'false',
+		);
+		await expect(warning).toHaveText(
+			content.transactionPreview.aliasCalls.warning(
+				'Localnet',
+				false,
+			),
+		);
 	});
 });
 
@@ -1145,11 +1219,9 @@ test.describe('new proposal: review', () => {
 			2,
 		);
 		const { page } = alice;
-		const createProposal = (url: URL) =>
-			url.pathname.endsWith('/proposals');
 		// The API's error shape: `{ error }` with the status.
 		const refuseCreate = (status: number, error: string) =>
-			page.route(createProposal, (route) =>
+			page.route(isProposalsUrl, (route) =>
 				isCreateRequest(route.request())
 					? route.fulfill({
 							status,
@@ -1185,7 +1257,7 @@ test.describe('new proposal: review', () => {
 		await expect(submit).toHaveText('Try again');
 
 		// Anything else shows the general notice.
-		await page.unroute(createProposal);
+		await page.unroute(isProposalsUrl);
 		await refuseCreate(500, 'Internal server error');
 		await submit.click();
 		await expect(createError).toHaveText(
@@ -1193,7 +1265,7 @@ test.describe('new proposal: review', () => {
 		);
 		await expect(submit).toHaveText('Try again');
 
-		await page.unroute(createProposal);
+		await page.unroute(isProposalsUrl);
 		await proposeAndSign(page);
 		await expect(
 			page.getByTestId('proposal-page'),
@@ -1332,13 +1404,10 @@ test.describe('new proposal: review', () => {
 		const held = new Promise<void>((resolve) => {
 			release = resolve;
 		});
-		await page.route(
-			(url) => url.pathname.endsWith('/proposals'),
-			async (route) => {
-				if (isCreateRequest(route.request())) await held;
-				await route.fallback();
-			},
-		);
+		await page.route(isProposalsUrl, async (route) => {
+			if (isCreateRequest(route.request())) await held;
+			await route.fallback();
+		});
 
 		const submit = page.getByTestId('review-submit');
 		await submit.click();
@@ -1387,13 +1456,10 @@ test.describe('new proposal: review', () => {
 		const held = new Promise<void>((resolve) => {
 			release = resolve;
 		});
-		await page.route(
-			(url) => url.pathname.endsWith('/proposals'),
-			async (route) => {
-				if (isCreateRequest(route.request())) await held;
-				await route.fallback();
-			},
-		);
+		await page.route(isProposalsUrl, async (route) => {
+			if (isCreateRequest(route.request())) await held;
+			await route.fallback();
+		});
 		await page.evaluate(() =>
 			window.__e2eWallet!.holdSigning(),
 		);

@@ -1,10 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
+import { type ProposalStatusName } from '@mysten/sagat/v1';
+import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { useInfiniteQuery } from '@tanstack/react-query';
 
-import { apiClient } from '@/lib/api';
+import { apiV1Client } from '@/lib/api';
+import { type SuiNetwork } from '@/lib/network';
 import { QueryKeys } from '@/lib/queryKeys';
 
 /**
@@ -15,8 +17,8 @@ export const PROPOSALS_PAGE_SIZE = 10;
 
 interface UsePaginatedProposalsParams {
 	multisigAddress: string;
-	network: string;
-	status?: ProposalStatus;
+	network: SuiNetwork;
+	status?: ProposalStatusName;
 	perPage?: number;
 	enabled?: boolean;
 }
@@ -30,11 +32,19 @@ export function proposalsQueryKey({
 }: Omit<UsePaginatedProposalsParams, 'enabled'>) {
 	return [
 		QueryKeys.Proposals,
-		status !== undefined ? ProposalStatus[status] : 'all',
+		status ?? 'all',
 		multisigAddress,
 		network,
 		perPage,
 	];
+}
+
+export function proposalsListShows(
+	queryKey: readonly unknown[],
+	status: ProposalStatusName,
+) {
+	const listed = queryKey[1];
+	return listed === 'all' || listed === status;
 }
 
 export function usePaginatedProposals({
@@ -52,15 +62,18 @@ export function usePaginatedProposals({
 			perPage,
 		}),
 		queryFn: ({ pageParam }) =>
-			apiClient.getProposals(multisigAddress, network, {
+			apiV1Client.getProposals({
+				accountAddress:
+					normalizeSuiAddress(multisigAddress),
+				network,
 				status,
 				nextCursor: pageParam,
 				perPage,
 			}),
-		initialPageParam: undefined as number | undefined,
+		initialPageParam: undefined as string | undefined,
 		getNextPageParam: (lastPage) =>
 			lastPage.hasNextPage && lastPage.nextCursor
-				? Number(lastPage.nextCursor)
+				? lastPage.nextCursor
 				: undefined,
 		enabled: enabled && !!multisigAddress && !!network,
 		refetchInterval: 30000, // Refetch first page every 30 seconds

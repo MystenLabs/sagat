@@ -1,7 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { type PublicProposal } from '@mysten/sagat';
+import { type Proposal } from '@mysten/sagat/v1';
 import type { SuiClientTypes } from '@mysten/sui/client';
 import { ExternalLink } from 'lucide-react';
 
@@ -42,7 +42,7 @@ export function OnChainCard({
 	result,
 	error,
 }: {
-	proposal: PublicProposal;
+	proposal: Pick<Proposal, 'digest' | 'network'>;
 	status: 'executed' | 'failed';
 	result: OnChainTransaction | null;
 	error: string | null;

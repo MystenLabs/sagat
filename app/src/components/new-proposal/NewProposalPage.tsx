@@ -37,7 +37,7 @@ import {
 	type ReadyProposal,
 	type TransferDraft,
 } from '@/lib/new-proposal';
-import { checkAccountSigners } from '@/lib/proposal-integrity';
+import { checkPodSigners } from '@/lib/proposal-integrity';
 import {
 	proposalPagePath,
 	proposalsPath,
@@ -50,6 +50,7 @@ import {
 } from '@/lib/signers-refused';
 import { toast } from '@/lib/toast';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
+import { withListedChecks } from '@/lib/user-multisig';
 import { SignatureDeclinedError } from '@/lib/wallet-session';
 
 import { BytesDetailsStep } from './BytesDetailsStep';
@@ -121,17 +122,11 @@ function NewProposalWizard({
 	const { dryRun, analysis, preview, reset } =
 		useTransactionPreview();
 
-	// The account query keeps the weights fresh; the list's copy stands
-	// in until it answers, or when it fails.
+	// Fresher answers from the account query; rule 2 stays the list's.
 	const { data: details } = useGetMultisig(listed.address);
-	const multisig: MultisigWithMembersForPublicKey = details
-		? { ...listed, ...details }
-		: listed;
+	const multisig = withListedChecks(listed, details);
 	const signers = wallet
-		? checkAccountSigners(multisig, {
-				account: multisig.address,
-				signerAddress: wallet.address,
-			})
+		? checkPodSigners(multisig, wallet.address)
 		: null;
 	// Rule 1 on the fresher copy; rule 2 from the list's row.
 	const refused =

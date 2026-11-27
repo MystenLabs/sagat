@@ -5,9 +5,13 @@
 // to get to the step under test quickly; drive that step through the UI.
 import {
 	defaultExpiry,
+	deriveAliasesObjectId,
 	PersonalMessages,
-	type Proposal,
 } from '@mysten/sagat';
+import {
+	type Network,
+	type Proposal,
+} from '@mysten/sagat/v1';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import { MIST_PER_SUI, toBase64 } from '@mysten/sui/utils';
@@ -79,6 +83,24 @@ export async function acceptInvitation(
 	});
 }
 
+// Accepts through `/v1`, as a key of any acting signer set can.
+export async function acceptAccountInvite(
+	member: Identity,
+	accountAddress: string,
+) {
+	const expiry = defaultExpiry();
+	return member.apiV1.acceptAccountInvite(accountAddress, {
+		network: 'localnet',
+		signature: await member.signMessage(
+			PersonalMessages.acceptAccountInvitation(
+				accountAddress,
+				expiry,
+			),
+		),
+		expiry,
+	});
+}
+
 export async function rejectInvitation(
 	member: Identity,
 	multisigAddress: string,
@@ -125,9 +147,7 @@ export async function proposeTransfer(
 		description?: string;
 		gasCoin?: GasCoin;
 		expiration?: Expiration;
-		network?: Parameters<
-			Identity['api']['createProposal']
-		>[0]['network'];
+		network?: Network;
 	},
 ) {
 	const transactionBytes = await chain.buildSuiTransfer({
@@ -137,8 +157,8 @@ export async function proposeTransfer(
 		gasCoin,
 		expiration,
 	});
-	return proposer.api.createProposal({
-		multisigAddress,
+	return proposer.apiV1.createProposal({
+		accountAddress: multisigAddress,
 		transactionBytes,
 		signature: await proposer.signTransaction(
 			transactionBytes,
@@ -152,7 +172,7 @@ export async function signProposal(
 	member: Identity,
 	proposal: Proposal,
 ) {
-	return member.api.voteForProposal(proposal.id, {
+	return member.apiV1.voteForProposal(proposal.digest, {
 		signature: await member.signTransaction(
 			proposal.transactionBytes,
 		),
@@ -163,11 +183,11 @@ export async function cancelProposal(
 	member: Identity,
 	proposal: Proposal,
 ) {
-	return member.api.cancelProposal(proposal.id, {
+	return member.apiV1.cancelProposal(proposal.digest, {
 		signature: await member.signMessage(
 			PersonalMessages.cancelProposal(
 				proposal.digest,
-				proposal.multisigAddress,
+				proposal.accountAddress,
 			),
 		),
 	});
@@ -269,6 +289,15 @@ async function runFromMultisig(
 	});
 }
 
+// The signing for an alias change of a 2-of-2 pod of `a` and `b`, both signing.
+export function bothSign(a: Identity, b: Identity) {
+	return {
+		members: [{ identity: a }, { identity: b }],
+		threshold: 2,
+		signers: [a, b],
+	};
+}
+
 // Adds `alias` to the multisig's alias set on chain, enabling it if needed.
 export async function addAlias(
 	chain: Chain,
@@ -281,9 +310,49 @@ export async function addAlias(
 	);
 	// `enable` creates the set, which the same transaction cannot then use.
 	if (!(await fetchAliasSet(chain.client, account)).exists)
-		await runFromMultisig(chain, signing, buildEnable);
+		await enableAliases(chain, signing);
 	await runFromMultisig(chain, signing, (tx) =>
 		buildAdd(tx, { account, alias }),
+	);
+}
+
+// Creates the multisig's alias set on chain, holding its own address.
+export async function enableAliases(
+	chain: Chain,
+	signing: MultisigSigning,
+) {
+	await runFromMultisig(chain, signing, buildEnable);
+}
+
+// Bytes from `account` that add `alias` to its alias set, or replace the set with both.
+export async function aliasCallBytes(
+	chain: Chain,
+	account: string,
+	call: 'add' | 'replace_all',
+	alias = randomAddress(),
+) {
+	const tx = new Transaction();
+	tx.setSender(account);
+	if (call === 'add') buildAdd(tx, { account, alias });
+	else
+		tx.moveCall({
+			target: '0x2::address_alias::replace_all',
+			arguments: [
+				tx.object(deriveAliasesObjectId(account)),
+				tx.pure.vector('address', [account, alias]),
+			],
+		});
+	return toBase64(await tx.build({ client: chain.client }));
+}
+
+// Removes `alias` from the multisig's alias set on chain.
+export async function removeAlias(
+	chain: Chain,
+	signing: MultisigSigning,
+	alias: string,
+) {
+	await runFromMultisig(chain, signing, (tx, account) =>
+		buildRemove(tx, { account, alias }),
 	);
 }
 
@@ -294,9 +363,48 @@ export async function replaceOwnAlias(
 	alias: string,
 ) {
 	await addAlias(chain, signing, alias);
-	await runFromMultisig(chain, signing, (tx, account) =>
-		buildRemove(tx, { account, alias: account }),
+	await removeAlias(
+		chain,
+		signing,
+		multisigAddressOf(signing.members, signing.threshold),
 	);
+}
+
+// Adds a 2-of-2 pod of `creator` and `member` to the alias set of the
+// pod `signing` signs for (in place of its own address with `replace`),
+// and has each of `accepting` accept that pod through it.
+export async function addPodAsAlias(
+	chain: Chain,
+	signing: MultisigSigning,
+	{
+		creator,
+		member,
+		accepting,
+		replace = false,
+	}: {
+		creator: Identity;
+		member: Identity;
+		accepting: Identity[];
+		replace?: boolean;
+	},
+) {
+	const added = await setupMultisig({
+		creator,
+		members: [member],
+		threshold: 2,
+	});
+	await (replace ? replaceOwnAlias : addAlias)(
+		chain,
+		signing,
+		added.address,
+	);
+	const pod = multisigAddressOf(
+		signing.members,
+		signing.threshold,
+	);
+	for (const identity of accepting)
+		await acceptAccountInvite(identity, pod);
+	return added;
 }
 
 // Proposes a SUI transfer of more than the account holds, signed by
@@ -327,8 +435,8 @@ export async function proposeFailedTransfer(
 			gasCoin,
 		});
 	const [proposer, ...others] = signers;
-	const proposal = await proposer.api.createProposal({
-		multisigAddress,
+	const proposal = await proposer.apiV1.createProposal({
+		accountAddress: multisigAddress,
 		transactionBytes,
 		signature: await proposer.signTransaction(
 			transactionBytes,
@@ -348,7 +456,7 @@ export async function proposeFailedTransfer(
 	await chain.client.waitForTransaction({
 		digest: proposal.digest,
 	});
-	await proposer.api.verifyProposalByDigest(
+	await proposer.apiV1.verifyProposalByDigest(
 		proposal.digest,
 	);
 	return proposal;

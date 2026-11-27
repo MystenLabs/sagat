@@ -1,10 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	SagatApiError,
-	type PublicProposal,
-} from '@mysten/sagat';
+import { SagatApiError } from '@mysten/sagat';
 import { useMemo } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 
@@ -13,12 +10,14 @@ import { PageHeader } from '@/components/ui/page-header';
 import { content } from '@/content';
 import { useGetProposal } from '@/hooks/useGetProposal';
 import { useUserMultisigs } from '@/hooks/useUserMultisigs';
+import { type AppProposal } from '@/lib/proposal-integrity';
 import {
 	proposalPagePath,
 	proposalsPath,
 	sharedProposalPath,
 } from '@/lib/proposalUtils';
-import { memberLabels } from '@/lib/signers';
+import { podLabels } from '@/lib/signers';
+import { sameAddress } from '@/lib/sui-utils';
 import { type MultisigWithMembersForPublicKey } from '@/lib/types';
 
 import { ProposalPageSkeleton } from './ProposalPageSkeleton';
@@ -70,10 +69,12 @@ export function ProposalPage() {
 			/>
 		);
 
-	if (proposal.multisigAddress !== multisig.address) {
+	if (
+		!sameAddress(proposal.accountAddress, multisig.address)
+	) {
 		const own = multisigs?.find(
 			(m) =>
-				m.address === proposal.multisigAddress &&
+				sameAddress(m.address, proposal.accountAddress) &&
 				m.isAccepted,
 		);
 		return own ? (
@@ -103,14 +104,14 @@ function AccountProposal({
 	openedDigest,
 }: {
 	multisig: MultisigWithMembersForPublicKey;
-	proposal: PublicProposal;
+	proposal: AppProposal;
 	/** The digest the viewer opened, from the page's URL. */
 	openedDigest: string;
 }) {
 	// Signers go by their keys' labels, which only the account has.
 	const labels = useMemo(
-		() => memberLabels(multisig.members),
-		[multisig.members],
+		() => podLabels(multisig),
+		[multisig],
 	);
 	// Keyed, so per-proposal state (the execute settling flag, the
 	// checkbox, dialogs) doesn't carry over to another proposal.
@@ -118,6 +119,7 @@ function AccountProposal({
 		<ProposalView
 			key={proposal.digest}
 			proposal={proposal}
+			pod={multisig}
 			openedDigest={openedDigest}
 			labels={labels}
 			proposalsPath={proposalsPath(multisig.address)}

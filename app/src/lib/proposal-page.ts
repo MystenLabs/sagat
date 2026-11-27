@@ -4,7 +4,6 @@
 // What the proposal page shows, kept free of React: where the proposal
 // stands, the Approvals card's rows and lines, the cancel dialog's
 // wording and the Activity card's rows.
-import type { PublicProposal } from '@mysten/sagat';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
@@ -13,27 +12,39 @@ import { type EpochInfo } from './expiration';
 import {
 	isExternalProposer,
 	isProposalExpired,
+	missingWeight,
 	proposalStatusKey,
+	reachesThreshold,
+	shownSignerSet,
+	type CountedProposal,
+	type CountedSignerSet,
 	type ProposalStatusKey,
 } from './proposalUtils';
-import { validatePublicKey } from './sui-utils';
-import { sumWeight, thresholdLabel } from './threshold';
+import { podAt, type ListedPod } from './signer-sets';
+import {
+	sameAddress,
+	validatePublicKey,
+} from './sui-utils';
+import { approvalsThresholdLabel } from './threshold';
 import {
 	gasCost,
 	gasLabel,
 	type SimulatedTransaction,
 } from './transaction-preview';
 
+const STATUS = content.proposal.approvals.status;
+const NOTES = content.proposal.approvals.notes;
+
 type PageProposal = Pick<
-	PublicProposal,
+	CountedProposal,
 	| 'status'
 	| 'transactionBytes'
-	| 'currentWeight'
-	| 'totalWeight'
+	| 'checkedSignerSets'
 	| 'signatures'
-	| 'multisig'
 	| 'proposerAddress'
 	| 'createdAt'
+	| 'accountAddress'
+	| 'signerSets'
 >;
 
 /** Each member's address and its key's label, or null when unlabelled. */
@@ -43,10 +54,7 @@ export type Labels = Map<string, string | null>;
 export function proposalPageStatus(
 	proposal: Pick<
 		PageProposal,
-		| 'status'
-		| 'transactionBytes'
-		| 'currentWeight'
-		| 'totalWeight'
+		'status' | 'transactionBytes' | 'checkedSignerSets'
 	>,
 	epochInfo: EpochInfo | undefined,
 ): ProposalStatusKey {
@@ -63,21 +71,6 @@ export function thresholdReached(
 		status === 'ready' ||
 		status === 'executed' ||
 		status === 'failed'
-	);
-}
-
-/** "Threshold 4 of 7", the Approvals card's heading: the shared wording, labelled. */
-export function approvalsThresholdLabel(
-	multisig: Pick<
-		PageProposal['multisig'],
-		'threshold' | 'members'
-	>,
-) {
-	return content.proposal.approvals.threshold(
-		thresholdLabel({
-			threshold: multisig.threshold,
-			totalWeight: sumWeight(multisig.members),
-		}),
 	);
 }
 
@@ -103,31 +96,30 @@ export function hasSigned(
 	);
 }
 
-/** The viewer's weight in the composition; 0 when they are not a member. */
+/** The viewer's weight in the signer set; 0 when they are not a member. */
 export function yourWeight(
-	proposal: Pick<PageProposal, 'multisig'>,
+	set: Pick<CountedSignerSet, 'members'>,
 	publicKey: string | null | undefined,
 ) {
 	return (
-		proposal.multisig.members.find(
+		set.members.find(
 			(member) => member.publicKey === publicKey,
 		)?.weight ?? 0
 	);
 }
 
-/** Whether the viewer's signature, still to come, would reach the threshold. */
+/** Whether the viewer's signature, still to come, would reach the threshold of a checked set that holds them. */
 export function wouldReachThreshold(
-	proposal: Pick<
-		PageProposal,
-		'multisig' | 'currentWeight' | 'totalWeight'
-	>,
+	proposal: Pick<PageProposal, 'checkedSignerSets'>,
 	publicKey: string | null | undefined,
 ) {
-	const weight = yourWeight(proposal, publicKey);
-	return (
-		weight > 0 &&
-		proposal.currentWeight + weight >= proposal.totalWeight
-	);
+	return proposal.checkedSignerSets.some((set) => {
+		const weight = yourWeight(set, publicKey);
+		return (
+			weight > 0 &&
+			set.currentWeight + weight >= set.threshold
+		);
+	});
 }
 
 export interface ApprovalRow {
@@ -143,17 +135,18 @@ export interface ApprovalRow {
 }
 
 /**
- * One row per member in composition order. A member who didn't sign is
- * "Not needed" once the threshold is reached.
+ * One row per member of the signer set, in composition order. A member
+ * who didn't sign is "Not needed" once the threshold is reached.
  */
 export function approvalRows(
-	proposal: Pick<PageProposal, 'multisig' | 'signatures'>,
+	set: Pick<CountedSignerSet, 'members'>,
+	proposal: Pick<PageProposal, 'signatures'>,
 	status: ProposalStatusKey,
 	labels: Labels,
 	publicKey: string | null | undefined,
 ): ApprovalRow[] {
 	const reached = thresholdReached(status);
-	return [...proposal.multisig.members]
+	return [...set.members]
 		.sort((a, b) => a.order - b.order)
 		.map((member) => {
 			const address = addressOf(member.publicKey);
@@ -180,32 +173,94 @@ export function approvalRows(
 		});
 }
 
-/** The line under the Approvals heading; null once cancelled or expired. */
-export function approvalsStatus(
+/** A checked signer set's part of the Approvals card, when the proposal has several. */
+export interface ApprovalsSignerSet {
+	/** Rebuilt from the members and threshold. */
+	address: string;
+	currentWeight: number;
+	threshold: number;
+	/** The viewer's pod at the set's address, for a set other than the pod's own. */
+	podName: string | null;
+	heading: string;
+	/** "Threshold reached." while open, else how far the set is from it while pending. */
+	line: string | null;
+	rows: ApprovalRow[];
+}
+
+/** One part per checked signer set in `countSignerSets` order, the first being the main set, each counted on its own. */
+export function approvalsSignerSets(
 	proposal: Pick<
 		PageProposal,
-		'currentWeight' | 'totalWeight'
+		'checkedSignerSets' | 'signatures' | 'accountAddress'
 	>,
+	status: ProposalStatusKey,
+	labels: Labels,
+	publicKey: string | null | undefined,
+	pods: readonly ListedPod[],
+): ApprovalsSignerSet[] {
+	const open = status === 'pending' || status === 'ready';
+	return proposal.checkedSignerSets.map((set) => ({
+		address: set.address,
+		currentWeight: set.currentWeight,
+		threshold: set.threshold,
+		podName: sameAddress(
+			set.address,
+			proposal.accountAddress,
+		)
+			? null
+			: (podAt(pods, set.address)?.name ?? null),
+		heading: approvalsThresholdLabel(set),
+		// Once ready, a set short of its threshold isn't needed.
+		line: !open
+			? null
+			: reachesThreshold(set)
+				? STATUS.reached
+				: status === 'pending'
+					? STATUS.needs(missingWeight(set))
+					: null,
+		rows: approvalRows(
+			set,
+			proposal,
+			status,
+			labels,
+			publicKey,
+		),
+	}));
+}
+
+/** The folded row's line, only when a folded set reached its threshold or, while pending, misses less than the main set. */
+export function foldedSignerSetsLine(
+	[main, ...folded]: readonly ApprovalsSignerSet[],
+	status: ProposalStatusKey,
+): string | null {
+	if (!main || (status !== 'pending' && status !== 'ready'))
+		return null;
+	if (folded.some(reachesThreshold)) return STATUS.reached;
+	if (status !== 'pending' || folded.length === 0)
+		return null;
+	const closest = Math.min(...folded.map(missingWeight));
+	return closest < missingWeight(main)
+		? STATUS.needs(closest)
+		: null;
+}
+
+/** The line under the Approvals heading while executing or once ready; a pending count is the main set's `line`. */
+export function approvalsStatus(
 	status: ProposalStatusKey,
 	executing: boolean,
 	simulation: SimulationVerdict,
 ) {
-	const copy = content.proposal.approvals.status;
 	if (
 		executing &&
 		(status === 'pending' || status === 'ready')
 	)
-		return copy.executing;
-	if (status === 'pending')
-		return copy.needs(
-			proposal.totalWeight - proposal.currentWeight,
-		);
+		return STATUS.executing;
 	if (status === 'ready')
 		return simulation === 'failed'
-			? copy.readyFailing
-			: copy.ready;
-	if (status === 'executed') return copy.executed;
-	if (status === 'failed') return copy.failed;
+			? STATUS.reached
+			: STATUS.ready;
+	if (status === 'executed') return STATUS.executed;
+	if (status === 'failed') return STATUS.failed;
 	return null;
 }
 
@@ -246,10 +301,7 @@ export type SimulationVerdict =
 export interface ApprovalsNoteInput {
 	proposal: Pick<
 		PageProposal,
-		| 'multisig'
-		| 'signatures'
-		| 'currentWeight'
-		| 'totalWeight'
+		'checkedSignerSets' | 'signatures'
 	>;
 	status: ProposalStatusKey;
 	labels: Labels;
@@ -280,39 +332,34 @@ export function approvalsNote({
 	executing,
 	gas,
 }: ApprovalsNoteInput): string | null {
-	const copy = content.proposal.approvals.notes;
-	if (executing) return copy.executing;
+	if (executing) return NOTES.executing;
 	if (status === 'executed') return null;
-	if (status === 'failed') return copy.failed;
-	if (status === 'cancelled') return copy.cancelled;
-	if (viewer === 'outsider') return copy.outsider;
+	if (status === 'failed') return NOTES.failed;
+	if (status === 'cancelled') return NOTES.cancelled;
+	if (viewer === 'outsider') return NOTES.outsider;
 	if (viewer === 'elsewhere') return null;
-	if (status === 'expired') return copy.expired;
+	if (status === 'expired') return NOTES.expired;
 
 	if (status === 'ready') {
-		if (simulation === 'failed') return copy.readyFailing;
-		return gas ? copy.gasPaidAbout(gas) : copy.gasPaid;
+		if (simulation === 'failed') return NOTES.readyFailing;
+		return gas ? NOTES.gasPaidAbout(gas) : NOTES.gasPaid;
 	}
 
 	// Pending.
-	const missing =
-		proposal.totalWeight - proposal.currentWeight;
+	const shown = shownSignerSet(proposal.checkedSignerSets);
+	if (!shown) return null;
+	const missing = missingWeight(shown);
 	if (hasSigned(proposal, publicKey))
-		return waitingNote(
-			proposal,
-			labels,
-			publicKey,
-			missing,
-		);
+		return waitingNote(proposal, labels, publicKey);
 	if (simulation === 'pending') return null;
-	if (simulation === 'failed') return copy.signingFailing;
-	if (simulation === 'unknown') return copy.notSimulated;
+	if (simulation === 'failed') return NOTES.signingFailing;
+	if (simulation === 'unknown') return NOTES.notSimulated;
 	if (wouldReachThreshold(proposal, publicKey))
 		return executeAfterSigning
-			? copy.reachesThresholdGas
-			: copy.reachesThreshold;
-	const after = missing - yourWeight(proposal, publicKey);
-	return after > 0 ? copy.needsAfterYours(after) : null;
+			? NOTES.reachesThresholdGas
+			: NOTES.reachesThreshold;
+	const after = missing - yourWeight(shown, publicKey);
+	return after > 0 ? NOTES.needsAfterYours(after) : null;
 }
 
 /** "Not enough gas." → "Not enough gas", so a sentence can follow. */
@@ -329,38 +376,54 @@ export function withReason(message: string): string {
 const MAX_NAMED_SIGNERS = 3;
 
 /**
- * Once the viewer signed: who can still approve it, by name when any one
- * of the others is enough (up to three of them), else the weight still
- * missing.
+ * Once the viewer signed: who can still approve it, by name when in
+ * every checked set any one of the others is enough (up to three of
+ * them, each named once), else the weight the closest set still misses.
  */
 function waitingNote(
-	proposal: Pick<PageProposal, 'multisig' | 'signatures'>,
+	proposal: Pick<
+		PageProposal,
+		'checkedSignerSets' | 'signatures'
+	>,
 	labels: Labels,
 	publicKey: string | null | undefined,
-	missing: number,
 ) {
-	const copy = content.proposal.approvals.notes.waiting;
-	const others = [...proposal.multisig.members]
-		.sort((a, b) => a.order - b.order)
-		.filter(
-			(member) =>
-				member.publicKey !== publicKey &&
-				!hasSigned(proposal, member.publicKey),
-		);
+	const sets = proposal.checkedSignerSets.map((set) => ({
+		missing: missingWeight(set),
+		others: [...set.members]
+			.sort((a, b) => a.order - b.order)
+			.filter(
+				(member) =>
+					member.publicKey !== publicKey &&
+					!hasSigned(proposal, member.publicKey),
+			),
+	}));
 	if (
-		others.length > 0 &&
-		others.every((member) => member.weight >= missing)
+		sets.every(
+			({ missing, others }) =>
+				others.length > 0 &&
+				others.every((member) => member.weight >= missing),
+		)
 	) {
-		if (others.length > MAX_NAMED_SIGNERS)
-			return copy.anyOther;
-		const names = others.map((member) =>
-			nameOf(addressOf(member.publicKey), labels),
+		const keys = [
+			...new Set(
+				sets.flatMap(({ others }) =>
+					others.map((member) => member.publicKey),
+				),
+			),
+		];
+		if (keys.length > MAX_NAMED_SIGNERS)
+			return NOTES.waiting.anyOther;
+		const names = keys.map((key) =>
+			nameOf(addressOf(key), labels),
 		);
 		return names.length === 1
-			? copy.one(names[0])
-			: copy.anyOneOf(joinList(names, 'or'));
+			? NOTES.waiting.one(names[0])
+			: NOTES.waiting.anyOneOf(joinList(names, 'or'));
 	}
-	return copy.needs(missing);
+	return NOTES.waiting.needs(
+		Math.min(...sets.map(({ missing }) => missing)),
+	);
 }
 
 export interface ActivityRow {
@@ -428,7 +491,11 @@ export function activityRows({
 			at: null,
 		});
 	}
-	if (proposal.currentWeight >= proposal.totalWeight)
+	// A closed proposal is counted against today's sets, so its status speaks first.
+	if (
+		thresholdReached(status) ||
+		proposal.checkedSignerSets.some(reachesThreshold)
+	)
 		rows.push({
 			key: 'threshold',
 			text: copy.thresholdReached,

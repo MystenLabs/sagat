@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { formatAddress } from '@mysten/sui/utils';
+import { type Locator } from '@playwright/test';
 
 import { expect, test } from '../support/fixtures';
 import { isInboxRead } from '../support/requests';
 import {
 	acceptInvitation,
+	bothSign,
+	replaceOwnAlias,
 	setupMultisig,
 	signInViaApi,
 } from '../support/scenarios';
@@ -183,7 +186,7 @@ test.describe('invitations', () => {
 				paths.push(new URL(frame.url()).pathname);
 		});
 		// The account list refresh fails; the accept call still goes through.
-		const accountList = '**/addresses/connections**';
+		const accountList = '**/v1/accounts?*';
 		await bob.page.route(accountList, (route) =>
 			route.abort(),
 		);
@@ -337,7 +340,7 @@ test.describe('invitations', () => {
 			release = resolve;
 		});
 		await bob.page.route(
-			'**/multisig/*/accept',
+			'**/v1/accounts/*/accept?*',
 			async (route) => {
 				await held;
 				await route.continue();
@@ -359,7 +362,7 @@ test.describe('invitations', () => {
 			);
 		const waitForSavingsInbox = () =>
 			bob.page.waitForResponse((response) =>
-				isInboxRead(response, savings.publicKey),
+				isInboxRead(response),
 			);
 		const inboxLoaded = waitForSavingsInbox();
 		await selectInWallet(savings.address);
@@ -377,7 +380,7 @@ test.describe('invitations', () => {
 		// From here only the accept's onSuccess refetches savings' inbox, and
 		// it does so before it decides whether to navigate.
 		const accepted = bob.page.waitForResponse(
-			'**/multisig/*/accept',
+			'**/v1/accounts/*/accept?*',
 		);
 		const refreshed = waitForSavingsInbox();
 		release();
@@ -425,7 +428,7 @@ test.describe('invitations', () => {
 			release = resolve;
 		});
 		await bob.page.route(
-			'**/multisig/*/reject',
+			'**/v1/accounts/*/reject?*',
 			async (route) => {
 				await held;
 				await route.continue();
@@ -514,7 +517,7 @@ test.describe('invitations', () => {
 		// A fake clock skips the wait for the next poll.
 		await bob.installFakeClock();
 		const firstLoad = bob.page.waitForResponse((response) =>
-			response.url().includes('/addresses/invitations/'),
+			response.url().includes('/v1/invitations?'),
 		);
 		await bob.signIn();
 		await firstLoad;
@@ -532,5 +535,118 @@ test.describe('invitations', () => {
 		await expect(
 			bob.page.getByTestId('nav-invitations-count'),
 		).toHaveText('1');
+	});
+
+	test('a member of a signer set that replaced a pod’s own is invited to it, accepts, and sees the original signers apart', async ({
+		createActor,
+		createIdentity,
+		chain,
+	}) => {
+		const alice = createIdentity('alice');
+		const bob = createIdentity('bob');
+		const carol = await createActor('carol');
+		const multisig = await setupMultisig({
+			creator: alice,
+			members: [bob],
+			threshold: 2,
+			name: 'Treasury',
+		});
+		// Carol's own pod, whose signer set the pod then adds.
+		const recovery = await setupMultisig({
+			creator: carol,
+			members: [createIdentity('dave')],
+			threshold: 2,
+		});
+		await chain.fund(multisig.address);
+		await replaceOwnAlias(
+			chain,
+			bothSign(alice, bob),
+			recovery.address,
+		);
+		// The API ties Carol to the pod once it reads the pod's alias set.
+		await carol.apiV1.getAccount(
+			multisig.address,
+			'localnet',
+		);
+		const expectAliceAndBob = async (scope: Locator) => {
+			await expect(
+				scope.getByTestId('member-item'),
+			).toHaveCount(2);
+			for (const { address } of [alice, bob])
+				await expect(
+					scope.locator(
+						`[data-testid="member-item"][data-address="${address}"]`,
+					),
+				).toBeVisible();
+		};
+
+		await carol.signIn();
+		const { page } = carol;
+		// Signing in lands on her own pod; a click before that would be replaced.
+		await expect(page).toHaveURL(
+			new RegExp(`/multisig/${recovery.address}/overview$`),
+		);
+		await expect(
+			page.getByTestId('nav-invitations-count'),
+		).toHaveText('1');
+		await page.getByTestId('nav-invitations').click();
+		await carol
+			.invitationCard(multisig.address)
+			.getByTestId('invitation-toggle-details')
+			.click();
+		// She is invited through her set; the pod's address comes from Alice's and Bob's.
+		const original = page
+			.getByTestId('invitation-review')
+			.getByTestId('invitation-original-signers');
+		await expect(original).toContainText(
+			'This pod’s address was made from these signers.',
+		);
+		await expectAliceAndBob(original);
+		await page
+			.getByTestId('accept-invitation-button')
+			.click();
+
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+		// The pod stays in her list once the list is read again.
+		await page.reload();
+		await expect(
+			page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
+		await expect(
+			page.getByTestId('page-header-eyebrow'),
+		).toHaveText('Treasury');
+
+		// Members shows her set, the original signers folded under it.
+		await page.goto(
+			`/multisig/${multisig.address}/signers`,
+		);
+		const card = page.getByTestId('signers-card');
+		await expect(card).toHaveCount(1);
+		await expect(card).toHaveAttribute(
+			'data-signer-set',
+			recovery.address,
+		);
+		const folded = card.getByTestId('original-signers');
+		const toggle = folded.getByTestId(
+			'original-signers-toggle',
+		);
+		const body = page.getByTestId('original-signers-body');
+		await expect(
+			folded.getByTestId('original-signers-count'),
+		).toHaveText('2');
+		await expect(body).toHaveCount(0);
+		await toggle.click();
+		await expect(body).toHaveText(
+			'This pod’s address was made from these signers. They don’t control it on Localnet.',
+		);
+		await expectAliceAndBob(folded);
 	});
 });

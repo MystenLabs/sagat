@@ -1,13 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ProposalStatus } from '@mysten/sagat';
 import { ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 import { content } from '@/content';
+import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useNetwork } from '@/contexts/NetworkContext';
+import { usePodAliasSet } from '@/hooks/useAliasSets';
 import { useEpochInfo } from '@/hooks/useEpochInfo';
 import { useNeverProposed } from '@/hooks/useNeverProposed';
 import {
@@ -16,6 +17,7 @@ import {
 } from '@/hooks/usePaginatedProposals';
 import { type ProposalsPageState } from '@/hooks/useProposalsQueries';
 import {
+	isPodProposal,
 	isProposalExpired,
 	proposalsPath,
 	toProposalCardInput,
@@ -43,12 +45,17 @@ export function OpenProposals({
 	multisig: MultisigWithMembersForPublicKey;
 }) {
 	const { network } = useNetwork();
+	const { currentAddress } = useApiAuth();
+	const aliases = usePodAliasSet(multisig.address, {
+		network,
+	});
+	const signerAddress = currentAddress?.address;
 	const epochQuery = useEpochInfo();
 	const epochInfo = epochQuery.data;
 	const query = usePaginatedProposals({
 		multisigAddress: multisig.address,
 		network,
-		status: ProposalStatus.PENDING,
+		status: 'PENDING',
 		// The proposals tab's page size, so both share one cached query.
 		perPage: PROPOSALS_PAGE_SIZE,
 	});
@@ -56,16 +63,31 @@ export function OpenProposals({
 	// it isn't open; the proposals tab lists it under Expired.
 	const proposals = useMemo(
 		() =>
-			(query.data?.pages[0]?.data ?? [])
+			(query.data?.pages[0]?.proposals ?? [])
 				.filter(
 					(proposal) =>
-						!isProposalExpired(proposal, epochInfo),
+						isPodProposal(
+							proposal,
+							multisig.address,
+							network,
+						) && !isProposalExpired(proposal, epochInfo),
 				)
 				.slice(0, OPEN_PROPOSALS_SHOWN)
 				.map((proposal) =>
-					toProposalCardInput(proposal, multisig),
+					toProposalCardInput(
+						proposal,
+						aliases,
+						signerAddress,
+					),
 				),
-		[query.data, epochInfo, multisig],
+		[
+			query.data,
+			epochInfo,
+			aliases,
+			signerAddress,
+			multisig.address,
+			network,
+		],
 	);
 	const openLoading =
 		query.isPending || epochQuery.isPending;
