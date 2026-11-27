@@ -124,6 +124,7 @@ const verifiedAcceptance = async (
 			createdAt: event.createdAt.toISOString(),
 		},
 		await session.v1.getProposalByDigest(event.subject!),
+		{ accountAddress: account },
 	);
 };
 

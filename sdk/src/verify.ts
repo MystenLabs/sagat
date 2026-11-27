@@ -393,12 +393,13 @@ export function verifyProposalCreated(
 
 type SignerChangeProposal = Pick<
 	v1.Proposal,
-	'digest' | 'accountAddress' | 'transactionBytes'
+	'digest' | 'transactionBytes'
 >;
 
 async function checkAcceptedBySignerChange(
 	event: AccountEvent | null | undefined,
 	proposal: SignerChangeProposal,
+	accountAddress: string,
 ): Promise<ProofResult> {
 	const signature =
 		event?.action === 'account.accepted'
@@ -407,9 +408,10 @@ async function checkAcceptedBySignerChange(
 	if (!event || !signature)
 		return result('unverified', event);
 
+	// Sent by the account the row is read for, not one the proposal names.
 	const transaction = readTransaction({
 		digest: proposal.digest,
-		multisigAddress: proposal.accountAddress,
+		multisigAddress: accountAddress,
 		transactionBytes: proposal.transactionBytes,
 	});
 	if (!transaction || transaction.digest !== event.subject)
@@ -439,13 +441,19 @@ async function checkAcceptedBySignerChange(
 	return result('verified', event, address);
 }
 
-/** Checks an `account.accepted` proof of kind `signer_change.sign`: the actor's signature over a signer change, sent by the account, whose note adds a set holding the actor's key. That the change executed is the chain's to say. */
+/** Checks an `account.accepted` proof of kind `signer_change.sign`: the actor's signature over a signer change, sent by `accountAddress`, whose note adds a set holding the actor's key. That the change executed is the chain's to say. */
 export function verifyAcceptedBySignerChange(
 	event: AccountEvent | null | undefined,
 	proposal: SignerChangeProposal,
+	{ accountAddress }: { accountAddress: string },
 ): Promise<ProofResult> {
 	return failClosed(
-		() => checkAcceptedBySignerChange(event, proposal),
+		() =>
+			checkAcceptedBySignerChange(
+				event,
+				proposal,
+				accountAddress,
+			),
 		invalid,
 	);
 }

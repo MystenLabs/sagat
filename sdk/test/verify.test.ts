@@ -436,7 +436,9 @@ describe('verifyAcceptedBySignerChange', () => {
 			added,
 		);
 		expect(
-			await verifyAcceptedBySignerChange(event, proposal),
+			await verifyAcceptedBySignerChange(event, proposal, {
+				accountAddress: A,
+			}),
 		).toEqual({
 			status: 'verified',
 			signer: added.toSuiAddress(),
@@ -458,8 +460,15 @@ describe('verifyAcceptedBySignerChange', () => {
 			added,
 		);
 		expect(
-			(await verifyAcceptedBySignerChange(event, proposal))
-				.status,
+			(
+				await verifyAcceptedBySignerChange(
+					event,
+					proposal,
+					{
+						accountAddress: A,
+					},
+				)
+			).status,
 		).toBe('invalid');
 	});
 
@@ -469,8 +478,33 @@ describe('verifyAcceptedBySignerChange', () => {
 			other,
 		);
 		expect(
-			(await verifyAcceptedBySignerChange(event, proposal))
-				.status,
+			(
+				await verifyAcceptedBySignerChange(
+					event,
+					proposal,
+					{
+						accountAddress: A,
+					},
+				)
+			).status,
+		).toBe('invalid');
+	});
+
+	test('is invalid on another account’s log', async () => {
+		const { event, proposal } = await signedChange(
+			added,
+			added,
+		);
+		expect(
+			(
+				await verifyAcceptedBySignerChange(
+					event,
+					proposal,
+					{
+						accountAddress: other.toSuiAddress(),
+					},
+				)
+			).status,
 		).toBe('invalid');
 	});
 });
