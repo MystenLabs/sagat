@@ -567,20 +567,6 @@
 							"$ref": "#/components/schemas/AccountProposer"
 						}
 					},
-					"signerChanges": {
-						"type": "array",
-						"items": {
-							"type": "object",
-							"properties": {
-								"digest": {
-									"type": "string",
-									"description": "A Sui transaction digest."
-								}
-							},
-							"required": ["digest"]
-						},
-						"description": "The signer changes that succeeded on the network, oldest first, as the API lists them; a client reads each transaction from its own node."
-					},
 					"openSignerChange": {
 						"type": ["object", "null"],
 						"properties": {
@@ -604,7 +590,6 @@
 					"signerChangesEnabled",
 					"networksWithDifferentSigners",
 					"proposers",
-					"signerChanges",
 					"openSignerChange"
 				]
 			},

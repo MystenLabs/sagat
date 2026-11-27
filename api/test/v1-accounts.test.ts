@@ -606,7 +606,6 @@ describe('GET /v1/accounts/:address', () => {
 			network: 'localnet',
 			signerChangesEnabled: true,
 			networksWithDifferentSigners: [],
-			signerChanges: [],
 			openSignerChange: null,
 			proposers: [
 				{
@@ -666,7 +665,7 @@ describe('GET /v1/accounts/:address', () => {
 });
 
 describe('GET /v1/accounts/:address signer changes', () => {
-	test('a signer change reads as open until executed, then is listed in order without the enable, and names its transaction to the key it removed', async () => {
+	test('a signer change reads as open until executed, then moves the acting sets and reads as executed by its digest, and names its transaction to the key it removed', async () => {
 		const session = await framework.connectedSession();
 		const client = session.v1;
 		const cast = await createCast(session);
@@ -681,11 +680,22 @@ describe('GET /v1/accounts/:address signer changes', () => {
 			await session.voteAndExecute([k2], digest);
 			return { digest, open };
 		};
+		const acting = (account: {
+			signerSets: { address: string; acting?: boolean }[];
+		}) =>
+			account.signerSets
+				.filter((set) => set.acting)
+				.map((set) => set.address);
+		const outcome = async (digest: string) => {
+			const proposal =
+				await client.getProposalByDigest(digest);
+			return [proposal.status, proposal.executedVia];
+		};
 
 		const first = await execute(
 			await proposeCastChange(session, cast, S2),
 		);
-		expect(first.open.signerChanges).toEqual([]);
+		expect(acting(first.open)).toEqual([A]);
 		expect(first.open.openSignerChange).toEqual({
 			digest: first.digest,
 		});
@@ -703,8 +713,10 @@ describe('GET /v1/accounts/:address signer changes', () => {
 			);
 		const done = await client.getAccount(A, 'localnet');
 		expect(succeeded).toHaveLength(2);
-		expect(done.signerChanges).toEqual([
-			{ digest: first.digest },
+		expect(acting(done)).toEqual([addressOf(S2)]);
+		expect(await outcome(first.digest)).toEqual([
+			'SUCCESS',
+			A,
 		]);
 		expect(done.openSignerChange).toBeNull();
 		const { removed } = await (
@@ -726,11 +738,11 @@ describe('GET /v1/accounts/:address signer changes', () => {
 			}),
 		);
 		expect(
-			(await client.getAccount(A, 'localnet'))
-				.signerChanges,
-		).toEqual([
-			{ digest: first.digest },
-			{ digest: second.digest },
+			acting(await client.getAccount(A, 'localnet')),
+		).toEqual([A]);
+		expect(await outcome(second.digest)).toEqual([
+			'SUCCESS',
+			addressOf(S2),
 		]);
 	});
 });

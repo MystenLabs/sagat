@@ -325,10 +325,6 @@ export const AccountDetailsSchema = z
 					'The other supported networks whose alias set differs from this one.',
 			}),
 		proposers: z.array(AccountProposerSchema),
-		signerChanges: z.array(SignerChangeRefSchema).meta({
-			description:
-				'The signer changes that succeeded on the network, oldest first, as the API lists them; a client reads each transaction from its own node.',
-		}),
 		openSignerChange: SignerChangeRefSchema.nullable().meta(
 			{
 				description:

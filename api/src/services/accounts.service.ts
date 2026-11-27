@@ -55,15 +55,14 @@ import {
 	type RemovedFromAccount,
 } from './signers.service';
 
-// The account's executed signer changes, and the newest pending one that has not expired at the current epoch.
+// The account's newest pending signer change that has not expired at the current epoch.
 export const signerChangesOf = async (
 	address: string,
 	network: SuiNetwork,
 	readEpoch: () => Promise<bigint>,
 ) => {
-	const changes = (
+	const pending = (
 		await findAliasProposals(db, address, network, [
-			ProposalStatus.SUCCESS,
 			ProposalStatus.PENDING,
 		])
 	)
@@ -72,10 +71,6 @@ export const signerChangesOf = async (
 				signerChangeIn(proposal.transactionBytes)?.change,
 		)
 		.sort((a, b) => a.id - b.id);
-	const pending = changes.filter(
-		(proposal) =>
-			proposal.status === ProposalStatus.PENDING,
-	);
 	// Read only when a pending change can expire; unread, the newest pending one is open.
 	const epoch = pending.some(
 		({ transactionBytes }) =>
@@ -89,12 +84,6 @@ export const signerChangesOf = async (
 			: pending.filter(unexpiredAt(epoch))
 	).at(-1);
 	return {
-		signerChanges: changes
-			.filter(
-				(proposal) =>
-					proposal.status === ProposalStatus.SUCCESS,
-			)
-			.map(({ digest }) => ({ digest })),
 		openSignerChange: open ? { digest: open.digest } : null,
 	};
 };

@@ -171,7 +171,7 @@ Members here carry no `label`: key labels (0010) are returned only on authentica
 - Each member carries `answer`, the key's answer to this account, and `label`, the account's name for the key or null.
 - `signerSetsStale` is true when the alias set could not be read from the chain, so the signer sets are as last read. It is false otherwise.
 
-`GET /v1/accounts/:address` adds `network`, `signerChangesEnabled`, `networksWithDifferentSigners`, `proposers`, `signerChanges` and `openSignerChange`. `signerChanges` are the signer changes that succeeded on the network, oldest first, each `{ digest }`, so a client can read each transaction from its own node and follow the path from the original signers. `openSignerChange` is the newest pending signer change, `{ digest }`, or null.
+`GET /v1/accounts/:address` adds `network`, `signerChangesEnabled`, `networksWithDifferentSigners`, `proposers` and `openSignerChange`. `openSignerChange` is the newest pending signer change, `{ digest }`, or null.
 
 `GET /v1/accounts` also returns `removed`: the accounts one of your keys was removed from on the network, each with the `publicKey`, the `signerSetAddress` that was removed, the `eventId` of its `alias.removed` row, `removedAt` and `transactionDigest`. `transactionDigest` is null unless the last change to the alias object is a signer change the API holds whose note removes that set.
 
