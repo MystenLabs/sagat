@@ -31,6 +31,7 @@ import { sumWeight } from './threshold';
 import { extractPublicKeyFromBase64 } from './wallet';
 
 const COPY = content.changeSigners;
+const COMMON = content.common;
 
 /** A row of the editor: a current member (`was`) or a new signer. */
 export interface ChangeRow extends SignerDraft {
@@ -321,11 +322,11 @@ function differences(
 		list.push({
 			kind: 'threshold',
 			text: COPY.change.threshold(
-				content.common.thresholdLabel(
+				COMMON.thresholdLabel(
 					before.threshold,
 					sumWeight(before.members),
 				),
-				content.common.thresholdLabel(
+				COMMON.thresholdLabel(
 					after.threshold,
 					sumWeight(after.members),
 				),
@@ -377,11 +378,8 @@ export function thresholdSummary(
 	);
 	return after.threshold === before.threshold && now !== was
 		? COPY.review.thresholdAfter(
-				content.common.thresholdLabel(after.threshold, now),
-				content.common.thresholdLabel(
-					before.threshold,
-					was,
-				),
+				COMMON.thresholdLabel(after.threshold, now),
+				COMMON.thresholdLabel(before.threshold, was),
 			)
 		: null;
 }
