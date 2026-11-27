@@ -36,7 +36,10 @@ import {
 } from '../src/db/schema';
 import { ApiAuthError } from '../src/errors';
 import { signerChangesOf } from '../src/services/accounts.service';
-import { assertNoPendingAliasProposal } from '../src/services/signer-changes.service';
+import {
+	assertNoPendingAliasProposal,
+	currentEpochOf,
+} from '../src/services/signer-changes.service';
 import {
 	ApiTestFramework,
 	buildTransfer,
@@ -57,7 +60,6 @@ import {
 	buildCastChange,
 	compositionOf,
 	createCast,
-	currentEpoch,
 	enableSignerChanges,
 	gasCoins,
 	proposeCastChange,
@@ -432,7 +434,7 @@ describe('POST /v1/proposals with a signer change', () => {
 			message:
 				'A signer change must name its chain in the transaction’s expiration.',
 		});
-		const epoch = await currentEpoch();
+		const epoch = await currentEpochOf('localnet');
 		for (const maxEpoch of [String(epoch + 3n), null])
 			expect(
 				await refusal(

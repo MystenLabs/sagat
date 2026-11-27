@@ -25,7 +25,10 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
-import { build } from './setup/localnet-transactions';
+import {
+	build,
+	type GasCoin,
+} from './setup/localnet-transactions';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
@@ -37,7 +40,6 @@ import {
 	gasCoins,
 	proposeCastChange,
 	type Cast,
-	type GasCoin,
 } from './setup/signer-changes';
 import { answer } from './setup/v1-accounts';
 

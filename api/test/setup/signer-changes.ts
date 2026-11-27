@@ -19,16 +19,13 @@ import {
 	type TestSession,
 	type TestUser,
 } from '../framework/api-test-framework';
-import { build } from './localnet-transactions';
+import {
+	build,
+	type GasCoin,
+} from './localnet-transactions';
 import { getLocalClient } from './sui-network';
 
 const client = getLocalClient();
-
-export type GasCoin = {
-	objectId: string;
-	version: string;
-	digest: string;
-};
 
 // A composition of the users' keys, in order, each of weight 1 unless given.
 export const compositionOf = (
@@ -70,12 +67,6 @@ export const gasCoins = async (
 			digest,
 		}));
 };
-
-export const currentEpoch = async () =>
-	BigInt(
-		(await client.core.getCurrentSystemState()).systemState
-			.epoch,
-	);
 
 // Enables signer changes: `enable` proposed by the first voter, signed by the others, executed and verified.
 export const enableSignerChanges = async (

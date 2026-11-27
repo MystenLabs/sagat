@@ -92,15 +92,17 @@ export function keySigner(
 	};
 }
 
+export type GasCoin = {
+	objectId: string;
+	version: string;
+	digest: string;
+};
+
 // Paid with `gasCoin` when given.
 export async function build(
 	sender: string,
 	fill: (tx: Transaction) => void,
-	gasCoin?: {
-		objectId: string;
-		version: string;
-		digest: string;
-	},
+	gasCoin?: GasCoin,
 ) {
 	const tx = new Transaction();
 	tx.setSender(sender);

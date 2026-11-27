@@ -5,7 +5,6 @@
 // composition, `(A, A)` in `account_signer_sets`: a signer set without one (a
 // draft, or a signer set added to another account) is not a legacy multisig.
 
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
 	describe,
 	expect,
@@ -19,12 +18,10 @@ import {
 	SchemaAccounts,
 	SchemaAccountSignerSets,
 	SchemaSignerSetMembers,
-	SchemaSignerSets,
 } from '../src/db/schema';
 import {
 	ApiTestFramework,
 	newUser,
-	type TestUser,
 } from './framework/api-test-framework';
 import { rpcCalls } from './setup/rpc-calls';
 import {
@@ -35,40 +32,6 @@ import { insertNewSignerSet } from './setup/signer-sets';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
-
-// A 1-of-2 signer set of `[accepted, invited]` inserted directly, with no
-// `account_signer_sets` row.
-const insertSignerSet = async (
-	accepted: TestUser,
-	invited: TestUser,
-) => {
-	const address = MultiSigPublicKey.fromPublicKeys({
-		threshold: 1,
-		publicKeys: [accepted, invited].map((m) => ({
-			publicKey: m.keypair.getPublicKey(),
-			weight: 1,
-		})),
-	}).toSuiAddress();
-	await db.insert(SchemaSignerSets).values({
-		address,
-		threshold: 1,
-		isVerified: false,
-	});
-	await db.insert(SchemaSignerSetMembers).values([
-		{
-			signerSetAddress: address,
-			publicKey: accepted.publicKey,
-			order: 0,
-			isAccepted: true,
-		},
-		{
-			signerSetAddress: address,
-			publicKey: invited.publicKey,
-			order: 1,
-		},
-	]);
-	return address;
-};
 
 // Two users: `u1` connected in `session`, `u2` in `invitee`, so `u2` is
 // invited rather than auto-accepted.
@@ -115,7 +78,11 @@ describe('Legacy listings', () => {
 		).address;
 
 		// The same members in a signer set with no account and no link row.
-		const draft = await insertSignerSet(u1, u2);
+		const draft = await insertNewSignerSet({
+			members: [u1, u2],
+			threshold: 1,
+			acceptedBy: [u1],
+		});
 
 		const { connections, invitations } =
 			await listedFor(users);
@@ -134,7 +101,11 @@ describe('Legacy listings', () => {
 		const { session, u1, u2 } = users;
 
 		// The account exists, but nothing links it to its own composition.
-		const address = await insertSignerSet(u1, u2);
+		const address = await insertNewSignerSet({
+			members: [u1, u2],
+			threshold: 1,
+			acceptedBy: [u1],
+		});
 		await db.insert(SchemaAccounts).values({ address });
 
 		const { connections, invitations } =

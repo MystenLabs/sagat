@@ -50,7 +50,6 @@ import {
 	buildTransfer,
 	newUser,
 	refusal,
-	sendCoins,
 	sign,
 	signedBy,
 	type TestUser,
@@ -64,7 +63,7 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { getLocalClient } from './setup/sui-network';
+import { gasCoins } from './setup/signer-changes';
 import { queryCount } from './setup/test-db';
 import { answer } from './setup/v1-accounts';
 import {
@@ -165,18 +164,12 @@ const createCast = async () => {
 const fundedTransfers = async (
 	account: string,
 	count: number,
-) => {
-	await sendCoins(account, count);
-	const { objects: coins } =
-		await getLocalClient().listCoins({ owner: account });
-	return Promise.all(
-		coins
-			.slice(0, count)
-			.map((gasCoin) =>
-				buildTransfer(account, { gasCoin }),
-			),
+) =>
+	Promise.all(
+		(await gasCoins(account, count)).map((gasCoin) =>
+			buildTransfer(account, { gasCoin }),
+		),
 	);
-};
 
 const statusOf = async (proposal: { id: number }) => {
 	const [{ status }] = await db
