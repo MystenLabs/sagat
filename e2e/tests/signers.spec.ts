@@ -1162,6 +1162,18 @@ test.describe('overview and signers', () => {
 				'[data-testid="change-item"][data-kind="add"]',
 			),
 		).toContainText('Dave');
+		// Each line shows the whole address of the key it names.
+		for (const [kind, { address }] of [
+			['add', dave],
+			['remove', carol],
+		] as const)
+			await expect(
+				changes
+					.locator(
+						`[data-testid="change-item"][data-kind="${kind}"]`,
+					)
+					.getByTestId('change-address'),
+			).toHaveText(address);
 		await expect(
 			page.getByTestId('alias-calls-warning'),
 		).toHaveCount(0);
@@ -1456,7 +1468,7 @@ test.describe('overview and signers', () => {
 		});
 	});
 
-	test('a signer change waits for its new signer, who signs it from its link, before it executes, and the new signer is then invited', async ({
+	test('a signer change waits for its new signer, who signs it from its link, before it executes, and the new signer then opens the pod with no invitation', async ({
 		createActor,
 		createIdentity,
 		chain,
@@ -1544,7 +1556,16 @@ test.describe('overview and signers', () => {
 		await dave.page.getByTestId('nav-invitations').click();
 		await expect(
 			dave.invitationCard(multisig.address),
-		).toBeVisible();
+		).toHaveCount(0);
+		await dave.page.goto(
+			`/multisig/${multisig.address}/overview`,
+		);
+		await expect(
+			dave.page.getByTestId('multisig-detail'),
+		).toHaveAttribute(
+			'data-multisig-address',
+			multisig.address,
+		);
 	});
 
 	test('say the pod has no SUI when enabling signer changes can’t pay gas', async ({
