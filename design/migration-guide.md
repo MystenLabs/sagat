@@ -268,7 +268,7 @@ The transaction sender is the account address. It is not the signer set address,
 
 ## Exports
 
-Exported files carry `type` and `version`. Files with `version: 1` keep the old field names and stay readable. New exports are `version: 2` and use the fields in this guide.
+Exported files carry `type` and `version`. A composition export (`sagat.multisig-composition`) is still `version: 1`. A proposal export (`sagat.proposal`) is `version: 2`: it drops the proposal id, keeps `digest` and `network`, and keeps the old names `multisigAddress` and `multisig`.
 
 ## Things that did not change
 
