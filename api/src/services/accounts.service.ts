@@ -169,6 +169,8 @@ export const listAccountInvitations = async ({
 	);
 };
 
+const OTHER_NETWORKS_WAIT_MS = 2_000;
+
 // `networks` are the supported networks it is compared with.
 export const getAccount = async ({
 	address,
@@ -196,18 +198,25 @@ export const getAccount = async ({
 		scope: actingSetsOn(network),
 	});
 
-	// Only to compare with; a failed read there is ignored.
-	await Promise.all(
-		networks
-			.filter((other) => other !== network)
-			.map((other) =>
-				refreshStaleAliases(
-					[address],
-					other,
-					loaders,
-				).catch(() => undefined),
-			),
-	);
+	// Only to compare with; a failed or slow read there is ignored.
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	await Promise.race([
+		Promise.all(
+			networks
+				.filter((other) => other !== network)
+				.map((other) =>
+					refreshStaleAliases(
+						[address],
+						other,
+						loaders,
+					).catch(() => undefined),
+				),
+		),
+		new Promise((resolve) => {
+			timer = setTimeout(resolve, OTHER_NETWORKS_WAIT_MS);
+		}),
+	]);
+	clearTimeout(timer);
 	const [signerChangesEnabled, differentOn] =
 		await Promise.all([
 			state.outcome === 'failed'
