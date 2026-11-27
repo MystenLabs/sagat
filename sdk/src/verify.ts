@@ -5,7 +5,10 @@ import {
 	parseSerializedSignature,
 	type PublicKey,
 } from '@mysten/sui/cryptography';
-import { TransactionDataBuilder } from '@mysten/sui/transactions';
+import {
+	Transaction,
+	TransactionDataBuilder,
+} from '@mysten/sui/transactions';
 import {
 	fromBase64,
 	isValidSuiAddress,
@@ -18,12 +21,14 @@ import {
 } from '@mysten/sui/verify';
 
 import { PersonalMessages } from './constants.js';
+import { readCompositionNote } from './signer-change.js';
 import type {
 	AccountEvent,
 	Proposal,
 	ProposalSignature,
 	PublicProposal,
 } from './types.js';
+import type * as v1 from './v1/schemas.js';
 
 /** `unverified`: no proof, or one this SDK can't check; `invalid`: it doesn't match. */
 export type ProofStatus =
@@ -382,6 +387,65 @@ export function verifyProposalCreated(
 ): Promise<ProofResult> {
 	return failClosed(
 		() => checkProposalCreated(event, proposal),
+		invalid,
+	);
+}
+
+type SignerChangeProposal = Pick<
+	v1.Proposal,
+	'digest' | 'accountAddress' | 'transactionBytes'
+>;
+
+async function checkAcceptedBySignerChange(
+	event: AccountEvent | null | undefined,
+	proposal: SignerChangeProposal,
+): Promise<ProofResult> {
+	const signature =
+		event?.action === 'account.accepted'
+			? v1Signature(event.proof, 'signer_change.sign')
+			: null;
+	if (!event || !signature)
+		return result('unverified', event);
+
+	const transaction = readTransaction({
+		digest: proposal.digest,
+		multisigAddress: proposal.accountAddress,
+		transactionBytes: proposal.transactionBytes,
+	});
+	if (!transaction || transaction.digest !== event.subject)
+		return result('invalid', event);
+	const note = readCompositionNote(
+		Transaction.from(transaction.bytes).getData(),
+	);
+	if (
+		!note?.added.members.some((m) =>
+			sameAddress(keyAddress(m.publicKey), event.actor),
+		)
+	)
+		return result('invalid', event);
+
+	const signer = await recoverSigner(signature, () =>
+		verifyTransactionSignature(
+			transaction.bytes,
+			signature,
+		),
+	);
+	if (signer === null) return result('unverified', event);
+	if (signer === 'invalid') return result('invalid', event);
+
+	const address = signer.toSuiAddress();
+	if (!sameAddress(address, event.actor))
+		return result('invalid', event);
+	return result('verified', event, address);
+}
+
+/** Checks an `account.accepted` proof of kind `signer_change.sign`: the actor's signature over a signer change, sent by the account, whose note adds a set holding the actor's key. That the change executed is the chain's to say. */
+export function verifyAcceptedBySignerChange(
+	event: AccountEvent | null | undefined,
+	proposal: SignerChangeProposal,
+): Promise<ProofResult> {
+	return failClosed(
+		() => checkAcceptedBySignerChange(event, proposal),
 		invalid,
 	);
 }

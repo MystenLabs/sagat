@@ -4,6 +4,11 @@
 // What the proposal page shows, kept free of React: where the proposal
 // stands, the Approvals card's rows and lines, the cancel dialog's
 // wording and the Activity card's rows.
+import {
+	checkSignerChange,
+	signerChangeProof,
+} from '@mysten/sagat';
+import { Transaction } from '@mysten/sui/transactions';
 import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
@@ -34,6 +39,8 @@ import {
 
 const STATUS = content.proposal.approvals.status;
 const NOTES = content.proposal.approvals.notes;
+const SIGNER_CHANGE =
+	content.proposal.approvals.signerChange;
 
 type PageProposal = Pick<
 	CountedProposal,
@@ -136,7 +143,8 @@ export interface ApprovalRow {
 
 /**
  * One row per member of the signer set, in composition order. A member
- * who didn't sign is "Not needed" once the threshold is reached.
+ * who didn't sign is "Not needed" once the threshold is reached, unless
+ * the signer change warning names them (`notSigned`).
  */
 export function approvalRows(
 	set: Pick<CountedSignerSet, 'members'>,
@@ -144,6 +152,7 @@ export function approvalRows(
 	status: ProposalStatusKey,
 	labels: Labels,
 	publicKey: string | null | undefined,
+	notSigned: readonly string[] = [],
 ): ApprovalRow[] {
 	const reached = thresholdReached(status);
 	return [...set.members]
@@ -166,7 +175,7 @@ export function approvalRows(
 				isYou: member.publicKey === publicKey,
 				state: signed
 					? 'signed'
-					: reached
+					: reached && !notSigned.includes(member.publicKey)
 						? 'not-needed'
 						: 'not-signed',
 			};
@@ -197,6 +206,7 @@ export function approvalsSignerSets(
 	labels: Labels,
 	publicKey: string | null | undefined,
 	pods: readonly ListedPod[],
+	notSigned: readonly string[] = [],
 ): ApprovalsSignerSet[] {
 	const open = status === 'pending' || status === 'ready';
 	return proposal.checkedSignerSets.map((set) => ({
@@ -224,6 +234,7 @@ export function approvalsSignerSets(
 			status,
 			labels,
 			publicKey,
+			notSigned,
 		),
 	}));
 }
@@ -262,6 +273,57 @@ export function approvalsStatus(
 	if (status === 'executed') return STATUS.executed;
 	if (status === 'failed') return STATUS.failed;
 	return null;
+}
+
+/**
+ * While a pending signer change's signers who stay haven't signed for
+ * the new threshold, the warning naming them and their keys, or saying
+ * they can't reach it once nobody is left to name. Null for
+ * bytes without a composition note that checks against `aliases`, the
+ * pod's alias set from the app's node (null until read).
+ */
+export function signerChangeWarning(
+	proposal: Pick<
+		PageProposal,
+		'transactionBytes' | 'signatures'
+	>,
+	status: ProposalStatusKey,
+	aliases: readonly string[] | null,
+	labels: Labels,
+): { body: string; notSigned: string[] } | null {
+	if (
+		!aliases ||
+		(status !== 'pending' && status !== 'ready')
+	)
+		return null;
+	let proof;
+	try {
+		proof = signerChangeProof(
+			checkSignerChange(
+				Transaction.from(
+					proposal.transactionBytes,
+				).getData(),
+				aliases,
+			),
+			proposal.signatures.map((sig) => sig.publicKey),
+		);
+	} catch {
+		return null;
+	}
+	if (proof.met) return null;
+	const names = proof.notSigned.map((key) =>
+		nameOf(addressOf(key), labels),
+	);
+	return {
+		body:
+			names.length === 0
+				? SIGNER_CHANGE.unreachable
+				: SIGNER_CHANGE.body(
+						joinList(names, 'and'),
+						names.length,
+					),
+		notSigned: proof.notSigned,
+	};
 }
 
 /**

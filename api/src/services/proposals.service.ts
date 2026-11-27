@@ -10,8 +10,9 @@
 import {
 	findAliasCalls,
 	PersonalMessages,
+	signerChangeProof,
+	signersWhoStay,
 } from '@mysten/sagat';
-import { TransactionError } from '@mysten/sui/client';
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { Transaction } from '@mysten/sui/transactions';
 import {
@@ -50,6 +51,7 @@ import {
 	ApiAuthError,
 	CommonError,
 	NotFoundError,
+	ServedByV1OnlyError,
 	ValidationError,
 } from '../errors';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
@@ -57,20 +59,14 @@ import {
 	MultisigEventType,
 	multisigProposalEvents,
 } from '../metrics';
-import {
-	getSuiClient,
-	type SuiNetwork,
-} from '../utils/client';
+import { type SuiNetwork } from '../utils/client';
 import {
 	paginateResponse,
 	wholeNumberUpTo,
 	type PaginatedResponse,
 	type PaginationCursor,
 } from '../utils/pagination';
-import {
-	getPublicKeyFromSerializedSignature,
-	signerAddressOf,
-} from '../utils/pubKey';
+import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import { normalizeText } from '../utils/text';
 import {
 	getProposalEvents,
@@ -87,6 +83,10 @@ import {
 	requireFreshAliases,
 } from './aliases.service';
 import {
+	refuseChangedAccount,
+	refuseIfChangedAccount,
+} from './changed-accounts.service';
+import {
 	isAccountSigner,
 	notAcceptedSignerError,
 } from './membership.service';
@@ -96,10 +96,25 @@ import {
 	validateProposedTransaction,
 } from './multisig.service';
 import {
+	aliasCallsOf,
+	lookUpOnChainOutcome,
+	recordOnChainOutcome,
+} from './onchain-outcomes.service';
+import {
 	assertCanonicalSignature,
 	verifySignedMessage,
 	verifyTransactionSignature,
 } from './signatures.service';
+import {
+	assertExpiresSoon,
+	assertNamesChain,
+	assertNoPendingAliasProposal,
+	checkAndWriteSignerChange,
+	currentEpochOf,
+	signerChangeIn,
+	signerChangeLabels,
+	signerChangeNote,
+} from './signer-changes.service';
 import {
 	actingSetsOn,
 	countSignatures,
@@ -117,23 +132,78 @@ export type ProposalProgress = {
 	proposal: ProposalWithSignatures;
 	// The account's signers under the scope the caller asked for.
 	signers: AccountSigners;
-	// One per acting set, in the order of `signers.actingSets`.
+	// One per acting set, in the order of `signers.actingSets`; for a signer change, only the old set: while pending, only while it acts.
 	sets: SignerSetProgress[];
-	// True when any one set reached its own threshold.
+	// True when any one set reached its own threshold; for a pending signer change, only once a new set's signers also met theirs.
 	hasReachedThreshold: boolean;
+	signerChange: ReturnType<typeof signerChangeIn>;
 };
 
 const proposalProgress = (
 	proposal: ProposalWithSignatures,
 	signers: AccountSigners,
-): ProposalProgress => ({
-	proposal,
-	signers,
-	...countSignatures(
-		signers.actingSets,
-		proposal.signatures.map((sig) => sig.publicKey),
-	),
+	signerChange = signerChangeIn(proposal.transactionBytes),
+): ProposalProgress => {
+	// A note that does not check is never ready; once not pending, the old set is read from the change.
+	const oldSet = signerChange?.change?.oldSet;
+	const sets = !signerChange
+		? signers.actingSets
+		: proposal.status !== ProposalStatus.PENDING && oldSet
+			? [
+					{
+						address: oldSet.address,
+						threshold: oldSet.threshold,
+						members: oldSet.members.map(
+							({ publicKey, weight }, order) => ({
+								publicKey,
+								weight,
+								order,
+							}),
+						),
+					},
+				]
+			: signers.actingSets.filter(
+					(set) => set.address === oldSet?.address,
+				);
+	const keys = proposal.signatures.map(
+		(sig) => sig.publicKey,
+	);
+	const counted = countSignatures(sets, keys);
+	const change = signerChange?.change;
+	return {
+		proposal,
+		signers,
+		...counted,
+		// A pending change also needs its new set's own threshold.
+		hasReachedThreshold:
+			counted.hasReachedThreshold &&
+			(!change ||
+				proposal.status !== ProposalStatus.PENDING ||
+				signerChangeProof(change, keys).met),
+		signerChange,
+	};
+};
+
+const checkedProposal = (
+	proposal: ProposalWithSignatures,
+	signers: AccountSigners,
+	events: ProposalEvents,
+	signerSetsStale: boolean,
+	signerChange?: ProposalProgress['signerChange'],
+): CheckedProposal => ({
+	...proposalProgress(proposal, signers, signerChange),
+	events,
+	signerSetsStale,
 });
+
+// No legacy route serves a signer change: it is a `/v1` feature.
+const refuseSignerChangeUnder = (
+	scopeKind: SignerScopeKind,
+	signerChange: ProposalProgress['signerChange'],
+) => {
+	if (scopeKind === 'original' && signerChange !== null)
+		throw new ServedByV1OnlyError('A signer change');
+};
 
 // The scope of a request on a network; for a proposal, always its own network.
 const scopeOn = (
@@ -208,7 +278,6 @@ const getAccountSigners = async (
 	return signers;
 };
 
-// A proposal and its signatures, by a condition on its row.
 const findProposal = async (
 	condition: SQL,
 ): Promise<ProposalWithSignatures | undefined> => {
@@ -243,8 +312,7 @@ const findProposal = async (
 	};
 };
 
-// Get a proposal by id, and its signatures.
-export const getProposalById = async (
+const getProposalById = async (
 	proposalId: number,
 ): Promise<ProposalWithSignatures> => {
 	const proposal = await findProposal(
@@ -273,13 +341,7 @@ const getProposal = async (
 	return proposal;
 };
 
-// The calls to `0x2::address_alias` in a proposal's bytes.
-export const aliasCallsOf = (transactionBytes: string) =>
-	findAliasCalls(
-		Transaction.from(transactionBytes).getData(),
-	);
-
-// Under the acting scope a decision waits for a fresh alias state, or fails.
+// A decision waits for a fresh alias state, or fails; the original scope refuses a changed account.
 const refreshBeforeDeciding = async (
 	scopeKind: SignerScopeKind,
 	accountAddress: string,
@@ -290,9 +352,10 @@ const refreshBeforeDeciding = async (
 			accountAddress,
 			network as SuiNetwork,
 		);
+	else await refuseChangedAccount(accountAddress, 'write');
 };
 
-// Refreshes a stale alias state for a read; false when the read failed and the mirror is used as it is.
+// False when the read failed and the mirror is used as it is.
 const refreshForRead = async (
 	accountAddress: string,
 	network: string,
@@ -313,7 +376,11 @@ const getProposalsByAccountAddress = async ({
 	network,
 	status: statusName,
 	cursor,
-}: Omit<ListInput, 'callerKeys'>) => {
+	// Rows it leaves out still move the cursor.
+	keep = () => true,
+}: Omit<ListInput, 'callerKeys'> & {
+	keep?: (proposal: Proposal) => boolean;
+}) => {
 	const status = statusName
 		? proposalStatusFromString(statusName)
 		: undefined;
@@ -356,7 +423,7 @@ const getProposalsByAccountAddress = async ({
 
 	const result: ProposalWithSignatures[] = [];
 
-	for (const proposal of page) {
+	for (const proposal of page.filter(keep)) {
 		const signaturesForProposal = signatures.filter(
 			(s) => s.proposalId === proposal.id,
 		);
@@ -367,9 +434,7 @@ const getProposalsByAccountAddress = async ({
 	}
 
 	const nextPageCursor =
-		result.length > 0
-			? result[result.length - 1]?.id
-			: undefined;
+		page.length > 0 ? page[page.length - 1]?.id : undefined;
 
 	return paginateResponse(
 		result,
@@ -382,95 +447,74 @@ const getProposalsByAccountAddress = async ({
 /**
  * Checks a pending proposal on-chain, and records whether it succeeded and
  * the address that signed for the account. With `checkThreshold`, it first
- * needs enough signatures under the original set. Returns the proposal's status
- * afterwards; a proposal that is no longer pending is returned as is.
+ * needs enough signatures under the original set. A cancelled proposal that
+ * calls the alias module is looked up too, and stays cancelled when not on
+ * chain. Returns the proposal's status afterwards; any other proposal that is
+ * no longer pending is returned as is.
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
 	{ checkThreshold = false }: { checkThreshold?: boolean },
 ): Promise<ProposalStatus> => {
-	if (proposal.status !== ProposalStatus.PENDING)
+	const isPending =
+		proposal.status === ProposalStatus.PENDING;
+	if (
+		!isPending &&
+		proposal.status !== ProposalStatus.CANCELLED
+	)
+		return proposal.status;
+	const callsAliasModule =
+		aliasCallsOf(proposal.transactionBytes).length > 0;
+	if (!isPending && !callsAliasModule)
 		return proposal.status;
 
-	if (checkThreshold) {
+	if (isPending && checkThreshold) {
 		const signers = await getAccountSigners(
 			proposal.accountAddress,
 			ORIGINAL_SET,
 		);
+		// Only reads the chain afterwards, so it counts every signature as stored.
 		if (
-			!proposalProgress(proposal, signers)
-				.hasReachedThreshold
+			!countSignatures(
+				signers.actingSets,
+				proposal.signatures.map((sig) => sig.publicKey),
+			).hasReachedThreshold
 		)
 			throw new ValidationError(
 				'Proposal is not ready to execute',
 			);
 	}
 
-	const tx = await getSuiClient(
+	const outcome = await lookUpOnChainOutcome(
 		proposal.network as SuiNetwork,
-	)
-		.getTransaction({
-			digest: proposal.digest,
-			include: {
-				effects: true,
-			},
-		})
-		.catch((error) => {
-			// TODO: a transaction that isn't on-chain may also never be able to
-			// run, e.g. when one of its owned inputs was spent elsewhere. Such a
-			// proposal stays pending and blocks new proposals that use the same
-			// objects. Detect it (an input's version changed or it was deleted)
-			// and move the proposal to a new terminal status for it (not
-			// FAILURE, which means the transaction failed on-chain).
-			if (
-				error instanceof TransactionError &&
-				error.reason === 'notFound'
-			)
-				throw new ValidationError(
-					'The transaction has not been executed yet.',
-				);
-			throw error;
-		});
+		proposal.digest,
+	);
+	if (!outcome) {
+		if (!isPending) return proposal.status;
+		// TODO: a transaction that isn't on-chain may also never be able to
+		// run, e.g. when one of its owned inputs was spent elsewhere. Such a
+		// proposal stays pending and blocks new proposals that use the same
+		// objects. Detect it (an input's version changed or it was deleted)
+		// and move the proposal to a new terminal status for it (not
+		// FAILURE, which means the transaction failed on-chain).
+		throw new ValidationError(
+			'The transaction has not been executed yet.',
+		);
+	}
 
-	const isSuccess =
-		tx.$kind !== 'FailedTransaction' &&
-		!!tx.Transaction.effects.status.success;
-	const status = isSuccess
-		? ProposalStatus.SUCCESS
-		: ProposalStatus.FAILURE;
-	// The sender's signature comes first.
-	const [senderSignature] = (
-		tx.$kind === 'Transaction'
-			? tx.Transaction
-			: tx.FailedTransaction
-	).signatures;
-	const executedVia = senderSignature
-		? signerAddressOf(senderSignature)
-		: null;
-
-	await db
-		.update(SchemaProposals)
-		.set({ status, executedVia })
-		.where(eq(SchemaProposals.id, proposal.id));
-
-	multisigProposalEvents.inc({
-		network: proposal.network,
-		event_type: isSuccess
-			? MultisigEventType.PROPOSAL_SUCCESS
-			: MultisigEventType.PROPOSAL_FAILURE,
-	});
+	await recordOnChainOutcome(db, proposal, outcome);
 
 	// The status is recorded; a failed refresh leaves the mirror to the next one.
 	if (
-		isSuccess &&
-		aliasCallsOf(proposal.transactionBytes).length > 0
+		outcome.status === ProposalStatus.SUCCESS &&
+		callsAliasModule
 	)
 		await refreshAliases(
 			[proposal.accountAddress],
 			proposal.network as SuiNetwork,
 		).catch(() => undefined);
 
-	return status;
+	return outcome.status;
 };
 
 // Whether the address is in the account's proposers list.
@@ -529,6 +573,8 @@ export type CreateProposalInput = {
 	// Unvalidated until `normalizeText`.
 	description?: unknown;
 	network: string;
+	// For a signer change that adds a set, aligned with its members. Unvalidated until `normalizeKeyLabels`.
+	labels?: unknown;
 };
 
 /**
@@ -541,6 +587,7 @@ export const createProposal = async ({
 	signature,
 	description: rawDescription,
 	network: rawNetwork,
+	labels: rawLabels,
 	scopeKind,
 }: CreateProposalInput & {
 	scopeKind: SignerScopeKind;
@@ -582,6 +629,11 @@ export const createProposal = async ({
 	const checkAccount = async () => {
 		if (scopeKind === 'acting')
 			await refreshAccount(multisigAddress, network);
+		else
+			await refuseIfChangedAccount(
+				multisigAddress,
+				'write',
+			);
 		const signers = await getAccountSigners(
 			multisigAddress,
 			scopeOn(scopeKind, network),
@@ -651,6 +703,15 @@ export const createProposal = async ({
 			'The transaction gas owner does not match the account.',
 		);
 
+	const data = proposedTransaction.getData();
+	const callsAliasModule = findAliasCalls(data).length > 0;
+
+	// Alias calls with a composition note make a signer change.
+	const note = signerChangeNote(data);
+	if (note && scopeKind === 'original')
+		throw new ServedByV1OnlyError('A signer change');
+	const labels = signerChangeLabels(note, rawLabels);
+
 	// Verify the supplied user signature before doing any RPC work for the
 	// request. A fully resolved transaction builds without a client.
 	const built = await readable(() =>
@@ -670,6 +731,12 @@ export const createProposal = async ({
 		proposedTransaction,
 		network,
 	);
+	if (note) await assertNamesChain(data, network);
+	const epoch = callsAliasModule
+		? await currentEpochOf(network)
+		: null;
+	if (note && epoch !== null)
+		assertExpiresSoon(data, epoch);
 
 	const proposal = await db.transaction(async (tx) => {
 		// Validate the proposed transaction for:
@@ -695,6 +762,23 @@ export const createProposal = async ({
 			))
 		)
 			throw await notMemberError();
+
+		if (epoch !== null)
+			await assertNoPendingAliasProposal(
+				tx,
+				multisigAddress,
+				network,
+				epoch,
+			);
+		if (note)
+			await checkAndWriteSignerChange(tx, {
+				accountAddress: multisigAddress,
+				network,
+				data,
+				note,
+				proposer: pubKey,
+				labels,
+			});
 
 		// Insert the proposal and the first sig!
 		const proposal = await tx
@@ -758,6 +842,8 @@ export const voteOnProposal = async ({
 	scopeKind: SignerScopeKind;
 }): Promise<ProposalProgress> => {
 	const proposal = await getProposal(key);
+	const stored = signerChangeIn(proposal.transactionBytes);
+	refuseSignerChangeUnder(scopeKind, stored);
 
 	const pubKey = transactionSigner(signature, scopeKind);
 	const signatureFirst = scopeKind === 'acting';
@@ -774,6 +860,12 @@ export const voteOnProposal = async ({
 		proposal.network,
 	);
 
+	// A key a signer change adds signs it too; its signature never counts for the old set.
+	const inNewSet = !!stored?.change?.newSet.members.some(
+		(member) =>
+			member.publicKey === pubKey.toSuiPublicKey(),
+	);
+
 	// Any answer: a key of an acting set signs whether or not it accepted.
 	const signers = await resolveAccountSigners(
 		proposal.accountAddress,
@@ -781,9 +873,24 @@ export const voteOnProposal = async ({
 	);
 	if (
 		!signers ||
-		!signsFor(signers, [pubKey.toSuiPublicKey()], false)
+		(!inNewSet &&
+			!signsFor(signers, [pubKey.toSuiPublicKey()], false))
 	)
 		throw REFUSALS[scopeKind].notSigner();
+
+	// A set is replaced by its own signers.
+	if (
+		stored &&
+		!inNewSet &&
+		!(
+			stored.change &&
+			stored.change.oldSet.members.some(
+				(member) =>
+					member.publicKey === pubKey.toSuiPublicKey(),
+			)
+		)
+	)
+		throw new ApiAuthError('NotASignerOfTheChange');
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
@@ -816,7 +923,7 @@ export const voteOnProposal = async ({
 		event_type: MultisigEventType.SIGNATURE_ADDED,
 	});
 
-	return proposalProgress(proposal, signers);
+	return proposalProgress(proposal, signers, stored);
 };
 
 // Cancels a pending proposal. An accepted member can cancel any proposal; an
@@ -830,6 +937,8 @@ export const cancelProposal = async ({
 	scopeKind: SignerScopeKind;
 }) => {
 	const proposal = await getProposal(key);
+	const stored = signerChangeIn(proposal.transactionBytes);
+	refuseSignerChangeUnder(scopeKind, stored);
 
 	if (proposal.status !== ProposalStatus.PENDING)
 		throw new ValidationError('Proposal is not pending');
@@ -883,6 +992,32 @@ export const cancelProposal = async ({
 				),
 			[pubKey.toSuiPublicKey()],
 		);
+
+	const change = stored?.change;
+	// Once the old set no longer acts, the change can never execute, and any accepted signer may cancel it.
+	const oldSetActs =
+		!change ||
+		!!(
+			await resolveAccountSigners(
+				proposal.accountAddress,
+				actingSetsOn(proposal.network as SuiNetwork),
+			)
+		)?.actingSets.some(
+			(set) => set.address === change.oldSet.address,
+		);
+	if (
+		stored &&
+		!(
+			isMember &&
+			(!oldSetActs ||
+				(change &&
+					signersWhoStay(
+						change.oldSet,
+						change.newSet,
+					).includes(pubKey.toSuiPublicKey())))
+		)
+	)
+		throw new ApiAuthError('CancelBySignerWhoStays');
 
 	if (!signatureFirst) await verifySignature();
 
@@ -1015,11 +1150,15 @@ type ListInput = {
 	callerKeys: PublicKey[];
 };
 
-// Lists an account's proposals on a network, for an accepted member.
+// Its rows carry their signatures as stored, so signer changes are left out.
 export const listProposals = async (
 	input: ListInput,
 ): Promise<PaginatedResponse<ProposalWithSignatures>> => {
 	validateNetwork(input.network);
+	await refuseIfChangedAccount(
+		input.multisigAddress,
+		'read',
+	);
 	if (
 		!(await isAccountSigner(
 			input.multisigAddress,
@@ -1028,7 +1167,11 @@ export const listProposals = async (
 		))
 	)
 		throw await REFUSALS.original.notAccepted();
-	return await getProposalsByAccountAddress(input);
+	return await getProposalsByAccountAddress({
+		...input,
+		keep: (proposal) =>
+			signerChangeIn(proposal.transactionBytes) === null,
+	});
 };
 
 const NO_EVENTS: ProposalEvents = {
@@ -1068,11 +1211,14 @@ export const listAccountProposals = async (
 	);
 	return {
 		...page,
-		data: page.data.map((proposal) => ({
-			...proposalProgress(proposal, signers),
-			events: events.get(proposal.id) ?? NO_EVENTS,
-			signerSetsStale,
-		})),
+		data: page.data.map((proposal) =>
+			checkedProposal(
+				proposal,
+				signers,
+				events.get(proposal.id) ?? NO_EVENTS,
+				signerSetsStale,
+			),
+		),
 	};
 };
 
@@ -1082,7 +1228,14 @@ export const getProposalByDigest = async (
 	scopeKind: SignerScopeKind,
 ): Promise<CheckedProposal> => {
 	const proposal = await getProposal({ digest });
+	const stored = signerChangeIn(proposal.transactionBytes);
+	refuseSignerChangeUnder(scopeKind, stored);
 
+	if (scopeKind === 'original')
+		await refuseChangedAccount(
+			proposal.accountAddress,
+			'read',
+		);
 	const signerSetsStale =
 		scopeKind !== 'original' &&
 		!(await refreshForRead(
@@ -1097,9 +1250,11 @@ export const getProposalByDigest = async (
 		getProposalEvents([proposal.id]),
 	]);
 
-	return {
-		...proposalProgress(proposal, signers),
-		events: events.get(proposal.id) ?? NO_EVENTS,
+	return checkedProposal(
+		proposal,
+		signers,
+		events.get(proposal.id) ?? NO_EVENTS,
 		signerSetsStale,
-	};
+		stored,
+	);
 };

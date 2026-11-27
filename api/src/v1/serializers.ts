@@ -10,15 +10,15 @@ import {
 	type AccountEventRecord,
 	type ProposerWithLatestEvent,
 } from '../services/account-events.service';
-import { type CheckedAccount } from '../services/accounts.service';
 import {
-	aliasCallsOf,
-	type CheckedProposal,
-} from '../services/proposals.service';
+	type CheckedAccount,
+	type RemovedAccount,
+} from '../services/accounts.service';
+import { aliasCallsOf } from '../services/onchain-outcomes.service';
+import { type CheckedProposal } from '../services/proposals.service';
 import {
 	memberAnswer,
 	type ActingMember,
-	type RemovedFromAccount,
 } from '../services/signers.service';
 
 const toV1AccountEvent = (
@@ -44,20 +44,46 @@ const toV1SetMember = (member: {
 	order: member.order,
 });
 
-export const toV1Proposal = ({
-	proposal,
-	signers,
-	sets,
-	hasReachedThreshold,
-	events,
-	signerSetsStale,
-}: CheckedProposal): z.input<typeof v1.ProposalSchema> => ({
+const toV1SignerChange = (
+	{ change }: NonNullable<CheckedProposal['signerChange']>,
+	labels: KeyLabels,
+): z.input<typeof v1.ProposalSignerChangeSchema> => {
+	const old = new Set(
+		change?.oldSet.members.map((m) => m.publicKey),
+	);
+	return {
+		removes: change?.oldSet.address ?? null,
+		adds: change?.newSet.address ?? null,
+		labels: (change?.newSet.members ?? []).flatMap(
+			({ publicKey }) => {
+				const label = labels.get(publicKey);
+				return label && !old.has(publicKey)
+					? [{ publicKey, label }]
+					: [];
+			},
+		),
+	};
+};
+
+export const toV1Proposal = (
+	{
+		proposal,
+		signers,
+		sets,
+		hasReachedThreshold,
+		events,
+		signerSetsStale,
+		signerChange,
+	}: CheckedProposal,
+	labels: KeyLabels,
+): z.input<typeof v1.ProposalSchema> => ({
 	digest: proposal.digest,
 	accountAddress: proposal.accountAddress,
 	accountName: signers.accountName,
 	network: proposal.network,
-	kind:
-		aliasCallsOf(proposal.transactionBytes).length > 0
+	kind: signerChange
+		? 'signer_change'
+		: aliasCallsOf(proposal.transactionBytes).length > 0
 			? 'alias_call'
 			: 'transaction',
 	status: ProposalStatus[
@@ -105,6 +131,8 @@ export const toV1Proposal = ({
 				]
 			: []),
 	],
+	signerChange:
+		signerChange && toV1SignerChange(signerChange, labels),
 	events: {
 		created: toV1AccountEvent(events.created),
 		proposer: toV1AccountEvent(events.proposer),
@@ -185,7 +213,7 @@ export const toV1AccountProposer = (
 });
 
 export const toV1RemovedAccount = (
-	removed: RemovedFromAccount,
+	removed: RemovedAccount,
 ): z.input<typeof v1.RemovedAccountSchema> => ({
 	address: removed.accountAddress,
 	name: removed.accountName,
@@ -193,4 +221,5 @@ export const toV1RemovedAccount = (
 	signerSetAddress: removed.signerSetAddress,
 	eventId: removed.eventId,
 	removedAt: removed.removedAt.toISOString(),
+	transactionDigest: removed.transactionDigest,
 });

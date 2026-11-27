@@ -5,10 +5,14 @@
 
 import { PersonalMessages } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import { db } from '../db';
-import { SchemaAccounts } from '../db/schema';
+import {
+	ProposalStatus,
+	SchemaAccounts,
+	SchemaProposals,
+} from '../db/schema';
 import { ApiAuthError, CommonError } from '../errors';
 import {
 	aliasSetLoaders,
@@ -32,10 +36,17 @@ import {
 	removeProposer,
 	type MultisigAccountWithSigners,
 } from './multisig.service';
+import { findAliasProposals } from './onchain-outcomes.service';
 import {
 	assertCanonicalSignature,
 	verifyMemberSignedMessage,
 } from './signatures.service';
+import {
+	currentEpochOf,
+	lastEpochIn,
+	signerChangeIn,
+	unexpiredAt,
+} from './signer-changes.service';
 import {
 	actingSetsOn,
 	listRemovedAccounts,
@@ -43,6 +54,98 @@ import {
 	networksWithDifferentSigners,
 	type RemovedFromAccount,
 } from './signers.service';
+
+// The account's newest pending signer change that has not expired at the current epoch.
+export const signerChangesOf = async (
+	address: string,
+	network: SuiNetwork,
+	readEpoch: () => Promise<bigint>,
+) => {
+	const pending = (
+		await findAliasProposals(db, address, network, [
+			ProposalStatus.PENDING,
+		])
+	)
+		.filter(
+			(proposal) =>
+				signerChangeIn(proposal.transactionBytes)?.change,
+		)
+		.sort((a, b) => a.id - b.id);
+	// Read only when a pending change can expire; unread, the newest pending one is open.
+	const epoch = pending.some(
+		({ transactionBytes }) =>
+			lastEpochIn(transactionBytes) !== null,
+	)
+		? await readEpoch().catch(() => null)
+		: null;
+	const open = (
+		epoch === null
+			? pending
+			: pending.filter(unexpiredAt(epoch))
+	).at(-1);
+	return {
+		openSignerChange: open ? { digest: open.digest } : null,
+	};
+};
+
+export type RemovedAccount = RemovedFromAccount & {
+	// Null unless the event's digest is a signer change of the account whose old set is the removed one.
+	transactionDigest: string | null;
+};
+
+const withTransactionDigests = async (
+	removed: RemovedFromAccount[],
+	network: SuiNetwork,
+): Promise<RemovedAccount[]> => {
+	const digests = [
+		...new Set(
+			removed.flatMap((entry) =>
+				entry.eventDigest ? [entry.eventDigest] : [],
+			),
+		),
+	];
+	const proposals =
+		digests.length === 0
+			? []
+			: await db
+					.select({
+						digest: SchemaProposals.digest,
+						accountAddress: SchemaProposals.accountAddress,
+						transactionBytes:
+							SchemaProposals.transactionBytes,
+					})
+					.from(SchemaProposals)
+					.where(
+						and(
+							inArray(SchemaProposals.digest, digests),
+							eq(SchemaProposals.network, network),
+						),
+					);
+	const oldSetOf = new Map(
+		proposals.map((proposal) => [
+			proposal.digest,
+			{
+				accountAddress: proposal.accountAddress,
+				oldSet:
+					signerChangeIn(proposal.transactionBytes)?.change
+						?.oldSet.address ?? null,
+			},
+		]),
+	);
+	return removed.map((entry) => {
+		const change =
+			entry.eventDigest && oldSetOf.get(entry.eventDigest);
+		return {
+			...entry,
+			transactionDigest:
+				change &&
+				change.accountAddress === entry.accountAddress &&
+				change.oldSet === entry.signerSetAddress
+					? entry.eventDigest
+					: null,
+		};
+	});
+};
 
 // True when the alias read failed and the signers come from the mirror as it was.
 export type CheckedAccount = MultisigAccountWithSigners & {
@@ -103,7 +206,7 @@ export const listAccounts = async ({
 	loaders?: AliasSetLoaders;
 }): Promise<{
 	accounts: CheckedAccount[];
-	removed: RemovedFromAccount[];
+	removed: RemovedAccount[];
 }> => {
 	const keys = keysOf(callerKeys);
 	const unchecked = await refreshTiedAccounts(
@@ -117,7 +220,9 @@ export const listAccounts = async ({
 			callerKeys,
 			scope: actingSetsOn(network),
 		}),
-		listRemovedAccounts(keys, network),
+		listRemovedAccounts(keys, network).then((removed) =>
+			withTransactionDigests(removed, network),
+		),
 	]);
 	const accounts = new Map(
 		[...connections.values()]
@@ -225,7 +330,7 @@ export const getAccount = async ({
 		}),
 	]);
 	clearTimeout(timer);
-	const [signerChangesEnabled, differentOn] =
+	const [signerChangesEnabled, differentOn, changes] =
 		await Promise.all([
 			state.outcome === 'failed'
 				? aliasObjectExists(address, network)
@@ -235,12 +340,16 @@ export const getAccount = async ({
 				network,
 				networks,
 			),
+			signerChangesOf(address, network, () =>
+				currentEpochOf(network),
+			),
 		]);
 	return {
 		...account,
 		signerSetsStale: state.outcome === 'failed',
 		signerChangesEnabled,
 		networksWithDifferentSigners: differentOn,
+		...changes,
 	};
 };
 

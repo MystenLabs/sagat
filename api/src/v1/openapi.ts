@@ -145,6 +145,17 @@ export const authenticated = {
 	security,
 };
 
+// A route open to all that still reads the session of a request that has one.
+const readSession: MiddlewareHandler<AuthEnv> = async (
+	c,
+	next,
+) => {
+	if (await authMiddleware(c, async () => {}))
+		c.set('publicKeys', []);
+	await next();
+};
+export const sessionIfAny = { middleware: readSession };
+
 export const unauthorized = error('No valid session.');
 
 export const unavailable = error(

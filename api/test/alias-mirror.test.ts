@@ -3,9 +3,15 @@
 
 // The alias mirror against a local network. The steps share state and run in order.
 
-import { deriveAliasesObjectId } from '@mysten/sagat';
+import {
+	buildAdd,
+	buildEnable,
+	buildRemove,
+	deriveAliasesObjectId,
+} from '@mysten/sagat';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { type Transaction } from '@mysten/sui/transactions';
+import { toBase64 } from '@mysten/sui/utils';
 import {
 	beforeAll,
 	describe,
@@ -17,9 +23,11 @@ import { and, asc, eq } from 'drizzle-orm';
 
 import { db } from '../src/db';
 import {
+	ProposalStatus,
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
 	SchemaAccountEvents,
+	SchemaProposals,
 } from '../src/db/schema';
 import { lockAccount } from '../src/db/transaction';
 import {
@@ -33,19 +41,17 @@ import {
 	refreshStaleAliases,
 	requireFreshAliases,
 } from '../src/services/aliases.service';
-import {
-	buildAdd,
-	buildEnable,
-	buildRemove,
-	fetchAliasSet,
-} from '../src/utils/aliases';
+import { fetchAliasSet } from '../src/utils/aliases';
 import { ApiTestFramework } from './framework/api-test-framework';
+import { ageAliasState } from './setup/acting-sets';
 import {
 	readObjects,
 	serving,
 	type AliasObjects,
 } from './setup/alias-reader';
 import {
+	build,
+	execute,
 	expectSuccess,
 	keySigner,
 	multisigSigner,
@@ -56,8 +62,13 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { getLocalClient } from './setup/sui-network';
+import {
+	fundAddress,
+	getLocalClient,
+	LOCALNET_WAIT,
+} from './setup/sui-network';
 import { untilBackendsWaitOnALock } from './setup/test-db';
+import { insertProposal } from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
@@ -106,11 +117,19 @@ const mirrorOf = async (account: string) => {
 	};
 };
 
-const backdate = (account: string, ageMs: number) =>
-	db
-		.update(SchemaAccountAliasState)
-		.set({ observedAt: new Date(Date.now() - ageMs) })
-		.where(stateWhere(account));
+const outcomesOf = async (ids: number[]) =>
+	Promise.all(
+		ids.map(async (id) => {
+			const [row] = await db
+				.select({
+					status: SchemaProposals.status,
+					executedVia: SchemaProposals.executedVia,
+				})
+				.from(SchemaProposals)
+				.where(eq(SchemaProposals.id, id));
+			return row;
+		}),
+	);
 
 describe('Alias mirror', () => {
 	let A: string;
@@ -393,7 +412,11 @@ describe('Alias mirror', () => {
 
 	test('9. the 60 second rule', async () => {
 		const reads = serving(readObjects);
-		await backdate(A, ALIAS_STATE_MAX_AGE_MS - 1_000);
+		await ageAliasState(
+			A,
+			NETWORK,
+			ALIAS_STATE_MAX_AGE_MS - 1_000,
+		);
 		expect(
 			await refreshStaleAliases(
 				[A],
@@ -405,7 +428,7 @@ describe('Alias mirror', () => {
 		]);
 		expect(reads.calls()).toBe(0);
 
-		await backdate(A, -5_000);
+		await ageAliasState(A, NETWORK, -5_000);
 		expect(
 			await refreshStaleAliases(
 				[A],
@@ -417,7 +440,7 @@ describe('Alias mirror', () => {
 		]);
 		expect(reads.calls()).toBe(1);
 
-		await backdate(A, ALIAS_STATE_MAX_AGE_MS + 1_000);
+		await ageAliasState(A, NETWORK);
 		await db
 			.delete(SchemaAccountAliasState)
 			.where(stateWhere(B));
@@ -440,7 +463,7 @@ describe('Alias mirror', () => {
 		).resolves.toMatchObject({ outcome: 'fresh' });
 		expect(failing.calls()).toBe(0);
 
-		await backdate(A, ALIAS_STATE_MAX_AGE_MS + 1_000);
+		await ageAliasState(A, NETWORK);
 		const error = await requireFreshAliases(
 			A,
 			NETWORK,
@@ -454,7 +477,7 @@ describe('Alias mirror', () => {
 		expect((error as Error).cause).toBe(unreachable);
 
 		// A rejection from the refresh itself, not a failed outcome.
-		await backdate(A, ALIAS_STATE_MAX_AGE_MS + 1_000);
+		await ageAliasState(A, NETWORK);
 		const broken = new Error('loaders broken');
 		const rejected = await requireFreshAliases(
 			A,
@@ -593,5 +616,170 @@ describe('Alias mirror', () => {
 		expect(bad).toBeInstanceOf(Error);
 		expect(calls()).toBe(1);
 		expect(lastIds()).toEqual([deriveAliasesObjectId(A)]);
+	});
+	// Builds and executes an alias call from `A` signed by `K`, outside any proposal.
+	const executeAsK = async (
+		fill: (tx: Transaction) => void,
+	) => {
+		const bytes = await build(A, fill);
+		return {
+			bytes,
+			result: await execute(
+				bytes,
+				await signerK.sign(bytes),
+			),
+		};
+	};
+
+	// Through a new loader, so no earlier read is reused.
+	const refreshA = () =>
+		refreshAliases([A], NETWORK, createAliasSetLoaders());
+	// What a settled proposal that `K` executed records.
+	const settled = {
+		status: ProposalStatus.SUCCESS,
+		executedVia: K.toSuiAddress(),
+	};
+
+	// Added in step 15, removed in step 16.
+	const [Y, Z] = Array.from({ length: 2 }, () =>
+		new Ed25519Keypair().toSuiAddress(),
+	);
+
+	test('15. a pending and a cancelled alias proposal that executed are settled by the refresh that sees the change; one not on chain keeps its status', async () => {
+		const W = new Ed25519Keypair().toSuiAddress();
+		const pendingCall = await executeAsK((tx) =>
+			buildAdd(tx, { account: A, alias: Y }),
+		);
+		const cancelledCall = await executeAsK((tx) =>
+			buildAdd(tx, { account: A, alias: Z }),
+		);
+		const lastDigest = expectSuccess(
+			cancelledCall.result,
+		).digest;
+		const neverRun = await build(A, (tx) =>
+			buildAdd(tx, { account: A, alias: W }),
+		);
+		const proposals = [
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(pendingCall.bytes),
+				status: ProposalStatus.PENDING,
+			}),
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(cancelledCall.bytes),
+				status: ProposalStatus.CANCELLED,
+			}),
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(neverRun),
+				status: ProposalStatus.CANCELLED,
+			}),
+		];
+
+		const [result] = await refreshA();
+
+		expect(result).toMatchObject({
+			outcome: 'updated',
+			digest: lastDigest,
+			added: [Y, Z].sort(),
+			removed: [],
+		});
+		expect(
+			await outcomesOf(proposals.map((p) => p.id)),
+		).toEqual([
+			settled,
+			settled,
+			{
+				status: ProposalStatus.CANCELLED,
+				executedVia: null,
+			},
+		]);
+	});
+
+	test('16. settling still happens when a later alias change sits on top', async () => {
+		const pendingCall = await executeAsK((tx) =>
+			buildRemove(tx, { account: A, alias: Y }),
+		);
+		const cancelledCall = await executeAsK((tx) =>
+			buildRemove(tx, { account: A, alias: Z }),
+		);
+		const proposals = [
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(pendingCall.bytes),
+				status: ProposalStatus.PENDING,
+			}),
+			await insertProposal(A, NETWORK, A, {
+				transactionBytes: toBase64(cancelledCall.bytes),
+				status: ProposalStatus.CANCELLED,
+			}),
+		];
+		const V = new Ed25519Keypair().toSuiAddress();
+		const lastDigest = await send(A, signerK, (tx) =>
+			buildAdd(tx, { account: A, alias: V }),
+		);
+
+		const [result] = await refreshA();
+
+		expect(result).toMatchObject({
+			outcome: 'updated',
+			digest: lastDigest,
+			added: [V],
+			removed: [Y, Z].sort(),
+		});
+		expect(
+			await outcomesOf(proposals.map((p) => p.id)),
+		).toEqual([settled, settled]);
+	});
+
+	test('17. an alias call that failed on chain is recorded as failed and changes nothing', async () => {
+		// Two adds of one alias, both built while it is absent: the second aborts.
+		// It is sponsored, so it does not spend the gas coin of the first.
+		const sponsor = new Ed25519Keypair();
+		await fundAddress(sponsor.toSuiAddress());
+		const Q = new Ed25519Keypair().toSuiAddress();
+		const failing = await build(A, (tx) => {
+			tx.setGasOwner(sponsor.toSuiAddress());
+			buildAdd(tx, { account: A, alias: Q });
+		});
+		await send(A, signerK, (tx) =>
+			buildAdd(tx, { account: A, alias: Q }),
+		);
+		await refreshA();
+		const before = await mirrorOf(A);
+
+		const result = await client.executeTransaction({
+			transaction: failing,
+			signatures: [
+				await signerK.sign(failing),
+				(await sponsor.signTransaction(failing)).signature,
+			],
+			include: { effects: true },
+		});
+		await client.waitForTransaction({
+			result,
+			...LOCALNET_WAIT,
+		});
+		expect(result.$kind).toBe('FailedTransaction');
+		const proposal = await insertProposal(A, NETWORK, A, {
+			transactionBytes: toBase64(failing),
+			status: ProposalStatus.PENDING,
+		});
+
+		const [refreshed] = await refreshA();
+
+		// The abort still moves the object's version.
+		expect(refreshed).toMatchObject({
+			outcome: 'updated',
+			digest: proposal.digest,
+			added: [],
+			removed: [],
+		});
+		const after = await mirrorOf(A);
+		expect(after.aliases).toEqual(before.aliases);
+		expect(after.events).toEqual(before.events);
+		expect(await outcomesOf([proposal.id])).toEqual([
+			{
+				status: ProposalStatus.FAILURE,
+				executedVia: K.toSuiAddress(),
+			},
+		]);
 	});
 });

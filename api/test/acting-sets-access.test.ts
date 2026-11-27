@@ -29,7 +29,6 @@ import {
 	ValidationError,
 } from '../src/errors';
 import { listAccountEvents } from '../src/services/account-events.service';
-import { answerAccountInvitation } from '../src/services/accounts.service';
 import {
 	addProposer,
 	getMultisigAccount,
@@ -51,7 +50,6 @@ import {
 	buildTransfer,
 	newUser,
 	refusal,
-	sendCoins,
 	sign,
 	signedBy,
 	type TestUser,
@@ -65,8 +63,9 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import { getLocalClient } from './setup/sui-network';
+import { gasCoins } from './setup/signer-changes';
 import { queryCount } from './setup/test-db';
+import { answer } from './setup/v1-accounts';
 import {
 	insertProposal,
 	offlineTransfer,
@@ -165,18 +164,12 @@ const createCast = async () => {
 const fundedTransfers = async (
 	account: string,
 	count: number,
-) => {
-	await sendCoins(account, count);
-	const { objects: coins } =
-		await getLocalClient().listCoins({ owner: account });
-	return Promise.all(
-		coins
-			.slice(0, count)
-			.map((gasCoin) =>
-				buildTransfer(account, { gasCoin }),
-			),
+) =>
+	Promise.all(
+		(await gasCoins(account, count)).map((gasCoin) =>
+			buildTransfer(account, { gasCoin }),
+		),
 	);
-};
 
 const statusOf = async (proposal: { id: number }) => {
 	const [{ status }] = await db
@@ -760,27 +753,16 @@ describe('access under the acting scope', () => {
 			NOT_A_SIGNER,
 		);
 		expect(await invitationsRoute(key)).toEqual([]);
-		const expiry = defaultExpiry();
 		await expectRefused(
-			answerAccountInvitation({
-				address: account,
-				network: 'localnet',
-				answer: 'accepted',
-				signature: await sign(
-					key,
-					PersonalMessages.acceptAccountInvitation(
-						account,
-						expiry,
-					),
-				),
-				expiry,
-			}),
+			answer(framework, key, account, 'accept'),
 			NOT_A_SIGNER,
 		);
 	});
 
 	test('an account with no acting set on a network refuses every key there', async () => {
 		const { account, k1 } = await createCast();
+		// Added by the legacy route, which refuses the account once it changed.
+		const proposer = await addExternalProposer(k1, account);
 		await setAliases(account, 'localnet', [
 			newUser().address,
 		]);
@@ -794,10 +776,7 @@ describe('access under the acting scope', () => {
 		await expectRefused(vote(k1, proposal), NOT_A_SIGNER);
 		await expectRefused(propose(k1, account), NOT_A_SIGNER);
 		await expectRefused(
-			propose(
-				await addExternalProposer(k1, account),
-				account,
-			),
+			propose(proposer, account),
 			NOT_A_SIGNER,
 		);
 		expect(await listed(k1)).toEqual([]);

@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	buildAdd,
+	buildEnable,
+	buildRemove,
 	defaultExpiry,
 	deriveAliasesObjectId,
 	PersonalMessages,
@@ -33,16 +36,10 @@ import {
 	networksWithDifferentSigners,
 } from '../src/services/signers.service';
 import {
-	buildAdd,
-	buildEnable,
-	buildRemove,
-} from '../src/utils/aliases';
-import {
 	ApiTestFramework,
 	newUser,
 	refusal,
 	sign,
-	type TestUser,
 } from './framework/api-test-framework';
 import { setAliases } from './setup/acting-sets';
 import { readObjects, serving } from './setup/alias-reader';
@@ -56,6 +53,10 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
+import {
+	answer,
+	changeProposer,
+} from './setup/v1-accounts';
 
 setupSharedTestEnvironment();
 setDefaultTimeout(60_000);
@@ -65,71 +66,6 @@ let framework: ApiTestFramework;
 beforeEach(async () => {
 	framework = new ApiTestFramework(await createTestApp());
 });
-
-const answer = async (
-	user: TestUser,
-	account: string,
-	given: 'accept' | 'reject',
-) => {
-	const expiry = defaultExpiry();
-	const signature = await sign(
-		user,
-		given === 'accept'
-			? PersonalMessages.acceptAccountInvitation(
-					account,
-					expiry,
-				)
-			: PersonalMessages.rejectAccountInvitation(
-					account,
-					expiry,
-				),
-	);
-	const client = framework.createSession().v1;
-	return given === 'accept'
-		? client.acceptAccountInvite(account, {
-				network: 'localnet',
-				signature,
-				expiry,
-			})
-		: client.rejectAccountInvite(account, {
-				network: 'localnet',
-				signature,
-				expiry,
-			});
-};
-
-const changeProposer = async (
-	change: 'add' | 'remove',
-	user: TestUser,
-	account: string,
-	proposer: string,
-) => {
-	const expiry = defaultExpiry();
-	const signature = await sign(
-		user,
-		change === 'add'
-			? PersonalMessages.addMultisigProposer(
-					proposer,
-					account,
-					expiry,
-				)
-			: PersonalMessages.removeMultisigProposer(
-					proposer,
-					account,
-					expiry,
-				),
-	);
-	const client = framework.createSession().v1;
-	const body = {
-		network: 'localnet' as const,
-		proposer,
-		signature,
-		expiry,
-	};
-	return change === 'add'
-		? client.addAccountProposer(account, body)
-		: client.removeAccountProposer(account, body);
-};
 
 const addresses = (accounts: { address: string }[]) =>
 	accounts.map((account) => account.address);
@@ -223,8 +159,8 @@ describe('GET /v1/accounts', () => {
 			),
 		).toEqual([account]);
 
-		await answer(k1, account, 'accept');
-		await answer(k2, account, 'accept');
+		await answer(framework, k1, account, 'accept');
+		await answer(framework, k2, account, 'accept');
 		expect(
 			addresses(
 				(await session.v1.getAccounts('localnet')).accounts,
@@ -276,6 +212,7 @@ describe('GET /v1/accounts', () => {
 				publicKey: key.publicKey,
 				signerSetAddress: account,
 				eventId,
+				eventDigest: 'unread',
 				removedAt: expect.any(Date),
 			},
 		]);
@@ -390,6 +327,7 @@ describe('GET /v1/accounts', () => {
 				signerSetAddress: account,
 				eventId: removal.id,
 				removedAt: removal.createdAt.toISOString(),
+				transactionDigest: null,
 			},
 		]);
 	});
@@ -403,21 +341,30 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 			await session.createMultisig([k1, k2, k3], 2)
 		).address;
 
-		expect(await answer(k2, account, 'accept')).toEqual({
+		expect(
+			await answer(framework, k2, account, 'accept'),
+		).toEqual({
 			accountAddress: account,
 			publicKey: k2.publicKey,
 			answer: 'accepted',
 		});
 		expect(
-			await refusal(answer(k2, account, 'reject')),
+			await refusal(
+				answer(framework, k2, account, 'reject'),
+			),
 		).toEqual({
 			status: 400,
 			message: 'Cannot reject after accepting',
 		});
-		const rejected = await answer(k3, account, 'reject');
-		expect(await answer(k3, account, 'reject')).toEqual(
-			rejected,
+		const rejected = await answer(
+			framework,
+			k3,
+			account,
+			'reject',
 		);
+		expect(
+			await answer(framework, k3, account, 'reject'),
+		).toEqual(rejected);
 
 		const legacy =
 			await session.client.getMultisig(account);
@@ -501,7 +448,9 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 			message: 'Invalid signature for message.',
 		});
 		expect(
-			await refusal(answer(newUser(), account, 'accept')),
+			await refusal(
+				answer(framework, newUser(), account, 'accept'),
+			),
 		).toEqual({
 			status: 403,
 			message:
@@ -542,7 +491,7 @@ describe('POST /v1/accounts/:address/accept and /reject', () => {
 		const first = await framework.connectedSession(s1);
 		const second = await framework.connectedSession(s2);
 
-		await answer(s1, account, 'accept');
+		await answer(framework, s1, account, 'accept');
 
 		expect(
 			addresses(
@@ -650,6 +599,7 @@ describe('GET /v1/accounts/:address', () => {
 			network: 'localnet',
 			signerChangesEnabled: true,
 			networksWithDifferentSigners: [],
+			openSignerChange: null,
 			proposers: [
 				{
 					address: proposer,
@@ -722,6 +672,7 @@ describe('POST and DELETE /v1/accounts/:address/proposers', () => {
 
 		expect(
 			await changeProposer(
+				framework,
 				'add',
 				users[0],
 				multisig.address,
@@ -732,6 +683,7 @@ describe('POST and DELETE /v1/accounts/:address/proposers', () => {
 		expect(
 			await refusal(
 				changeProposer(
+					framework,
 					'add',
 					users[0],
 					newUser().address,
@@ -745,6 +697,7 @@ describe('POST and DELETE /v1/accounts/:address/proposers', () => {
 		});
 
 		await changeProposer(
+			framework,
 			'remove',
 			users[1],
 			multisig.address,

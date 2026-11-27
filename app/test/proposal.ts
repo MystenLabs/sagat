@@ -22,6 +22,7 @@ export function v1Proposal(
 		signatures: [],
 		signerSets: [],
 		notActingSets: [],
+		signerChange: null,
 		events: {
 			created: null,
 			proposer: null,

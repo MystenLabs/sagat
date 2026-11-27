@@ -151,7 +151,7 @@ const proposerRoute = <S extends z.ZodType>(
 		description:
 			method === 'post'
 				? 'Signed with `PersonalMessages.addMultisigProposer` by an accepted key of an acting signer set.'
-				: 'Signed with `PersonalMessages.removeMultisigProposer` by an accepted key of an acting signer set. Cancels the proposer’s pending proposals on the network.',
+				: 'Signed with `PersonalMessages.removeMultisigProposer` by an accepted key of an acting signer set. Cancels the proposer’s pending proposals on the network, except a signer change.',
 		request: {
 			params: addressParams,
 			query: networkQuery,
@@ -198,6 +198,7 @@ export const accountRoutes = (app: V1App) => {
 			networksWithDifferentSigners:
 				account.networksWithDifferentSigners,
 			proposers: account.proposers.map(toV1AccountProposer),
+			openSignerChange: account.openSignerChange,
 		};
 	});
 

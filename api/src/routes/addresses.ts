@@ -15,6 +15,7 @@ import {
 	authMiddleware,
 	type AuthEnv,
 } from '../services/auth.service';
+import { listChangedAccounts } from '../services/changed-accounts.service';
 import {
 	listConnections,
 	listInvitations,
@@ -53,15 +54,23 @@ addressesRouter.get(
 			callerKeys: c.get('publicKeys'),
 			scope: ORIGINAL_SET,
 		});
+		const changed = await listChangedAccounts(
+			[...connections.values()]
+				.flat()
+				.map(({ signerSet }) => signerSet.address),
+		);
 
 		const grouped: Record<
 			string,
 			LegacyMultisigWithMembers[]
 		> = {};
 		for (const [publicKey, multisigs] of connections)
-			grouped[publicKey] = multisigs.map(
-				toLegacyMultisigWithMembers,
-			);
+			grouped[publicKey] = multisigs
+				.filter(
+					({ signerSet }) =>
+						!changed.has(signerSet.address),
+				)
+				.map(toLegacyMultisigWithMembers);
 
 		return c.json(grouped);
 	},
@@ -82,8 +91,17 @@ addressesRouter.get(
 			scope: ORIGINAL_SET,
 		});
 
+		const changed = await listChangedAccounts(
+			invitations.map(({ signerSet }) => signerSet.address),
+		);
+
 		return c.json(
-			invitations.map(toLegacyMultisigWithMembers),
+			invitations
+				.filter(
+					({ signerSet }) =>
+						!changed.has(signerSet.address),
+				)
+				.map(toLegacyMultisigWithMembers),
 		);
 	},
 );

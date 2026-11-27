@@ -36,6 +36,7 @@ import {
 	type SignerSetMember,
 	type SignerSetWithMembers,
 } from '../db/schema';
+import { type DatabaseTransaction } from '../db/transaction';
 import {
 	SignerSetDataLoader,
 	withMembers,
@@ -58,6 +59,9 @@ export const actingSetsOn = (
 ): SignerScope => ({ kind: 'acting', network });
 
 export type KeyAnswer = 'accepted' | 'rejected' | 'invited';
+
+// The pool, or a transaction whose locks the read should see past.
+type Executor = typeof db | DatabaseTransaction;
 
 export type ActingMember = {
 	publicKey: string;
@@ -139,13 +143,14 @@ const resolveOriginal = async (addresses: string[]) => {
 const readActingRows = (
 	addresses: string[],
 	network: SuiNetwork,
+	executor: Executor,
 ) => {
 	const ownAliases = alias(
 		SchemaAccountAliases,
 		'own_aliases',
 	);
 	const hasAlias = (own: boolean) =>
-		db
+		executor
 			.select({ one: sql`1` })
 			.from(ownAliases)
 			.where(
@@ -164,9 +169,9 @@ const readActingRows = (
 				),
 			);
 	// Each alias row acts; the account's own address is always read, and acts when listed or when nothing is.
-	const candidates = db.$with('candidates').as(
+	const candidates = executor.$with('candidates').as(
 		unionAll(
-			db
+			executor
 				.select({
 					accountAddress:
 						sql<string>`${SchemaAccountAliases.accountAddress}`.as(
@@ -192,7 +197,7 @@ const readActingRows = (
 						),
 					),
 				),
-			db
+			executor
 				.select({
 					accountAddress:
 						sql<string>`${SchemaAccounts.address}`.as(
@@ -212,7 +217,7 @@ const readActingRows = (
 		),
 	);
 
-	return db
+	return executor
 		.with(candidates)
 		.select({
 			accountAddress: SchemaAccounts.address,
@@ -342,8 +347,13 @@ const actingSetsOf = (
 const resolveActing = async (
 	addresses: string[],
 	network: SuiNetwork,
+	executor: Executor,
 ) => {
-	const rows = await readActingRows(addresses, network);
+	const rows = await readActingRows(
+		addresses,
+		network,
+		executor,
+	);
 	const result = new Map<string, AccountSigners>();
 	for (const [account, accountRows] of groupByAccount(rows))
 		result.set(account, {
@@ -356,24 +366,50 @@ const resolveActing = async (
 };
 
 // One entry per address that resolves. Acting scope: every address that is an account. Original scope: every address that has a signer set.
+// The executor applies to the acting scope; the original scope reads through its loader.
 export const resolveSigners = async (
 	accountAddresses: string[],
 	scope: SignerScope,
+	executor: Executor = db,
 ): Promise<Map<string, AccountSigners>> => {
 	const addresses = [...new Set(accountAddresses)];
 	if (addresses.length === 0) return new Map();
 	return scope.kind === 'original'
 		? resolveOriginal(addresses)
-		: resolveActing(addresses, scope.network);
+		: resolveActing(addresses, scope.network, executor);
 };
 
 export const resolveAccountSigners = async (
 	accountAddress: string,
 	scope: SignerScope,
+	executor: Executor = db,
 ): Promise<AccountSigners | undefined> =>
-	(await resolveSigners([accountAddress], scope)).get(
-		accountAddress,
-	);
+	(
+		await resolveSigners([accountAddress], scope, executor)
+	).get(accountAddress);
+
+// Sorted. No alias rows means `{account}`.
+export const mirroredAliasSet = async (
+	executor: Executor,
+	accountAddress: string,
+	network: SuiNetwork,
+): Promise<string[]> => {
+	const rows = await executor
+		.select({ alias: SchemaAccountAliases.aliasAddress })
+		.from(SchemaAccountAliases)
+		.where(
+			and(
+				eq(
+					SchemaAccountAliases.accountAddress,
+					accountAddress,
+				),
+				eq(SchemaAccountAliases.network, network),
+			),
+		);
+	return rows.length > 0
+		? rows.map((row) => row.alias).sort()
+		: [accountAddress];
+};
 
 // The key's answer for the account, or null when it is in no acting set.
 export const keyAnswer = (
@@ -401,7 +437,13 @@ export const signsFor = (
 	});
 
 export type SignerSetProgress = {
-	signerSet: ActingSignerSet;
+	// Also a set a signer change describes, which may no longer act.
+	signerSet: Pick<
+		ActingSignerSet,
+		'address' | 'threshold'
+	> & {
+		members: Omit<ActingMember, 'answer'>[];
+	};
 	// Sum of the weights of the members that signed.
 	currentWeight: number;
 	hasReachedThreshold: boolean;
@@ -409,7 +451,7 @@ export type SignerSetProgress = {
 
 // A key counts in each set that holds it.
 export const countSignatures = (
-	actingSets: ActingSignerSet[],
+	actingSets: SignerSetProgress['signerSet'][],
 	signedKeys: string[],
 ): {
 	sets: SignerSetProgress[];
@@ -676,32 +718,17 @@ export const listTiedAccounts = async (
 	return rows.map((row) => row.accountAddress).sort();
 };
 
-export type RemovedFromAccount = {
-	accountAddress: string;
-	accountName: string | null;
-	publicKey: string;
-	// The set that was removed and holds the key.
-	signerSetAddress: string;
-	eventId: number;
-	removedAt: Date;
-};
-
-// Accounts a key accepted, is in no acting set of on the network, and whose set holding it was removed there. The newest removal per account and set.
-export const listRemovedAccounts = async (
+// One row per (account, key). A member row answers only for the account at its own signer set's address.
+export const acceptedAccounts = (
+	executor: Executor,
 	publicKeys: string[],
-	network: SuiNetwork,
-): Promise<RemovedFromAccount[]> => {
-	if (publicKeys.length === 0) return [];
-	const { sets, acting } = actingForKeys(
-		publicKeys,
-		network,
-	);
-	const accepted = db.$with('accepted').as(
+) =>
+	executor.$with('accepted').as(
 		union(
-			db
+			executor
 				.select({
 					accountAddress:
-						sql<string>`${SchemaSignerSetMembers.signerSetAddress}`.as(
+						sql<string>`${SchemaAccounts.address}`.as(
 							'accepted_account',
 						),
 					publicKey:
@@ -710,6 +737,13 @@ export const listRemovedAccounts = async (
 						),
 				})
 				.from(SchemaSignerSetMembers)
+				.innerJoin(
+					SchemaAccounts,
+					eq(
+						SchemaAccounts.address,
+						SchemaSignerSetMembers.signerSetAddress,
+					),
+				)
 				.where(
 					and(
 						inArray(
@@ -719,7 +753,7 @@ export const listRemovedAccounts = async (
 						eq(SchemaSignerSetMembers.isAccepted, true),
 					),
 				),
-			db
+			executor
 				.select({
 					accountAddress:
 						sql<string>`${SchemaAccountAcceptances.accountAddress}`.as(
@@ -742,10 +776,39 @@ export const listRemovedAccounts = async (
 				),
 		),
 	);
+
+export type RemovedFromAccount = {
+	accountAddress: string;
+	accountName: string | null;
+	publicKey: string;
+	// The set that was removed and holds the key.
+	signerSetAddress: string;
+	eventId: number;
+	// The event's digest: the last change to the alias object, not always the removal.
+	eventDigest: string | null;
+	removedAt: Date;
+};
+
+// Accounts a key accepted where, on the network, it is in no acting set and the set holding it was removed; the newest removal per account and set.
+export const listRemovedAccounts = async (
+	publicKeys: string[],
+	network: SuiNetwork,
+): Promise<RemovedFromAccount[]> => {
+	if (publicKeys.length === 0) return [];
+	const { sets, acting } = actingForKeys(
+		publicKeys,
+		network,
+	);
+	const accepted = acceptedAccounts(db, publicKeys);
 	const removal = db
 		.select({
 			id: SchemaAccountEvents.id,
 			createdAt: SchemaAccountEvents.createdAt,
+			digest: sql<
+				string | null
+			>`${SchemaAccountEvents.proof}->>'digest'`.as(
+				'removal_digest',
+			),
 		})
 		.from(SchemaAccountEvents)
 		.where(
@@ -773,6 +836,7 @@ export const listRemovedAccounts = async (
 				publicKey: accepted.publicKey,
 				signerSetAddress: sets.setAddress,
 				eventId: removal.id,
+				eventDigest: removal.digest,
 				removedAt: removal.createdAt,
 			},
 		)
@@ -843,4 +907,30 @@ export const networksWithDifferentSigners = async (
 		(other) =>
 			other !== network && aliasSetOn(other) !== here,
 	);
+};
+
+// The accounts whose mirrored alias set is anything other than exactly their own address on one of the networks.
+export const changedAccounts = async (
+	accountAddresses: string[],
+	networks: SuiNetwork[],
+): Promise<Set<string>> => {
+	const rows = await db
+		.selectDistinct({
+			account: SchemaAccountAliases.accountAddress,
+		})
+		.from(SchemaAccountAliases)
+		.where(
+			and(
+				inArray(
+					SchemaAccountAliases.accountAddress,
+					accountAddresses,
+				),
+				inArray(SchemaAccountAliases.network, networks),
+				ne(
+					SchemaAccountAliases.aliasAddress,
+					SchemaAccountAliases.accountAddress,
+				),
+			),
+		);
+	return new Set(rows.map((row) => row.account));
 };
