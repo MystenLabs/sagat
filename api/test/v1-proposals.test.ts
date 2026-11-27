@@ -11,6 +11,7 @@ import {
 	SagatV1Client,
 	type Proposal,
 } from '@mysten/sagat/v1';
+import { bcs } from '@mysten/sui/bcs';
 import {
 	fromBase64,
 	toBase58,
@@ -708,6 +709,32 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 				await signedBy(outsider, transactionBytes),
 			),
 		).toEqual(notASigner);
+		// Parses and is fully resolved, but its command uses an input that does not exist.
+		const data = bcs.TransactionData.parse(
+			fromBase64(transactionBytes),
+		);
+		data.V1!.kind.ProgrammableTransaction!.commands = [
+			{
+				$kind: 'TransferObjects',
+				TransferObjects: {
+					objects: [{ $kind: 'Input', Input: 5 }],
+					address: { $kind: 'Input', Input: 6 },
+				},
+			},
+		];
+		const unbuildable =
+			bcs.TransactionData.serialize(data).toBase64();
+		for (const bytes of ['AAAA', unbuildable])
+			expect(
+				await create(
+					address,
+					bytes,
+					await signedBy(outsider, transactionBytes),
+				),
+			).toEqual({
+				status: 400,
+				body: { error: 'The transaction cannot be read.' },
+			});
 	});
 
 	test('vote refuses a signature that does not verify alike for a signer and an outsider', async () => {

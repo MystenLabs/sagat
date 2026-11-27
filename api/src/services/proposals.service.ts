@@ -171,6 +171,7 @@ const REFUSALS = {
 		senderMismatch:
 			'The transaction sender does not match the multisig address.',
 		unreadableSignature: (error: unknown) => error,
+		unreadableTransaction: (error: unknown) => error,
 		usedObjects: (ids: string[]) =>
 			USED_OBJECTS + ids.join(', '),
 	},
@@ -186,6 +187,10 @@ const REFUSALS = {
 			error instanceof CommonError
 				? new CommonError('InvalidTransactionSignature')
 				: error,
+		unreadableTransaction: () =>
+			new ValidationError(
+				'The transaction cannot be read.',
+			),
 		// Names three objects at most.
 		usedObjects: (ids: string[]) =>
 			ids.length <= 3
@@ -625,8 +630,20 @@ export const createProposal = async ({
 		? undefined
 		: await checkAccount();
 
-	const proposedTransaction = Transaction.from(
-		transactionBytes,
+	// Parses or builds the bytes; `/v1` refuses bytes that fail as a 400.
+	const readable = async <T>(
+		read: () => T | Promise<T>,
+	) => {
+		try {
+			return await read();
+		} catch (error) {
+			throw REFUSALS[scopeKind].unreadableTransaction(
+				error,
+			);
+		}
+	};
+	const proposedTransaction = await readable(() =>
+		Transaction.from(transactionBytes),
 	);
 
 	// We do not currently allow unresolved txs, and resolving one would need
@@ -653,7 +670,9 @@ export const createProposal = async ({
 
 	// Verify the supplied user signature before doing any RPC work for the
 	// request. A fully resolved transaction builds without a client.
-	const built = await proposedTransaction.build();
+	const built = await readable(() =>
+		proposedTransaction.build(),
+	);
 	await verifyTransactionSignature(
 		pubKey,
 		built,
