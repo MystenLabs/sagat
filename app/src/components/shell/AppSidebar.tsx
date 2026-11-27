@@ -75,6 +75,7 @@ import { lastViewedMultisigKey } from '@/lib/localStorageKeys';
 import {
 	currentMultisigPage,
 	MULTISIG_PAGES,
+	sidebarPod,
 } from '@/lib/multisig-pages';
 import { cn } from '@/lib/utils';
 
@@ -166,10 +167,11 @@ function SidebarNav() {
 				lastViewedMultisigKey(currentAccount.address),
 			)
 		: null;
-	const selected =
-		accepted.find((m) => m.address === routeAddress) ??
-		accepted.find((m) => m.address === lastViewed) ??
-		accepted[0];
+	const selected = sidebarPod(
+		location.pathname,
+		accepted,
+		lastViewed,
+	);
 
 	const closeMobile = () => setOpenMobile(false);
 
@@ -230,9 +232,11 @@ function SidebarNav() {
 								onNavigate={closeMobile}
 							/>
 						) : (
-							<NoAccountsSwitcher
-								onNavigate={closeMobile}
-							/>
+							accepted.length === 0 && (
+								<NoAccountsSwitcher
+									onNavigate={closeMobile}
+								/>
+							)
 						))
 					)}
 				</SidebarHeader>
