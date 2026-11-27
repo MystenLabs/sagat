@@ -16,6 +16,7 @@ export {
 } from './constants.js';
 
 export {
+	verifyAcceptedBySignerChange,
 	verifyAccountEvent,
 	verifyProposalCreated,
 	verifyProposalProposer,
