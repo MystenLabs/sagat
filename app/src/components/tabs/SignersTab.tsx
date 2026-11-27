@@ -141,7 +141,7 @@ export function SignersTab() {
 	const create = useCreateProposal();
 	const [building, setBuilding] = useState(false);
 	// Undefined until the list loads; the API takes one alias proposal at a time.
-	const aliasProposals = useAliasProposals(
+	const { proposals: aliasProposals } = useAliasProposals(
 		multisig.address,
 	);
 	const enableProposal = aliasProposals?.find((proposal) =>

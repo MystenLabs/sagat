@@ -14,18 +14,21 @@ import {
 	isProposalExpired,
 } from '@/lib/proposalUtils';
 
-/** The pod's pending, unexpired proposals that call the alias module; undefined until the list loads. */
+/**
+ * The pod's pending, unexpired proposals that call the alias module, undefined
+ * until the list loads, and whether the read failed with no list to show.
+ */
 export function useAliasProposals(multisigAddress: string) {
 	const { network } = useNetwork();
 	const { data: epochInfo } = useEpochInfo();
 	// The query Overview and Proposals share, so it's usually cached.
-	const { data: pending } = usePaginatedProposals({
+	const { data: pending, isError } = usePaginatedProposals({
 		multisigAddress,
 		network,
 		status: 'PENDING',
 		perPage: PROPOSALS_PAGE_SIZE,
 	});
-	return useMemo(
+	const proposals = useMemo(
 		() =>
 			pending?.pages
 				.flatMap((page) => page.proposals)
@@ -37,4 +40,5 @@ export function useAliasProposals(multisigAddress: string) {
 				),
 		[pending, epochInfo],
 	);
+	return { proposals, failed: isError && !pending };
 }

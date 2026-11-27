@@ -470,11 +470,11 @@ type ListedProposal = Pick<
 	| 'digest'
 >;
 
-/** Whether a listed proposal's signer change, checked as its page checks it, still waits for its new signers. */
-export function listedHeld(
+/** The line naming who a listed proposal's signer change, checked as its page checks it, still waits for; null when it doesn't wait. Execute decides on it with a fresh alias read. */
+export function heldLine(
 	proposal: ListedProposal,
 	aliases: AliasRead | undefined,
-): boolean {
+): string | null {
 	const checked = checkedChange(
 		proposal,
 		aliases,
@@ -484,16 +484,25 @@ export function listedHeld(
 			digest: proposal.digest,
 		},
 	);
-	return !!unmetProof(
-		proposal,
-		'ready',
-		holdingChange(
-			proposal.transactionBytes,
-			checked?.change ?? null,
-			aliases,
-		),
+	return (
+		signerChangeWarning(
+			proposal,
+			'ready',
+			holdingChange(
+				proposal.transactionBytes,
+				checked?.change ?? null,
+				aliases,
+			),
+			checked?.labels ?? new Map(),
+		)?.body ?? null
 	);
 }
+
+/** Whether a listed proposal's signer change, checked as its page checks it, still waits for its new signers. */
+export const listedHeld = (
+	proposal: ListedProposal,
+	aliases: AliasRead | undefined,
+) => heldLine(proposal, aliases) !== null;
 
 /** `shownStatus` for a listed proposal. */
 export function listedStatus(

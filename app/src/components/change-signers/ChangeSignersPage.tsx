@@ -91,7 +91,10 @@ export function ChangeSignersPage() {
 		multisig?.address,
 	);
 	const cards = useSignerSetCards(multisig);
-	const aliasProposals = useAliasProposals(address ?? '');
+	const {
+		proposals: aliasProposals,
+		failed: aliasListFailed,
+	} = useAliasProposals(address ?? '');
 	const loading = (
 		<SkeletonPage
 			message={content.common.states.loadingPod}
@@ -102,7 +105,9 @@ export function ChangeSignersPage() {
 	if (!multisig) return <Navigate to="/" replace />;
 	if (
 		!isError &&
-		(!details || multisig.acting?.state === 'checking')
+		(!details ||
+			multisig.acting?.state === 'checking' ||
+			(!aliasProposals && !aliasListFailed))
 	)
 		return loading;
 	const members = `/multisig/${multisig.address}/signers`;

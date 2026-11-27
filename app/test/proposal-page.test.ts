@@ -18,6 +18,7 @@ import {
 	approvalsStatus,
 	cancelVariant,
 	foldedSignerSetsLine,
+	heldLine,
 	holdingChange,
 	listedStatus,
 	newSignerKey,
@@ -34,7 +35,7 @@ import {
 } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
 import { listedSet } from './signer-set';
-import { signerChange } from './transactions';
+import { digestOf, signerChange } from './transactions';
 
 function signer(label: string, weight: number) {
 	const keypair = new Ed25519Keypair();
@@ -428,6 +429,38 @@ describe('a held signer change', () => {
 		expect(held([maya, daniel], [maya.address])).toBe(
 			false,
 		);
+	});
+});
+
+describe('heldLine', () => {
+	it('holds a change that checks against the alias set read now while its new signer hasn’t signed, though the cached read held nothing, and not once they sign', async () => {
+		const newKey = signer('New', 2);
+		const transactionBytes = await changeTo(
+			setOf(3, [maya, daniel, newKey]),
+		);
+		const held = (
+			signedBy: (typeof maya)[],
+			aliases: string[],
+		) =>
+			heldLine(
+				{
+					...proposal({ signedBy }),
+					transactionBytes,
+					accountAddress: pod,
+					digest: digestOf(transactionBytes),
+				},
+				{ kind: 'read', aliases },
+			);
+
+		// The cached read of another set checks no change.
+		expect(held([maya, daniel], [maya.address])).toBeNull();
+		expect(held([maya, daniel], [pod])).toBe(
+			content.proposal.approvals.signerChange.body(
+				formatAddress(newKey.address),
+				1,
+			),
+		);
+		expect(held([maya, newKey], [pod])).toBeNull();
 	});
 });
 

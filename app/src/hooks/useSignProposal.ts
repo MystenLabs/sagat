@@ -100,6 +100,12 @@ export function useSignProposal() {
 				signerAddress: currentAccount.address,
 				newSets,
 			});
+			// A new signer's place comes from the alias read; without it, unchecked.
+			if (
+				failure === 'notSigner' &&
+				node.aliases.kind !== 'read'
+			)
+				throw new Error(signersUncheckedLine(network));
 			if (failure)
 				throw new Error(signRefusedLine(failure, network));
 
