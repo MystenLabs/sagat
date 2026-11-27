@@ -1496,11 +1496,10 @@ test.describe('overview and signers', () => {
 
 	test('a signer change waits for its new signer, who signs it from its link, before it executes, and the new signer then opens the pod with no invitation', async ({
 		createActor,
-		createIdentity,
 		chain,
 	}) => {
 		const alice = await createActor('alice');
-		const bob = createIdentity('bob');
+		const bob = await createActor('bob');
 		const dave = await createActor('dave');
 		// 2 of 2: Alice and Bob replace Bob with Dave, at 2.
 		const { multisig, change } = await replaceFromMembers(
@@ -1510,6 +1509,17 @@ test.describe('overview and signers', () => {
 		);
 		const changePage = alice.proposalPage(change.digest);
 		await expect(changePage).toBeVisible();
+		// Bob's signature reaches the old threshold, but Execute after signing isn't offered.
+		await bob.signIn();
+		await bob.page.goto(
+			`/multisig/${multisig.address}/proposals/${change.digest}`,
+		);
+		await expect(
+			bob.page.getByTestId('sign-proposal-button'),
+		).toBeEnabled();
+		await expect(
+			bob.page.getByTestId('execute-after-signing'),
+		).toHaveCount(0);
 		await signProposal(bob, change);
 		await alice.page.reload();
 		await expect(changePage).toHaveAttribute(
