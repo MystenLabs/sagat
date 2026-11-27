@@ -1148,32 +1148,33 @@ test.describe('overview and signers', () => {
 		const changes = page.getByTestId(
 			'signer-change-changes',
 		);
-		for (const kind of ['add', 'remove'])
-			await expect(
-				changes.locator(
-					`[data-testid="change-item"][data-kind="${kind}"]`,
-				),
-			).toHaveCount(1);
+		// One key out and one in at the same place and weight: one Replace line.
+		const replace = changes.locator(
+			'[data-testid="change-item"][data-kind="replace"]',
+		);
+		await expect(replace).toHaveCount(1);
 		await expect(
 			changes.getByTestId('change-item'),
-		).toHaveCount(2);
-		await expect(
-			changes.locator(
-				'[data-testid="change-item"][data-kind="add"]',
+		).toHaveCount(1);
+		await expect(replace).toContainText(
+			content.changeSigners.change.replace(
+				formatAddress(carol.address),
+				1,
 			),
-		).toContainText('Dave');
-		// Each line shows the whole address of the key it names.
-		for (const [kind, { address }] of [
-			['add', dave],
-			['remove', carol],
-		] as const)
-			await expect(
-				changes
-					.locator(
-						`[data-testid="change-item"][data-kind="${kind}"]`,
-					)
-					.getByTestId('change-address'),
-			).toHaveText(address);
+		);
+		// The line shows the whole address of the key it replaces, then the new one.
+		const addresses = replace.getByTestId('change-address');
+		await expect(addresses).toHaveCount(2);
+		await expect(addresses.nth(0)).toContainText(
+			carol.address,
+		);
+		await expect(addresses.nth(1)).toContainText(
+			dave.address,
+		);
+		// 2 of 3 with Dave: the change doesn't need his signature.
+		await expect(changes).toContainText(
+			content.changeSigners.review.invitation('Dave', 1),
+		);
 		await expect(
 			page.getByTestId('alias-calls-warning'),
 		).toHaveCount(0);
@@ -1307,7 +1308,7 @@ test.describe('overview and signers', () => {
 			).toBeVisible();
 			await expect(
 				carol.page.locator(
-					'[data-testid="change-item"][data-kind="remove"]',
+					'[data-testid="change-item"][data-kind="replace"]',
 				),
 			).toContainText(content.signers.markers.you.parens);
 			await expect(
@@ -1321,6 +1322,13 @@ test.describe('overview and signers', () => {
 				.getByTestId('proposal-filter-ready')
 				.click();
 			const row = alice.proposalRow(change.digest);
+			const title =
+				content.changeSigners.change.replaceTitle(
+					formatAddress(carol.address),
+				);
+			await expect(
+				row.getByTestId('proposal-title'),
+			).toHaveText(title);
 			await expect(
 				row.getByTestId('proposal-execute-from-page'),
 			).toBeVisible();
@@ -1330,12 +1338,30 @@ test.describe('overview and signers', () => {
 			await page.goto(changePath);
 			await executeProposal(page);
 			await page.reload();
+			// The first row of each signer is the set that executed it; the new set follows.
 			for (const signer of [alice, bob])
 				await expect(
-					page.locator(
-						`[data-testid="approval-row"][data-address="${signer.address}"]`,
-					),
+					page
+						.locator(
+							`[data-testid="approval-row"][data-address="${signer.address}"]`,
+						)
+						.first(),
 				).toHaveAttribute('data-signed', 'true');
+			// Executed, the change still says what it did, under the same title.
+			const changes = page.getByTestId(
+				'signer-change-changes',
+			);
+			await expect(changes).toContainText(
+				content.changeSigners.review.did,
+			);
+			await expect(
+				changes.locator(
+					'[data-testid="change-item"][data-kind="replace"]',
+				),
+			).toHaveCount(1);
+			await expect(
+				page.getByRole('heading', { level: 1 }),
+			).toHaveText(title);
 
 			await carol.page.goto('/');
 			// Split at a placeholder for the date, which isn't rebuilt.
