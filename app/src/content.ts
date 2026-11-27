@@ -28,6 +28,9 @@ const SIGNERS_REFUSED = {
 const IN_THIS_STATE =
 	'Proposals in this state show up here.';
 
+/** A ready signer change whose Execute waits for its new signers. */
+const WAITING_FOR_NEW_SIGNERS = 'Waiting for new signers';
+
 /** Above the pod's address when its alias set holds an address no shown signer set rebuilds. */
 const OTHER_SIGNER_SETS = {
 	title: 'This address has other signer sets',
@@ -1014,6 +1017,8 @@ export const content = {
 			cancelled: 'Cancelled',
 			failed: 'Failed',
 			ready: 'Ready',
+			/** Ready, but a signer change's Execute waits for its new signers. */
+			waiting: WAITING_FOR_NEW_SIGNERS,
 			pending: 'Pending',
 			expired: 'Expired',
 		},

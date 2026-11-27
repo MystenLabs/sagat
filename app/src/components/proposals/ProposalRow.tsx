@@ -15,12 +15,14 @@ import { content } from '@/content';
 import { useApiAuth } from '@/contexts/ApiAuthContext';
 import { useCopyToClipboard } from '@/hooks/useCopyToClipboard';
 import { useExecuteOrVerify } from '@/hooks/useExecuteProposal';
+import { type AliasRead } from '@/lib/alias-set';
 import { formatShortDate } from '@/lib/dates';
 import {
 	buildProposalExport,
 	downloadJson,
 	getProposalExportFilename,
 } from '@/lib/exportUtils';
+import { listedStatus } from '@/lib/proposal-page';
 import {
 	canExportProposal,
 	isExternalProposer,
@@ -76,6 +78,7 @@ export function ProposalRow({
 	variant,
 	expired,
 	proposerLabel,
+	aliases,
 }: {
 	proposal: CountedProposal;
 	variant: ProposalsTableVariant;
@@ -83,6 +86,8 @@ export function ProposalRow({
 	expired: boolean;
 	/** The proposer's key label, when they are a labelled signer. */
 	proposerLabel: string | null;
+	/** The pod's alias read, to check a signer change as its page does. */
+	aliases: AliasRead | undefined;
 }) {
 	const { currentAddress } = useApiAuth();
 	const executing = useExecuteOrVerify();
@@ -91,6 +96,7 @@ export function ProposalRow({
 	const status = expired
 		? 'expired'
 		: proposalStatusKey(proposal);
+	const shown = listedStatus(proposal, status, aliases);
 	const pending = proposal.status === 'PENDING';
 	const signed =
 		pending &&
@@ -264,7 +270,7 @@ export function ProposalRow({
 			</td>
 			<td className="px-3 py-2.75 @max-md:block @max-md:self-center @max-md:p-0">
 				<ProposalStatusChip
-					status={status}
+					status={shown}
 					data-testid="proposal-status"
 				/>
 			</td>
@@ -291,7 +297,7 @@ export function ProposalRow({
 			)}
 			<td className="px-3 py-2.75 max-sm:pl-0 @max-md:block @max-md:self-center @max-md:p-0">
 				<div className="flex items-center justify-end gap-1 @max-md:flex-wrap">
-					{status === 'ready' &&
+					{shown === 'ready' &&
 						(readySet ? (
 							<Button
 								size="sm"

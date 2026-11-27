@@ -418,6 +418,69 @@ export function approvalsStatus(
 	return null;
 }
 
+// An open checked change's new-set proof while it isn't met; null otherwise.
+function unmetProof(
+	proposal: Pick<PageProposal, 'signatures'>,
+	status: ProposalStatusKey,
+	change: SignerChange | null,
+) {
+	if (
+		!change ||
+		(status !== 'pending' && status !== 'ready')
+	)
+		return null;
+	const proof = signerChangeProof(
+		change,
+		proposal.signatures.map((sig) => sig.publicKey),
+	);
+	return proof.met ? null : proof;
+}
+
+/** What a proposal's status chip says: `waiting` instead of `ready` while a signer change's Execute waits for its new signers. */
+export type ShownStatus = ProposalStatusKey | 'waiting';
+
+/** The status the page header and the proposals list show, from the proof that holds Execute. */
+export function shownStatus(
+	proposal: Pick<PageProposal, 'signatures'>,
+	status: ProposalStatusKey,
+	change: SignerChange | null,
+): ShownStatus {
+	return status === 'ready' &&
+		unmetProof(proposal, status, change)
+		? 'waiting'
+		: status;
+}
+
+/** `shownStatus` for a listed proposal, with its change checked as its page checks it. */
+export function listedStatus(
+	proposal: Pick<
+		CountedProposal,
+		| 'signatures'
+		| 'transactionBytes'
+		| 'signerChange'
+		| 'accountAddress'
+		| 'digest'
+	>,
+	status: ProposalStatusKey,
+	aliases: AliasRead | undefined,
+): ShownStatus {
+	if (status !== 'ready') return status;
+	const checked = checkedChange(
+		proposal,
+		aliases,
+		new Map(),
+		{
+			pod: proposal.accountAddress,
+			digest: proposal.digest,
+		},
+	);
+	return shownStatus(
+		proposal,
+		status,
+		checked?.change ?? null,
+	);
+}
+
 /**
  * While an open signer change's new set hasn't signed for its threshold,
  * which holds Execute, the line naming its members who haven't signed,
@@ -429,16 +492,8 @@ export function signerChangeWarning(
 	change: SignerChange | null,
 	labels: Labels,
 ): { body: string; notSigned: string[] } | null {
-	if (
-		!change ||
-		(status !== 'pending' && status !== 'ready')
-	)
-		return null;
-	const proof = signerChangeProof(
-		change,
-		proposal.signatures.map((sig) => sig.publicKey),
-	);
-	if (proof.met) return null;
+	const proof = unmetProof(proposal, status, change);
+	if (!proof) return null;
 	const names = proof.notSigned.map((key) =>
 		keyName(key, labels),
 	);

@@ -69,6 +69,7 @@ import {
 	checkedChange,
 	newSignerKey,
 	proposalPageStatus,
+	shownStatus,
 	withReason,
 	type Labels,
 	type SimulationVerdict,
@@ -329,7 +330,11 @@ export function ProposalView({
 				description={
 					<span className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-13 max-sm:flex-col max-sm:items-start max-sm:[&>span>[aria-hidden]]:hidden">
 						<ProposalStatusChip
-							status={status}
+							status={shownStatus(
+								proposal,
+								status,
+								checked?.change ?? null,
+							)}
 							className="mr-0.5"
 							data-testid="proposal-status"
 						/>

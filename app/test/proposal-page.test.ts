@@ -20,6 +20,7 @@ import {
 	foldedSignerSetsLine,
 	newSignerKey,
 	newSignerSets,
+	shownStatus,
 	signerChangeWarning,
 	wouldReachThreshold,
 	type ApprovalsNoteInput,
@@ -425,6 +426,22 @@ describe('a held signer change', () => {
 		expect(held([maya, daniel], [maya.address])).toBe(
 			false,
 		);
+	});
+});
+
+describe('shownStatus', () => {
+	it('says waiting for a ready signer change until its new set signs for its threshold, then ready', async () => {
+		// Alice leaves for a new key of weight 2, at 3 of 4.
+		const newKey = signer('New', 2);
+		const change = signerChangeIn(
+			await changeTo(setOf(3, [maya, daniel, newKey])),
+			[pod],
+		);
+		const shown = (signedBy: (typeof maya)[]) =>
+			shownStatus(proposal({ signedBy }), 'ready', change);
+
+		expect(shown([maya, daniel])).toBe('waiting');
+		expect(shown([maya, newKey])).toBe('ready');
 	});
 });
 
