@@ -1,6 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import {
+	defaultExpiry,
+	PersonalMessages,
+} from '@mysten/sagat';
 import { fromBase64 } from '@mysten/sui/utils';
 import { expect, test } from 'bun:test';
 
@@ -8,7 +12,14 @@ import {
 	ApiTestFramework,
 	buildTransfer,
 	errorOf,
+	newUser,
+	refusal,
+	sign,
 } from './framework/api-test-framework';
+import {
+	insertProposal,
+	offlineTransfer,
+} from './setup/v1-proposals';
 
 // The app reads this on load; restore it for this worker's other files.
 const previousRpcUrl = process.env.SUI_RPC_URL_localnet;
@@ -51,4 +62,80 @@ test('a request whose Sui node call fails gets a 502', async () => {
 				'The Sui network could not be reached. Please try again.',
 		},
 	});
+});
+
+test('a /v1 write is refused with a 503, and the lists and the read serve the account and the proposal as not checked', async () => {
+	const framework = new ApiTestFramework(
+		await createTestApp(),
+	);
+	const { session, users, multisig } =
+		await framework.createVerifiedMultisig(2, 2);
+	const client = session.v1;
+	const proposal = await insertProposal(
+		multisig.address,
+		'localnet',
+		users[0]!.address,
+	);
+	const proposer = newUser().address;
+	const expiry = defaultExpiry();
+
+	const notChecked = {
+		status: 503,
+		message: `The signers of account ${multisig.address} on localnet could not be checked. Please try again.`,
+	};
+	expect(
+		await refusal(
+			client.addAccountProposer(multisig.address, {
+				network: 'localnet',
+				proposer,
+				signature: await sign(
+					users[0]!,
+					PersonalMessages.addMultisigProposer(
+						proposer,
+						multisig.address,
+						expiry,
+					),
+				),
+				expiry,
+			}),
+		),
+	).toEqual(notChecked);
+	expect(
+		await refusal(
+			session.voteOnProposal(
+				users[1]!,
+				proposal.digest,
+				proposal.transactionBytes,
+			),
+		),
+	).toEqual(notChecked);
+	expect(
+		await refusal(
+			session.createProposal(
+				users[0]!,
+				multisig.address,
+				'localnet',
+				await offlineTransfer(multisig.address),
+			),
+		),
+	).toEqual(notChecked);
+	const { accounts } = await client.getAccounts('localnet');
+	const { proposals } = await client.getProposals({
+		accountAddress: multisig.address,
+		network: 'localnet',
+	});
+	const read = await client.getProposalByDigest(
+		proposal.digest,
+	);
+
+	expect(
+		[...accounts, ...proposals, read].map(
+			({ signerSetsStale }) => signerSetsStale,
+		),
+	).toEqual([true, true, true]);
+	expect(accounts[0].address).toBe(multisig.address);
+	expect(
+		[...proposals, read].map(({ digest }) => digest),
+	).toEqual([proposal.digest, proposal.digest]);
+	expect(read.signatures).toEqual([]);
 });

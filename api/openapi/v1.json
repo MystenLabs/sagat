@@ -2,11 +2,24 @@
 	"openapi": "3.1.0",
 	"info": { "title": "Sagat API", "version": "1.0.0" },
 	"components": {
+		"securitySchemes": {
+			"cookieAuth": {
+				"type": "apiKey",
+				"in": "cookie",
+				"name": "__Host-connected-wallet",
+				"description": "The session cookie set by `POST /auth/connect`."
+			},
+			"bearerAuth": {
+				"type": "http",
+				"scheme": "bearer",
+				"bearerFormat": "JWT",
+				"description": "A script token from `POST /auth/script-connect`."
+			}
+		},
 		"schemas": {
 			"Proposal": {
 				"type": "object",
 				"properties": {
-					"id": { "type": "integer" },
 					"digest": {
 						"type": "string",
 						"description": "A Sui transaction digest."
@@ -17,9 +30,17 @@
 					},
 					"accountName": { "type": ["string", "null"] },
 					"network": { "type": "string" },
+					"kind": {
+						"type": "string",
+						"enum": ["transaction", "alias_call"],
+						"description": "`alias_call` for a transaction that calls `0x2::address_alias`."
+					},
 					"status": {
-						"type": "integer",
-						"enum": [0, 1, 2, 3]
+						"$ref": "#/components/schemas/ProposalStatusName"
+					},
+					"ready": {
+						"type": "boolean",
+						"description": "True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending; executedVia names what executed it."
 					},
 					"transactionBytes": { "type": "string" },
 					"proposerAddress": {
@@ -37,46 +58,60 @@
 							"$ref": "#/components/schemas/ProposalSignature"
 						}
 					},
-					"hasReachedThreshold": {
-						"type": "boolean",
-						"description": "True when one of the signer sets in signerSets has reached its threshold."
-					},
 					"signerSets": {
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/SignerSet"
 						},
-						"description": "The signer sets that act for the account on the proposal's network."
+						"description": "The signer sets that act for the account on the proposal's network, now, also for a proposal that is no longer pending; executedVia names what executed it. Then the original set, with acting false, when it no longer acts there."
 					},
 					"events": {
 						"$ref": "#/components/schemas/ProposalEvents"
+					},
+					"executedVia": {
+						"type": ["string", "null"],
+						"description": "The address that signed for the account when the proposal was executed, recorded when it is verified. Null until then, or when it could not be read."
+					},
+					"signerSetsStale": {
+						"type": "boolean",
+						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
 					}
 				},
 				"required": [
-					"id",
 					"digest",
 					"accountAddress",
 					"accountName",
 					"network",
+					"kind",
 					"status",
+					"ready",
 					"transactionBytes",
 					"proposerAddress",
 					"description",
 					"createdAt",
 					"signatures",
-					"hasReachedThreshold",
 					"signerSets",
-					"events"
+					"events",
+					"executedVia",
+					"signerSetsStale"
+				]
+			},
+			"ProposalStatusName": {
+				"type": "string",
+				"enum": [
+					"PENDING",
+					"CANCELLED",
+					"SUCCESS",
+					"FAILURE"
 				]
 			},
 			"ProposalSignature": {
 				"type": "object",
 				"properties": {
-					"proposalId": { "type": "integer" },
 					"publicKey": { "type": "string" },
 					"signature": { "type": "string" }
 				},
-				"required": ["proposalId", "publicKey", "signature"]
+				"required": ["publicKey", "signature"]
 			},
 			"SignerSet": {
 				"type": "object",
@@ -86,21 +121,32 @@
 						"description": "A Sui address."
 					},
 					"threshold": { "type": "integer" },
-					"currentWeight": { "type": "integer" },
-					"hasReachedThreshold": { "type": "boolean" },
+					"currentWeight": {
+						"type": "integer",
+						"description": "The summed weight of the members that signed; 0 for a set that does not act."
+					},
 					"members": {
 						"type": "array",
 						"items": {
 							"$ref": "#/components/schemas/SignerSetMember"
 						}
+					},
+					"acting": {
+						"type": "boolean",
+						"description": "True when the set acts for the account on the proposal's network; false only for the original set once it was removed there. A set that does not act counts no signatures."
+					},
+					"original": {
+						"type": "boolean",
+						"description": "True for the original set. A convenience: the original set is the one whose members and threshold make up the account's address, so check the address."
 					}
 				},
 				"required": [
 					"address",
 					"threshold",
 					"currentWeight",
-					"hasReachedThreshold",
-					"members"
+					"members",
+					"acting",
+					"original"
 				]
 			},
 			"SignerSetMember": {
@@ -132,10 +178,19 @@
 							{ "type": "null" }
 						],
 						"description": "The proposer's newest add or remove."
+					},
+					"cancelled": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/AccountEvent"
+							},
+							{ "type": "null" }
+						],
+						"description": "The proposal's newest `proposal.cancelled` event: who cancelled it and when. A cancel by a proposer removal carries a `caused_by` proof naming the removal's event."
 					}
 				},
-				"required": ["created", "proposer"],
-				"description": "The proposal's audit log events, for checking who proposed it. Each is null where none exists."
+				"required": ["created", "proposer", "cancelled"],
+				"description": "The proposal's audit log events, for checking who proposed it and who cancelled it. Each is null where none exists."
 			},
 			"AccountEvent": {
 				"type": "object",
@@ -169,11 +224,594 @@
 				"properties": { "error": { "type": "string" } },
 				"required": ["error"],
 				"description": "An error response."
+			},
+			"Network": {
+				"type": "string",
+				"enum": [
+					"mainnet",
+					"testnet",
+					"devnet",
+					"localnet"
+				],
+				"description": "A Sui network."
+			},
+			"CreateProposalRequest": {
+				"type": "object",
+				"properties": {
+					"accountAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"transactionBytes": {
+						"type": "string",
+						"description": "The transaction, fully resolved, as base64 BCS bytes."
+					},
+					"signature": {
+						"type": "string",
+						"description": "The proposer's signature over the transaction."
+					},
+					"description": { "type": "string" }
+				},
+				"required": [
+					"accountAddress",
+					"transactionBytes",
+					"signature"
+				]
+			},
+			"ProposalList": {
+				"type": "object",
+				"properties": {
+					"network": {
+						"$ref": "#/components/schemas/Network"
+					},
+					"accountAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"proposals": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Proposal"
+						}
+					},
+					"hasNextPage": { "type": "boolean" },
+					"nextCursor": {
+						"type": ["string", "null"],
+						"description": "Pass as `nextCursor` for the next page. Null when the page is empty."
+					},
+					"perPage": { "type": "integer" }
+				},
+				"required": [
+					"network",
+					"accountAddress",
+					"proposals",
+					"hasNextPage",
+					"nextCursor",
+					"perPage"
+				]
+			},
+			"SignatureRequest": {
+				"type": "object",
+				"properties": { "signature": { "type": "string" } },
+				"required": ["signature"]
+			},
+			"AccountList": {
+				"type": "object",
+				"properties": {
+					"network": {
+						"$ref": "#/components/schemas/Network"
+					},
+					"accounts": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Account"
+						}
+					},
+					"removed": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/RemovedAccount"
+						}
+					}
+				},
+				"required": ["network", "accounts", "removed"]
+			},
+			"Account": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"name": { "type": ["string", "null"] },
+					"createdBy": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"signerSets": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/AccountSignerSet"
+						},
+						"description": "One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network."
+					},
+					"signerSetsStale": {
+						"type": "boolean",
+						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
+					}
+				},
+				"required": [
+					"address",
+					"name",
+					"createdBy",
+					"createdAt",
+					"signerSets",
+					"signerSetsStale"
+				]
+			},
+			"AccountSignerSet": {
+				"oneOf": [
+					{
+						"type": "object",
+						"properties": {
+							"kind": {
+								"type": "string",
+								"enum": ["signer_set"],
+								"description": "A composition the API holds."
+							},
+							"address": {
+								"type": "string",
+								"description": "A Sui address."
+							},
+							"threshold": { "type": "integer" },
+							"members": {
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/AccountMember"
+								}
+							},
+							"acting": {
+								"type": "boolean",
+								"description": "True when the set is in the alias set on the request's network; false only for the original set once it was removed there."
+							},
+							"original": {
+								"type": "boolean",
+								"description": "True for the original set. A convenience: the original set is the one whose members and threshold make up the account's address, so check the address."
+							}
+						},
+						"required": [
+							"kind",
+							"address",
+							"threshold",
+							"members",
+							"acting",
+							"original"
+						]
+					},
+					{
+						"type": "object",
+						"properties": {
+							"kind": {
+								"type": "string",
+								"enum": ["unknown"],
+								"description": "An address in the alias set that the API cannot identify. It can sign for the account."
+							},
+							"address": {
+								"type": "string",
+								"description": "A Sui address."
+							}
+						},
+						"required": ["kind", "address"]
+					}
+				]
+			},
+			"AccountMember": {
+				"type": "object",
+				"properties": {
+					"publicKey": { "type": "string" },
+					"weight": { "type": "integer" },
+					"order": { "type": "integer" },
+					"answer": {
+						"$ref": "#/components/schemas/KeyAnswer"
+					},
+					"label": {
+						"type": ["string", "null"],
+						"description": "The account's label for the key."
+					}
+				},
+				"required": [
+					"publicKey",
+					"weight",
+					"order",
+					"answer",
+					"label"
+				]
+			},
+			"KeyAnswer": {
+				"type": "string",
+				"enum": ["accepted", "rejected", "invited"],
+				"description": "A key's answer for the account; `invited` until it answers."
+			},
+			"RemovedAccount": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"name": { "type": ["string", "null"] },
+					"publicKey": { "type": "string" },
+					"signerSetAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"eventId": {
+						"type": "integer",
+						"description": "The `alias.removed` event."
+					},
+					"removedAt": {
+						"type": "string",
+						"format": "date-time"
+					}
+				},
+				"required": [
+					"address",
+					"name",
+					"publicKey",
+					"signerSetAddress",
+					"eventId",
+					"removedAt"
+				],
+				"description": "An account one of the caller's keys was removed from on the network."
+			},
+			"AccountDetails": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"name": { "type": ["string", "null"] },
+					"createdBy": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"signerSets": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/AccountSignerSet"
+						},
+						"description": "One entry per signer set: first the original set, the one at the account's address, then the others in the alias set on the request's network."
+					},
+					"signerSetsStale": {
+						"type": "boolean",
+						"description": "True when the alias set could not be read from the chain, so the signer sets are as last read."
+					},
+					"network": {
+						"$ref": "#/components/schemas/Network"
+					},
+					"signerChangesEnabled": {
+						"type": "boolean",
+						"description": "Whether signer changes are enabled for the account on the network."
+					},
+					"networksWithDifferentSigners": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"description": "The other supported networks whose alias set differs from this one."
+					},
+					"proposers": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/AccountProposer"
+						}
+					}
+				},
+				"required": [
+					"address",
+					"name",
+					"createdBy",
+					"createdAt",
+					"signerSets",
+					"signerSetsStale",
+					"network",
+					"signerChangesEnabled",
+					"networksWithDifferentSigners",
+					"proposers"
+				]
+			},
+			"AccountProposer": {
+				"type": "object",
+				"properties": {
+					"address": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"addedBy": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"addedAt": {
+						"type": "string",
+						"format": "date-time"
+					},
+					"event": {
+						"anyOf": [
+							{
+								"$ref": "#/components/schemas/AccountEvent"
+							},
+							{ "type": "null" }
+						],
+						"description": "The proposer's newest add or remove, or null."
+					}
+				},
+				"required": [
+					"address",
+					"addedBy",
+					"addedAt",
+					"event"
+				]
+			},
+			"InvitationList": {
+				"type": "object",
+				"properties": {
+					"network": {
+						"$ref": "#/components/schemas/Network"
+					},
+					"invitations": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Account"
+						}
+					}
+				},
+				"required": ["network", "invitations"]
+			},
+			"InvitationAnswer": {
+				"type": "object",
+				"properties": {
+					"accountAddress": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"publicKey": { "type": "string" },
+					"answer": {
+						"type": "string",
+						"enum": ["accepted", "rejected"]
+					}
+				},
+				"required": [
+					"accountAddress",
+					"publicKey",
+					"answer"
+				]
+			},
+			"InvitationAnswerRequest": {
+				"type": "object",
+				"properties": {
+					"signature": { "type": "string" },
+					"expiry": { "type": "string" }
+				},
+				"required": ["signature", "expiry"]
+			},
+			"Success": {
+				"type": "object",
+				"properties": {
+					"success": { "type": "boolean", "enum": [true] }
+				},
+				"required": ["success"]
+			},
+			"AccountProposerRequest": {
+				"type": "object",
+				"properties": {
+					"proposer": {
+						"type": "string",
+						"description": "A Sui address."
+					},
+					"signature": { "type": "string" },
+					"expiry": { "type": "string" }
+				},
+				"required": ["proposer", "signature", "expiry"]
+			},
+			"AccountProposerRemoval": {
+				"type": "object",
+				"properties": {
+					"removed": {
+						"type": "boolean",
+						"description": "Whether this call removed the proposer from the list."
+					},
+					"cancelledProposals": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"description": "The digests of the pending proposals this call cancelled."
+					}
+				},
+				"required": ["removed", "cancelledProposals"],
+				"description": "What this call did. A request whose signature is already recorded does nothing."
 			}
 		},
 		"parameters": {}
 	},
 	"paths": {
+		"/v1/proposals": {
+			"post": {
+				"summary": "Propose a transaction",
+				"description": "Signed over the transaction by an accepted key of an acting signer set, or by a proposer of the account. A member’s signature counts as its first vote.",
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateProposalRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "The proposal, as created.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The request, transaction or signature is invalid, or the network is not supported.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer may not propose for the account on the network, or the address is not an account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"get": {
+				"summary": "List an account's proposals on a network",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
+						},
+						"required": true,
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
+						"name": "accountAddress",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/ProposalStatusName"
+						},
+						"required": false,
+						"name": "status",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"description": "The `nextCursor` of the previous page. Anything else starts from the first page."
+						},
+						"required": false,
+						"description": "The `nextCursor` of the previous page. Anything else starts from the first page.",
+						"name": "nextCursor",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"description": "The page size. Anything but a whole number up to the maximum gives the maximum."
+						},
+						"required": false,
+						"description": "The page size. Anything but a whole number up to the maximum gives the maximum.",
+						"name": "perPage",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "A page of the account’s proposals on the network, newest first, each counted against the signer sets that act now.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ProposalList"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The address, status or network is invalid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No valid session.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "No caller key is an accepted key of an acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
 		"/v1/proposals/{digest}": {
 			"get": {
 				"summary": "Get a proposal by its transaction digest",
@@ -212,6 +850,717 @@
 					},
 					"404": {
 						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{digest}/vote": {
+			"post": {
+				"summary": "Sign a proposal",
+				"description": "Signed over the transaction by a key of an acting signer set, accepted or not.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"required": true,
+						"description": "A Sui transaction digest.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignatureRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The proposal, with the new signature.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest or signature is invalid, the key has signed already, or the proposal is not pending.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The key is in no acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{digest}/cancel": {
+			"post": {
+				"summary": "Cancel a proposal",
+				"description": "Signed with `PersonalMessages.cancelProposal` by an accepted key of an acting signer set, or by the proposal’s external proposer while nobody has signed.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"required": true,
+						"description": "A Sui transaction digest.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SignatureRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The proposal, cancelled.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest or signature is invalid, a signer has already signed the proposer’s proposal, or the proposal is not pending.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is neither an accepted key of an acting signer set of the account on the network nor the proposal’s proposer.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/proposals/{digest}/verify": {
+			"post": {
+				"summary": "Record the on-chain outcome of a proposal",
+				"description": "Open to anyone: it only reads the chain. A proposal that is no longer pending is returned as is.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui transaction digest."
+						},
+						"required": true,
+						"description": "A Sui transaction digest.",
+						"name": "digest",
+						"in": "path"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The proposal, with its outcome and the address that signed for the account.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Proposal"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The digest is invalid, or the transaction has not been executed yet.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "No proposal has this digest.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts": {
+			"get": {
+				"summary": "List the caller's accounts on a network",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The accounts a caller’s key has accepted and signs for on the network, and the ones a key was removed from.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountList"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The network is not supported.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No valid session.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts/{address}": {
+			"get": {
+				"summary": "Get an account on a network",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
+						},
+						"required": true,
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
+						"name": "address",
+						"in": "path"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The account, with its signer sets on the network and its proposers.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountDetails"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The address is invalid or the network is not supported.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No valid session.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "No caller key is in an acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/invitations": {
+			"get": {
+				"summary": "List the caller's invitations on a network",
+				"security": [
+					{ "cookieAuth": [] },
+					{ "bearerAuth": [] }
+				],
+				"parameters": [
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					},
+					{
+						"schema": {
+							"type": "string",
+							"enum": ["true", "false"],
+							"description": "`true` lists the accounts a key rejected instead."
+						},
+						"required": false,
+						"description": "`true` lists the accounts a key rejected instead.",
+						"name": "showRejected",
+						"in": "query"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "The accounts where a caller’s key is in an acting signer set on the network and has not answered.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/InvitationList"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The network is not supported.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "No valid session.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts/{address}/accept": {
+			"post": {
+				"summary": "Accept an account",
+				"description": "Signed with `PersonalMessages.acceptAccountInvitation` by a key of an acting signer set.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
+						},
+						"required": true,
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
+						"name": "address",
+						"in": "path"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/InvitationAnswerRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The answer, as recorded.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/InvitationAnswer"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The request, address, expiry or signature is invalid, or the answer cannot be given.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is in no acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts/{address}/reject": {
+			"post": {
+				"summary": "Reject an account",
+				"description": "Signed with `PersonalMessages.rejectAccountInvitation` by a key of an acting signer set.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
+						},
+						"required": true,
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
+						"name": "address",
+						"in": "path"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/InvitationAnswerRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The answer, as recorded.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/InvitationAnswer"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The request, address, expiry or signature is invalid, or the answer cannot be given.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is in no acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/accounts/{address}/proposers": {
+			"post": {
+				"summary": "Add an external proposer",
+				"description": "Signed with `PersonalMessages.addMultisigProposer` by an accepted key of an acting signer set.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
+						},
+						"required": true,
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
+						"name": "address",
+						"in": "path"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/AccountProposerRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "The change was made.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Success"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The request, address, proposer, expiry or signature is invalid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is no accepted key of an acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"summary": "Remove an external proposer",
+				"description": "Signed with `PersonalMessages.removeMultisigProposer` by an accepted key of an acting signer set. Cancels the proposer’s pending proposals on the network.",
+				"parameters": [
+					{
+						"schema": {
+							"type": "string",
+							"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits."
+						},
+						"required": true,
+						"description": "A Sui address in canonical form: `0x` and 64 lower-case hex digits.",
+						"name": "address",
+						"in": "path"
+					},
+					{
+						"schema": {
+							"$ref": "#/components/schemas/Network"
+						},
+						"required": true,
+						"description": "A Sui network.",
+						"name": "network",
+						"in": "query"
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/AccountProposerRequest"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Whether the proposer was removed, and the proposals cancelled.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountProposerRemoval"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "The request, address, proposer, expiry or signature is invalid.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "The signer is no accepted key of an acting signer set of the account on the network.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Error"
+								}
+							}
+						}
+					},
+					"503": {
+						"description": "The signers of the account on the network could not be checked, or the account is busy.",
 						"content": {
 							"application/json": {
 								"schema": {

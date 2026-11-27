@@ -12,9 +12,11 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 import { db } from '../db';
 import { SchemaSignerSetMembers } from '../db/schema';
+import { ApiAuthError } from '../errors';
 import {
 	resolveAccountSigners,
 	signsFor,
+	type AccountSigners,
 	type SignerScope,
 } from './signers.service';
 
@@ -58,3 +60,14 @@ export const isAccountSigner = async (
 	);
 	return !!signers && signsFor(signers, keys, acceptedOnly);
 };
+
+// The acting scope's refusal of keys that are no accepted signer: not accepted, or no signer at all.
+export const notAcceptedSignerError = (
+	signers: AccountSigners | undefined,
+	publicKeys: string[],
+) =>
+	new ApiAuthError(
+		signers && signsFor(signers, publicKeys, false)
+			? 'AccountNotAccepted'
+			: 'NotAnAccountSigner',
+	);

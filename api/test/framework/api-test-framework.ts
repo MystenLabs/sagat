@@ -6,24 +6,33 @@ import {
 	PersonalMessages,
 	SagatClient,
 	type MultisigWithMembers,
-	type Proposal,
+	type SagatApiError,
 } from '@mysten/sagat';
+import {
+	SagatV1Client,
+	type Network,
+	type Proposal,
+} from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import { Transaction } from '@mysten/sui/transactions';
 import {
 	fromBase64,
 	MIST_PER_SUI,
 } from '@mysten/sui/utils';
 import { expect } from 'bun:test';
+import { eq } from 'drizzle-orm';
 import { type Hono } from 'hono';
 
-import { parsePublicKey } from '../../src/utils/pubKey';
+import { db } from '../../src/db';
+import { SchemaProposals } from '../../src/db/schema';
+import {
+	combinedSignature,
+	execute,
+} from '../setup/localnet-transactions';
 import {
 	executeTransaction,
 	fundAddress,
 	getLocalClient,
-	LOCALNET_WAIT,
 } from '../setup/sui-network';
 
 const client = getLocalClient();
@@ -50,6 +59,17 @@ export const sign = async (
 	(
 		await user.keypair.signPersonalMessage(
 			new TextEncoder().encode(message),
+		)
+	).signature;
+
+// The user's signature over the transaction.
+export const signedBy = async (
+	user: TestUser,
+	transactionBytes: string,
+) =>
+	(
+		await user.keypair.signTransaction(
+			fromBase64(transactionBytes),
 		)
 	).signature;
 
@@ -125,11 +145,43 @@ export async function sendCoins(
 	await executeTransaction(funder, tx);
 }
 
+// Combines the proposal's signatures from the members of `signerSet`,
+// executes the transaction on the local chain and waits for it.
+export async function executeProposal(
+	{
+		transactionBytes,
+		signatures,
+	}: {
+		transactionBytes: string;
+		signatures: { publicKey: string; signature: string }[];
+	},
+	signerSet: Parameters<typeof combinedSignature>[0],
+) {
+	const result = await execute(
+		fromBase64(transactionBytes),
+		combinedSignature(signerSet, signatures),
+	);
+	return result.$kind === 'Transaction'
+		? result.Transaction
+		: result.FailedTransaction;
+}
+
+// A client call's refusal as status and message, or null when it succeeds.
+export const refusal = (call: Promise<unknown>) =>
+	call.then(
+		() => null,
+		(error: SagatApiError) => ({
+			status: error.status,
+			message: error.message,
+		}),
+	);
+
 // A client for the API (calling the app directly), that keeps the session
 // cookie between requests like a browser would.
 export class TestSession {
 	#cookie = '';
 	readonly client: SagatClient;
+	readonly v1: SagatV1Client;
 
 	readonly #app: Hono;
 
@@ -140,6 +192,10 @@ export class TestSession {
 			'cookie',
 			(url, init) => this.request(url as string, init),
 		);
+		this.v1 = new SagatV1Client('', {
+			fetch: (url, init) =>
+				this.request(url as string, init),
+		});
 	}
 
 	// A request with the session cookie, returning the raw response (the
@@ -284,21 +340,23 @@ export class TestSession {
 	async createProposal(
 		proposer: TestUser,
 		multisigAddress: string,
-		network: string,
+		network: Network,
 		transactionBytes: string,
 		description?: string,
 	) {
-		const { signature } =
-			await proposer.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			);
-		return this.client.createProposal({
-			multisigAddress,
+		const proposal = await this.v1.createProposal({
+			accountAddress: multisigAddress,
 			network,
 			transactionBytes,
-			signature,
+			signature: await signedBy(proposer, transactionBytes),
 			description,
 		});
+		// The row id, which the legacy routes take.
+		const [{ id }] = await db
+			.select({ id: SchemaProposals.id })
+			.from(SchemaProposals)
+			.where(eq(SchemaProposals.digest, proposal.digest));
+		return { ...proposal, id };
 	}
 
 	async proposeTransfer(
@@ -317,23 +375,20 @@ export class TestSession {
 
 	async voteOnProposal(
 		voter: TestUser,
-		proposalId: number,
+		digest: string,
 		transactionBytes: string,
 	) {
-		const { signature } =
-			await voter.keypair.signTransaction(
-				fromBase64(transactionBytes),
-			);
-		return this.client.voteForProposal(proposalId, {
-			signature,
+		return this.v1.voteForProposal(digest, {
+			signature: await signedBy(voter, transactionBytes),
 		});
 	}
 
 	// Collects the votes still needed from `voters`, executes the proposal
-	// on chain and verifies it through the API.
+	// on chain with a signer set that reached its threshold and verifies it
+	// through the API.
 	async voteAndExecute(voters: TestUser[], digest: string) {
 		const proposal =
-			await this.client.getProposalByDigest(digest);
+			await this.v1.getProposalByDigest(digest);
 		for (const voter of voters) {
 			if (
 				proposal.signatures.some(
@@ -341,66 +396,81 @@ export class TestSession {
 				)
 			)
 				continue;
-			const { hasReachedThreshold } =
-				await this.voteOnProposal(
-					voter,
-					proposal.id,
-					proposal.transactionBytes,
-				);
-			if (hasReachedThreshold) break;
+			const { ready } = await this.voteOnProposal(
+				voter,
+				digest,
+				proposal.transactionBytes,
+			);
+			if (ready) break;
 		}
 
-		const { multisig, signatures, transactionBytes } =
-			await this.client.getProposalByDigest(digest);
-		const members = multisig.members.sort(
-			(a, b) => a.order - b.order,
+		const voted = await this.v1.getProposalByDigest(digest);
+		const signerSet = voted.signerSets.find(
+			(set) => set.currentWeight >= set.threshold,
 		);
-		const multisigKey = MultiSigPublicKey.fromPublicKeys({
-			threshold: multisig.threshold,
-			publicKeys: members.map((m) => ({
-				publicKey: parsePublicKey(m.publicKey),
-				weight: m.weight,
-			})),
-		});
-		const result = await client.executeTransaction({
-			transaction: fromBase64(transactionBytes),
-			signatures: [
-				multisigKey.combinePartialSignatures(
-					members.flatMap(
-						(m) =>
-							signatures.find(
-								(sig) => sig.publicKey === m.publicKey,
-							)?.signature ?? [],
-					),
-				),
-			],
-			include: { effects: true },
-		});
-		const tx =
-			result.$kind === 'Transaction'
-				? result.Transaction
-				: result.FailedTransaction;
-		await client.waitForTransaction({
-			digest: tx.digest,
-			...LOCALNET_WAIT,
-		});
-		await this.client.verifyProposalByDigest(digest);
+		if (!signerSet)
+			throw new Error(
+				'No signer set reached its threshold',
+			);
+		const tx = await executeProposal(voted, signerSet);
+		await this.v1.verifyProposalByDigest(digest);
 		return tx;
 	}
 
 	async cancelProposal(
 		member: TestUser,
-		proposal: Pick<
-			Proposal,
-			'id' | 'digest' | 'multisigAddress'
-		>,
+		proposal: Pick<Proposal, 'digest' | 'accountAddress'>,
+	) {
+		return this.v1.cancelProposal(proposal.digest, {
+			signature: await sign(
+				member,
+				PersonalMessages.cancelProposal(
+					proposal.digest,
+					proposal.accountAddress,
+				),
+			),
+		});
+	}
+
+	// The legacy routes, which take the proposal's row id.
+	async legacyPropose(
+		proposer: TestUser,
+		multisigAddress: string,
+		transactionBytes: string,
+		description?: string,
+	) {
+		return this.client.createProposal({
+			multisigAddress,
+			network: 'localnet',
+			transactionBytes,
+			signature: await signedBy(proposer, transactionBytes),
+			description,
+		});
+	}
+
+	async legacyVote(
+		voter: TestUser,
+		proposal: { id: number; transactionBytes: string },
+	) {
+		return this.client.voteForProposal(proposal.id, {
+			signature: await signedBy(
+				voter,
+				proposal.transactionBytes,
+			),
+		});
+	}
+
+	async legacyCancel(
+		member: TestUser,
+		proposal: { id: number; digest: string },
+		multisigAddress: string,
 	) {
 		return this.client.cancelProposal(proposal.id, {
 			signature: await sign(
 				member,
 				PersonalMessages.cancelProposal(
 					proposal.digest,
-					proposal.multisigAddress,
+					multisigAddress,
 				),
 			),
 		});
@@ -412,6 +482,14 @@ export class ApiTestFramework {
 
 	createSession() {
 		return new TestSession(this.app);
+	}
+
+	// A session with `users` connected.
+	async connectedSession(...users: TestUser[]) {
+		const session = this.createSession();
+		for (const user of users)
+			await session.connectUser(user);
+		return session;
 	}
 
 	async createAuthenticatedSession(userCount: number) {

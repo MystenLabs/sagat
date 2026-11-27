@@ -68,6 +68,34 @@ const signProposerChange = async (
 	};
 };
 
+const signAnswer = async (
+	signer: Keypair,
+	action: 'account.accepted' | 'account.rejected',
+): Promise<AccountEvent> => {
+	const accept = action === 'account.accepted';
+	const message = (
+		accept
+			? PersonalMessages.acceptAccountInvitation
+			: PersonalMessages.rejectAccountInvitation
+	)(accountAddress, expiry);
+	const { signature } = await signer.signPersonalMessage(
+		new TextEncoder().encode(message),
+	);
+	return {
+		id: 3,
+		action,
+		actor: signer.toSuiAddress(),
+		subject: null,
+		proof: {
+			kind: accept ? 'account.accept' : 'account.reject',
+			version: 1,
+			signature,
+			expiry,
+		},
+		createdAt,
+	};
+};
+
 // A transfer's bytes and digest, sent by the given address.
 const buildTransaction = async (sender: string) => {
 	const tx = new Transaction();
@@ -279,6 +307,45 @@ describe('verifyAccountEvent', () => {
 			{ members },
 		);
 		expect(status).toBe('invalid');
+	});
+	test('verifies an account accept and reject signed by a key in no set', async () => {
+		for (const action of [
+			'account.accepted',
+			'account.rejected',
+		] as const) {
+			const event = await signAnswer(outsider, action);
+			expect(
+				await verifyAccountEvent(event, context),
+			).toEqual({
+				status: 'verified',
+				signer: outsider.toSuiAddress(),
+				createdAt,
+			});
+		}
+	});
+
+	test('is invalid when the answer was signed for another account, or as an accept for a rejection', async () => {
+		const event = await signAnswer(
+			outsider,
+			'account.accepted',
+		);
+		expect(
+			(
+				await verifyAccountEvent(event, {
+					...context,
+					accountAddress: `0x${'cd'.repeat(32)}`,
+				})
+			).status,
+		).toBe('invalid');
+
+		event.action = 'account.rejected';
+		event.proof = {
+			...event.proof,
+			kind: 'account.reject',
+		};
+		expect(
+			(await verifyAccountEvent(event, context)).status,
+		).toBe('invalid');
 	});
 });
 

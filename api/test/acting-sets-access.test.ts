@@ -4,15 +4,9 @@
 import {
 	defaultExpiry,
 	PersonalMessages,
+	SagatApiError,
 } from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
-import { Transaction } from '@mysten/sui/transactions';
-import {
-	fromBase64,
-	normalizeSuiAddress,
-	toBase58,
-	toHex,
-} from '@mysten/sui/utils';
 import {
 	beforeEach,
 	describe,
@@ -35,6 +29,7 @@ import {
 	ValidationError,
 } from '../src/errors';
 import { listAccountEvents } from '../src/services/account-events.service';
+import { answerAccountInvitation } from '../src/services/accounts.service';
 import {
 	addProposer,
 	getMultisigAccount,
@@ -44,9 +39,6 @@ import {
 } from '../src/services/multisig.service';
 import {
 	cancelProposal,
-	createProposal,
-	listProposals,
-	verifyProposal,
 	voteOnProposal,
 } from '../src/services/proposals.service';
 import {
@@ -54,13 +46,14 @@ import {
 	ORIGINAL_SET,
 	type SignerScope,
 } from '../src/services/signers.service';
-import { type SuiNetwork } from '../src/utils/client';
 import {
 	ApiTestFramework,
 	buildTransfer,
 	newUser,
+	refusal,
 	sendCoins,
 	sign,
+	signedBy,
 	type TestUser,
 } from './framework/api-test-framework';
 import {
@@ -74,6 +67,10 @@ import {
 } from './setup/shared-test-setup';
 import { getLocalClient } from './setup/sui-network';
 import { queryCount } from './setup/test-db';
+import {
+	insertProposal,
+	offlineTransfer,
+} from './setup/v1-proposals';
 
 setupSharedTestEnvironment();
 
@@ -81,13 +78,8 @@ const LOCALNET = actingSetsOn('localnet');
 const TESTNET = actingSetsOn('testnet');
 
 const ACCESS_DENIED = new ApiAuthError('AccessDenied');
-const NOT_A_MEMBER = new ApiAuthError('NotAMultisigMember');
-const CANNOT_CANCEL = new ValidationError(
-	'Not a member of the multisig',
-);
-const NOT_READY = new ValidationError(
-	'Proposal is not ready to execute',
-);
+const NOT_A_SIGNER = new ApiAuthError('NotAnAccountSigner');
+const NOT_ACCEPTED = new ApiAuthError('AccountNotAccepted');
 
 let framework: ApiTestFramework;
 
@@ -95,6 +87,7 @@ beforeEach(async () => {
 	framework = new ApiTestFramework(await createTestApp());
 });
 
+// A route answers a service's refusal with its status and message.
 const expectRefused = async (
 	call: Promise<unknown>,
 	error: Error,
@@ -103,7 +96,11 @@ const expectRefused = async (
 		() => null,
 		(e: unknown) => e,
 	);
-	expect(thrown).toBeInstanceOf(error.constructor);
+	if (thrown instanceof SagatApiError)
+		expect(thrown.status).toBe(
+			error instanceof ApiAuthError ? 403 : 400,
+		);
+	else expect(thrown).toBeInstanceOf(error.constructor);
 	expect((thrown as Error).message).toBe(error.message);
 };
 
@@ -164,49 +161,6 @@ const createCast = async () => {
 	return { account, k1, k2, k3, r1, r2, composition };
 };
 
-const random = (length: number) =>
-	crypto.getRandomValues(new Uint8Array(length));
-
-// Transfer bytes from the account, built without the chain, on a made-up gas coin.
-const offlineTransfer = async (sender: string) => {
-	const tx = new Transaction();
-	tx.setSender(sender);
-	tx.setGasPrice(1000);
-	tx.setGasBudget(10_000_000);
-	tx.setGasPayment([
-		{
-			objectId: normalizeSuiAddress(toHex(random(32))),
-			version: '1',
-			digest: toBase58(random(32)),
-		},
-	]);
-	const [coin] = tx.splitCoins(tx.gas, [tx.pure.u64(1)]);
-	tx.transferObjects([coin], tx.pure.address(sender));
-	return (await tx.build()).toBase64();
-};
-
-// A pending proposal row, as a create on that network would leave it.
-const insertProposal = async (
-	account: string,
-	network: SuiNetwork,
-	proposerAddress: string,
-) => {
-	const transactionBytes = await offlineTransfer(account);
-	const [proposal] = await db
-		.insert(SchemaProposals)
-		.values({
-			accountAddress: account,
-			digest: await Transaction.from(
-				transactionBytes,
-			).getDigest(),
-			transactionBytes,
-			proposerAddress,
-			network,
-		})
-		.returning();
-	return proposal;
-};
-
 // Transfers from the account on localnet, each paying with its own coin.
 const fundedTransfers = async (
 	account: string,
@@ -224,7 +178,7 @@ const fundedTransfers = async (
 	);
 };
 
-const statusOf = async (proposal: Proposal) => {
+const statusOf = async (proposal: { id: number }) => {
 	const [{ status }] = await db
 		.select({ status: SchemaProposals.status })
 		.from(SchemaProposals)
@@ -235,6 +189,31 @@ const statusOf = async (proposal: Proposal) => {
 const keysOf = (user: TestUser) => [
 	user.keypair.getPublicKey(),
 ];
+
+const ROUTE_NOT_A_SIGNER = {
+	status: 403,
+	message: NOT_A_SIGNER.message,
+};
+
+const readRoute = async (user: TestUser, account: string) =>
+	(await framework.connectedSession(user)).v1.getAccount(
+		account,
+		'localnet',
+	);
+
+const listedRoute = async (user: TestUser) =>
+	(
+		await (
+			await framework.connectedSession(user)
+		).v1.getAccounts('localnet')
+	).accounts.map((account) => account.address);
+
+const invitationsRoute = async (user: TestUser) =>
+	(
+		await (
+			await framework.connectedSession(user)
+		).v1.getInvitations('localnet')
+	).invitations.map((account) => account.address);
 
 const read = (
 	user: TestUser,
@@ -273,62 +252,73 @@ const invitations = async (
 		})
 	).map((account) => account.signerSet.address);
 
+// Anyone may call the proposal write routes; the signature decides.
+const anyone = () => framework.createSession();
+
+type ProposalRef = Pick<
+	Proposal,
+	'digest' | 'accountAddress' | 'transactionBytes'
+> & { id: number; network: string };
+
 const propose = async (
 	user: TestUser,
 	account: string,
 	transactionBytes?: string,
-) => {
-	const bytes =
-		transactionBytes ?? (await offlineTransfer(account));
-	return createProposal({
-		multisigAddress: account,
-		transactionBytes: bytes,
-		signature: (
-			await user.keypair.signTransaction(fromBase64(bytes))
-		).signature,
-		network: 'localnet',
-		scopeKind: 'acting',
-	});
-};
+) =>
+	anyone().createProposal(
+		user,
+		account,
+		'localnet',
+		transactionBytes ?? (await offlineTransfer(account)),
+	);
 
-const vote = async (user: TestUser, proposal: Proposal) =>
-	voteOnProposal({
-		proposalId: proposal.id,
-		signature: (
-			await user.keypair.signTransaction(
-				fromBase64(proposal.transactionBytes),
-			)
-		).signature,
-		scopeKind: 'acting',
-	});
-
-const cancel = async (user: TestUser, proposal: Proposal) =>
-	cancelProposal({
-		proposalId: proposal.id,
-		signature: await sign(
-			user,
-			PersonalMessages.cancelProposal(
+// The routes serve localnet only, so a proposal on another network is voted on at service level.
+const vote = async (
+	user: TestUser,
+	proposal: ProposalRef,
+) =>
+	proposal.network === 'localnet'
+		? anyone().voteOnProposal(
+				user,
 				proposal.digest,
-				proposal.accountAddress,
-			),
-		),
-		scopeKind: 'acting',
-	});
+				proposal.transactionBytes,
+			)
+		: voteOnProposal({
+				proposalId: proposal.id,
+				signature: await signedBy(
+					user,
+					proposal.transactionBytes,
+				),
+				scopeKind: 'acting',
+			});
 
-const verify = (user: TestUser, proposal: Proposal) =>
-	verifyProposal({
-		proposalId: proposal.id,
-		callerKeys: keysOf(user),
-		scopeKind: 'acting',
-	});
+// As `vote`, a proposal on another network is cancelled at service level.
+const cancel = async (
+	user: TestUser,
+	proposal: ProposalRef,
+) =>
+	proposal.network === 'localnet'
+		? anyone().cancelProposal(user, proposal)
+		: cancelProposal({
+				proposalId: proposal.id,
+				signature: await sign(
+					user,
+					PersonalMessages.cancelProposal(
+						proposal.digest,
+						proposal.accountAddress,
+					),
+				),
+				scopeKind: 'acting',
+			});
 
-const proposalsOf = (user: TestUser, account: string) =>
-	listProposals({
-		multisigAddress: account,
+const proposalsOf = async (
+	user: TestUser,
+	account: string,
+) =>
+	(await framework.connectedSession(user)).v1.getProposals({
+		accountAddress: account,
 		network: 'localnet',
-		cursor: { perPage: 20 },
-		callerKeys: keysOf(user),
-		scopeKind: 'acting',
+		perPage: 20,
 	});
 
 const changeProposer = async (
@@ -397,15 +387,23 @@ describe('access under the acting scope', () => {
 
 		const own = await propose(k1, account, first);
 		expect(
-			(await proposalsOf(k1, account)).data.map(
-				(p) => p.id,
+			(await proposalsOf(k1, account)).proposals.map(
+				(p) => p.digest,
 			),
-		).toEqual([own.id]);
-		await expectRefused(verify(k1, own), NOT_READY);
+		).toEqual([own.digest]);
+		expect(await statusOf(own)).toBe(
+			ProposalStatus.PENDING,
+		);
 
 		const other = await propose(k2, account, second);
 		expect(
-			(await vote(k1, other)).hasReachedThreshold,
+			(
+				await anyone().voteOnProposal(
+					k1,
+					other.digest,
+					other.transactionBytes,
+				)
+			).ready,
 		).toBe(true);
 		await cancel(k1, own);
 		expect(await statusOf(own)).toBe(
@@ -450,17 +448,13 @@ describe('access under the acting scope', () => {
 
 		await expectRefused(
 			proposalsOf(r1, account),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
-		await expectRefused(propose(r1, account), NOT_A_MEMBER);
-		await expectRefused(
-			cancel(r1, proposal),
-			CANNOT_CANCEL,
-		);
-		await expectRefused(verify(r1, proposal), NOT_A_MEMBER);
+		await expectRefused(propose(r1, account), NOT_ACCEPTED);
+		await expectRefused(cancel(r1, proposal), NOT_ACCEPTED);
 		await expectRefused(
 			changeProposer('add', r1, account, newUser().address),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
 		await expectRefused(
 			changeProposer(
@@ -469,7 +463,7 @@ describe('access under the acting scope', () => {
 				account,
 				newUser().address,
 			),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
 		await expectRefused(
 			eventsOf(r1, account),
@@ -496,7 +490,7 @@ describe('access under the acting scope', () => {
 		expect(await listed(r1)).toEqual([]);
 		expect(await invitations(r1)).toEqual([]);
 		expect(await invitations(r1, true)).toEqual([account]);
-		await expectRefused(propose(r1, account), NOT_A_MEMBER);
+		await expectRefused(propose(r1, account), NOT_ACCEPTED);
 	});
 
 	test('a key of a second acting set gets a member’s rights once it accepted, on that account only', async () => {
@@ -507,7 +501,7 @@ describe('access under the acting scope', () => {
 		]);
 		await expectRefused(
 			proposalsOf(r1, account),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
 
 		await answerFor(account, r1, 'accepted');
@@ -516,10 +510,10 @@ describe('access under the acting scope', () => {
 		expect(await listed(r1)).toEqual([account]);
 		const proposal = await propose(r1, account, transfer);
 		expect(
-			(await proposalsOf(r1, account)).data.map(
-				(p) => p.id,
+			(await proposalsOf(r1, account)).proposals.map(
+				(p) => p.digest,
 			),
-		).toEqual([proposal.id]);
+		).toEqual([proposal.digest]);
 		await cancel(r1, proposal);
 		expect(await statusOf(proposal)).toBe(
 			ProposalStatus.CANCELLED,
@@ -539,7 +533,7 @@ describe('access under the acting scope', () => {
 			other,
 			composition,
 		]);
-		await expectRefused(propose(r1, other), NOT_A_MEMBER);
+		await expectRefused(propose(r1, other), NOT_ACCEPTED);
 		expect(await listed(r1)).toEqual([account]);
 	});
 
@@ -554,16 +548,16 @@ describe('access under the acting scope', () => {
 		);
 
 		expect(await listed(k3)).toEqual([]);
-		await expectRefused(read(k3, account), ACCESS_DENIED);
-		await expectRefused(vote(k3, onLocalnet), NOT_A_MEMBER);
-		await expectRefused(propose(k3, account), NOT_A_MEMBER);
+		await expectRefused(read(k3, account), NOT_A_SIGNER);
+		await expectRefused(vote(k3, onLocalnet), NOT_A_SIGNER);
+		await expectRefused(propose(k3, account), NOT_A_SIGNER);
 		await expectRefused(
 			cancel(k3, onLocalnet),
-			CANNOT_CANCEL,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			changeProposer('add', k3, account, newUser().address),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			eventsOf(k3, account),
@@ -579,6 +573,10 @@ describe('access under the acting scope', () => {
 		await read(k3, account, TESTNET);
 		await eventsOf(k3, account, TESTNET);
 		await vote(k3, onTestnet);
+		await cancel(k3, onTestnet);
+		expect(await statusOf(onTestnet)).toBe(
+			ProposalStatus.CANCELLED,
+		);
 	});
 
 	test('a set removed and added back keeps the answer its keys gave', async () => {
@@ -607,7 +605,7 @@ describe('access under the acting scope', () => {
 				),
 			);
 		expect(await listed(r1)).toEqual([]);
-		await expectRefused(vote(r1, proposal), NOT_A_MEMBER);
+		await expectRefused(vote(r1, proposal), NOT_A_SIGNER);
 
 		await setAliases(account, 'localnet', [composition]);
 		const [transfer] = await fundedTransfers(account, 1);
@@ -644,15 +642,15 @@ describe('access under the acting scope', () => {
 
 		await expectRefused(
 			read(proposer, account),
-			ACCESS_DENIED,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			vote(proposer, signed),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			proposalsOf(proposer, account),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 
 		await setAliases(account, 'localnet', [composition]);
@@ -668,26 +666,28 @@ describe('access under the acting scope', () => {
 			k1.address,
 		);
 
-		await expectRefused(
-			read(outsider, account),
-			ACCESS_DENIED,
-		);
+		expect(
+			await refusal(readRoute(outsider, account)),
+		).toEqual(ROUTE_NOT_A_SIGNER);
 		await expectRefused(
 			vote(outsider, proposal),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			propose(outsider, account),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
+		);
+		await expectRefused(
+			propose(outsider, newUser().address),
+			NOT_A_SIGNER,
 		);
 		await expectRefused(
 			proposalsOf(outsider, account),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
-		await expectRefused(
-			read(k1, newUser().address),
-			ACCESS_DENIED,
-		);
+		expect(
+			await refusal(readRoute(k1, newUser().address)),
+		).toEqual(ROUTE_NOT_A_SIGNER);
 	});
 
 	test('a stranger’s account that lists a known composition invites its keys but is not their account', async () => {
@@ -699,22 +699,27 @@ describe('access under the acting scope', () => {
 			account,
 		]);
 
-		expect(await listed(k1)).toEqual([account]);
-		expect(await invitations(k1)).toEqual([stranger]);
+		expect(await listedRoute(k1)).toEqual([account]);
+		expect(await invitationsRoute(k1)).toEqual([stranger]);
 
-		const { signerSet, signers } = await read(k1, stranger);
-		expect(signerSet.address).toBe(stranger);
-		expect(
-			signerSet.members.map((m) => m.publicKey),
-		).toEqual(strangers.map((s) => s.publicKey));
-		expect(signers.originalSet!.address).toBe(stranger);
+		const {
+			address,
+			signerSets: [original],
+		} = await readRoute(k1, stranger);
+		expect(address).toBe(stranger);
+		expect(original).toMatchObject({
+			address: stranger,
+			members: strangers.map(({ publicKey }) => ({
+				publicKey,
+			})),
+		});
 		await expectRefused(
 			propose(k1, stranger),
-			NOT_A_MEMBER,
+			NOT_ACCEPTED,
 		);
 	});
 
-	test('a registered key acts as a set of one, and an address nobody knows gives nothing', async () => {
+	test('a registered key’s own address is an unknown signer set, and gives nothing like an address nobody knows', async () => {
 		const { account, k1 } = await createCast();
 		const key = newUser();
 		await register(key);
@@ -725,36 +730,53 @@ describe('access under the acting scope', () => {
 			unknown,
 		]);
 
-		const { signers } = await read(key, account);
+		const { signerSets } = await readRoute(k1, account);
 		expect(
-			signers.actingSets.find(
-				(s) => s.address === key.address,
+			signerSets.filter((s) =>
+				[key.address, unknown].includes(s.address),
 			),
-		).toEqual({
-			kind: 'key',
-			address: key.address,
-			threshold: 1,
-			members: [
-				{
-					publicKey: key.publicKey,
-					weight: 1,
-					order: 0,
-					answer: 'invited',
-				},
-			],
-		});
-		expect(signers.otherSignerSets).toEqual([unknown]);
-		expect(
-			signers.actingSets.map((s) => s.address),
-		).not.toContain(unknown);
-
-		await vote(
-			key,
-			await insertProposal(account, 'localnet', k1.address),
+		).toEqual(
+			[key.address, unknown]
+				.sort()
+				.map((address) => ({ kind: 'unknown', address })),
 		);
-		expect(await listed(key)).toEqual([]);
-		await answerFor(account, key, 'accepted');
-		expect(await listed(key)).toEqual([account]);
+
+		expect(await refusal(readRoute(key, account))).toEqual(
+			ROUTE_NOT_A_SIGNER,
+		);
+		await expectRefused(
+			vote(
+				key,
+				await insertProposal(
+					account,
+					'localnet',
+					k1.address,
+				),
+			),
+			NOT_A_SIGNER,
+		);
+		await expectRefused(
+			propose(key, account),
+			NOT_A_SIGNER,
+		);
+		expect(await invitationsRoute(key)).toEqual([]);
+		const expiry = defaultExpiry();
+		await expectRefused(
+			answerAccountInvitation({
+				address: account,
+				network: 'localnet',
+				answer: 'accepted',
+				signature: await sign(
+					key,
+					PersonalMessages.acceptAccountInvitation(
+						account,
+						expiry,
+					),
+				),
+				expiry,
+			}),
+			NOT_A_SIGNER,
+		);
 	});
 
 	test('an account with no acting set on a network refuses every key there', async () => {
@@ -768,15 +790,15 @@ describe('access under the acting scope', () => {
 			k1.address,
 		);
 
-		await expectRefused(read(k1, account), ACCESS_DENIED);
-		await expectRefused(vote(k1, proposal), NOT_A_MEMBER);
-		await expectRefused(propose(k1, account), NOT_A_MEMBER);
+		await expectRefused(read(k1, account), NOT_A_SIGNER);
+		await expectRefused(vote(k1, proposal), NOT_A_SIGNER);
+		await expectRefused(propose(k1, account), NOT_A_SIGNER);
 		await expectRefused(
 			propose(
 				await addExternalProposer(k1, account),
 				account,
 			),
-			NOT_A_MEMBER,
+			NOT_A_SIGNER,
 		);
 		expect(await listed(k1)).toEqual([]);
 
@@ -797,7 +819,7 @@ describe('access under the acting scope', () => {
 		expect(
 			signers.actingSets.map((s) => s.address),
 		).toEqual([composition]);
-		await expectRefused(read(k3, account), ACCESS_DENIED);
+		await expectRefused(read(k3, account), NOT_A_SIGNER);
 	});
 
 	test('key labels never cross accounts', async () => {
@@ -849,13 +871,18 @@ describe('access under the acting scope', () => {
 			'testnet',
 			first.address,
 		);
-		await changeProposer(
-			'remove',
-			k1,
-			account,
-			first.address,
-			LOCALNET,
-		);
+		expect(
+			await changeProposer(
+				'remove',
+				k1,
+				account,
+				first.address,
+				LOCALNET,
+			),
+		).toEqual({
+			removed: true,
+			cancelledProposals: [firstOnLocalnet.digest],
+		});
 		expect(await statusOf(firstOnLocalnet)).toBe(
 			ProposalStatus.CANCELLED,
 		);
@@ -890,9 +917,16 @@ describe('access under the acting scope', () => {
 
 	test('the account list does not cost more statements with more accounts', async () => {
 		const key = newUser();
+		const client = (await framework.connectedSession(key))
+			.v1;
+		const listedCount = async () =>
+			(await client.getAccounts('localnet')).accounts
+				.length;
 		const statementsFor = async (count: number) => {
+			// The first list refreshes the new accounts; the second finds them fresh.
+			await listedCount();
 			const before = queryCount();
-			expect(await listed(key)).toHaveLength(count);
+			expect(await listedCount()).toBe(count);
 			return queryCount() - before;
 		};
 

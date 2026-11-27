@@ -9,3 +9,9 @@ export const unwrap = <T>(result: T | Error): T => {
 	if (result instanceof Error) throw result;
 	return result;
 };
+
+export const chunk = <T>(items: T[], size: number): T[][] =>
+	Array.from(
+		{ length: Math.ceil(items.length / size) },
+		(_, i) => items.slice(i * size, (i + 1) * size),
+	);

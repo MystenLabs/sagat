@@ -92,7 +92,6 @@ proposalsRouter.post(
 		await verifyProposal({
 			proposalId: parseInt(proposalId),
 			callerKeys: c.get('publicKeys'),
-			scopeKind: 'original',
 		});
 
 		return c.json({ verified: true });
@@ -129,7 +128,6 @@ proposalsRouter.get(
 			status,
 			cursor: newCursor({ nextCursor, perPage }),
 			callerKeys: c.get('publicKeys'),
-			scopeKind: 'original',
 		});
 
 		return c.json(toLegacyPaginatedProposals(proposals));

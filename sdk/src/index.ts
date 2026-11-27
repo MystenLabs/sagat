@@ -54,6 +54,8 @@ export {
 	AddressAliasesBcs,
 	decodeAliasSet,
 	deriveAliasesObjectId,
+	findAliasCalls,
+	type AliasCall,
 	type AliasObjectEntry,
 	type AliasSet,
 } from './aliases.js';

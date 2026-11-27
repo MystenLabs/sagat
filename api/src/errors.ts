@@ -73,11 +73,16 @@ export const AuthErrors = {
 		'Proposer is either not a member of the multisig, or has not accepted the invitation to the multisig.',
 	AccessDenied:
 		'Access denied. You are not a member of this multisig.',
+	NotAnAccountSigner:
+		'You are not a signer of this account on this network.',
+	AccountNotAccepted: 'You have not accepted this account.',
 };
 
 export const CommonErrors = {
 	InvalidAddress: ValidationMessages.InvalidAddress,
 	InvalidSignature: 'Invalid signature for message.',
+	InvalidTransactionSignature:
+		'Invalid Sui signature for the proposed transaction.',
 	InvalidDigest: ValidationMessages.InvalidDigest,
 };
 

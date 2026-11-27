@@ -19,6 +19,7 @@ import {
 	getSuiClient,
 	type SuiNetwork,
 } from '../utils/client';
+import { chunk } from '../utils/collections';
 
 export const ALIAS_SET_BATCH_SIZE = 50;
 export const ALIAS_SET_BATCH_WINDOW_MS = 50;
@@ -32,12 +33,6 @@ export type AliasObjectReader = Pick<
 export type AliasSetLoaders = (
 	network: SuiNetwork,
 ) => DataLoader<string, AliasSet>;
-
-const chunk = <T>(items: T[], size: number): T[][] =>
-	Array.from(
-		{ length: Math.ceil(items.length / size) },
-		(_, i) => items.slice(i * size, (i + 1) * size),
-	);
 
 const loadAliasSets =
 	(client: AliasObjectReader) =>

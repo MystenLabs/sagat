@@ -1,7 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { PersonalMessages } from '@mysten/sagat';
+import {
+	defaultExpiry,
+	PersonalMessages,
+} from '@mysten/sagat';
 import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
 	beforeEach,
@@ -850,14 +853,17 @@ describe('Multisig API', () => {
 				multisig.address,
 			);
 
-			// A client that never connected.
-			const anonymous = framework.createSession().client;
+			// A session that never connected.
+			const anonymous = framework.createSession();
 
 			// The public proposal lookup shows the composition, never the labels.
-			const byDigest = await anonymous.getProposalByDigest(
-				proposal.digest,
+			const byDigest =
+				await anonymous.v1.getProposalByDigest(
+					proposal.digest,
+				);
+			expect(byDigest.signerSets[0].members).toHaveLength(
+				2,
 			);
-			expect(byDigest.multisig.members).toHaveLength(2);
 			const serialized = JSON.stringify(byDigest);
 			expect(serialized).not.toContain('"label"');
 			expect(serialized).not.toContain("Alice's Ledger");
@@ -865,7 +871,7 @@ describe('Multisig API', () => {
 
 			// Member listings need a session.
 			await expect(
-				anonymous.getMultisig(multisig.address),
+				anonymous.client.getMultisig(multisig.address),
 			).rejects.toThrow();
 
 			// The same data, authenticated, does carry them.
@@ -975,6 +981,24 @@ describe('Multisig API', () => {
 			await expect(
 				session.acceptMultisig(user, oneTooMany),
 			).rejects.toThrow(limitReached);
+			const expiry = defaultExpiry();
+			await expect(
+				framework
+					.createSession()
+					.v1.acceptAccountInvite(oneTooMany, {
+						network: 'localnet',
+						signature: await sign(
+							user,
+							PersonalMessages.acceptAccountInvitation(
+								oneTooMany,
+								expiry,
+							),
+						),
+						expiry,
+					}),
+			).rejects.toThrow(
+				'You have reached the maximum number of accounts for this public key.',
+			);
 			// At the limit, accepting a multisig again is still allowed.
 			await session.acceptMultisig(user, last);
 		});

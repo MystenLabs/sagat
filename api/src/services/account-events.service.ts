@@ -122,6 +122,31 @@ type AccountEventRegistry = {
 		network: string;
 		proof: ChainProof;
 	};
+	// `actor` is the answering key. The legacy message names the set, not the account.
+	'signer_set.accepted': {
+		actor: string;
+		subject: string;
+		proof: SignedProof<'signer_set.accept'>;
+	};
+	'signer_set.rejected': {
+		actor: string;
+		subject: string;
+		proof: SignedProof<'signer_set.reject'>;
+	};
+	'account.accepted': {
+		actor: string;
+		proof: SignedProof<
+			'account.accept',
+			{ expiry: string }
+		>;
+	};
+	'account.rejected': {
+		actor: string;
+		proof: SignedProof<
+			'account.reject',
+			{ expiry: string }
+		>;
+	};
 };
 
 // Written before cancels named the digest; its signed text names the id.
@@ -172,6 +197,40 @@ export const recordAccountEvent = async (
 		.values(event)
 		.returning({ id: SchemaAccountEvents.id });
 	return id;
+};
+
+export const isRecordedSignature = async (
+	tx: DatabaseTransaction,
+	{
+		accountAddress,
+		subject,
+		signature,
+		actions,
+	}: {
+		accountAddress: string;
+		subject?: string;
+		signature: string;
+		actions: AccountEventAction[];
+	},
+) => {
+	const [recorded] = await tx
+		.select({ id: SchemaAccountEvents.id })
+		.from(SchemaAccountEvents)
+		.where(
+			and(
+				eq(
+					SchemaAccountEvents.accountAddress,
+					accountAddress,
+				),
+				subject !== undefined
+					? eq(SchemaAccountEvents.subject, subject)
+					: undefined,
+				inArray(SchemaAccountEvents.action, actions),
+				sql`${SchemaAccountEvents.proof}->>'signature' = ${signature}`,
+			),
+		)
+		.limit(1);
+	return recorded !== undefined;
 };
 
 export type StoredAccountEvent = Omit<
@@ -325,38 +384,53 @@ export type ProposalEvents = {
 	created: AccountEventRecord | null;
 	// The proposer's newest add or remove.
 	proposer: AccountEventRecord | null;
+	// The newest `proposal.cancelled`.
+	cancelled: AccountEventRecord | null;
 };
 
-/** The `ProposalEvents` of a proposal. No access check. */
+/** The `ProposalEvents` of each proposal, by id, in one query. No access check. */
 export const getProposalEvents = async (
-	proposalId: number,
-): Promise<ProposalEvents> => {
-	const created = latestEventWhere(
-		and(
-			eq(
-				SchemaAccountEvents.accountAddress,
-				SchemaProposals.accountAddress,
+	proposalIds: number[],
+): Promise<Map<number, ProposalEvents>> => {
+	if (proposalIds.length === 0) return new Map();
+	const proposalEvent = (action: AccountEventAction) =>
+		latestEventWhere(
+			and(
+				eq(
+					SchemaAccountEvents.accountAddress,
+					SchemaProposals.accountAddress,
+				),
+				eq(
+					SchemaAccountEvents.subject,
+					SchemaProposals.digest,
+				),
+				eq(SchemaAccountEvents.action, action),
 			),
-			eq(
-				SchemaAccountEvents.subject,
-				SchemaProposals.digest,
-			),
-			eq(SchemaAccountEvents.action, 'proposal.created'),
-		),
-	).as('created_event');
+		);
+	const created = proposalEvent('proposal.created').as(
+		'created_event',
+	);
+	const cancelled = proposalEvent('proposal.cancelled').as(
+		'cancelled_event',
+	);
 	const proposer = latestProposerEvent(
 		SchemaProposals.accountAddress,
 		SchemaProposals.proposerAddress,
 	).as('proposer_event');
 
-	const [events] = await db
+	const rows = await db
 		.select({
+			id: SchemaProposals.id,
 			created: fieldsOf(created),
 			proposer: fieldsOf(proposer),
+			cancelled: fieldsOf(cancelled),
 		})
 		.from(SchemaProposals)
 		.leftJoinLateral(created, sql`true`)
 		.leftJoinLateral(proposer, sql`true`)
-		.where(eq(SchemaProposals.id, proposalId));
-	return events ?? { created: null, proposer: null };
+		.leftJoinLateral(cancelled, sql`true`)
+		.where(inArray(SchemaProposals.id, proposalIds));
+	return new Map(
+		rows.map(({ id, ...events }) => [id, events]),
+	);
 };

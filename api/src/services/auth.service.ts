@@ -19,7 +19,7 @@ import { parsePublicKey } from '../utils/pubKey';
 import { registerPublicKeys } from './addresses.service';
 import { verifySignedMessage } from './signatures.service';
 
-const JWT_COOKIE_NAME = 'connected-wallet';
+export const JWT_COOKIE_NAME = 'connected-wallet';
 
 const COOKIE_OPTIONS = {
 	sameSite: 'Lax',

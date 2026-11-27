@@ -24,6 +24,7 @@ import {
 	SchemaAccountProposers,
 	SchemaProposals,
 	SchemaProposalSignatures,
+	SchemaSignerSetMembers,
 } from '../src/db/schema';
 import { lockAccount } from '../src/db/transaction';
 import { AuthErrors, CommonErrors } from '../src/errors';
@@ -427,7 +428,7 @@ describe('cancelling a proposal', () => {
 
 		await expect(
 			session.cancelProposal(newUser(), proposal),
-		).rejects.toThrow('Not a member of the multisig');
+		).rejects.toThrow(AuthErrors.NotAnAccountSigner);
 
 		expect(
 			await eventsOf(
@@ -531,7 +532,7 @@ describe('cancelling a proposal', () => {
 
 				const startedAt = performance.now();
 				const cancel = session.post(
-					`/proposals/${proposal.id}/cancel`,
+					`/v1/proposals/${proposal.digest}/cancel`,
 					{ signature },
 				);
 				await untilBackendsWaitOnALock(db);
@@ -646,7 +647,7 @@ describe('cancelling a proposal', () => {
 
 		expectSettled(await cancel, {
 			fulfilled: 0,
-			rejectedWith: 'Not a member of the multisig',
+			rejectedWith: AuthErrors.NotAnAccountSigner,
 		});
 		expect(await statusOf(proposal.id)).toBe(
 			ProposalStatus.PENDING,
@@ -1066,6 +1067,25 @@ describe('input refused before anything is stored', () => {
 			),
 		).toEqual(refused);
 
+		const answerExpiry = `${expiresAt.toUTCString()} (x)`;
+		expect(
+			await errorOf(
+				await session.post(
+					`/v1/accounts/${multisig.address}/accept?network=localnet`,
+					{
+						signature: await sign(
+							users[1],
+							PersonalMessages.acceptAccountInvitation(
+								multisig.address,
+								answerExpiry,
+							),
+						),
+						expiry: answerExpiry,
+					},
+				),
+			),
+		).toEqual(refused);
+
 		expect(await proposersOf(multisig.address)).toEqual([
 			proposer,
 		]);
@@ -1161,6 +1181,10 @@ describe('input refused before anything is stored', () => {
 			proposer,
 			multisig.address,
 		);
+		const invitee = newUser();
+		const pending = (
+			await session.createMultisig([users[0], invitee], 2)
+		).address;
 		const transactionBytes = await buildTransfer(
 			multisig.address,
 		);
@@ -1171,6 +1195,21 @@ describe('input refused before anything is stored', () => {
 			votes: await db
 				.select()
 				.from(SchemaProposalSignatures),
+			answers: await db
+				.select()
+				.from(SchemaAccountEvents)
+				.where(
+					eq(SchemaAccountEvents.accountAddress, pending),
+				),
+			members: await db
+				.select()
+				.from(SchemaSignerSetMembers)
+				.where(
+					eq(
+						SchemaSignerSetMembers.signerSetAddress,
+						pending,
+					),
+				),
 		});
 
 		// Decodes to the same bytes as the valid signature it is made from.
@@ -1263,11 +1302,98 @@ describe('input refused before anything is stored', () => {
 				},
 			),
 		);
+		const answeredBy = async (message: string) =>
+			withSpace(await sign(invitee, message));
+		await expectRefused(
+			await session.post(`/multisig/${pending}/accept`, {
+				signature: await answeredBy(
+					PersonalMessages.acceptMultisigInvitation(
+						pending,
+					),
+				),
+			}),
+		);
+		await expectRefused(
+			await session.post(`/multisig/${pending}/reject`, {
+				signature: await answeredBy(
+					PersonalMessages.rejectMultisigInvitation(
+						pending,
+					),
+				),
+			}),
+		);
+		await expectRefused(
+			await session.post(
+				`/v1/accounts/${pending}/accept?network=localnet`,
+				{
+					signature: await answeredBy(
+						PersonalMessages.acceptAccountInvitation(
+							pending,
+							expiry,
+						),
+					),
+					expiry,
+				},
+			),
+		);
 
 		expect(await statusOf(proposal.id)).toBe(
 			ProposalStatus.PENDING,
 		);
 		expect(await stored()).toEqual(before);
+	});
+});
+
+describe('accepting and rejecting on the legacy routes', () => {
+	test('records the signed accept and reject with the set as subject, and the same accept sent again writes no second row', async () => {
+		const { session, users } =
+			await framework.createAuthenticatedSession(1);
+		const [creator] = users;
+		const [early, late] = [newUser(), newUser()];
+		const { address } = await session.createMultisig(
+			[creator, early, late],
+			3,
+		);
+
+		await session.acceptMultisig(early, address);
+		await session.rejectMultisig(late, address);
+		await session.acceptMultisig(early, address);
+
+		// Ed25519 signs deterministically: these are the signatures the routes got.
+		expect(await eventsOf(address, creator)).toMatchObject([
+			{
+				action: 'signer_set.rejected',
+				actor: late.address,
+				subject: address,
+				network: null,
+				proof: {
+					kind: 'signer_set.reject',
+					version: 1,
+					signature: await sign(
+						late,
+						PersonalMessages.rejectMultisigInvitation(
+							address,
+						),
+					),
+				},
+			},
+			{
+				action: 'signer_set.accepted',
+				actor: early.address,
+				subject: address,
+				network: null,
+				proof: {
+					kind: 'signer_set.accept',
+					version: 1,
+					signature: await sign(
+						early,
+						PersonalMessages.acceptMultisigInvitation(
+							address,
+						),
+					),
+				},
+			},
+		]);
 	});
 });
 

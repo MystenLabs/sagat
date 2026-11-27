@@ -80,6 +80,42 @@ describe('Object Collision Detection', () => {
 		);
 	});
 
+	test('names three colliding objects and counts the rest', async () => {
+		const { session, users, multisig } =
+			await framework.createFundedVerifiedMultisig(2, 2);
+		await sendCoins(multisig.address, 4);
+		const { objects } = await client.listCoins({
+			owner: multisig.address,
+		});
+		const coins = objects.slice(0, 4);
+		expect(coins.length).toBe(4);
+		const transfer = async (amount: number) => {
+			const tx = new Transaction();
+			tx.setSender(multisig.address);
+			tx.setGasPayment(coins);
+			const [coin] = tx.splitCoins(tx.gas, [amount]);
+			tx.transferObjects([coin], multisig.address);
+			return (await tx.build({ client })).toBase64();
+		};
+
+		await session.createProposal(
+			users[0],
+			multisig.address,
+			'localnet',
+			await transfer(1_000_000),
+		);
+
+		const refusal = session.createProposal(
+			users[0],
+			multisig.address,
+			'localnet',
+			await transfer(2_000_000),
+		);
+		await expect(refusal).rejects.toThrow(
+			/^These owned\/receiving objects are already used by pending proposals: 0x[0-9a-f]+, 0x[0-9a-f]+, 0x[0-9a-f]+ and 1 more\.$/,
+		);
+	});
+
 	test('accepts one of several simultaneous proposals using the same gas coin', async () => {
 		const { session, users, multisig } =
 			await framework.createFundedVerifiedMultisig(2, 2);
@@ -326,8 +362,8 @@ describe('Object Collision Detection', () => {
 			);
 
 		await expect(
-			session.client.createProposal({
-				multisigAddress: multisig.address,
+			session.v1.createProposal({
+				accountAddress: multisig.address,
 				network: 'localnet',
 				transactionBytes: unresolvedBytes,
 				signature: signature.signature,

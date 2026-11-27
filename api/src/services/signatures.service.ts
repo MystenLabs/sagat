@@ -11,7 +11,7 @@
 import { type PublicKey } from '@mysten/sui/cryptography';
 import { fromBase64, toBase64 } from '@mysten/sui/utils';
 
-import { CommonError, ValidationError } from '../errors';
+import { CommonError } from '../errors';
 import { getPublicKeyFromSerializedSignature } from '../utils/pubKey';
 import { isAccountSigner } from './membership.service';
 import { type SignerScope } from './signers.service';
@@ -73,8 +73,10 @@ export const verifySignedMessage = async (
 
 /**
  * Recovers the signer of a personal message, checks that it signs for the
- * account under the scope, then checks the signature. Membership is checked
- * first, so a non-member gets `notMemberError` whatever it signed.
+ * account under the scope, then checks the signature. Under the original set
+ * membership is checked first, so a non-member gets `notMemberError` whatever
+ * it signed; under the acting scope the signature is checked first, then
+ * `beforeMembership` runs.
  */
 export const verifyMemberSignedMessage = async ({
 	accountAddress,
@@ -83,6 +85,7 @@ export const verifyMemberSignedMessage = async ({
 	message,
 	acceptedOnly,
 	notMemberError,
+	beforeMembership,
 }: {
 	accountAddress: string;
 	scope: SignerScope;
@@ -90,20 +93,38 @@ export const verifyMemberSignedMessage = async ({
 	message: string;
 	// Whether the member must have accepted the account.
 	acceptedOnly: boolean;
-	notMemberError: () => Error;
+	notMemberError: (
+		signer: PublicKey,
+	) => Error | Promise<Error>;
+	// Under the acting scope only.
+	beforeMembership?: () => Promise<void>;
 }): Promise<PublicKey> => {
 	const signer =
 		getPublicKeyFromSerializedSignature(signature);
+	const signatureFirst = scope.kind === 'acting';
 
+	if (signatureFirst) {
+		await validatePersonalMessage(
+			signer,
+			signature,
+			message,
+		);
+		await beforeMembership?.();
+	}
 	if (
 		!(await isAccountSigner(accountAddress, [signer], {
 			acceptedOnly,
 			scope,
 		}))
 	)
-		throw notMemberError();
+		throw await notMemberError(signer);
 
-	await validatePersonalMessage(signer, signature, message);
+	if (!signatureFirst)
+		await validatePersonalMessage(
+			signer,
+			signature,
+			message,
+		);
 	return signer;
 };
 
@@ -118,7 +139,5 @@ export const verifyTransactionSignature = async (
 			signer.verifyTransaction(bytes, signature),
 		))
 	)
-		throw new ValidationError(
-			'Invalid Sui signature for the proposed transaction.',
-		);
+		throw new CommonError('InvalidTransactionSignature');
 };

@@ -1,16 +1,28 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { bcs } from '@mysten/sui/bcs';
+import { bcs, type BcsType } from '@mysten/sui/bcs';
 import {
 	ObjectError,
 	type SuiClientTypes,
 } from '@mysten/sui/client';
 import {
+	type Argument,
+	type TransactionData,
+} from '@mysten/sui/transactions';
+import {
 	deriveObjectID,
+	fromBase64,
 	normalizeStructTag,
 	normalizeSuiAddress,
+	toBase64,
 } from '@mysten/sui/utils';
+
+/** A top-level call to `0x2::address_alias`; `aliases` is null when the argument is not a pure input that decodes. */
+export type AliasCall = {
+	function: string;
+	aliases: string[] | null;
+};
 
 /** The `AddressAliasState` singleton (shared object). */
 export const ADDRESS_ALIAS_STATE_ID =
@@ -129,4 +141,85 @@ export function decodeAliasSet(
 			normalizeSuiAddress(a),
 		),
 	};
+}
+
+const FRAMEWORK = normalizeSuiAddress('0x2');
+const ALIAS_MODULE = 'address_alias';
+const AddressListBcs = bcs.vector(bcs.Address);
+
+// The value of a pure input argument, or null when its bytes are not exactly one `schema` value.
+function decodePure<T extends Input, Input>(
+	inputs: TransactionData['inputs'],
+	argument: Argument | undefined,
+	schema: BcsType<T, Input>,
+): T | null {
+	if (argument?.$kind !== 'Input') return null;
+	const input = inputs[argument.Input];
+	if (input?.$kind !== 'Pure') return null;
+	try {
+		const bytes = fromBase64(input.Pure.bytes);
+		const value = schema.parse(bytes);
+		return toBase64(schema.serialize(value).toBytes()) ===
+			toBase64(bytes)
+			? value
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * The top-level calls to `0x2::address_alias` in a transaction, in command
+ * order. Pass `Transaction.getData()`, or a `TransactionDataBuilder` read from
+ * the bytes.
+ */
+export function findAliasCalls({
+	commands,
+	inputs,
+}: Pick<
+	TransactionData,
+	'commands' | 'inputs'
+>): AliasCall[] {
+	const calls: AliasCall[] = [];
+	for (const command of commands) {
+		if (command.$kind !== 'MoveCall') continue;
+		const call = command.MoveCall;
+		if (
+			normalizeSuiAddress(call.package) !== FRAMEWORK ||
+			call.module !== ALIAS_MODULE
+		)
+			continue;
+		const argument = call.arguments[1];
+		let aliases: string[] | null;
+		switch (call.function) {
+			case 'enable':
+				aliases = [];
+				break;
+			case 'add':
+			case 'remove': {
+				const alias = decodePure(
+					inputs,
+					argument,
+					bcs.Address,
+				);
+				aliases = alias === null ? null : [alias];
+				break;
+			}
+			case 'replace_all':
+				aliases = decodePure(
+					inputs,
+					argument,
+					AddressListBcs,
+				);
+				break;
+			default:
+				aliases = null;
+		}
+		calls.push({
+			function: call.function,
+			aliases:
+				aliases?.map((a) => normalizeSuiAddress(a)) ?? null,
+		});
+	}
+	return calls;
 }
