@@ -126,7 +126,7 @@ export function ChangeSignersPage() {
 		return <Navigate to={members} replace />;
 	return (
 		<ChangeSignersWizard
-			key={`${network}:${multisig.address}`}
+			key={`${network}:${multisig.address}:${main.address}`}
 			multisig={details}
 			current={{
 				address: main.address,

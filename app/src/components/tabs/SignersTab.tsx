@@ -159,7 +159,7 @@ export function SignersTab() {
 		return proposal && checked?.list
 			? {
 					title: changeTitle(checked.list),
-					weight: content.common.thresholdLabel(
+					weight: COMMON.thresholdLabel(
 						calculateCurrentWeight(
 							proposal,
 							checked.change.oldSet,
@@ -396,7 +396,7 @@ export function SignersTab() {
 											data-testid="signers-add-signer"
 										>
 											<Plus />
-											{content.common.actions.addSigner}
+											{COMMON.actions.addSigner}
 										</Button>
 									</AtMaxTooltip>
 								)
@@ -571,7 +571,7 @@ function ProposalBanner({
 					)}
 					data-testid={linkTestId}
 				>
-					{content.common.actions.viewProposal}
+					{COMMON.actions.viewProposal}
 				</Link>
 			</div>
 		</Alert>

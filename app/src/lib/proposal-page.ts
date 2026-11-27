@@ -575,7 +575,7 @@ type ListedProposal = Pick<
 	| 'digest'
 >;
 
-/** A listed proposal's title: its signer change's, checked as its page checks it while open and the alias set is read, else from the bytes' note; otherwise its description or digest. */
+/** A listed proposal's title: its signer change's, read as its page reads it, checked while open and from the bytes' note once closed; otherwise its description or digest. */
 export function listedTitle(
 	proposal: ListedProposal &
 		Pick<CountedProposal, 'description'>,
@@ -588,8 +588,7 @@ export function listedTitle(
 		digest: proposal.digest,
 	};
 	const read =
-		(status === 'pending' || status === 'ready') &&
-		aliases?.kind === 'read'
+		status === 'pending' || status === 'ready'
 			? checkedChange(proposal, aliases, labels, opened)
 			: noteChange(proposal, labels, opened);
 	return read?.list
