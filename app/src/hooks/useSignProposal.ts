@@ -86,19 +86,19 @@ export function useSignProposal() {
 				pod?.address ?? proposal.accountAddress,
 			);
 			// Only from the bytes, checked against the node's alias set.
-			const newSets =
-				(node.aliases.kind === 'read' &&
-					signerChangeIn(
-						transactionBytes,
-						node.aliases.aliases,
-					)?.newSets) ||
-				[];
+			const newSet =
+				node.aliases.kind === 'read'
+					? signerChangeIn(
+							transactionBytes,
+							node.aliases.aliases,
+						)?.newSet
+					: null;
 
 			const failure = checkProposalIntegrity(proposal, {
 				pod,
 				openedDigest,
 				signerAddress: currentAccount.address,
-				newSets,
+				newSet,
 			});
 			// A new signer's place comes from the alias read; without it, unchecked.
 			if (
@@ -117,7 +117,7 @@ export function useSignProposal() {
 						.transaction,
 				),
 				node,
-				newSets,
+				newSet,
 			});
 			if (onNetwork === 'unchecked')
 				throw new Error(signersUncheckedLine(network));

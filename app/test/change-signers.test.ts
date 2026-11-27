@@ -75,7 +75,15 @@ const check = (
 	current: CurrentSet,
 	rows: ChangeRow[],
 	threshold = current.threshold,
-) => checkChange({ current, rows, threshold, lookups: {} });
+	signerSets = [current.address],
+) =>
+	checkChange({
+		current,
+		rows,
+		threshold,
+		lookups: {},
+		signerSets,
+	});
 
 const rowsOf = (current: CurrentSet & { viewer: string }) =>
 	startRows(current, current.viewer).rows;
@@ -147,6 +155,30 @@ describe('what blocks Review', () => {
 			canReview: true,
 			error: null,
 		});
+	});
+
+	test('an edited set equal to another of the pod’s signer sets is refused; one that differs by a weight is not', () => {
+		const current = currentSet([1, 1, 1], 2);
+		const rows = rowsOf(current);
+		// The pod's other set: the same signers at 3 of 3.
+		const other = computeMultisigAddress(
+			current.members.map((m) => m.publicKey),
+			[1, 1, 1],
+			3,
+		).address!;
+		const signerSets = [current.address, other];
+		expect(
+			check(current, rows, 3, signerSets),
+		).toMatchObject({
+			canReview: false,
+			error: COPY.alreadySignerSet,
+		});
+		const heavier = rows.map((row, i) =>
+			i === 2 ? { ...row, weight: 2 } : row,
+		);
+		expect(
+			check(current, heavier, 3, signerSets),
+		).toMatchObject({ canReview: true, error: null });
 	});
 
 	test('one signer who can meet the threshold alone warns and doesn’t block', () => {
@@ -487,7 +519,7 @@ test('a change is checked only as the opened proposal of the pod that sends it',
 	).toBeNull();
 });
 
-test('labels are the typed names of keys new to the set, null for keys that stay, and none once the new set is already an alias', () => {
+test('labels are the typed names of keys new to the set, and null for keys that stay', () => {
 	const current = currentSet([1, 1, 1], 2);
 	const [maya, daniel, alice] = rowsOf(current);
 	const rows = [
@@ -500,25 +532,9 @@ test('labels are the typed names of keys new to the set, null for keys that stay
 		},
 		{ ...alice, removed: true },
 	];
-	const newSet = computeMultisigAddress(
-		newComposition(rows, 2).members.map((m) => m.publicKey),
-		[1, 1, 1],
-		2,
-	).address!;
-	expect(
-		changeLabels({
-			current,
-			rows,
-			aliases: [current.address],
-			newSet,
-		}),
-	).toEqual([null, 'Priya', 'Dan']);
-	expect(
-		changeLabels({
-			current,
-			rows,
-			aliases: [current.address, newSet],
-			newSet,
-		}),
-	).toBeUndefined();
+	expect(changeLabels({ current, rows })).toEqual([
+		null,
+		'Priya',
+		'Dan',
+	]);
 });

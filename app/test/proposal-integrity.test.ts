@@ -80,15 +80,15 @@ test('lets a key a checked signer change adds sign the change, and refuses a key
 			setOf([keys[0], added]),
 		);
 	const digest = digestOf(transactionBytes);
-	const newSets =
-		signerChangeIn(transactionBytes, [pod])?.newSets ?? [];
+	const newSet =
+		signerChangeIn(transactionBytes, [pod])?.newSet ?? null;
 	const node: NodeFacts = {
 		aliases: { kind: 'read', aliases: [pod] },
 		chain: null,
 	};
 	const sign = (
 		signer: Ed25519Keypair,
-		sets: typeof newSets,
+		set: typeof newSet,
 	) => [
 		checkProposalIntegrity(
 			{
@@ -102,7 +102,7 @@ test('lets a key a checked signer change adds sign the change, and refuses a key
 				pod: null,
 				openedDigest: digest,
 				signerAddress: signer.toSuiAddress(),
-				newSets: sets,
+				newSet: set,
 			},
 		),
 		checkSignerOnNetwork({
@@ -110,17 +110,17 @@ test('lets a key a checked signer change adds sign the change, and refuses a key
 			signerAddress: signer.toSuiAddress(),
 			namedChain: null,
 			node,
-			newSets: sets,
+			newSet: set,
 		}),
 	];
 
-	expect(sign(added, newSets)).toEqual([null, null]);
-	expect(sign(new Ed25519Keypair(), newSets)).toEqual([
+	expect(sign(added, newSet)).toEqual([null, null]);
+	expect(sign(new Ed25519Keypair(), newSet)).toEqual([
 		'notSigner',
 		'notActing',
 	]);
 	// Without a checked change, the key is no signer.
-	expect(sign(added, [])).toEqual([
+	expect(sign(added, null)).toEqual([
 		'notSigner',
 		'notActing',
 	]);
@@ -150,9 +150,9 @@ test('on a pod’s second change, a key it adds signs without a pod once the ori
 		original.address,
 	);
 	const digest = digestOf(transactionBytes);
-	const newSets =
+	const newSet =
 		signerChangeIn(transactionBytes, [current.address])
-			?.newSets ?? [];
+			?.newSet ?? null;
 	const sign = (
 		signer: Ed25519Keypair,
 		notActingSets: ReturnType<typeof listedSet>[],
@@ -171,14 +171,14 @@ test('on a pod’s second change, a key it adds signs without a pod once the ori
 				pod: null,
 				openedDigest: digest,
 				signerAddress: signer.toSuiAddress(),
-				newSets,
+				newSet,
 			},
 		);
 	const listedOriginal = [
 		listedSet({ ...original, acting: false }),
 	];
 
-	expect(newSets).toHaveLength(1);
+	expect(newSet).not.toBeNull();
 	expect(sign(added, listedOriginal)).toBeNull();
 	expect(sign(new Ed25519Keypair(), listedOriginal)).toBe(
 		'notSigner',

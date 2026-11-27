@@ -178,9 +178,10 @@ function readChange(
 	const list = changeDifferences(change, (key) =>
 		keyName(key, merged),
 	);
-	const summary = list
-		? thresholdSummary(change.oldSet, change.newSets[0])
-		: null;
+	const summary = thresholdSummary(
+		change.oldSet,
+		change.newSet,
+	);
 	return { change, list, summary, labels: merged };
 }
 
@@ -215,13 +216,13 @@ export function shownChange(
 	};
 }
 
-/** Whether the change can't execute without `publicKey`'s signature: its proof stays unmet with every other key of its new sets signed. */
+/** Whether the change can't execute without `publicKey`'s signature: its proof stays unmet with every other key of its new set signed. */
 export function signatureNeeded(
 	change: SignerChange,
 	publicKey: string,
 ) {
-	const others = change.newSets
-		.flatMap((set) => set.members.map((m) => m.publicKey))
+	const others = change.newSet.members
+		.map((m) => m.publicKey)
 		.filter((key) => key !== publicKey);
 	return !signerChangeProof(change, others).met;
 }
@@ -231,10 +232,10 @@ function invitedNames(
 	{
 		change,
 		list,
-	}: { change: SignerChange; list: Difference[] | null },
+	}: { change: SignerChange; list: Difference[] },
 	proposal: Pick<PageProposal, 'signatures'>,
 ) {
-	return (list ?? []).flatMap(
+	return list.flatMap(
 		({ kind, name, publicKey, newKey }) => {
 			const key = kind === 'replace' ? newKey : publicKey;
 			return (kind === 'add' || kind === 'replace') &&
@@ -260,10 +261,9 @@ export function newSignerKey(
 	)
 		return null;
 	return (
-		change.newSets
-			.flatMap((set) => set.members)
-			.find((m) => isMember({ members: [m] }, address))
-			?.publicKey ?? null
+		change.newSet.members.find((m) =>
+			isMember({ members: [m] }, address),
+		)?.publicKey ?? null
 	);
 }
 
@@ -416,52 +416,50 @@ export function approvalsSignerSets(
 	}));
 }
 
-/** A checked change's new sets as Approvals parts: their members, marked by the proposal's signatures, counted by the new weights against the new threshold. */
-export function newSignerSets(
-	change: SignerChange,
+/** A checked change's new set as an Approvals part: its members, marked by the proposal's signatures, counted by the new weights against the new threshold. */
+export function newSignerSet(
+	{ newSet: set }: SignerChange,
 	proposal: Pick<PageProposal, 'signatures'>,
 	status: ProposalStatusKey,
 	labels: Labels,
 	publicKey: string | null | undefined,
 	notSigned: readonly string[] = [],
-): ApprovalsSignerSet[] {
+): ApprovalsSignerSet {
 	const signed = proposal.signatures.map(
 		(sig) => sig.publicKey,
 	);
 	const open = status === 'pending' || status === 'ready';
-	return change.newSets.map((set) => {
-		const counted = {
-			currentWeight: proofWeight(set, signed),
-			threshold: set.threshold,
-		};
-		return {
-			address: set.address,
-			...counted,
-			podName: null,
-			heading: approvalsThresholdLabel(set),
-			line: !open
-				? null
-				: reachesThreshold(counted)
-					? STATUS.reached
-					: STATUS.needs(missingWeight(counted)),
-			rows: approvalRows(
-				{
-					members: set.members.map((m, order) => ({
-						...m,
-						order,
-					})),
-				},
-				proposal,
-				status,
-				labels,
-				publicKey,
-				// Once closed, a new signer who didn't sign reads as not signed.
-				open
-					? notSigned
-					: set.members.map((m) => m.publicKey),
-			),
-		};
-	});
+	const counted = {
+		currentWeight: proofWeight(set, signed),
+		threshold: set.threshold,
+	};
+	return {
+		address: set.address,
+		...counted,
+		podName: null,
+		heading: approvalsThresholdLabel(set),
+		line: !open
+			? null
+			: reachesThreshold(counted)
+				? STATUS.reached
+				: STATUS.needs(missingWeight(counted)),
+		rows: approvalRows(
+			{
+				members: set.members.map((m, order) => ({
+					...m,
+					order,
+				})),
+			},
+			proposal,
+			status,
+			labels,
+			publicKey,
+			// Once closed, a new signer who didn't sign reads as not signed.
+			open
+				? notSigned
+				: set.members.map((m) => m.publicKey),
+		),
+	};
 }
 
 /** The folded row's line, only when a folded set reached its threshold or, while pending, misses less than the main set. */

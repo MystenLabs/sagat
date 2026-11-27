@@ -142,15 +142,20 @@ export function ChangeSignersPage() {
 						weight,
 					})),
 			}))}
+			signerSets={[
+				...cards.map((card) => card.address),
+				...(multisig.acting?.state === 'ok'
+					? multisig.acting.unidentified
+					: []),
+			]}
 			membersPath={members}
 		/>
 	);
 }
 
-/** The change's bytes and the aliases they were built on, or why they couldn't be built. */
+/** The change's bytes, or why they couldn't be built. */
 interface Built {
 	bytes?: string;
-	aliases?: string[];
 	error?: string;
 }
 
@@ -158,12 +163,15 @@ function ChangeSignersWizard({
 	multisig,
 	current,
 	known,
+	signerSets,
 	membersPath,
 }: {
 	multisig: MultisigWithMembersForPublicKey;
 	current: CurrentSet;
 	/** The acting sets' compositions, checked by the app. */
 	known: Composition[];
+	/** The pod's aliases on the network: the acting sets' addresses and those no shown set rebuilds. */
+	signerSets: string[];
 	membersPath: string;
 }) {
 	const navigate = useNavigate();
@@ -222,8 +230,9 @@ function ChangeSignersWizard({
 				rows,
 				threshold,
 				lookups: failedLookups,
+				signerSets,
 			}),
-		[current, rows, threshold, failedLookups],
+		[current, rows, threshold, failedLookups, signerSets],
 	);
 	const list = useMemo(
 		() => rowDifferences(current, rows, threshold),
@@ -275,7 +284,6 @@ function ChangeSignersWizard({
 			});
 			next = {
 				bytes: toBase64(await tx.build({ client })),
-				aliases: node.aliases.aliases,
 			};
 		} catch (error) {
 			next = {
@@ -319,14 +327,7 @@ function ChangeSignersWizard({
 			void build();
 			return;
 		}
-		const newSet = check.signers.address;
-		if (
-			!built?.bytes ||
-			!built.aliases ||
-			!newSet ||
-			creating ||
-			submitting.current
-		)
+		if (!built?.bytes || creating || submitting.current)
 			return;
 		submitting.current = true;
 		create.mutate(
@@ -334,12 +335,7 @@ function ChangeSignersWizard({
 				multisig,
 				transactionData: built.bytes,
 				description: changeTitle(list),
-				labels: changeLabels({
-					current,
-					rows,
-					aliases: built.aliases,
-					newSet,
-				}),
+				labels: changeLabels({ current, rows }),
 			},
 			{
 				onSuccess: (proposal) => {

@@ -1328,6 +1328,8 @@ export const content = {
 			removed: string | null,
 		) =>
 			`The threshold is ${threshold}, but the signers left only add up to ${total} weight, so no proposal could ever pass. Lower the threshold to ${total} or less${removed ? `, or keep ${removed}` : ''}.`,
+		alreadySignerSet:
+			'This pod already has a signer set with exactly these signers.',
 		chips: {
 			new: 'New',
 			removed: 'Removed',

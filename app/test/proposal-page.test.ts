@@ -22,7 +22,7 @@ import {
 	holdingChange,
 	listedStatus,
 	newSignerKey,
-	newSignerSets,
+	newSignerSet,
 	shownChange,
 	shownStatus,
 	signerChangeWarning,
@@ -284,7 +284,7 @@ describe('newSignerKey', () => {
 	});
 });
 
-describe('newSignerSets', () => {
+describe('newSignerSet', () => {
 	it('counts the new set’s members who signed by the new weights against the new threshold', async () => {
 		// Alice leaves for a new key of weight 2, at 3 of 4.
 		const newKey = signer('New', 2);
@@ -293,7 +293,7 @@ describe('newSignerSets', () => {
 			[pod],
 		)!;
 		// Alice signed too, but the new set doesn't hold her.
-		const [set] = newSignerSets(
+		const set = newSignerSet(
 			change,
 			proposal({ signedBy: [alice, maya, newKey] }),
 			'ready',
@@ -314,16 +314,16 @@ describe('newSignerSets', () => {
 			[newKey.publicKey, true],
 		]);
 		expect(
-			newSignerSets(
+			newSignerSet(
 				change,
 				proposal({ signedBy: [alice, maya] }),
 				'ready',
 				labels,
 				null,
-			)[0].line,
+			).line,
 		).toBe(STATUS.needs(2));
 		// Once executed: who signed, with no line and nobody "not needed".
-		const [executed] = newSignerSets(
+		const executed = newSignerSet(
 			change,
 			proposal({ signedBy: [alice, maya] }),
 			'executed',

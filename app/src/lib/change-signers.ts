@@ -144,7 +144,7 @@ export function startRows(
 export interface ChangeCheck {
 	/** The create wizard's check of the rows that stay, in their order. */
 	signers: SignersCheck;
-	/** Blocks Review: the threshold can't be met. */
+	/** Blocks Review: the threshold can't be met, or the edited set is another of the pod's signer sets. */
 	error: string | null;
 	warning: string | null;
 	canReview: boolean;
@@ -155,11 +155,14 @@ export function checkChange({
 	rows,
 	threshold,
 	lookups,
+	signerSets,
 }: {
 	current: CurrentSet;
 	rows: ChangeRow[];
 	threshold: number;
 	lookups: Record<string, FailedLookup>;
+	/** The addresses of the pod's signer sets on the network. */
+	signerSets: readonly string[];
 }): ChangeCheck {
 	const kept = rows.filter((row) => !row.removed);
 	const signers = checkSigners({
@@ -190,7 +193,13 @@ export function checkChange({
 						? joinList(removed, 'or')
 						: null,
 				)
-			: null;
+			: address &&
+				  !sameAddress(address, current.address) &&
+				  signerSets.some((set) =>
+						sameAddress(set, address),
+				  )
+				? COPY.alreadySignerSet
+				: null;
 	return {
 		signers,
 		error,
@@ -485,19 +494,14 @@ export function signerChangeIn(
 	}
 }
 
-/** A checked change's differences; null unless it adds exactly one set. */
+/** A checked change's differences. */
 export function changeDifferences(
 	change: SignerChange,
 	nameOf: (publicKey: string) => string,
-): Difference[] | null {
-	if (
-		change.newSets.length !== 1 ||
-		change.after.length !== change.before.length
-	)
-		return null;
+): Difference[] {
 	return compositionDifferences(
 		change.oldSet,
-		change.newSets[0],
+		change.newSet,
 		nameOf,
 	);
 }
@@ -516,7 +520,7 @@ export function changeTitle(list: Difference[]) {
 		: COPY.change.more(first, list.length - 1);
 }
 
-/** Whether `publicKey` is in the change's old set and stays in none of its new sets. */
+/** Whether `publicKey` is in the change's old set and not in its new set. */
 export const removedBy = (
 	change: SignerChange | null,
 	publicKey: string | null,
@@ -525,21 +529,17 @@ export const removedBy = (
 	change.oldSet.members.some(
 		(m) => m.publicKey === publicKey,
 	) &&
-	!change.newSets.some((set) =>
-		set.members.some((m) => m.publicKey === publicKey),
+	!change.newSet.members.some(
+		(m) => m.publicKey === publicKey,
 	);
 
-/** The typed name of each key new to the set, aligned with the new set; undefined when there is none or the set is already an alias. */
+/** The typed name of each key new to the set, aligned with the new set; undefined when there is none. */
 export function changeLabels({
 	current,
 	rows,
-	aliases,
-	newSet,
 }: {
 	current: CurrentSet;
 	rows: ChangeRow[];
-	aliases: readonly string[];
-	newSet: string;
 }): (string | null)[] | undefined {
 	const oldKeys = new Set(
 		current.members.map((m) => suiKey(m.publicKey)),
@@ -551,8 +551,7 @@ export function changeLabels({
 				? null
 				: row.label.trim() || null,
 		);
-	return labels.some((label) => label !== null) &&
-		!aliases.some((alias) => sameAddress(alias, newSet))
+	return labels.some((label) => label !== null)
 		? labels
 		: undefined;
 }

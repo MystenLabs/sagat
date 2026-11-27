@@ -64,7 +64,7 @@ import {
 	gasEstimate,
 	hasSigned,
 	holdingChange,
-	newSignerSets,
+	newSignerSet,
 	signerChangeWarning,
 	withReason,
 	wouldReachThreshold,
@@ -254,7 +254,7 @@ export function ApprovalsCard({
 						pod,
 						openedDigest,
 						signerAddress: walletAddress,
-						newSets: change?.newSets,
+						newSet: change?.newSet,
 					})
 				: null,
 		[
@@ -278,7 +278,7 @@ export function ApprovalsCard({
 						signerAddress: walletAddress,
 						namedChain: bytesChain,
 						node: { aliases, chain: nodeChain ?? null },
-						newSets: change?.newSets,
+						newSet: change?.newSet,
 					});
 	const refused =
 		integrity ??
@@ -335,8 +335,8 @@ export function ApprovalsCard({
 	);
 	const [mainSet, ...foldedSets] = signerSets;
 	// A checked change counts the current signers and, apart, its new set.
-	const newSets = change
-		? newSignerSets(
+	const newSet = change
+		? newSignerSet(
 				change,
 				proposal,
 				status,
@@ -344,10 +344,10 @@ export function ApprovalsCard({
 				viewerPublicKey,
 				signerChange?.notSigned,
 			)
-		: [];
+		: null;
 	// Once closed, the new set only follows the signers, under the card's own rows.
 	const counting =
-		newSets.length > 0 &&
+		!!newSet &&
 		(status === 'pending' || status === 'ready');
 	const statusLine =
 		status === 'pending' && !isExecuting
@@ -605,20 +605,17 @@ export function ApprovalsCard({
 				</p>
 			)}
 			<div className="border-t" />
-			{mainSet && counting ? (
+			{mainSet && newSet && counting ? (
 				<>
 					<SignerSetPart
 						set={mainSet}
 						name={COPY.currentSigners}
 					/>
-					{newSets.map((set) => (
-						<SignerSetPart
-							key={set.address}
-							set={set}
-							name={COPY.newSigners}
-							className="border-t pt-4"
-						/>
-					))}
+					<SignerSetPart
+						set={newSet}
+						name={COPY.newSigners}
+						className="border-t pt-4"
+					/>
 				</>
 			) : mainSet && foldedSets.length > 0 ? (
 				<>
@@ -655,15 +652,13 @@ export function ApprovalsCard({
 			) : (
 				<ApprovalRowList rows={mainSet?.rows ?? []} />
 			)}
-			{!counting &&
-				newSets.map((set) => (
-					<SignerSetPart
-						key={set.address}
-						set={set}
-						name={COPY.newSigners}
-						className="border-t pt-4"
-					/>
-				))}
+			{!counting && newSet && (
+				<SignerSetPart
+					set={newSet}
+					name={COPY.newSigners}
+					className="border-t pt-4"
+				/>
+			)}
 
 			{signerChange && (
 				<Alert
