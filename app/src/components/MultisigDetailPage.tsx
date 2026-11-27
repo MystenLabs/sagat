@@ -86,17 +86,8 @@ export function MultisigDetailPage() {
 		}
 	}, [address, verifiedMultisigs, currentAccount?.address]);
 
-	// Also wait while the list refreshes without this account (just
-	// joined), rather than redirecting on the stale list.
-	if (isLoading || (isFetching && !multisigDetails)) {
-		return (
-			<SkeletonPage
-				message={content.common.states.loadingPod}
-			/>
-		);
-	}
-
-	// A key a signer change removed sees a plain line, not the pod.
+	// A key a signer change removed sees a plain line, not the pod,
+	// and keeps it through background refetches.
 	if (
 		address &&
 		!multisigDetails &&
@@ -113,6 +104,16 @@ export function MultisigDetailPage() {
 					testId="pod-no-longer-signer"
 				/>
 			</div>
+		);
+	}
+
+	// Also wait while the list refreshes without this account (just
+	// joined), rather than redirecting on the stale list.
+	if (isLoading || (isFetching && !multisigDetails)) {
+		return (
+			<SkeletonPage
+				message={content.common.states.loadingPod}
+			/>
 		);
 	}
 
