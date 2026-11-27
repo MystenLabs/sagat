@@ -1273,6 +1273,7 @@ test.describe('overview and signers', () => {
 		const bob = createIdentity('bob');
 		const carol = await createActor('carol');
 		const dave = await createActor('dave');
+		const erin = await createActor('erin');
 		const { multisig, change } = await replaceFromMembers(
 			{ alice, bob, carol, chain },
 			dave.publicKey,
@@ -1382,9 +1383,19 @@ test.describe('overview and signers', () => {
 			await executeProposal(page);
 		});
 
-		await test.step('Dave proposes a second change, 3 of 3, from Members, and Alice signs it', async () => {
+		await test.step('Dave proposes a second change, Bob replaced by Erin at 3 of 3, from Members; Alice signs it, and Erin signs it from its link', async () => {
 			await page.goto(members);
-			await page.getByTestId('change-threshold').click();
+			await page
+				.locator(
+					`[data-testid="member-item"][data-address="${bob.address}"]`,
+				)
+				.getByTestId('signer-menu')
+				.click();
+			await page.getByTestId('signer-menu-replace').click();
+			await page
+				.getByTestId('create-signer-key')
+				.nth(1)
+				.fill(erin.publicKey);
 			const threshold = page
 				.getByTestId('change-signers-step')
 				.getByTestId('change-threshold');
@@ -1410,7 +1421,7 @@ test.describe('overview and signers', () => {
 			expect(proposal.signerChange).toEqual({
 				removes: newSet,
 				adds: multisigAddressOf(
-					[alice, bob, dave].map((identity) => ({
+					[alice, erin, dave].map((identity) => ({
 						identity,
 					})),
 					3,
@@ -1422,6 +1433,26 @@ test.describe('overview and signers', () => {
 			await expect(
 				dave.proposalPage(digest),
 			).toHaveAttribute('data-status', 'ready');
+
+			// Not a signer of the pod yet, Erin opens the shared link and signs.
+			await erin.signIn();
+			await erin.page.goto(`/proposals?digest=${digest}`);
+			const erinPage = erin.proposalPage(digest);
+			await expect(
+				erinPage.getByTestId('signer-change-changes'),
+			).toBeVisible();
+			await erinPage
+				.getByTestId('sign-proposal-button')
+				.click();
+			await expect(
+				erinPage.getByTestId('proposal-already-signed'),
+			).toBeVisible();
+			await page.reload();
+			await expect(
+				dave
+					.proposalPage(digest)
+					.getByTestId('proposal-status'),
+			).toHaveText(content.proposals.status.ready);
 		});
 	});
 
