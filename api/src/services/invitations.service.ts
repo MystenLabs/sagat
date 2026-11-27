@@ -4,8 +4,7 @@
 // See "Accept and reject" in `design/account-rotation.md`.
 
 import { type PublicKey } from '@mysten/sui/cryptography';
-import { and, eq, ne, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 
 import { LIMITS } from '../constants/limits';
 import { db } from '../db';
@@ -83,90 +82,6 @@ export type InvitationAnswer =
 				'signer_set.rejected' | 'account.rejected'
 			>;
 	  };
-
-const originalMember = alias(
-	SchemaSignerSetMembers,
-	'original_member',
-);
-const keyMember = alias(
-	SchemaSignerSetMembers,
-	'key_member',
-);
-
-// Moves the account's links whose composition holds `publicKey` to `verified`
-// once every member has accepted this account, and to `inviting` until then.
-const recalculateLinks = async (
-	tx: DatabaseTransaction,
-	accountAddress: string,
-	publicKey: string,
-) => {
-	const unanswered = tx
-		.select({ one: sql`1` })
-		.from(SchemaSignerSetMembers)
-		.leftJoin(
-			originalMember,
-			and(
-				eq(originalMember.signerSetAddress, accountAddress),
-				eq(
-					originalMember.publicKey,
-					SchemaSignerSetMembers.publicKey,
-				),
-			),
-		)
-		.leftJoin(
-			SchemaAccountAcceptances,
-			and(
-				eq(
-					SchemaAccountAcceptances.accountAddress,
-					accountAddress,
-				),
-				eq(
-					SchemaAccountAcceptances.publicKey,
-					SchemaSignerSetMembers.publicKey,
-				),
-			),
-		)
-		.where(
-			and(
-				eq(
-					SchemaSignerSetMembers.signerSetAddress,
-					SchemaAccountSignerSets.signerSetAddress,
-				),
-				sql`NOT (COALESCE(${originalMember.isAccepted}, false) OR COALESCE(${SchemaAccountAcceptances.isAccepted}, false))`,
-			),
-		);
-	const holdsKey = tx
-		.select({ one: sql`1` })
-		.from(keyMember)
-		.where(
-			and(
-				eq(
-					keyMember.signerSetAddress,
-					SchemaAccountSignerSets.signerSetAddress,
-				),
-				eq(keyMember.publicKey, publicKey),
-			),
-		);
-
-	await tx
-		.update(SchemaAccountSignerSets)
-		.set({
-			status: sql`CASE WHEN EXISTS (${unanswered}) THEN ${AccountSignerSetStatus.INVITING} ELSE ${AccountSignerSetStatus.VERIFIED} END`,
-		})
-		.where(
-			and(
-				eq(
-					SchemaAccountSignerSets.accountAddress,
-					accountAddress,
-				),
-				ne(
-					SchemaAccountSignerSets.status,
-					AccountSignerSetStatus.ABANDONED,
-				),
-				sql`EXISTS (${holdsKey})`,
-			),
-		);
-};
 
 // The caller has verified the answer. Returns the account's original signer set after it.
 export const answerInvitation = async ({
@@ -296,8 +211,6 @@ export const answerInvitation = async ({
 					set: { ...state, answeredAt: sql`now()` },
 				});
 
-		await recalculateLinks(tx, accountAddress, key);
-
 		let result = signerSet;
 		if (member)
 			[result] = await tx
@@ -321,6 +234,23 @@ export const answerInvitation = async ({
 				})
 				.where(eq(SchemaSignerSets.address, accountAddress))
 				.returning();
+		// Every account linked to the composition sees it verified.
+		if (member && result.isVerified)
+			await tx
+				.update(SchemaAccountSignerSets)
+				.set({ status: AccountSignerSetStatus.VERIFIED })
+				.where(
+					and(
+						eq(
+							SchemaAccountSignerSets.signerSetAddress,
+							accountAddress,
+						),
+						inArray(SchemaAccountSignerSets.status, [
+							AccountSignerSetStatus.DRAFT,
+							AccountSignerSetStatus.INVITING,
+						]),
+					),
+				);
 
 		if (changes)
 			await recordAccountEvent(tx, {
