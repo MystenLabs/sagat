@@ -33,7 +33,7 @@ import { type useDryRun } from '@/hooks/useDryRun';
 import {
 	isReplaced,
 	newComposition,
-	rowChip,
+	reviewChip,
 	thresholdSummary,
 	type ChangeKind,
 	type ChangeRow,
@@ -200,25 +200,31 @@ export function ReviewStep({
 					</Button>
 				</div>
 				<ReviewSigners
-					rows={kept.map((row, i) => ({
-						id: row.id,
-						position: i + 1,
-						name:
-							(row.was && !isReplaced(row)
-								? row.was.label
-								: row.label.trim()) || null,
-						isYou: !!row.isCreator,
-						key: row.key.trim(),
-						address: validatePublicKey(row.key.trim())
-							.address,
-						weight: (
-							<FromTo
-								from={row.was?.weight ?? row.weight}
-								to={row.weight}
-							/>
-						),
-						chip: <ChangeChip kind={rowChip(row)} />,
-					}))}
+					rows={kept.map((row, i) => {
+						// The member a row stays as, when its key didn't change.
+						const was =
+							row.was && !isReplaced(row) ? row.was : null;
+						return {
+							id: row.id,
+							position: i + 1,
+							name:
+								(was ? was.label : row.label.trim()) ||
+								null,
+							isYou: !!row.isCreator,
+							key: row.key.trim(),
+							address: validatePublicKey(row.key.trim())
+								.address,
+							weight: (
+								<FromTo
+									from={was?.weight ?? row.weight}
+									to={row.weight}
+								/>
+							),
+							chip: (
+								<ChangeChip kind={reviewChip(row, list)} />
+							),
+						};
+					})}
 				/>
 			</section>
 
@@ -275,14 +281,16 @@ export function ChangeList({
 						<span className="flex min-w-0 flex-1 flex-col gap-0.5">
 							<span>
 								{item.text}
-								{you && item.publicKey === you && (
-									<>
-										{' '}
-										<span className="text-muted-foreground">
-											{content.signers.markers.you.parens}
-										</span>
-									</>
-								)}
+								{you &&
+									(item.publicKey === you ||
+										item.newKey === you) && (
+										<>
+											{' '}
+											<span className="text-muted-foreground">
+												{content.signers.markers.you.parens}
+											</span>
+										</>
+									)}
 							</span>
 							{item.address && (
 								<ChangeAddress

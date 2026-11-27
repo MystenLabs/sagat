@@ -13,6 +13,7 @@ import {
 	changeLabels,
 	changeTitle,
 	checkChange,
+	compositionDifferences,
 	newComposition,
 	newRow,
 	removedBy,
@@ -181,14 +182,15 @@ describe('differences', () => {
 		);
 		const list = rowDifferences(
 			current,
-			[...rows, added()],
+			// At another weight than Hana's, Priya doesn't replace her.
+			[...rows, added(2)],
 			5,
 		);
 		expect(list.map((d) => d.text)).toEqual([
-			COPY.change.add('Priya', 1),
+			COPY.change.add('Priya', 2),
 			COPY.change.remove('Hana', 1),
 			COPY.change.weight('Alice', 1, 2),
-			COPY.change.threshold('4 of 7', '5 of 8'),
+			COPY.change.threshold('4 of 7', '5 of 9'),
 		]);
 		expect(list[1].address).toBe(
 			addressOf(current.members[4].publicKey),
@@ -235,23 +237,64 @@ describe('differences', () => {
 		expect(changeTitle(moved)).toBe(COPY.change.reorder);
 	});
 
-	test('a new row carrying a replaced signer’s key is an add', () => {
+	test('a replaced signer’s key on a new row stays, so the replaced row’s new key is an add', () => {
 		const current = currentSet([1, 1, 1], 2);
 		const [maya, daniel, alice] = rowsOf(current);
+		const key = newKey().toSuiPublicKey();
 		expect(
 			rowDifferences(
 				current,
 				[
 					maya,
-					{ ...daniel, key: newKey().toSuiPublicKey() },
+					{ ...daniel, key },
 					alice,
 					{ ...added(), key: daniel.key },
 				],
 				2,
-			).map((d) => d.text),
+			).map((d) => [d.kind, d.address]),
+		).toEqual([
+			['add', addressOf(key)],
+			['reorder', undefined],
+		]);
+	});
+
+	test('a key leaving and a key joining at the same place with the same weight read as one Replace line; with a second key leaving beside it, as Add and Remove lines', () => {
+		const [maya, daniel, alice, priya] = [0, 1, 2, 3].map(
+			() => newKey().toSuiPublicKey(),
+		);
+		const names = new Map([
+			[maya, 'Maya'],
+			[daniel, 'Daniel'],
+			[alice, 'Alice'],
+			[priya, 'Priya'],
+		]);
+		const lines = (before: string[], after: string[]) =>
+			compositionDifferences(
+				{
+					threshold: 1,
+					members: before.map((publicKey) => ({
+						publicKey,
+						weight: 1,
+					})),
+				},
+				{
+					threshold: 1,
+					members: after.map((publicKey) => ({
+						publicKey,
+						weight: 1,
+					})),
+				},
+				(key) => names.get(key)!,
+			).map((d) => d.text);
+		expect(
+			lines([maya, daniel, alice], [maya, priya, alice]),
+		).toEqual([COPY.change.replace('Daniel', 1)]);
+		expect(
+			lines([maya, daniel, alice], [maya, priya]),
 		).toEqual([
 			COPY.change.add('Priya', 1),
-			COPY.change.replace('Daniel', 1),
+			COPY.change.remove('Daniel', 1),
+			COPY.change.remove('Alice', 1),
 		]);
 	});
 
@@ -311,13 +354,13 @@ test('a change’s differences come from its bytes checked against the note’s 
 	const list = change
 		? changeDifferences(change, (key) => names.get(key)!)
 		: null;
-	expect(list?.map((d) => d.text)).toEqual([
-		COPY.change.add('Priya', 1),
-		COPY.change.remove('Alice', 1),
-	]);
-	expect(list?.map((d) => d.address)).toEqual([
-		priya.toSuiAddress(),
-		alice.toSuiAddress(),
+	expect(list).toMatchObject([
+		{
+			text: COPY.change.replace('Alice', 1),
+			name: 'Priya',
+			address: alice.toSuiAddress(),
+			newAddress: priya.toSuiAddress(),
+		},
 	]);
 	expect(
 		signerChangeIn(bytes, [maya.toSuiAddress()]),
@@ -339,15 +382,17 @@ test('a change’s differences come from its bytes checked against the note’s 
 			{ kind: 'read', aliases: [pod] },
 			podLabels,
 			{ pod, digest: digestOf(bytes) },
-		)?.list?.map((d) => d.text);
+		)?.list?.map((d) => [d.text, d.name]);
 	expect(
 		named([told(priya, 'Priya'), told(alice, 'Ally')]),
 	).toEqual([
-		COPY.change.add('Priya', 1),
-		COPY.change.remove(
-			formatAddress(alice.toSuiAddress()),
-			1,
-		),
+		[
+			COPY.change.replace(
+				formatAddress(alice.toSuiAddress()),
+				1,
+			),
+			'Priya',
+		],
 	]);
 	// Never a current signer's name.
 	expect(
@@ -355,9 +400,10 @@ test('a change’s differences come from its bytes checked against the note’s 
 			[told(priya, 'Alice')],
 			new Map([[alice.toSuiAddress(), 'Alice']]),
 		)?.[0],
-	).toBe(
-		COPY.change.add(formatAddress(priya.toSuiAddress()), 1),
-	);
+	).toEqual([
+		COPY.change.replace('Alice', 1),
+		formatAddress(priya.toSuiAddress()),
+	]);
 	expect(
 		[alice, maya].map((key) =>
 			removedBy(change, key.toSuiPublicKey()),

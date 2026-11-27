@@ -15,6 +15,7 @@ import { content } from '../content';
 import { type AliasRead } from './alias-set';
 import {
 	changeDifferences,
+	changeTitle,
 	signerChangeIn,
 	suiKey,
 	thresholdSummary,
@@ -27,6 +28,7 @@ import {
 	isProposalExpired,
 	missingWeight,
 	proposalStatusKey,
+	proposalTitle,
 	reachesThreshold,
 	shownSignerSet,
 	type CountedProposal,
@@ -106,23 +108,37 @@ const keyName = (publicKey: string, labels: Labels) =>
 const normalName = (name: string) =>
 	name.trim().replace(/\s+/g, ' ').toLowerCase();
 
+type ChangeProposal = Pick<
+	CountedProposal,
+	'transactionBytes' | 'signerChange'
+>;
+
 /** The opened bytes' checked signer change, with its differences and the labels to name its keys by. */
 export function checkedChange(
-	{
-		transactionBytes,
-		signerChange,
-	}: Pick<
-		CountedProposal,
-		'transactionBytes' | 'signerChange'
-	>,
+	proposal: ChangeProposal,
 	aliases: AliasRead | undefined,
 	labels: Labels,
 	opened: { pod: string; digest: string },
 ) {
-	const change =
-		aliases?.kind === 'read'
-			? signerChangeIn(transactionBytes, aliases.aliases)
-			: null;
+	return aliases?.kind === 'read'
+		? readChange(proposal, aliases.aliases, labels, opened)
+		: null;
+}
+
+/** `checkedChange` for the change the bytes' own note makes, for a proposal that is no longer open. */
+export const noteChange = (
+	proposal: ChangeProposal,
+	labels: Labels,
+	opened: { pod: string; digest: string },
+) => readChange(proposal, null, labels, opened);
+
+function readChange(
+	{ transactionBytes, signerChange }: ChangeProposal,
+	aliases: readonly string[] | null,
+	labels: Labels,
+	opened: { pod: string; digest: string },
+) {
+	const change = signerChangeIn(transactionBytes, aliases);
 	if (!change) return null;
 	// Only the opened proposal's own bytes, sent by the pod.
 	const { digest, transaction } = readTransactionBytes(
@@ -513,6 +529,28 @@ export function listedStatus(
 	return status === 'ready' && listedHeld(proposal, aliases)
 		? 'waiting'
 		: status;
+}
+
+/** A listed proposal's title: its signer change's, checked as its page checks it while open and the alias set is read, else from the bytes' note; otherwise its description or digest. */
+export function listedTitle(
+	proposal: ListedProposal &
+		Pick<CountedProposal, 'description'>,
+	status: ProposalStatusKey,
+	aliases: AliasRead | undefined,
+	labels: Labels,
+) {
+	const opened = {
+		pod: proposal.accountAddress,
+		digest: proposal.digest,
+	};
+	const read =
+		(status === 'pending' || status === 'ready') &&
+		aliases?.kind === 'read'
+			? checkedChange(proposal, aliases, labels, opened)
+			: noteChange(proposal, labels, opened);
+	return read?.list
+		? changeTitle(read.list)
+		: proposalTitle(proposal);
 }
 
 /**

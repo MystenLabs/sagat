@@ -8,7 +8,6 @@ import {
 	readCompositionNote,
 	type Composition,
 	type SignerChange,
-	type SignerSetEntry,
 } from '@mysten/sagat';
 import type { AccountMember } from '@mysten/sagat/v1';
 import { Transaction } from '@mysten/sui/transactions';
@@ -233,7 +232,7 @@ export interface Difference {
 	text: string;
 	/** An add's, remove's or replace's short form, for the proposal's title. */
 	title?: string;
-	/** An add's signer, for the invitation line. */
+	/** The name of the key an add or replace brings in, for the invitation line. */
 	name?: string;
 	/** The Sui address of the key an add, remove or replace names. */
 	address?: string;
@@ -241,14 +240,14 @@ export interface Difference {
 	newAddress?: string;
 	/** The key of the signer the line names. */
 	publicKey?: string;
+	/** A replace's new key. */
+	newKey?: string;
 }
 
 interface Member {
 	publicKey: string;
 	weight: number;
 	name: string;
-	/** The key this member replaces, which only the editor knows. */
-	was?: string;
 }
 
 const addressOf = (publicKey: string) =>
@@ -260,64 +259,71 @@ interface ChangeSide {
 	members: Member[];
 }
 
-/** Adds, removes, replacements, weights, threshold, reorder. */
+// Each run of consecutive keys that don't stay, under the staying key just before it (null at the start).
+function runs(members: Member[], stays: Set<string>) {
+	const out = new Map<string | null, Member[]>();
+	let at: string | null = null;
+	for (const m of members) {
+		if (stays.has(m.publicKey)) at = m.publicKey;
+		else out.set(at, [...(out.get(at) ?? []), m]);
+	}
+	return out;
+}
+
+/** Adds, removes, replacements, weights, threshold, reorder. A key leaving and a key joining alone at the same place, at the same weight, read as one replace. */
 function differences(
 	before: ChangeSide,
 	after: ChangeSide,
 ): Difference[] {
-	// Each old member pairs once, the editor's replaced rows first.
-	const used = new Set<Member>();
-	const match = (m: Member) => {
+	const kept = after.members.flatMap((m) => {
 		const b = before.members.find(
-			(b) =>
-				!used.has(b) &&
-				b.publicKey === (m.was ?? m.publicKey),
+			(b) => b.publicKey === m.publicKey,
 		);
-		if (b) used.add(b);
-		return b;
-	};
-	const replaced = new Map(
-		after.members.flatMap((m) =>
-			m.was ? [[m, match(m)]] : [],
-		),
+		return b ? [{ m, b }] : [];
+	});
+	const stays = new Set(kept.map(({ m }) => m.publicKey));
+	const joining = runs(after.members, stays);
+	const replaced = [...runs(before.members, stays)].flatMap(
+		([at, leaving]) => {
+			const joined = joining.get(at) ?? [];
+			return leaving.length === 1 &&
+				joined.length === 1 &&
+				leaving[0].weight === joined[0].weight
+				? [{ m: joined[0], b: leaving[0] }]
+				: [];
+		},
 	);
-	const pairs = after.members.map((m) => ({
-		m,
-		b: m.was ? replaced.get(m) : match(m),
-	}));
-	const kept = pairs.flatMap(({ m, b }) =>
-		b ? [{ m, b }] : [],
+	const paired = new Set(
+		replaced.flatMap(({ m, b }) => [m, b]),
 	);
+	const alone = (m: Member) =>
+		!stays.has(m.publicKey) && !paired.has(m);
 	const list: Difference[] = [
-		...pairs
-			.filter(({ b }) => !b)
-			.map(({ m }) => ({
-				kind: 'add' as const,
-				text: COPY.change.add(m.name, m.weight),
-				title: COPY.change.addTitle(m.name),
-				name: m.name,
-				address: addressOf(m.publicKey),
-				publicKey: m.publicKey,
-			})),
-		...before.members
-			.filter((b) => !kept.some((p) => p.b === b))
-			.map((b) => ({
-				kind: 'remove' as const,
-				text: COPY.change.remove(b.name, b.weight),
-				title: COPY.change.removeTitle(b.name),
-				address: addressOf(b.publicKey),
-				publicKey: b.publicKey,
-			})),
-		...kept
-			.filter(({ m, b }) => m.publicKey !== b.publicKey)
-			.map(({ m, b }) => ({
-				kind: 'replace' as const,
-				text: COPY.change.replace(b.name, b.weight),
-				title: COPY.change.replaceTitle(b.name),
-				address: addressOf(b.publicKey),
-				newAddress: addressOf(m.publicKey),
-				publicKey: b.publicKey,
-			})),
+		...after.members.filter(alone).map((m) => ({
+			kind: 'add' as const,
+			text: COPY.change.add(m.name, m.weight),
+			title: COPY.change.addTitle(m.name),
+			name: m.name,
+			address: addressOf(m.publicKey),
+			publicKey: m.publicKey,
+		})),
+		...before.members.filter(alone).map((b) => ({
+			kind: 'remove' as const,
+			text: COPY.change.remove(b.name, b.weight),
+			title: COPY.change.removeTitle(b.name),
+			address: addressOf(b.publicKey),
+			publicKey: b.publicKey,
+		})),
+		...replaced.map(({ m, b }) => ({
+			kind: 'replace' as const,
+			text: COPY.change.replace(b.name, b.weight),
+			title: COPY.change.replaceTitle(b.name),
+			name: m.name,
+			address: addressOf(b.publicKey),
+			newAddress: addressOf(m.publicKey),
+			publicKey: b.publicKey,
+			newKey: m.publicKey,
+		})),
 		...kept
 			.filter(({ m, b }) => m.weight !== b.weight)
 			.map(({ m, b }) => ({
@@ -347,7 +353,7 @@ function differences(
 	const reorder = reorderLine(
 		before.members.map((b) => b.publicKey),
 		after.members,
-		kept.filter(({ m, b }) => m.publicKey === b.publicKey),
+		kept,
 	);
 	if (reorder)
 		list.push({ kind: 'reorder', text: reorder });
@@ -396,35 +402,72 @@ export function thresholdSummary(
 		: null;
 }
 
-/** The editor's differences: the current set before, the rows that stay after. */
+type Side = Pick<Composition, 'threshold' | 'members'>;
+
+/** A change's differences, from the set it replaces and the set it puts in place, every key named by `nameOf`. */
+export function compositionDifferences(
+	before: Side,
+	after: Side,
+	nameOf: (publicKey: string) => string,
+): Difference[] {
+	const side = (set: Side): ChangeSide => ({
+		threshold: set.threshold,
+		members: set.members.map((m) => ({
+			publicKey: m.publicKey,
+			weight: m.weight,
+			name: nameOf(m.publicKey),
+		})),
+	});
+	return differences(side(before), side(after));
+}
+
+/** The editor's differences: the current set before, the set the proposal carries after. */
 export function rowDifferences(
 	current: CurrentSet,
 	rows: ChangeRow[],
 	threshold: number,
 ): Difference[] {
-	return differences(
+	const members = [...current.members].sort(
+		(a, b) => a.order - b.order,
+	);
+	const names = new Map([
+		...rows.map(
+			(row) => [suiKey(row.key), invitedName(row)] as const,
+		),
+		...members.map(
+			(m) => [suiKey(m.publicKey), memberName(m)] as const,
+		),
+	]);
+	return compositionDifferences(
 		{
 			threshold: current.threshold,
-			members: [...current.members]
-				.sort((a, b) => a.order - b.order)
-				.map((m) => ({
-					publicKey: suiKey(m.publicKey),
-					weight: m.weight,
-					name: memberName(m),
-				})),
+			members: members.map((m) => ({
+				publicKey: suiKey(m.publicKey),
+				weight: m.weight,
+			})),
 		},
-		{
-			threshold,
-			members: rows
-				.filter((row) => !row.removed)
-				.map((row) => ({
-					publicKey: suiKey(row.key),
-					weight: row.weight,
-					name: invitedName(row),
-					was: row.was && suiKey(row.was.publicKey),
-				})),
-		},
+		newComposition(rows, threshold),
+		(key) => names.get(key) ?? key,
 	);
+}
+
+/** A row's chip after the change, from the differences: `new` for a key an add brings in, `replaced` for a replace's new key. */
+export function reviewChip(
+	row: ChangeRow,
+	list: Difference[],
+): RowChip | null {
+	const key = suiKey(row.key);
+	if (
+		list.some(
+			(d) => d.kind === 'add' && d.publicKey === key,
+		)
+	)
+		return 'new';
+	return list.some(
+		(d) => d.kind === 'replace' && d.newKey === key,
+	)
+		? 'replaced'
+		: null;
 }
 
 /** The bytes' signer change, checked against `aliases` (else the note's `before`). */
@@ -452,16 +495,10 @@ export function changeDifferences(
 		change.after.length !== change.before.length
 	)
 		return null;
-	const side = (set: SignerSetEntry): ChangeSide => ({
-		threshold: set.threshold,
-		members: set.members.map((m) => ({
-			...m,
-			name: nameOf(m.publicKey),
-		})),
-	});
-	return differences(
-		side(change.oldSet),
-		side(change.newSets[0]),
+	return compositionDifferences(
+		change.oldSet,
+		change.newSets[0],
+		nameOf,
 	);
 }
 

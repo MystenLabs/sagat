@@ -8,7 +8,11 @@ import {
 	Link2,
 	MoreHorizontal,
 } from 'lucide-react';
-import { type ReactElement, type ReactNode } from 'react';
+import {
+	useMemo,
+	type ReactElement,
+	type ReactNode,
+} from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { content } from '@/content';
@@ -22,7 +26,11 @@ import {
 	downloadJson,
 	getProposalExportFilename,
 } from '@/lib/exportUtils';
-import { listedStatus } from '@/lib/proposal-page';
+import {
+	listedStatus,
+	listedTitle,
+	type Labels,
+} from '@/lib/proposal-page';
 import {
 	canExportProposal,
 	isExternalProposer,
@@ -79,6 +87,7 @@ export function ProposalRow({
 	expired,
 	proposerLabel,
 	aliases,
+	labels,
 }: {
 	proposal: CountedProposal;
 	variant: ProposalsTableVariant;
@@ -88,6 +97,8 @@ export function ProposalRow({
 	proposerLabel: string | null;
 	/** The pod's alias read, to check a signer change as its page does. */
 	aliases: AliasRead | undefined;
+	/** The pod's labels, to name a signer change's keys. */
+	labels: Labels;
 }) {
 	const { currentAddress } = useApiAuth();
 	const executing = useExecuteOrVerify();
@@ -112,10 +123,16 @@ export function ProposalRow({
 		status === 'ready' ? rowExecuteSet(proposal) : null;
 	const list = variant === 'list';
 	const createdOn = formatShortDate(proposal.createdAt);
+	const title = useMemo(
+		() => listedTitle(proposal, status, aliases, labels),
+		[proposal, status, aliases, labels],
+	);
 	// The digest goes under the title, unless the title already is the
-	// digest (no description). The overview's column is too narrow for it,
-	// but its stacked rows have room.
-	const showDigest = !!proposal.description?.trim();
+	// digest. The overview's column is too narrow for it, but its stacked
+	// rows have room.
+	const showDigest =
+		!!proposal.description?.trim() ||
+		title !== proposalTitle(proposal);
 	// A signer goes by their key's label. An outside proposer has none, so
 	// goes by address, marked as such.
 	const proposerMarker =
@@ -166,7 +183,7 @@ export function ProposalRow({
 							className="truncate text-14 font-medium text-foreground hover:underline @max-md:line-clamp-2 @max-md:whitespace-normal"
 							data-testid="proposal-title"
 						>
-							{proposalTitle(proposal)}
+							{title}
 						</Link>
 						{/* The proposer leads the meta line and each item
 							    after it brings its own "·". In the list's table

@@ -130,6 +130,7 @@ export function ProposalsTable({
 									null
 								}
 								aliases={aliases}
+								labels={labels}
 							/>
 						))}
 						{noProposals && (
