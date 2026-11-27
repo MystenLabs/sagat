@@ -11,6 +11,7 @@ import {
 } from '@mysten/sagat';
 import type { AccountMember } from '@mysten/sagat/v1';
 import { Transaction } from '@mysten/sui/transactions';
+import { formatAddress } from '@mysten/sui/utils';
 
 import { content } from '../content';
 import {
@@ -519,6 +520,15 @@ export function changeTitle(list: Difference[]) {
 		? COPY.change.two(first, second)
 		: COPY.change.more(first, list.length - 1);
 }
+
+/** A replace's new key's name, shown with its "New" address; null when it is only the short address. */
+export const newKeyName = ({
+	name,
+	newAddress,
+}: Difference) =>
+	name && newAddress && name !== formatAddress(newAddress)
+		? name
+		: null;
 
 /** Whether `publicKey` is in the change's old set and not in its new set. */
 export const removedBy = (

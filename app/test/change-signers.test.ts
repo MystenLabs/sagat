@@ -15,6 +15,7 @@ import {
 	checkChange,
 	compositionDifferences,
 	newComposition,
+	newKeyName,
 	newRow,
 	removedBy,
 	rowDifferences,
@@ -394,6 +395,16 @@ test('a change’s differences come from its bytes checked against the note’s 
 			newAddress: priya.toSuiAddress(),
 		},
 	]);
+	// The "New" address carries the new key's name, none when that is only its short address.
+	expect(list?.map(newKeyName)).toEqual(['Priya']);
+	expect(
+		newKeyName({
+			kind: 'replace',
+			text: '',
+			name: formatAddress(priya.toSuiAddress()),
+			newAddress: priya.toSuiAddress(),
+		}),
+	).toBeNull();
 	expect(
 		signerChangeIn(bytes, [maya.toSuiAddress()]),
 	).toBeNull();

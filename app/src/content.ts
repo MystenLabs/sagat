@@ -1386,9 +1386,8 @@ export const content = {
 				`Remove ${name} (weight ${weight})`,
 			removeTitle: (name: string) => `Remove ${name}`,
 			replace: (name: string, weight: number) =>
-				`Replace ${name}’s key (weight ${weight})`,
-			replaceTitle: (name: string) =>
-				`Replace ${name}’s key`,
+				`Replace ${name} (weight ${weight})`,
+			replaceTitle: (name: string) => `Replace ${name}`,
 			weight: (name: string, from: number, to: number) =>
 				`Change ${name}’s weight from ${from} to ${to}`,
 			threshold: (from: string, to: string) =>

@@ -33,6 +33,7 @@ import { type useDryRun } from '@/hooks/useDryRun';
 import {
 	isReplaced,
 	newComposition,
+	newKeyName,
 	reviewChip,
 	thresholdSummary,
 	type ChangeKind,
@@ -303,6 +304,7 @@ export function ChangeList({
 							{item.newAddress && (
 								<ChangeAddress
 									label={COPY.chips.new}
+									name={newKeyName(item)}
 									address={item.newAddress}
 								/>
 							)}
@@ -324,12 +326,14 @@ export function ChangeList({
 	);
 }
 
-/** A change line's whole Sui address with its copy button, after `label` when there is one. */
+/** A change line's whole Sui address with its copy button, after `label` and the key's `name` when there are. */
 function ChangeAddress({
 	label,
+	name,
 	address,
 }: {
 	label: string | null;
+	name?: string | null;
 	address: string;
 }) {
 	return (
@@ -338,6 +342,11 @@ function ChangeAddress({
 			data-testid="change-address"
 		>
 			{label && <span className="shrink-0">{label}</span>}
+			{name && (
+				<span className="min-w-0 truncate text-foreground">
+					{name}
+				</span>
+			)}
 			<span className="min-w-0 font-mono break-all">
 				{address}
 			</span>
