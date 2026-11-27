@@ -25,6 +25,7 @@ import {
 import { ReviewExpiry } from '@/components/proposals/ProposalExpiry';
 import { simulationProps } from '@/components/transaction-preview/simulation';
 import { Button } from '@/components/ui/button';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { Stat } from '@/components/ui/stat';
 import { SectionHeading } from '@/components/wizard/parts';
 import { content } from '@/content';
@@ -249,7 +250,7 @@ export function ReviewStep({
 	);
 }
 
-/** The differences as a bordered list, with an add's Sui address under it when known, and `summary` as the last line; a line naming `you` (a key) is marked. */
+/** The differences as a bordered list, with the Sui addresses an add, remove or replace names under it, and `summary` as the last line; a line naming `you` (a key) is marked. */
 export function ChangeList({
 	list,
 	summary,
@@ -284,9 +285,18 @@ export function ChangeList({
 								)}
 							</span>
 							{item.address && (
-								<span className="font-mono text-12 break-all text-muted-foreground">
-									{item.address}
-								</span>
+								<ChangeAddress
+									label={
+										item.newAddress ? COPY.row.was : null
+									}
+									address={item.address}
+								/>
+							)}
+							{item.newAddress && (
+								<ChangeAddress
+									label={COPY.chips.new}
+									address={item.newAddress}
+								/>
 							)}
 						</span>
 						<ChangeChip kind={LIST_CHIPS[item.kind]} />
@@ -303,6 +313,32 @@ export function ChangeList({
 				</li>
 			)}
 		</ul>
+	);
+}
+
+/** A change line's whole Sui address with its copy button, after `label` when there is one. */
+function ChangeAddress({
+	label,
+	address,
+}: {
+	label: string | null;
+	address: string;
+}) {
+	return (
+		<span
+			className="flex min-w-0 items-center gap-1 text-12 text-muted-foreground"
+			data-testid="change-address"
+		>
+			{label && <span className="shrink-0">{label}</span>}
+			<span className="min-w-0 font-mono break-all">
+				{address}
+			</span>
+			<CopyButton
+				value={address}
+				size="inline"
+				successMessage={content.toasts.addressCopied}
+			/>
+		</span>
 	);
 }
 

@@ -231,10 +231,14 @@ export type ChangeKind =
 export interface Difference {
 	kind: ChangeKind;
 	text: string;
-	/** An add's signer, for the title. */
+	/** An add's, remove's or replace's short form, for the proposal's title. */
+	title?: string;
+	/** An add's signer, for the invitation line. */
 	name?: string;
-	/** An add's Sui address. */
+	/** The Sui address of the key an add, remove or replace names. */
 	address?: string;
+	/** A replace's new key's Sui address. */
+	newAddress?: string;
 	/** The key of the signer the line names. */
 	publicKey?: string;
 }
@@ -245,8 +249,10 @@ interface Member {
 	name: string;
 	/** The key this member replaces, which only the editor knows. */
 	was?: string;
-	address?: string;
 }
+
+const addressOf = (publicKey: string) =>
+	validatePublicKey(publicKey).address ?? undefined;
 
 /** One side of a change, in order. */
 interface ChangeSide {
@@ -288,22 +294,28 @@ function differences(
 			.map(({ m }) => ({
 				kind: 'add' as const,
 				text: COPY.change.add(m.name, m.weight),
+				title: COPY.change.addTitle(m.name),
 				name: m.name,
-				address: m.address,
+				address: addressOf(m.publicKey),
 				publicKey: m.publicKey,
 			})),
 		...before.members
 			.filter((b) => !kept.some((p) => p.b === b))
 			.map((b) => ({
 				kind: 'remove' as const,
-				text: COPY.change.remove(b.name),
+				text: COPY.change.remove(b.name, b.weight),
+				title: COPY.change.removeTitle(b.name),
+				address: addressOf(b.publicKey),
 				publicKey: b.publicKey,
 			})),
 		...kept
 			.filter(({ m, b }) => m.publicKey !== b.publicKey)
-			.map(({ b }) => ({
+			.map(({ m, b }) => ({
 				kind: 'replace' as const,
-				text: COPY.change.replace(b.name),
+				text: COPY.change.replace(b.name, b.weight),
+				title: COPY.change.replaceTitle(b.name),
+				address: addressOf(b.publicKey),
+				newAddress: addressOf(m.publicKey),
 				publicKey: b.publicKey,
 			})),
 		...kept
@@ -445,8 +457,6 @@ export function changeDifferences(
 		members: set.members.map((m) => ({
 			...m,
 			name: nameOf(m.publicKey),
-			address:
-				validatePublicKey(m.publicKey).address ?? undefined,
 		})),
 	});
 	return differences(
@@ -455,13 +465,10 @@ export function changeDifferences(
 	);
 }
 
-// A change as a title: an add without its weight, a reorder without who moves.
+// A change as a title: an add, remove or replace without its weight, a reorder without who moves.
 const titleOf = (d: Difference) =>
-	d.name
-		? COPY.change.addTitle(d.name)
-		: d.kind === 'reorder'
-			? COPY.change.reorder
-			: d.text;
+	d.title ??
+	(d.kind === 'reorder' ? COPY.change.reorder : d.text);
 
 /** "Remove Hana", "Add Priya and remove Hana", or "Add Priya and 3 more". */
 export function changeTitle(list: Difference[]) {

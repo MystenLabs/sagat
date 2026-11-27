@@ -4,6 +4,7 @@
 import type { AccountMember } from '@mysten/sagat/v1';
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
 import { formatAddress } from '@mysten/sui/utils';
+import { publicKeyFromSuiBytes } from '@mysten/sui/verify';
 import { describe, expect, test } from 'vitest';
 
 import { content } from '../src/content';
@@ -33,6 +34,8 @@ import {
 const COPY = content.changeSigners;
 
 const newKey = () => new Ed25519Keypair().getPublicKey();
+const addressOf = (publicKey: string) =>
+	publicKeyFromSuiBytes(publicKey).toSuiAddress();
 
 /** A set of `weights`, one named member per weight, every one accepted unless listed. */
 function currentSet(
@@ -183,17 +186,20 @@ describe('differences', () => {
 		);
 		expect(list.map((d) => d.text)).toEqual([
 			COPY.change.add('Priya', 1),
-			COPY.change.remove('Hana'),
+			COPY.change.remove('Hana', 1),
 			COPY.change.weight('Alice', 1, 2),
 			COPY.change.threshold('4 of 7', '5 of 8'),
 		]);
+		expect(list[1].address).toBe(
+			addressOf(current.members[4].publicKey),
+		);
 		expect(changeTitle(list)).toBe(
 			COPY.change.more(COPY.change.addTitle('Priya'), 3),
 		);
 		expect(changeTitle(list.slice(0, 2))).toBe(
 			COPY.change.two(
 				COPY.change.addTitle('Priya'),
-				COPY.change.remove('Hana'),
+				COPY.change.removeTitle('Hana'),
 			),
 		);
 	});
@@ -201,18 +207,22 @@ describe('differences', () => {
 	test('a replaced key reads as one Replace line, and one signer moving reads as that signer’s move', () => {
 		const current = currentSet([1, 1, 1, 1], 2);
 		const [maya, daniel, alice, tomas] = rowsOf(current);
-		expect(
-			rowDifferences(
-				current,
-				[
-					maya,
-					{ ...daniel, key: newKey().toSuiPublicKey() },
-					alice,
-					tomas,
-				],
-				2,
-			).map((d) => d.text),
-		).toEqual([COPY.change.replace('Daniel')]);
+		const key = newKey().toSuiPublicKey();
+		const replaced = rowDifferences(
+			current,
+			[maya, { ...daniel, key }, alice, tomas],
+			2,
+		);
+		expect(replaced).toMatchObject([
+			{
+				text: COPY.change.replace('Daniel', 1),
+				address: addressOf(daniel.key),
+				newAddress: addressOf(key),
+			},
+		]);
+		expect(changeTitle(replaced)).toBe(
+			COPY.change.replaceTitle('Daniel'),
+		);
 		const moved = rowDifferences(
 			current,
 			[maya, alice, daniel, tomas],
@@ -241,7 +251,7 @@ describe('differences', () => {
 			).map((d) => d.text),
 		).toEqual([
 			COPY.change.add('Priya', 1),
-			COPY.change.replace('Daniel'),
+			COPY.change.replace('Daniel', 1),
 		]);
 	});
 
@@ -264,7 +274,7 @@ describe('differences', () => {
 		);
 		const list = rowDifferences(current, removed, 2);
 		expect(changeTitle(list)).toBe(
-			COPY.change.remove('Alice'),
+			COPY.change.removeTitle('Alice'),
 		);
 		const replaced = rows.map((row, i) =>
 			i === 2
@@ -303,9 +313,12 @@ test('a change’s differences come from its bytes checked against the note’s 
 		: null;
 	expect(list?.map((d) => d.text)).toEqual([
 		COPY.change.add('Priya', 1),
-		COPY.change.remove('Alice'),
+		COPY.change.remove('Alice', 1),
 	]);
-	expect(list?.[0].address).toBe(priya.toSuiAddress());
+	expect(list?.map((d) => d.address)).toEqual([
+		priya.toSuiAddress(),
+		alice.toSuiAddress(),
+	]);
 	expect(
 		signerChangeIn(bytes, [maya.toSuiAddress()]),
 	).toBeNull();
@@ -331,7 +344,10 @@ test('a change’s differences come from its bytes checked against the note’s 
 		named([told(priya, 'Priya'), told(alice, 'Ally')]),
 	).toEqual([
 		COPY.change.add('Priya', 1),
-		COPY.change.remove(formatAddress(alice.toSuiAddress())),
+		COPY.change.remove(
+			formatAddress(alice.toSuiAddress()),
+			1,
+		),
 	]);
 	// Never a current signer's name.
 	expect(

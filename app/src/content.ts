@@ -1374,8 +1374,13 @@ export const content = {
 			add: (name: string, weight: number) =>
 				`Add ${name} (weight ${weight})`,
 			addTitle: (name: string) => `Add ${name}`,
-			remove: (name: string) => `Remove ${name}`,
-			replace: (name: string) => `Replace ${name}’s key`,
+			remove: (name: string, weight: number) =>
+				`Remove ${name} (weight ${weight})`,
+			removeTitle: (name: string) => `Remove ${name}`,
+			replace: (name: string, weight: number) =>
+				`Replace ${name}’s key (weight ${weight})`,
+			replaceTitle: (name: string) =>
+				`Replace ${name}’s key`,
 			weight: (name: string, from: number, to: number) =>
 				`Change ${name}’s weight from ${from} to ${to}`,
 			threshold: (from: string, to: string) =>
