@@ -453,7 +453,7 @@ test.describe('proposals', () => {
 			`/multisig/${multisig.address}/proposals`,
 		);
 		await alice.page
-			.getByTestId('proposal-filter-ready')
+			.getByTestId('proposal-filter-waiting')
 			.click();
 		const row = alice.proposalRow(proposal.digest);
 		await expect(row).toHaveAttribute(
