@@ -505,3 +505,32 @@ describe('a change executed without the API', () => {
 		});
 	});
 });
+
+describe('a change a new key did not sign', () => {
+	test('the new k4 stays invited once the change executes', async () => {
+		framework = new ApiTestFramework(await createTestApp());
+		const session = framework.createSession();
+		const cast = await createCast(session);
+		const { k2, k4, A, S2 } = cast;
+		const change = await proposeCastChange(
+			session,
+			cast,
+			S2,
+		);
+		// `k1` and `k2` meet both thresholds without `k4`.
+		const ready = await session.voteOnProposal(
+			k2,
+			change.digest,
+			change.transactionBytes,
+		);
+		expect(ready.ready).toBe(true);
+		expect(
+			(await executeAndVerify(session, ready)).status,
+		).toBe('SUCCESS');
+
+		expect(await answerOf(k4, A, addressOf(S2))).toBe(
+			'invited',
+		);
+		expect(await invitedTo(k4)).toEqual([A]);
+	});
+});
