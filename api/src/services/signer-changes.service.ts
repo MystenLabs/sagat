@@ -264,16 +264,15 @@ export const checkAndWriteSignerChange = async (
 		throw new ApiAuthError('NotASignerWhoStays');
 
 	const { added } = note;
-	if (added)
-		await validateQuorum(
-			added.members.map((member) =>
-				parsePublicKey(member.publicKey).toSuiAddress(),
-			),
-			added.members.map((member) => member.weight),
-			added.threshold,
-		);
-
 	if (!added) return;
+	await validateQuorum(
+		added.members.map((member) =>
+			parsePublicKey(member.publicKey).toSuiAddress(),
+		),
+		added.members.map((member) => member.weight),
+		added.threshold,
+	);
+
 	await writeAddedSet(tx, {
 		accountAddress,
 		added,
