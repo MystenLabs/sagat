@@ -72,6 +72,7 @@ export const signerChangeNote = (
 	}
 };
 
+// Null for bytes that do not parse or carry no composition note, `{ change: null }` for a note that does not read or check, `{ change }` otherwise.
 // Checked against the note's own `before`, so the answer never moves with the mirror.
 export const signerChangeIn = (
 	transactionBytes: string,

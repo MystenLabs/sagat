@@ -445,7 +445,12 @@ const getProposalsByAccountAddress = async ({
 };
 
 /**
- * Also looks up a cancelled proposal that calls the alias module; it stays cancelled when not on chain.
+ * Checks a pending proposal on-chain, and records whether it succeeded and
+ * the address that signed for the account. With `checkThreshold`, it first
+ * needs enough signatures under the original set. A cancelled proposal that
+ * calls the alias module is looked up too, and stays cancelled when not on
+ * chain. Returns the proposal's status afterwards; any other proposal that is
+ * no longer pending is returned as is.
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
