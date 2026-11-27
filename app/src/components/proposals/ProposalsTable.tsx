@@ -91,7 +91,7 @@ export function ProposalsTable({
 				<thead className="@max-md:hidden">
 					<tr className={tableShellHeadRowClass}>
 						<th className="px-3">{TABLE.proposal}</th>
-						<th className="w-20 px-3 sm:w-26">
+						<th className="w-20 px-3 sm:w-48">
 							{FIELDS.status}
 						</th>
 						<th className="hidden w-32 px-3 sm:table-cell">
