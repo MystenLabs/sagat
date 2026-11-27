@@ -134,7 +134,9 @@ export function useProposalsQueries({
 			pendingFilter(proposal, {
 				publicKey,
 				epochInfo,
+				// The hold only matters once the threshold is reached.
 				held:
+					proposalStatusKey(proposal) === 'ready' &&
 					changeHold(
 						proposal,
 						proposalStatusKey(proposal),
