@@ -585,33 +585,45 @@ export const createProposal = async ({
 	});
 
 	const pubKey = transactionSigner(signature, scopeKind);
-	if (scopeKind === 'acting')
-		await refreshAccount(multisigAddress, network, loaders);
-	const signers = await getAccountSigners(
-		multisigAddress,
-		scopeOn(scopeKind, network),
-	);
-
-	const isMember = signsFor(
-		signers,
-		[pubKey.toSuiPublicKey()],
-		true,
-	);
-	// With no acting set on the network, nobody acts for the account there.
-	const isProposer =
-		signers.actingSets.length > 0 &&
-		(await isAccountProposer(
+	// Under the acting scope the signature is checked before the account.
+	const signatureFirst = scopeKind === 'acting';
+	const checkAccount = async () => {
+		if (scopeKind === 'acting')
+			await refreshAccount(
+				multisigAddress,
+				network,
+				loaders,
+			);
+		const signers = await getAccountSigners(
 			multisigAddress,
-			pubKey.toSuiAddress(),
-		));
-
-	const notMemberError = () =>
-		REFUSALS[scopeKind].notAccepted(
-			async () => signers,
-			[pubKey.toSuiPublicKey()],
+			scopeOn(scopeKind, network),
 		);
-	if (!isMember && !isProposer)
-		throw await notMemberError();
+
+		const isMember = signsFor(
+			signers,
+			[pubKey.toSuiPublicKey()],
+			true,
+		);
+		// With no acting set on the network, nobody acts for the account there.
+		const isProposer =
+			signers.actingSets.length > 0 &&
+			(await isAccountProposer(
+				multisigAddress,
+				pubKey.toSuiAddress(),
+			));
+
+		const notMemberError = () =>
+			REFUSALS[scopeKind].notAccepted(
+				async () => signers,
+				[pubKey.toSuiPublicKey()],
+			);
+		if (!isMember && !isProposer)
+			throw await notMemberError();
+		return { isMember, notMemberError };
+	};
+	const originalAccount = signatureFirst
+		? undefined
+		: await checkAccount();
 
 	const proposedTransaction = Transaction.from(
 		transactionBytes,
@@ -647,6 +659,8 @@ export const createProposal = async ({
 		built,
 		signature,
 	);
+	const { isMember, notMemberError } =
+		originalAccount ?? (await checkAccount());
 
 	// Look up the objects only this proposal may use before opening the
 	// database transaction, so it is not held open during RPC calls.
@@ -746,6 +760,14 @@ export const voteOnProposal = async ({
 	const proposal = await getProposal(key);
 
 	const pubKey = transactionSigner(signature, scopeKind);
+	const signatureFirst = scopeKind === 'acting';
+	const verifySignature = () =>
+		verifyTransactionSignature(
+			pubKey,
+			fromBase64(proposal.transactionBytes),
+			signature,
+		);
+	if (signatureFirst) await verifySignature();
 	await refreshBeforeDeciding(
 		scopeKind,
 		proposal.accountAddress,
@@ -776,11 +798,7 @@ export const voteOnProposal = async ({
 			'Voter has already voted for this proposal',
 		);
 
-	await verifyTransactionSignature(
-		pubKey,
-		fromBase64(proposal.transactionBytes),
-		signature,
-	);
+	if (!signatureFirst) await verifySignature();
 
 	const signatureObject = {
 		proposalId: proposal.id,
@@ -824,6 +842,16 @@ export const cancelProposal = async ({
 	const pubKey =
 		getPublicKeyFromSerializedSignature(signature);
 	const signerAddress = pubKey.toSuiAddress();
+	const signatureFirst = scopeKind === 'acting';
+	const verifySignature = () =>
+		verifySignedMessage(
+			signature,
+			PersonalMessages.cancelProposal(
+				proposal.digest,
+				proposal.accountAddress,
+			),
+		);
+	if (signatureFirst) await verifySignature();
 	await refreshBeforeDeciding(
 		scopeKind,
 		proposal.accountAddress,
@@ -831,8 +859,8 @@ export const cancelProposal = async ({
 		loaders,
 	);
 
-	// Refuses outsiders before they can take the lock, and before the signature
-	// is checked. The route is open, and this is the order callers rely on.
+	// Refuses outsiders before they can take the lock; under the original set,
+	// also before the signature is checked, the order legacy callers rely on.
 	const isMember = await isAccountSigner(
 		proposal.accountAddress,
 		[pubKey],
@@ -860,13 +888,7 @@ export const cancelProposal = async ({
 			[pubKey.toSuiPublicKey()],
 		);
 
-	await verifySignedMessage(
-		signature,
-		PersonalMessages.cancelProposal(
-			proposal.digest,
-			proposal.accountAddress,
-		),
-	);
+	if (!signatureFirst) await verifySignature();
 
 	await db.transaction(async (tx) => {
 		// First, as this touches the proposal before recording takes the lock.

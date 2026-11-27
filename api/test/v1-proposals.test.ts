@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import {
+	PersonalMessages,
 	SagatApiError,
 	verifyProposalCreated,
 } from '@mysten/sagat';
@@ -639,6 +640,155 @@ describe('/v1 proposal writes, the list and verify on the chain', () => {
 					'digest: The transaction digest provided is invalid.',
 			}),
 		);
+	});
+
+	const notASigner = {
+		status: 403,
+		body: {
+			error: new ApiAuthError('NotAnAccountSigner').message,
+		},
+	};
+
+	test('create refuses a signature that does not verify alike for a signer, an outsider and an address that is no account', async () => {
+		const { k1, address } = await createAccount();
+		const outsider = newUser();
+		const transactionBytes = await buildTransfer(address);
+		const otherBytes = await buildTransfer(address, {
+			amount: 2_000_000,
+		});
+		const noAccount = newUser().address;
+		await sendCoins(noAccount, 1);
+		const noAccountBytes = await buildTransfer(noAccount);
+		const create = async (
+			accountAddress: string,
+			bytes: string,
+			signature: string,
+		) =>
+			errorOf(
+				await session.post(
+					'/v1/proposals?network=localnet',
+					{
+						accountAddress,
+						transactionBytes: bytes,
+						signature,
+					},
+				),
+			);
+
+		const answers = [
+			await create(
+				address,
+				transactionBytes,
+				await signedBy(k1, otherBytes),
+			),
+			await create(
+				address,
+				transactionBytes,
+				await signedBy(outsider, otherBytes),
+			),
+			await create(
+				noAccount,
+				noAccountBytes,
+				await signedBy(k1, otherBytes),
+			),
+		];
+
+		expect(answers).toEqual(
+			Array(3).fill({
+				status: 400,
+				body: {
+					error: CommonErrors.InvalidTransactionSignature,
+				},
+			}),
+		);
+		expect(
+			await create(
+				address,
+				transactionBytes,
+				await signedBy(outsider, transactionBytes),
+			),
+		).toEqual(notASigner);
+	});
+
+	test('vote refuses a signature that does not verify alike for a signer and an outsider', async () => {
+		const { k1, k2, address } = await createAccount();
+		const outsider = newUser();
+		const created = await session.createProposal(
+			k1,
+			address,
+			'localnet',
+			await buildTransfer(address),
+		);
+		const otherBytes = await buildTransfer(address, {
+			amount: 2_000_000,
+		});
+		const vote = async (signature: string) =>
+			errorOf(
+				await session.post(
+					`/v1/proposals/${created.digest}/vote`,
+					{ signature },
+				),
+			);
+
+		const answers = [
+			await vote(await signedBy(k2, otherBytes)),
+			await vote(await signedBy(outsider, otherBytes)),
+		];
+
+		expect(answers).toEqual(
+			Array(2).fill({
+				status: 400,
+				body: {
+					error: CommonErrors.InvalidTransactionSignature,
+				},
+			}),
+		);
+		expect(
+			await vote(
+				await signedBy(outsider, created.transactionBytes),
+			),
+		).toEqual(notASigner);
+	});
+
+	test('cancel refuses a signature that does not verify alike for a signer and an outsider', async () => {
+		const { k1, address } = await createAccount();
+		const outsider = newUser();
+		const created = await session.createProposal(
+			k1,
+			address,
+			'localnet',
+			await buildTransfer(address),
+		);
+		const cancel = async (signature: string) =>
+			errorOf(
+				await session.post(
+					`/v1/proposals/${created.digest}/cancel`,
+					{ signature },
+				),
+			);
+
+		const answers = [
+			await cancel(await sign(k1, 'another message')),
+			await cancel(await sign(outsider, 'another message')),
+		];
+
+		expect(answers).toEqual(
+			Array(2).fill({
+				status: 400,
+				body: { error: CommonErrors.InvalidSignature },
+			}),
+		);
+		expect(
+			await cancel(
+				await sign(
+					outsider,
+					PersonalMessages.cancelProposal(
+						created.digest,
+						address,
+					),
+				),
+			),
+		).toEqual(notASigner);
 	});
 
 	test('an external proposer’s alias proposal is created as an alias call, and removing the proposer cancels it', async () => {
