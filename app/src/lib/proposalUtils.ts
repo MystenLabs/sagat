@@ -308,8 +308,9 @@ export function isProposalExpired(
 /**
  * Which of the proposals page's pending tabs a pending proposal belongs
  * on: Expired once its transaction can't execute, whatever its
- * signatures; else Ready at the threshold; else Awaiting others when
- * `publicKey` signed it, To sign when not.
+ * signatures; else Ready at the threshold, unless a signer change is
+ * `held` for its new signers; else Awaiting others when `publicKey`
+ * signed it, To sign when not.
  */
 export function pendingFilter(
 	proposal: Pick<
@@ -322,14 +323,19 @@ export function pendingFilter(
 	{
 		publicKey,
 		epochInfo,
+		held = false,
 	}: {
 		publicKey: string | undefined;
 		epochInfo: EpochInfo | undefined;
+		held?: boolean;
 	},
 ): 'expired' | 'ready' | 'waiting' | 'pending' {
 	if (isProposalExpired(proposal, epochInfo))
 		return 'expired';
-	if (proposal.checkedSignerSets.some(reachesThreshold))
+	if (
+		!held &&
+		proposal.checkedSignerSets.some(reachesThreshold)
+	)
 		return 'ready';
 	return proposal.signatures.some(
 		(sig) => sig.publicKey === publicKey,

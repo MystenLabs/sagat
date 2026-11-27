@@ -295,6 +295,31 @@ describe('pendingFilter', () => {
 			),
 		).toBe(false);
 	});
+
+	it('files a held signer change at the threshold by whether the viewer signed, not as ready', async () => {
+		const atThreshold = {
+			status: 'PENDING' as const,
+			transactionBytes: await transfer({ Epoch: 10 }),
+			signatures,
+			checkedSignerSets: countSignerSets(
+				{ signatures, accountAddress: '0x1' },
+				[{ set: multisig, address: '0x1' }],
+				null,
+			),
+		};
+		const filed = (
+			publicKey: string | undefined,
+			held: boolean,
+		) =>
+			pendingFilter(atThreshold, {
+				publicKey,
+				epochInfo,
+				held,
+			});
+		expect(filed('signer', true)).toBe('waiting');
+		expect(filed(undefined, true)).toBe('pending');
+		expect(filed('signer', false)).toBe('ready');
+	});
 });
 
 describe('countSignerSets', () => {

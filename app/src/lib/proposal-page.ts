@@ -461,20 +461,20 @@ export function shownStatus(
 		: status;
 }
 
-/** `shownStatus` for a listed proposal, with its change checked as its page checks it. */
-export function listedStatus(
-	proposal: Pick<
-		CountedProposal,
-		| 'signatures'
-		| 'transactionBytes'
-		| 'signerChange'
-		| 'accountAddress'
-		| 'digest'
-	>,
-	status: ProposalStatusKey,
+type ListedProposal = Pick<
+	CountedProposal,
+	| 'signatures'
+	| 'transactionBytes'
+	| 'signerChange'
+	| 'accountAddress'
+	| 'digest'
+>;
+
+/** Whether a listed proposal's signer change, checked as its page checks it, still waits for its new signers. */
+export function listedHeld(
+	proposal: ListedProposal,
 	aliases: AliasRead | undefined,
-): ShownStatus {
-	if (status !== 'ready') return status;
+): boolean {
 	const checked = checkedChange(
 		proposal,
 		aliases,
@@ -484,15 +484,26 @@ export function listedStatus(
 			digest: proposal.digest,
 		},
 	);
-	return shownStatus(
+	return !!unmetProof(
 		proposal,
-		status,
+		'ready',
 		holdingChange(
 			proposal.transactionBytes,
 			checked?.change ?? null,
 			aliases,
 		),
 	);
+}
+
+/** `shownStatus` for a listed proposal. */
+export function listedStatus(
+	proposal: ListedProposal,
+	status: ProposalStatusKey,
+	aliases: AliasRead | undefined,
+): ShownStatus {
+	return status === 'ready' && listedHeld(proposal, aliases)
+		? 'waiting'
+		: status;
 }
 
 /**
