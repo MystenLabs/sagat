@@ -53,8 +53,8 @@ const toV1SignerChange = (
 	);
 	return {
 		removes: change?.oldSet.address ?? null,
-		adds: change?.added?.address ?? null,
-		labels: (change?.added?.members ?? []).flatMap(
+		adds: change?.newSet.address ?? null,
+		labels: (change?.newSet.members ?? []).flatMap(
 			({ publicKey }) => {
 				const label = labels.get(publicKey);
 				return label && !old.has(publicKey)

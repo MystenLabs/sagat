@@ -92,18 +92,20 @@ export const signerChangeIn = (
 	}
 };
 
-// Aligned with the added set's members in note order; only a change that adds a set takes them.
+// Aligned with the added set's members in note order.
 export const signerChangeLabels = (
 	note: CompositionNote | null,
 	labels: unknown,
 ): (string | null)[] => {
 	if (labels === undefined || labels === null) return [];
-	const added = note?.added;
-	if (!added)
+	if (!note)
 		throw new ValidationError(
 			'labels are taken only for a signer change that adds a signer set.',
 		);
-	return normalizeKeyLabels(labels, added.members.length);
+	return normalizeKeyLabels(
+		labels,
+		note.added.members.length,
+	);
 };
 
 // One read per network for the life of the process; a failed read is tried again.
@@ -247,32 +249,19 @@ export const checkAndWriteSignerChange = async (
 			`The signer set this change replaces, ${change.oldSet.address}, is not one the API can identify as acting for the account on ${network}.`,
 		);
 
-	// A change that only removes counts the note's sets the API also identifies as acting.
-	const stayingSets = change.added
-		? change.newSets
-		: change.newSets.filter((set) =>
-				signers?.actingSets.some(
-					(acting) => acting.address === set.address,
-				),
-			);
-	if (stayingSets.length === 0)
-		throw new ValidationError(
-			'The change’s note states no signer set the API can identify acting for the account.',
-		);
 	const accepted = oldSet.members
 		.filter((member) => member.answer === 'accepted')
 		.map((member) => member.publicKey);
 	const key = proposer.toSuiPublicKey();
 	if (
 		!accepted.includes(key) ||
-		!stayingSets.some((set) =>
-			signersWhoStay(change.oldSet, set).includes(key),
+		!signersWhoStay(change.oldSet, change.newSet).includes(
+			key,
 		)
 	)
 		throw new ApiAuthError('NotASignerWhoStays');
 
 	const { added } = note;
-	if (!added) return;
 	await validateQuorum(
 		added.members.map((member) =>
 			parsePublicKey(member.publicKey).toSuiAddress(),

@@ -110,8 +110,8 @@ export interface CompositionNote {
 	signerSets: NoteEntry[];
 	/** The set the calls remove. */
 	removed: SignerSetEntry;
-	/** The set the calls add; null for a change that only removes. */
-	added: SignerSetEntry | null;
+	/** The set the calls add. */
+	added: SignerSetEntry;
 }
 
 /** A signer change checked against an alias set. */
@@ -120,10 +120,8 @@ export interface SignerChange {
 	after: string[];
 	/** The set the change removes. */
 	oldSet: SignerSetEntry;
-	/** The set the change adds; null for a change that only removes. */
-	added: SignerSetEntry | null;
-	/** The added set, or for a change that only removes, every composition left in `after`. */
-	newSets: SignerSetEntry[];
+	/** The set the change adds. */
+	newSet: SignerSetEntry;
 }
 
 type TransactionInput = Pick<
@@ -284,12 +282,13 @@ export function buildSignerChange(
 		throw new Error(
 			'The new signer set equals the old one',
 		);
+	if (before.includes(newSet.address))
+		throw new Error(
+			`The new signer set ${newSet.address} is already in the alias set of ${account}`,
+		);
 
-	const calls: SignerChangeCall[] = before.includes(
-		newSet.address,
-	)
-		? [{ function: 'remove', alias: oldSet }]
-		: before.length >= MAX_ALIASES
+	const calls: SignerChangeCall[] =
+		before.length >= MAX_ALIASES
 			? [
 					{ function: 'remove', alias: oldSet },
 					{ function: 'add', alias: newSet.address },
@@ -575,12 +574,12 @@ export function readCompositionNote(
 	);
 	if (
 		removed.length !== 1 ||
-		added.length > 1 ||
-		added[0]?.alias === removed[0].alias
+		added.length !== 1 ||
+		added[0].alias === removed[0].alias
 	)
 		throw new SignerChangeError(
 			'commands',
-			'The commands are not one add and one remove, or one remove',
+			'The commands are not one add and one remove',
 		);
 
 	const entryOf = (address: string) =>
@@ -591,10 +590,8 @@ export function readCompositionNote(
 			'composition',
 			`The note does not hold the composition of the removed set ${removed[0].alias}`,
 		);
-	const addedSet = added[0]
-		? entryOf(added[0].alias)
-		: null;
-	if (addedSet !== null && addedSet?.type !== 'signer_set')
+	const addedSet = entryOf(added[0].alias);
+	if (addedSet?.type !== 'signer_set')
 		throw new SignerChangeError(
 			'composition',
 			`The note does not hold the composition of the added set ${added[0].alias}`,
@@ -674,14 +671,7 @@ export function checkSignerChange(
 		before,
 		after,
 		oldSet: note.removed,
-		added: note.added,
-		newSets: note.added
-			? [note.added]
-			: note.signerSets.filter(
-					(e): e is SignerSetEntry =>
-						e.type === 'signer_set' &&
-						after.includes(e.address),
-				),
+		newSet: note.added,
 	};
 }
 
@@ -709,24 +699,18 @@ export function proofWeight(
 		.reduce((sum, m) => sum + m.weight, 0);
 }
 
-/** Whether a new set's signers meet its threshold, and the new sets' members that have not signed, in order. */
+/** Whether the new set's signers meet its threshold, and its members that have not signed, in order. */
 export function signerChangeProof(
-	change: Pick<SignerChange, 'newSets'>,
+	{ newSet }: Pick<SignerChange, 'newSet'>,
 	signedKeys: readonly string[],
 ): { met: boolean; notSigned: string[] } {
 	const signed = new Set(signedKeys);
 	return {
-		met: change.newSets.some(
-			(set) =>
-				proofWeight(set, signedKeys) >= set.threshold,
-		),
-		notSigned: [
-			...new Set(
-				change.newSets.flatMap((set) =>
-					set.members.map((m) => m.publicKey),
-				),
-			),
-		].filter((k) => !signed.has(k)),
+		met:
+			proofWeight(newSet, signedKeys) >= newSet.threshold,
+		notSigned: newSet.members
+			.map((m) => m.publicKey)
+			.filter((k) => !signed.has(k)),
 	};
 }
 

@@ -418,7 +418,7 @@ async function checkAcceptedBySignerChange(
 		Transaction.from(transaction.bytes).getData(),
 	);
 	if (
-		!note?.added?.members.some((m) =>
+		!note?.added.members.some((m) =>
 			sameAddress(keyAddress(m.publicKey), event.actor),
 		)
 	)

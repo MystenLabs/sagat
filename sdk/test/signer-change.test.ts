@@ -197,12 +197,10 @@ describe('buildSignerChange', () => {
 		]);
 	});
 
-	test('only removes when the new set is already an alias', () => {
-		expect(
-			findAliasCalls(
-				change({ aliases: [A, addressOf(S2)] }).getData(),
-			),
-		).toEqual([{ function: 'remove', aliases: [A] }]);
+	test('refuses a new set that is already an alias', () => {
+		expect(() =>
+			change({ aliases: [A, addressOf(S2)] }),
+		).toThrow(/already in the alias set/);
 	});
 
 	test('refuses an old set outside the alias set, a new set equal to the old, and an old set it cannot describe', () => {
@@ -271,7 +269,7 @@ describe('composition note', () => {
 
 		const checked = checkSignerChange(data, aliases);
 		expect(checked.oldSet).toEqual(entryOf(S1));
-		expect(checked.newSets).toEqual([entryOf(S2)]);
+		expect(checked.newSet).toEqual(entryOf(S2));
 		expect(checked.after).toEqual(after);
 	});
 
@@ -380,6 +378,23 @@ describe('composition note', () => {
 			);
 	});
 
+	test('refuses a note on a change that adds no set', () => {
+		const aliases = [A, addressOf(S2)];
+		const tx = handWritten(
+			[['remove', A]],
+			compositionNote({
+				account: A,
+				before: aliases,
+				after: [addressOf(S2)],
+				known: [S1, S2],
+			}),
+		);
+		expectReason(
+			() => readCompositionNote(tx.getData()),
+			'commands',
+		);
+	});
+
 	test('refuses another command next to the alias calls', () => {
 		const tx = change();
 		const [coin] = tx.splitCoins(tx.gas, [1]);
@@ -402,7 +417,7 @@ describe('signers who stay and the proof', () => {
 	});
 
 	test('the proof names the new set’s members that have not signed, new signers too, and is met at the new threshold', () => {
-		const toS2 = { newSets: [next] };
+		const toS2 = { newSet: next };
 		// One below S2's threshold of 3.
 		expect(signerChangeProof(toS2, [k1, k3])).toEqual({
 			met: false,
@@ -412,30 +427,5 @@ describe('signers who stay and the proof', () => {
 			met: true,
 			notSigned: [k2],
 		});
-	});
-
-	test('a change that only removes is proven by any set left', () => {
-		const aliases = [A, addressOf(S2), addressOf(S3)];
-		const checked = checkSignerChange(
-			change({
-				aliases,
-				newSet: S3,
-				known: [S1, S2],
-			}).getData(),
-			aliases,
-		);
-		expect(checked.newSets).toEqual(
-			[entryOf(S2), entryOf(S3)].sort((a, b) =>
-				a.address.localeCompare(b.address),
-			),
-		);
-
-		expect(signerChangeProof(checked, [k2, k3]).met).toBe(
-			false,
-		);
-		// S2 alone reaches its threshold.
-		expect(signerChangeProof(checked, [k1, k2]).met).toBe(
-			true,
-		);
 	});
 });

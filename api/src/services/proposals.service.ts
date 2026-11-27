@@ -861,11 +861,9 @@ export const voteOnProposal = async ({
 	);
 
 	// A key a signer change adds signs it too; its signature never counts for the old set.
-	const inNewSet = !!stored?.change?.newSets.some((set) =>
-		set.members.some(
-			(member) =>
-				member.publicKey === pubKey.toSuiPublicKey(),
-		),
+	const inNewSet = !!stored?.change?.newSet.members.some(
+		(member) =>
+			member.publicKey === pubKey.toSuiPublicKey(),
 	);
 
 	// Any answer: a key of an acting set signs whether or not it accepted.
@@ -1012,11 +1010,11 @@ export const cancelProposal = async ({
 		!(
 			isMember &&
 			(!oldSetActs ||
-				change?.newSets.some((set) =>
-					signersWhoStay(change.oldSet, set).includes(
-						pubKey.toSuiPublicKey(),
-					),
-				))
+				(change &&
+					signersWhoStay(
+						change.oldSet,
+						change.newSet,
+					).includes(pubKey.toSuiPublicKey())))
 		)
 	)
 		throw new ApiAuthError('CancelBySignerWhoStays');

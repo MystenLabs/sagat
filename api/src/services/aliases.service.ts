@@ -249,7 +249,7 @@ const acceptKeysThatSigned = async (
 		);
 	for (const change of changes) {
 		const note = noteOf(change.transactionBytes);
-		if (!note?.added || !added.includes(note.added.address))
+		if (!note || !added.includes(note.added.address))
 			continue;
 		const replaced = new Set(
 			note.removed.members.map((m) => m.publicKey),
