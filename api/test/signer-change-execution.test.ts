@@ -317,6 +317,7 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 				original: true,
 			}),
 		]);
+		// `k1` and `k2` stay and meet S1's threshold, so ready without `k3`, whom S1 adds back.
 		const ready = await session.voteOnProposal(
 			k2,
 			change.digest,
@@ -349,8 +350,8 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		});
 	});
 
-	test('S1 to S3 is ready at S1’s threshold, and S3 acts after it', async () => {
-		const { k1, k2, A, S3 } = cast;
+	test('S1 to S3 is not ready at S1’s threshold until S3’s signers meet its own, and S3 acts after it', async () => {
+		const { k1, k2, k3, A, S3 } = cast;
 		const change = await proposeCastChange(
 			session,
 			cast,
@@ -359,8 +360,19 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 				gasCoin: coins[5],
 			},
 		);
-		const ready = await session.voteOnProposal(
+		const atS1Threshold = await session.voteOnProposal(
 			k2,
+			change.digest,
+			change.transactionBytes,
+		);
+		expect(atS1Threshold.ready).toBe(false);
+		expect(atS1Threshold.signerSets[0]).toMatchObject({
+			address: A,
+			threshold: 2,
+			currentWeight: 2,
+		});
+		const ready = await session.voteOnProposal(
+			k3,
 			change.digest,
 			change.transactionBytes,
 		);
@@ -418,7 +430,7 @@ describe('a change to a composition that is already an alias', () => {
 		);
 	});
 
-	test('the change only removes S1, is ready at S1’s threshold, also with a removed signer’s signature, and R acts after it', async () => {
+	test('the change only removes S1, reaches S1’s threshold also with a removed signer’s signature, is ready once R’s signers meet R’s threshold, and R acts after it', async () => {
 		const { k1, k2, k3, A, S1 } = cast;
 		const change = await proposeCastChange(
 			session,
@@ -429,8 +441,19 @@ describe('a change to a composition that is already an alias', () => {
 				gasCoin: coins[1],
 			},
 		);
-		const ready = await session.voteOnProposal(
+		const byK3 = await session.voteOnProposal(
 			k3,
+			change.digest,
+			change.transactionBytes,
+		);
+		expect(byK3.signerSets[0]).toMatchObject({
+			address: A,
+			currentWeight: 2,
+		});
+		// Only `k1` of R has signed.
+		expect(byK3.ready).toBe(false);
+		const ready = await session.voteOnProposal(
+			k2,
 			change.digest,
 			change.transactionBytes,
 		);

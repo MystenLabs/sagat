@@ -185,7 +185,7 @@ export const ProposalSchema = z
 		status: ProposalStatusNameSchema,
 		ready: z.boolean().meta({
 			description:
-				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending, except a signer change; executedVia names what executed it.',
+				'True when one of the acting signer sets in signerSets has reached its threshold. Counted against the sets that act now, also for a proposal that is no longer pending, except a signer change; executedVia names what executed it. A pending signer change also needs the signatures of the new signer set for its own threshold.',
 		}),
 		transactionBytes: z.string(),
 		proposerAddress: SuiAddressSchema,

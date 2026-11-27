@@ -106,14 +106,14 @@ describe('signing and cancelling a signer change', () => {
 
 	const sorted = (keys: string[]) => [...keys].sort();
 
-	test('S1 to S2: ready at the old set’s threshold with its signatures returned; legacy routes leave the change out or refuse it until it executes', async () => {
+	test('S1 to S2: ready once a new signer signs for S2 after the old set’s threshold, with its signatures returned; legacy routes leave the change out or refuse it until it executes', async () => {
 		const cast = await createCast(session);
-		const { k1, k2, k3, A, S2 } = cast;
+		const { k1, k2, k3, k4, A, S2 } = cast;
 		const bytes = await buildCastChange(cast, S2);
 		const signatures = await Promise.all(
-			[k1, k2, k3].map((key) => signedBy(key, bytes)),
+			[k1, k2, k3, k4].map((key) => signedBy(key, bytes)),
 		);
-		const [sig1, sig2, sig3] = signatures;
+		const [sig1, sig2, sig3, sig4] = signatures;
 		const returned = (text: string) =>
 			signatures.filter((sig) => text.includes(sig));
 
@@ -137,15 +137,24 @@ describe('signing and cancelling a signer change', () => {
 			.from(SchemaProposals)
 			.where(eq(SchemaProposals.digest, digest));
 
-		const afterK3 = await vote(digest, sig3);
-		const voted = JSON.parse(afterK3.text) as Proposal;
-		expect(voted.signerSets).toEqual([
+		const afterK3 = JSON.parse(
+			(await vote(digest, sig3)).text,
+		) as Proposal;
+		const oldSetAtThreshold = [
 			expect.objectContaining({
 				address: A,
 				threshold: 2,
 				currentWeight: 2,
 			}),
-		]);
+		];
+		expect(afterK3.signerSets).toEqual(oldSetAtThreshold);
+		// Of S2, only `k1` has signed.
+		expect(afterK3.ready).toBe(false);
+
+		const voted = JSON.parse(
+			(await vote(digest, sig4)).text,
+		) as Proposal;
+		expect(voted.signerSets).toEqual(oldSetAtThreshold);
 		expect(voted.kind).toBe('signer_change');
 		expect(voted.ready).toBe(true);
 		expect(voted.signerChange).toEqual({
@@ -155,10 +164,12 @@ describe('signing and cancelling a signer change', () => {
 		});
 		expect(
 			sorted(voted.signatures.map((s) => s.publicKey)),
-		).toEqual(sorted([k1.publicKey, k3.publicKey]));
+		).toEqual(
+			sorted([k1.publicKey, k3.publicKey, k4.publicKey]),
+		);
 		expect(
 			sorted(voted.signatures.map((s) => s.signature)),
-		).toEqual(sorted([sig1, sig3]));
+		).toEqual(sorted([sig1, sig3, sig4]));
 		expect(voted.events.created?.proof).toEqual({
 			kind: 'proposal.create',
 			version: 1,
@@ -175,7 +186,7 @@ describe('signing and cancelling a signer change', () => {
 			expect(read.status).toBe(200);
 			expect(read.text).toContain(digest);
 			expect(sorted(returned(read.text))).toEqual(
-				sorted([sig1, sig3]),
+				sorted([sig1, sig3, sig4]),
 			);
 		}
 

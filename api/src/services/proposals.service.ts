@@ -10,6 +10,7 @@
 import {
 	findAliasCalls,
 	PersonalMessages,
+	signerChangeProof,
 	signersWhoStay,
 } from '@mysten/sagat';
 import { type PublicKey } from '@mysten/sui/cryptography';
@@ -133,7 +134,7 @@ export type ProposalProgress = {
 	signers: AccountSigners;
 	// One per acting set, in the order of `signers.actingSets`; for a signer change, only the old set: while pending, only while it acts.
 	sets: SignerSetProgress[];
-	// True when any one set reached its own threshold.
+	// True when any one set reached its own threshold; for a pending signer change, only once a new set's signers also met theirs.
 	hasReachedThreshold: boolean;
 	signerChange: ReturnType<typeof signerChangeIn>;
 };
@@ -164,13 +165,21 @@ const proposalProgress = (
 			: signers.actingSets.filter(
 					(set) => set.address === oldSet?.address,
 				);
+	const keys = proposal.signatures.map(
+		(sig) => sig.publicKey,
+	);
+	const counted = countSignatures(sets, keys);
+	const change = signerChange?.change;
 	return {
 		proposal,
 		signers,
-		...countSignatures(
-			sets,
-			proposal.signatures.map((sig) => sig.publicKey),
-		),
+		...counted,
+		// A pending change also needs its new set's own threshold.
+		hasReachedThreshold:
+			counted.hasReachedThreshold &&
+			(!change ||
+				proposal.status !== ProposalStatus.PENDING ||
+				signerChangeProof(change, keys).met),
 		signerChange,
 	};
 };
