@@ -171,6 +171,27 @@ export const listAccountInvitations = async ({
 
 const OTHER_NETWORKS_WAIT_MS = 2_000;
 
+// One read per network and address while it is in flight.
+const otherNetworkReads = new Map<
+	string,
+	Promise<unknown>
+>();
+const readOtherNetwork = (
+	address: string,
+	network: SuiNetwork,
+	loaders: AliasSetLoaders,
+) => {
+	const key = `${network}:${address}`;
+	let read = otherNetworkReads.get(key);
+	if (!read) {
+		read = refreshStaleAliases([address], network, loaders)
+			.catch(() => undefined)
+			.finally(() => otherNetworkReads.delete(key));
+		otherNetworkReads.set(key, read);
+	}
+	return read;
+};
+
 // `networks` are the supported networks it is compared with.
 export const getAccount = async ({
 	address,
@@ -205,11 +226,7 @@ export const getAccount = async ({
 			networks
 				.filter((other) => other !== network)
 				.map((other) =>
-					refreshStaleAliases(
-						[address],
-						other,
-						loaders,
-					).catch(() => undefined),
+					readOtherNetwork(address, other, loaders),
 				),
 		),
 		new Promise((resolve) => {
