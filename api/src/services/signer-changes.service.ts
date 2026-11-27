@@ -246,10 +246,17 @@ export const checkAndWriteSignerChange = async (
 			`The signer set this change replaces, ${change.oldSet.address}, is not one the API can identify as acting for the account on ${network}.`,
 		);
 
-	// Checked before who stays, which needs a new set to stay in.
-	if (change.newSets.length === 0)
+	// A change that only removes counts the note's sets the API also identifies as acting.
+	const stayingSets = change.added
+		? change.newSets
+		: change.newSets.filter((set) =>
+				signers?.actingSets.some(
+					(acting) => acting.address === set.address,
+				),
+			);
+	if (stayingSets.length === 0)
 		throw new ValidationError(
-			'The change leaves no signer set the API can identify acting for the account.',
+			'The change’s note states no signer set the API can identify acting for the account.',
 		);
 	const accepted = oldSet.members
 		.filter((member) => member.answer === 'accepted')
@@ -257,7 +264,7 @@ export const checkAndWriteSignerChange = async (
 	const key = proposer.toSuiPublicKey();
 	if (
 		!accepted.includes(key) ||
-		!change.newSets.some((set) =>
+		!stayingSets.some((set) =>
 			signersWhoStay(change.oldSet, set).includes(key),
 		)
 	)

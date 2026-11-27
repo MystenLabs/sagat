@@ -83,6 +83,7 @@ const removal = async (
 	cast: Cast,
 	alias: string,
 	before: string[],
+	known: Composition[] = [cast.S1],
 ) => {
 	const { expiration, gasData, inputs } = Transaction.from(
 		await buildCastChange(cast, cast.S2),
@@ -101,7 +102,7 @@ const removal = async (
 				account: cast.A,
 				before,
 				after: before.filter((a) => a !== alias),
-				known: [cast.S1],
+				known,
 			}))
 				tx.pure.string(text);
 			tx.setExpiration(expiration!);
@@ -298,7 +299,34 @@ describe('POST /v1/proposals with a signer change', () => {
 		).toEqual({
 			status: 400,
 			message:
-				'The change leaves no signer set the API can identify acting for the account.',
+				'The change’s note states no signer set the API can identify acting for the account.',
+		});
+	});
+
+	test('a change that only removes counts as remaining only the sets its note states that the API also identifies as acting, and is refused when there is none', async () => {
+		const cast = await createCast(session);
+		const { k1, A, S1 } = cast;
+		const U = compositionOf([k1, newUser()], 1);
+		await setAliases(A, 'localnet', [addressOf(U)]);
+
+		expect(
+			await refusal(
+				proposeChange(
+					session,
+					k1,
+					A,
+					await removal(
+						cast,
+						A,
+						[A, addressOf(U)],
+						[S1, U],
+					),
+				),
+			),
+		).toEqual({
+			status: 400,
+			message:
+				'The change’s note states no signer set the API can identify acting for the account.',
 		});
 	});
 
