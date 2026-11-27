@@ -66,11 +66,10 @@ import {
 	type ShownPod,
 } from '@/lib/proposal-integrity';
 import {
-	checkedChange,
-	hasSigned,
 	holdingChange,
 	newSignerKey,
 	proposalPageStatus,
+	shownChange,
 	shownStatus,
 	withReason,
 	type Labels,
@@ -154,16 +153,16 @@ export function ProposalView({
 	const onChain =
 		status === 'executed' || status === 'failed';
 	const open = status === 'pending' || status === 'ready';
-	// Only what the bytes do, checked against the node's alias set.
-	const checked = useMemo(
+	// Only what the bytes do: while open, checked against the node's alias set.
+	const shown = useMemo(
 		() =>
-			checkedChange(proposal, aliases, labels, {
+			shownChange(proposal, status, aliases, labels, {
 				pod: pod?.address ?? proposal.accountAddress,
 				digest: openedDigest,
 			}),
-		[aliases, proposal, labels, pod, openedDigest],
+		[aliases, proposal, status, labels, pod, openedDigest],
 	);
-	const changes = open ? (checked?.list ?? null) : null;
+	const checked = open ? shown : null;
 
 	// The connected wallet is in one of the proposal's signer sets, which
 	// Sign then checks. Signing needs only the wallet; the network has to
@@ -322,8 +321,8 @@ export function ProposalView({
 		>
 			<PageHeader
 				title={
-					checked?.list
-						? changeTitle(checked.list)
+					shown?.list
+						? changeTitle(shown.list)
 						: proposalTitle(proposal)
 				}
 				backLink={proposalsPath ?? undefined}
@@ -451,7 +450,7 @@ export function ProposalView({
 					)}
 				</div>
 			)}
-			{open && !changes && (
+			{open && !shown?.list && (
 				<AliasCallsWarning
 					bytes={proposal.transactionBytes}
 					network={proposal.network as SuiNetwork}
@@ -461,12 +460,14 @@ export function ProposalView({
 
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="flex min-w-0 flex-col gap-4">
-					{changes && (
+					{shown?.list && (
 						<ChangesCard
-							list={changes}
-							summary={checked?.summary ?? null}
+							list={shown.list}
+							summary={shown.summary}
+							heading={shown.heading}
+							invited={shown.invited}
+							carryOver={shown.carryOver}
 							you={viewerKey ? suiKey(viewerKey) : null}
-							proposal={proposal}
 						/>
 					)}
 					{onChain ? (
@@ -490,10 +491,10 @@ export function ProposalView({
 						proposal={proposal}
 						pod={pod}
 						aliases={aliases}
-						change={checked?.change ?? null}
+						change={shown?.change ?? null}
 						openedDigest={openedDigest}
 						status={status}
-						labels={checked?.labels ?? labels}
+						labels={shown?.labels ?? labels}
 						viewer={viewer}
 						viewerPublicKey={viewerKey}
 						simulation={simulation}
@@ -516,46 +517,44 @@ export function ProposalView({
 function ChangesCard({
 	list,
 	summary,
+	heading,
+	invited,
+	carryOver,
 	you,
-	proposal,
 }: {
 	list: Difference[];
 	summary: string | null;
+	heading: string;
+	/** The names the invitation line gives. */
+	invited: string[];
+	/** Whether the "Once this executes" line shows. */
+	carryOver: boolean;
 	/** The viewer's key, marked where a line names it. */
 	you: string | null;
-	proposal: Pick<CountedProposal, 'signatures'>;
 }) {
 	const REVIEW = content.changeSigners.review;
-	// An added key that signed the change accepts the pod when it executes.
-	const added = list.flatMap((item) =>
-		item.kind === 'add' &&
-		item.name &&
-		!hasSigned(proposal, item.publicKey)
-			? [item.name]
-			: [],
-	);
 	return (
 		<section
 			className={cardClass}
 			data-testid="signer-change-changes"
 		>
-			<h3 className="text-15 font-medium">
-				{REVIEW.changes}
-			</h3>
+			<h3 className="text-15 font-medium">{heading}</h3>
 			<ChangeList list={list} summary={summary} you={you} />
-			{added.length > 0 && (
+			{invited.length > 0 && (
 				<p className="flex items-start gap-1.5 text-12">
 					<Mail className="mt-0.5 size-3 shrink-0" />
 					{REVIEW.invitation(
-						joinList(added, 'and'),
-						added.length,
+						joinList(invited, 'and'),
+						invited.length,
 					)}
 				</p>
 			)}
-			<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
-				<Info className="mt-0.5 size-3 shrink-0" />
-				{REVIEW.onceExecutes(REVIEW.carryOver)}
-			</p>
+			{carryOver && (
+				<p className="flex items-start gap-1.5 text-12 text-muted-foreground">
+					<Info className="mt-0.5 size-3 shrink-0" />
+					{REVIEW.onceExecutes(REVIEW.carryOver)}
+				</p>
+			)}
 		</section>
 	);
 }

@@ -343,9 +343,13 @@ export function ApprovalsCard({
 				signerChange?.notSigned,
 			)
 		: [];
+	// Once closed, the new set only follows the signers, under the card's own rows.
+	const counting =
+		newSets.length > 0 &&
+		(status === 'pending' || status === 'ready');
 	const statusLine =
 		status === 'pending' && !isExecuting
-			? newSets.length > 0
+			? counting
 				? null
 				: (mainSet?.line ?? null)
 			: approvalsStatus(status, isExecuting, verdict, held);
@@ -581,7 +585,7 @@ export function ApprovalsCard({
 				id="approvals-heading"
 				title={COPY.heading}
 			>
-				{newSets.length === 0 && (
+				{!counting && (
 					<span
 						className="ml-auto text-12 text-muted-foreground"
 						data-testid="approvals-threshold"
@@ -599,7 +603,7 @@ export function ApprovalsCard({
 				</p>
 			)}
 			<div className="border-t" />
-			{mainSet && newSets.length > 0 ? (
+			{mainSet && counting ? (
 				<>
 					<SignerSetPart
 						set={mainSet}
@@ -649,6 +653,15 @@ export function ApprovalsCard({
 			) : (
 				<ApprovalRowList rows={mainSet?.rows ?? []} />
 			)}
+			{!counting &&
+				newSets.map((set) => (
+					<SignerSetPart
+						key={set.address}
+						set={set}
+						name={COPY.newSigners}
+						className="border-t pt-4"
+					/>
+				))}
 
 			{signerChange && (
 				<Alert

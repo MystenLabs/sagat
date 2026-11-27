@@ -52,6 +52,7 @@ const STATUS = content.proposal.approvals.status;
 const NOTES = content.proposal.approvals.notes;
 const SIGNER_CHANGE =
 	content.proposal.approvals.signerChange;
+const REVIEW = content.changeSigners.review;
 
 type PageProposal = Pick<
 	CountedProposal,
@@ -180,6 +181,46 @@ function readChange(
 		? thresholdSummary(change.oldSet, change.newSets[0])
 		: null;
 	return { change, list, summary, labels: merged };
+}
+
+/**
+ * The change a proposal's page shows: while open, checked against the
+ * alias read, under "Changes" with the lines only an open change has (who
+ * gets an invitation, what carries over); once no longer open, the bytes'
+ * own note, under what it did or would have done.
+ */
+export function shownChange(
+	proposal: ChangeProposal &
+		Pick<PageProposal, 'signatures'>,
+	status: ProposalStatusKey,
+	aliases: AliasRead | undefined,
+	labels: Labels,
+	opened: { pod: string; digest: string },
+) {
+	const open = status === 'pending' || status === 'ready';
+	const read = open
+		? checkedChange(proposal, aliases, labels, opened)
+		: noteChange(proposal, labels, opened);
+	if (!read) return null;
+	return {
+		...read,
+		heading: open
+			? REVIEW.changes
+			: status === 'executed'
+				? REVIEW.did
+				: REVIEW.wouldHave,
+		// An added key that signed the change accepts the pod when it executes.
+		invited: open
+			? (read.list ?? []).flatMap((item) =>
+					item.kind === 'add' &&
+					item.name &&
+					!hasSigned(proposal, item.publicKey)
+						? [item.name]
+						: [],
+				)
+			: [],
+		carryOver: open,
+	};
 }
 
 /** The key `address` signs with as a member of a checked change's new set, when the set it replaces doesn't hold it; null otherwise. */
@@ -362,6 +403,7 @@ export function newSignerSets(
 	const signed = proposal.signatures.map(
 		(sig) => sig.publicKey,
 	);
+	const open = status === 'pending' || status === 'ready';
 	return change.newSets.map((set) => {
 		const counted = {
 			currentWeight: proofWeight(set, signed),
@@ -372,12 +414,11 @@ export function newSignerSets(
 			...counted,
 			podName: null,
 			heading: approvalsThresholdLabel(set),
-			line:
-				status !== 'pending' && status !== 'ready'
-					? null
-					: reachesThreshold(counted)
-						? STATUS.reached
-						: STATUS.needs(missingWeight(counted)),
+			line: !open
+				? null
+				: reachesThreshold(counted)
+					? STATUS.reached
+					: STATUS.needs(missingWeight(counted)),
 			rows: approvalRows(
 				{
 					members: set.members.map((m, order) => ({
@@ -389,7 +430,10 @@ export function newSignerSets(
 				status,
 				labels,
 				publicKey,
-				notSigned,
+				// Once closed, a new signer who didn't sign reads as not signed.
+				open
+					? notSigned
+					: set.members.map((m) => m.publicKey),
 			),
 		};
 	});

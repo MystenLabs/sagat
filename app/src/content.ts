@@ -1349,6 +1349,10 @@ export const content = {
 			description:
 				'Check the changes before you propose them. Nothing changes until the current signers approve.',
 			changes: 'Changes',
+			/** The Changes card's heading on an executed change. */
+			did: 'What this change did',
+			/** The Changes card's heading on a cancelled, expired or failed change. */
+			wouldHave: 'What this change would have done',
 			carryOver:
 				'Signatures from signers who stay carry over, and open proposals are recounted against the new weights and threshold.',
 			carryOverReorder:

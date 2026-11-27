@@ -23,6 +23,7 @@ import {
 	listedStatus,
 	newSignerKey,
 	newSignerSets,
+	shownChange,
 	shownStatus,
 	signerChangeWarning,
 	wouldReachThreshold,
@@ -32,6 +33,7 @@ import {
 import {
 	countSignerSets,
 	type CountedProposal,
+	type ProposalStatusKey,
 } from '../src/lib/proposalUtils';
 import { v1Proposal } from './proposal';
 import { listedSet } from './signer-set';
@@ -57,6 +59,8 @@ const labels: Labels = new Map(
 const CREATED_AT = '2026-10-13T08:55:00.000Z';
 const STATUS = content.proposal.approvals.status;
 const NOTES = content.proposal.approvals.notes;
+const REVIEW = content.changeSigners.review;
+const CHANGE = content.changeSigners.change;
 
 // The signers as a set's members, at their weights, in this order.
 const members = (signers: (typeof maya)[]) =>
@@ -318,6 +322,70 @@ describe('newSignerSets', () => {
 				null,
 			)[0].line,
 		).toBe(STATUS.needs(2));
+		// Once executed: who signed, with no line and nobody "not needed".
+		const [executed] = newSignerSets(
+			change,
+			proposal({ signedBy: [alice, maya] }),
+			'executed',
+			labels,
+			null,
+		);
+		expect(executed.line).toBeNull();
+		expect(executed.rows.map((row) => row.state)).toEqual([
+			'signed',
+			'not-signed',
+			'not-signed',
+		]);
+	});
+});
+
+describe('shownChange', () => {
+	it('shows an open change checked against the alias set under Changes with its open-only lines, and one no longer open from its note under what it did or would have done', async () => {
+		const newKey = signer('New', 1);
+		const transactionBytes = await changeTo(
+			setOf(2, [maya, daniel, alice, newKey]),
+		);
+		const shown = (
+			status: ProposalStatusKey,
+			aliases: string[],
+		) =>
+			shownChange(
+				{
+					...proposal({ signedBy: [maya] }),
+					transactionBytes,
+				},
+				status,
+				{ kind: 'read', aliases },
+				labels,
+				{ pod, digest: digestOf(transactionBytes) },
+			);
+		const lines = [
+			CHANGE.add(formatAddress(newKey.address), 1),
+		];
+
+		expect(shown('pending', [pod])).toMatchObject({
+			heading: REVIEW.changes,
+			invited: [formatAddress(newKey.address)],
+			carryOver: true,
+		});
+		expect(
+			shown('pending', [pod])?.list?.map((d) => d.text),
+		).toEqual(lines);
+		// Open, it must check against the alias set read now.
+		expect(shown('pending', [maya.address])).toBeNull();
+		// No longer open, the note's own change, though the alias set moved on.
+		const executed = shown('executed', [maya.address]);
+		expect(executed).toMatchObject({
+			heading: REVIEW.did,
+			invited: [],
+			carryOver: false,
+		});
+		expect(executed?.list?.map((d) => d.text)).toEqual(
+			lines,
+		);
+		expect(shown('cancelled', [pod])?.heading).toBe(
+			REVIEW.wouldHave,
+		);
 	});
 });
 
