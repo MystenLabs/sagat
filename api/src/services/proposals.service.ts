@@ -54,10 +54,6 @@ import {
 } from '../errors';
 import { AccountProposersDataLoader } from '../loaders/account-proposers.loader';
 import {
-	aliasSetLoaders,
-	type AliasSetLoaders,
-} from '../loaders/alias-set.loader';
-import {
 	MultisigEventType,
 	multisigProposalEvents,
 } from '../metrics';
@@ -288,13 +284,11 @@ const refreshBeforeDeciding = async (
 	scopeKind: SignerScopeKind,
 	accountAddress: string,
 	network: string,
-	loaders: AliasSetLoaders,
 ) => {
 	if (scopeKind === 'acting')
 		await requireFreshAliases(
 			accountAddress,
 			network as SuiNetwork,
-			loaders,
 		);
 };
 
@@ -302,12 +296,10 @@ const refreshBeforeDeciding = async (
 const refreshForRead = async (
 	accountAddress: string,
 	network: string,
-	loaders: AliasSetLoaders,
 ) => {
 	const [state] = await refreshStaleAliases(
 		[accountAddress],
 		network as SuiNetwork,
-		loaders,
 	);
 	return state.outcome !== 'failed';
 };
@@ -315,12 +307,16 @@ const refreshForRead = async (
 // `proposals.id` is a 32-bit serial.
 const MAX_PROPOSAL_ID = 2 ** 31 - 1;
 
-const getProposalsByAccountAddress = async (
-	multisigAddress: string,
-	network: string,
-	cursor: PaginationCursor,
-	status?: ProposalStatus,
-) => {
+// Both lists, after their access check: one page.
+const getProposalsByAccountAddress = async ({
+	multisigAddress,
+	network,
+	status: statusName,
+	cursor,
+}: Omit<ListInput, 'callerKeys'>) => {
+	const status = statusName
+		? proposalStatusFromString(statusName)
+		: undefined;
 	// Any cursor that is not a valid id means the first page.
 	const nextCursor = wholeNumberUpTo(
 		cursor?.nextCursor,
@@ -391,13 +387,7 @@ const getProposalsByAccountAddress = async (
  */
 const lookupAndVerifyProposal = async (
 	proposal: ProposalWithSignatures,
-	{
-		checkThreshold = false,
-		loaders,
-	}: {
-		checkThreshold?: boolean;
-		loaders: AliasSetLoaders;
-	},
+	{ checkThreshold = false }: { checkThreshold?: boolean },
 ): Promise<ProposalStatus> => {
 	if (proposal.status !== ProposalStatus.PENDING)
 		return proposal.status;
@@ -478,7 +468,6 @@ const lookupAndVerifyProposal = async (
 		await refreshAliases(
 			[proposal.accountAddress],
 			proposal.network as SuiNetwork,
-			loaders,
 		).catch(() => undefined);
 
 	return status;
@@ -553,10 +542,8 @@ export const createProposal = async ({
 	description: rawDescription,
 	network: rawNetwork,
 	scopeKind,
-	loaders = aliasSetLoaders,
 }: CreateProposalInput & {
 	scopeKind: SignerScopeKind;
-	loaders?: AliasSetLoaders;
 }): Promise<Proposal> => {
 	const network = validateNetwork(rawNetwork);
 
@@ -594,11 +581,7 @@ export const createProposal = async ({
 	const signatureFirst = scopeKind === 'acting';
 	const checkAccount = async () => {
 		if (scopeKind === 'acting')
-			await refreshAccount(
-				multisigAddress,
-				network,
-				loaders,
-			);
+			await refreshAccount(multisigAddress, network);
 		const signers = await getAccountSigners(
 			multisigAddress,
 			scopeOn(scopeKind, network),
@@ -768,13 +751,11 @@ export const createProposal = async ({
 export const voteOnProposal = async ({
 	signature,
 	scopeKind,
-	loaders = aliasSetLoaders,
 	...key
 }: ProposalKey & {
 	// The member's signature over the proposal's transaction.
 	signature: string;
 	scopeKind: SignerScopeKind;
-	loaders?: AliasSetLoaders;
 }): Promise<ProposalProgress> => {
 	const proposal = await getProposal(key);
 
@@ -791,7 +772,6 @@ export const voteOnProposal = async ({
 		scopeKind,
 		proposal.accountAddress,
 		proposal.network,
-		loaders,
 	);
 
 	// Any answer: a key of an acting set signs whether or not it accepted.
@@ -844,12 +824,10 @@ export const voteOnProposal = async ({
 export const cancelProposal = async ({
 	signature,
 	scopeKind,
-	loaders = aliasSetLoaders,
 	...key
 }: ProposalKey & {
 	signature: string;
 	scopeKind: SignerScopeKind;
-	loaders?: AliasSetLoaders;
 }) => {
 	const proposal = await getProposal(key);
 
@@ -875,7 +853,6 @@ export const cancelProposal = async ({
 		scopeKind,
 		proposal.accountAddress,
 		proposal.network,
-		loaders,
 	);
 
 	// Refuses outsiders before they can take the lock; under the original set,
@@ -1013,7 +990,6 @@ export const verifyProposal = async ({
 
 	return await lookupAndVerifyProposal(proposal, {
 		checkThreshold: true,
-		loaders: aliasSetLoaders,
 	});
 };
 
@@ -1022,13 +998,11 @@ export const verifyProposal = async ({
 export const verifyProposalByDigest = async (
 	digest: string,
 	scopeKind: SignerScopeKind,
-	loaders: AliasSetLoaders = aliasSetLoaders,
 ) =>
 	await lookupAndVerifyProposal(
 		await getProposal({ digest }),
 		{
 			checkThreshold: scopeKind === 'original',
-			loaders,
 		},
 	);
 
@@ -1040,20 +1014,6 @@ type ListInput = {
 	cursor: PaginationCursor;
 	callerKeys: PublicKey[];
 };
-
-// Both lists, after their access check: one page.
-const listProposalPage = async ({
-	multisigAddress,
-	network,
-	status,
-	cursor,
-}: Omit<ListInput, 'callerKeys'>) =>
-	await getProposalsByAccountAddress(
-		multisigAddress,
-		network,
-		cursor,
-		status ? proposalStatusFromString(status) : undefined,
-	);
 
 // Lists an account's proposals on a network, for an accepted member.
 export const listProposals = async (
@@ -1068,7 +1028,7 @@ export const listProposals = async (
 		))
 	)
 		throw await REFUSALS.original.notAccepted();
-	return await listProposalPage(input);
+	return await getProposalsByAccountAddress(input);
 };
 
 const NO_EVENTS: ProposalEvents = {
@@ -1084,19 +1044,14 @@ export type CheckedProposal = ProposalProgress & {
 };
 
 // A page of an account's proposals under the acting scope, each counted against the sets that act now.
-export const listAccountProposals = async ({
-	loaders = aliasSetLoaders,
-	...input
-}: ListInput & {
-	network: SuiNetwork;
-	loaders?: AliasSetLoaders;
-}): Promise<PaginatedResponse<CheckedProposal>> => {
+export const listAccountProposals = async (
+	input: ListInput & { network: SuiNetwork },
+): Promise<PaginatedResponse<CheckedProposal>> => {
 	const signerSetsStale =
 		(await isAccount(input.multisigAddress)) &&
 		!(await refreshForRead(
 			input.multisigAddress,
 			input.network,
-			loaders,
 		));
 	const keys = input.callerKeys.map((key) =>
 		key.toSuiPublicKey(),
@@ -1107,7 +1062,7 @@ export const listAccountProposals = async ({
 	);
 	if (!signers || !signsFor(signers, keys, true))
 		throw notAcceptedSignerError(signers, keys);
-	const page = await listProposalPage(input);
+	const page = await getProposalsByAccountAddress(input);
 	const events = await getProposalEvents(
 		page.data.map((p) => p.id),
 	);
@@ -1125,7 +1080,6 @@ export const listAccountProposals = async ({
 export const getProposalByDigest = async (
 	digest: string,
 	scopeKind: SignerScopeKind,
-	loaders: AliasSetLoaders = aliasSetLoaders,
 ): Promise<CheckedProposal> => {
 	const proposal = await getProposal({ digest });
 
@@ -1134,7 +1088,6 @@ export const getProposalByDigest = async (
 		!(await refreshForRead(
 			proposal.accountAddress,
 			proposal.network,
-			loaders,
 		));
 	const [signers, events] = await Promise.all([
 		getAccountSigners(

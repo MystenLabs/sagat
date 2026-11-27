@@ -66,7 +66,7 @@ const refreshTiedAccounts = async (
 	publicKeys: string[],
 	network: SuiNetwork,
 	accepted: boolean,
-	loaders: AliasSetLoaders,
+	loaders: AliasSetLoaders = aliasSetLoaders,
 ) => {
 	const results = await refreshStaleAliases(
 		await listTiedAccounts(publicKeys, network, accepted),
@@ -145,19 +145,16 @@ export const listAccountInvitations = async ({
 	callerKeys,
 	network,
 	showRejected,
-	loaders = aliasSetLoaders,
 }: {
 	callerKeys: PublicKey[];
 	network: SuiNetwork;
 	showRejected: boolean;
-	loaders?: AliasSetLoaders;
 }): Promise<CheckedAccount[]> => {
 	const keys = keysOf(callerKeys);
 	const unchecked = await refreshTiedAccounts(
 		keys,
 		network,
 		false,
-		loaders,
 	);
 	return checked(
 		await listActingInvitations({
@@ -179,12 +176,11 @@ const otherNetworkReads = new Map<
 const readOtherNetwork = (
 	address: string,
 	network: SuiNetwork,
-	loaders: AliasSetLoaders,
 ) => {
 	const key = `${network}:${address}`;
 	let read = otherNetworkReads.get(key);
 	if (!read) {
-		read = refreshStaleAliases([address], network, loaders)
+		read = refreshStaleAliases([address], network)
 			.catch(() => undefined)
 			.finally(() => otherNetworkReads.delete(key));
 		otherNetworkReads.set(key, read);
@@ -198,20 +194,17 @@ export const getAccount = async ({
 	network,
 	networks,
 	callerKeys,
-	loaders = aliasSetLoaders,
 }: {
 	address: string;
 	network: SuiNetwork;
 	networks: SuiNetwork[];
 	callerKeys: PublicKey[];
-	loaders?: AliasSetLoaders;
 }) => {
 	if (!(await isAccount(address)))
 		throw new ApiAuthError('NotAnAccountSigner');
 	const [state] = await refreshStaleAliases(
 		[address],
 		network,
-		loaders,
 	);
 	const account = await getMultisigAccount({
 		address,
@@ -225,9 +218,7 @@ export const getAccount = async ({
 		Promise.all(
 			networks
 				.filter((other) => other !== network)
-				.map((other) =>
-					readOtherNetwork(address, other, loaders),
-				),
+				.map((other) => readOtherNetwork(address, other)),
 		),
 		new Promise((resolve) => {
 			timer = setTimeout(resolve, OTHER_NETWORKS_WAIT_MS);
@@ -257,11 +248,10 @@ export const getAccount = async ({
 export const refreshAccount = async (
 	address: string,
 	network: SuiNetwork,
-	loaders: AliasSetLoaders,
 ) => {
 	if (!(await isAccount(address)))
 		throw new ApiAuthError('NotAnAccountSigner');
-	await requireFreshAliases(address, network, loaders);
+	await requireFreshAliases(address, network);
 };
 
 export const answerAccountInvitation = async ({
@@ -270,14 +260,12 @@ export const answerAccountInvitation = async ({
 	answer,
 	signature,
 	expiry,
-	loaders = aliasSetLoaders,
 }: {
 	address: string;
 	network: SuiNetwork;
 	answer: 'accepted' | 'rejected';
 	signature: string;
 	expiry: string;
-	loaders?: AliasSetLoaders;
 }) => {
 	// The signed message names the address as given.
 	if (!isCanonicalSuiAddress(address))
@@ -299,7 +287,7 @@ export const answerAccountInvitation = async ({
 		notMemberError: () =>
 			new ApiAuthError('NotAnAccountSigner'),
 		beforeMembership: () =>
-			refreshAccount(address, network, loaders),
+			refreshAccount(address, network),
 	});
 
 	const proof = { version: 1, signature, expiry } as const;
@@ -336,7 +324,6 @@ type AccountProposerChange = {
 	proposer: string;
 	signature: string;
 	expiry: string;
-	loaders?: AliasSetLoaders;
 };
 
 const changeProposer =
@@ -348,7 +335,6 @@ const changeProposer =
 	async ({
 		address,
 		network,
-		loaders = aliasSetLoaders,
 		...signed
 	}: AccountProposerChange) =>
 		await change({
@@ -356,7 +342,7 @@ const changeProposer =
 			...signed,
 			scope: actingSetsOn(network),
 			beforeMembership: () =>
-				refreshAccount(address, network, loaders),
+				refreshAccount(address, network),
 		});
 
 // Adds or re-confirms an external proposer, signed by an accepted key of an acting set.
