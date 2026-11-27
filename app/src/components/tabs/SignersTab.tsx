@@ -53,6 +53,7 @@ import { Alert } from '../ui/Alert';
 import { InlineRetry } from '../ui/inline-retry';
 
 const COPY = content.signers;
+const COMMON = content.common;
 
 interface SignersTabContext {
 	multisig: MultisigWithMembersForPublicKey;
@@ -173,7 +174,7 @@ export function SignersTab() {
 					variant="warning"
 					data-testid="several-signer-sets"
 				>
-					{content.common.severalSignerSets(
+					{COMMON.severalSignerSets(
 						cards?.length ?? 0,
 						networkLabel(network),
 					)}
@@ -196,7 +197,7 @@ export function SignersTab() {
 							<>
 								{others.length > 0 && (
 									<FoldedRow
-										label={content.common.moreSignerSets(
+										label={COMMON.moreSignerSets(
 											others.length,
 										)}
 										testId="other-acting-sets"
@@ -222,9 +223,7 @@ export function SignersTab() {
 								)}
 								{originalRows && (
 									<FoldedRow
-										label={
-											content.common.originalSigners.title
-										}
+										label={COMMON.originalSigners.title}
 										count={originalRows.length}
 										testId="original-signers"
 									>

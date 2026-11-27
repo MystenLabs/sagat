@@ -49,7 +49,7 @@ export function OtherSignerSetsTable({
 				<tr className={tableHeadRowClass}>
 					<th className="px-3">{COPY.columns.signerSet}</th>
 					<th className="w-32 px-3 sm:w-60">
-						{COPY.columns.signers}
+						{content.common.fields.signers}
 					</th>
 				</tr>
 			</thead>

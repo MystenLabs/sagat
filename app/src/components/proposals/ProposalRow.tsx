@@ -102,7 +102,8 @@ export function ProposalRow({
 	const shownSet = shownSignerSet(
 		proposal.checkedSignerSets,
 	);
-	const readySet = rowExecuteSet(proposal);
+	const readySet =
+		status === 'ready' ? rowExecuteSet(proposal) : null;
 	const list = variant === 'list';
 	const createdOn = formatShortDate(proposal.createdAt);
 	// The digest goes under the title, unless the title already is the

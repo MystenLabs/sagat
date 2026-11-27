@@ -1222,7 +1222,6 @@ export const content = {
 				`${OTHER_SIGNER_SETS.title}. ${OTHER_SIGNER_SETS.body(network)}`,
 			columns: {
 				signerSet: 'Signer set',
-				signers: 'Signers',
 			},
 			addedOutside: 'Added outside Pods',
 			createdInPods: 'Created in Pods',
