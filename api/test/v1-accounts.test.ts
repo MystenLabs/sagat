@@ -21,12 +21,10 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 
 import { db } from '../src/db';
 import {
-	ProposalStatus,
 	SchemaAccountAcceptances,
 	SchemaAccountAliases,
 	SchemaAccountAliasState,
 	SchemaAccountEvents,
-	SchemaProposals,
 } from '../src/db/schema';
 import {
 	recordAccountEvent,
@@ -55,11 +53,6 @@ import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
-import {
-	addressOf,
-	createCast,
-	proposeCastChange,
-} from './setup/signer-changes';
 import {
 	answer,
 	changeProposer,
@@ -661,89 +654,6 @@ describe('GET /v1/accounts/:address', () => {
 		expect(await differ()).toEqual(['testnet']);
 		expect(await listed('localnet')).toContain(account);
 		expect(await listed('testnet')).not.toContain(account);
-	});
-});
-
-describe('GET /v1/accounts/:address signer changes', () => {
-	test('a signer change reads as open until executed, then moves the acting sets and reads as executed by its digest, and names its transaction to the key it removed', async () => {
-		const session = await framework.connectedSession();
-		const client = session.v1;
-		const cast = await createCast(session);
-		const { k2, k3, A, S1, S2 } = cast;
-		// Executed with `k2`'s vote.
-		const execute = async ({
-			digest,
-		}: {
-			digest: string;
-		}) => {
-			const open = await client.getAccount(A, 'localnet');
-			await session.voteAndExecute([k2], digest);
-			return { digest, open };
-		};
-		const acting = (account: {
-			signerSets: { address: string; acting?: boolean }[];
-		}) =>
-			account.signerSets
-				.filter((set) => set.acting)
-				.map((set) => set.address);
-		const outcome = async (digest: string) => {
-			const proposal =
-				await client.getProposalByDigest(digest);
-			return [proposal.status, proposal.executedVia];
-		};
-
-		const first = await execute(
-			await proposeCastChange(session, cast, S2),
-		);
-		expect(acting(first.open)).toEqual([A]);
-		expect(first.open.openSignerChange).toEqual({
-			digest: first.digest,
-		});
-		const succeeded = await db
-			.select({ digest: SchemaProposals.digest })
-			.from(SchemaProposals)
-			.where(
-				and(
-					eq(SchemaProposals.accountAddress, A),
-					eq(
-						SchemaProposals.status,
-						ProposalStatus.SUCCESS,
-					),
-				),
-			);
-		const done = await client.getAccount(A, 'localnet');
-		expect(succeeded).toHaveLength(2);
-		expect(acting(done)).toEqual([addressOf(S2)]);
-		expect(await outcome(first.digest)).toEqual([
-			'SUCCESS',
-			A,
-		]);
-		expect(done.openSignerChange).toBeNull();
-		const { removed } = await (
-			await framework.connectedSession(k3)
-		).v1.getAccounts('localnet');
-		expect(removed).toEqual([
-			expect.objectContaining({
-				address: A,
-				publicKey: k3.publicKey,
-				signerSetAddress: A,
-				transactionDigest: first.digest,
-			}),
-		]);
-
-		const second = await execute(
-			await proposeCastChange(session, cast, S1, {
-				oldSet: addressOf(S2),
-				known: [S1, S2],
-			}),
-		);
-		expect(
-			acting(await client.getAccount(A, 'localnet')),
-		).toEqual([A]);
-		expect(await outcome(second.digest)).toEqual([
-			'SUCCESS',
-			addressOf(S2),
-		]);
 	});
 });
 

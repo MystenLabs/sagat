@@ -186,6 +186,11 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			created.transactionBytes,
 		);
 		expect(transfer.ready).toBe(true);
+		const k1Client = await signedIn(k1);
+		const openChange = async () =>
+			(await k1Client.getAccount(A, 'localnet'))
+				.openSignerChange;
+		expect(await openChange()).toBeNull();
 
 		const change = await proposeCastChange(
 			session,
@@ -218,6 +223,9 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			change.transactionBytes,
 		);
 		expect(ready.ready).toBe(true);
+		expect(await openChange()).toEqual({
+			digest: change.digest,
+		});
 		const verified = await executeAndVerify(session, ready);
 
 		expect(verified.status).toBe('SUCCESS');
@@ -226,9 +234,10 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 			ready: true,
 			signerSets: ready.signerSets,
 		});
-		const account = await (
-			await signedIn(k1)
-		).getAccount(A, 'localnet');
+		const account = await k1Client.getAccount(
+			A,
+			'localnet',
+		);
 		expect(account.signerSets).toEqual([
 			expect.objectContaining({
 				address: A,
@@ -239,6 +248,18 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 				address: addressOf(S2),
 				acting: true,
 				original: false,
+			}),
+		]);
+		expect(account.openSignerChange).toBeNull();
+		expect(
+			(await (await signedIn(k3)).getAccounts('localnet'))
+				.removed,
+		).toEqual([
+			expect.objectContaining({
+				address: A,
+				publicKey: k3.publicKey,
+				signerSetAddress: A,
+				transactionDigest: change.digest,
 			}),
 		]);
 	});
