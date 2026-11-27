@@ -391,16 +391,9 @@ describe('shownChange', () => {
 			before: (typeof maya)[],
 			after: (typeof maya)[],
 		) => {
-			const set = (signers: (typeof maya)[]) => ({
-				threshold: 2,
-				members: signers.map((s) => ({
-					publicKey: s.publicKey,
-					weight: 1,
-				})),
-			});
 			const { pod, bytes } = await signerChange(
-				set(before),
-				set(after),
+				setOf(2, before),
+				setOf(2, after),
 			);
 			return shownChange(
 				{
@@ -505,11 +498,19 @@ describe('changeHold', () => {
 			}),
 		});
 
-		expect(ready(true)).toEqual({
+		expect(
+			ready(
+				hold(transactionBytes, [maya, daniel]) !== null,
+			),
+		).toEqual({
 			status: null,
 			note: null,
 		});
-		expect(ready(false)).toEqual({
+		expect(
+			ready(
+				hold(transactionBytes, [maya, newKey]) !== null,
+			),
+		).toEqual({
 			status: STATUS.ready,
 			note: NOTES.gasPaid,
 		});
