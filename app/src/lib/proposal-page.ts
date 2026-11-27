@@ -19,6 +19,7 @@ import {
 	signerChangeIn,
 	suiKey,
 	thresholdSummary,
+	type Difference,
 } from './change-signers';
 import { joinList } from './create-multisig';
 import { type EpochInfo } from './expiration';
@@ -209,18 +210,42 @@ export function shownChange(
 			: status === 'executed'
 				? REVIEW.did
 				: REVIEW.wouldHave,
-		// An added key that signed the change accepts the pod when it executes.
-		invited: open
-			? (read.list ?? []).flatMap((item) =>
-					item.kind === 'add' &&
-					item.name &&
-					!hasSigned(proposal, item.publicKey)
-						? [item.name]
-						: [],
-				)
-			: [],
+		invited: open ? invitedNames(read, proposal) : [],
 		carryOver: open,
 	};
+}
+
+/** Whether the change can't execute without `publicKey`'s signature: its proof stays unmet with every other key of its new sets signed. */
+export function signatureNeeded(
+	change: SignerChange,
+	publicKey: string,
+) {
+	const others = change.newSets
+		.flatMap((set) => set.members.map((m) => m.publicKey))
+		.filter((key) => key !== publicKey);
+	return !signerChangeProof(change, others).met;
+}
+
+// The keys a change adds that may still get an invitation: not signed (a signer accepts the pod when it executes) and not needed (the hold names those).
+function invitedNames(
+	{
+		change,
+		list,
+	}: { change: SignerChange; list: Difference[] | null },
+	proposal: Pick<PageProposal, 'signatures'>,
+) {
+	return (list ?? []).flatMap(
+		({ kind, name, publicKey, newKey }) => {
+			const key = kind === 'replace' ? newKey : publicKey;
+			return (kind === 'add' || kind === 'replace') &&
+				name &&
+				key &&
+				!hasSigned(proposal, key) &&
+				!signatureNeeded(change, key)
+				? [name]
+				: [];
+		},
+	);
 }
 
 /** The key `address` signs with as a member of a checked change's new set, when the set it replaces doesn't hold it; null otherwise. */

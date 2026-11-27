@@ -1364,9 +1364,9 @@ export const content = {
 			/** The last line under the differences when the total weight changes and the threshold doesn’t: "2 of 2", "2 of 3". */
 			thresholdAfter: (now: string, before: string) =>
 				`Threshold after this change: ${now} (was ${before})`,
-			/** The proposal page's Changes card: who an executed change invites, and what carries over. */
+			/** The proposal page's Changes card: the added signers whose signature the change doesn’t need, and what carries over. */
 			invitation: (names: string, count: number) =>
-				`${names} ${count === 1 ? 'gets' : 'get'} an invitation once this executes.`,
+				`${names} ${count === 1 ? 'gets' : 'get'} an invitation once this executes, unless they sign this change first.`,
 			/** `carryOver`: one of the carry-over sentences above. */
 			onceExecutes: (carryOver: string) =>
 				`Once this executes, ${carryOver.charAt(0).toLowerCase()}${carryOver.slice(1)}`,

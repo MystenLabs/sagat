@@ -387,6 +387,49 @@ describe('shownChange', () => {
 			REVIEW.wouldHave,
 		);
 	});
+
+	it('invites an added key that hasn’t signed only when the change can execute without its signature', async () => {
+		const invited = async (
+			before: (typeof maya)[],
+			after: (typeof maya)[],
+		) => {
+			const set = (signers: (typeof maya)[]) => ({
+				threshold: 2,
+				members: signers.map((s) => ({
+					publicKey: s.publicKey,
+					weight: 1,
+				})),
+			});
+			const { pod, bytes } = await signerChange(
+				set(before),
+				set(after),
+			);
+			return shownChange(
+				{
+					...proposal({ signedBy: [before[0]] }),
+					transactionBytes: bytes,
+				},
+				'pending',
+				{ kind: 'read', aliases: [pod] },
+				labels,
+				{ pod, digest: digestOf(bytes) },
+			)?.invited;
+		};
+		const [one, two, three, added] = [1, 2, 3, 4].map((n) =>
+			signer(`Signer ${n}`, 1),
+		);
+		// 2 of 2, replacing one signer: the new key must sign.
+		expect(await invited([one, two], [one, added])).toEqual(
+			[],
+		);
+		// 2 of 3 adding one: the threshold doesn't need it.
+		expect(
+			await invited(
+				[one, two, three],
+				[one, two, three, added],
+			),
+		).toEqual([formatAddress(added.address)]);
+	});
 });
 
 describe('signerChangeWarning', () => {
