@@ -165,7 +165,7 @@ export function checkAccountSigners(
 }
 
 /** A signer set's keys, whatever else it carries. */
-export type SetMembers = {
+type SetMembers = {
 	members: readonly { publicKey: string }[];
 };
 

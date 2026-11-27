@@ -61,7 +61,6 @@ const Toaster = (props: ToasterProps) => (
 				description:
 					'min-w-0 text-13 wrap-anywhere text-toast-foreground/60',
 				actionButton: pillButtonClass,
-				cancelButton: pillButtonClass,
 				closeButton:
 					'order-last static! ml-0.5 flex size-4! shrink-0 translate-0! cursor-pointer items-center justify-center rounded-sm border-0! bg-transparent! text-toast-foreground/60 hover:bg-transparent! hover:text-toast-foreground [&>svg]:size-3.5',
 			},

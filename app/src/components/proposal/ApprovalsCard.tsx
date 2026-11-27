@@ -543,11 +543,10 @@ export function ApprovalsCard({
 			);
 		} else if (newSigner) {
 			// Nothing more to do once signed.
-		} else if (status === 'pending' && signed) {
-			actions = (
-				<ButtonRow>{cancelButton('outline')}</ButtonRow>
-			);
-		} else if (status === 'ready' && held) {
+		} else if (
+			(status === 'pending' && signed) ||
+			(status === 'ready' && held)
+		) {
 			actions = (
 				<ButtonRow>{cancelButton('outline')}</ButtonRow>
 			);
