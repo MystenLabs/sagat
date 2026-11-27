@@ -49,7 +49,6 @@ import {
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
-import { setAliases } from './setup/acting-sets';
 import { build } from './setup/localnet-transactions';
 import {
 	createTestApp,
@@ -85,7 +84,6 @@ const removal = async (
 	cast: Cast,
 	alias: string,
 	before: string[],
-	known: Composition[] = [cast.S1],
 ) => {
 	const { expiration, gasData, inputs } = Transaction.from(
 		await buildCastChange(cast, cast.S2),
@@ -104,7 +102,7 @@ const removal = async (
 				account: cast.A,
 				before,
 				after: before.filter((a) => a !== alias),
-				known,
+				known: [cast.S1],
 			}))
 				tx.pure.string(text);
 			tx.setExpiration(expiration!);
@@ -286,9 +284,12 @@ describe('POST /v1/proposals with a signer change', () => {
 		);
 		expect(short.status).toBe('PENDING');
 		await session.cancelProposal(k1, short);
+	});
 
-		// A key's own address left is no set to stay in.
-		await setAliases(A, 'localnet', [k1.address]);
+	test('a noted change that adds no signer set is refused', async () => {
+		const cast = await createCast(session);
+		const { k1, A } = cast;
+
 		expect(
 			await refusal(
 				proposeChange(
@@ -301,34 +302,7 @@ describe('POST /v1/proposals with a signer change', () => {
 		).toEqual({
 			status: 400,
 			message:
-				'The change’s note states no signer set the API can identify acting for the account.',
-		});
-	});
-
-	test('a change that only removes counts as remaining only the sets its note states that the API also identifies as acting, and is refused when there is none', async () => {
-		const cast = await createCast(session);
-		const { k1, A, S1 } = cast;
-		const U = compositionOf([k1, newUser()], 1);
-		await setAliases(A, 'localnet', [addressOf(U)]);
-
-		expect(
-			await refusal(
-				proposeChange(
-					session,
-					k1,
-					A,
-					await removal(
-						cast,
-						A,
-						[A, addressOf(U)],
-						[S1, U],
-					),
-				),
-			),
-		).toEqual({
-			status: 400,
-			message:
-				'The change’s note states no signer set the API can identify acting for the account.',
+				'This is not a valid signer change: The commands are not one add and one remove.',
 		});
 	});
 
@@ -369,19 +343,6 @@ describe('POST /v1/proposals with a signer change', () => {
 		).toEqual({
 			status: 400,
 			message: `The signer set this change replaces, ${addressOf(U)}, is not one the API can identify as acting for the account on localnet.`,
-		});
-		expect(
-			await refusal(
-				proposeChange(
-					session,
-					k1,
-					A,
-					await removal(cast, k1.address, [A, k1.address]),
-				),
-			),
-		).toEqual({
-			status: 400,
-			message: `This is not a valid signer change: The note does not hold the composition of the removed set ${k1.address}.`,
 		});
 	});
 

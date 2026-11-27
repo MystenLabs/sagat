@@ -140,7 +140,7 @@ export const ProposalSignerChangeSchema = z
 		}),
 		adds: SuiAddressSchema.nullable().meta({
 			description:
-				'The signer set the change adds. Null for a change that only removes.',
+				'The signer set the change adds. Null when its composition note does not check.',
 		}),
 		labels: z
 			.array(

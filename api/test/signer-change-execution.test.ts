@@ -3,16 +3,13 @@
 
 // Whole signer changes on the local network, from proposal to execution,
 // through the `/v1` routes, with the cast of `setup/signer-changes`, all
-// accepted; `R` is another account's composition that shares `k1` and `k2`.
+// accepted.
 
 import {
-	buildAdd,
 	verifyAcceptedBySignerChange,
 	type AccountEvent,
-	type Composition,
 } from '@mysten/sagat';
 import { type Proposal } from '@mysten/sagat/v1';
-import { toBase64 } from '@mysten/sui/utils';
 import {
 	beforeAll,
 	describe,
@@ -32,23 +29,18 @@ import {
 	ApiTestFramework,
 	buildTransfer,
 	executeProposal,
-	newUser,
 	refusal,
 	type TestSession,
 	type TestUser,
 } from './framework/api-test-framework';
 import { ageAliasState } from './setup/acting-sets';
-import {
-	build,
-	type GasCoin,
-} from './setup/localnet-transactions';
+import { type GasCoin } from './setup/localnet-transactions';
 import {
 	createTestApp,
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
 import {
 	addressOf,
-	compositionOf,
 	createCast,
 	gasCoins,
 	proposeCastChange,
@@ -455,89 +447,6 @@ describe('S1 to S2 from proposal to execution, back to S1, then to S3', () => {
 		expect(await actingSets(k1, A)).toEqual([
 			addressOf(S3),
 		]);
-	});
-});
-
-describe('a change to a composition that is already an alias', () => {
-	let session: TestSession;
-	let cast: Cast;
-	let coins: GasCoin[];
-	let R: Composition;
-	// `R`'s member who never answers for `A`.
-	let k5: TestUser;
-
-	beforeAll(async () => {
-		framework = new ApiTestFramework(await createTestApp());
-		session = framework.createSession();
-		cast = await createCast(session);
-		coins = await gasCoins(cast.A, 2);
-	});
-
-	test('another account’s composition added by a hand-written proposal acts beside S1', async () => {
-		const { k1, k2, A } = cast;
-		k5 = newUser();
-		R = compositionOf([k1, k2, k5], 2);
-		const { address } = await session.createMultisig(
-			[k1, k2, k5],
-			2,
-		);
-		expect(address).toBe(addressOf(R));
-		const created = await session.createProposal(
-			k1,
-			A,
-			'localnet',
-			toBase64(
-				await build(
-					A,
-					(tx) =>
-						buildAdd(tx, { account: A, alias: address }),
-					coins[0],
-				),
-			),
-		);
-		await session.voteAndExecute([k2], created.digest);
-
-		expect(await actingSets(k1, A)).toEqual(
-			[A, address].sort(),
-		);
-	});
-
-	test('the change only removes S1, reaches S1’s threshold also with a removed signer’s signature, is ready once R’s signers meet R’s threshold, and R acts after it', async () => {
-		const { k1, k2, k3, A, S1 } = cast;
-		const change = await proposeCastChange(
-			session,
-			cast,
-			R,
-			{
-				known: [S1, R],
-				gasCoin: coins[1],
-			},
-		);
-		const byK3 = await session.voteOnProposal(
-			k3,
-			change.digest,
-			change.transactionBytes,
-		);
-		expect(byK3.signerSets[0]).toMatchObject({
-			address: A,
-			currentWeight: 2,
-		});
-		// Only `k1` of R has signed.
-		expect(byK3.ready).toBe(false);
-		const ready = await session.voteOnProposal(
-			k2,
-			change.digest,
-			change.transactionBytes,
-		);
-		expect(ready.ready).toBe(true);
-		const verified = await executeAndVerify(session, ready);
-
-		expect(verified.status).toBe('SUCCESS');
-		expect(verified.executedVia).toBe(A);
-		expect(await actingSets(k1, A)).toEqual([addressOf(R)]);
-		expect(await invitedTo(k5)).toContain(A);
-		for (const key of [k1, k2])
-			expect(await invitedTo(key)).not.toContain(A);
 	});
 });
 
