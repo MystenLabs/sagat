@@ -56,7 +56,7 @@ import {
 } from './signers.service';
 
 // The account's newest pending signer change that has not expired at the current epoch.
-export const signerChangesOf = async (
+export const openSignerChangeOf = async (
 	address: string,
 	network: SuiNetwork,
 	readEpoch: () => Promise<bigint>,
@@ -340,7 +340,7 @@ export const getAccount = async ({
 				network,
 				networks,
 			),
-			signerChangesOf(address, network, () =>
+			openSignerChangeOf(address, network, () =>
 				currentEpochOf(network),
 			),
 		]);

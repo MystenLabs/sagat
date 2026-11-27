@@ -1,11 +1,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-	readCompositionNote,
-	type AliasSet,
-} from '@mysten/sagat';
-import { Transaction } from '@mysten/sui/transactions';
+import { type AliasSet } from '@mysten/sagat';
 import { normalizeSuiAddress } from '@mysten/sui/utils';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 
@@ -45,6 +41,7 @@ import {
 	recordOnChainOutcome,
 	type OnChainOutcome,
 } from './onchain-outcomes.service';
+import { signerChangeIn } from './signer-changes.service';
 import { mirroredAliasSet } from './signers.service';
 
 export const ALIAS_STATE_MAX_AGE_MS = 60_000;
@@ -210,17 +207,6 @@ const findExecutedAliasProposals = async (
 	return settlements;
 };
 
-// The note of a proposal's bytes, or null when they carry none that reads.
-const noteOf = (transactionBytes: string) => {
-	try {
-		return readCompositionNote(
-			Transaction.from(transactionBytes).getData(),
-		);
-	} catch {
-		return null;
-	}
-};
-
 // Accepts each key that an executed change among `digests` adds at an alias in `added`, and that signed it.
 const acceptKeysThatSigned = async (
 	tx: DatabaseTransaction,
@@ -248,14 +234,16 @@ const acceptKeysThatSigned = async (
 			),
 		);
 	for (const change of changes) {
-		const note = noteOf(change.transactionBytes);
-		if (!note || !added.includes(note.added.address))
+		const read = signerChangeIn(
+			change.transactionBytes,
+		)?.change;
+		if (!read || !added.includes(read.newSet.address))
 			continue;
 		const replaced = new Set(
-			note.removed.members.map((m) => m.publicKey),
+			read.oldSet.members.map((m) => m.publicKey),
 		);
 		const newKeys = new Set(
-			note.added.members
+			read.newSet.members
 				.map((m) => m.publicKey)
 				.filter((key) => !replaced.has(key)),
 		);

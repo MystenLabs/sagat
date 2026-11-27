@@ -174,7 +174,6 @@ const proposalProgress = (
 		proposal,
 		signers,
 		...counted,
-		// A pending change also needs its new set's own threshold.
 		hasReachedThreshold:
 			counted.hasReachedThreshold &&
 			(!change ||

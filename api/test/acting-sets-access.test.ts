@@ -6,7 +6,6 @@ import {
 	PersonalMessages,
 	SagatApiError,
 } from '@mysten/sagat';
-import { MultiSigPublicKey } from '@mysten/sui/multisig';
 import {
 	beforeEach,
 	describe,
@@ -20,8 +19,6 @@ import {
 	ProposalStatus,
 	SchemaAccountAliases,
 	SchemaProposals,
-	SchemaSignerSetMembers,
-	SchemaSignerSets,
 	type Proposal,
 } from '../src/db/schema';
 import {
@@ -64,6 +61,7 @@ import {
 	setupSharedTestEnvironment,
 } from './setup/shared-test-setup';
 import { gasCoins } from './setup/signer-changes';
+import { insertNewSignerSet } from './setup/signer-sets';
 import { queryCount } from './setup/test-db';
 import { answer } from './setup/v1-accounts';
 import {
@@ -123,32 +121,6 @@ const createAccount = async (
 	return multisig.address;
 };
 
-// A composition the API knows that is no account.
-const insertComposition = async (
-	members: TestUser[],
-	threshold: number,
-) => {
-	const address = MultiSigPublicKey.fromPublicKeys({
-		threshold,
-		publicKeys: members.map((m) => ({
-			publicKey: m.keypair.getPublicKey(),
-			weight: 1,
-		})),
-	}).toSuiAddress();
-	for (const member of members) await register(member);
-	await db
-		.insert(SchemaSignerSets)
-		.values({ address, threshold, isVerified: true });
-	await db.insert(SchemaSignerSetMembers).values(
-		members.map((member, order) => ({
-			signerSetAddress: address,
-			publicKey: member.publicKey,
-			order,
-		})),
-	);
-	return address;
-};
-
 // `A`: 2 of `k1`, `k2`, `k3`, all accepted. `R`: a composition of `r1`, `r2`.
 const createCast = async () => {
 	const [k1, k2, k3, r1, r2] = Array.from(
@@ -156,7 +128,10 @@ const createCast = async () => {
 		newUser,
 	);
 	const account = await createAccount([k1, k2, k3]);
-	const composition = await insertComposition([r1, r2], 2);
+	const composition = await insertNewSignerSet({
+		members: [r1, r2],
+		threshold: 2,
+	});
 	return { account, k1, k2, k3, r1, r2, composition };
 };
 

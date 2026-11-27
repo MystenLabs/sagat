@@ -35,7 +35,7 @@ import {
 	SchemaSignerSets,
 } from '../src/db/schema';
 import { ApiAuthError } from '../src/errors';
-import { signerChangesOf } from '../src/services/accounts.service';
+import { openSignerChangeOf } from '../src/services/accounts.service';
 import {
 	assertNoPendingAliasProposal,
 	currentEpochOf,
@@ -539,7 +539,7 @@ describe('POST /v1/proposals with a signer change', () => {
 		const newer = await written(S3, 0n);
 		const openAt = async (epoch: bigint) =>
 			(
-				await signerChangesOf(
+				await openSignerChangeOf(
 					A,
 					'localnet',
 					async () => epoch,
