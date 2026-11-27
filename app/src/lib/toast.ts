@@ -26,7 +26,7 @@ export function explorerLink(
 	return href ? { label, href } : undefined;
 }
 
-type Options = Omit<ExternalToast, 'action'> & {
+type Options = Omit<ExternalToast, 'action' | 'cancel'> & {
 	link?: ToastLink;
 };
 
@@ -49,6 +49,30 @@ function withLink({
 const text = (message: string) =>
 	createElement('span', { title: message }, message);
 
+/** The underlined link look of a button in the toast pill. */
+export const pillButtonClass =
+	'shrink-0 cursor-pointer text-14 text-toast-foreground/60 underline underline-offset-4 hover:text-toast-foreground';
+
+// An element, not a sonner action, so a click leaves the toast open.
+const copyButton = (message: string) =>
+	createElement(
+		'button',
+		{
+			type: 'button',
+			'data-testid': 'toast-copy',
+			className: pillButtonClass,
+			onClick: async () => {
+				try {
+					await navigator.clipboard.writeText(message);
+					toast.copied();
+				} catch {
+					toast.error(content.toasts.copyFailed);
+				}
+			},
+		},
+		content.common.actions.copy,
+	);
+
 /**
  * The app's toast API, wrapping sonner with the behaviour from the designs:
  * success and copy toasts close on their own, error toasts stay until the
@@ -64,6 +88,7 @@ export const toast = {
 			// Sticky, so repeats of the same error replace it instead of stacking
 			id: message,
 			...withLink(options),
+			cancel: copyButton(message),
 		}),
 	/** Stays until closed, like an error. */
 	info: (message: string, options?: Options) =>
