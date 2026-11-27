@@ -268,15 +268,20 @@ const acceptKeysThatSigned = async (
 			.where(
 				eq(SchemaProposalSignatures.proposalId, change.id),
 			);
-		for (const { publicKey, signature } of signatures)
-			if (newKeys.has(publicKey))
-				await acceptAddedKey(tx, {
-					accountAddress: account,
-					key: publicKey,
-					digest: change.digest,
-					network,
-					signature,
-				});
+		// Key rows are locked in the order creation locks them, so writers sharing keys can't deadlock.
+		const signed = signatures
+			.filter(({ publicKey }) => newKeys.has(publicKey))
+			.toSorted((a, b) =>
+				a.publicKey < b.publicKey ? -1 : 1,
+			);
+		for (const { publicKey, signature } of signed)
+			await acceptAddedKey(tx, {
+				accountAddress: account,
+				key: publicKey,
+				digest: change.digest,
+				network,
+				signature,
+			});
 	}
 };
 
