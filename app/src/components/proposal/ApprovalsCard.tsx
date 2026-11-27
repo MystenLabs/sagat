@@ -80,6 +80,7 @@ import {
 	type ProposalStatusKey,
 } from '@/lib/proposalUtils';
 import { signRefusedLine } from '@/lib/signers-refused';
+import { sameAddress } from '@/lib/sui-utils';
 import {
 	namedChain,
 	readTransactionBytes,
@@ -282,14 +283,20 @@ export function ApprovalsCard({
 	const unchecked =
 		!refusing && onNetwork === 'unchecked' && awaitingSign;
 	const checkingSigners = onNetwork === 'checking';
-	// A signer the change removes can't cancel it.
+	// A signer the change removes can't cancel it while the set it replaces still acts.
 	const removed = removedBy(change, viewerPublicKey);
+	const oldSetGone =
+		!!change &&
+		aliases?.kind === 'read' &&
+		!aliases.aliases.some((alias) =>
+			sameAddress(alias, change.oldSet.address),
+		);
 	// Cancelling signs a message for the API session.
 	const canCancel =
 		cancelAllowed &&
 		viewer === 'member' &&
 		!!currentAddress &&
-		!removed;
+		(!removed || oldSetGone);
 	const settled =
 		verdict === 'passed' ||
 		verdict === 'failed' ||
