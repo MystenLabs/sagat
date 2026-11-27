@@ -163,6 +163,9 @@ export function ProposalView({
 		[aliases, proposal, status, labels, pod, openedDigest],
 	);
 	const checked = open ? shown : null;
+	const title = shown?.list
+		? changeTitle(shown.list)
+		: proposalTitle(proposal);
 
 	// The connected wallet is in one of the proposal's signer sets, which
 	// Sign then checks. Signing needs only the wallet; the network has to
@@ -320,11 +323,7 @@ export function ProposalView({
 			data-status={status}
 		>
 			<PageHeader
-				title={
-					shown?.list
-						? changeTitle(shown.list)
-						: proposalTitle(proposal)
-				}
+				title={title}
 				backLink={proposalsPath ?? undefined}
 				backLabel={SHARED.backLabel}
 				className="mb-6"
@@ -489,6 +488,7 @@ export function ProposalView({
 				<div className="flex min-w-0 flex-col gap-4">
 					<ApprovalsCard
 						proposal={proposal}
+						title={title}
 						pod={pod}
 						aliases={aliases}
 						change={shown?.change ?? null}

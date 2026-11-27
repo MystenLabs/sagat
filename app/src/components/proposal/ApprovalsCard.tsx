@@ -75,7 +75,6 @@ import {
 	type SimulationVerdict,
 } from '@/lib/proposal-page';
 import {
-	proposalTitle,
 	readySignerSet,
 	type CountedProposal,
 	type CountedSignerSet,
@@ -107,6 +106,7 @@ const PROPOSER_DOCS =
  */
 export function ApprovalsCard({
 	proposal,
+	title,
 	pod,
 	aliases,
 	change,
@@ -120,6 +120,8 @@ export function ApprovalsCard({
 	canCancel: cancelAllowed,
 }: {
 	proposal: CountedProposal;
+	/** The page heading's title, the cancel dialog's too. */
+	title: string;
 	/** The pod from the viewer's own account read; null on the shared page. */
 	pod: ShownPod | null;
 	/** The pod's alias set on the proposal's network, undefined until read. */
@@ -704,7 +706,7 @@ export function ApprovalsCard({
 					})
 				}
 				isLoading={cancel.isPending}
-				title={proposalTitle(proposal)}
+				title={title}
 				variant={cancelVariant(proposal, viewerPublicKey)}
 				ready={status === 'ready'}
 			/>
