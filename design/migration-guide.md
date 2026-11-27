@@ -130,7 +130,7 @@ Shape of `signerSets` on a proposal:
 - The sets that act on the proposal's network come first, each with `acting: true`. `original` is true on the one at the account's address. It is a convenience: the address is what identifies the original set.
 - Once the original set no longer acts there, or is not the set a signer change replaces, it comes last with `acting: false`, `original: true` and `currentWeight: 0`. It counts no signatures and changes nothing that is counted: `ready`, the status, or which keys may vote, cancel or create. It is listed so a client without the account can rebuild the account's address from it.
 
-Members here carry no `label`: key labels (0010) are returned only on authenticated member listings, never on proposal shapes or public lookups.
+Members here carry no `label`. Key labels (0010) appear on a proposal only as `signerChange.labels`, for the keys a signer change adds, on every `/v1` proposal response, `GET /v1/proposals/:digest` included, and only when the session's key is in a set that acts for the account on the proposal's network.
 
 ## Accounts
 
@@ -262,7 +262,7 @@ const combined = key.combinePartialSignatures(signatures);
 
 Passing a signature from a key outside the chosen set makes the combination fail. This is the most likely mistake when migrating.
 
-For a signer change, `ready` also waits until the new set's signers have signed for their own threshold, so you need not hold execution yourself. You may still check `signerChangeProof` (see "Signer changes") from the bytes and the signatures. Combine only the signatures of the set it replaces, as in step 3.
+For a signer change, `ready` also waits until the new set's signers have signed for their own threshold, so you need not hold execution yourself. You may still check `signerChangeProof` (see "Signer changes") from the bytes and the signatures, as the app does before it offers to execute. Combine only the signatures of the set it replaces, as in step 3.
 
 The transaction sender is the account address. It is not the signer set address, and you do not change it.
 
