@@ -1162,7 +1162,7 @@ test.describe('overview and signers', () => {
 				1,
 			),
 		);
-		// The line shows the whole address of the key it replaces, then the new one.
+		// The line shows the whole address of the key it replaces, then the new one with its name.
 		const addresses = replace.getByTestId('change-address');
 		await expect(addresses).toHaveCount(2);
 		await expect(addresses.nth(0)).toContainText(
@@ -1171,6 +1171,7 @@ test.describe('overview and signers', () => {
 		await expect(addresses.nth(1)).toContainText(
 			dave.address,
 		);
+		await expect(addresses.nth(1)).toContainText('Dave');
 		// 2 of 3 with Dave: the change doesn't need his signature.
 		await expect(changes).toContainText(
 			content.changeSigners.review.invitation('Dave', 1),
